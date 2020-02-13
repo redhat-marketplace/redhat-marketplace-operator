@@ -1,0 +1,356 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: razee
+---
+apiVersion: v1
+kind: List
+metadata:
+  name: remoteresource-controller-list
+  annotations:
+    version: "2e0e3dbc272bcbb46ccafee80e7f842cd155e16b"
+type: array
+items:
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: remoteresource-controller
+      annotations:
+        razee.io/git-repo: "https://github.com/razee-io/RemoteResource.git"
+        razee.io/commit-sha: "2e0e3dbc272bcbb46ccafee80e7f842cd155e16b"
+      labels:
+        razee/watch-resource: "lite"
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: remoteresource-controller
+      strategy:
+        type: RollingUpdate
+      template:
+        metadata:
+          labels:
+            app: remoteresource-controller
+            razee/watch-resource: "lite"
+          name: remoteresource-controller
+        spec:
+          serviceAccountName: razeedeploy-sa
+          containers:
+          - image: "quay.io/razee/remoteresource:0.4.2"
+            resources:
+              limits:
+                memory: 200Mi
+                cpu: 100m
+              requests:
+                memory: 75Mi
+                cpu: 40m
+            env:
+              - name: CRD_WATCH_TIMEOUT_SECONDS
+                valueFrom:
+                  configMapKeyRef:
+                    name: razeedeploy-overrides
+                    key: CRD_WATCH_TIMEOUT_SECONDS
+                    optional: true
+            imagePullPolicy: Always
+            name: remoteresource-controller
+            livenessProbe:
+              exec:
+                command:
+                - sh/liveness.sh
+              initialDelaySeconds: 30
+              periodSeconds: 150
+              timeoutSeconds: 30
+              failureThreshold: 1
+            volumeMounts:
+            - mountPath: /usr/src/app/download-cache
+              name: cache-volume
+            - mountPath: /usr/src/app/config
+              name: razeedeploy-config
+          volumes:
+          - name: cache-volume
+            emptyDir: {}
+          - name: razeedeploy-config
+            configMap:
+              name: razeedeploy-config
+              defaultMode: 420
+              optional: true
+
+  - apiVersion: apiextensions.k8s.io/v1beta1
+    kind: CustomResourceDefinition
+    metadata:
+      # name must match the spec fields below, and be in the form: <plural>.<group>
+      name: remoteresources.deploy.razee.io
+      annotations:
+        razee.io/git-repo: "https://github.com/razee-io/RemoteResource.git"
+        razee.io/commit-sha: "2e0e3dbc272bcbb46ccafee80e7f842cd155e16b"
+    spec:
+      # group name to use for REST API: /apis/<group>/<version>
+      group: deploy.razee.io
+      # list of versions supported by this CustomResourceDefinition
+      versions:
+        - name: v1alpha1
+          # Each version can be enabled/disabled by Served flag.
+          served: true
+          # One and only one version must be marked as the storage version.
+          storage: false
+        - name: v1alpha2
+          # Each version can be enabled/disabled by Served flag.
+          served: true
+          # One and only one version must be marked as the storage version.
+          storage: true
+      # either Namespaced or Cluster
+      scope: Namespaced
+      names:
+        # plural name to be used in the URL: /apis/<group>/<version>/<plural>
+        plural: remoteresources
+        # singular name to be used as an alias on the CLI and for display
+        singular: remoteresource
+        # kind is normally the CamelCased singular type. Your resource manifests use this.
+        kind: RemoteResource
+        # shortNames allow shorter string to match your resource on the CLI
+        shortNames:
+        - rr
+      subresources:
+        # status enables the status subresource.
+        status: {}
+      validation:
+        # openAPIV3Schema is the schema for validating custom objects.
+        openAPIV3Schema:
+          type: object
+          required: [spec]
+          properties:
+            spec:
+              type: object
+              required: [requests]
+              properties:
+                requests:
+                  type: array
+                  items:
+                    type: object
+                    required: [options]
+                    properties:
+                      optional:
+                        type: boolean
+                      options:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                        oneOf:
+                          - required: [url]
+                          - required: [uri]
+                        properties:
+                          url:
+                            type: string
+                            format: uri
+                          uri:
+                            type: string
+                            format: uri
+                          headers:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+
+---
+################################################################################
+# Copyright 2019 IBM Corp. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+################################################################################
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: razee
+  annotations:
+    razee.io/git-repo: "https://github.com/razee-io/razeedeploy-delta.git"
+    razee.io/commit-sha: "e0870bbab28b4cea16504efba629a2c5e5631bb2"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: razeedeploy-sa
+  namespace: razee
+  annotations:
+    razee.io/git-repo: "https://github.com/razee-io/razeedeploy-delta.git"
+    razee.io/commit-sha: "e0870bbab28b4cea16504efba629a2c5e5631bb2"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: razeedeploy-admin-cr
+  namespace: razee
+  annotations:
+    razee.io/git-repo: "https://github.com/razee-io/razeedeploy-delta.git"
+    razee.io/commit-sha: "e0870bbab28b4cea16504efba629a2c5e5631bb2"
+rules:
+- apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- nonResourceURLs:
+  - '*'
+  verbs:
+  - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: razeedeploy-rb
+  annotations:
+    razee.io/git-repo: "https://github.com/razee-io/razeedeploy-delta.git"
+    razee.io/commit-sha: "e0870bbab28b4cea16504efba629a2c5e5631bb2"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: razeedeploy-admin-cr
+subjects:
+- kind: ServiceAccount
+  name: razeedeploy-sa
+  namespace: razee
+---
+apiVersion: v1
+kind: ConfigMap
+data:
+  RemoteResourceS3: "https://github.com/razee-io/RemoteResourceS3/releases/latest/download/resource.yaml"
+  RemoteResource: "https://github.com/razee-io/RemoteResource/releases/latest/download/resource.yaml"
+  MustacheTemplate: "https://github.com/razee-io/MustacheTemplate/releases/latest/download/resource.yaml"
+  FeatureFlagSetLD: "https://github.com/razee-io/FeatureFlagSetLD/releases/latest/download/resource.yaml"
+  ManagedSet: "https://github.com/razee-io/ManagedSet/releases/latest/download/resource.yaml"
+  RazeedeployDelta: "https://github.com/razee-io/razeedeploy-delta/releases/latest/download/resource.yaml"
+metadata:
+  name: razeedeploy-delta-resource-uris
+  namespace: razee
+  annotations:
+    razee.io/git-repo: "https://github.com/razee-io/razeedeploy-delta.git"
+    razee.io/commit-sha: "e0870bbab28b4cea16504efba629a2c5e5631bb2"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: razeedeploy-delta
+  namespace: razee
+  annotations:
+    version: e0870bbab28b4cea16504efba629a2c5e5631bb2
+    razee.io/git-repo: "https://github.com/razee-io/razeedeploy-delta.git"
+    razee.io/commit-sha: "e0870bbab28b4cea16504efba629a2c5e5631bb2"
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  selector:
+    matchLabels:
+      app: razeedeploy-delta
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: razeedeploy-delta
+      name: razeedeploy-delta
+    spec:
+      serviceAccountName: razeedeploy-sa
+      containers:
+      - image: "quay.io/razee/razeedeploy-delta:0.2.1"
+        resources:
+          limits:
+            memory: 150Mi
+            cpu: 100m
+          requests:
+            memory: 50Mi
+            cpu: 40m
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: ENFORCE_INTERVAL_MINUTES
+          value: '5'
+        imagePullPolicy: Always
+        name: razeedeploy-delta
+        livenessProbe:
+          exec:
+            command:
+            - sh/liveness.sh 10
+          initialDelaySeconds: 60
+          periodSeconds: 600
+          timeoutSeconds: 30
+          failureThreshold: 1
+        volumeMounts:
+        - mountPath: /usr/src/app/resource-uris
+          name: resource-uris
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: razeedeploy-delta-resource-uris
+        name: resource-uris
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: watch-keeper-config
+  namespace: razee
+data:
+  RAZEEDASH_URL: "http://169.45.231.109:8081/api/v2"
+  START_DELAY_MAX: "0"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: watch-keeper-secret
+  namespace: razee
+data:
+  RAZEEDASH_ORG_KEY: "b3JnQXBpS2V5LWZmMzVhNzQ1LWFiMDgtNGVkZi05NDFhLTAyMDcyNzZlNTRiNQ=="
+---
+apiVersion: "deploy.razee.io/v1alpha1"
+kind: RemoteResource
+metadata:
+  name: watch-keeper-rr
+  namespace: razee
+spec:
+  requests:
+    - options:
+        url: https://github.com/razee-io/watch-keeper/releases/latest/download/resource.yaml
+---
+apiVersion: v1
+data:
+  name: 7f09f893-5e6f-4921-b87b-f88d57ddad7
+kind: ConfigMap
+metadata:
+  labels:
+    razee/cluster-metadata: "true"
+    razee/watch-resource: lite
+  name: razee-cluster-metadata
+  namespace: razee
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorSource
+metadata:
+  name: redhat-marketplace-operators
+  namespace: openshift-marketplace
+spec:
+  displayName: Red Hat Marketplace
+  endpoint: https://quay.io/cnr
+  publisher: Red Hat Marketplace
+  registryNamespace: redhat-marketplace
+  type: appregistry
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ibm-cos-reader-key
+  namespace: razee
+type: Opaque
+data:
+  accesskey: MDJ5RkI0VDU1WEc5SEU5R3hVcmtkeWFhWm1CazhLeGgxTk4zbmRlRlpxRWs=

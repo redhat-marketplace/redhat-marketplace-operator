@@ -1,0 +1,7 @@
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: Metering
+metadata:
+  name: example-metering
+spec:
+  # Add fields here
+  size: 3
