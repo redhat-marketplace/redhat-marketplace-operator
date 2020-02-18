@@ -4,6 +4,7 @@ import (
 	"context"
 
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,8 +88,8 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	reqLogger.Info("Reconciling MarketplaceConfig")
 
 	// Fetch the MarketplaceConfig instance
-	instance := &marketplacev1alpha1.MarketplaceConfig{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+	err := r.client.Get(context.TODO(), request.NamespacedName, marketplaceConfig)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -100,54 +101,133 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{}, err
 	}
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
-
-	// Set MarketplaceConfig instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
+	// Check if deployment exists, otherwise create a new one
+	found := &appsv1.Deployment{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: marketplaceConfig.Name, Namespace: marketplaceConfig.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
+
+		// Define a new deployment
+		dep := r.deploymentForMarketplaceConfig(marketplaceConfig)
+		err = r.client.Create(context.TODO(), dep)
+		// Error creating deployment - requeue the request
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-
-		// Pod created successfully - don't requeue
-		return reconcile.Result{}, nil
+		// Deployment created successfuly - return and reque
+		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
+		// Could not get delpoyment
 		return reconcile.Result{}, err
 	}
 
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	// Ensure deployment size is the same as spec
+	size := marketplaceConfig.Spec.Size
+	if *found.Spec.Replicas != size {
+		found.Spec.Replicas = &size
+		err = r.client.Update(context.TODO(), found)
+		// Failed to update deployment
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		//Spec updated - return and requeue
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	return reconcile.Result{}, nil
+
+	// // Define a new Pod object
+	// pod := newPodForCR(instance)
+
+	// // Set MarketplaceConfig instance as the owner and controller
+	// if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
+	// 	return reconcile.Result{}, err
+	// }
+
+	// // Check if this Pod already exists
+	// found := &corev1.Pod{}
+	// err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
+	// if err != nil && errors.IsNotFound(err) {
+	// 	// Defining a new pod
+	// 	reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
+	// 	err = r.client.Create(context.TODO(), pod)
+	// 	// Failed to create a new pod
+	// 	if err != nil {
+	// 		return reconcile.Result{}, err
+	// 	}
+
+	// 	// Pod created successfully - don't requeue
+	// 	return reconcile.Result{}, nil
+	// } else if err != nil {
+	// 	return reconcile.Result{}, err
+	// }
+
+	// // Pod already exists - don't requeue
+	// reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	// return reconcile.Result{}, nil
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *marketplacev1alpha1.MarketplaceConfig) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
-	}
-	return &corev1.Pod{
+// deploymentForMarketplaceConfig will return a marketplaceConfig Deployment object
+func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketplacev1alpha1.MarketplaceConfig) *appsv1.Deployment {
+	ls := labelsForMarketplaceConfig(m.Name)
+	replicas := m.Spec.Size
+
+	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
+			Name:      m.Name,
+			Namespace: m.Namespace,
 		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: ls,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: ls,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						//Image: "marketplaceConfig:1.4.36-alpine", //What does this version number mean?
+						Name:    "marketplaceconfig",
+						Command: []string{"marketplaceconfig", "-m=64", "-o", "modern", "-v"},
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 11311,
+							Name:          "marketplaceconfig",
+						}},
+					}},
 				},
 			},
 		},
 	}
+	controllerutil.SetControllerReference(m, dep, r.scheme)
+	return dep
 }
+
+// labelsForMarketplaceConfig returs the labels for selecting the resources
+// belonging to the given marketplaceConfig custom resource name
+func labelsForMarketplaceConfig(name string) map[string]string {
+	return map[string]string{"app": "marketplaceconfig", "marketplaceconfig_cr": name}
+}
+
+// newPodForCR returns a busybox pod with the same name/namespace as the cr
+// func newPodForCR(cr *marketplacev1alpha1.MarketplaceConfig) *corev1.Pod {
+// 	labels := map[string]string{
+// 		"app": cr.Name,
+// 	}
+// 	return &corev1.Pod{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      cr.Name + "-pod",
+// 			Namespace: cr.Namespace,
+// 			Labels:    labels,
+// 		},
+// 		Spec: corev1.PodSpec{
+// 			Containers: []corev1.Container{
+// 				{
+// 					Name:    "busybox",
+// 					Image:   "busybox",
+// 					Command: []string{"sleep", "3600"},
+// 				},
+// 			},
+// 		},
+// 	}
+// }
