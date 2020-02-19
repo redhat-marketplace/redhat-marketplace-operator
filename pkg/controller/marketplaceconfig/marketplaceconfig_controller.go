@@ -78,8 +78,7 @@ type ReconcileMarketplaceConfig struct {
 
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
 // and what is in the MarketplaceConfig.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
-// a Pod as an example
+// TODO(user): Modify this Reconcile function to implement your Controller logic.
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
@@ -134,36 +133,6 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	}
 
 	return reconcile.Result{}, nil
-
-	// // Define a new Pod object
-	// pod := newPodForCR(instance)
-
-	// // Set MarketplaceConfig instance as the owner and controller
-	// if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-	// 	return reconcile.Result{}, err
-	// }
-
-	// // Check if this Pod already exists
-	// found := &corev1.Pod{}
-	// err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
-	// if err != nil && errors.IsNotFound(err) {
-	// 	// Defining a new pod
-	// 	reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-	// 	err = r.client.Create(context.TODO(), pod)
-	// 	// Failed to create a new pod
-	// 	if err != nil {
-	// 		return reconcile.Result{}, err
-	// 	}
-
-	// 	// Pod created successfully - don't requeue
-	// 	return reconcile.Result{}, nil
-	// } else if err != nil {
-	// 	return reconcile.Result{}, err
-	// }
-
-	// // Pod already exists - don't requeue
-	// reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
-	// return reconcile.Result{}, nil
 }
 
 // deploymentForMarketplaceConfig will return a marketplaceConfig Deployment object
@@ -187,12 +156,15 @@ func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketpla
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						//Image: "marketplaceConfig:1.4.36-alpine", //What does this version number mean?
-						Name:    "marketplaceconfig",
-						Command: []string{"marketplaceconfig", "-m=64", "-o", "modern", "-v"},
+						// Change this: Image, Command[0], Ports.ContainerPort, Ports.Name
+						// This changes according to the docker image we use
+						// Currently using default from https://github.com/operator-framework/getting-started/
+						Image:   "memcached:1.4.36-alpine",
+						Name:    "marketconfig",
+						Command: []string{"memcached", "-m=64", "-o", "modern", "-v"},
 						Ports: []corev1.ContainerPort{{
-							ContainerPort: 11311,
-							Name:          "marketplaceconfig",
+							ContainerPort: 11211,
+							Name:          "memcached",
 						}},
 					}},
 				},
@@ -208,26 +180,3 @@ func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketpla
 func labelsForMarketplaceConfig(name string) map[string]string {
 	return map[string]string{"app": "marketplaceconfig", "marketplaceconfig_cr": name}
 }
-
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-// func newPodForCR(cr *marketplacev1alpha1.MarketplaceConfig) *corev1.Pod {
-// 	labels := map[string]string{
-// 		"app": cr.Name,
-// 	}
-// 	return &corev1.Pod{
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Name:      cr.Name + "-pod",
-// 			Namespace: cr.Namespace,
-// 			Labels:    labels,
-// 		},
-// 		Spec: corev1.PodSpec{
-// 			Containers: []corev1.Container{
-// 				{
-// 					Name:    "busybox",
-// 					Image:   "busybox",
-// 					Command: []string{"sleep", "3600"},
-// 				},
-// 			},
-// 		},
-// 	}
-// }

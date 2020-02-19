@@ -16,7 +16,7 @@ spec:
       containers:
         - name: marketplace-operator
           # Replace this with the built image name
-          image: REPLACE_IMAGE
+          image: quay.io/namsimar/plato-operator:v0.0.1
           command:
           - marketplace-operator
           imagePullPolicy: Always
