@@ -96,7 +96,7 @@ apply: ##applies changes to crds
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_metering_cr.yaml
 	
-clean: ##delete the contents created in cr-crd
+clean: ##delete the contents created in 'make create'
 	@echo deleting resources
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml
