@@ -72,6 +72,7 @@ rules:
   - '*'
   - meterings
   - razeedeployments
+  - meterbases
   verbs:
   - create
   - delete
