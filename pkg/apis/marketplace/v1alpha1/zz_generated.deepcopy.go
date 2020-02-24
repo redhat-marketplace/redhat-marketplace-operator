@@ -296,11 +296,6 @@ func (in *RazeeDeploymentStatus) DeepCopyInto(out *RazeeDeploymentStatus) {
 			(*out)[key] = *val.DeepCopy()
 		}
 	}
-	if in.Namespaces != nil {
-		in, out := &in.Namespaces, &out.Namespaces
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
 	return
 }
 

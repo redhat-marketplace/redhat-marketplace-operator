@@ -86,13 +86,11 @@ spec:
                 code after modifying this file Add custom validation using kubebuilder
                 tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html'
               type: array
-            namespaces:
-              items:
-                type: string
-              type: array
+            namespace:
+              type: string
           required:
           - conditions
-          - namespaces
+          - namespace
           type: object
       type: object
   version: v1alpha1

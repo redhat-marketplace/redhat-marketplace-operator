@@ -2,7 +2,7 @@ package razeedeployment
 
 import (
 	"context"
-	"reflect"
+	"fmt"
 
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -52,17 +52,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner RazeeDeployment
-	// err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
-	// 	IsController: true,
-	// 	OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
-	// })
-	// if err != nil {
-	// 	return err
-	// }
-
-	// watch CRUD events on the razee Namespace
+	// watch the razee Namespace
 	err = c.Watch(&source.Kind{Type: &corev1.Namespace{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
@@ -110,13 +100,13 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	// Define a new Namespace object
-	namespace := createRazeeNamespace(instance)
-
-	// Set RazeeDeployment instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, namespace, r.scheme); err != nil {
-		return reconcile.Result{}, err
+	if !instance.Spec.Enabled {
+		fmt.Println("not enabled")
+		return reconcile.Result{}, nil
 	}
+
+	// Define a new Namespace object
+	namespace := r.createRazeeNamespace(instance)
 
 	// Check if this namespace already exists
 	found := &corev1.Namespace{}
@@ -128,63 +118,48 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			return reconcile.Result{}, err
 		}
 
-		// Pod created successfully - don't requeue
+		// Namespace created successfully - don't requeue
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// Update the Memcached status with the pod names
-	// List the pods for this memcached's deployment
+	// List the namespaces on the cluster
 	namespaceList := &corev1.NamespaceList{}
-	// listOpts := []client.ListOption{
-	// 	client.InNamespace(instance.Namespace),
-	// 	client.MatchingLabels(labelsForRazeeInstance(instance.Name)),
-	// }
 	if err = r.client.List(context.TODO(), namespaceList); err != nil {
 		reqLogger.Error(err, "Failed to list namespaces")
 		return reconcile.Result{}, err
 	}
-	namespaces := getNamespaces(namespaceList.Items)
 
-	// Update status.Nodes if needed
-	if !reflect.DeepEqual(namespaces, instance.Status.Namespaces) {
-		instance.Status.Namespaces = namespaces
+	// Update status.Namespace
+	nsList := *namespaceList
+	namespaces := getNamespaces(nsList.Items)
+	if contains(namespaces, "razee") {
+		fmt.Println("contains razee ns")
+		instance.Status.Namespace = "razee"
 		err := r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update Memcached status")
+			reqLogger.Error(err, "Failed to update RazeeDeploy status")
 			return reconcile.Result{}, err
 		}
 	}
-	// Pod already exists - don't requeue
+
+	// Namespace already exists - don't requeue
 	reqLogger.Info("Skip reconcile: Namespace already exists", "Namespace.Namespace", found.Namespace)
 	return reconcile.Result{}, nil
 }
 
 // newPodForCR returns a busybox pod with the same name/namespace as the cr
-func createRazeeNamespace(cr *marketplacev1alpha1.RazeeDeployment) *corev1.Namespace {
-	// labels := map[string]string{
-	// 	"app": cr.Name,
-	// }
-	return &corev1.Namespace{
+func (r *ReconcileRazeeDeployment) createRazeeNamespace(cr *marketplacev1alpha1.RazeeDeployment) *corev1.Namespace {
+	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "razee",
 		},
-		// Spec: corev1.PodSpec{
-		// 	Containers: []corev1.Container{
-		// 		{
-		// 			Name:    "busybox",
-		// 			Image:   "busybox",
-		// 			Command: []string{"sleep", "3600"},
-		// 		},
-		// 	},
-		// },
 	}
-}
 
-// func labelsForRazeeInstance(name string) map[string]string {
-// 	return map[string]string{"app": "memcached", "memcached_cr": name}
-// }
+	controllerutil.SetControllerReference(cr, ns, r.scheme)
+	return ns
+}
 
 // getNamespaces returns the pod names of the array of pods passed in
 func getNamespaces(ns []corev1.Namespace) []string {
@@ -192,5 +167,15 @@ func getNamespaces(ns []corev1.Namespace) []string {
 	for _, namespace := range ns {
 		namespaceNames = append(namespaceNames, namespace.Name)
 	}
+
 	return namespaceNames
+}
+
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }
