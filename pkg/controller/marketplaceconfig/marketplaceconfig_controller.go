@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	istr "k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -162,17 +163,26 @@ func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketpla
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						// Change this: Image, Command[0], Ports.ContainerPort, Ports.Name
-						// This changes according to the docker image we use
-						// Currently using default from https://github.com/operator-framework/getting-started/
 						Image:           "symposium/marketplace-agent:latest",
 						Name:            "marketconfig",
 						ImagePullPolicy: "Never",
-						// Command:         []string{"./agent", "-c", "--"},
-						// Args:            []string{"while true; do sleep 30; done;"},
-						//Command:         []string{"memcached", "-m=64", "-o", "modern", "-v"},
+						Command:         []string{"./agent"},
+						Args:            []string{"serve"},
+						LivenessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Path:   "/v1/check/healthz",
+									Port:   istr.FromInt(8080),
+									Scheme: "HTTP",
+								},
+							},
+							InitialDelaySeconds: 3,
+							TimeoutSeconds:      1,
+							PeriodSeconds:       3,
+							SuccessThreshold:    1,
+							FailureThreshold:    3,
+						},
 						Ports: []corev1.ContainerPort{{
-							//Name:          "memcached",
 							ContainerPort: 8080,
 						}},
 					}},
