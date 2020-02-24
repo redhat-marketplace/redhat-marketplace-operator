@@ -5,8 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
+	"reflect"
 
 	"github.com/gotidy/ptr"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
@@ -27,7 +31,35 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var log = logf.Log.WithName("controller_meterbase")
+const (
+	DEFAULT_PROM_SERVER             = "prom/prometheus:v2.15.2"
+	DEFAULT_CONFIGMAP_RELOAD        = "jimmidyson/configmap-reload:v0.3.0"
+	RELATED_IMAGES_PROM_SERVER      = "RELATED_IMAGES_PROM_SERVER"
+	RELATED_IMAGES_CONFIGMAP_RELOAD = "RELATED_IMAGES_PROM_SERVER"
+)
+
+//ConfigmapReload: "jimmidyson/configmap-reload:v0.3.0",
+//Server:          "prom/prometheus:v2.15.2",
+
+var (
+	log = logf.Log.WithName("controller_meterbase")
+
+	meterbaseFlagSet *pflag.FlagSet
+)
+
+func init() {
+	meterbaseFlagSet = pflag.NewFlagSet("meterbase", pflag.ExitOnError)
+	meterbaseFlagSet.String("related-image-prom-server",
+		utils.Getenv(RELATED_IMAGES_PROM_SERVER, DEFAULT_PROM_SERVER),
+		"image for prometheus")
+	meterbaseFlagSet.String("related-image-configmap-reload",
+		utils.Getenv(RELATED_IMAGES_CONFIGMAP_RELOAD, DEFAULT_CONFIGMAP_RELOAD),
+		"image for prometheus")
+}
+
+func FlagSet() *pflag.FlagSet {
+	return meterbaseFlagSet
+}
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -59,9 +91,23 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner MeterBase
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+	// watch configmap
+	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForObject{})
+	if err != nil {
+		return err
+	}
+
+	// watch statefulset
+	err = c.Watch(&source.Kind{Type: &appsv1.StatefulSet{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &marketplacev1alpha1.MeterBase{},
+	})
+	if err != nil {
+		return err
+	}
+
+	// watch headless service
+	err = c.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &marketplacev1alpha1.MeterBase{},
 	})
@@ -117,14 +163,19 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 
 	// if instance.Enabled == false
 	// return do nothing
+	if !instance.Spec.Enabled {
+		reqLogger.Info("MeterBase resource found but ignoring since metering is not enabled.")
+		return reconcile.Result{}, nil
+	}
 
 	// reconcile the base cfg
 	foundcfg := &corev1.ConfigMap{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, foundcfg)
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new configmap
-		cfgBaseFileName := "assets/prometheus/base-configmap.yaml"
-		basecfg, err := newBaseConfigMap(cfgBaseFileName, instance)
+		assetBase := viper.GetString("assets")
+		cfgBaseFileName := filepath.Join(assetBase, "prometheus/base-configmap.yaml")
+		basecfg, err := r.newBaseConfigMap(cfgBaseFileName, instance)
 
 		if err != nil {
 			reqLogger.Error(err, "Failed to create a new configmap because of file error.", "Configmap.Namespace", basecfg.Namespace, "Configmap.Name", basecfg.Name)
@@ -144,12 +195,17 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
+	// Set MeterBase instance as the owner and controller
+	if err := controllerutil.SetControllerReference(instance, foundcfg, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// replace with a config file load
 	promOpts := &PromOpts{
 		PullPolicy: "ifmissing",
 		Images: Images{
-			ConfigmapReload: "jimmidyson/configmap-reload:v0.3.0",
-			Server:          "prom/prometheus:v2.15.2",
+			ConfigmapReload: viper.GetString("related-image-prom-server"),
+			Server:          viper.GetString("related-image-configmap-reload"),
 		},
 	}
 
@@ -157,16 +213,14 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, statefulSet)
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new statefulset
-		dep := newPromDeploymentForCR(instance, promOpts)
+		dep := r.newPromDeploymentForCR(instance, promOpts)
 		reqLogger.Info("Creating a new Deployment.", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
 		err = r.client.Create(context.TODO(), dep)
 		if err != nil {
 			reqLogger.Error(err, "Failed to create new StatefulSet.", "Statefulset.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
 			return reconcile.Result{}, err
 		}
-		// Deployment created successfully - return and requeue
-		// NOTE: that the requeue is made with the purpose to provide the deployment object for the next step to ensure the deployment size is the same as the spec.
-		// Also, you could GET the deployment object again instead of requeue if you wish. See more over it here: https://godoc.org/sigs.k8s.io/controller-runtime/pkg/reconcile#Reconciler
+
 		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
 		reqLogger.Error(err, "Failed to get Deployment.")
@@ -178,8 +232,50 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	// Statefulset already exists - don't requeue
-	reqLogger.Info("Skip reconcile: StatefulSet already exists", "Statefulset.Namespace", statefulSet.Namespace, "Statefulset.Name", statefulSet.Name)
+	//TODO: Add verification steps to check if spec has changed for statefulset
+
+	service := &corev1.Service{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, service)
+	if err != nil && errors.IsNotFound(err) {
+		// Define a new statefulset
+		newService := r.serviceForPrometheus(instance)
+		reqLogger.Info("Creating a new Service.", "Service.Namespace", newService.Namespace, "Service.Name", newService.Name)
+		err = r.client.Create(context.TODO(), newService)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create new Service.", "Service.Namespace", newService.Namespace, "Service.Name", newService.Name)
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get Service.")
+		return reconcile.Result{}, err
+	}
+
+	podList := &corev1.PodList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(instance.Namespace),
+		client.MatchingLabels(labelsForPrometheus(instance.Name)),
+	}
+	err = r.client.List(context.TODO(), podList, listOpts...)
+	if err != nil {
+		reqLogger.Error(err, "Failed to list pods.",
+			"MeterBase.Namespace", instance.Namespace,
+			"MeterBase.Name", instance.Name)
+		return reconcile.Result{}, err
+	}
+	podNames := utils.GetPodNames(podList.Items)
+
+	// Update status.Nodes if needed
+	if !reflect.DeepEqual(podNames, instance.Status.PrometheusNodes) {
+		instance.Status.PrometheusNodes = podNames
+		err := r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update Prometheus status.")
+			return reconcile.Result{}, err
+		}
+	}
+
 	return reconcile.Result{}, nil
 }
 
@@ -200,7 +296,7 @@ type PromOpts struct {
 
 // newPromDeployedForCR creates a statefulset for prometheus for our marketplace
 // metering to use
-func newPromDeploymentForCR(cr *marketplacev1alpha1.MeterBase, opt *PromOpts) *appsv1.StatefulSet {
+func (r *ReconcileMeterBase) newPromDeploymentForCR(cr *marketplacev1alpha1.MeterBase, opt *PromOpts) *appsv1.StatefulSet {
 	labels := map[string]string{
 		"app": cr.Name,
 	}
@@ -284,7 +380,9 @@ func newPromDeploymentForCR(cr *marketplacev1alpha1.MeterBase, opt *PromOpts) *a
 		},
 	}
 
-	return &appsv1.StatefulSet{
+	ls := labelsForPrometheus(cr.Name)
+
+	stf := &appsv1.StatefulSet{
 		ObjectMeta: metadata,
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: ptr.Int32(1),
@@ -293,6 +391,7 @@ func newPromDeploymentForCR(cr *marketplacev1alpha1.MeterBase, opt *PromOpts) *a
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cr.Name + "-server-pod",
 					Namespace: cr.Namespace,
+					Labels:    ls,
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
@@ -310,9 +409,35 @@ func newPromDeploymentForCR(cr *marketplacev1alpha1.MeterBase, opt *PromOpts) *a
 			},
 		},
 	}
+
+	return stf
 }
 
-func newBaseConfigMap(filename string, cr *marketplacev1alpha1.MeterBase) (*corev1.ConfigMap, error) {
+// serviceForPrometheus function takes in a Prometheus object and returns a Service for that object.
+func (r *ReconcileMeterBase) serviceForPrometheus(cr *marketplacev1alpha1.MeterBase) *corev1.Service {
+	var port int32 = 9090
+	ls := labelsForPrometheus(m.Name)
+
+	ser := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name,
+			Namespace: cr.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: ls,
+			Ports: []corev1.ServicePort{
+				{
+					Port: port,
+					Name: cr.Name,
+				},
+			},
+			ClusterIP: "None",
+		},
+	}
+	return ser
+}
+
+func (r *ReconcileMeterBase) newBaseConfigMap(filename string, cr *marketplacev1alpha1.MeterBase) (*corev1.ConfigMap, error) {
 	dat, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -343,4 +468,10 @@ func makeProbe(path string, port, initialDelaySeconds, timeoutSeconds int32) *co
 		InitialDelaySeconds: initialDelaySeconds,
 		TimeoutSeconds:      timeoutSeconds,
 	}
+}
+
+// labelsForPrometheus returns the labels for selecting the resources
+// belonging to the given prometheus CR name.
+func labelsForPrometheus(name string) map[string]string {
+	return map[string]string{"app": "meterbase-prom", "meterbase_cr": name}
 }

@@ -47,6 +47,9 @@ func printVersion() {
 }
 
 func main() {
+	// adding controller flags
+	pflag.CommandLine.AddFlagSet(controller.FlagSet())
+
 	// Add the zap logger flag set to the CLI. The flag set must
 	// be added before calling pflag.Parse().
 	pflag.CommandLine.AddFlagSet(zap.FlagSet())
@@ -56,6 +59,9 @@ func main() {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 
 	pflag.Parse()
+
+	// adding viper so we can get our flags without having to pass it down
+	viper.BindPFlags(pflag.CommandLine)
 
 	// Use a zap logr.Logger implementation. If none of the zap
 	// flags are configured (or if the zap flag set is not being

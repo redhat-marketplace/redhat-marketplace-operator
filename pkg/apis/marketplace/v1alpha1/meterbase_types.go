@@ -50,7 +50,9 @@ type MeterBaseSpec struct {
 
 // MeterBaseStatus defines the observed state of MeterBase.
 type MeterBaseStatus struct {
-	PrometheusNodes *int32            `json:"prometheusNodes"`
+	// PrometheusNodes are the names of the prometheus pods
+	// +listType=set
+	PrometheusNodes []string          `json:"prometheusNodes"`
 	Conditions      status.Conditions `json:"conditions"`
 }
 

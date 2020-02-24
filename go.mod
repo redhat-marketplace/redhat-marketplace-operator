@@ -11,6 +11,7 @@ require (
 	github.com/operator-framework/operator-sdk v0.15.1-0.20200211154447-0eac8a1169df
 	github.com/rubyist/circuitbreaker v2.2.1+incompatible // indirect
 	github.com/spf13/pflag v1.0.5
+	github.com/spf13/viper v1.4.0
 	golang.org/x/sys v0.0.0-20200212091648-12a6c2dcc1e4 // indirect
 	k8s.io/api v0.0.0
 	k8s.io/apimachinery v0.0.0
