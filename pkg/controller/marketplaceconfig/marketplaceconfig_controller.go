@@ -94,9 +94,11 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
+			reqLogger.Info("Resource not found. Ignoring since object must be deleted")
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
+		reqLogger.Error(err, "Failed to get MarketplaceConfig")
 		return reconcile.Result{}, err
 	}
 
@@ -107,15 +109,18 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 		// Define a new deployment
 		dep := r.deploymentForMarketplaceConfig(marketplaceConfig)
+		reqLogger.Info("Creating a new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
 		err = r.client.Create(context.TODO(), dep)
 		// Error creating deployment - requeue the request
 		if err != nil {
+			reqLogger.Error(err, "Failed to create new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
 			return reconcile.Result{}, err
 		}
 		// Deployment created successfuly - return and reque
 		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
 		// Could not get delpoyment
+		reqLogger.Error(err, "Failed to get Deployment")
 		return reconcile.Result{}, err
 	}
 
@@ -126,6 +131,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		err = r.client.Update(context.TODO(), found)
 		// Failed to update deployment
 		if err != nil {
+			reqLogger.Error(err, "Failed to update Deployment", "Deployment.Namespace", found.Namespace, "Deployment.Name", found.Name)
 			return reconcile.Result{}, err
 		}
 		//Spec updated - return and requeue
@@ -159,12 +165,15 @@ func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketpla
 						// Change this: Image, Command[0], Ports.ContainerPort, Ports.Name
 						// This changes according to the docker image we use
 						// Currently using default from https://github.com/operator-framework/getting-started/
-						Image:   "memcached:1.4.36-alpine",
-						Name:    "marketconfig",
-						Command: []string{"memcached", "-m=64", "-o", "modern", "-v"},
+						Image:           "symposium/marketplace-agent:latest",
+						Name:            "marketconfig",
+						ImagePullPolicy: "Never",
+						// Command:         []string{"./agent", "-c", "--"},
+						// Args:            []string{"while true; do sleep 30; done;"},
+						//Command:         []string{"memcached", "-m=64", "-o", "modern", "-v"},
 						Ports: []corev1.ContainerPort{{
-							ContainerPort: 11211,
-							Name:          "memcached",
+							//Name:          "memcached",
+							ContainerPort: 8080,
 						}},
 					}},
 				},

@@ -19,7 +19,7 @@ spec:
           image: quay.io/namsimar/plato-operator:v0.0.1
           command:
           - marketplace-operator
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           env:
             - name: WATCH_NAMESPACE
               valueFrom:
