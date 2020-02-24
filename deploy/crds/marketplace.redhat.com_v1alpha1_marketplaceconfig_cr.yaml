@@ -4,4 +4,4 @@ metadata:
   name: example-marketplaceconfig
 spec:
   # Add fields here
-  size: 1
+  size: 2
