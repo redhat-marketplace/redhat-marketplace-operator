@@ -2,6 +2,7 @@ package marketplaceconfig
 
 import (
 	"context"
+	"os"
 
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -147,6 +148,13 @@ func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketpla
 	ls := labelsForMarketplaceConfig(m.Name)
 	replicas := m.Spec.Size
 
+	// image := os.Getenv("RELATED_IMAGE_OPERATOR_AGENT")
+	// if image == "" {
+	// 	image = "mems"
+	// }
+
+	image := getOperatorImage()
+
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      m.Name,
@@ -163,9 +171,9 @@ func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketpla
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Image:           "symposium/marketplace-agent:latest",
+						Image:           image,
 						Name:            "marketconfig",
-						ImagePullPolicy: "Never",
+						ImagePullPolicy: "IfNotPresent",
 						Command:         []string{"./agent"},
 						Args:            []string{"serve"},
 						LivenessProbe: &corev1.Probe{
@@ -198,4 +206,14 @@ func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketpla
 // belonging to the given marketplaceConfig custom resource name
 func labelsForMarketplaceConfig(name string) map[string]string {
 	return map[string]string{"app": "marketplaceconfig", "marketplaceconfig_cr": name}
+}
+
+// returns the operator image to be deployed (set by environment variable RELATED_IMAGE_OPERATOR_IMAGE)
+// if no environment variable is set, returns the default "symposoim/marketplace-agent:latest"
+func getOperatorImage() string {
+	image, found := os.LookupEnv("RELATED_IMAGE_OPERATOR_AGENT")
+	if !found {
+		return "symposium/marketplace-agent:latest"
+	}
+	return image
 }

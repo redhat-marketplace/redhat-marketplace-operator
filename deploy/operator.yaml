@@ -17,10 +17,10 @@ spec:
         - name: marketplace-operator
           # Replace this with the built image name
           image: quay.io/namsimar/plato-operator:v0.0.1
-          command:
-          - marketplace-operator
           imagePullPolicy: IfNotPresent
           env:
+            - name: RELATED_IMAGE_OPERATOR_AGENT
+              value: "symposium/marketplace-agent:latest"
             - name: WATCH_NAMESPACE
               valueFrom:
                 fieldRef:

@@ -57,6 +57,8 @@ func main() {
 
 	pflag.Parse()
 
+	// if there was a flag to set the marketplaceConfig image, set it as an environment varibale
+
 	// Use a zap logr.Logger implementation. If none of the zap
 	// flags are configured (or if the zap flag set is not being
 	// used), this defaults to a production zap logger.
