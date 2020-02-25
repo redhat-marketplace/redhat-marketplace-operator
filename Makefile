@@ -1,6 +1,7 @@
 .DEFAULT_GOAL:=help
 SHELL:=/bin/bash
 NAMESPACE=marketplace-operator
+OPERATOR_IMAGE=marketplace-operator:latest
 
 ##@ Application
 
@@ -9,21 +10,28 @@ install: ## Install all resources (CR/CRD's, RBAC and Operator)
 	- kubectl create namespace ${NAMESPACE}
 	@echo ....... Applying CRDs .......
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
-	@echo ....... Applying Rules and Service Account .......
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_cr.yaml -n ${NAMESPACE}
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterings_cr.yaml -n ${NAMESPACE}
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_razeedeployments_cr.yaml -n ${NAMESPACE}
+	@echo ....... Applying serivce accounts and role ........
+	- kubectl apply -f deploy/role.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/role_binding.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/service_account.yaml -n ${NAMESPACE}
 	@echo ....... Applying Operator .......
 	- kubectl apply -f deploy/operator.yaml -n ${NAMESPACE}
-	@echo ....... Creating the CRs .......
-	- kubectl apply -f deploy/crds/cache.example.com_v1alpha1_memcached_cr.yaml -n ${NAMESPACE}
+	@echo ....... Applying Rules and Service Account .......
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_meterbase_cr.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_metering_cr.yaml -n ${NAMESPACE}
 
 uninstall: ## Uninstall all that all performed in the $ make install
 	@echo ....... Uninstalling .......
 	@echo ....... Deleting CRDs.......
-	- kubectl delete -f deploy/crds/cache.example.com_memcacheds_crd.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
 	@echo ....... Deleting Rules and Service Account .......
 	- kubectl delete -f deploy/role.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/role_binding.yaml -n ${NAMESPACE}
@@ -32,6 +40,13 @@ uninstall: ## Uninstall all that all performed in the $ make install
 	- kubectl delete -f deploy/operator.yaml -n ${NAMESPACE}
 	@echo ....... Deleting namespace ${NAMESPACE}.......
 	- kubectl delete namespace ${NAMESPACE}
+
+##@ Build
+
+.PHONY: image
+image: ## Build the operator image
+	@echo Building the marketplace image
+	operator-sdk build ${OPERATOR_IMAGE}
 
 ##@ Development
 
@@ -57,20 +72,25 @@ code-gen: ## Run the operator-sdk commands to generated code (k8s and crds)
 
 ##@ Tests
 
+.PHONY: test-all
 test: ## Run go tests
 	@echo ... Run tests
-	go test
+	go test ./...
 
-cover: ## Run coverage on code
+.PHONY: test-cover
+test-cover: ## Run coverage on code
 	@echo Running coverage
-	go test -coverprofile cover.out
+	go test -coverprofile cover.out ./...
 	go tool cover -func=cover.out
 
+.PHONY: test-e2e
 test-e2e: ## Run integration e2e tests with different options.
+	@echo ... Making image for e2e ...
+	- make image
 	@echo ... Running the same e2e tests with different args ...
 	@echo ... Running locally ...
 	- kubectl create namespace ${NAMESPACE} || true
-	- operator-sdk test local ./test/e2e --namespace=${NAMESPACE}
+	- operator-sdk test local ./test/e2e --namespace=${NAMESPACE} --go-test-flags="-tags e2e"
 
 .PHONY: help
 help: ## Display this help

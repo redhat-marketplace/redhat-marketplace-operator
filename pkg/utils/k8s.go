@@ -11,22 +11,22 @@ import (
 type PersistentVolume struct {
 	metav1.ObjectMeta
 	StorageClass *string
-	StorageSize  *resource.Quantity
-	AccessMode   *corev1.PersistentVolumeAccessMode
+	StorageSize  resource.Quantity
+	AccessMode   corev1.PersistentVolumeAccessMode
 }
 
-func NewPersistentVolumeClaim(volumeName string, pv *PersistentVolume) corev1.PersistentVolumeClaim {
+func NewPersistentVolumeClaim(volumeName string, values *PersistentVolume) corev1.PersistentVolumeClaim {
 	// set some defaults
 	quantity := resource.MustParse("20Gi")
 	accessMode := corev1.PersistentVolumeAccessMode("ReadWriteOnce")
-	values := &PersistentVolume{
+	defaults := &PersistentVolume{
 		StorageClass: ptr.String(""),
-		AccessMode:   &accessMode,
-		StorageSize:  &quantity,
+		AccessMode:   accessMode,
+		StorageSize:  quantity,
 	}
 
 	// merge values from pv into values
-	mergo.Merge(&values, pv)
+	mergo.Merge(&values, defaults, mergo.WithOverride)
 
 	return corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
@@ -36,11 +36,11 @@ func NewPersistentVolumeClaim(volumeName string, pv *PersistentVolume) corev1.Pe
 		Spec: corev1.PersistentVolumeClaimSpec{
 			VolumeName: volumeName,
 			AccessModes: []corev1.PersistentVolumeAccessMode{
-				*values.AccessMode,
+				values.AccessMode,
 			},
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
-					"storage": quantity,
+					"storage": values.StorageSize,
 				},
 			},
 			StorageClassName: values.StorageClass,

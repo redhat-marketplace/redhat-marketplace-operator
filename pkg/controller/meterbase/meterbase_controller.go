@@ -303,7 +303,7 @@ func (r *ReconcileMeterBase) newPromDeploymentForCR(cr *marketplacev1alpha1.Mete
 	}
 
 	metadata := metav1.ObjectMeta{
-		Name:      cr.Name + "-statefulset",
+		Name:      cr.Name,
 		Namespace: cr.Namespace,
 		Labels:    labels,
 	}
@@ -314,7 +314,7 @@ func (r *ReconcileMeterBase) newPromDeploymentForCR(cr *marketplacev1alpha1.Mete
 			Namespace: cr.Namespace,
 		},
 		StorageClass: cr.Spec.Prometheus.Storage.Class,
-		StorageSize:  &cr.Spec.Prometheus.Storage.Size,
+		StorageSize:  cr.Spec.Prometheus.Storage.Size,
 	})
 
 	var port int32 = 9090
@@ -452,7 +452,7 @@ func (r *ReconcileMeterBase) newBaseConfigMap(filename string, cr *marketplacev1
 	}
 
 	cfg.Namespace = cr.Namespace
-	cfg.Name = cr.Name + "-base-cfg"
+	cfg.Name = cr.Name
 
 	return cfg, nil
 }

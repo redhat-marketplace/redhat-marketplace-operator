@@ -23,6 +23,7 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -48,7 +49,9 @@ func printVersion() {
 
 func main() {
 	// adding controller flags
-	pflag.CommandLine.AddFlagSet(controller.FlagSet())
+	for _, flags := range controller.FlagSets(){
+		pflag.CommandLine.AddFlagSet(flags)
+	}
 
 	// Add the zap logger flag set to the CLI. The flag set must
 	// be added before calling pflag.Parse().

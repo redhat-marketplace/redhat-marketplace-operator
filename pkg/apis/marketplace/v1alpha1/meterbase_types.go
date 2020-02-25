@@ -18,7 +18,6 @@ type StorageSpec struct {
 	// Storage size for the prometheus deployment. Default is 40Gi.
 	// +kubebuilder:validation:Type=string
 	// +kubebuilder:validation:Format=quantity
-	// +kubebuilder:default="40Gi"
 	Size resource.Quantity `json:"size,omitempty"`
 }
 
@@ -40,7 +39,6 @@ type PrometheusSpec struct {
 // MeterBaseSpec defines the desired state of MeterBase
 type MeterBaseSpec struct {
 	// Is metering is enabled on the cluster? Default is true
-	// +kubebuilder:default=true
 	Enabled bool `json:"enabled"`
 
 	// Prometheus deployment configuration.

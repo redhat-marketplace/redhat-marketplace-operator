@@ -32,7 +32,6 @@ spec:
           description: MeterBaseSpec defines the desired state of MeterBase
           properties:
             enabled:
-              default: true
               description: Is metering is enabled on the cluster? Default is true
               type: boolean
             prometheus:
@@ -109,7 +108,6 @@ spec:
                         Default is "" i.e. default.
                       type: string
                     size:
-                      default: 40Gi
                       description: Storage size for the prometheus deployment. Default
                         is 40Gi.
                       format: quantity

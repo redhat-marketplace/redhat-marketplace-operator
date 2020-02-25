@@ -16,10 +16,10 @@ spec:
       containers:
         - name: marketplace-operator
           # Replace this with the built image name
-          image: REPLACE_IMAGE
+          image: marketplace-operator:latest
           command:
           - marketplace-operator
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           env:
             - name: WATCH_NAMESPACE
               valueFrom:
