@@ -42,7 +42,7 @@ const (
 //Server:          "prom/prometheus:v2.15.2",
 
 var (
-	log = logf.Log.WithName("controller_meterbase")
+	log = logf.Log.WithName("marketplace_op_controller_meterbase")
 
 	meterbaseFlagSet *pflag.FlagSet
 )
@@ -175,15 +175,16 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		// Define a new configmap
 		assetBase := viper.GetString("assets")
 		cfgBaseFileName := filepath.Join(assetBase, "prometheus/base-configmap.yaml")
+		reqLogger.Info("looking up configmap at", "assetBase", assetBase)
 		basecfg, err := r.newBaseConfigMap(cfgBaseFileName, instance)
 
 		if err != nil {
-			reqLogger.Error(err, "Failed to create a new configmap because of file error.", "Configmap.Namespace", basecfg.Namespace, "Configmap.Name", basecfg.Name)
+			reqLogger.Error(err, "Failed to create a new configmap because of file error.")
 			return reconcile.Result{}, err
 		}
 
 		reqLogger.Info("Creating a new configmap.", "Configmap.Namespace", basecfg.Namespace, "Configmap.Name", basecfg.Name)
-		err = r.client.Create(context.TODO(), dep)
+		err = r.client.Create(context.TODO(), basecfg)
 		if err != nil {
 			reqLogger.Error(err, "Failed to create a new configmap.", "Configmap.Namespace", basecfg.Namespace, "Configmap.Name", basecfg.Name)
 			return reconcile.Result{}, err
@@ -416,7 +417,7 @@ func (r *ReconcileMeterBase) newPromDeploymentForCR(cr *marketplacev1alpha1.Mete
 // serviceForPrometheus function takes in a Prometheus object and returns a Service for that object.
 func (r *ReconcileMeterBase) serviceForPrometheus(cr *marketplacev1alpha1.MeterBase) *corev1.Service {
 	var port int32 = 9090
-	ls := labelsForPrometheus(m.Name)
+	ls := labelsForPrometheus(cr.Name)
 
 	ser := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{

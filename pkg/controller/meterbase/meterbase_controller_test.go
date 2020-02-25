@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/spf13/viper"
 
 	appsv1 "k8s.io/api/apps/v1"
 	 corev1 "k8s.io/api/core/v1"
@@ -23,6 +24,8 @@ import (
 func TestMeterBaseController(t *testing.T) {
 	// Set the logger to development mode for verbose logs.
 	logf.SetLogger(logf.ZapLogger(true))
+
+	viper.Set("assets", "../../../assets")
 
 	var (
 		name      = "marketplace-operator"

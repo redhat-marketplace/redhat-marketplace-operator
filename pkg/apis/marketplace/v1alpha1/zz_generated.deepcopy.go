@@ -197,8 +197,8 @@ func (in *MeterBaseStatus) DeepCopyInto(out *MeterBaseStatus) {
 	*out = *in
 	if in.PrometheusNodes != nil {
 		in, out := &in.PrometheusNodes, &out.PrometheusNodes
-		*out = new(int32)
-		**out = **in
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions

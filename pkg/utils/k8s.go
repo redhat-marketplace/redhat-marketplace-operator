@@ -47,3 +47,12 @@ func NewPersistentVolumeClaim(volumeName string, pv *PersistentVolume) corev1.Pe
 		},
 	}
 }
+
+// getPodNames returns the pod names of the array of pods passed in
+func GetPodNames(pods []corev1.Pod) []string {
+	var podNames []string
+	for _, pod := range pods {
+		podNames = append(podNames, pod.Name)
+	}
+	return podNames
+}

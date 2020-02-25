@@ -109,9 +109,9 @@ spec:
                         Default is "" i.e. default.
                       type: string
                     size:
-                      default: 20Gi
+                      default: 40Gi
                       description: Storage size for the prometheus deployment. Default
-                        is 20Gi.
+                        is 40Gi.
                       format: quantity
                       type: string
                   type: object
@@ -165,8 +165,10 @@ spec:
               description: Conditions is a set of Condition instances.
               type: array
             prometheusNodes:
-              format: int32
-              type: integer
+              description: PrometheusNodes are the names of the prometheus pods
+              items:
+                type: string
+              type: array
           required:
           - conditions
           - prometheusNodes
