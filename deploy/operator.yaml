@@ -21,6 +21,8 @@ spec:
           - marketplace-operator
           imagePullPolicy: IfNotPresent
           env:
+            - name: RELATED_IMAGE_OPERATOR_AGENT
+              value: "marketplace-agent:latest"
             - name: WATCH_NAMESPACE
               value: "" # watch all namespaces
             - name: POD_NAME
