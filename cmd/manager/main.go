@@ -3,10 +3,11 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"runtime"
+
+	"github.com/spf13/viper"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -47,17 +48,28 @@ func printVersion() {
 }
 
 func main() {
+	// adding controller flags
+	for _, flags := range controller.FlagSets() {
+		pflag.CommandLine.AddFlagSet(flags)
+	}
+
 	// Add the zap logger flag set to the CLI. The flag set must
 	// be added before calling pflag.Parse().
 	pflag.CommandLine.AddFlagSet(zap.FlagSet())
 
-	// Add flags registered by imported packages (e.g. glog and
-	// controller-runtime)
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	// // Add flags registered by imported packages (e.g. glog and
+	// // controller-runtime)
+	// pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 
 	pflag.Parse()
 
-	// if there was a flag to set the marketplaceConfig image, set it as an environment varibale
+	// adding viper so we can get our flags without having to pass it down
+	err := viper.BindPFlags(pflag.CommandLine)
+
+	if err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
 
 	// Use a zap logr.Logger implementation. If none of the zap
 	// flags are configured (or if the zap flag set is not being
@@ -68,6 +80,7 @@ func main() {
 	// be propagated through the whole operator, generating
 	// uniform and structured logs.
 	logf.SetLogger(zap.Logger())
+	log.Info("flags", "assets", viper.Get("assets"))
 
 	printVersion()
 

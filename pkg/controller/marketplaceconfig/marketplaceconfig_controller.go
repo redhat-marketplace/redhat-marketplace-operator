@@ -2,9 +2,12 @@ package marketplaceconfig
 
 import (
 	"context"
-	"os"
+	"fmt"
 
+	pflag "github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -22,7 +25,29 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var log = logf.Log.WithName("controller_marketplaceconfig")
+const (
+	RELATED_IMAGE_OPERATOR_AGENT = "RELATED_IMAGE_OPERATOR_IMAGE"
+	DEFAULT_IMAGE_OPERATOR_AGENT = "marketplace-agent:latest"
+)
+
+var (
+	log = logf.Log.WithName("controller_marketplaceconfig")
+
+	marketplaceConfigFlagSet *pflag.FlagSet
+)
+
+func init() {
+	marketplaceConfigFlagSet = pflag.NewFlagSet("marketplaceconfig", pflag.ExitOnError)
+	marketplaceConfigFlagSet.String(
+		"related-image-operator-agent",
+		utils.Getenv(RELATED_IMAGE_OPERATOR_AGENT, DEFAULT_IMAGE_OPERATOR_AGENT),
+		"Image for marketplaceConfig")
+	fmt.Println(" -------------------------------------------------------------- ", *marketplaceConfigFlagSet)
+}
+
+func FlagSet() *pflag.FlagSet {
+	return marketplaceConfigFlagSet
+}
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -148,11 +173,6 @@ func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketpla
 	ls := labelsForMarketplaceConfig(m.Name)
 	replicas := m.Spec.Size
 
-	// image := os.Getenv("RELATED_IMAGE_OPERATOR_AGENT")
-	// if image == "" {
-	// 	image = "mems"
-	// }
-
 	image := getOperatorImage()
 
 	dep := &appsv1.Deployment{
@@ -174,8 +194,6 @@ func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketpla
 						Image:           image,
 						Name:            "marketconfig",
 						ImagePullPolicy: "IfNotPresent",
-						Command:         []string{"./agent"},
-						Args:            []string{"serve"},
 						LivenessProbe: &corev1.Probe{
 							Handler: corev1.Handler{
 								HTTPGet: &corev1.HTTPGetAction{
@@ -209,11 +227,14 @@ func labelsForMarketplaceConfig(name string) map[string]string {
 }
 
 // returns the operator image to be deployed (set by environment variable RELATED_IMAGE_OPERATOR_IMAGE)
-// if no environment variable is set, returns the default "symposoim/marketplace-agent:latest"
+// if both an environment variable and flag has been used, prioritizes environment variable
+// if no environment variable is set, returns the default "marketplace-agent:latest"
 func getOperatorImage() string {
-	image, found := os.LookupEnv("RELATED_IMAGE_OPERATOR_AGENT")
-	if !found {
-		return "symposium/marketplace-agent:latest"
+
+	if viper.IsSet("related-image-operator-agent") {
+		return viper.GetString("related-image-operator-agent")
 	}
-	return image
+	println("This was reached         -- - - - - -- -             getOperatorImage()")
+	return "marketplace-agent:latest"
+
 }

@@ -20,7 +20,7 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: RELATED_IMAGE_OPERATOR_AGENT
-              value: "symposium/marketplace-agent:latest"
+              value: "marketplace-agent:latest"
             - name: WATCH_NAMESPACE
               valueFrom:
                 fieldRef:

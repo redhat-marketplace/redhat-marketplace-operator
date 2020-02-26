@@ -72,6 +72,7 @@ rules:
   - '*'
   - meterings
   - razeedeployments
+  - marketplaceconfigs
   verbs:
   - create
   - delete
