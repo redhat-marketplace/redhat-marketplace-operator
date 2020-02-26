@@ -30,7 +30,7 @@ type PrometheusSpec struct {
 
 	// Selector for the pods in the Prometheus deployment
 	// +optional
-	Selector *metav1.LabelSelector `json:"selector,omitempty"`
+	NodeSelector *metav1.LabelSelector `json:"selector,omitempty"`
 
 	// Storage for the deployment.
 	Storage StorageSpec `json:"storage"`

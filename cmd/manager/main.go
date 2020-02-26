@@ -64,7 +64,13 @@ func main() {
 	pflag.Parse()
 
 	// adding viper so we can get our flags without having to pass it down
-	viper.BindPFlags(pflag.CommandLine)
+	err := viper.BindPFlags(pflag.CommandLine)
+
+	if err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
 
 	// Use a zap logr.Logger implementation. If none of the zap
 	// flags are configured (or if the zap flag set is not being
@@ -75,6 +81,8 @@ func main() {
 	// be propagated through the whole operator, generating
 	// uniform and structured logs.
 	logf.SetLogger(zap.Logger())
+
+	log.Info("flags", "assets", viper.Get("assets"))
 
 	printVersion()
 
@@ -101,7 +109,7 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, manager.Options{
-		Namespace:          "",
+		Namespace:          namespace,
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 	})
 	if err != nil {

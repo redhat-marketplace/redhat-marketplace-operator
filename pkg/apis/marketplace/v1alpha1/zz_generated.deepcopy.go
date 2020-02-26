@@ -324,8 +324,8 @@ func (in *MeteringStatus) DeepCopy() *MeteringStatus {
 func (in *PrometheusSpec) DeepCopyInto(out *PrometheusSpec) {
 	*out = *in
 	in.ResourceRequirements.DeepCopyInto(&out.ResourceRequirements)
-	if in.Selector != nil {
-		in, out := &in.Selector, &out.Selector
+	if in.NodeSelector != nil {
+		in, out := &in.NodeSelector, &out.NodeSelector
 		*out = new(v1.LabelSelector)
 		(*in).DeepCopyInto(*out)
 	}

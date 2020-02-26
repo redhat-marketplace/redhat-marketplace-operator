@@ -46,6 +46,9 @@ uninstall: ## Uninstall all that all performed in the $ make install
 .PHONY: image
 image: ## Build the operator image
 	@echo Building the marketplace image
+	mkdir -p build/_output
+	[ -d "build/_output/assets" ] && rm -rf build/_output/assets
+	cp -r ./assets build/_output
 	operator-sdk build ${OPERATOR_IMAGE}
 
 ##@ Development

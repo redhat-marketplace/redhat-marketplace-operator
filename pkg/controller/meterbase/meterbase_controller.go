@@ -92,7 +92,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// watch configmap
-	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &marketplacev1alpha1.MeterBase{},
+	})
 	if err != nil {
 		return err
 	}
@@ -203,7 +206,7 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 
 	// replace with a config file load
 	promOpts := &PromOpts{
-		PullPolicy: "ifmissing",
+		PullPolicy: "IfNotPresent",
 		Images: Images{
 			ConfigmapReload: viper.GetString("related-image-prom-server"),
 			Server:          viper.GetString("related-image-configmap-reload"),
@@ -214,7 +217,13 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, statefulSet)
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new statefulset
-		dep := r.newPromDeploymentForCR(instance, promOpts)
+		dep, err := r.newPromStatefulsetForCR(instance, promOpts)
+
+		if err != nil {
+			reqLogger.Error(err, "Failed to create new StatefulSet.")
+			return reconcile.Result{}, err
+		}
+
 		reqLogger.Info("Creating a new Deployment.", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
 		err = r.client.Create(context.TODO(), dep)
 		if err != nil {
@@ -295,27 +304,28 @@ type PromOpts struct {
 	Images
 }
 
-// newPromDeployedForCR creates a statefulset for prometheus for our marketplace
+// newPromStatefulsetForCR creates a statefulset for prometheus for our marketplace
 // metering to use
-func (r *ReconcileMeterBase) newPromDeploymentForCR(cr *marketplacev1alpha1.MeterBase, opt *PromOpts) *appsv1.StatefulSet {
-	labels := map[string]string{
-		"app": cr.Name,
-	}
+func (r *ReconcileMeterBase) newPromStatefulsetForCR(cr *marketplacev1alpha1.MeterBase, opt *PromOpts) (*appsv1.StatefulSet, error) {
+	ls := labelsForPrometheus(cr.Name)
 
 	metadata := metav1.ObjectMeta{
 		Name:      cr.Name,
 		Namespace: cr.Namespace,
-		Labels:    labels,
+		Labels:    ls,
 	}
 
-	pvc := utils.NewPersistentVolumeClaim("storage-volume", &utils.PersistentVolume{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-prom-pvc",
-			Namespace: cr.Namespace,
+	pvc, err := utils.NewPersistentVolumeClaim(utils.PersistentVolume{
+		ObjectMeta: &metav1.ObjectMeta{
+			Name:      "storage-volume",
 		},
 		StorageClass: cr.Spec.Prometheus.Storage.Class,
-		StorageSize:  cr.Spec.Prometheus.Storage.Size,
+		StorageSize:  &cr.Spec.Prometheus.Storage.Size,
 	})
+
+	if err != nil {
+		return nil, err
+	}
 
 	var port int32 = 9090
 
@@ -381,13 +391,17 @@ func (r *ReconcileMeterBase) newPromDeploymentForCR(cr *marketplacev1alpha1.Mete
 		},
 	}
 
-	ls := labelsForPrometheus(cr.Name)
+	nodeSelector := map[string]string{}
+
+	if cr.Spec.Prometheus.NodeSelector != nil {
+		nodeSelector = cr.Spec.Prometheus.NodeSelector.MatchLabels
+	}
 
 	stf := &appsv1.StatefulSet{
 		ObjectMeta: metadata,
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: ptr.Int32(1),
-			Selector: cr.Spec.Prometheus.Selector,
+			Selector: &metav1.LabelSelector{ MatchLabels: ls },
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cr.Name + "-server-pod",
@@ -402,6 +416,7 @@ func (r *ReconcileMeterBase) newPromDeploymentForCR(cr *marketplacev1alpha1.Mete
 					Volumes: []corev1.Volume{
 						configVolume,
 					},
+					NodeSelector: nodeSelector,
 				},
 			},
 			ServiceName: cr.Name + "-prom",
@@ -411,7 +426,7 @@ func (r *ReconcileMeterBase) newPromDeploymentForCR(cr *marketplacev1alpha1.Mete
 		},
 	}
 
-	return stf
+	return stf, nil
 }
 
 // serviceForPrometheus function takes in a Prometheus object and returns a Service for that object.

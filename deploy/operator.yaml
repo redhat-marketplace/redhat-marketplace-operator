@@ -22,9 +22,7 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: WATCH_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
+              value: "" # watch all namespaces
             - name: POD_NAME
               valueFrom:
                 fieldRef:
