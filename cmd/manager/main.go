@@ -23,6 +23,7 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -47,6 +48,11 @@ func printVersion() {
 }
 
 func main() {
+	// adding controller flags
+	for _, flags := range controller.FlagSets(){
+		pflag.CommandLine.AddFlagSet(flags)
+	}
+
 	// Add the zap logger flag set to the CLI. The flag set must
 	// be added before calling pflag.Parse().
 	pflag.CommandLine.AddFlagSet(zap.FlagSet())
@@ -57,6 +63,15 @@ func main() {
 
 	pflag.Parse()
 
+	// adding viper so we can get our flags without having to pass it down
+	err := viper.BindPFlags(pflag.CommandLine)
+
+	if err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
+
 	// Use a zap logr.Logger implementation. If none of the zap
 	// flags are configured (or if the zap flag set is not being
 	// used), this defaults to a production zap logger.
@@ -66,6 +81,8 @@ func main() {
 	// be propagated through the whole operator, generating
 	// uniform and structured logs.
 	logf.SetLogger(zap.Logger())
+
+	log.Info("flags", "assets", viper.Get("assets"))
 
 	printVersion()
 
@@ -92,7 +109,7 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, manager.Options{
-		Namespace:          "",
+		Namespace:          namespace,
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 	})
 	if err != nil {

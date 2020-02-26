@@ -1,3 +1,5 @@
+// +build e2e
+
 package e2e
 
 import (
@@ -18,16 +20,20 @@ var (
 	cleanupTimeout       = time.Second * 5
 )
 
-func TestMemcached(t *testing.T) {
-	marketplaceConfigList := &operator.MarketplaceConfigList{}
-	err := framework.AddToFrameworkScheme(apis.AddToScheme, marketplaceConfigList)
+func TestMeterbase(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
+
+	meterbaseConfigList := &operator.MeterBaseList{}
+	err := framework.AddToFrameworkScheme(apis.AddToScheme, meterbaseConfigList)
 	if err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
 	// run subtests
-	t.Run("memcached-group", func(t *testing.T) {
-		t.Run("Cluster", MarketplaceOperatorCluster)
-		t.Run("Cluster2", MarketplaceOperatorCluster)
+	t.Run("meterbase-group", func(t *testing.T) {
+		t.Run("Cluster", MeterbaseOperatorCluster)
+		t.Run("Cluster2", MeterbaseOperatorCluster)
 	})
 }
 
@@ -71,7 +77,7 @@ func TestMemcached(t *testing.T) {
 // 	return e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "example-memcached", 4, retryInterval, timeout)
 //}
 
-func MarketplaceOperatorCluster(t *testing.T) {
+func MeterbaseOperatorCluster(t *testing.T) {
 	t.Parallel()
 	ctx := framework.NewTestCtx(t)
 	defer ctx.Cleanup()
@@ -87,7 +93,7 @@ func MarketplaceOperatorCluster(t *testing.T) {
 	}
 	// get global framework variables
 	f := framework.Global
-	// wait for memcached-operator to be ready
+	// wait for meterbase-operator to be ready
 	err = e2eutil.WaitForOperatorDeployment(t, f.KubeClient, namespace, "marketplace-operator", 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatal(err)
