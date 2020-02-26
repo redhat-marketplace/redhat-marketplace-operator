@@ -7,15 +7,18 @@ import (
 
 	ioutil "io/ioutil"
 
+	// "github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	appsv1 "k8s.io/api/apps/v1"
+	// appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	// "path/filepath"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	k8yaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	// "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -57,14 +60,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// watch the razee Namespace
 	err = c.Watch(&source.Kind{Type: &corev1.Namespace{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
-	})
-	if err != nil {
-		return err
-	}
-
-	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
 	})
@@ -118,8 +113,14 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	// Define a new Namespace object
 	// namespace := r.createRazeeNamespace(instance)
-	namespace, err := createRazeeNamespaceWithUtil("/Users/maxpaspa@ibm.com/go/src/marketplace-operator/assets/razee/razee-namespace.yaml")
+	// assetBase := viper.GetString("assets")
+	// razeeNsFilename := filepath.Join(assetBase, "/assets/razee/razee-namespace.yaml")
+	namespace, err := createRazeeNamespaceWithUtil("/assets/razee/razee-namespace.yaml")
+	// reqLogger.Info("looking up configmap at", "assetBase", assetBase)
 	// Check if this namespace already exists
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 	found := &corev1.Namespace{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee"}, found)
 	if err != nil && errors.IsNotFound(err) {
@@ -135,6 +136,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
+	// controllerutil.SetControllerReference(instance, namespace, r.scheme)
 	// Update CR status
 	// List the namespaces on the cluster
 	namespaceList := &corev1.NamespaceList{}
