@@ -8,7 +8,9 @@ require (
 	github.com/operator-framework/operator-sdk v0.15.1-0.20200211154447-0eac8a1169df
 	github.com/rubyist/circuitbreaker v2.2.1+incompatible // indirect
 	github.com/spf13/pflag v1.0.5
+	github.com/spf13/viper v1.4.0
 	k8s.io/api v0.0.0
+	k8s.io/apiextensions-apiserver v0.0.0
 	k8s.io/apimachinery v0.0.0
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20190918143330-0270cf2f1c1d

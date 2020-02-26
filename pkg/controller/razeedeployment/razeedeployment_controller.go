@@ -1,18 +1,21 @@
 package razeedeployment
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
+	ioutil "io/ioutil"
+
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	k8yaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -61,6 +64,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
+	})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -101,13 +112,13 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	if !instance.Spec.Enabled {
-		fmt.Println("not enabled")
+		reqLogger.Info("Razee not enabled")
 		return reconcile.Result{}, nil
 	}
 
 	// Define a new Namespace object
-	namespace := r.createRazeeNamespace(instance)
-
+	// namespace := r.createRazeeNamespace(instance)
+	namespace, err := createRazeeNamespaceWithUtil("/Users/maxpaspa@ibm.com/go/src/marketplace-operator/assets/razee/razee-namespace.yaml")
 	// Check if this namespace already exists
 	found := &corev1.Namespace{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee"}, found)
@@ -124,6 +135,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
+	// Update CR status
 	// List the namespaces on the cluster
 	namespaceList := &corev1.NamespaceList{}
 	if err = r.client.List(context.TODO(), namespaceList); err != nil {
@@ -133,9 +145,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	// Update status.Namespace
 	nsList := *namespaceList
-	namespaces := getNamespaces(nsList.Items)
+	namespaces := getNamespaceNames(nsList.Items)
 	if contains(namespaces, "razee") {
-		fmt.Println("contains razee ns")
 		instance.Status.Namespace = "razee"
 		err := r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
@@ -149,20 +160,23 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	return reconcile.Result{}, nil
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func (r *ReconcileRazeeDeployment) createRazeeNamespace(cr *marketplacev1alpha1.RazeeDeployment) *corev1.Namespace {
-	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "razee",
-		},
+func createRazeeNamespaceWithUtil(filename string) (*corev1.Namespace, error) {
+	dat, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	ns := &corev1.Namespace{}
+	dec := k8yaml.NewYAMLOrJSONDecoder(bytes.NewReader(dat), 1000)
+	if err := dec.Decode(&ns); err != nil {
+		return nil, err
 	}
 
-	controllerutil.SetControllerReference(cr, ns, r.scheme)
-	return ns
+	ns.Name = "razee"
+	fmt.Println(ns)
+	return ns, nil
 }
 
-// getNamespaces returns the pod names of the array of pods passed in
-func getNamespaces(ns []corev1.Namespace) []string {
+func getNamespaceNames(ns []corev1.Namespace) []string {
 	var namespaceNames []string
 	for _, namespace := range ns {
 		namespaceNames = append(namespaceNames, namespace.Name)
