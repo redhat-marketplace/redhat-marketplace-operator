@@ -14,7 +14,7 @@ import (
 	k8yaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	// "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -129,9 +129,9 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 	
-	// if err := controllerutil.SetControllerReference(instance, namespace, r.scheme); err != nil {
-	// 	return reconcile.Result{}, err
-	// }
+	if err := controllerutil.SetControllerReference(instance, namespace, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
 
 	// Update CR status
 	// List the namespaces on the cluster
