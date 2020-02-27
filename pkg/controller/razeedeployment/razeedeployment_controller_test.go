@@ -2,13 +2,13 @@ package razeedeployment
 
 import (
 	"fmt"
-	// "context"
+	"context"
 	"testing"
-
-	// "github.com/spf13/viper"
+	"os"
+	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
 
-	// corev1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	// "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,11 +21,16 @@ import (
 
 // TestMeterBaseController runs ReconcileMemcached.Reconcile() against a
 // fake client that tracks a MeterBase object.
-func TestMeterBaseController(t *testing.T) {
+func TestRazeeDeployController(t *testing.T) {
+	dir, err := os.Getwd()
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(dir)
 	// Set the logger to development mode for verbose logs.
 	logf.SetLogger(logf.ZapLogger(true))
 
-	// viper.Set("assets", "../../../assets")
+	viper.Set("assets", "../../../assets")
 
 	var (
 		name      = "marketplace-operator"
@@ -64,29 +69,28 @@ func TestMeterBaseController(t *testing.T) {
 	}
 	res, err := r.Reconcile(req)
 	fmt.Println(res)
-	// fmt.Println(err)
 	if err != nil {
 		t.Fatalf("reconcile: (%v)", err)
 	}
 	// Check the result of reconciliation to make sure it has the desired state.
-	if !res.Requeue {
-		t.Error("reconcile did not requeue request as expected")
+	// if !res.Requeue {
+	// 	t.Error("reconcile did not requeue request as expected")
+	// }
+
+	razeeNamespace := &corev1.Namespace{}
+	// Check if razeeNamespace has been created
+	err = cl.Get(context.TODO(), types.NamespacedName{Name: "razee"}, razeeNamespace)
+	if err != nil {
+		t.Fatalf("get razeeNamespace: (%v)", err)
 	}
 
-	// razeeNamespace := &corev1.Namespace{}
-	// // Check if razeeNamespace has been created
-	// err = cl.Get(context.TODO(), types.NamespacedName{Name: "razee", Namespace: "razee"}, razeeNamespace)
-	// if err != nil {
-	// 	t.Fatalf("get razeeNamespace: (%v)", err)
-	// }
-
-	// res, err = r.Reconcile(req)
-	// if err != nil {
-	// 	t.Fatalf("reconcile: (%v)", err)
-	// }
-	// // Check the result of reconciliation to make sure it has the desired state.
-	// if res.Requeue {
-	// 	t.Error("reconcile requeue which is not expected")
-	// }
+	res, err = r.Reconcile(req)
+	if err != nil {
+		t.Fatalf("reconcile: (%v)", err)
+	}
+	// Check the result of reconciliation to make sure it has the desired state.
+	if res.Requeue {
+		t.Error("reconcile requeue which is not expected")
+	}
 
 }

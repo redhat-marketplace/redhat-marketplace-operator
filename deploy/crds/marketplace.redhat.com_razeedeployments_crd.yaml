@@ -9,7 +9,7 @@ spec:
     listKind: RazeeDeploymentList
     plural: razeedeployments
     singular: razeedeployment
-  scope: Namespaced
+  scope: Cluster
   subresources:
     status: {}
   validation:

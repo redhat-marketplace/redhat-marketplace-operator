@@ -1,26 +1,27 @@
 package razeedeployment
-
+// TODO: remove print statements
 import (
 	"bytes"
 	"context"
 	"fmt"
-
 	ioutil "io/ioutil"
-
-	// "github.com/spf13/viper"
+    "path/filepath"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	// appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	// "path/filepath"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	k8yaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	// "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"github.com/spf13/viper"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+
+
+
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -110,13 +111,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Info("Razee not enabled")
 		return reconcile.Result{}, nil
 	}
-
+	
 	// Define a new Namespace object
-	// namespace := r.createRazeeNamespace(instance)
-	// assetBase := viper.GetString("assets")
-	// razeeNsFilename := filepath.Join(assetBase, "/assets/razee/razee-namespace.yaml")
-	namespace, err := createRazeeNamespaceWithUtil("/assets/razee/razee-namespace.yaml")
-	// reqLogger.Info("looking up configmap at", "assetBase", assetBase)
+	assetBase := viper.GetString("assets")
+	cfgBaseFileName := filepath.Join(assetBase, "prometheus/base-configmap.yaml")
+	namespace, err := createRazeeNamespaceWithUtil(cfgBaseFileName)
 	// Check if this namespace already exists
 	if err != nil {
 		return reconcile.Result{}, err
@@ -129,14 +128,16 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-
 		// Namespace created successfully - don't requeue
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
 	}
+	
+	if err := controllerutil.SetControllerReference(instance, namespace, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
 
-	// controllerutil.SetControllerReference(instance, namespace, r.scheme)
 	// Update CR status
 	// List the namespaces on the cluster
 	namespaceList := &corev1.NamespaceList{}
