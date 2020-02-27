@@ -1,15 +1,11 @@
 package razeedeployment
 
 import (
-	"fmt"
 	"context"
 	"testing"
-	"os"
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
-
 	corev1 "k8s.io/api/core/v1"
-	// "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -22,11 +18,6 @@ import (
 // TestMeterBaseController runs ReconcileMemcached.Reconcile() against a
 // fake client that tracks a MeterBase object.
 func TestRazeeDeployController(t *testing.T) {
-	dir, err := os.Getwd()
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(dir)
 	// Set the logger to development mode for verbose logs.
 	logf.SetLogger(logf.ZapLogger(true))
 
@@ -68,14 +59,9 @@ func TestRazeeDeployController(t *testing.T) {
 		},
 	}
 	res, err := r.Reconcile(req)
-	fmt.Println(res)
 	if err != nil {
 		t.Fatalf("reconcile: (%v)", err)
 	}
-	// Check the result of reconciliation to make sure it has the desired state.
-	// if !res.Requeue {
-	// 	t.Error("reconcile did not requeue request as expected")
-	// }
 
 	razeeNamespace := &corev1.Namespace{}
 	// Check if razeeNamespace has been created

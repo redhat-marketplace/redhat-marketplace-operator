@@ -1,11 +1,11 @@
 package razeedeployment
-// TODO: remove print statements
+
 import (
 	"bytes"
 	"context"
-	"fmt"
 	ioutil "io/ioutil"
-    "path/filepath"
+	"path/filepath"
+	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -14,14 +14,9 @@ import (
 	k8yaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"github.com/spf13/viper"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	// "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
-
-
-
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -134,9 +129,9 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 	
-	if err := controllerutil.SetControllerReference(instance, namespace, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
+	// if err := controllerutil.SetControllerReference(instance, namespace, r.scheme); err != nil {
+	// 	return reconcile.Result{}, err
+	// }
 
 	// Update CR status
 	// List the namespaces on the cluster
@@ -147,6 +142,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	// Update status.Namespace
+
 	nsList := *namespaceList
 	namespaces := getNamespaceNames(nsList.Items)
 	if contains(namespaces, "razee") {
@@ -156,6 +152,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Error(err, "Failed to update RazeeDeploy status")
 			return reconcile.Result{}, err
 		}
+
 	}
 
 	// Namespace already exists - don't requeue
@@ -175,7 +172,6 @@ func createRazeeNamespaceWithUtil(filename string) (*corev1.Namespace, error) {
 	}
 
 	ns.Name = "razee"
-	fmt.Println(ns)
 	return ns, nil
 }
 

@@ -30,7 +30,6 @@ type RazeeDeploymentStatus struct {
 // RazeeDeployment is the Schema for the razeedeployments API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=razeedeployments,scope=Namespaced
-// +genclient:nonNamespaced
 type RazeeDeployment struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
