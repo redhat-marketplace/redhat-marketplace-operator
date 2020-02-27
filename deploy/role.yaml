@@ -1,5 +1,5 @@
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
   creationTimestamp: null
   name: marketplace-operator
@@ -54,12 +54,6 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - get
-- apiGroups:
   - apps
   resources:
   - replicasets
@@ -72,6 +66,8 @@ rules:
   - '*'
   - meterings
   - razeedeployments
+  - meterbases
+  - marketplaceconfigs
   verbs:
   - create
   - delete
@@ -79,4 +75,12 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - storageclasses
+  verbs:
+  - get
+  - list
   - watch
