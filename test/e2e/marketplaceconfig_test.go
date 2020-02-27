@@ -18,58 +18,18 @@ var (
 	cleanupTimeout       = time.Second * 5
 )
 
-func TestMemcached(t *testing.T) {
+func TestMarketplaceConfig(t *testing.T) {
 	marketplaceConfigList := &operator.MarketplaceConfigList{}
 	err := framework.AddToFrameworkScheme(apis.AddToScheme, marketplaceConfigList)
 	if err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
 	// run subtests
-	t.Run("memcached-group", func(t *testing.T) {
+	t.Run("marketplaceconfig-group", func(t *testing.T) {
 		t.Run("Cluster", MarketplaceOperatorCluster)
 		t.Run("Cluster2", MarketplaceOperatorCluster)
 	})
 }
-
-// func memcachedScaleTest(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) error {
-// 	namespace, err := ctx.GetNamespace()
-// 	if err != nil {
-// 		return fmt.Errorf("could not get namespace: %v", err)
-// 	}
-// 	// create memcached custom resource
-// 	exampleMemcached := &operator.Memcached{
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Name:      "example-memcached",
-// 			Namespace: namespace,
-// 		},
-// 		Spec: operator.MemcachedSpec{
-// 			Size: 3,
-// 		},
-// 	}
-// 	// use TestCtx's create helper to create the object and add a cleanup function for the new object
-// 	err = f.Client.Create(goctx.TODO(), exampleMemcached, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
-// 	if err != nil {
-// 		return err
-// 	}
-// 	// wait for example-memcached to reach 3 replicas
-// 	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "example-memcached", 3, retryInterval, timeout)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	err = f.Client.Get(goctx.TODO(), types.NamespacedName{Name: "example-memcached", Namespace: namespace}, exampleMemcached)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	exampleMemcached.Spec.Size = 4
-// 	err = f.Client.Update(goctx.TODO(), exampleMemcached)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	// wait for example-memcached to reach 4 replicas
-// 	return e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "example-memcached", 4, retryInterval, timeout)
-//}
 
 func MarketplaceOperatorCluster(t *testing.T) {
 	t.Parallel()
@@ -87,13 +47,9 @@ func MarketplaceOperatorCluster(t *testing.T) {
 	}
 	// get global framework variables
 	f := framework.Global
-	// wait for memcached-operator to be ready
+	// wait for marketplace-operator to be ready
 	err = e2eutil.WaitForOperatorDeployment(t, f.KubeClient, namespace, "marketplace-operator", 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	// if err = memcachedScaleTest(t, f, ctx); err != nil {
-	// 	t.Fatal(err)
-	// }
 }

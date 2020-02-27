@@ -29,7 +29,7 @@ func TestMarketplaceConfigController(t *testing.T) {
 		replicas  int32 = 1
 	)
 
-	// A Memcached resource with metadata and spec.
+	// A MarketplaceConfig resource with metadata and spec.
 	marketplaceconfig := &marketplacev1alpha1.MarketplaceConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -81,7 +81,7 @@ func TestMarketplaceConfigController(t *testing.T) {
 		t.Error("reconcile did not requeue request as expected")
 	}
 
-	//Reconcile again so Reconcile() checks pods and updates the Memcached
+	//Reconcile again so Reconcile() checks pods and updates the MarketplaceConfig
 	//resources' Status.
 	res, err = r.Reconcile(req)
 	if err != nil {
@@ -91,7 +91,7 @@ func TestMarketplaceConfigController(t *testing.T) {
 		t.Error("reconcile did not return an empty Result")
 	}
 
-	// Get the updated Memcached object.
+	// Get the updated MarketplaceConfig object.
 	marketplaceconfig = &marketplacev1alpha1.MarketplaceConfig{}
 	err = r.client.Get(context.TODO(), req.NamespacedName, marketplaceconfig)
 	if err != nil {

@@ -34,14 +34,6 @@ uninstall: ## Uninstall all that all performed in the $ make install
 	@echo ....... Deleting namespace ${NAMESPACE}.......
 	- kubectl delete namespace ${NAMESPACE}
 
-.PHONY: image
-image: ## Build the operator image
-	@echo ............... Building the marketplace image ...............
-	mkdir -p build/_output
-	[ -d "build/_output/assets" ] && rm -rf build/_output/assets
-	cp -r ./assets build/_output
-	operator-sdk build ${OPERATOR_IMAGE}
-
 ##@ Development
 
 code-vet: ## Run go vet for this project. More info: https://golang.org/cmd/vet/
@@ -111,11 +103,12 @@ cover: ## Run coverage on code
 	go test -coverprofile cover.out
 	go tool cover -func=cover.out
 
+.PHONY: test-e2e
 test-e2e: ## Run integration e2e tests with different options.
 	@echo ... Running the same e2e tests with different args ...
 	@echo ... Running locally ...
 	- kubectl create namespace ${NAMESPACE} || true
-	- operator-sdk test local ./test/e2e --namespace=${NAMESPACE}
+	- operator-sdk test local ./test/e2e --namespace=${NAMESPACE} --go-test-flags="-tags e2e"
 
 .PHONY: help
 help: ## Display this help
