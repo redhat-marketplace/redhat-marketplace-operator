@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	RELATED_IMAGE_OPERATOR_AGENT = "RELATED_IMAGE_OPERATOR_IMAGE"
+	RELATED_IMAGE_OPERATOR_AGENT = "RELATED_IMAGE_OPERATOR_AGENT"
 	DEFAULT_IMAGE_OPERATOR_AGENT = "marketplace-agent:latest"
 )
 
@@ -36,13 +36,15 @@ var (
 	marketplaceConfigFlagSet *pflag.FlagSet
 )
 
+// init delcares the flagset which can be used to set the image location
 func init() {
 	marketplaceConfigFlagSet = pflag.NewFlagSet("marketplaceconfig", pflag.ExitOnError)
 	marketplaceConfigFlagSet.String(
 		"related-image-operator-agent",
 		utils.Getenv(RELATED_IMAGE_OPERATOR_AGENT, DEFAULT_IMAGE_OPERATOR_AGENT),
 		"Image for marketplaceConfig")
-	fmt.Println(" -------------------------------------------------------------- ", *marketplaceConfigFlagSet)
+	fmt.Println(" -------------------------------------------------------------- ", marketplaceConfigFlagSet)
+	println(utils.Getenv(RELATED_IMAGE_OPERATOR_AGENT, DEFAULT_IMAGE_OPERATOR_AGENT))
 }
 
 func FlagSet() *pflag.FlagSet {
@@ -226,15 +228,14 @@ func labelsForMarketplaceConfig(name string) map[string]string {
 	return map[string]string{"app": "marketplaceconfig", "marketplaceconfig_cr": name}
 }
 
-// returns the operator image to be deployed (set by environment variable RELATED_IMAGE_OPERATOR_IMAGE)
-// if both an environment variable and flag has been used, prioritizes environment variable
-// if no environment variable is set, returns the default "marketplace-agent:latest"
+// returns the operator image to be deployed
+// if both an environment variable and flag has been used, prioritizes the flag
+// if neither is set returns the default
 func getOperatorImage() string {
 
 	if viper.IsSet("related-image-operator-agent") {
 		return viper.GetString("related-image-operator-agent")
 	}
-	println("This was reached         -- - - - - -- -             getOperatorImage()")
-	return "marketplace-agent:latest"
+	return utils.Getenv(RELATED_IMAGE_OPERATOR_AGENT, DEFAULT_IMAGE_OPERATOR_AGENT)
 
 }
