@@ -43,9 +43,9 @@ uninstall: ## Uninstall all that all performed in the $ make install
 
 ##@ Build
 
-.PHONY: image
-image: ## Build the operator image
-	@echo Building the marketplace image
+.PHONY: build
+build: ## Build the operator executable
+	@echo Building the operator exec with image name ${OPERATOR_IMAGE}
 	mkdir -p build/_output
 	[ -d "build/_output/assets" ] && rm -rf build/_output/assets
 	cp -r ./assets build/_output
@@ -75,7 +75,7 @@ code-gen: ## Run the operator-sdk commands to generated code (k8s and crds)
 
 ##@ Tests
 
-.PHONY: test-all
+.PHONY: test
 test: ## Run go tests
 	@echo ... Run tests
 	go test ./...
@@ -94,6 +94,8 @@ test-e2e: ## Run integration e2e tests with different options.
 	@echo ... Running locally ...
 	- kubectl create namespace ${NAMESPACE} || true
 	- operator-sdk test local ./test/e2e --namespace=${NAMESPACE} --go-test-flags="-tags e2e"
+
+##@ General
 
 .PHONY: help
 help: ## Display this help

@@ -7,7 +7,9 @@ require (
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a // indirect
 	github.com/gotidy/ptr v1.0.1
 	github.com/imdario/mergo v0.3.8
+	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a
 	github.com/mitranim/gow v0.0.0-20181105081807-8128c81042bd // indirect
+	github.com/moby/moby v1.13.1
 	github.com/operator-framework/operator-sdk v0.15.1-0.20200211154447-0eac8a1169df
 	github.com/rubyist/circuitbreaker v2.2.1+incompatible // indirect
 	github.com/spf13/pflag v1.0.5
