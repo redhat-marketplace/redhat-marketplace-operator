@@ -24,7 +24,6 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -67,20 +66,13 @@ func main() {
 	// adding viper so we can get our flags without having to pass it down
 	err := viper.BindPFlags(pflag.CommandLine)
 
-<<<<<<< HEAD
-=======
 	// Check if viper has boud flags properly
 	// If not exit with "Cancelled" code
->>>>>>> namsimar-operatorRunning
 	if err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
 
-<<<<<<< HEAD
-
-=======
->>>>>>> namsimar-operatorRunning
 	// Use a zap logr.Logger implementation. If none of the zap
 	// flags are configured (or if the zap flag set is not being
 	// used), this defaults to a production zap logger.
