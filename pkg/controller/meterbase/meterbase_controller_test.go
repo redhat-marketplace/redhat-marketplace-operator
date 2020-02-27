@@ -35,7 +35,7 @@ func TestMeterBaseController(t *testing.T) {
 		namespace = "rhm-marketplace"
 	)
 
-	// A Memcached resource with metadata and spec.
+	// A MeterBase resource with metadata and spec.
 	meterbase := &marketplacev1alpha1.MeterBase{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -151,7 +151,7 @@ func TestMeterBaseController(t *testing.T) {
 		}
 	}
 
-	//Reconcile again so Reconcile() checks pods and updates the Memcached
+	//Reconcile again so Reconcile() checks pods and updates the MeterBase
 	//resources' Status.
 	res, err = r.Reconcile(req)
 	if err != nil {
@@ -161,14 +161,14 @@ func TestMeterBaseController(t *testing.T) {
 		t.Error("reconcile did not return an empty Result")
 	}
 
-	// Get the updated Memcached object.
+	// Get the updated MeterBase object.
 	meterbase = &marketplacev1alpha1.MeterBase{}
 	err = r.client.Get(context.TODO(), req.NamespacedName, meterbase)
 	if err != nil {
 		t.Errorf("get meterbase: (%v)", err)
 	}
 
-	//Ensure Reconcile() updated the Memcached's Status as expected.
+	//Ensure Reconcile() updated the MeterBase's Status as expected.
 	nodes := meterbase.Status.PrometheusNodes
 	if !reflect.DeepEqual(podNames, nodes) {
 		t.Errorf("pod names %v did not match expected %v", nodes, podNames)

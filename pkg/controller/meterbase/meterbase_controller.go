@@ -140,16 +140,6 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
-	}
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
 			reqLogger.Info("MeterBase resource not found. Ignoring since object must be deleted.")
 			return reconcile.Result{}, nil
 		}
@@ -238,7 +228,9 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 
 	updateStatefulset := statefulSet.DeepCopy()
 
-	if !reflect.DeepEqual(statefulSet.Spec.Template.Spec.NodeSelector, instance.Spec.Prometheus.NodeSelector) {
+	if !reflect.DeepEqual(
+		statefulSet.Spec.Template.Spec.NodeSelector,
+		instance.Spec.Prometheus.NodeSelector) {
 		reqLogger.Info("Detected a change in node selector")
 		updateStatefulset.Spec.Template.Spec.NodeSelector = instance.Spec.Prometheus.NodeSelector
 	}
@@ -485,6 +477,31 @@ func (r *ReconcileMeterBase) serviceForPrometheus(cr *marketplacev1alpha1.MeterB
 	}
 	return ser
 }
+
+// func loadYAML(x reflect.Type) interface{} {
+// 	dec := k8yaml.NewYAMLOrJSONDecoder(bytes.NewReader(dat), 1000)
+// 	var genericTypeVal interface{}
+// 	switch x {
+// 	case type(corev1.ConfigMap):
+// 		genericTypeVal = &corev1.ConfigMap{}
+// 	}
+
+// 	if err := dec.Decode(&genericTypeVal); err != nil {
+// 			return nil, err
+// 		}
+
+// 		return cfg
+// }
+
+// func useX() {
+// 	value1 := genericFunctionX()
+
+// 	if ok, cfg := value1.(corev1.Configmap);  !ok {
+// 		return nil
+// 	}
+
+// 	return cfg
+//}
 
 func (r *ReconcileMeterBase) newBaseConfigMap(filename string, cr *marketplacev1alpha1.MeterBase) (*corev1.ConfigMap, error) {
 	dat, err := ioutil.ReadFile(filename)
