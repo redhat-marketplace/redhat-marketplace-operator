@@ -30,6 +30,16 @@ spec:
           type: object
         spec:
           description: MarketplaceConfigSpec defines the desired state of MarketplaceConfig
+          properties:
+            size:
+              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                Important: Run "operator-sdk generate k8s" to regenerate code after
+                modifying this file Add custom validation using kubebuilder tags:
+                https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html'
+              format: int32
+              type: integer
+          required:
+          - size
           type: object
         status:
           description: MarketplaceConfigStatus defines the observed state of MarketplaceConfig

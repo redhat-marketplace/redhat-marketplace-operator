@@ -3,10 +3,11 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"runtime"
+
+	"github.com/spf13/viper"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -48,8 +49,8 @@ func printVersion() {
 }
 
 func main() {
-	// adding controller flags
-	for _, flags := range controller.FlagSets(){
+	// Add flags for the controllers
+	for _, flags := range controller.FlagSets() {
 		pflag.CommandLine.AddFlagSet(flags)
 	}
 
@@ -57,21 +58,29 @@ func main() {
 	// be added before calling pflag.Parse().
 	pflag.CommandLine.AddFlagSet(zap.FlagSet())
 
-	// Add flags registered by imported packages (e.g. glog and
-	// controller-runtime)
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	// // Add flags registered by imported packages (e.g. glog and
+	// // controller-runtime)
+	// pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 
 	pflag.Parse()
 
 	// adding viper so we can get our flags without having to pass it down
 	err := viper.BindPFlags(pflag.CommandLine)
 
+<<<<<<< HEAD
+=======
+	// Check if viper has boud flags properly
+	// If not exit with "Cancelled" code
+>>>>>>> namsimar-operatorRunning
 	if err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> namsimar-operatorRunning
 	// Use a zap logr.Logger implementation. If none of the zap
 	// flags are configured (or if the zap flag set is not being
 	// used), this defaults to a production zap logger.

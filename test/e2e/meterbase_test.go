@@ -99,8 +99,4 @@ func MeterbaseOperatorCluster(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	// if err = memcachedScaleTest(t, f, ctx); err != nil {
-	// 	t.Fatal(err)
-	// }
 }
