@@ -2,7 +2,6 @@ package marketplaceconfig
 
 import (
 	"context"
-	"fmt"
 
 	pflag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -31,22 +30,21 @@ const (
 )
 
 var (
-	log = logf.Log.WithName("controller_marketplaceconfig")
-
+	log                      = logf.Log.WithName("controller_marketplaceconfig")
 	marketplaceConfigFlagSet *pflag.FlagSet
 )
 
-// init delcares the flagset which can be used to set the image location
+// Init declares our FlagSet for the MarketplaceConfig
+// Currently only has 1 set of flags for setting the Image
 func init() {
 	marketplaceConfigFlagSet = pflag.NewFlagSet("marketplaceconfig", pflag.ExitOnError)
 	marketplaceConfigFlagSet.String(
 		"related-image-operator-agent",
 		utils.Getenv(RELATED_IMAGE_OPERATOR_AGENT, DEFAULT_IMAGE_OPERATOR_AGENT),
 		"Image for marketplaceConfig")
-	fmt.Println(" -------------------------------------------------------------- ", marketplaceConfigFlagSet)
-	println(utils.Getenv(RELATED_IMAGE_OPERATOR_AGENT, DEFAULT_IMAGE_OPERATOR_AGENT))
 }
 
+// FlagSet returns our FlagSet
 func FlagSet() *pflag.FlagSet {
 	return marketplaceConfigFlagSet
 }
@@ -196,6 +194,7 @@ func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketpla
 						Image:           image,
 						Name:            "marketconfig",
 						ImagePullPolicy: "IfNotPresent",
+						//TODO: After merge, can use utils, for probs instead
 						LivenessProbe: &corev1.Probe{
 							Handler: corev1.Handler{
 								HTTPGet: &corev1.HTTPGetAction{

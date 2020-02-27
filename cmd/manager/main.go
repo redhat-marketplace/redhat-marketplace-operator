@@ -48,7 +48,7 @@ func printVersion() {
 }
 
 func main() {
-	// adding controller flags
+	// Add flags for the controllers
 	for _, flags := range controller.FlagSets() {
 		pflag.CommandLine.AddFlagSet(flags)
 	}
@@ -66,6 +66,8 @@ func main() {
 	// adding viper so we can get our flags without having to pass it down
 	err := viper.BindPFlags(pflag.CommandLine)
 
+	// Check if viper has boud flags properly
+	// If not exit with "Cancelled" code
 	if err != nil {
 		log.Error(err, "")
 		os.Exit(1)
@@ -80,7 +82,6 @@ func main() {
 	// be propagated through the whole operator, generating
 	// uniform and structured logs.
 	logf.SetLogger(zap.Logger())
-	log.Info("flags", "assets", viper.Get("assets"))
 
 	printVersion()
 
