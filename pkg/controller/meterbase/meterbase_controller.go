@@ -19,7 +19,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	k8yaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -60,11 +59,6 @@ func init() {
 func FlagSet() *pflag.FlagSet {
 	return meterbaseFlagSet
 }
-
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
 
 // Add creates a new MeterBase Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -146,16 +140,6 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
-	}
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
 			reqLogger.Info("MeterBase resource not found. Ignoring since object must be deleted.")
 			return reconcile.Result{}, nil
 		}
@@ -208,8 +192,8 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	promOpts := &PromOpts{
 		PullPolicy: "IfNotPresent",
 		Images: Images{
-			ConfigmapReload: viper.GetString("related-image-prom-server"),
-			Server:          viper.GetString("related-image-configmap-reload"),
+			Server:          viper.GetString("related-image-prom-server"),
+			ConfigmapReload: viper.GetString("related-image-configmap-reload"),
 		},
 	}
 
@@ -224,10 +208,10 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 			return reconcile.Result{}, err
 		}
 
-		reqLogger.Info("Creating a new Deployment.", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+		reqLogger.Info("Creating a new StatefulSet.", "StatefulSet.Namespace", dep.Namespace, "StatefulSet.Name", dep.Name)
 		err = r.client.Create(context.TODO(), dep)
 		if err != nil {
-			reqLogger.Error(err, "Failed to create new StatefulSet.", "Statefulset.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+			reqLogger.Error(err, "Failed to create new StatefulSet.", "Statefulset.Namespace", dep.Namespace, "StatefulSet.Name", dep.Name)
 			return reconcile.Result{}, err
 		}
 
@@ -242,7 +226,33 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	//TODO: Add verification steps to check if spec has changed for statefulset
+	updateStatefulset := statefulSet.DeepCopy()
+
+	if !reflect.DeepEqual(
+		statefulSet.Spec.Template.Spec.NodeSelector,
+		instance.Spec.Prometheus.NodeSelector) {
+		reqLogger.Info("Detected a change in node selector")
+		updateStatefulset.Spec.Template.Spec.NodeSelector = instance.Spec.Prometheus.NodeSelector
+	}
+
+	for _, container := range updateStatefulset.Spec.Template.Spec.Containers {
+		if container.Name == instance.Name+"-server" {
+			if !reflect.DeepEqual(container.Resources, instance.Spec.Prometheus.ResourceRequirements) {
+				reqLogger.Info("Detected a change in resource requirements")
+				container.Resources = instance.Spec.Prometheus.ResourceRequirements
+			}
+		}
+	}
+
+	if !reflect.DeepEqual(updateStatefulset, statefulSet) {
+		reqLogger.Info("Updating the statefulset.", "StatefulSet.Namespace", updateStatefulset.Namespace, "StatefulSet.Name", updateStatefulset.Name)
+		err = r.client.Update(context.TODO(), updateStatefulset)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update StatefulSet.", "Statefulset.Namespace", updateStatefulset.Namespace, "StatefulSet.Name", updateStatefulset.Name)
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{Requeue: true}, nil
+	}
 
 	service := &corev1.Service{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, service)
@@ -274,6 +284,7 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 			"MeterBase.Name", instance.Name)
 		return reconcile.Result{}, err
 	}
+
 	podNames := utils.GetPodNames(podList.Items)
 
 	// Update status.Nodes if needed
@@ -315,11 +326,24 @@ func (r *ReconcileMeterBase) newPromStatefulsetForCR(cr *marketplacev1alpha1.Met
 		Labels:    ls,
 	}
 
+	storageClass := ""
+	if cr.Spec.Prometheus.Storage.Class == nil {
+		foundDefaultClass, err := utils.GetDefaultStorageClass(r.client)
+
+		if err != nil {
+			log.Error(err, "no default class found")
+		} else {
+			storageClass = foundDefaultClass
+		}
+	} else {
+		storageClass = *cr.Spec.Prometheus.Storage.Class
+	}
+
 	pvc, err := utils.NewPersistentVolumeClaim(utils.PersistentVolume{
 		ObjectMeta: &metav1.ObjectMeta{
-			Name:      "storage-volume",
+			Name: "storage-volume",
 		},
-		StorageClass: cr.Spec.Prometheus.Storage.Class,
+		StorageClass: &storageClass,
 		StorageSize:  &cr.Spec.Prometheus.Storage.Size,
 	})
 
@@ -329,7 +353,7 @@ func (r *ReconcileMeterBase) newPromStatefulsetForCR(cr *marketplacev1alpha1.Met
 
 	var port int32 = 9090
 
-	configMapName := cr.Name + "-configmap"
+	configMapName := cr.Name
 
 	configVolumeMount := corev1.VolumeMount{
 		Name:      "config-volume",
@@ -347,7 +371,7 @@ func (r *ReconcileMeterBase) newPromStatefulsetForCR(cr *marketplacev1alpha1.Met
 	reloadContainer := corev1.Container{
 		Name:            cr.Name + "-configmap-reload",
 		ImagePullPolicy: opt.PullPolicy,
-		Image:           opt.Images.Server,
+		Image:           opt.Images.ConfigmapReload,
 		Args: []string{
 			fmt.Sprintf("--volume-dir=%v", configVolumeMount.MountPath),
 			fmt.Sprintf("--webhook-url=http://127.0.0.1:%v/-/reload", port),
@@ -375,8 +399,8 @@ func (r *ReconcileMeterBase) newPromStatefulsetForCR(cr *marketplacev1alpha1.Met
 				ContainerPort: port,
 			},
 		},
-		ReadinessProbe: makeProbe("/-/ready", port, 30, 30),
-		LivenessProbe:  makeProbe("/-/healthy", port, 30, 30),
+		ReadinessProbe: utils.MakeProbe("/-/ready", port, 30, 30),
+		LivenessProbe:  utils.MakeProbe("/-/healthy", port, 30, 30),
 		Resources:      cr.Spec.Prometheus.ResourceRequirements,
 	}
 
@@ -394,14 +418,14 @@ func (r *ReconcileMeterBase) newPromStatefulsetForCR(cr *marketplacev1alpha1.Met
 	nodeSelector := map[string]string{}
 
 	if cr.Spec.Prometheus.NodeSelector != nil {
-		nodeSelector = cr.Spec.Prometheus.NodeSelector.MatchLabels
+		nodeSelector = cr.Spec.Prometheus.NodeSelector
 	}
 
 	stf := &appsv1.StatefulSet{
 		ObjectMeta: metadata,
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: ptr.Int32(1),
-			Selector: &metav1.LabelSelector{ MatchLabels: ls },
+			Selector: &metav1.LabelSelector{MatchLabels: ls},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cr.Name + "-server-pod",
@@ -409,6 +433,7 @@ func (r *ReconcileMeterBase) newPromStatefulsetForCR(cr *marketplacev1alpha1.Met
 					Labels:    ls,
 				},
 				Spec: corev1.PodSpec{
+					ServiceAccountName: "marketplace-operator",
 					Containers: []corev1.Container{
 						reloadContainer,
 						serverContainer,
@@ -453,6 +478,31 @@ func (r *ReconcileMeterBase) serviceForPrometheus(cr *marketplacev1alpha1.MeterB
 	return ser
 }
 
+// func loadYAML(x reflect.Type) interface{} {
+// 	dec := k8yaml.NewYAMLOrJSONDecoder(bytes.NewReader(dat), 1000)
+// 	var genericTypeVal interface{}
+// 	switch x {
+// 	case type(corev1.ConfigMap):
+// 		genericTypeVal = &corev1.ConfigMap{}
+// 	}
+
+// 	if err := dec.Decode(&genericTypeVal); err != nil {
+// 			return nil, err
+// 		}
+
+// 		return cfg
+// }
+
+// func useX() {
+// 	value1 := genericFunctionX()
+
+// 	if ok, cfg := value1.(corev1.Configmap);  !ok {
+// 		return nil
+// 	}
+
+// 	return cfg
+//}
+
 func (r *ReconcileMeterBase) newBaseConfigMap(filename string, cr *marketplacev1alpha1.MeterBase) (*corev1.ConfigMap, error) {
 	dat, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -470,20 +520,6 @@ func (r *ReconcileMeterBase) newBaseConfigMap(filename string, cr *marketplacev1
 	cfg.Name = cr.Name
 
 	return cfg, nil
-}
-
-// makeProbe creates a probe with the specified path and prot
-func makeProbe(path string, port, initialDelaySeconds, timeoutSeconds int32) *corev1.Probe {
-	return &corev1.Probe{
-		Handler: corev1.Handler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Path: path,
-				Port: intstr.FromInt(int(port)),
-			},
-		},
-		InitialDelaySeconds: initialDelaySeconds,
-		TimeoutSeconds:      timeoutSeconds,
-	}
 }
 
 // labelsForPrometheus returns the labels for selecting the resources

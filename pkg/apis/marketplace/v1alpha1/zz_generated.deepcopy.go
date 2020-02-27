@@ -6,7 +6,6 @@ package v1alpha1
 
 import (
 	status "github.com/operator-framework/operator-sdk/pkg/status"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -326,8 +325,10 @@ func (in *PrometheusSpec) DeepCopyInto(out *PrometheusSpec) {
 	in.ResourceRequirements.DeepCopyInto(&out.ResourceRequirements)
 	if in.NodeSelector != nil {
 		in, out := &in.NodeSelector, &out.NodeSelector
-		*out = new(v1.LabelSelector)
-		(*in).DeepCopyInto(*out)
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
 	}
 	in.Storage.DeepCopyInto(&out.Storage)
 	return

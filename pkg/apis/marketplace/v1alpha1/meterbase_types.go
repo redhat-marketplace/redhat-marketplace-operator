@@ -30,7 +30,7 @@ type PrometheusSpec struct {
 
 	// Selector for the pods in the Prometheus deployment
 	// +optional
-	NodeSelector *metav1.LabelSelector `json:"selector,omitempty"`
+	NodeSelector map[string]string `json:"selector,omitempty"`
 
 	// Storage for the deployment.
 	Storage StorageSpec `json:"storage"`
@@ -50,7 +50,7 @@ type MeterBaseSpec struct {
 type MeterBaseStatus struct {
 	// PrometheusNodes are the names of the prometheus pods
 	// +listType=set
-	PrometheusNodes []string          `json:"prometheusNodes"`
+	PrometheusNodes []string          `json:"prometheusNodes,omitempty"`
 	Conditions      status.Conditions `json:"conditions"`
 }
 

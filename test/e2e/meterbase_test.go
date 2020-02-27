@@ -37,23 +37,24 @@ func TestMeterbase(t *testing.T) {
 	})
 }
 
+// TODO: add tests for meterbase
 // func memcachedScaleTest(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) error {
 // 	namespace, err := ctx.GetNamespace()
 // 	if err != nil {
 // 		return fmt.Errorf("could not get namespace: %v", err)
 // 	}
 // 	// create memcached custom resource
-// 	exampleMemcached := &operator.Memcached{
+// 	exampleMeterBase := &operator.MeterBase{
 // 		ObjectMeta: metav1.ObjectMeta{
 // 			Name:      "example-memcached",
 // 			Namespace: namespace,
 // 		},
-// 		Spec: operator.MemcachedSpec{
+// 		Spec: operator.MeterBaseSpec{
 // 			Size: 3,
 // 		},
 // 	}
 // 	// use TestCtx's create helper to create the object and add a cleanup function for the new object
-// 	err = f.Client.Create(goctx.TODO(), exampleMemcached, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+// 	err = f.Client.Create(goctx.TODO(), exampleMeterBase, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 // 	if err != nil {
 // 		return err
 // 	}
@@ -63,12 +64,12 @@ func TestMeterbase(t *testing.T) {
 // 		return err
 // 	}
 
-// 	err = f.Client.Get(goctx.TODO(), types.NamespacedName{Name: "example-memcached", Namespace: namespace}, exampleMemcached)
+// 	err = f.Client.Get(goctx.TODO(), types.NamespacedName{Name: "example-memcached", Namespace: namespace}, exampleMeterBase)
 // 	if err != nil {
 // 		return err
 // 	}
-// 	exampleMemcached.Spec.Size = 4
-// 	err = f.Client.Update(goctx.TODO(), exampleMemcached)
+// 	exampleMeterBase.Spec.Size = 4
+// 	err = f.Client.Update(goctx.TODO(), exampleMeterBase)
 // 	if err != nil {
 // 		return err
 // 	}

@@ -15,7 +15,6 @@ spec:
         memory: 1G
     # Storage used for PVC, recommended default is 20Gi
     storage:
-      enabled: true
       # class defaults to null, which means using the default storage
       # class.
       # If you have a storageClass which provides SSDs, uncomment and

@@ -29,7 +29,47 @@ This repo is a temporary home. It will be open-sourced when repo is available.
 
 ## Building
 
-WIP
+```sh
+# Builds the executable
+ make build
+```
+
+## Running locally
+
+```sh
+# To run locally you should create your image on your
+# target env, either minikube or crc
+make build
+
+# Once the image is made you can run these commands
+
+# make uninstall ensures there is no prior installation on your system
+make uninstall
+
+# make install will install all the crds and the operator image with
+# an example CR.
+make install
+
+## --or you can run this one command:
+make build uninstall install
+```
+
+## Testing
+
+```sh
+# Run unit tests
+make test
+
+# Run cover on unit tests
+make test-cover
+
+# Run end 2 end - uses your current
+# kubectl context
+make test-e2e
+
+# end to end will run the controller and test
+# to make sure it installed correctly
+```
 
 ## Implementation
 
