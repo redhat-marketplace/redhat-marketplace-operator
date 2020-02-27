@@ -99,6 +99,7 @@ func TestMarketplaceConfigController(t *testing.T) {
 	}
 }
 
+// Test whether flags have been set or not
 func TestMeterBaseControllerFlags(t *testing.T) {
 	flagset := FlagSet()
 

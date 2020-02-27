@@ -2,7 +2,8 @@ package utils
 
 import "os"
 
-// Getenv will return the value for the passed environment variable or if doesn't exist the fallback
+// Getenv will return the value for the passed key (which is typically an environment variable)
+// If it is not found, return the fallback
 func Getenv(key, fallback string) string {
 	value := os.Getenv(key)
 	if len(value) == 0 {
