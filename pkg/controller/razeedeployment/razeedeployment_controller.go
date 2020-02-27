@@ -6,6 +6,7 @@ import (
 	ioutil "io/ioutil"
 	"path/filepath"
 	"github.com/spf13/viper"
+	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -144,15 +145,15 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	// Update status.Namespace
 
 	nsList := *namespaceList
-	namespaces := getNamespaceNames(nsList.Items)
-	if contains(namespaces, "razee") {
+	namespaces := utils.GetNamespaceNames(nsList.Items)
+	if utils.Contains(namespaces, "razee") {
 		instance.Status.Namespace = "razee"
 		err := r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update RazeeDeploy status")
 			return reconcile.Result{}, err
 		}
-
+		
 	}
 
 	// Namespace already exists - don't requeue
@@ -175,20 +176,3 @@ func createRazeeNamespaceWithUtil(filename string) (*corev1.Namespace, error) {
 	return ns, nil
 }
 
-func getNamespaceNames(ns []corev1.Namespace) []string {
-	var namespaceNames []string
-	for _, namespace := range ns {
-		namespaceNames = append(namespaceNames, namespace.Name)
-	}
-
-	return namespaceNames
-}
-
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
