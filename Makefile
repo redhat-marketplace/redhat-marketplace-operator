@@ -95,7 +95,7 @@ apply: ##applies changes to crds
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_metering_cr.yaml
-	
+
 clean: ##delete the contents created in 'make create'
 	@echo deleting resources
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml
@@ -124,8 +124,8 @@ test-cover: ## Run coverage on code
 
 .PHONY: test-e2e
 test-e2e: ## Run integration e2e tests with different options.
-	# @echo ... Making image for e2e ...
-	# - make image
+	@echo ... Making build for e2e ...
+	- make build
 	@echo ... Running the same e2e tests with different args ...
 	@echo ... Running locally ...
 	- kubectl create namespace ${NAMESPACE} || true

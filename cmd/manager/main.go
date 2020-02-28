@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"runtime"
-
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -49,7 +49,7 @@ func printVersion() {
 
 func main() {
 	// adding controller flags
-	for _, flags := range controller.FlagSets(){
+	for _, flags := range controller.FlagSets() {
 		pflag.CommandLine.AddFlagSet(flags)
 	}
 
@@ -57,8 +57,8 @@ func main() {
 	// be added before calling pflag.Parse().
 	pflag.CommandLine.AddFlagSet(zap.FlagSet())
 
-	// // Add flags registered by imported packages (e.g. glog and
-	// // controller-runtime)
+	// Add flags registered by imported packages (e.g. glog and
+	// controller-runtime)
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 
 	pflag.Parse()
@@ -72,7 +72,6 @@ func main() {
 		log.Error(err, "")
 		os.Exit(1)
 	}
-
 
 	// Use a zap logr.Logger implementation. If none of the zap
 	// flags are configured (or if the zap flag set is not being
@@ -111,7 +110,7 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, manager.Options{
-		Namespace:          "",
+		Namespace:          namespace,
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 	})
 	if err != nil {
