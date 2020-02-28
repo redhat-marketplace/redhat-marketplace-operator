@@ -5,9 +5,10 @@ import (
 	"context"
 	ioutil "io/ioutil"
 	"path/filepath"
+
 	"github.com/spf13/viper"
-	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -112,10 +113,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	assetBase := viper.GetString("assets")
 	cfgBaseFileName := filepath.Join(assetBase, "prometheus/base-configmap.yaml")
 	namespace, err := createRazeeNamespaceWithUtil(cfgBaseFileName)
-	// Check if this namespace already exists
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
+	// Check if the Namespace exists
 	found := &corev1.Namespace{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee"}, found)
 	if err != nil && errors.IsNotFound(err) {
@@ -143,7 +145,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	// Update status.Namespace
-
 	nsList := *namespaceList
 	namespaces := utils.GetNamespaceNames(nsList.Items)
 	if utils.Contains(namespaces, "razee") {

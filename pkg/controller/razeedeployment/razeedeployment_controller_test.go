@@ -3,6 +3,7 @@ package razeedeployment
 import (
 	"context"
 	"testing"
+
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -25,7 +26,7 @@ func TestRazeeDeployController(t *testing.T) {
 
 	var (
 		name      = "marketplace-operator"
-		namespace = "rhm-marketplace"
+		namespace = "default"
 	)
 
 	// A Memcached resource with metadata and spec.
