@@ -26,6 +26,43 @@ This repo is a temporary home. It will be open-sourced when repo is available.
   - [Basics](https://kubernetes.io/docs/tutorials/kubernetes-basics/)
   - [Deploy a
     deploymentset](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
+    
+## Set up your local dev
+
+### Install
+
+1. Install [golang](https://golang.org/doc/install)
+1. Install [operator-sdk](https://github.com/operator-framework/operator-sdk)
+1. Install [CRC](https://developers.redhat.com/products/codeready-containers)
+1. Install [podman](https://podman.io/)
+
+``` sh
+brew cask install podman 
+```
+
+*Note:* You can use minikube, but we'll be using the coreos prometheus operator
+for installs and you'll need to install that operator by hand.
+
+### Setup
+
+1. crc
+
+```sh
+# it's advised to create a new crc install with more 
+# cpu and more memory. This gives crc 8 cpu and 10G of ram.
+# Small crc clusters are hard to work with and if yoru computer
+# can handle it run with these settings
+crc start -c 8 -m 10000
+```
+
+1. podman
+
+``` sh
+# podman let's us build remotely to our crc so we don't have to publish
+# containers to a registry.
+```
+
+
 
 ## Building
 
