@@ -173,12 +173,13 @@ func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketpla
 	ls := labelsForMarketplaceConfig(m.Name)
 	replicas := m.Spec.Size
 
-	image := getOperatorImage()
+	image := viper.GetString("related-image-operator-agent")
 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      m.Name,
 			Namespace: m.Namespace,
+			Labels:    ls,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
@@ -225,16 +226,4 @@ func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketpla
 // belonging to the given marketplaceConfig custom resource name
 func labelsForMarketplaceConfig(name string) map[string]string {
 	return map[string]string{"app": "marketplaceconfig", "marketplaceconfig_cr": name}
-}
-
-// returns the operator image to be deployed
-// if both an environment variable and flag has been used, prioritizes the flag
-// if neither is set returns the default
-func getOperatorImage() string {
-
-	if viper.IsSet("related-image-operator-agent") {
-		return viper.GetString("related-image-operator-agent")
-	}
-	return utils.Getenv(RELATED_IMAGE_OPERATOR_AGENT, DEFAULT_IMAGE_OPERATOR_AGENT)
-
 }

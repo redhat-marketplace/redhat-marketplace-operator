@@ -4,20 +4,12 @@ package e2e
 
 import (
 	"testing"
-	"time"
 
 	"github.ibm.com/symposium/marketplace-operator/pkg/apis"
 	operator "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
 
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	"github.com/operator-framework/operator-sdk/pkg/test/e2eutil"
-)
-
-var (
-	retryInterval        = time.Second * 5
-	timeout              = time.Second * 60
-	cleanupRetryInterval = time.Second * 1
-	cleanupTimeout       = time.Second * 5
 )
 
 func TestMeterbase(t *testing.T) {
