@@ -24,8 +24,8 @@ func TestMarketplaceConfigController(t *testing.T) {
 	viper.Set("assets", "../../../assets")
 
 	var (
-		name            = "marketplace-operator"
-		namespace       = "markeplaceconfig"
+		name            = "markeplaceconfig"
+		namespace       = "marketplace-operator"
 		replicas  int32 = 1
 	)
 
@@ -70,10 +70,10 @@ func TestMarketplaceConfigController(t *testing.T) {
 	}
 
 	// Check if Deployment has been created and has the correct size.
-	dep := &appsv1.StatefulSet{}
+	dep := &appsv1.Deployment{}
 	err = cl.Get(context.TODO(), req.NamespacedName, dep)
 	if err != nil {
-		t.Fatalf("get statefulset: (%v)", err)
+		t.Fatalf("get deployment: (%v)", err)
 	}
 
 	// Check the result of reconciliation to make sure it has the desired state.
