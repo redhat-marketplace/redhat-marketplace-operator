@@ -2,10 +2,13 @@ package utils
 
 import "os"
 
+// Getenv will return the value for the passed key (which is typically an environment variable)
+// If it is not found, return the fallback
 func Getenv(key, fallback string) string {
-	value := os.Getenv(key)
-	if len(value) == 0 {
+
+	image, found := os.LookupEnv(key)
+	if !found {
 		return fallback
 	}
-	return value
+	return image
 }
