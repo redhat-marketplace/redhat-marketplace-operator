@@ -179,6 +179,7 @@ func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketpla
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      m.Name,
 			Namespace: m.Namespace,
+			Labels: ls,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
