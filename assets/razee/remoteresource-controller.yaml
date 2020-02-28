@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: remoteresource-controller
+  annotations:
+    razee.io/git-repo: "https://github.com/razee-io/RemoteResource.git"
+    razee.io/commit-sha: "2e0e3dbc272bcbb46ccafee80e7f842cd155e16b"
+  labels:
+    razee/watch-resource: "lite"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: remoteresource-controller
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: remoteresource-controller
+        razee/watch-resource: "lite"
+      name: remoteresource-controller
+    spec:
+      serviceAccountName: razeedeploy-sa
+      containers:
+      - image: "quay.io/razee/remoteresource:0.4.2"
+        resources:
+          limits:
+            memory: 200Mi
+            cpu: 100m
+          requests:
+            memory: 75Mi
+            cpu: 40m
+        env:
+          - name: CRD_WATCH_TIMEOUT_SECONDS
+            valueFrom:
+              configMapKeyRef:
+                name: razeedeploy-overrides
+                key: CRD_WATCH_TIMEOUT_SECONDS
+                optional: true
+        imagePullPolicy: Always
+        name: remoteresource-controller
+        livenessProbe:
+          exec:
+            command:
+            - sh/liveness.sh
+          initialDelaySeconds: 30
+          periodSeconds: 150
+          timeoutSeconds: 30
+          failureThreshold: 1
+        volumeMounts:
+        - mountPath: /usr/src/app/download-cache
+          name: cache-volume
+        - mountPath: /usr/src/app/config
+          name: razeedeploy-config
+      volumes:
+      - name: cache-volume
+        emptyDir: {}
+      - name: razeedeploy-config
+        configMap:
+          name: razeedeploy-config
+          defaultMode: 420
+          optional: true

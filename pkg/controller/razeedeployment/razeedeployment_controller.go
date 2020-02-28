@@ -1,14 +1,19 @@
 package razeedeployment
 
 import (
+	"bytes"
 	"context"
+	ioutil "io/ioutil"
+	"path/filepath"
 
+	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	k8yaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -51,9 +56,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner RazeeDeployment
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+	// watch the razee Namespace
+	err = c.Watch(&source.Kind{Type: &corev1.Namespace{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
 	})
@@ -100,54 +104,76 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
-
-	// Set RazeeDeployment instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
+	if !instance.Spec.Enabled {
+		reqLogger.Info("Razee not enabled")
+		return reconcile.Result{}, nil
+	}
+	
+	// Define a new Namespace object
+	assetBase := viper.GetString("assets")
+	cfgBaseFileName := filepath.Join(assetBase, "prometheus/base-configmap.yaml")
+	namespace, err := createRazeeNamespaceWithUtil(cfgBaseFileName)
+	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
+	// Check if the Namespace exists
+	found := &corev1.Namespace{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee"}, found)
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
+		reqLogger.Info("Creating a new Namespace")
+		err = r.client.Create(context.TODO(), namespace)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-
-		// Pod created successfully - don't requeue
+		// Namespace created successfully - don't requeue
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
 	}
+	
+	if err := controllerutil.SetControllerReference(instance, namespace, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
 
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	// Update CR status
+	// List the namespaces on the cluster
+	namespaceList := &corev1.NamespaceList{}
+	if err = r.client.List(context.TODO(), namespaceList); err != nil {
+		reqLogger.Error(err, "Failed to list namespaces")
+		return reconcile.Result{}, err
+	}
+
+	// Update status.Namespace
+	nsList := *namespaceList
+	namespaces := utils.GetNamespaceNames(nsList.Items)
+	if utils.Contains(namespaces, "razee") {
+		instance.Status.Namespace = "razee"
+		err := r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update RazeeDeploy status")
+			return reconcile.Result{}, err
+		}
+		
+	}
+
+	// Namespace already exists - don't requeue
+	reqLogger.Info("Skip reconcile: Namespace already exists", "Namespace.Namespace", found.Namespace)
 	return reconcile.Result{}, nil
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *marketplacev1alpha1.RazeeDeployment) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
+func createRazeeNamespaceWithUtil(filename string) (*corev1.Namespace, error) {
+	dat, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
 	}
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
-				},
-			},
-		},
+	ns := &corev1.Namespace{}
+	dec := k8yaml.NewYAMLOrJSONDecoder(bytes.NewReader(dat), 1000)
+	if err := dec.Decode(&ns); err != nil {
+		return nil, err
 	}
+
+	ns.Name = "razee"
+	return ns, nil
 }
+
