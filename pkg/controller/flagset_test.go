@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
+// Test if flags have been set
 func TestControllerFlags(t *testing.T) {
 	flagsets := FlagSets()
 

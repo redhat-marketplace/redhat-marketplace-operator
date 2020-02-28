@@ -87,6 +87,46 @@ clean: ##delete the contents created in 'make create'
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml
 
+##@ Manual Testing
+
+create: ##creates the required crds for this deployment
+	@echo creating crds
+	- kubectl create -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml
+	- kubectl create -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml
+	- kubectl create -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml
+	- kubectl create -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml
+
+deploys: ##deploys the resources for deployment
+	@echo creating service_account
+	- kubectl create -f deploy/service_account.yaml
+	@echo creating role
+	- kubectl create -f deploy/role.yaml
+	@echo creating role_binding
+	- kubectl create -f deploy/role_binding.yaml
+	@echo creating operator
+	- kubectl create -f deploy/operator.yaml
+
+apply: ##applies changes to crds
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_metering_cr.yaml
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml
+
+clean: ##delete the contents created in 'make create'
+	@echo deleting resources
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_metering_cr.yaml
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml
+	- kubectl delete -f deploy/operator.yaml
+	- kubectl delete -f deploy/role_binding.yaml
+	- kubectl delete -f deploy/role.yaml
+	- kubectl delete -f deploy/service_account.yaml
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml
+
 ##@ Tests
 
 .PHONY: test
@@ -102,8 +142,8 @@ test-cover: ## Run coverage on code
 
 .PHONY: test-e2e
 test-e2e: ## Run integration e2e tests with different options.
-	@echo ... Making image for e2e ...
-	- make image
+	@echo ... Making build for e2e ...
+	- make build
 	@echo ... Running the same e2e tests with different args ...
 	@echo ... Running locally ...
 	- kubectl create namespace ${NAMESPACE} || true

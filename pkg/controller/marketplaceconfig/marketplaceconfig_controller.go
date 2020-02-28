@@ -3,12 +3,17 @@ package marketplaceconfig
 import (
 	"context"
 
+	pflag "github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	istr "k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -19,7 +24,30 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var log = logf.Log.WithName("controller_marketplaceconfig")
+const (
+	RELATED_IMAGE_OPERATOR_AGENT = "RELATED_IMAGE_OPERATOR_AGENT"
+	DEFAULT_IMAGE_OPERATOR_AGENT = "marketplace-agent:latest"
+)
+
+var (
+	log                      = logf.Log.WithName("controller_marketplaceconfig")
+	marketplaceConfigFlagSet *pflag.FlagSet
+)
+
+// Init declares our FlagSet for the MarketplaceConfig
+// Currently only has 1 set of flags for setting the Image
+func init() {
+	marketplaceConfigFlagSet = pflag.NewFlagSet("marketplaceconfig", pflag.ExitOnError)
+	marketplaceConfigFlagSet.String(
+		"related-image-operator-agent",
+		utils.Getenv(RELATED_IMAGE_OPERATOR_AGENT, DEFAULT_IMAGE_OPERATOR_AGENT),
+		"Image for marketplaceConfig")
+}
+
+// FlagSet returns our FlagSet
+func FlagSet() *pflag.FlagSet {
+	return marketplaceConfigFlagSet
+}
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -77,8 +105,7 @@ type ReconcileMarketplaceConfig struct {
 
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
 // and what is in the MarketplaceConfig.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
-// a Pod as an example
+// TODO(user): Modify this Reconcile function to implement your Controller logic.
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
@@ -87,67 +114,116 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	reqLogger.Info("Reconciling MarketplaceConfig")
 
 	// Fetch the MarketplaceConfig instance
-	instance := &marketplacev1alpha1.MarketplaceConfig{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+	err := r.client.Get(context.TODO(), request.NamespacedName, marketplaceConfig)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
+			reqLogger.Info("Resource not found. Ignoring since object must be deleted")
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
+		reqLogger.Error(err, "Failed to get MarketplaceConfig")
 		return reconcile.Result{}, err
 	}
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
-
-	// Set MarketplaceConfig instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
+	// Check if deployment exists, otherwise create a new one
+	found := &appsv1.Deployment{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: marketplaceConfig.Name, Namespace: marketplaceConfig.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
+
+		// Define a new deployment
+		dep := r.deploymentForMarketplaceConfig(marketplaceConfig)
+		reqLogger.Info("Creating a new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+		err = r.client.Create(context.TODO(), dep)
+		// Error creating deployment - requeue the request
 		if err != nil {
+			reqLogger.Error(err, "Failed to create new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
 			return reconcile.Result{}, err
 		}
-
-		// Pod created successfully - don't requeue
-		return reconcile.Result{}, nil
+		// Deployment created successfuly - return and reque
+		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
+		// Could not get delpoyment
+		reqLogger.Error(err, "Failed to get Deployment")
 		return reconcile.Result{}, err
 	}
 
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	// Ensure deployment size is the same as spec
+	size := marketplaceConfig.Spec.Size
+	if *found.Spec.Replicas != size {
+		found.Spec.Replicas = &size
+		err = r.client.Update(context.TODO(), found)
+		// Failed to update deployment
+		if err != nil {
+			reqLogger.Error(err, "Failed to update Deployment", "Deployment.Namespace", found.Namespace, "Deployment.Name", found.Name)
+			return reconcile.Result{}, err
+		}
+		//Spec updated - return and requeue
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	return reconcile.Result{}, nil
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *marketplacev1alpha1.MarketplaceConfig) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
-	}
-	return &corev1.Pod{
+// deploymentForMarketplaceConfig will return a marketplaceConfig Deployment object
+func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketplacev1alpha1.MarketplaceConfig) *appsv1.Deployment {
+	ls := labelsForMarketplaceConfig(m.Name)
+	replicas := m.Spec.Size
+
+	image := viper.GetString("related-image-operator-agent")
+
+	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
+			Name:      m.Name,
+			Namespace: m.Namespace,
+			Labels:    ls,
 		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: ls,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: ls,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image:           image,
+						Name:            "marketconfig",
+						ImagePullPolicy: "IfNotPresent",
+						//TODO: After merge, can use utils, for probs instead
+						LivenessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Path:   "/v1/check/healthz",
+									Port:   istr.FromInt(8080),
+									Scheme: "HTTP",
+								},
+							},
+							InitialDelaySeconds: 3,
+							TimeoutSeconds:      1,
+							PeriodSeconds:       3,
+							SuccessThreshold:    1,
+							FailureThreshold:    3,
+						},
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 8080,
+						}},
+					}},
 				},
 			},
 		},
 	}
+	controllerutil.SetControllerReference(m, dep, r.scheme)
+	return dep
+}
+
+// labelsForMarketplaceConfig returs the labels for selecting the resources
+// belonging to the given marketplaceConfig custom resource name
+func labelsForMarketplaceConfig(name string) map[string]string {
+	return map[string]string{"app": "marketplaceconfig", "marketplaceconfig_cr": name}
 }
