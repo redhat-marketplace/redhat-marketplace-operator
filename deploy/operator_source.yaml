@@ -1,0 +1,11 @@
+apiVersion: operators.coreos.com/v1
+kind: OperatorSource
+metadata:
+  name: redhat-marketplace-operators
+  namespace: openshift-marketplace
+spec:
+  displayName: Red Hat Marketplace
+  endpoint: https://quay.io/cnr
+  publisher: Red Hat Marketplace
+  registryNamespace: redhat-marketplace
+  type: appregistry
