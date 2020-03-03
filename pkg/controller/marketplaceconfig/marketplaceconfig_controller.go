@@ -3,8 +3,6 @@ package marketplaceconfig
 import (
 	"context"
 
-	v1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
-
 	pflag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
@@ -28,7 +26,7 @@ import (
 
 const (
 	RELATED_IMAGE_OPERATOR_AGENT = "RELATED_IMAGE_OPERATOR_AGENT"
-	DEFAULT_IMAGE_OPERATOR_AGENT = "marketplace-agent:latest"
+	DEFAULT_IMAGE_OPERATOR_AGENT = "quay.io/namsimar/plato-agent:latest"
 	CSCFinalizer                 = "finalizer.MarketplaceConfigs.operators.coreos.com"
 )
 
@@ -92,14 +90,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// watch operator source
-	err = c.Watch(&source.Kind{Type: &v1.OperatorSource{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
-	})
-	if err != nil {
-		return err
-	}
+	// // watch operator source
+	// err = c.Watch(&source.Kind{Type: &v1.OperatorSource{}}, &handler.EnqueueRequestForOwner{
+	// 	IsController: true,
+	// 	OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
+	// })
+	// if err != nil {
+	// 	return err
+	// }
 
 	return nil
 }

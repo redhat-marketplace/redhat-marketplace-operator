@@ -16,13 +16,13 @@ spec:
       containers:
         - name: marketplace-operator
           # Replace this with the built image name
-          image: marketplace-operator:latest
+          image: quay.io/namsimar/plato-agent:latest
           command:
           - marketplace-operator
           imagePullPolicy: IfNotPresent
           env:
             - name: RELATED_IMAGE_OPERATOR_AGENT
-              value: "marketplace-operator:latest"
+              value: "quay.io/namsimar/plato-agent:latest"
             - name: WATCH_NAMESPACE
               value: "" # watch all namespaces
             - name: POD_NAME
