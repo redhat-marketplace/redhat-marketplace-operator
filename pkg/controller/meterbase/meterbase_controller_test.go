@@ -2,8 +2,8 @@ package meterbase
 
 import (
 	"context"
-	"reflect"
 	"math/rand"
+	"reflect"
 	"strconv"
 	"testing"
 
@@ -174,7 +174,6 @@ func TestMeterBaseController(t *testing.T) {
 		t.Errorf("pod names %v did not match expected %v", nodes, podNames)
 	}
 }
-
 
 func TestMeterBaseControllerFlags(t *testing.T) {
 	flagset := FlagSet()

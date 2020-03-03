@@ -81,6 +81,7 @@ create: ##creates the required crds for this deployment
 	- kubectl create -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml
 	- kubectl create -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml
 	- kubectl create -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml
+	- kubectl create -f deploy/operator_source.yaml
 
 deploys: ##deploys the resources for deployment
 	@echo creating service_account
@@ -96,7 +97,7 @@ apply: ##applies changes to crds
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_metering_cr.yaml
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml
+	- kubectl apply -f deploy/operator_source.yaml
 
 clean: ##delete the contents created in 'make create'
 	@echo deleting resources
@@ -112,6 +113,7 @@ clean: ##delete the contents created in 'make create'
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml
+	- kubectl delete -f deploy/operator_source.yaml
 
 ##@ Tests
 

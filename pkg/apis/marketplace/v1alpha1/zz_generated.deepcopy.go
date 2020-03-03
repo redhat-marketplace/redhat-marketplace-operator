@@ -96,6 +96,14 @@ func (in *MarketplaceConfigStatus) DeepCopyInto(out *MarketplaceConfigStatus) {
 			(*out)[key] = *val.DeepCopy()
 		}
 	}
+	in.CurrentPhase.DeepCopyInto(&out.CurrentPhase)
+	if in.PackageRepositioryVersions != nil {
+		in, out := &in.PackageRepositioryVersions, &out.PackageRepositioryVersions
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 

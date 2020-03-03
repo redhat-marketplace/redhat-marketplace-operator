@@ -3,6 +3,8 @@ package marketplaceconfig
 import (
 	"context"
 
+	v1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
+
 	pflag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
@@ -27,6 +29,7 @@ import (
 const (
 	RELATED_IMAGE_OPERATOR_AGENT = "RELATED_IMAGE_OPERATOR_AGENT"
 	DEFAULT_IMAGE_OPERATOR_AGENT = "marketplace-agent:latest"
+	CSCFinalizer                 = "finalizer.MarketplaceConfigs.operators.coreos.com"
 )
 
 var (
@@ -82,6 +85,15 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// TODO(user): Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Pods and requeue the owner MarketplaceConfig
 	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
+	})
+	if err != nil {
+		return err
+	}
+
+	// watch operator source
+	err = c.Watch(&source.Kind{Type: &v1.OperatorSource{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
 	})
