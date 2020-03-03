@@ -1,0 +1,78 @@
+CERTDIR ?= ./.crc
+CERTNAME ?= registry-crc.crt
+KEYNAME ?= registry-crc.key
+OC_PWD := $(shell oc whoami -t)
+IS_REGISTRY_CREATED := $(shell oc get secret public-route-tls -n openshift-image-registry 1> /dev/null 2> /dev/null; echo $$?)
+
+.DEFAULT_GOAL:=help
+
+##@ Registry
+
+.PHONY: registry-setup
+registry-setup: ## setup the crc registry
+ifeq ($(IS_REGISTRY_CREATED),0)
+	- @echo "registry already setup"
+	- @echo
+	- @echo "run 'make registry-clean registry-setup' to clean and reinstall"
+else
+	- @echo setting up the registry
+	- mkdir -p $(CERTDIR)
+	- @echo
+	- @echo "Creating cert and key in $(CERTDIR) named $(CERTNAME) and $(KEYNAME)"
+	- @echo
+	- CERTDIR=$(CERTDIR) CERTNAME=$(CERTNAME) KEYNAME=$(KEYNAME) ./scripts/genLocalCerts.sh
+	- @echo Creating oc secret public-route-tls
+	- @oc create secret tls public-route-tls \
+		-n openshift-image-registry \
+		--cert=$(CERTDIR)/$(CERTNAME) \
+		--key=$(CERTDIR)/$(KEYNAME)
+	- @echo
+	- @echo Patching openshift image registry with route public-image-registry.apps-crc.testing
+	- @oc patch --type=merge --namespace openshift-image-registry configs.imageregistry.operator.openshift.io/cluster \
+		--patch '{"spec":{"routes":[{"name": "public-routes", "hostname": "public-image-registry.apps-crc.testing", "secretName":"public-route-tls"}]}}'
+	- @echo Registry successfully set up. You can push to public-image-registry.apps-crc.testing now
+endif
+
+.PHONY: registry-clean
+registry-clean: ## clean the registry install assets
+	- @echo removing patch from openshift image registry
+	- @oc patch --type=merge --namespace openshift-image-registry configs.imageregistry.operator.openshift.io/cluster \
+		 --patch '{"spec":{"routes":[]}}'
+	- @echo deleting secret
+	- @oc delete secret public-route-tls -n openshift-image-registry
+	- @echo oc has been cleaned, you can now rerun setup
+
+.PHONY: registry-login
+registry-login: ## login to the registry
+	- @echo logging in to the registry
+	- @echo NOTE: if this command fails with x509 error restart docker-for-mac
+	- @echo
+	- docker login -u core -p $(OC_PWD) public-image-registry.apps-crc.testing
+	- export REGISTRY=public-image-registry.apps-crc.testing
+
+.PHONY: registry-add-cert
+registry-add-cert: ## add cert to your local system
+	- sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain -p ssl -p basic $(CERTDIR)/$(CERTNAME)
+
+##@ General
+
+.PHONY: help
+help: ## Display this help
+	@echo -e "Usage:\n  make \033[36m<target>\033[0m"
+	- @echo Description:
+	- @echo The crc install has a valid docker registry that we can pull and push to.
+	- @echo This allows us to develop locally.
+	- @echo
+	- @echo Prereqs: crc, oc, docker-for-mac, openssl
+	- @echo
+	- @echo What this script does:
+	- @echo 1. Generate a local certificate and installs it into your MacOSX trust store.
+	- @echo 2. Install the certificate as a secret on crc.
+	- @echo 3. Expose the default registry at public-image-registry.apps-crc.testing
+	- @echo
+	- @echo To use the new endpoint, restart docker for mac and run 'make registry-login'
+	- @echo If you see x509 error, double check cert is added to keychain. If it isn\'t
+	- @echo rerun \'make registry-add-cert\' to add it
+	@awk 'BEGIN {FS = ":.*##"}; \
+		/^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } \
+		/^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)

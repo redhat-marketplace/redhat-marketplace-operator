@@ -33,8 +33,8 @@ import (
 const (
 	DEFAULT_PROM_SERVER             = "prom/prometheus:v2.15.2"
 	DEFAULT_CONFIGMAP_RELOAD        = "jimmidyson/configmap-reload:v0.3.0"
-	RELATED_IMAGES_PROM_SERVER      = "RELATED_IMAGES_PROM_SERVER"
-	RELATED_IMAGES_CONFIGMAP_RELOAD = "RELATED_IMAGES_PROM_SERVER"
+	RELATED_IMAGE_PROM_SERVER      = "RELATED_IMAGE_PROM_SERVER"
+	RELATED_IMAGE_CONFIGMAP_RELOAD = "RELATED_IMAGE_CONFIGMAP_RELOAD"
 )
 
 //ConfigmapReload: "jimmidyson/configmap-reload:v0.3.0",
@@ -49,10 +49,10 @@ var (
 func init() {
 	meterbaseFlagSet = pflag.NewFlagSet("meterbase", pflag.ExitOnError)
 	meterbaseFlagSet.String("related-image-prom-server",
-		utils.Getenv(RELATED_IMAGES_PROM_SERVER, DEFAULT_PROM_SERVER),
+		utils.Getenv(RELATED_IMAGE_PROM_SERVER, DEFAULT_PROM_SERVER),
 		"image for prometheus")
 	meterbaseFlagSet.String("related-image-configmap-reload",
-		utils.Getenv(RELATED_IMAGES_CONFIGMAP_RELOAD, DEFAULT_CONFIGMAP_RELOAD),
+		utils.Getenv(RELATED_IMAGE_CONFIGMAP_RELOAD, DEFAULT_CONFIGMAP_RELOAD),
 		"image for prometheus")
 }
 

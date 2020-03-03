@@ -55,6 +55,14 @@ for installs and you'll need to install that operator by hand.
 crc start -c 8 -m 10000
 ```
 
+1. Run these commands once crc is available
+
+``` sh
+make registry
+eval #(make registry-eval)
+```
+
+
 1. podman
 
 ``` sh
