@@ -31,30 +31,11 @@ spec:
         spec:
           description: MarketplaceConfigSpec defines the desired state of MarketplaceConfig
           properties:
-            csDisplayName:
-              description: DisplayName is passed along to the CatalogSource to be
-                used as a pretty name.
-              type: string
-            csPublisher:
-              description: Publisher is passed along to the CatalogSource to be used
-                to define what entity published the artifacts from the OperatorSource.
-              type: string
-            packages:
-              type: string
             size:
               format: int32
               type: integer
-            source:
-              description: The name of the OperatorSource that the packages originate
-                from
-              type: string
-            targetNamespace:
-              type: string
           required:
-          - packages
           - size
-          - source
-          - targetNamespace
           type: object
         status:
           description: MarketplaceConfigStatus defines the observed state of MarketplaceConfig
@@ -97,41 +78,8 @@ spec:
                 - status
                 - type
                 type: object
-              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
-                of cluster Important: Run "operator-sdk generate k8s" to regenerate
-                code after modifying this file Add custom validation using kubebuilder
-                tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html'
+              description: Conditions is a set of Condition instances.
               type: array
-            currentPhase:
-              description: Current phase of the CatalogSourceConfig object.
-              properties:
-                lastTransitionTime:
-                  description: Last time the object has transitioned from one phase
-                    to another
-                  format: date-time
-                  type: string
-                lastUpdateTime:
-                  description: Last time the status of the object was updated
-                  format: date-time
-                  type: string
-                phase:
-                  description: Current phase of the object
-                  properties:
-                    message:
-                      description: A human readable message indicating why the object
-                        is in this phase
-                      type: string
-                    name:
-                      description: Name of the phase
-                      type: string
-                  type: object
-              type: object
-            packageRepositioryVersions:
-              additionalProperties:
-                type: string
-              description: Map of packages (key) and their app registry package version
-                (value)
-              type: object
           required:
           - conditions
           type: object
