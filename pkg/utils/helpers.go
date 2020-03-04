@@ -1,5 +1,8 @@
 package utils
-import corev1 "k8s.io/api/core/v1"
+import (
+	corev1 "k8s.io/api/core/v1"
+	batch "k8s.io/api/batch/v1"
+)
 
 func GetNamespaceNames(ns []corev1.Namespace) []string {
 	var namespaceNames []string
@@ -8,6 +11,15 @@ func GetNamespaceNames(ns []corev1.Namespace) []string {
 	}
 
 	return namespaceNames
+}
+
+func GetJobNames(j []batch.Job) []string {
+	var jobNames []string
+	for _, job := range j {
+		jobNames = append(jobNames, job.Name)
+	}
+
+	return jobNames
 }
 
 func Contains(s []string, e string) bool {

@@ -8,6 +8,7 @@ import (
 	"github.com/imdario/mergo"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	batch "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -54,6 +55,7 @@ func NewPersistentVolumeClaim(values PersistentVolume) (corev1.PersistentVolumeC
 }
 
 // GetPodNames returns the pod names of the array of pods passed in
+// TODO: add this to "helpers" possibly ? 
 func GetPodNames(pods []corev1.Pod) []string {
 	var podNames []string
 	for _, pod := range pods {
@@ -102,6 +104,34 @@ func MakeProbe(path string, port, initialDelaySeconds, timeoutSeconds int32) *co
 		InitialDelaySeconds: initialDelaySeconds,
 		TimeoutSeconds:      timeoutSeconds,
 	}
+}
+
+func MakeRazeeJob()*batch.Job {
+	labels := map[string]string{
+		"razee-job": "install",
+	}
+	return &batch.Job {
+		ObjectMeta: metav1.ObjectMeta {
+				Name:      "razeedeploy-job",
+				Namespace: "marketplace-operator",
+				Labels:   	labels ,
+		},
+		Spec: batch.JobSpec {
+			Template: corev1.PodTemplateSpec {
+				Spec: corev1.PodSpec {
+					ServiceAccountName: "marketplace-operator",// TODO: fill in with our service account here
+					Containers: []corev1.Container {{
+						Image:           "quay.io/razee/razeedeploy-delta:0.3.1",
+						Name:            "marketconfig",
+						Command:         []string{"install"},
+						Args:            []string{},
+					}},
+					RestartPolicy: "Never",
+				},
+			},
+		},
+	}
+
 }
 
 
