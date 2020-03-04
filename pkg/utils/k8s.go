@@ -54,8 +54,7 @@ func NewPersistentVolumeClaim(values PersistentVolume) (corev1.PersistentVolumeC
 	}, nil
 }
 
-// GetPodNames returns the pod names of the array of pods passed in
-// TODO: add this to "helpers" possibly ? 
+// GetPodNames returns the pod names of the array of pods passed in 
 func GetPodNames(pods []corev1.Pod) []string {
 	var podNames []string
 	for _, pod := range pods {
@@ -119,7 +118,7 @@ func MakeRazeeJob()*batch.Job {
 		Spec: batch.JobSpec {
 			Template: corev1.PodTemplateSpec {
 				Spec: corev1.PodSpec {
-					ServiceAccountName: "marketplace-operator",// TODO: fill in with our service account here
+					ServiceAccountName: "marketplace-operator",
 					Containers: []corev1.Container {{
 						Image:           "quay.io/razee/razeedeploy-delta:0.3.1",
 						Name:            "marketconfig",

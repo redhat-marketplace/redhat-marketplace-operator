@@ -108,7 +108,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	// Define a new razeedeploy-job object
 	job := utils.MakeRazeeJob()
 
-	// Check if the Job exists
+	// Check if the Job exists already
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      "razeedeploy-job",
@@ -150,8 +150,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 	reqLogger.Info("Updated Status")
 
-	// Namespace already exists - don't requeue
 	// TODO: change this message here since we are requeueing
+	// Namespace already exists - don't requeue
 	// reqLogger.Info("Skip reconcile: Job already exists", "Namespace.Namespace", foundJob)
 	return reconcile.Result{}, nil
 }
