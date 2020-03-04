@@ -16,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"k8s.io/apimachinery/pkg/types"
-	// "github.com/operator-framework/operator-sdk/pkg/status"
 
 )
 
@@ -125,9 +124,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Error(err,"Failed to create Job on cluster")
 			return reconcile.Result{}, err
 		}
-		// Job created successfully - don't requeue
 		reqLogger.Info("job created successfully")
-		// reqque to grab the "foundJob"
+		// requeue to grab the "foundJob" and continue to update status
 		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
 		reqLogger.Error(err, "Failed to get Job(s) from Cluster")
