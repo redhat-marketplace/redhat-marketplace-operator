@@ -2,9 +2,14 @@ package razeedeployment
 
 import (
 	"context"
+	"fmt"
 	batch "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
+	// "github.ibm.com/symposium/marketplace-operator/pkg/utils"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,8 +24,25 @@ import (
 
 )
 
+const (
+	DEFAULT_RAZEE_JOB_IMAGE            = "quay.io/razee/razeedeploy-delta:0.3.1"
+	DEFAULT_RAZEEDASH_URL              = "http://169.45.231.109:8081/api/v2"
+)
 
-var log = logf.Log.WithName("controller_razeedeployment")
+var (
+	log = logf.Log.WithName("controller_razeedeployment")
+	razeeFlagSet *pflag.FlagSet
+)
+
+func init() {
+	razeeFlagSet = pflag.NewFlagSet("razee", pflag.ExitOnError)
+	razeeFlagSet.String("razee-job-image",DEFAULT_RAZEE_JOB_IMAGE,"image for the razee job")
+	razeeFlagSet.String("razeedash-url",DEFAULT_RAZEEDASH_URL,"url that watch keeper posts data too")
+}
+
+func FlagSet() *pflag.FlagSet {
+	return razeeFlagSet
+}
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -75,6 +97,11 @@ type ReconcileRazeeDeployment struct {
 	scheme *runtime.Scheme
 }
 
+type RazeeOpts struct {
+	RazeeDashUrl string
+	RazeeJobImage string
+}
+
 // Reconcile reads that state of the cluster for a RazeeDeployment object and makes changes based on the state read
 // and what is in the RazeeDeployment.Spec
 // TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
@@ -106,7 +133,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 	
 	// Define a new razeedeploy-job object
-	job := utils.MakeRazeeJob()
+	razeeOpts := &RazeeOpts{
+		RazeeDashUrl: viper.GetString("razeedash-url"),
+		RazeeJobImage: viper.GetString("razee-job-image"),
+	}
+
+	job := r.MakeRazeeJob(razeeOpts)
 
 	// Check if the Job exists already
 	req := reconcile.Request{
@@ -117,6 +149,17 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 	foundJob := &batch.Job{}
 	err = r.client.Get(context.TODO(), req.NamespacedName, foundJob)
+
+	// if the job is found and has a status of succeeded, then delete the job
+	fmt.Println("PREPARING TO DELETE JOB")
+	if foundJob.Status.Succeeded == 1{
+		fmt.Println("DELETING JOB")
+		err = r.client.Delete(context.TODO(), foundJob)
+		// exit the loop
+		return reconcile.Result{}, nil
+	}
+
+	// if the job doesn't exist create it
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating razzeedeploy-job")
 		err = r.client.Create(context.TODO(), job)
@@ -154,6 +197,32 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	// Namespace already exists - don't requeue
 	// reqLogger.Info("Skip reconcile: Job already exists", "Namespace.Namespace", foundJob)
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts)*batch.Job {
+	labels := map[string]string{
+		"razee-job": "install",
+	}
+	return &batch.Job {
+		ObjectMeta: metav1.ObjectMeta {
+				Name:      "razeedeploy-job",
+				Namespace: "marketplace-operator",
+				Labels:   	labels ,
+		},
+		Spec: batch.JobSpec {
+			Template: corev1.PodTemplateSpec {
+				Spec: corev1.PodSpec {
+					ServiceAccountName: "marketplace-operator",
+					Containers: []corev1.Container {{
+						Name:            "razeedeploy-job",
+						Image:           opt.RazeeJobImage,
+						Command:         []string{"node", "src/install", "--namespace=razee"},
+					}},
+					RestartPolicy: "Never",
+				},
+			},
+		},
+	}
 }
 
 
