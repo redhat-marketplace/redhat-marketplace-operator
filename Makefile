@@ -2,13 +2,14 @@
 SHELL:=/bin/bash
 NAMESPACE=marketplace-operator
 OPERATOR_IMAGE=marketplace-operator:latest
+OPERATOR_SOURCE=redhat-marketplace-operators
 
 ##@ Application
 
 install: ## Install all resources (CR/CRD's, RBAC and Operator)
 	@echo ....... Creating namespace .......
 	- kubectl create namespace ${NAMESPACE}
-	@echo ....... Applying CRDs .......
+	@echo ....... Creating CRDs .......
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml -n ${NAMESPACE}
@@ -99,10 +100,11 @@ apply: ##applies changes to crds
 
 clean: ##delete the contents created in 'make create'
 	@echo deleting resources
+	- kubectl delete opsrc ${OPERATOR_SOURCE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_metering_cr.yaml
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_meterbase_cr.yaml
 	- kubectl delete -f deploy/operator.yaml
 	- kubectl delete -f deploy/role_binding.yaml
 	- kubectl delete -f deploy/role.yaml
@@ -111,7 +113,6 @@ clean: ##delete the contents created in 'make create'
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml
-	- kubectl delete -f deploy/operator_source.yaml
 
 ##@ Tests
 
