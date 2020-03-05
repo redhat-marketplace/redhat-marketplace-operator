@@ -9,7 +9,6 @@ require (
 	github.com/go-openapi/spec v0.19.6 // indirect
 	github.com/go-openapi/swag v0.19.7 // indirect
 	github.com/golang/protobuf v1.3.4 // indirect
-	github.com/google/gofuzz v1.1.0 // indirect
 	github.com/googleapis/gnostic v0.4.1 // indirect
 	github.com/gotidy/ptr v1.0.1
 	github.com/imdario/mergo v0.3.8
@@ -18,7 +17,9 @@ require (
 	github.com/mailru/easyjson v0.7.1 // indirect
 	github.com/mitranim/gow v0.0.0-20181105081807-8128c81042bd // indirect
 	github.com/moby/moby v1.13.1 // indirect
+	github.com/openshift/library-go v0.0.0-20200303185131-81598fff9efa // indirect
 	github.com/operator-framework/api v0.1.0
+	github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2 // indirect
 	github.com/operator-framework/operator-marketplace v0.0.0-20200205023245-5cf86951fc38
 	github.com/operator-framework/operator-sdk v0.15.1-0.20200211154447-0eac8a1169df
 	github.com/pkg/errors v0.9.1 // indirect

@@ -8,7 +8,7 @@ OPERATOR_IMAGE=marketplace-operator:latest
 install: ## Install all resources (CR/CRD's, RBAC and Operator)
 	@echo ....... Creating namespace .......
 	- kubectl create namespace ${NAMESPACE}
-	@echo ....... Applying CRDs .......
+	@echo ....... Creating CRDs .......
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml -n ${NAMESPACE}
@@ -111,7 +111,6 @@ clean: ##delete the contents created in 'make create'
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml
-	- kubectl delete -f deploy/operator_source.yaml
 
 ##@ Tests
 

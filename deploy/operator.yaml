@@ -15,12 +15,13 @@ spec:
       serviceAccountName: marketplace-operator
       containers:
         - name: marketplace-operator
-          # Replace this with the built image name
+          # Replace this with the built operator-image name
           image: quay.io/namsimar/plato-operator:latest
           command:
           - marketplace-operator
           imagePullPolicy: IfNotPresent
           env:
+            # Replace this with the built agent-image name
             - name: RELATED_IMAGE_OPERATOR_AGENT
               value: "quay.io/namsimar/plato-agent:latest"
             - name: WATCH_NAMESPACE
