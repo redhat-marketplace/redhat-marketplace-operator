@@ -146,6 +146,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			Namespace: "marketplace-operator",
 		},
 	}
+
 	foundJob := &batch.Job{}
 	err = r.client.Get(context.TODO(), req.NamespacedName, foundJob)
 
@@ -157,7 +158,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			// TODO: requeue here ??
 			return reconcile.Result{}, err
 		}
-		reqLogger.Info("JOB DELETED")
+		reqLogger.Info("Razeedeploy-job deleted")
 		// exit the loop after the job has been deleted
 		return reconcile.Result{}, nil
 	}
@@ -172,7 +173,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 		reqLogger.Info("job created successfully")
 		// requeue to grab the "foundJob" and continue to update status
-		return reconcile.Result{Requeue: true}, nil
+		// return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{}, nil
 	} else if err != nil {
 		reqLogger.Error(err, "Failed to get Job(s) from Cluster")
 		return reconcile.Result{}, err
