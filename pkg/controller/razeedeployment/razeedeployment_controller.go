@@ -150,7 +150,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	foundJob := &batch.Job{}
 	err = r.client.Get(context.TODO(), req.NamespacedName, foundJob)
 
-	// if the job is found and has a status of succeeded, then delete the job
+	// if the job has a status of succeeded, then delete the job
 	if foundJob.Status.Succeeded == 1{
 		err = r.client.Delete(context.TODO(), foundJob)
 		if err != nil {
@@ -173,8 +173,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 		reqLogger.Info("job created successfully")
 		// requeue to grab the "foundJob" and continue to update status
-		// return reconcile.Result{Requeue: true}, nil
-		return reconcile.Result{}, nil
+		return reconcile.Result{Requeue: true}, nil
+		// return reconcile.Result{}, nil
 	} else if err != nil {
 		reqLogger.Error(err, "Failed to get Job(s) from Cluster")
 		return reconcile.Result{}, err
@@ -198,9 +198,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 	reqLogger.Info("Updated Status")
 
-	// TODO: change this message here since we are requeueing
-	// Namespace already exists - don't requeue
-	// reqLogger.Info("Skip reconcile: Job already exists", "Namespace.Namespace", foundJob)
+
+	reqLogger.Info("End of reconcile")
 	return reconcile.Result{}, nil
 }
 
