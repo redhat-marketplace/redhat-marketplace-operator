@@ -6,10 +6,15 @@ OPERATOR_IMAGE_TAG ?= latest
 AGENT_IMAGE_NAME ?= marketplace-agent
 AGENT_IMAGE_TAG ?= latest
 
+SERVICE_ACCOUNT := marketplace-operator
+SECRETS_NAME := my-docker-secrets
+
 OPERATOR_IMAGE := $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
 AGENT_IMAGE := $(IMAGE_REGISTRY)/$(AGENT_IMAGE_NAME):$(AGENT_IMAGE_TAG)
 
-.DEFAULT_GOAL := build
+include scripts/RegistryMakefile
+
+.DEFAULT_GOAL := help
 
 ##@ Application
 
@@ -32,6 +37,7 @@ install: ## Install all resources (CR/CRD's, RBAC and Operator)
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_meterbase_cr.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_metering_cr.yaml -n ${NAMESPACE}
+	- @oc secrets link ${SERVICE_ACCOUNT} $(SECRETS_NAME) --for=pull
 
 uninstall: ## Uninstall all that all performed in the $ make install
 	@echo ....... Uninstalling .......
@@ -65,7 +71,6 @@ build: ## Build the operator executable
 push: push ## Push the operator image
 	docker push $(OPERATOR_IMAGE)
 
-
 ##@ Development
 
 code-vet: ## Run go vet for this project. More info: https://golang.org/cmd/vet/
@@ -77,7 +82,7 @@ code-fmt: ## Run go fmt for this project
 	go fmt $$(go list ./... )
 
 code-templates: ## Gen templates
-	@RELATED_IMAGE_MARKETPLACE_OPERATOR=$(OPERATOR_IMAGE) RELATED_IMAGE_MARKETPLACE_AGENT=$(AGENT_IMAGE) scripts/genFiles.sh
+	@RELATED_IMAGE_MARKETPLACE_OPERATOR=$(OPERATOR_IMAGE) RELATED_IMAGE_MARKETPLACE_AGENT=$(AGENT_IMAGE) scripts/gen_files.sh
 
 code-dev: ## Run the default dev commands which are the go fmt and vet then execute the $ make code-gen
 	@echo Running the common required commands for developments purposes
@@ -115,26 +120,7 @@ test-e2e: ## Run integration e2e tests with different options.
 	- kubectl create namespace ${NAMESPACE} || true
 	- operator-sdk test local ./test/e2e --namespace=${NAMESPACE} --go-test-flags="-tags e2e"
 
-##@ Registry
-
-.PHONY: registry-login
-registry-login: ## Docker login to the registry
-	- @make -f scripts/RegistryMakefile registry-login
-
-.PHONY: registry-setup
-registry-setup: ## Sets up the registry
-	- @make -f scripts/RegistryMakefile registry-setup
-
-.PHONY: registry-clean
-registry-clean: ## Removes the configuration of tls for clean, only use if you need to reinstall
-	- @make -f scripts/RegistryMakefile registry-clean
-
-.PHONY: registry-add-cert
-registry-add-cert: ## add cert to your local system
-	- @make -f scripts/RegistryMakefile registry-add-cert
-
-
-##@ General
+##@ Help
 
 .PHONY: help
 help: ## Display this help
@@ -143,6 +129,3 @@ help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"}; \
 		/^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } \
 		/^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
-
-registry-help: ## Help for registry details
-	- @make -f scripts/RegistryMakefile help

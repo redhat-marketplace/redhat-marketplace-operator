@@ -34,43 +34,70 @@ This repo is a temporary home. It will be open-sourced when repo is available.
 1. Install [golang](https://golang.org/doc/install)
 1. Install [operator-sdk](https://github.com/operator-framework/operator-sdk)
 1. Install [CRC](https://developers.redhat.com/products/codeready-containers)
-1. Install [podman](https://podman.io/)
-
-``` sh
-brew cask install podman 
-```
+1. Install [docker-for-mac](https://docs.docker.com/docker-for-mac/install)
 
 *Note:* You can use minikube, but we'll be using the coreos prometheus operator
 for installs and you'll need to install that operator by hand.
 
 ### Setup
 
-1. crc
+1. Create a new crc instance.
 
 ```sh
 # it's advised to create a new crc install with more 
 # cpu and more memory. This gives crc 8 cpu and 10G of ram.
-# Small crc clusters are hard to work with and if yoru computer
+# Small crc clusters are hard to work with and if your computer
 # can handle it run with these settings
 crc start -c 8 -m 10000
 ```
 
-1. Run these commands once crc is available
+1. Setup a private registry on Openshift CRC.
 
 ``` sh
-make registry
-eval #(make registry-eval)
+# generate key - stores it in the a .crc folder in the work directory
+make registry-generate-key
+# add the ca to the crc server
+make registry-add-ca
+# add the cert to your local machine
+make registry-add-cert
+# sets up the remote route for the registry
+make registry-setup
+
+# now - restart your docker daemon
+
+# login to registry aka docker login
+make registry-login 
+
+# add the docker login to the crc server
+make registry-add-docker-auth 
 ```
 
+You can now tag and push to public-image-registry.apps-crc.testing/symposium
+registry. The default of the operator build and agent build repos.
 
-1. podman
+3. Start developing!
+
+### Troubleshooting
+
+You may find yourself in a state where your image cannot be pulled. Verify these
+things:
 
 ``` sh
-# podman let's us build remotely to our crc so we don't have to publish
-# containers to a registry.
+# Re-run add-docker-auth. This will re-add auth
+# to your service account
+make registry-add-docker-auth
 ```
 
+If add-docker-auth doesn't fix it. Try to run:
 
+```sh
+export SERVICE_ACCOUNT=marketplace-operator
+oc secrets link $SERVICE_ACCOUNT my-docker-secrets --for=pull
+```
+
+This will give your service account access to the registry.
+
+*Pro tip:* deleting and recreeating the pod is the easiest method of requeing it.
 
 ## Building
 
