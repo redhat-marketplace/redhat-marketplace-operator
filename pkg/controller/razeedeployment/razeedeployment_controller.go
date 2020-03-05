@@ -7,7 +7,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	// "github.ibm.com/symposium/marketplace-operator/pkg/utils"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -151,11 +150,15 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	err = r.client.Get(context.TODO(), req.NamespacedName, foundJob)
 
 	// if the job is found and has a status of succeeded, then delete the job
-	fmt.Println("PREPARING TO DELETE JOB")
 	if foundJob.Status.Succeeded == 1{
-		fmt.Println("DELETING JOB")
 		err = r.client.Delete(context.TODO(), foundJob)
-		// exit the loop
+		if err != nil {
+			reqLogger.Error(err,"Failed to delete job")
+			// TODO: requeue here ??
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("JOB DELETED")
+		// exit the loop after the job has been deleted
 		return reconcile.Result{}, nil
 	}
 
@@ -217,6 +220,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts)*batch.Job {
 						Name:            "razeedeploy-job",
 						Image:           opt.RazeeJobImage,
 						Command:         []string{"node", "src/install", "--namespace=razee"},
+						Args:            []string{fmt.Sprintf("--razeedash-url=%v", opt.RazeeDashUrl)},
 					}},
 					RestartPolicy: "Never",
 				},
