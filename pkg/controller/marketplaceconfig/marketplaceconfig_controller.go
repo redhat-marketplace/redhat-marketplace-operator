@@ -27,7 +27,7 @@ import (
 
 const (
 	RELATED_IMAGE_OPERATOR_AGENT = "RELATED_IMAGE_OPERATOR_AGENT"
-	DEFAULT_IMAGE_OPERATOR_AGENT = "quay.io/namsimar/plato-agent:latest"
+	DEFAULT_IMAGE_OPERATOR_AGENT = "marketplace-agent:latest"
 	CSCFinalizer                 = "finalizer.MarketplaceConfigs.operators.coreos.com"
 )
 
