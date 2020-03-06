@@ -3,6 +3,7 @@ package razeedeployment
 import (
 	"context"
 	"fmt"
+    "time"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -150,19 +151,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	foundJob := &batch.Job{}
 	err = r.client.Get(context.TODO(), req.NamespacedName, foundJob)
 
-	// if the job has a status of succeeded, then delete the job
-	if foundJob.Status.Succeeded == 1{
-		err = r.client.Delete(context.TODO(), foundJob)
-		if err != nil {
-			reqLogger.Error(err,"Failed to delete job")
-			// TODO: requeue here ??
-			return reconcile.Result{}, err
-		}
-		reqLogger.Info("Razeedeploy-job deleted")
-		// exit the loop after the job has been deleted
-		return reconcile.Result{}, nil
-	}
-
 	// if the job doesn't exist create it
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating razzeedeploy-job")
@@ -173,7 +161,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 		reqLogger.Info("job created successfully")
 		// requeue to grab the "foundJob" and continue to update status
-		return reconcile.Result{Requeue: true}, nil
+		// wait 30 seconds so the job has time to complete
+		// not entirely necessary, but the struct on Status.Conditions needs the Conditions in the job to be populated.
+		fmt.Println("WAITING")
+		return reconcile.Result{RequeueAfter: time.Second*30}, nil
+		// return reconcile.Result{Requeue: true}, nil
 		// return reconcile.Result{}, nil
 	} else if err != nil {
 		reqLogger.Error(err, "Failed to get Job(s) from Cluster")
@@ -198,20 +190,31 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 	reqLogger.Info("Updated Status")
 
+	// if the job has a status of succeeded, then delete the job
+	fmt.Println("DELETING")
+	if foundJob.Status.Succeeded == 1{
+		err = r.client.Delete(context.TODO(), foundJob)
+		if err != nil {
+			reqLogger.Error(err,"Failed to delete job")
+			// TODO: requeue here ??
+			// return reconcile.Result{}, err
+			// return reconcile.Result{RequeueAfter: time.Second*30}, nil
+		}
+		reqLogger.Info("Razeedeploy-job deleted")
+		// exit the loop after the job has been deleted
+		return reconcile.Result{}, nil
+	}
 
 	reqLogger.Info("End of reconcile")
 	return reconcile.Result{}, nil
 }
 
 func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts)*batch.Job {
-	labels := map[string]string{
-		"razee-job": "install",
-	}
+	
 	return &batch.Job {
 		ObjectMeta: metav1.ObjectMeta {
 				Name:      "razeedeploy-job",
 				Namespace: "marketplace-operator",
-				Labels:   	labels ,
 		},
 		Spec: batch.JobSpec {
 			Template: corev1.PodTemplateSpec {
