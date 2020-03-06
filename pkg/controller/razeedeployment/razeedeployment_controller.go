@@ -163,7 +163,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		// requeue to grab the "foundJob" and continue to update status
 		// wait 30 seconds so the job has time to complete
 		// not entirely necessary, but the struct on Status.Conditions needs the Conditions in the job to be populated.
-		fmt.Println("WAITING")
 		return reconcile.Result{RequeueAfter: time.Second*30}, nil
 		// return reconcile.Result{Requeue: true}, nil
 		// return reconcile.Result{}, nil
@@ -191,14 +190,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	reqLogger.Info("Updated Status")
 
 	// if the job has a status of succeeded, then delete the job
-	fmt.Println("DELETING")
 	if foundJob.Status.Succeeded == 1{
 		err = r.client.Delete(context.TODO(), foundJob)
 		if err != nil {
 			reqLogger.Error(err,"Failed to delete job")
-			// TODO: requeue here ??
-			// return reconcile.Result{}, err
-			// return reconcile.Result{RequeueAfter: time.Second*30}, nil
+			return reconcile.Result{RequeueAfter: time.Second*30}, nil
 		}
 		reqLogger.Info("Razeedeploy-job deleted")
 		// exit the loop after the job has been deleted
