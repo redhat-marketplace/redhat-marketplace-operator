@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
 
+	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,6 +47,12 @@ func TestMarketplaceConfigController(t *testing.T) {
 
 	// Register operator types with the runtime scheme.
 	s := scheme.Scheme
+
+	// Third party scheme (operator-source) have to add manually.
+	if err := opsrcv1.AddToScheme(s); err != nil {
+		t.Fatalf("Unable to add OperatorSource Scheme: (%v)", err)
+	}
+
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, marketplaceconfig)
 	// Create a fake client to mock API calls.
 	cl := fake.NewFakeClient(objs...)
@@ -64,6 +71,7 @@ func TestMarketplaceConfigController(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reconcile: (%v)", err)
 	}
+
 	// Check the result of reconciliation to make sure it has the desired state.
 	if !res.Requeue {
 		t.Error("reconcile did not requeue request as expected")
@@ -88,7 +96,7 @@ func TestMarketplaceConfigController(t *testing.T) {
 		t.Fatalf("reconcile: (%v)", err)
 	}
 	if res != (reconcile.Result{}) {
-		t.Error("reconcile did not return an empty Result")
+		t.Error("reconcile did not return an empty Result ", reconcile.Result{})
 	}
 
 	// Get the updated MarketplaceConfig object.
