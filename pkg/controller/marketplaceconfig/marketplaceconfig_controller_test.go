@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 )
 
 func TestMarketplaceConfigController(t *testing.T) {
@@ -28,6 +29,8 @@ func TestMarketplaceConfigController(t *testing.T) {
 		namespace       = "marketplace-operator"
 		replicas  int32 = 1
 	)
+
+	operatorSource :=  &opsrcv1.OperatorSource{}
 
 	// A MarketplaceConfig resource with metadata and spec.
 	marketplaceconfig := &marketplacev1alpha1.MarketplaceConfig{
@@ -47,6 +50,7 @@ func TestMarketplaceConfigController(t *testing.T) {
 	// Register operator types with the runtime scheme.
 	s := scheme.Scheme
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, marketplaceconfig)
+	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, operatorSource)
 	// Create a fake client to mock API calls.
 	cl := fake.NewFakeClient(objs...)
 	// Create a ReconcileMeterBase object with the scheme and fake client.
