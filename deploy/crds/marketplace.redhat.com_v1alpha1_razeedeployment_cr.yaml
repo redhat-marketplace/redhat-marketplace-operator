@@ -4,4 +4,4 @@ metadata:
   name: example-razeedeployment
 spec:
   # Add fields here
-  size: 3
+  enabled: true

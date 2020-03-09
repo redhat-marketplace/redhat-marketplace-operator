@@ -2,24 +2,47 @@ package razeedeployment
 
 import (
 	"context"
-
-	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"fmt"
+    "time"
+	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"k8s.io/apimachinery/pkg/api/errors"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"k8s.io/apimachinery/pkg/types"
+
 )
 
-var log = logf.Log.WithName("controller_razeedeployment")
+const (
+	DEFAULT_RAZEE_JOB_IMAGE            = "quay.io/razee/razeedeploy-delta:0.3.1"
+	DEFAULT_RAZEEDASH_URL              = "http://169.45.231.109:8081/api/v2"
+)
+
+var (
+	log = logf.Log.WithName("controller_razeedeployment")
+	razeeFlagSet *pflag.FlagSet
+)
+
+func init() {
+	razeeFlagSet = pflag.NewFlagSet("razee", pflag.ExitOnError)
+	razeeFlagSet.String("razee-job-image",DEFAULT_RAZEE_JOB_IMAGE,"image for the razee job")
+	razeeFlagSet.String("razeedash-url",DEFAULT_RAZEEDASH_URL,"url that watch keeper posts data too")
+}
+
+func FlagSet() *pflag.FlagSet {
+	return razeeFlagSet
+}
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -51,9 +74,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner RazeeDeployment
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+	// watch the Job type
+	err = c.Watch(&source.Kind{Type: &batch.Job{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
 	})
@@ -73,6 +95,11 @@ type ReconcileRazeeDeployment struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
+}
+
+type RazeeOpts struct {
+	RazeeDashUrl string
+	RazeeJobImage string
 }
 
 // Reconcile reads that state of the cluster for a RazeeDeployment object and makes changes based on the state read
@@ -100,54 +127,107 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
-
-	// Set RazeeDeployment instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-		return reconcile.Result{}, err
+	if !instance.Spec.Enabled {
+		reqLogger.Info("Razee not enabled")
+		return reconcile.Result{}, nil
+	}
+	
+	// Define a new razeedeploy-job object
+	razeeOpts := &RazeeOpts{
+		RazeeDashUrl: viper.GetString("razeedash-url"),
+		RazeeJobImage: viper.GetString("razee-job-image"),
 	}
 
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
+	job := r.MakeRazeeJob(razeeOpts)
+
+	// Check if the Job exists already
+	req := reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      "razeedeploy-job",
+			Namespace: "marketplace-operator",
+		},
+	}
+
+	foundJob := &batch.Job{}
+	err = r.client.Get(context.TODO(), req.NamespacedName, foundJob)
+
+	// if the job doesn't exist create it
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
+		reqLogger.Info("Creating razzeedeploy-job")
+		err = r.client.Create(context.TODO(), job)
 		if err != nil {
+			reqLogger.Error(err,"Failed to create Job on cluster")
 			return reconcile.Result{}, err
 		}
-
-		// Pod created successfully - don't requeue
-		return reconcile.Result{}, nil
+		reqLogger.Info("job created successfully")
+		// requeue to grab the "foundJob" and continue to update status
+		// wait 30 seconds so the job has time to complete
+		// not entirely necessary, but the struct on Status.Conditions needs the Conditions in the job to be populated.
+		return reconcile.Result{RequeueAfter: time.Second*30}, nil
+		// return reconcile.Result{Requeue: true}, nil
+		// return reconcile.Result{}, nil
 	} else if err != nil {
+		reqLogger.Error(err, "Failed to get Job(s) from Cluster")
 		return reconcile.Result{}, err
 	}
 
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	if err := controllerutil.SetControllerReference(instance, foundJob, r.scheme); err != nil {
+		reqLogger.Error(err, "Failed to set controller reference")
+		return reconcile.Result{}, err
+	}
+
+	// Update status and conditions
+	instance.Status.JobState = foundJob.Status
+	for _, jobCondition := range foundJob.Status.Conditions  {
+		instance.Status.Conditions = jobCondition
+	}
+	
+	err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update JobState.")
+			return reconcile.Result{}, err
+		}
+	reqLogger.Info("Updated Status")
+
+	// if the job has a status of succeeded, then delete the job
+	if foundJob.Status.Succeeded == 1{
+		err = r.client.Delete(context.TODO(), foundJob)
+		if err != nil {
+			reqLogger.Error(err,"Failed to delete job")
+			return reconcile.Result{RequeueAfter: time.Second*30}, nil
+		}
+		reqLogger.Info("Razeedeploy-job deleted")
+		// exit the loop after the job has been deleted
+		return reconcile.Result{}, nil
+	}
+
+	reqLogger.Info("End of reconcile")
 	return reconcile.Result{}, nil
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *marketplacev1alpha1.RazeeDeployment) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
-	}
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
+func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts)*batch.Job {
+	
+	return &batch.Job {
+		ObjectMeta: metav1.ObjectMeta {
+				Name:      "razeedeploy-job",
+				Namespace: "marketplace-operator",
 		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
+		Spec: batch.JobSpec {
+			Template: corev1.PodTemplateSpec {
+				Spec: corev1.PodSpec {
+					ServiceAccountName: "marketplace-operator",
+					Containers: []corev1.Container {{
+						Name:            "razeedeploy-job",
+						Image:           opt.RazeeJobImage,
+						Command:         []string{"node", "src/install", "--namespace=razee"},
+						Args:            []string{fmt.Sprintf("--razeedash-url=%v", opt.RazeeDashUrl)},
+					}},
+					RestartPolicy: "Never",
 				},
 			},
 		},
 	}
 }
+
+
+
