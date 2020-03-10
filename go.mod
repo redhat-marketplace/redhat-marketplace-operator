@@ -3,41 +3,24 @@ module github.ibm.com/symposium/marketplace-operator
 go 1.13
 
 require (
-	github.com/cenk/backoff v2.2.1+incompatible // indirect
-	github.com/emicklei/go-restful v2.11.2+incompatible // indirect
-	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a // indirect
-	github.com/go-openapi/spec v0.19.6 // indirect
-	github.com/go-openapi/swag v0.19.7 // indirect
-	github.com/golang/protobuf v1.3.4 // indirect
-	github.com/googleapis/gnostic v0.4.1 // indirect
 	github.com/gotidy/ptr v1.0.1
 	github.com/imdario/mergo v0.3.8
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a // indirect
-	github.com/json-iterator/go v1.1.9 // indirect
-	github.com/mailru/easyjson v0.7.1 // indirect
 	github.com/mitranim/gow v0.0.0-20181105081807-8128c81042bd // indirect
 	github.com/moby/moby v1.13.1 // indirect
-	github.com/openshift/library-go v0.0.0-20200303185131-81598fff9efa // indirect
-	github.com/operator-framework/api v0.1.0
-	github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2 // indirect
-	github.com/operator-framework/operator-marketplace v0.0.0-20200205023245-5cf86951fc38
+	github.com/noqcks/gucci v0.0.4 // indirect
+	github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b
 	github.com/operator-framework/operator-sdk v0.15.1-0.20200211154447-0eac8a1169df
-	github.com/pkg/errors v0.9.1 // indirect
-	github.com/rubyist/circuitbreaker v2.2.1+incompatible // indirect
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.2
-	golang.org/x/crypto v0.0.0-20200302210943-78000ba7a073 // indirect
-	golang.org/x/net v0.0.0-20200301022130-244492dfa37a // indirect
-	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
-	golang.org/x/sys v0.0.0-20200302150141-5c8b2ff67527 // indirect
-	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543 // indirect
-	k8s.io/api v0.17.3
-	k8s.io/apimachinery v0.17.3
+	github.com/urfave/cli v1.22.2 // indirect
+	golang.org/x/sys v0.0.0-20200212091648-12a6c2dcc1e4 // indirect
+	k8s.io/api v0.0.0
+	k8s.io/apimachinery v0.0.0
 	k8s.io/client-go v12.0.0+incompatible
-	k8s.io/kube-openapi v0.0.0-20200204173128-addea2498afe
-	k8s.io/utils v0.0.0-20200229041039-0a110f9eb7ab // indirect
-	sigs.k8s.io/controller-runtime v0.5.0
-	sigs.k8s.io/yaml v1.2.0 // indirect
+	k8s.io/kube-openapi v0.0.0-20191107075043-30be4d16710a
+	k8s.io/kubernetes v1.17.3
+	sigs.k8s.io/controller-runtime v0.4.0
 )
 
 // Pinned to kubernetes-1.16.2

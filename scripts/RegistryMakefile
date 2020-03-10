@@ -1,0 +1,100 @@
+# Arguments
+CERTDIR ?= ./.crc
+DOMAIN ?= *.apps-crc.testing
+NAME ?= registry
+
+# Variables
+CA_KEY := $(NAME)-rootCA.key
+CA_CERT := $(NAME)-rootCA.crt
+CERTNAME := $(NAME)-cert.crt
+CSR_KEY := $(DOMAIN).key
+CSR_CERT := $(DOMAIN).crt
+
+# Computed variables
+OC_PWD := $(shell oc whoami -t)
+
+.DEFAULT_GOAL:=help
+
+##@ Registry
+
+.PHONY: registry-setup
+registry-setup: ## setup the crc registry
+	@echo Creating oc secret public-route-tls
+	@oc create secret tls public-route-tls \
+		-n openshift-image-registry \
+		--cert=$(CERTDIR)/$(CERTNAME) \
+		--key=$(CERTDIR)/$(CSR_KEY)
+	@echo
+	@echo Patching openshift image registry with route public-image-registry.apps-crc.testing
+	@oc patch --type=merge --namespace openshift-image-registry configs.imageregistry.operator.openshift.io/cluster \
+		--patch '{"spec":{"routes":[{"name": "public-routes", "hostname": "public-image-registry.apps-crc.testing", "secretName":"public-route-tls"}]}}'
+	@echo Registry successfully set up. You can push to public-image-registry.apps-crc.testing now
+
+.PHONY: registry-generate-key
+registry-generate-key: ## generate a new key using a script
+	@mkdir -p $(CERTDIR)
+	@echo
+	@echo "Creating cert and key in $(CERTDIR) named $(CERTNAME) and $(KEYNAME)"
+	@echo
+	NAME=$(NAME) DOMAIN=$(DOMAIN) CERTDIR=$(CERTDIR) ./scripts/gen_local_certs.sh
+
+.PHONY: registry-add-ca
+registry-add-ca: ## adds the generated ca to the crc vm
+	@mkdir -p $(CERTDIR)
+	@echo
+	@echo "Adding CA to crc"
+	@echo
+	@CERTDIR=$(CERTDIR) CA_CERT=$(CA_CERT) ./scripts/add_ca_to_crc.sh
+
+.PHONY: registry-add-cert
+registry-add-cert: ## add cert to your local system
+	- sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain $(CERTDIR)/$(CA_CERT)
+
+.PHONY: registry-add-docker-auth
+registry-add-docker-auth: ## will setup crc with docker keys
+	@echo "adding docker secrets"
+	- @oc delete secret my-docker-secrets
+	- @oc create namespace marketplace-operator #create marketplace
+	- @oc create namespace symposium # create symposum for our buckets
+	- @oc create secret docker-registry my-docker-secrets \
+		--docker-server=public-image-registry.apps-crc.testing \
+		--docker-username=core \
+		--docker-password=$(OC_PWD)
+	- @oc secrets link marketplace-operator my-docker-secrets --for=pull
+	- @oc secrets link default my-docker-secrets --for=pull
+
+.PHONY: registry-clean
+registry-clean: ## clean the registry install assets
+	- @echo removing patch from openshift image registry
+	- @oc patch --type=merge --namespace openshift-image-registry configs.imageregistry.operator.openshift.io/cluster \
+		 --patch '{"spec":{"routes":[]}}'
+	- @echo deleting secret
+	- @oc delete secret public-route-tls -n openshift-image-registry
+	- @oc delete secret my-docker-secrets
+	- @echo oc has been cleaned, you can now rerun setup
+
+.PHONY: registry-login
+registry-login: ## login to the registry
+	- @echo logging in to the registry
+	- @echo NOTE: if this command fails with x509 error restart docker-for-mac
+	- @echo
+	@ docker login -u core -p $(OC_PWD) public-image-registry.apps-crc.testing
+	@ export REGISTRY=public-image-registry.apps-crc.testing
+
+.PHONY: registry-help
+registry-help: ## Display this help
+	@echo -e "Usage:\n  make \033[36m<target>\033[0m"
+	- @echo Description:
+	- @echo The crc install has a valid docker registry that we can pull and push to.
+	- @echo This allows us to develop locally.
+	- @echo
+	- @echo Prereqs: crc, oc, docker-for-mac, openssl
+	- @echo
+	- @echo What this script does:
+	- @echo 1. Generate a local certificate and installs it into your MacOSX trust store.
+	- @echo 2. Install the certificate as a secret on crc.
+	- @echo 3. Expose the default registry at public-image-registry.apps-crc.testing
+	- @echo
+	- @echo To use the new endpoint, restart docker for mac and run 'make login'
+	- @echo If you see x509 error, double check cert is added to keychain. If it isn\'t
+	- @echo rerun \'make add-cert\' to add it

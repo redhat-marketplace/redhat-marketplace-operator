@@ -52,7 +52,7 @@ func NewPersistentVolumeClaim(values PersistentVolume) (corev1.PersistentVolumeC
 	}, nil
 }
 
-// GetPodNames returns the pod names of the array of pods passed in 
+// GetPodNames returns the pod names of the array of pods passed in
 func GetPodNames(pods []corev1.Pod) []string {
 	var podNames []string
 	for _, pod := range pods {
@@ -102,7 +102,3 @@ func MakeProbe(path string, port, initialDelaySeconds, timeoutSeconds int32) *co
 		TimeoutSeconds:      timeoutSeconds,
 	}
 }
-
-
-
-

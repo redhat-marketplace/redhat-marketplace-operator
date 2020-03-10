@@ -27,10 +27,10 @@ import (
 )
 
 const (
-	RELATED_IMAGE_OPERATOR_AGENT = "RELATED_IMAGE_OPERATOR_AGENT"
-	DEFAULT_IMAGE_OPERATOR_AGENT = "marketplace-agent:latest"
-	CSCFinalizer                 = "finalizer.MarketplaceConfigs.operators.coreos.com"
-	OPSRC_NAME                   = "redhat-marketplace-operators"
+	CSCFinalizer                    = "finalizer.MarketplaceConfigs.operators.coreos.com"
+	OPSRC_NAME                      = "redhat-marketplace-operators"
+	RELATED_IMAGE_MARKETPLACE_AGENT = "RELATED_IMAGE_MARKETPLACE_AGENT"
+	DEFAULT_IMAGE_MARKETPLACE_AGENT = "marketplace-agent:latest"
 )
 
 var (
@@ -44,7 +44,7 @@ func init() {
 	marketplaceConfigFlagSet = pflag.NewFlagSet("marketplaceconfig", pflag.ExitOnError)
 	marketplaceConfigFlagSet.String(
 		"related-image-operator-agent",
-		utils.Getenv(RELATED_IMAGE_OPERATOR_AGENT, DEFAULT_IMAGE_OPERATOR_AGENT),
+		utils.Getenv(RELATED_IMAGE_MARKETPLACE_AGENT, DEFAULT_IMAGE_MARKETPLACE_AGENT),
 		"Image for marketplaceConfig")
 }
 
