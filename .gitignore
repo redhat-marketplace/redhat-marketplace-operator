@@ -107,3 +107,5 @@ tags
 
 cover.out
 .envrc
+.crc
+deploy/operator.yaml

@@ -3,13 +3,18 @@
 package e2e
 
 import (
+	goctx "context"
+	"fmt"
 	"testing"
 
 	"github.ibm.com/symposium/marketplace-operator/pkg/apis"
 	operator "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
 
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	"github.com/operator-framework/operator-sdk/pkg/test/e2eutil"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestMeterbase(t *testing.T) {
@@ -29,46 +34,45 @@ func TestMeterbase(t *testing.T) {
 	})
 }
 
-// TODO: add tests for meterbase
-// func memcachedScaleTest(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) error {
-// 	namespace, err := ctx.GetNamespace()
-// 	if err != nil {
-// 		return fmt.Errorf("could not get namespace: %v", err)
-// 	}
-// 	// create memcached custom resource
-// 	exampleMeterBase := &operator.MeterBase{
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Name:      "example-memcached",
-// 			Namespace: namespace,
-// 		},
-// 		Spec: operator.MeterBaseSpec{
-// 			Size: 3,
-// 		},
-// 	}
-// 	// use TestCtx's create helper to create the object and add a cleanup function for the new object
-// 	err = f.Client.Create(goctx.TODO(), exampleMeterBase, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
-// 	if err != nil {
-// 		return err
-// 	}
-// 	// wait for example-memcached to reach 3 replicas
-// 	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "example-memcached", 3, retryInterval, timeout)
-// 	if err != nil {
-// 		return err
-// 	}
+// meterbaseStatefulSetTest ensures the deployment and healing of a statefulset
+func meterbaseScaleTest(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) error {
+	namespace, err := ctx.GetNamespace()
+	if err != nil {
+		return fmt.Errorf("could not get namespace: %v", err)
+	}
+	// create meterbase custom resource
+	exampleMeterBase := &operator.MeterBase{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "example-meterbase",
+			Namespace: namespace,
+		},
+		Spec: operator.MeterBaseSpec{
+			Enabled: true,
+			Prometheus: &operator.PrometheusSpec{
+				Storage: operator.StorageSpec{
+					Size: resource.MustParse("2Gi"),
+				},
+			},
+		},
+	}
+	// use TestCtx's create helper to create the object and add a cleanup function for the new object
+	err = f.Client.Create(goctx.TODO(), exampleMeterBase, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	if err != nil {
+		return err
+	}
+	// wait for example-meterbase to reach 1 replicas
+	err = waitForStatefulSet(t, f.KubeClient, namespace, "example-meterbase", 1, retryInterval, timeout)
+	if err != nil {
+		return err
+	}
 
-// 	err = f.Client.Get(goctx.TODO(), types.NamespacedName{Name: "example-memcached", Namespace: namespace}, exampleMeterBase)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	exampleMeterBase.Spec.Size = 4
-// 	err = f.Client.Update(goctx.TODO(), exampleMeterBase)
-// 	if err != nil {
-// 		return err
-// 	}
+	err = f.Client.Get(goctx.TODO(), types.NamespacedName{Name: "example-meterbase", Namespace: namespace}, exampleMeterBase)
+	if err != nil {
+		return err
+	}
 
-// 	// wait for example-memcached to reach 4 replicas
-// 	return e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "example-memcached", 4, retryInterval, timeout)
-//}
+	return nil
+}
 
 func MeterbaseOperatorCluster(t *testing.T) {
 	t.Parallel()
@@ -89,6 +93,10 @@ func MeterbaseOperatorCluster(t *testing.T) {
 	// wait for meterbase-operator to be ready
 	err = e2eutil.WaitForOperatorDeployment(t, f.KubeClient, namespace, "marketplace-operator", 1, retryInterval, timeout)
 	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = meterbaseScaleTest(t, f, ctx); err != nil {
 		t.Fatal(err)
 	}
 }
