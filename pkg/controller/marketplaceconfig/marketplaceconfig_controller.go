@@ -3,6 +3,8 @@ package marketplaceconfig
 import (
 	"context"
 
+	opsrcApi "github.com/operator-framework/operator-marketplace/pkg/apis"
+	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	pflag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
@@ -25,6 +27,8 @@ import (
 )
 
 const (
+	CSCFinalizer                    = "finalizer.MarketplaceConfigs.operators.coreos.com"
+	OPSRC_NAME                      = "redhat-marketplace-operators"
 	RELATED_IMAGE_MARKETPLACE_AGENT = "RELATED_IMAGE_MARKETPLACE_AGENT"
 	DEFAULT_IMAGE_MARKETPLACE_AGENT = "marketplace-agent:latest"
 )
@@ -89,6 +93,15 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	// watch operator source and requeue the owner MarketplaceConfig
+	err = c.Watch(&source.Kind{Type: &opsrcv1.OperatorSource{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
+	})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -143,7 +156,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			reqLogger.Error(err, "Failed to create new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
 			return reconcile.Result{}, err
 		}
-		// Deployment created successfuly - return and reque
+		// Deployment created successfully - return and requeue
 		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
 		// Could not get delpoyment
@@ -165,6 +178,30 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	// Check if operator source exists, or create a new one
+	foundOpSrc := &opsrcv1.OperatorSource{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: OPSRC_NAME, Namespace: marketplaceConfig.Namespace}, foundOpSrc)
+	if err != nil && errors.IsNotFound(err) {
+		// Define a new operator source
+		newOpSrc := r.createNewOpSrc(marketplaceConfig)
+		err = r.client.Create(context.TODO(), newOpSrc)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create an OperatorSource.", "OperatorSource.Namespace ", newOpSrc.Namespace, "OperatorSource.Name", newOpSrc.Name)
+			return reconcile.Result{}, err
+		}
+		// Operator Source created successfully - return and requeue
+		newOpSrc.ForceUpdate()
+		return reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		// Could not get Operator Source
+		reqLogger.Error(err, "Failed to get OperatorSource")
+		return reconcile.Result{}, err
+	}
+
+	opsrcApi.AddToScheme(r.scheme)
+	if err = controllerutil.SetControllerReference(found, foundOpSrc, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
 	return reconcile.Result{}, nil
 }
 
@@ -226,4 +263,19 @@ func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketpla
 // belonging to the given marketplaceConfig custom resource name
 func labelsForMarketplaceConfig(name string) map[string]string {
 	return map[string]string{"app": "marketplaceconfig", "marketplaceconfig_cr": name}
+}
+
+// createNewOpSrc returns a new Operator Source
+func (r *ReconcileMarketplaceConfig) createNewOpSrc(cr *marketplacev1alpha1.MarketplaceConfig) *opsrcv1.OperatorSource {
+	opsrc := &opsrcv1.OperatorSource{}
+
+	opsrc.Namespace = cr.Namespace
+	opsrc.Name = OPSRC_NAME
+	opsrc.Spec.DisplayName = "Red Hat Marketplace"
+	opsrc.Spec.Endpoint = "https://quay.io/cnr"
+	opsrc.Spec.Publisher = "Red Hat Marketplace"
+	opsrc.Spec.RegistryNamespace = "redhat-marketplace"
+	opsrc.Spec.Type = "appregistry"
+
+	return opsrc
 }

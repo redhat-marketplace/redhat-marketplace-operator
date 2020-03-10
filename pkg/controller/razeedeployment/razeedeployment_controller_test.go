@@ -3,6 +3,7 @@ package razeedeployment
 import (
 	"context"
 	"testing"
+
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	batch "k8s.io/api/batch/v1"
@@ -73,7 +74,7 @@ func TestRazeeDeployController(t *testing.T) {
 
 	razeedeployJob := &batch.Job{}
 
-	err = cl.Get(context.TODO(), req.NamespacedName , razeedeployJob)
+	err = cl.Get(context.TODO(), req.NamespacedName, razeedeployJob)
 	if err != nil {
 		t.Fatalf("get razeedeploy-job: (%v)", err)
 	}

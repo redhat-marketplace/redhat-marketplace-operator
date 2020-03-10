@@ -31,8 +31,8 @@ import (
 )
 
 const (
-	DEFAULT_PROM_SERVER             = "prom/prometheus:v2.15.2"
-	DEFAULT_CONFIGMAP_RELOAD        = "jimmidyson/configmap-reload:v0.3.0"
+	DEFAULT_PROM_SERVER            = "prom/prometheus:v2.15.2"
+	DEFAULT_CONFIGMAP_RELOAD       = "jimmidyson/configmap-reload:v0.3.0"
 	RELATED_IMAGE_PROM_SERVER      = "RELATED_IMAGE_PROM_SERVER"
 	RELATED_IMAGE_CONFIGMAP_RELOAD = "RELATED_IMAGE_CONFIGMAP_RELOAD"
 )

@@ -17,6 +17,7 @@ import (
 	"github.ibm.com/symposium/marketplace-operator/pkg/controller"
 	"github.ibm.com/symposium/marketplace-operator/version"
 
+	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
@@ -122,6 +123,11 @@ func main() {
 
 	// Setup Scheme for all resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
+	if err := opsrcv1.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
