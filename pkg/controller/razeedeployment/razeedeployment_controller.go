@@ -1,30 +1,48 @@
 package razeedeployment
 
 import (
-	"bytes"
 	"context"
-	ioutil "io/ioutil"
-	"path/filepath"
-
-	"github.com/spf13/viper"
-	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
+	"fmt"
+    "time"
+	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	k8yaml "k8s.io/apimachinery/pkg/util/yaml"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"k8s.io/apimachinery/pkg/api/errors"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"k8s.io/apimachinery/pkg/types"
+
 )
 
-var log = logf.Log.WithName("controller_razeedeployment")
+const (
+	DEFAULT_RAZEE_JOB_IMAGE            = "quay.io/razee/razeedeploy-delta:0.3.1"
+	DEFAULT_RAZEEDASH_URL              = "http://169.45.231.109:8081/api/v2"
+)
+
+var (
+	log = logf.Log.WithName("controller_razeedeployment")
+	razeeFlagSet *pflag.FlagSet
+)
+
+func init() {
+	razeeFlagSet = pflag.NewFlagSet("razee", pflag.ExitOnError)
+	razeeFlagSet.String("razee-job-image",DEFAULT_RAZEE_JOB_IMAGE,"image for the razee job")
+	razeeFlagSet.String("razeedash-url",DEFAULT_RAZEEDASH_URL,"url that watch keeper posts data too")
+}
+
+func FlagSet() *pflag.FlagSet {
+	return razeeFlagSet
+}
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -56,8 +74,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// watch the razee Namespace
-	err = c.Watch(&source.Kind{Type: &corev1.Namespace{}}, &handler.EnqueueRequestForOwner{
+	// watch the Job type
+	err = c.Watch(&source.Kind{Type: &batch.Job{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
 	})
@@ -77,6 +95,11 @@ type ReconcileRazeeDeployment struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
+}
+
+type RazeeOpts struct {
+	RazeeDashUrl string
+	RazeeJobImage string
 }
 
 // Reconcile reads that state of the cluster for a RazeeDeployment object and makes changes based on the state read
@@ -109,71 +132,102 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, nil
 	}
 	
-	// Define a new Namespace object
-	assetBase := viper.GetString("assets")
-	cfgBaseFileName := filepath.Join(assetBase, "prometheus/base-configmap.yaml")
-	namespace, err := createRazeeNamespaceWithUtil(cfgBaseFileName)
-	if err != nil {
+	// Define a new razeedeploy-job object
+	razeeOpts := &RazeeOpts{
+		RazeeDashUrl: viper.GetString("razeedash-url"),
+		RazeeJobImage: viper.GetString("razee-job-image"),
+	}
+
+	job := r.MakeRazeeJob(razeeOpts)
+
+	// Check if the Job exists already
+	req := reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      "razeedeploy-job",
+			Namespace: "marketplace-operator",
+		},
+	}
+
+	foundJob := &batch.Job{}
+	err = r.client.Get(context.TODO(), req.NamespacedName, foundJob)
+
+	// if the job doesn't exist create it
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating razzeedeploy-job")
+		err = r.client.Create(context.TODO(), job)
+		if err != nil {
+			reqLogger.Error(err,"Failed to create Job on cluster")
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("job created successfully")
+		// requeue to grab the "foundJob" and continue to update status
+		// wait 30 seconds so the job has time to complete
+		// not entirely necessary, but the struct on Status.Conditions needs the Conditions in the job to be populated.
+		return reconcile.Result{RequeueAfter: time.Second*30}, nil
+		// return reconcile.Result{Requeue: true}, nil
+		// return reconcile.Result{}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get Job(s) from Cluster")
 		return reconcile.Result{}, err
 	}
 
-	// Check if the Namespace exists
-	found := &corev1.Namespace{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee"}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Namespace")
-		err = r.client.Create(context.TODO(), namespace)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		// Namespace created successfully - don't requeue
-		return reconcile.Result{}, nil
-	} else if err != nil {
+	if err := controllerutil.SetControllerReference(instance, foundJob, r.scheme); err != nil {
+		reqLogger.Error(err, "Failed to set controller reference")
 		return reconcile.Result{}, err
+	}
+
+	// Update status and conditions
+	instance.Status.JobState = foundJob.Status
+	for _, jobCondition := range foundJob.Status.Conditions  {
+		instance.Status.Conditions = jobCondition
 	}
 	
-	if err := controllerutil.SetControllerReference(instance, namespace, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Update CR status
-	// List the namespaces on the cluster
-	namespaceList := &corev1.NamespaceList{}
-	if err = r.client.List(context.TODO(), namespaceList); err != nil {
-		reqLogger.Error(err, "Failed to list namespaces")
-		return reconcile.Result{}, err
-	}
-
-	// Update status.Namespace
-	nsList := *namespaceList
-	namespaces := utils.GetNamespaceNames(nsList.Items)
-	if utils.Contains(namespaces, "razee") {
-		instance.Status.Namespace = "razee"
-		err := r.client.Status().Update(context.TODO(), instance)
+	err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update RazeeDeploy status")
+			reqLogger.Error(err, "Failed to update JobState.")
 			return reconcile.Result{}, err
 		}
-		
+	reqLogger.Info("Updated Status")
+
+	// if the job has a status of succeeded, then delete the job
+	if foundJob.Status.Succeeded == 1{
+		err = r.client.Delete(context.TODO(), foundJob)
+		if err != nil {
+			reqLogger.Error(err,"Failed to delete job")
+			return reconcile.Result{RequeueAfter: time.Second*30}, nil
+		}
+		reqLogger.Info("Razeedeploy-job deleted")
+		// exit the loop after the job has been deleted
+		return reconcile.Result{}, nil
 	}
 
-	// Namespace already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Namespace already exists", "Namespace.Namespace", found.Namespace)
+	reqLogger.Info("End of reconcile")
 	return reconcile.Result{}, nil
 }
 
-func createRazeeNamespaceWithUtil(filename string) (*corev1.Namespace, error) {
-	dat, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
+func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts)*batch.Job {
+	
+	return &batch.Job {
+		ObjectMeta: metav1.ObjectMeta {
+				Name:      "razeedeploy-job",
+				Namespace: "marketplace-operator",
+		},
+		Spec: batch.JobSpec {
+			Template: corev1.PodTemplateSpec {
+				Spec: corev1.PodSpec {
+					ServiceAccountName: "marketplace-operator",
+					Containers: []corev1.Container {{
+						Name:            "razeedeploy-job",
+						Image:           opt.RazeeJobImage,
+						Command:         []string{"node", "src/install", "--namespace=razee"},
+						Args:            []string{fmt.Sprintf("--razeedash-url=%v", opt.RazeeDashUrl)},
+					}},
+					RestartPolicy: "Never",
+				},
+			},
+		},
 	}
-	ns := &corev1.Namespace{}
-	dec := k8yaml.NewYAMLOrJSONDecoder(bytes.NewReader(dat), 1000)
-	if err := dec.Decode(&ns); err != nil {
-		return nil, err
-	}
-
-	ns.Name = "razee"
-	return ns, nil
 }
+
+
 

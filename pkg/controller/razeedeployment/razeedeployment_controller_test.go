@@ -3,10 +3,9 @@ package razeedeployment
 import (
 	"context"
 	"testing"
-
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
+	batch "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -25,8 +24,8 @@ func TestRazeeDeployController(t *testing.T) {
 	viper.Set("assets", "../../../assets")
 
 	var (
-		name      = "marketplace-operator"
-		namespace = "default"
+		name      = "example-marketplaceconfig"
+		namespace = "marketplace-operator"
 	)
 
 	// A Memcached resource with metadata and spec.
@@ -56,28 +55,36 @@ func TestRazeeDeployController(t *testing.T) {
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      name,
-			Namespace: namespace,
+			Namespace: "marketplace-operator",
 		},
 	}
-	res, err := r.Reconcile(req)
+	_, err := r.Reconcile(req)
 	if err != nil {
 		t.Fatalf("reconcile: (%v)", err)
 	}
 
-	razeeNamespace := &corev1.Namespace{}
-	// Check if razeeNamespace has been created
-	err = cl.Get(context.TODO(), types.NamespacedName{Name: "razee"}, razeeNamespace)
-	if err != nil {
-		t.Fatalf("get razeeNamespace: (%v)", err)
+	// Check if razeedeployJob has been created
+	req = reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      "razeedeploy-job",
+			Namespace: "marketplace-operator",
+		},
 	}
 
-	res, err = r.Reconcile(req)
+	razeedeployJob := &batch.Job{}
+
+	err = cl.Get(context.TODO(), req.NamespacedName , razeedeployJob)
+	if err != nil {
+		t.Fatalf("get razeedeploy-job: (%v)", err)
+	}
+
+	_, err = r.Reconcile(req)
 	if err != nil {
 		t.Fatalf("reconcile: (%v)", err)
 	}
 	// Check the result of reconciliation to make sure it has the desired state.
-	if res.Requeue {
-		t.Error("reconcile requeue which is not expected")
-	}
+	// if res.Requeue {
+	// 	t.Error("reconcile requeue which is not expected")
+	// }
 
 }

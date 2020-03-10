@@ -86,6 +86,7 @@ func TestMeterBaseController(t *testing.T) {
 		t.Fatalf("get configmap: (%v)", err)
 	}
 
+	
 	res, err = r.Reconcile(req)
 	if err != nil {
 		t.Fatalf("reconcile: (%v)", err)
