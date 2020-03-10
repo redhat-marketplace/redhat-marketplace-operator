@@ -1,0 +1,16 @@
+{
+    "report_id": "63004507-ad95-4de6-b60c-f4bf369154d1",
+    "source": "4ae5359e-c44e-4517-8fcf-08fa06249d97",
+    "source_metadata": {
+      "rhm_cluster_id" : "06307313-8e4d-49a4-ba48-cdc4409610e8",
+      "rhm_customer_id": "e55a4c74-06ca-4ec4-ae90-f1be571be578"
+    },
+    "report_slices": {
+        "12af4826-e7f3-4475-9668-03c0c7daf531": {
+            "number_hosts": 110
+        },
+        "ef6f3d6f-69f3-4d82-8719-d7ff727a05bb": {
+            "number_hosts": 110
+        }
+    }
+}

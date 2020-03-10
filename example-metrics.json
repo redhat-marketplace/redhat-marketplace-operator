@@ -1,0 +1,23 @@
+[
+  {
+    "report_slice_id": "12af4826-e7f3-4475-9668-03c0c7daf531",
+    "metrics": [
+      {
+        "report_period_start": "2019-12-01 00:00:00 +0000 UTC",
+        "report_period_end": "2020-01-01 00:00:00 +0000 UTC",
+        "interval_start": "2019-12-01 00:00:00 +0000 UTC",
+        "interval_end": "2019-12-01 01:00:00 +0000 UTC",
+        "meter_domain": "com.example.partner/Mongo",
+        "marketplace_meter_1_total": 800,
+        "marketplace_meter_2_bytes_seconds" : 7730941132800,
+        "service:marketplace_meter_1:rate60m" : 400,
+        "pod:marketplace_meter_2_bytes:avg_rate60m" : 7730941132800,
+        "pod": "pod_name1",
+        "namespace": "namespace_ci",
+        "node": "alpha",
+        "resource_id": "i-55555555",
+        "pod_labels": "label_key1:label_value1|label_key2:label_value2"
+      }
+    ]
+  }
+]
