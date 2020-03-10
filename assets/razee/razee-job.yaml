@@ -1,0 +1,16 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: razeedeploy-job
+  namespace: rhm-marketplace
+spec:
+  template:
+    spec:
+      serviceAccountName: marketplace-operator
+      containers:
+      - name: razeedeploy-job
+        image: "quay.io/razee/razeedeploy-delta:0.3.1"
+        command: install,uninstall
+        args: 
+      restartPolicy: Never
+  backoffLimit: 2

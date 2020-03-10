@@ -1,7 +1,7 @@
 package v1alpha1
 
 import (
-	"github.com/operator-framework/operator-sdk/pkg/status"
+	batch "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -13,6 +13,8 @@ type RazeeDeploymentSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+	// Setting enabled to "true" will create a Razee namespace and deploy it's componenets. Set to "false" to bypass Razee installation
+	Enabled bool `json:"enabled"`
 }
 
 // RazeeDeploymentStatus defines the observed state of RazeeDeployment
@@ -20,7 +22,8 @@ type RazeeDeploymentStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-	Conditions status.Conditions `json:"conditions"`
+	Conditions batch.JobCondition `json:"conditions"`
+	JobState   batch.JobStatus    `json:"jobState"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

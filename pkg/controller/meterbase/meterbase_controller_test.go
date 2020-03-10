@@ -6,10 +6,8 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
-
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -88,6 +86,7 @@ func TestMeterBaseController(t *testing.T) {
 		t.Fatalf("get configmap: (%v)", err)
 	}
 
+	
 	res, err = r.Reconcile(req)
 	if err != nil {
 		t.Fatalf("reconcile: (%v)", err)
