@@ -29,6 +29,7 @@ import (
 const (
 	CSCFinalizer                    = "finalizer.MarketplaceConfigs.operators.coreos.com"
 	OPSRC_NAME                      = "redhat-marketplace-operators"
+	RAZEE_NAME                      = "marketplaceconfig-razeedeployment"
 	RELATED_IMAGE_MARKETPLACE_AGENT = "RELATED_IMAGE_MARKETPLACE_AGENT"
 	DEFAULT_IMAGE_MARKETPLACE_AGENT = "marketplace-agent:latest"
 )
@@ -183,7 +184,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: OPSRC_NAME, Namespace: marketplaceConfig.Namespace}, foundOpSrc)
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new operator source
-		newOpSrc := r.createNewOpSrc(marketplaceConfig)
+		newOpSrc := createNewOpSrc(marketplaceConfig)
 		err = r.client.Create(context.TODO(), newOpSrc)
 		if err != nil {
 			reqLogger.Error(err, "Failed to create an OperatorSource.", "OperatorSource.Namespace ", newOpSrc.Namespace, "OperatorSource.Name", newOpSrc.Name)
@@ -198,10 +199,33 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{}, err
 	}
 
+	// Sets the owner for foundOpSrc
 	opsrcApi.AddToScheme(r.scheme)
 	if err = controllerutil.SetControllerReference(found, foundOpSrc, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
+
+	//Check if RazeeDeployment exists, if not create one
+	foundRazee := &marketplacev1alpha1.RazeeDeployment{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: RAZEE_NAME, Namespace: marketplaceConfig.Namespace}, foundRazee)
+	if err != nil && errors.IsNotFound(err) {
+		newRazeeCrd := createRazeeCr(marketplaceConfig)
+		err = r.client.Create(context.TODO(), newRazeeCrd)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get RazeeDeployment CR")
+		return reconcile.Result{}, err
+	}
+
+	// Sets the owner for foundRazee
+	if err = controllerutil.SetControllerReference(found, foundRazee, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	return reconcile.Result{}, nil
 }
 
@@ -266,16 +290,37 @@ func labelsForMarketplaceConfig(name string) map[string]string {
 }
 
 // createNewOpSrc returns a new Operator Source
-func (r *ReconcileMarketplaceConfig) createNewOpSrc(cr *marketplacev1alpha1.MarketplaceConfig) *opsrcv1.OperatorSource {
-	opsrc := &opsrcv1.OperatorSource{}
+func createNewOpSrc(cr *marketplacev1alpha1.MarketplaceConfig) *opsrcv1.OperatorSource {
 
-	opsrc.Namespace = cr.Namespace
-	opsrc.Name = OPSRC_NAME
-	opsrc.Spec.DisplayName = "Red Hat Marketplace"
-	opsrc.Spec.Endpoint = "https://quay.io/cnr"
-	opsrc.Spec.Publisher = "Red Hat Marketplace"
-	opsrc.Spec.RegistryNamespace = "redhat-marketplace"
-	opsrc.Spec.Type = "appregistry"
+	opsrc := &opsrcv1.OperatorSource{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      OPSRC_NAME,
+			Namespace: cr.Namespace,
+		},
+		Spec: opsrcv1.OperatorSourceSpec{
+			DisplayName:       "Red Hat Marketplace",
+			Endpoint:          "https://quay.io/cnr",
+			Publisher:         "Red Hat Marketplace",
+			RegistryNamespace: "redhat-marketplace",
+			Type:              "appregistry",
+		},
+	}
 
 	return opsrc
+}
+
+// createRazeeCrd returns a RazeeDeployment cr with default values
+func createRazeeCr(marketplace *marketplacev1alpha1.MarketplaceConfig) *marketplacev1alpha1.RazeeDeployment {
+
+	cr := &marketplacev1alpha1.RazeeDeployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      RAZEE_NAME, // CHANGE THIS -> DONT LEAVE HARDCODED
+			Namespace: marketplace.Namespace,
+		},
+		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
+			Enabled: true,
+		},
+	}
+
+	return cr
 }
