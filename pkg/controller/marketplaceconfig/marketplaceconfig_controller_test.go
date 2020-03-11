@@ -26,37 +26,17 @@ func TestMarketplaceConfigController(t *testing.T) {
 	viper.Set("assets", "../../../assets")
 
 	var (
+		razeeName       = "marketplaceconfig-razeedeployment"
 		opsrcName       = "redhat-marketplace-operators"
 		name            = "markeplaceconfig"
 		namespace       = "marketplace-operator"
 		replicas  int32 = 1
 	)
 
-	// A MarketplaceConfig resource with metadata and spec.
-	marketplaceconfig := &marketplacev1alpha1.MarketplaceConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: marketplacev1alpha1.MarketplaceConfigSpec{
-			Size: replicas,
-		},
-	}
-
-	// An OperatorSource resource with metadata and spec
-	opsrc := &opsrcv1.OperatorSource{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      opsrcName,
-			Namespace: namespace,
-		},
-		Spec: opsrcv1.OperatorSourceSpec{
-			DisplayName:       "Red Hat Marketplace",
-			Endpoint:          "https://quay.io/cnr",
-			Publisher:         "Red Hat Marketplace",
-			RegistryNamespace: "redhat-marketplace",
-			Type:              "appregistry",
-		},
-	}
+	// Declare resources
+	marketplaceconfig := buildMarketplaceConfigCR(name, namespace, replicas)
+	opsrc := buildOperatorSourceCR(opsrcName, namespace)
+	razeedeployment := buildRazeeDeploymentCR(razeeName, namespace)
 
 	// Objects to track in the fake client.
 	objs := []runtime.Object{
@@ -66,12 +46,12 @@ func TestMarketplaceConfigController(t *testing.T) {
 	// Register operator types with the runtime scheme.
 	s := scheme.Scheme
 
-	// Third party scheme (operator-source) have to add manually.
+	// Add schemes
 	if err := opsrcApi.AddToScheme(s); err != nil {
 		t.Fatalf("Unable to add OperatorSource Scheme: (%v)", err)
 	}
-
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, marketplaceconfig)
+	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeedeployment)
 	// Create a fake client to mock API calls.
 	cl := fake.NewFakeClient(objs...)
 	// Create a ReconcileMeterBase object with the scheme and fake client.
@@ -124,30 +104,87 @@ func TestMarketplaceConfigController(t *testing.T) {
 		t.Errorf("get marketplaceConfig: (%v)", err)
 	}
 
-	//Reconcile again so Reconcile() checks OperatorSource
+	//Reconcile again so Reconcile() checks for the OperatorSource
 	res, err = r.Reconcile(req)
 	if err != nil {
 		t.Fatalf("reconcile: (%v)", err)
 	}
-	if res != (reconcile.Result{}) {
-		t.Error("reconcile did not return the expected result, requeue=false")
+	if res != (reconcile.Result{Requeue: true}) {
+		t.Error("reconcile did not requeue as expected")
 	}
 
+	// Get the updated OperatorSource object
 	req.Name = opsrcName
-
 	opsrc = &opsrcv1.OperatorSource{}
 	err = r.client.Get(context.TODO(), req.NamespacedName, opsrc)
 	if err != nil {
 		t.Errorf("get OperatorSource: (%v)", err)
 	}
 
+	// Reconcile again so Reconcile() checks for RazeeDeployment
+	req.Name = name
+	res, err = r.Reconcile(req)
+	if err != nil {
+		t.Fatalf("reconcile: (%v)", err)
+	}
+	if res != (reconcile.Result{}) {
+		t.Error("reconcile did not result with expected outcome of Requeue: False")
+	}
+
+	// Get the updated RazeeDeployment Object
+	req.Name = razeeName
+	razeedeployment = &marketplacev1alpha1.RazeeDeployment{}
+	err = r.client.Get(context.TODO(), req.NamespacedName, razeedeployment)
+	if err != nil {
+		t.Errorf("get RazeeDeployment: (%v)", err)
+	}
 }
 
 // Test whether flags have been set or not
-func TestMeterBaseControllerFlags(t *testing.T) {
+func TestMarketplaceConfigControllerFlags(t *testing.T) {
 	flagset := FlagSet()
 
 	if !flagset.HasFlags() {
 		t.Errorf("no flags on flagset")
+	}
+}
+
+func buildMarketplaceConfigCR(name, namespace string, replicas int32) *marketplacev1alpha1.MarketplaceConfig {
+	return &marketplacev1alpha1.MarketplaceConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: marketplacev1alpha1.MarketplaceConfigSpec{
+			Size: replicas,
+		},
+	}
+}
+
+func buildRazeeDeploymentCR(name, namespace string) *marketplacev1alpha1.RazeeDeployment {
+	return &marketplacev1alpha1.RazeeDeployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
+			Enabled: true,
+		},
+	}
+}
+
+func buildOperatorSourceCR(name, namespace string) *opsrcv1.OperatorSource {
+	return &opsrcv1.OperatorSource{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: opsrcv1.OperatorSourceSpec{
+			DisplayName:       "Red Hat Marketplace",
+			Endpoint:          "https://quay.io/cnr",
+			Publisher:         "Red Hat Marketplace",
+			RegistryNamespace: "redhat-marketplace",
+			Type:              "appregistry",
+		},
 	}
 }
