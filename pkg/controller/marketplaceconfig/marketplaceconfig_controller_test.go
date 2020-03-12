@@ -25,6 +25,7 @@ func TestMarketplaceConfigController(t *testing.T) {
 	logf.SetLogger(logf.ZapLogger(true))
 
 	viper.Set("assets", "../../../assets")
+	viper.Set("autoinstall", true)
 
 	var (
 		name                = "markeplaceconfig"
