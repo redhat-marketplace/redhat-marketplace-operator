@@ -49,6 +49,11 @@ func init() {
 		"related-image-operator-agent",
 		utils.Getenv(RELATED_IMAGE_MARKETPLACE_AGENT, DEFAULT_IMAGE_MARKETPLACE_AGENT),
 		"Image for marketplaceConfig")
+	marketplaceConfigFlagSet.Bool(
+		"autoinstall",
+		true,
+		"True or false: auto install the remaining components?",
+	)
 }
 
 // FlagSet returns our FlagSet
@@ -207,44 +212,48 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{}, err
 	}
 
-	//Check if RazeeDeployment exists, if not create one
-	foundRazee := &marketplacev1alpha1.RazeeDeployment{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: RAZEE_NAME, Namespace: marketplaceConfig.Namespace}, foundRazee)
-	if err != nil && errors.IsNotFound(err) {
-		newRazeeCrd := createRazeeCr(marketplaceConfig)
-		err = r.client.Create(context.TODO(), newRazeeCrd)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
+	// If auto-install is true MarketplaceConfig should create RazeeDeployment CR and MeterBase CR
+	autoinstall := viper.GetBool("autoinstall")
+	if autoinstall {
+		//Check if RazeeDeployment exists, if not create one
+		foundRazee := &marketplacev1alpha1.RazeeDeployment{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: RAZEE_NAME, Namespace: marketplaceConfig.Namespace}, foundRazee)
+		if err != nil && errors.IsNotFound(err) {
+			newRazeeCrd := createRazeeCr(marketplaceConfig)
+			err = r.client.Create(context.TODO(), newRazeeCrd)
+			if err != nil {
+				reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{Requeue: true}, nil
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get RazeeDeployment CR")
 			return reconcile.Result{}, err
 		}
-		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get RazeeDeployment CR")
-		return reconcile.Result{}, err
-	}
-	// Sets the owner for foundRazee
-	if err = controllerutil.SetControllerReference(found, foundRazee, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
+		// Sets the owner for foundRazee
+		if err = controllerutil.SetControllerReference(found, foundRazee, r.scheme); err != nil {
+			return reconcile.Result{}, err
+		}
 
-	// Check if MeterBase exists, if not create one
-	foundMeterBase := &marketplacev1alpha1.MeterBase{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: METERBASE_NAME, Namespace: marketplaceConfig.Namespace}, foundMeterBase)
-	if err != nil && errors.IsNotFound(err) {
-		newMeterBaseCr := createMeterBaseCr(marketplaceConfig)
-		err = r.client.Create(context.TODO(), newMeterBaseCr)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create a new MeterBase CR.")
+		// Check if MeterBase exists, if not create one
+		foundMeterBase := &marketplacev1alpha1.MeterBase{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: METERBASE_NAME, Namespace: marketplaceConfig.Namespace}, foundMeterBase)
+		if err != nil && errors.IsNotFound(err) {
+			newMeterBaseCr := createMeterBaseCr(marketplaceConfig)
+			err = r.client.Create(context.TODO(), newMeterBaseCr)
+			if err != nil {
+				reqLogger.Error(err, "Failed to create a new MeterBase CR.")
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{Requeue: true}, nil
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get MeterBase CR")
 			return reconcile.Result{}, err
 		}
-		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get MeterBase CR")
-		return reconcile.Result{}, err
-	}
-	// Sets the owner for MeterBase
-	if err = controllerutil.SetControllerReference(found, foundMeterBase, r.scheme); err != nil {
-		return reconcile.Result{}, err
+		// Sets the owner for MeterBase
+		if err = controllerutil.SetControllerReference(found, foundMeterBase, r.scheme); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	return reconcile.Result{}, nil

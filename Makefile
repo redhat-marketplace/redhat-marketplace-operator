@@ -109,13 +109,10 @@ create: ##creates the required crds for this deployment
 	- kubectl create -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
 
 deploys: ##deploys the resources for deployment
-	@echo creating service_account
+	@echo deploying services and operators
 	- kubectl create -f deploy/service_account.yaml -n ${NAMESPACE}
-	@echo creating role
 	- kubectl create -f deploy/role.yaml -n ${NAMESPACE}
-	@echo creating role_binding
 	- kubectl create -f deploy/role_binding.yaml -n ${NAMESPACE}
-	@echo creating operator
 	- kubectl create -f deploy/operator.yaml -n ${NAMESPACE}
 
 apply: ##applies changes to crds
@@ -137,9 +134,9 @@ clean: ##delete the contents created in 'make create'
 	- kubectl delete -f deploy/service_account.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
-	- kubectl delete namespace razee
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
+	- kubectl delete namespace razee
 
 ##@ Tests
 
