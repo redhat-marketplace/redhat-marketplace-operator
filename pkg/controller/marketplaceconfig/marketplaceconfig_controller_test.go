@@ -10,6 +10,7 @@ import (
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
 
 	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -26,17 +27,19 @@ func TestMarketplaceConfigController(t *testing.T) {
 	viper.Set("assets", "../../../assets")
 
 	var (
-		razeeName       = "marketplaceconfig-razeedeployment"
-		opsrcName       = "redhat-marketplace-operators"
-		name            = "markeplaceconfig"
-		namespace       = "marketplace-operator"
-		replicas  int32 = 1
+		name                = "markeplaceconfig"
+		razeeName           = "marketplaceconfig-razeedeployment"
+		opsrcName           = "redhat-marketplace-operators"
+		meterBaseName       = "marketplaceconfig-meterbase"
+		namespace           = "marketplace-operator"
+		replicas      int32 = 1
 	)
 
 	// Declare resources
 	marketplaceconfig := buildMarketplaceConfigCR(name, namespace, replicas)
 	opsrc := buildOperatorSourceCR(opsrcName, namespace)
 	razeedeployment := buildRazeeDeploymentCR(razeeName, namespace)
+	meterbase := buildMeterBaseCR(meterBaseName, namespace)
 
 	// Objects to track in the fake client.
 	objs := []runtime.Object{
@@ -52,6 +55,7 @@ func TestMarketplaceConfigController(t *testing.T) {
 	}
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, marketplaceconfig)
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeedeployment)
+	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
 	// Create a fake client to mock API calls.
 	cl := fake.NewFakeClient(objs...)
 	// Create a ReconcileMeterBase object with the scheme and fake client.
@@ -74,14 +78,12 @@ func TestMarketplaceConfigController(t *testing.T) {
 	if !res.Requeue {
 		t.Error("reconcile did not requeue request as expected")
 	}
-
 	// Check if Deployment has been created and has the correct size.
 	dep := &appsv1.Deployment{}
 	err = cl.Get(context.TODO(), req.NamespacedName, dep)
 	if err != nil {
 		t.Fatalf("get deployment: (%v)", err)
 	}
-
 	// Check the result of reconciliation to make sure it has the desired state.
 	if !res.Requeue {
 		t.Error("reconcile did not requeue request as expected")
@@ -96,7 +98,6 @@ func TestMarketplaceConfigController(t *testing.T) {
 	if res != (reconcile.Result{Requeue: true}) {
 		t.Error("reconcile did not requeue request as expected")
 	}
-
 	// Get the updated MarketplaceConfig object.
 	marketplaceconfig = &marketplacev1alpha1.MarketplaceConfig{}
 	err = r.client.Get(context.TODO(), req.NamespacedName, marketplaceconfig)
@@ -112,7 +113,6 @@ func TestMarketplaceConfigController(t *testing.T) {
 	if res != (reconcile.Result{Requeue: true}) {
 		t.Error("reconcile did not requeue as expected")
 	}
-
 	// Get the updated OperatorSource object
 	req.Name = opsrcName
 	opsrc = &opsrcv1.OperatorSource{}
@@ -127,10 +127,9 @@ func TestMarketplaceConfigController(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reconcile: (%v)", err)
 	}
-	if res != (reconcile.Result{}) {
-		t.Error("reconcile did not result with expected outcome of Requeue: False")
+	if res != (reconcile.Result{Requeue: true}) {
+		t.Error("reconcile did not requeue as expected")
 	}
-
 	// Get the updated RazeeDeployment Object
 	req.Name = razeeName
 	razeedeployment = &marketplacev1alpha1.RazeeDeployment{}
@@ -138,6 +137,25 @@ func TestMarketplaceConfigController(t *testing.T) {
 	if err != nil {
 		t.Errorf("get RazeeDeployment: (%v)", err)
 	}
+
+	// Reconcile again so Reconcile() checks for MeterBase
+	req.Name = name
+	res, err = r.Reconcile(req)
+	if err != nil {
+		t.Fatalf("reconcile: (%v)", err)
+	}
+	if res != (reconcile.Result{}) {
+		t.Error("reconcile did not result with expected outcome of Requeue: False")
+	}
+
+	// Get the updated MeterBase Object
+	req.Name = meterBaseName
+	meterbase = &marketplacev1alpha1.MeterBase{}
+	err = r.client.Get(context.TODO(), req.NamespacedName, meterbase)
+	if err != nil {
+		t.Errorf("get meterbase: (%v)", err)
+	}
+
 }
 
 // Test whether flags have been set or not
@@ -185,6 +203,23 @@ func buildOperatorSourceCR(name, namespace string) *opsrcv1.OperatorSource {
 			Publisher:         "Red Hat Marketplace",
 			RegistryNamespace: "redhat-marketplace",
 			Type:              "appregistry",
+		},
+	}
+}
+
+func buildMeterBaseCR(name, namespace string) *marketplacev1alpha1.MeterBase {
+	return &marketplacev1alpha1.MeterBase{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: marketplacev1alpha1.MeterBaseSpec{
+			Enabled: true,
+			Prometheus: &marketplacev1alpha1.PrometheusSpec{
+				Storage: marketplacev1alpha1.StorageSpec{
+					Size: resource.MustParse("20Gi"),
+				},
+			},
 		},
 	}
 }

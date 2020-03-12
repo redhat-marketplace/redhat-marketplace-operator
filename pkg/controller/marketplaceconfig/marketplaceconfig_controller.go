@@ -12,6 +12,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -30,6 +31,7 @@ const (
 	CSCFinalizer                    = "finalizer.MarketplaceConfigs.operators.coreos.com"
 	OPSRC_NAME                      = "redhat-marketplace-operators"
 	RAZEE_NAME                      = "marketplaceconfig-razeedeployment"
+	METERBASE_NAME                  = "marketplaceconfig-meterbase"
 	RELATED_IMAGE_MARKETPLACE_AGENT = "RELATED_IMAGE_MARKETPLACE_AGENT"
 	DEFAULT_IMAGE_MARKETPLACE_AGENT = "marketplace-agent:latest"
 )
@@ -220,9 +222,28 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		reqLogger.Error(err, "Failed to get RazeeDeployment CR")
 		return reconcile.Result{}, err
 	}
-
 	// Sets the owner for foundRazee
 	if err = controllerutil.SetControllerReference(found, foundRazee, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if MeterBase exists, if not create one
+	foundMeterBase := &marketplacev1alpha1.MeterBase{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: METERBASE_NAME, Namespace: marketplaceConfig.Namespace}, foundMeterBase)
+	if err != nil && errors.IsNotFound(err) {
+		newMeterBaseCr := createMeterBaseCr(marketplaceConfig)
+		err = r.client.Create(context.TODO(), newMeterBaseCr)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create a new MeterBase CR.")
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get MeterBase CR")
+		return reconcile.Result{}, err
+	}
+	// Sets the owner for MeterBase
+	if err = controllerutil.SetControllerReference(found, foundMeterBase, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -322,5 +343,24 @@ func createRazeeCr(marketplace *marketplacev1alpha1.MarketplaceConfig) *marketpl
 		},
 	}
 
+	return cr
+}
+
+func createMeterBaseCr(marketplace *marketplacev1alpha1.MarketplaceConfig) *marketplacev1alpha1.MeterBase {
+
+	cr := &marketplacev1alpha1.MeterBase{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      METERBASE_NAME,
+			Namespace: marketplace.Namespace,
+		},
+		Spec: marketplacev1alpha1.MeterBaseSpec{
+			Enabled: true,
+			Prometheus: &marketplacev1alpha1.PrometheusSpec{
+				Storage: marketplacev1alpha1.StorageSpec{
+					Size: resource.MustParse("20Gi"),
+				},
+			},
+		},
+	}
 	return cr
 }
