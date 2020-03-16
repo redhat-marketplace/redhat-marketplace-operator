@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/spf13/viper"
-	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	batch "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,7 +26,7 @@ func TestRazeeDeployController(t *testing.T) {
 
 	var (
 		name      = "example-marketplaceconfig"
-		namespace = "marketplace-operator"
+		namespace = "redhat-marketplace-operator"
 	)
 
 	// A Memcached resource with metadata and spec.
@@ -56,7 +56,7 @@ func TestRazeeDeployController(t *testing.T) {
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      name,
-			Namespace: "marketplace-operator",
+			Namespace: "redhat-marketplace-operator",
 		},
 	}
 	_, err := r.Reconcile(req)
@@ -68,7 +68,7 @@ func TestRazeeDeployController(t *testing.T) {
 	req = reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      "razeedeploy-job",
-			Namespace: "marketplace-operator",
+			Namespace: "redhat-marketplace-operator",
 		},
 	}
 

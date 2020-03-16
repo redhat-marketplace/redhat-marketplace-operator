@@ -2,7 +2,7 @@ package controller
 
 import (
 	"github.com/spf13/pflag"
-	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
+	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/utils"
 )
 
 var (

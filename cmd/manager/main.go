@@ -13,9 +13,9 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 
-	"github.ibm.com/symposium/marketplace-operator/pkg/apis"
-	"github.ibm.com/symposium/marketplace-operator/pkg/controller"
-	"github.ibm.com/symposium/marketplace-operator/version"
+	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis"
+	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/controller"
+	"github.ibm.com/symposium/redhat-marketplace-operator/version"
 
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
@@ -103,7 +103,7 @@ func main() {
 
 	ctx := context.TODO()
 	// Become the leader before proceeding
-	err = leader.Become(ctx, "marketplace-operator-lock")
+	err = leader.Become(ctx, "redhat-marketplace-operator-lock")
 	if err != nil {
 		log.Error(err, "")
 		os.Exit(1)

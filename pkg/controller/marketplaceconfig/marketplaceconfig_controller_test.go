@@ -7,7 +7,7 @@ import (
 	opsrcApi "github.com/operator-framework/operator-marketplace/pkg/apis"
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	"github.com/spf13/viper"
-	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,9 +26,9 @@ func TestMarketplaceConfigController(t *testing.T) {
 	viper.Set("assets", "../../../assets")
 
 	var (
-		opsrcName       = "redhat-marketplace-operators"
+		opsrcName       = "redhat-redhat-marketplace-operators"
 		name            = "markeplaceconfig"
-		namespace       = "marketplace-operator"
+		namespace       = "redhat-marketplace-operator"
 		replicas  int32 = 1
 	)
 

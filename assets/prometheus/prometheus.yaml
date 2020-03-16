@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: prometheus
+  labels:
+    prometheus: prometheus
+spec:
+  replicas: 1
+  serviceAccountName: redhat-marketplace-operator
+  additionalScrapeConfigs:
+    name: additional-scrape-configs
+    key: prometheus-additional.yaml
+  serviceMonitorSelector:
+    matchLabels:
+      marketplace.redhat.com/metered: "true"
+  storage:
+    volumeClaimTemplate:
+      spec:
+        storageClassName: "standard"
+        resources:
+          requests:
+            storage: 40Gi

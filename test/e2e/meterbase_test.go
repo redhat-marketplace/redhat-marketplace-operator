@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.ibm.com/symposium/marketplace-operator/pkg/apis"
-	operator "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis"
+	operator "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -91,7 +91,7 @@ func MeterbaseOperatorCluster(t *testing.T) {
 	// get global framework variables
 	f := framework.Global
 	// wait for meterbase-operator to be ready
-	err = e2eutil.WaitForOperatorDeployment(t, f.KubeClient, namespace, "marketplace-operator", 1, retryInterval, timeout)
+	err = e2eutil.WaitForOperatorDeployment(t, f.KubeClient, namespace, "redhat-marketplace-operator", 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatal(err)
 	}

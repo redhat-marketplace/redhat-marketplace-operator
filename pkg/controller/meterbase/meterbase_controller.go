@@ -11,8 +11,8 @@ import (
 	"github.com/gotidy/ptr"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
+	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -433,7 +433,7 @@ func (r *ReconcileMeterBase) newPromStatefulsetForCR(cr *marketplacev1alpha1.Met
 					Labels:    ls,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: "marketplace-operator",
+					ServiceAccountName: "redhat-marketplace-operator",
 					Containers: []corev1.Container{
 						reloadContainer,
 						serverContainer,

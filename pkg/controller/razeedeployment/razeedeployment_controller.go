@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -143,7 +143,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      "razeedeploy-job",
-			Namespace: "marketplace-operator",
+			Namespace: "redhat-marketplace-operator",
 		},
 	}
 
@@ -209,12 +209,12 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts) *batch.Job {
 	return &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "razeedeploy-job",
-			Namespace: "marketplace-operator",
+			Namespace: "redhat-marketplace-operator",
 		},
 		Spec: batch.JobSpec{
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					ServiceAccountName: "marketplace-operator",
+					ServiceAccountName: "redhat-marketplace-operator",
 					Containers: []corev1.Container{{
 						Name:    "razeedeploy-job",
 						Image:   opt.RazeeJobImage,

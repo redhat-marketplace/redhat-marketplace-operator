@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.ibm.com/symposium/marketplace-operator/pkg/apis"
-	operator "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis"
+	operator "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	"github.com/operator-framework/operator-sdk/pkg/test/e2eutil"
@@ -49,8 +49,8 @@ func MarketplaceOperatorCluster(t *testing.T) {
 	}
 	// get global framework variables
 	f := framework.Global
-	// wait for marketplace-operator to be ready
-	err = e2eutil.WaitForOperatorDeployment(t, f.KubeClient, namespace, "marketplace-operator", 1, retryInterval, timeout)
+	// wait for redhat-marketplace-operator to be ready
+	err = e2eutil.WaitForOperatorDeployment(t, f.KubeClient, namespace, "redhat-marketplace-operator", 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatal(err)
 	}

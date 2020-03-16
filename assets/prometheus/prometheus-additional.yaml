@@ -1,0 +1,84 @@
+- job_name: 'kubernetes-nodes-cadvisor'
+  # Default to scraping over https. If required, just disable this or change to
+  # `http`.
+  scheme: https
+  # This TLS & bearer token file config is used to connect to the actual scrape
+  # endpoints for cluster components. This is separate to discovery auth
+  # configuration because discovery & scraping are two separate concerns in
+  # Prometheus. The discovery auth config is automatic if Prometheus runs inside
+  # the cluster. Otherwise, more config options have to be provided within the
+  # <kubernetes_sd_config>.
+  tls_config:
+    ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+  bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+  kubernetes_sd_configs:
+  - role: node
+  relabel_configs:
+  - action: labelmap
+    regex: __meta_kubernetes_node_label_(.+)
+  - target_label: __address__
+    replacement: kubernetes.default.svc:443
+  - source_labels: [__meta_kubernetes_node_name]
+    regex: (.+)
+    target_label: __metrics_path__
+    replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+- job_name: "rhm_generic_scrape_pod"
+  kubernetes_sd_configs:
+  - role: pod
+  relabel_configs:
+  - source_labels: [__meta_kubernetes_pod_annotation_marketplace_redhat_com_metered]
+    action: keep
+    regex: true
+  - source_labels: [__meta_kubernetes_pod_annotation_marketplace_redhat_com_metric_path]
+    action: replace
+    target_label: __metrics_path__
+    regex: (.+)
+  - source_labels: [__address__, __meta_kubernetes_pod_annotation_marketplace_redhat_com_metric_port]
+    action: replace
+    regex: ([^:]+)(?::\d+)?;(\d+)
+    replacement: $1:$2
+    target_label: __address__
+  - source_labels: [__meta_kubernetes_pod_annotation_marketplace_redhat_com_product_id]
+    action: replace
+    target_label: marketplace_product_id
+  - source_labels: [__meta_kubernetes_pod_annotation_marketplace_redhat_com_edition_id]
+    action: replace
+    target_label: marketplace_edition_id
+  - action: labelmap
+    regex: __meta_kubernetes_pod_label_(.+)
+  - source_labels: [__meta_kubernetes_namespace]
+    action: replace
+    target_label: kubernetes_namespace
+  - source_labels: [__meta_kubernetes_pod_name]
+    action: replace
+    target_label: kubernetes_pod_name
+- job_name: "rhm_generic_scrape_service"
+  kubernetes_sd_configs:
+  - role: pod
+  relabel_configs:
+  - source_labels: [__meta_kubernetes_service_annotation_marketplace_redhat_com_metered]
+    action: keep
+    regex: true
+  - source_labels: [__meta_kubernetes_service_annotation_marketplace_redhat_com_metric_path]
+    action: replace
+    target_label: __metrics_path__
+    regex: (.+)
+  - source_labels: [__address__, __meta_kubernetes_service_annotation_marketplace_redhat_com_metric_port]
+    action: replace
+    regex: ([^:]+)(?::\d+)?;(\d+)
+    replacement: $1:$2
+    target_label: __address__
+  - source_labels: [__meta_kubernetes_service_annotation_marketplace_redhat_com_product_id]
+    action: replace
+    target_label: marketplace_product_id
+  - source_labels: [__meta_kubernetes_service_annotation_marketplace_redhat_com_edition_id]
+    action: replace
+    target_label: marketplace_edition_id
+  - action: labelmap
+    regex: __meta_kubernetes_service_label_(.+)
+  - source_labels: [__meta_kubernetes_namespace]
+    action: replace
+    target_label: kubernetes_namespace
+  - source_labels: [__meta_kubernetes_service_name]
+    action: replace
+    target_label: kubernetes_name

@@ -1,4 +1,4 @@
-module github.ibm.com/symposium/marketplace-operator
+module github.ibm.com/symposium/redhat-marketplace-operator
 
 go 1.13
 
@@ -11,6 +11,7 @@ require (
 	github.com/noqcks/gucci v0.0.4 // indirect
 	github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b
 	github.com/operator-framework/operator-sdk v0.15.1-0.20200211154447-0eac8a1169df
+	github.com/prometheus/prometheus v2.5.0+incompatible // indirect
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.2
 	github.com/urfave/cli v1.22.2 // indirect

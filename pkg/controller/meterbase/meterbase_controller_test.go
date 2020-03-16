@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/spf13/viper"
-	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -30,7 +30,7 @@ func TestMeterBaseController(t *testing.T) {
 	viper.Set("assets", "../../../assets")
 
 	var (
-		name      = "marketplace-operator"
+		name      = "redhat-marketplace-operator"
 		namespace = "rhm-marketplace"
 	)
 

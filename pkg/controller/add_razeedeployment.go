@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.ibm.com/symposium/marketplace-operator/pkg/controller/razeedeployment"
+	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/controller/razeedeployment"
 )
 
 func init() {
