@@ -91,7 +91,7 @@ func MeterbaseOperatorCluster(t *testing.T) {
 	// get global framework variables
 	f := framework.Global
 	// wait for meterbase-operator to be ready
-	err = e2eutil.WaitForOperatorDeployment(t, f.KubeClient, namespace, "marketplace-operator", 1, retryInterval, timeout)
+	err = e2eutil.WaitForOperatorDeployment(t, f.KubeClient, namespace, "redhat-marketplace-operator", 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatal(err)
 	}

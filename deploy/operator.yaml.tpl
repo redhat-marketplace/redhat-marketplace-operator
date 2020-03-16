@@ -1,28 +1,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: marketplace-operator
+  name: redhat-marketplace-operator
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: marketplace-operator
+      name: redhat-marketplace-operator
   template:
     metadata:
       labels:
-        name: marketplace-operator
+        name: redhat-marketplace-operator
     spec:
-      serviceAccountName: marketplace-operator
+      serviceAccountName: redhat-marketplace-operator
       containers:
-        - name: marketplace-operator
+        - name: redhat-marketplace-operator
           # Replace this with the built image name
           image: {{ .RELATED_IMAGE_MARKETPLACE_OPERATOR }}
           command:
-          - marketplace-operator
+          - redhat-marketplace-operator
           imagePullPolicy: IfNotPresent
           env:
             - name: OPERATOR_NAME
-              value: "marketplace-operator"
+              value: "redhat-marketplace-operator"
             - name: RELATED_IMAGE_MARKETPLACE_AGENT
               value: "{{ .RELATED_IMAGE_MARKETPLACE_AGENT }}"
             - name: RELATED_IMAGE_PROM_SERVER

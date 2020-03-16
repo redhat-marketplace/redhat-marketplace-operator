@@ -28,7 +28,7 @@ func TestMarketplaceConfigController(t *testing.T) {
 	var (
 		opsrcName       = "redhat-marketplace-operators"
 		name            = "markeplaceconfig"
-		namespace       = "marketplace-operator"
+		namespace       = "redhat-marketplace-operator"
 		replicas  int32 = 1
 	)
 

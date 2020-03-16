@@ -1,12 +1,13 @@
 SHELL:=/bin/bash
-NAMESPACE ?= marketplace-operator
+NAMESPACE ?= redhat-marketplace-operator
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
-OPERATOR_IMAGE_NAME ?= marketplace-operator
+OPERATOR_IMAGE_NAME ?= redhat-marketplace-operator
 OPERATOR_IMAGE_TAG ?= latest
 AGENT_IMAGE_NAME ?= marketplace-agent
 AGENT_IMAGE_TAG ?= latest
+VERSION ?= $(shell go run scripts/version/main.go)
 
-SERVICE_ACCOUNT := marketplace-operator
+SERVICE_ACCOUNT := redhat-marketplace-operator
 SECRETS_NAME := my-docker-secrets
 
 OPERATOR_IMAGE := $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
@@ -70,6 +71,9 @@ build: ## Build the operator executable
 .PHONY: push
 push: push ## Push the operator image
 	docker push $(OPERATOR_IMAGE)
+
+generate-csv:
+	operator-sdk generate csv --csv-version $(VERSION) --csv-config=./deploy/olm-catalog/csv-config.yaml
 
 ##@ Development
 
