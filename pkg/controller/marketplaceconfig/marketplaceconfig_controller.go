@@ -12,7 +12,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -29,9 +28,6 @@ import (
 
 const (
 	CSCFinalizer                    = "finalizer.MarketplaceConfigs.operators.coreos.com"
-	OPSRC_NAME                      = "redhat-marketplace-operators"
-	RAZEE_NAME                      = "marketplaceconfig-razeedeployment"
-	METERBASE_NAME                  = "marketplaceconfig-meterbase"
 	RELATED_IMAGE_MARKETPLACE_AGENT = "RELATED_IMAGE_MARKETPLACE_AGENT"
 	DEFAULT_IMAGE_MARKETPLACE_AGENT = "marketplace-agent:latest"
 )
@@ -188,10 +184,10 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 	// Check if operator source exists, or create a new one
 	foundOpSrc := &opsrcv1.OperatorSource{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: OPSRC_NAME, Namespace: marketplaceConfig.Namespace}, foundOpSrc)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.OPSRC_NAME, Namespace: marketplaceConfig.Namespace}, foundOpSrc)
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new operator source
-		newOpSrc := createNewOpSrc(marketplaceConfig)
+		newOpSrc := utils.BuildNewOpSrc(marketplaceConfig.Namespace)
 		err = r.client.Create(context.TODO(), newOpSrc)
 		if err != nil {
 			reqLogger.Error(err, "Failed to create an OperatorSource.", "OperatorSource.Namespace ", newOpSrc.Namespace, "OperatorSource.Name", newOpSrc.Name)
@@ -217,9 +213,9 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	if autoinstall {
 		//Check if RazeeDeployment exists, if not create one
 		foundRazee := &marketplacev1alpha1.RazeeDeployment{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: RAZEE_NAME, Namespace: marketplaceConfig.Namespace}, foundRazee)
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: marketplaceConfig.Namespace}, foundRazee)
 		if err != nil && errors.IsNotFound(err) {
-			newRazeeCrd := createRazeeCr(marketplaceConfig)
+			newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace)
 			err = r.client.Create(context.TODO(), newRazeeCrd)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
@@ -237,9 +233,9 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 		// Check if MeterBase exists, if not create one
 		foundMeterBase := &marketplacev1alpha1.MeterBase{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: METERBASE_NAME, Namespace: marketplaceConfig.Namespace}, foundMeterBase)
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: marketplaceConfig.Namespace}, foundMeterBase)
 		if err != nil && errors.IsNotFound(err) {
-			newMeterBaseCr := createMeterBaseCr(marketplaceConfig)
+			newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
 			err = r.client.Create(context.TODO(), newMeterBaseCr)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create a new MeterBase CR.")
@@ -317,59 +313,4 @@ func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketpla
 // belonging to the given marketplaceConfig custom resource name
 func labelsForMarketplaceConfig(name string) map[string]string {
 	return map[string]string{"app": "marketplaceconfig", "marketplaceconfig_cr": name}
-}
-
-// createNewOpSrc returns a new Operator Source
-func createNewOpSrc(cr *marketplacev1alpha1.MarketplaceConfig) *opsrcv1.OperatorSource {
-
-	opsrc := &opsrcv1.OperatorSource{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      OPSRC_NAME,
-			Namespace: cr.Namespace,
-		},
-		Spec: opsrcv1.OperatorSourceSpec{
-			DisplayName:       "Red Hat Marketplace",
-			Endpoint:          "https://quay.io/cnr",
-			Publisher:         "Red Hat Marketplace",
-			RegistryNamespace: "redhat-marketplace",
-			Type:              "appregistry",
-		},
-	}
-
-	return opsrc
-}
-
-// createRazeeCrd returns a RazeeDeployment cr with default values
-func createRazeeCr(marketplace *marketplacev1alpha1.MarketplaceConfig) *marketplacev1alpha1.RazeeDeployment {
-
-	cr := &marketplacev1alpha1.RazeeDeployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      RAZEE_NAME,
-			Namespace: marketplace.Namespace,
-		},
-		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
-			Enabled: true,
-		},
-	}
-
-	return cr
-}
-
-func createMeterBaseCr(marketplace *marketplacev1alpha1.MarketplaceConfig) *marketplacev1alpha1.MeterBase {
-
-	cr := &marketplacev1alpha1.MeterBase{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      METERBASE_NAME,
-			Namespace: marketplace.Namespace,
-		},
-		Spec: marketplacev1alpha1.MeterBaseSpec{
-			Enabled: true,
-			Prometheus: &marketplacev1alpha1.PrometheusSpec{
-				Storage: marketplacev1alpha1.StorageSpec{
-					Size: resource.MustParse("20Gi"),
-				},
-			},
-		},
-	}
-	return cr
 }

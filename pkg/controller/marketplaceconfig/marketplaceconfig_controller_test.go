@@ -8,9 +8,8 @@ import (
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
-
+	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -38,9 +37,9 @@ func TestMarketplaceConfigController(t *testing.T) {
 
 	// Declare resources
 	marketplaceconfig := buildMarketplaceConfigCR(name, namespace, replicas)
-	opsrc := buildOperatorSourceCR(opsrcName, namespace)
-	razeedeployment := buildRazeeDeploymentCR(razeeName, namespace)
-	meterbase := buildMeterBaseCR(meterBaseName, namespace)
+	opsrc := utils.BuildNewOpSrc(namespace)
+	razeedeployment := utils.BuildRazeeCr(namespace)
+	meterbase := utils.BuildMeterBaseCr(namespace)
 
 	// Objects to track in the fake client.
 	objs := []runtime.Object{
@@ -176,51 +175,6 @@ func buildMarketplaceConfigCR(name, namespace string, replicas int32) *marketpla
 		},
 		Spec: marketplacev1alpha1.MarketplaceConfigSpec{
 			Size: replicas,
-		},
-	}
-}
-
-func buildRazeeDeploymentCR(name, namespace string) *marketplacev1alpha1.RazeeDeployment {
-	return &marketplacev1alpha1.RazeeDeployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
-			Enabled: true,
-		},
-	}
-}
-
-func buildOperatorSourceCR(name, namespace string) *opsrcv1.OperatorSource {
-	return &opsrcv1.OperatorSource{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: opsrcv1.OperatorSourceSpec{
-			DisplayName:       "Red Hat Marketplace",
-			Endpoint:          "https://quay.io/cnr",
-			Publisher:         "Red Hat Marketplace",
-			RegistryNamespace: "redhat-marketplace",
-			Type:              "appregistry",
-		},
-	}
-}
-
-func buildMeterBaseCR(name, namespace string) *marketplacev1alpha1.MeterBase {
-	return &marketplacev1alpha1.MeterBase{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: marketplacev1alpha1.MeterBaseSpec{
-			Enabled: true,
-			Prometheus: &marketplacev1alpha1.PrometheusSpec{
-				Storage: marketplacev1alpha1.StorageSpec{
-					Size: resource.MustParse("20Gi"),
-				},
-			},
 		},
 	}
 }

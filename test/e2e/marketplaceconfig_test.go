@@ -94,7 +94,5 @@ func crDeployedTest(t *testing.T, f *framework.Framework, ctx *framework.TestCtx
 	if err != nil {
 		return fmt.Errorf("Failed waiting for deployment %v", err)
 	}
-
 	return nil
-
 }
