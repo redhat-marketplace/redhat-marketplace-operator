@@ -160,7 +160,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	// look for the prerequites and update status accordingly
 	// TODO: double check that this is the extensive list
 	searchItems := []string{"watch-keeper-secret","ibm-cos-reader-key"}
-	if missing := utils.ContainsMultiple(secretNames,searchItems);len(missing)>0 {
+	// if there are missing razee resources and the status on the cr hasn't been updated, update the cr status and requeue 
+	if missing := utils.ContainsMultiple(secretNames,searchItems);len(missing)>0 && len(instance.Status.MissingRazeeResources) != len(missing) {
 		reqLogger.Info("There are missing prerequisite resources")
 		
 		//TODO: update the status with any of the missing resources (prerequisites)
@@ -177,7 +178,9 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			// return reconcile.Result{}, err
 		}
 		reqLogger.Info("status has been updated with missing resources")
-	}
+		return reconcile.Result{}, nil
+
+	} 
 
 	// Define a new razeedeploy-job object
 	razeeOpts := &RazeeOpts{
