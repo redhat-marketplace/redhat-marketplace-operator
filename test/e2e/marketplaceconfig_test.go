@@ -4,17 +4,17 @@ package e2e
 
 import (
 	goctx "context"
-	"fmt"
 	"testing"
 	"time"
 
+	opsrcHelper "github.com/operator-framework/operator-marketplace/test/helpers"
+	framework "github.com/operator-framework/operator-sdk/pkg/test"
+	"github.com/operator-framework/operator-sdk/pkg/test/e2eutil"
 	"github.com/spf13/viper"
 	"github.ibm.com/symposium/marketplace-operator/pkg/apis"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	framework "github.com/operator-framework/operator-sdk/pkg/test"
-	"github.com/operator-framework/operator-sdk/pkg/test/e2eutil"
 )
 
 var (
@@ -34,7 +34,7 @@ func TestMarketplaceConfig(t *testing.T) {
 	// run subtests
 	t.Run("marketplaceconfig-group", func(t *testing.T) {
 		t.Run("Cluster3", MarketplaceOperatorCluster)
-		// t.Run("Cluster4", MarketplaceOperatorCluster)
+		t.Run("Cluster4", MarketplaceOperatorCluster)
 	})
 }
 
@@ -62,7 +62,7 @@ func MarketplaceOperatorCluster(t *testing.T) {
 
 	exampleMarketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "example-marketplaceconfig",
+			Name:      utils.MARKETPLACECONFIG_NAME,
 			Namespace: namespace,
 		},
 		Spec: marketplacev1alpha1.MarketplaceConfigSpec{
@@ -75,24 +75,22 @@ func MarketplaceOperatorCluster(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err = crDeployedTest(t, f, ctx, "example-marketplaceconfig", 1); err != nil {
+	// Checks if a MarketplaceConfig CR is deployed with replicas 1
+	if err = crDeployedTest(t, f, ctx, utils.MARKETPLACECONFIG_NAME, 1); err != nil {
 		t.Error(err)
 	}
-	if err = crDeployedTest(t, f, ctx, "marketplaceconfig-razeedeployment", 1); err != nil {
+	// Checks if an OperatorSoure object has been deployed
+	if opsrcHelper.WaitForOpsrcMarkedForDeletionWithFinalizer(f.Client, utils.OPSRC_NAME, namespace); err != nil {
 		t.Error(err)
 	}
-	if err = crDeployedTest(t, f, ctx, "marketplaceconfig-meterbase", 1); err != nil {
-		t.Error(err)
-	}
-}
-
-// Test that when MarketplaceConfig CR is deployed, so is a RazeePod
-func crDeployedTest(t *testing.T, f *framework.Framework, ctx *framework.TestCtx, name string, replicas int) error {
-	namespace, err := ctx.GetNamespace()
-
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, name, replicas, time.Second*5, time.Second*30)
+	// Checks if a RazeeJob has been deployed
+	//NOTE: currently this causes e2e testing to slow down quite a bit, look into an alternate test
+	// if opsrcHelper.WaitForResult(f.Client, &batch.Job{}, utils.RAZEE_JOB_NAME, namespace); err != nil {
+	// 	t.Error(err)
+	// }
+	// Checks if a statefulset for MeterBase has been deployed
+	err = waitForStatefulSet(t, f.KubeClient, namespace, utils.METERBASE_NAME, 1, retryInterval, timeout)
 	if err != nil {
-		return fmt.Errorf("Failed waiting for deployment %v", err)
+		t.Error(err)
 	}
-	return nil
 }
