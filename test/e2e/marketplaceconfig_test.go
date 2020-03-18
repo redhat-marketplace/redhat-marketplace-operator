@@ -84,10 +84,9 @@ func MarketplaceOperatorCluster(t *testing.T) {
 		t.Error(err)
 	}
 	// Checks if a RazeeJob has been deployed
-	//NOTE: currently this causes e2e testing to slow down quite a bit, look into an alternate test
-	// if opsrcHelper.WaitForResult(f.Client, &batch.Job{}, utils.RAZEE_JOB_NAME, namespace); err != nil {
-	// 	t.Error(err)
-	// }
+	if waitForBatchJob(t, f.KubeClient, namespace, utils.RAZEE_JOB_NAME, retryInterval, timeout); err != nil {
+		t.Error(err)
+	}
 	// Checks if a statefulset for MeterBase has been deployed
 	err = waitForStatefulSet(t, f.KubeClient, namespace, utils.METERBASE_NAME, 1, retryInterval, timeout)
 	if err != nil {
