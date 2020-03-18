@@ -2,7 +2,7 @@ SHELL:=/bin/bash
 NAMESPACE ?= marketplace-operator
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 OPERATOR_IMAGE_NAME ?= marketplace-operator
-OPERATOR_IMAGE_TAG ?= latest-12
+OPERATOR_IMAGE_TAG ?= latest
 AGENT_IMAGE_NAME ?= marketplace-agent
 AGENT_IMAGE_TAG ?= latest
 

@@ -135,7 +135,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 
-	// if job isn't created yet continue with reconcile
+	// if the razeejob hasn't been successfully created yet continue with reconcile
 	if instance.Status.JobState.Succeeded == 1  {
 		reqLogger.Info("Exiting reconcile loop - RazeeDeployJob has already been successfully created")
 		return reconcile.Result{}, nil
@@ -157,7 +157,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		fmt.Println(out)
 	}
 
-	// look for the prereqs and updated status accordingly
+	// look for the prerequites and update status accordingly
+	// TODO: double check that this is the extensive list
 	searchItems := []string{"watch-keeper-secret","ibm-cos-reader-key"}
 	if missing := utils.ContainsMultiple(secretNames,searchItems);len(missing)>0 {
 		reqLogger.Info("There are missing prerequisite resources")
@@ -168,15 +169,14 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			instance.Status.MissingRazeeResources = append(instance.Status.MissingRazeeResources, item)
 		}
 		reqLogger.Info("updating status with missing resources")
-		// instance.Status.Conditions.LastProbeTime = metav1.Time{Time: time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)}
-		// instance.Status.Conditions.LastTransitionTime = metav1.Time{Time: time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)}
 		fmt.Println(instance.Status)
 		err := r.client.Status().Update(context.TODO(), instance)
 		if err != nil{
 			reqLogger.Error(err, "Error updating status with missing razee resources")
-			// TODO: this probably shouldn't exit - requeue 
-			// return reconcile.Result{}, nil
+			// TODO: requeue here ? 
+			// return reconcile.Result{}, err
 		}
+		reqLogger.Info("status has been updated with missing resources")
 	}
 
 	// Define a new razeedeploy-job object
