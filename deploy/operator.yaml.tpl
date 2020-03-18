@@ -19,7 +19,7 @@ spec:
           image: {{ .RELATED_IMAGE_MARKETPLACE_OPERATOR }}
           command:
           - marketplace-operator
-          imagePullPolicy: Always
+          imagePullPolicy: {{ .PULL_POLICY }}
           env:
             - name: OPERATOR_NAME
               value: "marketplace-operator"

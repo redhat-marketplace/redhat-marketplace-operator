@@ -152,10 +152,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 	
 	secretNames := utils.GetSecretNames(secrets.Items)
-	for _, name := range secretNames{
-		out := fmt.Sprintf("%v\n", name)
-		fmt.Println(out)
-	}
 
 	// look for the prerequites and update status accordingly
 	// TODO: double check that this is the extensive list
@@ -170,7 +166,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			instance.Status.MissingRazeeResources = append(instance.Status.MissingRazeeResources, item)
 		}
 		reqLogger.Info("updating status with missing resources")
-		fmt.Println(instance.Status)
 		err := r.client.Status().Update(context.TODO(), instance)
 		if err != nil{
 			reqLogger.Error(err, "Error updating status with missing razee resources")
