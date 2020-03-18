@@ -3,9 +3,12 @@ package razeedeployment
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -20,7 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"time"
 )
 
 const (
@@ -126,9 +128,55 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
+	// if not enabled then exit
 	if !instance.Spec.Enabled {
 		reqLogger.Info("Razee not enabled")
 		return reconcile.Result{}, nil
+	}
+
+
+	// if job isn't created yet continue with reconcile
+	if instance.Status.JobState.Succeeded == 1  {
+		reqLogger.Info("Exiting reconcile loop - RazeeDeployJob has already been successfully created")
+		return reconcile.Result{}, nil
+	}
+
+	secrets := &corev1.SecretList{}
+	listOpts := []client.ListOption{
+		client.InNamespace("razee"),
+	}
+	err = r.client.List(context.TODO(), secrets, listOpts...)
+	reqLogger.Info("looking for secrets in razee")
+	if err != nil{
+		reqLogger.Error(err, "Failed to list secrets")
+	}
+	
+	secretNames := utils.GetSecretNames(secrets.Items)
+	for _, name := range secretNames{
+		out := fmt.Sprintf("%v\n", name)
+		fmt.Println(out)
+	}
+
+	// look for the prereqs and updated status accordingly
+	searchItems := []string{"watch-keeper-secret","ibm-cos-reader-key"}
+	if missing := utils.ContainsMultiple(secretNames,searchItems);len(missing)>0 {
+		reqLogger.Info("There are missing prerequisite resources")
+		
+		//TODO: update the status with any of the missing resources (prerequisites)
+		for _, item := range missing{
+			reqLogger.Info("mssing resource","item: ", item)
+			instance.Status.MissingRazeeResources = append(instance.Status.MissingRazeeResources, item)
+		}
+		reqLogger.Info("updating status with missing resources")
+		// instance.Status.Conditions.LastProbeTime = metav1.Time{Time: time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)}
+		// instance.Status.Conditions.LastTransitionTime = metav1.Time{Time: time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)}
+		fmt.Println(instance.Status)
+		err := r.client.Status().Update(context.TODO(), instance)
+		if err != nil{
+			reqLogger.Error(err, "Error updating status with missing razee resources")
+			// TODO: this probably shouldn't exit - requeue 
+			// return reconcile.Result{}, nil
+		}
 	}
 
 	// Define a new razeedeploy-job object

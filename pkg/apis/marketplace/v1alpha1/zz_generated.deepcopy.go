@@ -426,6 +426,11 @@ func (in *RazeeDeploymentStatus) DeepCopyInto(out *RazeeDeploymentStatus) {
 	*out = *in
 	in.Conditions.DeepCopyInto(&out.Conditions)
 	in.JobState.DeepCopyInto(&out.JobState)
+	if in.MissingRazeeResources != nil {
+		in, out := &in.MissingRazeeResources, &out.MissingRazeeResources
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
