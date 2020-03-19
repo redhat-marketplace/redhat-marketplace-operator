@@ -2,6 +2,7 @@ package razeedeployment
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -18,9 +19,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -76,10 +79,29 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// watch the Job type
-	err = c.Watch(&source.Kind{Type: &batch.Job{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
-	})
+	// TODO: do we still need to watch this ? 
+	// err = c.Watch(&source.Kind{Type: &batch.Job{}}, &handler.EnqueueRequestForOwner{
+	// 	IsController: true,
+	// 	OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
+	// })
+	// if err != nil {
+	// 	return err
+	// }
+
+	// predicates for watch-keeper-secret and `ibm-cos-reader-key`
+	pred := predicate.Funcs{
+		DeleteFunc: func(e event.DeleteEvent) bool {
+		  return e.Meta.GetName() == "ibm-cos-reader-key" || e.Meta.GetName() == "watch-keeper-secret"
+		},
+		CreateFunc: func(e event.CreateEvent) bool{
+			return e.Meta.GetName() == "ibm-cos-reader-key" || e.Meta.GetName() == "ibm-cos-reader-key"
+		},
+	}
+	err = c.Watch(
+		&source.Kind{Type: &corev1.Secret{}},
+		&handler.EnqueueRequestForObject{},
+		pred,
+	)
 	if err != nil {
 		return err
 	}
@@ -114,14 +136,22 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling RazeeDeployment")
 
+	rhmOperator := reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: "marketplace-operator",
+			Name: "example-razeedeployment",
+		},
+	}
 	// Fetch the RazeeDeployment instance
 	instance := &marketplacev1alpha1.RazeeDeployment{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	err := r.client.Get(context.TODO(), rhmOperator.NamespacedName, instance)
+
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
+			reqLogger.Error(err,"Failed to find instance")
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -135,12 +165,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 
-	// if the razeejob hasn't been successfully created yet continue with reconcile
-	if instance.Status.JobState.Succeeded == 1  {
-		reqLogger.Info("Exiting reconcile loop - RazeeDeployJob has already been successfully created")
-		return reconcile.Result{}, nil
-	}
-
 	secrets := &corev1.SecretList{}
 	listOpts := []client.ListOption{
 		client.InNamespace("razee"),
@@ -149,6 +173,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	reqLogger.Info("looking for secrets in razee")
 	if err != nil{
 		reqLogger.Error(err, "Failed to list secrets")
+		return reconcile.Result{}, err
 	}
 	
 	secretNames := utils.GetSecretNames(secrets.Items)
@@ -156,26 +181,60 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	// look for the prerequites and update status accordingly
 	// TODO: double check that this is the extensive list
 	searchItems := []string{"watch-keeper-secret","ibm-cos-reader-key"}
-	// if there are missing razee resources and the status on the cr hasn't been updated, update the cr status and requeue 
+	// if there are missing razee resources and the status on the cr hasn't been updated, update the cr status and exit loop
 	if missing := utils.ContainsMultiple(secretNames,searchItems);len(missing)>0 && len(instance.Status.MissingRazeeResources) != len(missing) {
 		reqLogger.Info("There are missing prerequisite resources")
 		
-		//TODO: update the status with any of the missing resources (prerequisites)
 		for _, item := range missing{
-			reqLogger.Info("mssing resource","item: ", item)
+			reqLogger.Info("missing resource","item: ", item)
 			instance.Status.MissingRazeeResources = append(instance.Status.MissingRazeeResources, item)
 		}
 		reqLogger.Info("updating status with missing resources")
-		err := r.client.Status().Update(context.TODO(), instance)
+		// patch := client.MergeFrom(instance.DeepCopy())
+		patchedInstance := instance.DeepCopy()
+		originalInstance := instance.DeepCopy()
+		raw,_ := json.Marshal(patchedInstance)
+		if err != nil{
+			reqLogger.Error(err,"Failed to marshall instance")
+		}
+		err := r.client.Status().Patch(context.TODO(),originalInstance,client.ConstantPatch("application/merge-patch+json", raw))
+		// err := r.client.Status().Update(context.TODO(), instance)
+		
 		if err != nil{
 			reqLogger.Error(err, "Error updating status with missing razee resources")
 			// TODO: requeue here ? 
-			// return reconcile.Result{}, err
+			return reconcile.Result{}, err
 		}
-		reqLogger.Info("status has been updated with missing resources")
-		return reconcile.Result{}, nil
 
+		reqLogger.Info("Exiting loop: missing required razee resources")
+		return reconcile.Result{}, nil
 	} 
+
+	// missing resources have been applied, update status and continue
+	if missing := utils.ContainsMultiple(secretNames,searchItems);len(missing)==0 {
+		instance.Status.MissingRazeeResources = []string{}
+		reqLogger.Info("removing missing resources from status")
+		// patch := client.MergeFrom(instance.DeepCopy())
+		patchedInstance := instance.DeepCopy()
+		originalInstance := instance.DeepCopy()
+		raw,_ := json.Marshal(patchedInstance)
+		if err != nil{
+			reqLogger.Error(err,"Failed to marshall instance")
+		}
+		err := r.client.Status().Patch(context.TODO(),originalInstance,client.ConstantPatch("application/merge-patch+json", raw))
+		if err != nil{
+			reqLogger.Error(err, "Error updating status")
+			return reconcile.Result{}, err
+		}
+	}
+
+	reqLogger.Info("skipped updating missing resource status")
+
+	// if the razeejob hasn't been successfully created yet continue with reconcile
+	if instance.Status.JobState.Succeeded == 1 || len(instance.Status.MissingRazeeResources) >0 {
+		reqLogger.Info("Exiting reconcile loop - RazeeDeployJob has already been successfully created or there are missing required razee resources")
+		return reconcile.Result{}, nil
+	}
 
 	// Define a new razeedeploy-job object
 	razeeOpts := &RazeeOpts{
@@ -221,6 +280,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
+	// TODO: if job has been completed continue on to update JobStatus
+	if len(foundJob.Status.Conditions) == 0 {
+		reqLogger.Info("RazeeJob Conditions have not been propagated yet")
+		return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+	}
+
 	// Update status and conditions
 	instance.Status.JobState = foundJob.Status
 	for _, jobCondition := range foundJob.Status.Conditions {
@@ -228,6 +293,9 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	err = r.client.Status().Update(context.TODO(), instance)
+	// patch := client.MergeFrom(instance)
+	// copy := instance.DeepCopy()
+	// err = r.client.Status().Patch(context.TODO(),copy,patch)
 	if err != nil {
 		reqLogger.Error(err, "Failed to update JobState.")
 		return reconcile.Result{}, err
@@ -242,6 +310,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
 		}
 		reqLogger.Info("Razeedeploy-job deleted")
+
+		//TODO: delete the razeedeploy job pod - it's not getting deleted with the job
 		// exit the loop after the job has been deleted
 		return reconcile.Result{}, nil
 	}
