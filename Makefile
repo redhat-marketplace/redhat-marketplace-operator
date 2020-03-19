@@ -117,9 +117,6 @@ deploys: ##deploys the resources for deployment
 
 apply: ##applies changes to crds
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml -n ${NAMESPACE}
-	# - kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
-	# - kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_metering_cr.yaml -n ${NAMESPACE}
-	# - kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_meterbase_cr.yaml -n ${NAMESPACE}
 
 clean: ##delete the contents created in 'make create'
 	@echo deleting resources
@@ -154,7 +151,9 @@ test-cover: ## Run coverage on code
 .PHONY: test-e2e
 test-e2e: ## Run integration e2e tests with different options.
 	@echo ... Making build for e2e ...
-	# - make build
+	- make build
+	@echo ... Applying code templates for e2e ...
+	- make code-templates
 	@echo ... Running the same e2e tests with different args ...
 	@echo ... Running locally ...
 	- kubectl create namespace ${NAMESPACE} || true
