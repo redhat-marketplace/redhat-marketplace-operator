@@ -138,7 +138,7 @@ spec:
                     fieldRef:
                       fieldPath: metadata.name
                 image: quay.io/zach_source/redhat-marketplace-operator:latest
-                imagePullPolicy: IfNotPresent
+                imagePullPolicy: Always
                 name: redhat-marketplace-operator
                 resources: {}
               serviceAccountName: redhat-marketplace-operator
