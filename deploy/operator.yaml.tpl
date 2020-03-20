@@ -17,8 +17,6 @@ spec:
         - name: marketplace-operator
           # Replace this with the built image name
           image: {{ .RELATED_IMAGE_MARKETPLACE_OPERATOR }}
-          command:
-          - marketplace-operator
           imagePullPolicy: IfNotPresent
           env:
             - name: OPERATOR_NAME

@@ -29,12 +29,15 @@ import (
 const (
 	CSCFinalizer                    = "finalizer.MarketplaceConfigs.operators.coreos.com"
 	RELATED_IMAGE_MARKETPLACE_AGENT = "RELATED_IMAGE_MARKETPLACE_AGENT"
-	DEFAULT_IMAGE_MARKETPLACE_AGENT = "marketplace-agent:latest"
+	DEFAULT_IMAGE_MARKETPLACE_AGENT = "quay.io/namsimar/plato-agent:latest"
+	RAZEE_FLAG                      = "razee"
+	METERBASE_FLAG                  = "meterbase"
 )
 
 var (
 	log                      = logf.Log.WithName("controller_marketplaceconfig")
 	marketplaceConfigFlagSet *pflag.FlagSet
+	defaultFeatures          = []string{RAZEE_FLAG, METERBASE_FLAG}
 )
 
 // Init declares our FlagSet for the MarketplaceConfig
@@ -45,10 +48,10 @@ func init() {
 		"related-image-operator-agent",
 		utils.Getenv(RELATED_IMAGE_MARKETPLACE_AGENT, DEFAULT_IMAGE_MARKETPLACE_AGENT),
 		"Image for marketplaceConfig")
-	marketplaceConfigFlagSet.Bool(
-		"autoinstall",
-		true,
-		"True or false: auto install the remaining components?",
+	marketplaceConfigFlagSet.StringSlice(
+		"features",
+		defaultFeatures,
+		"List of additional features to install. Ex. [razee, meterbase], etc.",
 	)
 }
 
@@ -208,9 +211,16 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{}, err
 	}
 
+	installFeatures := viper.GetStringSlice("features")
+	installSet := make(map[string]bool)
+	for _, installFlag := range installFeatures {
+		reqLogger.Info("Feature Flag Found", "Flag Name: ", installFlag)
+		installSet[installFlag] = true
+	}
+
 	// If auto-install is true MarketplaceConfig should create RazeeDeployment CR and MeterBase CR
-	autoinstall := viper.GetBool("autoinstall")
-	if autoinstall {
+	_, installExists := installSet[RAZEE_FLAG]
+	if installExists {
 		//Check if RazeeDeployment exists, if not create one
 		foundRazee := &marketplacev1alpha1.RazeeDeployment{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: marketplaceConfig.Namespace}, foundRazee)
@@ -230,7 +240,9 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		if err = controllerutil.SetControllerReference(found, foundRazee, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
-
+	}
+	_, installExists = installSet[METERBASE_FLAG]
+	if installExists {
 		// Check if MeterBase exists, if not create one
 		foundMeterBase := &marketplacev1alpha1.MeterBase{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: marketplaceConfig.Namespace}, foundMeterBase)

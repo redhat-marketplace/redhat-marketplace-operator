@@ -30,7 +30,8 @@ func TestMarketplaceConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
-	viper.Set("autoinstall", true)
+	defaultFeatures := []string{"razee", "meterbase"}
+	viper.Set("features", defaultFeatures)
 	// run subtests
 	t.Run("marketplaceconfig-group", func(t *testing.T) {
 		t.Run("Cluster3", MarketplaceOperatorCluster)

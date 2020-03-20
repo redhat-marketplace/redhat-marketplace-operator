@@ -23,8 +23,9 @@ func TestMarketplaceConfigController(t *testing.T) {
 	// Set the logger to development mode for verbose logs.
 	logf.SetLogger(logf.ZapLogger(true))
 
+	defaultFeatures := []string{"razee", "meterbase"}
 	viper.Set("assets", "../../../assets")
-	viper.Set("autoinstall", true)
+	viper.Set("features", defaultFeatures)
 
 	var (
 		name                = "markeplaceconfig"
