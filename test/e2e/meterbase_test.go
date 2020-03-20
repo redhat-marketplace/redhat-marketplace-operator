@@ -18,9 +18,7 @@ import (
 )
 
 func TestMeterbase(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping test in short mode.")
-	}
+	t.Skip("skipping test in short mode.")
 
 	meterbaseConfigList := &operator.MeterBaseList{}
 	err := framework.AddToFrameworkScheme(apis.AddToScheme, meterbaseConfigList)
@@ -43,7 +41,7 @@ func meterbaseScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Tes
 	// create meterbase custom resource
 	exampleMeterBase := &operator.MeterBase{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "example-meterbase",
+			Name:      "meterbase",
 			Namespace: namespace,
 		},
 		Spec: operator.MeterBaseSpec{
@@ -60,8 +58,8 @@ func meterbaseScaleTest(t *testing.T, f *framework.Framework, ctx *framework.Tes
 	if err != nil {
 		return err
 	}
-	// wait for example-meterbase to reach 1 replicas
-	err = waitForStatefulSet(t, f.KubeClient, namespace, "example-meterbase", 1, retryInterval, timeout)
+	// wait for meterbase to reach 1 replicas
+	err = waitForStatefulSet(t, f.KubeClient, namespace, "meterbase", 1, retryInterval, timeout)
 	if err != nil {
 		return err
 	}
