@@ -2,11 +2,11 @@ package razeedeployment
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	batch "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -25,11 +25,11 @@ func TestRazeeDeployController(t *testing.T) {
 	viper.Set("assets", "../../../assets")
 
 	var (
-		name      = "example-marketplaceconfig"
+		name      = "example-razeedeployment"
 		namespace = "marketplace-operator"
 	)
 
-	// A Memcached resource with metadata and spec.
+	// A resource with metadata and spec.
 	razeeDeployment := &marketplacev1alpha1.RazeeDeployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -64,25 +64,21 @@ func TestRazeeDeployController(t *testing.T) {
 		t.Fatalf("reconcile: (%v)", err)
 	}
 
-	// Check if razeedeployJob has been created
-	req = reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Name:      "razeedeploy-job",
-			Namespace: "marketplace-operator",
-		},
-	}
+	// check that missing resources are being picked up
+	razeeDeployment = &marketplacev1alpha1.RazeeDeployment{}
 
-	razeedeployJob := &batch.Job{}
-
-	err = cl.Get(context.TODO(), req.NamespacedName, razeedeployJob)
+	err = cl.Get(context.TODO(), req.NamespacedName, razeeDeployment)
 	if err != nil {
-		t.Fatalf("get razeedeploy-job: (%v)", err)
+		t.Fatalf("get razeedeployment: (%v)", err)
 	}
 
-	_, err = r.Reconcile(req)
-	if err != nil {
-		t.Fatalf("reconcile: (%v)", err)
+	if len(razeeDeployment.Status.MissingRazeeResources) > 0{
+		fmt.Println("missing resources found",razeeDeployment.Status.MissingRazeeResources)
 	}
+	// _, err = r.Reconcile(req)
+	// if err != nil {
+	// 	t.Fatalf("reconcile: (%v)", err)
+	// }
 	// Check the result of reconciliation to make sure it has the desired state.
 	// if res.Requeue {
 	// 	t.Error("reconcile requeue which is not expected")
