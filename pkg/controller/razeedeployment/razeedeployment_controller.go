@@ -164,7 +164,36 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, nil
 	}
 
+	//TODO: IGNORE FOR NOW
+	//TODO: delete the razeedeploy job pod - it's not getting deleted with the job
+	//TODO: patch the Console resource
+	// reqLogger.Info("finding Console resource")
+	// console := &unstructured.Unstructured{}
+	// console.SetGroupVersionKind(schema.GroupVersionKind{
+	// 	Group:   "config.openshift.io",
+	// 	Kind:    "Console",
+	// 	Version: "v1",
+	// })
+	// err = r.client.Get(context.Background(), client.ObjectKey{
+	// 	Name:      "cluster",
+	// }, console)
+	
+	// if err != nil {
+	// 	reqLogger.Error(err,"Failed to retrieve Console resource")
+	// }
+	// reqLogger.Info("found Console resource")
+	// fmt.Println(console.Object)
+	// // err = unstructured.SetNestedStringMap(console.Object,map[string]string{"app": "marketplaceconfig"},"labels")
+	// // console.SetLabels(map[string]string{"app": "marketplaceconfig"})
+	// console.SetGeneration(2)
+	// // fmt.Println("attempting to update labels")
+	
+	// err = r.client.Update(context.TODO(), console)
+	// if err != nil {
+	// 	reqLogger.Error(err, "Failed to update Console resource")
+	// }
 
+	// look for the prerequites and update status accordingly
 	secrets := &corev1.SecretList{}
 	listOpts := []client.ListOption{
 		client.InNamespace("razee"),
@@ -178,7 +207,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	
 	secretNames := utils.GetSecretNames(secrets.Items)
 
-	// look for the prerequites and update status accordingly
 	// TODO: double check that this is the extensive list
 	searchItems := []string{"watch-keeper-secret","ibm-cos-reader-key"}
 	// if there are missing razee resources and the status on the cr hasn't been updated, update the cr status and exit loop
@@ -206,14 +234,16 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			return reconcile.Result{}, err
 		}
 
+		// since the prerequisites aren't applied to the cluster exit
+		// the reconcile will get triggered when they get applied
 		reqLogger.Info("Exiting loop: missing required razee resources")
 		return reconcile.Result{}, nil
 	} 
 
-	// missing resources have been applied, update status and continue
+	// missing resources have been applied update status and continue
 	if missing := utils.ContainsMultiple(secretNames,searchItems);len(missing)==0 {
 		instance.Status.MissingRazeeResources = []string{}
-		reqLogger.Info("removing missing resources from status")
+		reqLogger.Info("updating status ")
 		// patch := client.MergeFrom(instance.DeepCopy())
 		patchedInstance := instance.DeepCopy()
 		originalInstance := instance.DeepCopy()
@@ -280,7 +310,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	// TODO: if job has been completed continue on to update JobStatus
+	//TODO: check this logic with the other check above
 	if len(foundJob.Status.Conditions) == 0 {
 		reqLogger.Info("RazeeJob Conditions have not been propagated yet")
 		return reconcile.Result{RequeueAfter: time.Second * 30}, nil
@@ -311,7 +341,14 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 		reqLogger.Info("Razeedeploy-job deleted")
 
-		//TODO: delete the razeedeploy job pod - it's not getting deleted with the job
+		
+
+		
+		// patch := client.MergeFrom(console.DeepCopy())
+		// err := r.client.Patch(context.TODO(),console,patch)
+		// if err != nil{
+		// 	reqLogger.Error(err, "could not patch Console resource")
+		// }
 		// exit the loop after the job has been deleted
 		return reconcile.Result{}, nil
 	}
@@ -343,3 +380,22 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts) *batch.Job {
 		},
 	}
 }
+
+
+// func (r *ReconcileRazeeDeployment)NewUpdateObj(){
+// 	return &unstructured.Unstructured{
+// 		Object: map[string]interface{}{
+// 			"kind":       "Oof",
+// 			"apiVersion": ,
+// 			"metadata": map[string]interface{}{
+// 				"annotations":            name,
+// 				"creationTimeStamp": resourceVer,
+// 				"generation": 1,
+// 				"resourceVersion"
+// 			},
+// 			"spec": map[string]interface{}{
+// 				"mode": mode,
+// 			},
+// 			"status"
+// 		},
+// }
