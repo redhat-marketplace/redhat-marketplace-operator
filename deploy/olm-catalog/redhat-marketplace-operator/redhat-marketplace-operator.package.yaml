@@ -1,0 +1,5 @@
+channels:
+- currentCSV: redhat-marketplace-operator.v0.0.1
+  name: alpha
+defaultChannel: alpha
+packageName: redhat-marketplace-operator

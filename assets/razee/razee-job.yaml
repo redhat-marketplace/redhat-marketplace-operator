@@ -6,7 +6,7 @@ metadata:
 spec:
   template:
     spec:
-      serviceAccountName: marketplace-operator
+      serviceAccountName: redhat-marketplace-operator
       containers:
       - name: razeedeploy-job
         image: "quay.io/razee/razeedeploy-delta:0.3.1"

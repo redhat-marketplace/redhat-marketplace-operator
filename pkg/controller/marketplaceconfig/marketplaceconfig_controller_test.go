@@ -28,16 +28,16 @@ func TestMarketplaceConfigController(t *testing.T) {
 
 	var (
 		name                = "markeplaceconfig"
-		razeeName           = "marketplaceconfig-razeedeployment"
 		opsrcName           = "redhat-marketplace-operators"
-		meterBaseName       = "marketplaceconfig-meterbase"
-		namespace           = "marketplace-operator"
+		razeeName           = "rhm-marketplaceconfig-razeedeployment"
+		meterBaseName       = "rhm-marketplaceconfig-meterbase"
+		namespace           = "redhat-marketplace-operator"
 		replicas      int32 = 1
 	)
 
 	// Declare resources
 	marketplaceconfig := buildMarketplaceConfigCR(name, namespace, replicas)
-	opsrc := utils.BuildNewOpSrc(namespace)
+	opsrc := utils.BuildNewOpSrc()
 	razeedeployment := utils.BuildRazeeCr(namespace)
 	meterbase := utils.BuildMeterBaseCr(namespace)
 
@@ -116,7 +116,9 @@ func TestMarketplaceConfigController(t *testing.T) {
 	// Get the updated OperatorSource object
 	req.Name = opsrcName
 	opsrc = &opsrcv1.OperatorSource{}
-	err = r.client.Get(context.TODO(), req.NamespacedName, opsrc)
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Namespace: utils.OPERATOR_MKTPLACE_NS,
+	}, opsrc)
 	if err != nil {
 		t.Errorf("get OperatorSource: (%v)", err)
 	}

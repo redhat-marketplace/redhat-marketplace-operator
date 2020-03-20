@@ -107,12 +107,12 @@ func MakeProbe(path string, port, initialDelaySeconds, timeoutSeconds int32) *co
 }
 
 // BuildNewOpSrc returns a new Operator Source
-func BuildNewOpSrc(namespace string) *opsrcv1.OperatorSource {
-
+func BuildNewOpSrc() *opsrcv1.OperatorSource {
 	opsrc := &opsrcv1.OperatorSource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      OPSRC_NAME,
-			Namespace: namespace,
+			// Must always be openshift-marketplace
+			Namespace: OPERATOR_MKTPLACE_NS,
 		},
 		Spec: opsrcv1.OperatorSourceSpec{
 			DisplayName:       "Red Hat Marketplace",

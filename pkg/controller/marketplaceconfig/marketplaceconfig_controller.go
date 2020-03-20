@@ -3,7 +3,6 @@ package marketplaceconfig
 import (
 	"context"
 
-	opsrcApi "github.com/operator-framework/operator-marketplace/pkg/apis"
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	pflag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -168,6 +167,12 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{}, err
 	}
 
+	if err = controllerutil.SetControllerReference(marketplaceConfig, found, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	reqLogger.Info("deployment created")
+
 	// Ensure deployment size is the same as spec
 	size := marketplaceConfig.Spec.Size
 	if *found.Spec.Replicas != size {
@@ -184,10 +189,14 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 	// Check if operator source exists, or create a new one
 	foundOpSrc := &opsrcv1.OperatorSource{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.OPSRC_NAME, Namespace: marketplaceConfig.Namespace}, foundOpSrc)
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Name:      utils.OPSRC_NAME,
+		Namespace: utils.OPERATOR_MKTPLACE_NS},
+		foundOpSrc)
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new operator source
-		newOpSrc := utils.BuildNewOpSrc(marketplaceConfig.Namespace)
+		newOpSrc := utils.BuildNewOpSrc()
+		reqLogger.Info("Creating a new opsource")
 		err = r.client.Create(context.TODO(), newOpSrc)
 		if err != nil {
 			reqLogger.Error(err, "Failed to create an OperatorSource.", "OperatorSource.Namespace ", newOpSrc.Namespace, "OperatorSource.Name", newOpSrc.Name)
@@ -202,20 +211,19 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{}, err
 	}
 
-	// Sets the owner for foundOpSrc
-	opsrcApi.AddToScheme(r.scheme)
-	if err = controllerutil.SetControllerReference(found, foundOpSrc, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
+	reqLogger.Info("Found opsource")
 
 	// If auto-install is true MarketplaceConfig should create RazeeDeployment CR and MeterBase CR
 	autoinstall := viper.GetBool("autoinstall")
 	if autoinstall {
+		reqLogger.Info("auto installing crs")
+
 		//Check if RazeeDeployment exists, if not create one
 		foundRazee := &marketplacev1alpha1.RazeeDeployment{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: marketplaceConfig.Namespace}, foundRazee)
 		if err != nil && errors.IsNotFound(err) {
 			newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace)
+			reqLogger.Info("creating razee cr")
 			err = r.client.Create(context.TODO(), newRazeeCrd)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
@@ -227,15 +235,18 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			return reconcile.Result{}, err
 		}
 		// Sets the owner for foundRazee
-		if err = controllerutil.SetControllerReference(found, foundRazee, r.scheme); err != nil {
+		if err = controllerutil.SetControllerReference(marketplaceConfig, foundRazee, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
+
+		reqLogger.Info("found razee")
 
 		// Check if MeterBase exists, if not create one
 		foundMeterBase := &marketplacev1alpha1.MeterBase{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: marketplaceConfig.Namespace}, foundMeterBase)
 		if err != nil && errors.IsNotFound(err) {
 			newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
+			reqLogger.Info("creating meterbase")
 			err = r.client.Create(context.TODO(), newMeterBaseCr)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create a new MeterBase CR.")
@@ -247,11 +258,14 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			return reconcile.Result{}, err
 		}
 		// Sets the owner for MeterBase
-		if err = controllerutil.SetControllerReference(found, foundMeterBase, r.scheme); err != nil {
+		if err = controllerutil.SetControllerReference(marketplaceConfig, foundMeterBase, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
+
+		reqLogger.Info("found meterbase")
 	}
 
+	reqLogger.Info("reconciling finished")
 	return reconcile.Result{}, nil
 }
 
@@ -305,7 +319,6 @@ func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketpla
 			},
 		},
 	}
-	controllerutil.SetControllerReference(m, dep, r.scheme)
 	return dep
 }
 

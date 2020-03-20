@@ -25,8 +25,8 @@ func TestRazeeDeployController(t *testing.T) {
 	viper.Set("assets", "../../../assets")
 
 	var (
-		name      = "example-marketplaceconfig"
-		namespace = "marketplace-operator"
+		name      = "marketplaceconfig"
+		namespace = "redhat-marketplace-operator"
 	)
 
 	// A Memcached resource with metadata and spec.
@@ -56,7 +56,7 @@ func TestRazeeDeployController(t *testing.T) {
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      name,
-			Namespace: "marketplace-operator",
+			Namespace: "redhat-marketplace-operator",
 		},
 	}
 	_, err := r.Reconcile(req)
@@ -68,7 +68,7 @@ func TestRazeeDeployController(t *testing.T) {
 	req = reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      "razeedeploy-job",
-			Namespace: "marketplace-operator",
+			Namespace: "redhat-marketplace-operator",
 		},
 	}
 
