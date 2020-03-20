@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -72,16 +73,22 @@ func TestRazeeDeployController(t *testing.T) {
 		t.Fatalf("get razeedeployment: (%v)", err)
 	}
 
-	if len(razeeDeployment.Status.MissingRazeeResources) > 0{
+	if len(razeeDeployment.Status.MissingRazeeResources) > 0 {
 		fmt.Println("missing resources found",razeeDeployment.Status.MissingRazeeResources)
-	}
-	// _, err = r.Reconcile(req)
-	// if err != nil {
-	// 	t.Fatalf("reconcile: (%v)", err)
-	// }
+	} 
+
 	// Check the result of reconciliation to make sure it has the desired state.
 	// if res.Requeue {
 	// 	t.Error("reconcile requeue which is not expected")
 	// }
 
+}
+
+func CreateWatchKeeperSecret ()*corev1.Secret{
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "razeedeploy-job",
+			Namespace: "marketplace-operator",
+		},
+	}
 }

@@ -91,17 +91,28 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// predicates for watch-keeper-secret and `ibm-cos-reader-key`
 	pred := predicate.Funcs{
 		DeleteFunc: func(e event.DeleteEvent) bool {
-		  return e.Meta.GetName() == "ibm-cos-reader-key" || e.Meta.GetName() == "watch-keeper-secret"
+		  return e.Meta.GetName() == "ibm-cos-reader-key" || e.Meta.GetName() == "watch-keeper-secret" || e.Meta.GetName() == "razee-cluster-metadata"
 		},
 		CreateFunc: func(e event.CreateEvent) bool{
-			return e.Meta.GetName() == "ibm-cos-reader-key" || e.Meta.GetName() == "ibm-cos-reader-key"
+			return e.Meta.GetName() == "ibm-cos-reader-key" || e.Meta.GetName() == "ibm-cos-reader-key" || e.Meta.GetName() == "razee-cluster-metadata"
 		},
 	}
+
 	err = c.Watch(
 		&source.Kind{Type: &corev1.Secret{}},
 		&handler.EnqueueRequestForObject{},
 		pred,
 	)
+	if err != nil {
+		return err
+	}
+
+	err = c.Watch(
+		&source.Kind{Type: &corev1.ConfigMap{}},
+		&handler.EnqueueRequestForObject{},
+		pred,
+	)
+
 	if err != nil {
 		return err
 	}
@@ -155,6 +166,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
+		// TODO: need to think about this. if this errors out and gets requeued I'm pretty sure the status will keep getting updated
 		return reconcile.Result{}, err
 	}
 
@@ -163,10 +175,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Info("Razee not enabled")
 		return reconcile.Result{}, nil
 	}
-
+	
+	// err = r.client.Update(context.TODO(),instance)
 	//TODO: IGNORE FOR NOW
 	//TODO: delete the razeedeploy job pod - it's not getting deleted with the job
-	//TODO: patch the Console resource
+	//TODO: patch the Console resource. I plan on moving this to line 340
 	// reqLogger.Info("finding Console resource")
 	// console := &unstructured.Unstructured{}
 	// console.SetGroupVersionKind(schema.GroupVersionKind{
@@ -207,31 +220,61 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	
 	secretNames := utils.GetSecretNames(secrets.Items)
 
+	// look for razee-cluster-metadata config map as well.
+	configMaps := &corev1.ConfigMapList{}
+	listOpts = []client.ListOption{
+		client.InNamespace("razee"),
+	}
+	err = r.client.List(context.TODO(), configMaps, listOpts...)
+	reqLogger.Info("looking for config maps in razee")
+	if err != nil{
+		reqLogger.Error(err, "Failed to list config maps")
+		return reconcile.Result{}, err
+	}
+
+	// combine the list of secrets and config maps
+	configMapNames := utils.GetConfigMapNames(configMaps.Items)
+	fmt.Println("CONFIG MAP NAMES", configMapNames)
+	var secretAndConfigMapNames []string
+	secretAndConfigMapNames = append(secretAndConfigMapNames, configMapNames...)
+	secretAndConfigMapNames = append(secretAndConfigMapNames, secretNames...)
+	// for _,item := range(secretAndConfigMapNames){
+	// 	out := fmt.Sprintf("\n%v", item)
+	// 	fmt.Println(out)
+	// }
 	// TODO: double check that this is the extensive list
-	searchItems := []string{"watch-keeper-secret","ibm-cos-reader-key"}
+	searchItems := []string{"watch-keeper-secret","ibm-cos-reader-key", "razee-cluster-metadata"}
 	// if there are missing razee resources and the status on the cr hasn't been updated, update the cr status and exit loop
-	if missing := utils.ContainsMultiple(secretNames,searchItems);len(missing)>0 && len(instance.Status.MissingRazeeResources) != len(missing) {
+	if missing := utils.ContainsMultiple(secretAndConfigMapNames,searchItems);len(missing)>0 && len(missing) > len(instance.Status.MissingRazeeResources) {
+		fmt.Println("length of missing",len(missing))
+		fmt.Println("length of instance status missing resources",len(instance.Status.MissingRazeeResources))
 		reqLogger.Info("There are missing prerequisite resources")
 		
 		for _, item := range missing{
 			reqLogger.Info("missing resource","item: ", item)
-			instance.Status.MissingRazeeResources = append(instance.Status.MissingRazeeResources, item)
+			if !utils.Contains(instance.Status.MissingRazeeResources,item){
+				fmt.Println("UPDATE")
+				instance.Status.MissingRazeeResources = append(instance.Status.MissingRazeeResources, item)
+			}
 		}
+
 		reqLogger.Info("updating status with missing resources")
-		// patch := client.MergeFrom(instance.DeepCopy())
 		patchedInstance := instance.DeepCopy()
 		originalInstance := instance.DeepCopy()
-		raw,_ := json.Marshal(patchedInstance)
-		if err != nil{
+		raw,err := json.Marshal(patchedInstance)
+		if err != nil  {
 			reqLogger.Error(err,"Failed to marshall instance")
 		}
-		err := r.client.Status().Patch(context.TODO(),originalInstance,client.ConstantPatch("application/merge-patch+json", raw))
+
+		err = r.client.Status().Patch(context.TODO(),originalInstance,client.ConstantPatch("application/merge-patch+json", raw))
 		// err := r.client.Status().Update(context.TODO(), instance)
 		
-		if err != nil{
+		// TODO: add this boolean value to a constant
+		if err != nil && err.Error() != `Operation cannot be fulfilled on razeedeployments.marketplace.redhat.com "example-razeedeployment": the object has been modified; please apply your changes to the latest version and try again` {
+			fmt.Println(err.Error())
 			reqLogger.Error(err, "Error updating status with missing razee resources")
 			// TODO: requeue here ? 
-			return reconcile.Result{}, err
+			// return reconcile.Result{}, err
 		}
 
 		// since the prerequisites aren't applied to the cluster exit
@@ -240,23 +283,69 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, nil
 	} 
 
-	// missing resources have been applied update status and continue
-	if missing := utils.ContainsMultiple(secretNames,searchItems);len(missing)==0 {
-		instance.Status.MissingRazeeResources = []string{}
-		reqLogger.Info("updating status ")
-		// patch := client.MergeFrom(instance.DeepCopy())
+	// the missing resources are being applied to the cluster
+	if missing := utils.ContainsMultiple(secretAndConfigMapNames,searchItems);len(missing) < len(instance.Status.MissingRazeeResources){
+		reqLogger.Info("missing resources being applied to cluster")
+		fmt.Println("length of missing",len(missing))
+		fmt.Println("length of instance status missing resources",len(instance.Status.MissingRazeeResources))
+		fmt.Println(missing)
+		// remove the recently applied item from MissingRazeeResources
+		for i, item := range instance.Status.MissingRazeeResources{
+			// reqLogger.Info("missing resource","item: ", item)
+			if !utils.Contains(missing,item){
+				// TODO: functionalize this
+				fmt.Println("ITEM TO BE REMOVED :",item)
+				copy(instance.Status.MissingRazeeResources[i:], instance.Status.MissingRazeeResources[i+1:]) // Shift instance.Status.MissingRazeeResources[i+1:] left one index.
+				instance.Status.MissingRazeeResources[len(instance.Status.MissingRazeeResources)-1] = ""     // Erase last element (write zero value).
+				instance.Status.MissingRazeeResources = instance.Status.MissingRazeeResources[:len(instance.Status.MissingRazeeResources)-1]  
+				fmt.Println(instance.Status.MissingRazeeResources)
+				fmt.Println("REMOVED RESOURCE FROM LIST OF MISSING ELEMENTS")
+
+			}
+		}
+
+		reqLogger.Info("updating status with missing resources")
 		patchedInstance := instance.DeepCopy()
 		originalInstance := instance.DeepCopy()
-		raw,_ := json.Marshal(patchedInstance)
-		if err != nil{
+		raw,err := json.Marshal(patchedInstance)
+		if err != nil  {
 			reqLogger.Error(err,"Failed to marshall instance")
 		}
-		err := r.client.Status().Patch(context.TODO(),originalInstance,client.ConstantPatch("application/merge-patch+json", raw))
-		if err != nil{
-			reqLogger.Error(err, "Error updating status")
-			return reconcile.Result{}, err
+
+		err = r.client.Status().Patch(context.TODO(),originalInstance,client.ConstantPatch("application/merge-patch+json", raw))
+		// err := r.client.Status().Update(context.TODO(), instance)
+		
+		// TODO: add this boolean value to a constant
+		if err != nil && err.Error() != `Operation cannot be fulfilled on razeedeployments.marketplace.redhat.com "example-razeedeployment": the object has been modified; please apply your changes to the latest version and try again` {
+			fmt.Println(err.Error())
+			reqLogger.Error(err, "Error updating status with missing razee resources")
+			// TODO: requeue here ? 
+			// return reconcile.Result{}, err
 		}
+
+		// since the prerequisites aren't applied to the cluster exit
+		// the reconcile will get triggered when they get applied
+		reqLogger.Info("Exiting loop: missing resources being applied to cluster")
+		return reconcile.Result{}, nil
+
 	}
+	// missing resources have been applied update status and continue
+	// if missing := utils.ContainsMultiple(secretNames,searchItems);len(missing)==0 {
+	// 	instance.Status.MissingRazeeResources = []string{}
+	// 	reqLogger.Info("updating status ")
+	// 	// patch := client.MergeFrom(instance.DeepCopy())
+	// 	patchedInstance := instance.DeepCopy()
+	// 	originalInstance := instance.DeepCopy()
+	// 	raw,_ := json.Marshal(patchedInstance)
+	// 	if err != nil{
+	// 		reqLogger.Error(err,"Failed to marshall instance")
+	// 	}
+	// 	err := r.client.Status().Patch(context.TODO(),originalInstance,client.ConstantPatch("application/merge-patch+json", raw))
+	// 	if err != nil{
+	// 		reqLogger.Error(err, "Error updating status")
+	// 		return reconcile.Result{}, err
+	// 	}
+	// }
 
 	reqLogger.Info("skipped updating missing resource status")
 
@@ -310,7 +399,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	//TODO: check this logic with the other check above
 	if len(foundJob.Status.Conditions) == 0 {
 		reqLogger.Info("RazeeJob Conditions have not been propagated yet")
 		return reconcile.Result{RequeueAfter: time.Second * 30}, nil
@@ -323,9 +411,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	err = r.client.Status().Update(context.TODO(), instance)
-	// patch := client.MergeFrom(instance)
-	// copy := instance.DeepCopy()
-	// err = r.client.Status().Patch(context.TODO(),copy,patch)
 	if err != nil {
 		reqLogger.Error(err, "Failed to update JobState.")
 		return reconcile.Result{}, err
@@ -341,9 +426,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 		reqLogger.Info("Razeedeploy-job deleted")
 
-		
-
-		
+		// TODO: patch the console resource here.
 		// patch := client.MergeFrom(console.DeepCopy())
 		// err := r.client.Patch(context.TODO(),console,patch)
 		// if err != nil{
@@ -381,21 +464,3 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts) *batch.Job {
 	}
 }
 
-
-// func (r *ReconcileRazeeDeployment)NewUpdateObj(){
-// 	return &unstructured.Unstructured{
-// 		Object: map[string]interface{}{
-// 			"kind":       "Oof",
-// 			"apiVersion": ,
-// 			"metadata": map[string]interface{}{
-// 				"annotations":            name,
-// 				"creationTimeStamp": resourceVer,
-// 				"generation": 1,
-// 				"resourceVersion"
-// 			},
-// 			"spec": map[string]interface{}{
-// 				"mode": mode,
-// 			},
-// 			"status"
-// 		},
-// }

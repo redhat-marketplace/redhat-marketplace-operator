@@ -22,6 +22,15 @@ func GetSecretNames(secretList []corev1.Secret) []string {
 	return secretNames
 }
 
+func GetConfigMapNames(configMapList []corev1.ConfigMap)[]string{
+	var configMapNames []string
+	for _, configMap := range configMapList {
+		configMapNames = append(configMapNames, configMap.Name)
+	}
+
+	return configMapNames
+}
+
 func Contains(s []string, e string) bool {
 	for _, a := range s {
 		if a == e {

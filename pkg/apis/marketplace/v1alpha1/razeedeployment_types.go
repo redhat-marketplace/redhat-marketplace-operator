@@ -25,6 +25,7 @@ type RazeeDeploymentStatus struct {
 	Conditions batch.JobCondition `json:"conditions,omitempty"`
 	JobState   batch.JobStatus    `json:"jobState"`
 	MissingRazeeResources []string `json:"missingRazeeResources"`
+	PreviousResourceVersion string `json:"previousResourceVersion"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
