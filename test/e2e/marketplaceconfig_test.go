@@ -47,12 +47,6 @@ func TestMarketplaceConfig(t *testing.T) {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
 
-	// opsourceList := &opsrcv1.OperatorSourceList{}
-	// err = framework.AddToFrameworkScheme(apis.AddToScheme, opsourceList)
-	// if err != nil {
-	// 	t.Fatalf("failed to add custom resource scheme to framework: %v", err)
-	// }
-
 	viper.Set("assets", "../../../assets")
 	viper.Set("autoinstall", true)
 
