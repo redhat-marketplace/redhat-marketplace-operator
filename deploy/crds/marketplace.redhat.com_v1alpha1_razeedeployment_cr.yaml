@@ -1,7 +1,7 @@
 apiVersion: marketplace.redhat.com/v1alpha1
 kind: RazeeDeployment
 metadata:
-  name: example-razeedeployment
+  name: razeedeployment
 spec:
   # Add fields here
   enabled: true

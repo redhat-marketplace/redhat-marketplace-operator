@@ -1,12 +1,13 @@
 SHELL:=/bin/bash
-NAMESPACE ?= marketplace-operator
+NAMESPACE ?= redhat-marketplace-operator
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
-OPERATOR_IMAGE_NAME ?= marketplace-operator
+OPERATOR_IMAGE_NAME ?= redhat-marketplace-operator
 OPERATOR_IMAGE_TAG ?= latest
 AGENT_IMAGE_NAME ?= marketplace-agent
 AGENT_IMAGE_TAG ?= latest
+VERSION ?= $(shell go run scripts/version/main.go)
 
-SERVICE_ACCOUNT := marketplace-operator
+SERVICE_ACCOUNT := redhat-marketplace-operator
 SECRETS_NAME := my-docker-secrets
 
 OPERATOR_IMAGE := $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
@@ -22,10 +23,10 @@ install: ## Install all resources (CR/CRD's, RBAC and Operator)
 	@echo ....... Creating namespace .......
 	- kubectl create namespace ${NAMESPACE}
 	@echo ....... Creating CRDs .......
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml -n ${NAMESPACE}
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
+	- kubectl create -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
+	- kubectl create -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
+	- kubectl create -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml -n ${NAMESPACE}
+	- kubectl create -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
 	@echo ....... Applying serivce accounts and role ........
 	- kubectl apply -f deploy/role.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/role_binding.yaml -n ${NAMESPACE}
@@ -62,7 +63,10 @@ build: ## Build the operator executable
 	@echo Adding assets
 	@mkdir -p build/_output
 	- [ -d "build/_output/assets" ] && rm -rf build/_output/assets
+	- [ -f "build/_output/bin/redhat-marketplace-operator" ] && rm -f build/_output/bin/redhat-marketplace-operator
 	@cp -r ./assets build/_output
+	go build -o build/_output/bin/redhat-marketplace-operator ./cmd/manager/main.go
+	docker build . -f ./build/Dockerfile
 	@make code-templates
 	@echo Building the operator exec with image name $(OPERATOR_IMAGE)
 	operator-sdk build $(OPERATOR_IMAGE)
@@ -70,6 +74,9 @@ build: ## Build the operator executable
 .PHONY: push
 push: push ## Push the operator image
 	docker push $(OPERATOR_IMAGE)
+
+generate-csv: ## Generate the csv
+	operator-sdk generate csv --csv-version $(VERSION) --csv-config=./deploy/olm-catalog/csv-config.yaml
 
 ##@ Development
 
@@ -103,41 +110,37 @@ code-gen: ## Run the operator-sdk commands to generated code (k8s and crds)
 
 create: ##creates the required crds for this deployment
 	@echo creating crds
-	- kubectl create -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml
-	- kubectl create -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml
-	- kubectl create -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml
-	- kubectl create -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml
+	- kubectl create -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
+	- kubectl create -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
+	- kubectl create -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml -n ${NAMESPACE}
+	- kubectl create -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
 
 deploys: ##deploys the resources for deployment
-	@echo creating service_account
-	- kubectl create -f deploy/service_account.yaml
-	@echo creating role
-	- kubectl create -f deploy/role.yaml
-	@echo creating role_binding
-	- kubectl create -f deploy/role_binding.yaml
-	@echo creating operator
-	- kubectl create -f deploy/operator.yaml
+	@echo deploying services and operators
+	- kubectl create -f deploy/service_account.yaml -n ${NAMESPACE}
+	- kubectl create -f deploy/role.yaml -n ${NAMESPACE}
+	- kubectl create -f deploy/role_binding.yaml -n ${NAMESPACE}
+	- kubectl create -f deploy/operator.yaml -n ${NAMESPACE}
 
 apply: ##applies changes to crds
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_metering_cr.yaml
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml -n ${NAMESPACE}
 
 clean: ##delete the contents created in 'make create'
 	@echo deleting resources
-	- kubectl delete opsrc ${OPERATOR_SOURCE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_metering_cr.yaml
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_meterbase_cr.yaml
-	- kubectl delete -f deploy/operator.yaml
-	- kubectl delete -f deploy/role_binding.yaml
-	- kubectl delete -f deploy/role.yaml
-	- kubectl delete -f deploy/service_account.yaml
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml
+	- kubectl delete opsrc ${OPERATOR_SOURCE} -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_metering_cr.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_meterbase_cr.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/operator.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/role_binding.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/role.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/service_account.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
+	- kubectl delete namespace razee
 
 ##@ Tests
 
@@ -155,7 +158,8 @@ test-cover: ## Run coverage on code
 .PHONY: test-e2e
 test-e2e: ## Run integration e2e tests with different options.
 	@echo ... Making build for e2e ...
-	- make build
+	@echo ... Applying code templates for e2e ...
+	- make code-templates
 	@echo ... Running the same e2e tests with different args ...
 	@echo ... Running locally ...
 	- kubectl create namespace ${NAMESPACE} || true

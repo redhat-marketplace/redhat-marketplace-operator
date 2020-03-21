@@ -30,7 +30,7 @@ func TestMeterBaseController(t *testing.T) {
 	viper.Set("assets", "../../../assets")
 
 	var (
-		name      = "marketplace-operator"
+		name      = "redhat-marketplace-operator"
 		namespace = "rhm-marketplace"
 	)
 

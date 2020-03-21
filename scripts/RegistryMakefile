@@ -54,13 +54,13 @@ registry-add-cert: ## add cert to your local system
 registry-add-docker-auth: ## will setup crc with docker keys
 	@echo "adding docker secrets"
 	- @oc delete secret my-docker-secrets
-	- @oc create namespace marketplace-operator #create marketplace
+	- @oc create namespace redhat-marketplace-operator #create marketplace
 	- @oc create namespace symposium # create symposum for our buckets
 	- @oc create secret docker-registry my-docker-secrets \
 		--docker-server=public-image-registry.apps-crc.testing \
 		--docker-username=core \
 		--docker-password=$(OC_PWD)
-	- @oc secrets link marketplace-operator my-docker-secrets --for=pull
+	- @oc secrets link redhat-marketplace-operator my-docker-secrets --for=pull
 	- @oc secrets link default my-docker-secrets --for=pull
 
 .PHONY: registry-clean

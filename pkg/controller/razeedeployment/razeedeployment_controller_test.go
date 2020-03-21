@@ -26,8 +26,8 @@ func TestRazeeDeployController(t *testing.T) {
 	viper.Set("assets", "../../../assets")
 
 	var (
-		name      = "example-razeedeployment"
-		namespace = "marketplace-operator"
+		name      = "marketplaceconfig"
+		namespace = "redhat-marketplace-operator"
 	)
 
 	// A resource with metadata and spec.
@@ -57,7 +57,7 @@ func TestRazeeDeployController(t *testing.T) {
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      name,
-			Namespace: "marketplace-operator",
+			Namespace: "redhat-marketplace-operator",
 		},
 	}
 	_, err := r.Reconcile(req)
@@ -65,8 +65,18 @@ func TestRazeeDeployController(t *testing.T) {
 		t.Fatalf("reconcile: (%v)", err)
 	}
 
+<<<<<<< HEAD
 	// check that missing resources are being picked up
 	razeeDeployment = &marketplacev1alpha1.RazeeDeployment{}
+=======
+	// Check if razeedeployJob has been created
+	req = reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      "razeedeploy-job",
+			Namespace: "redhat-marketplace-operator",
+		},
+	}
+>>>>>>> master
 
 	err = cl.Get(context.TODO(), req.NamespacedName, razeeDeployment)
 	if err != nil {
