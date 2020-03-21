@@ -31,6 +31,7 @@ import (
 const (
 	DEFAULT_RAZEE_JOB_IMAGE = "quay.io/razee/razeedeploy-delta:0.3.1"
 	DEFAULT_RAZEEDASH_URL   = "http://169.45.231.109:8081/api/v2"
+	RESOURCE_VERSION_ERROR = `Operation cannot be fulfilled on razeedeployments.marketplace.redhat.com "example-razeedeployment": the object has been modified; please apply your changes to the latest version and try again`
 )
 
 var (
@@ -78,17 +79,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// watch the Job type
-	// TODO: do we still need to watch this ? 
-	// err = c.Watch(&source.Kind{Type: &batch.Job{}}, &handler.EnqueueRequestForOwner{
-	// 	IsController: true,
-	// 	OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
-	// })
-	// if err != nil {
-	// 	return err
-	// }
-
-	// predicates for watch-keeper-secret and `ibm-cos-reader-key`
+	// predicates for prerequisite resources from dianemo
+	// TODO: watch full CRUD operations ? 
 	pred := predicate.Funcs{
 		DeleteFunc: func(e event.DeleteEvent) bool {
 		  return e.Meta.GetName() == "ibm-cos-reader-key" || e.Meta.GetName() == "watch-keeper-secret" || e.Meta.GetName() == "razee-cluster-metadata"
@@ -266,12 +258,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		err = r.client.Status().Patch(context.TODO(),originalInstance,client.ConstantPatch("application/merge-patch+json", raw))
 		// err := r.client.Status().Update(context.TODO(), instance)
 		
-		// TODO: add this boolean value to a constant
-		if err != nil && err.Error() != `Operation cannot be fulfilled on razeedeployments.marketplace.redhat.com "example-razeedeployment": the object has been modified; please apply your changes to the latest version and try again` {
+		if err != nil && err.Error() != RESOURCE_VERSION_ERROR {
 			fmt.Println(err.Error())
 			reqLogger.Error(err, "Error updating status with missing razee resources")
-			// TODO: requeue here ? 
-			// return reconcile.Result{}, err
+			return reconcile.Result{}, err
 		}
 
 		// since the prerequisites aren't applied to the cluster exit
@@ -280,17 +270,13 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, nil
 	} 
 
-	// the missing resources are being applied to the cluster
+	// the missing resources are being applied to the cluster remove those particular resources from status.MissingRazeeResources
 	if missing := utils.ContainsMultiple(secretAndConfigMapNames,searchItems);len(missing) < len(instance.Status.MissingRazeeResources){
 		reqLogger.Info("missing resources being applied to cluster")
-		fmt.Println("length of missing",len(missing))
-		fmt.Println("length of instance status missing resources",len(instance.Status.MissingRazeeResources))
 		fmt.Println(missing)
 		// remove the recently applied item from MissingRazeeResources
 		for i, item := range instance.Status.MissingRazeeResources{
-			// reqLogger.Info("missing resource","item: ", item)
 			if !utils.Contains(missing,item){
-				// TODO: functionalize this
 				fmt.Println("ITEM TO BE REMOVED :",item)
 				instance.Status.MissingRazeeResources = utils.Remove(instance.Status.MissingRazeeResources,i)  
 				fmt.Println(instance.Status.MissingRazeeResources)
@@ -310,12 +296,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		err = r.client.Status().Patch(context.TODO(),originalInstance,client.ConstantPatch("application/merge-patch+json", raw))
 		// err := r.client.Status().Update(context.TODO(), instance)
 		
-		// TODO: add this boolean value to a constant
-		if err != nil && err.Error() != `Operation cannot be fulfilled on razeedeployments.marketplace.redhat.com "example-razeedeployment": the object has been modified; please apply your changes to the latest version and try again` {
+		if err != nil && err.Error() != RESOURCE_VERSION_ERROR {
 			fmt.Println(err.Error())
 			reqLogger.Error(err, "Error updating status with missing razee resources")
-			// TODO: requeue here ? 
-			// return reconcile.Result{}, err
+			return reconcile.Result{}, err
 		}
 
 		// since the prerequisites aren't applied to the cluster exit
