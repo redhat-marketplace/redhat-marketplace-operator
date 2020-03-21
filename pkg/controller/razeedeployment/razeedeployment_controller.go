@@ -238,10 +238,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	var secretAndConfigMapNames []string
 	secretAndConfigMapNames = append(secretAndConfigMapNames, configMapNames...)
 	secretAndConfigMapNames = append(secretAndConfigMapNames, secretNames...)
-	// for _,item := range(secretAndConfigMapNames){
-	// 	out := fmt.Sprintf("\n%v", item)
-	// 	fmt.Println(out)
-	// }
+
 	// TODO: double check that this is the extensive list
 	searchItems := []string{"watch-keeper-secret","ibm-cos-reader-key", "razee-cluster-metadata"}
 	// if there are missing razee resources and the status on the cr hasn't been updated, update the cr status and exit loop
@@ -295,9 +292,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			if !utils.Contains(missing,item){
 				// TODO: functionalize this
 				fmt.Println("ITEM TO BE REMOVED :",item)
-				copy(instance.Status.MissingRazeeResources[i:], instance.Status.MissingRazeeResources[i+1:]) // Shift instance.Status.MissingRazeeResources[i+1:] left one index.
-				instance.Status.MissingRazeeResources[len(instance.Status.MissingRazeeResources)-1] = ""     // Erase last element (write zero value).
-				instance.Status.MissingRazeeResources = instance.Status.MissingRazeeResources[:len(instance.Status.MissingRazeeResources)-1]  
+				instance.Status.MissingRazeeResources = utils.Remove(instance.Status.MissingRazeeResources,i)  
 				fmt.Println(instance.Status.MissingRazeeResources)
 				fmt.Println("REMOVED RESOURCE FROM LIST OF MISSING ELEMENTS")
 
@@ -329,23 +324,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, nil
 
 	}
-	// missing resources have been applied update status and continue
-	// if missing := utils.ContainsMultiple(secretNames,searchItems);len(missing)==0 {
-	// 	instance.Status.MissingRazeeResources = []string{}
-	// 	reqLogger.Info("updating status ")
-	// 	// patch := client.MergeFrom(instance.DeepCopy())
-	// 	patchedInstance := instance.DeepCopy()
-	// 	originalInstance := instance.DeepCopy()
-	// 	raw,_ := json.Marshal(patchedInstance)
-	// 	if err != nil{
-	// 		reqLogger.Error(err,"Failed to marshall instance")
-	// 	}
-	// 	err := r.client.Status().Patch(context.TODO(),originalInstance,client.ConstantPatch("application/merge-patch+json", raw))
-	// 	if err != nil{
-	// 		reqLogger.Error(err, "Error updating status")
-	// 		return reconcile.Result{}, err
-	// 	}
-	// }
 
 	reqLogger.Info("skipped updating missing resource status")
 

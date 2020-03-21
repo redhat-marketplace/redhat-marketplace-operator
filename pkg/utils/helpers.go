@@ -51,3 +51,7 @@ func ContainsMultiple(inArray []string, referenceArray []string) []string {
 	}
 	return temp
 }
+
+func Remove(s []string, index int) []string {
+    return append(s[:index], s[index+1:]...)
+}
