@@ -1,7 +1,7 @@
 apiVersion: marketplace.redhat.com/v1alpha1
 kind: MarketplaceConfig
 metadata:
-  name: example-marketplaceconfig
+  name: marketplaceconfig
 spec:
   # Add fields here
   size: 1

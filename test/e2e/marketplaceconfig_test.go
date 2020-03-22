@@ -25,13 +25,32 @@ var (
 )
 
 func TestMarketplaceConfig(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
+
 	marketplaceConfigList := &marketplacev1alpha1.MarketplaceConfigList{}
 	err := framework.AddToFrameworkScheme(apis.AddToScheme, marketplaceConfigList)
 	if err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
+
+	meterbaseConfigList := &marketplacev1alpha1.MeterBaseList{}
+	err = framework.AddToFrameworkScheme(apis.AddToScheme, meterbaseConfigList)
+	if err != nil {
+		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
+	}
+
+	razeeDeploymentList := &marketplacev1alpha1.RazeeDeploymentList{}
+	err = framework.AddToFrameworkScheme(apis.AddToScheme, razeeDeploymentList)
+	if err != nil {
+		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
+	}
+
+	viper.Set("assets", "../../../assets")
 	defaultFeatures := []string{"razee", "meterbase"}
 	viper.Set("features", defaultFeatures)
+
 	// run subtests
 	t.Run("marketplaceconfig-group", func(t *testing.T) {
 		t.Run("Cluster3", MarketplaceOperatorCluster)
@@ -55,8 +74,8 @@ func MarketplaceOperatorCluster(t *testing.T) {
 	}
 	// get global framework variables
 	f := framework.Global
-	// wait for marketplace-operator to be ready
-	err = e2eutil.WaitForOperatorDeployment(t, f.KubeClient, namespace, "marketplace-operator", 1, retryInterval, timeout)
+	// wait for redhat-marketplace-operator to be ready
+	err = e2eutil.WaitForOperatorDeployment(t, f.KubeClient, namespace, "redhat-marketplace-operator", 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +100,7 @@ func MarketplaceOperatorCluster(t *testing.T) {
 		t.Error(err)
 	}
 	// Checks if an OperatorSoure object has been deployed
-	if opsrcHelper.WaitForOpsrcMarkedForDeletionWithFinalizer(f.Client, utils.OPSRC_NAME, namespace); err != nil {
+	if opsrcHelper.WaitForOpsrcMarkedForDeletionWithFinalizer(f.Client, utils.OPSRC_NAME, utils.OPERATOR_MKTPLACE_NS); err != nil {
 		t.Error(err)
 	}
 	// Checks if a RazeeJob has been deployed

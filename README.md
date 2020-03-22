@@ -168,7 +168,7 @@ make registry-add-docker-auth
 If add-docker-auth doesn't fix it. Try to run:
 
 ```sh
-export SERVICE_ACCOUNT=marketplace-operator
+export SERVICE_ACCOUNT=redhat-marketplace-operator
 oc secrets link $SERVICE_ACCOUNT my-docker-secrets --for=pull
 ```
 

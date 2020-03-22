@@ -5,11 +5,12 @@ import (
 )
 
 const (
-	MARKETPLACECONFIG_NAME = "example-marketplaceconfig"
+	MARKETPLACECONFIG_NAME = "rhm-marketplaceconfig"
+	METERBASE_NAME         = "rhm-marketplaceconfig-meterbase"
+	RAZEE_NAME             = "rhm-marketplaceconfig-razeedeployment"
+	RAZEE_JOB_NAME         = "rhm-razeedeploy-job"
 	OPSRC_NAME             = "redhat-marketplace-operators"
-	RAZEE_NAME             = "marketplaceconfig-razeedeployment"
-	METERBASE_NAME         = "marketplaceconfig-meterbase"
-	RAZEE_JOB_NAME         = "razeedeploy-job"
+	OPERATOR_MKTPLACE_NS   = "marketplace-operator"
 )
 
 // Getenv will return the value for the passed key (which is typically an environment variable)
