@@ -25,7 +25,7 @@ func TestRazeeDeployController(t *testing.T) {
 	viper.Set("assets", "../../../assets")
 
 	var (
-		name      = "example-marketplaceconfig"
+		name      = "marketplaceconfig"
 		namespace = "redhat-marketplace-operator"
 	)
 

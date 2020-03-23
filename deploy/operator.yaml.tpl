@@ -3,6 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redhat-marketplace-operator
+  namespace: redhat-marketplace-operator
 spec:
   replicas: 1
   selector:
@@ -20,7 +21,7 @@ spec:
           image: {{ .RELATED_IMAGE_MARKETPLACE_OPERATOR }}
           command:
           - redhat-marketplace-operator
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           env:
             - name: OPERATOR_NAME
               value: "redhat-marketplace-operator"
