@@ -705,6 +705,7 @@ github.com/operator-framework/operator-marketplace v0.0.0-20200205023245-5cf8695
 github.com/operator-framework/operator-marketplace v0.0.0-20200205023245-5cf86951fc38/go.mod h1:msZSL8pXwzQjB+hU+awVrZQw94IwJi3sNZVD3NoESIs=
 github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b h1:L7RscPvm2piRIL88QBaGnebeRo2ClDsHt8OJ+9Tb2TU=
 github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b/go.mod h1:msZSL8pXwzQjB+hU+awVrZQw94IwJi3sNZVD3NoESIs=
+github.com/operator-framework/operator-marketplace v0.0.0-20200321014424-80f3ca0c539e h1:f4rLk4ThuMsyw7fq1sJiVVZaqHxBBP28eWqsEdQkngk=
 github.com/operator-framework/operator-registry v1.5.1/go.mod h1:agrQlkWOo1q8U1SAaLSS2WQ+Z9vswNT2M2HFib9iuLY=
 github.com/operator-framework/operator-registry v1.5.3/go.mod h1:agrQlkWOo1q8U1SAaLSS2WQ+Z9vswNT2M2HFib9iuLY=
 github.com/operator-framework/operator-registry v1.5.7-0.20200121213444-d8e2ec52c19a/go.mod h1:ekexcV4O8YMxdQuPb+Xco7MHfVmRIq7Jvj5e6NU7dHI=

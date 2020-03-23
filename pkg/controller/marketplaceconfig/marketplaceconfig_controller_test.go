@@ -28,16 +28,16 @@ func TestMarketplaceConfigController(t *testing.T) {
 	viper.Set("features", defaultFeatures)
 
 	var (
-		name                = "markeplaceconfig"
-		opsrcName           = "redhat-marketplace-operators"
-		razeeName           = "rhm-marketplaceconfig-razeedeployment"
-		meterBaseName       = "rhm-marketplaceconfig-meterbase"
-		namespace           = "redhat-marketplace-operator"
-		replicas      int32 = 1
+		name                 = "markeplaceconfig"
+		opsrcName            = "redhat-marketplace-operators"
+		razeeName            = "rhm-marketplaceconfig-razeedeployment"
+		meterBaseName        = "rhm-marketplaceconfig-meterbase"
+		namespace            = "redhat-marketplace-operator"
+		customerID    string = "example-userid"
 	)
 
 	// Declare resources
-	marketplaceconfig := buildMarketplaceConfigCR(name, namespace, replicas)
+	marketplaceconfig := buildMarketplaceConfigCR(name, namespace, customerID)
 	opsrc := utils.BuildNewOpSrc()
 	razeedeployment := utils.BuildRazeeCr(namespace)
 	meterbase := utils.BuildMeterBaseCr(namespace)
@@ -106,24 +106,6 @@ func TestMarketplaceConfigController(t *testing.T) {
 		t.Errorf("get marketplaceConfig: (%v)", err)
 	}
 
-	//Reconcile again so Reconcile() checks for the OperatorSource
-	res, err = r.Reconcile(req)
-	if err != nil {
-		t.Fatalf("reconcile: (%v)", err)
-	}
-	if res != (reconcile.Result{Requeue: true}) {
-		t.Error("reconcile did not requeue as expected")
-	}
-	// Get the updated OperatorSource object
-	req.Name = opsrcName
-	opsrc = &opsrcv1.OperatorSource{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Namespace: utils.OPERATOR_MKTPLACE_NS,
-	}, opsrc)
-	if err != nil {
-		t.Errorf("get OperatorSource: (%v)", err)
-	}
-
 	// Reconcile again so Reconcile() checks for RazeeDeployment
 	req.Name = name
 	res, err = r.Reconcile(req)
@@ -147,8 +129,8 @@ func TestMarketplaceConfigController(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reconcile: (%v)", err)
 	}
-	if res != (reconcile.Result{}) {
-		t.Error("reconcile did not result with expected outcome of Requeue: False")
+	if res != (reconcile.Result{Requeue: true}) {
+		t.Error("reconcile did not requeue as expected")
 	}
 
 	// Get the updated MeterBase Object
@@ -157,6 +139,24 @@ func TestMarketplaceConfigController(t *testing.T) {
 	err = r.client.Get(context.TODO(), req.NamespacedName, meterbase)
 	if err != nil {
 		t.Errorf("get meterbase: (%v)", err)
+	}
+
+	//Reconcile again so Reconcile() checks for the OperatorSource
+	res, err = r.Reconcile(req)
+	if err != nil {
+		t.Fatalf("reconcile: (%v)", err)
+	}
+	if res != (reconcile.Result{}) {
+		t.Error("reconcile did not result with expected outcome of Requeue: False")
+	}
+	// Get the updated OperatorSource object
+	req.Name = opsrcName
+	opsrc = &opsrcv1.OperatorSource{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Namespace: utils.OPERATOR_MKTPLACE_NS,
+	}, opsrc)
+	if err != nil {
+		t.Errorf("get OperatorSource: (%v)", err)
 	}
 
 }
@@ -170,14 +170,14 @@ func TestMarketplaceConfigControllerFlags(t *testing.T) {
 	}
 }
 
-func buildMarketplaceConfigCR(name, namespace string, replicas int32) *marketplacev1alpha1.MarketplaceConfig {
+func buildMarketplaceConfigCR(name, namespace, customerID string) *marketplacev1alpha1.MarketplaceConfig {
 	return &marketplacev1alpha1.MarketplaceConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
 		Spec: marketplacev1alpha1.MarketplaceConfigSpec{
-			Size: replicas,
+			RhmCustomerID: customerID,
 		},
 	}
 }

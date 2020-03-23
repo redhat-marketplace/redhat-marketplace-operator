@@ -86,7 +86,7 @@ func MarketplaceOperatorCluster(t *testing.T) {
 			Namespace: namespace,
 		},
 		Spec: marketplacev1alpha1.MarketplaceConfigSpec{
-			Size: 1,
+			RhmCustomerID: "example-userid",
 		},
 	}
 

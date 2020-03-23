@@ -110,7 +110,7 @@ func MakeProbe(path string, port, initialDelaySeconds, timeoutSeconds int32) *co
 func BuildNewOpSrc() *opsrcv1.OperatorSource {
 	opsrc := &opsrcv1.OperatorSource{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      OPSRC_NAME,
+			Name: OPSRC_NAME,
 			// Must always be openshift-marketplace
 			Namespace: OPERATOR_MKTPLACE_NS,
 		},

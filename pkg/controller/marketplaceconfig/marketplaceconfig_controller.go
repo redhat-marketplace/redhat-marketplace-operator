@@ -176,46 +176,6 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 	reqLogger.Info("deployment created")
 
-	// Ensure deployment size is the same as spec
-	size := marketplaceConfig.Spec.Size
-	if *found.Spec.Replicas != size {
-		found.Spec.Replicas = &size
-		err = r.client.Update(context.TODO(), found)
-		// Failed to update deployment
-		if err != nil {
-			reqLogger.Error(err, "Failed to update Deployment", "Deployment.Namespace", found.Namespace, "Deployment.Name", found.Name)
-			return reconcile.Result{}, err
-		}
-		//Spec updated - return and requeue
-		return reconcile.Result{Requeue: true}, nil
-	}
-
-	// Check if operator source exists, or create a new one
-	foundOpSrc := &opsrcv1.OperatorSource{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name:      utils.OPSRC_NAME,
-		Namespace: utils.OPERATOR_MKTPLACE_NS},
-		foundOpSrc)
-	if err != nil && errors.IsNotFound(err) {
-		// Define a new operator source
-		newOpSrc := utils.BuildNewOpSrc()
-		reqLogger.Info("Creating a new opsource")
-		err = r.client.Create(context.TODO(), newOpSrc)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create an OperatorSource.", "OperatorSource.Namespace ", newOpSrc.Namespace, "OperatorSource.Name", newOpSrc.Name)
-			return reconcile.Result{}, err
-		}
-		// Operator Source created successfully - return and requeue
-		newOpSrc.ForceUpdate()
-		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		// Could not get Operator Source
-		reqLogger.Error(err, "Failed to get OperatorSource")
-		return reconcile.Result{}, err
-	}
-
-	reqLogger.Info("Found opsource")
-
 	installFeatures := viper.GetStringSlice("features")
 	installSet := make(map[string]bool)
 	for _, installFlag := range installFeatures {
@@ -275,6 +235,32 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		reqLogger.Info("found meterbase")
 	}
 
+	// Check if operator source exists, or create a new one
+	foundOpSrc := &opsrcv1.OperatorSource{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Name:      utils.OPSRC_NAME,
+		Namespace: utils.OPERATOR_MKTPLACE_NS},
+		foundOpSrc)
+	if err != nil && errors.IsNotFound(err) {
+		// Define a new operator source
+		newOpSrc := utils.BuildNewOpSrc()
+		reqLogger.Info("Creating a new opsource")
+		err = r.client.Create(context.TODO(), newOpSrc)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create an OperatorSource.", "OperatorSource.Namespace ", newOpSrc.Namespace, "OperatorSource.Name", newOpSrc.Name)
+			return reconcile.Result{}, err
+		}
+		// Operator Source created successfully - return and requeue
+		newOpSrc.ForceUpdate()
+		return reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		// Could not get Operator Source
+		reqLogger.Error(err, "Failed to get OperatorSource")
+		return reconcile.Result{}, err
+	}
+
+	reqLogger.Info("Found opsource")
+
 	reqLogger.Info("reconciling finished")
 	return reconcile.Result{}, nil
 }
@@ -282,7 +268,6 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 // deploymentForMarketplaceConfig will return a marketplaceConfig Deployment object
 func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketplacev1alpha1.MarketplaceConfig) *appsv1.Deployment {
 	ls := labelsForMarketplaceConfig(m.Name)
-	replicas := m.Spec.Size
 
 	image := viper.GetString("related-image-operator-agent")
 
@@ -293,7 +278,6 @@ func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketpla
 			Labels:    ls,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: ls,
 			},
