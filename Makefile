@@ -1,12 +1,12 @@
 SHELL:=/bin/bash
-NAMESPACE ?= redhat-marketplace-operator
-OPSRC_NAMESPACE ?= marketplace-operator
-OPERATOR_SOURCE ?= redhat-marketplace-operators
-IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
-OPERATOR_IMAGE_NAME ?= redhat-marketplace-operator
-OPERATOR_IMAGE_TAG ?= latest
-AGENT_IMAGE_NAME ?= marketplace-agent
-AGENT_IMAGE_TAG ?= latest
+NAMESPACE = redhat-marketplace-operator
+OPSRC_NAMESPACE = marketplace-operator
+OPERATOR_SOURCE = redhat-marketplace-operators
+IMAGE_REGISTRY = public-image-registry.apps-crc.testing/symposium
+OPERATOR_IMAGE_NAME = redhat-marketplace-operator
+OPERATOR_IMAGE_TAG = latest
+AGENT_IMAGE_NAME = marketplace-agent
+AGENT_IMAGE_TAG = latest
 VERSION ?= $(shell go run scripts/version/main.go)
 
 SERVICE_ACCOUNT := redhat-marketplace-operator
