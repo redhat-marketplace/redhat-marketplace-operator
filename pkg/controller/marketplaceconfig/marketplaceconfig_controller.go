@@ -28,7 +28,7 @@ import (
 const (
 	CSCFinalizer                    = "finalizer.MarketplaceConfigs.operators.coreos.com"
 	RELATED_IMAGE_MARKETPLACE_AGENT = "RELATED_IMAGE_MARKETPLACE_AGENT"
-	DEFAULT_IMAGE_MARKETPLACE_AGENT = "plato-agent:latest"
+	DEFAULT_IMAGE_MARKETPLACE_AGENT = "marketplace-agent:latest"
 	RAZEE_FLAG                      = "razee"
 	METERBASE_FLAG                  = "meterbase"
 )
