@@ -4,4 +4,4 @@ metadata:
   name: marketplaceconfig
 spec:
   # Add fields here
-  size: 1
+  rhmCustomerID: example-userid

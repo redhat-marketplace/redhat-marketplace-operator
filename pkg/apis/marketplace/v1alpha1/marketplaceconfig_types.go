@@ -10,7 +10,7 @@ import (
 
 // MarketplaceConfigSpec defines the desired state of MarketplaceConfig
 type MarketplaceConfigSpec struct {
-	Size int32 `json:"size"`
+	RhmCustomerID string `json:"rhmCustomerID"`
 }
 
 // MarketplaceConfigStatus defines the observed state of MarketplaceConfig
