@@ -1,3 +1,8 @@
+## -- May need to be diff for crc/openshift
+- job_name: 'kube-state-metrics'
+  static_configs:
+    - targets: ['kube-state-metrics.kube-system.svc.cluster.local:8080']
+## --
 - job_name: 'kubernetes-nodes-cadvisor'
   # Default to scraping over https. If required, just disable this or change to
   # `http`.
@@ -26,59 +31,58 @@
   kubernetes_sd_configs:
   - role: pod
   relabel_configs:
-  - source_labels: [__meta_kubernetes_pod_annotation_marketplace_redhat_com_metered]
+  - source_labels: [__meta_kubernetes_pod_label_marketplace_redhat_com_metered]
     action: keep
     regex: true
-  - source_labels: [__meta_kubernetes_pod_annotation_marketplace_redhat_com_metric_path]
+  - source_labels: [__meta_kubernetes_pod_label_marketplace_redhat_com_metric_path]
     action: replace
     target_label: __metrics_path__
     regex: (.+)
-  - source_labels: [__address__, __meta_kubernetes_pod_annotation_marketplace_redhat_com_metric_port]
+  - source_labels: [__address__, __meta_kubernetes_pod_label_marketplace_redhat_com_metric_port]
     action: replace
     regex: ([^:]+)(?::\d+)?;(\d+)
     replacement: $1:$2
     target_label: __address__
-  - source_labels: [__meta_kubernetes_pod_annotation_marketplace_redhat_com_product_id]
+  - source_labels: [__meta_kubernetes_pod_label_marketplace_redhat_com_label_regex]
     action: replace
-    target_label: marketplace_product_id
-  - source_labels: [__meta_kubernetes_pod_annotation_marketplace_redhat_com_edition_id]
-    action: replace
-    target_label: marketplace_edition_id
+    target_label: __tmp_marketplace_labels_regex
+  - source_labels: [ __tmp_marketplace_labels_regex ]
+    regex: ()
+    action: keep
   - action: labelmap
-    regex: __meta_kubernetes_pod_label_(.+)
+    regex: __meta_kubernetes_pod_label_marketplace_redhat_com_(.+)
+    replace: redhat_marketplace_$1
   - source_labels: [__meta_kubernetes_namespace]
     action: replace
     target_label: kubernetes_namespace
   - source_labels: [__meta_kubernetes_pod_name]
     action: replace
     target_label: kubernetes_pod_name
+  # - source_labels: [__name__]
+  #   regex: '(container_tasks_state|container_memory_failures_total)'
+  #  action: keep
 - job_name: "rhm_generic_scrape_service"
   kubernetes_sd_configs:
   - role: pod
   relabel_configs:
-  - source_labels: [__meta_kubernetes_service_annotation_marketplace_redhat_com_metered]
+  - source_labels: [__meta_kubernetes_service_label_marketplace_redhat_com_metered]
     action: keep
     regex: true
-  - source_labels: [__meta_kubernetes_service_annotation_marketplace_redhat_com_metric_path]
+  - source_labels: [__meta_kubernetes_service_label_marketplace_redhat_com_metric_path]
     action: replace
     target_label: __metrics_path__
     regex: (.+)
-  - source_labels: [__address__, __meta_kubernetes_service_annotation_marketplace_redhat_com_metric_port]
+  - source_labels: [__address__, __meta_kubernetes_service_label_marketplace_redhat_com_metric_port]
     action: replace
     regex: ([^:]+)(?::\d+)?;(\d+)
     replacement: $1:$2
     target_label: __address__
-  - source_labels: [__meta_kubernetes_service_annotation_marketplace_redhat_com_product_id]
-    action: replace
-    target_label: marketplace_product_id
-  - source_labels: [__meta_kubernetes_service_annotation_marketplace_redhat_com_edition_id]
-    action: replace
-    target_label: marketplace_edition_id
   - action: labelmap
-    regex: __meta_kubernetes_service_label_(.+)
+    regex: __meta_kubernetes_service_label_marketplace_redhat_com_(.+)
+    replace: redhat_marketplace_$1
   - source_labels: [__meta_kubernetes_namespace]
     action: replace
     target_label: kubernetes_namespace
   - source_labels: [__meta_kubernetes_service_name]
     action: replace
-    target_label: kubernetes_name
+    target_label: kubernetes_service_name

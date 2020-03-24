@@ -10,7 +10,7 @@ VERSION ?= $(shell go run scripts/version/main.go)
 SERVICE_ACCOUNT := redhat-marketplace-operator
 SECRETS_NAME := my-docker-secrets
 
-OPERATOR_IMAGE := $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
+OPERATOR_IMAGE := $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME)
 AGENT_IMAGE := $(IMAGE_REGISTRY)/$(AGENT_IMAGE_NAME):$(AGENT_IMAGE_TAG)
 
 include scripts/RegistryMakefile
@@ -25,7 +25,6 @@ install: ## Install all resources (CR/CRD's, RBAC and Operator)
 	make create
 	make deploys
 	make apply
-
 
 uninstall: ## Uninstall all that all performed in the $ make install
 	@echo ....... Uninstalling .......
@@ -53,9 +52,6 @@ build: ## Build the operator executable
 	@cp -r ./assets build/_output
 	go build -o build/_output/bin/redhat-marketplace-operator ./cmd/manager/main.go
 	docker build . -f ./build/Dockerfile
-	@make code-templates
-	@echo Building the operator exec with image name $(OPERATOR_IMAGE)
-	operator-sdk build $(OPERATOR_IMAGE)
 
 .PHONY: push
 push: push ## Push the operator image
@@ -65,6 +61,14 @@ generate-csv: ## Generate the csv
 	operator-sdk generate csv --csv-version $(VERSION) --csv-config=./deploy/olm-catalog/csv-config.yaml
 
 ##@ Development
+
+skaffold-dev: ## Run skaffold dev
+	RELATED_IMAGE_MARKETPLACE_OPERATOR=redhat-marketplace-operator RELATED_IMAGE_MARKETPLACE_AGENT=$(AGENT_IMAGE) scripts/gen_files.sh
+	skaffold dev --tail --default-repo $(IMAGE_REGISTRY)
+
+skaffold-run: ## Run skaffold run
+	RELATED_IMAGE_MARKETPLACE_OPERATOR=redhat-marketplace-operator RELATED_IMAGE_MARKETPLACE_AGENT=$(AGENT_IMAGE) scripts/gen_files.sh
+	skaffold run --tail --default-repo $(IMAGE_REGISTRY)
 
 code-vet: ## Run go vet for this project. More info: https://golang.org/cmd/vet/
 	@echo go vet
@@ -100,6 +104,10 @@ setup-minikube: ## Setup minikube for full operator dev
 	@echo Applying operator marketplace
 	for item in 01_namespace.yaml 02_catalogsourceconfig.crd.yaml 03_operatorsource.crd.yaml 04_service_account.yaml 05_role.yaml 06_role_binding.yaml 07_upstream_operatorsource.cr.yaml 08_operator.yaml ; do \
 		kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-marketplace/master/deploy/upstream/$$item ; \
+	done
+	@echo Apply kube-state
+	for item in cluster-role.yaml service-account.yaml cluster-role-binding.yaml deployment.yaml service.yaml ; do \
+		kubectl apply -f https://raw.githubusercontent.com/kubernetes/kube-state-metrics/master/examples/standard/$$item ; \
 	done
 
 ##@ Manual Testing

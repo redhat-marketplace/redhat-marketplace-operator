@@ -1,0 +1,7 @@
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: MeterDefinition
+metadata:
+  name: example-meterdefinition
+spec:
+  # Add fields here
+  size: 3
