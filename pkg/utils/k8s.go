@@ -127,7 +127,7 @@ func BuildNewOpSrc() *opsrcv1.OperatorSource {
 }
 
 // BuildRazeeCrd returns a RazeeDeployment cr with default values
-func BuildRazeeCr(namespace string) *marketplacev1alpha1.RazeeDeployment {
+func BuildRazeeCr(namespace, clusterUUID string, deploySecretName *string) *marketplacev1alpha1.RazeeDeployment {
 
 	cr := &marketplacev1alpha1.RazeeDeployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -135,7 +135,9 @@ func BuildRazeeCr(namespace string) *marketplacev1alpha1.RazeeDeployment {
 			Namespace: namespace,
 		},
 		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
-			Enabled: true,
+			Enabled:          true,
+			ClusterUUID:      clusterUUID,
+			DeploySecretName: deploySecretName,
 		},
 	}
 
