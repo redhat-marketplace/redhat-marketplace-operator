@@ -65,10 +65,8 @@ func TestRazeeDeployController(t *testing.T) {
 		t.Fatalf("reconcile: (%v)", err)
 	}
 
-<<<<<<< HEAD
 	// check that missing resources are being picked up
 	razeeDeployment = &marketplacev1alpha1.RazeeDeployment{}
-=======
 	// Check if razeedeployJob has been created
 	req = reconcile.Request{
 		NamespacedName: types.NamespacedName{
@@ -76,14 +74,13 @@ func TestRazeeDeployController(t *testing.T) {
 			Namespace: "redhat-marketplace-operator",
 		},
 	}
->>>>>>> master
 
 	err = cl.Get(context.TODO(), req.NamespacedName, razeeDeployment)
 	if err != nil {
 		t.Fatalf("get razeedeployment: (%v)", err)
 	}
 
-	if len(razeeDeployment.Status.MissingRazeeResources) > 0 {
+	if len(*razeeDeployment.Status.MissingRazeeResources) > 0 {
 		fmt.Println("missing resources found",razeeDeployment.Status.MissingRazeeResources)
 	} 
 
