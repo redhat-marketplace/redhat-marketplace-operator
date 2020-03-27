@@ -43,9 +43,8 @@ const (
 	BUCKET_NAME_FIELD = "BUCKET_NAME"
 	IBM_COS_URL_FIELD = "IBM_COS_URL"
 	RAZEE_DASH_ORG_KEY_FIELD = "RAZEE_DASH_ORG_KEY"
-	PARENT_RRS3_YAML_FIELD = "PARENT_RRS3_YAML_FILENAME"
+	CHILD_RRS3_YAML_FIELD = "CHILD_RRS3_YAML_FILENAME"
 	RAZEE_DASH_URL_FIELD = "RAZEE_DASH_URL"
-	// "IBM_COS_READER_KEY","BUCKET_NAME", "IBM_COS_URL","RAZEE_DASH_ORG_KEY","CHILD_RRS3_YAML_FILENAME","RAZEE_DASH_URL"
 )
 
 var (
@@ -248,7 +247,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	if the secret is present on the cluster then check the secret for the correct fields
 	check for the presence of the combined secret
 	/******************************************************************************/
-	searchItems := []string{IBM_COS_READER_KEY_FIELD,BUCKET_NAME_FIELD, IBM_COS_URL_FIELD,RAZEE_DASH_ORG_KEY_FIELD,PARENT_RRS3_YAML_FIELD,RAZEE_DASH_URL_FIELD}
+	searchItems := []string{IBM_COS_READER_KEY_FIELD,BUCKET_NAME_FIELD, IBM_COS_URL_FIELD,RAZEE_DASH_ORG_KEY_FIELD,CHILD_RRS3_YAML_FIELD,RAZEE_DASH_URL_FIELD}
 	missingItems := []string{}
 	//TODO: could functionalize this
 	for _, searchItem := range searchItems{
@@ -309,7 +308,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 	reqLogger.Info("Local vars have been populated")
 
-	COS_FULL_URL = fmt.Sprintf("%s/%s/%s/%s",secretObj[IBM_COS_URL_FIELD],secretObj[BUCKET_NAME_FIELD],CLUSTER_UUID,secretObj[PARENT_RRS3_YAML_FIELD])
+	COS_FULL_URL = fmt.Sprintf("%s/%s/%s/%s",secretObj[IBM_COS_URL_FIELD],secretObj[BUCKET_NAME_FIELD],CLUSTER_UUID,secretObj[CHILD_RRS3_YAML_FIELD])
 
 	/******************************************************************************
 		PROCEED WITH CREATING RAZEEDEPLOY-JOB? YES/NO
