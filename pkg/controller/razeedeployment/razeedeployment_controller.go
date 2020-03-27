@@ -34,6 +34,7 @@ const (
 	//TODO: is the correct default ? 
 	DEFAULT_RAZEE_JOB_IMAGE = "quay.io/razee/razeedeploy-delta:0.3.1"
 	DEFAULT_RAZEEDASH_URL   = `http://169.45.231.109:8081/api/v2`
+	WATCH_KEEPER_VERSION = "0.5.0"
 	FEATURE_FLAG_VERSION = "0.6.1"
 	MANAGED_SET_VERSION = "0.4.2"
 	MUSTACHE_TEMPLATE_VERSION = "0.6.3"
@@ -62,7 +63,7 @@ var (
 	IBM_COS_READER_KEY = ""
 	RAZEE_DASH_URL = ""
 	//TODO: this is for testing purposes
-	CLUSTER_UUID = "testClusterUUID"
+	CLUSTER_UUID = "max-rhm-operator-test-1"
 	COS_FULL_URL = ""
 	RELATED_IMAGE_RAZEE_JOB = "RELATED_IMAGE_RAZEE_JOB"
 
@@ -537,12 +538,13 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 }
 
 func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts) *batch.Job {
+	watchKeeper := fmt.Sprintf("--watch-keeper=%v",WATCH_KEEPER_VERSION)
 	featureFlag := fmt.Sprintf("--featureflagsetld=%v",FEATURE_FLAG_VERSION)
 	managedSetVersion := fmt.Sprintf("--managedset=%v",MANAGED_SET_VERSION)
 	mustacheTemplateVersion := fmt.Sprintf("--mustachetemplate=%v",MUSTACHE_TEMPLATE_VERSION)
 	remoteResourceVersion := fmt.Sprintf("--remoteresource=%v",REMOTE_RESOURCE_VERSION)
 	remoteResourceS3Version := fmt.Sprintf("--remoteresources3=%v",REMOTE_RESOURCE_S3_VERSION)
-
+	
 	return &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "razeedeploy-job",
@@ -557,7 +559,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts) *batch.Job {
 						Image:   opt.RazeeJobImage,
 						Command: []string{"node", "src/install", "--namespace=razee"},
 						// TODO: do we need to populate this right now ? 
-						Args:    []string{featureFlag,managedSetVersion,mustacheTemplateVersion,remoteResourceVersion,remoteResourceS3Version},
+						Args:    []string{watchKeeper,featureFlag,managedSetVersion,mustacheTemplateVersion,remoteResourceVersion,remoteResourceS3Version},
 					}},
 					RestartPolicy: "Never",
 				},
@@ -587,7 +589,7 @@ func (r *ReconcileRazeeDeployment) MakeWatchKeeperNonNamespace() *corev1.ConfigM
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "watch-keeper-non-namespaced",
-			Namespace: "redhat-marketplace-operator",
+			Namespace: "razee",
 		},
 		Data :map[string]string{"poll": "lite"},
 
