@@ -71,7 +71,6 @@ var (
 
 
 func init() {
-	fmt.Println(utils.Getenv(RELATED_IMAGE_RAZEE_JOB,DEFAULT_RAZEE_JOB_IMAGE))
 	razeeFlagSet = pflag.NewFlagSet("razee", pflag.ExitOnError)
 	razeeFlagSet.String("razee-job-image",utils.Getenv(RELATED_IMAGE_RAZEE_JOB, DEFAULT_RAZEE_JOB_IMAGE),"image for the razee job")
 }
@@ -249,13 +248,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	if the secret is present on the cluster then check the secret for the correct fields
 	check for the presence of the combined secret
 	/******************************************************************************/
-	// TODO: add these to constants
 	searchItems := []string{IBM_COS_READER_KEY_FIELD,BUCKET_NAME_FIELD, IBM_COS_URL_FIELD,RAZEE_DASH_ORG_KEY_FIELD,PARENT_RRS3_YAML_FIELD,RAZEE_DASH_URL_FIELD}
 	missingItems := []string{}
 	//TODO: could functionalize this
 	for _, searchItem := range searchItems{
 		if _, ok := combinedSecret.Data[searchItem];!ok{
-			fmt.Println("missing value", searchItem)
+			reqLogger.Info("missing value", searchItem)
 			missingItems = append(missingItems,searchItem)
 		}
 	}
@@ -342,7 +340,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Error(err, "Failed to create razee ns")
 			return reconcile.Result{}, err
 		}
-		fmt.Println("created Razee ns")
+		reqLogger.Info("Razee ns created successfully")
 		
 		// apply the watch-keeper-non-namespace
 		watchKeeperNonNamespace := r.MakeWatchKeeperNonNamespace()
@@ -431,7 +429,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Error(err, "Failed to create Job on cluster")
 			return reconcile.Result{}, err
 		}
-		fmt.Println("RAZEE JOB", job)
 		reqLogger.Info("job created successfully")
 		// requeue to grab the "foundJob" and continue to update status
 		// wait 30 seconds so the job has time to complete
@@ -467,7 +464,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	err = r.client.Status().Update(context.TODO(),instance)
 	if err != nil{
-		fmt.Println(err.Error())
+		reqLogger.Error(err,"Failed to update JobState")
 		return reconcile.Result{}, nil
 	}
 	reqLogger.Info("Updated JobState")
@@ -504,7 +501,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Error(err,"Failed to retrieve Console resource")
 		}
 		reqLogger.Info("Found Console resource")
-		fmt.Println(console.Object)
 		console.SetLabels(map[string]string{"razee/watch-resource": "lite"})
 		err = r.client.Update(context.TODO(), console)
 		if err != nil {
@@ -528,7 +524,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Error(err,"Failed to retrieve Infrastructure resource")
 		}
 		reqLogger.Info("Found Infrastructure resource")
-		fmt.Println(Infrastructure.Object)
 		Infrastructure.SetLabels(map[string]string{"razee/watch-resource": "lite"})
 		err = r.client.Update(context.TODO(), Infrastructure)
 		if err != nil {
