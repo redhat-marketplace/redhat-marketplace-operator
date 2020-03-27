@@ -2,9 +2,8 @@ package razeedeployment
 
 import (
 	"context"
-	"strings"
-
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -46,8 +45,10 @@ const (
 var (
 	log = logf.Log.WithName("controller_razeedeployment")
 	razeeFlagSet *pflag.FlagSet
-	MissingValuesFromSecretSlice = make([]string, 0, 4)
+	missingValuesFromSecretSlice = make([]string, 0, 6)
+	secretObj map[string]string
 	razeePrerequisitesCreated bool = false 
+	localSecretVarsPopulated bool = false
 	RAZEE_DASH_ORG_KEY = ""
 	BUCKET_NAME = ""
 	IBM_COS_URL = ""
@@ -66,9 +67,9 @@ var (
  DEFAULT_RAZEE_JOB_IMAGE
 */
 func init() {
+	fmt.Println(utils.Getenv(RELATED_IMAGE_RAZEE_JOB,DEFAULT_RAZEE_JOB_IMAGE))
 	razeeFlagSet = pflag.NewFlagSet("razee", pflag.ExitOnError)
 	razeeFlagSet.String("razee-job-image",utils.Getenv(RELATED_IMAGE_RAZEE_JOB, DEFAULT_RAZEE_JOB_IMAGE),"image for the razee job")
-	razeeFlagSet.String("razeedash-url", DEFAULT_RAZEEDASH_URL, "url that watch keeper posts data too")
 }
 
 func FlagSet() *pflag.FlagSet {
@@ -210,10 +211,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	/******************************************************************************/
 	combinedSecret := corev1.Secret{}
 	err = r.client.Get(context.TODO(),types.NamespacedName{
+		//TODO: fill in the name from the instance, passed down from MarketplaceConfig
 		Name: "combined-secret",
 		Namespace: "redhat-marketplace-operator",
 	},&combinedSecret)
-
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -227,11 +228,9 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	// Search for missing values on the combined secret
-	// TODO: do a reflect.deepEqual to see if the missing resources differ from the state so this doesn't run every reconcile
+	// TODO: add these to constants
 	searchItems := []string{"IBM_COS_READER_KEY","BUCKET_NAME", "IBM_COS_URL","RAZEE_DASH_ORG_KEY","CHILD_RRS3_YAML_FILENAME","RAZEE_DASH_URL"}
 	missingItems := []string{}
-	
 	//TODO: could functionalize this
 	for _, searchItem := range searchItems{
 		if _, ok := combinedSecret.Data[searchItem];!ok{
@@ -240,78 +239,68 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 	}
 
-	// set the missing resources 
-	instance.Status.MissingValuesFromSecret = &MissingValuesFromSecretSlice
-	*instance.Status.MissingValuesFromSecret = missingItems
-	err = r.client.Status().Update(context.TODO(),instance)
-	if err != nil{
-		reqLogger.Error(err, "Failed to update missing resources status")
-		return reconcile.Result{}, nil
+	// update missing resources if necessary
+	instance.Status.MissingValuesFromSecret = &missingValuesFromSecretSlice
+	if !reflect.DeepEqual(missingItems,*instance.Status.MissingValuesFromSecret){
+		reqLogger.Info("Missing Resources Detected on Secret")
+		*instance.Status.MissingValuesFromSecret = missingItems
+		err = r.client.Status().Update(context.TODO(),instance)
+		if err != nil{
+			reqLogger.Error(err, "Failed to update missing resources status")
+			return reconcile.Result{}, nil
+		}
+		reqLogger.Info("Updated MissingValuesFromSecret")
 	}
-	reqLogger.Info("Updated MissingValuesFromSecret")
 
 	// if there are missing fields on the secret then exit
+	//TODO: possibly move this inside the previous for statement ? 
 	if len(missingItems) > 0 {
-		reqLogger.Info("missing required prerequisite information")
+		reqLogger.Info("missing required prerequisites for razee install")
 		return reconcile.Result{}, nil
 	}
 
-	// else, pull in field values to local vars
-	//TODO: functionalize some of this
 	/******************************************************************************
 	3.) POPULATE THE SECRET VALUES
+	if the secret has all the correct values pull in secret field values into local vars
 	/******************************************************************************/
-	IBM_COS_READER_KEY, err:= utils.RetrieveSecretField(combinedSecret.Data["IBM_COS_READER_KEY"])
-	if err != nil {
-		fmt.Println(err)
+	instance.Status.LocalSecretVarsPopulated = &localSecretVarsPopulated
+	if *instance.Status.LocalSecretVarsPopulated == false{
+		reqLogger.Info("Gathering local vars")
+		obj,err := utils.AddSecretFieldsToObj(combinedSecret.Data)
+		if err != nil {
+			reqLogger.Error(err,"Failed to populate secret data into local vars")
+			*instance.Status.LocalSecretVarsPopulated = false
+		}
+
+		// if no errors, check the obj to make sure there are no nil values
+		for key, value := range obj{
+			if key == "" || value == "" {
+				reqLogger.Error(err, "Local var not populated")
+				*instance.Status.LocalSecretVarsPopulated = false
+			}
+		}
+
+		// else, update status
+		secretObj = obj
+		*instance.Status.LocalSecretVarsPopulated = true
+		err = r.client.Status().Update(context.TODO(),instance)
+		if err != nil{
+			reqLogger.Error(err, "Failed to update Status.LocalVarsPopulated")
+		}
+		reqLogger.Info("Local vars have been populated")
+
+		//TODO: remove this
+		fmt.Println("SECRET OBJ",obj)
 	}
-	fmt.Println("IBM_COS_READER_KEY decoded",IBM_COS_READER_KEY)
 
-	IBM_COS_URL, err:= utils.RetrieveSecretField(combinedSecret.Data["IBM_COS_URL"])
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println("IBM_COS_URL decoded",IBM_COS_URL)
+	COS_FULL_URL = fmt.Sprintf("%s/%s/%s/%s",secretObj["IBM_COS_URL"],secretObj["BUCKET_NAME"],CLUSTER_UUID,secretObj["CHILD_RRS3_YAML_FILENAME"])
 
-	RAZEE_DASH_URL, err = utils.RetrieveSecretField(combinedSecret.Data["RAZEE_DASH_URL"])
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println("RAZEE_DASH_URL decoded",RAZEE_DASH_URL)
-
-	RAZEE_DASH_ORG_KEY,err = utils.RetrieveSecretField(combinedSecret.Data["RAZEE_DASH_ORG_KEY"])
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println("RAZEE_DASH_ORG_KEY decoded",RAZEE_DASH_ORG_KEY)
-
-	BUCKET_NAME,err = utils.RetrieveSecretField(combinedSecret.Data["BUCKET_NAME"])
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println("BUCKET NAME decoded", BUCKET_NAME)
-
-	CHILD_RRS3_YAML_FILENAME,err = utils.RetrieveSecretField(combinedSecret.Data["CHILD_RRS3_YAML_FILENAME"])
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println("CHILD_RRS3_YAML_FILENAME decoded", CHILD_RRS3_YAML_FILENAME)
-	
-	COS_FULL_URL = fmt.Sprintf(`%s/%s/%s/%s`,strings.Trim(IBM_COS_URL, " \r\n"),strings.Trim(BUCKET_NAME, " \r\n"),strings.Trim(CLUSTER_UUID, " \r\n"),strings.Trim(CHILD_RRS3_YAML_FILENAME, " \r\n"))
-
-	// TODO: add a check once this is done, update status with wether these values are populated
-	// TODO: change this message
-	// reqLogger.Info("skipped updating missing resource status")
-
-
-	/******************************************************************************/
-	/*
+	/******************************************************************************
 		PROCEED WITH CREATING RAZEEDEPLOY-JOB? YES/NO
 		do we have all the fields from rhm-secret ? (combined secret)
 		check that we can continue with applying the razee job
 		if the job has already run exit
 		if there are still missing resources exit
-	*/
 	/******************************************************************************/
 	if instance.Status.JobState.Succeeded == 1 || len(*instance.Status.MissingValuesFromSecret) >0 {
 		reqLogger.Info("RazeeDeployJob has been successfully created")
@@ -319,8 +308,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 	
 
-	/******************************************************************************/
-	/* APPLY RAZEE RESOURCES
+	/******************************************************************************
+	APPLY RAZEE RESOURCES
 	/******************************************************************************/
 	instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
 	if *instance.Status.RazeePrerequisitesCreated == false{
@@ -385,8 +374,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	
 	reqLogger.Info("prerequisite resource have been created")
 
-	/******************************************************************************/
-	/* CREATE THE RAZEE JOB
+	/******************************************************************************
+	CREATE THE RAZEE JOB
 	/******************************************************************************/
 	razeeOpts := &RazeeOpts{
 		RazeeDashUrl:  viper.GetString("razeedash-url"),
@@ -525,8 +514,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 }
 
 func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts) *batch.Job {
-	url := fmt.Sprintf("--razeedash-url=%v",RAZEE_DASH_URL)
-	orgKey := fmt.Sprintf("--razeedash-org-key=%v", RAZEE_DASH_ORG_KEY)
+	url := fmt.Sprintf("--razeedash-url=%v",secretObj["RAZEE_DASH_URL"])
+	orgKey := fmt.Sprintf("--razeedash-org-key=%v", secretObj["RAZEE_DASH_ORG_KEY"])
 	featureFlag := fmt.Sprintf("--featureflagsetld=%v",FEATURE_FLAG_VERSION)
 	managedSetVersion := fmt.Sprintf("--managedset=%v",MANAGED_SET_VERSION)
 	mustacheTemplateVersion := fmt.Sprintf("--mustachetemplate=%v",MUSTACHE_TEMPLATE_VERSION)
@@ -566,6 +555,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeClusterMetaData() *corev1.ConfigMap 
 				"razee/watch-resource": "lite",
 			},
 		},
+		// TODO: get this from namsimar's pr
 		Data :map[string]string{"name": CLUSTER_UUID},
 
 	}

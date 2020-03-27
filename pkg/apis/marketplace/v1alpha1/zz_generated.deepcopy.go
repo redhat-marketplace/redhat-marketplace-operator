@@ -440,6 +440,11 @@ func (in *RazeeDeploymentStatus) DeepCopyInto(out *RazeeDeploymentStatus) {
 			copy(*out, *in)
 		}
 	}
+	if in.LocalSecretVarsPopulated != nil {
+		in, out := &in.LocalSecretVarsPopulated, &out.LocalSecretVarsPopulated
+		*out = new(bool)
+		**out = **in
+	}
 	if in.RazeePrerequisitesCreated != nil {
 		in, out := &in.RazeePrerequisitesCreated, &out.RazeePrerequisitesCreated
 		*out = new(bool)

@@ -25,6 +25,7 @@ type RazeeDeploymentStatus struct {
 	Conditions *batch.JobCondition `json:"conditions,omitempty"`
 	JobState   batch.JobStatus    `json:"jobState,omitempty"`
 	MissingValuesFromSecret *[]string `json:"missingValuesFromSecret,omitempty"`
+	LocalSecretVarsPopulated *bool `json:"localSecretVarsPopulated,omitempty"`
 	RazeePrerequisitesCreated *bool `json:"razeePrerequisitesCreated,omitempty"`
 }
 
