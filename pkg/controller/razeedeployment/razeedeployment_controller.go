@@ -311,10 +311,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 	reqLogger.Info("Local vars have been populated")
 
-	//TODO: remove this !!
-	fmt.Println("SECRET OBJ",obj)
-	
-
 	COS_FULL_URL = fmt.Sprintf("%s/%s/%s/%s",secretObj[IBM_COS_URL_FIELD],secretObj[BUCKET_NAME_FIELD],CLUSTER_UUID,secretObj[PARENT_RRS3_YAML_FIELD])
 
 	/******************************************************************************
