@@ -450,6 +450,11 @@ func (in *RazeeDeploymentStatus) DeepCopyInto(out *RazeeDeploymentStatus) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.RedHatMarketplaceSecretFound != nil {
+		in, out := &in.RedHatMarketplaceSecretFound, &out.RedHatMarketplaceSecretFound
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

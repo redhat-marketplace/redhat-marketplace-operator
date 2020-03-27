@@ -27,6 +27,7 @@ type RazeeDeploymentStatus struct {
 	MissingValuesFromSecret *[]string `json:"missingValuesFromSecret,omitempty"`
 	LocalSecretVarsPopulated *bool `json:"localSecretVarsPopulated,omitempty"`
 	RazeePrerequisitesCreated *bool `json:"razeePrerequisitesCreated,omitempty"`
+	RedHatMarketplaceSecretFound *bool `json:"redHatMarketplaceSecretFound,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

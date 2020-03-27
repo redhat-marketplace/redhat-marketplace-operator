@@ -2,7 +2,7 @@ SHELL:=/bin/bash
 NAMESPACE = redhat-marketplace-operator
 OPSRC_NAMESPACE = marketplace-operator
 OPERATOR_SOURCE = redhat-marketplace-operators
-IMAGE_REGISTRY = public-image-registry.apps-crc.testing/symposium
+IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 OPERATOR_IMAGE_NAME = redhat-marketplace-operator
 OPERATOR_IMAGE_TAG = latest
 AGENT_IMAGE_NAME = marketplace-agent
@@ -69,7 +69,7 @@ build: ## Build the operator executable
 	- [ -f "build/_output/bin/redhat-marketplace-operator" ] && rm -f build/_output/bin/redhat-marketplace-operator
 	@cp -r ./assets build/_output
 	GOOS=linux GOARCH=amd64 go build -o build/_output/bin/redhat-marketplace-operator ./cmd/manager/main.go
-	docker build . -f ./build/Dockerfile
+	docker build . -f ./build/Dockerfile -t $(OPERATOR_IMAGE)
 
 .PHONY: push
 push: push ## Push the operator image

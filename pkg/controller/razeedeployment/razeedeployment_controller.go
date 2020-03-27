@@ -39,7 +39,13 @@ const (
 	MUSTACHE_TEMPLATE_VERSION = "0.6.3"
 	REMOTE_RESOURCE_VERSION = "0.4.2"
 	REMOTE_RESOURCE_S3_VERSION = "0.5.2"
-
+	IBM_COS_READER_KEY_FIELD = "IBM_COS_READER_KEY"
+	BUCKET_NAME_FIELD = "BUCKET_NAME"
+	IBM_COS_URL_FIELD = "IBM_COS_URL"
+	RAZEE_DASH_ORG_KEY_FIELD = "RAZEE_DASH_ORG_KEY"
+	PARENT_RRS3_YAML_FIELD = "PARENT_RRS3_YAML_FILENAME"
+	RAZEE_DASH_URL_FIELD = "RAZEE_DASH_URL"
+	// "IBM_COS_READER_KEY","BUCKET_NAME", "IBM_COS_URL","RAZEE_DASH_ORG_KEY","CHILD_RRS3_YAML_FILENAME","RAZEE_DASH_URL"
 )
 
 var (
@@ -49,23 +55,21 @@ var (
 	secretObj map[string]string
 	razeePrerequisitesCreated bool = false 
 	localSecretVarsPopulated bool = false
+	redHatMarketplaceSecretFound bool = false
 	RAZEE_DASH_ORG_KEY = ""
 	BUCKET_NAME = ""
 	IBM_COS_URL = ""
 	CHILD_RRS3_YAML_FILENAME = ""
 	IBM_COS_READER_KEY = ""
 	RAZEE_DASH_URL = ""
-	//TODO: need to get the clusterUUID from the instance
+	//TODO: this is for testing purposes
 	CLUSTER_UUID = "testClusterUUID"
 	COS_FULL_URL = ""
 	RELATED_IMAGE_RAZEE_JOB = "RELATED_IMAGE_RAZEE_JOB"
 
 )
 
-/*
- utils.Getenv(RELATED_IMAGE_RAZEE_JOB, DEFAULT_PROM_SERVER),
- DEFAULT_RAZEE_JOB_IMAGE
-*/
+
 func init() {
 	fmt.Println(utils.Getenv(RELATED_IMAGE_RAZEE_JOB,DEFAULT_RAZEE_JOB_IMAGE))
 	razeeFlagSet = pflag.NewFlagSet("razee", pflag.ExitOnError)
@@ -79,7 +83,7 @@ func FlagSet() *pflag.FlagSet {
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
 * business logic.  Delete these comments after modifying this file.*
- */
+*/
 
 // Add creates a new RazeeDeployment Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -107,7 +111,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// TODO: watch full CRUD operations ? 
-	// TODO: change the name of "combined-secret"
+	// TODO: change the name of "combined-secret" to a variable populated from the instance
 	pred := predicate.Funcs{
 		DeleteFunc: func(e event.DeleteEvent) bool {
 		  return e.Meta.GetName() == "combined-secret"
@@ -195,9 +199,9 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, nil
 	}
 
-	//TODO: add this code
+	//TODO: add this code when namsimar's pr get merged
 	/******************************************************************************
-	1.) CHECK THE INSTANCE
+	CHECK THE INSTANCE FOR VALUES PASSED DOWN FROM MARKETPLACE CONFIG
 	check the instance for rhmSecretName
 	check the instance for clusterUUID
 	/******************************************************************************/
@@ -206,7 +210,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 
 	/******************************************************************************
-	2.) CHECK FOR MISSING SECRET VALUES
+	CHECK FOR COMBINED SECRET
 	check for the presence of the combined secret
 	/******************************************************************************/
 	combinedSecret := corev1.Secret{}
@@ -220,6 +224,14 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
+			// report to status that we haven't found the secret
+			reqLogger.Info("Updating RedHatMarketplaceSecretFound")
+			instance.Status.RedHatMarketplaceSecretFound = &redHatMarketplaceSecretFound
+			*instance.Status.RedHatMarketplaceSecretFound = false
+			err = r.client.Status().Update(context.TODO(),instance)
+			if err != nil {
+				reqLogger.Error(err, "Failed to update Status.RedHatMarketplaceSecretFound")
+			}
 			reqLogger.Error(err,"Failed to find combined secret")
 			return reconcile.Result{}, nil
 		}
@@ -228,8 +240,17 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
+	instance.Status.RedHatMarketplaceSecretFound = &redHatMarketplaceSecretFound
+	*instance.Status.RedHatMarketplaceSecretFound = true
+	err = r.client.Status().Update(context.TODO(),instance)
+
+	/******************************************************************************
+	CHECK FOR MISSING SECRET VALUES
+	if the secret is present on the cluster then check the secret for the correct fields
+	check for the presence of the combined secret
+	/******************************************************************************/
 	// TODO: add these to constants
-	searchItems := []string{"IBM_COS_READER_KEY","BUCKET_NAME", "IBM_COS_URL","RAZEE_DASH_ORG_KEY","CHILD_RRS3_YAML_FILENAME","RAZEE_DASH_URL"}
+	searchItems := []string{IBM_COS_READER_KEY_FIELD,BUCKET_NAME_FIELD, IBM_COS_URL_FIELD,RAZEE_DASH_ORG_KEY_FIELD,PARENT_RRS3_YAML_FIELD,RAZEE_DASH_URL_FIELD}
 	missingItems := []string{}
 	//TODO: could functionalize this
 	for _, searchItem := range searchItems{
@@ -261,39 +282,40 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	/******************************************************************************
 	3.) POPULATE THE SECRET VALUES
-	if the secret has all the correct values pull in secret field values into local vars
+	if there are not missing fields on the secret then continue to populate vars
 	/******************************************************************************/
-	instance.Status.LocalSecretVarsPopulated = &localSecretVarsPopulated
-	if *instance.Status.LocalSecretVarsPopulated == false{
-		reqLogger.Info("Gathering local vars")
-		obj,err := utils.AddSecretFieldsToObj(combinedSecret.Data)
-		if err != nil {
-			reqLogger.Error(err,"Failed to populate secret data into local vars")
-			*instance.Status.LocalSecretVarsPopulated = false
-		}
-
-		// if no errors, check the obj to make sure there are no nil values
-		for key, value := range obj{
-			if key == "" || value == "" {
-				reqLogger.Error(err, "Local var not populated")
-				*instance.Status.LocalSecretVarsPopulated = false
-			}
-		}
-
-		// else, update status
-		secretObj = obj
-		*instance.Status.LocalSecretVarsPopulated = true
-		err = r.client.Status().Update(context.TODO(),instance)
-		if err != nil{
-			reqLogger.Error(err, "Failed to update Status.LocalVarsPopulated")
-		}
-		reqLogger.Info("Local vars have been populated")
-
-		//TODO: remove this
-		fmt.Println("SECRET OBJ",obj)
+	reqLogger.Info("Gathering local vars")
+	obj,err := utils.AddSecretFieldsToObj(combinedSecret.Data)
+	if err != nil {
+		reqLogger.Error(err,"Failed to populate secret data into local vars")
+		*instance.Status.LocalSecretVarsPopulated = false
 	}
 
-	COS_FULL_URL = fmt.Sprintf("%s/%s/%s/%s",secretObj["IBM_COS_URL"],secretObj["BUCKET_NAME"],CLUSTER_UUID,secretObj["CHILD_RRS3_YAML_FILENAME"])
+	// if no errors, check the obj to make sure there are no nil values
+	for key, value := range obj{
+		if key == "" || value == "" {
+			reqLogger.Error(err, "Local var not populated")
+			instance.Status.LocalSecretVarsPopulated = &localSecretVarsPopulated
+			*instance.Status.LocalSecretVarsPopulated = false
+			return reconcile.Result{}, nil
+		}
+	}
+
+	// if all fields are present continue to run and update status
+	secretObj = obj
+	instance.Status.LocalSecretVarsPopulated = &localSecretVarsPopulated
+	*instance.Status.LocalSecretVarsPopulated = true
+	err = r.client.Status().Update(context.TODO(),instance)
+	if err != nil{
+		reqLogger.Error(err, "Failed to update Status.LocalVarsPopulated")
+	}
+	reqLogger.Info("Local vars have been populated")
+
+	//TODO: remove this !!
+	fmt.Println("SECRET OBJ",obj)
+	
+
+	COS_FULL_URL = fmt.Sprintf("%s/%s/%s/%s",secretObj[IBM_COS_URL_FIELD],secretObj[BUCKET_NAME_FIELD],CLUSTER_UUID,secretObj[PARENT_RRS3_YAML_FIELD])
 
 	/******************************************************************************
 		PROCEED WITH CREATING RAZEEDEPLOY-JOB? YES/NO
@@ -310,6 +332,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	/******************************************************************************
 	APPLY RAZEE RESOURCES
+	//TODO: I commented out the error blocks for testing so you don't
 	/******************************************************************************/
 	instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
 	if *instance.Status.RazeePrerequisitesCreated == false{
@@ -319,52 +342,62 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			},
 		}
 		err = r.client.Create(context.TODO(), &razeeNampespace)
-		// if err != nil && !errors.IsNotFound(err) {
-		// 	// if errors.IsNotFound(err) {
-		// 	// 	// Request object not found, could have been deleted after reconcile request.
-		// 	// 	// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-		// 	// 	// Return and don't requeue
-		// 	// 	reqLogger.Info("Requeue")
-		// 	// }
-		// 	reqLogger.Error(err, "Failed to create razee ns")
-		// 	return reconcile.Result{}, err
-		// }
+		if err != nil {
+			reqLogger.Error(err, "Failed to create razee ns")
+			return reconcile.Result{}, err
+		}
 		fmt.Println("created Razee ns")
 		
 		// apply the watch-keeper-non-namespace
 		watchKeeperNonNamespace := r.MakeWatchKeeperNonNamespace()
 		err = r.client.Create(context.TODO(), watchKeeperNonNamespace)
-		// if err != nil  {
-		// 	reqLogger.Error(err, "Failed to create watch-keeper-non-namespace")
-		// 	return reconcile.Result{}, err
-		// }
+		if err != nil  {
+			reqLogger.Error(err, "Failed to create watch-keeper-non-namespace")
+			return reconcile.Result{}, err
+		}
 		reqLogger.Info("watch-keeper-non-namespace created successfully")
 	
 		// apply watch-keeper-limit-poll
 		watchKeeperLimitPoll := r.MakeWatchKeeperLimitPoll()
 		err = r.client.Create(context.TODO(), watchKeeperLimitPoll)
-		// if err != nil {
-		// 	reqLogger.Error(err, "Failed to create watch-keeper-limit-poll")
-		// 	return reconcile.Result{}, err
-		// }
+		if err != nil {
+			reqLogger.Error(err, "Failed to create watch-keeper-limit-poll")
+			return reconcile.Result{}, err
+		}
 		reqLogger.Info("watch-keeper-limit-poll created successfully")
 		
 		// create razee-cluster-metadata
 		razeeClusterMetaData := r.MakeRazeeClusterMetaData()
 		err = r.client.Create(context.TODO(),razeeClusterMetaData)
-		// if err != nil{
-		// 	reqLogger.Error(err, "Failed to create razee-cluster-metadata")
-		// }
+		if err != nil{
+			reqLogger.Error(err, "Failed to create razee-cluster-metadata")
+		}
 		reqLogger.Info("razee-cluster-metadata created successfully")
 
 		// create parentRRS3
 		parentRRS3 := r.MakeParentRemoteResourceS3()
 		err = r.client.Create(context.TODO(), parentRRS3)
-		// if err != nil{
-		// 	reqLogger.Error(err, "Failed to create parentRRS3")
-		// }
+		if err != nil{
+			reqLogger.Error(err, "Failed to create parentRRS3")
+		}
 		reqLogger.Info("parentRRS3 created successfully")
-		// reqLogger.Info("parentRRS3 created successfully")
+
+		// create watch-keeper-config
+		watchKeeperConfig := r.MakeWatchKeeperConfig()
+		err = r.client.Create(context.TODO(), watchKeeperConfig)
+		if err != nil{
+			reqLogger.Error(err, "Failed to create parentRRS3")
+		}
+		reqLogger.Info("watch-keeper-config created successfully")
+
+		// create watch-keeper-config
+		watchKeeperSecret := r.MakeWatchKeeperSecret()
+		err = r.client.Create(context.TODO(), watchKeeperSecret)
+		if err != nil{
+			reqLogger.Error(err, "Failed to create parentRRS3")
+		}
+		reqLogger.Info("watch-keeper-secret created successfully")
+
 		// if everything gets applied without errors update the status
 		// TODO: 
 		const hasBeenCreated bool = true 
@@ -435,13 +468,13 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Error(err,"Failed to marshall instance")
 	}
 
-	fmt.Println("ATTEMPTING TO UPDATE INSTANCE STATUS")
+
 	err = r.client.Status().Update(context.TODO(),instance)
 	if err != nil{
 		fmt.Println(err.Error())
 		return reconcile.Result{}, nil
 	}
-	reqLogger.Info("Updated Status")
+	reqLogger.Info("Updated JobState")
 
 	// if the job has a status of succeeded, then delete the job
 	if foundJob.Status.Succeeded == 1 {
@@ -453,11 +486,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Info("Razeedeploy-job deleted")
 
 		/******************************************************************************
-		6.) PATCH RESOURCES FOR DIANEMO
-		Patch the Console and Infrastructure resources
+		PATCH RESOURCES FOR DIANEMO
+		Patch the Console and Infrastructure resources with the watch-keeper label
 		Patch 'razee-cluster-metadata' and add data.name: "max-test-uuid"
 		Should only patch if the job has been successfully applied
-		// TODO: functionalize the patches
+		// TODO: could functionalize the patches
 		/******************************************************************************/
 		// Patch the Console resource
 		reqLogger.Info("finding Console resource")
@@ -506,7 +539,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Error(err, "Failed to patch Infrastructure resource")
 		}
 		reqLogger.Info("Patched Infrastructure resource")
-		// exit the loop after the job has been deleted
+		// exit the loop after patches are performed
 		return reconcile.Result{}, nil
 	}
 	reqLogger.Info("End of reconcile")
@@ -514,8 +547,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 }
 
 func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts) *batch.Job {
-	url := fmt.Sprintf("--razeedash-url=%v",secretObj["RAZEE_DASH_URL"])
-	orgKey := fmt.Sprintf("--razeedash-org-key=%v", secretObj["RAZEE_DASH_ORG_KEY"])
 	featureFlag := fmt.Sprintf("--featureflagsetld=%v",FEATURE_FLAG_VERSION)
 	managedSetVersion := fmt.Sprintf("--managedset=%v",MANAGED_SET_VERSION)
 	mustacheTemplateVersion := fmt.Sprintf("--mustachetemplate=%v",MUSTACHE_TEMPLATE_VERSION)
@@ -536,7 +567,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts) *batch.Job {
 						Image:   opt.RazeeJobImage,
 						Command: []string{"node", "src/install", "--namespace=razee"},
 						// TODO: do we need to populate this right now ? 
-						Args:    []string{url,orgKey,featureFlag,managedSetVersion,mustacheTemplateVersion,remoteResourceVersion,remoteResourceS3Version},
+						Args:    []string{featureFlag,managedSetVersion,mustacheTemplateVersion,remoteResourceVersion,remoteResourceS3Version},
 					}},
 					RestartPolicy: "Never",
 				},
@@ -582,6 +613,28 @@ func (r *ReconcileRazeeDeployment) MakeWatchKeeperLimitPoll() *corev1.ConfigMap 
 		},
 		Data :map[string]string{"whitelist": "true","v1_namespace":"true"},
 
+	}
+}
+
+func (r *ReconcileRazeeDeployment) MakeWatchKeeperConfig() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "watch-keeper-config",
+			Namespace: "razee",
+		},
+		Data :map[string]string{"RAZEEDASH_URL": secretObj[RAZEE_DASH_URL_FIELD],"START_DELAY_MAX":"0"},
+
+	}
+}
+
+func (r *ReconcileRazeeDeployment) MakeWatchKeeperSecret() *corev1.Secret{
+	url := secretObj[RAZEE_DASH_ORG_KEY_FIELD]
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "watch-keeper-secret",
+			Namespace: "razee",
+		},
+		Data :map[string][]byte{"RAZEEDASH_ORG_KEY": []byte(url)},
 	}
 }
 
