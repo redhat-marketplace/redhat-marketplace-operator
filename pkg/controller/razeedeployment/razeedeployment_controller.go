@@ -63,7 +63,7 @@ var (
 	IBM_COS_READER_KEY = ""
 	RAZEE_DASH_URL = ""
 	//TODO: this is for testing purposes
-	CLUSTER_UUID = "max-rhm-operator-test-1"
+	CLUSTER_UUID = "4e13a24ed130c275c315de7x"
 	COS_FULL_URL = ""
 	RELATED_IMAGE_RAZEE_JOB = "RELATED_IMAGE_RAZEE_JOB"
 
@@ -326,7 +326,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	/******************************************************************************
 	APPLY RAZEE RESOURCES
-	//TODO: I commented out the error blocks for testing so you don't
 	/******************************************************************************/
 	instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
 	if *instance.Status.RazeePrerequisitesCreated == false{
@@ -392,8 +391,14 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 		reqLogger.Info("watch-keeper-secret created successfully")
 
+		// create watch-keeper-config
+		ibmCosReaderKey := r.MakeCOSReaderSecret()
+		err = r.client.Create(context.TODO(), ibmCosReaderKey)
+		if err != nil{
+			reqLogger.Error(err, "Failed to create parentRRS3")
+		}
+		reqLogger.Info("ibm-cos-reader-key created successfully")
 		// if everything gets applied without errors update the status
-		// TODO: 
 		const hasBeenCreated bool = true 
 		*instance.Status.RazeePrerequisitesCreated = hasBeenCreated
 		err = r.client.Status().Update(context.TODO(),instance)
@@ -485,7 +490,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		Should only patch if the job has been successfully applied
 		// TODO: could functionalize the patches
 		/******************************************************************************/
-		// Patch the Console resource
 		reqLogger.Info("finding Console resource")
 		console := &unstructured.Unstructured{}
 		console.SetGroupVersionKind(schema.GroupVersionKind{
@@ -627,6 +631,28 @@ func (r *ReconcileRazeeDeployment) MakeWatchKeeperSecret() *corev1.Secret{
 			Namespace: "razee",
 		},
 		Data :map[string][]byte{"RAZEEDASH_ORG_KEY": []byte(url)},
+	}
+}
+
+/*
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ibm-cos-reader-key
+  namespace: razee
+type: Opaque
+data:
+  accesskey: cVkzVE8xQS12aTF3TVM0RTlrR1pyV1hkTjRFUWwtZFEtUXhLakxkV3NqcFk=
+*/
+func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret() *corev1.Secret{
+	cosApiKey := secretObj[IBM_COS_READER_KEY_FIELD]
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ibm-cos-reader-key",
+			Namespace: "razee",
+		},
+		Data :map[string][]byte{"accessKey": []byte(cosApiKey)},
 	}
 }
 
