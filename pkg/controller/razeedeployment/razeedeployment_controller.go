@@ -652,7 +652,7 @@ func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret() *corev1.Secret{
 			Name:      "ibm-cos-reader-key",
 			Namespace: "razee",
 		},
-		Data :map[string][]byte{"accessKey": []byte(cosApiKey)},
+		Data :map[string][]byte{"accesskey": []byte(cosApiKey)},
 	}
 }
 
@@ -669,22 +669,27 @@ func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3() *unstructured.Un
 			"spec":map[string]interface{}{
 				"auth": map[string]interface{}{
 					"iam":map[string]interface{}{
-						"response_type": "urn:ibm:params:oauth:grant-type:apikey",
+						"response_type": "cloud_iam",
 						"url": `https://iam.cloud.ibm.com/identity/token`,
+						"grant_type": "urn:ibm:params:oauth:grant-type:apikey",
 						"api_key": map[string]interface{}{
-							"value_from":map[string]interface{}{
-								"secret_ref": map[string]interface{}{
+							"valueFrom":map[string]interface{}{
+								"secretKeyRef": map[string]interface{}{
 									"name": "ibm-cos-reader-key",
-									"key": "accessKey",
+									"key": "accesskey",
 								},
 							},
 						},
 					},
 				},
-				"requests": map[string]interface{}{
-					"options": map[string]string{"url": COS_FULL_URL},
+				"requests": []interface{}{
+						map[string]map[string]string{"options": {"url": COS_FULL_URL}},
 				},
 			},
 		},
 	}
 }
+
+// map[string]interface{}{
+	// "options": map[string]string{"url": COS_FULL_URL},
+// },
