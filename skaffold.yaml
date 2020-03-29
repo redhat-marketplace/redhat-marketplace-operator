@@ -1,17 +1,24 @@
 apiVersion: skaffold/v2beta1
 kind: Config
 build:
-  cluster: {}
+  local:
+    push: false
+  #cluster: {}
   artifacts:
     - image: redhat-marketplace-operator
       custom:
         buildCommand: ./scripts/skaffold-build.sh
         dependencies:
           paths:
-            - .
+            - ./cmd
+            - ./pkg
+            - ./assets
           ignore:
             - vendor/**
 deploy:
   kubectl:
     manifests:
+      - deploy/crds/*cr.yaml
       - deploy/*.yaml
+    flags:
+      disableValidation: true

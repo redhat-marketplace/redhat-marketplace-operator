@@ -43,15 +43,9 @@
     regex: ([^:]+)(?::\d+)?;(\d+)
     replacement: $1:$2
     target_label: __address__
-  - source_labels: [__meta_kubernetes_pod_label_marketplace_redhat_com_label_regex]
-    action: replace
-    target_label: __tmp_marketplace_labels_regex
-  - source_labels: [ __tmp_marketplace_labels_regex ]
-    regex: ()
-    action: keep
   - action: labelmap
     regex: __meta_kubernetes_pod_label_marketplace_redhat_com_(.+)
-    replace: redhat_marketplace_$1
+    target_label: redhat_marketplace_$1
   - source_labels: [__meta_kubernetes_namespace]
     action: replace
     target_label: kubernetes_namespace
@@ -79,7 +73,7 @@
     target_label: __address__
   - action: labelmap
     regex: __meta_kubernetes_service_label_marketplace_redhat_com_(.+)
-    replace: redhat_marketplace_$1
+    target_label: redhat_marketplace_$1
   - source_labels: [__meta_kubernetes_namespace]
     action: replace
     target_label: kubernetes_namespace

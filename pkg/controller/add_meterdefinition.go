@@ -1,10 +1,15 @@
 package controller
 
 import (
+	"github.com/spf13/pflag"
 	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/controller/meterdefinition"
 )
 
-func init() {
-	// AddToManagerFuncs is a list of functions to create controllers and add them to a manager.
-	AddToManagerFuncs = append(AddToManagerFuncs, meterdefinition.Add)
+type MeterDefinitionController ControllerDefinition
+
+func ProvideMeterDefinitionController() *MeterDefinitionController {
+	return &MeterDefinitionController{
+		Add:     meterdefinition.Add,
+		FlagSet: func() *pflag.FlagSet { return nil },
+	}
 }

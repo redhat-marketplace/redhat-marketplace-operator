@@ -1,10 +1,14 @@
 package utils
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
+
 	"github.com/gotidy/ptr"
 	"github.com/imdario/mergo"
+	k8yaml "k8s.io/apimachinery/pkg/util/yaml"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -12,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 )
@@ -110,7 +115,7 @@ func MakeProbe(path string, port, initialDelaySeconds, timeoutSeconds int32) *co
 func BuildNewOpSrc() *opsrcv1.OperatorSource {
 	opsrc := &opsrcv1.OperatorSource{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      OPSRC_NAME,
+			Name: OPSRC_NAME,
 			// Must always be openshift-marketplace
 			Namespace: OPERATOR_MKTPLACE_NS,
 		},
@@ -161,3 +166,29 @@ func BuildMeterBaseCr(namespace string) *marketplacev1alpha1.MeterBase {
 	}
 	return cr
 }
+
+func LoadYAML(filename string, i interface{}) (interface{}, error) {
+	dat, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	dec := k8yaml.NewYAMLOrJSONDecoder(bytes.NewReader(dat), 1000)
+	var genericTypeVal interface{}
+
+	switch v := i.(type) {
+	case corev1.ConfigMap:
+		genericTypeVal = &corev1.ConfigMap{}
+	case monitoringv1.Prometheus:
+		genericTypeVal = &monitoringv1.Prometheus{}
+	default:
+		return nil, fmt.Errorf("type not recognized %T", v)
+	}
+
+	if err := dec.Decode(&genericTypeVal); err != nil {
+		return nil, err
+	}
+
+	return genericTypeVal, nil
+}
+

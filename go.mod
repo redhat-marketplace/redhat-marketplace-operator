@@ -3,17 +3,22 @@ module github.ibm.com/symposium/redhat-marketplace-operator
 go 1.13
 
 require (
+	github.com/appc/spec v0.8.11 // indirect
+	github.com/coreos/prometheus-operator v0.34.0
+	github.com/coreos/rkt v1.30.0
 	github.com/google/ko v0.4.0 // indirect
+	github.com/google/wire v0.4.0
 	github.com/gotidy/ptr v1.0.1
 	github.com/imdario/mergo v0.3.8
 	github.com/json-iterator/go v1.1.8 // indirect
 	github.com/noqcks/gucci v0.0.4
 	github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b
 	github.com/operator-framework/operator-sdk v0.15.1-0.20200211154447-0eac8a1169df
+	github.com/rkt/rkt v1.30.0 // indirect
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.2
 	github.com/urfave/cli v1.22.2 // indirect
-	golang.org/x/sys v0.0.0-20200212091648-12a6c2dcc1e4 // indirect
+	go4.org v0.0.0-20200312051459-7028f7b4a332 // indirect
 	gopkg.in/yaml.v2 v2.2.8 // indirect
 	k8s.io/api v0.17.0
 	k8s.io/apimachinery v0.17.1

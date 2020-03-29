@@ -1,4 +1,4 @@
-package main
+package managers
 
 import (
 	"context"
@@ -7,33 +7,29 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/spf13/viper"
-
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	"k8s.io/client-go/rest"
-
-	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis"
-	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/controller"
-	"github.ibm.com/symposium/redhat-marketplace-operator/version"
-
-	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
+	sdkVersion "github.com/operator-framework/operator-sdk/version"
+	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
-	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis"
+	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/controller"
+	"github.ibm.com/symposium/redhat-marketplace-operator/version"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
-// Change below variables to serve metrics on different host or port.
 var (
 	metricsHost               = "0.0.0.0"
 	metricsPort         int32 = 8383
@@ -48,19 +44,31 @@ func printVersion() {
 	log.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
 }
 
-func main() {
+type OperatorName string
+
+type SchemeDefinition struct {
+	AddToScheme func(s *k8sruntime.Scheme) error
+}
+
+type ControllerMain struct {
+	Name OperatorName
+	FlagSets    []*pflag.FlagSet
+	Controllers []*controller.ControllerDefinition
+	Schemes []*SchemeDefinition
+}
+
+func (m *ControllerMain) Run() {
 	// adding controller flags
-	for _, flags := range controller.FlagSets() {
+	for _, flags := range m.FlagSets {
 		pflag.CommandLine.AddFlagSet(flags)
 	}
 
-	// Add the zap logger flag set to the CLI. The flag set must
-	// be added before calling pflag.Parse().
-	pflag.CommandLine.AddFlagSet(zap.FlagSet())
+	// adding controller flags
+	for _, controller := range m.Controllers {
+		pflag.CommandLine.AddFlagSet(controller.FlagSet())
+	}
 
-	// Add flags registered by imported packages (e.g. glog and
-	// controller-runtime)
-	// pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.CommandLine.AddFlagSet(zap.FlagSet())
 
 	pflag.Parse()
 
@@ -74,14 +82,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Use a zap logr.Logger implementation. If none of the zap
-	// flags are configured (or if the zap flag set is not being
-	// used), this defaults to a production zap logger.
-	//
-	// The logger instantiated here can be changed to any logger
-	// implementing the logr.Logger interface. This logger will
-	// be propagated through the whole operator, generating
-	// uniform and structured logs.
 	logf.SetLogger(zap.Logger())
 
 	log.Info("flags", "assets", viper.Get("assets"))
@@ -103,7 +103,7 @@ func main() {
 
 	ctx := context.TODO()
 	// Become the leader before proceeding
-	err = leader.Become(ctx, "redhat-marketplace-operator-lock")
+	err = leader.Become(ctx, (string)(m.Name))
 	if err != nil {
 		log.Error(err, "")
 		os.Exit(1)
@@ -127,15 +127,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := opsrcv1.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "")
-		os.Exit(1)
+	for _, scheme := range m.Schemes{
+		if err := scheme.AddToScheme(mgr.GetScheme()); err != nil {
+			log.Error(err, "failed to add scheme")
+			os.Exit(1)
+		}
 	}
 
 	// Setup all Controllers
-	if err := controller.AddToManager(mgr); err != nil {
-		log.Error(err, "")
-		os.Exit(1)
+	for _, control := range m.Controllers {
+		if err := control.Add(mgr); err != nil {
+			log.Error(err, "")
+			os.Exit(1)
+		}
 	}
 
 	// Add the Metrics Service

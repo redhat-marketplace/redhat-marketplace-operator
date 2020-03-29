@@ -7,12 +7,14 @@ metadata:
 spec:
   replicas: 1
   serviceAccountName: redhat-marketplace-operator
-  additionalScrapeConfigs:
-    name: additional-scrape-configs
-    key: prometheus-additional.yaml
   serviceMonitorSelector:
     matchLabels:
-      marketplace.redhat.com/metered: "true"
+      marketplace.redhat.com/metering: "true"
+      marketplace.redhat.com/deployed: "true"
+  podMonitorSelector:
+    matchLabels:
+      marketplace.redhat.com/metering: "true"
+      marketplace.redhat.com/deployed: "true"
   storage:
     volumeClaimTemplate:
       spec:

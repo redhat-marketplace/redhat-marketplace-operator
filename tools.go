@@ -6,4 +6,5 @@ package tools
 
 import (
 	"github.com/noqcks/gucci"
+	"github.com/google/wire"
 )
