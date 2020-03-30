@@ -80,9 +80,9 @@ func TestRazeeDeployController(t *testing.T) {
 		t.Fatalf("get razeedeployment: (%v)", err)
 	}
 
-	if len(*razeeDeployment.Status.MissingRazeeResources) > 0 {
-		fmt.Println("missing resources found",razeeDeployment.Status.MissingRazeeResources)
-	} 
+	if len(*razeeDeployment.Status.MissingValuesFromSecret) > 0 {
+		fmt.Println("missing resources found", razeeDeployment.Status.MissingValuesFromSecret)
+	}
 
 	// Check the result of reconciliation to make sure it has the desired state.
 	// if res.Requeue {
@@ -91,7 +91,7 @@ func TestRazeeDeployController(t *testing.T) {
 
 }
 
-func CreateWatchKeeperSecret ()*corev1.Secret{
+func CreateWatchKeeperSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "razeedeploy-job",

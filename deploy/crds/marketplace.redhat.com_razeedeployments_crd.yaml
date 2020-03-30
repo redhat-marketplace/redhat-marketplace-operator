@@ -145,10 +145,16 @@ spec:
                   format: int32
                   type: integer
               type: object
-            missingRazeeResources:
+            localSecretVarsPopulated:
+              type: boolean
+            missingValuesFromSecret:
               items:
                 type: string
               type: array
+            razeePrerequisitesCreated:
+              type: boolean
+            redHatMarketplaceSecretFound:
+              type: boolean
           type: object
       type: object
   version: v1alpha1
