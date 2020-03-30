@@ -62,8 +62,6 @@ var (
 	CHILD_RRS3_YAML_FILENAME = ""
 	IBM_COS_READER_KEY = ""
 	RAZEE_DASH_URL = ""
-	//TODO: this is for testing purposes
-	// CLUSTER_UUID = "max-rhm-operator-test-4"
 	COS_FULL_URL = ""
 	RELATED_IMAGE_RAZEE_JOB = "RELATED_IMAGE_RAZEE_JOB"
 	rhmSecretName = "default"
@@ -110,7 +108,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// TODO: watch full CRUD operations ? 
-	// TODO: change the name of *rhmSecretName to a variable populated from the instance
 	pred := predicate.Funcs{
 		DeleteFunc: func(e event.DeleteEvent) bool {
 		  return e.Meta.GetName() == rhmSecretName
@@ -175,7 +172,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		NamespacedName: types.NamespacedName{
 			//TODO: change this to use utils.RAZEE_NAME
 			Namespace: "redhat-marketplace-operator",
-			Name: "rhm-marketplaceconfig-razeedeployment",
+			Name: utils.RAZEE_NAME,
 		},
 	}
 	// Fetch the RazeeDeployment instance
@@ -240,7 +237,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			if err != nil {
 				reqLogger.Error(err, "Failed to update Status.RedHatMarketplaceSecretFound")
 			}
-			reqLogger.Error(err,"Failed to find combined secret")
+			reqLogger.Error(err,"Failed to find operator secret")
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
