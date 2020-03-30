@@ -33,7 +33,6 @@ import (
 const (
 	//TODO: is the correct default ? 
 	DEFAULT_RAZEE_JOB_IMAGE = "quay.io/razee/razeedeploy-delta:0.3.1"
-
 	DEFAULT_RAZEEDASH_URL   = `http://169.45.231.109:8081/api/v2`
 	WATCH_KEEPER_VERSION = "0.5.0"
 	FEATURE_FLAG_VERSION = "0.6.1"
@@ -67,7 +66,7 @@ var (
 	// CLUSTER_UUID = "max-rhm-operator-test-4"
 	COS_FULL_URL = ""
 	RELATED_IMAGE_RAZEE_JOB = "RELATED_IMAGE_RAZEE_JOB"
-	CLUSTER_UUID = "max-rhm-operator-test-4"
+	rhmSecretName = "default"
 )
 
 
@@ -111,13 +110,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// TODO: watch full CRUD operations ? 
-	// TODO: change the name of "combined-secret" to a variable populated from the instance
+	// TODO: change the name of *rhmSecretName to a variable populated from the instance
 	pred := predicate.Funcs{
 		DeleteFunc: func(e event.DeleteEvent) bool {
-		  return e.Meta.GetName() == "combined-secret"
+		  return e.Meta.GetName() == rhmSecretName
 		},
 		CreateFunc: func(e event.CreateEvent) bool{
-			return e.Meta.GetName() == "combined-secret" 
+			return e.Meta.GetName() == rhmSecretName 
 		},
 	}
 
@@ -174,8 +173,9 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	rhmOperator := reconcile.Request{
 		NamespacedName: types.NamespacedName{
+			//TODO: change this to use utils.RAZEE_NAME
 			Namespace: "redhat-marketplace-operator",
-			Name: "razeedeployment",
+			Name: "rhm-marketplaceconfig-razeedeployment",
 		},
 	}
 	// Fetch the RazeeDeployment instance
@@ -204,17 +204,17 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	razeeOpts := &RazeeOpts{
 		RazeeDashUrl:  viper.GetString("razeedash-url"),
 		RazeeJobImage: viper.GetString("razee-job-image"),
-		ClusterUUID: viper.GetString("cluster-uuid"),
 	}
 
 	//TODO: add this code when namsimar's pr get merged
 	/******************************************************************************
 	CHECK THE INSTANCE FOR VALUES PASSED DOWN FROM MARKETPLACE CONFIG
-	check the instance for rhmSecretName
-	check the instance for clusterUUID
+	check the instance for rhmSecretNameNonNil
+	check the instance for *clusterUUID
 	/******************************************************************************/
 
-	// rhmSecretName = instance.
+	rhmSecretName := instance.Spec.DeploySecretName
+	clusterUUID := &instance.Spec.ClusterUUID
 
 
 	/******************************************************************************
@@ -224,7 +224,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	combinedSecret := corev1.Secret{}
 	err = r.client.Get(context.TODO(),types.NamespacedName{
 		//TODO: fill in the name from the instance, passed down from MarketplaceConfig
-		Name: "combined-secret",
+		Name: *rhmSecretName,
 		Namespace: "redhat-marketplace-operator",
 	},&combinedSecret)
 	if err != nil {
@@ -318,7 +318,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 	reqLogger.Info("Local vars have been populated")
 
-	COS_FULL_URL = fmt.Sprintf("%s/%s/%s/%s",secretObj[IBM_COS_URL_FIELD],secretObj[BUCKET_NAME_FIELD],CLUSTER_UUID,secretObj[CHILD_RRS3_YAML_FIELD])
+	COS_FULL_URL = fmt.Sprintf("%s/%s/%s/%s",secretObj[IBM_COS_URL_FIELD],secretObj[BUCKET_NAME_FIELD],*clusterUUID,secretObj[CHILD_RRS3_YAML_FIELD])
 
 	/******************************************************************************
 		PROCEED WITH CREATING RAZEEDEPLOY-JOB? YES/NO
@@ -369,7 +369,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Info("watch-keeper-limit-poll created successfully")
 		
 		// create razee-cluster-metadata
-		razeeClusterMetaData := r.MakeRazeeClusterMetaData(razeeOpts)
+		razeeClusterMetaData := r.MakeRazeeClusterMetaData(*clusterUUID)
 		err = r.client.Create(context.TODO(),razeeClusterMetaData)
 		if err != nil{
 			reqLogger.Error(err, "Failed to create razee-cluster-metadata")
@@ -577,7 +577,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts) *batch.Job {
 	}
 }
 
-func (r *ReconcileRazeeDeployment) MakeRazeeClusterMetaData(opt *RazeeOpts) *corev1.ConfigMap {
+func (r *ReconcileRazeeDeployment) MakeRazeeClusterMetaData(uuid string) *corev1.ConfigMap {
 	
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -589,7 +589,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeClusterMetaData(opt *RazeeOpts) *cor
 			},
 		},
 		// TODO: get this from namsimar's pr
-		Data :map[string]string{"name": "max-rhm-operator-test-4"},
+		Data :map[string]string{"name": uuid},
 
 	}
 }
@@ -640,17 +640,6 @@ func (r *ReconcileRazeeDeployment) MakeWatchKeeperSecret() *corev1.Secret{
 	}
 }
 
-/*
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: ibm-cos-reader-key
-  namespace: razee
-type: Opaque
-data:
-  accesskey: cVkzVE8xQS12aTF3TVM0RTlrR1pyV1hkTjRFUWwtZFEtUXhLakxkV3NqcFk=
-*/
 func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret() *corev1.Secret{
 	cosApiKey := secretObj[IBM_COS_READER_KEY_FIELD]
 	return &corev1.Secret{
@@ -695,7 +684,3 @@ func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3() *unstructured.Un
 		},
 	}
 }
-
-// map[string]interface{}{
-	// "options": map[string]string{"url": COS_FULL_URL},
-// },
