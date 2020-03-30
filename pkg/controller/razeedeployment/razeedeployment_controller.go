@@ -33,6 +33,7 @@ import (
 const (
 	//TODO: is the correct default ? 
 	DEFAULT_RAZEE_JOB_IMAGE = "quay.io/razee/razeedeploy-delta:0.3.1"
+
 	DEFAULT_RAZEEDASH_URL   = `http://169.45.231.109:8081/api/v2`
 	WATCH_KEEPER_VERSION = "0.5.0"
 	FEATURE_FLAG_VERSION = "0.6.1"
@@ -63,10 +64,10 @@ var (
 	IBM_COS_READER_KEY = ""
 	RAZEE_DASH_URL = ""
 	//TODO: this is for testing purposes
-	CLUSTER_UUID = "4e13a24ed130c275c315de7x"
+	// CLUSTER_UUID = "max-rhm-operator-test-4"
 	COS_FULL_URL = ""
 	RELATED_IMAGE_RAZEE_JOB = "RELATED_IMAGE_RAZEE_JOB"
-
+	CLUSTER_UUID = "max-rhm-operator-test-4"
 )
 
 
@@ -156,7 +157,9 @@ type ReconcileRazeeDeployment struct {
 type RazeeOpts struct {
 	RazeeDashUrl  string
 	RazeeJobImage string
+	ClusterUUID string
 }
+
 
 // Reconcile reads that state of the cluster for a RazeeDeployment object and makes changes based on the state read
 // and what is in the RazeeDeployment.Spec
@@ -196,6 +199,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	if !instance.Spec.Enabled {
 		reqLogger.Info("Razee not enabled")
 		return reconcile.Result{}, nil
+	}
+
+	razeeOpts := &RazeeOpts{
+		RazeeDashUrl:  viper.GetString("razeedash-url"),
+		RazeeJobImage: viper.GetString("razee-job-image"),
+		ClusterUUID: viper.GetString("cluster-uuid"),
 	}
 
 	//TODO: add this code when namsimar's pr get merged
@@ -360,7 +369,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Info("watch-keeper-limit-poll created successfully")
 		
 		// create razee-cluster-metadata
-		razeeClusterMetaData := r.MakeRazeeClusterMetaData()
+		razeeClusterMetaData := r.MakeRazeeClusterMetaData(razeeOpts)
 		err = r.client.Create(context.TODO(),razeeClusterMetaData)
 		if err != nil{
 			reqLogger.Error(err, "Failed to create razee-cluster-metadata")
@@ -409,10 +418,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	/******************************************************************************
 	CREATE THE RAZEE JOB
 	/******************************************************************************/
-	razeeOpts := &RazeeOpts{
-		RazeeDashUrl:  viper.GetString("razeedash-url"),
-		RazeeJobImage: viper.GetString("razee-job-image"),
-	}
 
 	job := r.MakeRazeeJob(razeeOpts)
 
@@ -572,7 +577,8 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts) *batch.Job {
 	}
 }
 
-func (r *ReconcileRazeeDeployment) MakeRazeeClusterMetaData() *corev1.ConfigMap {
+func (r *ReconcileRazeeDeployment) MakeRazeeClusterMetaData(opt *RazeeOpts) *corev1.ConfigMap {
+	
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "razee-cluster-metadata",
@@ -583,7 +589,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeClusterMetaData() *corev1.ConfigMap 
 			},
 		},
 		// TODO: get this from namsimar's pr
-		Data :map[string]string{"name": CLUSTER_UUID},
+		Data :map[string]string{"name": "max-rhm-operator-test-4"},
 
 	}
 }
@@ -659,7 +665,7 @@ func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret() *corev1.Secret{
 func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3() *unstructured.Unstructured{
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": "deploy.razee.io/v1alpha1",
+			"apiVersion": "deploy.razee.io/v1alpha2",
 			"kind": "RemoteResourceS3",
 			"metadata": map[string]interface{}{
 				//TODO: add name to a constant
