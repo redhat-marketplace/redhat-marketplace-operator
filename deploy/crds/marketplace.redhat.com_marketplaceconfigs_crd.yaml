@@ -31,9 +31,14 @@ spec:
         spec:
           description: MarketplaceConfigSpec defines the desired state of MarketplaceConfig
           properties:
+            clusterUUID:
+              type: string
+            deploySecretName:
+              type: string
             rhmCustomerID:
               type: string
           required:
+          - clusterUUID
           - rhmCustomerID
           type: object
         status:

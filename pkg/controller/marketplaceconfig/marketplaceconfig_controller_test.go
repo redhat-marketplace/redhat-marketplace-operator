@@ -39,7 +39,7 @@ func TestMarketplaceConfigController(t *testing.T) {
 	// Declare resources
 	marketplaceconfig := buildMarketplaceConfigCR(name, namespace, customerID)
 	opsrc := utils.BuildNewOpSrc()
-	razeedeployment := utils.BuildRazeeCr(namespace)
+	razeedeployment := utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName)
 	meterbase := utils.BuildMeterBaseCr(namespace)
 
 	// Objects to track in the fake client.
