@@ -191,7 +191,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		foundRazee := &marketplacev1alpha1.RazeeDeployment{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: marketplaceConfig.Namespace}, foundRazee)
 		if err != nil && errors.IsNotFound(err) {
-			newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace)
+			newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName)
 			reqLogger.Info("creating razee cr")
 			err = r.client.Create(context.TODO(), newRazeeCrd)
 			if err != nil {

@@ -31,6 +31,10 @@ spec:
         spec:
           description: RazeeDeploymentSpec defines the desired state of RazeeDeployment
           properties:
+            clusterUUID:
+              type: string
+            deploySecretName:
+              type: string
             enabled:
               description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
                 Important: Run "operator-sdk generate k8s" to regenerate code after
@@ -40,6 +44,7 @@ spec:
                 it''s componenets. Set to "false" to bypass Razee installation'
               type: boolean
           required:
+          - clusterUUID
           - enabled
           type: object
         status:
