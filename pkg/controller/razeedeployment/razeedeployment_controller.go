@@ -170,15 +170,9 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling RazeeDeployment")
 
-	rhmOperator := reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: "redhat-marketplace-operator",
-			Name:      utils.RAZEE_NAME,
-		},
-	}
 	// Fetch the RazeeDeployment instance
 	instance := &marketplacev1alpha1.RazeeDeployment{}
-	err := r.client.Get(context.TODO(), rhmOperator.NamespacedName, instance)
+	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -208,9 +202,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	check the instance for rhmSecretNameNonNil
 	check the instance for *clusterUUID
 	/******************************************************************************/
-	rhmSecretName := instance.Spec.DeploySecretName
+	rhmSecretName := "rh-marketplace-secret"
 	clusterUUID := &instance.Spec.ClusterUUID
 
+	if instance.Spec.DeploySecretName != nil {
+		rhmSecretName = *instance.Spec.DeploySecretName;
+	}
 
 	//TODO: do I need
 	// if rhmSecretName == nil || clusterUUID == nil {
@@ -224,8 +221,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	/******************************************************************************/
 	combinedSecret := corev1.Secret{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name:      *rhmSecretName,
-		Namespace: "redhat-marketplace-operator",
+		Name:      rhmSecretName,
+		Namespace: request.Namespace,
 	}, &combinedSecret)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -420,13 +417,13 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	CREATE THE RAZEE JOB
 	/******************************************************************************/
 
-	job := r.MakeRazeeJob(razeeOpts)
+	job := r.MakeRazeeJob(request, razeeOpts)
 
 	// Check if the Job exists already
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      "razeedeploy-job",
-			Namespace: "redhat-marketplace-operator",
+			Namespace: request.Namespace,
 		},
 	}
 
@@ -546,7 +543,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts) *batch.Job {
+func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request, opt *RazeeOpts) *batch.Job {
 	watchKeeper := fmt.Sprintf("--watch-keeper=%v", WATCH_KEEPER_VERSION)
 	featureFlag := fmt.Sprintf("--featureflagsetld=%v", FEATURE_FLAG_VERSION)
 	managedSetVersion := fmt.Sprintf("--managedset=%v", MANAGED_SET_VERSION)
@@ -557,7 +554,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts) *batch.Job {
 	return &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "razeedeploy-job",
-			Namespace: "redhat-marketplace-operator",
+			Namespace: request.Namespace,
 		},
 		Spec: batch.JobSpec{
 			Template: corev1.PodTemplateSpec{

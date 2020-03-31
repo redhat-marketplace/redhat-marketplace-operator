@@ -38,6 +38,7 @@ func TestRazeeDeployController(t *testing.T) {
 		},
 		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
 			Enabled: true,
+			ClusterUUID: "foo"
 		},
 	}
 	// Objects to track in the fake client.
