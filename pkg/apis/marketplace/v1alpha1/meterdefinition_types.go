@@ -2,23 +2,48 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
-// MeterDefinitionSpec defines the desired state of MeterDefinition
+// MeterDefinitionSpec defines the desired metering spec
 type MeterDefinitionSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+	// ServiceLabels of the meterics you want to track.
+	ServiceMeterLabels []string `json:"serviceMeterLabels"`
+
+	// PodLabels of the prometheus metrics you want to track.
+	PodMeterLabels []string `json:"podMeterLabels"`
+
+	// ServiceMonitors to be selected for target discovery.
+	ServiceMonitorSelector *metav1.LabelSelector `json:"serviceMonitorSelector,omitempty"`
+
+	// Namespaces to be selected for ServiceMonitor discovery. If nil, only
+	// check own namespace.
+	ServiceMonitorNamespaceSelector *metav1.LabelSelector `json:"serviceMonitorNamespaceSelector,omitempty"`
+
+	// *Experimental* PodMonitors to be selected for target discovery.
+	PodSelector *metav1.LabelSelector `json:"podMonitorSelector,omitempty"`
+
+	// Namespaces to be selected for Pod discovery. If nil, only
+	// check own namespace.
+	PodNamespaceSelector *metav1.LabelSelector `json:"podMonitorNamespaceSelector,omitempty"`
 }
 
 // MeterDefinitionStatus defines the observed state of MeterDefinition
 type MeterDefinitionStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+
+	// ServiceLabels of the meterics you want to track.
+	ServiceLabels []string `json:"serviceLabels"`
+
+	// PodLabels of the prometheus metrics you want to track.
+	PodLabels []string `json:"podLabels"`
+
+	// ServiceMonitors is the list of service monitors being watched for
+	// this meter definition
+	ServiceMonitors []*monitoringv1.ServiceMonitor `json:"serviceMonitors"`
+
+	// PodMonitors is the list of current pod mointors being watched for
+	// this meter definition
+	Pods []*metav1.ObjectMeta `json:"podMonitors"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

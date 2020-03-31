@@ -7,14 +7,14 @@ metadata:
 spec:
   replicas: 1
   serviceAccountName: redhat-marketplace-operator
+  serviceMonitorNamespaceSelector:
+    matchLabels:
   serviceMonitorSelector:
     matchLabels:
       marketplace.redhat.com/metering: "true"
       marketplace.redhat.com/deployed: "true"
-  podMonitorSelector:
-    matchLabels:
-      marketplace.redhat.com/metering: "true"
-      marketplace.redhat.com/deployed: "true"
+  serviceMonitorSelector:
+
   storage:
     volumeClaimTemplate:
       spec:
