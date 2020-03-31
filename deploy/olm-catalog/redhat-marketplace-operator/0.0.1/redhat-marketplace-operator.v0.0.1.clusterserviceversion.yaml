@@ -8,7 +8,7 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "MarketplaceConfig",
           "metadata": {
-            "name": "marketplaceconfig"
+            "name": "example-marketplaceconfig"
           },
           "spec": {
             "size": 1
@@ -18,7 +18,7 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "MeterBase",
           "metadata": {
-            "name": "meterbase"
+            "name": "example-meterbase"
           },
           "spec": {
             "enabled": true,
@@ -43,7 +43,7 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "Metering",
           "metadata": {
-            "name": "metering"
+            "name": "example-metering"
           },
           "spec": {
             "size": 3
@@ -53,7 +53,7 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "RazeeDeployment",
           "metadata": {
-            "name": "razeedeployment"
+            "name": "example-razeedeployment"
           },
           "spec": {
             "enabled": true
@@ -124,11 +124,13 @@ spec:
                 - name: OPERATOR_NAME
                   value: redhat-marketplace-operator
                 - name: RELATED_IMAGE_MARKETPLACE_AGENT
-                  value: quay.io/zach_source/marketplace-agent:latest
+                  value: quay.io/rh-marketplace/redhat-marketplace-agent:v0.0.1
                 - name: RELATED_IMAGE_PROM_SERVER
                   value: prom/prometheus:v2.15.2
                 - name: RELATED_IMAGE_CONFIGMAP_RELOAD
                   value: jimmidyson/configmap-reload:v0.3.0
+                - name: RAZEE_URL
+                  value: foo
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -137,7 +139,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.name
-                image: quay.io/zach_source/redhat-marketplace-operator:latest
+                image: quay.io/rh-marketplace/redhat-marketplace-operator:v0.0.1
                 imagePullPolicy: Always
                 name: redhat-marketplace-operator
                 resources: {}
