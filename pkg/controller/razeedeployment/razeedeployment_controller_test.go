@@ -1,8 +1,6 @@
 package razeedeployment
 
 import (
-	"context"
-	"fmt"
 	"testing"
 
 	"github.com/spf13/viper"
@@ -38,7 +36,7 @@ func TestRazeeDeployController(t *testing.T) {
 		},
 		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
 			Enabled: true,
-			ClusterUUID: "foo"
+			ClusterUUID: "foo",
 		},
 	}
 	// Objects to track in the fake client.
@@ -58,7 +56,7 @@ func TestRazeeDeployController(t *testing.T) {
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      name,
-			Namespace: "redhat-marketplace-operator",
+			Namespace: namespace,
 		},
 	}
 	_, err := r.Reconcile(req)
@@ -72,19 +70,12 @@ func TestRazeeDeployController(t *testing.T) {
 	req = reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      "razeedeploy-job",
-			Namespace: "redhat-marketplace-operator",
+			Namespace: namespace,
 		},
 	}
 
-	err = cl.Get(context.TODO(), req.NamespacedName, razeeDeployment)
-	if err != nil {
-		t.Fatalf("get razeedeployment: (%v)", err)
-	}
 
-	if len(*razeeDeployment.Status.MissingValuesFromSecret) > 0 {
-		fmt.Println("missing resources found", razeeDeployment.Status.MissingValuesFromSecret)
-	}
-
+	// TODO add more tests
 	// Check the result of reconciliation to make sure it has the desired state.
 	// if res.Requeue {
 	// 	t.Error("reconcile requeue which is not expected")
