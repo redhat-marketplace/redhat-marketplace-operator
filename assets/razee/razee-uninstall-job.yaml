@@ -1,0 +1,16 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: razeedeploy-uninstall-job
+  namespace: razee
+spec:
+  template:
+    spec:
+      serviceAccountName: razeedeploy-sa
+      containers:
+      - name: razee-uninstall-job
+        image: "quay.io/razee/razeedeploy-delta:0.3.1"
+        command: ["node", "remove", "--namespace=razee"]
+        args: ["--delete-namespace=true"]
+      restartPolicy: Never
+  backoffLimit: 2

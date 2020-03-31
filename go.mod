@@ -3,6 +3,7 @@ module github.ibm.com/symposium/marketplace-operator
 go 1.13
 
 require (
+	github.com/go-logr/logr v0.1.0
 	github.com/gotidy/ptr v1.0.1
 	github.com/imdario/mergo v0.3.8
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a // indirect

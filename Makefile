@@ -45,10 +45,10 @@ install: ## Install all resources (CR/CRD's, RBAC and Operator)
 uninstall: ## Uninstall all that all performed in the $ make install
 	@echo ....... Uninstalling .......
 	@echo ....... Deleting CRDs.......
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
 	@echo ....... Deleting Rules and Service Account .......
 	- kubectl delete -f deploy/role.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/role_binding.yaml -n ${NAMESPACE}
@@ -152,7 +152,6 @@ clean: ##delete the contents created in 'make create'
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
-	- kubectl delete namespace razee
 
 ##@ Tests
 

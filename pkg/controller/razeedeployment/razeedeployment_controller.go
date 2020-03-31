@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
@@ -25,8 +26,10 @@ import (
 )
 
 const (
-	DEFAULT_RAZEE_JOB_IMAGE = "quay.io/razee/razeedeploy-delta:0.3.1"
-	DEFAULT_RAZEEDASH_URL   = "http://169.45.231.109:8081/api/v2"
+	DEFAULT_RAZEE_JOB_IMAGE  = "quay.io/razee/razeedeploy-delta:0.3.1"
+	DEFAULT_RAZEEDASH_URL    = "http://169.45.231.109:8081/api/v2"
+	razeeDeploymentFinalizer = "finalizer.marketplace.redhat.com"
+	RAZEE_UNINSTALL_NAME     = "razee-uninstall-job"
 )
 
 var (
@@ -125,6 +128,34 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
+	}
+
+	// Check if the RazeeDeployment instance is being marked for deletion
+	isMarkedForDeletion := instance.GetDeletionTimestamp() != nil
+	if isMarkedForDeletion {
+		if contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
+			//Run finalization logic for the razeeDeploymentFinalizer.
+			//If it fails, don't remove the finalizer so we can retry during the next reconcile
+			if err := r.finalizeRazeeDeployment(reqLogger, instance); err != nil {
+				return reconcile.Result{}, err
+			}
+
+			// Remove the razeeDeploymentFinalizer
+			// Once all finalizers are removed, the object will be deleted
+			instance.SetFinalizers(remove(instance.GetFinalizers(), razeeDeploymentFinalizer))
+			err := r.client.Update(context.TODO(), instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+		return reconcile.Result{}, nil
+	}
+
+	// Adding a finalizer to this CR
+	if !contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
+		if err := r.addFinalizer(reqLogger, instance); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	if !instance.Spec.Enabled {
@@ -227,4 +258,83 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts) *batch.Job {
 			},
 		},
 	}
+}
+
+// returns a batch job to uninstall razee
+func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(opt *RazeeOpts) *batch.Job {
+
+	return &batch.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      RAZEE_UNINSTALL_NAME,
+			Namespace: "redhat-marketplace-operator",
+		},
+		Spec: batch.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					ServiceAccountName: "redhat-marketplace-operator",
+					Containers: []corev1.Container{{
+						Name:    RAZEE_UNINSTALL_NAME,
+						Image:   opt.RazeeJobImage,
+						Command: []string{"node", "src/remove", "--namespace=razee"},
+						Args:    []string{fmt.Sprintf("--delete-namespace=razee")},
+					}},
+					RestartPolicy: "Never",
+				},
+			},
+		},
+	}
+}
+
+// Clean up steps that the operator needs to complete before the CR can be deleted.
+// Deploys a batch job to delete razee
+func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(reqLogger logr.Logger, razee *marketplacev1alpha1.RazeeDeployment) error {
+
+	razeeOpts := &RazeeOpts{
+		RazeeDashUrl:  viper.GetString("razeedash-url"),
+		RazeeJobImage: viper.GetString("razee-job-image"),
+	}
+
+	job := r.MakeRazeeUninstallJob(razeeOpts)
+	reqLogger.Info("Creating razzee-uninstall-job")
+	err := r.client.Create(context.TODO(), job)
+	if err != nil {
+		reqLogger.Error(err, "Failed to create an uninstall Job on cluster")
+	}
+	reqLogger.Info("Uninstall job created successfully")
+
+	reqLogger.Info("Successfully finalized RazeeDeployment")
+	return nil
+}
+
+// Adds finalizers to the RazeeDeployment CR
+func (r *ReconcileRazeeDeployment) addFinalizer(reqLogger logr.Logger, razee *marketplacev1alpha1.RazeeDeployment) error {
+	reqLogger.Info("Adding Finalizer for the razeeDeploymentFinzliaer")
+	razee.SetFinalizers(append(razee.GetFinalizers(), razeeDeploymentFinalizer))
+
+	err := r.client.Update(context.TODO(), razee)
+	if err != nil {
+		reqLogger.Error(err, "Failed to update RazeeDeployment with the Finalizer")
+		return err
+	}
+	return nil
+}
+
+// Checks if the list contains the key, if so return it
+func contains(list []string, key string) bool {
+	for _, finalizer := range list {
+		if finalizer == key {
+			return true
+		}
+	}
+	return false
+}
+
+// removes the key from the list
+func remove(list []string, key string) []string {
+	for i, s := range list {
+		if s == key {
+			list = append(list[:i], list[i+1:]...)
+		}
+	}
+	return list
 }
