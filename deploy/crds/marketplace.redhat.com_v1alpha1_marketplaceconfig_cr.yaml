@@ -3,7 +3,7 @@ kind: MarketplaceConfig
 metadata:
   name: marketplaceconfig
 spec:
-  # Add fields here
+  # Add fields here 
   rhmAccountID: example-userid
   clusterUUID: example-clusterUUID
   deploySecretName: example-deploySecretName
