@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -133,7 +134,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	// Check if the RazeeDeployment instance is being marked for deletion
 	isMarkedForDeletion := instance.GetDeletionTimestamp() != nil
 	if isMarkedForDeletion {
-		if contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
+		if utils.Contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
 			//Run finalization logic for the razeeDeploymentFinalizer.
 			//If it fails, don't remove the finalizer so we can retry during the next reconcile
 			if err := r.finalizeRazeeDeployment(reqLogger, instance); err != nil {
@@ -142,7 +143,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 			// Remove the razeeDeploymentFinalizer
 			// Once all finalizers are removed, the object will be deleted
-			instance.SetFinalizers(remove(instance.GetFinalizers(), razeeDeploymentFinalizer))
+			instance.SetFinalizers(utils.Remove(instance.GetFinalizers(), razeeDeploymentFinalizer))
 			err := r.client.Update(context.TODO(), instance)
 			if err != nil {
 				return reconcile.Result{}, err
@@ -152,7 +153,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	// Adding a finalizer to this CR
-	if !contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
+	if !utils.Contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
 		if err := r.addFinalizer(reqLogger, instance); err != nil {
 			return reconcile.Result{}, err
 		}
@@ -317,24 +318,4 @@ func (r *ReconcileRazeeDeployment) addFinalizer(reqLogger logr.Logger, razee *ma
 		return err
 	}
 	return nil
-}
-
-// Checks if the list contains the key, if so return it
-func contains(list []string, key string) bool {
-	for _, finalizer := range list {
-		if finalizer == key {
-			return true
-		}
-	}
-	return false
-}
-
-// removes the key from the list
-func remove(list []string, key string) []string {
-	for i, s := range list {
-		if s == key {
-			list = append(list[:i], list[i+1:]...)
-		}
-	}
-	return list
 }
