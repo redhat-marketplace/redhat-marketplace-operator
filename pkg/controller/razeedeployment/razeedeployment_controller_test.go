@@ -35,7 +35,7 @@ func TestRazeeDeployController(t *testing.T) {
 			Namespace: namespace,
 		},
 		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
-			Enabled: true,
+			Enabled:     true,
 			ClusterUUID: "foo",
 		},
 	}
@@ -73,7 +73,6 @@ func TestRazeeDeployController(t *testing.T) {
 			Namespace: namespace,
 		},
 	}
-
 
 	// TODO add more tests
 	// Check the result of reconciliation to make sure it has the desired state.

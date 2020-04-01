@@ -29,7 +29,6 @@ import (
 )
 
 const (
-	//TODO: is the correct default ?
 	DEFAULT_RAZEE_JOB_IMAGE    = "quay.io/razee/razeedeploy-delta:0.3.1"
 	DEFAULT_RAZEEDASH_URL      = `http://169.45.231.109:8081/api/v2`
 	WATCH_KEEPER_VERSION       = "0.5.0"
@@ -50,26 +49,12 @@ const (
 var (
 	log                          = logf.Log.WithName("controller_razeedeployment")
 	razeeFlagSet                 *pflag.FlagSet
-	missingValuesFromSecretSlice = make([]string, 0, 7)
-	razeePrerequisitesCreated    = make([]string, 0, 7)
-	secretObj                    map[string]string
+	missingValuesFromSecretSlice      = make([]string, 0, 7)
+	razeePrerequisitesCreated         = make([]string, 0, 7)
 	localSecretVarsPopulated     bool = false
 	redHatMarketplaceSecretFound bool = false
-	COS_FULL_URL                      = ""
 	RELATED_IMAGE_RAZEE_JOB           = "RELATED_IMAGE_RAZEE_JOB"
-	rhmSecretName                     = "default"
 )
-
-type RhmOperatorSecretValues struct {
-	razeeDashOrgKey   string
-	bucketName        string
-	ibmCosUrl         string
-	childRRS3FileName string
-	ibmCosReaderKey   string
-	razeeDashUrl      string
-	fileSourceUrl     string
-	ibmCosFullUrl string
-}
 
 func init() {
 	razeeFlagSet = pflag.NewFlagSet("razee", pflag.ExitOnError)
@@ -130,7 +115,15 @@ type RazeeOpts struct {
 	ClusterUUID   string
 }
 
-type MissingSecretValues struct {
+type RhmOperatorSecretValues struct {
+	razeeDashOrgKey   string
+	bucketName        string
+	ibmCosUrl         string
+	childRRS3FileName string
+	ibmCosReaderKey   string
+	razeeDashUrl      string
+	fileSourceUrl     string
+	ibmCosFullUrl     string
 }
 
 // Reconcile reads that state of the cluster for a RazeeDeployment object and makes changes based on the state read
@@ -180,7 +173,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	clusterUUID := &instance.Spec.ClusterUUID
 
 	if instance.Spec.DeploySecretName != nil {
-		rhmSecretName = *instance.Spec.DeploySecretName;
+		rhmSecretName = *instance.Spec.DeploySecretName
 	}
 
 	//TODO: do I need
@@ -193,7 +186,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	CHECK FOR COMBINED SECRET
 	check for the presence of the combined secret
 	/******************************************************************************/
-	//TODO: change to rhm-operator-secret
 	combinedSecret := corev1.Secret{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{
 		Name:      rhmSecretName,
@@ -231,7 +223,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	/******************************************************************************/
 	searchItems := []string{IBM_COS_READER_KEY_FIELD, BUCKET_NAME_FIELD, IBM_COS_URL_FIELD, RAZEE_DASH_ORG_KEY_FIELD, CHILD_RRS3_YAML_FIELD, RAZEE_DASH_URL_FIELD, FILE_SOURCE_URL_FIELD}
 	missingItems := []string{}
-	//TODO: could functionalize this
 	for _, searchItem := range searchItems {
 		if _, ok := combinedSecret.Data[searchItem]; !ok {
 			reqLogger.Info("missing value", searchItem)
@@ -280,9 +271,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 	}
 
-	rhmOperatorSecretValues := RhmOperatorSecretValues{razeeDashOrgKey: obj[RAZEE_DASH_URL_FIELD],bucketName: obj[BUCKET_NAME_FIELD],ibmCosUrl: obj[IBM_COS_URL_FIELD],childRRS3FileName: obj[CHILD_RRS3_YAML_FIELD],ibmCosReaderKey: obj[IBM_COS_READER_KEY_FIELD],razeeDashUrl: obj[RAZEE_DASH_URL_FIELD],fileSourceUrl: obj[FILE_SOURCE_URL_FIELD]}
+	rhmOperatorSecretValues := RhmOperatorSecretValues{razeeDashOrgKey: obj[RAZEE_DASH_ORG_KEY_FIELD], bucketName: obj[BUCKET_NAME_FIELD], ibmCosUrl: obj[IBM_COS_URL_FIELD], childRRS3FileName: obj[CHILD_RRS3_YAML_FIELD], ibmCosReaderKey: obj[IBM_COS_READER_KEY_FIELD], razeeDashUrl: obj[RAZEE_DASH_URL_FIELD], fileSourceUrl: obj[FILE_SOURCE_URL_FIELD]}
 	// if all fields are present continue to run and update status
-	secretObj = obj
 	instance.Status.LocalSecretVarsPopulated = &localSecretVarsPopulated
 	*instance.Status.LocalSecretVarsPopulated = true
 	err = r.client.Status().Update(context.TODO(), instance)
@@ -291,9 +281,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 	reqLogger.Info("Local vars have been populated")
 
-	//TODO: add this to struct
-	rhmOperatorSecretValues.ibmCosUrl = fmt.Sprintf("%s/%s/%s/%s", secretObj[IBM_COS_URL_FIELD], secretObj[BUCKET_NAME_FIELD], *clusterUUID, secretObj[CHILD_RRS3_YAML_FIELD])
-	COS_FULL_URL = fmt.Sprintf("%s/%s/%s/%s", secretObj[IBM_COS_URL_FIELD], secretObj[BUCKET_NAME_FIELD], *clusterUUID, secretObj[CHILD_RRS3_YAML_FIELD])
+	rhmOperatorSecretValues.ibmCosFullUrl = fmt.Sprintf("%s/%s/%s/%s", obj[IBM_COS_URL_FIELD], obj[BUCKET_NAME_FIELD], *clusterUUID, obj[CHILD_RRS3_YAML_FIELD])
 
 	/******************************************************************************
 		PROCEED WITH CREATING RAZEEDEPLOY-JOB? YES/NO
@@ -318,16 +306,16 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info("razee namespace does not exist - creating")
 			razeeNamespace.ObjectMeta.Name = "razee"
 			err = r.client.Create(context.TODO(), &razeeNamespace)
-			if err != nil{
+			if err != nil {
 				reqLogger.Error(err, "Failed to create razee namespace.")
 			}
 			reqLogger.Info("Razee namespace created successfully")
-			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, fmt.Sprintf("%v namespace",razeeNamespace.Name))
-	   } else {
-		reqLogger.Error(err, "Failed to get razee ns.")
-		return reconcile.Result{}, err		
-	   }
-   }
+			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, fmt.Sprintf("%v namespace", razeeNamespace.Name))
+		} else {
+			reqLogger.Error(err, "Failed to get razee ns.")
+			return reconcile.Result{}, err
+		}
+	}
 	if &razeeNamespace != nil {
 		reqLogger.Info("razee namespace already exists - overwriting")
 		razeeNamespace.ObjectMeta.Name = "razee"
@@ -350,11 +338,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperNonNamespace.Name)
 			reqLogger.Info("watch-keeper-non-namespace created successfully")
-	   } else {
-		reqLogger.Error(err, "Failed to get watch-keeper-non-namespace.")
-		   return reconcile.Result{}, err			
-	   }
-   }
+		} else {
+			reqLogger.Error(err, "Failed to get watch-keeper-non-namespace.")
+			return reconcile.Result{}, err
+		}
+	}
 	if &watchKeeperNonNamespace != nil {
 		reqLogger.Info("watch-keeper-non-namespace configmap already exists - overwriting")
 		watchKeeperNonNamespace = *r.MakeWatchKeeperNonNamespace()
@@ -369,19 +357,19 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-limit-poll", Namespace: "razee"}, &watchKeeperLimitPoll)
 	if err != nil {
 		if errors.IsNotFound(err) {
-		watchKeeperLimitPoll = *r.MakeWatchKeeperLimitPoll()
-		err = r.client.Create(context.TODO(), &watchKeeperLimitPoll)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create watch-keeper-limit-poll config map")
+			watchKeeperLimitPoll = *r.MakeWatchKeeperLimitPoll()
+			err = r.client.Create(context.TODO(), &watchKeeperLimitPoll)
+			if err != nil {
+				reqLogger.Error(err, "Failed to create watch-keeper-limit-poll config map")
+				return reconcile.Result{}, err
+			}
+			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperLimitPoll.Name)
+			reqLogger.Info("watch-keeper-limit-poll config map created successfully")
+		} else {
+			reqLogger.Error(err, "Failed to get watch-keeper-limit-poll config map.")
 			return reconcile.Result{}, err
 		}
-		*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperLimitPoll.Name)
-		reqLogger.Info("watch-keeper-limit-poll config map created successfully")
-	   } else {
-			reqLogger.Error(err, "Failed to get watch-keeper-limit-poll config map.")
-		   return reconcile.Result{}, err			
-	   }
-   	}
+	}
 	if &watchKeeperLimitPoll != nil {
 		reqLogger.Info("watch-keeper-limit-poll configmap already exists - overwriting")
 		watchKeeperLimitPoll = *r.MakeWatchKeeperLimitPoll()
@@ -396,18 +384,18 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee-cluster-metadata", Namespace: "razee"}, &razeeClusterMetaData)
 	if err != nil {
 		if errors.IsNotFound(err) {
-		razeeClusterMetaData = *r.MakeRazeeClusterMetaData(*clusterUUID)
-		err = r.client.Create(context.TODO(), &razeeClusterMetaData)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create razee-cluster-metadata config map")
-		}
-		*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, razeeClusterMetaData.Name)
-		reqLogger.Info("razee-cluster-metadata config map created successfully")
-	   } else {
+			razeeClusterMetaData = *r.MakeRazeeClusterMetaData(*clusterUUID)
+			err = r.client.Create(context.TODO(), &razeeClusterMetaData)
+			if err != nil {
+				reqLogger.Error(err, "Failed to create razee-cluster-metadata config map")
+			}
+			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, razeeClusterMetaData.Name)
+			reqLogger.Info("razee-cluster-metadata config map created successfully")
+		} else {
 			reqLogger.Error(err, "Failed to get razee-cluster-metadata config map.")
-		   return reconcile.Result{}, err			
-	   }
-   }
+			return reconcile.Result{}, err
+		}
+	}
 	if &razeeClusterMetaData != nil {
 		reqLogger.Info("razee-cluster-metadata config map already exists - overwriting")
 		razeeClusterMetaData := r.MakeRazeeClusterMetaData(*clusterUUID)
@@ -419,26 +407,26 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	// return reconcile.Result{}, nil
 	// create watch-keeper-config
-	watchKeeperConfig := r.MakeWatchKeeperConfig()
+	watchKeeperConfig := r.MakeWatchKeeperConfig(rhmOperatorSecretValues)
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: watchKeeperConfig.Name, Namespace: "razee"}, watchKeeperConfig)
 	// else create
 	if err != nil {
 		if errors.IsNotFound(err) {
-			watchKeeperConfig = r.MakeWatchKeeperConfig()
+			watchKeeperConfig = r.MakeWatchKeeperConfig(rhmOperatorSecretValues)
 			err = r.client.Create(context.TODO(), watchKeeperConfig)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create watch-keeper-config")
 			}
 			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperConfig.Name)
 			reqLogger.Info("watch-keeper-config created successfully")
-	   } else {
+		} else {
 			reqLogger.Error(err, "Failed to get watch-keeper-config.")
-		   return reconcile.Result{}, err			
-	   }
-   	}
+			return reconcile.Result{}, err
+		}
+	}
 	if watchKeeperConfig != nil {
 		reqLogger.Info("watch-keeper-config already exists - overwriting")
-		watchKeeperConfig = r.MakeWatchKeeperConfig()
+		watchKeeperConfig = r.MakeWatchKeeperConfig(rhmOperatorSecretValues)
 		err = r.client.Update(context.TODO(), watchKeeperConfig)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update watch-keeper-config")
@@ -452,21 +440,21 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	// else create
 	if err != nil {
 		if errors.IsNotFound(err) {
-		watchKeeperSecret = *r.MakeWatchKeeperSecret()
-		err = r.client.Create(context.TODO(), &watchKeeperSecret)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create watch-keeper-secret")
-		}
-		*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperSecret.Name)
-		reqLogger.Info("watch-keeper-secret created successfully")
-	   } else {
+			watchKeeperSecret = *r.MakeWatchKeeperSecret(rhmOperatorSecretValues)
+			err = r.client.Create(context.TODO(), &watchKeeperSecret)
+			if err != nil {
+				reqLogger.Error(err, "Failed to create watch-keeper-secret")
+			}
+			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperSecret.Name)
+			reqLogger.Info("watch-keeper-secret created successfully")
+		} else {
 			reqLogger.Error(err, "Failed to get watch-keeper-secret.")
-		   return reconcile.Result{}, err			
-	   }
-   	}
+			return reconcile.Result{}, err
+		}
+	}
 	if &watchKeeperSecret != nil {
 		reqLogger.Info("watch-keeper-secret already exists - overwriting")
-		watchKeeperSecret = *r.MakeWatchKeeperSecret()
+		watchKeeperSecret = *r.MakeWatchKeeperSecret(rhmOperatorSecretValues)
 		err = r.client.Update(context.TODO(), &watchKeeperSecret)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update watch-keeper-secret")
@@ -479,20 +467,20 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "ibm-cos-reader-key", Namespace: "razee"}, &ibmCosReaderKey)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			ibmCosReaderKey = *r.MakeCOSReaderSecret()
+			ibmCosReaderKey = *r.MakeCOSReaderSecret(rhmOperatorSecretValues)
 			err = r.client.Create(context.TODO(), &ibmCosReaderKey)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create ibm-cos-reader-key")
 			}
 			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, ibmCosReaderKey.Name)
 			reqLogger.Info("ibm-cos-reader-key created successfully")
-	   } else {
+		} else {
 			reqLogger.Error(err, "Failed to get ibm-cos-reader-key.")
-		   return reconcile.Result{}, err			
-	   }
-   	}
+			return reconcile.Result{}, err
+		}
+	}
 	if &ibmCosReaderKey != nil {
-		ibmCosReaderKey = *r.MakeCOSReaderSecret()
+		ibmCosReaderKey = *r.MakeCOSReaderSecret(rhmOperatorSecretValues)
 		reqLogger.Info("ibm-cos-reader-key already exists - overwriting")
 		err = r.client.Update(context.TODO(), &ibmCosReaderKey)
 		if err != nil {
@@ -513,8 +501,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	/******************************************************************************
 	CREATE THE RAZEE JOB
 	/******************************************************************************/
-
-	job := r.MakeRazeeJob(request, razeeOpts)
+	job := r.MakeRazeeJob(request, razeeOpts, rhmOperatorSecretValues)
 
 	// Check if the Job exists already
 	req := reconcile.Request{
@@ -571,7 +558,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	// if the job has a status of succeeded, then apply parent rrs3 delete the job
 	if foundJob.Status.Succeeded == 1 {
-		parentRRS3 := r.MakeParentRemoteResourceS3()
+		parentRRS3 := r.MakeParentRemoteResourceS3(rhmOperatorSecretValues)
 		err = r.client.Create(context.TODO(), parentRRS3)
 		if err != nil {
 			reqLogger.Error(err, "Failed to create parentRRS3")
@@ -591,7 +578,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		Patch the Console and Infrastructure resources with the watch-keeper label
 		Patch 'razee-cluster-metadata' and add data.name: "max-test-uuid"
 		Should only patch if the job has been successfully applied
-		// TODO: could functionalize the patches
 		/******************************************************************************/
 		reqLogger.Info("finding Console resource")
 		console := &unstructured.Unstructured{}
@@ -646,7 +632,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 }
 
-func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request,opts *RazeeOpts) *batch.Job {
+func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request, opts *RazeeOpts, rhmOperatorSecretValues RhmOperatorSecretValues) *batch.Job {
 	return &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "razeedeploy-job",
@@ -660,8 +646,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request,opts *
 						Name:    "razeedeploy-job",
 						Image:   DEFAULT_RAZEE_JOB_IMAGE,
 						Command: []string{"node", "src/install", "--namespace=razee"},
-						// TODO: do we need to populate this right now ?
-						Args: []string{fmt.Sprintf("--file-source=%v", secretObj[FILE_SOURCE_URL_FIELD]), "--autoupdate"},
+						Args:    []string{fmt.Sprintf("--file-source=%v", rhmOperatorSecretValues.fileSourceUrl), "--autoupdate"},
 					}},
 					RestartPolicy: "Never",
 				},
@@ -681,7 +666,6 @@ func (r *ReconcileRazeeDeployment) MakeRazeeClusterMetaData(uuid string) *corev1
 				"razee/watch-resource":   "lite",
 			},
 		},
-		// TODO: get this from namsimar's pr
 		Data: map[string]string{"name": uuid},
 	}
 }
@@ -708,30 +692,29 @@ func (r *ReconcileRazeeDeployment) MakeWatchKeeperLimitPoll() *corev1.ConfigMap 
 	}
 }
 
-func (r *ReconcileRazeeDeployment) MakeWatchKeeperConfig() *corev1.ConfigMap {
+func (r *ReconcileRazeeDeployment) MakeWatchKeeperConfig(rhmOperatorSecretValues RhmOperatorSecretValues) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "watch-keeper-config",
 			Namespace: "razee",
 		},
-		Data: map[string]string{"RAZEEDASH_URL": secretObj[RAZEE_DASH_URL_FIELD], "START_DELAY_MAX": "0"},
+		Data: map[string]string{"RAZEEDASH_URL": rhmOperatorSecretValues.razeeDashUrl, "START_DELAY_MAX": "0"},
 	}
 }
 
-func (r *ReconcileRazeeDeployment) MakeWatchKeeperSecret() *corev1.Secret {
-	//TODO: change this var "url" doesn't make sense
-	url := secretObj[RAZEE_DASH_ORG_KEY_FIELD]
+func (r *ReconcileRazeeDeployment) MakeWatchKeeperSecret(rhmOperatorSecretValues RhmOperatorSecretValues) *corev1.Secret {
+	key := rhmOperatorSecretValues.razeeDashOrgKey
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "watch-keeper-secret",
 			Namespace: "razee",
 		},
-		Data: map[string][]byte{"RAZEEDASH_ORG_KEY": []byte(url)},
+		Data: map[string][]byte{"RAZEEDASH_ORG_KEY": []byte(key)},
 	}
 }
 
-func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret() *corev1.Secret {
-	cosApiKey := secretObj[IBM_COS_READER_KEY_FIELD]
+func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret(rhmOperatorValues RhmOperatorSecretValues) *corev1.Secret {
+	cosApiKey := rhmOperatorValues.ibmCosReaderKey
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "ibm-cos-reader-key",
@@ -741,13 +724,12 @@ func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret() *corev1.Secret {
 	}
 }
 
-func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3() *unstructured.Unstructured {
+func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3(rhmOperatorSecretValues RhmOperatorSecretValues) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "deploy.razee.io/v1alpha1",
 			"kind":       "RemoteResourceS3",
 			"metadata": map[string]interface{}{
-				//TODO: add name to a constant
 				"name":      "parent",
 				"namespace": "razee",
 			},
@@ -768,7 +750,7 @@ func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3() *unstructured.Un
 					},
 				},
 				"requests": []interface{}{
-					map[string]map[string]string{"options": {"url": COS_FULL_URL}},
+					map[string]map[string]string{"options": {"url": rhmOperatorSecretValues.ibmCosFullUrl}},
 				},
 			},
 		},
