@@ -152,7 +152,9 @@ spec:
                 type: string
               type: array
             razeePrerequisitesCreated:
-              type: boolean
+              items:
+                type: string
+              type: array
             redHatMarketplaceSecretFound:
               type: boolean
           type: object

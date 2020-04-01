@@ -5,3 +5,4 @@ metadata:
 spec:
   # Add fields here
   enabled: true
+  # clusterUUID: max-rhm-operator-test-6
