@@ -10,7 +10,7 @@ import (
 
 // MarketplaceConfigSpec defines the desired state of MarketplaceConfig
 type MarketplaceConfigSpec struct {
-	RhmCustomerID    string  `json:"rhmCustomerID"`
+	RhmAccountID     string  `json:"rhmAccountID"`
 	ClusterUUID      string  `json:"clusterUUID"`
 	DeploySecretName *string `json:"deploySecretName,omitempty"`
 }
