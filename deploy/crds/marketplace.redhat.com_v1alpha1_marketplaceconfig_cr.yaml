@@ -4,6 +4,6 @@ metadata:
   name: marketplaceconfig
 spec:
   # Add fields here
-  rhmCustomerID: example-userid
+  rhmAccountID: example-userid
   clusterUUID: example-clusterUUID
   deploySecretName: example-deploySecretName

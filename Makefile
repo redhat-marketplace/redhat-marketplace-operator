@@ -69,7 +69,7 @@ build: ## Build the operator executable
 	- [ -f "build/_output/bin/redhat-marketplace-operator" ] && rm -f build/_output/bin/redhat-marketplace-operator
 	@cp -r ./assets build/_output
 	GOOS=linux GOARCH=amd64 go build -o build/_output/bin/redhat-marketplace-operator ./cmd/manager/main.go
-	docker build . -f ./build/Dockerfile
+	docker build . -f ./build/Dockerfile -t $(OPERATOR_IMAGE)
 
 .PHONY: push
 push: push ## Push the operator image
