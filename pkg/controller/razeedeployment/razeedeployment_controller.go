@@ -51,7 +51,6 @@ var (
 	log                          = logf.Log.WithName("controller_razeedeployment")
 	razeeFlagSet                 *pflag.FlagSet
 	missingValuesFromSecretSlice = make([]string, 0, 7)
-	//TODO: change this length
 	razeePrerequisitesCreated    = make([]string, 0, 7)
 	secretObj                    map[string]string
 	localSecretVarsPopulated     bool = false
@@ -177,8 +176,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	check the instance for rhmSecretNameNonNil
 	check the instance for *clusterUUID
 	/******************************************************************************/
-	rhmSecretName := instance.Spec.DeploySecretName
+	rhmSecretName := "rh-marketplace-secret"
 	clusterUUID := &instance.Spec.ClusterUUID
+
+	if instance.Spec.DeploySecretName != nil {
+		rhmSecretName = *instance.Spec.DeploySecretName;
+	}
 
 	//TODO: do I need
 	// if rhmSecretName == nil || clusterUUID == nil {
@@ -193,8 +196,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	//TODO: change to rhm-operator-secret
 	combinedSecret := corev1.Secret{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name:      *rhmSecretName,
-		Namespace: "redhat-marketplace-operator",
+		Name:      rhmSecretName,
+		Namespace: request.Namespace,
 	}, &combinedSecret)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -510,13 +513,14 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	/******************************************************************************
 	CREATE THE RAZEE JOB
 	/******************************************************************************/
-	job := r.MakeRazeeJob(razeeOpts)
+
+	job := r.MakeRazeeJob(request, razeeOpts)
 
 	// Check if the Job exists already
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      "razeedeploy-job",
-			Namespace: "redhat-marketplace-operator",
+			Namespace: request.Namespace,
 		},
 	}
 
@@ -642,11 +646,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 }
 
-func (r *ReconcileRazeeDeployment) MakeRazeeJob(opts *RazeeOpts) *batch.Job {
+func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request,opts *RazeeOpts) *batch.Job {
 	return &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "razeedeploy-job",
-			Namespace: "redhat-marketplace-operator",
+			Namespace: request.Namespace,
 		},
 		Spec: batch.JobSpec{
 			Template: corev1.PodTemplateSpec{

@@ -6,3 +6,4 @@ if [ ! -x "$(command -v gucci)" ]; then
 fi
 
 gucci ./deploy/operator.yaml.tpl > ./deploy/operator.yaml
+gucci ./deploy/role_binding.yaml.tpl > ./deploy/role_binding.yaml
