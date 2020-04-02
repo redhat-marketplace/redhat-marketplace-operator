@@ -167,7 +167,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 			// Remove the razeeDeploymentFinalizer
 			// Once all finalizers are removed, the object will be deleted
-			instance.SetFinalizers(utils.Remove(instance.GetFinalizers(), razeeDeploymentFinalizer))
+			instance.SetFinalizers(utils.RemoveKey(instance.GetFinalizers(), razeeDeploymentFinalizer))
 			err := r.client.Update(context.TODO(), instance)
 			if err != nil {
 				return reconcile.Result{}, err
@@ -580,10 +580,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	// if the job has a status of succeeded, then apply parent rrs3 delete the job
 	if foundJob.Status.Succeeded == 1 {
-		parentRRS3 := r.MakeParentRemoteResourceS3(
+		parentRRS3 := r.MakeParentRemoteResourceS3(rhmOperatorSecretValues)
     
-    
-    )
 		err = r.client.Create(context.TODO(), parentRRS3)
 		if err != nil {
 			reqLogger.Error(err, "Failed to create parentRRS3")
@@ -654,6 +652,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	reqLogger.Info("End of reconcile")
 	return reconcile.Result{}, nil
+}
 
 // MakeRazeeJob returns a Batch.Job which installs razee
 func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request, opts *RazeeOpts, rhmOperatorSecretValues RhmOperatorSecretValues) *batch.Job {

@@ -45,16 +45,6 @@ func Contains(s []string, e string) bool {
 	return false
 }
 
-
-// Remove() will remove the key from the list
-func Remove(list []string, key string) []string {
-	for i, s := range list {
-		if s == key {
-			list = append(list[:i], list[i+1:]...)
-		}
-	}
-	return list
-
 func ContainsMultiple(inArray []string, referenceArray []string) []string {
 	var temp []string
 	for _, searchItem := range referenceArray {
@@ -66,8 +56,18 @@ func ContainsMultiple(inArray []string, referenceArray []string) []string {
 	return temp
 }
 
-func Remove(s []string, index int) []string {
+func RemoveIndex(s []string, index int) []string {
 	return append(s[:index], s[index+1:]...)
+}
+
+// Remove() will remove the key from the list
+func RemoveKey(list []string, key string) []string {
+	for i, s := range list {
+		if s == key {
+			list = append(list[:i], list[i+1:]...)
+		}
+	}
+	return list
 }
 
 func RetrieveSecretField(in []byte) (string, error) {
