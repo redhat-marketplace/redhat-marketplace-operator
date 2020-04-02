@@ -169,18 +169,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	check the instance for rhmSecretNameNonNil
 	check the instance for *clusterUUID
 	/******************************************************************************/
-	rhmSecretName := "rh-marketplace-secret"
+	rhmSecretName := "rhm-operator-secret"
 	clusterUUID := &instance.Spec.ClusterUUID
 
 	if instance.Spec.DeploySecretName != nil {
 		rhmSecretName = *instance.Spec.DeploySecretName
 	}
-
-	//TODO: do I need
-	// if rhmSecretName == nil || clusterUUID == nil {
-	// 	instance.Spec.
-	// 	err = r.client.Status().Update(context.TODO(),instance)
-	// }
 
 	/******************************************************************************
 	CHECK FOR COMBINED SECRET
@@ -208,7 +202,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		// TODO: need to think about this. if this errors out and gets requeued I'm pretty sure the status will keep getting updated
 		return reconcile.Result{}, err
 	}
 
@@ -244,7 +237,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	// if there are missing fields on the secret then exit
-	//TODO: possibly move this inside the previous for statement ?
 	if len(missingItems) > 0 {
 		reqLogger.Info("missing required prerequisites for razee install")
 		return reconcile.Result{}, nil
