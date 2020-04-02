@@ -264,8 +264,6 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts, namespace string
 // MakeRazeeUninstalllJob returns a Batch.Job which uninstalls razee
 func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(opt *RazeeOpts, namespace string) *batch.Job {
 
-	var backoffLimit int32 = 2
-
 	return &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      RAZEE_UNINSTALL_NAME,
@@ -284,7 +282,6 @@ func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(opt *RazeeOpts, namespa
 					RestartPolicy: "Never",
 				},
 			},
-			BackoffLimit: &backoffLimit,
 		},
 	}
 }
@@ -300,13 +297,12 @@ func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(razee *marketplacev1a
 
 	// Deploy a job to delete razee
 	job := r.MakeRazeeUninstallJob(razeeOpts, namespace)
-	reqLogger.Info("Creating razzee-uninstall-job")
+	reqLogger.Info("Creating razee-uninstall-job")
 	err := r.client.Create(context.TODO(), job)
 	if err != nil {
 		reqLogger.Error(err, "Failed to create an uninstall Job on cluster")
 	}
 	reqLogger.Info("Uninstall job created successfully")
-
 	reqLogger.Info("Successfully finalized RazeeDeployment")
 	return nil
 }
