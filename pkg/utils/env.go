@@ -10,7 +10,7 @@ const (
 	RAZEE_NAME             = "rhm-marketplaceconfig-razeedeployment"
 	RAZEE_JOB_NAME         = "rhm-razeedeploy-job"
 	OPSRC_NAME             = "redhat-marketplace-operators"
-	OPERATOR_MKTPLACE_NS   = "marketplace-operator"
+	OPERATOR_MKTPLACE_NS   = "openshift-marketplace"
 )
 
 // Getenv will return the value for the passed key (which is typically an environment variable)
