@@ -11,13 +11,15 @@ type MonitoringSchemeDefinition SchemeDefinition
 
 func ProvideOpsSrcScheme() *OpsSrcSchemeDefinition {
 	return &OpsSrcSchemeDefinition{
+		Name: "opsrcv1",
 		AddToScheme: opsrcv1.SchemeBuilder.AddToScheme,
 	}
 }
 
 func ProvideMonitoringScheme() *MonitoringSchemeDefinition {
 	return &MonitoringSchemeDefinition{
-		AddToScheme: monitoringv1.SchemeBuilder.AddToScheme,
+		Name: "monitoringv1",
+		AddToScheme: monitoringv1.AddToScheme,
 	}
 }
 

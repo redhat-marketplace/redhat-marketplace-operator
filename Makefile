@@ -99,11 +99,11 @@ setup-minikube: ## Setup minikube for full operator dev
 
 create: ##creates the required crds for this deployment
 	@echo creating crds
-	- kubectl create -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
-	- kubectl create -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
-	- kubectl create -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml -n ${NAMESPACE}
-	- kubectl create -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
-	- kubectl create -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml -n ${NAMESPACE}
 
 deploys: ##deploys the resources for deployment
 	@echo deploying services and operators

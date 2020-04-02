@@ -4,4 +4,14 @@ metadata:
   name: example-meterdefinition
 spec:
   # Add fields here
-  size: 3
+  meterDomain: apps.partner.metering.com
+  meterKind: App
+  serviceMeterLabels:
+    - foo
+  podMeterLabels:
+    - bar
+  serviceMonitorSelector:
+    matchLabels:
+      name: metering-example-operator
+      marketplace.redhat.com/metered: "true"
+  serviceMonitorNamespaceSelector: {}

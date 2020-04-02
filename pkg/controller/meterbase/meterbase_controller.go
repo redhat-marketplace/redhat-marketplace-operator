@@ -64,7 +64,11 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileMeterBase{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	promOpts := &MeterbaseOpts{
+		PullPolicy: "IfNotPresent",
+		AssetPath: viper.GetString("assets"),
+	}
+	return &ReconcileMeterBase{client: mgr.GetClient(), scheme: mgr.GetScheme(), opts: promOpts}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -120,6 +124,7 @@ type ReconcileMeterBase struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
+	opts *MeterbaseOpts
 }
 
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
@@ -151,53 +156,12 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, nil
 	}
 
-	// reconcile the base cfg
-	foundcfg := &corev1.ConfigMap{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, foundcfg)
-	if err != nil && errors.IsNotFound(err) {
-		// Define a new configmap
-		assetBase := viper.GetString("assets")
-		cfgBaseFileName := filepath.Join(assetBase, "prometheus/base-configmap.yaml")
-		reqLogger.Info("looking up configmap at", "assetBase", assetBase)
-		basecfg, err := r.newBaseConfigMap(cfgBaseFileName, instance)
-
-		if err != nil {
-			reqLogger.Error(err, "Failed to create a new configmap because of file error.")
-			return reconcile.Result{}, err
-		}
-
-		reqLogger.Info("Creating a new configmap.", "Configmap.Namespace", basecfg.Namespace, "Configmap.Name", basecfg.Name)
-		err = r.client.Create(context.TODO(), basecfg)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create a new configmap.", "Configmap.Namespace", basecfg.Namespace, "Configmap.Name", basecfg.Name)
-			return reconcile.Result{}, err
-		}
-
-		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get configmap.")
-		return reconcile.Result{}, err
-	}
-
-	// Set MeterBase instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, foundcfg, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// replace with a config file load
-	promOpts := &PromOpts{
-		PullPolicy: "IfNotPresent",
-		Images: Images{
-			Server:          viper.GetString("related-image-prom-server"),
-			ConfigmapReload: viper.GetString("related-image-configmap-reload"),
-		},
-	}
 
 	prometheus := &monitoringv1.Prometheus{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, prometheus)
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new statefulset
-		dep, err := r.newPrometheusOperator(instance, promOpts)
+		dep, err := r.newPrometheusOperator(instance, r.opts)
 
 		if err != nil {
 			reqLogger.Error(err, "Failed to create new Prometheus.")
@@ -245,7 +209,6 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	corev1.Pod.ObjectMeta
 	podList := &corev1.PodList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(instance.Namespace),
@@ -271,6 +234,7 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		}
 	}
 
+	reqLogger.Info("finished reconciling")
 	return reconcile.Result{}, nil
 }
 
@@ -284,12 +248,12 @@ type Images struct {
 	Server          string
 }
 
-type PromOpts struct {
+type MeterbaseOpts struct {
 	corev1.PullPolicy
-	Images
+	AssetPath string
 }
 
-func (r *ReconcileMeterBase) newPrometheusOperator(cr *marketplacev1alpha1.MeterBase, opt *PromOpts) (*monitoringv1.Prometheus, error) {
+func (r *ReconcileMeterBase) newPrometheusOperator(cr *marketplacev1alpha1.MeterBase, opt *MeterbaseOpts) (*monitoringv1.Prometheus, error) {
 	ls := labelsForPrometheus(cr.Name)
 
 	metadata := metav1.ObjectMeta{
@@ -329,7 +293,7 @@ func (r *ReconcileMeterBase) newPrometheusOperator(cr *marketplacev1alpha1.Meter
 		nodeSelector = cr.Spec.Prometheus.NodeSelector
 	}
 
-	assetBase := viper.GetString("assets")
+	assetBase := opt.AssetPath
 	cfgBaseFileName := filepath.Join(assetBase, "prometheus/prometheus.yaml")
 	prom, err := r.newPrometheus(cfgBaseFileName, cr)
 

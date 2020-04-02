@@ -2,6 +2,8 @@ package meterdefinition
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
@@ -12,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -21,11 +24,6 @@ import (
 
 var log = logf.Log.WithName("controller_meterdefinition")
 
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
-
 // Add creates a new MeterDefinition Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
@@ -34,7 +32,9 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileMeterDefinition{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	opts := &MeterDefOpts{}
+
+	return &ReconcileMeterDefinition{client: mgr.GetClient(), scheme: mgr.GetScheme(), opts: opts}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -51,9 +51,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner MeterDefinition
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+	err = c.Watch(&source.Kind{Type: &monitoringv1.ServiceMonitor{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &marketplacev1alpha1.MeterDefinition{},
 	})
@@ -73,40 +71,48 @@ type ReconcileMeterDefinition struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
+	opts   *MeterDefOpts
 }
+
+type MeterDefOpts struct{}
 
 // Reconcile reads that state of the cluster for a MeterDefinition object and makes changes based on the state read
 // and what is in the MeterDefinition.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
-// a Pod as an example
-// Note:
-// The Controller will requeue the Request to be processed again if the returned error is non-nil or
-// Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling MeterDefinition")
+	reqLogger.Info("Reconciling MeterDefinition 2")
 
 	// Fetch the MeterDefinition instance
 	instance := &marketplacev1alpha1.MeterDefinition{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
+			reqLogger.Info("could not find the meter def")
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
+		reqLogger.Error(err, "error looking for meterdef")
 		return reconcile.Result{}, err
 	}
 
+	reqLogger.Info("Found instance", "instance", instance.Name)
 	// ---
 	// Collect current state
 	// ---
 	serviceMonitorList := &monitoringv1.ServiceMonitorList{}
+
+	serviceMonitorMatchLabels := &metav1.LabelSelector{}
+
+	if instance.Spec.ServiceMonitorSelector != nil {
+		serviceMonitorMatchLabels = instance.Spec.ServiceMonitorSelector
+	}
+
+	// TODO: Add check for empty match
+	// TODO: Add namespace filter
+	reqLogger.Info("looking for service monitors with labels", "labels", serviceMonitorMatchLabels.MatchLabels)
+
 	listOpts := []client.ListOption{
-		client.MatchingFields(instance.Spec.ServiceMonitorNamespaceSelector.MatchLabels),
-		client.MatchingLabels(instance.Spec.ServiceMonitorSelector.MatchLabels),
+		client.MatchingLabels(serviceMonitorMatchLabels.MatchLabels),
 	}
 	err = r.client.List(context.TODO(), serviceMonitorList, listOpts...)
 
@@ -117,10 +123,19 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
+	reqLogger.Info("retreived service monitors in scope of def", "size", len(serviceMonitorList.Items))
+
+	// TODO: Add labels
+	// TODO: Add namespace filter
+	podMonitorMatchLabels := &metav1.LabelSelector{}
+
+	if instance.Spec.PodSelector != nil {
+		podMonitorMatchLabels = instance.Spec.PodSelector
+	}
+
 	podList := &corev1.PodList{}
 	listOpts = []client.ListOption{
-		client.MatchingFields(instance.Spec.PodNamespaceSelector.MatchLabels),
-		client.MatchingLabels(instance.Spec.PodSelector.MatchLabels),
+		client.MatchingLabels(podMonitorMatchLabels.MatchLabels),
 	}
 	err = r.client.List(context.TODO(), podList, listOpts...)
 
@@ -136,8 +151,9 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	meteredServiceMonitors := &monitoringv1.ServiceMonitorList{}
 	listOpts = []client.ListOption{
 		client.MatchingLabels(map[string]string{
-			"marketplace.redhat.com/metered": "true",
-			"marketplace.redhat.com/kind":    "ServiceMonitor",
+			"marketplace.redhat.com/metered":      "true",
+			"marketplace.redhat.com/deployed":     "true",
+			"marketplace.redhat.com/metered.kind": "ServiceMonitor",
 		}),
 		client.InNamespace(instance.Namespace),
 	}
@@ -153,10 +169,9 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	meteredPodList := &corev1.PodList{}
 	listOpts = []client.ListOption{
 		client.MatchingLabels(map[string]string{
-			"marketplace.redhat.com/metered": "true",
-			"marketplace.redhat.com/kind":    "Pod",
+			"marketplace.redhat.com/metered":      "true",
+			"marketplace.redhat.com/metered.kind": "Pod",
 		}),
-		client.InNamespace(instance.Namespace),
 	}
 	err = r.client.List(context.TODO(), meteredPodList, listOpts...)
 
@@ -168,12 +183,23 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	}
 
 	// find specific service monitor for kube-state
+	openshiftKubeStateMonitor := &monitoringv1.ServiceMonitor{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Namespace: "openshift-monitoring",
+		Name:      "kube-state-metrics",
+	}, openshiftKubeStateMonitor)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("can't find openshift kube state")
+	}
 
 	kubeStateServiceMonitors := &monitoringv1.ServiceMonitorList{}
 	listOpts = []client.ListOption{
 		client.MatchingLabels(map[string]string{
 			"marketplace.redhat.com/metered":                   "true",
-			"marketplace.redhat.com/kind":                      "ServiceMonitor",
+			"marketplace.redhat.com/metered.kind":              "ServiceMonitor",
 			"marketplace.redhat.com/meterDefinition.namespace": instance.Namespace,
 			"marketplace.redhat.com/meterDefinition.name":      instance.Name,
 		}),
@@ -251,7 +277,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	var kubeStateMonitor *monitoringv1.ServiceMonitor
 	// if we have more than 1, we'll add the first and delete the rest
 	if len(kubeStateServiceMonitors.Items) >= 1 {
-		for idx, serviceMonitor := range kubeStateServiceMonitors {
+		for idx, serviceMonitor := range kubeStateServiceMonitors.Items {
 			if idx == 0 {
 				kubeStateMonitor = kubeStateServiceMonitors.Items[0]
 
@@ -262,8 +288,25 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	}
 
 	//---
+	// Logging our actions
+	//---
+
+	reqLogger.Info("finished calculating new state for service monitors",
+		"toBeCreated", len(toBeCreatedServiceMonitors),
+		"toBeUpdated", len(toBeUpdatedServiceMonitors),
+		"toBeDeleted", len(toBeDeletedServiceMonitors))
+
+	reqLogger.Info("finished kube state monitor check",
+		"isNil", (kubeStateMonitor == nil))
+
+	//---
 	// Adjust our state
 	//---
+
+	instance.Status.Pods = []*metav1.ObjectMeta{}
+	instance.Status.ServiceMonitors = []*metav1.ObjectMeta{}
+	instance.Status.ServiceLabels = instance.Spec.ServiceMeterLabels
+	instance.Status.PodLabels = instance.Spec.PodMeterLabels
 
 	// best effort delete
 	for _, serviceMonitor := range toBeDeletedServiceMonitors {
@@ -276,31 +319,137 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 
 	// create new service monitors
 	for _, serviceMonitor := range toBeCreatedServiceMonitors {
-		newMonitor := serviceMonitor.DeepCopy()
+		newMonitor := &monitoringv1.ServiceMonitor{}
 
-		newMonitor.Name = ""
-		newMonitor.GenerateName = "rhm-metering-monitor"
-		newMonitor.ObjectMeta.Labels = labelsForServiceMonitor(serviceMonitor.Name, serviceMonitor.Namespace)
+		newMonitor.GenerateName = "rhm-metering-monitor-"
+		newMonitor.Namespace = instance.Namespace
+		newMonitor.Labels = labelsForServiceMonitor(serviceMonitor.Name, serviceMonitor.Namespace)
+		newMonitor.Spec = serviceMonitor.Spec
+		configureServiceMonitorFromMeterLabels(instance, newMonitor)
 
-		instance.Status.ServiceMonitors = append(instance.Status.ServiceMonitors, newMonitor)
+		err := r.client.Create(context.TODO(), newMonitor)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create service monitor on cluster")
+			return reconcile.Result{}, err
+		}
+
+		if err := controllerutil.SetControllerReference(instance, serviceMonitor, r.scheme); err != nil {
+			return reconcile.Result{}, err
+		}
+
+		reqLogger.Info("service monitor created successfully")
+		instance.Status.ServiceMonitors = append(instance.Status.ServiceMonitors, &newMonitor.ObjectMeta)
 	}
 
-	podMonitor := []*monitoringv1.ServiceMonitor{}
-	toBeUpdatedServiceMonitors := []*monitoringv1.ServiceMonitor{}
-	toBeDeletedServiceMonitors := []*monitoringv1.ServiceMonitor{}
+	if kubeStateMonitor == nil {
+		kubeStateMonitor = openshiftKubeStateMonitor.DeepCopy()
+		kubeStateMonitor.ObjectMeta = metav1.ObjectMeta{
+			GenerateName: instance.Name,
+		}
+	}
+
+	// update service monitor
+
+	for _, serviceMonitor := range toBeUpdatedServiceMonitors {
+		// TODO: add code to update
+		instance.Status.ServiceMonitors = append(instance.Status.ServiceMonitors, &serviceMonitor.ObjectMeta)
+	}
 
 	//---
 	// Save our state
 	//---
 
+	reqLogger.Info("updating state on meterdefinition")
+	err = r.client.Status().Update(context.TODO(), instance)
+	if err != nil {
+		reqLogger.Error(err, "Failed to update Prometheus status.")
+		return reconcile.Result{}, err
+	}
+
+	reqLogger.Info("finished reconciling")
 	return reconcile.Result{}, nil
 }
 
 func labelsForServiceMonitor(name, namespace string) map[string]string {
 	return map[string]string{
 		"marketplace.redhat.com/metered":                  "true",
-		"marketplace.redhat.com/deployed":                  "true",
+		"marketplace.redhat.com/deployed":                 "true",
+		"marketplace.redhat.com/metered.kind":             "ServiceMonitor",
 		"marketplace.redhat.com/serviceMonitor.Name":      name,
 		"marketplace.redhat.com/serviceMonitor.Namespace": namespace,
 	}
+}
+
+func labelsForKubeStateMonitor(name, namespace string) map[string]string {
+	return map[string]string{
+		"marketplace.redhat.com/metered":                   "true",
+		"marketplace.redhat.com/deployed":                  "true",
+		"marketplace.redhat.com/metered.kind":              "ServiceMonitor",
+		"marketplace.redhat.com/meterDefinition.namespace": namespace,
+		"marketplace.redhat.com/meterDefinition.name":      name,
+	}
+}
+
+func configureServiceMonitorFromMeterLabels(def *marketplacev1alpha1.MeterDefinition, monitor *monitoringv1.ServiceMonitor) {
+	endpoints := []monitoringv1.Endpoint{}
+	for _, endpoint := range monitor.Spec.Endpoints {
+		newEndpoint := endpoint.DeepCopy()
+		relabelConfigs := []*monitoringv1.RelabelConfig{
+			makeRelabelKeepConfig([]string{"__name__"}, "keep", labelsToRegex(def.Spec.ServiceMeterLabels)),
+			makeRelabelReplaceConfig([]string{"__name__"}, "meter_kind", "(.*)"),
+			makeRelabelReplaceConfig([]string{"__name__"}, "meter_domain", "(.*)"),
+		}
+		relabelConfigs = append(relabelConfigs, makeServiceRelabelConfigs()...)
+		newEndpoint.RelabelConfigs = append(newEndpoint.RelabelConfigs, relabelConfigs...)
+		endpoints = append(endpoints, *newEndpoint)
+	}
+	monitor.Spec.Endpoints = endpoints
+}
+
+func makeServiceRelabelConfigs() []*monitoringv1.RelabelConfig {
+	return []*monitoringv1.RelabelConfig{
+		makeRelabelConfig(
+			[]string{
+				"__meta_kubernetes_namespace",
+			},
+			"replace",
+			"kubernetes_namespace",
+		),
+		makeRelabelConfig(
+			[]string{
+				"__meta_kubernetes_service_name",
+			},
+			"replace",
+			"kubernetes_service_name",
+		),
+	}
+}
+
+func makeRelabelConfig(source []string, action, target string) *monitoringv1.RelabelConfig {
+	return &monitoringv1.RelabelConfig{
+		SourceLabels: source,
+		TargetLabel:  target,
+		Action:       action,
+	}
+}
+
+func makeRelabelReplaceConfig(source []string, target, regex string) *monitoringv1.RelabelConfig {
+	return &monitoringv1.RelabelConfig{
+		SourceLabels: source,
+		TargetLabel:  target,
+		Action:       "replace",
+		Regex:        regex,
+	}
+}
+
+func makeRelabelKeepConfig(source []string, action, regex string) *monitoringv1.RelabelConfig {
+	return &monitoringv1.RelabelConfig{
+		SourceLabels: source,
+		Action:       action,
+		Regex:        regex,
+	}
+
+}
+func labelsToRegex(labels []string) string {
+	return fmt.Sprintf("(%s)", strings.Join(labels, "|"))
 }

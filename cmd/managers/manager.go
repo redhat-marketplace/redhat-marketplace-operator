@@ -7,13 +7,14 @@ import (
 	"os"
 	"runtime"
 
-	k8sruntime "k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+    k8sscheme "k8s.io/client-go/kubernetes/scheme"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
@@ -22,10 +23,11 @@ import (
 	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis"
 	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/controller"
 	"github.ibm.com/symposium/redhat-marketplace-operator/version"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
@@ -47,14 +49,15 @@ func printVersion() {
 type OperatorName string
 
 type SchemeDefinition struct {
+	Name        string
 	AddToScheme func(s *k8sruntime.Scheme) error
 }
 
 type ControllerMain struct {
-	Name OperatorName
+	Name        OperatorName
 	FlagSets    []*pflag.FlagSet
 	Controllers []*controller.ControllerDefinition
-	Schemes []*SchemeDefinition
+	Schemes     []*SchemeDefinition
 }
 
 func (m *ControllerMain) Run() {
@@ -88,7 +91,7 @@ func (m *ControllerMain) Run() {
 
 	printVersion()
 
-	namespace, err := k8sutil.GetWatchNamespace()
+	watchNamespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {
 		log.Error(err, "Failed to get watch namespace")
 		os.Exit(1)
@@ -109,30 +112,36 @@ func (m *ControllerMain) Run() {
 		os.Exit(1)
 	}
 
-	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := manager.New(cfg, manager.Options{
-		Namespace:          namespace,
+	scheme := k8sscheme.Scheme
+
+	// Setup Scheme for all resources
+	if err := apis.AddToScheme(scheme); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
+	for _, apiScheme := range m.Schemes {
+		log.Info("adding scheme", "scheme", apiScheme.Name)
+		if err := apiScheme.AddToScheme(scheme); err != nil {
+			log.Error(err, "failed to add scheme")
+			os.Exit(1)
+		}
+	}
+
+	opts := manager.Options{
+		Namespace:          watchNamespace,
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-	})
+		Scheme:             scheme,
+	}
+
+	// Create a new Cmd to provide shared dependencies and start components
+	mgr, err := manager.New(cfg, opts)
 	if err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
 
 	log.Info("Registering Components.")
-
-	// Setup Scheme for all resources
-	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-
-	for _, scheme := range m.Schemes{
-		if err := scheme.AddToScheme(mgr.GetScheme()); err != nil {
-			log.Error(err, "failed to add scheme")
-			os.Exit(1)
-		}
-	}
 
 	// Setup all Controllers
 	for _, control := range m.Controllers {
@@ -143,7 +152,7 @@ func (m *ControllerMain) Run() {
 	}
 
 	// Add the Metrics Service
-	addMetrics(ctx, cfg, namespace)
+	addMetrics(ctx, cfg)
 
 	log.Info("Starting the Cmd.")
 
@@ -156,12 +165,17 @@ func (m *ControllerMain) Run() {
 
 // addMetrics will create the Services and Service Monitors to allow the operator export the metrics by using
 // the Prometheus operator
-func addMetrics(ctx context.Context, cfg *rest.Config, namespace string) {
-	if err := serveCRMetrics(cfg); err != nil {
+func addMetrics(ctx context.Context, cfg *rest.Config) {
+	// Get the namespace the operator is currently deployed in.
+	operatorNs, err := k8sutil.GetOperatorNamespace()
+	if err != nil {
 		if errors.Is(err, k8sutil.ErrRunLocal) {
 			log.Info("Skipping CR metrics server creation; not running in a cluster.")
 			return
 		}
+	}
+
+	if err := serveCRMetrics(cfg, operatorNs); err != nil {
 		log.Info("Could not generate and serve custom resource metrics", "error", err.Error())
 	}
 
@@ -180,7 +194,9 @@ func addMetrics(ctx context.Context, cfg *rest.Config, namespace string) {
 	// CreateServiceMonitors will automatically create the prometheus-operator ServiceMonitor resources
 	// necessary to configure Prometheus to scrape metrics from this operator.
 	services := []*v1.Service{service}
-	_, err = metrics.CreateServiceMonitors(cfg, namespace, services)
+
+	// The ServiceMonitor is created in the same namespace where the operator is deployed
+	_, err = metrics.CreateServiceMonitors(cfg, operatorNs, services)
 	if err != nil {
 		log.Info("Could not create ServiceMonitor object", "error", err.Error())
 		// If this operator is deployed to a cluster without the prometheus-operator running, it will return
@@ -193,20 +209,22 @@ func addMetrics(ctx context.Context, cfg *rest.Config, namespace string) {
 
 // serveCRMetrics gets the Operator/CustomResource GVKs and generates metrics based on those types.
 // It serves those metrics on "http://metricsHost:operatorMetricsPort".
-func serveCRMetrics(cfg *rest.Config) error {
-	// Below function returns filtered operator/CustomResource specific GVKs.
-	// For more control override the below GVK list with your own custom logic.
+func serveCRMetrics(cfg *rest.Config, operatorNs string) error {
+	// The function below returns a list of filtered operator/CR specific GVKs. For more control, override the GVK list below
+	// with your own custom logic. Note that if you are adding third party API schemas, probably you will need to
+	// customize this implementation to avoid permissions issues.
 	filteredGVK, err := k8sutil.GetGVKsFromAddToScheme(apis.AddToScheme)
 	if err != nil {
 		return err
 	}
-	// Get the namespace the operator is currently deployed in.
-	operatorNs, err := k8sutil.GetOperatorNamespace()
+
+	// The metrics will be generated from the namespaces which are returned here.
+	// NOTE that passing nil or an empty list of namespaces in GenerateAndServeCRMetrics will result in an error.
+	ns, err := kubemetrics.GetNamespacesForMetrics(operatorNs)
 	if err != nil {
 		return err
 	}
-	// To generate metrics in other namespaces, add the values below.
-	ns := []string{operatorNs}
+
 	// Generate and serve custom resource specific metrics.
 	err = kubemetrics.GenerateAndServeCRMetrics(cfg, ns, filteredGVK, metricsHost, operatorMetricsPort)
 	if err != nil {
@@ -214,3 +232,4 @@ func serveCRMetrics(cfg *rest.Config) error {
 	}
 	return nil
 }
+

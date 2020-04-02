@@ -33,6 +33,10 @@ spec:
               value: "jimmidyson/configmap-reload:v0.3.0"
             - name: WATCH_NAMESPACE
               value: "" # watch all namespaces
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -72,6 +76,10 @@ spec:
               value: "jimmidyson/configmap-reload:v0.3.0"
             - name: WATCH_NAMESPACE
               value: "" # watch all namespaces
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -111,6 +119,10 @@ spec:
               value: "jimmidyson/configmap-reload:v0.3.0"
             - name: WATCH_NAMESPACE
               value: "" # watch all namespaces
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: POD_NAME
               valueFrom:
                 fieldRef:

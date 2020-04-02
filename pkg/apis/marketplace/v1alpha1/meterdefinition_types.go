@@ -2,16 +2,24 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 )
+
+// TODO: Add open API validation
 
 // MeterDefinitionSpec defines the desired metering spec
 type MeterDefinitionSpec struct {
+
+	// MeterDomain defines the primary CRD domain of the meter
+	MeterDomain string `json:"meterDomain"`
+
+	// MeterKind defines the primary CRD kind of the meter
+	MeterKind string `json:"meterKind"`
+
 	// ServiceLabels of the meterics you want to track.
-	ServiceMeterLabels []string `json:"serviceMeterLabels"`
+	ServiceMeterLabels []string `json:"serviceMeterLabels,omitempty"`
 
 	// PodLabels of the prometheus metrics you want to track.
-	PodMeterLabels []string `json:"podMeterLabels"`
+	PodMeterLabels []string `json:"podMeterLabels,omitempty"`
 
 	// ServiceMonitors to be selected for target discovery.
 	ServiceMonitorSelector *metav1.LabelSelector `json:"serviceMonitorSelector,omitempty"`
@@ -34,16 +42,16 @@ type MeterDefinitionStatus struct {
 	// ServiceLabels of the meterics you want to track.
 	ServiceLabels []string `json:"serviceLabels"`
 
-	// PodLabels of the prometheus metrics you want to track.
+	// PodLabels of the prometheus kube-state metrics you want to track.
 	PodLabels []string `json:"podLabels"`
 
 	// ServiceMonitors is the list of service monitors being watched for
 	// this meter definition
-	ServiceMonitors []*monitoringv1.ServiceMonitor `json:"serviceMonitors"`
+	ServiceMonitors []*metav1.ObjectMeta `json:"serviceMonitors"`
 
-	// PodMonitors is the list of current pod mointors being watched for
+	// Pods is the list of current pod mointors being watched for
 	// this meter definition
-	Pods []*metav1.ObjectMeta `json:"podMonitors"`
+	Pods []*metav1.ObjectMeta `json:"pods"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
