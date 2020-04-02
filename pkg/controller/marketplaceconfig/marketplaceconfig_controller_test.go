@@ -177,7 +177,7 @@ func buildMarketplaceConfigCR(name, namespace, customerID string) *marketplacev1
 			Namespace: namespace,
 		},
 		Spec: marketplacev1alpha1.MarketplaceConfigSpec{
-			RhmCustomerID: customerID,
+			RhmAccountID: customerID,
 		},
 	}
 }

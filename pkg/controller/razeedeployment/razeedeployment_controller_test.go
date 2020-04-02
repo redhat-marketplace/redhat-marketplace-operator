@@ -1,12 +1,11 @@
 package razeedeployment
 
 import (
-	"context"
 	"testing"
 
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	batch "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -29,14 +28,15 @@ func TestRazeeDeployController(t *testing.T) {
 		namespace = "redhat-marketplace-operator"
 	)
 
-	// A Memcached resource with metadata and spec.
+	// A resource with metadata and spec.
 	razeeDeployment := &marketplacev1alpha1.RazeeDeployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
 		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
-			Enabled: true,
+			Enabled:     true,
+			ClusterUUID: "foo",
 		},
 	}
 	// Objects to track in the fake client.
@@ -56,7 +56,7 @@ func TestRazeeDeployController(t *testing.T) {
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      name,
-			Namespace: "redhat-marketplace-operator",
+			Namespace: namespace,
 		},
 	}
 	_, err := r.Reconcile(req)
@@ -64,28 +64,29 @@ func TestRazeeDeployController(t *testing.T) {
 		t.Fatalf("reconcile: (%v)", err)
 	}
 
+	// check that missing resources are being picked up
+	razeeDeployment = &marketplacev1alpha1.RazeeDeployment{}
 	// Check if razeedeployJob has been created
 	req = reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      "razeedeploy-job",
-			Namespace: "redhat-marketplace-operator",
+			Namespace: namespace,
 		},
 	}
 
-	razeedeployJob := &batch.Job{}
-
-	err = cl.Get(context.TODO(), req.NamespacedName, razeedeployJob)
-	if err != nil {
-		t.Fatalf("get razeedeploy-job: (%v)", err)
-	}
-
-	_, err = r.Reconcile(req)
-	if err != nil {
-		t.Fatalf("reconcile: (%v)", err)
-	}
+	// TODO add more tests
 	// Check the result of reconciliation to make sure it has the desired state.
 	// if res.Requeue {
 	// 	t.Error("reconcile requeue which is not expected")
 	// }
 
+}
+
+func CreateWatchKeeperSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "razeedeploy-job",
+			Namespace: "marketplace-operator",
+		},
+	}
 }

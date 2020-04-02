@@ -30,6 +30,8 @@ spec:
               value: "prom/prometheus:v2.15.2"
             - name: RELATED_IMAGE_CONFIGMAP_RELOAD
               value: "jimmidyson/configmap-reload:v0.3.0"
+            - name: RELATED_IMAGE_RAZEE_JOB
+              value: "{{.RELATED_IMAGE_RAZEE_JOB}}"
             - name: WATCH_NAMESPACE
               value: "" # watch all namespaces
             - name: POD_NAME

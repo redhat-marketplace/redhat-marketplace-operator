@@ -1,12 +1,12 @@
 SHELL:=/bin/bash
-NAMESPACE = redhat-marketplace-operator
+NAMESPACE ?= redhat-marketplace-operator
 OPSRC_NAMESPACE = marketplace-operator
 OPERATOR_SOURCE = redhat-marketplace-operators
-IMAGE_REGISTRY = public-image-registry.apps-crc.testing/symposium
-OPERATOR_IMAGE_NAME = redhat-marketplace-operator
-OPERATOR_IMAGE_TAG = latest
-AGENT_IMAGE_NAME = marketplace-agent
-AGENT_IMAGE_TAG = latest
+IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
+OPERATOR_IMAGE_NAME ?= redhat-marketplace-operator
+OPERATOR_IMAGE_TAG ?= latest
+AGENT_IMAGE_NAME ?= marketplace-agent
+AGENT_IMAGE_TAG ?= latest
 VERSION ?= $(shell go run scripts/version/main.go)
 
 SERVICE_ACCOUNT := redhat-marketplace-operator
@@ -25,37 +25,36 @@ install: ## Install all resources (CR/CRD's, RBAC and Operator)
 	@echo ....... Creating namespace .......
 	- kubectl create namespace ${NAMESPACE}
 	@echo ....... Creating CRDs .......
-	- kubectl create -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
-	- kubectl create -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
-	- kubectl create -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml -n ${NAMESPACE}
-	- kubectl create -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
+	- kubectl create -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml --namespace=${NAMESPACE}
+	- kubectl create -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml --namespace=${NAMESPACE}
+	- kubectl create -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml --namespace=${NAMESPACE}
+	- kubectl create -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml --namespace=${NAMESPACE}
 	@echo ....... Applying serivce accounts and role ........
-	- kubectl apply -f deploy/role.yaml -n ${NAMESPACE}
-	- kubectl apply -f deploy/role_binding.yaml -n ${NAMESPACE}
-	- kubectl apply -f deploy/service_account.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/role.yaml --namespace=${NAMESPACE}
+	- kubectl apply -f deploy/role_binding.yaml --namespace=${NAMESPACE}
+	- kubectl apply -f deploy/service_account.yaml --namespace=${NAMESPACE}
 	@echo ....... Applying Operator .......
-	- kubectl apply -f deploy/operator.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/operator.yaml --namespace=${NAMESPACE}
 	@echo ....... Applying Rules and Service Account .......
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml -n ${NAMESPACE}
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_meterbase_cr.yaml -n ${NAMESPACE}
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_metering_cr.yaml -n ${NAMESPACE}
-	- @oc secrets link ${SERVICE_ACCOUNT} $(SECRETS_NAME) --for=pull
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml --namespace=${NAMESPACE}
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_meterbase_cr.yaml --namespace=${NAMESPACE}
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml --namespace=${NAMESPACE}
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_metering_cr.yaml --namespace=${NAMESPACE}
 
 uninstall: ## Uninstall all that all performed in the $ make install
 	@echo ....... Uninstalling .......
 	@echo ....... Deleting CRDs.......
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml --namespace=${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml --namespace=${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml --namespace=${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml --namespace=${NAMESPACE}
 	@echo ....... Deleting Rules and Service Account .......
-	- kubectl delete -f deploy/role.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/role_binding.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/service_account.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/role.yaml --namespace=${NAMESPACE}
+	- kubectl delete -f deploy/role_binding.yaml --namespace=${NAMESPACE}
+	- kubectl delete -f deploy/service_account.yaml --namespace=${NAMESPACE}
 	@echo ....... Deleting Operator .......
-	- kubectl delete opsrc ${OPERATOR_SOURCE} -n ${OPSRC_NAMESPACE}
-	- kubectl delete -f deploy/operator.yaml -n ${NAMESPACE}
+	- kubectl delete opsrc ${OPERATOR_SOURCE} --namespace=${OPSRC_NAMESPACE}
+	- kubectl delete -f deploy/operator.yaml --namespace=${NAMESPACE}
 	@echo ....... Deleting namespace ${NAMESPACE}.......
 	- kubectl delete namespace ${NAMESPACE}
 
@@ -69,7 +68,7 @@ build: ## Build the operator executable
 	- [ -f "build/_output/bin/redhat-marketplace-operator" ] && rm -f build/_output/bin/redhat-marketplace-operator
 	@cp -r ./assets build/_output
 	GOOS=linux GOARCH=amd64 go build -o build/_output/bin/redhat-marketplace-operator ./cmd/manager/main.go
-	docker build . -f ./build/Dockerfile
+	docker build . -f ./build/Dockerfile -t $(OPERATOR_IMAGE)
 
 .PHONY: push
 push: push ## Push the operator image
@@ -100,7 +99,7 @@ code-fmt: ## Run go fmt for this project
 	go fmt $$(go list ./... )
 
 code-templates: ## Gen templates
-	@RELATED_IMAGE_MARKETPLACE_OPERATOR=$(OPERATOR_IMAGE) RELATED_IMAGE_MARKETPLACE_AGENT=$(AGENT_IMAGE) scripts/gen_files.sh
+	@RELATED_IMAGE_MARKETPLACE_OPERATOR=$(OPERATOR_IMAGE) RELATED_IMAGE_MARKETPLACE_AGENT=$(AGENT_IMAGE) NAMESPACE=$(NAMESPACE) scripts/gen_files.sh
 
 code-dev: ## Run the default dev commands which are the go fmt and vet then execute the $ make code-gen
 	@echo Running the common required commands for developments purposes
@@ -122,40 +121,40 @@ code-gen: ## Run the operator-sdk commands to generated code (k8s and crds)
 create: ##creates the required crds for this deployment
 	@echo creating crds
 	- kubectl create namespace ${NAMESPACE}
-	- kubectl create -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
-	- kubectl create -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
-	- kubectl create -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml -n ${NAMESPACE}
-	- kubectl create -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
+	- kubectl create -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml --namespace=${NAMESPACE}
+	- kubectl create -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml --namespace=${NAMESPACE}
+	- kubectl create -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml --namespace=${NAMESPACE}
+	- kubectl create -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml --namespace=${NAMESPACE}
 
 deploys: ##deploys the resources for deployment
 	@echo deploying services and operators
-	- kubectl create -f deploy/service_account.yaml -n ${NAMESPACE}
-	- kubectl create -f deploy/role.yaml -n ${NAMESPACE}
-	- kubectl create -f deploy/role_binding.yaml -n ${NAMESPACE}
-	- kubectl create -f deploy/operator.yaml -n ${NAMESPACE}
+	- kubectl create -f deploy/service_account.yaml --namespace=${NAMESPACE}
+	- kubectl create -f deploy/role.yaml --namespace=${NAMESPACE}
+	- kubectl create -f deploy/role_binding.yaml --namespace=${NAMESPACE}
+	- kubectl create -f deploy/operator.yaml --namespace=${NAMESPACE}
 
 apply: ##applies changes to crds
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml --namespace=${NAMESPACE}
 
 clean: ##delete the contents created in 'make create'
 	@echo deleting resources
-	- kubectl delete opsrc ${OPERATOR_SOURCE} -n ${OPSRC_NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_metering_cr.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_meterbase_cr.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/operator.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/role_binding.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/role.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/service_account.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
+	- kubectl delete opsrc ${OPERATOR_SOURCE} --namespace=${OPSRC_NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml --namespace=${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml --namespace=${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_metering_cr.yaml --namespace=${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_meterbase_cr.yaml --namespace=${NAMESPACE}
+	- kubectl delete -f deploy/operator.yaml --namespace=${NAMESPACE}
+	- kubectl delete -f deploy/role_binding.yaml --namespace=${NAMESPACE}
+	- kubectl delete -f deploy/role.yaml --namespace=${NAMESPACE}
+	- kubectl delete -f deploy/service_account.yaml --namespace=${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml --namespace=${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml --namespace=${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml --namespace=${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml --namespace=${NAMESPACE}
 
 delete-razee: ##delete the razee CR
 	@echo deleting razee CR
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
+	- kubectl delete -f  deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
 
 ##@ Tests
 

@@ -1,7 +1,8 @@
 apiVersion: marketplace.redhat.com/v1alpha1
 kind: RazeeDeployment
 metadata:
-  name: razeedeployment
+  name: rhm-marketplaceconfig-razeedeployment
 spec:
   # Add fields here
   enabled: true
+  clusterUUID: example-cluster-uuid

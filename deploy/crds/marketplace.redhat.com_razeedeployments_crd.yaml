@@ -145,9 +145,18 @@ spec:
                   format: int32
                   type: integer
               type: object
-          required:
-          - conditions
-          - jobState
+            localSecretVarsPopulated:
+              type: boolean
+            missingValuesFromSecret:
+              items:
+                type: string
+              type: array
+            razeePrerequisitesCreated:
+              items:
+                type: string
+              type: array
+            redHatMarketplaceSecretFound:
+              type: boolean
           type: object
       type: object
   version: v1alpha1
