@@ -3,24 +3,22 @@ module github.ibm.com/symposium/marketplace-operator
 go 1.13
 
 require (
-	github.com/go-logr/logr v0.1.0
 	github.com/gotidy/ptr v1.0.1
 	github.com/imdario/mergo v0.3.8
-	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a // indirect
-	github.com/mitranim/gow v0.0.0-20181105081807-8128c81042bd // indirect
-	github.com/moby/moby v1.13.1 // indirect
-	github.com/noqcks/gucci v0.0.4 // indirect
+	github.com/json-iterator/go v1.1.8 // indirect
+	github.com/noqcks/gucci v0.0.4
 	github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b
 	github.com/operator-framework/operator-sdk v0.15.1-0.20200211154447-0eac8a1169df
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.2
 	github.com/urfave/cli v1.22.2 // indirect
 	golang.org/x/sys v0.0.0-20200212091648-12a6c2dcc1e4 // indirect
+	gopkg.in/yaml.v2 v2.2.8 // indirect
 	k8s.io/api v0.0.0
 	k8s.io/apimachinery v0.0.0
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20191107075043-30be4d16710a
-	k8s.io/kubernetes v1.17.3
+	k8s.io/utils v0.0.0-20191114184206-e782cd3c129f // indirect
 	sigs.k8s.io/controller-runtime v0.4.0
 )
 
