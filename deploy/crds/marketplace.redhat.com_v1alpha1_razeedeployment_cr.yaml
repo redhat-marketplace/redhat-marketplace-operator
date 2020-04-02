@@ -2,7 +2,6 @@ apiVersion: marketplace.redhat.com/v1alpha1
 kind: RazeeDeployment
 metadata:
   name: razeedeployment
-  finalizers: finalizer.marketplace.redhat.com
 spec:
   # Add fields here
   enabled: true

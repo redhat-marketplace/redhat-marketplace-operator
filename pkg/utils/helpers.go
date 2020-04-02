@@ -13,7 +13,7 @@ func GetNamespaceNames(ns []corev1.Namespace) []string {
 	return namespaceNames
 }
 
-// Checks if the lsit contains the key, if so - return it
+// Contains() checks if the lsit contains the key, if so - return it
 func Contains(s []string, e string) bool {
 	for _, a := range s {
 		if a == e {
@@ -24,7 +24,7 @@ func Contains(s []string, e string) bool {
 	return false
 }
 
-// removes the key from the list
+// Remove() will remove the key from the list
 func Remove(list []string, key string) []string {
 	for i, s := range list {
 		if s == key {

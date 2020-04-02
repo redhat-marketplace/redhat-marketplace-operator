@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
@@ -137,7 +136,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if utils.Contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
 			//Run finalization logic for the razeeDeploymentFinalizer.
 			//If it fails, don't remove the finalizer so we can retry during the next reconcile
-			if err := r.finalizeRazeeDeployment(reqLogger, instance); err != nil {
+			if err := r.finalizeRazeeDeployment(instance, request.Namespace); err != nil {
 				return reconcile.Result{}, err
 			}
 
@@ -154,7 +153,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	// Adding a finalizer to this CR
 	if !utils.Contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
-		if err := r.addFinalizer(reqLogger, instance); err != nil {
+		if err := r.addFinalizer(instance, request.Namespace); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
@@ -170,13 +169,13 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		RazeeJobImage: viper.GetString("razee-job-image"),
 	}
 
-	job := r.MakeRazeeJob(razeeOpts)
+	job := r.MakeRazeeJob(razeeOpts, request.Namespace)
 
 	// Check if the Job exists already
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      "razeedeploy-job",
-			Namespace: "redhat-marketplace-operator",
+			Namespace: request.Namespace,
 		},
 	}
 
@@ -237,12 +236,13 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts) *batch.Job {
+// MakeRazeeJob returns a Batch.Job which installs razee
+func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts, namespace string) *batch.Job {
 
 	return &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "razeedeploy-job",
-			Namespace: "redhat-marketplace-operator",
+			Namespace: namespace,
 		},
 		Spec: batch.JobSpec{
 			Template: corev1.PodTemplateSpec{
@@ -261,13 +261,15 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(opt *RazeeOpts) *batch.Job {
 	}
 }
 
-// returns a batch job to uninstall razee
-func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(opt *RazeeOpts) *batch.Job {
+// MakeRazeeUninstalllJob returns a Batch.Job which uninstalls razee
+func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(opt *RazeeOpts, namespace string) *batch.Job {
+
+	var backoffLimit int32 = 2
 
 	return &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      RAZEE_UNINSTALL_NAME,
-			Namespace: "redhat-marketplace-operator",
+			Namespace: namespace,
 		},
 		Spec: batch.JobSpec{
 			Template: corev1.PodTemplateSpec{
@@ -282,20 +284,22 @@ func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(opt *RazeeOpts) *batch.
 					RestartPolicy: "Never",
 				},
 			},
+			BackoffLimit: &backoffLimit,
 		},
 	}
 }
 
-// Clean up steps that the operator needs to complete before the CR can be deleted.
-// Deploys a batch job to delete razee
-func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(reqLogger logr.Logger, razee *marketplacev1alpha1.RazeeDeployment) error {
+// finalizeRazeeDeployment cleans up resources before the RazeeDeployment CR is deleted
+func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(razee *marketplacev1alpha1.RazeeDeployment, namespace string) error {
+	reqLogger := log.WithValues("Request.Namespace", namespace, "Request.Name", RAZEE_UNINSTALL_NAME)
 
 	razeeOpts := &RazeeOpts{
 		RazeeDashUrl:  viper.GetString("razeedash-url"),
 		RazeeJobImage: viper.GetString("razee-job-image"),
 	}
 
-	job := r.MakeRazeeUninstallJob(razeeOpts)
+	// Deploy a job to delete razee
+	job := r.MakeRazeeUninstallJob(razeeOpts, namespace)
 	reqLogger.Info("Creating razzee-uninstall-job")
 	err := r.client.Create(context.TODO(), job)
 	if err != nil {
@@ -307,8 +311,9 @@ func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(reqLogger logr.Logger
 	return nil
 }
 
-// Adds finalizers to the RazeeDeployment CR
-func (r *ReconcileRazeeDeployment) addFinalizer(reqLogger logr.Logger, razee *marketplacev1alpha1.RazeeDeployment) error {
+// addFinalizer adds finalizers to the RazeeDeployment CR
+func (r *ReconcileRazeeDeployment) addFinalizer(razee *marketplacev1alpha1.RazeeDeployment, namespace string) error {
+	reqLogger := log.WithValues("Request.Namespace", namespace, "Request.Name", RAZEE_UNINSTALL_NAME)
 	reqLogger.Info("Adding Finalizer for the razeeDeploymentFinzliaer")
 	razee.SetFinalizers(append(razee.GetFinalizers(), razeeDeploymentFinalizer))
 
