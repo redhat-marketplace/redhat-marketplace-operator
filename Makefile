@@ -4,7 +4,7 @@ OPSRC_NAMESPACE = marketplace-operator
 OPERATOR_SOURCE = redhat-marketplace-operators
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 OPERATOR_IMAGE_NAME ?= redhat-marketplace-operator
-OPERATOR_IMAGE_TAG ?= latest
+OPERATOR_IMAGE_TAG ?= $(shell if [ -z "$TAG" ] && "latest" || ${TAG})
 AGENT_IMAGE_NAME ?= marketplace-agent
 AGENT_IMAGE_TAG ?= latest
 VERSION ?= $(shell go run scripts/version/main.go)
@@ -14,8 +14,6 @@ SECRETS_NAME := my-docker-secrets
 
 OPERATOR_IMAGE := $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
 AGENT_IMAGE := $(IMAGE_REGISTRY)/$(AGENT_IMAGE_NAME):$(AGENT_IMAGE_TAG)
-
-include scripts/RegistryMakefile
 
 .DEFAULT_GOAL := help
 
@@ -75,7 +73,10 @@ push: push ## Push the operator image
 	docker push $(OPERATOR_IMAGE)
 
 generate-csv: ## Generate the csv
-	operator-sdk generate csv --csv-version $(VERSION) --csv-config=./deploy/olm-catalog/csv-config.yaml
+	operator-sdk generate csv --csv-version $(VERSION) --csv-config=./deploy/olm-catalog/csv-config.yaml --update-crds
+
+docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
+	@docker login -u="$(DOCKER_USER)" -p="$(DOCKER_PASSWORD)" quay.io
 
 ##@ Development
 

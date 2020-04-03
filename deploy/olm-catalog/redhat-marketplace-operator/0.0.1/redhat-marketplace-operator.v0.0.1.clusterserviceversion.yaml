@@ -8,17 +8,19 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "MarketplaceConfig",
           "metadata": {
-            "name": "example-marketplaceconfig"
+            "name": "marketplaceconfig"
           },
           "spec": {
-            "size": 1
+            "clusterUUID": "example-clusterUUID",
+            "deploySecretName": "example-deploySecretName",
+            "rhmAccountID": "example-userid"
           }
         },
         {
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "MeterBase",
           "metadata": {
-            "name": "example-meterbase"
+            "name": "meterbase"
           },
           "spec": {
             "enabled": true,
@@ -43,7 +45,7 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "Metering",
           "metadata": {
-            "name": "example-metering"
+            "name": "metering"
           },
           "spec": {
             "size": 3
@@ -53,9 +55,10 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "RazeeDeployment",
           "metadata": {
-            "name": "example-razeedeployment"
+            "name": "rhm-marketplaceconfig-razeedeployment"
           },
           "spec": {
+            "clusterUUID": "example-cluster-uuid",
             "enabled": true
           }
         }
@@ -71,24 +74,23 @@ spec:
       kind: MarketplaceConfig
       name: marketplaceconfigs.marketplace.redhat.com
       version: v1alpha1
-      displayName: Config
     - description: MeterBase is the Schema for the meterbases API
       kind: MeterBase
       name: meterbases.marketplace.redhat.com
       version: v1alpha1
-      displayName: Meter Configuration
     - description: Metering is the Schema for the meterings API
       kind: Metering
       name: meterings.marketplace.redhat.com
       version: v1alpha1
-      displayName: Meter
     - description: RazeeDeployment is the Schema for the razeedeployments API
       kind: RazeeDeployment
       name: razeedeployments.marketplace.redhat.com
       version: v1alpha1
-      displayName: Razee Deployment
   description: Placeholder description
   displayName: Redhat Marketplace Operator
+  icon:
+  - base64data: ""
+    mediatype: ""
   install:
     spec:
       clusterPermissions:
@@ -129,8 +131,8 @@ spec:
                   value: prom/prometheus:v2.15.2
                 - name: RELATED_IMAGE_CONFIGMAP_RELOAD
                   value: jimmidyson/configmap-reload:v0.3.0
-                - name: RAZEE_URL
-                  value: foo
+                - name: RELATED_IMAGE_RAZEE_JOB
+                  value: quay.io/razee/razeedeploy-delta:0.3.1
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -154,6 +156,10 @@ spec:
     type: MultiNamespace
   - supported: true
     type: AllNamespaces
+  keywords:
+  - ""
+  maintainers:
+  - {}
   maturity: alpha
   provider: {}
   version: 0.0.1
