@@ -2,7 +2,7 @@ package marketplaceconfig
 
 import (
 	"context"
-	aplpha1 "k8s.io/api/rbac/v1alpha1"
+
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	pflag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -10,6 +10,7 @@ import (
 	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -231,14 +232,13 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		if err = controllerutil.SetControllerReference(marketplaceConfig, foundMeterBase, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
-
 		reqLogger.Info("found meterbase")
 	}
 
 	// Check if service account exists, or create a new one
 	foundSA := &corev1.ServiceAccount{}
 	err = r.client.Get(context.TODO(),types.NamespacedName{
-		Name: "test",
+		Name: "redhat-marketplace-operator",
 		Namespace: request.Namespace,
 	},foundSA)
 	if err != nil && errors.IsNotFound(err) {
@@ -256,7 +256,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	}
 
 	// Check for ClusterRoleBinding, or create a new one
-	foundClusterRoleBinding := &aplpha1.ClusterRoleBinding{}
+	foundClusterRoleBinding := &rbacv1.ClusterRoleBinding{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{
 		Name: "redhat-marketplace-operator",
 		Namespace: request.Namespace,
@@ -267,6 +267,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		if err != nil {
 			reqLogger.Error(err, "Failed to create an OperatorSource.", "OperatorSource.Namespace ", newClusterRoleBinding.Namespace, "OperatorSource.Name", newClusterRoleBinding.Name)
 			return reconcile.Result{}, err
+		}
 	} else if err != nil {
 		// Could not get Operator Source
 		reqLogger.Error(err, "Failed to get OperatorSource")

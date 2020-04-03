@@ -7,7 +7,7 @@ import (
 	"github.com/gotidy/ptr"
 	"github.com/imdario/mergo"
 	corev1 "k8s.io/api/core/v1"
-	aplpha1 "k8s.io/api/rbac/v1alpha1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -188,19 +188,19 @@ roleRef:
   name: redhat-marketplace-operator
   apiGroup: rbac.authorization.k8s.io
 **/
-func BuildRoleBinding(namespace string) *aplpha1.ClusterRoleBinding{
-	return &aplpha1.ClusterRoleBinding{
+func BuildRoleBinding(namespace string) *rbacv1.ClusterRoleBinding{
+	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:  namespace,
 		},
-		Subjects: []aplpha1.Subject{
-			aplpha1.Subject{
+		Subjects: []rbacv1.Subject{
+			rbacv1.Subject{
 				Kind: "ServiceAccount",
 				Name: "redhat-marketplace-operator",
 				Namespace: namespace,
 			},
 		},
-		RoleRef:aplpha1.RoleRef{
+		RoleRef:rbacv1.RoleRef{
 			Kind: "ClusterRole",
 			Name: "redhat-marketplace-operator",
 			APIGroup: "rbac.authorization.k8s.io",
