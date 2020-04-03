@@ -34,6 +34,7 @@ func GetConfigMapNames(configMapList []corev1.ConfigMap) []string {
 	return configMapNames
 }
 
+// Contains() checks if the lsit contains the key, if so - return it
 func Contains(s []string, e string) bool {
 	for _, a := range s {
 		if a == e {
@@ -55,8 +56,19 @@ func ContainsMultiple(inArray []string, referenceArray []string) []string {
 	return temp
 }
 
-func Remove(s []string, index int) []string {
+func RemoveIndex(s []string, index int) []string {
 	return append(s[:index], s[index+1:]...)
+}
+
+// Remove() will remove the key from the list
+func RemoveKey(list []string, key string) []string {
+	newList := []string{}
+	for _, s := range list {
+		if s != key {
+			newList = append(newList, s)
+		}
+	}
+	return newList
 }
 
 func RetrieveSecretField(in []byte) (string, error) {
