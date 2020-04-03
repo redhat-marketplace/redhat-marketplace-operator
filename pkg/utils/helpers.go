@@ -62,12 +62,13 @@ func RemoveIndex(s []string, index int) []string {
 
 // Remove() will remove the key from the list
 func RemoveKey(list []string, key string) []string {
-	for i, s := range list {
-		if s == key {
-			list = append(list[:i], list[i+1:]...)
+	newList := []string{}
+	for _, s := range list {
+		if s != key {
+			newList = append(newList, s)
 		}
 	}
-	return list
+	return newList
 }
 
 func RetrieveSecretField(in []byte) (string, error) {

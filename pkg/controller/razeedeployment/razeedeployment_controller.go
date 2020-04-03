@@ -29,8 +29,8 @@ import (
 )
 
 const (
-	razeeDeploymentFinalizer = "finalizer.marketplace.redhat.com"
-	RAZEE_UNINSTALL_NAME     = "razee-uninstall-job"
+	razeeDeploymentFinalizer   = "razeedeploy.finalizer.marketplace.redhat.com"
+	RAZEE_UNINSTALL_NAME       = "razee-uninstall-job"
 	DEFAULT_RAZEE_JOB_IMAGE    = "quay.io/razee/razeedeploy-delta:0.3.1"
 	DEFAULT_RAZEEDASH_URL      = `http://169.45.231.109:8081/api/v2`
 	WATCH_KEEPER_VERSION       = "0.5.0"
@@ -80,7 +80,11 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileRazeeDeployment{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	razeeOpts := &RazeeOpts{
+		RazeeJobImage: viper.GetString("razee-job-image"),
+	}
+
+	return &ReconcileRazeeDeployment{client: mgr.GetClient(), scheme: mgr.GetScheme(), opts: razeeOpts}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -109,10 +113,10 @@ type ReconcileRazeeDeployment struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
+	opts   *RazeeOpts
 }
 
 type RazeeOpts struct {
-	RazeeDashUrl  string
 	RazeeJobImage string
 	ClusterUUID   string
 }
@@ -155,43 +159,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	// Check if the RazeeDeployment instance is being marked for deletion
-	isMarkedForDeletion := instance.GetDeletionTimestamp() != nil
-	if isMarkedForDeletion {
-		if utils.Contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
-			//Run finalization logic for the razeeDeploymentFinalizer.
-			//If it fails, don't remove the finalizer so we can retry during the next reconcile
-			if err := r.finalizeRazeeDeployment(instance, request.Namespace); err != nil {
-				return reconcile.Result{}, err
-			}
-
-			// Remove the razeeDeploymentFinalizer
-			// Once all finalizers are removed, the object will be deleted
-			instance.SetFinalizers(utils.RemoveKey(instance.GetFinalizers(), razeeDeploymentFinalizer))
-			err := r.client.Update(context.TODO(), instance)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-		}
-		return reconcile.Result{}, nil
-	}
-
-	// Adding a finalizer to this CR
-	if !utils.Contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
-		if err := r.addFinalizer(instance, request.Namespace); err != nil {
-			return reconcile.Result{}, err
-		}
-	}
-
 	// if not enabled then exit
 	if !instance.Spec.Enabled {
 		reqLogger.Info("Razee not enabled")
 		return reconcile.Result{}, nil
-	}
-
-	razeeOpts := &RazeeOpts{
-		RazeeDashUrl:  viper.GetString("razeedash-url"),
-		RazeeJobImage: viper.GetString("razee-job-image"),
 	}
 
 	/******************************************************************************
@@ -294,6 +265,41 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	rhmOperatorSecretValues := RhmOperatorSecretValues{razeeDashOrgKey: obj[RAZEE_DASH_ORG_KEY_FIELD], bucketName: obj[BUCKET_NAME_FIELD], ibmCosUrl: obj[IBM_COS_URL_FIELD], childRRS3FileName: obj[CHILD_RRS3_YAML_FIELD], ibmCosReaderKey: obj[IBM_COS_READER_KEY_FIELD], razeeDashUrl: obj[RAZEE_DASH_URL_FIELD], fileSourceUrl: obj[FILE_SOURCE_URL_FIELD]}
+
+	// Check if the RazeeDeployment instance is being marked for deletion
+	isMarkedForDeletion := instance.GetDeletionTimestamp() != nil
+	if isMarkedForDeletion {
+		if utils.Contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
+			//Run finalization logic for the razeeDeploymentFinalizer.
+			//If it fails, don't remove the finalizer so we can retry during the next reconcile
+			result, err := r.finalizeRazeeDeployment(instance, request.Namespace, rhmOperatorSecretValues)
+
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+			if result != nil {
+				return *result, nil
+			}
+
+			// Remove the razeeDeploymentFinalizer
+			// Once all finalizers are removed, the object will be deleted
+			instance.SetFinalizers(utils.RemoveKey(instance.GetFinalizers(), razeeDeploymentFinalizer))
+			err = r.client.Update(context.TODO(), instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+		return reconcile.Result{}, nil
+	}
+
+	// Adding a finalizer to this CR
+	if !utils.Contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
+		if err := r.addFinalizer(instance, request.Namespace); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	// if all fields are present continue to run and update status
 	instance.Status.LocalSecretVarsPopulated = &localSecretVarsPopulated
 	*instance.Status.LocalSecretVarsPopulated = true
@@ -523,7 +529,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	/******************************************************************************
 	CREATE THE RAZEE JOB
 	/******************************************************************************/
-	job := r.MakeRazeeJob(request, razeeOpts, rhmOperatorSecretValues)
+	job := r.MakeRazeeJob(request, rhmOperatorSecretValues)
 
 	// Check if the Job exists already
 	req := reconcile.Request{
@@ -581,7 +587,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	// if the job has a status of succeeded, then apply parent rrs3 delete the job
 	if foundJob.Status.Succeeded == 1 {
 		parentRRS3 := r.MakeParentRemoteResourceS3(rhmOperatorSecretValues)
-    
+
 		err = r.client.Create(context.TODO(), parentRRS3)
 		if err != nil {
 			reqLogger.Error(err, "Failed to create parentRRS3")
@@ -655,7 +661,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 }
 
 // MakeRazeeJob returns a Batch.Job which installs razee
-func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request, opts *RazeeOpts, rhmOperatorSecretValues RhmOperatorSecretValues) *batch.Job {
+func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request, rhmOperatorSecretValues RhmOperatorSecretValues) *batch.Job {
 	return &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "razeedeploy-job",
@@ -667,7 +673,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request, opts 
 					ServiceAccountName: "redhat-marketplace-operator",
 					Containers: []corev1.Container{{
 						Name:    "razeedeploy-job",
-						Image:   DEFAULT_RAZEE_JOB_IMAGE,
+						Image:   r.opts.RazeeJobImage,
 						Command: []string{"node", "src/install", "--namespace=razee"},
 						Args:    []string{fmt.Sprintf("--file-source=%v", rhmOperatorSecretValues.fileSourceUrl), "--autoupdate"},
 					}},
@@ -679,8 +685,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request, opts 
 }
 
 // MakeRazeeUninstalllJob returns a Batch.Job which uninstalls razee
-func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(opt *RazeeOpts, namespace string) *batch.Job {
-
+func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(namespace string, rhmOperatorSecretValues RhmOperatorSecretValues) *batch.Job {
 	return &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      RAZEE_UNINSTALL_NAME,
@@ -692,9 +697,9 @@ func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(opt *RazeeOpts, namespa
 					ServiceAccountName: "redhat-marketplace-operator",
 					Containers: []corev1.Container{{
 						Name:    RAZEE_UNINSTALL_NAME,
-						Image:   opt.RazeeJobImage,
+						Image:   r.opts.RazeeJobImage,
 						Command: []string{"node", "src/remove", "--namespace=razee"},
-						Args:    []string{fmt.Sprintf("--delete-namespace=razee")},
+						Args:    []string{fmt.Sprintf("--file-source=%v", rhmOperatorSecretValues.fileSourceUrl), "--autoupdate"},
 					}},
 					RestartPolicy: "Never",
 				},
@@ -704,24 +709,78 @@ func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(opt *RazeeOpts, namespa
 }
 
 // finalizeRazeeDeployment cleans up resources before the RazeeDeployment CR is deleted
-func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(razee *marketplacev1alpha1.RazeeDeployment, namespace string) error {
-	reqLogger := log.WithValues("Request.Namespace", namespace, "Request.Name", RAZEE_UNINSTALL_NAME)
+func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(req *marketplacev1alpha1.RazeeDeployment, namespace string, rhmOperatorSecretValues RhmOperatorSecretValues) (*reconcile.Result, error) {
+	reqLogger := log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
+	reqLogger.Info("running finalizer")
 
-	razeeOpts := &RazeeOpts{
-		RazeeDashUrl:  viper.GetString("razeedash-url"),
-		RazeeJobImage: viper.GetString("razee-job-image"),
+	jobName := types.NamespacedName{
+		Name:      "razeedeploy-job",
+		Namespace: req.Namespace,
+	}
+
+	foundJob := batch.Job{}
+	reqLogger.Info("finding install job")
+	err := r.client.Get(context.TODO(), jobName, &foundJob)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return &reconcile.Result{}, err
+		}
+	}
+
+	if ! errors.IsNotFound(err) {
+		reqLogger.Info("cleaning up install job")
+		err := r.client.Delete(context.TODO(), &foundJob, client.PropagationPolicy(metav1.DeletePropagationBackground))
+		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "cleaning up install job")
+			return &reconcile.Result{}, err
+		}
+	} else {
+		reqLogger.Info("found no job to clean up")
 	}
 
 	// Deploy a job to delete razee
-	job := r.MakeRazeeUninstallJob(razeeOpts, namespace)
-	reqLogger.Info("Creating razee-uninstall-job")
-	err := r.client.Create(context.TODO(), job)
-	if err != nil {
-		reqLogger.Error(err, "Failed to create an uninstall Job on cluster")
+	jobName.Name = RAZEE_UNINSTALL_NAME
+	foundJob = batch.Job{}
+	reqLogger.Info("finding uninstall job")
+	err = r.client.Get(context.TODO(), jobName, &foundJob)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating razee-uninstall-job")
+		job := r.MakeRazeeUninstallJob(namespace, rhmOperatorSecretValues)
+		err = r.client.Create(context.TODO(), job)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create Job on cluster")
+			return &reconcile.Result{}, err
+		}
+		reqLogger.Info("job created successfully")
+		return &reconcile.Result{RequeueAfter: time.Second * 5}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get Job(s) from Cluster")
+		return &reconcile.Result{}, err
 	}
+
+	reqLogger.Info("found uninstall job")
+
+	if len(foundJob.Status.Conditions) == 0 {
+		reqLogger.Info("RazeeUninstallJob Conditions have not been propagated yet")
+		return &reconcile.Result{RequeueAfter: time.Second * 30}, nil
+	}
+
+	if foundJob.Status.Succeeded < 1 && foundJob.Status.Failed <= 3 {
+		reqLogger.Info("RazeeUnisntallJob is not successful")
+		return &reconcile.Result{RequeueAfter: time.Second * 30}, nil
+	}
+
+	reqLogger.Info("Deleteing uninstall job")
+	err = r.client.Delete(context.TODO(), &foundJob, client.PropagationPolicy(metav1.DeletePropagationBackground))
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return &reconcile.Result{}, err
+		}
+	}
+
 	reqLogger.Info("Uninstall job created successfully")
 	reqLogger.Info("Successfully finalized RazeeDeployment")
-	return nil
+	return nil, nil
 }
 
 // addFinalizer adds finalizers to the RazeeDeployment CR
@@ -737,7 +796,7 @@ func (r *ReconcileRazeeDeployment) addFinalizer(razee *marketplacev1alpha1.Razee
 	}
 	return nil
 }
-  
+
 func (r *ReconcileRazeeDeployment) MakeRazeeClusterMetaData(uuid string) *corev1.ConfigMap {
 
 	return &corev1.ConfigMap{
