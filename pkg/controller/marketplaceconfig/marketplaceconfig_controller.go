@@ -246,10 +246,10 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		reqLogger.Info("creating new ServiceAccount")
 		err = r.client.Create(context.TODO(), newSA)
 		if err != nil {
-			reqLogger.Error(err, "Failed to create an OperatorSource.", "OperatorSource.Namespace ", newSA.Namespace, "OperatorSource.Name", newSA.Name)
+			reqLogger.Error(err, "Failed to create ServiceAccount", newSA.Name)
 			return reconcile.Result{}, err
 		}
-	}else if err != nil {
+	} else if err != nil {
 		// Could not get Operator Source
 		reqLogger.Error(err, "Failed to get Service Account")
 		return reconcile.Result{}, err
@@ -265,7 +265,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		newClusterRoleBinding := utils.BuildRoleBinding(request.Namespace)
 		err = r.client.Create(context.TODO(), newClusterRoleBinding)
 		if err != nil {
-			reqLogger.Error(err, "Failed to create an OperatorSource.", "OperatorSource.Namespace ", newClusterRoleBinding.Namespace, "OperatorSource.Name", newClusterRoleBinding.Name)
+			reqLogger.Error(err,"Failed to create new ClusterRoleBinding",newClusterRoleBinding.Name)
 			return reconcile.Result{}, err
 		}
 	} else if err != nil {
