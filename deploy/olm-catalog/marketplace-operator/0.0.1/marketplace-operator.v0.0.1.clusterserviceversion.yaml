@@ -90,7 +90,28 @@ spec:
       name: razeedeployments.marketplace.redhat.com
       version: v1alpha1
       displayName: razee-deployment-config.cr
-  description: Placeholder description
+  description: |
+    The Redhat Marketplacr Operator maintains four controllers: ....
+
+    ### RazeeDeployment Controller:
+    * **Installer** A way to install a 3scale API Management solution, providing configurability options at the time of installation
+   
+    ### Documentation
+    
+
+    ### Getting help
+    If you encounter any issues while using 3scale operator, you can create an issue on our [Github repo](TODO: our repo) for bugs, enhancements, or other requests.
+
+    ### Contributing
+    You can contribute by: 
+
+    * Raising any issues you find using the Redhat Marketplace Operator
+    * Fixing issues by opening [Pull Requests](TODO: our repo)
+    * Improving [documentation](TODO: our repo)
+   
+
+    ### License
+    TODO: our license information
   displayName: RedhatMarketplace Operator
   icon:
   - base64data: ""
