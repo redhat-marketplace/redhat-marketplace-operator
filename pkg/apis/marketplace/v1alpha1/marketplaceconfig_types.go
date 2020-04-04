@@ -25,6 +25,7 @@ type MarketplaceConfigStatus struct {
 // MarketplaceConfig is the Schema for the marketplaceconfigs API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=marketplaceconfigs,scope=Namespaced
+// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Marketplace"
 type MarketplaceConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redhat-marketplace-operator
-  namespace: redhat-marketplace-operator
 spec:
   replicas: 1
   selector:
@@ -31,7 +30,7 @@ spec:
             - name: RELATED_IMAGE_CONFIGMAP_RELOAD
               value: "jimmidyson/configmap-reload:v0.3.0"
             - name: RELATED_IMAGE_RAZEE_JOB
-              value: "{{.RELATED_IMAGE_RAZEE_JOB}}"
+              value: "quay.io/razee/razeedeploy-delta:0.3.1"
             - name: WATCH_NAMESPACE
               value: "" # watch all namespaces
             - name: POD_NAME

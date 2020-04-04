@@ -15,8 +15,6 @@ SECRETS_NAME := my-docker-secrets
 OPERATOR_IMAGE := $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
 AGENT_IMAGE := $(IMAGE_REGISTRY)/$(AGENT_IMAGE_NAME):$(AGENT_IMAGE_TAG)
 
-include scripts/RegistryMakefile
-
 .DEFAULT_GOAL := help
 
 ##@ Application
@@ -75,7 +73,10 @@ push: push ## Push the operator image
 	docker push $(OPERATOR_IMAGE)
 
 generate-csv: ## Generate the csv
-	operator-sdk generate csv --csv-version $(VERSION) --csv-config=./deploy/olm-catalog/csv-config.yaml
+	operator-sdk generate csv --csv-version $(VERSION) --csv-config=./deploy/olm-catalog/csv-config.yaml --update-crds
+
+docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
+	@docker login -u="$(DOCKER_USER)" -p="$(DOCKER_PASSWORD)" quay.io
 
 ##@ Development
 
@@ -151,7 +152,10 @@ clean: ##delete the contents created in 'make create'
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml --namespace=${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml --namespace=${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml --namespace=${NAMESPACE}
-	- kubectl delete namespace razee
+
+delete-razee: ##delete the razee CR
+	@echo deleting razee CR
+	- kubectl delete -f  deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
 
 ##@ Tests
 

@@ -28,6 +28,7 @@ type MeteringStatus struct {
 // Metering is the Schema for the meterings API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=meterings,scope=Namespaced
+// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="(Internal) Meters"
 type Metering struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
