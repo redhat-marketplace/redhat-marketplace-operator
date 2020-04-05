@@ -21,9 +21,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -56,6 +58,9 @@ var (
 	localSecretVarsPopulated     bool = false
 	redHatMarketplaceSecretFound bool = false
 	RELATED_IMAGE_RAZEE_JOB           = "RELATED_IMAGE_RAZEE_JOB"
+	rhmSecretName = "rhm-operator-secret"
+	clusterUUID = ""
+	globalStruct = GlobalStruct{}
 )
 
 func init() {
@@ -101,7 +106,28 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	// TODO: watch full CRUD operations ? 
+	// TODO: change the name of "combined-secret"
+	pred := predicate.Funcs{
+		DeleteFunc: func(e event.DeleteEvent) bool {
+		  return e.Meta.GetName() == "rhm-operator-secret"
+		},
+		CreateFunc: func(e event.CreateEvent) bool{
+			return e.Meta.GetName() == "rhm-operator-secret" 
+		},
+	}
+
+	err = c.Watch(
+		&source.Kind{Type: &corev1.Secret{}},
+		&handler.EnqueueRequestForObject{},
+		pred,
+	)
+	if err != nil {
+		return err
+	}
+
 	return nil
+	
 }
 
 // blank assignment to verify that ReconcileRazeeDeployment implements reconcile.Reconciler
@@ -132,6 +158,12 @@ type RhmOperatorSecretValues struct {
 	ibmCosFullUrl     string
 }
 
+type GlobalStruct struct {
+	ClusterUUID string
+	RhmSecretName string
+	RazeeDeployInstance marketplacev1alpha1.RazeeDeployment
+}
+
 // Reconcile reads that state of the cluster for a RazeeDeployment object and makes changes based on the state read
 // and what is in the RazeeDeployment.Spec
 // TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
@@ -143,569 +175,544 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling RazeeDeployment")
 
-	// Fetch the RazeeDeployment instance
-	instance := &marketplacev1alpha1.RazeeDeployment{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	/*
+	TODO: CHECK THE REQUEST METADATA TO SEE IF THE REQUEST IS COMING FROM RAZEEDEPLOYMENT OR RHM-OPERATOR SECRET
+	*/
+	rhmOperatorSecretValues := RhmOperatorSecretValues{}
+	switch request.Name {
+/****************************************************************************************************************************************************************************************************************************
+RECONCILE RAZEE INSTANCE
+*****************************************************************************************************************************************************************************************************************************/
+		case  "rhm-operator-secret":
+			combinedSecret := corev1.Secret{}
+			err := r.client.Get(context.TODO(), types.NamespacedName{
+				Name:      rhmSecretName,
+				Namespace: request.Namespace,
+			}, &combinedSecret)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					// Request object not found, could have been deleted after reconcile request.
+					// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+					// Return and don't requeue
+					// report to status that we haven't found the secret
+					reqLogger.Info("Updating RedHatMarketplaceSecretFound")
+					globalStruct.RazeeDeployInstance.Status.RedHatMarketplaceSecretFound = &redHatMarketplaceSecretFound
+					*globalStruct.RazeeDeployInstance.Status.RedHatMarketplaceSecretFound = false
+					err = r.client.Status().Update(context.TODO(), &globalStruct.RazeeDeployInstance)
+					if err != nil {
+						reqLogger.Error(err, "Failed to update Status.RedHatMarketplaceSecretFound")
+					}
+					reqLogger.Error(err, "Failed to find operator secret")
+					return reconcile.Result{}, nil
+				}
+				// Error reading the object - requeue the request.
+				return reconcile.Result{}, err
+			}
 
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			reqLogger.Error(err, "Failed to find RazeeDeployment instance")
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
-	}
+			globalStruct.RazeeDeployInstance.Status.RedHatMarketplaceSecretFound = &redHatMarketplaceSecretFound
+			reqLogger.Info("Updating Status.RedhatMarketplaceSecretFound")
+			*globalStruct.RazeeDeployInstance.Status.RedHatMarketplaceSecretFound = true
+			err = r.client.Status().Update(context.TODO(), &globalStruct.RazeeDeployInstance)
+			if err!=nil{
+				fmt.Println(globalStruct.RazeeDeployInstance)
+				reqLogger.Error(err, "Failed to update Status.RedhatMarketplaceSecretFound")
+			}
+		
+			/*
+			CHECK FOR MISSING VALUES ON THE SECRET
+			*/
+			searchItems := []string{IBM_COS_READER_KEY_FIELD, BUCKET_NAME_FIELD, IBM_COS_URL_FIELD, RAZEE_DASH_ORG_KEY_FIELD, CHILD_RRS3_YAML_FIELD, RAZEE_DASH_URL_FIELD, FILE_SOURCE_URL_FIELD}
+			missingItems := []string{}
+			for _, searchItem := range searchItems {
+				if _, ok := combinedSecret.Data[searchItem]; !ok {
+					reqLogger.Info("missing value", searchItem)
+					missingItems = append(missingItems, searchItem)
+				}
+			}
 
-	// if not enabled then exit
-	if !instance.Spec.Enabled {
-		reqLogger.Info("Razee not enabled")
-		return reconcile.Result{}, nil
-	}
+			// update missing resources if necessary
+			globalStruct.RazeeDeployInstance.Status.MissingValuesFromSecret = &missingValuesFromSecretSlice
+			if !reflect.DeepEqual(missingItems, *globalStruct.RazeeDeployInstance.Status.MissingValuesFromSecret) {
+				reqLogger.Info("Missing Resources Detected on Secret")
+				*globalStruct.RazeeDeployInstance.Status.MissingValuesFromSecret = missingItems
+				err := r.client.Status().Update(context.TODO(), &globalStruct.RazeeDeployInstance)
+				if err != nil {
+					reqLogger.Error(err, "Failed to update missing resources status")
+					return reconcile.Result{}, nil
+				}
+				reqLogger.Info("Updated MissingValuesFromSecret")
+			}
 
-	/******************************************************************************
-	CHECK THE INSTANCE FOR VALUES PASSED DOWN FROM MARKETPLACE CONFIG
-	check the instance for rhmSecretNameNonNil
-	check the instance for *clusterUUID
-	/******************************************************************************/
-	rhmSecretName := "rhm-operator-secret"
-	clusterUUID := &instance.Spec.ClusterUUID
+			// if there are missing fields on the secret then exit
+			if len(missingItems) > 0 {
+				reqLogger.Info("missing required prerequisites for razee install")
+				return reconcile.Result{}, nil
+			}
 
-	if instance.Spec.DeploySecretName != nil {
-		rhmSecretName = *instance.Spec.DeploySecretName
-	}
+			/******************************************************************************
+			3.) POPULATE STRUCT TO HOLD SECRET VALUES
+			if there are not missing fields on the secret then continue to populate vars
+			/******************************************************************************/
+			reqLogger.Info("Gathering local vars")
+			obj, err := utils.AddSecretFieldsToObj(combinedSecret.Data)
+			if err != nil {
+				reqLogger.Error(err, "Failed to populate secret data into local vars")
+				*globalStruct.RazeeDeployInstance.Status.LocalSecretVarsPopulated = false
+			}
 
-	/******************************************************************************
-	CHECK FOR COMBINED SECRET
-	check for the presence of the combined secret
-	/******************************************************************************/
-	combinedSecret := corev1.Secret{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name:      rhmSecretName,
-		Namespace: request.Namespace,
-	}, &combinedSecret)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			// report to status that we haven't found the secret
-			reqLogger.Info("Updating RedHatMarketplaceSecretFound")
+			// if no errors, check the obj to make sure there are no nil values
+			for key, value := range obj {
+				if key == "" || value == "" {
+					reqLogger.Error(err, "Local var not populated")
+					globalStruct.RazeeDeployInstance.Status.LocalSecretVarsPopulated = &localSecretVarsPopulated
+					*globalStruct.RazeeDeployInstance.Status.LocalSecretVarsPopulated = false
+					return reconcile.Result{}, nil
+				}
+			}
+
+			rhmOperatorSecretValues = RhmOperatorSecretValues{razeeDashOrgKey: obj[RAZEE_DASH_ORG_KEY_FIELD], bucketName: obj[BUCKET_NAME_FIELD], ibmCosUrl: obj[IBM_COS_URL_FIELD], childRRS3FileName: obj[CHILD_RRS3_YAML_FIELD], ibmCosReaderKey: obj[IBM_COS_READER_KEY_FIELD], razeeDashUrl: obj[RAZEE_DASH_URL_FIELD], fileSourceUrl: obj[FILE_SOURCE_URL_FIELD]}
+			
+			// if all fields are present continue to run and update status
+			globalStruct.RazeeDeployInstance.Status.LocalSecretVarsPopulated = &localSecretVarsPopulated
+			*globalStruct.RazeeDeployInstance.Status.LocalSecretVarsPopulated = true
+			err = r.client.Status().Update(context.TODO(), &globalStruct.RazeeDeployInstance)
+			if err != nil {
+				reqLogger.Error(err, "Failed to update Status.LocalVarsPopulated")
+			}
+			reqLogger.Info("Local vars have been populated")
+
+			rhmOperatorSecretValues.ibmCosFullUrl = fmt.Sprintf("%s/%s/%s/%s", obj[IBM_COS_URL_FIELD], obj[BUCKET_NAME_FIELD], clusterUUID, obj[CHILD_RRS3_YAML_FIELD])
+/****************************************************************************************************************************************************************************************************************************
+RECONCILE RAZEE INSTANCE
+*****************************************************************************************************************************************************************************************************************************/
+		case "rhm-marketplaceconfig-razeedeployment":
+			reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+			reqLogger.Info("Beginning of RazeeDeploy Instance reconciler")
+			// Fetch the RazeeDeployment instance
+			instance := &marketplacev1alpha1.RazeeDeployment{}
+			err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					// Request object not found, could have been deleted after reconcile request.
+					// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+					// Return and don't requeue
+					reqLogger.Error(err, "Failed to find RazeeDeployment instance")
+					return reconcile.Result{}, nil
+				}
+				// Error reading the object - requeue the request.
+				return reconcile.Result{}, err
+			}
+		
+
+			// if not enabled then exit
+			if !instance.Spec.Enabled {
+				reqLogger.Info("Razee not enabled")
+				return reconcile.Result{}, nil
+			}
+			fmt.Println(instance)
+			/******************************************************************************
+			CHECK THE INSTANCE FOR VALUES PASSED DOWN FROM MARKETPLACE CONFIG
+			check the instance for rhmSecretNameNonNil
+			check the instance for *clusterUUID
+			/******************************************************************************/
+			
+			clusterUUID = instance.Spec.ClusterUUID
+			
+			if instance.Spec.DeploySecretName != nil {
+				reqLogger.Info("Setting Global Struct values")
+				fmt.Println(instance)
+				rhmSecretName = *instance.Spec.DeploySecretName
+				globalStruct = GlobalStruct{RhmSecretName: rhmSecretName,ClusterUUID:clusterUUID,RazeeDeployInstance: *instance}
+			}
+			
+			// Check if the RazeeDeployment instance is being marked for deletion
+			isMarkedForDeletion := instance.GetDeletionTimestamp() != nil
+			if isMarkedForDeletion {
+				if utils.Contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
+					//Run finalization logic for the razeeDeploymentFinalizer.
+					//If it fails, don't remove the finalizer so we can retry during the next reconcile
+					result, err := r.finalizeRazeeDeployment(instance, request.Namespace, rhmOperatorSecretValues)
+
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+
+					if result != nil {
+						return *result, nil
+					}
+
+					// Remove the razeeDeploymentFinalizer
+					// Once all finalizers are removed, the object will be deleted
+					instance.SetFinalizers(utils.RemoveKey(instance.GetFinalizers(), razeeDeploymentFinalizer))
+					err = r.client.Update(context.TODO(), instance)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+				}
+				return reconcile.Result{}, nil
+			}
+
+			
+			// Adding a finalizer to this CR
+			if !utils.Contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
+				if err := r.addFinalizer(instance, request.Namespace); err != nil {
+					return reconcile.Result{}, err
+				}
+			}
+
+			/******************************************************************************
+			PROCEED WITH CREATING RAZEEDEPLOY-JOB? YES/NO
+			do we have all the fields from rhm-secret ? (combined secret)
+			check that we can continue with applying the razee job
+			if the job has already run exit
+			if there are still missing resources exit
+			/******************************************************************************/
 			instance.Status.RedHatMarketplaceSecretFound = &redHatMarketplaceSecretFound
-			*instance.Status.RedHatMarketplaceSecretFound = false
+			if !*instance.Status.RedHatMarketplaceSecretFound {
+				reqLogger.Info("rhm-operator-secret has not been applied")
+				return reconcile.Result{}, nil
+			}
+
+			instance.Status.MissingValuesFromSecret = &missingValuesFromSecretSlice
+			if instance.Status.JobState.Succeeded == 1 || len(*instance.Status.MissingValuesFromSecret) > 0 {
+				reqLogger.Info("RazeeDeployJob has been successfully created")
+				return reconcile.Result{}, nil
+			}
+
+			/******************************************************************************
+			APPLY RAZEE RESOURCES
+			/******************************************************************************/
+			instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
+			razeeNamespace := corev1.Namespace{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee"}, &razeeNamespace)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					reqLogger.Info("razee namespace does not exist - creating")
+					razeeNamespace.ObjectMeta.Name = "razee"
+					err = r.client.Create(context.TODO(), &razeeNamespace)
+					if err != nil {
+						reqLogger.Error(err, "Failed to create razee namespace.")
+					}
+					reqLogger.Info("Razee namespace created successfully")
+					*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, fmt.Sprintf("%v namespace", razeeNamespace.Name))
+				} else {
+					reqLogger.Error(err, "Failed to get razee ns.")
+					return reconcile.Result{}, err
+				}
+			}
+			if &razeeNamespace != nil {
+				reqLogger.Info("razee namespace already exists - overwriting")
+				razeeNamespace.ObjectMeta.Name = "razee"
+				err = r.client.Update(context.TODO(), &razeeNamespace)
+				if err != nil {
+					reqLogger.Error(err, "Failed to update razee namespace")
+				}
+			}
+
+			watchKeeperNonNamespace := corev1.ConfigMap{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-non-namespaced", Namespace: "razee"}, &watchKeeperNonNamespace)
+			// else create
+			if err != nil {
+				if errors.IsNotFound(err) {
+					watchKeeperNonNamespace = *r.MakeWatchKeeperNonNamespace()
+					err = r.client.Create(context.TODO(), &watchKeeperNonNamespace)
+					if err != nil {
+						reqLogger.Error(err, "Failed to create watch-keeper-non-namespace")
+						return reconcile.Result{}, err
+					}
+					*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperNonNamespace.Name)
+					reqLogger.Info("watch-keeper-non-namespace created successfully")
+				} else {
+					reqLogger.Error(err, "Failed to get watch-keeper-non-namespace.")
+					return reconcile.Result{}, err
+				}
+			}
+			if &watchKeeperNonNamespace != nil {
+				reqLogger.Info("watch-keeper-non-namespace configmap already exists - overwriting")
+				watchKeeperNonNamespace = *r.MakeWatchKeeperNonNamespace()
+				err = r.client.Update(context.TODO(), &watchKeeperNonNamespace)
+				if err != nil {
+					reqLogger.Error(err, "Failed to overwrite watch-keeper-non-namespace config map")
+				}
+			}
+
+			// // apply watch-keeper-limit-poll config map
+			watchKeeperLimitPoll := corev1.ConfigMap{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-limit-poll", Namespace: "razee"}, &watchKeeperLimitPoll)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					watchKeeperLimitPoll = *r.MakeWatchKeeperLimitPoll()
+					err = r.client.Create(context.TODO(), &watchKeeperLimitPoll)
+					if err != nil {
+						reqLogger.Error(err, "Failed to create watch-keeper-limit-poll config map")
+						return reconcile.Result{}, err
+					}
+					*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperLimitPoll.Name)
+					reqLogger.Info("watch-keeper-limit-poll config map created successfully")
+				} else {
+					reqLogger.Error(err, "Failed to get watch-keeper-limit-poll config map.")
+					return reconcile.Result{}, err
+				}
+			}
+			if &watchKeeperLimitPoll != nil {
+				reqLogger.Info("watch-keeper-limit-poll configmap already exists - overwriting")
+				watchKeeperLimitPoll = *r.MakeWatchKeeperLimitPoll()
+				err = r.client.Update(context.TODO(), &watchKeeperLimitPoll)
+				if err != nil {
+					reqLogger.Error(err, "Failed to overwrite watch-keeper-limit-poll config map")
+				}
+			}
+
+			// // create razee-cluster-metadata
+			razeeClusterMetaData := corev1.ConfigMap{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee-cluster-metadata", Namespace: "razee"}, &razeeClusterMetaData)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					razeeClusterMetaData = *r.MakeRazeeClusterMetaData(clusterUUID)
+					err = r.client.Create(context.TODO(), &razeeClusterMetaData)
+					if err != nil {
+						reqLogger.Error(err, "Failed to create razee-cluster-metadata config map")
+					}
+					*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, razeeClusterMetaData.Name)
+					reqLogger.Info("razee-cluster-metadata config map created successfully")
+				} else {
+					reqLogger.Error(err, "Failed to get razee-cluster-metadata config map.")
+					return reconcile.Result{}, err
+				}
+			}
+			if &razeeClusterMetaData != nil {
+				reqLogger.Info("razee-cluster-metadata config map already exists - overwriting")
+				razeeClusterMetaData := r.MakeRazeeClusterMetaData(clusterUUID)
+				err = r.client.Update(context.TODO(), razeeClusterMetaData)
+				if err != nil {
+					reqLogger.Error(err, "Failed to overwrite razee-cluster-metadata config map")
+				}
+			}
+
+			// create watch-keeper-config
+			watchKeeperConfig := r.MakeWatchKeeperConfig(rhmOperatorSecretValues)
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: watchKeeperConfig.Name, Namespace: "razee"}, watchKeeperConfig)
+			// else create
+			if err != nil {
+				if errors.IsNotFound(err) {
+					watchKeeperConfig = r.MakeWatchKeeperConfig(rhmOperatorSecretValues)
+					err = r.client.Create(context.TODO(), watchKeeperConfig)
+					if err != nil {
+						reqLogger.Error(err, "Failed to create watch-keeper-config")
+					}
+					*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperConfig.Name)
+					reqLogger.Info("watch-keeper-config created successfully")
+				} else {
+					reqLogger.Error(err, "Failed to get watch-keeper-config.")
+					return reconcile.Result{}, err
+				}
+			}
+			if watchKeeperConfig != nil {
+				reqLogger.Info("watch-keeper-config already exists - overwriting")
+				watchKeeperConfig = r.MakeWatchKeeperConfig(rhmOperatorSecretValues)
+				err = r.client.Update(context.TODO(), watchKeeperConfig)
+				if err != nil {
+					reqLogger.Error(err, "Failed to update watch-keeper-config")
+				}
+				reqLogger.Info("watch-keeper-config updated successfully")
+			}
+
+			// create watch-keeper-secret
+			watchKeeperSecret := corev1.Secret{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-secret", Namespace: "razee"}, &watchKeeperSecret)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					watchKeeperSecret = *r.MakeWatchKeeperSecret(rhmOperatorSecretValues)
+					err = r.client.Create(context.TODO(), &watchKeeperSecret)
+					if err != nil {
+						reqLogger.Error(err, "Failed to create watch-keeper-secret")
+					}
+					*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperSecret.Name)
+					reqLogger.Info("watch-keeper-secret created successfully")
+				} else {
+					reqLogger.Error(err, "Failed to get watch-keeper-secret.")
+					return reconcile.Result{}, err
+				}
+			}
+			if &watchKeeperSecret != nil {
+				reqLogger.Info("watch-keeper-secret already exists - overwriting")
+				watchKeeperSecret = *r.MakeWatchKeeperSecret(rhmOperatorSecretValues)
+				err = r.client.Update(context.TODO(), &watchKeeperSecret)
+				if err != nil {
+					reqLogger.Error(err, "Failed to update watch-keeper-secret")
+				}
+				reqLogger.Info("watch-keeper-secret updated successfully")
+			}
+
+			// create watch-keeper-config
+			ibmCosReaderKey := corev1.Secret{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: "ibm-cos-reader-key", Namespace: "razee"}, &ibmCosReaderKey)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					ibmCosReaderKey = *r.MakeCOSReaderSecret(rhmOperatorSecretValues)
+					err = r.client.Create(context.TODO(), &ibmCosReaderKey)
+					if err != nil {
+						reqLogger.Error(err, "Failed to create ibm-cos-reader-key")
+					}
+					*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, ibmCosReaderKey.Name)
+					reqLogger.Info("ibm-cos-reader-key created successfully")
+				} else {
+					reqLogger.Error(err, "Failed to get ibm-cos-reader-key.")
+					return reconcile.Result{}, err
+				}
+			}
+			if &ibmCosReaderKey != nil {
+				ibmCosReaderKey = *r.MakeCOSReaderSecret(rhmOperatorSecretValues)
+				reqLogger.Info("ibm-cos-reader-key already exists - overwriting")
+				err = r.client.Update(context.TODO(), &ibmCosReaderKey)
+				if err != nil {
+					reqLogger.Error(err, "Failed to update ibm-cos-reader-key")
+				}
+				reqLogger.Info("ibm-cos-reader-key updated successfully")
+			}
+
+			// if everything gets applied without errors update the status
 			err = r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
-				reqLogger.Error(err, "Failed to update Status.RedHatMarketplaceSecretFound")
-			}
-			reqLogger.Error(err, "Failed to find operator secret")
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
-	}
-
-	instance.Status.RedHatMarketplaceSecretFound = &redHatMarketplaceSecretFound
-	*instance.Status.RedHatMarketplaceSecretFound = true
-	err = r.client.Status().Update(context.TODO(), instance)
-
-	/******************************************************************************
-	CHECK FOR MISSING SECRET VALUES
-	if the secret is present on the cluster then check the secret for the correct fields
-	check for the presence of the combined secret
-	/******************************************************************************/
-	searchItems := []string{IBM_COS_READER_KEY_FIELD, BUCKET_NAME_FIELD, IBM_COS_URL_FIELD, RAZEE_DASH_ORG_KEY_FIELD, CHILD_RRS3_YAML_FIELD, RAZEE_DASH_URL_FIELD, FILE_SOURCE_URL_FIELD}
-	missingItems := []string{}
-	for _, searchItem := range searchItems {
-		if _, ok := combinedSecret.Data[searchItem]; !ok {
-			reqLogger.Info("missing value", searchItem)
-			missingItems = append(missingItems, searchItem)
-		}
-	}
-
-	// update missing resources if necessary
-	instance.Status.MissingValuesFromSecret = &missingValuesFromSecretSlice
-	if !reflect.DeepEqual(missingItems, *instance.Status.MissingValuesFromSecret) {
-		reqLogger.Info("Missing Resources Detected on Secret")
-		*instance.Status.MissingValuesFromSecret = missingItems
-		err = r.client.Status().Update(context.TODO(), instance)
-		if err != nil {
-			reqLogger.Error(err, "Failed to update missing resources status")
-			return reconcile.Result{}, nil
-		}
-		reqLogger.Info("Updated MissingValuesFromSecret")
-	}
-
-	// if there are missing fields on the secret then exit
-	if len(missingItems) > 0 {
-		reqLogger.Info("missing required prerequisites for razee install")
-		return reconcile.Result{}, nil
-	}
-
-	/******************************************************************************
-	3.) POPULATE THE SECRET VALUES
-	if there are not missing fields on the secret then continue to populate vars
-	/******************************************************************************/
-	reqLogger.Info("Gathering local vars")
-	obj, err := utils.AddSecretFieldsToObj(combinedSecret.Data)
-	if err != nil {
-		reqLogger.Error(err, "Failed to populate secret data into local vars")
-		*instance.Status.LocalSecretVarsPopulated = false
-	}
-
-	// if no errors, check the obj to make sure there are no nil values
-	for key, value := range obj {
-		if key == "" || value == "" {
-			reqLogger.Error(err, "Local var not populated")
-			instance.Status.LocalSecretVarsPopulated = &localSecretVarsPopulated
-			*instance.Status.LocalSecretVarsPopulated = false
-			return reconcile.Result{}, nil
-		}
-	}
-
-	rhmOperatorSecretValues := RhmOperatorSecretValues{razeeDashOrgKey: obj[RAZEE_DASH_ORG_KEY_FIELD], bucketName: obj[BUCKET_NAME_FIELD], ibmCosUrl: obj[IBM_COS_URL_FIELD], childRRS3FileName: obj[CHILD_RRS3_YAML_FIELD], ibmCosReaderKey: obj[IBM_COS_READER_KEY_FIELD], razeeDashUrl: obj[RAZEE_DASH_URL_FIELD], fileSourceUrl: obj[FILE_SOURCE_URL_FIELD]}
-
-	// Check if the RazeeDeployment instance is being marked for deletion
-	isMarkedForDeletion := instance.GetDeletionTimestamp() != nil
-	if isMarkedForDeletion {
-		if utils.Contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
-			//Run finalization logic for the razeeDeploymentFinalizer.
-			//If it fails, don't remove the finalizer so we can retry during the next reconcile
-			result, err := r.finalizeRazeeDeployment(instance, request.Namespace, rhmOperatorSecretValues)
-
-			if err != nil {
+				reqLogger.Error(err, "Failed to update status")
 				return reconcile.Result{}, err
 			}
 
-			if result != nil {
-				return *result, nil
+			reqLogger.Info("prerequisite resource have been created")
+
+			/******************************************************************************
+			CREATE THE RAZEE JOB
+			/******************************************************************************/
+			job := r.MakeRazeeJob(request, rhmOperatorSecretValues)
+
+			// Check if the Job exists already
+			req := reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      "razeedeploy-job",
+					Namespace: request.Namespace,
+				},
 			}
 
-			// Remove the razeeDeploymentFinalizer
-			// Once all finalizers are removed, the object will be deleted
-			instance.SetFinalizers(utils.RemoveKey(instance.GetFinalizers(), razeeDeploymentFinalizer))
-			err = r.client.Update(context.TODO(), instance)
-			if err != nil {
+			foundJob := batch.Job{}
+			err = r.client.Get(context.TODO(), req.NamespacedName, &foundJob)
+			// if the job doesn't exist create it
+			if err != nil && errors.IsNotFound(err) {
+				reqLogger.Info("Creating razzeedeploy-job")
+				err = r.client.Create(context.TODO(), job)
+				if err != nil {
+					reqLogger.Error(err, "Failed to create Job on cluster")
+					return reconcile.Result{}, err
+				}
+				reqLogger.Info("job created successfully")
+				// requeue to grab the "foundJob" and continue to update status
+				// wait 30 seconds so the job has time to complete
+				// not entirely necessary, but the struct on Status.Conditions needs the Conditions in the job to be populated.
+				return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+				// return reconcile.Result{Requeue: true}, nil
+				// return reconcile.Result{}, nil
+			} else if err != nil {
+				reqLogger.Error(err, "Failed to get Job(s) from Cluster")
 				return reconcile.Result{}, err
 			}
-		}
-		return reconcile.Result{}, nil
-	}
 
-	// Adding a finalizer to this CR
-	if !utils.Contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
-		if err := r.addFinalizer(instance, request.Namespace); err != nil {
-			return reconcile.Result{}, err
-		}
-	}
-
-	// if all fields are present continue to run and update status
-	instance.Status.LocalSecretVarsPopulated = &localSecretVarsPopulated
-	*instance.Status.LocalSecretVarsPopulated = true
-	err = r.client.Status().Update(context.TODO(), instance)
-	if err != nil {
-		reqLogger.Error(err, "Failed to update Status.LocalVarsPopulated")
-	}
-	reqLogger.Info("Local vars have been populated")
-
-	rhmOperatorSecretValues.ibmCosFullUrl = fmt.Sprintf("%s/%s/%s/%s", obj[IBM_COS_URL_FIELD], obj[BUCKET_NAME_FIELD], *clusterUUID, obj[CHILD_RRS3_YAML_FIELD])
-
-	/******************************************************************************
-		PROCEED WITH CREATING RAZEEDEPLOY-JOB? YES/NO
-		do we have all the fields from rhm-secret ? (combined secret)
-		check that we can continue with applying the razee job
-		if the job has already run exit
-		if there are still missing resources exit
-	/******************************************************************************/
-	if instance.Status.JobState.Succeeded == 1 || len(*instance.Status.MissingValuesFromSecret) > 0 {
-		reqLogger.Info("RazeeDeployJob has been successfully created")
-		return reconcile.Result{}, nil
-	}
-
-	/******************************************************************************
-	APPLY RAZEE RESOURCES
-	/******************************************************************************/
-	instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
-	razeeNamespace := corev1.Namespace{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee"}, &razeeNamespace)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("razee namespace does not exist - creating")
-			razeeNamespace.ObjectMeta.Name = "razee"
-			err = r.client.Create(context.TODO(), &razeeNamespace)
-			if err != nil {
-				reqLogger.Error(err, "Failed to create razee namespace.")
-			}
-			reqLogger.Info("Razee namespace created successfully")
-			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, fmt.Sprintf("%v namespace", razeeNamespace.Name))
-		} else {
-			reqLogger.Error(err, "Failed to get razee ns.")
-			return reconcile.Result{}, err
-		}
-	}
-	if &razeeNamespace != nil {
-		reqLogger.Info("razee namespace already exists - overwriting")
-		razeeNamespace.ObjectMeta.Name = "razee"
-		err = r.client.Update(context.TODO(), &razeeNamespace)
-		if err != nil {
-			reqLogger.Error(err, "Failed to update razee namespace")
-		}
-	}
-
-	watchKeeperNonNamespace := corev1.ConfigMap{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-non-namespaced", Namespace: "razee"}, &watchKeeperNonNamespace)
-	// else create
-	if err != nil {
-		if errors.IsNotFound(err) {
-			watchKeeperNonNamespace = *r.MakeWatchKeeperNonNamespace()
-			err = r.client.Create(context.TODO(), &watchKeeperNonNamespace)
-			if err != nil {
-				reqLogger.Error(err, "Failed to create watch-keeper-non-namespace")
+			if err := controllerutil.SetControllerReference(instance, &foundJob, r.scheme); err != nil {
+				reqLogger.Error(err, "Failed to set controller reference")
 				return reconcile.Result{}, err
 			}
-			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperNonNamespace.Name)
-			reqLogger.Info("watch-keeper-non-namespace created successfully")
-		} else {
-			reqLogger.Error(err, "Failed to get watch-keeper-non-namespace.")
-			return reconcile.Result{}, err
-		}
-	}
-	if &watchKeeperNonNamespace != nil {
-		reqLogger.Info("watch-keeper-non-namespace configmap already exists - overwriting")
-		watchKeeperNonNamespace = *r.MakeWatchKeeperNonNamespace()
-		err = r.client.Update(context.TODO(), &watchKeeperNonNamespace)
-		if err != nil {
-			reqLogger.Error(err, "Failed to overwrite watch-keeper-non-namespace config map")
-		}
-	}
 
-	// // apply watch-keeper-limit-poll config map
-	watchKeeperLimitPoll := corev1.ConfigMap{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-limit-poll", Namespace: "razee"}, &watchKeeperLimitPoll)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			watchKeeperLimitPoll = *r.MakeWatchKeeperLimitPoll()
-			err = r.client.Create(context.TODO(), &watchKeeperLimitPoll)
-			if err != nil {
-				reqLogger.Error(err, "Failed to create watch-keeper-limit-poll config map")
-				return reconcile.Result{}, err
+			if len(foundJob.Status.Conditions) == 0 {
+				reqLogger.Info("RazeeJob Conditions have not been propagated yet")
+				return reconcile.Result{RequeueAfter: time.Second * 30}, nil
 			}
-			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperLimitPoll.Name)
-			reqLogger.Info("watch-keeper-limit-poll config map created successfully")
-		} else {
-			reqLogger.Error(err, "Failed to get watch-keeper-limit-poll config map.")
-			return reconcile.Result{}, err
-		}
-	}
-	if &watchKeeperLimitPoll != nil {
-		reqLogger.Info("watch-keeper-limit-poll configmap already exists - overwriting")
-		watchKeeperLimitPoll = *r.MakeWatchKeeperLimitPoll()
-		err = r.client.Update(context.TODO(), &watchKeeperLimitPoll)
-		if err != nil {
-			reqLogger.Error(err, "Failed to overwrite watch-keeper-limit-poll config map")
-		}
-	}
 
-	// // create razee-cluster-metadata
-	razeeClusterMetaData := corev1.ConfigMap{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee-cluster-metadata", Namespace: "razee"}, &razeeClusterMetaData)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			razeeClusterMetaData = *r.MakeRazeeClusterMetaData(*clusterUUID)
-			err = r.client.Create(context.TODO(), &razeeClusterMetaData)
-			if err != nil {
-				reqLogger.Error(err, "Failed to create razee-cluster-metadata config map")
+			// Update status and conditions
+			instance.Status.JobState = foundJob.Status
+			for _, jobCondition := range foundJob.Status.Conditions {
+				instance.Status.Conditions = &jobCondition
 			}
-			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, razeeClusterMetaData.Name)
-			reqLogger.Info("razee-cluster-metadata config map created successfully")
-		} else {
-			reqLogger.Error(err, "Failed to get razee-cluster-metadata config map.")
-			return reconcile.Result{}, err
-		}
-	}
-	if &razeeClusterMetaData != nil {
-		reqLogger.Info("razee-cluster-metadata config map already exists - overwriting")
-		razeeClusterMetaData := r.MakeRazeeClusterMetaData(*clusterUUID)
-		err = r.client.Update(context.TODO(), razeeClusterMetaData)
-		if err != nil {
-			reqLogger.Error(err, "Failed to overwrite razee-cluster-metadata config map")
-		}
-	}
 
-	// return reconcile.Result{}, nil
-	// create watch-keeper-config
-	watchKeeperConfig := r.MakeWatchKeeperConfig(rhmOperatorSecretValues)
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: watchKeeperConfig.Name, Namespace: "razee"}, watchKeeperConfig)
-	// else create
-	if err != nil {
-		if errors.IsNotFound(err) {
-			watchKeeperConfig = r.MakeWatchKeeperConfig(rhmOperatorSecretValues)
-			err = r.client.Create(context.TODO(), watchKeeperConfig)
+			err = r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
-				reqLogger.Error(err, "Failed to create watch-keeper-config")
+				reqLogger.Error(err, "Failed to update JobState")
+				return reconcile.Result{}, nil
 			}
-			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperConfig.Name)
-			reqLogger.Info("watch-keeper-config created successfully")
-		} else {
-			reqLogger.Error(err, "Failed to get watch-keeper-config.")
-			return reconcile.Result{}, err
-		}
-	}
-	if watchKeeperConfig != nil {
-		reqLogger.Info("watch-keeper-config already exists - overwriting")
-		watchKeeperConfig = r.MakeWatchKeeperConfig(rhmOperatorSecretValues)
-		err = r.client.Update(context.TODO(), watchKeeperConfig)
-		if err != nil {
-			reqLogger.Error(err, "Failed to update watch-keeper-config")
-		}
-		reqLogger.Info("watch-keeper-config updated successfully")
-	}
+			reqLogger.Info("Updated JobState")
 
-	// create watch-keeper-secret
-	watchKeeperSecret := corev1.Secret{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-secret", Namespace: "razee"}, &watchKeeperSecret)
-	// else create
-	if err != nil {
-		if errors.IsNotFound(err) {
-			watchKeeperSecret = *r.MakeWatchKeeperSecret(rhmOperatorSecretValues)
-			err = r.client.Create(context.TODO(), &watchKeeperSecret)
-			if err != nil {
-				reqLogger.Error(err, "Failed to create watch-keeper-secret")
+			// if the job has a status of succeeded, then apply parent rrs3 delete the job
+			if foundJob.Status.Succeeded == 1 {
+				parentRRS3 := r.MakeParentRemoteResourceS3(rhmOperatorSecretValues)
+
+				err = r.client.Create(context.TODO(), parentRRS3)
+				if err != nil {
+					reqLogger.Error(err, "Failed to create parentRRS3")
+				}
+				*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, parentRRS3.GetName())
+				reqLogger.Info("parentRRS3 created successfully")
+
+				err = r.client.Delete(context.TODO(), &foundJob)
+				if err != nil {
+					reqLogger.Error(err, "Failed to delete job")
+					return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+				}
+				reqLogger.Info("Razeedeploy-job deleted")
+
+				/******************************************************************************
+				PATCH RESOURCES FOR DIANEMO
+				Patch the Console and Infrastructure resources with the watch-keeper label
+				Patch 'razee-cluster-metadata' and add data.name: "max-test-uuid"
+				Should only patch if the job has been successfully applied
+				/******************************************************************************/
+				reqLogger.Info("finding Console resource")
+				console := &unstructured.Unstructured{}
+				console.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "config.openshift.io",
+					Kind:    "Console",
+					Version: "v1",
+				})
+				err = r.client.Get(context.Background(), client.ObjectKey{
+					Name: "cluster",
+				}, console)
+
+				if err != nil {
+					reqLogger.Error(err, "Failed to retrieve Console resource")
+				}
+				reqLogger.Info("Found Console resource")
+				console.SetLabels(map[string]string{"razee/watch-resource": "lite"})
+				err = r.client.Update(context.TODO(), console)
+				if err != nil {
+					reqLogger.Error(err, "Failed to patch Console resource")
+				}
+				reqLogger.Info("Patched Console resource")
+
+				// Patch the Infrastructure resource
+				reqLogger.Info("finding Infrastructure resource")
+				Infrastructure := &unstructured.Unstructured{}
+				Infrastructure.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "config.openshift.io",
+					Kind:    "Infrastructure",
+					Version: "v1",
+				})
+				err = r.client.Get(context.Background(), client.ObjectKey{
+					Name: "cluster",
+				}, Infrastructure)
+
+				if err != nil {
+					reqLogger.Error(err, "Failed to retrieve Infrastructure resource")
+				}
+				reqLogger.Info("Found Infrastructure resource")
+				Infrastructure.SetLabels(map[string]string{"razee/watch-resource": "lite"})
+				err = r.client.Update(context.TODO(), Infrastructure)
+				if err != nil {
+					reqLogger.Error(err, "Failed to patch Infrastructure resource")
+				}
+				reqLogger.Info("Patched Infrastructure resource")
+				// exit the loop after patches are performed
+				return reconcile.Result{}, nil
 			}
-			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperSecret.Name)
-			reqLogger.Info("watch-keeper-secret created successfully")
-		} else {
-			reqLogger.Error(err, "Failed to get watch-keeper-secret.")
-			return reconcile.Result{}, err
-		}
 	}
-	if &watchKeeperSecret != nil {
-		reqLogger.Info("watch-keeper-secret already exists - overwriting")
-		watchKeeperSecret = *r.MakeWatchKeeperSecret(rhmOperatorSecretValues)
-		err = r.client.Update(context.TODO(), &watchKeeperSecret)
-		if err != nil {
-			reqLogger.Error(err, "Failed to update watch-keeper-secret")
-		}
-		reqLogger.Info("watch-keeper-secret updated successfully")
-	}
-
-	// create watch-keeper-config
-	ibmCosReaderKey := corev1.Secret{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "ibm-cos-reader-key", Namespace: "razee"}, &ibmCosReaderKey)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			ibmCosReaderKey = *r.MakeCOSReaderSecret(rhmOperatorSecretValues)
-			err = r.client.Create(context.TODO(), &ibmCosReaderKey)
-			if err != nil {
-				reqLogger.Error(err, "Failed to create ibm-cos-reader-key")
-			}
-			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, ibmCosReaderKey.Name)
-			reqLogger.Info("ibm-cos-reader-key created successfully")
-		} else {
-			reqLogger.Error(err, "Failed to get ibm-cos-reader-key.")
-			return reconcile.Result{}, err
-		}
-	}
-	if &ibmCosReaderKey != nil {
-		ibmCosReaderKey = *r.MakeCOSReaderSecret(rhmOperatorSecretValues)
-		reqLogger.Info("ibm-cos-reader-key already exists - overwriting")
-		err = r.client.Update(context.TODO(), &ibmCosReaderKey)
-		if err != nil {
-			reqLogger.Error(err, "Failed to update ibm-cos-reader-key")
-		}
-		reqLogger.Info("ibm-cos-reader-key updated successfully")
-	}
-
-	// if everything gets applied without errors update the status
-	err = r.client.Status().Update(context.TODO(), instance)
-	if err != nil {
-		reqLogger.Error(err, "Failed to update status")
-		return reconcile.Result{}, err
-	}
-
-	reqLogger.Info("prerequisite resource have been created")
-
-	/******************************************************************************
-	CREATE THE RAZEE JOB
-	/******************************************************************************/
-	job := r.MakeRazeeJob(request, rhmOperatorSecretValues)
-
-	// Check if the Job exists already
-	req := reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Name:      "razeedeploy-job",
-			Namespace: request.Namespace,
-		},
-	}
-
-	foundJob := batch.Job{}
-	err = r.client.Get(context.TODO(), req.NamespacedName, &foundJob)
-	// if the job doesn't exist create it
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating razzeedeploy-job")
-		err = r.client.Create(context.TODO(), job)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create Job on cluster")
-			return reconcile.Result{}, err
-		}
-		reqLogger.Info("job created successfully")
-		// requeue to grab the "foundJob" and continue to update status
-		// wait 30 seconds so the job has time to complete
-		// not entirely necessary, but the struct on Status.Conditions needs the Conditions in the job to be populated.
-		return reconcile.Result{RequeueAfter: time.Second * 30}, nil
-		// return reconcile.Result{Requeue: true}, nil
-		// return reconcile.Result{}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get Job(s) from Cluster")
-		return reconcile.Result{}, err
-	}
-
-	if err := controllerutil.SetControllerReference(instance, &foundJob, r.scheme); err != nil {
-		reqLogger.Error(err, "Failed to set controller reference")
-		return reconcile.Result{}, err
-	}
-
-	if len(foundJob.Status.Conditions) == 0 {
-		reqLogger.Info("RazeeJob Conditions have not been propagated yet")
-		return reconcile.Result{RequeueAfter: time.Second * 30}, nil
-	}
-
-	// Update status and conditions
-	instance.Status.JobState = foundJob.Status
-	for _, jobCondition := range foundJob.Status.Conditions {
-		instance.Status.Conditions = &jobCondition
-	}
-
-	err = r.client.Status().Update(context.TODO(), instance)
-	if err != nil {
-		reqLogger.Error(err, "Failed to update JobState")
-		return reconcile.Result{}, nil
-	}
-	reqLogger.Info("Updated JobState")
-
-	// if the job has a status of succeeded, then apply parent rrs3 delete the job
-	if foundJob.Status.Succeeded == 1 {
-		parentRRS3 := r.MakeParentRemoteResourceS3(rhmOperatorSecretValues)
-
-		err = r.client.Create(context.TODO(), parentRRS3)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create parentRRS3")
-		}
-		*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, parentRRS3.GetName())
-		reqLogger.Info("parentRRS3 created successfully")
-
-		err = r.client.Delete(context.TODO(), &foundJob)
-		if err != nil {
-			reqLogger.Error(err, "Failed to delete job")
-			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
-		}
-		reqLogger.Info("Razeedeploy-job deleted")
-
-		/******************************************************************************
-		PATCH RESOURCES FOR DIANEMO
-		Patch the Console and Infrastructure resources with the watch-keeper label
-		Patch 'razee-cluster-metadata' and add data.name: "max-test-uuid"
-		Should only patch if the job has been successfully applied
-		/******************************************************************************/
-		reqLogger.Info("finding Console resource")
-		console := &unstructured.Unstructured{}
-		console.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   "config.openshift.io",
-			Kind:    "Console",
-			Version: "v1",
-		})
-		err = r.client.Get(context.Background(), client.ObjectKey{
-			Name: "cluster",
-		}, console)
-
-		if err != nil {
-			reqLogger.Error(err, "Failed to retrieve Console resource")
-		}
-		reqLogger.Info("Found Console resource")
-		console.SetLabels(map[string]string{"razee/watch-resource": "lite"})
-		err = r.client.Update(context.TODO(), console)
-		if err != nil {
-			reqLogger.Error(err, "Failed to patch Console resource")
-		}
-		reqLogger.Info("Patched Console resource")
-
-		// Patch the Infrastructure resource
-		reqLogger.Info("finding Infrastructure resource")
-		Infrastructure := &unstructured.Unstructured{}
-		Infrastructure.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   "config.openshift.io",
-			Kind:    "Infrastructure",
-			Version: "v1",
-		})
-		err = r.client.Get(context.Background(), client.ObjectKey{
-			Name: "cluster",
-		}, Infrastructure)
-
-		if err != nil {
-			reqLogger.Error(err, "Failed to retrieve Infrastructure resource")
-		}
-		reqLogger.Info("Found Infrastructure resource")
-		Infrastructure.SetLabels(map[string]string{"razee/watch-resource": "lite"})
-		err = r.client.Update(context.TODO(), Infrastructure)
-		if err != nil {
-			reqLogger.Error(err, "Failed to patch Infrastructure resource")
-		}
-		reqLogger.Info("Patched Infrastructure resource")
-		// exit the loop after patches are performed
-		return reconcile.Result{}, nil
-	}
-
+	
 	reqLogger.Info("End of reconcile")
 	return reconcile.Result{}, nil
-}
-
-// MakeRazeeJob returns a Batch.Job which installs razee
-func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request, rhmOperatorSecretValues RhmOperatorSecretValues) *batch.Job {
-	return &batch.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "razeedeploy-job",
-			Namespace: request.Namespace,
-		},
-		Spec: batch.JobSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					ServiceAccountName: "redhat-marketplace-operator",
-					Containers: []corev1.Container{{
-						Name:    "razeedeploy-job",
-						Image:   r.opts.RazeeJobImage,
-						Command: []string{"node", "src/install", "--namespace=razee"},
-						Args:    []string{fmt.Sprintf("--file-source=%v", rhmOperatorSecretValues.fileSourceUrl), "--autoupdate"},
-					}},
-					RestartPolicy: "Never",
-				},
-			},
-		},
-	}
-}
-
-// MakeRazeeUninstalllJob returns a Batch.Job which uninstalls razee
-func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(namespace string, rhmOperatorSecretValues RhmOperatorSecretValues) *batch.Job {
-	return &batch.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      RAZEE_UNINSTALL_NAME,
-			Namespace: namespace,
-		},
-		Spec: batch.JobSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					ServiceAccountName: "redhat-marketplace-operator",
-					Containers: []corev1.Container{{
-						Name:    RAZEE_UNINSTALL_NAME,
-						Image:   r.opts.RazeeJobImage,
-						Command: []string{"node", "src/remove", "--namespace=razee"},
-						Args:    []string{fmt.Sprintf("--file-source=%v", rhmOperatorSecretValues.fileSourceUrl), "--autoupdate"},
-					}},
-					RestartPolicy: "Never",
-				},
-			},
-		},
-	}
 }
 
 // finalizeRazeeDeployment cleans up resources before the RazeeDeployment CR is deleted
@@ -781,6 +788,76 @@ func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(req *marketplacev1alp
 	reqLogger.Info("Uninstall job created successfully")
 	reqLogger.Info("Successfully finalized RazeeDeployment")
 	return nil, nil
+}
+
+// func (r *ReconcileRazeeDeployment) ReconcileRazeeInstance(request *reconcile.Request)(*reconcile.Result, error){
+	
+// }
+
+/*
+	checks if rhm-operator-secret is present or not and updates status
+*/
+// func (r *ReconcileRazeeDeployment) ReconcileOperatorSecret(rhmSecretName string,request reconcile.Request,instance *marketplacev1alpha1.RazeeDeployment) (*reconcile.Result, error) {
+// 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+// 	reqLogger.Info("running finalizer")
+	
+// }
+
+// func (r *ReconcileRazeeDeployment) CheckForMissingSecretValues(combinedSecret *corev1.Secret,instance *marketplacev1alpha1.RazeeDeployment,request reconcile.Request)(*reconcile.Result, error){
+// 	result := reconcile.Result{}
+	
+// }
+
+// func (r *ReconcileRazeeDeployment) PopulateStruct(combinedSecret *corev1.Secret,)(*reconcile.Result, *RhmOperatorSecretValues,error){
+	
+// }
+
+// MakeRazeeJob returns a Batch.Job which installs razee
+func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request, rhmOperatorSecretValues RhmOperatorSecretValues) *batch.Job {
+	return &batch.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "razeedeploy-job",
+			Namespace: request.Namespace,
+		},
+		Spec: batch.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					ServiceAccountName: "redhat-marketplace-operator",
+					Containers: []corev1.Container{{
+						Name:    "razeedeploy-job",
+						Image:   r.opts.RazeeJobImage,
+						Command: []string{"node", "src/install", "--namespace=razee"},
+						Args:    []string{fmt.Sprintf("--file-source=%v", rhmOperatorSecretValues.fileSourceUrl), "--autoupdate"},
+					}},
+					RestartPolicy: "Never",
+				},
+			},
+		},
+	}
+}
+
+// MakeRazeeUninstalllJob returns a Batch.Job which uninstalls razee
+func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(namespace string, rhmOperatorSecretValues RhmOperatorSecretValues) *batch.Job {
+	return &batch.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      RAZEE_UNINSTALL_NAME,
+			Namespace: namespace,
+		},
+		Spec: batch.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					ServiceAccountName: "redhat-marketplace-operator",
+					Containers: []corev1.Container{{
+						Name:    RAZEE_UNINSTALL_NAME,
+						Image:   r.opts.RazeeJobImage,
+						Command: []string{"node", "src/remove", "--namespace=razee"},
+						Args:    []string{fmt.Sprintf("--file-source=%v", rhmOperatorSecretValues.fileSourceUrl), "--autoupdate"},
+					}},
+					RestartPolicy: "Never",
+				},
+			},
+		},
+	}
 }
 
 // addFinalizer adds finalizers to the RazeeDeployment CR

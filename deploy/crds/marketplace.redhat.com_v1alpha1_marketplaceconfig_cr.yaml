@@ -6,4 +6,4 @@ spec:
   # Add fields here 
   rhmAccountID: example-userid
   clusterUUID: example-clusterUUID
-  deploySecretName: example-deploySecretName
+  deploySecretName: rhm-operator-secret
