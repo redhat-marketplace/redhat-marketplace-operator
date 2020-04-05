@@ -214,7 +214,6 @@ RECONCILE RAZEE INSTANCE
 			*globalStruct.RazeeDeployInstance.Status.RedHatMarketplaceSecretFound = true
 			err = r.client.Status().Update(context.TODO(), &globalStruct.RazeeDeployInstance)
 			if err!=nil{
-				fmt.Println(globalStruct.RazeeDeployInstance)
 				reqLogger.Error(err, "Failed to update Status.RedhatMarketplaceSecretFound")
 			}
 		
@@ -309,7 +308,6 @@ RECONCILE RAZEE INSTANCE
 				reqLogger.Info("Razee not enabled")
 				return reconcile.Result{}, nil
 			}
-			fmt.Println(instance)
 			/******************************************************************************
 			CHECK THE INSTANCE FOR VALUES PASSED DOWN FROM MARKETPLACE CONFIG
 			check the instance for rhmSecretNameNonNil
@@ -320,7 +318,7 @@ RECONCILE RAZEE INSTANCE
 			
 			if instance.Spec.DeploySecretName != nil {
 				reqLogger.Info("Setting Global Struct values")
-				fmt.Println(instance)
+
 				rhmSecretName = *instance.Spec.DeploySecretName
 				globalStruct = GlobalStruct{RhmSecretName: rhmSecretName,ClusterUUID:clusterUUID,RazeeDeployInstance: *instance}
 			}
