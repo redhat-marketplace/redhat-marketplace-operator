@@ -144,7 +144,7 @@ spec:
     startingCSV: redhat-marketplace-operator.v0.0.1
     ```
 
-    4.) Modify and apply the MarketplaceConfig custom resource:
+    4.) Modify and apply the Marketplace Configuration custom resource.
     this cr populates the RazeeDeploy cr (used by the RazeeDeploy custom resource ) with the name of the secret applied in step 2 and your clusterUUID
     ```
     apiVersion: marketplace.redhat.com/v1alpha1
