@@ -145,34 +145,6 @@ func BuildRazeeCr(namespace, clusterUUID string, deploySecretName *string) *mark
 	return cr
 }
 
-// BuildMeterBaseCr returns a MeterBase cr with default values
-func BuildMeterBaseCr(namespace string) *marketplacev1alpha1.MeterBase {
-
-	cr := &marketplacev1alpha1.MeterBase{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      METERBASE_NAME,
-			Namespace: namespace,
-		},
-		Spec: marketplacev1alpha1.MeterBaseSpec{
-			Enabled: true,
-			Prometheus: &marketplacev1alpha1.PrometheusSpec{
-				Storage: marketplacev1alpha1.StorageSpec{
-					Size: resource.MustParse("20Gi"),
-				},
-			},
-		},
-	}
-	return cr
-}
-
-func BuildServiceAccount(namespace string) *corev1.ServiceAccount{
-	return &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "redhat-marketplace-operator",
-		},
-	}
-}
-
 func BuildRoleBinding(namespace string) *rbacv1.ClusterRoleBinding{
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
