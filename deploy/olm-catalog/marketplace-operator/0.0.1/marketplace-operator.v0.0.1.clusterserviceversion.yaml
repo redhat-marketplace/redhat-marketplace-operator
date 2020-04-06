@@ -89,7 +89,7 @@ spec:
       kind: RazeeDeployment
       name: razeedeployments.marketplace.redhat.com
       version: v1alpha1
-      displayName: razee-deployment-config.cr
+      displayName: "(Internal) Razee Deployment"
   description: |
     The Redhat Marketplacr Operator maintains four controllers: ....
 
