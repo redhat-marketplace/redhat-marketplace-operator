@@ -84,7 +84,7 @@ spec:
       kind: Metering
       name: meterings.marketplace.redhat.com
       version: v1alpha1
-      displayName: metering-config.cr
+      displayName: "(Internal) Meter"
     - description: RazeeDeployment is the Schema for the razeedeployments API
       kind: RazeeDeployment
       name: razeedeployments.marketplace.redhat.com
