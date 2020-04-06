@@ -515,6 +515,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	// update that status with whatever is in razeePrerequisitesCreatedSlice 
 	reqLogger.Info("Updating Status.RazeePrerequisitesCreated")
 	fmt.Println(razeePrerequisitesCreatedSlice)
+	// if the 
 	*instance.Status.RazeePrerequisitesCreated = razeePrerequisitesCreatedSlice
 	err = r.client.Status().Update(context.TODO(), instance)
 	if err != nil {
