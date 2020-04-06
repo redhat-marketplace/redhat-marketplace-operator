@@ -79,7 +79,7 @@ spec:
       kind: MeterBase
       name: meterbases.marketplace.redhat.com
       version: v1alpha1
-      displayName: meterbase-config.cr
+      displayName: "(Internal) Meter Config"
     - description: Metering is the Schema for the meterings API
       kind: Metering
       name: meterings.marketplace.redhat.com
