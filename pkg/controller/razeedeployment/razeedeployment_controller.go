@@ -341,7 +341,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				reqLogger.Error(err, "Failed to create razee namespace.")
 			}
 			return reconcile.Result{Requeue: true}, nil
-			// razeePrerequisitesCreatedSlice = append(razeePrerequisitesCreatedSlice, fmt.Sprintf("%v namespace", razeeNamespace.Name))
 		} else {
 			reqLogger.Error(err, "Failed to get razee ns.")
 			return reconcile.Result{}, err
@@ -369,7 +368,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				return reconcile.Result{}, err
 			}
 			return reconcile.Result{Requeue: true}, nil
-			// razeePrerequisitesCreatedSlice = append(razeePrerequisitesCreatedSlice, "watch-keeper-non-namespace")
 		} else {
 			reqLogger.Error(err, "Failed to get watch-keeper-non-namespace.")
 			return reconcile.Result{}, err
@@ -404,7 +402,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 			reqLogger.Info("watch-keeper-limit-poll config map created successfully")
 			return reconcile.Result{Requeue: true}, nil
-			// razeePrerequisitesCreatedSlice = append(razeePrerequisitesCreatedSlice, "watch-keeper-limit-poll")
 		} else {
 			reqLogger.Error(err, "Failed to get watch-keeper-limit-poll config map.")
 			return reconcile.Result{}, err
@@ -438,7 +435,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 			reqLogger.Info("razee-cluster-metadata config map created successfully")
 			return reconcile.Result{Requeue: true}, nil
-			// razeePrerequisitesCreatedSlice = append(razeePrerequisitesCreatedSlice, "razee-cluster-metadata")
 		} else {
 			reqLogger.Error(err, "Failed to get razee-cluster-metadata config map.")
 			return reconcile.Result{}, err
@@ -472,7 +468,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 			reqLogger.Info("watch-keeper-config created successfully")
 			return reconcile.Result{Requeue: true}, nil
-			// razeePrerequisitesCreatedSlice = append(razeePrerequisitesCreatedSlice, "watch-keeper-config")
 		} else {
 			reqLogger.Error(err, "Failed to get watch-keeper-config.")
 			return reconcile.Result{}, err
@@ -507,7 +502,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 			reqLogger.Info("watch-keeper-secret created successfully")
 			return reconcile.Result{Requeue: true}, nil
-			// razeePrerequisitesCreatedSlice = append(razeePrerequisitesCreatedSlice, "watch-keeper-secret")
 		} else {
 			reqLogger.Error(err, "Failed to get watch-keeper-secret.")
 			return reconcile.Result{}, err
@@ -542,7 +536,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 			reqLogger.Info("ibm-cos-reader-key created successfully")
 			return reconcile.Result{Requeue: true}, nil
-			// razeePrerequisitesCreatedSlice = append(razeePrerequisitesCreatedSlice, "ibm-cos-reader-key")
 		} else {
 			reqLogger.Error(err, "Failed to get ibm-cos-reader-key.")
 			return reconcile.Result{}, err
