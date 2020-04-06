@@ -327,7 +327,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	/******************************************************************************
 	APPLY RAZEE RESOURCES
 	/******************************************************************************/
-	// razeePrerequisitesCreatedSlice := []string{}
 	razeePrerequisitesCreated := make([]string, 0, 7)
 	instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
 	razeeNamespace := corev1.Namespace{}
