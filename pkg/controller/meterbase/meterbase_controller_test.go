@@ -166,12 +166,6 @@ func TestMeterBaseController(t *testing.T) {
 	if err != nil {
 		t.Errorf("get meterbase: (%v)", err)
 	}
-
-	//Ensure Reconcile() updated the MeterBase's Status as expected.
-	nodes := meterbase.Status.PrometheusNodes
-	if !reflect.DeepEqual(podNames, nodes) {
-		t.Errorf("pod names %v did not match expected %v", nodes, podNames)
-	}
 }
 
 func TestMeterBaseControllerFlags(t *testing.T) {

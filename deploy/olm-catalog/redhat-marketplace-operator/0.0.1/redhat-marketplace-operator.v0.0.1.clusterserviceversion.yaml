@@ -41,16 +41,6 @@ metadata:
         },
         {
           "apiVersion": "marketplace.redhat.com/v1alpha1",
-          "kind": "Metering",
-          "metadata": {
-            "name": "metering"
-          },
-          "spec": {
-            "size": 3
-          }
-        },
-        {
-          "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "RazeeDeployment",
           "metadata": {
             "name": "razeedeployment"
@@ -77,11 +67,6 @@ spec:
       name: meterbases.marketplace.redhat.com
       version: v1alpha1
       displayName: Meter Configuration
-    - description: Metering is the Schema for the meterings API
-      kind: Metering
-      name: meterings.marketplace.redhat.com
-      version: v1alpha1
-      displayName: Meter
     - description: RazeeDeployment is the Schema for the razeedeployments API
       kind: RazeeDeployment
       name: razeedeployments.marketplace.redhat.com

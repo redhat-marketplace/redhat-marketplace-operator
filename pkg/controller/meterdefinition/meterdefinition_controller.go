@@ -80,7 +80,7 @@ type MeterDefOpts struct{}
 // and what is in the MeterDefinition.Spec
 func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling MeterDefinition 2")
+	reqLogger.Info("Reconciling MeterDefinition")
 
 	// Fetch the MeterDefinition instance
 	instance := &marketplacev1alpha1.MeterDefinition{}
@@ -102,6 +102,11 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	serviceMonitorList := &monitoringv1.ServiceMonitorList{}
 
 	serviceMonitorMatchLabels := &metav1.LabelSelector{}
+
+	if instance.Spec.ServiceMonitorNamespaceSelector == nil {
+		reqLogger.Info("instance does not have any filters, no-op")
+		return reconcile.Request{}, nil
+	}
 
 	if instance.Spec.ServiceMonitorSelector != nil {
 		serviceMonitorMatchLabels = instance.Spec.ServiceMonitorSelector

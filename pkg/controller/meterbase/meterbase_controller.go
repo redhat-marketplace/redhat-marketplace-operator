@@ -12,10 +12,10 @@ import (
 	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -66,7 +66,7 @@ func Add(mgr manager.Manager) error {
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	promOpts := &MeterbaseOpts{
 		PullPolicy: "IfNotPresent",
-		AssetPath: viper.GetString("assets"),
+		AssetPath:  viper.GetString("assets"),
 	}
 	return &ReconcileMeterBase{client: mgr.GetClient(), scheme: mgr.GetScheme(), opts: promOpts}
 }
@@ -124,7 +124,7 @@ type ReconcileMeterBase struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
-	opts *MeterbaseOpts
+	opts   *MeterbaseOpts
 }
 
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
@@ -155,7 +155,6 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		reqLogger.Info("MeterBase resource found but ignoring since metering is not enabled.")
 		return reconcile.Result{}, nil
 	}
-
 
 	prometheus := &monitoringv1.Prometheus{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, prometheus)
@@ -209,25 +208,40 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	podList := &corev1.PodList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(instance.Namespace),
-		client.MatchingLabels(labelsForPrometheusOperator(instance.Name)),
-	}
-	err = r.client.List(context.TODO(), podList, listOpts...)
+	// ----
+	// Check if prometheus needs updating
+	// ----
+
+	expectedPrometheusSpec, err := r.newPrometheusOperator(instance, r.opts)
+
 	if err != nil {
-		reqLogger.Error(err, "Failed to list pods.",
-			"MeterBase.Namespace", instance.Namespace,
-			"MeterBase.Name", instance.Name)
+		reqLogger.Error(err, "Failed to get prometheus spec.")
 		return reconcile.Result{}, err
 	}
 
-	podNames := utils.GetPodNames(podList.Items)
+	if !reflect.DeepEqual(prometheus.Spec.ServiceMonitorNamespaceSelector, expectedPrometheusSpec.Spec.ServiceMonitorNamespaceSelector) {
+		reqLogger.Info("updating service monitor namespace selector")
+		prometheus.Spec.ServiceMonitorNamespaceSelector = expectedPrometheusSpec.Spec.ServiceMonitorNamespaceSelector
 
-	// Update status.Nodes if needed
-	if !reflect.DeepEqual(podNames, instance.Status.PrometheusNodes) {
-		instance.Status.PrometheusNodes = podNames
+		err := r.client.Update(context.TODO(), prometheus)
+
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{Requeue: true}, err
+	}
+
+	// ----
+	// Update our status
+	// ----
+
+	if instance.Status.PrometheusStatus == nil ||
+		!reflect.DeepEqual(instance.Status.PrometheusStatus, prometheus.Status) {
+		reqLogger.Info("updating prometheus status")
+		instance.Status.PrometheusStatus = prometheus.Status
 		err := r.client.Status().Update(context.TODO(), instance)
+
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Prometheus status.")
 			return reconcile.Result{}, err
@@ -321,12 +335,12 @@ func (r *ReconcileMeterBase) serviceForPrometheus(
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"prometheus" : cr.Name,
+				"prometheus": cr.Name,
 			},
 			Ports: []corev1.ServicePort{
 				{
-					Name: "web",
-					Port: port,
+					Name:       "web",
+					Port:       port,
 					TargetPort: intstr.FromString("web"),
 				},
 			},

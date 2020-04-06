@@ -73,6 +73,8 @@ code-dev: ## Run the default dev commands which are the go fmt and vet then exec
 	- make code-gen
 
 code-gen: ## Run the operator-sdk commands to generated code (k8s and crds)
+	@echo Generating k8s
+	operator-sdk generate k8s
 	@echo Updating the CRD files with the OpenAPI validations
 	operator-sdk generate crds
 	@echo Generating the yamls for deployment
@@ -83,13 +85,13 @@ code-gen: ## Run the operator-sdk commands to generated code (k8s and crds)
 setup-minikube: ## Setup minikube for full operator dev
 	@echo Applying prometheus operator
 	kubectl apply -f https://raw.githubusercontent.com/coreos/prometheus-operator/master/bundle.yaml
-	@echo Applying olm
-	kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/master/deploy/upstream/quickstart/crds.yaml
-	kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/master/deploy/upstream/quickstart/olm.yaml
 	@echo Applying operator marketplace
 	for item in 01_namespace.yaml 02_catalogsourceconfig.crd.yaml 03_operatorsource.crd.yaml 04_service_account.yaml 05_role.yaml 06_role_binding.yaml 07_upstream_operatorsource.cr.yaml 08_operator.yaml ; do \
 		kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-marketplace/master/deploy/upstream/$$item ; \
 	done
+	@echo Applying olm
+	kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/master/deploy/upstream/quickstart/crds.yaml
+	kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/master/deploy/upstream/quickstart/olm.yaml
 	@echo Apply kube-state
 	for item in cluster-role.yaml service-account.yaml cluster-role-binding.yaml deployment.yaml service.yaml ; do \
 		kubectl apply -f https://raw.githubusercontent.com/kubernetes/kube-state-metrics/master/examples/standard/$$item ; \
@@ -99,6 +101,7 @@ setup-minikube: ## Setup minikube for full operator dev
 
 create: ##creates the required crds for this deployment
 	@echo creating crds
+	- kubectl create namespace ${NAMESPACE}
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml -n ${NAMESPACE}

@@ -22,3 +22,11 @@ func Contains(s []string, e string) bool {
 
 	return false
 }
+
+func ChunkBy(items []interface{}, chunkSize int) (chunks [][]interface{}) {
+	for chunkSize < len(items) {
+		items, chunks = items[chunkSize:], append(chunks, items[0:chunkSize:chunkSize])
+	}
+
+	return append(chunks, items)
+}

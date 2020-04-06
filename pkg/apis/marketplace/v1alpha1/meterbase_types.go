@@ -1,7 +1,7 @@
 package v1alpha1
 
 import (
-	"github.com/operator-framework/operator-sdk/pkg/status"
+	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,10 +48,9 @@ type MeterBaseSpec struct {
 
 // MeterBaseStatus defines the observed state of MeterBase.
 type MeterBaseStatus struct {
-	// PrometheusNodes are the names of the prometheus pods
-	// +listType=set
-	PrometheusNodes []string          `json:"prometheusNodes,omitempty"`
-	Conditions      status.Conditions `json:"conditions"`
+	// PrometheusStatus is the most recent observed status of the Prometheus cluster. Read-only. Not
+	// included when requesting from the apiserver, only from the Prometheus
+	PrometheusStatus *monitoringv1.PrometheusStatus `json:"prometheusStatus,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

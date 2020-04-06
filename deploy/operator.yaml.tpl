@@ -33,6 +33,8 @@ spec:
               value: "jimmidyson/configmap-reload:v0.3.0"
             - name: WATCH_NAMESPACE
               value: "" # watch all namespaces
+            - name: AUTOINSTALL
+              value: "false"
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:

@@ -11,7 +11,7 @@ spec:
     matchLabels:
   serviceMonitorSelector:
     matchLabels:
-      marketplace.redhat.com/metering: "true"
+      marketplace.redhat.com/metered: "true"
       marketplace.redhat.com/deployed: "true"
   serviceMonitorSelector:
 

@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/operator-framework/operator-sdk/pkg/status"
 )
 
 // TODO: Add open API validation
@@ -38,6 +39,9 @@ type MeterDefinitionSpec struct {
 
 // MeterDefinitionStatus defines the observed state of MeterDefinition
 type MeterDefinitionStatus struct {
+
+	// Conditions represent the latest available observations of an object's state
+	Conditions status.Conditions `json:"conditions"`
 
 	// ServiceLabels of the meterics you want to track.
 	ServiceLabels []string `json:"serviceLabels"`

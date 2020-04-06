@@ -2,6 +2,7 @@ package marketplaceconfig
 
 import (
 	"context"
+	"strconv"
 
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	pflag "github.com/spf13/pflag"
@@ -40,6 +41,12 @@ var (
 // Init declares our FlagSet for the MarketplaceConfig
 // Currently only has 1 set of flags for setting the Image
 func init() {
+	autoinstall, err := strconv.ParseBool(utils.Getenv("AUTOINSTALL", "true"))
+
+	if err != nil {
+		autoinstall = true
+	}
+
 	marketplaceConfigFlagSet = pflag.NewFlagSet("marketplaceconfig", pflag.ExitOnError)
 	marketplaceConfigFlagSet.String(
 		"related-image-operator-agent",
@@ -47,7 +54,7 @@ func init() {
 		"Image for marketplaceConfig")
 	marketplaceConfigFlagSet.Bool(
 		"autoinstall",
-		true,
+		autoinstall,
 		"True or false: auto install the remaining components?",
 	)
 }
