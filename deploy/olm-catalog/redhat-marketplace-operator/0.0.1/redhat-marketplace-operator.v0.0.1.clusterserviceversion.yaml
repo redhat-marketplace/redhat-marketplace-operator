@@ -2,6 +2,7 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
+    operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","marketplaceconfigs.marketplace.redhat.com"]'
     alm-examples: |-
       [
         {
@@ -64,7 +65,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-  name: marketplace-operator.v0.0.1
+  name: redhat-marketplace-operator.v0.0.1
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -74,43 +75,37 @@ spec:
       kind: MarketplaceConfig
       name: marketplaceconfigs.marketplace.redhat.com
       version: v1alpha1
-      displayName: marketplace-config.cr
+      displayName: Marketplace
     - description: MeterBase is the Schema for the meterbases API
       kind: MeterBase
       name: meterbases.marketplace.redhat.com
       version: v1alpha1
-      displayName: meterbase-config.cr
+      displayName: "(Internal) Meter Config"
     - description: Metering is the Schema for the meterings API
       kind: Metering
       name: meterings.marketplace.redhat.com
       version: v1alpha1
-      displayName: metering-config.cr
+      displayName: "(Internal) Meter"
     - description: RazeeDeployment is the Schema for the razeedeployments API
       kind: RazeeDeployment
       name: razeedeployments.marketplace.redhat.com
       version: v1alpha1
-      displayName: razee-deployment-config.cr
+      displayName: "(Internal) Razee Deployment"
   description: |
-    The Redhat Marketplacr Operator maintains four controllers: ....
-
+    The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
     ### RazeeDeployment Controller:
-    The RazeeDeployment controller is used by Redhat Marketplace customers to register their clusters with the Marketplace.
-    The RazeeDeployment controller installs an agent: [Razee agent](https://github.com/razee-io/Razee/blob/master/README.md) on your cluster which calls back to the marketplace and completes registration. 
-    When your cluster is registered with the Marketplace you will be able to purchase and apply software to your cluster directly from the Redhat Marketplace UI. 
-    Upon successful registration of your cluster you will see [....TODO: add screen shot here] in the "My Clusters" view of the marketplace UI. 
     
-    **Changes to your Cluster**
+    **Changes to your Cluster**:
 
-    The RazeeDeployment Controller creates the RazeeDeploy Job: [Razee Deploy Job](https://github.com/razee-io/razeedeploy-delta) which runs in the namespace "redhat-marketplace-operator" (see install steps below). 
-    The razee-deploy-job is deleted after successful completion. 
-    The razee-deploy-job creates the namespace "Razee" and installs the razee agent and it's associated resources.
+    The RazeeDeployment Controller creates the RazeeDeploy Job: [Razee Deploy Job](https://github.com/razee-io/razeedeploy-delta) which runs in the namespace "redhat-marketplace-operator" (see install steps below), which is deleted after successful completion. 
+    The razee-deploy-job creates the namespace "razee" and installs the razee agent and it's associated resources. [Razee agent](https://github.com/razee-io/Razee/blob/master/README.md)
     
     **How to Install** 
 
-    1.) create the namespace: "redhat-marketplace-operator"
+    1.) Create the namespace: `redhat-marketplace-operator`.
 
     2.) apply the rhm-operator-secret: 
-    This will be used to populate resources that are used to setup razee and communicate with IBM Container Object Storage
+    This will be used to populate resources that are used to setup Red Hat Marketplace Operator.
     ```
     apiVersion: v1
     kind: Secret
@@ -127,7 +122,6 @@ spec:
       RAZEE_DASH_URL: 
       FILE_SOURCE_URL: 
     ```
-
     3.) Install the operator, either through the operator hub UI or apply an operator subscription:
     ```
     apiVersion: operators.coreos.com/v1alpha1
@@ -143,9 +137,8 @@ spec:
     sourceNamespace: openshift-marketplace
     startingCSV: redhat-marketplace-operator.v0.0.1
     ```
-
-    4.) Modify and apply the MarketplaceConfig custom resource:
-    this cr populates the RazeeDeploy cr (used by the RazeeDeploy custom resource ) with the name of the secret applied in step 2 and your clusterUUID
+    4.) Modify and apply the Marketplace Configuration custom resource.
+    Include your AccountID and ClusterID provided from the Red Hat Marketplace onboarding pages. As well as the deployment secret you've created in step 2.
     ```
     apiVersion: marketplace.redhat.com/v1alpha1
     kind: MarketplaceConfig
@@ -153,25 +146,21 @@ spec:
       name: example-marketplaceconfig
       namespace: openshift-operators
     spec:
-      size: 1
-      clusterUUID: 
+      rhmAccountID: <your Redhat Marketplace AccountId>
+      clusterUUID: <uuid of your cluster>
       deploySecretName: <name of the secret applied in step 2>
     ```
     
     ### Documentation
     
-
     ### Getting help
-    If you encounter any issues while using Redhat Marketplace operator, you can create an issue on our [Github repo](https://github.ibm.com/symposium/marketplace-operator/issues) for bugs, enhancements, or other requests.
-
+    If you encounter any issues while using Redhat Marketplace operator, you can create an issue on our [Github repo](TODO: our repo) for bugs, enhancements, or other requests.
     ### Contributing
     You can contribute by: 
-
     * Raising any issues you find using the Redhat Marketplace Operator
     * Fixing issues by opening [Pull Requests](TODO: our repo)
     * Improving [documentation](TODO: our repo)
    
-
     ### License
     TODO: our license information
   displayName: RedhatMarketplace Operator
@@ -213,13 +202,13 @@ spec:
                 - name: OPERATOR_NAME
                   value: redhat-marketplace-operator
                 - name: RELATED_IMAGE_MARKETPLACE_AGENT
-                  value: quay.io/mxpaspa/marketplace-agent:latest
+                  value: quay.io/rh-marketplace/redhat-marketplace-agent:v0.0.1
                 - name: RELATED_IMAGE_PROM_SERVER
                   value: prom/prometheus:v2.15.2
                 - name: RELATED_IMAGE_CONFIGMAP_RELOAD
                   value: jimmidyson/configmap-reload:v0.3.0
                 - name: RELATED_IMAGE_RAZEE_JOB
-                  value: <no value>
+                  value: quay.io/razee/razeedeploy-delta:0.3.1
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -228,7 +217,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.name
-                image: quay.io/mxpaspa/redhat-marketplace-operator:latest
+                image: quay.io/rh-marketplace/redhat-marketplace-operator:v0.0.1
                 imagePullPolicy: Always
                 name: redhat-marketplace-operator
                 resources: {}
@@ -251,3 +240,4 @@ spec:
   provider: {}
   replaces: marketplace-operator.v0.0.0
   version: 0.0.1
+
