@@ -326,6 +326,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	/******************************************************************************
 	APPLY RAZEE RESOURCES
 	/******************************************************************************/
+	razeePrerequisitesCreatedSlice := []string{}
 	instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
 	razeeNamespace := corev1.Namespace{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee"}, &razeeNamespace)
@@ -337,10 +338,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			if err != nil {
 				reqLogger.Error(err, "Failed to create razee namespace.")
 			}
-			if !utils.Contains(*instance.Status.RazeePrerequisitesCreated,"razee namespace"){
-				*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, fmt.Sprintf("%v namespace", razeeNamespace.Name))
-				reqLogger.Info("Razee namespace created successfully")
-			}
+			razeePrerequisitesCreatedSlice = append(razeePrerequisitesCreatedSlice, fmt.Sprintf("%v namespace", razeeNamespace.Name))
 		} else {
 			reqLogger.Error(err, "Failed to get razee ns.")
 			return reconcile.Result{}, err
@@ -357,7 +355,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	watchKeeperNonNamespace := corev1.ConfigMap{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-non-namespaced", Namespace: "razee"}, &watchKeeperNonNamespace)
-	// else create
 	if err != nil {
 		if errors.IsNotFound(err) {
 			watchKeeperNonNamespace = *r.MakeWatchKeeperNonNamespace()
@@ -366,10 +363,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				reqLogger.Error(err, "Failed to create watch-keeper-non-namespace")
 				return reconcile.Result{}, err
 			}
-			if !utils.Contains(*instance.Status.RazeePrerequisitesCreated,"watch-keeper-non-namespace"){
-				*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperNonNamespace.Name)
-				reqLogger.Info("watch-keeper-non-namespace created successfully")
-			}
+			razeePrerequisitesCreatedSlice = append(razeePrerequisitesCreatedSlice, "watch-keeper-non-namespace")
 		} else {
 			reqLogger.Error(err, "Failed to get watch-keeper-non-namespace.")
 			return reconcile.Result{}, err
@@ -384,7 +378,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 	}
 
-	// // apply watch-keeper-limit-poll config map
+	// apply watch-keeper-limit-poll config map
 	watchKeeperLimitPoll := corev1.ConfigMap{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-limit-poll", Namespace: "razee"}, &watchKeeperLimitPoll)
 	if err != nil {
@@ -395,10 +389,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				reqLogger.Error(err, "Failed to create watch-keeper-limit-poll config map")
 				return reconcile.Result{}, err
 			}
-			if !utils.Contains(*instance.Status.RazeePrerequisitesCreated,"watch-keeper-limit-poll"){
-				*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperLimitPoll.Name)
-				reqLogger.Info("watch-keeper-limit-poll config map created successfully")
-			}
+			reqLogger.Info("watch-keeper-limit-poll config map created successfully")
+			razeePrerequisitesCreatedSlice = append(razeePrerequisitesCreatedSlice, "watch-keeper-limit-poll")
 		} else {
 			reqLogger.Error(err, "Failed to get watch-keeper-limit-poll config map.")
 			return reconcile.Result{}, err
@@ -413,7 +405,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 	}
 
-	// // create razee-cluster-metadata
+	// create razee-cluster-metadata
 	razeeClusterMetaData := corev1.ConfigMap{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee-cluster-metadata", Namespace: "razee"}, &razeeClusterMetaData)
 	if err != nil {
@@ -423,10 +415,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			if err != nil {
 				reqLogger.Error(err, "Failed to create razee-cluster-metadata config map")
 			}
-			if !utils.Contains(*instance.Status.RazeePrerequisitesCreated,"razee-cluster-metadata"){
-				*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, razeeClusterMetaData.Name)
-				reqLogger.Info("razee-cluster-metadata config map created successfully")
-			}
+			reqLogger.Info("razee-cluster-metadata config map created successfully")
+			razeePrerequisitesCreatedSlice = append(razeePrerequisitesCreatedSlice, "razee-cluster-metadata")
 		} else {
 			reqLogger.Error(err, "Failed to get razee-cluster-metadata config map.")
 			return reconcile.Result{}, err
@@ -441,11 +431,9 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 	}
 
-	// return reconcile.Result{}, nil
 	// create watch-keeper-config
 	watchKeeperConfig := r.MakeWatchKeeperConfig(rhmOperatorSecretValues)
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: watchKeeperConfig.Name, Namespace: "razee"}, watchKeeperConfig)
-	// else create
 	if err != nil {
 		if errors.IsNotFound(err) {
 			watchKeeperConfig = r.MakeWatchKeeperConfig(rhmOperatorSecretValues)
@@ -453,10 +441,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			if err != nil {
 				reqLogger.Error(err, "Failed to create watch-keeper-config")
 			}
-			if !utils.Contains(*instance.Status.RazeePrerequisitesCreated,"watch-keeper-config"){
-				*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperConfig.Name)
-				reqLogger.Info("watch-keeper-config created successfully")
-			}
+			reqLogger.Info("watch-keeper-config created successfully")
+			razeePrerequisitesCreatedSlice = append(razeePrerequisitesCreatedSlice, "watch-keeper-config")
 		} else {
 			reqLogger.Error(err, "Failed to get watch-keeper-config.")
 			return reconcile.Result{}, err
@@ -475,7 +461,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	// create watch-keeper-secret
 	watchKeeperSecret := corev1.Secret{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-secret", Namespace: "razee"}, &watchKeeperSecret)
-	// else create
 	if err != nil {
 		if errors.IsNotFound(err) {
 			watchKeeperSecret = *r.MakeWatchKeeperSecret(rhmOperatorSecretValues)
@@ -483,10 +468,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			if err != nil {
 				reqLogger.Error(err, "Failed to create watch-keeper-secret")
 			}
-			if !utils.Contains(*instance.Status.RazeePrerequisitesCreated,"watch-keeper-secret"){
-				*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperSecret.Name)
-				reqLogger.Info("watch-keeper-secret created successfully")
-			}
+			reqLogger.Info("watch-keeper-secret created successfully")
+			razeePrerequisitesCreatedSlice = append(razeePrerequisitesCreatedSlice, "watch-keeper-secret")
 		} else {
 			reqLogger.Error(err, "Failed to get watch-keeper-secret.")
 			return reconcile.Result{}, err
@@ -512,10 +495,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			if err != nil {
 				reqLogger.Error(err, "Failed to create ibm-cos-reader-key")
 			}
-			if !utils.Contains(*instance.Status.RazeePrerequisitesCreated,"ibm-cos-reader-key"){
-				*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, ibmCosReaderKey.Name)
-				reqLogger.Info("ibm-cos-reader-key created successfully")
-			}
+			reqLogger.Info("ibm-cos-reader-key created successfully")
+			razeePrerequisitesCreatedSlice = append(razeePrerequisitesCreatedSlice, "ibm-cos-reader-key")
 		} else {
 			reqLogger.Error(err, "Failed to get ibm-cos-reader-key.")
 			return reconcile.Result{}, err
@@ -531,14 +512,17 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Info("ibm-cos-reader-key updated successfully")
 	}
 
-	// if everything gets applied without errors update the status
+	// update that status with whatever is in razeePrerequisitesCreatedSlice 
+	reqLogger.Info("Updating Status.RazeePrerequisitesCreated")
+	fmt.Println(razeePrerequisitesCreatedSlice)
+	*instance.Status.RazeePrerequisitesCreated = razeePrerequisitesCreatedSlice
 	err = r.client.Status().Update(context.TODO(), instance)
 	if err != nil {
 		reqLogger.Error(err, "Failed to update status")
 		return reconcile.Result{}, err
 	}
-
-	reqLogger.Info("prerequisite resource have been created")
+	
+	reqLogger.Info("prerequisite resource have been created or updated")
 
 	/******************************************************************************
 	CREATE THE RAZEE JOB
