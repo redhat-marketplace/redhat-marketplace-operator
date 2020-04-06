@@ -107,7 +107,7 @@ spec:
     
     **How to Install** 
 
-    1.) create the namespace: "redhat-marketplace-operator"
+    1.) Create the namespace: `redhat-marketplace-operator`.
 
     2.) apply the rhm-operator-secret: 
     This will be used to populate resources that are used to setup razee and communicate with IBM Container Object Storage
