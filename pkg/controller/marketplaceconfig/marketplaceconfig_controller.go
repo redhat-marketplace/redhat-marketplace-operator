@@ -255,6 +255,12 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{}, err
 	}
 
+	// sets ownership for Service Account
+	if err = controllerutil.SetControllerReference(marketplaceConfig, foundSA, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+
 	// Check for ClusterRoleBinding, or create a new one
 	foundClusterRoleBinding := &rbacv1.ClusterRoleBinding{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{
@@ -271,6 +277,11 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	} else if err != nil {
 		// Could not get Operator Source
 		reqLogger.Error(err, "Failed to get OperatorSource")
+		return reconcile.Result{}, err
+	}
+
+	// sets ownershipt for ClusterRoleBinding
+	if err = controllerutil.SetControllerReference(marketplaceConfig, foundClusterRoleBinding, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
 
