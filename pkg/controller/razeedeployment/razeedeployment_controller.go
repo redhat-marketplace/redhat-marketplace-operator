@@ -60,7 +60,7 @@ var (
 	RELATED_IMAGE_RAZEE_JOB           = "RELATED_IMAGE_RAZEE_JOB"
 	rhmSecretName = "rhm-operator-secret"
 	clusterUUID = ""
-	globalStruct = GlobalStruct{}
+
 )
 
 func init() {
@@ -107,7 +107,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// TODO: watch full CRUD operations ? 
-	// TODO: change the name of "combined-secret"
+	// TODO: not sure how setting these names should be handled ? 
 	pred := predicate.Funcs{
 		DeleteFunc: func(e event.DeleteEvent) bool {
 		  return e.Meta.GetName() == "rhm-operator-secret"
@@ -159,12 +159,6 @@ type RhmOperatorSecretValues struct {
 	ibmCosFullUrl     string
 }
 
-type GlobalStruct struct {
-	ClusterUUID string
-	RhmSecretName string
-	RazeeDeployInstance marketplacev1alpha1.RazeeDeployment
-}
-
 // Reconcile reads that state of the cluster for a RazeeDeployment object and makes changes based on the state read
 // and what is in the RazeeDeployment.Spec
 // TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
@@ -176,17 +170,23 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling RazeeDeployment")
 
-	/*
-	TODO: CHECK THE REQUEST METADATA TO SEE IF THE REQUEST IS COMING FROM RAZEEDEPLOYMENT OR RHM-OPERATOR SECRET
-	*/
 	rhmOperatorSecretValues := RhmOperatorSecretValues{}
 	switch request.Name {
 /****************************************************************************************************************************************************************************************************************************
 RECONCILE RHM-OPERATOR-SECRET
 *****************************************************************************************************************************************************************************************************************************/
 		case  "rhm-operator-secret":
+			// retrieve the razee instance
+			razeeDeployments := &marketplacev1alpha1.RazeeDeploymentList{}
+			err := r.client.List(context.TODO(), razeeDeployments)
+			if err != nil {
+				reqLogger.Error(err, "Failed to list RazeeDeployments")	
+			}
+
+			razeeInstance := razeeDeployments.Items[0]
+
 			combinedSecret := corev1.Secret{}
-			err := r.client.Get(context.TODO(), types.NamespacedName{
+			err = r.client.Get(context.TODO(), types.NamespacedName{
 				Name:      rhmSecretName,
 				Namespace: request.Namespace,
 			}, &combinedSecret)
@@ -197,9 +197,9 @@ RECONCILE RHM-OPERATOR-SECRET
 					// Return and don't requeue
 					// report to status that we haven't found the secret
 					reqLogger.Info("Updating RedHatMarketplaceSecretFound")
-					globalStruct.RazeeDeployInstance.Status.RedHatMarketplaceSecretFound = &redHatMarketplaceSecretFound
-					*globalStruct.RazeeDeployInstance.Status.RedHatMarketplaceSecretFound = false
-					err = r.client.Status().Update(context.TODO(), &globalStruct.RazeeDeployInstance)
+					razeeInstance.Status.RedHatMarketplaceSecretFound = &redHatMarketplaceSecretFound
+					*razeeInstance.Status.RedHatMarketplaceSecretFound = false
+					err = r.client.Status().Update(context.TODO(), &razeeInstance)
 					if err != nil {
 						reqLogger.Error(err, "Failed to update Status.RedHatMarketplaceSecretFound")
 					}
@@ -210,10 +210,10 @@ RECONCILE RHM-OPERATOR-SECRET
 				return reconcile.Result{}, err
 			}
 
-			globalStruct.RazeeDeployInstance.Status.RedHatMarketplaceSecretFound = &redHatMarketplaceSecretFound
+			razeeInstance.Status.RedHatMarketplaceSecretFound = &redHatMarketplaceSecretFound
 			reqLogger.Info("Updating Status.RedhatMarketplaceSecretFound")
-			*globalStruct.RazeeDeployInstance.Status.RedHatMarketplaceSecretFound = true
-			err = r.client.Status().Update(context.TODO(), &globalStruct.RazeeDeployInstance)
+			*razeeInstance.Status.RedHatMarketplaceSecretFound = true
+			err = r.client.Status().Update(context.TODO(), &razeeInstance)
 			if err!=nil{
 				reqLogger.Error(err, "Failed to update Status.RedhatMarketplaceSecretFound")
 			}
@@ -231,11 +231,11 @@ RECONCILE RHM-OPERATOR-SECRET
 			}
 
 			// update missing resources if necessary
-			globalStruct.RazeeDeployInstance.Status.MissingValuesFromSecret = &missingValuesFromSecretSlice
-			if !reflect.DeepEqual(missingItems, *globalStruct.RazeeDeployInstance.Status.MissingValuesFromSecret) {
+			razeeInstance.Status.MissingValuesFromSecret = &missingValuesFromSecretSlice
+			if !reflect.DeepEqual(missingItems, *razeeInstance.Status.MissingValuesFromSecret) {
 				reqLogger.Info("Missing Resources Detected on Secret")
-				*globalStruct.RazeeDeployInstance.Status.MissingValuesFromSecret = missingItems
-				err := r.client.Status().Update(context.TODO(), &globalStruct.RazeeDeployInstance)
+				*razeeInstance.Status.MissingValuesFromSecret = missingItems
+				err := r.client.Status().Update(context.TODO(), &razeeInstance)
 				if err != nil {
 					reqLogger.Error(err, "Failed to update missing resources status")
 					return reconcile.Result{}, nil
@@ -257,15 +257,15 @@ RECONCILE RHM-OPERATOR-SECRET
 			obj, err := utils.AddSecretFieldsToObj(combinedSecret.Data)
 			if err != nil {
 				reqLogger.Error(err, "Failed to populate secret data into local vars")
-				*globalStruct.RazeeDeployInstance.Status.LocalSecretVarsPopulated = false
+				*razeeInstance.Status.LocalSecretVarsPopulated = false
 			}
 
 			// if no errors, check the obj to make sure there are no nil values
 			for key, value := range obj {
 				if key == "" || value == "" {
 					reqLogger.Error(err, "Local var not populated")
-					globalStruct.RazeeDeployInstance.Status.LocalSecretVarsPopulated = &localSecretVarsPopulated
-					*globalStruct.RazeeDeployInstance.Status.LocalSecretVarsPopulated = false
+					razeeInstance.Status.LocalSecretVarsPopulated = &localSecretVarsPopulated
+					*razeeInstance.Status.LocalSecretVarsPopulated = false
 					return reconcile.Result{}, nil
 				}
 			}
@@ -273,9 +273,9 @@ RECONCILE RHM-OPERATOR-SECRET
 			rhmOperatorSecretValues = RhmOperatorSecretValues{razeeDashOrgKey: obj[RAZEE_DASH_ORG_KEY_FIELD], bucketName: obj[BUCKET_NAME_FIELD], ibmCosUrl: obj[IBM_COS_URL_FIELD], childRRS3FileName: obj[CHILD_RRS3_YAML_FIELD], ibmCosReaderKey: obj[IBM_COS_READER_KEY_FIELD], razeeDashUrl: obj[RAZEE_DASH_URL_FIELD], fileSourceUrl: obj[FILE_SOURCE_URL_FIELD]}
 			
 			// if all fields are present continue to run and update status
-			globalStruct.RazeeDeployInstance.Status.LocalSecretVarsPopulated = &localSecretVarsPopulated
-			*globalStruct.RazeeDeployInstance.Status.LocalSecretVarsPopulated = true
-			err = r.client.Status().Update(context.TODO(), &globalStruct.RazeeDeployInstance)
+			razeeInstance.Status.LocalSecretVarsPopulated = &localSecretVarsPopulated
+			*razeeInstance.Status.LocalSecretVarsPopulated = true
+			err = r.client.Status().Update(context.TODO(), &razeeInstance)
 			if err != nil {
 				reqLogger.Error(err, "Failed to update Status.LocalVarsPopulated")
 			}
@@ -319,7 +319,6 @@ RECONCILE RAZEE INSTANCE
 			if instance.Spec.DeploySecretName != nil {
 				reqLogger.Info("Setting Global Struct values")
 				rhmSecretName = *instance.Spec.DeploySecretName
-				globalStruct = GlobalStruct{RhmSecretName: rhmSecretName,ClusterUUID:clusterUUID,RazeeDeployInstance: *instance}
 			}
 			
 			// Check if the RazeeDeployment instance is being marked for deletion
