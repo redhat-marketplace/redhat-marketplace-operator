@@ -91,7 +91,7 @@ spec:
       version: v1alpha1
       displayName: "(Internal) Razee Deployment"
   description: |
-    The Redhat Marketplacr Operator maintains four controllers: ....
+    The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
 
     ### RazeeDeployment Controller:
     The RazeeDeployment controller is used by Redhat Marketplace customers to register their clusters with the Marketplace.
