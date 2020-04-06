@@ -74,7 +74,7 @@ spec:
       kind: MarketplaceConfig
       name: marketplaceconfigs.marketplace.redhat.com
       version: v1alpha1
-      displayName: marketplace-config.cr
+      displayName: Marketplace
     - description: MeterBase is the Schema for the meterbases API
       kind: MeterBase
       name: meterbases.marketplace.redhat.com
