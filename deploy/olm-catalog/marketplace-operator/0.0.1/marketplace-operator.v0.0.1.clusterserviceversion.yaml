@@ -110,7 +110,7 @@ spec:
     1.) Create the namespace: `redhat-marketplace-operator`.
 
     2.) apply the rhm-operator-secret: 
-    This will be used to populate resources that are used to setup razee and communicate with IBM Container Object Storage
+    This will be used to populate resources that are used to setup Red Hat Marketplace Operator.
     ```
     apiVersion: v1
     kind: Secret
