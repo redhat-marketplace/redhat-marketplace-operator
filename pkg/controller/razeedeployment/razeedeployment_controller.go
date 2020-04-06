@@ -144,6 +144,7 @@ type ReconcileRazeeDeployment struct {
 
 type RazeeOpts struct {
 	RazeeJobImage string
+	//TODO: do we need this still ?
 	ClusterUUID   string
 }
 
@@ -181,7 +182,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	rhmOperatorSecretValues := RhmOperatorSecretValues{}
 	switch request.Name {
 /****************************************************************************************************************************************************************************************************************************
-RECONCILE RAZEE INSTANCE
+RECONCILE RHM-OPERATOR-SECRET
 *****************************************************************************************************************************************************************************************************************************/
 		case  "rhm-operator-secret":
 			combinedSecret := corev1.Secret{}
@@ -313,12 +314,10 @@ RECONCILE RAZEE INSTANCE
 			check the instance for rhmSecretNameNonNil
 			check the instance for *clusterUUID
 			/******************************************************************************/
-			
 			clusterUUID = instance.Spec.ClusterUUID
-			
+	
 			if instance.Spec.DeploySecretName != nil {
 				reqLogger.Info("Setting Global Struct values")
-
 				rhmSecretName = *instance.Spec.DeploySecretName
 				globalStruct = GlobalStruct{RhmSecretName: rhmSecretName,ClusterUUID:clusterUUID,RazeeDeployInstance: *instance}
 			}
@@ -788,30 +787,9 @@ func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(req *marketplacev1alp
 	return nil, nil
 }
 
-// func (r *ReconcileRazeeDeployment) ReconcileRazeeInstance(request *reconcile.Request)(*reconcile.Result, error){
-	
-// }
-
-/*
-	checks if rhm-operator-secret is present or not and updates status
-*/
-// func (r *ReconcileRazeeDeployment) ReconcileOperatorSecret(rhmSecretName string,request reconcile.Request,instance *marketplacev1alpha1.RazeeDeployment) (*reconcile.Result, error) {
-// 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-// 	reqLogger.Info("running finalizer")
-	
-// }
-
-// func (r *ReconcileRazeeDeployment) CheckForMissingSecretValues(combinedSecret *corev1.Secret,instance *marketplacev1alpha1.RazeeDeployment,request reconcile.Request)(*reconcile.Result, error){
-// 	result := reconcile.Result{}
-	
-// }
-
-// func (r *ReconcileRazeeDeployment) PopulateStruct(combinedSecret *corev1.Secret,)(*reconcile.Result, *RhmOperatorSecretValues,error){
-	
-// }
-
 // MakeRazeeJob returns a Batch.Job which installs razee
 func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request, rhmOperatorSecretValues RhmOperatorSecretValues) *batch.Job {
+	image := viper.GetString("razee-job-image")
 	return &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "razeedeploy-job",
@@ -823,7 +801,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request, rhmOp
 					ServiceAccountName: "redhat-marketplace-operator",
 					Containers: []corev1.Container{{
 						Name:    "razeedeploy-job",
-						Image:   r.opts.RazeeJobImage,
+						Image:   image,
 						Command: []string{"node", "src/install", "--namespace=razee"},
 						Args:    []string{fmt.Sprintf("--file-source=%v", rhmOperatorSecretValues.fileSourceUrl), "--autoupdate"},
 					}},
