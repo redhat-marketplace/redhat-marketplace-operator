@@ -162,10 +162,9 @@ type RhmOperatorSecretValues struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	missingValuesFromSecretSlice      := make([]string, 0, 7)
-	// razeePrerequisitesCreated         := make([]string, 0, 7)
+	missingValuesFromSecretSlice := make([]string, 0, 7)
+	razeePrerequisitesCreated := make([]string, 0, 7)
 	localSecretVarsPopulated := false
-	redHatMarketplaceSecretFound := false
 
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling RazeeDeployment")
@@ -194,6 +193,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 					// Return and don't requeue
 					// report to status that we haven't found the secret
 					reqLogger.Info("Updating RedHatMarketplaceSecretFound")
+					redHatMarketplaceSecretFound := false
 					razeeInstance.Status.RedHatMarketplaceSecretFound = &redHatMarketplaceSecretFound
 					*razeeInstance.Status.RedHatMarketplaceSecretFound = false
 					err = r.client.Status().Update(context.TODO(), &razeeInstance)
@@ -207,6 +207,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				return reconcile.Result{}, err
 			}
 
+			redHatMarketplaceSecretFound := false
 			razeeInstance.Status.RedHatMarketplaceSecretFound = &redHatMarketplaceSecretFound
 			reqLogger.Info("Updating Status.RedhatMarketplaceSecretFound")
 			*razeeInstance.Status.RedHatMarketplaceSecretFound = true
@@ -312,7 +313,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			clusterUUID = instance.Spec.ClusterUUID
 	
 			if instance.Spec.DeploySecretName != nil {
-				reqLogger.Info("Setting Global Struct values")
 				rhmSecretName = *instance.Spec.DeploySecretName
 			}
 			
@@ -358,7 +358,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			if the job has already run exit
 			if there are still missing resources exit
 			/******************************************************************************/
-			instance.Status.RedHatMarketplaceSecretFound = &redHatMarketplaceSecretFound
+			// instance.Status.RedHatMarketplaceSecretFound = &redHatMarketplaceSecretFound
+			if instance.Status.RedHatMarketplaceSecretFound == nil {
+				redHatMarketplaceSecretFound := false
+				instance.Status.RedHatMarketplaceSecretFound = &redHatMarketplaceSecretFound
+			}
+
 			if !*instance.Status.RedHatMarketplaceSecretFound {
 				reqLogger.Info("rhm-operator-secret has not been applied")
 				return reconcile.Result{}, nil
@@ -373,7 +378,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			/******************************************************************************
 			APPLY RAZEE RESOURCES
 			/******************************************************************************/
-			razeePrerequisitesCreated := make([]string, 0, 7)
+
 			instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
 			razeeNamespace := corev1.Namespace{}
 			err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee"}, &razeeNamespace)
