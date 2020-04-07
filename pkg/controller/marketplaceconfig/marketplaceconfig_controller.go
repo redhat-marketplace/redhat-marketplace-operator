@@ -242,11 +242,11 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		Namespace: request.Namespace,
 	},foundSA)
 	if err != nil && errors.IsNotFound(err) {
-		newSA := utils.BuildServiceAccount(request.Namespace)
+		foundSA = utils.BuildServiceAccount(request.Namespace)
 		reqLogger.Info("creating new ServiceAccount")
-		err = r.client.Create(context.TODO(), newSA)
+		err = r.client.Create(context.TODO(), foundSA)
 		if err != nil {
-			reqLogger.Error(err, "Failed to create ServiceAccount", newSA.Name)
+			reqLogger.Error(err, "Failed to create ServiceAccount", foundSA.Name)
 			return reconcile.Result{}, err
 		}
 	} else if err != nil {
@@ -268,10 +268,10 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		Namespace: request.Namespace,
 	},foundClusterRoleBinding)
 	if err != nil && errors.IsNotFound(err) {
-		newClusterRoleBinding := utils.BuildRoleBinding(request.Namespace)
-		err = r.client.Create(context.TODO(), newClusterRoleBinding)
+		foundClusterRoleBinding = utils.BuildRoleBinding(request.Namespace)
+		err = r.client.Create(context.TODO(), foundClusterRoleBinding)
 		if err != nil {
-			reqLogger.Error(err,"Failed to create new ClusterRoleBinding",newClusterRoleBinding.Name)
+			reqLogger.Error(err,"Failed to create new ClusterRoleBinding",foundClusterRoleBinding.Name)
 			return reconcile.Result{}, err
 		}
 	} else if err != nil {
@@ -281,9 +281,9 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	}
 
 	// sets ownershipt for ClusterRoleBinding
-	if err = controllerutil.SetControllerReference(marketplaceConfig, foundClusterRoleBinding, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
+	// if err = controllerutil.SetControllerReference(marketplaceConfig, foundClusterRoleBinding, r.scheme); err != nil {
+	// 	return reconcile.Result{}, err
+	// }
 
 	// Check if operator source exists, or create a new one
 	foundOpSrc := &opsrcv1.OperatorSource{}
