@@ -54,10 +54,6 @@ const (
 var (
 	log                          = logf.Log.WithName("controller_razeedeployment")
 	razeeFlagSet                 *pflag.FlagSet
-	missingValuesFromSecretSlice      = make([]string, 0, 7)
-	razeePrerequisitesCreated         = make([]string, 0, 7)
-	localSecretVarsPopulated     bool = false
-	redHatMarketplaceSecretFound bool = false
 	RELATED_IMAGE_RAZEE_JOB           = "RELATED_IMAGE_RAZEE_JOB"
 	rhmSecretName = "rhm-operator-secret"
 	clusterUUID = ""
@@ -166,6 +162,11 @@ type RhmOperatorSecretValues struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+	missingValuesFromSecretSlice      := make([]string, 0, 7)
+	// razeePrerequisitesCreated         := make([]string, 0, 7)
+	localSecretVarsPopulated := false
+	redHatMarketplaceSecretFound := false
+
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling RazeeDeployment")
 
