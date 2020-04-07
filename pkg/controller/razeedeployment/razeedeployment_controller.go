@@ -48,6 +48,7 @@ const (
 	CHILD_RRS3_YAML_FIELD      = "CHILD_RRS3_YAML_FILENAME"
 	RAZEE_DASH_URL_FIELD       = "RAZEE_DASH_URL"
 	FILE_SOURCE_URL_FIELD      = "FILE_SOURCE_URL"
+	RHM_OPERATOR_SECRET_NAME = "rhm-operator-secret"
 )
 
 var (
@@ -110,10 +111,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// TODO: not sure how setting these names should be handled ? 
 	pred := predicate.Funcs{
 		DeleteFunc: func(e event.DeleteEvent) bool {
-		  return e.Meta.GetName() == "rhm-operator-secret"
+		  return e.Meta.GetName() == RHM_OPERATOR_SECRET_NAME
 		},
 		CreateFunc: func(e event.CreateEvent) bool{
-			return e.Meta.GetName() == "rhm-operator-secret" 
+			return e.Meta.GetName() == RHM_OPERATOR_SECRET_NAME 
 		},
 	}
 
@@ -175,7 +176,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 /****************************************************************************************************************************************************************************************************************************
 RECONCILE RHM-OPERATOR-SECRET
 *****************************************************************************************************************************************************************************************************************************/
-		case  "rhm-operator-secret":
+		case  RHM_OPERATOR_SECRET_NAME:
 			// retrieve the razee instance
 			razeeDeployments := &marketplacev1alpha1.RazeeDeploymentList{}
 			err := r.client.List(context.TODO(), razeeDeployments)
