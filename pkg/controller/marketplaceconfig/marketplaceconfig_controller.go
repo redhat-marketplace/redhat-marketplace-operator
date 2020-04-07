@@ -32,6 +32,7 @@ const (
 	DEFAULT_IMAGE_MARKETPLACE_AGENT = "marketplace-agent:latest"
 	RAZEE_FLAG                      = "razee"
 	METERBASE_FLAG                  = "meterbase"
+	SERVICE_ACCOUNT_NAME            = "redhat-marketplace-operator"
 )
 
 var (
@@ -237,10 +238,10 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 	// Check if service account exists, or create a new one
 	foundSA := &corev1.ServiceAccount{}
-	err = r.client.Get(context.TODO(),types.NamespacedName{
-		Name: "redhat-marketplace-operator",
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Name:      SERVICE_ACCOUNT_NAME,
 		Namespace: request.Namespace,
-	},foundSA)
+	}, foundSA)
 	if err != nil && errors.IsNotFound(err) {
 		foundSA = utils.BuildServiceAccount(request.Namespace)
 		reqLogger.Info("creating new ServiceAccount")
@@ -261,18 +262,17 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{}, err
 	}
 
-
 	// Check for ClusterRoleBinding, or create a new one
 	foundClusterRoleBinding := &rbacv1.ClusterRoleBinding{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name: "redhat-marketplace-operator",
+		Name:      "redhat-marketplace-operator",
 		Namespace: request.Namespace,
-	},foundClusterRoleBinding)
+	}, foundClusterRoleBinding)
 	if err != nil && errors.IsNotFound(err) {
 		foundClusterRoleBinding = utils.BuildRoleBinding(request.Namespace)
 		err = r.client.Create(context.TODO(), foundClusterRoleBinding)
 		if err != nil {
-			reqLogger.Error(err,"Failed to create new ClusterRoleBinding",foundClusterRoleBinding.Name)
+			reqLogger.Error(err, "Failed to create new ClusterRoleBinding", foundClusterRoleBinding.Name)
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{Requeue: true}, nil

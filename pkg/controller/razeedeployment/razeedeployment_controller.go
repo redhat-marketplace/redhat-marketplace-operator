@@ -727,7 +727,7 @@ func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(req *marketplacev1alp
 		}
 	}
 
-	if ! errors.IsNotFound(err) {
+	if !errors.IsNotFound(err) {
 		reqLogger.Info("cleaning up install job")
 		err := r.client.Delete(context.TODO(), &foundJob, client.PropagationPolicy(metav1.DeletePropagationBackground))
 		if err != nil && !errors.IsNotFound(err) {

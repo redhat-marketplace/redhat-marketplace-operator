@@ -19,7 +19,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
-
 func TestMarketplaceConfigController(t *testing.T) {
 	// Set the logger to development mode for verbose logs.
 	logf.SetLogger(logf.ZapLogger(true))
@@ -182,4 +181,3 @@ func buildMarketplaceConfigCR(name, namespace, customerID string) *marketplacev1
 		},
 	}
 }
-

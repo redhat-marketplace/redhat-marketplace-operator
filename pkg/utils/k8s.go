@@ -166,7 +166,7 @@ func BuildMeterBaseCr(namespace string) *marketplacev1alpha1.MeterBase {
 	return cr
 }
 
-func BuildServiceAccount(namespace string) *corev1.ServiceAccount{
+func BuildServiceAccount(namespace string) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "redhat-marketplace-operator-service-account",
@@ -175,22 +175,22 @@ func BuildServiceAccount(namespace string) *corev1.ServiceAccount{
 	}
 }
 
-func BuildRoleBinding(namespace string) *rbacv1.ClusterRoleBinding{
+func BuildRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:  namespace,
+			Name: namespace,
 		},
 		Subjects: []rbacv1.Subject{
 			rbacv1.Subject{
-				Kind: "ServiceAccount",
-				Name: "redhat-marketplace-operator",
+				Kind:      "ServiceAccount",
+				Name:      "redhat-marketplace-operator",
 				Namespace: namespace,
 			},
 		},
-		RoleRef:rbacv1.RoleRef{
-			Kind: "ClusterRole",
-			Name: "redhat-marketplace-operator",
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "ClusterRole",
+			Name:     "redhat-marketplace-operator",
 			APIGroup: "rbac.authorization.k8s.io",
-		} ,
+		},
 	}
 }
