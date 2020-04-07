@@ -107,8 +107,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO: watch full CRUD operations ? 
-	// TODO: not sure how setting these names should be handled ? 
 	pred := predicate.Funcs{
 		DeleteFunc: func(e event.DeleteEvent) bool {
 		  return e.Meta.GetName() == RHM_OPERATOR_SECRET_NAME
@@ -173,9 +171,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	rhmOperatorSecretValues := RhmOperatorSecretValues{}
 	switch request.Name {
-/****************************************************************************************************************************************************************************************************************************
-RECONCILE RHM-OPERATOR-SECRET
-*****************************************************************************************************************************************************************************************************************************/
 		case  RHM_OPERATOR_SECRET_NAME:
 			// retrieve the razee instance
 			razeeDeployments := &marketplacev1alpha1.RazeeDeploymentList{}
@@ -283,9 +278,7 @@ RECONCILE RHM-OPERATOR-SECRET
 			reqLogger.Info("Local vars have been populated")
 
 			rhmOperatorSecretValues.ibmCosFullUrl = fmt.Sprintf("%s/%s/%s/%s", obj[IBM_COS_URL_FIELD], obj[BUCKET_NAME_FIELD], clusterUUID, obj[CHILD_RRS3_YAML_FIELD])
-/****************************************************************************************************************************************************************************************************************************
-RECONCILE RAZEE INSTANCE
-*****************************************************************************************************************************************************************************************************************************/
+
 		case "rhm-marketplaceconfig-razeedeployment":
 			reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 			reqLogger.Info("Beginning of RazeeDeploy Instance reconciler")
@@ -379,6 +372,7 @@ RECONCILE RAZEE INSTANCE
 			/******************************************************************************
 			APPLY RAZEE RESOURCES
 			/******************************************************************************/
+			razeePrerequisitesCreated := make([]string, 0, 7)
 			instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
 			razeeNamespace := corev1.Namespace{}
 			err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee"}, &razeeNamespace)
@@ -390,8 +384,7 @@ RECONCILE RAZEE INSTANCE
 					if err != nil {
 						reqLogger.Error(err, "Failed to create razee namespace.")
 					}
-					reqLogger.Info("Razee namespace created successfully")
-					*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, fmt.Sprintf("%v namespace", razeeNamespace.Name))
+					return reconcile.Result{Requeue: true}, nil
 				} else {
 					reqLogger.Error(err, "Failed to get razee ns.")
 					return reconcile.Result{}, err
@@ -399,26 +392,26 @@ RECONCILE RAZEE INSTANCE
 			}
 			if &razeeNamespace != nil {
 				reqLogger.Info("razee namespace already exists - overwriting")
-				razeeNamespace.ObjectMeta.Name = "razee"
-				err = r.client.Update(context.TODO(), &razeeNamespace)
-				if err != nil {
-					reqLogger.Error(err, "Failed to update razee namespace")
-				}
+			}
+
+			razeePrerequisitesCreated = append(razeePrerequisitesCreated, fmt.Sprintf("%v namespace", razeeNamespace.Name))
+			if &razeePrerequisitesCreated != instance.Status.RazeePrerequisitesCreated {
+				instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
+				r.client.Status().Update(context.TODO(), instance)
 			}
 
 			watchKeeperNonNamespace := corev1.ConfigMap{}
 			err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-non-namespaced", Namespace: "razee"}, &watchKeeperNonNamespace)
-			// else create
 			if err != nil {
 				if errors.IsNotFound(err) {
+					reqLogger.Info("watch-keeper-non-namespace does not exist - creating")
 					watchKeeperNonNamespace = *r.MakeWatchKeeperNonNamespace()
 					err = r.client.Create(context.TODO(), &watchKeeperNonNamespace)
 					if err != nil {
 						reqLogger.Error(err, "Failed to create watch-keeper-non-namespace")
 						return reconcile.Result{}, err
 					}
-					*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperNonNamespace.Name)
-					reqLogger.Info("watch-keeper-non-namespace created successfully")
+					return reconcile.Result{Requeue: true}, nil
 				} else {
 					reqLogger.Error(err, "Failed to get watch-keeper-non-namespace.")
 					return reconcile.Result{}, err
@@ -433,19 +426,26 @@ RECONCILE RAZEE INSTANCE
 				}
 			}
 
-			// // apply watch-keeper-limit-poll config map
+			razeePrerequisitesCreated = append(razeePrerequisitesCreated, "watch-keeper-non-namespace" )
+			if &razeePrerequisitesCreated != instance.Status.RazeePrerequisitesCreated {
+				instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
+				r.client.Status().Update(context.TODO(), instance)
+			}
+
+			// apply watch-keeper-limit-poll config map
 			watchKeeperLimitPoll := corev1.ConfigMap{}
 			err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-limit-poll", Namespace: "razee"}, &watchKeeperLimitPoll)
 			if err != nil {
 				if errors.IsNotFound(err) {
+					reqLogger.Info("watch-keeper-limit-poll does not exist - creating")
 					watchKeeperLimitPoll = *r.MakeWatchKeeperLimitPoll()
 					err = r.client.Create(context.TODO(), &watchKeeperLimitPoll)
 					if err != nil {
 						reqLogger.Error(err, "Failed to create watch-keeper-limit-poll config map")
 						return reconcile.Result{}, err
 					}
-					*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperLimitPoll.Name)
 					reqLogger.Info("watch-keeper-limit-poll config map created successfully")
+					return reconcile.Result{Requeue: true}, nil
 				} else {
 					reqLogger.Error(err, "Failed to get watch-keeper-limit-poll config map.")
 					return reconcile.Result{}, err
@@ -460,18 +460,25 @@ RECONCILE RAZEE INSTANCE
 				}
 			}
 
-			// // create razee-cluster-metadata
+			razeePrerequisitesCreated = append(razeePrerequisitesCreated, "watch-keeper-limit-poll" )
+			if &razeePrerequisitesCreated != instance.Status.RazeePrerequisitesCreated {
+				instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
+				r.client.Status().Update(context.TODO(), instance)
+			}
+
+			// create razee-cluster-metadata
 			razeeClusterMetaData := corev1.ConfigMap{}
 			err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee-cluster-metadata", Namespace: "razee"}, &razeeClusterMetaData)
 			if err != nil {
 				if errors.IsNotFound(err) {
+					reqLogger.Info("razee-cluster-metadata does not exist - creating")
 					razeeClusterMetaData = *r.MakeRazeeClusterMetaData(clusterUUID)
 					err = r.client.Create(context.TODO(), &razeeClusterMetaData)
 					if err != nil {
 						reqLogger.Error(err, "Failed to create razee-cluster-metadata config map")
 					}
-					*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, razeeClusterMetaData.Name)
 					reqLogger.Info("razee-cluster-metadata config map created successfully")
+					return reconcile.Result{Requeue: true}, nil
 				} else {
 					reqLogger.Error(err, "Failed to get razee-cluster-metadata config map.")
 					return reconcile.Result{}, err
@@ -486,19 +493,25 @@ RECONCILE RAZEE INSTANCE
 				}
 			}
 
+			razeePrerequisitesCreated = append(razeePrerequisitesCreated, "razee-cluster-metadata" )
+			if &razeePrerequisitesCreated != instance.Status.RazeePrerequisitesCreated {
+				instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
+				r.client.Status().Update(context.TODO(), instance)
+			}
+
 			// create watch-keeper-config
 			watchKeeperConfig := r.MakeWatchKeeperConfig(rhmOperatorSecretValues)
 			err = r.client.Get(context.TODO(), types.NamespacedName{Name: watchKeeperConfig.Name, Namespace: "razee"}, watchKeeperConfig)
-			// else create
 			if err != nil {
 				if errors.IsNotFound(err) {
+					reqLogger.Info("watch-keeper-config does not exist - creating")
 					watchKeeperConfig = r.MakeWatchKeeperConfig(rhmOperatorSecretValues)
 					err = r.client.Create(context.TODO(), watchKeeperConfig)
 					if err != nil {
 						reqLogger.Error(err, "Failed to create watch-keeper-config")
 					}
-					*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperConfig.Name)
 					reqLogger.Info("watch-keeper-config created successfully")
+					return reconcile.Result{Requeue: true}, nil
 				} else {
 					reqLogger.Error(err, "Failed to get watch-keeper-config.")
 					return reconcile.Result{}, err
@@ -514,18 +527,25 @@ RECONCILE RAZEE INSTANCE
 				reqLogger.Info("watch-keeper-config updated successfully")
 			}
 
+			razeePrerequisitesCreated = append(razeePrerequisitesCreated, "watch-keeper-config" )
+			if &razeePrerequisitesCreated != instance.Status.RazeePrerequisitesCreated {
+				instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
+				r.client.Status().Update(context.TODO(), instance)
+			}
+
 			// create watch-keeper-secret
 			watchKeeperSecret := corev1.Secret{}
 			err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-secret", Namespace: "razee"}, &watchKeeperSecret)
 			if err != nil {
 				if errors.IsNotFound(err) {
+					reqLogger.Info("watch-keeper-secret does not exist - creating")
 					watchKeeperSecret = *r.MakeWatchKeeperSecret(rhmOperatorSecretValues)
 					err = r.client.Create(context.TODO(), &watchKeeperSecret)
 					if err != nil {
 						reqLogger.Error(err, "Failed to create watch-keeper-secret")
 					}
-					*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, watchKeeperSecret.Name)
 					reqLogger.Info("watch-keeper-secret created successfully")
+					return reconcile.Result{Requeue: true}, nil
 				} else {
 					reqLogger.Error(err, "Failed to get watch-keeper-secret.")
 					return reconcile.Result{}, err
@@ -541,18 +561,25 @@ RECONCILE RAZEE INSTANCE
 				reqLogger.Info("watch-keeper-secret updated successfully")
 			}
 
+			razeePrerequisitesCreated = append(razeePrerequisitesCreated, "watch-keeper-secret")
+			if &razeePrerequisitesCreated != instance.Status.RazeePrerequisitesCreated {
+				instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
+				r.client.Status().Update(context.TODO(), instance)
+			}
+
 			// create watch-keeper-config
 			ibmCosReaderKey := corev1.Secret{}
 			err = r.client.Get(context.TODO(), types.NamespacedName{Name: "ibm-cos-reader-key", Namespace: "razee"}, &ibmCosReaderKey)
 			if err != nil {
+				reqLogger.Info("ibm-cos-reader-key does not exist - creating")
 				if errors.IsNotFound(err) {
 					ibmCosReaderKey = *r.MakeCOSReaderSecret(rhmOperatorSecretValues)
 					err = r.client.Create(context.TODO(), &ibmCosReaderKey)
 					if err != nil {
 						reqLogger.Error(err, "Failed to create ibm-cos-reader-key")
 					}
-					*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, ibmCosReaderKey.Name)
 					reqLogger.Info("ibm-cos-reader-key created successfully")
+					return reconcile.Result{Requeue: true}, nil
 				} else {
 					reqLogger.Error(err, "Failed to get ibm-cos-reader-key.")
 					return reconcile.Result{}, err
@@ -568,14 +595,14 @@ RECONCILE RAZEE INSTANCE
 				reqLogger.Info("ibm-cos-reader-key updated successfully")
 			}
 
-			// if everything gets applied without errors update the status
-			err = r.client.Status().Update(context.TODO(), instance)
-			if err != nil {
-				reqLogger.Error(err, "Failed to update status")
-				return reconcile.Result{}, err
+			razeePrerequisitesCreated = append(razeePrerequisitesCreated, "ibm-cos-reader-key")
+			if &razeePrerequisitesCreated != instance.Status.RazeePrerequisitesCreated {
+				instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
+				r.client.Status().Update(context.TODO(), instance)
 			}
 
-			reqLogger.Info("prerequisite resource have been created")
+
+			reqLogger.Info("prerequisite resource have been created or updated")
 
 			/******************************************************************************
 			CREATE THE RAZEE JOB
