@@ -22,6 +22,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
+const memcachedFinalizer = "meterdefinition.finalizer.marketplace.redhat.com"
+
 var log = logf.Log.WithName("controller_meterdefinition")
 
 // Add creates a new MeterDefinition Controller and adds it to the Manager. The Manager will set fields on the Controller

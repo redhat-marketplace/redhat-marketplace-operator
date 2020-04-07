@@ -99,12 +99,11 @@ func (r *ReportMetadata) AddMetricsReport(report *MetricsReport) {
 	}
 }
 
-
-func NewReport(source uuid.UUID, metadata ReportSourceMetadata) (*ReportMetadata) {
+func NewReport(source uuid.UUID, metadata ReportSourceMetadata) *ReportMetadata {
 	return &ReportMetadata{
-		ReportID: uuid.New(),
-		Source: source,
+		ReportID:       uuid.New(),
+		Source:         source,
 		SourceMetadata: metadata,
-		ReportSlices: make(map[ReportSliceKey]ReportSlicesValue),
+		ReportSlices:   make(map[ReportSliceKey]ReportSlicesValue),
 	}
 }

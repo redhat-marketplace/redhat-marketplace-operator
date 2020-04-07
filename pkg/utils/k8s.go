@@ -8,12 +8,12 @@ import (
 
 	"github.com/gotidy/ptr"
 	"github.com/imdario/mergo"
-	k8yaml "k8s.io/apimachinery/pkg/util/yaml"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	k8yaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
@@ -191,4 +191,3 @@ func LoadYAML(filename string, i interface{}) (interface{}, error) {
 
 	return genericTypeVal, nil
 }
-
