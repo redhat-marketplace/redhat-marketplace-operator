@@ -243,7 +243,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		Namespace: request.Namespace,
 	}, foundSA)
 	if err != nil && errors.IsNotFound(err) {
-		foundSA = utils.BuildServiceAccount(request.Namespace)
+		foundSA = utils.BuildServiceAccount(request.Namespace, SERVICE_ACCOUNT_NAME)
 		reqLogger.Info("creating new ServiceAccount")
 		err = r.client.Create(context.TODO(), foundSA)
 		if err != nil {

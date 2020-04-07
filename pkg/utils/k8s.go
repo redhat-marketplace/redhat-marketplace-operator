@@ -166,10 +166,10 @@ func BuildMeterBaseCr(namespace string) *marketplacev1alpha1.MeterBase {
 	return cr
 }
 
-func BuildServiceAccount(namespace string) *corev1.ServiceAccount {
+func BuildServiceAccount(namespace string, serviceAccountName string) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "redhat-marketplace-operator-service-account",
+			Name:      serviceAccountName,
 			Namespace: namespace,
 		},
 	}
