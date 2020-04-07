@@ -11,8 +11,8 @@ import (
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
-    k8sscheme "k8s.io/client-go/kubernetes/scheme"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	"github.com/operator-framework/operator-sdk/pkg/leader"
@@ -232,4 +232,3 @@ func serveCRMetrics(cfg *rest.Config, operatorNs string) error {
 	}
 	return nil
 }
-

@@ -7,6 +7,7 @@ require (
 	github.com/Azure/go-autorest/autorest v0.9.3 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.8.1 // indirect
 	github.com/coreos/prometheus-operator v0.38.0
+	github.com/go-logr/logr v0.1.0
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
 	github.com/gotidy/ptr v1.0.1
@@ -15,6 +16,8 @@ require (
 	github.com/noqcks/gucci v0.0.4
 	github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b
 	github.com/operator-framework/operator-sdk v0.16.1-0.20200401233323-bca8959696d5
+	github.com/prometheus/client_golang v1.5.1
+	github.com/prometheus/common v0.9.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.2
 	github.com/urfave/cli v1.22.2 // indirect

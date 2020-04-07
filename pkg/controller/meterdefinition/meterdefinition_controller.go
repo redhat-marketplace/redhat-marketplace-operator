@@ -103,9 +103,9 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 
 	serviceMonitorMatchLabels := &metav1.LabelSelector{}
 
-	if instance.Spec.ServiceMonitorNamespaceSelector == nil {
+	if instance.Spec.ServiceMonitorSelector == nil {
 		reqLogger.Info("instance does not have any filters, no-op")
-		return reconcile.Request{}, nil
+		return reconcile.Result{}, nil
 	}
 
 	if instance.Spec.ServiceMonitorSelector != nil {
@@ -330,6 +330,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		newMonitor.Namespace = instance.Namespace
 		newMonitor.Labels = labelsForServiceMonitor(serviceMonitor.Name, serviceMonitor.Namespace)
 		newMonitor.Spec = serviceMonitor.Spec
+		newMonitor.Spec.NamespaceSelector.MatchNames = []string{serviceMonitor.Namespace}
 		configureServiceMonitorFromMeterLabels(instance, newMonitor)
 
 		err := r.client.Create(context.TODO(), newMonitor)
@@ -338,7 +339,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 			return reconcile.Result{}, err
 		}
 
-		if err := controllerutil.SetControllerReference(instance, serviceMonitor, r.scheme); err != nil {
+		if err := controllerutil.SetControllerReference(instance, newMonitor, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
 
@@ -400,34 +401,17 @@ func configureServiceMonitorFromMeterLabels(def *marketplacev1alpha1.MeterDefini
 	for _, endpoint := range monitor.Spec.Endpoints {
 		newEndpoint := endpoint.DeepCopy()
 		relabelConfigs := []*monitoringv1.RelabelConfig{
-			makeRelabelKeepConfig([]string{"__name__"}, "keep", labelsToRegex(def.Spec.ServiceMeterLabels)),
-			makeRelabelReplaceConfig([]string{"__name__"}, "meter_kind", "(.*)"),
-			makeRelabelReplaceConfig([]string{"__name__"}, "meter_domain", "(.*)"),
+			makeRelabelReplaceConfig([]string{"__name__"}, "meter_kind", "(.*)", def.Spec.MeterKind),
+			makeRelabelReplaceConfig([]string{"__name__"}, "meter_domain", "(.*)", def.Spec.MeterDomain),
 		}
-		relabelConfigs = append(relabelConfigs, makeServiceRelabelConfigs()...)
+		metricRelabelConfigs := []*monitoringv1.RelabelConfig{
+			makeRelabelKeepConfig([]string{"__name__"}, labelsToRegex(def.Spec.ServiceMeterLabels)),
+		}
 		newEndpoint.RelabelConfigs = append(newEndpoint.RelabelConfigs, relabelConfigs...)
+		newEndpoint.MetricRelabelConfigs = metricRelabelConfigs
 		endpoints = append(endpoints, *newEndpoint)
 	}
 	monitor.Spec.Endpoints = endpoints
-}
-
-func makeServiceRelabelConfigs() []*monitoringv1.RelabelConfig {
-	return []*monitoringv1.RelabelConfig{
-		makeRelabelConfig(
-			[]string{
-				"__meta_kubernetes_namespace",
-			},
-			"replace",
-			"kubernetes_namespace",
-		),
-		makeRelabelConfig(
-			[]string{
-				"__meta_kubernetes_service_name",
-			},
-			"replace",
-			"kubernetes_service_name",
-		),
-	}
 }
 
 func makeRelabelConfig(source []string, action, target string) *monitoringv1.RelabelConfig {
@@ -438,19 +422,20 @@ func makeRelabelConfig(source []string, action, target string) *monitoringv1.Rel
 	}
 }
 
-func makeRelabelReplaceConfig(source []string, target, regex string) *monitoringv1.RelabelConfig {
+func makeRelabelReplaceConfig(source []string, target, regex, replacement string) *monitoringv1.RelabelConfig {
 	return &monitoringv1.RelabelConfig{
 		SourceLabels: source,
 		TargetLabel:  target,
 		Action:       "replace",
 		Regex:        regex,
+		Replacement:  replacement,
 	}
 }
 
-func makeRelabelKeepConfig(source []string, action, regex string) *monitoringv1.RelabelConfig {
+func makeRelabelKeepConfig(source []string, regex string) *monitoringv1.RelabelConfig {
 	return &monitoringv1.RelabelConfig{
 		SourceLabels: source,
-		Action:       action,
+		Action:       "keep",
 		Regex:        regex,
 	}
 

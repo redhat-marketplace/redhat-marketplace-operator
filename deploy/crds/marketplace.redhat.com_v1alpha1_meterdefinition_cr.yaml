@@ -7,11 +7,11 @@ spec:
   meterDomain: apps.partner.metering.com
   meterKind: App
   serviceMeterLabels:
-    - foo
+    - rpc_durations_seconds.*
   podMeterLabels:
     - bar
   serviceMonitorSelector:
     matchLabels:
-      name: metering-example-operator
+      app: example-app
       marketplace.redhat.com/metered: "true"
   serviceMonitorNamespaceSelector: {}
