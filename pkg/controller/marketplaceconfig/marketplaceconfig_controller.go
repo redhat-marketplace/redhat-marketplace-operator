@@ -249,6 +249,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			reqLogger.Error(err, "Failed to create ServiceAccount", foundSA.Name)
 			return reconcile.Result{}, err
 		}
+		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
 		// Could not get Operator Source
 		reqLogger.Error(err, "Failed to get Service Account")
@@ -274,6 +275,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			reqLogger.Error(err,"Failed to create new ClusterRoleBinding",foundClusterRoleBinding.Name)
 			return reconcile.Result{}, err
 		}
+		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
 		// Could not get Operator Source
 		reqLogger.Error(err, "Failed to get OperatorSource")
@@ -281,9 +283,9 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	}
 
 	// sets ownershipt for ClusterRoleBinding
-	// if err = controllerutil.SetControllerReference(marketplaceConfig, foundClusterRoleBinding, r.scheme); err != nil {
-	// 	return reconcile.Result{}, err
-	// }
+	if err = controllerutil.SetControllerReference(marketplaceConfig, foundClusterRoleBinding, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
 
 	// Check if operator source exists, or create a new one
 	foundOpSrc := &opsrcv1.OperatorSource{}
