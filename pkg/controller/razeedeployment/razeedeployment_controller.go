@@ -703,7 +703,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request, rhmOp
 		Spec: batch.JobSpec{
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					ServiceAccountName: "redhat-marketplace-operator",
+					ServiceAccountName: utils.SERVICE_ACCOUNT,
 					Containers: []corev1.Container{{
 						Name:    "razeedeploy-job",
 						Image:   r.opts.RazeeJobImage,
@@ -727,7 +727,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(namespace string, rhmOp
 		Spec: batch.JobSpec{
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					ServiceAccountName: "redhat-marketplace-operator",
+					ServiceAccountName: utils.SERVICE_ACCOUNT,
 					Containers: []corev1.Container{{
 						Name:    RAZEE_UNINSTALL_NAME,
 						Image:   r.opts.RazeeJobImage,
@@ -760,7 +760,7 @@ func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(req *marketplacev1alp
 		}
 	}
 
-	if ! errors.IsNotFound(err) {
+	if !errors.IsNotFound(err) {
 		reqLogger.Info("cleaning up install job")
 		err := r.client.Delete(context.TODO(), &foundJob, client.PropagationPolicy(metav1.DeletePropagationBackground))
 		if err != nil && !errors.IsNotFound(err) {
