@@ -94,11 +94,6 @@ func MarketplaceOperatorCluster(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	// Checks if a MarketplaceConfig CR is deployed with replicas 1
-	if err = crDeployedTest(t, f, ctx, utils.MARKETPLACECONFIG_NAME, 1); err != nil {
-		t.Error(err)
-	}
 	// Checks if an OperatorSoure object has been deployed
 	if opsrcHelper.WaitForOpsrcMarkedForDeletionWithFinalizer(f.Client, utils.OPSRC_NAME, utils.OPERATOR_MKTPLACE_NS); err != nil {
 		t.Error(err)

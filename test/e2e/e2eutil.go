@@ -60,14 +60,3 @@ func waitForBatchJob(t *testing.T, kubeclient kubernetes.Interface, namespace, n
 	t.Logf("Job is available")
 	return nil
 }
-
-// Test that a certain CR is deployed - with the passed name
-func crDeployedTest(t *testing.T, f *framework.Framework, ctx *framework.TestCtx, name string, replicas int) error {
-	namespace, err := ctx.GetNamespace()
-
-	err = e2eutils.WaitForDeployment(t, f.KubeClient, namespace, name, replicas, time.Second*5, time.Second*30)
-	if err != nil {
-		return fmt.Errorf("Failed waiting for deployment %v", err)
-	}
-	return nil
-}
