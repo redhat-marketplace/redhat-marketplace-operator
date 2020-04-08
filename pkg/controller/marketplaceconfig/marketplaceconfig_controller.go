@@ -10,6 +10,7 @@ import (
 	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -92,15 +93,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// TODO(user): Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Pods and requeue the owner MarketplaceConfig
 	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
-	})
-	if err != nil {
-		return err
-	}
-
-	// watch operator source and requeue the owner MarketplaceConfig
-	err = c.Watch(&source.Kind{Type: &opsrcv1.OperatorSource{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
 	})
@@ -231,8 +223,73 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		if err = controllerutil.SetControllerReference(marketplaceConfig, foundMeterBase, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
-
 		reqLogger.Info("found meterbase")
+	}
+
+	// Check if service account exists, or create a new one
+	foundSA := &corev1.ServiceAccount{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Name:      utils.SERVICE_ACCOUNT,
+		Namespace: request.Namespace,
+	}, foundSA)
+	if err != nil && errors.IsNotFound(err) {
+		newSA := utils.BuildServiceAccount(request.Namespace, utils.SERVICE_ACCOUNT)
+		reqLogger.Info("creating new ServiceAccount")
+		err = r.client.Create(context.TODO(), newSA)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create ServiceAccount", newSA.Name)
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get Service Account")
+		return reconcile.Result{}, err
+	}
+
+	// sets ownership for Service Account
+	if err = controllerutil.SetControllerReference(marketplaceConfig, foundSA, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check for ClusterRoleBinding, or create a new one
+	foundClusterRoleBinding := &rbacv1.ClusterRoleBinding{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Name: "redhat-marketplace-operator",
+	}, foundClusterRoleBinding)
+	if err != nil && errors.IsNotFound(err) {
+		// this condition shouldn't happend - cluster role will be installed via OLM
+		reqLogger.Error(err,"Cluster role binding not found")
+		return reconcile.Result{}, err
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get ClusterRoleBindng")
+		return reconcile.Result{}, err
+	}
+
+	reqLogger.Info("Cluster role binding found")
+	mySubject := rbacv1.Subject{
+		Kind: "ServiceAccount",
+		Name: utils.SERVICE_ACCOUNT,
+		Namespace: marketplaceConfig.Namespace,
+	}
+
+	foundSubject := false
+	for _, subject := range foundClusterRoleBinding.Subjects {
+		if subject == mySubject {
+			foundSubject = true
+			break
+		}
+	}
+
+	if !foundSubject {
+		reqLogger.Info("updating my cluster role binding with new subject")
+		foundClusterRoleBinding.Subjects = append(foundClusterRoleBinding.Subjects, mySubject)
+
+		if err := r.client.Update(context.TODO(), foundClusterRoleBinding); err != nil {
+			reqLogger.Error(err, "failed to update my subjects on cluster role binding")
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Check if operator source exists, or create a new one
@@ -256,11 +313,9 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	} else if err != nil {
 		// Could not get Operator Source
 		reqLogger.Error(err, "Failed to get OperatorSource")
-		return reconcile.Result{}, err
 	}
 
 	reqLogger.Info("Found opsource")
-
 	reqLogger.Info("reconciling finished")
 	return reconcile.Result{}, nil
 }

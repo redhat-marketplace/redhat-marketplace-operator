@@ -8,6 +8,8 @@ const (
 	MARKETPLACECONFIG_NAME = "rhm-marketplaceconfig"
 	METERBASE_NAME         = "rhm-marketplaceconfig-meterbase"
 	RAZEE_NAME             = "rhm-marketplaceconfig-razeedeployment"
+	CLUSTER_ROLE           = "redhat-marketplace-operator"
+	SERVICE_ACCOUNT        = "redhat-marketplace-operator"
 	RAZEE_JOB_NAME         = "rhm-razeedeploy-job"
 	OPSRC_NAME             = "redhat-marketplace-operators"
 	OPERATOR_MKTPLACE_NS   = "openshift-marketplace"
