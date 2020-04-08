@@ -670,7 +670,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request, rhmOp
 		Spec: batch.JobSpec{
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					ServiceAccountName: "redhat-marketplace-operator",
+					ServiceAccountName: utils.SERVICE_ACCOUNT,
 					Containers: []corev1.Container{{
 						Name:    "razeedeploy-job",
 						Image:   r.opts.RazeeJobImage,
@@ -694,7 +694,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(namespace string, rhmOp
 		Spec: batch.JobSpec{
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					ServiceAccountName: "redhat-marketplace-operator",
+					ServiceAccountName: utils.SERVICE_ACCOUNT,
 					Containers: []corev1.Container{{
 						Name:    RAZEE_UNINSTALL_NAME,
 						Image:   r.opts.RazeeJobImage,

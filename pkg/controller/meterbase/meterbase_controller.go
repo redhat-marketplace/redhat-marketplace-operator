@@ -433,7 +433,7 @@ func (r *ReconcileMeterBase) newPromStatefulsetForCR(cr *marketplacev1alpha1.Met
 					Labels:    ls,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: "redhat-marketplace-operator",
+					ServiceAccountName: utils.SERVICE_ACCOUNT,
 					Containers: []corev1.Container{
 						reloadContainer,
 						serverContainer,

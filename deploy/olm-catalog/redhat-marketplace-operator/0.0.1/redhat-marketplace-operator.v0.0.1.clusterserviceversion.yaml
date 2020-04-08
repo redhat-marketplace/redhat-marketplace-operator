@@ -62,7 +62,7 @@ metadata:
       ]
     capabilities: Basic Install
   name: redhat-marketplace-operator.v0.0.1
-  namespace: placeholder
+  namespace: redhat-marketplace-operator
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:

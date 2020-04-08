@@ -110,3 +110,4 @@ cover.out
 .crc
 deploy/operator.yaml
 deploy/role_binding.yaml
+.DS_Store

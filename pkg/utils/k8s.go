@@ -182,14 +182,14 @@ func BuildRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
 		},
 		Subjects: []rbacv1.Subject{
 			rbacv1.Subject{
-				Kind:      "ServiceAccount",
-				Name:      "redhat-marketplace-operator",
+				Kind: "ServiceAccount",
+				Name: SERVICE_ACCOUNT,
 				Namespace: namespace,
 			},
 		},
-		RoleRef: rbacv1.RoleRef{
-			Kind:     "ClusterRole",
-			Name:     "redhat-marketplace-operator",
+		RoleRef:rbacv1.RoleRef{
+			Kind: "ClusterRole",
+			Name: CLUSTER_ROLE,
 			APIGroup: "rbac.authorization.k8s.io",
 		},
 	}
