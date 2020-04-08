@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
-	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -73,37 +72,6 @@ func TestMarketplaceConfigController(t *testing.T) {
 	res, err := r.Reconcile(req)
 	if err != nil {
 		t.Fatalf("reconcile: (%v)", err)
-	}
-
-	// Check the result of reconciliation to make sure it has the desired state.
-	if !res.Requeue {
-		t.Error("reconcile did not requeue request as expected")
-	}
-	// Check if Deployment has been created and has the correct size.
-	dep := &appsv1.Deployment{}
-	err = cl.Get(context.TODO(), req.NamespacedName, dep)
-	if err != nil {
-		t.Fatalf("get deployment: (%v)", err)
-	}
-	// Check the result of reconciliation to make sure it has the desired state.
-	if !res.Requeue {
-		t.Error("reconcile did not requeue request as expected")
-	}
-
-	//Reconcile again so Reconcile() checks pods and updates the MarketplaceConfig
-	//resources' Status.
-	res, err = r.Reconcile(req)
-	if err != nil {
-		t.Fatalf("reconcile: (%v)", err)
-	}
-	if res != (reconcile.Result{Requeue: true}) {
-		t.Error("reconcile did not requeue request as expected")
-	}
-	// Get the updated MarketplaceConfig object.
-	marketplaceconfig = &marketplacev1alpha1.MarketplaceConfig{}
-	err = r.client.Get(context.TODO(), req.NamespacedName, marketplaceconfig)
-	if err != nil {
-		t.Errorf("get marketplaceConfig: (%v)", err)
 	}
 
 	// Reconcile again so Reconcile() checks for RazeeDeployment
