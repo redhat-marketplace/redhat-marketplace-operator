@@ -254,12 +254,18 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	// Check for ClusterRoleBinding, or create a new one
 	foundClusterRoleBinding := &rbacv1.ClusterRoleBinding{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name: "redhat-marketplace-operator",
+		Name: utils.CLUSTER_ROLE_BINDING,
 	}, foundClusterRoleBinding)
 	if err != nil && errors.IsNotFound(err) {
-		// this condition shouldn't happend - cluster role will be installed via OLM
-		reqLogger.Error(err,"Cluster role binding not found")
-		return reconcile.Result{}, err
+
+		newClusterRoleBind := utils.BuildRoleBinding(marketplaceConfig.Namespace)
+		err = r.client.Create(context.TODO(), newClusterRoleBind)
+		if err != nil {
+			reqLogger.Error(err, "Cluster role binding not found")
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
 		reqLogger.Error(err, "Failed to get ClusterRoleBindng")
 		return reconcile.Result{}, err
@@ -267,8 +273,8 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 	reqLogger.Info("Cluster role binding found")
 	mySubject := rbacv1.Subject{
-		Kind: "ServiceAccount",
-		Name: utils.SERVICE_ACCOUNT,
+		Kind:      "ServiceAccount",
+		Name:      utils.SERVICE_ACCOUNT,
 		Namespace: marketplaceConfig.Namespace,
 	}
 

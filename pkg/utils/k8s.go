@@ -178,7 +178,7 @@ func BuildServiceAccount(namespace string, serviceAccountName string) *corev1.Se
 func BuildRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: namespace,
+			Name: CLUSTER_ROLE_BINDING,
 		},
 		Subjects: []rbacv1.Subject{
 			rbacv1.Subject{

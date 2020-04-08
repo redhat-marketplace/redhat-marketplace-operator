@@ -13,6 +13,7 @@ import (
 	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -42,12 +43,10 @@ func TestMarketplaceConfigController(t *testing.T) {
 	marketplaceconfig := buildMarketplaceConfigCR(name, namespace, customerID)
 	razeedeployment := utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName)
 	meterbase := utils.BuildMeterBaseCr(namespace)
-	clusterRoleBinding := utils.BuildRoleBinding(namespace)
 
 	// Objects to track in the fake client.
 	objs := []runtime.Object{
 		marketplaceconfig,
-		clusterRoleBinding,
 	}
 
 	// Register operator types with the runtime scheme.
@@ -95,9 +94,16 @@ func TestMarketplaceConfigController(t *testing.T) {
 
 	r.reconcileTest(t,
 		req,
-		utils.SERVICE_ACCOUNT,
+		utils.CLUSTER_ROLE,
 		namespace,
 		&corev1.ServiceAccount{},
+		reconcile.Result{Requeue: true})
+
+	r.reconcileTest(t,
+		req,
+		utils.CLUSTER_ROLE_BINDING,
+		"",
+		&rbacv1.ClusterRoleBinding{},
 		reconcile.Result{Requeue: true})
 
 	r.reconcileTest(t,
