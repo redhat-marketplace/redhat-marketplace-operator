@@ -43,6 +43,13 @@ spec:
                 Setting enabled to "true" will create a Razee namespace and deploy
                 it''s componenets. Set to "false" to bypass Razee installation'
               type: boolean
+            ibmCosFullUrl:
+              type: string
+            razeeConfigValues:
+              additionalProperties:
+                type: string
+              description: RazeeConfigValues *RazeeConfigValues `json:"razeeConfigValues,omitempty"`
+              type: object
           required:
           - clusterUUID
           - enabled
@@ -145,9 +152,7 @@ spec:
                   format: int32
                   type: integer
               type: object
-            localSecretVarsPopulated:
-              type: boolean
-            missingValuesFromSecret:
+            missingRazeeConfigValues:
               items:
                 type: string
               type: array
@@ -155,8 +160,6 @@ spec:
               items:
                 type: string
               type: array
-            redHatMarketplaceSecretFound:
-              type: boolean
           type: object
       type: object
   version: v1alpha1

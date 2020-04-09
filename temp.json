@@ -1,0 +1,22 @@
+{
+  "apiVersion": "v1",
+  "kind": "Namespace",
+  "metadata": {
+    "annotations": {
+      "openshift.io/sa.scc.mcs": "s0:c28,c7",
+      "openshift.io/sa.scc.supplemental-groups": "1000770000/10000",
+      "openshift.io/sa.scc.uid-range": "1000770000/10000"
+    },
+    "creationTimestamp": "2020-04-07T10:47:21Z",
+    "name": "redhat-marketplace-operator",
+    "resourceVersion": "1312607",
+    "selfLink": "/api/v1/namespaces/redhat-marketplace-operator",
+    "uid": "28b047ef-78bd-11ea-b091-0ef0e3c74fbe"
+  },
+  "spec": {
+    "finalizers": []
+  },
+  "status": {
+    "phase": "Active"
+  }
+}

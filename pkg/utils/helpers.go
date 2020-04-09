@@ -71,6 +71,14 @@ func RemoveKey(list []string, key string) []string {
 	return newList
 }
 
+func GetMapKeys(razeeConfigValues map[string]string)([]string){
+	keys := make([]string, 0, len(razeeConfigValues))
+    for value, _ := range razeeConfigValues {
+        keys = append(keys, value)
+	}
+	return keys
+}
+
 func RetrieveSecretField(in []byte) (string, error) {
 	decodedString := b64.StdEncoding.EncodeToString(in)
 	decoded, err := b64.StdEncoding.DecodeString(decodedString)
@@ -92,6 +100,47 @@ func AddSecretFieldsToObj(razeeData map[string][]byte) (map[string]string, error
 
 	return razeeDataObj, error
 }
+// func GetFieldNames(razeeConfigValuesStruct *marketplacev1alpha1.RazeeConfigValues)([]string){
+// 	keySlice := []string{}
+
+//     e := reflect.ValueOf(razeeConfigValuesStruct).Elem()
+//     indirected := reflect.Indirect(e)
+//     for i := 0; i < indirected.NumField(); i++ {
+//         varName := indirected.Type().Field(i).Name
+//         keySlice = append(keySlice,varName)
+// 	}
+// 	return keySlice
+// }
+
+// func AddSecretFieldsToStruct(razeeData map[string][]byte) (*marketplacev1alpha1.RazeeConfigValues,[]string,error) {
+// 	var updatedRazeeValues *marketplacev1alpha1.RazeeConfigValues = &marketplacev1alpha1.RazeeConfigValues{}
+// 	missingItems := []string{}
+// 	var error error
+
+// 	for key, element := range razeeData {
+// 		value, err := RetrieveSecretField(element)
+// 		if err != nil {
+// 			error = err
+// 		}
+// 		//TODO: need to think about this.Currently isn't
+// 		if value == "" {
+// 			missingItems = append(missingItems, key)
+// 		}
+
+// 		newField := []byte(fmt.Sprintf(`{"%v": "%v"}`,key,value))
+// 		err = json.Unmarshal(newField, &updatedRazeeValues)
+// 		if err != nil {
+// 			fmt.Println(err)
+// 			error = err
+// 		}
+// 		fmt.Println(updatedRazeeValues)
+// 		if err != nil {
+// 			error = err
+// 		}
+// 	}
+
+// 	return updatedRazeeValues,missingItems, error
+// }
 
 func Equal(a []string, b []string) bool {
 	if len(a) != len(b) {

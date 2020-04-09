@@ -5,6 +5,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// type RazeeConfigValues struct {
+// 	RazeeDashOrgKey   string `json:"razeeDashOrgKey,omitempty"`
+// 	BucketName        string `json:"bucketName,omitempty"`
+// 	IbmCosUrl         string  `json:"ibmCosUrl,omitempty"`
+// 	ChildRRS3FileName string  `json:"childRRS3FileName,omitempty"`
+// 	IbmCosReaderKey   string  `json:"ibmCosReaderKey,omitempty"`
+// 	RazeeDashUrl      string  `json:"razeeDashUrl,omitempty"`
+// 	FileSourceUrl     string  `json:"fileSourceUrl,omitempty"`
+// 	IbmCosFullUrl     string  `json:"ibmCosFullUrl,omitempty"`
+// }
+
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
@@ -17,6 +28,9 @@ type RazeeDeploymentSpec struct {
 	Enabled          bool    `json:"enabled"`
 	ClusterUUID      string  `json:"clusterUUID"`
 	DeploySecretName *string `json:"deploySecretName,omitempty"`
+	// RazeeConfigValues *RazeeConfigValues `json:"razeeConfigValues,omitempty"`
+	RazeeConfigValues map[string]string `json:"razeeConfigValues,omitempty"`
+	IbmCosFullUrl *string `json:"ibmCosFullUrl,omitempty"`
 }
 
 // RazeeDeploymentStatus defines the observed state of RazeeDeployment
@@ -26,10 +40,8 @@ type RazeeDeploymentStatus struct {
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 	Conditions                   *batch.JobCondition `json:"conditions,omitempty"`
 	JobState                     batch.JobStatus     `json:"jobState,omitempty"`
-	MissingValuesFromSecret      *[]string           `json:"missingValuesFromSecret,omitempty"`
-	LocalSecretVarsPopulated     *bool               `json:"localSecretVarsPopulated,omitempty"`
+	MissingRazeeConfigValues      *[]string           `json:"missingRazeeConfigValues,omitempty"`
 	RazeePrerequisitesCreated    *[]string           `json:"razeePrerequisitesCreated,omitempty"`
-	RedHatMarketplaceSecretFound *bool               `json:"redHatMarketplaceSecretFound,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

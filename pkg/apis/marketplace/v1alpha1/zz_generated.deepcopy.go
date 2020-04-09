@@ -419,6 +419,18 @@ func (in *RazeeDeploymentSpec) DeepCopyInto(out *RazeeDeploymentSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.RazeeConfigValues != nil {
+		in, out := &in.RazeeConfigValues, &out.RazeeConfigValues
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+	if in.IbmCosFullUrl != nil {
+		in, out := &in.IbmCosFullUrl, &out.IbmCosFullUrl
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 
@@ -441,19 +453,14 @@ func (in *RazeeDeploymentStatus) DeepCopyInto(out *RazeeDeploymentStatus) {
 		(*in).DeepCopyInto(*out)
 	}
 	in.JobState.DeepCopyInto(&out.JobState)
-	if in.MissingValuesFromSecret != nil {
-		in, out := &in.MissingValuesFromSecret, &out.MissingValuesFromSecret
+	if in.MissingRazeeConfigValues != nil {
+		in, out := &in.MissingRazeeConfigValues, &out.MissingRazeeConfigValues
 		*out = new([]string)
 		if **in != nil {
 			in, out := *in, *out
 			*out = make([]string, len(*in))
 			copy(*out, *in)
 		}
-	}
-	if in.LocalSecretVarsPopulated != nil {
-		in, out := &in.LocalSecretVarsPopulated, &out.LocalSecretVarsPopulated
-		*out = new(bool)
-		**out = **in
 	}
 	if in.RazeePrerequisitesCreated != nil {
 		in, out := &in.RazeePrerequisitesCreated, &out.RazeePrerequisitesCreated
@@ -463,11 +470,6 @@ func (in *RazeeDeploymentStatus) DeepCopyInto(out *RazeeDeploymentStatus) {
 			*out = make([]string, len(*in))
 			copy(*out, *in)
 		}
-	}
-	if in.RedHatMarketplaceSecretFound != nil {
-		in, out := &in.RedHatMarketplaceSecretFound, &out.RedHatMarketplaceSecretFound
-		*out = new(bool)
-		**out = **in
 	}
 	return
 }
