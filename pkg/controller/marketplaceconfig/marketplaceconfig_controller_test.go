@@ -1,10 +1,9 @@
 package marketplaceconfig
 
 import (
-	"context"
-	"path/filepath"
-	gruntime "runtime"
 	"testing"
+
+	. "github.ibm.com/symposium/marketplace-operator/test/controller"
 
 	opsrcApi "github.com/operator-framework/operator-marketplace/pkg/apis"
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
@@ -12,8 +11,6 @@ import (
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -31,87 +28,67 @@ func TestMarketplaceConfigController(t *testing.T) {
 	viper.Set("assets", "../../../assets")
 	viper.Set("features", defaultFeatures)
 
-	var (
-		name                 = "markeplaceconfig"
-		razeeName            = "rhm-marketplaceconfig-razeedeployment"
-		meterBaseName        = "rhm-marketplaceconfig-meterbase"
-		namespace            = "redhat-marketplace-operator"
-		customerID    string = "example-userid"
-	)
+	t.Run("Test Clean Install", testCleanInstall)
+}
 
-	// Declare resources
-	marketplaceconfig := buildMarketplaceConfigCR(name, namespace, customerID)
-	razeedeployment := utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName)
-	meterbase := utils.BuildMeterBaseCr(namespace)
-
-	// Objects to track in the fake client.
-	objs := []runtime.Object{
-		marketplaceconfig,
-	}
-
-	// Register operator types with the runtime scheme.
-	s := scheme.Scheme
-
-	// Add schemes
-	if err := opsrcApi.AddToScheme(s); err != nil {
-		t.Fatalf("Unable to add OperatorSource Scheme: (%v)", err)
-	}
-	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, marketplaceconfig)
-	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeedeployment)
-	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
-	// Create a fake client to mock API calls.
-	cl := fake.NewFakeClient(objs...)
-	// Create a ReconcileMeterBase object with the scheme and fake client.
-	r := &ReconcileMarketplaceConfig{client: cl, scheme: s}
-
-	req := reconcile.Request{
+var (
+	name                 = "markeplaceconfig"
+	namespace            = "redhat-marketplace-operator"
+	customerID    string = "example-userid"
+	razeeName            = "rhm-marketplaceconfig-razeedeployment"
+	meterBaseName        = "rhm-marketplaceconfig-meterbase"
+	req                  = reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      name,
 			Namespace: namespace,
 		},
 	}
 
-	r.reconcileTest(t,
-		req,
-		name,
-		namespace,
-		&appsv1.Deployment{},
-		reconcile.Result{Requeue: true})
+	opts = []ReconcilerTestCaseOption{
+		WithRequest(req),
+		WithNamespacedName(types.NamespacedName{Namespace: namespace, Name: name}),
+	}
 
-	r.reconcileTest(t,
-		req,
-		razeeName,
-		namespace,
-		&marketplacev1alpha1.RazeeDeployment{},
-		reconcile.Result{Requeue: true})
+	marketplaceconfig = buildMarketplaceConfigCR(name, namespace, customerID)
+	razeedeployment   = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName)
+	meterbase         = utils.BuildMeterBaseCr(namespace)
+)
 
-	r.reconcileTest(t,
-		req,
-		meterBaseName,
-		namespace,
-		&marketplacev1alpha1.MeterBase{},
-		reconcile.Result{Requeue: true})
+func setup(objs ...runtime.Object) ReconcilerSetupFunc {
+	return func(r *ReconcilerTest) error {
+		s := scheme.Scheme
+		_ = opsrcApi.AddToScheme(s)
+		s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, marketplaceconfig)
+		s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeedeployment)
+		s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
 
-	r.reconcileTest(t,
-		req,
-		utils.CLUSTER_ROLE,
-		namespace,
-		&corev1.ServiceAccount{},
-		reconcile.Result{Requeue: true})
+		r.Client = fake.NewFakeClient(objs...)
+		r.Reconciler = &ReconcileMarketplaceConfig{client: r.Client, scheme: s}
+		return nil
+	}
+}
 
-	r.reconcileTest(t,
-		req,
-		utils.CLUSTER_ROLE_BINDING,
-		"",
-		&rbacv1.ClusterRoleBinding{},
-		reconcile.Result{Requeue: true})
-
-	r.reconcileTest(t,
-		req,
-		utils.OPSRC_NAME,
-		utils.OPERATOR_MKTPLACE_NS,
-		&opsrcv1.OperatorSource{},
-		reconcile.Result{Requeue: true})
+func testCleanInstall(t *testing.T) {
+	t.Parallel()
+	reconcilerTest := NewReconcilerTest(setup(marketplaceconfig.DeepCopy()))
+	reconcilerTest.TestAll(t,
+		[]*ReconcilerTestCase{
+			NewReconcilerTestCase(
+				append(opts,
+					WithTestObj(&appsv1.Deployment{}))...),
+			NewReconcilerTestCase(
+				append(opts,
+					WithTestObj(&marketplacev1alpha1.RazeeDeployment{}),
+					WithName(razeeName))...),
+			NewReconcilerTestCase(
+				append(opts,
+					WithTestObj(&marketplacev1alpha1.MeterBase{}),
+					WithName(meterBaseName))...),
+			NewReconcilerTestCase(
+				append(opts,
+					WithTestObj(&opsrcv1.OperatorSource{}),
+					WithNamespacedName(types.NamespacedName{Namespace: utils.OPERATOR_MKTPLACE_NS, Name: utils.OPSRC_NAME}))...),
+		})
 }
 
 // Test whether flags have been set or not
@@ -120,30 +97,6 @@ func TestMarketplaceConfigControllerFlags(t *testing.T) {
 
 	if !flagset.HasFlags() {
 		t.Errorf("no flags on flagset")
-	}
-}
-
-func (r *ReconcileMarketplaceConfig) reconcileTest(
-	t *testing.T,
-	req reconcile.Request,
-	name, namespace string,
-	obj runtime.Object,
-	expectedResult reconcile.Result) {
-
-	_, fn, line, _ := gruntime.Caller(1)
-	//Reconcile again so Reconcile() checks for the OperatorSource
-	res, err := r.Reconcile(req)
-	if err != nil {
-		t.Fatalf("[%s:%d] reconcile: (%v)", filepath.Base(fn), line, err)
-	}
-	if res != (expectedResult) {
-		t.Errorf("[%s:%d] %v reconcile result(%v) != expected(%v)", filepath.Base(fn), line, req, res, expectedResult)
-	}
-
-	err = r.client.Get(context.TODO(), types.NamespacedName{namespace, name}, obj)
-
-	if err != nil {
-		t.Errorf("[%s:%d] get (%T): (%v)", filepath.Base(fn), line, obj, err)
 	}
 }
 
