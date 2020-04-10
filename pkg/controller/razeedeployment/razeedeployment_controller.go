@@ -858,7 +858,7 @@ func (r *ReconcileRazeeDeployment) MakeWatchKeeperNonNamespace() *corev1.ConfigM
 			Name:      "watch-keeper-non-namespaced",
 			Namespace: RAZEE_NAMESPACE,
 		},
-		Data: map[string]string{"poll": "lite"},
+		Data: map[string]string{"v1_namespace": "true"},
 	}
 }
 
@@ -869,7 +869,6 @@ func (r *ReconcileRazeeDeployment) MakeWatchKeeperLimitPoll() *corev1.ConfigMap 
 			Name:      "watch-keeper-limit-poll",
 			Namespace: RAZEE_NAMESPACE,
 		},
-		Data: map[string]string{"whitelist": "true", "v1_namespace": "true"},
 	}
 }
 
