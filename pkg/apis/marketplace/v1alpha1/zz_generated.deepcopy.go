@@ -419,8 +419,8 @@ func (in *RazeeDeploymentSpec) DeepCopyInto(out *RazeeDeploymentSpec) {
 		*out = new(string)
 		**out = **in
 	}
-	if in.RazeeConfigValues != nil {
-		in, out := &in.RazeeConfigValues, &out.RazeeConfigValues
+	if in.DeploySecretValues != nil {
+		in, out := &in.DeploySecretValues, &out.DeploySecretValues
 		*out = make(map[string]string, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val
@@ -453,8 +453,8 @@ func (in *RazeeDeploymentStatus) DeepCopyInto(out *RazeeDeploymentStatus) {
 		(*in).DeepCopyInto(*out)
 	}
 	in.JobState.DeepCopyInto(&out.JobState)
-	if in.MissingRazeeConfigValues != nil {
-		in, out := &in.MissingRazeeConfigValues, &out.MissingRazeeConfigValues
+	if in.MissingDeploySecretValues != nil {
+		in, out := &in.MissingDeploySecretValues, &out.MissingDeploySecretValues
 		*out = new([]string)
 		if **in != nil {
 			in, out := *in, *out

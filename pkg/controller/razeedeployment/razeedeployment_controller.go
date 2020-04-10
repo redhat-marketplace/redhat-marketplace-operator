@@ -3,7 +3,6 @@ package razeedeployment
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -41,13 +40,13 @@ const (
 	MUSTACHE_TEMPLATE_VERSION  = "0.6.3"
 	REMOTE_RESOURCE_VERSION    = "0.4.2"
 	REMOTE_RESOURCE_S3_VERSION = "0.5.2"
-	IBM_COS_READER_KEY_FIELD   = "ibmCosReaderKey"
-	BUCKET_NAME_FIELD          = "bucketName"
-	IBM_COS_URL_FIELD          = "ibmCosUrl"
-	RAZEE_DASH_ORG_KEY_FIELD   = "razeeDashOrgKey"
-	CHILD_RRS3_YAML_FIELD      = "childRRS3FileName"
-	RAZEE_DASH_URL_FIELD       = "razeeDashUrl"
-	FILE_SOURCE_URL_FIELD      = "fileSourceUrl"
+	IBM_COS_READER_KEY_FIELD   = "IBM_COS_READER_KEY"
+	BUCKET_NAME_FIELD          = "BUCKET_NAME"
+	IBM_COS_URL_FIELD          = "IBM_COS_URL"
+	RAZEE_DASH_ORG_KEY_FIELD   = "RAZEE_DASH_ORG_KEY"
+	CHILD_RRS3_YAML_FIELD      = "CHILD_RRS3_YAML_FILENAME"
+	RAZEE_DASH_URL_FIELD       = "RAZEE_DASH_URL"
+	FILE_SOURCE_URL_FIELD      = "FILE_SOURCE_URL"
 	RHM_OPERATOR_SECRET_NAME   = "rhm-operator-secret"
 	IBM_COS_FULL_URL_FIELD = "ibmCosFullUrl"
 
@@ -112,6 +111,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		CreateFunc: func(e event.CreateEvent) bool{
 			return e.Meta.GetName() == RHM_OPERATOR_SECRET_NAME 
 		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return e.MetaOld.GetName() == RHM_OPERATOR_SECRET_NAME
+		},
 	}
 
 	err = c.Watch(
@@ -154,7 +156,7 @@ type RazeeOpts struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	missingRazeeConfigValues := make([]string, 0, 8)
+	// MissingDeploySecretValues := make([]string, 0, 8)
 	razeePrerequisitesCreated := make([]string, 0, 7)
 	// localSecretVarsPopulated := false
 
@@ -163,64 +165,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	switch request.Name {
 		case  RHM_OPERATOR_SECRET_NAME:
-			reqLogger.Info("Beginning of rhm-operator-secret reconcile")
-
-			// retrieve the razee instance
-			razeeDeployments := &marketplacev1alpha1.RazeeDeploymentList{}
-			err := r.client.List(context.TODO(), razeeDeployments)
-			if err != nil {
-				reqLogger.Error(err, "Failed to list RazeeDeployments")	
-			}
-
-			razeeInstance := razeeDeployments.Items[0]
-
-			// get the operator secret
-			rhmOperatorSecret := corev1.Secret{}
-			err = r.client.Get(context.TODO(), types.NamespacedName{
-				Name:      rhmSecretName,
-				Namespace: request.Namespace,
-			}, &rhmOperatorSecret)
-			if err != nil {
-				if errors.IsNotFound(err) {																
-					// Request object not found, could have been deleted after reconcile request.
-					// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-					// Return and don't requeue
-					// report to status that we haven't found the secret
-					reqLogger.Info("Updating RedHatMarketplaceSecretFound")
-					reqLogger.Error(err, "Failed to find operator secret")
-					return reconcile.Result{}, nil
-				}
-				// Error reading the object - requeue the request.
-				return reconcile.Result{}, err
-			}
-
-			/******************************************************************************
-			UPDATE SPEC.RAZEE CONFIG VALUES
-			/******************************************************************************/
-			reqLogger.Info("Adding values to RazeeConfigValues")
-
-			// razeeConfigValues,missingItems,err := utils.AddSecretFieldsToStruct(rhmOperatorSecret.Data)
-			razeeConfigValues,err := utils.AddSecretFieldsToObj(rhmOperatorSecret.Data)
+			_,err := r.reconcileRhmOperatorSecret(&request)
 			if err != nil{
-				fmt.Println(err)
-			}
-	
-			razeeInstance.Spec.RazeeConfigValues = razeeConfigValues
-			razeeInstance.Status.MissingRazeeConfigValues = &missingRazeeConfigValues
-			// *razeeInstance.Status.MissingRazeeConfigValues = missingItems
-			err = r.client.Update(context.TODO(), &razeeInstance)
-			if err != nil {
-				reqLogger.Error(err, "Failed to update Spec.RazeeConfigValues")
+				reqLogger.Error(err,"Failed to reconcile secret")
 			}
 
-			err = r.client.Status().Update(context.TODO(), &razeeInstance)
-			if err != nil {
-				reqLogger.Error(err, "Failed to update Spec.RazeeConfigValues")
-			}
-			
-			reqLogger.Info("End of rhm-operator-secret reconcile")
-
-		case "rhm-marketplaceconfig-razeedeployment":
+		default:
 			reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 			reqLogger.Info("Beginning of RazeeDeploy Instance reconciler")
 			// Fetch the RazeeDeployment instance
@@ -250,7 +200,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			check the instance for *clusterUUID
 			/******************************************************************************/
 			clusterUUID = instance.Spec.ClusterUUID
-	
+			
+			//TODO: don't think this is doing anything at the moment
 			if instance.Spec.DeploySecretName != nil {
 				rhmSecretName = *instance.Spec.DeploySecretName
 			}
@@ -297,56 +248,59 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			if the job has already run exit
 			if there are still missing resources exit
 			/******************************************************************************/
-			// instance.Status.RedHatMarketplaceSecretFound = &redHatMarketplaceSecretFound
-			// if instance.Status.RedHatMarketplaceSecretFound == nil {
-			// 	redHatMarketplaceSecretFound := false
-			// 	instance.Status.RedHatMarketplaceSecretFound = &redHatMarketplaceSecretFound
-			// }
-
-			// if !*instance.Status.RedHatMarketplaceSecretFound {
-			// 	reqLogger.Info("rhm-operator-secret has not been applied")
-			// 	return reconcile.Result{}, nil
-			// }
-			/*
-			RazeeDashOrgKey   string `json:"razeeDashOrgKey,omitempty"`
-			BucketName        string `json:"bucketName,omitempty"`
-			IbmCosUrl         string  `json:"ibmCosUrl,omitempty"`
-			ChildRRS3FileName string  `json:"childRRS3FileName,omitempty"`
-			IbmCosReaderKey   string  `json:"ibmCosReaderKey,omitempty"`
-			RazeeDashUrl      string  `json:"razeeDashUrl,omitempty"`
-			FileSourceUrl     string  `json:"fileSourceUrl,omitempty"`
-			IbmCosFullUrl     string  `json:"ibmCosFullUrl,omitempty"`
-			*/
 			
-
-			// instance.Status.MissingRazeeConfigValues = &missingRazeeConfigValues
-			if instance.Spec.RazeeConfigValues == nil {
+	
+			if instance.Spec.DeploySecretValues == nil {
 				reqLogger.Info("rhm-operator-secret has not been applied")
-				return reconcile.Result{}, nil
+				req := reconcile.Request{
+						types.NamespacedName{
+						Name: *instance.Spec.DeploySecretName,
+						Namespace: request.Namespace,
+					},
+				}
+				r.reconcileRhmOperatorSecret(&req)
+				return reconcile.Result{RequeueAfter: time.Second * 30}, nil
 			}
 
-			if instance.Spec.RazeeConfigValues != nil{
-				correctList := []string{"RazeeDashOrgKey","BucketName","IbmCosUrl","ChildRRS3FileName","IbmCosReaderKey","RazeeDashUrl","FileSourceUrl","IbmCosFullUrl"}
-				// keys := utils.GetFieldNames(instance.Spec.RazeeConfigValues)
-				keys := utils.GetMapKeys(instance.Spec.RazeeConfigValues)
-				fmt.Println("KEYS",keys)
-				if !reflect.DeepEqual(correctList,keys) {
-					reqLogger.Info("LISTS DO NOT MATCH")
-					return reconcile.Result{}, nil
-				}
+			if instance.Spec.DeploySecretValues != nil{
+				correctList := []string{RAZEE_DASH_ORG_KEY_FIELD,BUCKET_NAME_FIELD,IBM_COS_URL_FIELD,CHILD_RRS3_YAML_FIELD,IBM_COS_READER_KEY_FIELD,RAZEE_DASH_URL_FIELD,FILE_SOURCE_URL_FIELD}
+				if missingItems := utils.CheckMapKeys(instance.Spec.DeploySecretValues,correctList);len(missingItems) > 0  {
+					reqLogger.Info("Missing required razee configuration values")
 
-				if reflect.DeepEqual(correctList,keys) {
-					reqLogger.Info("LISTS MATCH")
+					instance.Status.MissingDeploySecretValues = &missingItems
+					err = r.client.Status().Update(context.TODO(), instance)		
+					if err != nil {
+						reqLogger.Error(err, "Failed to update Status.MissingDeploySecretValues")
+					}
+
+					req := reconcile.Request{types.NamespacedName{
+							Name: *instance.Spec.DeploySecretName,
+							Namespace: request.Namespace,
+						},
+					}
+					_,err := r.reconcileRhmOperatorSecret(&req)
+					if err != nil{
+						reqLogger.Error(err,"Failed to reconcile secret")
+					}
+					return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+				} else {
+					// if all the secret values are there, then create the child url and update missing items
+					instance.Status.MissingDeploySecretValues = &missingItems
+					err = r.client.Status().Update(context.TODO(), instance)		
+					if err != nil {
+						reqLogger.Error(err, "Failed to update Status.MissingDeploySecretValues")
+					}
+
+					url := fmt.Sprintf("%s/%s/%s/%s", instance.Spec.DeploySecretValues[IBM_COS_URL_FIELD], instance.Spec.DeploySecretValues[BUCKET_NAME_FIELD], clusterUUID, instance.Spec.DeploySecretValues[CHILD_RRS3_YAML_FIELD])
+					instance.Spec.IbmCosFullUrl = &url
+					err = r.client.Update(context.TODO(), instance)		
+					if err != nil {
+						reqLogger.Error(err, "Failed to update IbmCosFullUrl")
+					}		
+					reqLogger.Info("All required razee configuration values have been found")
 				}
+				
 			}
-
-			// e := reflect.ValueOf(*instance.Spec.RazeeConfigValues).Elem()
-			// indirected := reflect.Indirect(e)
-			// if  indirected.NumField() != 8{
-			// 	fmt.Println("size of Spec.RazeeConfigValues from secret applied block: ",indirected.NumField())
-			// 	reqLogger.Info("rhm-operator-secret has not been applied")
-			// 	return reconcile.Result{}, nil
-			// }
 
 			if instance.Status.JobState.Succeeded == 1  {
 				reqLogger.Info("RazeeDeployJob has been successfully created")
@@ -356,7 +310,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			/******************************************************************************
 			APPLY RAZEE RESOURCES
 			/******************************************************************************/
-			fmt.Println("RAZEE CONFIG VALUES",instance.Spec.RazeeConfigValues)
+			fmt.Println("RAZEE CONFIG VALUES",instance.Spec.DeploySecretValues)
 			instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
 			razeeNamespace := corev1.Namespace{}
 			err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee"}, &razeeNamespace)
@@ -723,6 +677,68 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	return reconcile.Result{}, nil
 }
 
+func(r *ReconcileRazeeDeployment)reconcileRhmOperatorSecret(request *reconcile.Request)(*reconcile.Result, error){
+	MissingDeploySecretValues := make([]string, 0, 8)
+	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "uestuest.Name", request.Name)
+	reqLogger.Info("Beginning of rhm-operator-secret reconcile")
+
+	// retrieve the razee instance
+	razeeDeployments := &marketplacev1alpha1.RazeeDeploymentList{}
+	err := r.client.List(context.TODO(), razeeDeployments)
+	if err != nil {
+		reqLogger.Error(err, "Failed to list RazeeDeployments")	
+	}
+
+	razeeInstance := razeeDeployments.Items[0]
+
+	// get the operator secret
+	rhmOperatorSecret := corev1.Secret{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Name:      rhmSecretName,
+		Namespace: request.Namespace,
+	}, &rhmOperatorSecret)
+	if err != nil {
+		if errors.IsNotFound(err) {																
+			// Request object not found, could have been deleted after reconcile request.
+			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			// Return and don't requeue
+			// report to status that we haven't found the secret
+			reqLogger.Info("Updating RedHatMarketplaceSecretFound")
+			reqLogger.Error(err, "Failed to find operator secret")
+			return nil, nil
+		}
+		// Error reading the object - requeue the request.
+		return nil, err
+	}
+
+	/******************************************************************************
+	UPDATE SPEC.RAZEE CONFIG VALUES
+	/******************************************************************************/
+	reqLogger.Info("Adding values to DeploySecretValues")
+
+	// razeeConfigValues,missingItems,err := utils.AddSecretFieldsToStruct(rhmOperatorSecret.Data)
+	razeeConfigValues,err := utils.AddSecretFieldsToObj(rhmOperatorSecret.Data)
+	if err != nil{
+		fmt.Println(err)
+	}
+
+	razeeInstance.Spec.DeploySecretValues = razeeConfigValues
+	razeeInstance.Status.MissingDeploySecretValues = &MissingDeploySecretValues
+	// *razeeInstance.Status.MissingDeploySecretValues = missingItems
+	err = r.client.Update(context.TODO(), &razeeInstance)
+	if err != nil {
+		reqLogger.Error(err, "Failed to update Spec.DeploySecretValues")
+	}
+
+	err = r.client.Status().Update(context.TODO(), &razeeInstance)
+	if err != nil {
+		reqLogger.Error(err, "Failed to update Spec.DeploySecretValues")
+	}
+	
+	reqLogger.Info("End of rhm-operator-secret reconcile")
+	return nil, nil
+}
+
 // finalizeRazeeDeployment cleans up resources before the RazeeDeployment CR is deleted
 func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(req *marketplacev1alpha1.RazeeDeployment, namespace string) (*reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
@@ -814,7 +830,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request, insta
 						Name:    "razeedeploy-job",
 						Image:   image,
 						Command: []string{"node", "src/install", "--namespace=razee"},
-						Args:    []string{fmt.Sprintf("--file-source=%v", instance.Spec.RazeeConfigValues[FILE_SOURCE_URL_FIELD]), "--autoupdate"},
+						Args:    []string{fmt.Sprintf("--file-source=%v", instance.Spec.DeploySecretValues[FILE_SOURCE_URL_FIELD]), "--autoupdate"},
 					}},
 					RestartPolicy: "Never",
 				},
@@ -838,7 +854,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(namespace string, insta
 						Name:    RAZEE_UNINSTALL_NAME,
 						Image:   r.opts.RazeeJobImage,
 						Command: []string{"node", "src/remove", "--namespace=razee"},
-						Args:    []string{fmt.Sprintf("--file-source=%v", instance.Spec.RazeeConfigValues[FILE_SOURCE_URL_FIELD]), "--autoupdate"},
+						Args:    []string{fmt.Sprintf("--file-source=%v", instance.Spec.DeploySecretValues[FILE_SOURCE_URL_FIELD]), "--autoupdate"},
 					}},
 					RestartPolicy: "Never",
 				},
@@ -903,12 +919,12 @@ func (r *ReconcileRazeeDeployment) MakeWatchKeeperConfig(instance *marketplacev1
 			Name:      "watch-keeper-config",
 			Namespace: "razee",
 		},
-		Data: map[string]string{"RAZEEDASH_URL": instance.Spec.RazeeConfigValues[RAZEE_DASH_URL_FIELD], "START_DELAY_MAX": "0"},
+		Data: map[string]string{"RAZEEDASH_URL": instance.Spec.DeploySecretValues[RAZEE_DASH_URL_FIELD], "START_DELAY_MAX": "0"},
 	}
 }
 
 func (r *ReconcileRazeeDeployment) MakeWatchKeeperSecret(instance *marketplacev1alpha1.RazeeDeployment) *corev1.Secret {
-	key := instance.Spec.RazeeConfigValues[RAZEE_DASH_ORG_KEY_FIELD]
+	key := instance.Spec.DeploySecretValues[RAZEE_DASH_ORG_KEY_FIELD]
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "watch-keeper-secret",
@@ -919,7 +935,7 @@ func (r *ReconcileRazeeDeployment) MakeWatchKeeperSecret(instance *marketplacev1
 }
 
 func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret(instance *marketplacev1alpha1.RazeeDeployment) *corev1.Secret {
-	cosApiKey := instance.Spec.RazeeConfigValues[IBM_COS_READER_KEY_FIELD]
+	cosApiKey := instance.Spec.DeploySecretValues[IBM_COS_READER_KEY_FIELD]
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "ibm-cos-reader-key",
@@ -955,7 +971,7 @@ func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3(instance *marketpl
 					},
 				},
 				"requests": []interface{}{
-					map[string]map[string]string{"options": {"url": instance.Spec.RazeeConfigValues[IBM_COS_FULL_URL_FIELD]}},
+					map[string]map[string]string{"options": {"url": *instance.Spec.IbmCosFullUrl}},
 				},
 			},
 		},

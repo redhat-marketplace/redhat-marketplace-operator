@@ -35,6 +35,10 @@ spec:
               type: string
             deploySecretName:
               type: string
+            deploySecretValues:
+              additionalProperties:
+                type: string
+              type: object
             enabled:
               description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
                 Important: Run "operator-sdk generate k8s" to regenerate code after
@@ -45,11 +49,6 @@ spec:
               type: boolean
             ibmCosFullUrl:
               type: string
-            razeeConfigValues:
-              additionalProperties:
-                type: string
-              description: RazeeConfigValues *RazeeConfigValues `json:"razeeConfigValues,omitempty"`
-              type: object
           required:
           - clusterUUID
           - enabled
@@ -152,7 +151,7 @@ spec:
                   format: int32
                   type: integer
               type: object
-            missingRazeeConfigValues:
+            missingDeploySecretValues:
               items:
                 type: string
               type: array

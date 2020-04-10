@@ -28,8 +28,7 @@ type RazeeDeploymentSpec struct {
 	Enabled          bool    `json:"enabled"`
 	ClusterUUID      string  `json:"clusterUUID"`
 	DeploySecretName *string `json:"deploySecretName,omitempty"`
-	// RazeeConfigValues *RazeeConfigValues `json:"razeeConfigValues,omitempty"`
-	RazeeConfigValues map[string]string `json:"razeeConfigValues,omitempty"`
+	DeploySecretValues map[string]string `json:"deploySecretValues,omitempty"`
 	IbmCosFullUrl *string `json:"ibmCosFullUrl,omitempty"`
 }
 
@@ -40,7 +39,7 @@ type RazeeDeploymentStatus struct {
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 	Conditions                   *batch.JobCondition `json:"conditions,omitempty"`
 	JobState                     batch.JobStatus     `json:"jobState,omitempty"`
-	MissingRazeeConfigValues      *[]string           `json:"missingRazeeConfigValues,omitempty"`
+	MissingDeploySecretValues      *[]string           `json:"missingDeploySecretValues,omitempty"`
 	RazeePrerequisitesCreated    *[]string           `json:"razeePrerequisitesCreated,omitempty"`
 }
 
