@@ -31,7 +31,7 @@ import (
 const (
 	razeeDeploymentFinalizer   = "razeedeploy.finalizer.marketplace.redhat.com"
 	RAZEE_UNINSTALL_NAME       = "razee-uninstall-job"
-	DEFAULT_RAZEE_JOB_IMAGE    = "quay.io/razee/razeedeploy-delta:0.3.1"
+	DEFAULT_RAZEE_JOB_IMAGE    = "quay.io/razee/razeedeploy-delta:1.1.0"
 	DEFAULT_RAZEEDASH_URL      = `http://169.45.231.109:8081/api/v2`
 	WATCH_KEEPER_VERSION       = "0.5.0"
 	FEATURE_FLAG_VERSION       = "0.6.1"
