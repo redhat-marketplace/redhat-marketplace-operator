@@ -50,7 +50,8 @@ func TestMarketplaceConfig(t *testing.T) {
 	}
 
 	viper.Set("assets", "../../../assets")
-	viper.Set("autoinstall", true)
+	defaultFeatures := []string{"razee", "meterbase"}
+	viper.Set("features", defaultFeatures)
 
 	// run subtests
 	t.Run("marketplaceconfig-group", func(t *testing.T) {
@@ -89,7 +90,7 @@ func MarketplaceOperatorCluster(t *testing.T) {
 			Namespace: namespace,
 		},
 		Spec: marketplacev1alpha1.MarketplaceConfigSpec{
-			Size: 1,
+			RhmAccountID: "example-userid",
 		},
 	}
 

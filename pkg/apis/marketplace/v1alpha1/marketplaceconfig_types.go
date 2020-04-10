@@ -10,7 +10,9 @@ import (
 
 // MarketplaceConfigSpec defines the desired state of MarketplaceConfig
 type MarketplaceConfigSpec struct {
-	Size int32 `json:"size"`
+	RhmAccountID     string  `json:"rhmAccountID"`
+	ClusterUUID      string  `json:"clusterUUID"`
+	DeploySecretName *string `json:"deploySecretName,omitempty"`
 }
 
 // MarketplaceConfigStatus defines the observed state of MarketplaceConfig
@@ -23,6 +25,7 @@ type MarketplaceConfigStatus struct {
 // MarketplaceConfig is the Schema for the marketplaceconfigs API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=marketplaceconfigs,scope=Namespaced
+// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Marketplace"
 type MarketplaceConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

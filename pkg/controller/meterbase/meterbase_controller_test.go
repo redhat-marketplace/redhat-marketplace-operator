@@ -3,7 +3,6 @@ package meterbase
 import (
 	"context"
 	"math/rand"
-	"reflect"
 	"strconv"
 	"testing"
 

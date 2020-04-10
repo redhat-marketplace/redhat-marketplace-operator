@@ -1,20 +1,20 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: marketplaceconfigs.marketplace.redhat.com
+  name: meterings.marketplace.redhat.com
 spec:
   group: marketplace.redhat.com
   names:
-    kind: MarketplaceConfig
-    listKind: MarketplaceConfigList
-    plural: marketplaceconfigs
-    singular: marketplaceconfig
+    kind: Metering
+    listKind: MeteringList
+    plural: meterings
+    singular: metering
   scope: Namespaced
   subresources:
     status: {}
   validation:
     openAPIV3Schema:
-      description: MarketplaceConfig is the Schema for the marketplaceconfigs API
+      description: Metering is the Schema for the meterings API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -29,20 +29,10 @@ spec:
         metadata:
           type: object
         spec:
-          description: MarketplaceConfigSpec defines the desired state of MarketplaceConfig
-          properties:
-            clusterUUID:
-              type: string
-            deploySecretName:
-              type: string
-            rhmAccountID:
-              type: string
-          required:
-          - clusterUUID
-          - rhmAccountID
+          description: MeteringSpec defines the desired state of Metering
           type: object
         status:
-          description: MarketplaceConfigStatus defines the observed state of MarketplaceConfig
+          description: MeteringStatus defines the observed state of Metering
           properties:
             conditions:
               additionalProperties:
@@ -82,7 +72,10 @@ spec:
                 - status
                 - type
                 type: object
-              description: Conditions is a set of Condition instances.
+              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                of cluster Important: Run "operator-sdk generate k8s" to regenerate
+                code after modifying this file Add custom validation using kubebuilder
+                tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html'
               type: array
           required:
           - conditions

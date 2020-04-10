@@ -1,20 +1,20 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: marketplaceconfigs.marketplace.redhat.com
+  name: meterbases.marketplace.redhat.com
 spec:
   group: marketplace.redhat.com
   names:
-    kind: MarketplaceConfig
-    listKind: MarketplaceConfigList
-    plural: marketplaceconfigs
-    singular: marketplaceconfig
+    kind: MeterBase
+    listKind: MeterBaseList
+    plural: meterbases
+    singular: meterbase
   scope: Namespaced
   subresources:
     status: {}
   validation:
     openAPIV3Schema:
-      description: MarketplaceConfig is the Schema for the marketplaceconfigs API
+      description: MeterBase is the Schema for the meterbases API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -29,20 +29,59 @@ spec:
         metadata:
           type: object
         spec:
-          description: MarketplaceConfigSpec defines the desired state of MarketplaceConfig
+          description: MeterBaseSpec defines the desired state of MeterBase
           properties:
-            clusterUUID:
-              type: string
-            deploySecretName:
-              type: string
-            rhmAccountID:
-              type: string
+            enabled:
+              description: Is metering is enabled on the cluster? Default is true
+              type: boolean
+            prometheus:
+              description: Prometheus deployment configuration.
+              properties:
+                resources:
+                  description: Resource requirements for the deployment. Default is
+                    not defined.
+                  properties:
+                    limits:
+                      additionalProperties:
+                        type: string
+                      description: 'Limits describes the maximum amount of compute
+                        resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                      type: object
+                    requests:
+                      additionalProperties:
+                        type: string
+                      description: 'Requests describes the minimum amount of compute
+                        resources required. If Requests is omitted for a container,
+                        it defaults to Limits if that is explicitly specified, otherwise
+                        to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                      type: object
+                  type: object
+                selector:
+                  additionalProperties:
+                    type: string
+                  description: Selector for the pods in the Prometheus deployment
+                  type: object
+                storage:
+                  description: Storage for the deployment.
+                  properties:
+                    class:
+                      description: Storage class for the prometheus stateful set.
+                        Default is "" i.e. default.
+                      type: string
+                    size:
+                      description: Storage size for the prometheus deployment. Default
+                        is 40Gi.
+                      format: quantity
+                      type: string
+                  type: object
+              required:
+              - storage
+              type: object
           required:
-          - clusterUUID
-          - rhmAccountID
+          - enabled
           type: object
         status:
-          description: MarketplaceConfigStatus defines the observed state of MarketplaceConfig
+          description: MeterBaseStatus defines the observed state of MeterBase.
           properties:
             conditions:
               additionalProperties:
@@ -83,6 +122,11 @@ spec:
                 - type
                 type: object
               description: Conditions is a set of Condition instances.
+              type: array
+            prometheusNodes:
+              description: PrometheusNodes are the names of the prometheus pods
+              items:
+                type: string
               type: array
           required:
           - conditions

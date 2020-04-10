@@ -151,16 +151,6 @@ spec:
               items:
                 type: string
               type: array
-            razee_job_install:
-              properties:
-                razee_install_url:
-                  type: string
-                razee_namespace:
-                  type: string
-              required:
-              - razee_install_url
-              - razee_namespace
-              type: object
             razeePrerequisitesCreated:
               items:
                 type: string

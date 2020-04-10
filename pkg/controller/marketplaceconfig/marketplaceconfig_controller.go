@@ -2,7 +2,6 @@ package marketplaceconfig
 
 import (
 	"context"
-	"strconv"
 
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	pflag "github.com/spf13/pflag"
@@ -31,31 +30,28 @@ const (
 	OPSRC_NAME                      = "redhat-redhat-marketplace-operators"
 	RELATED_IMAGE_MARKETPLACE_AGENT = "RELATED_IMAGE_MARKETPLACE_AGENT"
 	DEFAULT_IMAGE_MARKETPLACE_AGENT = "marketplace-agent:latest"
+	RAZEE_FLAG                      = "razee"
+	METERBASE_FLAG                  = "meterbase"
 )
 
 var (
 	log                      = logf.Log.WithName("controller_marketplaceconfig")
 	marketplaceConfigFlagSet *pflag.FlagSet
+	defaultFeatures          = []string{RAZEE_FLAG, METERBASE_FLAG}
 )
 
 // Init declares our FlagSet for the MarketplaceConfig
 // Currently only has 1 set of flags for setting the Image
 func init() {
-	autoinstall, err := strconv.ParseBool(utils.Getenv("AUTOINSTALL", "true"))
-
-	if err != nil {
-		autoinstall = true
-	}
-
 	marketplaceConfigFlagSet = pflag.NewFlagSet("marketplaceconfig", pflag.ExitOnError)
 	marketplaceConfigFlagSet.String(
 		"related-image-operator-agent",
 		utils.Getenv(RELATED_IMAGE_MARKETPLACE_AGENT, DEFAULT_IMAGE_MARKETPLACE_AGENT),
 		"Image for marketplaceConfig")
-	marketplaceConfigFlagSet.Bool(
-		"autoinstall",
-		autoinstall,
-		"True or false: auto install the remaining components?",
+	marketplaceConfigFlagSet.StringSlice(
+		"features",
+		defaultFeatures,
+		"List of additional features to install. Ex. [razee, meterbase], etc.",
 	)
 }
 
@@ -97,15 +93,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// TODO(user): Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Pods and requeue the owner MarketplaceConfig
 	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
-	})
-	if err != nil {
-		return err
-	}
-
-	// watch operator source and requeue the owner MarketplaceConfig
-	err = c.Watch(&source.Kind{Type: &opsrcv1.OperatorSource{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
 	})
@@ -181,18 +168,62 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 	reqLogger.Info("deployment created")
 
-	// Ensure deployment size is the same as spec
-	size := marketplaceConfig.Spec.Size
-	if *found.Spec.Replicas != size {
-		found.Spec.Replicas = &size
-		err = r.client.Update(context.TODO(), found)
-		// Failed to update deployment
-		if err != nil {
-			reqLogger.Error(err, "Failed to update Deployment", "Deployment.Namespace", found.Namespace, "Deployment.Name", found.Name)
+	installFeatures := viper.GetStringSlice("features")
+	installSet := make(map[string]bool)
+	for _, installFlag := range installFeatures {
+		reqLogger.Info("Feature Flag Found", "Flag Name: ", installFlag)
+		installSet[installFlag] = true
+	}
+
+	// If auto-install is true MarketplaceConfig should create RazeeDeployment CR and MeterBase CR
+	reqLogger.Info("auto installing crs")
+	_, installExists := installSet[RAZEE_FLAG]
+	if installExists {
+		//Check if RazeeDeployment exists, if not create one
+		foundRazee := &marketplacev1alpha1.RazeeDeployment{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: marketplaceConfig.Namespace}, foundRazee)
+		if err != nil && errors.IsNotFound(err) {
+			newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName)
+			reqLogger.Info("creating razee cr")
+			err = r.client.Create(context.TODO(), newRazeeCrd)
+			if err != nil {
+				reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{Requeue: true}, nil
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get RazeeDeployment CR")
 			return reconcile.Result{}, err
 		}
-		//Spec updated - return and requeue
-		return reconcile.Result{Requeue: true}, nil
+		// Sets the owner for foundRazee
+		if err = controllerutil.SetControllerReference(marketplaceConfig, foundRazee, r.scheme); err != nil {
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("found razee")
+	}
+	_, installExists = installSet[METERBASE_FLAG]
+	if installExists {
+		// Check if MeterBase exists, if not create one
+		foundMeterBase := &marketplacev1alpha1.MeterBase{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: marketplaceConfig.Namespace}, foundMeterBase)
+		if err != nil && errors.IsNotFound(err) {
+			newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
+			reqLogger.Info("creating meterbase")
+			err = r.client.Create(context.TODO(), newMeterBaseCr)
+			if err != nil {
+				reqLogger.Error(err, "Failed to create a new MeterBase CR.")
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{Requeue: true}, nil
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get MeterBase CR")
+			return reconcile.Result{}, err
+		}
+		// Sets the owner for MeterBase
+		if err = controllerutil.SetControllerReference(marketplaceConfig, foundMeterBase, r.scheme); err != nil {
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("found meterbase")
 	}
 
 	// Check if operator source exists, or create a new one
@@ -216,63 +247,9 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	} else if err != nil {
 		// Could not get Operator Source
 		reqLogger.Error(err, "Failed to get OperatorSource")
-		return reconcile.Result{}, err
 	}
 
 	reqLogger.Info("Found opsource")
-
-	// If auto-install is true MarketplaceConfig should create RazeeDeployment CR and MeterBase CR
-	autoinstall := viper.GetBool("autoinstall")
-	if autoinstall {
-		reqLogger.Info("auto installing crs")
-
-		//Check if RazeeDeployment exists, if not create one
-		foundRazee := &marketplacev1alpha1.RazeeDeployment{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: marketplaceConfig.Namespace}, foundRazee)
-		if err != nil && errors.IsNotFound(err) {
-			newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace)
-			reqLogger.Info("creating razee cr")
-			err = r.client.Create(context.TODO(), newRazeeCrd)
-			if err != nil {
-				reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
-				return reconcile.Result{}, err
-			}
-			return reconcile.Result{Requeue: true}, nil
-		} else if err != nil {
-			reqLogger.Error(err, "Failed to get RazeeDeployment CR")
-			return reconcile.Result{}, err
-		}
-		// Sets the owner for foundRazee
-		if err = controllerutil.SetControllerReference(marketplaceConfig, foundRazee, r.scheme); err != nil {
-			return reconcile.Result{}, err
-		}
-
-		reqLogger.Info("found razee")
-
-		// Check if MeterBase exists, if not create one
-		foundMeterBase := &marketplacev1alpha1.MeterBase{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: marketplaceConfig.Namespace}, foundMeterBase)
-		if err != nil && errors.IsNotFound(err) {
-			newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
-			reqLogger.Info("creating meterbase")
-			err = r.client.Create(context.TODO(), newMeterBaseCr)
-			if err != nil {
-				reqLogger.Error(err, "Failed to create a new MeterBase CR.")
-				return reconcile.Result{}, err
-			}
-			return reconcile.Result{Requeue: true}, nil
-		} else if err != nil {
-			reqLogger.Error(err, "Failed to get MeterBase CR")
-			return reconcile.Result{}, err
-		}
-		// Sets the owner for MeterBase
-		if err = controllerutil.SetControllerReference(marketplaceConfig, foundMeterBase, r.scheme); err != nil {
-			return reconcile.Result{}, err
-		}
-
-		reqLogger.Info("found meterbase")
-	}
-
 	reqLogger.Info("reconciling finished")
 	return reconcile.Result{}, nil
 }
@@ -280,7 +257,6 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 // deploymentForMarketplaceConfig will return a marketplaceConfig Deployment object
 func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketplacev1alpha1.MarketplaceConfig) *appsv1.Deployment {
 	ls := labelsForMarketplaceConfig(m.Name)
-	replicas := m.Spec.Size
 
 	image := viper.GetString("related-image-operator-agent")
 
@@ -291,7 +267,6 @@ func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketpla
 			Labels:    ls,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: ls,
 			},

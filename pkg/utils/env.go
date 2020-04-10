@@ -8,9 +8,12 @@ const (
 	MARKETPLACECONFIG_NAME = "rhm-marketplaceconfig"
 	METERBASE_NAME         = "rhm-marketplaceconfig-meterbase"
 	RAZEE_NAME             = "rhm-marketplaceconfig-razeedeployment"
+	CLUSTER_ROLE           = "redhat-marketplace-operator"
+	CLUSTER_ROLE_BINDING           = "redhat-marketplace-operator"
+	SERVICE_ACCOUNT        = "redhat-marketplace-operator"
 	RAZEE_JOB_NAME         = "rhm-razeedeploy-job"
 	OPSRC_NAME             = "redhat-marketplace-operators"
-	OPERATOR_MKTPLACE_NS   = "marketplace-operator"
+	OPERATOR_MKTPLACE_NS   = "openshift-marketplace"
 )
 
 // Getenv will return the value for the passed key (which is typically an environment variable)

@@ -14,7 +14,9 @@ type RazeeDeploymentSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 	// Setting enabled to "true" will create a Razee namespace and deploy it's componenets. Set to "false" to bypass Razee installation
-	Enabled bool `json:"enabled"`
+	Enabled          bool    `json:"enabled"`
+	ClusterUUID      string  `json:"clusterUUID"`
+	DeploySecretName *string `json:"deploySecretName,omitempty"`
 }
 
 // RazeeDeploymentStatus defines the observed state of RazeeDeployment
@@ -22,8 +24,18 @@ type RazeeDeploymentStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-	Conditions batch.JobCondition `json:"conditions"`
-	JobState   batch.JobStatus    `json:"jobState"`
+	Conditions                   *batch.JobCondition    `json:"conditions,omitempty"`
+	JobState                     batch.JobStatus        `json:"jobState,omitempty"`
+	MissingValuesFromSecret      *[]string              `json:"missingValuesFromSecret,omitempty"`
+	LocalSecretVarsPopulated     *bool                  `json:"localSecretVarsPopulated,omitempty"`
+	RazeePrerequisitesCreated    *[]string              `json:"razeePrerequisitesCreated,omitempty"`
+	RedHatMarketplaceSecretFound *bool                  `json:"redHatMarketplaceSecretFound,omitempty"`
+	RazeeJobInstall              *RazeeJobInstallStruct `json:"razee_job_install,omitempty"`
+}
+
+type RazeeJobInstallStruct struct {
+	RazeeNamespace  string `json:"razee_namespace"`
+	RazeeInstallURL string `json:"razee_install_url"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -31,6 +43,7 @@ type RazeeDeploymentStatus struct {
 // RazeeDeployment is the Schema for the razeedeployments API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=razeedeployments,scope=Namespaced
+// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="(Internal) Razee Deployment"
 type RazeeDeployment struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

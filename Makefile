@@ -1,5 +1,7 @@
 SHELL:=/bin/bash
 NAMESPACE ?= redhat-marketplace-operator
+OPSRC_NAMESPACE = marketplace-operator
+OPERATOR_SOURCE = redhat-marketplace-operators
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 OPERATOR_IMAGE_NAME ?= redhat-marketplace-operator
 OPERATOR_IMAGE_TAG ?= dev
@@ -14,7 +16,6 @@ OPERATOR_IMAGE := $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
 AGENT_IMAGE := $(IMAGE_REGISTRY)/$(AGENT_IMAGE_NAME):$(AGENT_IMAGE_TAG)
 
 PULL_POLICY ?= IfNotPresent
-
 .DEFAULT_GOAL := help
 
 ##@ Application
@@ -28,7 +29,7 @@ install: ## Install all resources (CR/CRD's, RBAC and Operator)
 
 uninstall: ## Uninstall all that all performed in the $ make install
 	@echo ....... Uninstalling .......
-	@make clean
+	@make delete
 
 ##@ Build
 
@@ -41,7 +42,10 @@ push: push ## Push the operator image
 	docker push $(OPERATOR_IMAGE)
 
 generate-csv: ## Generate the csv
-	operator-sdk generate csv --csv-version $(VERSION) --csv-config=./deploy/olm-catalog/csv-config.yaml
+	operator-sdk generate csv --csv-version $(VERSION) --csv-config=./deploy/olm-catalog/csv-config.yaml --update-crds
+
+docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
+	@docker login -u="$(DOCKER_USER)" -p="$(DOCKER_PASSWORD)" quay.io
 
 ##@ Development
 
@@ -64,7 +68,7 @@ code-fmt: ## Run go fmt for this project
 	go fmt $$(go list ./... )
 
 code-templates: ## Gen templates
-	@PULL_POLICY=$(PULL_POLICY) RELATED_IMAGE_MARKETPLACE_OPERATOR=$(OPERATOR_IMAGE) RELATED_IMAGE_MARKETPLACE_AGENT=$(AGENT_IMAGE) ./scripts/gen_files.sh
+	@PULL_POLICY=$(PULL_POLICY) RELATED_IMAGE_MARKETPLACE_OPERATOR=$(OPERATOR_IMAGE) RELATED_IMAGE_MARKETPLACE_AGENT=$(AGENT_IMAGE) NAMESPACE=$(NAMESPACE) scripts/gen_files.sh
 
 code-dev: ## Run the default dev commands which are the go fmt and vet then execute the $ make code-gen
 	@echo Running the common required commands for developments purposes
@@ -110,15 +114,15 @@ create: ##creates the required crds for this deployment
 
 deploys: ##deploys the resources for deployment
 	@echo deploying services and operators
-	- kubectl create -f deploy/service_account.yaml -n ${NAMESPACE}
-	- kubectl create -f deploy/role.yaml -n ${NAMESPACE}
-	- kubectl create -f deploy/role_binding.yaml -n ${NAMESPACE}
-	- kubectl create -f deploy/operator.yaml -n ${NAMESPACE}
+	- kubectl create -f deploy/service_account.yaml --namespace=${NAMESPACE}
+	- kubectl create -f deploy/role.yaml --namespace=${NAMESPACE}
+	- kubectl create -f deploy/role_binding.yaml --namespace=${NAMESPACE}
+	- kubectl create -f deploy/operator.yaml --namespace=${NAMESPACE}
 
 apply: ##applies changes to crds
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml --namespace=${NAMESPACE}
 
-clean: ##delete the contents created in 'make create'
+delete: ##delete the contents created in 'make create'
 	@echo deleting resources
 	- kubectl delete opsrc ${OPERATOR_SOURCE} -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml -n ${NAMESPACE}
@@ -136,6 +140,10 @@ clean: ##delete the contents created in 'make create'
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml -n ${NAMESPACE}
 	- kubectl delete namespace razee
+
+delete-razee: ##delete the razee CR
+	@echo deleting razee CR
+	- kubectl delete -f  deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
 
 ##@ Tests
 

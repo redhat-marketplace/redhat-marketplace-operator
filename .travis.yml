@@ -1,6 +1,18 @@
 language: go
 
+services:
+  - docker
+
 go:
   - "1.13.x"
 
-script: make test && make test-cover
+env:
+  - IMAGE_REGISTRY=quay.io/rh-marketplace
+
+jobs:
+  include:
+    - stage: test
+      script: make test && make test-cover
+    - stage: deploy
+      if: branch = master || tag IS present
+      script: OPERATOR_IMAGE_TAG="${TRAVIS_TAG:-latest}" make docker-login build push

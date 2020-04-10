@@ -58,6 +58,7 @@ type MeterBaseStatus struct {
 // MeterBase is the Schema for the meterbases API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=meterbases,scope=Namespaced
+// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="(Internal) Meter Configuration"
 type MeterBase struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

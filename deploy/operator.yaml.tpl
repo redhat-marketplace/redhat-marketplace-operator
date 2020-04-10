@@ -31,6 +31,8 @@ spec:
               value: "prom/prometheus:v2.15.2"
             - name: RELATED_IMAGE_CONFIGMAP_RELOAD
               value: "jimmidyson/configmap-reload:v0.3.0"
+            - name: RELATED_IMAGE_RAZEE_JOB
+              value: "quay.io/razee/razeedeploy-delta:1.1.0"
             - name: WATCH_NAMESPACE
               value: "" # watch all namespaces
             - name: AUTOINSTALL
