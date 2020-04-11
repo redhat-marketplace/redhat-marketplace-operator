@@ -7,11 +7,13 @@ require (
 	github.com/Azure/go-autorest/autorest v0.9.3 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.8.1 // indirect
 	github.com/coreos/prometheus-operator v0.38.0
+	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/go-logr/logr v0.1.0
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
 	github.com/gotidy/ptr v1.0.1
 	github.com/imdario/mergo v0.3.8
+	github.com/launchdarkly/go-options v1.0.0
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/noqcks/gucci v0.0.4
 	github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b
@@ -22,6 +24,7 @@ require (
 	github.com/spf13/viper v1.6.2
 	github.com/urfave/cli v1.22.2 // indirect
 	golang.org/x/sys v0.0.0-20200223170610-d5e6a3e2c0ae // indirect
+	golang.org/x/tools v0.0.0-20200410132612-ae9902aceb98 // indirect
 	k8s.io/api v0.17.4
 	k8s.io/apimachinery v0.17.4
 	k8s.io/client-go v12.0.0+incompatible

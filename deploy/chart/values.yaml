@@ -1,0 +1,42 @@
+# Default values for chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+name: redhat-marketplace-operator
+replicaCount: 1
+namespace: redhat-marketplace-operator
+image: quay.io/rh-marketplace/redhat-marketplace-operator:dev
+pullPolicy: Always
+watchNamespace: "" # watch all namespaces
+serviceAccountName: redhat-marketplace-operator
+env: {}
+role:
+  type: ClusterRole
+  rules:
+  - apiGroups:
+    - '*'
+    resources:
+    - '*'
+    verbs:
+    - '*'
+  - nonResourceURLs:
+    - '*'
+    verbs:
+    - '*'
+podSecurityContext:
+  runAsUser: 1001
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+
+resources: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

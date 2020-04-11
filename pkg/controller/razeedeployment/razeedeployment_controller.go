@@ -219,7 +219,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			if err != nil {
 				reqLogger.Error(err, "Failed to update Status.RedHatMarketplaceSecretFound")
 			}
-			reqLogger.Error(err, "Failed to find operator secret")
+			reqLogger.Info("Failed to find operator secret")
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.

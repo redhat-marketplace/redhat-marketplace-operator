@@ -132,6 +132,7 @@ func (m *ControllerMain) Run() {
 		Namespace:          watchNamespace,
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		Scheme:             scheme,
+		
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components

@@ -45,9 +45,10 @@ var (
 		},
 	}
 
-	opts = []ReconcilerTestCaseOption{
+	opts = []TestCaseOption{
 		WithRequest(req),
-		WithNamespacedName(types.NamespacedName{Namespace: namespace, Name: name}),
+		WithNamespace(namespace),
+		WithName(name),
 	}
 
 	marketplaceconfig = buildMarketplaceConfigCR(name, namespace, customerID)
@@ -73,7 +74,7 @@ func testCleanInstall(t *testing.T) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup(marketplaceconfig.DeepCopy()))
 	reconcilerTest.TestAll(t,
-		[]*ReconcilerTestCase{
+		[]TestCaseStep{
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&appsv1.Deployment{}))...),
@@ -88,7 +89,8 @@ func testCleanInstall(t *testing.T) {
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&opsrcv1.OperatorSource{}),
-					WithNamespacedName(types.NamespacedName{Namespace: utils.OPERATOR_MKTPLACE_NS, Name: utils.OPSRC_NAME}))...),
+					WithNamespace(utils.OPERATOR_MKTPLACE_NS),
+					WithName(utils.OPSRC_NAME))...),
 		})
 }
 

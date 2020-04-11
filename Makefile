@@ -41,6 +41,9 @@ build: ## Build the operator executable
 push: push ## Push the operator image
 	docker push $(OPERATOR_IMAGE)
 
+helm: ## build helm base charts
+	. ./scripts/package_helm.sh $(VERSION) deploy/operator/marketplace ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE)
+
 generate-csv: ## Generate the csv
 	operator-sdk generate csv --csv-version $(VERSION) --csv-config=./deploy/olm-catalog/csv-config.yaml --update-crds
 

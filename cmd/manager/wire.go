@@ -5,7 +5,7 @@ package main
 
 import (
 	"github.com/google/wire"
-	"github.ibm.com/symposium/redhat-marketplace-operator/cmd/managers"
+	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/managers"
 )
 
 func initializeMarketplaceController() *managers.ControllerMain {

@@ -84,6 +84,19 @@ spec:
     mediatype: ""
   install:
     spec:
+      permissions:
+      - rules:
+        - apiGroups:
+          - '*'
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - nonResourceURLs:
+          - '*'
+          verbs:
+          - '*'
+        serviceAccountName: redhat-marketplace-operator
       clusterPermissions:
       - rules:
         - apiGroups:
