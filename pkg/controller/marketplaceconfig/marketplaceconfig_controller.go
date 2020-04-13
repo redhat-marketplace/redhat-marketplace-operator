@@ -8,13 +8,10 @@ import (
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	istr "k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -26,11 +23,9 @@ import (
 )
 
 const (
-	CSCFinalizer                    = "finalizer.MarketplaceConfigs.operators.coreos.com"
-	RELATED_IMAGE_MARKETPLACE_AGENT = "RELATED_IMAGE_MARKETPLACE_AGENT"
-	DEFAULT_IMAGE_MARKETPLACE_AGENT = "marketplace-agent:latest"
-	RAZEE_FLAG                      = "razee"
-	METERBASE_FLAG                  = "meterbase"
+	CSCFinalizer   = "finalizer.MarketplaceConfigs.operators.coreos.com"
+	RAZEE_FLAG     = "razee"
+	METERBASE_FLAG = "meterbase"
 )
 
 var (
@@ -43,10 +38,6 @@ var (
 // Currently only has 1 set of flags for setting the Image
 func init() {
 	marketplaceConfigFlagSet = pflag.NewFlagSet("marketplaceconfig", pflag.ExitOnError)
-	marketplaceConfigFlagSet.String(
-		"related-image-operator-agent",
-		utils.Getenv(RELATED_IMAGE_MARKETPLACE_AGENT, DEFAULT_IMAGE_MARKETPLACE_AGENT),
-		"Image for marketplaceConfig")
 	marketplaceConfigFlagSet.StringSlice(
 		"features",
 		defaultFeatures,
@@ -139,34 +130,6 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{}, err
 	}
 
-	// Check if deployment exists, otherwise create a new one
-	found := &appsv1.Deployment{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: marketplaceConfig.Name, Namespace: marketplaceConfig.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-
-		// Define a new deployment
-		dep := r.deploymentForMarketplaceConfig(marketplaceConfig)
-		reqLogger.Info("Creating a new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
-		err = r.client.Create(context.TODO(), dep)
-		// Error creating deployment - requeue the request
-		if err != nil {
-			reqLogger.Error(err, "Failed to create new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
-			return reconcile.Result{}, err
-		}
-		// Deployment created successfully - return and requeue
-		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		// Could not get delpoyment
-		reqLogger.Error(err, "Failed to get Deployment")
-		return reconcile.Result{}, err
-	}
-
-	if err = controllerutil.SetControllerReference(marketplaceConfig, found, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	reqLogger.Info("deployment created")
-
 	installFeatures := viper.GetStringSlice("features")
 	installSet := make(map[string]bool)
 	for _, installFlag := range installFeatures {
@@ -251,57 +214,6 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	reqLogger.Info("Found opsource")
 	reqLogger.Info("reconciling finished")
 	return reconcile.Result{}, nil
-}
-
-// deploymentForMarketplaceConfig will return a marketplaceConfig Deployment object
-func (r *ReconcileMarketplaceConfig) deploymentForMarketplaceConfig(m *marketplacev1alpha1.MarketplaceConfig) *appsv1.Deployment {
-	ls := labelsForMarketplaceConfig(m.Name)
-
-	image := viper.GetString("related-image-operator-agent")
-
-	dep := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      m.Name,
-			Namespace: m.Namespace,
-			Labels:    ls,
-		},
-		Spec: appsv1.DeploymentSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: ls,
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: ls,
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Image:           image,
-						Name:            "marketconfig",
-						ImagePullPolicy: "IfNotPresent",
-						//TODO: After merge, can use utils, for probs instead
-						LivenessProbe: &corev1.Probe{
-							Handler: corev1.Handler{
-								HTTPGet: &corev1.HTTPGetAction{
-									Path:   "/v1/check/healthz",
-									Port:   istr.FromInt(8080),
-									Scheme: "HTTP",
-								},
-							},
-							InitialDelaySeconds: 3,
-							TimeoutSeconds:      1,
-							PeriodSeconds:       3,
-							SuccessThreshold:    1,
-							FailureThreshold:    3,
-						},
-						Ports: []corev1.ContainerPort{{
-							ContainerPort: 8080,
-						}},
-					}},
-				},
-			},
-		},
-	}
-	return dep
 }
 
 // labelsForMarketplaceConfig returs the labels for selecting the resources

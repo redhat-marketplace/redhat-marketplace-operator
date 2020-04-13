@@ -221,8 +221,6 @@ spec:
                 env:
                 - name: OPERATOR_NAME
                   value: redhat-marketplace-operator
-                - name: RELATED_IMAGE_MARKETPLACE_AGENT
-                  value: quay.io/rh-marketplace/redhat-marketplace-agent:v0.0.1
                 - name: RELATED_IMAGE_PROM_SERVER
                   value: prom/prometheus:v2.15.2
                 - name: RELATED_IMAGE_CONFIGMAP_RELOAD
