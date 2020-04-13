@@ -11,7 +11,6 @@ import (
 	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -53,23 +52,21 @@ var (
 	meterbase         = utils.BuildMeterBaseCr(namespace)
 )
 
-func setup(objs ...runtime.Object) ReconcilerSetupFunc {
-	return func(r *ReconcilerTest) error {
-		s := scheme.Scheme
-		_ = opsrcApi.AddToScheme(s)
-		s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, marketplaceconfig)
-		s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeedeployment)
-		s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
+func setup(r *ReconcilerTest) error {
+	s := scheme.Scheme
+	_ = opsrcApi.AddToScheme(s)
+	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, marketplaceconfig)
+	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeedeployment)
+	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
 
-		r.Client = fake.NewFakeClient(objs...)
-		r.Reconciler = &ReconcileMarketplaceConfig{client: r.Client, scheme: s}
-		return nil
-	}
+	r.Client = fake.NewFakeClient(r.GetRuntimeObjects()...)
+	r.Reconciler = &ReconcileMarketplaceConfig{client: r.Client, scheme: s}
+	return nil
 }
 
 func testCleanInstall(t *testing.T) {
 	t.Parallel()
-	reconcilerTest := NewReconcilerTest(setup(marketplaceconfig.DeepCopy()))
+	reconcilerTest := NewReconcilerTest(setup, marketplaceconfig)
 	reconcilerTest.TestAll(t,
 		[]TestCaseStep{
 			NewReconcilerTestCase(

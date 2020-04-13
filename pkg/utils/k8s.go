@@ -9,7 +9,6 @@ import (
 	"github.com/gotidy/ptr"
 	"github.com/imdario/mergo"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -193,33 +192,4 @@ func LoadYAML(filename string, i interface{}) (interface{}, error) {
 	}
 
 	return genericTypeVal, nil
-}
-
-func BuildServiceAccount(namespace string, serviceAccountName string) *corev1.ServiceAccount {
-	return &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceAccountName,
-			Namespace: namespace,
-		},
-	}
-}
-
-func BuildRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
-	return &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: CLUSTER_ROLE_BINDING,
-		},
-		Subjects: []rbacv1.Subject{
-			rbacv1.Subject{
-				Kind: "ServiceAccount",
-				Name: SERVICE_ACCOUNT,
-				Namespace: namespace,
-			},
-		},
-		RoleRef:rbacv1.RoleRef{
-			Kind: "ClusterRole",
-			Name: CLUSTER_ROLE,
-			APIGroup: "rbac.authorization.k8s.io",
-		},
-	}
 }

@@ -5,6 +5,7 @@ metadata:
 spec:
   # Add fields here
   meterDomain: apps.partner.metering.com
+  meterVersion: v1
   meterKind: App
   serviceMeterLabels:
     - rpc_durations_seconds.*

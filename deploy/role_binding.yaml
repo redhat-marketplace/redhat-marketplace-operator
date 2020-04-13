@@ -5,7 +5,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-operator
-  namespace: {{ .NAMESPACE }}
+  namespace: <no value>
 roleRef:
   kind: ClusterRole
   name: redhat-marketplace-operator

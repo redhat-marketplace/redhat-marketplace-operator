@@ -8,13 +8,9 @@ PULL_POLICY=IfNotPresent RELATED_IMAGE_MARKETPLACE_OPERATOR=${OPERATOR_IMAGE} RE
 mkdir -p build/_output
 [ -d "build/_output/assets" ] && rm -rf build/_output/assets
 [ -f "build/_output/bin/redhat-marketplace-operator" ] && rm -f build/_output/bin/redhat-marketplace-operator
-[ -f "build/_output/bin/redhat-marketplace-operator" ] && rm -f build/_output/bin/redhat-marketplace-meterbase-operator
-[ -f "build/_output/bin/redhat-marketplace-operator" ] && rm -f build/_output/bin/redhat-marketplace-razeedeploy-operator
 cp -r ./assets build/_output
 
-GOOS=linux GOARCH=amd64 go build -o build/_output/bin/redhat-marketplace-operator ./cmd/marketplace
-GOOS=linux GOARCH=amd64 go build -o build/_output/bin/redhat-marketplace-meterbase-operator ./cmd/meter
-GOOS=linux GOARCH=amd64 go build -o build/_output/bin/redhat-marketplace-razeedeploy-operator ./cmd/razeedeploy
+GOOS=linux GOARCH=amd64 go build -o build/_output/bin/redhat-marketplace-operator ./cmd/manager
 
 docker build . -f ./build/Dockerfile -t $IMAGE
 

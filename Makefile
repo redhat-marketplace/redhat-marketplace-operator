@@ -6,6 +6,7 @@ IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 OPERATOR_IMAGE_NAME ?= redhat-marketplace-operator
 OPERATOR_IMAGE_TAG ?= dev
 VERSION ?= $(shell go run scripts/version/main.go)
+VERSION_NEXT ?= $(shell go run scripts/version/main.go)
 
 SERVICE_ACCOUNT := redhat-marketplace-operator
 SECRETS_NAME := my-docker-secrets
@@ -39,10 +40,10 @@ push: push ## Push the operator image
 	docker push $(OPERATOR_IMAGE)
 
 helm: ## build helm base charts
-	. ./scripts/package_helm.sh $(VERSION) deploy/operator/marketplace ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE)
+	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE) --set namespace=$(NAMESPACE)
 
 generate-csv: ## Generate the csv
-	operator-sdk generate csv --csv-version $(VERSION) --csv-config=./deploy/olm-catalog/csv-config.yaml --update-crds
+	operator-sdk generate csv --from-version $(VERSION) --csv-version $(VERSION_NEXT) --csv-config=./deploy/olm-catalog/csv-config.yaml --update-crds
 
 docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
 	@docker login -u="$(DOCKER_USER)" -p="$(DOCKER_PASSWORD)" quay.io
@@ -82,7 +83,7 @@ code-gen: ## Run the operator-sdk commands to generated code (k8s and crds)
 	@echo Updating the CRD files with the OpenAPI validations
 	operator-sdk generate crds
 	@echo Generating the yamls for deployment
-	- make code-templates
+	- make helm
 	@echo Go generatign
 	- go generate ./...
 
@@ -108,7 +109,6 @@ create: ##creates the required crds for this deployment
 	- kubectl create namespace ${NAMESPACE}
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml -n ${NAMESPACE}
 
@@ -127,7 +127,6 @@ delete: ##delete the contents created in 'make create'
 	- kubectl delete opsrc ${OPERATOR_SOURCE} -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_metering_cr.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_meterbase_cr.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_meterdefinitions_cr.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/operator.yaml -n ${NAMESPACE}
@@ -136,7 +135,6 @@ delete: ##delete the contents created in 'make create'
 	- kubectl delete -f deploy/service_account.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterings_crd.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml -n ${NAMESPACE}
 	- kubectl delete namespace razee

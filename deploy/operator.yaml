@@ -1,4 +1,4 @@
-# {{ print "GENERATED CODE - DO NOT EDIT OR COMMIT" }}
+# GENERATED CODE - DO NOT EDIT OR COMMIT
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -18,10 +18,10 @@ spec:
       containers:
         - name: redhat-marketplace-operator
           # Replace this with the built image name
-          image: {{ .RELATED_IMAGE_MARKETPLACE_OPERATOR }}
+          image: redhat-marketplace-operator
           command:
           - redhat-marketplace-operator
-          imagePullPolicy: {{ .PULL_POLICY }}
+          imagePullPolicy: IfNotPresent
           env:
             - name: OPERATOR_NAME
               value: "redhat-marketplace-operator"
@@ -63,15 +63,15 @@ spec:
       containers:
         - name: redhat-marketplace-operator
           # Replace this with the built image name
-          image: {{ .RELATED_IMAGE_MARKETPLACE_OPERATOR }}
+          image: redhat-marketplace-operator
           command:
           - redhat-marketplace-razeedeploy-operator
-          imagePullPolicy: {{ .PULL_POLICY }}
+          imagePullPolicy: IfNotPresent
           env:
             - name: OPERATOR_NAME
               value: "redhat-marketplace-razeedeploy-operator"
             - name: RELATED_IMAGE_MARKETPLACE_AGENT
-              value: "{{ .RELATED_IMAGE_MARKETPLACE_AGENT }}"
+              value: "redhat-marketplace-agent"
             - name: RELATED_IMAGE_PROM_SERVER
               value: "prom/prometheus:v2.15.2"
             - name: RELATED_IMAGE_CONFIGMAP_RELOAD
@@ -106,15 +106,15 @@ spec:
       containers:
         - name: redhat-marketplace-operator
           # Replace this with the built image name
-          image: {{ .RELATED_IMAGE_MARKETPLACE_OPERATOR }}
+          image: redhat-marketplace-operator
           command:
           - redhat-marketplace-meterbase-operator
-          imagePullPolicy: {{ .PULL_POLICY }}
+          imagePullPolicy: IfNotPresent
           env:
             - name: OPERATOR_NAME
               value: "redhat-marketplace-meterbase-operator"
             - name: RELATED_IMAGE_MARKETPLACE_AGENT
-              value: "{{ .RELATED_IMAGE_MARKETPLACE_AGENT }}"
+              value: "redhat-marketplace-agent"
             - name: RELATED_IMAGE_PROM_SERVER
               value: "prom/prometheus:v2.15.2"
             - name: RELATED_IMAGE_CONFIGMAP_RELOAD

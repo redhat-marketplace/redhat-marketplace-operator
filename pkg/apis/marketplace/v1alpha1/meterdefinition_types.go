@@ -13,6 +13,9 @@ type MeterDefinitionSpec struct {
 	// MeterDomain defines the primary CRD domain of the meter
 	MeterDomain string `json:"meterDomain"`
 
+	// MeterVersion defines the primary CRD version of the meter
+	MeterVersion string `json:"meterVersion"`
+
 	// MeterKind defines the primary CRD kind of the meter
 	MeterKind string `json:"meterKind"`
 
@@ -29,11 +32,10 @@ type MeterDefinitionSpec struct {
 	// check own namespace.
 	ServiceMonitorNamespaceSelector *metav1.LabelSelector `json:"serviceMonitorNamespaceSelector,omitempty"`
 
-	// *Experimental* PodMonitors to be selected for target discovery.
+	// PodSelectors to select pods for metering
 	PodSelector *metav1.LabelSelector `json:"podMonitorSelector,omitempty"`
 
-	// Namespaces to be selected for Pod discovery. If nil, only
-	// check own namespace.
+	// PodNamespaceSelector to select namespaces for pods for metering
 	PodNamespaceSelector *metav1.LabelSelector `json:"podMonitorNamespaceSelector,omitempty"`
 }
 

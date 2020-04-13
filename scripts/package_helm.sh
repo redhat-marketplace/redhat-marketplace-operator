@@ -33,3 +33,4 @@ go run helm.sh/helm/v3/cmd/helm template \
     ${extra}
 
 cp -R ${charttmpdir}/charts/. ${chartdir}
+echo "Copyihng to ${chartdir}"

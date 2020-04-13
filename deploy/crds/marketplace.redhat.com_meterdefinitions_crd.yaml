@@ -37,14 +37,17 @@ spec:
             meterKind:
               description: MeterKind defines the primary CRD kind of the meter
               type: string
+            meterVersion:
+              description: MeterVersion defines the primary CRD version of the meter
+              type: string
             podMeterLabels:
               description: PodLabels of the prometheus metrics you want to track.
               items:
                 type: string
               type: array
             podMonitorNamespaceSelector:
-              description: Namespaces to be selected for Pod discovery. If nil, only
-                check own namespace.
+              description: PodNamespaceSelector to select namespaces for pods for
+                metering
               properties:
                 matchExpressions:
                   description: matchExpressions is a list of label selector requirements.
@@ -87,7 +90,7 @@ spec:
                   type: object
               type: object
             podMonitorSelector:
-              description: '*Experimental* PodMonitors to be selected for target discovery.'
+              description: PodSelectors to select pods for metering
               properties:
                 matchExpressions:
                   description: matchExpressions is a list of label selector requirements.
@@ -224,6 +227,7 @@ spec:
           required:
           - meterDomain
           - meterKind
+          - meterVersion
           type: object
         status:
           description: MeterDefinitionStatus defines the observed state of MeterDefinition

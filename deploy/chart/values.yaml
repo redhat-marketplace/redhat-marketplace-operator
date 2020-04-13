@@ -10,19 +10,22 @@ pullPolicy: Always
 watchNamespace: "" # watch all namespaces
 serviceAccountName: redhat-marketplace-operator
 env: {}
-role:
-  type: ClusterRole
-  rules:
-  - apiGroups:
-    - '*'
-    resources:
-    - '*'
-    verbs:
-    - '*'
-  - nonResourceURLs:
-    - '*'
-    verbs:
-    - '*'
+roles:
+  - name: redhat-marketplace-operator
+    serviceAccountName: redhat-marketplace-operator
+    type: ClusterRole
+    rules:
+    - apiGroups:
+      - '*'
+      resources:
+      - '*'
+      verbs:
+      - '*'
+    - nonResourceURLs:
+      - '*'
+      verbs:
+      - '*'
+
 podSecurityContext:
   runAsUser: 1001
 

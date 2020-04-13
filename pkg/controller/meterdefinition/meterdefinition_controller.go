@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/utils"
 	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -22,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-const memcachedFinalizer = "meterdefinition.finalizer.marketplace.redhat.com"
+const meterDefinitionFinalizer = "meterdefinition.finalizer.marketplace.redhat.com"
 
 var log = logf.Log.WithName("controller_meterdefinition")
 
@@ -98,6 +99,25 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	}
 
 	reqLogger.Info("Found instance", "instance", instance.Name)
+
+	// Adding a finalizer to this CR
+	if !utils.Contains(instance.GetFinalizers(), meterDefinitionFinalizer) {
+		if err := r.addFinalizer(instance); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
+	// Check if the RazeeDeployment instance is being marked for deletion
+	isMarkedForDeletion := instance.GetDeletionTimestamp() != nil
+	if isMarkedForDeletion {
+		if utils.Contains(instance.GetFinalizers(), meterDefinitionFinalizer) {
+			//Run finalization logic for the razeeDeploymentFinalizer.
+			//If it fails, don't remove the finalizer so we can retry during the next reconcile
+			return r.finalizeMeterDefinition(instance)
+		}
+		return reconcile.Result{}, nil
+	}
+
 	// ---
 	// Collect current state
 	// ---
@@ -376,6 +396,32 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 
 	reqLogger.Info("finished reconciling")
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileMeterDefinition) finalizeMeterDefinition(req *marketplacev1alpha1.MeterDefinition) (reconcile.Result, error) {
+	var err error
+
+	// TODO: add finalizers
+
+	req.SetFinalizers(utils.RemoveKey(req.GetFinalizers(), meterDefinitionFinalizer))
+	err = r.client.Update(context.TODO(), req)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, nil
+}
+
+// addFinalizer adds finalizers to the RazeeDeployment CR
+func (r *ReconcileMeterDefinition) addFinalizer(instance *marketplacev1alpha1.MeterDefinition) error {
+	log.Info("Adding Finalizer to %s/%s", instance.Name, instance.Namespace)
+	instance.SetFinalizers(append(instance.GetFinalizers(), meterDefinitionFinalizer))
+
+	err := r.client.Update(context.TODO(), instance)
+	if err != nil {
+		log.Error(err, "Failed to update RazeeDeployment with the Finalizer %s/%s", instance.Name, instance.Namespace)
+		return err
+	}
+	return nil
 }
 
 func labelsForServiceMonitor(name, namespace string) map[string]string {

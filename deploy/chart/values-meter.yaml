@@ -1,7 +1,0 @@
-# Values for meterbase controller
-
-name: redhat-marketplace-meterbase-operator
-replicaCount: 1
-image: quay.io/rh-marketplace/redhat-marketplace-meterbase-operator:dev
-pullPolicy: Always
-serviceAccountName: redhat-marketplace-meterbase-operator
