@@ -2,7 +2,7 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","marketplaceconfigs.marketplace.redhat.com"]'
+    operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","meterbases.marketplace.redhat.com"]'
     alm-examples: |-
       [
         {
