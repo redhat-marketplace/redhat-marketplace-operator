@@ -273,9 +273,7 @@ spec:
                       - name: OPERATOR_NAME
                         value: redhat-marketplace-operator
                       - name: WATCH_NAMESPACE
-                        valueFrom:
-                          fieldRef:
-                            fieldPath: metadata.annotations['olm.targetNamespaces']
+                        value: ""
                       - name: POD_NAMESPACE
                         valueFrom:
                           fieldRef:
@@ -309,5 +307,6 @@ spec:
   maintainers:
     - {}
   maturity: stable
-  provider: {}
+  provider:
+    - name: Red Hat
   version: 0.0.1
