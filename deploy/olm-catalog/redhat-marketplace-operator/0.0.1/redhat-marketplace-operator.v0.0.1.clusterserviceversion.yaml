@@ -2,7 +2,6 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","meterbases.marketplace.redhat.com"]'
     alm-examples: |-
       [
         {
@@ -44,12 +43,27 @@ metadata:
         },
         {
           "apiVersion": "marketplace.redhat.com/v1alpha1",
-          "kind": "Metering",
+          "kind": "MeterDefinition",
           "metadata": {
-            "name": "metering"
+            "name": "example-meterdefinition"
           },
           "spec": {
-            "size": 3
+            "meterDomain": "apps.partner.metering.com",
+            "meterKind": "App",
+            "meterVersion": "v1",
+            "podMeterLabels": [
+              "bar"
+            ],
+            "serviceMeterLabels": [
+              "rpc_durations_seconds.*"
+            ],
+            "serviceMonitorNamespaceSelector": {},
+            "serviceMonitorSelector": {
+              "matchLabels": {
+                "app": "example-app",
+                "marketplace.redhat.com/metered": "true"
+              }
+            }
           }
         },
         {
@@ -64,51 +78,52 @@ metadata:
           }
         }
       ]
-    description: |-
-      The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
     capabilities: Basic Install
-  name: redhat-marketplace-operator.v0.0.1
+    description: The Red Hat Marketplace Operator provides cluster management, metering
+      and operator installation for Red Hat Marketplace customers.
+    operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","meterbases.marketplace.redhat.com","meterdefinitions.marketplace.redhat.com"]'
+  name: redhat-marketplace-operator.v0.0.2
   namespace: redhat-marketplace-operator
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: MarketplaceConfig is the Schema for the marketplaceconfigs API
-      kind: MarketplaceConfig
-      name: marketplaceconfigs.marketplace.redhat.com
-      version: v1alpha1
-      displayName: Marketplace
-    - description: MeterBase is the Schema for the meterbases API
-      kind: MeterBase
-      name: meterbases.marketplace.redhat.com
-      version: v1alpha1
-      displayName: "(Internal) Meter Config"
-    - description: Metering is the Schema for the meterings API
-      kind: Metering
-      name: meterings.marketplace.redhat.com
-      version: v1alpha1
-      displayName: "(Internal) Meter"
-    - description: RazeeDeployment is the Schema for the razeedeployments API
-      kind: RazeeDeployment
-      name: razeedeployments.marketplace.redhat.com
-      version: v1alpha1
-      displayName: "(Internal) Razee Deployment"
+      - description: MarketplaceConfig is the Schema for the marketplaceconfigs API
+        kind: MarketplaceConfig
+        name: marketplaceconfigs.marketplace.redhat.com
+        version: v1alpha1
+        displayName: Marketplace
+      - description: MeterBase is the Schema for the meterbases API
+        kind: MeterBase
+        name: meterbases.marketplace.redhat.com
+        version: v1alpha1
+        displayName: '(Internal) Meter Config'
+      - description: MeterDefinition is the Schema for the meterdefinitions API
+        kind: MeterDefinition
+        name: meterdefinitions.marketplace.redhat.com
+        version: v1alpha1
+        displayName: '(Internal) Meter Definitions'
+      - description: RazeeDeployment is the Schema for the razeedeployments API
+        kind: RazeeDeployment
+        name: razeedeployments.marketplace.redhat.com
+        version: v1alpha1
+        displayName: '(Internal) Razee Deployment'
   description: |
     The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
     ### Changes to your Cluster:
-    
+
     **Note**: The Red Hat Marketplace Operator uses an open-source component called [Razee](https://razee.io/) for management between the cluster and marketplace.
     [View Razee on Github](https://github.com/razee-io/Razee/blob/master/README.md)
-    
+
     **RazeeDeployment Controller**: The RazeeDeployment Controller creates the `razee-deploy-job` which runs in the namespace `redhat-marketplace-operator` which is deleted after successful completion. [View `razee-deploy-job` on Github](https://github.com/razee-io/razeedeploy-delta)
-    
+
     **Razee agent**: The `razee-deploy-job` creates the namespace `razee` and installs the Razee agent and it's associated resources. The Razee agent must be running in order to have communication with the Red Hat Marketplace.
-    
-    ### How to Install 
+
+    ### How to Install
     1.) Create the namespace: `redhat-marketplace-operator`.
-    
+
     2.) Apply the `rhm-operator-secret`:
-    
+
     This will be used to populate resources that are used to setup Red Hat Marketplace Operator.
     ```
     cat <<EOF | kubectl apply -f -
@@ -119,22 +134,22 @@ spec:
       namespace: redhat-marketplace-operator
     type: Opaque
     data:
-      IBM_COS_READER_KEY: 
-      BUCKET_NAME: 
-      IBM_COS_URL: 
-      RAZEE_DASH_ORG_KEY: 
-      CHILD_RRS3_YAML_FILENAME: 
-      RAZEE_DASH_URL: 
-      FILE_SOURCE_URL: 
+      IBM_COS_READER_KEY:
+      BUCKET_NAME:
+      IBM_COS_URL:
+      RAZEE_DASH_ORG_KEY:
+      CHILD_RRS3_YAML_FILENAME:
+      RAZEE_DASH_URL:
+      FILE_SOURCE_URL:
     EOF
     ```
     Or:
     ```
-    kubectl create secret generic rhm-operator-secret 
+    kubectl create secret generic rhm-operator-secret
     --from-literal=IBM_COS_READER_KEY= --from-literal=BUCKET_NAME= \
-    --from-literal=IBM_COS_URL= --from-literal=RAZEE_DASH_ORG_KEY= 
+    --from-literal=IBM_COS_URL= --from-literal=RAZEE_DASH_ORG_KEY=
     --from-literal=CHILD_RRS3_YAML_FILENAME= \
-    --from-literal=RAZEE_DASH_URL= 
+    --from-literal=RAZEE_DASH_URL=
     --from-literal=FILE_SOURCE_URL=
     ```
     3.) Install the operator, either through the operator hub UI or apply an operator subscription:
@@ -144,7 +159,7 @@ spec:
     kind: Subscription
     metadata:
       name: redhat-marketplace-operator
-      namespace: openshift-operators
+      namespace: redhat-marketplace-operator
     spec:
       channel: alpha
       installPlanApproval: Automatic
@@ -155,9 +170,9 @@ spec:
     EOF
     ```
     4.) Apply the Marketplace Configuration custom resource. Modify accordingly:
-    
-       * Pass in your AccountID and ClusterID as provided from the Red Hat Marketplace onboarding pages. 
-    
+
+       * Pass in your AccountID and ClusterID as provided from the Red Hat Marketplace onboarding pages.
+
        * Pass in the name of the deployment secret you created in step 2
     ```
     cat <<EOF | kubectl apply -f -
@@ -165,7 +180,7 @@ spec:
     kind: MarketplaceConfig
     metadata:
       name: example-marketplaceconfig
-      namespace: openshift-operators
+      namespace: redhat-marketplace-operator
     spec:
       rhmAccountID: <your Redhat Marketplace AccountId>
       clusterUUID: <uuid of your cluster>
@@ -177,7 +192,7 @@ spec:
     ### Getting help
     If you encounter any issues while using Redhat Marketplace operator, you can create an issue on our [Github repo](TODO: our repo) for bugs, enhancements, or other requests.
     ### Contributing
-    You can contribute by: 
+    You can contribute by:
     * Raising any issues you find using the Redhat Marketplace Operator
     * Fixing issues by opening [Pull Requests](TODO: our repo)
     * Improving [documentation](TODO: our repo)
@@ -185,76 +200,114 @@ spec:
     TODO: our license information
   displayName: Redhat Marketplace Operator
   icon:
-  - base64data: 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
-    mediatype: "image/png"
+    - base64data: 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
+      mediatype: image/png
   install:
     spec:
       clusterPermissions:
-      - rules:
-        - apiGroups:
-          - '*'
-          resources:
-          - '*'
-          verbs:
-          - '*'
-        - nonResourceURLs:
-          - '*'
-          verbs:
-          - '*'
-        serviceAccountName: redhat-marketplace-operator
+        - rules:
+            - apiGroups:
+                - '*'
+              resources:
+                - '*'
+              verbs:
+                - '*'
+            - nonResourceURLs:
+                - '*'
+              verbs:
+                - '*'
+          serviceAccountName: redhat-marketplace-operator
+        - rules:
+            - apiGroups:
+                - '*'
+              resources:
+                - '*'
+              verbs:
+                - '*'
+            - nonResourceURLs:
+                - '*'
+              verbs:
+                - '*'
+          serviceAccountName: redhat-marketplace-razeedeploy
+        - rules:
+            - apiGroups:
+                - '*'
+              resources:
+                - '*'
+              verbs:
+                - '*'
+            - nonResourceURLs:
+                - '*'
+              verbs:
+                - '*'
+          serviceAccountName: redhat-marketplace-metering
+        - rules:
+            - apiGroups:
+                - '*'
+              resources:
+                - '*'
+              verbs:
+                - '*'
+            - nonResourceURLs:
+                - '*'
+              verbs:
+                - '*'
+          serviceAccountName: redhat-marketplace-reporting
       deployments:
-      - name: redhat-marketplace-operator
-        spec:
-          replicas: 1
-          selector:
-            matchLabels:
-              name: redhat-marketplace-operator
-          strategy: {}
-          template:
-            metadata:
-              labels:
-                name: redhat-marketplace-operator
-            spec:
-              containers:
-              - command:
-                - redhat-marketplace-operator
-                env:
-                - name: OPERATOR_NAME
-                  value: redhat-marketplace-operator
-                - name: RELATED_IMAGE_PROM_SERVER
-                  value: prom/prometheus:v2.15.2
-                - name: RELATED_IMAGE_CONFIGMAP_RELOAD
-                  value: jimmidyson/configmap-reload:v0.3.0
-                - name: RELATED_IMAGE_RAZEE_JOB
-                  value: quay.io/razee/razeedeploy-delta:1.1.0
-                - name: WATCH_NAMESPACE
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: metadata.annotations['olm.targetNamespaces']
-                - name: POD_NAME
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: metadata.name
-                image: quay.io/rh-marketplace/redhat-marketplace-operator:v0.0.1
-                imagePullPolicy: Always
-                name: redhat-marketplace-operator
-                resources: {}
-              serviceAccountName: redhat-marketplace-operator
+        - name: redhat-marketplace-operator
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                redhat.marketplace.com/name: redhat-marketplace-operator
+                redhat.marketplace.com/version: ''
+            strategy: {}
+            template:
+              metadata:
+                labels:
+                  redhat.marketplace.com/name: redhat-marketplace-operator
+                  redhat.marketplace.com/version: ''
+              spec:
+                containers:
+                  - env:
+                      - name: OPERATOR_NAME
+                        value: redhat-marketplace-operator
+                      - name: WATCH_NAMESPACE
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.annotations['olm.targetNamespaces']
+                      - name: POD_NAMESPACE
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.namespace
+                      - name: POD_NAME
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.name
+                      - name: RELATED_IMAGE_RAZEE_JOB
+                        value: quay.io/razee/razeedeploy-delta:1.1.0
+                    image: quay.io/rh-marketplace/redhat-marketplace-operator:v0.0.1
+                    imagePullPolicy: Always
+                    name: redhat-marketplace-operator
+                    resources: {}
+                    securityContext: {}
+                securityContext:
+                  runAsUser: 1001
+                serviceAccountName: redhat-marketplace-operator
     strategy: deployment
   installModes:
-  - supported: false
-    type: OwnNamespace
-  - supported: true
-    type: SingleNamespace
-  - supported: false
-    type: MultiNamespace
-  - supported: false
-    type: AllNamespaces
+    - supported: true
+      type: OwnNamespace
+    - supported: true
+      type: SingleNamespace
+    - supported: false
+      type: MultiNamespace
+    - supported: false
+      type: AllNamespaces
   keywords:
-  - ""
+    - ''
   maintainers:
-  - {}
-  maturity: alpha
+    - {}
+  maturity: stable
   provider: {}
-  replaces: marketplace-operator.v0.0.0
   version: 0.0.1

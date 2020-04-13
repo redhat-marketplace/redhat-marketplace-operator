@@ -3,15 +3,14 @@ package marketplaceconfig
 import (
 	"testing"
 
-	. "github.ibm.com/symposium/marketplace-operator/test/controller"
+	. "github.ibm.com/symposium/redhat-marketplace-operator/test/controller"
 
 	opsrcApi "github.com/operator-framework/operator-marketplace/pkg/apis"
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	"github.com/spf13/viper"
-	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
+	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -43,35 +42,33 @@ var (
 		},
 	}
 
-	opts = []ReconcilerTestCaseOption{
+	opts = []TestCaseOption{
 		WithRequest(req),
-		WithNamespacedName(types.NamespacedName{Namespace: namespace, Name: name}),
-  }
-
+		WithNamespace(namespace),
+		WithName(name),
+	}
 	marketplaceconfig = buildMarketplaceConfigCR(name, namespace, customerID)
 	razeedeployment   = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName)
 	meterbase         = utils.BuildMeterBaseCr(namespace)
 )
 
-func setup(objs ...runtime.Object) ReconcilerSetupFunc {
-	return func(r *ReconcilerTest) error {
-		s := scheme.Scheme
-		_ = opsrcApi.AddToScheme(s)
-		s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, marketplaceconfig)
-		s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeedeployment)
-		s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
+func setup(r *ReconcilerTest) error {
+	s := scheme.Scheme
+	_ = opsrcApi.AddToScheme(s)
+	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, marketplaceconfig)
+	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeedeployment)
+	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
 
-		r.Client = fake.NewFakeClient(objs...)
-		r.Reconciler = &ReconcileMarketplaceConfig{client: r.Client, scheme: s}
-		return nil
-	}
+	r.Client = fake.NewFakeClient(r.GetRuntimeObjects()...)
+	r.Reconciler = &ReconcileMarketplaceConfig{client: r.Client, scheme: s}
+	return nil
 }
 
 func testCleanInstall(t *testing.T) {
 	t.Parallel()
-	reconcilerTest := NewReconcilerTest(setup(marketplaceconfig.DeepCopy()))
+	reconcilerTest := NewReconcilerTest(setup, marketplaceconfig)
 	reconcilerTest.TestAll(t,
-		[]*ReconcilerTestCase{
+		[]TestCaseStep{
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&marketplacev1alpha1.RazeeDeployment{}),
@@ -83,7 +80,8 @@ func testCleanInstall(t *testing.T) {
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&opsrcv1.OperatorSource{}),
-					WithNamespacedName(types.NamespacedName{Namespace: utils.OPERATOR_MKTPLACE_NS, Name: utils.OPSRC_NAME}))...),
+					WithNamespace(utils.OPERATOR_MKTPLACE_NS),
+					WithName(utils.OPSRC_NAME))...),
 		})
 }
 

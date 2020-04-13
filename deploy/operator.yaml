@@ -1,0 +1,43 @@
+---
+# Source: redhat-marketplace-operator-template-chart/templates/operator.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redhat-marketplace-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      redhat.marketplace.com/name: redhat-marketplace-operator
+      redhat.marketplace.com/version: 
+  template:
+    metadata:
+      labels:
+        redhat.marketplace.com/name: redhat-marketplace-operator
+        redhat.marketplace.com/version: 
+    spec:
+      serviceAccountName: redhat-marketplace-operator
+      securityContext:
+        runAsUser: 1001
+      containers:
+        - name: redhat-marketplace-operator
+          # Replace this with the built image name
+          image: quay.io/rh-marketplace/redhat-marketplace-operator:v0.0.1
+          imagePullPolicy: Always
+          securityContext:
+            {}
+          env:
+            - name: OPERATOR_NAME
+              value: redhat-marketplace-operator
+            - name: WATCH_NAMESPACE
+              value: ""
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: RELATED_IMAGE_RAZEE_JOB
+              value: quay.io/razee/razeedeploy-delta:1.1.0

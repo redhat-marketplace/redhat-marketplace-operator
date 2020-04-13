@@ -1,20 +1,24 @@
 package utils
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 
 	"github.com/gotidy/ptr"
 	"github.com/imdario/mergo"
-	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
-	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	k8yaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
+	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 )
 
 type PersistentVolume struct {
@@ -165,31 +169,27 @@ func BuildMeterBaseCr(namespace string) *marketplacev1alpha1.MeterBase {
 	return cr
 }
 
-func BuildServiceAccount(namespace string, serviceAccountName string) *corev1.ServiceAccount {
-	return &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceAccountName,
-			Namespace: namespace,
-		},
+func LoadYAML(filename string, i interface{}) (interface{}, error) {
+	dat, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
 	}
-}
 
-func BuildRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
-	return &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: CLUSTER_ROLE_BINDING,
-		},
-		Subjects: []rbacv1.Subject{
-			rbacv1.Subject{
-				Kind: "ServiceAccount",
-				Name: SERVICE_ACCOUNT,
-				Namespace: namespace,
-			},
-		},
-		RoleRef:rbacv1.RoleRef{
-			Kind: "ClusterRole",
-			Name: CLUSTER_ROLE,
-			APIGroup: "rbac.authorization.k8s.io",
-		},
+	dec := k8yaml.NewYAMLOrJSONDecoder(bytes.NewReader(dat), 1000)
+	var genericTypeVal interface{}
+
+	switch v := i.(type) {
+	case corev1.ConfigMap:
+		genericTypeVal = &corev1.ConfigMap{}
+	case monitoringv1.Prometheus:
+		genericTypeVal = &monitoringv1.Prometheus{}
+	default:
+		return nil, fmt.Errorf("type not recognized %T", v)
 	}
+
+	if err := dec.Decode(&genericTypeVal); err != nil {
+		return nil, err
+	}
+
+	return genericTypeVal, nil
 }

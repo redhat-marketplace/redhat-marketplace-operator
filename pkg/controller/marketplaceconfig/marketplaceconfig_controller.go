@@ -6,8 +6,8 @@ import (
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	pflag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
+	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -23,9 +23,12 @@ import (
 )
 
 const (
-	CSCFinalizer   = "finalizer.MarketplaceConfigs.operators.coreos.com"
-	RAZEE_FLAG     = "razee"
-	METERBASE_FLAG = "meterbase"
+	CSCFinalizer                    = "finalizer.MarketplaceConfigs.operators.coreos.com"
+	OPSRC_NAME                      = "redhat-redhat-marketplace-operators"
+	RELATED_IMAGE_MARKETPLACE_AGENT = "RELATED_IMAGE_MARKETPLACE_AGENT"
+	DEFAULT_IMAGE_MARKETPLACE_AGENT = "marketplace-agent:latest"
+	RAZEE_FLAG                      = "razee"
+	METERBASE_FLAG                  = "meterbase"
 )
 
 var (

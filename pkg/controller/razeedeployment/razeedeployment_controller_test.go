@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	. "github.ibm.com/symposium/marketplace-operator/test/controller"
+	. "github.ibm.com/symposium/redhat-marketplace-operator/test/controller"
 
 	"github.com/spf13/viper"
-	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,22 +32,21 @@ func TestRazeeDeployController(t *testing.T) {
 	t.Run("Test No Secret", testNoSecret)
 }
 
-func setup(objs ...runtime.Object) ReconcilerSetupFunc {
-	return func(r *ReconcilerTest) error {
-		s := scheme.Scheme
-		s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, &razeeDeployment)
-		r.Client = fake.NewFakeClient(objs...)
-		r.Reconciler = &ReconcileRazeeDeployment{client: r.Client, scheme: s, opts: &RazeeOpts{RazeeJobImage: "test"}}
-		return nil
-	}
+func setup(r *ReconcilerTest) error {
+	s := scheme.Scheme
+	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, &razeeDeployment)
+	r.SetClient(fake.NewFakeClient(r.GetRuntimeObjects()...))
+	r.SetReconciler(&ReconcileRazeeDeployment{client: r.GetClient(), scheme: s, opts: &RazeeOpts{RazeeJobImage: "test"}})
+	return nil
 }
 
 var (
 	name      = "marketplaceconfig"
 	namespace = "redhat-marketplace-operator"
-	opts      = []ReconcilerTestCaseOption{
+	opts      = []TestCaseOption{
 		WithRequest(req),
-		WithNamespacedName(types.NamespacedName{Namespace: RAZEE_NAMESPACE, Name: name}),
+		WithNamespace(RAZEE_NAMESPACE),
+		WithName(name),
 	}
 	req = reconcile.Request{
 		NamespacedName: types.NamespacedName{
@@ -84,9 +83,11 @@ var (
 
 func testCleanInstall(t *testing.T) {
 	t.Parallel()
-	reconcilerTest := NewReconcilerTest(setup(razeeDeployment.DeepCopy(), secret.DeepCopy()))
+	reconcilerTest := NewReconcilerTest(setup,
+		&razeeDeployment,
+		&secret)
 	reconcilerTest.TestAll(t,
-		[]*ReconcilerTestCase{
+		[]TestCaseStep{
 			NewReconcilerTestCase(
 				append(opts,
 					WithName("razee"),
@@ -122,7 +123,7 @@ func testCleanInstall(t *testing.T) {
 					WithName("razeedeploy-job"),
 					WithNamespace(namespace),
 					WithExpectedResult(reconcile.Result{RequeueAfter: time.Second * 30}),
-					WithValidationFunc(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+					WithAfter(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
 						myJob, ok := i.(*batch.Job)
 
 						if !ok {
@@ -146,15 +147,15 @@ func testCleanInstall(t *testing.T) {
 				append(opts,
 					WithName("razeedeploy-job"),
 					WithExpectedResult(reconcile.Result{}),
-					WithNoObj())...),
+					WithTestObj(nil))...),
 		})
 }
 
 func testNoSecret(t *testing.T) {
 	t.Parallel()
-	reconcilerTest := NewReconcilerTest(setup(razeeDeployment.DeepCopy()))
+	reconcilerTest := NewReconcilerTest(setup, &razeeDeployment)
 	reconcilerTest.TestAll(t,
-		[]*ReconcilerTestCase{
+		[]TestCaseStep{
 			NewReconcilerTestCase(
 				append(opts,
 					WithName("rhm-operator-secret"),

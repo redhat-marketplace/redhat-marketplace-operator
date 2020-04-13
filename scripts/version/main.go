@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.ibm.com/symposium/marketplace-operator/version"
+	"github.ibm.com/symposium/redhat-marketplace-operator/version"
 )
 
 func main() {

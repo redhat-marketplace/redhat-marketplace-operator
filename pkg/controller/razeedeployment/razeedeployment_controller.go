@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
+	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/utils"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -219,7 +219,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			if err != nil {
 				reqLogger.Error(err, "Failed to update Status.RedHatMarketplaceSecretFound")
 			}
-			reqLogger.Error(err, "Failed to find operator secret")
+			reqLogger.Info("Failed to find operator secret")
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -699,7 +699,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request, rhmOp
 		Spec: batch.JobSpec{
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					ServiceAccountName: utils.SERVICE_ACCOUNT,
+					ServiceAccountName: utils.RAZEE_SERVICE_ACCOUNT,
 					Containers: []corev1.Container{{
 						Name:    "razeedeploy-job",
 						Image:   r.opts.RazeeJobImage,
@@ -723,7 +723,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(namespace string, razee
 		Spec: batch.JobSpec{
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					ServiceAccountName: utils.SERVICE_ACCOUNT,
+					ServiceAccountName: utils.RAZEE_SERVICE_ACCOUNT,
 					Containers: []corev1.Container{{
 						Name:    RAZEE_UNINSTALL_NAME,
 						Image:   r.opts.RazeeJobImage,

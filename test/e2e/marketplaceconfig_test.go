@@ -7,13 +7,15 @@ import (
 	"testing"
 	"time"
 
-	opsrcHelper "github.com/operator-framework/operator-marketplace/test/helpers"
+	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis"
+	operator "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	"github.com/operator-framework/operator-sdk/pkg/test/e2eutil"
 	"github.com/spf13/viper"
-	"github.ibm.com/symposium/marketplace-operator/pkg/apis"
-	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
+	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis"
+	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -76,6 +78,8 @@ func MarketplaceOperatorCluster(t *testing.T) {
 	f := framework.Global
 	// wait for redhat-marketplace-operator to be ready
 	err = e2eutil.WaitForOperatorDeployment(t, f.KubeClient, namespace, "redhat-marketplace-operator", 1, retryInterval, timeout)
+<<<<<<< HEAD
+=======
 	if err != nil {
 		t.Fatal(err)
 	}

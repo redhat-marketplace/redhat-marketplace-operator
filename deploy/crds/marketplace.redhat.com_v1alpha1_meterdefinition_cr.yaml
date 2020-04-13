@@ -1,0 +1,18 @@
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: MeterDefinition
+metadata:
+  name: example-meterdefinition
+spec:
+  # Add fields here
+  meterDomain: apps.partner.metering.com
+  meterVersion: v1
+  meterKind: App
+  serviceMeterLabels:
+    - rpc_durations_seconds.*
+  podMeterLabels:
+    - bar
+  serviceMonitorSelector:
+    matchLabels:
+      app: example-app
+      marketplace.redhat.com/metered: "true"
+  serviceMonitorNamespaceSelector: {}

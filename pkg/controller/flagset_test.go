@@ -8,13 +8,10 @@ import (
 
 // Test if flags have been set
 func TestControllerFlags(t *testing.T) {
-	flagsets := FlagSets()
-
 	total := pflag.NewFlagSet("all", pflag.ExitOnError)
+	controllerFlagSet := ProvideControllerFlagSet()
 
-	for _, flags := range flagsets {
-		total.AddFlagSet(flags)
-	}
+	total.AddFlagSet((*pflag.FlagSet)(controllerFlagSet))
 
 	if !total.HasFlags() {
 		t.Errorf("no flags on flagset")
