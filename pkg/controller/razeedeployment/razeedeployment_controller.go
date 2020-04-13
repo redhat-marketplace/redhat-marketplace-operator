@@ -624,7 +624,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, parentRRS3.GetName())
 		reqLogger.Info("parentRRS3 created successfully")
 
-		err = r.client.Delete(context.TODO(), &foundJob)
+		err = r.client.Delete(context.TODO(), &foundJob, client.PropagationPolicy(metav1.DeletePropagationBackground))
 		if err != nil {
 			reqLogger.Error(err, "Failed to delete job")
 			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
