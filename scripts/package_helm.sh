@@ -32,5 +32,5 @@ go run helm.sh/helm/v3/cmd/helm template \
     --output-dir ${charttmpdir} \
     ${extra}
 
-cp -R ${charttmpdir}/charts/. ${chartdir}
-echo "Copyihng to ${chartdir}"
+cp -R ${charttmpdir}/redhat-marketplace-operator-template-chart/templates/* ${chartdir}
+echo "Copying from ${charttmpdir} to ${chartdir}"

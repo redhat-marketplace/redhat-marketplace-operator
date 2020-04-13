@@ -1,131 +1,43 @@
-# GENERATED CODE - DO NOT EDIT OR COMMIT
+---
+# Source: redhat-marketplace-operator-template-chart/templates/operator.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redhat-marketplace-operator
-  namespace: redhat-marketplace-operator
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: redhat-marketplace-operator
+      redhat.marketplace.com/name: redhat-marketplace-operator
+      redhat.marketplace.com/version: 
   template:
     metadata:
       labels:
-        name: redhat-marketplace-operator
+        redhat.marketplace.com/name: redhat-marketplace-operator
+        redhat.marketplace.com/version: 
     spec:
       serviceAccountName: redhat-marketplace-operator
+      securityContext:
+        runAsUser: 1001
       containers:
         - name: redhat-marketplace-operator
           # Replace this with the built image name
-          image: redhat-marketplace-operator
-          command:
-          - redhat-marketplace-operator
-          imagePullPolicy: IfNotPresent
+          image: quay.io/rh-marketplace/redhat-marketplace-operator:v0.0.1
+          imagePullPolicy: Always
+          securityContext:
+            {}
           env:
             - name: OPERATOR_NAME
-              value: "redhat-marketplace-operator"
-            - name: RELATED_IMAGE_PROM_SERVER
-              value: "prom/prometheus:v2.15.2"
-            - name: RELATED_IMAGE_CONFIGMAP_RELOAD
-              value: "jimmidyson/configmap-reload:v0.3.0"
+              value: redhat-marketplace-operator
+            - name: WATCH_NAMESPACE
+              value: ""
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: RELATED_IMAGE_RAZEE_JOB
-              value: "quay.io/razee/razeedeploy-delta:1.1.0"
-            - name: WATCH_NAMESPACE
-              value: "" # watch all namespaces
-            - name: AUTOINSTALL
-              value: "false"
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: redhat-marketplace-razeedeploy-operator
-  namespace: redhat-marketplace-operator
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      name: redhat-marketplace-razeedeploy-operator
-  template:
-    metadata:
-      labels:
-        name: redhat-marketplace-razeedeploy-operator
-    spec:
-      serviceAccountName: redhat-marketplace-operator
-      containers:
-        - name: redhat-marketplace-operator
-          # Replace this with the built image name
-          image: redhat-marketplace-operator
-          command:
-          - redhat-marketplace-razeedeploy-operator
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: OPERATOR_NAME
-              value: "redhat-marketplace-razeedeploy-operator"
-            - name: RELATED_IMAGE_MARKETPLACE_AGENT
-              value: "redhat-marketplace-agent"
-            - name: RELATED_IMAGE_PROM_SERVER
-              value: "prom/prometheus:v2.15.2"
-            - name: RELATED_IMAGE_CONFIGMAP_RELOAD
-              value: "jimmidyson/configmap-reload:v0.3.0"
-            - name: WATCH_NAMESPACE
-              value: "" # watch all namespaces
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: redhat-marketplace-meterbase-operator
-  namespace: redhat-marketplace-operator
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      name: redhat-marketplace-meterbase-operator
-  template:
-    metadata:
-      labels:
-        name: redhat-marketplace-meterbase-operator
-    spec:
-      serviceAccountName: redhat-marketplace-operator
-      containers:
-        - name: redhat-marketplace-operator
-          # Replace this with the built image name
-          image: redhat-marketplace-operator
-          command:
-          - redhat-marketplace-meterbase-operator
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: OPERATOR_NAME
-              value: "redhat-marketplace-meterbase-operator"
-            - name: RELATED_IMAGE_MARKETPLACE_AGENT
-              value: "redhat-marketplace-agent"
-            - name: RELATED_IMAGE_PROM_SERVER
-              value: "prom/prometheus:v2.15.2"
-            - name: RELATED_IMAGE_CONFIGMAP_RELOAD
-              value: "jimmidyson/configmap-reload:v0.3.0"
-            - name: WATCH_NAMESPACE
-              value: "" # watch all namespaces
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
+              value: quay.io/razee/razeedeploy-delta:1.1.0

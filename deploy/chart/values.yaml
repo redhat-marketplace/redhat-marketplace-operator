@@ -9,7 +9,9 @@ image: quay.io/rh-marketplace/redhat-marketplace-operator:dev
 pullPolicy: Always
 watchNamespace: "" # watch all namespaces
 serviceAccountName: redhat-marketplace-operator
-env: {}
+env:
+  - name: RELATED_IMAGE_RAZEE_JOB
+    value: quay.io/razee/razeedeploy-delta:1.1.0
 roles:
   - name: redhat-marketplace-operator
     serviceAccountName: redhat-marketplace-operator
