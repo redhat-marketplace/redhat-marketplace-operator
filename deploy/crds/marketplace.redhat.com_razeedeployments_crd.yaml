@@ -31,6 +31,8 @@ spec:
         spec:
           description: RazeeDeploymentSpec defines the desired state of RazeeDeployment
           properties:
+            childUrl:
+              type: string
             clusterUUID:
               type: string
             deploySecretName:
@@ -47,8 +49,6 @@ spec:
                 Setting enabled to "true" will create a Razee namespace and deploy
                 it''s componenets. Set to "false" to bypass Razee installation'
               type: boolean
-            ibmCosFullUrl:
-              type: string
           required:
           - clusterUUID
           - enabled

@@ -5,5 +5,5 @@ metadata:
 spec:
   # Add fields here
   enabled: true
-  clusterUUID:  updated-clusterUUID-3
+  clusterUUID:  max-rhm-operator-test-9
   deploySecretName: rhm-operator-secret

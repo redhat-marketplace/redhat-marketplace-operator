@@ -426,8 +426,8 @@ func (in *RazeeDeploymentSpec) DeepCopyInto(out *RazeeDeploymentSpec) {
 			(*out)[key] = val
 		}
 	}
-	if in.IbmCosFullUrl != nil {
-		in, out := &in.IbmCosFullUrl, &out.IbmCosFullUrl
+	if in.ChildUrl != nil {
+		in, out := &in.ChildUrl, &out.ChildUrl
 		*out = new(string)
 		**out = **in
 	}
