@@ -704,7 +704,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request, rhmOp
 						Name:    "razeedeploy-job",
 						Image:   r.opts.RazeeJobImage,
 						Command: []string{"node", "src/install", fmt.Sprintf("--namespace=%s", RAZEE_NAMESPACE)},
-						Args:    []string{fmt.Sprintf("--file-source=%v", rhmOperatorSecretValues.razeeDashUrl), "--autoupdate"},
+						Args:    []string{fmt.Sprintf("--file-source=%v", rhmOperatorSecretValues.fileSourceUrl), "--autoupdate"},
 					}},
 					RestartPolicy: "Never",
 				},

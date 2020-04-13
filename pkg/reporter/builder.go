@@ -13,34 +13,34 @@ import (
 var log = logf.Log.WithName("report")
 
 type ReportMetadata struct {
-	ReportID       uuid.UUID                            `json:'report_id'`
-	Source         uuid.UUID                            `json:'source'`
-	SourceMetadata ReportSourceMetadata                 `json:'source_metadata'`
-	ReportSlices   map[ReportSliceKey]ReportSlicesValue `json:'report_slices'`
+	ReportID       uuid.UUID                            `json:"report_id"`
+	Source         uuid.UUID                            `json:"source"`
+	SourceMetadata ReportSourceMetadata                 `json:"source_metadata"`
+	ReportSlices   map[ReportSliceKey]ReportSlicesValue `json:"report_slices"`
 }
 
 type ReportSourceMetadata struct {
-	RhmClusterID  string `json:'rhm_cluster_id'`
-	RhmCustomerID string `json:'rhm_customer_id'`
+	RhmClusterID  string `json:"rhm_cluster_id"`
+	RhmCustomerID string `json:"rhm_customer_id"`
 }
 
 type ReportSliceKey uuid.UUID
 
 type ReportSlicesValue struct {
-	NumberHosts int `json:'number_hosts'`
+	NumberHosts int `json:"number_hosts"`
 }
 
 type MetricsReport struct {
-	ReportSliceID ReportSliceKey           `json:'report_slice_id'`
-	Metrics       []map[string]interface{} `json:'metrics'`
+	ReportSliceID ReportSliceKey           `json:"report_slice_id"`
+	Metrics       []map[string]interface{} `json:"metrics"`
 }
 
 type MetricBase struct {
-	ReportPeriodStart string `mapstructure:'report_period_start'`
-	ReportPeriodEnd   string `mapstructure:'report_period_end'`
-	IntervalStart     string `mapstructure:'interval_start'`
-	IntervalEnd       string `mapstructure:'interval_end'`
-	MeterDomain       string `mapstructure:'meter_domain'`
+	ReportPeriodStart string `mapstructure:"report_period_start"`
+	ReportPeriodEnd   string `mapstructure:"report_period_end"`
+	IntervalStart     string `mapstructure:"interval_start"`
+	IntervalEnd       string `mapstructure:"interval_end"`
+	MeterDomain       string `mapstructure:"meter_domain"`
 	metrics           map[string]interface{}
 }
 
