@@ -41,6 +41,18 @@ type RazeeDeploymentStatus struct {
 	JobState                  batch.JobStatus     `json:"jobState,omitempty"`
 	MissingDeploySecretValues *[]string           `json:"missingDeploySecretValues,omitempty"`
 	RazeePrerequisitesCreated *[]string           `json:"razeePrerequisitesCreated,omitempty"`
+	// Conditions                   *batch.JobCondition    `json:"conditions,omitempty"`
+	// JobState                     batch.JobStatus        `json:"jobState,omitempty"`
+	// MissingValuesFromSecret      *[]string              `json:"missingValuesFromSecret,omitempty"`
+	// LocalSecretVarsPopulated     *bool                  `json:"localSecretVarsPopulated,omitempty"`
+	// RazeePrerequisitesCreated    *[]string              `json:"razeePrerequisitesCreated,omitempty"`
+	// RedHatMarketplaceSecretFound *bool                  `json:"redHatMarketplaceSecretFound,omitempty"`
+	RazeeJobInstall              *RazeeJobInstallStruct `json:"razee_job_install,omitempty"`
+}
+
+type RazeeJobInstallStruct struct {
+	RazeeNamespace  string `json:"razee_namespace"`
+	RazeeInstallURL string `json:"razee_install_url"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

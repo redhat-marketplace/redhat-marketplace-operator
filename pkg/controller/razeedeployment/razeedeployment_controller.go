@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
+	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/utils"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -32,7 +32,7 @@ import (
 const (
 	razeeDeploymentFinalizer   = "razeedeploy.finalizer.marketplace.redhat.com"
 	RAZEE_UNINSTALL_NAME       = "razee-uninstall-job"
-	DEFAULT_RAZEE_JOB_IMAGE    = "quay.io/razee/razeedeploy-delta:0.3.1"
+	DEFAULT_RAZEE_JOB_IMAGE    = "quay.io/razee/razeedeploy-delta:1.1.0"
 	DEFAULT_RAZEEDASH_URL      = `http://169.45.231.109:8081/api/v2`
 	WATCH_KEEPER_VERSION       = "0.5.0"
 	FEATURE_FLAG_VERSION       = "0.6.1"
@@ -48,6 +48,7 @@ const (
 	RAZEE_DASH_URL_FIELD       = "RAZEE_DASH_URL"
 	FILE_SOURCE_URL_FIELD      = "FILE_SOURCE_URL"
 	RHM_OPERATOR_SECRET_NAME   = "rhm-operator-secret"
+	RAZEE_NAMESPACE            = "razee"
 )
 
 var (
@@ -194,38 +195,22 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		/******************************************************************************/
 		clusterUUID = instance.Spec.ClusterUUID
 
+		// Adding a finalizer to this CR
+		if !utils.Contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
+			if err := r.addFinalizer(instance, request.Namespace); err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+
 		// Check if the RazeeDeployment instance is being marked for deletion
 		isMarkedForDeletion := instance.GetDeletionTimestamp() != nil
 		if isMarkedForDeletion {
 			if utils.Contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
 				//Run finalization logic for the razeeDeploymentFinalizer.
 				//If it fails, don't remove the finalizer so we can retry during the next reconcile
-				result, err := r.finalizeRazeeDeployment(instance, request.Namespace)
-
-				if err != nil {
-					return reconcile.Result{}, err
-				}
-
-				if result != nil {
-					return *result, nil
-				}
-
-				// Remove the razeeDeploymentFinalizer
-				// Once all finalizers are removed, the object will be deleted
-				instance.SetFinalizers(utils.RemoveKey(instance.GetFinalizers(), razeeDeploymentFinalizer))
-				err = r.client.Update(context.TODO(), instance)
-				if err != nil {
-					return reconcile.Result{}, err
-				}
+				return r.finalizeRazeeDeployment(instance)
 			}
 			return reconcile.Result{}, nil
-		}
-
-		// Adding a finalizer to this CR
-		if !utils.Contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
-			if err := r.addFinalizer(instance, request.Namespace); err != nil {
-				return reconcile.Result{}, err
-			}
 		}
 
 		/******************************************************************************
@@ -555,7 +540,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Error(err, "Failed to set controller reference")
 			return reconcile.Result{}, err
 		}
-
+	
 		// if the conditions have populated add to the status
 		if len(foundJob.Status.Conditions) == 0 {
 			reqLogger.Info("RazeeJob Conditions have not been propagated yet")
@@ -568,6 +553,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			instance.Status.Conditions = &jobCondition
 		}
 
+		instance.Status.RazeeJobInstall = &marketplacev1alpha1.RazeeJobInstallStruct{
+			RazeeNamespace:  RAZEE_NAMESPACE,
+			RazeeInstallURL: instance.Spec.DeploySecretValues[RAZEE_DASH_URL_FIELD],
+		}
+	
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update JobState")
@@ -742,7 +732,7 @@ func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(request *reconcile
 }
 
 // finalizeRazeeDeployment cleans up resources before the RazeeDeployment CR is deleted
-func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(req *marketplacev1alpha1.RazeeDeployment, namespace string) (*reconcile.Result, error) {
+func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(req *marketplacev1alpha1.RazeeDeployment) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 	reqLogger.Info("running finalizer")
 
@@ -756,7 +746,7 @@ func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(req *marketplacev1alp
 	err := r.client.Get(context.TODO(), jobName, &foundJob)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			return &reconcile.Result{}, err
+			return reconcile.Result{}, err
 		}
 	}
 
@@ -765,55 +755,65 @@ func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(req *marketplacev1alp
 		err := r.client.Delete(context.TODO(), &foundJob, client.PropagationPolicy(metav1.DeletePropagationBackground))
 		if err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "cleaning up install job")
-			return &reconcile.Result{}, err
+			return reconcile.Result{}, err
 		}
 	} else {
 		reqLogger.Info("found no job to clean up")
 	}
 
-	// Deploy a job to delete razee
-	jobName.Name = RAZEE_UNINSTALL_NAME
-	foundJob = batch.Job{}
-	reqLogger.Info("finding uninstall job")
-	err = r.client.Get(context.TODO(), jobName, &foundJob)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating razee-uninstall-job")
-		job := r.MakeRazeeUninstallJob(namespace, req)
-		err = r.client.Create(context.TODO(), job)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create Job on cluster")
-			return &reconcile.Result{}, err
+	// Deploy a job to delete razee if we need to
+	if req.Status.RazeeJobInstall != nil {
+		jobName.Name = RAZEE_UNINSTALL_NAME
+		foundJob = batch.Job{}
+		reqLogger.Info("razee was installed; finding uninstall job")
+		err = r.client.Get(context.TODO(), jobName, &foundJob)
+		if err != nil && errors.IsNotFound(err) {
+			reqLogger.Info("Creating razee-uninstall-job")
+			job := r.MakeRazeeUninstallJob(req.Namespace, req.Status.RazeeJobInstall)
+			err = r.client.Create(context.TODO(), job)
+			if err != nil {
+				reqLogger.Error(err, "Failed to create Job on cluster")
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("job created successfully")
+			return reconcile.Result{RequeueAfter: time.Second * 5}, nil
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get Job(s) from Cluster")
+			return reconcile.Result{}, err
 		}
-		reqLogger.Info("job created successfully")
-		return &reconcile.Result{RequeueAfter: time.Second * 5}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get Job(s) from Cluster")
-		return &reconcile.Result{}, err
-	}
 
-	reqLogger.Info("found uninstall job")
+		reqLogger.Info("found uninstall job")
 
-	if len(foundJob.Status.Conditions) == 0 {
-		reqLogger.Info("RazeeUninstallJob Conditions have not been propagated yet")
-		return &reconcile.Result{RequeueAfter: time.Second * 30}, nil
-	}
+		if len(foundJob.Status.Conditions) == 0 {
+			reqLogger.Info("RazeeUninstallJob Conditions have not been propagated yet")
+			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+		}
 
-	if foundJob.Status.Succeeded < 1 && foundJob.Status.Failed <= 3 {
-		reqLogger.Info("RazeeUnisntallJob is not successful")
-		return &reconcile.Result{RequeueAfter: time.Second * 30}, nil
-	}
+		if foundJob.Status.Succeeded < 1 && foundJob.Status.Failed <= 3 {
+			reqLogger.Info("RazeeUnisntallJob is not successful")
+			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+		}
 
-	reqLogger.Info("Deleteing uninstall job")
-	err = r.client.Delete(context.TODO(), &foundJob, client.PropagationPolicy(metav1.DeletePropagationBackground))
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return &reconcile.Result{}, err
+		reqLogger.Info("Deleteing uninstall job")
+		err = r.client.Delete(context.TODO(), &foundJob, client.PropagationPolicy(metav1.DeletePropagationBackground))
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return reconcile.Result{}, err
+			}
 		}
 	}
 
 	reqLogger.Info("Uninstall job created successfully")
 	reqLogger.Info("Successfully finalized RazeeDeployment")
-	return nil, nil
+
+	// Remove the razeeDeploymentFinalizer
+	// Once all finalizers are removed, the object will be deleted
+	req.SetFinalizers(utils.RemoveKey(req.GetFinalizers(), razeeDeploymentFinalizer))
+	err = r.client.Update(context.TODO(), req)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, nil
 }
 
 // MakeRazeeJob returns a Batch.Job which installs razee
@@ -883,7 +883,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeClusterMetaData(instance *marketplac
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "razee-cluster-metadata",
-			Namespace: "razee",
+			Namespace: RAZEE_NAMESPACE,
 			Labels: map[string]string{
 				"razee/cluster-metadata": "true",
 				"razee/watch-resource":   "lite",
@@ -898,9 +898,9 @@ func (r *ReconcileRazeeDeployment) MakeWatchKeeperNonNamespace() *corev1.ConfigM
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "watch-keeper-non-namespaced",
-			Namespace: "razee",
+			Namespace: RAZEE_NAMESPACE,
 		},
-		Data: map[string]string{"poll": "lite"},
+		Data: map[string]string{"v1_namespace": "true"},
 	}
 }
 
@@ -909,9 +909,8 @@ func (r *ReconcileRazeeDeployment) MakeWatchKeeperLimitPoll() *corev1.ConfigMap 
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "watch-keeper-limit-poll",
-			Namespace: "razee",
+			Namespace: RAZEE_NAMESPACE,
 		},
-		Data: map[string]string{"whitelist": "true", "v1_namespace": "true"},
 	}
 }
 
@@ -919,7 +918,7 @@ func (r *ReconcileRazeeDeployment) MakeWatchKeeperConfig(instance *marketplacev1
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "watch-keeper-config",
-			Namespace: "razee",
+			Namespace: RAZEE_NAMESPACE,
 		},
 		Data: map[string]string{"RAZEEDASH_URL": instance.Spec.DeploySecretValues[RAZEE_DASH_URL_FIELD], "START_DELAY_MAX": "0"},
 	}
@@ -930,7 +929,7 @@ func (r *ReconcileRazeeDeployment) MakeWatchKeeperSecret(instance *marketplacev1
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "watch-keeper-secret",
-			Namespace: "razee",
+			Namespace: RAZEE_NAMESPACE,
 		},
 		Data: map[string][]byte{"RAZEEDASH_ORG_KEY": []byte(key)},
 	}
@@ -941,7 +940,7 @@ func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret(instance *marketplacev1al
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "ibm-cos-reader-key",
-			Namespace: "razee",
+			Namespace: RAZEE_NAMESPACE,
 		},
 		Data: map[string][]byte{"accesskey": []byte(cosApiKey)},
 	}
@@ -954,7 +953,7 @@ func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3(instance *marketpl
 			"kind":       "RemoteResourceS3",
 			"metadata": map[string]interface{}{
 				"name":      "parent",
-				"namespace": "razee",
+				"namespace": RAZEE_NAMESPACE,
 			},
 			"spec": map[string]interface{}{
 				"auth": map[string]interface{}{

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.ibm.com/symposium/marketplace-operator/pkg/apis"
-	operator "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis"
+	operator "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 
