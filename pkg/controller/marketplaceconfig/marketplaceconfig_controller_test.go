@@ -10,8 +10,6 @@ import (
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/utils"
-
-	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -50,7 +48,6 @@ var (
 		WithNamespace(namespace),
 		WithName(name),
 	}
-
 	marketplaceconfig = buildMarketplaceConfigCR(name, namespace, customerID)
 	razeedeployment   = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName)
 	meterbase         = utils.BuildMeterBaseCr(namespace)
@@ -75,9 +72,6 @@ func testCleanInstall(t *testing.T) {
 	reconcilerTest := NewReconcilerTest(setup(marketplaceconfig.DeepCopy()))
 	reconcilerTest.TestAll(t,
 		[]TestCaseStep{
-			NewReconcilerTestCase(
-				append(opts,
-					WithTestObj(&appsv1.Deployment{}))...),
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&marketplacev1alpha1.RazeeDeployment{}),

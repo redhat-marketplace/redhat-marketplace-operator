@@ -5,15 +5,12 @@ OPERATOR_SOURCE = redhat-marketplace-operators
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 OPERATOR_IMAGE_NAME ?= redhat-marketplace-operator
 OPERATOR_IMAGE_TAG ?= dev
-AGENT_IMAGE_NAME ?= marketplace-agent
-AGENT_IMAGE_TAG ?= latest
 VERSION ?= $(shell go run scripts/version/main.go)
 
 SERVICE_ACCOUNT := redhat-marketplace-operator
 SECRETS_NAME := my-docker-secrets
 
 OPERATOR_IMAGE := $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
-AGENT_IMAGE := $(IMAGE_REGISTRY)/$(AGENT_IMAGE_NAME):$(AGENT_IMAGE_TAG)
 
 PULL_POLICY ?= IfNotPresent
 .DEFAULT_GOAL := help
@@ -71,7 +68,7 @@ code-fmt: ## Run go fmt for this project
 	go fmt $$(go list ./... )
 
 code-templates: ## Gen templates
-	@PULL_POLICY=$(PULL_POLICY) RELATED_IMAGE_MARKETPLACE_OPERATOR=$(OPERATOR_IMAGE) RELATED_IMAGE_MARKETPLACE_AGENT=$(AGENT_IMAGE) NAMESPACE=$(NAMESPACE) scripts/gen_files.sh
+	@PULL_POLICY=$(PULL_POLICY) RELATED_IMAGE_MARKETPLACE_OPERATOR=$(OPERATOR_IMAGE) NAMESPACE=$(NAMESPACE) scripts/gen_files.sh
 
 code-dev: ## Run the default dev commands which are the go fmt and vet then execute the $ make code-gen
 	@echo Running the common required commands for developments purposes
