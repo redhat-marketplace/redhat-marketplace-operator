@@ -1,10 +1,15 @@
 package razeedeployment
 
 import (
+	"context"
 	"testing"
+	"time"
+
+	. "github.ibm.com/symposium/marketplace-operator/test/controller"
 
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -23,13 +28,34 @@ func TestRazeeDeployController(t *testing.T) {
 
 	viper.Set("assets", "../../../assets")
 
-	var (
-		name      = "marketplaceconfig"
-		namespace = "redhat-marketplace-operator"
-	)
+	t.Run("Test Clean Install", testCleanInstall)
+	t.Run("Test No Secret", testNoSecret)
+}
 
-	// A resource with metadata and spec.
-	razeeDeployment := &marketplacev1alpha1.RazeeDeployment{
+func setup(objs ...runtime.Object) ReconcilerSetupFunc {
+	return func(r *ReconcilerTest) error {
+		s := scheme.Scheme
+		s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, &razeeDeployment)
+		r.Client = fake.NewFakeClient(objs...)
+		r.Reconciler = &ReconcileRazeeDeployment{client: r.Client, scheme: s, opts: &RazeeOpts{RazeeJobImage: "test"}}
+		return nil
+	}
+}
+
+var (
+	name      = "marketplaceconfig"
+	namespace = "redhat-marketplace-operator"
+	opts      = []ReconcilerTestCaseOption{
+		WithRequest(req),
+		WithNamespacedName(types.NamespacedName{Namespace: RAZEE_NAMESPACE, Name: name}),
+	}
+	req = reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
+	razeeDeployment = marketplacev1alpha1.RazeeDeployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -39,47 +65,103 @@ func TestRazeeDeployController(t *testing.T) {
 			ClusterUUID: "foo",
 		},
 	}
-	// Objects to track in the fake client.
-	objs := []runtime.Object{
-		razeeDeployment,
-	}
-
-	// Register operator types with the runtime scheme.
-	s := scheme.Scheme
-	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment)
-	// Create a fake client to mock API calls.
-	cl := fake.NewFakeClient(objs...)
-	// Create a ReconcileMeterBase object with the scheme and fake client.
-	r := &ReconcileRazeeDeployment{client: cl, scheme: s}
-	// Mock request to simulate Reconcile() being called on an event for a
-	// watched resource .
-	req := reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Name:      name,
+	secret = corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "rhm-operator-secret",
 			Namespace: namespace,
 		},
-	}
-	_, err := r.Reconcile(req)
-	if err != nil {
-		t.Fatalf("reconcile: (%v)", err)
-	}
-
-	// check that missing resources are being picked up
-	razeeDeployment = &marketplacev1alpha1.RazeeDeployment{}
-	// Check if razeedeployJob has been created
-	req = reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Name:      "razeedeploy-job",
-			Namespace: namespace,
+		Data: map[string][]byte{
+			IBM_COS_READER_KEY_FIELD: []byte("test"),
+			IBM_COS_URL_FIELD:        []byte("test"),
+			BUCKET_NAME_FIELD:        []byte("test"),
+			RAZEE_DASH_ORG_KEY_FIELD: []byte("test"),
+			CHILD_RRS3_YAML_FIELD:    []byte("test"),
+			RAZEE_DASH_URL_FIELD:     []byte("test"),
+			FILE_SOURCE_URL_FIELD:    []byte("test"),
 		},
 	}
+)
 
-	// TODO add more tests
-	// Check the result of reconciliation to make sure it has the desired state.
-	// if res.Requeue {
-	// 	t.Error("reconcile requeue which is not expected")
-	// }
+func testCleanInstall(t *testing.T) {
+	t.Parallel()
+	reconcilerTest := NewReconcilerTest(setup(razeeDeployment.DeepCopy(), secret.DeepCopy()))
+	reconcilerTest.TestAll(t,
+		[]*ReconcilerTestCase{
+			NewReconcilerTestCase(
+				append(opts,
+					WithName("razee"),
+					WithNamespace(""),
+					WithTestObj(&corev1.Namespace{}))...),
+			NewReconcilerTestCase(
+				append(opts,
+					WithTestObj(&corev1.ConfigMap{}),
+					WithName("watch-keeper-non-namespaced"))...),
+			NewReconcilerTestCase(
+				append(opts,
+					WithTestObj(&corev1.ConfigMap{}),
+					WithName("watch-keeper-limit-poll"))...),
+			NewReconcilerTestCase(
+				append(opts,
+					WithTestObj(&corev1.ConfigMap{}),
+					WithName("razee-cluster-metadata"))...),
+			NewReconcilerTestCase(
+				append(opts,
+					WithTestObj(&corev1.ConfigMap{}),
+					WithName("watch-keeper-config"))...),
+			NewReconcilerTestCase(
+				append(opts,
+					WithTestObj(&corev1.Secret{}),
+					WithName("watch-keeper-secret"))...),
+			NewReconcilerTestCase(
+				append(opts,
+					WithTestObj(&corev1.Secret{}),
+					WithName("ibm-cos-reader-key"))...),
+			NewReconcilerTestCase(
+				append(opts,
+					WithTestObj(&batch.Job{}),
+					WithName("razeedeploy-job"),
+					WithNamespace(namespace),
+					WithExpectedResult(reconcile.Result{RequeueAfter: time.Second * 30}),
+					WithValidationFunc(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+						myJob, ok := i.(*batch.Job)
 
+						if !ok {
+							t.Fatalf("Type is not expected %T", i)
+						}
+
+						myJob.Status.Conditions = []batch.JobCondition{
+							batch.JobCondition{
+								Type:               batch.JobComplete,
+								Status:             corev1.ConditionTrue,
+								LastProbeTime:      metav1.Now(),
+								LastTransitionTime: metav1.Now(),
+								Reason:             "Job is complete",
+								Message:            "Job is complete",
+							},
+						}
+
+						r.Client.Status().Update(context.TODO(), myJob)
+					}))...),
+			NewReconcilerTestCase(
+				append(opts,
+					WithName("razeedeploy-job"),
+					WithExpectedResult(reconcile.Result{}),
+					WithNoObj())...),
+		})
+}
+
+func testNoSecret(t *testing.T) {
+	t.Parallel()
+	reconcilerTest := NewReconcilerTest(setup(razeeDeployment.DeepCopy()))
+	reconcilerTest.TestAll(t,
+		[]*ReconcilerTestCase{
+			NewReconcilerTestCase(
+				append(opts,
+					WithName("rhm-operator-secret"),
+					WithNamespace(namespace),
+					WithExpectedResult(reconcile.Result{}),
+					WithExpectedError(nil))...),
+		})
 }
 
 func CreateWatchKeeperSecret() *corev1.Secret {

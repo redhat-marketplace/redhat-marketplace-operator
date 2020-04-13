@@ -9,7 +9,6 @@ import (
 	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.ibm.com/symposium/marketplace-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -189,78 +188,6 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		reqLogger.Info("found meterbase")
 	}
 
-	// Check if service account exists, or create a new one
-	foundSA := &corev1.ServiceAccount{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name:      utils.SERVICE_ACCOUNT,
-		Namespace: request.Namespace,
-	}, foundSA)
-	if err != nil && errors.IsNotFound(err) {
-		newSA := utils.BuildServiceAccount(request.Namespace, utils.SERVICE_ACCOUNT)
-		reqLogger.Info("creating new ServiceAccount")
-		err = r.client.Create(context.TODO(), newSA)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create ServiceAccount", newSA.Name)
-			return reconcile.Result{}, err
-		}
-		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get Service Account")
-		return reconcile.Result{}, err
-	}
-
-	// sets ownership for Service Account
-	if err = controllerutil.SetControllerReference(marketplaceConfig, foundSA, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Check for ClusterRoleBinding, or create a new one
-	foundClusterRoleBinding := &rbacv1.ClusterRoleBinding{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name: utils.CLUSTER_ROLE_BINDING,
-	}, foundClusterRoleBinding)
-	if err != nil && errors.IsNotFound(err) {
-
-		newClusterRoleBind := utils.BuildRoleBinding(marketplaceConfig.Namespace)
-		err = r.client.Create(context.TODO(), newClusterRoleBind)
-		if err != nil {
-			reqLogger.Error(err, "Cluster role binding not found")
-			return reconcile.Result{}, err
-		}
-
-		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get ClusterRoleBindng")
-		return reconcile.Result{}, err
-	}
-
-	reqLogger.Info("Cluster role binding found")
-	mySubject := rbacv1.Subject{
-		Kind:      "ServiceAccount",
-		Name:      utils.SERVICE_ACCOUNT,
-		Namespace: marketplaceConfig.Namespace,
-	}
-
-	foundSubject := false
-	for _, subject := range foundClusterRoleBinding.Subjects {
-		if subject == mySubject {
-			foundSubject = true
-			break
-		}
-	}
-
-	if !foundSubject {
-		reqLogger.Info("updating my cluster role binding with new subject")
-		foundClusterRoleBinding.Subjects = append(foundClusterRoleBinding.Subjects, mySubject)
-
-		if err := r.client.Update(context.TODO(), foundClusterRoleBinding); err != nil {
-			reqLogger.Error(err, "failed to update my subjects on cluster role binding")
-			return reconcile.Result{}, err
-		}
-
-		return reconcile.Result{Requeue: true}, nil
-	}
-
 	// Check if operator source exists, or create a new one
 	foundOpSrc := &opsrcv1.OperatorSource{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{
@@ -294,3 +221,4 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 func labelsForMarketplaceConfig(name string) map[string]string {
 	return map[string]string{"app": "marketplaceconfig", "marketplaceconfig_cr": name}
 }
+ 

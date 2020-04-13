@@ -6,6 +6,8 @@ import (
 
 	"github.com/gotidy/ptr"
 	"github.com/imdario/mergo"
+	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
+	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -13,9 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
-	marketplacev1alpha1 "github.ibm.com/symposium/marketplace-operator/pkg/apis/marketplace/v1alpha1"
 )
 
 type PersistentVolume struct {
