@@ -708,7 +708,6 @@ func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(request *reconcile
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
 			// report to status that we haven't found the secret
-			reqLogger.Info("Updating RedHatMarketplaceSecretFound")
 			reqLogger.Error(err, "Failed to find operator secret")
 			return nil, nil
 		}
