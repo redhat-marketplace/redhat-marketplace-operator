@@ -234,7 +234,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 		if instance.Spec.DeploySecretValues != nil {
 			correctList := []string{RAZEE_DASH_ORG_KEY_FIELD, BUCKET_NAME_FIELD, IBM_COS_URL_FIELD, CHILD_RRS3_YAML_FIELD, IBM_COS_READER_KEY_FIELD, RAZEE_DASH_URL_FIELD, FILE_SOURCE_URL_FIELD}
-			
+
 			// if secret isn't populated with the correct fields, then requeue
 			if missingItems := utils.CheckMapKeys(instance.Spec.DeploySecretValues, correctList); len(missingItems) > 0 {
 				reqLogger.Info("Missing required razee configuration values")
@@ -264,6 +264,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 					reqLogger.Error(err, "Failed to update Status.MissingDeploySecretValues")
 				}
 
+				//construct the childURL
 				url := fmt.Sprintf("%s/%s/%s/%s", instance.Spec.DeploySecretValues[IBM_COS_URL_FIELD], instance.Spec.DeploySecretValues[BUCKET_NAME_FIELD], clusterUUID, instance.Spec.DeploySecretValues[CHILD_RRS3_YAML_FIELD])
 				instance.Spec.ChildUrl = &url
 				err = r.client.Update(context.TODO(), instance)
@@ -300,8 +301,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		razeePrerequisitesCreated = append(razeePrerequisitesCreated, fmt.Sprintf("%v namespace", razeeNamespace.Name))
-		if !utils.Contains(*instance.Status.RazeePrerequisitesCreated,"watch-keeper-non-namespace"){
-			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated,"watch-keeper-non-namespace")
+		if !utils.Contains(*instance.Status.RazeePrerequisitesCreated, "watch-keeper-non-namespace") {
+			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, "watch-keeper-non-namespace")
 		}
 
 		watchKeeperNonNamespace := corev1.ConfigMap{}
@@ -330,8 +331,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 		}
 
-		if !utils.Contains(*instance.Status.RazeePrerequisitesCreated,"watch-keeper-non-namespace"){
-			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated,"watch-keeper-non-namespace")
+		if !utils.Contains(*instance.Status.RazeePrerequisitesCreated, "watch-keeper-non-namespace") {
+			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, "watch-keeper-non-namespace")
 		}
 
 		// apply watch-keeper-limit-poll config map
@@ -362,8 +363,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 		}
 
-		if !utils.Contains(*instance.Status.RazeePrerequisitesCreated,"watch-keeper-limit-poll"){
-			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated,"watch-keeper-limit-poll")
+		if !utils.Contains(*instance.Status.RazeePrerequisitesCreated, "watch-keeper-limit-poll") {
+			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, "watch-keeper-limit-poll")
 		}
 
 		// create razee-cluster-metadata
@@ -393,8 +394,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 		}
 
-		if !utils.Contains(*instance.Status.RazeePrerequisitesCreated,"razee-cluster-metadata"){
-			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated,"razee-cluster-metadata")
+		if !utils.Contains(*instance.Status.RazeePrerequisitesCreated, "razee-cluster-metadata") {
+			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, "razee-cluster-metadata")
 		}
 
 		// create watch-keeper-config
@@ -425,8 +426,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info("watch-keeper-config updated successfully")
 		}
 
-		if !utils.Contains(*instance.Status.RazeePrerequisitesCreated,"watch-keeper-config"){
-			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated,"watch-keeper-config")
+		if !utils.Contains(*instance.Status.RazeePrerequisitesCreated, "watch-keeper-config") {
+			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, "watch-keeper-config")
 		}
 
 		// create watch-keeper-secret
@@ -457,8 +458,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info("watch-keeper-secret updated successfully")
 		}
 
-		if !utils.Contains(*instance.Status.RazeePrerequisitesCreated,"watch-keeper-secret"){
-			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated,"watch-keeper-secret")
+		if !utils.Contains(*instance.Status.RazeePrerequisitesCreated, "watch-keeper-secret") {
+			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, "watch-keeper-secret")
 		}
 
 		// create watch-keeper-config
@@ -490,8 +491,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		// newResources = append(newResources, "ibm-cos-reader-key")
-		if !utils.Contains(*instance.Status.RazeePrerequisitesCreated,"ibm-cos-reader-key"){
-			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated,"ibm-cos-reader-key")
+		if !utils.Contains(*instance.Status.RazeePrerequisitesCreated, "ibm-cos-reader-key") {
+			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, "ibm-cos-reader-key")
 		}
 
 		reqLogger.Info("prerequisite resources have been created or updated")
@@ -540,7 +541,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Error(err, "Failed to set controller reference")
 			return reconcile.Result{}, err
 		}
-	
+
 		// if the conditions have populated add to the status
 		if len(foundJob.Status.Conditions) == 0 {
 			reqLogger.Info("RazeeJob Conditions have not been propagated yet")
@@ -557,7 +558,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			RazeeNamespace:  RAZEE_NAMESPACE,
 			RazeeInstallURL: instance.Spec.DeploySecretValues[RAZEE_DASH_URL_FIELD],
 		}
-	
+
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update JobState")
@@ -608,7 +609,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				reqLogger.Info("parentRRS3 updated successfully")
 			}
 
-			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated,"parentRRS3")
+			*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, "parentRRS3")
 			reqLogger.Info("attempting to add parentRRS3")
 			err = r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
@@ -665,7 +666,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info("Patched Infrastructure resource")
 			// exit the loop after patches are performed
 			return reconcile.Result{}, nil
-		
+
 		}
 	}
 
@@ -842,7 +843,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request, insta
 }
 
 // MakeRazeeUninstalllJob returns a Batch.Job which uninstalls razee
-func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(namespace string, instance *marketplacev1alpha1.RazeeDeployment) *batch.Job {
+func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(namespace string, razeeJob *marketplacev1alpha1.RazeeJobInstallStruct) *batch.Job {
 	return &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      RAZEE_UNINSTALL_NAME,
@@ -851,12 +852,12 @@ func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(namespace string, insta
 		Spec: batch.JobSpec{
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					ServiceAccountName: "redhat-marketplace-operator",
+					ServiceAccountName: utils.RAZEE_SERVICE_ACCOUNT,
 					Containers: []corev1.Container{{
 						Name:    RAZEE_UNINSTALL_NAME,
 						Image:   r.opts.RazeeJobImage,
-						Command: []string{"node", "src/remove", "--namespace=razee"},
-						Args:    []string{fmt.Sprintf("--file-source=%v", instance.Spec.DeploySecretValues[FILE_SOURCE_URL_FIELD]), "--autoupdate"},
+						Command: []string{"node", "src/remove", fmt.Sprintf("--namespace=%s", razeeJob.RazeeNamespace)},
+						Args:    []string{fmt.Sprintf("--file-source=%v", razeeJob.RazeeInstallURL), "--autoupdate"},
 					}},
 					RestartPolicy: "Never",
 				},

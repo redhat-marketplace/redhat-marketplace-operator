@@ -22,7 +22,7 @@ spec:
       containers:
         - name: redhat-marketplace-operator
           # Replace this with the built image name
-          image: quay.io/rh-marketplace/redhat-marketplace-operator:v0.0.1
+          image: quay.io/mxpaspa/redhat-marketplace-operator:dev
           imagePullPolicy: Always
           securityContext:
             {}

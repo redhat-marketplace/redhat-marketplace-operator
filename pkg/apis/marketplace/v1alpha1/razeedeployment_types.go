@@ -29,7 +29,7 @@ type RazeeDeploymentSpec struct {
 	ClusterUUID        string            `json:"clusterUUID"`
 	DeploySecretName   *string           `json:"deploySecretName,omitempty"`
 	DeploySecretValues map[string]string `json:"deploySecretValues,omitempty"`
-	ChildUrl      *string           `json:"childUrl,omitempty"`
+	ChildUrl           *string           `json:"childUrl,omitempty"`
 }
 
 // RazeeDeploymentStatus defines the observed state of RazeeDeployment
@@ -37,17 +37,11 @@ type RazeeDeploymentStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-	Conditions                *batch.JobCondition `json:"conditions,omitempty"`
-	JobState                  batch.JobStatus     `json:"jobState,omitempty"`
-	MissingDeploySecretValues *[]string           `json:"missingDeploySecretValues,omitempty"`
-	RazeePrerequisitesCreated *[]string           `json:"razeePrerequisitesCreated,omitempty"`
-	// Conditions                   *batch.JobCondition    `json:"conditions,omitempty"`
-	// JobState                     batch.JobStatus        `json:"jobState,omitempty"`
-	// MissingValuesFromSecret      *[]string              `json:"missingValuesFromSecret,omitempty"`
-	// LocalSecretVarsPopulated     *bool                  `json:"localSecretVarsPopulated,omitempty"`
-	// RazeePrerequisitesCreated    *[]string              `json:"razeePrerequisitesCreated,omitempty"`
-	// RedHatMarketplaceSecretFound *bool                  `json:"redHatMarketplaceSecretFound,omitempty"`
-	RazeeJobInstall              *RazeeJobInstallStruct `json:"razee_job_install,omitempty"`
+	Conditions                *batch.JobCondition    `json:"conditions,omitempty"`
+	JobState                  batch.JobStatus        `json:"jobState,omitempty"`
+	MissingDeploySecretValues *[]string              `json:"missingDeploySecretValues,omitempty"`
+	RazeePrerequisitesCreated *[]string              `json:"razeePrerequisitesCreated,omitempty"`
+	RazeeJobInstall           *RazeeJobInstallStruct `json:"razee_job_install,omitempty"`
 }
 
 type RazeeJobInstallStruct struct {

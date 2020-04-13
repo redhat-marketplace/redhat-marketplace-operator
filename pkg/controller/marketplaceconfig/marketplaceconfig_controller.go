@@ -224,4 +224,3 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 func labelsForMarketplaceConfig(name string) map[string]string {
 	return map[string]string{"app": "marketplaceconfig", "marketplaceconfig_cr": name}
 }
- 

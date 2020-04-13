@@ -528,6 +528,11 @@ func (in *RazeeDeploymentStatus) DeepCopyInto(out *RazeeDeploymentStatus) {
 			copy(*out, *in)
 		}
 	}
+	if in.RazeeJobInstall != nil {
+		in, out := &in.RazeeJobInstall, &out.RazeeJobInstall
+		*out = new(RazeeJobInstallStruct)
+		**out = **in
+	}
 	return
 }
 
