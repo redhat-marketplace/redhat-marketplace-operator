@@ -546,75 +546,81 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if the job has already run exit
 		if there are still missing resources exit
 	/******************************************************************************/
-	if instance.Status.JobState.Succeeded == 1 || len(*instance.Status.MissingValuesFromSecret) > 0 {
-		reqLogger.Info("RazeeDeployJob has been successfully created")
-		return reconcile.Result{}, nil
-	}
+	reqLogger.Info("RazeeDeployJob has been successfully created")
 
 	/******************************************************************************
 	CREATE THE RAZEE JOB
 	/******************************************************************************/
-	job := r.MakeRazeeJob(request, rhmOperatorSecretValues)
+	if instance.Status.JobState.Succeeded != 1 {
+		job := r.MakeRazeeJob(request, rhmOperatorSecretValues)
 
-	// Check if the Job exists already
-	req := reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Name:      "razeedeploy-job",
-			Namespace: request.Namespace,
-		},
-	}
+		// Check if the Job exists already
+		req := reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      "razeedeploy-job",
+				Namespace: request.Namespace,
+			},
+		}
 
-	foundJob := batch.Job{}
-	err = r.client.Get(context.TODO(), req.NamespacedName, &foundJob)
-	// if the job doesn't exist create it
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating razzeedeploy-job")
-		err = r.client.Create(context.TODO(), job)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create Job on cluster")
+		foundJob := batch.Job{}
+		err = r.client.Get(context.TODO(), req.NamespacedName, &foundJob)
+		// if the job doesn't exist create it
+		if err != nil && errors.IsNotFound(err) {
+			reqLogger.Info("Creating razzeedeploy-job")
+			err = r.client.Create(context.TODO(), job)
+			if err != nil {
+				reqLogger.Error(err, "Failed to create Job on cluster")
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("job created successfully")
+			// requeue to grab the "foundJob" and continue to update status
+			// wait 30 seconds so the job has time to complete
+			// not entirely necessary, but the struct on Status.Conditions needs the Conditions in the job to be populated.
+			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+			// return reconcile.Result{Requeue: true}, nil
+			// return reconcile.Result{}, nil
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get Job(s) from Cluster")
 			return reconcile.Result{}, err
 		}
-		reqLogger.Info("job created successfully")
-		// requeue to grab the "foundJob" and continue to update status
-		// wait 30 seconds so the job has time to complete
-		// not entirely necessary, but the struct on Status.Conditions needs the Conditions in the job to be populated.
-		return reconcile.Result{RequeueAfter: time.Second * 30}, nil
-		// return reconcile.Result{Requeue: true}, nil
-		// return reconcile.Result{}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get Job(s) from Cluster")
-		return reconcile.Result{}, err
-	}
 
-	if err := controllerutil.SetControllerReference(instance, &foundJob, r.scheme); err != nil {
-		reqLogger.Error(err, "Failed to set controller reference")
-		return reconcile.Result{}, err
-	}
+		if err := controllerutil.SetControllerReference(instance, &foundJob, r.scheme); err != nil {
+			reqLogger.Error(err, "Failed to set controller reference")
+			return reconcile.Result{}, err
+		}
 
-	if len(foundJob.Status.Conditions) == 0 {
-		reqLogger.Info("RazeeJob Conditions have not been propagated yet")
-		return reconcile.Result{RequeueAfter: time.Second * 30}, nil
-	}
+		if len(foundJob.Status.Conditions) == 0 {
+			reqLogger.Info("RazeeJob Conditions have not been propagated yet")
+			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+		}
 
-	// Update status and conditions
-	instance.Status.JobState = foundJob.Status
-	for _, jobCondition := range foundJob.Status.Conditions {
-		instance.Status.Conditions = &jobCondition
-	}
-	instance.Status.RazeeJobInstall = &marketplacev1alpha1.RazeeJobInstallStruct{
-		RazeeNamespace:  RAZEE_NAMESPACE,
-		RazeeInstallURL: rhmOperatorSecretValues.fileSourceUrl,
-	}
+		// Update status and conditions
+		instance.Status.JobState = foundJob.Status
+		for _, jobCondition := range foundJob.Status.Conditions {
+			instance.Status.Conditions = &jobCondition
+		}
+		instance.Status.RazeeJobInstall = &marketplacev1alpha1.RazeeJobInstallStruct{
+			RazeeNamespace:  RAZEE_NAMESPACE,
+			RazeeInstallURL: rhmOperatorSecretValues.fileSourceUrl,
+		}
 
-	err = r.client.Status().Update(context.TODO(), instance)
-	if err != nil {
-		reqLogger.Error(err, "Failed to update JobState")
-		return reconcile.Result{}, nil
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update JobState")
+			return reconcile.Result{}, nil
+		}
+		reqLogger.Info("Updated JobState")
+
+		err = r.client.Delete(context.TODO(), &foundJob)
+		if err != nil {
+			reqLogger.Error(err, "Failed to delete job")
+			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+		}
+		reqLogger.Info("Razeedeploy-job deleted")
 	}
-	reqLogger.Info("Updated JobState")
 
 	// if the job has a status of succeeded, then apply parent rrs3 delete the job
-	if foundJob.Status.Succeeded == 1 {
+	if instance.Status.JobState.Succeeded == 1 {
 		parentRRS3 := r.MakeParentRemoteResourceS3(rhmOperatorSecretValues)
 
 		err = r.client.Create(context.TODO(), parentRRS3)
@@ -623,13 +629,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 		*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, parentRRS3.GetName())
 		reqLogger.Info("parentRRS3 created successfully")
-
-		err = r.client.Delete(context.TODO(), &foundJob)
-		if err != nil {
-			reqLogger.Error(err, "Failed to delete job")
-			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
-		}
-		reqLogger.Info("Razeedeploy-job deleted")
 
 		/******************************************************************************
 		PATCH RESOURCES FOR DIANEMO
