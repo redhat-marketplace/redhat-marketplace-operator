@@ -431,7 +431,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	razeePrerequisitesCreated = append(razeePrerequisitesCreated, "razee-cluster-metadata")
 	if &razeePrerequisitesCreated != instance.Status.RazeePrerequisitesCreated {
-		instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreatazee - cluster - metadataed
+		instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
 		r.client.Status().Update(context.TODO(), instance)
 	}
 
