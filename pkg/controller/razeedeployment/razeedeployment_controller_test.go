@@ -116,7 +116,7 @@ func testCleanInstall(t *testing.T) {
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&corev1.Secret{}),
-					WithName("ibm-cos-reader-key"))...),
+					WithName("rhm-cos-reader-key"))...),
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&batch.Job{}),

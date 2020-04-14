@@ -30,6 +30,7 @@ import (
 
 const (
 	razeeDeploymentFinalizer   = "razeedeploy.finalizer.marketplace.redhat.com"
+	cosReaderKey               = "rhm-cos-reader-key"
 	RAZEE_UNINSTALL_NAME       = "razee-uninstall-job"
 	DEFAULT_RAZEE_JOB_IMAGE    = "quay.io/razee/razeedeploy-delta:1.1.0"
 	DEFAULT_RAZEEDASH_URL      = `http://169.45.231.109:8081/api/v2`
@@ -517,7 +518,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	// create watch-keeper-config
 	ibmCosReaderKey := corev1.Secret{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "ibm-cos-reader-key", Namespace: RAZEE_NAMESPACE}, &ibmCosReaderKey)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cosReaderKey, Namespace: RAZEE_NAMESPACE}, &ibmCosReaderKey)
 	if err != nil {
 		reqLogger.Info("ibm-cos-reader-key does not exist - creating")
 		if errors.IsNotFound(err) {
@@ -543,7 +544,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Info("ibm-cos-reader-key updated successfully")
 	}
 
-	razeePrerequisitesCreated = append(razeePrerequisitesCreated, "ibm-cos-reader-key")
+	razeePrerequisitesCreated = append(razeePrerequisitesCreated, cosReaderKey)
 	if &razeePrerequisitesCreated != instance.Status.RazeePrerequisitesCreated {
 		instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
 		r.client.Status().Update(context.TODO(), instance)
@@ -897,7 +898,7 @@ func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret(rhmOperatorValues RhmOper
 	cosApiKey := rhmOperatorValues.ibmCosReaderKey
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ibm-cos-reader-key",
+			Name:      cosReaderKey,
 			Namespace: RAZEE_NAMESPACE,
 		},
 		Data: map[string][]byte{"accesskey": []byte(cosApiKey)},
@@ -922,7 +923,7 @@ func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3(rhmOperatorSecretV
 						"api_key": map[string]interface{}{
 							"valueFrom": map[string]interface{}{
 								"secretKeyRef": map[string]interface{}{
-									"name": "ibm-cos-reader-key",
+									"name": cosReaderKey,
 									"key":  "accesskey",
 								},
 							},

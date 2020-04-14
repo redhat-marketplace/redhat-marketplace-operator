@@ -152,8 +152,21 @@ spec:
     --from-literal=RAZEE_DASH_URL=
     --from-literal=FILE_SOURCE_URL=
     ```
-    3.) Install the operator, either through the operator hub UI or apply an operator subscription:
+    3.) Install the operator, either through the Operator Hub UI or apply an
+    operator group and subscription. If you install via the Operator Hub UI these
+    resources are applied for you.
     ```
+    cat <<EOF | kubectl apply -f -
+    apiVersion: operators.coreos.com/v1
+    kind: OperatorGroup
+    metadata:
+      name: redhat-marketplace-operator
+      namespace: redhat-marketplace-operator
+    spec:
+      targetNamespaces:
+      - redhat-marketplace-operator
+    EOF
+
     cat <<EOF | kubectl apply -f -
     apiVersion: operators.coreos.com/v1alpha1
     kind: Subscription
@@ -303,10 +316,14 @@ spec:
     - supported: false
       type: AllNamespaces
   keywords:
-    - ''
+    - 'red hat marketplace'
+    - 'operators'
+    - 'buy'
   maintainers:
-    - {}
+    - name: Zach Taylor
+      email: ztaylor@ibm.com
   maturity: stable
   provider:
-    - name: Red Hat
+    name: Red Hat Marketplace
+    url: https://marketplace.redhat.com
   version: 0.0.1
