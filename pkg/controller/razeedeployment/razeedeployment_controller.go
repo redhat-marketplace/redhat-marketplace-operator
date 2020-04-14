@@ -33,7 +33,6 @@ const (
 	cosReaderKey               = "rhm-cos-reader-key"
 	RAZEE_UNINSTALL_NAME       = "razee-uninstall-job"
 	DEFAULT_RAZEE_JOB_IMAGE    = "quay.io/razee/razeedeploy-delta:1.1.0"
-	DEFAULT_RAZEEDASH_URL      = `http://169.45.231.109:8081/api/v2`
 	WATCH_KEEPER_VERSION       = "0.5.0"
 	FEATURE_FLAG_VERSION       = "0.6.1"
 	MANAGED_SET_VERSION        = "0.4.2"
@@ -307,18 +306,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	rhmOperatorSecretValues.ibmCosFullUrl = fmt.Sprintf("%s/%s/%s/%s", obj[IBM_COS_URL_FIELD], obj[BUCKET_NAME_FIELD], *clusterUUID, obj[CHILD_RRS3_YAML_FIELD])
 
 	/******************************************************************************
-		PROCEED WITH CREATING RAZEEDEPLOY-JOB? YES/NO
-		do we have all the fields from rhm-secret ? (combined secret)
-		check that we can continue with applying the razee job
-		if the job has already run exit
-		if there are still missing resources exit
-	/******************************************************************************/
-	if instance.Status.JobState.Succeeded == 1 || len(*instance.Status.MissingValuesFromSecret) > 0 {
-		reqLogger.Info("RazeeDeployJob has been successfully created")
-		return reconcile.Result{}, nil
-	}
-
-	/******************************************************************************
 	APPLY RAZEE RESOURCES
 	/******************************************************************************/
 	razeePrerequisitesCreated := make([]string, 0, 7)
@@ -444,7 +431,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	razeePrerequisitesCreated = append(razeePrerequisitesCreated, "razee-cluster-metadata")
 	if &razeePrerequisitesCreated != instance.Status.RazeePrerequisitesCreated {
-		instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
+		instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreatazee - cluster - metadataed
 		r.client.Status().Update(context.TODO(), instance)
 	}
 
@@ -553,6 +540,18 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	reqLogger.Info("prerequisite resource have been created or updated")
 
 	/******************************************************************************
+		PROCEED WITH CREATING RAZEEDEPLOY-JOB? YES/NO
+		do we have all the fields from rhm-secret ? (combined secret)
+		check that we can continue with applying the razee job
+		if the job has already run exit
+		if there are still missing resources exit
+	/******************************************************************************/
+	if instance.Status.JobState.Succeeded == 1 || len(*instance.Status.MissingValuesFromSecret) > 0 {
+		reqLogger.Info("RazeeDeployJob has been successfully created")
+		return reconcile.Result{}, nil
+	}
+
+	/******************************************************************************
 	CREATE THE RAZEE JOB
 	/******************************************************************************/
 	job := r.MakeRazeeJob(request, rhmOperatorSecretValues)
@@ -604,7 +603,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 	instance.Status.RazeeJobInstall = &marketplacev1alpha1.RazeeJobInstallStruct{
 		RazeeNamespace:  RAZEE_NAMESPACE,
-		RazeeInstallURL: rhmOperatorSecretValues.razeeDashUrl,
+		RazeeInstallURL: rhmOperatorSecretValues.fileSourceUrl,
 	}
 
 	err = r.client.Status().Update(context.TODO(), instance)
@@ -908,7 +907,7 @@ func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret(rhmOperatorValues RhmOper
 func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3(rhmOperatorSecretValues RhmOperatorSecretValues) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": "deploy.razee.io/v1alpha1",
+			"apiVersion": "deploy.razee.io/v1alpha2",
 			"kind":       "RemoteResourceS3",
 			"metadata": map[string]interface{}{
 				"name":      "parent",
@@ -917,10 +916,10 @@ func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3(rhmOperatorSecretV
 			"spec": map[string]interface{}{
 				"auth": map[string]interface{}{
 					"iam": map[string]interface{}{
-						"response_type": "cloud_iam",
-						"url":           `https://iam.cloud.ibm.com/identity/token`,
-						"grant_type":    "urn:ibm:params:oauth:grant-type:apikey",
-						"api_key": map[string]interface{}{
+						"responseType": "cloud_iam",
+						"url":          `https://iam.cloud.ibm.com/identity/token`,
+						"grantType":    "urn:ibm:params:oauth:grant-type:apikey",
+						"apiKeyRef": map[string]interface{}{
 							"valueFrom": map[string]interface{}{
 								"secretKeyRef": map[string]interface{}{
 									"name": cosReaderKey,
