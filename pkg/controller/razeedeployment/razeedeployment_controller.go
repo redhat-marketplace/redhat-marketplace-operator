@@ -228,50 +228,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 		}
 
-		// if the job succeeds apply the parentRRS3 and patch resources, add "parentRRS3" to 
-		if foundJob.Status.Succeeded == 1 {
-			parentRRS3 := &unstructured.Unstructured{}
-			parentRRS3.SetGroupVersionKind(schema.GroupVersionKind{
-				Group:   "deploy.razee.io",
-				Kind:    "RemoteResourceS3",
-				Version: "v1alpha2",
-			})
-			err = r.client.Get(context.TODO(), client.ObjectKey{Name: "parent", Namespace: "razee"}, parentRRS3)
-			if err != nil {
-				if errors.IsNotFound(err) {
-					reqLogger.Info("parent RRS3 does not exist - creating")
-					parentRRS3 = r.MakeParentRemoteResourceS3(instance)
-					err = r.client.Create(context.TODO(), parentRRS3)
-					if err != nil {
-						reqLogger.Error(err, "Failed to create parent RRS3")
-					}
-					reqLogger.Info("parent RRS3 created successfully")
-				} else {
-					reqLogger.Error(err, "Failed to get parent RRS3.")
-					return reconcile.Result{}, err
-				}
-			}
-
-			// if present, overwrite
-			if parentRRS3 != nil {
-				reqLogger.Info("parent RRS3 already exists - overwriting")
-				parentRRS3.Object["requests"] = []interface{}{
-					map[string]map[string]string{"options": {"url": *instance.Spec.ChildUrl}},
-				}
-				err = r.client.Update(context.TODO(), parentRRS3)
-				if err != nil {
-					reqLogger.Error(err, "Failed to update parentRRS3 ")
-					return reconcile.Result{}, err
-				}
-				reqLogger.Info("parentRRS3 updated successfully")
-			}
-
-			// add "parentRRS3" to the list of razee pre requisites created
-			if !utils.Contains(*instance.Status.RazeePrerequisitesCreated, "parentRRS3") {
-				reqLogger.Info("true")
-				*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, "parentRRS3")
-			}
-			
+		// delete the job after it's successful
+		if foundJob.Status.Succeeded == 1{
 			reqLogger.Info("Deleting Razee Job")
 			err = r.client.Delete(context.TODO(), &foundJob)
 			if err != nil {
@@ -280,8 +238,9 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 			
 			reqLogger.Info("Razeedeploy-job deleted")
-
 		}
+
+		
 
 		reqLogger.Info("updating status inside job reconciler")
 		err = r.client.Status().Update(context.TODO(), instance)
@@ -628,7 +587,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		/******************************************************************************
 		CREATE THE RAZEE JOB
 		/******************************************************************************/
-		// create job if it hasn't been created already
+		// create job if it hasn't been created already create the job
 		if instance.Status.JobState.Succeeded != 1 {
 			job := r.MakeRazeeJob(request, instance)
 
@@ -666,7 +625,51 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				reqLogger.Error(err, "Failed to set controller reference")
 				return reconcile.Result{}, err
 			}
+		}
 
+		// if the job succeeds apply the parentRRS3 and patch resources, add "parentRRS3" to 
+		if instance.Status.JobState.Succeeded == 1 {
+			parentRRS3 := &unstructured.Unstructured{}
+			parentRRS3.SetGroupVersionKind(schema.GroupVersionKind{
+				Group:   "deploy.razee.io",
+				Kind:    "RemoteResourceS3",
+				Version: "v1alpha2",
+			})
+			err = r.client.Get(context.TODO(), client.ObjectKey{Name: "parent", Namespace: "razee"}, parentRRS3)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					reqLogger.Info("parent RRS3 does not exist - creating")
+					parentRRS3 = r.MakeParentRemoteResourceS3(instance)
+					err = r.client.Create(context.TODO(), parentRRS3)
+					if err != nil {
+						reqLogger.Error(err, "Failed to create parent RRS3")
+					}
+					reqLogger.Info("parent RRS3 created successfully")
+				} else {
+					reqLogger.Error(err, "Failed to get parent RRS3.")
+					return reconcile.Result{}, err
+				}
+			}
+
+			// if present, overwrite
+			if parentRRS3 != nil {
+				reqLogger.Info("parent RRS3 already exists - overwriting")
+				parentRRS3.Object["requests"] = []interface{}{
+					map[string]map[string]string{"options": {"url": *instance.Spec.ChildUrl}},
+				}
+				err = r.client.Update(context.TODO(), parentRRS3)
+				if err != nil {
+					reqLogger.Error(err, "Failed to update parentRRS3 ")
+					return reconcile.Result{}, err
+				}
+				reqLogger.Info("parentRRS3 updated successfully")
+			}
+
+			// add "parentRRS3" to the list of razee pre requisites created
+			if !utils.Contains(*instance.Status.RazeePrerequisitesCreated, "parentRRS3") {
+				reqLogger.Info("true")
+				newResources = append(newResources, "parentRRS3")
+			}
 			/******************************************************************************
 			PATCH RESOURCES FOR DIANEMO
 			Patch the Console and Infrastructure resources with the watch-keeper label
@@ -683,15 +686,17 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			err = r.client.Get(context.Background(), client.ObjectKey{
 				Name: "cluster",
 			}, console)
-
 			if err != nil {
 				reqLogger.Error(err, "Failed to retrieve Console resource")
+				return reconcile.Result{},err
 			}
+
 			reqLogger.Info("Found Console resource")
 			console.SetLabels(map[string]string{"razee/watch-resource": "lite"})
 			err = r.client.Update(context.TODO(), console)
 			if err != nil {
 				reqLogger.Error(err, "Failed to patch Console resource")
+				return reconcile.Result{},err
 			}
 			reqLogger.Info("Patched Console resource")
 
@@ -706,17 +711,20 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			err = r.client.Get(context.Background(), client.ObjectKey{
 				Name: "cluster",
 			}, Infrastructure)
-
 			if err != nil {
 				reqLogger.Error(err, "Failed to retrieve Infrastructure resource")
+				return reconcile.Result{},err
 			}
+
 			reqLogger.Info("Found Infrastructure resource")
 			Infrastructure.SetLabels(map[string]string{"razee/watch-resource": "lite"})
 			err = r.client.Update(context.TODO(), Infrastructure)
 			if err != nil {
 				reqLogger.Error(err, "Failed to patch Infrastructure resource")
+				return reconcile.Result{},err
 			}
 			reqLogger.Info("Patched Infrastructure resource")
+			
 		}
 
 		// update status 
