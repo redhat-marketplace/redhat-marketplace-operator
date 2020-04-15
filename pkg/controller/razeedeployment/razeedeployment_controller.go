@@ -342,6 +342,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 					reqLogger.Error(err, "Failed to update Status.MissingDeploySecretValues")
 				}
 
+				//TODO: I could maybe move this down into MakeParentRemoteResource()
 				//construct the childURL
 				url := fmt.Sprintf("%s/%s/%s/%s", instance.Spec.DeploySecretValues[IBM_COS_URL_FIELD], instance.Spec.DeploySecretValues[BUCKET_NAME_FIELD], instance.Spec.ClusterUUID, instance.Spec.DeploySecretValues[CHILD_RRS3_YAML_FIELD])
 				instance.Spec.ChildUrl = &url
@@ -624,7 +625,9 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 					err = r.client.Create(context.TODO(), parentRRS3)
 					if err != nil {
 						reqLogger.Error(err, "Failed to create parent RRS3")
+						return reconcile.Result{}, err
 					}
+					
 					reqLogger.Info("parent RRS3 created successfully")
 				} else {
 					reqLogger.Error(err, "Failed to get parent RRS3.")
@@ -997,7 +1000,7 @@ func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret(instance *marketplacev1al
 func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3(instance *marketplacev1alpha1.RazeeDeployment) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": "deploy.razee.io/v1alpha1",
+			"apiVersion": "deploy.razee.io/v1alpha2",
 			"kind":       "RemoteResourceS3",
 			"metadata": map[string]interface{}{
 				"name":      "parent",
