@@ -5,17 +5,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// type RazeeConfigValues struct {
-// 	RazeeDashOrgKey   string `json:"razeeDashOrgKey,omitempty"`
-// 	BucketName        string `json:"bucketName,omitempty"`
-// 	IbmCosUrl         string  `json:"ibmCosUrl,omitempty"`
-// 	ChildRRS3FileName string  `json:"childRRS3FileName,omitempty"`
-// 	IbmCosReaderKey   string  `json:"ibmCosReaderKey,omitempty"`
-// 	RazeeDashUrl      string  `json:"razeeDashUrl,omitempty"`
-// 	FileSourceUrl     string  `json:"fileSourceUrl,omitempty"`
-// 	IbmCosFullUrl     string  `json:"ibmCosFullUrl,omitempty"`
-// }
-
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 

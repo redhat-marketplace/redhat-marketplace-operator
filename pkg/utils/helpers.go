@@ -83,7 +83,6 @@ func CheckMapKeys(razeeConfigValues map[string]string, referenceList []string) [
 	for _, referenceItem := range referenceList {
 		if _, exists := razeeConfigValues[referenceItem]; !exists {
 			missingItems = append(missingItems, referenceItem)
-			//   fmt.Printf("Key %s exists in map and has the value %v.\n", referenceItem, razeeConfigValues[referenceItem])
 		}
 	}
 	return missingItems
