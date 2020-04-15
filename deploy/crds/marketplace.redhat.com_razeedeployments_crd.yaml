@@ -31,16 +31,30 @@ spec:
         spec:
           description: RazeeDeploymentSpec defines the desired state of RazeeDeployment
           properties:
+            RazeeDeployConfigValues:
+              description: DeploySecretValues map[string]string `json:"deploySecretValues,omitempty"`
+              properties:
+                BUCKET_NAME:
+                  type: string
+                CHILD_RRS3_YAML_FILENAME:
+                  type: string
+                FILE_SOURCE_URL:
+                  type: string
+                IBM_COS_READER_KEY:
+                  type: string
+                IBM_COS_URL:
+                  type: string
+                RAZEE_DASH_ORG_KEY:
+                  type: string
+                RAZEE_DASH_URL:
+                  type: string
+              type: object
             childUrl:
               type: string
             clusterUUID:
               type: string
             deploySecretName:
               type: string
-            deploySecretValues:
-              additionalProperties:
-                type: string
-              type: object
             enabled:
               description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
                 Important: Run "operator-sdk generate k8s" to regenerate code after

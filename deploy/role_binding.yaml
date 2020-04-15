@@ -1,0 +1,14 @@
+---
+# Source: redhat-marketplace-operator-template-chart/templates/role_binding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: redhat-marketplace-operator
+subjects:
+- kind: ServiceAccount
+  name: redhat-marketplace-operator
+  namespace: redhat-marketplace-operator
+roleRef:
+  kind: ClusterRole
+  name: redhat-marketplace-operator
+  apiGroup: rbac.authorization.k8s.io

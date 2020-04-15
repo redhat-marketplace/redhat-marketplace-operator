@@ -144,15 +144,16 @@ func AddSecretFieldsToStruct(razeeData map[string][]byte) (*marketplacev1alpha1.
 	return updatedRazeeValues,missingItems, error
 }
 
-func ConvertSecretToStruct(razeeData map[string][]byte)(interface{},[]string,error){
-	
-	missingItems := []string{}
+func ConvertSecretToStruct(razeeData map[string][]byte)(marketplacev1alpha1.RazeeDeployConfig,[]string,error){
 	input,err := AddSecretFieldsToObj(razeeData)
+
+	fmt.Printf("input %#v\n", input)
 	var md mapstructure.Metadata
 	var result marketplacev1alpha1.RazeeDeployConfig
 	config := &mapstructure.DecoderConfig{
 		Metadata: &md,
 		Result:   &result,
+		TagName: "json",
 	}
 	decoder, err := mapstructure.NewDecoder(config)
 	if err != nil {
@@ -161,18 +162,11 @@ func ConvertSecretToStruct(razeeData map[string][]byte)(interface{},[]string,err
 	if err := decoder.Decode(input); err != nil {
 		panic(err)
 	}
+	fmt.Printf("Unused keys: %#v\n", md.Unused)
 
-	err = mapstructure.Decode(input, &result)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Unused keys: %#v", md.Unused)
+	fmt.Printf("result %#v\n", result)
 
-	if len(md.Unused) > 0 {
-		missingItems = md.Unused
-	}
-
-	return config.Result, missingItems,err
+	return result, md.Unused,err
 }
 
 func Equal(a []string, b []string) bool {

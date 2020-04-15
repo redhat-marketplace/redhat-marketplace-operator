@@ -224,7 +224,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 			instance.Status.RazeeJobInstall = &marketplacev1alpha1.RazeeJobInstallStruct{
 				RazeeNamespace:  RAZEE_NAMESPACE,
-				RazeeInstallURL: instance.Spec.DeploySecretValues[FILE_SOURCE_URL_FIELD],
+				RazeeInstallURL: instance.Spec.RazeeDeployConfigValues.FileSourceURL,
 			}
 		}
 
@@ -725,7 +725,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 }
 
 func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(request *reconcile.Request) (*reconcile.Result, error) {
-	MissingDeploySecretValues := []string{}
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "request.Name", request.Name)
 	reqLogger.Info("Beginning of rhm-operator-secret reconcile")
 
@@ -767,8 +766,13 @@ func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(request *reconcile
 	// if err != nil {
 	// 	reqLogger.Error(err, "Failed to get values from deploy secret")
 	// }
+	MissingDeploySecretValues := []string{}
+	razeeDeployConfigValues := marketplacev1alpha1.RazeeDeployConfig{}
+	razeeInstance.Spec.RazeeDeployConfigValues = &razeeDeployConfigValues
+
 	razeeDeployConfigValues, missingItems,err := utils.ConvertSecretToStruct(rhmOperatorSecret.Data)
-	*razeeInstance.Spec.RazeeDeployConfigValues = razeeDeployConfigValues.(marketplacev1alpha1.RazeeDeployConfig)
+	fmt.Println("razeeDeployConfigValues",razeeDeployConfigValues)
+	*razeeInstance.Spec.RazeeDeployConfigValues = razeeDeployConfigValues
 	razeeInstance.Status.MissingDeploySecretValues = &MissingDeploySecretValues
 	razeeInstance.Status.MissingDeploySecretValues = &missingItems
 	err = r.client.Update(context.TODO(), &razeeInstance)
