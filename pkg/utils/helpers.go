@@ -2,8 +2,12 @@ package utils
 
 import (
 	b64 "encoding/base64"
+	"encoding/json"
+	"fmt"
 	"strings"
 
+	"github.com/mitchellh/mapstructure"
+	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -78,6 +82,7 @@ func RemoveKey(list []string, key string) []string {
 	return newList
 }
 
+
 func CheckMapKeys(razeeConfigValues map[string]string, referenceList []string) []string {
 	missingItems := []string{}
 	for _, referenceItem := range referenceList {
@@ -96,7 +101,6 @@ func RetrieveSecretField(in []byte) (string, error) {
 }
 
 func AddSecretFieldsToObj(razeeData map[string][]byte) (map[string]string, error) {
-	// keys := []string{"IBM_COS_READER_KEY","BUCKET_NAME", "IBM_COS_URL","RAZEEDASH_ORG_KEY"}
 	razeeDataObj := make(map[string]string)
 	var error error
 	for key, element := range razeeData {
@@ -108,6 +112,67 @@ func AddSecretFieldsToObj(razeeData map[string][]byte) (map[string]string, error
 	}
 
 	return razeeDataObj, error
+}
+
+func AddSecretFieldsToStruct(razeeData map[string][]byte) (*marketplacev1alpha1.RazeeDeployConfig,[]string,error) {
+	var updatedRazeeValues *marketplacev1alpha1.RazeeDeployConfig = &marketplacev1alpha1.RazeeDeployConfig{}
+	missingItems := []string{}
+	var error error
+
+	for key, element := range razeeData {
+		value, err := RetrieveSecretField(element)
+		if err != nil {
+			error = err
+		}
+		//TODO: need to think about this
+		if value == "" {
+			missingItems = append(missingItems, key)
+		}
+
+		newField := []byte(fmt.Sprintf(`{"%v": "%v"}`,key,value))
+		err = json.Unmarshal(newField, &updatedRazeeValues)
+		if err != nil {
+			fmt.Println(err)
+			error = err
+		}
+		fmt.Println(updatedRazeeValues)
+		if err != nil {
+			error = err
+		}
+	}
+
+	return updatedRazeeValues,missingItems, error
+}
+
+func ConvertSecretToStruct(razeeData map[string][]byte)(interface{},[]string,error){
+	
+	missingItems := []string{}
+	input,err := AddSecretFieldsToObj(razeeData)
+	var md mapstructure.Metadata
+	var result marketplacev1alpha1.RazeeDeployConfig
+	config := &mapstructure.DecoderConfig{
+		Metadata: &md,
+		Result:   &result,
+	}
+	decoder, err := mapstructure.NewDecoder(config)
+	if err != nil {
+		panic(err)
+	}
+	if err := decoder.Decode(input); err != nil {
+		panic(err)
+	}
+
+	err = mapstructure.Decode(input, &result)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Unused keys: %#v", md.Unused)
+
+	if len(md.Unused) > 0 {
+		missingItems = md.Unused
+	}
+
+	return config.Result, missingItems,err
 }
 
 func Equal(a []string, b []string) bool {
