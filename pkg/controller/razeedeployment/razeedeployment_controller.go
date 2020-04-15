@@ -50,6 +50,7 @@ const (
 	FILE_SOURCE_URL_FIELD      = "FILE_SOURCE_URL"
 	RHM_OPERATOR_SECRET_NAME   = "rhm-operator-secret"
 	RAZEE_NAMESPACE            = "razee"
+	RAZEE_DEPLOY_JOB = "razeedeploy-job"
 )
 
 var (
@@ -186,7 +187,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Error(err, "Failed to reconcile secret")
 		}
 
-	case "razeedeploy-job":
+	case RAZEE_DEPLOY_JOB:
 		reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 		reqLogger.Info("Beginning of Razeedeploy-job controller Instance reconciler")
 		// Fetch the RazeeDeployment instance
@@ -227,7 +228,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 		}
 
-		// if the job succeeds apply the parentRRS3 and patch resources. 
+		// if the job succeeds apply the parentRRS3 and patch resources, add "parentRRS3" to 
 		if foundJob.Status.Succeeded == 1 {
 			parentRRS3 := &unstructured.Unstructured{}
 			parentRRS3.SetGroupVersionKind(schema.GroupVersionKind{
@@ -270,57 +271,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				reqLogger.Info("true")
 				*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, "parentRRS3")
 			}
-			/******************************************************************************
-			PATCH RESOURCES FOR DIANEMO
-			Patch the Console and Infrastructure resources with the watch-keeper label
-			Patch 'razee-cluster-metadata' and add data.name: "max-test-uuid"
-			Should only patch if the job has been successfully applied
-			/******************************************************************************/
-			reqLogger.Info("finding Console resource")
-			console := &unstructured.Unstructured{}
-			console.SetGroupVersionKind(schema.GroupVersionKind{
-				Group:   "config.openshift.io",
-				Kind:    "Console",
-				Version: "v1",
-			})
-			err = r.client.Get(context.Background(), client.ObjectKey{
-				Name: "cluster",
-			}, console)
-
-			if err != nil {
-				reqLogger.Error(err, "Failed to retrieve Console resource")
-			}
-			reqLogger.Info("Found Console resource")
-			console.SetLabels(map[string]string{"razee/watch-resource": "lite"})
-			err = r.client.Update(context.TODO(), console)
-			if err != nil {
-				reqLogger.Error(err, "Failed to patch Console resource")
-			}
-			reqLogger.Info("Patched Console resource")
-
-			// Patch the Infrastructure resource
-			reqLogger.Info("finding Infrastructure resource")
-			Infrastructure := &unstructured.Unstructured{}
-			Infrastructure.SetGroupVersionKind(schema.GroupVersionKind{
-				Group:   "config.openshift.io",
-				Kind:    "Infrastructure",
-				Version: "v1",
-			})
-			err = r.client.Get(context.Background(), client.ObjectKey{
-				Name: "cluster",
-			}, Infrastructure)
-
-			if err != nil {
-				reqLogger.Error(err, "Failed to retrieve Infrastructure resource")
-			}
-			reqLogger.Info("Found Infrastructure resource")
-			Infrastructure.SetLabels(map[string]string{"razee/watch-resource": "lite"})
-			err = r.client.Update(context.TODO(), Infrastructure)
-			if err != nil {
-				reqLogger.Error(err, "Failed to patch Infrastructure resource")
-			}
-			reqLogger.Info("Patched Infrastructure resource")
-
+			
+			reqLogger.Info("Deleting Razee Job")
 			err = r.client.Delete(context.TODO(), &foundJob)
 			if err != nil {
 				reqLogger.Error(err, "Failed to delete job")
@@ -328,7 +280,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 			
 			reqLogger.Info("Razeedeploy-job deleted")
-			// exit the loop after patches are performed
+
 		}
 
 		reqLogger.Info("updating status inside job reconciler")
@@ -338,6 +290,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			return reconcile.Result{}, nil
 		}
 		reqLogger.Info("Updated JobState")
+		reqLogger.Info("End of razee job reconciler")
 
 	default:
 		reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
@@ -713,6 +666,57 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				reqLogger.Error(err, "Failed to set controller reference")
 				return reconcile.Result{}, err
 			}
+
+			/******************************************************************************
+			PATCH RESOURCES FOR DIANEMO
+			Patch the Console and Infrastructure resources with the watch-keeper label
+			Patch 'razee-cluster-metadata' and add data.name: "max-test-uuid"
+			Should only patch if the job has been successfully applied
+			/******************************************************************************/
+			reqLogger.Info("finding Console resource")
+			console := &unstructured.Unstructured{}
+			console.SetGroupVersionKind(schema.GroupVersionKind{
+				Group:   "config.openshift.io",
+				Kind:    "Console",
+				Version: "v1",
+			})
+			err = r.client.Get(context.Background(), client.ObjectKey{
+				Name: "cluster",
+			}, console)
+
+			if err != nil {
+				reqLogger.Error(err, "Failed to retrieve Console resource")
+			}
+			reqLogger.Info("Found Console resource")
+			console.SetLabels(map[string]string{"razee/watch-resource": "lite"})
+			err = r.client.Update(context.TODO(), console)
+			if err != nil {
+				reqLogger.Error(err, "Failed to patch Console resource")
+			}
+			reqLogger.Info("Patched Console resource")
+
+			// Patch the Infrastructure resource
+			reqLogger.Info("finding Infrastructure resource")
+			Infrastructure := &unstructured.Unstructured{}
+			Infrastructure.SetGroupVersionKind(schema.GroupVersionKind{
+				Group:   "config.openshift.io",
+				Kind:    "Infrastructure",
+				Version: "v1",
+			})
+			err = r.client.Get(context.Background(), client.ObjectKey{
+				Name: "cluster",
+			}, Infrastructure)
+
+			if err != nil {
+				reqLogger.Error(err, "Failed to retrieve Infrastructure resource")
+			}
+			reqLogger.Info("Found Infrastructure resource")
+			Infrastructure.SetLabels(map[string]string{"razee/watch-resource": "lite"})
+			err = r.client.Update(context.TODO(), Infrastructure)
+			if err != nil {
+				reqLogger.Error(err, "Failed to patch Infrastructure resource")
+			}
+			reqLogger.Info("Patched Infrastructure resource")
 		}
 
 		// update status 
