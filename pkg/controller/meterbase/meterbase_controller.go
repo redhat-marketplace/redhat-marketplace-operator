@@ -4,7 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"reflect"
-
+	"time"
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -292,6 +292,9 @@ func (r *ReconcileMeterBase) newPrometheusOperator(cr *marketplacev1alpha1.Meter
 	pvc, err := utils.NewPersistentVolumeClaim(utils.PersistentVolume{
 		ObjectMeta: &metav1.ObjectMeta{
 			Name: "storage-volume",
+			CreationTimestamp: metav1.Time{
+				Time: time.Now(),
+			},
 		},
 		StorageClass: &storageClass,
 		StorageSize:  &cr.Spec.Prometheus.Storage.Size,

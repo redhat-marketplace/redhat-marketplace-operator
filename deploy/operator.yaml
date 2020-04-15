@@ -9,12 +9,12 @@ spec:
   selector:
     matchLabels:
       redhat.marketplace.com/name: redhat-marketplace-operator
-      redhat.marketplace.com/version: 0.0.1
+      redhat.marketplace.com/version: 
   template:
     metadata:
       labels:
         redhat.marketplace.com/name: redhat-marketplace-operator
-        redhat.marketplace.com/version: 0.0.1
+        redhat.marketplace.com/version: 
     spec:
       serviceAccountName: redhat-marketplace-operator
       securityContext:

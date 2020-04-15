@@ -117,7 +117,7 @@ deploys: ##deploys the resources for deployment
 	- kubectl create -f deploy/service_account.yaml --namespace=${NAMESPACE}
 	- kubectl create -f deploy/role.yaml --namespace=${NAMESPACE}
 	- kubectl create -f deploy/role_binding.yaml --namespace=${NAMESPACE}
-	- kubectl create -f deploy/operator.yaml --namespace=${NAMESPACE}
+	- kubectl create -f deploy/operator.yaml --namespace=${NAMESPACE} --validate=false
 
 apply: ##applies changes to crds
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml --namespace=${NAMESPACE}
