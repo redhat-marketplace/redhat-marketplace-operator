@@ -84,7 +84,7 @@ code-gen: ## Run the operator-sdk commands to generated code (k8s and crds)
 	operator-sdk generate crds
 	@echo Generating the yamls for deployment
 	- make helm
-	@echo Go generatign
+	@echo Go generating
 	- go generate ./...
 
 setup-minikube: ## Setup minikube for full operator dev
