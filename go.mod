@@ -15,6 +15,7 @@ require (
 	github.com/gotidy/ptr v1.0.1
 	github.com/imdario/mergo v0.3.8
 	github.com/launchdarkly/go-options v1.0.0
+	github.com/mikefarah/yq/v3 v3.0.0-20200415014842-6f0a329331f9 // indirect
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/noqcks/gucci v0.0.4
 	github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b
@@ -24,7 +25,6 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.2
 	github.com/urfave/cli v1.22.2 // indirect
-	golang.org/x/sys v0.0.0-20200223170610-d5e6a3e2c0ae // indirect
 	golang.org/x/tools v0.0.0-20200410132612-ae9902aceb98 // indirect
 	k8s.io/api v0.17.4
 	k8s.io/apimachinery v0.17.4

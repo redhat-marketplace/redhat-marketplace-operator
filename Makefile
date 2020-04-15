@@ -33,7 +33,7 @@ uninstall: ## Uninstall all that all performed in the $ make install
 
 .PHONY: build
 build: ## Build the operator executable
-	PUSH_IMAGE=false IMAGE=$(OPERATOR_IMAGE) ./scripts/skaffold-build.sh
+	VERSION=$(VERSION) PUSH_IMAGE=false IMAGE=$(OPERATOR_IMAGE) ./scripts/skaffold-build.sh
 
 .PHONY: push
 push: push ## Push the operator image
@@ -175,6 +175,10 @@ test-e2e: ## Run integration e2e tests with different options.
 
 deploy-test-prometheus:
 	. ./scripts/deploy_test_prometheus.sh
+
+.PHONY: bundle
+bundle: ## Bundles the csv to submit
+	. ./scripts/bundle_csv.sh `pwd` $(VERSION)
 
 ##@ Help
 
