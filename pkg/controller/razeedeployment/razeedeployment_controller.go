@@ -30,9 +30,9 @@ import (
 
 const (
 	razeeDeploymentFinalizer   = "razeedeploy.finalizer.marketplace.redhat.com"
+	cosReaderKey               = "rhm-cos-reader-key"
 	RAZEE_UNINSTALL_NAME       = "razee-uninstall-job"
 	DEFAULT_RAZEE_JOB_IMAGE    = "quay.io/razee/razeedeploy-delta:1.1.0"
-	DEFAULT_RAZEEDASH_URL      = `http://169.45.231.109:8081/api/v2`
 	WATCH_KEEPER_VERSION       = "0.5.0"
 	FEATURE_FLAG_VERSION       = "0.6.1"
 	MANAGED_SET_VERSION        = "0.4.2"
@@ -306,18 +306,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	rhmOperatorSecretValues.ibmCosFullUrl = fmt.Sprintf("%s/%s/%s/%s", obj[IBM_COS_URL_FIELD], obj[BUCKET_NAME_FIELD], *clusterUUID, obj[CHILD_RRS3_YAML_FIELD])
 
 	/******************************************************************************
-		PROCEED WITH CREATING RAZEEDEPLOY-JOB? YES/NO
-		do we have all the fields from rhm-secret ? (combined secret)
-		check that we can continue with applying the razee job
-		if the job has already run exit
-		if there are still missing resources exit
-	/******************************************************************************/
-	if instance.Status.JobState.Succeeded == 1 || len(*instance.Status.MissingValuesFromSecret) > 0 {
-		reqLogger.Info("RazeeDeployJob has been successfully created")
-		return reconcile.Result{}, nil
-	}
-
-	/******************************************************************************
 	APPLY RAZEE RESOURCES
 	/******************************************************************************/
 	razeePrerequisitesCreated := make([]string, 0, 7)
@@ -517,7 +505,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	// create watch-keeper-config
 	ibmCosReaderKey := corev1.Secret{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "ibm-cos-reader-key", Namespace: RAZEE_NAMESPACE}, &ibmCosReaderKey)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cosReaderKey, Namespace: RAZEE_NAMESPACE}, &ibmCosReaderKey)
 	if err != nil {
 		reqLogger.Info("ibm-cos-reader-key does not exist - creating")
 		if errors.IsNotFound(err) {
@@ -543,7 +531,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Info("ibm-cos-reader-key updated successfully")
 	}
 
-	razeePrerequisitesCreated = append(razeePrerequisitesCreated, "ibm-cos-reader-key")
+	razeePrerequisitesCreated = append(razeePrerequisitesCreated, cosReaderKey)
 	if &razeePrerequisitesCreated != instance.Status.RazeePrerequisitesCreated {
 		instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
 		r.client.Status().Update(context.TODO(), instance)
@@ -552,69 +540,87 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	reqLogger.Info("prerequisite resource have been created or updated")
 
 	/******************************************************************************
+		PROCEED WITH CREATING RAZEEDEPLOY-JOB? YES/NO
+		do we have all the fields from rhm-secret ? (combined secret)
+		check that we can continue with applying the razee job
+		if the job has already run exit
+		if there are still missing resources exit
+	/******************************************************************************/
+	reqLogger.Info("RazeeDeployJob has been successfully created")
+
+	/******************************************************************************
 	CREATE THE RAZEE JOB
 	/******************************************************************************/
-	job := r.MakeRazeeJob(request, rhmOperatorSecretValues)
+	if instance.Status.JobState.Succeeded != 1 {
+		job := r.MakeRazeeJob(request, rhmOperatorSecretValues)
 
-	// Check if the Job exists already
-	req := reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Name:      "razeedeploy-job",
-			Namespace: request.Namespace,
-		},
-	}
+		// Check if the Job exists already
+		req := reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      "razeedeploy-job",
+				Namespace: request.Namespace,
+			},
+		}
 
-	foundJob := batch.Job{}
-	err = r.client.Get(context.TODO(), req.NamespacedName, &foundJob)
-	// if the job doesn't exist create it
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating razzeedeploy-job")
-		err = r.client.Create(context.TODO(), job)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create Job on cluster")
+		foundJob := batch.Job{}
+		err = r.client.Get(context.TODO(), req.NamespacedName, &foundJob)
+		// if the job doesn't exist create it
+		if err != nil && errors.IsNotFound(err) {
+			reqLogger.Info("Creating razzeedeploy-job")
+			err = r.client.Create(context.TODO(), job)
+			if err != nil {
+				reqLogger.Error(err, "Failed to create Job on cluster")
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("job created successfully")
+			// requeue to grab the "foundJob" and continue to update status
+			// wait 30 seconds so the job has time to complete
+			// not entirely necessary, but the struct on Status.Conditions needs the Conditions in the job to be populated.
+			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+			// return reconcile.Result{Requeue: true}, nil
+			// return reconcile.Result{}, nil
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get Job(s) from Cluster")
 			return reconcile.Result{}, err
 		}
-		reqLogger.Info("job created successfully")
-		// requeue to grab the "foundJob" and continue to update status
-		// wait 30 seconds so the job has time to complete
-		// not entirely necessary, but the struct on Status.Conditions needs the Conditions in the job to be populated.
-		return reconcile.Result{RequeueAfter: time.Second * 30}, nil
-		// return reconcile.Result{Requeue: true}, nil
-		// return reconcile.Result{}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get Job(s) from Cluster")
-		return reconcile.Result{}, err
-	}
 
-	if err := controllerutil.SetControllerReference(instance, &foundJob, r.scheme); err != nil {
-		reqLogger.Error(err, "Failed to set controller reference")
-		return reconcile.Result{}, err
-	}
+		if err := controllerutil.SetControllerReference(instance, &foundJob, r.scheme); err != nil {
+			reqLogger.Error(err, "Failed to set controller reference")
+			return reconcile.Result{}, err
+		}
 
-	if len(foundJob.Status.Conditions) == 0 {
-		reqLogger.Info("RazeeJob Conditions have not been propagated yet")
-		return reconcile.Result{RequeueAfter: time.Second * 30}, nil
-	}
+		if len(foundJob.Status.Conditions) == 0 {
+			reqLogger.Info("RazeeJob Conditions have not been propagated yet")
+			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+		}
 
-	// Update status and conditions
-	instance.Status.JobState = foundJob.Status
-	for _, jobCondition := range foundJob.Status.Conditions {
-		instance.Status.Conditions = &jobCondition
-	}
-	instance.Status.RazeeJobInstall = &marketplacev1alpha1.RazeeJobInstallStruct{
-		RazeeNamespace:  RAZEE_NAMESPACE,
-		RazeeInstallURL: rhmOperatorSecretValues.razeeDashUrl,
-	}
+		// Update status and conditions
+		instance.Status.JobState = foundJob.Status
+		for _, jobCondition := range foundJob.Status.Conditions {
+			instance.Status.Conditions = &jobCondition
+		}
+		instance.Status.RazeeJobInstall = &marketplacev1alpha1.RazeeJobInstallStruct{
+			RazeeNamespace:  RAZEE_NAMESPACE,
+			RazeeInstallURL: rhmOperatorSecretValues.fileSourceUrl,
+		}
 
-	err = r.client.Status().Update(context.TODO(), instance)
-	if err != nil {
-		reqLogger.Error(err, "Failed to update JobState")
-		return reconcile.Result{}, nil
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update JobState")
+			return reconcile.Result{}, nil
+		}
+		reqLogger.Info("Updated JobState")
+
+		err = r.client.Delete(context.TODO(), &foundJob, client.PropagationPolicy(metav1.DeletePropagationBackground))
+		if err != nil {
+			reqLogger.Error(err, "Failed to delete job")
+			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+		}
+		reqLogger.Info("Razeedeploy-job deleted")
 	}
-	reqLogger.Info("Updated JobState")
 
 	// if the job has a status of succeeded, then apply parent rrs3 delete the job
-	if foundJob.Status.Succeeded == 1 {
+	if instance.Status.JobState.Succeeded == 1 {
 		parentRRS3 := r.MakeParentRemoteResourceS3(rhmOperatorSecretValues)
 
 		err = r.client.Create(context.TODO(), parentRRS3)
@@ -623,14 +629,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 		*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, parentRRS3.GetName())
 		reqLogger.Info("parentRRS3 created successfully")
-
-		err = r.client.Delete(context.TODO(), &foundJob, client.PropagationPolicy(metav1.DeletePropagationBackground))
-		if err != nil {
-			reqLogger.Error(err, "Failed to delete job")
-			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
-		}
-		reqLogger.Info("Razeedeploy-job deleted")
-
+    
 		/******************************************************************************
 		PATCH RESOURCES FOR DIANEMO
 		Patch the Console and Infrastructure resources with the watch-keeper label
@@ -704,7 +703,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request, rhmOp
 						Name:    "razeedeploy-job",
 						Image:   r.opts.RazeeJobImage,
 						Command: []string{"node", "src/install", fmt.Sprintf("--namespace=%s", RAZEE_NAMESPACE)},
-						Args:    []string{fmt.Sprintf("--file-source=%v", rhmOperatorSecretValues.razeeDashUrl), "--autoupdate"},
+						Args:    []string{fmt.Sprintf("--file-source=%v", rhmOperatorSecretValues.fileSourceUrl), "--autoupdate"},
 					}},
 					RestartPolicy: "Never",
 				},
@@ -897,7 +896,7 @@ func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret(rhmOperatorValues RhmOper
 	cosApiKey := rhmOperatorValues.ibmCosReaderKey
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ibm-cos-reader-key",
+			Name:      cosReaderKey,
 			Namespace: RAZEE_NAMESPACE,
 		},
 		Data: map[string][]byte{"accesskey": []byte(cosApiKey)},
@@ -907,7 +906,7 @@ func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret(rhmOperatorValues RhmOper
 func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3(rhmOperatorSecretValues RhmOperatorSecretValues) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": "deploy.razee.io/v1alpha1",
+			"apiVersion": "deploy.razee.io/v1alpha2",
 			"kind":       "RemoteResourceS3",
 			"metadata": map[string]interface{}{
 				"name":      "parent",
@@ -916,13 +915,13 @@ func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3(rhmOperatorSecretV
 			"spec": map[string]interface{}{
 				"auth": map[string]interface{}{
 					"iam": map[string]interface{}{
-						"response_type": "cloud_iam",
-						"url":           `https://iam.cloud.ibm.com/identity/token`,
-						"grant_type":    "urn:ibm:params:oauth:grant-type:apikey",
-						"api_key": map[string]interface{}{
+						"responseType": "cloud_iam",
+						"url":          `https://iam.cloud.ibm.com/identity/token`,
+						"grantType":    "urn:ibm:params:oauth:grant-type:apikey",
+						"apiKeyRef": map[string]interface{}{
 							"valueFrom": map[string]interface{}{
 								"secretKeyRef": map[string]interface{}{
-									"name": "ibm-cos-reader-key",
+									"name": cosReaderKey,
 									"key":  "accesskey",
 								},
 							},

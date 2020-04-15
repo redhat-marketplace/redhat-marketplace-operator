@@ -34,7 +34,7 @@ func TestRazeeDeployController(t *testing.T) {
 
 func setup(r *ReconcilerTest) error {
 	s := scheme.Scheme
-	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, &razeeDeployment)
+	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment.DeepCopy())
 	r.SetClient(fake.NewFakeClient(r.GetRuntimeObjects()...))
 	r.SetReconciler(&ReconcileRazeeDeployment{client: r.GetClient(), scheme: s, opts: &RazeeOpts{RazeeJobImage: "test"}})
 	return nil
@@ -116,7 +116,7 @@ func testCleanInstall(t *testing.T) {
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&corev1.Secret{}),
-					WithName("ibm-cos-reader-key"))...),
+					WithName("rhm-cos-reader-key"))...),
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&batch.Job{}),

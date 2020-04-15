@@ -27,6 +27,48 @@ roles:
       - '*'
       verbs:
       - '*'
+  - name: redhat-marketplace-razeedeploy
+    serviceAccountName: redhat-marketplace-razeedeploy
+    type: ClusterRole
+    rules:
+    - apiGroups:
+      - '*'
+      resources:
+      - '*'
+      verbs:
+      - '*'
+    - nonResourceURLs:
+      - '*'
+      verbs:
+      - '*'
+  - name: redhat-marketplace-metering
+    serviceAccountName: redhat-marketplace-metering
+    type: ClusterRole
+    rules:
+    - apiGroups:
+      - '*'
+      resources:
+      - '*'
+      verbs:
+      - '*'
+    - nonResourceURLs:
+      - '*'
+      verbs:
+      - '*'
+  - name: redhat-marketplace-reporting
+    serviceAccountName: redhat-marketplace-reporting
+    type: ClusterRole
+    rules:
+    - apiGroups:
+      - '*'
+      resources:
+      - '*'
+      verbs:
+      - '*'
+    - nonResourceURLs:
+      - '*'
+      verbs:
+      - '*'
 
 podSecurityContext:
   runAsUser: 1001
