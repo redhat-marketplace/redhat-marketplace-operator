@@ -14,10 +14,7 @@ import (
 type Reporter struct {
 	api v1.API
 	log logr.Logger
-}
-
-type ReporterConfig struct {
-	Address string
+  config ReporterConfig
 }
 
 func NewReporter(config *ReporterConfig) (*Reporter, error) {

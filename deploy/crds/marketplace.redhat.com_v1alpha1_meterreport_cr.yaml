@@ -1,0 +1,7 @@
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: MeterReport
+metadata:
+  name: example-meterreport
+spec:
+  # Add fields here
+  size: 3
