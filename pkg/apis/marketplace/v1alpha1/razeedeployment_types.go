@@ -7,14 +7,21 @@ import (
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+// Configuration values used by Razee to communicate with the Red Hat Marketplace backend
 type RazeeConfigurationValues struct {
-	// BucketName is the name of the bucket in Cloud Object Storage
+	// BucketName is the name of the bucket in Cloud Object Storage and correlates to your accountID
 	BucketName string `json:"BUCKET_NAME,omitempty"`
+	// The file name of the child RemoteResourecS3
 	ChildRSSFIleName string `json:"CHILD_RRS3_YAML_FILENAME,omitempty"`
+	// The url of the filesource arg that gets passed into the razeedeploy-job
 	FileSourceURL string `json:"FILE_SOURCE_URL,omitempty"`
+	// Api key used to access the bucket IBM COS
 	IbmCosReaderKey string `json:"IBM_COS_READER_KEY,omitempty"`
+	// Base url for the instance of IBM COS 
 	IbmCosURL string `json:"IBM_COS_URL,omitempty"`
+	// Key used to identify a particular razee instance
 	RazeeDashOrgKey string `json:"RAZEE_DASH_ORG_KEY,omitempty"`
+	// Url used by the razee install to post data
 	RazeeDashUrl string `json:"RAZEE_DASH_URL,omitempty"`
   }
 
