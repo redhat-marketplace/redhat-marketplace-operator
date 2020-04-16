@@ -526,21 +526,13 @@ func (in *RazeeDeploymentStatus) DeepCopyInto(out *RazeeDeploymentStatus) {
 	in.JobState.DeepCopyInto(&out.JobState)
 	if in.MissingDeploySecretValues != nil {
 		in, out := &in.MissingDeploySecretValues, &out.MissingDeploySecretValues
-		*out = new([]string)
-		if **in != nil {
-			in, out := *in, *out
-			*out = make([]string, len(*in))
-			copy(*out, *in)
-		}
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 	if in.RazeePrerequisitesCreated != nil {
 		in, out := &in.RazeePrerequisitesCreated, &out.RazeePrerequisitesCreated
-		*out = new([]string)
-		if **in != nil {
-			in, out := *in, *out
-			*out = make([]string, len(*in))
-			copy(*out, *in)
-		}
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 	if in.RazeeJobInstall != nil {
 		in, out := &in.RazeeJobInstall, &out.RazeeJobInstall

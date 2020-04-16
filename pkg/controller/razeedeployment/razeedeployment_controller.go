@@ -111,7 +111,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			return e.Meta.GetName() == RHM_OPERATOR_SECRET_NAME
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return e.MetaOld.GetName() == RHM_OPERATOR_SECRET_NAME
+			return e.MetaNew.GetName() == RHM_OPERATOR_SECRET_NAME
 		},
 	}
 
@@ -316,7 +316,9 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			// if secret isn't populated with the correct fields, then requeue
 
 			// if missingItems := utils.CheckMapKeys(instance.Spec.DeploySecretValues, correctList); len(missingItems) > 0 {
-			if len(*instance.Status.MissingDeploySecretValues) > 0 {
+				// MissingDeploySecretValues 
+				// instance.Status.MissingDeploySecretValues = &MissingDeploySecretValues
+			if len(instance.Status.MissingDeploySecretValues) > 0 {
 				reqLogger.Info("Missing required razee configuration values")
 
 				req := reconcile.Request{
@@ -331,7 +333,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				}
 				return reconcile.Result{RequeueAfter: time.Second * 30}, nil
 			} else {
-
+				reqLogger.Info("all secret values found")
 				//TODO: I could maybe move this down into MakeParentRemoteResource()
 				//construct the childURL
 				url := fmt.Sprintf("%s/%s/%s/%s", instance.Spec.DeployConfig.IbmCosURL, instance.Spec.DeployConfig.BucketName, instance.Spec.ClusterUUID, instance.Spec.DeployConfig.ChildRSSFIleName)
@@ -348,9 +350,9 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		/******************************************************************************
 		APPLY OR OVERWRITE RAZEE RESOURCES
 		/******************************************************************************/
-		razeePrerequisitesCreated := []string{}
+		// razeePrerequisitesCreated := []string{}
 		newResources := []string{}
-		instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
+		// instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
 		razeeNamespace := corev1.Namespace{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee"}, &razeeNamespace)
 		if err != nil {
@@ -699,7 +701,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		// update status
 		if !reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, newResources) {
 			reqLogger.Info("updating Status.RazeePrerequisitesCreated")
-			instance.Status.RazeePrerequisitesCreated = &newResources
+			instance.Status.RazeePrerequisitesCreated = newResources
 			err = r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
 				reqLogger.Error(err, "Failed to update status")
@@ -750,21 +752,21 @@ func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(request *reconcile
 	/******************************************************************************/
 	reqLogger.Info("Adding values to DeploySecretValues")
 
-	MissingDeploySecretValues := []string{}
 	razeeConfigurationValues := marketplacev1alpha1.RazeeConfigurationValues{}
 	razeeInstance.Spec.DeployConfig = &razeeConfigurationValues
 
 	razeeConfigurationValues, missingItems,err := utils.ConvertSecretToStruct(rhmOperatorSecret.Data)
-	fmt.Println("razeeConfigurationValues",razeeConfigurationValues)
 	*razeeInstance.Spec.DeployConfig = razeeConfigurationValues
-	razeeInstance.Status.MissingDeploySecretValues = &MissingDeploySecretValues
-	razeeInstance.Status.MissingDeploySecretValues = &missingItems
+
+	fmt.Println("MISSING ITEMS: ",missingItems)
+	razeeInstance.Status.MissingDeploySecretValues = missingItems
 	err = r.client.Update(context.TODO(), &razeeInstance)
 	if err != nil {
 		reqLogger.Error(err, "Failed to update Spec.DeploySecretValues")
 		return &reconcile.Result{},err
 	}
 
+	reqLogger.Info("updating status with missing secret values")
 	err = r.client.Status().Update(context.TODO(), &razeeInstance)
 	if err != nil {
 		reqLogger.Error(err, "Failed to update Spec.DeploySecretValues")

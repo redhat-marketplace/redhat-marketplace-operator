@@ -38,23 +38,31 @@ spec:
             deployConfig:
               description: 'EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN! NOTE:
                 json tags are required.  Any new fields you add must have json tags
-                for the fields to be serialized.'
+                for the fields to be serialized. Configuration values used by Razee
+                to communicate with the Red Hat Marketplace backend'
               properties:
                 BUCKET_NAME:
                   description: BucketName is the name of the bucket in Cloud Object
-                    Storage
+                    Storage and correlates to your accountID
                   type: string
                 CHILD_RRS3_YAML_FILENAME:
+                  description: The file name of the child RemoteResourecS3
                   type: string
                 FILE_SOURCE_URL:
+                  description: The url of the filesource arg that gets passed into
+                    the razeedeploy-job
                   type: string
                 IBM_COS_READER_KEY:
+                  description: Api key used to access the bucket IBM COS
                   type: string
                 IBM_COS_URL:
+                  description: Base url for the instance of IBM COS
                   type: string
                 RAZEE_DASH_ORG_KEY:
+                  description: Key used to identify a particular razee instance
                   type: string
                 RAZEE_DASH_URL:
+                  description: Url used by the razee install to post data
                   type: string
               type: object
             deploySecretName:
