@@ -7,7 +7,8 @@ import (
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-type RazeeDeployConfig struct {
+type RazeeConfigurationValues struct {
+	// BucketName is the name of the bucket in Cloud Object Storage
 	BucketName string `json:"BUCKET_NAME,omitempty"`
 	ChildRSSFIleName string `json:"CHILD_RRS3_YAML_FILENAME,omitempty"`
 	FileSourceURL string `json:"FILE_SOURCE_URL,omitempty"`
@@ -27,8 +28,7 @@ type RazeeDeploymentSpec struct {
 	Enabled            bool              `json:"enabled"`
 	ClusterUUID        string            `json:"clusterUUID"`
 	DeploySecretName   *string           `json:"deploySecretName,omitempty"`
-	// DeploySecretValues map[string]string `json:"deploySecretValues,omitempty"`
-	RazeeDeployConfigValues *RazeeDeployConfig `json:"RazeeDeployConfigValues,omitempty"`
+	DeployConfig *RazeeConfigurationValues `json:"deployConfig,omitempty"`
 	ChildUrl           *string           `json:"childUrl,omitempty"`
 }
 

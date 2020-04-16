@@ -31,10 +31,18 @@ spec:
         spec:
           description: RazeeDeploymentSpec defines the desired state of RazeeDeployment
           properties:
-            RazeeDeployConfigValues:
-              description: DeploySecretValues map[string]string `json:"deploySecretValues,omitempty"`
+            childUrl:
+              type: string
+            clusterUUID:
+              type: string
+            deployConfig:
+              description: 'EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN! NOTE:
+                json tags are required.  Any new fields you add must have json tags
+                for the fields to be serialized.'
               properties:
                 BUCKET_NAME:
+                  description: BucketName is the name of the bucket in Cloud Object
+                    Storage
                   type: string
                 CHILD_RRS3_YAML_FILENAME:
                   type: string
@@ -49,10 +57,6 @@ spec:
                 RAZEE_DASH_URL:
                   type: string
               type: object
-            childUrl:
-              type: string
-            clusterUUID:
-              type: string
             deploySecretName:
               type: string
             enabled:

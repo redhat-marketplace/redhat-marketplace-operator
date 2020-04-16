@@ -4,6 +4,7 @@ import (
 	b64 "encoding/base64"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/mitchellh/mapstructure"
@@ -114,8 +115,8 @@ func AddSecretFieldsToObj(razeeData map[string][]byte) (map[string]string, error
 	return razeeDataObj, error
 }
 
-func AddSecretFieldsToStruct(razeeData map[string][]byte) (*marketplacev1alpha1.RazeeDeployConfig,[]string,error) {
-	var updatedRazeeValues *marketplacev1alpha1.RazeeDeployConfig = &marketplacev1alpha1.RazeeDeployConfig{}
+func AddSecretFieldsToStruct(razeeData map[string][]byte) (*marketplacev1alpha1.RazeeConfigurationValues,[]string,error) {
+	var updatedRazeeValues *marketplacev1alpha1.RazeeConfigurationValues = &marketplacev1alpha1.RazeeConfigurationValues{}
 	missingItems := []string{}
 	var error error
 
@@ -144,12 +145,29 @@ func AddSecretFieldsToStruct(razeeData map[string][]byte) (*marketplacev1alpha1.
 	return updatedRazeeValues,missingItems, error
 }
 
-func ConvertSecretToStruct(razeeData map[string][]byte)(marketplacev1alpha1.RazeeDeployConfig,[]string,error){
-	input,err := AddSecretFieldsToObj(razeeData)
+func GetStructFields(razeeStruct marketplacev1alpha1.RazeeConfigurationValues)[]string{
+    aa := reflect.Indirect(reflect.ValueOf(razeeStruct))
+    fieldSlice := []string{}
+    for i := 0; i < aa.NumField(); i++ {
+      field :=  aa.Type().Field(i)
+      if jsonTag := field.Tag.Get("json"); jsonTag != "" && jsonTag != "-" {
+            if commaIdx := strings.Index(jsonTag, ","); commaIdx > 0 {
+                fieldName := jsonTag[:commaIdx]
+                 fieldSlice = append(fieldSlice, string(fieldName))
+            }
+        }
+    }
 
-	fmt.Printf("input %#v\n", input)
+    return fieldSlice
+
+}
+
+func ConvertSecretToStruct(razeeData map[string][]byte)(marketplacev1alpha1.RazeeConfigurationValues,[]string,error){
+
+	missingItems := []string{}
+	input,err := AddSecretFieldsToObj(razeeData)
 	var md mapstructure.Metadata
-	var result marketplacev1alpha1.RazeeDeployConfig
+	var result marketplacev1alpha1.RazeeConfigurationValues
 	config := &mapstructure.DecoderConfig{
 		Metadata: &md,
 		Result:   &result,
@@ -162,11 +180,10 @@ func ConvertSecretToStruct(razeeData map[string][]byte)(marketplacev1alpha1.Raze
 	if err := decoder.Decode(input); err != nil {
 		panic(err)
 	}
-	fmt.Printf("Unused keys: %#v\n", md.Unused)
 
-	fmt.Printf("result %#v\n", result)
-
-	return result, md.Unused,err
+	missingItems = ContainsMultiple(md.Keys, GetStructFields(marketplacev1alpha1.RazeeConfigurationValues{}) )
+	
+	return result, missingItems,err
 }
 
 func Equal(a []string, b []string) bool {
