@@ -55,10 +55,13 @@ type MeterBaseStatus struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// MeterBase is the Schema for the meterbases API
+// MeterBase is the resource that sets up Metering for Red Hat Marketplace.
+// This is an internal resource not meant to be modified directly.
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=meterbases,scope=Namespaced
-// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="(Internal) Meter Configuration"
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="(Internal) Meter Config"
+// +operator-sdk:gen-csv:customresourcedefinitions.resources=`ServiceMonitor,v1,"redhat-marketplace-operator"`
+// +operator-sdk:gen-csv:customresourcedefinitions.resources=`Prometheus,v1,"redhat-marketplace-operator"`
 type MeterBase struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

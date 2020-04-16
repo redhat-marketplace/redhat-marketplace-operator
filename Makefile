@@ -4,9 +4,10 @@ OPSRC_NAMESPACE = marketplace-operator
 OPERATOR_SOURCE = redhat-marketplace-operators
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 OPERATOR_IMAGE_NAME ?= redhat-marketplace-operator
-OPERATOR_IMAGE_TAG ?= dev
 VERSION ?= $(shell go run scripts/version/main.go)
-VERSION_NEXT ?= $(shell go run scripts/version/main.go)
+OPERATOR_IMAGE_TAG ?= $(VERSION)
+FROM_VERSION ?= "0.0.1"
+CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
 SERVICE_ACCOUNT := redhat-marketplace-operator
 SECRETS_NAME := my-docker-secrets
@@ -33,7 +34,7 @@ uninstall: ## Uninstall all that all performed in the $ make install
 
 .PHONY: build
 build: ## Build the operator executable
-	PUSH_IMAGE=false IMAGE=$(OPERATOR_IMAGE) ./scripts/skaffold-build.sh
+	VERSION=$(VERSION) PUSH_IMAGE=false IMAGE=$(OPERATOR_IMAGE) ./scripts/skaffold-build.sh
 
 .PHONY: push
 push: push ## Push the operator image
@@ -43,22 +44,25 @@ helm: ## build helm base charts
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE) --set namespace=$(NAMESPACE)
 
 generate-csv: ## Generate the csv
-	operator-sdk generate csv --from-version $(VERSION) --csv-version $(VERSION_NEXT) --csv-config=./deploy/olm-catalog/csv-config.yaml --update-crds
+	make helm
+	@go run github.com/mikefarah/yq/v3 w -i ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/redhat-marketplace-operator.v$(VERSION).clusterserviceversion.yaml 'metadata.annotations.containerImage' $(OPERATOR_IMAGE)
+	@go run github.com/mikefarah/yq/v3 w -i ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/redhat-marketplace-operator.v$(VERSION).clusterserviceversion.yaml 'metadata.annotations.createdAt' $(CREATED_TIME)
+	operator-sdk generate csv --from-version $(FROM_VERSION) --csv-version $(VERSION) --csv-config=./deploy/olm-catalog/csv-config.yaml --update-crds
 
 docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
 	@docker login -u="$(DOCKER_USER)" -p="$(DOCKER_PASSWORD)" quay.io
 
 ##@ Development
 
-skaffold-dev: ## Run skaffold dev. Will unique tag the operator and rebuild. Minikube only.
+skaffold-dev: ## Run skaffold dev. Will unique tag the operator and rebuild.
 	make create
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=redhat-marketplace-operator --set pullPolicy=IfNotPresent
 	skaffold dev --tail --default-repo $(IMAGE_REGISTRY)
 
-skaffold-run: ## Run skaffold run. Will uniquely tag the operator. Minikube only.
+skaffold-run: ## Run skaffold run. Will uniquely tag the operator.
 	make create
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=redhat-marketplace-operator --set pullPolicy=IfNotPresent
-	skaffold run --tail --default-repo $(IMAGE_REGISTRY)
+	skaffold run --tail --default-repo $(IMAGE_REGISTRY) --cleanup=false
 
 code-vet: ## Run go vet for this project. More info: https://golang.org/cmd/vet/
 	@echo go vet
@@ -175,6 +179,10 @@ test-e2e: ## Run integration e2e tests with different options.
 
 deploy-test-prometheus:
 	. ./scripts/deploy_test_prometheus.sh
+
+.PHONY: bundle
+bundle: ## Bundles the csv to submit
+	. ./scripts/bundle_csv.sh `pwd` $(VERSION)
 
 ##@ Help
 

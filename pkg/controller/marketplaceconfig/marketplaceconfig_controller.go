@@ -4,6 +4,7 @@ import (
 	"context"
 
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
+	"github.com/operator-framework/operator-sdk/pkg/status"
 	pflag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
@@ -109,10 +110,6 @@ type ReconcileMarketplaceConfig struct {
 
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
 // and what is in the MarketplaceConfig.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.
-// Note:
-// The Controller will requeue the Request to be processed again if the returned error is non-nil or
-// Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MarketplaceConfig")
@@ -133,6 +130,17 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{}, err
 	}
 
+	if marketplaceConfig.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionInstalling) == nil {
+		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionInstalling,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonStartInstall,
+			Message: "Installing starting",
+		})
+
+		_ = r.client.Status().Update(context.TODO(), marketplaceConfig)
+	}
+
 	installFeatures := viper.GetStringSlice("features")
 	installSet := make(map[string]bool)
 	for _, installFlag := range installFeatures {
@@ -151,6 +159,18 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName)
 			reqLogger.Info("creating razee cr")
 			err = r.client.Create(context.TODO(), newRazeeCrd)
+
+			patch := client.MergeFrom(marketplaceConfig.DeepCopy())
+
+			marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionInstalling,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonRazeeInstalled,
+				Message: "RazeeDeployment installed.",
+			})
+
+			_ = r.client.Status().Patch(context.TODO(), marketplaceConfig, patch)
+
 			if err != nil {
 				reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
 				return reconcile.Result{}, err
@@ -166,6 +186,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		}
 		reqLogger.Info("found razee")
 	}
+
 	_, installExists = installSet[METERBASE_FLAG]
 	if installExists {
 		// Check if MeterBase exists, if not create one
@@ -179,6 +200,18 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 				reqLogger.Error(err, "Failed to create a new MeterBase CR.")
 				return reconcile.Result{}, err
 			}
+
+			patch := client.MergeFrom(marketplaceConfig.DeepCopy())
+
+			marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionInstalling,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonMeterBaseInstalled,
+				Message: "Meter base installed.",
+			})
+
+			_ = r.client.Status().Patch(context.TODO(), marketplaceConfig, patch)
+
 			return reconcile.Result{Requeue: true}, nil
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get MeterBase CR")
@@ -206,6 +239,18 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			reqLogger.Error(err, "Failed to create an OperatorSource.", "OperatorSource.Namespace ", newOpSrc.Namespace, "OperatorSource.Name", newOpSrc.Name)
 			return reconcile.Result{}, err
 		}
+
+		patch := client.MergeFrom(marketplaceConfig.DeepCopy())
+
+		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionInstalling,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonMeterBaseInstalled,
+			Message: "RHM Operator source installed.",
+		})
+
+		_ = r.client.Status().Patch(context.TODO(), marketplaceConfig, patch)
+
 		// Operator Source created successfully - return and requeue
 		newOpSrc.ForceUpdate()
 		return reconcile.Result{Requeue: true}, nil
@@ -213,6 +258,17 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		// Could not get Operator Source
 		reqLogger.Error(err, "Failed to get OperatorSource")
 	}
+
+	patch := client.MergeFrom(marketplaceConfig.DeepCopy())
+
+	marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+		Type:    marketplacev1alpha1.ConditionInstalling,
+		Status:  corev1.ConditionFalse,
+		Reason:  marketplacev1alpha1.ReasonInstallFinished,
+		Message: "Finished Installing necessary components",
+	})
+
+	_ = r.client.Status().Patch(context.TODO(), marketplaceConfig, patch)
 
 	reqLogger.Info("Found opsource")
 	reqLogger.Info("reconciling finished")
@@ -224,4 +280,3 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 func labelsForMarketplaceConfig(name string) map[string]string {
 	return map[string]string{"app": "marketplaceconfig", "marketplaceconfig_cr": name}
 }
- 

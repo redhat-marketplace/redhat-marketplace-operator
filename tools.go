@@ -9,4 +9,5 @@ import (
 	"github.com/google/wire"
 	"github.com/launchdarkly/go-options"
 	"github.com/Shyp/bump_version"
+  "github.com/mikefarah/yq/v3"
 )

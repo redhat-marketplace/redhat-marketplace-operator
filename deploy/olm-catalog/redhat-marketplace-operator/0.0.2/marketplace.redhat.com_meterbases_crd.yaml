@@ -14,8 +14,7 @@ spec:
     status: {}
   validation:
     openAPIV3Schema:
-      description: MeterBase is the resource that sets up Metering for Red Hat Marketplace.
-        This is an internal resource not meant to be modified directly.
+      description: MeterBase is the Schema for the meterbases API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation

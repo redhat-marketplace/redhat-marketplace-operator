@@ -62,9 +62,12 @@ type MeterDefinitionStatus struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// MeterDefinition is the Schema for the meterdefinitions API
+// MeterDefinition is internal Meter Definitions defined by Operators from Red Hat Marketplace.
+// This is an internal resource not meant to be modified directly.
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=meterdefinitions,scope=Namespaced
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="(Internal) Meter Definitions"
+// +operator-sdk:gen-csv:customresourcedefinitions.resources=`ServiceMonitor,v1,"redhat-marketplace-operator"`
 type MeterDefinition struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

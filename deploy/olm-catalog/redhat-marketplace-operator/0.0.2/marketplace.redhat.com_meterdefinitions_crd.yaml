@@ -14,9 +14,7 @@ spec:
     status: {}
   validation:
     openAPIV3Schema:
-      description: MeterDefinition is internal Meter Definitions defined by Operators
-        from Red Hat Marketplace. This is an internal resource not meant to be modified
-        directly.
+      description: MeterDefinition is the Schema for the meterdefinitions API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
