@@ -54,15 +54,15 @@ docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
 
 ##@ Development
 
-skaffold-dev: ## Run skaffold dev. Will unique tag the operator and rebuild. Minikube only.
+skaffold-dev: ## Run skaffold dev. Will unique tag the operator and rebuild.
 	make create
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=redhat-marketplace-operator --set pullPolicy=IfNotPresent
 	skaffold dev --tail --default-repo $(IMAGE_REGISTRY)
 
-skaffold-run: ## Run skaffold run. Will uniquely tag the operator. Minikube only.
+skaffold-run: ## Run skaffold run. Will uniquely tag the operator.
 	make create
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=redhat-marketplace-operator --set pullPolicy=IfNotPresent
-	skaffold run --tail --default-repo $(IMAGE_REGISTRY)
+	skaffold run --tail --default-repo $(IMAGE_REGISTRY) --cleanup=false
 
 code-vet: ## Run go vet for this project. More info: https://golang.org/cmd/vet/
 	@echo go vet

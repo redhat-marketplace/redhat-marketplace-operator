@@ -263,7 +263,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 	marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
 		Type:    marketplacev1alpha1.ConditionInstalling,
-		Status:  corev1.ConditionTrue,
+		Status:  corev1.ConditionFalse,
 		Reason:  marketplacev1alpha1.ReasonInstallFinished,
 		Message: "Finished Installing necessary components",
 	})
