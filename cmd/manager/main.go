@@ -4,8 +4,8 @@ import (
 	"github.com/google/wire"
 	"github.com/spf13/pflag"
 
-	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/managers"
 	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/controller"
+	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/managers"
 )
 
 var MarketplaceControllerSet = wire.NewSet(

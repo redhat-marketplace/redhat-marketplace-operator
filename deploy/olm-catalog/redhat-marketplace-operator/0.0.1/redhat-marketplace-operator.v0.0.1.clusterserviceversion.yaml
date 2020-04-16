@@ -279,20 +279,18 @@ spec:
             selector:
               matchLabels:
                 redhat.marketplace.com/name: redhat-marketplace-operator
-                redhat.marketplace.com/version: ''
             strategy: {}
             template:
               metadata:
                 labels:
                   redhat.marketplace.com/name: redhat-marketplace-operator
-                  redhat.marketplace.com/version: ''
               spec:
                 containers:
                   - env:
                       - name: OPERATOR_NAME
                         value: redhat-marketplace-operator
                       - name: WATCH_NAMESPACE
-                        value: ''
+                        value: ""
                       - name: POD_NAMESPACE
                         valueFrom:
                           fieldRef:

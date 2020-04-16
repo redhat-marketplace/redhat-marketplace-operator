@@ -14,7 +14,8 @@ spec:
     status: {}
   validation:
     openAPIV3Schema:
-      description: MarketplaceConfig is the Schema for the marketplaceconfigs API
+      description: MarketplaceConfig is configuration manager for our Red Hat Marketplace
+        controllers
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation

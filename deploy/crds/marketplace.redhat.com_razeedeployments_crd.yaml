@@ -14,7 +14,8 @@ spec:
     status: {}
   validation:
     openAPIV3Schema:
-      description: RazeeDeployment is the Schema for the razeedeployments API
+      description: RazeeDeployment is the resources that deploys Razee for the Red
+        Hat Marketplace. This is an internal resource not meant to be modified directly.
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -51,10 +52,8 @@ spec:
           description: RazeeDeploymentStatus defines the observed state of RazeeDeployment
           properties:
             conditions:
-              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
-                of cluster Important: Run "operator-sdk generate k8s" to regenerate
-                code after modifying this file Add custom validation using kubebuilder
-                tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html'
+              description: Conditions represent the latest available observations
+                of an object's stateonfig
               properties:
                 lastProbeTime:
                   description: Last time the condition was checked.
@@ -83,7 +82,7 @@ spec:
               - type
               type: object
             jobState:
-              description: JobStatus represents the current state of a Job.
+              description: JobState is the status of the Razee Install Job
               properties:
                 active:
                   description: The number of actively running pods.
@@ -146,26 +145,40 @@ spec:
                   type: integer
               type: object
             localSecretVarsPopulated:
+              description: LocalSecretVarsPopulated informs if the correct local variables
+                are correct set.
               type: boolean
             missingValuesFromSecret:
+              description: MissingValuesFromSecret validates the secret provided has
+                all the correct fields
               items:
                 type: string
               type: array
             razee_job_install:
+              description: RazeeJobInstall contains information regarding the install
+                job so it can be removed
               properties:
                 razee_install_url:
+                  description: RazeeInstallURL is the url used to install the Razee
+                    resources
                   type: string
                 razee_namespace:
+                  description: RazeeNamespace is the namespace targeted for the Razee
+                    install
                   type: string
               required:
               - razee_install_url
               - razee_namespace
               type: object
             razeePrerequisitesCreated:
+              description: RazeePrerequestesCreated is the list of configmaps and
+                secrets required to be installed
               items:
                 type: string
               type: array
             redHatMarketplaceSecretFound:
+              description: RedHatMarketplaceSecretFound is the status of finding the
+                secret in the cluster
               type: boolean
           type: object
       type: object

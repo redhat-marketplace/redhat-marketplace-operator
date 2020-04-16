@@ -7,17 +7,17 @@ import (
 
 // MarketplaceConfigSpec defines the desired state of MarketplaceConfig
 type MarketplaceConfigSpec struct {
-  // RhmAccountID is the Red Hat Marketplace Account identifier
-	RhmAccountID     string  `json:"rhmAccountID"`
-  // ClusterUUID is the Red Hat Marketplace cluster identifier
-	ClusterUUID      string  `json:"clusterUUID"`
-  // DeploySecretName is the secret name that contains the deployment information
+	// RhmAccountID is the Red Hat Marketplace Account identifier
+	RhmAccountID string `json:"rhmAccountID"`
+	// ClusterUUID is the Red Hat Marketplace cluster identifier
+	ClusterUUID string `json:"clusterUUID"`
+	// DeploySecretName is the secret name that contains the deployment information
 	DeploySecretName *string `json:"deploySecretName,omitempty"`
 }
 
 // MarketplaceConfigStatus defines the observed state of MarketplaceConfig
 type MarketplaceConfigStatus struct {
-  // Conditions represent the latest available observations of an object's stateonfig
+	// Conditions represent the latest available observations of an object's stateonfig
 	Conditions status.Conditions `json:"conditions"`
 }
 
@@ -47,12 +47,12 @@ const (
 	// ConditionError means the installation has failed.
 	ConditionError status.ConditionType = "Error"
 
-  // Reasons for install
-  ReasonStartInstall status.ConditionReason = "StartInstall"
-  ReasonRazeeInstalled status.ConditionReason = "RazeeInstalled"
-  ReasonMeterBaseInstalled status.ConditionReason = "MeterBaseInstalled"
-  ReasonOperatorSourceInstall status.ConditionReason = "OperatorSourceInstalled"
-  ReasonInstallFinished status.ConditionReason = "FinishedInstall"
+	// Reasons for install
+	ReasonStartInstall          status.ConditionReason = "StartInstall"
+	ReasonRazeeInstalled        status.ConditionReason = "RazeeInstalled"
+	ReasonMeterBaseInstalled    status.ConditionReason = "MeterBaseInstalled"
+	ReasonOperatorSourceInstall status.ConditionReason = "OperatorSourceInstalled"
+	ReasonInstallFinished       status.ConditionReason = "FinishedInstall"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
