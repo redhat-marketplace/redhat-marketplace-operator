@@ -2,10 +2,6 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    categories: 'Developer Tools'
-    support: 'IBM Corporation'
-    createdAt: 2020-04-14T22:46:09Z
-    repository: 'https://github.com/redhat-marketplace/redhat-marketplace-operator'
     alm-examples: |-
       [
         {
@@ -74,7 +70,7 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "RazeeDeployment",
           "metadata": {
-            "name": "rhm-marketplaceconfig-razeedeployment"
+            "name": "example-razeedeployment"
           },
           "spec": {
             "clusterUUID": "example-cluster-uuid",
@@ -82,36 +78,78 @@ metadata:
           }
         }
       ]
-    capabilities: Basic Install
+    capabilities: Seamless Upgrades
+    categories: Developer Tools
+    certified: "true"
+    containerImage: ""
+    createdAt: ""
     description: The Red Hat Marketplace Operator provides cluster management, metering
       and operator installation for Red Hat Marketplace customers.
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","meterbases.marketplace.redhat.com","meterdefinitions.marketplace.redhat.com"]'
-  name: redhat-marketplace-operator.v0.0.1
+    repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
+    support: IBM Corporation
+  name: redhat-marketplace-operator.v0.0.2
   namespace: redhat-marketplace-operator
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: MarketplaceConfig is the Schema for the marketplaceconfigs API
+    - description: MarketplaceConfig is configuration manager for our Red Hat Marketplace
+        controllers
+      displayName: Marketplace
       kind: MarketplaceConfig
       name: marketplaceconfigs.marketplace.redhat.com
+      resources:
+      - kind: MeterBase
+        name: redhat-marketplace-operator
+        version: v1alpha1
+      - kind: OperatorSource
+        name: redhat-marketplace-operator
+        version: v1
+      - kind: RazeeDeployment
+        name: redhat-marketplace-operator
+        version: v1alpha1
       version: v1alpha1
-      displayName: Marketplace
-    - description: MeterBase is the Schema for the meterbases API
+    - description: MeterBase is the resource that sets up Metering for Red Hat Marketplace.
+        This is an internal resource not meant to be modified directly.
+      displayName: (Internal) Meter Config
       kind: MeterBase
       name: meterbases.marketplace.redhat.com
+      resources:
+      - kind: Prometheus
+        name: redhat-marketplace-operator
+        version: v1
+      - kind: ServiceMonitor
+        name: redhat-marketplace-operator
+        version: v1
       version: v1alpha1
-      displayName: '(Internal) Meter Config'
-    - description: MeterDefinition is the Schema for the meterdefinitions API
+    - description: MeterDefinition is internal Meter Definitions defined by Operators
+        from Red Hat Marketplace. This is an internal resource not meant to be modified
+        directly.
+      displayName: (Internal) Meter Definitions
       kind: MeterDefinition
       name: meterdefinitions.marketplace.redhat.com
+      resources:
+      - kind: ServiceMonitor
+        name: redhat-marketplace-operator
+        version: v1
       version: v1alpha1
-      displayName: '(Internal) Meter Definitions'
-    - description: RazeeDeployment is the Schema for the razeedeployments API
+    - description: RazeeDeployment is the resources that deploys Razee for the Red
+        Hat Marketplace. This is an internal resource not meant to be modified directly.
+      displayName: (Internal) Razee Deployment
       kind: RazeeDeployment
       name: razeedeployments.marketplace.redhat.com
+      resources:
+      - kind: ConfigMap
+        name: redhat-marketplace-operator
+        version: v1
+      - kind: Job
+        name: redhat-marketplace-operator
+        version: v1
+      - kind: Secret
+        name: redhat-marketplace-operator
+        version: v1
       version: v1alpha1
-      displayName: '(Internal) Razee Deployment'
   description: |
     The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
     ### Changes to your Cluster:
@@ -183,7 +221,7 @@ spec:
       name: redhat-marketplace-operator
       source: rhm-configmap-catalog-source
       sourceNamespace: openshift-marketplace
-      startingCSV: redhat-marketplace-operator.v0.0.1
+      startingCSV: redhat-marketplace-operator.v0.0.2
     EOF
     ```
     4.) Apply the Marketplace Configuration custom resource. Modify accordingly:
@@ -233,7 +271,7 @@ spec:
           - '*'
           verbs:
           - '*'
-        serviceAccountName: redhat-marketplace-operator
+        serviceAccountName: redhat-marketplace-metering
       - rules:
         - apiGroups:
           - '*'
@@ -257,7 +295,7 @@ spec:
           - '*'
           verbs:
           - '*'
-        serviceAccountName: redhat-marketplace-metering
+        serviceAccountName: redhat-marketplace-reporting
       - rules:
         - apiGroups:
           - '*'
@@ -269,7 +307,7 @@ spec:
           - '*'
           verbs:
           - '*'
-        serviceAccountName: redhat-marketplace-reporting
+        serviceAccountName: redhat-marketplace-operator
       deployments:
       - name: redhat-marketplace-operator
         spec:
@@ -277,20 +315,22 @@ spec:
           selector:
             matchLabels:
               redhat.marketplace.com/name: redhat-marketplace-operator
-              redhat.marketplace.com/version: ''
+              redhat.marketplace.com/version: 0.0.1
           strategy: {}
           template:
             metadata:
               labels:
                 redhat.marketplace.com/name: redhat-marketplace-operator
-                redhat.marketplace.com/version: ''
+                redhat.marketplace.com/version: 0.0.1
             spec:
               containers:
               - env:
                 - name: OPERATOR_NAME
                   value: redhat-marketplace-operator
                 - name: WATCH_NAMESPACE
-                  value: ''
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['olm.targetNamespaces']
                 - name: POD_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -301,7 +341,7 @@ spec:
                       fieldPath: metadata.name
                 - name: RELATED_IMAGE_RAZEE_JOB
                   value: quay.io/razee/razeedeploy-delta:1.1.0
-                image: registry.connect.redhat.com/ibm/redhat-marketplace-operator:0.0.1
+                image: quay.io/rh-marketplace/redhat-marketplace-operator:0.0.2
                 imagePullPolicy: Always
                 name: redhat-marketplace-operator
                 resources: {}
@@ -320,9 +360,9 @@ spec:
   - supported: false
     type: AllNamespaces
   keywords:
-  - 'red hat marketplace'
-  - 'operators'
-  - 'buy'
+  - red hat marketplace
+  - operators
+  - buy
   links:
   - name: Visit the marketplace!
     url: https://marketplace.redhat.com
@@ -331,10 +371,10 @@ spec:
   - name: Support
     url: https://marketplace.redhat.com/en-us/support
   maintainers:
-  - name: Zach Taylor
-    email: ztaylor@ibm.com
+  - email: ztaylor@ibm.com
+    name: Zach Taylor
   maturity: stable
   provider:
     name: Red Hat Marketplace
-    url: https://marketplace.redhat.com
-  version: 0.0.1
+  replaces: redhat-marketplace-operator.v0.0.1
+  version: 0.0.2

@@ -32,10 +32,14 @@ spec:
           description: MarketplaceConfigSpec defines the desired state of MarketplaceConfig
           properties:
             clusterUUID:
+              description: ClusterUUID is the Red Hat Marketplace cluster identifier
               type: string
             deploySecretName:
+              description: DeploySecretName is the secret name that contains the deployment
+                information
               type: string
             rhmAccountID:
+              description: RhmAccountID is the Red Hat Marketplace Account identifier
               type: string
           required:
           - clusterUUID
@@ -82,7 +86,8 @@ spec:
                 - status
                 - type
                 type: object
-              description: Conditions is a set of Condition instances.
+              description: Conditions represent the latest available observations
+                of an object's stateonfig
               type: array
           required:
           - conditions

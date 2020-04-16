@@ -4,9 +4,10 @@ OPSRC_NAMESPACE = marketplace-operator
 OPERATOR_SOURCE = redhat-marketplace-operators
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 OPERATOR_IMAGE_NAME ?= redhat-marketplace-operator
-OPERATOR_IMAGE_TAG ?= dev
 VERSION ?= $(shell go run scripts/version/main.go)
-VERSION_NEXT ?= $(shell go run scripts/version/main.go)
+OPERATOR_IMAGE_TAG ?= $(VERSION)
+FROM_VERSION ?= "0.0.1"
+CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
 SERVICE_ACCOUNT := redhat-marketplace-operator
 SECRETS_NAME := my-docker-secrets
@@ -43,7 +44,10 @@ helm: ## build helm base charts
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE) --set namespace=$(NAMESPACE)
 
 generate-csv: ## Generate the csv
-	operator-sdk generate csv --from-version $(VERSION) --csv-version $(VERSION_NEXT) --csv-config=./deploy/olm-catalog/csv-config.yaml --update-crds
+	make helm
+	@go run github.com/mikefarah/yq/v3 w -i ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/redhat-marketplace-operator.v$(VERSION).clusterserviceversion.yaml 'metadata.annotations.containerImage' $(OPERATOR_IMAGE)
+	@go run github.com/mikefarah/yq/v3 w -i ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/redhat-marketplace-operator.v$(VERSION).clusterserviceversion.yaml 'metadata.annotations.createdAt' $(CREATED_TIME)
+	operator-sdk generate csv --from-version $(FROM_VERSION) --csv-version $(VERSION) --csv-config=./deploy/olm-catalog/csv-config.yaml --update-crds
 
 docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
 	@docker login -u="$(DOCKER_USER)" -p="$(DOCKER_PASSWORD)" quay.io

@@ -27,7 +27,7 @@ func TestRazeeDeployController(t *testing.T) {
 	logf.SetLogger(logf.ZapLogger(true))
 
 	viper.Set("assets", "../../../assets")
-
+ 
 	t.Run("Test Clean Install", testCleanInstall)
 	t.Run("Test No Secret", testNoSecret)
 }

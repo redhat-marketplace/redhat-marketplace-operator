@@ -19,7 +19,7 @@ charttmpdir=${charttmpdir}/chart
 rolesyaml=${charttmpdir}/role-values.yaml
 
 cp -R deploy/chart/ ${charttmpdir}
-echo "Version: $version" >> ${charttmpdir}/Chart.yaml
+echo "version: $version" >> ${charttmpdir}/Chart.yaml
 
 #go run github.com/mikefarah/yq/v3 r ./deploy/role.yaml rules > ${rolesyaml}
 #go run github.com/mikefarah/yq/v3 p -i ${rolesyaml} operator.rules
