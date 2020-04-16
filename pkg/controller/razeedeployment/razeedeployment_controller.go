@@ -311,13 +311,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		if instance.Spec.DeployConfig != nil {
-			// correctList := []string{RAZEE_DASH_ORG_KEY_FIELD, BUCKET_NAME_FIELD, IBM_COS_URL_FIELD, CHILD_RRS3_YAML_FIELD, IBM_COS_READER_KEY_FIELD, RAZEE_DASH_URL_FIELD, FILE_SOURCE_URL_FIELD}
-
-			// if secret isn't populated with the correct fields, then requeue
-
-			// if missingItems := utils.CheckMapKeys(instance.Spec.DeploySecretValues, correctList); len(missingItems) > 0 {
-				// MissingDeploySecretValues 
-				// instance.Status.MissingDeploySecretValues = &MissingDeploySecretValues
 			if len(instance.Status.MissingDeploySecretValues) > 0 {
 				reqLogger.Info("Missing required razee configuration values")
 
@@ -350,9 +343,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		/******************************************************************************
 		APPLY OR OVERWRITE RAZEE RESOURCES
 		/******************************************************************************/
-		// razeePrerequisitesCreated := []string{}
 		newResources := []string{}
-		// instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
 		razeeNamespace := corev1.Namespace{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee"}, &razeeNamespace)
 		if err != nil {
@@ -756,18 +747,19 @@ func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(request *reconcile
 	razeeInstance.Spec.DeployConfig = &razeeConfigurationValues
 
 	razeeConfigurationValues, missingItems,err := utils.ConvertSecretToStruct(rhmOperatorSecret.Data)
-	*razeeInstance.Spec.DeployConfig = razeeConfigurationValues
+	razeeInstance.Spec.DeployConfig = &razeeConfigurationValues
 
 	fmt.Println("MISSING ITEMS: ",missingItems)
 	razeeInstance.Status.MissingDeploySecretValues = missingItems
-	err = r.client.Update(context.TODO(), &razeeInstance)
+
+	reqLogger.Info("updating status with missing secret values")
+	err = r.client.Status().Update(context.TODO(), &razeeInstance)
 	if err != nil {
 		reqLogger.Error(err, "Failed to update Spec.DeploySecretValues")
 		return &reconcile.Result{},err
 	}
 
-	reqLogger.Info("updating status with missing secret values")
-	err = r.client.Status().Update(context.TODO(), &razeeInstance)
+	err = r.client.Update(context.TODO(), &razeeInstance)
 	if err != nil {
 		reqLogger.Error(err, "Failed to update Spec.DeploySecretValues")
 		return &reconcile.Result{},err
