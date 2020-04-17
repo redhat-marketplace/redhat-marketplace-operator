@@ -157,10 +157,10 @@ spec:
 
     ### Changes to your Cluster:
 
-    **Note**: The Red Hat Marketplace Operator uses an open-source component called [Razee](https://razee.io/) for management between the cluster and marketplace.
-    [View Razee on Github](https://github.com/razee-io/Razee/blob/master/README.md)
+    **Note**: The Red Hat Marketplace Operator uses an open-source project called [Razee](https://razee.io/) for management between the cluster and marketplace.
+    View the code on [Github](https://github.com/razee-io/Razee/blob/master/README.md)
 
-    **RazeeDeployment Controller**: The RazeeDeployment Controller creates the `razee-deploy-job` which runs in the namespace `redhat-marketplace-operator` which is deleted after successful completion. [View `razee-deploy-job` on Github](https://github.com/razee-io/razeedeploy-delta)
+    **RazeeDeployment Controller**: The RazeeDeployment Controller creates the `razee-deploy-job` which runs in the namespace `redhat-marketplace-operator`. This namespace is deleted after successful completion of the job. [View `razee-deploy-job` on Github](https://github.com/razee-io/razeedeploy-delta)
 
     **Razee agent**: The `razee-deploy-job` creates the namespace `razee` and installs the Razee agent and its associated resources. The Razee agent must be running in order to have communication with the Red Hat Marketplace.
 
@@ -169,7 +169,7 @@ spec:
 
     #### Automatic
 
-    Visit our documentation to retreive the [automatic install instructions](https://marketplace.redhat.com/en-us/documentation/clusters).
+    Visit our documentation to retrieve the [automatic install instructions](https://marketplace.redhat.com/en-us/documentation/clusters).
 
     #### Manual
 
