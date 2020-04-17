@@ -494,7 +494,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err != nil {
 			if errors.IsNotFound(err) {
 				reqLogger.Info("watch-keeper-secret does not exist - creating")
-				watchKeeperSecret = *r.MakeWatchKeeperSecret(instance)
+				watchKeeperSecret = *r.MakeWatchKeeperSecret(instance,request)
 				err = r.client.Create(context.TODO(), &watchKeeperSecret)
 				if err != nil {
 					reqLogger.Error(err, "Failed to create watch-keeper-secret")
@@ -508,7 +508,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 		if &watchKeeperSecret != nil {
 			reqLogger.Info("watch-keeper-secret already exists - overwriting")
-			watchKeeperSecret = *r.MakeWatchKeeperSecret(instance)
+			watchKeeperSecret = *r.MakeWatchKeeperSecret(instance,request)
 			err = r.client.Update(context.TODO(), &watchKeeperSecret)
 			if err != nil {
 				reqLogger.Error(err, "Failed to update watch-keeper-secret")
@@ -525,7 +525,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err != nil {
 			if errors.IsNotFound(err) {
 				reqLogger.Info("ibm-cos-reader-key does not exist - creating")
-				ibmCosReaderKey = *r.MakeCOSReaderSecret(instance)
+				ibmCosReaderKey = *r.MakeCOSReaderSecret(instance,request)
 				err = r.client.Create(context.TODO(), &ibmCosReaderKey)
 				if err != nil {
 					reqLogger.Error(err, "Failed to create ibm-cos-reader-key")
@@ -538,7 +538,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 		}
 		if &ibmCosReaderKey != nil {
-			ibmCosReaderKey = *r.MakeCOSReaderSecret(instance)
+			ibmCosReaderKey = *r.MakeCOSReaderSecret(instance,request)
 			reqLogger.Info("ibm-cos-reader-key already exists - overwriting")
 			err = r.client.Update(context.TODO(), &ibmCosReaderKey)
 			if err != nil {
@@ -727,14 +727,9 @@ func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(request *reconcile
 	}, &rhmOperatorSecret)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			// report to status that we haven't found the secret
 			reqLogger.Error(err, "Failed to find operator secret")
 			return nil, nil
 		}
-		// Error reading the object - requeue the request.
 		return nil, err
 	}
 
@@ -963,25 +958,47 @@ func (r *ReconcileRazeeDeployment) MakeWatchKeeperConfig(instance *marketplacev1
 }
 
 // DeploySecretValues[RAZEE_DASH_ORG_KEY_FIELD]
-func (r *ReconcileRazeeDeployment) MakeWatchKeeperSecret(instance *marketplacev1alpha1.RazeeDeployment) *corev1.Secret {
-	key := instance.Spec.DeployConfig.RazeeDashOrgKey
+func(r *ReconcileRazeeDeployment) GetDataFromRhmSecret(request reconcile.Request,sel corev1.SecretKeySelector) (*reconcile.Result, error,[]byte){
+	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "request.Name", request.Name)
+	reqLogger.Info("Beginning of rhm-operator-secret reconcile")
+	// get the operator secret
+	rhmOperatorSecret := corev1.Secret{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{
+		Name:      RHM_OPERATOR_SECRET_NAME,
+		Namespace: request.Namespace,
+	}, &rhmOperatorSecret)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			reqLogger.Error(err, "Failed to find operator secret")
+			return nil, nil,nil
+		}
+		return nil, err,nil
+	}
+	key,err := utils.ExtractCredKey(&rhmOperatorSecret,sel)
+	return nil,err,key
+}
+
+func (r *ReconcileRazeeDeployment) MakeWatchKeeperSecret(instance *marketplacev1alpha1.RazeeDeployment,request reconcile.Request) *corev1.Secret {
+	selector := instance.Spec.DeployConfig.RazeeDashOrgKey
+	_, _, key := r.GetDataFromRhmSecret(request,*selector)
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "watch-keeper-secret",
 			Namespace: RAZEE_NAMESPACE,
 		},
-		Data: map[string][]byte{"RAZEEDASH_ORG_KEY": []byte(key)},
+		Data: map[string][]byte{"RAZEEDASH_ORG_KEY": key},
 	}
 }
 
-func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret(instance *marketplacev1alpha1.RazeeDeployment) *corev1.Secret {
-	cosApiKey := instance.Spec.DeployConfig.IbmCosReaderKey
+func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret(instance *marketplacev1alpha1.RazeeDeployment,request reconcile.Request) *corev1.Secret {
+	selector := instance.Spec.DeployConfig.IbmCosReaderKey
+	_, _, key := r.GetDataFromRhmSecret(request,*selector)
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "ibm-cos-reader-key",
 			Namespace: RAZEE_NAMESPACE,
 		},
-		Data: map[string][]byte{"accesskey": []byte(cosApiKey)},
+		Data: map[string][]byte{"accesskey": []byte(key)},
 	}
 }
 

@@ -54,13 +54,41 @@ spec:
                   type: string
                 IBM_COS_READER_KEY:
                   description: Api key used to access the bucket IBM COS
-                  type: string
+                  properties:
+                    key:
+                      description: The key of the secret to select from.  Must be
+                        a valid secret key.
+                      type: string
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        TODO: Add other useful fields. apiVersion, kind, uid?'
+                      type: string
+                    optional:
+                      description: Specify whether the Secret or its key must be defined
+                      type: boolean
+                  required:
+                  - key
+                  type: object
                 IBM_COS_URL:
                   description: Base url for the instance of IBM COS
                   type: string
                 RAZEE_DASH_ORG_KEY:
                   description: Key used to identify a particular razee instance
-                  type: string
+                  properties:
+                    key:
+                      description: The key of the secret to select from.  Must be
+                        a valid secret key.
+                      type: string
+                    name:
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        TODO: Add other useful fields. apiVersion, kind, uid?'
+                      type: string
+                    optional:
+                      description: Specify whether the Secret or its key must be defined
+                      type: boolean
+                  required:
+                  - key
+                  type: object
                 RAZEE_DASH_URL:
                   description: Url used by the razee install to post data
                   type: string
