@@ -310,13 +310,13 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	/******************************************************************************/
 	razeePrerequisitesCreated := make([]string, 0, 7)
 	instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
-	razeeNamespace := corev1.Namespace{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: RAZEE_NAMESPACE}, &razeeNamespace)
+	razeeNamespace := &corev1.Namespace{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: RAZEE_NAMESPACE}, razeeNamespace)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.Info("razee namespace does not exist - creating")
 			razeeNamespace.ObjectMeta.Name = RAZEE_NAMESPACE
-			err = r.client.Create(context.TODO(), &razeeNamespace)
+			err = r.client.Create(context.TODO(), razeeNamespace)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create razee namespace.")
 			}
@@ -326,7 +326,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			return reconcile.Result{}, err
 		}
 	}
-	if &razeeNamespace != nil {
+	if razeeNamespace != nil {
 		reqLogger.Info("razee namespace already exists - overwriting")
 	}
 
@@ -336,13 +336,13 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		r.client.Status().Update(context.TODO(), instance)
 	}
 
-	watchKeeperNonNamespace := corev1.ConfigMap{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-non-namespaced", Namespace: RAZEE_NAMESPACE}, &watchKeeperNonNamespace)
+	watchKeeperNonNamespace := &corev1.ConfigMap{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-non-namespaced", Namespace: RAZEE_NAMESPACE}, watchKeeperNonNamespace)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.Info("watch-keeper-non-namespace does not exist - creating")
-			watchKeeperNonNamespace = *r.MakeWatchKeeperNonNamespace()
-			err = r.client.Create(context.TODO(), &watchKeeperNonNamespace)
+			watchKeeperNonNamespace = r.MakeWatchKeeperNonNamespace()
+			err = r.client.Create(context.TODO(), watchKeeperNonNamespace)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create watch-keeper-non-namespace")
 				return reconcile.Result{}, err
@@ -353,10 +353,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			return reconcile.Result{}, err
 		}
 	}
-	if &watchKeeperNonNamespace != nil {
+	if watchKeeperNonNamespace != nil {
 		reqLogger.Info("watch-keeper-non-namespace configmap already exists - overwriting")
-		watchKeeperNonNamespace = *r.MakeWatchKeeperNonNamespace()
-		err = r.client.Update(context.TODO(), &watchKeeperNonNamespace)
+		watchKeeperNonNamespace = r.MakeWatchKeeperNonNamespace()
+		err = r.client.Update(context.TODO(), watchKeeperNonNamespace)
 		if err != nil {
 			reqLogger.Error(err, "Failed to overwrite watch-keeper-non-namespace config map")
 		}
@@ -369,13 +369,13 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	// apply watch-keeper-limit-poll config map
-	watchKeeperLimitPoll := corev1.ConfigMap{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-limit-poll", Namespace: RAZEE_NAMESPACE}, &watchKeeperLimitPoll)
+	watchKeeperLimitPoll := &corev1.ConfigMap{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-limit-poll", Namespace: RAZEE_NAMESPACE}, watchKeeperLimitPoll)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.Info("watch-keeper-limit-poll does not exist - creating")
-			watchKeeperLimitPoll = *r.MakeWatchKeeperLimitPoll()
-			err = r.client.Create(context.TODO(), &watchKeeperLimitPoll)
+			watchKeeperLimitPoll = r.MakeWatchKeeperLimitPoll()
+			err = r.client.Create(context.TODO(), watchKeeperLimitPoll)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create watch-keeper-limit-poll config map")
 				return reconcile.Result{}, err
@@ -387,10 +387,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			return reconcile.Result{}, err
 		}
 	}
-	if &watchKeeperLimitPoll != nil {
+	if watchKeeperLimitPoll != nil {
 		reqLogger.Info("watch-keeper-limit-poll configmap already exists - overwriting")
-		watchKeeperLimitPoll = *r.MakeWatchKeeperLimitPoll()
-		err = r.client.Update(context.TODO(), &watchKeeperLimitPoll)
+		watchKeeperLimitPoll = r.MakeWatchKeeperLimitPoll()
+		err = r.client.Update(context.TODO(), watchKeeperLimitPoll)
 		if err != nil {
 			reqLogger.Error(err, "Failed to overwrite watch-keeper-limit-poll config map")
 		}
@@ -403,13 +403,13 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	// create razee-cluster-metadata
-	razeeClusterMetaData := corev1.ConfigMap{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee-cluster-metadata", Namespace: RAZEE_NAMESPACE}, &razeeClusterMetaData)
+	razeeClusterMetaData := &corev1.ConfigMap{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee-cluster-metadata", Namespace: RAZEE_NAMESPACE}, razeeClusterMetaData)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.Info("razee-cluster-metadata does not exist - creating")
-			razeeClusterMetaData = *r.MakeRazeeClusterMetaData(*clusterUUID)
-			err = r.client.Create(context.TODO(), &razeeClusterMetaData)
+			razeeClusterMetaData = r.MakeRazeeClusterMetaData(*clusterUUID)
+			err = r.client.Create(context.TODO(), razeeClusterMetaData)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create razee-cluster-metadata config map")
 			}
@@ -445,6 +445,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			err = r.client.Create(context.TODO(), watchKeeperConfig)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create watch-keeper-config")
+				return reconcile.Result{}, err
 			}
 			reqLogger.Info("watch-keeper-config created successfully")
 			return reconcile.Result{Requeue: true}, nil
@@ -470,13 +471,13 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	// create watch-keeper-secret
-	watchKeeperSecret := corev1.Secret{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-secret", Namespace: RAZEE_NAMESPACE}, &watchKeeperSecret)
+	watchKeeperSecret := &corev1.Secret{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-secret", Namespace: RAZEE_NAMESPACE}, watchKeeperSecret)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.Info("watch-keeper-secret does not exist - creating")
-			watchKeeperSecret = *r.MakeWatchKeeperSecret(rhmOperatorSecretValues)
-			err = r.client.Create(context.TODO(), &watchKeeperSecret)
+			watchKeeperSecret = r.MakeWatchKeeperSecret(rhmOperatorSecretValues)
+			err = r.client.Create(context.TODO(), watchKeeperSecret)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create watch-keeper-secret")
 			}
@@ -489,8 +490,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 	if &watchKeeperSecret != nil {
 		reqLogger.Info("watch-keeper-secret already exists - overwriting")
-		watchKeeperSecret = *r.MakeWatchKeeperSecret(rhmOperatorSecretValues)
-		err = r.client.Update(context.TODO(), &watchKeeperSecret)
+		watchKeeperSecret = r.MakeWatchKeeperSecret(rhmOperatorSecretValues)
+		err = r.client.Update(context.TODO(), watchKeeperSecret)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update watch-keeper-secret")
 		}
@@ -504,13 +505,13 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	// create watch-keeper-config
-	ibmCosReaderKey := corev1.Secret{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cosReaderKey, Namespace: RAZEE_NAMESPACE}, &ibmCosReaderKey)
+	ibmCosReaderKey := &corev1.Secret{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cosReaderKey, Namespace: RAZEE_NAMESPACE}, ibmCosReaderKey)
 	if err != nil {
 		reqLogger.Info("ibm-cos-reader-key does not exist - creating")
 		if errors.IsNotFound(err) {
-			ibmCosReaderKey = *r.MakeCOSReaderSecret(rhmOperatorSecretValues)
-			err = r.client.Create(context.TODO(), &ibmCosReaderKey)
+			ibmCosReaderKey = r.MakeCOSReaderSecret(rhmOperatorSecretValues)
+			err = r.client.Create(context.TODO(), ibmCosReaderKey)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create ibm-cos-reader-key")
 			}
@@ -522,9 +523,9 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 	}
 	if &ibmCosReaderKey != nil {
-		ibmCosReaderKey = *r.MakeCOSReaderSecret(rhmOperatorSecretValues)
+		ibmCosReaderKey = r.MakeCOSReaderSecret(rhmOperatorSecretValues)
 		reqLogger.Info("ibm-cos-reader-key already exists - overwriting")
-		err = r.client.Update(context.TODO(), &ibmCosReaderKey)
+		err = r.client.Update(context.TODO(), ibmCosReaderKey)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update ibm-cos-reader-key")
 		}
@@ -562,8 +563,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			},
 		}
 
-		foundJob := batch.Job{}
-		err = r.client.Get(context.TODO(), req.NamespacedName, &foundJob)
+		foundJob := &batch.Job{}
+		err = r.client.Get(context.TODO(), req.NamespacedName, foundJob)
 		// if the job doesn't exist create it
 		if err != nil && errors.IsNotFound(err) {
 			reqLogger.Info("Creating razzeedeploy-job")
@@ -584,7 +585,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			return reconcile.Result{}, err
 		}
 
-		if err := controllerutil.SetControllerReference(instance, &foundJob, r.scheme); err != nil {
+		if err := controllerutil.SetControllerReference(instance, foundJob, r.scheme); err != nil {
 			reqLogger.Error(err, "Failed to set controller reference")
 			return reconcile.Result{}, err
 		}
@@ -611,7 +612,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 		reqLogger.Info("Updated JobState")
 
-		err = r.client.Delete(context.TODO(), &foundJob, client.PropagationPolicy(metav1.DeletePropagationBackground))
+		err = r.client.Delete(context.TODO(), foundJob, client.PropagationPolicy(metav1.DeletePropagationBackground))
 		if err != nil {
 			reqLogger.Error(err, "Failed to delete job")
 			return reconcile.Result{RequeueAfter: time.Second * 30}, nil

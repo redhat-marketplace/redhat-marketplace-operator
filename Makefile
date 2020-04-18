@@ -9,6 +9,7 @@ OPERATOR_IMAGE_TAG ?= $(VERSION)
 FROM_VERSION ?= "0.0.1"
 CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
+
 SERVICE_ACCOUNT := redhat-marketplace-operator
 SECRETS_NAME := my-docker-secrets
 
@@ -34,7 +35,7 @@ uninstall: ## Uninstall all that all performed in the $ make install
 
 .PHONY: build
 build: ## Build the operator executable
-	VERSION=$(VERSION) PUSH_IMAGE=false IMAGE=$(OPERATOR_IMAGE) ./scripts/skaffold-build.sh
+	VERSION=$(VERSION) PUSH_IMAGE=false IMAGE=$(OPERATOR_IMAGE) ./scripts/skaffold_build.sh
 
 .PHONY: push
 push: push ## Push the operator image
@@ -71,9 +72,6 @@ code-vet: ## Run go vet for this project. More info: https://golang.org/cmd/vet/
 code-fmt: ## Run go fmt for this project
 	@echo go fmt
 	go fmt $$(go list ./... )
-
-code-templates: ## Gen templates
-	@PULL_POLICY=$(PULL_POLICY) RELATED_IMAGE_MARKETPLACE_OPERATOR=$(OPERATOR_IMAGE) NAMESPACE=$(NAMESPACE) scripts/gen_files.sh
 
 code-dev: ## Run the default dev commands which are the go fmt and vet then execute the $ make code-gen
 	@echo Running the common required commands for developments purposes
@@ -180,9 +178,23 @@ test-e2e: ## Run integration e2e tests with different options.
 deploy-test-prometheus:
 	. ./scripts/deploy_test_prometheus.sh
 
+
+##@ Publishing
+
+OPERATOR_IMAGE := $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(VERSION)
+REDHAT_IMAGE_REGISTRY := scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd
+REDHAT_OPERATOR_IMAGE := $(REDHAT_IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(VERSION)
+
 .PHONY: bundle
 bundle: ## Bundles the csv to submit
-	. ./scripts/bundle_csv.sh `pwd` $(VERSION)
+	. ./scripts/bundle_csv.sh `pwd` $(VERSION)  $(OPERATOR_IMAGE)
+
+.PHONY: publish-image
+publish-image: ## Publish image
+	make build
+	docker tag $(OPERATOR_IMAGE) $(REDHAT_OPERATOR_IMAGE)
+	docker push $(OPERATOR_IMAGE)
+	docker push $(REDHAT_OPERATOR_IMAGE)
 
 ##@ Help
 
