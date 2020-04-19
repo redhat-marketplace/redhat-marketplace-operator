@@ -84,9 +84,26 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Pods and requeue the owner MarketplaceConfig
 	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Watch for RazeeDeployment
+	err = c.Watch(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Watch for MeterBase
+	err = c.Watch(&source.Kind{Type: &marketplacev1alpha1.MeterBase{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
 	})

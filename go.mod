@@ -16,12 +16,14 @@ require (
 	github.com/imdario/mergo v0.3.8
 	github.com/launchdarkly/go-options v1.0.0
 	github.com/mikefarah/yq/v3 v3.0.0-20200415014842-6f0a329331f9 // indirect
+	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/noqcks/gucci v0.0.4
 	github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b
 	github.com/operator-framework/operator-sdk v0.16.1-0.20200401233323-bca8959696d5
 	github.com/prometheus/client_golang v1.5.1
 	github.com/prometheus/common v0.9.1
+	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.2
 	github.com/urfave/cli v1.22.2 // indirect

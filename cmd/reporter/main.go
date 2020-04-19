@@ -30,7 +30,6 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cobra.yaml)")
 
-	rootCmd.AddCommand(addCmd)
 }
 
 func er(msg interface{}) {

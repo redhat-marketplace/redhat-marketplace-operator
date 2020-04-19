@@ -5,35 +5,49 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type Reporter struct {
+type MarketplaceReporter struct {
+	config *MarketplaceReporterConfig
 	api v1.API
 	log logr.Logger
-  config ReporterConfig
 }
 
-func NewReporter(config *ReporterConfig) (*Reporter, error) {
-	client, err := api.NewClient(api.Config{
-		Address: config.Address,
-	})
+func NewMarketplaceReporter(config *MarketplaceReporterConfig) (*MarketplaceReporter, error) {
+	client, err := api.NewClient(config.apiConfig)
 
 	if err != nil {
 		return nil, err
 	}
 
 	v1api := v1.NewAPI(client)
-	return &Reporter{
+	return &MarketplaceReporter{
+		config: config,
 		api: v1api,
 		log: logf.Log.WithName("reporter"),
 	}, nil
 }
 
-func (r *Reporter) queryRange(label string) (model.Value, error) {
+func (r *MarketplaceReporter) Run() error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Become the leader before proceeding
+	err := leader.Become(ctx, r.config.ObjectMeta.GetName())
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *MarketplaceReporter) queryRange(label string) (model.Value, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	timeRange := v1.Range{
