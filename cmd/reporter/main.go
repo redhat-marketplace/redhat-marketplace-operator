@@ -7,29 +7,24 @@ import (
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.ibm.com/symposium/redhat-marketplace-operator/cmd/reporter/report"
 )
 
 var (
 	// Used for flags.
 	cfgFile     string
-	userLicense string
 
 	rootCmd = &cobra.Command{
-		Use:   "redhat-marketplace-meter-reporter",
+		Use:   "redhat-marketplace-reporter",
 		Short: "Report Meter data for Red Hat Marketplace.",
 	}
 )
 
-// Execute executes the root command.
-func Execute() error {
-	return rootCmd.Execute()
-}
-
 func init() {
 	cobra.OnInitialize(initConfig)
 
+	rootCmd.AddCommand(report.ReportCmd)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cobra.yaml)")
-
 }
 
 func er(msg interface{}) {
@@ -58,4 +53,8 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
+}
+
+func main() {
+	rootCmd.Execute()
 }

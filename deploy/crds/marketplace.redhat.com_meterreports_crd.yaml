@@ -32,412 +32,56 @@ spec:
           description: MeterReportSpec defines the desired state of MeterReport
           properties:
             endTime:
-              description: EndTime of the job
-              properties:
-                nanos:
-                  description: Non-negative fractions of a second at nanosecond resolution.
-                    Negative second values with fractions must still have non-negative
-                    nanos values that count forward in time. Must be from 0 to 999,999,999
-                    inclusive. This field may be limited in precision depending on
-                    context.
-                  format: int32
-                  type: integer
-                seconds:
-                  description: Represents seconds of UTC time since Unix epoch 1970-01-01T00:00:00Z.
-                    Must be from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59Z inclusive.
-                  format: int64
-                  type: integer
-              required:
-              - nanos
-              - seconds
-              type: object
-            meterDefinitions:
+              description: EndTime of the jbo
+              format: date-time
+              type: string
+            meterDefinitionLabels:
               description: MeterDefinitions includes the meter defs to be included
-                in this job
+                in this job.
               properties:
-                apiVersion:
-                  description: 'APIVersion defines the versioned schema of this representation
-                    of an object. Servers should convert recognized schemas to the
-                    latest internal value, and may reject unrecognized values. More
-                    info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-                  type: string
-                items:
+                matchExpressions:
+                  description: matchExpressions is a list of label selector requirements.
+                    The requirements are ANDed.
                   items:
-                    description: MeterDefinition is internal Meter Definitions defined
-                      by Operators from Red Hat Marketplace. This is an internal resource
-                      not meant to be modified directly.
+                    description: A label selector requirement is a selector that contains
+                      values, a key, and an operator that relates the key and values.
                     properties:
-                      apiVersion:
-                        description: 'APIVersion defines the versioned schema of this
-                          representation of an object. Servers should convert recognized
-                          schemas to the latest internal value, and may reject unrecognized
-                          values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                      key:
+                        description: key is the label key that the selector applies
+                          to.
                         type: string
-                      kind:
-                        description: 'Kind is a string value representing the REST
-                          resource this object represents. Servers may infer this
-                          from the endpoint the client submits requests to. Cannot
-                          be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                      operator:
+                        description: operator represents a key's relationship to a
+                          set of values. Valid operators are In, NotIn, Exists and
+                          DoesNotExist.
                         type: string
-                      metadata:
-                        type: object
-                      spec:
-                        description: MeterDefinitionSpec defines the desired metering
-                          spec
-                        properties:
-                          meterDomain:
-                            description: MeterDomain defines the primary CRD domain
-                              of the meter
-                            type: string
-                          meterKind:
-                            description: MeterKind defines the primary CRD kind of
-                              the meter
-                            type: string
-                          meterVersion:
-                            description: MeterVersion defines the primary CRD version
-                              of the meter
-                            type: string
-                          podMeterLabels:
-                            description: PodLabels of the prometheus metrics you want
-                              to track.
-                            items:
-                              type: string
-                            type: array
-                          podMonitorNamespaceSelector:
-                            description: PodNamespaceSelector to select namespaces
-                              for pods for metering
-                            properties:
-                              matchExpressions:
-                                description: matchExpressions is a list of label selector
-                                  requirements. The requirements are ANDed.
-                                items:
-                                  description: A label selector requirement is a selector
-                                    that contains values, a key, and an operator that
-                                    relates the key and values.
-                                  properties:
-                                    key:
-                                      description: key is the label key that the selector
-                                        applies to.
-                                      type: string
-                                    operator:
-                                      description: operator represents a key's relationship
-                                        to a set of values. Valid operators are In,
-                                        NotIn, Exists and DoesNotExist.
-                                      type: string
-                                    values:
-                                      description: values is an array of string values.
-                                        If the operator is In or NotIn, the values
-                                        array must be non-empty. If the operator is
-                                        Exists or DoesNotExist, the values array must
-                                        be empty. This array is replaced during a
-                                        strategic merge patch.
-                                      items:
-                                        type: string
-                                      type: array
-                                  required:
-                                  - key
-                                  - operator
-                                  type: object
-                                type: array
-                              matchLabels:
-                                additionalProperties:
-                                  type: string
-                                description: matchLabels is a map of {key,value} pairs.
-                                  A single {key,value} in the matchLabels map is equivalent
-                                  to an element of matchExpressions, whose key field
-                                  is "key", the operator is "In", and the values array
-                                  contains only "value". The requirements are ANDed.
-                                type: object
-                            type: object
-                          podMonitorSelector:
-                            description: PodSelectors to select pods for metering
-                            properties:
-                              matchExpressions:
-                                description: matchExpressions is a list of label selector
-                                  requirements. The requirements are ANDed.
-                                items:
-                                  description: A label selector requirement is a selector
-                                    that contains values, a key, and an operator that
-                                    relates the key and values.
-                                  properties:
-                                    key:
-                                      description: key is the label key that the selector
-                                        applies to.
-                                      type: string
-                                    operator:
-                                      description: operator represents a key's relationship
-                                        to a set of values. Valid operators are In,
-                                        NotIn, Exists and DoesNotExist.
-                                      type: string
-                                    values:
-                                      description: values is an array of string values.
-                                        If the operator is In or NotIn, the values
-                                        array must be non-empty. If the operator is
-                                        Exists or DoesNotExist, the values array must
-                                        be empty. This array is replaced during a
-                                        strategic merge patch.
-                                      items:
-                                        type: string
-                                      type: array
-                                  required:
-                                  - key
-                                  - operator
-                                  type: object
-                                type: array
-                              matchLabels:
-                                additionalProperties:
-                                  type: string
-                                description: matchLabels is a map of {key,value} pairs.
-                                  A single {key,value} in the matchLabels map is equivalent
-                                  to an element of matchExpressions, whose key field
-                                  is "key", the operator is "In", and the values array
-                                  contains only "value". The requirements are ANDed.
-                                type: object
-                            type: object
-                          serviceMeterLabels:
-                            description: ServiceLabels of the meterics you want to
-                              track.
-                            items:
-                              type: string
-                            type: array
-                          serviceMonitorNamespaceSelector:
-                            description: Namespaces to be selected for ServiceMonitor
-                              discovery. If nil, only check own namespace.
-                            properties:
-                              matchExpressions:
-                                description: matchExpressions is a list of label selector
-                                  requirements. The requirements are ANDed.
-                                items:
-                                  description: A label selector requirement is a selector
-                                    that contains values, a key, and an operator that
-                                    relates the key and values.
-                                  properties:
-                                    key:
-                                      description: key is the label key that the selector
-                                        applies to.
-                                      type: string
-                                    operator:
-                                      description: operator represents a key's relationship
-                                        to a set of values. Valid operators are In,
-                                        NotIn, Exists and DoesNotExist.
-                                      type: string
-                                    values:
-                                      description: values is an array of string values.
-                                        If the operator is In or NotIn, the values
-                                        array must be non-empty. If the operator is
-                                        Exists or DoesNotExist, the values array must
-                                        be empty. This array is replaced during a
-                                        strategic merge patch.
-                                      items:
-                                        type: string
-                                      type: array
-                                  required:
-                                  - key
-                                  - operator
-                                  type: object
-                                type: array
-                              matchLabels:
-                                additionalProperties:
-                                  type: string
-                                description: matchLabels is a map of {key,value} pairs.
-                                  A single {key,value} in the matchLabels map is equivalent
-                                  to an element of matchExpressions, whose key field
-                                  is "key", the operator is "In", and the values array
-                                  contains only "value". The requirements are ANDed.
-                                type: object
-                            type: object
-                          serviceMonitorSelector:
-                            description: ServiceMonitors to be selected for target
-                              discovery.
-                            properties:
-                              matchExpressions:
-                                description: matchExpressions is a list of label selector
-                                  requirements. The requirements are ANDed.
-                                items:
-                                  description: A label selector requirement is a selector
-                                    that contains values, a key, and an operator that
-                                    relates the key and values.
-                                  properties:
-                                    key:
-                                      description: key is the label key that the selector
-                                        applies to.
-                                      type: string
-                                    operator:
-                                      description: operator represents a key's relationship
-                                        to a set of values. Valid operators are In,
-                                        NotIn, Exists and DoesNotExist.
-                                      type: string
-                                    values:
-                                      description: values is an array of string values.
-                                        If the operator is In or NotIn, the values
-                                        array must be non-empty. If the operator is
-                                        Exists or DoesNotExist, the values array must
-                                        be empty. This array is replaced during a
-                                        strategic merge patch.
-                                      items:
-                                        type: string
-                                      type: array
-                                  required:
-                                  - key
-                                  - operator
-                                  type: object
-                                type: array
-                              matchLabels:
-                                additionalProperties:
-                                  type: string
-                                description: matchLabels is a map of {key,value} pairs.
-                                  A single {key,value} in the matchLabels map is equivalent
-                                  to an element of matchExpressions, whose key field
-                                  is "key", the operator is "In", and the values array
-                                  contains only "value". The requirements are ANDed.
-                                type: object
-                            type: object
-                        required:
-                        - meterDomain
-                        - meterKind
-                        - meterVersion
-                        type: object
-                      status:
-                        description: MeterDefinitionStatus defines the observed state
-                          of MeterDefinition
-                        properties:
-                          conditions:
-                            additionalProperties:
-                              description: "Condition represents an observation of
-                                an object's state. Conditions are an extension mechanism
-                                intended to be used when the details of an observation
-                                are not a priori known or would not apply to all instances
-                                of a given Kind. \n Conditions should be added to
-                                explicitly convey properties that users and components
-                                care about rather than requiring those properties
-                                to be inferred from other observations. Once defined,
-                                the meaning of a Condition can not be changed arbitrarily
-                                - it becomes part of the API, and has the same backwards-
-                                and forwards-compatibility concerns of any other part
-                                of the API."
-                              properties:
-                                lastTransitionTime:
-                                  format: date-time
-                                  type: string
-                                message:
-                                  type: string
-                                reason:
-                                  description: ConditionReason is intended to be a
-                                    one-word, CamelCase representation of the category
-                                    of cause of the current status. It is intended
-                                    to be used in concise output, such as one-line
-                                    kubectl get output, and in summarizing occurrences
-                                    of causes.
-                                  type: string
-                                status:
-                                  type: string
-                                type:
-                                  description: "ConditionType is the type of the condition
-                                    and is typically a CamelCased word or short phrase.
-                                    \n Condition types should indicate state in the
-                                    \"abnormal-true\" polarity. For example, if the
-                                    condition indicates when a policy is invalid,
-                                    the \"is valid\" case is probably the norm, so
-                                    the condition should be called \"Invalid\"."
-                                  type: string
-                              required:
-                              - status
-                              - type
-                              type: object
-                            description: Conditions represent the latest available
-                              observations of an object's state
-                            type: array
-                          podLabels:
-                            description: PodLabels of the prometheus kube-state metrics
-                              you want to track.
-                            items:
-                              type: string
-                            type: array
-                          pods:
-                            description: Pods is the list of current pod mointors
-                              being watched for this meter definition
-                            items:
-                              type: object
-                            type: array
-                          serviceLabels:
-                            description: ServiceLabels of the meterics you want to
-                              track.
-                            items:
-                              type: string
-                            type: array
-                          serviceMonitors:
-                            description: ServiceMonitors is the list of service monitors
-                              being watched for this meter definition
-                            items:
-                              type: object
-                            type: array
-                        required:
-                        - conditions
-                        - podLabels
-                        - pods
-                        - serviceLabels
-                        - serviceMonitors
-                        type: object
+                      values:
+                        description: values is an array of string values. If the operator
+                          is In or NotIn, the values array must be non-empty. If the
+                          operator is Exists or DoesNotExist, the values array must
+                          be empty. This array is replaced during a strategic merge
+                          patch.
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - key
+                    - operator
                     type: object
                   type: array
-                kind:
-                  description: 'Kind is a string value representing the REST resource
-                    this object represents. Servers may infer this from the endpoint
-                    the client submits requests to. Cannot be updated. In CamelCase.
-                    More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-                  type: string
-                metadata:
-                  description: ListMeta describes metadata that synthetic resources
-                    must have, including lists and various status objects. A resource
-                    may have only one of {ObjectMeta, ListMeta}.
-                  properties:
-                    continue:
-                      description: continue may be set if the user set a limit on
-                        the number of items returned, and indicates that the server
-                        has more data available. The value is opaque and may be used
-                        to issue another request to the endpoint that served this
-                        list to retrieve the next set of available objects. Continuing
-                        a consistent list may not be possible if the server configuration
-                        has changed or more than a few minutes have passed. The resourceVersion
-                        field returned when using this continue value will be identical
-                        to the value in the first response, unless you have received
-                        this token from an error message.
-                      type: string
-                    remainingItemCount:
-                      description: remainingItemCount is the number of subsequent
-                        items in the list which are not included in this list response.
-                        If the list request contained label or field selectors, then
-                        the number of remaining items is unknown and the field will
-                        be left unset and omitted during serialization. If the list
-                        is complete (either because it is not chunking or because
-                        this is the last chunk), then there are no more remaining
-                        items and this field will be left unset and omitted during
-                        serialization. Servers older than v1.15 do not set this field.
-                        The intended use of the remainingItemCount is *estimating*
-                        the size of a collection. Clients should not rely on the remainingItemCount
-                        to be set or to be exact.
-                      format: int64
-                      type: integer
-                    resourceVersion:
-                      description: 'String that identifies the server''s internal
-                        version of this object that can be used by clients to determine
-                        when objects have changed. Value must be treated as opaque
-                        by clients and passed unmodified back to the server. Populated
-                        by the system. Read-only. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
-                      type: string
-                    selfLink:
-                      description: "selfLink is a URL representing this object. Populated
-                        by the system. Read-only. \n DEPRECATED Kubernetes will stop
-                        propagating this field in 1.20 release and the field is planned
-                        to be removed in 1.21 release."
-                      type: string
+                matchLabels:
+                  additionalProperties:
+                    type: string
+                  description: matchLabels is a map of {key,value} pairs. A single
+                    {key,value} in the matchLabels map is equivalent to an element
+                    of matchExpressions, whose key field is "key", the operator is
+                    "In", and the values array contains only "value". The requirements
+                    are ANDed.
                   type: object
-              required:
-              - items
               type: object
             prometheusServiceLabels:
               description: PrometheusServiceLabels is the definition for the service
-                labels
+                labels.
               properties:
                 matchExpressions:
                   description: matchExpressions is a list of label selector requirements.
@@ -481,33 +125,57 @@ spec:
               type: object
             startTime:
               description: StartTime of the job
-              properties:
-                nanos:
-                  description: Non-negative fractions of a second at nanosecond resolution.
-                    Negative second values with fractions must still have non-negative
-                    nanos values that count forward in time. Must be from 0 to 999,999,999
-                    inclusive. This field may be limited in precision depending on
-                    context.
-                  format: int32
-                  type: integer
-                seconds:
-                  description: Represents seconds of UTC time since Unix epoch 1970-01-01T00:00:00Z.
-                    Must be from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59Z inclusive.
-                  format: int64
-                  type: integer
-              required:
-              - nanos
-              - seconds
-              type: object
+              format: date-time
+              type: string
           required:
           - endTime
-          - meterDefinitions
+          - meterDefinitionLabels
           - prometheusServiceLabels
           - startTime
           type: object
         status:
           description: MeterReportStatus defines the observed state of MeterReport
           properties:
+            active:
+              description: A list of pointers to currently running jobs.
+              items:
+                description: ObjectReference contains enough information to let you
+                  inspect or modify the referred object.
+                properties:
+                  apiVersion:
+                    description: API version of the referent.
+                    type: string
+                  fieldPath:
+                    description: 'If referring to a piece of an object instead of
+                      an entire object, this string should contain a valid JSON/Go
+                      field access statement, such as desiredState.manifest.containers[2].
+                      For example, if the object reference is to a container within
+                      a pod, this would take on a value like: "spec.containers{name}"
+                      (where "name" refers to the name of the container that triggered
+                      the event) or if no container name is specified "spec.containers[2]"
+                      (container with index 2 in this pod). This syntax is chosen
+                      only to have some well-defined way of referencing a part of
+                      an object. TODO: this design is not final and this field is
+                      subject to change in the future.'
+                    type: string
+                  kind:
+                    description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                    type: string
+                  name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                    type: string
+                  namespace:
+                    description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                    type: string
+                  resourceVersion:
+                    description: 'Specific resourceVersion to which this reference
+                      is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                    type: string
+                  uid:
+                    description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
+                    type: string
+                type: object
+              type: array
             conditions:
               description: Conditions represent the latest available observations
                 of an object's stateonfig
@@ -538,69 +206,324 @@ spec:
               - status
               - type
               type: object
-            jobState:
-              description: JobState is the status of the Report Job
-              properties:
-                active:
-                  description: The number of actively running pods.
-                  format: int32
-                  type: integer
-                completionTime:
-                  description: Represents time when the job was completed. It is not
-                    guaranteed to be set in happens-before order across separate operations.
-                    It is represented in RFC3339 form and is in UTC.
-                  format: date-time
-                  type: string
-                conditions:
-                  description: 'The latest available observations of an object''s
-                    current state. More info: https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/'
-                  items:
-                    description: JobCondition describes current state of a job.
-                    properties:
-                      lastProbeTime:
-                        description: Last time the condition was checked.
-                        format: date-time
-                        type: string
-                      lastTransitionTime:
-                        description: Last time the condition transit from one status
-                          to another.
-                        format: date-time
-                        type: string
-                      message:
-                        description: Human readable message indicating details about
-                          last transition.
-                        type: string
-                      reason:
-                        description: (brief) reason for the condition's last transition.
-                        type: string
-                      status:
-                        description: Status of the condition, one of True, False,
-                          Unknown.
-                        type: string
-                      type:
-                        description: Type of job condition, Complete or Failed.
-                        type: string
-                    required:
-                    - status
-                    - type
+            meterDefinitions:
+              description: MeterDefinitions is the list of meterDefinitions included
+                in the report
+              items:
+                description: MeterDefinition is internal Meter Definitions defined
+                  by Operators from Red Hat Marketplace. This is an internal resource
+                  not meant to be modified directly.
+                properties:
+                  apiVersion:
+                    description: 'APIVersion defines the versioned schema of this
+                      representation of an object. Servers should convert recognized
+                      schemas to the latest internal value, and may reject unrecognized
+                      values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                    type: string
+                  kind:
+                    description: 'Kind is a string value representing the REST resource
+                      this object represents. Servers may infer this from the endpoint
+                      the client submits requests to. Cannot be updated. In CamelCase.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                    type: string
+                  metadata:
                     type: object
-                  type: array
-                failed:
-                  description: The number of pods which reached phase Failed.
-                  format: int32
-                  type: integer
-                startTime:
-                  description: Represents time when the job was acknowledged by the
-                    job controller. It is not guaranteed to be set in happens-before
-                    order across separate operations. It is represented in RFC3339
-                    form and is in UTC.
-                  format: date-time
-                  type: string
-                succeeded:
-                  description: The number of pods which reached phase Succeeded.
-                  format: int32
-                  type: integer
-              type: object
+                  spec:
+                    description: MeterDefinitionSpec defines the desired metering
+                      spec
+                    properties:
+                      meterDomain:
+                        description: MeterDomain defines the primary CRD domain of
+                          the meter
+                        type: string
+                      meterKind:
+                        description: MeterKind defines the primary CRD kind of the
+                          meter
+                        type: string
+                      meterVersion:
+                        description: MeterVersion defines the primary CRD version
+                          of the meter
+                        type: string
+                      podMeterLabels:
+                        description: PodLabels of the prometheus metrics you want
+                          to track.
+                        items:
+                          type: string
+                        type: array
+                      podMonitorNamespaceSelector:
+                        description: PodNamespaceSelector to select namespaces for
+                          pods for metering
+                        properties:
+                          matchExpressions:
+                            description: matchExpressions is a list of label selector
+                              requirements. The requirements are ANDed.
+                            items:
+                              description: A label selector requirement is a selector
+                                that contains values, a key, and an operator that
+                                relates the key and values.
+                              properties:
+                                key:
+                                  description: key is the label key that the selector
+                                    applies to.
+                                  type: string
+                                operator:
+                                  description: operator represents a key's relationship
+                                    to a set of values. Valid operators are In, NotIn,
+                                    Exists and DoesNotExist.
+                                  type: string
+                                values:
+                                  description: values is an array of string values.
+                                    If the operator is In or NotIn, the values array
+                                    must be non-empty. If the operator is Exists or
+                                    DoesNotExist, the values array must be empty.
+                                    This array is replaced during a strategic merge
+                                    patch.
+                                  items:
+                                    type: string
+                                  type: array
+                              required:
+                              - key
+                              - operator
+                              type: object
+                            type: array
+                          matchLabels:
+                            additionalProperties:
+                              type: string
+                            description: matchLabels is a map of {key,value} pairs.
+                              A single {key,value} in the matchLabels map is equivalent
+                              to an element of matchExpressions, whose key field is
+                              "key", the operator is "In", and the values array contains
+                              only "value". The requirements are ANDed.
+                            type: object
+                        type: object
+                      podMonitorSelector:
+                        description: PodSelectors to select pods for metering
+                        properties:
+                          matchExpressions:
+                            description: matchExpressions is a list of label selector
+                              requirements. The requirements are ANDed.
+                            items:
+                              description: A label selector requirement is a selector
+                                that contains values, a key, and an operator that
+                                relates the key and values.
+                              properties:
+                                key:
+                                  description: key is the label key that the selector
+                                    applies to.
+                                  type: string
+                                operator:
+                                  description: operator represents a key's relationship
+                                    to a set of values. Valid operators are In, NotIn,
+                                    Exists and DoesNotExist.
+                                  type: string
+                                values:
+                                  description: values is an array of string values.
+                                    If the operator is In or NotIn, the values array
+                                    must be non-empty. If the operator is Exists or
+                                    DoesNotExist, the values array must be empty.
+                                    This array is replaced during a strategic merge
+                                    patch.
+                                  items:
+                                    type: string
+                                  type: array
+                              required:
+                              - key
+                              - operator
+                              type: object
+                            type: array
+                          matchLabels:
+                            additionalProperties:
+                              type: string
+                            description: matchLabels is a map of {key,value} pairs.
+                              A single {key,value} in the matchLabels map is equivalent
+                              to an element of matchExpressions, whose key field is
+                              "key", the operator is "In", and the values array contains
+                              only "value". The requirements are ANDed.
+                            type: object
+                        type: object
+                      serviceMeterLabels:
+                        description: ServiceLabels of the meterics you want to track.
+                        items:
+                          type: string
+                        type: array
+                      serviceMonitorNamespaceSelector:
+                        description: Namespaces to be selected for ServiceMonitor
+                          discovery. If nil, only check own namespace.
+                        properties:
+                          matchExpressions:
+                            description: matchExpressions is a list of label selector
+                              requirements. The requirements are ANDed.
+                            items:
+                              description: A label selector requirement is a selector
+                                that contains values, a key, and an operator that
+                                relates the key and values.
+                              properties:
+                                key:
+                                  description: key is the label key that the selector
+                                    applies to.
+                                  type: string
+                                operator:
+                                  description: operator represents a key's relationship
+                                    to a set of values. Valid operators are In, NotIn,
+                                    Exists and DoesNotExist.
+                                  type: string
+                                values:
+                                  description: values is an array of string values.
+                                    If the operator is In or NotIn, the values array
+                                    must be non-empty. If the operator is Exists or
+                                    DoesNotExist, the values array must be empty.
+                                    This array is replaced during a strategic merge
+                                    patch.
+                                  items:
+                                    type: string
+                                  type: array
+                              required:
+                              - key
+                              - operator
+                              type: object
+                            type: array
+                          matchLabels:
+                            additionalProperties:
+                              type: string
+                            description: matchLabels is a map of {key,value} pairs.
+                              A single {key,value} in the matchLabels map is equivalent
+                              to an element of matchExpressions, whose key field is
+                              "key", the operator is "In", and the values array contains
+                              only "value". The requirements are ANDed.
+                            type: object
+                        type: object
+                      serviceMonitorSelector:
+                        description: ServiceMonitors to be selected for target discovery.
+                        properties:
+                          matchExpressions:
+                            description: matchExpressions is a list of label selector
+                              requirements. The requirements are ANDed.
+                            items:
+                              description: A label selector requirement is a selector
+                                that contains values, a key, and an operator that
+                                relates the key and values.
+                              properties:
+                                key:
+                                  description: key is the label key that the selector
+                                    applies to.
+                                  type: string
+                                operator:
+                                  description: operator represents a key's relationship
+                                    to a set of values. Valid operators are In, NotIn,
+                                    Exists and DoesNotExist.
+                                  type: string
+                                values:
+                                  description: values is an array of string values.
+                                    If the operator is In or NotIn, the values array
+                                    must be non-empty. If the operator is Exists or
+                                    DoesNotExist, the values array must be empty.
+                                    This array is replaced during a strategic merge
+                                    patch.
+                                  items:
+                                    type: string
+                                  type: array
+                              required:
+                              - key
+                              - operator
+                              type: object
+                            type: array
+                          matchLabels:
+                            additionalProperties:
+                              type: string
+                            description: matchLabels is a map of {key,value} pairs.
+                              A single {key,value} in the matchLabels map is equivalent
+                              to an element of matchExpressions, whose key field is
+                              "key", the operator is "In", and the values array contains
+                              only "value". The requirements are ANDed.
+                            type: object
+                        type: object
+                    required:
+                    - meterDomain
+                    - meterKind
+                    - meterVersion
+                    type: object
+                  status:
+                    description: MeterDefinitionStatus defines the observed state
+                      of MeterDefinition
+                    properties:
+                      conditions:
+                        additionalProperties:
+                          description: "Condition represents an observation of an
+                            object's state. Conditions are an extension mechanism
+                            intended to be used when the details of an observation
+                            are not a priori known or would not apply to all instances
+                            of a given Kind. \n Conditions should be added to explicitly
+                            convey properties that users and components care about
+                            rather than requiring those properties to be inferred
+                            from other observations. Once defined, the meaning of
+                            a Condition can not be changed arbitrarily - it becomes
+                            part of the API, and has the same backwards- and forwards-compatibility
+                            concerns of any other part of the API."
+                          properties:
+                            lastTransitionTime:
+                              format: date-time
+                              type: string
+                            message:
+                              type: string
+                            reason:
+                              description: ConditionReason is intended to be a one-word,
+                                CamelCase representation of the category of cause
+                                of the current status. It is intended to be used in
+                                concise output, such as one-line kubectl get output,
+                                and in summarizing occurrences of causes.
+                              type: string
+                            status:
+                              type: string
+                            type:
+                              description: "ConditionType is the type of the condition
+                                and is typically a CamelCased word or short phrase.
+                                \n Condition types should indicate state in the \"abnormal-true\"
+                                polarity. For example, if the condition indicates
+                                when a policy is invalid, the \"is valid\" case is
+                                probably the norm, so the condition should be called
+                                \"Invalid\"."
+                              type: string
+                          required:
+                          - status
+                          - type
+                          type: object
+                        description: Conditions represent the latest available observations
+                          of an object's state
+                        type: array
+                      podLabels:
+                        description: PodLabels of the prometheus kube-state metrics
+                          you want to track.
+                        items:
+                          type: string
+                        type: array
+                      pods:
+                        description: Pods is the list of current pod mointors being
+                          watched for this meter definition
+                        items:
+                          type: object
+                        type: array
+                      serviceLabels:
+                        description: ServiceLabels of the meterics you want to track.
+                        items:
+                          type: string
+                        type: array
+                      serviceMonitors:
+                        description: ServiceMonitors is the list of service monitors
+                          being watched for this meter definition
+                        items:
+                          type: object
+                        type: array
+                    required:
+                    - conditions
+                    - podLabels
+                    - pods
+                    - serviceLabels
+                    - serviceMonitors
+                    type: object
+                type: object
+              type: array
+          required:
+          - meterDefinitions
           type: object
       type: object
   version: v1alpha1

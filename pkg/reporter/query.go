@@ -2,70 +2,88 @@ package reporter
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
-	"github.com/operator-framework/operator-sdk/pkg/leader"
-	"github.com/prometheus/client_golang/api"
+	"strings"
+
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type MarketplaceReporter struct {
-	config *MarketplaceReporterConfig
-	api v1.API
-	log logr.Logger
+type PromQuery struct {
+	Metric     string
+	Functions   []string
+	Labels     map[string]string
+	Start, End time.Time
+	Step       time.Duration
+	Time       string
+	SumBy      []string
 }
 
-func NewMarketplaceReporter(config *MarketplaceReporterConfig) (*MarketplaceReporter, error) {
-	client, err := api.NewClient(config.apiConfig)
-
-	if err != nil {
-		return nil, err
+func (q *PromQuery) String() string {
+	labelsArr := make([]string, 0, len(q.Labels))
+	for key, val := range q.Labels {
+		labelsArr = append(labelsArr, fmt.Sprintf(`%s="%s"`, key, val))
 	}
 
-	v1api := v1.NewAPI(client)
-	return &MarketplaceReporter{
-		config: config,
-		api: v1api,
-		log: logf.Log.WithName("reporter"),
-	}, nil
-}
+	var sb strings.Builder
 
-func (r *MarketplaceReporter) Run() error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	sb.WriteString(q.Metric)
 
-	// Become the leader before proceeding
-	err := leader.Become(ctx, r.config.ObjectMeta.GetName())
+	if len(labelsArr) > 0 {
+		sb.WriteString(fmt.Sprintf("{%s}", strings.Join(labelsArr, ",")))
 
-	if err != nil {
-		return err
+		if q.Time != "" {
+			sb.WriteString(fmt.Sprintf("[%s]", q.Time))
+		}
 	}
 
-	return nil
+	returnString := sb.String()
+
+	if len(q.Functions) > 0 {
+		var finalSB strings.Builder
+		for i := len(q.Functions) - 1; i >= 0; i-- {
+			funcStr := q.Functions[i]
+
+			finalSB.WriteString(fmt.Sprintf("%s(", funcStr))
+		}
+
+		finalSB.WriteString(sb.String())
+
+		for range q.Functions {
+			finalSB.WriteString(")")
+		}
+
+		returnString = finalSB.String()
+	}
+
+	if len(q.SumBy) > 0 {
+		returnString = fmt.Sprintf("sum by (%s) (%s)", strings.Join(q.SumBy, ","), returnString)
+	}
+
+	return returnString
 }
 
-func (r *MarketplaceReporter) queryRange(label string) (model.Value, error) {
+func (r *MarketplaceReporter) queryRange(query *PromQuery) (model.Value, v1.Warnings, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
 	timeRange := v1.Range{
-		Start: time.Now().Add(6 * -time.Hour),
-		End:   time.Now(),
-		Step:  60 * time.Minute,
+		Start: query.Start,
+		End:   query.End,
+		Step:  query.Step,
 	}
 
-	result, warnings, err := r.api.QueryRange(ctx, label, timeRange)
-	defer cancel()
+	result, warnings, err := r.api.QueryRange(ctx, query.String(), timeRange)
 
 	if err != nil {
 		r.log.Error(err, "querying prometheus")
-		return nil, err
+		return nil, warnings, err
 	}
 	if len(warnings) > 0 {
 		r.log.Info("warnings", "warnings", warnings)
 	}
 
-	return result, nil
+	return result, warnings, nil
 }

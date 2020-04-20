@@ -3,5 +3,11 @@ kind: MeterReport
 metadata:
   name: example-meterreport
 spec:
-  # Add fields here
-  size: 3
+  startTime: 2020-04-19T13:00:00Z
+  endTime: 2020-04-19T16:00:00Z
+  prometheusServiceLabels:
+    matchLabels:
+      meterbase_cr: rhm-marketplaceconfig-meterbase
+  meterDefinitionLabels:
+    matchLabels:
+      report: "1"

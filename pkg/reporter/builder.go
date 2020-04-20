@@ -2,6 +2,7 @@ package reporter
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/imdario/mergo"
@@ -35,13 +36,25 @@ type MetricsReport struct {
 	Metrics       []map[string]interface{} `json:"metrics"`
 }
 
+type MetricKey struct {
+	IntervalStart string `mapstructure:"interval_start"`
+	IntervalEnd   string `mapstructure:"interval_end"`
+	MeterDomain   string `mapstructure:"meter_domain"`
+	MeterKind     string `mapstructure:"meter_kind"`
+	MeterVersion  string `mapstructure:"meter_version"`
+}
+
 type MetricBase struct {
-	ReportPeriodStart string `mapstructure:"report_period_start"`
-	ReportPeriodEnd   string `mapstructure:"report_period_end"`
-	IntervalStart     string `mapstructure:"interval_start"`
-	IntervalEnd       string `mapstructure:"interval_end"`
-	MeterDomain       string `mapstructure:"meter_domain"`
+	ReportPeriodStart string    `mapstructure:"report_period_start"`
+	ReportPeriodEnd   string    `mapstructure:"report_period_end"`
+	Key               MetricKey `mapstructure:",squash"`
+	Namespace         string    `mapstructure:"namespace"`
+	Pod               string    `mapstructure:"pod"`
 	metrics           map[string]interface{}
+}
+
+func TimeToReportTimeStr(myTime time.Time) string {
+	return myTime.Format(time.RFC3339)
 }
 
 func (m *MetricBase) AddMetrics(keysAndValues ...interface{}) error {

@@ -2,6 +2,8 @@ apiVersion: marketplace.redhat.com/v1alpha1
 kind: MeterDefinition
 metadata:
   name: example-meterdefinition
+  labels:
+    report: "1"
 spec:
   # Add fields here
   meterDomain: apps.partner.metering.com

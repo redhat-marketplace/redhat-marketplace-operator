@@ -3,30 +3,37 @@ package v1alpha1
 import (
 	batch "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // MeterReportSpec defines the desired state of MeterReport
 type MeterReportSpec struct {
 	// StartTime of the job
-	StartTime metav1.Timestamp `json:"startTime"`
+	StartTime metav1.Time `json:"startTime"`
 
-	// EndTime of the job
-	EndTime metav1.Timestamp `json:"endTime"`
+	// EndTime of the jbo
+	EndTime metav1.Time `json:"endTime"`
 
-	// PrometheusServiceLabels is the definition for the service labels
+	// PrometheusServiceLabels is the definition for the service labels.
 	PrometheusServiceLabels *metav1.LabelSelector `json:"prometheusServiceLabels"`
 
-	// MeterDefinitions includes the meter defs to be included in this job
-	MeterDefinitions MeterDefinitionList `json:"meterDefinitions"`
+	// MeterDefinitions includes the meter defs to be included in this job.
+	MeterDefinitionLabels *metav1.LabelSelector `json:"meterDefinitionLabels"`
 }
+
+type ReportSchedule string
 
 // MeterReportStatus defines the observed state of MeterReport
 type MeterReportStatus struct {
 	// Conditions represent the latest available observations of an object's stateonfig
 	Conditions *batch.JobCondition `json:"conditions,omitempty"`
 
-	// JobState is the status of the Report Job
-	JobState batch.JobStatus `json:"jobState,omitempty"`
+	// MeterDefinitions is the list of meterDefinitions included in the report
+	MeterDefinitions []*MeterDefinition `json:"meterDefinitions"`
+
+	// A list of pointers to currently running jobs.
+	// +optional
+	Active []corev1.ObjectReference `json:"active,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -10,12 +10,16 @@ func TestMetricBuilder(t *testing.T) {
 	metricsReport := &MetricsReport{
 		ReportSliceID: ReportSliceKey(uuid.New()),
 	}
+
+	key := MetricKey{
+		IntervalStart: "istart",
+		IntervalEnd:   "iend",
+		MeterDomain:   "test",
+	}
 	metricBase := &MetricBase{
 		ReportPeriodStart: "start",
 		ReportPeriodEnd:   "end",
-		IntervalStart:     "istart",
-		IntervalEnd:       "iend",
-		MeterDomain:       "test",
+		Key:               key,
 	}
 
 	err := metricBase.AddMetrics("foo", 1, "bar", 2)

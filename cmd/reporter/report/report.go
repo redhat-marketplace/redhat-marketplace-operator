@@ -15,7 +15,7 @@ var log = logf.Log.WithName("reporter_report")
 
 var name, namespace string
 
-var reportCmd = &cobra.Command{
+var ReportCmd = &cobra.Command{
 	Use:   "report",
 	Short: "Print the version number of Hugo",
 	Long:  `All software has versions. This is Hugo's`,
@@ -40,8 +40,8 @@ var reportCmd = &cobra.Command{
 }
 
 func init() {
-	reportCmd.Flags().StringVar(&name, "name", "", "name of the report")
-	reportCmd.Flags().StringVar(&name, "namespace", "", "namespace of the report")
+	ReportCmd.Flags().StringVar(&name, "name", "", "name of the report")
+	ReportCmd.Flags().StringVar(&name, "namespace", "", "namespace of the report")
 }
 
 var MarketplaceReporterSet = wire.NewSet(

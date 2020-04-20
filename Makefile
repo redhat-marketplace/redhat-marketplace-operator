@@ -14,6 +14,11 @@ SECRETS_NAME := my-docker-secrets
 
 OPERATOR_IMAGE := $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
 
+REPORTER_IMAGE_NAME ?= redhat-marketplace-reporter
+REPORTER_IMAGE_TAG ?= $(VERSION)
+REPORTER_IMAGE := $(IMAGE_REGISTRY)/$(REPORTER_IMAGE_NAME):$(REPORTER_IMAGE_TAG)
+
+PUSH_IMAGE ?= false
 PULL_POLICY ?= IfNotPresent
 .DEFAULT_GOAL := help
 
@@ -34,11 +39,20 @@ uninstall: ## Uninstall all that all performed in the $ make install
 
 .PHONY: build
 build: ## Build the operator executable
-	VERSION=$(VERSION) PUSH_IMAGE=false IMAGE=$(OPERATOR_IMAGE) ./scripts/skaffold-build.sh
+	VERSION=$(VERSION) PUSH_IMAGE=$(PUSH_IMAGE) IMAGE=$(OPERATOR_IMAGE) ./scripts/skaffold-build.sh
+
+.PHONY: build-reporter
+build-reporter: ## Build the operator executable
+	VERSION=$(VERSION) PUSH_IMAGE=$(PUSH_IMAGE) IMAGE=$(REPORTER_IMAGE) ./scripts/skaffold-build-reporter.sh
 
 .PHONY: push
 push: push ## Push the operator image
-	docker push $(OPERATOR_IMAGE)
+	PUSH_IMAGE=true make build
+
+.PHONY: push-reporter
+push-reporter: ## Push the repoter image
+	PUSH_IMAGE=true make build-reporter
+
 
 helm: ## build helm base charts
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE) --set namespace=$(NAMESPACE)
@@ -115,6 +129,7 @@ create: ##creates the required crds for this deployment
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterreports_crd.yaml -n ${NAMESPACE}
 
 deploys: ##deploys the resources for deployment
 	@echo deploying services and operators
