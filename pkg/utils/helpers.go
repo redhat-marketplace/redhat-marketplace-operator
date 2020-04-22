@@ -190,7 +190,7 @@ func AddSecretFieldsToStruct(razeeData map[string][]byte) (*marketplacev1alpha1.
 		}else{
 		newField = []byte(fmt.Sprintf(`{"%v": "%v"}`,key,value))
 		}
-	
+		
     	// add to the struct
 		err = json.Unmarshal(newField, &razeeStruct)
 		if err != nil {
