@@ -764,24 +764,29 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 			if err == nil {
 				reqLogger.Info("parent RRS3 already exists")
+				
+				//TODO: could functionalize this
 				updatedParentRRS3 := r.MakeParentRemoteResourceS3(instance)
-
-				patchResult, err := patch.DefaultPatchMaker.Calculate(parentRRS3, updatedParentRRS3)
+				updatedParentRRS3.SetAnnotations(parentRRS3.GetAnnotations())
+				updatedParentRRS3.SetCreationTimestamp(parentRRS3.GetCreationTimestamp())
+				updatedParentRRS3.SetFinalizers(parentRRS3.GetFinalizers())
+				updatedParentRRS3.SetGeneration(parentRRS3.GetGeneration())
+				updatedParentRRS3.SetResourceVersion(parentRRS3.GetResourceVersion())
+				updatedParentRRS3.SetSelfLink(parentRRS3.GetSelfLink())
+				updatedParentRRS3.SetUID(parentRRS3.GetUID())
+			
+				patchResult, err := patch.DefaultPatchMaker.Calculate(parentRRS3, updatedParentRRS3, patch.IgnoreStatusFields())
 				if err != nil {
 					// handle the error
 					reqLogger.Error(err,"Failed to compare patches")
 				}	
 				
-				fmt.Println(fmt.Sprintf("Current %v \n",string(patchResult.Current)))
-				fmt.Println(fmt.Sprintf("Modified %v \n",string(patchResult.Modified)))
-				fmt.Println(fmt.Sprintf("Original %v \n",string(patchResult.Original)))
-				fmt.Println(fmt.Sprintf("Patch %v \n",string(patchResult.Patch)))
-
 				if !patchResult.IsEmpty() {
 					reqLogger.Info(fmt.Sprintf("Change detected on %v",updatedParentRRS3.GetName()))
 				
 					// just updating the url for now
-					parentRRS3.Object["spec"].(map[string]interface{})["requests"].([]interface{})[0].(map[string]interface{})["options"].(map[string]interface{})["url"] = *instance.Spec.ChildUrl
+					parentRRS3.Object["spec"] = updatedParentRRS3.Object["spec"]
+					// parentRRS3.Object["spec"].(map[string]interface{})["requests"].([]interface{})[0].(map[string]interface{})["options"].(map[string]interface{})["url"] = *instance.Spec.ChildUrl
 					// ["url"] = *instance.Spec.ChildUrl
 					if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(parentRRS3); err != nil {
 						reqLogger.Error(err, "Failed to set annotation")
@@ -909,7 +914,6 @@ func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(request *reconcile
 
 	razeeConfigurationValues, missingItems,err := utils.ConvertSecretToStruct(rhmOperatorSecret.Data)
 
-	fmt.Println("MISSING ITEMS: ",missingItems)
 	razeeInstance.Spec.MissingDeploySecretValues = missingItems
 	razeeInstance.Spec.DeployConfig = &razeeConfigurationValues
 
