@@ -780,8 +780,6 @@ github.com/otiai10/curr v0.0.0-20190513014714-f5a3d24e5776/go.mod h1:3HNVkVOU7vZ
 github.com/otiai10/mint v1.2.3/go.mod h1:YnfyPNhBvnY8bW4SGQHCs/aAFhkgySlMZbrF5U0bOVw=
 github.com/otiai10/mint v1.2.4/go.mod h1:d+b7n/0R3tdyUYYylALXpWQ/kTN+QobSq/4SRGBkR3M=
 github.com/otiai10/mint v1.3.0/go.mod h1:F5AjcsTsWUqX+Na9fpHb52P8pcRX2CI6A3ctIT91xUo=
-github.com/panjf2000/ants/v2 v2.3.1 h1:9iOZHO5XlSO1Gs5K7x06uDFy8bkicWlhOKGh/TufAZg=
-github.com/panjf2000/ants/v2 v2.3.1/go.mod h1:LtwNaBX6OeF5qRtQlaeGndalVwJlS2ueur7uwoAHbPA=
 github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 github.com/pascaldekloe/goe v0.1.0/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 github.com/pborman/uuid v1.2.0 h1:J7Q5mO4ysT1dv8hyrUGHb9+ooztCXu1D8MY8DZYsu3g=
