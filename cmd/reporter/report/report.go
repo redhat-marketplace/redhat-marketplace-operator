@@ -28,7 +28,7 @@ var ReportCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		err = report.Run()
+		_, err = report.CollectMetrics(nil, nil)
 
 		if err != nil {
 			log.Error(err, "")

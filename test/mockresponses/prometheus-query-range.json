@@ -1,0 +1,27 @@
+{
+  "status": "success",
+  "data": {
+    "resultType": "matrix",
+    "result": [
+      {
+        "metric": {
+          "meter_domain": "apps.partner.metering.com",
+          "meter_kind": "App",
+          "namespace": "metering-example-operator",
+          "pod": "example-app-pod",
+          "service": "example-app-pod"
+        },
+        "values": [
+          [
+            1587308400,
+            "4268517"
+          ],
+          [
+            1587312000,
+            "4355360"
+          ]
+        ]
+      }
+    ]
+  }
+}

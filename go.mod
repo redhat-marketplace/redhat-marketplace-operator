@@ -15,6 +15,7 @@ require (
 	github.com/gotidy/ptr v1.0.1
 	github.com/imdario/mergo v0.3.8
 	github.com/launchdarkly/go-options v1.0.0
+	github.com/meirf/gopart v0.0.0-20180520194036-37e9492a85a8
 	github.com/mikefarah/yq/v3 v3.0.0-20200415014842-6f0a329331f9
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.1.2

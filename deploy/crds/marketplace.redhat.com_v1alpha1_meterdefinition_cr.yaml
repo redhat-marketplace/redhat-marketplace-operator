@@ -10,7 +10,8 @@ spec:
   meterVersion: v1
   meterKind: App
   serviceMeterLabels:
-    - rpc_durations_seconds.*
+    - "rpc_durations_seconds_count"
+    - "cpu_temperature_celsius"
   podMeterLabels:
     - bar
   serviceMonitorSelector:

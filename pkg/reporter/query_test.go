@@ -29,7 +29,7 @@ func TestQueryRange(t *testing.T) {
 		t.Skip("skipping test in short mode.")
 	}
 
-	setupAPI()
+	require.NoError(t, setupAPI(mockResponseRoundTripper(t)), "could not setup api")
 
 	result, warnings, err := sut.queryRange(rpcDurationSecondsQuery)
 
@@ -40,7 +40,7 @@ func TestQueryRange(t *testing.T) {
 	matrixResult, ok := result.(model.Matrix)
 
 	require.True(t, ok, "result is not a matrix")
-	assert.Equal(t, 3, len(matrixResult), "length does not match")
+	assert.Equal(t, 1, len(matrixResult), "length does not match")
 }
 
 func TestQueryBuilder(t *testing.T) {

@@ -21,14 +21,27 @@ type ReportMetadata struct {
 }
 
 type ReportSourceMetadata struct {
-	RhmClusterID  string `json:"rhm_cluster_id"`
-	RhmCustomerID string `json:"rhm_customer_id"`
+	RhmClusterID string `json:"rhm_cluster_id"`
+	RhmAccountID string `json:"rhm_account_id"`
 }
 
 type ReportSliceKey uuid.UUID
 
+
+func (sliceKey ReportSliceKey) MarshalText() ([]byte, error) {
+	return uuid.UUID(sliceKey).MarshalText()
+}
+
+func (sliceKey ReportSliceKey) MarshalBinary() ([]byte, error) {
+	return uuid.UUID(sliceKey).MarshalBinary()
+}
+
+func (sliceKey ReportSliceKey) String() (string) {
+	return uuid.UUID(sliceKey).String()
+}
+
 type ReportSlicesValue struct {
-	NumberHosts int `json:"number_hosts"`
+	NumberMetrics int `json:"number_metrics"`
 }
 
 type MetricsReport struct {
@@ -37,20 +50,18 @@ type MetricsReport struct {
 }
 
 type MetricKey struct {
-	IntervalStart string `mapstructure:"interval_start"`
-	IntervalEnd   string `mapstructure:"interval_end"`
-	MeterDomain   string `mapstructure:"meter_domain"`
-	MeterKind     string `mapstructure:"meter_kind"`
-	MeterVersion  string `mapstructure:"meter_version"`
+	ReportPeriodStart string `mapstructure:"report_period_start",json:"report_period_start"`
+	ReportPeriodEnd   string `mapstructure:"report_period_end"`
+	IntervalStart     string `mapstructure:"interval_start"`
+	IntervalEnd       string `mapstructure:"interval_end"`
+	MeterDomain       string `mapstructure:"domain"`
+	MeterKind         string `mapstructure:"kind"`
+	MeterVersion      string `mapstructure:"version"`
 }
 
 type MetricBase struct {
-	ReportPeriodStart string    `mapstructure:"report_period_start"`
-	ReportPeriodEnd   string    `mapstructure:"report_period_end"`
-	Key               MetricKey `mapstructure:",squash"`
-	Namespace         string    `mapstructure:"namespace"`
-	Pod               string    `mapstructure:"pod"`
-	metrics           map[string]interface{}
+	Key     MetricKey `mapstructure:",squash"`
+	metrics map[string]interface{}
 }
 
 func TimeToReportTimeStr(myTime time.Time) string {
@@ -108,11 +119,26 @@ func (m *MetricsReport) AddMetrics(metrics ...*MetricBase) error {
 
 func (r *ReportMetadata) AddMetricsReport(report *MetricsReport) {
 	r.ReportSlices[report.ReportSliceID] = ReportSlicesValue{
-		NumberHosts: len(report.Metrics),
+		NumberMetrics: len(report.Metrics),
 	}
 }
 
-func NewReport(source uuid.UUID, metadata ReportSourceMetadata) *ReportMetadata {
+func (r *ReportMetadata) UpdateMetricsReport(report *MetricsReport) {
+	r.ReportSlices[report.ReportSliceID] = ReportSlicesValue{
+		NumberMetrics: len(report.Metrics),
+	}
+}
+
+func NewReport() *MetricsReport {
+	return &MetricsReport{
+		ReportSliceID: ReportSliceKey(uuid.New()),
+	}
+}
+
+func NewReportMetadata(
+	source uuid.UUID,
+	metadata ReportSourceMetadata,
+) *ReportMetadata {
 	return &ReportMetadata{
 		ReportID:       uuid.New(),
 		Source:         source,

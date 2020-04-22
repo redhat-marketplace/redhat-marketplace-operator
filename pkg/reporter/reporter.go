@@ -1,12 +1,17 @@
 package reporter
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/google/uuid"
+	"github.com/meirf/gopart"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
@@ -17,13 +22,12 @@ import (
 	k8sconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-
-	ants "github.com/panjf2000/ants/v2"
 )
 
 var (
-	metricsHost       = "0.0.0.0"
-	metricsPort int32 = 8383
+	metricsHost            = "0.0.0.0"
+	metricsPort      int32 = 8383
+	additionalLabels       = []model.LabelName{"pod", "namespace", "service"}
 )
 
 // Goals of the reporter:
@@ -40,11 +44,13 @@ var (
 // Update the CR status for each report and queue
 
 type MarketplaceReporter struct {
-	api          v1.API
-	log          logr.Logger
-	maxRoutines  int
-	queryResults chan model.Value
-	mgr          manager.Manager
+	api             v1.API
+	log             logr.Logger
+	debug           logr.InfoLogger
+	maxRoutines     int
+	queryResults    chan model.Value
+	mgr             manager.Manager
+	outputDirectory string
 }
 
 func NewMarketplaceReporter(config *MarketplaceReporterConfig) (*MarketplaceReporter, error) {
@@ -83,7 +89,7 @@ func NewMarketplaceReporter(config *MarketplaceReporterConfig) (*MarketplaceRepo
 	}
 
 	client, err := api.NewClient(api.Config{
-		Address: "https://localhost:9090", //TODO: replace
+		Address: "https://localhost:9090", //TODO: replace with https
 	})
 
 	if err != nil {
@@ -91,10 +97,15 @@ func NewMarketplaceReporter(config *MarketplaceReporterConfig) (*MarketplaceRepo
 	}
 
 	v1api := v1.NewAPI(client)
+
+	logger := logf.Log.WithName("reporter")
+
 	return &MarketplaceReporter{
-		api: v1api,
-		log: logf.Log.WithName("reporter"),
-		mgr: mgr,
+		api:             v1api,
+		log:             logger,
+		debug:           logger.V(3),
+		mgr:             mgr,
+		outputDirectory: ".",
 	}, nil
 }
 
@@ -106,7 +117,6 @@ func (r *MarketplaceReporter) CollectMetrics(
 	report *marketplacev1alpha1.MeterReport,
 	meterDefinitions []*marketplacev1alpha1.MeterDefinition,
 ) (map[MetricKey]MetricBase, error) {
-	defer ants.Release()
 	// ctx, cancel := context.WithCancel(context.Background())
 	// defer cancel()
 
@@ -129,7 +139,7 @@ func (r *MarketplaceReporter) CollectMetrics(
 		queryDone,
 		errorsChan)
 
-	go r.Process(promModelsChan, resultsMap, &resultsMapMutex, processDone, errorsChan)
+	go r.Process(promModelsChan, resultsMap, &resultsMapMutex, report, processDone, errorsChan)
 
 	for _, meterDef := range meterDefinitions {
 		meterDefsChan <- meterDef
@@ -142,7 +152,6 @@ func (r *MarketplaceReporter) CollectMetrics(
 
 	<-processDone
 	r.log.Info("processing done")
-
 
 	return resultsMap, nil
 }
@@ -169,6 +178,10 @@ func (r *MarketplaceReporter) Query(
 	queryProcess := func(mdef *marketplacev1alpha1.MeterDefinition) {
 		for _, metric := range mdef.Spec.ServiceMeterLabels {
 			r.log.Info("query", "metric", metric)
+			// TODO: use metadata to build a smart roll up
+			// Guage = delta
+			// Counter = increase
+			// Histogram and summary are unsupported
 			query := &PromQuery{
 				Metric: metric,
 				Labels: map[string]string{
@@ -176,12 +189,12 @@ func (r *MarketplaceReporter) Query(
 					"meter_kind":   mdef.Spec.MeterKind,
 					//"meter_version" : mdef.Spec.MeterVersion,
 				},
-				Functions: []string{"delta"},
-				Time: "60m",
-				Start: startTime,
-				End:   endTime,
-				Step:  time.Hour,
-				SumBy: []string{ "meter_kind", "meter_domain", "meter_version", "pod", "namespace" },
+				Functions: []string{"increase"},
+				Time:      "60m",
+				Start:     startTime,
+				End:       endTime,
+				Step:      time.Hour,
+				SumBy:     []string{"meter_kind", "meter_domain", "meter_version", "pod", "namespace"},
 			}
 			r.log.Info("test", "query", query.String())
 			val, warnings, err := r.queryRange(query)
@@ -218,25 +231,34 @@ func (r *MarketplaceReporter) Process(
 	inPromModels <-chan meterDefPromModel,
 	results map[MetricKey]MetricBase,
 	mutex *sync.Mutex,
+	report *marketplacev1alpha1.MeterReport,
 	done chan<- bool,
 	errors chan<- error,
 ) {
-	syncProcess := func(name string, mdef *marketplacev1alpha1.MeterDefinition, m model.Value) {
+	syncProcess := func(
+		name string,
+		mdef *marketplacev1alpha1.MeterDefinition,
+		report *marketplacev1alpha1.MeterReport,
+		m model.Value,
+	) {
 		//# do the work
 		switch m.Type() {
 		case model.ValMatrix:
 			matrixVals := m.(model.Matrix)
 
 			for _, matrix := range matrixVals {
-				r.log.V(0).Info("adding metric", "metri", matrix.Metric)
+				r.debug.Info("adding metric", "metric", matrix.Metric)
+
 				for _, pair := range matrix.Values {
 					func() {
 						key := MetricKey{
-							IntervalStart: pair.Timestamp.String(),
-							IntervalEnd:   pair.Timestamp.Add(time.Hour).String(),
-							MeterDomain:   mdef.Spec.MeterDomain,
-							MeterKind:     mdef.Spec.MeterKind,
-							MeterVersion:  mdef.Spec.MeterVersion,
+							ReportPeriodStart: report.Spec.StartTime.Format(time.RFC3339),
+							ReportPeriodEnd:   report.Spec.EndTime.Format(time.RFC3339),
+							IntervalStart:     pair.Timestamp.Time().Format(time.RFC3339),
+							IntervalEnd:       pair.Timestamp.Add(time.Hour).Time().Format(time.RFC3339),
+							MeterDomain:       mdef.Spec.MeterDomain,
+							MeterKind:         mdef.Spec.MeterKind,
+							MeterVersion:      mdef.Spec.MeterVersion,
 						}
 
 						mutex.Lock()
@@ -250,11 +272,10 @@ func (r *MarketplaceReporter) Process(
 							}
 						}
 
-						r.log.V(0).Info("adding pair", "name", name, "", pair)
-						err := base.AddMetrics(
-							name, pair.Value.String(),
-							"pod", matrix.Metric["pod"],
-							"namespace", matrix.Metric["namespace"])
+						r.debug.Info("adding pair", "metric", matrix.Metric, "pair", pair)
+						metricPairs := []interface{}{name, pair.Value.String()}
+						metricPairs = append(metricPairs, getKeysFromMetric(matrix.Metric, additionalLabels)...)
+						err := base.AddMetrics(metricPairs...)
 
 						if err != nil {
 							errors <- err
@@ -274,10 +295,93 @@ func (r *MarketplaceReporter) Process(
 		go func() {
 			defer wg.Done()
 			for pmodel := range inPromModels {
-				syncProcess(pmodel.MetricName, pmodel.MeterDefinition, pmodel.Value)
+				syncProcess(pmodel.MetricName, pmodel.MeterDefinition, report, pmodel.Value)
 			}
 		}()
 	}
 	wg.Wait()
 	done <- true
+}
+
+func (r *MarketplaceReporter) WriteReport(
+	source uuid.UUID,
+	marketplaceConfig *marketplacev1alpha1.MarketplaceConfig,
+	report *marketplacev1alpha1.MeterReport,
+	metrics map[MetricKey]MetricBase,
+) ([]string, error) {
+
+	metadata := NewReportMetadata(source, ReportSourceMetadata{
+		RhmAccountID: marketplaceConfig.Spec.RhmAccountID,
+		RhmClusterID: marketplaceConfig.Spec.ClusterUUID,
+	})
+
+	const partitionSize = 100
+
+	metricsArr := make([]*MetricBase, 0, len(metrics))
+
+	for _, v := range metrics {
+		metricsArr = append(metricsArr, &v)
+	}
+
+	filenames := []string{}
+
+	for idxRange := range gopart.Partition(len(metricsArr), partitionSize) {
+		metricReport := NewReport()
+		metadata.AddMetricsReport(metricReport)
+		metricReport.AddMetrics(metricsArr[idxRange.Low:idxRange.High]...)
+		metadata.UpdateMetricsReport(metricReport)
+
+		marshallBytes, err := json.Marshal([]*MetricsReport{metricReport})
+		r.debug.Info(string(marshallBytes))
+		if err != nil {
+			r.log.Error(err, "failed to marshal metrics report", "report", metricReport)
+			return nil, err
+		}
+		filename := filepath.Join(
+			r.outputDirectory,
+			fmt.Sprintf("%s.json", metricReport.ReportSliceID.String()))
+		err = ioutil.WriteFile(
+			filename,
+			marshallBytes,
+			0644)
+
+		if err != nil {
+			r.log.Error(err, "failed to write file", "file", filename)
+			return nil, err
+		}
+
+		filenames = append(filenames, filename)
+	}
+
+	marshallBytes, err := json.Marshal(metadata)
+	if err != nil {
+		r.log.Error(err, "failed to marshal report metadata", "metadata", metadata)
+		return nil, err
+	}
+
+	filename := filepath.Join(
+		r.outputDirectory,
+		"metadata.json")
+	err = ioutil.WriteFile(
+		filename,
+		marshallBytes,
+		0644)
+	if err != nil {
+		r.log.Error(err, "failed to write file", "file", filename)
+		return nil, err
+	}
+
+	filenames = append(filenames, filename)
+
+	return filenames, nil
+}
+
+func getKeysFromMetric(metric model.Metric, labels []model.LabelName) []interface{} {
+	allLabels := make([]interface{}, 0, len(labels)*2)
+	for _, label := range labels {
+		if val, ok := metric[label]; ok {
+			allLabels = append(allLabels, string(label), string(val))
+		}
+	}
+	return allLabels
 }

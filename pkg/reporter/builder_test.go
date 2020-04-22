@@ -12,13 +12,13 @@ func TestMetricBuilder(t *testing.T) {
 	}
 
 	key := MetricKey{
+		ReportPeriodStart: "start",
+		ReportPeriodEnd:   "end",
 		IntervalStart: "istart",
 		IntervalEnd:   "iend",
 		MeterDomain:   "test",
 	}
 	metricBase := &MetricBase{
-		ReportPeriodStart: "start",
-		ReportPeriodEnd:   "end",
 		Key:               key,
 	}
 
