@@ -328,11 +328,9 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				return reconcile.Result{RequeueAfter: time.Second * 30}, nil
 			} else {
 				reqLogger.Info("all secret values found")
-				//TODO: I could maybe move this down into MakeParentRemoteResource()
 				//construct the childURL
 				url := fmt.Sprintf("%s/%s/%s/%s", instance.Spec.DeployConfig.IbmCosURL, instance.Spec.DeployConfig.BucketName, instance.Spec.ClusterUUID, instance.Spec.DeployConfig.ChildRSSFIleName)
 				instance.Spec.ChildUrl = &url
-				fmt.Println("CHILD URL", url)
 				err = r.client.Update(context.TODO(), instance)
 				if err != nil {
 					reqLogger.Error(err, "Failed to update ChildUrl")
@@ -820,7 +818,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			if err == nil {
 				reqLogger.Info("parent RRS3 already exists")
 
-				//TODO: could functionalize this
 				updatedParentRRS3 := r.MakeParentRemoteResourceS3(instance)
 				updatedParentRRS3.SetAnnotations(parentRRS3.GetAnnotations())
 				updatedParentRRS3.SetCreationTimestamp(parentRRS3.GetCreationTimestamp())
@@ -1206,7 +1203,6 @@ func (r *ReconcileRazeeDeployment) GetDataFromRhmSecret(request reconcile.Reques
 
 func (r *ReconcileRazeeDeployment) MakeWatchKeeperSecret(instance *marketplacev1alpha1.RazeeDeployment, request reconcile.Request) *corev1.Secret {
 	selector := instance.Spec.DeployConfig.RazeeDashOrgKey
-	//TODO: fill out with unused vars
 	_, _, key := r.GetDataFromRhmSecret(request, *selector)
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

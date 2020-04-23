@@ -43,6 +43,8 @@ func setup(r *ReconcilerTest) error {
 var (
 	name      = "marketplaceconfig"
 	namespace = "redhat-marketplace-operator"
+	secretName = "rhm-operator-secret"
+
 	opts      = []TestCaseOption{
 		WithRequest(req),
 		WithNamespace(RAZEE_NAMESPACE),
@@ -62,6 +64,7 @@ var (
 		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
 			Enabled:     true,
 			ClusterUUID: "foo",
+			DeploySecretName: &secretName,
 		},
 	}
 	secret = corev1.Secret{
