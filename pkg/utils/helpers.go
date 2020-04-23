@@ -82,7 +82,6 @@ func RemoveKey(list []string, key string) []string {
 	return newList
 }
 
-
 func CheckMapKeys(razeeConfigValues map[string]string, referenceList []string) []string {
 	missingItems := []string{}
 	for _, referenceItem := range referenceList {
@@ -100,17 +99,16 @@ func RetrieveSecretField(in []byte) (string, error) {
 	return strings.Trim(string(decoded), " \r\n"), err
 }
 
-
 func ExtractCredKey(secret *corev1.Secret, sel corev1.SecretKeySelector) ([]byte, error) {
 	var value []byte
 	var error error
 	if value, ok := secret.Data[sel.Key]; ok {
 		return value, nil
-	}else if !ok{
-		error = fmt.Errorf("secret %s key %q not in secret",sel.Key, sel.Name)
+	} else if !ok {
+		error = fmt.Errorf("secret %s key %q not in secret", sel.Key, sel.Name)
 	}
 
-	return value,error
+	return value, error
 }
 
 // func GetCredFromSecret(c corev1client.SecretInterface, sel corev1.SecretKeySelector) ([]byte, error) {
@@ -167,31 +165,31 @@ func AddSecretFieldsToObj(razeeData map[string][]byte) (map[string]string, error
 // 	return updatedRazeeValues,missingItems, error
 // }
 
-func AddSecretFieldsToStruct(razeeData map[string][]byte) (*marketplacev1alpha1.RazeeConfigurationValues,[]string,error) {
-	
+func AddSecretFieldsToStruct(razeeData map[string][]byte) (*marketplacev1alpha1.RazeeConfigurationValues, []string, error) {
+
 	newField := []byte{}
 	var razeeStruct *marketplacev1alpha1.RazeeConfigurationValues = &marketplacev1alpha1.RazeeConfigurationValues{}
 	var error error
-  	keys := []string{}
+	keys := []string{}
 	for key, element := range razeeData {
-    keys = append(keys,key)
+		keys = append(keys, key)
 		value, err := RetrieveSecretField(element)
 		if err != nil {
 			error = err
 		}
-    
-		// fullfill the SecretKeySelector struct 
-		if key == "IBM_COS_READER_KEY"{          
-		newField = []byte(fmt.Sprintf(
-		`{"%v": {"name": "rhm-operator-secret","key": "%v"}}`,key,key))
-		}else if key == "RAZEE_DASH_ORG_KEY"{          
-		newField = []byte(fmt.Sprintf(
-		`{"%v": {"name": "rhm-operator-secret","key": "%v"}}`,key,key))
-		}else{
-		newField = []byte(fmt.Sprintf(`{"%v": "%v"}`,key,value))
+
+		// fullfill the SecretKeySelector struct
+		if key == "IBM_COS_READER_KEY" {
+			newField = []byte(fmt.Sprintf(
+				`{"%v": {"name": "rhm-operator-secret","key": "%v"}}`, key, key))
+		} else if key == "RAZEE_DASH_ORG_KEY" {
+			newField = []byte(fmt.Sprintf(
+				`{"%v": {"name": "rhm-operator-secret","key": "%v"}}`, key, key))
+		} else {
+			newField = []byte(fmt.Sprintf(`{"%v": "%v"}`, key, value))
 		}
-		
-    	// add to the struct
+
+		// add to the struct
 		err = json.Unmarshal(newField, &razeeStruct)
 		if err != nil {
 			error = err
@@ -201,54 +199,54 @@ func AddSecretFieldsToStruct(razeeData map[string][]byte) (*marketplacev1alpha1.
 		}
 	}
 
-	missingItems := ContainsMultiple(keys,GetStructFieldsOnBase(marketplacev1alpha1.RazeeConfigurationValues{}))
-	return razeeStruct,missingItems,error
-  }
-
-// returns the fields on the type/base struct so we don't to maintain a list of all the fields
-func GetStructFieldsOnBase(razeeStruct marketplacev1alpha1.RazeeConfigurationValues)[]string{
-    aa := reflect.Indirect(reflect.ValueOf(razeeStruct))
-    fieldSlice := []string{}
-    for i := 0; i < aa.NumField(); i++ {
-      field :=  aa.Type().Field(i)
-      if jsonTag := field.Tag.Get("json"); jsonTag != "" && jsonTag != "-" {
-            if commaIdx := strings.Index(jsonTag, ","); commaIdx > 0 {
-                fieldName := jsonTag[:commaIdx]
-                 fieldSlice = append(fieldSlice, string(fieldName))
-            }
-        }
-    }
-    return fieldSlice
+	missingItems := ContainsMultiple(keys, GetStructFieldsOnBase(marketplacev1alpha1.RazeeConfigurationValues{}))
+	return razeeStruct, missingItems, error
 }
 
-func ConvertSecretToStruct(razeeData map[string][]byte)(marketplacev1alpha1.RazeeConfigurationValues,[]string,error){
+// returns the fields on the type/base struct so we don't to maintain a list of all the fields
+func GetStructFieldsOnBase(razeeStruct marketplacev1alpha1.RazeeConfigurationValues) []string {
+	aa := reflect.Indirect(reflect.ValueOf(razeeStruct))
+	fieldSlice := []string{}
+	for i := 0; i < aa.NumField(); i++ {
+		field := aa.Type().Field(i)
+		if jsonTag := field.Tag.Get("json"); jsonTag != "" && jsonTag != "-" {
+			if commaIdx := strings.Index(jsonTag, ","); commaIdx > 0 {
+				fieldName := jsonTag[:commaIdx]
+				fieldSlice = append(fieldSlice, string(fieldName))
+			}
+		}
+	}
+	return fieldSlice
+}
+
+func ConvertSecretToStruct(razeeData map[string][]byte) (marketplacev1alpha1.RazeeConfigurationValues, []string, error) {
 
 	newField := []byte{}
 	var razeeStruct *marketplacev1alpha1.RazeeConfigurationValues = &marketplacev1alpha1.RazeeConfigurationValues{}
 	var error error
-  keys := []string{}
+	keys := []string{}
 	for key, element := range razeeData {
-    keys = append(keys,key)
+		keys = append(keys, key)
 		value, err := RetrieveSecretField(element)
 		if err != nil {
 			error = err
 		}
-    
-    // fullfill the SecretKeySelector struct 
-    if key == "IBM_COS_READER_KEY"{          
-      newField = []byte(fmt.Sprintf(
-      `{"%v": {"name": "rhm-operator-secret","key": "%v"}}`,key,key))
-    }else if key == "RAZEE_DASH_ORG_KEY"{          
-      newField = []byte(fmt.Sprintf(
-      `{"%v": {"name": "rhm-operator-secret","key": "%v"}}`,key,key))
-    }else{
-      newField = []byte(fmt.Sprintf(`{"%v": "%v"}`,key,value))
-    }
-	
-    // add to the struct
+
+		// fullfill the SecretKeySelector struct
+		if key == "IBM_COS_READER_KEY" {
+			newField = []byte(fmt.Sprintf(
+				`{"%v": {"name": "rhm-operator-secret","key": "%v"}}`, key, key))
+		} else if key == "RAZEE_DASH_ORG_KEY" {
+			newField = []byte(fmt.Sprintf(
+				`{"%v": {"name": "rhm-operator-secret","key": "%v"}}`, key, key))
+		} else {
+			newField = []byte(fmt.Sprintf(`{"%v": "%v"}`, key, value))
+		}
+
+		// add to the struct
 		err = json.Unmarshal(newField, &razeeStruct)
 		if err != nil {
-			fmt.Println("AddSecretFieldsToStruct",err)
+			fmt.Println("AddSecretFieldsToStruct", err)
 			error = err
 		}
 		if err != nil {
@@ -256,9 +254,8 @@ func ConvertSecretToStruct(razeeData map[string][]byte)(marketplacev1alpha1.Raze
 		}
 	}
 
-
-  	missingItems := ContainsMultiple(keys,GetStructFieldsOnBase(marketplacev1alpha1.RazeeConfigurationValues{}))
-	return *razeeStruct,missingItems,error
+	missingItems := ContainsMultiple(keys, GetStructFieldsOnBase(marketplacev1alpha1.RazeeConfigurationValues{}))
+	return *razeeStruct, missingItems, error
 }
 
 func Equal(a []string, b []string) bool {
