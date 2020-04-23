@@ -34,7 +34,7 @@ func TestRazeeDeployController(t *testing.T) {
 
 func setup(r *ReconcilerTest) error {
 	s := scheme.Scheme
-	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, &razeeDeployment)
+	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, &razeeDeployment, &marketplacev1alpha1.RazeeDeploymentList{})
 	r.SetClient(fake.NewFakeClient(r.GetRuntimeObjects()...))
 	r.SetReconciler(&ReconcileRazeeDeployment{client: r.GetClient(), scheme: s, opts: &RazeeOpts{RazeeJobImage: "test"}})
 	return nil
@@ -70,7 +70,7 @@ var (
 	secret = corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "rhm-operator-secret",
-			Namespace: namespace,
+			Namespace: "redhat-marketplace-operator",
 		},
 		Data: map[string][]byte{
 			IBM_COS_READER_KEY_FIELD: []byte("test"),
@@ -91,6 +91,13 @@ func testCleanInstall(t *testing.T) {
 		&secret)
 	reconcilerTest.TestAll(t,
 		[]TestCaseStep{
+			NewReconcilerTestCase(
+				append(opts,
+					WithName("rhm-operator-secret"),
+					WithNamespace(namespace),
+					WithExpectedResult(reconcile.Result{RequeueAfter: time.Second * 30}),
+				)...
+			),
 			NewReconcilerTestCase(
 				append(opts,
 					WithName("razee"),
@@ -163,7 +170,7 @@ func testNoSecret(t *testing.T) {
 				append(opts,
 					WithName("rhm-operator-secret"),
 					WithNamespace(namespace),
-					WithExpectedResult(reconcile.Result{}),
+					WithExpectedResult(reconcile.Result{RequeueAfter: time.Second * 30}),
 					WithExpectedError(nil))...),
 		})
 }

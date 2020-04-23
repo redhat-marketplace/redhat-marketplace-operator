@@ -175,18 +175,17 @@ type RazeeOpts struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	// MissingDeploySecretValues := make([]string, 0, 8)
-	// localSecretVarsPopulated := false
-
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling RazeeDeployment")
 
 	switch request.Name {
 	case RHM_OPERATOR_SECRET_NAME:
+		//TODO: return request from reconcileRhmOperatorSecret() here ? 
 		_, err := r.reconcileRhmOperatorSecret(&request)
 		if err != nil {
 			reqLogger.Error(err, "Failed to reconcile secret")
 		}
+		
 
 	case RAZEE_DEPLOY_JOB:
 		reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
@@ -360,7 +359,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				return reconcile.Result{}, err
 			}
 		}
-		if &razeeNamespace != nil {
+		if err == nil {
 			reqLogger.Info("razee namespace already exists")
 		}
 
@@ -486,7 +485,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 		}
 
-		newResources = append(newResources, watchKeeperNonNamespace.Name)
+		newResources = append(newResources, watchKeeperLimitPoll.Name)
 	
 		// update status
 		reqLogger.Info("updating Spec.RazeePrerequisitesCreated")
@@ -957,14 +956,9 @@ func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(request *reconcile
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.Error(err, "Failed to find operator secret")
-			return nil, nil
+			return &reconcile.Result{}, err
 		}
-		return nil, err
 	}
-
-	/******************************************************************************
-	UPDATE SPEC.DEPLOYSECRETVALUES
-	/******************************************************************************/
 
 	// set non-nil pointer
 	razeeConfigurationValues := marketplacev1alpha1.RazeeConfigurationValues{}

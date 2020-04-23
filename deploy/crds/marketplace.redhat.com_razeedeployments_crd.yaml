@@ -103,14 +103,6 @@ spec:
                 Setting enabled to "true" will create a Razee namespace and deploy
                 it''s componenets. Set to "false" to bypass Razee installation'
               type: boolean
-            missingDeploySecretValues:
-              items:
-                type: string
-              type: array
-            razeePrerequisitesCreated:
-              items:
-                type: string
-              type: array
           required:
           - clusterUUID
           - enabled
@@ -213,6 +205,10 @@ spec:
                   format: int32
                   type: integer
               type: object
+            missingDeploySecretValues:
+              items:
+                type: string
+              type: array
             razee_job_install:
               properties:
                 razee_install_url:
@@ -223,6 +219,10 @@ spec:
               - razee_install_url
               - razee_namespace
               type: object
+            razeePrerequisitesCreated:
+              items:
+                type: string
+              type: array
           type: object
       type: object
   version: v1alpha1
