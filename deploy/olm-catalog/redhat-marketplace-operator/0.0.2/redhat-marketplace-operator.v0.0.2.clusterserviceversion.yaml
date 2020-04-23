@@ -160,7 +160,7 @@ spec:
     **Note**: The Red Hat Marketplace Operator uses an open-source project called [Razee](https://razee.io/) for management between the cluster and marketplace.
     View the [code on Github.](https://github.com/razee-io/Razee/blob/master/README.md)
 
-    **RazeeDeployment Controller**: The RazeeDeployment Controller creates the `razee-deploy-job` which runs in the `redhat-marketplace-operator` namespace. This job is deleted after successful completion. View [`razee-deploy-job` on Github.](https://github.com/razee-io/razeedeploy-delta)
+    **RazeeDeployment Controller**: The RazeeDeployment Controller creates the `razee-deploy-job` which runs in the `openshift-redhat-marketplace` namespace. This job is deleted after successful completion. View [`razee-deploy-job` on Github.](https://github.com/razee-io/razeedeploy-delta)
 
     **Razee agent**: The `razee-deploy-job` creates the `razee` namespace and installs the Razee agent and its associated resources. The Razee agent must be running to communicate with the Red Hat Marketplace.
 
