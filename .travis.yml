@@ -14,5 +14,5 @@ jobs:
     - stage: test
       script: make test && make test-cover
     - stage: deploy
-      if: branch = master || tag IS present
+      if: branch = master OR branch = /^release\/.*/
       script: OPERATOR_IMAGE_TAG="${TRAVIS_TAG:-latest}" make docker-login build push

@@ -48,8 +48,6 @@ type RazeeJobInstallStruct struct {
 
 // RazeeDeployment is the resources that deploys Razee for the Red Hat Marketplace.
 // This is an internal resource not meant to be modified directly.
-// +kubebuilder:subresource:status
-// +kubebuilder:resource:path=razeedeployments,scope=Namespaced
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="(Internal) Razee Deployment"
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`Job,v1,"redhat-marketplace-operator"`
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`ConfigMap,v1,"redhat-marketplace-operator"`

@@ -5,6 +5,7 @@ package testing
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -61,10 +62,15 @@ type testOptions struct {
 	Namespace      string
 	TestObj        runtime.Object
 	AfterFunc      ReconcilerTestValidationFunc `options:"After,Ignore"`
+	Labels         map[string]string            `options:",map[string]string{}"`
 }
+
+var testSetupLock sync.Mutex
 
 // NewReconcilerTest creates a new reconciler test with a setup func
 func NewReconcilerTest(setup ReconcilerSetupFunc, predefinedObjs ...runtime.Object) *ReconcilerTest {
+	testSetupLock.Lock()
+	defer testSetupLock.Unlock()
 	myObjs := []runtime.Object{}
 
 	for _, obj := range predefinedObjs {
@@ -118,6 +124,7 @@ type ClientGetStep struct {
 	StepName       string
 	NamespacedName types.NamespacedName `options:"NamespacedName,types.NamespacedName{}"`
 	TestObj        runtime.Object
+	Labels         map[string]string            `options:",map[string]string{}"`
 	AfterFunc      ReconcilerTestValidationFunc `options:"After,Ignore"`
 }
 
@@ -128,6 +135,7 @@ func NewClientGetStep(options ...TestCaseOption) *ClientGetStep {
 		AfterFunc:      cfg.AfterFunc,
 		TestObj:        cfg.TestObj,
 		NamespacedName: types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace},
+		Labels:         cfg.Labels,
 	}
 }
 
@@ -143,7 +151,63 @@ func (tc *ClientGetStep) GetStepName() string {
 
 func (tc *ClientGetStep) Test(t *testing.T, r *ReconcilerTest) {
 	//Reconcile again so Reconcile() checks for the OperatorSource
-	err := r.Client.Get(context.TODO(), tc.NamespacedName, tc.TestObj)
+	var err error
+	err = r.GetClient().Get(context.TODO(), tc.NamespacedName, tc.TestObj)
+
+	if err != nil {
+		t.Errorf("get (%T): (%v)", tc.TestObj, err)
+	} else {
+		tc.AfterFunc(r, t, tc.TestObj)
+	}
+}
+
+type ClientListStep struct {
+	StepName       string
+	NamespacedName types.NamespacedName `options:"NamespacedName,types.NamespacedName{}"`
+	TestObj        runtime.Object
+	Labels         map[string]string            `options:",map[string]string{}"`
+	AfterFunc      ReconcilerTestValidationFunc `options:"After,Ignore"`
+}
+
+func NewClientListStep(options ...TestCaseOption) *ClientListStep {
+	cfg, _ := newTestOptions(options...)
+	return &ClientListStep{
+		StepName:       cfg.StepName,
+		AfterFunc:      cfg.AfterFunc,
+		TestObj:        cfg.TestObj,
+		NamespacedName: types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace},
+		Labels:         cfg.Labels,
+	}
+}
+
+func (tc *ClientListStep) GetStepName() string {
+	if tc.StepName == "" {
+		if tc.NamespacedName.Namespace == "" {
+			return tc.NamespacedName.Name
+		}
+		return tc.NamespacedName.Namespace + "/" + tc.NamespacedName.Name
+	}
+	return tc.StepName
+}
+
+func (tc *ClientListStep) ListStepName() string {
+	if tc.StepName == "" {
+		if tc.NamespacedName.Namespace == "" {
+			return tc.NamespacedName.Name
+		}
+		return tc.NamespacedName.Namespace + "/" + tc.NamespacedName.Name
+	}
+	return tc.StepName
+}
+
+func (tc *ClientListStep) Test(t *testing.T, r *ReconcilerTest) {
+	//Reconcile again so Reconcile() checks for the OperatorSource
+	var err error
+	err = r.GetClient().List(context.TODO(),
+		tc.TestObj,
+		client.InNamespace(tc.NamespacedName.Namespace),
+		client.MatchingLabels(tc.Labels),
+	)
 
 	if err != nil {
 		t.Errorf("get (%T): (%v)", tc.TestObj, err)
@@ -160,6 +224,7 @@ type ReconcilerTestCase struct {
 	NamespacedName types.NamespacedName `options:"NamespacedName,types.NamespacedName{}"`
 	TestObj        runtime.Object
 	AfterFunc      ReconcilerTestValidationFunc `options:"After,Ignore"`
+	Labels         map[string]string            `options:",map[string]string{}"`
 }
 
 func NewReconcilerTestCase(options ...TestCaseOption) *ReconcilerTestCase {
@@ -172,6 +237,7 @@ func NewReconcilerTestCase(options ...TestCaseOption) *ReconcilerTestCase {
 		ExpectedResult: cfg.ExpectedResult,
 		Request:        cfg.Request,
 		ExpectedError:  cfg.ExpectedError,
+		Labels:         cfg.Labels,
 	}
 }
 
@@ -201,7 +267,15 @@ func (tc *ReconcilerTestCase) Test(t *testing.T, r *ReconcilerTest) {
 	}
 
 	if tc.TestObj != nil {
-		err = r.GetClient().Get(context.TODO(), tc.NamespacedName, tc.TestObj)
+		if len(tc.Labels) > 0 {
+			err = r.GetClient().List(context.TODO(),
+				tc.TestObj,
+				client.InNamespace(tc.NamespacedName.Namespace),
+				client.MatchingLabels(tc.Labels),
+			)
+		} else {
+			err = r.GetClient().Get(context.TODO(), tc.NamespacedName, tc.TestObj)
+		}
 
 		if err != nil {
 			t.Errorf("get (%T): (%v)", tc.TestObj, err)
@@ -211,9 +285,13 @@ func (tc *ReconcilerTestCase) Test(t *testing.T, r *ReconcilerTest) {
 	}
 }
 
+var testAllMutex sync.Mutex
+
 func (r *ReconcilerTest) TestAll(t *testing.T, testCases []TestCaseStep) {
 	if r.SetupFunc != nil {
+		testAllMutex.Lock()
 		err := r.SetupFunc(r)
+		testAllMutex.Unlock()
 
 		if err != nil {
 			t.Fatalf("failed to setup test %v", err)
@@ -221,7 +299,7 @@ func (r *ReconcilerTest) TestAll(t *testing.T, testCases []TestCaseStep) {
 	}
 
 	for i, testData := range testCases {
-		testName := testData.GetStepName()
+		testName := fmt.Sprintf("%v %v", testData.GetStepName(), i)
 
 		if testName == "" {
 			testName = fmt.Sprintf("Step %v", i)
