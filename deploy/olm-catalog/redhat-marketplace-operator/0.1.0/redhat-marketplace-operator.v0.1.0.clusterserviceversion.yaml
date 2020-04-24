@@ -82,7 +82,7 @@ metadata:
     categories: Developer Tools
     certified: "true"
     containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:0.1.0
-    createdAt: 2020-04-23T21:42:37Z
+    createdAt: 2020-04-23T23:06:52Z
     description: The Red Hat Marketplace Operator provides cluster management, metering
       and operator installation for Red Hat Marketplace customers.
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","meterbases.marketplace.redhat.com","meterdefinitions.marketplace.redhat.com"]'
@@ -151,121 +151,38 @@ spec:
         version: v1
       version: v1alpha1
   description: |
-    The Red Hat Marketplace Operator provides cluster management, metering and
-    operator installation for Red Hat Marketplace customers.
-
+    The Red Hat Marketplace Operator provides cluster management, metering
+    and operator installation for Red Hat Marketplace customers.
 
     ### Changes to your Cluster:
 
-    **Note**: The Red Hat Marketplace Operator uses an open-source project called [Razee](https://razee.io/) for management between the cluster and marketplace.
+    **Note**: The Red Hat Marketplace Operator uses an open-source
+    project called [Razee](https://razee.io/) for management between the cluster and
+    marketplace.
+
     View the [code on Github.](https://github.com/razee-io/Razee/blob/master/README.md)
 
-    **RazeeDeployment Controller**: The RazeeDeployment Controller creates the `razee-deploy-job` which runs in the `redhat-marketplace-operator` namespace. This namespace is deleted after successful completion of the job. View [`razee-deploy-job` on Github.](https://github.com/razee-io/razeedeploy-delta)
+    **RazeeDeployment Controller**: The RazeeDeployment Controller creates the `razee-deploy-job` which
+    runs in the `openshift-redhat-marketplace` namespace. This job is deleted after
+    successful completion. View [`razee-deploy-job` on Github.](https://github.com/razee-io/razeedeploy-delta)
 
-    **Razee agent**: The `razee-deploy-job` creates the `razee` namespace and installs the Razee agent and its associated resources. The Razee agent must be running to communicate with the Red Hat Marketplace.
+    **Razee agent**: The `razee-deploy-job` creates the `razee` namespace and installs the
+    Razee agent and its associated resources. The Razee agent must be running to communicate
+    with the Red Hat Marketplace.
 
-    ### How to Install
+    ### Installation
 
+    View the [automated installation instructions](https://marketplace.redhat.com/en-us/documentation/clusters) in
+    our documentation.
 
-    #### Automatic
-
-    Visit our documentation to retrieve the [automatic install instructions](https://marketplace.redhat.com/en-us/documentation/clusters).
-
-    #### Manual
-
-    1.) Create the namespace: `redhat-marketplace-operator`.
-
-    2.) Apply the `rhm-operator-secret`:
-
-    The secret populates resources that are used to configure the Red Hat
-    Marketplace Operator. Please review our documentation on how to retrieve
-    these values.
-
-    ```
-    cat <<EOF | kubectl apply -f -
-    apiVersion: v1
-    kind: Secret
-    metadata:
-      name: rhm-operator-secret
-      namespace: redhat-marketplace-operator
-    type: Opaque
-    data:
-      IBM_COS_READER_KEY:
-      BUCKET_NAME:
-      IBM_COS_URL:
-      RAZEE_DASH_ORG_KEY:
-      CHILD_RRS3_YAML_FILENAME:
-      RAZEE_DASH_URL:
-      FILE_SOURCE_URL:
-    EOF
-    ```
-    Or:
-    ```
-    kubectl create secret generic rhm-operator-secret
-    --from-literal=IBM_COS_READER_KEY= --from-literal=BUCKET_NAME= \
-    --from-literal=IBM_COS_URL= --from-literal=RAZEE_DASH_ORG_KEY=
-    --from-literal=CHILD_RRS3_YAML_FILENAME= \
-    --from-literal=RAZEE_DASH_URL=
-    --from-literal=FILE_SOURCE_URL=
-    ```
-    3.) Install the operator, either through the Operator Hub UI or apply an
-    operator group and subscription. If you install via the Operator Hub UI these
-    resources are applied for you.
-    ```
-    cat <<EOF | kubectl apply -f -
-    apiVersion: operators.coreos.com/v1
-    kind: OperatorGroup
-    metadata:
-      name: redhat-marketplace-operator
-      namespace: redhat-marketplace-operator
-    spec:
-      targetNamespaces:
-      - redhat-marketplace-operator
-    EOF
-
-    cat <<EOF | kubectl apply -f -
-    apiVersion: operators.coreos.com/v1alpha1
-    kind: Subscription
-    metadata:
-      name: redhat-marketplace-operator
-      namespace: redhat-marketplace-operator
-    spec:
-      channel: stable
-      installPlanApproval: Automatic
-      name: redhat-marketplace-operator
-      source: rhm-configmap-catalog-source
-      sourceNamespace: openshift-marketplace
-      startingCSV: redhat-marketplace-operator.v0.1.0
-    EOF
-    ```
-    4.) Apply the Marketplace Configuration custom resource. Modify accordingly:
-
-       * Pass in your account ID and cluster ID as provided from the Red Hat Marketplace onboarding pages.
-
-       * Pass in the name of the deployment secret you created in Step 2
-    ```
-    cat <<EOF | kubectl apply -f -
-    apiVersion: marketplace.redhat.com/v1alpha1
-    kind: MarketplaceConfig
-    metadata:
-      name: example-marketplaceconfig
-      namespace: redhat-marketplace-operator
-    spec:
-      rhmAccountID: <your Red Hat Marketplace AccountId>
-      clusterUUID: <uuid of your cluster>
-      deploySecretName: <name of the secret applied in step 2>
-    EOF
-    ```
     ### Documentation
-
     You can find our documentation [here.](https://marketplace.redhat.com/en-us/documentation/)
 
     ### Getting help
 
-    If you encounter any issues while using Red Hat Marketplace operator, you
-    can create an issue on our [Github
-    repo](https://github.com/redhat-marketplace/redhat-marketplace-operator) for
-    bugs, enhancements, or other requests. You can also visit our main page and
+    If you encounter any issues while using Red Hat Marketplace operator,
+    you can create an issue on our [Github repo](https://github.com/redhat-marketplace/redhat-marketplace-operator)
+    for bugs, enhancements, or other requests. You can also visit our main page and
     review our [support](https://marketplace.redhat.com/en-us/support) and [documentation](https://marketplace.redhat.com/en-us/documentation/).
   displayName: Red Hat Marketplace Operator
   icon:

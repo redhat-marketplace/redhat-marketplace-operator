@@ -196,6 +196,11 @@ publish-image: ## Publish image
 	docker push $(OPERATOR_IMAGE)
 	docker push $(REDHAT_OPERATOR_IMAGE)
 
+.PHONY: release
+release: ## Publish release
+	make bundle
+	go run github.com/tcnksm/ghr $(VERSION) ./bundle/
+
 ##@ Help
 
 .PHONY: help
