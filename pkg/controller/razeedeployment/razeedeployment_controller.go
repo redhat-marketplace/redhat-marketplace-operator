@@ -46,7 +46,6 @@ const (
 	CHILD_RRS3_YAML_FIELD      = "CHILD_RRS3_YAML_FILENAME"
 	RAZEE_DASH_URL_FIELD       = "RAZEE_DASH_URL"
 	FILE_SOURCE_URL_FIELD      = "FILE_SOURCE_URL"
-	RAZEE_NAMESPACE            = "razee"
 )
 
 var (
@@ -63,11 +62,6 @@ func init() {
 func FlagSet() *pflag.FlagSet {
 	return razeeFlagSet
 }
-
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
 
 // Add creates a new RazeeDeployment Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -182,6 +176,23 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			//If it fails, don't remove the finalizer so we can retry during the next reconcile
 			return r.finalizeRazeeDeployment(instance)
 		}
+		return reconcile.Result{}, nil
+	}
+
+
+	if instance.Spec.TargetNamespace == nil {
+		if instance.Status.RazeeJobInstall != nil {
+			instance.Spec.TargetNamespace = &instance.Status.RazeeJobInstall.RazeeNamespace
+		} else {
+			instance.Spec.TargetNamespace = &instance.Namespace
+		}
+		err := r.client.Update(context.TODO(), instance)
+
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		reqLogger.Info("set target namespace to", "namespace", instance.Spec.TargetNamespace)
 		return reconcile.Result{}, nil
 	}
 
@@ -311,11 +322,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	razeePrerequisitesCreated := make([]string, 0, 7)
 	instance.Status.RazeePrerequisitesCreated = &razeePrerequisitesCreated
 	razeeNamespace := &corev1.Namespace{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: RAZEE_NAMESPACE}, razeeNamespace)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Namespace}, razeeNamespace)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.Info("razee namespace does not exist - creating")
-			razeeNamespace.ObjectMeta.Name = RAZEE_NAMESPACE
+			razeeNamespace.ObjectMeta.Name = namespace
 			err = r.client.Create(context.TODO(), razeeNamespace)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create razee namespace.")
@@ -337,7 +348,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	watchKeeperNonNamespace := &corev1.ConfigMap{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-non-namespaced", Namespace: RAZEE_NAMESPACE}, watchKeeperNonNamespace)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-non-namespaced", Namespace: namespace}, watchKeeperNonNamespace)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.Info("watch-keeper-non-namespace does not exist - creating")
@@ -370,7 +381,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	// apply watch-keeper-limit-poll config map
 	watchKeeperLimitPoll := &corev1.ConfigMap{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-limit-poll", Namespace: RAZEE_NAMESPACE}, watchKeeperLimitPoll)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-limit-poll", Namespace: namespace}, watchKeeperLimitPoll)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.Info("watch-keeper-limit-poll does not exist - creating")
@@ -404,7 +415,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	// create razee-cluster-metadata
 	razeeClusterMetaData := &corev1.ConfigMap{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee-cluster-metadata", Namespace: RAZEE_NAMESPACE}, razeeClusterMetaData)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee-cluster-metadata", Namespace: namespace}, razeeClusterMetaData)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.Info("razee-cluster-metadata does not exist - creating")
@@ -437,7 +448,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	// create watch-keeper-config
 	watchKeeperConfig := r.MakeWatchKeeperConfig(rhmOperatorSecretValues)
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: watchKeeperConfig.Name, Namespace: RAZEE_NAMESPACE}, watchKeeperConfig)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: watchKeeperConfig.Name, Namespace: namespace}, watchKeeperConfig)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.Info("watch-keeper-config does not exist - creating")
@@ -472,7 +483,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	// create watch-keeper-secret
 	watchKeeperSecret := &corev1.Secret{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-secret", Namespace: RAZEE_NAMESPACE}, watchKeeperSecret)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-secret", Namespace: namespace}, watchKeeperSecret)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.Info("watch-keeper-secret does not exist - creating")
@@ -506,7 +517,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	// create watch-keeper-config
 	ibmCosReaderKey := &corev1.Secret{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cosReaderKey, Namespace: RAZEE_NAMESPACE}, ibmCosReaderKey)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cosReaderKey, Namespace: namespace}, ibmCosReaderKey)
 	if err != nil {
 		reqLogger.Info("ibm-cos-reader-key does not exist - creating")
 		if errors.IsNotFound(err) {
@@ -601,7 +612,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			instance.Status.Conditions = &jobCondition
 		}
 		instance.Status.RazeeJobInstall = &marketplacev1alpha1.RazeeJobInstallStruct{
-			RazeeNamespace:  RAZEE_NAMESPACE,
+			RazeeNamespace:  namespace,
 			RazeeInstallURL: rhmOperatorSecretValues.fileSourceUrl,
 		}
 
@@ -703,7 +714,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request, rhmOp
 					Containers: []corev1.Container{{
 						Name:    "razeedeploy-job",
 						Image:   r.opts.RazeeJobImage,
-						Command: []string{"node", "src/install", fmt.Sprintf("--namespace=%s", RAZEE_NAMESPACE)},
+						Command: []string{"node", "src/install", fmt.Sprintf("--namespace=%s", namespace)},
 						Args:    []string{fmt.Sprintf("--file-source=%v", rhmOperatorSecretValues.fileSourceUrl), "--autoupdate"},
 					}},
 					RestartPolicy: "Never",
@@ -841,7 +852,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeClusterMetaData(uuid string) *corev1
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "razee-cluster-metadata",
-			Namespace: RAZEE_NAMESPACE,
+			Namespace: namespace,
 			Labels: map[string]string{
 				"razee/cluster-metadata": "true",
 				"razee/watch-resource":   "lite",
@@ -852,66 +863,82 @@ func (r *ReconcileRazeeDeployment) MakeRazeeClusterMetaData(uuid string) *corev1
 }
 
 //watch-keeper-non-namespace
-func (r *ReconcileRazeeDeployment) MakeWatchKeeperNonNamespace() *corev1.ConfigMap {
+func (r *ReconcileRazeeDeployment) MakeWatchKeeperNonNamespace(
+	namespace string,
+) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "watch-keeper-non-namespaced",
-			Namespace: RAZEE_NAMESPACE,
+			Namespace: namespace,
 		},
 		Data: map[string]string{"v1_namespace": "true"},
 	}
 }
 
 //watch-keeper-non-namespace
-func (r *ReconcileRazeeDeployment) MakeWatchKeeperLimitPoll() *corev1.ConfigMap {
+func (r *ReconcileRazeeDeployment) MakeWatchKeeperLimitPoll(
+	namespace string,
+) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "watch-keeper-limit-poll",
-			Namespace: RAZEE_NAMESPACE,
+			Namespace: namespace,
 		},
 	}
 }
 
-func (r *ReconcileRazeeDeployment) MakeWatchKeeperConfig(rhmOperatorSecretValues RhmOperatorSecretValues) *corev1.ConfigMap {
+func (r *ReconcileRazeeDeployment) MakeWatchKeeperConfig(
+	namespace string,
+	rhmOperatorSecretValues RhmOperatorSecretValues,
+) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "watch-keeper-config",
-			Namespace: RAZEE_NAMESPACE,
+			Namespace: namespace,
 		},
 		Data: map[string]string{"RAZEEDASH_URL": rhmOperatorSecretValues.razeeDashUrl, "START_DELAY_MAX": "0"},
 	}
 }
 
-func (r *ReconcileRazeeDeployment) MakeWatchKeeperSecret(rhmOperatorSecretValues RhmOperatorSecretValues) *corev1.Secret {
+func (r *ReconcileRazeeDeployment) MakeWatchKeeperSecret(
+	namespace string,
+	rhmOperatorSecretValues RhmOperatorSecretValues,
+) *corev1.Secret {
 	key := rhmOperatorSecretValues.razeeDashOrgKey
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "watch-keeper-secret",
-			Namespace: RAZEE_NAMESPACE,
+			Namespace: namespace,
 		},
 		Data: map[string][]byte{"RAZEEDASH_ORG_KEY": []byte(key)},
 	}
 }
 
-func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret(rhmOperatorValues RhmOperatorSecretValues) *corev1.Secret {
+func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret(
+	namespace string,
+	rhmOperatorValues RhmOperatorSecretValues,
+) *corev1.Secret {
 	cosApiKey := rhmOperatorValues.ibmCosReaderKey
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cosReaderKey,
-			Namespace: RAZEE_NAMESPACE,
+			Namespace: namespace,
 		},
 		Data: map[string][]byte{"accesskey": []byte(cosApiKey)},
 	}
 }
 
-func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3(rhmOperatorSecretValues RhmOperatorSecretValues) *unstructured.Unstructured {
+func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3(
+	namespace string,
+	rhmOperatorSecretValues RhmOperatorSecretValues,
+) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "deploy.razee.io/v1alpha2",
 			"kind":       "RemoteResourceS3",
 			"metadata": map[string]interface{}{
 				"name":      "parent",
-				"namespace": RAZEE_NAMESPACE,
+				"namespace": namespace,
 			},
 			"spec": map[string]interface{}{
 				"auth": map[string]interface{}{
