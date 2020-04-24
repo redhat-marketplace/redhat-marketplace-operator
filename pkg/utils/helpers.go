@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	b64 "encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,10 @@ import (
 
 	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func GetNamespaceNames(ns []corev1.Namespace) []string {
@@ -111,14 +116,22 @@ func ExtractCredKey(secret *corev1.Secret, sel corev1.SecretKeySelector) ([]byte
 	return value, error
 }
 
-// func GetCredFromSecret(c corev1client.SecretInterface, sel corev1.SecretKeySelector) ([]byte, error) {
-// 	var s *corev1.Secret
-// 	if s, err = c.Get(sel.Name, metav1.GetOptions{}); err != nil {
-// 		return "", fmt.Errorf("unable to fetch %s secret %q",sel.Name, err)
-// 	}
-// 	key, err := ExtractCredKey(s, sel)
-// 	return key,err
-// }
+func  GetDataFromRhmSecret(request reconcile.Request, sel corev1.SecretKeySelector,client client.Client) ( error, []byte) {
+	// get the operator secret
+	rhmOperatorSecret := corev1.Secret{}
+	err := client.Get(context.TODO(), types.NamespacedName{
+		Name:      RHM_OPERATOR_SECRET_NAME,
+		Namespace: request.Namespace,
+	}, &rhmOperatorSecret)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return err, nil
+		}
+		return err, nil
+	}
+	key, err := ExtractCredKey(&rhmOperatorSecret, sel)
+	return err, key
+}
 
 func AddSecretFieldsToObj(razeeData map[string][]byte) (map[string]string, error) {
 	razeeDataObj := make(map[string]string)
@@ -134,37 +147,7 @@ func AddSecretFieldsToObj(razeeData map[string][]byte) (map[string]string, error
 	return razeeDataObj, error
 }
 
-//TODO: not being used for now
-// func AddSecretFieldsToStruct(razeeData map[string][]byte) (*marketplacev1alpha1.RazeeConfigurationValues,[]string,error) {
-// 	var updatedRazeeValues *marketplacev1alpha1.RazeeConfigurationValues = &marketplacev1alpha1.RazeeConfigurationValues{}
-// 	missingItems := []string{}
-// 	var error error
-
-// 	for key, element := range razeeData {
-// 		value, err := RetrieveSecretField(element)
-// 		if err != nil {
-// 			error = err
-// 		}
-// 		//TODO: need to think about this
-// 		if value == "" {
-// 			missingItems = append(missingItems, key)
-// 		}
-
-// 		newField := []byte(fmt.Sprintf(`{"%v": "%v"}`,key,value))
-// 		err = json.Unmarshal(newField, &updatedRazeeValues)
-// 		if err != nil {
-// 			fmt.Println(err)
-// 			error = err
-// 		}
-// 		fmt.Println(updatedRazeeValues)
-// 		if err != nil {
-// 			error = err
-// 		}
-// 	}
-
-// 	return updatedRazeeValues,missingItems, error
-// }
-
+//TODO: not being used
 func AddSecretFieldsToStruct(razeeData map[string][]byte) (*marketplacev1alpha1.RazeeConfigurationValues, []string, error) {
 
 	newField := []byte{}

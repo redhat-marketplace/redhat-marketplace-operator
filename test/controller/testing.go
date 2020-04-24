@@ -226,6 +226,7 @@ func (r *ReconcilerTest) TestAll(t *testing.T, testCases []TestCaseStep) {
 		if testName == "" {
 			testName = fmt.Sprintf("Step %v", i)
 		}
+
 		t.Run(testName, func(t *testing.T) {
 			testData.Test(t, r)
 		})

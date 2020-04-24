@@ -180,12 +180,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	switch request.Name {
 	case RHM_OPERATOR_SECRET_NAME:
-		//TODO: return request from reconcileRhmOperatorSecret() here ? 
+		//TODO: return request from reconcileRhmOperatorSecret() here ?
 		_, err := r.reconcileRhmOperatorSecret(&request)
 		if err != nil {
 			reqLogger.Error(err, "Failed to reconcile secret")
 		}
-		
 
 	case RAZEE_DEPLOY_JOB:
 		reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
@@ -364,7 +363,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		newResources = append(newResources, fmt.Sprintf("%v namespace", razeeNamespace.Name))
-	
+
 		// update status
 		reqLogger.Info("updating Spec.RazeePrerequisitesCreated")
 		instance.Status.RazeePrerequisitesCreated = newResources
@@ -372,7 +371,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err != nil {
 			reqLogger.Error(err, "Failed to update status")
 		}
-	
+
 		watchKeeperNonNamespace := corev1.ConfigMap{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-non-namespaced", Namespace: "razee"}, &watchKeeperNonNamespace)
 		if err != nil {
@@ -423,8 +422,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 		}
 
-		newResources = append(newResources,watchKeeperNonNamespace.Name)
-	
+		newResources = append(newResources, watchKeeperNonNamespace.Name)
+
 		// update status
 		reqLogger.Info("updating Spec.RazeePrerequisitesCreated")
 		instance.Status.RazeePrerequisitesCreated = newResources
@@ -432,7 +431,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err != nil {
 			reqLogger.Error(err, "Failed to update status")
 		}
-		
+
 		// apply watch-keeper-limit-poll config map
 		watchKeeperLimitPoll := corev1.ConfigMap{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-limit-poll", Namespace: "razee"}, &watchKeeperLimitPoll)
@@ -486,7 +485,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		newResources = append(newResources, watchKeeperLimitPoll.Name)
-	
+
 		// update status
 		reqLogger.Info("updating Spec.RazeePrerequisitesCreated")
 		instance.Status.RazeePrerequisitesCreated = newResources
@@ -494,7 +493,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err != nil {
 			reqLogger.Error(err, "Failed to update status")
 		}
-	
+
 		// create razee-cluster-metadata
 		razeeClusterMetaData := corev1.ConfigMap{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: "razee-cluster-metadata", Namespace: "razee"}, &razeeClusterMetaData)
@@ -553,8 +552,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info(fmt.Sprintf("No change detected on %v", razeeClusterMetaData.Name))
 		}
 
-		newResources = append(newResources,razeeClusterMetaData.Name)
-	
+		newResources = append(newResources, razeeClusterMetaData.Name)
+
 		// update status
 		reqLogger.Info("updating Spec.RazeePrerequisitesCreated")
 		instance.Status.RazeePrerequisitesCreated = newResources
@@ -562,7 +561,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err != nil {
 			reqLogger.Error(err, "Failed to update status")
 		}
-	
+
 		// create watch-keeper-config
 		watchKeeperConfig := corev1.ConfigMap{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-config", Namespace: "razee"}, &watchKeeperConfig)
@@ -623,7 +622,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err != nil {
 			reqLogger.Error(err, "Failed to update status")
 		}
-	
+
 		// create watch-keeper-secret
 		watchKeeperSecret := corev1.Secret{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: "watch-keeper-secret", Namespace: "razee"}, &watchKeeperSecret)
@@ -673,7 +672,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info(fmt.Sprintf("No change detected on %v", watchKeeperSecret.Name))
 		}
 
-		newResources = append(newResources,watchKeeperSecret.Name)
+		newResources = append(newResources, watchKeeperSecret.Name)
 
 		// update status
 		reqLogger.Info("updating Spec.RazeePrerequisitesCreated")
@@ -682,7 +681,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err != nil {
 			reqLogger.Error(err, "Failed to update status")
 		}
-	
+
 		// create watch-keeper-config
 		ibmCosReaderKey := corev1.Secret{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: "ibm-cos-reader-key", Namespace: "razee"}, &ibmCosReaderKey)
@@ -734,7 +733,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		newResources = append(newResources, ibmCosReaderKey.Name)
-	
+
 		// update status
 		reqLogger.Info("updating Spec.RazeePrerequisitesCreated")
 		instance.Status.RazeePrerequisitesCreated = newResources
@@ -826,7 +825,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				updatedParentRRS3.SetSelfLink(parentRRS3.GetSelfLink())
 				updatedParentRRS3.SetUID(parentRRS3.GetUID())
 
-				patchResult, err := patch.DefaultPatchMaker.Calculate(parentRRS3,updatedParentRRS3,patch.IgnoreStatusFields())
+				patchResult, err := patch.DefaultPatchMaker.Calculate(parentRRS3, updatedParentRRS3, patch.IgnoreStatusFields())
 				if err != nil {
 					// handle the error
 					reqLogger.Error(err, "Failed to compare patches")
@@ -877,7 +876,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info("Found Console resource")
 			//TODO: check labels for razee/watch-resource:lite
 			consoleLabels := console.GetLabels()
-			if !reflect.DeepEqual(consoleLabels,map[string]string{"razee/watch-resource": "lite"}) || consoleLabels == nil {
+			if !reflect.DeepEqual(consoleLabels, map[string]string{"razee/watch-resource": "lite"}) || consoleLabels == nil {
 				console.SetLabels(map[string]string{"razee/watch-resource": "lite"})
 				err = r.client.Update(context.TODO(), console)
 				if err != nil {
@@ -906,7 +905,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 			reqLogger.Info("Found Infrastructure resource")
 			infrastructureLabels := infrastructureResource.GetLabels()
-			if !reflect.DeepEqual(infrastructureLabels,map[string]string{"razee/watch-resource": "lite"}) || infrastructureLabels == nil {
+			if !reflect.DeepEqual(infrastructureLabels, map[string]string{"razee/watch-resource": "lite"}) || infrastructureLabels == nil {
 				infrastructureResource.SetLabels(map[string]string{"razee/watch-resource": "lite"})
 				err = r.client.Update(context.TODO(), infrastructureResource)
 				if err != nil {
@@ -1128,126 +1127,125 @@ func (r *ReconcileRazeeDeployment) addFinalizer(razee *marketplacev1alpha1.Razee
 	return nil
 }
 
-func (r *ReconcileRazeeDeployment) MakeRazeeClusterMetaData(instance *marketplacev1alpha1.RazeeDeployment) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "razee-cluster-metadata",
-			Namespace: RAZEE_NAMESPACE,
-			Labels: map[string]string{
-				"razee/cluster-metadata": "true",
-				"razee/watch-resource":   "lite",
-			},
-		},
-		Data: map[string]string{"name": instance.Spec.ClusterUUID},
-	}
-}
+// func (r *ReconcileRazeeDeployment) MakeRazeeClusterMetaData(instance *marketplacev1alpha1.RazeeDeployment) *corev1.ConfigMap {
+// 	return &corev1.ConfigMap{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      "razee-cluster-metadata",
+// 			Namespace: RAZEE_NAMESPACE,
+// 			Labels: map[string]string{
+// 				"razee/cluster-metadata": "true",
+// 				"razee/watch-resource":   "lite",
+// 			},
+// 		},
+// 		Data: map[string]string{"name": instance.Spec.ClusterUUID},
+// 	}
+// }
 
-//watch-keeper-non-namespace
-func (r *ReconcileRazeeDeployment) MakeWatchKeeperNonNamespace() *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "watch-keeper-non-namespaced",
-			Namespace: RAZEE_NAMESPACE,
-		},
-		Data: map[string]string{"v1_namespace": "true"},
-	}
-}
+// //watch-keeper-non-namespace
+// func (r *ReconcileRazeeDeployment) MakeWatchKeeperNonNamespace() *corev1.ConfigMap {
+// 	return &corev1.ConfigMap{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      "watch-keeper-non-namespaced",
+// 			Namespace: RAZEE_NAMESPACE,
+// 		},
+// 		Data: map[string]string{"v1_namespace": "true"},
+// 	}
+// }
 
-//watch-keeper-non-namespace
-func (r *ReconcileRazeeDeployment) MakeWatchKeeperLimitPoll() *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "watch-keeper-limit-poll",
-			Namespace: RAZEE_NAMESPACE,
-		},
-	}
-}
+// //watch-keeper-non-namespace
+// func (r *ReconcileRazeeDeployment) MakeWatchKeeperLimitPoll() *corev1.ConfigMap {
+// 	return &corev1.ConfigMap{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      "watch-keeper-limit-poll",
+// 			Namespace: RAZEE_NAMESPACE,
+// 		},
+// 	}
+// }
 
-//DeploySecretValues[RAZEE_DASH_URL_FIELD]
-func (r *ReconcileRazeeDeployment) MakeWatchKeeperConfig(instance *marketplacev1alpha1.RazeeDeployment) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "watch-keeper-config",
-			Namespace: RAZEE_NAMESPACE,
-		},
-		Data: map[string]string{"RAZEEDASH_URL": instance.Spec.DeployConfig.RazeeDashUrl, "START_DELAY_MAX": "0"},
-	}
-}
+// //DeploySecretValues[RAZEE_DASH_URL_FIELD]
+// func (r *ReconcileRazeeDeployment) MakeWatchKeeperConfig(instance *marketplacev1alpha1.RazeeDeployment) *corev1.ConfigMap {
+// 	return &corev1.ConfigMap{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      "watch-keeper-config",
+// 			Namespace: RAZEE_NAMESPACE,
+// 		},
+// 		Data: map[string]string{"RAZEEDASH_URL": instance.Spec.DeployConfig.RazeeDashUrl, "START_DELAY_MAX": "0"},
+// 	}
+// }
 
-// DeploySecretValues[RAZEE_DASH_ORG_KEY_FIELD]
-func (r *ReconcileRazeeDeployment) GetDataFromRhmSecret(request reconcile.Request, sel corev1.SecretKeySelector) (*reconcile.Result, error, []byte) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "request.Name", request.Name)
-	reqLogger.Info("Beginning of rhm-operator-secret reconcile")
-	// get the operator secret
-	rhmOperatorSecret := corev1.Secret{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{
-		Name:      RHM_OPERATOR_SECRET_NAME,
-		Namespace: request.Namespace,
-	}, &rhmOperatorSecret)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Error(err, "Failed to find operator secret")
-			return nil, nil, nil
-		}
-		return nil, err, nil
-	}
-	key, err := utils.ExtractCredKey(&rhmOperatorSecret, sel)
-	return nil, err, key
-}
+// func (r *ReconcileRazeeDeployment) GetDataFromRhmSecret(request reconcile.Request, sel corev1.SecretKeySelector) (*reconcile.Result, error, []byte) {
+// 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "request.Name", request.Name)
+// 	reqLogger.Info("Beginning of rhm-operator-secret reconcile")
+// 	// get the operator secret
+// 	rhmOperatorSecret := corev1.Secret{}
+// 	err := r.client.Get(context.TODO(), types.NamespacedName{
+// 		Name:      RHM_OPERATOR_SECRET_NAME,
+// 		Namespace: request.Namespace,
+// 	}, &rhmOperatorSecret)
+// 	if err != nil {
+// 		if errors.IsNotFound(err) {
+// 			reqLogger.Error(err, "Failed to find operator secret")
+// 			return nil, nil, nil
+// 		}
+// 		return nil, err, nil
+// 	}
+// 	key, err := utils.ExtractCredKey(&rhmOperatorSecret, sel)
+// 	return nil, err, key
+// }
 
-func (r *ReconcileRazeeDeployment) MakeWatchKeeperSecret(instance *marketplacev1alpha1.RazeeDeployment, request reconcile.Request) *corev1.Secret {
-	selector := instance.Spec.DeployConfig.RazeeDashOrgKey
-	_, _, key := r.GetDataFromRhmSecret(request, *selector)
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "watch-keeper-secret",
-			Namespace: RAZEE_NAMESPACE,
-		},
-		Data: map[string][]byte{"RAZEEDASH_ORG_KEY": key},
-	}
-}
+// func (r *ReconcileRazeeDeployment) MakeWatchKeeperSecret(instance *marketplacev1alpha1.RazeeDeployment, request reconcile.Request) *corev1.Secret {
+// 	selector := instance.Spec.DeployConfig.RazeeDashOrgKey
+// 	_, _, key := r.GetDataFromRhmSecret(request, *selector)
+// 	return &corev1.Secret{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      "watch-keeper-secret",
+// 			Namespace: RAZEE_NAMESPACE,
+// 		},
+// 		Data: map[string][]byte{"RAZEEDASH_ORG_KEY": key},
+// 	}
+// }
 
-func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret(instance *marketplacev1alpha1.RazeeDeployment, request reconcile.Request) *corev1.Secret {
-	selector := instance.Spec.DeployConfig.IbmCosReaderKey
-	_, _, key := r.GetDataFromRhmSecret(request, *selector)
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ibm-cos-reader-key",
-			Namespace: RAZEE_NAMESPACE,
-		},
-		Data: map[string][]byte{"accesskey": []byte(key)},
-	}
-}
+// func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret(instance *marketplacev1alpha1.RazeeDeployment, request reconcile.Request) *corev1.Secret {
+// 	selector := instance.Spec.DeployConfig.IbmCosReaderKey
+// 	_, _, key := r.GetDataFromRhmSecret(request, *selector)
+// 	return &corev1.Secret{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      "ibm-cos-reader-key",
+// 			Namespace: RAZEE_NAMESPACE,
+// 		},
+// 		Data: map[string][]byte{"accesskey": []byte(key)},
+// 	}
+// }
 
-func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3(instance *marketplacev1alpha1.RazeeDeployment) *unstructured.Unstructured {
-	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "deploy.razee.io/v1alpha2",
-			"kind":       "RemoteResourceS3",
-			"metadata": map[string]interface{}{
-				"name":      "parent",
-				"namespace": RAZEE_NAMESPACE,
-			},
-			"spec": map[string]interface{}{
-				"auth": map[string]interface{}{
-					"iam": map[string]interface{}{
-						"response_type": "cloud_iam",
-						"url":           `https://iam.cloud.ibm.com/identity/token`,
-						"grant_type":    "urn:ibm:params:oauth:grant-type:apikey",
-						"api_key": map[string]interface{}{
-							"valueFrom": map[string]interface{}{
-								"secretKeyRef": map[string]interface{}{
-									"name": "ibm-cos-reader-key",
-									"key":  "accesskey",
-								},
-							},
-						},
-					},
-				},
-				"requests": []interface{}{
-					map[string]map[string]string{"options": {"url": *instance.Spec.ChildUrl}},
-				},
-			},
-		},
-	}
-}
+// func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3(instance *marketplacev1alpha1.RazeeDeployment) *unstructured.Unstructured {
+// 	return &unstructured.Unstructured{
+// 		Object: map[string]interface{}{
+// 			"apiVersion": "deploy.razee.io/v1alpha2",
+// 			"kind":       "RemoteResourceS3",
+// 			"metadata": map[string]interface{}{
+// 				"name":      "parent",
+// 				"namespace": RAZEE_NAMESPACE,
+// 			},
+// 			"spec": map[string]interface{}{
+// 				"auth": map[string]interface{}{
+// 					"iam": map[string]interface{}{
+// 						"response_type": "cloud_iam",
+// 						"url":           `https://iam.cloud.ibm.com/identity/token`,
+// 						"grant_type":    "urn:ibm:params:oauth:grant-type:apikey",
+// 						"api_key": map[string]interface{}{
+// 							"valueFrom": map[string]interface{}{
+// 								"secretKeyRef": map[string]interface{}{
+// 									"name": "ibm-cos-reader-key",
+// 									"key":  "accesskey",
+// 								},
+// 							},
+// 						},
+// 					},
+// 				},
+// 				"requests": []interface{}{
+// 					map[string]map[string]string{"options": {"url": *instance.Spec.ChildUrl}},
+// 				},
+// 			},
+// 		},
+// 	}
+// }

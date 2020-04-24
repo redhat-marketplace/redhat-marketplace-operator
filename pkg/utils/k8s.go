@@ -6,19 +6,22 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/gotidy/ptr"
 	"github.com/imdario/mergo"
+	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
+	"github.com/spf13/viper"
+	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8yaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
-	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type PersistentVolume struct {
@@ -192,4 +195,133 @@ func LoadYAML(filename string, i interface{}) (interface{}, error) {
 	}
 
 	return genericTypeVal, nil
+}
+
+
+// MakeRazeeJob returns a Batch.Job which installs razee
+func  MakeRazeeJob(request reconcile.Request, instance *marketplacev1alpha1.RazeeDeployment) *batch.Job {
+	image := viper.GetString("razee-job-image")
+	return &batch.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "razeedeploy-job",
+			Namespace: request.Namespace,
+		},
+		Spec: batch.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					ServiceAccountName: "redhat-marketplace-operator",
+					Containers: []corev1.Container{{
+						Name:    "razeedeploy-job",
+						Image:   image,
+						Command: []string{"node", "src/install", "--namespace=razee"},
+						Args:    []string{fmt.Sprintf("--file-source=%v", instance.Spec.DeployConfig.FileSourceURL), "--autoupdate"},
+					}},
+					RestartPolicy: "Never",
+				},
+			},
+		},
+	}
+}
+
+func MakeRazeeClusterMetaData(instance *marketplacev1alpha1.RazeeDeployment) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "razee-cluster-metadata",
+			Namespace: RAZEE_NAMESPACE,
+			Labels: map[string]string{
+				"razee/cluster-metadata": "true",
+				"razee/watch-resource":   "lite",
+			},
+		},
+		Data: map[string]string{"name": instance.Spec.ClusterUUID},
+	}
+}
+
+//watch-keeper-non-namespace
+func MakeWatchKeeperNonNamespace() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "watch-keeper-non-namespaced",
+			Namespace: RAZEE_NAMESPACE,
+		},
+		Data: map[string]string{"v1_namespace": "true"},
+	}
+}
+
+//watch-keeper-non-namespace
+func MakeWatchKeeperLimitPoll() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "watch-keeper-limit-poll",
+			Namespace: RAZEE_NAMESPACE,
+		},
+	}
+}
+
+//DeploySecretValues[RAZEE_DASH_URL_FIELD]
+func MakeWatchKeeperConfig(instance *marketplacev1alpha1.RazeeDeployment) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "watch-keeper-config",
+			Namespace: RAZEE_NAMESPACE,
+		},
+		Data: map[string]string{"RAZEEDASH_URL": instance.Spec.DeployConfig.RazeeDashUrl, "START_DELAY_MAX": "0"},
+	}
+}
+
+func MakeWatchKeeperSecret(instance *marketplacev1alpha1.RazeeDeployment, request reconcile.Request,client client.Client) *corev1.Secret {
+	selector := instance.Spec.DeployConfig.RazeeDashOrgKey
+	_, key := GetDataFromRhmSecret(request, *selector,client)
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "watch-keeper-secret",
+			Namespace: RAZEE_NAMESPACE,
+		},
+		Data: map[string][]byte{"RAZEEDASH_ORG_KEY": key},
+	}
+}
+
+func MakeCOSReaderSecret(instance *marketplacev1alpha1.RazeeDeployment, request reconcile.Request, client client.Client) *corev1.Secret {
+	selector := instance.Spec.DeployConfig.IbmCosReaderKey
+	_, key := GetDataFromRhmSecret(request, *selector,client)
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ibm-cos-reader-key",
+			Namespace: RAZEE_NAMESPACE,
+		},
+		Data: map[string][]byte{"accesskey": []byte(key)},
+	}
+}
+
+func  MakeParentRemoteResourceS3(instance *marketplacev1alpha1.RazeeDeployment) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "deploy.razee.io/v1alpha2",
+			"kind":       "RemoteResourceS3",
+			"metadata": map[string]interface{}{
+				"name":      "parent",
+				"namespace": RAZEE_NAMESPACE,
+			},
+			"spec": map[string]interface{}{
+				"auth": map[string]interface{}{
+					"iam": map[string]interface{}{
+						"response_type": "cloud_iam",
+						"url":           `https://iam.cloud.ibm.com/identity/token`,
+						"grant_type":    "urn:ibm:params:oauth:grant-type:apikey",
+						"api_key": map[string]interface{}{
+							"valueFrom": map[string]interface{}{
+								"secretKeyRef": map[string]interface{}{
+									"name": "ibm-cos-reader-key",
+									"key":  "accesskey",
+								},
+							},
+						},
+					},
+				},
+				"requests": []interface{}{
+					map[string]map[string]string{"options": {"url": *instance.Spec.ChildUrl}},
+				},
+			},
+		},
+	}
 }

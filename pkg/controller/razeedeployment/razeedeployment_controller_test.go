@@ -2,13 +2,14 @@ package razeedeployment
 
 import (
 	"context"
+	// "reflect"
 	"testing"
 	"time"
 
-	. "github.ibm.com/symposium/redhat-marketplace-operator/test/controller"
-
 	"github.com/spf13/viper"
+
 	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	. "github.ibm.com/symposium/redhat-marketplace-operator/test/controller"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,11 +42,11 @@ func setup(r *ReconcilerTest) error {
 }
 
 var (
-	name      = "marketplaceconfig"
-	namespace = "redhat-marketplace-operator"
+	name       = "marketplaceconfig"
+	namespace  = "redhat-marketplace-operator"
 	secretName = "rhm-operator-secret"
 
-	opts      = []TestCaseOption{
+	opts = []TestCaseOption{
 		WithRequest(req),
 		WithNamespace(RAZEE_NAMESPACE),
 		WithName(name),
@@ -62,8 +63,8 @@ var (
 			Namespace: namespace,
 		},
 		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
-			Enabled:     true,
-			ClusterUUID: "foo",
+			Enabled:          true,
+			ClusterUUID:      "foo",
 			DeploySecretName: &secretName,
 		},
 	}
@@ -92,11 +93,12 @@ func testCleanInstall(t *testing.T) {
 	reconcilerTest.TestAll(t,
 		[]TestCaseStep{
 			NewReconcilerTestCase(
-				append(opts,
+				append(
+					opts,
 					WithName("rhm-operator-secret"),
 					WithNamespace(namespace),
 					WithExpectedResult(reconcile.Result{RequeueAfter: time.Second * 30}),
-				)...
+				)...,
 			),
 			NewReconcilerTestCase(
 				append(opts,
@@ -112,9 +114,26 @@ func testCleanInstall(t *testing.T) {
 					WithTestObj(&corev1.ConfigMap{}),
 					WithName("watch-keeper-limit-poll"))...),
 			NewReconcilerTestCase(
-				append(opts,
+				append(
+					opts,
 					WithTestObj(&corev1.ConfigMap{}),
-					WithName("razee-cluster-metadata"))...),
+					WithName("razee-cluster-metadata"),
+					WithAfter(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+						razeeClusterMetadata, ok := i.(*corev1.ConfigMap)
+
+						if !ok {
+							t.Fatalf("Type is not expected %T", i)
+						}
+
+						
+						// if !reflect.DeepEqual(razeeClusterMetadata.Data,map[string]string{"name": razeeDeployment.Spec.ClusterUUID}){
+						// 	t.Fatalf("expected razee-cluster-metadata Data array to match: %T",razeeDeployment.Spec.ClusterUUID)
+						// }
+
+
+					}),
+					)...
+				),
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&corev1.ConfigMap{}),
@@ -183,3 +202,16 @@ func CreateWatchKeeperSecret() *corev1.Secret {
 		},
 	}
 }
+
+// func TransferMetadata( in runtime.Object, out runtime.Object)(runtime.Object){
+	
+// 	out.SetAnnotations(in.GetAnnotations())
+// 	out.SetCreationTimestamp(in.GetCreationTimestamp())
+// 	out.SetFinalizers(in.GetFinalizers())
+// 	out.SetGeneration(in.GetGeneration())
+// 	out.SetResourceVersion(in.GetResourceVersion())
+// 	out.SetSelfLink(in.GetSelfLink())
+// 	out.SetUID(in.GetUID())
+
+// 	return out
+// }
