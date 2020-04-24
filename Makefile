@@ -189,6 +189,16 @@ REDHAT_OPERATOR_IMAGE := $(REDHAT_IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(VERSI
 bundle: ## Bundles the csv to submit
 	. ./scripts/bundle_csv.sh `pwd` $(VERSION)  $(OPERATOR_IMAGE)
 
+DATETIME = $(shell date +"%FT%H%M%SZ")
+REDHAT_PROJECT_ID = ospid-962ccd50-bf22-4663-a865-f539e2189f0e
+REDHAT_API_KEY ?=
+
+.PHONY: upload-bundle
+upload-bundle: ## Uploads bundle to partner connect (use with caution and only on release branch)
+	curl https://connect.redhat.com/api/v2/projects/$(REDHAT_PROJECT_ID)/operator-upload \
+			-H "Authorization: Bearer $(REDHAT_API_KEY)" -H "Content-Type: application/json" \
+			--data '{"file": "$(shell cat bundle/redhat-marketplace-operator-bundle-$(VERSION).zip | base64)", "filename": "redhat-marketplace-operator-bundle-$(VERSION)-$(DATETIME).zip", "filepath": "public://redhat-marketplace-operator-bundle-$(VERSION)-$(DATETIME).zip"}'
+
 .PHONY: publish-image
 publish-image: ## Publish image
 	make build
@@ -199,7 +209,7 @@ publish-image: ## Publish image
 .PHONY: release
 release: ## Publish release
 	make bundle
-	go run github.com/tcnksm/ghr $(VERSION) ./bundle/
+	#go run github.com/tcnksm/ghr $(VERSION) ./bundle/
 
 ##@ Help
 
