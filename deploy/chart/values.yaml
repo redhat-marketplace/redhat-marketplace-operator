@@ -7,73 +7,254 @@ replicaCount: 1
 namespace: redhat-marketplace-operator
 image: quay.io/rh-marketplace/redhat-marketplace-operator:dev
 pullPolicy: Always
-watchNamespace: "" # watch all namespaces
+watchNamespace: '' # watch all namespaces
 serviceAccountName: redhat-marketplace-operator
 env:
   - name: RELATED_IMAGE_RAZEE_JOB
     value: quay.io/razee/razeedeploy-delta:1.1.0
-roles:
+clusterRoles:
   - name: redhat-marketplace-operator
     serviceAccountName: redhat-marketplace-operator
     type: ClusterRole
     rules:
-    - apiGroups:
-      - '*'
-      resources:
-      - '*'
-      verbs:
-      - '*'
-    - nonResourceURLs:
-      - '*'
-      verbs:
-      - '*'
+      - apiGroups:
+          - ''
+        resources:
+          - pods
+          - services
+          - services/finalizers
+          - endpoints
+          - persistentvolumeclaims
+          - events
+          - configmaps
+          - secrets
+          - namespaces
+        verbs:
+          - get
+          - list
+          - watch
+      - apiGroups: ['batch', 'extensions']
+        resources: ['jobs']
+        verbs: ['get', 'list', 'watch']
+      - apiGroups:
+          - apps
+        resources:
+          - deployments
+        verbs:
+          - get
+          - list
+          - watch
+      - apiGroups:
+          - apps
+        resourceNames:
+          - redhat-marketplace-operator
+        resources:
+          - deployments/finalizers
+        verbs:
+          - update
+      - apiGroups:
+          - storage.k8s.io
+        resources:
+          - storageclasses
+        verbs:
+          - get
+          - list
+          - watch
+      - apiGroups:
+          - monitoring.coreos.com
+        resources:
+          - servicemonitors
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+      - apiGroups:
+          - operators.coreos.com
+        resourceNames:
+          - redhat-marketplace
+        resources:
+          - operatorsources
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+      - apiGroups:
+          - deploy.razee.io
+        resources:
+          - remoteresourcess3
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+      - apiGroups:
+          - config.openshift.io
+        resources:
+          - consoles
+        verbs:
+          - get
+          - list
+          - patch
+          - update
+      - apiGroups:
+          - config.openshift.io
+        resources:
+          - infrastructures
+        verbs:
+          - get
+          - list
+          - patch
+          - update
   - name: redhat-marketplace-razeedeploy
     serviceAccountName: redhat-marketplace-razeedeploy
     type: ClusterRole
     rules:
-    - apiGroups:
-      - '*'
-      resources:
-      - '*'
-      verbs:
-      - '*'
-    - nonResourceURLs:
-      - '*'
-      verbs:
-      - '*'
-  - name: redhat-marketplace-metering
-    serviceAccountName: redhat-marketplace-metering
-    type: ClusterRole
+      - apiGroups:
+          - '*'
+        resources:
+          - '*'
+        verbs:
+          - '*'
+      - nonResourceURLs:
+          - '*'
+        verbs:
+          - '*'
+  # - name: redhat-marketplace-metering
+  #   serviceAccountName: redhat-marketplace-metering
+  #   type: ClusterRole
+  #   rules:
+  #     - apiGroups:
+  #         - '*'
+  #       resources:
+  #         - '*'
+  #       verbs:
+  #         - '*'
+  #     - nonResourceURLs:
+  #         - '*'
+  #       verbs:
+  #         - '*'
+  # - name: redhat-marketplace-reporting
+  #   serviceAccountName: redhat-marketplace-reporting
+  #   type: ClusterRole
+  #   rules:
+  #     - apiGroups:
+  #         - '*'
+  #       resources:
+  #         - '*'
+  #       verbs:
+  #         - '*'
+  #     - nonResourceURLs:
+  #         - '*'
+  #       verbs:
+  #         - '*'
+roles:
+  - name: redhat-marketplace-operator
+    serviceAccountName: redhat-marketplace-operator
+    type: Role
     rules:
-    - apiGroups:
-      - '*'
-      resources:
-      - '*'
-      verbs:
-      - '*'
-    - nonResourceURLs:
-      - '*'
-      verbs:
-      - '*'
-  - name: redhat-marketplace-reporting
-    serviceAccountName: redhat-marketplace-reporting
-    type: ClusterRole
-    rules:
-    - apiGroups:
-      - '*'
-      resources:
-      - '*'
-      verbs:
-      - '*'
-    - nonResourceURLs:
-      - '*'
-      verbs:
-      - '*'
-
+      - apiGroups:
+          - ''
+        resources:
+          - pods
+          - services
+          - services/finalizers
+          - endpoints
+          - persistentvolumeclaims
+          - events
+          - configmaps
+          - secrets
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+      - apiGroups: ['batch', 'extensions']
+        resources: ['jobs']
+        verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete']
+      - apiGroups:
+          - apps
+        resources:
+          - deployments
+          - daemonsets
+          - replicasets
+          - statefulsets
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+      - apiGroups:
+          - monitoring.coreos.com
+        resources:
+          - servicemonitors
+        verbs:
+          - get
+          - create
+      - apiGroups:
+          - apps
+        resourceNames:
+          - redhat-marketplace-operator
+        resources:
+          - deployments/finalizers
+        verbs:
+          - update
+      - apiGroups:
+          - apps
+        resources:
+          - replicasets
+          - deployments
+        verbs:
+          - get
+      - apiGroups:
+          - marketplace.redhat.com
+        resources:
+          - '*'
+          - meterings
+          - razeedeployments
+          - meterbases
+          - marketplaceconfigs
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+      - apiGroups:
+          - monitoring.coreos.com
+        resources:
+          - prometheuses
+          - servicemonitors
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
 podSecurityContext:
   runAsUser: 1001
 
-securityContext: {}
+securityContext:
+  {}
   # capabilities:
   #   drop:
   #   - ALL
