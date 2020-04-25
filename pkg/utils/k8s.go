@@ -10,9 +10,10 @@ import (
 	"github.com/gotidy/ptr"
 	"github.com/imdario/mergo"
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
-	"github.com/spf13/viper"
+
+	// "github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	batch "k8s.io/api/batch/v1"
+	// batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -199,29 +200,29 @@ func LoadYAML(filename string, i interface{}) (interface{}, error) {
 
 
 // MakeRazeeJob returns a Batch.Job which installs razee
-func  MakeRazeeJob(request reconcile.Request, instance *marketplacev1alpha1.RazeeDeployment) *batch.Job {
-	image := viper.GetString("razee-job-image")
-	return &batch.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "razeedeploy-job",
-			Namespace: request.Namespace,
-		},
-		Spec: batch.JobSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					ServiceAccountName: "redhat-marketplace-operator",
-					Containers: []corev1.Container{{
-						Name:    "razeedeploy-job",
-						Image:   image,
-						Command: []string{"node", "src/install", "--namespace=razee"},
-						Args:    []string{fmt.Sprintf("--file-source=%v", instance.Spec.DeployConfig.FileSourceURL), "--autoupdate"},
-					}},
-					RestartPolicy: "Never",
-				},
-			},
-		},
-	}
-}
+// func  MakeRazeeJob(request reconcile.Request, instance *marketplacev1alpha1.RazeeDeployment) *batch.Job {
+// 	image := viper.GetString("razee-job-image")
+// 	return &batch.Job{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      "razeedeploy-job",
+// 			Namespace: request.Namespace,
+// 		},
+// 		Spec: batch.JobSpec{
+// 			Template: corev1.PodTemplateSpec{
+// 				Spec: corev1.PodSpec{
+// 					ServiceAccountName: "redhat-marketplace-operator",
+// 					Containers: []corev1.Container{{
+// 						Name:    "razeedeploy-job",
+// 						Image:   image,
+// 						Command: []string{"node", "src/install", "--namespace=razee"},
+// 						Args:    []string{fmt.Sprintf("--file-source=%v", instance.Spec.DeployConfig.FileSourceURL), "--autoupdate"},
+// 					}},
+// 					RestartPolicy: "Never",
+// 				},
+// 			},
+// 		},
+// 	}
+// }
 
 func MakeRazeeClusterMetaData(instance *marketplacev1alpha1.RazeeDeployment) *corev1.ConfigMap {
 	return &corev1.ConfigMap{

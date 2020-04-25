@@ -379,7 +379,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				reqLogger.Info("watch-keeper-non-namespace does not exist - creating")
 
 				// set the annotation
-				watchKeeperNonNamespace = *r.MakeWatchKeeperNonNamespace()
+				watchKeeperNonNamespace = *utils.MakeWatchKeeperNonNamespace()
 				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&watchKeeperNonNamespace); err != nil {
 					reqLogger.Error(err, "Failed to set annotation")
 				}
@@ -398,7 +398,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err == nil {
 			reqLogger.Info(fmt.Sprintf("Resource already exists %v", watchKeeperNonNamespace.Name))
 			// proposed change
-			updatedWatchKeeperNonNameSpace := *r.MakeWatchKeeperNonNamespace()
+			updatedWatchKeeperNonNameSpace := utils.MakeWatchKeeperNonNamespace()
 			patchResult, err := patch.DefaultPatchMaker.Calculate(&watchKeeperNonNamespace, &updatedWatchKeeperNonNameSpace)
 			if err != nil {
 				// handle the error
@@ -411,7 +411,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 				}
 				reqLogger.Info("Updating resource", "resource: ", watchKeeperNonNamespace.Name)
-				err = r.client.Update(context.TODO(), &updatedWatchKeeperNonNameSpace)
+				err = r.client.Update(context.TODO(), updatedWatchKeeperNonNameSpace)
 				if err != nil {
 					reqLogger.Info(fmt.Sprintf("Failed to update %v", watchKeeperNonNamespace.Name))
 					return reconcile.Result{}, err
@@ -441,7 +441,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				reqLogger.Info("watch-keeper-limit-poll does not exist - creating")
 
 				// set the annotation
-				watchKeeperLimitPoll = *r.MakeWatchKeeperLimitPoll()
+				watchKeeperLimitPoll = *utils.MakeWatchKeeperLimitPoll()
 				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&watchKeeperLimitPoll); err != nil {
 					reqLogger.Error(err, "Failed to set annotation")
 				}
@@ -462,7 +462,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 		if err == nil {
 			reqLogger.Info(fmt.Sprintf("No change detected on %v", watchKeeperLimitPoll.Name))
-			updatedWatchKeeperLimitPoll := r.MakeWatchKeeperLimitPoll()
+			updatedWatchKeeperLimitPoll := utils.MakeWatchKeeperLimitPoll()
 			patchResult, err := patch.DefaultPatchMaker.Calculate(&watchKeeperLimitPoll, updatedWatchKeeperLimitPoll)
 			if err != nil {
 				reqLogger.Error(err, "Failed to calculate patch diff")
@@ -502,7 +502,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				reqLogger.Info("razee cluster metadata does not exist - creating")
 
 				// set the annotation
-				razeeClusterMetaData = *r.MakeRazeeClusterMetaData(instance)
+				razeeClusterMetaData = *utils.MakeRazeeClusterMetaData(instance)
 				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&razeeClusterMetaData); err != nil {
 					reqLogger.Error(err, "Failed to set annotation")
 				}
@@ -524,7 +524,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info(fmt.Sprintf("Resource already exists %v", razeeClusterMetaData.Name))
 
 			// proposed change
-			updatedRazeeClusterMetaData := *r.MakeRazeeClusterMetaData(instance)
+			updatedRazeeClusterMetaData := *utils.MakeRazeeClusterMetaData(instance)
 			patchResult, err := patch.DefaultPatchMaker.Calculate(&razeeClusterMetaData, &updatedRazeeClusterMetaData)
 			if err != nil {
 				// handle the error
@@ -570,7 +570,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				reqLogger.Info("watch-keeper-config does not exist - creating")
 
 				// set the annotation
-				watchKeeperConfig = *r.MakeWatchKeeperConfig(instance)
+				watchKeeperConfig = *utils.MakeWatchKeeperConfig(instance)
 				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&watchKeeperConfig); err != nil {
 					reqLogger.Error(err, "Failed to set annotation")
 				}
@@ -589,7 +589,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err == nil {
 			reqLogger.Info(fmt.Sprintf("Resource already exists %v", watchKeeperConfig.Name))
 
-			updatedWatchKeeperConfig := *r.MakeWatchKeeperConfig(instance)
+			updatedWatchKeeperConfig := *utils.MakeWatchKeeperConfig(instance)
 			patchResult, err := patch.DefaultPatchMaker.Calculate(&watchKeeperConfig, &updatedWatchKeeperConfig)
 			if err != nil {
 				// handle the error
@@ -629,7 +629,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err != nil {
 			if errors.IsNotFound(err) {
 				reqLogger.Info("watch-keeper-secret does not exist - creating")
-				watchKeeperSecret = *r.MakeWatchKeeperSecret(instance, request)
+				watchKeeperSecret = *utils.MakeWatchKeeperSecret(instance, request,r.client)
 				// set the annotation
 				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&watchKeeperSecret); err != nil {
 					reqLogger.Error(err, "Failed to set annotation")
@@ -648,7 +648,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err == nil {
 			reqLogger.Info(fmt.Sprintf("Resource already exists %v", watchKeeperSecret.Name))
 
-			updatedWatchKeeperSecret := *r.MakeWatchKeeperSecret(instance, request)
+			updatedWatchKeeperSecret := *utils.MakeWatchKeeperSecret(instance, request,r.client)
 			patchResult, err := patch.DefaultPatchMaker.Calculate(&watchKeeperSecret, &updatedWatchKeeperSecret)
 			if err != nil {
 				// handle the error
@@ -688,7 +688,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err != nil {
 			if errors.IsNotFound(err) {
 				reqLogger.Info("ibm-cos-reader-key does not exist - creating")
-				ibmCosReaderKey = *r.MakeCOSReaderSecret(instance, request)
+				ibmCosReaderKey = *utils.MakeCOSReaderSecret(instance, request,r.client)
 				// set the annotation
 				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&ibmCosReaderKey); err != nil {
 					reqLogger.Error(err, "Failed to set annotation")
@@ -708,7 +708,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err == nil {
 			reqLogger.Info(fmt.Sprintf("Resource already exists %v", ibmCosReaderKey.Name))
 
-			updatedibmCosReaderKey := *r.MakeCOSReaderSecret(instance, request)
+			updatedibmCosReaderKey := *utils.MakeCOSReaderSecret(instance, request,r.client)
 			patchResult, err := patch.DefaultPatchMaker.Calculate(&ibmCosReaderKey, &updatedibmCosReaderKey)
 			if err != nil {
 				// handle the error
@@ -797,7 +797,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				if errors.IsNotFound(err) {
 					reqLogger.Info("parent RRS3 does not exist - creating")
 					// set the annotation
-					parentRRS3 = r.MakeParentRemoteResourceS3(instance)
+					parentRRS3 = utils.MakeParentRemoteResourceS3(instance)
 					if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(parentRRS3); err != nil {
 						reqLogger.Error(err, "Failed to set annotation")
 					}
@@ -816,7 +816,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			if err == nil {
 				reqLogger.Info("parent RRS3 already exists")
 
-				updatedParentRRS3 := r.MakeParentRemoteResourceS3(instance)
+				updatedParentRRS3 := utils.MakeParentRemoteResourceS3(instance)
 				updatedParentRRS3.SetAnnotations(parentRRS3.GetAnnotations())
 				updatedParentRRS3.SetCreationTimestamp(parentRRS3.GetCreationTimestamp())
 				updatedParentRRS3.SetFinalizers(parentRRS3.GetFinalizers())
