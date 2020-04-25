@@ -11,6 +11,7 @@ require (
 	github.com/coreos/prometheus-operator v0.38.0
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/go-logr/logr v0.1.0
+	github.com/google/go-containerregistry v0.0.0-20200424115305-087a4bdef7c4
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
 	github.com/gotidy/ptr v1.0.1

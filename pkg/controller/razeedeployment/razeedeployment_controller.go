@@ -6,10 +6,10 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/utils"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -170,11 +170,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if utils.Contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
 			//Run finalization logic for the razeeDeploymentFinalizer.
 			//If it fails, don't remove the finalizer so we can retry during the next reconcile
-			return r.partialUninstall(req *marketplacev1alpha1.RazeeDeployment)
+			return r.partialUninstall(instance)
 		}
+
 		return reconcile.Result{}, nil
 	}
-
 
 	// Update the Spec TargetNamespace
 	if instance.Spec.TargetNamespace == nil {

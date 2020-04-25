@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	. "github.ibm.com/symposium/redhat-marketplace-operator/test/controller"
-	// appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
