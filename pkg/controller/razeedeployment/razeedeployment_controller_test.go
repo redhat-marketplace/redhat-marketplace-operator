@@ -45,7 +45,7 @@ var (
 	namespace = "redhat-marketplace-operator"
 	opts      = []TestCaseOption{
 		WithRequest(req),
-		WithNamespace(RAZEE_NAMESPACE),
+		WithNamespace("redhat-marketplace-operator"),
 		WithName(name),
 	}
 	req = reconcile.Request{
