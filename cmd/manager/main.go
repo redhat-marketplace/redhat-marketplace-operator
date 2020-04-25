@@ -34,8 +34,8 @@ func makeMarketplaceController(
 		},
 		Controllers: []*controller.ControllerDefinition{
 			(*controller.ControllerDefinition)(myController),
-			(*controller.ControllerDefinition)(meterbaseC),
-			(*controller.ControllerDefinition)(meterDefinitionC),
+			//(*controller.ControllerDefinition)(meterbaseC),
+			//(*controller.ControllerDefinition)(meterDefinitionC),
 			(*controller.ControllerDefinition)(razeeC),
 			(*controller.ControllerDefinition)(olmSubscriptionC),
 		},
