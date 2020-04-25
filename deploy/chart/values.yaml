@@ -12,7 +12,7 @@ serviceAccountName: redhat-marketplace-operator
 env:
   - name: RELATED_IMAGE_RAZEE_JOB
     value: quay.io/razee/razeedeploy-delta:1.1.0
-clusterRoles:
+roles:
   - name: redhat-marketplace-operator
     serviceAccountName: redhat-marketplace-operator
     type: ClusterRole
@@ -157,7 +157,6 @@ clusterRoles:
   #         - '*'
   #       verbs:
   #         - '*'
-roles:
   - name: redhat-marketplace-operator
     serviceAccountName: redhat-marketplace-operator
     type: Role
