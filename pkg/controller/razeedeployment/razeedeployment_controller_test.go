@@ -2,12 +2,13 @@ package razeedeployment
 
 import (
 	"context"
+
 	// "reflect"
 	"testing"
 	"time"
 
+	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/spf13/viper"
-
 	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	. "github.ibm.com/symposium/redhat-marketplace-operator/test/controller"
 	batch "k8s.io/api/batch/v1"
@@ -74,13 +75,13 @@ var (
 			Namespace: "redhat-marketplace-operator",
 		},
 		Data: map[string][]byte{
-			IBM_COS_READER_KEY_FIELD: []byte("test"),
-			IBM_COS_URL_FIELD:        []byte("test"),
-			BUCKET_NAME_FIELD:        []byte("test"),
-			RAZEE_DASH_ORG_KEY_FIELD: []byte("test"),
-			CHILD_RRS3_YAML_FIELD:    []byte("test"),
-			RAZEE_DASH_URL_FIELD:     []byte("test"),
-			FILE_SOURCE_URL_FIELD:    []byte("test"),
+			IBM_COS_READER_KEY_FIELD: []byte("ibm-cos-reader-key"),
+			IBM_COS_URL_FIELD:        []byte("ibm-cos-url"),
+			BUCKET_NAME_FIELD:        []byte("bucket-name"),
+			RAZEE_DASH_ORG_KEY_FIELD: []byte("razee-dash-org-key"),
+			CHILD_RRS3_YAML_FIELD:    []byte("childRRS3-filename"),
+			RAZEE_DASH_URL_FIELD:     []byte("razee-dash-url"),
+			FILE_SOURCE_URL_FIELD:    []byte("file-source-url"),
 		},
 	}
 )
@@ -108,11 +109,49 @@ func testCleanInstall(t *testing.T) {
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&corev1.ConfigMap{}),
-					WithName("watch-keeper-non-namespaced"))...),
+					WithName("watch-keeper-non-namespaced"),
+					WithAfter(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+						watchKeeperNonNamespace, ok := i.(*corev1.ConfigMap)
+						if !ok {
+							t.Fatalf("Type is not expected %T", i)
+						}
+
+						razeeController := ReconcileRazeeDeployment{}
+						expectedWatchKeeperNonNamespace := razeeController.MakeWatchKeeperNonNamespace()
+
+						patchResult, err := patch.DefaultPatchMaker.Calculate(watchKeeperNonNamespace, expectedWatchKeeperNonNamespace)
+						if !patchResult.IsEmpty() {
+							t.Fatalf("Discrepency on object %T", patchResult)
+						}
+
+						if err != nil {
+							t.Fatalf("Error calculating patch %T", patchResult)
+						}
+					}),
+					)...),
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&corev1.ConfigMap{}),
-					WithName("watch-keeper-limit-poll"))...),
+					WithName("watch-keeper-limit-poll"),
+					WithAfter(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+						watchKeeperLimitPoll, ok := i.(*corev1.ConfigMap)
+						if !ok {
+							t.Fatalf("Type is not expected %T", i)
+						}
+
+						razeeController := ReconcileRazeeDeployment{}
+						expectedWatchKeeperLimitPoll := razeeController.MakeWatchKeeperLimitPoll()
+
+						patchResult, err := patch.DefaultPatchMaker.Calculate(watchKeeperLimitPoll, expectedWatchKeeperLimitPoll)
+						if !patchResult.IsEmpty() {
+							t.Fatalf("Discrepency on object %T", patchResult)
+						}
+
+						if err != nil {
+							t.Fatalf("Error calculating patch %T", patchResult)
+						}
+					}),
+					)...),
 			NewReconcilerTestCase(
 				append(
 					opts,
@@ -125,11 +164,17 @@ func testCleanInstall(t *testing.T) {
 							t.Fatalf("Type is not expected %T", i)
 						}
 
-						
-						// if !reflect.DeepEqual(razeeClusterMetadata.Data,map[string]string{"name": razeeDeployment.Spec.ClusterUUID}){
-						// 	t.Fatalf("expected razee-cluster-metadata Data array to match: %T",razeeDeployment.Spec.ClusterUUID)
-						// }
+						razeeController := ReconcileRazeeDeployment{}
+						expectedRazeeClusterMetadata := razeeController.MakeRazeeClusterMetaData(&razeeDeployment)
 
+						patchResult, err := patch.DefaultPatchMaker.Calculate(razeeClusterMetadata, expectedRazeeClusterMetadata)
+						if !patchResult.IsEmpty() {
+							t.Fatalf("Discrepency on object %T", patchResult)
+						}
+
+						if err != nil {
+							t.Fatalf("Error calculating patch %T", patchResult)
+						}
 
 					}),
 					)...
@@ -137,15 +182,55 @@ func testCleanInstall(t *testing.T) {
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&corev1.ConfigMap{}),
-					WithName("watch-keeper-config"))...),
+					WithName("watch-keeper-config"),
+					
+					)...),
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&corev1.Secret{}),
-					WithName("watch-keeper-secret"))...),
+					WithName("watch-keeper-secret"),
+					)...),
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&corev1.Secret{}),
-					WithName("ibm-cos-reader-key"))...),
+					WithName("ibm-cos-reader-key"),
+					WithAfter(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+						ibmCosReaderKey, ok := i.(*corev1.Secret)
+						if !ok {
+							t.Fatalf("Type is not expected %T", i)
+						}
+						// newRazeeDeployment := marketplacev1alpha1.RazeeDeployment{
+						// 	ObjectMeta: metav1.ObjectMeta{
+						// 		Name:      name,
+						// 		Namespace: namespace,
+						// 	},
+						// 	Spec: marketplacev1alpha1.RazeeDeploymentSpec{
+						// 		Enabled:          true,
+						// 		ClusterUUID:      "foo",
+						// 		DeploySecretName: &secretName,
+						// 	},
+						// }
+						razeeDeployment.Spec.DeployConfig = &marketplacev1alpha1.RazeeConfigurationValues{}
+						razeeDeployment.Spec.DeployConfig.IbmCosReaderKey = &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "rhm-operator-secret",
+							},
+							Key: IBM_COS_READER_KEY_FIELD,
+						}
+
+						razeeController := ReconcileRazeeDeployment{}
+						expectedIbmCosReaderKey,err := razeeController.MakeCOSReaderSecret(&razeeDeployment,req)
+
+						patchResult, err := patch.DefaultPatchMaker.Calculate(ibmCosReaderKey, &expectedIbmCosReaderKey)
+						if !patchResult.IsEmpty() {
+							t.Fatalf("Discrepency on object %T", patchResult)
+						}
+
+						if err != nil {
+							t.Fatalf("Error calculating patch %T", patchResult)
+						}
+					}),
+					)...),
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&batch.Job{}),

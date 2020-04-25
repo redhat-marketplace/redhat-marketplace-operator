@@ -5,5 +5,5 @@ metadata:
 spec:
   # Add fields here 
   rhmAccountID: example-userid
-  clusterUUID: max-rhm-operator-test-9
+  clusterUUID: max-rhm-operator-test-9-cluter-uuid
   deploySecretName: rhm-operator-secret
