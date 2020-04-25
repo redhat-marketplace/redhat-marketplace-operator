@@ -199,17 +199,7 @@ func testCleanInstall(t *testing.T) {
 						if !ok {
 							t.Fatalf("Type is not expected %T", i)
 						}
-						// newRazeeDeployment := marketplacev1alpha1.RazeeDeployment{
-						// 	ObjectMeta: metav1.ObjectMeta{
-						// 		Name:      name,
-						// 		Namespace: namespace,
-						// 	},
-						// 	Spec: marketplacev1alpha1.RazeeDeploymentSpec{
-						// 		Enabled:          true,
-						// 		ClusterUUID:      "foo",
-						// 		DeploySecretName: &secretName,
-						// 	},
-						// }
+
 						razeeDeployment.Spec.DeployConfig = &marketplacev1alpha1.RazeeConfigurationValues{}
 						razeeDeployment.Spec.DeployConfig.IbmCosReaderKey = &corev1.SecretKeySelector{
 							LocalObjectReference: corev1.LocalObjectReference{
