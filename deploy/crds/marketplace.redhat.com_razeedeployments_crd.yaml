@@ -10,8 +10,6 @@ spec:
     plural: razeedeployments
     singular: razeedeployment
   scope: Namespaced
-  subresources:
-    status: {}
   validation:
     openAPIV3Schema:
       description: RazeeDeployment is the resources that deploys Razee for the Red
@@ -33,20 +31,26 @@ spec:
           description: RazeeDeploymentSpec defines the desired state of RazeeDeployment
           properties:
             clusterUUID:
+              description: ClusterUUID is the cluster identifier, used for installing
+                razee.
               type: string
             deploySecretName:
+              description: DeploySecretName is the name of our secret where Razee
+                variables are stored.
               type: string
             enabled:
-              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-                Important: Run "operator-sdk generate k8s" to regenerate code after
-                modifying this file Add custom validation using kubebuilder tags:
-                https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-                Setting enabled to "true" will create a Razee namespace and deploy
-                it''s componenets. Set to "false" to bypass Razee installation'
+              description: Setting enabled to "true" will create a Razee namespace
+                and deploy it's componenets. Set to "false" to bypass Razee installation
+                Enabled flag stops razee from installing
               type: boolean
+            targetNamespace:
+              description: TargetNamespace is configurable target of the razee namespace
+                this is to support legancy installs. Please do not edit.
+              type: string
           required:
           - clusterUUID
           - enabled
+          - targetNamespace
           type: object
         status:
           description: RazeeDeploymentStatus defines the observed state of RazeeDeployment

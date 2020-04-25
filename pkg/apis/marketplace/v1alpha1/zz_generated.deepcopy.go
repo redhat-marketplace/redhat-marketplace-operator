@@ -476,6 +476,11 @@ func (in *RazeeDeploymentSpec) DeepCopyInto(out *RazeeDeploymentSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.TargetNamespace != nil {
+		in, out := &in.TargetNamespace, &out.TargetNamespace
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 
