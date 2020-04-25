@@ -25,7 +25,7 @@ type RazeeDeploymentSpec struct {
 	// TargetNamespace is configurable target of the razee namespace
 	// this is to support legancy installs. Please do not edit.
 	// +optional
-	TargetNamespace  *string  `json:"targetNamespace,omitEmpty"`
+	TargetNamespace  *string  `json:"targetNamespace,omitempty"`
 }
 
 // RazeeDeploymentStatus defines the observed state of RazeeDeployment

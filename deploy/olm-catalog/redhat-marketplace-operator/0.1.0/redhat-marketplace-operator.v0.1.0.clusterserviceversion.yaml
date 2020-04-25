@@ -82,7 +82,7 @@ metadata:
     categories: Developer Tools
     certified: "true"
     containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:0.1.0
-    createdAt: 2020-04-25T01:44:21Z
+    createdAt: 2020-04-25T13:13:20Z
     description: The Red Hat Marketplace Operator provides cluster management, metering
       and operator installation for Red Hat Marketplace customers.
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","meterbases.marketplace.redhat.com","meterdefinitions.marketplace.redhat.com"]'
