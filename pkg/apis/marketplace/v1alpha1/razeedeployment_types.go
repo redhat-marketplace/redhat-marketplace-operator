@@ -10,13 +10,20 @@ import (
 
 // RazeeDeploymentSpec defines the desired state of RazeeDeployment
 type RazeeDeploymentSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 	// Setting enabled to "true" will create a Razee namespace and deploy it's componenets. Set to "false" to bypass Razee installation
+	// Enabled flag stops razee from installing
 	Enabled          bool    `json:"enabled"`
+
+	// ClusterUUID is the cluster identifier, used for installing razee.
 	ClusterUUID      string  `json:"clusterUUID"`
+
+	// DeploySecretName is the name of our secret where Razee
+	// variables are stored.
 	DeploySecretName *string `json:"deploySecretName,omitempty"`
+
+	// TargetNamespace is configurable target of the razee namespace
+	// this is to support legancy installs. Please do not edit.
+	TargetNamespace  *string  `json:"targetNamespace,omitEmpty"`
 }
 
 // RazeeDeploymentStatus defines the observed state of RazeeDeployment
