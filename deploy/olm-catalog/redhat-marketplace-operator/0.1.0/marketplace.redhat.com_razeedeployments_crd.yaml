@@ -50,7 +50,6 @@ spec:
           required:
           - clusterUUID
           - enabled
-          - targetNamespace
           type: object
         status:
           description: RazeeDeploymentStatus defines the observed state of RazeeDeployment

@@ -44,11 +44,15 @@ push: push ## Push the operator image
 helm: ## build helm base charts
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE) --set namespace=$(NAMESPACE)
 
+CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/redhat-marketplace-operator.v$(VERSION).clusterserviceversion.yaml
+
 generate-csv: ## Generate the csv
 	make helm
 	operator-sdk generate csv --from-version $(FROM_VERSION) --csv-version $(VERSION) --csv-config=./deploy/olm-catalog/csv-config.yaml --update-crds
-	@go run github.com/mikefarah/yq/v3 w -i ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/redhat-marketplace-operator.v$(VERSION).clusterserviceversion.yaml 'metadata.annotations.containerImage' $(OPERATOR_IMAGE)
-	@go run github.com/mikefarah/yq/v3 w -i ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/redhat-marketplace-operator.v$(VERSION).clusterserviceversion.yaml 'metadata.annotations.createdAt' $(CREATED_TIME)
+	@go run github.com/mikefarah/yq/v3 w -i $(CSV_FILE) 'metadata.annotations.containerImage' $(OPERATOR_IMAGE)
+	@go run github.com/mikefarah/yq/v3 w -i $(CSV_FILE) 'metadata.annotations.createdAt' $(CREATED_TIME)
+	@go run github.com/mikefarah/yq/v3 d -i $(CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
+	@go run github.com/mikefarah/yq/v3 w -i $(CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
 
 docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
 	@docker login -u="$(DOCKER_USER)" -p="$(DOCKER_PASSWORD)" quay.io
