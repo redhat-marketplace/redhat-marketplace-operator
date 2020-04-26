@@ -10,10 +10,11 @@ spec:
     plural: razeedeployments
     singular: razeedeployment
   scope: Namespaced
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
-      description: RazeeDeployment is the resources that deploys Razee for the Red
-        Hat Marketplace. This is an internal resource not meant to be modified directly.
+      description: RazeeDeployment is the Schema for the razeedeployments API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -30,83 +31,18 @@ spec:
         spec:
           description: RazeeDeploymentSpec defines the desired state of RazeeDeployment
           properties:
-            childUrl:
-              type: string
             clusterUUID:
-              description: ClusterUUID is the cluster identifier, used for installing
-                razee.
               type: string
-            deployConfig:
-              description: 'EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN! NOTE:
-                json tags are required.  Any new fields you add must have json tags
-                for the fields to be serialized. Configuration values used by Razee
-                to communicate with the Red Hat Marketplace backend'
-              properties:
-                BUCKET_NAME:
-                  description: BucketName is the name of the bucket in Cloud Object
-                    Storage and correlates to your accountID
-                  type: string
-                CHILD_RRS3_YAML_FILENAME:
-                  description: The file name of the child RemoteResourecS3
-                  type: string
-                FILE_SOURCE_URL:
-                  description: The url of the filesource arg that gets passed into
-                    the razeedeploy-job
-                  type: string
-                IBM_COS_READER_KEY:
-                  description: Api key used to access the bucket IBM COS
-                  properties:
-                    key:
-                      description: The key of the secret to select from.  Must be
-                        a valid secret key.
-                      type: string
-                    name:
-                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                        TODO: Add other useful fields. apiVersion, kind, uid?'
-                      type: string
-                    optional:
-                      description: Specify whether the Secret or its key must be defined
-                      type: boolean
-                  required:
-                  - key
-                  type: object
-                IBM_COS_URL:
-                  description: Base url for the instance of IBM COS
-                  type: string
-                RAZEE_DASH_ORG_KEY:
-                  description: Key used to identify a particular razee instance
-                  properties:
-                    key:
-                      description: The key of the secret to select from.  Must be
-                        a valid secret key.
-                      type: string
-                    name:
-                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                        TODO: Add other useful fields. apiVersion, kind, uid?'
-                      type: string
-                    optional:
-                      description: Specify whether the Secret or its key must be defined
-                      type: boolean
-                  required:
-                  - key
-                  type: object
-                RAZEE_DASH_URL:
-                  description: Url used by the razee install to post data
-                  type: string
-              type: object
             deploySecretName:
-              description: DeploySecretName is the name of our secret where Razee
-                variables are stored.
               type: string
             enabled:
-              description: Setting enabled to "true" will create a Razee namespace
-                and deploy it's componenets. Set to "false" to bypass Razee installation
-                Enabled flag stops razee from installing
+              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                Important: Run "operator-sdk generate k8s" to regenerate code after
+                modifying this file Add custom validation using kubebuilder tags:
+                https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+                Setting enabled to "true" will create a Razee namespace and deploy
+                it''s componenets. Set to "false" to bypass Razee installation'
               type: boolean
-            targetNamespace:
-              description: TargetNamespace is configurable target of the razee namespace
-                this is to support legancy installs. Please do not edit.
-              type: string
           required:
           - clusterUUID
           - enabled
@@ -115,8 +51,10 @@ spec:
           description: RazeeDeploymentStatus defines the observed state of RazeeDeployment
           properties:
             conditions:
-              description: Conditions represent the latest available observations
-                of an object's stateonfig
+              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                of cluster Important: Run "operator-sdk generate k8s" to regenerate
+                code after modifying this file Add custom validation using kubebuilder
+                tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html'
               properties:
                 lastProbeTime:
                   description: Last time the condition was checked.
@@ -145,7 +83,7 @@ spec:
               - type
               type: object
             jobState:
-              description: JobState is the status of the Razee Install Job
+              description: JobStatus represents the current state of a Job.
               properties:
                 active:
                   description: The number of actively running pods.
@@ -207,32 +145,28 @@ spec:
                   format: int32
                   type: integer
               type: object
-            missingDeploySecretValues:
+            localSecretVarsPopulated:
+              type: boolean
+            missingValuesFromSecret:
               items:
                 type: string
               type: array
             razee_job_install:
-              description: RazeeJobInstall contains information regarding the install
-                job so it can be removed
               properties:
                 razee_install_url:
-                  description: RazeeInstallURL is the url used to install the Razee
-                    resources
                   type: string
                 razee_namespace:
-                  description: RazeeNamespace is the namespace targeted for the Razee
-                    install
                   type: string
               required:
               - razee_install_url
               - razee_namespace
               type: object
             razeePrerequisitesCreated:
-              description: RazeePrerequestesCreated is the list of configmaps and
-                secrets required to be installed
               items:
                 type: string
               type: array
+            redHatMarketplaceSecretFound:
+              type: boolean
           type: object
       type: object
   version: v1alpha1

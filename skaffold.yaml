@@ -7,7 +7,7 @@ build:
   artifacts:
     - image: redhat-marketplace-operator
       custom:
-        buildCommand: ./scripts/skaffold-build.sh
+        buildCommand: ./scripts/skaffold_build.sh
         dependencies:
           paths:
             - ./cmd

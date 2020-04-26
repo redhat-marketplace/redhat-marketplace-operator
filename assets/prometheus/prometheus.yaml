@@ -5,7 +5,7 @@ metadata:
   labels:
     prometheus: prometheus
 spec:
-  replicas: 1
+  replicas: 2
   serviceAccountName: redhat-marketplace-metering
   serviceMonitorSelector:
     matchLabels:

@@ -9,12 +9,10 @@ spec:
   selector:
     matchLabels:
       redhat.marketplace.com/name: redhat-marketplace-operator
-      redhat.marketplace.com/version: 
   template:
     metadata:
       labels:
         redhat.marketplace.com/name: redhat-marketplace-operator
-        redhat.marketplace.com/version: 
     spec:
       serviceAccountName: redhat-marketplace-operator
       securityContext:
@@ -22,7 +20,11 @@ spec:
       containers:
         - name: redhat-marketplace-operator
           # Replace this with the built image name
+<<<<<<< HEAD
           image: quay.io/mxpaspa/redhat-marketplace-operator:dev
+=======
+          image: quay.io/rh-marketplace/redhat-marketplace-operator:0.1.0
+>>>>>>> origin/develop
           imagePullPolicy: Always
           securityContext:
             {}

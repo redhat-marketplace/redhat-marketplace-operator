@@ -30,70 +30,10 @@ spec:
         spec:
           description: RazeeDeploymentSpec defines the desired state of RazeeDeployment
           properties:
-            childUrl:
-              type: string
             clusterUUID:
               description: ClusterUUID is the cluster identifier, used for installing
                 razee.
               type: string
-            deployConfig:
-              description: 'EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN! NOTE:
-                json tags are required.  Any new fields you add must have json tags
-                for the fields to be serialized. Configuration values used by Razee
-                to communicate with the Red Hat Marketplace backend'
-              properties:
-                BUCKET_NAME:
-                  description: BucketName is the name of the bucket in Cloud Object
-                    Storage and correlates to your accountID
-                  type: string
-                CHILD_RRS3_YAML_FILENAME:
-                  description: The file name of the child RemoteResourecS3
-                  type: string
-                FILE_SOURCE_URL:
-                  description: The url of the filesource arg that gets passed into
-                    the razeedeploy-job
-                  type: string
-                IBM_COS_READER_KEY:
-                  description: Api key used to access the bucket IBM COS
-                  properties:
-                    key:
-                      description: The key of the secret to select from.  Must be
-                        a valid secret key.
-                      type: string
-                    name:
-                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                        TODO: Add other useful fields. apiVersion, kind, uid?'
-                      type: string
-                    optional:
-                      description: Specify whether the Secret or its key must be defined
-                      type: boolean
-                  required:
-                  - key
-                  type: object
-                IBM_COS_URL:
-                  description: Base url for the instance of IBM COS
-                  type: string
-                RAZEE_DASH_ORG_KEY:
-                  description: Key used to identify a particular razee instance
-                  properties:
-                    key:
-                      description: The key of the secret to select from.  Must be
-                        a valid secret key.
-                      type: string
-                    name:
-                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                        TODO: Add other useful fields. apiVersion, kind, uid?'
-                      type: string
-                    optional:
-                      description: Specify whether the Secret or its key must be defined
-                      type: boolean
-                  required:
-                  - key
-                  type: object
-                RAZEE_DASH_URL:
-                  description: Url used by the razee install to post data
-                  type: string
-              type: object
             deploySecretName:
               description: DeploySecretName is the name of our secret where Razee
                 variables are stored.
@@ -207,7 +147,13 @@ spec:
                   format: int32
                   type: integer
               type: object
-            missingDeploySecretValues:
+            localSecretVarsPopulated:
+              description: LocalSecretVarsPopulated informs if the correct local variables
+                are correct set.
+              type: boolean
+            missingValuesFromSecret:
+              description: MissingValuesFromSecret validates the secret provided has
+                all the correct fields
               items:
                 type: string
               type: array
@@ -233,6 +179,10 @@ spec:
               items:
                 type: string
               type: array
+            redHatMarketplaceSecretFound:
+              description: RedHatMarketplaceSecretFound is the status of finding the
+                secret in the cluster
+              type: boolean
           type: object
       type: object
   version: v1alpha1

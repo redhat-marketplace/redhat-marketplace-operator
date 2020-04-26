@@ -28,40 +28,66 @@ type RazeeConfigurationValues struct {
 
 // RazeeDeploymentSpec defines the desired state of RazeeDeployment
 type RazeeDeploymentSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-	// Setting enabled to "true" will create a Razee namespace and deploy it's componenets. Set to "false" to bypass Razee installation
-	Enabled          bool                      `json:"enabled"`
-	ClusterUUID      string                    `json:"clusterUUID"`
-	DeploySecretName *string                   `json:"deploySecretName,omitempty"`
+	// Enabled flag stops razee from installing
+	Enabled          bool    `json:"enabled"`
+
+	// ClusterUUID is the cluster identifier, used for installing razee.
+	ClusterUUID      string  `json:"clusterUUID"`
+
+	// DeploySecretName is the name of our secret where Razee
+	// variables are stored.
+	// +optional
+	DeploySecretName *string `json:"deploySecretName,omitempty"`
+
+	// TargetNamespace is configurable target of the razee namespace
+	// this is to support legancy installs. Please do not edit.
+	// +optional
+	TargetNamespace  *string  `json:"targetNamespace,omitEmpty"`
+
+	// Configuration values provided from redhat marketplace
+	// These are used internally by the Operator
+	// +optional
 	DeployConfig     *RazeeConfigurationValues `json:"deployConfig,omitempty"`
+
+	// Location of your IBM Cloud Object Storage resources
+	// Used internally by the Operator
+	// +optional
 	ChildUrl         *string                   `json:"childUrl,omitempty"`
 }
 
 // RazeeDeploymentStatus defines the observed state of RazeeDeployment
 type RazeeDeploymentStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-	Conditions                *batch.JobCondition    `json:"conditions,omitempty"`
-	JobState                  batch.JobStatus        `json:"jobState,omitempty"`
-	RazeeJobInstall           *RazeeJobInstallStruct `json:"razee_job_install,omitempty"`
-	MissingDeploySecretValues []string               `json:"missingDeploySecretValues,omitempty"`
-	RazeePrerequisitesCreated []string               `json:"razeePrerequisitesCreated,omitempty"`
+	// Conditions represent the latest available observations of an object's stateonfig
+	Conditions *batch.JobCondition `json:"conditions,omitempty"`
+	// JobState is the status of the Razee Install Job
+	JobState batch.JobStatus `json:"jobState,omitempty"`
+	// MissingDeploySecretValues validates the secret provided has all the correct fields
+	MissingDeploySecretValues []string    `json:"missingDeploySecretValues,omitempty"`
+	// LocalSecretVarsPopulated informs if the correct local variables are correct set.
+	// LocalSecretVarsPopulated *bool `json:"localSecretVarsPopulated,omitempty"`
+	// RazeePrerequestesCreated is the list of configmaps and secrets required to be installed
+	RazeePrerequisitesCreated []string `json:"razeePrerequisitesCreated,omitempty"`
+	// RedHatMarketplaceSecretFound is the status of finding the secret in the cluster
+	// RedHatMarketplaceSecretFound *bool `json:"redHatMarketplaceSecretFound,omitempty"`
+	// RazeeJobInstall contains information regarding the install job so it can be removed
+	RazeeJobInstall *RazeeJobInstallStruct `json:"razee_job_install,omitempty"`
 }
 
 type RazeeJobInstallStruct struct {
-	RazeeNamespace  string `json:"razee_namespace"`
+	// RazeeNamespace is the namespace targeted for the Razee install
+	RazeeNamespace string `json:"razee_namespace"`
+	// RazeeInstallURL is the url used to install the Razee resources
 	RazeeInstallURL string `json:"razee_install_url"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// RazeeDeployment is the Schema for the razeedeployments API
-// +kubebuilder:subresource:status
-// +kubebuilder:resource:path=razeedeployments,scope=Namespaced
-// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="(Internal) Razee Deployment"
+// RazeeDeployment is the resources that deploys Razee for the Red Hat Marketplace.
+// This is an internal resource not meant to be modified directly.
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="(Internal) Razee Deployment"
+// +operator-sdk:gen-csv:customresourcedefinitions.resources=`Job,v1,"redhat-marketplace-operator"`
+// +operator-sdk:gen-csv:customresourcedefinitions.resources=`ConfigMap,v1,"redhat-marketplace-operator"`
+// +operator-sdk:gen-csv:customresourcedefinitions.resources=`Secret,v1,"redhat-marketplace-operator"`
 type RazeeDeployment struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

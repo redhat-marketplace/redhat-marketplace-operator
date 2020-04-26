@@ -16,4 +16,5 @@ var ControllerSet = wire.NewSet(
 	ProvideMeterbaseController,
 	ProvideRazeeDeployController,
 	ProvideMeterDefinitionController,
+	ProvideOlmSubscriptionController,
 )

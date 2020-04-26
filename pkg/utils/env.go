@@ -18,7 +18,7 @@ const (
 	METERBASE_SERVICE_ACCOUNT = "redhat-marketplace-metering"
 	REPORTING_SERVICE_ACCOUNT = "redhat-marketplace-reporting"
 	RAZEE_JOB_NAME            = "rhm-razeedeploy-job"
-	OPSRC_NAME                = "redhat-marketplace-operators"
+	OPSRC_NAME                = "redhat-marketplace"
 	OPERATOR_MKTPLACE_NS      = "openshift-marketplace"
 )
 
