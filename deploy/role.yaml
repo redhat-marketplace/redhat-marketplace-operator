@@ -128,6 +128,32 @@ rules:
   - meterbases
   - marketplaceconfigs
   verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resourceNames:
+  - rhm-cos-reader-key
+  - watch-keeper-secret
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - watch-keeper-config
+  - watch-keeper-limit-poll
+  - watch-keeper-non-namespaced
+  - razee-cluster-metadata
+  resources:
+  - configmaps
+  verbs:
   - create
   - delete
   - get

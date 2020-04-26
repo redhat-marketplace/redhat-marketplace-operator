@@ -53,10 +53,12 @@ type RazeeJobInstallStruct struct {
 	RazeeInstallURL string `json:"razee_install_url"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // RazeeDeployment is the resources that deploys Razee for the Red Hat Marketplace.
 // This is an internal resource not meant to be modified directly.
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:path=razeedeployments,scope=Namespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="(Internal) Razee Deployment"
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`Job,v1,"redhat-marketplace-operator"`
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`ConfigMap,v1,"redhat-marketplace-operator"`

@@ -134,6 +134,12 @@ roles:
           - meterbases
           - marketplaceconfigs
         verbs:
+          - '*'
+      - apiGroups:
+          - ''
+        resources:
+          - secrets
+        verbs:
           - create
           - delete
           - get
@@ -141,6 +147,26 @@ roles:
           - patch
           - update
           - watch
+        resourceNames:
+          - rhm-cos-reader-key
+          - watch-keeper-secret
+      - apiGroups:
+          - ''
+        resources:
+          - configmaps
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        resourceNames:
+          - watch-keeper-config
+          - watch-keeper-limit-poll
+          - watch-keeper-non-namespaced
+          - razee-cluster-metadata
   - name: redhat-marketplace-razeedeploy
     serviceAccountName: redhat-marketplace-razeedeploy
     type: ClusterRole
@@ -178,8 +204,11 @@ roles:
           - patch
           - update
           - watch
-      - apiGroups: ['batch', 'extensions']
-        resources: ['jobs']
+      - apiGroups:
+          - batch
+          - extensions
+        resources:
+          - jobs
         verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete']
       - apiGroups:
           - apps

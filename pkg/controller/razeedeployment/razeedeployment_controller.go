@@ -229,7 +229,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				reqLogger.Error(err, "Failed to update Status.RedHatMarketplaceSecretFound")
 			}
 			reqLogger.Info("Failed to find operator secret")
-			return reconcile.Result{}, nil
+			return reconcile.Result{RequeueAfter: time.Second * 60}, nil
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
@@ -611,9 +611,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update JobState")
-			return reconcile.Result{}, nil
+			reqLogger.Error(err, "Failed to update jobstate")
+			return reconcile.Result{}, err
 		}
+
 		reqLogger.Info("Updated JobState")
 
 		err = r.client.Delete(context.TODO(), foundJob, client.PropagationPolicy(metav1.DeletePropagationBackground))
@@ -655,13 +656,16 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err != nil {
 			reqLogger.Error(err, "Failed to retrieve Console resource")
 		}
-		reqLogger.Info("Found Console resource")
-		console.SetLabels(map[string]string{"razee/watch-resource": "lite"})
-		err = r.client.Update(context.TODO(), console)
-		if err != nil {
-			reqLogger.Error(err, "Failed to patch Console resource")
+
+		if err == nil {
+			reqLogger.Info("Found Console resource")
+			console.SetLabels(map[string]string{"razee/watch-resource": "lite"})
+			err = r.client.Update(context.TODO(), console)
+			if err != nil {
+				reqLogger.Error(err, "Failed to patch Console resource")
+			}
+			reqLogger.Info("Patched Console resource")
 		}
-		reqLogger.Info("Patched Console resource")
 
 		// Patch the Infrastructure resource
 		reqLogger.Info("finding Infrastructure resource")
@@ -678,15 +682,18 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err != nil {
 			reqLogger.Error(err, "Failed to retrieve Infrastructure resource")
 		}
-		reqLogger.Info("Found Infrastructure resource")
-		Infrastructure.SetLabels(map[string]string{"razee/watch-resource": "lite"})
-		err = r.client.Update(context.TODO(), Infrastructure)
-		if err != nil {
-			reqLogger.Error(err, "Failed to patch Infrastructure resource")
+
+		if err == nil{
+			reqLogger.Info("Found Infrastructure resource")
+			Infrastructure.SetLabels(map[string]string{"razee/watch-resource": "lite"})
+			err = r.client.Update(context.TODO(), Infrastructure)
+			if err != nil {
+				reqLogger.Error(err, "Failed to patch Infrastructure resource")
+			}
+			reqLogger.Info("Patched Infrastructure resource")
+			// exit the loop after patches are performed
+			return reconcile.Result{}, nil
 		}
-		reqLogger.Info("Patched Infrastructure resource")
-		// exit the loop after patches are performed
-		return reconcile.Result{}, nil
 	}
 
 	reqLogger.Info("End of reconcile")
