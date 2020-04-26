@@ -249,13 +249,6 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - apps
-  resources:
-  - replicasets
-  - deployments
-  verbs:
-  - get
-- apiGroups:
   - monitoring.coreos.com
   resources:
   - prometheuses
@@ -269,11 +262,26 @@ rules:
   - update
   - watch
 - apiGroups:
-  - razee.deploy.io
+  - deploy.razee.io
   resources:
   - '*'
   - remoteresourcess3
-  - remoteresoursce
+  - remoteresources
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - patch
+  - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - razeedeploy-sa
+  - watch-keeper-sa
+  resources:
+  - serviceaccounts
   verbs:
   - create
   - delete

@@ -267,6 +267,21 @@ roles:
           - update
           - patch
           - watch
+      - apiGroups:
+          - ''
+        resources:
+          - serviceaccounts
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - patch
+          - watch
+        resourceNames:
+          - razeedeploy-sa
+          - watch-keeper-sa
 podSecurityContext:
   runAsUser: 1001
 
