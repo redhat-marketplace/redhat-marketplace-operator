@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	appsv1 "k8s.io/api/apps/v1"
 	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/utils"
+	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -327,7 +327,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				"targetNamespace does not exist, if you woult like to install into it you will need to create it",
 				"targetNamespace", targetNamespace)
 			razeeNamespace.ObjectMeta.Name = targetNamespace
-			return reconcile.Result{RequeueAfter: time.Second*60}, nil
+			return reconcile.Result{RequeueAfter: time.Second * 60}, nil
 		} else {
 			reqLogger.Error(err, "Failed to get razee ns.")
 			return reconcile.Result{}, err
@@ -634,7 +634,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 		*instance.Status.RazeePrerequisitesCreated = append(*instance.Status.RazeePrerequisitesCreated, parentRRS3.GetName())
 		reqLogger.Info("parentRRS3 created successfully")
-    
+
 		/******************************************************************************
 		PATCH RESOURCES FOR DIANEMO
 		Patch the Console and Infrastructure resources with the watch-keeper label
@@ -1024,6 +1024,42 @@ func (r *ReconcileRazeeDeployment) partialUninstall(
 	reqLogger := log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 	reqLogger.Info("Starting partial uninstall of razee")
 
+	reqLogger.Info("Deleting rr")
+	rrUpdate := &unstructured.Unstructured{}
+	rrUpdate.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "deploy.razee.io",
+		Kind:    "RemoteResource",
+		Version: "v1alpha2",
+	})
+
+	err := r.client.Get(context.Background(), types.NamespacedName{
+		Name:      "razeedeploy-auto-update",
+		Namespace: *req.Spec.TargetNamespace,
+	}, rrUpdate)
+
+	found := true
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			reqLogger.Error(err, "razeedeploy-auto-update not found with error")
+			return reconcile.Result{}, err
+		}
+		if errors.IsNotFound(err) {
+			found = false
+		}
+	}
+
+	deletePolicy := metav1.DeletePropagationForeground
+
+	if found {
+		err := r.client.Delete(context.TODO(), rrUpdate, client.PropagationPolicy(deletePolicy))
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				reqLogger.Error(err, "could not delete watch-keeper rr resource")
+				return reconcile.Result{}, err
+			}
+		}
+	}
+
 	watchKeeperConfig := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "watch-keeper-config",
@@ -1031,7 +1067,7 @@ func (r *ReconcileRazeeDeployment) partialUninstall(
 		},
 	}
 	reqLogger.Info("deleting watch-keeper configMap")
-	err := r.client.Delete(context.TODO(), watchKeeperConfig)
+	err = r.client.Delete(context.TODO(), watchKeeperConfig)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			reqLogger.Error(err, "could not delete watch-keeper configmap")
@@ -1046,7 +1082,7 @@ func (r *ReconcileRazeeDeployment) partialUninstall(
 		},
 	}
 	reqLogger.Info("deleting watch-keeper deployment")
-	err = r.client.Delete(context.TODO(), watchKeeperDeployment, client.PropagationPolicy(metav1.DeletePropagationBackground))
+	err = r.client.Delete(context.TODO(), watchKeeperDeployment, client.PropagationPolicy(deletePolicy))
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			reqLogger.Error(err, "could not delete watch-keeper deployment")
@@ -1054,7 +1090,12 @@ func (r *ReconcileRazeeDeployment) partialUninstall(
 		}
 	}
 
-	reqLogger.Info("watch-keeper successfully deleted")
+	req.SetFinalizers(utils.RemoveKey(req.GetFinalizers(), razeeDeploymentFinalizer))
+	err = r.client.Update(context.TODO(), req)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	reqLogger.Info("Partial uninstall of razee is complete")
 	return reconcile.Result{}, nil
 }

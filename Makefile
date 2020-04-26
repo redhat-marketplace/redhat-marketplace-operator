@@ -6,7 +6,7 @@ IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 OPERATOR_IMAGE_NAME ?= redhat-marketplace-operator
 VERSION ?= $(shell go run scripts/version/main.go)
 OPERATOR_IMAGE_TAG ?= $(VERSION)
-FROM_VERSION ?= "0.0.1"
+FROM_VERSION ?= "0.0.2"
 CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
 
@@ -44,11 +44,15 @@ push: push ## Push the operator image
 helm: ## build helm base charts
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE) --set namespace=$(NAMESPACE)
 
+CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/redhat-marketplace-operator.v$(VERSION).clusterserviceversion.yaml
+
 generate-csv: ## Generate the csv
 	make helm
-	@go run github.com/mikefarah/yq/v3 w -i ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/redhat-marketplace-operator.v$(VERSION).clusterserviceversion.yaml 'metadata.annotations.containerImage' $(OPERATOR_IMAGE)
-	@go run github.com/mikefarah/yq/v3 w -i ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/redhat-marketplace-operator.v$(VERSION).clusterserviceversion.yaml 'metadata.annotations.createdAt' $(CREATED_TIME)
 	operator-sdk generate csv --from-version $(FROM_VERSION) --csv-version $(VERSION) --csv-config=./deploy/olm-catalog/csv-config.yaml --update-crds
+	@go run github.com/mikefarah/yq/v3 w -i $(CSV_FILE) 'metadata.annotations.containerImage' $(OPERATOR_IMAGE)
+	@go run github.com/mikefarah/yq/v3 w -i $(CSV_FILE) 'metadata.annotations.createdAt' $(CREATED_TIME)
+	@go run github.com/mikefarah/yq/v3 d -i $(CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
+	@go run github.com/mikefarah/yq/v3 w -i $(CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
 
 docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
 	@docker login -u="$(DOCKER_USER)" -p="$(DOCKER_PASSWORD)" quay.io
@@ -189,12 +193,27 @@ REDHAT_OPERATOR_IMAGE := $(REDHAT_IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(VERSI
 bundle: ## Bundles the csv to submit
 	. ./scripts/bundle_csv.sh `pwd` $(VERSION)  $(OPERATOR_IMAGE)
 
+DATETIME = $(shell date +"%FT%H%M%SZ")
+REDHAT_PROJECT_ID = ospid-962ccd50-bf22-4663-a865-f539e2189f0e
+REDHAT_API_KEY ?=
+
+.PHONY: upload-bundle
+upload-bundle: ## Uploads bundle to partner connect (use with caution and only on release branch)
+	curl https://connect.redhat.com/api/v2/projects/$(REDHAT_PROJECT_ID)/operator-upload \
+			-H "Authorization: Bearer $(REDHAT_API_KEY)" -H "Content-Type: application/json" \
+			--data '{"file": "$(shell cat bundle/redhat-marketplace-operator-bundle-$(VERSION).zip | base64)", "filename": "redhat-marketplace-operator-bundle-$(VERSION)-$(DATETIME).zip", "filepath": "public://redhat-marketplace-operator-bundle-$(VERSION)-$(DATETIME).zip"}'
+
 .PHONY: publish-image
 publish-image: ## Publish image
 	make build
 	docker tag $(OPERATOR_IMAGE) $(REDHAT_OPERATOR_IMAGE)
 	docker push $(OPERATOR_IMAGE)
 	docker push $(REDHAT_OPERATOR_IMAGE)
+
+.PHONY: release
+release: ## Publish release
+	make bundle
+	#go run github.com/tcnksm/ghr $(VERSION) ./bundle/
 
 ##@ Help
 

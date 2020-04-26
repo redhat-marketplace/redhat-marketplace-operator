@@ -11,7 +11,7 @@ require (
 	github.com/coreos/prometheus-operator v0.38.0
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/go-logr/logr v0.1.0
-	github.com/google/go-containerregistry v0.0.0-20200424115305-087a4bdef7c4
+	github.com/golang/protobuf v1.4.0 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
 	github.com/gotidy/ptr v1.0.1
@@ -29,8 +29,13 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.2
 	github.com/stretchr/testify v1.4.0
+	github.com/tcnksm/ghr v0.13.0
 	github.com/urfave/cli v1.22.2 // indirect
+	golang.org/x/net v0.0.0-20200421231249-e086a090c8fd // indirect
+	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a // indirect
+	golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f // indirect
 	golang.org/x/tools v0.0.0-20200410132612-ae9902aceb98 // indirect
+	google.golang.org/appengine v1.6.6 // indirect
 	k8s.io/api v0.17.4
 	k8s.io/apimachinery v0.17.4
 	k8s.io/client-go v12.0.0+incompatible

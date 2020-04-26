@@ -19,10 +19,12 @@ type RazeeDeploymentSpec struct {
 
 	// DeploySecretName is the name of our secret where Razee
 	// variables are stored.
+	// +optional
 	DeploySecretName *string `json:"deploySecretName,omitempty"`
 
 	// TargetNamespace is configurable target of the razee namespace
 	// this is to support legancy installs. Please do not edit.
+	// +optional
 	TargetNamespace  *string  `json:"targetNamespace,omitEmpty"`
 }
 
