@@ -181,7 +181,7 @@ roles:
           - '*'
         verbs:
           - '*'
-  - name: redhat-marketplace-local-role
+  - name: redhat-marketplace-operator
     serviceAccountName: redhat-marketplace-operator
     type: Role
     rules:
