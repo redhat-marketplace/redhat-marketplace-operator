@@ -82,7 +82,7 @@ metadata:
     categories: Developer Tools
     certified: "true"
     containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:0.1.0
-    createdAt: 2020-04-26T00:18:42Z
+    createdAt: 2020-04-26T01:59:16Z
     description: The Red Hat Marketplace Operator provides cluster management, metering
       and operator installation for Red Hat Marketplace customers.
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","meterbases.marketplace.redhat.com","meterdefinitions.marketplace.redhat.com"]'
@@ -109,6 +109,13 @@ spec:
       - kind: RazeeDeployment
         name: redhat-marketplace-operator
         version: v1alpha1
+      statusDescriptors:
+      - description: Conditions represent the latest available observations of an
+          object's stateonfig
+        displayName: Conditions
+        path: conditions
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes.conditions
       version: v1alpha1
     - description: MeterBase is the resource that sets up Metering for Red Hat Marketplace.
         This is an internal resource not meant to be modified directly.
@@ -122,6 +129,12 @@ spec:
       - kind: ServiceMonitor
         name: redhat-marketplace-operator
         version: v1
+      statusDescriptors:
+      - description: PrometheusStatus is the most recent observed status of the Prometheus
+          cluster. Read-only. Not included when requesting from the apiserver, only
+          from the Prometheus
+        displayName: Prometheus Status
+        path: prometheusStatus
       version: v1alpha1
     - description: MeterDefinition is internal Meter Definitions defined by Operators
         from Red Hat Marketplace. This is an internal resource not meant to be modified
@@ -133,6 +146,27 @@ spec:
       - kind: ServiceMonitor
         name: redhat-marketplace-operator
         version: v1
+      statusDescriptors:
+      - description: Conditions represent the latest available observations of an
+          object's state
+        displayName: Conditions
+        path: conditions
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes.conditions
+      - description: PodLabels of the prometheus kube-state metrics you want to track.
+        displayName: Pod Labels
+        path: podLabels
+      - description: Pods is the list of current pod mointors being watched for this
+          meter definition
+        displayName: Pods
+        path: pods
+      - description: ServiceLabels of the meterics you want to track.
+        displayName: Service Labels
+        path: serviceLabels
+      - description: ServiceMonitors is the list of service monitors being watched
+          for this meter definition
+        displayName: Service Monitors
+        path: serviceMonitors
       version: v1alpha1
     - description: RazeeDeployment is the resources that deploys Razee for the Red
         Hat Marketplace. This is an internal resource not meant to be modified directly.
@@ -149,6 +183,36 @@ spec:
       - kind: Secret
         name: redhat-marketplace-operator
         version: v1
+      statusDescriptors:
+      - description: Conditions represent the latest available observations of an
+          object's stateonfig
+        displayName: Conditions
+        path: conditions
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes.conditions
+      - description: JobState is the status of the Razee Install Job
+        displayName: Job State
+        path: jobState
+      - description: LocalSecretVarsPopulated informs if the correct local variables
+          are correct set.
+        displayName: Local Secret Vars Populated
+        path: localSecretVarsPopulated
+      - description: MissingValuesFromSecret validates the secret provided has all
+          the correct fields
+        displayName: Missing Values From Secret
+        path: missingValuesFromSecret
+      - description: RazeePrerequestesCreated is the list of configmaps and secrets
+          required to be installed
+        displayName: Razee Prerequisites Created
+        path: razeePrerequisitesCreated
+      - description: RazeeJobInstall contains information regarding the install job
+          so it can be removed
+        displayName: Razee Job Install
+        path: razee_job_install
+      - description: RedHatMarketplaceSecretFound is the status of finding the secret
+          in the cluster
+        displayName: Red Hat Marketplace Secret Found
+        path: redHatMarketplaceSecretFound
       version: v1alpha1
   description: "The Red Hat Marketplace Operator provides cluster management, metering
     and\noperator installation for Red Hat Marketplace customers.\n\n\n### Changes
