@@ -241,13 +241,6 @@ roles:
         verbs:
           - update
       - apiGroups:
-          - apps
-        resources:
-          - replicasets
-          - deployments
-        verbs:
-          - get
-      - apiGroups:
           - monitoring.coreos.com
         resources:
           - prometheuses
@@ -261,11 +254,11 @@ roles:
           - update
           - watch
       - apiGroups:
-          - razee.deploy.io
+          - deploy.razee.io
         resources:
           - '*'
           - remoteresourcess3
-          - remoteresoursce
+          - remoteresources
         verbs:
           - create
           - delete

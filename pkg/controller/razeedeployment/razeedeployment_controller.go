@@ -1070,9 +1070,8 @@ func (r *ReconcileRazeeDeployment) partialUninstall(
 	reqLogger.Info("deleting watch-keeper configMap")
 	err = r.client.Delete(context.TODO(), watchKeeperConfig)
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if err != nil {
 			reqLogger.Error(err, "could not delete watch-keeper configmap")
-			return reconcile.Result{}, err
 		}
 	}
 
@@ -1085,9 +1084,8 @@ func (r *ReconcileRazeeDeployment) partialUninstall(
 	reqLogger.Info("deleting watch-keeper deployment")
 	err = r.client.Delete(context.TODO(), watchKeeperDeployment, client.PropagationPolicy(deletePolicy))
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if err != nil {
 			reqLogger.Error(err, "could not delete watch-keeper deployment")
-			return reconcile.Result{}, err
 		}
 	}
 
