@@ -101,20 +101,48 @@ roles:
           - config.openshift.io
         resources:
           - consoles
-        verbs:
-          - get
-          - list
-          - patch
-          - update
-      - apiGroups:
-          - config.openshift.io
-        resources:
           - infrastructures
         verbs:
           - get
           - list
           - patch
           - update
+      - apiGroups:
+          - marketplace.redhat.com
+        resources:
+          - '*'
+          - meterdefinitions
+          - razeedeployments
+          - meterbases
+          - marketplaceconfigs
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+      - apiGroups:
+          - operators.coreos.com
+        resources:
+          - subscriptions
+        verbs:
+          - list
+          - watch
+          - get
+      - apiGroups:
+          - operators.coreos.com
+        resources:
+          - subscriptions
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
   - name: redhat-marketplace-razeedeploy
     serviceAccountName: redhat-marketplace-razeedeploy
     type: ClusterRole
@@ -129,35 +157,7 @@ roles:
           - '*'
         verbs:
           - '*'
-  # - name: redhat-marketplace-metering
-  #   serviceAccountName: redhat-marketplace-metering
-  #   type: ClusterRole
-  #   rules:
-  #     - apiGroups:
-  #         - '*'
-  #       resources:
-  #         - '*'
-  #       verbs:
-  #         - '*'
-  #     - nonResourceURLs:
-  #         - '*'
-  #       verbs:
-  #         - '*'
-  # - name: redhat-marketplace-reporting
-  #   serviceAccountName: redhat-marketplace-reporting
-  #   type: ClusterRole
-  #   rules:
-  #     - apiGroups:
-  #         - '*'
-  #       resources:
-  #         - '*'
-  #       verbs:
-  #         - '*'
-  #     - nonResourceURLs:
-  #         - '*'
-  #       verbs:
-  #         - '*'
-  - name: redhat-marketplace-operator
+  - name: redhat-marketplace-local-role
     serviceAccountName: redhat-marketplace-operator
     type: Role
     rules:
@@ -221,22 +221,6 @@ roles:
         verbs:
           - get
       - apiGroups:
-          - marketplace.redhat.com
-        resources:
-          - '*'
-          - meterings
-          - razeedeployments
-          - meterbases
-          - marketplaceconfigs
-        verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-      - apiGroups:
           - monitoring.coreos.com
         resources:
           - prometheuses
@@ -249,6 +233,7 @@ roles:
           - patch
           - update
           - watch
+
 podSecurityContext:
   runAsUser: 1001
 

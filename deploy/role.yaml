@@ -95,20 +95,48 @@ rules:
   - config.openshift.io
   resources:
   - consoles
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-- apiGroups:
-  - config.openshift.io
-  resources:
   - infrastructures
   verbs:
   - get
   - list
   - patch
   - update
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - '*'
+  - meterdefinitions
+  - razeedeployments
+  - meterbases
+  - marketplaceconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - subscriptions
+  verbs:
+  - list
+  - watch
+  - get
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - subscriptions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -131,7 +159,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: redhat-marketplace-operator
+  name: redhat-marketplace-local-role
+  namespace: redhat-marketplace-operator
 rules:
 - apiGroups:
   - ""
@@ -202,22 +231,6 @@ rules:
   - deployments
   verbs:
   - get
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - '*'
-  - meterings
-  - razeedeployments
-  - meterbases
-  - marketplaceconfigs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
 - apiGroups:
   - monitoring.coreos.com
   resources:
