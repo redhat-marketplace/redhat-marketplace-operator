@@ -170,7 +170,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if utils.Contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
 			//Run finalization logic for the razeeDeploymentFinalizer.
 			//If it fails, don't remove the finalizer so we can retry during the next reconcile
-			return r.fullUninstall(instance)
+			return r.partialUninstall(instance)
 		}
 
 		return reconcile.Result{}, nil
@@ -1118,6 +1118,84 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 			if err != nil {
 				reqLogger.Error(err, "could not delete deployment", "name", deploymentName)
 			}
+		}
+	}
+
+	req.SetFinalizers(utils.RemoveKey(req.GetFinalizers(), razeeDeploymentFinalizer))
+	err = r.client.Update(context.TODO(), req)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	reqLogger.Info("Partial uninstall of razee is complete")
+	return reconcile.Result{}, nil
+}
+
+
+// partialUninstall() deletes the watch-keeper ConfigMap and then the watch-keeper Deployment
+func (r *ReconcileRazeeDeployment) partialUninstall(
+	req *marketplacev1alpha1.RazeeDeployment,
+) (reconcile.Result, error) {
+	reqLogger := log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
+	reqLogger.Info("Starting partial uninstall of razee")
+
+	reqLogger.Info("Deleting rr")
+	rrUpdate := &unstructured.Unstructured{}
+	rrUpdate.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "deploy.razee.io",
+		Kind:    "RemoteResource",
+		Version: "v1alpha2",
+	})
+
+	err := r.client.Get(context.Background(), types.NamespacedName{
+		Name:      "razeedeploy-auto-update",
+		Namespace: *req.Spec.TargetNamespace,
+	}, rrUpdate)
+
+	found := true
+	if err != nil {
+		found = false
+		reqLogger.Error(err, "razeedeploy-auto-update not found with error")
+	}
+
+	deletePolicy := metav1.DeletePropagationForeground
+
+	if found {
+		err := r.client.Delete(context.TODO(), rrUpdate, client.PropagationPolicy(deletePolicy))
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				reqLogger.Error(err, "could not delete watch-keeper rr resource")
+			}
+		}
+	}
+
+	watchKeeperConfig := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "watch-keeper-config",
+			Namespace: *req.Spec.TargetNamespace,
+		},
+	}
+	reqLogger.Info("deleting watch-keeper configMap")
+	err = r.client.Delete(context.TODO(), watchKeeperConfig)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			reqLogger.Error(err, "could not delete watch-keeper configmap")
+			return reconcile.Result{}, err
+		}
+	}
+
+	watchKeeperDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "watch-keeper",
+			Namespace: *req.Spec.TargetNamespace,
+		},
+	}
+	reqLogger.Info("deleting watch-keeper deployment")
+	err = r.client.Delete(context.TODO(), watchKeeperDeployment, client.PropagationPolicy(deletePolicy))
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			reqLogger.Error(err, "could not delete watch-keeper deployment")
+			return reconcile.Result{}, err
 		}
 	}
 
