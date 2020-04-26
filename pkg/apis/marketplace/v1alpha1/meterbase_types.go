@@ -37,6 +37,7 @@ type PrometheusSpec struct {
 }
 
 // MeterBaseSpec defines the desired state of MeterBase
+// +k8s:openapi-gen=true
 type MeterBaseSpec struct {
 	// Is metering is enabled on the cluster? Default is true
 	Enabled bool `json:"enabled"`
@@ -47,16 +48,20 @@ type MeterBaseSpec struct {
 }
 
 // MeterBaseStatus defines the observed state of MeterBase.
+// +k8s:openapi-gen=true
 type MeterBaseStatus struct {
 	// PrometheusStatus is the most recent observed status of the Prometheus cluster. Read-only. Not
 	// included when requesting from the apiserver, only from the Prometheus
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	PrometheusStatus *monitoringv1.PrometheusStatus `json:"prometheusStatus,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // MeterBase is the resource that sets up Metering for Red Hat Marketplace.
 // This is an internal resource not meant to be modified directly.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+//
+// +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=meterbases,scope=Namespaced
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="(Internal) Meter Config"
