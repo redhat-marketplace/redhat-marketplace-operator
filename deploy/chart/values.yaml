@@ -282,8 +282,6 @@ roles:
         resourceNames:
           - razeedeploy-sa
           - watch-keeper-sa
-podSecurityContext:
-  runAsUser: 1001
 
 securityContext:
   {}

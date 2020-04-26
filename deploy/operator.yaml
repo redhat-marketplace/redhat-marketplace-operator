@@ -16,7 +16,7 @@ spec:
     spec:
       serviceAccountName: redhat-marketplace-operator
       securityContext:
-        runAsUser: 1001
+        null
       containers:
         - name: redhat-marketplace-operator
           # Replace this with the built image name
