@@ -56,7 +56,7 @@ var nextCmd = &cobra.Command{
 		if flag, _ := cmd.Flags().GetBool("commit"); flag {
 			runCommand("git", "add", filename)
 			runCommand("git", "commit", "-m", nextVersion.String())
-			runCommand("git", "tag", nextVersion.String(), "--annotate", "--message", "release: " + nextVersion.String())
+			runCommand("git", "tag", nextVersion.String(), "--annotate", "--message", "release: "+nextVersion.String())
 		}
 	},
 }

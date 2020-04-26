@@ -170,7 +170,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if utils.Contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
 			//Run finalization logic for the razeeDeploymentFinalizer.
 			//If it fails, don't remove the finalizer so we can retry during the next reconcile
-			return r.partialUninstall(instance)
+			return r.fullUninstall(instance)
 		}
 
 		return reconcile.Result{}, nil
@@ -229,7 +229,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				reqLogger.Error(err, "Failed to update Status.RedHatMarketplaceSecretFound")
 			}
 			reqLogger.Info("Failed to find operator secret")
-			return reconcile.Result{}, nil
+			return reconcile.Result{RequeueAfter: time.Second * 60}, nil
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
@@ -611,9 +611,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update JobState")
-			return reconcile.Result{}, nil
+			reqLogger.Error(err, "Failed to update jobstate")
+			return reconcile.Result{}, err
 		}
+
 		reqLogger.Info("Updated JobState")
 
 		err = r.client.Delete(context.TODO(), foundJob, client.PropagationPolicy(metav1.DeletePropagationBackground))
@@ -655,13 +656,16 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err != nil {
 			reqLogger.Error(err, "Failed to retrieve Console resource")
 		}
-		reqLogger.Info("Found Console resource")
-		console.SetLabels(map[string]string{"razee/watch-resource": "lite"})
-		err = r.client.Update(context.TODO(), console)
-		if err != nil {
-			reqLogger.Error(err, "Failed to patch Console resource")
+
+		if err == nil {
+			reqLogger.Info("Found Console resource")
+			console.SetLabels(map[string]string{"razee/watch-resource": "lite"})
+			err = r.client.Update(context.TODO(), console)
+			if err != nil {
+				reqLogger.Error(err, "Failed to patch Console resource")
+			}
+			reqLogger.Info("Patched Console resource")
 		}
-		reqLogger.Info("Patched Console resource")
 
 		// Patch the Infrastructure resource
 		reqLogger.Info("finding Infrastructure resource")
@@ -678,15 +682,18 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err != nil {
 			reqLogger.Error(err, "Failed to retrieve Infrastructure resource")
 		}
-		reqLogger.Info("Found Infrastructure resource")
-		Infrastructure.SetLabels(map[string]string{"razee/watch-resource": "lite"})
-		err = r.client.Update(context.TODO(), Infrastructure)
-		if err != nil {
-			reqLogger.Error(err, "Failed to patch Infrastructure resource")
+
+		if err == nil {
+			reqLogger.Info("Found Infrastructure resource")
+			Infrastructure.SetLabels(map[string]string{"razee/watch-resource": "lite"})
+			err = r.client.Update(context.TODO(), Infrastructure)
+			if err != nil {
+				reqLogger.Error(err, "Failed to patch Infrastructure resource")
+			}
+			reqLogger.Info("Patched Infrastructure resource")
+			// exit the loop after patches are performed
+			return reconcile.Result{}, nil
 		}
-		reqLogger.Info("Patched Infrastructure resource")
-		// exit the loop after patches are performed
-		return reconcile.Result{}, nil
 	}
 
 	reqLogger.Info("End of reconcile")
@@ -961,92 +968,90 @@ func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3(
 	}
 }
 
-//completeUninstall() deploys a batch.job which deletes all the resources from RAZEE_NAMESPACE
-func (r *ReconcileRazeeDeployment) completeUninstall(req *marketplacev1alpha1.RazeeDeployment) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
-	reqLogger.Info("Starting complete uninstall of razee")
-
-	jobName := types.NamespacedName{
-		Name:      RAZEE_UNINSTALL_NAME,
-		Namespace: req.Namespace,
-	}
-
-	// Deploy a job to delete razee if we need to
-	// Deploy a job to delete razee if we need to
-	if req.Status.RazeeJobInstall != nil {
-		foundJob := batch.Job{}
-		reqLogger.Info("razee was installed; finding uninstall job")
-		err := r.client.Get(context.TODO(), jobName, &foundJob)
-		if err != nil && errors.IsNotFound(err) {
-			reqLogger.Info("Creating razee-uninstall-job")
-			job := r.MakeRazeeUninstallJob(req.Namespace, req.Status.RazeeJobInstall)
-			err = r.client.Create(context.TODO(), job)
-			if err != nil {
-				reqLogger.Error(err, "Failed to create Job on cluster")
-				return reconcile.Result{}, err
-			}
-			reqLogger.Info("job created successfully")
-			return reconcile.Result{RequeueAfter: time.Second * 5}, nil
-		} else if err != nil {
-			reqLogger.Error(err, "Failed to get Job(s) from Cluster")
-			return reconcile.Result{}, err
-		}
-
-		reqLogger.Info("found uninstall job")
-
-		if len(foundJob.Status.Conditions) == 0 {
-			reqLogger.Info("RazeeUninstallJob Conditions have not been propagated yet")
-			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
-		}
-
-		if foundJob.Status.Succeeded < 1 && foundJob.Status.Failed <= 3 {
-			reqLogger.Info("RazeeUnisntallJob is not successful")
-			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
-		}
-
-		reqLogger.Info("Deleteing uninstall job")
-		err = r.client.Delete(context.TODO(), &foundJob, client.PropagationPolicy(metav1.DeletePropagationBackground))
-		if err != nil {
-			if !errors.IsNotFound(err) {
-				return reconcile.Result{}, err
-			}
-		}
-	}
-
-	reqLogger.Info("Uninstall job created successfully")
-	return reconcile.Result{}, nil
-}
-
-// partialUninstall() deletes the watch-keeper ConfigMap and then the watch-keeper Deployment
-func (r *ReconcileRazeeDeployment) partialUninstall(
+// fullUninstall deletes the watch-keeper ConfigMap and then the watch-keeper Deployment
+func (r *ReconcileRazeeDeployment) fullUninstall(
 	req *marketplacev1alpha1.RazeeDeployment,
 ) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 	reqLogger.Info("Starting partial uninstall of razee")
 
+	deletePolicy := metav1.DeletePropagationForeground
+
+	reqLogger.Info("Deleting rrs3")
+	rrs3 := &unstructured.Unstructured{}
+	rrs3.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "deploy.razee.io",
+		Kind:    "RemoteResourceS3",
+		Version: "v1alpha2",
+	})
+
+	reqLogger.Info("Patching rrs3 child")
+
+	err := r.client.Get(context.TODO(), types.NamespacedName{
+		Name:      "child",
+		Namespace: *req.Spec.TargetNamespace,
+	}, rrs3)
+
+	if err == nil {
+		reqLogger.Info("found child rrs3, patching reconcile=false")
+
+		childLabels := rrs3.GetLabels()
+
+		reconcileVal, ok := childLabels["deploy.razee.io/Reconcile"]
+
+		if !ok || (ok && reconcileVal != "false") {
+			rrs3.SetLabels(map[string]string{
+				"deploy.razee.io/Reconcile": "false",
+			})
+
+			err = r.client.Update(context.TODO(), rrs3)
+			if err != nil {
+				reqLogger.Error(err, "error updating child resource")
+			} else {
+				// requeue so the label can take affect
+				return reconcile.Result{RequeueAfter: 5*time.Second}, nil
+			}
+		}
+	}
+
+	reqLogger.Info("Deleteing rrs3")
+	rrs3Names := []string{"parent", "child"}
+
+	for _, rrs3Name := range rrs3Names {
+		err = r.client.Get(context.TODO(), types.NamespacedName{
+			Name:      rrs3Name,
+			Namespace: *req.Spec.TargetNamespace,
+		}, rrs3)
+
+		if err == nil {
+			err := r.client.Delete(context.TODO(), rrs3, client.PropagationPolicy(deletePolicy))
+			if err != nil {
+				if !errors.IsNotFound(err) {
+					reqLogger.Error(err, "could not delete rrs3 resource", "name", rrs3Name)
+				}
+			}
+		}
+	}
+
 	reqLogger.Info("Deleting rr")
-	rrUpdate := &unstructured.Unstructured{}
-	rrUpdate.SetGroupVersionKind(schema.GroupVersionKind{
+	rr := &unstructured.Unstructured{}
+	rr.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "deploy.razee.io",
 		Kind:    "RemoteResource",
 		Version: "v1alpha2",
 	})
 
-	err := r.client.Get(context.Background(), types.NamespacedName{
+	err = r.client.Get(context.TODO(), types.NamespacedName{
 		Name:      "razeedeploy-auto-update",
 		Namespace: *req.Spec.TargetNamespace,
-	}, rrUpdate)
+	}, rr)
 
-	found := true
 	if err != nil {
-		found = false
 		reqLogger.Error(err, "razeedeploy-auto-update not found with error")
 	}
 
-	deletePolicy := metav1.DeletePropagationForeground
-
-	if found {
-		err := r.client.Delete(context.TODO(), rrUpdate, client.PropagationPolicy(deletePolicy))
+	if err == nil {
+		err := r.client.Delete(context.TODO(), rr, client.PropagationPolicy(deletePolicy))
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				reqLogger.Error(err, "could not delete watch-keeper rr resource")
@@ -1063,24 +1068,56 @@ func (r *ReconcileRazeeDeployment) partialUninstall(
 	reqLogger.Info("deleting watch-keeper configMap")
 	err = r.client.Delete(context.TODO(), watchKeeperConfig)
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if err != nil {
 			reqLogger.Error(err, "could not delete watch-keeper configmap")
-			return reconcile.Result{}, err
 		}
 	}
 
-	watchKeeperDeployment := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "watch-keeper",
-			Namespace: *req.Spec.TargetNamespace,
-		},
+	serviceAccounts := []string{
+		"razeedeploy-sa",
+		"watch-keeper-sa",
 	}
-	reqLogger.Info("deleting watch-keeper deployment")
-	err = r.client.Delete(context.TODO(), watchKeeperDeployment, client.PropagationPolicy(deletePolicy))
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			reqLogger.Error(err, "could not delete watch-keeper deployment")
-			return reconcile.Result{}, err
+
+	for _, saName := range serviceAccounts {
+		serviceAccount := &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      saName,
+				Namespace: *req.Spec.TargetNamespace,
+			},
+		}
+		reqLogger.Info("deleting sa", "name", saName)
+		err = r.client.Delete(context.TODO(), serviceAccount, client.PropagationPolicy(deletePolicy))
+		if err != nil {
+			if err != nil {
+				reqLogger.Error(err, "could not delete sa", "name", saName)
+			}
+		}
+	}
+
+	deploymentNames := []string{
+		"watch-keeper",
+		"clustersubscription",
+		"featureflagsetld-controller",
+		"managedset-controller",
+		"mustachetemplate-controller",
+		"remoteresource-controller",
+		"remoteresources3-controller",
+		"remoteresources3decrypt-controller",
+	}
+
+	for _, deploymentName := range deploymentNames {
+		deployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      deploymentName,
+				Namespace: *req.Spec.TargetNamespace,
+			},
+		}
+		reqLogger.Info("deleting deployment", "name", deploymentName)
+		err = r.client.Delete(context.TODO(), deployment, client.PropagationPolicy(deletePolicy))
+		if err != nil {
+			if err != nil {
+				reqLogger.Error(err, "could not delete deployment", "name", deploymentName)
+			}
 		}
 	}
 

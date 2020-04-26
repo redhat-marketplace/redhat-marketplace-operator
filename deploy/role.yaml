@@ -6,15 +6,161 @@ metadata:
   name: redhat-marketplace-operator
 rules:
 - apiGroups:
-  - '*'
+  - ""
+  resources:
+  - pods
+  - services
+  - services/finalizers
+  - endpoints
+  - persistentvolumeclaims
+  - events
+  - configmaps
+  - secrets
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  - extensions
+  resources:
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resourceNames:
+  - redhat-marketplace-operator
+  resources:
+  - deployments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - storageclasses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - operatorsources
+  - subscriptions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resourceNames:
+  - redhat-marketplace
+  resources:
+  - operatorsources
+  verbs:
+  - create
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - operatorgroups
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - deploy.razee.io
+  resources:
+  - remoteresourcess3
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - consoles
+  - infrastructures
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
+  - marketplace.redhat.com
   resources:
   - '*'
+  - meterdefinitions
+  - razeedeployments
+  - meterbases
+  - marketplaceconfigs
   verbs:
   - '*'
-- nonResourceURLs:
-  - '*'
+- apiGroups:
+  - ""
+  resourceNames:
+  - rhm-cos-reader-key
+  - watch-keeper-secret
+  resources:
+  - secrets
   verbs:
-  - '*'
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - watch-keeper-config
+  - watch-keeper-limit-poll
+  - watch-keeper-non-namespaced
+  - razee-cluster-metadata
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -35,34 +181,112 @@ rules:
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
-  name: redhat-marketplace-metering
+  name: redhat-marketplace-local-role
+  namespace: redhat-marketplace-operator
 rules:
 - apiGroups:
-  - '*'
+  - ""
   resources:
-  - '*'
+  - pods
+  - services
+  - services/finalizers
+  - endpoints
+  - persistentvolumeclaims
+  - events
+  - configmaps
+  - secrets
   verbs:
-  - '*'
-- nonResourceURLs:
-  - '*'
-  verbs:
-  - '*'
----
-# Source: redhat-marketplace-operator-template-chart/templates/role.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: redhat-marketplace-reporting
-rules:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
-  - '*'
+  - batch
+  - extensions
+  resources:
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - daemonsets
+  - replicasets
+  - statefulsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - get
+  - create
+- apiGroups:
+  - apps
+  resourceNames:
+  - redhat-marketplace-operator
+  resources:
+  - deployments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - prometheuses
+  - servicemonitors
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - deploy.razee.io
   resources:
   - '*'
+  - remoteresourcess3
+  - remoteresources
   verbs:
-  - '*'
-- nonResourceURLs:
-  - '*'
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - patch
+  - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - razeedeploy-sa
+  - watch-keeper-sa
+  resources:
+  - serviceaccounts
   verbs:
-  - '*'
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - patch
+  - watch
