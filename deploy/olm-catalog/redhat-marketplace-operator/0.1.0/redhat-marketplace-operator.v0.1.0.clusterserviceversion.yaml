@@ -81,8 +81,8 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Developer Tools
     certified: "true"
-    containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:0.1.0
-    createdAt: 2020-04-25T22:09:47Z
+    containerImage: quay.io/zach_source/redhat-marketplace-operator:0.1.0
+    createdAt: 2020-04-26T00:11:01Z
     description: The Red Hat Marketplace Operator provides cluster management, metering
       and operator installation for Red Hat Marketplace customers.
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","meterbases.marketplace.redhat.com","meterdefinitions.marketplace.redhat.com"]'
@@ -251,7 +251,7 @@ spec:
                       fieldPath: metadata.name
                 - name: RELATED_IMAGE_RAZEE_JOB
                   value: quay.io/razee/razeedeploy-delta:1.1.0
-                image: quay.io/rh-marketplace/redhat-marketplace-operator:0.1.0
+                image: quay.io/zach_source/redhat-marketplace-operator:0.1.0
                 imagePullPolicy: Always
                 name: redhat-marketplace-operator
                 resources: {}
