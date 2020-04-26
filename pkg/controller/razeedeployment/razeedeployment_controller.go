@@ -1007,6 +1007,9 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 			err = r.client.Update(context.TODO(), rrs3)
 			if err != nil {
 				reqLogger.Error(err, "error updating child resource")
+			} else {
+				// requeue so the label can take affect
+				return reconcile.Result{RequeueAfter: 5*time.Second}, nil
 			}
 		}
 	}
