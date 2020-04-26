@@ -74,10 +74,28 @@ roles:
           - watch
       - apiGroups:
           - operators.coreos.com
+        resources:
+          - operatorsources
+          - subscriptions
+        verbs:
+          - get
+          - list
+          - watch
+      - apiGroups:
+          - operators.coreos.com
         resourceNames:
           - redhat-marketplace
         resources:
           - operatorsources
+        verbs:
+          - create
+          - delete
+          - patch
+          - update
+      - apiGroups:
+          - operators.coreos.com
+        resources:
+          - operatorgroups
         verbs:
           - create
           - delete
@@ -115,26 +133,6 @@ roles:
           - razeedeployments
           - meterbases
           - marketplaceconfigs
-        verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-      - apiGroups:
-          - operators.coreos.com
-        resources:
-          - subscriptions
-        verbs:
-          - list
-          - watch
-          - get
-      - apiGroups:
-          - operators.coreos.com
-        resources:
-          - subscriptions
         verbs:
           - create
           - delete
@@ -233,7 +231,20 @@ roles:
           - patch
           - update
           - watch
-
+      - apiGroups:
+          - razee.deploy.io
+        resources:
+          - '*'
+          - remoteresourcess3
+          - remoteresoursce
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - patch
+          - watch
 podSecurityContext:
   runAsUser: 1001
 

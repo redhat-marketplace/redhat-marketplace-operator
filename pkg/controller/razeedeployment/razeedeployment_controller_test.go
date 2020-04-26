@@ -263,7 +263,6 @@ func testOldMigratedInstall(t *testing.T) {
 		})
 }
 
-
 func testNoSecret(t *testing.T) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, &razeeDeployment)

@@ -68,10 +68,28 @@ rules:
   - watch
 - apiGroups:
   - operators.coreos.com
+  resources:
+  - operatorsources
+  - subscriptions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operators.coreos.com
   resourceNames:
   - redhat-marketplace
   resources:
   - operatorsources
+  verbs:
+  - create
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - operatorgroups
   verbs:
   - create
   - delete
@@ -109,26 +127,6 @@ rules:
   - razeedeployments
   - meterbases
   - marketplaceconfigs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - operators.coreos.com
-  resources:
-  - subscriptions
-  verbs:
-  - list
-  - watch
-  - get
-- apiGroups:
-  - operators.coreos.com
-  resources:
-  - subscriptions
   verbs:
   - create
   - delete
@@ -243,4 +241,18 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - razee.deploy.io
+  resources:
+  - '*'
+  - remoteresourcess3
+  - remoteresoursce
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - patch
   - watch
