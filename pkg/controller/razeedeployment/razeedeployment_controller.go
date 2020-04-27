@@ -454,6 +454,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				watchKeeperLimitPoll = *r.MakeWatchKeeperLimitPoll(instance)
 				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&watchKeeperLimitPoll); err != nil {
 					reqLogger.Error(err, "Failed to set annotation")
+					return reconcile.Result{}, err
 				}
 
 				//create the resource
@@ -544,11 +545,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 			if !patchResult.IsEmpty() {
 				reqLogger.Info(fmt.Sprintf("Change detected on %v", razeeClusterMetaData.Name))
-				// reqLogger.Info(fmt.Sprintf("Change detected on %v",razeeClusterMetaData.Name))
 				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&updatedRazeeClusterMetaData); err != nil {
-
-				}
-				if err != nil {
 					reqLogger.Error(err, "Failed to set annotation")
 					return reconcile.Result{}, err
 				}
@@ -584,6 +581,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				watchKeeperConfig = *r.MakeWatchKeeperConfig(instance)
 				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&watchKeeperConfig); err != nil {
 					reqLogger.Error(err, "Failed to set annotation")
+					return reconcile.Result{}, err
 				}
 
 				err = r.client.Create(context.TODO(), &watchKeeperConfig)
@@ -604,14 +602,14 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			updatedWatchKeeperConfig := *r.MakeWatchKeeperConfig(instance)
 			patchResult, err := patch.DefaultPatchMaker.Calculate(&watchKeeperConfig, &updatedWatchKeeperConfig)
 			if err != nil {
-				// handle the error
 				reqLogger.Error(err, "Failed to compare patches")
 			}
 
 			if !patchResult.IsEmpty() {
 				reqLogger.Info(fmt.Sprintf("Change detected on %v", watchKeeperConfig.Name))
 				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&updatedWatchKeeperConfig); err != nil {
-
+					reqLogger.Error(err, "Failed to set annotation")
+					return reconcile.Result{}, err
 				}
 				reqLogger.Info(fmt.Sprintf("Updating %v", watchKeeperConfig.Name))
 				err = r.client.Update(context.TODO(), &updatedWatchKeeperConfig)
@@ -633,6 +631,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		err = r.client.Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update status")
+			return reconcile.Result{}, err
 		}
 
 		// create watch-keeper-secret
@@ -645,6 +644,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				// set the annotation
 				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&watchKeeperSecret); err != nil {
 					reqLogger.Error(err, "Failed to set annotation")
+					return reconcile.Result{}, err
 				}
 				err = r.client.Create(context.TODO(), &watchKeeperSecret)
 				if err != nil {
@@ -664,14 +664,14 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			updatedWatchKeeperSecret := *r.MakeWatchKeeperSecret(instance, request)
 			patchResult, err := patch.DefaultPatchMaker.Calculate(&watchKeeperSecret, &updatedWatchKeeperSecret)
 			if err != nil {
-				// handle the error
 				reqLogger.Error(err, "Failed to compare patches")
+				return reconcile.Result{}, err
 			}
 
 			if !patchResult.IsEmpty() {
 				reqLogger.Info(fmt.Sprintf("Chnage detected on %v", watchKeeperSecret.Name))
 				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&updatedWatchKeeperSecret); err != nil {
-
+					return reconcile.Result{}, err
 				}
 				reqLogger.Info("Updating razee-cluster-metadata")
 				err = r.client.Update(context.TODO(), &updatedWatchKeeperSecret)
@@ -706,6 +706,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				// set the annotation
 				if err = patch.DefaultAnnotator.SetLastAppliedAnnotation(&ibmCosReaderKey); err != nil {
 					reqLogger.Error(err, "Failed to set annotation")
+					return reconcile.Result{}, err
 				}
 
 				err = r.client.Create(context.TODO(), &ibmCosReaderKey)
@@ -728,6 +729,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			if err != nil {
 				// handle the error
 				reqLogger.Error(err, "Failed to compare patches")
+				return reconcile.Result{}, err
 			}
 
 			if !patchResult.IsEmpty() {
