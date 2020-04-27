@@ -34,7 +34,7 @@ import (
 
 const (
 	razeeDeploymentFinalizer   = "razeedeploy.finalizer.marketplace.redhat.com"
-	cosReaderKey               = "rhm-cos-reader-key"
+	COS_READER_KEY_NAME        = "rhm-cos-reader-key"
 	RAZEE_UNINSTALL_NAME       = "razee-uninstall-job"
 	DEFAULT_RAZEE_JOB_IMAGE    = "quay.io/razee/razeedeploy-delta:1.1.0"
 	WATCH_KEEPER_VERSION       = "0.5.0"
@@ -379,6 +379,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		err = r.client.Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update status")
+			return reconcile.Result{}, err
 		}
 
 		watchKeeperNonNamespace := corev1.ConfigMap{}
@@ -519,6 +520,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				err = r.client.Create(context.TODO(), &razeeClusterMetaData)
 				if err != nil {
 					reqLogger.Error(err, "Failed to create resource ", razeeClusterMetaData.Name)
+					return reconcile.Result{}, err
 				}
 
 				reqLogger.Info("Resource created successfully", "resource: ", razeeClusterMetaData.Name)
@@ -587,6 +589,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				err = r.client.Create(context.TODO(), &watchKeeperConfig)
 				if err != nil {
 					reqLogger.Error(err, "Failed to create watch-keeper-config")
+					return reconcile.Result{}, err
 				}
 				reqLogger.Info("watch-keeper-config created successfully")
 				return reconcile.Result{Requeue: true}, nil
@@ -646,6 +649,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				err = r.client.Create(context.TODO(), &watchKeeperSecret)
 				if err != nil {
 					reqLogger.Error(err, "Failed to create watch-keeper-secret")
+					return reconcile.Result{}, err
 				}
 				reqLogger.Info("watch-keeper-secret created successfully")
 				return reconcile.Result{Requeue: true}, nil
@@ -689,11 +693,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		err = r.client.Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update status")
+			return reconcile.Result{}, err
 		}
 
-		// create watch-keeper-config
+		// create cos-reader-key-secret
 		ibmCosReaderKey := corev1.Secret{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: "ibm-cos-reader-key", Namespace: *instance.Spec.TargetNamespace}, &ibmCosReaderKey)
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: COS_READER_KEY_NAME, Namespace: *instance.Spec.TargetNamespace}, &ibmCosReaderKey)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				reqLogger.Info("ibm-cos-reader-key does not exist - creating")
@@ -706,6 +711,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				err = r.client.Create(context.TODO(), &ibmCosReaderKey)
 				if err != nil {
 					reqLogger.Error(err, "Failed to create ibm-cos-reader-key")
+					return reconcile.Result{}, err
 				}
 				reqLogger.Info("ibm-cos-reader-key created successfully")
 				return reconcile.Result{Requeue: true}, nil
@@ -727,7 +733,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			if !patchResult.IsEmpty() {
 				reqLogger.Info(fmt.Sprintf("Change detected on %v", ibmCosReaderKey.Name))
 				if err = patch.DefaultAnnotator.SetLastAppliedAnnotation(&updatedibmCosReaderKey); err != nil {
-
+					reqLogger.Info("Failed to set annotation")
+					return reconcile.Result{}, err
 				}
 				reqLogger.Info("Updating ribm-cos-reader-key")
 				err = r.client.Update(context.TODO(), &updatedibmCosReaderKey)
@@ -749,6 +756,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		err = r.client.Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update status")
+			return reconcile.Result{}, err
 		}
 
 		/******************************************************************************
@@ -928,11 +936,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		// update status
-		reqLogger.Info("updating Status.RazeePrerequisitesCreated")
+		reqLogger.Info("updating Status.RazeePrerequisitesCreated with parent rrs3")
 		instance.Status.RazeePrerequisitesCreated = newResources
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update status")
+			return reconcile.Result{}, err
 		}
 
 	}
@@ -1206,6 +1215,7 @@ func (r *ReconcileRazeeDeployment) GetDataFromRhmSecret(request reconcile.Reques
 	return nil, err, key
 }
 
+//TODO: follow the same pattern with MakeCOSReaderKey
 func (r *ReconcileRazeeDeployment) MakeWatchKeeperSecret(instance *marketplacev1alpha1.RazeeDeployment, request reconcile.Request) *corev1.Secret {
 	selector := instance.Spec.DeployConfig.RazeeDashOrgKey
 	_, _, key := r.GetDataFromRhmSecret(request, *selector)
@@ -1223,7 +1233,7 @@ func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret(instance *marketplacev1al
 	_, err, key := r.GetDataFromRhmSecret(request, *selector)
 	return corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cosReaderKey,
+			Name:      COS_READER_KEY_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
 		},
 		Data: map[string][]byte{"accesskey": []byte(key)},
@@ -1248,7 +1258,7 @@ func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3(instance *marketpl
 						"apiKeyRef": map[string]interface{}{
 							"valueFrom": map[string]interface{}{
 								"secretKeyRef": map[string]interface{}{
-									"name": cosReaderKey,
+									"name": COS_READER_KEY_NAME,
 									"key":  "accesskey",
 								},
 							},
