@@ -281,6 +281,22 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			return reconcile.Result{}, nil
 		}
 
+		if instance.Spec.TargetNamespace == nil {
+			if instance.Status.RazeeJobInstall != nil {
+				instance.Spec.TargetNamespace = &instance.Status.RazeeJobInstall.RazeeNamespace
+			} else {
+				instance.Spec.TargetNamespace = &instance.Namespace
+			}
+			err := r.client.Update(context.TODO(), instance)
+
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+			reqLogger.Info("set target namespace to", "namespace", instance.Spec.TargetNamespace)
+			return reconcile.Result{}, nil
+		}
+
 		/******************************************************************************
 		PROCEED WITH CREATING RAZEE PREREQUISITES? YES/NO
 		do we have all the fields from rhm-secret ? (combined secret)
@@ -326,21 +342,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				}
 
 				// Update the Spec TargetNamespace
-				if instance.Spec.TargetNamespace == nil {
-					if instance.Status.RazeeJobInstall != nil {
-						instance.Spec.TargetNamespace = &instance.Status.RazeeJobInstall.RazeeNamespace
-					} else {
-						instance.Spec.TargetNamespace = &instance.Namespace
-					}
-					err := r.client.Update(context.TODO(), instance)
-
-					if err != nil {
-						return reconcile.Result{}, err
-					}
-
-					reqLogger.Info("set target namespace to", "namespace", instance.Spec.TargetNamespace)
-					return reconcile.Result{}, nil
-				}
 				reqLogger.Info("All required razee configuration values have been found")
 			}
 

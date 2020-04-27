@@ -42,7 +42,7 @@ type RazeeDeploymentSpec struct {
 	// TargetNamespace is configurable target of the razee namespace
 	// this is to support legancy installs. Please do not edit.
 	// +optional
-	TargetNamespace  *string  `json:"targetNamespace,omitEmpty"`
+	TargetNamespace  *string  `json:"targetNamespace,omitempty"`
 
 	// Configuration values provided from redhat marketplace
 	// These are used internally by the Operator
