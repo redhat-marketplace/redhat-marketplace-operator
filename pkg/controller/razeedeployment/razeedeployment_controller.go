@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	razeeDeploymentFinalizer   = "razeedeploy.finalizer.marketplace.redhat.com"
+	RAZEE_DEPLOYMENT_FINALIZER   = "razeedeploy.finalizer.marketplace.redhat.com"
 	COS_READER_KEY_NAME        = "rhm-cos-reader-key"
 	RAZEE_UNINSTALL_NAME       = "razee-uninstall-job"
 	DEFAULT_RAZEE_JOB_IMAGE    = "quay.io/razee/razeedeploy-delta:1.1.0"
@@ -264,7 +264,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		// Adding a finalizer to this CR
-		if !utils.Contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
+		if !utils.Contains(instance.GetFinalizers(), RAZEE_DEPLOYMENT_FINALIZER) {
 			if err := r.addFinalizer(instance, request.Namespace); err != nil {
 				return reconcile.Result{}, err
 			}
@@ -273,8 +273,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		// Check if the RazeeDeployment instance is being marked for deletion
 		isMarkedForDeletion := instance.GetDeletionTimestamp() != nil
 		if isMarkedForDeletion {
-			if utils.Contains(instance.GetFinalizers(), razeeDeploymentFinalizer) {
-				//Run finalization logic for the razeeDeploymentFinalizer.
+			if utils.Contains(instance.GetFinalizers(), RAZEE_DEPLOYMENT_FINALIZER) {
+				//Run finalization logic for the RAZEE_DEPLOYMENT_FINALIZER.
 				//If it fails, don't remove the finalizer so we can retry during the next reconcile
 				return r.finalizeRazeeDeployment(instance)
 			}
@@ -329,6 +329,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				_, err := r.reconcileRhmOperatorSecret(&req)
 				if err != nil {
 					reqLogger.Error(err, "Failed to reconcile secret")
+					return reconcile.Result{}, err
 				}
 				return reconcile.Result{RequeueAfter: time.Second * 30}, nil
 			} else {
@@ -339,6 +340,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				err = r.client.Update(context.TODO(), instance)
 				if err != nil {
 					reqLogger.Error(err, "Failed to update ChildUrl")
+					return reconcile.Result{}, err
 				}
 
 				// Update the Spec TargetNamespace
@@ -360,6 +362,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				err = r.client.Create(context.TODO(), &razeeNamespace)
 				if err != nil {
 					reqLogger.Error(err, "Failed to create razee namespace.")
+					return reconcile.Result{}, err
 				}
 				return reconcile.Result{Requeue: true}, nil
 			} else {
@@ -392,6 +395,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				watchKeeperNonNamespace = *r.MakeWatchKeeperNonNamespace(instance)
 				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&watchKeeperNonNamespace); err != nil {
 					reqLogger.Error(err, "Failed to set annotation")
+					return reconcile.Result{}, err
 				}
 
 				err = r.client.Create(context.TODO(), &watchKeeperNonNamespace)
@@ -407,19 +411,21 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 		if err == nil {
 			reqLogger.Info(fmt.Sprintf("Resource already exists %v", watchKeeperNonNamespace.Name))
-			// proposed change
+
 			updatedWatchKeeperNonNameSpace := r.MakeWatchKeeperNonNamespace(instance)
 			patchResult, err := patch.DefaultPatchMaker.Calculate(&watchKeeperNonNamespace, updatedWatchKeeperNonNameSpace)
 			if err != nil {
-				// handle the error
 				reqLogger.Error(err, "Failed to compare patches")
+				return reconcile.Result{}, err
 			}
 
 			if !patchResult.IsEmpty() {
 				reqLogger.Info(fmt.Sprintf("Change detected on %v", watchKeeperNonNamespace.Name))
 				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(updatedWatchKeeperNonNameSpace); err != nil {
-
+					reqLogger.Error(err, "Failed to set annotation")
+					return reconcile.Result{}, err
 				}
+
 				reqLogger.Info("Updating resource", "resource: ", watchKeeperNonNamespace.Name)
 				err = r.client.Update(context.TODO(), updatedWatchKeeperNonNameSpace)
 				if err != nil {
@@ -450,14 +456,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				// create the resource
 				reqLogger.Info("watch-keeper-limit-poll does not exist - creating")
 
-				// set the annotation
 				watchKeeperLimitPoll = *r.MakeWatchKeeperLimitPoll(instance)
 				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&watchKeeperLimitPoll); err != nil {
 					reqLogger.Error(err, "Failed to set annotation")
 					return reconcile.Result{}, err
 				}
 
-				//create the resource
 				err = r.client.Create(context.TODO(), &watchKeeperLimitPoll)
 				if err != nil {
 					reqLogger.Error(err, "Failed to create watch-keeper-limit-poll config map")
@@ -477,12 +481,14 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			patchResult, err := patch.DefaultPatchMaker.Calculate(&watchKeeperLimitPoll, updatedWatchKeeperLimitPoll)
 			if err != nil {
 				reqLogger.Error(err, "Failed to calculate patch diff")
+				return reconcile.Result{}, err
 			}
 
 			if !patchResult.IsEmpty() {
 				reqLogger.Info(fmt.Sprintf("updating resource %v", watchKeeperLimitPoll.Name))
 				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(updatedWatchKeeperLimitPoll); err != nil {
 					reqLogger.Error(err, "Failed to set annotation on ", updatedWatchKeeperLimitPoll.Name)
+					return reconcile.Result{}, err
 				}
 				err = r.client.Update(context.TODO(), updatedWatchKeeperLimitPoll)
 				if err != nil {
@@ -512,10 +518,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			if errors.IsNotFound(err) {
 				reqLogger.Info("razee cluster metadata does not exist - creating")
 
-				// set the annotation
 				razeeClusterMetaData = *r.MakeRazeeClusterMetaData(instance)
 				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&razeeClusterMetaData); err != nil {
 					reqLogger.Error(err, "Failed to set annotation")
+					return reconcile.Result{}, err
 				}
 
 				err = r.client.Create(context.TODO(), &razeeClusterMetaData)
@@ -535,12 +541,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			// if exists already then, overwrite
 			reqLogger.Info(fmt.Sprintf("Resource already exists %v", razeeClusterMetaData.Name))
 
-			// proposed change
 			updatedRazeeClusterMetaData := *r.MakeRazeeClusterMetaData(instance)
 			patchResult, err := patch.DefaultPatchMaker.Calculate(&razeeClusterMetaData, &updatedRazeeClusterMetaData)
 			if err != nil {
-				// handle the error
 				reqLogger.Error(err, "Failed to compare patches")
+				return reconcile.Result{}, err
 			}
 
 			if !patchResult.IsEmpty() {
@@ -577,7 +582,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			if errors.IsNotFound(err) {
 				reqLogger.Info("watch-keeper-config does not exist - creating")
 
-				// set the annotation
 				watchKeeperConfig = *r.MakeWatchKeeperConfig(instance)
 				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&watchKeeperConfig); err != nil {
 					reqLogger.Error(err, "Failed to set annotation")
@@ -641,7 +645,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			if errors.IsNotFound(err) {
 				reqLogger.Info("watch-keeper-secret does not exist - creating")
 				watchKeeperSecret = *r.MakeWatchKeeperSecret(instance, request)
-				// set the annotation
+
 				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&watchKeeperSecret); err != nil {
 					reqLogger.Error(err, "Failed to set annotation")
 					return reconcile.Result{}, err
@@ -671,6 +675,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			if !patchResult.IsEmpty() {
 				reqLogger.Info(fmt.Sprintf("Chnage detected on %v", watchKeeperSecret.Name))
 				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&updatedWatchKeeperSecret); err != nil {
+					reqLogger.Error(err, "Failed to set annotation")
 					return reconcile.Result{}, err
 				}
 				reqLogger.Info("Updating razee-cluster-metadata")
@@ -703,7 +708,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			if errors.IsNotFound(err) {
 				reqLogger.Info("ibm-cos-reader-key does not exist - creating")
 				ibmCosReaderKey,err = r.MakeCOSReaderSecret(instance, request)
-				// set the annotation
+
 				if err = patch.DefaultAnnotator.SetLastAppliedAnnotation(&ibmCosReaderKey); err != nil {
 					reqLogger.Error(err, "Failed to set annotation")
 					return reconcile.Result{}, err
@@ -727,7 +732,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			updatedibmCosReaderKey,err := r.MakeCOSReaderSecret(instance, request)
 			patchResult, err := patch.DefaultPatchMaker.Calculate(&ibmCosReaderKey, &updatedibmCosReaderKey)
 			if err != nil {
-				// handle the error
 				reqLogger.Error(err, "Failed to compare patches")
 				return reconcile.Result{}, err
 			}
@@ -1074,9 +1078,9 @@ func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(req *marketplacev1alp
 	reqLogger.Info("Uninstall job created successfully")
 	reqLogger.Info("Successfully finalized RazeeDeployment")
 
-	// Remove the razeeDeploymentFinalizer
+	// Remove the RAZEE_DEPLOYMENT_FINALIZER
 	// Once all finalizers are removed, the object will be deleted
-	req.SetFinalizers(utils.RemoveKey(req.GetFinalizers(), razeeDeploymentFinalizer))
+	req.SetFinalizers(utils.RemoveKey(req.GetFinalizers(), RAZEE_DEPLOYMENT_FINALIZER))
 	err = r.client.Update(context.TODO(), req)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -1137,7 +1141,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(namespace string, razee
 func (r *ReconcileRazeeDeployment) addFinalizer(razee *marketplacev1alpha1.RazeeDeployment, namespace string) error {
 	reqLogger := log.WithValues("Request.Namespace", namespace, "Request.Name", RAZEE_UNINSTALL_NAME)
 	reqLogger.Info("Adding Finalizer for the razeeDeploymentFinzliaer")
-	razee.SetFinalizers(append(razee.GetFinalizers(), razeeDeploymentFinalizer))
+	razee.SetFinalizers(append(razee.GetFinalizers(), RAZEE_DEPLOYMENT_FINALIZER))
 
 	err := r.client.Update(context.TODO(), razee)
 	if err != nil {
@@ -1404,7 +1408,7 @@ func (r *ReconcileRazeeDeployment) partialUninstall(
 		}
 	}
 
-	req.SetFinalizers(utils.RemoveKey(req.GetFinalizers(), razeeDeploymentFinalizer))
+	req.SetFinalizers(utils.RemoveKey(req.GetFinalizers(), RAZEE_DEPLOYMENT_FINALIZER))
 	err = r.client.Update(context.TODO(), req)
 	if err != nil {
 		return reconcile.Result{}, err
