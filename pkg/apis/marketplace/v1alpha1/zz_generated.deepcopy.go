@@ -503,6 +503,11 @@ func (in *RazeeDeploymentSpec) DeepCopyInto(out *RazeeDeploymentSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.TargetNamespace != nil {
+		in, out := &in.TargetNamespace, &out.TargetNamespace
+		*out = new(string)
+		**out = **in
+	}
 	if in.DeployConfig != nil {
 		in, out := &in.DeployConfig, &out.DeployConfig
 		*out = new(RazeeConfigurationValues)
@@ -510,12 +515,6 @@ func (in *RazeeDeploymentSpec) DeepCopyInto(out *RazeeDeploymentSpec) {
 	}
 	if in.ChildUrl != nil {
 		in, out := &in.ChildUrl, &out.ChildUrl
-		*out = new(string)
-		**out = **in
-	}
-
-	if in.TargetNamespace != nil {
-		in, out := &in.TargetNamespace, &out.TargetNamespace
 		*out = new(string)
 		**out = **in
 	}
@@ -541,11 +540,6 @@ func (in *RazeeDeploymentStatus) DeepCopyInto(out *RazeeDeploymentStatus) {
 		(*in).DeepCopyInto(*out)
 	}
 	in.JobState.DeepCopyInto(&out.JobState)
-	if in.RazeeJobInstall != nil {
-		in, out := &in.RazeeJobInstall, &out.RazeeJobInstall
-		*out = new(RazeeJobInstallStruct)
-		**out = **in
-	}
 	if in.MissingDeploySecretValues != nil {
 		in, out := &in.MissingDeploySecretValues, &out.MissingDeploySecretValues
 		*out = make([]string, len(*in))
@@ -555,6 +549,11 @@ func (in *RazeeDeploymentStatus) DeepCopyInto(out *RazeeDeploymentStatus) {
 		in, out := &in.RazeePrerequisitesCreated, &out.RazeePrerequisitesCreated
 		*out = make([]string, len(*in))
 		copy(*out, *in)
+	}
+	if in.RazeeJobInstall != nil {
+		in, out := &in.RazeeJobInstall, &out.RazeeJobInstall
+		*out = new(RazeeJobInstallStruct)
+		**out = **in
 	}
 	return
 }

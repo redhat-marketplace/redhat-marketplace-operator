@@ -31,16 +31,16 @@ spec:
           description: RazeeDeploymentSpec defines the desired state of RazeeDeployment
           properties:
             childUrl:
+              description: Location of your IBM Cloud Object Storage resources Used
+                internally by the Operator
               type: string
             clusterUUID:
               description: ClusterUUID is the cluster identifier, used for installing
                 razee.
               type: string
             deployConfig:
-              description: 'EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN! NOTE:
-                json tags are required.  Any new fields you add must have json tags
-                for the fields to be serialized. Configuration values used by Razee
-                to communicate with the Red Hat Marketplace backend'
+              description: Configuration values provided from redhat marketplace These
+                are used internally by the Operator
               properties:
                 BUCKET_NAME:
                   description: BucketName is the name of the bucket in Cloud Object
@@ -99,9 +99,7 @@ spec:
                 variables are stored.
               type: string
             enabled:
-              description: Setting enabled to "true" will create a Razee namespace
-                and deploy it's componenets. Set to "false" to bypass Razee installation
-                Enabled flag stops razee from installing
+              description: Enabled flag stops razee from installing
               type: boolean
             targetNamespace:
               description: TargetNamespace is configurable target of the razee namespace
@@ -208,12 +206,16 @@ spec:
                   type: integer
               type: object
             missingDeploySecretValues:
+              description: MissingDeploySecretValues validates the secret provided
+                has all the correct fields
               items:
                 type: string
               type: array
             razee_job_install:
-              description: RazeeJobInstall contains information regarding the install
-                job so it can be removed
+              description: RedHatMarketplaceSecretFound is the status of finding the
+                secret in the cluster RedHatMarketplaceSecretFound *bool `json:"redHatMarketplaceSecretFound,omitempty"`
+                RazeeJobInstall contains information regarding the install job so
+                it can be removed
               properties:
                 razee_install_url:
                   description: RazeeInstallURL is the url used to install the Razee
@@ -228,8 +230,10 @@ spec:
               - razee_namespace
               type: object
             razeePrerequisitesCreated:
-              description: RazeePrerequestesCreated is the list of configmaps and
-                secrets required to be installed
+              description: LocalSecretVarsPopulated informs if the correct local variables
+                are correct set. LocalSecretVarsPopulated *bool `json:"localSecretVarsPopulated,omitempty"`
+                RazeePrerequestesCreated is the list of configmaps and secrets required
+                to be installed
               items:
                 type: string
               type: array
