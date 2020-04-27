@@ -234,7 +234,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update JobState")
-			return reconcile.Result{}, nil
+			return reconcile.Result{}, err
 		}
 		reqLogger.Info("Updated JobState")
 		reqLogger.Info("End of razee job reconciler")
@@ -951,7 +951,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 	}
-	// reqLogger.Info("End of reconcile")
+	reqLogger.Info("End of reconcile")
 	return reconcile.Result{}, nil
 
 }
