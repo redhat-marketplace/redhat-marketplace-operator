@@ -13,10 +13,10 @@ import (
 type RazeeDeploymentSpec struct {
 	// Setting enabled to "true" will create a Razee namespace and deploy it's componenets. Set to "false" to bypass Razee installation
 	// Enabled flag stops razee from installing
-	Enabled          bool    `json:"enabled"`
+	Enabled bool `json:"enabled"`
 
 	// ClusterUUID is the cluster identifier, used for installing razee.
-	ClusterUUID      string  `json:"clusterUUID"`
+	ClusterUUID string `json:"clusterUUID"`
 
 	// DeploySecretName is the name of our secret where Razee
 	// variables are stored.
@@ -26,7 +26,7 @@ type RazeeDeploymentSpec struct {
 	// TargetNamespace is configurable target of the razee namespace
 	// this is to support legancy installs. Please do not edit.
 	// +optional
-	TargetNamespace  *string  `json:"targetNamespace,omitempty"`
+	TargetNamespace *string `json:"targetNamespace,omitempty"`
 }
 
 // RazeeDeploymentStatus defines the observed state of RazeeDeployment

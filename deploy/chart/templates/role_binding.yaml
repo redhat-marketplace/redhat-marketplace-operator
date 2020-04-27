@@ -1,7 +1,11 @@
 {{- $namespace := .Values.namespace }}
 {{- range .Values.roles }}
 {{- $role := . }}
-kind: ClusterRoleBinding
+{{- $roleKind := "ClusterRoleBinding"}}
+{{- if eq $role.type "Role" }}
+{{- $roleKind = "RoleBinding" }}
+{{- end }}
+kind: {{ $roleKind }}
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ $role.name }}

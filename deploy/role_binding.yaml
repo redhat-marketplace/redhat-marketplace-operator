@@ -28,29 +28,15 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role_binding.yaml
-kind: ClusterRoleBinding
+kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: redhat-marketplace-metering
+  name: redhat-marketplace-operator
 subjects:
 - kind: ServiceAccount
-  name: redhat-marketplace-metering
+  name: redhat-marketplace-operator
   namespace: redhat-marketplace-operator
 roleRef:
-  kind: ClusterRole
-  name: redhat-marketplace-metering
-  apiGroup: rbac.authorization.k8s.io
----
-# Source: redhat-marketplace-operator-template-chart/templates/role_binding.yaml
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: redhat-marketplace-reporting
-subjects:
-- kind: ServiceAccount
-  name: redhat-marketplace-reporting
-  namespace: redhat-marketplace-operator
-roleRef:
-  kind: ClusterRole
-  name: redhat-marketplace-reporting
+  kind: Role
+  name: redhat-marketplace-operator
   apiGroup: rbac.authorization.k8s.io
