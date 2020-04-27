@@ -5,6 +5,7 @@ ROOT=$1
 VERSION=$2
 REGISTRY_IMAGE=$3
 CREATED_TIME=`date +"%FT%H:%M:%SZ"`
+DATETIME=$(date +"%FT%H%M%SZ")
 
 rm $ROOT/bundle/* || echo "nothing to clean"
 #cp $ROOT/deploy/olm-catalog/redhat-marketplace-operator/redhat-marketplace-operator.package.yaml $ROOT/bundle
@@ -29,4 +30,4 @@ go run github.com/mikefarah/yq/v3 w \
 
 operator-courier verify --ui_validate_io $PACKAGE_PATH
 
-cd $ROOT/deploy/olm-catalog/redhat-marketplace-operator && zip -r ${ROOT}/bundle/redhat-marketplace-operator-bundle-${VERSION}.zip .
+cd $ROOT/deploy/olm-catalog/redhat-marketplace-operator && zip -r ${ROOT}/bundle/redhat-marketplace-operator-bundle-${VERSION}-${DATETIME}.zip .
