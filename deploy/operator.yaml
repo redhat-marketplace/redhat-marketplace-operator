@@ -24,6 +24,10 @@ spec:
           imagePullPolicy: Always
           securityContext:
             {}
+          command:
+            - redhat-marketplace-operator
+          args:
+            - "--features=\"razee\""
           env:
             - name: OPERATOR_NAME
               value: redhat-marketplace-operator

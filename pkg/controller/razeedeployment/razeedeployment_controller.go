@@ -1039,13 +1039,8 @@ func (r *ReconcileRazeeDeployment) partialUninstall(
 
 	found := true
 	if err != nil {
-		if !errors.IsNotFound(err) {
-			reqLogger.Error(err, "razeedeploy-auto-update not found with error")
-			return reconcile.Result{}, err
-		}
-		if errors.IsNotFound(err) {
-			found = false
-		}
+		found = false
+		reqLogger.Error(err, "razeedeploy-auto-update not found with error")
 	}
 
 	deletePolicy := metav1.DeletePropagationForeground
@@ -1055,7 +1050,6 @@ func (r *ReconcileRazeeDeployment) partialUninstall(
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				reqLogger.Error(err, "could not delete watch-keeper rr resource")
-				return reconcile.Result{}, err
 			}
 		}
 	}

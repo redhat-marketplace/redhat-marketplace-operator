@@ -8,6 +8,7 @@ import (
 // TODO: Add open API validation
 
 // MeterDefinitionSpec defines the desired metering spec
+// +k8s:openapi-gen=true
 type MeterDefinitionSpec struct {
 
 	// MeterDomain defines the primary CRD domain of the meter
@@ -40,30 +41,38 @@ type MeterDefinitionSpec struct {
 }
 
 // MeterDefinitionStatus defines the observed state of MeterDefinition
+// +k8s:openapi-gen=true
 type MeterDefinitionStatus struct {
 
 	// Conditions represent the latest available observations of an object's state
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Conditions status.Conditions `json:"conditions"`
 
 	// ServiceLabels of the meterics you want to track.
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	ServiceLabels []string `json:"serviceLabels"`
 
 	// PodLabels of the prometheus kube-state metrics you want to track.
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	PodLabels []string `json:"podLabels"`
 
 	// ServiceMonitors is the list of service monitors being watched for
 	// this meter definition
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	ServiceMonitors []*metav1.ObjectMeta `json:"serviceMonitors"`
 
 	// Pods is the list of current pod mointors being watched for
 	// this meter definition
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Pods []*metav1.ObjectMeta `json:"pods"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // MeterDefinition is internal Meter Definitions defined by Operators from Red Hat Marketplace.
 // This is an internal resource not meant to be modified directly.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+//
+// +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=meterdefinitions,scope=Namespaced
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="(Internal) Meter Definitions"
