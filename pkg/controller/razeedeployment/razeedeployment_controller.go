@@ -183,6 +183,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		// Fetch the RazeeDeployment instance
 		instance := &marketplacev1alpha1.RazeeDeployment{}
 		err := r.client.Get(context.TODO(), types.NamespacedName{
+			//TODO: use constant here if we have one
 			Name:      "rhm-marketplaceconfig-razeedeployment",
 			Namespace: "redhat-marketplace-operator",
 		}, instance)
@@ -195,6 +196,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				return reconcile.Result{}, nil
 			}
 			// Error reading the object - requeue the request.
+			reqLogger.Error(err, "Failed to get Razee Deployment")
 			return reconcile.Result{}, err
 		}
 
@@ -216,6 +218,14 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				RazeeNamespace:  RAZEE_NAMESPACE,
 				RazeeInstallURL: instance.Spec.DeployConfig.FileSourceURL,
 			}
+
+			reqLogger.Info("updating status inside job reconciler")
+			err = r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				reqLogger.Error(err, "Failed to update JobState")
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("Updated JobState")
 		}
 
 		// delete the job after it's successful
@@ -226,17 +236,9 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				reqLogger.Error(err, "Failed to delete job")
 				return reconcile.Result{}, err
 			}
-
 			reqLogger.Info("Razeedeploy-job deleted")
 		}
 
-		reqLogger.Info("updating status inside job reconciler")
-		err = r.client.Status().Update(context.TODO(), instance)
-		if err != nil {
-			reqLogger.Error(err, "Failed to update JobState")
-			return reconcile.Result{}, err
-		}
-		reqLogger.Info("Updated JobState")
 		reqLogger.Info("End of razee job reconciler")
 
 	default:
@@ -876,6 +878,17 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 
 			newResources = append(newResources, "parentRRS3")
+			// update status
+			reqLogger.Info("updating Status.RazeePrerequisitesCreated with parent rrs3")
+			instance.Status.RazeePrerequisitesCreated = newResources
+			// patch := client.MergeFrom(instance.DeepCopy())
+			// err = r.client.Status().Patch(context.TODO(), instance, patch)
+			err = r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				reqLogger.Error(err, "Failed to update status")
+				return reconcile.Result{}, err
+			}
+
 			/******************************************************************************
 			PATCH RESOURCES FOR DIANEMO
 			Patch the Console and Infrastructure resources with the watch-keeper label
@@ -940,16 +953,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info("No patch needed on Infrastructure resource")
 
 		}
-
-		// update status
-		reqLogger.Info("updating Status.RazeePrerequisitesCreated with parent rrs3")
-		instance.Status.RazeePrerequisitesCreated = newResources
-		err = r.client.Status().Update(context.TODO(), instance)
-		if err != nil {
-			reqLogger.Error(err, "Failed to update status")
-			return reconcile.Result{}, err
-		}
-
 	}
 	reqLogger.Info("End of reconcile")
 	return reconcile.Result{}, nil
