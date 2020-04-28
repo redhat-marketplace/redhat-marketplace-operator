@@ -172,7 +172,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	switch request.Name {
 	case RHM_OPERATOR_SECRET_NAME:
 		//TODO: return request from reconcileRhmOperatorSecret() here ?
-		_, err := r.reconcileRhmOperatorSecret(&request)
+		_, err := r.reconcileRhmOperatorSecret(request)
 		if err != nil {
 			reqLogger.Error(err, "Failed to reconcile secret")
 		}
@@ -308,14 +308,15 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		/******************************************************************************/
 		if instance.Spec.DeployConfig == nil {
 			reqLogger.Info("rhm-operator-secret has not been applied")
+			//TODO: pass in the original request, don't rebuild
 			req := reconcile.Request{
 				types.NamespacedName{
 					Name:      *instance.Spec.DeploySecretName,
 					Namespace: request.Namespace,
 				},
 			}
-			r.reconcileRhmOperatorSecret(&req)
-			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+			return r.reconcileRhmOperatorSecret(req)
+			// return reconcile.Result{RequeueAfter: time.Second * 30}, nil
 		}
 
 		if instance.Spec.DeployConfig != nil {
@@ -328,7 +329,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 						Namespace: request.Namespace,
 					},
 				}
-				_, err := r.reconcileRhmOperatorSecret(&req)
+				_, err := r.reconcileRhmOperatorSecret(req)
 				if err != nil {
 					reqLogger.Error(err, "Failed to reconcile secret")
 					return reconcile.Result{}, err
@@ -959,33 +960,36 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 }
 
-func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(request *reconcile.Request) (*reconcile.Result, error) {
+func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "request.Name", request.Name)
 	reqLogger.Info("Beginning of rhm-operator-secret reconcile")
-
-	// retrieve the razee instance
-	razeeDeployments := &marketplacev1alpha1.RazeeDeploymentList{}
-	err := r.client.List(context.TODO(), razeeDeployments)
-	if err != nil {
-		reqLogger.Error(err, "Failed to list RazeeDeployments")
-		return &reconcile.Result{}, err
-	}
-
-	razeeInstance := razeeDeployments.Items[0]
+	
 
 	// get the operator secret
 	rhmOperatorSecret := corev1.Secret{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{
+	err := r.client.Get(context.TODO(), types.NamespacedName{
 		Name:      RHM_OPERATOR_SECRET_NAME,
 		Namespace: request.Namespace,
 	}, &rhmOperatorSecret)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.Error(err, "Failed to find operator secret")
-			return &reconcile.Result{}, err
+			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+		} else{
+			return reconcile.Result{}, err
 		}
+	} 
+
+	// retrieve the razee instance
+	razeeDeployments := &marketplacev1alpha1.RazeeDeploymentList{}
+	err = r.client.List(context.TODO(), razeeDeployments)
+	if err != nil {
+		reqLogger.Error(err, "Failed to list RazeeDeployments")
+		return reconcile.Result{}, err
+
 	}
 
+	razeeInstance := razeeDeployments.Items[0]
 	// set non-nil pointer
 	razeeConfigurationValues := marketplacev1alpha1.RazeeConfigurationValues{}
 	razeeInstance.Spec.DeployConfig = &razeeConfigurationValues
@@ -999,11 +1003,11 @@ func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(request *reconcile
 	err = r.client.Update(context.TODO(), &razeeInstance)
 	if err != nil {
 		reqLogger.Error(err, "Failed to update Spec.DeploySecretValues")
-		return &reconcile.Result{}, err
+		return reconcile.Result{}, err
 	}
 
 	reqLogger.Info("End of rhm-operator-secret reconcile")
-	return nil, nil
+	return reconcile.Result{},nil
 }
 
 // finalizeRazeeDeployment cleans up resources before the RazeeDeployment CR is deleted

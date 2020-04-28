@@ -131,7 +131,7 @@ func testCleanInstall(t *testing.T) {
 						}
 
 						razeeController := ReconcileRazeeDeployment{}
-						expectedWatchKeeperNonNamespace := razeeController.MakeWatchKeeperNonNamespace()
+						expectedWatchKeeperNonNamespace := razeeController.MakeWatchKeeperNonNamespace(&razeeDeployment)
 
 						patchResult, err := patch.DefaultPatchMaker.Calculate(watchKeeperNonNamespace, expectedWatchKeeperNonNamespace)
 						if !patchResult.IsEmpty() {
@@ -154,7 +154,7 @@ func testCleanInstall(t *testing.T) {
 						}
 
 						razeeController := ReconcileRazeeDeployment{}
-						expectedWatchKeeperLimitPoll := razeeController.MakeWatchKeeperLimitPoll()
+						expectedWatchKeeperLimitPoll := razeeController.MakeWatchKeeperLimitPoll(&razeeDeployment)
 
 						patchResult, err := patch.DefaultPatchMaker.Calculate(watchKeeperLimitPoll, expectedWatchKeeperLimitPoll)
 						if !patchResult.IsEmpty() {
