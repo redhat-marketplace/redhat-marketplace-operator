@@ -64,11 +64,13 @@ type RazeeDeploymentStatus struct {
 	// MissingDeploySecretValues validates the secret provided has all the correct fields
 	MissingDeploySecretValues []string    `json:"missingDeploySecretValues,omitempty"`
 	// LocalSecretVarsPopulated informs if the correct local variables are correct set.
-	// LocalSecretVarsPopulated *bool `json:"localSecretVarsPopulated,omitempty"`
+	//TODO: set this to nil, add a comment letting people know it's deprecated
+	LocalSecretVarsPopulated *bool `json:"localSecretVarsPopulated,omitempty"`
 	// RazeePrerequestesCreated is the list of configmaps and secrets required to be installed
 	RazeePrerequisitesCreated []string `json:"razeePrerequisitesCreated,omitempty"`
 	// RedHatMarketplaceSecretFound is the status of finding the secret in the cluster
-	// RedHatMarketplaceSecretFound *bool `json:"redHatMarketplaceSecretFound,omitempty"`
+	//TODO: set this to nil, add a comment letting people know it's deprecated
+	RedHatMarketplaceSecretFound *bool `json:"redHatMarketplaceSecretFound,omitempty"`
 	// RazeeJobInstall contains information regarding the install job so it can be removed
 	RazeeJobInstall *RazeeJobInstallStruct `json:"razee_job_install,omitempty"`
 }

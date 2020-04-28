@@ -171,6 +171,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	switch request.Name {
 	case RHM_OPERATOR_SECRET_NAME:
+		//TODO: get the request object and verify it's a secret
+		reqLogger.Info("reconciling secret block")
 		//TODO: return request from reconcileRhmOperatorSecret() here ?
 		_, err := r.reconcileRhmOperatorSecret(request)
 		if err != nil {
@@ -290,7 +292,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				instance.Spec.TargetNamespace = &instance.Namespace
 			}
 			err := r.client.Update(context.TODO(), instance)
-
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -964,7 +965,6 @@ func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(request reconcile.
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "request.Name", request.Name)
 	reqLogger.Info("Beginning of rhm-operator-secret reconcile")
 	
-
 	// get the operator secret
 	rhmOperatorSecret := corev1.Secret{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{
@@ -980,13 +980,14 @@ func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(request reconcile.
 		}
 	} 
 
+	//TODO: loop over every returned cr, look for the one with the default name, and update that one.
+	//TODO: look in the correct namespace
 	// retrieve the razee instance
 	razeeDeployments := &marketplacev1alpha1.RazeeDeploymentList{}
 	err = r.client.List(context.TODO(), razeeDeployments)
 	if err != nil {
 		reqLogger.Error(err, "Failed to list RazeeDeployments")
 		return reconcile.Result{}, err
-
 	}
 
 	razeeInstance := razeeDeployments.Items[0]
