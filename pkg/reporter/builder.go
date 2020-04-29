@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/imdario/mergo"
 	"github.com/mitchellh/mapstructure"
-	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 

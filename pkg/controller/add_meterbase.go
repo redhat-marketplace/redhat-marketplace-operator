@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/controller/meterbase"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller/meterbase"
 )
 
 type MeterbaseController ControllerDefinition

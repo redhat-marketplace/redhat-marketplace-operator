@@ -3,7 +3,7 @@ package subscription
 import (
 	"testing"
 
-	. "github.ibm.com/symposium/redhat-marketplace-operator/test/controller"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/controller"
 
 	"context"
 

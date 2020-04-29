@@ -13,7 +13,7 @@ import (
 
 	semver "github.com/Masterminds/semver/v3"
 	"github.com/spf13/cobra"
-	"github.ibm.com/symposium/redhat-marketplace-operator/version"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/version"
 )
 
 var filename string

@@ -1,7 +1,7 @@
 package apis
 
 import (
-	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 )
 
 func init() {
