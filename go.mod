@@ -28,6 +28,7 @@ require (
 	github.com/spf13/viper v1.6.2
 	github.com/urfave/cli v1.22.2 // indirect
 	golang.org/x/tools v0.0.0-20200410132612-ae9902aceb98 // indirect
+	google.golang.org/genproto v0.0.0-20200212174721-66ed5ce911ce
 	k8s.io/api v0.17.4
 	k8s.io/apimachinery v0.17.4
 	k8s.io/client-go v12.0.0+incompatible

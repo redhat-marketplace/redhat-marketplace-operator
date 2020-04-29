@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"reflect"
 
 	"github.com/gotidy/ptr"
 	"github.com/imdario/mergo"
@@ -192,4 +193,65 @@ func LoadYAML(filename string, i interface{}) (interface{}, error) {
 	}
 
 	return genericTypeVal, nil
+}
+
+// ******************************************
+// Gets passed a list of namespaces
+// ******************************************
+// Case 1: empty list: return all resources from ALL namesapces
+// ******************************************
+// Case 2: sinlge item in list: return all resources for that 1 namespace
+// ******************************************
+// Case 3: multiple items in list: return a list of all the resources in those namespaces
+// to simplify for each item in list, call case 2
+func filterByNamespace(namespaces []corev1.Namespace, resources corev1.ResourceList, rClient client.Client) (error, corev1.ResourceList) {
+	var err error
+	if namespaces == nil {
+		//list options -> namespaces = blank -> get across all namespaces
+		//list.get --> format
+		listOpts := []client.ListOption{
+			client.InNamespace(""),
+		}
+		err, resources = getResources(listOpts, resources, rClient)
+
+	} else if len(namespaces) == 1 {
+		//list options -> namespaces = namespaces -> get across that namespace
+		listOpts := []client.ListOption{
+			client.InNamespace(namespaces[0].Namespace),
+		}
+		err, resources = getResources(listOpts, resources, rClient)
+
+	} else if len(namespaces) > 1 {
+		//for each ns in namespaces
+		//recursive call to resource by namespace (ns)
+		//return all options?
+		for _, ns := range namespaces {
+			listOpts := []client.ListOption{
+				client.InNamespace(ns.GetNamespace()),
+			}
+			err, resources = getResources(listOpts, resources, rClient)
+		}
+	}
+	return err, resources
+}
+
+func getResources(listOpts []client.ListOption, resources corev1.ResourceList, rClient client.Client) (error, corev1.ResourceList) {
+	var err error
+	if reflect.TypeOf(resources) == reflect.TypeOf(corev1.ResourceName("Pod")) {
+		podList := &corev1.PodList{}
+		err = rClient.List(context.TODO(), podList, listOpts...)
+		for _, pod := range podList.Items {
+			resources[corev1.ResourceName(pod.GetName())] = resource.MustParse("1")
+		}
+	} else if reflect.TypeOf(resources) == reflect.TypeOf(corev1.ResourceName("ServiceMontor")) {
+		serviceMonitorList := &monitoringv1.ServiceMonitorList{}
+		err = rClient.List(context.TODO(), serviceMonitorList, listOpts...)
+		for _, serviceMonitor := range serviceMonitorList.Items {
+			resources[corev1.ResourceName(serviceMonitor.GetName())] = resource.MustParse("1")
+		}
+	} else {
+		fmt.Println("------------ type of resource", reflect.TypeOf(resources))
+	}
+
+	return err, resources
 }
