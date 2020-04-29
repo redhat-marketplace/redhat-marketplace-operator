@@ -44,11 +44,11 @@ func setup(r *ReconcilerTest) error {
 }
 
 var (
-	name      = "marketplaceconfig"
-	namespace = "openshift-redhat-marketplace"
+	name       = "marketplaceconfig"
+	namespace  = "openshift-redhat-marketplace"
 	secretName = "rhm-operator-secret"
 
-	opts      = []TestCaseOption{
+	opts = []TestCaseOption{
 		WithRequest(req),
 		WithNamespace("openshift-redhat-marketplace"),
 		WithName(name),
@@ -142,7 +142,7 @@ func testCleanInstall(t *testing.T) {
 							t.Fatalf("Error calculating patch %T", patchResult)
 						}
 					}),
-					)...),
+				)...),
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&corev1.ConfigMap{}),
@@ -165,7 +165,7 @@ func testCleanInstall(t *testing.T) {
 							t.Fatalf("Error calculating patch %T", patchResult)
 						}
 					}),
-					)...),
+				)...),
 			NewReconcilerTestCase(
 				append(
 					opts,
@@ -191,19 +191,18 @@ func testCleanInstall(t *testing.T) {
 						}
 
 					}),
-					)...
-				),
+				)...,
+			),
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&corev1.ConfigMap{}),
 					WithName("watch-keeper-config"),
-					
-					)...),
+				)...),
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&corev1.Secret{}),
 					WithName("watch-keeper-secret"),
-					)...),
+				)...),
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&corev1.Secret{}),
@@ -223,7 +222,7 @@ func testCleanInstall(t *testing.T) {
 						}
 
 						razeeController := ReconcileRazeeDeployment{}
-						expectedIbmCosReaderKey,err := razeeController.MakeCOSReaderSecret(&razeeDeployment,req)
+						expectedIbmCosReaderKey, err := razeeController.MakeCOSReaderSecret(&razeeDeployment, req)
 
 						patchResult, err := patch.DefaultPatchMaker.Calculate(ibmCosReaderKey, &expectedIbmCosReaderKey)
 						if !patchResult.IsEmpty() {
@@ -234,7 +233,7 @@ func testCleanInstall(t *testing.T) {
 							t.Fatalf("Error calculating patch %T", patchResult)
 						}
 					}),
-					)...),
+				)...),
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&batch.Job{}),
@@ -367,7 +366,6 @@ func testOldMigratedInstall(t *testing.T) {
 		})
 }
 
-
 func testNoSecret(t *testing.T) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, &razeeDeployment)
@@ -393,7 +391,7 @@ func CreateWatchKeeperSecret() *corev1.Secret {
 }
 
 // func TransferMetadata( in runtime.Object, out runtime.Object)(runtime.Object){
-	
+
 // 	out.SetAnnotations(in.GetAnnotations())
 // 	out.SetCreationTimestamp(in.GetCreationTimestamp())
 // 	out.SetFinalizers(in.GetFinalizers())

@@ -545,10 +545,20 @@ func (in *RazeeDeploymentStatus) DeepCopyInto(out *RazeeDeploymentStatus) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.LocalSecretVarsPopulated != nil {
+		in, out := &in.LocalSecretVarsPopulated, &out.LocalSecretVarsPopulated
+		*out = new(bool)
+		**out = **in
+	}
 	if in.RazeePrerequisitesCreated != nil {
 		in, out := &in.RazeePrerequisitesCreated, &out.RazeePrerequisitesCreated
 		*out = make([]string, len(*in))
 		copy(*out, *in)
+	}
+	if in.RedHatMarketplaceSecretFound != nil {
+		in, out := &in.RedHatMarketplaceSecretFound, &out.RedHatMarketplaceSecretFound
+		*out = new(bool)
+		**out = **in
 	}
 	if in.RazeeJobInstall != nil {
 		in, out := &in.RazeeJobInstall, &out.RazeeJobInstall

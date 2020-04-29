@@ -29,10 +29,10 @@ type RazeeConfigurationValues struct {
 // RazeeDeploymentSpec defines the desired state of RazeeDeployment
 type RazeeDeploymentSpec struct {
 	// Enabled flag stops razee from installing
-	Enabled          bool    `json:"enabled"`
+	Enabled bool `json:"enabled"`
 
 	// ClusterUUID is the cluster identifier, used for installing razee.
-	ClusterUUID      string  `json:"clusterUUID"`
+	ClusterUUID string `json:"clusterUUID"`
 
 	// DeploySecretName is the name of our secret where Razee
 	// variables are stored.
@@ -42,17 +42,17 @@ type RazeeDeploymentSpec struct {
 	// TargetNamespace is configurable target of the razee namespace
 	// this is to support legancy installs. Please do not edit.
 	// +optional
-	TargetNamespace  *string  `json:"targetNamespace,omitempty"`
+	TargetNamespace *string `json:"targetNamespace,omitempty"`
 
 	// Configuration values provided from redhat marketplace
 	// These are used internally by the Operator
 	// +optional
-	DeployConfig     *RazeeConfigurationValues `json:"deployConfig,omitempty"`
+	DeployConfig *RazeeConfigurationValues `json:"deployConfig,omitempty"`
 
 	// Location of your IBM Cloud Object Storage resources
 	// Used internally by the Operator
 	// +optional
-	ChildUrl         *string                   `json:"childUrl,omitempty"`
+	ChildUrl *string `json:"childUrl,omitempty"`
 }
 
 // RazeeDeploymentStatus defines the observed state of RazeeDeployment
@@ -62,7 +62,7 @@ type RazeeDeploymentStatus struct {
 	// JobState is the status of the Razee Install Job
 	JobState batch.JobStatus `json:"jobState,omitempty"`
 	// MissingDeploySecretValues validates the secret provided has all the correct fields
-	MissingDeploySecretValues []string    `json:"missingDeploySecretValues,omitempty"`
+	MissingDeploySecretValues []string `json:"missingDeploySecretValues,omitempty"`
 	// LocalSecretVarsPopulated informs if the correct local variables are correct set.
 	//TODO: set this to nil, add a comment letting people know it's deprecated
 	LocalSecretVarsPopulated *bool `json:"localSecretVarsPopulated,omitempty"`

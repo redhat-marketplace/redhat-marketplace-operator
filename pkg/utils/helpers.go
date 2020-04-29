@@ -116,7 +116,7 @@ func ExtractCredKey(secret *corev1.Secret, sel corev1.SecretKeySelector) ([]byte
 	return value, error
 }
 
-func  GetDataFromRhmSecret(request reconcile.Request, sel corev1.SecretKeySelector,client client.Client) ( error, []byte) {
+func GetDataFromRhmSecret(request reconcile.Request, sel corev1.SecretKeySelector, client client.Client) (error, []byte) {
 	// get the operator secret
 	rhmOperatorSecret := corev1.Secret{}
 	err := client.Get(context.TODO(), types.NamespacedName{
