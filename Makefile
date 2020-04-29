@@ -5,8 +5,8 @@ OPERATOR_SOURCE = redhat-marketplace-operators
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 OPERATOR_IMAGE_NAME ?= redhat-marketplace-operator
 VERSION ?= $(shell go run scripts/version/main.go)
+FROM_VERSION ?= $(shell go run scripts/version/main.go --last)
 OPERATOR_IMAGE_TAG ?= $(VERSION)
-FROM_VERSION ?= "0.1.0"
 CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
 
