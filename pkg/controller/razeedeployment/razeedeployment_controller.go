@@ -699,12 +699,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			for _, jobCondition := range foundJob.Status.Conditions {
 				instance.Status.Conditions = &jobCondition
 			}
+
 			instance.Status.RazeeJobInstall = &marketplacev1alpha1.RazeeJobInstallStruct{
 				RazeeNamespace:  RAZEE_NAMESPACE,
 				RazeeInstallURL: instance.Spec.DeployConfig.FileSourceURL,
 			}
 
-			reqLogger.Info("updating status inside job reconciler")
 			err = r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
 				reqLogger.Error(err, "Failed to update JobState")
