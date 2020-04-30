@@ -26,10 +26,10 @@ import (
 
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	"github.com/operator-framework/operator-sdk/pkg/test/e2eutil"
-	"github.com/spf13/viper"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	"github.com/spf13/viper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -92,8 +92,6 @@ func MarketplaceOperatorCluster(t *testing.T) {
 	f := framework.Global
 	// wait for redhat-marketplace-operator to be ready
 	err = e2eutil.WaitForOperatorDeployment(t, f.KubeClient, namespace, "redhat-marketplace-operator", 1, retryInterval, timeout)
-<<<<<<< HEAD
-=======
 	if err != nil {
 		t.Fatal(err)
 	}

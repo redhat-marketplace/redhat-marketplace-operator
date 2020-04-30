@@ -41,8 +41,8 @@ require (
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a // indirect
 	golang.org/x/sys v0.0.0-20200428200454-593003d681fa // indirect
 	golang.org/x/tools v0.0.0-20200428211428-0c9eba77bc32 // indirect
-	google.golang.org/genproto v0.0.0-20200212174721-66ed5ce911ce
 	google.golang.org/appengine v1.6.6 // indirect
+	google.golang.org/genproto v0.0.0-20200212174721-66ed5ce911ce
 	k8s.io/api v0.17.4
 	k8s.io/apimachinery v0.17.4
 	k8s.io/client-go v12.0.0+incompatible
