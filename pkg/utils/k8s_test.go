@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -39,6 +40,25 @@ var (
 	razeedeployment   = BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName)
 	meterbase         = BuildMeterBaseCr(namespace)
 )
+
+// setup returns a fakeClient for testing purposes
+func setup() client.Client {
+	defaultFeatures := []string{"razee", "meterbase"}
+	viper.Set("assets", "../../../assets")
+	viper.Set("features", defaultFeatures)
+	objs := []runtime.Object{
+		marketplaceconfig,
+		razeedeployment,
+		meterbase,
+	}
+	s := scheme.Scheme
+	_ = monitoringv1.AddToScheme(s)
+	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, marketplaceconfig)
+	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeedeployment)
+	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
+	client := fake.NewFakeClient(objs...)
+	return client
+}
 
 func TestPersistenVolumeClaim(t *testing.T) {
 	pvc, err := NewPersistentVolumeClaim(PersistentVolume{})
@@ -75,21 +95,7 @@ func TestPersistenVolumeClaim(t *testing.T) {
 
 func TestFilterByNamespace(t *testing.T) {
 
-	//Setup fake client
-	defaultFeatures := []string{"razee", "meterbase"}
-	viper.Set("assets", "../../../assets")
-	viper.Set("features", defaultFeatures)
-	objs := []runtime.Object{
-		marketplaceconfig,
-		razeedeployment,
-		meterbase,
-	}
-	s := scheme.Scheme
-	_ = monitoringv1.AddToScheme(s)
-	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, marketplaceconfig)
-	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeedeployment)
-	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
-	client := fake.NewFakeClient(objs...)
+	client := setup()
 
 	// Setup resources we want to retrieve
 	resourceList1 := corev1.ResourceList{}
