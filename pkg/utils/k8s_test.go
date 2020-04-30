@@ -85,7 +85,6 @@ func TestFilterByNamespace(t *testing.T) {
 	testNs1.ObjectMeta.Name = testNamespace1
 	testNs2 := &corev1.Namespace{}
 	testNs2.ObjectMeta.Name = testNamespace2
-	// TODO : ADD SERVICEMONITOR
 
 	testPod1 := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -96,6 +95,20 @@ func TestFilterByNamespace(t *testing.T) {
 	testPod2 := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-pod-2",
+			Namespace: testNamespace2,
+		},
+	}
+
+	serviceMonitor1 := &monitoringv1.ServiceMonitor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-servicemonitor-1",
+			Namespace: testNamespace1,
+		},
+	}
+
+	serviceMonitor2 := &monitoringv1.ServiceMonitor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-servicemonitor-2",
 			Namespace: testNamespace2,
 		},
 	}
@@ -117,39 +130,47 @@ func TestFilterByNamespace(t *testing.T) {
 	if err != nil {
 		t.Error("could not setup test, error creating testing-pod")
 	}
+	err = client.Create(context.TODO(), serviceMonitor1)
+	if err != nil {
+		t.Error("could not setup test, error creating serviceMonitor")
+	}
+	err = client.Create(context.TODO(), serviceMonitor2)
+	if err != nil {
+		t.Error("could not setup test, error creating serviceMonitor")
+	}
 
 	// Retrieve and compare cases
 	ns := []corev1.Namespace{}
 	// case 1:
 	// get resources in case an empty list of namespaces is passed
-	// should return: at least a resourceList with at least 2 resources
+	// should return: at least a resourceList with at least 4 resources
 	err, resourceList1 = FilterByNamespace(ns, resourceList1, client)
 	if err != nil {
 		t.Error(err, "Could not execute FilterByNamespace")
-	} else if len(resourceList1) < 2 {
-		t.Error("Did not return the correct number of resrouces. Expected: minimum of 2. Actual: ", len(resourceList1))
+	} else if len(resourceList1) < 4 {
+		t.Error("Did not return the correct number of resrouces. Expected: minimum of 4. Actual: ", len(resourceList1))
 	}
 
 	// case 2:
 	// get resources in case a list with a single namespace is passed
-	// should return: at resourceList of 1 resource
+	// should return: at resourceList of 2 resource
 	ns = append(ns, *testNs1)
 	err, resourceList2 = FilterByNamespace(ns, resourceList2, client)
 	if err != nil {
 		t.Error(err, "Could not execute FilterByNamespace")
-	} else if len(resourceList2) != 1 {
-		t.Error("Did not return the correct number of resrouces. Expected: 1. Actual: ", len(resourceList2))
+	} else if len(resourceList2) != 2 {
+		t.Error("Did not return the correct number of resrouces. Expected: 2. Actual: ", len(resourceList2))
 	}
 
 	// case 3:
 	// get resources in case a list with multiple namespaces is passed
-	// should return: resourceList of 2 resources
+	// should return: resourceList of 4 resources
 	ns = append(ns, *testNs2)
 	err, resourceList3 = FilterByNamespace(ns, resourceList3, client)
 	if err != nil {
 		t.Error(err, "Could not execute FilterByNamespace")
-	} else if len(resourceList3) != 2 {
-		t.Error("Did not return the correct number of resrouces. Expected: 2. Actual: ", len(resourceList3))
+	} else if len(resourceList3) != 4 {
+		t.Error("Did not return the correct number of resrouces. Expected: 4. Actual: ", len(resourceList3))
 	}
 
 }
