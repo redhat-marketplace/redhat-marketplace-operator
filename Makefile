@@ -6,7 +6,7 @@ IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 OPERATOR_IMAGE_NAME ?= redhat-marketplace-operator
 VERSION ?= $(shell go run scripts/version/main.go)
 OPERATOR_IMAGE_TAG ?= $(VERSION)
-FROM_VERSION ?= "0.0.2"
+FROM_VERSION ?= "0.1.0"
 CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
 
@@ -153,6 +153,8 @@ delete-razee: ##delete the razee CR
 
 .PHONY: test
 test: ## Run go tests
+	@echo ... Check licenses - run 'make add-licenses' if this errors
+	make check-licenses
 	@echo ... Run tests
 	go test ./...
 
@@ -181,6 +183,12 @@ test-e2e: ## Run integration e2e tests with different options.
 
 deploy-test-prometheus:
 	. ./scripts/deploy_test_prometheus.sh
+
+check-licenses: # Check if all files have licenses
+	go run github.com/google/addlicense -check -c "IBM Corp." **/*.go
+
+add-licenses: # Add licenses to the go file
+	go run github.com/google/addlicense -c "IBM Corp." **/*.go
 
 
 ##@ Publishing

@@ -10,6 +10,8 @@ spec:
     plural: razeedeployments
     singular: razeedeployment
   scope: Namespaced
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: RazeeDeployment is the resources that deploys Razee for the Red

@@ -12,7 +12,6 @@ metadata:
           },
           "spec": {
             "clusterUUID": "example-clusterUUID",
-            "deploySecretName": "example-deploySecretName",
             "rhmAccountID": "example-userid"
           }
         },
@@ -81,14 +80,14 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Developer Tools
     certified: "true"
-    containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:0.1.0
-    createdAt: 2020-04-26T03:28:53Z
+    containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:0.1.1
+    createdAt: 2020-04-27T00:39:52Z
     description: The Red Hat Marketplace Operator provides cluster management, metering
       and operator installation for Red Hat Marketplace customers.
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","meterbases.marketplace.redhat.com","meterdefinitions.marketplace.redhat.com"]'
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
-  name: redhat-marketplace-operator.v0.1.0
+  name: redhat-marketplace-operator.v0.1.1
   namespace: redhat-marketplace-operator
 spec:
   apiservicedefinitions: {}
@@ -249,42 +248,172 @@ spec:
           - '*'
           verbs:
           - '*'
-        serviceAccountName: redhat-marketplace-metering
-      - rules:
-        - apiGroups:
-          - '*'
-          resources:
-          - '*'
-          verbs:
-          - '*'
-        - nonResourceURLs:
-          - '*'
-          verbs:
-          - '*'
         serviceAccountName: redhat-marketplace-razeedeploy
       - rules:
         - apiGroups:
-          - '*'
+          - ""
           resources:
-          - '*'
+          - pods
+          - services
+          - services/finalizers
+          - endpoints
+          - persistentvolumeclaims
+          - events
+          - configmaps
+          - secrets
+          - namespaces
           verbs:
-          - '*'
-        - nonResourceURLs:
-          - '*'
-          verbs:
-          - '*'
-        serviceAccountName: redhat-marketplace-reporting
-      - rules:
+          - get
+          - list
+          - watch
         - apiGroups:
-          - '*'
+          - batch
+          - extensions
+          resources:
+          - jobs
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - apps
+          resourceNames:
+          - redhat-marketplace-operator
+          resources:
+          - deployments/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - storage.k8s.io
+          resources:
+          - storageclasses
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - prometheuses
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - operators.coreos.com
+          resources:
+          - operatorsources
+          - subscriptions
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - operators.coreos.com
+          resourceNames:
+          - redhat-marketplace
+          resources:
+          - operatorsources
+          verbs:
+          - create
+          - delete
+          - patch
+          - update
+        - apiGroups:
+          - operators.coreos.com
+          resources:
+          - operatorgroups
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - deploy.razee.io
+          resources:
+          - remoteresourcess3
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+        - apiGroups:
+          - config.openshift.io
+          resources:
+          - consoles
+          - infrastructures
+          verbs:
+          - get
+          - list
+          - patch
+          - update
+        - apiGroups:
+          - marketplace.redhat.com
           resources:
           - '*'
+          - meterdefinitions
+          - razeedeployments
+          - meterbases
+          - marketplaceconfigs
           verbs:
           - '*'
-        - nonResourceURLs:
-          - '*'
+        - apiGroups:
+          - ""
+          resourceNames:
+          - rhm-cos-reader-key
+          - watch-keeper-secret
+          resources:
+          - secrets
           verbs:
-          - '*'
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resourceNames:
+          - watch-keeper-config
+          - watch-keeper-limit-poll
+          - watch-keeper-non-namespaced
+          - razee-cluster-metadata
+          resources:
+          - configmaps
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
         serviceAccountName: redhat-marketplace-operator
       deployments:
       - name: redhat-marketplace-operator
@@ -319,14 +448,112 @@ spec:
                       fieldPath: metadata.name
                 - name: RELATED_IMAGE_RAZEE_JOB
                   value: quay.io/razee/razeedeploy-delta:1.1.0
-                image: quay.io/rh-marketplace/redhat-marketplace-operator:0.1.0
+                image: quay.io/rh-marketplace/redhat-marketplace-operator:0.1.1
                 imagePullPolicy: Always
                 name: redhat-marketplace-operator
                 resources: {}
                 securityContext: {}
-              securityContext:
-                runAsUser: 1001
               serviceAccountName: redhat-marketplace-operator
+      permissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          - services
+          - services/finalizers
+          - endpoints
+          - persistentvolumeclaims
+          - events
+          - configmaps
+          - secrets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - batch
+          - extensions
+          resources:
+          - jobs
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          - daemonsets
+          - replicasets
+          - statefulsets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - apps
+          resourceNames:
+          - redhat-marketplace-operator
+          resources:
+          - deployments/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - prometheuses
+          - servicemonitors
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - deploy.razee.io
+          resources:
+          - '*'
+          - remoteresourcess3
+          - remoteresources
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - patch
+          - watch
+        - apiGroups:
+          - ""
+          resourceNames:
+          - razeedeploy-sa
+          - watch-keeper-sa
+          resources:
+          - serviceaccounts
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - patch
+          - watch
+        serviceAccountName: redhat-marketplace-operator
     strategy: deployment
   installModes:
   - supported: true
@@ -354,5 +581,5 @@ spec:
   maturity: stable
   provider:
     name: Red Hat Marketplace
-  replaces: redhat-marketplace-operator.v0.0.2
-  version: 0.1.0
+  replaces: redhat-marketplace-operator.v0.1.0
+  version: 0.1.1

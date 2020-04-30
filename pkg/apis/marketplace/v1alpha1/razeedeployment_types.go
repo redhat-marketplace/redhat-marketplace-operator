@@ -1,3 +1,17 @@
+// Copyright 2020 IBM Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package v1alpha1
 
 import (
@@ -27,6 +41,7 @@ type RazeeConfigurationValues struct {
 }
 
 // RazeeDeploymentSpec defines the desired state of RazeeDeployment
+// +k8s:openapi-gen=true
 type RazeeDeploymentSpec struct {
 	// Enabled flag stops razee from installing
 	Enabled bool `json:"enabled"`
@@ -40,7 +55,7 @@ type RazeeDeploymentSpec struct {
 	DeploySecretName *string `json:"deploySecretName,omitempty"`
 
 	// TargetNamespace is configurable target of the razee namespace
-	// this is to support legancy installs. Please do not edit.
+	// This is to support legancy installs. Please do not edit.
 	// +optional
 	TargetNamespace *string `json:"targetNamespace,omitempty"`
 
@@ -56,22 +71,30 @@ type RazeeDeploymentSpec struct {
 }
 
 // RazeeDeploymentStatus defines the observed state of RazeeDeployment
+// +k8s:openapi-gen=true
 type RazeeDeploymentStatus struct {
 	// Conditions represent the latest available observations of an object's stateonfig
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Conditions *batch.JobCondition `json:"conditions,omitempty"`
 	// JobState is the status of the Razee Install Job
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	JobState batch.JobStatus `json:"jobState,omitempty"`
-	// MissingDeploySecretValues validates the secret provided has all the correct fields
+	// MissingValuesFromSecret validates the secret provided has all the correct fields
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	MissingDeploySecretValues []string `json:"missingDeploySecretValues,omitempty"`
-	// LocalSecretVarsPopulated informs if the correct local variables are correct set.
-	//TODO: set this to nil, add a comment letting people know it's deprecated
-	LocalSecretVarsPopulated *bool `json:"localSecretVarsPopulated,omitempty"`
 	// RazeePrerequestesCreated is the list of configmaps and secrets required to be installed
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	RazeePrerequisitesCreated []string `json:"razeePrerequisitesCreated,omitempty"`
+	// LocalSecretVarsPopulated informs if the correct local variables are correct set.
+	//TODO: denote as legacy
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	LocalSecretVarsPopulated *bool `json:"localSecretVarsPopulated,omitempty"`
 	// RedHatMarketplaceSecretFound is the status of finding the secret in the cluster
-	//TODO: set this to nil, add a comment letting people know it's deprecated
+	//TODO: denote as legacy
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	RedHatMarketplaceSecretFound *bool `json:"redHatMarketplaceSecretFound,omitempty"`
 	// RazeeJobInstall contains information regarding the install job so it can be removed
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	RazeeJobInstall *RazeeJobInstallStruct `json:"razee_job_install,omitempty"`
 }
 
@@ -83,9 +106,12 @@ type RazeeJobInstallStruct struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
 // RazeeDeployment is the resources that deploys Razee for the Red Hat Marketplace.
 // This is an internal resource not meant to be modified directly.
+//
+// +k8s:openapi-gen=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:path=razeedeployments,scope=Namespaced
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="(Internal) Razee Deployment"
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`Job,v1,"redhat-marketplace-operator"`
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`ConfigMap,v1,"redhat-marketplace-operator"`
