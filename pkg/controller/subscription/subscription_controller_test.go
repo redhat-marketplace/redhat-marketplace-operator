@@ -17,9 +17,9 @@ package subscription
 import (
 	"testing"
 
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/controller"
-
+	// . "github.com/redhat-marketplace/redhat-marketplace-operator/test/controller"
 	"context"
+	. "github.ibm.com/symposium/redhat-marketplace-operator/test/controller"
 
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
