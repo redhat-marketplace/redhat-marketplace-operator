@@ -376,7 +376,7 @@ func testNoSecret(t *testing.T) {
 				append(opts,
 					WithName("rhm-operator-secret"),
 					WithNamespace(namespace),
-					WithExpectedResult(reconcile.Result{RequeueAfter: time.Second * 30}),
+					WithExpectedResult(reconcile.Result{RequeueAfter: time.Second * 60}),
 					WithExpectedError(nil))...),
 		})
 }
@@ -390,15 +390,4 @@ func CreateWatchKeeperSecret() *corev1.Secret {
 	}
 }
 
-// func TransferMetadata( in runtime.Object, out runtime.Object)(runtime.Object){
 
-// 	out.SetAnnotations(in.GetAnnotations())
-// 	out.SetCreationTimestamp(in.GetCreationTimestamp())
-// 	out.SetFinalizers(in.GetFinalizers())
-// 	out.SetGeneration(in.GetGeneration())
-// 	out.SetResourceVersion(in.GetResourceVersion())
-// 	out.SetSelfLink(in.GetSelfLink())
-// 	out.SetUID(in.GetUID())
-
-// 	return out
-// }
