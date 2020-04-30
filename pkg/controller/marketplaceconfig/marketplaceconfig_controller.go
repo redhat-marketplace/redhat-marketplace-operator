@@ -25,7 +25,6 @@ import (
 
 const (
 	CSCFinalizer                    = "finalizer.MarketplaceConfigs.operators.coreos.com"
-	OPSRC_NAME                      = "redhat-redhat-marketplace-operators"
 	RELATED_IMAGE_MARKETPLACE_AGENT = "RELATED_IMAGE_MARKETPLACE_AGENT"
 	DEFAULT_IMAGE_MARKETPLACE_AGENT = "marketplace-agent:latest"
 	RAZEE_FLAG                      = "razee"

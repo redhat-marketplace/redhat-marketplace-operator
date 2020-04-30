@@ -20,9 +20,12 @@ func makeMarketplaceController(
 	meterbaseC *controller.MeterbaseController,
 	meterDefinitionC *controller.MeterDefinitionController,
 	razeeC *controller.RazeeDeployController,
+	olmSubscriptionC *controller.OlmSubscriptionController,
 	controllerFlags *controller.ControllerFlagSet,
 	opsSrcScheme *managers.OpsSrcSchemeDefinition,
 	monitoringScheme *managers.MonitoringSchemeDefinition,
+	olmv1Scheme *managers.OlmV1SchemeDefinition,
+	olmv1alphaScheme *managers.OlmV1Alpha1SchemeDefinition,
 ) *managers.ControllerMain {
 	return &managers.ControllerMain{
 		Name: "redhat-marketplace-operator",
@@ -34,10 +37,13 @@ func makeMarketplaceController(
 			(*controller.ControllerDefinition)(meterbaseC),
 			(*controller.ControllerDefinition)(meterDefinitionC),
 			(*controller.ControllerDefinition)(razeeC),
+			(*controller.ControllerDefinition)(olmSubscriptionC),
 		},
 		Schemes: []*managers.SchemeDefinition{
 			(*managers.SchemeDefinition)(monitoringScheme),
 			(*managers.SchemeDefinition)(opsSrcScheme),
+			(*managers.SchemeDefinition)(olmv1Scheme),
+			(*managers.SchemeDefinition)(olmv1alphaScheme),
 		},
 	}
 }

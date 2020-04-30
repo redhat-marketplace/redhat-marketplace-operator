@@ -16,14 +16,18 @@ spec:
     spec:
       serviceAccountName: redhat-marketplace-operator
       securityContext:
-        runAsUser: 1001
+        null
       containers:
         - name: redhat-marketplace-operator
           # Replace this with the built image name
-          image: quay.io/rh-marketplace/redhat-marketplace-operator:0.0.2
+          image: quay.io/rh-marketplace/redhat-marketplace-operator:0.1.1
           imagePullPolicy: Always
           securityContext:
             {}
+          command:
+            - redhat-marketplace-operator
+          args:
+            - "--features=\"razee\""
           env:
             - name: OPERATOR_NAME
               value: redhat-marketplace-operator

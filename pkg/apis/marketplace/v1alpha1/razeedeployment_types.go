@@ -9,31 +9,49 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // RazeeDeploymentSpec defines the desired state of RazeeDeployment
+// +k8s:openapi-gen=true
 type RazeeDeploymentSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 	// Setting enabled to "true" will create a Razee namespace and deploy it's componenets. Set to "false" to bypass Razee installation
-	Enabled          bool    `json:"enabled"`
-	ClusterUUID      string  `json:"clusterUUID"`
+	// Enabled flag stops razee from installing
+	Enabled bool `json:"enabled"`
+
+	// ClusterUUID is the cluster identifier, used for installing razee.
+	ClusterUUID string `json:"clusterUUID"`
+
+	// DeploySecretName is the name of our secret where Razee
+	// variables are stored.
+	// +optional
 	DeploySecretName *string `json:"deploySecretName,omitempty"`
+
+	// TargetNamespace is configurable target of the razee namespace
+	// this is to support legancy installs. Please do not edit.
+	// +optional
+	TargetNamespace *string `json:"targetNamespace,omitempty"`
 }
 
 // RazeeDeploymentStatus defines the observed state of RazeeDeployment
+// +k8s:openapi-gen=true
 type RazeeDeploymentStatus struct {
 	// Conditions represent the latest available observations of an object's stateonfig
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Conditions *batch.JobCondition `json:"conditions,omitempty"`
 	// JobState is the status of the Razee Install Job
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	JobState batch.JobStatus `json:"jobState,omitempty"`
 	// MissingValuesFromSecret validates the secret provided has all the correct fields
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	MissingValuesFromSecret *[]string `json:"missingValuesFromSecret,omitempty"`
 	// LocalSecretVarsPopulated informs if the correct local variables are correct set.
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	LocalSecretVarsPopulated *bool `json:"localSecretVarsPopulated,omitempty"`
 	// RazeePrerequestesCreated is the list of configmaps and secrets required to be installed
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	RazeePrerequisitesCreated *[]string `json:"razeePrerequisitesCreated,omitempty"`
 	// RedHatMarketplaceSecretFound is the status of finding the secret in the cluster
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	RedHatMarketplaceSecretFound *bool `json:"redHatMarketplaceSecretFound,omitempty"`
 	// RazeeJobInstall contains information regarding the install job so it can be removed
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	RazeeJobInstall *RazeeJobInstallStruct `json:"razee_job_install,omitempty"`
 }
 
@@ -45,9 +63,10 @@ type RazeeJobInstallStruct struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
 // RazeeDeployment is the resources that deploys Razee for the Red Hat Marketplace.
 // This is an internal resource not meant to be modified directly.
+//
+// +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=razeedeployments,scope=Namespaced
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="(Internal) Razee Deployment"
