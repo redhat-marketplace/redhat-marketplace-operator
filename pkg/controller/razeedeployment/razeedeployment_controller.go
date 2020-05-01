@@ -213,6 +213,14 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return r.reconcileRhmOperatorSecret(*instance, request)
 	}
 
+	// TODO: is there a way to refactor this so reconcileRhmOperatorSecret() doesn't have to be called twice. 
+	// can I just check on len(instance.Status.MissingDeploySecretValues) > 0
+	
+	// if there are any missing values then reconcile{
+
+	// }
+
+
 	if instance.Spec.DeployConfig != nil {
 		if len(instance.Status.MissingDeploySecretValues) > 0 {
 			reqLogger.Info("Missing required razee configuration values")
@@ -885,6 +893,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 }
 
+// Used to check whether the secret exists. If exists, then populate razee cr. If not, then return a 60 second requeue. 
 func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(instance marketplacev1alpha1.RazeeDeployment, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "request.Name", request.Name)
 	reqLogger.Info("Beginning of rhm-operator-secret reconcile")

@@ -105,7 +105,7 @@ spec:
               type: boolean
             targetNamespace:
               description: TargetNamespace is configurable target of the razee namespace
-                this is to support legancy installs. Please do not edit.
+                This is to support legancy installs. Please do not edit.
               type: string
           required:
           - clusterUUID
@@ -209,12 +209,11 @@ spec:
               type: object
             localSecretVarsPopulated:
               description: 'LocalSecretVarsPopulated informs if the correct local
-                variables are correct set. TODO: set this to nil, add a comment letting
-                people know it''s deprecated'
+                variables are correct set. TODO: denote as legacy'
               type: boolean
             missingDeploySecretValues:
-              description: MissingDeploySecretValues validates the secret provided
-                has all the correct fields
+              description: MissingValuesFromSecret validates the secret provided has
+                all the correct fields
               items:
                 type: string
               type: array
@@ -242,8 +241,7 @@ spec:
               type: array
             redHatMarketplaceSecretFound:
               description: 'RedHatMarketplaceSecretFound is the status of finding
-                the secret in the cluster TODO: set this to nil, add a comment letting
-                people know it''s deprecated'
+                the secret in the cluster TODO: denote as legacy'
               type: boolean
           type: object
       type: object

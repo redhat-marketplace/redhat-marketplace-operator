@@ -9,7 +9,6 @@ OPERATOR_IMAGE_TAG ?= $(VERSION)
 FROM_VERSION ?= "0.1.0"
 CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
-
 SERVICE_ACCOUNT := redhat-marketplace-operator
 SECRETS_NAME := my-docker-secrets
 
