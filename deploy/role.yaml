@@ -80,6 +80,7 @@ rules:
   - operatorsources
   - subscriptions
   verbs:
+  - create
   - get
   - list
   - watch

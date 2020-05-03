@@ -17,13 +17,12 @@ package subscription
 import (
 	"testing"
 
-	// . "github.com/redhat-marketplace/redhat-marketplace-operator/test/controller"
 	"context"
-	. "github.ibm.com/symposium/redhat-marketplace-operator/test/controller"
 
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	opsrcApi "github.com/operator-framework/operator-marketplace/pkg/apis"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/controller"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

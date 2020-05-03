@@ -15,8 +15,7 @@
 package controller
 
 import (
-	// "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller/razeedeployment"
-	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/controller/razeedeployment"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller/razeedeployment"
 )
 
 type RazeeDeployController ControllerDefinition

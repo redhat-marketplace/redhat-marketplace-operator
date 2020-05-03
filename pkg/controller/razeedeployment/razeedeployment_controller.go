@@ -21,12 +21,10 @@ import (
 	"time"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
-	// marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	// "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -49,6 +47,7 @@ import (
 const (
 	PARENT_RRS3_RESOURCE_NAME  = "parent"
 	PARENT_RRS3                = "parentRRS3"
+	RAZEE_DEPLOY_JOB_NAME = "razeedeploy-job"
 	RAZEE_DEPLOYMENT_FINALIZER = "razeedeploy.finalizer.marketplace.redhat.com"
 	COS_READER_KEY_NAME        = "rhm-cos-reader-key"
 	RAZEE_UNINSTALL_NAME       = "razee-uninstall-job"
@@ -270,7 +269,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		instance.Status.RazeePrerequisitesCreated = append(instance.Status.RazeePrerequisitesCreated, fmt.Sprintf("%v namespace", razeeNamespace.Name))
 		reqLogger.Info("updating Spec.RazeePrerequisitesCreated")
 
-		err = r.client.Update(context.TODO(), instance)
+		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update status")
 			return reconcile.Result{}, err
@@ -334,7 +333,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		instance.Status.RazeePrerequisitesCreated = append(instance.Status.RazeePrerequisitesCreated, watchKeeperNonNamespace.Name)
 		reqLogger.Info("updating Spec.RazeePrerequisitesCreated")
 
-		err = r.client.Update(context.TODO(), instance)
+		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update status")
 		}
@@ -394,7 +393,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		instance.Status.RazeePrerequisitesCreated = append(instance.Status.RazeePrerequisitesCreated, watchKeeperLimitPoll.Name)
 		reqLogger.Info("updating Spec.RazeePrerequisitesCreated")
 
-		err = r.client.Update(context.TODO(), instance)
+		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update status")
 		}
@@ -457,7 +456,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		instance.Status.RazeePrerequisitesCreated = append(instance.Status.RazeePrerequisitesCreated, razeeClusterMetaData.Name)
 		reqLogger.Info("updating Spec.RazeePrerequisitesCreated")
 
-		err = r.client.Update(context.TODO(), instance)
+		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update status")
 		}
@@ -519,7 +518,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		instance.Status.RazeePrerequisitesCreated = append(instance.Status.RazeePrerequisitesCreated, watchKeeperConfig.Name)
 		reqLogger.Info("updating Spec.RazeePrerequisitesCreated")
 
-		err = r.client.Update(context.TODO(), instance)
+		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update status")
 			return reconcile.Result{}, err
@@ -588,7 +587,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		instance.Status.RazeePrerequisitesCreated = append(instance.Status.RazeePrerequisitesCreated, watchKeeperSecret.Name)
 		reqLogger.Info("updating Spec.RazeePrerequisitesCreated")
 
-		err = r.client.Update(context.TODO(), instance)
+		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update status")
 			return reconcile.Result{}, err
@@ -660,7 +659,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		instance.Status.RazeePrerequisitesCreated = append(instance.Status.RazeePrerequisitesCreated, ibmCosReaderKey.Name)
 		reqLogger.Info("updating Spec.RazeePrerequisitesCreated")
 
-		err = r.client.Update(context.TODO(), instance)
+		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update status")
 			return reconcile.Result{}, err
@@ -672,6 +671,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	CREATE THE RAZEE JOB
 	/******************************************************************************/
 	if instance.Status.JobState.Succeeded != 1 {
+		reqLogger.Info("Job has not run to completion yet")
 		job := r.MakeRazeeJob(request, instance)
 
 		// Check if the Job exists already
@@ -684,25 +684,33 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 		foundJob := batch.Job{}
 		err = r.client.Get(context.TODO(), req.NamespacedName, &foundJob)
-		if err != nil {
+		//TODO: change this to use 
+		/*
+			if err != nil {
 			if errors.IsNotFound(err) {
-				reqLogger.Info("Creating razzeedeploy-job")
-				err = r.client.Create(context.TODO(), job)
-				if err != nil {
-					reqLogger.Error(err, "Failed to create Job on cluster")
-					return reconcile.Result{}, err
-				}
-				reqLogger.Info("job created successfully")
-				// wait 30 seconds so the job has time to complete
-				// not entirely necessary, but the struct on Status.Conditions needs the Conditions in the job to be populated.
-				//TODO: requeue or wait for the watch to pick up a change ?
-				return reconcile.Result{RequeueAfter: time.Second * 30}, nil
-				// return reconcile.Result{Requeue: true}, nil
-				// return reconcile.Result{}, nil
-			} else {
-				reqLogger.Error(err, "Failed to get Job.")
+		*/
+		if err != nil && errors.IsNotFound(err) {
+			reqLogger.Info("Creating razzeedeploy-job")
+			err = r.client.Create(context.TODO(), job)
+			if err != nil {
+				reqLogger.Error(err, "Failed to create Job on cluster")
 				return reconcile.Result{}, err
 			}
+			reqLogger.Info("job created successfully")
+			// requeue to grab the "foundJob" and continue to update status
+			// wait 30 seconds so the job has time to complete
+			// not entirely necessary, but the struct on Status.Conditions needs the Conditions in the job to be populated.
+			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+			// return reconcile.Result{Requeue: true}, nil
+			// return reconcile.Result{}, nil
+		} else if err != nil {
+			reqLogger.Error(err, "Failed to get Job(s) from Cluster")
+			return reconcile.Result{}, err
+		}
+
+		if len(foundJob.Status.Conditions) == 0 {
+			reqLogger.Info("RazeeJob Conditions have not been propagated yet")
+			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
 		}
 
 		if err := controllerutil.SetControllerReference(instance, &foundJob, r.scheme); err != nil {
@@ -720,7 +728,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 
 			instance.Status.RazeeJobInstall = &marketplacev1alpha1.RazeeJobInstallStruct{
-				RazeeNamespace:  RAZEE_NAMESPACE,
+				RazeeNamespace:  *instance.Spec.DeploySecretName,
 				RazeeInstallURL: instance.Spec.DeployConfig.FileSourceURL,
 			}
 
@@ -743,7 +751,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info("Razeedeploy-job deleted")
 		}
 
-		reqLogger.Info("End of razee job reconciler")
+		// TODO: this log statement isn't correct
+		// reqLogger.Info("End of razee job reconciler")
 	}
 
 	// if the job succeeds apply the parentRRS3 and patch the Infrastructure and Console resources
@@ -817,7 +826,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			instance.Status.RazeePrerequisitesCreated = append(instance.Status.RazeePrerequisitesCreated, PARENT_RRS3)
 			reqLogger.Info("updating Status.RazeePrerequisitesCreated with parent rrs3")
 
-			err = r.client.Update(context.TODO(), instance)
+			err = r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
 				reqLogger.Error(err, "Failed to update status")
 				return reconcile.Result{}, err
@@ -925,7 +934,7 @@ func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(instance marketpla
 	instance.Status.MissingDeploySecretValues = missingItems
 	instance.Spec.DeployConfig = &razeeConfigurationValues
 
-	reqLogger.Info("Updating spec with missing items and secret values")
+	reqLogger.Info("Updating razee instance with missing items and secret values")
 	err = r.client.Update(context.TODO(), &instance)
 	if err != nil {
 		reqLogger.Error(err, "Failed to update Spec.DeploySecretValues")
@@ -1021,22 +1030,25 @@ func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(req *marketplacev1alp
 	return reconcile.Result{}, nil
 }
 
-// MakeRazeeJob returns a Batch.Job which installs razee
-func (r *ReconcileRazeeDeployment) MakeRazeeJob(request reconcile.Request, instance *marketplacev1alpha1.RazeeDeployment) *batch.Job {
-	image := viper.GetString("razee-job-image")
+func (r *ReconcileRazeeDeployment) MakeRazeeJob(
+	request reconcile.Request,
+	instance *marketplacev1alpha1.RazeeDeployment,
+) *batch.Job {
 	return &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "razeedeploy-job",
+			//TODO: constant for the job name ? 
+			Name:      RAZEE_DEPLOY_JOB_NAME,
 			Namespace: request.Namespace,
 		},
 		Spec: batch.JobSpec{
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					ServiceAccountName: "redhat-marketplace-operator",
+					ServiceAccountName: utils.RAZEE_SERVICE_ACCOUNT,
 					Containers: []corev1.Container{{
-						Name:    "razeedeploy-job",
-						Image:   image,
-						Command: []string{"node", "src/install", "--namespace=razee"},
+						//TODO: constant for the job name ? 
+						Name:    RAZEE_DEPLOY_JOB_NAME,
+						Image:   r.opts.RazeeJobImage,
+						Command: []string{"node", "src/install", fmt.Sprintf("--namespace=%s",*instance.Spec.TargetNamespace )},
 						Args:    []string{fmt.Sprintf("--file-source=%v", instance.Spec.DeployConfig.FileSourceURL), "--autoupdate"},
 					}},
 					RestartPolicy: "Never",

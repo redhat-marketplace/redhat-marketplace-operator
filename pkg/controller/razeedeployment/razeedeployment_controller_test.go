@@ -21,12 +21,12 @@ import (
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/spf13/viper"
-	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	. "github.ibm.com/symposium/redhat-marketplace-operator/test/controller"
+	// marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	// . "github.ibm.com/symposium/redhat-marketplace-operator/test/controller"
 
-	// . "github.com/redhat-marketplace/redhat-marketplace-operator/test/controller"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/controller"
 
-	// marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

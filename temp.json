@@ -1,0 +1,60 @@
+{
+  "apiVersion": "v1",
+  "kind": "Namespace",
+  "metadata": {
+    "annotations": {
+      "openshift.io/sa.scc.mcs": "s0:c23,c2",
+      "openshift.io/sa.scc.supplemental-groups": "1000510000/10000",
+      "openshift.io/sa.scc.uid-range": "1000510000/10000"
+    },
+    "creationTimestamp": "2020-05-01T19:24:37Z",
+    "deletionTimestamp": "2020-05-02T05:35:06Z",
+    "name": "redhat-marketplace-operator",
+    "resourceVersion": "203608",
+    "selfLink": "/api/v1/namespaces/redhat-marketplace-operator",
+    "uid": "65670554-8be1-11ea-9c8c-0ef0e3c74fbe"
+  },
+  "spec": {
+    "finalizers": []
+  },
+  "status": {
+    "conditions": [
+      {
+        "lastTransitionTime": "2020-05-02T05:35:13Z",
+        "message": "All resources successfully discovered",
+        "reason": "ResourcesDiscovered",
+        "status": "False",
+        "type": "NamespaceDeletionDiscoveryFailure"
+      },
+      {
+        "lastTransitionTime": "2020-05-02T05:35:13Z",
+        "message": "All legacy kube types successfully parsed",
+        "reason": "ParsedGroupVersions",
+        "status": "False",
+        "type": "NamespaceDeletionGroupVersionParsingFailure"
+      },
+      {
+        "lastTransitionTime": "2020-05-02T05:35:13Z",
+        "message": "All content successfully deleted, may be waiting on finalization",
+        "reason": "ContentDeleted",
+        "status": "False",
+        "type": "NamespaceDeletionContentFailure"
+      },
+      {
+        "lastTransitionTime": "2020-05-02T05:35:13Z",
+        "message": "Some resources are remaining: remoteresourcess3.deploy.razee.io has 1 resource instances",
+        "reason": "SomeResourcesRemain",
+        "status": "True",
+        "type": "NamespaceContentRemaining"
+      },
+      {
+        "lastTransitionTime": "2020-05-02T05:35:13Z",
+        "message": "Some content in the namespace has finalizers remaining: children.downloads.deploy.razee.io in 1 resource instances",
+        "reason": "SomeFinalizersRemain",
+        "status": "True",
+        "type": "NamespaceFinalizersRemaining"
+      }
+    ],
+    "phase": "Terminating"
+  }
+}
