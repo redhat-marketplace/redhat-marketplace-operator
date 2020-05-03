@@ -45,9 +45,9 @@ import (
 )
 
 const (
+	//TODO: do these constants need to be in utils env ? 
 	PARENT_RRS3_RESOURCE_NAME  = "parent"
 	PARENT_RRS3                = "parentRRS3"
-	RAZEE_DEPLOY_JOB_NAME = "razeedeploy-job"
 	RAZEE_DEPLOYMENT_FINALIZER = "razeedeploy.finalizer.marketplace.redhat.com"
 	COS_READER_KEY_NAME        = "rhm-cos-reader-key"
 	RAZEE_UNINSTALL_NAME       = "razee-uninstall-job"
@@ -67,6 +67,7 @@ const (
 	FILE_SOURCE_URL_FIELD      = "FILE_SOURCE_URL"
 	RHM_OPERATOR_SECRET_NAME   = "rhm-operator-secret"
 	RAZEE_NAMESPACE            = "razee"
+	// TODO: what name are we going with for the razee deploy job ? there's a different name is env.go
 	RAZEE_DEPLOY_JOB           = "razeedeploy-job"
 )
 
@@ -213,13 +214,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	// TODO: is there a way to refactor this so reconcileRhmOperatorSecret() doesn't have to be called twice. 
-	// can I just check on len(instance.Status.MissingDeploySecretValues) > 0
-	
-	// if there are any missing values then reconcile{
-
-	// }
-
-
 	if instance.Spec.DeployConfig != nil {
 		if len(instance.Status.MissingDeploySecretValues) > 0 {
 			reqLogger.Info("Missing required razee configuration values")
@@ -671,7 +665,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	CREATE THE RAZEE JOB
 	/******************************************************************************/
 	if instance.Status.JobState.Succeeded != 1 {
-		reqLogger.Info("Job has not run to completion yet")
+		reqLogger.Info("Job has not run successfully yet")
 		job := r.MakeRazeeJob(request, instance)
 
 		// Check if the Job exists already
@@ -684,7 +678,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 		foundJob := batch.Job{}
 		err = r.client.Get(context.TODO(), req.NamespacedName, &foundJob)
-		//TODO: change this to use 
+		//TODO: change this to below ?
 		/*
 			if err != nil {
 			if errors.IsNotFound(err) {
@@ -751,8 +745,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info("Razeedeploy-job deleted")
 		}
 
-		// TODO: this log statement isn't correct
-		// reqLogger.Info("End of razee job reconciler")
 	}
 
 	// if the job succeeds apply the parentRRS3 and patch the Infrastructure and Console resources
@@ -1036,8 +1028,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(
 ) *batch.Job {
 	return &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			//TODO: constant for the job name ? 
-			Name:      RAZEE_DEPLOY_JOB_NAME,
+			Name:      RAZEE_DEPLOY_JOB,
 			Namespace: request.Namespace,
 		},
 		Spec: batch.JobSpec{
@@ -1045,8 +1036,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(
 				Spec: corev1.PodSpec{
 					ServiceAccountName: utils.RAZEE_SERVICE_ACCOUNT,
 					Containers: []corev1.Container{{
-						//TODO: constant for the job name ? 
-						Name:    RAZEE_DEPLOY_JOB_NAME,
+						Name:    RAZEE_DEPLOY_JOB,
 						Image:   r.opts.RazeeJobImage,
 						Command: []string{"node", "src/install", fmt.Sprintf("--namespace=%s",*instance.Spec.TargetNamespace )},
 						Args:    []string{fmt.Sprintf("--file-source=%v", instance.Spec.DeployConfig.FileSourceURL), "--autoupdate"},
