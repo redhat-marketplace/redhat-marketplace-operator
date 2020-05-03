@@ -44,43 +44,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-const (
-	//TODO: do these constants need to be in utils env ? 
-	PARENT_RRS3_RESOURCE_NAME  = "parent"
-	PARENT_RRS3                = "parentRRS3"
-	RAZEE_DEPLOYMENT_FINALIZER = "razeedeploy.finalizer.marketplace.redhat.com"
-	COS_READER_KEY_NAME        = "rhm-cos-reader-key"
-	RAZEE_UNINSTALL_NAME       = "razee-uninstall-job"
-	DEFAULT_RAZEE_JOB_IMAGE    = "quay.io/razee/razeedeploy-delta:1.1.0"
-	WATCH_KEEPER_VERSION       = "0.5.0"
-	FEATURE_FLAG_VERSION       = "0.6.1"
-	MANAGED_SET_VERSION        = "0.4.2"
-	MUSTACHE_TEMPLATE_VERSION  = "0.6.3"
-	REMOTE_RESOURCE_VERSION    = "0.4.2"
-	REMOTE_RESOURCE_S3_VERSION = "0.5.2"
-	IBM_COS_READER_KEY_FIELD   = "IBM_COS_READER_KEY"
-	BUCKET_NAME_FIELD          = "BUCKET_NAME"
-	IBM_COS_URL_FIELD          = "IBM_COS_URL"
-	RAZEE_DASH_ORG_KEY_FIELD   = "RAZEE_DASH_ORG_KEY"
-	CHILD_RRS3_YAML_FIELD      = "CHILD_RRS3_YAML_FILENAME"
-	RAZEE_DASH_URL_FIELD       = "RAZEE_DASH_URL"
-	FILE_SOURCE_URL_FIELD      = "FILE_SOURCE_URL"
-	RHM_OPERATOR_SECRET_NAME   = "rhm-operator-secret"
-	RAZEE_NAMESPACE            = "razee"
-	// TODO: what name are we going with for the razee deploy job ? there's a different name is env.go
-	RAZEE_DEPLOY_JOB           = "razeedeploy-job"
-)
-
 var (
 	RAZEE_WATCH_KEEPER_LABELS = map[string]string{"razee/watch-resource": "lite"}
 	log                       = logf.Log.WithName("controller_razeedeployment")
 	razeeFlagSet              *pflag.FlagSet
-	RELATED_IMAGE_RAZEE_JOB   = "RELATED_IMAGE_RAZEE_JOB"
+	//TODO: should this be a var ?
+	RELATED_IMAGE_RAZEE_JOB = "RELATED_IMAGE_RAZEE_JOB"
 )
 
 func init() {
 	razeeFlagSet = pflag.NewFlagSet("razee", pflag.ExitOnError)
-	razeeFlagSet.String("razee-job-image", utils.Getenv(RELATED_IMAGE_RAZEE_JOB, DEFAULT_RAZEE_JOB_IMAGE), "image for the razee job")
+	razeeFlagSet.String("razee-job-image", utils.Getenv(RELATED_IMAGE_RAZEE_JOB, utils.DEFAULT_RAZEE_JOB_IMAGE), "image for the razee job")
 }
 
 func FlagSet() *pflag.FlagSet {
@@ -173,7 +147,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	// Adding a finalizer to this CR
-	if !utils.Contains(instance.GetFinalizers(), RAZEE_DEPLOYMENT_FINALIZER) {
+	if !utils.Contains(instance.GetFinalizers(), utils.RAZEE_DEPLOYMENT_FINALIZER) {
 		if err := r.addFinalizer(instance, request.Namespace); err != nil {
 			return reconcile.Result{}, err
 		}
@@ -182,7 +156,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	// Check if the RazeeDeployment instance is being marked for deletion
 	isMarkedForDeletion := instance.GetDeletionTimestamp() != nil
 	if isMarkedForDeletion {
-		if utils.Contains(instance.GetFinalizers(), RAZEE_DEPLOYMENT_FINALIZER) {
+		if utils.Contains(instance.GetFinalizers(), utils.RAZEE_DEPLOYMENT_FINALIZER) {
 			//Run finalization logic for the RAZEE_DEPLOYMENT_FINALIZER.
 			//If it fails, don't remove the finalizer so we can retry during the next reconcile
 			return r.finalizeRazeeDeployment(instance)
@@ -213,7 +187,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return r.reconcileRhmOperatorSecret(*instance, request)
 	}
 
-	// TODO: is there a way to refactor this so reconcileRhmOperatorSecret() doesn't have to be called twice. 
+	// TODO: is there a way to refactor this so reconcileRhmOperatorSecret() doesn't have to be called twice.
 	if instance.Spec.DeployConfig != nil {
 		if len(instance.Status.MissingDeploySecretValues) > 0 {
 			reqLogger.Info("Missing required razee configuration values")
@@ -589,7 +563,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	ibmCosReaderKey := corev1.Secret{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: COS_READER_KEY_NAME, Namespace: *instance.Spec.TargetNamespace}, &ibmCosReaderKey)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.COS_READER_KEY_NAME, Namespace: *instance.Spec.TargetNamespace}, &ibmCosReaderKey)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.Info("ibm-cos-reader-key does not exist - creating")
@@ -671,7 +645,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		// Check if the Job exists already
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
-				Name:      RAZEE_DEPLOY_JOB,
+				Name:      utils.RAZEE_DEPLOY_JOB_NAME,
 				Namespace: request.Namespace,
 			},
 		}
@@ -756,7 +730,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			Version: "v1alpha2",
 		})
 
-		err = r.client.Get(context.TODO(), client.ObjectKey{Name: PARENT_RRS3_RESOURCE_NAME, Namespace: *instance.Spec.TargetNamespace}, parentRRS3)
+		err = r.client.Get(context.TODO(), client.ObjectKey{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *instance.Spec.TargetNamespace}, parentRRS3)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				reqLogger.Info("parent RRS3 does not exist - creating")
@@ -814,8 +788,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info(fmt.Sprintf("No change detected on %v", updatedParentRRS3.GetName()))
 		}
 
-		if !utils.Contains(instance.Status.RazeePrerequisitesCreated, PARENT_RRS3) {
-			instance.Status.RazeePrerequisitesCreated = append(instance.Status.RazeePrerequisitesCreated, PARENT_RRS3)
+		if !utils.Contains(instance.Status.RazeePrerequisitesCreated, utils.PARENT_RRS3) {
+			instance.Status.RazeePrerequisitesCreated = append(instance.Status.RazeePrerequisitesCreated, utils.PARENT_RRS3)
 			reqLogger.Info("updating Status.RazeePrerequisitesCreated with parent rrs3")
 
 			err = r.client.Status().Update(context.TODO(), instance)
@@ -894,7 +868,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 }
 
-// Used to check whether the secret exists. If exists, then populate razee cr. If not, then return a 60 second requeue. 
+// Used to check whether the secret exists. If exists, then populate razee cr. If not, then return a 60 second requeue.
 func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(instance marketplacev1alpha1.RazeeDeployment, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "request.Name", request.Name)
 	reqLogger.Info("Beginning of rhm-operator-secret reconcile")
@@ -969,7 +943,7 @@ func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(req *marketplacev1alp
 
 	// Deploy a job to delete razee if we need to
 	if req.Status.RazeeJobInstall != nil {
-		jobName.Name = RAZEE_UNINSTALL_NAME
+		jobName.Name = utils.RAZEE_UNINSTALL_NAME
 		foundJob = batch.Job{}
 		reqLogger.Info("razee was installed; finding uninstall job")
 		err = r.client.Get(context.TODO(), jobName, &foundJob)
@@ -1014,7 +988,7 @@ func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(req *marketplacev1alp
 
 	// Remove the RAZEE_DEPLOYMENT_FINALIZER
 	// Once all finalizers are removed, the object will be deleted
-	req.SetFinalizers(utils.RemoveKey(req.GetFinalizers(), RAZEE_DEPLOYMENT_FINALIZER))
+	req.SetFinalizers(utils.RemoveKey(req.GetFinalizers(), utils.RAZEE_DEPLOYMENT_FINALIZER))
 	err = r.client.Update(context.TODO(), req)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -1028,7 +1002,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(
 ) *batch.Job {
 	return &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      RAZEE_DEPLOY_JOB,
+			Name:      utils.RAZEE_DEPLOY_JOB_NAME,
 			Namespace: request.Namespace,
 		},
 		Spec: batch.JobSpec{
@@ -1036,9 +1010,9 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(
 				Spec: corev1.PodSpec{
 					ServiceAccountName: utils.RAZEE_SERVICE_ACCOUNT,
 					Containers: []corev1.Container{{
-						Name:    RAZEE_DEPLOY_JOB,
+						Name:    utils.RAZEE_DEPLOY_JOB_NAME,
 						Image:   r.opts.RazeeJobImage,
-						Command: []string{"node", "src/install", fmt.Sprintf("--namespace=%s",*instance.Spec.TargetNamespace )},
+						Command: []string{"node", "src/install", fmt.Sprintf("--namespace=%s", *instance.Spec.TargetNamespace)},
 						Args:    []string{fmt.Sprintf("--file-source=%v", instance.Spec.DeployConfig.FileSourceURL), "--autoupdate"},
 					}},
 					RestartPolicy: "Never",
@@ -1052,7 +1026,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeJob(
 func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(namespace string, razeeJob *marketplacev1alpha1.RazeeJobInstallStruct) *batch.Job {
 	return &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      RAZEE_UNINSTALL_NAME,
+			Name:      utils.RAZEE_UNINSTALL_NAME,
 			Namespace: namespace,
 		},
 		Spec: batch.JobSpec{
@@ -1060,7 +1034,7 @@ func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(namespace string, razee
 				Spec: corev1.PodSpec{
 					ServiceAccountName: utils.RAZEE_SERVICE_ACCOUNT,
 					Containers: []corev1.Container{{
-						Name:    RAZEE_UNINSTALL_NAME,
+						Name:    utils.RAZEE_UNINSTALL_NAME,
 						Image:   r.opts.RazeeJobImage,
 						Command: []string{"node", "src/remove", fmt.Sprintf("--namespace=%s", razeeJob.RazeeNamespace)},
 						Args:    []string{fmt.Sprintf("--file-source=%v", razeeJob.RazeeInstallURL), "--autoupdate"},
@@ -1074,9 +1048,9 @@ func (r *ReconcileRazeeDeployment) MakeRazeeUninstallJob(namespace string, razee
 
 // addFinalizer adds finalizers to the RazeeDeployment CR
 func (r *ReconcileRazeeDeployment) addFinalizer(razee *marketplacev1alpha1.RazeeDeployment, namespace string) error {
-	reqLogger := log.WithValues("Request.Namespace", namespace, "Request.Name", RAZEE_UNINSTALL_NAME)
+	reqLogger := log.WithValues("Request.Namespace", namespace, "Request.Name", utils.RAZEE_UNINSTALL_NAME)
 	reqLogger.Info("Adding Finalizer for the razeeDeploymentFinzliaer")
-	razee.SetFinalizers(append(razee.GetFinalizers(), RAZEE_DEPLOYMENT_FINALIZER))
+	razee.SetFinalizers(append(razee.GetFinalizers(), utils.RAZEE_DEPLOYMENT_FINALIZER))
 
 	err := r.client.Update(context.TODO(), razee)
 	if err != nil {
@@ -1143,7 +1117,7 @@ func (r *ReconcileRazeeDeployment) GetDataFromRhmSecret(request reconcile.Reques
 
 	rhmOperatorSecret := corev1.Secret{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{
-		Name:      RHM_OPERATOR_SECRET_NAME,
+		Name:      utils.RHM_OPERATOR_SECRET_NAME,
 		Namespace: request.Namespace,
 	}, &rhmOperatorSecret)
 	if err != nil {
@@ -1176,7 +1150,7 @@ func (r *ReconcileRazeeDeployment) MakeCOSReaderSecret(instance *marketplacev1al
 
 	return corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      COS_READER_KEY_NAME,
+			Name:      utils.COS_READER_KEY_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
 		},
 		Data: map[string][]byte{"accesskey": []byte(key)},
@@ -1189,7 +1163,7 @@ func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3(instance *marketpl
 			"apiVersion": "deploy.razee.io/v1alpha2",
 			"kind":       "RemoteResourceS3",
 			"metadata": map[string]interface{}{
-				"name":      PARENT_RRS3_RESOURCE_NAME,
+				"name":      utils.PARENT_RRS3_RESOURCE_NAME,
 				"namespace": *instance.Spec.TargetNamespace,
 			},
 			"spec": map[string]interface{}{
@@ -1201,7 +1175,7 @@ func (r *ReconcileRazeeDeployment) MakeParentRemoteResourceS3(instance *marketpl
 						"apiKeyRef": map[string]interface{}{
 							"valueFrom": map[string]interface{}{
 								"secretKeyRef": map[string]interface{}{
-									"name": COS_READER_KEY_NAME,
+									"name": utils.COS_READER_KEY_NAME,
 									"key":  "accesskey",
 								},
 							},
@@ -1369,7 +1343,7 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 		}
 	}
 
-	req.SetFinalizers(utils.RemoveKey(req.GetFinalizers(), RAZEE_DEPLOYMENT_FINALIZER))
+	req.SetFinalizers(utils.RemoveKey(req.GetFinalizers(), utils.RAZEE_DEPLOYMENT_FINALIZER))
 	err = r.client.Update(context.TODO(), req)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -1446,7 +1420,7 @@ func (r *ReconcileRazeeDeployment) partialUninstall(
 		}
 	}
 
-	req.SetFinalizers(utils.RemoveKey(req.GetFinalizers(), RAZEE_DEPLOYMENT_FINALIZER))
+	req.SetFinalizers(utils.RemoveKey(req.GetFinalizers(), utils.RAZEE_DEPLOYMENT_FINALIZER))
 	err = r.client.Update(context.TODO(), req)
 	if err != nil {
 		return reconcile.Result{}, err
