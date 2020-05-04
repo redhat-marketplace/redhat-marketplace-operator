@@ -159,7 +159,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if utils.Contains(instance.GetFinalizers(), utils.RAZEE_DEPLOYMENT_FINALIZER) {
 			//Run finalization logic for the RAZEE_DEPLOYMENT_FINALIZER.
 			//If it fails, don't remove the finalizer so we can retry during the next reconcile
-			return r.finalizeRazeeDeployment(instance)
+			return r.partialUninstall(instance)
 		}
 		return reconcile.Result{}, nil
 	}
