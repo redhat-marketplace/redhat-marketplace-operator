@@ -43,7 +43,7 @@ type RazeeConfigurationValues struct {
 // RazeeDeploymentSpec defines the desired state of RazeeDeployment
 // +k8s:openapi-gen=true
 type RazeeDeploymentSpec struct {
-	// Enabled flag stops razee from installing
+	// Setting enabled to "true" will create a Razee namespace and deploy it's componenets. Set to "false" to bypass Razee installation
 	Enabled bool `json:"enabled"`
 
 	// ClusterUUID is the cluster identifier, used for installing razee.
