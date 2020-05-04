@@ -8,7 +8,7 @@ VERSION ?= $(shell go run scripts/version/main.go)
 FROM_VERSION ?= $(shell go run scripts/version/main.go --last)
 OPERATOR_IMAGE_TAG ?= $(VERSION)
 CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
-
+DOCKER_EXEC ?= $(shell command -v docker)
 
 SERVICE_ACCOUNT := redhat-marketplace-operator
 SECRETS_NAME := my-docker-secrets
@@ -35,11 +35,11 @@ uninstall: ## Uninstall all that all performed in the $ make install
 
 .PHONY: build
 build: ## Build the operator executable
-	VERSION=$(VERSION) PUSH_IMAGE=false IMAGE=$(OPERATOR_IMAGE) ./scripts/skaffold_build.sh
+	DOCKER_EXEC=$(DOCKER_EXEC) VERSION=$(VERSION) PUSH_IMAGE=false IMAGE=$(OPERATOR_IMAGE) ./scripts/skaffold_build.sh
 
 .PHONY: push
 push: push ## Push the operator image
-	docker push $(OPERATOR_IMAGE)
+	$(DOCKER_EXEC) push $(OPERATOR_IMAGE)
 
 helm: ## build helm base charts
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE) --set namespace=$(NAMESPACE)
@@ -54,20 +54,17 @@ generate-csv: ## Generate the csv
 	@go run github.com/mikefarah/yq/v3 d -i $(CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
 	@go run github.com/mikefarah/yq/v3 w -i $(CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
 
-docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
-	@docker login -u="$(DOCKER_USER)" -p="$(DOCKER_PASSWORD)" quay.io
-
 ##@ Development
 
 skaffold-dev: ## Run skaffold dev. Will unique tag the operator and rebuild.
 	make create
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=redhat-marketplace-operator --set pullPolicy=IfNotPresent
-	skaffold dev --tail --default-repo $(IMAGE_REGISTRY)
+	DOCKER_EXEC=$(DOCKER_EXEC) skaffold dev --tail --default-repo $(IMAGE_REGISTRY)
 
 skaffold-run: ## Run skaffold run. Will uniquely tag the operator.
 	make create
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=redhat-marketplace-operator --set pullPolicy=IfNotPresent
-	skaffold run --tail --default-repo $(IMAGE_REGISTRY) --cleanup=false
+	DOCKER_EXEC=$(DOCKER_EXEC) skaffold run --tail --default-repo $(IMAGE_REGISTRY) --cleanup=false
 
 code-vet: ## Run go vet for this project. More info: https://golang.org/cmd/vet/
 	@echo go vet
@@ -206,9 +203,9 @@ upload-bundle: ## Uploads bundle to partner connect (use with caution and only o
 .PHONY: publish-image
 publish-image: ## Publish image
 	make build
-	docker tag $(OPERATOR_IMAGE) $(REDHAT_OPERATOR_IMAGE)
-	docker push $(OPERATOR_IMAGE)
-	docker push $(REDHAT_OPERATOR_IMAGE)
+	$(DOCKER_EXEC) tag $(OPERATOR_IMAGE) $(REDHAT_OPERATOR_IMAGE)
+	$(DOCKER_EXEC) push $(OPERATOR_IMAGE)
+	$(DOCKER_EXEC) push $(REDHAT_OPERATOR_IMAGE)
 
 .PHONY: release
 release: ## Publish release
