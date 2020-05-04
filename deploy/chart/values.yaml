@@ -86,7 +86,6 @@ roles:
           - operatorsources
           - subscriptions
         verbs:
-          - create
           - get
           - list
           - watch
@@ -300,4 +299,3 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
-
