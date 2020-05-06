@@ -15,6 +15,7 @@
 package v1alpha1
 
 import (
+	status "github.com/operator-framework/operator-sdk/pkg/status"
 	batch "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -46,6 +47,9 @@ type RazeeDeploymentSpec struct {
 // RazeeDeploymentStatus defines the observed state of RazeeDeployment
 // +k8s:openapi-gen=true
 type RazeeDeploymentStatus struct {
+	// RazeeConditions represent the latest available observations of an object's stateonfig
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	RazeeConditions status.Conditions `json:"razeeConditions"`
 	// Conditions represent the latest available observations of an object's stateonfig
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Conditions *batch.JobCondition `json:"conditions,omitempty"`
@@ -107,3 +111,19 @@ type RazeeDeploymentList struct {
 func init() {
 	SchemeBuilder.Register(&RazeeDeployment{}, &RazeeDeploymentList{})
 }
+
+// These are valid conditions of RazeeDeployment
+const (
+
+	// Reasons for install
+	ReasonRazeeStartInstall                 status.ConditionReason = "StartRazeeInstall"
+	ReasonWatchKeeperNonNamespacedInstalled status.ConditionReason = "FinishedWatchKeeperNonNamespaceInstall"
+	ReasonWatchKeeperLimitPollInstalled     status.ConditionReason = "FinishedWatchKeeperLimitPollInstall"
+	ReasonRazeeClusterMetaDataInstalled     status.ConditionReason = "FinishedRazeeClusterMetaDataInstall"
+	ReasonWatchKeeperConfigInstalled        status.ConditionReason = "FinishedWatchKeeperConfigInstall"
+	ReasonWatchKeeperSecretInstalled        status.ConditionReason = "FinishedWatchKeeperSecretInstall"
+	ReasonCosReaderKeyInstalled             status.ConditionReason = "FinishedCosReaderKeyInstall"
+	ReasonRazeeDeployJobStart               status.ConditionReason = "StartRazeeDeployJob"
+	ReasonRazeeDeployJobFinished            status.ConditionReason = "FinishedRazeeDeployJob"
+	ReasonRazeeInstallFinished              status.ConditionReason = "FinishedRazeeInstall"
+)
