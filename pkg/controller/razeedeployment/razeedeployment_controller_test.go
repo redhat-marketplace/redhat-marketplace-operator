@@ -45,7 +45,7 @@ func TestRazeeDeployController(t *testing.T) {
 
 	t.Run("Test Clean Install", testCleanInstall)
 	t.Run("Test No Secret", testNoSecret)
-	// t.Run("Test Old Install", testOldMigratedInstall)
+	t.Run("Test Old Install", testOldMigratedInstall)
 }
 
 func setup(r *ReconcilerTest) error {
