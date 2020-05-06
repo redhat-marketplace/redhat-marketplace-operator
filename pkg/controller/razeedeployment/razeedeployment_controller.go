@@ -879,6 +879,11 @@ func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(instance marketpla
 		instance.Status.RedHatMarketplaceSecretFound = nil
 	}
 
+	if instance.Spec.DeployConfig == nil {
+		instance.Spec.DeployConfig = &marketplacev1alpha1.RazeeConfigurationValues{}
+	}
+
+
 	rhmOperatorSecret := corev1.Secret{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{
 		Name:      *instance.Spec.DeploySecretName,
