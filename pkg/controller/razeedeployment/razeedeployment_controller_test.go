@@ -111,7 +111,7 @@ var (
 )
 
 func testCleanInstall(t *testing.T) {
-	t.Parallel()
+	//t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup,
 		&razeeDeployment,
 		&secret,
@@ -303,7 +303,7 @@ var (
 )
 
 func testOldMigratedInstall(t *testing.T) {
-	t.Parallel()
+	//t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup,
 		&oldRazeeDeployment,
 		&secret,
@@ -384,7 +384,7 @@ func testOldMigratedInstall(t *testing.T) {
 }
 
 func testNoSecret(t *testing.T) {
-	t.Parallel()
+	//t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, &razeeDeployment, &namespObj)
 	reconcilerTest.TestAll(t,
 		[]TestCaseStep{
