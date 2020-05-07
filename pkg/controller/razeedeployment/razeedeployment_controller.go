@@ -245,7 +245,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.WATCH_KEEPER_NON_NAMESPACED_NAME, Namespace: *instance.Spec.TargetNamespace}, &watchKeeperNonNamespace)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			reqLogger.Info("Resource does not exist ", "resource: ", utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
+			reqLogger.Info("Resource does not exist", "resource: ", utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
 
 			watchKeeperNonNamespace = *r.makeWatchKeeperNonNamespace(instance)
 			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&watchKeeperNonNamespace); err != nil {
@@ -255,13 +255,13 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 			err = r.client.Create(context.TODO(), &watchKeeperNonNamespace)
 			if err != nil {
-				reqLogger.Error(err, "Failed to create ", "resource: ", utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
+				reqLogger.Error(err, "Failed to create resource", "resource: ", utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
 				return reconcile.Result{}, err
 			}
 
 			return reconcile.Result{Requeue: true}, nil
 		} else {
-			reqLogger.Error(err, "Failed to get ", "resource: ", utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
+			reqLogger.Error(err, "Failed to get resource", "resource: ", utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
 			return reconcile.Result{}, err
 		}
 	}
@@ -276,7 +276,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		if !patchResult.IsEmpty() {
-			reqLogger.Info("Change detected ", "resource: ", utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
+			reqLogger.Info("Change detected on resource", "resource: ", utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
 			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(updatedWatchKeeperNonNameSpace); err != nil {
 				reqLogger.Error(err, "Failed to set annotation")
 				return reconcile.Result{}, err
@@ -285,12 +285,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info("Updating resource", "resource: ", utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
 			err = r.client.Update(context.TODO(), updatedWatchKeeperNonNameSpace)
 			if err != nil {
-				reqLogger.Error(err, "Failed to update ", "resource: ", utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
+				reqLogger.Error(err, "Failed to update resource", "resource: ", utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
 				return reconcile.Result{}, err
 			}
 		}
 
-		reqLogger.Info("No change detected ", "resource: ", utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
+		reqLogger.Info("No change detected on resource", "resource: ", utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
 
 	}
 
@@ -308,7 +308,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.WATCH_KEEPER_LIMITPOLL_NAME, Namespace: *instance.Spec.TargetNamespace}, &watchKeeperLimitPoll)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			reqLogger.Info("Resource does not exist ", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
+			reqLogger.Info("Resource does not exist", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
 
 			watchKeeperLimitPoll = *r.makeWatchKeeperLimitPoll(instance)
 			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&watchKeeperLimitPoll); err != nil {
@@ -318,19 +318,19 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 			err = r.client.Create(context.TODO(), &watchKeeperLimitPoll)
 			if err != nil {
-				reqLogger.Error(err, "Failed to create ", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
+				reqLogger.Error(err, "Failed to create resource", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
 				return reconcile.Result{}, err
 			}
 
-			reqLogger.Info("Resource created successfully ", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
+			reqLogger.Info("Resource created successfullys", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
 			return reconcile.Result{Requeue: true}, nil
 		} else {
-			reqLogger.Error(err, "Failed to get ", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
+			reqLogger.Error(err, "Failed to get resource", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
 			return reconcile.Result{}, err
 		}
 	}
 	if err == nil {
-		reqLogger.Info("Resource already exists ", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
+		reqLogger.Info("Resource already exists", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
 		updatedWatchKeeperLimitPoll := r.makeWatchKeeperLimitPoll(instance)
 		patchResult, err := patch.DefaultPatchMaker.Calculate(&watchKeeperLimitPoll, updatedWatchKeeperLimitPoll)
 		if err != nil {
@@ -339,19 +339,19 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		if !patchResult.IsEmpty() {
-			reqLogger.Info("Updating resource ", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
+			reqLogger.Info("Updating resource", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
 			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(updatedWatchKeeperLimitPoll); err != nil {
 				reqLogger.Error(err, "Failed to set annotation ", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
 				return reconcile.Result{}, err
 			}
 			err = r.client.Update(context.TODO(), updatedWatchKeeperLimitPoll)
 			if err != nil {
-				reqLogger.Error(err, "Failed to overwrite ", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
+				reqLogger.Error(err, "Failed to overwrite resource", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
 				return reconcile.Result{}, err
 			}
 		}
 
-		reqLogger.Info("No change detected on", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
+		reqLogger.Info("No change detected on resource", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
 	}
 
 	if !utils.Contains(instance.Status.RazeePrerequisitesCreated, utils.WATCH_KEEPER_LIMITPOLL_NAME) {
@@ -401,20 +401,20 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		if !patchResult.IsEmpty() {
-			reqLogger.Info("Change detected on ", "resource: ", utils.RAZEE_CLUSTER_METADATA_NAME)
+			reqLogger.Info("Change detected on resource", "resource: ", utils.RAZEE_CLUSTER_METADATA_NAME)
 			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&updatedRazeeClusterMetaData); err != nil {
 				reqLogger.Error(err, "Failed to set annotation")
 				return reconcile.Result{}, err
 			}
-			reqLogger.Info("Updating ", "resource: ", utils.RAZEE_CLUSTER_METADATA_NAME)
+			reqLogger.Info("Updating resource", "resource: ", utils.RAZEE_CLUSTER_METADATA_NAME)
 			err = r.client.Update(context.TODO(), &updatedRazeeClusterMetaData)
 			if err != nil {
-				reqLogger.Error(err, "Failed to overwrite ", "resource: ", utils.RAZEE_CLUSTER_METADATA_NAME)
+				reqLogger.Error(err, "Failed to overwrite resource", "resource: ", utils.RAZEE_CLUSTER_METADATA_NAME)
 				return reconcile.Result{}, err
 			}
 		}
 
-		reqLogger.Info("No change detected on ", "resource: ", utils.RAZEE_CLUSTER_METADATA_NAME)
+		reqLogger.Info("No change detected on resource", "resource: ", utils.RAZEE_CLUSTER_METADATA_NAME)
 	}
 
 	if !utils.Contains(instance.Status.RazeePrerequisitesCreated, utils.RAZEE_CLUSTER_METADATA_NAME) {
@@ -442,13 +442,13 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 			err = r.client.Create(context.TODO(), &watchKeeperConfig)
 			if err != nil {
-				reqLogger.Error(err, "Failed to create ", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
+				reqLogger.Error(err, "Failed to create resource", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
 				return reconcile.Result{}, err
 			}
 			reqLogger.Info("Resource created successfully", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
 			return reconcile.Result{Requeue: true}, nil
 		} else {
-			reqLogger.Error(err, "Failed to get ", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
+			reqLogger.Error(err, "Failed to get resource", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
 			return reconcile.Result{}, err
 		}
 	}
@@ -462,12 +462,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		if !patchResult.IsEmpty() {
-			reqLogger.Info(fmt.Sprintf("Change detected on %v", utils.WATCH_KEEPER_CONFIG_NAME))
+			reqLogger.Info("Change detected on", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
 			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&updatedWatchKeeperConfig); err != nil {
 				reqLogger.Error(err, "Failed to set annotation")
 				return reconcile.Result{}, err
 			}
-			reqLogger.Info(fmt.Sprintf("Updating %v", utils.WATCH_KEEPER_CONFIG_NAME))
+			reqLogger.Info("Updating resource", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
 			err = r.client.Update(context.TODO(), &updatedWatchKeeperConfig)
 			if err != nil {
 				reqLogger.Error(err, "Failed to overwrite ", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
@@ -476,7 +476,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info("Resource updated successfully", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
 		}
 
-		reqLogger.Info("No changed detected on", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
+		reqLogger.Info("No changed detected on resource", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
 	}
 
 	if !utils.Contains(instance.Status.RazeePrerequisitesCreated, utils.WATCH_KEEPER_CONFIG_NAME) {
@@ -506,13 +506,13 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 			err = r.client.Create(context.TODO(), &watchKeeperSecret)
 			if err != nil {
-				reqLogger.Error(err, "Failed to create ", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
+				reqLogger.Error(err, "Failed to create resource", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
 				return reconcile.Result{}, err
 			}
 			reqLogger.Info("Resource created successfully", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
 			return reconcile.Result{Requeue: true}, nil
 		} else {
-			reqLogger.Error(err, "Failed to get ", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
+			reqLogger.Error(err, "Failed to get resource", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
 			return reconcile.Result{}, err
 		}
 	}
@@ -521,7 +521,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 		updatedWatchKeeperSecret, err := r.makeWatchKeeperSecret(instance, request)
 		if err != nil {
-			reqLogger.Error(err, fmt.Sprintf("Failed to build %v", utils.WATCH_KEEPER_SECRET_NAME))
+			reqLogger.Error(err, "Failed to build resource", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
 			return reconcile.Result{}, err
 		}
 		patchResult, err := patch.DefaultPatchMaker.Calculate(&watchKeeperSecret, &updatedWatchKeeperSecret)
@@ -531,7 +531,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		if !patchResult.IsEmpty() {
-			reqLogger.Info("Change detected on ", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
+			reqLogger.Info("Change detected on resource", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
 			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&updatedWatchKeeperSecret); err != nil {
 				reqLogger.Error(err, "Failed to set annotation")
 				return reconcile.Result{}, err
@@ -539,13 +539,13 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info("Updating razee-cluster-metadata")
 			err = r.client.Update(context.TODO(), &updatedWatchKeeperSecret)
 			if err != nil {
-				reqLogger.Error(err, "Failed to overwrite ", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
+				reqLogger.Error(err, "Failed to overwrite resource", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
 				return reconcile.Result{}, err
 			}
-			reqLogger.Info("Resource updated successfully ", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
+			reqLogger.Info("Resource updated successfully", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
 		}
 
-		reqLogger.Info("No change detected on ", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
+		reqLogger.Info("No change detected on resource", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
 	}
 
 	if !utils.Contains(instance.Status.RazeePrerequisitesCreated, utils.WATCH_KEEPER_SECRET_NAME) {
@@ -566,7 +566,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info("Resource does not exist", "resource: ", utils.COS_READER_KEY_NAME)
 			ibmCosReaderKey, err = r.makeCOSReaderSecret(instance, request)
 			if err != nil {
-				reqLogger.Error(err, fmt.Sprintf("Failed to build %v", utils.COS_READER_KEY_NAME))
+				reqLogger.Error(err, "Failed to build resource", "resource: ", utils.COS_READER_KEY_NAME)
 				return reconcile.Result{}, err
 			}
 
@@ -577,13 +577,13 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 			err = r.client.Create(context.TODO(), &ibmCosReaderKey)
 			if err != nil {
-				reqLogger.Error(err, "Failed to create ", "resource: ", utils.COS_READER_KEY_NAME)
+				reqLogger.Error(err, "Failed to create resource", "resource: ", utils.COS_READER_KEY_NAME)
 				return reconcile.Result{}, err
 			}
 			reqLogger.Info("Resource created successfully", "resource: ", utils.COS_READER_KEY_NAME)
 			return reconcile.Result{Requeue: true}, nil
 		} else {
-			reqLogger.Error(err, "Failed to get ", "resource: ", utils.COS_READER_KEY_NAME)
+			reqLogger.Error(err, "Failed to get resource", "resource: ", utils.COS_READER_KEY_NAME)
 			return reconcile.Result{}, err
 		}
 	}
@@ -603,7 +603,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		if !patchResult.IsEmpty() {
-			reqLogger.Info("Change detected ", "resource: ", utils.COS_READER_KEY_NAME)
+			reqLogger.Info("Change detected on resource", "resource: ", utils.COS_READER_KEY_NAME)
 			if err = patch.DefaultAnnotator.SetLastAppliedAnnotation(&updatedibmCosReaderKey); err != nil {
 				reqLogger.Info("Failed to set annotation")
 				return reconcile.Result{}, err
@@ -611,13 +611,13 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info("Updating ", "resource: ", utils.COS_READER_KEY_NAME)
 			err = r.client.Update(context.TODO(), &updatedibmCosReaderKey)
 			if err != nil {
-				reqLogger.Error(err, "Failed to overwrite ", "resource: ", utils.COS_READER_KEY_NAME)
+				reqLogger.Error(err, "Failed to overwrite resource", "resource: ", utils.COS_READER_KEY_NAME)
 				return reconcile.Result{}, err
 			}
-			reqLogger.Info("Resource updated successfully ", "resource: ", utils.COS_READER_KEY_NAME)
+			reqLogger.Info("Resource updated successfully", "resource: ", utils.COS_READER_KEY_NAME)
 		}
 
-		reqLogger.Info("No change detected on resource ", "resource: ", utils.COS_READER_KEY_NAME)
+		reqLogger.Info("No change detected on resource", "resource: ", utils.COS_READER_KEY_NAME)
 	}
 
 	if !utils.Contains(instance.Status.RazeePrerequisitesCreated, utils.COS_READER_KEY_NAME) {
