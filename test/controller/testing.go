@@ -22,6 +22,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -126,12 +127,8 @@ func (tc *ReconcileStep) GetStepName() string {
 func (tc *ReconcileStep) Test(t *testing.T, r *ReconcilerTest) {
 	//Reconcile again so Reconcile() checks for the OperatorSource
 	res, err := r.Reconciler.Reconcile(tc.Request)
-	if tc.ExpectedError != err {
-		t.Errorf("%v reconcile result(%v) != expected(%v)", tc.Request, err, tc.ExpectedError)
-	}
-	if res != (tc.ExpectedResult) {
-		t.Errorf("%v reconcile result(%v) != expected(%v)", tc.Request, res, tc.ExpectedResult)
-	}
+	require.Equalf(t, tc.ExpectedError, err, "teststep failure", "%v reconcile result(%v) != expected(%v)", tc.Request, err, tc.ExpectedError)
+	require.Equalf(t, tc.ExpectedResult, res, "teststep failure", "%v reconcile result(%v) != expected(%v)", tc.Request, res, tc.ExpectedResult)
 }
 
 type ClientGetStep struct {
@@ -168,11 +165,10 @@ func (tc *ClientGetStep) Test(t *testing.T, r *ReconcilerTest) {
 	var err error
 	err = r.GetClient().Get(context.TODO(), tc.NamespacedName, tc.TestObj)
 
-	if err != nil {
-		t.Errorf("get (%T): (%v)", tc.TestObj, err)
-	} else {
+	require.NoErrorf(t, err, "teststep failure", "get (%T): (%v)", tc.TestObj, err)
+	require.NotPanics(t, func() {
 		tc.AfterFunc(r, t, tc.TestObj)
-	}
+	})
 }
 
 type ClientListStep struct {
@@ -223,11 +219,10 @@ func (tc *ClientListStep) Test(t *testing.T, r *ReconcilerTest) {
 		client.MatchingLabels(tc.Labels),
 	)
 
-	if err != nil {
-		t.Errorf("get (%T): (%v)", tc.TestObj, err)
-	} else {
+	require.NoErrorf(t, err, "teststep failure", "get (%T): (%v)", tc.TestObj, err)
+	require.NotPanics(t, func() {
 		tc.AfterFunc(r, t, tc.TestObj)
-	}
+	})
 }
 
 type ReconcilerTestCase struct {
@@ -272,13 +267,9 @@ func (tc *ReconcilerTestCase) GetStepName() string {
 func (tc *ReconcilerTestCase) Test(t *testing.T, r *ReconcilerTest) {
 	//Reconcile again so Reconcile() checks for the OperatorSource
 	res, err := r.Reconciler.Reconcile(tc.Request)
-	if tc.ExpectedError != err {
-		t.Errorf("%v reconcile result(%v) != expected(%v)", tc.Request, err, tc.ExpectedError)
-	}
 
-	if res != (tc.ExpectedResult) {
-		t.Errorf("%v reconcile result(%v) != expected(%v)", tc.Request, res, tc.ExpectedResult)
-	}
+	require.Equalf(t, tc.ExpectedError, err, "teststep failure", "%v reconcile result(%v) != expected(%v)", tc.Request, err, tc.ExpectedError)
+	require.Equalf(t, tc.ExpectedResult, res, "teststep failure", "%v reconcile result(%v) != expected(%v)", tc.Request, res, tc.ExpectedResult)
 
 	if tc.TestObj != nil {
 		if len(tc.Labels) > 0 {
@@ -291,11 +282,8 @@ func (tc *ReconcilerTestCase) Test(t *testing.T, r *ReconcilerTest) {
 			err = r.GetClient().Get(context.TODO(), tc.NamespacedName, tc.TestObj)
 		}
 
-		if err != nil {
-			t.Errorf("get (%T): (%v)", tc.TestObj, err)
-		} else {
-			tc.AfterFunc(r, t, tc.TestObj)
-		}
+		require.NoErrorf(t, err, "teststep failure", "get (%T): (%v)", tc.TestObj, err)
+		tc.AfterFunc(r, t, tc.TestObj)
 	}
 }
 
@@ -319,8 +307,10 @@ func (r *ReconcilerTest) TestAll(t *testing.T, testCases []TestCaseStep) {
 			testName = fmt.Sprintf("Step %v", i)
 		}
 
-		t.Run(testName, func(t *testing.T) {
+		success := t.Run(testName, func(t *testing.T) {
 			testData.Test(t, r)
 		})
+
+		require.Truef(t, success, "Step %s failed", testName)
 	}
 }

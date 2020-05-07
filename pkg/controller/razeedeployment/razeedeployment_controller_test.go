@@ -24,6 +24,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/controller"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/require"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -96,11 +97,11 @@ var (
 	secret = corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "rhm-operator-secret",
-			Namespace: "redhat-marketplace-operator",
+			Namespace: namespace,
 		},
 		Data: map[string][]byte{
-			utils.IBM_COS_READER_KEY_FIELD: []byte("ibm-cos-reader-key"),
-			utils.IBM_COS_URL_FIELD:        []byte("ibm-cos-url"),
+			utils.IBM_COS_READER_KEY_FIELD: []byte("rhm-cos-reader-key"),
+			utils.IBM_COS_URL_FIELD:        []byte("rhm-cos-url"),
 			utils.BUCKET_NAME_FIELD:        []byte("bucket-name"),
 			utils.RAZEE_DASH_ORG_KEY_FIELD: []byte("razee-dash-org-key"),
 			utils.CHILD_RRS3_YAML_FIELD:    []byte("childRRS3-filename"),
@@ -127,12 +128,7 @@ func testCleanInstall(t *testing.T) {
 					WithExpectedResult(reconcile.Result{}),
 				)...,
 			),
-			NewReconcilerTestCase(
-				append(opts,
-					WithName(namespace),
-					WithNamespace(""),
-					WithExpectedResult(reconcile.Result{}),
-					WithTestObj(&corev1.Namespace{}))...),
+			NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{Requeue: false}))...),
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&corev1.ConfigMap{}),
@@ -140,19 +136,20 @@ func testCleanInstall(t *testing.T) {
 					WithAfter(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
 						watchKeeperNonNamespace, ok := i.(*corev1.ConfigMap)
 						if !ok {
-							t.Fatalf("Type is not expected %T", i)
+							require.FailNowf(t, "Failed type check", "Type is not expected %T", i)
 						}
 
-						razeeController := ReconcileRazeeDeployment{}
+						razeeController := r.GetReconciler().(*ReconcileRazeeDeployment)
+						razeeDeployment.Spec.TargetNamespace = &namespace
 						expectedWatchKeeperNonNamespace := razeeController.makeWatchKeeperNonNamespace(&razeeDeployment)
 
 						patchResult, err := patch.DefaultPatchMaker.Calculate(watchKeeperNonNamespace, expectedWatchKeeperNonNamespace)
 						if !patchResult.IsEmpty() {
-							t.Fatalf("Discrepency on object %T", patchResult)
+							require.FailNowf(t, "Patch result is empty", "Discrepency on object %T", patchResult)
 						}
 
 						if err != nil {
-							t.Fatalf("Error calculating patch %T", patchResult)
+							require.FailNowf(t, "Patch Result had an error", "Error calculating patch %T", patchResult)
 						}
 					}),
 				)...),
@@ -163,19 +160,19 @@ func testCleanInstall(t *testing.T) {
 					WithAfter(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
 						watchKeeperLimitPoll, ok := i.(*corev1.ConfigMap)
 						if !ok {
-							t.Fatalf("Type is not expected %T", i)
+							require.FailNowf(t, "Wrong type", "Type is not expected %T", i)
 						}
 
-						razeeController := ReconcileRazeeDeployment{}
+						razeeController := r.GetReconciler().(*ReconcileRazeeDeployment)
 						expectedWatchKeeperLimitPoll := razeeController.makeWatchKeeperLimitPoll(&razeeDeployment)
 
 						patchResult, err := patch.DefaultPatchMaker.Calculate(watchKeeperLimitPoll, expectedWatchKeeperLimitPoll)
 						if !patchResult.IsEmpty() {
-							t.Fatalf("Discrepency on object %T", patchResult)
+							require.FailNowf(t, "Patch Result is not empty", "Discrepency on object %T", patchResult)
 						}
 
 						if err != nil {
-							t.Fatalf("Error calculating patch %T", patchResult)
+							require.FailNowf(t, "Patch result had an error", "Error calculating patch %T", patchResult)
 						}
 					}),
 				)...),
@@ -188,19 +185,19 @@ func testCleanInstall(t *testing.T) {
 						razeeClusterMetadata, ok := i.(*corev1.ConfigMap)
 
 						if !ok {
-							t.Fatalf("Type is not expected %T", i)
+							require.FailNowf(t, "", "Type is not expected %T", i)
 						}
 
-						razeeController := ReconcileRazeeDeployment{}
+						razeeController := r.GetReconciler().(*ReconcileRazeeDeployment)
 						expectedRazeeClusterMetadata := razeeController.makeRazeeClusterMetaData(&razeeDeployment)
 
 						patchResult, err := patch.DefaultPatchMaker.Calculate(razeeClusterMetadata, expectedRazeeClusterMetadata)
 						if !patchResult.IsEmpty() {
-							t.Fatalf("Discrepency on object %T", patchResult)
+							require.FailNowf(t, "", "Discrepency on object %T", patchResult)
 						}
 
 						if err != nil {
-							t.Fatalf("Error calculating patch %T", patchResult)
+							require.FailNowf(t, "", "Error calculating patch %T", patchResult)
 						}
 
 					}),
@@ -219,13 +216,14 @@ func testCleanInstall(t *testing.T) {
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&corev1.Secret{}),
-					WithName("ibm-cos-reader-key"),
+					WithName("rhm-cos-reader-key"),
 					WithAfter(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
 						ibmCosReaderKey, ok := i.(*corev1.Secret)
 						if !ok {
-							t.Fatalf("Type is not expected %T", i)
+							require.FailNowf(t, "Unexpected Type", "Type is not expected %T", i)
 						}
 
+						razeeDeployment.Spec.TargetNamespace = &namespace
 						razeeDeployment.Spec.DeployConfig = &marketplacev1alpha1.RazeeConfigurationValues{}
 						razeeDeployment.Spec.DeployConfig.IbmCosReaderKey = &corev1.SecretKeySelector{
 							LocalObjectReference: corev1.LocalObjectReference{
@@ -234,16 +232,16 @@ func testCleanInstall(t *testing.T) {
 							Key: utils.IBM_COS_READER_KEY_FIELD,
 						}
 
-						razeeController := ReconcileRazeeDeployment{}
-						expectedIbmCosReaderKey, err := razeeController.makeCOSReaderSecret(&razeeDeployment, req)
+						razeeController := r.GetReconciler().(*ReconcileRazeeDeployment)
+						expectedIbmCosReaderKey, _ := razeeController.makeCOSReaderSecret(&razeeDeployment, req)
 
 						patchResult, err := patch.DefaultPatchMaker.Calculate(ibmCosReaderKey, &expectedIbmCosReaderKey)
 						if !patchResult.IsEmpty() {
-							t.Fatalf("Discrepency on object %T", patchResult)
+							require.FailNowf(t, "", "Discrepency on object %T", patchResult)
 						}
 
 						if err != nil {
-							t.Fatalf("Error calculating patch %T", patchResult)
+							require.FailNowf(t, "", "Error calculating patch %T", patchResult)
 						}
 					}),
 				)...),
@@ -257,11 +255,11 @@ func testCleanInstall(t *testing.T) {
 						myJob, ok := i.(*batch.Job)
 
 						if !ok {
-							t.Fatalf("Type is not expected %T", i)
+							require.FailNowf(t, "", "Type is not expected %T", i)
 						}
 
 						myJob.Status.Conditions = []batch.JobCondition{
-							batch.JobCondition{
+							{
 								Type:               batch.JobComplete,
 								Status:             corev1.ConditionTrue,
 								LastProbeTime:      metav1.Now(),
@@ -290,8 +288,6 @@ var (
 		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
 			Enabled:     true,
 			ClusterUUID: "foo",
-			//TODO: should old installs have a DeploySecretName
-			DeploySecretName: &secretName,
 		},
 		Status: marketplacev1alpha1.RazeeDeploymentStatus{
 			RazeeJobInstall: &marketplacev1alpha1.RazeeJobInstallStruct{
@@ -317,6 +313,7 @@ func testOldMigratedInstall(t *testing.T) {
 					WithNamespace(""),
 					WithExpectedResult(reconcile.Result{}),
 					WithTestObj(&corev1.Namespace{}))...),
+			NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{}))...),
 			NewReconcilerTestCase(
 				append(opts,
 					WithNamespace("razee"),
@@ -357,11 +354,11 @@ func testOldMigratedInstall(t *testing.T) {
 						myJob, ok := i.(*batch.Job)
 
 						if !ok {
-							t.Fatalf("Type is not expected %T", i)
+							require.FailNowf(t, "", "Type is not expected %T", i)
 						}
 
 						myJob.Status.Conditions = []batch.JobCondition{
-							batch.JobCondition{
+							{
 								Type:               batch.JobComplete,
 								Status:             corev1.ConditionTrue,
 								LastProbeTime:      metav1.Now(),
