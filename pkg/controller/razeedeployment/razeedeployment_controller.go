@@ -916,6 +916,10 @@ func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(instance marketpla
 		}
 	}
 
+	if err = controllerutil.SetControllerReference(&instance, &rhmOperatorSecret, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	razeeConfigurationValues := marketplacev1alpha1.RazeeConfigurationValues{}
 	razeeConfigurationValues, missingItems, err := utils.AddSecretFieldsToStruct(rhmOperatorSecret.Data, instance)
 	instance.Status.MissingDeploySecretValues = missingItems
