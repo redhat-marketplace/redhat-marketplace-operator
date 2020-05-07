@@ -139,8 +139,9 @@ func testCleanInstall(t *testing.T) {
 						}
 
 						razeeController := r.GetReconciler().(*ReconcileRazeeDeployment)
-						razeeDeployment.Spec.TargetNamespace = &namespace
-						expectedWatchKeeperNonNamespace := razeeController.makeWatchKeeperNonNamespace(&razeeDeployment)
+						rd := razeeDeployment.DeepCopy()
+						rd.Spec.TargetNamespace = &namespace
+						expectedWatchKeeperNonNamespace := razeeController.makeWatchKeeperNonNamespace(rd)
 
 						patchResult, err := patch.DefaultPatchMaker.Calculate(watchKeeperNonNamespace, expectedWatchKeeperNonNamespace)
 						if !patchResult.IsEmpty() {
@@ -163,7 +164,9 @@ func testCleanInstall(t *testing.T) {
 						}
 
 						razeeController := r.GetReconciler().(*ReconcileRazeeDeployment)
-						expectedWatchKeeperLimitPoll := razeeController.makeWatchKeeperLimitPoll(&razeeDeployment)
+						rd := razeeDeployment.DeepCopy()
+						rd.Spec.TargetNamespace = &namespace
+						expectedWatchKeeperLimitPoll := razeeController.makeWatchKeeperLimitPoll(rd)
 
 						patchResult, err := patch.DefaultPatchMaker.Calculate(watchKeeperLimitPoll, expectedWatchKeeperLimitPoll)
 						if !patchResult.IsEmpty() {
@@ -188,7 +191,9 @@ func testCleanInstall(t *testing.T) {
 						}
 
 						razeeController := r.GetReconciler().(*ReconcileRazeeDeployment)
-						expectedRazeeClusterMetadata := razeeController.makeRazeeClusterMetaData(&razeeDeployment)
+						rd := razeeDeployment.DeepCopy()
+						rd.Spec.TargetNamespace = &namespace
+						expectedRazeeClusterMetadata := razeeController.makeRazeeClusterMetaData(rd)
 
 						patchResult, err := patch.DefaultPatchMaker.Calculate(razeeClusterMetadata, expectedRazeeClusterMetadata)
 						if !patchResult.IsEmpty() {
