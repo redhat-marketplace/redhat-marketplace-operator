@@ -222,9 +222,10 @@ func testCleanInstall(t *testing.T) {
 							require.FailNowf(t, "Unexpected Type", "Type is not expected %T", i)
 						}
 
-						razeeDeployment.Spec.TargetNamespace = &namespace
-						razeeDeployment.Spec.DeployConfig = &marketplacev1alpha1.RazeeConfigurationValues{}
-						razeeDeployment.Spec.DeployConfig.IbmCosReaderKey = &corev1.SecretKeySelector{
+						rd := razeeDeployment.DeepCopy()
+						rd.Spec.TargetNamespace = &namespace
+						rd.Spec.DeployConfig = &marketplacev1alpha1.RazeeConfigurationValues{}
+						rd.Spec.DeployConfig.IbmCosReaderKey = &corev1.SecretKeySelector{
 							LocalObjectReference: corev1.LocalObjectReference{
 								Name: "rhm-operator-secret",
 							},
@@ -232,7 +233,7 @@ func testCleanInstall(t *testing.T) {
 						}
 
 						razeeController := r.GetReconciler().(*ReconcileRazeeDeployment)
-						expectedIbmCosReaderKey, _ := razeeController.makeCOSReaderSecret(&razeeDeployment, req)
+						expectedIbmCosReaderKey, _ := razeeController.makeCOSReaderSecret(rd, req)
 
 						patchResult, err := patch.DefaultPatchMaker.Calculate(ibmCosReaderKey, &expectedIbmCosReaderKey)
 						if !patchResult.IsEmpty() {

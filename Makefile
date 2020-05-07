@@ -1,5 +1,5 @@
 SHELL:=/bin/bash
-NAMESPACE ?= redhat-marketplace-operator
+NAMESPACE ?= openshift-redhat-marketplace
 OPSRC_NAMESPACE = marketplace-operator
 OPERATOR_SOURCE = redhat-marketplace-operators
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
