@@ -209,8 +209,8 @@ spec:
                   type: integer
               type: object
             localSecretVarsPopulated:
-              description: 'LocalSecretVarsPopulated informs if the correct local
-                variables are correct set. TODO: denote as legacy'
+              description: 'LocalSecretVarsPopulated DEPRECATED: informs if the correct
+                local variables are correct set.'
               type: boolean
             missingDeploySecretValues:
               description: MissingValuesFromSecret validates the secret provided has
@@ -241,8 +241,8 @@ spec:
                 type: string
               type: array
             redHatMarketplaceSecretFound:
-              description: 'RedHatMarketplaceSecretFound is the status of finding
-                the secret in the cluster TODO: denote as legacy'
+              description: 'RedHatMarketplaceSecretFound DEPRECATED: is the status
+                of finding the secret in the cluster'
               type: boolean
           type: object
       type: object
