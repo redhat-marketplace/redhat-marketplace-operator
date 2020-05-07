@@ -85,12 +85,10 @@ type RazeeDeploymentStatus struct {
 	// RazeePrerequestesCreated is the list of configmaps and secrets required to be installed
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	RazeePrerequisitesCreated []string `json:"razeePrerequisitesCreated,omitempty"`
-	// LocalSecretVarsPopulated informs if the correct local variables are correct set.
-	//TODO: denote as legacy
+	// LocalSecretVarsPopulated DEPRECATED: informs if the correct local variables are correct set.
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	LocalSecretVarsPopulated *bool `json:"localSecretVarsPopulated,omitempty"`
-	// RedHatMarketplaceSecretFound is the status of finding the secret in the cluster
-	//TODO: denote as legacy
+	// RedHatMarketplaceSecretFound DEPRECATED: is the status of finding the secret in the cluster
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	RedHatMarketplaceSecretFound *bool `json:"redHatMarketplaceSecretFound,omitempty"`
 	// RazeeJobInstall contains information regarding the install job so it can be removed

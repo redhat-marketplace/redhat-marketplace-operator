@@ -98,6 +98,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForOwner{
+	IsController: true,
+	OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
+	})
+	if err != nil {
+		return err
+	}
+
 	return nil
 
 }
@@ -187,7 +195,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return r.reconcileRhmOperatorSecret(*instance, request)
 	}
 
-	// TODO: is there a way to refactor this so reconcileRhmOperatorSecret() doesn't have to be called twice.
 	if instance.Spec.DeployConfig != nil {
 		if len(instance.Status.MissingDeploySecretValues) > 0 {
 			reqLogger.Info("Missing required razee configuration values")
@@ -210,7 +217,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	/******************************************************************************
-	APPLY OR OVERWRITE RAZEE RESOURCES
+	APPLY OR UPDATE RAZEE RESOURCES
 	/******************************************************************************/
 	razeeNamespace := &corev1.Namespace{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: *instance.Spec.TargetNamespace}, razeeNamespace)
