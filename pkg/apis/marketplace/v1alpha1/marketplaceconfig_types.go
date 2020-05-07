@@ -38,7 +38,6 @@ type MarketplaceConfigStatus struct {
 	Conditions status.Conditions `json:"conditions"`
 }
 
-
 // MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 //

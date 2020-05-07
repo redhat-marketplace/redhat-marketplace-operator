@@ -104,12 +104,12 @@ func GetDataFromRhmSecret(request reconcile.Request, sel corev1.SecretKeySelecto
 	return err, key
 }
 
-func AddSecretFieldsToStruct(razeeData map[string][]byte,instance marketplacev1alpha1.RazeeDeployment) (marketplacev1alpha1.RazeeConfigurationValues, []string, error) {
+func AddSecretFieldsToStruct(razeeData map[string][]byte, instance marketplacev1alpha1.RazeeDeployment) (marketplacev1alpha1.RazeeConfigurationValues, []string, error) {
 	// var razeeStruct *marketplacev1alpha1.RazeeConfigurationValues = &marketplacev1alpha1.RazeeConfigurationValues{}
 	if instance.Spec.DeployConfig == nil {
 		instance.Spec.DeployConfig = &marketplacev1alpha1.RazeeConfigurationValues{}
 	}
-	
+
 	razeeStruct := instance.Spec.DeployConfig
 	keys := []string{}
 	expectedKeys := []string{

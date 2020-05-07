@@ -26,8 +26,8 @@ import (
 	"strings"
 
 	semver "github.com/Masterminds/semver/v3"
-	"github.com/spf13/cobra"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/version"
+	"github.com/spf13/cobra"
 )
 
 var filename string

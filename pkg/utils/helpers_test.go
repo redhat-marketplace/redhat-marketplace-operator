@@ -28,7 +28,7 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 			Namespace: "redhat-marketplace-operator",
 		},
 		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
-			Enabled: true,
+			Enabled:     true,
 			ClusterUUID: "test-uuid",
 			DeployConfig: &marketplacev1alpha1.RazeeConfigurationValues{
 				IbmCosReaderKey: &corev1.SecretKeySelector{
@@ -38,7 +38,7 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 					Key: IBM_COS_READER_KEY_FIELD,
 				},
 				BucketName: TEST_BUCKET_NAME_FIELD,
-				IbmCosURL: TEST_IBM_COS_URL_FIELD,
+				IbmCosURL:  TEST_IBM_COS_URL_FIELD,
 				RazeeDashOrgKey: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: RHM_OPERATOR_SECRET_NAME,
@@ -46,8 +46,8 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 					Key: RAZEE_DASH_ORG_KEY_FIELD,
 				},
 				ChildRSS3FIleName: TEST_CHILD_RRS3_YAML_FIELD,
-				RazeeDashUrl: TEST_RAZEE_DASH_URL_FIELD,
-				FileSourceURL: TEST_FILE_SOURCE_URL_FIELD,
+				RazeeDashUrl:      TEST_RAZEE_DASH_URL_FIELD,
+				FileSourceURL:     TEST_FILE_SOURCE_URL_FIELD,
 			},
 		},
 	}
@@ -101,8 +101,8 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 			Key: RAZEE_DASH_ORG_KEY_FIELD,
 		},
 		ChildRSS3FIleName: "childRRS3-filename",
-		RazeeDashUrl:     "razee-dash-url",
-		FileSourceURL:    "file-source-url",
+		RazeeDashUrl:      "razee-dash-url",
+		FileSourceURL:     "file-source-url",
 	}
 
 	// test that it returns the correct format if all keys are present
@@ -122,7 +122,7 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 	}
 
 	// test that it appends the correct missing value if the secret is missing a field
-	_, missingItems, err = AddSecretFieldsToStruct(secretWithMissingValue.Data,instance)
+	_, missingItems, err = AddSecretFieldsToStruct(secretWithMissingValue.Data, instance)
 
 	if !Contains(missingItems, FILE_SOURCE_URL_FIELD) {
 		t.Errorf("missingItems should be contain missing field %v", FILE_SOURCE_URL_FIELD)
@@ -133,7 +133,7 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 	}
 
 	// test that if a field is missing from the secret that struct value on Spec.DeployConfig doesn't get set to nil/omitted
-	returnedRazeeConfigValues, missingItems, err = AddSecretFieldsToStruct(secretWithMissingValue.Data,instance)
+	returnedRazeeConfigValues, missingItems, err = AddSecretFieldsToStruct(secretWithMissingValue.Data, instance)
 
 	if returnedRazeeConfigValues.FileSourceURL != TEST_FILE_SOURCE_URL_FIELD {
 		t.Errorf("RazeeConfigurationValues.FileSourceURL overwritten")
