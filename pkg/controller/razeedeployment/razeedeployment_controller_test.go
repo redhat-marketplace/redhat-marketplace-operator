@@ -380,7 +380,7 @@ func testOldMigratedInstall(t *testing.T) {
 
 func testNoSecret(t *testing.T) {
 	t.Parallel()
-	reconcilerTest := NewReconcilerTest(setup, &razeeDeployment)
+	reconcilerTest := NewReconcilerTest(setup, &razeeDeployment, &namespObj)
 	reconcilerTest.TestAll(t,
 		[]TestCaseStep{
 			NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{}))...),
