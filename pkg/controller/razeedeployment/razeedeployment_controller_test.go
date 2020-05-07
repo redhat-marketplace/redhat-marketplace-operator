@@ -43,6 +43,7 @@ func TestRazeeDeployController(t *testing.T) {
 	logf.SetLogger(logf.ZapLogger(true))
 
 	viper.Set("assets", "../../../assets")
+	scheme.Scheme.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment.DeepCopy(), &marketplacev1alpha1.RazeeDeploymentList{})
 
 	t.Run("Test Clean Install", testCleanInstall)
 	t.Run("Test No Secret", testNoSecret)
@@ -50,10 +51,8 @@ func TestRazeeDeployController(t *testing.T) {
 }
 
 func setup(r *ReconcilerTest) error {
-	s := scheme.Scheme
-	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment.DeepCopy(), &marketplacev1alpha1.RazeeDeploymentList{})
 	r.SetClient(fake.NewFakeClient(r.GetRuntimeObjects()...))
-	r.SetReconciler(&ReconcileRazeeDeployment{client: r.GetClient(), scheme: s, opts: &RazeeOpts{RazeeJobImage: "test"}})
+	r.SetReconciler(&ReconcileRazeeDeployment{client: r.GetClient(), scheme: scheme.Scheme, opts: &RazeeOpts{RazeeJobImage: "test"}})
 	return nil
 }
 
