@@ -700,8 +700,14 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				instance.Status.Conditions = &jobCondition
 			}
 
+			secretName := "rhm-operator-secret"
+
+			if instance.Spec.DeploySecretName != nil {
+				secretName = *instance.Spec.DeploySecretName
+			}
+
 			instance.Status.RazeeJobInstall = &marketplacev1alpha1.RazeeJobInstallStruct{
-				RazeeNamespace:  *instance.Spec.DeploySecretName,
+				RazeeNamespace:  secretName,
 				RazeeInstallURL: instance.Spec.DeployConfig.FileSourceURL,
 			}
 
@@ -890,15 +896,20 @@ func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(instance marketpla
 		instance.Spec.DeployConfig = &marketplacev1alpha1.RazeeConfigurationValues{}
 	}
 
+	secretName := "rhm-operator-secret"
+
+	if instance.Spec.DeploySecretName != nil {
+		secretName = *instance.Spec.DeploySecretName
+	}
 
 	rhmOperatorSecret := corev1.Secret{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{
-		Name:      *instance.Spec.DeploySecretName,
+		Name:      secretName,
 		Namespace: request.Namespace,
 	}, &rhmOperatorSecret)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			reqLogger.Error(err, "Failed to find operator secret")
+			reqLogger.Info("Failed to find operator secret")
 			return reconcile.Result{RequeueAfter: time.Second * 60}, nil
 		} else {
 			return reconcile.Result{}, err
