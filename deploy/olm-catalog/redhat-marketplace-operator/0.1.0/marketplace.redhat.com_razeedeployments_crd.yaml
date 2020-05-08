@@ -1,0 +1,194 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: razeedeployments.marketplace.redhat.com
+spec:
+  group: marketplace.redhat.com
+  names:
+    kind: RazeeDeployment
+    listKind: RazeeDeploymentList
+    plural: razeedeployments
+    singular: razeedeployment
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: RazeeDeployment is the resources that deploys Razee for the Red
+        Hat Marketplace. This is an internal resource not meant to be modified directly.
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: RazeeDeploymentSpec defines the desired state of RazeeDeployment
+          properties:
+            clusterUUID:
+              description: ClusterUUID is the cluster identifier, used for installing
+                razee.
+              type: string
+            deploySecretName:
+              description: DeploySecretName is the name of our secret where Razee
+                variables are stored.
+              type: string
+            enabled:
+              description: Setting enabled to "true" will create a Razee namespace
+                and deploy it's componenets. Set to "false" to bypass Razee installation
+                Enabled flag stops razee from installing
+              type: boolean
+            targetNamespace:
+              description: TargetNamespace is configurable target of the razee namespace
+                this is to support legancy installs. Please do not edit.
+              type: string
+          required:
+          - clusterUUID
+          - enabled
+          type: object
+        status:
+          description: RazeeDeploymentStatus defines the observed state of RazeeDeployment
+          properties:
+            conditions:
+              description: Conditions represent the latest available observations
+                of an object's stateonfig
+              properties:
+                lastProbeTime:
+                  description: Last time the condition was checked.
+                  format: date-time
+                  type: string
+                lastTransitionTime:
+                  description: Last time the condition transit from one status to
+                    another.
+                  format: date-time
+                  type: string
+                message:
+                  description: Human readable message indicating details about last
+                    transition.
+                  type: string
+                reason:
+                  description: (brief) reason for the condition's last transition.
+                  type: string
+                status:
+                  description: Status of the condition, one of True, False, Unknown.
+                  type: string
+                type:
+                  description: Type of job condition, Complete or Failed.
+                  type: string
+              required:
+              - status
+              - type
+              type: object
+            jobState:
+              description: JobState is the status of the Razee Install Job
+              properties:
+                active:
+                  description: The number of actively running pods.
+                  format: int32
+                  type: integer
+                completionTime:
+                  description: Represents time when the job was completed. It is not
+                    guaranteed to be set in happens-before order across separate operations.
+                    It is represented in RFC3339 form and is in UTC.
+                  format: date-time
+                  type: string
+                conditions:
+                  description: 'The latest available observations of an object''s
+                    current state. More info: https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/'
+                  items:
+                    description: JobCondition describes current state of a job.
+                    properties:
+                      lastProbeTime:
+                        description: Last time the condition was checked.
+                        format: date-time
+                        type: string
+                      lastTransitionTime:
+                        description: Last time the condition transit from one status
+                          to another.
+                        format: date-time
+                        type: string
+                      message:
+                        description: Human readable message indicating details about
+                          last transition.
+                        type: string
+                      reason:
+                        description: (brief) reason for the condition's last transition.
+                        type: string
+                      status:
+                        description: Status of the condition, one of True, False,
+                          Unknown.
+                        type: string
+                      type:
+                        description: Type of job condition, Complete or Failed.
+                        type: string
+                    required:
+                    - status
+                    - type
+                    type: object
+                  type: array
+                failed:
+                  description: The number of pods which reached phase Failed.
+                  format: int32
+                  type: integer
+                startTime:
+                  description: Represents time when the job was acknowledged by the
+                    job controller. It is not guaranteed to be set in happens-before
+                    order across separate operations. It is represented in RFC3339
+                    form and is in UTC.
+                  format: date-time
+                  type: string
+                succeeded:
+                  description: The number of pods which reached phase Succeeded.
+                  format: int32
+                  type: integer
+              type: object
+            localSecretVarsPopulated:
+              description: LocalSecretVarsPopulated informs if the correct local variables
+                are correct set.
+              type: boolean
+            missingValuesFromSecret:
+              description: MissingValuesFromSecret validates the secret provided has
+                all the correct fields
+              items:
+                type: string
+              type: array
+            razee_job_install:
+              description: RazeeJobInstall contains information regarding the install
+                job so it can be removed
+              properties:
+                razee_install_url:
+                  description: RazeeInstallURL is the url used to install the Razee
+                    resources
+                  type: string
+                razee_namespace:
+                  description: RazeeNamespace is the namespace targeted for the Razee
+                    install
+                  type: string
+              required:
+              - razee_install_url
+              - razee_namespace
+              type: object
+            razeePrerequisitesCreated:
+              description: RazeePrerequestesCreated is the list of configmaps and
+                secrets required to be installed
+              items:
+                type: string
+              type: array
+            redHatMarketplaceSecretFound:
+              description: RedHatMarketplaceSecretFound is the status of finding the
+                secret in the cluster
+              type: boolean
+          type: object
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true

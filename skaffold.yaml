@@ -1,18 +1,20 @@
 apiVersion: skaffold/v2beta1
 kind: Config
 build:
-  local:
-    push: false
-  #cluster: {}
+  tagPolicy:
+    envTemplate:
+          template: "{{.IMAGE_NAME}}"
+  cluster: {}
   artifacts:
     - image: redhat-marketplace-operator
       custom:
-        buildCommand: ./scripts/skaffold-build.sh
+        buildCommand: ./scripts/skaffold_build.sh
         dependencies:
           paths:
             - ./cmd
             - ./pkg
             - ./assets
+            - ./deploy/chart
           ignore:
             - vendor/**
     - image: redhat-marketplace-reporter

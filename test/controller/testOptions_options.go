@@ -22,6 +22,7 @@ func newTestOptions(options ...TestCaseOption) (testOptions, error) {
 func applyTestOptionsOptions(c *testOptions, options ...TestCaseOption) error {
 	c.ExpectedResult = reconcile.Result{Requeue: true}
 	c.AfterFunc = Ignore
+	c.Labels = map[string]string{}
 	for _, o := range options {
 		if err := o.apply(c); err != nil {
 			return err
@@ -86,6 +87,13 @@ func WithTestObj(o runtime.Object) ApplyTestCaseOptionFunc {
 func WithAfter(o ReconcilerTestValidationFunc) ApplyTestCaseOptionFunc {
 	return func(c *testOptions) error {
 		c.AfterFunc = o
+		return nil
+	}
+}
+
+func WithLabels(o map[string]string) ApplyTestCaseOptionFunc {
+	return func(c *testOptions) error {
+		c.Labels = o
 		return nil
 	}
 }

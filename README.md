@@ -1,6 +1,6 @@
 # Marketplace Operator
 
-This repo is a temporary home. It will be open-sourced when repo is available.
+Welcome to the [Red Hat Marketplace](https://marketplace.redhat.com) Operator. This repository maintains the code that is deployed to the cluster when you register with the Red Hat Marketplace.
 
 ## Getting started
 
@@ -117,10 +117,6 @@ WIP
 ### Lifecycle
 
 WIP
-
-## IBMers - how to contribute
-
-https://w3.ibm.com/developer/opensource/
 
 ## Extra
 
