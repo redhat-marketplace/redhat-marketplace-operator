@@ -6,8 +6,8 @@
 package report
 
 import (
-	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/managers"
-	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/reporter"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/reporter"
 )
 
 // Injectors from wire.go:

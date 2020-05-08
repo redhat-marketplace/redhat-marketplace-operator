@@ -5,8 +5,8 @@ import (
 
 	"github.com/google/wire"
 	"github.com/spf13/cobra"
-	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/managers"
-	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/reporter"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/reporter"
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )

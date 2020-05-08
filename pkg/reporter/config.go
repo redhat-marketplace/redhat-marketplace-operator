@@ -1,7 +1,7 @@
 package reporter
 
 import (
-	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 	"k8s.io/apimachinery/pkg/types"
 )
 

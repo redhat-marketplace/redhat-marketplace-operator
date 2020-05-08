@@ -21,7 +21,7 @@ import (
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.ibm.com/symposium/redhat-marketplace-operator/cmd/reporter/report"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/cmd/reporter/report"
 )
 
 var (

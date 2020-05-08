@@ -5,7 +5,7 @@ package report
 
 import (
 	"github.com/google/wire"
-	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/reporter"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/reporter"
 )
 
 func initializeMarketplaceReporter(reportName reporter.ReporterName) (*reporter.MarketplaceReporter, error){
