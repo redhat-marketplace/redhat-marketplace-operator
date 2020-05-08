@@ -2,20 +2,24 @@ apiVersion: marketplace.redhat.com/v1alpha1
 kind: MeterDefinition
 metadata:
   name: example-meterdefinition
-  labels:
-    report: "1"
 spec:
   # Add fields here
   meterDomain: apps.partner.metering.com
   meterVersion: v1
   meterKind: App
-  serviceMeterLabels:
-    - "rpc_durations_seconds_count"
-    - "cpu_temperature_celsius"
-  podMeterLabels:
-    - bar
+  serviceMeterQueries:
+    - label: requests
+      query: requests{resource="memory"}
+      type: sum
+  podMeterQueries:
+    - label: kube_pod_container_resource_requests
+      query: kube_pod_container_resource_requests{resource="memory"}
+      type: avg
   serviceMonitorSelector:
     matchLabels:
       app: example-app
       marketplace.redhat.com/metered: "true"
-  serviceMonitorNamespaceSelector: {}
+  podMetricSelector:
+    matchLabels:
+      app: example-app
+      marketplace.redhat.com/metered: "true"

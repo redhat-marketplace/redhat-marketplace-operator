@@ -6,11 +6,13 @@ metadata:
     prometheus: prometheus
 spec:
   replicas: 2
-  serviceAccountName: redhat-marketplace-metering
+  serviceAccountName: redhat-marketplace-operator
   serviceMonitorSelector:
     matchLabels:
       marketplace.redhat.com/metered: "true"
       marketplace.redhat.com/deployed: "true"
+  configmaps:
+  - kubelet-serving-ca-bundle
   storage:
     volumeClaimTemplate:
       spec:

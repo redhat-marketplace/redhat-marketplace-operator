@@ -16,6 +16,11 @@ package meterbase
 
 import (
 	"context"
+	"path/filepath"
+	"reflect"
+	"time"
+
+	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
@@ -27,8 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"path/filepath"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -37,7 +40,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"time"
 )
 
 const (
@@ -222,6 +224,123 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
+	// find specific service monitor for kube-state
+	openshiftKubeStateMonitor := &monitoringv1.ServiceMonitor{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Namespace: "openshift-monitoring",
+		Name:      "kube-state-metrics",
+	}, openshiftKubeStateMonitor)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("can't find openshift kube state")
+	}
+
+	// find specific service monitor for kubelet
+	openshiftKubeletMonitor := &monitoringv1.ServiceMonitor{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Namespace: "openshift-monitoring",
+		Name:      "kubelet",
+	}, openshiftKubeletMonitor)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("can't find openshift kube state")
+	}
+
+	//---
+	// Reconcile Kube State Monitor for the def
+	//---
+
+	meteringKubeStateMonitor := &monitoringv1.ServiceMonitor{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Namespace: instance.Namespace,
+		Name:      "kube-state-metrics",
+	}, meteringKubeStateMonitor)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("can't find openshift kube state")
+	}
+
+	meteringKubeStateMonitorNotFound := errors.IsNotFound(err)
+
+	//---
+	// Reconcile kubelet monitor for the def
+	//---
+
+	meteringKubeletMonitor := &monitoringv1.ServiceMonitor{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Namespace: instance.Namespace,
+		Name:      "kubelet",
+	}, meteringKubeletMonitor)
+
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("can't find openshift kube state")
+	}
+
+	meteringKubeletMonitorNotFound := errors.IsNotFound(err)
+
+	reqLogger.Info("finished kube state monitor check", "isNotFound", meteringKubeStateMonitorNotFound)
+	reqLogger.Info("finished kubelet monitor check", "isNotFound", meteringKubeletMonitorNotFound)
+
+	// Create kube state
+	newKubeState := &monitoringv1.ServiceMonitor{}
+	newKubeState.Name = openshiftKubeletMonitor.Name
+	newKubeState.Namespace = instance.Namespace
+	newKubeState.Name = openshiftKubeStateMonitor.Name
+	newKubeState.Spec = *openshiftKubeStateMonitor.Spec.DeepCopy()
+	newKubeState.Labels = labelsForServiceMonitor(openshiftKubeStateMonitor.Name, openshiftKubeStateMonitor.Namespace)
+	newKubeState.Spec.NamespaceSelector.MatchNames = []string{openshiftKubeStateMonitor.Namespace}
+
+	if meteringKubeStateMonitorNotFound {
+		if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(newKubeState); err != nil {
+			reqLogger.Error(err, "Failed to set annotation")
+			return reconcile.Result{}, err
+		}
+
+		err := r.client.Create(context.TODO(), newKubeState)
+
+		if err != nil {
+			reqLogger.Error(err, "failed to create new kube state service monitor")
+			return reconcile.Result{}, err
+		}
+
+		reqLogger.Info("created the kube state monitor")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	// Create kubelet
+	newKubelet := &monitoringv1.ServiceMonitor{}
+	newKubelet.Name = openshiftKubeletMonitor.Name
+	newKubelet.Namespace = instance.Namespace
+	newKubelet.Spec = *openshiftKubeletMonitor.Spec.DeepCopy()
+	newKubelet.Labels = labelsForServiceMonitor(openshiftKubeletMonitor.Name, openshiftKubeletMonitor.Namespace)
+	newKubelet.Spec.NamespaceSelector.MatchNames = []string{openshiftKubeletMonitor.Namespace}
+
+	if meteringKubeletMonitorNotFound {
+		if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(newKubelet); err != nil {
+			reqLogger.Error(err, "Failed to set annotation")
+			return reconcile.Result{}, err
+		}
+
+		err := r.client.Create(context.TODO(), newKubelet)
+
+		if err != nil {
+			reqLogger.Error(err, "failed to create new kubelet service monitor")
+			return reconcile.Result{}, err
+		}
+
+		reqLogger.Info("created the kubelet monitor")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	// ----
 	// Check if prometheus needs updating
 	// ----
@@ -403,4 +522,14 @@ func labelsForPrometheus(name string) map[string]string {
 // belonging to the given prometheus CR name.
 func labelsForPrometheusOperator(name string) map[string]string {
 	return map[string]string{"prometheus": name}
+}
+
+func labelsForServiceMonitor(name, namespace string) map[string]string {
+	return map[string]string{
+		"marketplace.redhat.com/metered":                  "true",
+		"marketplace.redhat.com/deployed":                 "true",
+		"marketplace.redhat.com/metered.kind":             "ServiceMonitor",
+		"marketplace.redhat.com/serviceMonitor.Name":      name,
+		"marketplace.redhat.com/serviceMonitor.Namespace": namespace,
+	}
 }

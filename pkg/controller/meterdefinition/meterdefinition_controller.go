@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
@@ -223,37 +224,6 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	// find specific service monitor for kube-state
-	openshiftKubeStateMonitor := &monitoringv1.ServiceMonitor{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Namespace: "openshift-monitoring",
-		Name:      "kube-state-metrics",
-	}, openshiftKubeStateMonitor)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return reconcile.Result{}, err
-		}
-		reqLogger.Info("can't find openshift kube state")
-	}
-
-	kubeStateServiceMonitors := &monitoringv1.ServiceMonitorList{}
-	listOpts = []client.ListOption{
-		client.MatchingLabels(map[string]string{
-			"marketplace.redhat.com/metered":                   "true",
-			"marketplace.redhat.com/metered.kind":              "ServiceMonitor",
-			"marketplace.redhat.com/meterDefinition.namespace": instance.Namespace,
-			"marketplace.redhat.com/meterDefinition.name":      instance.Name,
-		}),
-		client.InNamespace(instance.Namespace),
-	}
-	err = r.client.List(context.TODO(), kubeStateServiceMonitors, listOpts...)
-
-	if err != nil {
-		reqLogger.Error(err, "Failed to list service monitors.",
-			"MeterBase.Namespace", instance.Namespace,
-			"MeterBase.Name", instance.Name)
-		return reconcile.Result{}, err
-	}
 
 	//---
 	// Reconcile service monitors
@@ -312,23 +282,6 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	}
 
 	//---
-	// Reconcile Kube State Monitor for the def
-	//---
-
-	var kubeStateMonitor *monitoringv1.ServiceMonitor
-	// if we have more than 1, we'll add the first and delete the rest
-	if len(kubeStateServiceMonitors.Items) >= 1 {
-		for idx, serviceMonitor := range kubeStateServiceMonitors.Items {
-			if idx == 0 {
-				kubeStateMonitor = kubeStateServiceMonitors.Items[0]
-
-			} else {
-				toBeDeletedServiceMonitors = append(toBeDeletedServiceMonitors, serviceMonitor)
-			}
-		}
-	}
-
-	//---
 	// Logging our actions
 	//---
 
@@ -336,9 +289,6 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		"toBeCreated", len(toBeCreatedServiceMonitors),
 		"toBeUpdated", len(toBeUpdatedServiceMonitors),
 		"toBeDeleted", len(toBeDeletedServiceMonitors))
-
-	reqLogger.Info("finished kube state monitor check",
-		"isNil", (kubeStateMonitor == nil))
 
 	//---
 	// Adjust our state
@@ -353,8 +303,6 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	for _, serviceMonitor := range toBeDeletedServiceMonitors {
 		if err := r.client.Delete(context.TODO(), serviceMonitor, client.PropagationPolicy(metav1.DeletePropagationBackground)); client.IgnoreNotFound(err) != nil {
 			log.Error(err, "unable to delete service monitor", "serviceMonitor", serviceMonitor)
-		} else {
-			log.V(0).Info("deleted service monitor failed", "serviceMonitor", serviceMonitor)
 		}
 	}
 
@@ -368,6 +316,11 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		newMonitor.Spec = serviceMonitor.Spec
 		newMonitor.Spec.NamespaceSelector.MatchNames = []string{serviceMonitor.Namespace}
 		configureServiceMonitorFromMeterLabels(instance, newMonitor)
+
+		if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(newMonitor); err != nil {
+			reqLogger.Error(err, "Failed to set annotation")
+			return reconcile.Result{}, err
+		}
 
 		err := r.client.Create(context.TODO(), newMonitor)
 		if err != nil {
@@ -383,12 +336,10 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		instance.Status.ServiceMonitors = append(instance.Status.ServiceMonitors, &newMonitor.ObjectMeta)
 	}
 
-	if kubeStateMonitor == nil {
-		kubeStateMonitor = openshiftKubeStateMonitor.DeepCopy()
-		kubeStateMonitor.ObjectMeta = metav1.ObjectMeta{
-			GenerateName: instance.Name,
-		}
+	if len(toBeCreatedServiceMonitors) > 0 {
+		return reconcile.Result{Requeue: true}, nil
 	}
+
 
 	// update service monitor
 
