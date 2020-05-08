@@ -909,64 +909,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 }
 
-// Used to check whether the secret exists. If exists, then populate razee cr. If not, then return a 60 second requeue.
-func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(instance marketplacev1alpha1.RazeeDeployment, request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "request.Name", request.Name)
-	reqLogger.Info("Beginning of rhm-operator-secret reconcile")
-
-	if instance.Status.LocalSecretVarsPopulated != nil {
-		instance.Status.LocalSecretVarsPopulated = nil
-	}
-
-	if instance.Status.RedHatMarketplaceSecretFound != nil {
-		instance.Status.RedHatMarketplaceSecretFound = nil
-	}
-
-	if instance.Spec.DeployConfig == nil {
-		instance.Spec.DeployConfig = &marketplacev1alpha1.RazeeConfigurationValues{}
-	}
-
-	secretName := "rhm-operator-secret"
-
-	if instance.Spec.DeploySecretName != nil {
-		secretName = *instance.Spec.DeploySecretName
-	}
-
-	rhmOperatorSecret := &corev1.Secret{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{
-		Name:      secretName,
-		Namespace: request.Namespace,
-	}, rhmOperatorSecret)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("Failed to find operator secret")
-			return reconcile.Result{RequeueAfter: time.Second * 60}, nil
-		} else {
-			return reconcile.Result{}, err
-		}
-	}
-
-	if err := controllerutil.SetControllerReference(&instance, rhmOperatorSecret, r.scheme); err != nil {
-		reqLogger.Error(err, "error setting controller ref")
-		return reconcile.Result{}, err
-	}
-
-	razeeConfigurationValues := marketplacev1alpha1.RazeeConfigurationValues{}
-	razeeConfigurationValues, missingItems, err := utils.AddSecretFieldsToStruct(rhmOperatorSecret.Data, instance)
-	instance.Status.MissingDeploySecretValues = missingItems
-	instance.Spec.DeployConfig = &razeeConfigurationValues
-
-	reqLogger.Info("Updating razee instance with missing items and secret values")
-	err = r.client.Update(context.TODO(), &instance)
-	if err != nil {
-		reqLogger.Error(err, "Failed to update Spec.DeploySecretValues")
-		return reconcile.Result{}, err
-	}
-
-	reqLogger.Info("End of rhm-operator-secret reconcile")
-	return reconcile.Result{}, nil
-}
-
 // finalizeRazeeDeployment cleans up resources before the RazeeDeployment CR is deleted
 func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(req *marketplacev1alpha1.RazeeDeployment) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
