@@ -8,6 +8,7 @@ require (
 	github.com/Azure/go-autorest/autorest/adal v0.8.1 // indirect
 	github.com/Masterminds/semver/v3 v3.1.0
 	github.com/Shyp/bump_version v0.0.0-20180222180749-d7594d2951e2
+	github.com/banzaicloud/k8s-objectmatcher v1.3.0
 	github.com/coreos/prometheus-operator v0.38.0
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/go-logr/logr v0.1.0
