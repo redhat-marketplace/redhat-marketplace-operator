@@ -127,7 +127,7 @@ func testCleanInstall(t *testing.T) {
 					WithExpectedResult(reconcile.Result{}),
 				)...,
 			),
-			NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{Requeue: false}))...),
+			//NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{Requeue: true}))...),
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&corev1.ConfigMap{}),
@@ -318,7 +318,6 @@ func testOldMigratedInstall(t *testing.T) {
 					WithNamespace(""),
 					WithExpectedResult(reconcile.Result{}),
 					WithTestObj(&corev1.Namespace{}))...),
-			NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{}))...),
 			NewReconcilerTestCase(
 				append(opts,
 					WithNamespace("razee"),
