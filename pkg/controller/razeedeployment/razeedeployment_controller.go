@@ -99,8 +99,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForOwner{
-	IsController: true,
-	OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
+		IsController: true,
+		OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
 	})
 	if err != nil {
 		return err
@@ -190,31 +190,73 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	/******************************************************************************
 	PROCEED WITH CREATING RAZEE PREREQUISITES?
 	/******************************************************************************/
-	if instance.Spec.DeployConfig == nil {
-		reqLogger.Info("rhm-operator-secret has not been applied")
-		return r.reconcileRhmOperatorSecret(*instance, request)
+	if instance.Status.LocalSecretVarsPopulated != nil {
+		instance.Status.LocalSecretVarsPopulated = nil
 	}
 
-	if instance.Spec.DeployConfig != nil {
-		if len(instance.Status.MissingDeploySecretValues) > 0 {
-			reqLogger.Info("Missing required razee configuration values")
-			return r.reconcileRhmOperatorSecret(*instance, request)
+	if instance.Status.RedHatMarketplaceSecretFound != nil {
+		instance.Status.RedHatMarketplaceSecretFound = nil
+	}
+
+	if instance.Spec.DeployConfig == nil {
+		instance.Spec.DeployConfig = &marketplacev1alpha1.RazeeConfigurationValues{}
+	}
+
+	secretName := "rhm-operator-secret"
+
+	if instance.Spec.DeploySecretName != nil {
+		secretName = *instance.Spec.DeploySecretName
+	}
+
+	rhmOperatorSecret := &corev1.Secret{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Name:      secretName,
+		Namespace: request.Namespace,
+	}, rhmOperatorSecret)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			reqLogger.Info("Failed to find operator secret")
+			return reconcile.Result{RequeueAfter: time.Second * 60}, nil
 		} else {
-			reqLogger.Info("all secret values found")
-
-			//construct the childURL
-			url := fmt.Sprintf("%s/%s/%s/%s", instance.Spec.DeployConfig.IbmCosURL, instance.Spec.DeployConfig.BucketName, instance.Spec.ClusterUUID, instance.Spec.DeployConfig.ChildRSS3FIleName)
-			instance.Spec.ChildUrl = &url
-			err = r.client.Update(context.TODO(), instance)
-			if err != nil {
-				reqLogger.Error(err, "Failed to update ChildUrl")
-				return reconcile.Result{}, err
-			}
-
-			// Update the Spec TargetNamespace
-			reqLogger.Info("All required razee configuration values have been found")
+			return reconcile.Result{}, err
 		}
 	}
+
+	if err := controllerutil.SetControllerReference(instance, rhmOperatorSecret, r.scheme); err != nil {
+		reqLogger.Error(err, "error setting controller ref")
+		return reconcile.Result{}, err
+	}
+
+	razeeConfigurationValues := marketplacev1alpha1.RazeeConfigurationValues{}
+	razeeConfigurationValues, missingItems, err := utils.AddSecretFieldsToStruct(rhmOperatorSecret.Data, *instance)
+	instance.Status.MissingDeploySecretValues = missingItems
+	instance.Spec.DeployConfig = &razeeConfigurationValues
+
+	reqLogger.Info("Updating razee instance with missing items and secret values")
+	err = r.client.Update(context.TODO(), instance)
+	if err != nil {
+		reqLogger.Error(err, "Failed to update Spec.DeploySecretValues")
+		return reconcile.Result{}, err
+	}
+
+	if len(instance.Status.MissingDeploySecretValues) > 0 {
+		reqLogger.Info("Missing required razee configuration values, will wait until the secret is updated")
+		return reconcile.Result{}, nil
+	}
+
+	reqLogger.Info("all secret values found")
+
+	//construct the childURL
+	url := fmt.Sprintf("%s/%s/%s/%s", instance.Spec.DeployConfig.IbmCosURL, instance.Spec.DeployConfig.BucketName, instance.Spec.ClusterUUID, instance.Spec.DeployConfig.ChildRSS3FIleName)
+	instance.Spec.ChildUrl = &url
+	err = r.client.Update(context.TODO(), instance)
+	if err != nil {
+		reqLogger.Error(err, "Failed to update ChildUrl")
+		return reconcile.Result{}, err
+	}
+
+	// Update the Spec TargetNamespace
+	reqLogger.Info("All required razee configuration values have been found")
 
 	/******************************************************************************
 	APPLY OR UPDATE RAZEE RESOURCES
@@ -718,18 +760,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 			reqLogger.Info("Updated JobState")
 		}
-
-		// delete the job after it's successful
-		if foundJob.Status.Succeeded == 1 {
-			reqLogger.Info("Deleting Razee Job")
-			err = r.client.Delete(context.TODO(), &foundJob)
-			if err != nil {
-				reqLogger.Error(err, "Failed to delete job")
-				return reconcile.Result{}, err
-			}
-			reqLogger.Info("Razeedeploy-job deleted")
-		}
-
 	}
 
 	// if the job succeeds apply the parentRRS3 and patch the Infrastructure and Console resources
@@ -902,11 +932,11 @@ func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(instance marketpla
 		secretName = *instance.Spec.DeploySecretName
 	}
 
-	rhmOperatorSecret := corev1.Secret{}
+	rhmOperatorSecret := &corev1.Secret{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{
 		Name:      secretName,
 		Namespace: request.Namespace,
-	}, &rhmOperatorSecret)
+	}, rhmOperatorSecret)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.Info("Failed to find operator secret")
@@ -916,7 +946,8 @@ func (r *ReconcileRazeeDeployment) reconcileRhmOperatorSecret(instance marketpla
 		}
 	}
 
-	if err = controllerutil.SetControllerReference(&instance, &rhmOperatorSecret, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(&instance, rhmOperatorSecret, r.scheme); err != nil {
+		reqLogger.Error(err, "error setting controller ref")
 		return reconcile.Result{}, err
 	}
 
@@ -1090,7 +1121,7 @@ func (r *ReconcileRazeeDeployment) addFinalizer(razee *marketplacev1alpha1.Razee
 func (r *ReconcileRazeeDeployment) makeRazeeClusterMetaData(instance *marketplacev1alpha1.RazeeDeployment) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:     utils.RAZEE_CLUSTER_METADATA_NAME,
+			Name:      utils.RAZEE_CLUSTER_METADATA_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
 			Labels: map[string]string{
 				"razee/cluster-metadata": "true",
@@ -1120,7 +1151,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperLimitPoll(
 ) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:     utils.WATCH_KEEPER_LIMITPOLL_NAME,
+			Name:      utils.WATCH_KEEPER_LIMITPOLL_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
 		},
 	}
@@ -1130,7 +1161,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperLimitPoll(
 func (r *ReconcileRazeeDeployment) makeWatchKeeperConfig(instance *marketplacev1alpha1.RazeeDeployment) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:     utils.WATCH_KEEPER_CONFIG_NAME,
+			Name:      utils.WATCH_KEEPER_CONFIG_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
 		},
 		Data: map[string]string{"RAZEEDASH_URL": instance.Spec.DeployConfig.RazeeDashUrl, "START_DELAY_MAX": "0"},
