@@ -20,9 +20,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -168,6 +170,17 @@ func AddSecretFieldsToStruct(razeeData map[string][]byte, instance marketplacev1
 
 	missingItems := ContainsMultiple(keys, expectedKeys)
 	return *razeeStruct, missingItems, nil
+}
+
+func ApplyAnnotation(resource runtime.Object)error{
+	if err := CreateAnnotator().SetLastAppliedAnnotation(resource); err != nil {
+			return err
+		}
+	return nil
+}
+
+func CreateAnnotator()*patch.Annotator{
+	return patch.NewAnnotator("marketplace.redhat.com/last-applied")
 }
 
 func Equal(a []string, b []string) bool {

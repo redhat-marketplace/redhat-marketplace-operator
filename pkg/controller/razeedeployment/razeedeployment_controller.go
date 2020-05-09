@@ -202,6 +202,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		instance.Spec.DeployConfig = &marketplacev1alpha1.RazeeConfigurationValues{}
 	}
 
+	//TODO: use the constant
 	secretName := "rhm-operator-secret"
 
 	if instance.Spec.DeploySecretName != nil {
@@ -297,7 +298,17 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info("Resource does not exist", "resource: ", utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
 
 			watchKeeperNonNamespace = *r.makeWatchKeeperNonNamespace(instance)
-			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&watchKeeperNonNamespace); err != nil {
+			// rhmAnnotator := utils.CreateAnnotator()
+			// if err := rhmAnnotator.SetLastAppliedAnnotation(&watchKeeperNonNamespace); err != nil {
+			// 	reqLogger.Error(err, "Failed to set annotation")
+			// 	return reconcile.Result{}, err
+			// }
+			// if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&watchKeeperNonNamespace); err != nil {
+			// 	reqLogger.Error(err, "Failed to set annotation")
+			// 	return reconcile.Result{}, err
+			// }
+
+			if err := utils.ApplyAnnotation(&watchKeeperNonNamespace); err != nil {
 				reqLogger.Error(err, "Failed to set annotation")
 				return reconcile.Result{}, err
 			}
@@ -360,7 +371,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info("Resource does not exist", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
 
 			watchKeeperLimitPoll = *r.makeWatchKeeperLimitPoll(instance)
-			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&watchKeeperLimitPoll); err != nil {
+			if err := utils.ApplyAnnotation(&watchKeeperLimitPoll); err != nil {
 				reqLogger.Error(err, "Failed to set annotation")
 				return reconcile.Result{}, err
 			}
@@ -421,7 +432,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info("Resource does not exist", "resource: ", utils.RAZEE_CLUSTER_METADATA_NAME)
 
 			razeeClusterMetaData = *r.makeRazeeClusterMetaData(instance)
-			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&razeeClusterMetaData); err != nil {
+			if err := utils.ApplyAnnotation(&razeeClusterMetaData); err != nil {
 				reqLogger.Error(err, "Failed to set annotation")
 				return reconcile.Result{}, err
 			}
@@ -484,7 +495,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info("Resource does not exist", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
 
 			watchKeeperConfig = *r.makeWatchKeeperConfig(instance)
-			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&watchKeeperConfig); err != nil {
+			if err := utils.ApplyAnnotation(&watchKeeperConfig); err != nil {
 				reqLogger.Error(err, "Failed to set annotation")
 				return reconcile.Result{}, err
 			}
@@ -549,7 +560,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				return reconcile.Result{}, err
 			}
 
-			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&watchKeeperSecret); err != nil {
+			if err := utils.ApplyAnnotation(&watchKeeperSecret); err != nil {
 				reqLogger.Error(err, "Failed to set annotation")
 				return reconcile.Result{}, err
 			}
@@ -619,7 +630,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				return reconcile.Result{}, err
 			}
 
-			if err = patch.DefaultAnnotator.SetLastAppliedAnnotation(&ibmCosReaderKey); err != nil {
+			if err = utils.ApplyAnnotation(&ibmCosReaderKey); err != nil {
 				reqLogger.Error(err, "Failed to set annotation")
 				return reconcile.Result{}, err
 			}
@@ -678,7 +689,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Error(err, "Failed to update status")
 			return reconcile.Result{}, err
 		}
-
 	}
 
 	/******************************************************************************
