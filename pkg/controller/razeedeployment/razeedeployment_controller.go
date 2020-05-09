@@ -298,16 +298,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info("Resource does not exist", "resource: ", utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
 
 			watchKeeperNonNamespace = *r.makeWatchKeeperNonNamespace(instance)
-			// rhmAnnotator := utils.CreateAnnotator()
-			// if err := rhmAnnotator.SetLastAppliedAnnotation(&watchKeeperNonNamespace); err != nil {
-			// 	reqLogger.Error(err, "Failed to set annotation")
-			// 	return reconcile.Result{}, err
-			// }
-			// if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&watchKeeperNonNamespace); err != nil {
-			// 	reqLogger.Error(err, "Failed to set annotation")
-			// 	return reconcile.Result{}, err
-			// }
-
 			if err := utils.ApplyAnnotation(&watchKeeperNonNamespace); err != nil {
 				reqLogger.Error(err, "Failed to set annotation")
 				return reconcile.Result{}, err
@@ -337,7 +327,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 		if !patchResult.IsEmpty() {
 			reqLogger.Info("Change detected on resource", "resource: ", utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
-			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(updatedWatchKeeperNonNameSpace); err != nil {
+			if err := utils.ApplyAnnotation(updatedWatchKeeperNonNameSpace); err != nil {
 				reqLogger.Error(err, "Failed to set annotation")
 				return reconcile.Result{}, err
 			}
@@ -400,7 +390,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 		if !patchResult.IsEmpty() {
 			reqLogger.Info("Updating resource", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
-			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(updatedWatchKeeperLimitPoll); err != nil {
+			if err := utils.ApplyAnnotation(updatedWatchKeeperLimitPoll); err != nil {
 				reqLogger.Error(err, "Failed to set annotation ", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
 				return reconcile.Result{}, err
 			}
@@ -462,7 +452,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 		if !patchResult.IsEmpty() {
 			reqLogger.Info("Change detected on resource", "resource: ", utils.RAZEE_CLUSTER_METADATA_NAME)
-			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&updatedRazeeClusterMetaData); err != nil {
+			if err := utils.ApplyAnnotation(&updatedRazeeClusterMetaData); err != nil {
 				reqLogger.Error(err, "Failed to set annotation")
 				return reconcile.Result{}, err
 			}
@@ -523,7 +513,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 		if !patchResult.IsEmpty() {
 			reqLogger.Info("Change detected on", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
-			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&updatedWatchKeeperConfig); err != nil {
+			if err := utils.ApplyAnnotation(&updatedWatchKeeperConfig); err != nil {
 				reqLogger.Error(err, "Failed to set annotation")
 				return reconcile.Result{}, err
 			}
@@ -592,7 +582,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 		if !patchResult.IsEmpty() {
 			reqLogger.Info("Change detected on resource", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
-			if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(&updatedWatchKeeperSecret); err != nil {
+			if err := utils.ApplyAnnotation(&updatedWatchKeeperSecret); err != nil {
 				reqLogger.Error(err, "Failed to set annotation")
 				return reconcile.Result{}, err
 			}
@@ -664,7 +654,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 		if !patchResult.IsEmpty() {
 			reqLogger.Info("Change detected on resource", "resource: ", utils.COS_READER_KEY_NAME)
-			if err = patch.DefaultAnnotator.SetLastAppliedAnnotation(&updatedibmCosReaderKey); err != nil {
+			if err = utils.ApplyAnnotation(&updatedibmCosReaderKey); err != nil {
 				reqLogger.Info("Failed to set annotation")
 				return reconcile.Result{}, err
 			}
@@ -787,7 +777,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				reqLogger.Info("parent RRS3 does not exist - creating")
 
 				parentRRS3 = r.makeParentRemoteResourceS3(instance)
-				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(parentRRS3); err != nil {
+				if err := utils.ApplyAnnotation(parentRRS3); err != nil {
 					reqLogger.Error(err, "Failed to set annotation")
 				}
 				err = r.client.Create(context.TODO(), parentRRS3)
@@ -824,7 +814,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 				parentRRS3.Object["spec"] = updatedParentRRS3.Object["spec"]
 
-				if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(parentRRS3); err != nil {
+				if err := utils.ApplyAnnotation(parentRRS3); err != nil {
 					reqLogger.Error(err, "Failed to set annotation")
 				}
 				reqLogger.Info("Updating parentRRS3")
