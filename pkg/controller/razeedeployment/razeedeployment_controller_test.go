@@ -24,7 +24,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/controller"
 
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	batch "k8s.io/api/batch/v1"
