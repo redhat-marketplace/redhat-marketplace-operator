@@ -171,13 +171,15 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, nil
 	}
 
+	message := "Meter Base install starting"
 	if instance.Status.MeterBaseConditions.GetCondition(marketplacev1alpha1.ConditionInstalling) == nil {
 		instance.Status.MeterBaseConditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,
 			Reason:  marketplacev1alpha1.ReasonMeterBaseStartInstall,
-			Message: "Meter Base install starting",
+			Message: message,
 		})
+		utils.UpdateConfigConditions(r.client, instance, request.Namespace, message, marketplacev1alpha1.ReasonMeterBaseStartInstall)
 
 		_ = r.client.Status().Update(context.TODO(), instance)
 	}
@@ -211,12 +213,14 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
+	message = "Prometheus install complete"
 	instance.Status.MeterBaseConditions.SetCondition(status.Condition{
 		Type:    marketplacev1alpha1.ConditionInstalling,
 		Status:  corev1.ConditionTrue,
 		Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
-		Message: "Prometheus install complete",
+		Message: message,
 	})
+	utils.UpdateConfigConditions(r.client, instance, request.Namespace, message, marketplacev1alpha1.ReasonMeterBasePrometheusInstall)
 
 	_ = r.client.Status().Update(context.TODO(), instance)
 
@@ -243,12 +247,14 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
+	message = "Prometheus Service install complete"
 	instance.Status.MeterBaseConditions.SetCondition(status.Condition{
 		Type:    marketplacev1alpha1.ConditionInstalling,
 		Status:  corev1.ConditionTrue,
 		Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusServiceInstall,
-		Message: "Prometheus Service install complete",
+		Message: message,
 	})
+	utils.UpdateConfigConditions(r.client, instance, request.Namespace, message, marketplacev1alpha1.ReasonMeterBasePrometheusServiceInstall)
 
 	_ = r.client.Status().Update(context.TODO(), instance)
 
@@ -292,12 +298,14 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		}
 	}
 
+	message = "Meter Base install complete"
 	instance.Status.MeterBaseConditions.SetCondition(status.Condition{
 		Type:    marketplacev1alpha1.ConditionInstalling,
 		Status:  corev1.ConditionTrue,
 		Reason:  marketplacev1alpha1.ReasonMeterBaseFinishInstall,
-		Message: "Meter Base install complete",
+		Message: message,
 	})
+	utils.UpdateConfigConditions(r.client, instance, request.Namespace, message, marketplacev1alpha1.ReasonMeterBaseFinishInstall)
 
 	_ = r.client.Status().Update(context.TODO(), instance)
 

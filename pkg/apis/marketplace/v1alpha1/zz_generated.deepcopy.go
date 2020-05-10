@@ -105,6 +105,20 @@ func (in *MarketplaceConfigStatus) DeepCopyInto(out *MarketplaceConfigStatus) {
 			(*out)[key] = *val.DeepCopy()
 		}
 	}
+	if in.RazeeSubConditions != nil {
+		in, out := &in.RazeeSubConditions, &out.RazeeSubConditions
+		*out = make(status.Conditions, len(*in))
+		for key, val := range *in {
+			(*out)[key] = *val.DeepCopy()
+		}
+	}
+	if in.MeterBaseSubConditions != nil {
+		in, out := &in.MeterBaseSubConditions, &out.MeterBaseSubConditions
+		*out = make(status.Conditions, len(*in))
+		for key, val := range *in {
+			(*out)[key] = *val.DeepCopy()
+		}
+	}
 	return
 }
 

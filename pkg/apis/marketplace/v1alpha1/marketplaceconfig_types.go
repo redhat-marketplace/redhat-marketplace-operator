@@ -35,7 +35,9 @@ type MarketplaceConfigSpec struct {
 type MarketplaceConfigStatus struct {
 	// Conditions represent the latest available observations of an object's stateonfig
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	Conditions status.Conditions `json:"conditions"`
+	Conditions             status.Conditions `json:"conditions"`
+	RazeeSubConditions     status.Conditions `json:"razeeSubConditions"`
+	MeterBaseSubConditions status.Conditions `json:"meterBaseSubConditions"`
 }
 
 // MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers

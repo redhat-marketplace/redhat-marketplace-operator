@@ -22,10 +22,12 @@ import (
 
 	"github.com/gotidy/ptr"
 	"github.com/imdario/mergo"
+	"github.com/operator-framework/operator-sdk/pkg/status"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8yaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -206,4 +208,34 @@ func LoadYAML(filename string, i interface{}) (interface{}, error) {
 	}
 
 	return genericTypeVal, nil
+}
+
+func UpdateConfigConditions(client client.Client, i interface{}, namespace, message string, reason status.ConditionReason) error {
+	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+	err := client.Get(context.TODO(), types.NamespacedName{Namespace: namespace}, marketplaceConfig)
+	if err != nil {
+		return err
+	}
+
+	switch v := i.(type) {
+	case marketplacev1alpha1.RazeeDeployment:
+		marketplaceConfig.Status.RazeeSubConditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionInstalling,
+			Status:  corev1.ConditionTrue,
+			Reason:  reason,
+			Message: message,
+		})
+	case marketplacev1alpha1.MeterBase:
+		marketplaceConfig.Status.MeterBaseSubConditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionInstalling,
+			Status:  corev1.ConditionTrue,
+			Reason:  reason,
+			Message: message,
+		})
+	default:
+		return fmt.Errorf("type not recognized %T", v)
+	}
+
+	err = client.Status().Update(context.TODO(), marketplaceConfig)
+	return err
 }

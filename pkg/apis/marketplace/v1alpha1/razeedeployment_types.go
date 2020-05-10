@@ -152,5 +152,6 @@ const (
 	ReasonCosReaderKeyInstalled             status.ConditionReason = "FinishedCosReaderKeyInstall"
 	ReasonRazeeDeployJobStart               status.ConditionReason = "StartRazeeDeployJob"
 	ReasonRazeeDeployJobFinished            status.ConditionReason = "FinishedRazeeDeployJob"
+	ReasonParentRRS3Installed               status.ConditionReason = "FinishParentRRS3Install"
 	ReasonRazeeInstallFinished              status.ConditionReason = "FinishedRazeeInstall"
 )
