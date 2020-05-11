@@ -817,7 +817,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 					reqLogger.Info("Failed to update resource", "resource: ", utils.PARENT_RRS3)
 					return reconcile.Result{}, err
 				}
-				reqLogger.Info("Updated successfully")
+				reqLogger.Info("Resource updated successfully", "resource: ", utils.PARENT_RRS3)
 			}
 
 			reqLogger.Info("No change detected on resource", "resource: ", updatedParentRRS3.GetName())
@@ -825,7 +825,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 		if !utils.Contains(instance.Status.RazeePrerequisitesCreated, utils.PARENT_RRS3) {
 			instance.Status.RazeePrerequisitesCreated = append(instance.Status.RazeePrerequisitesCreated, utils.PARENT_RRS3)
-			reqLogger.Info("updating Status.RazeePrerequisitesCreated with parent rrs3")
+			reqLogger.Info("updating Status.RazeePrerequisitesCreated with parentRRS3")
 
 			err = r.client.Status().Update(context.TODO(), instance)
 			if err != nil {
