@@ -212,20 +212,20 @@ func LoadYAML(filename string, i interface{}) (interface{}, error) {
 
 func UpdateConfigConditions(client client.Client, i interface{}, namespace, message string, reason status.ConditionReason) error {
 	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-	err := client.Get(context.TODO(), types.NamespacedName{Namespace: namespace}, marketplaceConfig)
+	err := client.Get(context.TODO(), types.NamespacedName{Name: MARKETPLACECONFIG_NAME, Namespace: namespace}, marketplaceConfig)
 	if err != nil {
 		return err
 	}
 
 	switch v := i.(type) {
-	case marketplacev1alpha1.RazeeDeployment:
+	case *marketplacev1alpha1.RazeeDeployment:
 		marketplaceConfig.Status.RazeeSubConditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,
 			Reason:  reason,
 			Message: message,
 		})
-	case marketplacev1alpha1.MeterBase:
+	case *marketplacev1alpha1.MeterBase:
 		marketplaceConfig.Status.MeterBaseSubConditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,
