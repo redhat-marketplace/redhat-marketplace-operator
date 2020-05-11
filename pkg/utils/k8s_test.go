@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,12 +32,11 @@ import (
 )
 
 var (
-	marketplaceConfigName        = "rhm-marketplaceconfig"
-	namespace                    = "redhat-marketplace-operator"
-	customerID            string = "example-userid"
-	testNamespace1               = "testing-namespace-1"
+	namespace             = "redhat-marketplace-operator"
+	customerID     string = "example-userid"
+	testNamespace1        = "testing-namespace-1"
 
-	marketplaceconfig = buildMarketplaceConfigCR(marketplaceConfigName, testNamespace1, customerID)
+	marketplaceconfig = BuildMarketplaceConfigCR(testNamespace1, customerID)
 	razeedeployment   = BuildRazeeCr(testNamespace1, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName)
 	meterbase         = BuildMeterBaseCr(testNamespace1)
 )
@@ -121,7 +119,7 @@ func TestUpdateConfigConditionsRazee(t *testing.T) {
 		t.Errorf("Error updating MarketplaceConfig Conditions %v:", err)
 	}
 
-	err = client.Get(context.TODO(), types.NamespacedName{Name: marketplaceConfigName, Namespace: testNamespace1}, marketplaceconfig)
+	err = client.Get(context.TODO(), types.NamespacedName{Name: MARKETPLACECONFIG_NAME, Namespace: testNamespace1}, marketplaceconfig)
 	if err != nil {
 		t.Errorf("failed to get marketplaceconfig error %v:", err)
 	}
@@ -162,7 +160,7 @@ func TestUpdateConfigConditionsMeterBase(t *testing.T) {
 		t.Errorf("Error updating MarketplaceConfig Conditions %v:", err)
 	}
 
-	err = client.Get(context.TODO(), types.NamespacedName{Name: marketplaceConfigName, Namespace: testNamespace1}, marketplaceconfig)
+	err = client.Get(context.TODO(), types.NamespacedName{Name: MARKETPLACECONFIG_NAME, Namespace: testNamespace1}, marketplaceconfig)
 	if err != nil {
 		t.Errorf("failed to get marketplaceconfig error %v:", err)
 	}
@@ -174,17 +172,5 @@ func TestUpdateConfigConditionsMeterBase(t *testing.T) {
 	}
 	if cond1.Message != cond2.Message {
 		t.Errorf("Error: Message for MeterBaseConditions and MeterBaseSubConditions are not the same")
-	}
-}
-
-func buildMarketplaceConfigCR(name, namespace, customerID string) *marketplacev1alpha1.MarketplaceConfig {
-	return &marketplacev1alpha1.MarketplaceConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: marketplacev1alpha1.MarketplaceConfigSpec{
-			RhmAccountID: customerID,
-		},
 	}
 }
