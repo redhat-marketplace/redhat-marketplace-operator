@@ -768,7 +768,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		err = r.client.Get(context.TODO(), client.ObjectKey{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *instance.Spec.TargetNamespace}, parentRRS3)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				reqLogger.Info("parent RRS3 does not exist - creating")
+				reqLogger.Info("Resource does not exist", "resource: ", utils.PARENT_RRS3)
 
 				parentRRS3 = r.makeParentRemoteResourceS3(instance)
 				if err := utils.ApplyAnnotation(parentRRS3); err != nil {
@@ -776,18 +776,18 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				}
 				err = r.client.Create(context.TODO(), parentRRS3)
 				if err != nil {
-					reqLogger.Error(err, "Failed to create parent RRS3")
+					reqLogger.Info("Failed to create resource", "resource: ", utils.PARENT_RRS3)
 					return reconcile.Result{}, err
 				}
 
-				reqLogger.Info("parent RRS3 created successfully")
+				reqLogger.Info("Resource created successfully", "resource: ", utils.PARENT_RRS3)
 			} else {
-				reqLogger.Error(err, "Failed to get parent RRS3.")
+				reqLogger.Info("Failed to get resource", "resource: ", utils.PARENT_RRS3)
 				return reconcile.Result{}, err
 			}
 		}
 		if err == nil {
-			reqLogger.Info("parent RRS3 already exists")
+			reqLogger.Info("Resource already exists", "resource: ", utils.PARENT_RRS3)
 
 			updatedParentRRS3 := r.makeParentRemoteResourceS3(instance)
 			updatedParentRRS3.SetAnnotations(parentRRS3.GetAnnotations())
@@ -804,23 +804,23 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 
 			if !patchResult.IsEmpty() {
-				reqLogger.Info(fmt.Sprintf("Change detected on %v", updatedParentRRS3.GetName()))
+				reqLogger.Info("Change detected on resource", "resource: ", updatedParentRRS3.GetName())
 
 				parentRRS3.Object["spec"] = updatedParentRRS3.Object["spec"]
 
 				if err := utils.ApplyAnnotation(parentRRS3); err != nil {
 					reqLogger.Error(err, "Failed to set annotation")
 				}
-				reqLogger.Info("Updating parentRRS3")
+				reqLogger.Info("Updating resource", "resource: ", utils.PARENT_RRS3)
 				err = r.client.Update(context.TODO(), parentRRS3)
 				if err != nil {
-					reqLogger.Error(err, "Failed to overwrite parentRRS3")
+					reqLogger.Info("Failed to update resource", "resource: ", utils.PARENT_RRS3)
 					return reconcile.Result{}, err
 				}
 				reqLogger.Info("Updated successfully")
 			}
 
-			reqLogger.Info(fmt.Sprintf("No change detected on %v", updatedParentRRS3.GetName()))
+			reqLogger.Info("No change detected on resource", "resource: ", updatedParentRRS3.GetName())
 		}
 
 		if !utils.Contains(instance.Status.RazeePrerequisitesCreated, utils.PARENT_RRS3) {
