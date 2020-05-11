@@ -372,7 +372,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				return reconcile.Result{}, err
 			}
 
-			reqLogger.Info("Resource created successfullys", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
+			reqLogger.Info("Resource created successfully", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
 			return reconcile.Result{Requeue: true}, nil
 		} else {
 			reqLogger.Error(err, "Failed to get resource", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
@@ -475,7 +475,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err != nil {
 			reqLogger.Error(err, "Failed to update status")
 		}
-
 	}
 
 	watchKeeperConfig := corev1.ConfigMap{}

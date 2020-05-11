@@ -83,7 +83,6 @@ roles:
       - apiGroups:
           - operators.coreos.com
         resources:
-          - operatorsources
           - subscriptions
         verbs:
           - get
