@@ -48,7 +48,6 @@ var (
 	RAZEE_WATCH_KEEPER_LABELS = map[string]string{"razee/watch-resource": "lite"}
 	log                       = logf.Log.WithName("controller_razeedeployment")
 	razeeFlagSet              *pflag.FlagSet
-	//TODO: should this be a var ?
 	RELATED_IMAGE_RAZEE_JOB = "RELATED_IMAGE_RAZEE_JOB"
 )
 
@@ -202,8 +201,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		instance.Spec.DeployConfig = &marketplacev1alpha1.RazeeConfigurationValues{}
 	}
 
-	//TODO: use the constant
-	secretName := "rhm-operator-secret"
+	secretName := utils.RHM_OPERATOR_SECRET_NAME
 
 	if instance.Spec.DeploySecretName != nil {
 		secretName = *instance.Spec.DeploySecretName

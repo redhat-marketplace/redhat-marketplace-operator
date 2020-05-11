@@ -127,7 +127,6 @@ func testCleanInstall(t *testing.T) {
 					WithExpectedResult(reconcile.Result{}),
 				)...,
 			),
-			//NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{Requeue: true}))...),
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&corev1.ConfigMap{}),
