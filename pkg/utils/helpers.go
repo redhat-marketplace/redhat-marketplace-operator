@@ -173,13 +173,13 @@ func AddSecretFieldsToStruct(razeeData map[string][]byte, instance marketplacev1
 }
 
 func ApplyAnnotation(resource runtime.Object)error{
-	if err := CreateAnnotator().SetLastAppliedAnnotation(resource); err != nil {
+	if err := NewRhmAnnotator().SetLastAppliedAnnotation(resource); err != nil {
 			return err
 		}
 	return nil
 }
 
-func CreateAnnotator()*patch.Annotator{
+func NewRhmAnnotator()*patch.Annotator{
 	return patch.NewAnnotator("marketplace.redhat.com/last-applied")
 }
 
