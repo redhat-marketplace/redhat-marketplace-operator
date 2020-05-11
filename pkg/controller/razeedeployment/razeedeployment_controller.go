@@ -688,7 +688,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		job := r.makeRazeeJob(request, instance)
 
 		// Check if the Job exists already
-		// TODO: amending the request, is that desireable ?
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      utils.RAZEE_DEPLOY_JOB_NAME,
@@ -698,11 +697,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 		foundJob := batch.Job{}
 		err = r.client.Get(context.TODO(), req.NamespacedName, &foundJob)
-		//TODO: change this to below ?
-		/*
-			if err != nil {
-			if errors.IsNotFound(err) {
-		*/
+
 		if err != nil && errors.IsNotFound(err) {
 			reqLogger.Info("Creating razzeedeploy-job")
 			err = r.client.Create(context.TODO(), job)
