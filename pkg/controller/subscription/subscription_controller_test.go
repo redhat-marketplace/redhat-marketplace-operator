@@ -1,3 +1,17 @@
+// Copyright 2020 IBM Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package subscription
 
 import (
@@ -28,8 +42,11 @@ func TestSubscriptionController(t *testing.T) {
 	defaultFeatures := []string{"razee", "meterbase"}
 	viper.Set("assets", "../../../assets")
 	viper.Set("features", defaultFeatures)
+	_ = opsrcApi.AddToScheme(scheme.Scheme)
+	_ = olmv1alpha1.AddToScheme(scheme.Scheme)
+	_ = olmv1.AddToScheme(scheme.Scheme)
 
-	t.Run("Test Nub Subscription", testNewSubscription)
+	t.Run("Test New Subscription", testNewSubscription)
 	t.Run("Test New Sub with Existing OG", testNewSubscriptionWithOperatorGroup)
 	t.Run("Test Sub with OG Added", testDeleteOperatorGroupIfTooMany)
 }
@@ -44,7 +61,6 @@ var (
 			Namespace: namespace,
 		},
 	}
-
 	opts = []TestCaseOption{
 		WithRequest(req),
 		WithNamespace(namespace),
@@ -78,13 +94,8 @@ var (
 )
 
 func setup(r *ReconcilerTest) error {
-	s := scheme.Scheme
-	_ = opsrcApi.AddToScheme(s)
-	_ = olmv1alpha1.AddToScheme(s)
-	_ = olmv1.AddToScheme(s)
-
 	r.Client = fake.NewFakeClient(r.GetRuntimeObjects()...)
-	r.Reconciler = &ReconcileSubscription{client: r.Client, scheme: s}
+	r.Reconciler = &ReconcileSubscription{client: r.Client, scheme: scheme.Scheme}
 	return nil
 }
 

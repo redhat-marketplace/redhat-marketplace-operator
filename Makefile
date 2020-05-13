@@ -1,5 +1,5 @@
 SHELL:=/bin/bash
-NAMESPACE ?= redhat-marketplace-operator
+NAMESPACE ?= openshift-redhat-marketplace
 OPSRC_NAMESPACE = marketplace-operator
 OPERATOR_SOURCE = redhat-marketplace-operators
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
@@ -35,6 +35,7 @@ uninstall: ## Uninstall all that all performed in the $ make install
 
 .PHONY: build
 build: ## Build the operator executable
+	make helm
 	DOCKER_EXEC=$(DOCKER_EXEC) VERSION=$(VERSION) PUSH_IMAGE=false IMAGE=$(OPERATOR_IMAGE) ./scripts/skaffold_build.sh
 
 .PHONY: push
@@ -53,6 +54,9 @@ generate-csv: ## Generate the csv
 	@go run github.com/mikefarah/yq/v3 w -i $(CSV_FILE) 'metadata.annotations.createdAt' $(CREATED_TIME)
 	@go run github.com/mikefarah/yq/v3 d -i $(CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
 	@go run github.com/mikefarah/yq/v3 w -i $(CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
+
+docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
+	@docker login -u="$(DOCKER_USER)" -p="$(DOCKER_PASSWORD)" quay.io
 
 ##@ Development
 
@@ -150,6 +154,8 @@ delete-razee: ##delete the razee CR
 
 .PHONY: test
 test: ## Run go tests
+	@echo ... Check licenses - run 'make add-licenses' if this errors
+	make check-licenses
 	@echo ... Run tests
 	go test ./...
 
@@ -178,6 +184,12 @@ test-e2e: ## Run integration e2e tests with different options.
 
 deploy-test-prometheus:
 	. ./scripts/deploy_test_prometheus.sh
+
+check-licenses: # Check if all files have licenses
+	go run github.com/google/addlicense -check -c "IBM Corp." **/*.go
+
+add-licenses: # Add licenses to the go file
+	go run github.com/google/addlicense -c "IBM Corp." **/*.go
 
 
 ##@ Publishing
