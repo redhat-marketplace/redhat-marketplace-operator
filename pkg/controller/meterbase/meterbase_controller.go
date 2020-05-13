@@ -20,8 +20,11 @@ import (
 	"reflect"
 	"time"
 
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/operator-framework/api/pkg/operators"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/spf13/pflag"
@@ -148,21 +151,25 @@ type ReconcileMeterBase struct {
 func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterBase")
+	cc := NewClientCommand(r.client, r.scheme, reqLogger)
 
 	// Fetch the MeterBase instance
 	instance := &marketplacev1alpha1.MeterBase{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			reqLogger.Info("MeterBase resource not found. Ignoring since object must be deleted.")
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
+	result, reconcileResult, err := cc.Execute([]ClientAction{
+		GetAction{
+			NamespacedName: request.NamespacedName,
+			Object:         instance,
+		},
+	})
+
+	if result == Error {
 		reqLogger.Error(err, "Failed to get MeterBase.")
-		return reconcile.Result{}, err
+		return reconcileResult, err
+	}
+
+	if result == NotFound {
+		reqLogger.Info("MeterBase resource not found. Ignoring since object must be deleted.")
+		return reconcile.Result{}, nil
 	}
 
 	// if instance.Enabled == false
@@ -173,32 +180,31 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	prometheus := &monitoringv1.Prometheus{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, prometheus)
-	if err != nil && errors.IsNotFound(err) {
-		// Define a new statefulset
-		dep, err := r.newPrometheusOperator(instance, r.opts)
+	result, reconcileResult, err = cc.Execute([]ClientAction{
+		GetAction{
+			NamespacedName: types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace},
+			Object:         prometheus,
+		},
+		FilterAction{
+			Options: []FilterActionOption{
+				FilterByActionResult(func(result ActionResult) bool {
+					return result == NotFound
+				}),
+			},
+			Action: CreateAction{
+				NewObject: func() (runtime.Object, error) {
+					return r.newPrometheusOperator(instance, r.opts)
+				},
+				Options: []CreateActionOption{
+					CreateWithAddOwner(instance),
+					CreateWithPatch(true),
+				},
+			},
+		},
+	})
 
-		if err != nil {
-			reqLogger.Error(err, "Failed to create new Prometheus.")
-			return reconcile.Result{}, err
-		}
-
-		reqLogger.Info("Creating a new Prometheus.", "Prometheus.Namespace", dep.Namespace, "Prometheus.Name", dep.Name)
-		err = r.client.Create(context.TODO(), dep)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create new Prometheus.", "Statefulset.Namespace", dep.Namespace, "Prometheus.Name", dep.Name)
-			return reconcile.Result{}, err
-		}
-
-		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get Prometheus.")
-		return reconcile.Result{}, err
-	}
-
-	// Set MeterBase instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, prometheus, r.scheme); err != nil {
-		return reconcile.Result{}, err
+	if result == Requeue {
+		return reconcileResult, err
 	}
 
 	service := &corev1.Service{}
@@ -510,6 +516,26 @@ func (r *ReconcileMeterBase) newPrometheus(filename string, cr *marketplacev1alp
 	prom.Name = cr.Name
 
 	return prom, nil
+}
+
+func (r *ReconcileMeterBase) newPrometheusSubscription(
+	instance *marketplacev1alpha1.MeterBase,
+	labels map[string]string,
+) *operators.Subscription {
+	return &operators.Subscription{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "prometheus",
+			Namespace: instance.Namespace,
+			Labels:    labels,
+		},
+		Spec: &operators.SubscriptionSpec{
+			Channel:                "beta",
+			InstallPlanApproval:    "Automatic",
+			Package:                "prometheus",
+			CatalogSource:          "community-operators",
+			CatalogSourceNamespace: "openshift-marketplace",
+		},
+	}
 }
 
 // labelsForPrometheus returns the labels for selecting the resources

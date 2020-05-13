@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	cloud.google.com/go v0.53.0 // indirect
+	emperror.dev/errors v0.7.0
 	github.com/Azure/go-autorest/autorest v0.9.3 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.8.1 // indirect
 	github.com/Masterminds/semver/v3 v3.1.0

@@ -42,11 +42,6 @@ spec:
             meterVersion:
               description: MeterVersion defines the primary CRD version of the meter
               type: string
-            podMeterLabels:
-              description: PodLabels of the prometheus metrics you want to track.
-              items:
-                type: string
-              type: array
             podMonitorNamespaceSelector:
               description: PodNamespaceSelector to select namespaces for pods for
                 metering
@@ -134,11 +129,6 @@ spec:
                     are ANDed.
                   type: object
               type: object
-            serviceMeterLabels:
-              description: ServiceLabels of the meterics you want to track.
-              items:
-                type: string
-              type: array
             serviceMonitorNamespaceSelector:
               description: Namespaces to be selected for ServiceMonitor discovery.
                 If nil, only check own namespace.
@@ -226,6 +216,11 @@ spec:
                     are ANDed.
                   type: object
               type: object
+            useOperatorGroup:
+              description: OperatorGroup if the meter definition includes use operator
+                group, we will find the operator group associated to the product and
+                use it for determining namespace lookups
+              type: boolean
           required:
           - meterDomain
           - meterKind
@@ -282,8 +277,8 @@ spec:
                 type: string
               type: array
             pods:
-              description: Pods is the list of current pod mointors being watched
-                for this meter definition
+              description: Pods is the list of current pods being watched for this
+                meter definition
               items:
                 type: object
               type: array

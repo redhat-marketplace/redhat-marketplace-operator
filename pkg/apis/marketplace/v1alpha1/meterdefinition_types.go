@@ -34,11 +34,11 @@ type MeterDefinitionSpec struct {
 	// MeterKind defines the primary CRD kind of the meter
 	MeterKind string `json:"meterKind"`
 
-	// ServiceLabels of the meterics you want to track.
-	ServiceMeterLabels []string `json:"serviceMeterLabels,omitempty"`
-
-	// PodLabels of the prometheus metrics you want to track.
-	PodMeterLabels []string `json:"podMeterLabels,omitempty"`
+	// OperatorGroup if the meter definition includes
+	// use operator group, we will find the operator group
+	// associated to the product and use it for determining
+	// namespace lookups
+	UseOperatorGroup bool `json:"useOperatorGroup,omitempty"`
 
 	// ServiceMonitors to be selected for target discovery.
 	ServiceMonitorSelector *metav1.LabelSelector `json:"serviceMonitorSelector,omitempty"`
@@ -52,6 +52,21 @@ type MeterDefinitionSpec struct {
 
 	// PodNamespaceSelector to select namespaces for pods for metering
 	PodNamespaceSelector *metav1.LabelSelector `json:"podMonitorNamespaceSelector,omitempty"`
+}
+
+// MeterLabelQuery helps define a meter label to build and search for
+type MeterLabelQuery struct {
+	// Label is the name of the meter
+	Label string `json:"label"`
+
+	// Query to use for the label
+	// +kubebuilder:default={}
+	Query string `json:"query,omitempty"`
+
+	// Aggregation to use with the query
+	// +kubebuilder:default=sum
+	// +kubebuilder:validation:Enum:=sum;min;max;avg;count
+	Aggregation string `json:"aggregation"`
 }
 
 // MeterDefinitionStatus defines the observed state of MeterDefinition
@@ -75,7 +90,7 @@ type MeterDefinitionStatus struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	ServiceMonitors []*metav1.ObjectMeta `json:"serviceMonitors"`
 
-	// Pods is the list of current pod mointors being watched for
+	// Pods is the list of current pods being watched for
 	// this meter definition
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Pods []*metav1.ObjectMeta `json:"pods"`
