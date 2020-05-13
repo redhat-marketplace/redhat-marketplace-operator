@@ -9,14 +9,11 @@ require (
 	github.com/Masterminds/semver/v3 v3.1.0
 	github.com/Shyp/bump_version v0.0.0-20180222180749-d7594d2951e2
 	github.com/banzaicloud/k8s-objectmatcher v1.3.0
-	github.com/code-ready/crc v0.0.0-20200430050718-9d5f3259f30b // indirect
+	github.com/code-ready/crc v0.0.0-20200430050718-9d5f3259f30b
 	github.com/coreos/prometheus-operator v0.38.0
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/go-logr/logr v0.1.0
 	github.com/golang/protobuf v1.4.0 // indirect
-	github.com/google/addlicense v0.0.0-20200422172452-68a83edd47bc // indirect
-	github.com/google/go-licenses v0.0.0-20200227160636-0fa8c766a591 // indirect
-	github.com/google/licenseclassifier v0.0.0-20200402202327-879cb1424de0 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
 	github.com/gotidy/ptr v1.0.1
@@ -28,7 +25,6 @@ require (
 	github.com/operator-framework/api v0.1.1
 	github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b
 	github.com/operator-framework/operator-sdk v0.16.1-0.20200401233323-bca8959696d5
-	github.com/otiai10/copy v1.1.1 // indirect
 	github.com/prometheus/client_golang v1.5.1
 	github.com/prometheus/common v0.9.1
 	github.com/sergi/go-diff v1.1.0 // indirect
