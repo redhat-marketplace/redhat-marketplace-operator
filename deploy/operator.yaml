@@ -42,4 +42,4 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: RELATED_IMAGE_RAZEE_JOB
-              value: quay.io/razee/razeedeploy-delta:1.1.0
+              value: quay.io/razee/razeedeploy-delta:1.1.3

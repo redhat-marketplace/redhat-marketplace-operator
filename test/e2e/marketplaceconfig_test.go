@@ -92,8 +92,7 @@ func MarketplaceOperatorCluster(t *testing.T) {
 	f := framework.Global
 	// wait for redhat-marketplace-operator to be ready
 	err = e2eutil.WaitForOperatorDeployment(t, f.KubeClient, namespace, "redhat-marketplace-operator", 1, retryInterval, timeout)
-<<<<<<< HEAD
-=======
+
 	if err != nil {
 		t.Fatal(err)
 	}

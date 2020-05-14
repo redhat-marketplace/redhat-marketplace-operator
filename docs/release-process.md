@@ -24,8 +24,6 @@ Hotfixes are started off of master. Bugfixes off of stable.
 
 ### Release
 
-### Release
-
 ### Hotfix
 
 ## Manual Releases

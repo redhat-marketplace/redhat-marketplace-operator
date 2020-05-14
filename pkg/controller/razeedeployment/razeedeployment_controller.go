@@ -37,9 +37,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -98,10 +100,50 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
-	})
+	// This mapFn will queue the default named razeedeployment
+	mapFn := handler.ToRequestsFunc(
+		func(a handler.MapObject) []reconcile.Request {
+			return []reconcile.Request{
+				{NamespacedName: types.NamespacedName{
+					Name:      utils.RAZEE_NAME,
+					Namespace: a.Meta.GetNamespace(),
+				}},
+			}
+		})
+
+	// Find secret
+	p := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			label, _ := utils.GetMapKeyValue(utils.LABEL_RHM_OPERATOR_WATCH)
+			// The object doesn't contain label "foo", so the event will be
+			// ignored.
+			if _, ok := e.MetaOld.GetLabels()[label]; !ok {
+				return false
+			}
+
+			return e.ObjectOld != e.ObjectNew
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			label, _ := utils.GetMapKeyValue(utils.LABEL_RHM_OPERATOR_WATCH)
+
+			if e.Meta.GetName() == utils.RHM_OPERATOR_SECRET_NAME {
+				return true
+			}
+
+			if _, ok := e.Meta.GetLabels()[label]; !ok {
+				return false
+			}
+
+			return true
+		},
+	}
+
+	err = c.Watch(
+		&source.Kind{Type: &corev1.Secret{}},
+		&handler.EnqueueRequestsFromMapFunc{
+			ToRequests: mapFn,
+		},
+		p)
 	if err != nil {
 		return err
 	}
@@ -202,7 +244,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		instance.Spec.DeployConfig = &marketplacev1alpha1.RazeeConfigurationValues{}
 	}
 
-	secretName := "rhm-operator-secret"
+	secretName := utils.RHM_OPERATOR_SECRET_NAME
 
 	if instance.Spec.DeploySecretName != nil {
 		secretName = *instance.Spec.DeploySecretName
@@ -222,9 +264,14 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 	}
 
-	if err := controllerutil.SetControllerReference(instance, rhmOperatorSecret, r.scheme); err != nil {
-		reqLogger.Error(err, "error setting controller ref")
-		return reconcile.Result{}, err
+	if utils.HasMapKey(rhmOperatorSecret.ObjectMeta.Labels, utils.LABEL_RHM_OPERATOR_WATCH){
+		utils.SetMapKeyValue(rhmOperatorSecret.ObjectMeta.Labels, utils.LABEL_RHM_OPERATOR_WATCH)
+
+		err := r.client.Update(context.TODO(), rhmOperatorSecret)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update Spec.DeploySecretValues")
+			return reconcile.Result{}, err
+		}
 	}
 
 	razeeConfigurationValues := marketplacev1alpha1.RazeeConfigurationValues{}
@@ -684,86 +731,77 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	/******************************************************************************
 	CREATE THE RAZEE JOB
 	/******************************************************************************/
-	if instance.Status.JobState.Succeeded != 1 {
-		reqLogger.Info("Job has not run successfully yet")
-		job := r.makeRazeeJob(request, instance)
+	job := r.makeRazeeJob(request, instance)
 
-		// Check if the Job exists already
-		// TODO: amending the request, is that desireable ?
-		req := reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      utils.RAZEE_DEPLOY_JOB_NAME,
-				Namespace: request.Namespace,
-			},
-		}
+	// Check if the Job exists already
+	// TODO: amending the request, is that desireable ?
+	req := reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      utils.RAZEE_DEPLOY_JOB_NAME,
+			Namespace: request.Namespace,
+		},
+	}
 
-		foundJob := batch.Job{}
-		err = r.client.Get(context.TODO(), req.NamespacedName, &foundJob)
-		//TODO: change this to below ?
-		/*
-			if err != nil {
-			if errors.IsNotFound(err) {
-		*/
-		if err != nil && errors.IsNotFound(err) {
-			reqLogger.Info("Creating razzeedeploy-job")
-			err = r.client.Create(context.TODO(), job)
-			if err != nil {
-				reqLogger.Error(err, "Failed to create Job on cluster")
-				return reconcile.Result{}, err
-			}
-			reqLogger.Info("job created successfully")
-			// requeue to grab the "foundJob" and continue to update status
-			// wait 30 seconds so the job has time to complete
-			// not entirely necessary, but the struct on Status.Conditions needs the Conditions in the job to be populated.
-			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
-			// return reconcile.Result{Requeue: true}, nil
-			// return reconcile.Result{}, nil
-		} else if err != nil {
-			reqLogger.Error(err, "Failed to get Job(s) from Cluster")
+	reqLogger.Info("Finding job", "name", req.NamespacedName)
+	foundJob := &batch.Job{}
+	err = r.client.Get(context.TODO(), req.NamespacedName, foundJob)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating razzeedeploy-job")
+		err = r.client.Create(context.TODO(), job)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create Job on cluster")
 			return reconcile.Result{}, err
 		}
+		reqLogger.Info("job created successfully")
+		// requeue to grab the "foundJob" and continue to update status
+		// wait 30 seconds so the job has time to complete
+		// not entirely necessary, but the struct on Status.Conditions needs the Conditions in the job to be populated.
+		return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+		// return reconcile.Result{Requeue: true}, nil
+		// return reconcile.Result{}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get Job(s) from Cluster")
+		return reconcile.Result{}, err
+	}
 
-		if len(foundJob.Status.Conditions) == 0 {
-			reqLogger.Info("RazeeJob Conditions have not been propagated yet")
-			return reconcile.Result{RequeueAfter: time.Second * 30}, nil
-		}
+	if err := controllerutil.SetControllerReference(instance, foundJob, r.scheme); err != nil {
+		reqLogger.Error(err, "Failed to set controller reference")
+		return reconcile.Result{}, err
+	}
 
-		if err := controllerutil.SetControllerReference(instance, &foundJob, r.scheme); err != nil {
-			reqLogger.Error(err, "Failed to set controller reference")
+	if &job.Spec != foundJob.Spec.DeepCopy() {
+		reqLogger.Info("Updating job with new values")
+		foundJob.Spec = job.Spec
+		err := r.client.Delete(context.TODO(), foundJob, client.PropagationPolicy(metav1.DeletePropagationBackground))
+		if err != nil {
+			reqLogger.Error(err, "Failed to update Job(s) from Cluster")
 			return reconcile.Result{}, err
 		}
+		return reconcile.Result{Requeue: true}, nil
+	}
 
-		// if the conditions have populated then update status
-		if len(foundJob.Status.Conditions) != 0 {
-			reqLogger.Info("RazeeJob Conditions have been propagated")
-			// Update status and conditions
-			instance.Status.JobState = foundJob.Status
-			for _, jobCondition := range foundJob.Status.Conditions {
-				instance.Status.Conditions = &jobCondition
-			}
+	// Update status and conditions
+	instance.Status.JobState = foundJob.Status
 
-			secretName := "rhm-operator-secret"
+	instance.Status.RazeeJobInstall = &marketplacev1alpha1.RazeeJobInstallStruct{
+		RazeeNamespace:  secretName,
+		RazeeInstallURL: instance.Spec.DeployConfig.FileSourceURL,
+	}
 
-			if instance.Spec.DeploySecretName != nil {
-				secretName = *instance.Spec.DeploySecretName
-			}
+	err = r.client.Status().Update(context.TODO(), instance)
+	if err != nil {
+		reqLogger.Error(err, "Failed to update JobState")
+		return reconcile.Result{}, err
+	}
+	reqLogger.Info("Updated JobState")
 
-			instance.Status.RazeeJobInstall = &marketplacev1alpha1.RazeeJobInstallStruct{
-				RazeeNamespace:  secretName,
-				RazeeInstallURL: instance.Spec.DeployConfig.FileSourceURL,
-			}
-
-			err = r.client.Update(context.TODO(), instance)
-			if err != nil {
-				reqLogger.Error(err, "Failed to update JobState")
-				return reconcile.Result{}, err
-			}
-			reqLogger.Info("Updated JobState")
-		}
+	if foundJob.Status.Succeeded != 1 {
+		reqLogger.Info("waiting for job to finish")
+		return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 	}
 
 	// if the job succeeds apply the parentRRS3 and patch the Infrastructure and Console resources
-	if instance.Status.JobState.Succeeded == 1 {
+	if foundJob.Status.Succeeded == 1 {
 		parentRRS3 := &unstructured.Unstructured{}
 		parentRRS3.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   "deploy.razee.io",
@@ -1363,6 +1401,21 @@ func (r *ReconcileRazeeDeployment) partialUninstall(
 	reqLogger := log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 	reqLogger.Info("Starting partial uninstall of razee")
 
+	foundJob := batch.Job{}
+	reqLogger.Info("finding uninstall job")
+	jobName := types.NamespacedName{
+		Name:      "razeedeploy-job",
+		Namespace: req.Namespace,
+	}
+	err := r.client.Get(context.TODO(), jobName, &foundJob)
+	if err == nil || errors.IsNotFound(err) {
+		reqLogger.Info("cleaning up install job")
+		err = r.client.Delete(context.TODO(), &foundJob, client.PropagationPolicy(metav1.DeletePropagationBackground))
+		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "cleaning up install job failed")
+		}
+	}
+
 	reqLogger.Info("Deleting rr")
 	rrUpdate := &unstructured.Unstructured{}
 	rrUpdate.SetGroupVersionKind(schema.GroupVersionKind{
@@ -1371,7 +1424,7 @@ func (r *ReconcileRazeeDeployment) partialUninstall(
 		Version: "v1alpha2",
 	})
 
-	err := r.client.Get(context.Background(), types.NamespacedName{
+	err = r.client.Get(context.Background(), types.NamespacedName{
 		Name:      "razeedeploy-auto-update",
 		Namespace: *req.Spec.TargetNamespace,
 	}, rrUpdate)

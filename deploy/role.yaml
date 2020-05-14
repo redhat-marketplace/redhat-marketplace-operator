@@ -77,7 +77,6 @@ rules:
 - apiGroups:
   - operators.coreos.com
   resources:
-  - operatorsources
   - subscriptions
   verbs:
   - get
@@ -85,12 +84,21 @@ rules:
   - watch
 - apiGroups:
   - operators.coreos.com
+  resources:
+  - operatorsources
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+- apiGroups:
+  - operators.coreos.com
   resourceNames:
   - redhat-marketplace
   resources:
   - operatorsources
   verbs:
-  - create
+  - get
   - delete
   - patch
   - update

@@ -23,6 +23,7 @@ PULL_POLICY ?= IfNotPresent
 install: ## Install all resources (CR/CRD's, RBAC and Operator)
 	@echo ....... Creating namespace .......
 	- kubectl create namespace ${NAMESPACE}
+	make helm
 	make create
 	make deploys
 	make apply
@@ -35,7 +36,6 @@ uninstall: ## Uninstall all that all performed in the $ make install
 
 .PHONY: build
 build: ## Build the operator executable
-	make helm
 	DOCKER_EXEC=$(DOCKER_EXEC) VERSION=$(VERSION) PUSH_IMAGE=false IMAGE=$(OPERATOR_IMAGE) ./scripts/skaffold_build.sh
 
 .PHONY: push
@@ -61,11 +61,13 @@ docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
 ##@ Development
 
 skaffold-dev: ## Run skaffold dev. Will unique tag the operator and rebuild.
+	make helm
 	make create
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=redhat-marketplace-operator --set pullPolicy=IfNotPresent
 	DOCKER_EXEC=$(DOCKER_EXEC) skaffold dev --tail --default-repo $(IMAGE_REGISTRY)
 
 skaffold-run: ## Run skaffold run. Will uniquely tag the operator.
+	make helm
 	make create
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=redhat-marketplace-operator --set pullPolicy=IfNotPresent
 	DOCKER_EXEC=$(DOCKER_EXEC) skaffold run --tail --default-repo $(IMAGE_REGISTRY) --cleanup=false
@@ -154,8 +156,6 @@ delete-razee: ##delete the razee CR
 
 .PHONY: test
 test: ## Run go tests
-	@echo ... Check licenses - run 'make add-licenses' if this errors
-	make check-licenses
 	@echo ... Run tests
 	go test ./...
 
@@ -221,8 +221,8 @@ publish-image: ## Publish image
 
 .PHONY: release
 release: ## Publish release
-	make bundle
-	#go run github.com/tcnksm/ghr $(VERSION) ./bundle/
+	#make bundle
+	go run github.com/tcnksm/ghr $(VERSION) ./bundle/
 
 ##@ Help
 
