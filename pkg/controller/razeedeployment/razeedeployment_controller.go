@@ -264,7 +264,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 	}
 
-	if utils.HasMapKey(rhmOperatorSecret.ObjectMeta.Labels, utils.LABEL_RHM_OPERATOR_WATCH){
+	if utils.HasMapKey(rhmOperatorSecret.ObjectMeta.Labels, utils.LABEL_RHM_OPERATOR_WATCH) {
 		utils.SetMapKeyValue(rhmOperatorSecret.ObjectMeta.Labels, utils.LABEL_RHM_OPERATOR_WATCH)
 
 		err := r.client.Update(context.TODO(), rhmOperatorSecret)
@@ -731,22 +731,16 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	/******************************************************************************
 	CREATE THE RAZEE JOB
 	/******************************************************************************/
-	job := r.makeRazeeJob(request, instance)
 
-	// Check if the Job exists already
-	// TODO: amending the request, is that desireable ?
-	req := reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Name:      utils.RAZEE_DEPLOY_JOB_NAME,
-			Namespace: request.Namespace,
-		},
-	}
-
-	reqLogger.Info("Finding job", "name", req.NamespacedName)
 	foundJob := &batch.Job{}
-	err = r.client.Get(context.TODO(), req.NamespacedName, foundJob)
-	if err != nil && errors.IsNotFound(err) {
+	reqLogger.Info("Finding job")
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Name:      utils.RAZEE_DEPLOY_JOB_NAME,
+		Namespace: request.Namespace,
+	}, foundJob)
+	if errors.IsNotFound(err) {
 		reqLogger.Info("Creating razzeedeploy-job")
+		job := r.makeRazeeJob(request, instance)
 		err = r.client.Create(context.TODO(), job)
 		if err != nil {
 			reqLogger.Error(err, "Failed to create Job on cluster")
@@ -769,7 +763,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	if &job.Spec != foundJob.Spec.DeepCopy() {
+	job := r.makeRazeeJob(request, instance)
+	if job.Spec.Template.Spec.Containers[0].Image != foundJob.Spec.Template.Spec.Containers[0].Image ||
+		! utils.Equal(job.Spec.Template.Spec.Containers[0].Args, foundJob.Spec.Template.Spec.Containers[0].Args) ||
+		! utils.Equal(job.Spec.Template.Spec.Containers[0].Command, foundJob.Spec.Template.Spec.Containers[0].Command) {
 		reqLogger.Info("Updating job with new values")
 		foundJob.Spec = job.Spec
 		err := r.client.Delete(context.TODO(), foundJob, client.PropagationPolicy(metav1.DeletePropagationBackground))
@@ -1040,7 +1037,7 @@ func (r *ReconcileRazeeDeployment) makeRazeeJob(
 	return &batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.RAZEE_DEPLOY_JOB_NAME,
-			Namespace: request.Namespace,
+			Namespace: instance.Namespace,
 		},
 		Spec: batch.JobSpec{
 			Template: corev1.PodTemplateSpec{

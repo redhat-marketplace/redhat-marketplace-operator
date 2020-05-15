@@ -131,6 +131,9 @@ deploys: ##deploys the resources for deployment
 apply: ##applies changes to crds
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml --namespace=${NAMESPACE}
 
+delete-resources: ## delete-resources
+	- kubectl delete -n ${NAMESPACE} razeedeployments.marketplace.redhat.com --all
+
 delete: ##delete the contents created in 'make create'
 	@echo deleting resources
 	- kubectl delete opsrc ${OPERATOR_SOURCE} -n ${NAMESPACE}
