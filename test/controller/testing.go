@@ -12,16 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate go-options -imports=sigs.k8s.io/controller-runtime/pkg/reconcile,k8s.io/apimachinery/pkg/runtime -option TestCaseOption -prefix With testOptions
-
 package testing
 
 import (
 	"context"
 	"fmt"
+	"io"
+	gruntime "runtime"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/pkg/errors"
+
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -68,16 +72,117 @@ func (r *ReconcilerTest) GetRuntimeObjects() []runtime.Object {
 	return r.runtimeObjs
 }
 
-type testOptions struct {
-	StepName       string
-	Request        reconcile.Request
-	ExpectedResult reconcile.Result `options:",reconcile.Result{Requeue: true}"`
-	ExpectedError  error
-	Name           string
-	Namespace      string
-	TestObj        runtime.Object
-	AfterFunc      ReconcilerTestValidationFunc `options:"After,Ignore"`
+//go:generate go-options -imports=sigs.k8s.io/controller-runtime/pkg/reconcile -option StepOption -prefix With stepOptions
+type stepOptions struct {
+	StepName string
+	Request  reconcile.Request
+}
+
+//go:generate go-options -option ReconcileStepOption -prefix With reconcileStepOptions
+type reconcileStepOptions struct {
+	ExpectedResults []ReconcileResult `options:"..."`
+	UntilDone       bool
+	Max             int
+}
+
+type ReconcileResult struct {
+	reconcile.Result
+	Err error
+}
+
+type AnyReconcileResult ReconcileResult
+
+var AnyResult ReconcileResult = ReconcileResult(AnyReconcileResult{})
+var DoneResult ReconcileResult = ReconcileResult{Result: reconcile.Result{}, Err: nil}
+var RequeueResult ReconcileResult = ReconcileResult{Result: reconcile.Result{Requeue: true}, Err: nil}
+
+func RangeReconcileResults(result ReconcileResult, n int) []ReconcileResult {
+	arr := make([]ReconcileResult, n)
+
+	for i := 0; i < n; i++ {
+		arr[i] = result
+	}
+
+	return arr
+}
+
+func RequeueAfterResult(dur time.Duration) ReconcileResult {
+	return ReconcileResult{
+		Result: reconcile.Result{RequeueAfter: dur},
+	}
+}
+
+//go:generate go-options -imports=k8s.io/apimachinery/pkg/runtime -option GetStepOption -prefix With getStepOptions
+type getStepOptions struct {
+	NamespacedName struct {
+		Name, Namespace string
+	}
+	RuntimeObj     runtime.Object
 	Labels         map[string]string            `options:",map[string]string{}"`
+	CheckGetResult ReconcilerTestValidationFunc `options:",Ignore"`
+}
+
+//go:generate go-options -imports=k8s.io/apimachinery/pkg/runtime,sigs.k8s.io/controller-runtime/pkg/client -option ListStepOption -prefix With listStepOptions
+type listStepOptions struct {
+	ListObj         runtime.Object
+	ListOptions     []client.ListOption          `options:"..."`
+	CheckListResult ReconcilerTestValidationFunc `options:",Ignore"`
+}
+
+type testLine struct {
+	msg   string
+	stack errors.StackTrace
+	err   error
+}
+
+func (t *testLine) Error() string {
+	return t.msg
+}
+
+func NewTestLine(message string, up int) *testLine {
+	pc := make([]uintptr, 1)
+	n := gruntime.Callers(up, pc)
+
+	if n == 0 {
+		return &testLine{msg: message}
+	}
+
+	trace := make(errors.StackTrace, len(pc))
+
+	for i, ptr := range pc {
+		trace[i] = errors.Frame(ptr)
+	}
+
+	return &testLine{msg: message, stack: trace}
+}
+
+func (t *testLine) TestLineError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	t.err = err
+	return t
+}
+
+func (t *testLine) Unwrap() error { return t.err }
+
+func (t *testLine) Cause() error { return t.err }
+
+func (t *testLine) Format(s fmt.State, verb rune) {
+	switch verb {
+	case 'v':
+		if s.Flag('+') {
+			fmt.Fprintf(s, "%+v", t.Cause())
+			t.stack.Format(s, verb)
+			return
+		}
+		fallthrough
+	case 's':
+		io.WriteString(s, t.Error())
+	case 'q':
+		fmt.Fprintf(s, "%q", t.Error())
+	}
 }
 
 var testSetupLock sync.Mutex
@@ -101,19 +206,22 @@ func NewReconcilerTest(setup ReconcilerSetupFunc, predefinedObjs ...runtime.Obje
 func Ignore(r *ReconcilerTest, t *testing.T, obj runtime.Object) {}
 
 type ReconcileStep struct {
-	StepName       string
-	Request        reconcile.Request
-	ExpectedResult reconcile.Result
-	ExpectedError  error
+	stepOptions
+	reconcileStepOptions
+	*testLine
 }
 
-func NewReconcileStep(options ...TestCaseOption) *ReconcileStep {
-	cfg, _ := newTestOptions(options...)
+func NewReconcileStep(
+	stepOptions []StepOption,
+	options ...ReconcileStepOption,
+) *ReconcileStep {
+	stepOpts, _ := newStepOptions(stepOptions...)
+	opts, _ := newReconcileStepOptions(options...)
+
 	return &ReconcileStep{
-		StepName:       cfg.StepName,
-		ExpectedResult: cfg.ExpectedResult,
-		Request:        cfg.Request,
-		ExpectedError:  cfg.ExpectedError,
+		testLine:             NewTestLine("reconcileStep failure", 3),
+		reconcileStepOptions: opts,
+		stepOptions:          stepOpts,
 	}
 }
 
@@ -126,170 +234,166 @@ func (tc *ReconcileStep) GetStepName() string {
 
 func (tc *ReconcileStep) Test(t *testing.T, r *ReconcilerTest) {
 	//Reconcile again so Reconcile() checks for the OperatorSource
-	res, err := r.Reconciler.Reconcile(tc.Request)
-	require.Equalf(t, tc.ExpectedError, err, "teststep failure", "%v reconcile result(%v) != expected(%v)", tc.Request, err, tc.ExpectedError)
-	require.Equalf(t, tc.ExpectedResult, res, "teststep failure", "%v reconcile result(%v) != expected(%v)", tc.Request, res, tc.ExpectedResult)
+
+	if tc.UntilDone {
+		tc.Max = 10
+	}
+
+	if tc.Max == 0 {
+		tc.Max = len(tc.ExpectedResults)
+	}
+
+	for i := 0; i < tc.Max; i++ {
+		exit := false
+		t.Run(fmt.Sprintf("reconcileResult/%v_of_%v", i+1, tc.Max), func(t *testing.T) {
+			res, err := r.Reconciler.Reconcile(tc.Request)
+			result := ReconcileResult{res, err}
+
+			expectedResult := AnyResult
+
+			if i < len(tc.ExpectedResults) {
+				expectedResult = tc.ExpectedResults[i]
+			}
+
+			if expectedResult != AnyResult {
+				assert.Equalf(t, expectedResult, result,
+					"%+v", tc.TestLineError(fmt.Errorf("incorrect expected result")))
+			} else {
+				// stop if done or if there was an error
+				if result == DoneResult {
+					if len(tc.ExpectedResults) != 0 && i > len(tc.ExpectedResults)-1 && !tc.UntilDone {
+						assert.Equalf(t, len(tc.ExpectedResults)-1, i,
+							"%+v", tc.TestLineError(fmt.Errorf("expected reconcile count did not match")))
+					}
+					t.Logf("reconcile completed in %v turns", i+1)
+					exit = true
+				}
+
+				if err != nil {
+					assert.Equalf(t, DoneResult, result,
+						"%+v", tc.TestLineError(fmt.Errorf("error while reconciling")))
+					exit = true
+				}
+
+				if i == tc.Max-1 {
+					assert.Equalf(t, DoneResult, result,
+						"%+v", tc.TestLineError(fmt.Errorf("did not successfully reconcile")))
+					exit = true
+				}
+			}
+		})
+		if exit {
+			break
+		}
+	}
 }
 
 type ClientGetStep struct {
-	StepName       string
-	NamespacedName types.NamespacedName `options:"NamespacedName,types.NamespacedName{}"`
-	TestObj        runtime.Object
-	Labels         map[string]string            `options:",map[string]string{}"`
-	AfterFunc      ReconcilerTestValidationFunc `options:"After,Ignore"`
+	*testLine
+	stepOptions
+	getStepOptions
 }
 
-func NewClientGetStep(options ...TestCaseOption) *ClientGetStep {
-	cfg, _ := newTestOptions(options...)
+func NewClientGetStep(
+	stepOptions []StepOption,
+	options ...GetStepOption,
+) *ClientGetStep {
+	stepOpts, _ := newStepOptions(stepOptions...)
+	getOpts, _ := newGetStepOptions(options...)
 	return &ClientGetStep{
-		StepName:       cfg.StepName,
-		AfterFunc:      cfg.AfterFunc,
-		TestObj:        cfg.TestObj,
-		NamespacedName: types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace},
-		Labels:         cfg.Labels,
+		testLine:       NewTestLine("failed client get step", 3),
+		stepOptions:    stepOpts,
+		getStepOptions: getOpts,
 	}
 }
 
 func (tc *ClientGetStep) GetStepName() string {
+	nsn := tc.getStepOptions.NamespacedName
 	if tc.StepName == "" {
-		if tc.NamespacedName.Namespace == "" {
-			return tc.NamespacedName.Name
+		if nsn.Namespace == "" {
+			return nsn.Name
 		}
-		return tc.NamespacedName.Namespace + "/" + tc.NamespacedName.Name
+		return "ClientGetStep/" + nsn.Namespace + "/" + nsn.Name
 	}
-	return tc.StepName
+	return "ClientGetStep/" + tc.StepName
 }
 
 func (tc *ClientGetStep) Test(t *testing.T, r *ReconcilerTest) {
 	//Reconcile again so Reconcile() checks for the OperatorSource
+	t.Helper()
 	var err error
-	err = r.GetClient().Get(context.TODO(), tc.NamespacedName, tc.TestObj)
+	err = r.GetClient().Get(
+		context.TODO(),
+		types.NamespacedName{
+			Name:      tc.NamespacedName.Name,
+			Namespace: tc.NamespacedName.Namespace,
+		},
+		tc.RuntimeObj,
+	)
 
-	require.NoErrorf(t, err, "teststep failure", "get (%T): (%v)", tc.TestObj, err)
-	require.NotPanics(t, func() {
-		tc.AfterFunc(r, t, tc.TestObj)
-	})
+	require.NoErrorf(t, err, "get (%T): (%v); err=%+v",
+		tc.RuntimeObj, err, tc.TestLineError(err))
+
+	if !t.Run("check list result", func(t *testing.T) {
+		t.Helper()
+		tc.CheckGetResult(r, t, tc.RuntimeObj)
+	}) {
+		assert.FailNowf(t, "failed get check", "%+v", tc.testLine)
+	}
 }
 
 type ClientListStep struct {
-	StepName       string
-	NamespacedName types.NamespacedName `options:"NamespacedName,types.NamespacedName{}"`
-	TestObj        runtime.Object
-	Labels         map[string]string            `options:",map[string]string{}"`
-	AfterFunc      ReconcilerTestValidationFunc `options:"After,Ignore"`
+	*testLine
+	stepOptions
+	listStepOptions
 }
 
-func NewClientListStep(options ...TestCaseOption) *ClientListStep {
-	cfg, _ := newTestOptions(options...)
+func NewClientListStep(
+	stepOptions []StepOption,
+	options ...ListStepOption,
+) *ClientListStep {
+	stepOpts, _ := newStepOptions(stepOptions...)
+	listOpts, _ := newListStepOptions(options...)
 	return &ClientListStep{
-		StepName:       cfg.StepName,
-		AfterFunc:      cfg.AfterFunc,
-		TestObj:        cfg.TestObj,
-		NamespacedName: types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace},
-		Labels:         cfg.Labels,
+		testLine:        NewTestLine("failed client list step", 3),
+		stepOptions:     stepOpts,
+		listStepOptions: listOpts,
 	}
 }
 
 func (tc *ClientListStep) GetStepName() string {
 	if tc.StepName == "" {
-		if tc.NamespacedName.Namespace == "" {
-			return tc.NamespacedName.Name
-		}
-		return tc.NamespacedName.Namespace + "/" + tc.NamespacedName.Name
+		return "ClientListStep"
 	}
-	return tc.StepName
-}
-
-func (tc *ClientListStep) ListStepName() string {
-	if tc.StepName == "" {
-		if tc.NamespacedName.Namespace == "" {
-			return tc.NamespacedName.Name
-		}
-		return tc.NamespacedName.Namespace + "/" + tc.NamespacedName.Name
-	}
-	return tc.StepName
+	return "ClientListStep/" + tc.StepName
 }
 
 func (tc *ClientListStep) Test(t *testing.T, r *ReconcilerTest) {
+	t.Helper()
 	//Reconcile again so Reconcile() checks for the OperatorSource
 	var err error
 	err = r.GetClient().List(context.TODO(),
-		tc.TestObj,
-		client.InNamespace(tc.NamespacedName.Namespace),
-		client.MatchingLabels(tc.Labels),
+		tc.ListObj,
+		tc.ListOptions...,
 	)
 
-	require.NoErrorf(t, err, "teststep failure", "get (%T): (%v)", tc.TestObj, err)
-	require.NotPanics(t, func() {
-		tc.AfterFunc(r, t, tc.TestObj)
-	})
-}
-
-type ReconcilerTestCase struct {
-	StepName       string
-	Request        reconcile.Request
-	ExpectedResult reconcile.Result
-	ExpectedError  error
-	NamespacedName types.NamespacedName `options:"NamespacedName,types.NamespacedName{}"`
-	TestObj        runtime.Object
-	AfterFunc      ReconcilerTestValidationFunc `options:"After,Ignore"`
-	Labels         map[string]string            `options:",map[string]string{}"`
-}
-
-func NewReconcilerTestCase(options ...TestCaseOption) *ReconcilerTestCase {
-	cfg, _ := newTestOptions(options...)
-	return &ReconcilerTestCase{
-		StepName:       cfg.StepName,
-		AfterFunc:      cfg.AfterFunc,
-		TestObj:        cfg.TestObj,
-		NamespacedName: types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace},
-		ExpectedResult: cfg.ExpectedResult,
-		Request:        cfg.Request,
-		ExpectedError:  cfg.ExpectedError,
-		Labels:         cfg.Labels,
+	if err != nil {
+		assert.FailNowf(t, "error encountered",
+			"%+v", tc.TestLineError(errors.Errorf("get (%T): (%v)", tc.ListObj, err)))
 	}
-}
 
-type ReconcilerTestCaseBuilder struct {
-	tc ReconcilerTestCase
-}
-
-func (tc *ReconcilerTestCase) GetStepName() string {
-	if tc.StepName == "" {
-		if tc.NamespacedName.Namespace == "" {
-			return tc.NamespacedName.Name
-		}
-		return tc.NamespacedName.Namespace + "/" + tc.NamespacedName.Name
-	}
-	return tc.StepName
-}
-
-func (tc *ReconcilerTestCase) Test(t *testing.T, r *ReconcilerTest) {
-	//Reconcile again so Reconcile() checks for the OperatorSource
-	res, err := r.Reconciler.Reconcile(tc.Request)
-
-	require.Equalf(t, tc.ExpectedError, err, "teststep failure", "%v reconcile result(%v) != expected(%v)", tc.Request, err, tc.ExpectedError)
-	require.Equalf(t, tc.ExpectedResult, res, "teststep failure", "%v reconcile result(%v) != expected(%v)", tc.Request, res, tc.ExpectedResult)
-
-	if tc.TestObj != nil {
-		if len(tc.Labels) > 0 {
-			err = r.GetClient().List(context.TODO(),
-				tc.TestObj,
-				client.InNamespace(tc.NamespacedName.Namespace),
-				client.MatchingLabels(tc.Labels),
-			)
-		} else {
-			err = r.GetClient().Get(context.TODO(), tc.NamespacedName, tc.TestObj)
-		}
-
-		require.NoErrorf(t, err, "teststep failure", "get (%T): (%v)", tc.TestObj, err)
-		tc.AfterFunc(r, t, tc.TestObj)
+	if !t.Run("check list result", func(t *testing.T) {
+		t.Helper()
+		tc.CheckListResult(r, t, tc.ListObj)
+	}) {
+		assert.FailNowf(t, "failed check list", "%+v", tc.testLine)
 	}
 }
 
 var testAllMutex sync.Mutex
 
-func (r *ReconcilerTest) TestAll(t *testing.T, testCases []TestCaseStep) {
+func (r *ReconcilerTest) TestAll(t *testing.T, testCases ...TestCaseStep) {
+	t.Helper()
 	if r.SetupFunc != nil {
 		testAllMutex.Lock()
 		err := r.SetupFunc(r)
@@ -308,6 +412,7 @@ func (r *ReconcilerTest) TestAll(t *testing.T, testCases []TestCaseStep) {
 		}
 
 		success := t.Run(testName, func(t *testing.T) {
+			t.Helper()
 			testData.Test(t, r)
 		})
 

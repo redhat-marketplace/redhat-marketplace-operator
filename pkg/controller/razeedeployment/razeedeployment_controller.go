@@ -226,7 +226,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		reqLogger.Info("set target namespace to", "namespace", instance.Spec.TargetNamespace)
-		return reconcile.Result{}, nil
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	/******************************************************************************
@@ -1221,7 +1221,11 @@ func (r *ReconcileRazeeDeployment) makeParentRemoteResourceS3(instance *marketpl
 					},
 				},
 				"requests": []interface{}{
-					map[string]map[string]string{"options": {"url": *instance.Spec.ChildUrl}},
+					map[string]interface{}{
+						"options": map[string]interface{}{
+							"url": *instance.Spec.ChildUrl,
+						},
+					},
 				},
 			},
 		},

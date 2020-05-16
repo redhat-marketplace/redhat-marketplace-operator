@@ -25,6 +25,7 @@ require (
 	github.com/operator-framework/api v0.1.1
 	github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b
 	github.com/operator-framework/operator-sdk v0.16.1-0.20200401233323-bca8959696d5
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.5.1
 	github.com/prometheus/common v0.9.1
 	github.com/sergi/go-diff v1.1.0 // indirect
@@ -44,6 +45,7 @@ require (
 	k8s.io/apimachinery v0.17.4
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20191107075043-30be4d16710a
+	k8s.io/kubernetes v1.13.0
 	sigs.k8s.io/controller-runtime v0.5.2
 )
 

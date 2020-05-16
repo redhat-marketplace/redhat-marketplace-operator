@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -61,10 +62,8 @@ var (
 			Namespace: namespace,
 		},
 	}
-	opts = []TestCaseOption{
+	opts = []StepOption{
 		WithRequest(req),
-		WithNamespace(namespace),
-		WithName(name),
 	}
 	preExistingOperatorGroup = &olmv1.OperatorGroup{
 		ObjectMeta: v1.ObjectMeta{
@@ -103,81 +102,84 @@ func testNewSubscription(t *testing.T) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, subscription)
 	reconcilerTest.TestAll(t,
-		[]TestCaseStep{
-			NewReconcilerTestCase(
-				append(opts,
-					WithExpectedResult(reconcile.Result{Requeue: true}),
-					WithTestObj(&olmv1.OperatorGroupList{}),
-					WithLabels(map[string]string{
-						operatorTag: "true",
-					}))...),
-			NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{}))...),
-			NewClientListStep(append(opts,
-				WithTestObj(&olmv1.OperatorGroupList{}),
-				WithLabels(map[string]string{
+		// Reconcile to create obj
+		NewReconcileStep(opts,
+			WithExpectedResults(RequeueResult, DoneResult)),
+		// List and check results
+		NewClientListStep(opts,
+			WithListObj(&olmv1.OperatorGroupList{}),
+			WithListOptions(
+				client.InNamespace(namespace),
+				client.MatchingLabels(map[string]string{
 					operatorTag: "true",
-				}),
-				WithAfter(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
-					list, ok := i.(*olmv1.OperatorGroupList)
+				})),
+			WithCheckListResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				list, ok := i.(*olmv1.OperatorGroupList)
 
-					assert.Truef(t, ok, "expected operator group list got type %T", i)
-					assert.Equal(t, 1, len(list.Items))
-				}),
-			)...),
-		})
+				assert.Truef(t, ok, "expected operator group list got type %T", i)
+				assert.Equal(t, 1, len(list.Items))
+			}),
+		),
+	)
 }
 
 func testNewSubscriptionWithOperatorGroup(t *testing.T) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, subscription, preExistingOperatorGroup)
 	reconcilerTest.TestAll(t,
-		[]TestCaseStep{
-			NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{}))...),
-			NewClientListStep(append(opts, WithTestObj(&olmv1.OperatorGroupList{}),
-				WithAfter(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
-					list, ok := i.(*olmv1.OperatorGroupList)
+		NewReconcileStep(opts,
+			WithExpectedResults(DoneResult)),
+		NewClientListStep(opts,
+			WithListObj(&olmv1.OperatorGroupList{}),
+			WithCheckListResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				list, ok := i.(*olmv1.OperatorGroupList)
 
-					assert.Truef(t, ok, "expected operator group list got type %T", i)
-					assert.Equal(t, 1, len(list.Items))
-				}),
-			)...),
-		})
+				assert.Truef(t, ok, "expected operator group list got type %T", i)
+				assert.Equal(t, 1, len(list.Items))
+			}),
+		),
+	)
 }
 
 func testDeleteOperatorGroupIfTooMany(t *testing.T) {
+	listObjs := []ListStepOption{
+		WithListObj(&olmv1.OperatorGroupList{}),
+		WithListOptions(
+			client.InNamespace(namespace),
+			client.MatchingLabels(map[string]string{
+				operatorTag: "true",
+			})),
+	}
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, subscription)
 	reconcilerTest.TestAll(t,
-		[]TestCaseStep{
-			NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{Requeue: true}))...),
-			NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{Requeue: false}))...),
-			NewClientListStep(append(opts, WithTestObj(&olmv1.OperatorGroupList{}),
-				WithAfter(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+		// Reconcile to create obj
+		NewReconcileStep(opts,
+			WithExpectedResults(RequeueResult, DoneResult)),
+		// List and check results
+		NewClientListStep(opts,
+			append(listObjs,
+				WithCheckListResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
 					list, ok := i.(*olmv1.OperatorGroupList)
 
 					assert.Truef(t, ok, "expected operator group list got type %T", i)
 					assert.Equal(t, 1, len(list.Items))
 
 					r.GetClient().Create(context.TODO(), preExistingOperatorGroup)
-				}),
-			)...),
-			NewClientListStep(append(opts, WithTestObj(&olmv1.OperatorGroupList{}),
-				WithAfter(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
-					list, ok := i.(*olmv1.OperatorGroupList)
-
-					assert.Truef(t, ok, "expected operator group list got type %T", i)
-					assert.Equal(t, 2, len(list.Items))
-				}),
-			)...),
-			NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{Requeue: true}))...),
-			NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{Requeue: false}))...),
-			NewClientListStep(append(opts, WithTestObj(&olmv1.OperatorGroupList{}),
-				WithAfter(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				}))...),
+		// Reconcile again to delete the extra operator group
+		NewReconcileStep(opts,
+			WithExpectedResults(RequeueResult, DoneResult)),
+		// Check to make sure we've deleted it
+		NewClientListStep(opts,
+			append(listObjs,
+				WithCheckListResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
 					list, ok := i.(*olmv1.OperatorGroupList)
 
 					assert.Truef(t, ok, "expected operator group list got type %T", i)
 					assert.Equal(t, 1, len(list.Items))
-				}),
-			)...),
-		})
+
+					r.GetClient().Create(context.TODO(), preExistingOperatorGroup)
+				}))...),
+	)
 }
