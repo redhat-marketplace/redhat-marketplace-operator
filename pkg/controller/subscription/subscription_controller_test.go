@@ -17,7 +17,7 @@ package subscription
 import (
 	"testing"
 
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/controller"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 
 	"context"
 
@@ -93,7 +93,7 @@ var (
 )
 
 func setup(r *ReconcilerTest) error {
-	r.Client = fake.NewFakeClient(r.GetRuntimeObjects()...)
+	r.Client = fake.NewFakeClient(r.GetGetObjects()...)
 	r.Reconciler = &ReconcileSubscription{client: r.Client, scheme: scheme.Scheme}
 	return nil
 }
@@ -103,17 +103,17 @@ func testNewSubscription(t *testing.T) {
 	reconcilerTest := NewReconcilerTest(setup, subscription)
 	reconcilerTest.TestAll(t,
 		// Reconcile to create obj
-		NewReconcileStep(opts,
-			WithExpectedResults(RequeueResult, DoneResult)),
+		ReconcileStep(opts,
+			ReconcileWithExpectedResults(RequeueResult, DoneResult)),
 		// List and check results
-		NewClientListStep(opts,
-			WithListObj(&olmv1.OperatorGroupList{}),
-			WithListOptions(
+		ListStep(opts,
+			ListWithObj(&olmv1.OperatorGroupList{}),
+			ListWithFilter(
 				client.InNamespace(namespace),
 				client.MatchingLabels(map[string]string{
 					operatorTag: "true",
 				})),
-			WithCheckListResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
 				list, ok := i.(*olmv1.OperatorGroupList)
 
 				assert.Truef(t, ok, "expected operator group list got type %T", i)
@@ -127,11 +127,11 @@ func testNewSubscriptionWithOperatorGroup(t *testing.T) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, subscription, preExistingOperatorGroup)
 	reconcilerTest.TestAll(t,
-		NewReconcileStep(opts,
-			WithExpectedResults(DoneResult)),
-		NewClientListStep(opts,
-			WithListObj(&olmv1.OperatorGroupList{}),
-			WithCheckListResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+		ReconcileStep(opts,
+			ReconcileWithExpectedResults(DoneResult)),
+		ListStep(opts,
+			ListWithObj(&olmv1.OperatorGroupList{}),
+			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
 				list, ok := i.(*olmv1.OperatorGroupList)
 
 				assert.Truef(t, ok, "expected operator group list got type %T", i)
@@ -143,8 +143,8 @@ func testNewSubscriptionWithOperatorGroup(t *testing.T) {
 
 func testDeleteOperatorGroupIfTooMany(t *testing.T) {
 	listObjs := []ListStepOption{
-		WithListObj(&olmv1.OperatorGroupList{}),
-		WithListOptions(
+		ListWithObj(&olmv1.OperatorGroupList{}),
+		ListWithFilter(
 			client.InNamespace(namespace),
 			client.MatchingLabels(map[string]string{
 				operatorTag: "true",
@@ -154,12 +154,12 @@ func testDeleteOperatorGroupIfTooMany(t *testing.T) {
 	reconcilerTest := NewReconcilerTest(setup, subscription)
 	reconcilerTest.TestAll(t,
 		// Reconcile to create obj
-		NewReconcileStep(opts,
-			WithExpectedResults(RequeueResult, DoneResult)),
+		ReconcileStep(opts,
+			ReconcileWithExpectedResults(RequeueResult, DoneResult)),
 		// List and check results
-		NewClientListStep(opts,
+		ListStep(opts,
 			append(listObjs,
-				WithCheckListResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
 					list, ok := i.(*olmv1.OperatorGroupList)
 
 					assert.Truef(t, ok, "expected operator group list got type %T", i)
@@ -168,12 +168,12 @@ func testDeleteOperatorGroupIfTooMany(t *testing.T) {
 					r.GetClient().Create(context.TODO(), preExistingOperatorGroup)
 				}))...),
 		// Reconcile again to delete the extra operator group
-		NewReconcileStep(opts,
-			WithExpectedResults(RequeueResult, DoneResult)),
+		ReconcileStep(opts,
+			ReconcileWithExpectedResults(RequeueResult, DoneResult)),
 		// Check to make sure we've deleted it
-		NewClientListStep(opts,
+		ListStep(opts,
 			append(listObjs,
-				WithCheckListResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
 					list, ok := i.(*olmv1.OperatorGroupList)
 
 					assert.Truef(t, ok, "expected operator group list got type %T", i)

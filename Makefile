@@ -185,13 +185,16 @@ test-e2e: ## Run integration e2e tests with different options.
 
 ##@ Misc
 
-deploy-test-prometheus:
+.PHONY: deploy-test-prometheus
+deploy-test-prometheus: ## Helper to setup minikube
 	. ./scripts/deploy_test_prometheus.sh
 
-check-licenses: # Check if all files have licenses
+.PHONY: check-licenses
+check-licenses: ## Check if all files have licenses
 	go run github.com/google/addlicense -check -c "IBM Corp." **/*.go
 
-add-licenses: # Add licenses to the go file
+.PHONY: add-licenses
+add-licenses: ## Add licenses to the go file
 	go run github.com/google/addlicense -c "IBM Corp." **/*.go
 
 

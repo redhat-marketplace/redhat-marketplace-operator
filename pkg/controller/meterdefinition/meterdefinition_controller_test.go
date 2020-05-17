@@ -19,7 +19,7 @@ import (
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/controller"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 	"github.com/spf13/viper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -47,10 +47,8 @@ var (
 		},
 	}
 
-	opts = []TestCaseOption{
+	opts = []StepOption{
 		WithRequest(req),
-		WithNamespace(namespace),
-		WithName(name),
 	}
 	meterdefinition = &marketplacev1alpha1.MeterDefinition{
 		ObjectMeta: metav1.ObjectMeta{
@@ -82,7 +80,7 @@ func setup(r *ReconcilerTest) error {
 	_ = monitoringv1.AddToScheme(s)
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterdefinition)
 
-	r.Client = fake.NewFakeClient(r.GetRuntimeObjects()...)
+	r.Client = fake.NewFakeClient(r.GetGetObjects()...)
 	r.Reconciler = &ReconcileMeterDefinition{client: r.Client, scheme: s}
 	return nil
 }
@@ -91,11 +89,9 @@ func testNoServiceMonitors(t *testing.T) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, meterdefinition)
 	reconcilerTest.TestAll(t,
-		[]TestCaseStep{
-			NewReconcileStep(
-				append(opts,
-					WithExpectedResult(reconcile.Result{}),
-				)...,
-			),
-		})
+		ReconcileStep(
+			opts,
+			ReconcileWithExpectedResults(DoneResult),
+		),
+	)
 }

@@ -21,7 +21,7 @@ import (
 
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/controller"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -67,7 +67,7 @@ func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Uns
 }
 
 func setup(r *ReconcilerTest) error {
-	r.SetClient(fake.NewFakeClient(r.GetRuntimeObjects()...))
+	r.SetClient(fake.NewFakeClient(r.GetGetObjects()...))
 	r.SetReconciler(&ReconcileRazeeDeployment{client: r.GetClient(), scheme: scheme.Scheme, opts: &RazeeOpts{RazeeJobImage: "test"}})
 	return nil
 }
@@ -155,19 +155,19 @@ func testCleanInstall(t *testing.T) {
 	)
 	reconcilerTest.TestAll(t,
 		//Requeue until we have created the job and waiting for it to finish
-		NewReconcileStep(opts,
-			WithExpectedResults(
+		ReconcileStep(opts,
+			ReconcileWithExpectedResults(
 				append(
 					RangeReconcileResults(RequeueResult, 7),
 					RequeueAfterResult(time.Second*30),
 					RequeueAfterResult(time.Second*15))...)),
 		// Let's do some client checks
-		NewClientListStep(opts,
-			WithListObj(&corev1.ConfigMapList{}),
-			WithListOptions(
+		ListStep(opts,
+			ListWithObj(&corev1.ConfigMapList{}),
+			ListWithFilter(
 				client.InNamespace(namespace),
 			),
-			WithCheckListResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
 				list, ok := i.(*corev1.ConfigMapList)
 
 				assert.Truef(t, ok, "expected operator group list got type %T", i)
@@ -183,10 +183,10 @@ func testCleanInstall(t *testing.T) {
 				assert.Contains(t, names, utils.WATCH_KEEPER_CONFIG_NAME)
 				assert.Contains(t, names, utils.RAZEE_CLUSTER_METADATA_NAME)
 			})),
-		NewClientGetStep(opts,
-			WithRuntimeObj(&batch.Job{}),
-			WithNamespacedName(utils.RAZEE_DEPLOY_JOB_NAME, namespace),
-			WithCheckGetResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+		GetStep(opts,
+			GetWithObj(&batch.Job{}),
+			GetWithNamespacedName(utils.RAZEE_DEPLOY_JOB_NAME, namespace),
+			GetWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
 				myJob, ok := i.(*batch.Job)
 
 				if !ok {
@@ -207,7 +207,7 @@ func testCleanInstall(t *testing.T) {
 
 				r.Client.Status().Update(context.TODO(), myJob)
 			})),
-		NewReconcileStep(opts, WithExpectedResults(DoneResult)),
+		ReconcileStep(opts, ReconcileWithExpectedResults(DoneResult)),
 	)
 }
 
@@ -233,8 +233,8 @@ func testNoSecret(t *testing.T) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, &razeeDeployment, &namespObj)
 	reconcilerTest.TestAll(t,
-		NewReconcileStep(opts,
-			WithExpectedResults(
+		ReconcileStep(opts,
+			ReconcileWithExpectedResults(
 				RequeueResult,
 				RequeueAfterResult(time.Second*60)),
 		))

@@ -14,6 +14,7 @@ require (
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/go-logr/logr v0.1.0
 	github.com/golang/protobuf v1.4.0 // indirect
+	github.com/google/addlicense v0.0.0-20200422172452-68a83edd47bc // indirect
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
 	github.com/gotidy/ptr v1.0.1
