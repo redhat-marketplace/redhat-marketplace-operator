@@ -104,7 +104,7 @@ type ControllerReconcileStep struct {
 func ReconcileStep(
 	stepOptions []StepOption,
 	options ...ReconcileStepOption,
-) *ControllerReconcileStep{
+) *ControllerReconcileStep {
 	stepOpts, _ := newStepOptions(stepOptions...)
 	opts, _ := newReconcileStepOptions(options...)
 
@@ -123,7 +123,7 @@ func (tc *ControllerReconcileStep) GetStepName() string {
 }
 
 func (tc *ControllerReconcileStep) Test(t *testing.T, r *ReconcilerTest) {
-	//Reconcile again so Reconcile() checks for the OperatorSource
+	// Reconcile again so Reconcile() checks for the OperatorSource
 
 	if tc.UntilDone {
 		tc.Max = 10
@@ -135,14 +135,17 @@ func (tc *ControllerReconcileStep) Test(t *testing.T, r *ReconcilerTest) {
 
 	for i := 0; i < tc.Max; i++ {
 		exit := false
-		t.Run(fmt.Sprintf("%v_of_%v_expresult", i+1, tc.Max), func(t *testing.T) {
+
+		indx := i
+
+		t.Run(fmt.Sprintf("%v_of_%v_expresult", indx+1, tc.Max), func(t *testing.T) {
 			res, err := r.Reconciler.Reconcile(tc.Request)
 			result := ReconcileResult{res, err}
 
 			expectedResult := AnyResult
 
-			if i < len(tc.ExpectedResults) {
-				expectedResult = tc.ExpectedResults[i]
+			if indx < len(tc.ExpectedResults) {
+				expectedResult = tc.ExpectedResults[indx]
 			}
 
 			if expectedResult != AnyResult {
@@ -151,11 +154,11 @@ func (tc *ControllerReconcileStep) Test(t *testing.T, r *ReconcilerTest) {
 			} else {
 				// stop if done or if there was an error
 				if result == DoneResult {
-					if len(tc.ExpectedResults) != 0 && i > len(tc.ExpectedResults)-1 && !tc.UntilDone {
-						assert.Equalf(t, len(tc.ExpectedResults)-1, i,
+					if len(tc.ExpectedResults) != 0 && indx >= len(tc.ExpectedResults) && !tc.UntilDone {
+						assert.Equalf(t, len(tc.ExpectedResults)-1, indx,
 							"%+v", tc.TestLineError(fmt.Errorf("expected reconcile count did not match")))
 					}
-					t.Logf("reconcile completed in %v turns", i+1)
+					t.Logf("reconcile completed in %v turns", indx+1)
 					exit = true
 				}
 
@@ -165,7 +168,7 @@ func (tc *ControllerReconcileStep) Test(t *testing.T, r *ReconcilerTest) {
 					exit = true
 				}
 
-				if i == tc.Max-1 {
+				if indx == tc.Max-1 {
 					assert.Equalf(t, DoneResult, result,
 						"%+v", tc.TestLineError(fmt.Errorf("did not successfully reconcile")))
 					exit = true
@@ -205,10 +208,9 @@ func (tc *ClientGetStep) GetStepName() string {
 }
 
 func (tc *ClientGetStep) Test(t *testing.T, r *ReconcilerTest) {
-	//Reconcile again so Reconcile() checks for the OperatorSource
+	// Reconcile again so Reconcile() checks for the OperatorSource
 	t.Helper()
-	var err error
-	err = r.GetClient().Get(
+	err := r.GetClient().Get(
 		context.TODO(),
 		types.NamespacedName{
 			Name:      tc.NamespacedName.Name,
@@ -256,9 +258,8 @@ func (tc *ClientListStep) GetStepName() string {
 
 func (tc *ClientListStep) Test(t *testing.T, r *ReconcilerTest) {
 	t.Helper()
-	//Reconcile again so Reconcile() checks for the OperatorSource
-	var err error
-	err = r.GetClient().List(context.TODO(),
+	// Reconcile again so Reconcile() checks for the OperatorSource
+	err := r.GetClient().List(context.TODO(),
 		tc.Obj,
 		tc.Filter...,
 	)
@@ -297,9 +298,12 @@ func (r *ReconcilerTest) TestAll(t *testing.T, testCases ...TestCaseStep) {
 			testName = fmt.Sprintf("Step %v", i+1)
 		}
 
+		rectest := r
+		testData := testData
+
 		success := t.Run(testName, func(t *testing.T) {
 			t.Helper()
-			testData.Test(t, r)
+			testData.Test(t, rectest)
 		})
 
 		require.Truef(t, success, "Step %s failed", testName)

@@ -157,6 +157,10 @@ delete-razee: ##delete the razee CR
 
 ##@ Tests
 
+.PHONY: lint
+lint: ## lint the repo
+	go run github.com/golangci/golangci-lint/cmd/golangci-lint run
+
 .PHONY: test
 test: ## Run go tests
 	@echo ... Run tests
@@ -229,6 +233,10 @@ publish-image: ## Publish image
 release: ## Publish release
 	#make bundle
 	go run github.com/tcnksm/ghr $(VERSION) ./bundle/
+
+
+.PHONY: bump-version
+bump-version: ## Bump the version and add the file for a commit
 
 ##@ Help
 

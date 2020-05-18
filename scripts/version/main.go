@@ -80,6 +80,7 @@ func init() {
 	rootCmd.AddCommand(nextCmd)
 	rootCmd.PersistentFlags().StringVar(&filename, "filename", "version/version.go", "file name of the version")
 	nextCmd.Flags().Bool("commit", false, "commit and tag in git")
+	nextCmd.Flags().Bool("commit-add", false, "add file for commit")
 	nextCmd.Flags().Bool("major", false, "major release")
 	nextCmd.Flags().Bool("minor", false, "minor release")
 	nextCmd.Flags().Bool("patch", true, "patch release")

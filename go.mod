@@ -14,6 +14,7 @@ require (
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/go-logr/logr v0.1.0
 	github.com/golang/protobuf v1.4.0 // indirect
+	github.com/golangci/golangci-lint v1.27.0 // indirect
 	github.com/google/addlicense v0.0.0-20200422172452-68a83edd47bc // indirect
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
@@ -33,14 +34,13 @@ require (
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.2
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	github.com/tcnksm/ghr v0.13.0
 	github.com/urfave/cli v1.22.2 // indirect
 	golang.org/x/crypto v0.0.0-20200429183012-4b2356b1ed79 // indirect
 	golang.org/x/net v0.0.0-20200425230154-ff2c4b7c35a0 // indirect
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a // indirect
 	golang.org/x/sys v0.0.0-20200428200454-593003d681fa // indirect
-	golang.org/x/tools v0.0.0-20200428211428-0c9eba77bc32 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
 	k8s.io/api v0.17.4
 	k8s.io/apimachinery v0.17.4
