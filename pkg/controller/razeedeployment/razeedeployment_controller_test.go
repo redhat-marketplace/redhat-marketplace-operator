@@ -19,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/controller"
@@ -142,7 +141,7 @@ func testCleanInstall(t *testing.T) {
 						rd.Spec.TargetNamespace = &namespace
 						expectedWatchKeeperNonNamespace := razeeController.makeWatchKeeperNonNamespace(rd)
 
-						patchResult, err := patch.DefaultPatchMaker.Calculate(watchKeeperNonNamespace, expectedWatchKeeperNonNamespace)
+						patchResult, err := utils.RhmPatchMaker.Calculate(watchKeeperNonNamespace, expectedWatchKeeperNonNamespace)
 						if !patchResult.IsEmpty() {
 							require.FailNowf(t, "Patch result is empty", "Discrepency on object %T", patchResult)
 						}
@@ -167,7 +166,7 @@ func testCleanInstall(t *testing.T) {
 						rd.Spec.TargetNamespace = &namespace
 						expectedWatchKeeperLimitPoll := razeeController.makeWatchKeeperLimitPoll(rd)
 
-						patchResult, err := patch.DefaultPatchMaker.Calculate(watchKeeperLimitPoll, expectedWatchKeeperLimitPoll)
+						patchResult, err := utils.RhmPatchMaker.Calculate(watchKeeperLimitPoll, expectedWatchKeeperLimitPoll)
 						if !patchResult.IsEmpty() {
 							require.FailNowf(t, "Patch Result is not empty", "Discrepency on object %T", patchResult)
 						}
@@ -194,7 +193,7 @@ func testCleanInstall(t *testing.T) {
 						rd.Spec.TargetNamespace = &namespace
 						expectedRazeeClusterMetadata := razeeController.makeRazeeClusterMetaData(rd)
 
-						patchResult, err := patch.DefaultPatchMaker.Calculate(razeeClusterMetadata, expectedRazeeClusterMetadata)
+						patchResult, err := utils.RhmPatchMaker.Calculate(razeeClusterMetadata, expectedRazeeClusterMetadata)
 						if !patchResult.IsEmpty() {
 							require.FailNowf(t, "", "Discrepency on object %T", patchResult)
 						}
@@ -239,7 +238,7 @@ func testCleanInstall(t *testing.T) {
 						razeeController := r.GetReconciler().(*ReconcileRazeeDeployment)
 						expectedIbmCosReaderKey, _ := razeeController.makeCOSReaderSecret(rd, req)
 
-						patchResult, err := patch.DefaultPatchMaker.Calculate(ibmCosReaderKey, &expectedIbmCosReaderKey)
+						patchResult, err := utils.RhmPatchMaker.Calculate(ibmCosReaderKey, &expectedIbmCosReaderKey)
 						if !patchResult.IsEmpty() {
 							require.FailNowf(t, "", "Discrepency on object %T", patchResult)
 						}

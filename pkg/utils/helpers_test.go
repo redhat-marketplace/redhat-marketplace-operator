@@ -8,6 +8,7 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -143,4 +144,16 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 		t.Errorf("failed with error %v", err)
 	}
 
+}
+
+func TestApplyAnnotation(t *testing.T) {
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "foo",
+			Namespace: "myns",
+		},
+	}
+
+	ApplyAnnotation(cm)
+	assert.Contains(t, cm.ObjectMeta.Annotations, RhmAnnotationKey, "Annotations does not contain key")
 }

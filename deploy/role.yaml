@@ -98,7 +98,6 @@ rules:
   - operators.coreos.com
   resources:
   - operatorgroups
-  - operatorsources
   verbs:
   - create
   - delete
@@ -193,7 +192,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: redhat-marketplace-operator
-  namespace: redhat-marketplace
+  namespace: openshift-redhat-marketplace
 rules:
 - apiGroups:
   - ""

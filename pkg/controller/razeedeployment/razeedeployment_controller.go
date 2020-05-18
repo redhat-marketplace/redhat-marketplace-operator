@@ -317,7 +317,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Info("Resource already exists", "resource: ", utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
 
 		updatedWatchKeeperNonNameSpace := r.makeWatchKeeperNonNamespace(instance)
-		patchResult, err := patch.DefaultPatchMaker.Calculate(&watchKeeperNonNamespace, updatedWatchKeeperNonNameSpace)
+		patchResult, err := utils.RhmPatchMaker.Calculate(&watchKeeperNonNamespace, updatedWatchKeeperNonNameSpace)
 		if err != nil {
 			reqLogger.Error(err, "Failed to compare patches")
 			return reconcile.Result{}, err
@@ -380,7 +380,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	if err == nil {
 		reqLogger.Info("Resource already exists", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
 		updatedWatchKeeperLimitPoll := r.makeWatchKeeperLimitPoll(instance)
-		patchResult, err := patch.DefaultPatchMaker.Calculate(&watchKeeperLimitPoll, updatedWatchKeeperLimitPoll)
+		patchResult, err := utils.RhmPatchMaker.Calculate(&watchKeeperLimitPoll, updatedWatchKeeperLimitPoll)
 		if err != nil {
 			reqLogger.Error(err, "Failed to calculate patch diff")
 			return reconcile.Result{}, err
@@ -442,7 +442,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Info("Resource already exists", "resource: ", utils.RAZEE_CLUSTER_METADATA_NAME)
 
 		updatedRazeeClusterMetaData := *r.makeRazeeClusterMetaData(instance)
-		patchResult, err := patch.DefaultPatchMaker.Calculate(&razeeClusterMetaData, &updatedRazeeClusterMetaData)
+		patchResult, err := utils.RhmPatchMaker.Calculate(&razeeClusterMetaData, &updatedRazeeClusterMetaData)
 		if err != nil {
 			reqLogger.Error(err, "Failed to compare patches")
 			return reconcile.Result{}, err
@@ -503,7 +503,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Info("Resource already exists", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
 
 		updatedWatchKeeperConfig := *r.makeWatchKeeperConfig(instance)
-		patchResult, err := patch.DefaultPatchMaker.Calculate(&watchKeeperConfig, &updatedWatchKeeperConfig)
+		patchResult, err := utils.RhmPatchMaker.Calculate(&watchKeeperConfig, &updatedWatchKeeperConfig)
 		if err != nil {
 			reqLogger.Error(err, "Failed to compare patches")
 		}
@@ -571,7 +571,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Error(err, "Failed to build resource", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
 			return reconcile.Result{}, err
 		}
-		patchResult, err := patch.DefaultPatchMaker.Calculate(&watchKeeperSecret, &updatedWatchKeeperSecret)
+		patchResult, err := utils.RhmPatchMaker.Calculate(&watchKeeperSecret, &updatedWatchKeeperSecret)
 		if err != nil {
 			reqLogger.Error(err, "Failed to compare patches")
 			return reconcile.Result{}, err
@@ -643,7 +643,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			return reconcile.Result{}, err
 		}
 
-		patchResult, err := patch.DefaultPatchMaker.Calculate(&ibmCosReaderKey, &updatedibmCosReaderKey)
+		patchResult, err := utils.RhmPatchMaker.Calculate(&ibmCosReaderKey, &updatedibmCosReaderKey)
 		if err != nil {
 			reqLogger.Error(err, "Failed to compare patches")
 			return reconcile.Result{}, err
@@ -796,7 +796,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			updatedParentRRS3.SetSelfLink(parentRRS3.GetSelfLink())
 			updatedParentRRS3.SetUID(parentRRS3.GetUID())
 
-			patchResult, err := patch.DefaultPatchMaker.Calculate(parentRRS3, updatedParentRRS3, patch.IgnoreStatusFields())
+			patchResult, err := utils.RhmPatchMaker.Calculate(parentRRS3, updatedParentRRS3, patch.IgnoreStatusFields())
 			if err != nil {
 				reqLogger.Error(err, "Failed to compare patches")
 			}

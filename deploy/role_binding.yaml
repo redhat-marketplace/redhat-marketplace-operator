@@ -7,7 +7,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-operator
-  namespace: redhat-marketplace
+  namespace: openshift-redhat-marketplace
 roleRef:
   kind: ClusterRole
   name: redhat-marketplace-operator
@@ -21,7 +21,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-razeedeploy
-  namespace: redhat-marketplace
+  namespace: openshift-redhat-marketplace
 roleRef:
   kind: ClusterRole
   name: redhat-marketplace-razeedeploy
@@ -35,7 +35,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-operator
-  namespace: redhat-marketplace
+  namespace: openshift-redhat-marketplace
 roleRef:
   kind: Role
   name: redhat-marketplace-operator

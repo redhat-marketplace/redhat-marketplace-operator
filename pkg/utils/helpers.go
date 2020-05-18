@@ -30,6 +30,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+const RhmAnnotationKey = "marketplace.redhat.com/last-applied"
+
+var RhmAnnotator = patch.NewAnnotator(RhmAnnotationKey)
+var RhmPatchMaker = patch.NewPatchMaker(RhmAnnotator)
+
 func Contains(s []string, e string) bool {
 	for _, a := range s {
 		if a == e {
@@ -172,15 +177,8 @@ func AddSecretFieldsToStruct(razeeData map[string][]byte, instance marketplacev1
 	return *razeeStruct, missingItems, nil
 }
 
-func ApplyAnnotation(resource runtime.Object)error{
-	if err := NewRhmAnnotator().SetLastAppliedAnnotation(resource); err != nil {
-			return err
-		}
-	return nil
-}
-
-func NewRhmAnnotator()*patch.Annotator{
-	return patch.NewAnnotator("marketplace.redhat.com/last-applied")
+func ApplyAnnotation(resource runtime.Object) error {
+	return RhmAnnotator.SetLastAppliedAnnotation(resource)
 }
 
 func Equal(a []string, b []string) bool {
