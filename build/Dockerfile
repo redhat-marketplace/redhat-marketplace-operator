@@ -33,7 +33,7 @@ ENV USER_UID=1001 \
     ASSETS=/usr/local/bin/assets
 # install operator binary
 COPY --from=builder /usr/local/go/src/github.com/redhat-marketplace/redhat-marketplace-operator/build/_output/bin /usr/local/bin
-COPY build/_output/assets /usr/local/bin/assets
+COPY assets /usr/local/bin/assets
 COPY build/bin/entrypoint /usr/local/bin/entrypoint
 COPY build/bin/user_setup /usr/local/bin/user_setup
 COPY LICENSE  /licenses/
