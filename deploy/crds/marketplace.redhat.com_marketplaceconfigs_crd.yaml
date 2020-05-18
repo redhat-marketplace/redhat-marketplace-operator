@@ -128,7 +128,8 @@ spec:
                 - status
                 - type
                 type: object
-              description: Conditions is a set of Condition instances.
+              description: Conditions represent the latest available observations
+                of the meterbase object's state
               type: array
             razeeSubConditions:
               additionalProperties:
@@ -168,12 +169,11 @@ spec:
                 - status
                 - type
                 type: object
-              description: Conditions is a set of Condition instances.
+              description: Conditions represent the latest available observations
+                of the razee object's state
               type: array
           required:
           - conditions
-          - meterBaseSubConditions
-          - razeeSubConditions
           type: object
       type: object
   version: v1alpha1

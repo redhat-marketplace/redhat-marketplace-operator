@@ -15,14 +15,11 @@
 package utils
 
 import (
-	"context"
 	"testing"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-	"github.com/operator-framework/operator-sdk/pkg/status"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/spf13/viper"
-	"k8s.io/apimachinery/pkg/types"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -90,87 +87,5 @@ func TestPersistenVolumeClaim(t *testing.T) {
 
 	if pvc.Spec.AccessModes[0] != corev1.ReadWriteMany {
 		t.Errorf("expect %v but got %v", corev1.ReadWriteMany, pvc.Spec.AccessModes[0])
-	}
-}
-
-func TestUpdateConfigConditionsRazee(t *testing.T) {
-
-	client := setup()
-	var err error
-
-	message := "Razee Install starting"
-	reason := marketplacev1alpha1.ReasonRazeeStartInstall
-	if razeedeployment.Status.RazeeConditions.GetCondition(marketplacev1alpha1.ConditionInstalling) == nil {
-		razeedeployment.Status.RazeeConditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ConditionInstalling,
-			Status:  corev1.ConditionTrue,
-			Reason:  reason,
-			Message: message,
-		})
-
-		err = client.Status().Update(context.TODO(), razeedeployment)
-		if err != nil {
-			t.Errorf("Error updating resources: %v", err)
-		}
-	}
-
-	err = UpdateConfigConditions(client, razeedeployment, testNamespace1, message, reason)
-	if err != nil {
-		t.Errorf("Error updating MarketplaceConfig Conditions %v:", err)
-	}
-
-	err = client.Get(context.TODO(), types.NamespacedName{Name: MARKETPLACECONFIG_NAME, Namespace: testNamespace1}, marketplaceconfig)
-	if err != nil {
-		t.Errorf("failed to get marketplaceconfig error %v:", err)
-	}
-
-	cond1 := razeedeployment.Status.RazeeConditions.GetCondition(marketplacev1alpha1.ConditionInstalling)
-	cond2 := marketplaceconfig.Status.RazeeSubConditions.GetCondition(marketplacev1alpha1.ConditionInstalling)
-	if cond2 == nil {
-		t.Errorf("Error: RazeeSubConditions for MarketplaceConfig are not set")
-	}
-	if cond1.Message != cond2.Message {
-		t.Errorf("Error: Message for RazeeCondition and RazeeSubConditions are not the same")
-	}
-}
-
-func TestUpdateConfigConditionsMeterBase(t *testing.T) {
-
-	client := setup()
-	var err error
-
-	message := "Meter Base install starting"
-	reason := marketplacev1alpha1.ReasonMeterBaseStartInstall
-	if meterbase.Status.MeterBaseConditions.GetCondition(marketplacev1alpha1.ConditionInstalling) == nil {
-		meterbase.Status.MeterBaseConditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ConditionInstalling,
-			Status:  corev1.ConditionTrue,
-			Reason:  reason,
-			Message: message,
-		})
-
-		err = client.Status().Update(context.TODO(), meterbase)
-		if err != nil {
-			t.Errorf("Error updating resources: %v", err)
-		}
-	}
-
-	err = UpdateConfigConditions(client, meterbase, testNamespace1, message, reason)
-	if err != nil {
-		t.Errorf("Error updating MarketplaceConfig Conditions %v:", err)
-	}
-
-	err = client.Get(context.TODO(), types.NamespacedName{Name: MARKETPLACECONFIG_NAME, Namespace: testNamespace1}, marketplaceconfig)
-	if err != nil {
-		t.Errorf("failed to get marketplaceconfig error %v:", err)
-	}
-
-	cond1 := meterbase.Status.MeterBaseConditions.GetCondition(marketplacev1alpha1.ConditionInstalling)
-	cond2 := marketplaceconfig.Status.MeterBaseSubConditions.GetCondition(marketplacev1alpha1.ConditionInstalling)
-	if cond2 == nil {
-		t.Errorf("Error: MeterBaseSubConditions for MarketplaceConfig are not set")
-	}
-	if cond1.Message != cond2.Message {
-		t.Errorf("Error: Message for MeterBaseConditions and MeterBaseSubConditions are not the same")
 	}
 }

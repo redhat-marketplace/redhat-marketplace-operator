@@ -156,8 +156,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	message := "Razee Install starting"
-	if instance.Status.RazeeConditions.GetCondition(marketplacev1alpha1.ConditionInstalling) == nil {
-		instance.Status.RazeeConditions.SetCondition(status.Condition{
+	if instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionInstalling) == nil {
+		instance.Status.Conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,
 			Reason:  marketplacev1alpha1.ReasonRazeeStartInstall,
@@ -165,7 +165,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		})
 
 		_ = r.client.Status().Update(context.TODO(), instance)
-		utils.UpdateConfigConditions(r.client, instance, request.Namespace, message, marketplacev1alpha1.ReasonRazeeStartInstall)
+
 	}
 
 	// Adding a finalizer to this CR
@@ -369,16 +369,14 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	message = "watch-keeper-non-namespaced install finished"
-	instance.Status.RazeeConditions.SetCondition(status.Condition{
+	instance.Status.Conditions.SetCondition(status.Condition{
 		Type:    marketplacev1alpha1.ConditionInstalling,
 		Status:  corev1.ConditionTrue,
 		Reason:  marketplacev1alpha1.ReasonWatchKeeperNonNamespacedInstalled,
 		Message: message,
 	})
-	utils.UpdateConfigConditions(r.client, instance, request.Namespace, message, marketplacev1alpha1.ReasonWatchKeeperNonNamespacedInstalled)
 
 	_ = r.client.Status().Update(context.TODO(), instance)
-	utils.UpdateConfigConditions(r.client, instance, request.Namespace, message, marketplacev1alpha1.ReasonRazeeStartInstall)
 
 	// apply watch-keeper-limit-poll config map
 	watchKeeperLimitPoll := corev1.ConfigMap{}
@@ -443,13 +441,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	message = "watch-keeper-limit-poll install finished"
-	instance.Status.RazeeConditions.SetCondition(status.Condition{
+	instance.Status.Conditions.SetCondition(status.Condition{
 		Type:    marketplacev1alpha1.ConditionInstalling,
 		Status:  corev1.ConditionTrue,
 		Reason:  marketplacev1alpha1.ReasonWatchKeeperLimitPollInstalled,
 		Message: message,
 	})
-	utils.UpdateConfigConditions(r.client, instance, request.Namespace, message, marketplacev1alpha1.ReasonWatchKeeperLimitPollInstalled)
 
 	_ = r.client.Status().Update(context.TODO(), instance)
 
@@ -518,13 +515,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	message = "Razee cluster meta data install finished"
-	instance.Status.RazeeConditions.SetCondition(status.Condition{
+	instance.Status.Conditions.SetCondition(status.Condition{
 		Type:    marketplacev1alpha1.ConditionInstalling,
 		Status:  corev1.ConditionTrue,
 		Reason:  marketplacev1alpha1.ReasonRazeeClusterMetaDataInstalled,
 		Message: message,
 	})
-	utils.UpdateConfigConditions(r.client, instance, request.Namespace, message, marketplacev1alpha1.ReasonRazeeClusterMetaDataInstalled)
 
 	_ = r.client.Status().Update(context.TODO(), instance)
 
@@ -592,13 +588,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	message = "watch-keeper-config install finished"
-	instance.Status.RazeeConditions.SetCondition(status.Condition{
+	instance.Status.Conditions.SetCondition(status.Condition{
 		Type:    marketplacev1alpha1.ConditionInstalling,
 		Status:  corev1.ConditionTrue,
 		Reason:  marketplacev1alpha1.ReasonWatchKeeperConfigInstalled,
 		Message: message,
 	})
-	utils.UpdateConfigConditions(r.client, instance, request.Namespace, message, marketplacev1alpha1.ReasonWatchKeeperConfigInstalled)
 
 	_ = r.client.Status().Update(context.TODO(), instance)
 
@@ -673,13 +668,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	message = "watch-keeper-secret install finished"
-	instance.Status.RazeeConditions.SetCondition(status.Condition{
+	instance.Status.Conditions.SetCondition(status.Condition{
 		Type:    marketplacev1alpha1.ConditionInstalling,
 		Status:  corev1.ConditionTrue,
 		Reason:  marketplacev1alpha1.ReasonWatchKeeperSecretInstalled,
 		Message: message,
 	})
-	utils.UpdateConfigConditions(r.client, instance, request.Namespace, message, marketplacev1alpha1.ReasonWatchKeeperSecretInstalled)
 
 	_ = r.client.Status().Update(context.TODO(), instance)
 
@@ -746,13 +740,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	message = "Cos-reader-key install finished"
-	instance.Status.RazeeConditions.SetCondition(status.Condition{
+	instance.Status.Conditions.SetCondition(status.Condition{
 		Type:    marketplacev1alpha1.ConditionInstalling,
 		Status:  corev1.ConditionTrue,
 		Reason:  marketplacev1alpha1.ReasonCosReaderKeyInstalled,
 		Message: message,
 	})
-	utils.UpdateConfigConditions(r.client, instance, request.Namespace, message, marketplacev1alpha1.ReasonCosReaderKeyInstalled)
 
 	_ = r.client.Status().Update(context.TODO(), instance)
 
@@ -800,13 +793,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				return reconcile.Result{}, err
 			}
 			message = "Razee-Deploy-Job install starting"
-			instance.Status.RazeeConditions.SetCondition(status.Condition{
+			instance.Status.Conditions.SetCondition(status.Condition{
 				Type:    marketplacev1alpha1.ConditionInstalling,
 				Status:  corev1.ConditionTrue,
 				Reason:  marketplacev1alpha1.ReasonRazeeDeployJobStart,
 				Message: message,
 			})
-			utils.UpdateConfigConditions(r.client, instance, request.Namespace, message, marketplacev1alpha1.ReasonRazeeDeployJobStart)
 
 			_ = r.client.Status().Update(context.TODO(), instance)
 			reqLogger.Info("job created successfully")
@@ -837,7 +829,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			// Update status and conditions
 			instance.Status.JobState = foundJob.Status
 			for _, jobCondition := range foundJob.Status.Conditions {
-				instance.Status.Conditions = &jobCondition
+				instance.Status.JobConditions = &jobCondition
 			}
 
 			secretName := "rhm-operator-secret"
@@ -859,13 +851,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info("Updated JobState")
 		}
 		message = "Razee-Deploy-Job install finished"
-		instance.Status.RazeeConditions.SetCondition(status.Condition{
+		instance.Status.Conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,
 			Reason:  marketplacev1alpha1.ReasonRazeeDeployJobFinished,
 			Message: message,
 		})
-		utils.UpdateConfigConditions(r.client, instance, request.Namespace, message, marketplacev1alpha1.ReasonRazeeDeployJobFinished)
 
 		_ = r.client.Status().Update(context.TODO(), instance)
 		reqLogger.Info("Razeedeploy-job deleted")
@@ -950,13 +941,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		message = "ParentRRS3 install finished"
-		instance.Status.RazeeConditions.SetCondition(status.Condition{
+		instance.Status.Conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,
 			Reason:  marketplacev1alpha1.ReasonParentRRS3Installed,
 			Message: message,
 		})
-		utils.UpdateConfigConditions(r.client, instance, request.Namespace, message, marketplacev1alpha1.ReasonParentRRS3Installed)
 
 		_ = r.client.Status().Update(context.TODO(), instance)
 
@@ -1025,13 +1015,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	message = "Razee install complete"
-	instance.Status.RazeeConditions.SetCondition(status.Condition{
+	instance.Status.Conditions.SetCondition(status.Condition{
 		Type:    marketplacev1alpha1.ConditionComplete,
 		Status:  corev1.ConditionTrue,
 		Reason:  marketplacev1alpha1.ReasonRazeeInstallFinished,
 		Message: message,
 	})
-	utils.UpdateConfigConditions(r.client, instance, request.Namespace, message, marketplacev1alpha1.ReasonRazeeInstallFinished)
 
 	_ = r.client.Status().Update(context.TODO(), instance)
 

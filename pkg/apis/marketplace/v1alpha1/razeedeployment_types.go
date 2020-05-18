@@ -71,15 +71,18 @@ type RazeeDeploymentSpec struct {
 	ChildUrl *string `json:"childUrl,omitempty"`
 }
 
+// TODO: on version change, rename conditions to jobConditions
+// TODO: on version change, rename installConditions to conditions
+
 // RazeeDeploymentStatus defines the observed state of RazeeDeployment
 // +k8s:openapi-gen=true
 type RazeeDeploymentStatus struct {
 	// RazeeConditions represent the latest available observations of an object's stateonfig
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	RazeeConditions status.Conditions `json:"razeeConditions"`
+	Conditions status.Conditions `json:"installConditions"`
 	// Conditions represent the latest available observations of an object's stateonfig
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	Conditions *batch.JobCondition `json:"conditions,omitempty"`
+	JobConditions *batch.JobCondition `json:"conditions,omitempty"`
 	// JobState is the status of the Razee Install Job
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	JobState batch.JobStatus `json:"jobState,omitempty"`
