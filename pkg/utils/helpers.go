@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
+	"github.com/operator-framework/operator-sdk/pkg/status"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -182,6 +183,18 @@ func ApplyAnnotation(resource runtime.Object) error {
 }
 
 func Equal(a []string, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func ConditionsEqual(a status.Conditions, b status.Conditions) bool {
 	if len(a) != len(b) {
 		return false
 	}
