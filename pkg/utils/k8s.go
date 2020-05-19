@@ -125,6 +125,19 @@ func MakeProbe(path string, port, initialDelaySeconds, timeoutSeconds int32) *co
 	}
 }
 
+// BuildMarketplaceConfigCR returns a new MarketplaceConfig
+func BuildMarketplaceConfigCR(namespace, customerID string) *marketplacev1alpha1.MarketplaceConfig {
+	return &marketplacev1alpha1.MarketplaceConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      MARKETPLACECONFIG_NAME,
+			Namespace: namespace,
+		},
+		Spec: marketplacev1alpha1.MarketplaceConfigSpec{
+			RhmAccountID: customerID,
+		},
+	}
+}
+
 // BuildNewOpSrc returns a new Operator Source
 func BuildNewOpSrc() *opsrcv1.OperatorSource {
 	opsrc := &opsrcv1.OperatorSource{

@@ -24,7 +24,6 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/spf13/viper"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -44,7 +43,7 @@ func TestMarketplaceConfigController(t *testing.T) {
 }
 
 var (
-	name                 = "markeplaceconfig"
+	name                 = utils.MARKETPLACECONFIG_NAME
 	namespace            = "redhat-marketplace-operator"
 	customerID    string = "example-userid"
 	razeeName            = "rhm-marketplaceconfig-razeedeployment"
@@ -59,7 +58,7 @@ var (
 	opts = []StepOption{
 		WithRequest(req),
 	}
-	marketplaceconfig = buildMarketplaceConfigCR(name, namespace, customerID)
+	marketplaceconfig = utils.BuildMarketplaceConfigCR(namespace, customerID)
 	razeedeployment   = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName)
 	meterbase         = utils.BuildMeterBaseCr(namespace)
 )
@@ -104,17 +103,5 @@ func TestMarketplaceConfigControllerFlags(t *testing.T) {
 
 	if !flagset.HasFlags() {
 		t.Errorf("no flags on flagset")
-	}
-}
-
-func buildMarketplaceConfigCR(name, namespace, customerID string) *marketplacev1alpha1.MarketplaceConfig {
-	return &marketplacev1alpha1.MarketplaceConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: marketplacev1alpha1.MarketplaceConfigSpec{
-			RhmAccountID: customerID,
-		},
 	}
 }
