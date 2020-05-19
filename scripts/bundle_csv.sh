@@ -30,4 +30,8 @@ go run github.com/mikefarah/yq/v3 w \
 
 operator-courier verify --ui_validate_io $PACKAGE_PATH
 
-cd $ROOT/deploy/olm-catalog/redhat-marketplace-operator && zip -r ${ROOT}/bundle/redhat-marketplace-operator-bundle-${VERSION}-${DATETIME}.zip .
+FILENAME="redhat-marketplace-operator-bundle-${VERSION}-${DATETIME}.zip"
+
+cd $ROOT/deploy/olm-catalog/redhat-marketplace-operator && zip -r ${ROOT}/bundle/${FILENAME} .
+
+echo "::set-output name=bundlename::${FILENAME}"

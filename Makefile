@@ -5,7 +5,7 @@ OPERATOR_SOURCE = redhat-marketplace-operators
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 OPERATOR_IMAGE_NAME ?= redhat-marketplace-operator
 VERSION ?= $(shell go run scripts/version/main.go)
-FROM_VERSION ?= $(shell go run scripts/version/main.go --last)
+FROM_VERSION ?= $(shell go run scripts/version/main.go last)
 OPERATOR_IMAGE_TAG ?= $(VERSION)
 CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 DOCKER_EXEC ?= $(shell command -v docker)
@@ -13,7 +13,7 @@ DOCKER_EXEC ?= $(shell command -v docker)
 SERVICE_ACCOUNT := redhat-marketplace-operator
 SECRETS_NAME := my-docker-secrets
 
-OPERATOR_IMAGE := $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
+OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
 
 PULL_POLICY ?= IfNotPresent
 .DEFAULT_GOAL := help
@@ -40,23 +40,53 @@ build: ## Build the operator executable
 
 .PHONY: push
 push: push ## Push the operator image
+
 	$(DOCKER_EXEC) push $(OPERATOR_IMAGE)
+
 
 helm: ## build helm base charts
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE) --set namespace=$(NAMESPACE)
 
-CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/redhat-marketplace-operator.v$(VERSION).clusterserviceversion.yaml
+MANIFEST_CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/manifests/redhat-marketplace-operator.clusterserviceversion.yaml
+VERSION_CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/redhat-marketplace-operator.v$(VERSION).clusterserviceversion.yaml
+CSV_CHANNEL ?= beta # change to stable for release
+CSV_DEFAULT_CHANNEL ?= false # change to true for release
+
+MANIFEST_IMAGE=quay.io/zach_source/operator:0.1.2
+
+generate-csv-manifest: ## Generate the csv
+	make helm
+	operator-sdk generate csv --from-version=$(FROM_VERSION) \
+		--csv-version=$(VERSION) \
+		--operator-name=redhat-marketplace-operator \
+		--update-crds \
+		--default-channel=$(CSV_DEFAULT_CHANNEL) \
+		--csv-channel=$(CSV_CHANNEL)
+	@go run github.com/mikefarah/yq/v3 w -i $(MANIFEST_CSV_FILE) 'metadata.annotations.containerImage' $(OPERATOR_IMAGE)
+	@go run github.com/mikefarah/yq/v3 w -i $(MANIFEST_CSV_FILE) 'metadata.annotations.createdAt' $(CREATED_TIME)
+	@go run github.com/mikefarah/yq/v3 d -i $(MANIFEST_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
+	@go run github.com/mikefarah/yq/v3 w -i $(MANIFEST_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
+	operator-sdk bundle create --generate-only --package redhat-marketplace-operator --channels edge
+
+gneerate-bundle-image: ## Generate the bundle image wh
+	operator-sdk bundle create --package redhat-marketplace-operator --channels beta quay.io/zach_source/operator:
 
 generate-csv: ## Generate the csv
 	make helm
-	operator-sdk generate csv --from-version $(FROM_VERSION) --csv-version $(VERSION) --csv-config=./deploy/olm-catalog/csv-config.yaml --update-crds
-	@go run github.com/mikefarah/yq/v3 w -i $(CSV_FILE) 'metadata.annotations.containerImage' $(OPERATOR_IMAGE)
-	@go run github.com/mikefarah/yq/v3 w -i $(CSV_FILE) 'metadata.annotations.createdAt' $(CREATED_TIME)
-	@go run github.com/mikefarah/yq/v3 d -i $(CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
-	@go run github.com/mikefarah/yq/v3 w -i $(CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
+	operator-sdk generate csv --from-version=$(FROM_VERSION) \
+		--csv-version=$(VERSION) \
+		--operator-name=redhat-marketplace-operator \
+		--update-crds \
+		--default-channel=$(CSV_DEFAULT_CHANNEL) \
+		--csv-channel=$(CSV_CHANNEL) \
+		--make-manifests=false
+	@go run github.com/mikefarah/yq/v3 w -i $(VERSION_CSV_FILE) 'metadata.annotations.containerImage' $(OPERATOR_IMAGE)
+	@go run github.com/mikefarah/yq/v3 w -i $(VERSION_CSV_FILE) 'metadata.annotations.createdAt' $(CREATED_TIME)
+	@go run github.com/mikefarah/yq/v3 d -i $(VERSION_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
+	@go run github.com/mikefarah/yq/v3 w -i $(VERSION_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
 
 docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
-	@docker login -u="$(DOCKER_USER)" -p="$(DOCKER_PASSWORD)" quay.io
+	$(DOCKER_EXEC) login -u="$(DOCKER_USER)" -p="$(DOCKER_PASSWORD)" $(REGISTRY)
 
 ##@ Development
 
@@ -210,7 +240,7 @@ REDHAT_OPERATOR_IMAGE := $(REDHAT_IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(VERSI
 
 .PHONY: bundle
 bundle: ## Bundles the csv to submit
-	. ./scripts/bundle_csv.sh `pwd` $(VERSION)  $(OPERATOR_IMAGE)
+	. ./scripts/bundle_csv.sh `pwd` $(VERSION) $(OPERATOR_IMAGE)
 
 DATETIME = $(shell date +"%FT%H%M%SZ")
 REDHAT_PROJECT_ID = ospid-962ccd50-bf22-4663-a865-f539e2189f0e
@@ -229,14 +259,19 @@ publish-image: ## Publish image
 	$(DOCKER_EXEC) push $(OPERATOR_IMAGE)
 	$(DOCKER_EXEC) push $(REDHAT_OPERATOR_IMAGE)
 
+tag-and-push: ## Tag and push
+	$(DOCKER_EXEC) tag $(OPERATOR_IMAGE) $(TAG)
+	$(DOCKER_EXEC) push $(TAG)
+
 .PHONY: release
 release: ## Publish release
-	#make bundle
 	go run github.com/tcnksm/ghr $(VERSION) ./bundle/
 
+ARGS="--patch"
 
 .PHONY: bump-version
 bump-version: ## Bump the version and add the file for a commit
+	go run scripts/version/main.go next $(ARGS)
 
 ##@ Help
 

@@ -1,12 +1,14 @@
-name: "Create cluster using KinD"
+name: Scorecard
+
 on:
   push:
-    branches: [ master, release/* ]
+    branches: [ master, develop, release/* ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, develop, release/* ]
 
 jobs:
-  kind:
+  scorecard:
+    name: Scorecard
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
