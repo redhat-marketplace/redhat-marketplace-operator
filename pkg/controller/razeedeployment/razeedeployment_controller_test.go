@@ -158,7 +158,7 @@ func testCleanInstall(t *testing.T) {
 		ReconcileStep(opts,
 			ReconcileWithExpectedResults(
 				append(
-					RangeReconcileResults(RequeueResult, 7),
+					RangeReconcileResults(RequeueResult, 9),
 					RequeueAfterResult(time.Second*30),
 					RequeueAfterResult(time.Second*15))...)),
 		// Let's do some client checks
@@ -235,6 +235,8 @@ func testNoSecret(t *testing.T) {
 	reconcilerTest.TestAll(t,
 		ReconcileStep(opts,
 			ReconcileWithExpectedResults(
+				RequeueResult,
+				RequeueResult,
 				RequeueResult,
 				RequeueAfterResult(time.Second*60)),
 		))
