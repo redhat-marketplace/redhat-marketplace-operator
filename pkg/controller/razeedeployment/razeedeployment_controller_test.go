@@ -125,10 +125,10 @@ func testCleanInstall(t *testing.T) {
 					opts,
 					WithName("rhm-operator-secret"),
 					WithNamespace(namespace),
-					WithExpectedResult(reconcile.Result{}),
 				)...,
 			),
-			//NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{Requeue: true}))...),
+			NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{Requeue: true}))...),
+			NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{Requeue: true}))...),
 			NewReconcilerTestCase(
 				append(opts,
 					WithTestObj(&corev1.ConfigMap{}),
@@ -317,8 +317,9 @@ func testOldMigratedInstall(t *testing.T) {
 				append(opts,
 					WithName(namespace),
 					WithNamespace(""),
-					WithExpectedResult(reconcile.Result{}),
 					WithTestObj(&corev1.Namespace{}))...),
+			NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{Requeue: true}))...),
+			NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{Requeue: true}))...),
 			NewReconcilerTestCase(
 				append(opts,
 					WithNamespace("razee"),
@@ -388,7 +389,9 @@ func testNoSecret(t *testing.T) {
 	reconcilerTest := NewReconcilerTest(setup, &razeeDeployment, &namespObj)
 	reconcilerTest.TestAll(t,
 		[]TestCaseStep{
-			NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{}))...),
+			NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{Requeue: true}))...),
+			NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{Requeue: true}))...),
+			NewReconcileStep(append(opts, WithExpectedResult(reconcile.Result{Requeue: true}))...),
 			NewReconcilerTestCase(
 				append(opts,
 					WithName("rhm-operator-secret"),

@@ -316,6 +316,13 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		Message: "Finished Installing necessary components",
 	})
 
+	marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+		Type:    marketplacev1alpha1.ConditionComplete,
+		Status:  corev1.ConditionTrue,
+		Reason:  marketplacev1alpha1.ReasonInstallFinished,
+		Message: "Finished Installing necessary components",
+	})
+
 	if marketplaceConfig.Status.RazeeSubConditions == nil {
 		marketplaceConfig.Status.RazeeSubConditions = &status.Conditions{}
 	}

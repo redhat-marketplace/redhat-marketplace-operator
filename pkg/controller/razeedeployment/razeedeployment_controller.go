@@ -165,7 +165,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		})
 
 		_ = r.client.Status().Update(context.TODO(), instance)
-
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Adding a finalizer to this CR
@@ -173,6 +173,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if err := r.addFinalizer(instance, request.Namespace); err != nil {
 			return reconcile.Result{}, err
 		}
+
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Check if the RazeeDeployment instance is being marked for deletion
@@ -198,7 +200,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		reqLogger.Info("set target namespace to", "namespace", instance.Spec.TargetNamespace)
-		return reconcile.Result{}, nil
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	/******************************************************************************
@@ -1016,13 +1018,25 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	message = "Razee install complete"
 	instance.Status.Conditions.SetCondition(status.Condition{
+		Type:    marketplacev1alpha1.ConditionInstalling,
+		Status:  corev1.ConditionFalse,
+		Reason:  marketplacev1alpha1.ReasonRazeeInstallFinished,
+		Message: message,
+	})
+
+	message = "Razee install complete"
+	instance.Status.Conditions.SetCondition(status.Condition{
 		Type:    marketplacev1alpha1.ConditionComplete,
 		Status:  corev1.ConditionTrue,
 		Reason:  marketplacev1alpha1.ReasonRazeeInstallFinished,
 		Message: message,
 	})
 
-	_ = r.client.Status().Update(context.TODO(), instance)
+	err = r.client.Status().Update(context.TODO(), instance)
+	if err != nil {
+		reqLogger.Error(err, "Failed to update status")
+		return reconcile.Result{}, err
+	}
 
 	reqLogger.Info("End of reconcile")
 	return reconcile.Result{}, nil
