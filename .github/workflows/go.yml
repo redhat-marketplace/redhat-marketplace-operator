@@ -17,7 +17,6 @@ env:
 jobs:
   build:
     name: Test
-    id: test
     runs-on: ubuntu-latest
 
     outputs:
@@ -64,7 +63,7 @@ jobs:
     name: Deploy Quay
     runs-on: ubuntu-latest
     needs: [build]
-    #if: startsWith(github.ref, 'master') || startsWith(github.ref, 'release') || startsWith(github.ref, 'develop')
+    if: startsWith(github.ref, 'master') || startsWith(github.ref, 'release') || startsWith(github.ref, 'develop') || github.ref == 'feature/buildAndTest'
     env:
       OPERATOR_IMAGE: redhat-marketplace-operator
 
@@ -110,7 +109,7 @@ jobs:
     needs: [build]
     env:
       OPERATOR_IMAGE: redhat-marketplace-operator
-    #if: startsWith(github.ref, 'master') || startsWith(github.ref, 'release')
+    if: startsWith(github.ref, 'master') || startsWith(github.ref, 'release') || github.ref == 'feature/buildAndTest'
     steps:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
