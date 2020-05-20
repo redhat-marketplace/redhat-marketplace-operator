@@ -195,8 +195,9 @@ jobs:
       - name: Create manifest image
         run: |
           export PATH=/usr/local/bin/operator-sdk:${PATH}
-          make generate-csv-manifest generate-bundleimage
+          make generate-csv-manifest generate-bundle-image
         env:
+          MANIFEST_IMAGE: quay.io/rh-marketplace/operator-manifest:${{ needs.build.outputs.version }}
       - name: Push image
         run: make push
         if: env.pushImage == 'true'
