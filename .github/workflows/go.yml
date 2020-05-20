@@ -133,8 +133,6 @@ jobs:
 
       - name: Build
         run: make build
-        with:
-          OPREATOR_IMAGE: redhat-marketplace
 
       - name: Login
         run: make docker-login
@@ -202,5 +200,5 @@ jobs:
       - name: Push image
         run: make push
         if: env.pushImage == 'true'
-        with:
+        env:
           OPERATOR_IMAGE: quay.io/rh-marketplace/operator-manifest:${{ needs.build.outputs.version }}
