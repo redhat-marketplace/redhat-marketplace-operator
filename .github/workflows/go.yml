@@ -24,6 +24,11 @@ jobs:
       tag: ${{ steps.version.outputs.tag }}
 
     steps:
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
