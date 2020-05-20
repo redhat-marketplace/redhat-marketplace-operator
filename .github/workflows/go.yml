@@ -69,7 +69,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build]
     if: |
-      github.event_name == "pull_request"
+      github.event_name == 'pull_request'
     env:
       OPERATOR_IMAGE: redhat-marketplace-operator
 
@@ -116,7 +116,7 @@ jobs:
     env:
       OPERATOR_IMAGE: redhat-marketplace-operator
     if: |
-      github.event_name == "pull_request"
+      github.event_name == 'pull_request'
     steps:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
