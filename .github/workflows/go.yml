@@ -6,7 +6,7 @@ on:
     tags:
       - '*'
   pull_request:
-    branches: [master, develop]
+    branches: [master, develop, feature/**, hotfix/**, release/**, bugfix/**]
 
 env:
   pushImages: false
