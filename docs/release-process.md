@@ -28,6 +28,42 @@ Hotfixes are started off of master. Bugfixes off of stable.
 
 ## Manual Releases
 
-### Release
+### Prerequesites
+
+1. [operator-sdk](https://sdk.operatorframework.io/docs/install-operator-sdk/)
+1. [operator-courier](https://github.com/operator-framework/operator-courier)
+1. [gitflow](https://github.com/nvie/gitflow)
+
+### Release or Bugfix
+
+1. Start from 'develop' branch.
+```
+git checkout develop
+git pull
+```
+1. Run
+```shell
+git flow release start $(make current-version)
+git flow release publish
+```
+
+A new branch called release/x.x.x will be made for you and pushed to the repository.
+
+1. Generate the csv files and commit them. The release branch should be used to create manifests for the beta channel. Updates to the bundle in Partner connect will only impact beta.
+
+```
+make generate-csv generate-csv-manifest
+git add ./deploy/olm-catalog
+git commit -m "chore: updating OLM manifests"
+git push
+```
+
+1. Operator images should be built and pushed for you with the build. You will need to publish the images in partner connect for them to be used.
+
+1. Upload your bundle to partner connect. And publish it when it passes.
+
+1. Once the release is finished. Submit a PR to merge to master. Master build will deploy images, make the final bundle for upload to update stable.
+
+
 
 ### Hotfix

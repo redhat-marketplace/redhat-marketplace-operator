@@ -40,7 +40,6 @@ build: ## Build the operator executable
 
 .PHONY: push
 push: push ## Push the operator image
-
 	$(DOCKER_EXEC) push $(OPERATOR_IMAGE)
 
 
@@ -51,8 +50,8 @@ MANIFEST_CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/manifests/
 VERSION_CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/redhat-marketplace-operator.v$(VERSION).clusterserviceversion.yaml
 CSV_CHANNEL ?= beta # change to stable for release
 CSV_DEFAULT_CHANNEL ?= false # change to true for release
-
-MANIFEST_IMAGE=quay.io/zach_source/operator:0.1.2
+CHANNELS ?= beta
+MANIFEST_IMAGE ?= quay.io/rh-marketplace/operator-manifest:0.1.2
 
 generate-csv-manifest: ## Generate the csv
 	make helm
@@ -66,10 +65,9 @@ generate-csv-manifest: ## Generate the csv
 	@go run github.com/mikefarah/yq/v3 w -i $(MANIFEST_CSV_FILE) 'metadata.annotations.createdAt' $(CREATED_TIME)
 	@go run github.com/mikefarah/yq/v3 d -i $(MANIFEST_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
 	@go run github.com/mikefarah/yq/v3 w -i $(MANIFEST_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
-	operator-sdk bundle create --generate-only --package redhat-marketplace-operator --channels edge
 
 gneerate-bundle-image: ## Generate the bundle image wh
-	operator-sdk bundle create --package redhat-marketplace-operator --channels beta quay.io/zach_source/operator:
+	operator-sdk bundle create --package redhat-marketplace-operator --channels $(CHANNELS) $(MANIFEST_IMAGE)
 
 generate-csv: ## Generate the csv
 	make helm
@@ -85,8 +83,10 @@ generate-csv: ## Generate the csv
 	@go run github.com/mikefarah/yq/v3 d -i $(VERSION_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
 	@go run github.com/mikefarah/yq/v3 w -i $(VERSION_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
 
+REGISTRY ?= quay.io
+
 docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
-	$(DOCKER_EXEC) login -u="$(DOCKER_USER)" -p="$(DOCKER_PASSWORD)" $(REGISTRY)
+	@$(DOCKER_EXEC) login -u="$(DOCKER_USER)" -p="$(DOCKER_PASSWORD)" $(REGISTRY)
 
 ##@ Development
 
@@ -216,7 +216,6 @@ test-e2e: ## Run integration e2e tests with different options.
 	- kubectl create namespace ${NAMESPACE} || true
 	- operator-sdk test local ./test/e2e --namespace=${NAMESPACE} --go-test-flags="-tags e2e"
 
-
 ##@ Misc
 
 .PHONY: deploy-test-prometheus
@@ -259,19 +258,31 @@ publish-image: ## Publish image
 	$(DOCKER_EXEC) push $(OPERATOR_IMAGE)
 	$(DOCKER_EXEC) push $(REDHAT_OPERATOR_IMAGE)
 
-tag-and-push: ## Tag and push
-	$(DOCKER_EXEC) tag $(OPERATOR_IMAGE) $(TAG)
-	$(DOCKER_EXEC) push $(TAG)
+IMAGE ?= $(OPERATOR_IMAGE)
 
-.PHONY: release
-release: ## Publish release
-	go run github.com/tcnksm/ghr $(VERSION) ./bundle/
+tag-and-push: ## Tag and push operator-image
+	$(DOCKER_EXEC) tag $(IMAGE) $(TAG)
+	$(DOCKER_EXEC) push $(TAG)
 
 ARGS="--patch"
 
 .PHONY: bump-version
 bump-version: ## Bump the version and add the file for a commit
 	go run scripts/version/main.go next $(ARGS)
+
+##@ Release
+
+.PHONY: current-version
+current-version: ## Get current version
+	@echo $(VERSION)
+
+.PHONY: release-start
+release-start: ## Start a release
+	git flow release start $(go run scripts/version/main.go version)
+
+.PHONY: release-finish
+release-finish: ## Start a release
+	git flow release finish $(go run scripts/version/main.go version)
 
 ##@ Help
 

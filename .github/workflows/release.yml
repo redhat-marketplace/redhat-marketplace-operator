@@ -1,9 +1,17 @@
-name: Deploy
+name: Bump develop
+
+# on:
+#   push:
+#     branches: [master]
+#     tags:
+#       - '*'
 
 jobs:
-  deploy:
-    name: Deploy image
+  release:
+    name: Release Steps
     runs-on: ubuntu-latest
+    output:
+
     steps:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
@@ -14,20 +22,15 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
+      - name: Install operator-sdk
+        run: |
+          curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
+          curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu.asc
+          gpg --verify operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu.asc
+          chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu && sudo mkdir -p /usr/local/bin/ && sudo cp operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk && rm operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
+        with:
+          RELEASE_VERSION: v0.17.0
+
       - name: Get Version
         id: version
         run: echo "::set-output name=version::$(go run scripts/version version)"
-
-      - name: Push to Docker Hub
-        uses: docker/build-push-action@v1
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          dockerfile: build/Dockerfile
-          registry: quay.io
-          repository: rh-marketplace/redhat-marketplace-operator
-          tag_with_sha: true
-          tag_with_ref: true
-          add_git_labels: true
-          labels: version=${{ }}
-          push: false
