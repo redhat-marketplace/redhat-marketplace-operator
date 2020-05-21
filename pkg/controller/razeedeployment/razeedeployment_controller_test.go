@@ -49,7 +49,7 @@ func TestRazeeDeployController(t *testing.T) {
 
 	t.Run("Test Clean Install", testCleanInstall)
 	t.Run("Test No Secret", testNoSecret)
-	//t.Run("Test Old Install", testOldMigratedInstall)
+	t.Run("Test Bad Name", testBadName)
 }
 
 func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
@@ -73,7 +73,7 @@ func setup(r *ReconcilerTest) error {
 }
 
 var (
-	name       = "marketplaceconfig"
+	name       = utils.RAZEE_NAME
 	namespace  = "openshift-redhat-marketplace"
 	secretName = "rhm-operator-secret"
 
@@ -158,7 +158,7 @@ func testCleanInstall(t *testing.T) {
 		ReconcileStep(opts,
 			ReconcileWithExpectedResults(
 				append(
-					RangeReconcileResults(RequeueResult, 9),
+					RangeReconcileResults(RequeueResult, 15),
 					RequeueAfterResult(time.Second*30),
 					RequeueAfterResult(time.Second*15))...)),
 		// Let's do some client checks
@@ -182,6 +182,26 @@ func testCleanInstall(t *testing.T) {
 				assert.Contains(t, names, utils.WATCH_KEEPER_LIMITPOLL_NAME)
 				assert.Contains(t, names, utils.WATCH_KEEPER_CONFIG_NAME)
 				assert.Contains(t, names, utils.RAZEE_CLUSTER_METADATA_NAME)
+			})),
+		ListStep(opts,
+			ListWithObj(&corev1.SecretList{}),
+			ListWithFilter(
+				client.InNamespace(namespace),
+			),
+			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				list, ok := i.(*corev1.SecretList)
+
+				assert.Truef(t, ok, "expected operator group list got type %T", i)
+				assert.Equal(t, 3, len(list.Items))
+
+				names := []string{}
+				for _, cm := range list.Items {
+					names = append(names, cm.Name)
+				}
+
+				assert.Contains(t, names, utils.WATCH_KEEPER_SECRET_NAME)
+				assert.Contains(t, names, utils.RHM_OPERATOR_SECRET_NAME)
+				assert.Contains(t, names, utils.COS_READER_KEY_NAME)
 			})),
 		GetStep(opts,
 			GetWithObj(&batch.Job{}),
@@ -207,7 +227,8 @@ func testCleanInstall(t *testing.T) {
 
 				r.Client.Status().Update(context.TODO(), myJob)
 			})),
-		ReconcileStep(opts, ReconcileWithExpectedResults(DoneResult)),
+		ReconcileStep(opts,
+			ReconcileWithUntilDone(true)),
 	)
 }
 
@@ -239,6 +260,20 @@ func testNoSecret(t *testing.T) {
 				RequeueResult,
 				RequeueResult,
 				RequeueAfterResult(time.Second*60)),
+		))
+}
+
+
+func testBadName(t *testing.T) {
+	t.Parallel()
+	razeeDeploymentLocalDeployment := razeeDeployment.DeepCopy()
+	razeeDeploymentLocalDeployment.Name = "foo"
+	reconcilerTest := NewReconcilerTest(setup, razeeDeploymentLocalDeployment, &namespObj)
+	reconcilerTest.TestAll(t,
+		ReconcileStep(opts,
+			ReconcileWithExpectedResults(
+				DoneResult,
+			),
 		))
 }
 
