@@ -42,7 +42,6 @@ build: ## Build the operator executable
 push: push ## Push the operator image
 	$(DOCKER_EXEC) push $(OPERATOR_IMAGE)
 
-
 helm: ## build helm base charts
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE) --set namespace=$(NAMESPACE)
 

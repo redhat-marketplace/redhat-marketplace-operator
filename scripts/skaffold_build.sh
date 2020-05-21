@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
-echo ${DOCKER_EXEC}
+echo "Checking if golang can compile"
+go vet ./...
 
 if [ "${DOCKER_EXEC}" == "" ]; then
 DOCKER_EXEC=$(command -v docker)

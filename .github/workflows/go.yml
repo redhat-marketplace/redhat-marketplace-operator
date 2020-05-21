@@ -71,7 +71,7 @@ jobs:
     if: |
       github.event_name == 'pull_request'
     env:
-      OPERATOR_IMAGE: redhat-marketplace-operator
+      OPERATOR_IMAGE: redhat-marketplace-operator:${{}}
 
     steps:
       - name: Set up Go 1.x
