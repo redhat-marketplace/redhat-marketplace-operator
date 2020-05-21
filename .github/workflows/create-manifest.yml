@@ -6,7 +6,7 @@ on:
     tags:
       - '*'
 env:
-  pushImages: true
+  pushImage: true
   cache: true
 
 jobs:
