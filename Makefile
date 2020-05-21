@@ -66,8 +66,9 @@ generate-bundle: ## Generate the csv
 create-bundle-image: ## Generate the bundle image wh
 	operator-sdk bundle create \
 		--package redhat-marketplace-operator \
-		--default-channel $(CSV_DEFAULT_CHANNEL) \
-		--channels $(CHANNELS) $(MANIFEST_IMAGE)
+		--default-channel $(CSV_CHANNEL) \
+		--channels stable,beta \
+		$(MANIFEST_IMAGE)
 
 generate-csv: ## Generate the csv
 	make helm
