@@ -1,0 +1,23 @@
+name: Scorecard
+
+# on:
+#   push:
+#     branches: [ master, develop, release/* ]
+#   pull_request:
+#     branches: [ master, develop, release/* ]
+
+jobs:
+  scorecard:
+    name: Scorecard
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - uses: engineerd/setup-kind@v0.3.0
+      with:
+        skipClusterCreation: "true"
+    - name: Testing
+      run: |
+        kubectl cluster-info
+        kubectl get pods -n kube-system
+        echo "current-context:" $(kubectl config current-context)
+        echo "environment-kubeconfig:" ${KUBECONFIG}

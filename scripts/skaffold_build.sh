@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -e
 
-mkdir -p build/_output
-[ -d "build/_output/assets" ] && rm -rf build/_output/assets
-[ -f "build/_output/bin/redhat-marketplace-operator" ] && rm -f build/_output/bin/redhat-marketplace-operator
-cp -r ./assets build/_output
+echo "Checking if golang can compile"
+go vet ./...
 
-GOOS=linux GOARCH=amd64 go build -o build/_output/bin/redhat-marketplace-operator ./cmd/manager
+if [ "${DOCKER_EXEC}" == "" ]; then
+DOCKER_EXEC=$(command -v docker)
+fi
 
-docker build . -f ./build/Dockerfile -t $IMAGE --label version="${VERSION}"
+${DOCKER_EXEC} build . -f ./build/Dockerfile -t "$IMAGE" --label version="${VERSION}"
 
 if $PUSH_IMAGE; then
-    docker push $IMAGE
+    docker push "$IMAGE"
 fi

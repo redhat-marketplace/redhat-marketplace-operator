@@ -3,7 +3,7 @@ kind: Config
 build:
   tagPolicy:
     envTemplate:
-          template: "{{.IMAGE_NAME}}"
+      template: '{{.IMAGE_NAME}}'
   cluster: {}
   artifacts:
     - image: redhat-marketplace-operator

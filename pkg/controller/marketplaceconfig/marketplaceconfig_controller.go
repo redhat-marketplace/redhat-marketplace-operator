@@ -16,6 +16,7 @@ package marketplaceconfig
 
 import (
 	"context"
+	"reflect"
 
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	"github.com/operator-framework/operator-sdk/pkg/status"
@@ -219,6 +220,32 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			return reconcile.Result{}, err
 		}
 		reqLogger.Info("found razee")
+
+		updatedRazee := foundRazee.DeepCopy()
+		updatedRazee.Spec.ClusterUUID = marketplaceConfig.Spec.ClusterUUID
+		updatedRazee.Spec.DeploySecretName = marketplaceConfig.Spec.DeploySecretName
+
+		if !reflect.DeepEqual(foundRazee, updatedRazee) {
+			reqLogger.Info("updating razee cr")
+			err = r.client.Update(context.TODO(), updatedRazee)
+
+			if err != nil {
+				reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
+				return reconcile.Result{}, err
+			}
+
+			patch := client.MergeFrom(marketplaceConfig.DeepCopy())
+
+			marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionInstalling,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonRazeeInstalled,
+				Message: "RazeeDeployment updated.",
+			})
+
+			_ = r.client.Status().Patch(context.TODO(), marketplaceConfig, patch)
+			return reconcile.Result{Requeue: true}, nil
+		}
 	}
 
 	var foundMeterBase *marketplacev1alpha1.MeterBase
@@ -264,6 +291,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		}
 		reqLogger.Info("found meterbase")
 	}
+	//TODO: update meterbase
 
 	// Check if operator source exists, or create a new one
 	foundOpSrc := &opsrcv1.OperatorSource{}
