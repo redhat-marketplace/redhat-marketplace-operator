@@ -2,7 +2,7 @@ name: Build and Test
 
 on:
   push:
-    branches: [master, develop, feature/**, hotfix/**, release/**, bugfix/**]
+    branches: [master, develop]
     tags:
       - '*'
   pull_request:
@@ -71,7 +71,7 @@ jobs:
     if: |
       github.event_name == 'pull_request'
     env:
-      OPERATOR_IMAGE: redhat-marketplace-operator:${{}}
+      OPERATOR_IMAGE: redhat-marketplace-operator:${{ needs.build.outputs.tag }}
 
     steps:
       - name: Set up Go 1.x
@@ -114,7 +114,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build]
     env:
-      OPERATOR_IMAGE: redhat-marketplace-operator
+      OPERATOR_IMAGE: redhat-marketplace-operator:${{ needs.build.outputs.tag }}
     if: |
       github.event_name == 'pull_request'
     steps:
