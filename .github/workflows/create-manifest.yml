@@ -57,7 +57,7 @@ jobs:
         env:
           CSV_CHANNEL: ${{ matrix.channel }}
           CSV_DEFAULT_CHANNEL: ${{ matrix.channel == 'stable' }}
-          OPERATOR_IMAGE: quay.io/rh-marketplace/operator-manifest:${{ steps.version.output.tag }}
+          OPERATOR_IMAGE: quay.io/rh-marketplace/redhat-marketplace-operator:${{ steps.tag.output.tag }}
       - name: Upload bundle to actions
         uses: actions/upload-artifact@v1
         with:
