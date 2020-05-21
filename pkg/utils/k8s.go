@@ -27,6 +27,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8yaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -210,58 +211,55 @@ func LoadYAML(filename string, i interface{}) (interface{}, error) {
 }
 
 // filterByNamespace returns a ResourceList of Pods and ServiceMonitors filtered by namespaces
-func FilterByNamespace(namespaces []corev1.Namespace, resources corev1.ResourceList, rClient client.Client) (error, corev1.ResourceList) {
+func FilterByNamespace(obj runtime.Object, namespaces []corev1.Namespace, rClient client.Client, options ...client.ListOption) (error, corev1.ResourceList) {
 	var err error
+	resourceList := corev1.ResourceList{}
+
 	if len(namespaces) == 0 {
 		// if no namespaces are passed, return resources across all namespaces
 		listOpts := []client.ListOption{
 			client.InNamespace(""),
 		}
-		err, resources = getResources(listOpts, resources, rClient)
+		err, resourceList = getResources(obj, listOpts, rClient)
 
 	} else if len(namespaces) == 1 {
 		//if passed a single namespace, return resources across that namespace
 		listOpts := []client.ListOption{
 			client.InNamespace(namespaces[0].ObjectMeta.Name),
 		}
-		err, resources = getResources(listOpts, resources, rClient)
+		err, resourceList = getResources(obj, listOpts, rClient)
 
 	} else if len(namespaces) > 1 {
 		//if more than one namespaces is passed, loop through and add all resources to the ResourceList
 		for _, ns := range namespaces {
+			tempList := corev1.ResourceList{}
 			listOpts := []client.ListOption{
 				client.InNamespace(ns.ObjectMeta.Name),
 			}
-			err, resources = getResources(listOpts, resources, rClient)
+			err, tempList = getResources(obj, listOpts, rClient)
+			resourceList = AppendResourceList(resourceList, tempList)
 		}
 	} else {
 		err = errors.New("unexpected length of []namespaces")
 	}
-	return err, resources
+	return err, resourceList
 }
 
 // getResources() is a helper function for FilterByNamespace(), it returns a ResourceList in the requested namespaces
 // the namespaces are preset in listOpts
-func getResources(listOpts []client.ListOption, resources corev1.ResourceList, rClient client.Client) (error, corev1.ResourceList) {
+func getResources(obj runtime.Object, listOpts []client.ListOption, rClient client.Client) (error, corev1.ResourceList) {
 
-	// Return resources for type Pod
-	podList := &corev1.PodList{}
-	err := rClient.List(context.TODO(), podList, listOpts...)
+	resourceList := corev1.ResourceList{}
+
+	err := rClient.List(context.TODO(), obj, listOpts...)
 	if err != nil {
-		return err, resources
-	}
-	for _, pod := range podList.Items {
-		resources[corev1.ResourceName(pod.GetName())] = resource.MustParse("1")
-	}
-	// Return resoruces for type ServiceMonitor
-	serviceMonitorList := &monitoringv1.ServiceMonitorList{}
-	err = rClient.List(context.TODO(), serviceMonitorList, listOpts...)
-	if err != nil {
-		return err, resources
-	}
-	for _, serviceMonitor := range serviceMonitorList.Items {
-		resources[corev1.ResourceName(serviceMonitor.GetName())] = resource.MustParse("1")
+		return err, resourceList
 	}
 
-	return err, resources
+	for _, item := range obj.Items {
+		resourceList[corev1.ResourceName(item.GetName())] = resource.MustParse("1")
+	}
+
+	return err, resourceList
+
 }
