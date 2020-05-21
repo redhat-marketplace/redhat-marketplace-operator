@@ -2,7 +2,7 @@ name: Create Manifest
 
 on:
   push:
-    branches: [master, develop, 'feature/buildAndTest']
+    branches: [master, develop, 'feature/buildAndTest', release/**]
     tags:
       - '*'
 env:
@@ -73,12 +73,13 @@ jobs:
         run: |
           export PATH=/usr/local/bin/operator-sdk:${PATH}
           make create-bundle-image
+        if: false && env.pushImage == 'true' #TODO fix and re-enable
         env:
           CSV_CHANNEL: ${{ matrix.channel }}
           CSV_DEFAULT_CHANNEL: ${{ matrix.channel == 'stable' }}
           MANIFEST_IMAGE: quay.io/rh-marketplace/operator-manifest:${{ steps.version.outputs.version }}-${{ matrix.channel }}
       - name: Push image
         run: make push
-        if: env.pushImage == 'true'
+        if: false && env.pushImage == 'true' #TODO fix and re-enable
         env:
           OPERATOR_IMAGE: quay.io/rh-marketplace/operator-manifest:${{ steps.version.outputs.version }}-${{ matrix.channel }}
