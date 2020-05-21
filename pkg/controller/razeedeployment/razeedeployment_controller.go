@@ -191,6 +191,44 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	// if not enabled then exit
 	if !instance.Spec.Enabled {
 		reqLogger.Info("Razee not enabled")
+
+		message := "Razee not enabled"
+		instance.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionComplete,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonRazeeInstallFinished,
+			Message: message,
+		})
+
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update status")
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{}, nil
+	}
+
+	if instance.Name != utils.RAZEE_NAME {
+		reqLogger.Info("Names other than the default are not supported",
+			"supportedName", utils.RAZEE_DEPLOY_JOB_NAME,
+			"name", instance.Name,
+		)
+
+		message := "RazeeDeploy Resource name does not match expected"
+		instance.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionComplete,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonRazeeInstallFinished,
+			Message: message,
+		})
+
+		err = r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update status")
+			return reconcile.Result{}, err
+		}
+
 		return reconcile.Result{}, nil
 	}
 
@@ -829,6 +867,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			Message: message,
 		})
 
+		_ = r.client.Status().Update(context.TODO(), instance)
+
 		// requeue to grab the "foundJob" and continue to update status
 		// wait 30 seconds so the job has time to complete
 		// not entirely necessary, but the struct on Status.Conditions needs the Conditions in the job to be populated.
@@ -930,7 +970,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			updatedParentRRS3.Object["spec"] = newParentValues.Object["spec"]
 
 			if !reflect.DeepEqual(updatedParentRRS3.Object["spec"], parentRRS3.Object["spec"]) {
-				reqLogger.Info("Change detected on resource", "resource", updatedParentRRS3.GetName(), "update", updatedParentRRS3.Object["spec"], "original", parentRRS3.Object["spec"])
+				reqLogger.Info("Change detected on resource", "resource", updatedParentRRS3.GetName(), "update")
 
 				reqLogger.Info("Updating resource", "resource: ", utils.PARENT_RRS3)
 				err = r.client.Update(context.TODO(), updatedParentRRS3)
