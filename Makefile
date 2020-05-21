@@ -52,30 +52,32 @@ CSV_DEFAULT_CHANNEL ?= false # change to true for release
 CHANNELS ?= beta
 MANIFEST_IMAGE ?= quay.io/rh-marketplace/operator-manifest:0.1.2
 
-generate-csv-manifest: ## Generate the csv
+generate-bundle: ## Generate the csv
 	make helm
-	operator-sdk generate csv --from-version=$(FROM_VERSION) \
-		--csv-version=$(VERSION) \
-		--operator-name=redhat-marketplace-operator \
-		--update-crds \
-		--default-channel=$(CSV_DEFAULT_CHANNEL) \
-		--csv-channel=$(CSV_CHANNEL)
+	operator-sdk bundle create --generate-only \
+		--package redhat-marketplace-operator \
+		--default-channel=$(CSV_DEFAULT_CHANNEl) \
+		--channels $(CHANNELS)
 	@go run github.com/mikefarah/yq/v3 w -i $(MANIFEST_CSV_FILE) 'metadata.annotations.containerImage' $(OPERATOR_IMAGE)
 	@go run github.com/mikefarah/yq/v3 w -i $(MANIFEST_CSV_FILE) 'metadata.annotations.createdAt' $(CREATED_TIME)
 	@go run github.com/mikefarah/yq/v3 d -i $(MANIFEST_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
 	@go run github.com/mikefarah/yq/v3 w -i $(MANIFEST_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
 
-gneerate-bundle-image: ## Generate the bundle image wh
-	operator-sdk bundle create --package redhat-marketplace-operator --channels $(CHANNELS) $(MANIFEST_IMAGE)
+create-bundle-image: ## Generate the bundle image wh
+	operator-sdk bundle create \
+		--package redhat-marketplace-operator \
+		--default-channel $(CSV_DEFAULT_CHANNEl) \
+		--channels $(CHANNELS) $(MANIFEST_IMAGE)
 
 generate-csv: ## Generate the csv
 	make helm
-	operator-sdk generate csv --from-version=$(FROM_VERSION) \
+	operator-sdk generate csv \
+		--from-version=$(FROM_VERSION) \
 		--csv-version=$(VERSION) \
+		--csv-channel=$(CSV_CHANNEL) \
+		--default-channel=$(CSV_DEFAULT_CHANNEL) \
 		--operator-name=redhat-marketplace-operator \
 		--update-crds \
-		--default-channel=$(CSV_DEFAULT_CHANNEL) \
-		--csv-channel=$(CSV_CHANNEL) \
 		--make-manifests=false
 	@go run github.com/mikefarah/yq/v3 w -i $(VERSION_CSV_FILE) 'metadata.annotations.containerImage' $(OPERATOR_IMAGE)
 	@go run github.com/mikefarah/yq/v3 w -i $(VERSION_CSV_FILE) 'metadata.annotations.createdAt' $(CREATED_TIME)
