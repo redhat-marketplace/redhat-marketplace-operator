@@ -9,7 +9,7 @@ on:
     branches: [master, develop, feature/**, hotfix/**, release/**, bugfix/**]
 
 env:
-  pushImages: false
+  pushImages: true
   cache: true
   #IMAGE_REGISTRY: quay.io/zach-source
   #IMAGE_REGISTRY: quay.io/rh-marketplace

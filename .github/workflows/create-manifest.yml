@@ -13,9 +13,6 @@ jobs:
   create-bundle:
     name: Create Bundle
     runs-on: ubuntu-latest
-    needs: [build]
-    env:
-      OPERATOR_IMAGE: quay.io/rh-marketplace/redhat-marketplace-operator:${{ needs.build.outputs.tag }}
     if: github.event_name == 'push'
     strategy:
       matrix:
@@ -60,6 +57,7 @@ jobs:
         env:
           CSV_CHANNEL: ${{ matrix.channel }}
           CSV_DEFAULT_CHANNEL: ${{ matrix.channel == 'stable' }}
+          OPERATOR_IMAGE: quay.io/rh-marketplace/operator-manifest:${{ steps.version.output.tag }}
       - name: Upload bundle to actions
         uses: actions/upload-artifact@v1
         with:
@@ -76,9 +74,9 @@ jobs:
           export PATH=/usr/local/bin/operator-sdk:${PATH}
           make create-bundle-image
         env:
-          MANIFEST_IMAGE: quay.io/rh-marketplace/operator-manifest:${{ steps.version.output.version }}
+          MANIFEST_IMAGE: quay.io/rh-marketplace/operator-manifest:${{ steps.version.output.version }}-${{ matrix.channel }}
       - name: Push image
         run: make push
         if: env.pushImage == 'true'
         env:
-          OPERATOR_IMAGE: quay.io/rh-marketplace/operator-manifest:${{ steps.version.output.tags }}
+          OPERATOR_IMAGE: quay.io/rh-marketplace/operator-manifest:${{ steps.version.output.version }}-${{ matrix.channel }}
