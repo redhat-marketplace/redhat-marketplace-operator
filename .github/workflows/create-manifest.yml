@@ -74,6 +74,8 @@ jobs:
           export PATH=/usr/local/bin/operator-sdk:${PATH}
           make create-bundle-image
         env:
+          CSV_CHANNEL: ${{ matrix.channel }}
+          CSV_DEFAULT_CHANNEL: ${{ matrix.channel == 'stable' }}
           MANIFEST_IMAGE: quay.io/rh-marketplace/operator-manifest:${{ steps.version.output.version }}-${{ matrix.channel }}
       - name: Push image
         run: make push
