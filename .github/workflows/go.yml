@@ -21,7 +21,7 @@ jobs:
 
     outputs:
       version: ${{ steps.version.outputs.version }}
-      tag: ${{ steps.version.outputs.tag }}
+      tag: ${{ steps.tag.outputs.tag }}
 
     steps:
       - name: Dump GitHub context
@@ -58,11 +58,13 @@ jobs:
 
       - name: Get Version
         id: version
-        run: echo "::set-output name=version::$(make current-version)"
+        run: |
+          echo "::set-output name=version::$(make current-version)"
 
       - name: Get Tag
         id: tag
-        run: echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
+        run: |
+          echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
 
   deploy-quay:
     name: Deploy Quay
