@@ -38,4 +38,8 @@ FILENAME="redhat-marketplace-operator-bundle-${VERSION}-${DATETIME}.zip"
 cd $ROOT/deploy/olm-catalog/redhat-marketplace-operator || echo "failed to cd"
 zip -r ${ROOT}/bundle/${FILENAME} .
 
+echo "::set-output name=filename::${FILENAME}"
+
+FILENAME="redhat-marketplace-operator-bundle-${VERSION}-${DATETIME}"
+
 echo "::set-output name=bundlename::${FILENAME}"
