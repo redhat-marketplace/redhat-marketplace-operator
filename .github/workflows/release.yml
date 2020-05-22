@@ -10,7 +10,6 @@ jobs:
   release:
     name: Release Steps
     runs-on: ubuntu-latest
-    output:
 
     steps:
       - name: Set up Go 1.x

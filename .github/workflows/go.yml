@@ -99,16 +99,16 @@ jobs:
       - name: Echoing image name
         run: echo ${OPERATOR_IMAGE}
 
-      - name: Deploy ${{ matrix.name }}
-        if: env.pushImage == 'true'
-        run: make push
-
       - name: Check if tag exists
         id: image
         run: |
           skopeo inspect docker://${TAG} > /dev/null;  [[ $? == 0 ]] && echo ::set-env name=exists::true || echo ::set-env name=exists::false
         env:
           TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.hash }}
+
+      - name: Deploy ${{ matrix.name }}
+        if: env.exists != 'true' && env.pushImage == 'true'
+        run: make push
 
       - name: Tagging with version for ${{ matrix.name }}
         if: env.exists != 'true' && env.pushImage == 'true' && !startsWith(matrix.registry, 'scan.connect.redhat.com')

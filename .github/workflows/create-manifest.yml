@@ -63,7 +63,7 @@ jobs:
       - name: Upload bundle to actions
         uses: actions/upload-artifact@v1
         with:
-          name: release:${{ matrix.channel }}-id:${{ steps.vars.outputs.hash }}
+          name: channel_${{ matrix.channel }}-id_${{ steps.vars.outputs.hash }}
           path: bundle/${{ steps.bundle.outputs.bundlename }}
 
       - name: Commit changes
