@@ -55,7 +55,7 @@ jobs:
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
           echo "::set-output name=hash::hash-${FILEHASH:0:6}"
         env:
-          FILEHASH: ${{ hashFiles(build/**, assets/**, cmd/**, pkg/**, version/**, go.sum, go.mod) }}
+          FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'version/**', 'go.sum', 'go.mod') }}
 
   deploy:
     name: Deploy
