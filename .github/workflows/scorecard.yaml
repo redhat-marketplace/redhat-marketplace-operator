@@ -5,6 +5,10 @@ name: Scorecard
 #     branches: [ master, develop, release/* ]
 #   pull_request:
 #     branches: [ master, develop, release/* ]
+on:
+  push:
+    branches-ignore:
+      - '**'
 
 jobs:
   scorecard:

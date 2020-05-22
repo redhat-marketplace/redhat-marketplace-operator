@@ -5,6 +5,11 @@ name: Bump develop
 #     branches: [master]
 #     tags:
 #       - '*'
+#
+on:
+  push:
+    branches-ignore:
+      - '**'
 
 jobs:
   release:
