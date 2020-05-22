@@ -65,16 +65,6 @@ jobs:
         with:
           name: release:${{ matrix.channel }}-id:${{ steps.vars.outputs.hash }}
           path: bundle/${{ steps.bundle.outputs.bundlename }}
-      - name: Login
-        run: make docker-login
-        env:
-          DOCKER_USER: ${{ secrets.quayUser }}
-          DOCKER_PASSWORD: ${{ secrets.quayPassword }}
-          REGISTRY: quay.io
-      - name: Create manifest image
-        run: |
-          export PATH=/usr/local/bin/operator-sdk:${PATH}
-          make create-bundle-image
 
       - name: Commit changes
         if: ${{ matrix.channel }} == 'stable'
