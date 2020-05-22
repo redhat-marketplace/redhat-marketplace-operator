@@ -67,7 +67,7 @@ type MeterBaseSpec struct {
 type MeterBaseStatus struct {
 	// MeterBaseConditions represent the latest available observations of an object's stateonfig
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	Conditions status.Conditions `json:"conditions"`
+	Conditions status.Conditions `json:"conditions,omitempty"`
 	// PrometheusStatus is the most recent observed status of the Prometheus cluster. Read-only. Not
 	// included when requesting from the apiserver, only from the Prometheus
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true

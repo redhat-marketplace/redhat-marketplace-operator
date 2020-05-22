@@ -266,7 +266,7 @@ tag-and-push: ## Tag and push operator-image
 	$(DOCKER_EXEC) tag $(IMAGE) $(TAG)
 	$(DOCKER_EXEC) push $(TAG)
 
-ARGS="--patch"
+ARGS ?= "--patch"
 
 .PHONY: bump-version
 bump-version: ## Bump the version and add the file for a commit
