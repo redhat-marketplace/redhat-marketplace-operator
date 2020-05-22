@@ -2,13 +2,17 @@ name: Test
 
 on:
   push:
-    branches: [master, develop, release/**, hotfix/**]
-    tags:
-      - '*'
-    paths-ignore:
-      - 'deploy/olm-catalog/**'
+    branches:
+      - master
+      - develop
+      - release/**
+      - hotfix/**
+      - !release/*/channel/*
+      - !hotfix/*/channel/*
   pull_request:
-    branches: [master, develop, feature/**, hotfix/**, release/**, bugfix/**]
+    branches:
+      - master
+      - develop
 
 env:
   pushImage: true

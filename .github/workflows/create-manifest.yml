@@ -4,9 +4,9 @@ on:
   push:
     branches:
       - release/**
-      - release/*/channel/*
+      - !release/*/channel/*
       - hotfix/**
-      - hotfix/*/channel/*
+      - !hotfix/*/channel/*
 env:
   pushImage: true
 
