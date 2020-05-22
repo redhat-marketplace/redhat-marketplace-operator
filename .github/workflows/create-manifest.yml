@@ -3,10 +3,10 @@ name: Create Manifest
 on:
   push:
     branches:
-      - release/**
-      - !release/*/channel/*
-      - hotfix/**
-      - !hotfix/*/channel/*
+      - 'release/**'
+      - '!release/*/channel/*'
+      - 'hotfix/**'
+      - '!hotfix/*/channel/*'
 env:
   pushImage: true
 

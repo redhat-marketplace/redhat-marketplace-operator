@@ -5,10 +5,10 @@ on:
     branches:
       - master
       - develop
-      - release/**
-      - hotfix/**
-      - !release/*/channel/*
-      - !hotfix/*/channel/*
+      - 'release/**'
+      - 'hotfix/**'
+      - '!release/*/channel/*'
+      - '!hotfix/*/channel/*'
   pull_request:
     branches:
       - master
