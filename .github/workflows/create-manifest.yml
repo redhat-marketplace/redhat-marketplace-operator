@@ -2,12 +2,13 @@ name: Create Manifest
 
 on:
   push:
-    branches: [master, develop, 'feature/buildAndTest', release/**]
+    branches: [release/**, hotfix/**]
     tags:
       - '*'
+    paths-ignore:
+      - 'deploy/olm-catalog/**'
 env:
   pushImage: true
-  cache: true
 
 jobs:
   create-bundle:
@@ -33,13 +34,14 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
-      - name: Get Version
-        id: version
-        run: echo "::set-output name=version::$(make current-version)"
-
-      - name: Get Tag
-        id: tag
-        run: echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
+      - name: Get Vars
+        id: vars
+        run: |
+          echo "::set-output name=version::$(make current-version)"
+          echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
+          echo "::set-output name=hash::hash-${FILEHASH:0:6}"
+        env:
+          FILEHASH: ${{ hashFiles(build/**, assets/**, cmd/**, pkg/**, version/**, go.sum, go.mod) }}
 
       - name: Install operator-sdk
         run: |
@@ -48,7 +50,7 @@ jobs:
           chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu && sudo mkdir -p /usr/local/bin/ && sudo cp operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk && rm operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
           python -m pip install --upgrade pip
           pip3 install operator-courier
-          export PATH=/usr/local/bin/operator-sdk:${PATH}
+          echo "::add-path::/usr/local/bin/operator-sdk"
         env:
           RELEASE_VERSION: v0.17.0
       - name: Create CSV
@@ -57,11 +59,11 @@ jobs:
         env:
           CSV_CHANNEL: ${{ matrix.channel }}
           CSV_DEFAULT_CHANNEL: ${{ matrix.channel == 'stable' }}
-          OPERATOR_IMAGE: quay.io/rh-marketplace/redhat-marketplace-operator:${{ steps.tag.outputs.tag }}
+          OPERATOR_IMAGE: quay.io/rh-marketplace/redhat-marketplace-operator:${{ steps.vars.outputs.tag }}
       - name: Upload bundle to actions
         uses: actions/upload-artifact@v1
         with:
-          name: ${{ matrix.channel }}-${{ steps.bundle.outputs.bundlename }}
+          name: release:${{ matrix.channel }}-id:${{ steps.vars.outputs.hash }}
           path: bundle/${{ steps.bundle.outputs.bundlename }}
       - name: Login
         run: make docker-login
@@ -73,13 +75,34 @@ jobs:
         run: |
           export PATH=/usr/local/bin/operator-sdk:${PATH}
           make create-bundle-image
+
+      - name: Commit changes
+        if: ${{ matrix.channel }} == 'stable'
+        uses: EndBug/add-and-commit@v4
+        with:
+          author_name: Release Bot
+          author_email: rhmop@us.ibm.com
+          message: "Updating cluster service version"
+          add: "*.js"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      #TODO re-enable later
+      - name: Commit changes
+        if: ${{ matrix.channel }} == 'stable'
+        run: |
+          git add -a ./deploy/olm-catalog
+          git commit -m ""
         if: false && env.pushImage == 'true' #TODO fix and re-enable
         env:
           CSV_CHANNEL: ${{ matrix.channel }}
           CSV_DEFAULT_CHANNEL: ${{ matrix.channel == 'stable' }}
-          MANIFEST_IMAGE: quay.io/rh-marketplace/operator-manifest:${{ steps.version.outputs.version }}-${{ matrix.channel }}
+          MANIFEST_IMAGE: quay.io/rh-marketplace/operator-manifest:${{ steps.vars.outputs.version }}-${{ matrix.channel }}
+
+
       - name: Push image
         run: make push
         if: false && env.pushImage == 'true' #TODO fix and re-enable
         env:
-          OPERATOR_IMAGE: quay.io/rh-marketplace/operator-manifest:${{ steps.version.outputs.version }}-${{ matrix.channel }}
+          OPERATOR_IMAGE: quay.io/rh-marketplace/operator-manifest:${{ steps.vars.outputs.version }}-${{ matrix.channel }}
+      - if: startsWith(github.ref, '')

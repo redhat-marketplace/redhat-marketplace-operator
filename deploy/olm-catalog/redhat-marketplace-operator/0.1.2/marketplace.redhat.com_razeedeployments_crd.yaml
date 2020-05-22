@@ -285,8 +285,6 @@ spec:
               description: 'RedHatMarketplaceSecretFound DEPRECATED: is the status
                 of finding the secret in the cluster'
               type: boolean
-          required:
-          - installConditions
           type: object
       type: object
   version: v1alpha1

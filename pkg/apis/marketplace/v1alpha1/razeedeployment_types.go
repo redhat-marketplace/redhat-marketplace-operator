@@ -79,7 +79,7 @@ type RazeeDeploymentSpec struct {
 type RazeeDeploymentStatus struct {
 	// RazeeConditions represent the latest available observations of an object's stateonfig
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	Conditions status.Conditions `json:"installConditions"`
+	Conditions status.Conditions `json:"installConditions,omitempty"`
 	// Conditions represent the latest available observations of an object's stateonfig
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	JobConditions *batch.JobCondition `json:"conditions,omitempty"`
