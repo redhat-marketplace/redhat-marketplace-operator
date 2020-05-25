@@ -46,14 +46,6 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
-      - name: Get dependencies
-        run: |
-          go mod download
-          go mod tidy
-
-      - name: Test
-        run: make test
-
       - name: Get Vars
         id: vars
         run: |
@@ -63,13 +55,24 @@ jobs:
         env:
           FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'version/**', 'go.sum', 'go.mod') }}
 
+      - name: Get dependencies
+        run: |
+          go mod download
+
+      - name: Test
+        run: make test
+
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
     needs: [build]
     strategy:
       matrix:
-        registry: ['quay.io/rh-marketplace', 'scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd']
+        registry:
+          [
+            'quay.io/rh-marketplace',
+            'scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd',
+          ]
         include:
           - registry: quay.io/rh-marketplace
             name: quay
