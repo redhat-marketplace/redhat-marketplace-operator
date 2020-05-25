@@ -20,7 +20,7 @@ spec:
       containers:
         - name: redhat-marketplace-operator
           # Replace this with the built image name
-          image: quay.io/rh-marketplace/redhat-marketplace-operator:sha-e786b7f
+          image: quay.io/rh-marketplace/redhat-marketplace-operator:hash-ab957e
           imagePullPolicy: Always
           securityContext:
             {}
