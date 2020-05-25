@@ -67,6 +67,14 @@ jobs:
           CSV_CHANNEL: ${{ matrix.channel }}
           CSV_DEFAULT_CHANNEL: ${{ matrix.channel == 'stable' }}
           OPERATOR_IMAGE: quay.io/rh-marketplace/redhat-marketplace-operator:${{ steps.vars.outputs.hash }}
+
+      - name: Create commits
+        run: |
+          git config user.name 'Release Bot'
+          git config user.email 'rhmoper@us.ibm.com'
+          git add ./deploy
+          git commit -m "chore: update csv"
+
       - name: Upload bundle to actions
         uses: actions/upload-artifact@v1
         with:
