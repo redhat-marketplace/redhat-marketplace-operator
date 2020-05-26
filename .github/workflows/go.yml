@@ -1,14 +1,14 @@
-name: Test & Deploy
+name: Test & Deploy Image
 
 on:
   push:
     branches:
       - master
       - develop
-      - 'release/**'
-      - 'hotfix/**'
-      - '!release/*/channel/*'
-      - '!hotfix/*/channel/*'
+  pull_request:
+    branches:
+      - master
+      - develop
 
 env:
   pushImage: true
@@ -76,7 +76,6 @@ jobs:
             name: PC
             key: pcUser
             value: pcPassword
-    if: github.event_name == 'push'
     env:
       OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.hash }}
     steps:
@@ -114,9 +113,3 @@ jobs:
       - name: Deploy ${{ matrix.name }}
         if: env.exists != 'true' && env.pushImage == 'true'
         run: make push
-
-      - name: Tagging with version for ${{ matrix.name }}
-        if: env.exists != 'true' && env.pushImage == 'true' && !startsWith(matrix.registry, 'scan.connect.redhat.com')
-        run: make tag-and-push
-        env:
-          TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.version }}
