@@ -68,7 +68,11 @@ jobs:
           CSV_CHANNEL: ${{ matrix.channel }}
           CSV_DEFAULT_CHANNEL: ${{ matrix.channel == 'stable' }}
           OPERATOR_IMAGE: quay.io/rh-marketplace/redhat-marketplace-operator:${{ steps.vars.outputs.hash }}
-
+      - name: Upload bundle to actions
+        uses: actions/upload-artifact@v1
+        with:
+          name: ${{ matrix.channel }}-${{ steps.vars.outputs.hash }}${{ steps.bundle.outputs.bundlename }}
+          path: bundle/redhat-marketplace-operator
       - name: Create branch
         if: ${{ matrix.channel == 'stable' }}
         run: |
@@ -84,8 +88,7 @@ jobs:
         uses: vsoch/pull-request-action@1.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PULL_REQUEST_FROM_BRANCH: "${{ github.ref }}/channel/${{ matrix.channel }}"
+          PULL_REQUEST_FROM_BRANCH: '${{ github.ref }}/channel/${{ matrix.channel }}'
           PULL_REQUEST_BRANCH: master
-          PULL_REQUEST_TITLE: "Release ${{ steps.vars.outputs.version }}"
-          PULL_REQUEST_BODY: "Release PR - merge when ready.\n\nSteps:\n1. Release the beta channel bundle from the [artifacts](https://github.com/redhat-marketplace/redhat-marketplace-operator/actions/runs/${{ github.run_id }})
-).\n1. Test beta. Make changes to release branch as necessary.\n1. Release the stable channel.\n1. Merge this PR."
+          PULL_REQUEST_TITLE: 'Release ${{ steps.vars.outputs.version }}'
+          PULL_REQUEST_BODY: "Release PR - merge when ready.\n\nSteps:\n1. Release the beta channel bundle from the [artifacts](https://github.com/redhat-marketplace/redhat-marketplace-operator/actions/runs/${{ github.run_id }}).\n1. Test beta. Make changes to release branch as necessary.\n1. Release the stable channel.\n1. Merge this PR."
