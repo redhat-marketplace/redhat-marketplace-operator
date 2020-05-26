@@ -45,8 +45,7 @@ jobs:
       - name: Get Vars
         id: vars
         run: |
-          echo ::set-env name=pr_branch::$(echo $BRANCH | sed 's/ref\/heads\///')
-
+          echo ::set-env name=pr_branch::$(echo $BRANCH | sed 's/refs\/heads\///')
           echo "::set-output name=version::$(make current-version)"
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
           echo "::set-output name=hash::hash-${FILEHASH:0:6}"
@@ -75,7 +74,7 @@ jobs:
         uses: actions/upload-artifact@v1
         with:
           name: ${{ matrix.channel }}-${{ steps.vars.outputs.hash }}${{ steps.bundle.outputs.bundlename }}
-          path: bundle/redhat-marketplace-operator
+          path: bundle
       - name: Create branch
         if: ${{ matrix.channel == 'stable' }}
         run: |
