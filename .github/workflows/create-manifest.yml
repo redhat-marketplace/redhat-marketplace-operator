@@ -28,7 +28,6 @@ jobs:
             draft: 'false'
             message: 'Stable release should be merged.'
     steps:
-
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
@@ -71,6 +70,7 @@ jobs:
           OPERATOR_IMAGE: quay.io/rh-marketplace/redhat-marketplace-operator:${{ steps.vars.outputs.hash }}
 
       - name: Create branch
+        if: ${{ matrix.channel == 'stable' }}
         run: |
           git config user.name 'Release Bot'
           git config user.email 'rhmoper@us.ibm.com'
@@ -79,15 +79,13 @@ jobs:
           git checkout -b ${{ github.ref }}/channel/${{ matrix.channel }}
           git push -f -u origin ${{ github.ref }}/channel/${{ matrix.channel }}
 
-      - name: Create PR if not created
-        run: |
-          curl --request POST \
-          --url https://api.github.com/repos/${{ github.repository }}/pulls \
-          --header 'authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' \
-          --header 'content-type: application/json' \
-          --data '{
-            "title": "Release ${{ needs.build.outputs.version }} for channel ${{ matrix.channel }}",
-            "draft": "{{ matrix.draft }}",
-            "base" : "master",
-            "body": "This issue was automatically created by the GitHub Action workflow **${{ github.workflow }}**. \n\n The commit hash was: _${{ github.sha }}_.\n\nUse this to merge the release.\n\n{{ matrix.message }}"
-            }'
+      - name: Open a PR to the default branch
+        if: ${{ matrix.channel == 'stable' }}
+        uses: vsoch/pull-request-action@1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PULL_REQUEST_FROM_BRANCH: "${{ github.ref }}/channel/${{ matrix.channel }}"
+          PULL_REQUEST_BRANCH: master
+          PULL_REQUEST_TITLE: "Release ${{ steps.vars.outputs.version }}"
+          PULL_REQUEST_BODY: "Release PR - merge when ready.\n\nSteps:\n1. Release the beta channel bundle from the [artifacts](https://github.com/redhat-marketplace/redhat-marketplace-operator/actions/runs/${{ github.run_id }})
+).\n1. Test beta. Make changes to release branch as necessary.\n1. Release the stable channel.\n1. Merge this PR."
