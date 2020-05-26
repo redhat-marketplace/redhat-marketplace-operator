@@ -79,8 +79,10 @@ jobs:
       - name: Create branch
         if: ${{ matrix.channel == 'stable' }}
         run: |
+          git config user.name 'Release Bot'
+          git config user.email 'rhmoper@us.ibm.com'
           git add ./deploy/olm-catalog
-          git commit -s -m "chore: update csv"
+          git commit -m "chore: update csv"
           git checkout -b ${{ github.ref }}/channel/${{ matrix.channel }}
           git push -f -u origin ${{ github.ref }}/channel/${{ matrix.channel }}
 
