@@ -9,12 +9,6 @@ on:
       - 'hotfix/**'
       - '!release/*/channel/*'
       - '!hotfix/*/channel/*'
-  pull_request:
-    branches:
-      - master
-      - develop
-      - '!release/**'
-      - '!hotfix/**'
 
 env:
   pushImage: true

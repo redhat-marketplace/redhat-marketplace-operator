@@ -70,35 +70,24 @@ jobs:
           CSV_DEFAULT_CHANNEL: ${{ matrix.channel == 'stable' }}
           OPERATOR_IMAGE: quay.io/rh-marketplace/redhat-marketplace-operator:${{ steps.vars.outputs.hash }}
 
-      - name: Create commits
+      - name: Create branch
         run: |
           git config user.name 'Release Bot'
           git config user.email 'rhmoper@us.ibm.com'
           git add ./deploy
           git commit -m "chore: update csv"
+          git checkout -b ${{ github.ref }}/channel/${{ matrix.channel }}
+          git push -f -u origin ${{ github.ref }}/channel/${{ matrix.channel }}
 
-      - name: Upload bundle to actions
-        uses: actions/upload-artifact@v1
-        with:
-          name: ${{ matrix.channel }}-${{ steps.vars.outputs.hash }}${{ steps.bundle.outputs.bundlename }}
-          path: bundle/redhat-marketplace-operator
-
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          committer: Release Bot <rhmoper@us.ibm.com>
-          commit-message: Release ${{ steps.vars.outputs.version }} for ${{ matrix.channel }} channel
-          body: |
-            Release for version ${{ steps.vars.outputs.version }} on ${{ matrix.channel }} channel
-            - CSV version ${{ steps.vars.outputs.version }} on ${{ matrix.channel }}
-            - {{ matrix.message }}
-
-            Artifacts found here: [${{ github.workflow }} Workflow](https://github.com/redhat-marketplace/redhat-marketplace-operator/actions/runs/${{ github.run_id }})
-
-          title: '[Release - ${{ steps.vars.outputs.version }}] {{ matrix.channel }} Release'
-          labels: ${{ matrix.labels }}
-          assignees: ${{ github.actor }}
-          draft: ${{ matrix.draft }}
-          base: master
-          branch: ${{ github.ref }}/channel/${{ matrix.channel }}
+      - name: Create PR if not created
+        run: |
+          curl --request POST \
+          --url https://api.github.com/repos/${{ github.repository }}/pulls \
+          --header 'authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' \
+          --header 'content-type: application/json' \
+          --data '{
+            "title": "Release ${{ needs.build.outputs.version }} for channel ${{ matrix.channel }}",
+            "draft": "{{ matrix.draft }}",
+            "base" : "master",
+            "body": "This issue was automatically created by the GitHub Action workflow **${{ github.workflow }}**. \n\n The commit hash was: _${{ github.sha }}_.\n\nUse this to merge the release.\n\n{{ matrix.message }}"
+            }'
