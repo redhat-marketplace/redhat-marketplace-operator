@@ -82,8 +82,8 @@ jobs:
           git config user.email 'rhmoper@us.ibm.com'
           git add ./deploy/olm-catalog
           git commit -m "chore: update csv"
-          git checkout -b ${{ github.ref }}/channel/${{ matrix.channel }}
-          git push -f -u origin ${{ github.ref }}/channel/${{ matrix.channel }}
+          git checkout -b ${{ env.pr_branch }}/channel/${{ matrix.channel }}
+          git push -f -u origin ${{ env.pr_branch }}/channel/${{ matrix.channel }}
 
       - name: Open a PR to the default branch
         if: ${{ matrix.channel == 'stable' }}
