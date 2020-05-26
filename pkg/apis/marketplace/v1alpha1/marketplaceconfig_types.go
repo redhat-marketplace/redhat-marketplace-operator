@@ -35,12 +35,15 @@ type MarketplaceConfigSpec struct {
 type MarketplaceConfigStatus struct {
 	// Conditions represent the latest available observations of an object's stateonfig
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	Conditions status.Conditions `json:"conditions"`
+	// +optional
+	Conditions status.Conditions `json:"conditions,omitempty"`
 	// Conditions represent the latest available observations of the razee object's state
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	RazeeSubConditions *status.Conditions `json:"razeeSubConditions,omitempty"`
 	// Conditions represent the latest available observations of the meterbase object's state
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	MeterBaseSubConditions *status.Conditions `json:"meterBaseSubConditions,omitempty"`
 }
 
