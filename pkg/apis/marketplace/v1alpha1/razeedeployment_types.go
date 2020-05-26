@@ -79,27 +79,35 @@ type RazeeDeploymentSpec struct {
 type RazeeDeploymentStatus struct {
 	// RazeeConditions represent the latest available observations of an object's stateonfig
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	Conditions status.Conditions `json:"installConditions,omitempty"`
 	// Conditions represent the latest available observations of an object's stateonfig
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	JobConditions *batch.JobCondition `json:"conditions,omitempty"`
 	// JobState is the status of the Razee Install Job
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	JobState batch.JobStatus `json:"jobState,omitempty"`
 	// MissingValuesFromSecret validates the secret provided has all the correct fields
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	MissingDeploySecretValues []string `json:"missingDeploySecretValues,omitempty"`
 	// RazeePrerequestesCreated is the list of configmaps and secrets required to be installed
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	RazeePrerequisitesCreated []string `json:"razeePrerequisitesCreated,omitempty"`
 	// LocalSecretVarsPopulated DEPRECATED: informs if the correct local variables are correct set.
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	LocalSecretVarsPopulated *bool `json:"localSecretVarsPopulated,omitempty"`
 	// RedHatMarketplaceSecretFound DEPRECATED: is the status of finding the secret in the cluster
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	RedHatMarketplaceSecretFound *bool `json:"redHatMarketplaceSecretFound,omitempty"`
 	// RazeeJobInstall contains information regarding the install job so it can be removed
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	RazeeJobInstall *RazeeJobInstallStruct `json:"razee_job_install,omitempty"`
 }
 
