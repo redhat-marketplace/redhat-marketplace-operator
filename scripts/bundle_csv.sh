@@ -31,15 +31,20 @@ go run github.com/mikefarah/yq/v3 w \
     -i $CSV_PATH/redhat-marketplace-operator.v${VERSION}.clusterserviceversion.yaml \
     'spec.install.spec.deployments[0].spec.template.spec.containers[0].image' ${REGISTRY_IMAGE}
 
+STABLE=$(go run github.com/mikefarah/yq/v3 r \
+     $PACKAGE_PATH/redhat-marketplace-operator.package.yaml \
+    'channels.(name==stable).currentCSV' | sed 's/redhat-marketplace-operator\.v//')
+
+BETA=$(go run github.com/mikefarah/yq/v3 r \
+     $PACKAGE_PATH/redhat-marketplace-operator.package.yaml \
+     'channels.(name==beta).currentCSV' | sed 's/redhat-marketplace-operator\.v//')
+
 operator-courier verify --ui_validate_io $PACKAGE_PATH
 
-FILENAME="redhat-marketplace-operator-bundle-${VERSION}-${DATETIME}.zip"
+FILENAME="rhm-op-bundle-s${STABLE}-b${BETA}-d${DATETIME}"
 
 cd $ROOT/deploy/olm-catalog/redhat-marketplace-operator || echo "failed to cd"
-zip -r ${ROOT}/bundle/${FILENAME} .
+zip -r ${ROOT}/bundle/${FILENAME}.zip . -x 'manifests/*' -x 'metadata/*'
 
-echo "::set-output name=filename::${FILENAME}"
-
-FILENAME="redhat-marketplace-operator-bundle-${VERSION}-${DATETIME}"
-
+echo "::set-output name=filename::${FILENAME}.zip"
 echo "::set-output name=bundlename::${FILENAME}"

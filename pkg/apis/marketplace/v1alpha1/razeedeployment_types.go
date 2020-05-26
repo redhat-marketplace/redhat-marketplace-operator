@@ -26,47 +26,75 @@ import (
 // Configuration values used by Razee to communicate with the Red Hat Marketplace backend
 type RazeeConfigurationValues struct {
 	// Api key used to access the bucket IBM COS
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	IbmCosReaderKey *corev1.SecretKeySelector `json:"ibmCosReaderKey,omitempty"`
 	// BucketName is the name of the bucket in Cloud Object Storage and correlates to your accountID
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	BucketName string `json:"bucketName,omitempty"`
 	// Base url for the instance of IBM COS
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	IbmCosURL string `json:"ibmCosUrl,omitempty"`
 	// Key used to identify a particular razee instance
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	RazeeDashOrgKey *corev1.SecretKeySelector `json:"razeeDashOrgKey,omitempty"`
 	// The file name of the child RemoteResourecS3
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	ChildRSS3FIleName string `json:"childRRS3FileName,omitempty"`
 	// Url used by the razee install to post data
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	RazeeDashUrl string `json:"razeeDashUrl,omitempty"`
 	// The url of the filesource arg that gets passed into the razeedeploy-job
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	FileSourceURL string `json:"fileSourceUrl,omitempty"`
 }
 
 // RazeeDeploymentSpec defines the desired state of RazeeDeployment
 // +k8s:openapi-gen=true
 type RazeeDeploymentSpec struct {
-	// Setting enabled to "true" will create a Razee namespace and deploy it's componenets. Set to "false" to bypass Razee installation
+
+	// Enabled is the flag that controls if the controller does work. Setting
+	// enabled to "true" will create a Razee namespace and deploy it's componenets. Set to "false" to bypass Razee installation
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Enabled bool `json:"enabled"`
 
 	// ClusterUUID is the cluster identifier, used for installing razee.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	ClusterUUID string `json:"clusterUUID"`
 
 	// DeploySecretName is the name of our secret where Razee
 	// variables are stored.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	DeploySecretName *string `json:"deploySecretName,omitempty"`
 
 	// TargetNamespace is configurable target of the razee namespace
 	// This is to support legancy installs. Please do not edit.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	TargetNamespace *string `json:"targetNamespace,omitempty"`
 
 	// Configuration values provided from redhat marketplace
 	// These are used internally by the Operator
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	DeployConfig *RazeeConfigurationValues `json:"deployConfig,omitempty"`
 
 	// Location of your IBM Cloud Object Storage resources
 	// Used internally by the Operator
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	ChildUrl *string `json:"childUrl,omitempty"`
 }
@@ -79,34 +107,47 @@ type RazeeDeploymentSpec struct {
 type RazeeDeploymentStatus struct {
 	// RazeeConditions represent the latest available observations of an object's stateonfig
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	Conditions status.Conditions `json:"installConditions,omitempty"`
 	// Conditions represent the latest available observations of an object's stateonfig
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	JobConditions *batch.JobCondition `json:"conditions,omitempty"`
 	// JobState is the status of the Razee Install Job
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	JobState batch.JobStatus `json:"jobState,omitempty"`
+
 	// MissingValuesFromSecret validates the secret provided has all the correct fields
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	MissingDeploySecretValues []string `json:"missingDeploySecretValues,omitempty"`
+	// +optional
+	MissingDeploySecretValues []string `json:"missingValuesFromSecret,omitempty"`
 	// RazeePrerequestesCreated is the list of configmaps and secrets required to be installed
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	RazeePrerequisitesCreated []string `json:"razeePrerequisitesCreated,omitempty"`
 	// LocalSecretVarsPopulated DEPRECATED: informs if the correct local variables are correct set.
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	LocalSecretVarsPopulated *bool `json:"localSecretVarsPopulated,omitempty"`
 	// RedHatMarketplaceSecretFound DEPRECATED: is the status of finding the secret in the cluster
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	RedHatMarketplaceSecretFound *bool `json:"redHatMarketplaceSecretFound,omitempty"`
 	// RazeeJobInstall contains information regarding the install job so it can be removed
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	RazeeJobInstall *RazeeJobInstallStruct `json:"razee_job_install,omitempty"`
 }
 
 type RazeeJobInstallStruct struct {
 	// RazeeNamespace is the namespace targeted for the Razee install
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	RazeeNamespace string `json:"razee_namespace"`
 	// RazeeInstallURL is the url used to install the Razee resources
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	RazeeInstallURL string `json:"razee_install_url"`
 }
 

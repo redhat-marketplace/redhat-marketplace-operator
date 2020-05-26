@@ -1,14 +1,16 @@
-name: Test & Deploy
+name: Test & Deploy Image
 
 on:
   push:
     branches:
       - master
       - develop
-      - 'release/**'
-      - 'hotfix/**'
-      - '!release/*/channel/*'
-      - '!hotfix/*/channel/*'
+  pull_request:
+    branches:
+      - master
+      - develop
+      - release/**
+      - hotfix/**
 
 env:
   pushImage: true
@@ -24,6 +26,7 @@ jobs:
       version: ${{ steps.vars.outputs.version }}
       tag: ${{ steps.vars.outputs.tag }}
       hash: ${{ steps.vars.outputs.hash }}
+      tagExists: ${{ steps.checktag.outputs.exists }}
 
     steps:
       - name: Dump GitHub context
@@ -45,7 +48,7 @@ jobs:
         run: |
           echo "::set-output name=version::$(make current-version)"
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
-          echo "::set-output name=hash::hash-${FILEHASH:0:6}"
+          echo "::set-output name=hash::hash-$(make current-version)-${FILEHASH:0:6}"
         env:
           FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'version/**', 'go.sum', 'go.mod') }}
 
@@ -56,29 +59,32 @@ jobs:
       - name: Test
         run: make test
 
+      - name: Check if tag exists
+        id: checktag
+        shell: bash {0}
+        run: |
+          skopeo inspect docker://${TAG} > /dev/null
+          [[ $? == 0 ]] && echo ::set-output name=exists::true || echo ::set-output name=exists::false
+        env:
+          TAG: quay.io/rh-marketplace/redhat-marketplace-operator:${{ steps.vars.outputs.hash }}
+
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
     needs: [build]
+    if: needs.build.outputs.tagExists != 'true'
     strategy:
       matrix:
         registry:
-          [
-            'quay.io/rh-marketplace',
-            'scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd',
-          ]
+          - 'quay.io/rh-marketplace'
         include:
           - registry: quay.io/rh-marketplace
             name: quay
             key: quayUser
             value: quayPassword
-          - registry: scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd
-            name: PC
-            key: pcUser
-            value: pcPassword
-    if: github.event_name == 'push'
     env:
       OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.hash }}
+      TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.hash }}
     steps:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
@@ -99,24 +105,44 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets[matrix.value] }}
           REGISTRY: ${{ matrix.registry }}
 
-      - name: Echoing image name
-        run: echo ${OPERATOR_IMAGE}
-
       - name: Check if tag exists
         id: image
         shell: bash {0}
         run: |
           skopeo inspect docker://${TAG} > /dev/null
           [[ $? == 0 ]] && echo ::set-env name=exists::true || echo ::set-env name=exists::false
-        env:
-          TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.hash }}
 
       - name: Deploy ${{ matrix.name }}
         if: env.exists != 'true' && env.pushImage == 'true'
         run: make push
 
-      - name: Tagging with version for ${{ matrix.name }}
-        if: env.exists != 'true' && env.pushImage == 'true' && !startsWith(matrix.registry, 'scan.connect.redhat.com')
-        run: make tag-and-push
-        env:
-          TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.version }}
+    tag:
+      name: Tag
+      runs-on: ubuntu-latest
+      needs: [build, deploy]
+      strategy:
+        matrix:
+          registry:
+            - 'scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd'
+          include:
+            - registry: scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd
+              fromRegistry: quay.io/rh-marketplace
+              name: PC
+              key: pcUser
+              value: pcPassword
+      env:
+        FROM_OPERATOR_IMAGE: ${{ matrix.fromRegistry }}/redhat-marketplace-operator:${{ needs.build.outputs.hash }}
+        TO_OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.hash }}
+        TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.hash }}
+      steps:
+        - name: Check if tag exists
+          id: image
+          shell: bash {0}
+          run: |
+            skopeo inspect docker://${TAG} > /dev/null
+            [[ $? == 0 ]] && echo ::set-env name=exists::true || echo ::set-env name=exists::false
+
+        - name: Copy ${{ matrix.name }}
+          if: env.exists != 'true' && env.pushImage == 'true'
+          run: |
+            skopeo copy "docker://${FROM_OPERATOR_IMAGE}" "docker://${TO_OPERATOR_IMAGE" --dest-creds ${{ secrets[matrix.key] }}:${{ secrets[matrix.value] }}
