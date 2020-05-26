@@ -81,13 +81,13 @@ jobs:
           git config user.name 'Release Bot'
           git config user.email 'rhmoper@us.ibm.com'
           git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
+          git checkout -b ${{ env.pr_branch }}/channel/${{ matrix.channel }}
           git add ./deploy/olm-catalog
           git commit -m "chore: update csv"
-          git checkout -b ${{ env.pr_branch }}/channel/${{ matrix.channel }}
           git push -f -u origin ${{ env.pr_branch }}/channel/${{ matrix.channel }}
         env:
           GITHUB_TOKEN: ${{ secrets.github_token }}
-          GITHUB_$EPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
 
       - name: Open a PR to the default branch
         if: ${{ matrix.channel == 'stable' }}
