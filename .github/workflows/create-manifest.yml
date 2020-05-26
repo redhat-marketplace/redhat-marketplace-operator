@@ -5,8 +5,8 @@ on:
     branches:
       - 'release/**'
       - 'hotfix/**'
-      - '!release/*/channel/*'
-      - '!hotfix/*/channel/*'
+      - '!release/*/stable'
+      - '!hotfix/*/stable'
 env:
   pushImage: true
 
@@ -80,22 +80,19 @@ jobs:
         run: |
           git config user.name 'Release Bot'
           git config user.email 'rhmoper@us.ibm.com'
-          git remote prune origin
-          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
-          git checkout -b ${{ env.pr_branch }}/channel/${{ matrix.channel }}
+          git checkout -b ${NEW_BRANCH_NAME}
           git add ./deploy/olm-catalog
           git commit -m "chore: update csv"
-          git push -f -u origin ${{ env.pr_branch }}/channel/${{ matrix.channel }}
+          git push -f -u origin ${NEW_BRANCH_NAME}
         env:
-          GITHUB_TOKEN: ${{ secrets.github_token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
+          NEW_BRANCH_NAME: ${{ env.pr_branch }}/${{ matrix.channel }}
 
       - name: Open a PR to the default branch
         if: ${{ matrix.channel == 'stable' }}
         uses: vsoch/pull-request-action@1.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PULL_REQUEST_FROM_BRANCH: '${{ env.pr_branch }}/channel/${{ matrix.channel }}'
+          PULL_REQUEST_FROM_BRANCH: '${{ env.pr_branch }}/${{ matrix.channel }}'
           PULL_REQUEST_BRANCH: master
           PULL_REQUEST_TITLE: 'Release ${{ steps.vars.outputs.version }}'
           PULL_REQUEST_BODY: "Release PR - merge when ready.\n\nSteps:\n1. Release the beta channel bundle from the [artifacts](https://github.com/redhat-marketplace/redhat-marketplace-operator/actions/runs/${{ github.run_id }}).\n1. Test beta. Make changes to release branch as necessary.\n1. Release the stable channel.\n1. Merge this PR."
