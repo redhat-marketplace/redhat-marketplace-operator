@@ -46,6 +46,7 @@ jobs:
         id: vars
         run: |
           echo ::set-env name=pr_branch::$(echo $BRANCH | sed 's/refs\/heads\///')
+          echo ::set-env name=NEW_BRANCH_NAME::stable
           echo "::set-output name=version::$(make current-version)"
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
           echo "::set-output name=hash::hash-${FILEHASH:0:6}"
@@ -92,15 +93,13 @@ jobs:
           git add ./deploy/olm-catalog
           git commit -m "chore: update csv"
           git push -f -u origin ${NEW_BRANCH_NAME}
-        env:
-          NEW_BRANCH_NAME: ${{ env.pr_branch }}/${{ matrix.channel }}
 
       - name: Open a PR to the default branch
         if: ${{ matrix.channel == 'stable' }}
         uses: vsoch/pull-request-action@1.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PULL_REQUEST_FROM_BRANCH: '${{ env.pr_branch }}/${{ matrix.channel }}'
+          PULL_REQUEST_FROM_BRANCH: '${{ env.NEW_BRANCH_NAME }}'
           PULL_REQUEST_BRANCH: master
           PULL_REQUEST_TITLE: 'Release ${{ steps.vars.outputs.version }}'
           PULL_REQUEST_BODY: "Release PR - merge when ready.\n\nSteps:\n1. Release the beta channel bundle from the [artifacts](https://github.com/redhat-marketplace/redhat-marketplace-operator/actions/runs/${{ github.run_id }}).\n1. Test beta. Make changes to release branch as necessary.\n1. Release the stable channel.\n1. Merge this PR."
