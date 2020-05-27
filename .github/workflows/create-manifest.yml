@@ -53,6 +53,13 @@ jobs:
           FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'version/**', 'go.sum', 'go.mod') }}
           BRANCH: ${{ github.ref }}
 
+      - uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
       - name: Install operator-sdk
         run: |
           cd /tmp
@@ -81,6 +88,7 @@ jobs:
           git config user.name 'Release Bot'
           git config user.email 'rhmoper@us.ibm.com'
           git checkout -b ${NEW_BRANCH_NAME}
+          git update-ref -d refs/heads/${NEW_BRANCH_NAME}
           git add ./deploy/olm-catalog
           git commit -m "chore: update csv"
           git push -f -u origin ${NEW_BRANCH_NAME}
