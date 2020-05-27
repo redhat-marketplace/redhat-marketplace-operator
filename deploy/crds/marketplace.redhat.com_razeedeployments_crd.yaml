@@ -253,7 +253,7 @@ spec:
               description: 'LocalSecretVarsPopulated DEPRECATED: informs if the correct
                 local variables are correct set.'
               type: boolean
-            missingDeploySecretValues:
+            missingValuesFromSecret:
               description: MissingValuesFromSecret validates the secret provided has
                 all the correct fields
               items:

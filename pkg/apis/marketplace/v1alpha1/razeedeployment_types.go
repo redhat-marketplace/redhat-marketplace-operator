@@ -89,10 +89,11 @@ type RazeeDeploymentStatus struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	JobState batch.JobStatus `json:"jobState,omitempty"`
+
 	// MissingValuesFromSecret validates the secret provided has all the correct fields
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
-	MissingDeploySecretValues []string `json:"missingDeploySecretValues,omitempty"`
+	MissingDeploySecretValues []string `json:"missingValuesFromSecret,omitempty"`
 	// RazeePrerequestesCreated is the list of configmaps and secrets required to be installed
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
