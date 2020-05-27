@@ -46,7 +46,7 @@ jobs:
         id: vars
         run: |
           echo ::set-env name=pr_branch::$(echo $BRANCH | sed 's/refs\/heads\///')
-          echo ::set-env name=NEW_BRANCH_NAME::$(echo $BRANCH | sed 's/refs\/heads\///')/${{ matrix.channel }}
+          echo ::set-env name=NEW_BRANCH_NAME::release/${{ matrix.channel }}
           echo "::set-output name=version::$(make current-version)"
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
           echo "::set-output name=hash::hash-${FILEHASH:0:6}"
