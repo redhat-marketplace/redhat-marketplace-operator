@@ -97,7 +97,7 @@ jobs:
         if: ${{ matrix.channel == 'stable' }}
         uses: vsoch/pull-request-action@1.0.2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.pullRequestSecret }}
           PULL_REQUEST_FROM_BRANCH: '${{ env.NEW_BRANCH_NAME }}'
           PULL_REQUEST_BRANCH: master
           PULL_REQUEST_TITLE: 'Release ${{ steps.vars.outputs.version }}'
