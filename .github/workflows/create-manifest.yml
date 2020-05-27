@@ -89,7 +89,6 @@ jobs:
           git config user.name 'Release Bot'
           git config user.email 'rhmoper@us.ibm.com'
           git checkout -b ${NEW_BRANCH_NAME}
-          git update-ref -d refs/heads/${NEW_BRANCH_NAME}
           git add ./deploy/olm-catalog
           git commit -m "chore: update csv"
           git push -f -u origin ${NEW_BRANCH_NAME}
