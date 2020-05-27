@@ -174,8 +174,6 @@ spec:
               - unavailableReplicas
               - updatedReplicas
               type: object
-          required:
-          - conditions
           type: object
       type: object
   version: v1alpha1
