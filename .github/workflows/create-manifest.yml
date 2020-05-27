@@ -87,6 +87,7 @@ jobs:
           OPERATOR_IMAGE: quay.io/rh-marketplace/redhat-marketplace-operator:${{ steps.vars.outputs.hash }}
       - name: Upload bundle to actions
         uses: actions/upload-artifact@v1
+        if: ${{ github.event_name == 'pull_request' }}
         with:
           name: ${{ matrix.channel }}-${{ steps.vars.outputs.hash }}${{ steps.bundle.outputs.bundlename }}
           path: bundle
