@@ -98,9 +98,6 @@ func TestFilterByNamespace(t *testing.T) {
 	client := setup()
 
 	// Setup resources we want to retrieve
-	resourceList1 := corev1.ResourceList{}
-	resourceList2 := corev1.ResourceList{}
-	resourceList3 := corev1.ResourceList{}
 	testNs1 := &corev1.Namespace{}
 	testNs1.ObjectMeta.Name = testNamespace1
 	testNs2 := &corev1.Namespace{}
@@ -164,36 +161,118 @@ func TestFilterByNamespace(t *testing.T) {
 	// case 1:
 	// get resources in case an empty list of namespaces is passed
 	// should return: at least a resourceList with at least 4 resources
-	err, resourceList1 = FilterByNamespace(ns, resourceList1, client)
+	podList1 := &corev1.PodList{}
+	podObj := podList1.DeepCopyObject()
+	err, podObj = FilterByNamespace(podObj, ns, client)
 	if err != nil {
 		t.Error(err, "Could not execute FilterByNamespace")
-	} else if len(resourceList1) < 4 {
-		t.Error("Did not return the correct number of resrouces. Expected: minimum of 4. Actual: ", len(resourceList1))
-	}
-
-	// case 2:
-	// get resources in case a list with a single namespace is passed
-	// should return: at resourceList of 2 resource
-	ns = append(ns, *testNs1)
-	err, resourceList2 = FilterByNamespace(ns, resourceList2, client)
-	if err != nil {
-		t.Error(err, "Could not execute FilterByNamespace")
-	} else if len(resourceList2) != 2 {
-		t.Error("Did not return the correct number of resrouces. Expected: 2. Actual: ", len(resourceList2))
-	}
-
-	// case 3:
-	// get resources in case a list with multiple namespaces is passed
-	// should return: resourceList of 4 resources
-	ns = append(ns, *testNs2)
-	err, resourceList3 = FilterByNamespace(ns, resourceList3, client)
-	if err != nil {
-		t.Error(err, "Could not execute FilterByNamespace")
-	} else if len(resourceList3) != 4 {
-		t.Error("Did not return the correct number of resrouces. Expected: 4. Actual: ", len(resourceList3))
+	} else if len(podObj.Items) != 1 {
+		t.Error("Did not return the correct number of resrouces. Expected: minimum of 1. Actual: ", len(podList1.Items))
 	}
 
 }
+
+// func TestFilterByNamespace(t *testing.T) {
+
+// 	client := setup()
+
+// 	// Setup resources we want to retrieve
+// 	resourceList1 := corev1.ResourceList{}
+// 	resourceList2 := corev1.ResourceList{}
+// 	resourceList3 := corev1.ResourceList{}
+// 	testNs1 := &corev1.Namespace{}
+// 	testNs1.ObjectMeta.Name = testNamespace1
+// 	testNs2 := &corev1.Namespace{}
+// 	testNs2.ObjectMeta.Name = testNamespace2
+
+// 	testPod1 := &corev1.Pod{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      "test-pod-1",
+// 			Namespace: testNamespace1,
+// 		},
+// 	}
+// 	testPod2 := &corev1.Pod{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      "test-pod-2",
+// 			Namespace: testNamespace2,
+// 		},
+// 	}
+
+// 	serviceMonitor1 := &monitoringv1.ServiceMonitor{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      "test-servicemonitor-1",
+// 			Namespace: testNamespace1,
+// 		},
+// 	}
+
+// 	serviceMonitor2 := &monitoringv1.ServiceMonitor{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      "test-servicemonitor-2",
+// 			Namespace: testNamespace2,
+// 		},
+// 	}
+
+// 	// Creating those resources
+// 	err := client.Create(context.TODO(), testNs1)
+// 	if err != nil {
+// 		t.Error("could not setup test, error creating testing-namespace")
+// 	}
+// 	err = client.Create(context.TODO(), testNs2)
+// 	if err != nil {
+// 		t.Error("could not setup test, error creating testing-namespace")
+// 	}
+// 	err = client.Create(context.TODO(), testPod1)
+// 	if err != nil {
+// 		t.Error("could not setup test, error creating testing-pod")
+// 	}
+// 	err = client.Create(context.TODO(), testPod2)
+// 	if err != nil {
+// 		t.Error("could not setup test, error creating testing-pod")
+// 	}
+// 	err = client.Create(context.TODO(), serviceMonitor1)
+// 	if err != nil {
+// 		t.Error("could not setup test, error creating serviceMonitor")
+// 	}
+// 	err = client.Create(context.TODO(), serviceMonitor2)
+// 	if err != nil {
+// 		t.Error("could not setup test, error creating serviceMonitor")
+// 	}
+
+// 	// Retrieve and compare cases
+// 	ns := []corev1.Namespace{}
+// 	// case 1:
+// 	// get resources in case an empty list of namespaces is passed
+// 	// should return: at least a resourceList with at least 4 resources
+// 	err, resourceList1 = FilterByNamespace(resourceList1, ns, client)
+// 	if err != nil {
+// 		t.Error(err, "Could not execute FilterByNamespace")
+// 	} else if len(resourceList1) < 4 {
+// 		t.Error("Did not return the correct number of resrouces. Expected: minimum of 4. Actual: ", len(resourceList1))
+// 	}
+
+// 	// case 2:
+// 	// get resources in case a list with a single namespace is passed
+// 	// should return: at resourceList of 2 resource
+// 	ns = append(ns, *testNs1)
+// 	err, resourceList2 = FilterByNamespace(resourceList2, ns, client)
+// 	if err != nil {
+// 		t.Error(err, "Could not execute FilterByNamespace")
+// 	} else if len(resourceList2) != 2 {
+// 		t.Error("Did not return the correct number of resrouces. Expected: 2. Actual: ", len(resourceList2))
+// 	}
+
+// 	// case 3:
+// 	// get resources in case a list with multiple namespaces is passed
+// 	// should return: resourceList of 4 resources
+// 	ns = append(ns, *testNs2)
+// 	err, resourceList3 = FilterByNamespace(resourceList3, ns, client)
+// 	if err != nil {
+// 		t.Error(err, "Could not execute FilterByNamespace")
+// 	} else if len(resourceList3) != 4 {
+// 		t.Error("Did not return the correct number of resrouces. Expected: 4. Actual: ", len(resourceList3))
+// 	}
+
+// }
 
 func buildMarketplaceConfigCR(name, namespace, customerID string) *marketplacev1alpha1.MarketplaceConfig {
 	return &marketplacev1alpha1.MarketplaceConfig{

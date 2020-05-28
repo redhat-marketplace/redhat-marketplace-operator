@@ -211,55 +211,51 @@ func LoadYAML(filename string, i interface{}) (interface{}, error) {
 }
 
 // filterByNamespace returns a ResourceList of Pods and ServiceMonitors filtered by namespaces
-func FilterByNamespace(obj runtime.Object, namespaces []corev1.Namespace, rClient client.Client, options ...client.ListOption) (error, corev1.ResourceList) {
+func FilterByNamespace(obj runtime.Object, namespaces []corev1.Namespace, rClient client.Client, options ...client.ListOption) (error, runtime.Object) {
 	var err error
-	resourceList := corev1.ResourceList{}
 
 	if len(namespaces) == 0 {
 		// if no namespaces are passed, return resources across all namespaces
 		listOpts := []client.ListOption{
 			client.InNamespace(""),
 		}
-		err, resourceList = getResources(obj, listOpts, rClient)
+		err, obj = getResources(obj, listOpts, rClient)
 
 	} else if len(namespaces) == 1 {
 		//if passed a single namespace, return resources across that namespace
 		listOpts := []client.ListOption{
 			client.InNamespace(namespaces[0].ObjectMeta.Name),
 		}
-		err, resourceList = getResources(obj, listOpts, rClient)
+		err, obj = getResources(obj, listOpts, rClient)
 
 	} else if len(namespaces) > 1 {
 		//if more than one namespaces is passed, loop through and add all resources to the ResourceList
 		for _, ns := range namespaces {
-			tempList := corev1.ResourceList{}
 			listOpts := []client.ListOption{
 				client.InNamespace(ns.ObjectMeta.Name),
 			}
-			err, tempList = getResources(obj, listOpts, rClient)
-			resourceList = AppendResourceList(resourceList, tempList)
+			err, obj = getResources(obj, listOpts, rClient)
+			// resourceList = AppendResourceList(resourceList, tempList)
 		}
 	} else {
 		err = errors.New("unexpected length of []namespaces")
 	}
-	return err, resourceList
+	return err, obj
 }
 
 // getResources() is a helper function for FilterByNamespace(), it returns a ResourceList in the requested namespaces
 // the namespaces are preset in listOpts
-func getResources(obj runtime.Object, listOpts []client.ListOption, rClient client.Client) (error, corev1.ResourceList) {
-
-	resourceList := corev1.ResourceList{}
+func getResources(obj runtime.Object, listOpts []client.ListOption, rClient client.Client) (error, runtime.Object) {
 
 	err := rClient.List(context.TODO(), obj, listOpts...)
 	if err != nil {
-		return err, resourceList
+		return err, obj
 	}
 
-	for _, item := range obj.Items {
-		resourceList[corev1.ResourceName(item.GetName())] = resource.MustParse("1")
-	}
+	// for _, item := range obj.Items {
+	// 	resourceList[corev1.ResourceName(item.GetName())] = resource.MustParse("1")
+	// }
 
-	return err, resourceList
+	return nil, obj
 
 }
