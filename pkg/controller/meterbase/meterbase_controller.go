@@ -52,8 +52,7 @@ const (
 //Server:          "prom/prometheus:v2.15.2",
 
 var (
-	log = logf.Log.WithName("marketplace_op_controller_meterbase")
-
+	log              = logf.Log.WithName("marketplace_op_controller_meterbase")
 	meterbaseFlagSet *pflag.FlagSet
 )
 

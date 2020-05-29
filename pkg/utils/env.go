@@ -63,6 +63,8 @@ const (
 	RAZEE_DASH_URL_FIELD       = "RAZEE_DASH_URL"
 	FILE_SOURCE_URL_FIELD      = "FILE_SOURCE_URL"
 
+	/* Resource Versions */
+	OPERATOR_VERSION = "0.0.1"
 )
 
 var (
@@ -89,7 +91,6 @@ func SetMapKeyValue(inMap map[string]string, a []string) {
 	key, value := GetMapKeyValue(a)
 	inMap[key] = value
 }
-
 
 func HasMapKey(inMap map[string]string, a []string) bool {
 	key, _ := GetMapKeyValue(a)

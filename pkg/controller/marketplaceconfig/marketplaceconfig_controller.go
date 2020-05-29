@@ -20,6 +20,7 @@ import (
 
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	"github.com/operator-framework/operator-sdk/pkg/status"
+	"github.com/prometheus/client_golang/prometheus"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	pflag "github.com/spf13/pflag"
@@ -163,10 +164,18 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		err = r.client.Status().Update(context.TODO(), marketplaceConfig)
 
 		if err != nil {
-			reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
+			reqLogger.Error(err, "Failed to create a new MarketplaceConig CR.")
 			return reconcile.Result{}, err
 		}
 	}
+
+	rhmOperatorInfoGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name:        "rhm_operator_info",
+		Namespace:   marketplaceConfig.Namespace,
+		Help:        "This gauge checks whether all cluster information is present",
+		ConstLabels: prometheus.Labels{"operator_version": utils.OPERATOR_VERSION, "clustter_uuid": marketplaceConfig.Spec.ClusterUUID, "namespace": marketplaceConfig.Namespace},
+	})
+	prometheus.MustRegister(rhmOperatorInfoGauge)
 
 	installFeatures := viper.GetStringSlice("features")
 	installSet := make(map[string]bool)
