@@ -85,6 +85,16 @@ generate-csv: ## Generate the csv
 	@go run github.com/mikefarah/yq/v3 d -i $(VERSION_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
 	@go run github.com/mikefarah/yq/v3 w -i $(VERSION_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
 
+PACKAGE_FILE ?= ./deploy/olm-catalog/redhat-marketplace-operator/redhat-marketplace-operator.package.yaml
+
+manifest-package-beta: # Make sure we have the right versions
+	@go run github.com/mikefarah/yq/v3 w -i $(PACKAGE_FILE) 'channels.(name==stable).currentCSV' redhat-marketplace-operator.v$(FROM_VERSION)
+	@go run github.com/mikefarah/yq/v3 w -i $(PACKAGE_FILE) 'channels.(name==beta).currentCSV' redhat-marketplace-operator.v$(VERSION)
+
+manifest-package-stable: # Make sure we have the right versions
+	@go run github.com/mikefarah/yq/v3 w -i $(PACKAGE_FILE) 'channels.(name==stable).currentCSV' redhat-marketplace-operator.v$(VERSION)
+	@go run github.com/mikefarah/yq/v3 w -i $(PACKAGE_FILE) 'channels.(name==beta).currentCSV' redhat-marketplace-operator.v$(VERSION)
+
 REGISTRY ?= quay.io
 
 docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
