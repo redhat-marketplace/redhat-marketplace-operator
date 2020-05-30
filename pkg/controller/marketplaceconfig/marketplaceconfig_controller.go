@@ -17,12 +17,14 @@ package marketplaceconfig
 import (
 	"context"
 	"reflect"
+	"time"
 
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	"github.com/prometheus/client_golang/prometheus"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/version"
 	pflag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
@@ -51,6 +53,7 @@ var (
 	log                      = logf.Log.WithName("controller_marketplaceconfig")
 	marketplaceConfigFlagSet *pflag.FlagSet
 	defaultFeatures          = []string{RAZEE_FLAG, METERBASE_FLAG}
+	originalRhmOperatorInfo  = make(map[string]string)
 )
 
 // Init declares our FlagSet for the MarketplaceConfig
@@ -169,13 +172,20 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		}
 	}
 
+	originalRhmOperatorInfo["operator_version"] = version.Version
+	originalRhmOperatorInfo["cluster_uuid"] = marketplaceConfig.Spec.ClusterUUID
+	originalRhmOperatorInfo["namespace"] = marketplaceConfig.Namespace
+
 	rhmOperatorInfoGauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name:        "rhm_operator_info",
-		Namespace:   marketplaceConfig.Namespace,
-		Help:        "This gauge checks whether all cluster information is present",
-		ConstLabels: prometheus.Labels{"operator_version": utils.OPERATOR_VERSION, "clustter_uuid": marketplaceConfig.Spec.ClusterUUID, "namespace": marketplaceConfig.Namespace},
+		Name:      "rhm_operator_info",
+		Namespace: marketplaceConfig.Namespace,
+		Help:      "This gauge checks whether all cluster information is present",
+		ConstLabels: prometheus.Labels{"operator_version": originalRhmOperatorInfo["operator_version"],
+			"clustter_uuid": originalRhmOperatorInfo["cluster_uuid"],
+			"namespace":     originalRhmOperatorInfo["namespace"]},
 	})
 	prometheus.MustRegister(rhmOperatorInfoGauge)
+	checkRhmOperatorInfoGauge(rhmOperatorInfoGauge, *marketplaceConfig)
 
 	installFeatures := viper.GetStringSlice("features")
 	installSet := make(map[string]bool)
@@ -399,4 +409,24 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 // belonging to the given marketplaceConfig custom resource name
 func labelsForMarketplaceConfig(name string) map[string]string {
 	return map[string]string{"app": "marketplaceconfig", "marketplaceconfig_cr": name}
+}
+
+// compareRhmOperatorInfoGauge() continuously checks to see if the rhm-operator-info gauge contains the correct information
+func checkRhmOperatorInfoGauge(gauge prometheus.Gauge, marketplaceconfig marketplacev1alpha1.MarketplaceConfig) {
+	go func() {
+		for {
+			// Check if information exists
+			// If exists -> gauge set to 1
+			// If it doesn't exist -> gauge set to 0
+			if originalRhmOperatorInfo["operator_version"] == version.Version &&
+				originalRhmOperatorInfo["cluster_uuid"] == marketplaceconfig.Spec.ClusterUUID &&
+				originalRhmOperatorInfo["namespace"] == marketplaceconfig.Namespace {
+				gauge.Set(1)
+			} else {
+				gauge.Set(0)
+			}
+
+			time.Sleep(15 * time.Second)
+		}
+	}()
 }
