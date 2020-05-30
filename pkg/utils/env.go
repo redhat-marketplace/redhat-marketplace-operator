@@ -62,12 +62,21 @@ const (
 	CHILD_RRS3_YAML_FIELD      = "CHILD_RRS3_YAML_FILENAME"
 	RAZEE_DASH_URL_FIELD       = "RAZEE_DASH_URL"
 	FILE_SOURCE_URL_FIELD      = "FILE_SOURCE_URL"
-
 )
 
 var (
 	/* Labels*/
 	LABEL_RHM_OPERATOR_WATCH = []string{"marketplace.redhat.com/watch", "true"}
+
+	/* Gauge Values */
+	GAUGE_FLAGS = map[string]bool{
+		"rhm_operator_status_install_succeeded":           false,
+		"rhm_operator_status_install_failed":              false,
+		"rhm_operator_status_install_start_time":          false,
+		"rhm_operator_status_install_end_time":            false,
+		"rhm_operator_status_install_razee_child_created": false,
+		"rhm_operator_status_install_no_secret":           false,
+	}
 )
 
 // Getenv will return the value for the passed key (which is typically an environment variable)
@@ -89,7 +98,6 @@ func SetMapKeyValue(inMap map[string]string, a []string) {
 	key, value := GetMapKeyValue(a)
 	inMap[key] = value
 }
-
 
 func HasMapKey(inMap map[string]string, a []string) bool {
 	key, _ := GetMapKeyValue(a)

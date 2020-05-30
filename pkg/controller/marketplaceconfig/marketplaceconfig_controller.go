@@ -20,6 +20,7 @@ import (
 
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	"github.com/operator-framework/operator-sdk/pkg/status"
+	"github.com/prometheus/client_golang/prometheus"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	pflag "github.com/spf13/pflag"
@@ -50,6 +51,27 @@ var (
 	log                      = logf.Log.WithName("controller_marketplaceconfig")
 	marketplaceConfigFlagSet *pflag.FlagSet
 	defaultFeatures          = []string{RAZEE_FLAG, METERBASE_FLAG}
+
+	/* Gauges to track install */
+	rhmInstallSucceedGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "rhm_operator_status_install_succeeded",
+		Help: "This gauge states whether the rhm-operator has been successfuly installed: 0=false, 1=true",
+	})
+
+	rhmInstallFailedGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "rhm_operator_status_install_failed",
+		Help: "This gauge states whether the rhm-operator install has failed: 0=false, 1=true",
+	})
+
+	rhmOperatorInstallStartTimeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "rhm_operator_status_install_start_time",
+		Help: "This gauge states when the rhm-operator began installing",
+	})
+
+	rhmOperatorInstallEndTimeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "rhm_operator_status_install_end_time",
+		Help: "This gauge states when the rhm-operator finished installing",
+	})
 )
 
 // Init declares our FlagSet for the MarketplaceConfig
@@ -149,6 +171,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		}
 		// Error reading the object - requeue the request.
 		reqLogger.Error(err, "Failed to get MarketplaceConfig")
+		rhmInstallFailedGauge.Set(1)
 		return reconcile.Result{}, err
 	}
 
@@ -163,9 +186,15 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		err = r.client.Status().Update(context.TODO(), marketplaceConfig)
 
 		if err != nil {
-			reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
+			reqLogger.Error(err, "Failed to create a new CR.")
+			rhmInstallFailedGauge.Set(1)
 			return reconcile.Result{}, err
 		}
+	}
+
+	if !utils.GAUGE_FLAGS["rhm_operator_status_install_start_time"] {
+		rhmOperatorInstallStartTimeGauge.SetToCurrentTime()
+		utils.GAUGE_FLAGS["rhm_operator_status_install_start_time"] = true
 	}
 
 	installFeatures := viper.GetStringSlice("features")
@@ -191,6 +220,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 			if err != nil {
 				reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
+				rhmInstallFailedGauge.Set(1)
 				return reconcile.Result{}, err
 			}
 
@@ -213,6 +243,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			return reconcile.Result{Requeue: true}, nil
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get RazeeDeployment CR")
+			rhmInstallFailedGauge.Set(1)
 			return reconcile.Result{}, err
 		}
 		// Sets the owner for foundRazee
@@ -231,6 +262,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 			if err != nil {
 				reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
+				rhmInstallFailedGauge.Set(1)
 				return reconcile.Result{}, err
 			}
 
@@ -261,6 +293,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			err = r.client.Create(context.TODO(), newMeterBaseCr)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create a new MeterBase CR.")
+				rhmInstallFailedGauge.Set(1)
 				return reconcile.Result{}, err
 			}
 
@@ -283,6 +316,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			return reconcile.Result{Requeue: true}, nil
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get MeterBase CR")
+			rhmInstallFailedGauge.Set(1)
 			return reconcile.Result{}, err
 		}
 		// Sets the owner for MeterBase
@@ -306,6 +340,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		err = r.client.Create(context.TODO(), newOpSrc)
 		if err != nil {
 			reqLogger.Info("Failed to create an OperatorSource.", "OperatorSource.Namespace ", newOpSrc.Namespace, "OperatorSource.Name", newOpSrc.Name)
+			rhmInstallFailedGauge.Set(1)
 			return reconcile.Result{}, err
 		}
 
@@ -330,6 +365,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
 		// Could not get Operator Source
+		rhmInstallFailedGauge.Set(1)
 		reqLogger.Error(err, "Failed to get OperatorSource")
 	}
 
@@ -380,6 +416,17 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	if err != nil {
 		reqLogger.Error(err, "failed to update status")
 		return reconcile.Result{}, err
+	}
+
+	if !utils.GAUGE_FLAGS["rhm_operator_status_install_end_time"] {
+		rhmOperatorInstallEndTimeGauge.SetToCurrentTime()
+		utils.GAUGE_FLAGS["rhm_operator_status_install_end_time"] = true
+	}
+
+	if !utils.GAUGE_FLAGS["rhm_operator_status_install_succeeded"] {
+		rhmInstallSucceedGauge.Set(1)
+		rhmInstallFailedGauge.Set(0)
+		utils.GAUGE_FLAGS["rhm_operator_status_install_succeeded"] = true
 	}
 
 	reqLogger.Info("reconciling finished")

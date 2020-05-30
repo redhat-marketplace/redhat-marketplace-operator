@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/operator-framework/operator-sdk/pkg/status"
+	"github.com/prometheus/client_golang/prometheus"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/spf13/pflag"
@@ -51,6 +52,11 @@ var (
 	log                       = logf.Log.WithName("controller_razeedeployment")
 	razeeFlagSet              *pflag.FlagSet
 	RELATED_IMAGE_RAZEE_JOB   = "RELATED_IMAGE_RAZEE_JOB"
+
+	rhmNoSecretGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "rhm_operator_status_install_no_secret",
+		Help: "This gauge states whether a secret was found: 0=Secret Found, 1=No Secret",
+	})
 )
 
 func init() {
@@ -309,10 +315,15 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.Info("Failed to find operator secret")
+			rhmNoSecretGauge.Set(1)
 			return reconcile.Result{RequeueAfter: time.Second * 60}, nil
 		} else {
 			return reconcile.Result{}, err
 		}
+	}
+	if !utils.GAUGE_FLAGS["rhm_operator_status_install_no_secret"] {
+		rhmNoSecretGauge.Set(0)
+		utils.GAUGE_FLAGS["rhm_operator_status_install_no_secret"] = true
 	}
 
 	if !utils.HasMapKey(rhmOperatorSecret.ObjectMeta.Labels, utils.LABEL_RHM_OPERATOR_WATCH) {
