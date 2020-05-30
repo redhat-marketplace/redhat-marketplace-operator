@@ -177,14 +177,12 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	originalRhmOperatorInfo["namespace"] = marketplaceConfig.Namespace
 
 	rhmOperatorInfoGauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name:      "rhm_operator_info",
-		Namespace: marketplaceConfig.Namespace,
-		Help:      "This gauge checks whether all cluster information is present",
+		Name: "rhm_operator_info",
+		Help: "This gauge checks whether all cluster information is present",
 		ConstLabels: prometheus.Labels{"operator_version": originalRhmOperatorInfo["operator_version"],
 			"clustter_uuid": originalRhmOperatorInfo["cluster_uuid"],
 			"namespace":     originalRhmOperatorInfo["namespace"]},
 	})
-	prometheus.MustRegister(rhmOperatorInfoGauge)
 	checkRhmOperatorInfoGauge(rhmOperatorInfoGauge, *marketplaceConfig)
 
 	installFeatures := viper.GetStringSlice("features")
