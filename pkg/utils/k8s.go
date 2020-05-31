@@ -210,52 +210,48 @@ func LoadYAML(filename string, i interface{}) (interface{}, error) {
 	return genericTypeVal, nil
 }
 
-// filterByNamespace returns a ResourceList of Pods and ServiceMonitors filtered by namespaces
-func FilterByNamespace(obj runtime.Object, namespaces []corev1.Namespace, rClient client.Client, options ...client.ListOption) (error, runtime.Object) {
+// filterByNamespace returns the runtime.Object filtered by namespaces ListOptions
+func FilterByNamespace(obj runtime.Object, namespaces []corev1.Namespace, rClient client.Client, options ...client.ListOption) error {
 	var err error
+	listOpts := options
 
 	if len(namespaces) == 0 {
 		// if no namespaces are passed, return resources across all namespaces
-		listOpts := []client.ListOption{
+		listOpts = []client.ListOption{
 			client.InNamespace(""),
 		}
-		err, obj = getResources(obj, listOpts, rClient)
+		err = getResources(obj, listOpts, rClient)
 
 	} else if len(namespaces) == 1 {
 		//if passed a single namespace, return resources across that namespace
-		listOpts := []client.ListOption{
+		listOpts = []client.ListOption{
 			client.InNamespace(namespaces[0].ObjectMeta.Name),
 		}
-		err, obj = getResources(obj, listOpts, rClient)
+		err = getResources(obj, listOpts, rClient)
 
 	} else if len(namespaces) > 1 {
-		//if more than one namespaces is passed, loop through and add all resources to the ResourceList
+		//if more than one namespaces is passed, loop through and append the resources
 		for _, ns := range namespaces {
-			listOpts := []client.ListOption{
+			listOpts = []client.ListOption{
 				client.InNamespace(ns.ObjectMeta.Name),
 			}
-			err, obj = getResources(obj, listOpts, rClient)
-			// resourceList = AppendResourceList(resourceList, tempList)
+			err = getResources(obj, listOpts, rClient)
 		}
 	} else {
 		err = errors.New("unexpected length of []namespaces")
 	}
-	return err, obj
+	return err
 }
 
-// getResources() is a helper function for FilterByNamespace(), it returns a ResourceList in the requested namespaces
+// getResources() is a helper function for FilterByNamespace(), it returns a the runtime.Object filled with resources from the requested namespaces
 // the namespaces are preset in listOpts
-func getResources(obj runtime.Object, listOpts []client.ListOption, rClient client.Client) (error, runtime.Object) {
+func getResources(obj runtime.Object, listOpts []client.ListOption, rClient client.Client) error {
 
 	err := rClient.List(context.TODO(), obj, listOpts...)
 	if err != nil {
-		return err, obj
+		return err
 	}
 
-	// for _, item := range obj.Items {
-	// 	resourceList[corev1.ResourceName(item.GetName())] = resource.MustParse("1")
-	// }
-
-	return nil, obj
+	return nil
 
 }
