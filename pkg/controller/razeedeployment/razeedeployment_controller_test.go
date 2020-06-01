@@ -19,16 +19,20 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/controller"
-
-	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
+	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -41,27 +45,40 @@ func TestRazeeDeployController(t *testing.T) {
 	logf.SetLogger(logf.ZapLogger(true))
 
 	viper.Set("assets", "../../../assets")
+	scheme.Scheme.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment.DeepCopy(), &marketplacev1alpha1.RazeeDeploymentList{})
 
 	t.Run("Test Clean Install", testCleanInstall)
 	t.Run("Test No Secret", testNoSecret)
-	t.Run("Test Old Install", testOldMigratedInstall)
+	t.Run("Test Bad Name", testBadName)
+}
+
+func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": apiVersion,
+			"kind":       kind,
+			"metadata": map[string]interface{}{
+				"namespace": namespace,
+				"name":      name,
+			},
+			"spec": name,
+		},
+	}
 }
 
 func setup(r *ReconcilerTest) error {
-	s := scheme.Scheme
-	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment.DeepCopy())
-	r.SetClient(fake.NewFakeClient(r.GetRuntimeObjects()...))
-	r.SetReconciler(&ReconcileRazeeDeployment{client: r.GetClient(), scheme: s, opts: &RazeeOpts{RazeeJobImage: "test"}})
+	r.SetClient(fake.NewFakeClient(r.GetGetObjects()...))
+	r.SetReconciler(&ReconcileRazeeDeployment{client: r.GetClient(), scheme: scheme.Scheme, opts: &RazeeOpts{RazeeJobImage: "test"}})
 	return nil
 }
 
 var (
-	name      = "marketplaceconfig"
-	namespace = "openshift-redhat-marketplace"
-	opts      = []TestCaseOption{
+	name       = utils.RAZEE_NAME
+	namespace  = "openshift-redhat-marketplace"
+	secretName = "rhm-operator-secret"
+
+	opts = []StepOption{
 		WithRequest(req),
-		WithNamespace("openshift-redhat-marketplace"),
-		WithName(name),
 	}
 	req = reconcile.Request{
 		NamespacedName: types.NamespacedName{
@@ -75,8 +92,9 @@ var (
 			Namespace: namespace,
 		},
 		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
-			Enabled:     true,
-			ClusterUUID: "foo",
+			Enabled:          true,
+			ClusterUUID:      "foo",
+			DeploySecretName: &secretName,
 		},
 	}
 	namespObj = corev1.Namespace{
@@ -89,19 +107,39 @@ var (
 			Name: "razee",
 		},
 	}
+	console = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "config.openshift.io/v1",
+			"kind":       "Console",
+			"metadata": map[string]interface{}{
+				"name": "cluster",
+			},
+			"spec": "console",
+		},
+	}
+	cluster = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "config.openshift.io/v1",
+			"kind":       "Infrastructure",
+			"metadata": map[string]interface{}{
+				"name": "cluster",
+			},
+			"spec": "console",
+		},
+	}
 	secret = corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "rhm-operator-secret",
 			Namespace: namespace,
 		},
 		Data: map[string][]byte{
-			IBM_COS_READER_KEY_FIELD: []byte("test"),
-			IBM_COS_URL_FIELD:        []byte("test"),
-			BUCKET_NAME_FIELD:        []byte("test"),
-			RAZEE_DASH_ORG_KEY_FIELD: []byte("test"),
-			CHILD_RRS3_YAML_FIELD:    []byte("test"),
-			RAZEE_DASH_URL_FIELD:     []byte("test"),
-			FILE_SOURCE_URL_FIELD:    []byte("test"),
+			utils.IBM_COS_READER_KEY_FIELD: []byte("rhm-cos-reader-key"),
+			utils.IBM_COS_URL_FIELD:        []byte("rhm-cos-url"),
+			utils.BUCKET_NAME_FIELD:        []byte("bucket-name"),
+			utils.RAZEE_DASH_ORG_KEY_FIELD: []byte("razee-dash-org-key"),
+			utils.CHILD_RRS3_YAML_FIELD:    []byte("childRRS3-filename"),
+			utils.RAZEE_DASH_URL_FIELD:     []byte("razee-dash-url"),
+			utils.FILE_SOURCE_URL_FIELD:    []byte("file-source-url"),
 		},
 	}
 )
@@ -112,71 +150,86 @@ func testCleanInstall(t *testing.T) {
 		&razeeDeployment,
 		&secret,
 		&namespObj,
+		console,
+		cluster,
 	)
 	reconcilerTest.TestAll(t,
-		[]TestCaseStep{
-			NewReconcilerTestCase(
-				append(opts,
-					WithName(namespace),
-					WithNamespace(""),
-					WithExpectedResult(reconcile.Result{}),
-					WithTestObj(&corev1.Namespace{}))...),
-			NewReconcilerTestCase(
-				append(opts,
-					WithTestObj(&corev1.ConfigMap{}),
-					WithName("watch-keeper-non-namespaced"))...),
-			NewReconcilerTestCase(
-				append(opts,
-					WithTestObj(&corev1.ConfigMap{}),
-					WithName("watch-keeper-limit-poll"))...),
-			NewReconcilerTestCase(
-				append(opts,
-					WithTestObj(&corev1.ConfigMap{}),
-					WithName("razee-cluster-metadata"))...),
-			NewReconcilerTestCase(
-				append(opts,
-					WithTestObj(&corev1.ConfigMap{}),
-					WithName("watch-keeper-config"))...),
-			NewReconcilerTestCase(
-				append(opts,
-					WithTestObj(&corev1.Secret{}),
-					WithName("watch-keeper-secret"))...),
-			NewReconcilerTestCase(
-				append(opts,
-					WithTestObj(&corev1.Secret{}),
-					WithName("rhm-cos-reader-key"))...),
-			NewReconcilerTestCase(
-				append(opts,
-					WithTestObj(&batch.Job{}),
-					WithName("razeedeploy-job"),
-					WithNamespace(namespace),
-					WithExpectedResult(reconcile.Result{RequeueAfter: time.Second * 30}),
-					WithAfter(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
-						myJob, ok := i.(*batch.Job)
+		//Requeue until we have created the job and waiting for it to finish
+		ReconcileStep(opts,
+			ReconcileWithExpectedResults(
+				append(
+					RangeReconcileResults(RequeueResult, 15),
+					RequeueAfterResult(time.Second*30),
+					RequeueAfterResult(time.Second*15))...)),
+		// Let's do some client checks
+		ListStep(opts,
+			ListWithObj(&corev1.ConfigMapList{}),
+			ListWithFilter(
+				client.InNamespace(namespace),
+			),
+			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				list, ok := i.(*corev1.ConfigMapList)
 
-						if !ok {
-							t.Fatalf("Type is not expected %T", i)
-						}
+				assert.Truef(t, ok, "expected operator group list got type %T", i)
+				assert.Equal(t, 4, len(list.Items))
 
-						myJob.Status.Conditions = []batch.JobCondition{
-							batch.JobCondition{
-								Type:               batch.JobComplete,
-								Status:             corev1.ConditionTrue,
-								LastProbeTime:      metav1.Now(),
-								LastTransitionTime: metav1.Now(),
-								Reason:             "Job is complete",
-								Message:            "Job is complete",
-							},
-						}
+				names := []string{}
+				for _, cm := range list.Items {
+					names = append(names, cm.Name)
+				}
 
-						r.Client.Status().Update(context.TODO(), myJob)
-					}))...),
-			NewReconcilerTestCase(
-				append(opts,
-					WithName("razeedeploy-job"),
-					WithExpectedResult(reconcile.Result{}),
-					WithTestObj(nil))...),
-		})
+				assert.Contains(t, names, utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
+				assert.Contains(t, names, utils.WATCH_KEEPER_LIMITPOLL_NAME)
+				assert.Contains(t, names, utils.WATCH_KEEPER_CONFIG_NAME)
+				assert.Contains(t, names, utils.RAZEE_CLUSTER_METADATA_NAME)
+			})),
+		ListStep(opts,
+			ListWithObj(&corev1.SecretList{}),
+			ListWithFilter(
+				client.InNamespace(namespace),
+			),
+			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				list, ok := i.(*corev1.SecretList)
+
+				assert.Truef(t, ok, "expected operator group list got type %T", i)
+				assert.Equal(t, 3, len(list.Items))
+
+				names := []string{}
+				for _, cm := range list.Items {
+					names = append(names, cm.Name)
+				}
+
+				assert.Contains(t, names, utils.WATCH_KEEPER_SECRET_NAME)
+				assert.Contains(t, names, utils.RHM_OPERATOR_SECRET_NAME)
+				assert.Contains(t, names, utils.COS_READER_KEY_NAME)
+			})),
+		GetStep(opts,
+			GetWithObj(&batch.Job{}),
+			GetWithNamespacedName(utils.RAZEE_DEPLOY_JOB_NAME, namespace),
+			GetWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				myJob, ok := i.(*batch.Job)
+
+				if !ok {
+					require.FailNowf(t, "", "Type is not expected %T", i)
+				}
+
+				myJob.Status.Conditions = []batch.JobCondition{
+					{
+						Type:               batch.JobComplete,
+						Status:             corev1.ConditionTrue,
+						LastProbeTime:      metav1.Now(),
+						LastTransitionTime: metav1.Now(),
+						Reason:             "Job is complete",
+						Message:            "Job is complete",
+					},
+				}
+				myJob.Status.Succeeded = 1
+
+				r.Client.Status().Update(context.TODO(), myJob)
+			})),
+		ReconcileStep(opts,
+			ReconcileWithUntilDone(true)),
+	)
 }
 
 var (
@@ -197,98 +250,31 @@ var (
 	}
 )
 
-func testOldMigratedInstall(t *testing.T) {
-	t.Parallel()
-	reconcilerTest := NewReconcilerTest(setup,
-		&oldRazeeDeployment,
-		&secret,
-		&namespObj,
-		&razeeNsObj,
-	)
-	reconcilerTest.TestAll(t,
-		[]TestCaseStep{
-			NewReconcilerTestCase(
-				append(opts,
-					WithName(namespace),
-					WithNamespace(""),
-					WithExpectedResult(reconcile.Result{}),
-					WithTestObj(&corev1.Namespace{}))...),
-			NewReconcilerTestCase(
-				append(opts,
-					WithNamespace("razee"),
-					WithTestObj(&corev1.ConfigMap{}),
-					WithName("watch-keeper-non-namespaced"))...),
-			NewReconcilerTestCase(
-				append(opts,
-					WithNamespace("razee"),
-					WithTestObj(&corev1.ConfigMap{}),
-					WithName("watch-keeper-limit-poll"))...),
-			NewReconcilerTestCase(
-				append(opts,
-					WithNamespace("razee"),
-					WithTestObj(&corev1.ConfigMap{}),
-					WithName("razee-cluster-metadata"))...),
-			NewReconcilerTestCase(
-				append(opts,
-					WithNamespace("razee"),
-					WithTestObj(&corev1.ConfigMap{}),
-					WithName("watch-keeper-config"))...),
-			NewReconcilerTestCase(
-				append(opts,
-					WithNamespace("razee"),
-					WithTestObj(&corev1.Secret{}),
-					WithName("watch-keeper-secret"))...),
-			NewReconcilerTestCase(
-				append(opts,
-					WithNamespace("razee"),
-					WithTestObj(&corev1.Secret{}),
-					WithName("rhm-cos-reader-key"))...),
-			NewReconcilerTestCase(
-				append(opts,
-					WithTestObj(&batch.Job{}),
-					WithName("razeedeploy-job"),
-					WithNamespace(namespace),
-					WithExpectedResult(reconcile.Result{RequeueAfter: time.Second * 30}),
-					WithAfter(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
-						myJob, ok := i.(*batch.Job)
-
-						if !ok {
-							t.Fatalf("Type is not expected %T", i)
-						}
-
-						myJob.Status.Conditions = []batch.JobCondition{
-							batch.JobCondition{
-								Type:               batch.JobComplete,
-								Status:             corev1.ConditionTrue,
-								LastProbeTime:      metav1.Now(),
-								LastTransitionTime: metav1.Now(),
-								Reason:             "Job is complete",
-								Message:            "Job is complete",
-							},
-						}
-
-						r.Client.Status().Update(context.TODO(), myJob)
-					}))...),
-			NewReconcilerTestCase(
-				append(opts,
-					WithName("razeedeploy-job"),
-					WithExpectedResult(reconcile.Result{}),
-					WithTestObj(nil))...),
-		})
-}
-
 func testNoSecret(t *testing.T) {
 	t.Parallel()
-	reconcilerTest := NewReconcilerTest(setup, &razeeDeployment)
+	reconcilerTest := NewReconcilerTest(setup, &razeeDeployment, &namespObj)
 	reconcilerTest.TestAll(t,
-		[]TestCaseStep{
-			NewReconcilerTestCase(
-				append(opts,
-					WithName("rhm-operator-secret"),
-					WithNamespace(namespace),
-					WithExpectedResult(reconcile.Result{}),
-					WithExpectedError(nil))...),
-		})
+		ReconcileStep(opts,
+			ReconcileWithExpectedResults(
+				RequeueResult,
+				RequeueResult,
+				RequeueResult,
+				RequeueAfterResult(time.Second*60)),
+		))
+}
+
+
+func testBadName(t *testing.T) {
+	t.Parallel()
+	razeeDeploymentLocalDeployment := razeeDeployment.DeepCopy()
+	razeeDeploymentLocalDeployment.Name = "foo"
+	reconcilerTest := NewReconcilerTest(setup, razeeDeploymentLocalDeployment, &namespObj)
+	reconcilerTest.TestAll(t,
+		ReconcileStep(opts,
+			ReconcileWithExpectedResults(
+				DoneResult,
+			),
+		))
 }
 
 func CreateWatchKeeperSecret() *corev1.Secret {

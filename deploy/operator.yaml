@@ -20,7 +20,7 @@ spec:
       containers:
         - name: redhat-marketplace-operator
           # Replace this with the built image name
-          image: quay.io/rh-marketplace/redhat-marketplace-operator:0.1.1
+          image: quay.io/zach_source/redhat-marketplace-operator:0.1.2
           imagePullPolicy: Always
           securityContext:
             {}
@@ -42,4 +42,4 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: RELATED_IMAGE_RAZEE_JOB
-              value: quay.io/razee/razeedeploy-delta:1.1.0
+              value: quay.io/razee/razeedeploy-delta:1.1.3

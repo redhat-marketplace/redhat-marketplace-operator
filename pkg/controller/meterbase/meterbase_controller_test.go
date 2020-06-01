@@ -20,9 +20,9 @@ import (
 	// "strconv"
 	"testing"
 
-	"github.com/spf13/viper"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/controller"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
+	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,9 +56,8 @@ var (
 			Namespace: namespace,
 		},
 	}
-	options = []TestCaseOption{
+	options = []StepOption{
 		WithRequest(req),
-		WithNamespace(namespace),
 	}
 )
 
@@ -76,7 +75,7 @@ func setup(r *ReconcilerTest) error {
 	s := scheme.Scheme
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
 	// Create a fake client to mock API calls.
-	cl := fake.NewFakeClient(r.GetRuntimeObjects()...)
+	cl := fake.NewFakeClient(r.GetGetObjects()...)
 	// Create a ReconcileMeterBase object with the scheme and fake client.
 	rm := &ReconcileMeterBase{client: cl, scheme: s}
 
@@ -88,12 +87,14 @@ func setup(r *ReconcilerTest) error {
 func testCleanInstall(t *testing.T) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, meterbase)
-	reconcilerTest.TestAll(t, []TestCaseStep{
-		NewReconcileStep(options...),
-		NewReconcilerTestCase(append(options,
-			WithTestObj(&corev1.ConfigMap{}),
-			WithName(name))...),
-	})
+	reconcilerTest.TestAll(t,
+		ReconcileStep(options,
+				ReconcileWithExpectedResults(DoneResult),
+		),
+		GetStep(options,
+			GetWithObj(&corev1.ConfigMap{}),
+			GetWithNamespacedName(name, namespace)),
+	)
 	// Register operator types with the runtime scheme.
 
 	// Mock request to simulate Reconcile() being called on an event for a

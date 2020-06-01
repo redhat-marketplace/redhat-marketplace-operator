@@ -81,7 +81,6 @@ type MeterDefinitionStatus struct {
 	Pods []*metav1.ObjectMeta `json:"pods"`
 }
 
-
 // MeterDefinition is internal Meter Definitions defined by Operators from Red Hat Marketplace.
 // This is an internal resource not meant to be modified directly.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

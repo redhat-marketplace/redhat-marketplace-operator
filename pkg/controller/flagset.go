@@ -15,8 +15,8 @@
 package controller
 
 import (
-	"github.com/spf13/pflag"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	"github.com/spf13/pflag"
 )
 
 type ControllerFlagSet pflag.FlagSet

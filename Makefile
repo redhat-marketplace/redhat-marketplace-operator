@@ -1,19 +1,19 @@
 SHELL:=/bin/bash
-NAMESPACE ?= redhat-marketplace-operator
+NAMESPACE ?= openshift-redhat-marketplace
 OPSRC_NAMESPACE = marketplace-operator
 OPERATOR_SOURCE = redhat-marketplace-operators
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 OPERATOR_IMAGE_NAME ?= redhat-marketplace-operator
 VERSION ?= $(shell go run scripts/version/main.go)
+FROM_VERSION ?= $(shell go run scripts/version/main.go last)
 OPERATOR_IMAGE_TAG ?= $(VERSION)
-FROM_VERSION ?= "0.1.0"
 CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
-
+DOCKER_EXEC ?= $(shell command -v docker)
 
 SERVICE_ACCOUNT := redhat-marketplace-operator
 SECRETS_NAME := my-docker-secrets
 
-OPERATOR_IMAGE := $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
+OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
 
 PULL_POLICY ?= IfNotPresent
 .DEFAULT_GOAL := help
@@ -23,6 +23,7 @@ PULL_POLICY ?= IfNotPresent
 install: ## Install all resources (CR/CRD's, RBAC and Operator)
 	@echo ....... Creating namespace .......
 	- kubectl create namespace ${NAMESPACE}
+	make helm
 	make create
 	make deploys
 	make apply
@@ -35,39 +36,73 @@ uninstall: ## Uninstall all that all performed in the $ make install
 
 .PHONY: build
 build: ## Build the operator executable
-	VERSION=$(VERSION) PUSH_IMAGE=false IMAGE=$(OPERATOR_IMAGE) ./scripts/skaffold_build.sh
+	DOCKER_EXEC=$(DOCKER_EXEC) VERSION=$(VERSION) PUSH_IMAGE=false IMAGE=$(OPERATOR_IMAGE) ./scripts/skaffold_build.sh
 
 .PHONY: push
 push: push ## Push the operator image
-	docker push $(OPERATOR_IMAGE)
+	$(DOCKER_EXEC) push $(OPERATOR_IMAGE)
 
 helm: ## build helm base charts
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE) --set namespace=$(NAMESPACE)
 
-CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/redhat-marketplace-operator.v$(VERSION).clusterserviceversion.yaml
+MANIFEST_CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/manifests/redhat-marketplace-operator.clusterserviceversion.yaml
+VERSION_CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/redhat-marketplace-operator.v$(VERSION).clusterserviceversion.yaml
+CSV_CHANNEL ?= beta # change to stable for release
+CSV_DEFAULT_CHANNEL ?= false # change to true for release
+CHANNELS ?= beta
+MANIFEST_IMAGE ?= quay.io/rh-marketplace/operator-manifest:0.1.2
+
+generate-bundle: ## Generate the csv
+	make helm
+	operator-sdk bundle create --generate-only \
+		--package redhat-marketplace-operator \
+		--default-channel=$(CSV_DEFAULT_CHANNEl) \
+		--channels $(CHANNELS)
+	@go run github.com/mikefarah/yq/v3 w -i $(MANIFEST_CSV_FILE) 'metadata.annotations.containerImage' $(OPERATOR_IMAGE)
+	@go run github.com/mikefarah/yq/v3 w -i $(MANIFEST_CSV_FILE) 'metadata.annotations.createdAt' $(CREATED_TIME)
+	@go run github.com/mikefarah/yq/v3 d -i $(MANIFEST_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
+	@go run github.com/mikefarah/yq/v3 w -i $(MANIFEST_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
+
+create-bundle-image: ## Generate the bundle image wh
+	operator-sdk bundle create \
+		--package redhat-marketplace-operator \
+		--default-channel $(CSV_CHANNEL) \
+		--channels stable,beta \
+		$(MANIFEST_IMAGE)
 
 generate-csv: ## Generate the csv
 	make helm
-	operator-sdk generate csv --from-version $(FROM_VERSION) --csv-version $(VERSION) --csv-config=./deploy/olm-catalog/csv-config.yaml --update-crds
-	@go run github.com/mikefarah/yq/v3 w -i $(CSV_FILE) 'metadata.annotations.containerImage' $(OPERATOR_IMAGE)
-	@go run github.com/mikefarah/yq/v3 w -i $(CSV_FILE) 'metadata.annotations.createdAt' $(CREATED_TIME)
-	@go run github.com/mikefarah/yq/v3 d -i $(CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
-	@go run github.com/mikefarah/yq/v3 w -i $(CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
+	operator-sdk generate csv \
+		--from-version=$(FROM_VERSION) \
+		--csv-version=$(VERSION) \
+		--csv-channel=$(CSV_CHANNEL) \
+		--default-channel=$(CSV_DEFAULT_CHANNEL) \
+		--operator-name=redhat-marketplace-operator \
+		--update-crds \
+		--make-manifests=false
+	@go run github.com/mikefarah/yq/v3 w -i $(VERSION_CSV_FILE) 'metadata.annotations.containerImage' $(OPERATOR_IMAGE)
+	@go run github.com/mikefarah/yq/v3 w -i $(VERSION_CSV_FILE) 'metadata.annotations.createdAt' $(CREATED_TIME)
+	@go run github.com/mikefarah/yq/v3 d -i $(VERSION_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
+	@go run github.com/mikefarah/yq/v3 w -i $(VERSION_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
+
+REGISTRY ?= quay.io
 
 docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
-	@docker login -u="$(DOCKER_USER)" -p="$(DOCKER_PASSWORD)" quay.io
+	@$(DOCKER_EXEC) login -u="$(DOCKER_USER)" -p="$(DOCKER_PASSWORD)" $(REGISTRY)
 
 ##@ Development
 
 skaffold-dev: ## Run skaffold dev. Will unique tag the operator and rebuild.
+	make helm
 	make create
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=redhat-marketplace-operator --set pullPolicy=IfNotPresent
-	skaffold dev --tail --default-repo $(IMAGE_REGISTRY)
+	DOCKER_EXEC=$(DOCKER_EXEC) skaffold dev --tail --default-repo $(IMAGE_REGISTRY)
 
 skaffold-run: ## Run skaffold run. Will uniquely tag the operator.
+	make helm
 	make create
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=redhat-marketplace-operator --set pullPolicy=IfNotPresent
-	skaffold run --tail --default-repo $(IMAGE_REGISTRY) --cleanup=false
+	DOCKER_EXEC=$(DOCKER_EXEC) skaffold run --tail --default-repo $(IMAGE_REGISTRY) --cleanup=false
 
 code-vet: ## Run go vet for this project. More info: https://golang.org/cmd/vet/
 	@echo go vet
@@ -128,6 +163,9 @@ deploys: ##deploys the resources for deployment
 apply: ##applies changes to crds
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml --namespace=${NAMESPACE}
 
+delete-resources: ## delete-resources
+	- kubectl delete -n ${NAMESPACE} razeedeployments.marketplace.redhat.com --all
+
 delete: ##delete the contents created in 'make create'
 	@echo deleting resources
 	- kubectl delete opsrc ${OPERATOR_SOURCE} -n ${NAMESPACE}
@@ -151,10 +189,12 @@ delete-razee: ##delete the razee CR
 
 ##@ Tests
 
+.PHONY: lint
+lint: ## lint the repo
+	go run github.com/golangci/golangci-lint/cmd/golangci-lint run
+
 .PHONY: test
 test: ## Run go tests
-	@echo ... Check licenses - run 'make add-licenses' if this errors
-	make check-licenses
 	@echo ... Run tests
 	go test ./...
 
@@ -178,28 +218,30 @@ test-e2e: ## Run integration e2e tests with different options.
 	- kubectl create namespace ${NAMESPACE} || true
 	- operator-sdk test local ./test/e2e --namespace=${NAMESPACE} --go-test-flags="-tags e2e"
 
-
 ##@ Misc
 
-deploy-test-prometheus:
+.PHONY: deploy-test-prometheus
+deploy-test-prometheus: ## Helper to setup minikube
 	. ./scripts/deploy_test_prometheus.sh
 
-check-licenses: # Check if all files have licenses
+.PHONY: check-licenses
+check-licenses: ## Check if all files have licenses
 	go run github.com/google/addlicense -check -c "IBM Corp." **/*.go
 
-add-licenses: # Add licenses to the go file
+.PHONY: add-licenses
+add-licenses: ## Add licenses to the go file
 	go run github.com/google/addlicense -c "IBM Corp." **/*.go
 
 
 ##@ Publishing
 
-OPERATOR_IMAGE := $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(VERSION)
+OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(VERSION)
 REDHAT_IMAGE_REGISTRY := scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd
 REDHAT_OPERATOR_IMAGE := $(REDHAT_IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(VERSION)
 
 .PHONY: bundle
 bundle: ## Bundles the csv to submit
-	. ./scripts/bundle_csv.sh `pwd` $(VERSION)  $(OPERATOR_IMAGE)
+	. ./scripts/bundle_csv.sh `pwd` $(VERSION) $(OPERATOR_IMAGE)
 
 DATETIME = $(shell date +"%FT%H%M%SZ")
 REDHAT_PROJECT_ID = ospid-962ccd50-bf22-4663-a865-f539e2189f0e
@@ -214,14 +256,35 @@ upload-bundle: ## Uploads bundle to partner connect (use with caution and only o
 .PHONY: publish-image
 publish-image: ## Publish image
 	make build
-	docker tag $(OPERATOR_IMAGE) $(REDHAT_OPERATOR_IMAGE)
-	docker push $(OPERATOR_IMAGE)
-	docker push $(REDHAT_OPERATOR_IMAGE)
+	$(DOCKER_EXEC) tag $(OPERATOR_IMAGE) $(REDHAT_OPERATOR_IMAGE)
+	$(DOCKER_EXEC) push $(OPERATOR_IMAGE)
+	$(DOCKER_EXEC) push $(REDHAT_OPERATOR_IMAGE)
 
-.PHONY: release
-release: ## Publish release
-	make bundle
-	#go run github.com/tcnksm/ghr $(VERSION) ./bundle/
+IMAGE ?= $(OPERATOR_IMAGE)
+
+tag-and-push: ## Tag and push operator-image
+	$(DOCKER_EXEC) tag $(IMAGE) $(TAG)
+	$(DOCKER_EXEC) push $(TAG)
+
+ARGS="--patch"
+
+.PHONY: bump-version
+bump-version: ## Bump the version and add the file for a commit
+	go run scripts/version/main.go next $(ARGS)
+
+##@ Release
+
+.PHONY: current-version
+current-version: ## Get current version
+	@echo $(VERSION)
+
+.PHONY: release-start
+release-start: ## Start a release
+	git flow release start $(go run scripts/version/main.go version)
+
+.PHONY: release-finish
+release-finish: ## Start a release
+	git flow release finish $(go run scripts/version/main.go version)
 
 ##@ Help
 

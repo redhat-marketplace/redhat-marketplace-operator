@@ -26,34 +26,47 @@ import (
 	"strings"
 
 	semver "github.com/Masterminds/semver/v3"
-	"github.com/spf13/cobra"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/version"
+	"github.com/spf13/cobra"
 )
 
 var filename string
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Print the version number of Hugo",
-	Long:  `All software has versions. This is Hugo's`,
+	Short: "Print the version number",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("%s\n", version.Version)
 	},
 }
 
+var lastCmd = &cobra.Command{
+	Use:   "last",
+	Short: "Get last the version",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Printf("%s\n", version.LastVersion)
+	},
+}
+
 var nextCmd = &cobra.Command{
 	Use:   "next",
-	Short: "Print the version number of Hugo",
-	Long:  `All software has versions. This is Hugo's`,
+	Short: "Print the version number",
 	Run: func(cmd *cobra.Command, args []string) {
 		currentVersion, _ := semver.NewVersion(version.Version)
 		nextVersion := currentVersion
 
+		next := true
+
 		if flag, _ := cmd.Flags().GetBool("major"); flag {
 			*nextVersion = nextVersion.IncMajor()
-		} else if flag, _ := cmd.Flags().GetBool("minor"); flag {
+			next = false
+		}
+
+		if flag, _ := cmd.Flags().GetBool("minor"); next && flag {
 			*nextVersion = nextVersion.IncMinor()
-		} else if flag, _ := cmd.Flags().GetBool("patch"); flag {
+		}
+
+		if flag, _ := cmd.Flags().GetBool("patch"); next && flag {
 			*nextVersion = nextVersion.IncPatch()
 		}
 
@@ -65,12 +78,17 @@ var nextCmd = &cobra.Command{
 			*nextVersion, _ = nextVersion.SetPrerelease(prerelease)
 		}
 
-		SetInFile(nextVersion.String(), filename)
+		fmt.Println(nextVersion)
 
-		if flag, _ := cmd.Flags().GetBool("commit"); flag {
-			runCommand("git", "add", filename)
-			runCommand("git", "commit", "-m", nextVersion.String())
-			runCommand("git", "tag", nextVersion.String(), "--annotate", "--message", "release: "+nextVersion.String())
+		if flag, _ := cmd.Flags().GetBool("dry-run"); !flag {
+			SetLastVersionInFile(version.Version, filename)
+			SetVersionInFile(nextVersion.String(), filename)
+
+			if flag, _ := cmd.Flags().GetBool("commit"); flag {
+				runCommand("git", "add", filename)
+				runCommand("git", "commit", "-m", nextVersion.String())
+				runCommand("git", "tag", nextVersion.String(), "--annotate", "--message", "release: "+nextVersion.String())
+			}
 		}
 	},
 }
@@ -78,8 +96,10 @@ var nextCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(nextCmd)
+	rootCmd.AddCommand(lastCmd)
 	rootCmd.PersistentFlags().StringVar(&filename, "filename", "version/version.go", "file name of the version")
 	nextCmd.Flags().Bool("commit", false, "commit and tag in git")
+	nextCmd.Flags().Bool("dry-run", false, "dry run")
 	nextCmd.Flags().Bool("major", false, "major release")
 	nextCmd.Flags().Bool("minor", false, "minor release")
 	nextCmd.Flags().Bool("patch", true, "patch release")
@@ -107,7 +127,7 @@ func main() {
 	Execute()
 }
 
-func findBasicLit(file *ast.File) (*ast.BasicLit, error) {
+func findBasicLit(file *ast.File, fieldName string) (*ast.BasicLit, error) {
 	for _, decl := range file.Decls {
 		switch gd := decl.(type) {
 		case *ast.GenDecl:
@@ -115,10 +135,10 @@ func findBasicLit(file *ast.File) (*ast.BasicLit, error) {
 				continue
 			}
 			spec, _ := gd.Specs[0].(*ast.ValueSpec)
-			if strings.ToUpper(spec.Names[0].Name) == "VERSION" {
+			if strings.ToUpper(spec.Names[0].Name) == strings.ToUpper(fieldName) {
 				value, ok := spec.Values[0].(*ast.BasicLit)
 				if !ok || value.Kind != token.STRING {
-					return nil, fmt.Errorf("VERSION is not a string, was %#v\n", value.Value)
+					return nil, fmt.Errorf("%s is not a string, was %#v\n", strings.ToUpper(fieldName), value.Value)
 				}
 				return value, nil
 			}
@@ -139,13 +159,13 @@ func writeFile(filename string, fset *token.FileSet, file *ast.File) error {
 	return cfg.Fprint(f, fset, file)
 }
 
-func changeInFile(filename string, f func(*ast.BasicLit) error) error {
+func changeInFile(filename, fieldName string, f func(*ast.BasicLit) error) error {
 	fset := token.NewFileSet()
 	parsedFile, err := parser.ParseFile(fset, filename, nil, parser.ParseComments)
 	if err != nil {
 		return err
 	}
-	lit, err := findBasicLit(parsedFile)
+	lit, err := findBasicLit(parsedFile, fieldName)
 	if err != nil {
 		return fmt.Errorf("No Version const found in %s", filename)
 	}
@@ -157,8 +177,15 @@ func changeInFile(filename string, f func(*ast.BasicLit) error) error {
 }
 
 // SetInFile sets the version in filename to newVersion.
-func SetInFile(newVersion string, filename string) error {
-	return changeInFile(filename, func(lit *ast.BasicLit) error {
+func SetVersionInFile(newVersion string, filename string) error {
+	return changeInFile(filename, "VERSION", func(lit *ast.BasicLit) error {
+		lit.Value = fmt.Sprintf("\"%s\"", newVersion)
+		return nil
+	})
+}
+
+func SetLastVersionInFile(newVersion string, filename string) error {
+	return changeInFile(filename, "LASTVERSION", func(lit *ast.BasicLit) error {
 		lit.Value = fmt.Sprintf("\"%s\"", newVersion)
 		return nil
 	})

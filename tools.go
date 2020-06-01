@@ -27,4 +27,5 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/Masterminds/semver/v3"
 	"github.com/tcnksm/ghr"
+	"github.com/golangci/golangci-lint/cmd/golangci-lint"
 )

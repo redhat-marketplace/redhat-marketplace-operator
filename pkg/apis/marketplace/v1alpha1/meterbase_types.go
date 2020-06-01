@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	status "github.com/operator-framework/operator-sdk/pkg/status"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -64,12 +65,14 @@ type MeterBaseSpec struct {
 // MeterBaseStatus defines the observed state of MeterBase.
 // +k8s:openapi-gen=true
 type MeterBaseStatus struct {
+	// MeterBaseConditions represent the latest available observations of an object's stateonfig
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	Conditions status.Conditions `json:"conditions"`
 	// PrometheusStatus is the most recent observed status of the Prometheus cluster. Read-only. Not
 	// included when requesting from the apiserver, only from the Prometheus
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	PrometheusStatus *monitoringv1.PrometheusStatus `json:"prometheusStatus,omitempty"`
 }
-
 
 // MeterBase is the resource that sets up Metering for Red Hat Marketplace.
 // This is an internal resource not meant to be modified directly.
@@ -101,3 +104,11 @@ type MeterBaseList struct {
 func init() {
 	SchemeBuilder.Register(&MeterBase{}, &MeterBaseList{})
 }
+
+const (
+	// Reasons for install
+	ReasonMeterBaseStartInstall             status.ConditionReason = "StartMeterBaseInstall"
+	ReasonMeterBasePrometheusInstall        status.ConditionReason = "StartMeterBasPrometheuseInstall"
+	ReasonMeterBasePrometheusServiceInstall status.ConditionReason = "StartMeterBasePrometheusServiceInstall"
+	ReasonMeterBaseFinishInstall            status.ConditionReason = "FinishedMeterBaseInstall"
+)

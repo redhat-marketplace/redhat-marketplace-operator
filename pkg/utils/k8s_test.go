@@ -30,15 +30,14 @@ import (
 )
 
 var (
-	name                  = "markeplaceconfig"
 	namespace             = "redhat-marketplace-operator"
 	customerID     string = "example-userid"
 	testNamespace1        = "testing-namespace-1"
 	testNamespace2        = "testing-namespace-2"
 
-	marketplaceconfig = buildMarketplaceConfigCR(name, namespace, customerID)
-	razeedeployment   = BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName)
-	meterbase         = BuildMeterBaseCr(namespace)
+	marketplaceconfig = BuildMarketplaceConfigCR(testNamespace1, customerID)
+	razeedeployment   = BuildRazeeCr(testNamespace1, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName)
+	meterbase         = BuildMeterBaseCr(testNamespace1)
 )
 
 // setup returns a fakeClient for testing purposes
