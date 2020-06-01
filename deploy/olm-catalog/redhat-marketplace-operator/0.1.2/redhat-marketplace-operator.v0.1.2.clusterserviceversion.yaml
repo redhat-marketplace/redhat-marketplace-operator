@@ -81,8 +81,8 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Developer Tools
     certified: "true"
-    containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:sha-e786b7f
-    createdAt: 2020-05-22T11:49:04Z
+    containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:hash-cacfaa
+    createdAt: 2020-06-01T04:50:01Z
     description: The Red Hat Marketplace Operator provides cluster management, metering
       and operator installation for Red Hat Marketplace customers.
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","meterbases.marketplace.redhat.com","meterdefinitions.marketplace.redhat.com"]'
@@ -109,6 +109,17 @@ spec:
       - kind: RazeeDeployment
         name: redhat-marketplace-operator
         version: v1alpha1
+      specDescriptors:
+      - description: ClusterUUID is the Red Hat Marketplace cluster identifier
+        displayName: Cluster UUID
+        path: clusterUUID
+      - description: DeploySecretName is the secret name that contains the deployment
+          information
+        displayName: Deploy Secret Name
+        path: deploySecretName
+      - description: RhmAccountID is the Red Hat Marketplace Account identifier
+        displayName: Rhm Account ID
+        path: rhmAccountID
       statusDescriptors:
       - description: Conditions represent the latest available observations of an
           object's stateonfig
@@ -137,6 +148,32 @@ spec:
       - kind: ServiceMonitor
         name: redhat-marketplace-operator
         version: v1
+      specDescriptors:
+      - description: Enabled is the flag that controls if the controller does work.
+          Setting enabled to "true" will install metering components. False will suspend
+          controller operations for metering components.
+        displayName: Enabled
+        path: enabled
+      - description: Prometheus deployment configuration.
+        displayName: Prometheus
+        path: prometheus
+      - description: Selector for the pods in the Prometheus deployment
+        displayName: Node Selector
+        path: prometheus.selector
+        x-descriptors:
+        - 'urn:alm:descriptor:com.tectonic.ui:selector:'
+      - description: Storage for the deployment.
+        displayName: Storage
+        path: prometheus.storage
+      - description: Storage class for the prometheus stateful set. Default is ""
+          i.e. default.
+        displayName: Class
+        path: prometheus.storage.class
+      - description: Storage size for the prometheus deployment. Default is 40Gi.
+        displayName: Size
+        path: prometheus.storage.size
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podCount
       statusDescriptors:
       - description: MeterBaseConditions represent the latest available observations
           of an object's stateonfig
@@ -160,6 +197,35 @@ spec:
       - kind: ServiceMonitor
         name: redhat-marketplace-operator
         version: v1
+      specDescriptors:
+      - description: MeterDomain defines the primary CRD domain of the meter
+        displayName: Meter Domain
+        path: meterDomain
+      - description: MeterKind defines the primary CRD kind of the meter
+        displayName: Meter Kind
+        path: meterKind
+      - description: MeterVersion defines the primary CRD version of the meter
+        displayName: Meter Version
+        path: meterVersion
+      - description: PodLabels of the prometheus metrics you want to track.
+        displayName: Pod Meter Labels
+        path: podMeterLabels
+      - description: PodNamespaceSelector to select namespaces for pods for metering
+        displayName: Pod Namespace Selector
+        path: podMonitorNamespaceSelector
+      - description: PodSelectors to select pods for metering
+        displayName: Pod Selector
+        path: podMonitorSelector
+      - description: ServiceLabels of the meterics you want to track.
+        displayName: Service Meter Labels
+        path: serviceMeterLabels
+      - description: Namespaces to be selected for ServiceMonitor discovery. If nil,
+          only check own namespace.
+        displayName: Service Monitor Namespace Selector
+        path: serviceMonitorNamespaceSelector
+      - description: ServiceMonitors to be selected for target discovery.
+        displayName: Service Monitor Selector
+        path: serviceMonitorSelector
       statusDescriptors:
       - description: Conditions represent the latest available observations of an
           object's state
@@ -197,6 +263,53 @@ spec:
       - kind: Secret
         name: redhat-marketplace-operator
         version: v1
+      specDescriptors:
+      - description: Location of your IBM Cloud Object Storage resources Used internally
+          by the Operator
+        displayName: Child Url
+        path: childUrl
+      - description: ClusterUUID is the cluster identifier, used for installing razee.
+        displayName: Cluster UUID
+        path: clusterUUID
+      - description: Configuration values provided from redhat marketplace These are
+          used internally by the Operator
+        displayName: Deploy Config
+        path: deployConfig
+      - description: BucketName is the name of the bucket in Cloud Object Storage
+          and correlates to your accountID
+        displayName: Bucket Name
+        path: deployConfig.bucketName
+      - description: The file name of the child RemoteResourecS3
+        displayName: Child RSS3 FIle Name
+        path: deployConfig.childRRS3FileName
+      - description: The url of the filesource arg that gets passed into the razeedeploy-job
+        displayName: File Source URL
+        path: deployConfig.fileSourceUrl
+      - description: Api key used to access the bucket IBM COS
+        displayName: Ibm Cos Reader Key
+        path: deployConfig.ibmCosReaderKey
+      - description: Base url for the instance of IBM COS
+        displayName: Ibm Cos URL
+        path: deployConfig.ibmCosUrl
+      - description: Key used to identify a particular razee instance
+        displayName: Razee Dash Org Key
+        path: deployConfig.razeeDashOrgKey
+      - description: Url used by the razee install to post data
+        displayName: Razee Dash Url
+        path: deployConfig.razeeDashUrl
+      - description: DeploySecretName is the name of our secret where Razee variables
+          are stored.
+        displayName: Deploy Secret Name
+        path: deploySecretName
+      - description: Enabled is the flag that controls if the controller does work.
+          Setting enabled to "true" will create a Razee namespace and deploy it's
+          componenets. Set to "false" to bypass Razee installation
+        displayName: Enabled
+        path: enabled
+      - description: TargetNamespace is configurable target of the razee namespace
+          This is to support legancy installs. Please do not edit.
+        displayName: Target Namespace
+        path: targetNamespace
       statusDescriptors:
       - description: Conditions represent the latest available observations of an
           object's stateonfig
@@ -218,7 +331,7 @@ spec:
       - description: MissingValuesFromSecret validates the secret provided has all
           the correct fields
         displayName: Missing Deploy Secret Values
-        path: missingDeploySecretValues
+        path: missingValuesFromSecret
       - description: RazeePrerequestesCreated is the list of configmaps and secrets
           required to be installed
         displayName: Razee Prerequisites Created
@@ -227,6 +340,12 @@ spec:
           so it can be removed
         displayName: Razee Job Install
         path: razee_job_install
+      - description: RazeeInstallURL is the url used to install the Razee resources
+        displayName: Razee Install URL
+        path: razee_job_install.razee_install_url
+      - description: RazeeNamespace is the namespace targeted for the Razee install
+        displayName: Razee Namespace
+        path: razee_job_install.razee_namespace
       - description: 'RedHatMarketplaceSecretFound DEPRECATED: is the status of finding
           the secret in the cluster'
         displayName: Red Hat Marketplace Secret Found
@@ -475,7 +594,7 @@ spec:
                       fieldPath: metadata.name
                 - name: RELATED_IMAGE_RAZEE_JOB
                   value: quay.io/razee/razeedeploy-delta:1.1.3
-                image: quay.io/rh-marketplace/redhat-marketplace-operator:sha-e786b7f
+                image: quay.io/rh-marketplace/redhat-marketplace-operator:hash-cacfaa
                 imagePullPolicy: Always
                 name: redhat-marketplace-operator
                 resources: {}
