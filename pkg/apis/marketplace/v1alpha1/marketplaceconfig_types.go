@@ -23,10 +23,16 @@ import (
 // +k8s:openapi-gen=true
 type MarketplaceConfigSpec struct {
 	// RhmAccountID is the Red Hat Marketplace Account identifier
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	RhmAccountID string `json:"rhmAccountID"`
 	// ClusterUUID is the Red Hat Marketplace cluster identifier
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	ClusterUUID string `json:"clusterUUID"`
 	// DeploySecretName is the secret name that contains the deployment information
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	DeploySecretName *string `json:"deploySecretName,omitempty"`
 }
 

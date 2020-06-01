@@ -47,6 +47,8 @@ jobs:
           echo "::set-output name=version::$(make current-version)"
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
           echo "::set-output name=hash::hash-${FILEHASH:0:6}"
+          echo "::set-env name=OPERATOR_IMAGE::quay.io/rh-marketplace/redhat-marketplace-operator:hash-${FILEHASH:0:6}"
+          #echo "::set-env name=OPERATOR_IMAGE::$(skopeo inspect docker://quay.io/rh-marketplace/redhat-marketplace-operator:hash-${FILEHASH:0:6} | jq -r '.Digest')"
         env:
           FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'version/**', 'go.sum', 'go.mod') }}
           BRANCH: ${{ github.ref }}
@@ -68,13 +70,13 @@ jobs:
           echo "::add-path::/usr/local/bin"
         env:
           RELEASE_VERSION: v0.17.1
+
       - name: Create CSV
         id: bundle
         run: make generate-csv bundle
         env:
           CSV_CHANNEL: ${{ matrix.channel }}
           CSV_DEFAULT_CHANNEL: ${{ matrix.channel == 'stable' }}
-          OPERATOR_IMAGE: quay.io/rh-marketplace/redhat-marketplace-operator:${{ steps.vars.outputs.hash }}
 
       - name: Create branch
         if: ${{ matrix.channel == 'stable' && github.event_name == 'push' }}

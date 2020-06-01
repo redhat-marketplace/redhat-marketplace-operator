@@ -26,31 +26,49 @@ import (
 type MeterDefinitionSpec struct {
 
 	// MeterDomain defines the primary CRD domain of the meter
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	MeterDomain string `json:"meterDomain"`
 
 	// MeterVersion defines the primary CRD version of the meter
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	MeterVersion string `json:"meterVersion"`
 
 	// MeterKind defines the primary CRD kind of the meter
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	MeterKind string `json:"meterKind"`
 
 	// ServiceLabels of the meterics you want to track.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	ServiceMeterLabels []string `json:"serviceMeterLabels,omitempty"`
 
 	// PodLabels of the prometheus metrics you want to track.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	PodMeterLabels []string `json:"podMeterLabels,omitempty"`
 
 	// ServiceMonitors to be selected for target discovery.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	ServiceMonitorSelector *metav1.LabelSelector `json:"serviceMonitorSelector,omitempty"`
 
 	// Namespaces to be selected for ServiceMonitor discovery. If nil, only
 	// check own namespace.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	ServiceMonitorNamespaceSelector *metav1.LabelSelector `json:"serviceMonitorNamespaceSelector,omitempty"`
 
 	// PodSelectors to select pods for metering
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	PodSelector *metav1.LabelSelector `json:"podMonitorSelector,omitempty"`
 
 	// PodNamespaceSelector to select namespaces for pods for metering
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	PodNamespaceSelector *metav1.LabelSelector `json:"podMonitorNamespaceSelector,omitempty"`
 }
 

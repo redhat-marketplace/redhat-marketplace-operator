@@ -242,6 +242,8 @@ check-licenses: ## Check if all files have licenses
 add-licenses: ## Add licenses to the go file
 	go run github.com/google/addlicense -c "IBM Corp." **/*.go
 
+scorecard: ## Run scorecard tests
+	operator-sdk scorecard -b ./deploy/olm-catalog/redhat-marketplace-operator
 
 ##@ Publishing
 
