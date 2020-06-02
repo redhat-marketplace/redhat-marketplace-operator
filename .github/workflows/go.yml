@@ -143,4 +143,4 @@ jobs:
       - name: Copy ${{ matrix.name }}
         if: env.exists != 'true' && env.pushImage == 'true'
         run: |
-          skopeo copy "docker://${FROM_OPERATOR_IMAGE}" "docker://${TO_OPERATOR_IMAGE" --dest-creds ${{ secrets[matrix.key] }}:${{ secrets[matrix.value] }}
+          skopeo copy "docker://${FROM_OPERATOR_IMAGE}" "docker://${TO_OPERATOR_IMAGE}" --dest-creds ${{ secrets[matrix.key] }}:${{ secrets[matrix.value] }}
