@@ -20,13 +20,21 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/banzaicloud/k8s-objectmatcher/patch"
+	"github.com/operator-framework/operator-sdk/pkg/status"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
+
+const RhmAnnotationKey = "marketplace.redhat.com/last-applied"
+
+var RhmAnnotator = patch.NewAnnotator(RhmAnnotationKey)
+var RhmPatchMaker = patch.NewPatchMaker(RhmAnnotator)
 
 func Contains(s []string, e string) bool {
 	for _, a := range s {
@@ -170,7 +178,23 @@ func AddSecretFieldsToStruct(razeeData map[string][]byte, instance marketplacev1
 	return *razeeStruct, missingItems, nil
 }
 
+func ApplyAnnotation(resource runtime.Object) error {
+	return RhmAnnotator.SetLastAppliedAnnotation(resource)
+}
+
 func Equal(a []string, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func ConditionsEqual(a status.Conditions, b status.Conditions) bool {
 	if len(a) != len(b) {
 		return false
 	}

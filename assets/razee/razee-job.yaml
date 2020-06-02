@@ -9,8 +9,7 @@ spec:
       serviceAccountName: redhat-marketplace-operator
       containers:
       - name: razeedeploy-job
-        image: "quay.io/razee/razeedeploy-delta:1.1.0"
+        image: "quay.io/razee/razeedeploy-delta:1.1.3"
         command: install,uninstall
-        args: 
       restartPolicy: Never
-  backoffLimit: 2
+  backoffLimit: 5

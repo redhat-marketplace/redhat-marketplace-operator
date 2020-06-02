@@ -17,8 +17,45 @@ package utils
 import (
 	"testing"
 
+	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/spf13/viper"
+
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+var (
+	namespace             = "redhat-marketplace-operator"
+	customerID     string = "example-userid"
+	testNamespace1        = "testing-namespace-1"
+
+	marketplaceconfig = BuildMarketplaceConfigCR(testNamespace1, customerID)
+	razeedeployment   = BuildRazeeCr(testNamespace1, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName)
+	meterbase         = BuildMeterBaseCr(testNamespace1)
+)
+
+// setup returns a fakeClient for testing purposes
+func setup() client.Client {
+	defaultFeatures := []string{"razee", "meterbase"}
+	viper.Set("assets", "../../../assets")
+	viper.Set("features", defaultFeatures)
+	objs := []runtime.Object{
+		marketplaceconfig,
+		razeedeployment,
+		meterbase,
+	}
+	s := scheme.Scheme
+	_ = monitoringv1.AddToScheme(s)
+	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, marketplaceconfig)
+	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeedeployment)
+	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
+	client := fake.NewFakeClient(objs...)
+	return client
+}
 
 func TestPersistenVolumeClaim(t *testing.T) {
 	pvc, err := NewPersistentVolumeClaim(PersistentVolume{})

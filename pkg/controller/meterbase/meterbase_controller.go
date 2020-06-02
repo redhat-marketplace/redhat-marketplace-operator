@@ -25,6 +25,7 @@ import (
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/operator-framework/api/pkg/operators"
+	status "github.com/operator-framework/operator-sdk/pkg/status"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/spf13/pflag"
@@ -179,6 +180,18 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, nil
 	}
 
+	message := "Meter Base install starting"
+	if instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionInstalling) == nil {
+		instance.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionInstalling,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonMeterBaseStartInstall,
+			Message: message,
+		})
+
+		_ = r.client.Status().Update(context.TODO(), instance)
+	}
+
 	prometheus := &monitoringv1.Prometheus{}
 	result, reconcileResult, err = cc.Execute([]ClientAction{
 		GetAction{
@@ -206,6 +219,16 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	if result == Requeue {
 		return reconcileResult, err
 	}
+
+	message = "Prometheus install complete"
+	instance.Status.Conditions.SetCondition(status.Condition{
+		Type:    marketplacev1alpha1.ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
+		Message: message,
+	})
+
+	_ = r.client.Status().Update(context.TODO(), instance)
 
 	service := &corev1.Service{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, service)
@@ -347,6 +370,16 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	message = "Prometheus Service install complete"
+	instance.Status.Conditions.SetCondition(status.Condition{
+		Type:    marketplacev1alpha1.ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusServiceInstall,
+		Message: message,
+	})
+
+	_ = r.client.Status().Update(context.TODO(), instance)
+
 	// ----
 	// Check if prometheus needs updating
 	// ----
@@ -386,6 +419,16 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 			return reconcile.Result{}, err
 		}
 	}
+
+	message = "Meter Base install complete"
+	instance.Status.Conditions.SetCondition(status.Condition{
+		Type:    marketplacev1alpha1.ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  marketplacev1alpha1.ReasonMeterBaseFinishInstall,
+		Message: message,
+	})
+
+	_ = r.client.Status().Update(context.TODO(), instance)
 
 	reqLogger.Info("finished reconciling")
 	return reconcile.Result{}, nil
