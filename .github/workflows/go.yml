@@ -48,7 +48,7 @@ jobs:
         run: |
           echo "::set-output name=version::$(make current-version)"
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
-          echo "::set-output name=hash::hash-$(make current-version)-${FILEHASH:0:6}"
+          echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
         env:
           FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'version/**', 'go.sum', 'go.mod') }}
 

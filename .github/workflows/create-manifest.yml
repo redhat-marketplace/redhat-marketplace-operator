@@ -47,9 +47,8 @@ jobs:
           echo ::set-env name=NEW_BRANCH_NAME::release/${{ matrix.channel }}
           echo "::set-output name=version::$(make current-version)"
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
-          echo "::set-output name=hash::hash-$(make current-version)-${FILEHASH:0:6}"
-          echo "::set-env name=OPERATOR_IMAGE::quay.io/rh-marketplace/redhat-marketplace-operator:hash-${FILEHASH:0:6}"
-          #echo "::set-env name=OPERATOR_IMAGE::$(skopeo inspect docker://quay.io/rh-marketplace/redhat-marketplace-operator:hash-${FILEHASH:0:6} | jq -r '.Digest')"
+          echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
+          echo "::set-env name=OPERATOR_IMAGE::quay.io/rh-marketplace/redhat-marketplace-operator:$(make current-version)-${FILEHASH:0:6}"
         env:
           FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'version/**', 'go.sum', 'go.mod') }}
           BRANCH: ${{ github.ref }}
