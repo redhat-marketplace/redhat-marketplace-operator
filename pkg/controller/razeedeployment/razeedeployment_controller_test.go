@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -68,7 +69,7 @@ func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Uns
 
 func setup(r *ReconcilerTest) error {
 	r.SetClient(fake.NewFakeClient(r.GetGetObjects()...))
-	r.SetReconciler(&ReconcileRazeeDeployment{client: r.GetClient(), scheme: scheme.Scheme, opts: &RazeeOpts{RazeeJobImage: "test"}})
+	r.SetReconciler(&ReconcileRazeeDeployment{client: r.GetClient(), scheme: scheme.Scheme, opts: &RazeeOpts{RazeeJobImage: "test"}, config: &rest.Config{}})
 	return nil
 }
 
@@ -97,6 +98,20 @@ var (
 			DeploySecretName: &secretName,
 		},
 	}
+	razeeDeploymentDeletion = marketplacev1alpha1.RazeeDeployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              name,
+			Namespace:         namespace,
+			DeletionTimestamp: &metav1.Time{Time: time.Now()},
+		},
+		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
+			Enabled:          true,
+			ClusterUUID:      "foo",
+			DeploySecretName: &secretName,
+			TargetNamespace:  &name,
+		},
+	}
+
 	namespObj = corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
@@ -143,6 +158,29 @@ var (
 		},
 	}
 )
+
+func TestFullUninstall(t *testing.T) {
+		// razeeDeploymentDeletion.ObjectMeta.SetFinalizers([]string{"children.downloads.deploy.razee.io"})
+
+	viper.Set("assets", "../../../assets")
+	reconcilerTest := NewReconcilerTest(setup,
+		&razeeDeploymentDeletion,
+		&secret,
+		&namespObj,
+		console,
+		cluster,
+	)
+	scheme.Scheme.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment.DeepCopy(), &marketplacev1alpha1.RazeeDeploymentList{})
+
+	reconcilerTest.TestAll(t,
+		//Requeue until we have created the job and waiting for it to finish
+		ReconcileStep(opts,
+			ReconcileWithExpectedResults(
+				append(
+					RangeReconcileResults(AnyResult, 1),
+					RequeueResult,
+					AnyResult)...)))
+}
 
 func testCleanInstall(t *testing.T) {
 	t.Parallel()
@@ -262,7 +300,6 @@ func testNoSecret(t *testing.T) {
 				RequeueAfterResult(time.Second*60)),
 		))
 }
-
 
 func testBadName(t *testing.T) {
 	t.Parallel()
