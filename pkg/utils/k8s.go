@@ -22,6 +22,7 @@ import (
 
 	"github.com/gotidy/ptr"
 	"github.com/imdario/mergo"
+	emperrors "emperror.dev/errors"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -33,6 +34,7 @@ import (
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/operrors"
 )
 
 type PersistentVolume struct {
@@ -101,11 +103,11 @@ func GetDefaultStorageClass(client client.Client) (string, error) {
 	}
 
 	if len(defaultStorageOptions) == 0 {
-		return "", fmt.Errorf("could not find a default storage class")
+		return "", emperrors.WithStack(operrors.DefaultStorageClassNotFound)
 	}
 
 	if len(defaultStorageOptions) > 1 {
-		return "", fmt.Errorf("multiple default options, cannot pick one")
+		return "", emperrors.WithStack(operrors.MultipleDefaultStorageClassFound)
 	}
 
 	return defaultStorageOptions[0], nil
