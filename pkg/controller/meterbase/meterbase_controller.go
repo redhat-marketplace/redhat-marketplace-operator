@@ -172,6 +172,10 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	message := "Meter Base install starting"
+	if instance.Status.Conditions == nil {
+		instance.Status.Conditions = &status.Conditions{}
+	}
+
 	if instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionInstalling) == nil {
 		instance.Status.Conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,

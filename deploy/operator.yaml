@@ -21,8 +21,8 @@ spec:
       containers:
         - name: redhat-marketplace-operator
           # Replace this with the built image name
-          image: quay.io/zach_source/redhat-marketplace-operator:latest
-          imagePullPolicy: Always
+          image: redhat-marketplace-operator
+          imagePullPolicy: IfNotPresent
           securityContext:
             {}
           command:
