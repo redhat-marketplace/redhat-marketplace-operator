@@ -282,7 +282,7 @@ SHA ?=
 TAG ?=
 
 publish-pc: ## Publish to partner connect
-	@curl -X POST https://connect.redhat.com/api/v2/projects/$(REDHAT_PROJECT_ID)/containers/$(SHA)/tags/$(TAG)/publish -H "Authorization: Bearer $(REDHAT_API_KEY)" -H "Content-type: application/json" --data "{}" | jq
+	curl -X POST https://connect.redhat.com/api/v2/projects/$(REDHAT_PROJECT_ID)/containers/$(SHA)/tags/$(TAG)/publish -H "Authorization: Bearer $(REDHAT_API_KEY)" -H "Content-type: application/json" --data "{}" | jq
 
 publish-status-pc: ## Get publish status to partner connect
 	@curl -X GET 'https://connect.redhat.com/api/v2/projects/$(REDHAT_PROJECT_ID)?tags=$(TAG)' -H "Authorization: Bearer $(REDHAT_API_KEY)" -H "Content-type: application/json" | jq

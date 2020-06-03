@@ -90,7 +90,7 @@ jobs:
       - name: Open a PR to the default branch
         uses: vsoch/pull-request-action@1.0.2
         env:
-          GITHUB_TOKEN: ${{ secrets.pullRequestSecret }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PULL_REQUEST_FROM_BRANCH: '${{ env.pr_branch }}'
           PULL_REQUEST_BRANCH: master
           PULL_REQUEST_TITLE: 'Release ${{ steps.vars.outputs.version }}'
