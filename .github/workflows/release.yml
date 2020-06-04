@@ -38,4 +38,4 @@ jobs:
       - name: Tag version
         run: |
           git tag $(make current-version)
-          git push --5ags
+          git push --tags
