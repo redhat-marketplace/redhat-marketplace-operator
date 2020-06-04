@@ -233,7 +233,7 @@ func FilterByNamespace(obj runtime.Object, namespaces []corev1.Namespace, rClien
 
 	if len(namespaces) == 0 {
 		// if no namespaces are passed, return resources across all namespaces
-		listOpts = append(listOpts, client.InNamespace(namespaces[0].ObjectMeta.Name))
+		listOpts = append(listOpts, client.InNamespace(""))
 		err = getResources(obj, listOpts, rClient)
 
 	} else if len(namespaces) == 1 {

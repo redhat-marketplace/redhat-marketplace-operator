@@ -263,7 +263,6 @@ func testNoSecret(t *testing.T) {
 		))
 }
 
-
 func testBadName(t *testing.T) {
 	t.Parallel()
 	razeeDeploymentLocalDeployment := razeeDeployment.DeepCopy()
