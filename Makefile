@@ -13,7 +13,7 @@ DOCKER_EXEC ?= $(shell command -v docker)
 SERVICE_ACCOUNT := redhat-marketplace-operator
 SECRETS_NAME := my-docker-secrets
 
-OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
+OPERATOR_IMAGE ?= quay.io/namsimar/plato-operator:latest
 
 PULL_POLICY ?= IfNotPresent
 .DEFAULT_GOAL := help
@@ -130,18 +130,17 @@ code-gen: ## Run the operator-sdk commands to generated code (k8s and crds)
 
 setup-minikube: ## Setup minikube for full operator dev
 	@echo Applying prometheus operator
-	kubectl apply -f https://raw.githubusercontent.com/coreos/prometheus-operator/master/bundle.yaml
+	curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/0.15.0/install.sh | bash -s 0.15.0
 	@echo Applying operator marketplace
-	for item in 01_namespace.yaml 02_catalogsourceconfig.crd.yaml 03_operatorsource.crd.yaml 04_service_account.yaml 05_role.yaml 06_role_binding.yaml 07_upstream_operatorsource.cr.yaml 08_operator.yaml ; do \
+	for item in 01_namespace.yaml 03_operatorsource.crd.yaml 04_service_account.yaml 05_role.yaml 06_role_binding.yaml 07_upstream_operatorsource.cr.yaml 08_operator.yaml ; do \
 		kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-marketplace/master/deploy/upstream/$$item ; \
 	done
-	@echo Applying olm
-	kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/master/deploy/upstream/quickstart/crds.yaml
-	kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/master/deploy/upstream/quickstart/olm.yaml
 	@echo Apply kube-state
 	for item in cluster-role.yaml service-account.yaml cluster-role-binding.yaml deployment.yaml service.yaml ; do \
 		kubectl apply -f https://raw.githubusercontent.com/kubernetes/kube-state-metrics/master/examples/standard/$$item ; \
 	done
+	@echo Create prometheus instance
+	kubectl create -f https://operatorhub.io/install/prometheus.yaml
 
 ##@ Manual Testing
 
@@ -181,11 +180,14 @@ delete: ##delete the contents created in 'make create'
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml -n ${NAMESPACE}
-	- kubectl delete namespace razee
 
 delete-razee: ##delete the razee CR
 	@echo deleting razee CR
 	- kubectl delete -f  deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
+
+temp:
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_meterdefinition_cr.yaml --namespace=${NAMESPACE}
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_meterbase_cr.yaml --namespace=${NAMESPACE}
 
 ##@ Tests
 

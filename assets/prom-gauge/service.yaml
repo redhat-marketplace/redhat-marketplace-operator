@@ -1,0 +1,13 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: prometheus-operated
+  namespace: openshift-redhat-marketplace
+  labels:
+    operated-prometheus: 'true'
+spec:
+  ports:
+    - name: web
+      port: 8080
+  selector:
+    app: prometheus
