@@ -226,33 +226,27 @@ func LoadYAML(filename string, i interface{}) (interface{}, error) {
 // filterByNamespace returns the runtime.Object filtered by namespaces ListOptions
 func FilterByNamespace(obj runtime.Object, namespaces []corev1.Namespace, rClient client.Client, options ...client.ListOption) error {
 	var err error
+	var listOpts []client.ListOption
+	for _, opt := range options {
+		listOpts = append(listOpts, opt)
+	}
 
 	if len(namespaces) == 0 {
 		// if no namespaces are passed, return resources across all namespaces
-		listOpts := []client.ListOption{
-			client.InNamespace(namespaces[0].ObjectMeta.Name),
-		}
-		listOpts = append(listOpts, options...)
+		listOpts = append(listOpts, client.InNamespace(namespaces[0].ObjectMeta.Name))
 		err = getResources(obj, listOpts, rClient)
 
 	} else if len(namespaces) == 1 {
 		//if passed a single namespace, return resources across that namespace
-		listOpts := []client.ListOption{
-			client.InNamespace(namespaces[0].ObjectMeta.Name),
-		}
-		listOpts = append(listOpts, options...)
+		listOpts = append(listOpts, client.InNamespace(namespaces[0].ObjectMeta.Name))
 		err = getResources(obj, listOpts, rClient)
 
 	} else if len(namespaces) > 1 {
 		//if more than one namespaces is passed, loop through and append the resources
 		var listOpts []client.ListOption
 		for _, ns := range namespaces {
-			opt := client.ListOption{
-				client.InNamespace(ns.ObjectMeta.Name),
-			}
-			listOpts = append(listOpts, opt)
+			listOpts = append(listOpts, client.InNamespace(ns.ObjectMeta.Name))
 		}
-		listOpts = append(listOpts, options...)
 		err = getResources(obj, listOpts, rClient)
 
 	} else {
@@ -265,16 +259,11 @@ func FilterByNamespace(obj runtime.Object, namespaces []corev1.Namespace, rClien
 // the namespaces are preset in listOpts
 func getResources(obj runtime.Object, listOpts []client.ListOption, rClient client.Client) error {
 
-	opts := client.ListOptions{}
 	err := rClient.List(context.TODO(), obj, listOpts...)
 	if err != nil {
 		return err
 	}
 
 	return nil
-
-}
-
-func append(opts1 []client.ListOption, opts client.ListOption) []client.ListOption {
 
 }
