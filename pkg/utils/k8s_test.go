@@ -212,7 +212,7 @@ func TestFilterByNamespace(t *testing.T) {
 	}
 
 	// case 5:
-	// passing a ServiceList with a set of ListOption with no namespace
+	// passing a ServiceMonitorList with a set of ListOption with no namespace
 	// should return: an runtime.object list of 1 resources
 	ns2 := []corev1.Namespace{}
 	ns2 = append(ns2, *testNs1)

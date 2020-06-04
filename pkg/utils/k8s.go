@@ -244,11 +244,37 @@ func FilterByNamespace(obj runtime.Object, namespaces []corev1.Namespace, rClien
 	} else if len(namespaces) > 1 {
 		//if more than one namespaces is passed, loop through and append the resources
 		var listOpts []client.ListOption
-		for _, ns := range namespaces {
-			listOpts = append(listOpts, client.InNamespace(ns.ObjectMeta.Name))
+		switch listType := obj.(type) {
+		case *corev1.PodList:
+			for _, ns := range namespaces {
+				temp := &corev1.PodList{}
+				listOpts = append(listOpts, client.InNamespace(ns.ObjectMeta.Name))
+				err = getResources(temp, listOpts, rClient)
+				for _, i := range temp.Items {
+					listType.Items = append(listType.Items, i)
+				}
+			}
+		case *monitoringv1.ServiceMonitorList:
+			for _, ns := range namespaces {
+				temp := &monitoringv1.ServiceMonitorList{}
+				listOpts = append(listOpts, client.InNamespace(ns.ObjectMeta.Name))
+				err = getResources(temp, listOpts, rClient)
+				for _, i := range temp.Items {
+					listType.Items = append(listType.Items, i)
+				}
+			}
+		case *corev1.ServiceList:
+			for _, ns := range namespaces {
+				temp := &corev1.ServiceList{}
+				listOpts = append(listOpts, client.InNamespace(ns.ObjectMeta.Name))
+				err = getResources(temp, listOpts, rClient)
+				for _, i := range temp.Items {
+					listType.Items = append(listType.Items, i)
+				}
+			}
+		default:
+			err = getResources(obj, listOpts, rClient)
 		}
-		err = getResources(obj, listOpts, rClient)
-
 	} else {
 		err = errors.New("unexpected length of []namespaces")
 	}
