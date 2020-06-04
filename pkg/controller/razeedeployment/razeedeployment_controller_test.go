@@ -108,7 +108,7 @@ var (
 			Enabled:          true,
 			ClusterUUID:      "foo",
 			DeploySecretName: &secretName,
-			TargetNamespace:  &name,
+			TargetNamespace:  &namespace,
 		},
 	}
 
@@ -157,15 +157,38 @@ var (
 			utils.FILE_SOURCE_URL_FIELD:    []byte("file-source-url"),
 		},
 	}
+	razeeSecret = corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.COS_READER_KEY_NAME,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			utils.IBM_COS_READER_KEY_FIELD: []byte("rhm-cos-reader-key"),
+		},
+	}
+
+	configMap = corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.WATCH_KEEPER_CONFIG_NAME,
+			Namespace: namespace,
+		},
+	}
+	serviceAccount = corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "razeedeploy-sa",
+			Namespace: namespace,
+		},
+	}
 )
 
 func TestFullUninstall(t *testing.T) {
-		// razeeDeploymentDeletion.ObjectMeta.SetFinalizers([]string{"children.downloads.deploy.razee.io"})
 
 	viper.Set("assets", "../../../assets")
 	reconcilerTest := NewReconcilerTest(setup,
 		&razeeDeploymentDeletion,
-		&secret,
+		&razeeSecret,
+		&configMap,
+		&serviceAccount,
 		&namespObj,
 		console,
 		cluster,
@@ -179,7 +202,46 @@ func TestFullUninstall(t *testing.T) {
 				append(
 					RangeReconcileResults(AnyResult, 1),
 					RequeueResult,
-					AnyResult)...)))
+					AnyResult)...)),
+
+		ListStep(opts,
+			ListWithObj(&corev1.ConfigMapList{}),
+			ListWithFilter(
+				client.InNamespace(namespace),
+			),
+			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				list, ok := i.(*corev1.ConfigMapList)
+
+				assert.Truef(t, ok, "expected operator group list got type %T", i)
+				assert.Equal(t, 0, len(list.Items))
+
+			})),
+		ListStep(opts,
+			ListWithObj(&corev1.ServiceAccountList{}),
+			ListWithFilter(
+				client.InNamespace(namespace),
+			),
+			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				list, ok := i.(*corev1.ServiceAccountList)
+
+				assert.Truef(t, ok, "expected operator group list got type %T", i)
+				assert.Equal(t, 0, len(list.Items))
+
+			})),
+		ListStep(opts,
+			ListWithObj(&corev1.SecretList{}),
+			ListWithFilter(
+				client.InNamespace(namespace),
+			),
+			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				list, ok := i.(*corev1.SecretList)
+
+				assert.Truef(t, ok, "expected operator group list got type %T", i)
+				assert.Equal(t, 0, len(list.Items))
+
+			})),
+	)
+
 }
 
 func testCleanInstall(t *testing.T) {
