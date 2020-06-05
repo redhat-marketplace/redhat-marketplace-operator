@@ -28,14 +28,12 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -79,8 +77,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileRazeeDeployment{
 		client: mgr.GetClient(),
 		scheme: mgr.GetScheme(),
-		opts:   razeeOpts,
-		config: mgr.GetConfig()}
+		opts:   razeeOpts}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -167,7 +164,6 @@ type ReconcileRazeeDeployment struct {
 	client client.Client
 	scheme *runtime.Scheme
 	opts   *RazeeOpts
-	config *rest.Config
 }
 
 type RazeeOpts struct {
@@ -1445,30 +1441,6 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 				if err != nil && !errors.IsNotFound(err) {
 					reqLogger.Error(err, "could not delete custom resource", "custom resource", cr)
 				}
-			}
-		}
-	}
-
-	crds := []string{
-		"featureflagsetsld.deploy.razee.io",
-		"managedsets.deploy.razee.io",
-		"mustachetemplates.deploy.razee.io",
-		"remoteresources.deploy.razee.io",
-		"remoteresourcess3.deploy.razee.io",
-		"remoteresourcess3decrypt.deploy.razee.io",
-	}
-
-	reqLogger.Info("Deleting crds")
-	apiextensionsClientSet, err := apiextensionsclientset.NewForConfig(r.config)
-	if err != nil {
-		reqLogger.Error(err, "Deleting crds failed. Could not generate apiextensionsclient")
-	}
-	if err == nil {
-		for _, crdName := range crds {
-			reqLogger.Info("deleting crd", "name", crdName)
-			err = apiextensionsClientSet.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(crdName, nil)
-			if err != nil && !errors.IsNotFound(err) {
-				reqLogger.Error(err, "could not delete crd", "name", crdName)
 			}
 		}
 	}
