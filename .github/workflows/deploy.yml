@@ -204,7 +204,7 @@ jobs:
   scorecard:
     name: Scorecard for ${{ matrix.cr }}
     runs-on: ubuntu-latest
-    depends-on: [deploy]
+    needs: [deploy]
     continue-on-error: true
     env:
       OPERATOR_IMAGE: quay.io/rh-marketplace/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
