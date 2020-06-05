@@ -1,3 +1,17 @@
+// Copyright 2020 IBM Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package v1alpha1
 
 import (
@@ -12,31 +26,49 @@ import (
 type MeterDefinitionSpec struct {
 
 	// MeterDomain defines the primary CRD domain of the meter
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	MeterDomain string `json:"meterDomain"`
 
 	// MeterVersion defines the primary CRD version of the meter
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	MeterVersion string `json:"meterVersion"`
 
 	// MeterKind defines the primary CRD kind of the meter
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	MeterKind string `json:"meterKind"`
 
 	// ServiceLabels of the meterics you want to track.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	ServiceMeterLabels []string `json:"serviceMeterLabels,omitempty"`
 
 	// PodLabels of the prometheus metrics you want to track.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	PodMeterLabels []string `json:"podMeterLabels,omitempty"`
 
 	// ServiceMonitors to be selected for target discovery.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	ServiceMonitorSelector *metav1.LabelSelector `json:"serviceMonitorSelector,omitempty"`
 
 	// Namespaces to be selected for ServiceMonitor discovery. If nil, only
 	// check own namespace.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	ServiceMonitorNamespaceSelector *metav1.LabelSelector `json:"serviceMonitorNamespaceSelector,omitempty"`
 
 	// PodSelectors to select pods for metering
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	PodSelector *metav1.LabelSelector `json:"podMonitorSelector,omitempty"`
 
 	// PodNamespaceSelector to select namespaces for pods for metering
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	PodNamespaceSelector *metav1.LabelSelector `json:"podMonitorNamespaceSelector,omitempty"`
 }
 
@@ -46,7 +78,8 @@ type MeterDefinitionStatus struct {
 
 	// Conditions represent the latest available observations of an object's state
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	Conditions status.Conditions `json:"conditions"`
+	// +optional
+	Conditions status.Conditions `json:"conditions,omitempty"`
 
 	// ServiceLabels of the meterics you want to track.
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
@@ -66,7 +99,6 @@ type MeterDefinitionStatus struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Pods []*metav1.ObjectMeta `json:"pods"`
 }
-
 
 // MeterDefinition is internal Meter Definitions defined by Operators from Red Hat Marketplace.
 // This is an internal resource not meant to be modified directly.

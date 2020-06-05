@@ -4,6 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redhat-marketplace-operator
+  namespace: openshift-redhat-marketplace
 spec:
   replicas: 1
   selector:
@@ -20,8 +21,8 @@ spec:
       containers:
         - name: redhat-marketplace-operator
           # Replace this with the built image name
-          image: quay.io/rh-marketplace/redhat-marketplace-operator:0.1.1
-          imagePullPolicy: Always
+          image: redhat-marketplace-operator
+          imagePullPolicy: IfNotPresent
           securityContext:
             {}
           command:
@@ -42,4 +43,4 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: RELATED_IMAGE_RAZEE_JOB
-              value: quay.io/razee/razeedeploy-delta:1.1.0
+              value: quay.io/razee/razeedeploy-delta:1.1.3

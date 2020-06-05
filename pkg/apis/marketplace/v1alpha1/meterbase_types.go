@@ -1,7 +1,22 @@
+// Copyright 2020 IBM Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package v1alpha1
 
 import (
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	status "github.com/operator-framework/operator-sdk/pkg/status"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,11 +28,16 @@ import (
 // StorageSpec contains configuration for pvc claims.
 type StorageSpec struct {
 	// Storage class for the prometheus stateful set. Default is "" i.e. default.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	Class *string `json:"class,omitempty"`
+
 	// Storage size for the prometheus deployment. Default is 40Gi.
 	// +kubebuilder:validation:Type=string
 	// +kubebuilder:validation:Format=quantity
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Size resource.Quantity `json:"size,omitempty"`
 }
 
@@ -25,24 +45,36 @@ type StorageSpec struct {
 // deployment used for metering.
 type PrometheusSpec struct {
 	// Resource requirements for the deployment. Default is not defined.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	// Selector for the pods in the Prometheus deployment
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	NodeSelector map[string]string `json:"selector,omitempty"`
 
 	// Storage for the deployment.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Storage StorageSpec `json:"storage"`
 }
 
 // MeterBaseSpec defines the desired state of MeterBase
 // +k8s:openapi-gen=true
 type MeterBaseSpec struct {
-	// Is metering is enabled on the cluster? Default is true
+	// Enabled is the flag that controls if the controller does work. Setting
+	// enabled to "true" will install metering components. False will suspend controller
+	// operations for metering components.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Enabled bool `json:"enabled"`
 
 	// Prometheus deployment configuration.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	Prometheus *PrometheusSpec `json:"prometheus,omitempty"`
 }
@@ -50,12 +82,16 @@ type MeterBaseSpec struct {
 // MeterBaseStatus defines the observed state of MeterBase.
 // +k8s:openapi-gen=true
 type MeterBaseStatus struct {
+	// MeterBaseConditions represent the latest available observations of an object's stateonfig
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	Conditions *status.Conditions `json:"conditions,omitempty"`
 	// PrometheusStatus is the most recent observed status of the Prometheus cluster. Read-only. Not
 	// included when requesting from the apiserver, only from the Prometheus
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	PrometheusStatus *monitoringv1.PrometheusStatus `json:"prometheusStatus,omitempty"`
 }
-
 
 // MeterBase is the resource that sets up Metering for Red Hat Marketplace.
 // This is an internal resource not meant to be modified directly.
@@ -87,3 +123,11 @@ type MeterBaseList struct {
 func init() {
 	SchemeBuilder.Register(&MeterBase{}, &MeterBaseList{})
 }
+
+const (
+	// Reasons for install
+	ReasonMeterBaseStartInstall             status.ConditionReason = "StartMeterBaseInstall"
+	ReasonMeterBasePrometheusInstall        status.ConditionReason = "StartMeterBasPrometheuseInstall"
+	ReasonMeterBasePrometheusServiceInstall status.ConditionReason = "StartMeterBasePrometheusServiceInstall"
+	ReasonMeterBaseFinishInstall            status.ConditionReason = "FinishedMeterBaseInstall"
+)

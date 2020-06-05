@@ -7,7 +7,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-operator
-  namespace: redhat-marketplace-operator
+  namespace: openshift-redhat-marketplace
 roleRef:
   kind: ClusterRole
   name: redhat-marketplace-operator
@@ -21,7 +21,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-razeedeploy
-  namespace: redhat-marketplace-operator
+  namespace: openshift-redhat-marketplace
 roleRef:
   kind: ClusterRole
   name: redhat-marketplace-razeedeploy
@@ -32,10 +32,11 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: redhat-marketplace-operator
+  namespace: openshift-redhat-marketplace
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-operator
-  namespace: redhat-marketplace-operator
+  namespace: openshift-redhat-marketplace
 roleRef:
   kind: Role
   name: redhat-marketplace-operator

@@ -1,3 +1,17 @@
+// Copyright 2020 IBM Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package v1alpha1
 
 import (
@@ -9,10 +23,16 @@ import (
 // +k8s:openapi-gen=true
 type MarketplaceConfigSpec struct {
 	// RhmAccountID is the Red Hat Marketplace Account identifier
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	RhmAccountID string `json:"rhmAccountID"`
 	// ClusterUUID is the Red Hat Marketplace cluster identifier
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	ClusterUUID string `json:"clusterUUID"`
 	// DeploySecretName is the secret name that contains the deployment information
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	DeploySecretName *string `json:"deploySecretName,omitempty"`
 }
 
@@ -21,9 +41,17 @@ type MarketplaceConfigSpec struct {
 type MarketplaceConfigStatus struct {
 	// Conditions represent the latest available observations of an object's stateonfig
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	Conditions status.Conditions `json:"conditions"`
+	// +optional
+	Conditions status.Conditions `json:"conditions,omitempty"`
+	// Conditions represent the latest available observations of the razee object's state
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	RazeeSubConditions *status.Conditions `json:"razeeSubConditions,omitempty"`
+	// Conditions represent the latest available observations of the meterbase object's state
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	MeterBaseSubConditions *status.Conditions `json:"meterBaseSubConditions,omitempty"`
 }
-
 
 // MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

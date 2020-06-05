@@ -1,3 +1,17 @@
+// Copyright 2020 IBM Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package utils
 
 import (
@@ -8,6 +22,7 @@ import (
 
 	"github.com/gotidy/ptr"
 	"github.com/imdario/mergo"
+	emperrors "emperror.dev/errors"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -18,7 +33,8 @@ import (
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
-	marketplacev1alpha1 "github.ibm.com/symposium/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/operrors"
 )
 
 type PersistentVolume struct {
@@ -87,11 +103,11 @@ func GetDefaultStorageClass(client client.Client) (string, error) {
 	}
 
 	if len(defaultStorageOptions) == 0 {
-		return "", fmt.Errorf("could not find a default storage class")
+		return "", emperrors.WithStack(operrors.DefaultStorageClassNotFound)
 	}
 
 	if len(defaultStorageOptions) > 1 {
-		return "", fmt.Errorf("multiple default options, cannot pick one")
+		return "", emperrors.WithStack(operrors.MultipleDefaultStorageClassFound)
 	}
 
 	return defaultStorageOptions[0], nil
@@ -108,6 +124,19 @@ func MakeProbe(path string, port, initialDelaySeconds, timeoutSeconds int32) *co
 		},
 		InitialDelaySeconds: initialDelaySeconds,
 		TimeoutSeconds:      timeoutSeconds,
+	}
+}
+
+// BuildMarketplaceConfigCR returns a new MarketplaceConfig
+func BuildMarketplaceConfigCR(namespace, customerID string) *marketplacev1alpha1.MarketplaceConfig {
+	return &marketplacev1alpha1.MarketplaceConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      MARKETPLACECONFIG_NAME,
+			Namespace: namespace,
+		},
+		Spec: marketplacev1alpha1.MarketplaceConfigSpec{
+			RhmAccountID: customerID,
+		},
 	}
 }
 

@@ -6,8 +6,8 @@
 package main
 
 import (
-	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/controller"
-	"github.ibm.com/symposium/redhat-marketplace-operator/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 )
 
 // Injectors from wire.go:

@@ -1,0 +1,89 @@
+name: Generate Bundle
+
+on:
+  pull_request:
+    branches:
+      - master
+      - develop
+      - 'release/stable'
+      - 'hotfix/stable'
+env:
+  pushImage: true
+
+jobs:
+  generate-bundle:
+    name: Generate Bundle
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        channel: ['stable', 'beta']
+        include:
+          - channel: 'beta'
+            tags: ['no-merge']
+            draft: 'true'
+            message: 'Beta releases should not be merged. Only for deployment.'
+          - channel: 'stable'
+            tags: ['release']
+            draft: 'false'
+            message: 'Stable release should be merged.'
+    steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.14
+        id: go
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.pullRequestSecret }}
+
+      - name: Get Vars
+        id: vars
+        run: |
+          echo ::set-env name=pr_branch::$(echo $BRANCH | sed 's/refs\/heads\///')
+          echo ::set-env name=NEW_BRANCH_NAME::release/${{ matrix.channel }}
+          echo "::set-output name=version::$(make current-version)"
+          echo "::set-output name=last_version::$(make current-version)"
+          echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
+          echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
+        env:
+          FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'version/**', 'go.sum', 'go.mod') }}
+          BRANCH: ${{ github.ref }}
+
+      - uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install operator-sdk
+        run: |
+          cd /tmp
+          curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
+          chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu && sudo mkdir -p /usr/local/bin/ && sudo cp operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk && rm operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
+          python -m pip install --upgrade pip
+          pip3 install operator-courier
+          echo "::add-path::/usr/local/bin"
+        env:
+          RELEASE_VERSION: v0.17.1
+
+      - name: Create Bundle
+        id: bundle
+        run: make manifest-package-${{ matrix.channel }} bundle
+        env:
+          CSV_CHANNEL: ${{ matrix.channel }}
+          CSV_DEFAULT_CHANNEL: ${{ matrix.channel == 'stable' }}
+          OPERATOR_IMAGE: quay.io/rh-marketplace/redhat-marketplace-operator:${{ steps.vars.outputs.hash }}
+
+      - name: Upload bundle to actions
+        uses: actions/upload-artifact@v1
+        with:
+          name: ${{ matrix.channel }}-${{ steps.vars.outputs.hash }}${{ steps.bundle.outputs.bundlename }}
+          path: bundle
