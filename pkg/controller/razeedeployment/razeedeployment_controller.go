@@ -1388,7 +1388,7 @@ func (r *ReconcileRazeeDeployment) makeParentRemoteResourceS3(instance *marketpl
 	}
 }
 
-// fullUninstall deletes the watch-keeper ConfigMap and then the watch-keeper Deployment
+// fullUninstall deletes resources created by razee deployment
 func (r *ReconcileRazeeDeployment) fullUninstall(
 	req *marketplacev1alpha1.RazeeDeployment,
 ) (reconcile.Result, error) {
@@ -1402,7 +1402,7 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 		Name:      utils.RAZEE_DEPLOY_JOB_NAME,
 		Namespace: req.Namespace,
 	}
-	reqLogger.Info("finding uninstall job", "name", jobName)
+	reqLogger.Info("finding install job", "name", jobName)
 	err := r.client.Get(context.TODO(), jobName, &foundJob)
 	if err == nil || errors.IsNotFound(err) {
 		reqLogger.Info("cleaning up install job")
@@ -1430,7 +1430,7 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 			Version: "v1alpha2",
 		})
 
-		// get custom resources for crd
+		// get custom resources for each crd
 		reqLogger.Info("Listing custom resources", "Kind", customResourceKind)
 		err = r.client.List(context.TODO(), customResourceList, client.InNamespace(*req.Spec.TargetNamespace))
 		if err != nil && !errors.IsNotFound((err)) {
@@ -1487,7 +1487,7 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 				Namespace: *req.Spec.TargetNamespace,
 			},
 		}
-		reqLogger.Info("deleting configMap", "name", configMapName)
+		reqLogger.Info("deleting configmap", "name", configMapName)
 		err = r.client.Delete(context.TODO(), configMap)
 		if err != nil && !errors.IsNotFound((err)) {
 			reqLogger.Error(err, "could not delete configmap", "name", configMapName)
@@ -1505,10 +1505,10 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 				Namespace: *req.Spec.TargetNamespace,
 			},
 		}
-		reqLogger.Info("deleting sa", "name", saName)
+		reqLogger.Info("deleting service account", "name", saName)
 		err = r.client.Delete(context.TODO(), serviceAccount, client.PropagationPolicy(deletePolicy))
 		if err != nil && !errors.IsNotFound((err)) {
-			reqLogger.Error(err, "could not delete sa", "name", saName)
+			reqLogger.Error(err, "could not delete service account", "name", saName)
 		}
 	}
 
@@ -1551,10 +1551,8 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 		}
 		reqLogger.Info("deleting deployment", "name", deploymentName)
 		err = r.client.Delete(context.TODO(), deployment, client.PropagationPolicy(deletePolicy))
-		if err != nil {
-			if err != nil {
-				reqLogger.Error(err, "could not delete deployment", "name", deploymentName)
-			}
+		if err != nil && !errors.IsNotFound((err)) {
+			reqLogger.Error(err, "could not delete deployment", "name", deploymentName)
 		}
 	}
 
