@@ -131,15 +131,10 @@ code-gen: ## Run the operator-sdk commands to generated code (k8s and crds)
 	- go generate ./...
 
 setup-minikube: ## Setup minikube for full operator dev
+	@echo Installing operatorframework
+	curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/0.15.1/install.sh | bash -s 0.15.1
 	@echo Applying prometheus operator
 	kubectl apply -f https://raw.githubusercontent.com/coreos/prometheus-operator/master/bundle.yaml
-	@echo Applying operator marketplace
-	for item in 01_namespace.yaml 02_catalogsourceconfig.crd.yaml 03_operatorsource.crd.yaml 04_service_account.yaml 05_role.yaml 06_role_binding.yaml 07_upstream_operatorsource.cr.yaml 08_operator.yaml ; do \
-		kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-marketplace/master/deploy/upstream/$$item ; \
-	done
-	@echo Applying olm
-	kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/master/deploy/upstream/quickstart/crds.yaml
-	kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/master/deploy/upstream/quickstart/olm.yaml
 	@echo Apply kube-state
 	for item in cluster-role.yaml service-account.yaml cluster-role-binding.yaml deployment.yaml service.yaml ; do \
 		kubectl apply -f https://raw.githubusercontent.com/kubernetes/kube-state-metrics/master/examples/standard/$$item ; \
@@ -305,7 +300,7 @@ release-finish: ## Start a release
 
 OLM_REPO ?= quay.io/rh-marketplace/operator-manifest
 OLM_BUNDLE_REPO ?= quay.io/rh-marketplace/operator-manifest-bundle
-OLM_PACKAGE_NAME ?= redhat-marketplace-operator-test
+OLM_PACKAGE_NAME ?= redhat-marketplace-operator
 
 olm-bundle-all: # used to bundle all the versions available
 	for VERSION in `ls deploy/olm-catalog/redhat-marketplace-operator | grep -E "\d+\.\d+\.\d+"` ; do \
