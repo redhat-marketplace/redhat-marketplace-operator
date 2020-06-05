@@ -168,8 +168,8 @@ jobs:
 
       - name: Build bundles
         run: |
-          make olm-bundle-last-beta opm-index-base
- name:
+          make generate-csv olm-bundle-last-beta opm-index-base
+
   tag:
     name: Push other tags
     runs-on: ubuntu-latest
