@@ -4,6 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redhat-marketplace-operator
+  namespace: openshift-redhat-marketplace
 spec:
   replicas: 1
   selector:
@@ -20,8 +21,8 @@ spec:
       containers:
         - name: redhat-marketplace-operator
           # Replace this with the built image name
-          image: quay.io/zach_source/redhat-marketplace-operator:0.1.2
-          imagePullPolicy: Always
+          image: redhat-marketplace-operator
+          imagePullPolicy: IfNotPresent
           securityContext:
             {}
           command:

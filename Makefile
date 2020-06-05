@@ -50,7 +50,6 @@ VERSION_CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/
 CSV_CHANNEL ?= beta # change to stable for release
 CSV_DEFAULT_CHANNEL ?= false # change to true for release
 CHANNELS ?= beta
-MANIFEST_IMAGE ?= quay.io/rh-marketplace/operator-manifest:0.1.2
 
 generate-bundle: ## Generate the csv
 	make helm
@@ -62,13 +61,6 @@ generate-bundle: ## Generate the csv
 	@go run github.com/mikefarah/yq/v3 w -i $(MANIFEST_CSV_FILE) 'metadata.annotations.createdAt' $(CREATED_TIME)
 	@go run github.com/mikefarah/yq/v3 d -i $(MANIFEST_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
 	@go run github.com/mikefarah/yq/v3 w -i $(MANIFEST_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
-
-create-bundle-image: ## Generate the bundle image wh
-	operator-sdk bundle create \
-		--package redhat-marketplace-operator \
-		--default-channel $(CSV_CHANNEL) \
-		--channels stable,beta \
-		$(MANIFEST_IMAGE)
 
 generate-csv: ## Generate the csv
 	make helm
@@ -84,6 +76,16 @@ generate-csv: ## Generate the csv
 	@go run github.com/mikefarah/yq/v3 w -i $(VERSION_CSV_FILE) 'metadata.annotations.createdAt' $(CREATED_TIME)
 	@go run github.com/mikefarah/yq/v3 d -i $(VERSION_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
 	@go run github.com/mikefarah/yq/v3 w -i $(VERSION_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
+
+PACKAGE_FILE ?= ./deploy/olm-catalog/redhat-marketplace-operator/redhat-marketplace-operator.package.yaml
+
+manifest-package-beta: # Make sure we have the right versions
+	@go run github.com/mikefarah/yq/v3 w -i $(PACKAGE_FILE) 'channels.(name==stable).currentCSV' redhat-marketplace-operator.v$(FROM_VERSION)
+	@go run github.com/mikefarah/yq/v3 w -i $(PACKAGE_FILE) 'channels.(name==beta).currentCSV' redhat-marketplace-operator.v$(VERSION)
+
+manifest-package-stable: # Make sure we have the right versions
+	@go run github.com/mikefarah/yq/v3 w -i $(PACKAGE_FILE) 'channels.(name==stable).currentCSV' redhat-marketplace-operator.v$(VERSION)
+	@go run github.com/mikefarah/yq/v3 w -i $(PACKAGE_FILE) 'channels.(name==beta).currentCSV' redhat-marketplace-operator.v$(VERSION)
 
 REGISTRY ?= quay.io
 
@@ -122,7 +124,7 @@ code-gen: ## Run the operator-sdk commands to generated code (k8s and crds)
 	@echo Generating k8s
 	operator-sdk generate k8s
 	@echo Updating the CRD files with the OpenAPI validations
-	operator-sdk generate crds
+	operator-sdk generate crds --crd-version=v1beta1
 	@echo Generating the yamls for deployment
 	- make helm
 	@echo Go generating
@@ -232,6 +234,8 @@ check-licenses: ## Check if all files have licenses
 add-licenses: ## Add licenses to the go file
 	go run github.com/google/addlicense -c "IBM Corp." **/*.go
 
+scorecard: ## Run scorecard tests
+	operator-sdk scorecard -b ./deploy/olm-catalog/redhat-marketplace-operator
 
 ##@ Publishing
 
@@ -244,7 +248,7 @@ bundle: ## Bundles the csv to submit
 	. ./scripts/bundle_csv.sh `pwd` $(VERSION) $(OPERATOR_IMAGE)
 
 DATETIME = $(shell date +"%FT%H%M%SZ")
-REDHAT_PROJECT_ID = ospid-962ccd50-bf22-4663-a865-f539e2189f0e
+REDHAT_PROJECT_ID ?= ospid-962ccd50-bf22-4663-a865-f539e2189f0e
 REDHAT_API_KEY ?=
 
 .PHONY: upload-bundle
@@ -266,11 +270,22 @@ tag-and-push: ## Tag and push operator-image
 	$(DOCKER_EXEC) tag $(IMAGE) $(TAG)
 	$(DOCKER_EXEC) push $(TAG)
 
-ARGS="--patch"
+ARGS ?= "--patch"
 
 .PHONY: bump-version
 bump-version: ## Bump the version and add the file for a commit
 	go run scripts/version/main.go next $(ARGS)
+
+
+REDHAT_PROJECT_ID ?= ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd
+SHA ?=
+TAG ?=
+
+publish-pc: ## Publish to partner connect
+	curl -X POST https://connect.redhat.com/api/v2/projects/$(REDHAT_PROJECT_ID)/containers/$(SHA)/tags/$(TAG)/publish -H "Authorization: Bearer $(REDHAT_API_KEY)" -H "Content-type: application/json" --data "{}" | jq
+
+publish-status-pc: ## Get publish status to partner connect
+	@curl -X GET 'https://connect.redhat.com/api/v2/projects/$(REDHAT_PROJECT_ID)?tags=$(TAG)' -H "Authorization: Bearer $(REDHAT_API_KEY)" -H "Content-type: application/json" | jq
 
 ##@ Release
 
@@ -285,6 +300,43 @@ release-start: ## Start a release
 .PHONY: release-finish
 release-finish: ## Start a release
 	git flow release finish $(go run scripts/version/main.go version)
+
+##@ OLM
+
+OLM_REPO ?= quay.io/rh-marketplace/operator-manifest
+OLM_BUNDLE_REPO ?= quay.io/rh-marketplace/operator-manifest-bundle
+OLM_PACKAGE_NAME ?= redhat-marketplace-operator-test
+
+olm-bundle-all: # used to bundle all the versions available
+	for VERSION in `ls deploy/olm-catalog/redhat-marketplace-operator | grep -E "\d+\.\d+\.\d+"` ; do \
+		echo "Building bundle for $$VERSION" ; \
+		operator-sdk bundle create "$(OLM_REPO):v$$VERSION" \
+			--directory "./deploy/olm-catalog/redhat-marketplace-operator/$$VERSION" \
+			-c stable,beta \
+			--package $(OLM_PACKAGE_NAME) \
+			--default-channel stable \
+			--overwrite ; \
+		echo "Pushing bundle for $$VERSION" ; \
+		docker push "$(OLM_REPO):v$$VERSION"; \
+	done
+
+olm-bundle-last-beta: ## Bundle latest for beta
+	VERSION=$(VERSION) operator-sdk bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$$VERSION" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
+	@go run github.com/mikefarah/yq/v3 w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' beta
+	docker build -f bundle.Dockerfile -t "$(OLM_REPO):v$$VERSION" .
+	docker push "$(OLM_REPO):v$$VERSION"
+
+olm-bundle-last-stable: ## Bundle latest for stable
+	VERSION=$(VERSION) operator-sdk bundle create "$(OLM_REPO):v$$VERSION" --directory "./deploy/olm-catalog/redhat-marketplace-operator/$$VERSION" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
+
+opm-index-base: ## Create an index base
+	VERSIONS=$(shell REPOS=""; for VERSION in `ls deploy/olm-catalog/redhat-marketplace-operator | grep -E "\d+\.\d+\.\d+"` ; do \
+		REPOS="$(OLM_REPO):v$$VERSION,$$REPOS" ; \
+	done; echo $$REPOS) opm index add -u docker --bundles $(VERSIONS) --tag $(OLM_BUNDLE_REPO):latest
+	docker push $(OLM_BUNDLE_REPO):latest
+
+install-test-registry: ## Install the test registry
+	kubectl apply -f ./deploy/olm-catalog/test-registry.yaml
 
 ##@ Help
 

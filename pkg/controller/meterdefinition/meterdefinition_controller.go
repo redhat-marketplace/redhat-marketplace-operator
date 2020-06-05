@@ -404,7 +404,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	reqLogger.Info("updating state on meterdefinition")
 	err = r.client.Status().Update(context.TODO(), instance)
 	if err != nil {
-		reqLogger.Error(err, "Failed to update Prometheus status.")
+		reqLogger.Error(err, "Failed to update meterdefinition status.")
 		return reconcile.Result{}, err
 	}
 
