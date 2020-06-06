@@ -23,6 +23,7 @@ jobs:
       tag: ${{ steps.vars.outputs.tag }}
       hash: ${{ steps.vars.outputs.hash }}
       tagExists: ${{ steps.checktag.outputs.exists }}
+      dockertag: ${{ steps.vars.outputs.dockertag }}
 
     steps:
       - name: Dump GitHub context
@@ -37,7 +38,7 @@ jobs:
         id: go
 
       - name: Set branch prefix for dev
-        if: github.event == 'push' && github.ref == 'develop'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
         run: |
           echo "::set-env name=TAGPREFIX::dev-"
 
@@ -171,7 +172,7 @@ jobs:
 
       - name: Build bundles
         run: |
-          make generate-csv olm-bundle-all olm-bundle-last-beta opm-index-base
+          make generate-csv opm-index-base olm-bundle-all olm-bundle-last-beta
 
   tag:
     name: Push other tags
