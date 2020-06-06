@@ -23,7 +23,6 @@ jobs:
       hash: ${{ steps.vars.outputs.hash }}
       tagExists: ${{ steps.checktag.outputs.exists }}
       dockertag: ${{ steps.vars.outputs.dockertag }}
-      channel: ${{ steps.vars.outputs.channel }}
     env:
       TAGPREFIX: ''
 
@@ -50,8 +49,6 @@ jobs:
       - name: Get Vars
         id: vars
         run: |
-          echo "::set-output name=channel::"
-          [[ "${{ github.ref" }}" == "refs/heads/develop" ]] && echo ::set-output name=channel::edge || echo ::set-output name=channel::beta
           echo "::set-output name=version::$(make current-version)"
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
           echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
