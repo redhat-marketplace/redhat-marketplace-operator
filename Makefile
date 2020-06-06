@@ -300,13 +300,13 @@ release-finish: ## Start a release
 
 OLM_REPO ?= quay.io/rh-marketplace/operator-manifest
 OLM_BUNDLE_REPO ?= quay.io/rh-marketplace/operator-manifest-bundle
-OLM_PACKAGE_NAME ?= redhat-marketplace-operator
+OLM_PACKAGE_NAME ?= redhat-marketplace-operator-test
 
 olm-bundle-all: # used to bundle all the versions available
 	for VERSION in `ls deploy/olm-catalog/redhat-marketplace-operator | grep -E "\d+\.\d+\.\d+"` ; do \
 		echo "Building bundle for $$VERSION" ; \
 		operator-sdk bundle create "$(OLM_REPO):v$$VERSION" \
-			--directory "./deploy/olm-catalog/redhat-marketplace-operator/$$VERSION" \
+			--directory ./deploy/olm-catalog/redhat-marketplace-operator/$$VERSION \
 			-c stable,beta \
 			--package $(OLM_PACKAGE_NAME) \
 			--default-channel stable \
