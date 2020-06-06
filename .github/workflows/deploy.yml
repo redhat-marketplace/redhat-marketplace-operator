@@ -157,8 +157,8 @@ jobs:
           chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu && sudo mkdir -p /usr/local/bin/ && sudo cp operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk && rm operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
           python -m pip install --upgrade pip
           pip3 install operator-courier
-          curl https://github.com/operator-framework/operator-registry/releases/download/${OPM_VERSION}/linux-amd64-opm -o opm
-          chmod +x ./opm && sudo cp ./opm /usr/local/bin/opm
+          curl -LO https://github.com/operator-framework/operator-registry/releases/download/${OPM_VERSION}/linux-amd64-opm
+          chmod +x linux-amd64-opm && sudo cp linux-amd64-opm /usr/local/bin/opm && rm linux-amd64-opm
           echo "::add-path::/usr/local/bin"
         env:
           RELEASE_VERSION: v0.18.0
@@ -173,7 +173,7 @@ jobs:
 
       - name: Build bundles
         run: |
-          make generate-csv opm-index-base olm-bundle-last-beta
+          make generate-csv opm-bundle-last-beta opm-index-base
 
   tag:
     name: Push other tags
@@ -272,7 +272,7 @@ jobs:
           echo "Updating osdk to version ${VERSION}"
           make generate-csv
           yq w -i .osdk-scorecard.yaml 'scorecard.plugins.*.*.csv-path' deploy/olm-catalog/redhat-marketplace-operator/${VERSION}/redhat-marketplace-operator.v${VERSION}.clusterserviceversion.yaml
-          yq w -i .osdk-scorecard.yaml 'scorecard.plugins.*.*.cr-manifests.+' deploy/crds/${{ matrix.cr  }}
+          yq w -i .osdk-scorecard.yaml 'scorecard.plugins.*.*.cr-manifest.+' deploy/crds/${{ matrix.cr  }}
           make setup-minikube
           kubectl create ns openshift-redhat-marketplace
           kubectl config set-context --current --namespace=openshift-redhat-marketplace

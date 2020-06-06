@@ -296,13 +296,13 @@ release-start: ## Start a release
 release-finish: ## Start a release
 	git flow release finish $(go run scripts/version/main.go version)
 
-##@ OLM
+##@ OPM
 
 OLM_REPO ?= quay.io/rh-marketplace/operator-manifest
 OLM_BUNDLE_REPO ?= quay.io/rh-marketplace/operator-manifest-bundle
 OLM_PACKAGE_NAME ?= redhat-marketplace-operator-test
 
-olm-bundle-all: # used to bundle all the versions available
+opm-bundle-all: # used to bundle all the versions available
 	for VERSION in `ls deploy/olm-catalog/redhat-marketplace-operator | grep -E "\d+\.\d+\.\d+"` ; do \
 		echo "Building bundle for $$VERSION" ; \
 		operator-sdk bundle create "$(OLM_REPO):v$$VERSION" \
@@ -315,13 +315,13 @@ olm-bundle-all: # used to bundle all the versions available
 		docker push "$(OLM_REPO):v$$VERSION"; \
 	done
 
-olm-bundle-last-edge: ## Bundle latest for edge
+opm-bundle-last-edge: ## Bundle latest for edge
 	operator-sdk bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
 	@go run github.com/mikefarah/yq/v3 w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' edge
 	docker build -f bundle.Dockerfile -t "$(OLM_REPO):v$(VERSION)" .
 	docker push "$(OLM_REPO):v$(VERSION)"
 
-olm-bundle-last-beta: ## Bundle latest for beta
+opm-bundle-last-beta: ## Bundle latest for beta
 	operator-sdk bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
 	@go run github.com/mikefarah/yq/v3 w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' beta
 	docker build -f bundle.Dockerfile -t "$(OLM_REPO):v$(VERSION)" .
