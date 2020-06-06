@@ -315,19 +315,25 @@ olm-bundle-all: # used to bundle all the versions available
 		docker push "$(OLM_REPO):v$$VERSION"; \
 	done
 
+olm-bundle-last-edge: ## Bundle latest for edge
+	operator-sdk bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
+	@go run github.com/mikefarah/yq/v3 w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' edge
+	docker build -f bundle.Dockerfile -t "$(OLM_REPO):v$(VERSION)" .
+	docker push "$(OLM_REPO):v$(VERSION)"
+
 olm-bundle-last-beta: ## Bundle latest for beta
-	VERSION=$(VERSION) operator-sdk bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$$VERSION" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
+	operator-sdk bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
 	@go run github.com/mikefarah/yq/v3 w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' beta
-	docker build -f bundle.Dockerfile -t "$(OLM_REPO):v$$VERSION" .
-	docker push "$(OLM_REPO):v$$VERSION"
+	docker build -f bundle.Dockerfile -t "$(OLM_REPO):v$(VERSION)" .
+	docker push "$(OLM_REPO):v$(VERSION)"
 
 olm-bundle-last-stable: ## Bundle latest for stable
-	VERSION=$(VERSION) operator-sdk bundle create "$(OLM_REPO):v$$VERSION" --directory "./deploy/olm-catalog/redhat-marketplace-operator/$$VERSION" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
+	operator-sdk bundle create "$(OLM_REPO):v$(VERSION)" --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
+
+VERSIONS=$(shell ls deploy/olm-catalog/redhat-marketplace-operator | egrep '\d+\.\d+\.\d+' | xargs | sed -e 's/ / $$OLM_REPO:v/g' | sed -e 's/^/$$OLM_REPO:v/g' |  sed -e 's/ /,/g')
 
 opm-index-base: ## Create an index base
-	VERSIONS=$(shell REPOS=""; for VERSION in `ls deploy/olm-catalog/redhat-marketplace-operator | grep -E "\d+\.\d+\.\d+"` ; do \
-		REPOS="$(OLM_REPO):v$$VERSION,$$REPOS" ; \
-	done; echo $$REPOS) opm index add -u docker --bundles $(VERSIONS) --tag $(OLM_BUNDLE_REPO):latest
+	export OLM_REPO=$(OLM_REPO); opm index add -u docker --bundles "$(VERSIONS)" --tag $(OLM_BUNDLE_REPO):latest
 	docker push $(OLM_BUNDLE_REPO):latest
 
 install-test-registry: ## Install the test registry

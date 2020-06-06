@@ -11,7 +11,6 @@ on:
 
 env:
   pushImage: true
-  TAGPREFIX: ''
 
 jobs:
   build:
@@ -24,6 +23,9 @@ jobs:
       hash: ${{ steps.vars.outputs.hash }}
       tagExists: ${{ steps.checktag.outputs.exists }}
       dockertag: ${{ steps.vars.outputs.dockertag }}
+      channel: ${{ steps.vars.outputs.channel }}
+    env:
+      TAGPREFIX: ''
 
     steps:
       - name: Dump GitHub context
@@ -48,6 +50,8 @@ jobs:
       - name: Get Vars
         id: vars
         run: |
+          echo "::set-output name=channel::"
+          [[ "${{ github.ref" }}" == "refs/heads/develop" ]] && echo ::set-output name=channel::edge || echo ::set-output name=channel::beta
           echo "::set-output name=version::$(make current-version)"
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
           echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
@@ -172,12 +176,13 @@ jobs:
 
       - name: Build bundles
         run: |
-          make generate-csv opm-index-base olm-bundle-all olm-bundle-last-beta
+          make generate-csv opm-index-base olm-bundle-last-beta
 
   tag:
     name: Push other tags
     runs-on: ubuntu-latest
     needs: [build, deploy]
+    if: (github.event_name == 'push' && github.ref != 'refs/heads/develop') || github.event_name == 'pull_request'
     strategy:
       matrix:
         registry:
@@ -270,13 +275,20 @@ jobs:
           echo "Updating osdk to version ${VERSION}"
           make generate-csv
           yq w -i .osdk-scorecard.yaml 'scorecard.plugins.*.*.csv-path' deploy/olm-catalog/redhat-marketplace-operator/${VERSION}/redhat-marketplace-operator.v${VERSION}.clusterserviceversion.yaml
+          yq w -i .osdk-scorecard.yaml 'scorecard.plugins.*.*.cr-manifests.+' deploy/crds/${{ matrix.cr  }}
           make setup-minikube
           kubectl create ns openshift-redhat-marketplace
           kubectl config set-context --current --namespace=openshift-redhat-marketplace
           kubectl apply -f deploy/role.yaml -f deploy/service_account.yaml -f deploy/role_binding.yaml
 
-          yq w -i .osdk-scorecard.yaml 'scorecard.plugins.*.*.cr-manifests' deploy/crds/${{ matrix.cr  }}
           operator-sdk scorecard -b ./deploy/olm-catalog/redhat-marketplace-operator --config ./.osdk-scorecard.yaml -o json > scorecard-output.json
+          cat scorecard-output.json
           cat scorecard-output.json | jq -r '.results[] | select(.state == "fail") | "::error" +  "::" + .name + " failed"'
         env:
           VERSION: ${{ steps.vars.outputs.version }}
+
+      - name: Upload results
+        uses: actions/upload-artifact@v1
+        with:
+          name: ${{ matrix.cr }}-results
+          path: ./scorecard-output.json
