@@ -22,7 +22,6 @@ import (
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	"github.com/prometheus/client_golang/prometheus"
-	// "github.com/prometheus/client_golang/prometheus/promauto"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/version"
@@ -174,10 +173,11 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		}
 	}
 
+	// Create and expose the rhmOperatorInfoGauge -> keeps track of cluster information
+	// if cluster information is correct: rhmOperatorInfoGauge=1 otherwise rhmOperatorInfoGauge=0
 	originalRhmOperatorInfo["operator_version"] = version.Version
 	originalRhmOperatorInfo["cluster_uuid"] = marketplaceConfig.Spec.ClusterUUID
 	originalRhmOperatorInfo["namespace"] = marketplaceConfig.Namespace
-
 	rhmOperatorInfoGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "rhm_operator_info",
 		Help: "This gauge checks whether all cluster information is present",
@@ -418,8 +418,8 @@ func checkRhmOperatorInfoGauge(gauge prometheus.Gauge, marketplaceconfig marketp
 	go func() {
 		for {
 			// Check if information exists
-			// If exists -> gauge set to 1
-			// If it doesn't exist -> gauge set to 0
+			// If exists, gauge set to 1
+			// If it doesn't exist, gauge set to 0
 			if originalRhmOperatorInfo["operator_version"] == version.Version &&
 				originalRhmOperatorInfo["cluster_uuid"] == marketplaceconfig.Spec.ClusterUUID &&
 				originalRhmOperatorInfo["namespace"] == marketplaceconfig.Namespace {

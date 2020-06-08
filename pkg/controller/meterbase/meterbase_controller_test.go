@@ -89,7 +89,7 @@ func testCleanInstall(t *testing.T) {
 	reconcilerTest := NewReconcilerTest(setup, meterbase)
 	reconcilerTest.TestAll(t,
 		ReconcileStep(options,
-				ReconcileWithExpectedResults(DoneResult),
+			ReconcileWithExpectedResults(DoneResult),
 		),
 		GetStep(options,
 			GetWithObj(&corev1.ConfigMap{}),

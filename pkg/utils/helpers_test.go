@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -149,7 +149,7 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 func TestApplyAnnotation(t *testing.T) {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "foo",
+			Name:      "foo",
 			Namespace: "myns",
 		},
 	}

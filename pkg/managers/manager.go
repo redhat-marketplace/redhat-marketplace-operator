@@ -77,10 +77,6 @@ type ControllerMain struct {
 }
 
 func (m *ControllerMain) Run() {
-	http.Handle("/metrics", promhttp.Handler())
-	go func() {
-		http.ListenAndServe(":2112", nil)
-	}()
 
 	// adding controller flags
 	for _, flags := range m.FlagSets {
@@ -117,6 +113,12 @@ func (m *ControllerMain) Run() {
 		log.Error(err, "Failed to get watch namespace")
 		os.Exit(1)
 	}
+
+	// Expose custom metrics to localhost:2112/metrics
+	http.Handle("/metrics", promhttp.Handler())
+	go func() {
+		http.ListenAndServe(":2112", nil)
+	}()
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
