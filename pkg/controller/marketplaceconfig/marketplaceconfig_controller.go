@@ -21,6 +21,8 @@ import (
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	// "github.com/prometheus/client_golang/prometheus/push"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	pflag "github.com/spf13/pflag"
@@ -35,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	// "sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -51,24 +54,25 @@ var (
 	log                      = logf.Log.WithName("controller_marketplaceconfig")
 	marketplaceConfigFlagSet *pflag.FlagSet
 	defaultFeatures          = []string{RAZEE_FLAG, METERBASE_FLAG}
+	registry                 = prometheus.NewRegistry()
 
 	/* Gauges to track install */
-	rhmInstallSucceedGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+	rhmInstallSucceedGauge = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "rhm_operator_status_install_succeeded",
 		Help: "This gauge states whether the rhm-operator has been successfuly installed: 0=false, 1=true",
 	})
 
-	rhmInstallFailedGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+	rhmInstallFailedGauge = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "rhm_operator_status_install_failed",
 		Help: "This gauge states whether the rhm-operator install has failed: 0=false, 1=true",
 	})
 
-	rhmOperatorInstallStartTimeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+	rhmOperatorInstallStartTimeGauge = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "rhm_operator_status_install_start_time",
 		Help: "This gauge states when the rhm-operator began installing",
 	})
 
-	rhmOperatorInstallEndTimeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+	rhmOperatorInstallEndTimeGauge = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "rhm_operator_status_install_end_time",
 		Help: "This gauge states when the rhm-operator finished installing",
 	})
@@ -83,6 +87,13 @@ func init() {
 		defaultFeatures,
 		"List of additional features to install. Ex. [razee, meterbase], etc.",
 	)
+	// registry.MustRegister(rhmInstallSucceedGauge, rhmInstallFailedGauge, rhmOperatorInstallStartTimeGauge, rhmOperatorInstallEndTimeGauge)
+	// pusher := push.New("http://0.0.0.0:9091", "db_backup").Gatherer(registry)
+	// // Add is used here rather than Push to not delete a previously pushed
+	// // success timestamp in case of a failure of this backup.
+	// if err := pusher.Add(); err != nil {
+	// 	fmt.Println("Could not push to Pushgateway:", err)
+	// }
 }
 
 // FlagSet returns our FlagSet
