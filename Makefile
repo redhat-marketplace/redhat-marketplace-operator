@@ -13,7 +13,7 @@ DOCKER_EXEC ?= $(shell command -v docker)
 SERVICE_ACCOUNT := redhat-marketplace-operator
 SECRETS_NAME := my-docker-secrets
 
-OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
+OPERATOR_IMAGE ?= quay.io/namsimar/plato-operator:latest
 
 PULL_POLICY ?= IfNotPresent
 .DEFAULT_GOAL := help

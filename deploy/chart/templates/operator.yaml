@@ -20,6 +20,11 @@ spec:
         - name: {{ .Values.name }}
           # Replace this with the built image name
           image: {{ .Values.image }}
+          ports:
+            - name: http-metrics
+              containerPort: 8383
+            - name: cr-metrics
+              containerPort: 8686
           imagePullPolicy: {{ .Values.pullPolicy }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}

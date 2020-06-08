@@ -22,6 +22,7 @@ import (
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	"github.com/prometheus/client_golang/prometheus"
+	// "github.com/prometheus/client_golang/prometheus/promauto"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/version"
@@ -184,6 +185,8 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			"clustter_uuid": originalRhmOperatorInfo["cluster_uuid"],
 			"namespace":     originalRhmOperatorInfo["namespace"]},
 	})
+	prometheus.Unregister(rhmOperatorInfoGauge)
+	prometheus.MustRegister(rhmOperatorInfoGauge)
 	checkRhmOperatorInfoGauge(rhmOperatorInfoGauge, *marketplaceConfig)
 
 	installFeatures := viper.GetStringSlice("features")
