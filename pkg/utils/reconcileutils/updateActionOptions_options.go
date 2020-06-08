@@ -33,10 +33,3 @@ func UpdateWithPatch(o bool) ApplyUpdateActionOptionFunc {
 		return nil
 	}
 }
-
-func UpdateWithCondition(o resultConditionFunc) ApplyUpdateActionOptionFunc {
-	return func(c *updateActionOptions) error {
-		c.Condition = o
-		return nil
-	}
-}

@@ -1,5 +1,3 @@
-//go:generate go-options -imports=sigs.k8s.io/controller-runtime/pkg/reconcile,k8s.io/apimachinery/pkg/runtime -option ReconcileOption -prefix With reconcileUtilOptions
-
 package reconcileutils
 
 import (
@@ -9,9 +7,9 @@ import (
 	emperrors "emperror.dev/errors"
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/go-logr/logr"
-	"github.com/gotidy/ptr"
-	"github.com/operator-framework/operator-sdk/pkg/status"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,61 +17,48 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-type ReconcileUtilFunc func(runtime.Object) (ActionResult, reconcile.Result, error)
-type CreateReconcileWithOptionsFunc func(runtime.Object, ...CreateActionOption) (ActionResult, reconcile.Result, error)
-type UpdateReconcileWithOptionsFunc func(runtime.Object, ...UpdateActionOption) (ActionResult, reconcile.Result, error)
-type PatchReconcileWithOptionsFunc func(runtime.Object) (ActionResult, reconcile.Result, error)
-type ListReconcileWithOptionsFunc func(runtime.Object) (ActionResult, reconcile.Result, error)
-type resultFunc func(runtime.Object, ActionResult, reconcile.Result, error) error
-type resultFilterFunc func(runtime.Object, ActionResult, reconcile.Result, error) bool
-type actionResultFilterFunc func(ActionResult) bool
-type resultConditionFunc func(runtime.Object, ActionResult, reconcile.Result, error) status.Condition
+type ResultFunc func(runtime.Object, ActionResult) bool
 
-type ActionResult *string
-
-var (
-	Continue ActionResult = ptr.String("continue")
-	NotFound              = ptr.String("not_found")
-	Requeue               = ptr.String("requeue")
-	Error                 = ptr.String("error")
-)
-
+// ClientAction is the interface all actions must use in order to
+// be able to be executed.
 type ClientAction interface {
-	Exec(context.Context, *ClientCommand, runtime.Object) (ActionResult, reconcile.Result, error)
+	Exec(context.Context, *ClientCommand) ActionResult
 }
 
-type FilterAction struct {
-	Action           ClientAction
-	Options          []FilterActionOption
-	prevResult       ActionResult
-	prevActionResult reconcile.Result
-	prevError        error
+type If struct {
+	If   func() bool
+	Then ClientAction
+	Else ClientAction
 }
 
-//go:generate go-options -option FilterActionOption -prefix FilterBy filterActionOptions
-type filterActionOptions struct {
-	ActionResult actionResultFilterFunc
-	All          resultFilterFunc
-}
-
-func (g FilterAction) Exec(ctx context.Context, c *ClientCommand, obj runtime.Object) (ActionResult, reconcile.Result, error) {
-	filterOpts, _ := newFilterActionOptions(g.Options...)
-
-	if filterOpts.All != nil && filterOpts.All(obj, g.prevResult, g.prevActionResult, g.prevError) {
-		return g.Action.Exec(ctx, c, obj)
+func (i *If) Exec(ctx context.Context, c *ClientCommand) ActionResult {
+	if i.If != nil && i.If() {
+		c.log.V(4).Info("executing if")
+		return i.Then.Exec(ctx, c)
 	}
 
-	if filterOpts.ActionResult != nil && filterOpts.ActionResult(g.prevResult) {
-		return g.Action.Exec(ctx, c, obj)
+	if i.Else != nil {
+		c.log.V(4).Info("executing else")
+		return i.Else.Exec(ctx, c)
 	}
 
-	return Continue, reconcile.Result{}, nil
+	return nil
 }
 
-type GetAction struct {
+type Result struct {
+	Var    ActionResult
+	Action ClientAction
+}
+
+func (r *Result) Exec(ctx context.Context, c *ClientCommand) ActionResult {
+	r.Var = r.Action.Exec(ctx, c)
+	return r.Var
+}
+
+type getAction struct {
 	NamespacedName types.NamespacedName
 	Object         runtime.Object
-	Options        []GetActionOption `options:"..."`
+	getActionOptions
 }
 
 //go:generate go-options -option GetActionOption -prefix GetWith getActionOptions
@@ -81,78 +66,191 @@ type getActionOptions struct {
 	IgnoreNotFound bool
 }
 
-func (g GetAction) Exec(ctx context.Context, c *ClientCommand, obj runtime.Object) (ActionResult, reconcile.Result, error) {
-	getOpts, _ := newGetActionOptions(g.Options...)
+func GetAction(
+	namespacedName types.NamespacedName,
+	object runtime.Object,
+	options ...GetActionOption,
+) *getAction {
+	opts, _ := newGetActionOptions(options...)
+	return &getAction{
+		NamespacedName:   namespacedName,
+		Object:           object,
+		getActionOptions: opts,
+	}
+}
 
-	err := c.client.Get(ctx, g.NamespacedName, obj)
+func (g *getAction) Exec(ctx context.Context, c *ClientCommand) ActionResult {
+	err := c.client.Get(ctx, g.NamespacedName, g.Object)
 	if err != nil {
 		err = emperrors.Wrap(err, "error during get")
 		if errors.IsNotFound(err) {
-			if getOpts.IgnoreNotFound {
-				return Continue, reconcile.Result{}, err
+			if g.IgnoreNotFound {
+				return NewExecResult(Continue, g.Object, reconcile.Result{}, err)
 			}
 
-			return NotFound, reconcile.Result{}, err
+			return NewExecResult(NotFound, g.Object, reconcile.Result{}, err)
 		}
 		if err != nil {
-			return Error, reconcile.Result{}, err
+			return NewExecResult(Error, g.Object, reconcile.Result{}, err)
 		}
 	}
 
-	return Continue, reconcile.Result{}, err
+	return NewExecResult(Continue, g.Object, reconcile.Result{}, err)
 }
 
-type CreateAction struct {
+type createAction struct {
 	NewObject func() (runtime.Object, error)
-	Options   []CreateActionOption
+	createActionOptions
+	lastResult ExecResult
 }
 
-//go:generate go-options -option CreateActionOption -prefix CreateWith createActionOptions
+//go:generate go-options -option CreateActionOption -imports=k8s.io/apimachinery/pkg/runtime -prefix Create createActionOptions
 type createActionOptions struct {
-	Always    bool
-	Patch     bool
-	AddOwner  runtime.Object `options:",nil"`
-	Condition resultConditionFunc
+	IfLastResult func(ExecResult) bool
+	WithPatch    bool
+	WithAddOwner runtime.Object `options:",nil"`
 }
 
-func (a CreateAction) Exec(ctx context.Context, c *ClientCommand, obj runtime.Object) (ActionResult, reconcile.Result, error) {
-	reqLogger := c.log.WithValues("requestType", fmt.Sprintf("%T", obj))
-	createOpts, _ := newCreateActionOptions(a.Options...)
+func CreateAction(
+	newObj func() (runtime.Object, error),
+	opts ...CreateActionOption,
+) *createAction {
+	createOpts, _ := newCreateActionOptions(opts...)
+	return &createAction{
+		NewObject:           newObj,
+		createActionOptions: createOpts,
+	}
+}
+
+func (a *createAction) Exec(ctx context.Context, c *ClientCommand) ActionResult {
 	newObj, err := a.NewObject()
+	reqLogger := c.log.WithValues("requestType", fmt.Sprintf("%T", newObj))
 
 	if err != nil {
 		reqLogger.Error(err, "failed to create")
-		return Error, reconcile.Result{}, err
+		return NewExecResult(Error, newObj, reconcile.Result{}, err)
 	}
 
-	if createOpts.Patch {
+	if a.WithPatch {
 		if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(newObj); err != nil {
 			reqLogger.Error(err, "failure creating patch")
-			return Error, reconcile.Result{}, err
+			return NewExecResult(Error, newObj, reconcile.Result{}, err)
 		}
 	}
 
 	reqLogger.Info("Creating")
-	err = c.client.Create(ctx, obj)
+	err = c.client.Create(ctx, newObj)
 	if err != nil {
 		c.log.Error(err, "Failed to create.", "obj", newObj)
-		return Error, reconcile.Result{}, err
+		return NewExecResult(Error, newObj, reconcile.Result{}, err)
 	}
 
-	if createOpts.AddOwner != nil {
-		if err := controllerutil.SetControllerReference(createOpts.AddOwner(), obj, c.scheme); err != nil {
-			return Error, reconcile.Result{}, err
+	if a.WithAddOwner != nil {
+		if err := controllerutil.SetControllerReference(
+			a.WithAddOwner.(metav1.Object),
+			newObj.(metav1.Object),
+			c.scheme); err != nil {
+			c.log.Error(err, "Failed to create.", "obj", newObj)
+			return NewExecResult(Error, newObj, reconcile.Result{}, err)
 		}
 	}
 
-	return Requeue, reconcile.Result{Requeue: true}, nil
+	return NewExecResult(Requeue, newObj, reconcile.Result{Requeue: true}, nil)
 }
 
+type updateAction struct {
+	originalObject runtime.Object
+	updateObject   func() (bool, runtime.Object, error)
+	updateActionOptions
+}
 
 //go:generate go-options -option UpdateActionOption -prefix UpdateWith updateActionOptions
 type updateActionOptions struct {
-	Patch     bool
-	Condition resultConditionFunc
+	Patch bool
+}
+
+func UpdateAction(
+	originalObject runtime.Object,
+	updateObjectFunc func() (bool, runtime.Object, error),
+	updateOptions ...UpdateActionOption,
+) *updateAction {
+	opts, _ := newUpdateActionOptions(updateOptions...)
+
+	return &updateAction{
+		originalObject: originalObject,
+		updateObject:   updateObjectFunc,
+		updateActionOptions:  opts,
+	}
+}
+
+func (a *updateAction) Exec(ctx context.Context, c *ClientCommand) ActionResult {
+	ogObject := a.originalObject
+	update, updatedObject, err := a.updateObject()
+
+	if err != nil {
+		c.log.Error(err, "failed to get object for update")
+		return NewExecResult(Error, ogObject, reconcile.Result{}, err)
+	}
+
+	reqLogger := c.log.WithValues("requestType", fmt.Sprintf("%T", updatedObject))
+
+	if a.Patch {
+		patchResult, err := utils.RhmPatchMaker.Calculate(ogObject, updatedObject)
+
+		if err != nil {
+			reqLogger.Error(err, "Failed to compare patches")
+			return NewExecResult(Error, ogObject, reconcile.Result{}, err)
+		}
+
+		if !patchResult.IsEmpty() {
+			reqLogger.V(2).Info("patch result is not empty")
+			update = true
+		} else {
+			reqLogger.V(2).Info("patch result is empty")
+			update = false
+		}
+	}
+
+	if update {
+		err := c.client.Update(ctx, updatedObject)
+
+		if err != nil {
+			reqLogger.Error(err, "error updating object")
+			return NewExecResult(Error, updatedObject, reconcile.Result{}, err)
+		}
+
+		reqLogger.V(2).Info("updated object")
+		return NewExecResult(Requeue, updatedObject, reconcile.Result{}, nil)
+	}
+
+	return NewExecResult(Continue, ogObject, reconcile.Result{}, nil)
+}
+
+type ListAction struct {
+	listActionOptions
+}
+
+//go:generate go-options -option ListActionOption -prefix ListWith listActionOptions
+type listActionOptions struct {
+	Obj    runtime.Object
+	Filter []client.ListOption `options:"..."`
+}
+
+// type DeleteAction struct {
+// 	deleteActionOptions
+// }
+
+// func DeleteAction(
+// 	options ...DeleteActionOption,
+// ) {
+//}
+
+//go:generate go-options -option DeleteActionOption -prefix DeleteWith deleteActionOptions
+type deleteActionOptions struct {
+	Obj runtime.Object
+}
+
+type statusConditionAction struct {
 }
 
 type ClientCommand struct {
@@ -174,28 +272,20 @@ func NewClientCommand(
 }
 
 func (c *ClientCommand) Execute(
-	actions []ClientAction,
-	conditionFunc resultConditionFunc,
-) (ActionResult, reconcile.Result, error) {
-	var obj runtime.Object
+	ctx context.Context,
+	actions ...ClientAction,
+) (ActionResult, []ActionResult) {
 	var result ActionResult
-	var reconcileResult reconcile.Result
-	var err error
+	results := make([]ActionResult, len(actions), 0)
 
 	for _, action := range actions {
-		if filterType, ok := action.(FilterAction); ok {
-			filterType.prevResult = result
-			filterType.prevActionResult = reconcileResult
-			filterType.prevError = err
-		}
+		result = action.Exec(ctx, c)
+		results = append(results, result)
 
-		result, reconcileResult, err = action.Exec(obj)
-		conditionFunc(obj, result, reconcileResult, err)
-
-		if result != Continue {
-			return result, reconcileResult, err
+		if !result.Is(Continue) {
+			return result, results
 		}
 	}
 
-	return result, reconcileResult, err
+	return result, results
 }

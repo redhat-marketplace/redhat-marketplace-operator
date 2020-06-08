@@ -156,21 +156,22 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 
 	// Fetch the MeterBase instance
 	instance := &marketplacev1alpha1.MeterBase{}
-	result, reconcileResult, err := cc.Execute([]ClientAction{
-		GetAction{
-			NamespacedName: request.NamespacedName,
-			Object:         instance,
-		},
-	})
+	result, _ := cc.Execute(
+		context.TODO(),
+		GetAction(
+			request.NamespacedName,
+			instance,
+		),
+	)
 
-	if result == Error {
-		reqLogger.Error(err, "Failed to get MeterBase.")
-		return reconcileResult, err
+	if result.Is(Error) {
+		reqLogger.Error(result.GetError(), "Failed to get MeterBase.")
+		return result.Return()
 	}
 
-	if result == NotFound {
+	if result.Is(NotFound) {
 		reqLogger.Info("MeterBase resource not found. Ignoring since object must be deleted.")
-		return reconcile.Result{}, nil
+		return result.Return()
 	}
 
 	// if instance.Enabled == false
@@ -193,45 +194,12 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	prometheus := &monitoringv1.Prometheus{}
-	result, reconcileResult, err = cc.Execute([]ClientAction{
-		GetAction{
-			NamespacedName: types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace},
-			Object:         prometheus,
-		},
-		FilterAction{
-			Options: []FilterActionOption{
-				FilterByActionResult(func(result ActionResult) bool {
-					return result == NotFound
-				}),
-			},
-			Action: CreateAction{
-				NewObject: func() (runtime.Object, error) {
-					return r.newPrometheusOperator(instance, r.opts)
-				},
-				Options: []CreateActionOption{
-					CreateWithAddOwner(instance),
-					CreateWithPatch(true),
-				},
-			},
-		},
-	})
-
-	if result == Requeue {
-		return reconcileResult, err
+	if result := r.reconcilePrometheus(cc, instance, prometheus); !result.Is(Continue) {
+		return result.Return()
 	}
 
-	message = "Prometheus install complete"
-	instance.Status.Conditions.SetCondition(status.Condition{
-		Type:    marketplacev1alpha1.ConditionInstalling,
-		Status:  corev1.ConditionTrue,
-		Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
-		Message: message,
-	})
-
-	_ = r.client.Status().Update(context.TODO(), instance)
-
 	service := &corev1.Service{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, service)
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, service)
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new statefulset
 		newService := r.serviceForPrometheus(instance, 9090)
@@ -447,6 +415,51 @@ type Images struct {
 type MeterbaseOpts struct {
 	corev1.PullPolicy
 	AssetPath string
+}
+
+func (r *ReconcileMeterBase) reconcilePrometheus(cc *ClientCommand, instance *marketplacev1alpha1.MeterBase, prometheus *monitoringv1.Prometheus) ActionResult {
+	getResult := &ExecResult{}
+	result, _ := cc.Execute(
+		context.TODO(),
+		&Result{
+			Var: getResult,
+			Action: GetAction(
+				types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace},
+				prometheus,
+			),
+		},
+		&If{
+			If: func() bool {
+				return getResult.Is(NotFound)
+			},
+			Then: CreateAction(
+				func() (runtime.Object, error) {
+					return r.newPrometheusOperator(instance, r.opts)
+				},
+				CreateWithAddOwner(instance),
+				CreateWithPatch(true),
+			),
+			Else: UpdateAction(
+				prometheus,
+				func() (bool, runtime.Object, error) {
+					newProm, _ := r.newPrometheusOperator(instance, r.opts)
+					return false, newProm, nil
+				},
+				UpdateWithPatch(true),
+			),
+		},
+	)
+
+	message := "Prometheus install complete"
+	instance.Status.Conditions.SetCondition(status.Condition{
+		Type:    marketplacev1alpha1.ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
+		Message: message,
+	})
+
+	_ = r.client.Status().Update(context.TODO(), instance)
+	return result
 }
 
 func (r *ReconcileMeterBase) newPrometheusOperator(cr *marketplacev1alpha1.MeterBase, opt *MeterbaseOpts) (*monitoringv1.Prometheus, error) {
