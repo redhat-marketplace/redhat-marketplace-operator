@@ -64,6 +64,7 @@ var nextCmd = &cobra.Command{
 
 		if flag, _ := cmd.Flags().GetBool("minor"); next && flag {
 			*nextVersion = nextVersion.IncMinor()
+			next = false
 		}
 
 		if flag, _ := cmd.Flags().GetBool("patch"); next && flag {
