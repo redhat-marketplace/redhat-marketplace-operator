@@ -18,12 +18,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"runtime"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -75,6 +77,11 @@ type ControllerMain struct {
 }
 
 func (m *ControllerMain) Run() {
+	http.Handle("/metrics", promhttp.Handler())
+	go func() {
+		http.ListenAndServe(":2112", nil)
+	}()
+
 	// adding controller flags
 	for _, flags := range m.FlagSets {
 		pflag.CommandLine.AddFlagSet(flags)

@@ -54,6 +54,7 @@ var (
 	marketplaceConfigFlagSet *pflag.FlagSet
 	defaultFeatures          = []string{RAZEE_FLAG, METERBASE_FLAG}
 	originalRhmOperatorInfo  = make(map[string]string)
+	rhmOperatorInfoGauge     prometheus.Gauge
 )
 
 // Init declares our FlagSet for the MarketplaceConfig
@@ -176,7 +177,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	originalRhmOperatorInfo["cluster_uuid"] = marketplaceConfig.Spec.ClusterUUID
 	originalRhmOperatorInfo["namespace"] = marketplaceConfig.Namespace
 
-	rhmOperatorInfoGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+	rhmOperatorInfoGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "rhm_operator_info",
 		Help: "This gauge checks whether all cluster information is present",
 		ConstLabels: prometheus.Labels{"operator_version": originalRhmOperatorInfo["operator_version"],
