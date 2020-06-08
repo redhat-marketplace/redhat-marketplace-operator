@@ -4,18 +4,20 @@ go 1.13
 
 require (
 	cloud.google.com/go v0.53.0 // indirect
+	emperror.dev/errors v0.7.0
 	github.com/Azure/go-autorest/autorest v0.9.3 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.8.1 // indirect
 	github.com/Masterminds/semver/v3 v3.1.0
 	github.com/Shyp/bump_version v0.0.0-20180222180749-d7594d2951e2
 	github.com/banzaicloud/k8s-objectmatcher v1.3.0
 	github.com/code-ready/crc v0.0.0-20200430050718-9d5f3259f30b
-	github.com/coreos/prometheus-operator v0.38.0
+	github.com/coreos/prometheus-operator v0.38.1-0.20200424145508-7e176fda06cc
 	github.com/fatih/structtag v1.2.0 // indirect
+	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32 // indirect
 	github.com/go-logr/logr v0.1.0
+	github.com/go-openapi/spec v0.19.4 // indirect
 	github.com/golang/protobuf v1.4.0 // indirect
-	github.com/golangci/golangci-lint v1.27.0 // indirect
-	github.com/google/addlicense v0.0.0-20200422172452-68a83edd47bc // indirect
+	github.com/golangci/golangci-lint v1.27.0
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
 	github.com/gotidy/ptr v1.0.1
@@ -24,9 +26,10 @@ require (
 	github.com/mikefarah/yq/v3 v3.0.0-20200415014842-6f0a329331f9
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/noqcks/gucci v0.0.4
-	github.com/operator-framework/api v0.1.1
+	github.com/openshift/api v0.0.0-20200205133042-34f0ec8dab87 // indirect
+	github.com/operator-framework/api v0.3.7-0.20200528122852-759ca0d84007
 	github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b
-	github.com/operator-framework/operator-sdk v0.16.1-0.20200401233323-bca8959696d5
+	github.com/operator-framework/operator-sdk v0.18.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.5.1
 	github.com/prometheus/common v0.9.1
@@ -43,15 +46,14 @@ require (
 	golang.org/x/sys v0.0.0-20200428200454-593003d681fa // indirect
 	golang.org/x/tools v0.0.0-20200505023115-26f46d2f7ef8 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
-	k8s.io/api v0.17.4
-	k8s.io/apimachinery v0.17.4
+	k8s.io/api v0.18.3
+	k8s.io/apimachinery v0.18.3
 	k8s.io/client-go v12.0.0+incompatible
-	k8s.io/kube-openapi v0.0.0-20191107075043-30be4d16710a
-	k8s.io/kubernetes v1.13.0
-	sigs.k8s.io/controller-runtime v0.5.2
+	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
+	sigs.k8s.io/controller-runtime v0.6.0
 )
 
 replace (
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible // Required by OLM
-	k8s.io/client-go => k8s.io/client-go v0.17.4 // Required by prometheus-operator
+	k8s.io/client-go => k8s.io/client-go v0.18.3 // Required by prometheus-operator
 )

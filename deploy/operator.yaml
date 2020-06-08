@@ -4,6 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redhat-marketplace-operator
+  namespace: openshift-redhat-marketplace
 spec:
   replicas: 1
   selector:

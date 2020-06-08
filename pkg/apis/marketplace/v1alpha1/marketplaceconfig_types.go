@@ -23,10 +23,16 @@ import (
 // +k8s:openapi-gen=true
 type MarketplaceConfigSpec struct {
 	// RhmAccountID is the Red Hat Marketplace Account identifier
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	RhmAccountID string `json:"rhmAccountID"`
 	// ClusterUUID is the Red Hat Marketplace cluster identifier
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	ClusterUUID string `json:"clusterUUID"`
 	// DeploySecretName is the secret name that contains the deployment information
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	DeploySecretName *string `json:"deploySecretName,omitempty"`
 }
 
@@ -35,12 +41,15 @@ type MarketplaceConfigSpec struct {
 type MarketplaceConfigStatus struct {
 	// Conditions represent the latest available observations of an object's stateonfig
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	Conditions status.Conditions `json:"conditions"`
+	// +optional
+	Conditions status.Conditions `json:"conditions,omitempty"`
 	// Conditions represent the latest available observations of the razee object's state
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	RazeeSubConditions *status.Conditions `json:"razeeSubConditions,omitempty"`
 	// Conditions represent the latest available observations of the meterbase object's state
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	MeterBaseSubConditions *status.Conditions `json:"meterBaseSubConditions,omitempty"`
 }
 

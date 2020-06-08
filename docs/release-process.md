@@ -1,10 +1,12 @@
 # Release Processes
 
+*Prereq:* [install git flow extension](https://github.com/petervanderdoes/gitflow-avh/wiki/Installing-on-Mac-OS-X)
+
 The Red Hat Marketplace operator uses a branch model called git-flow for release management.
 
-You can read more about git flow [here](). Here are the steps to release the operator. The steps are listed here for manual release.
+You can read more about git flow [here](https://nvie.com/posts/a-successful-git-branching-model/) and there is a handy cheat sheet [here](https://danielkummer.github.io/git-flow-cheatsheet/index.html). Please download and [install git flow plugin as well](https://github.com/nvie/gitflow). Here are the steps to release the operator. The steps are listed here for manual release.
 
-Branches:
+*Branches:*
 
 | branch  |  use  |
 |:--|:--|
@@ -24,7 +26,30 @@ Hotfixes are started off of master. Bugfixes off of stable.
 
 ### Release
 
+1. Start from 'develop' branch.
+  ```sh
+  git checkout develop
+  git pull
+  ```
+1. Run
+  ```sh
+  git flow release start $(make current-version)
+  git flow release publish
+  ```
+
+  A new branch called release/x.x.x will be made for you and pushed to the repository.
+
+1. Operator images should be built and pushed for you with the build. Additionally there will be a github check that will create assets for you. You will need to publish the images in partner connect.
+
+1. Upload your generated bundle to partner connect. And publish it when it passes.
+
+1. Once the release is finished. Submit a PR to merge to master. Master build will deploy images, make the final bundle for upload to update stable.
+
+1. Submit PR to merge master back into develop. Approve
+
 ### Hotfix
+
+Same as release, but change git flow commands to `git flow hotfix`
 
 ## Manual Releases
 
@@ -36,34 +61,41 @@ Hotfixes are started off of master. Bugfixes off of stable.
 
 ### Release or Bugfix
 
+*Warning*: to do these steps you need pull/push access to master/develop branch.
+
 1. Start from 'develop' branch.
-```
-git checkout develop
-git pull
-```
+  ```sh
+  git checkout develop
+  git pull
+  ```
 1. Run
-```shell
-git flow release start $(make current-version)
-git flow release publish
-```
+  ```sh
+  git flow release start $(make current-version)
+  git flow release publish
+  ```
 
 A new branch called release/x.x.x will be made for you and pushed to the repository.
 
 1. Generate the csv files and commit them. The release branch should be used to create manifests for the beta channel. Updates to the bundle in Partner connect will only impact beta.
 
-```
-make generate-csv generate-csv-manifest
-git add ./deploy/olm-catalog
-git commit -m "chore: updating OLM manifests"
-git push
+  ```sh
+  make generate-csv generate-csv-manifest
+  git add ./deploy/olm-catalog
+  git commit -m "chore: updating OLM manifests"
+  git push
 ```
 
 1. Operator images should be built and pushed for you with the build. You will need to publish the images in partner connect for them to be used.
 
 1. Upload your bundle to partner connect. And publish it when it passes.
 
-1. Once the release is finished. Submit a PR to merge to master. Master build will deploy images, make the final bundle for upload to update stable.
+1. Once the release is finished. Run these commands:
 
+  ```sh
+  git flow release finish $(make current-version)
+  ```
 
 
 ### Hotfix
+
+Same as release, but change git flow commands to `git flow hotfix`
