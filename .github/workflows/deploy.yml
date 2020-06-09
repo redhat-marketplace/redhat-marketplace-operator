@@ -3,8 +3,7 @@ name: Deploy Image
 on:
   push:
     branches:
-      - master
-      - develop
+      - "**"
   pull_request:
     branches:
       - master
@@ -23,6 +22,7 @@ jobs:
       hash: ${{ steps.vars.outputs.hash }}
       tagExists: ${{ steps.checktag.outputs.exists }}
       dockertag: ${{ steps.vars.outputs.dockertag }}
+      crs: ${{ steps.vars.outputs.crs }}
     env:
       TAGPREFIX: ''
 
@@ -42,6 +42,16 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
         run: |
           echo "::set-env name=TAGPREFIX::dev-"
+
+      - name: Set branch prefix for fix
+        if: github.event_name == 'push' && startsWith(github.ref,'refs/heads/bugfix/')
+        run: |
+          echo "::set-env name=TAGPREFIX::bugfix-"
+
+      - name: Set branch prefix for feat
+        if: github.event_name == 'push' && startsWith(github.ref,'refs/heads/feature/')
+        run: |
+          echo "::set-env name=TAGPREFIX::feat-"
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
@@ -276,7 +286,7 @@ jobs:
         run: |
           echo "Updating osdk to version ${VERSION}"
           make generate-csv
-          yq w -i .osdk-scorecard.yaml 'scorecard.plugins.*.*.csv-path' deploy/olm-catalog/redhat-marketplace-operator/${VERSION}/redhat-marketplace-operator.v${VERSION}.clusterserviceversion.yaml
+          yq w .osdk-scorecard.yaml 'scorecard.plugins.*.*.csv-path' deploy/olm-catalog/redhat-marketplace-operator/${VERSION}/redhat-marketplace-operator.v${VERSION}.clusterserviceversion.yaml  > .osdk-scorecard.yaml
           yq w -i .osdk-scorecard.yaml 'scorecard.plugins.*.*.cr-manifest.+' deploy/crds/${{ matrix.cr  }}
           ./scripts/scorecard.sh
 
