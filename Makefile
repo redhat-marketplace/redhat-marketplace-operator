@@ -303,17 +303,7 @@ OLM_BUNDLE_REPO ?= quay.io/rh-marketplace/operator-manifest-bundle
 OLM_PACKAGE_NAME ?= redhat-marketplace-operator-test
 
 opm-bundle-all: # used to bundle all the versions available
-	for VERSION in `ls deploy/olm-catalog/redhat-marketplace-operator | grep -E "\d+\.\d+\.\d+"` ; do \
-		echo "Building bundle for $$VERSION" ; \
-		operator-sdk bundle create "$(OLM_REPO):v$$VERSION" \
-			--directory ./deploy/olm-catalog/redhat-marketplace-operator/$$VERSION \
-			-c stable,beta \
-			--package $(OLM_PACKAGE_NAME) \
-			--default-channel stable \
-			--overwrite ; \
-		echo "Pushing bundle for $$VERSION" ; \
-		docker push "$(OLM_REPO):v$$VERSION"; \
-	done
+	./scripts/opm_bundle_all.sh $(OLM_REPO) $(OLM_PACKAGE_NAME) $(VERSION)
 
 opm-bundle-last-edge: ## Bundle latest for edge
 	operator-sdk bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
@@ -330,11 +320,10 @@ opm-bundle-last-beta: ## Bundle latest for beta
 olm-bundle-last-stable: ## Bundle latest for stable
 	operator-sdk bundle create "$(OLM_REPO):v$(VERSION)" --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
 
-VERSIONS=$(shell ls deploy/olm-catalog/redhat-marketplace-operator | egrep '\d+\.\d+\.\d+' | xargs | sed -e 's/ / $$OLM_REPO:v/g' | sed -e 's/^/$$OLM_REPO:v/g' |  sed -e 's/ /,/g')
+TAG ?= latest
 
 opm-index-base: ## Create an index base
-	export OLM_REPO=$(OLM_REPO); opm index add -u docker --bundles "$(VERSIONS)" --tag $(OLM_BUNDLE_REPO):latest
-	docker push $(OLM_BUNDLE_REPO):latest
+	./scripts/opm_build_index.sh $(OLM_REPO) $(OLM_BUNDLE_REPO) $(TAG)
 
 install-test-registry: ## Install the test registry
 	kubectl apply -f ./deploy/olm-catalog/test-registry.yaml
