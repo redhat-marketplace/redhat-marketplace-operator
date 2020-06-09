@@ -138,6 +138,7 @@ jobs:
       OLM_REPO: ${{ matrix.registry }}/operator-manifest
       OLM_BUNDLE_REPO: ${{ matrix.registry }}/operator-manifest-bundle
       TAG: ${{ needs.build.outputs.dockertag }}
+      VERSION: ${{ needs.build.outputs.version }}
     steps:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
