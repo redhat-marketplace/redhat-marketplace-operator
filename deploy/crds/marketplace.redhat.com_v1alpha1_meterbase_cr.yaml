@@ -3,7 +3,7 @@ kind: MeterBase
 metadata:
   name: meterbase
 spec:
-  enabled: true
+  enabled: false
   prometheus:
     # Resource limits for the prometheus instance. Recommended:
     resources:

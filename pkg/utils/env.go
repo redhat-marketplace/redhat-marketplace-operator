@@ -20,6 +20,7 @@ import (
 
 const (
 	/* Resource Names */
+	REMOTE_RESOURCE_S3_NAME = "remoteresources3-controller"
 	RAZEE_DEPLOY_JOB_NAME            = "razeedeploy-job"
 	RAZEE_JOB_NAME                   = "rhm-razeedeploy-job"
 	PARENT_RRS3_RESOURCE_NAME        = "parent"

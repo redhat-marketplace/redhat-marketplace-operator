@@ -86,6 +86,7 @@ const (
 	ReasonMeterBaseInstalled    status.ConditionReason = "MeterBaseInstalled"
 	ReasonOperatorSourceInstall status.ConditionReason = "OperatorSourceInstalled"
 	ReasonInstallFinished       status.ConditionReason = "FinishedInstall"
+	ReasonRazeeRemoteResourceS3Start  status.ConditionReason = "RemoteResourceS3ControllerStartInstall"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

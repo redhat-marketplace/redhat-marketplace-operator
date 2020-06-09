@@ -73,8 +73,8 @@ type ValueFrom struct {
 	SecretKeyRef corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
 }
 
-// Items holds requests that populate the Requests array
-type Items struct {
+// Request holds requests that populate the Requests array
+type Request struct {
 	// +kubebuilder:validation:Required
 	Options Options `json:"options,omitempty"`
 	//if download or applying child resource fails, RemoteResource will stop execution and report error to .status. You can allow execution to continue by marking a reference as optional.
@@ -104,7 +104,7 @@ type RemoteResourceS3Spec struct {
 	// Auth provides options to authenticate to a remote location
 	Auth  Auth `json:"auth,omitempty"`
 	// Requests array contains information regarding the location of your remote resource
-	Requests []Items `json:"requests,omitempty"`
+	Requests []Request `json:"requests,omitempty"`
 }
 
 // RemoteResourceS3Status defines the observed state of RemoteResourceS3
@@ -143,7 +143,7 @@ type RemoteResourceS3 struct {
 type RemoteResourceS3List struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []RemoteResourceS3 `json:"items"`
+	Items           []RemoteResourceS3 `json:"request"`
 }
 
 func init() {

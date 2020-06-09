@@ -1,4 +1,4 @@
-apiVersion: apiextensions.k8s.io/v1
+apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: remoteresources3s.marketplace.redhat.com
@@ -10,212 +10,206 @@ spec:
     plural: remoteresources3s
     singular: remoteresources3
   scope: Namespaced
-  versions:
-  - name: v1alpha1
-    schema:
-      openAPIV3Schema:
-        description: RemoteResourceS3 is the Schema for the remoteresources3s API
-        properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-            type: string
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-            type: string
-          metadata:
-            type: object
-          spec:
-            description: RemoteResourceS3Spec defines the desired state of RemoteResourceS3
-            properties:
-              auth:
-                description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-                  Important: Run "operator-sdk generate k8s" to regenerate code after
-                  modifying this file Add custom validation using kubebuilder tags:
-                  https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-                  Auth provides options to authenticate to a remote location'
-                properties:
-                  hmac:
-                    description: Hmac allows you to connect to s3 buckets using an
-                      HMAC key/id pair.
-                    properties:
-                      accessKeyId:
-                        description: AccessKeyID is used to identify you AWS account
-                          and is used by AWS to look up your Secret Access Key
-                        type: string
-                      accessKeyIdRef:
-                        description: AccesKeyIDRef holds reference information to
-                          an AccessKeyID stored in a secret on your cluster
-                        properties:
-                          valueFrom:
-                            description: ValueFrom holds source for the environment
-                              variable's value. Cannot be used if value is not empty.
-                            properties:
-                              secretKeyRef:
-                                description: SecretKeySelector selects a key of a
-                                  Secret.
-                                properties:
-                                  key:
-                                    description: The key of the secret to select from.  Must
-                                      be a valid secret key.
-                                    type: string
-                                  name:
-                                    description: 'Name of the referent. More info:
-                                      https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                      TODO: Add other useful fields. apiVersion, kind,
-                                      uid?'
-                                    type: string
-                                  optional:
-                                    description: Specify whether the Secret or its
-                                      key must be defined
-                                    type: boolean
-                                required:
-                                - key
-                                type: object
-                            type: object
-                        type: object
-                      secretAccessKey:
-                        description: SecretAccessKey is used by AWS to calculate a
-                          request signature. Your secret access key is a shared secret
-                          known only to you and AWS
-                        type: string
-                      secretAccessKeyRef:
-                        description: SecretAccessKeyRef holds reference information
-                          to an SecretAccessKeyRef stored in a secret on your cluster
-                        properties:
-                          valueFrom:
-                            description: ValueFrom holds source for the environment
-                              variable's value. Cannot be used if value is not empty.
-                            properties:
-                              secretKeyRef:
-                                description: SecretKeySelector selects a key of a
-                                  Secret.
-                                properties:
-                                  key:
-                                    description: The key of the secret to select from.  Must
-                                      be a valid secret key.
-                                    type: string
-                                  name:
-                                    description: 'Name of the referent. More info:
-                                      https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                      TODO: Add other useful fields. apiVersion, kind,
-                                      uid?'
-                                    type: string
-                                  optional:
-                                    description: Specify whether the Secret or its
-                                      key must be defined
-                                    type: boolean
-                                required:
-                                - key
-                                type: object
-                            type: object
-                        type: object
-                    type: object
-                  iam:
-                    description: 'Iam Allows you to connect to s3 buckets using an
-                      IAM provider and api key. TODO: "used by aws and cos ?"'
-                    properties:
-                      apiKey:
-                        description: APIKey is the API Key used to authenticate to
-                          your IBM Cloud Object Storage instance
-                        type: string
-                      apiKeyRef:
-                        description: APIKeyRef holds reference information used to
-                          locate a secret which contains your  IBM COS api key
-                        properties:
-                          valueFrom:
-                            description: ValueFrom holds source for the environment
-                              variable's value. Cannot be used if value is not empty.
-                            properties:
-                              secretKeyRef:
-                                description: SecretKeySelector selects a key of a
-                                  Secret.
-                                properties:
-                                  key:
-                                    description: The key of the secret to select from.  Must
-                                      be a valid secret key.
-                                    type: string
-                                  name:
-                                    description: 'Name of the referent. More info:
-                                      https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                      TODO: Add other useful fields. apiVersion, kind,
-                                      uid?'
-                                    type: string
-                                  optional:
-                                    description: Specify whether the Secret or its
-                                      key must be defined
-                                    type: boolean
-                                required:
-                                - key
-                                type: object
-                            type: object
-                        type: object
-                      grantType:
-                        description: GrantType determines what authentication flow
-                          be used to generate an access token. GrantType for IAM will
-                          usually be " "urn:ibm:params:oauth:grant-type:apikey""
-                        type: string
-                      responseType:
-                        description: ResponseType specifies which grant type your
-                          application is requesting. ResponseType for IAM will usually
-                          be "cloud_iam"
-                        type: string
-                      url:
-                        description: URL is the auth endpoint. URL for IAM will usually
-                          be "https://iam.cloud.ibm.com/identity/token"
-                        type: string
-                    type: object
-                type: object
-              requests:
-                description: Requests array contains information regarding the location
-                  of your remote resource
-                items:
-                  description: Items holds requests that populate the Requests array
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: RemoteResourceS3 is the Schema for the remoteresources3s API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: RemoteResourceS3Spec defines the desired state of RemoteResourceS3
+          properties:
+            auth:
+              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                Important: Run "operator-sdk generate k8s" to regenerate code after
+                modifying this file Add custom validation using kubebuilder tags:
+                https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+                Auth provides options to authenticate to a remote location'
+              properties:
+                hmac:
+                  description: Hmac allows you to connect to s3 buckets using an HMAC
+                    key/id pair.
                   properties:
-                    optional:
-                      description: if download or applying child resource fails, RemoteResource
-                        will stop execution and report error to .status. You can allow
-                        execution to continue by marking a reference as optional.
-                      type: boolean
-                    options:
-                      description: Options holds the options object which will be
-                        passed as-is to the http request. Allows you to specify things
-                        like headers for authentication.
+                    accessKeyId:
+                      description: AccessKeyID is used to identify you AWS account
+                        and is used by AWS to look up your Secret Access Key
+                      type: string
+                    accessKeyIdRef:
+                      description: AccesKeyIDRef holds reference information to an
+                        AccessKeyID stored in a secret on your cluster
                       properties:
-                        headers:
-                          additionalProperties:
-                            additionalProperties:
-                              type: string
-                            description: Header allows you to provide additional information
-                              with your request
-                            type: object
+                        valueFrom:
+                          description: ValueFrom holds source for the environment
+                            variable's value. Cannot be used if value is not empty.
+                          properties:
+                            secretKeyRef:
+                              description: SecretKeySelector selects a key of a Secret.
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.  Must
+                                    be a valid secret key.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                    TODO: Add other useful fields. apiVersion, kind,
+                                    uid?'
+                                  type: string
+                                optional:
+                                  description: Specify whether the Secret or its key
+                                    must be defined
+                                  type: boolean
+                              required:
+                              - key
+                              type: object
                           type: object
-                        uri:
-                          type: string
-                        url:
-                          type: string
+                      type: object
+                    secretAccessKey:
+                      description: SecretAccessKey is used by AWS to calculate a request
+                        signature. Your secret access key is a shared secret known
+                        only to you and AWS
+                      type: string
+                    secretAccessKeyRef:
+                      description: SecretAccessKeyRef holds reference information
+                        to an SecretAccessKeyRef stored in a secret on your cluster
+                      properties:
+                        valueFrom:
+                          description: ValueFrom holds source for the environment
+                            variable's value. Cannot be used if value is not empty.
+                          properties:
+                            secretKeyRef:
+                              description: SecretKeySelector selects a key of a Secret.
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.  Must
+                                    be a valid secret key.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                    TODO: Add other useful fields. apiVersion, kind,
+                                    uid?'
+                                  type: string
+                                optional:
+                                  description: Specify whether the Secret or its key
+                                    must be defined
+                                  type: boolean
+                              required:
+                              - key
+                              type: object
+                          type: object
                       type: object
                   type: object
-                type: array
-            type: object
-          status:
-            description: RemoteResourceS3Status defines the observed state of RemoteResourceS3
-            properties:
-              razeeLogs:
-                description: RazeeLogs holds log output from the RRS3 controller
-                properties:
-                  error:
-                    additionalProperties:
+                iam:
+                  description: 'Iam Allows you to connect to s3 buckets using an IAM
+                    provider and api key. TODO: "used by aws and cos ?"'
+                  properties:
+                    apiKey:
+                      description: APIKey is the API Key used to authenticate to your
+                        IBM Cloud Object Storage instance
                       type: string
-                    description: Log holds a log message as <log hash>:<log message>
+                    apiKeyRef:
+                      description: APIKeyRef holds reference information used to locate
+                        a secret which contains your  IBM COS api key
+                      properties:
+                        valueFrom:
+                          description: ValueFrom holds source for the environment
+                            variable's value. Cannot be used if value is not empty.
+                          properties:
+                            secretKeyRef:
+                              description: SecretKeySelector selects a key of a Secret.
+                              properties:
+                                key:
+                                  description: The key of the secret to select from.  Must
+                                    be a valid secret key.
+                                  type: string
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                    TODO: Add other useful fields. apiVersion, kind,
+                                    uid?'
+                                  type: string
+                                optional:
+                                  description: Specify whether the Secret or its key
+                                    must be defined
+                                  type: boolean
+                              required:
+                              - key
+                              type: object
+                          type: object
+                      type: object
+                    grantType:
+                      description: GrantType determines what authentication flow be
+                        used to generate an access token. GrantType for IAM will usually
+                        be " "urn:ibm:params:oauth:grant-type:apikey""
+                      type: string
+                    responseType:
+                      description: ResponseType specifies which grant type your application
+                        is requesting. ResponseType for IAM will usually be "cloud_iam"
+                      type: string
+                    url:
+                      description: URL is the auth endpoint. URL for IAM will usually
+                        be "https://iam.cloud.ibm.com/identity/token"
+                      type: string
+                  type: object
+              type: object
+            requests:
+              description: Requests array contains information regarding the location
+                of your remote resource
+              items:
+                description: Request holds requests that populate the Requests array
+                properties:
+                  optional:
+                    description: if download or applying child resource fails, RemoteResource
+                      will stop execution and report error to .status. You can allow
+                      execution to continue by marking a reference as optional.
+                    type: boolean
+                  options:
+                    description: Options holds the options object which will be passed
+                      as-is to the http request. Allows you to specify things like
+                      headers for authentication.
+                    properties:
+                      headers:
+                        additionalProperties:
+                          additionalProperties:
+                            type: string
+                          description: Header allows you to provide additional information
+                            with your request
+                          type: object
+                        type: object
+                      uri:
+                        type: string
+                      url:
+                        type: string
                     type: object
                 type: object
-            type: object
-        type: object
+              type: array
+          type: object
+        status:
+          description: RemoteResourceS3Status defines the observed state of RemoteResourceS3
+          properties:
+            razeeLogs:
+              description: RazeeLogs holds log output from the RRS3 controller
+              properties:
+                error:
+                  additionalProperties:
+                    type: string
+                  description: Log holds a log message as <log hash>:<log message>
+                  type: object
+              type: object
+          type: object
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
     served: true
     storage: true
-    subresources:
-      status: {}
