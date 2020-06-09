@@ -279,7 +279,7 @@ bump-version: ## Bump the version and add the file for a commit
 
 REDHAT_PROJECT_ID ?= ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd
 SHA ?=
-TAG ?=
+TAG ?= latest
 
 publish-pc: ## Publish to partner connect
 	curl -X POST https://connect.redhat.com/api/v2/projects/$(REDHAT_PROJECT_ID)/containers/$(SHA)/tags/$(TAG)/publish -H "Authorization: Bearer $(REDHAT_API_KEY)" -H "Content-type: application/json" --data "{}" | jq
@@ -306,6 +306,7 @@ release-finish: ## Start a release
 OLM_REPO ?= quay.io/rh-marketplace/operator-manifest
 OLM_BUNDLE_REPO ?= quay.io/rh-marketplace/operator-manifest-bundle
 OLM_PACKAGE_NAME ?= redhat-marketplace-operator-test
+TAG ?= latest
 
 opm-bundle-all: # used to bundle all the versions available
 	./scripts/opm_bundle_all.sh $(OLM_REPO) $(OLM_PACKAGE_NAME) $(VERSION)
@@ -313,22 +314,20 @@ opm-bundle-all: # used to bundle all the versions available
 opm-bundle-last-edge: ## Bundle latest for edge
 	operator-sdk bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
 	@go run github.com/mikefarah/yq/v3 w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' edge
-	docker build -f bundle.Dockerfile -t "$(OLM_REPO):v$(VERSION)" .
-	docker push "$(OLM_REPO):v$(VERSION)"
+	docker build -f bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" .
+	docker push "$(OLM_REPO):$(TAG)"
 
 opm-bundle-last-beta: ## Bundle latest for beta
 	operator-sdk bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
 	@go run github.com/mikefarah/yq/v3 w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' beta
-	docker build -f bundle.Dockerfile -t "$(OLM_REPO):v$(VERSION)" .
-	docker push "$(OLM_REPO):v$(VERSION)"
+	docker build -f bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" .
+	docker push "$(OLM_REPO):$(TAG)"
 
 olm-bundle-last-stable: ## Bundle latest for stable
-	operator-sdk bundle create "$(OLM_REPO):v$(VERSION)" --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
-
-TAG ?= latest
+	operator-sdk bundle create "$(OLM_REPO):$(TAG)" --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
 
 opm-index-base: ## Create an index base
-	./scripts/opm_build_index.sh $(OLM_REPO) $(OLM_BUNDLE_REPO) $(TAG)
+	./scripts/opm_build_index.sh $(OLM_REPO) $(OLM_BUNDLE_REPO) $(TAG) $(VERSION)
 
 install-test-registry: ## Install the test registry
 	kubectl apply -f ./deploy/olm-catalog/test-registry.yaml
