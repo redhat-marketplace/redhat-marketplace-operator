@@ -215,6 +215,7 @@ jobs:
     needs: [deploy]
     continue-on-error: true
     env:
+      VERSION: ${{ steps.vars.outputs.version }}
       OPERATOR_IMAGE: quay.io/rh-marketplace/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
     strategy:
       matrix:
@@ -276,9 +277,6 @@ jobs:
           yq w -i .osdk-scorecard.yaml 'scorecard.plugins.*.*.csv-path' deploy/olm-catalog/redhat-marketplace-operator/${VERSION}/redhat-marketplace-operator.v${VERSION}.clusterserviceversion.yaml
           yq w -i .osdk-scorecard.yaml 'scorecard.plugins.*.*.cr-manifest.+' deploy/crds/${{ matrix.cr  }}
           ./scripts/scorecard.sh
-        env:
-          VERSION: ${{ steps.vars.outputs.version }}
-          OPERATOR_IMAGE: quay.io/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
 
       - name: Upload results
         uses: actions/upload-artifact@v1
