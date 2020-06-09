@@ -5,10 +5,10 @@ OLM_REPO=$1
 OLM_BUNDLE_REPO=$2
 TAG=$3
 
-OLM_REPO_E=$(echo $OLM_REPO | gsed -e 's/[\/&]/\\&/g')
+OLM_REPO_E=$(echo $OLM_REPO | sed -e 's/[\/&]/\\&/g')
 
 VERSIONS=$(ls deploy/olm-catalog/redhat-marketplace-operator | egrep '\d+\.\d+\.\d+')
-VERSIONS_LIST=$(echo $VERSIONS | xargs | gsed -e "s/ / $OLM_REPO_E:v/g" | gsed -e "s/^/$OLM_REPO_E:v/g" | gsed -e 's/ /,/g')
+VERSIONS_LIST=$(echo $VERSIONS | xargs | sed -e "s/ / $OLM_REPO_E:v/g" | sed -e "s/^/$OLM_REPO_E:v/g" | sed -e 's/ /,/g')
 
 echo "Using tag ${OLM_BUNDLE_REPO}:${TAG}"
 echo "Building index with $VERSIONS_LIST"
