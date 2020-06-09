@@ -52,6 +52,7 @@ var (
 	metricsHost               = "0.0.0.0"
 	metricsPort         int32 = 8383
 	operatorMetricsPort int32 = 8686
+	promHttpPort              = ":2112"
 )
 
 var log = logf.Log.WithName("cmd")
@@ -118,7 +119,7 @@ func (m *ControllerMain) Run() {
 	// Expose custom metrics to localhost:2112/metrics
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
-		http.ListenAndServe(":2112", nil)
+		http.ListenAndServe(promHttpPort, nil)
 	}()
 
 	// Get a config to talk to the apiserver
