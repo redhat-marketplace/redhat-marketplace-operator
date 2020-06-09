@@ -278,6 +278,7 @@ jobs:
           ./scripts/scorecard.sh
         env:
           VERSION: ${{ steps.vars.outputs.version }}
+          OPERATOR_IMAGE: quay.io/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
 
       - name: Upload results
         uses: actions/upload-artifact@v1
