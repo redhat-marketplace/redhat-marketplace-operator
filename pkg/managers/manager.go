@@ -21,11 +21,11 @@ import (
 	"net/http"
 	"os"
 	"runtime"
-	"time"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -46,31 +46,13 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
 	metricsHost               = "0.0.0.0"
 	metricsPort         int32 = 8383
 	operatorMetricsPort int32 = 8686
-
-	opsProcessed = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "myapp_processed_ops_total",
-		Help: "The total number of processed events",
-	})
 )
-
-func recordMetrics() {
-	go func() {
-		for {
-			opsProcessed.Inc()
-			time.Sleep(2 * time.Second)
-		}
-	}()
-}
 
 var log = logf.Log.WithName("cmd")
 
@@ -96,13 +78,6 @@ type ControllerMain struct {
 }
 
 func (m *ControllerMain) Run() {
-
-	recordMetrics()
-
-	http.Handle("/metrics", promhttp.Handler())
-	go func() {
-		http.ListenAndServe(":2112", nil)
-	}()
 
 	// adding controller flags
 	for _, flags := range m.FlagSets {
@@ -139,6 +114,12 @@ func (m *ControllerMain) Run() {
 		log.Error(err, "Failed to get watch namespace")
 		os.Exit(1)
 	}
+
+	// Expose custom metrics to localhost:2112/metrics
+	http.Handle("/metrics", promhttp.Handler())
+	go func() {
+		http.ListenAndServe(":2112", nil)
+	}()
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()

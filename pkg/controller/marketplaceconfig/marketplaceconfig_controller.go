@@ -22,7 +22,6 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	// "github.com/prometheus/client_golang/prometheus/push"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	pflag "github.com/spf13/pflag"
@@ -37,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	// "sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -87,13 +85,6 @@ func init() {
 		defaultFeatures,
 		"List of additional features to install. Ex. [razee, meterbase], etc.",
 	)
-	// registry.MustRegister(rhmInstallSucceedGauge, rhmInstallFailedGauge, rhmOperatorInstallStartTimeGauge, rhmOperatorInstallEndTimeGauge)
-	// pusher := push.New("http://0.0.0.0:9091", "db_backup").Gatherer(registry)
-	// // Add is used here rather than Push to not delete a previously pushed
-	// // success timestamp in case of a failure of this backup.
-	// if err := pusher.Add(); err != nil {
-	// 	fmt.Println("Could not push to Pushgateway:", err)
-	// }
 }
 
 // FlagSet returns our FlagSet

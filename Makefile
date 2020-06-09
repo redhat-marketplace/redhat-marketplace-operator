@@ -13,7 +13,7 @@ DOCKER_EXEC ?= $(shell command -v docker)
 SERVICE_ACCOUNT := redhat-marketplace-operator
 SECRETS_NAME := my-docker-secrets
 
-OPERATOR_IMAGE ?= quay.io/namsimar/plato-operator:latest
+OPERATOR_IMAGE ?= OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
 
 PULL_POLICY ?= IfNotPresent
 .DEFAULT_GOAL := help
@@ -189,10 +189,6 @@ delete: ##delete the contents created in 'make create'
 delete-razee: ##delete the razee CR
 	@echo deleting razee CR
 	- kubectl delete -f  deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
-
-temp:
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_meterdefinition_cr.yaml --namespace=${NAMESPACE}
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_meterbase_cr.yaml --namespace=${NAMESPACE}
 
 ##@ Tests
 
