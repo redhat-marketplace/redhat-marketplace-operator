@@ -182,7 +182,9 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		}
 		// Error reading the object - requeue the request.
 		reqLogger.Error(err, "Failed to get MarketplaceConfig")
-		rhmInstallFailedGauge.Set(1)
+		if !utils.GAUGE_FLAGS["rhm_operator_status_install_failed"] {
+			rhmInstallFailedGauge.Set(1)
+		}
 		return reconcile.Result{}, err
 	}
 
@@ -198,7 +200,9 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 		if err != nil {
 			reqLogger.Error(err, "Failed to create a new CR.")
-			rhmInstallFailedGauge.Set(1)
+			if !utils.GAUGE_FLAGS["rhm_operator_status_install_failed"] {
+				rhmInstallFailedGauge.Set(1)
+			}
 			return reconcile.Result{}, err
 		}
 	}
@@ -231,7 +235,9 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 			if err != nil {
 				reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
-				rhmInstallFailedGauge.Set(1)
+				if !utils.GAUGE_FLAGS["rhm_operator_status_install_failed"] {
+					rhmInstallFailedGauge.Set(1)
+				}
 				return reconcile.Result{}, err
 			}
 
@@ -254,7 +260,9 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			return reconcile.Result{Requeue: true}, nil
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get RazeeDeployment CR")
-			rhmInstallFailedGauge.Set(1)
+			if !utils.GAUGE_FLAGS["rhm_operator_status_install_failed"] {
+				rhmInstallFailedGauge.Set(1)
+			}
 			return reconcile.Result{}, err
 		}
 		// Sets the owner for foundRazee
@@ -273,7 +281,9 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 			if err != nil {
 				reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
-				rhmInstallFailedGauge.Set(1)
+				if !utils.GAUGE_FLAGS["rhm_operator_status_install_failed"] {
+					rhmInstallFailedGauge.Set(1)
+				}
 				return reconcile.Result{}, err
 			}
 
@@ -304,7 +314,9 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			err = r.client.Create(context.TODO(), newMeterBaseCr)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create a new MeterBase CR.")
-				rhmInstallFailedGauge.Set(1)
+				if !utils.GAUGE_FLAGS["rhm_operator_status_install_failed"] {
+					rhmInstallFailedGauge.Set(1)
+				}
 				return reconcile.Result{}, err
 			}
 
@@ -327,7 +339,9 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			return reconcile.Result{Requeue: true}, nil
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get MeterBase CR")
-			rhmInstallFailedGauge.Set(1)
+			if !utils.GAUGE_FLAGS["rhm_operator_status_install_failed"] {
+				rhmInstallFailedGauge.Set(1)
+			}
 			return reconcile.Result{}, err
 		}
 		// Sets the owner for MeterBase
@@ -351,7 +365,9 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		err = r.client.Create(context.TODO(), newOpSrc)
 		if err != nil {
 			reqLogger.Info("Failed to create an OperatorSource.", "OperatorSource.Namespace ", newOpSrc.Namespace, "OperatorSource.Name", newOpSrc.Name)
-			rhmInstallFailedGauge.Set(1)
+			if !utils.GAUGE_FLAGS["rhm_operator_status_install_failed"] {
+				rhmInstallFailedGauge.Set(1)
+			}
 			return reconcile.Result{}, err
 		}
 
@@ -376,7 +392,9 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
 		// Could not get Operator Source
-		rhmInstallFailedGauge.Set(1)
+		if !utils.GAUGE_FLAGS["rhm_operator_status_install_failed"] {
+			rhmInstallFailedGauge.Set(1)
+		}
 		reqLogger.Error(err, "Failed to get OperatorSource")
 	}
 
@@ -438,6 +456,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		rhmInstallSucceedGauge.Set(1)
 		rhmInstallFailedGauge.Set(0)
 		utils.GAUGE_FLAGS["rhm_operator_status_install_succeeded"] = true
+		utils.GAUGE_FLAGS["rhm_operator_status_install_failed"] = true
 	}
 
 	reqLogger.Info("reconciling finished")
