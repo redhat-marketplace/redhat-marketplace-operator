@@ -80,7 +80,7 @@ jobs:
         if: ${{ matrix.channel == 'stable' && github.event_name == 'push' }}
         run: |
           git config user.name 'RHM Oper Bot'
-          git config user.email 'rhmoperr@us.ibm.com'
+          git config user.email 'rhmoper@us.ibm.com'
           git add ./deploy/olm-catalog
           git commit -m "chore: update csv"
           git push
