@@ -132,7 +132,8 @@ code-gen: ## Run the operator-sdk commands to generated code (k8s and crds)
 
 setup-minikube: ## Setup minikube for full operator dev
 	@echo Installing operatorframework
-	curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/0.15.1/install.sh | bash -s 0.15.1
+	kubectl apply -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/0.15.1/crds.yaml
+	kubectl apply -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/0.15.1/olm.yaml
 	@echo Applying prometheus operator
 	kubectl apply -f https://raw.githubusercontent.com/coreos/prometheus-operator/master/bundle.yaml
 	@echo Apply kube-state
