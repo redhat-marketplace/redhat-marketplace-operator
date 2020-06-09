@@ -6,7 +6,6 @@ on:
       - 'release/**'
       - 'hotfix/**'
     paths-ignore:
-      - 'docs/**'
       - 'deploy/olm-catalog/redhat-marketplace-operator/**'
 env:
   pushImage: true
