@@ -44,7 +44,6 @@ jobs:
         id: vars
         run: |
           echo ::set-env name=pr_branch::$(echo $BRANCH | sed 's/refs\/heads\///')
-          echo ::set-env name=NEW_BRANCH_NAME::release/${{ matrix.channel }}
           echo "::set-output name=version::$(make current-version)"
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
           echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
@@ -69,7 +68,7 @@ jobs:
           pip3 install operator-courier
           echo "::add-path::/usr/local/bin"
         env:
-          RELEASE_VERSION: v0.17.1
+          RELEASE_VERSION: v0.18.0
 
       - name: Create CSV
         id: bundle
