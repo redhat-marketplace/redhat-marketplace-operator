@@ -135,6 +135,7 @@ jobs:
             value: quayPassword
     env:
       OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
+      TAG: ${{ needs.build.outputs.dockertag }}
     steps:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
@@ -160,6 +161,7 @@ jobs:
           curl -LO https://github.com/operator-framework/operator-registry/releases/download/${OPM_VERSION}/linux-amd64-opm
           chmod +x linux-amd64-opm && sudo cp linux-amd64-opm /usr/local/bin/opm && rm linux-amd64-opm
           echo "::add-path::/usr/local/bin"
+          sudo apt-get install -y sed
         env:
           RELEASE_VERSION: v0.18.0
           OPM_VERSION: v1.12.5
@@ -214,6 +216,7 @@ jobs:
     continue-on-error: true
     env:
       OPERATOR_IMAGE: quay.io/rh-marketplace/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
+      VERSION: ${{ needs.build.outputs.version }}
     strategy:
       matrix:
         cr:
@@ -244,15 +247,6 @@ jobs:
           echo "current-context:" $(kubectl config current-context)
           echo "environment-kubeconfig:" ${KUBECONFIG}
 
-      - name: Get Vars
-        id: vars
-        run: |
-          echo "::set-output name=version::$(make current-version)"
-          echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
-          echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
-        env:
-          FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'version/**', 'go.sum', 'go.mod') }}
-
       - name: Install operator-sdk
         run: |
           cd /tmp
@@ -273,16 +267,7 @@ jobs:
           make generate-csv
           yq w -i .osdk-scorecard.yaml 'scorecard.plugins.*.*.csv-path' deploy/olm-catalog/redhat-marketplace-operator/${VERSION}/redhat-marketplace-operator.v${VERSION}.clusterserviceversion.yaml
           yq w -i .osdk-scorecard.yaml 'scorecard.plugins.*.*.cr-manifest.+' deploy/crds/${{ matrix.cr  }}
-          make setup-minikube
-          kubectl create ns openshift-redhat-marketplace
-          kubectl config set-context --current --namespace=openshift-redhat-marketplace
-          kubectl apply -f deploy/role.yaml -f deploy/service_account.yaml -f deploy/role_binding.yaml
-
-          operator-sdk scorecard -b ./deploy/olm-catalog/redhat-marketplace-operator --config ./.osdk-scorecard.yaml -o json > scorecard-output.json
-          cat scorecard-output.json
-          cat scorecard-output.json | jq -r '.results[] | select(.state == "fail") | "::error" +  "::" + .name + " failed"'
-        env:
-          VERSION: ${{ steps.vars.outputs.version }}
+          ./scripts/scorecard.sh
 
       - name: Upload results
         uses: actions/upload-artifact@v1
