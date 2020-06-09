@@ -166,24 +166,28 @@ delete-resources: ## delete-resources
 
 delete: ##delete the contents created in 'make create'
 	@echo deleting resources
-	- kubectl delete opsrc ${OPERATOR_SOURCE} -n ${NAMESPACE}
+	- kubectl delete opsrc ${OPERATOR_SOURCE} -n openshift-marketplace
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_meterbase_cr.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_meterdefinitions_cr.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_meterdefinition_cr.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/operator.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/role_binding.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/role.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/service_account.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml -n ${NAMESPACE}
-	- kubectl delete namespace razee
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml
+	- kubectl delete namespace ${NAMESPACE}
 
 delete-razee: ##delete the razee CR
 	@echo deleting razee CR
 	- kubectl delete -f  deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
+
+create-razee: ##create the razee CR
+	@echo creating razee CR
+	- kubectl create -f  deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
 
 ##@ Tests
 
