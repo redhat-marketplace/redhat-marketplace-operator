@@ -215,8 +215,8 @@ jobs:
     needs: [deploy]
     continue-on-error: true
     env:
-      VERSION: ${{ steps.vars.outputs.version }}
       OPERATOR_IMAGE: quay.io/rh-marketplace/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
+      VERSION: ${{ needs.build.outputs.version }}
     strategy:
       matrix:
         cr:
@@ -246,15 +246,6 @@ jobs:
           kubectl cluster-info
           echo "current-context:" $(kubectl config current-context)
           echo "environment-kubeconfig:" ${KUBECONFIG}
-
-      - name: Get Vars
-        id: vars
-        run: |
-          echo "::set-output name=version::$(make current-version)"
-          echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
-          echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
-        env:
-          FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'version/**', 'go.sum', 'go.mod') }}
 
       - name: Install operator-sdk
         run: |
