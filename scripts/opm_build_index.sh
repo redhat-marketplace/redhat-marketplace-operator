@@ -9,7 +9,7 @@ echo "Running with $1 $2 $3"
 OLM_REPO_E=$(echo $OLM_REPO | sed -e 's/[\/&]/\\&/g')
 
 echo "Calculator Versions"
-VERSIONS=$(ls deploy/olm-catalog/redhat-marketplace-operator | grep -E '\d+\.\d+\.\d+')
+VERSIONS=$(ls deploy/olm-catalog/redhat-marketplace-operator | grep -E '[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+')
 
 echo "Making version list"
 VERSIONS_LIST=$(echo $VERSIONS | xargs | sed -e "s/ / $OLM_REPO_E:v/g" | sed -e "s/^/$OLM_REPO_E:v/g" | sed -e 's/ /,/g')
