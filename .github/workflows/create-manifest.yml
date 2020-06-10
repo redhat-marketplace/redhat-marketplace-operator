@@ -6,7 +6,6 @@ on:
       - 'release/**'
       - 'hotfix/**'
     paths-ignore:
-      - 'docs/**'
       - 'deploy/olm-catalog/redhat-marketplace-operator/**'
 env:
   pushImage: true
@@ -44,7 +43,6 @@ jobs:
         id: vars
         run: |
           echo ::set-env name=pr_branch::$(echo $BRANCH | sed 's/refs\/heads\///')
-          echo ::set-env name=NEW_BRANCH_NAME::release/${{ matrix.channel }}
           echo "::set-output name=version::$(make current-version)"
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
           echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
@@ -69,7 +67,7 @@ jobs:
           pip3 install operator-courier
           echo "::add-path::/usr/local/bin"
         env:
-          RELEASE_VERSION: v0.17.1
+          RELEASE_VERSION: v0.18.0
 
       - name: Create CSV
         id: bundle
@@ -81,8 +79,8 @@ jobs:
       - name: Create branch
         if: ${{ matrix.channel == 'stable' && github.event_name == 'push' }}
         run: |
-          git config user.name 'Zach Taylor'
-          git config user.email 'ztaylor@ibm.com'
+          git config user.name 'RHM Oper Bot'
+          git config user.email 'rhmoper@us.ibm.com'
           git add ./deploy/olm-catalog
           git commit -m "chore: update csv"
           git push
@@ -90,7 +88,7 @@ jobs:
       - name: Open a PR to the default branch
         uses: vsoch/pull-request-action@1.0.2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.pullRequestSecret }}
           PULL_REQUEST_FROM_BRANCH: '${{ env.pr_branch }}'
           PULL_REQUEST_BRANCH: master
           PULL_REQUEST_TITLE: 'Release ${{ steps.vars.outputs.version }}'
