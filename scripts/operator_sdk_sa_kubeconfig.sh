@@ -1,4 +1,5 @@
 #!/bin/sh
+set -euo pipefail
 
 server=$1
 namespace=$2
@@ -8,6 +9,7 @@ saname=$3
 secretname=$(kubectl get sa/$saname -n $namespace -o json | jq -r '.secrets[].name' | grep redhat-marketplace-operator-token)
 
 ca=$(kubectl get secret/$secretname -n $namespace -o jsonpath='{.data.ca\.crt}')
+
 token=$(kubectl get secret/$secretname -n $namespace -o jsonpath='{.data.token}' | base64 --decode)
 
 echo "

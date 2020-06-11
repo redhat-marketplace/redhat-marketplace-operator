@@ -147,10 +147,10 @@ setup-minikube: ## Setup minikube for full operator dev
 	done
 
 setup-operator-sdk-run: ## Create ns, crds, sa, role, and rolebinding before operator-sdk run
-	make helm
-	make create
-	make deploy-services
-	. ./scripts/operator_sdk_sa_kubeconfig.sh $(CLUSTER_SERVER) $(NAMESPACE) $(SERVICE_ACCOUNT)
+	- make helm
+	- make create
+	- make deploy-services
+	- . ./scripts/operator_sdk_sa_kubeconfig.sh $(CLUSTER_SERVER) $(NAMESPACE) $(SERVICE_ACCOUNT)
 
 operator-sdk-run: ## Run operator locally outside the cluster during development cycle
 	operator-sdk run --local --watch-namespace=$(OPERATOR_WATCH_NAMESPACE) --kubeconfig=./sa.kubeconfig
