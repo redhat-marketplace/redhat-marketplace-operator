@@ -18,6 +18,11 @@ OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
 PULL_POLICY ?= IfNotPresent
 .DEFAULT_GOAL := help
 
+# cluster server to test the rhm operator
+CLUSTER_SERVER ?= https://api.crc.testing:6443
+# The namespace where the operator watches for changes. Set "" for AllNamespaces, set "ns1,ns2" for MultiNamespace
+OPERATOR_WATCH_NAMESPACE ?= ""
+
 ##@ Application
 
 install: ## Install all resources (CR/CRD's, RBAC and Operator)
@@ -141,6 +146,15 @@ setup-minikube: ## Setup minikube for full operator dev
 		kubectl apply -f https://raw.githubusercontent.com/kubernetes/kube-state-metrics/master/examples/standard/$$item ; \
 	done
 
+setup-operator-sdk-run: ## Create ns, crds, sa, role, and rolebinding before operator-sdk run
+	- make helm
+	- make create
+	- make deploy-services
+	- . ./scripts/operator_sdk_sa_kubeconfig.sh $(CLUSTER_SERVER) $(NAMESPACE) $(SERVICE_ACCOUNT)
+
+operator-sdk-run: ## Run operator locally outside the cluster during development cycle
+	operator-sdk run --local --watch-namespace=$(OPERATOR_WATCH_NAMESPACE) --kubeconfig=./sa.kubeconfig
+
 ##@ Manual Testing
 
 create: ##creates the required crds for this deployment
@@ -153,10 +167,13 @@ create: ##creates the required crds for this deployment
 
 deploys: ##deploys the resources for deployment
 	@echo deploying services and operators
+	- make deploy-services
+	- kubectl create -f deploy/operator.yaml --namespace=${NAMESPACE}
+
+deploy-services: ##deploys the service acconts, roles, and role bindings
 	- kubectl create -f deploy/service_account.yaml --namespace=${NAMESPACE}
 	- kubectl create -f deploy/role.yaml --namespace=${NAMESPACE}
 	- kubectl create -f deploy/role_binding.yaml --namespace=${NAMESPACE}
-	- kubectl create -f deploy/operator.yaml --namespace=${NAMESPACE}
 
 apply: ##applies changes to crds
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml --namespace=${NAMESPACE}
