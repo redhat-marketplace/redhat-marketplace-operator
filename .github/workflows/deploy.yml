@@ -24,7 +24,7 @@ jobs:
       tagExists: ${{ steps.checktag.outputs.exists }}
       dockertag: ${{ steps.vars.outputs.dockertag }}
       crs: ${{ steps.vars.outputs.crs }}
-      istagged: ${{ steps.vars.outputs.istagged }}
+      gittagpushed: ${{ steps.tag.outputs.gittagpushed }}
     env:
       TAGPREFIX: ''
 
@@ -44,18 +44,21 @@ jobs:
       - name: Set branch prefix for fix
         if: github.event_name == 'push' && startsWith(github.ref,'refs/heads/bugfix/')
         run: |
-          echo "::set-env name=TAGPREFIX::bugfix-"
+          NAME=$(echo "${{ github.ref }}" | sed 's/refs\/heads\/bugfix\///')
+          echo "::set-env name=TAGPREFIX::bugfix-${NAME}-"
 
       - name: Set branch prefix for feat
         if: github.event_name == 'push' && startsWith(github.ref,'refs/heads/feature/')
         run: |
-          echo "::set-env name=TAGPREFIX::feat-"
+          NAME=$(echo "${{ github.ref }}" | sed 's/refs\/heads\/feature\///')
+          echo "::set-env name=TAGPREFIX::feat-${NAME}-"
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
-      - name: Get Vars
-        id: vars
+      - name: Get if gittag is pushed
+        shell: bash {0}
+        id: tag
         run: |
           VERSION=$(make current-version)
           RESULT=$(git tag --list | grep -E "$VERSION")
@@ -64,7 +67,11 @@ jobs:
             IS_TAGGED=true
           fi
 
-          echo "::set-output name=istagged::${IS_TAGGED}"
+      - name: Get Vars
+        id: vars
+        run: |
+
+          echo "::set-output name=gittagpushed::${IS_TAGGED}"
           echo "::set-output name=version::$(make current-version)"
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
           echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
@@ -92,7 +99,7 @@ jobs:
     name: Deploy
     runs-on: ubuntu-latest
     needs: [build]
-    if: ${{ needs.build.outputs.istagged != 'true' }}
+    if: ${{ needs.build.outputs.gittagpushed != 'true' }}
     strategy:
       matrix:
         registry:
@@ -141,7 +148,7 @@ jobs:
     name: Deploy OPM Index
     runs-on: ubuntu-latest
     needs: [build]
-    if: ${{ needs.build.outputs.istagged != 'true' }}
+    if: ${{ needs.build.outputs.gittagpushed != 'true' }}
     strategy:
       matrix:
         registry:

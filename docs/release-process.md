@@ -38,7 +38,7 @@ To perform all the actions for automatic install you will need to have the git f
 
 Once the plugin is installed, run this command:
 
-```
+```sh
 git flow init -d
 ```
 
