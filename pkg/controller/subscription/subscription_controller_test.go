@@ -26,6 +26,7 @@ import (
 	opsrcApi "github.com/operator-framework/operator-marketplace/pkg/apis"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -90,12 +91,82 @@ var (
 			Package:                "source-package",
 		},
 	}
+
+	installPlan = &olmv1alpha1.InstallPlan{
+		TypeMeta: v1.TypeMeta{},
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "test",
+			Namespace: namespace,
+		},
+		Spec:   olmv1alpha1.InstallPlanSpec{},
+		Status: olmv1alpha1.InstallPlanStatus{},
+	}
+
+	installPlanRef = &olmv1alpha1.InstallPlanReference{
+		Name: "test",
+	}
+
+	currentCSV = &olmv1alpha1.ClusterServiceVersion{
+		TypeMeta: v1.TypeMeta{},
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "test",
+			Namespace: namespace,
+		},
+		Spec:   olmv1alpha1.ClusterServiceVersionSpec{},
+		Status: olmv1alpha1.ClusterServiceVersionStatus{},
+	}
+
+	objRef = &corev1.ObjectReference{
+		Name:      "test",
+		Namespace: namespace,
+	}
+
+	subscriptionWithStatus = &olmv1alpha1.Subscription{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels: map[string]string{
+				operatorTag: "true",
+			},
+		},
+		Spec: &olmv1alpha1.SubscriptionSpec{
+			CatalogSource:          "source",
+			CatalogSourceNamespace: "source-namespace",
+			Package:                "source-package",
+		},
+		Status: olmv1alpha1.SubscriptionStatus{
+			CurrentCSV:     "test",
+			InstallPlanRef: objRef,
+		},
+	}
 )
 
 func setup(r *ReconcilerTest) error {
 	r.Client = fake.NewFakeClient(r.GetGetObjects()...)
 	r.Reconciler = &ReconcileSubscription{client: r.Client, scheme: scheme.Scheme}
 	return nil
+}
+
+func TestNewSubscriptionDelete(t *testing.T) {
+	t.Parallel()
+	 NewReconcilerTest(setup, subscriptionWithStatus, installPlan, currentCSV, objRef)
+	// reconcilerTest.TestAll(t,
+	// 	// Reconcile to create obj
+	// 	ReconcileStep(opts,
+	// 		ReconcileWithExpectedResults(RequeueResult, DoneResult)),
+	// 	// List and check results
+	// 	ListStep(opts,
+	// 		ListWithObj(&olmv1alpha1.Subscription{}),
+	// 		ListWithFilter(
+	// 			client.InNamespace(namespace),
+	// 			GetWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+	// 				list, ok := i.(*olmv1alpha1.Subscription)
+
+	// 				assert.Truef(t, ok, "expected operator group list got type %T", i)
+	// 				//
+	// 			}),
+	// 		),
+	// 	))
 }
 
 func testNewSubscription(t *testing.T) {
