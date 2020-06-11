@@ -132,7 +132,7 @@ make test-e2e
 ```
 
 
-## Lcoal Developmetn
+## Local Development
 
 ### Developing with Skaffold (automatic)
 
