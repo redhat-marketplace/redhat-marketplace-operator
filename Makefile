@@ -274,7 +274,7 @@ ARGS ?= "--patch"
 
 .PHONY: bump-version
 bump-version: ## Bump the version and add the file for a commit
-	go run scripts/version/main.go next $(ARGS)
+	@go run scripts/version/main.go next $(ARGS)
 
 
 REDHAT_PROJECT_ID ?= ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd
