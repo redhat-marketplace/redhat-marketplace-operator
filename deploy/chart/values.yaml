@@ -94,10 +94,13 @@ roles:
           - operators.coreos.com
         resources:
           - subscriptions
+          - installplans
+          - clusterserviceversions
         verbs:
           - get
           - list
           - watch
+          - delete
       - apiGroups:
           - operators.coreos.com
         resources:

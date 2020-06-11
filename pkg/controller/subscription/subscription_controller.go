@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -113,6 +114,84 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
+	// check for uninstall label and delete the components
+	if instance.ObjectMeta.Labels["marketplace.redhat.com/uninstall"] == "true" {
+		reqLogger.Info("started to uninstall-----------********")
+		deleteMap := map[interface{}]bool{}
+		reqLogger.Info("1-----",instance.Status.CurrentCSV, "2----",instance.Status.InstalledCSV, "3------", instance.Spec.StartingCSV, "CSV STATUS")
+		switch instance.Status.State {
+		case olmv1alpha1.SubscriptionStateAtLatest:
+			reqLogger.Info("AtLatestKnown----------")
+			deleteMap[olmv1alpha1.ClusterServiceVersionKind] = true
+			deleteMap[olmv1alpha1.SubscriptionKind] = true
+			deleteMap[olmv1alpha1.InstallPlanKind] = true
+			break
+		case olmv1alpha1.SubscriptionStateUpgradePending:
+			reqLogger.Info("UpgradePending----------")
+	//		deleteMap[olmv1alpha1.ClusterServiceVersionKind] = true
+			deleteMap[olmv1alpha1.SubscriptionKind] = true
+			deleteMap[olmv1alpha1.InstallPlanKind] = true
+			break
+		case olmv1alpha1.SubscriptionStateFailed:
+			reqLogger.Info("UpdgradeFailed----------")
+			deleteMap[olmv1alpha1.ClusterServiceVersionKind] = true
+			deleteMap[olmv1alpha1.SubscriptionKind] = true
+			deleteMap[olmv1alpha1.InstallPlanKind] = true
+			break
+		case olmv1alpha1.SubscriptionStateNone:
+			reqLogger.Info("StatusNone----------")
+			deleteMap[olmv1alpha1.ClusterServiceVersionKind] = true
+			deleteMap[olmv1alpha1.SubscriptionKind] = true
+			deleteMap[olmv1alpha1.InstallPlanKind] = true
+			break
+		case olmv1alpha1.SubscriptionStateUpgradeAvailable:
+			reqLogger.Info("UpdgradeAvailable----------")
+			deleteMap[olmv1alpha1.ClusterServiceVersionKind] = true
+			deleteMap[olmv1alpha1.SubscriptionKind] = true
+			deleteMap[olmv1alpha1.InstallPlanKind] = true
+			break
+		}
+
+		// delete csv if needed
+		if ok := deleteMap[olmv1alpha1.ClusterServiceVersionKind]; ok {
+			if err := r.deleteCSVInstance(instance, request); err != nil {
+				reqLogger.Info("Error deleting CSV----------")
+				if !errors.IsNotFound(err) {
+					// Request object not found, could have been deleted after reconcile request.
+					// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+					// Return and don't requeue
+					return reconcile.Result{}, nil
+				}
+				// Error reading the object - requeue the request.
+				return reconcile.Result{}, err
+			}
+		}
+		// delete installplan if needed
+		if ok := deleteMap[olmv1alpha1.InstallPlanKind]; ok {
+			if err := r.deleteInstallPlan(instance, request); err != nil {
+				reqLogger.Info("Error deleting InstallPlan----------")
+				if errors.IsNotFound(err) {
+					return reconcile.Result{}, nil
+				}
+				return reconcile.Result{}, err
+			}
+		}
+		// delete subscription if needed
+		if ok := deleteMap[olmv1alpha1.SubscriptionKind]; ok {
+			if err := r.deleteSubscription(instance); err != nil {
+				reqLogger.Info("Error deleting subscription----------")
+				if errors.IsNotFound(err) {
+					return reconcile.Result{}, nil
+				}
+				return reconcile.Result{}, err
+			}
+		}
+
+		//parse throught the array and dlete all elements/components- kubeclient
+
+		return reconcile.Result{}, nil
+	}
+
 	groups := &olmv1.OperatorGroupList{}
 
 	// find operator groups
@@ -184,6 +263,40 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 
 	reqLogger.Info("reconcilation complete")
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileSubscription) deleteCSVInstance(instance *olmv1alpha1.Subscription, request reconcile.Request) error {
+	csvInstance := &olmv1alpha1.ClusterServiceVersion{}
+	t := &reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      instance.Status.CurrentCSV,
+			Namespace: request.NamespacedName.Namespace,
+		},
+	}
+	if err := r.client.Get(context.TODO(), t.NamespacedName, csvInstance); err != nil {
+		return err
+	}
+
+	return r.client.Delete(context.TODO(), csvInstance)
+}
+
+func (r *ReconcileSubscription) deleteSubscription(instance *olmv1alpha1.Subscription) error {
+	return r.client.Delete(context.TODO(), instance)
+}
+
+func (r *ReconcileSubscription) deleteInstallPlan(instance *olmv1alpha1.Subscription, request reconcile.Request) error {
+	installPlanInstance := &olmv1alpha1.InstallPlan{}
+	t2 := &reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      instance.Status.InstallPlanRef.Name,
+			Namespace: request.NamespacedName.Namespace,
+		},
+	}
+	if err := r.client.Get(context.TODO(), t2.NamespacedName, installPlanInstance); err != nil {
+		return err
+	}
+
+	return r.client.Delete(context.TODO(), installPlanInstance)
 }
 
 func (r *ReconcileSubscription) createOperatorGroup(instance *olmv1alpha1.Subscription) *olmv1.OperatorGroup {
