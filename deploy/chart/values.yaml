@@ -148,6 +148,21 @@ roles:
       #     - list
       #     - delete
       - apiGroups:
+          - apiextensions.k8s.io
+        resources:
+          - customresourcedefinitions
+        resourceNames:
+          - remoteresources.deploy.razee.io
+          - remoteresourcess3.deploy.razee.io
+          - featureflagsetsld.deploy.razee.io
+          - managedsets.deploy.razee.io
+          - mustachetemplates.deploy.razee.io
+          - remoteresourcess3decrypt.deploy.razee.io
+        verbs:
+          - get
+          - list
+          - delete
+      - apiGroups:
           - config.openshift.io
         resources:
           - consoles

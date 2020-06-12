@@ -18,6 +18,11 @@ OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
 PULL_POLICY ?= IfNotPresent
 .DEFAULT_GOAL := help
 
+# cluster server to test the rhm operator
+CLUSTER_SERVER ?= https://api.crc.testing:6443
+# The namespace where the operator watches for changes. Set "" for AllNamespaces, set "ns1,ns2" for MultiNamespace
+OPERATOR_WATCH_NAMESPACE ?= ""
+
 ##@ Application
 
 install: ## Install all resources (CR/CRD's, RBAC and Operator)
@@ -132,13 +137,23 @@ code-gen: ## Run the operator-sdk commands to generated code (k8s and crds)
 
 setup-minikube: ## Setup minikube for full operator dev
 	@echo Installing operatorframework
-	curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/0.15.1/install.sh | bash -s 0.15.1
+	kubectl apply -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/0.15.1/crds.yaml
+	kubectl apply -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/0.15.1/olm.yaml
 	@echo Applying prometheus operator
 	kubectl apply -f https://raw.githubusercontent.com/coreos/prometheus-operator/master/bundle.yaml
 	@echo Apply kube-state
 	for item in cluster-role.yaml service-account.yaml cluster-role-binding.yaml deployment.yaml service.yaml ; do \
 		kubectl apply -f https://raw.githubusercontent.com/kubernetes/kube-state-metrics/master/examples/standard/$$item ; \
 	done
+
+setup-operator-sdk-run: ## Create ns, crds, sa, role, and rolebinding before operator-sdk run
+	- make helm
+	- make create
+	- make deploy-services
+	- . ./scripts/operator_sdk_sa_kubeconfig.sh $(CLUSTER_SERVER) $(NAMESPACE) $(SERVICE_ACCOUNT)
+
+operator-sdk-run: ## Run operator locally outside the cluster during development cycle
+	operator-sdk run --local --watch-namespace=$(OPERATOR_WATCH_NAMESPACE) --kubeconfig=./sa.kubeconfig
 
 ##@ Manual Testing
 
@@ -154,10 +169,13 @@ create: ##creates the required crds for this deployment
 
 deploys: ##deploys the resources for deployment
 	@echo deploying services and operators
+	- make deploy-services
+	- kubectl create -f deploy/operator.yaml --namespace=${NAMESPACE}
+
+deploy-services: ##deploys the service acconts, roles, and role bindings
 	- kubectl create -f deploy/service_account.yaml --namespace=${NAMESPACE}
 	- kubectl create -f deploy/role.yaml --namespace=${NAMESPACE}
 	- kubectl create -f deploy/role_binding.yaml --namespace=${NAMESPACE}
-	- kubectl create -f deploy/operator.yaml --namespace=${NAMESPACE}
 
 apply: ##applies changes to crds
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml --namespace=${NAMESPACE}
@@ -167,24 +185,28 @@ delete-resources: ## delete-resources
 
 delete: ##delete the contents created in 'make create'
 	@echo deleting resources
-	- kubectl delete opsrc ${OPERATOR_SOURCE} -n ${NAMESPACE}
+	- kubectl delete opsrc ${OPERATOR_SOURCE} -n openshift-marketplace
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_meterbase_cr.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_meterdefinitions_cr.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_meterdefinition_cr.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/operator.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/role_binding.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/role.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/service_account.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml -n ${NAMESPACE}
-	- kubectl delete namespace razee
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml
+	- kubectl delete namespace ${NAMESPACE}
 
 delete-razee: ##delete the razee CR
 	@echo deleting razee CR
 	- kubectl delete -f  deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
+
+create-razee: ##create the razee CR
+	@echo creating razee CR
+	- kubectl create -f  deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
 
 ##@ Tests
 
@@ -276,7 +298,7 @@ bump-version: ## Bump the version and add the file for a commit
 
 REDHAT_PROJECT_ID ?= ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd
 SHA ?=
-TAG ?=
+TAG ?= latest
 
 publish-pc: ## Publish to partner connect
 	curl -X POST https://connect.redhat.com/api/v2/projects/$(REDHAT_PROJECT_ID)/containers/$(SHA)/tags/$(TAG)/publish -H "Authorization: Bearer $(REDHAT_API_KEY)" -H "Content-type: application/json" --data "{}" | jq
@@ -303,40 +325,28 @@ release-finish: ## Start a release
 OLM_REPO ?= quay.io/rh-marketplace/operator-manifest
 OLM_BUNDLE_REPO ?= quay.io/rh-marketplace/operator-manifest-bundle
 OLM_PACKAGE_NAME ?= redhat-marketplace-operator-test
+TAG ?= latest
 
 opm-bundle-all: # used to bundle all the versions available
-	for VERSION in `ls deploy/olm-catalog/redhat-marketplace-operator | grep -E "\d+\.\d+\.\d+"` ; do \
-		echo "Building bundle for $$VERSION" ; \
-		operator-sdk bundle create "$(OLM_REPO):v$$VERSION" \
-			--directory ./deploy/olm-catalog/redhat-marketplace-operator/$$VERSION \
-			-c stable,beta \
-			--package $(OLM_PACKAGE_NAME) \
-			--default-channel stable \
-			--overwrite ; \
-		echo "Pushing bundle for $$VERSION" ; \
-		docker push "$(OLM_REPO):v$$VERSION"; \
-	done
+	./scripts/opm_bundle_all.sh $(OLM_REPO) $(OLM_PACKAGE_NAME) $(VERSION)
 
 opm-bundle-last-edge: ## Bundle latest for edge
 	operator-sdk bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
 	@go run github.com/mikefarah/yq/v3 w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' edge
-	docker build -f bundle.Dockerfile -t "$(OLM_REPO):v$(VERSION)" .
-	docker push "$(OLM_REPO):v$(VERSION)"
+	docker build -f bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" .
+	docker push "$(OLM_REPO):$(TAG)"
 
 opm-bundle-last-beta: ## Bundle latest for beta
 	operator-sdk bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
 	@go run github.com/mikefarah/yq/v3 w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' beta
-	docker build -f bundle.Dockerfile -t "$(OLM_REPO):v$(VERSION)" .
-	docker push "$(OLM_REPO):v$(VERSION)"
+	docker build -f bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" .
+	docker push "$(OLM_REPO):$(TAG)"
 
 olm-bundle-last-stable: ## Bundle latest for stable
-	operator-sdk bundle create "$(OLM_REPO):v$(VERSION)" --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
-
-VERSIONS=$(shell ls deploy/olm-catalog/redhat-marketplace-operator | egrep '\d+\.\d+\.\d+' | xargs | sed -e 's/ / $$OLM_REPO:v/g' | sed -e 's/^/$$OLM_REPO:v/g' |  sed -e 's/ /,/g')
+	operator-sdk bundle create "$(OLM_REPO):$(TAG)" --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
 
 opm-index-base: ## Create an index base
-	export OLM_REPO=$(OLM_REPO); opm index add -u docker --bundles "$(VERSIONS)" --tag $(OLM_BUNDLE_REPO):latest
-	docker push $(OLM_BUNDLE_REPO):latest
+	./scripts/opm_build_index.sh $(OLM_REPO) $(OLM_BUNDLE_REPO) $(TAG) $(VERSION)
 
 install-test-registry: ## Install the test registry
 	kubectl apply -f ./deploy/olm-catalog/test-registry.yaml
