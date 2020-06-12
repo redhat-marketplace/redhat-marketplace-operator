@@ -120,17 +120,33 @@ roles:
           - patch
           - update
           - watch
-      - apiGroups:
-          - deploy.razee.io
-        resources:
-          - remoteresourcess3
-        verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
+      # remove all this ? 
+      # - apiGroups:
+      #     - deploy.razee.io
+      #   resources:
+      #     - remoteresourcess3
+      #   verbs:
+      #     - create
+      #     - delete
+      #     - get
+      #     - list
+      #     - patch
+      #     - update
+      # - apiGroups:
+      #     - apiextensions.k8s.io
+      #   resources:
+      #     - customresourcedefinitions
+      #   resourceNames:
+      #     - remoteresources.deploy.razee.io
+      #     - remoteresourcess3.deploy.razee.io
+      #     - featureflagsetsld.deploy.razee.io
+      #     - managedsets.deploy.razee.io
+      #     - mustachetemplates.deploy.razee.io
+      #     - remoteresourcess3decrypt.deploy.razee.io
+      #   verbs:
+      #     - get
+      #     - list
+      #     - delete
       - apiGroups:
           - config.openshift.io
         resources:
@@ -183,24 +199,59 @@ roles:
           - watch-keeper-limit-poll
           - watch-keeper-non-namespaced
           - razee-cluster-metadata
-  - name: redhat-marketplace-razeedeploy
-    serviceAccountName: redhat-marketplace-razeedeploy
+# redhat-marketplace-remoteresources3deployment ClusterRole
+  - name: redhat-marketplace-remoteresources3deployment
+    serviceAccountName: redhat-marketplace-remoteresources3deployment
     type: ClusterRole
     rules:
       - apiGroups:
-          - '*'
+        - operator.coreos.com
         resources:
-          - '*'
+        - subscriptions
+        - installplans
         verbs:
-          - '*'
+        - create
+        - delete
+        - get
+        - list
+      #TODO: is this needed here ? 
       - nonResourceURLs:
           - '*'
         verbs:
           - '*'
+# redhat-marketplace-watch-keeper ClusterRole
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: redhat-marketplace-watch-keeper
+    rules:
+    - apiGroups:
+      - '*'
+      resources:
+      - '*'
+      verbs: ["get", "list", "watch"]
+    - nonResourceURLs:
+      - '*'
+      verbs: ["get", "list", "watch"]
+# rhm-operator Role
   - name: redhat-marketplace-operator
     serviceAccountName: redhat-marketplace-operator
     type: Role
     rules:
+      - apiGroups:
+        - marketplace.redhat.com
+        resources: 
+        - remoteresources3s
+        - watch-keeper
+        #TODO: which verbs do we need ? 
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
       - apiGroups:
           - ''
         resources:

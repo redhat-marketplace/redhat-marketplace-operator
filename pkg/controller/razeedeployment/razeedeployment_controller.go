@@ -381,9 +381,9 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	
 	// RemoteResourceS3 controller
 	rrs3Deployment := &appsv1.Deployment{}
-	reqLogger.V(0).Info("Finding RemoteResourceS3 Pod")
+	reqLogger.V(0).Info("Finding RemoteResourceS3 deployment")
 	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name:      utils.REMOTE_RESOURCE_S3_NAME,
+		Name:      utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 		Namespace: request.Namespace,
 	}, rrs3Deployment)
 	if errors.IsNotFound(err) {
@@ -400,7 +400,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		instance.Status.Conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonRazeeRemoteResourceS3Start,
+			Reason:  marketplacev1alpha1.ReasonRazeeRemoteResourceS3DeploymentStart,
 			Message: message,
 		})
 
@@ -413,7 +413,48 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
+	//TODO: set ownership ?
 	if err := controllerutil.SetControllerReference(instance, rrs3Deployment, r.scheme); err != nil {
+		reqLogger.Error(err, "Failed to set controller reference")
+		return reconcile.Result{}, err
+	}
+
+	// watch-keeper deployment
+	watchKeeperDeployment := &appsv1.Deployment{}
+	reqLogger.V(0).Info("Finding watch-keeper deployment")
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Name:      utils.WATCHKEEPER_DEPLOYMENT_NAME,
+		Namespace: request.Namespace,
+	}, watchKeeperDeployment)
+	if errors.IsNotFound(err) {
+		reqLogger.V(0).Info("Creating watch-keeper deployment")
+		watchKeeperDeployment = r.makeWatchKeeperDeployment(instance)
+		err = r.client.Create(context.TODO(), watchKeeperDeployment)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create watch-keeper deployment on cluster")
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("watch-keeper deployment created successfully")
+
+		message := "watch-keeper install starting"
+		instance.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionInstalling,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonWatchKeeperDeploymentStart,
+			Message: message,
+		})
+
+		_ = r.client.Status().Update(context.TODO(), instance)
+
+		return reconcile.Result{Requeue: true}, nil
+
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get RemoteResourceS3 from Cluster")
+		return reconcile.Result{}, err
+	}
+
+	//TODO: set ownership ?
+	if err := controllerutil.SetControllerReference(instance, watchKeeperDeployment, r.scheme); err != nil {
 		reqLogger.Error(err, "Failed to set controller reference")
 		return reconcile.Result{}, err
 	}
@@ -888,7 +929,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	/******************************************************************************/
 
 	parentRRS3 := &marketplacev1alpha1.RemoteResourceS3{}
-	err = r.client.Get(context.TODO(), client.ObjectKey{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *instance.Spec.TargetNamespace}, parentRRS3)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *instance.Spec.TargetNamespace}, parentRRS3)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.V(0).Info("Resource does not exist", "resource: ", utils.PARENT_RRS3)
@@ -1169,17 +1210,174 @@ func (r *ReconcileRazeeDeployment) addFinalizer(razee *marketplacev1alpha1.Razee
 	return nil
 }
 
+func(r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDeployment)*appsv1.Deployment{
+	rep := ptr.Int32(1)
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: utils.WATCHKEEPER_DEPLOYMENT_NAME,
+			Namespace: *instance.Spec.TargetNamespace,
+			Labels: map[string]string{
+				"razee/watch-resource": "lite",
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: rep,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": utils.WATCHKEEPER_DEPLOYMENT_NAME,
+				},
+			},
+			Strategy: appsv1.DeploymentStrategy{
+				Type: "RollingUpdate",
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": utils.WATCHKEEPER_DEPLOYMENT_NAME,
+						"razee/watch-resource": "lite",
+					},
+					Name: utils.WATCHKEEPER_DEPLOYMENT_NAME,
+				},
+				Spec: corev1.PodSpec{
+					ServiceAccountName: "redhat-marketplace-watch-keeper",
+					Containers: []corev1.Container{
+						corev1.Container{
+							Image: "quay.io/razee/watch-keeper:0.5.8",
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("400m"),
+									corev1.ResourceMemory: resource.MustParse("500Mi"),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("50m"),
+									corev1.ResourceMemory: resource.MustParse("100Mi"),
+								},
+							},
+							Env: []corev1.EnvVar{
+								corev1.EnvVar{
+									Name:  "START_DELAY_MAX",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "watch-keeper-config",
+											},
+											Key: "START_DELAY_MAX",
+											Optional: ptr.Bool(true),
+										},
+									},
+								},
+								corev1.EnvVar{
+									Name: "NAMESPACE",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "metadata.namespace",
+										},
+									},
+								},
+								corev1.EnvVar{
+									Name:  "CONFIG_NAMESPACE",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "watch-keeper-config",
+											},
+											Key: "CONFIG_NAMESPACE",
+											Optional: ptr.Bool(true),
+										},
+									},
+								},
+								corev1.EnvVar{
+									Name:  "CLUSTER_ID_OVERRIDE",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "watch-keeper-config",
+											},
+											Key: "CLUSTER_ID_OVERRIDE",
+											Optional: ptr.Bool(true),
+										},
+									},
+								},
+								corev1.EnvVar{
+									Name:  "DEFAULT_CLUSTER_NAME",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "watch-keeper-config",
+											},
+											Key: "DEFAULT_CLUSTER_NAME",
+											Optional: ptr.Bool(true),
+										},
+									},
+								},
+								corev1.EnvVar{
+									Name:  "KUBECONFIG",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "watch-keeper-config",
+											},
+											Key: "KUBECONFIG",
+											Optional: ptr.Bool(true),
+										},
+									},
+								},
+								corev1.EnvVar{
+									Name:  "RAZEEDASH_URL",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "watch-keeper-config",
+											},
+											Key: "RAZEEDASH_URL",
+											Optional: ptr.Bool(true),
+										},
+									},
+								},
+								corev1.EnvVar{
+									Name:  "RAZEEDASH_ORG_KEY",
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "watch-keeper-secret",
+											},
+											Key: "RAZEEDASH_ORG_KEY",
+											Optional: ptr.Bool(true),
+										},
+									},
+								},
+								corev1.EnvVar{
+									Name:"NODE_ENV",
+									Value: "production",
+								},
+							},
+							ImagePullPolicy: corev1.PullAlways,
+							Name: "remoteresources3-controller",
+							LivenessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									Exec: &corev1.ExecAction{
+										Command: []string{"sh/liveness.sh"},
+									},
+								},
+								InitialDelaySeconds: 600,
+								PeriodSeconds: 300,
+								TimeoutSeconds: 30,
+								FailureThreshold: 1,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func(r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *marketplacev1alpha1.RazeeDeployment)*appsv1.Deployment{
 	rep := ptr.Int32(1)
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: utils.REMOTE_RESOURCE_S3_NAME,
+			Name: utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
-			// TODO: change the annotations here ?
-			Annotations: map[string]string{
-				"razee.io/git-repo": "https://github.com/razee-io/RemoteResourceS3.git",
-				"razee.io/commit-sha" : "9c364a79cb6bcc30a2a6354924e904f3d7433d26",
-			},
 			Labels: map[string]string{
 				"razee/watch-resource": "lite",
 			},
@@ -1200,10 +1398,10 @@ func(r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *marke
 						"app": "remoteresources3-controller",
 						"razee/watch-resource": "lite",
 					},
-					Name: utils.REMOTE_RESOURCE_S3_NAME,
+					Name: utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: "razeedeploy-sa",
+					ServiceAccountName: "redhat-marketplace-remoteresources3deployment",
 					Containers: []corev1.Container{
 						corev1.Container{
 							//TODO: update this image
@@ -1232,12 +1430,12 @@ func(r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *marke
 									},
 								},
 								corev1.EnvVar{
-									Name: "Group",
+									Name: "GROUP",
 									Value: "marketplace.redhat.com",
 								},
 								corev1.EnvVar{
-									Name:"Version",
-									Value: "v1alpha2",
+									Name:"VERSION",
+									Value: "v1alpha1",
 								},
 							},
 							ImagePullPolicy: corev1.PullAlways,
@@ -1399,7 +1597,7 @@ func (r *ReconcileRazeeDeployment) makeParentRemoteResourceS3(instance *marketpl
 	return &marketplacev1alpha1.RemoteResourceS3{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "RemoteResourceS3",
-			APIVersion: "marketplace.redhat.com",
+			APIVersion: "marketplace.redhat.com/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "parent",
@@ -1415,7 +1613,7 @@ func (r *ReconcileRazeeDeployment) makeParentRemoteResourceS3(instance *marketpl
 						ValueFrom: marketplacev1alpha1.ValueFrom{
 							SecretKeyRef: corev1.SecretKeySelector{
 								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "ibm-cos-reader-key",
+									Name: utils.COS_READER_KEY_NAME,
 								},
 								Key: "accesskey",
 							},
