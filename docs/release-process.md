@@ -202,7 +202,7 @@ This is the last step in the process, normally it'll say quay.io/xx/xx@sha256...
 
 We run the scorecard as well in our Deploy [workflow](#workflows). You'll want to verify that the results of our scorecards tests are valid as well. There can be some false-positive results so a particular test failing does not always mean it's a bad manifest. If the same test is failing, fixing it for our runs will likely fix it for the manifest scanning on Partner Connect.
 
-##### A CR test isn't running properly
+#### A CR test isn't running properly
 
 Sometimes if the example CRs in 'deploy/crds' is updated to the same name as other resources we deploy then the test will fail. This failure normally comes through as `xx resource already exists`. Double check the names are example- or otherwise unique.
 
