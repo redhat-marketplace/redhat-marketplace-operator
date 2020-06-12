@@ -101,8 +101,8 @@ func (in *MarketplaceConfigStatus) DeepCopyInto(out *MarketplaceConfigStatus) {
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make(status.Conditions, len(*in))
-		for key, val := range *in {
-			(*out)[key] = *val.DeepCopy()
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.RazeeSubConditions != nil {
@@ -110,9 +110,9 @@ func (in *MarketplaceConfigStatus) DeepCopyInto(out *MarketplaceConfigStatus) {
 		*out = new(status.Conditions)
 		if **in != nil {
 			in, out := *in, *out
-			*out = make(map[status.ConditionType]status.Condition, len(*in))
-			for key, val := range *in {
-				(*out)[key] = *val.DeepCopy()
+			*out = make([]status.Condition, len(*in))
+			for i := range *in {
+				(*in)[i].DeepCopyInto(&(*out)[i])
 			}
 		}
 	}
@@ -121,9 +121,9 @@ func (in *MarketplaceConfigStatus) DeepCopyInto(out *MarketplaceConfigStatus) {
 		*out = new(status.Conditions)
 		if **in != nil {
 			in, out := *in, *out
-			*out = make(map[status.ConditionType]status.Condition, len(*in))
-			for key, val := range *in {
-				(*out)[key] = *val.DeepCopy()
+			*out = make([]status.Condition, len(*in))
+			for i := range *in {
+				(*in)[i].DeepCopyInto(&(*out)[i])
 			}
 		}
 	}
@@ -227,9 +227,13 @@ func (in *MeterBaseStatus) DeepCopyInto(out *MeterBaseStatus) {
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make(status.Conditions, len(*in))
-		for key, val := range *in {
-			(*out)[key] = *val.DeepCopy()
+		*out = new(status.Conditions)
+		if **in != nil {
+			in, out := *in, *out
+			*out = make([]status.Condition, len(*in))
+			for i := range *in {
+				(*in)[i].DeepCopyInto(&(*out)[i])
+			}
 		}
 	}
 	if in.PrometheusStatus != nil {
@@ -353,8 +357,8 @@ func (in *MeterDefinitionStatus) DeepCopyInto(out *MeterDefinitionStatus) {
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make(status.Conditions, len(*in))
-		for key, val := range *in {
-			(*out)[key] = *val.DeepCopy()
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.ServiceLabels != nil {
@@ -698,8 +702,8 @@ func (in *RazeeDeploymentStatus) DeepCopyInto(out *RazeeDeploymentStatus) {
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make(status.Conditions, len(*in))
-		for key, val := range *in {
-			(*out)[key] = *val.DeepCopy()
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.JobConditions != nil {

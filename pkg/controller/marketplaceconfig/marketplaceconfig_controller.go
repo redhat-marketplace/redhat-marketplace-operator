@@ -386,9 +386,9 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 	if foundMeterBase != nil && foundMeterBase.Status.Conditions != nil {
 		if !utils.ConditionsEqual(
-			foundMeterBase.Status.Conditions,
+			*foundMeterBase.Status.Conditions,
 			*marketplaceConfig.Status.MeterBaseSubConditions) {
-			*marketplaceConfig.Status.MeterBaseSubConditions = foundMeterBase.Status.Conditions
+			*marketplaceConfig.Status.MeterBaseSubConditions = *foundMeterBase.Status.Conditions
 		}
 	}
 
