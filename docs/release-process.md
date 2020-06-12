@@ -192,7 +192,7 @@ Before releasing, we need to do a few steps in partner connect.
 
 ### Troubleshooting
 
-If your upload fails it's scan here are some common problems:
+If your upload fails its scan, here are some common problems:
 
 #### Image verification step fails
 
