@@ -51,6 +51,7 @@ func TestSubscriptionController(t *testing.T) {
 	t.Run("Test New Subscription", testNewSubscription)
 	t.Run("Test New Sub with Existing OG", testNewSubscriptionWithOperatorGroup)
 	t.Run("Test Sub with OG Added", testDeleteOperatorGroupIfTooMany)
+	t.Run("Test Sub deleted", testNewSubscriptionDelete)
 }
 
 var (
@@ -127,6 +128,7 @@ var (
 			Namespace: namespace,
 			Labels: map[string]string{
 				operatorTag: "true",
+				uninstallTag: "true",
 			},
 		},
 		Spec: &olmv1alpha1.SubscriptionSpec{
@@ -147,26 +149,39 @@ func setup(r *ReconcilerTest) error {
 	return nil
 }
 
-func TestNewSubscriptionDelete(t *testing.T) {
+func testNewSubscriptionDelete(t *testing.T) {
 	t.Parallel()
-	 NewReconcilerTest(setup, subscriptionWithStatus, installPlan, currentCSV, objRef)
-	// reconcilerTest.TestAll(t,
-	// 	// Reconcile to create obj
-	// 	ReconcileStep(opts,
-	// 		ReconcileWithExpectedResults(RequeueResult, DoneResult)),
-	// 	// List and check results
-	// 	ListStep(opts,
-	// 		ListWithObj(&olmv1alpha1.Subscription{}),
-	// 		ListWithFilter(
-	// 			client.InNamespace(namespace),
-	// 			GetWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
-	// 				list, ok := i.(*olmv1alpha1.Subscription)
+	reconcilerTest := NewReconcilerTest(setup, subscriptionWithStatus, currentCSV, preExistingOperatorGroup)
+	reconcilerTest.TestAll(t,
+		ReconcileStep(opts,
+			ReconcileWithExpectedResults(DoneResult)),
+		// List and check results
+		ListStep(opts,
+			ListWithObj(&olmv1alpha1.SubscriptionList{}),
+			ListWithFilter(
+				client.InNamespace(namespace),
+				client.MatchingLabels(map[string]string{
+					operatorTag: "true",
+					uninstallTag: "true",
+				}),
+			),
+			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				list, ok := i.(*olmv1alpha1.SubscriptionList)
 
-	// 				assert.Truef(t, ok, "expected operator group list got type %T", i)
-	// 				//
-	// 			}),
-	// 		),
-	// 	))
+				assert.Truef(t, ok, "expected subscription list got type %T", i)
+				assert.Equal(t, 0, len(list.Items))
+			})),
+		ListStep(opts,
+			ListWithObj(&olmv1alpha1.ClusterServiceVersionList{}),
+			ListWithFilter(
+				client.InNamespace(namespace)),
+			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
+
+				assert.Truef(t, ok, "expected csv list got type %T", i)
+				assert.Equal(t, 0, len(list.Items))
+			})),
+	)
 }
 
 func testNewSubscription(t *testing.T) {
