@@ -62,16 +62,21 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	labelPreds := []predicate.Predicate{
 		predicate.Funcs{
+			UpdateFunc: func(evt event.UpdateEvent) bool {
+				operatorTagLabel, okOperator := evt.MetaNew.GetLabels()[operatorTag]
+				return okOperator && operatorTagLabel == "true"
+			},
+			CreateFunc: func(evt event.CreateEvent) bool {
+				operatorTagLabel, ok := evt.Meta.GetLabels()[operatorTag]
+				return ok && operatorTagLabel == "true"
+			},
+			DeleteFunc: func(evt event.DeleteEvent) bool {
+				operatorTagLabel, ok := evt.Meta.GetLabels()[operatorTag]
+				return ok && operatorTagLabel == "true"
+			},
 			GenericFunc: func(evt event.GenericEvent) bool {
-				labels := evt.Meta.GetLabels()
-
-				val, ok := labels[operatorTag]
-
-				if ok && val == "true" {
-					return true
-				}
-
-				return false
+				operatorTagLabel, ok := evt.Meta.GetLabels()[operatorTag]
+				return ok && operatorTagLabel == "true"
 			},
 		},
 	}
@@ -229,7 +234,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 	reqLogger.Info("reconcilation complete")
 	return reconcile.Result{}, nil
 }
-
 
 func (r *ReconcileSubscription) createOperatorGroup(instance *olmv1alpha1.Subscription) *olmv1.OperatorGroup {
 	return &olmv1.OperatorGroup{
