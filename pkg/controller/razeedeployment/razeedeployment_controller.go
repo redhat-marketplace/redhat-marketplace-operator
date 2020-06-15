@@ -382,86 +382,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	APPLY OR UPDATE RAZEE RESOURCES
 	/******************************************************************************/
 	
-	// RemoteResourceS3 controller
-	rrs3Deployment := &appsv1.Deployment{}
-	reqLogger.V(0).Info("Finding RemoteResourceS3 deployment")
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name:      utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-		Namespace: request.Namespace,
-	}, rrs3Deployment)
-	if errors.IsNotFound(err) {
-		reqLogger.V(0).Info("Creating RemoteResourceS3 deployment")
-		rrs3Deployment = r.makeRemoteResourceS3Deployment(instance)
-		err = r.client.Create(context.TODO(), rrs3Deployment)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create RemoteResourceS3 deployment on cluster")
-			return reconcile.Result{}, err
-		}
-		reqLogger.Info("RemoteResourceS3 deployment created successfully")
-
-		message := "RemoteResourceS3 install starting"
-		instance.Status.Conditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ConditionInstalling,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonRazeeRemoteResourceS3DeploymentStart,
-			Message: message,
-		})
-
-		_ = r.client.Status().Update(context.TODO(), instance)
-
-		return reconcile.Result{Requeue: true}, nil
-
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get RemoteResourceS3 from Cluster")
-		return reconcile.Result{}, err
-	}
-
-	//TODO: set ownership ?
-	if err := controllerutil.SetControllerReference(instance, rrs3Deployment, r.scheme); err != nil {
-		reqLogger.Error(err, "Failed to set controller reference")
-		return reconcile.Result{}, err
-	}
-
-	// watch-keeper deployment
-	watchKeeperDeployment := &appsv1.Deployment{}
-	reqLogger.V(0).Info("Finding watch-keeper deployment")
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name:      utils.WATCHKEEPER_DEPLOYMENT_NAME,
-		Namespace: request.Namespace,
-	}, watchKeeperDeployment)
-	if errors.IsNotFound(err) {
-		reqLogger.V(0).Info("Creating watch-keeper deployment")
-		watchKeeperDeployment = r.makeWatchKeeperDeployment(instance)
-		err = r.client.Create(context.TODO(), watchKeeperDeployment)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create watch-keeper deployment on cluster")
-			return reconcile.Result{}, err
-		}
-		reqLogger.Info("watch-keeper deployment created successfully")
-
-		message := "watch-keeper install starting"
-		instance.Status.Conditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ConditionInstalling,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonWatchKeeperDeploymentStart,
-			Message: message,
-		})
-
-		_ = r.client.Status().Update(context.TODO(), instance)
-
-		return reconcile.Result{Requeue: true}, nil
-
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get RemoteResourceS3 from Cluster")
-		return reconcile.Result{}, err
-	}
-
-	//TODO: set ownership ?
-	if err := controllerutil.SetControllerReference(instance, watchKeeperDeployment, r.scheme); err != nil {
-		reqLogger.Error(err, "Failed to set controller reference")
-		return reconcile.Result{}, err
-	}
-
 	razeeNamespace := &corev1.Namespace{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: *instance.Spec.TargetNamespace}, razeeNamespace)
 	if err != nil {
@@ -931,6 +851,85 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	APPLY RRS3 AND WATCHKEEPER DEPLOYMENT
 	/******************************************************************************/
 
+	// RemoteResourceS3 controller
+	rrs3Deployment := &appsv1.Deployment{}
+	reqLogger.V(0).Info("Finding RemoteResourceS3 deployment")
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Name:      utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+		Namespace: request.Namespace,
+	}, rrs3Deployment)
+	if errors.IsNotFound(err) {
+		reqLogger.V(0).Info("Creating RemoteResourceS3 deployment")
+		rrs3Deployment = r.makeRemoteResourceS3Deployment(instance)
+		err = r.client.Create(context.TODO(), rrs3Deployment)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create RemoteResourceS3 deployment on cluster")
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("RemoteResourceS3 deployment created successfully")
+
+		message := "RemoteResourceS3 install starting"
+		instance.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionInstalling,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonRazeeRemoteResourceS3DeploymentStart,
+			Message: message,
+		})
+
+		_ = r.client.Status().Update(context.TODO(), instance)
+
+		return reconcile.Result{Requeue: true}, nil
+
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get RemoteResourceS3 from Cluster")
+		return reconcile.Result{}, err
+	}
+
+	//TODO: set ownership ?
+	if err := controllerutil.SetControllerReference(instance, rrs3Deployment, r.scheme); err != nil {
+		reqLogger.Error(err, "Failed to set controller reference")
+		return reconcile.Result{}, err
+	}
+
+	// watch-keeper deployment
+	watchKeeperDeployment := &appsv1.Deployment{}
+	reqLogger.V(0).Info("Finding watch-keeper deployment")
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Name:      utils.WATCHKEEPER_DEPLOYMENT_NAME,
+		Namespace: request.Namespace,
+	}, watchKeeperDeployment)
+	if errors.IsNotFound(err) {
+		reqLogger.V(0).Info("Creating watch-keeper deployment")
+		watchKeeperDeployment = r.makeWatchKeeperDeployment(instance)
+		err = r.client.Create(context.TODO(), watchKeeperDeployment)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create watch-keeper deployment on cluster")
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("watch-keeper deployment created successfully")
+
+		message := "watch-keeper install starting"
+		instance.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionInstalling,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonWatchKeeperDeploymentStart,
+			Message: message,
+		})
+
+		_ = r.client.Status().Update(context.TODO(), instance)
+
+		return reconcile.Result{Requeue: true}, nil
+
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get RemoteResourceS3 from Cluster")
+		return reconcile.Result{}, err
+	}
+
+	//TODO: set ownership ?
+	if err := controllerutil.SetControllerReference(instance, watchKeeperDeployment, r.scheme); err != nil {
+		reqLogger.Error(err, "Failed to set controller reference")
+		return reconcile.Result{}, err
+	}
 	parentRRS3 := &marketplacev1alpha1.RemoteResourceS3{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *instance.Spec.TargetNamespace}, parentRRS3)
 	if err != nil {
@@ -1160,7 +1159,7 @@ func(r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketplac
 					ServiceAccountName: "redhat-marketplace-watch-keeper",
 					Containers: []corev1.Container{
 						corev1.Container{
-							Image: "quay.io/razee/watch-keeper:0.5.8",
+							Image: "quay.io/mxpaspa/watch-keeper:latest",
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse("400m"),
