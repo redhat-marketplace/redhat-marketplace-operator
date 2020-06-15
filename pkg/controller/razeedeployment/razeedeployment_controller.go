@@ -1159,7 +1159,7 @@ func(r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketplac
 					ServiceAccountName: "redhat-marketplace-watch-keeper",
 					Containers: []corev1.Container{
 						corev1.Container{
-							Image: "quay.io/mxpaspa/watch-keeper:latest",
+							Image: "quay.io/razee/watch-keeper:0.5.8",
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse("400m"),
@@ -1321,7 +1321,6 @@ func(r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *marke
 					ServiceAccountName: "redhat-marketplace-remoteresources3deployment",
 					Containers: []corev1.Container{
 						corev1.Container{
-							//TODO: update this image
 							Image: "quay.io/razee/remoteresources3:0.6.2",
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
