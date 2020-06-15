@@ -1,24 +1,14 @@
-name: Release
+name: Bump Version
 
 on:
-  # To create pull requests.
   push:
     branches:
-      - 'master'
+      - 'develop'
+      - 'hotfix/**'
 
 jobs:
-  build:
-    name: Gitflow
-    runs-on: ubuntu-latest
-    steps:
-    - uses: Logerfo/gitflow-action@0.0.4
-      with:
-        github-token: ${{ secrets.pullRequestSecret }} # The `GITHUB_TOKEN` secret.
-        auto-merge: false
-        dev: develop
-
-  tag:
-    name: Tag
+  version:
+    name: Bump Version
     runs-on: ubuntu-latest
     steps:
       - name: Set up Go 1.x
@@ -34,10 +24,13 @@ jobs:
         run: |
           VERSION=$(make current-version)
           RESULT=$(git tag --list | grep -E "$VERSION")
-          if [ "$RESULT" = "" ] ; then
-            echo "making tag $VERSION"
-            git tag $VERSION
-            git push --tags
+
+          if [ "$RESULT" != "" ] ; then
+            VERSION=$(make bump-version)
+            echo "bumping version to $VERSION"
+            git add version/version.go
+            git commit -m "chore: bumping version to $VERSION"
+            git push
           else
             echo "tag $VERSION already exists" ;
           fi
