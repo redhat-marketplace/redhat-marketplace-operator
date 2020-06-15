@@ -103,7 +103,7 @@ Here is a convenient flow chart to use for releasing:
 
 1. Once the PR checks finish, verify the checks for the PR are passing.
 
-1. Test the newly generated bundles using the `test-catalog-souce`. For more info see [testing latest build](#testing-latest-builds).
+1. Test the newly generated bundles using the `test-catalog-source`. For more info see [testing latest build](#testing-latest-builds).
 
 1. Upload your generated bundle to Partner Connect following these steps [partner connect](#updating-partner-connect).
 
