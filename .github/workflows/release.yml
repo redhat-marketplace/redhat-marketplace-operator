@@ -31,6 +31,8 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Tag version
+        continue-on-error: true
+        shell: bash {0}
         run: |
           VERSION=$(make current-version)
           RESULT=$(git tag --list | grep -E "$VERSION")

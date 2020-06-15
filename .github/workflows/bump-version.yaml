@@ -20,17 +20,19 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
-      - name: Tag version
+      - name: Bump version
+        continue-on-error: true
+        shell: bash {0}
         run: |
           VERSION=$(make current-version)
           RESULT=$(git tag --list | grep -E "$VERSION")
 
           if [ "$RESULT" != "" ] ; then
-            VERSION=$(make bump-version)
-            echo "bumping version to $VERSION"
+            NEWVERSION=$(make bump-version)
+            echo "bumping $VERSION to $NEWVERSION"
             git add version/version.go
-            git commit -m "chore: bumping version to $VERSION"
+            git commit -m "chore: bumping version from $VERSION to $NEWVERSION"
             git push
           else
-            echo "tag $VERSION already exists" ;
+            echo "$VERSION is already bumped" ;
           fi
