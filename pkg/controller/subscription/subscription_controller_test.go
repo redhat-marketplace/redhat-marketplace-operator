@@ -16,7 +16,9 @@ package subscription
 
 import (
 	"testing"
+	"time"
 
+	"github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 
 	"context"
@@ -51,7 +53,7 @@ func TestSubscriptionController(t *testing.T) {
 	t.Run("Test New Subscription", testNewSubscription)
 	t.Run("Test New Sub with Existing OG", testNewSubscriptionWithOperatorGroup)
 	t.Run("Test Sub with OG Added", testDeleteOperatorGroupIfTooMany)
-	t.Run("Test Sub deleted", testNewSubscriptionDelete)
+	t.Run("Test Sub deletion", testSubscriptionDelete)
 }
 
 var (
@@ -96,15 +98,25 @@ var (
 	installPlan = &olmv1alpha1.InstallPlan{
 		TypeMeta: v1.TypeMeta{},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test",
+			Name:      "testInstallPlan",
 			Namespace: namespace,
 		},
-		Spec:   olmv1alpha1.InstallPlanSpec{},
-		Status: olmv1alpha1.InstallPlanStatus{},
+		Spec: olmv1alpha1.InstallPlanSpec{},
+		Status: olmv1alpha1.InstallPlanStatus{
+			Phase: olmv1alpha1.InstallPlanPhaseRequiresApproval,
+		},
 	}
 
-	installPlanRef = &olmv1alpha1.InstallPlanReference{
-		Name: "test",
+	installPlanWithPhaseFailed = &olmv1alpha1.InstallPlan{
+		TypeMeta: v1.TypeMeta{},
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "testInstallPlanWithPhaseFailed",
+			Namespace: namespace,
+		},
+		Spec: olmv1alpha1.InstallPlanSpec{},
+		Status: olmv1alpha1.InstallPlanStatus{
+			Phase: olmv1alpha1.InstallPlanPhaseFailed,
+		},
 	}
 
 	currentCSV = &olmv1alpha1.ClusterServiceVersion{
@@ -118,7 +130,12 @@ var (
 	}
 
 	objRef = &corev1.ObjectReference{
-		Name:      "test",
+		Name:      "testInstallPlan",
+		Namespace: namespace,
+	}
+
+	objRefInstallPlanPhaseFailed = &corev1.ObjectReference{
+		Name:      "testInstallPlanWithPhaseFailed",
 		Namespace: namespace,
 	}
 
@@ -127,7 +144,7 @@ var (
 			Name:      name,
 			Namespace: namespace,
 			Labels: map[string]string{
-				operatorTag: "true",
+				operatorTag:  "true",
 				uninstallTag: "true",
 			},
 		},
@@ -135,10 +152,56 @@ var (
 			CatalogSource:          "source",
 			CatalogSourceNamespace: "source-namespace",
 			Package:                "source-package",
+			InstallPlanApproval:    olmv1alpha1.ApprovalManual,
 		},
 		Status: olmv1alpha1.SubscriptionStatus{
 			CurrentCSV:     "test",
 			InstallPlanRef: objRef,
+			State:          olmv1alpha1.SubscriptionStateUpgradePending,
+		},
+	}
+
+	subscriptionWithStatusWithInstallPlanPhaseFailed = &olmv1alpha1.Subscription{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels: map[string]string{
+				operatorTag:  "true",
+				uninstallTag: "true",
+			},
+		},
+		Spec: &olmv1alpha1.SubscriptionSpec{
+			CatalogSource:          "source",
+			CatalogSourceNamespace: "source-namespace",
+			Package:                "source-package",
+			InstallPlanApproval:    olmv1alpha1.ApprovalManual,
+		},
+		Status: olmv1alpha1.SubscriptionStatus{
+			CurrentCSV:     "test",
+			InstallPlanRef: objRefInstallPlanPhaseFailed,
+			State:          olmv1alpha1.SubscriptionStateUpgradePending,
+		},
+	}
+
+	subscriptionWithStatusWithInstallPlanApprovalAuto = &olmv1alpha1.Subscription{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels: map[string]string{
+				operatorTag:  "true",
+				uninstallTag: "true",
+			},
+		},
+		Spec: &olmv1alpha1.SubscriptionSpec{
+			CatalogSource:          "source",
+			CatalogSourceNamespace: "source-namespace",
+			Package:                "source-package",
+			InstallPlanApproval:    olmv1alpha1.ApprovalAutomatic,
+		},
+		Status: olmv1alpha1.SubscriptionStatus{
+			CurrentCSV:     "test",
+			InstallPlanRef: objRefInstallPlanPhaseFailed,
+			State:          olmv1alpha1.SubscriptionStateUpgradePending,
 		},
 	}
 )
@@ -149,39 +212,109 @@ func setup(r *ReconcilerTest) error {
 	return nil
 }
 
-func testNewSubscriptionDelete(t *testing.T) {
+func testSubscriptionDelete(t *testing.T) {
 	t.Parallel()
-	reconcilerTest := NewReconcilerTest(setup, subscriptionWithStatus, currentCSV, preExistingOperatorGroup)
-	reconcilerTest.TestAll(t,
-		ReconcileStep(opts,
-			ReconcileWithExpectedResults(DoneResult)),
-		// List and check results
-		ListStep(opts,
-			ListWithObj(&olmv1alpha1.SubscriptionList{}),
-			ListWithFilter(
-				client.InNamespace(namespace),
-				client.MatchingLabels(map[string]string{
-					operatorTag: "true",
-					uninstallTag: "true",
-				}),
-			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
-				list, ok := i.(*olmv1alpha1.SubscriptionList)
+	t.Run("test subscription deletion", func(t *testing.T) {
+		reconcilerTest := NewReconcilerTest(setup, subscriptionWithStatus, currentCSV, preExistingOperatorGroup, installPlan)
+		reconcilerTest.TestAll(t,
+			ReconcileStep(opts,
+				ReconcileWithExpectedResults(DoneResult)),
+			// List and check results
+			ListStep(opts,
+				ListWithObj(&olmv1alpha1.SubscriptionList{}),
+				ListWithFilter(
+					client.InNamespace(namespace),
+					client.MatchingLabels(map[string]string{
+						operatorTag:  "true",
+						uninstallTag: "true",
+					}),
+				),
+				ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+					list, ok := i.(*olmv1alpha1.SubscriptionList)
 
-				assert.Truef(t, ok, "expected subscription list got type %T", i)
-				assert.Equal(t, 0, len(list.Items))
-			})),
-		ListStep(opts,
-			ListWithObj(&olmv1alpha1.ClusterServiceVersionList{}),
-			ListWithFilter(
-				client.InNamespace(namespace)),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
-				list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
+					assert.Truef(t, ok, "expected subscription list got type %T", i)
+					assert.Equal(t, 0, len(list.Items))
+				})),
+			ListStep(opts,
+				ListWithObj(&olmv1alpha1.ClusterServiceVersionList{}),
+				ListWithFilter(
+					client.InNamespace(namespace)),
+				ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+					list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
 
-				assert.Truef(t, ok, "expected csv list got type %T", i)
-				assert.Equal(t, 0, len(list.Items))
-			})),
-	)
+					assert.Truef(t, ok, "expected csv list got type %T", i)
+					assert.Equal(t, 0, len(list.Items))
+				})),
+		)
+	})
+
+	t.Run("test subscription deletion with InstallPlan phase failed", func(t *testing.T) {
+		reconcilerTest := NewReconcilerTest(setup, subscriptionWithStatusWithInstallPlanPhaseFailed, currentCSV, preExistingOperatorGroup, installPlanWithPhaseFailed)
+		reconcilerTest.TestAll(t,
+			ReconcileStep(opts,
+				ReconcileWithExpectedResults(rectest.ReconcileResult{Result: reconcile.Result{RequeueAfter: 5 * time.Second, Requeue: true}, Err: nil})),
+			// List and check results
+			ListStep(opts,
+				ListWithObj(&olmv1alpha1.SubscriptionList{}),
+				ListWithFilter(
+					client.InNamespace(namespace),
+					client.MatchingLabels(map[string]string{
+						operatorTag:  "true",
+						uninstallTag: "true",
+					}),
+				),
+				ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+					list, ok := i.(*olmv1alpha1.SubscriptionList)
+
+					assert.Truef(t, ok, "expected subscription list got type %T", i)
+					assert.Equal(t, 1, len(list.Items))
+				})),
+			ListStep(opts,
+				ListWithObj(&olmv1alpha1.ClusterServiceVersionList{}),
+				ListWithFilter(
+					client.InNamespace(namespace)),
+				ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+					list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
+
+					assert.Truef(t, ok, "expected csv list got type %T", i)
+					assert.Equal(t, 1, len(list.Items))
+				})),
+		)
+	})
+
+	t.Run("test subscription deletion with InstallPlan approval automatic ", func(t *testing.T) {
+		reconcilerTest := NewReconcilerTest(setup, subscriptionWithStatusWithInstallPlanApprovalAuto, currentCSV, preExistingOperatorGroup, installPlanWithPhaseFailed)
+		reconcilerTest.TestAll(t,
+			ReconcileStep(opts,
+				ReconcileWithExpectedResults(rectest.ReconcileResult{Result: reconcile.Result{RequeueAfter: 5 * time.Second, Requeue: true}, Err: nil})),
+			// List and check results
+			ListStep(opts,
+				ListWithObj(&olmv1alpha1.SubscriptionList{}),
+				ListWithFilter(
+					client.InNamespace(namespace),
+					client.MatchingLabels(map[string]string{
+						operatorTag:  "true",
+						uninstallTag: "true",
+					}),
+				),
+				ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+					list, ok := i.(*olmv1alpha1.SubscriptionList)
+
+					assert.Truef(t, ok, "expected subscription list got type %T", i)
+					assert.Equal(t, 1, len(list.Items))
+				})),
+			ListStep(opts,
+				ListWithObj(&olmv1alpha1.ClusterServiceVersionList{}),
+				ListWithFilter(
+					client.InNamespace(namespace)),
+				ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+					list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
+
+					assert.Truef(t, ok, "expected csv list got type %T", i)
+					assert.Equal(t, 1, len(list.Items))
+				})),
+		)
+	})
 }
 
 func testNewSubscription(t *testing.T) {
