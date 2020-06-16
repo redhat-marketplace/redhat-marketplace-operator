@@ -49,10 +49,10 @@ type RazeeConfigurationValues struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	RazeeDashUrl string `json:"razeeDashUrl,omitempty"`
-	// The url of the filesource arg that gets passed into the razeedeploy-job
+	// DEPRECATED: The url of the filesource arg that gets passed into the razeedeploy-job
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	FileSourceURL string `json:"fileSourceUrl,omitempty"`
+	FileSourceURL *string `json:"fileSourceUrl,omitempty"`
 }
 
 // RazeeDeploymentSpec defines the desired state of RazeeDeployment
@@ -109,14 +109,14 @@ type RazeeDeploymentStatus struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	Conditions status.Conditions `json:"installConditions,omitempty"`
-	// Conditions represent the latest available observations of an object's stateonfig
+	// Conditions DEPRECATED:represent the latest available observations of an object's stateonfig
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	JobConditions *batch.JobCondition `json:"conditions,omitempty"`
-	// JobState is the status of the Razee Install Job
+	// JobState DEPRECATED:is the status of the Razee Install Job
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
-	JobState batch.JobStatus `json:"jobState,omitempty"`
+	JobState *batch.JobStatus `json:"jobState,omitempty"`
 
 	// MissingValuesFromSecret validates the secret provided has all the correct fields
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true

@@ -52,8 +52,8 @@ spec:
                   description: The file name of the child RemoteResourecS3
                   type: string
                 fileSourceUrl:
-                  description: The url of the filesource arg that gets passed into
-                    the razeedeploy-job
+                  description: 'DEPRECATED: The url of the filesource arg that gets
+                    passed into the razeedeploy-job'
                   type: string
                 ibmCosReaderKey:
                   description: Api key used to access the bucket IBM COS
@@ -117,7 +117,7 @@ spec:
           description: RazeeDeploymentStatus defines the observed state of RazeeDeployment
           properties:
             conditions:
-              description: Conditions represent the latest available observations
+              description: Conditions DEPRECATED:represent the latest available observations
                 of an object's stateonfig
               properties:
                 lastProbeTime:
@@ -188,7 +188,8 @@ spec:
                 type: object
               type: array
             jobState:
-              description: JobState is the status of the Razee Install Job
+              description: JobState DEPRECATED:is the status of the Razee Install
+                Job
               properties:
                 active:
                   description: The number of actively running pods.

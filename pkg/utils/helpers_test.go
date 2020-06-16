@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -18,7 +18,7 @@ const (
 	TEST_RAZEE_DASH_ORG_KEY_FIELD = "razee-dash-org-key"
 	TEST_CHILD_RRS3_YAML_FIELD    = "childRRS3-filename"
 	TEST_RAZEE_DASH_URL_FIELD     = "razee-dash-url"
-	TEST_FILE_SOURCE_URL_FIELD    = "file-source-url"
+
 )
 
 func TestAddSecretFieldsToStruct(t *testing.T) {
@@ -48,7 +48,6 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 				},
 				ChildRSS3FIleName: TEST_CHILD_RRS3_YAML_FIELD,
 				RazeeDashUrl:      TEST_RAZEE_DASH_URL_FIELD,
-				FileSourceURL:     TEST_FILE_SOURCE_URL_FIELD,
 			},
 		},
 	}
@@ -65,7 +64,6 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 			RAZEE_DASH_ORG_KEY_FIELD: []byte(TEST_RAZEE_DASH_ORG_KEY_FIELD),
 			CHILD_RRS3_YAML_FIELD:    []byte(TEST_CHILD_RRS3_YAML_FIELD),
 			RAZEE_DASH_URL_FIELD:     []byte(TEST_RAZEE_DASH_URL_FIELD),
-			FILE_SOURCE_URL_FIELD:    []byte(TEST_FILE_SOURCE_URL_FIELD),
 		},
 	}
 
@@ -81,8 +79,6 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 			BUCKET_NAME_FIELD:        []byte(TEST_BUCKET_NAME_FIELD),
 			RAZEE_DASH_ORG_KEY_FIELD: []byte(TEST_RAZEE_DASH_ORG_KEY_FIELD),
 			CHILD_RRS3_YAML_FIELD:    []byte(TEST_CHILD_RRS3_YAML_FIELD),
-			RAZEE_DASH_URL_FIELD:     []byte(TEST_RAZEE_DASH_URL_FIELD),
-			// FILE_SOURCE_URL_FIELD:    []byte("file-source-url"),
 		},
 	}
 
@@ -103,7 +99,6 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 		},
 		ChildRSS3FIleName: "childRRS3-filename",
 		RazeeDashUrl:      "razee-dash-url",
-		FileSourceURL:     "file-source-url",
 	}
 
 	// test that it returns the correct format if all keys are present
@@ -122,22 +117,23 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 		t.Errorf("failed with error %v", err)
 	}
 
-	// test that it appends the correct missing value if the secret is missing a field
+	// test that it appends the correct missing values if the secret is missing a field
 	_, missingItems, err = AddSecretFieldsToStruct(secretWithMissingValue.Data, instance)
 
-	if !Contains(missingItems, FILE_SOURCE_URL_FIELD) {
-		t.Errorf("missingItems should be contain missing field %v", FILE_SOURCE_URL_FIELD)
+	if !Contains(missingItems, RAZEE_DASH_URL_FIELD) {
+		t.Errorf("missingItems should contain missing field %v", RAZEE_DASH_URL_FIELD)
 	}
 
 	if err != nil {
 		t.Errorf("failed with error %v", err)
 	}
 
-	// test that if a field is missing from the secret that struct value on Spec.DeployConfig doesn't get set to nil/omitted
+	// test that if a field is missing from the secret, the corresponding struct value on Spec.DeployConfig doesn't get set to nil/omitted
 	returnedRazeeConfigValues, missingItems, err = AddSecretFieldsToStruct(secretWithMissingValue.Data, instance)
 
-	if returnedRazeeConfigValues.FileSourceURL != TEST_FILE_SOURCE_URL_FIELD {
-		t.Errorf("RazeeConfigurationValues.FileSourceURL overwritten")
+	if returnedRazeeConfigValues.RazeeDashUrl != RAZEE_DASH_URL_FIELD {
+		PrettyPrint(returnedRazeeConfigValues)
+		t.Errorf("RazeeConfigurationValues.BucketName overwritten")
 	}
 
 	if err != nil {

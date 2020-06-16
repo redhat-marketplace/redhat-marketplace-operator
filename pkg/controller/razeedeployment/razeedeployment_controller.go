@@ -288,14 +288,26 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	/******************************************************************************
 	PROCEED WITH CREATING RAZEE PREREQUISITES?
 	/******************************************************************************/
-	// legacy crd value
+
 	if instance.Status.LocalSecretVarsPopulated != nil {
 		instance.Status.LocalSecretVarsPopulated = nil
 	}
 
-	// legacy crd value
 	if instance.Status.RedHatMarketplaceSecretFound != nil {
 		instance.Status.RedHatMarketplaceSecretFound = nil
+	}
+
+	//TODO: if Dianemo just leaves off file source url on rhm-operator-secret it should set to null
+	if instance.Spec.DeployConfig != nil && instance.Spec.DeployConfig.FileSourceURL != nil{
+		instance.Spec.DeployConfig.FileSourceURL = nil
+	}
+
+	if instance.Status.JobConditions != nil {
+		instance.Status.JobConditions = nil
+	}
+	
+	if instance.Status.JobState != nil {
+		instance.Status.JobState = nil
 	}
 
 	if instance.Spec.DeployConfig == nil {

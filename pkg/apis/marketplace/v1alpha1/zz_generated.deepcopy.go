@@ -626,6 +626,11 @@ func (in *RazeeConfigurationValues) DeepCopyInto(out *RazeeConfigurationValues) 
 		*out = new(corev1.SecretKeySelector)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.FileSourceURL != nil {
+		in, out := &in.FileSourceURL, &out.FileSourceURL
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 
@@ -751,7 +756,11 @@ func (in *RazeeDeploymentStatus) DeepCopyInto(out *RazeeDeploymentStatus) {
 		*out = new(batchv1.JobCondition)
 		(*in).DeepCopyInto(*out)
 	}
-	in.JobState.DeepCopyInto(&out.JobState)
+	if in.JobState != nil {
+		in, out := &in.JobState, &out.JobState
+		*out = new(batchv1.JobStatus)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.MissingDeploySecretValues != nil {
 		in, out := &in.MissingDeploySecretValues, &out.MissingDeploySecretValues
 		*out = make([]string, len(*in))

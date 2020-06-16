@@ -138,6 +138,7 @@ roles:
           - razeedeployments
           - meterbases
           - marketplaceconfigs
+          - remoteresources3s
         verbs:
           - '*'
       - apiGroups:
@@ -179,16 +180,34 @@ roles:
     rules:
       - apiGroups:
         - operator.coreos.com
+        - marketplace.redhat.com
         #TODO: is this the extensive list
         resources:
         - subscriptions
         - installplans
+        - remoteresources3s
         verbs:
         - create
         - delete
         - get
         - list
-       #TODO: need this ? 
+        - watch
+        - patch
+      - nonResourceURLs:
+          - '*'
+        verbs:
+          - '*'
+# redhat-marketplace-remoteresources3deployment ClusterRole
+  - name: redhat-marketplace-remoteresources3deployment
+    serviceAccountName: redhat-marketplace-remoteresources3deployment
+    type: Role
+    rules:
+      - apiGroups:
+        - '*'
+        resources:
+        - '*'
+        verbs:
+        - '*'
       - nonResourceURLs:
           - '*'
         verbs:

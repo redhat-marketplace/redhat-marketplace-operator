@@ -17,6 +17,7 @@ package utils
 import (
 	"context"
 	b64 "encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -127,7 +128,6 @@ func AddSecretFieldsToStruct(razeeData map[string][]byte, instance marketplacev1
 		RAZEE_DASH_ORG_KEY_FIELD,
 		CHILD_RRS3_YAML_FIELD,
 		RAZEE_DASH_URL_FIELD,
-		FILE_SOURCE_URL_FIELD,
 	}
 
 	for key, element := range razeeData {
@@ -168,9 +168,6 @@ func AddSecretFieldsToStruct(razeeData map[string][]byte, instance marketplacev1
 		case RAZEE_DASH_URL_FIELD:
 			razeeStruct.RazeeDashUrl = value
 
-		case FILE_SOURCE_URL_FIELD:
-			razeeStruct.FileSourceURL = value
-
 		}
 	}
 
@@ -204,4 +201,9 @@ func ConditionsEqual(a status.Conditions, b status.Conditions) bool {
 		}
 	}
 	return true
+}
+
+func PrettyPrint( in interface{}){
+	out, _ := json.MarshalIndent(in, "", "    ")
+	println(string(out))
 }

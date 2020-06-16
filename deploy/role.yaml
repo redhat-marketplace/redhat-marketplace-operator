@@ -132,6 +132,7 @@ rules:
   - razeedeployments
   - meterbases
   - marketplaceconfigs
+  - remoteresources3s
   verbs:
   - '*'
 - apiGroups:
@@ -175,14 +176,18 @@ metadata:
 rules:
 - apiGroups:
   - operator.coreos.com
+  - marketplace.redhat.com
   resources:
   - subscriptions
   - installplans
+  - remoteresources3s
   verbs:
   - create
   - delete
   - get
   - list
+  - watch
+  - patch
 - nonResourceURLs:
   - '*'
   verbs:
@@ -208,6 +213,20 @@ rules:
   - get
   - list
   - watch
+---
+# Source: redhat-marketplace-operator-template-chart/templates/role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: redhat-marketplace-remoteresources3deployment
+  namespace: openshift-redhat-marketplace
+rules:
+- apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
+  - '*'
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -295,19 +314,4 @@ rules:
   - list
   - patch
   - update
-  - watch
-- apiGroups:
-  - ""
-  resourceNames:
-  - razeedeploy-sa
-  - watch-keeper-sa
-  resources:
-  - serviceaccounts
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - update
-  - patch
   - watch
