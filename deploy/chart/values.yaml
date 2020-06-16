@@ -208,10 +208,6 @@ roles:
         - '*'
         verbs:
         - '*'
-      - nonResourceURLs:
-          - '*'
-        verbs:
-          - '*'
 # redhat-marketplace-watch-keeper ClusterRole
   - name: redhat-marketplace-watch-keeper
     serviceAccountName: redhat-marketplace-watch-keeper
