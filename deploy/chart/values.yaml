@@ -194,19 +194,18 @@ roles:
         verbs:
           - '*'
 # redhat-marketplace-watch-keeper ClusterRole
-  - apiVersion: rbac.authorization.k8s.io/v1
-    kind: ClusterRole
-    metadata:
-      name: redhat-marketplace-watch-keeper
+  - name: redhat-marketplace-watch-keeper
+    serviceAccountName: redhat-marketplace-watch-keeper
+    type: ClusterRole
     rules:
-    - apiGroups:
-      - '*'
-      resources:
-      - '*'
-      verbs: ["get", "list", "watch"]
-    - nonResourceURLs:
-      - '*'
-      verbs: ["get", "list", "watch"]
+      - apiGroups:
+        - '*'
+        resources:
+        - '*'
+        verbs: ["get", "list", "watch"]
+      - nonResourceURLs:
+        - '*'
+        verbs: ["get", "list", "watch"]
 # rhm-operator Role
   - name: redhat-marketplace-operator
     serviceAccountName: redhat-marketplace-operator

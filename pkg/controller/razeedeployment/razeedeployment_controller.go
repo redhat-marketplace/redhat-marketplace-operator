@@ -1269,7 +1269,7 @@ func(r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketplac
 								},
 							},
 							ImagePullPolicy: corev1.PullAlways,
-							Name: "remoteresources3-controller",
+							Name: "watch-keeper",
 							LivenessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
 									Exec: &corev1.ExecAction{
@@ -1408,7 +1408,8 @@ func(r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *marke
 	}
 }
 
-// Creates the razee-cluster-metadata config map and applies the TargetNamespace and the ClusterUUID stored on the Razeedeployment cr
+// Creates the razee-cluster-metadata config map and applies the TargetNamespace and the ClusterUUID stored on the Razeedeployment cr.
+// Used by the watch-keeper deployment to populate cluster UUID
 func (r *ReconcileRazeeDeployment) makeRazeeClusterMetaData(instance *marketplacev1alpha1.RazeeDeployment) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
