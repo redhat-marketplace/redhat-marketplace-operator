@@ -1,27 +1,51 @@
 # Getting started
 
-## Requirements
+<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
+**Table of Contents**
+- [Prerequisites](#prerequisites)
+- [Learning](#learning-topics)
+- [Setup](#setup-your-local-dev)
+- [Local-Development](#local-development)
+<!-- markdown-toc end -->
 
+## Prerequisites
+
+These are the required tools (and coding languages) to get the project up and running.
 1. Install [golang](https://golang.org/doc/install)
 1. Install [operator-sdk](https://github.com/operator-framework/operator-sdk)
-1. Install [minikube](https://kubernetes.io/docs/tasks/tools/install-minikube/)
-1. Install [CRC](https://developers.redhat.com/products/codeready-containers)
+1. Install [minikube](https://kubernetes.io/docs/tasks/tools/install-minikube/) or Install [CRC](https://developers.redhat.com/products/codeready-containers) (**Recommended**)
 
-## New to golang? Operators? Kubernetes?
+## Learning Topics
+New to golang? Operators? Kubernetes? Here is Everything you need to know.
+
+
+### Core learning
+These are core skills that are always applicable, regardless of what aspect of the project you are working on.
 
 - Golang
   - [Golang tour](https://tour.golang.org/welcome/1)
-  - [Pointers](https://tour.golang.org/moretypes/1) **Recommended**
-  - [Concurrency](https://tour.golang.org/concurrency/1) **Recommended**
-  - [Channels](https://tour.golang.org/concurrency/2) **Recommended**
+  - [Pointers](https://tour.golang.org/moretypes/1) (**Recommended**)
+  - [Concurrency](https://tour.golang.org/concurrency/1) (**Recommended**)
+  - [Channels](https://tour.golang.org/concurrency/2) (**Recommended**)
 - Operators
   - [Read the intro blog ](https://coreos.com/blog/introducing-operators.html)
-  - Walk through the [operator-sdk getting
-    started](https://github.com/operator-framework/getting-started)
+  - Walk through the [operator-sdk getting started](https://github.com/operator-framework/getting-started)
 - Kubernetes
   - [Basics](https://kubernetes.io/docs/tutorials/kubernetes-basics/)
-  - [Deploy a
-    deploymentset](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
+  - [Deploy a deploymentset](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
+
+### Additional learning
+These are additional skills that may or may not be applicable, depending on which aspect of the project you are working oon.
+
+- Prometheus
+  - [Getting started](https://prometheus.io/docs/prometheus/latest/getting_started/)
+  - [Metric Types](https://prometheus.io/docs/concepts/metric_types/)
+  - [Prometheus and Golang](https://prometheus.io/docs/guides/go-application/)
+  - [Prometheus Operator](https://github.com/coreos/prometheus-operator/blob/master/Documentation/user-guides/getting-started.md) **Recommended**
+- Razee
+ - PlaceHolder
+- OLM
+ - PlaceHolder
 
 ## Set up your local dev
 

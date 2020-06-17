@@ -1,6 +1,8 @@
 # Table of Contents
 
+## Learning and Setup
 [Getting started](getting-started.md)
+[Learning Deep Dive](deep-dive.md)
 
 ## Release
 
