@@ -88,7 +88,7 @@ for installs and you'll need to install that operator by hand.
 ### Building
 
 ```sh
-# Builds the executable
+# Builds the executable and packages the docker image
  make build
 ```
 
@@ -113,6 +113,7 @@ make build uninstall install
 
 ```
 
+
 ### Testing
 
 ```sh
@@ -131,7 +132,9 @@ make test-e2e
 ```
 
 
-## Developing with Skaffold (automatic)
+## Local Development
+
+### Developing with Skaffold (automatic)
 
 For a faster dev experience you may enjoy skaffold.
 
@@ -145,4 +148,14 @@ make skaffold-dev
 
 # Run skaffold in run mode, will not watch changes
 make skaffold-run
+```
+
+### Running locally using operator-sdk (automatic)
+
+This is a very fast method of rebuilding locally. It uses the same roles as the real operator by supplying a kubeconfig to the operator-sdk run command.
+
+This is recommended if you do not want to pull and push images to remote registries.
+
+```sh
+make setup-operator-sdk-run operator-sdk-run
 ```

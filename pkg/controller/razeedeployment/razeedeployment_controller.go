@@ -1436,14 +1436,16 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 		if err == nil {
 			for _, cr := range customResourceList.Items {
 				reqLogger.Info("Deleteing custom resource", "custom resource", cr)
-
-				err := r.client.Delete(context.TODO(), &cr, client.PropagationPolicy(deletePolicy))
+				err := r.client.Delete(context.TODO(), &cr)
 				if err != nil && !errors.IsNotFound(err) {
 					reqLogger.Error(err, "could not delete custom resource", "custom resource", cr)
 				}
 			}
 		}
 	}
+
+	// sleep 5 seconds to let custom resource deletion complete
+	time.Sleep(time.Second * 5)
 
 	configMaps := []string{
 		utils.WATCH_KEEPER_CONFIG_NAME,

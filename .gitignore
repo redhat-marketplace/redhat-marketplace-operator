@@ -112,3 +112,7 @@ cover.out
 bundle/
 
 .action-secrets.txt
+.osdk-scorecard.yaml
+cache/
+scorecard-output.json
+.env-prod
