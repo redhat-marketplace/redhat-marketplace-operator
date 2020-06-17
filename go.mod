@@ -15,8 +15,8 @@ require (
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32 // indirect
 	github.com/go-logr/logr v0.1.0
-	github.com/golang/mock v1.4.3
 	github.com/go-openapi/spec v0.19.4 // indirect
+	github.com/golang/mock v1.4.3
 	github.com/golang/protobuf v1.4.0 // indirect
 	github.com/golangci/golangci-lint v1.27.0
 	github.com/google/uuid v1.1.1
@@ -53,6 +53,7 @@ require (
 	k8s.io/apimachinery v0.18.3
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
+	k8s.io/kubectl v0.18.2
 	sigs.k8s.io/controller-runtime v0.6.0
 )
 

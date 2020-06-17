@@ -1,18 +1,8 @@
 package reconcileutils
 
 import (
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
-
-type ActionResult interface {
-	GetResult() ActionResultStatus
-	Is(ActionResultStatus) bool
-	GetReconcile() reconcile.Result
-	GetError() error
-	Return() (reconcile.Result, error)
-	Object() runtime.Object
-}
 
 type ActionResultStatus string
 
@@ -25,7 +15,6 @@ var (
 
 type ExecResult struct {
 	Status          ActionResultStatus
-	ResultObject    runtime.Object
 	ReconcileResult reconcile.Result
 	Err             error
 }
@@ -50,18 +39,12 @@ func (e *ExecResult) Return() (reconcile.Result, error) {
 	return e.ReconcileResult, e.Err
 }
 
-func (e *ExecResult) Object() runtime.Object {
-	return e.ResultObject
-}
-
 func NewExecResult(
 	status ActionResultStatus,
-	resultObject runtime.Object,
 	reconcileResult reconcile.Result,
 	err error) *ExecResult {
 	return &ExecResult{
 		Status:          status,
-		ResultObject:    resultObject,
 		ReconcileResult: reconcileResult,
 		Err:             err,
 	}

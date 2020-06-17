@@ -27,9 +27,9 @@ type UpdateActionOption interface {
 	apply(*updateActionOptions) error
 }
 
-func UpdateWithPatch(o bool) ApplyUpdateActionOptionFunc {
+func UpdateWithStatusCondition(o UpdateStatusConditionFunc) ApplyUpdateActionOptionFunc {
 	return func(c *updateActionOptions) error {
-		c.Patch = o
+		c.WithStatusCondition = o
 		return nil
 	}
 }
