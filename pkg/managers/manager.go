@@ -26,6 +26,7 @@ import (
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -52,7 +53,6 @@ var (
 	metricsHost               = "0.0.0.0"
 	metricsPort         int32 = 8383
 	operatorMetricsPort int32 = 8686
-	promHttpPort              = ":2112"
 )
 
 var log = logf.Log.WithName("cmd")
@@ -116,10 +116,10 @@ func (m *ControllerMain) Run() {
 		os.Exit(1)
 	}
 
-	// Expose custom metrics to localhost:2112/metrics
+	// Expose custom metrics to port 2112/metrics
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
-		http.ListenAndServe(promHttpPort, nil)
+		http.ListenAndServe(utils.CUSTOM_METRICS_PORT_STRINGVAL, nil)
 	}()
 
 	// Get a config to talk to the apiserver
@@ -208,6 +208,7 @@ func addMetrics(ctx context.Context, cfg *rest.Config) {
 	servicePorts := []v1.ServicePort{
 		{Port: metricsPort, Name: metrics.OperatorPortName, Protocol: v1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: metricsPort}},
 		{Port: operatorMetricsPort, Name: metrics.CRPortName, Protocol: v1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: operatorMetricsPort}},
+		{Port: utils.CUSTOM_METRICS_PORT, Name: utils.CUSTOM_METRICS_PORT_NAME, Protocol: v1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: utils.CUSTOM_METRICS_PORT}},
 	}
 
 	// Create Service object to expose the metrics port(s).
