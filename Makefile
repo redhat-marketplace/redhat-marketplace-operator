@@ -137,10 +137,10 @@ code-gen: ## Run the operator-sdk commands to generated code (k8s and crds)
 
 setup-minikube: ## Setup minikube for full operator dev
 	@echo Installing operatorframework
-	kubectl apply -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/0.15.1/crds.yaml
-	kubectl apply -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/0.15.1/olm.yaml
+	- kubectl apply -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/0.15.1/crds.yaml
+	- kubectl apply -f https://github.com/operator-framework/operator-lifecycle-manager/releases/download/0.15.1/olm.yaml
 	@echo Applying prometheus operator
-	kubectl apply -f https://raw.githubusercontent.com/coreos/prometheus-operator/master/bundle.yaml
+	- kubectl apply -f https://raw.githubusercontent.com/coreos/prometheus-operator/master/bundle.yaml
 	@echo Apply kube-state
 	for item in cluster-role.yaml service-account.yaml cluster-role-binding.yaml deployment.yaml service.yaml ; do \
 		kubectl apply -f https://raw.githubusercontent.com/kubernetes/kube-state-metrics/master/examples/standard/$$item ; \
@@ -205,6 +205,9 @@ delete-razee: ##delete the razee CR
 create-razee: ##create the razee CR
 	@echo creating razee CR
 	- kubectl create -f  deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
+
+deploy-prometheus: ## create resources for prometheus instance (prometheus UI available on port 30900)
+	- kubectl apply -f assets/custom-prometheus/
 
 ##@ Tests
 

@@ -25,6 +25,8 @@ spec:
               containerPort: 8383
             - name: cr-metrics
               containerPort: 8686
+            - name: custom-metrics
+              containerPort: 2112
           imagePullPolicy: {{ .Values.pullPolicy }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
