@@ -16,7 +16,6 @@ package subscription
 
 import (
 	"context"
-	"time"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -64,19 +63,23 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		predicate.Funcs{
 			UpdateFunc: func(evt event.UpdateEvent) bool {
 				operatorTagLabel, okOperator := evt.MetaNew.GetLabels()[operatorTag]
-				return okOperator && operatorTagLabel == "true"
+				uninstallTagLabel, okUninstall := evt.MetaNew.GetLabels()[uninstallTag]
+				return (okOperator && operatorTagLabel == "true") || (okUninstall && uninstallTagLabel == "true")
 			},
 			CreateFunc: func(evt event.CreateEvent) bool {
-				operatorTagLabel, ok := evt.Meta.GetLabels()[operatorTag]
-				return ok && operatorTagLabel == "true"
+				operatorTagLabel, okOperator := evt.Meta.GetLabels()[operatorTag]
+				uninstallTagLabel, okUninstall := evt.Meta.GetLabels()[uninstallTag]
+				return (okOperator && operatorTagLabel == "true") || (okUninstall && uninstallTagLabel == "true")
 			},
 			DeleteFunc: func(evt event.DeleteEvent) bool {
-				operatorTagLabel, ok := evt.Meta.GetLabels()[operatorTag]
-				return ok && operatorTagLabel == "true"
+				operatorTagLabel, okOperator := evt.Meta.GetLabels()[operatorTag]
+				uninstallTagLabel, okUninstall := evt.Meta.GetLabels()[uninstallTag]
+				return (okOperator && operatorTagLabel == "true") || (okUninstall && uninstallTagLabel == "true")
 			},
 			GenericFunc: func(evt event.GenericEvent) bool {
-				operatorTagLabel, ok := evt.Meta.GetLabels()[operatorTag]
-				return ok && operatorTagLabel == "true"
+				operatorTagLabel, okOperator := evt.Meta.GetLabels()[operatorTag]
+				uninstallTagLabel, okUninstall := evt.Meta.GetLabels()[uninstallTag]
+				return (okOperator && operatorTagLabel == "true") || (okUninstall && uninstallTagLabel == "true")
 			},
 		},
 	}
@@ -121,45 +124,9 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	// check for uninstall label and delete the components
+	// check for uninstall label and delete the resources
 	if instance.ObjectMeta.Labels[uninstallTag] == "true" {
-		if instance.Status.State == olmv1alpha1.SubscriptionStateUpgradePending {
-			if instance.Spec.InstallPlanApproval == olmv1alpha1.ApprovalManual {
-				installPlan, err := r.getInstallPlanForSubscription(instance, request)
-				if err != nil {
-					return reconcile.Result{}, err
-				}
-
-				if installPlan.Status.Phase != olmv1alpha1.InstallPlanPhaseRequiresApproval {
-					return reconcile.Result{Requeue: true, RequeueAfter: time.Duration(5 * time.Second)}, nil
-				}
-			} else {
-				return reconcile.Result{Requeue: true, RequeueAfter: time.Duration(5 * time.Second)}, nil
-			}
-		}
-
-		if err := r.deleteSubscription(instance); err != nil {
-			reqLogger.Info("error deleting subscription", err)
-			if errors.IsNotFound(err) {
-				return reconcile.Result{}, nil
-			}
-			return reconcile.Result{}, err
-		}
-
-		if err := r.deleteCSVInstance(instance, request); err != nil {
-			reqLogger.Info("error deleting clusterserviceversion", err)
-			if !errors.IsNotFound(err) {
-				// Request object not found, could have been deleted after reconcile request.
-				// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-				// Return and don't requeue
-				return reconcile.Result{}, nil
-			}
-			// Error reading the object - requeue the request.
-			return reconcile.Result{}, err
-		}
-
-		reqLogger.Info("subscription deletion successful")
-		return reconcile.Result{}, nil
+		return r.uninstall(instance)
 	}
 
 	groups := &olmv1.OperatorGroupList{}
@@ -252,37 +219,52 @@ func (r *ReconcileSubscription) createOperatorGroup(instance *olmv1alpha1.Subscr
 	}
 }
 
-func (r *ReconcileSubscription) deleteCSVInstance(instance *olmv1alpha1.Subscription, request reconcile.Request) error {
-	csvInstance := &olmv1alpha1.ClusterServiceVersion{}
-	t := &reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Name:      instance.Status.CurrentCSV,
-			Namespace: request.NamespacedName.Namespace,
-		},
-	}
-	if err := r.client.Get(context.TODO(), t.NamespacedName, csvInstance); err != nil {
-		return err
-	}
+func (r *ReconcileSubscription) uninstall(sub *olmv1alpha1.Subscription) (reconcile.Result, error) {
+	reqLogger := log.WithValues("Subscription.Namespace", sub.Namespace, "Subscription.Name", sub.Name, "Subscription.Spec.Package", sub.Spec.Package)
+	reqLogger.Info("started to uninstall operator")
 
-	return r.client.Delete(context.TODO(), csvInstance)
-}
-
-func (r *ReconcileSubscription) deleteSubscription(instance *olmv1alpha1.Subscription) error {
-	return r.client.Delete(context.TODO(), instance)
-}
-
-func (r *ReconcileSubscription) getInstallPlanForSubscription(instance *olmv1alpha1.Subscription, request reconcile.Request) (*olmv1alpha1.InstallPlan, error) {
-	installPlanInstance := &olmv1alpha1.InstallPlan{}
-	t2 := &reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Name:      instance.Status.InstallPlanRef.Name,
-			Namespace: request.NamespacedName.Namespace,
-		},
+	// collect CSVs from installPlans
+	csvList := make(map[string]struct{})
+	installPlanList := &olmv1alpha1.InstallPlanList{}
+	err := r.client.List(context.TODO(), installPlanList, client.InNamespace(sub.Namespace))
+	if err != nil && !errors.IsNotFound(err) {
+		reqLogger.Error(err, "could not list installPlan")
 	}
-	if err := r.client.Get(context.TODO(), t2.NamespacedName, installPlanInstance); err != nil {
-		return nil, err
+	if err == nil {
+		for _, ip := range installPlanList.Items {
+			if len(ip.OwnerReferences) > 0 && ip.OwnerReferences[0].Kind == sub.Kind && ip.OwnerReferences[0].Name == sub.Name {
+				for _, csv := range ip.Spec.ClusterServiceVersionNames {
+					csvList[csv] = struct{}{}
+				}
+			}
+		}
 	}
 
-	return installPlanInstance, nil
-	//return r.client.Delete(context.TODO(), installPlanInstance)
+	// delete sub
+	err = r.client.Delete(context.TODO(), sub)
+	if err != nil && !errors.IsNotFound((err)) {
+		reqLogger.Error(err, "could not delete sub")
+	}
+
+	// delete CSVs
+	for csvName := range csvList {
+		csvObj := &olmv1alpha1.ClusterServiceVersion{}
+		csvNamespacedName := types.NamespacedName{
+			Name:      csvName,
+			Namespace: sub.Namespace,
+		}
+		err = r.client.Get(context.TODO(), csvNamespacedName, csvObj)
+		if err != nil && !errors.IsNotFound((err)) {
+			reqLogger.Error(err, "could not delete csv", "csv name", csvName)
+		}
+		if err == nil {
+			err = r.client.Delete(context.TODO(), csvObj)
+			if err != nil && !errors.IsNotFound((err)) {
+				reqLogger.Error(err, "could not delete csv", "csv name", csvName)
+			}
+		}
+	}
+
+	reqLogger.Info("uninstalling operator complete")
+	return reconcile.Result{}, nil
 }
