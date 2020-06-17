@@ -1,8 +1,15 @@
 # Table of Contents
 
-<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
-**Table of Contents**
+[Getting started](getting-started.md)
 
+## Release
 
+[Release Process](release-process.md)
 
-<!-- markdown-toc end -->
+## Testing
+
+[Controller Testing Tools](controller-testing.md)
+
+## Utility
+
+[Setting up private registry](private-registry.md)

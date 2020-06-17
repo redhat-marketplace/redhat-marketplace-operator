@@ -6,14 +6,13 @@ on:
       - 'release/**'
       - 'hotfix/**'
     paths-ignore:
-      - 'docs/**'
       - 'deploy/olm-catalog/redhat-marketplace-operator/**'
 env:
   pushImage: true
 
 jobs:
   create-bundle:
-    name: Create Bundle
+    name: Create Manifest
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -52,13 +51,6 @@ jobs:
           FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'version/**', 'go.sum', 'go.mod') }}
           BRANCH: ${{ github.ref }}
 
-      - uses: actions/cache@v2
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
       - name: Install operator-sdk
         run: |
           cd /tmp
@@ -80,8 +72,8 @@ jobs:
       - name: Create branch
         if: ${{ matrix.channel == 'stable' && github.event_name == 'push' }}
         run: |
-          git config user.name 'Zach Taylor'
-          git config user.email 'ztaylor@ibm.com'
+          git config user.name 'RHM Oper Bot'
+          git config user.email 'rhmoper@us.ibm.com'
           git add ./deploy/olm-catalog
           git commit -m "chore: update csv"
           git push
@@ -89,7 +81,7 @@ jobs:
       - name: Open a PR to the default branch
         uses: vsoch/pull-request-action@1.0.2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.pullRequestSecret }}
           PULL_REQUEST_FROM_BRANCH: '${{ env.pr_branch }}'
           PULL_REQUEST_BRANCH: master
           PULL_REQUEST_TITLE: 'Release ${{ steps.vars.outputs.version }}'
