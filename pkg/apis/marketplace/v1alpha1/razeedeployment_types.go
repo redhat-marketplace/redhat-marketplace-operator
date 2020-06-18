@@ -97,6 +97,14 @@ type RazeeDeploymentSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	ChildUrl *string `json:"childUrl,omitempty"`
+
+	// Flag used by the RazeeDeployment Controller to decide whether to run legacy uninstall job
+	// Used internally by the Operator
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	LegacyUninstallHasRun *bool `json:"legacyUninstallHasRun,omitempty"`
+
 }
 
 // TODO: on version change, rename conditions to jobConditions

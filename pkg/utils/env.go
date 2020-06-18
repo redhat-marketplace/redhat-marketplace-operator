@@ -20,8 +20,8 @@ import (
 
 const (
 	/* Resource Names */
-	WATCHKEEPER_DEPLOYMENT_NAME = "watch-keeper"
-	REMOTE_RESOURCE_S3_DEPLOYMENT_NAME = "remoteresources3-controller"
+	WATCHKEEPER_DEPLOYMENT_NAME = "rhm-watch-keeper"
+	REMOTE_RESOURCE_S3_DEPLOYMENT_NAME = "rhm-remoteresources3-controller"
 	RAZEE_DEPLOY_JOB_NAME            = "razeedeploy-job"
 	RAZEE_JOB_NAME                   = "rhm-razeedeploy-job"
 	PARENT_RRS3_RESOURCE_NAME        = "parent"

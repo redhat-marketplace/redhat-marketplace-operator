@@ -299,7 +299,21 @@ roles:
           - patch
           - update
           - watch
-
+      - apiGroups:
+          - ''
+        resources:
+          - serviceaccounts
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - patch
+          - watch
+        resourceNames:
+          - razeedeploy-sa
+          - watch-keeper-sa
 securityContext:
   {}
   # capabilities:

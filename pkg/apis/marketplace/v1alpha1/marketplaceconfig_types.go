@@ -87,7 +87,9 @@ const (
 	ReasonOperatorSourceInstall status.ConditionReason = "OperatorSourceInstalled"
 	ReasonInstallFinished       status.ConditionReason = "FinishedInstall"
 	ReasonRazeeRemoteResourceS3DeploymentStart  status.ConditionReason = "RemoteResourceS3DeploymentStartInstall"
+	ReasonRazeeRemoteResourceS3DeploymentInstalled  status.ConditionReason = "RemoteResourceS3DeploymentInstalled"
 	ReasonWatchKeeperDeploymentStart  status.ConditionReason = "WatchKeeperStartStartInstall"
+	ReasonWatchKeeperDeploymentInstalled  status.ConditionReason = "WatchKeeperStartInstalled"	
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

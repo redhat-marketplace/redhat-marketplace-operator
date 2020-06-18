@@ -105,6 +105,10 @@ spec:
                 work. Setting enabled to "true" will create a Razee namespace and
                 deploy it's componenets. Set to "false" to bypass Razee installation
               type: boolean
+            legacyUninstallHasRun:
+              description: Flag used by the RazeeDeployment Controller to decide whether
+                to run legacy uninstall job Used internally by the Operator
+              type: boolean
             targetNamespace:
               description: TargetNamespace is configurable target of the razee namespace
                 This is to support legancy installs. Please do not edit.

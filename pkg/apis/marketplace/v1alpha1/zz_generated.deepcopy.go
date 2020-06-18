@@ -728,6 +728,11 @@ func (in *RazeeDeploymentSpec) DeepCopyInto(out *RazeeDeploymentSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.LegacyUninstallHasRun != nil {
+		in, out := &in.LegacyUninstallHasRun, &out.LegacyUninstallHasRun
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 
