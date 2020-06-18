@@ -1863,7 +1863,7 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 	req *marketplacev1alpha1.RazeeDeployment,
 ) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
-	reqLogger.Info("Starting full uninstall of razee")
+	reqLogger.Info("Starting legacy uninstall")
 
 	deletePolicy := metav1.DeletePropagationForeground
 
@@ -1991,6 +1991,6 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 		return reconcile.Result{}, err
 	}
 
-	reqLogger.Info("Full uninstall of razee is complete")
+	reqLogger.Info("Legacy uninstall complete")
 	return reconcile.Result{}, nil
 }

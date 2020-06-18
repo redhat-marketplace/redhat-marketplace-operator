@@ -18,7 +18,7 @@ type Auth struct {
 
 //Hmac allows you to connect to s3 buckets using an HMAC key/id pair.
 type Hmac struct {
-	// AccessKeyID is used to identify your AWS account and is used by AWS to look up your Secret Access Key
+	// AccessKeyID is a unique identifier for an AWS account and is used by AWS to look up your Secret Access Key
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	AccessKeyID string `json:"accessKeyId,omitempty"`
@@ -26,22 +26,22 @@ type Hmac struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	AccesKeyIDRef AccesKeyIDRef `json:"accessKeyIdRef,omitempty"`
-	// SecretAccessKey is used by AWS to calculate a request signature. Your secret access key is a shared secret known only to you and AWS
+	// SecretAccessKey is used by AWS to calculate a request signature. Your SecretAccessKey is a shared secret known only to you and AWS
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	SecretAccessKey string `json:"secretAccessKey,omitempty"`
-	// SecretAccessKeyRef holds reference information to an SecretAccessKeyRef stored in a secret on your cluster
+	// SecretAccessKeyRef holds reference information to an SecretAccessKey stored in a secret on your cluster
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	SecretAccessKeyRef SecretAccessKeyRef `json:"secretAccessKeyRef,omitempty"`
 }
 
-//Iam Allows you to connect to s3 buckets using an IAM provider and api key. TODO: "used by aws and cos ?"
+//Iam Allows you to connect to s3 buckets using an IAM provider and api key. 
 type Iam struct {
 	// ResponseType specifies which grant type your application is requesting. ResponseType for IAM will usually be "cloud_iam" 
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	ResponseType string `json:"responseType,omitempty"`
-	// GrantType determines what authentication flow be used to generate an access token. GrantType for IAM will usually be " "urn:ibm:params:oauth:grant-type:apikey""
+	// GrantType determines what authentication flow will be used to generate an access token. GrantType for IAM will usually be " "urn:ibm:params:oauth:grant-type:apikey""
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	GrantType string `json:"grantType,omitempty"`
 	// URL is the auth endpoint. URL for IAM will usually be "https://iam.cloud.ibm.com/identity/token" 
@@ -51,13 +51,13 @@ type Iam struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	APIKey string `json:"apiKey,omitempty"`
-	// APIKeyRef holds reference information used to locate a secret which contains your  IBM COS api key
+	// APIKeyRef holds reference information used to locate a secret which contains your IBM COS api key
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	APIKeyRef APIKeyRef `json:"apiKeyRef,omitempty"`
 }
 
-// SecretAccessKeyRef holds reference information to an SecretAccessKeyRef stored in a secret on your cluster
+// SecretAccessKeyRef holds reference information to an SecretAccessKey stored in a secret on your cluster
 type SecretAccessKeyRef struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +kubebuilder:validation:Required
@@ -91,7 +91,7 @@ type Request struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +kubebuilder:validation:Required
 	Options Options `json:"options,omitempty"`
-	//if downloading or applying a child resource fails, RemoteResource will stop execution and report error to .status. You can allow execution to continue by marking a reference as optional.
+	// if downloading or applying a child resource fails, RemoteResource will stop execution and report error to .status. You can allow execution to continue by marking a reference as optional.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	Optional bool `json:"optional,omitempty"`
@@ -110,7 +110,7 @@ type Options struct {
 	Headers map[string]Header `json:"headers,omitempty"`
 }
 
-//Header allows you to provide additional information with your request
+// Header allows you to provide additional information with your request
 // +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 type Header map[string]string
 
