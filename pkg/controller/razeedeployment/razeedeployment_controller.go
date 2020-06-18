@@ -990,11 +990,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		Message: message,
 	})
 
-	parentRRS3 := &marketplacev1alpha1.RemoteResourceS3{}
+	parentRRS3 := marketplacev1alpha1.RemoteResourceS3{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{
 		Name: utils.PARENT_RRS3_RESOURCE_NAME, 
 		Namespace: *instance.Spec.TargetNamespace}, 
-	parentRRS3)
+	&parentRRS3)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.V(0).Info("Resource does not exist", "resource: ", utils.PARENT_RRS3)
@@ -1877,8 +1877,12 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 	if err == nil || errors.IsNotFound(err) {
 		reqLogger.Info("cleaning up install job")
 		err = r.client.Delete(context.TODO(), &foundJob, client.PropagationPolicy(deletePolicy))
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.IsNotFound(err) && err.Error() != "resource name may not be empty" {
 			reqLogger.Error(err, "cleaning up install job failed")
+		}
+
+		if err.Error() == "resource name may not be empty" {
+			reqLogger.Info("No legacy job exists")
 		}
 	}
 
@@ -1946,7 +1950,7 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 		}
 
 		if err != nil && errors.IsNotFound(err){
-			reqLogger.Info("No legacy service accounts found")
+			reqLogger.Info("Could not find legacy service account","Resource",saName)
 		}
 	}
 
@@ -1976,7 +1980,7 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 		}
 
 		if err != nil && errors.IsNotFound(err){
-			reqLogger.Info("No legacy deployments found")
+			reqLogger.Info("No legacy deployments found","Resource",deploymentName)
 		}
 	}
 
