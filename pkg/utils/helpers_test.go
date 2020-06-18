@@ -18,7 +18,6 @@ const (
 	TEST_RAZEE_DASH_ORG_KEY_FIELD = "razee-dash-org-key"
 	TEST_CHILD_RRS3_YAML_FIELD    = "childRRS3-filename"
 	TEST_RAZEE_DASH_URL_FIELD     = "razee-dash-url"
-
 )
 
 func TestAddSecretFieldsToStruct(t *testing.T) {
@@ -145,7 +144,7 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 func TestApplyAnnotation(t *testing.T) {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "foo",
+			Name:      "foo",
 			Namespace: "myns",
 		},
 	}

@@ -11,7 +11,7 @@ import (
 //Auth allows you authenticate to remote storage locations using either HMAC or IAM authentication schemes.
 type Auth struct {
 	// +optional
-	Hmac *Hmac  `json:"hmac,omitempty"`
+	Hmac *Hmac `json:"hmac,omitempty"`
 	// +optional
 	Iam *Iam `json:"iam,omitempty"`
 }
@@ -36,15 +36,15 @@ type Hmac struct {
 	SecretAccessKeyRef SecretAccessKeyRef `json:"secretAccessKeyRef,omitempty"`
 }
 
-//Iam Allows you to connect to s3 buckets using an IAM provider and api key. 
+//Iam Allows you to connect to s3 buckets using an IAM provider and api key.
 type Iam struct {
-	// ResponseType specifies which grant type your application is requesting. ResponseType for IAM will usually be "cloud_iam" 
+	// ResponseType specifies which grant type your application is requesting. ResponseType for IAM will usually be "cloud_iam"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	ResponseType string `json:"responseType,omitempty"`
 	// GrantType determines what authentication flow will be used to generate an access token. GrantType for IAM will usually be " "urn:ibm:params:oauth:grant-type:apikey""
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	GrantType string `json:"grantType,omitempty"`
-	// URL is the auth endpoint. URL for IAM will usually be "https://iam.cloud.ibm.com/identity/token" 
+	// URL is the auth endpoint. URL for IAM will usually be "https://iam.cloud.ibm.com/identity/token"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	URL string `json:"url,omitempty"`
 	// APIKey is the API Key used to authenticate to your IBM Cloud Object Storage instance
@@ -69,11 +69,10 @@ type AccesKeyIDRef struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +kubebuilder:validation:Required
 	ValueFrom ValueFrom `json:"valueFrom,omitempty"`
-
 }
 
 //APIKeyRef holds the location of the api key used to authenticate to a cloud object storage instance
-type APIKeyRef struct{
+type APIKeyRef struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +kubebuilder:validation:Required
 	ValueFrom ValueFrom `json:"valueFrom,omitempty"`
@@ -123,7 +122,7 @@ type RemoteResourceS3Spec struct {
 
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// Auth provides options to authenticate to a remote location
-	Auth  Auth `json:"auth,omitempty"`
+	Auth Auth `json:"auth,omitempty"`
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// Requests array contains information regarding the location of your remote resource
 	Requests []Request `json:"requests,omitempty"`

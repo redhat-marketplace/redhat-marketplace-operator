@@ -104,7 +104,6 @@ type RazeeDeploymentSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	LegacyUninstallHasRun *bool `json:"legacyUninstallHasRun,omitempty"`
-
 }
 
 // TODO: on version change, rename conditions to jobConditions

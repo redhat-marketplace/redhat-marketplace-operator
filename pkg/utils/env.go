@@ -20,24 +20,24 @@ import (
 
 const (
 	/* Resource Names */
-	WATCHKEEPER_DEPLOYMENT_NAME = "rhm-watch-keeper"
+	WATCHKEEPER_DEPLOYMENT_NAME        = "rhm-watch-keeper"
 	REMOTE_RESOURCE_S3_DEPLOYMENT_NAME = "rhm-remoteresources3-controller"
-	RAZEE_DEPLOY_JOB_NAME            = "razeedeploy-job"
-	RAZEE_JOB_NAME                   = "rhm-razeedeploy-job"
-	PARENT_RRS3_RESOURCE_NAME        = "parent"
-	COS_READER_KEY_NAME              = "rhm-cos-reader-key"
-	RAZEE_UNINSTALL_NAME             = "razee-uninstall-job"
-	RHM_OPERATOR_SECRET_NAME         = "rhm-operator-secret"
-	MARKETPLACECONFIG_NAME           = "rhm-marketplaceconfig"
-	METERBASE_NAME                   = "rhm-marketplaceconfig-meterbase"
-	RAZEE_NAME                       = "rhm-marketplaceconfig-razeedeployment"
-	OPSRC_NAME                       = "redhat-marketplace"
-	OPERATOR_MKTPLACE_NS             = "openshift-marketplace"
-	RAZEE_CLUSTER_METADATA_NAME      = "razee-cluster-metadata"
-	WATCH_KEEPER_NON_NAMESPACED_NAME = "watch-keeper-non-namespaced"
-	WATCH_KEEPER_LIMITPOLL_NAME      = "watch-keeper-limit-poll"
-	WATCH_KEEPER_CONFIG_NAME         = "watch-keeper-config"
-	WATCH_KEEPER_SECRET_NAME         = "watch-keeper-secret"
+	RAZEE_DEPLOY_JOB_NAME              = "razeedeploy-job"
+	RAZEE_JOB_NAME                     = "rhm-razeedeploy-job"
+	PARENT_RRS3_RESOURCE_NAME          = "parent"
+	COS_READER_KEY_NAME                = "rhm-cos-reader-key"
+	RAZEE_UNINSTALL_NAME               = "razee-uninstall-job"
+	RHM_OPERATOR_SECRET_NAME           = "rhm-operator-secret"
+	MARKETPLACECONFIG_NAME             = "rhm-marketplaceconfig"
+	METERBASE_NAME                     = "rhm-marketplaceconfig-meterbase"
+	RAZEE_NAME                         = "rhm-marketplaceconfig-razeedeployment"
+	OPSRC_NAME                         = "redhat-marketplace"
+	OPERATOR_MKTPLACE_NS               = "openshift-marketplace"
+	RAZEE_CLUSTER_METADATA_NAME        = "razee-cluster-metadata"
+	WATCH_KEEPER_NON_NAMESPACED_NAME   = "watch-keeper-non-namespaced"
+	WATCH_KEEPER_LIMITPOLL_NAME        = "watch-keeper-limit-poll"
+	WATCH_KEEPER_CONFIG_NAME           = "watch-keeper-config"
+	WATCH_KEEPER_SECRET_NAME           = "watch-keeper-secret"
 
 	/* RBAC */
 	CLUSTER_ROLE              = "redhat-marketplace-operator"
@@ -64,7 +64,6 @@ const (
 	CHILD_RRS3_YAML_FIELD      = "CHILD_RRS3_YAML_FILENAME"
 	RAZEE_DASH_URL_FIELD       = "RAZEE_DASH_URL"
 	FILE_SOURCE_URL_FIELD      = "FILE_SOURCE_URL"
-
 )
 
 var (
@@ -91,7 +90,6 @@ func SetMapKeyValue(inMap map[string]string, a []string) {
 	key, value := GetMapKeyValue(a)
 	inMap[key] = value
 }
-
 
 func HasMapKey(inMap map[string]string, a []string) bool {
 	key, _ := GetMapKeyValue(a)

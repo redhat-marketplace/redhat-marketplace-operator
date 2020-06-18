@@ -203,7 +203,7 @@ func ConditionsEqual(a status.Conditions, b status.Conditions) bool {
 	return true
 }
 
-func PrettyPrint( in interface{}){
+func PrettyPrint(in interface{}) {
 	out, _ := json.MarshalIndent(in, "", "    ")
 	println(string(out))
 }
