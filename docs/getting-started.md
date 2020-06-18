@@ -7,18 +7,18 @@ Getting Started is designed to give you base level information about the project
 - [Learning Topics](#learning-topics)
   - [Core Learning](#core-learning)
   - [Relative Learning](#relative-learning)
-  - [Additional Resources](#additiona-resources)
+  - [Additional Resources](#additional-resources)
   - [Project Structure](#project-structure)
 - [Setup](#setup)
-  - [Prerequisite](#prerequisite)
+  - [Prerequisites](#prerequisites)
   - [Setup-Steps](#setup-steps)
 - [Building and Running](#building-and-running)
   - [Building](#building)
-  - [Running](#running-locally-(manually))
+  - [Running](#running-locally-manually)
 - [Testing](#testing)
 - [Local Development](#local-development)
-  - [Skaffold](#developing-with-skaffold(automatic))
-  - [Operator-sdk](#running-locally-using-operator-sdk-(automatic))
+  - [Skaffold](#developing-with-skaffold-automatic)
+  - [Operator-sdk](#running-locally-using-operator-sdk-automatic)
 
 ---
 
@@ -29,7 +29,7 @@ New to golang? Operators? Kubernetes? Here is everything you need to know.
 These are core skills that are always applicable, regardless of what aspect of the project you are working on.
 
 - Git Flow
- - [Git Flow Tutorial](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow)
+  - [Git Flow Tutorial](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow)
 - Golang
   - [Golang tour](https://tour.golang.org/welcome/1)
   - [Pointers](https://tour.golang.org/moretypes/1) (**Recommended**)
@@ -51,10 +51,10 @@ These are additional skills that may or may not be applicable, depending on whic
   - [Prometheus and Golang](https://prometheus.io/docs/guides/go-application/)
   - [Prometheus Operator](https://github.com/coreos/prometheus-operator/blob/master/Documentation/user-guides/getting-started.md) **Recommended**
 - Razee
- - PlaceHolder
- - [Razee](https://github.com/razee-io/Razee)
+  - PlaceHolder
+  - [Razee](https://github.com/razee-io/Razee)
 - OLM
- - PlaceHolder
+  - PlaceHolder
 
 ### Additional Resources
 Some extra resources that could be useful.
@@ -93,8 +93,7 @@ Some extra resources that could be useful.
 These are the required tools (and coding languages) to get the project up and running.
 1. Install [golang](https://golang.org/doc/install)
 1. Install [operator-sdk](https://github.com/operator-framework/operator-sdk)
-1. Install [minikube](https://kubernetes.io/docs/tasks/tools/install-minikube/) or Install [CRC](https://developers.redhat.com/products/
-codeready-containers) (**Recommended**)
+1. Install [minikube](https://kubernetes.io/docs/tasks/tools/install-minikube/) or Install [CRC](https://developers.redhat.com/products/codeready-containers) (**Recommended**)
 1. Install [docker-for-mac](https://docs.docker.com/docker-for-mac/install)
 
 _Note:_ You can use minikube, but we'll be using the coreos prometheus operator

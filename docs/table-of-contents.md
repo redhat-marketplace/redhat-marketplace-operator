@@ -1,17 +1,14 @@
 # Table of Contents
 
-## Learning and Setup
+### Learning and Setup
 [Getting started](getting-started.md)
 [Learning Deep Dive](deep-dive.md)
-
-## Release
-
+  
+### Release
 [Release Process](release-process.md)
-
-## Testing
-
+  
+### Testing 
 [Controller Testing Tools](controller-testing.md)
-
-## Utility
-
+  
+### Utility
 [Setting up private registry](private-registry.md)
