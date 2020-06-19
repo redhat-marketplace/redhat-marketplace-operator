@@ -997,7 +997,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		&parentRRS3)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			utils.PrettyPrint(parentRRS3)
 			reqLogger.V(0).Info("Resource does not exist", "resource: ", utils.PARENT_RRS3)
 			parentRRS3 := r.makeParentRemoteResourceS3(instance)
 
@@ -1024,7 +1023,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 	}
 	if err == nil {
-		utils.PrettyPrint(parentRRS3)
 		reqLogger.V(0).Info("Resource already exists", "resource: ", utils.PARENT_RRS3)
 
 		newParentValues := r.makeParentRemoteResourceS3(instance)
