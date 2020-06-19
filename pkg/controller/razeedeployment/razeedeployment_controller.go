@@ -992,8 +992,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	parentRRS3 := marketplacev1alpha1.RemoteResourceS3{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name:     "parent",
-		Namespace: "openshift-redhat-marketplace"},
+		Name:     utils.PARENT_RRS3_RESOURCE_NAME,
+		Namespace: *instance.Spec.TargetNamespace},
 		&parentRRS3)
 	if err != nil {
 		if errors.IsNotFound(err) {
