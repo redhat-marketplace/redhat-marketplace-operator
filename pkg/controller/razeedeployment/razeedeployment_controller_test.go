@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,6 +51,7 @@ func TestRazeeDeployController(t *testing.T) {
 	t.Run("Test Clean Install", testCleanInstall)
 	t.Run("Test No Secret", testNoSecret)
 	t.Run("Test Bad Name", testBadName)
+	t.Run("Test Full Uninstall", testFullUninstall)
 }
 
 func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
@@ -97,6 +99,20 @@ var (
 			DeploySecretName: &secretName,
 		},
 	}
+	razeeDeploymentDeletion = marketplacev1alpha1.RazeeDeployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              name,
+			Namespace:         namespace,
+			DeletionTimestamp: &metav1.Time{Time: time.Now()},
+		},
+		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
+			Enabled:          true,
+			ClusterUUID:      "foo",
+			DeploySecretName: &secretName,
+			TargetNamespace:  &namespace,
+		},
+	}
+
 	namespObj = corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
@@ -142,7 +158,124 @@ var (
 			utils.FILE_SOURCE_URL_FIELD:    []byte("file-source-url"),
 		},
 	}
+	razeeJob = batch.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.RAZEE_DEPLOY_JOB_NAME,
+			Namespace: namespace,
+		},
+		Spec: batch.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					ServiceAccountName: utils.RAZEE_SERVICE_ACCOUNT,
+				},
+			},
+		},
+	}
+	razeeSecret = corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.COS_READER_KEY_NAME,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			utils.IBM_COS_READER_KEY_FIELD: []byte("rhm-cos-reader-key"),
+		},
+	}
+	configMap = corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.WATCH_KEEPER_CONFIG_NAME,
+			Namespace: namespace,
+		},
+	}
+	serviceAccount = corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "razeedeploy-sa",
+			Namespace: namespace,
+		},
+	}
+	deployment = appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "watch-keeper",
+			Namespace: namespace,
+		},
+	}
 )
+
+func testFullUninstall(t *testing.T) {
+	t.Parallel()
+
+	reconcilerTest := NewReconcilerTest(setup,
+		&razeeDeploymentDeletion,
+		&razeeJob,
+		&razeeSecret,
+		&configMap,
+		&serviceAccount,
+		&deployment,
+	)
+
+	reconcilerTest.TestAll(t,
+		//Requeue until we have created the job and waiting for it to finish
+		ReconcileStep(opts,
+			ReconcileWithExpectedResults(
+				append(
+					RangeReconcileResults(RequeueResult, 2),
+					AnyResult)...)),
+		ListStep(opts,
+			ListWithObj(&corev1.ConfigMapList{}),
+			ListWithFilter(
+				client.InNamespace(namespace),
+			),
+			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				list, ok := i.(*corev1.ConfigMapList)
+
+				assert.Truef(t, ok, "expected configMap list got type %T", i)
+				assert.Equal(t, 0, len(list.Items))
+			})),
+		ListStep(opts,
+			ListWithObj(&corev1.ServiceAccountList{}),
+			ListWithFilter(
+				client.InNamespace(namespace),
+			),
+			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				list, ok := i.(*corev1.ServiceAccountList)
+
+				assert.Truef(t, ok, "expected service account list got type %T", i)
+				assert.Equal(t, 0, len(list.Items))
+			})),
+		ListStep(opts,
+			ListWithObj(&corev1.SecretList{}),
+			ListWithFilter(
+				client.InNamespace(namespace),
+			),
+			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				list, ok := i.(*corev1.SecretList)
+
+				assert.Truef(t, ok, "expected secret list got type %T", i)
+				assert.Equal(t, 0, len(list.Items))
+			})),
+		ListStep(opts,
+			ListWithObj(&batch.JobList{}),
+			ListWithFilter(
+				client.InNamespace(namespace),
+			),
+			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				list, ok := i.(*batch.JobList)
+
+				assert.Truef(t, ok, "expected job list got type %T", i)
+				assert.Equal(t, 0, len(list.Items))
+			})),
+		ListStep(opts,
+			ListWithObj(&appsv1.DeploymentList{}),
+			ListWithFilter(
+				client.InNamespace(namespace),
+			),
+			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				list, ok := i.(*appsv1.DeploymentList)
+
+				assert.Truef(t, ok, "expected deployment list got type %T", i)
+				assert.Equal(t, 0, len(list.Items))
+			})),
+	)
+}
 
 func testCleanInstall(t *testing.T) {
 	t.Parallel()

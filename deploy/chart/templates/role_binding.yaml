@@ -9,6 +9,9 @@ kind: {{ $roleKind }}
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ $role.name }}
+  {{- if eq $role.type "Role" }}
+  namespace: {{ $namespace }}
+  {{- end }}
 subjects:
 - kind: ServiceAccount
   name: {{ $role.serviceAccountName }}

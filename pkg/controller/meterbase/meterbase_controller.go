@@ -16,10 +16,16 @@ package meterbase
 
 import (
 	"context"
+	"path/filepath"
+	"reflect"
+	"time"
+
+	emperrors "emperror.dev/errors"
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	status "github.com/operator-framework/operator-sdk/pkg/status"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/operrors"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
@@ -28,8 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"path/filepath"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -38,7 +42,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"time"
 )
 
 const (
@@ -172,6 +175,10 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	message := "Meter Base install starting"
+	if instance.Status.Conditions == nil {
+		instance.Status.Conditions = &status.Conditions{}
+	}
+
 	if instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionInstalling) == nil {
 		instance.Status.Conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
@@ -190,7 +197,24 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		dep, err := r.newPrometheusOperator(instance, r.opts)
 
 		if err != nil {
-			reqLogger.Error(err, "Failed to create new Prometheus.")
+			if emperrors.Cause(err) == operrors.DefaultStorageClassNotFound ||
+				emperrors.Cause(err) == operrors.MultipleDefaultStorageClassFound {
+
+				reqLogger.Error(err, "Failed to find default storage class.")
+				message = "Meter Base install failed"
+				if update := instance.Status.Conditions.SetCondition(status.Condition{
+					Type:    marketplacev1alpha1.ConditionError,
+					Status:  corev1.ConditionTrue,
+					Reason:  marketplacev1alpha1.ReasonMeterBaseStartInstall,
+					Message: err.Error(),
+				}); update {
+					_ = r.client.Status().Update(context.TODO(), instance)
+				}
+
+				return reconcile.Result{RequeueAfter: time.Second * 60}, nil
+			}
+
+			reqLogger.Error(err, "Failed to create prometheus.")
 			return reconcile.Result{}, err
 		}
 
@@ -213,14 +237,14 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	message = "Prometheus install complete"
-	instance.Status.Conditions.SetCondition(status.Condition{
+	if update := instance.Status.Conditions.SetCondition(status.Condition{
 		Type:    marketplacev1alpha1.ConditionInstalling,
 		Status:  corev1.ConditionTrue,
 		Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
 		Message: message,
-	})
-
-	_ = r.client.Status().Update(context.TODO(), instance)
+	}); update {
+		_ = r.client.Status().Update(context.TODO(), instance)
+	}
 
 	service := &corev1.Service{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, service)
@@ -246,25 +270,20 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	message = "Prometheus Service install complete"
-	instance.Status.Conditions.SetCondition(status.Condition{
+	if update := instance.Status.Conditions.SetCondition(status.Condition{
 		Type:    marketplacev1alpha1.ConditionInstalling,
 		Status:  corev1.ConditionTrue,
 		Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusServiceInstall,
 		Message: message,
-	})
-
-	_ = r.client.Status().Update(context.TODO(), instance)
+	}); update {
+		_ = r.client.Status().Update(context.TODO(), instance)
+	}
 
 	// ----
 	// Check if prometheus needs updating
 	// ----
 
-	expectedPrometheusSpec, err := r.newPrometheusOperator(instance, r.opts)
-
-	if err != nil {
-		reqLogger.Error(err, "Failed to get prometheus spec.")
-		return reconcile.Result{}, err
-	}
+	expectedPrometheusSpec, _ := r.newPrometheusOperator(instance, r.opts)
 
 	if !reflect.DeepEqual(prometheus.Spec.ServiceMonitorNamespaceSelector, expectedPrometheusSpec.Spec.ServiceMonitorNamespaceSelector) {
 		reqLogger.Info("updating service monitor namespace selector")
@@ -296,14 +315,14 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	message = "Meter Base install complete"
-	instance.Status.Conditions.SetCondition(status.Condition{
+	if update := instance.Status.Conditions.SetCondition(status.Condition{
 		Type:    marketplacev1alpha1.ConditionInstalling,
 		Status:  corev1.ConditionTrue,
 		Reason:  marketplacev1alpha1.ReasonMeterBaseFinishInstall,
 		Message: message,
-	})
-
-	_ = r.client.Status().Update(context.TODO(), instance)
+	}); update {
+		_ = r.client.Status().Update(context.TODO(), instance)
+	}
 
 	reqLogger.Info("finished reconciling")
 	return reconcile.Result{}, nil
@@ -338,7 +357,7 @@ func (r *ReconcileMeterBase) newPrometheusOperator(cr *marketplacev1alpha1.Meter
 		foundDefaultClass, err := utils.GetDefaultStorageClass(r.client)
 
 		if err != nil {
-			log.Error(err, "no default class found")
+			return nil, err
 		} else {
 			storageClass = foundDefaultClass
 		}

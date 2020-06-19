@@ -2,23 +2,27 @@ name: Create Manifest
 
 on:
   push:
-    branches: [master, develop, 'feature/buildAndTest', release/**]
-    tags:
-      - '*'
+    branches:
+      - 'release/**'
+      - 'hotfix/**'
+    paths-ignore:
+      - 'deploy/olm-catalog/redhat-marketplace-operator/**'
 env:
   pushImage: true
-  cache: true
 
 jobs:
   create-bundle:
-    name: Create Bundle
+    name: Create Manifest
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
     strategy:
       matrix:
-        channel: ['beta', 'stable']
+        channel: ['stable']
+        include:
+          - channel: 'stable'
+            tags: ['release']
+            draft: 'false'
+            message: 'Stable release should be merged.'
     steps:
-
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
@@ -32,14 +36,20 @@ jobs:
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.pullRequestSecret }}
 
-      - name: Get Version
-        id: version
-        run: echo "::set-output name=version::$(make current-version)"
-
-      - name: Get Tag
-        id: tag
-        run: echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
+      - name: Get Vars
+        id: vars
+        run: |
+          echo ::set-env name=pr_branch::$(echo $BRANCH | sed 's/refs\/heads\///')
+          echo "::set-output name=version::$(make current-version)"
+          echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
+          echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
+          echo "::set-env name=OPERATOR_IMAGE::quay.io/rh-marketplace/redhat-marketplace-operator:$(make current-version)-${FILEHASH:0:6}"
+        env:
+          FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'version/**', 'go.sum', 'go.mod') }}
+          BRANCH: ${{ github.ref }}
 
       - name: Install operator-sdk
         run: |
@@ -48,38 +58,31 @@ jobs:
           chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu && sudo mkdir -p /usr/local/bin/ && sudo cp operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk && rm operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
           python -m pip install --upgrade pip
           pip3 install operator-courier
-          export PATH=/usr/local/bin/operator-sdk:${PATH}
+          echo "::add-path::/usr/local/bin"
         env:
-          RELEASE_VERSION: v0.17.0
+          RELEASE_VERSION: v0.18.0
+
       - name: Create CSV
         id: bundle
         run: make generate-csv bundle
         env:
           CSV_CHANNEL: ${{ matrix.channel }}
           CSV_DEFAULT_CHANNEL: ${{ matrix.channel == 'stable' }}
-          OPERATOR_IMAGE: quay.io/rh-marketplace/redhat-marketplace-operator:${{ steps.tag.outputs.tag }}
-      - name: Upload bundle to actions
-        uses: actions/upload-artifact@v1
-        with:
-          name: ${{ matrix.channel }}-${{ steps.bundle.outputs.bundlename }}
-          path: bundle/${{ steps.bundle.outputs.bundlename }}
-      - name: Login
-        run: make docker-login
-        env:
-          DOCKER_USER: ${{ secrets.quayUser }}
-          DOCKER_PASSWORD: ${{ secrets.quayPassword }}
-          REGISTRY: quay.io
-      - name: Create manifest image
+
+      - name: Create branch
+        if: ${{ matrix.channel == 'stable' && github.event_name == 'push' }}
         run: |
-          export PATH=/usr/local/bin/operator-sdk:${PATH}
-          make create-bundle-image
-        if: false && env.pushImage == 'true' #TODO fix and re-enable
+          git config user.name 'RHM Oper Bot'
+          git config user.email 'rhmoper@us.ibm.com'
+          git add ./deploy/olm-catalog
+          git commit -m "chore: update csv"
+          git push
+
+      - name: Open a PR to the default branch
+        uses: vsoch/pull-request-action@1.0.2
         env:
-          CSV_CHANNEL: ${{ matrix.channel }}
-          CSV_DEFAULT_CHANNEL: ${{ matrix.channel == 'stable' }}
-          MANIFEST_IMAGE: quay.io/rh-marketplace/operator-manifest:${{ steps.version.outputs.version }}-${{ matrix.channel }}
-      - name: Push image
-        run: make push
-        if: false && env.pushImage == 'true' #TODO fix and re-enable
-        env:
-          OPERATOR_IMAGE: quay.io/rh-marketplace/operator-manifest:${{ steps.version.outputs.version }}-${{ matrix.channel }}
+          GITHUB_TOKEN: ${{ secrets.pullRequestSecret }}
+          PULL_REQUEST_FROM_BRANCH: '${{ env.pr_branch }}'
+          PULL_REQUEST_BRANCH: master
+          PULL_REQUEST_TITLE: 'Release ${{ steps.vars.outputs.version }}'
+          PULL_REQUEST_BODY: "Release PR - merge when ready.\n\nSteps:\n1. Release the beta channel bundle from the PR 'Generate Bundle' check.\n1. Test beta. Make changes to release branch as necessary.\n1. Release the stable channel.\n1. Merge this PR."

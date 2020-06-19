@@ -1,0 +1,38 @@
+name: Bump Version
+
+on:
+  push:
+    branches:
+      - 'develop'
+      - 'hotfix/**'
+
+jobs:
+  version:
+    name: Bump Version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.14
+        id: go
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: Bump version
+        continue-on-error: true
+        shell: bash {0}
+        run: |
+          VERSION=$(make current-version)
+          RESULT=$(git tag --list | grep -E "$VERSION")
+
+          if [ "$RESULT" != "" ] ; then
+            NEWVERSION=$(make bump-version)
+            echo "bumping $VERSION to $NEWVERSION"
+            git add version/version.go
+            git commit -m "chore: bumping version from $VERSION to $NEWVERSION"
+            git push
+          else
+            echo "$VERSION is already bumped" ;
+          fi
