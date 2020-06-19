@@ -992,11 +992,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	parentRRS3 := marketplacev1alpha1.RemoteResourceS3{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name:      utils.PARENT_RRS3_RESOURCE_NAME,
-		Namespace: *instance.Spec.TargetNamespace},
+		Name:     "parent",
+		Namespace: "openshift-redhat-marketplace"},
 		&parentRRS3)
 	if err != nil {
 		if errors.IsNotFound(err) {
+			utils.PrettyPrint(parentRRS3)
 			reqLogger.V(0).Info("Resource does not exist", "resource: ", utils.PARENT_RRS3)
 			parentRRS3 := r.makeParentRemoteResourceS3(instance)
 
@@ -1023,26 +1024,27 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 	}
 	if err == nil {
+		utils.PrettyPrint(parentRRS3)
 		reqLogger.V(0).Info("Resource already exists", "resource: ", utils.PARENT_RRS3)
 
-		// newParentValues := r.makeParentRemoteResourceS3(instance)
-		// updatedParentRRS3 := parentRRS3.DeepCopy()
-		// updatedParentRRS3.Spec = newParentValues.Spec
+		newParentValues := r.makeParentRemoteResourceS3(instance)
+		updatedParentRRS3 := parentRRS3.DeepCopy()
+		updatedParentRRS3.Spec = newParentValues.Spec
 
-		// if !reflect.DeepEqual(updatedParentRRS3.Spec, parentRRS3.Spec) {
-		// 	reqLogger.Info("Change detected on resource", "resource", updatedParentRRS3.GetName(), "update")
+		if !reflect.DeepEqual(updatedParentRRS3.Spec, parentRRS3.Spec) {
+			reqLogger.Info("Change detected on resource", updatedParentRRS3.GetName(), "update")
 
-		// 	reqLogger.Info("Updating resource", "resource: ", utils.PARENT_RRS3)
-		// 	err = r.client.Update(context.TODO(), updatedParentRRS3)
-		// 	if err != nil {
-		// 		reqLogger.Info("Failed to update resource", "resource: ", utils.PARENT_RRS3)
-		// 		return reconcile.Result{}, err
-		// 	}
-		// 	reqLogger.Info("Resource updated successfully", "resource: ", utils.PARENT_RRS3)
-		// 	return reconcile.Result{Requeue: true}, nil
-		// }
+			reqLogger.Info("Updating resource", "resource: ", utils.PARENT_RRS3)
+			err = r.client.Update(context.TODO(), updatedParentRRS3)
+			if err != nil {
+				reqLogger.Info("Failed to update resource", "resource: ", utils.PARENT_RRS3)
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("Resource updated successfully", "resource: ", utils.PARENT_RRS3)
+			return reconcile.Result{Requeue: true}, nil
+		}
 
-		// reqLogger.V(0).Info("No change detected on resource", "resource: ", updatedParentRRS3.GetName())
+		reqLogger.V(0).Info("No change detected on resource", "resource: ", updatedParentRRS3.GetName())
 	}
 
 	if !utils.Contains(instance.Status.RazeePrerequisitesCreated, utils.PARENT_RRS3) {
@@ -1505,7 +1507,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperNonNamespace(
 	}
 }
 
-//watch-keeper-non-namespace
+//watch-limit-poll
 func (r *ReconcileRazeeDeployment) makeWatchKeeperLimitPoll(
 	instance *marketplacev1alpha1.RazeeDeployment,
 ) *corev1.ConfigMap {
@@ -1858,7 +1860,13 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 	return reconcile.Result{}, nil
 }
 
-// uninstallLegacyResources deletes resources created by razee deployment
+/* 
+	uninstallLegacyResources deletes resources used by version 1.3 of the operator and below.
+	Job: razee-deploy Job, 
+	Custom Resources:"RemoteResource","RemoteResourceS3","FeatureFlagSetLD","ManagedSet","MustacheTemplate","RemoteResourceS3Decrypt"
+	Service Accounts: "razeedeploy-sa", "watch-keeper-sa"
+	Deployments: "watch-keeper","clustersubscription","featureflagsetld-controller","managedset-controller","mustachetemplate-controller","remoteresource-controller","remoteresources3-controller","remoteresources3decrypt-controller", 
+*/
 func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 	req *marketplacev1alpha1.RazeeDeployment,
 ) (reconcile.Result, error) {
@@ -1905,23 +1913,23 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 		})
 
 		// get custom resources for each crd
-		reqLogger.Info("Listing custom resources", "Kind", customResourceKind)
+		reqLogger.Info("Listing legacy custom resources", "Kind", customResourceKind)
 		err = r.client.List(context.TODO(), customResourceList, client.InNamespace(*req.Spec.TargetNamespace))
 		if err != nil && !errors.IsNotFound(err) && err.Error() != fmt.Sprintf("no matches for kind %q in version %q", customResourceKind, "deploy.razee.io/v1alpha2") {
-			reqLogger.Error(err, "could not list custom resources", "Kind", customResourceKind)
+			reqLogger.Error(err, "Could not list legacy custom resources","Resource" ,customResourceKind)
 			return reconcile.Result{}, err
 		}
 
-		if err != nil && err.Error() != fmt.Sprintf("no matches for kind %q in version %q", customResourceKind, "deploy.razee.io/v1alpha2") {
-			reqLogger.Info("no custom resource found for Kind: %v", customResourceKind)
+		if err != nil && err.Error() != fmt.Sprintf("No matches for kind %q in version %q", customResourceKind, "deploy.razee.io/v1alpha2") {
+			reqLogger.Info("No legacy custom resource found", "Kind" ,customResourceKind)
 		}
 
 		if err == nil {
 			for _, cr := range customResourceList.Items {
-				reqLogger.Info("Deleteing custom resource", "custom resource", cr)
+				reqLogger.Info("Deleteing legacy custom resource", "custom resource", cr)
 				err := r.client.Delete(context.TODO(), &cr)
 				if err != nil && !errors.IsNotFound(err) {
-					reqLogger.Error(err, "could not delete custom resource", "custom resource", cr)
+					reqLogger.Error(err, "Could not delete legacy custom resource","CustomResource",cr)
 					return reconcile.Result{}, err
 				}
 			}
@@ -1942,10 +1950,10 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 				Namespace: *req.Spec.TargetNamespace,
 			},
 		}
-		reqLogger.Info("deleting service account", "name", saName)
+		reqLogger.Info("Deleting legacy service account", "name", saName)
 		err = r.client.Delete(context.TODO(), serviceAccount, client.PropagationPolicy(deletePolicy))
 		if err != nil && !errors.IsNotFound((err)) {
-			reqLogger.Error(err, "could not delete service account", "name", saName)
+			reqLogger.Error(err, "Could not delete legacy service account","Resource",saName)
 			return reconcile.Result{}, err
 		}
 
@@ -1972,10 +1980,10 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 				Namespace: *req.Spec.TargetNamespace,
 			},
 		}
-		reqLogger.Info("deleting deployment", "name", deploymentName)
+		reqLogger.Info("Deleting legacy deployment", "name", deploymentName)
 		err = r.client.Delete(context.TODO(), deployment, client.PropagationPolicy(deletePolicy))
 		if err != nil && !errors.IsNotFound((err)) {
-			reqLogger.Error(err, "could not delete deployment", "name", deploymentName)
+			reqLogger.Error(err, "Could not delete legacy deployment", "name", deploymentName)
 			return reconcile.Result{}, err
 		}
 
