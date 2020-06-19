@@ -234,49 +234,48 @@ func FilterByNamespace(obj runtime.Object, namespaces []corev1.Namespace, rClien
 	if len(namespaces) == 0 {
 		// if no namespaces are passed, return resources across all namespaces
 		listOpts = append(listOpts, client.InNamespace(""))
-		err = getResources(obj, listOpts, rClient)
+		return getResources(obj, listOpts, rClient)
 
-	} else if len(namespaces) == 1 {
+	}
+
+	if len(namespaces) == 1 {
 		//if passed a single namespace, return resources across that namespace
 		listOpts = append(listOpts, client.InNamespace(namespaces[0].ObjectMeta.Name))
 		err = getResources(obj, listOpts, rClient)
+		return err
+	}
 
-	} else if len(namespaces) > 1 {
-		//if more than one namespaces is passed, loop through and append the resources
-		var listOpts []client.ListOption
-		switch listType := obj.(type) {
-		case *corev1.PodList:
-			for _, ns := range namespaces {
-				temp := &corev1.PodList{}
-				listOpts = append(listOpts, client.InNamespace(ns.ObjectMeta.Name))
-				err = getResources(temp, listOpts, rClient)
-				for _, i := range temp.Items {
-					listType.Items = append(listType.Items, i)
-				}
+	//if more than one namespaces is passed, loop through and append the resources
+	switch listType := obj.(type) {
+	case *corev1.PodList:
+		for _, ns := range namespaces {
+			temp := &corev1.PodList{}
+			listOpts = append(listOpts, client.InNamespace(ns.ObjectMeta.Name))
+			err = getResources(temp, listOpts, rClient)
+			for _, i := range temp.Items {
+				listType.Items = append(listType.Items, i)
 			}
-		case *monitoringv1.ServiceMonitorList:
-			for _, ns := range namespaces {
-				temp := &monitoringv1.ServiceMonitorList{}
-				listOpts = append(listOpts, client.InNamespace(ns.ObjectMeta.Name))
-				err = getResources(temp, listOpts, rClient)
-				for _, i := range temp.Items {
-					listType.Items = append(listType.Items, i)
-				}
-			}
-		case *corev1.ServiceList:
-			for _, ns := range namespaces {
-				temp := &corev1.ServiceList{}
-				listOpts = append(listOpts, client.InNamespace(ns.ObjectMeta.Name))
-				err = getResources(temp, listOpts, rClient)
-				for _, i := range temp.Items {
-					listType.Items = append(listType.Items, i)
-				}
-			}
-		default:
-			err = getResources(obj, listOpts, rClient)
 		}
-	} else {
-		err = errors.New("unexpected length of []namespaces")
+	case *monitoringv1.ServiceMonitorList:
+		for _, ns := range namespaces {
+			temp := &monitoringv1.ServiceMonitorList{}
+			listOpts = append(listOpts, client.InNamespace(ns.ObjectMeta.Name))
+			err = getResources(temp, listOpts, rClient)
+			for _, i := range temp.Items {
+				listType.Items = append(listType.Items, i)
+			}
+		}
+	case *corev1.ServiceList:
+		for _, ns := range namespaces {
+			temp := &corev1.ServiceList{}
+			listOpts = append(listOpts, client.InNamespace(ns.ObjectMeta.Name))
+			err = getResources(temp, listOpts, rClient)
+			for _, i := range temp.Items {
+				listType.Items = append(listType.Items, i)
+			}
+		}
+	default:
+		err = errors.New("type is not supported for filter aggregation")
 	}
 	return err
 }

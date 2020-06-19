@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -34,6 +35,7 @@ var (
 	customerID     string = "example-userid"
 	testNamespace1        = "testing-namespace-1"
 	testNamespace2        = "testing-namespace-2"
+	testNamespace3        = "testing-namespace-3"
 
 	marketplaceconfig = BuildMarketplaceConfigCR(testNamespace1, customerID)
 	razeedeployment   = BuildRazeeCr(testNamespace1, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName)
@@ -41,6 +43,7 @@ var (
 
 	testNs1 = &corev1.Namespace{}
 	testNs2 = &corev1.Namespace{}
+	testNs3 = &corev1.Namespace{}
 )
 
 // setup returns a fakeClient for testing purposes
@@ -58,6 +61,7 @@ func setup() client.Client {
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, marketplaceconfig)
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeedeployment)
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
+
 	client := fake.NewFakeClient(objs...)
 	return client
 }
@@ -67,6 +71,7 @@ func setupResources(rclient client.Client) error {
 
 	testNs1.ObjectMeta.Name = testNamespace1
 	testNs2.ObjectMeta.Name = testNamespace2
+	testNs3.ObjectMeta.Name = testNamespace3
 
 	testPod1 := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -95,6 +100,13 @@ func setupResources(rclient client.Client) error {
 		},
 	}
 
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-service",
+			Namespace: testNamespace3,
+		},
+	}
+
 	// Creating those resources
 	err := rclient.Create(context.TODO(), testNs1)
 	if err != nil {
@@ -117,6 +129,10 @@ func setupResources(rclient client.Client) error {
 		return err
 	}
 	err = rclient.Create(context.TODO(), serviceMonitor2)
+	if err != nil {
+		return err
+	}
+	err = rclient.Create(context.TODO(), service)
 	if err != nil {
 		return err
 	}
@@ -226,6 +242,34 @@ func TestFilterByNamespace(t *testing.T) {
 	} else if len(serviceMonitorList2.Items) != 1 {
 		t.Error("Case 5: Did not return the correct number of resrouces. Expected: 1. Actual: ", len(serviceMonitorList2.Items))
 	}
+
+	// case 6:
+	// get resources in case a list with a single namespace is passed
+	// should return: runtime.object list of size n
+	ns3 := []corev1.Namespace{ *testNs1, *testNs2 }
+	serviceMonitorList3 := &monitoringv1.ServiceMonitorList{}
+	err = FilterByNamespace(serviceMonitorList3, ns3, rclient)
+	if err != nil {
+		t.Error(err, "Could not execute FilterByNamespace")
+	} else if len(serviceMonitorList3.Items) != 2 {
+		t.Error("Case 2: Did not return the correct number of resrouces. Expected: 1. Actual: ", len(serviceMonitorList1.Items))
+	}
+
+	// case 7:
+	// get resources for servicelist
+	// should return: runtime.object list of size 1
+	ns3 = append(ns3, *testNs3)
+	serviceList := &corev1.ServiceList{}
+	err = FilterByNamespace(serviceList, ns3, rclient)
+	assert.NoError(t, err)
+	assert.Len(t, serviceList.Items, 1)
+
+	// case 8:
+	// test no supported list
+	// should return: error
+	nodeList := &corev1.NodeList{}
+	err = FilterByNamespace(nodeList, ns3, rclient)
+	assert.EqualError(t, err, "type is not supported for filter aggregation")
 
 }
 

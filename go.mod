@@ -44,6 +44,7 @@ require (
 	golang.org/x/tools v0.0.0-20200505023115-26f46d2f7ef8 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/genproto v0.0.0-20200212174721-66ed5ce911ce
+	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.17.4
 	k8s.io/apimachinery v0.17.4
 	k8s.io/client-go v12.0.0+incompatible
