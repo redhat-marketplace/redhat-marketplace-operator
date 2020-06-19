@@ -17,16 +17,18 @@ package utils
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 
+	emperrors "emperror.dev/errors"
 	"github.com/gotidy/ptr"
 	"github.com/imdario/mergo"
-	emperrors "emperror.dev/errors"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8yaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -221,4 +223,74 @@ func LoadYAML(filename string, i interface{}) (interface{}, error) {
 	}
 
 	return genericTypeVal, nil
+}
+
+// filterByNamespace returns the runtime.Object filtered by namespaces ListOptions
+func FilterByNamespace(obj runtime.Object, namespaces []corev1.Namespace, rClient client.Client, options ...client.ListOption) error {
+	var err error
+	var listOpts []client.ListOption
+	for _, opt := range options {
+		listOpts = append(listOpts, opt)
+	}
+
+	if len(namespaces) == 0 {
+		// if no namespaces are passed, return resources across all namespaces
+		listOpts = append(listOpts, client.InNamespace(""))
+		return getResources(obj, listOpts, rClient)
+
+	}
+
+	if len(namespaces) == 1 {
+		//if passed a single namespace, return resources across that namespace
+		listOpts = append(listOpts, client.InNamespace(namespaces[0].ObjectMeta.Name))
+		err = getResources(obj, listOpts, rClient)
+		return err
+	}
+
+	//if more than one namespaces is passed, loop through and append the resources
+	switch listType := obj.(type) {
+	case *corev1.PodList:
+		for _, ns := range namespaces {
+			temp := &corev1.PodList{}
+			listOpts = append(listOpts, client.InNamespace(ns.ObjectMeta.Name))
+			err = getResources(temp, listOpts, rClient)
+			for _, i := range temp.Items {
+				listType.Items = append(listType.Items, i)
+			}
+		}
+	case *monitoringv1.ServiceMonitorList:
+		for _, ns := range namespaces {
+			temp := &monitoringv1.ServiceMonitorList{}
+			listOpts = append(listOpts, client.InNamespace(ns.ObjectMeta.Name))
+			err = getResources(temp, listOpts, rClient)
+			for _, i := range temp.Items {
+				listType.Items = append(listType.Items, i)
+			}
+		}
+	case *corev1.ServiceList:
+		for _, ns := range namespaces {
+			temp := &corev1.ServiceList{}
+			listOpts = append(listOpts, client.InNamespace(ns.ObjectMeta.Name))
+			err = getResources(temp, listOpts, rClient)
+			for _, i := range temp.Items {
+				listType.Items = append(listType.Items, i)
+			}
+		}
+	default:
+		err = errors.New("type is not supported for filter aggregation")
+	}
+	return err
+}
+
+// getResources() is a helper function for FilterByNamespace(), it returns a the runtime.Object filled with resources from the requested namespaces
+// the namespaces are preset in listOpts
+func getResources(obj runtime.Object, listOpts []client.ListOption, rClient client.Client) error {
+
+	err := rClient.List(context.TODO(), obj, listOpts...)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
 }
