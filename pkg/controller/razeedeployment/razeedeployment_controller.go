@@ -1860,13 +1860,8 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 	return reconcile.Result{}, nil
 }
 
-/* 
-	uninstallLegacyResources deletes resources used by version 1.3 of the operator and below.
-	Job: razee-deploy Job, 
-	Custom Resources:"RemoteResource","RemoteResourceS3","FeatureFlagSetLD","ManagedSet","MustacheTemplate","RemoteResourceS3Decrypt"
-	Service Accounts: "razeedeploy-sa", "watch-keeper-sa"
-	Deployments: "watch-keeper","clustersubscription","featureflagsetld-controller","managedset-controller","mustachetemplate-controller","remoteresource-controller","remoteresources3-controller","remoteresources3decrypt-controller", 
-*/
+
+//uninstallLegacyResources deletes resources used by version 1.3 of the operator and below.
 func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 	req *marketplacev1alpha1.RazeeDeployment,
 ) (reconcile.Result, error) {
