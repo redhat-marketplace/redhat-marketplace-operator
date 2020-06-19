@@ -18,16 +18,17 @@ import (
 	"context"
 	"testing"
 
+	"emperror.dev/errors"
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -51,10 +52,16 @@ func setup() client.Client {
 	defaultFeatures := []string{"razee", "meterbase"}
 	viper.Set("assets", "../../../assets")
 	viper.Set("features", defaultFeatures)
+	testNs1.ObjectMeta.Name = testNamespace1
+	testNs2.ObjectMeta.Name = testNamespace2
+	testNs3.ObjectMeta.Name = testNamespace3
 	objs := []runtime.Object{
 		marketplaceconfig,
 		razeedeployment,
 		meterbase,
+		testNs1,
+		testNs2,
+		testNs3,
 	}
 	s := scheme.Scheme
 	_ = monitoringv1.AddToScheme(s)
@@ -68,10 +75,6 @@ func setup() client.Client {
 
 func setupResources(rclient client.Client) error {
 	// Setup resources we want to retrieve
-
-	testNs1.ObjectMeta.Name = testNamespace1
-	testNs2.ObjectMeta.Name = testNamespace2
-	testNs3.ObjectMeta.Name = testNamespace3
 
 	testPod1 := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -108,33 +111,25 @@ func setupResources(rclient client.Client) error {
 	}
 
 	// Creating those resources
-	err := rclient.Create(context.TODO(), testNs1)
+	err := rclient.Create(context.TODO(), testPod1)
 	if err != nil {
-		return err
-	}
-	err = rclient.Create(context.TODO(), testNs2)
-	if err != nil {
-		return err
-	}
-	err = rclient.Create(context.TODO(), testPod1)
-	if err != nil {
-		return err
+		return errors.Wrap(err, "create testPod1")
 	}
 	err = rclient.Create(context.TODO(), testPod2)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "create testPod2")
 	}
 	err = rclient.Create(context.TODO(), serviceMonitor1)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "create serviceMonitor1")
 	}
 	err = rclient.Create(context.TODO(), serviceMonitor2)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "create serviceMonitor2")
 	}
 	err = rclient.Create(context.TODO(), service)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "create service")
 	}
 
 	return nil
@@ -275,8 +270,9 @@ func TestFilterByNamespace(t *testing.T) {
 
 func TestGetResources(t *testing.T) {
 	rclient := setup()
-	setupResources(rclient)
-	var err error
+	err := setupResources(rclient)
+
+	assert.NoError(t, err)
 
 	podList3 := &corev1.PodList{}
 	opts1 := []client.ListOption{
