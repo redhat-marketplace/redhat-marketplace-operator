@@ -153,7 +153,7 @@ setup-operator-sdk-run: ## Create ns, crds, sa, role, and rolebinding before ope
 	- . ./scripts/operator_sdk_sa_kubeconfig.sh $(CLUSTER_SERVER) $(NAMESPACE) $(SERVICE_ACCOUNT)
 
 operator-sdk-run: ## Run operator locally outside the cluster during development cycle
-	operator-sdk run --local --watch-namespace=$(OPERATOR_WATCH_NAMESPACE) --kubeconfig=./sa.kubeconfig
+	operator-sdk run local --watch-namespace=$(OPERATOR_WATCH_NAMESPACE) --kubeconfig=./sa.kubeconfig
 
 ##@ Manual Testing
 
@@ -164,7 +164,7 @@ create: ##creates the required crds for this deployment
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE} --validate=false
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml -n ${NAMESPACE}
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_remoteresources3s_crd.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_remoteresources3_crd.yaml -n ${NAMESPACE}
 
 
 deploys: ##deploys the resources for deployment
@@ -190,6 +190,7 @@ delete: ##delete the contents created in 'make create'
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_meterbase_cr.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_meterdefinition_cr.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_remoteresources3_crd.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/operator.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/role_binding.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/role.yaml -n ${NAMESPACE}
@@ -198,6 +199,7 @@ delete: ##delete the contents created in 'make create'
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_remoteresources3_crd.yaml
 	- kubectl delete namespace ${NAMESPACE}
 
 delete-razee: ##delete the razee CR

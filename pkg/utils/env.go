@@ -48,7 +48,6 @@ const (
 	REPORTING_SERVICE_ACCOUNT = "redhat-marketplace-reporting"
 
 	/* Razee Controller Values */
-	PARENT_RRS3                = "parentRRS3"
 	RAZEE_DEPLOYMENT_FINALIZER = "razeedeploy.finalizer.marketplace.redhat.com"
 	DEFAULT_RAZEE_JOB_IMAGE    = "quay.io/razee/razeedeploy-delta:1.1.0"
 	WATCH_KEEPER_VERSION       = "0.5.0"

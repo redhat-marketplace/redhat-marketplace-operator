@@ -7,6 +7,8 @@ import (
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
+// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 //Auth allows you authenticate to remote storage locations using either HMAC or IAM authentication schemes.
 type Auth struct {
@@ -130,9 +132,14 @@ type RemoteResourceS3Spec struct {
 
 // RemoteResourceS3Status defines the observed state of RemoteResourceS3
 // +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+// +k8s:openapi-gen=true
 // +optional
 // +kubebuilder:pruning:PreserveUnknownFields
 type RemoteResourceS3Status struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+
 	RazeeLogs RazeeLogs `json:"razeeLogs,omitempty"`
 }
 
@@ -153,7 +160,6 @@ type Log map[string]string
 // RemoteResourceS3 is the Schema for the remoteresources3s API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=remoteresources3s,scope=Namespaced
-// +operator-sdk:gen-csv:customresourcedefinitions.displayName="(Internal) RemoteResourceS3"
 type RemoteResourceS3 struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -168,7 +174,7 @@ type RemoteResourceS3 struct {
 type RemoteResourceS3List struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []RemoteResourceS3 `json:"request"`
+	Items           []RemoteResourceS3 `json:"items"`
 }
 
 func init() {

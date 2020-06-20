@@ -265,7 +265,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if utils.Contains(instance.GetFinalizers(), utils.RAZEE_DEPLOYMENT_FINALIZER) {
 			//Run finalization logic for the RAZEE_DEPLOYMENT_FINALIZER.
 			//If it fails, don't remove the finalizer so we can retry during the next reconcile
-			return r.fullUninstall(instance)
+			// return r.fullUninstall(instance)
 		}
 		return reconcile.Result{}, nil
 	}
@@ -990,19 +990,19 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		Message: message,
 	})
 
-	parentRRS3 := marketplacev1alpha1.RemoteResourceS3{}
+	parentRRS3 := &marketplacev1alpha1.RemoteResourceS3{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{
 		Name:     utils.PARENT_RRS3_RESOURCE_NAME,
 		Namespace: *instance.Spec.TargetNamespace},
-		&parentRRS3)
+		parentRRS3)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			reqLogger.V(0).Info("Resource does not exist", "resource: ", utils.PARENT_RRS3)
+			reqLogger.V(0).Info("Resource does not exist", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
 			parentRRS3 := r.makeParentRemoteResourceS3(instance)
 
 			err = r.client.Create(context.TODO(), parentRRS3)
 			if err != nil {
-				reqLogger.Info("Failed to create resource", "resource: ", utils.PARENT_RRS3)
+				reqLogger.Info("Failed to create resource", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
 				return reconcile.Result{}, err
 			}
 			message := "ParentRRS3 install finished"
@@ -1015,15 +1015,15 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 			_ = r.client.Status().Update(context.TODO(), instance)
 
-			reqLogger.Info("Resource created successfully", "resource: ", utils.PARENT_RRS3)
+			reqLogger.Info("Resource created successfully", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
 			return reconcile.Result{Requeue: true}, nil
 		} else {
-			reqLogger.Info("Failed to get resource", "resource: ", utils.PARENT_RRS3)
+			reqLogger.Info("Failed to get resource", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
 			return reconcile.Result{}, err
 		}
 	}
 	if err == nil {
-		reqLogger.V(0).Info("Resource already exists", "resource: ", utils.PARENT_RRS3)
+		reqLogger.V(0).Info("Resource already exists", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
 
 		newParentValues := r.makeParentRemoteResourceS3(instance)
 		updatedParentRRS3 := parentRRS3.DeepCopy()
@@ -1032,21 +1032,21 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		if !reflect.DeepEqual(updatedParentRRS3.Spec, parentRRS3.Spec) {
 			reqLogger.Info("Change detected on resource", updatedParentRRS3.GetName(), "update")
 
-			reqLogger.Info("Updating resource", "resource: ", utils.PARENT_RRS3)
+			reqLogger.Info("Updating resource", "resource: ", utils.PARENT_RRS3_RESOURCE_NAME)
 			err = r.client.Update(context.TODO(), updatedParentRRS3)
 			if err != nil {
-				reqLogger.Info("Failed to update resource", "resource: ", utils.PARENT_RRS3)
+				reqLogger.Info("Failed to update resource", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
 				return reconcile.Result{}, err
 			}
-			reqLogger.Info("Resource updated successfully", "resource: ", utils.PARENT_RRS3)
+			reqLogger.Info("Resource updated successfully", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
 			return reconcile.Result{Requeue: true}, nil
 		}
 
-		reqLogger.V(0).Info("No change detected on resource", "resource: ", updatedParentRRS3.GetName())
+		reqLogger.V(0).Info("No change detected on resource", "resource", updatedParentRRS3.GetName())
 	}
 
-	if !utils.Contains(instance.Status.RazeePrerequisitesCreated, utils.PARENT_RRS3) {
-		instance.Status.RazeePrerequisitesCreated = append(instance.Status.RazeePrerequisitesCreated, utils.PARENT_RRS3)
+	if !utils.Contains(instance.Status.RazeePrerequisitesCreated, utils.PARENT_RRS3_RESOURCE_NAME) {
+		instance.Status.RazeePrerequisitesCreated = append(instance.Status.RazeePrerequisitesCreated, utils.PARENT_RRS3_RESOURCE_NAME)
 		reqLogger.Info("updating Status.RazeePrerequisitesCreated with parentRRS3")
 
 		err = r.client.Status().Update(context.TODO(), instance)
@@ -1122,10 +1122,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 	reqLogger.V(0).Info("No patch needed on Infrastructure resource")
 
-	//TODO: uninstall legacy resources
-	if instance.Spec.LegacyUninstallHasRun == nil || !*instance.Spec.LegacyUninstallHasRun {
-		r.uninstallLegacyResources(instance)
-	}
+	// //TODO: uninstall legacy resources
+	// if instance.Spec.LegacyUninstallHasRun == nil || !*instance.Spec.LegacyUninstallHasRun {
+	// 	r.uninstallLegacyResources(instance)
+	// }
 
 	message = "Razee install complete"
 	change1 := instance.Status.Conditions.SetCondition(status.Condition{
@@ -1580,12 +1580,8 @@ func (r *ReconcileRazeeDeployment) makeCOSReaderSecret(instance *marketplacev1al
 // Creates the "parent" RemoteResourceS3 and applies the name of the cos-reader-key and ChildUrl constructed during reconciliation of the rhm-operator-secret
 func (r *ReconcileRazeeDeployment) makeParentRemoteResourceS3(instance *marketplacev1alpha1.RazeeDeployment) *marketplacev1alpha1.RemoteResourceS3 {
 	return &marketplacev1alpha1.RemoteResourceS3{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "RhmRemoteResourceS3",
-			APIVersion: "marketplace.redhat.com/v1alpha1",
-		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "parent",
+			Name:      utils.PARENT_RRS3_RESOURCE_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
 		},
 		Spec: marketplacev1alpha1.RemoteResourceS3Spec{
@@ -1607,7 +1603,7 @@ func (r *ReconcileRazeeDeployment) makeParentRemoteResourceS3(instance *marketpl
 				},
 			},
 			Requests: []marketplacev1alpha1.Request{
-				marketplacev1alpha1.Request{
+				{
 					Options: marketplacev1alpha1.Options{
 						URL: *instance.Spec.ChildUrl,
 					},
