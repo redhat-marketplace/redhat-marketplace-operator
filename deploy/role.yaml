@@ -236,6 +236,17 @@ metadata:
   namespace: openshift-redhat-marketplace
 rules:
 - apiGroups:
+  - operators.coreos.com
+  resourceNames:
+  - redhat-marketplace
+  resources:
+  - operatorsources
+  verbs:
+  - get
+  - delete
+  - patch
+  - update
+- apiGroups:
   - marketplace.redhat.com
   resources:
   - remoteresources3s
