@@ -17,8 +17,8 @@ package subscription
 import (
 	"testing"
 
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 	"context"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -53,9 +53,9 @@ func TestSubscriptionController(t *testing.T) {
 }
 
 var (
-	name      = "new-subscription"
-	namespace = "arbitrary-namespace"
-	kind = "Subscription"
+	name             = "new-subscription"
+	namespace        = "arbitrary-namespace"
+	kind             = "Subscription"
 	uninstallSubName = "sub-uninstall"
 
 	req = reconcile.Request{
@@ -120,8 +120,8 @@ var (
 	installPlans = []runtime.Object{
 		&olmv1alpha1.InstallPlan{
 			ObjectMeta: v1.ObjectMeta{
-				Name:      "install-1",
-				Namespace: namespace,
+				Name:            "install-1",
+				Namespace:       namespace,
 				OwnerReferences: []v1.OwnerReference{v1.OwnerReference{Name: uninstallSubName, Kind: kind}},
 			},
 			Spec: olmv1alpha1.InstallPlanSpec{
@@ -130,8 +130,8 @@ var (
 		},
 		&olmv1alpha1.InstallPlan{
 			ObjectMeta: v1.ObjectMeta{
-				Name:      "install-2",
-				Namespace: namespace,
+				Name:            "install-2",
+				Namespace:       namespace,
 				OwnerReferences: []v1.OwnerReference{v1.OwnerReference{Name: uninstallSubName, Kind: kind}},
 			},
 			Spec: olmv1alpha1.InstallPlanSpec{
@@ -140,14 +140,14 @@ var (
 		},
 		&olmv1alpha1.InstallPlan{
 			ObjectMeta: v1.ObjectMeta{
-				Name:      "install-other",
-				Namespace: namespace,
+				Name:            "install-other",
+				Namespace:       namespace,
 				OwnerReferences: []v1.OwnerReference{v1.OwnerReference{Name: "sub-other", Kind: kind}},
 			},
 			Spec: olmv1alpha1.InstallPlanSpec{
 				ClusterServiceVersionNames: []string{"csv-other"},
 			},
-		},		
+		},
 	}
 
 	clusterServiceVersions = []runtime.Object{
@@ -169,8 +169,7 @@ var (
 				Namespace: namespace,
 			},
 		},
-  }
-
+	}
 )
 
 func setup(r *ReconcilerTest) error {
@@ -217,7 +216,7 @@ func testSubscriptionDelete(t *testing.T) {
 					client.InNamespace(namespace)),
 				ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
 					list, ok := i.(*olmv1.OperatorGroupList)
-	
+
 					assert.Truef(t, ok, "expected operator group list got type %T", i)
 					assert.Equal(t, 0, len(list.Items))
 				})),

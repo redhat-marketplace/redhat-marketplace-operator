@@ -105,7 +105,7 @@ func setupResources(rclient client.Client) error {
 
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-service",
+			Name:      "test-service",
 			Namespace: testNamespace3,
 		},
 	}
@@ -241,7 +241,7 @@ func TestFilterByNamespace(t *testing.T) {
 	// case 6:
 	// get resources in case a list with a single namespace is passed
 	// should return: runtime.object list of size n
-	ns3 := []corev1.Namespace{ *testNs1, *testNs2 }
+	ns3 := []corev1.Namespace{*testNs1, *testNs2}
 	serviceMonitorList3 := &monitoringv1.ServiceMonitorList{}
 	err = FilterByNamespace(serviceMonitorList3, ns3, rclient)
 	if err != nil {

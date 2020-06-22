@@ -928,7 +928,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{RequeueAfter: time.Second * 15}, nil
 	}
 
-	// if the job succeeds apply the parentRRS3 and patch the Infrastructure and Console resources
+	// if the job succeeds apply the parentRRS3 and patch the Infrastructure, ClusterVersion and Console resources
 	if foundJob.Status.Succeeded == 1 {
 		parentRRS3 := &unstructured.Unstructured{}
 		parentRRS3.SetGroupVersionKind(schema.GroupVersionKind{
@@ -1002,7 +1002,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 		/******************************************************************************
 		PATCH RESOURCES FOR DIANEMO
-		Patch the Console and Infrastructure resources with the watch-keeper label
+		Patch the Console, ClusterVersion and Infrastructure resources with the watch-keeper label
 		Patch 'razee-cluster-metadata' with ClusterUUID
 		/******************************************************************************/
 		reqLogger.V(0).Info("finding Console resource")
@@ -1064,6 +1064,38 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			return reconcile.Result{Requeue: true}, nil
 		}
 		reqLogger.V(0).Info("No patch needed on Infrastructure resource")
+
+		reqLogger.V(0).Info("finding clusterversion resource")
+		clusterVersion := &unstructured.Unstructured{}
+		clusterVersion.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "config.openshift.io",
+			Kind:    "ClusterVersion",
+			Version: "v1",
+		})
+		err = r.client.Get(context.Background(), client.ObjectKey{
+			Name: "version",
+		}, clusterVersion)
+		if err != nil {
+			reqLogger.Error(err, "Failed to retrieve clusterversion resource")
+			return reconcile.Result{}, err
+		}
+
+		reqLogger.V(0).Info("Found clusterversion resource")
+		clusterVersionLabels := clusterVersion.GetLabels()
+		if !reflect.DeepEqual(clusterVersionLabels, RAZEE_WATCH_KEEPER_LABELS) || clusterVersionLabels == nil {
+
+			clusterVersion.SetLabels(RAZEE_WATCH_KEEPER_LABELS)
+			err = r.client.Update(context.TODO(), clusterVersion)
+			if err != nil {
+				reqLogger.Error(err, "Failed to patch clusterversion resource")
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("Patched clusterversion resource")
+
+			return reconcile.Result{Requeue: true}, nil
+		}
+		reqLogger.V(0).Info("No patch needed on clusterversion resource")
+
 	}
 
 	message := "Razee install complete"
