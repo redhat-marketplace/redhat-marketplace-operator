@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	emperrors "emperror.dev/errors"
-	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -13,7 +12,7 @@ import (
 
 type updateAction struct {
 	baseAction
-	conditionalUpdate ConditionalUpdateFunction
+	updateObject runtime.Object
 	updateActionOptions
 }
 
@@ -22,54 +21,43 @@ type updateActionOptions struct {
 	WithStatusCondition UpdateStatusConditionFunc
 }
 
-func newPatcher(originalObject runtime.Object,
-	patchMaker *patch.PatchMaker,
-	updatedObjectFunction UpdateFunction,
-) ConditionalUpdateFunction {
-	return func() (update bool, updatedObject runtime.Object, err error) {
-		new, err := updatedObjectFunction()
-		updatedObject = new
-		update = false
+type PatchChecker struct {
+	patchMaker PatchMaker
+}
 
-		if err != nil {
-			return
-		}
-
-		patchResult, err := patchMaker.Calculate(originalObject, new)
-
-		if err != nil {
-			return
-		}
-
-		if patchResult.IsEmpty() {
-			return
-		}
-
-		update = true
-		return
+func NewPatchChecker(p PatchMaker) *PatchChecker {
+	return &PatchChecker{
+		patchMaker: p,
 	}
 }
 
-func UpdateWithPatch(
+func (p *PatchChecker) CheckPatch(
 	originalObject runtime.Object,
-	patcher *patch.PatchMaker,
-	updateFunc UpdateFunction,
-	updateOptions ...UpdateActionOption,
-) *updateAction {
-	opts, _ := newUpdateActionOptions(updateOptions...)
-	return &updateAction{
-		conditionalUpdate:   newPatcher(originalObject, patcher, updateFunc),
-		updateActionOptions: opts,
+	updatedObject runtime.Object,
+) (update bool, err error) {
+	update = false
+
+	patchResult, err := p.patchMaker.Calculate(originalObject, updatedObject)
+
+	if err != nil {
+		return
 	}
+
+	if patchResult.IsEmpty() {
+		return
+	}
+
+	update = true
+	return
 }
 
 func UpdateAction(
-	updateFunc ConditionalUpdateFunction,
+	updateObject runtime.Object,
 	updateOptions ...UpdateActionOption,
 ) *updateAction {
 	opts, _ := newUpdateActionOptions(updateOptions...)
 	return &updateAction{
-		conditionalUpdate:   updateFunc,
+		updateObject:        updateObject,
 		updateActionOptions: opts,
 	}
 }
@@ -79,58 +67,41 @@ func (a *updateAction) Bind(result *ExecResult) {
 }
 
 func (a *updateAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
-	update, updatedObject, err := a.conditionalUpdate()
+	updatedObject := a.updateObject
 
-	withCondition := func(result *ExecResult, err error) (*ExecResult, error) {
-		return result, err
-	}
-
-	if a.WithStatusCondition != nil {
-		withCondition = func(result *ExecResult, err error) (*ExecResult, error) {
-			statusUpdater := UpdateStatusCondition(a.WithStatusCondition)
-			statusUpdater.Bind(result)
-			statusUpdater.Exec(ctx, c)
-			return result, err
-		}
-	}
-
-	if updatedObject == nil {
-		err := emperrors.New("object to update is nil")
+	if isNil(updatedObject) {
+		err := emperrors.WithStack(ErrNilObject)
 		return NewExecResult(Error, reconcile.Result{}, err), err
 	}
 
-	if err != nil {
-		c.log.Error(err, "failed to get object for update")
-		return withCondition(NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error updating object"))
-	}
-
 	reqLogger := c.log.WithValues("requestType", fmt.Sprintf("%T", updatedObject))
+	err := c.client.Update(ctx, updatedObject)
 
-	if update {
-		err := c.client.Update(ctx, updatedObject)
-
-		if err != nil {
-			reqLogger.Error(err, "error updating object")
-			return withCondition(NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error applying update"))
-		}
-
-		reqLogger.V(2).Info("updated object")
-		return withCondition(NewExecResult(Requeue, reconcile.Result{}, nil), nil)
+	if err != nil {
+		reqLogger.Error(err, "error updating object")
+		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error applying update")
 	}
 
-	return withCondition(NewExecResult(Continue, reconcile.Result{}, nil), nil)
+	reqLogger.V(2).Info("updated object")
+	return NewExecResult(Requeue, reconcile.Result{}, nil), nil
 }
 
 type updateStatusConditionAction struct {
-	updateCondition UpdateStatusConditionFunc
+	instance   runtime.Object
+	conditions *status.Conditions
+	condition  status.Condition
 	baseAction
 }
 
 func UpdateStatusCondition(
-	updateCondition UpdateStatusConditionFunc,
+	instance runtime.Object,
+	conditions *status.Conditions,
+	condition status.Condition,
 ) *updateStatusConditionAction {
 	return &updateStatusConditionAction{
-		updateCondition: updateCondition,
+		instance:   instance,
+		conditions: conditions,
+		condition:  condition,
 	}
 }
 
@@ -139,25 +110,23 @@ func (u *updateStatusConditionAction) Bind(result *ExecResult) {
 }
 
 func (u *updateStatusConditionAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
-	update, instance, conditions, condition := u.updateCondition(u.lastResult, u.lastResult.Err)
+	if isNil(u.instance) {
+		err := emperrors.WithStack(ErrNilObject)
+		return NewExecResult(Error, reconcile.Result{}, err), err
+	}
 
-	if update {
-		if instance == nil {
-			err := emperrors.New("instance is nil")
-			return NewExecResult(Error, reconcile.Result{}, err), err
-		}
-		if conditions == nil {
-			conditions = &status.Conditions{}
-		}
-		if conditions.SetCondition(condition) {
-			err := c.client.Status().Update(context.TODO(), instance)
+	if isNil(u.conditions) {
+		u.conditions = &status.Conditions{}
+	}
 
-			if err != nil {
-				return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error while updating status condition")
-			}
+	if u.conditions.SetCondition(u.condition) {
+		err := c.client.Status().Update(context.TODO(), u.instance)
 
-			return NewExecResult(Requeue, reconcile.Result{Requeue: true}, nil), nil
+		if err != nil {
+			return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error while updating status condition")
 		}
+
+		return NewExecResult(Requeue, reconcile.Result{Requeue: true}, nil), nil
 	}
 
 	return NewExecResult(Continue, reconcile.Result{}, nil), nil

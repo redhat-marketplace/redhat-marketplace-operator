@@ -16,28 +16,35 @@ type mapAction struct {
 	baseAction
 }
 
-func (m *mapAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
-	c.log.V(0).Info("entering do")
-	result := m.lastResult
-
-	for _, action := range m.Actions {
-		action.Bind(result)
-		result, _ = action.Exec(ctx, c)
-		m.Results = append(m.Results, result)
-	}
-
-	return NewExecResult(Continue, reconcile.Result{}, nil), nil
+type call struct {
+	baseAction
+	call func() (ClientAction, error)
 }
 
-func (m *mapAction) Bind(result *ExecResult) {
-	m.lastResult = result
+func Call(callAction func() (ClientAction, error)) ClientAction {
+	return &call{
+		call: callAction,
+	}
 }
 
-func Map(results []*ExecResult, actions ...ClientAction) ClientAction {
-	return &mapAction{
-		Results: results,
-		Actions: actions,
+func (i *call) Bind(result *ExecResult) {
+	i.lastResult = result
+}
+
+func (i *call) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
+	c.log.V(0).Info("entering call")
+	action, err := i.call()
+
+	if err != nil {
+		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error on call")
 	}
+
+	if isNil(action) {
+		return NewExecResult(Continue, reconcile.Result{}, nil), nil
+	}
+
+	action.Bind(i.lastResult)
+	return action.Exec(ctx, c)
 }
 
 func Do(actions ...ClientAction) ClientAction {
@@ -57,67 +64,51 @@ func (i *do) Bind(result *ExecResult) {
 
 func (i *do) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 	c.log.V(0).Info("entering do")
-	result := i.lastResult
 	var err error
-
+	result := i.lastResult
 	for _, action := range i.Actions {
 		action.Bind(result)
 		result, err = action.Exec(ctx, c)
 
-		switch result.Status {
-		case Error:
-			return result, emperrors.Wrap(err, "error executing do")
-		case Requeue:
-			return result, nil
+		if result != nil {
+			switch result.Status {
+			case Error:
+				return result, emperrors.Wrap(err, "error executing do")
+			case Requeue:
+				return result, nil
+			}
 		}
 	}
 	c.log.V(0).Info("result is", "result", result)
 	return result, nil
 }
 
-
-func If(condition ConditionFunc, actions ...ClientAction) ClientAction {
-	return &IfConditional{
-		Condition: condition,
-		Then:      actions,
-	}
-}
-
-type IfConditional struct {
-	baseAction
-	Condition ConditionFunc
-	Then      []ClientAction
-}
-
-func (i *IfConditional) Bind(result *ExecResult) {
-	i.lastResult = result
-}
-
-func (i *IfConditional) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
-	c.log.V(0).Info("entering if")
-	if i.Condition != nil && i.Condition(i.lastResult) {
-		c.log.V(0).Info("executing if")
-		return Do(i.Then...).Exec(ctx, c)
-	}
-
-	c.log.V(0).Info("no op")
-	return NewExecResult(Continue, reconcile.Result{}, nil), nil
-}
-
-type StoreResult struct {
+type storeResult struct {
 	baseAction
 	Var    *ExecResult
 	Err    error
 	Action ClientAction
 }
 
-func (r *StoreResult) Bind(result *ExecResult) {
+func StoreResult(result *ExecResult, action ClientAction) ClientAction {
+	return &storeResult{
+		Var:    result,
+		Action: action,
+	}
+}
+
+func (r *storeResult) Bind(result *ExecResult) {
 	r.lastResult = result
 }
 
-func (r *StoreResult) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
+func (r *storeResult) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 	r.Action.Bind(r.lastResult)
 	myVar, err := r.Action.Exec(ctx, c)
+
+	if r.Var == nil || myVar == nil {
+		return NewExecResult(Error, reconcile.Result{}, nil), emperrors.New("vars are nil")
+	}
+
 	*r.Var = *myVar
 	r.Err = err
 	return myVar, err

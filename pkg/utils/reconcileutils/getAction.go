@@ -20,7 +20,6 @@ type getAction struct {
 
 //go:generate go-options -option GetActionOption -prefix GetWith getActionOptions
 type getActionOptions struct {
-	IgnoreNotFound bool
 }
 
 func GetAction(
@@ -42,7 +41,7 @@ func (g *getAction) Bind(r *ExecResult) {
 
 func (g *getAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 
-	if g.Object == nil {
+	if isNil(g.Object) {
 		err := emperrors.New("object to get is nil")
 		return NewExecResult(Error, reconcile.Result{}, err), err
 	}
@@ -50,10 +49,6 @@ func (g *getAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, er
 	err := c.client.Get(ctx, g.NamespacedName, g.Object)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			if g.IgnoreNotFound {
-				return NewExecResult(Continue, reconcile.Result{}, err), nil
-			}
-
 			return NewExecResult(NotFound, reconcile.Result{}, err), nil
 		}
 		if err != nil {

@@ -64,7 +64,7 @@ type MetricsReport struct {
 }
 
 type MetricKey struct {
-	ReportPeriodStart string `mapstructure:"report_period_start",json:"report_period_start"`
+	ReportPeriodStart string `mapstructure:"report_period_start"`
 	ReportPeriodEnd   string `mapstructure:"report_period_end"`
 	IntervalStart     string `mapstructure:"interval_start"`
 	IntervalEnd       string `mapstructure:"interval_end"`

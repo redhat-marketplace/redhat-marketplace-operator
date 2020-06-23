@@ -31,13 +31,6 @@ type DeleteActionOption interface {
 	apply(*deleteActionOptions) error
 }
 
-func DeleteWithStatusCondition(o UpdateStatusConditionFunc) ApplyDeleteActionOptionFunc {
-	return func(c *deleteActionOptions) error {
-		c.WithStatusCondition = o
-		return nil
-	}
-}
-
 func DeleteWithDeleteOptions(o ...client.DeleteOption) ApplyDeleteActionOptionFunc {
 	return func(c *deleteActionOptions) error {
 		c.WithDeleteOptions = o

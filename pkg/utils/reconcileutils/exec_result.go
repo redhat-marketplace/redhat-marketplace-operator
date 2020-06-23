@@ -7,6 +7,7 @@ import (
 type ActionResultStatus string
 
 var (
+	Return   ActionResultStatus = "return"
 	Continue ActionResultStatus = "continue"
 	NotFound ActionResultStatus = "not_found"
 	Requeue  ActionResultStatus = "requeue"

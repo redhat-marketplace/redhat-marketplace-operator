@@ -26,10 +26,3 @@ func applyGetActionOptionsOptions(c *getActionOptions, options ...GetActionOptio
 type GetActionOption interface {
 	apply(*getActionOptions) error
 }
-
-func GetWithIgnoreNotFound(o bool) ApplyGetActionOptionFunc {
-	return func(c *getActionOptions) error {
-		c.IgnoreNotFound = o
-		return nil
-	}
-}

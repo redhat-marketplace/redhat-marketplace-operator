@@ -3,10 +3,11 @@ package reconcileutils
 import (
 	"context"
 
+	"emperror.dev/errors"
+	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	"k8s.io/apimachinery/pkg/runtime"
 )
-
 
 // ClientAction is the interface all actions must use in order to
 // be able to be executed.
@@ -39,3 +40,16 @@ type UpdateFunction func() (updatedObject runtime.Object, err error)
 // ConditionalUpdateFunction returns true and and updatedObject if there is an update, or false if
 // there is a no change.
 type ConditionalUpdateFunction func() (update bool, updatedObject runtime.Object, err error)
+
+const ErrNilObject = errors.Sentinel("object provided is nil")
+
+type PatchAnnotator interface {
+	GetOriginalConfiguration(obj runtime.Object) ([]byte, error)
+	SetOriginalConfiguration(obj runtime.Object, original []byte) error
+	GetModifiedConfiguration(obj runtime.Object, annotate bool) ([]byte, error)
+	SetLastAppliedAnnotation(obj runtime.Object) error
+}
+
+type PatchMaker interface {
+	Calculate(currentObject, modifiedObject runtime.Object, opts ...patch.CalculateOption) (*patch.PatchResult, error)
+}

@@ -17,7 +17,6 @@ type deleteAction struct {
 
 //go:generate go-options -option DeleteActionOption -imports=sigs.k8s.io/controller-runtime/pkg/client -prefix Delete deleteActionOptions
 type deleteActionOptions struct {
-	WithStatusCondition UpdateStatusConditionFunc
 	WithDeleteOptions []client.DeleteOption `options:"..."`
 }
 
@@ -37,29 +36,16 @@ func (d *deleteAction) Bind(result *ExecResult) {
 }
 
 func (d *deleteAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
-	withCondition := func(result *ExecResult, err error) (*ExecResult, error) {
-		return result, err
-	}
-
-	if d.WithStatusCondition != nil {
-		withCondition = func(result *ExecResult, err error) (*ExecResult, error) {
-			statusUpdater := UpdateStatusCondition(d.WithStatusCondition)
-			statusUpdater.Bind(result)
-			statusUpdater.Exec(ctx, c)
-			return result, err
-		}
-	}
-
-	if d.obj == nil {
+	if isNil(d.obj) {
 		err := emperrors.New("object to delete is nil")
-		return withCondition(NewExecResult(Error, reconcile.Result{}, err), err)
+		return NewExecResult(Error, reconcile.Result{}, err), err
 	}
 
 	err := c.client.Delete(ctx, d.obj, d.WithDeleteOptions...)
 
 	if err != nil {
-		return withCondition(NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error while deleting"))
+		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error while deleting")
 	}
 
-	return withCondition(NewExecResult(Continue, reconcile.Result{}, nil), nil)
+	return NewExecResult(Continue, reconcile.Result{}, nil), nil
 }

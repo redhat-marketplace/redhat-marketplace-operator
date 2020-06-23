@@ -17,7 +17,6 @@ require (
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.4 // indirect
 	github.com/golang/mock v1.4.3
-	github.com/golang/protobuf v1.4.0 // indirect
 	github.com/golangci/golangci-lint v1.27.0
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
@@ -29,6 +28,8 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/noqcks/gucci v0.0.4
+	github.com/onsi/ginkgo v1.13.0
+	github.com/onsi/gomega v1.10.1
 	github.com/openshift/api v0.0.0-20200205133042-34f0ec8dab87 // indirect
 	github.com/operator-framework/api v0.3.7-0.20200528122852-759ca0d84007
 	github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b
@@ -44,9 +45,7 @@ require (
 	github.com/tcnksm/ghr v0.13.0
 	github.com/urfave/cli v1.22.2 // indirect
 	golang.org/x/crypto v0.0.0-20200429183012-4b2356b1ed79 // indirect
-	golang.org/x/net v0.0.0-20200425230154-ff2c4b7c35a0 // indirect
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a // indirect
-	golang.org/x/sys v0.0.0-20200428200454-593003d681fa // indirect
 	golang.org/x/tools v0.0.0-20200505023115-26f46d2f7ef8 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
 	k8s.io/api v0.18.3

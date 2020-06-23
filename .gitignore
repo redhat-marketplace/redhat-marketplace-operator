@@ -112,3 +112,4 @@ cover.out
 bundle/
 
 .action-secrets.txt
+*.coverprofile
