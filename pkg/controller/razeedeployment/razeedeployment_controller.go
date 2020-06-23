@@ -903,21 +903,21 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	//check if rrs3 deployment is running correctly
-	installedRemoteResourceDep := &appsv1.Deployment{}
-	reqLogger.V(0).Info("Checking status on RemoteResourceDeployment")
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name:      utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-		Namespace: request.Namespace,
-	}, installedRemoteResourceDep)
-	if errors.IsNotFound(err) {
-		reqLogger.Error(err, "Failed to retreive RemoteResourceDeployment")
-	}
+	// //check if rrs3 deployment is running correctly
+	// installedRemoteResourceDep := &appsv1.Deployment{}
+	// reqLogger.V(0).Info("Checking status on RemoteResourceDeployment")
+	// err = r.client.Get(context.TODO(), types.NamespacedName{
+	// 	Name:      utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+	// 	Namespace: request.Namespace,
+	// }, installedRemoteResourceDep)
+	// if errors.IsNotFound(err) {
+	// 	reqLogger.Error(err, "Failed to retreive RemoteResourceDeployment")
+	// }
 
-	if installedRemoteResourceDep.Status.AvailableReplicas != 1 {
-		reqLogger.Info("remote resource s3 deployment doesn't have any available replicas")
-		return reconcile.Result{RequeueAfter: time.Second * 30}, nil
-	}
+	// if installedRemoteResourceDep.Status.AvailableReplicas != 1 {
+	// 	reqLogger.Info("remote resource s3 deployment doesn't have any available replicas")
+	// 	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+	// }
 
 	message := "RemoteResourceS3 install finished"
 	instance.Status.Conditions.SetCondition(status.Condition{
@@ -967,20 +967,20 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	installedWatchKeeperDeployment := &appsv1.Deployment{}
-	reqLogger.V(0).Info("Checking watch-keeper status")
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name:      utils.WATCHKEEPER_DEPLOYMENT_NAME,
-		Namespace: request.Namespace,
-	}, installedWatchKeeperDeployment)
-	if errors.IsNotFound(err) {
-		reqLogger.Error(err, "Failed to retrieve watch-keeper")
-	}
+	// installedWatchKeeperDeployment := &appsv1.Deployment{}
+	// reqLogger.V(0).Info("Checking watch-keeper status")
+	// err = r.client.Get(context.TODO(), types.NamespacedName{
+	// 	Name:      utils.WATCHKEEPER_DEPLOYMENT_NAME,
+	// 	Namespace: request.Namespace,
+	// }, installedWatchKeeperDeployment)
+	// if errors.IsNotFound(err) {
+	// 	reqLogger.Error(err, "Failed to retrieve watch-keeper")
+	// }
 
-	if installedWatchKeeperDeployment.Status.AvailableReplicas != 1 {
-		reqLogger.Info("watch-keeper deployment doesn't have any available replicas")
-		return reconcile.Result{RequeueAfter: time.Second * 30}, nil
-	}
+	// if installedWatchKeeperDeployment.Status.AvailableReplicas != 1 {
+	// 	reqLogger.Info("watch-keeper deployment doesn't have any available replicas")
+	// 	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+	// }
 
 	message = "watch-keeper install finished"
 	instance.Status.Conditions.SetCondition(status.Condition{
@@ -989,6 +989,40 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		Reason:  marketplacev1alpha1.ReasonWatchKeeperDeploymentInstalled,
 		Message: message,
 	})
+
+	/*
+		Get pods created by rhm-watch-keeper and rhm-remote-resource deployments
+	*/
+	// Update the Memcached status with the pod names
+	// List the pods for this memcached's deployment
+	podList := &corev1.PodList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(*instance.Spec.TargetNamespace),
+		client.MatchingLabels(map[string]string{
+			"app": utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+		}),
+		client.MatchingLabels(map[string]string{
+			"app": utils.WATCHKEEPER_DEPLOYMENT_NAME,
+		}),
+	}
+
+	err = r.client.List(context.TODO(), podList, listOpts...)
+	if err != nil {
+		reqLogger.Error(err, "Failed to list deployment pods")
+		return reconcile.Result{}, err
+	}
+	podNames := utils.GetPodNames(podList.Items)
+
+	// Update status.Nodes if needed
+	if !reflect.DeepEqual(podNames, instance.Status) {
+		instance.Status. = podNames
+		err := r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update Memcached status.")
+			return reconcile.Result{}, err
+		}
+	}
+
 
 	parentRRS3 := &marketplacev1alpha1.RemoteResourceS3{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{
@@ -1371,7 +1405,7 @@ func (r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *mark
 			Replicas: rep,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": "remoteresources3-controller",
+					"app": utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 				},
 			},
 			Strategy: appsv1.DeploymentStrategy{
@@ -1380,7 +1414,7 @@ func (r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *mark
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app":                  "remoteresources3-controller",
+						"app":                  utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 						"razee/watch-resource": "lite",
 					},
 					Name: utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
@@ -1423,7 +1457,7 @@ func (r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *mark
 								},
 							},
 							ImagePullPolicy: corev1.PullAlways,
-							Name:            "remoteresources3-controller",
+							Name:            utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 							LivenessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
 									Exec: &corev1.ExecAction{

@@ -299,7 +299,6 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		Name:      utils.OPSRC_NAME,
 		Namespace: utils.OPERATOR_MKTPLACE_NS},
 		foundOpSrc)
-	utils.PrettyPrint(foundOpSrc)
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new operator source
 		newOpSrc := utils.BuildNewOpSrc()

@@ -132,7 +132,7 @@ rules:
   - razeedeployments
   - meterbases
   - marketplaceconfigs
-  - remoteresources3s
+  - remoteresources3
   verbs:
   - '*'
 - apiGroups:
@@ -180,7 +180,7 @@ rules:
   resources:
   - subscriptions
   - installplans
-  - remoteresources3s
+  - remoteresources3
   verbs:
   - create
   - delete
@@ -236,20 +236,9 @@ metadata:
   namespace: openshift-redhat-marketplace
 rules:
 - apiGroups:
-  - operators.coreos.com
-  resourceNames:
-  - redhat-marketplace
-  resources:
-  - operatorsources
-  verbs:
-  - get
-  - delete
-  - patch
-  - update
-- apiGroups:
   - marketplace.redhat.com
   resources:
-  - remoteresources3s
+  - remoteresources3
   verbs:
   - create
   - delete

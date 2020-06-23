@@ -196,7 +196,7 @@ delete: ##delete the contents created in 'make create'
 	- kubectl delete -f deploy/role.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/service_account.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml
+	# - kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_remoteresources3_crd.yaml
