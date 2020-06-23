@@ -1,0 +1,7 @@
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: RemoteResourceS3
+metadata:
+  name: example-remoteresources3
+spec:
+  # Add fields here
+  size: 3

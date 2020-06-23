@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/gotidy/ptr"
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
@@ -29,6 +30,7 @@ import (
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -292,6 +294,19 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	if instance.Status.RedHatMarketplaceSecretFound != nil {
 		instance.Status.RedHatMarketplaceSecretFound = nil
+	}
+
+	//TODO: if Dianemo just leaves off file source url on rhm-operator-secret it should set to null
+	if instance.Spec.DeployConfig != nil && instance.Spec.DeployConfig.FileSourceURL != nil {
+		instance.Spec.DeployConfig.FileSourceURL = nil
+	}
+
+	if instance.Status.JobConditions != nil {
+		instance.Status.JobConditions = nil
+	}
+
+	if instance.Status.JobState != nil {
+		instance.Status.JobState = nil
 	}
 
 	if instance.Spec.DeployConfig == nil {
@@ -843,230 +858,307 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	/******************************************************************************
-	CREATE THE RAZEE JOB
+	Create watch-keeper,rrs3-controller, apply parent rrs3
 	/******************************************************************************/
-
-	foundJob := &batch.Job{}
-	reqLogger.V(0).Info("Finding job")
+	// RemoteResourceS3 controller
+	rrs3Deployment := &appsv1.Deployment{}
+	reqLogger.V(0).Info("Finding RemoteResourceS3 deployment")
 	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name:      utils.RAZEE_DEPLOY_JOB_NAME,
+		Name:      utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 		Namespace: request.Namespace,
-	}, foundJob)
+	}, rrs3Deployment)
 	if errors.IsNotFound(err) {
-		reqLogger.V(0).Info("Creating razzeedeploy-job")
-		job := r.makeRazeeJob(request, instance)
-		err = r.client.Create(context.TODO(), job)
+		reqLogger.V(0).Info("Creating RemoteResourceS3 deployment")
+		rrs3Deployment = r.makeRemoteResourceS3Deployment(instance)
+		err = r.client.Create(context.TODO(), rrs3Deployment)
 		if err != nil {
-			reqLogger.Error(err, "Failed to create Job on cluster")
+			reqLogger.Error(err, "Failed to create RemoteResourceS3 deployment on cluster")
 			return reconcile.Result{}, err
 		}
-		reqLogger.Info("job created successfully")
+		reqLogger.Info("RemoteResourceS3 deployment created successfully")
 
-		message := "Razee-Deploy-Job install starting"
+		message := "RemoteResourceS3 install starting"
 		instance.Status.Conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonRazeeDeployJobStart,
+			Reason:  marketplacev1alpha1.ReasonRazeeRemoteResourceS3DeploymentStart,
 			Message: message,
 		})
 
 		_ = r.client.Status().Update(context.TODO(), instance)
 
-		// requeue to grab the "foundJob" and continue to update status
-		// wait 30 seconds so the job has time to complete
-		// not entirely necessary, but the struct on Status.Conditions needs the Conditions in the job to be populated.
-		return reconcile.Result{RequeueAfter: time.Second * 30}, nil
-		// return reconcile.Result{Requeue: true}, nil
-		// return reconcile.Result{}, nil
+		return reconcile.Result{Requeue: true}, nil
+
 	} else if err != nil {
-		reqLogger.Error(err, "Failed to get Job(s) from Cluster")
+		reqLogger.Error(err, "Failed to get RemoteResourceS3 from Cluster")
 		return reconcile.Result{}, err
 	}
 
-	if err := controllerutil.SetControllerReference(instance, foundJob, r.scheme); err != nil {
+	//TODO: set ownership ?
+	if err := controllerutil.SetControllerReference(instance, rrs3Deployment, r.scheme); err != nil {
 		reqLogger.Error(err, "Failed to set controller reference")
 		return reconcile.Result{}, err
 	}
 
-	job := r.makeRazeeJob(request, instance)
-	if job.Spec.Template.Spec.Containers[0].Image != foundJob.Spec.Template.Spec.Containers[0].Image ||
-		!utils.Equal(job.Spec.Template.Spec.Containers[0].Args, foundJob.Spec.Template.Spec.Containers[0].Args) ||
-		!utils.Equal(job.Spec.Template.Spec.Containers[0].Command, foundJob.Spec.Template.Spec.Containers[0].Command) {
-		reqLogger.Info("Updating job with new values")
-		foundJob.Spec = job.Spec
-		err := r.client.Delete(context.TODO(), foundJob, client.PropagationPolicy(metav1.DeletePropagationBackground))
+	// //check if rrs3 deployment is running correctly
+	// installedRemoteResourceDep := &appsv1.Deployment{}
+	// reqLogger.V(0).Info("Checking status on RemoteResourceDeployment")
+	// err = r.client.Get(context.TODO(), types.NamespacedName{
+	// 	Name:      utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+	// 	Namespace: request.Namespace,
+	// }, installedRemoteResourceDep)
+	// if errors.IsNotFound(err) {
+	// 	reqLogger.Error(err, "Failed to retreive RemoteResourceDeployment")
+	// }
+
+	// if installedRemoteResourceDep.Status.AvailableReplicas != 1 {
+	// 	reqLogger.Info("remote resource s3 deployment doesn't have any available replicas")
+	// 	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+	// }
+
+	message := "RemoteResourceS3 install finished"
+	instance.Status.Conditions.SetCondition(status.Condition{
+		Type:    marketplacev1alpha1.ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  marketplacev1alpha1.ReasonRazeeRemoteResourceS3DeploymentStart,
+		Message: message,
+	})
+
+	// watch-keeper deployment
+	watchKeeperDeployment := &appsv1.Deployment{}
+	reqLogger.V(0).Info("Finding watch-keeper deployment")
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Name:      utils.WATCHKEEPER_DEPLOYMENT_NAME,
+		Namespace: request.Namespace,
+	}, watchKeeperDeployment)
+	if errors.IsNotFound(err) {
+		reqLogger.V(0).Info("Creating watch-keeper deployment")
+		watchKeeperDeployment = r.makeWatchKeeperDeployment(instance)
+		err = r.client.Create(context.TODO(), watchKeeperDeployment)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update Job(s) from Cluster")
+			reqLogger.Error(err, "Failed to create watch-keeper deployment on cluster")
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("watch-keeper deployment created successfully")
+
+		message := "watch-keeper install starting"
+		instance.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionInstalling,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonWatchKeeperDeploymentInstalled,
+			Message: message,
+		})
+
+		_ = r.client.Status().Update(context.TODO(), instance)
+
+		return reconcile.Result{Requeue: true}, nil
+
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get RemoteResourceS3 from Cluster")
+		return reconcile.Result{}, err
+	}
+
+	//TODO: set ownership ?
+	if err := controllerutil.SetControllerReference(instance, watchKeeperDeployment, r.scheme); err != nil {
+		reqLogger.Error(err, "Failed to set controller reference")
+		return reconcile.Result{}, err
+	}
+
+	// installedWatchKeeperDeployment := &appsv1.Deployment{}
+	// reqLogger.V(0).Info("Checking watch-keeper status")
+	// err = r.client.Get(context.TODO(), types.NamespacedName{
+	// 	Name:      utils.WATCHKEEPER_DEPLOYMENT_NAME,
+	// 	Namespace: request.Namespace,
+	// }, installedWatchKeeperDeployment)
+	// if errors.IsNotFound(err) {
+	// 	reqLogger.Error(err, "Failed to retrieve watch-keeper")
+	// }
+
+	// if installedWatchKeeperDeployment.Status.AvailableReplicas != 1 {
+	// 	reqLogger.Info("watch-keeper deployment doesn't have any available replicas")
+	// 	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+	// }
+
+	message = "watch-keeper install finished"
+	instance.Status.Conditions.SetCondition(status.Condition{
+		Type:    marketplacev1alpha1.ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  marketplacev1alpha1.ReasonWatchKeeperDeploymentInstalled,
+		Message: message,
+	})
+
+	/*
+		Get pods created by rhm-watch-keeper and rhm-remote-resource deployments
+	*/
+	// Update the Memcached status with the pod names
+	// List the pods for this memcached's deployment
+	podList := &corev1.PodList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(*instance.Spec.TargetNamespace),
+		client.MatchingLabels(map[string]string{
+			"app": utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+		}),
+		client.MatchingLabels(map[string]string{
+			"app": utils.WATCHKEEPER_DEPLOYMENT_NAME,
+		}),
+	}
+
+	err = r.client.List(context.TODO(), podList, listOpts...)
+	if err != nil {
+		reqLogger.Error(err, "Failed to list deployment pods")
+		return reconcile.Result{}, err
+	}
+	podNames := utils.GetPodNames(podList.Items)
+
+	// Update status.Nodes if needed
+	if !reflect.DeepEqual(podNames, instance.Status) {
+		instance.Status.Nodes = podNames
+		err := r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update Memcached status.")
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	if !reflect.DeepEqual(instance.Status.JobState, foundJob.Status) {
-		// Update status and conditions
-		instance.Status.JobState = foundJob.Status
-		for _, jobCondition := range foundJob.Status.Conditions {
-			instance.Status.JobConditions = &jobCondition
+	parentRRS3 := &marketplacev1alpha1.RemoteResourceS3{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Name:      utils.PARENT_RRS3_RESOURCE_NAME,
+		Namespace: *instance.Spec.TargetNamespace},
+		parentRRS3)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			reqLogger.V(0).Info("Resource does not exist", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
+			parentRRS3 := r.makeParentRemoteResourceS3(instance)
+
+			err = r.client.Create(context.TODO(), parentRRS3)
+			if err != nil {
+				reqLogger.Info("Failed to create resource", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
+				return reconcile.Result{}, err
+			}
+			message := "ParentRRS3 install finished"
+			instance.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionInstalling,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonParentRRS3Installed,
+				Message: message,
+			})
+
+			_ = r.client.Status().Update(context.TODO(), instance)
+
+			reqLogger.Info("Resource created successfully", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
+			return reconcile.Result{Requeue: true}, nil
+		} else {
+			reqLogger.Info("Failed to get resource", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
+			return reconcile.Result{}, err
+		}
+	}
+	if err == nil {
+		reqLogger.V(0).Info("Resource already exists", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
+
+		newParentValues := r.makeParentRemoteResourceS3(instance)
+		updatedParentRRS3 := parentRRS3.DeepCopy()
+		updatedParentRRS3.Spec = newParentValues.Spec
+
+		if !reflect.DeepEqual(updatedParentRRS3.Spec, parentRRS3.Spec) {
+			reqLogger.Info("Change detected on resource", updatedParentRRS3.GetName(), "update")
+
+			reqLogger.Info("Updating resource", "resource: ", utils.PARENT_RRS3_RESOURCE_NAME)
+			err = r.client.Update(context.TODO(), updatedParentRRS3)
+			if err != nil {
+				reqLogger.Info("Failed to update resource", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("Resource updated successfully", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
+			return reconcile.Result{Requeue: true}, nil
 		}
 
-		instance.Status.RazeeJobInstall = &marketplacev1alpha1.RazeeJobInstallStruct{
-			RazeeNamespace:  secretName,
-			RazeeInstallURL: instance.Spec.DeployConfig.FileSourceURL,
-		}
+		reqLogger.V(0).Info("No change detected on resource", "resource", updatedParentRRS3.GetName())
+	}
+
+	if !utils.Contains(instance.Status.RazeePrerequisitesCreated, utils.PARENT_RRS3_RESOURCE_NAME) {
+		instance.Status.RazeePrerequisitesCreated = append(instance.Status.RazeePrerequisitesCreated, utils.PARENT_RRS3_RESOURCE_NAME)
+		reqLogger.Info("updating Status.RazeePrerequisitesCreated with parentRRS3")
 
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update JobState")
+			reqLogger.Error(err, "Failed to update status")
 			return reconcile.Result{}, err
 		}
-		reqLogger.V(0).Info("Updated JobState")
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	if foundJob.Status.Succeeded != 1 {
-		reqLogger.Info("waiting for job to finish")
-		return reconcile.Result{RequeueAfter: time.Second * 15}, nil
+	/******************************************************************************
+	PATCH RESOURCES FOR DIANEMO
+	Patch the Console and Infrastructure resources with the watch-keeper label
+	Patch 'razee-cluster-metadata' with ClusterUUID
+	/******************************************************************************/
+	reqLogger.V(0).Info("finding Console resource")
+	console := &unstructured.Unstructured{}
+	console.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "config.openshift.io",
+		Kind:    "Console",
+		Version: "v1",
+	})
+	err = r.client.Get(context.Background(), client.ObjectKey{
+		Name: "cluster",
+	}, console)
+	if err != nil {
+		reqLogger.Error(err, "Failed to retrieve Console resource")
+		return reconcile.Result{}, err
 	}
 
-	// if the job succeeds apply the parentRRS3 and patch the Infrastructure and Console resources
-	if foundJob.Status.Succeeded == 1 {
-		parentRRS3 := &unstructured.Unstructured{}
-		parentRRS3.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   "deploy.razee.io",
-			Kind:    "RemoteResourceS3",
-			Version: "v1alpha2",
-		})
+	reqLogger.V(0).Info("Found Console resource")
+	consoleLabels := console.GetLabels()
 
-		err = r.client.Get(context.TODO(), client.ObjectKey{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *instance.Spec.TargetNamespace}, parentRRS3)
+	if !reflect.DeepEqual(consoleLabels, RAZEE_WATCH_KEEPER_LABELS) || consoleLabels == nil {
+		console.SetLabels(RAZEE_WATCH_KEEPER_LABELS)
+		err = r.client.Update(context.TODO(), console)
 		if err != nil {
-			if errors.IsNotFound(err) {
-				reqLogger.V(0).Info("Resource does not exist", "resource: ", utils.PARENT_RRS3)
-				parentRRS3 := r.makeParentRemoteResourceS3(instance)
-
-				err = r.client.Create(context.TODO(), parentRRS3)
-				if err != nil {
-					reqLogger.Info("Failed to create resource", "resource: ", utils.PARENT_RRS3)
-					return reconcile.Result{}, err
-				}
-				message := "ParentRRS3 install finished"
-				instance.Status.Conditions.SetCondition(status.Condition{
-					Type:    marketplacev1alpha1.ConditionInstalling,
-					Status:  corev1.ConditionTrue,
-					Reason:  marketplacev1alpha1.ReasonParentRRS3Installed,
-					Message: message,
-				})
-
-				_ = r.client.Status().Update(context.TODO(), instance)
-
-				reqLogger.Info("Resource created successfully", "resource: ", utils.PARENT_RRS3)
-				return reconcile.Result{Requeue: true}, nil
-			} else {
-				reqLogger.Info("Failed to get resource", "resource: ", utils.PARENT_RRS3)
-				return reconcile.Result{}, err
-			}
-		}
-		if err == nil {
-			reqLogger.V(0).Info("Resource already exists", "resource: ", utils.PARENT_RRS3)
-
-			newParentValues := r.makeParentRemoteResourceS3(instance)
-			updatedParentRRS3 := parentRRS3.DeepCopy()
-			updatedParentRRS3.Object["spec"] = newParentValues.Object["spec"]
-
-			if !reflect.DeepEqual(updatedParentRRS3.Object["spec"], parentRRS3.Object["spec"]) {
-				reqLogger.Info("Change detected on resource", "resource", updatedParentRRS3.GetName(), "update")
-
-				reqLogger.Info("Updating resource", "resource: ", utils.PARENT_RRS3)
-				err = r.client.Update(context.TODO(), updatedParentRRS3)
-				if err != nil {
-					reqLogger.Info("Failed to update resource", "resource: ", utils.PARENT_RRS3)
-					return reconcile.Result{}, err
-				}
-				reqLogger.Info("Resource updated successfully", "resource: ", utils.PARENT_RRS3)
-				return reconcile.Result{Requeue: true}, nil
-			}
-
-			reqLogger.V(0).Info("No change detected on resource", "resource: ", updatedParentRRS3.GetName())
-		}
-
-		if !utils.Contains(instance.Status.RazeePrerequisitesCreated, utils.PARENT_RRS3) {
-			instance.Status.RazeePrerequisitesCreated = append(instance.Status.RazeePrerequisitesCreated, utils.PARENT_RRS3)
-			reqLogger.Info("updating Status.RazeePrerequisitesCreated with parentRRS3")
-
-			err = r.client.Status().Update(context.TODO(), instance)
-			if err != nil {
-				reqLogger.Error(err, "Failed to update status")
-				return reconcile.Result{}, err
-			}
-			return reconcile.Result{Requeue: true}, nil
-		}
-
-		/******************************************************************************
-		PATCH RESOURCES FOR DIANEMO
-		Patch the Console and Infrastructure resources with the watch-keeper label
-		Patch 'razee-cluster-metadata' with ClusterUUID
-		/******************************************************************************/
-		reqLogger.V(0).Info("finding Console resource")
-		console := &unstructured.Unstructured{}
-		console.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   "config.openshift.io",
-			Kind:    "Console",
-			Version: "v1",
-		})
-		err = r.client.Get(context.Background(), client.ObjectKey{
-			Name: "cluster",
-		}, console)
-		if err != nil {
-			reqLogger.Error(err, "Failed to retrieve Console resource")
+			reqLogger.Error(err, "Failed to patch Console resource")
 			return reconcile.Result{}, err
 		}
+		reqLogger.Info("Patched Console resource")
+		return reconcile.Result{Requeue: true}, nil
+	}
+	reqLogger.V(0).Info("No patch needed on Console resource")
 
-		reqLogger.V(0).Info("Found Console resource")
-		consoleLabels := console.GetLabels()
-
-		if !reflect.DeepEqual(consoleLabels, RAZEE_WATCH_KEEPER_LABELS) || consoleLabels == nil {
-			console.SetLabels(RAZEE_WATCH_KEEPER_LABELS)
-			err = r.client.Update(context.TODO(), console)
-			if err != nil {
-				reqLogger.Error(err, "Failed to patch Console resource")
-				return reconcile.Result{}, err
-			}
-			reqLogger.Info("Patched Console resource")
-			return reconcile.Result{Requeue: true}, nil
-		}
-		reqLogger.V(0).Info("No patch needed on Console resource")
-
-		reqLogger.V(0).Info("finding Infrastructure resource")
-		infrastructureResource := &unstructured.Unstructured{}
-		infrastructureResource.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   "config.openshift.io",
-			Kind:    "Infrastructure",
-			Version: "v1",
-		})
-		err = r.client.Get(context.Background(), client.ObjectKey{
-			Name: "cluster",
-		}, infrastructureResource)
-		if err != nil {
-			reqLogger.Error(err, "Failed to retrieve Infrastructure resource")
-			return reconcile.Result{}, err
-		}
-
-		reqLogger.V(0).Info("Found Infrastructure resource")
-		infrastructureLabels := infrastructureResource.GetLabels()
-		if !reflect.DeepEqual(infrastructureLabels, RAZEE_WATCH_KEEPER_LABELS) || infrastructureLabels == nil {
-			infrastructureResource.SetLabels(RAZEE_WATCH_KEEPER_LABELS)
-			err = r.client.Update(context.TODO(), infrastructureResource)
-			if err != nil {
-				reqLogger.Error(err, "Failed to patch Infrastructure resource")
-				return reconcile.Result{}, err
-			}
-			reqLogger.Info("Patched Infrastructure resource")
-
-			return reconcile.Result{Requeue: true}, nil
-		}
-		reqLogger.V(0).Info("No patch needed on Infrastructure resource")
+	reqLogger.V(0).Info("finding Infrastructure resource")
+	infrastructureResource := &unstructured.Unstructured{}
+	infrastructureResource.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "config.openshift.io",
+		Kind:    "Infrastructure",
+		Version: "v1",
+	})
+	err = r.client.Get(context.Background(), client.ObjectKey{
+		Name: "cluster",
+	}, infrastructureResource)
+	if err != nil {
+		reqLogger.Error(err, "Failed to retrieve Infrastructure resource")
+		return reconcile.Result{}, err
 	}
 
-	message := "Razee install complete"
+	reqLogger.V(0).Info("Found Infrastructure resource")
+	infrastructureLabels := infrastructureResource.GetLabels()
+	if !reflect.DeepEqual(infrastructureLabels, RAZEE_WATCH_KEEPER_LABELS) || infrastructureLabels == nil {
+		infrastructureResource.SetLabels(RAZEE_WATCH_KEEPER_LABELS)
+		err = r.client.Update(context.TODO(), infrastructureResource)
+		if err != nil {
+			reqLogger.Error(err, "Failed to patch Infrastructure resource")
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("Patched Infrastructure resource")
+
+		return reconcile.Result{Requeue: true}, nil
+	}
+	reqLogger.V(0).Info("No patch needed on Infrastructure resource")
+
+	//TODO: uninstall legacy resources
+	// if instance.Spec.LegacyUninstallHasRun == nil || !*instance.Spec.LegacyUninstallHasRun {
+	// 	r.uninstallLegacyResources(instance)
+	// }
+
+	message = "Razee install complete"
 	change1 := instance.Status.Conditions.SetCondition(status.Condition{
 		Type:    marketplacev1alpha1.ConditionInstalling,
 		Status:  corev1.ConditionFalse,
@@ -1347,35 +1439,314 @@ func (r *ReconcileRazeeDeployment) makeCOSReaderSecret(instance *marketplacev1al
 }
 
 // Creates the "parent" RemoteResourceS3 and applies the name of the cos-reader-key and ChildUrl constructed during reconciliation of the rhm-operator-secret
-func (r *ReconcileRazeeDeployment) makeParentRemoteResourceS3(instance *marketplacev1alpha1.RazeeDeployment) *unstructured.Unstructured {
-	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "deploy.razee.io/v1alpha2",
-			"kind":       "RemoteResourceS3",
-			"metadata": map[string]interface{}{
-				"name":      utils.PARENT_RRS3_RESOURCE_NAME,
-				"namespace": *instance.Spec.TargetNamespace,
-			},
-			"spec": map[string]interface{}{
-				"auth": map[string]interface{}{
-					"iam": map[string]interface{}{
-						"responseType": "cloud_iam",
-						"url":          `https://iam.cloud.ibm.com/identity/token`,
-						"grantType":    "urn:ibm:params:oauth:grant-type:apikey",
-						"apiKeyRef": map[string]interface{}{
-							"valueFrom": map[string]interface{}{
-								"secretKeyRef": map[string]interface{}{
-									"name": utils.COS_READER_KEY_NAME,
-									"key":  "accesskey",
+func (r *ReconcileRazeeDeployment) makeParentRemoteResourceS3(instance *marketplacev1alpha1.RazeeDeployment) *marketplacev1alpha1.RemoteResourceS3 {
+	return &marketplacev1alpha1.RemoteResourceS3{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.PARENT_RRS3_RESOURCE_NAME,
+			Namespace: *instance.Spec.TargetNamespace,
+		},
+		Spec: marketplacev1alpha1.RemoteResourceS3Spec{
+			Auth: marketplacev1alpha1.Auth{
+				Iam: &marketplacev1alpha1.Iam{
+					ResponseType: "cloud_iam",
+					GrantType:    "urn:ibm:params:oauth:grant-type:apikey",
+					URL:          "https://iam.cloud.ibm.com/identity/token",
+					APIKeyRef: marketplacev1alpha1.APIKeyRef{
+						ValueFrom: marketplacev1alpha1.ValueFrom{
+							SecretKeyRef: corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: utils.COS_READER_KEY_NAME,
 								},
+								Key: "accesskey",
 							},
 						},
 					},
 				},
-				"requests": []interface{}{
-					map[string]interface{}{
-						"options": map[string]interface{}{
-							"url": *instance.Spec.ChildUrl,
+			},
+			Requests: []marketplacev1alpha1.Request{
+				{
+					Options: marketplacev1alpha1.Options{
+						URL: *instance.Spec.ChildUrl,
+					},
+				},
+			},
+		},
+	}
+}
+
+func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDeployment) *appsv1.Deployment {
+	rep := ptr.Int32(1)
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.WATCHKEEPER_DEPLOYMENT_NAME,
+			Namespace: *instance.Spec.TargetNamespace,
+			Labels: map[string]string{
+				"razee/watch-resource": "lite",
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: rep,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": utils.WATCHKEEPER_DEPLOYMENT_NAME,
+				},
+			},
+			Strategy: appsv1.DeploymentStrategy{
+				Type: "RollingUpdate",
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app":                  utils.WATCHKEEPER_DEPLOYMENT_NAME,
+						"razee/watch-resource": "lite",
+					},
+					Name: utils.WATCHKEEPER_DEPLOYMENT_NAME,
+				},
+				Spec: corev1.PodSpec{
+					ServiceAccountName: "redhat-marketplace-watch-keeper",
+					Containers: []corev1.Container{
+						corev1.Container{
+							Image: "quay.io/razee/watch-keeper:0.5.8",
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("400m"),
+									corev1.ResourceMemory: resource.MustParse("500Mi"),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("50m"),
+									corev1.ResourceMemory: resource.MustParse("100Mi"),
+								},
+							},
+							Env: []corev1.EnvVar{
+								corev1.EnvVar{
+									Name: "START_DELAY_MAX",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "watch-keeper-config",
+											},
+											Key:      "START_DELAY_MAX",
+											Optional: ptr.Bool(true),
+										},
+									},
+								},
+								corev1.EnvVar{
+									Name: "NAMESPACE",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "metadata.namespace",
+										},
+									},
+								},
+								corev1.EnvVar{
+									Name: "CONFIG_NAMESPACE",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "watch-keeper-config",
+											},
+											Key:      "CONFIG_NAMESPACE",
+											Optional: ptr.Bool(true),
+										},
+									},
+								},
+								corev1.EnvVar{
+									Name: "CLUSTER_ID_OVERRIDE",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "watch-keeper-config",
+											},
+											Key:      "CLUSTER_ID_OVERRIDE",
+											Optional: ptr.Bool(true),
+										},
+									},
+								},
+								corev1.EnvVar{
+									Name: "DEFAULT_CLUSTER_NAME",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "watch-keeper-config",
+											},
+											Key:      "DEFAULT_CLUSTER_NAME",
+											Optional: ptr.Bool(true),
+										},
+									},
+								},
+								corev1.EnvVar{
+									Name: "KUBECONFIG",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "watch-keeper-config",
+											},
+											Key:      "KUBECONFIG",
+											Optional: ptr.Bool(true),
+										},
+									},
+								},
+								corev1.EnvVar{
+									Name: "RAZEEDASH_URL",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "watch-keeper-config",
+											},
+											Key:      "RAZEEDASH_URL",
+											Optional: ptr.Bool(true),
+										},
+									},
+								},
+								corev1.EnvVar{
+									Name: "RAZEEDASH_ORG_KEY",
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "watch-keeper-secret",
+											},
+											Key:      "RAZEEDASH_ORG_KEY",
+											Optional: ptr.Bool(true),
+										},
+									},
+								},
+								corev1.EnvVar{
+									Name:  "NODE_ENV",
+									Value: "production",
+								},
+							},
+							ImagePullPolicy: corev1.PullAlways,
+							Name:            "watch-keeper",
+							LivenessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									Exec: &corev1.ExecAction{
+										Command: []string{"sh/liveness.sh"},
+									},
+								},
+								InitialDelaySeconds: 600,
+								PeriodSeconds:       300,
+								TimeoutSeconds:      30,
+								FailureThreshold:    1,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func (r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *marketplacev1alpha1.RazeeDeployment) *appsv1.Deployment {
+	rep := ptr.Int32(1)
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+			Namespace: *instance.Spec.TargetNamespace,
+			Labels: map[string]string{
+				"razee/watch-resource": "lite",
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: rep,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+				},
+			},
+			Strategy: appsv1.DeploymentStrategy{
+				Type: "RollingUpdate",
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app":                  utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+						"razee/watch-resource": "lite",
+					},
+					Name: utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+				},
+				Spec: corev1.PodSpec{
+					ServiceAccountName: "redhat-marketplace-remoteresources3deployment",
+					Containers: []corev1.Container{
+						corev1.Container{
+							Image: "quay.io/razee/remoteresources3:0.6.2",
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("100m"),
+									corev1.ResourceMemory: resource.MustParse("200Mi"),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("40m"),
+									corev1.ResourceMemory: resource.MustParse("75Mi"),
+								},
+							},
+							Env: []corev1.EnvVar{
+								corev1.EnvVar{
+									Name: "CRD_WATCH_TIMEOUT_SECONDS",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "razeedeploy-overrides",
+											},
+											Key:      "CRD_WATCH_TIMEOUT_SECONDS",
+											Optional: ptr.Bool(true),
+										},
+									},
+								},
+								corev1.EnvVar{
+									Name:  "GROUP",
+									Value: "marketplace.redhat.com",
+								},
+								corev1.EnvVar{
+									Name:  "VERSION",
+									Value: "v1alpha1",
+								},
+							},
+							ImagePullPolicy: corev1.PullAlways,
+							Name:            utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+							LivenessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									Exec: &corev1.ExecAction{
+										Command: []string{"sh/liveness.sh"},
+									},
+								},
+								InitialDelaySeconds: 30,
+								PeriodSeconds:       150,
+								TimeoutSeconds:      30,
+								FailureThreshold:    1,
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								corev1.VolumeMount{
+									MountPath: "/usr/src/app/download-cache",
+									Name:      "cache-volume",
+								},
+								corev1.VolumeMount{
+									MountPath: "/usr/src/app/config",
+									Name:      "razeedeploy-config",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						corev1.Volume{
+							Name: "cache-volume",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{
+									//TODO: is this right ?
+									Medium: corev1.StorageMediumDefault,
+								},
+							},
+						},
+						corev1.Volume{
+							Name: "razeedeploy-config",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "razeedeploy-config",
+									},
+									DefaultMode: ptr.Int32(420),
+									Optional:    ptr.Bool(true),
+								},
+							},
 						},
 					},
 				},
@@ -1537,5 +1908,142 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 	}
 
 	reqLogger.Info("Full uninstall of razee is complete")
+	return reconcile.Result{}, nil
+}
+
+//uninstallLegacyResources deletes resources used by version 1.3 of the operator and below.
+func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
+	req *marketplacev1alpha1.RazeeDeployment,
+) (reconcile.Result, error) {
+	reqLogger := log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
+	reqLogger.Info("Starting legacy uninstall")
+
+	deletePolicy := metav1.DeletePropagationForeground
+
+	foundJob := batch.Job{}
+	jobName := types.NamespacedName{
+		Name:      utils.RAZEE_DEPLOY_JOB_NAME,
+		Namespace: req.Namespace,
+	}
+	reqLogger.Info("finding install job", "name", jobName)
+	err := r.client.Get(context.TODO(), jobName, &foundJob)
+	if err == nil || errors.IsNotFound(err) {
+		reqLogger.Info("cleaning up install job")
+		err = r.client.Delete(context.TODO(), &foundJob, client.PropagationPolicy(deletePolicy))
+		if err != nil && !errors.IsNotFound(err) && err.Error() != "resource name may not be empty" {
+			reqLogger.Error(err, "cleaning up install job failed")
+		}
+
+		if err.Error() == "resource name may not be empty" {
+			reqLogger.Info("No legacy job exists")
+		}
+	}
+
+	customResourceKinds := []string{
+		"RemoteResource",
+		"RemoteResourceS3",
+		"FeatureFlagSetLD",
+		"ManagedSet",
+		"MustacheTemplate",
+		"RemoteResourceS3Decrypt",
+	}
+
+	reqLogger.Info("Deleting custom resources")
+	for _, customResourceKind := range customResourceKinds {
+		customResourceList := &unstructured.UnstructuredList{}
+		customResourceList.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "deploy.razee.io",
+			Kind:    customResourceKind,
+			Version: "v1alpha2",
+		})
+
+		// get custom resources for each crd
+		reqLogger.Info("Listing legacy custom resources", "Kind", customResourceKind)
+		err = r.client.List(context.TODO(), customResourceList, client.InNamespace(*req.Spec.TargetNamespace))
+		if err != nil && !errors.IsNotFound(err) && err.Error() != fmt.Sprintf("no matches for kind %q in version %q", customResourceKind, "deploy.razee.io/v1alpha2") {
+			reqLogger.Error(err, "Could not list legacy custom resources", "Resource", customResourceKind)
+			return reconcile.Result{}, err
+		}
+
+		if err != nil && err.Error() != fmt.Sprintf("No matches for kind %q in version %q", customResourceKind, "deploy.razee.io/v1alpha2") {
+			reqLogger.Info("No legacy custom resource found", "Kind", customResourceKind)
+		}
+
+		if err == nil {
+			for _, cr := range customResourceList.Items {
+				reqLogger.Info("Deleteing legacy custom resource", "custom resource", cr)
+				err := r.client.Delete(context.TODO(), &cr)
+				if err != nil && !errors.IsNotFound(err) {
+					reqLogger.Error(err, "Could not delete legacy custom resource", "CustomResource", cr)
+					return reconcile.Result{}, err
+				}
+			}
+		}
+	}
+
+	// sleep 5 seconds to let custom resource deletion complete
+	time.Sleep(time.Second * 5)
+
+	serviceAccounts := []string{
+		"razeedeploy-sa",
+		"watch-keeper-sa",
+	}
+	for _, saName := range serviceAccounts {
+		serviceAccount := &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      saName,
+				Namespace: *req.Spec.TargetNamespace,
+			},
+		}
+		reqLogger.Info("Deleting legacy service account", "name", saName)
+		err = r.client.Delete(context.TODO(), serviceAccount, client.PropagationPolicy(deletePolicy))
+		if err != nil && !errors.IsNotFound((err)) {
+			reqLogger.Error(err, "Could not delete legacy service account", "Resource", saName)
+			return reconcile.Result{}, err
+		}
+
+		if err != nil && errors.IsNotFound(err) {
+			reqLogger.Info("Could not find legacy service account", "Resource", saName)
+		}
+	}
+
+	deploymentNames := []string{
+		"watch-keeper",
+		"clustersubscription",
+		"featureflagsetld-controller",
+		"managedset-controller",
+		"mustachetemplate-controller",
+		"remoteresource-controller",
+		"remoteresources3-controller",
+		"remoteresources3decrypt-controller",
+	}
+
+	for _, deploymentName := range deploymentNames {
+		deployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      deploymentName,
+				Namespace: *req.Spec.TargetNamespace,
+			},
+		}
+		reqLogger.Info("Deleting legacy deployment", "name", deploymentName)
+		err = r.client.Delete(context.TODO(), deployment, client.PropagationPolicy(deletePolicy))
+		if err != nil && !errors.IsNotFound((err)) {
+			reqLogger.Error(err, "Could not delete legacy deployment", "name", deploymentName)
+			return reconcile.Result{}, err
+		}
+
+		if err != nil && errors.IsNotFound(err) {
+			reqLogger.Info("No legacy deployments found", "Resource", deploymentName)
+		}
+	}
+
+	// req.SetFinalizers(utils.RemoveKey(req.GetFinalizers(), utils.RAZEE_DEPLOYMENT_FINALIZER))
+	req.Spec.LegacyUninstallHasRun = ptr.Bool(true)
+	err = r.client.Update(context.TODO(), req)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	reqLogger.Info("Legacy uninstall complete")
 	return reconcile.Result{}, nil
 }
