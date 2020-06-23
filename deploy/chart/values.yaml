@@ -95,6 +95,7 @@ roles:
           - operators.coreos.com
         resources:
           - operatorsources
+          - catalogsources
         verbs:
           - get
           - list
@@ -106,6 +107,17 @@ roles:
           - redhat-marketplace
         resources:
           - operatorsources
+        verbs:
+          - get
+          - delete
+          - patch
+          - update
+      - apiGroups:
+          - operators.coreos.com
+        resourceNames:
+          - ibm-operator-catalog
+        resources:
+          - catalogsources
         verbs:
           - get
           - delete

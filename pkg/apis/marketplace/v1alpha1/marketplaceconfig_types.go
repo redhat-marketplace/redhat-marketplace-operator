@@ -85,6 +85,7 @@ const (
 	ReasonRazeeInstalled        status.ConditionReason = "RazeeInstalled"
 	ReasonMeterBaseInstalled    status.ConditionReason = "MeterBaseInstalled"
 	ReasonOperatorSourceInstall status.ConditionReason = "OperatorSourceInstalled"
+	ReasonCatalogSourceInstall  status.ConditionReason = "CatalogSourceInstalled"
 	ReasonInstallFinished       status.ConditionReason = "FinishedInstall"
 )
 
