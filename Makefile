@@ -222,6 +222,8 @@ test-cover: ## Run coverage on code
 	@echo Running coverage
 	go test -coverprofile cover.out ./...
 	go tool cover -func=cover.out
+
+test-cover-html: test-cover ## Run coverage and display as html
 	go tool cover -html=cover.out
 
 .PHONY: test-integration

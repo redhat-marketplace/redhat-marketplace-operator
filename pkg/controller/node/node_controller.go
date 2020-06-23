@@ -16,6 +16,7 @@ package node
 
 import (
 	"context"
+	"reflect"
 
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -24,7 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -62,21 +62,16 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	labelPreds := []predicate.Predicate{
 		predicate.Funcs{
 			UpdateFunc: func(evt event.UpdateEvent) bool {
-				// get node with the update event name
-				rNode := r.(*ReconcileNode)
-				instance := &corev1.Node{}
-				rNode.client.Get(context.Background(), types.NamespacedName{Name: evt.MetaOld.GetName()}, instance)
-				watchResourceTagLabel, watchOk := instance.GetLabels()[watchResourceTag]
-
-				return !(watchOk && watchResourceTagLabel == watchResourceValue)
+				watchResourceTag, ok := evt.MetaNew.GetLabels()[watchResourceTag]
+				return !(ok && watchResourceTag == watchResourceValue)
+			},
+			CreateFunc: func(evt event.CreateEvent) bool {
+				watchResourceTag, ok := evt.Meta.GetLabels()[watchResourceTag]
+				return !(ok && watchResourceTag == watchResourceValue)
 			},
 			GenericFunc: func(evt event.GenericEvent) bool {
-				rNode := r.(*ReconcileNode)
-				instance := &corev1.Node{}
-				rNode.client.Get(context.Background(), types.NamespacedName{Name: evt.Meta.GetName()}, instance)
-				watchResourceTagLabel, watchOk := instance.GetLabels()[watchResourceTag]
-
-				return !(watchOk && watchResourceTagLabel == watchResourceValue)
+				watchResourceTag, ok := evt.Meta.GetLabels()[watchResourceTag]
+				return !(ok && watchResourceTag == watchResourceValue)
 			},
 		},
 	}
@@ -119,7 +114,6 @@ func (r *ReconcileNode) Reconcile(request reconcile.Request) (reconcile.Result, 
 			reqLogger.Error(err, "node does not exist")
 			return reconcile.Result{}, nil
 		}
-		// Error reading the object - requeue the request.
 		reqLogger.Error(err, "Failed to get node")
 		return reconcile.Result{}, err
 	}
@@ -128,13 +122,18 @@ func (r *ReconcileNode) Reconcile(request reconcile.Request) (reconcile.Result, 
 	if labels == nil {
 		labels = make(map[string]string)
 	}
+	nodeOriginalLabels := instance.DeepCopy().GetLabels()
 	labels[watchResourceTag] = watchResourceValue
-	instance.SetLabels(labels)
-
-	if err := r.client.Update(context.TODO(), instance); err != nil {
-		reqLogger.Error(err, "Failed to patch node with watch-resource label")
-		return reconcile.Result{}, err
+	if !reflect.DeepEqual(labels, nodeOriginalLabels) {
+		instance.SetLabels(labels)
+		if err := r.client.Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to patch node with razee/watch-resource: lite label")
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("Patched node with razee/watch-resource: lite label")
+	} else {
+		reqLogger.Info("No patch needed on node resource")
 	}
-	reqLogger.Info("Patched node with watch-resource label")
+
 	return reconcile.Result{}, nil
 }

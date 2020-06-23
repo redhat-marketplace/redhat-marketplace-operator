@@ -47,7 +47,9 @@ import (
 )
 
 var (
-	RAZEE_WATCH_KEEPER_LABELS = map[string]string{"razee/watch-resource": "lite"}
+	razeeWatchTag             = "razee/watch-resource"
+	razeeWatchTagValue        = "lite"
+	RAZEE_WATCH_KEEPER_LABELS = map[string]string{razeeWatchTag: razeeWatchTagValue}
 	log                       = logf.Log.WithName("controller_razeedeployment")
 	razeeFlagSet              *pflag.FlagSet
 	RELATED_IMAGE_RAZEE_JOB   = "RELATED_IMAGE_RAZEE_JOB"
@@ -1021,16 +1023,20 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		reqLogger.V(0).Info("Found Console resource")
+		consoleOriginalLabels := console.DeepCopy().GetLabels()
 		consoleLabels := console.GetLabels()
-
-		if !reflect.DeepEqual(consoleLabels, RAZEE_WATCH_KEEPER_LABELS) || consoleLabels == nil {
+		if consoleLabels == nil {
+			consoleLabels = make(map[string]string)
+		}
+		consoleLabels[razeeWatchTag] = razeeWatchTagValue
+		if !reflect.DeepEqual(consoleLabels, consoleOriginalLabels) {
 			console.SetLabels(RAZEE_WATCH_KEEPER_LABELS)
 			err = r.client.Update(context.TODO(), console)
 			if err != nil {
-				reqLogger.Error(err, "Failed to patch Console resource")
+				reqLogger.Error(err, "Failed to patch razee/watch-resource: lite label to Console resource")
 				return reconcile.Result{}, err
 			}
-			reqLogger.Info("Patched Console resource")
+			reqLogger.Info("Patched razee/watch-resource: lite label to Console resource")
 			return reconcile.Result{Requeue: true}, nil
 		}
 		reqLogger.V(0).Info("No patch needed on Console resource")
@@ -1051,15 +1057,20 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		reqLogger.V(0).Info("Found Infrastructure resource")
+		infrastructureOriginalLabels := infrastructureResource.DeepCopy().GetLabels()
 		infrastructureLabels := infrastructureResource.GetLabels()
-		if !reflect.DeepEqual(infrastructureLabels, RAZEE_WATCH_KEEPER_LABELS) || infrastructureLabels == nil {
+		if infrastructureLabels == nil {
+			infrastructureLabels = make(map[string]string)
+		}
+		infrastructureLabels[razeeWatchTag] = razeeWatchTagValue
+		if !reflect.DeepEqual(infrastructureLabels, infrastructureOriginalLabels) {
 			infrastructureResource.SetLabels(RAZEE_WATCH_KEEPER_LABELS)
 			err = r.client.Update(context.TODO(), infrastructureResource)
 			if err != nil {
-				reqLogger.Error(err, "Failed to patch Infrastructure resource")
+				reqLogger.Error(err, "Failed to patch razee/watch-resource: lite label to Infrastructure resource")
 				return reconcile.Result{}, err
 			}
-			reqLogger.Info("Patched Infrastructure resource")
+			reqLogger.Info("Patched razee/watch-resource: lite label to Infrastructure resource")
 
 			return reconcile.Result{Requeue: true}, nil
 		}
@@ -1081,16 +1092,21 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		reqLogger.V(0).Info("Found clusterversion resource")
+		clusterVersionOriginalLabels := clusterVersion.DeepCopy().GetLabels()
 		clusterVersionLabels := clusterVersion.GetLabels()
-		if !reflect.DeepEqual(clusterVersionLabels, RAZEE_WATCH_KEEPER_LABELS) || clusterVersionLabels == nil {
+		if clusterVersionLabels == nil {
+			clusterVersionLabels = make(map[string]string)
+		}
+		clusterVersionLabels[razeeWatchTag] = razeeWatchTagValue
+		if !reflect.DeepEqual(clusterVersionLabels, clusterVersionOriginalLabels) {
 
 			clusterVersion.SetLabels(RAZEE_WATCH_KEEPER_LABELS)
 			err = r.client.Update(context.TODO(), clusterVersion)
 			if err != nil {
-				reqLogger.Error(err, "Failed to patch clusterversion resource")
+				reqLogger.Error(err, "Failed to patch razee/watch-resource: lite label to clusterversion resource")
 				return reconcile.Result{}, err
 			}
-			reqLogger.Info("Patched clusterversion resource")
+			reqLogger.Info("Patched razee/watch-resource: lite label to clusterversion resource")
 
 			return reconcile.Result{Requeue: true}, nil
 		}

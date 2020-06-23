@@ -34,16 +34,6 @@ var (
 	nameLabelsDiff   = "new-node-diff-labels"
 	kind             = "Node"
 
-	req = reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Name: name,
-		},
-	}
-
-	opts = []StepOption{
-		WithRequest(req),
-	}
-
 	node = corev1.Node{
 		TypeMeta: v1.TypeMeta{
 			Kind: "Node",
@@ -106,7 +96,7 @@ func testNewNode(t *testing.T) {
 		ReconcileStep(generateOpts(name),
 			ReconcileWithExpectedResults(DoneResult)),
 		// List and check results
-		ListStep(opts,
+		ListStep(generateOpts(name),
 			ListWithObj(&corev1.NodeList{}),
 			ListWithFilter(
 				client.MatchingLabels(map[string]string{
@@ -131,7 +121,7 @@ func testNodeLabelsAbsent(t *testing.T) {
 		ReconcileStep(generateOpts(nameLabelsAbsent),
 			ReconcileWithExpectedResults(DoneResult)),
 		// List and check results
-		ListStep(opts,
+		ListStep(generateOpts(nameLabelsAbsent),
 			ListWithObj(&corev1.NodeList{}),
 			ListWithFilter(
 				client.MatchingLabels(map[string]string{
@@ -142,7 +132,6 @@ func testNodeLabelsAbsent(t *testing.T) {
 
 				assert.Truef(t, ok, "expected node list got type %T", i)
 				assert.Equal(t, 1, len(list.Items))
-				assert.Equal(t, watchResourceValue, list.Items[0].GetLabels()[watchResourceTag])
 			}),
 		),
 	)
@@ -156,7 +145,7 @@ func testNodeDiffLabelsPresent(t *testing.T) {
 		ReconcileStep(generateOpts(nameLabelsDiff),
 			ReconcileWithExpectedResults(DoneResult)),
 		// List and check results
-		ListStep(opts,
+		ListStep(generateOpts(nameLabelsDiff),
 			ListWithObj(&corev1.NodeList{}),
 			ListWithFilter(
 				client.MatchingLabels(map[string]string{
@@ -167,7 +156,6 @@ func testNodeDiffLabelsPresent(t *testing.T) {
 
 				assert.Truef(t, ok, "expected node list got type %T", i)
 				assert.Equal(t, 1, len(list.Items))
-				assert.Equal(t, watchResourceValue, list.Items[0].GetLabels()[watchResourceTag])
 				assert.Equal(t, "testValue", list.Items[0].GetLabels()["testKey"])
 			}),
 		),
@@ -182,7 +170,7 @@ func testNodeUnknown(t *testing.T) {
 		ReconcileStep(generateOpts("DUMMY"),
 			ReconcileWithExpectedResults(DoneResult)),
 		// List and check results
-		ListStep(opts,
+		ListStep(generateOpts("DUMMY"),
 			ListWithObj(&corev1.NodeList{}),
 			ListWithFilter(
 				client.MatchingLabels(map[string]string{
@@ -200,10 +188,10 @@ func testNodeUnknown(t *testing.T) {
 
 func testMultipleNodes(t *testing.T) {
 	t.Parallel()
-	reconcilerTest := NewReconcilerTest(setup, nodeLabelsDiff.DeepCopyObject(), node.DeepCopyObject(), nodeLabelsAbsent.DeepCopyObject())
+	reconcilerTest := NewReconcilerTest(setup, node.DeepCopyObject(), nodeLabelsAbsent.DeepCopyObject())
 	reconcilerTest.TestAll(t,
 		// Reconcile to create obj
-		ReconcileStep(opts,
+		ReconcileStep([]StepOption{generateOpts(name)[0], generateOpts(nameLabelsAbsent)[0]},
 			ReconcileWithExpectedResults(DoneResult)),
 		// List and check results
 		ListStep([]StepOption{},
@@ -216,11 +204,7 @@ func testMultipleNodes(t *testing.T) {
 				list, ok := i.(*corev1.NodeList)
 
 				assert.Truef(t, ok, "expected node list got type %T", i)
-				assert.Equal(t, 1, len(list.Items))
-
-				for _, item := range list.Items {
-					assert.Equal(t, watchResourceValue, item.GetLabels()[watchResourceTag])
-				}
+				assert.Equal(t, 2, len(list.Items))
 
 			}),
 		),
