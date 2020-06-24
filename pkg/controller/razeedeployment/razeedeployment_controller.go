@@ -877,7 +877,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 		reqLogger.Info("RemoteResourceS3 deployment created successfully")
 
-		message := "RemoteResourceS3 install starting"
+		message := "RemoteResourceS3 deployment install starting"
 		instance.Status.Conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,
@@ -890,7 +890,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{Requeue: true}, nil
 
 	} else if err != nil {
-		reqLogger.Error(err, "Failed to get RemoteResourceS3 from Cluster")
+		reqLogger.Error(err, "Failed to get RemoteResourceS3 deployment from Cluster")
 		return reconcile.Result{}, err
 	}
 
@@ -899,7 +899,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	message := "RemoteResourceS3 install finished"
+	message := "RemoteResourceS3 deployment install finished"
 	instance.Status.Conditions.SetCondition(status.Condition{
 		Type:    marketplacev1alpha1.ConditionInstalling,
 		Status:  corev1.ConditionTrue,
@@ -954,16 +954,12 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		Message: message,
 	})
 
-	// List the pods created by rhm-watch-keeper and remote-resource-controller
-	reqLogger.Info("Finding pods created by rhm-watch-keeper and remote-resource-controller")
+
 	podList := &corev1.PodList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(*instance.Spec.TargetNamespace),
 		client.MatchingLabels(map[string]string{
-			"app": utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-		}),
-		client.MatchingLabels(map[string]string{
-			"app": utils.WATCHKEEPER_DEPLOYMENT_NAME,
+			"owned-by" : "rhm",
 		}),
 	}
 
@@ -972,11 +968,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Error(err, "Failed to list deployment pods")
 		return reconcile.Result{}, err
 	}
+	
 	podNames := utils.GetPodNames(podList.Items)
-	println("POD NAMES", podNames[0])
-	// Update status.Nodes if needed
-	if !reflect.DeepEqual(podNames, instance.Status.Nodes) {
-		instance.Status.Nodes = podNames
+
+	if !reflect.DeepEqual(podNames, instance.Status.NodesFromRazeeDeployments) {
+		instance.Status.NodesFromRazeeDeployments = podNames
 		err := r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Memcached status.")
@@ -1118,9 +1114,9 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	reqLogger.V(0).Info("No patch needed on Infrastructure resource")
 
 	// check if the legacy uninstaller has run
-	if instance.Spec.LegacyUninstallHasRun == nil || !*instance.Spec.LegacyUninstallHasRun {
-		r.uninstallLegacyResources(instance)
-	}
+	// if instance.Spec.LegacyUninstallHasRun == nil || !*instance.Spec.LegacyUninstallHasRun {
+	// 	r.uninstallLegacyResources(instance)
+	// }
 
 	message = "Razee install complete"
 	change1 := instance.Status.Conditions.SetCondition(status.Condition{
@@ -1461,6 +1457,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app": utils.WATCHKEEPER_DEPLOYMENT_NAME,
+					"owned-by" : "rhm",
 				},
 			},
 			Strategy: appsv1.DeploymentStrategy{
@@ -1471,6 +1468,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 					Labels: map[string]string{
 						"app":                  utils.WATCHKEEPER_DEPLOYMENT_NAME,
 						"razee/watch-resource": "lite",
+						"owned-by" : "rhm",
 					},
 					Name: utils.WATCHKEEPER_DEPLOYMENT_NAME,
 				},
@@ -1623,6 +1621,7 @@ func (r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *mark
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app": utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+					"owned-by" : "rhm",
 				},
 			},
 			Strategy: appsv1.DeploymentStrategy{
@@ -1633,6 +1632,7 @@ func (r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *mark
 					Labels: map[string]string{
 						"app":                  utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 						"razee/watch-resource": "lite",
+						"owned-by" : "rhm",
 					},
 					Name: utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 				},

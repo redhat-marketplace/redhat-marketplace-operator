@@ -123,7 +123,6 @@ type RazeeDeploymentStatus struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	JobState *batch.JobStatus `json:"jobState,omitempty"`
-
 	// MissingValuesFromSecret validates the secret provided has all the correct fields
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
@@ -144,10 +143,10 @@ type RazeeDeploymentStatus struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	RazeeJobInstall *RazeeJobInstallStruct `json:"razee_job_install,omitempty"`
-	// Nodes contains
+	// NodesFromRazeeDeployments contains
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
-	Nodes []string `json:"nodes,omitempty"`
+	NodesFromRazeeDeployments []string `json:"nodesFromRazeeDeployments,omitempty"`
 }
 
 type RazeeJobInstallStruct struct {

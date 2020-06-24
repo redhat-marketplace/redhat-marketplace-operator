@@ -264,8 +264,8 @@ spec:
               items:
                 type: string
               type: array
-            nodes:
-              description: Nodes contains
+            nodesFromRazeeDeployments:
+              description: NodesFromRazeeDeployments contains
               items:
                 type: string
               type: array
