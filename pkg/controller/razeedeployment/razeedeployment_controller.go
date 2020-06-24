@@ -47,12 +47,11 @@ import (
 )
 
 var (
-	razeeWatchTag             = "razee/watch-resource"
-	razeeWatchTagValue        = "lite"
-	RAZEE_WATCH_KEEPER_LABELS = map[string]string{razeeWatchTag: razeeWatchTagValue}
-	log                       = logf.Log.WithName("controller_razeedeployment")
-	razeeFlagSet              *pflag.FlagSet
-	RELATED_IMAGE_RAZEE_JOB   = "RELATED_IMAGE_RAZEE_JOB"
+	razeeWatchTag           = "razee/watch-resource"
+	razeeWatchTagValue      = "lite"
+	log                     = logf.Log.WithName("controller_razeedeployment")
+	razeeFlagSet            *pflag.FlagSet
+	RELATED_IMAGE_RAZEE_JOB = "RELATED_IMAGE_RAZEE_JOB"
 )
 
 func init() {
@@ -1030,7 +1029,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 		consoleLabels[razeeWatchTag] = razeeWatchTagValue
 		if !reflect.DeepEqual(consoleLabels, consoleOriginalLabels) {
-			console.SetLabels(RAZEE_WATCH_KEEPER_LABELS)
+			console.SetLabels(consoleLabels)
 			err = r.client.Update(context.TODO(), console)
 			if err != nil {
 				reqLogger.Error(err, "Failed to patch razee/watch-resource: lite label to Console resource")
@@ -1064,7 +1063,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 		infrastructureLabels[razeeWatchTag] = razeeWatchTagValue
 		if !reflect.DeepEqual(infrastructureLabels, infrastructureOriginalLabels) {
-			infrastructureResource.SetLabels(RAZEE_WATCH_KEEPER_LABELS)
+			infrastructureResource.SetLabels(infrastructureLabels)
 			err = r.client.Update(context.TODO(), infrastructureResource)
 			if err != nil {
 				reqLogger.Error(err, "Failed to patch razee/watch-resource: lite label to Infrastructure resource")
@@ -1099,8 +1098,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 		clusterVersionLabels[razeeWatchTag] = razeeWatchTagValue
 		if !reflect.DeepEqual(clusterVersionLabels, clusterVersionOriginalLabels) {
-
-			clusterVersion.SetLabels(RAZEE_WATCH_KEEPER_LABELS)
+			clusterVersion.SetLabels(clusterVersionLabels)
 			err = r.client.Update(context.TODO(), clusterVersion)
 			if err != nil {
 				reqLogger.Error(err, "Failed to patch razee/watch-resource: lite label to clusterversion resource")
