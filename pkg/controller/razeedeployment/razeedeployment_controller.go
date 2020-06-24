@@ -116,6 +116,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// Find secret
 	p := predicate.Funcs{
+		// Ensures RazeeDeployment is only reconciled for appropriate Secrets
+		// And not any secrets, regardless of namespace
+
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			label, _ := utils.GetMapKeyValue(utils.LABEL_RHM_OPERATOR_WATCH)
 			// The object doesn't contain label "foo", so the event will be
@@ -132,6 +135,15 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			if e.Meta.GetName() == utils.RHM_OPERATOR_SECRET_NAME {
 				return true
 			}
+
+			if _, ok := e.Meta.GetLabels()[label]; !ok {
+				return false
+			}
+
+			return true
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			label, _ := utils.GetMapKeyValue(utils.LABEL_RHM_OPERATOR_WATCH)
 
 			if _, ok := e.Meta.GetLabels()[label]; !ok {
 				return false
