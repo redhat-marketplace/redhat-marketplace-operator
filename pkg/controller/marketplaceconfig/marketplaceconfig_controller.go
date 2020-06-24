@@ -18,6 +18,7 @@ import (
 	"context"
 	"reflect"
 
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
@@ -314,7 +315,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonMeterBaseInstalled,
+			Reason:  marketplacev1alpha1.ReasonOperatorSourceInstall,
 			Message: "RHM Operator source installed.",
 		})
 
@@ -334,6 +335,48 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	}
 
 	reqLogger.Info("Found opsource")
+
+	// Check if IBM catalog source exists. If not, create one
+	catalogSrc := &operatorsv1alpha1.CatalogSource{}
+	catalogSrcNamespacedName := types.NamespacedName{
+		Name:      utils.IBM_CATALOGSRC_NAME,
+		Namespace: utils.OPERATOR_MKTPLACE_NS}
+	err = r.client.Get(context.TODO(), catalogSrcNamespacedName, catalogSrc)
+	if err != nil && errors.IsNotFound(err) {
+		// Create IBM catalog source
+		newCatalogSrc := utils.BuildNewCatalogSrc()
+		reqLogger.Info("Creating IBM catalog source")
+		err = r.client.Create(context.TODO(), newCatalogSrc)
+		if err != nil {
+			reqLogger.Info("Failed to create a CatalogSource.", "CatalogSource.Namespace ", newCatalogSrc.Namespace, "CatalogSource.Name", newCatalogSrc.Name)
+			return reconcile.Result{}, err
+		}
+
+		patch := client.MergeFrom(marketplaceConfig.DeepCopy())
+
+		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionInstalling,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonCatalogSourceInstall,
+			Message: "IBM catalog source installed.",
+		})
+
+		err = r.client.Status().Patch(context.TODO(), marketplaceConfig, patch)
+
+		if err != nil {
+			reqLogger.Error(err, "failed to update status")
+			return reconcile.Result{}, err
+		}
+
+		// IBM catalog source created successfully - return and requeue
+		return reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		// Could not get IBM catalog source
+		reqLogger.Error(err, "Failed to get CatalogSource", "CatalogSource.Namespace ", catalogSrcNamespacedName.Namespace, "CatalogSource.Name", catalogSrcNamespacedName.Name)
+		return reconcile.Result{}, err
+	}
+
+	reqLogger.Info("Found CatalogSource", "CatalogSource.Namespace ", catalogSrcNamespacedName.Namespace, "CatalogSource.Name", catalogSrcNamespacedName.Name)
 
 	patch := client.MergeFrom(marketplaceConfig.DeepCopy())
 

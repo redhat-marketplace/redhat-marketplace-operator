@@ -19,6 +19,7 @@ import (
 
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	opsrcApi "github.com/operator-framework/operator-marketplace/pkg/apis"
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
@@ -66,6 +67,7 @@ var (
 func setup(r *ReconcilerTest) error {
 	s := scheme.Scheme
 	_ = opsrcApi.AddToScheme(s)
+	_ = operatorsv1alpha1.AddToScheme(s)
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, marketplaceconfig)
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeedeployment)
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
@@ -80,7 +82,7 @@ func testCleanInstall(t *testing.T) {
 	reconcilerTest := NewReconcilerTest(setup, marketplaceconfig)
 	reconcilerTest.TestAll(t,
 		ReconcileStep(opts, ReconcileWithExpectedResults(
-			append(RangeReconcileResults(RequeueResult, 3), DoneResult)...,
+			append(RangeReconcileResults(RequeueResult, 4), DoneResult)...,
 		)),
 		GetStep(opts,
 			GetWithNamespacedName(razeeName, namespace),
@@ -93,6 +95,10 @@ func testCleanInstall(t *testing.T) {
 		GetStep(opts,
 			GetWithNamespacedName(utils.OPSRC_NAME, utils.OPERATOR_MKTPLACE_NS),
 			GetWithObj(&opsrcv1.OperatorSource{}),
+		),
+		GetStep(opts,
+			GetWithNamespacedName(utils.IBM_CATALOGSRC_NAME, utils.OPERATOR_MKTPLACE_NS),
+			GetWithObj(&operatorsv1alpha1.CatalogSource{}),
 		),
 	)
 }
