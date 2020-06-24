@@ -78,13 +78,10 @@ rules:
   - operators.coreos.com
   resources:
   - subscriptions
-  - installplans
-  - clusterserviceversions
   verbs:
   - get
   - list
   - watch
-  - delete
 - apiGroups:
   - operators.coreos.com
   resources:
@@ -118,17 +115,6 @@ rules:
   - update
   - watch
 - apiGroups:
-  - deploy.razee.io
-  resources:
-  - remoteresourcess3
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-- apiGroups:
   - config.openshift.io
   resources:
   - consoles
@@ -146,6 +132,7 @@ rules:
   - razeedeployments
   - meterbases
   - marketplaceconfigs
+  - remoteresources3s
   verbs:
   - '*'
 - apiGroups:
@@ -185,15 +172,58 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: redhat-marketplace-razeedeploy
+  name: redhat-marketplace-remoteresources3deployment
+rules:
+- apiGroups:
+  - operator.coreos.com
+  - marketplace.redhat.com
+  resources:
+  - subscriptions
+  - installplans
+  - remoteresources3s
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+  - patch
+- nonResourceURLs:
+  - '*'
+  verbs:
+  - '*'
+---
+# Source: redhat-marketplace-operator-template-chart/templates/role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: redhat-marketplace-watch-keeper
 rules:
 - apiGroups:
   - '*'
   resources:
   - '*'
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
 - nonResourceURLs:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+---
+# Source: redhat-marketplace-operator-template-chart/templates/role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: redhat-marketplace-remoteresources3deployment
+  namespace: openshift-redhat-marketplace
+rules:
+- apiGroups:
+  - '*'
+  resources:
   - '*'
   verbs:
   - '*'
@@ -205,6 +235,18 @@ metadata:
   name: redhat-marketplace-operator
   namespace: openshift-redhat-marketplace
 rules:
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - remoteresources3s
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -272,20 +314,6 @@ rules:
   - list
   - patch
   - update
-  - watch
-- apiGroups:
-  - deploy.razee.io
-  resources:
-  - '*'
-  - remoteresourcess3
-  - remoteresources
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - update
-  - patch
   - watch
 - apiGroups:
   - ""

@@ -858,7 +858,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	/******************************************************************************
-	Create watch-keeper,rrs3-controller, apply parent rrs3
+	Create watch-keeper deployment,rrs3-controller deployment, apply parent rrs3
 	/******************************************************************************/
 	// RemoteResourceS3 controller
 	rrs3Deployment := &appsv1.Deployment{}
@@ -894,27 +894,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	//TODO: set ownership ?
 	if err := controllerutil.SetControllerReference(instance, rrs3Deployment, r.scheme); err != nil {
 		reqLogger.Error(err, "Failed to set controller reference")
 		return reconcile.Result{}, err
 	}
-
-	// //check if rrs3 deployment is running correctly
-	// installedRemoteResourceDep := &appsv1.Deployment{}
-	// reqLogger.V(0).Info("Checking status on RemoteResourceDeployment")
-	// err = r.client.Get(context.TODO(), types.NamespacedName{
-	// 	Name:      utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-	// 	Namespace: request.Namespace,
-	// }, installedRemoteResourceDep)
-	// if errors.IsNotFound(err) {
-	// 	reqLogger.Error(err, "Failed to retreive RemoteResourceDeployment")
-	// }
-
-	// if installedRemoteResourceDep.Status.AvailableReplicas != 1 {
-	// 	reqLogger.Info("remote resource s3 deployment doesn't have any available replicas")
-	// 	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
-	// }
 
 	message := "RemoteResourceS3 install finished"
 	instance.Status.Conditions.SetCondition(status.Condition{
@@ -958,26 +941,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	//TODO: set ownership ?
 	if err := controllerutil.SetControllerReference(instance, watchKeeperDeployment, r.scheme); err != nil {
 		reqLogger.Error(err, "Failed to set controller reference")
 		return reconcile.Result{}, err
 	}
-
-	// installedWatchKeeperDeployment := &appsv1.Deployment{}
-	// reqLogger.V(0).Info("Checking watch-keeper status")
-	// err = r.client.Get(context.TODO(), types.NamespacedName{
-	// 	Name:      utils.WATCHKEEPER_DEPLOYMENT_NAME,
-	// 	Namespace: request.Namespace,
-	// }, installedWatchKeeperDeployment)
-	// if errors.IsNotFound(err) {
-	// 	reqLogger.Error(err, "Failed to retrieve watch-keeper")
-	// }
-
-	// if installedWatchKeeperDeployment.Status.AvailableReplicas != 1 {
-	// 	reqLogger.Info("watch-keeper deployment doesn't have any available replicas")
-	// 	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
-	// }
 
 	message = "watch-keeper install finished"
 	instance.Status.Conditions.SetCondition(status.Condition{
@@ -987,11 +954,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		Message: message,
 	})
 
-	/*
-		Get pods created by rhm-watch-keeper and rhm-remote-resource deployments
-	*/
-	// Update the Memcached status with the pod names
-	// List the pods for this memcached's deployment
+	// List the pods created by rhm-watch-keeper and remote-resource-controller
+	reqLogger.Info("Finding pods created by rhm-watch-keeper and remote-resource-controller")
 	podList := &corev1.PodList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(*instance.Spec.TargetNamespace),
@@ -1009,9 +973,9 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 	podNames := utils.GetPodNames(podList.Items)
-
+	println("POD NAMES", podNames[0])
 	// Update status.Nodes if needed
-	if !reflect.DeepEqual(podNames, instance.Status) {
+	if !reflect.DeepEqual(podNames, instance.Status.Nodes) {
 		instance.Status.Nodes = podNames
 		err := r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
@@ -1153,10 +1117,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 	reqLogger.V(0).Info("No patch needed on Infrastructure resource")
 
-	//TODO: uninstall legacy resources
-	// if instance.Spec.LegacyUninstallHasRun == nil || !*instance.Spec.LegacyUninstallHasRun {
-	// 	r.uninstallLegacyResources(instance)
-	// }
+	// check if the legacy uninstaller has run
+	if instance.Spec.LegacyUninstallHasRun == nil || !*instance.Spec.LegacyUninstallHasRun {
+		r.uninstallLegacyResources(instance)
+	}
 
 	message = "Razee install complete"
 	change1 := instance.Status.Conditions.SetCondition(status.Condition{
@@ -1186,6 +1150,14 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	reqLogger.Info("End of reconcile")
 	return reconcile.Result{}, nil
 
+}
+
+func (r *ReconcileRazeeDeployment)labelsForDeploymentPods()map[string]string {
+	return map[string]string{
+		"marketplace.redhat.com/metered":                  "true",
+		"marketplace.redhat.com/deployed":                 "true",
+
+	}
 }
 
 // finalizeRazeeDeployment cleans up resources before the RazeeDeployment CR is deleted
