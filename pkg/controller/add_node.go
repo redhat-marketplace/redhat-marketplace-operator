@@ -15,21 +15,15 @@
 package controller
 
 import (
-	"github.com/google/wire"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller/node"
 	"github.com/spf13/pflag"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-type ControllerDefinition struct {
-	Add     func(mgr manager.Manager) error
-	FlagSet func() *pflag.FlagSet
+type NodeController ControllerDefinition
+
+func ProvideNodeController() *NodeController {
+	return &NodeController{
+		Add:     node.Add,
+		FlagSet: func() *pflag.FlagSet { return nil },
+	}
 }
-
-var ControllerSet = wire.NewSet(
-	ProvideMarketplaceController,
-	ProvideMeterbaseController,
-	ProvideRazeeDeployController,
-	ProvideMeterDefinitionController,
-	ProvideOlmSubscriptionController,
-	ProvideNodeController,
-)

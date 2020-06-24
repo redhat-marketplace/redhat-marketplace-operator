@@ -33,6 +33,16 @@ roles:
           - get
           - list
           - watch
+      - apiGroups:
+          - ''
+        resources:
+          - nodes
+        verbs:
+          - get
+          - list
+          - watch
+          - patch
+          - update
       - apiGroups: ['batch', 'extensions']
         resources: ['jobs']
         verbs: ['get', 'list', 'watch']
@@ -139,6 +149,7 @@ roles:
         resources:
           - consoles
           - infrastructures
+          - clusterversions
         verbs:
           - get
           - list

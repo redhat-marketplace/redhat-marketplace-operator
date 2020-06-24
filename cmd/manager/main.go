@@ -35,6 +35,7 @@ func makeMarketplaceController(
 	meterDefinitionC *controller.MeterDefinitionController,
 	razeeC *controller.RazeeDeployController,
 	olmSubscriptionC *controller.OlmSubscriptionController,
+	nodeC *controller.NodeController,
 	controllerFlags *controller.ControllerFlagSet,
 	opsSrcScheme *managers.OpsSrcSchemeDefinition,
 	monitoringScheme *managers.MonitoringSchemeDefinition,
@@ -52,6 +53,7 @@ func makeMarketplaceController(
 			(*controller.ControllerDefinition)(meterDefinitionC),
 			(*controller.ControllerDefinition)(razeeC),
 			(*controller.ControllerDefinition)(olmSubscriptionC),
+			(*controller.ControllerDefinition)(nodeC),
 		},
 		Schemes: []*managers.SchemeDefinition{
 			(*managers.SchemeDefinition)(monitoringScheme),
