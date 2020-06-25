@@ -1068,16 +1068,20 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	reqLogger.V(0).Info("Found Console resource")
+	consoleOriginalLabels := console.DeepCopy().GetLabels()
 	consoleLabels := console.GetLabels()
-
-	if !reflect.DeepEqual(consoleLabels, RAZEE_WATCH_KEEPER_LABELS) || consoleLabels == nil {
-		console.SetLabels(RAZEE_WATCH_KEEPER_LABELS)
+	if consoleLabels == nil {
+		consoleLabels = make(map[string]string)
+	}
+	consoleLabels[razeeWatchTag] = razeeWatchTagValue
+	if !reflect.DeepEqual(consoleLabels, consoleOriginalLabels) {
+		console.SetLabels(consoleLabels)
 		err = r.client.Update(context.TODO(), console)
 		if err != nil {
-			reqLogger.Error(err, "Failed to patch Console resource")
+			reqLogger.Error(err, "Failed to patch razee/watch-resource: lite label to Console resource")
 			return reconcile.Result{}, err
 		}
-		reqLogger.Info("Patched Console resource")
+		reqLogger.Info("Patched razee/watch-resource: lite label to Console resource")
 		return reconcile.Result{Requeue: true}, nil
 	}
 	reqLogger.V(0).Info("No patch needed on Console resource")
@@ -1098,19 +1102,59 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 
 	reqLogger.V(0).Info("Found Infrastructure resource")
+	infrastructureOriginalLabels := infrastructureResource.DeepCopy().GetLabels()
 	infrastructureLabels := infrastructureResource.GetLabels()
-	if !reflect.DeepEqual(infrastructureLabels, RAZEE_WATCH_KEEPER_LABELS) || infrastructureLabels == nil {
-		infrastructureResource.SetLabels(RAZEE_WATCH_KEEPER_LABELS)
+	if infrastructureLabels == nil {
+		infrastructureLabels = make(map[string]string)
+	}
+	infrastructureLabels[razeeWatchTag] = razeeWatchTagValue
+	if !reflect.DeepEqual(infrastructureLabels, infrastructureOriginalLabels) {
+		infrastructureResource.SetLabels(infrastructureLabels)
 		err = r.client.Update(context.TODO(), infrastructureResource)
 		if err != nil {
-			reqLogger.Error(err, "Failed to patch Infrastructure resource")
+			reqLogger.Error(err, "Failed to patch razee/watch-resource: lite label to Infrastructure resource")
 			return reconcile.Result{}, err
 		}
-		reqLogger.Info("Patched Infrastructure resource")
+		reqLogger.Info("Patched razee/watch-resource: lite label to Infrastructure resource")
 
 		return reconcile.Result{Requeue: true}, nil
 	}
 	reqLogger.V(0).Info("No patch needed on Infrastructure resource")
+
+	reqLogger.V(0).Info("finding clusterversion resource")
+	clusterVersion := &unstructured.Unstructured{}
+	clusterVersion.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "config.openshift.io",
+		Kind:    "ClusterVersion",
+		Version: "v1",
+	})
+	err = r.client.Get(context.Background(), client.ObjectKey{
+		Name: "version",
+	}, clusterVersion)
+	if err != nil {
+		reqLogger.Error(err, "Failed to retrieve clusterversion resource")
+		return reconcile.Result{}, err
+	}
+
+	reqLogger.V(0).Info("Found clusterversion resource")
+	clusterVersionOriginalLabels := clusterVersion.DeepCopy().GetLabels()
+	clusterVersionLabels := clusterVersion.GetLabels()
+	if clusterVersionLabels == nil {
+		clusterVersionLabels = make(map[string]string)
+	}
+	clusterVersionLabels[razeeWatchTag] = razeeWatchTagValue
+	if !reflect.DeepEqual(clusterVersionLabels, clusterVersionOriginalLabels) {
+		clusterVersion.SetLabels(clusterVersionLabels)
+		err = r.client.Update(context.TODO(), clusterVersion)
+		if err != nil {
+			reqLogger.Error(err, "Failed to patch razee/watch-resource: lite label to clusterversion resource")
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("Patched razee/watch-resource: lite label to clusterversion resource")
+
+		return reconcile.Result{Requeue: true}, nil
+	}
+	reqLogger.V(0).Info("No patch needed on clusterversion resource")
 
 	// check if the legacy uninstaller has run
 	if instance.Spec.LegacyUninstallHasRun == nil || !*instance.Spec.LegacyUninstallHasRun {
