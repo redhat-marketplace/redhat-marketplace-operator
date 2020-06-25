@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"time"
 
 	emperrors "emperror.dev/errors"
 	"github.com/gotidy/ptr"
@@ -34,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/operrors"
@@ -160,6 +162,26 @@ func BuildNewOpSrc() *opsrcv1.OperatorSource {
 	}
 
 	return opsrc
+}
+
+// BuildNewCatalogSrc returns a new Catalog Source
+func BuildNewCatalogSrc() *operatorsv1alpha1.CatalogSource {
+	catalogSrc := &operatorsv1alpha1.CatalogSource{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: IBM_CATALOGSRC_NAME,
+			// Must always be openshift-marketplace
+			Namespace: OPERATOR_MKTPLACE_NS,
+		},
+		Spec: operatorsv1alpha1.CatalogSourceSpec{
+			DisplayName:    "IBM Operator Catalog",
+			Publisher:      "IBM",
+			SourceType:     "grpc",
+			Image:          "docker.io/ibmcom/ibm-operator-catalog",
+			UpdateStrategy: &operatorsv1alpha1.UpdateStrategy{RegistryPoll: &operatorsv1alpha1.RegistryPoll{Interval: &metav1.Duration{Duration: (time.Minute * 45)}}},
+		},
+	}
+
+	return catalogSrc
 }
 
 // BuildRazeeCrd returns a RazeeDeployment cr with default values

@@ -143,6 +143,17 @@ var (
 			"spec": "console",
 		},
 	}
+	clusterVersion = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "config.openshift.io/v1",
+			"kind":       "ClusterVersion",
+			"metadata": map[string]interface{}{
+				"name": "version",
+			},
+			"spec": "console",
+		},
+	}
+
 	secret = corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "rhm-operator-secret",
@@ -301,6 +312,7 @@ func testCleanInstall(t *testing.T) {
 		&namespObj,
 		console,
 		cluster,
+		clusterVersion,
 	)
 	reconcilerTest.TestAll(t,
 		//Requeue until we have created the job and waiting for it to finish
