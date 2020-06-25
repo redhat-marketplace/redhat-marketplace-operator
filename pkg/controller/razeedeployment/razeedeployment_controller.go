@@ -296,11 +296,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		instance.Status.RedHatMarketplaceSecretFound = nil
 	}
 
-	//TODO: if Dianemo just leaves off file source url on rhm-operator-secret it should set to null
-	if instance.Spec.DeployConfig != nil && instance.Spec.DeployConfig.FileSourceURL != nil {
-		instance.Spec.DeployConfig.FileSourceURL = nil
-	}
-
 	if instance.Status.JobConditions != nil {
 		instance.Status.JobConditions = nil
 	}
@@ -311,6 +306,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	if instance.Spec.DeployConfig == nil {
 		instance.Spec.DeployConfig = &marketplacev1alpha1.RazeeConfigurationValues{}
+	}
+
+	//TODO: if Dianemo just leaves off FILE_SOURCE_URL the rhm-operator-secret it should set to null
+	if instance.Spec.DeployConfig.FileSourceURL != nil {
+		instance.Spec.DeployConfig.FileSourceURL = nil
 	}
 
 	secretName := utils.RHM_OPERATOR_SECRET_NAME
@@ -349,7 +349,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	razeeConfigurationValues := marketplacev1alpha1.RazeeConfigurationValues{}
 	razeeConfigurationValues, missingItems, err := utils.AddSecretFieldsToStruct(rhmOperatorSecret.Data, *instance)
-
 	if !utils.Equal(instance.Status.MissingDeploySecretValues, missingItems) ||
 		!reflect.DeepEqual(instance.Spec.DeployConfig, &razeeConfigurationValues) {
 		instance.Status.MissingDeploySecretValues = missingItems
@@ -1114,9 +1113,9 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	reqLogger.V(0).Info("No patch needed on Infrastructure resource")
 
 	// check if the legacy uninstaller has run
-	// if instance.Spec.LegacyUninstallHasRun == nil || !*instance.Spec.LegacyUninstallHasRun {
-	// 	r.uninstallLegacyResources(instance)
-	// }
+	if instance.Spec.LegacyUninstallHasRun == nil || !*instance.Spec.LegacyUninstallHasRun {
+		r.uninstallLegacyResources(instance)
+	}
 
 	message = "Razee install complete"
 	change1 := instance.Status.Conditions.SetCondition(status.Condition{

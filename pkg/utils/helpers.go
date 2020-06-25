@@ -132,7 +132,6 @@ func AddSecretFieldsToStruct(razeeData map[string][]byte, instance marketplacev1
 		keys = append(keys, key)
 		value, err := RetrieveSecretField(element)
 		if err != nil {
-			//TODO: better way to handle this here?
 			razeeStruct = nil
 			return marketplacev1alpha1.RazeeConfigurationValues{}, nil, err
 		}

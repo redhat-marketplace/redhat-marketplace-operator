@@ -158,6 +158,22 @@ var (
 			utils.FILE_SOURCE_URL_FIELD:    []byte("file-source-url"),
 		},
 	}
+
+	newsSecret = corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "rhm-operator-secret",
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			utils.IBM_COS_READER_KEY_FIELD: []byte("rhm-cos-reader-key"),
+			utils.IBM_COS_URL_FIELD:        []byte("rhm-cos-url"),
+			utils.BUCKET_NAME_FIELD:        []byte("bucket-name"),
+			utils.RAZEE_DASH_ORG_KEY_FIELD: []byte("razee-dash-org-key"),
+			utils.CHILD_RRS3_YAML_FIELD:    []byte("childRRS3-filename"),
+			utils.RAZEE_DASH_URL_FIELD:     []byte("razee-dash-url"),
+			// utils.FILE_SOURCE_URL_FIELD:    []byte("file-source-url"),
+		},
+	}
 	razeeJob = batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.RAZEE_DEPLOY_JOB_NAME,
@@ -281,19 +297,20 @@ func testCleanInstall(t *testing.T) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup,
 		&razeeDeployment,
-		&secret,
+		&newsSecret,
 		&namespObj,
 		console,
 		cluster,
 	)
 	reconcilerTest.TestAll(t,
 		//Requeue until we have created the job and waiting for it to finish
+		// ReconcileStep(opts,
+		// 	ReconcileWithExpectedResults(
+		// 		append(
+		// 			RangeReconcileResults(RequeueResult,0),
+		// 			)...)),
 		ReconcileStep(opts,
-			ReconcileWithExpectedResults(
-				append(
-					RangeReconcileResults(RequeueResult, 15),
-					RequeueAfterResult(time.Second*30),
-					RequeueAfterResult(time.Second*15))...)),
+			ReconcileWithExpectedResults(RequeueResult)),
 		// Let's do some client checks
 		ListStep(opts,
 			ListWithObj(&corev1.ConfigMapList{}),
