@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/gotidy/ptr"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -48,7 +49,7 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 				},
 				ChildRSS3FIleName: TEST_CHILD_RRS3_YAML_FIELD,
 				RazeeDashUrl:      TEST_RAZEE_DASH_URL_FIELD,
-				FileSourceURL:     TEST_FILE_SOURCE_URL_FIELD,
+				FileSourceURL:     ptr.String(TEST_FILE_SOURCE_URL_FIELD),
 			},
 		},
 	}
@@ -103,7 +104,7 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 		},
 		ChildRSS3FIleName: "childRRS3-filename",
 		RazeeDashUrl:      "razee-dash-url",
-		FileSourceURL:     "file-source-url",
+		FileSourceURL:    ptr.String("file-source-url"),
 	}
 
 	// test that it returns the correct format if all keys are present
@@ -136,7 +137,7 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 	// test that if a field is missing from the secret that struct value on Spec.DeployConfig doesn't get set to nil/omitted
 	returnedRazeeConfigValues, missingItems, err = AddSecretFieldsToStruct(secretWithMissingValue.Data, instance)
 
-	if returnedRazeeConfigValues.FileSourceURL != TEST_FILE_SOURCE_URL_FIELD {
+	if returnedRazeeConfigValues.FileSourceURL != ptr.String(TEST_FILE_SOURCE_URL_FIELD) {
 		t.Errorf("RazeeConfigurationValues.FileSourceURL overwritten")
 	}
 
