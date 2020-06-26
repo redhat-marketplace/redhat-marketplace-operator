@@ -156,10 +156,12 @@ type RazeeLogs struct {
 type Log map[string]string
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
 // RemoteResourceS3 is the Schema for the remoteresources3s API
+//
+// +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=remoteresources3s,scope=Namespaced
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="(Internal)RemoteResourceS3"
 type RemoteResourceS3 struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

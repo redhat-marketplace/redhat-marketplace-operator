@@ -15,7 +15,6 @@
 package razeedeployment
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -25,7 +24,6 @@ import (
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -47,7 +45,7 @@ func TestRazeeDeployController(t *testing.T) {
 	logf.SetLogger(logf.ZapLogger(true))
 
 	viper.Set("assets", "../../../assets")
-	scheme.Scheme.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment.DeepCopy(), &marketplacev1alpha1.RazeeDeploymentList{})
+	scheme.Scheme.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment.DeepCopy(), &marketplacev1alpha1.RazeeDeploymentList{},&marketplacev1alpha1.RemoteResourceS3{},&marketplacev1alpha1.RemoteResourceS3List{})
 
 	t.Run("Test Clean Install", testCleanInstall)
 	t.Run("Test No Secret", testNoSecret)
@@ -310,13 +308,17 @@ func testCleanInstall(t *testing.T) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup,
 		&razeeDeployment,
-		&newsSecret,
+		&secret,
 		&namespObj,
 		console,
 		cluster,
 		clusterVersion,
 	)
 	reconcilerTest.TestAll(t,
+		ReconcileStep(opts,
+			ReconcileWithExpectedResults(
+				append(
+					RangeReconcileResults(RequeueResult, 15),)...)),
 		// Let's do some client checks
 		ListStep(opts,
 			ListWithObj(&corev1.ConfigMapList{}),
@@ -358,30 +360,6 @@ func testCleanInstall(t *testing.T) {
 				assert.Contains(t, names, utils.WATCH_KEEPER_SECRET_NAME)
 				assert.Contains(t, names, utils.RHM_OPERATOR_SECRET_NAME)
 				assert.Contains(t, names, utils.COS_READER_KEY_NAME)
-			})),
-		GetStep(opts,
-			GetWithObj(&batch.Job{}),
-			GetWithNamespacedName(utils.RAZEE_DEPLOY_JOB_NAME, namespace),
-			GetWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
-				myJob, ok := i.(*batch.Job)
-
-				if !ok {
-					require.FailNowf(t, "", "Type is not expected %T", i)
-				}
-
-				myJob.Status.Conditions = []batch.JobCondition{
-					{
-						Type:               batch.JobComplete,
-						Status:             corev1.ConditionTrue,
-						LastProbeTime:      metav1.Now(),
-						LastTransitionTime: metav1.Now(),
-						Reason:             "Job is complete",
-						Message:            "Job is complete",
-					},
-				}
-				myJob.Status.Succeeded = 1
-
-				r.Client.Status().Update(context.TODO(), myJob)
 			})),
 		ReconcileStep(opts,
 			ReconcileWithUntilDone(true)),

@@ -196,6 +196,8 @@ delete: ##delete the contents created in 'make create'
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml
+	# - kubectl patch RemoteResourceS3 parent -p '{"metadata":{"finalizers":[]}}' --type=merge
+    # - kubectl patch RemoteResourceS3 child -p '{"metadata":{"finalizers":[]}}' --type=merge
 	- kubectl delete namespace ${NAMESPACE}
 
 delete-razee: ##delete the razee CR
