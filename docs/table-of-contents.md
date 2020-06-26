@@ -2,7 +2,7 @@
 
 ### Learning and Setup
 [Getting started](getting-started.md)
-[Learning Deep Dive](deep-dive.md)
+[High Level Overview](high-level-overiview.md)
   
 ### Release
 [Release Process](release-process.md)
