@@ -1166,9 +1166,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	reqLogger.V(0).Info("No patch needed on clusterversion resource")
 
 	// check if the legacy uninstaller has run
-	println("BEFORE LEGACY UNINSTALL")
 	if instance.Spec.LegacyUninstallHasRun == nil || *instance.Spec.LegacyUninstallHasRun == false {
-		println("POINTER IS FALSE")
 		r.uninstallLegacyResources(instance)
 	}	
 
