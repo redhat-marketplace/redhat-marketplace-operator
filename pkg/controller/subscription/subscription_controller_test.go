@@ -116,59 +116,15 @@ var (
 			CatalogSourceNamespace: "source-namespace",
 			Package:                "source-package",
 		},
-	}
-
-	installPlans = []runtime.Object{
-		&olmv1alpha1.InstallPlan{
-			ObjectMeta: v1.ObjectMeta{
-				Name:            "install-1",
-				Namespace:       namespace,
-				OwnerReferences: []v1.OwnerReference{v1.OwnerReference{Name: uninstallSubName, Kind: kind}},
-			},
-			Spec: olmv1alpha1.InstallPlanSpec{
-				ClusterServiceVersionNames: []string{"csv-1"},
-			},
-		},
-		&olmv1alpha1.InstallPlan{
-			ObjectMeta: v1.ObjectMeta{
-				Name:            "install-2",
-				Namespace:       namespace,
-				OwnerReferences: []v1.OwnerReference{v1.OwnerReference{Name: uninstallSubName, Kind: kind}},
-			},
-			Spec: olmv1alpha1.InstallPlanSpec{
-				ClusterServiceVersionNames: []string{"csv-2"},
-			},
-		},
-		&olmv1alpha1.InstallPlan{
-			ObjectMeta: v1.ObjectMeta{
-				Name:            "install-other",
-				Namespace:       namespace,
-				OwnerReferences: []v1.OwnerReference{v1.OwnerReference{Name: "sub-other", Kind: kind}},
-			},
-			Spec: olmv1alpha1.InstallPlanSpec{
-				ClusterServiceVersionNames: []string{"csv-other"},
-			},
+		Status: olmv1alpha1.SubscriptionStatus{
+			InstalledCSV: "csv-1",
 		},
 	}
 
-	clusterServiceVersions = []runtime.Object{
-		&olmv1alpha1.ClusterServiceVersion{
-			ObjectMeta: v1.ObjectMeta{
-				Name:      "csv-1",
-				Namespace: namespace,
-			},
-		},
-		&olmv1alpha1.ClusterServiceVersion{
-			ObjectMeta: v1.ObjectMeta{
-				Name:      "csv-2",
-				Namespace: namespace,
-			},
-		},
-		&olmv1alpha1.ClusterServiceVersion{
-			ObjectMeta: v1.ObjectMeta{
-				Name:      "csv-other",
-				Namespace: namespace,
-			},
+	clusterServiceVersions = &olmv1alpha1.ClusterServiceVersion{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "csv-1",
+			Namespace: namespace,
 		},
 	}
 )
@@ -181,11 +137,8 @@ func setup(r *ReconcilerTest) error {
 
 func testSubscriptionDelete(t *testing.T) {
 	t.Parallel()
-	predefinedObjs := []runtime.Object{subForDeletion}
-	predefinedObjs = append(predefinedObjs, installPlans...)
-	predefinedObjs = append(predefinedObjs, clusterServiceVersions...)
 	t.Run("test subscription deletion", func(t *testing.T) {
-		reconcilerTest := NewReconcilerTest(setup, predefinedObjs...)
+		reconcilerTest := NewReconcilerTest(setup, subForDeletion, clusterServiceVersions)
 		reconcilerTest.TestAll(t,
 			ReconcileStep(optsForDeletion,
 				ReconcileWithExpectedResults(DoneResult)),
@@ -208,8 +161,7 @@ func testSubscriptionDelete(t *testing.T) {
 					list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
 
 					assert.Truef(t, ok, "expected csv list got type %T", i)
-					assert.Equal(t, 1, len(list.Items))
-					assert.Equal(t, "csv-other", list.Items[0].Name)
+					assert.Equal(t, 0, len(list.Items))
 				})),
 			ListStep(opts,
 				ListWithObj(&olmv1.OperatorGroupList{}),

@@ -223,31 +223,16 @@ func (r *ReconcileSubscription) uninstall(sub *olmv1alpha1.Subscription) (reconc
 	reqLogger := log.WithValues("Subscription.Namespace", sub.Namespace, "Subscription.Name", sub.Name, "Subscription.Spec.Package", sub.Spec.Package)
 	reqLogger.Info("started to uninstall operator")
 
-	// collect CSVs from installPlans
-	csvList := make(map[string]struct{})
-	installPlanList := &olmv1alpha1.InstallPlanList{}
-	err := r.client.List(context.TODO(), installPlanList, client.InNamespace(sub.Namespace))
-	if err != nil && !errors.IsNotFound(err) {
-		reqLogger.Error(err, "could not list installPlan")
-	}
-	if err == nil {
-		for _, ip := range installPlanList.Items {
-			if len(ip.OwnerReferences) > 0 && ip.OwnerReferences[0].Kind == sub.Kind && ip.OwnerReferences[0].Name == sub.Name {
-				for _, csv := range ip.Spec.ClusterServiceVersionNames {
-					csvList[csv] = struct{}{}
-				}
-			}
-		}
-	}
+	csvName := sub.Status.InstalledCSV
 
 	// delete sub
-	err = r.client.Delete(context.TODO(), sub)
+	err := r.client.Delete(context.TODO(), sub)
 	if err != nil && !errors.IsNotFound((err)) {
 		reqLogger.Error(err, "could not delete sub")
 	}
 
-	// delete CSVs
-	for csvName := range csvList {
+	// delete CSV
+	if len(csvName) > 0 {
 		csvObj := &olmv1alpha1.ClusterServiceVersion{}
 		csvNamespacedName := types.NamespacedName{
 			Name:      csvName,
@@ -264,7 +249,6 @@ func (r *ReconcileSubscription) uninstall(sub *olmv1alpha1.Subscription) (reconc
 			}
 		}
 	}
-
 	reqLogger.Info("uninstalling operator complete")
 	return reconcile.Result{}, nil
 }

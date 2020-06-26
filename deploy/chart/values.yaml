@@ -94,7 +94,6 @@ roles:
           - operators.coreos.com
         resources:
           - subscriptions
-          - installplans
           - clusterserviceversions
         verbs:
           - get
