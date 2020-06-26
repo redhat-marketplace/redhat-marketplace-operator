@@ -66,7 +66,6 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 			RAZEE_DASH_ORG_KEY_FIELD: []byte(TEST_RAZEE_DASH_ORG_KEY_FIELD),
 			CHILD_RRS3_YAML_FIELD:    []byte(TEST_CHILD_RRS3_YAML_FIELD),
 			RAZEE_DASH_URL_FIELD:     []byte(TEST_RAZEE_DASH_URL_FIELD),
-			FILE_SOURCE_URL_FIELD:    []byte(TEST_FILE_SOURCE_URL_FIELD),
 		},
 	}
 
@@ -82,8 +81,6 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 			BUCKET_NAME_FIELD:        []byte(TEST_BUCKET_NAME_FIELD),
 			RAZEE_DASH_ORG_KEY_FIELD: []byte(TEST_RAZEE_DASH_ORG_KEY_FIELD),
 			CHILD_RRS3_YAML_FIELD:    []byte(TEST_CHILD_RRS3_YAML_FIELD),
-			RAZEE_DASH_URL_FIELD:     []byte(TEST_RAZEE_DASH_URL_FIELD),
-			// FILE_SOURCE_URL_FIELD:    []byte("file-source-url"),
 		},
 	}
 
@@ -123,22 +120,22 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 		t.Errorf("failed with error %v", err)
 	}
 
-	// test that it appends the correct missing value if the secret is missing a field
+	// test that AddSecretFieldsToStruct appends the correct missing value if a secret is missing a field
 	_, missingItems, err = AddSecretFieldsToStruct(secretWithMissingValue.Data, instance)
 
-	if !Contains(missingItems, FILE_SOURCE_URL_FIELD) {
-		t.Errorf("missingItems should be contain missing field %v", FILE_SOURCE_URL_FIELD)
+	if !Contains(missingItems, RAZEE_DASH_URL_FIELD) {
+		t.Errorf("missingItems should contain missing field %v", RAZEE_DASH_URL_FIELD)
 	}
 
 	if err != nil {
 		t.Errorf("failed with error %v", err)
 	}
 
-	// test that if a field is missing from the secret that struct value on Spec.DeployConfig doesn't get set to nil/omitted
+	// test that if a field is missing from rhm-operator-secret that the struct value on Spec.DeployConfig doesn't get set to nil/omitted
 	returnedRazeeConfigValues, missingItems, err = AddSecretFieldsToStruct(secretWithMissingValue.Data, instance)
-
-	if returnedRazeeConfigValues.FileSourceURL != ptr.String(TEST_FILE_SOURCE_URL_FIELD) {
-		t.Errorf("RazeeConfigurationValues.FileSourceURL overwritten")
+	PrettyPrint(returnedRazeeConfigValues)
+	if returnedRazeeConfigValues.RazeeDashUrl != TEST_RAZEE_DASH_URL_FIELD {
+		t.Errorf("RazeeConfigurationValues.RazeeDashUrl overwritten")
 	}
 
 	if err != nil {
