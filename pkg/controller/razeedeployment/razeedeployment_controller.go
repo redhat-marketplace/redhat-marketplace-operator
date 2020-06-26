@@ -318,7 +318,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		instance.Spec.DeployConfig = &marketplacev1alpha1.RazeeConfigurationValues{}
 	}
 
-	println("TEST")
 	//TODO: if Dianemo just leaves off FILE_SOURCE_URL from the rhm-operator-secret it should set to null
 	if instance.Spec.DeployConfig.FileSourceURL != nil {
 		instance.Spec.DeployConfig.FileSourceURL = nil
