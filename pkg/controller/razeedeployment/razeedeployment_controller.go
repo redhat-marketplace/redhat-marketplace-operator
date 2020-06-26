@@ -298,9 +298,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	/******************************************************************************
-	PROCEED WITH CREATING RAZEE PREREQUISITES?
-	/******************************************************************************/
 	if instance.Status.LocalSecretVarsPopulated != nil {
 		instance.Status.LocalSecretVarsPopulated = nil
 	}
@@ -321,7 +318,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		instance.Spec.DeployConfig = &marketplacev1alpha1.RazeeConfigurationValues{}
 	}
 
-	//TODO: if Dianemo just leaves off FILE_SOURCE_URL the rhm-operator-secret it should set to null
+	println("TEST")
+	//TODO: if Dianemo just leaves off FILE_SOURCE_URL from the rhm-operator-secret it should set to null
 	if instance.Spec.DeployConfig.FileSourceURL != nil {
 		instance.Spec.DeployConfig.FileSourceURL = nil
 	}

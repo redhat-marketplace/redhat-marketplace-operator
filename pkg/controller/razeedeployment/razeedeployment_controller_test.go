@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gotidy/ptr"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
@@ -97,6 +98,7 @@ var (
 			Enabled:          true,
 			ClusterUUID:      "foo",
 			DeploySecretName: &secretName,
+			LegacyUninstallHasRun: ptr.Bool(true),
 		},
 	}
 	razeeDeploymentDeletion = marketplacev1alpha1.RazeeDeployment{
@@ -182,7 +184,7 @@ var (
 			utils.RAZEE_DASH_ORG_KEY_FIELD: []byte("razee-dash-org-key"),
 			utils.CHILD_RRS3_YAML_FIELD:    []byte("childRRS3-filename"),
 			utils.RAZEE_DASH_URL_FIELD:     []byte("razee-dash-url"),
-			// utils.FILE_SOURCE_URL_FIELD:    []byte("file-source-url"),
+			utils.FILE_SOURCE_URL_FIELD:    []byte("file-source-url"),
 		},
 	}
 	razeeJob = batch.Job{
@@ -315,14 +317,6 @@ func testCleanInstall(t *testing.T) {
 		clusterVersion,
 	)
 	reconcilerTest.TestAll(t,
-		//Requeue until we have created the job and waiting for it to finish
-		// ReconcileStep(opts,
-		// 	ReconcileWithExpectedResults(
-		// 		append(
-		// 			RangeReconcileResults(RequeueResult,0),
-		// 			)...)),
-		ReconcileStep(opts,
-			ReconcileWithExpectedResults(RequeueResult)),
 		// Let's do some client checks
 		ListStep(opts,
 			ListWithObj(&corev1.ConfigMapList{}),
