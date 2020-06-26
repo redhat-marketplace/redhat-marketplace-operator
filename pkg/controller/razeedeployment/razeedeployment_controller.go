@@ -318,7 +318,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		instance.Spec.DeployConfig = &marketplacev1alpha1.RazeeConfigurationValues{}
 	}
 
-	//TODO: if Dianemo just leaves off FILE_SOURCE_URL from the rhm-operator-secret it should set to null
 	if instance.Spec.DeployConfig.FileSourceURL != nil {
 		instance.Spec.DeployConfig.FileSourceURL = nil
 	}
@@ -984,7 +983,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		instance.Status.NodesFromRazeeDeployments = podNames
 		err := r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update Memcached status.")
+			reqLogger.Error(err, "Failed to update Status.")
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{Requeue: true}, nil
@@ -1167,9 +1166,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	reqLogger.V(0).Info("No patch needed on clusterversion resource")
 
 	// check if the legacy uninstaller has run
-	if instance.Spec.LegacyUninstallHasRun == nil || !*instance.Spec.LegacyUninstallHasRun {
+	println("BEFORE LEGACY UNINSTALL")
+	if instance.Spec.LegacyUninstallHasRun == nil || *instance.Spec.LegacyUninstallHasRun == false {
+		println("POINTER IS FALSE")
 		r.uninstallLegacyResources(instance)
-	}
+	}	
 
 	message = "Razee install complete"
 	change1 := instance.Status.Conditions.SetCondition(status.Condition{
@@ -1950,8 +1951,9 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 		Name:      utils.RAZEE_DEPLOY_JOB_NAME,
 		Namespace: req.Namespace,
 	}
-	reqLogger.Info("finding install job", "name", jobName)
+	reqLogger.Info("finding legacy install job", "name", jobName)
 	err := r.client.Get(context.TODO(), jobName, &foundJob)
+	utils.PrettyPrint(foundJob)
 	if err == nil || errors.IsNotFound(err) {
 		reqLogger.Info("cleaning up install job")
 		err = r.client.Delete(context.TODO(), &foundJob, client.PropagationPolicy(deletePolicy))
@@ -1959,21 +1961,17 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 			reqLogger.Error(err, "cleaning up install job failed")
 		}
 
-		if err.Error() == "resource name may not be empty" {
-			reqLogger.Info("No legacy job exists")
-		}
 	}
 
 	customResourceKinds := []string{
 		"RemoteResource",
-		"RemoteResourceS3",
 		"FeatureFlagSetLD",
 		"ManagedSet",
 		"MustacheTemplate",
 		"RemoteResourceS3Decrypt",
 	}
 
-	reqLogger.Info("Deleting custom resources")
+	reqLogger.Info("Deleting legacy custom resources")
 	for _, customResourceKind := range customResourceKinds {
 		customResourceList := &unstructured.UnstructuredList{}
 		customResourceList.SetGroupVersionKind(schema.GroupVersionKind{
@@ -1985,22 +1983,16 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 		// get custom resources for each crd
 		reqLogger.Info("Listing legacy custom resources", "Kind", customResourceKind)
 		err = r.client.List(context.TODO(), customResourceList, client.InNamespace(*req.Spec.TargetNamespace))
-		if err != nil && !errors.IsNotFound(err) && err.Error() != fmt.Sprintf("no matches for kind %q in version %q", customResourceKind, "deploy.razee.io/v1alpha2") {
-			reqLogger.Error(err, "Could not list legacy custom resources", "Resource", customResourceKind)
-			return reconcile.Result{}, err
-		}
-
-		if err != nil && err.Error() != fmt.Sprintf("No matches for kind %q in version %q", customResourceKind, "deploy.razee.io/v1alpha2") {
-			reqLogger.Info("No legacy custom resource found", "Kind", customResourceKind)
+		if err != nil && !errors.IsNotFound((err)) {
+			reqLogger.Error(err, "could not list custom resources", "Kind", customResourceKind)
 		}
 
 		if err == nil {
 			for _, cr := range customResourceList.Items {
-				reqLogger.Info("Deleteing legacy custom resource", "custom resource", cr)
+				reqLogger.Info("Deleteing custom resource", "custom resource", cr)
 				err := r.client.Delete(context.TODO(), &cr)
 				if err != nil && !errors.IsNotFound(err) {
-					reqLogger.Error(err, "Could not delete legacy custom resource", "CustomResource", cr)
-					return reconcile.Result{}, err
+					reqLogger.Error(err, "could not delete custom resource", "custom resource", cr)
 				}
 			}
 		}
@@ -2008,7 +2000,6 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 
 	// sleep 5 seconds to let custom resource deletion complete
 	time.Sleep(time.Second * 5)
-
 	serviceAccounts := []string{
 		"razeedeploy-sa",
 		"watch-keeper-sa",
@@ -2020,18 +2011,13 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 				Namespace: *req.Spec.TargetNamespace,
 			},
 		}
-		reqLogger.Info("Deleting legacy service account", "name", saName)
+		reqLogger.Info("deleting legacy service account", "name", saName)
 		err = r.client.Delete(context.TODO(), serviceAccount, client.PropagationPolicy(deletePolicy))
 		if err != nil && !errors.IsNotFound((err)) {
-			reqLogger.Error(err, "Could not delete legacy service account", "Resource", saName)
-			return reconcile.Result{}, err
-		}
-
-		if err != nil && errors.IsNotFound(err) {
-			reqLogger.Info("Could not find legacy service account", "Resource", saName)
+			reqLogger.Error(err, "could not delete service account", "name", saName)
 		}
 	}
-
+	
 	deploymentNames := []string{
 		"watch-keeper",
 		"clustersubscription",
@@ -2050,19 +2036,13 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 				Namespace: *req.Spec.TargetNamespace,
 			},
 		}
-		reqLogger.Info("Deleting legacy deployment", "name", deploymentName)
+		reqLogger.Info("deleting legacy deployment", "name", deploymentName)
 		err = r.client.Delete(context.TODO(), deployment, client.PropagationPolicy(deletePolicy))
 		if err != nil && !errors.IsNotFound((err)) {
-			reqLogger.Error(err, "Could not delete legacy deployment", "name", deploymentName)
-			return reconcile.Result{}, err
-		}
-
-		if err != nil && errors.IsNotFound(err) {
-			reqLogger.Info("No legacy deployments found", "Resource", deploymentName)
+			reqLogger.Error(err, "could not delete deployment", "name", deploymentName)
 		}
 	}
 
-	// req.SetFinalizers(utils.RemoveKey(req.GetFinalizers(), utils.RAZEE_DEPLOYMENT_FINALIZER))
 	req.Spec.LegacyUninstallHasRun = ptr.Bool(true)
 	err = r.client.Update(context.TODO(), req)
 	if err != nil {
