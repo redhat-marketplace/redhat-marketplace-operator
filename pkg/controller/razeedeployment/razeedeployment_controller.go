@@ -1981,8 +1981,12 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 		// get custom resources for each crd
 		reqLogger.Info("Listing legacy custom resources", "Kind", customResourceKind)
 		err = r.client.List(context.TODO(), customResourceList, client.InNamespace(*req.Spec.TargetNamespace))
-		if err != nil && !errors.IsNotFound((err)) {
+		if err != nil && !errors.IsNotFound(err) && err.Error() != fmt.Sprintf("no matches for kind %q in version %q",customResourceKind,"deploy.razee.io/v1alpha2"){
 			reqLogger.Error(err, "could not list custom resources", "Kind", customResourceKind)
+		}
+
+		if err != nil && err.Error() == fmt.Sprintf("no matches for kind %q in version %q",customResourceKind,"deploy.razee.io/v1alpha2"){
+			reqLogger.Info("No legacy custom resource found", "Resource Kind", customResourceKind)
 		}
 
 		if err == nil {

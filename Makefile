@@ -194,9 +194,12 @@ delete: ##delete the contents created in 'make create'
 	- kubectl delete -f deploy/role.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/service_account.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml
+	- kubectl patch RazeeDeployment rhm-marketplaceconfig-razeedeployment -p '{"metadata":{"finalizers":[]}}' --type=merge
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml
+	- kubectl patch RemoteResourceS3 parent -p '{"metadata":{"finalizers":[]}}' --type=merge
+	- kubectl patch RemoteResourceS3 child -p '{"metadata":{"finalizers":[]}}' --type=merge
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_remoteresources3s_crd.yaml -n ${NAMESPACE}
 	- kubectl delete namespace ${NAMESPACE}
 
