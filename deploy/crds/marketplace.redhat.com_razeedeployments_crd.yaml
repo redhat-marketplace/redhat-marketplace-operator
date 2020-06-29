@@ -121,8 +121,8 @@ spec:
           description: RazeeDeploymentStatus defines the observed state of RazeeDeployment
           properties:
             conditions:
-              description: Conditions represent the latest available observations
-                of an object's stateonfig
+              description: 'JobConditions DEPRECATED: represent the latest available
+                observations of an object''s stateonfig'
               properties:
                 lastProbeTime:
                   description: Last time the condition was checked.
@@ -192,7 +192,8 @@ spec:
                 type: object
               type: array
             jobState:
-              description: JobState is the status of the Razee Install Job
+              description: 'JobState DEPRECATED: is the status of the Razee Install
+                Job'
               properties:
                 active:
                   description: The number of actively running pods.
@@ -265,7 +266,8 @@ spec:
                 type: string
               type: array
             nodesFromRazeeDeployments:
-              description: NodesFromRazeeDeployments contains
+              description: NodesFromRazeeDeployments contains the pods names created
+                by the rhm-watch-keper and rhm-remote-resources3-controller deployments
               items:
                 type: string
               type: array
