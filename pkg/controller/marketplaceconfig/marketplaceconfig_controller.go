@@ -344,16 +344,15 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	reqLogger.Info("Found opsource")
 
 	// Begin installation or deletion of IBM Catalog Source
-
 	// Get installation setting for IBM Catalog Source (checks MarketplaceConfig.Spec if it doesn't exist, use flag)
 	installCatalogSrcP := marketplaceConfig.Spec.InstallIBMCatalogSource
 	var installCatalogSrc bool
+
 	if installCatalogSrcP == nil {
-		reqLogger.Info("MarketplaceConfig.Spec.InstallIBMCatalogSource found")
-		installCatalogSrc = viper.GetBool("IBMCatalogSource")
-		marketplaceConfig.Spec.InstallIBMCatalogSource = &installCatalogSrc
-	} else {
 		reqLogger.Info("MarketplaceConfig.Spec.InstallIBMCatalogSource not found. Using flag.")
+		installCatalogSrc = viper.GetBool("IBMCatalogSource")
+	} else {
+		reqLogger.Info("MarketplaceConfig.Spec.InstallIBMCatalogSource found")
 		installCatalogSrc = *installCatalogSrcP
 	}
 
@@ -366,6 +365,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 	// If installCatalogSrc is true: install IBM Catalog Source
 	// if installCatalogSrc is false: do not install IBM Catalog Source, and delete existing one (if it exists)
+	reqLogger.Info("Checking Install Catalog Src", "InstallCatalogSource: ", installCatalogSrc)
 	if installCatalogSrc {
 		// If the IBM Catalog Source does not exist, create one
 		if err != nil && errors.IsNotFound(err) {

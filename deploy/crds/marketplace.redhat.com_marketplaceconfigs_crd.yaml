@@ -48,7 +48,6 @@ spec:
               type: string
           required:
           - clusterUUID
-          - installIBMCatalogSource
           - rhmAccountID
           type: object
         status:
