@@ -1942,7 +1942,6 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 	}
 	reqLogger.Info("finding legacy install job", "name", jobName)
 	err := r.client.Get(context.TODO(), jobName, &foundJob)
-	utils.PrettyPrint(foundJob)
 	if err == nil || errors.IsNotFound(err) {
 		reqLogger.Info("cleaning up install job")
 		err = r.client.Delete(context.TODO(), &foundJob, client.PropagationPolicy(deletePolicy))
