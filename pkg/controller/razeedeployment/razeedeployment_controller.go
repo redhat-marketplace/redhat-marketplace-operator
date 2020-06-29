@@ -1199,13 +1199,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 }
 
-func (r *ReconcileRazeeDeployment) labelsForDeploymentPods() map[string]string {
-	return map[string]string{
-		"marketplace.redhat.com/metered":  "true",
-		"marketplace.redhat.com/deployed": "true",
-	}
-}
-
 // finalizeRazeeDeployment cleans up resources before the RazeeDeployment CR is deleted
 func (r *ReconcileRazeeDeployment) finalizeRazeeDeployment(req *marketplacev1alpha1.RazeeDeployment) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
