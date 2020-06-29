@@ -37,7 +37,7 @@ type MarketplaceConfigSpec struct {
 	// InstallIBMCatalogSource is the flag that indicates if the IBM Catalog Source is installed
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	InstallIBMCatalogSource bool `json:"installIBMCatalogSource"`
+	InstallIBMCatalogSource *bool `json:"installIBMCatalogSource,omitempty"`
 }
 
 // MarketplaceConfigStatus defines the observed state of MarketplaceConfig

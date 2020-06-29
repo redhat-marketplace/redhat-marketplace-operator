@@ -82,6 +82,11 @@ func (in *MarketplaceConfigSpec) DeepCopyInto(out *MarketplaceConfigSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.InstallIBMCatalogSource != nil {
+		in, out := &in.InstallIBMCatalogSource, &out.InstallIBMCatalogSource
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

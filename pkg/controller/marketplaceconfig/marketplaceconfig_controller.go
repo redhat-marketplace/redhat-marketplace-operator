@@ -344,9 +344,18 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	reqLogger.Info("Found opsource")
 
 	// Begin installation or deletion of IBM Catalog Source
-	// if the flag = true: install IBM Catalog Source
-	// if the flag = false: don't install IBM Catalog Source, and delete existing one (if it exists)
-	installCatalogSrc := viper.GetBool("IBMCatalogSource")
+
+	// Get installation setting for IBM Catalog Source (checks MarketplaceConfig.Spec if it doesn't exist, use flag)
+	installCatalogSrcP := marketplaceConfig.Spec.InstallIBMCatalogSource
+	var installCatalogSrc bool
+	if installCatalogSrcP == nil {
+		reqLogger.Info("MarketplaceConfig.Spec.InstallIBMCatalogSource found")
+		installCatalogSrc = viper.GetBool("IBMCatalogSource")
+		marketplaceConfig.Spec.InstallIBMCatalogSource = &installCatalogSrc
+	} else {
+		reqLogger.Info("MarketplaceConfig.Spec.InstallIBMCatalogSource not found. Using flag.")
+		installCatalogSrc = *installCatalogSrcP
+	}
 
 	// Check if the IBM Catalog Source exists.
 	catalogSrc := &operatorsv1alpha1.CatalogSource{}
@@ -355,6 +364,8 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		Namespace: utils.OPERATOR_MKTPLACE_NS}
 	err = r.client.Get(context.TODO(), catalogSrcNamespacedName, catalogSrc)
 
+	// If installCatalogSrc is true: install IBM Catalog Source
+	// if installCatalogSrc is false: do not install IBM Catalog Source, and delete existing one (if it exists)
 	if installCatalogSrc {
 		// If the IBM Catalog Source does not exist, create one
 		if err != nil && errors.IsNotFound(err) {
@@ -397,6 +408,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		// If IBM catalog source exists, delete it.
 		if err == nil {
 			// Delete IBM catalog source.
+			reqLogger.Info("Deleting IBM catalog source")
 			catalogSrc.Name = catalogSrcNamespacedName.Name
 			catalogSrc.Namespace = catalogSrcNamespacedName.Namespace
 			err = r.client.Delete(context.TODO(), catalogSrc, client.PropagationPolicy(metav1.DeletePropagationBackground))
@@ -427,6 +439,8 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			reqLogger.Error(err, "Failed to get CatalogSource", "CatalogSource.Namespace ", catalogSrcNamespacedName.Namespace, "CatalogSource.Name", catalogSrcNamespacedName.Name)
 			return reconcile.Result{}, err
 		}
+
+		reqLogger.Info("IBM Catalog Source does not exist.")
 
 	}
 
