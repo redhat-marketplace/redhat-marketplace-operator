@@ -24,7 +24,7 @@ type Hmac struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	AccessKeyID string `json:"accessKeyId,omitempty"`
-	// AccesKeyIDRef holds reference information to an AccessKeyID stored in a secret on your cluster
+	// AccessKeyIDRef holds reference information to an AccessKeyID stored in a secret on your cluster
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	AccesKeyIDRef AccesKeyIDRef `json:"accessKeyIdRef,omitempty"`

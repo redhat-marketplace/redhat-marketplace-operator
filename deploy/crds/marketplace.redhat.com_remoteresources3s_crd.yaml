@@ -43,7 +43,7 @@ spec:
                         and is used by AWS to look up your Secret Access Key
                       type: string
                     accessKeyIdRef:
-                      description: AccesKeyIDRef holds reference information to an
+                      description: AccessKeyIDRef holds reference information to an
                         AccessKeyID stored in a secret on your cluster
                       properties:
                         valueFrom:
