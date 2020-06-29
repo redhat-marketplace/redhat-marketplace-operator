@@ -101,7 +101,7 @@ func TestAddSecretFieldsToStruct(t *testing.T) {
 		},
 		ChildRSS3FIleName: "childRRS3-filename",
 		RazeeDashUrl:      "razee-dash-url",
-		FileSourceURL:    ptr.String("file-source-url"),
+		FileSourceURL:     ptr.String("file-source-url"),
 	}
 
 	// test that it returns the correct format if all keys are present

@@ -45,13 +45,13 @@ func TestRazeeDeployController(t *testing.T) {
 	logf.SetLogger(logf.ZapLogger(true))
 
 	viper.Set("assets", "../../../assets")
-	scheme.Scheme.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment.DeepCopy(), &marketplacev1alpha1.RazeeDeploymentList{},&marketplacev1alpha1.RemoteResourceS3{},&marketplacev1alpha1.RemoteResourceS3List{})
+	scheme.Scheme.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment.DeepCopy(), &marketplacev1alpha1.RazeeDeploymentList{}, &marketplacev1alpha1.RemoteResourceS3{}, &marketplacev1alpha1.RemoteResourceS3List{})
 
 	t.Run("Test Clean Install", testCleanInstall)
 	t.Run("Test No Secret", testNoSecret)
 	t.Run("Test Bad Name", testBadName)
 	t.Run("Test Full Uninstall", testFullUninstall)
-	t.Run("Test Legacy Uninstall",testLegacyUninstall)
+	t.Run("Test Legacy Uninstall", testLegacyUninstall)
 }
 
 func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
@@ -94,9 +94,9 @@ var (
 			Namespace: namespace,
 		},
 		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
-			Enabled:          true,
-			ClusterUUID:      "foo",
-			DeploySecretName: &secretName,
+			Enabled:               true,
+			ClusterUUID:           "foo",
+			DeploySecretName:      &secretName,
 			LegacyUninstallHasRun: ptr.Bool(true),
 		},
 	}
@@ -373,7 +373,7 @@ func testCleanInstall(t *testing.T) {
 		ReconcileStep(opts,
 			ReconcileWithExpectedResults(
 				append(
-					RangeReconcileResults(RequeueResult, 15),)...)),
+					RangeReconcileResults(RequeueResult, 15))...)),
 		// Let's do some client checks
 		ListStep(opts,
 			ListWithObj(&corev1.ConfigMapList{}),

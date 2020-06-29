@@ -962,12 +962,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		Message: message,
 	})
 
-
 	podList := &corev1.PodList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(*instance.Spec.TargetNamespace),
 		client.MatchingLabels(map[string]string{
-			"owned-by" : "rhm",
+			"owned-by": "rhm",
 		}),
 	}
 
@@ -976,7 +975,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Error(err, "Failed to list deployment pods")
 		return reconcile.Result{}, err
 	}
-	
+
 	podNames := utils.GetPodNames(podList.Items)
 
 	if !reflect.DeepEqual(podNames, instance.Status.NodesFromRazeeDeployments) {
@@ -1168,7 +1167,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	// check if the legacy uninstaller has run
 	if instance.Spec.LegacyUninstallHasRun == nil || *instance.Spec.LegacyUninstallHasRun == false {
 		r.uninstallLegacyResources(instance)
-	}	
+	}
 
 	message = "Razee install complete"
 	change1 := instance.Status.Conditions.SetCondition(status.Condition{
@@ -1200,11 +1199,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 }
 
-func (r *ReconcileRazeeDeployment)labelsForDeploymentPods()map[string]string {
+func (r *ReconcileRazeeDeployment) labelsForDeploymentPods() map[string]string {
 	return map[string]string{
-		"marketplace.redhat.com/metered":                  "true",
-		"marketplace.redhat.com/deployed":                 "true",
-
+		"marketplace.redhat.com/metered":  "true",
+		"marketplace.redhat.com/deployed": "true",
 	}
 }
 
@@ -1508,8 +1506,8 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 			Replicas: rep,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": utils.WATCHKEEPER_DEPLOYMENT_NAME,
-					"owned-by" : "rhm",
+					"app":      utils.WATCHKEEPER_DEPLOYMENT_NAME,
+					"owned-by": "rhm",
 				},
 			},
 			Strategy: appsv1.DeploymentStrategy{
@@ -1520,7 +1518,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 					Labels: map[string]string{
 						"app":                  utils.WATCHKEEPER_DEPLOYMENT_NAME,
 						"razee/watch-resource": "lite",
-						"owned-by" : "rhm",
+						"owned-by":             "rhm",
 					},
 					Name: utils.WATCHKEEPER_DEPLOYMENT_NAME,
 				},
@@ -1672,8 +1670,8 @@ func (r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *mark
 			Replicas: rep,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-					"owned-by" : "rhm",
+					"app":      utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+					"owned-by": "rhm",
 				},
 			},
 			Strategy: appsv1.DeploymentStrategy{
@@ -1684,7 +1682,7 @@ func (r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *mark
 					Labels: map[string]string{
 						"app":                  utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 						"razee/watch-resource": "lite",
-						"owned-by" : "rhm",
+						"owned-by":             "rhm",
 					},
 					Name: utils.REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 				},
@@ -1981,11 +1979,11 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 		// get custom resources for each crd
 		reqLogger.Info("Listing legacy custom resources", "Kind", customResourceKind)
 		err = r.client.List(context.TODO(), customResourceList, client.InNamespace(*req.Spec.TargetNamespace))
-		if err != nil && !errors.IsNotFound(err) && err.Error() != fmt.Sprintf("no matches for kind %q in version %q",customResourceKind,"deploy.razee.io/v1alpha2"){
+		if err != nil && !errors.IsNotFound(err) && err.Error() != fmt.Sprintf("no matches for kind %q in version %q", customResourceKind, "deploy.razee.io/v1alpha2") {
 			reqLogger.Error(err, "could not list custom resources", "Kind", customResourceKind)
 		}
 
-		if err != nil && err.Error() == fmt.Sprintf("no matches for kind %q in version %q",customResourceKind,"deploy.razee.io/v1alpha2"){
+		if err != nil && err.Error() == fmt.Sprintf("no matches for kind %q in version %q", customResourceKind, "deploy.razee.io/v1alpha2") {
 			reqLogger.Info("No legacy custom resource found", "Resource Kind", customResourceKind)
 		}
 
@@ -2019,7 +2017,7 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 			reqLogger.Error(err, "could not delete service account", "name", saName)
 		}
 	}
-	
+
 	deploymentNames := []string{
 		"watch-keeper",
 		"clustersubscription",

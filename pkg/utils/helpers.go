@@ -215,4 +215,3 @@ func PrettyPrint(in interface{}) {
 	out, _ := json.MarshalIndent(in, "", "    ")
 	println(string(out))
 }
-

@@ -208,7 +208,7 @@ const (
 	ReasonParentRRS3Installed                      status.ConditionReason = "FinishParentRRS3Install"
 	ReasonRazeeInstallFinished                     status.ConditionReason = "FinishedRazeeInstall"
 	ReasonWatchKeeperDeploymentStart               status.ConditionReason = "StartReasonWatchKeeperDeploymentInstall"
-	ReasonWatchKeeperDeploymentInstalled            status.ConditionReason = "FinishedReasonWatchKeeperDeploymentInstall"
+	ReasonWatchKeeperDeploymentInstalled           status.ConditionReason = "FinishedReasonWatchKeeperDeploymentInstall"
 	ReasonRazeeRemoteResourceS3DeploymentStart     status.ConditionReason = "StartRemoteResourceS3DeploymentInstall"
 	ReasonRazeeRemoteResourceS3DeploymentInstalled status.ConditionReason = "FinishedRemoteResourceS3DeploymentInstall"
 )
