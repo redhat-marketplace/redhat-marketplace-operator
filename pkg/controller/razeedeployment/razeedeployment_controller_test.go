@@ -241,7 +241,6 @@ func testFullUninstall(t *testing.T) {
 	)
 
 	reconcilerTest.TestAll(t,
-		//Requeue until we have created the job and waiting for it to finish
 		ReconcileStep(opts,
 			ReconcileWithExpectedResults(
 				append(

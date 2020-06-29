@@ -115,11 +115,11 @@ type RazeeDeploymentStatus struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	Conditions status.Conditions `json:"installConditions,omitempty"`
-	// Conditions represent the latest available observations of an object's stateonfig
+	// JobConditions DEPRECATED: represent the latest available observations of an object's stateonfig
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	JobConditions *batch.JobCondition `json:"conditions,omitempty"`
-	// JobState is the status of the Razee Install Job
+	// JobState DEPRECATED: is the status of the Razee Install Job
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	JobState *batch.JobStatus `json:"jobState,omitempty"`
@@ -143,7 +143,7 @@ type RazeeDeploymentStatus struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	RazeeJobInstall *RazeeJobInstallStruct `json:"razee_job_install,omitempty"`
-	// NodesFromRazeeDeployments contains
+	// NodesFromRazeeDeployments contains the pods names created by the rhm-watch-keper and rhm-remote-resources3-controller deployments
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	NodesFromRazeeDeployments []string `json:"nodesFromRazeeDeployments,omitempty"`
