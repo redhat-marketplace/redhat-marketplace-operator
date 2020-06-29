@@ -176,10 +176,12 @@ deploy-services: ##deploys the service acconts, roles, and role bindings
 	- kubectl create -f deploy/role.yaml --namespace=${NAMESPACE}
 	- kubectl create -f deploy/role_binding.yaml --namespace=${NAMESPACE}
 
-update-roles: ##deploys the service acconts, roles, and role bindings
+migrate: ##deploys the service acconts, roles, and role bindings
+	- kubectl set image deployment/redhat-marketplace-operator redhat-marketplace-operator=quay.io/mxpaspa/redhat-marketplace-operator:0.1.4
 	- kubectl apply -f deploy/service_account.yaml --namespace=${NAMESPACE}
 	- kubectl apply -f deploy/role.yaml --namespace=${NAMESPACE}
 	- kubectl apply -f deploy/role_binding.yaml --namespace=${NAMESPACE}
+	- make create
 
 apply: ##applies changes to crds
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml --namespace=${NAMESPACE}
