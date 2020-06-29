@@ -10,12 +10,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-type mapAction struct {
-	Results []*ExecResult
-	Actions []ClientAction
-	baseAction
-}
-
 type call struct {
 	baseAction
 	call func() (ClientAction, error)
@@ -114,6 +108,91 @@ func (r *storeResult) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, 
 	return myVar, err
 }
 
+type handleResult struct {
+	baseAction
+	Action   ClientAction
+	Branches []ClientActionBranch
+}
+
+func HandleResult(
+	action ClientAction,
+	branches ...ClientActionBranch,
+) ClientAction {
+	return &handleResult{
+		Action:   action,
+		Branches: branches,
+	}
+}
+
+func OnRequeue(action ClientAction) ClientActionBranch {
+	return ClientActionBranch{
+		Status: Requeue,
+		Action: action,
+	}
+}
+
+func OnError(action ClientAction) ClientActionBranch {
+	return ClientActionBranch{
+		Status: Error,
+		Action: action,
+	}
+}
+
+func OnNotFound(action ClientAction) ClientActionBranch {
+	return ClientActionBranch{
+		Status: NotFound,
+		Action: action,
+	}
+}
+
+func OnContinue(action ClientAction) ClientActionBranch {
+	return ClientActionBranch{
+		Status: Continue,
+		Action: action,
+	}
+}
+
+func (r *handleResult) Bind(result *ExecResult) {
+	r.lastResult = result
+}
+
+func (r *handleResult) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
+	r.Action.Bind(r.lastResult)
+	myVar, err := r.Action.Exec(ctx, c)
+
+	for _, branch := range r.Branches {
+		if myVar.Is(branch.Status) {
+			return branch.Action.Exec(ctx, c)
+		}
+	}
+
+	return myVar, err
+}
+
+type ClientResultCollector struct {
+	results map[string]*ExecResult
+}
+
+func NewCollector() *ClientResultCollector {
+	return &ClientResultCollector{
+		results: make(map[string]*ExecResult),
+	}
+}
+
+func (r *ClientResultCollector) NextPointer(name string) *ExecResult {
+	if val, ok := r.results[name]; ok {
+		return val
+	}
+
+	result := &ExecResult{}
+	r.results[name] = result
+	return result
+}
+
+func (r *ClientResultCollector) Get(name string) *ExecResult {
+	return r.results[name]
+}
+
 type ClientCommand struct {
 	client client.Client
 	scheme *runtime.Scheme
@@ -124,7 +203,7 @@ func NewClientCommand(
 	client client.Client,
 	scheme *runtime.Scheme,
 	log logr.Logger,
-) *ClientCommand {
+) ClientCommandRunner {
 	return &ClientCommand{
 		client: client,
 		scheme: scheme,
@@ -137,4 +216,11 @@ func (c *ClientCommand) Do(
 	actions ...ClientAction,
 ) (*ExecResult, error) {
 	return Do(actions...).Exec(ctx, c)
+}
+
+func (c *ClientCommand) Exec(
+	ctx context.Context,
+	action ClientAction,
+) (*ExecResult, error) {
+	return action.Exec(ctx, c)
 }

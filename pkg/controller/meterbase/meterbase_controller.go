@@ -22,9 +22,8 @@ import (
 
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 
-	"github.com/banzaicloud/k8s-objectmatcher/patch"
+	merrors "emperror.dev/errors"
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-	"github.com/operator-framework/api/pkg/operators"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	status "github.com/operator-framework/operator-sdk/pkg/status"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
@@ -32,7 +31,6 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -78,17 +76,40 @@ func FlagSet() *pflag.FlagSet {
 
 // Add creates a new MeterBase Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
+func Add(
+	mgr manager.Manager,
+	ccprovider ClientCommandRunnerProvider,
+) error {
+	reconciler := newReconciler(mgr, ccprovider)
+	return add(mgr, reconciler)
+}
+
+// blank assignment to verify that ReconcileMeterBase implements reconcile.Reconciler
+var _ reconcile.Reconciler = &ReconcileMeterBase{}
+
+// ReconcileMeterBase reconciles a MeterBase object
+type ReconcileMeterBase struct {
+	// This client, initialized using mgr.Client() above, is a split client
+	// that reads objects from the cache and writes to the apiserver
+	client       client.Client
+	scheme       *runtime.Scheme
+	opts         *MeterbaseOpts
+	ccprovider   ClientCommandRunnerProvider
+	patchChecker *PatchChecker
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider) reconcile.Reconciler {
 	promOpts := &MeterbaseOpts{
 		PullPolicy: "IfNotPresent",
 		AssetPath:  viper.GetString("assets"),
 	}
-	return &ReconcileMeterBase{client: mgr.GetClient(), scheme: mgr.GetScheme(), opts: promOpts}
+	return &ReconcileMeterBase{
+		client:       mgr.GetClient(),
+		scheme:       mgr.GetScheme(),
+		ccprovider:   ccprovider,
+		patchChecker: NewPatchChecker(utils.RhmPatchMaker),
+		opts:         promOpts}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -135,24 +156,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return nil
 }
 
-// blank assignment to verify that ReconcileMeterBase implements reconcile.Reconciler
-var _ reconcile.Reconciler = &ReconcileMeterBase{}
-
-// ReconcileMeterBase reconciles a MeterBase object
-type ReconcileMeterBase struct {
-	// This client, initialized using mgr.Client() above, is a split client
-	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
-	opts   *MeterbaseOpts
-}
-
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
 // and what is in the MeterBase.Spec
 func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterBase")
-	cc := NewClientCommand(r.client, r.scheme, reqLogger)
+
+	cc := r.ccprovider.NewCommandRunner(r.client, r.scheme, reqLogger)
 
 	// Fetch the MeterBase instance
 	instance := &marketplacev1alpha1.MeterBase{}
@@ -164,13 +174,12 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		),
 	)
 
-	if result.Is(Error) {
-		reqLogger.Error(result.GetError(), "Failed to get MeterBase.")
-		return result.Return()
-	}
-
-	if result.Is(NotFound) {
-		reqLogger.Info("MeterBase resource not found. Ignoring since object must be deleted.")
+	if result.Is(Error) || result.Is(NotFound) {
+		if result.Is(NotFound) {
+			reqLogger.Info("MeterBase resource not found. Ignoring since object must be deleted.")
+		} else {
+			reqLogger.Error(result.GetError(), "Failed to get MeterBase.")
+		}
 		return result.Return()
 	}
 
@@ -204,9 +213,11 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		Do(r.reconcilePrometheusSubscription(instance, prometheusSub)...),
 		Do(r.reconcilePrometheus(instance, prometheus)...),
 		Do(r.reconcilePrometheusService(instance, prometheusService)...)); !result.Is(Continue) {
+
 		if err != nil {
-			reqLogger.Error(err, "error creating prometheus")
+			return result.ReturnWithError(merrors.Wrap(err, "error creating prometheus"))
 		}
+
 		return result.Return()
 	}
 
@@ -220,131 +231,46 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		_ = r.client.Status().Update(context.TODO(), instance)
 	}
 
-	// find specific service monitor for kube-state
-	openshiftKubeStateMonitor := &monitoringv1.ServiceMonitor{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{
-		Namespace: "openshift-monitoring",
-		Name:      "kube-state-metrics",
-	}, openshiftKubeStateMonitor)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return reconcile.Result{}, err
-		}
-		reqLogger.Info("can't find openshift kube state")
-	}
-
 	// find specific service monitor for kubelet
 	openshiftKubeletMonitor := &monitoringv1.ServiceMonitor{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Namespace: "openshift-monitoring",
-		Name:      "kubelet",
-	}, openshiftKubeletMonitor)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return reconcile.Result{}, err
-		}
-		reqLogger.Info("can't find openshift kube state")
-	}
-
-	//---
-	// Reconcile Kube State Monitor for the def
-	//---
-
-	meteringKubeStateMonitor := &monitoringv1.ServiceMonitor{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Namespace: instance.Namespace,
-		Name:      "kube-state-metrics",
-	}, meteringKubeStateMonitor)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return reconcile.Result{}, err
-		}
-		reqLogger.Info("can't find openshift kube state")
-	}
-
-	meteringKubeStateMonitorNotFound := errors.IsNotFound(err)
-
-	//---
-	// Reconcile kubelet monitor for the def
-	//---
-
+	openshiftKubeStateMonitor := &monitoringv1.ServiceMonitor{}
 	meteringKubeletMonitor := &monitoringv1.ServiceMonitor{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Namespace: instance.Namespace,
-		Name:      "kubelet",
-	}, meteringKubeletMonitor)
+	meteringKubeStateMonitor := &monitoringv1.ServiceMonitor{}
 
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return reconcile.Result{}, err
-		}
-		reqLogger.Info("can't find openshift kube state")
-	}
-
-	meteringKubeletMonitorNotFound := errors.IsNotFound(err)
-
-	reqLogger.Info("finished kube state monitor check", "isNotFound", meteringKubeStateMonitorNotFound)
-	reqLogger.Info("finished kubelet monitor check", "isNotFound", meteringKubeletMonitorNotFound)
-
-	// Create kube state
-	newKubeState := &monitoringv1.ServiceMonitor{}
-	newKubeState.Name = openshiftKubeletMonitor.Name
-	newKubeState.Namespace = instance.Namespace
-	newKubeState.Name = openshiftKubeStateMonitor.Name
-	newKubeState.Spec = *openshiftKubeStateMonitor.Spec.DeepCopy()
-	newKubeState.Labels = labelsForServiceMonitor(openshiftKubeStateMonitor.Name, openshiftKubeStateMonitor.Namespace)
-	newKubeState.Spec.NamespaceSelector.MatchNames = []string{openshiftKubeStateMonitor.Namespace}
-
-	if meteringKubeStateMonitorNotFound {
-		if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(newKubeState); err != nil {
-			reqLogger.Error(err, "Failed to set annotation")
-			return reconcile.Result{}, err
-		}
-
-		err := r.client.Create(context.TODO(), newKubeState)
+	if result, err := cc.Do(context.TODO(),
+		Do(r.copyServiceMonitor(
+			instance,
+			types.NamespacedName{
+				Namespace: "openshift-monitoring",
+				Name:      "kubelet",
+			},
+			openshiftKubeletMonitor,
+			types.NamespacedName{
+				Namespace: instance.Namespace,
+				Name:      "rhm-kubelet",
+			},
+			meteringKubeletMonitor,
+		)...),
+		Do(r.copyServiceMonitor(
+			instance,
+			types.NamespacedName{
+				Namespace: "openshift-monitoring",
+				Name:      "kube-state-metrics",
+			},
+			openshiftKubeStateMonitor,
+			types.NamespacedName{
+				Namespace: instance.Namespace,
+				Name:      "rhm-kube-state-metrics",
+			},
+			meteringKubeStateMonitor,
+		)...),
+	); result.Is(Error) || result.Is(Requeue) {
 
 		if err != nil {
-			reqLogger.Error(err, "failed to create new kube state service monitor")
-			return reconcile.Result{}, err
+			return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
 		}
 
-		reqLogger.Info("created the kube state monitor")
-		return reconcile.Result{Requeue: true}, nil
-	}
-
-	// Create kubelet
-	newKubelet := &monitoringv1.ServiceMonitor{}
-	newKubelet.Name = openshiftKubeletMonitor.Name
-	newKubelet.Namespace = instance.Namespace
-	newKubelet.Spec = *openshiftKubeletMonitor.Spec.DeepCopy()
-	newKubelet.Labels = labelsForServiceMonitor(openshiftKubeletMonitor.Name, openshiftKubeletMonitor.Namespace)
-	newKubelet.Spec.NamespaceSelector.MatchNames = []string{openshiftKubeletMonitor.Namespace}
-
-	if meteringKubeletMonitorNotFound {
-		if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(newKubelet); err != nil {
-			reqLogger.Error(err, "Failed to set annotation")
-			return reconcile.Result{}, err
-		}
-
-		err := r.client.Create(context.TODO(), newKubelet)
-
-		if err != nil {
-			reqLogger.Error(err, "failed to create new kubelet service monitor")
-			return reconcile.Result{}, err
-		}
-
-		reqLogger.Info("created the kubelet monitor")
-		return reconcile.Result{Requeue: true}, nil
-	}
-
-	message = "Prometheus Service install complete"
-	if update := instance.Status.Conditions.SetCondition(status.Condition{
-		Type:    marketplacev1alpha1.ConditionInstalling,
-		Status:  corev1.ConditionTrue,
-		Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusServiceInstall,
-		Message: message,
-	}); update {
-		_ = r.client.Status().Update(context.TODO(), instance)
+		return result.Return()
 	}
 
 	// ----
@@ -359,7 +285,7 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Prometheus status.")
-			return reconcile.Result{}, err
+			return reconcile.Result{}, merrors.Wrap(err, "faield to update prometheus status")
 		}
 	}
 
@@ -429,79 +355,56 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 	instance *marketplacev1alpha1.MeterBase,
 	prometheus *monitoringv1.Prometheus,
 ) []ClientAction {
-	getResult := &ExecResult{}
-	patchChecker := NewPatchChecker(utils.RhmPatchMaker)
+	collector := NewCollector()
 
 	return []ClientAction{
-		StoreResult(getResult, GetAction(
-			types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace},
-			prometheus,
-		)),
-		Call(func() (ClientAction, error) {
-			newProm, err := r.newPrometheusOperator(instance, r.opts)
-
-			if err != nil {
-				return nil, err
-			}
-
-			if getResult.Is(NotFound) {
-				return CreateAction(
-					newProm,
-					CreateWithAddOwner(instance),
-					CreateWithPatch(utils.RhmAnnotator),
-					CreateWithStatusCondition(func(result *ExecResult, err error) (bool, runtime.Object, *status.Conditions, status.Condition) {
-						if result.Is(Error) {
-							return true, instance, instance.Status.Conditions, status.Condition{
-								Type:    marketplacev1alpha1.ConditionError,
-								Status:  corev1.ConditionFalse,
-								Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
-								Message: result.Err.Error(),
-							}
-						}
-
-						return true, instance, instance.Status.Conditions, status.Condition{
-							Type:    marketplacev1alpha1.ConditionInstalling,
-							Status:  corev1.ConditionTrue,
-							Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
-							Message: "created prometheus",
-						}
-					}),
-				), nil
-			}
-
-			return nil, nil
-		}),
+		HandleResult(
+			GetAction(
+				types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace},
+				prometheus,
+			),
+			OnNotFound(Call(r.createPrometheus(instance)))),
 		Call(func() (ClientAction, error) {
 			updatedPrometheus := prometheus.DeepCopy()
-			expectedPrometheusSpec, _ := r.newPrometheusOperator(instance, r.opts)
-			updatedPrometheus.Spec.ServiceMonitorNamespaceSelector = expectedPrometheusSpec.Spec.ServiceMonitorNamespaceSelector
-			update, err := patchChecker.CheckPatch(prometheus, updatedPrometheus)
+			expectedPrometheus, err := r.newPrometheusOperator(instance, r.opts)
+
+			if err != nil {
+				return nil, merrors.Wrap(err, "error updating prometheus")
+			}
+
+			updatedPrometheus.Spec = expectedPrometheus.Spec
+
+			update, err := r.patchChecker.CheckPatch(prometheus, updatedPrometheus)
 
 			if err != nil {
 				return nil, err
 			}
 
-			if update {
-				return UpdateAction(updatedPrometheus,
-					UpdateWithStatusCondition(func(result *ExecResult, err error) (bool, runtime.Object, *status.Conditions, status.Condition) {
-						if result.Is(Error) {
-							return true, instance, instance.Status.Conditions, status.Condition{
+			if !update {
+				return nil, nil
+			}
+
+			return HandleResult(
+				StoreResult(
+					collector.NextPointer("update"),
+					UpdateAction(updatedPrometheus)),
+				OnError(
+					Call(func() (ClientAction, error) {
+						return UpdateStatusCondition(
+							instance, instance.Status.Conditions, status.Condition{
 								Type:    marketplacev1alpha1.ConditionError,
 								Status:  corev1.ConditionFalse,
 								Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
-								Message: result.Err.Error(),
-							}
-						}
-						return true, instance, instance.Status.Conditions, status.Condition{
-							Type:    marketplacev1alpha1.ConditionInstalling,
-							Status:  corev1.ConditionTrue,
-							Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
-							Message: "updated prometheus",
-						}
-					})), nil
-			}
-
-			return nil, nil
+								Message: collector.NextPointer("update").Error(),
+							}), nil
+					})),
+				OnRequeue(
+					UpdateStatusCondition(instance, instance.Status.Conditions, status.Condition{
+						Type:    marketplacev1alpha1.ConditionInstalling,
+						Status:  corev1.ConditionTrue,
+						Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
+						Message: "updated prometheus",
+					}))), nil
 		}),
 	}
 }
@@ -510,22 +413,52 @@ func (r *ReconcileMeterBase) reconcilePrometheusService(
 	instance *marketplacev1alpha1.MeterBase,
 	service *corev1.Service,
 ) []ClientAction {
-	getResult := &ExecResult{}
-
+	newService := r.serviceForPrometheus(instance, 9090)
 	return []ClientAction{
-		StoreResult(getResult, GetAction(
-			types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace},
-			service,
-		)),
-		Call(func() (ClientAction, error) {
-			newService := r.serviceForPrometheus(instance, 9090)
+		HandleResult(
+			GetAction(
+				types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace},
+				service,
+			),
+			OnNotFound(CreateAction(newService, CreateWithAddOwner(instance)))),
+	}
+}
 
-			if getResult.Is(NotFound) {
-				return CreateAction(newService, CreateWithAddOwner(instance)), nil
-			}
+func (r *ReconcileMeterBase) createPrometheus(
+	instance *marketplacev1alpha1.MeterBase,
+) func() (ClientAction, error) {
+	return func() (ClientAction, error) {
+		newProm, err := r.newPrometheusOperator(instance, r.opts)
+		createResult := &ExecResult{}
 
-			return nil, nil
-		}),
+		if err != nil {
+			return nil, merrors.Wrap(err, "error creating prometheus")
+		}
+
+		return HandleResult(
+			StoreResult(
+				createResult, CreateAction(
+					newProm,
+					CreateWithAddOwner(instance),
+					CreateWithPatch(utils.RhmAnnotator),
+				)),
+			OnError(
+				Call(func() (ClientAction, error) {
+					return UpdateStatusCondition(instance, instance.Status.Conditions, status.Condition{
+						Type:    marketplacev1alpha1.ConditionError,
+						Status:  corev1.ConditionFalse,
+						Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
+						Message: createResult.Error(),
+					}), nil
+				})),
+			OnRequeue(
+				UpdateStatusCondition(instance, instance.Status.Conditions, status.Condition{
+					Type:    marketplacev1alpha1.ConditionInstalling,
+					Status:  corev1.ConditionTrue,
+					Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
+					Message: "created prometheus",
+				})),
+		), nil
 	}
 }
 
@@ -588,6 +521,47 @@ func (r *ReconcileMeterBase) newPrometheusOperator(cr *marketplacev1alpha1.Meter
 	return prom, nil
 }
 
+func (r *ReconcileMeterBase) copyServiceMonitor(
+	instance *marketplacev1alpha1.MeterBase,
+	fromName types.NamespacedName,
+	fromServiceMonitor *monitoringv1.ServiceMonitor,
+	toName types.NamespacedName,
+	toServiceMonitor *monitoringv1.ServiceMonitor,
+) []ClientAction {
+	return []ClientAction{
+		HandleResult(
+			GetAction(fromName, fromServiceMonitor),
+			OnContinue(Call(func() (ClientAction, error) {
+				newKubelet := &monitoringv1.ServiceMonitor{}
+
+				newKubelet.Name = toName.Name
+				newKubelet.Namespace = toName.Namespace
+				newKubelet.Spec = *fromServiceMonitor.Spec.DeepCopy()
+				newKubelet.Labels = labelsForServiceMonitor(fromServiceMonitor.Name, fromServiceMonitor.Namespace)
+				newKubelet.Spec.NamespaceSelector.MatchNames = []string{fromServiceMonitor.Namespace}
+
+				return HandleResult(GetAction(
+					types.NamespacedName{Name: newKubelet.Name, Namespace: newKubelet.Namespace},
+					toServiceMonitor,
+				),
+					OnNotFound(CreateAction(newKubelet, CreateWithAddOwner(instance))),
+					OnContinue(Call(func() (ClientAction, error) {
+						update, err := r.patchChecker.CheckPatch(toServiceMonitor, newKubelet)
+
+						if err != nil {
+							return nil, merrors.Wrap(err, "failed to calculate patch")
+						}
+
+						if !update {
+							return nil, nil
+						}
+
+						return UpdateAction(newKubelet), nil
+					}))), nil
+			}))),
+	}
+}
+
 // serviceForPrometheus function takes in a Prometheus object and returns a Service for that object.
 func (r *ReconcileMeterBase) serviceForPrometheus(
 	cr *marketplacev1alpha1.MeterBase,
@@ -639,26 +613,6 @@ func (r *ReconcileMeterBase) newPrometheus(filename string, cr *marketplacev1alp
 	prom.Name = cr.Name
 
 	return prom, nil
-}
-
-func (r *ReconcileMeterBase) newPrometheusSubscription(
-	instance *marketplacev1alpha1.MeterBase,
-	labels map[string]string,
-) *operators.Subscription {
-	return &operators.Subscription{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "prometheus",
-			Namespace: instance.Namespace,
-			Labels:    labels,
-		},
-		Spec: &operators.SubscriptionSpec{
-			Channel:                "beta",
-			InstallPlanApproval:    "Automatic",
-			Package:                "prometheus",
-			CatalogSource:          "community-operators",
-			CatalogSourceNamespace: "openshift-marketplace",
-		},
-	}
 }
 
 // labelsForPrometheus returns the labels for selecting the resources

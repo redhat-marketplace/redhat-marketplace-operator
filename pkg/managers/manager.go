@@ -24,7 +24,6 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
-	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
@@ -34,6 +33,7 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/version"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -62,16 +62,11 @@ func printVersion() {
 
 type OperatorName string
 
-type SchemeDefinition struct {
-	Name        string
-	AddToScheme func(s *k8sruntime.Scheme) error
-}
-
 type ControllerMain struct {
 	Name        OperatorName
 	FlagSets    []*pflag.FlagSet
 	Controllers []*controller.ControllerDefinition
-	Schemes     []*SchemeDefinition
+	Schemes     []*controller.SchemeDefinition
 }
 
 func (m *ControllerMain) Run() {
@@ -162,6 +157,9 @@ func (m *ControllerMain) Run() {
 		if err := control.Add(mgr); err != nil {
 			log.Error(err, "")
 			os.Exit(1)
+		}
+		if t, ok := control.(controller.SetClientCommandRunner); ok {
+			t.SetClientCommandRunner(reconcileutils.NewClientCommand)
 		}
 	}
 

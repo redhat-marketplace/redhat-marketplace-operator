@@ -6,14 +6,14 @@
 package report
 
 import (
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/reporter"
 )
 
 // Injectors from wire.go:
 
 func initializeMarketplaceReporter(reportName reporter.ReporterName) (*reporter.MarketplaceReporter, error) {
-	monitoringSchemeDefinition := managers.ProvideMonitoringScheme()
+	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
 	v := provideMarketplaceReporterSchemes(monitoringSchemeDefinition)
 	marketplaceReporterConfig, err := reporter.NewMarketplaceReporterConfig(reportName, v)
 	if err != nil {

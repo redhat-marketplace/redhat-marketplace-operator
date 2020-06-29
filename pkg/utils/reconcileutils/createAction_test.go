@@ -10,7 +10,7 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/test/mock/mock_client"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/test/mock/mock_reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/test/mock/mock_patch"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -28,13 +28,13 @@ var _ = Describe("CreateAction", func() {
 		pod       *corev1.Pod
 		ctx       context.Context
 		meterbase *marketplacev1alpha1.MeterBase
-		patcher   *mock_reconcileutils.MockPatchAnnotator
+		patcher   *mock_patch.MockPatchAnnotator
 	)
 
 	BeforeEach(func() {
 		logger := logf.Log.WithName("CreateAction")
 		ctrl = gomock.NewController(GinkgoT())
-		patcher = mock_reconcileutils.NewMockPatchAnnotator(ctrl)
+		patcher = mock_patch.NewMockPatchAnnotator(ctrl)
 		client = mock_client.NewMockClient(ctrl)
 		//statusWriter = mock_client.NewMockStatusWriter(ctrl)
 		cc = NewClientCommand(client, scheme.Scheme, logger)

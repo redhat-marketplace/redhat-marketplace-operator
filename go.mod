@@ -33,6 +33,7 @@ require (
 	github.com/openshift/api v0.0.0-20200205133042-34f0ec8dab87 // indirect
 	github.com/operator-framework/api v0.3.7-0.20200528122852-759ca0d84007
 	github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b
+	github.com/operator-framework/operator-registry v1.12.4
 	github.com/operator-framework/operator-sdk v0.18.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.5.1

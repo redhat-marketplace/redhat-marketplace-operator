@@ -11,7 +11,7 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/test/mock/mock_client"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/test/mock/mock_reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/test/mock/mock_patch"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -28,13 +28,13 @@ var _ = Describe("UpdateAction", func() {
 		sut          *updateAction
 		pod          *corev1.Pod
 		ctx          context.Context
-		patcher      *mock_reconcileutils.MockPatchMaker
+		patcher      *mock_patch.MockPatchMaker
 	)
 
 	BeforeEach(func() {
 		logger := logf.Log.WithName("UpdateAction")
 		ctrl = gomock.NewController(GinkgoT())
-		patcher = mock_reconcileutils.NewMockPatchMaker(ctrl)
+		patcher = mock_patch.NewMockPatchMaker(ctrl)
 		client = mock_client.NewMockClient(ctrl)
 		statusWriter = mock_client.NewMockStatusWriter(ctrl)
 		cc = NewClientCommand(client, scheme.Scheme, logger)

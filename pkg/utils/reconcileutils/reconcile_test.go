@@ -77,10 +77,33 @@ var _ = Describe("ReconcileUtils", func() {
 				Return(errors.NewNotFound(schema.GroupResource{Group: "", Resource: "Pod"}, sut.namespacedName.Name)).
 				Times(1),
 			client.EXPECT().Create(sut.ctx, sut.pod).Return(nil).Times(1),
+			client.EXPECT().Status().Return(statusWriter).Times(1),
+			statusWriter.EXPECT().Update(sut.ctx, sut.meterbase).Return(nil).Times(1),
 		)
 
 		result, err := sut.execClientCommands(client)
 		AssertResultsAreStatus(Requeue)(result, err)
+	})
+
+	It("should create and handle error", func() {
+		conditions := status.NewConditions(sut.condition)
+		sut.meterbase.Status.Conditions = &conditions
+
+		gomock.InOrder(
+			client.EXPECT().
+				Get(sut.ctx, sut.namespacedName, sut.pod).
+				Return(errors.NewNotFound(schema.GroupResource{Group: "", Resource: "Pod"}, sut.namespacedName.Name)).
+				Times(1),
+			client.EXPECT().Create(sut.ctx, sut.pod).Return(sut.testErr).Times(1),
+			client.EXPECT().Status().Return(statusWriter).Times(1),
+			statusWriter.EXPECT().Update(sut.ctx, sut.meterbase).Return(nil).Times(1),
+		)
+
+		result, err := sut.execClientCommands(client)
+		AssertResultsAreError(result, err)
+		cond := conditions.GetCondition(marketplacev1alpha1.ConditionError)
+		Expect(cond).ToNot(BeNil())
+		Expect(cond.Message).To(Equal(sut.testErr.Error()))
 	})
 
 	It("should get and update", func() {
@@ -103,26 +126,6 @@ var _ = Describe("ReconcileUtils", func() {
 				}).Times(1),
 		)
 
-		result, err := sut.execClientCommands(client)
-		AssertResultsAreStatus(Requeue)(result, err)
-	})
-
-	It("should get and update status", func() {
-		sut.pod.Annotations["foo"] = "bar"
-
-		client.EXPECT().Create(sut.ctx, sut.pod).Return(nil).Times(0)
-		client.EXPECT().
-			Update(sut.ctx, gomock.Any()).
-			Return(nil).Times(0)
-
-		gomock.InOrder(
-			client.EXPECT().
-				Get(sut.ctx, sut.namespacedName, sut.pod).
-				Return(nil).
-				Times(1),
-			client.EXPECT().Status().Return(statusWriter).Times(1),
-			statusWriter.EXPECT().Update(sut.ctx, sut.meterbase).Return(nil).Times(1),
-		)
 		result, err := sut.execClientCommands(client)
 		AssertResultsAreStatus(Requeue)(result, err)
 	})
@@ -193,29 +196,40 @@ func (h *testHarness) execClientCommands(
 ) (*ExecResult, error) {
 	logf.SetLogger(logf.ZapLogger(true))
 	logger := logf.Log.WithName("clienttest")
-	getResult := &ExecResult{}
+	collector := NewCollector()
 	patchChecker := NewPatchChecker(utils.RhmPatchMaker)
 
 	cc := NewClientCommand(client, scheme.Scheme, logger)
 	return cc.Do(
 		h.ctx,
-		StoreResult(getResult, GetAction(h.namespacedName, h.pod)),
+		StoreResult(collector.NextPointer("a"), GetAction(h.namespacedName, h.pod)),
 		Call(func() (ClientAction, error) {
+			getResult := collector.Get("a")
 			if getResult.Is(NotFound) {
-				return CreateAction(
-					h.pod,
-					CreateWithPatch(utils.RhmAnnotator),
-					CreateWithAddOwner(h.pod),
-				), nil
+				return HandleResult(
+					StoreResult(collector.NextPointer("b"), CreateAction(
+						h.pod,
+						CreateWithPatch(utils.RhmAnnotator),
+						CreateWithAddOwner(h.pod),
+					)),
+					OnRequeue(UpdateStatusCondition(h.meterbase, h.meterbase.Status.Conditions, status.Condition{
+						Type:    marketplacev1alpha1.ConditionInstalling,
+						Status:  corev1.ConditionTrue,
+						Reason:  marketplacev1alpha1.ReasonMeterBaseStartInstall,
+						Message: "created",
+					})),
+					OnError(
+						Call(func() (ClientAction, error) {
+							return UpdateStatusCondition(h.meterbase, h.meterbase.Status.Conditions, status.Condition{
+								Type:    marketplacev1alpha1.ConditionError,
+								Status:  corev1.ConditionTrue,
+								Reason:  marketplacev1alpha1.ReasonMeterBaseStartInstall,
+								Message: collector.Get("b").Err.Error(),
+							}), nil
+						}))), nil
 			}
 
 			return nil, nil
-		}),
-		UpdateStatusCondition(h.meterbase, h.meterbase.Status.Conditions, status.Condition{
-			Type:    marketplacev1alpha1.ConditionInstalling,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonMeterBaseStartInstall,
-			Message: "created",
 		}),
 		Call(func() (ClientAction, error) {
 			h.updatedPod = h.pod.DeepCopy()
@@ -227,12 +241,17 @@ func (h *testHarness) execClientCommands(
 			}
 
 			if update {
-				return UpdateAction(h.updatedPod), err
+				return HandleResult(
+					UpdateAction(h.updatedPod),
+					OnRequeue(UpdateStatusCondition(h.meterbase, h.meterbase.Status.Conditions, h.condition)),
+				), err
 			}
 
-			return UpdateStatusCondition(h.meterbase, h.meterbase.Status.Conditions, h.condition), nil
+			return nil, nil
 		}),
-		DeleteAction(h.pod),
-		UpdateStatusCondition(h.meterbase, h.meterbase.Status.Conditions, h.condition),
+		HandleResult(
+			DeleteAction(h.pod),
+			OnNotFound(UpdateStatusCondition(h.meterbase, h.meterbase.Status.Conditions, h.condition)),
+		),
 	)
 }

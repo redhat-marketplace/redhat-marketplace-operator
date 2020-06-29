@@ -40,6 +40,17 @@ func (e *ExecResult) Return() (reconcile.Result, error) {
 	return e.ReconcileResult, e.Err
 }
 
+func (e *ExecResult) ReturnWithError(err error) (reconcile.Result, error) {
+	return e.ReconcileResult, err
+}
+
+func (e *ExecResult) Error() string {
+	if e.Err != nil {
+		return e.Err.Error()
+	}
+	return ""
+}
+
 func NewExecResult(
 	status ActionResultStatus,
 	reconcileResult reconcile.Result,

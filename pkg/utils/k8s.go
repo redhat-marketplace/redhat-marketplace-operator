@@ -20,13 +20,15 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	emperrors "emperror.dev/errors"
 	"github.com/gotidy/ptr"
 	"github.com/imdario/mergo"
-	emperrors "emperror.dev/errors"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8yaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -180,7 +182,6 @@ func BuildRazeeCr(namespace, clusterUUID string, deploySecretName *string) *mark
 
 // BuildMeterBaseCr returns a MeterBase cr with default values
 func BuildMeterBaseCr(namespace string) *marketplacev1alpha1.MeterBase {
-
 	cr := &marketplacev1alpha1.MeterBase{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      METERBASE_NAME,
@@ -196,6 +197,16 @@ func BuildMeterBaseCr(namespace string) *marketplacev1alpha1.MeterBase {
 		},
 	}
 	return cr
+}
+
+func ObjectToNamespaceNamed(obj runtime.Object) (types.NamespacedName, error) {
+	key, err := client.ObjectKeyFromObject(obj)
+
+	if err != nil {
+		return types.NamespacedName{}, err
+	}
+
+	return key, nil
 }
 
 func LoadYAML(filename string, i interface{}) (interface{}, error) {

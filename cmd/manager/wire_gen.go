@@ -12,17 +12,18 @@ import (
 
 // Injectors from wire.go:
 
-func initializeMarketplaceController() *managers.ControllerMain {
+func InitializeMarketplaceController() *managers.ControllerMain {
 	marketplaceController := controller.ProvideMarketplaceController()
 	meterbaseController := controller.ProvideMeterbaseController()
 	meterDefinitionController := controller.ProvideMeterDefinitionController()
 	razeeDeployController := controller.ProvideRazeeDeployController()
 	olmSubscriptionController := controller.ProvideOlmSubscriptionController()
 	controllerFlagSet := controller.ProvideControllerFlagSet()
-	opsSrcSchemeDefinition := managers.ProvideOpsSrcScheme()
-	monitoringSchemeDefinition := managers.ProvideMonitoringScheme()
-	olmV1SchemeDefinition := managers.ProvideOLMV1Scheme()
-	olmV1Alpha1SchemeDefinition := managers.ProvideOLMV1Alpha1Scheme()
-	controllerMain := makeMarketplaceController(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, controllerFlagSet, opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition)
+	opsSrcSchemeDefinition := controller.ProvideOpsSrcScheme()
+	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
+	olmV1SchemeDefinition := controller.ProvideOLMV1Scheme()
+	olmV1Alpha1SchemeDefinition := controller.ProvideOLMV1Alpha1Scheme()
+	localSchemes := controller.ProvideLocalSchemes(opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition)
+	controllerMain := makeMarketplaceController(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, controllerFlagSet, localSchemes)
 	return controllerMain
 }

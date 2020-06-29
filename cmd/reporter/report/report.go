@@ -4,9 +4,9 @@ import (
 	"os"
 
 	"github.com/google/wire"
-	"github.com/spf13/cobra"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/reporter"
+	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -45,16 +45,16 @@ func init() {
 }
 
 var MarketplaceReporterSet = wire.NewSet(
-	managers.SchemeDefinitions,
+	controller.SchemeDefinitions,
 	reporter.NewMarketplaceReporter,
 	reporter.NewMarketplaceReporterConfig,
 	provideMarketplaceReporterSchemes,
 )
 
 func provideMarketplaceReporterSchemes(
-	monitoringScheme *managers.MonitoringSchemeDefinition,
-) []*managers.SchemeDefinition {
-	return []*managers.SchemeDefinition{
-		(*managers.SchemeDefinition)(monitoringScheme),
+	monitoringScheme *controller.MonitoringSchemeDefinition,
+) []*controller.SchemeDefinition {
+	return []*controller.SchemeDefinition{
+		(*controller.SchemeDefinition)(monitoringScheme),
 	}
 }

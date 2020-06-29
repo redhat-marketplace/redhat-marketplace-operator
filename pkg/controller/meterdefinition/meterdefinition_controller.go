@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 )
 
 const meterDefinitionFinalizer = "meterdefinition.finalizer.marketplace.redhat.com"
@@ -44,15 +45,22 @@ var log = logf.Log.WithName("controller_meterdefinition")
 
 // Add creates a new MeterDefinition Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
+func Add(
+	mgr manager.Manager,
+	ccprovider ClientCommandRunnerProvider,
+) error {
+	return add(mgr, newReconciler(mgr, ccprovider))
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider) reconcile.Reconciler {
 	opts := &MeterDefOpts{}
 
-	return &ReconcileMeterDefinition{client: mgr.GetClient(), scheme: mgr.GetScheme(), opts: opts}
+	return &ReconcileMeterDefinition{
+		client: mgr.GetClient(),
+		scheme: mgr.GetScheme(),
+		ccprovider: ccprovider,
+		opts: opts}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -89,6 +97,7 @@ type ReconcileMeterDefinition struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
+	ccprovider ClientCommandRunnerProvider
 	opts   *MeterDefOpts
 }
 

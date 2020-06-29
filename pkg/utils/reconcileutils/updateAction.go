@@ -6,6 +6,7 @@ import (
 
 	emperrors "emperror.dev/errors"
 	"github.com/operator-framework/operator-sdk/pkg/status"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -18,14 +19,13 @@ type updateAction struct {
 
 //go:generate go-options -option UpdateActionOption -prefix Update updateActionOptions
 type updateActionOptions struct {
-	WithStatusCondition UpdateStatusConditionFunc
 }
 
 type PatchChecker struct {
-	patchMaker PatchMaker
+	patchMaker patch.PatchMaker
 }
 
-func NewPatchChecker(p PatchMaker) *PatchChecker {
+func NewPatchChecker(p patch.PatchMaker) *PatchChecker {
 	return &PatchChecker{
 		patchMaker: p,
 	}

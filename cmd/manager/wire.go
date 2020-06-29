@@ -22,6 +22,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 )
 
-func initializeMarketplaceController() *managers.ControllerMain {
+func InitializeMarketplaceController() *managers.ControllerMain {
 	panic(wire.Build(MarketplaceControllerSet))
 }

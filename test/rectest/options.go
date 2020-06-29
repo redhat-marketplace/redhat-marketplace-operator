@@ -17,6 +17,7 @@ type reconcileStepOptions struct {
 	ExpectedResults []ReconcileResult `options:"..."`
 	UntilDone       bool
 	Max             int
+	IgnoreError     bool
 }
 
 //go:generate go-options -imports=k8s.io/apimachinery/pkg/runtime -option GetStepOption -prefix GetWith getStepOptions

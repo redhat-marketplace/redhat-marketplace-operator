@@ -15,176 +15,318 @@
 package meterbase
 
 import (
-	// "context"
-	// "math/rand"
-	// "strconv"
-	"testing"
+	"context"
 
+	merrors "emperror.dev/errors"
+	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/golang/mock/gomock"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
-var (
-	name      = "redhat-marketplace-operator"
-	namespace = "rhm-marketplace"
-	meterbase = &marketplacev1alpha1.MeterBase{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: marketplacev1alpha1.MeterBaseSpec{
-			Enabled: true,
-			Prometheus: &marketplacev1alpha1.PrometheusSpec{
-				Storage: marketplacev1alpha1.StorageSpec{
-					Size: resource.MustParse("30Gi"),
+var _ = Describe("MeterbaseController", func() {
+	var (
+		name, namespace string
+		meterbase       *marketplacev1alpha1.MeterBase
+		ctrlScheme      *runtime.Scheme
+		req             reconcile.Request
+		options         []StepOption
+		storageClass    *storagev1.StorageClass
+	)
+
+	BeforeEach(func() {
+		namespace = "redhat-marketplace-operator"
+		name = "rhm-marketplace"
+		meterbase = &marketplacev1alpha1.MeterBase{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+			},
+			Spec: marketplacev1alpha1.MeterBaseSpec{
+				Enabled: true,
+				Prometheus: &marketplacev1alpha1.PrometheusSpec{
+					Storage: marketplacev1alpha1.StorageSpec{
+						Size: resource.MustParse("30Gi"),
+					},
 				},
 			},
-		},
-	}
-	req = reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Name:      name,
-			Namespace: namespace,
-		},
-	}
-	options = []StepOption{
-		WithRequest(req),
-	}
-)
+		}
+		req = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      name,
+				Namespace: namespace,
+			},
+		}
+		options = []StepOption{
+			WithRequest(req),
+		}
+		storageClass = &storagev1.StorageClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "default-storage",
+				Namespace: "",
+				Annotations: map[string]string{
+					"storageclass.kubernetes.io/is-default-class": "true",
+				},
+			},
+			Provisioner: "foo",
+		}
 
-// TestMeterBaseController runs ReconcileMeterBase.Reconcile() against a
-// fake client that tracks a MeterBase object.
-func TestMeterBaseController(t *testing.T) {
-	// Set the logger to development mode for verbose logs.
-	logf.SetLogger(logf.ZapLogger(true))
+		viper.Set("assets", "../../../assets")
 
-	viper.Set("assets", "../../../assets")
+		ctrlScheme = runtime.NewScheme()
+		scheme.AddToScheme(ctrlScheme)
+		olmv1alpha1.AddToScheme(ctrlScheme)
+		monitoringv1.AddToScheme(ctrlScheme)
+		ctrlScheme.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
+	})
 
-}
+	Describe("check test flags", func() {
+		It("should compile flags", func() {
+			flagset := FlagSet()
+			Expect(flagset.HasFlags()).To(BeTrue(), "no flags on the flagset")
+		})
+	})
 
-func setup(r *ReconcilerTest) error {
-	s := scheme.Scheme
-	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
-	// Create a fake client to mock API calls.
-	cl := fake.NewFakeClient(r.GetGetObjects()...)
-	// Create a ReconcileMeterBase object with the scheme and fake client.
-	rm := &ReconcileMeterBase{client: cl, scheme: s}
+	// Describe("when kubelet and kubestate missing", func() {
+	// 	var (
+	// 		client   client.Client
+	// 		ctrl     *ReconcileMeterBase
+	// 		test     *ReconcilerTest
+	// 		ctx      context.Context
+	// 		mockCtrl *gomock.Controller
+	// 	)
 
-	r.SetClient(cl)
-	r.SetReconciler(rm)
-	return nil
-}
+	// 	BeforeEach(func() {
+	// 		ctrl = &ReconcileMeterBase{
+	// 			client:       client,
+	// 			scheme:       ctrlScheme,
+	// 			ccprovider:   &reconcileutils.DefaultCommandRunnerProvider{},
+	// 			patchChecker: reconcileutils.NewPatchChecker(utils.RhmPatchMaker),
+	// 			opts: &MeterbaseOpts{
+	// 				PullPolicy: v1.PullAlways,
+	// 				AssetPath:  "../../../assets",
+	// 			},
+	// 		}
 
-func testCleanInstall(t *testing.T) {
-	t.Parallel()
-	reconcilerTest := NewReconcilerTest(setup, meterbase)
-	reconcilerTest.TestAll(t,
-		ReconcileStep(options,
-				ReconcileWithExpectedResults(DoneResult),
-		),
-		GetStep(options,
-			GetWithObj(&corev1.ConfigMap{}),
-			GetWithNamespacedName(name, namespace)),
-	)
-	// Register operator types with the runtime scheme.
+	// 		client = ClientErrorStub(mockCtrl,
+	// 			fake.NewFakeClientWithScheme(ctrlScheme, meterbase, storageClass, kubelet, kubestate),
+	// 			mockErr)
 
-	// Mock request to simulate Reconcile() being called on an event for a
-	// watched resource .
+	// 		test = NewReconcilerTestSimple(ctrl, client)
+	// 		ctx = context.TODO()
 
-	// res, err = r.Reconcile(req)
-	// if err != nil {
-	// 	t.Fatalf("reconcile: (%v)", err)
-	// }
-	// // Check the result of reconciliation to make sure it has the desired state.
-	// if !res.Requeue {
-	// 	t.Error("reconcile did not requeue request as expected")
-	// }
+	// 		test.TestAll(GinkgoT(),
+	// 			ReconcileStep(options,
+	// 				ReconcileWithUntilDone(true),
+	// 			),
+	// 		)
+	// 	})
 
-	// // Check if Deployment has been created and has the correct size.
-	// dep := &appsv1.StatefulSet{}
-	// err = cl.Get(context.TODO(), req.NamespacedName, dep)
-	// if err != nil {
-	// 	t.Fatalf("get statefulset: (%v)", err)
-	// }
-
-	// if len(dep.Spec.VolumeClaimTemplates) != 1 {
-	// 	t.Errorf("volume claim count (%d) is not the expected size (%d)", len(dep.Spec.VolumeClaimTemplates), 1)
-	// }
-
-	// vctSpec := dep.Spec.VolumeClaimTemplates[0].Spec
-	// size := vctSpec.Resources.Requests["storage"]
-	// expectedSize := resource.MustParse("30Gi")
-
-	// if !expectedSize.Equal(size) {
-	// 	t.Errorf("volume claim (%v) is not the expected size (%v)", size, expectedSize)
-	// }
-
-	// res, err = r.Reconcile(req)
-	// if err != nil {
-	// 	t.Fatalf("reconcile: (%v)", err)
-	// }
-
-	// // Check the result of reconciliation to make sure it has the desired state.
-	// if !res.Requeue {
-	// 	t.Error("reconcile did not requeue request as expected")
-	// }
-
-	// //Check if Service has been created.
-	// ser := &corev1.Service{}
-	// err = cl.Get(context.TODO(), req.NamespacedName, ser)
-	// if err != nil {
-	// 	t.Fatalf("get service: (%v)", err)
-	// }
-
-	// // Create the 3 expected pods in namespace and collect their names to check
-	// // later.
-	// podLabels := labelsForPrometheus(name)
-	// pod := corev1.Pod{
-	// 	ObjectMeta: metav1.ObjectMeta{
-	// 		Namespace: namespace,
-	// 		Labels:    podLabels,
-	// 	},
-	// }
-	// podNames := make([]string, 1)
-	// for i := 0; i < 1; i++ {
-	// 	pod.ObjectMeta.Name = name + ".pod." + strconv.Itoa(rand.Int())
-	// 	podNames[i] = pod.ObjectMeta.Name
-	// 	if err = cl.Create(context.TODO(), pod.DeepCopy()); err != nil {
-	// 		t.Fatalf("create pod %d: (%v)", i, err)
+	// 	ExpectGetObject := func(name, namespace string, obj runtime.Object) Assertion {
+	// 		return Expect(client.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, obj))
 	// 	}
-	// }
 
-	// //Reconcile again so Reconcile() checks pods and updates the MeterBase
-	// //resources' Status.
-	// res, err = r.Reconcile(req)
-	// if err != nil {
-	// 	t.Fatalf("reconcile: (%v)", err)
-	// }
-	// if res != (reconcile.Result{}) {
-	// 	t.Error("reconcile did not return an empty Result")
-	// }
+	// 	It("should create a prometheus sub", func() {
+	// 		ExpectGetObject(name, namespace, &olmv1alpha1.Subscription{}).To(Succeed())
+	// 	})
+	// 	It("should create a prometheus obj", func() {
+	// 		ExpectGetObject(name, namespace, &monitoringv1.Prometheus{}).To(Succeed())
+	// 	})
+	// 	It("should create a prometheus service", func() {
+	// 		ExpectGetObject(name, namespace, &corev1.Service{}).To(Succeed())
+	// 	})
+	// 	It("should not create service monitors", func() {
+	// 		ExpectGetObject("rhm-kube-state-metrics", namespace, &monitoringv1.ServiceMonitor{}).To(HaveOccurred())
+	// 		ExpectGetObject("rhm-kubelet", namespace, &monitoringv1.ServiceMonitor{}).To(HaveOccurred())
+	// 	})
+	// })
 
-	// // Get the updated MeterBase object.
-	// meterbase = &marketplacev1alpha1.MeterBase{}
-	// err = r.client.Get(context.TODO(), req.NamespacedName, meterbase)
-	// if err != nil {
-	// 	t.Errorf("get meterbase: (%v)", err)
-	// }
-}
+	Describe("when the client errors", func() {
+		var (
+			client             client.Client
+			ctrl               *ReconcileMeterBase
+			test               *ReconcilerTest
+			mockCtrl           *gomock.Controller
+			ctx                context.Context
+			kubelet, kubestate *monitoringv1.ServiceMonitor
+			mockErr            error
+		)
 
-func TestMeterBaseControllerFlags(t *testing.T) {
-	flagset := FlagSet()
+		AfterEach(func() {
+			mockCtrl.Finish()
+		})
 
-	if !flagset.HasFlags() {
-		t.Errorf("no flags on flagset")
-	}
-}
+		BeforeEach(func() {
+			mockErr = merrors.New("mock error")
+			mockCtrl = gomock.NewController(GinkgoT())
+			kubelet = &monitoringv1.ServiceMonitor{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kubelet",
+					Namespace: "openshift-monitoring",
+				},
+				Spec: monitoringv1.ServiceMonitorSpec{
+					NamespaceSelector: monitoringv1.NamespaceSelector{
+						MatchNames: []string{"a", "b"},
+					},
+				},
+			}
+			kubestate = &monitoringv1.ServiceMonitor{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kube-state-metrics",
+					Namespace: "openshift-monitoring",
+				},
+				Spec: monitoringv1.ServiceMonitorSpec{
+					NamespaceSelector: monitoringv1.NamespaceSelector{
+						MatchNames: []string{"a", "b"},
+					},
+				},
+			}
+		})
+
+		ExpectGetObject := func(name, namespace string, obj runtime.Object) Assertion {
+			return Expect(client.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, obj))
+		}
+
+		Context("when kubestate and kubelet don't exists", func() {
+			BeforeEach(func() {
+				client = ClientErrorStub(mockCtrl,
+					fake.NewFakeClientWithScheme(ctrlScheme, meterbase, storageClass),
+					mockErr)
+
+				ctrl = &ReconcileMeterBase{
+					client:       client,
+					scheme:       ctrlScheme,
+					ccprovider:   &reconcileutils.DefaultCommandRunnerProvider{},
+					patchChecker: reconcileutils.NewPatchChecker(utils.RhmPatchMaker),
+					opts: &MeterbaseOpts{
+						PullPolicy: v1.PullAlways,
+						AssetPath:  "../../../assets",
+					},
+				}
+
+				test = NewReconcilerTestSimple(ctrl, client)
+				ctx = context.TODO()
+
+				test.TestAll(GinkgoT(),
+					ReconcileStep(options,
+						ReconcileWithUntilDone(true),
+						ReconcileWithIgnoreError(true),
+					),
+				)
+			})
+
+			It("should create service monitors", func() {
+				ExpectGetObject(name, namespace, &olmv1alpha1.Subscription{}).To(Succeed())
+				ExpectGetObject(name, namespace, &monitoringv1.Prometheus{}).To(Succeed())
+				ExpectGetObject(name, namespace, &corev1.Service{}).To(Succeed())
+				ExpectGetObject("rhm-kube-state-metrics", namespace, &monitoringv1.ServiceMonitor{}).To(HaveOccurred())
+				ExpectGetObject("rhm-kubelet", namespace, &monitoringv1.ServiceMonitor{}).To(HaveOccurred())
+			})
+
+		})
+
+		Context("when kubestate and kubelet are present", func() {
+			BeforeEach(func() {
+				client = ClientErrorStub(mockCtrl,
+					fake.NewFakeClientWithScheme(ctrlScheme, meterbase, storageClass, kubelet, kubestate),
+					mockErr)
+
+				ctrl = &ReconcileMeterBase{
+					client:       client,
+					scheme:       ctrlScheme,
+					ccprovider:   &reconcileutils.DefaultCommandRunnerProvider{},
+					patchChecker: reconcileutils.NewPatchChecker(utils.RhmPatchMaker),
+					opts: &MeterbaseOpts{
+						PullPolicy: v1.PullAlways,
+						AssetPath:  "../../../assets",
+					},
+				}
+
+				test = NewReconcilerTestSimple(ctrl, client)
+				ctx = context.TODO()
+
+				test.TestAll(GinkgoT(),
+					ReconcileStep(options,
+						ReconcileWithUntilDone(true),
+						ReconcileWithIgnoreError(true),
+					),
+				)
+			})
+
+			It("should create service monitors", func() {
+				ExpectGetObject(name, namespace, &olmv1alpha1.Subscription{}).To(Succeed())
+				ExpectGetObject(name, namespace, &monitoringv1.Prometheus{}).To(Succeed())
+				ExpectGetObject(name, namespace, &corev1.Service{}).To(Succeed())
+				ExpectGetObject("rhm-kube-state-metrics", namespace, &monitoringv1.ServiceMonitor{}).To(Succeed())
+				ExpectGetObject("rhm-kubelet", namespace, &monitoringv1.ServiceMonitor{}).To(Succeed())
+			})
+		})
+
+		Context("when updates happen to prometheus", func() {
+			BeforeEach(func() {
+				prom := &monitoringv1.Prometheus{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: namespace,
+						Name:      name,
+					},
+					Spec: monitoringv1.PrometheusSpec{
+						ServiceMonitorNamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"foo": "bar",
+							},
+						},
+					},
+				}
+				client = ClientErrorStub(mockCtrl,
+					fake.NewFakeClientWithScheme(ctrlScheme, meterbase, storageClass, kubelet, kubestate, prom),
+					mockErr)
+
+				ctrl = &ReconcileMeterBase{
+					client:       client,
+					scheme:       ctrlScheme,
+					ccprovider:   &reconcileutils.DefaultCommandRunnerProvider{},
+					patchChecker: reconcileutils.NewPatchChecker(utils.RhmPatchMaker),
+					opts: &MeterbaseOpts{
+						PullPolicy: v1.PullAlways,
+						AssetPath:  "../../../assets",
+					},
+				}
+
+				test = NewReconcilerTestSimple(ctrl, client)
+				ctx = context.TODO()
+
+				test.TestAll(GinkgoT(),
+					ReconcileStep(options,
+						ReconcileWithUntilDone(true),
+						ReconcileWithIgnoreError(true),
+					),
+				)
+			})
+
+			It("should update prometheus to default", func() {
+				ExpectGetObject(name, namespace, &olmv1alpha1.Subscription{}).To(Succeed())
+				ExpectGetObject(name, namespace, &monitoringv1.Prometheus{}).To(Succeed())
+				ExpectGetObject(name, namespace, &corev1.Service{}).To(Succeed())
+				ExpectGetObject(name, namespace, &monitoringv1.Prometheus{}).To(Succeed())
+			})
+		})
+	})
+
+})

@@ -47,3 +47,10 @@ func ReconcileWithMax(o int) ApplyReconcileStepOptionFunc {
 		return nil
 	}
 }
+
+func ReconcileWithIgnoreError(o bool) ApplyReconcileStepOptionFunc {
+	return func(c *reconcileStepOptions) error {
+		c.IgnoreError = o
+		return nil
+	}
+}

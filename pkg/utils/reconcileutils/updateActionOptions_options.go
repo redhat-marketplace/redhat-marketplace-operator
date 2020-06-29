@@ -26,10 +26,3 @@ func applyUpdateActionOptionsOptions(c *updateActionOptions, options ...UpdateAc
 type UpdateActionOption interface {
 	apply(*updateActionOptions) error
 }
-
-func UpdateWithStatusCondition(o UpdateStatusConditionFunc) ApplyUpdateActionOptionFunc {
-	return func(c *updateActionOptions) error {
-		c.WithStatusCondition = o
-		return nil
-	}
-}

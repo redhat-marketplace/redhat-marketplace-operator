@@ -3,10 +3,9 @@ package reconcileutils
 import (
 	"context"
 
-	"emperror.dev/errors"
-	"github.com/banzaicloud/k8s-objectmatcher/patch"
-	"github.com/operator-framework/operator-sdk/pkg/status"
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // ClientAction is the interface all actions must use in order to
@@ -21,35 +20,39 @@ type ClientAction interface {
 	Bind(*ExecResult)
 }
 
+// ClientCommandRunner provides a method of executing commands. Commands
+// can be executed on their own but this interface should be used instead
+// so mocking and context is preserved.
+type ClientCommandRunner interface {
+	// Do runs the commands one after the other. Do chains one command
+	// result to another so if a command errors or is returned then it will
+	// stop executing and return.
+	Do(ctx context.Context, actions ...ClientAction) (*ExecResult, error)
+	// Exec will run a single command. You can use Do instead but Do uses the Do
+	// Command, where exec will only just call the action it is passed.
+	Exec(ctx context.Context, action ClientAction) (*ExecResult, error)
+}
+
 // baseAction is the struct that has common variables for all actions
 type baseAction struct {
 	lastResult *ExecResult
 }
 
-// ConditionFunc takes an execresult and returns a true/false if the condition matches.
-type ConditionFunc = func(*ExecResult) bool
-
-// UpdateStatusConditionFunc takes an ExecResult and err and returns true, plus a custom resource instance,
-// it's conditions, and a new condition to add or update to it's status. This facilitates updates to
-// the status's condition variable.
-type UpdateStatusConditionFunc func(result *ExecResult, err error) (update bool, instance runtime.Object, conditions *status.Conditions, condition status.Condition)
-
-// UpdateFunction returns an updatedObject
-type UpdateFunction func() (updatedObject runtime.Object, err error)
-
-// ConditionalUpdateFunction returns true and and updatedObject if there is an update, or false if
-// there is a no change.
-type ConditionalUpdateFunction func() (update bool, updatedObject runtime.Object, err error)
-
-const ErrNilObject = errors.Sentinel("object provided is nil")
-
-type PatchAnnotator interface {
-	GetOriginalConfiguration(obj runtime.Object) ([]byte, error)
-	SetOriginalConfiguration(obj runtime.Object, original []byte) error
-	GetModifiedConfiguration(obj runtime.Object, annotate bool) ([]byte, error)
-	SetLastAppliedAnnotation(obj runtime.Object) error
+type ClientActionBranch struct {
+	Status ActionResultStatus
+	Action ClientAction
 }
 
-type PatchMaker interface {
-	Calculate(currentObject, modifiedObject runtime.Object, opts ...patch.CalculateOption) (*patch.PatchResult, error)
+type ClientCommandRunnerProvider interface {
+	NewCommandRunner(client client.Client, scheme *runtime.Scheme, log logr.Logger) ClientCommandRunner
+}
+
+type DefaultCommandRunnerProvider struct {}
+
+func (d *DefaultCommandRunnerProvider) NewCommandRunner(client client.Client, scheme *runtime.Scheme, log logr.Logger) ClientCommandRunner {
+	return NewClientCommand(client, scheme, log)
+}
+
+func ProvideDefaultCommandRunnerProvider() *DefaultCommandRunnerProvider {
+	return &DefaultCommandRunnerProvider{}
 }

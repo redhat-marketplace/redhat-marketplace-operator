@@ -20,49 +20,34 @@ import (
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 )
 
 var MarketplaceControllerSet = wire.NewSet(
 	controller.ControllerSet,
 	controller.ProvideControllerFlagSet,
-	managers.SchemeDefinitions,
+	controller.SchemeDefinitions,
 	makeMarketplaceController,
+	reconcileutils.ProvideDefaultCommandRunnerProvider,
+	wire.Bind(new(reconcileutils.ClientCommandRunnerProvider), new(*reconcileutils.DefaultCommandRunnerProvider)),
 )
 
 func makeMarketplaceController(
-	myController *controller.MarketplaceController,
-	meterbaseC *controller.MeterbaseController,
-	meterDefinitionC *controller.MeterDefinitionController,
-	razeeC *controller.RazeeDeployController,
-	olmSubscriptionC *controller.OlmSubscriptionController,
 	controllerFlags *controller.ControllerFlagSet,
-	opsSrcScheme *managers.OpsSrcSchemeDefinition,
-	monitoringScheme *managers.MonitoringSchemeDefinition,
-	olmv1Scheme *managers.OlmV1SchemeDefinition,
-	olmv1alphaScheme *managers.OlmV1Alpha1SchemeDefinition,
+	controllerList controller.ControllerList,
+	localSchemes controller.LocalSchemes,
 ) *managers.ControllerMain {
 	return &managers.ControllerMain{
 		Name: "redhat-marketplace-operator",
 		FlagSets: []*pflag.FlagSet{
 			(*pflag.FlagSet)(controllerFlags),
 		},
-		Controllers: []*controller.ControllerDefinition{
-			(*controller.ControllerDefinition)(myController),
-			(*controller.ControllerDefinition)(meterbaseC),
-			(*controller.ControllerDefinition)(meterDefinitionC),
-			(*controller.ControllerDefinition)(razeeC),
-			(*controller.ControllerDefinition)(olmSubscriptionC),
-		},
-		Schemes: []*managers.SchemeDefinition{
-			(*managers.SchemeDefinition)(monitoringScheme),
-			(*managers.SchemeDefinition)(opsSrcScheme),
-			(*managers.SchemeDefinition)(olmv1Scheme),
-			(*managers.SchemeDefinition)(olmv1alphaScheme),
-		},
+		Controllers: controllerList,
+		Schemes: localSchemes,
 	}
 }
 
 func main() {
-	marketplaceController := initializeMarketplaceController()
+	marketplaceController := InitializeMarketplaceController()
 	marketplaceController.Run()
 }

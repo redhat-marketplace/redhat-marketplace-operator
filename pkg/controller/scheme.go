@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package managers
+package controller
 
 import (
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
@@ -20,12 +20,20 @@ import (
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 )
+
+type SchemeDefinition struct {
+	Name        string
+	AddToScheme func(s *k8sruntime.Scheme) error
+}
 
 type OpsSrcSchemeDefinition SchemeDefinition
 type MonitoringSchemeDefinition SchemeDefinition
 type OlmV1SchemeDefinition SchemeDefinition
 type OlmV1Alpha1SchemeDefinition SchemeDefinition
+
+type LocalSchemes []*SchemeDefinition
 
 func ProvideOpsSrcScheme() *OpsSrcSchemeDefinition {
 	return &OpsSrcSchemeDefinition{
@@ -55,9 +63,24 @@ func ProvideOLMV1Alpha1Scheme() *OlmV1Alpha1SchemeDefinition {
 	}
 }
 
+func ProvideLocalSchemes(
+	opsSrcScheme *OpsSrcSchemeDefinition,
+	monitoringScheme *MonitoringSchemeDefinition,
+	olmv1Scheme *OlmV1SchemeDefinition,
+	olmv1alphaScheme *OlmV1Alpha1SchemeDefinition,
+) LocalSchemes {
+	return []*SchemeDefinition{
+		(*SchemeDefinition)(monitoringScheme),
+		(*SchemeDefinition)(opsSrcScheme),
+		(*SchemeDefinition)(olmv1Scheme),
+		(*SchemeDefinition)(olmv1alphaScheme),
+	}
+}
+
 var SchemeDefinitions = wire.NewSet(
 	ProvideOpsSrcScheme,
 	ProvideMonitoringScheme,
 	ProvideOLMV1Scheme,
 	ProvideOLMV1Alpha1Scheme,
+	ProvideLocalSchemes,
 )
