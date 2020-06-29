@@ -143,7 +143,7 @@ type RazeeDeploymentStatus struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	RazeeJobInstall *RazeeJobInstallStruct `json:"razee_job_install,omitempty"`
-	// NodesFromRazeeDeployments contains the pods names created by the rhm-watch-keper and rhm-remote-resources3-controller deployments
+	// NodesFromRazeeDeployments contains the pods names created by the rhm-watch-keeper and rhm-remote-resources3-controller deployments
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	NodesFromRazeeDeployments []string `json:"nodesFromRazeeDeployments,omitempty"`
@@ -163,12 +163,11 @@ type RazeeJobInstallStruct struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // RazeeDeployment is the resources that deploys Razee for the Red Hat Marketplace.
 // This is an internal resource not meant to be modified directly.
-//
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=razeedeployments,scope=Namespaced
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="(Internal) Razee Deployment"
-// +operator-sdk:gen-csv:customresourcedefinitions.resources=`Job,v1,"redhat-marketplace-operator"`
+// +operator-sdk:gen-csv:customresourcedefinitions.resources=`Deployment,v1,"redhat-marketplace-operator"`
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`ConfigMap,v1,"redhat-marketplace-operator"`
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`Secret,v1,"redhat-marketplace-operator"`
 type RazeeDeployment struct {

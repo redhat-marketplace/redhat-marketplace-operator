@@ -267,7 +267,7 @@ spec:
               type: array
             nodesFromRazeeDeployments:
               description: NodesFromRazeeDeployments contains the pods names created
-                by the rhm-watch-keper and rhm-remote-resources3-controller deployments
+                by the rhm-watch-keeper and rhm-remote-resources3-controller deployments
               items:
                 type: string
               type: array

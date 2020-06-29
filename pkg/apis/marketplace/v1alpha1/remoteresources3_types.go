@@ -118,10 +118,6 @@ type Header map[string]string
 // RemoteResourceS3Spec defines the desired state of RemoteResourceS3
 // +k8s:openapi-gen=true
 type RemoteResourceS3Spec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// Auth provides options to authenticate to a remote location
 	Auth Auth `json:"auth,omitempty"`
@@ -131,7 +127,6 @@ type RemoteResourceS3Spec struct {
 }
 
 // RemoteResourceS3Status defines the observed state of RemoteResourceS3
-// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 // +k8s:openapi-gen=true
 // +optional
 // +kubebuilder:pruning:PreserveUnknownFields
@@ -157,7 +152,6 @@ type Log map[string]string
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // RemoteResourceS3 is the Schema for the remoteresources3s API
-//
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=remoteresources3s,scope=Namespaced
