@@ -186,6 +186,7 @@ migrate: ##deploys the service acconts, roles, and role bindings
 	- make deploy-services
 	- make helm
 	- make create
+	- kubectl create -f deploy/operator.yaml --namespace=${NAMESPACE}
 
 apply: ##applies changes to crds
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml --namespace=${NAMESPACE}
