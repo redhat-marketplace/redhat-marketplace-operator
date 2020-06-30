@@ -15,22 +15,15 @@
 package controller
 
 import (
-	"github.com/google/wire"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller/clusterserviceversion"
 	"github.com/spf13/pflag"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-type ControllerDefinition struct {
-	Add     func(mgr manager.Manager) error
-	FlagSet func() *pflag.FlagSet
+type OlmClusterServiceVersionController ControllerDefinition
+
+func ProvideOlmClusterServiceVersionController() *OlmClusterServiceVersionController {
+	return &OlmClusterServiceVersionController{
+		Add:     clusterserviceversion.Add,
+		FlagSet: func() *pflag.FlagSet { return nil },
+	}
 }
-
-var ControllerSet = wire.NewSet(
-	ProvideMarketplaceController,
-	ProvideMeterbaseController,
-	ProvideRazeeDeployController,
-	ProvideMeterDefinitionController,
-	ProvideOlmSubscriptionController,
-	ProvideNodeController,
-	ProvideOlmClusterServiceVersionController,
-)

@@ -94,9 +94,11 @@ roles:
           - operators.coreos.com
         resources:
           - subscriptions
+          - clusterserviceversions
         verbs:
           - get
           - list
+          - update
           - watch
       - apiGroups:
           - operators.coreos.com

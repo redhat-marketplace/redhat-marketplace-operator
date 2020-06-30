@@ -134,6 +134,6 @@ func (r *ReconcileNode) Reconcile(request reconcile.Request) (reconcile.Result, 
 	} else {
 		reqLogger.Info("No patch needed on node resource")
 	}
-
+	reqLogger.Info("reconcilation complete")
 	return reconcile.Result{}, nil
 }

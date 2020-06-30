@@ -153,7 +153,7 @@ setup-operator-sdk-run: ## Create ns, crds, sa, role, and rolebinding before ope
 	- . ./scripts/operator_sdk_sa_kubeconfig.sh $(CLUSTER_SERVER) $(NAMESPACE) $(SERVICE_ACCOUNT)
 
 operator-sdk-run: ## Run operator locally outside the cluster during development cycle
-	operator-sdk run local --watch-namespace="" --kubeconfig=./sa.kubeconfig
+	operator-sdk run --local --watch-namespace="" --kubeconfig=./sa.kubeconfig
 
 ##@ Manual Testing
 
