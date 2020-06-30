@@ -178,10 +178,13 @@ deploy-services: ##deploys the service acconts, roles, and role bindings
 
 migrate: ##deploys the service acconts, roles, and role bindings
 	# - kubectl set image deployment/redhat-marketplace-operator redhat-marketplace-operator=${IMAGE_REGISTRY}:${VERSION}
-	- kubectl delete deployment redhat-marketplace-operator
-	- kubectl apply -f deploy/service_account.yaml --namespace=${NAMESPACE}
-	- kubectl apply -f deploy/role.yaml --namespace=${NAMESPACE}
-	- kubectl apply -f deploy/role_binding.yaml --namespace=${NAMESPACE}
+	# - kubectl delete deployment redhat-marketplace-operator
+	- kubectl delete -f deploy/operator.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/role_binding.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/role.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/service_account.yaml -n ${NAMESPACE}
+	- make deploy-services
+	- make helm
 	- make create
 
 apply: ##applies changes to crds
