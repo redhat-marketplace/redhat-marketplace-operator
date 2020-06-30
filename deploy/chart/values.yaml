@@ -288,6 +288,20 @@ roles:
           - update
           - watch
       - apiGroups:
+          - deploy.razee.io
+        resources:
+          - '*'
+          - remoteresourcess3
+          - remoteresources
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - patch
+          - watch
+      - apiGroups:
           - ''
         resources:
           - pods
