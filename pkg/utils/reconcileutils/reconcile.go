@@ -5,6 +5,7 @@ import (
 
 	emperrors "emperror.dev/errors"
 	"github.com/go-logr/logr"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/codelocation"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -18,6 +19,9 @@ type call struct {
 func Call(callAction func() (ClientAction, error)) ClientAction {
 	return &call{
 		call: callAction,
+		baseAction: baseAction{
+			codelocation: codelocation.New(1),
+		},
 	}
 }
 
@@ -26,24 +30,30 @@ func (i *call) Bind(result *ExecResult) {
 }
 
 func (i *call) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
-	c.log.V(0).Info("entering call")
+	logger := c.log.WithValues("file", i.codelocation, "action", "Call")
 	action, err := i.call()
 
 	if err != nil {
+		logger.Error(err, "call action had an error")
 		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error on call")
 	}
 
 	if isNil(action) {
+		logger.V(2).Info("call had no action to perform")
 		return NewExecResult(Continue, reconcile.Result{}, nil), nil
 	}
 
 	action.Bind(i.lastResult)
+	logger.V(4).Info("executing action")
 	return action.Exec(ctx, c)
 }
 
 func Do(actions ...ClientAction) ClientAction {
 	return &do{
 		Actions: actions,
+		baseAction: baseAction{
+			codelocation: codelocation.New(1),
+		},
 	}
 }
 
@@ -57,23 +67,32 @@ func (i *do) Bind(result *ExecResult) {
 }
 
 func (i *do) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
-	c.log.V(0).Info("entering do")
+	logger := c.log.WithValues("file", i.codelocation, "action", "Do")
+
 	var err error
 	result := i.lastResult
 	for _, action := range i.Actions {
 		action.Bind(result)
 		result, err = action.Exec(ctx, c)
 
-		if result != nil {
-			switch result.Status {
-			case Error:
-				return result, emperrors.Wrap(err, "error executing do")
-			case Requeue:
-				return result, nil
-			}
+		if result == nil {
+			err := emperrors.New("result should not be nil")
+			logger.Error(err, "result should not be nil")
+			return NewExecResult(Error, reconcile.Result{}, err), err
+		}
+
+		logger.V(2).Info("action returned result", "result", *result)
+		switch result.Status {
+		case Error:
+			logger.Info("returning error", "err", err)
+			return result, emperrors.Wrap(err, "error executing do")
+		case Requeue:
+			logger.Info("returning requeue")
+			return result, nil
 		}
 	}
-	c.log.V(0).Info("result is", "result", result)
+
+	logger.Info("final result occurred", "result", *result)
 	return result, nil
 }
 
@@ -114,6 +133,9 @@ type handleResult struct {
 	Branches []ClientActionBranch
 }
 
+// HandleResult will return original results on
+// error or requeue, but will return the handled action
+// branch on NotFound and Continue.
 func HandleResult(
 	action ClientAction,
 	branches ...ClientActionBranch,
@@ -121,6 +143,9 @@ func HandleResult(
 	return &handleResult{
 		Action:   action,
 		Branches: branches,
+		baseAction: baseAction{
+			codelocation: codelocation.New(1),
+		},
 	}
 }
 
@@ -157,12 +182,26 @@ func (r *handleResult) Bind(result *ExecResult) {
 }
 
 func (r *handleResult) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
+	logger := c.log.WithValues("file", r.codelocation, "action", "HandleResult")
 	r.Action.Bind(r.lastResult)
 	myVar, err := r.Action.Exec(ctx, c)
 
 	for _, branch := range r.Branches {
 		if myVar.Is(branch.Status) {
-			return branch.Action.Exec(ctx, c)
+			logger.Info("branch matched", "status", branch.Status)
+			var2, err := branch.Action.Exec(ctx, c)
+
+			if myVar.Is(Error) {
+				logger.Info("returning original error")
+				return myVar, myVar.Err
+			}
+
+			if myVar.Is(Requeue) {
+				logger.Info("returning original requeue")
+				return myVar, nil
+			}
+
+			return var2, err
 		}
 	}
 

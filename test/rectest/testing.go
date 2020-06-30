@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-type reconcileTester interface {
+type ReconcileTester interface {
 	Fail()
 	Error(args ...interface{})
 	Errorf(format string, args ...interface{})
@@ -49,12 +49,12 @@ type reconcileTester interface {
 }
 
 // - interfaces -
-type ReconcilerTestValidationFunc func(*ReconcilerTest, reconcileTester, runtime.Object)
+type ReconcilerTestValidationFunc func(*ReconcilerTest, ReconcileTester, runtime.Object)
 type ReconcilerSetupFunc func(*ReconcilerTest) error
 
 type TestCaseStep interface {
 	GetStepName() string
-	Test(t reconcileTester, reconcilerTest *ReconcilerTest)
+	Test(t ReconcileTester, reconcilerTest *ReconcilerTest)
 }
 
 // - end of interfaces -
@@ -121,7 +121,7 @@ func NewReconcilerTest(setup ReconcilerSetupFunc, predefinedObjs ...runtime.Obje
 	}
 }
 
-func Ignore(r *ReconcilerTest, t reconcileTester, obj runtime.Object) {}
+func Ignore(r *ReconcilerTest, t ReconcileTester, obj runtime.Object) {}
 
 type ControllerReconcileStep struct {
 	stepOptions
@@ -150,7 +150,7 @@ func (tc *ControllerReconcileStep) GetStepName() string {
 	return tc.StepName
 }
 
-func (tc *ControllerReconcileStep) Test(t reconcileTester, r *ReconcilerTest) {
+func (tc *ControllerReconcileStep) Test(t ReconcileTester, r *ReconcilerTest) {
 	// Reconcile again so Reconcile() checks for the OperatorSource
 
 	if tc.UntilDone {
@@ -190,6 +190,7 @@ func (tc *ControllerReconcileStep) Test(t reconcileTester, r *ReconcilerTest) {
 			}
 
 			if !tc.IgnoreError {
+				t.Logf("ignore error")
 				if err != nil {
 					assert.Equalf(t, DoneResult, result,
 						"%+v", tc.TestLineError(err))
@@ -236,7 +237,7 @@ func (tc *ClientGetStep) GetStepName() string {
 	return tc.StepName
 }
 
-func (tc *ClientGetStep) Test(t reconcileTester, r *ReconcilerTest) {
+func (tc *ClientGetStep) Test(t ReconcileTester, r *ReconcilerTest) {
 	// Reconcile again so Reconcile() checks for the OperatorSource
 	err := r.GetClient().Get(
 		context.TODO(),
@@ -277,7 +278,7 @@ func (tc *ClientListStep) GetStepName() string {
 	return tc.StepName
 }
 
-func (tc *ClientListStep) Test(t reconcileTester, r *ReconcilerTest) {
+func (tc *ClientListStep) Test(t ReconcileTester, r *ReconcilerTest) {
 	// Reconcile again so Reconcile() checks for the OperatorSource
 	err := r.GetClient().List(context.TODO(),
 		tc.Obj,
@@ -294,7 +295,7 @@ func (tc *ClientListStep) Test(t reconcileTester, r *ReconcilerTest) {
 
 var testAllMutex sync.Mutex
 
-func (r *ReconcilerTest) TestAll(t reconcileTester, testCases ...TestCaseStep) {
+func (r *ReconcilerTest) TestAll(t ReconcileTester, testCases ...TestCaseStep) {
 	if r.SetupFunc != nil {
 		testAllMutex.Lock()
 		err := r.SetupFunc(r)

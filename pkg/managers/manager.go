@@ -33,7 +33,6 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/version"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -157,9 +156,6 @@ func (m *ControllerMain) Run() {
 		if err := control.Add(mgr); err != nil {
 			log.Error(err, "")
 			os.Exit(1)
-		}
-		if t, ok := control.(controller.SetClientCommandRunner); ok {
-			t.SetClientCommandRunner(reconcileutils.NewClientCommand)
 		}
 	}
 

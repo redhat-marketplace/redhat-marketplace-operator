@@ -24,7 +24,7 @@ var _ = Describe("UpdateAction", func() {
 		ctrl         *gomock.Controller
 		client       *mock_client.MockClient
 		statusWriter *mock_client.MockStatusWriter
-		cc           *ClientCommand
+		cc           ClientCommandRunner
 		sut          *updateAction
 		pod          *corev1.Pod
 		ctx          context.Context

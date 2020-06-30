@@ -113,7 +113,7 @@ func testNewSubscription(t *testing.T) {
 				client.MatchingLabels(map[string]string{
 					operatorTag: "true",
 				})),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*olmv1.OperatorGroupList)
 
 				assert.Truef(t, ok, "expected operator group list got type %T", i)
@@ -131,7 +131,7 @@ func testNewSubscriptionWithOperatorGroup(t *testing.T) {
 			ReconcileWithExpectedResults(DoneResult)),
 		ListStep(opts,
 			ListWithObj(&olmv1.OperatorGroupList{}),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*olmv1.OperatorGroupList)
 
 				assert.Truef(t, ok, "expected operator group list got type %T", i)
@@ -159,7 +159,7 @@ func testDeleteOperatorGroupIfTooMany(t *testing.T) {
 		// List and check results
 		ListStep(opts,
 			append(listObjs,
-				ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 					list, ok := i.(*olmv1.OperatorGroupList)
 
 					assert.Truef(t, ok, "expected operator group list got type %T", i)
@@ -173,7 +173,7 @@ func testDeleteOperatorGroupIfTooMany(t *testing.T) {
 		// Check to make sure we've deleted it
 		ListStep(opts,
 			append(listObjs,
-				ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 					list, ok := i.(*olmv1.OperatorGroupList)
 
 					assert.Truef(t, ok, "expected operator group list got type %T", i)

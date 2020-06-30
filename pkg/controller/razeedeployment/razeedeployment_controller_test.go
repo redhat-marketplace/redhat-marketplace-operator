@@ -224,7 +224,7 @@ func testFullUninstall(t *testing.T) {
 			ListWithFilter(
 				client.InNamespace(namespace),
 			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*corev1.ConfigMapList)
 
 				assert.Truef(t, ok, "expected configMap list got type %T", i)
@@ -235,7 +235,7 @@ func testFullUninstall(t *testing.T) {
 			ListWithFilter(
 				client.InNamespace(namespace),
 			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*corev1.ServiceAccountList)
 
 				assert.Truef(t, ok, "expected service account list got type %T", i)
@@ -246,7 +246,7 @@ func testFullUninstall(t *testing.T) {
 			ListWithFilter(
 				client.InNamespace(namespace),
 			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*corev1.SecretList)
 
 				assert.Truef(t, ok, "expected secret list got type %T", i)
@@ -257,7 +257,7 @@ func testFullUninstall(t *testing.T) {
 			ListWithFilter(
 				client.InNamespace(namespace),
 			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*batch.JobList)
 
 				assert.Truef(t, ok, "expected job list got type %T", i)
@@ -268,7 +268,7 @@ func testFullUninstall(t *testing.T) {
 			ListWithFilter(
 				client.InNamespace(namespace),
 			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*appsv1.DeploymentList)
 
 				assert.Truef(t, ok, "expected deployment list got type %T", i)
@@ -300,7 +300,7 @@ func testCleanInstall(t *testing.T) {
 			ListWithFilter(
 				client.InNamespace(namespace),
 			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*corev1.ConfigMapList)
 
 				assert.Truef(t, ok, "expected operator group list got type %T", i)
@@ -321,7 +321,7 @@ func testCleanInstall(t *testing.T) {
 			ListWithFilter(
 				client.InNamespace(namespace),
 			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*corev1.SecretList)
 
 				assert.Truef(t, ok, "expected operator group list got type %T", i)
@@ -339,7 +339,7 @@ func testCleanInstall(t *testing.T) {
 		GetStep(opts,
 			GetWithObj(&batch.Job{}),
 			GetWithNamespacedName(utils.RAZEE_DEPLOY_JOB_NAME, namespace),
-			GetWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			GetWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				myJob, ok := i.(*batch.Job)
 
 				if !ok {

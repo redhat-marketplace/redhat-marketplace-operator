@@ -19,7 +19,7 @@ var _ = Describe("ListAction", func() {
 		ctrl        *gomock.Controller
 		client      *mock_client.MockClient
 		podList     *corev1.PodList
-		cc          *ClientCommand
+		cc          ClientCommandRunner
 		ctx         context.Context
 		expectedErr error
 	)

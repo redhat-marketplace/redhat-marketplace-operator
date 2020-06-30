@@ -23,7 +23,7 @@ var _ = Describe("CreateAction", func() {
 		ctrl   *gomock.Controller
 		client *mock_client.MockClient
 		//statusWriter *mock_client.MockStatusWriter
-		cc        *ClientCommand
+		cc        ClientCommandRunner
 		sut       *createAction
 		pod       *corev1.Pod
 		ctx       context.Context

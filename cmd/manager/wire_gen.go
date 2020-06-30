@@ -8,22 +8,25 @@ package main
 import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 )
 
 // Injectors from wire.go:
 
 func InitializeMarketplaceController() *managers.ControllerMain {
+	controllerFlagSet := controller.ProvideControllerFlagSet()
 	marketplaceController := controller.ProvideMarketplaceController()
-	meterbaseController := controller.ProvideMeterbaseController()
-	meterDefinitionController := controller.ProvideMeterDefinitionController()
+	defaultCommandRunnerProvider := reconcileutils.ProvideDefaultCommandRunnerProvider()
+	meterbaseController := controller.ProvideMeterbaseController(defaultCommandRunnerProvider)
+	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider)
 	razeeDeployController := controller.ProvideRazeeDeployController()
 	olmSubscriptionController := controller.ProvideOlmSubscriptionController()
-	controllerFlagSet := controller.ProvideControllerFlagSet()
+	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController)
 	opsSrcSchemeDefinition := controller.ProvideOpsSrcScheme()
 	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
 	olmV1SchemeDefinition := controller.ProvideOLMV1Scheme()
 	olmV1Alpha1SchemeDefinition := controller.ProvideOLMV1Alpha1Scheme()
 	localSchemes := controller.ProvideLocalSchemes(opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition)
-	controllerMain := makeMarketplaceController(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, controllerFlagSet, localSchemes)
+	controllerMain := makeMarketplaceController(controllerFlagSet, controllerList, localSchemes)
 	return controllerMain
 }

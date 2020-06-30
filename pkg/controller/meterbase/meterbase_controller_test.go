@@ -38,6 +38,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -174,6 +176,7 @@ var _ = Describe("MeterbaseController", func() {
 		})
 
 		BeforeEach(func() {
+			logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
 			mockErr = merrors.New("mock error")
 			mockCtrl = gomock.NewController(GinkgoT())
 			kubelet = &monitoringv1.ServiceMonitor{
@@ -323,8 +326,9 @@ var _ = Describe("MeterbaseController", func() {
 			It("should update prometheus to default", func() {
 				ExpectGetObject(name, namespace, &olmv1alpha1.Subscription{}).To(Succeed())
 				ExpectGetObject(name, namespace, &monitoringv1.Prometheus{}).To(Succeed())
+				ExpectGetObject("rhm-kube-state-metrics", namespace, &monitoringv1.ServiceMonitor{}).To(Succeed())
+				ExpectGetObject("rhm-kubelet", namespace, &monitoringv1.ServiceMonitor{}).To(Succeed())
 				ExpectGetObject(name, namespace, &corev1.Service{}).To(Succeed())
-				ExpectGetObject(name, namespace, &monitoringv1.Prometheus{}).To(Succeed())
 			})
 		})
 	})

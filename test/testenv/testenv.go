@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -20,7 +21,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 func SetupTestEnv(
@@ -37,12 +37,10 @@ func SetupTestEnv(
 	By("bootstrapping test environment")
 	t := true
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
-		testEnv = &envtest.Environment{
-			UseExistingCluster: &t,
-		}
+		testEnv.UseExistingCluster = &t
 	} else {
-		testEnv = &envtest.Environment{
-			CRDDirectoryPaths: []string{filepath.Join("..", "deploy", "crds")},
+		testEnv.CRDDirectoryPaths = []string{
+			filepath.Join("..", "..", "deploy", "crds"),
 		}
 	}
 
@@ -55,10 +53,13 @@ func SetupTestEnv(
 
 	connSchemes := initializeLocalSchemes()
 
+	Expect(connSchemes).ToNot(BeEmpty())
+
 	for _, conScheme := range connSchemes {
 		err := conScheme.AddToScheme(scheme.Scheme)
 		Expect(err).NotTo(HaveOccurred())
 	}
+
 	// +kubebuilder:scaffold:scheme
 
 	controllers := initializeControllers()

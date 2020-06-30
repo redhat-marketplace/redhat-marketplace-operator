@@ -5,9 +5,11 @@ import (
 	"fmt"
 
 	emperrors "emperror.dev/errors"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/codelocation"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -32,6 +34,9 @@ func CreateAction(
 	return &createAction{
 		NewObject:           newObj,
 		createActionOptions: createOpts,
+		baseAction: baseAction{
+			codelocation: codelocation.New(1),
+		},
 	}
 }
 
@@ -40,13 +45,16 @@ func (a *createAction) Bind(result *ExecResult) {
 }
 
 func (a *createAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
+	reqLogger := c.log.WithValues("file", a.codelocation, "action", "CreateAction")
 
 	if isNil(a.NewObject) {
 		err := emperrors.WithStack(ErrNilObject)
+		reqLogger.Error(err, "newObject is nil")
 		return NewExecResult(Error, reconcile.Result{}, err), err
 	}
 
-	reqLogger := c.log.WithValues("requestType", fmt.Sprintf("%T", a.NewObject))
+	key, _ := client.ObjectKeyFromObject(a.NewObject)
+	reqLogger = reqLogger.WithValues("requestType", fmt.Sprintf("%T", a.NewObject), "key", key)
 
 	if a.WithPatch != nil {
 		if err := a.WithPatch.SetLastAppliedAnnotation(a.NewObject); err != nil {

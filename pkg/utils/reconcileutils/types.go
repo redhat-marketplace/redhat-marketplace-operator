@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/codelocation"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -35,7 +36,8 @@ type ClientCommandRunner interface {
 
 // baseAction is the struct that has common variables for all actions
 type baseAction struct {
-	lastResult *ExecResult
+	lastResult   *ExecResult
+	codelocation codelocation.CodeLocation
 }
 
 type ClientActionBranch struct {
@@ -47,7 +49,7 @@ type ClientCommandRunnerProvider interface {
 	NewCommandRunner(client client.Client, scheme *runtime.Scheme, log logr.Logger) ClientCommandRunner
 }
 
-type DefaultCommandRunnerProvider struct {}
+type DefaultCommandRunnerProvider struct{}
 
 func (d *DefaultCommandRunnerProvider) NewCommandRunner(client client.Client, scheme *runtime.Scheme, log logr.Logger) ClientCommandRunner {
 	return NewClientCommand(client, scheme, log)
