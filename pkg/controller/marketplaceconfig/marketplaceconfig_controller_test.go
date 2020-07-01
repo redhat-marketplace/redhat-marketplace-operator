@@ -39,6 +39,7 @@ func TestMarketplaceConfigController(t *testing.T) {
 	defaultFeatures := []string{"razee", "meterbase"}
 	viper.Set("assets", "../../../assets")
 	viper.Set("features", defaultFeatures)
+	viper.Set("IBMCatalogSource", true)
 
 	t.Run("Test Clean Install", testCleanInstall)
 }
