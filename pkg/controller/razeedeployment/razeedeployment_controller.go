@@ -2017,14 +2017,14 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 	}
 
 	for _, clusterRoleNames := range clusterroles {
-		serviceAccount := &rbacv1.ClusterRole{
+		clusterRole := &rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterRoleNames,
 				Namespace: *req.Spec.TargetNamespace,
 			},
 		}
 		reqLogger.Info("deleting legacy cluster role", "name", clusterRoleNames)
-		err = r.client.Delete(context.TODO(), serviceAccount, client.PropagationPolicy(deletePolicy))
+		err = r.client.Delete(context.TODO(), clusterRole, client.PropagationPolicy(deletePolicy))
 		if err != nil && !errors.IsNotFound((err)) {
 			reqLogger.Error(err, "could not delete cluster role", "name", clusterRoleNames)
 		}
