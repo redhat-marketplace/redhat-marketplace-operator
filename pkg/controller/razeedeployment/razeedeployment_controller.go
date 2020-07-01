@@ -1028,7 +1028,18 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		updatedParentRRS3 := parentRRS3.DeepCopy()
 		updatedParentRRS3.Spec = newParentValues.Spec
 
-		if !reflect.DeepEqual(updatedParentRRS3.Spec, parentRRS3.Spec) {
+		updatedGroup := updatedParentRRS3.GroupVersionKind().Group;
+		updatedVersion := updatedParentRRS3.APIVersion;
+
+		currentGroup := parentRRS3.GroupVersionKind().Group;
+		currentVersion := parentRRS3.APIVersion;
+
+		fmt.Println("UPDATED GROUP", updatedGroup)
+		fmt.Println("CURRENT VERSION", currentVersion)
+		fmt.Println("UPDATED VERSION",updatedVersion)
+		fmt.Println("CURRENT VERSION",currentVersion)
+		if !reflect.DeepEqual(updatedParentRRS3.Spec, parentRRS3.Spec) || updatedGroup != currentGroup || updatedVersion != currentVersion {
+			fmt.Println("PATCH NEEDED")
 			reqLogger.Info("Change detected on resource", updatedParentRRS3.GetName(), "update")
 
 			reqLogger.Info("Updating resource", "resource: ", utils.PARENT_RRS3_RESOURCE_NAME)
@@ -2053,6 +2064,47 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 		if err != nil && !errors.IsNotFound((err)) {
 			reqLogger.Error(err, "could not delete deployment", "name", deploymentName)
 		}
+	}
+
+	// migrate old parent rrs3
+	parentRRS3 := &unstructured.Unstructured{}
+	parentRRS3.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "deploy.razee.io",
+		Kind:    "RemoteResourceS3",
+		Version: "v1alpha2",
+	})
+
+	err = r.client.Get(context.TODO(), client.ObjectKey{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *instance.Spec.TargetNamespace}, parentRRS3)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			reqLogger.Info("Legacy parent RRS3 not found")
+		} else {
+			reqLogger.Info("Failed to get resource", "resource: ", utils.PARENT_RRS3)
+			return reconcile.Result{}, err
+		}
+	}
+	if err == nil {
+		reqLogger.V(0).Info("Legacy parentRRS3 found", "resource: ", utils.PARENT_RRS3)
+
+		newParentValues := r.makeParentRemoteResourceS3(instance)
+		updatedParentRRS3 := parentRRS3.DeepCopy()
+		updatedParentRRS3.Object["spec"] = newParentValues.Object["spec"]
+		updatedParentRRS3.Object["apiVersion"] = newParentValues.Object["apiVersion"]
+
+		if !reflect.DeepEqual(updatedParentRRS3.Object["spec"], parentRRS3.Object["spec"]) || !relfect.DeepEqual(updatedParentRRS3.Object["apiVersion"], parentRRS3.Object["apiVersion"]){
+			reqLogger.Info("Change detected on resource", "resource", updatedParentRRS3.GetName(), "update")
+
+			reqLogger.Info("Updating resource", "resource: ", utils.PARENT_RRS3)
+			err = r.client.Update(context.TODO(), updatedParentRRS3)
+			if err != nil {
+				reqLogger.Info("Failed to update resource", "resource: ", utils.PARENT_RRS3)
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("Resource updated successfully", "resource: ", utils.PARENT_RRS3)
+			return reconcile.Result{Requeue: true}, nil
+		}
+
+		reqLogger.V(0).Info("No change detected on resource", "resource: ", updatedParentRRS3.GetName())
 	}
 
 	req.Spec.LegacyUninstallHasRun = ptr.Bool(true)
