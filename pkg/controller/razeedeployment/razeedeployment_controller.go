@@ -989,6 +989,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	// check if the legacy uninstaller has run
+	if instance.Spec.LegacyUninstallHasRun == nil || *instance.Spec.LegacyUninstallHasRun == false {
+		r.uninstallLegacyResources(instance)
+	}
+
 	parentRRS3 := &marketplacev1alpha1.RemoteResourceS3{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{
 		Name:      utils.PARENT_RRS3_RESOURCE_NAME,
@@ -1175,11 +1180,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{Requeue: true}, nil
 	}
 	reqLogger.V(0).Info("No patch needed on clusterversion resource")
-
-	// check if the legacy uninstaller has run
-	if instance.Spec.LegacyUninstallHasRun == nil || *instance.Spec.LegacyUninstallHasRun == false {
-		r.uninstallLegacyResources(instance)
-	}
 
 	message = "Razee install complete"
 	change1 := instance.Status.Conditions.SetCondition(status.Condition{
