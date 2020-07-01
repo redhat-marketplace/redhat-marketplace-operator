@@ -2131,10 +2131,12 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 		// updatedParentRRS3.Object["apiVersion"] = legacyRRS3.Object["apiVersion"]
 
 		if !reflect.DeepEqual(parentRRS3.Object["spec"], latestRRS3.Spec) || !reflect.DeepEqual(parentRRS3.Object["apiVersion"], "remoteresources3.marketplace.redhat.com/v1alpha1"){
-			reqLogger.Info("Change detected on resource", "resource", parentRRS3.GetName(), "update")
+			reqLogger.Info("Change detected on resource", "resource", parentRRS3.GetName())
 
+			updatedParentRRS3 := parentRRS3.DeepCopy()
+			updatedParentRRS3.Object["apiVersion"] = "remoteresources3.marketplace.redhat.com/v1alpha1"
 			reqLogger.Info("Updating resource", "resource: ", utils.PARENT_RRS3)
-			err = r.client.Update(context.TODO(), latestRRS3)
+			err = r.client.Update(context.TODO(), updatedParentRRS3)
 			if err != nil {
 				reqLogger.Info("Failed to update resource", "resource: ", utils.PARENT_RRS3)
 				return reconcile.Result{}, err
