@@ -27,6 +27,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -220,6 +221,12 @@ var (
 			Namespace: namespace,
 		},
 	}
+	clusterRole = rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "redhat-marketplace-operator",
+			Namespace: namespace,
+		},
+	}
 	deployment = appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "watch-keeper",
@@ -311,13 +318,11 @@ func testLegacyUninstall(t *testing.T) {
 		&razeeDeploymentDeletion,
 		&razeeJob,
 		&razeeSecret,
-		&configMap,
 		&serviceAccount,
 		&deployment,
 	)
 
 	reconcilerTest.TestAll(t,
-		//Requeue until we have created the job and waiting for it to finish
 		ReconcileStep(opts,
 			ReconcileWithExpectedResults(
 				append(
@@ -343,6 +348,17 @@ func testLegacyUninstall(t *testing.T) {
 				list, ok := i.(*batch.JobList)
 
 				assert.Truef(t, ok, "expected job list got type %T", i)
+				assert.Equal(t, 0, len(list.Items))
+			})),
+		ListStep(opts,
+			ListWithObj(&rbacv1.ClusterRoleList{}),
+			ListWithFilter(
+				client.InNamespace(namespace),
+			),
+			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				list, ok := i.(*rbacv1.ClusterRoleList)
+
+				assert.Truef(t, ok, "expected cluster role list got type %T", i)
 				assert.Equal(t, 0, len(list.Items))
 			})),
 		ListStep(opts,
