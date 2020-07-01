@@ -65,6 +65,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			UpdateFunc: func(evt event.UpdateEvent) bool {
 				return false
 			},
+			DeleteFunc: func(evt event.DeleteEvent) bool {
+				return false
+			},
 			CreateFunc: func(evt event.CreateEvent) bool {
 				if _, ok := evt.Meta.GetLabels()[allnamespaceTag]; ok {
 					return false
