@@ -1497,6 +1497,44 @@ func (r *ReconcileRazeeDeployment) makeParentRemoteResourceS3(instance *marketpl
 	}
 }
 
+// Creates the legacy "parent" RemoteResourceS3 and applies the name of the cos-reader-key and ChildUrl constructed during reconciliation of the rhm-operator-secret
+func (r *ReconcileRazeeDeployment) makeLegacyParentRemoteResourceS3(instance *marketplacev1alpha1.RazeeDeployment) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "deploy.razee.io/v1alpha2",
+			"kind":       "RemoteResourceS3",
+			"metadata": map[string]interface{}{
+				"name":      utils.PARENT_RRS3_RESOURCE_NAME,
+				"namespace": *instance.Spec.TargetNamespace,
+			},
+			"spec": map[string]interface{}{
+				"auth": map[string]interface{}{
+					"iam": map[string]interface{}{
+						"responseType": "cloud_iam",
+						"url":          `https://iam.cloud.ibm.com/identity/token`,
+						"grantType":    "urn:ibm:params:oauth:grant-type:apikey",
+						"apiKeyRef": map[string]interface{}{
+							"valueFrom": map[string]interface{}{
+								"secretKeyRef": map[string]interface{}{
+									"name": utils.COS_READER_KEY_NAME,
+									"key":  "accesskey",
+								},
+							},
+						},
+					},
+				},
+				"requests": []interface{}{
+					map[string]interface{}{
+						"options": map[string]interface{}{
+							"url": *instance.Spec.ChildUrl,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDeployment) *appsv1.Deployment {
 	rep := ptr.Int32(1)
 	return &appsv1.Deployment{
@@ -2074,7 +2112,7 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 		Version: "v1alpha2",
 	})
 
-	err = r.client.Get(context.TODO(), client.ObjectKey{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *instance.Spec.TargetNamespace}, parentRRS3)
+	err = r.client.Get(context.TODO(), client.ObjectKey{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, parentRRS3)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.Info("Legacy parent RRS3 not found")
@@ -2086,12 +2124,12 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 	if err == nil {
 		reqLogger.V(0).Info("Legacy parentRRS3 found", "resource: ", utils.PARENT_RRS3)
 
-		newParentValues := r.makeParentRemoteResourceS3(instance)
+		newParentValues := r.makeLegacyParentRemoteResourceS3(req)
 		updatedParentRRS3 := parentRRS3.DeepCopy()
 		updatedParentRRS3.Object["spec"] = newParentValues.Object["spec"]
 		updatedParentRRS3.Object["apiVersion"] = newParentValues.Object["apiVersion"]
 
-		if !reflect.DeepEqual(updatedParentRRS3.Object["spec"], parentRRS3.Object["spec"]) || !relfect.DeepEqual(updatedParentRRS3.Object["apiVersion"], parentRRS3.Object["apiVersion"]){
+		if !reflect.DeepEqual(updatedParentRRS3.Object["spec"], parentRRS3.Object["spec"]) || !reflect.DeepEqual(updatedParentRRS3.Object["apiVersion"], "remoteresources3.marketplace.redhat.com/v1alpha1"){
 			reqLogger.Info("Change detected on resource", "resource", updatedParentRRS3.GetName(), "update")
 
 			reqLogger.Info("Updating resource", "resource: ", utils.PARENT_RRS3)
