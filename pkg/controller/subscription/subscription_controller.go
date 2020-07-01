@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -37,6 +38,7 @@ import (
 var log = logf.Log.WithName("controller_olm_subscription_watcher")
 
 const operatorTag = "marketplace.redhat.com/operator"
+const uninstallTag = "marketplace.redhat.com/uninstall"
 
 // Add creates a new Subscription Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -59,16 +61,25 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	labelPreds := []predicate.Predicate{
 		predicate.Funcs{
+			UpdateFunc: func(evt event.UpdateEvent) bool {
+				operatorTagLabel, okOperator := evt.MetaNew.GetLabels()[operatorTag]
+				uninstallTagLabel, okUninstall := evt.MetaNew.GetLabels()[uninstallTag]
+				return (okOperator && operatorTagLabel == "true") || (okUninstall && uninstallTagLabel == "true")
+			},
+			CreateFunc: func(evt event.CreateEvent) bool {
+				operatorTagLabel, okOperator := evt.Meta.GetLabels()[operatorTag]
+				uninstallTagLabel, okUninstall := evt.Meta.GetLabels()[uninstallTag]
+				return (okOperator && operatorTagLabel == "true") || (okUninstall && uninstallTagLabel == "true")
+			},
+			DeleteFunc: func(evt event.DeleteEvent) bool {
+				operatorTagLabel, okOperator := evt.Meta.GetLabels()[operatorTag]
+				uninstallTagLabel, okUninstall := evt.Meta.GetLabels()[uninstallTag]
+				return (okOperator && operatorTagLabel == "true") || (okUninstall && uninstallTagLabel == "true")
+			},
 			GenericFunc: func(evt event.GenericEvent) bool {
-				labels := evt.Meta.GetLabels()
-
-				val, ok := labels[operatorTag]
-
-				if ok && val == "true" {
-					return true
-				}
-
-				return false
+				operatorTagLabel, okOperator := evt.Meta.GetLabels()[operatorTag]
+				uninstallTagLabel, okUninstall := evt.Meta.GetLabels()[uninstallTag]
+				return (okOperator && operatorTagLabel == "true") || (okUninstall && uninstallTagLabel == "true")
 			},
 		},
 	}
@@ -111,6 +122,11 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
+	}
+
+	// check for uninstall label and delete the resources
+	if instance.ObjectMeta.Labels[uninstallTag] == "true" {
+		return r.uninstall(instance)
 	}
 
 	groups := &olmv1.OperatorGroupList{}
@@ -201,4 +217,38 @@ func (r *ReconcileSubscription) createOperatorGroup(instance *olmv1alpha1.Subscr
 			},
 		},
 	}
+}
+
+func (r *ReconcileSubscription) uninstall(sub *olmv1alpha1.Subscription) (reconcile.Result, error) {
+	reqLogger := log.WithValues("Subscription.Namespace", sub.Namespace, "Subscription.Name", sub.Name, "Subscription.Spec.Package", sub.Spec.Package)
+	reqLogger.Info("started to uninstall operator")
+
+	csvName := sub.Status.InstalledCSV
+
+	// delete sub
+	err := r.client.Delete(context.TODO(), sub)
+	if err != nil && !errors.IsNotFound((err)) {
+		reqLogger.Error(err, "could not delete sub")
+	}
+
+	// delete CSV
+	if len(csvName) > 0 {
+		csvObj := &olmv1alpha1.ClusterServiceVersion{}
+		csvNamespacedName := types.NamespacedName{
+			Name:      csvName,
+			Namespace: sub.Namespace,
+		}
+		err = r.client.Get(context.TODO(), csvNamespacedName, csvObj)
+		if err != nil && !errors.IsNotFound((err)) {
+			reqLogger.Error(err, "could not delete csv", "csv name", csvName)
+		}
+		if err == nil {
+			err = r.client.Delete(context.TODO(), csvObj)
+			if err != nil && !errors.IsNotFound((err)) {
+				reqLogger.Error(err, "could not delete csv", "csv name", csvName)
+			}
+		}
+	}
+	reqLogger.Info("uninstalling operator complete")
+	return reconcile.Result{}, nil
 }
