@@ -2115,7 +2115,7 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 	err = r.client.Get(context.TODO(), client.ObjectKey{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, parentRRS3)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			reqLogger.Info("Legacy parent RRS3 not found")
+			reqLogger.V(0).Info("Legacy parentRRS3 not found", "resource: ", utils.PARENT_RRS3)
 		} else {
 			reqLogger.Info("Failed to get resource", "resource: ", utils.PARENT_RRS3)
 			return reconcile.Result{}, err
@@ -2124,16 +2124,17 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 	if err == nil {
 		reqLogger.V(0).Info("Legacy parentRRS3 found", "resource: ", utils.PARENT_RRS3)
 
-		newParentValues := r.makeLegacyParentRemoteResourceS3(req)
-		updatedParentRRS3 := parentRRS3.DeepCopy()
-		updatedParentRRS3.Object["spec"] = newParentValues.Object["spec"]
-		updatedParentRRS3.Object["apiVersion"] = newParentValues.Object["apiVersion"]
+		//legacy rrs3
+		// legacyRRS3 := r.makeLegacyParentRemoteResourceS3(req)
+		latestRRS3 := r.makeParentRemoteResourceS3(req)
+		// updatedParentRRS3.DeepCopy().Spec = legacyRRS3.Object["spec"]
+		// updatedParentRRS3.Object["apiVersion"] = legacyRRS3.Object["apiVersion"]
 
-		if !reflect.DeepEqual(updatedParentRRS3.Object["spec"], parentRRS3.Object["spec"]) || !reflect.DeepEqual(updatedParentRRS3.Object["apiVersion"], "remoteresources3.marketplace.redhat.com/v1alpha1"){
-			reqLogger.Info("Change detected on resource", "resource", updatedParentRRS3.GetName(), "update")
+		if !reflect.DeepEqual(parentRRS3.Object["spec"], latestRRS3.Spec) || !reflect.DeepEqual(parentRRS3.Object["apiVersion"], "remoteresources3.marketplace.redhat.com/v1alpha1"){
+			reqLogger.Info("Change detected on resource", "resource", parentRRS3.GetName(), "update")
 
 			reqLogger.Info("Updating resource", "resource: ", utils.PARENT_RRS3)
-			err = r.client.Update(context.TODO(), updatedParentRRS3)
+			err = r.client.Update(context.TODO(), latestRRS3)
 			if err != nil {
 				reqLogger.Info("Failed to update resource", "resource: ", utils.PARENT_RRS3)
 				return reconcile.Result{}, err
@@ -2142,7 +2143,7 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 			return reconcile.Result{Requeue: true}, nil
 		}
 
-		reqLogger.V(0).Info("No change detected on resource", "resource: ", updatedParentRRS3.GetName())
+		reqLogger.V(0).Info("No change detected on resource", "resource: ", parentRRS3.GetName())
 	}
 
 	req.Spec.LegacyUninstallHasRun = ptr.Bool(true)
