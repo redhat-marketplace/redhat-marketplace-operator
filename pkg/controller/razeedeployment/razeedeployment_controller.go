@@ -2012,7 +2012,7 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 	}
 
 	clusterroles := []string{
-		"razeedeploy-admin-cr",                                          
+		"razeedeploy-admin-cr",
 		"redhat-marketplace-razeedeploy",
 	}
 

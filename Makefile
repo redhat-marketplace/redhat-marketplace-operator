@@ -176,8 +176,7 @@ deploy-services: ##deploys the service acconts, roles, and role bindings
 	- kubectl create -f deploy/role.yaml --namespace=${NAMESPACE}
 	- kubectl create -f deploy/role_binding.yaml --namespace=${NAMESPACE}
 
-migrate: ##deploys the service acconts, roles, and role bindings
-	# - kubectl set image deployment/redhat-marketplace-operator redhat-marketplace-operator=${IMAGE_REGISTRY}:${VERSION}
+migrate: ##used to simulate migrating to the latest version of the operator
 	- kubectl delete -f deploy/operator.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/role_binding.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/role.yaml -n ${NAMESPACE}
