@@ -29,6 +29,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -2007,6 +2008,25 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 		err = r.client.Delete(context.TODO(), serviceAccount, client.PropagationPolicy(deletePolicy))
 		if err != nil && !errors.IsNotFound((err)) {
 			reqLogger.Error(err, "could not delete service account", "name", saName)
+		}
+	}
+
+	clusterroles := []string{
+		"razeedeploy-admin-cr",                                          
+		"redhat-marketplace-razeedeploy",
+	}
+
+	for _, clusterRoleNames := range clusterroles {
+		serviceAccount := &rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      clusterRoleNames,
+				Namespace: *req.Spec.TargetNamespace,
+			},
+		}
+		reqLogger.Info("deleting legacy cluster role", "name", clusterRoleNames)
+		err = r.client.Delete(context.TODO(), serviceAccount, client.PropagationPolicy(deletePolicy))
+		if err != nil && !errors.IsNotFound((err)) {
+			reqLogger.Error(err, "could not delete service account", "name", clusterRoleNames)
 		}
 	}
 
