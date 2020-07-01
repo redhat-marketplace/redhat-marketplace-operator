@@ -2026,7 +2026,7 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 		reqLogger.Info("deleting legacy cluster role", "name", clusterRoleNames)
 		err = r.client.Delete(context.TODO(), serviceAccount, client.PropagationPolicy(deletePolicy))
 		if err != nil && !errors.IsNotFound((err)) {
-			reqLogger.Error(err, "could not delete service account", "name", clusterRoleNames)
+			reqLogger.Error(err, "could not delete cluster role", "name", clusterRoleNames)
 		}
 	}
 

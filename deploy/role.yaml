@@ -6,6 +6,17 @@ metadata:
   name: redhat-marketplace-operator
 rules:
 - apiGroups:
+  - rbac.authorization.k8s.io
+  resourceNames:
+  - razeedeploy-admin-cr
+  - redhat-marketplace-razeedeploy
+  resources:
+  - clusterroles
+  verbs:
+  - get
+  - list
+  - delete
+- apiGroups:
   - ""
   resources:
   - pods

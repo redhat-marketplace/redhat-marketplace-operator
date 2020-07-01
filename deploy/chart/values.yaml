@@ -18,6 +18,17 @@ roles:
     type: ClusterRole
     rules:
       - apiGroups:
+        - rbac.authorization.k8s.io
+        resources:
+        - clusterroles
+        resourceNames:
+          - razeedeploy-admin-cr
+          - redhat-marketplace-razeedeploy
+        verbs:
+          - get
+          - list
+          - delete
+      - apiGroups:
           - ''
         resources:
           - pods
