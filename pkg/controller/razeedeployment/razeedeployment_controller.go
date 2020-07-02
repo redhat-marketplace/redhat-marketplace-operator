@@ -1028,18 +1028,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		updatedParentRRS3 := parentRRS3.DeepCopy()
 		updatedParentRRS3.Spec = newParentValues.Spec
 
-		updatedGroup := updatedParentRRS3.GroupVersionKind().Group;
-		updatedVersion := updatedParentRRS3.APIVersion;
-
-		currentGroup := parentRRS3.GroupVersionKind().Group;
-		currentVersion := parentRRS3.APIVersion;
-
-		fmt.Println("UPDATED GROUP", updatedGroup)
-		fmt.Println("CURRENT VERSION", currentVersion)
-		fmt.Println("UPDATED VERSION",updatedVersion)
-		fmt.Println("CURRENT VERSION",currentVersion)
-		if !reflect.DeepEqual(updatedParentRRS3.Spec, parentRRS3.Spec) || updatedGroup != currentGroup || updatedVersion != currentVersion {
-			fmt.Println("PATCH NEEDED")
+		if !reflect.DeepEqual(updatedParentRRS3.Spec, parentRRS3.Spec) {
 			reqLogger.Info("Change detected on resource", updatedParentRRS3.GetName(), "update")
 
 			reqLogger.Info("Updating resource", "resource: ", utils.PARENT_RRS3_RESOURCE_NAME)
