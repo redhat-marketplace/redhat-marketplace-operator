@@ -2067,8 +2067,8 @@ func (r *ReconcileRazeeDeployment) uninstallLegacyResources(
 	}
 
 	for _, clusterRoleNames := range clusterroles {
-		clusterRole := &rbacv1.ClusterRole{
-			ObjectMeta: metav1.ObjectMeta{
+		clusterRole := &rbacv1.ClusterRole {
+			ObjectMeta: metav1.ObjectMeta { 
 				Name:      clusterRoleNames,
 				Namespace: *req.Spec.TargetNamespace,
 			},
