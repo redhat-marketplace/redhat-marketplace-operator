@@ -42,5 +42,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: RELATED_IMAGE_RAZEE_JOB
-              value: quay.io/razee/razeedeploy-delta:1.1.3
+            - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
+              value: quay.io/razee/remoteresources3:0.6.2
+            - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
+              value: quay.io/razee/watch-keeper:0.5.8

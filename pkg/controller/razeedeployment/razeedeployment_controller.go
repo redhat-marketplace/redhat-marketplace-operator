@@ -54,12 +54,14 @@ var (
 	razeeWatchTagValue      = "lite"
 	log                     = logf.Log.WithName("controller_razeedeployment")
 	razeeFlagSet            *pflag.FlagSet
-	RELATED_IMAGE_RAZEE_JOB = "RELATED_IMAGE_RAZEE_JOB"
+	RELATED_IMAGE_RHM_RRS3_DEPLOYMENT = "RELATED_IMAGE_RHM_RRS3_DEPLOYMENT"
+	RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT = "RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT"
 )
 
 func init() {
 	razeeFlagSet = pflag.NewFlagSet("razee", pflag.ExitOnError)
-	razeeFlagSet.String("razee-job-image", utils.Getenv(RELATED_IMAGE_RAZEE_JOB, utils.DEFAULT_RAZEE_JOB_IMAGE), "image for the razee job")
+	razeeFlagSet.String("rhm-rrs3-deployment", utils.Getenv(RELATED_IMAGE_RHM_RRS3_DEPLOYMENT, utils.DEFAULT_RHM_RRS3_DEPLOYMENT), "image for rhm-rrs3-deployment")
+	razeeFlagSet.String("rhm-watch-keeper-deployment", utils.Getenv(RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT, utils.DEFAULT_RHM_WATCH_KEEPER_DEPLOYMENT), "image for rhm-watch-keeper-deployment")
 }
 
 func FlagSet() *pflag.FlagSet {
