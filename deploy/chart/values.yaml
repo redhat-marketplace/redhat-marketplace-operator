@@ -279,18 +279,6 @@ roles:
     serviceAccountName: redhat-marketplace-operator
     type: Role
     rules:
-      # - apiGroups:
-        # - marketplace.redhat.com
-        # resources: 
-        # - remoteresources3s
-        # verbs:
-        #   - create
-        #   - delete
-        #   - get
-        #   - list
-        #   - patch
-        #   - update
-        #   - watch
       - apiGroups:
           - deploy.razee.io
         resources:

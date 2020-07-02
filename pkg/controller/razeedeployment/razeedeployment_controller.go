@@ -1269,7 +1269,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperConfig(instance *marketplacev1
 	}
 }
 
-// Uses the SecretKeySelector struct to to retrieve byte data from a specified key
+// GetDataFromRhmSecret Uses the SecretKeySelector struct to to retrieve byte data from a specified key
 func (r *ReconcileRazeeDeployment) GetDataFromRhmSecret(request reconcile.Request, sel corev1.SecretKeySelector) ([]byte, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "request.Name", request.Name)
 	reqLogger.Info("Beginning of rhm-operator-secret reconcile")
@@ -1387,7 +1387,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 				Spec: corev1.PodSpec{
 					ServiceAccountName: "redhat-marketplace-watch-keeper",
 					Containers: []corev1.Container{
-						corev1.Container{
+						{
 							Image: r.opts.RhmWatchKeeperImage,
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
@@ -1400,7 +1400,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 								},
 							},
 							Env: []corev1.EnvVar{
-								corev1.EnvVar{
+								{
 									Name: "START_DELAY_MAX",
 									ValueFrom: &corev1.EnvVarSource{
 										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
@@ -1412,7 +1412,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 										},
 									},
 								},
-								corev1.EnvVar{
+								{
 									Name: "NAMESPACE",
 									ValueFrom: &corev1.EnvVarSource{
 										FieldRef: &corev1.ObjectFieldSelector{
@@ -1420,7 +1420,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 										},
 									},
 								},
-								corev1.EnvVar{
+								{
 									Name: "CONFIG_NAMESPACE",
 									ValueFrom: &corev1.EnvVarSource{
 										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
@@ -1432,7 +1432,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 										},
 									},
 								},
-								corev1.EnvVar{
+								{
 									Name: "CLUSTER_ID_OVERRIDE",
 									ValueFrom: &corev1.EnvVarSource{
 										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
@@ -1444,7 +1444,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 										},
 									},
 								},
-								corev1.EnvVar{
+								{
 									Name: "DEFAULT_CLUSTER_NAME",
 									ValueFrom: &corev1.EnvVarSource{
 										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
@@ -1456,7 +1456,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 										},
 									},
 								},
-								corev1.EnvVar{
+								{
 									Name: "KUBECONFIG",
 									ValueFrom: &corev1.EnvVarSource{
 										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
@@ -1468,7 +1468,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 										},
 									},
 								},
-								corev1.EnvVar{
+								{
 									Name: "RAZEEDASH_URL",
 									ValueFrom: &corev1.EnvVarSource{
 										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
@@ -1480,7 +1480,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 										},
 									},
 								},
-								corev1.EnvVar{
+								{
 									Name: "RAZEEDASH_ORG_KEY",
 									ValueFrom: &corev1.EnvVarSource{
 										SecretKeyRef: &corev1.SecretKeySelector{
@@ -1492,7 +1492,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 										},
 									},
 								},
-								corev1.EnvVar{
+								{
 									Name:  "NODE_ENV",
 									Value: "production",
 								},
@@ -1551,7 +1551,7 @@ func (r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *mark
 				Spec: corev1.PodSpec{
 					ServiceAccountName: "redhat-marketplace-remoteresources3deployment",
 					Containers: []corev1.Container{
-						corev1.Container{
+						{
 							Image: r.opts.RhmRRS3DeploymentImage,
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
@@ -1564,7 +1564,7 @@ func (r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *mark
 								},
 							},
 							Env: []corev1.EnvVar{
-								corev1.EnvVar{
+								{
 									Name: "CRD_WATCH_TIMEOUT_SECONDS",
 									ValueFrom: &corev1.EnvVarSource{
 										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
@@ -1576,11 +1576,11 @@ func (r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *mark
 										},
 									},
 								},
-								corev1.EnvVar{
+								{
 									Name:  "GROUP",
 									Value: "marketplace.redhat.com",
 								},
-								corev1.EnvVar{
+								{
 									Name:  "VERSION",
 									Value: "v1alpha1",
 								},
@@ -1599,11 +1599,11 @@ func (r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *mark
 								FailureThreshold:    1,
 							},
 							VolumeMounts: []corev1.VolumeMount{
-								corev1.VolumeMount{
+								{
 									MountPath: "/usr/src/app/download-cache",
 									Name:      "cache-volume",
 								},
-								corev1.VolumeMount{
+								{
 									MountPath: "/usr/src/app/config",
 									Name:      "razeedeploy-config",
 								},
@@ -1611,16 +1611,15 @@ func (r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *mark
 						},
 					},
 					Volumes: []corev1.Volume{
-						corev1.Volume{
+						{
 							Name: "cache-volume",
 							VolumeSource: corev1.VolumeSource{
 								EmptyDir: &corev1.EmptyDirVolumeSource{
-									//TODO: is this right ?
 									Medium: corev1.StorageMediumDefault,
 								},
 							},
 						},
-						corev1.Volume{
+						{
 							Name: "razeedeploy-config",
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
