@@ -1,6 +1,7 @@
 # Getting Started
 
 Getting Started is designed to give you base level information about the project, and quickly get you up and running.
+For an overview of the different components and their purpose, checkout [High Level Overview](high-level-overiview.md).
 
 ---
 ## Table of Contents
