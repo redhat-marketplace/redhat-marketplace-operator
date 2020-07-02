@@ -9,8 +9,10 @@ pullPolicy: Always
 watchNamespace: '' # watch all namespaces
 serviceAccountName: redhat-marketplace-operator
 env:
-  - name: RELATED_IMAGE_RAZEE_JOB
-    value: quay.io/razee/razeedeploy-delta:1.1.3
+  - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
+    value: quay.io/razee/remoteresources3:0.6.2
+  - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
+    value: quay.io/razee/watch-keeper:0.5.8
 roles:
   - name: redhat-marketplace-operator
     serviceAccountName: redhat-marketplace-operator
@@ -240,18 +242,10 @@ roles:
       - apiGroups:
         - operator.coreos.com
         - marketplace.redhat.com
-        #TODO: is this the extensive list
         resources:
-        - subscriptions
-        - installplans
-        - remoteresources3s
+        - "*"
         verbs:
-        - create
-        - delete
-        - get
-        - list
-        - watch
-        - patch
+        - "*"
       - nonResourceURLs:
           - '*'
         verbs:
@@ -285,18 +279,18 @@ roles:
     serviceAccountName: redhat-marketplace-operator
     type: Role
     rules:
-      - apiGroups:
-        - marketplace.redhat.com
-        resources: 
-        - remoteresources3s
-        verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
+      # - apiGroups:
+        # - marketplace.redhat.com
+        # resources: 
+        # - remoteresources3s
+        # verbs:
+        #   - create
+        #   - delete
+        #   - get
+        #   - list
+        #   - patch
+        #   - update
+        #   - watch
       - apiGroups:
           - deploy.razee.io
         resources:

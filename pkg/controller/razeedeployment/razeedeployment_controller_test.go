@@ -71,7 +71,7 @@ func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Uns
 
 func setup(r *ReconcilerTest) error {
 	r.SetClient(fake.NewFakeClient(r.GetGetObjects()...))
-	r.SetReconciler(&ReconcileRazeeDeployment{client: r.GetClient(), scheme: scheme.Scheme, opts: &RazeeOpts{RazeeJobImage: "test"}})
+	r.SetReconciler(&ReconcileRazeeDeployment{client: r.GetClient(), scheme: scheme.Scheme, opts: &RazeeOpts{RhmRRS3DeploymentImage: "rhm-rrs3-deployment-image", RhmWatchKeeperImage: "rhm-watch-keeper-image"}})
 	return nil
 }
 

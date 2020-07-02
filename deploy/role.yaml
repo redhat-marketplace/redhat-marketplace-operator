@@ -238,16 +238,9 @@ rules:
   - operator.coreos.com
   - marketplace.redhat.com
   resources:
-  - subscriptions
-  - installplans
-  - remoteresources3s
+  - '*'
   verbs:
-  - create
-  - delete
-  - get
-  - list
-  - watch
-  - patch
+  - '*'
 - nonResourceURLs:
   - '*'
   verbs:
@@ -295,18 +288,6 @@ metadata:
   name: redhat-marketplace-operator
   namespace: openshift-redhat-marketplace
 rules:
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - remoteresources3s
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
 - apiGroups:
   - deploy.razee.io
   resources:
