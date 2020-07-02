@@ -1486,44 +1486,6 @@ func (r *ReconcileRazeeDeployment) makeParentRemoteResourceS3(instance *marketpl
 	}
 }
 
-// Creates the legacy "parent" RemoteResourceS3 and applies the name of the cos-reader-key and ChildUrl constructed during reconciliation of the rhm-operator-secret
-func (r *ReconcileRazeeDeployment) makeLegacyParentRemoteResourceS3(instance *marketplacev1alpha1.RazeeDeployment) *unstructured.Unstructured {
-	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "deploy.razee.io/v1alpha2",
-			"kind":       "RemoteResourceS3",
-			"metadata": map[string]interface{}{
-				"name":      utils.PARENT_RRS3_RESOURCE_NAME,
-				"namespace": *instance.Spec.TargetNamespace,
-			},
-			"spec": map[string]interface{}{
-				"auth": map[string]interface{}{
-					"iam": map[string]interface{}{
-						"responseType": "cloud_iam",
-						"url":          `https://iam.cloud.ibm.com/identity/token`,
-						"grantType":    "urn:ibm:params:oauth:grant-type:apikey",
-						"apiKeyRef": map[string]interface{}{
-							"valueFrom": map[string]interface{}{
-								"secretKeyRef": map[string]interface{}{
-									"name": utils.COS_READER_KEY_NAME,
-									"key":  "accesskey",
-								},
-							},
-						},
-					},
-				},
-				"requests": []interface{}{
-					map[string]interface{}{
-						"options": map[string]interface{}{
-							"url": *instance.Spec.ChildUrl,
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDeployment) *appsv1.Deployment {
 	rep := ptr.Int32(1)
 	return &appsv1.Deployment{
