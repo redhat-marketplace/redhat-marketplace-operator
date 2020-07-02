@@ -153,7 +153,7 @@ setup-operator-sdk-run: ## Create ns, crds, sa, role, and rolebinding before ope
 	- . ./scripts/operator_sdk_sa_kubeconfig.sh $(CLUSTER_SERVER) $(NAMESPACE) $(SERVICE_ACCOUNT)
 
 operator-sdk-run: ## Run operator locally outside the cluster during development cycle
-	operator-sdk run --local --watch-namespace=$(OPERATOR_WATCH_NAMESPACE) --kubeconfig=./sa.kubeconfig
+	operator-sdk run local --watch-namespace="" --kubeconfig=./sa.kubeconfig
 
 ##@ Manual Testing
 
@@ -222,6 +222,9 @@ test-cover: ## Run coverage on code
 	@echo Running coverage
 	go test -coverprofile cover.out ./...
 	go tool cover -func=cover.out
+
+test-cover-html: test-cover ## Run coverage and display as html
+	go tool cover -html=cover.out
 
 .PHONY: test-integration
 test-integration:

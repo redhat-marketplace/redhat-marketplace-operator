@@ -18,6 +18,7 @@ import (
 	"context"
 	"reflect"
 
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
@@ -26,6 +27,7 @@ import (
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,6 +46,7 @@ const (
 	DEFAULT_IMAGE_MARKETPLACE_AGENT = "marketplace-agent:latest"
 	RAZEE_FLAG                      = "razee"
 	METERBASE_FLAG                  = "meterbase"
+	IBM_CATALOG_SOURCE_FLAG         = true
 )
 
 var (
@@ -60,6 +63,11 @@ func init() {
 		"features",
 		defaultFeatures,
 		"List of additional features to install. Ex. [razee, meterbase], etc.",
+	)
+	marketplaceConfigFlagSet.Bool(
+		"IBMCatalogSource",
+		IBM_CATALOG_SOURCE_FLAG,
+		"Whether to install the IBM Catalog Source",
 	)
 }
 
@@ -314,7 +322,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonMeterBaseInstalled,
+			Reason:  marketplacev1alpha1.ReasonOperatorSourceInstall,
 			Message: "RHM Operator source installed.",
 		})
 
@@ -334,6 +342,107 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	}
 
 	reqLogger.Info("Found opsource")
+
+	// Begin installation or deletion of IBM Catalog Source
+	// Get installation setting for IBM Catalog Source (checks MarketplaceConfig.Spec if it doesn't exist, use flag)
+	installCatalogSrcP := marketplaceConfig.Spec.InstallIBMCatalogSource
+	var installCatalogSrc bool
+
+	if installCatalogSrcP == nil {
+		reqLogger.Info("MarketplaceConfig.Spec.InstallIBMCatalogSource not found. Using flag.")
+		installCatalogSrc = viper.GetBool("IBMCatalogSource")
+	} else {
+		reqLogger.Info("MarketplaceConfig.Spec.InstallIBMCatalogSource found")
+		installCatalogSrc = *installCatalogSrcP
+	}
+
+	// Check if the IBM Catalog Source exists.
+	catalogSrc := &operatorsv1alpha1.CatalogSource{}
+	catalogSrcNamespacedName := types.NamespacedName{
+		Name:      utils.IBM_CATALOGSRC_NAME,
+		Namespace: utils.OPERATOR_MKTPLACE_NS}
+	err = r.client.Get(context.TODO(), catalogSrcNamespacedName, catalogSrc)
+
+	// If installCatalogSrc is true: install IBM Catalog Source
+	// if installCatalogSrc is false: do not install IBM Catalog Source, and delete existing one (if it exists)
+	reqLogger.Info("Checking Install Catalog Src", "InstallCatalogSource: ", installCatalogSrc)
+	if installCatalogSrc {
+		// If the IBM Catalog Source does not exist, create one
+		if err != nil && errors.IsNotFound(err) {
+			// Create IBM catalog source
+			newCatalogSrc := utils.BuildNewCatalogSrc()
+			reqLogger.Info("Creating IBM catalog source")
+			err = r.client.Create(context.TODO(), newCatalogSrc)
+			if err != nil {
+				reqLogger.Info("Failed to create a CatalogSource.", "CatalogSource.Namespace ", newCatalogSrc.Namespace, "CatalogSource.Name", newCatalogSrc.Name)
+				return reconcile.Result{}, err
+			}
+
+			patch := client.MergeFrom(marketplaceConfig.DeepCopy())
+
+			marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionInstalling,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonCatalogSourceInstall,
+				Message: "IBM catalog source installed.",
+			})
+
+			err = r.client.Status().Patch(context.TODO(), marketplaceConfig, patch)
+
+			if err != nil {
+				reqLogger.Error(err, "failed to update status")
+				return reconcile.Result{}, err
+			}
+
+			// IBM catalog source created successfully - return and requeue
+			return reconcile.Result{Requeue: true}, nil
+		} else if err != nil {
+			// Could not get IBM catalog source
+			reqLogger.Error(err, "Failed to get CatalogSource", "CatalogSource.Namespace ", catalogSrcNamespacedName.Namespace, "CatalogSource.Name", catalogSrcNamespacedName.Name)
+			return reconcile.Result{}, err
+		}
+
+		reqLogger.Info("Found CatalogSource", "CatalogSource.Namespace ", catalogSrcNamespacedName.Namespace, "CatalogSource.Name", catalogSrcNamespacedName.Name)
+
+	} else {
+		// If IBM catalog source exists, delete it.
+		if err == nil {
+			// Delete IBM catalog source.
+			reqLogger.Info("Deleting IBM catalog source")
+			catalogSrc.Name = catalogSrcNamespacedName.Name
+			catalogSrc.Namespace = catalogSrcNamespacedName.Namespace
+			err = r.client.Delete(context.TODO(), catalogSrc, client.PropagationPolicy(metav1.DeletePropagationBackground))
+			if err != nil {
+				reqLogger.Info("Failed to delete the existing CatalogSource.", "CatalogSource.Namespace ", catalogSrc.Namespace, "CatalogSource.Name", catalogSrc.Name)
+				return reconcile.Result{}, err
+			}
+
+			patch := client.MergeFrom(marketplaceConfig.DeepCopy())
+
+			marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionInstalling,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonCatalogSourceDelete,
+				Message: "IBM catalog source deleted.",
+			})
+
+			err = r.client.Status().Patch(context.TODO(), marketplaceConfig, patch)
+			if err != nil {
+				reqLogger.Error(err, "failed to update status")
+				return reconcile.Result{}, err
+			}
+
+			// IBM catalog source deleted successfully - return and requeue
+			return reconcile.Result{Requeue: true}, nil
+		} else if err != nil && !errors.IsNotFound(err) {
+			// Could not get IBM catalog source
+			reqLogger.Error(err, "Failed to get CatalogSource", "CatalogSource.Namespace ", catalogSrcNamespacedName.Namespace, "CatalogSource.Name", catalogSrcNamespacedName.Name)
+			return reconcile.Result{}, err
+		}
+
+		reqLogger.Info("IBM Catalog Source does not exist.")
+
+	}
 
 	patch := client.MergeFrom(marketplaceConfig.DeepCopy())
 
