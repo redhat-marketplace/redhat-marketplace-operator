@@ -12,5 +12,7 @@ The Red Hat Marketplace operator is the Openshift client side tool for the Red H
 ## Documentation
 
 [Table of Contents](docs/table-of-contents.md)
+
 [Getting Started](docs/getting-started.md)
+
 [High Level Overview](docs/high-level-overview.md)

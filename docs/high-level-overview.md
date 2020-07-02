@@ -3,7 +3,7 @@
 This document is designed to provide a high level understanding for different components of the operator. Content covers: what specific controllers do, why specific controllers are important, basic architecture of the project (how different components interact with each other) and .
 
 ## Table of Contents
-- [CRDs & Their Controllers](#crds-&-their-controllers)
+- [CRDs & Their Controllers](#crds--their-controllers)
   - [MarketplaceConfig](#marketplaceconfig)
   - [MeterBase](#meterbase)
   - [MeterDefinition](#meterdefinition)
