@@ -51,7 +51,6 @@ const (
 	/* Razee Controller Values */
 	PARENT_RRS3                = "parentRRS3"
 	RAZEE_DEPLOYMENT_FINALIZER = "razeedeploy.finalizer.marketplace.redhat.com"
-	// DEFAULT_RAZEE_JOB_IMAGE    = "quay.io/razee/razeedeploy-delta:1.1.0"
 	DEFAULT_RHM_RRS3_DEPLOYMENT = "quay.io/razee/remoteresources3:0.6.2"
 	DEFAULT_RHM_WATCH_KEEPER_DEPLOYMENT = "quay.io/razee/watch-keeper:0.5.8"
 	WATCH_KEEPER_VERSION       = "0.5.0"
