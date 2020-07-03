@@ -63,16 +63,16 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	labelPreds := []predicate.Predicate{
 		predicate.Funcs{
 			UpdateFunc: func(evt event.UpdateEvent) bool {
-				return false
+				_, okAllNamespace := evt.MetaNew.GetLabels()[allnamespaceTag]
+				watchLabel, watchOk := evt.MetaNew.GetLabels()[watchTag]
+				return !okAllNamespace && !(watchOk && watchLabel == "lite")
 			},
 			DeleteFunc: func(evt event.DeleteEvent) bool {
 				return false
 			},
 			CreateFunc: func(evt event.CreateEvent) bool {
-				if _, ok := evt.Meta.GetLabels()[allnamespaceTag]; ok {
-					return false
-				}
-				return true
+				_, okAllNamespace := evt.Meta.GetLabels()[allnamespaceTag]
+				return !okAllNamespace
 			},
 			GenericFunc: func(evt event.GenericEvent) bool {
 				return false
@@ -129,7 +129,7 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 	reqLogger.Info("found Subscription in namespaces", "count", len(sub.Items))
 
 	if len(sub.Items) > 0 {
-		// add razee watch label to CSV if subscription has
+		// add razee watch label to CSV if subscription has rhm/operator label
 		for _, s := range sub.Items {
 			if value, ok := s.GetLabels()[operatorTag]; ok {
 				if value == "true" {
