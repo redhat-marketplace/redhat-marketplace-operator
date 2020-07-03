@@ -1647,57 +1647,22 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 
 	deletePolicy := metav1.DeletePropagationForeground
 
-	foundJob := batch.Job{}
-	jobName := types.NamespacedName{
-		Name:      utils.RAZEE_DEPLOY_JOB_NAME,
-		Namespace: req.Namespace,
+	reqLogger.Info("Deleting parentRRS3")
+
+	parentRRS3 := marketplacev1alpha1.RemoteResourceS3{}
+	err := r.client.Get(context.TODO(),types.NamespacedName{Name:utils.PARENT_RRS3_RESOURCE_NAME,Namespace: *req.Spec.TargetNamespace} , &parentRRS3)
+	if err != nil && !errors.IsNotFound((err)) {
+		reqLogger.Error(err, "could not get custom resources", "Kind", "RemoteResourceS3")
 	}
-	reqLogger.Info("finding install job", "name", jobName)
-	err := r.client.Get(context.TODO(), jobName, &foundJob)
-	if err == nil || errors.IsNotFound(err) {
-		reqLogger.Info("cleaning up install job")
-		err = r.client.Delete(context.TODO(), &foundJob, client.PropagationPolicy(deletePolicy))
+
+	if err == nil {
+		reqLogger.Info("Deleteing parentRRS3", "Resource", utils.PARENT_RRS3_RESOURCE_NAME)
+		err := r.client.Delete(context.TODO(), &parentRRS3, client.PropagationPolicy(deletePolicy))
 		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "cleaning up install job failed")
+			reqLogger.Error(err, "could not delete parentRRS3", "Resource", utils.PARENT_RRS3_RESOURCE_NAME)
 		}
 	}
-
-	customResourceKinds := []string{
-		"RemoteResource",
-		"RemoteResourceS3",
-		"FeatureFlagSetLD",
-		"ManagedSet",
-		"MustacheTemplate",
-		"RemoteResourceS3Decrypt",
-	}
-
-	reqLogger.Info("Deleting custom resources")
-	for _, customResourceKind := range customResourceKinds {
-		customResourceList := &unstructured.UnstructuredList{}
-		customResourceList.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   "deploy.razee.io",
-			Kind:    customResourceKind,
-			Version: "v1alpha2",
-		})
-
-		// get custom resources for each crd
-		reqLogger.Info("Listing custom resources", "Kind", customResourceKind)
-		err = r.client.List(context.TODO(), customResourceList, client.InNamespace(*req.Spec.TargetNamespace))
-		if err != nil && !errors.IsNotFound((err)) {
-			reqLogger.Error(err, "could not list custom resources", "Kind", customResourceKind)
-		}
-
-		if err == nil {
-			for _, cr := range customResourceList.Items {
-				reqLogger.Info("Deleteing custom resource", "custom resource", cr)
-				err := r.client.Delete(context.TODO(), &cr)
-				if err != nil && !errors.IsNotFound(err) {
-					reqLogger.Error(err, "could not delete custom resource", "custom resource", cr)
-				}
-			}
-		}
-	}
-
+	
 	// sleep 5 seconds to let custom resource deletion complete
 	time.Sleep(time.Second * 5)
 
@@ -1722,24 +1687,6 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 		}
 	}
 
-	serviceAccounts := []string{
-		"razeedeploy-sa",
-		"watch-keeper-sa",
-	}
-	for _, saName := range serviceAccounts {
-		serviceAccount := &corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      saName,
-				Namespace: *req.Spec.TargetNamespace,
-			},
-		}
-		reqLogger.Info("deleting service account", "name", saName)
-		err = r.client.Delete(context.TODO(), serviceAccount, client.PropagationPolicy(deletePolicy))
-		if err != nil && !errors.IsNotFound((err)) {
-			reqLogger.Error(err, "could not delete service account", "name", saName)
-		}
-	}
-
 	secrets := []string{
 		utils.COS_READER_KEY_NAME,
 		utils.WATCH_KEEPER_SECRET_NAME,
@@ -1760,16 +1707,8 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 	}
 
 	deploymentNames := []string{
-		"watch-keeper",
-		"clustersubscription",
-		"featureflagsetld-controller",
-		"managedset-controller",
-		"mustachetemplate-controller",
-		"remoteresource-controller",
-		"remoteresources3-controller",
-		"remoteresources3decrypt-controller",
 		utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-		utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+		utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
 	}
 
 	for _, deploymentName := range deploymentNames {

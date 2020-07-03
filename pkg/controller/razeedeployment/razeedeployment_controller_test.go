@@ -225,7 +225,6 @@ func testFullUninstall(t *testing.T) {
 
 	reconcilerTest := NewReconcilerTest(setup,
 		&razeeDeploymentDeletion,
-		&razeeJob,
 		&razeeSecret,
 		&configMap,
 		&serviceAccount,
@@ -269,17 +268,6 @@ func testFullUninstall(t *testing.T) {
 				list, ok := i.(*corev1.SecretList)
 
 				assert.Truef(t, ok, "expected secret list got type %T", i)
-				assert.Equal(t, 0, len(list.Items))
-			})),
-		ListStep(opts,
-			ListWithObj(&batch.JobList{}),
-			ListWithFilter(
-				client.InNamespace(namespace),
-			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
-				list, ok := i.(*batch.JobList)
-
-				assert.Truef(t, ok, "expected job list got type %T", i)
 				assert.Equal(t, 0, len(list.Items))
 			})),
 		ListStep(opts,
