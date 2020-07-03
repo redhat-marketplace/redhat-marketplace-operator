@@ -223,32 +223,6 @@ var (
 			Name:      utils.PARENT_RRS3_RESOURCE_NAME,
 			Namespace: namespace,
 		},
-		Spec: marketplacev1alpha1.RemoteResourceS3Spec{
-			Auth: marketplacev1alpha1.Auth{
-				Iam: &marketplacev1alpha1.Iam{
-					ResponseType: "cloud_iam",
-					GrantType:    "urn:ibm:params:oauth:grant-type:apikey",
-					URL:          "https://iam.cloud.ibm.com/identity/token",
-					APIKeyRef: marketplacev1alpha1.APIKeyRef{
-						ValueFrom: marketplacev1alpha1.ValueFrom{
-							SecretKeyRef: corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: utils.COS_READER_KEY_NAME,
-								},
-								Key: "accesskey",
-							},
-						},
-					},
-				},
-			},
-			Requests: []marketplacev1alpha1.Request{
-				{
-					Options: marketplacev1alpha1.Options{
-						URL: "test-child-url",
-					},
-				},
-			},
-		},
 	}
 )
 

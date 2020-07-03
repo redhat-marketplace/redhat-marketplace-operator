@@ -4,7 +4,7 @@ metadata:
   name: marketplaceconfig
 spec:
   # Add fields here 
-  rhmAccountID: ax-rhm-operator-test-9-dev
+  rhmAccountID: max-rhm-operator-test-9-dev
   clusterUUID: max-rhm-operator-test-9
   deploySecretName: rhm-operator-secret
  

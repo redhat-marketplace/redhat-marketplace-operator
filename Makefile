@@ -177,7 +177,7 @@ deploy-services: ##deploys the service acconts, roles, and role bindings
 	- kubectl create -f deploy/role_binding.yaml --namespace=${NAMESPACE}
 
 migrate: ##used to simulate migrating to the latest version of the operator
-	- kubectl delete -f deploy/operator.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/operator.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/role_binding.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/role.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/service_account.yaml -n ${NAMESPACE}
