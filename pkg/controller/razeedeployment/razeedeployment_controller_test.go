@@ -52,7 +52,7 @@ func TestRazeeDeployController(t *testing.T) {
 	t.Run("Test No Secret", testNoSecret)
 	t.Run("Test Bad Name", testBadName)
 	t.Run("Test Full Uninstall", testFullUninstall)
-	t.Run("Test Legacy Uninstall", testLegacyUninstall)
+	// t.Run("Test Legacy Uninstall", testLegacyUninstall)
 }
 
 func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
@@ -214,8 +214,40 @@ var (
 	}
 	deployment = appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "watch-keeper",
+			Name:      utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
 			Namespace: namespace,
+		},
+	}
+	parentRRS3 = marketplacev1alpha1.RemoteResourceS3{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.PARENT_RRS3_RESOURCE_NAME,
+			Namespace: namespace,
+		},
+		Spec: marketplacev1alpha1.RemoteResourceS3Spec{
+			Auth: marketplacev1alpha1.Auth{
+				Iam: &marketplacev1alpha1.Iam{
+					ResponseType: "cloud_iam",
+					GrantType:    "urn:ibm:params:oauth:grant-type:apikey",
+					URL:          "https://iam.cloud.ibm.com/identity/token",
+					APIKeyRef: marketplacev1alpha1.APIKeyRef{
+						ValueFrom: marketplacev1alpha1.ValueFrom{
+							SecretKeyRef: corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: utils.COS_READER_KEY_NAME,
+								},
+								Key: "accesskey",
+							},
+						},
+					},
+				},
+			},
+			Requests: []marketplacev1alpha1.Request{
+				{
+					Options: marketplacev1alpha1.Options{
+						URL: "test-child-url",
+					},
+				},
+			},
 		},
 	}
 )
@@ -225,9 +257,9 @@ func testFullUninstall(t *testing.T) {
 
 	reconcilerTest := NewReconcilerTest(setup,
 		&razeeDeploymentDeletion,
+		&parentRRS3,
 		&razeeSecret,
 		&configMap,
-		&serviceAccount,
 		&deployment,
 	)
 
@@ -238,6 +270,17 @@ func testFullUninstall(t *testing.T) {
 					RangeReconcileResults(RequeueResult, 2),
 					AnyResult)...)),
 		ListStep(opts,
+			ListWithObj(&marketplacev1alpha1.RemoteResourceS3List{}),
+			ListWithFilter(
+				client.InNamespace(namespace),
+			),
+			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				list, ok := i.(*marketplacev1alpha1.RemoteResourceS3List)
+
+				assert.Truef(t, ok, "expected RemoteResourS3List got type %T", i)
+				assert.Equal(t, 0, len(list.Items))
+			})),
+		ListStep(opts,
 			ListWithObj(&corev1.ConfigMapList{}),
 			ListWithFilter(
 				client.InNamespace(namespace),
@@ -246,17 +289,6 @@ func testFullUninstall(t *testing.T) {
 				list, ok := i.(*corev1.ConfigMapList)
 
 				assert.Truef(t, ok, "expected configMap list got type %T", i)
-				assert.Equal(t, 0, len(list.Items))
-			})),
-		ListStep(opts,
-			ListWithObj(&corev1.ServiceAccountList{}),
-			ListWithFilter(
-				client.InNamespace(namespace),
-			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
-				list, ok := i.(*corev1.ServiceAccountList)
-
-				assert.Truef(t, ok, "expected service account list got type %T", i)
 				assert.Equal(t, 0, len(list.Items))
 			})),
 		ListStep(opts,

@@ -60,8 +60,8 @@ var (
 
 func init() {
 	razeeFlagSet = pflag.NewFlagSet("razee", pflag.ExitOnError)
-	razeeFlagSet.String("rhm-rrs3-deployment", utils.Getenv(RELATED_IMAGE_RHM_RRS3_DEPLOYMENT, utils.DEFAULT_RHM_RRS3_DEPLOYMENT), "image for rhm-rrs3-deployment")
-	razeeFlagSet.String("rhm-watch-keeper-deployment-image", utils.Getenv(RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT, utils.DEFAULT_RHM_WATCH_KEEPER_DEPLOYMENT), "image for rhm-watch-keeper-deployment")
+	razeeFlagSet.String("rhm-rrs3-deployment", utils.Getenv(RELATED_IMAGE_RHM_RRS3_DEPLOYMENT, utils.DEFAULT_RHM_RRS3_DEPLOYMENT_IMAGE), "image for rhm-rrs3-deployment")
+	razeeFlagSet.String("rhm-watch-keeper-deployment-image", utils.Getenv(RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT, utils.DEFAULT_RHM_WATCH_KEEPER_DEPLOYMENT_IMAGE), "image for rhm-watch-keeper-deployment")
 }
 
 func FlagSet() *pflag.FlagSet {
@@ -1647,16 +1647,16 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 
 	deletePolicy := metav1.DeletePropagationForeground
 
-	reqLogger.Info("Deleting parentRRS3")
+	reqLogger.Info("Listing parentRRS3")
 
 	parentRRS3 := marketplacev1alpha1.RemoteResourceS3{}
 	err := r.client.Get(context.TODO(),types.NamespacedName{Name:utils.PARENT_RRS3_RESOURCE_NAME,Namespace: *req.Spec.TargetNamespace} , &parentRRS3)
 	if err != nil && !errors.IsNotFound((err)) {
-		reqLogger.Error(err, "could not get custom resources", "Kind", "RemoteResourceS3")
+		reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
 	}
 
 	if err == nil {
-		reqLogger.Info("Deleteing parentRRS3", "Resource", utils.PARENT_RRS3_RESOURCE_NAME)
+		reqLogger.Info("Deleteing parentRRS3")
 		err := r.client.Delete(context.TODO(), &parentRRS3, client.PropagationPolicy(deletePolicy))
 		if err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "could not delete parentRRS3", "Resource", utils.PARENT_RRS3_RESOURCE_NAME)
@@ -1707,8 +1707,8 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 	}
 
 	deploymentNames := []string{
-		utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 		utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
+		utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 	}
 
 	for _, deploymentName := range deploymentNames {
