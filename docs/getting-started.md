@@ -1,7 +1,7 @@
 # Getting Started
 
 Getting Started is designed to give you base level information about the project, and quickly get you up and running.
-For an overview of the different components and their purpose, checkout [High Level Overview](../high-level-overview.md).
+For an overview of the different components and their purpose, checkout [High Level Overview](high-level-overview.md).
 
 ---
 ## Table of Contents
@@ -9,17 +9,16 @@ For an overview of the different components and their purpose, checkout [High Le
   - [Core Learning](#core-learning)
   - [Relative Learning](#relative-learning)
   - [Additional Resources](#additional-resources)
-  - [Project Structure](#project-structure)
 - [Setup](#setup)
   - [Prerequisites](#prerequisites)
   - [Setup-Steps](#setup-steps)
 - [Building and Running](#building-and-running)
   - [Building](#building)
   - [Running](#running-locally-manually)
-- [Testing](#testing)
 - [Local Development](#local-development)
   - [Skaffold](#developing-with-skaffold-automatic)
   - [Operator-sdk](#running-locally-using-operator-sdk-automatic)
+- [Testing](#testing)
 
 ---
 
@@ -52,38 +51,14 @@ These are additional skills that may or may not be applicable, depending on whic
   - [Prometheus and Golang](https://prometheus.io/docs/guides/go-application/)
   - [Prometheus Operator](https://github.com/coreos/prometheus-operator/blob/master/Documentation/user-guides/getting-started.md) **Recommended**
 - Razee
-  - PlaceHolder
-  - [Razee](https://github.com/razee-io/Razee)
+  - [Razee](https://github.com/razee-io/Razee/blob/master/README.md)
 - OLM
-  - PlaceHolder
+  - [Understanding the OLM](https://docs.openshift.com/container-platform/4.4/operators/understanding_olm/olm-understanding-olm.html)
 
 ### Additional Resources
 Some extra resources that could be useful.
-- Example
-  - Placeholder
-
-### Project Structure
-
-| Folder  |  Purpose  |
-|:--|:--|
-| assets  | Stores static assets used in the operator  |
-| build  | Build output. |
-| bundle  | Temporary directory to use for building the CSV bundle. |
-| cmd  | Commands to run the operator |
-| deploy  |  Deploy specific code included CSV and generated CRDs  |
-| docs  | Documentation  |
-| pkg  | The business logic for the operator |
-| pkg/apis  | API files to generate CRDs for the operator  |
-| pkg/controller  |  Controller codes  |
-| pkg/managers  | Code to bootstrap new controller managers  |
-| pkg/reporter  | Montioring reporter specific code  |
-| pkg/utils  | Helpful utilitly functions  |
-| reports | Temporary directory for reporting |
-| scripts | Contains scripts to help build or use the operator  |
-| test | All our integration or end-to-end tests. Also includes testing tools |
-| test/e2e | End to end testing |
-| test/rectest | Contains custom and generated code to simply unit testing|
-| version | Version file contains the operator version |
+- [Openshift Documentation](https://docs.openshift.com/)
+- [Kubernetes Operators: Automating the Container Orchestration Platform](https://learning.oreilly.com/library/view/kubernetes-operators/9781492048039/)
 
 ---
 
@@ -102,14 +77,45 @@ for installs and you'll need to install that operator by hand.
 
 ### Setup steps
 
-1. Create a new crc instance.
+1. Start your local kubernetes cluster. 
 
+   For crc
    ```sh
-   # it's advised to create a new crc install with more
-   # cpu and more memory. This gives crc 8 cpu and 10G of ram.
-   # Small crc clusters are hard to work with and if your computer
-   # can handle it run with these settings
+   # It's advised to create a new crc install with more cpu and more memory. 
+   # This gives crc 8 cpu and 12288 MB of ram. (Suggested to use 12288 MB for Prometheus).
+   # Small crc clusters are hard to work with and if your computer can handle it, run with these settings
+
    crc start -c 8 -m 10000
+   
+   # At this point you will be asked to input your secret, available on: https://cloud.redhat.com/openshift/install/crc/installer-provisioned
+   <paste secret>
+
+   # After setup is complete, ensure commands are available using eval.
+   eval $(crc oc-env)
+
+   # Login to your local kubernetes cluster.
+   # This information is available on terminal after, crc start was completed.
+    oc login -u kubeadmin -p <your login info> <your cluster info>
+
+   ```
+
+   For minikube
+   ```sh
+   # Minikube is more lightweight compared to crc, but we still require a cerain amount of cpus and ram.
+   # Small crc clusters are hard to work with and if your computer can handle it, run with these settings
+
+    minikube config set cpus 2
+    minikube config set memory 4000
+
+    # Start minikube
+    minikube start
+
+    # We require a few additional steps as we are using Minikube. 
+    # This command will install: operator-framework, prometheus operator, and kube-state
+    make setup-minikube
+
+    # Ensure commands are available using eval
+    eval $(minikube docker-env)
    ```
 
 1. Create a docker Setup with a private registry on Openshift CRC or use quay.io. Creating a [quay.io](https://quay.io) account is the easiest
@@ -135,53 +141,33 @@ for installs and you'll need to install that operator by hand.
 
 ## Building and Running
 
-### Building
+### Building and pushing
 
 ```sh
 # Builds the executable and packages the docker image
  make build
+
+ # Pushes the image to your registry.
+ make push
 ```
 
 ### Running locally (manually)
 
 ```sh
-# To run locally you should create your image on your
-# target env, either minikube or crc
-make build
-
-# Once the image is made you can run these commands
+# Once the image is made and available you can run these commands
 
 # make uninstall ensures there is no prior installation on your system
 make uninstall
 
-# make install will install all the crds and the operator image with
-# an example CR.
+# make install will install all the crds and the operator image with an example CR.
 make install
 
-## --or you can run this one command:
+## Note: you can chain together make commands --so you can run this one command instead:
 make build uninstall install
 
 ```
 
 ---
-
-## Testing
-
-```sh
-# Run unit tests
-make test
-
-# Run cover on unit tests
-make test-cover
-
-# Run end 2 end - uses your current
-# kubectl context
-make test-e2e
-
-# end to end will run the controller and test
-# to make sure it installed correctly
-```
-
 
 ## Local Development
 
@@ -208,5 +194,24 @@ This is a very fast method of rebuilding locally. It uses the same roles as the 
 This is recommended if you do not want to pull and push images to remote registries.
 
 ```sh
-make setup-operator-sdk-run operator-sdk-run
+make setup-operator-sdk run-operator-sdk
+```
+
+---
+
+## Testing
+
+```sh
+# Run unit tests
+make test
+
+# Run cover on unit tests
+make test-cover
+
+# Run end 2 end - uses your current
+# kubectl context
+make test-e2e
+
+# end to end will run the controller and test
+# to make sure it installed correctly
 ```
