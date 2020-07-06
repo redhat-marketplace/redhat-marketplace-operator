@@ -2,6 +2,7 @@
 
 This document is designed to provide a high level understanding for different components of the operator. Content covers: what specific controllers do, why specific controllers are important, and basic architecture of the project (how different components interact with each other).
 
+---
 ## Table of Contents
 - [Project Structure](#project-structure)
 - [CRDs & Their Controllers](#crds--their-controllers)
@@ -13,7 +14,8 @@ This document is designed to provide a high level understanding for different co
   - [Node Controller](#node-controller)
   - [Subscription Controller](#subscription-controller)
 
-### Project Structure
+---
+## Project Structure
 
 | Folder  |  Purpose  |
 |:--|:--|
@@ -37,10 +39,10 @@ This document is designed to provide a high level understanding for different co
 | test/rectest | Contains custom and generated code to simply unit testing|
 | version | Version file contains the operator version |
 
-### CRDs & Their Controllers
 ---
+## CRDs & Their Controllers
 
-#### MarketplaceConfig
+### MarketplaceConfig
 MarketplaceConfig is the first CR created. Its prime responsibility is to deploy the remaining CRs. Currently (based on flags) MarketplaceConfig can create:
 * RazeeDeployment
 * MeterBase
@@ -49,7 +51,7 @@ MarketplaceConfig is the first CR created. Its prime responsibility is to deploy
 
 MarketplaceConfig is valuable because it is a single point of origin that ensures the correct resources are installed on the cluster.
 
-#### MeterBase
+### MeterBase
 MeterBase is responsible for setting up prometheus. MeterBase currently creates:
 * The Prometheus Operator
 * Service for Prometheus
@@ -57,16 +59,17 @@ MeterBase is responsible for setting up prometheus. MeterBase currently creates:
 
 MeterBase is valuable because it ensures we can track metrics via prometheus.
 
-#### MeterDefinition
+### MeterDefinition
 WIP
 
-#### RazeeDeployment
+### RazeeDeployment
 WIP
 
-### Other Controllers
 ---
-#### Node Controller
+## Other Controllers
+
+### Node Controller
 WIP
 
-#### Subscription Controller
+### Subscription Controller
 WIP

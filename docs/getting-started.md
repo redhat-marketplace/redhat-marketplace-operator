@@ -17,7 +17,7 @@ For an overview of the different components and their purpose, checkout [High Le
   - [Running](#running-locally-manually)
 - [Local Development](#local-development)
   - [Skaffold](#developing-with-skaffold-automatic)
-  - [Operator-sdk](#running-locally-using-operator-sdk-automatic)
+  - [Operator-sdk](#developing-with-operator-sdk-automatic)
 - [Testing](#testing)
 
 ---
@@ -72,37 +72,38 @@ These are the required tools (and coding languages) to get the project up and ru
 1. Install [minikube](https://kubernetes.io/docs/tasks/tools/install-minikube/) or Install [CRC](https://developers.redhat.com/products/codeready-containers) (**Recommended**)
 1. Install [docker-for-mac](https://docs.docker.com/docker-for-mac/install)
 
-_Note:_ You can use minikube, but we'll be using the coreos prometheus operator
-for installs and you'll need to install that operator by hand.
+_Note:_ You can use minikube, but we'll need to install additional resources.
 
 ### Setup steps
 
 1. Start your local kubernetes cluster. 
 
-   For crc
+   For crc:
    ```sh
    # It's advised to create a new crc install with more cpu and more memory. 
    # This gives crc 8 cpu and 12288 MB of ram. (Suggested to use 12288 MB for Prometheus).
    # Small crc clusters are hard to work with and if your computer can handle it, run with these settings
 
-   crc start -c 8 -m 10000
+   crc start -c 8 -m 12288
    
-   # At this point you will be asked to input your secret, available on: https://cloud.redhat.com/openshift/install/crc/installer-provisioned
-   <paste secret>
+   # At this point you will be asked to input your secret.
+   # Secret available on: https://cloud.redhat.com/openshift/install/crc/installer-provisioned
+   <paste_secret>
 
-   # After setup is complete, ensure commands are available using eval.
+   # After setup is complete, ensure commands are available using eval().
    eval $(crc oc-env)
 
    # Login to your local kubernetes cluster.
-   # This information is available on terminal after, crc start was completed.
-    oc login -u kubeadmin -p <your login info> <your cluster info>
+   # This information is available on terminal
+   # after the 'crc start' command was completed.
+    oc login -u kubeadmin -p <your_login_info> <your_cluster_info>
 
    ```
 
-   For minikube
+   For minikube:
    ```sh
-   # Minikube is more lightweight compared to crc, but we still require a cerain amount of cpus and ram.
-   # Small crc clusters are hard to work with and if your computer can handle it, run with these settings
+   # Minikube is lightweight compared to crc but we still require a cerain amount of cpu's and ram.
+   # Small clusters are hard to work with and if your computer can handle it, run with these settings
 
     minikube config set cpus 2
     minikube config set memory 4000
@@ -110,11 +111,11 @@ for installs and you'll need to install that operator by hand.
     # Start minikube
     minikube start
 
-    # We require a few additional steps as we are using Minikube. 
+    # Minikube requires a few additional resources. 
     # This command will install: operator-framework, prometheus operator, and kube-state
     make setup-minikube
 
-    # Ensure commands are available using eval
+    # Ensure commands are available using eval().
     eval $(minikube docker-env)
    ```
 
@@ -175,7 +176,8 @@ make build uninstall install
 
 For a faster dev experience you may enjoy skaffold.
 
-Development flows can be improved a bit using [skaffold](https://skaffold.dev/). To use these steps you'll need to install skaffold. The skaffold file is made to deploy
+Development flows can be improved a bit using [skaffold](https://skaffold.dev/). To use these steps you'll need to install skaffold.
+The skaffold script is made to redeploy resources as needed.
 
 When you install skaffold, you can then run these commands:
 
@@ -187,7 +189,7 @@ make skaffold-dev
 make skaffold-run
 ```
 
-### Running locally using operator-sdk (automatic)
+### Developing with operator-sdk (automatic)
 
 This is a very fast method of rebuilding locally. It uses the same roles as the real operator by supplying a kubeconfig to the operator-sdk run command.
 
@@ -201,17 +203,23 @@ make setup-operator-sdk run-operator-sdk
 
 ## Testing
 
+Testing has been simplified thanks to the Makefile.
+
 ```sh
 # Run unit tests
 make test
 
-# Run cover on unit tests
+# Results in amount of code coverage provided via unit tests
 make test-cover
 
-# Run end 2 end - uses your current
-# kubectl context
+# Run end to end - uses your current kubectl context
+# end to end will run the controller and test to make sure it installed correctly
 make test-e2e
 
-# end to end will run the controller and test
-# to make sure it installed correctly
 ```
+
+Unit tests are available in the same folder of the file being tested.
+I.E. MarketplaceConfig unit tests are available under /pkg/controller/marketplaceconfig. 
+
+_Note:_the testing suite is undergoing updates,
+as such, this may undergo changes.
