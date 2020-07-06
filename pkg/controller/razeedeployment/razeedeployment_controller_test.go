@@ -52,7 +52,7 @@ func TestRazeeDeployController(t *testing.T) {
 	t.Run("Test No Secret", testNoSecret)
 	t.Run("Test Bad Name", testBadName)
 	t.Run("Test Full Uninstall", testFullUninstall)
-	// t.Run("Test Legacy Uninstall", testLegacyUninstall)
+	t.Run("Test Legacy Uninstall", testLegacyUninstall)
 }
 
 func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
