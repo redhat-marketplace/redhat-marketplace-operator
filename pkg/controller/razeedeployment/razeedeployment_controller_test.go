@@ -308,17 +308,6 @@ func testLegacyUninstall(t *testing.T) {
 					RangeReconcileResults(RequeueResult, 2),
 					AnyResult)...)),
 		ListStep(opts,
-			ListWithObj(&corev1.ServiceAccountList{}),
-			ListWithFilter(
-				client.InNamespace(namespace),
-			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
-				list, ok := i.(*corev1.ServiceAccountList)
-
-				assert.Truef(t, ok, "expected service account list got type %T", i)
-				assert.Equal(t, 0, len(list.Items))
-			})),
-		ListStep(opts,
 			ListWithObj(&batch.JobList{}),
 			ListWithFilter(
 				client.InNamespace(namespace),
@@ -327,6 +316,17 @@ func testLegacyUninstall(t *testing.T) {
 				list, ok := i.(*batch.JobList)
 
 				assert.Truef(t, ok, "expected job list got type %T", i)
+				assert.Equal(t, 0, len(list.Items))
+			})),
+		ListStep(opts,
+			ListWithObj(&corev1.ServiceAccountList{}),
+			ListWithFilter(
+				client.InNamespace(namespace),
+			),
+			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				list, ok := i.(*corev1.ServiceAccountList)
+
+				assert.Truef(t, ok, "expected service account list got type %T", i)
 				assert.Equal(t, 0, len(list.Items))
 			})),
 		ListStep(opts,
