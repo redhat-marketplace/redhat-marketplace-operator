@@ -231,7 +231,7 @@ func testFullUninstall(t *testing.T) {
 
 	reconcilerTest := NewReconcilerTest(setup,
 		&razeeDeploymentDeletion,
-		&parentRRS3,
+		// &parentRRS3,
 		&cosReaderKeySecret,
 		&configMap,
 		&deployment,
@@ -244,17 +244,17 @@ func testFullUninstall(t *testing.T) {
                 RequeueResult,
                 RequeueAfterResult(time.Second*60)),
         ),
-		ListStep(opts,
-			ListWithObj(&marketplacev1alpha1.RemoteResourceS3List{}),
-			ListWithFilter(
-				client.InNamespace(namespace),
-			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
-				list, ok := i.(*marketplacev1alpha1.RemoteResourceS3List)
+		// ListStep(opts,
+		// 	ListWithObj(&marketplacev1alpha1.RemoteResourceS3List{}),
+		// 	ListWithFilter(
+		// 		client.InNamespace(namespace),
+		// 	),
+		// 	ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+		// 		list, ok := i.(*marketplacev1alpha1.RemoteResourceS3List)
 
-				assert.Truef(t, ok, "expected RemoteResourS3List got type %T", i)
-				assert.Equal(t, 0, len(list.Items))
-			})),
+		// 		assert.Truef(t, ok, "expected RemoteResourS3List got type %T", i)
+		// 		assert.Equal(t, 0, len(list.Items))
+		// 	})),
 		ListStep(opts,
 			ListWithObj(&corev1.ConfigMapList{}),
 			ListWithFilter(
