@@ -18,12 +18,13 @@ func initializeMarketplaceController() *managers.ControllerMain {
 	meterDefinitionController := controller.ProvideMeterDefinitionController()
 	razeeDeployController := controller.ProvideRazeeDeployController()
 	olmSubscriptionController := controller.ProvideOlmSubscriptionController()
+	olmClusterServiceVersionController := controller.ProvideOlmClusterServiceVersionController()
 	nodeController := controller.ProvideNodeController()
 	controllerFlagSet := controller.ProvideControllerFlagSet()
 	opsSrcSchemeDefinition := managers.ProvideOpsSrcScheme()
 	monitoringSchemeDefinition := managers.ProvideMonitoringScheme()
 	olmV1SchemeDefinition := managers.ProvideOLMV1Scheme()
 	olmV1Alpha1SchemeDefinition := managers.ProvideOLMV1Alpha1Scheme()
-	controllerMain := makeMarketplaceController(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, nodeController, controllerFlagSet, opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition)
+	controllerMain := makeMarketplaceController(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, olmClusterServiceVersionController, nodeController, controllerFlagSet, opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition)
 	return controllerMain
 }
