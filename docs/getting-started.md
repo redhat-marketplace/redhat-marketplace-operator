@@ -219,7 +219,7 @@ make test-e2e
 ```
 
 Unit tests are available in the same folder of the file being tested.
-I.E. MarketplaceConfig unit tests are available under /pkg/controller/marketplaceconfig. 
+I.E. MarketplaceConfig unit tests are available under `/pkg/controller/marketplaceconfig`. 
 
-_Note:_the testing suite is undergoing updates,
+_Note:_ the testing suite is undergoing updates,
 as such, this may undergo changes.

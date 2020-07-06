@@ -43,7 +43,8 @@ This document is designed to provide a high level understanding for different co
 ## CRDs & Their Controllers
 
 ### MarketplaceConfig
-MarketplaceConfig is the first CR created. Its prime responsibility is to deploy the remaining CRs. Currently (based on flags) MarketplaceConfig can create:
+MarketplaceConfig is the first CR created. Its prime responsibility is to deploy the remaining CRs.
+MarketplaceConfig decides which CRs to create based on flags. Currently MarketplaceConfig can create:
 * RazeeDeployment
 * MeterBase
 * The Operator Source
@@ -63,13 +64,24 @@ MeterBase is valuable because it ensures we can track metrics via prometheus.
 WIP
 
 ### RazeeDeployment
-WIP
+RazeeDeployment is responsible for creating a RazeeDeploy - Job, and ensuring Razee resources are installed in the Cluster.
+Currently RazeeDeployment creates:
+* ConfigMap -> WatchKeeperNonNamespaced
+* ConfigMap -> WatchKeeperLimitPoll
+* ConfigMap -> RazeeClusterMetaData
+* ConfigMap -> WatchKeeperConfig
+* ConfigMap -> WatchKeeperSecret
+* Secret -> IbmCosReaderKey
+* Job -> RazeeDeployJob
+* Job -> RazeeUninstallJob
+* RemoteResourceS3
+
 
 ---
 ## Other Controllers
 
 ### Node Controller
-WIP
+Node controller is responsible for ensuring Kubernetes nodes are patched with the label, `razee/watch-resource: lite`. 
 
 ### Subscription Controller
-WIP
+Subscription Controller is responsible for creating operator groups during installation. And deleting CSV's and subscriptions during uninstallation.
