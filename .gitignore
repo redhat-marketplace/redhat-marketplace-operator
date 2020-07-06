@@ -113,3 +113,4 @@ bundle/
 
 .action-secrets.txt
 *.coverprofile
+pkg/**/*.json

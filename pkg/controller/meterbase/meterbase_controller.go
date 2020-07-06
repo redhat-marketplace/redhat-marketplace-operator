@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/manifests"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 
 	merrors "emperror.dev/errors"
@@ -30,6 +31,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -96,6 +98,7 @@ type ReconcileMeterBase struct {
 	opts         *MeterbaseOpts
 	ccprovider   ClientCommandRunnerProvider
 	patchChecker *PatchChecker
+	*manifests.Factory
 }
 
 // newReconciler returns a new reconcile.Reconciler
@@ -109,7 +112,8 @@ func newReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider) 
 		scheme:       mgr.GetScheme(),
 		ccprovider:   ccprovider,
 		patchChecker: NewPatchChecker(utils.RhmPatchMaker),
-		opts:         promOpts}
+		opts:         promOpts,
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -195,40 +199,17 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		instance.Status.Conditions = &status.Conditions{}
 	}
 
-	if instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionInstalling) == nil {
-		instance.Status.Conditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ConditionInstalling,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonMeterBaseStartInstall,
-			Message: message,
-		})
-
-		_ = r.client.Status().Update(context.TODO(), instance)
-	}
-
-	prometheusSub := &olmv1alpha1.Subscription{}
-	prometheus := &monitoringv1.Prometheus{}
-	prometheusService := &corev1.Service{}
-	if result, err := cc.Do(context.TODO(),
-		Do(r.reconcilePrometheusSubscription(instance, prometheusSub)...),
-		Do(r.reconcilePrometheus(instance, prometheus)...),
-		Do(r.reconcilePrometheusService(instance, prometheusService)...)); !result.Is(Continue) {
-
+	if result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, instance.Status.Conditions, status.Condition{
+		Type:    marketplacev1alpha1.ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  marketplacev1alpha1.ReasonMeterBaseStartInstall,
+		Message: message,
+	})); result.Is(Error) || result.Is(Requeue) {
 		if err != nil {
-			return result.ReturnWithError(merrors.Wrap(err, "error creating prometheus"))
+			return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
 		}
 
 		return result.Return()
-	}
-
-	message = "Prometheus install complete"
-	if update := instance.Status.Conditions.SetCondition(status.Condition{
-		Type:    marketplacev1alpha1.ConditionInstalling,
-		Status:  corev1.ConditionTrue,
-		Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
-		Message: message,
-	}); update {
-		_ = r.client.Status().Update(context.TODO(), instance)
 	}
 
 	// find specific service monitor for kubelet
@@ -237,7 +218,12 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	meteringKubeletMonitor := &monitoringv1.ServiceMonitor{}
 	meteringKubeStateMonitor := &monitoringv1.ServiceMonitor{}
 
+	prometheus := &monitoringv1.Prometheus{}
+	prometheusService := &corev1.Service{}
 	if result, err := cc.Do(context.TODO(),
+		Do(r.reconcilePrometheusOperator(instance)...),
+		Do(r.reconcilePrometheus(instance, prometheus)...),
+		Do(r.reconcilePrometheusService(instance, prometheusService)...),
 		Do(r.copyServiceMonitor(
 			instance,
 			types.NamespacedName{
@@ -264,15 +250,15 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 			},
 			meteringKubeStateMonitor,
 		)...),
-	); result.Is(Error) || result.Is(Requeue) {
+	); !result.Is(Continue) {
 
 		if err != nil {
-			return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
+			reqLogger.Error(err, "error in reconcile")
+			return result.ReturnWithError(merrors.Wrap(err, "error creating prometheus"))
 		}
 
 		return result.Return()
 	}
-
 	// ----
 	// Update our status
 	// ----
@@ -281,22 +267,28 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		!reflect.DeepEqual(instance.Status.PrometheusStatus, prometheus.Status) {
 		reqLogger.Info("updating prometheus status")
 		instance.Status.PrometheusStatus = prometheus.Status
-		err := r.client.Status().Update(context.TODO(), instance)
 
-		if err != nil {
-			reqLogger.Error(err, "Failed to update Prometheus status.")
-			return reconcile.Result{}, merrors.Wrap(err, "faield to update prometheus status")
+		if result, err := cc.Do(context.TODO(), UpdateAction(instance, UpdateStatusOnly(true))); result.Is(Error) || result.Is(Requeue) {
+			if err != nil {
+				return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
+			}
+
+			return result.Return()
 		}
 	}
 
 	message = "Meter Base install complete"
-	if update := instance.Status.Conditions.SetCondition(status.Condition{
+	if result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, instance.Status.Conditions, status.Condition{
 		Type:    marketplacev1alpha1.ConditionInstalling,
 		Status:  corev1.ConditionTrue,
 		Reason:  marketplacev1alpha1.ReasonMeterBaseFinishInstall,
 		Message: message,
-	}); update {
-		_ = r.client.Status().Update(context.TODO(), instance)
+	})); result.Is(Error) || result.Is(Requeue) {
+		if err != nil {
+			return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
+		}
+
+		return result.Return()
 	}
 
 	reqLogger.Info("finished reconciling")
@@ -319,7 +311,6 @@ func (r *ReconcileMeterBase) reconcilePrometheusSubscription(
 	instance *marketplacev1alpha1.MeterBase,
 	subscription *olmv1alpha1.Subscription,
 ) []ClientAction {
-	getResult := &ExecResult{}
 	newSub := &olmv1alpha1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instance.Name,
@@ -335,19 +326,54 @@ func (r *ReconcileMeterBase) reconcilePrometheusSubscription(
 	}
 
 	return []ClientAction{
-		StoreResult(getResult, GetAction(
-			types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace},
-			subscription,
-		)),
-		Call(func() (ClientAction, error) {
-			if getResult.Is(NotFound) {
-				return CreateAction(
+		HandleResult(
+			GetAction(
+				types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace},
+				subscription,
+			), OnNotFound(
+				CreateAction(
 					newSub,
 					CreateWithAddOwner(instance),
-				), nil
-			}
-			return nil, nil
-		}),
+				),
+			)),
+	}
+}
+
+func (r *ReconcileMeterBase) reconcilePrometheusOperator(
+	instance *marketplacev1alpha1.MeterBase,
+) []ClientAction {
+	cm := &corev1.ConfigMap{}
+	deployment := &appsv1.Deployment{}
+	service := &corev1.Service{}
+
+	args := manifests.CreateOrUpdateFactoryItemArgs{
+		Owner:          instance,
+		PatchAnnotator: utils.RhmAnnotator,
+		PatchChecker:   r.patchChecker,
+	}
+
+	return []ClientAction{
+		manifests.CreateOrUpdateFactoryItemAction(
+			cm,
+			func() (runtime.Object, error) {
+				return r.NewPrometheusOperatorCertsCABundle()
+			},
+			args,
+		),
+		manifests.CreateOrUpdateFactoryItemAction(
+			deployment,
+			func() (runtime.Object, error) {
+				return r.NewPrometheusOperatorDeployment()
+			},
+			args,
+		),
+		manifests.CreateOrUpdateFactoryItemAction(
+			service,
+			func() (runtime.Object, error) {
+				return r.NewPrometheusOperatorService()
+			},
+			args,
+		),
 	}
 }
 
@@ -618,7 +644,11 @@ func (r *ReconcileMeterBase) newPrometheus(filename string, cr *marketplacev1alp
 // labelsForPrometheus returns the labels for selecting the resources
 // belonging to the given prometheus CR name.
 func labelsForPrometheus(name string) map[string]string {
-	return map[string]string{"app": "meterbase-prom", "meterbase_cr": name}
+	return map[string]string{
+		"app":          "meterbase-prom",
+		"meterbase_cr": name,
+		"prometheus":   "meterbase",
+	}
 }
 
 // labelsForPrometheusOperator returns the labels for selecting the resources

@@ -12,7 +12,7 @@ import (
 type listAction struct {
 	list    runtime.Object
 	filters []client.ListOption
-	baseAction
+	BaseAction
 }
 
 func ListAction(list runtime.Object, filters ...client.ListOption) *listAction {

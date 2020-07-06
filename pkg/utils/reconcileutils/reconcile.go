@@ -12,14 +12,14 @@ import (
 )
 
 type call struct {
-	baseAction
+	BaseAction
 	call func() (ClientAction, error)
 }
 
 func Call(callAction func() (ClientAction, error)) ClientAction {
 	return &call{
 		call: callAction,
-		baseAction: baseAction{
+		BaseAction: BaseAction{
 			codelocation: codelocation.New(1),
 		},
 	}
@@ -51,14 +51,14 @@ func (i *call) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) 
 func Do(actions ...ClientAction) ClientAction {
 	return &do{
 		Actions: actions,
-		baseAction: baseAction{
+		BaseAction: BaseAction{
 			codelocation: codelocation.New(1),
 		},
 	}
 }
 
 type do struct {
-	baseAction
+	BaseAction
 	Actions []ClientAction
 }
 
@@ -97,7 +97,7 @@ func (i *do) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 }
 
 type storeResult struct {
-	baseAction
+	BaseAction
 	Var    *ExecResult
 	Err    error
 	Action ClientAction
@@ -128,7 +128,7 @@ func (r *storeResult) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, 
 }
 
 type handleResult struct {
-	baseAction
+	BaseAction
 	Action   ClientAction
 	Branches []ClientActionBranch
 }
@@ -143,7 +143,7 @@ func HandleResult(
 	return &handleResult{
 		Action:   action,
 		Branches: branches,
-		baseAction: baseAction{
+		BaseAction: BaseAction{
 			codelocation: codelocation.New(1),
 		},
 	}
@@ -262,4 +262,8 @@ func (c *ClientCommand) Exec(
 	action ClientAction,
 ) (*ExecResult, error) {
 	return action.Exec(ctx, c)
+}
+
+func (c *ClientCommand) Log() logr.Logger {
+	return c.log
 }

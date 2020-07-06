@@ -14,13 +14,15 @@ import (
 )
 
 type updateAction struct {
-	baseAction
+	BaseAction
 	updateObject runtime.Object
 	updateActionOptions
 }
 
-//go:generate go-options -option UpdateActionOption -prefix Update updateActionOptions
+//go:generate go-options -imports=github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch  -option UpdateActionOption -prefix Update updateActionOptions
 type updateActionOptions struct {
+	StatusOnly bool
+	WithPatch  patch.PatchAnnotator
 }
 
 type PatchChecker struct {
@@ -61,7 +63,7 @@ func UpdateAction(
 	return &updateAction{
 		updateObject:        updateObject,
 		updateActionOptions: opts,
-		baseAction: baseAction{
+		BaseAction: BaseAction{
 			codelocation: codelocation.New(1),
 		},
 	}
@@ -83,7 +85,20 @@ func (a *updateAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 
 	key, _ := client.ObjectKeyFromObject(updatedObject)
 	reqLogger = reqLogger.WithValues("requestType", fmt.Sprintf("%T", updatedObject), "key", key)
-	err := c.client.Update(ctx, updatedObject)
+	var err error
+
+	if a.StatusOnly {
+		err = c.client.Status().Update(ctx, updatedObject)
+	} else {
+		if a.WithPatch != nil {
+			if err := a.WithPatch.SetLastAppliedAnnotation(updatedObject); err != nil {
+				reqLogger.Error(err, "failure creating patch")
+				return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error with patch")
+			}
+		}
+
+		err = c.client.Update(ctx, updatedObject)
+	}
 
 	if err != nil {
 		reqLogger.Error(err, "error updating object")
@@ -98,7 +113,7 @@ type updateStatusConditionAction struct {
 	instance   runtime.Object
 	conditions *status.Conditions
 	condition  status.Condition
-	baseAction
+	BaseAction
 }
 
 func UpdateStatusCondition(
@@ -111,7 +126,7 @@ func UpdateStatusCondition(
 		conditions: conditions,
 		condition:  condition,
 
-		baseAction: baseAction{
+		BaseAction: BaseAction{
 			codelocation: codelocation.New(1),
 		},
 	}
@@ -134,7 +149,6 @@ func (u *updateStatusConditionAction) Exec(ctx context.Context, c *ClientCommand
 		reqLogger.Info("setting default conditions")
 		u.conditions = &status.Conditions{}
 	}
-
 
 	key, _ := client.ObjectKeyFromObject(u.instance)
 	reqLogger = reqLogger.WithValues("requestType", fmt.Sprintf("%T", u.instance), "key", key)

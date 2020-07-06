@@ -15,7 +15,7 @@ import (
 
 
 type getAction struct {
-	baseAction
+	BaseAction
 	NamespacedName types.NamespacedName
 	Object         runtime.Object
 	getActionOptions
@@ -35,7 +35,7 @@ func GetAction(
 		NamespacedName:   namespacedName,
 		Object:           object,
 		getActionOptions: opts,
-		baseAction: baseAction{
+		BaseAction: BaseAction{
 			codelocation: codelocation.New(1),
 		},
 	}

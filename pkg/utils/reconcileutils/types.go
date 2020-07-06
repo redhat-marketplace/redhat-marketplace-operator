@@ -34,10 +34,30 @@ type ClientCommandRunner interface {
 	Exec(ctx context.Context, action ClientAction) (*ExecResult, error)
 }
 
-// baseAction is the struct that has common variables for all actions
-type baseAction struct {
+// BaseAction is the struct that has common variables for all actions
+type BaseAction struct {
+	name         string
 	lastResult   *ExecResult
 	codelocation codelocation.CodeLocation
+}
+
+func NewBaseAction(name string) *BaseAction {
+	return &BaseAction{
+		name:         name,
+		codelocation: codelocation.New(2),
+	}
+}
+
+func (b *BaseAction) GetReqLogger(c *ClientCommand) logr.Logger {
+	return c.Log().WithValues("file", b.codelocation, "action", b.name)
+}
+
+func (b *BaseAction) SetLastResult(a *ExecResult) {
+	b.lastResult = a
+}
+
+func (b *BaseAction) GetLastResult() *ExecResult {
+	return b.lastResult
 }
 
 type ClientActionBranch struct {

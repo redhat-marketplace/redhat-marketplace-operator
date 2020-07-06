@@ -11,7 +11,7 @@ import (
 
 type deleteAction struct {
 	obj           runtime.Object
-	baseAction
+	BaseAction
 	deleteActionOptions
 }
 

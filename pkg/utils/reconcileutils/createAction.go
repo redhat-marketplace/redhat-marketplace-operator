@@ -15,7 +15,7 @@ import (
 )
 
 type createAction struct {
-	baseAction
+	BaseAction
 	NewObject runtime.Object
 	createActionOptions
 }
@@ -34,7 +34,7 @@ func CreateAction(
 	return &createAction{
 		NewObject:           newObj,
 		createActionOptions: createOpts,
-		baseAction: baseAction{
+		BaseAction: BaseAction{
 			codelocation: codelocation.New(1),
 		},
 	}

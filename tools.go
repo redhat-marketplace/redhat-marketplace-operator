@@ -29,4 +29,5 @@ import (
 	"github.com/tcnksm/ghr"
 	"github.com/golangci/golangci-lint/cmd/golangci-lint"
 	"github.com/golang/mock/mockgen"
+	"github.com/go-bindata/go-bindata"
 )
