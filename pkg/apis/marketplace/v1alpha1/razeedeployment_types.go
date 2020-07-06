@@ -49,7 +49,7 @@ type RazeeConfigurationValues struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	RazeeDashUrl string `json:"razeeDashUrl,omitempty"`
-	// The url of the filesource arg that gets passed into the razeedeploy-job
+	// FileSourceURL DEPRECATED: The url of the filesource arg that gets passed into the razeedeploy-job
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	FileSourceURL *string `json:"fileSourceUrl,omitempty"`
