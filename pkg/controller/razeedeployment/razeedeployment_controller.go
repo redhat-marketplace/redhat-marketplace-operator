@@ -1663,9 +1663,6 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 		}
 	}
 
-	// sleep 5 seconds to let custom resource deletion complete
-	time.Sleep(time.Second * 5)
-
 	configMaps := []string{
 		utils.WATCH_KEEPER_CONFIG_NAME,
 		utils.RAZEE_CLUSTER_METADATA_NAME,

@@ -52,8 +52,8 @@ spec:
                   description: The file name of the child RemoteResourecS3
                   type: string
                 fileSourceUrl:
-                  description: The url of the filesource arg that gets passed into
-                    the razeedeploy-job
+                  description: 'FileSourceURL DEPRECATED: The url of the filesource
+                    arg that gets passed into the razeedeploy-job'
                   type: string
                 ibmCosReaderKey:
                   description: Api key used to access the bucket IBM COS
