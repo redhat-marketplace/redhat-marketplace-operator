@@ -52,7 +52,7 @@ func TestRazeeDeployController(t *testing.T) {
 	t.Run("Test No Secret", testNoSecret)
 	t.Run("Test Bad Name", testBadName)
 	t.Run("Test Full Uninstall", testFullUninstall)
-	// t.Run("Test Legacy Uninstall", testLegacyUninstall)
+	t.Run("Test Legacy Uninstall", testLegacyUninstall)
 }
 
 func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
@@ -101,17 +101,29 @@ var (
 			LegacyUninstallHasRun: ptr.Bool(true),
 		},
 	}
+	razeeDeploymentLegacyUninstall = marketplacev1alpha1.RazeeDeployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
+			Enabled:               true,
+			ClusterUUID:           "foo",
+			DeploySecretName:      &secretName,
+			LegacyUninstallHasRun: ptr.Bool(false),
+		},
+	}
 	razeeDeploymentDeletion = marketplacev1alpha1.RazeeDeployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              name,
 			Namespace:         namespace,
+			DeletionTimestamp: &metav1.Time{Time: time.Now()},
 		},
 		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
 			Enabled:          true,
 			ClusterUUID:      "foo",
 			DeploySecretName: &secretName,
 			TargetNamespace:  &namespace,
-			LegacyUninstallHasRun: ptr.Bool(false),
 		},
 	}
 
@@ -231,7 +243,7 @@ func testFullUninstall(t *testing.T) {
 
 	reconcilerTest := NewReconcilerTest(setup,
 		&razeeDeploymentDeletion,
-		// &parentRRS3,
+		&parentRRS3,
 		&cosReaderKeySecret,
 		&configMap,
 		&deployment,
@@ -239,22 +251,18 @@ func testFullUninstall(t *testing.T) {
 
 	reconcilerTest.TestAll(t,
 		ReconcileStep(opts,
-            ReconcileWithExpectedResults(
-                RequeueResult,
-                RequeueResult,
-                RequeueAfterResult(time.Second*60)),
-        ),
-		// ListStep(opts,
-		// 	ListWithObj(&marketplacev1alpha1.RemoteResourceS3List{}),
-		// 	ListWithFilter(
-		// 		client.InNamespace(namespace),
-		// 	),
-		// 	ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
-		// 		list, ok := i.(*marketplacev1alpha1.RemoteResourceS3List)
+        ReconcileWithUntilDone(true)),
+		ListStep(opts,
+			ListWithObj(&marketplacev1alpha1.RemoteResourceS3List{}),
+			ListWithFilter(
+				client.InNamespace(namespace),
+			),
+			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+				list, ok := i.(*marketplacev1alpha1.RemoteResourceS3List)
 
-		// 		assert.Truef(t, ok, "expected RemoteResourS3List got type %T", i)
-		// 		assert.Equal(t, 0, len(list.Items))
-		// 	})),
+				assert.Truef(t, ok, "expected RemoteResourS3List got type %T", i)
+				assert.Equal(t, 0, len(list.Items))
+			})),
 		ListStep(opts,
 			ListWithObj(&corev1.ConfigMapList{}),
 			ListWithFilter(
@@ -295,19 +303,22 @@ func testLegacyUninstall(t *testing.T) {
 	t.Parallel()
 
 	reconcilerTest := NewReconcilerTest(setup,
-		&razeeDeploymentDeletion,
+		&razeeDeploymentLegacyUninstall,
 		&razeeJob,
 		&cosReaderKeySecret,
 		&serviceAccount,
 		&deployment,
+		&secret,
 	)
 
 	reconcilerTest.TestAll(t,
 		ReconcileStep(opts,
-			ReconcileWithExpectedResults(
-				append(
-					RangeReconcileResults(RequeueResult, 2),
-					AnyResult)...)),
+            ReconcileWithExpectedResults(
+                RequeueResult,
+                RequeueResult,
+				RequeueResult,
+			),
+		),
 		ListStep(opts,
 			ListWithObj(&batch.JobList{}),
 			ListWithFilter(

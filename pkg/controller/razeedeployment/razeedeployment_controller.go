@@ -1647,21 +1647,21 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 
 	deletePolicy := metav1.DeletePropagationForeground
 
-	// reqLogger.Info("Listing parentRRS3")
+	reqLogger.Info("Listing parentRRS3")
 
-	// parentRRS3 := marketplacev1alpha1.RemoteResourceS3{}
-	// err := r.client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, &parentRRS3)
-	// if err != nil && !errors.IsNotFound((err)) {
-	// 	reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
-	// }
+	parentRRS3 := marketplacev1alpha1.RemoteResourceS3{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, &parentRRS3)
+	if err != nil && !errors.IsNotFound((err)) {
+		reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
+	}
 
-	// if err == nil {
-	// 	reqLogger.Info("Deleteing parentRRS3")
-	// 	err := r.client.Delete(context.TODO(), &parentRRS3, client.PropagationPolicy(deletePolicy))
-	// 	if err != nil && !errors.IsNotFound(err) {
-	// 		reqLogger.Error(err, "could not delete parentRRS3", "Resource", utils.PARENT_RRS3_RESOURCE_NAME)
-	// 	}
-	// }
+	if err == nil {
+		reqLogger.Info("Deleteing parentRRS3")
+		err := r.client.Delete(context.TODO(), &parentRRS3, client.PropagationPolicy(deletePolicy))
+		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "could not delete parentRRS3", "Resource", utils.PARENT_RRS3_RESOURCE_NAME)
+		}
+	}
 
 	configMaps := []string{
 		utils.WATCH_KEEPER_CONFIG_NAME,
