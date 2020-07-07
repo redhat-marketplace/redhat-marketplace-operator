@@ -873,7 +873,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	/******************************************************************************
 	Create watch-keeper deployment,rrs3-controller deployment, apply parent rrs3
 	/******************************************************************************/
-	// RemoteResourceS3 controller
 	rrs3Deployment := &appsv1.Deployment{}
 	reqLogger.V(0).Info("Finding RemoteResourceS3 deployment")
 	err = r.client.Get(context.TODO(), types.NamespacedName{
@@ -894,7 +893,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		instance.Status.Conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonRazeeRemoteResourceS3DeploymentStart,
+			Reason:  marketplacev1alpha1.ReasonRhmRemoteResourceS3DeploymentStart,
 			Message: message,
 		})
 
@@ -916,11 +915,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	instance.Status.Conditions.SetCondition(status.Condition{
 		Type:    marketplacev1alpha1.ConditionInstalling,
 		Status:  corev1.ConditionTrue,
-		Reason:  marketplacev1alpha1.ReasonRazeeRemoteResourceS3DeploymentStart,
+		Reason:  marketplacev1alpha1.ReasonRhmRemoteResourceS3DeploymentInstalled,
 		Message: message,
 	})
 
-	// watch-keeper deployment
 	watchKeeperDeployment := &appsv1.Deployment{}
 	reqLogger.V(0).Info("Finding watch-keeper deployment")
 	err = r.client.Get(context.TODO(), types.NamespacedName{
