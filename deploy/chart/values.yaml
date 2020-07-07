@@ -94,10 +94,13 @@ roles:
           - operators.coreos.com
         resources:
           - subscriptions
+          - clusterserviceversions
         verbs:
           - get
           - list
+          - update
           - watch
+          - delete
       - apiGroups:
           - operators.coreos.com
         resources:
@@ -153,21 +156,6 @@ roles:
           - list
           - patch
           - update
-      - apiGroups:
-          - apiextensions.k8s.io
-        resources:
-          - customresourcedefinitions
-        resourceNames:
-          - remoteresources.deploy.razee.io
-          - remoteresourcess3.deploy.razee.io
-          - featureflagsetsld.deploy.razee.io
-          - managedsets.deploy.razee.io
-          - mustachetemplates.deploy.razee.io
-          - remoteresourcess3decrypt.deploy.razee.io
-        verbs:
-          - get
-          - list
-          - delete
       - apiGroups:
           - config.openshift.io
         resources:
