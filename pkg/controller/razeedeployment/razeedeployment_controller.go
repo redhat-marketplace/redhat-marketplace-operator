@@ -874,7 +874,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	Create watch-keeper deployment,rrs3-controller deployment, apply parent rrs3
 	/******************************************************************************/
 	rrs3Deployment := &appsv1.Deployment{}
-	reqLogger.V(0).Info("Finding RemoteResourceS3 deployment")
+	reqLogger.V(0).Info("Finding Rhm RemoteResourceS3 deployment")
 	err = r.client.Get(context.TODO(), types.NamespacedName{
 		Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 		Namespace: request.Namespace,
