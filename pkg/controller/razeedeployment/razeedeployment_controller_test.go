@@ -110,7 +110,7 @@ var (
 			Enabled:               true,
 			ClusterUUID:           "foo",
 			DeploySecretName:      &secretName,
-			LegacyUninstallHasRun: ptr.Bool(false),
+
 		},
 	}
 	razeeDeploymentDeletion = marketplacev1alpha1.RazeeDeployment{
@@ -306,28 +306,17 @@ func testLegacyUninstall(t *testing.T) {
 		&razeeDeploymentLegacyUninstall,
 		&secret,
 		&namespObj,
-		console,
-		cluster,
-		clusterVersion,
-		&razeeJob,
-		&cosReaderKeySecret,
-		&serviceAccount,
-		&deployment,
 	)
 
 	reconcilerTest.TestAll(t,
-		// ReconcileStep(opts,
-        //     ReconcileWithExpectedResults(
-        //         RequeueResult,
-        //         RequeueResult,
-		// 		RequeueResult,
-		// 	),
-		// ),
 		ReconcileStep(opts,
-			ReconcileWithExpectedResults(
-				append(
-					RangeReconcileResults(RequeueResult, 15))...)),
-		ListStep(opts,
+            ReconcileWithExpectedResults(
+                RequeueResult,
+                RequeueResult,
+				RequeueResult,
+			),
+		),
+		ListStep(append(opts,WithStepName("Get Legacy Job")),
 			ListWithObj(&batch.JobList{}),
 			ListWithFilter(
 				client.InNamespace(namespace),
@@ -338,7 +327,7 @@ func testLegacyUninstall(t *testing.T) {
 				assert.Truef(t, ok, "expected job list got type %T", i)
 				assert.Equal(t, 0, len(list.Items))
 			})),
-		ListStep(opts,
+		ListStep(append(opts,WithStepName("Get Service Account")),
 			ListWithObj(&corev1.ServiceAccountList{}),
 			ListWithFilter(
 				client.InNamespace(namespace),
@@ -349,7 +338,7 @@ func testLegacyUninstall(t *testing.T) {
 				assert.Truef(t, ok, "expected service account list got type %T", i)
 				assert.Equal(t, 0, len(list.Items))
 			})),
-		ListStep(opts,
+		ListStep(append(opts,WithStepName("Get Cluster Role")),
 			ListWithObj(&rbacv1.ClusterRoleList{}),
 			ListWithFilter(
 				client.InNamespace(namespace),
@@ -360,7 +349,7 @@ func testLegacyUninstall(t *testing.T) {
 				assert.Truef(t, ok, "expected cluster role list got type %T", i)
 				assert.Equal(t, 0, len(list.Items))
 			})),
-		ListStep(opts,
+		ListStep(append(opts,WithStepName("Get Deployment")),
 			ListWithObj(&appsv1.DeploymentList{}),
 			ListWithFilter(
 				client.InNamespace(namespace),
