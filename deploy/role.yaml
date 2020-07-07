@@ -99,10 +99,13 @@ rules:
   - operators.coreos.com
   resources:
   - subscriptions
+  - clusterserviceversions
   verbs:
   - get
   - list
+  - update
   - watch
+  - delete
 - apiGroups:
   - operators.coreos.com
   resources:
