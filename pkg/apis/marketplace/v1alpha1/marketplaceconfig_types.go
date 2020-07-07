@@ -34,6 +34,10 @@ type MarketplaceConfigSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	DeploySecretName *string `json:"deploySecretName,omitempty"`
+	// InstallIBMCatalogSource is the flag that indicates if the IBM Catalog Source is installed
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	InstallIBMCatalogSource *bool `json:"installIBMCatalogSource,omitempty"`
 }
 
 // MarketplaceConfigStatus defines the observed state of MarketplaceConfig
@@ -86,6 +90,7 @@ const (
 	ReasonMeterBaseInstalled    status.ConditionReason = "MeterBaseInstalled"
 	ReasonOperatorSourceInstall status.ConditionReason = "OperatorSourceInstalled"
 	ReasonCatalogSourceInstall  status.ConditionReason = "CatalogSourceInstalled"
+	ReasonCatalogSourceDelete   status.ConditionReason = "CatalogSourceDeleted"
 	ReasonInstallFinished       status.ConditionReason = "FinishedInstall"
 )
 
