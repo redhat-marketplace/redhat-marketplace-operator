@@ -941,7 +941,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		instance.Status.Conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonWatchKeeperDeploymentInstalled,
+			Reason:  marketplacev1alpha1.ReasonWatchKeeperDeploymentStart,
 			Message: message,
 		})
 

@@ -304,21 +304,29 @@ func testLegacyUninstall(t *testing.T) {
 
 	reconcilerTest := NewReconcilerTest(setup,
 		&razeeDeploymentLegacyUninstall,
+		&secret,
+		&namespObj,
+		console,
+		cluster,
+		clusterVersion,
 		&razeeJob,
 		&cosReaderKeySecret,
 		&serviceAccount,
 		&deployment,
-		&secret,
 	)
 
 	reconcilerTest.TestAll(t,
+		// ReconcileStep(opts,
+        //     ReconcileWithExpectedResults(
+        //         RequeueResult,
+        //         RequeueResult,
+		// 		RequeueResult,
+		// 	),
+		// ),
 		ReconcileStep(opts,
-            ReconcileWithExpectedResults(
-                RequeueResult,
-                RequeueResult,
-				RequeueResult,
-			),
-		),
+			ReconcileWithExpectedResults(
+				append(
+					RangeReconcileResults(RequeueResult, 15))...)),
 		ListStep(opts,
 			ListWithObj(&batch.JobList{}),
 			ListWithFilter(
