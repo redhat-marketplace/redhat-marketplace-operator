@@ -969,7 +969,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	listOpts := []client.ListOption{
 		client.InNamespace(*instance.Spec.TargetNamespace),
 		client.MatchingLabels(map[string]string{
-			"owned-by": "rhm",
+			"owned-by": "marketplace.redhat.com/app=razee",
 		}),
 	}
 
@@ -1367,7 +1367,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app":      utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
-					"owned-by": "rhm",
+					"owned-by": "marketplace.redhat.com/app=razee",
 				},
 			},
 			Strategy: appsv1.DeploymentStrategy{
@@ -1378,7 +1378,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 					Labels: map[string]string{
 						"app":                  utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
 						"razee/watch-resource": "lite",
-						"owned-by":             "rhm",
+						"owned-by":             "marketplace.redhat.com/app=razee",
 					},
 					Name: utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
 				},
@@ -1531,7 +1531,7 @@ func (r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *mark
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app":      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-					"owned-by": "rhm",
+					"owned-by": "marketplace.redhat.com/app=razee",
 				},
 			},
 			Strategy: appsv1.DeploymentStrategy{
@@ -1542,7 +1542,7 @@ func (r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *mark
 					Labels: map[string]string{
 						"app":                  utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 						"razee/watch-resource": "lite",
-						"owned-by":             "rhm",
+						"owned-by":             "marketplace.redhat.com/app=razee",
 					},
 					Name: utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 				},
