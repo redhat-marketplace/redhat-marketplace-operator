@@ -97,7 +97,8 @@ _Note:_ You can use minikube, but we'll need to install additional resources.
    # This information is available on terminal
    # after the 'crc start' command was completed.
     oc login -u kubeadmin -p <your_login_info> <your_cluster_info>
-
+    
+    # Optional: to enable Monitoring/Prometheus, refer to your version of CRC: https://access.redhat.com/documentation/en-us/red_hat_codeready_containers/1.12/html/getting_started_guide/administrative-tasks_gsg#starting-monitoring-alerting-telemetry_gsg
    ```
 
    For minikube:
