@@ -50,7 +50,7 @@ const (
 
 	/* Razee Controller Values */
 	RAZEE_DEPLOYMENT_FINALIZER                = "razeedeploy.finalizer.marketplace.redhat.com"
-	DEFAULT_RHM_RRS3_DEPLOYMENT_IMAGE         = "quay.io/razee/remoteresources3:0.6.2"
+	DEFAULT_RHM_RRS3_DEPLOYMENT_IMAGE         = "quay.io/razee/remoteresources3:0.6.3"
 	DEFAULT_RHM_WATCH_KEEPER_DEPLOYMENT_IMAGE = "quay.io/razee/watch-keeper:0.5.8"
 	WATCH_KEEPER_VERSION                      = "0.5.0"
 	FEATURE_FLAG_VERSION                      = "0.6.1"
