@@ -260,7 +260,7 @@ func testFullUninstall(t *testing.T) {
 			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
 				list, ok := i.(*marketplacev1alpha1.RemoteResourceS3List)
 
-				assert.Truef(t, ok, "expected RemoteResourS3List got type %T", i)
+				assert.Truef(t, ok, "expected RemoteResourceS3List got type %T", i)
 				assert.Equal(t, 0, len(list.Items))
 			})),
 		ListStep(opts,
