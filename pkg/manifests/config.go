@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"io"
 
-	v1 "k8s.io/api/core/v1"
 	configv1 "github.com/openshift/api/config/v1"
+	v1 "k8s.io/api/core/v1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
 type Config struct {
 	MarketplaceOperatorConfig *MarketplaceOperatorConfig `json:"-"`
-	Platform    configv1.PlatformType `json:"-"`
+	Platform                  configv1.PlatformType      `json:"-"`
 }
 
 type MarketplaceOperatorConfig struct {
@@ -20,9 +20,10 @@ type MarketplaceOperatorConfig struct {
 }
 
 type PrometheusOperatorConfig struct {
-	LogLevel     string            `json:"logLevel"`
-	NodeSelector map[string]string `json:"nodeSelector"`
-	Tolerations  []v1.Toleration   `json:"tolerations"`
+	ServiceAccountName string            `json:"serviceAccountName"`
+	LogLevel           string            `json:"logLevel"`
+	NodeSelector       map[string]string `json:"nodeSelector"`
+	Tolerations        []v1.Toleration   `json:"tolerations"`
 }
 
 func (c *Config) LoadPlatform(load func() (*configv1.Infrastructure, error)) error {

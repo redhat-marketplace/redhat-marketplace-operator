@@ -23,6 +23,7 @@ require (
 	github.com/goph/emperror v0.17.2
 	github.com/gotidy/ptr v1.0.1
 	github.com/imdario/mergo v0.3.8
+	github.com/jessfraz/dockfmt v0.3.3 // indirect
 	github.com/jteeuwen/go-bindata v3.0.7+incompatible // indirect
 	github.com/kisielk/errcheck v1.3.0 // indirect
 	github.com/launchdarkly/go-options v1.0.0
@@ -54,6 +55,7 @@ require (
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a // indirect
 	golang.org/x/tools v0.0.0-20200702044944-0cc1aa72b347 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
+	honnef.co/go/tools v0.0.1-2020.1.3
 	k8s.io/api v0.18.3
 	k8s.io/apimachinery v0.18.3
 	k8s.io/client-go v12.0.0+incompatible

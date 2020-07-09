@@ -5,18 +5,42 @@ metadata:
   labels:
     prometheus: prometheus
 spec:
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: prometheus
+                  operator: In
+                  values:
+                    - k8s
+            namespaces:
+              - openshift-redhat-monitoring
+            topologyKey: kubernetes.io/hostname
+          weight: 100
   replicas: 2
-  serviceAccountName: redhat-marketplace-operator
+  serviceAccountName: redhat-marketplace-prometheus
+  priorityClassName: system-cluster-critical
+  nodeSelector:
+    kubernetes.io/os: linux
+  resources:
+    requests:
+      cpu: 70m
+      memory: 1Gi
+  securityContext: {}
+  serviceMonitorNamespaceSelector: {}
   serviceMonitorSelector:
     matchLabels:
-      marketplace.redhat.com/metered: "true"
-      marketplace.redhat.com/deployed: "true"
+      marketplace.redhat.com/metered: 'true'
+      marketplace.redhat.com/deployed: 'true'
   configmaps:
-  - kubelet-serving-ca-bundle
+    - serving-certs-ca-bundle
+    - kubelet-serving-ca-bundle
   storage:
     volumeClaimTemplate:
       spec:
-        storageClassName: "standard"
+        storageClassName: 'standard'
         resources:
           requests:
             storage: 40Gi

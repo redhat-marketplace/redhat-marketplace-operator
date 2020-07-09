@@ -212,6 +212,75 @@ rules:
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: redhat-marketplace-prometheus
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes/metrics
+  verbs:
+  - get
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - services
+  - endpoints
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+---
+# Source: redhat-marketplace-operator-template-chart/templates/role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: redhat-marketplace-prometheus
+  namespace: openshift-redhat-marketplace
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+---
+# Source: redhat-marketplace-operator-template-chart/templates/role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: redhat-marketplace-operator
@@ -236,6 +305,19 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - subscriptions
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+  - patch
+  - watch
+  - update
 - apiGroups:
   - batch
   - extensions
@@ -275,8 +357,7 @@ rules:
 - apiGroups:
   - monitoring.coreos.com
   resources:
-  - prometheuses
-  - servicemonitors
+  - '*'
   verbs:
   - create
   - delete

@@ -16,7 +16,7 @@ import (
 
 type createAction struct {
 	BaseAction
-	NewObject runtime.Object
+	newObject runtime.Object
 	createActionOptions
 }
 
@@ -32,7 +32,7 @@ func CreateAction(
 ) *createAction {
 	createOpts, _ := newCreateActionOptions(opts...)
 	return &createAction{
-		NewObject:           newObj,
+		newObject:           newObj,
 		createActionOptions: createOpts,
 		BaseAction: BaseAction{
 			codelocation: codelocation.New(1),
@@ -47,36 +47,36 @@ func (a *createAction) Bind(result *ExecResult) {
 func (a *createAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 	reqLogger := c.log.WithValues("file", a.codelocation, "action", "CreateAction")
 
-	if isNil(a.NewObject) {
+	if isNil(a.newObject) {
 		err := emperrors.WithStack(ErrNilObject)
 		reqLogger.Error(err, "newObject is nil")
 		return NewExecResult(Error, reconcile.Result{}, err), err
 	}
 
-	key, _ := client.ObjectKeyFromObject(a.NewObject)
-	reqLogger = reqLogger.WithValues("requestType", fmt.Sprintf("%T", a.NewObject), "key", key)
+	key, _ := client.ObjectKeyFromObject(a.newObject)
+	reqLogger = reqLogger.WithValues("requestType", fmt.Sprintf("%T", a.newObject), "key", key)
 
 	if a.WithPatch != nil {
-		if err := a.WithPatch.SetLastAppliedAnnotation(a.NewObject); err != nil {
+		if err := a.WithPatch.SetLastAppliedAnnotation(a.newObject); err != nil {
 			reqLogger.Error(err, "failure creating patch")
 			return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error with patch")
 		}
 	}
 
-	reqLogger.V(0).Info("Creating object")
-	err := c.client.Create(ctx, a.NewObject)
+	reqLogger.V(0).Info("Creating object", "object", a.newObject)
+	err := c.client.Create(ctx, a.newObject)
 	if err != nil {
-		c.log.Error(err, "Failed to create.", "obj", a.NewObject)
+		c.log.Error(err, "Failed to create.", "obj", a.newObject)
 		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error with create")
 	}
 
 	if a.WithAddOwner != nil {
-		if meta, ok := a.NewObject.(metav1.Object); ok {
+		if meta, ok := a.newObject.(metav1.Object); ok {
 			if err := controllerutil.SetControllerReference(
 				a.WithAddOwner.(metav1.Object),
 				meta,
 				c.scheme); err != nil {
-				c.log.Error(err, "Failed to create.", "obj", a.NewObject)
+				c.log.Error(err, "Failed to create.", "obj", a.newObject)
 				return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error adding owner")
 			}
 		}

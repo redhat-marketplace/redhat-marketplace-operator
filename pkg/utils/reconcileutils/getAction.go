@@ -9,7 +9,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -46,7 +45,7 @@ func (g *getAction) Bind(r *ExecResult) {
 }
 
 func (g *getAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
-	reqLogger := c.log.WithValues("file", g.codelocation, "action", "UpdateAction")
+	reqLogger := c.log.WithValues("file", g.codelocation, "action", "GetAction")
 
 	if isNil(g.Object) {
 		err := emperrors.New("object to get is nil")
@@ -54,8 +53,7 @@ func (g *getAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, er
 		return NewExecResult(Error, reconcile.Result{}, err), err
 	}
 
-	key, _ := client.ObjectKeyFromObject(g.Object)
-	reqLogger = reqLogger.WithValues("requestType", fmt.Sprintf("%T", g.Object), "key", key)
+	reqLogger = reqLogger.WithValues("requestType", fmt.Sprintf("%T", g.Object), "key", g.NamespacedName)
 
 	err := c.client.Get(ctx, g.NamespacedName, g.Object)
 	if err != nil {

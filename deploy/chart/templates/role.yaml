@@ -1,6 +1,8 @@
 {{- $namespace := .Values.namespace }}
 {{- range .Values.roles }}
 {{- $role := . }}
+{{- if empty $role.rules }}
+{{- else }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: {{ $role.type }}
 metadata:
@@ -11,4 +13,5 @@ metadata:
 rules:
 {{- toYaml $role.rules | nindent 0 }}
 ---
+{{- end  }}
 {{- end  }}

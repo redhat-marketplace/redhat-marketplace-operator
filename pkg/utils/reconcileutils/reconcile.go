@@ -84,10 +84,10 @@ func (i *do) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 		logger.V(2).Info("action returned result", "result", *result)
 		switch result.Status {
 		case Error:
-			logger.Info("returning error", "err", err)
+			logger.V(2).Info("returning error", "err", err)
 			return result, emperrors.Wrap(err, "error executing do")
 		case Requeue:
-			logger.Info("returning requeue")
+			logger.V(2).Info("returning requeue")
 			return result, nil
 		}
 	}
@@ -188,16 +188,21 @@ func (r *handleResult) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 
 	for _, branch := range r.Branches {
 		if myVar.Is(branch.Status) {
-			logger.Info("branch matched", "status", branch.Status)
+			logger.V(2).Info("branch matched", "status", branch.Status)
 			var2, err := branch.Action.Exec(ctx, c)
 
 			if myVar.Is(Error) {
-				logger.Info("returning original error")
+				logger.V(2).Info("returning original error")
 				return myVar, myVar.Err
 			}
 
+			if err != nil {
+				logger.Error(err, "error occurred on branch")
+				return var2, err
+			}
+
 			if myVar.Is(Requeue) {
-				logger.Info("returning original requeue")
+				logger.V(2).Info("returning original requeue")
 				return myVar, nil
 			}
 

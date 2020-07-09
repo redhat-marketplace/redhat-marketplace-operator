@@ -3,7 +3,7 @@
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: redhat-marketplace-operator
+  name: rhm-redhat-marketplace-operator-binding
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-operator
@@ -17,7 +17,7 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: redhat-marketplace-razeedeploy
+  name: rhm-redhat-marketplace-razeedeploy-binding
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-razeedeploy
@@ -28,10 +28,53 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role_binding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: rhm-prometheus-operator-binding
+subjects:
+- kind: ServiceAccount
+  name: redhat-marketplace-prometheus-operator
+  namespace: openshift-redhat-marketplace
+roleRef:
+  kind: ClusterRole
+  name: prometheus-operator
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: redhat-marketplace-operator-template-chart/templates/role_binding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: rhm-redhat-marketplace-prometheus-binding
+subjects:
+- kind: ServiceAccount
+  name: redhat-marketplace-prometheus
+  namespace: openshift-redhat-marketplace
+roleRef:
+  kind: ClusterRole
+  name: redhat-marketplace-prometheus
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: redhat-marketplace-operator-template-chart/templates/role_binding.yaml
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: redhat-marketplace-operator
+  name: rhm-redhat-marketplace-prometheus-binding
+  namespace: openshift-redhat-marketplace
+subjects:
+- kind: ServiceAccount
+  name: redhat-marketplace-prometheus
+  namespace: openshift-redhat-marketplace
+roleRef:
+  kind: Role
+  name: redhat-marketplace-prometheus
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: redhat-marketplace-operator-template-chart/templates/role_binding.yaml
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: rhm-redhat-marketplace-operator-binding
   namespace: openshift-redhat-marketplace
 subjects:
 - kind: ServiceAccount

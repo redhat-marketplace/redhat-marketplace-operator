@@ -212,6 +212,71 @@ roles:
           - '*'
         verbs:
           - '*'
+  - name: prometheus-operator
+    serviceAccountName: redhat-marketplace-prometheus-operator
+    type: ClusterRole
+  - name: redhat-marketplace-prometheus
+    serviceAccountName: redhat-marketplace-prometheus
+    type: ClusterRole
+    rules:
+      - apiGroups:
+          - ''
+        resources:
+          - nodes/metrics
+        verbs:
+          - get
+      - nonResourceURLs:
+          - /metrics
+        verbs:
+          - get
+      - apiGroups:
+          - authentication.k8s.io
+        resources:
+          - tokenreviews
+        verbs:
+          - create
+      - apiGroups:
+          - authorization.k8s.io
+        resources:
+          - subjectaccessreviews
+        verbs:
+          - create
+      - apiGroups:
+          - ''
+        resources:
+          - namespaces
+        verbs:
+          - get
+      - apiGroups:
+          - ''
+        resources:
+          - services
+          - endpoints
+          - pods
+        verbs:
+          - get
+          - list
+          - watch
+      - apiGroups:
+          - monitoring.coreos.com
+        resources:
+          - '*'
+        verbs:
+          - get
+          - list
+          - patch
+          - update
+          - watch
+  - name: redhat-marketplace-prometheus
+    serviceAccountName: redhat-marketplace-prometheus
+    type: Role
+    rules:
+      - apiGroups:
+          - ''
+        resources:
+          - configmaps
+        verbs:
+          - get
   - name: redhat-marketplace-operator
     serviceAccountName: redhat-marketplace-operator
     type: Role
@@ -235,6 +300,19 @@ roles:
           - patch
           - update
           - watch
+      - apiGroups:
+          - operators.coreos.com
+        resources:
+          - subscriptions
+        verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+          - patch
+          - watch
+          - update
       - apiGroups:
           - batch
           - extensions
@@ -267,8 +345,7 @@ roles:
       - apiGroups:
           - monitoring.coreos.com
         resources:
-          - prometheuses
-          - servicemonitors
+          - '*'
         verbs:
           - create
           - delete

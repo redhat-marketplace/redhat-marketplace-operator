@@ -14,9 +14,14 @@ FROM golang as builder
 ENV PATH=$PATH:/usr/local/go/bin
 
 WORKDIR /usr/local/go/src/github.com/redhat-marketplace/redhat-marketplace-operator
-COPY go.sum go.mod ./
+
+COPY go.sum .
+COPY go.mod .
+
 RUN go mod download
-COPY . ./
+
+COPY . .
+
 RUN CGO_ENABLED=0 GOOS=linux go build -o build/_output/bin/redhat-marketplace-operator ./cmd/manager
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
@@ -29,8 +34,9 @@ LABEL name="Red Hat Marketplace Operator" \
   description="Operator for the Red Hat Marketplace"
 
 ENV USER_UID=1001 \
-    USER_NAME=redhat-marketplace-operator \
-    ASSETS=/usr/local/bin/assets
+  USER_NAME=redhat-marketplace-operator \
+  ASSETS=/usr/local/bin/assets
+
 # install operator binary
 COPY --from=builder /usr/local/go/src/github.com/redhat-marketplace/redhat-marketplace-operator/build/_output/bin /usr/local/bin
 COPY assets /usr/local/bin/assets

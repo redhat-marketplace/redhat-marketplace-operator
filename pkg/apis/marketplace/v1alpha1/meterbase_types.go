@@ -127,7 +127,7 @@ func init() {
 const (
 	// Reasons for install
 	ReasonMeterBaseStartInstall             status.ConditionReason = "StartMeterBaseInstall"
-	ReasonMeterBasePrometheusInstall        status.ConditionReason = "StartMeterBasPrometheuseInstall"
+	ReasonMeterBasePrometheusInstall        status.ConditionReason = "StartMeterBasePrometheusInstall"
 	ReasonMeterBasePrometheusServiceInstall status.ConditionReason = "StartMeterBasePrometheusServiceInstall"
 	ReasonMeterBaseFinishInstall            status.ConditionReason = "FinishedMeterBaseInstall"
 )
