@@ -4,8 +4,8 @@ metadata:
   name: marketplaceconfig
 spec:
   # Add fields here 
-  rhmAccountID: example-userid
-  clusterUUID: example-clusterUUID
+  rhmAccountID: max-rhm-operator-test-9-dev
+  clusterUUID: max-rhm-operator-test-9
   deploySecretName: rhm-operator-secret
   installIBMCatalogSource: false
  

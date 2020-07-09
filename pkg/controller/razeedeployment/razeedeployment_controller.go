@@ -879,31 +879,49 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 		Namespace: request.Namespace,
 	}, rrs3Deployment)
-	if errors.IsNotFound(err) {
-		reqLogger.V(0).Info("Creating RemoteResourceS3 deployment")
-		rrs3Deployment = r.makeRemoteResourceS3Deployment(instance)
-		err = r.client.Create(context.TODO(), rrs3Deployment)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create RemoteResourceS3 deployment on cluster")
+	if err != nil {
+		if errors.IsNotFound(err) {
+			reqLogger.V(0).Info("Creating RemoteResourceS3 deployment")
+			rrs3Deployment = r.makeRemoteResourceS3Deployment(instance)
+			err = r.client.Create(context.TODO(), rrs3Deployment)
+			if err != nil {
+				reqLogger.Error(err, "Failed to create RemoteResourceS3 deployment on cluster")
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("RemoteResourceS3 deployment created successfully")
+	
+			message := "RemoteResourceS3 deployment install starting"
+			instance.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionInstalling,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonRhmRemoteResourceS3DeploymentStart,
+				Message: message,
+			})
+	
+			_ = r.client.Status().Update(context.TODO(), instance)
+	
+			return reconcile.Result{Requeue: true}, nil
+	
+		} else {
+			reqLogger.Error(err, "Failed to get RemoteResourceS3 deployment from Cluster")
 			return reconcile.Result{}, err
 		}
-		reqLogger.Info("RemoteResourceS3 deployment created successfully")
+	}
+	if err == nil {
+		updatedRemoteResourcesDeployment := r.makeRemoteResourceS3Deployment(instance)
+		if !reflect.DeepEqual(updatedRemoteResourcesDeployment.Spec.Template.Spec.Containers[0].Image, rrs3Deployment.Spec.Template.Spec.Containers[0].Image) {
+			reqLogger.Info("Change detected on resource", updatedRemoteResourcesDeployment.GetName(), "update")
+		
+			reqLogger.Info("Updating resource", "resource: ", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+			err = r.client.Update(context.TODO(), rrs3Deployment)
+			if err != nil {
+				reqLogger.Info("Failed to update resource", "resource", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("Resource updated successfully", "resource", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+			return reconcile.Result{Requeue: true}, nil
+		}
 
-		message := "RemoteResourceS3 deployment install starting"
-		instance.Status.Conditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ConditionInstalling,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonRhmRemoteResourceS3DeploymentStart,
-			Message: message,
-		})
-
-		_ = r.client.Status().Update(context.TODO(), instance)
-
-		return reconcile.Result{Requeue: true}, nil
-
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get RemoteResourceS3 deployment from Cluster")
-		return reconcile.Result{}, err
 	}
 
 	if err := controllerutil.SetControllerReference(instance, rrs3Deployment, r.scheme); err != nil {
@@ -954,11 +972,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	}
 	if err == nil {
 		updatedRhmWatchKeeperDeployment := r.makeWatchKeeperDeployment(instance)
-		if !reflect.DeepEqual(updatedRhmWatchKeeperDeployment.Spec, watchKeeperDeployment.Spec) {
-			println("deployment off cluster")
-			utils.PrettyPrint(watchKeeperDeployment.Spec)
-			println("built deployment")
-			utils.PrettyPrint(updatedRhmWatchKeeperDeployment.Spec)
+		if !reflect.DeepEqual(updatedRhmWatchKeeperDeployment.Spec.Template.Spec.Containers[0].Image, watchKeeperDeployment.Spec.Template.Spec.Containers[0].Image) {
 			reqLogger.Info("Change detected on resource", updatedRhmWatchKeeperDeployment.GetName(), "update")
 		
 			reqLogger.Info("Updating resource", "resource: ", utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME)
@@ -1420,94 +1434,10 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 							},
 							Env: []corev1.EnvVar{
 								{
-									Name: "START_DELAY_MAX",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "watch-keeper-config",
-											},
-											Key:      "START_DELAY_MAX",
-											Optional: ptr.Bool(true),
-										},
-									},
-								},
-								{
 									Name: "NAMESPACE",
 									ValueFrom: &corev1.EnvVarSource{
 										FieldRef: &corev1.ObjectFieldSelector{
 											FieldPath: "metadata.namespace",
-										},
-									},
-								},
-								{
-									Name: "CONFIG_NAMESPACE",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "watch-keeper-config",
-											},
-											Key:      "CONFIG_NAMESPACE",
-											Optional: ptr.Bool(true),
-										},
-									},
-								},
-								{
-									Name: "CLUSTER_ID_OVERRIDE",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "watch-keeper-config",
-											},
-											Key:      "CLUSTER_ID_OVERRIDE",
-											Optional: ptr.Bool(true),
-										},
-									},
-								},
-								{
-									Name: "DEFAULT_CLUSTER_NAME",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "watch-keeper-config",
-											},
-											Key:      "DEFAULT_CLUSTER_NAME",
-											Optional: ptr.Bool(true),
-										},
-									},
-								},
-								{
-									Name: "KUBECONFIG",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "watch-keeper-config",
-											},
-											Key:      "KUBECONFIG",
-											Optional: ptr.Bool(true),
-										},
-									},
-								},
-								{
-									Name: "RAZEEDASH_URL",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "watch-keeper-config",
-											},
-											Key:      "RAZEEDASH_URL",
-											Optional: ptr.Bool(true),
-										},
-									},
-								},
-								{
-									Name: "RAZEEDASH_ORG_KEY",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "watch-keeper-secret",
-											},
-											Key:      "RAZEEDASH_ORG_KEY",
-											Optional: ptr.Bool(true),
 										},
 									},
 								},
@@ -1527,8 +1457,77 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 								InitialDelaySeconds: 600,
 								PeriodSeconds:       300,
 								TimeoutSeconds:      30,
+								SuccessThreshold: 1,
 								FailureThreshold:    1,
 							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name: utils.WATCH_KEEPER_CONFIG_NAME,
+									MountPath: "/usr/src/app/envs/watch-keeper-config",
+								},
+								{
+									Name: utils.WATCH_KEEPER_SECRET_NAME,
+									MountPath: "/usr/src/app/envs/watch-keeper-secret",
+								},
+								{
+									Name: "razee-identity-config",
+									MountPath: "/usr/src/app/envs/razee-identity-config",
+								},
+								{
+									Name: "razee-identity-secret",
+									MountPath: "/usr/src/app/envs/razee-identity-secret",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: utils.WATCH_KEEPER_CONFIG_NAME,
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: utils.WATCH_KEEPER_CONFIG_NAME,
+									},
+									DefaultMode: ptr.Int32(0400),
+									Optional: ptr.Bool(true),
+								},
+							},	
+						},
+						{
+							Name: utils.WATCH_KEEPER_SECRET_NAME,
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: utils.WATCH_KEEPER_SECRET_NAME,
+									},
+									DefaultMode: ptr.Int32(0400),
+									Optional: ptr.Bool(true),
+								},
+							},	
+						},
+						{
+							Name: "razee-identity-config",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "razee-identity-config",
+									},
+									DefaultMode: ptr.Int32(0400),
+									Optional: ptr.Bool(true),
+								},
+							},	
+						},
+						{
+							Name: "razee-identity-secret",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "razee-identity-secret",
+									},
+									DefaultMode: ptr.Int32(0400),
+									Optional: ptr.Bool(true),
+								},
+							},	
 						},
 					},
 				},
