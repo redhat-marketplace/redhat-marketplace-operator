@@ -845,7 +845,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 
 		if !reflect.DeepEqual(ibmCosReaderKey.Data, updatedibmCosReaderKey.Data) {
-			err = r.client.Update(context.TODO(), &watchKeeperSecret)
+			err = r.client.Update(context.TODO(), &ibmCosReaderKey)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create resource", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
 				return reconcile.Result{}, err
@@ -925,7 +925,8 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		Name:      utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
 		Namespace: request.Namespace,
 	}, watchKeeperDeployment)
-	if errors.IsNotFound(err) {
+	if err != nil{
+		if errors.IsNotFound(err){
 		reqLogger.V(0).Info("Creating watch-keeper deployment")
 		watchKeeperDeployment = r.makeWatchKeeperDeployment(instance)
 		err = r.client.Create(context.TODO(), watchKeeperDeployment)
@@ -946,10 +947,30 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		_ = r.client.Status().Update(context.TODO(), instance)
 
 		return reconcile.Result{Requeue: true}, nil
-
-	} else if err != nil {
+		} else {
 		reqLogger.Error(err, "Failed to get RemoteResourceS3 from Cluster")
 		return reconcile.Result{}, err
+		}
+	}
+	if err == nil {
+		updatedRhmWatchKeeperDeployment := r.makeWatchKeeperDeployment(instance)
+		if !reflect.DeepEqual(updatedRhmWatchKeeperDeployment.Spec, watchKeeperDeployment.Spec) {
+			println("deployment off cluster")
+			utils.PrettyPrint(watchKeeperDeployment.Spec)
+			println("built deployment")
+			utils.PrettyPrint(updatedRhmWatchKeeperDeployment.Spec)
+			reqLogger.Info("Change detected on resource", updatedRhmWatchKeeperDeployment.GetName(), "update")
+		
+			reqLogger.Info("Updating resource", "resource: ", utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME)
+			err = r.client.Update(context.TODO(), watchKeeperDeployment)
+			if err != nil {
+				reqLogger.Info("Failed to update resource", "resource", utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME)
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("Resource updated successfully", "resource", utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME)
+			return reconcile.Result{Requeue: true}, nil
+		}
+
 	}
 
 	if err := controllerutil.SetControllerReference(instance, watchKeeperDeployment, r.scheme); err != nil {
@@ -969,7 +990,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	listOpts := []client.ListOption{
 		client.InNamespace(*instance.Spec.TargetNamespace),
 		client.MatchingLabels(map[string]string{
-			"owned-by": "marketplace.redhat.com/app=razee",
+			"owned-by": "marketplace.redhat.com-razee",
 		}),
 	}
 
@@ -1367,7 +1388,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app":      utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
-					"owned-by": "marketplace.redhat.com/app=razee",
+					"owned-by": "marketplace.redhat.com-razee",
 				},
 			},
 			Strategy: appsv1.DeploymentStrategy{
@@ -1378,7 +1399,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 					Labels: map[string]string{
 						"app":                  utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
 						"razee/watch-resource": "lite",
-						"owned-by":             "marketplace.redhat.com/app=razee",
+						"owned-by":             "marketplace.redhat.com-razee",
 					},
 					Name: utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
 				},
@@ -1531,7 +1552,7 @@ func (r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *mark
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app":      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-					"owned-by": "marketplace.redhat.com/app=razee",
+					"owned-by": "marketplace.redhat.com-razee",
 				},
 			},
 			Strategy: appsv1.DeploymentStrategy{
@@ -1542,7 +1563,7 @@ func (r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *mark
 					Labels: map[string]string{
 						"app":                  utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 						"razee/watch-resource": "lite",
-						"owned-by":             "marketplace.redhat.com/app=razee",
+						"owned-by":             "marketplace.redhat.com-razee",
 					},
 					Name: utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 				},
