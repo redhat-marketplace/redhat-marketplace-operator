@@ -911,7 +911,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		latestRemoteResourcesDeployment := r.makeRemoteResourceS3Deployment(instance)
 		if !reflect.DeepEqual(latestRemoteResourcesDeployment.Spec.Template.Spec.Containers[0].Image, rrs3Deployment.Spec.Template.Spec.Containers[0].Image) {
 			updatedRRS3Deployment:= rrs3Deployment.DeepCopy()
-			updatedRRS3Deployment.Spec.Template.Spec.Containers[0].Image = latestWatchKeeperDeployment.Spec.Template.Spec.Containers[0].Image
+			updatedRRS3Deployment.Spec.Template.Spec.Containers[0].Image = latestRemoteResourcesDeployment.Spec.Template.Spec.Containers[0].Image
 			reqLogger.Info("Change detected on resource", latestRemoteResourcesDeployment.GetName(), "update")
 		
 			reqLogger.Info("Updating resource", "resource: ", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
