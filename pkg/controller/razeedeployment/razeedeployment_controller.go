@@ -908,12 +908,14 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 	}
 	if err == nil {
-		updatedRemoteResourcesDeployment := r.makeRemoteResourceS3Deployment(instance)
-		if !reflect.DeepEqual(updatedRemoteResourcesDeployment.Spec.Template.Spec.Containers[0].Image, rrs3Deployment.Spec.Template.Spec.Containers[0].Image) {
-			reqLogger.Info("Change detected on resource", updatedRemoteResourcesDeployment.GetName(), "update")
+		latestRemoteResourcesDeployment := r.makeRemoteResourceS3Deployment(instance)
+		if !reflect.DeepEqual(latestRemoteResourcesDeployment.Spec.Template.Spec.Containers[0].Image, rrs3Deployment.Spec.Template.Spec.Containers[0].Image) {
+			updatedRRS3Deployment:= rrs3Deployment.DeepCopy()
+			updatedRRS3Deployment.Spec.Template.Spec.Containers[0].Image = latestWatchKeeperDeployment.Spec.Template.Spec.Containers[0].Image
+			reqLogger.Info("Change detected on resource", latestRemoteResourcesDeployment.GetName(), "update")
 		
 			reqLogger.Info("Updating resource", "resource: ", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
-			err = r.client.Update(context.TODO(), rrs3Deployment)
+			err = r.client.Update(context.TODO(), updatedRRS3Deployment)
 			if err != nil {
 				reqLogger.Info("Failed to update resource", "resource", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
 				return reconcile.Result{}, err
@@ -971,12 +973,14 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 	}
 	if err == nil {
-		updatedRhmWatchKeeperDeployment := r.makeWatchKeeperDeployment(instance)
-		if !reflect.DeepEqual(updatedRhmWatchKeeperDeployment.Spec.Template.Spec.Containers[0].Image, watchKeeperDeployment.Spec.Template.Spec.Containers[0].Image) {
-			reqLogger.Info("Change detected on resource", updatedRhmWatchKeeperDeployment.GetName(), "update")
-		
+		latestWatchKeeperDeployment := r.makeWatchKeeperDeployment(instance)
+		if !reflect.DeepEqual(latestWatchKeeperDeployment.Spec.Template.Spec.Containers[0].Image, watchKeeperDeployment.Spec.Template.Spec.Containers[0].Image) {
+			updatedWatchKeeperDeployment:= watchKeeperDeployment.DeepCopy()
+			updatedWatchKeeperDeployment.Spec.Template.Spec.Containers[0].Image = latestWatchKeeperDeployment.Spec.Template.Spec.Containers[0].Image
+			reqLogger.Info("Change detected on resource", latestWatchKeeperDeployment.GetName(), "update")
+			watchKeeperDeployment.Spec.Template.Spec.Containers[0].Image = latestWatchKeeperDeployment.Spec.Template.Spec.Containers[0].Image
 			reqLogger.Info("Updating resource", "resource: ", utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME)
-			err = r.client.Update(context.TODO(), watchKeeperDeployment)
+			err = r.client.Update(context.TODO(), updatedWatchKeeperDeployment)
 			if err != nil {
 				reqLogger.Info("Failed to update resource", "resource", utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME)
 				return reconcile.Result{}, err
