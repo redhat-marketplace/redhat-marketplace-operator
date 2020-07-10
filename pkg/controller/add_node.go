@@ -12,7 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package version
+package controller
 
-const Version = "0.1.4"
-const LastVersion = "0.1.3"
+import (
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller/node"
+	"github.com/spf13/pflag"
+)
+
+type NodeController ControllerDefinition
+
+func ProvideNodeController() *NodeController {
+	return &NodeController{
+		Add:     node.Add,
+		FlagSet: func() *pflag.FlagSet { return nil },
+	}
+}

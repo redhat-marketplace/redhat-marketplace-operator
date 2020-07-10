@@ -194,6 +194,17 @@ func Equal(a []string, b []string) bool {
 	return true
 }
 
+// AppendResourceList() returns the the combined ResourceList
+func AppendResourceList(list1 corev1.ResourceList, list2 corev1.ResourceList) corev1.ResourceList {
+	result := corev1.ResourceList{}
+	for k, v := range list1 {
+		if _, exists := list2[k]; !exists {
+			list2[k] = v
+		}
+	}
+	return result
+}
+
 func ConditionsEqual(a status.Conditions, b status.Conditions) bool {
 	if len(a) != len(b) {
 		return false

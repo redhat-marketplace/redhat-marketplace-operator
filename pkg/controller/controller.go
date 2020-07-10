@@ -31,4 +31,6 @@ var ControllerSet = wire.NewSet(
 	ProvideRazeeDeployController,
 	ProvideMeterDefinitionController,
 	ProvideOlmSubscriptionController,
+	ProvideNodeController,
+	ProvideOlmClusterServiceVersionController,
 )

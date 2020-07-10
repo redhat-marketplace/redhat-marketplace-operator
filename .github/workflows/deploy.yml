@@ -3,12 +3,12 @@ name: Deploy Image
 on:
   push:
     branches:
-      - master
-      - develop
-  pull_request:
-    branches:
-      - master
-
+      - "master"
+      - "develop"
+      - "feature/**"
+      - "bugfix/**"
+      - "release/**"
+      - "hotfix/**"
 env:
   pushImage: true
 
@@ -23,14 +23,12 @@ jobs:
       hash: ${{ steps.vars.outputs.hash }}
       tagExists: ${{ steps.checktag.outputs.exists }}
       dockertag: ${{ steps.vars.outputs.dockertag }}
+      crs: ${{ steps.vars.outputs.crs }}
+      gittagpushed: ${{ steps.tag.outputs.gittagpushed }}
     env:
       TAGPREFIX: ''
 
     steps:
-      - name: Dump GitHub context
-        env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: echo "$GITHUB_CONTEXT"
 
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
@@ -43,12 +41,37 @@ jobs:
         run: |
           echo "::set-env name=TAGPREFIX::dev-"
 
+      - name: Set branch prefix for fix
+        if: github.event_name == 'push' && startsWith(github.ref,'refs/heads/bugfix/')
+        run: |
+          NAME=$(echo "${{ github.ref }}" | sed 's/refs\/heads\/bugfix\///')
+          echo "::set-env name=TAGPREFIX::bugfix-${NAME}-"
+
+      - name: Set branch prefix for feat
+        if: github.event_name == 'push' && startsWith(github.ref,'refs/heads/feature/')
+        run: |
+          NAME=$(echo "${{ github.ref }}" | sed 's/refs\/heads\/feature\///')
+          echo "::set-env name=TAGPREFIX::feat-${NAME}-"
+
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
+
+      - name: Get if gittag is pushed
+        shell: bash {0}
+        id: tag
+        run: |
+          VERSION=$(make current-version)
+          RESULT=$(git tag --list | grep -E "$VERSION")
+          IS_TAGGED=false
+          if [ "$RESULT" != "" ] ; then
+            IS_TAGGED=true
+          fi
 
       - name: Get Vars
         id: vars
         run: |
+
+          echo "::set-output name=gittagpushed::${IS_TAGGED}"
           echo "::set-output name=version::$(make current-version)"
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
           echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
@@ -76,6 +99,7 @@ jobs:
     name: Deploy
     runs-on: ubuntu-latest
     needs: [build]
+    if: ${{ needs.build.outputs.gittagpushed != 'true' }}
     strategy:
       matrix:
         registry:
@@ -124,6 +148,7 @@ jobs:
     name: Deploy OPM Index
     runs-on: ubuntu-latest
     needs: [build]
+    if: ${{ needs.build.outputs.gittagpushed != 'true' }}
     strategy:
       matrix:
         registry:
@@ -192,7 +217,11 @@ jobs:
     name: Push other tags
     runs-on: ubuntu-latest
     needs: [build, deploy]
-    if: (github.event_name == 'push' && github.ref != 'refs/heads/develop') || github.event_name == 'pull_request'
+    if: |
+      github.event_name == 'push'
+      && (startsWith(github.ref,'refs/heads/release/')
+          || startsWith(github.ref,'refs/heads/hotfix/')
+          || github.ref == 'refs/heads/master' )
     strategy:
       matrix:
         registry:
@@ -276,7 +305,7 @@ jobs:
         run: |
           echo "Updating osdk to version ${VERSION}"
           make generate-csv
-          yq w -i .osdk-scorecard.yaml 'scorecard.plugins.*.*.csv-path' deploy/olm-catalog/redhat-marketplace-operator/${VERSION}/redhat-marketplace-operator.v${VERSION}.clusterserviceversion.yaml
+          yq w .osdk-scorecard.yaml 'scorecard.plugins.*.*.csv-path' deploy/olm-catalog/redhat-marketplace-operator/${VERSION}/redhat-marketplace-operator.v${VERSION}.clusterserviceversion.yaml  > .osdk-scorecard.yaml
           yq w -i .osdk-scorecard.yaml 'scorecard.plugins.*.*.cr-manifest.+' deploy/crds/${{ matrix.cr  }}
           ./scripts/scorecard.sh
 
