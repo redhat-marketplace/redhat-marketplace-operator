@@ -2,6 +2,7 @@ package manifests
 
 import (
 	"context"
+	"fmt"
 
 	emperrors "emperror.dev/errors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
@@ -13,17 +14,15 @@ import (
 
 type createOrUpdateFactoryItemAction struct {
 	*BaseAction
-	object         runtime.Object
-	factoryFunc    func() (runtime.Object, error)
-	owner          runtime.Object
-	patchAnnotator patch.PatchAnnotator
-	patchChecker   *PatchChecker
+	object      runtime.Object
+	factoryFunc func() (runtime.Object, error)
+	owner       runtime.Object
+	patcher     patch.Patcher
 }
 
 type CreateOrUpdateFactoryItemArgs struct {
-	Owner          runtime.Object
-	PatchAnnotator patch.PatchAnnotator
-	PatchChecker   *PatchChecker
+	Owner   runtime.Object
+	Patcher patch.Patcher
 }
 
 func CreateOrUpdateFactoryItemAction(
@@ -32,12 +31,11 @@ func CreateOrUpdateFactoryItemAction(
 	args CreateOrUpdateFactoryItemArgs,
 ) *createOrUpdateFactoryItemAction {
 	return &createOrUpdateFactoryItemAction{
-		BaseAction:     NewBaseAction("createOrUpdateFactoryItem"),
-		object:         newObj,
-		factoryFunc:    factoryFunc,
-		owner:          args.Owner,
-		patchAnnotator: args.PatchAnnotator,
-		patchChecker:   args.PatchChecker,
+		BaseAction:  NewBaseAction("createOrUpdateFactoryItem"),
+		object:      newObj,
+		factoryFunc: factoryFunc,
+		owner:       args.Owner,
+		patcher:     args.Patcher,
 	}
 }
 
@@ -63,19 +61,66 @@ func (a *createOrUpdateFactoryItemAction) Exec(ctx context.Context, c *ClientCom
 
 	cmd := HandleResult(
 		GetAction(key, a.object),
-		OnNotFound(CreateAction(result, CreateWithAddOwner(a.owner), CreateWithPatch(a.patchAnnotator))),
+		OnNotFound(CreateAction(result, CreateWithAddOwner(a.owner), CreateWithPatch(a.patcher))),
 		OnContinue(Call(func() (ClientAction, error) {
-			update, err := a.patchChecker.CheckPatch(a.object, result)
+			patch, err := a.patcher.Calculate(a.object, result)
 			if err != nil {
 				return nil, err
 			}
 
-			if !update {
+			if patch.IsEmpty() {
 				return nil, nil
 			}
 
-			return UpdateAction(result, UpdateWithPatch(a.patchAnnotator)), nil
+			reqLogger.V(2).Info("updating with patch", "patch", patch.String())
+			return UpdateAction(result, UpdateWithPatch(a.patcher)), nil
 		})))
 	cmd.Bind(a.GetLastResult())
 	return c.Do(ctx, cmd)
+}
+
+type createIfNotExistsAction struct {
+	*BaseAction
+	factoryFunc         func() (runtime.Object, error)
+	newObject           runtime.Object
+	createActionOptions []CreateActionOption
+}
+
+func CreateIfNotExistsFactoryItem(
+	newObj runtime.Object,
+	factoryFunc func() (runtime.Object, error),
+	opts ...CreateActionOption,
+) *createIfNotExistsAction {
+	return &createIfNotExistsAction{
+		newObject:           newObj,
+		createActionOptions: opts,
+		factoryFunc:         factoryFunc,
+		BaseAction:          NewBaseAction("createIfNotExistsAction"),
+	}
+}
+
+func (a *createIfNotExistsAction) Bind(result *ExecResult) {
+	a.SetLastResult(result)
+}
+
+func (a *createIfNotExistsAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
+	reqLogger := a.GetReqLogger(c)
+
+	result, err := a.factoryFunc()
+
+	if err != nil {
+		reqLogger.Error(err, "failure creating factory obj")
+		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error with patch")
+	}
+
+	key, _ := client.ObjectKeyFromObject(result)
+	reqLogger = reqLogger.WithValues("requestType", fmt.Sprintf("%T", a.newObject), "key", key)
+
+	reqLogger.V(0).Info("Creating object if not found", "object", a.newObject)
+	return c.Do(
+		ctx,
+		HandleResult(
+			GetAction(key, a.newObject),
+			OnNotFound(CreateAction(result, a.createActionOptions...))),
+	)
 }

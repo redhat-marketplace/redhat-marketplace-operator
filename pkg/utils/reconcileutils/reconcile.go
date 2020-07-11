@@ -2,6 +2,7 @@ package reconcileutils
 
 import (
 	"context"
+	"time"
 
 	emperrors "emperror.dev/errors"
 	"github.com/go-logr/logr"
@@ -92,7 +93,7 @@ func (i *do) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 		}
 	}
 
-	logger.Info("final result occurred", "result", *result)
+	logger.V(2).Info("final result occurred", "result", *result)
 	return result, nil
 }
 
@@ -131,6 +132,41 @@ type handleResult struct {
 	BaseAction
 	Action   ClientAction
 	Branches []ClientActionBranch
+}
+
+type requeueResponse struct {
+	*BaseAction
+	*time.Duration
+}
+
+func RequeueResponse() *requeueResponse {
+	return &requeueResponse{
+		BaseAction: NewBaseAction("requeueReponse"),
+	}
+}
+
+func RequeueAfterResponse(d time.Duration) *requeueResponse {
+	return &requeueResponse{
+		BaseAction: NewBaseAction("requeueReponse"),
+		Duration:   &d,
+	}
+}
+
+func (r *requeueResponse) Bind(result *ExecResult) {
+	r.lastResult = result
+}
+
+func (r *requeueResponse) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
+	result := reconcile.Result{Requeue: true}
+	if r.Duration != nil {
+		result = reconcile.Result{RequeueAfter: *r.Duration}
+	}
+
+	return NewExecResult(Requeue, result, nil), nil
+}
+
+type errorResponse struct {
+	err error
 }
 
 // HandleResult will return original results on
@@ -189,6 +225,11 @@ func (r *handleResult) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 	for _, branch := range r.Branches {
 		if myVar.Is(branch.Status) {
 			logger.V(2).Info("branch matched", "status", branch.Status)
+
+			if branch.Action == nil {
+				return myVar, err
+			}
+
 			var2, err := branch.Action.Exec(ctx, c)
 
 			if myVar.Is(Error) {

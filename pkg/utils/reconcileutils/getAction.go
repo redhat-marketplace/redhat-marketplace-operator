@@ -67,6 +67,6 @@ func (g *getAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, er
 		}
 	}
 
-	reqLogger.Info("found")
+	reqLogger.V(2).Info("found")
 	return NewExecResult(Continue, reconcile.Result{}, err), nil
 }

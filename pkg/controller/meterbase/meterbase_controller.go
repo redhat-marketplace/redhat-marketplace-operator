@@ -16,10 +16,14 @@ package meterbase
 
 import (
 	"context"
+	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/manifests"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 
 	merrors "emperror.dev/errors"
@@ -92,11 +96,11 @@ var _ reconcile.Reconciler = &ReconcileMeterBase{}
 type ReconcileMeterBase struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client       client.Client
-	scheme       *runtime.Scheme
-	opts         *MeterbaseOpts
-	ccprovider   ClientCommandRunnerProvider
-	patchChecker *PatchChecker
+	client     client.Client
+	scheme     *runtime.Scheme
+	opts       *MeterbaseOpts
+	ccprovider ClientCommandRunnerProvider
+	patcher    patch.Patcher
 }
 
 // newReconciler returns a new reconcile.Reconciler
@@ -108,11 +112,11 @@ func newReconciler(
 		AssetPath:  viper.GetString("assets"),
 	}
 	return &ReconcileMeterBase{
-		client:       mgr.GetClient(),
-		scheme:       mgr.GetScheme(),
-		ccprovider:   ccprovider,
-		patchChecker: NewPatchChecker(utils.RhmPatchMaker),
-		opts:         promOpts,
+		client:     mgr.GetClient(),
+		scheme:     mgr.GetScheme(),
+		ccprovider: ccprovider,
+		patcher:    patch.RHMDefaultPatcher,
+		opts:       promOpts,
 	}
 }
 
@@ -150,6 +154,22 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// watch headless service
 	err = c.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &marketplacev1alpha1.MeterBase{},
+	})
+	if err != nil {
+		return err
+	}
+
+	err = c.Watch(&source.Kind{Type: &monitoringv1.ServiceMonitor{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &marketplacev1alpha1.MeterBase{},
+	})
+	if err != nil {
+		return err
+	}
+
+	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &marketplacev1alpha1.MeterBase{},
 	})
@@ -209,11 +229,9 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	meteringKubeStateMonitor := &monitoringv1.ServiceMonitor{}
 
 	prometheus := &monitoringv1.Prometheus{}
-	prometheusService := &corev1.Service{}
 	if result, err := cc.Do(context.TODO(),
 		Do(r.reconcilePrometheusOperator(instance, factory)...),
 		Do(r.reconcilePrometheus(instance, prometheus, factory)...),
-		Do(r.reconcilePrometheusService(instance, prometheusService)...),
 		Do(r.copyServiceMonitor(
 			reqLogger,
 			instance,
@@ -251,23 +269,62 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 
 		return result.Return()
 	}
+
 	// ----
 	// Update our status
 	// ----
 
-	if instance.Status.PrometheusStatus == nil ||
-		!reflect.DeepEqual(instance.Status.PrometheusStatus, prometheus.Status) {
-		reqLogger.Info("updating prometheus status")
-		instance.Status.PrometheusStatus = prometheus.Status.DeepCopy()
+	// Set status for prometheus
 
-		if result, err := cc.Do(context.TODO(), UpdateAction(instance, UpdateStatusOnly(true))); result.Is(Error) || result.Is(Requeue) {
-			if err != nil {
-				return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
-			}
+	prometheusStatefulset := &appsv1.StatefulSet{}
+	if result, err := cc.Do(
+		context.TODO(),
+		HandleResult(
+			GetAction(types.NamespacedName{
+				Namespace: prometheus.Namespace,
+				Name:      fmt.Sprintf("prometheus-%s", prometheus.Name),
+			}, prometheusStatefulset),
+			OnContinue(Call(func() (ClientAction, error) {
+				updatedInstance := instance.DeepCopy()
+				updatedInstance.Status.Replicas = &prometheusStatefulset.Status.CurrentReplicas
+				updatedInstance.Status.UpdatedReplicas = &prometheusStatefulset.Status.UpdatedReplicas
+				updatedInstance.Status.AvailableReplicas = &prometheusStatefulset.Status.ReadyReplicas
+				updatedInstance.Status.UnavailableReplicas = ptr.Int32(prometheusStatefulset.Status.CurrentReplicas - prometheusStatefulset.Status.ReadyReplicas)
 
-			return result.Return()
+				if reflect.DeepEqual(updatedInstance.Status, instance.Status) {
+					reqLogger.Info("prometheus statefulset status is up to date")
+					return nil, nil
+				}
+
+				var action ClientAction = nil
+
+				reqLogger.Info("statefulset status", "status", updatedInstance.Status)
+
+				if updatedInstance.Status.Replicas != updatedInstance.Status.AvailableReplicas {
+					reqLogger.Info("prometheus statefulset has not finished roll out",
+						"replicas", updatedInstance.Status.Replicas,
+						"available", updatedInstance.Status.AvailableReplicas)
+					action = RequeueAfterResponse(30 * time.Second)
+				}
+
+				return HandleResult(
+					UpdateAction(updatedInstance, UpdateStatusOnly(true)),
+					OnContinue(action)), nil
+			})),
+			OnNotFound(Call(func() (ClientAction, error) {
+				log.Info("can't find prometheus statefulset, requeuing")
+				return RequeueAfterResponse(30 * time.Second), nil
+			})),
+		),
+	); result.Is(Error) || result.Is(Requeue) {
+		if err != nil {
+			return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
 		}
+
+		return result.Return()
 	}
+
+	// Update final condition
 
 	message = "Meter Base install complete"
 	if result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, instance.Status.Conditions, status.Condition{
@@ -340,9 +397,8 @@ func (r *ReconcileMeterBase) reconcilePrometheusOperator(
 	service := &corev1.Service{}
 
 	args := manifests.CreateOrUpdateFactoryItemArgs{
-		Owner:          instance,
-		PatchAnnotator: utils.RhmAnnotator,
-		PatchChecker:   r.patchChecker,
+		Owner:   instance,
+		Patcher: r.patcher,
 	}
 
 	return []ClientAction{
@@ -376,11 +432,11 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 	factory *manifests.Factory,
 ) []ClientAction {
 	args := manifests.CreateOrUpdateFactoryItemArgs{
-		Owner:          instance,
-		PatchAnnotator: utils.RhmAnnotator,
-		PatchChecker:   r.patchChecker,
+		Owner:   instance,
+		Patcher: r.patcher,
 	}
 
+	dataSecret := &corev1.Secret{}
 	kubeletCertsCM := &corev1.ConfigMap{}
 
 	return []ClientAction{
@@ -391,6 +447,26 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 			},
 			args,
 		),
+		manifests.CreateIfNotExistsFactoryItem(
+			dataSecret,
+			func() (runtime.Object, error) {
+				return factory.PrometheusDatasources()
+			}),
+		manifests.CreateIfNotExistsFactoryItem(
+			&corev1.Secret{},
+			func() (runtime.Object, error) {
+				return factory.PrometheusProxySecret()
+			}),
+		manifests.CreateIfNotExistsFactoryItem(
+			&corev1.Secret{},
+			func() (runtime.Object, error) {
+				return factory.PrometheusHtpasswdSecret(string(dataSecret.Data["basicAuthSecret"]))
+			}),
+		manifests.CreateIfNotExistsFactoryItem(
+			&corev1.Secret{},
+			func() (runtime.Object, error) {
+				return factory.PrometheusRBACProxySecret()
+			}),
 		HandleResult(
 			GetAction(
 				types.NamespacedName{Namespace: "openshift-config-managed", Name: "kubelet-serving-ca"},
@@ -406,6 +482,12 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 				},
 				args,
 			))),
+		manifests.CreateOrUpdateFactoryItemAction(
+			&corev1.Service{},
+			func() (runtime.Object, error) {
+				return factory.PrometheusService()
+			},
+			args),
 		HandleResult(
 			GetAction(
 				types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace},
@@ -422,22 +504,13 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 
 				updatedPrometheus.Spec = expectedPrometheus.Spec
 
-				update, err := r.patchChecker.CheckPatch(prometheus, updatedPrometheus)
-
-				if err != nil {
-					return nil, err
-				}
-
-				if !update {
-					return nil, nil
-				}
-
 				updateResult := &ExecResult{}
 
 				return HandleResult(
 					StoreResult(
 						updateResult,
-						UpdateAction(updatedPrometheus, UpdateWithPatch(utils.RhmAnnotator))),
+						UpdateWithPatchAction(prometheus, updatedPrometheus, r.patcher),
+					),
 					OnError(
 						Call(func() (ClientAction, error) {
 							return UpdateStatusCondition(
@@ -491,7 +564,7 @@ func (r *ReconcileMeterBase) createPrometheus(
 				createResult, CreateAction(
 					newProm,
 					CreateWithAddOwner(instance),
-					CreateWithPatch(utils.RhmAnnotator),
+					CreateWithPatch(r.patcher),
 				)),
 			OnError(
 				Call(func() (ClientAction, error) {
@@ -518,14 +591,6 @@ func (r *ReconcileMeterBase) newPrometheusOperator(
 	opt *MeterbaseOpts,
 	factory *manifests.Factory,
 ) (*monitoringv1.Prometheus, error) {
-	ls := labelsForPrometheus(cr.Name)
-
-	metadata := metav1.ObjectMeta{
-		Name:      cr.Name,
-		Namespace: cr.Namespace,
-		Labels:    ls,
-	}
-
 	storageClass := ""
 	if cr.Spec.Prometheus.Storage.Class == nil {
 		foundDefaultClass, err := utils.GetDefaultStorageClass(r.client)
@@ -558,9 +623,8 @@ func (r *ReconcileMeterBase) newPrometheusOperator(
 		return nil, err
 	}
 
-	prom.ObjectMeta = metadata
+	prom.ObjectMeta.Name = cr.Name
 	prom.Spec.Storage.VolumeClaimTemplate = pvc
-	prom.Spec.Resources = cr.Spec.Prometheus.ResourceRequirements
 
 	return prom, nil
 }
@@ -587,8 +651,12 @@ func (r *ReconcileMeterBase) copyServiceMonitor(
 				}
 
 				//newServiceMonitor.Spec.NamespaceSelector.MatchNames = []string{fromServiceMonitor.Namespace}
-				log.Info("cloning from", "obj", fromServiceMonitor, "spec", fromServiceMonitor.Spec)
-				log.Info("created obj", "obj", newServiceMonitor, "spec", newServiceMonitor.Spec)
+				newServiceMonitor.Spec.NamespaceSelector = monitoringv1.NamespaceSelector{
+					MatchNames: []string{fromServiceMonitor.Namespace},
+				}
+
+				log.V(0).Info("cloning from", "obj", fromServiceMonitor, "spec", fromServiceMonitor.Spec)
+				log.V(0).Info("created obj", "obj", newServiceMonitor, "spec", newServiceMonitor.Spec)
 
 				return HandleResult(
 					GetAction(
@@ -596,20 +664,15 @@ func (r *ReconcileMeterBase) copyServiceMonitor(
 						toServiceMonitor,
 					),
 					OnNotFound(CreateAction(newServiceMonitor, CreateWithAddOwner(instance))),
-					OnContinue(Call(func() (ClientAction, error) {
-						update, err := r.patchChecker.CheckPatch(toServiceMonitor, newServiceMonitor)
-
-						if err != nil {
-							return nil, merrors.Wrap(err, "failed to calculate patch")
-						}
-
-						if !update {
-							return nil, nil
-						}
-
-						return UpdateAction(newServiceMonitor, UpdateWithPatch(utils.RhmAnnotator)), nil
-					}))), nil
-			}))),
+					OnContinue(
+						UpdateWithPatchAction(
+							toServiceMonitor,
+							newServiceMonitor,
+							r.patcher),
+					),
+				), nil
+			})),
+		),
 	}
 }
 
@@ -651,16 +714,6 @@ func (r *ReconcileMeterBase) newBaseConfigMap(filename string, cr *marketplacev1
 	cfg.Name = cr.Name
 
 	return cfg, nil
-}
-
-// labelsForPrometheus returns the labels for selecting the resources
-// belonging to the given prometheus CR name.
-func labelsForPrometheus(name string) map[string]string {
-	return map[string]string{
-		"app":          "meterbase-prom",
-		"meterbase_cr": name,
-		"prometheus":   "meterbase",
-	}
 }
 
 // labelsForPrometheusOperator returns the labels for selecting the resources

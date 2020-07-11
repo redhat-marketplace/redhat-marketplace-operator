@@ -48,6 +48,10 @@ func NewBaseAction(name string) *BaseAction {
 	}
 }
 
+func (b *BaseAction) Bind(result *ExecResult) {
+	b.SetLastResult(result)
+}
+
 func (b *BaseAction) GetReqLogger(c *ClientCommand) logr.Logger {
 	return c.Log().WithValues("file", b.codelocation, "action", b.name)
 }

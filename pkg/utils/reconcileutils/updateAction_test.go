@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	utilspatch "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/test/mock/mock_client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/test/mock/mock_patch"
 	corev1 "k8s.io/api/core/v1"
@@ -109,19 +110,22 @@ var _ = Describe("UpdateAction", func() {
 		var (
 			expectedErr     error
 			mockPatchResult *patch.PatchResult
+			patcherTool     utilspatch.Patcher
 		)
 
 		BeforeEach(func() {
 			expectedErr = errors.NewPlain("mock fail")
 			mockPatchResult = &patch.PatchResult{}
+			patcherTool = utilspatch.NewPatcher("test")
+			patcherTool.PatchMaker = patcher
 		})
 
 		It("should handle err", func() {
 			patcher.EXPECT().Calculate(pod, pod).Return(mockPatchResult, expectedErr)
 
-			patchResult, err := NewPatchChecker(patcher).CheckPatch(pod, pod)
+			patchResult, err := patcherTool.Calculate(pod, pod)
 			Expect(err).To(MatchError(expectedErr))
-			Expect(patchResult).To(Equal(false))
+			Expect(patchResult).To(BeNil())
 		})
 	})
 

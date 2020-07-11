@@ -22,8 +22,8 @@ type createAction struct {
 
 //go:generate go-options -option CreateActionOption -imports=k8s.io/apimachinery/pkg/runtime,github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch -prefix Create createActionOptions
 type createActionOptions struct {
-	WithPatch           patch.PatchAnnotator
-	WithAddOwner        runtime.Object `options:",nil"`
+	WithPatch    patch.PatchAnnotator
+	WithAddOwner runtime.Object `options:",nil"`
 }
 
 func CreateAction(

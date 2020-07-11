@@ -8,6 +8,7 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/test/mock/mock_client"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -197,7 +198,7 @@ func (h *testHarness) execClientCommands(
 	logf.SetLogger(logf.ZapLogger(true))
 	logger := logf.Log.WithName("clienttest")
 	collector := NewCollector()
-	patchChecker := NewPatchChecker(utils.RhmPatchMaker)
+	patcher := patch.RHMDefaultPatcher
 
 	cc := NewClientCommand(client, scheme.Scheme, logger)
 	return cc.Do(
@@ -234,20 +235,11 @@ func (h *testHarness) execClientCommands(
 		Call(func() (ClientAction, error) {
 			h.updatedPod = h.pod.DeepCopy()
 			h.updatedPod.Annotations["foo"] = "bar"
-			update, err := patchChecker.CheckPatch(h.pod, h.updatedPod)
 
-			if err != nil {
-				return nil, err
-			}
-
-			if update {
-				return HandleResult(
-					UpdateAction(h.updatedPod),
-					OnRequeue(UpdateStatusCondition(h.meterbase, h.meterbase.Status.Conditions, h.condition)),
-				), err
-			}
-
-			return nil, nil
+			return HandleResult(
+				UpdateWithPatchAction(h.pod, h.updatedPod, patcher),
+				OnRequeue(UpdateStatusCondition(h.meterbase, h.meterbase.Status.Conditions, h.condition)),
+			), nil
 		}),
 		HandleResult(
 			DeleteAction(h.pod),

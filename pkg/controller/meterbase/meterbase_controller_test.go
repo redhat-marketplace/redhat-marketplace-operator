@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 	"github.com/spf13/viper"
@@ -214,10 +214,10 @@ var _ = Describe("MeterbaseController", func() {
 					mockErr)
 
 				ctrl = &ReconcileMeterBase{
-					client:       client,
-					scheme:       ctrlScheme,
-					ccprovider:   &reconcileutils.DefaultCommandRunnerProvider{},
-					patchChecker: reconcileutils.NewPatchChecker(utils.RhmPatchMaker),
+					client:     client,
+					scheme:     ctrlScheme,
+					ccprovider: &reconcileutils.DefaultCommandRunnerProvider{},
+					patcher:    patch.RHMDefaultPatcher,
 					opts: &MeterbaseOpts{
 						PullPolicy: v1.PullAlways,
 						AssetPath:  "../../../assets",
@@ -252,10 +252,10 @@ var _ = Describe("MeterbaseController", func() {
 					mockErr)
 
 				ctrl = &ReconcileMeterBase{
-					client:       client,
-					scheme:       ctrlScheme,
-					ccprovider:   &reconcileutils.DefaultCommandRunnerProvider{},
-					patchChecker: reconcileutils.NewPatchChecker(utils.RhmPatchMaker),
+					client:     client,
+					scheme:     ctrlScheme,
+					ccprovider: &reconcileutils.DefaultCommandRunnerProvider{},
+					patcher:    patch.RHMDefaultPatcher,
 					opts: &MeterbaseOpts{
 						PullPolicy: v1.PullAlways,
 						AssetPath:  "../../../assets",
@@ -302,10 +302,10 @@ var _ = Describe("MeterbaseController", func() {
 					mockErr)
 
 				ctrl = &ReconcileMeterBase{
-					client:       client,
-					scheme:       ctrlScheme,
-					ccprovider:   &reconcileutils.DefaultCommandRunnerProvider{},
-					patchChecker: reconcileutils.NewPatchChecker(utils.RhmPatchMaker),
+					client:     client,
+					scheme:     ctrlScheme,
+					ccprovider: &reconcileutils.DefaultCommandRunnerProvider{},
+					patcher:    patch.RHMDefaultPatcher,
 					opts: &MeterbaseOpts{
 						PullPolicy: v1.PullAlways,
 						AssetPath:  "../../../assets",

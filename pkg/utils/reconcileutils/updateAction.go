@@ -25,36 +25,6 @@ type updateActionOptions struct {
 	WithPatch  patch.PatchAnnotator
 }
 
-type PatchChecker struct {
-	patchMaker patch.PatchMaker
-}
-
-func NewPatchChecker(p patch.PatchMaker) *PatchChecker {
-	return &PatchChecker{
-		patchMaker: p,
-	}
-}
-
-func (p *PatchChecker) CheckPatch(
-	originalObject runtime.Object,
-	updatedObject runtime.Object,
-) (update bool, err error) {
-	update = false
-
-	patchResult, err := p.patchMaker.Calculate(originalObject, updatedObject)
-
-	if err != nil {
-		return
-	}
-
-	if patchResult.IsEmpty() {
-		return
-	}
-
-	update = true
-	return
-}
-
 func UpdateAction(
 	updateObject runtime.Object,
 	updateOptions ...UpdateActionOption,
@@ -167,4 +137,39 @@ func (u *updateStatusConditionAction) Exec(ctx context.Context, c *ClientCommand
 
 	reqLogger.Info("no update required")
 	return NewExecResult(Continue, reconcile.Result{}, nil), nil
+}
+
+type updateWithPatchAction struct {
+	*BaseAction
+	oldObject, updatedObject runtime.Object
+	patcher                  patch.Patcher
+}
+
+func UpdateWithPatchAction(
+	oldObject runtime.Object,
+	updatedObject runtime.Object,
+	patcher patch.Patcher,
+) *updateWithPatchAction {
+	return &updateWithPatchAction{
+		BaseAction:    NewBaseAction("updateWithPatchAction"),
+		oldObject:     oldObject,
+		updatedObject: updatedObject,
+		patcher:       patcher,
+	}
+}
+
+func (a *updateWithPatchAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
+	reqLogger := a.GetReqLogger(c)
+
+	patch, err := a.patcher.Calculate(a.oldObject, a.updatedObject)
+	if err != nil {
+		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error calculating patch")
+	}
+
+	if patch.IsEmpty() {
+		return NewExecResult(Continue, reconcile.Result{}, nil), nil
+	}
+
+	reqLogger.Info("updating with patch", "patch", patch.String())
+	return c.Do(ctx, UpdateAction(a.updatedObject, UpdateWithPatch(a.patcher)))
 }

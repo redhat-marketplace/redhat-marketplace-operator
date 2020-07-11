@@ -1,9 +1,9 @@
 apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
 metadata:
-  name: prometheus
+  name: prometheus-meterbase
   labels:
-    prometheus: prometheus
+    prometheus: redhat-marketplace
 spec:
   affinity:
     podAntiAffinity:
@@ -16,24 +16,96 @@ spec:
                   values:
                     - k8s
             namespaces:
-              - openshift-redhat-monitoring
+              - openshift-redhat-marketplace
             topologyKey: kubernetes.io/hostname
           weight: 100
+  containers:
+    - args:
+        - -provider=openshift
+        - -https-address=:9091
+        - -http-address=
+        - -email-domain=*
+        - -upstream=http://localhost:9090
+        - -htpasswd-file=/etc/proxy/htpasswd/auth
+        - -openshift-service-account=openshift-redhat-marketplace
+        - '-openshift-sar={"resource": "namespaces", "verb": "get"}'
+        - '-openshift-delegate-urls={"/": {"resource": "namespaces", "verb": "get"}}'
+        - -tls-cert=/etc/tls/private/tls.crt
+        - -tls-key=/etc/tls/private/tls.key
+        - -client-secret-file=/var/run/secrets/kubernetes.io/serviceaccount/token
+        - -cookie-secret-file=/etc/proxy/secrets/session_secret
+        - -openshift-ca=/etc/pki/tls/cert.pem
+        - -openshift-ca=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        - -skip-auth-regex=^/metrics
+      env:
+        - name: HTTP_PROXY
+          value: ''
+        - name: HTTPS_PROXY
+          value: ''
+        - name: NO_PROXY
+          value: ''
+      image: quay.io/openshift/origin-oauth-proxy:latest
+      name: prometheus-proxy
+      ports:
+        - containerPort: 9091
+          name: web
+      resources:
+        requests:
+          cpu: 10m
+          memory: 20Mi
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+        - mountPath: /etc/tls/private
+          name: secret-rhm-prometheus-meterbase-tls
+        - mountPath: /etc/proxy/secrets
+          name: secret-rhm-prometheus-meterbase-proxy
+        - mountPath: /etc/proxy/htpasswd
+          name: secret-rhm-prometheus-meterbase-htpasswd
+    - args:
+        - --secure-listen-address=0.0.0.0:9092
+        - --upstream=http://127.0.0.1:9095
+        - --config-file=/etc/kube-rbac-proxy/config.yaml
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+        - --logtostderr=true
+        - --v=10
+      image: quay.io/coreos/kube-rbac-proxy:v0.4.1
+      name: kube-rbac-proxy
+      ports:
+        - containerPort: 9092
+          name: tenancy
+      resources:
+        requests:
+          cpu: 10m
+          memory: 20Mi
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+        - mountPath: /etc/tls/private
+          name: secret-rhm-prometheus-meterbase-tls
+        - mountPath: /etc/kube-rbac-proxy
+          name: secret-kube-rbac-proxy
   replicas: 2
-  serviceAccountName: redhat-marketplace-prometheus
-  priorityClassName: system-cluster-critical
-  nodeSelector:
-    kubernetes.io/os: linux
   resources:
     requests:
-      cpu: 70m
+      cpu: 200m
       memory: 1Gi
+  serviceAccountName: redhat-marketplace-prometheus
+  priorityClassName: system-cluster-critical
+  listenLocal: true
+  nodeSelector:
+    kubernetes.io/os: linux
   securityContext: {}
   serviceMonitorNamespaceSelector: {}
   serviceMonitorSelector:
     matchLabels:
       marketplace.redhat.com/metered: 'true'
       marketplace.redhat.com/deployed: 'true'
+  secrets:
+    - kube-rbac-proxy
+    - rhm-prometheus-meterbase-tls
+    - rhm-prometheus-meterbase-proxy
+    - rhm-prometheus-meterbase-htpasswd
   configmaps:
     - serving-certs-ca-bundle
     - kubelet-serving-ca-bundle
