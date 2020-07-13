@@ -27,7 +27,7 @@ jobs:
           VERSION=$(make current-version)
           RESULT=$(git tag --list | grep -E "$VERSION")
 
-          if [ "$RESULT" != "" ] ; then
+          if [ "$RESULT" = "" ] ; then
             NEWVERSION=$(make bump-version)
             echo "bumping $VERSION to $NEWVERSION"
             git add version/version.go
