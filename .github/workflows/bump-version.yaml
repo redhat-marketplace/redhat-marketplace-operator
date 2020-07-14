@@ -10,6 +10,15 @@ jobs:
   version:
     name: Bump Version
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        registry:
+          - 'quay.io/rh-marketplace'
+        include:
+          - registry: quay.io/rh-marketplace
+            name: quay
+            key: quayUser
+            value: quayPassword
     steps:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
@@ -33,6 +42,37 @@ jobs:
             git add version/version.go
             git commit -m "chore: bumping version from $VERSION to $NEWVERSION"
             git push
+            echo ::set-env name=bump::true
           else
             echo "$VERSION is already bumped" ;
           fi
+
+      - name: Install operator-sdk
+        if: env.bump == 'true'
+        run: |
+          cd /tmp
+          curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
+          chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu && sudo mkdir -p /usr/local/bin/ && sudo cp operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk && rm operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
+          python -m pip install --upgrade pip
+          pip3 install operator-courier
+          curl -LO https://github.com/operator-framework/operator-registry/releases/download/${OPM_VERSION}/linux-amd64-opm
+          chmod +x linux-amd64-opm && sudo cp linux-amd64-opm /usr/local/bin/opm && rm linux-amd64-opm
+          echo "::add-path::/usr/local/bin"
+          sudo apt-get install -y sed
+          sudo snap install yq
+        env:
+          RELEASE_VERSION: v0.18.0
+          OPM_VERSION: v1.12.5
+
+      - name: Login ${{ matrix.name }}
+        if: env.bump == 'true'
+        run: make docker-login
+        env:
+          DOCKER_USER: ${{ secrets[matrix.key] }}
+          DOCKER_PASSWORD: ${{ secrets[matrix.value] }}
+          REGISTRY: ${{ matrix.registry }}
+
+      - name: Build all bundles
+        if: env.bump == 'true'
+        run: |
+          make opm-bundle-all
