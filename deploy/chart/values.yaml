@@ -138,6 +138,7 @@ roles:
           - operators.coreos.com
         resourceNames:
           - ibm-operator-catalog
+          - opencloud-operators
         resources:
           - catalogsources
         verbs:

@@ -33,6 +33,7 @@ const (
 	RAZEE_NAME                             = "rhm-marketplaceconfig-razeedeployment"
 	OPSRC_NAME                             = "redhat-marketplace"
 	IBM_CATALOGSRC_NAME                    = "ibm-operator-catalog"
+	OPENCLOUD_CATALOGSRC_NAME              = "opencloud-operators"
 	OPERATOR_MKTPLACE_NS                   = "openshift-marketplace"
 	RAZEE_CLUSTER_METADATA_NAME            = "razee-cluster-metadata"
 	WATCH_KEEPER_NON_NAMESPACED_NAME       = "watch-keeper-non-namespaced"

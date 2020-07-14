@@ -83,7 +83,7 @@ func testCleanInstall(t *testing.T) {
 	reconcilerTest := NewReconcilerTest(setup, marketplaceconfig)
 	reconcilerTest.TestAll(t,
 		ReconcileStep(opts, ReconcileWithExpectedResults(
-			append(RangeReconcileResults(RequeueResult, 4), DoneResult)...,
+			append(RangeReconcileResults(RequeueResult, 5), DoneResult)...,
 		)),
 		GetStep(opts,
 			GetWithNamespacedName(razeeName, namespace),
@@ -99,6 +99,10 @@ func testCleanInstall(t *testing.T) {
 		),
 		GetStep(opts,
 			GetWithNamespacedName(utils.IBM_CATALOGSRC_NAME, utils.OPERATOR_MKTPLACE_NS),
+			GetWithObj(&operatorsv1alpha1.CatalogSource{}),
+		),
+		GetStep(opts,
+			GetWithNamespacedName(utils.OPENCLOUD_CATALOGSRC_NAME, utils.OPERATOR_MKTPLACE_NS),
 			GetWithObj(&operatorsv1alpha1.CatalogSource{}),
 		),
 	)
