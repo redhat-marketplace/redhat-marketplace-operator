@@ -183,7 +183,7 @@ migrate: ##used to simulate migrating to the latest version of the operator
 	- kubectl apply -f deploy/service_account.yaml -n ${NAMESPACE}
 	- make helm
 	- make create
-	- kubectl create -f deploy/operator.yaml --namespace=${NAMESPACE}
+	- kubectl apply -f deploy/operator.yaml --namespace=${NAMESPACE}
 
 apply: ##applies changes to crds
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml --namespace=${NAMESPACE}
