@@ -164,6 +164,7 @@ create: ##creates the required crds for this deployment
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml -n ${NAMESPACE}
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_remoteresources3s_crd.yaml -n ${NAMESPACE}
 
 deploys: ##deploys the resources for deployment
 	@echo deploying services and operators
@@ -174,6 +175,15 @@ deploy-services: ##deploys the service acconts, roles, and role bindings
 	- kubectl create -f deploy/service_account.yaml --namespace=${NAMESPACE}
 	- kubectl create -f deploy/role.yaml --namespace=${NAMESPACE}
 	- kubectl create -f deploy/role_binding.yaml --namespace=${NAMESPACE}
+
+migrate: ##used to simulate migrating to the latest version of the operator
+	- make helm
+	- kubectl apply -f deploy/operator.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/role_binding.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/role.yaml -n ${NAMESPACE}
+	- kubectl apply -f deploy/service_account.yaml -n ${NAMESPACE}
+	- make create
+	- kubectl apply -f deploy/operator.yaml --namespace=${NAMESPACE}
 
 apply: ##applies changes to crds
 	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml --namespace=${NAMESPACE}
@@ -193,9 +203,14 @@ delete: ##delete the contents created in 'make create'
 	- kubectl delete -f deploy/role.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/service_account.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml
+	- kubectl patch Razeedeployment rhm-marketplaceconfig-razeedeployment -p '{"metadata":{"finalizers":[]}}' --type=merge
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml
+	- kubectl patch remoteresources3s.marketplace.redhat.com parent -p '{"metadata":{"finalizers":[]}}' --type=merge
+	- kubectl patch remoteresources3s.marketplace.redhat.com child -p '{"metadata":{"finalizers":[]}}' --type=merge
+	- kubectl patch customresourcedefinition.apiextensions.k8s.io remoteresources3s.marketplace.redhat.com -p '{"metadata":{"finalizers":[]}}' --type=merge
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_remoteresources3s_crd.yaml -n ${NAMESPACE}
 	- kubectl delete namespace ${NAMESPACE}
 
 delete-razee: ##delete the razee CR

@@ -17,6 +17,7 @@ package utils
 import (
 	"context"
 	b64 "encoding/base64"
+	json "encoding/json"
 	"fmt"
 	"strings"
 
@@ -96,7 +97,6 @@ func ExtractCredKey(secret *corev1.Secret, sel corev1.SecretKeySelector) ([]byte
 }
 
 func GetDataFromRhmSecret(request reconcile.Request, sel corev1.SecretKeySelector, client client.Client) (error, []byte) {
-	// get the operator secret
 	rhmOperatorSecret := corev1.Secret{}
 	err := client.Get(context.TODO(), types.NamespacedName{
 		Name:      RHM_OPERATOR_SECRET_NAME,
@@ -113,7 +113,6 @@ func GetDataFromRhmSecret(request reconcile.Request, sel corev1.SecretKeySelecto
 }
 
 func AddSecretFieldsToStruct(razeeData map[string][]byte, instance marketplacev1alpha1.RazeeDeployment) (marketplacev1alpha1.RazeeConfigurationValues, []string, error) {
-	// var razeeStruct *marketplacev1alpha1.RazeeConfigurationValues = &marketplacev1alpha1.RazeeConfigurationValues{}
 	if instance.Spec.DeployConfig == nil {
 		instance.Spec.DeployConfig = &marketplacev1alpha1.RazeeConfigurationValues{}
 	}
@@ -127,14 +126,12 @@ func AddSecretFieldsToStruct(razeeData map[string][]byte, instance marketplacev1
 		RAZEE_DASH_ORG_KEY_FIELD,
 		CHILD_RRS3_YAML_FIELD,
 		RAZEE_DASH_URL_FIELD,
-		FILE_SOURCE_URL_FIELD,
 	}
 
 	for key, element := range razeeData {
 		keys = append(keys, key)
 		value, err := RetrieveSecretField(element)
 		if err != nil {
-			//TODO: better way to handle this here?
 			razeeStruct = nil
 			return marketplacev1alpha1.RazeeConfigurationValues{}, nil, err
 		}
@@ -167,9 +164,6 @@ func AddSecretFieldsToStruct(razeeData map[string][]byte, instance marketplacev1
 
 		case RAZEE_DASH_URL_FIELD:
 			razeeStruct.RazeeDashUrl = value
-
-		case FILE_SOURCE_URL_FIELD:
-			razeeStruct.FileSourceURL = value
 
 		}
 	}
@@ -215,4 +209,9 @@ func ConditionsEqual(a status.Conditions, b status.Conditions) bool {
 		}
 	}
 	return true
+}
+
+func PrettyPrint(in interface{}) {
+	out, _ := json.MarshalIndent(in, "", "    ")
+	println(string(out))
 }
