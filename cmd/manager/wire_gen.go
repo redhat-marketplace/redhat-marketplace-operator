@@ -15,8 +15,8 @@ import (
 
 func InitializeMarketplaceController() *managers.ControllerMain {
 	controllerFlagSet := controller.ProvideControllerFlagSet()
-	marketplaceController := controller.ProvideMarketplaceController()
 	defaultCommandRunnerProvider := reconcileutils.ProvideDefaultCommandRunnerProvider()
+	marketplaceController := controller.ProvideMarketplaceController(defaultCommandRunnerProvider)
 	meterbaseController := controller.ProvideMeterbaseController(defaultCommandRunnerProvider)
 	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider)
 	razeeDeployController := controller.ProvideRazeeDeployController()

@@ -23,8 +23,8 @@ func initializeLocalSchemes() controller.LocalSchemes {
 }
 
 func initializeControllers() controller.ControllerList {
-	marketplaceController := controller.ProvideMarketplaceController()
 	defaultCommandRunnerProvider := reconcileutils.ProvideDefaultCommandRunnerProvider()
+	marketplaceController := controller.ProvideMarketplaceController(defaultCommandRunnerProvider)
 	meterbaseController := controller.ProvideMeterbaseController(defaultCommandRunnerProvider)
 	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider)
 	razeeDeployController := controller.ProvideRazeeDeployController()

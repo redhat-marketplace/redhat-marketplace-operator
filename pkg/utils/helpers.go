@@ -18,6 +18,7 @@ import (
 	"context"
 	b64 "encoding/base64"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
@@ -35,6 +36,10 @@ const RhmAnnotationKey = "marketplace.redhat.com/last-applied"
 
 var RhmAnnotator = patch.NewAnnotator(RhmAnnotationKey)
 var RhmPatchMaker = patch.NewPatchMaker(RhmAnnotator)
+
+func IsNil(i interface{}) bool {
+	return i == nil || reflect.ValueOf(i).IsNil()
+}
 
 func Contains(s []string, e string) bool {
 	for _, a := range s {

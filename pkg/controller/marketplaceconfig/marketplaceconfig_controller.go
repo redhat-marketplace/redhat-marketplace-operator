@@ -22,6 +22,7 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	pflag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
@@ -75,13 +76,19 @@ func FlagSet() *pflag.FlagSet {
 
 // Add creates a new MarketplaceConfig Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
+func Add(
+	mgr manager.Manager,
+	ccprovider ClientCommandRunnerProvider,
+) error {
+	return add(mgr, newReconciler(mgr, ccprovider))
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileMarketplaceConfig{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+func newReconciler(
+	mgr manager.Manager,
+	ccprovider ClientCommandRunnerProvider,
+) reconcile.Reconciler {
+	return &ReconcileMarketplaceConfig{client: mgr.GetClient(), scheme: mgr.GetScheme(), ccprovider: ccprovider}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -143,8 +150,9 @@ var _ reconcile.Reconciler = &ReconcileMarketplaceConfig{}
 type ReconcileMarketplaceConfig struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	client     client.Client
+	scheme     *runtime.Scheme
+	ccprovider ClientCommandRunnerProvider
 }
 
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
@@ -152,6 +160,8 @@ type ReconcileMarketplaceConfig struct {
 func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MarketplaceConfig")
+
+	cc := r.ccprovider.NewCommandRunner(r.client, r.scheme, reqLogger)
 
 	// Fetch the MarketplaceConfig instance
 	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
@@ -167,6 +177,38 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		// Error reading the object - requeue the request.
 		reqLogger.Error(err, "Failed to get MarketplaceConfig")
 		return reconcile.Result{}, err
+	}
+
+	newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName)
+	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
+	// Add finalizer and execute it if the resource is deleted
+	if result, _ := cc.Do(
+		context.TODO(),
+		Call(SetFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER)),
+		Call(
+			RunFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER,
+				HandleResult(
+					GetAction(
+						types.NamespacedName{
+							Namespace: newRazeeCrd.Namespace, Name: newRazeeCrd.Name}, newRazeeCrd),
+					OnContinue(DeleteAction(newRazeeCrd))),
+				HandleResult(
+					GetAction(
+						types.NamespacedName{
+							Namespace: newMeterBaseCr.Namespace, Name: newMeterBaseCr.Name}, newMeterBaseCr),
+					OnContinue(DeleteAction(newMeterBaseCr))),
+			)),
+	); !result.Is(Continue) {
+
+		if result.Is(Error) {
+			reqLogger.Error(result.GetError(), "Failed to get MeterBase.")
+		}
+
+		if result.Is(Return) {
+			reqLogger.Info("Delete is complete.")
+		}
+
+		return result.Return()
 	}
 
 	if marketplaceConfig.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionInstalling) == nil {

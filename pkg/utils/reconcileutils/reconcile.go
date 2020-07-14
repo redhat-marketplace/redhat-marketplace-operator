@@ -128,45 +128,45 @@ func (r *storeResult) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, 
 	return myVar, err
 }
 
+type ReturnResponse struct {
+	*BaseAction
+	*ExecResult
+}
+
+func (r *ReturnResponse) Bind(result *ExecResult) {
+	r.lastResult = result
+}
+
+func (r *ReturnResponse) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
+	return r.ExecResult, nil
+}
+
+func ReturnFinishedResult() *ReturnResponse {
+	return &ReturnResponse{
+		BaseAction: NewBaseAction("returnFinishedResult"),
+		ExecResult: NewExecResult(Return, reconcile.Result{}, nil),
+	}
+}
+
+func RequeueResponse() *ReturnResponse {
+	return &ReturnResponse{
+		BaseAction: NewBaseAction("requeueReponse"),
+		ExecResult:   NewExecResult(Requeue, reconcile.Result{Requeue: true}, nil),
+	}
+}
+
+func RequeueAfterResponse(d time.Duration) *ReturnResponse {
+	return &ReturnResponse{
+		BaseAction: NewBaseAction("requeueReponse"),
+		ExecResult:   NewExecResult(Requeue, reconcile.Result{RequeueAfter: d}, nil),
+	}
+}
+
+
 type handleResult struct {
 	BaseAction
 	Action   ClientAction
 	Branches []ClientActionBranch
-}
-
-type requeueResponse struct {
-	*BaseAction
-	*time.Duration
-}
-
-func RequeueResponse() *requeueResponse {
-	return &requeueResponse{
-		BaseAction: NewBaseAction("requeueReponse"),
-	}
-}
-
-func RequeueAfterResponse(d time.Duration) *requeueResponse {
-	return &requeueResponse{
-		BaseAction: NewBaseAction("requeueReponse"),
-		Duration:   &d,
-	}
-}
-
-func (r *requeueResponse) Bind(result *ExecResult) {
-	r.lastResult = result
-}
-
-func (r *requeueResponse) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
-	result := reconcile.Result{Requeue: true}
-	if r.Duration != nil {
-		result = reconcile.Result{RequeueAfter: *r.Duration}
-	}
-
-	return NewExecResult(Requeue, result, nil), nil
-}
-
-type errorResponse struct {
-	err error
 }
 
 // HandleResult will return original results on

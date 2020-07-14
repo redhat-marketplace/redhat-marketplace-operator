@@ -114,10 +114,8 @@ docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
 ##@ Development
 
 skaffold-dev: ## Run skaffold dev. Will unique tag the operator and rebuild.
-	make helm
 	make create
-	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=redhat-marketplace-operator --set pullPolicy=IfNotPresent
-	DOCKER_EXEC=$(DOCKER_EXEC) skaffold dev --tail --default-repo $(IMAGE_REGISTRY)
+	DOCKER_EXEC=$(DOCKER_EXEC) skaffold dev --tail --port-forward --default-repo $(IMAGE_REGISTRY)
 
 skaffold-run: ## Run skaffold run. Will uniquely tag the operator.
 	make helm

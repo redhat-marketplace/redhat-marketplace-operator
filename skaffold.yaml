@@ -1,4 +1,4 @@
-apiVersion: skaffold/v2beta1
+apiVersion: skaffold/v2beta5
 kind: Config
 build:
   tagPolicy:
@@ -13,8 +13,6 @@ build:
           paths:
             - ./cmd
             - ./pkg
-            - ./assets
-            - ./deploy/chart
           ignore:
             - vendor/**
     - image: redhat-marketplace-reporter
@@ -24,13 +22,23 @@ build:
           paths:
             - ./cmd
             - ./pkg
-            - ./assets
           ignore:
             - vendor/**
 deploy:
+  helm:
+    releases:
+      - name: rhm-operator
+        artifactOverrides:
+          image: redhat-marketplace-operator
+        chartPath: deploy/chart
+        wait: true
+        valuesFiles:
+          - deploy/chart/values.yaml
   kubectl:
     manifests:
       - deploy/crds/*cr.yaml
-      - deploy/*.yaml
     flags:
       disableValidation: true
+      delete:
+        - "--wait"
+        - "--timeout=30s"

@@ -37,6 +37,9 @@ const (
 	WATCH_KEEPER_CONFIG_NAME         = "watch-keeper-config"
 	WATCH_KEEPER_SECRET_NAME         = "watch-keeper-secret"
 
+	/* All Controllers */
+	CONTROLLER_FINALIZER = "finalizer.marketplace.redhat.com"
+
 	/* RBAC */
 	CLUSTER_ROLE              = "redhat-marketplace-operator"
 	CLUSTER_ROLE_BINDING      = "redhat-marketplace-operator"

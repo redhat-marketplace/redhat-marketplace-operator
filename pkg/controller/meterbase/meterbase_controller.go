@@ -183,7 +183,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
 // and what is in the MeterBase.Spec
 func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger := log.WithValues("Request.Namespac e", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterBase")
 
 	cc := r.ccprovider.NewCommandRunner(r.client, r.scheme, reqLogger)
@@ -192,23 +192,52 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	instance := &marketplacev1alpha1.MeterBase{}
 	result, _ := cc.Do(
 		context.TODO(),
-		GetAction(
-			request.NamespacedName,
-			instance,
+		HandleResult(
+			GetAction(
+				request.NamespacedName,
+				instance,
+			),
 		),
 	)
 
-	if result.Is(Error) || result.Is(NotFound) {
+	if !result.Is(Continue) {
 		if result.Is(NotFound) {
 			reqLogger.Info("MeterBase resource not found. Ignoring since object must be deleted.")
-		} else {
+			return reconcile.Result{}, nil
+		}
+
+		if result.Is(Error) {
 			reqLogger.Error(result.GetError(), "Failed to get MeterBase.")
 		}
+
 		return result.Return()
 	}
 
 	c := manifests.NewDefaultConfig()
 	factory := manifests.NewFactory(instance.Namespace, c)
+
+	// Execute the finalizer, will only run if we are in delete state
+	if result, _ = cc.Do(
+		context.TODO(),
+		Call(SetFinalizer(instance, utils.CONTROLLER_FINALIZER)),
+		Call(
+			RunFinalizer(instance, utils.CONTROLLER_FINALIZER,
+				Do(r.uninstallPrometheusOperator(instance, factory)...),
+				Do(r.uninstallPrometheus(instance, factory)...),
+				Do(r.uninstallServiceMonitors(instance)...),
+			)),
+	); !result.Is(Continue) {
+
+		if result.Is(Error) {
+			reqLogger.Error(result.GetError(), "Failed to get MeterBase.")
+		}
+
+		if result.Is(Return) {
+			reqLogger.Info("Delete is complete.")
+		}
+
+		return result.Return()
+	}
 
 	// if instance.Enabled == false
 	// return do nothing
@@ -222,46 +251,16 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		instance.Status.Conditions = &status.Conditions{}
 	}
 
-	// find specific service monitor for kubelet
-	openshiftKubeletMonitor := &monitoringv1.ServiceMonitor{}
-	openshiftKubeStateMonitor := &monitoringv1.ServiceMonitor{}
-	meteringKubeletMonitor := &monitoringv1.ServiceMonitor{}
-	meteringKubeStateMonitor := &monitoringv1.ServiceMonitor{}
+	/// ---
+	/// Install Objects
+	/// ---
 
 	prometheus := &monitoringv1.Prometheus{}
 	if result, err := cc.Do(context.TODO(),
 		Do(r.reconcilePrometheusOperator(instance, factory)...),
 		Do(r.reconcilePrometheus(instance, prometheus, factory)...),
-		Do(r.copyServiceMonitor(
-			reqLogger,
-			instance,
-			types.NamespacedName{
-				Namespace: "openshift-monitoring",
-				Name:      "kubelet",
-			},
-			openshiftKubeletMonitor,
-			types.NamespacedName{
-				Namespace: instance.Namespace,
-				Name:      "rhm-kubelet",
-			},
-			meteringKubeletMonitor,
-		)...),
-		Do(r.copyServiceMonitor(
-			reqLogger,
-			instance,
-			types.NamespacedName{
-				Namespace: "openshift-monitoring",
-				Name:      "kube-state-metrics",
-			},
-			openshiftKubeStateMonitor,
-			types.NamespacedName{
-				Namespace: instance.Namespace,
-				Name:      "rhm-kube-state-metrics",
-			},
-			meteringKubeStateMonitor,
-		)...),
+		Do(r.installServiceMonitors(instance)...),
 	); !result.Is(Continue) {
-
 		if err != nil {
 			reqLogger.Error(err, "error in reconcile")
 			return result.ReturnWithError(merrors.Wrap(err, "error creating prometheus"))
@@ -426,6 +425,21 @@ func (r *ReconcileMeterBase) reconcilePrometheusOperator(
 	}
 }
 
+func (r *ReconcileMeterBase) uninstallPrometheusOperator(
+	instance *marketplacev1alpha1.MeterBase,
+	factory *manifests.Factory,
+) []ClientAction {
+	cm, _ := factory.NewPrometheusOperatorCertsCABundle()
+	deployment, _ := factory.NewPrometheusOperatorDeployment()
+	service, _ := factory.NewPrometheusOperatorService()
+
+	return []ClientAction{
+		HandleResult(GetAction(types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service), OnContinue(DeleteAction(service))),
+		HandleResult(GetAction(types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}, deployment), OnContinue(DeleteAction(deployment))),
+		HandleResult(GetAction(types.NamespacedName{Namespace: cm.Namespace, Name: cm.Name}, cm), OnContinue(DeleteAction(cm))),
+	}
+}
+
 func (r *ReconcileMeterBase) reconcilePrometheus(
 	instance *marketplacev1alpha1.MeterBase,
 	prometheus *monitoringv1.Prometheus,
@@ -532,6 +546,39 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 	}
 }
 
+func (r *ReconcileMeterBase) uninstallPrometheus(
+	instance *marketplacev1alpha1.MeterBase,
+	factory *manifests.Factory,
+) []ClientAction {
+	cm0, _ := factory.PrometheusServingCertsCABundle()
+	secret0, _ := factory.PrometheusDatasources()
+	secret1, _ := factory.PrometheusProxySecret()
+	secret2, _ := factory.PrometheusHtpasswdSecret("foo")
+	secret3, _ := factory.PrometheusRBACProxySecret()
+	secrets := []*corev1.Secret{secret0, secret1, secret2, secret3}
+	prom, _ := r.newPrometheusOperator(instance, r.opts, factory)
+	service, _ := factory.PrometheusService()
+
+	actions := []ClientAction{
+		HandleResult(
+			GetAction(
+				types.NamespacedName{Namespace: cm0.Namespace, Name: cm0.Name}, cm0),
+			OnContinue(DeleteAction(cm0))),
+	}
+	for _, sec := range secrets {
+		actions = append(actions,
+			HandleResult(
+				GetAction(
+					types.NamespacedName{Namespace: sec.Namespace, Name: sec.Name}, sec),
+				OnContinue(DeleteAction(sec))))
+	}
+
+	return append(actions,
+		HandleResult(GetAction(types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service), OnContinue(DeleteAction(service))),
+		HandleResult(GetAction(types.NamespacedName{Namespace: prom.Namespace, Name: prom.Name}, prom), OnContinue(DeleteAction(prom))),
+	)
+}
+
 func (r *ReconcileMeterBase) reconcilePrometheusService(
 	instance *marketplacev1alpha1.MeterBase,
 	service *corev1.Service,
@@ -629,6 +676,62 @@ func (r *ReconcileMeterBase) newPrometheusOperator(
 	return prom, nil
 }
 
+func (r *ReconcileMeterBase) installServiceMonitors(instance *marketplacev1alpha1.MeterBase) []ClientAction {
+	reqLogger := log.WithValues("Request.Namespace", instance.Namespace, "Request.Name", instance.Name)
+	// find specific service monitor for kubelet
+	openshiftKubeletMonitor := &monitoringv1.ServiceMonitor{}
+	openshiftKubeStateMonitor := &monitoringv1.ServiceMonitor{}
+	meteringKubeletMonitor := &monitoringv1.ServiceMonitor{}
+	meteringKubeStateMonitor := &monitoringv1.ServiceMonitor{}
+
+	return []ClientAction{
+		Do(r.copyServiceMonitor(
+			reqLogger,
+			instance,
+			types.NamespacedName{
+				Namespace: "openshift-monitoring",
+				Name:      "kubelet",
+			},
+			openshiftKubeletMonitor,
+			types.NamespacedName{
+				Namespace: instance.Namespace,
+				Name:      "rhm-kubelet",
+			},
+			meteringKubeletMonitor,
+		)...),
+		Do(r.copyServiceMonitor(
+			reqLogger,
+			instance,
+			types.NamespacedName{
+				Namespace: "openshift-monitoring",
+				Name:      "kube-state-metrics",
+			},
+			openshiftKubeStateMonitor,
+			types.NamespacedName{
+				Namespace: instance.Namespace,
+				Name:      "rhm-kube-state-metrics",
+			},
+			meteringKubeStateMonitor,
+		)...),
+	}
+}
+
+func (r *ReconcileMeterBase) uninstallServiceMonitors(instance *marketplacev1alpha1.MeterBase) []ClientAction {
+	sm1 := &monitoringv1.ServiceMonitor{}
+	sm2 := &monitoringv1.ServiceMonitor{}
+
+	return []ClientAction{
+		HandleResult(GetAction(types.NamespacedName{
+			Namespace: instance.Namespace,
+			Name:      "rhm-kubelet",
+		}, sm1), OnContinue(DeleteAction(sm1))),
+		HandleResult(GetAction(types.NamespacedName{
+			Namespace: instance.Namespace,
+			Name:      "rhm-kubelet",
+		}, sm2), OnContinue(DeleteAction(sm2))),
+	}
+}
+
 func (r *ReconcileMeterBase) copyServiceMonitor(
 	log logr.Logger,
 	instance *marketplacev1alpha1.MeterBase,
@@ -655,8 +758,8 @@ func (r *ReconcileMeterBase) copyServiceMonitor(
 					MatchNames: []string{fromServiceMonitor.Namespace},
 				}
 
-				log.V(0).Info("cloning from", "obj", fromServiceMonitor, "spec", fromServiceMonitor.Spec)
-				log.V(0).Info("created obj", "obj", newServiceMonitor, "spec", newServiceMonitor.Spec)
+				log.V(2).Info("cloning from", "obj", fromServiceMonitor, "spec", fromServiceMonitor.Spec)
+				log.V(2).Info("created obj", "obj", newServiceMonitor, "spec", newServiceMonitor.Spec)
 
 				return HandleResult(
 					GetAction(
