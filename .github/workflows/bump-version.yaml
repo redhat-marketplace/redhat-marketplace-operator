@@ -41,9 +41,11 @@ jobs:
           VERSION=$(make current-version)
           RESULT=$(git tag --list | grep -E "$VERSION")
 
-          if [ "$RESULT" = "" ] ; then
+          if [ "$RESULT" != "" ] ; then
             NEWVERSION=$(make bump-version)
             echo "bumping $VERSION to $NEWVERSION"
+            git config user.name 'RHM Oper Bot'
+            git config user.email 'rhmoper@us.ibm.com'
             git add version/version.go
             git commit -m "chore: bumping version from $VERSION to $NEWVERSION"
             git push
