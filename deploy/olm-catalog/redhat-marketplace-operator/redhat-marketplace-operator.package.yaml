@@ -1,5 +1,5 @@
 channels:
-- currentCSV: redhat-marketplace-operator.v0.1.2
+- currentCSV: redhat-marketplace-operator.v0.2.0
   name: beta
 - currentCSV: redhat-marketplace-operator.v0.1.5
   name: stable
