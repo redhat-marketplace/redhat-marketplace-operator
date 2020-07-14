@@ -116,3 +116,5 @@ bundle/
 cache/
 scorecard-output.json
 .env-prod
+
+.sa.config
