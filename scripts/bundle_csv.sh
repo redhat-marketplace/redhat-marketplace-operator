@@ -40,9 +40,7 @@ BETA=$(go run github.com/mikefarah/yq/v3 r \
      'channels.(name==beta).currentCSV' | sed 's/redhat-marketplace-operator\.v//')
 
 
-#TODO: fix operator-courier test
-echo "Operator-courier disabled for now"
-#operator-courier verify --ui_validate_io $PACKAGE_PATH
+operator-courier verify --ui_validate_io $PACKAGE_PATH
 
 FILENAME="rhm-op-bundle-s${STABLE}-b${BETA}-d${DATETIME}"
 
