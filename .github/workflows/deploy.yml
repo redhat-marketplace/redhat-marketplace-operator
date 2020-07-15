@@ -265,6 +265,7 @@ jobs:
           - 'marketplace.redhat.com_v1alpha1_meterbase_cr.yaml'
           - 'marketplace.redhat.com_v1alpha1_meterdefinition_cr.yaml'
           - 'marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml'
+          - 'marketplace.redhat.com_v1alpha1_remoteresources3_cr.yaml'
     steps:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
