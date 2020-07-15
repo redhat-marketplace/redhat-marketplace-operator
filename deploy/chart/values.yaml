@@ -19,9 +19,9 @@ roles:
     type: ClusterRole
     rules:
       - apiGroups:
-        - rbac.authorization.k8s.io
+          - rbac.authorization.k8s.io
         resources:
-        - clusterroles
+          - clusterroles
         resourceNames:
           - razeedeploy-admin-cr
           - redhat-marketplace-razeedeploy
@@ -223,47 +223,46 @@ roles:
           - watch-keeper-limit-poll
           - watch-keeper-non-namespaced
           - razee-cluster-metadata
-# redhat-marketplace-remoteresources3deployment ClusterRole
+  # redhat-marketplace-remoteresources3deployment ClusterRole
   - name: redhat-marketplace-remoteresources3deployment
     serviceAccountName: redhat-marketplace-remoteresources3deployment
     type: ClusterRole
     rules:
       - apiGroups:
-        - operator.coreos.com
-        - marketplace.redhat.com
+          - operators.coreos.com
+          - marketplace.redhat.com
         resources:
-        - "*"
+          - '*'
         verbs:
-        - "*"
+          - '*'
       - nonResourceURLs:
           - '*'
-        verbs:
-          - '*'
-# redhat-marketplace-remoteresources3deployment ClusterRole
+        verbs: ['get', 'list', 'watch']
+  # redhat-marketplace-remoteresources3deployment ClusterRole
   - name: redhat-marketplace-remoteresources3deployment
     serviceAccountName: redhat-marketplace-remoteresources3deployment
     type: Role
     rules:
       - apiGroups:
-        - '*'
+          - '*'
         resources:
-        - '*'
+          - '*'
         verbs:
-        - '*'
-# redhat-marketplace-watch-keeper ClusterRole
+          - '*'
+  # redhat-marketplace-watch-keeper ClusterRole
   - name: redhat-marketplace-watch-keeper
     serviceAccountName: redhat-marketplace-watch-keeper
     type: ClusterRole
     rules:
       - apiGroups:
-        - '*'
+          - '*'
         resources:
-        - '*'
-        verbs: ["get", "list", "watch"]
+          - '*'
+        verbs: ['get', 'list', 'watch']
       - nonResourceURLs:
-        - '*'
-        verbs: ["get", "list", "watch"]
-# rhm-operator Role
+          - '*'
+        verbs: ['get', 'list', 'watch']
+  # rhm-operator Role
   - name: redhat-marketplace-operator
     serviceAccountName: redhat-marketplace-operator
     type: Role
