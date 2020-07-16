@@ -1198,10 +1198,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		clusterVersion.SetLabels(clusterVersionLabels)
 		err = r.client.Update(context.TODO(), clusterVersion)
 		if err != nil {
-			reqLogger.Error(err, "Failed to patch razee/watch-resource: lite label to clusterversion resource")
+			reqLogger.Error(err, "Failed to patch razee/watch-resource: detail label to clusterversion resource")
 			return reconcile.Result{}, err
 		}
-		reqLogger.Info("Patched razee/watch-resource: lite label to clusterversion resource")
+		reqLogger.Info("Patched razee/watch-resource: detail label to clusterversion resource")
 
 		return reconcile.Result{Requeue: true}, nil
 	}
