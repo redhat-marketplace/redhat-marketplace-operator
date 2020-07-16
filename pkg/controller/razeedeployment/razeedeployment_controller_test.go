@@ -107,10 +107,9 @@ var (
 			Namespace: namespace,
 		},
 		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
-			Enabled:               true,
-			ClusterUUID:           "foo",
-			DeploySecretName:      &secretName,
-
+			Enabled:          true,
+			ClusterUUID:      "foo",
+			DeploySecretName: &secretName,
 		},
 	}
 	razeeDeploymentDeletion = marketplacev1alpha1.RazeeDeployment{
@@ -251,7 +250,7 @@ func testFullUninstall(t *testing.T) {
 
 	reconcilerTest.TestAll(t,
 		ReconcileStep(opts,
-        ReconcileWithUntilDone(true)),
+			ReconcileWithUntilDone(true)),
 		ListStep(opts,
 			ListWithObj(&marketplacev1alpha1.RemoteResourceS3List{}),
 			ListWithFilter(
@@ -310,13 +309,13 @@ func testLegacyUninstall(t *testing.T) {
 
 	reconcilerTest.TestAll(t,
 		ReconcileStep(opts,
-            ReconcileWithExpectedResults(
-                RequeueResult,
-                RequeueResult,
+			ReconcileWithExpectedResults(
+				RequeueResult,
+				RequeueResult,
 				RequeueResult,
 			),
 		),
-		ListStep(append(opts,WithStepName("Get Legacy Job")),
+		ListStep(append(opts, WithStepName("Get Legacy Job")),
 			ListWithObj(&batch.JobList{}),
 			ListWithFilter(
 				client.InNamespace(namespace),
@@ -327,7 +326,7 @@ func testLegacyUninstall(t *testing.T) {
 				assert.Truef(t, ok, "expected job list got type %T", i)
 				assert.Equal(t, 0, len(list.Items))
 			})),
-		ListStep(append(opts,WithStepName("Get Service Account")),
+		ListStep(append(opts, WithStepName("Get Service Account")),
 			ListWithObj(&corev1.ServiceAccountList{}),
 			ListWithFilter(
 				client.InNamespace(namespace),
@@ -338,7 +337,7 @@ func testLegacyUninstall(t *testing.T) {
 				assert.Truef(t, ok, "expected service account list got type %T", i)
 				assert.Equal(t, 0, len(list.Items))
 			})),
-		ListStep(append(opts,WithStepName("Get Cluster Role")),
+		ListStep(append(opts, WithStepName("Get Cluster Role")),
 			ListWithObj(&rbacv1.ClusterRoleList{}),
 			ListWithFilter(
 				client.InNamespace(namespace),
@@ -349,7 +348,7 @@ func testLegacyUninstall(t *testing.T) {
 				assert.Truef(t, ok, "expected cluster role list got type %T", i)
 				assert.Equal(t, 0, len(list.Items))
 			})),
-		ListStep(append(opts,WithStepName("Get Deployment")),
+		ListStep(append(opts, WithStepName("Get Deployment")),
 			ListWithObj(&appsv1.DeploymentList{}),
 			ListWithFilter(
 				client.InNamespace(namespace),
