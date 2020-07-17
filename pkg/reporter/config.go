@@ -5,20 +5,21 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-type ReporterName types.NamespacedName
+type Name types.NamespacedName
 
 type MarketplaceReporterConfig struct {
-	Name           types.NamespacedName
-	Schemes        []*controller.SchemeDefinition
-	WatchNamespace string
+	Name            types.NamespacedName
+	Schemes         []*controller.SchemeDefinition
+	WatchNamespace  string
+	OutputDirectory string
 }
 
 func NewMarketplaceReporterConfig(
-	reportName ReporterName,
+	reportName Name,
 	schemes []*controller.SchemeDefinition,
 ) (*MarketplaceReporterConfig, error) {
 	return &MarketplaceReporterConfig{
-		Name:           (types.NamespacedName)(reportName),
+		Name:           types.NamespacedName(reportName),
 		Schemes:        schemes,
 		WatchNamespace: "",
 	}, nil

@@ -27,7 +27,7 @@ import (
 
 type PromQuery struct {
 	Metric     string
-	Functions   []string
+	Functions  []string
 	Labels     map[string]string
 	Start, End time.Time
 	Step       time.Duration
@@ -92,11 +92,11 @@ func (r *MarketplaceReporter) queryRange(query *PromQuery) (model.Value, v1.Warn
 	result, warnings, err := r.api.QueryRange(ctx, query.String(), timeRange)
 
 	if err != nil {
-		r.log.Error(err, "querying prometheus")
+		logger.Error(err, "querying prometheus")
 		return nil, warnings, err
 	}
 	if len(warnings) > 0 {
-		r.log.Info("warnings", "warnings", warnings)
+		logger.Info("warnings", "warnings", warnings)
 	}
 
 	return result, warnings, nil

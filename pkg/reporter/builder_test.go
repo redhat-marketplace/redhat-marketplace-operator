@@ -15,59 +15,55 @@
 package reporter
 
 import (
-	"testing"
-
 	"github.com/google/uuid"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
-func TestMetricBuilder(t *testing.T) {
-	metricsReport := &MetricsReport{
-		ReportSliceID: ReportSliceKey(uuid.New()),
-	}
+var _ = Describe("Builder", func() {
+	var (
+		metricsReport *MetricsReport
+		key           MetricKey
+		metricBase    *MetricBase
+	)
 
-	key := MetricKey{
-		ReportPeriodStart: "start",
-		ReportPeriodEnd:   "end",
-		IntervalStart: "istart",
-		IntervalEnd:   "iend",
-		MeterDomain:   "test",
-	}
-	metricBase := &MetricBase{
-		Key:               key,
-	}
+	BeforeEach(func() {
+		metricsReport = &MetricsReport{
+			ReportSliceID: ReportSliceKey(uuid.New()),
+		}
+		key = MetricKey{
+			ReportPeriodStart: "start",
+			ReportPeriodEnd:   "end",
+			IntervalStart:     "istart",
+			IntervalEnd:       "iend",
+			MeterDomain:       "test",
+		}
+		metricBase = &MetricBase{
+			Key: key,
+		}
+	})
 
-	err := metricBase.AddMetrics("foo", 1, "bar", 2)
-	if err != nil {
-		t.Fatalf("expected no error %v", err)
-	}
+	It("should add metrics to a base", func() {
+		Expect(metricBase.AddMetrics("foo", 1, "bar", 2)).To(Succeed())
+		Expect(metricsReport.AddMetrics(metricBase)).To(Succeed())
+		Expect(len(metricsReport.Metrics)).To(Equal(1))
 
-	err = metricsReport.AddMetrics(metricBase)
-	if err != nil {
-		t.Fatalf("expected no error %v", err)
-	}
+		fooValue, fooPresent := metricsReport.Metrics[0]["foo"]
+		Expect(fooPresent).To(BeTrue())
 
-	size := len(metricsReport.Metrics)
-	if size != 1 {
-		t.Fatalf("len(metrics) = %d; want 1", size)
-	}
+		fooInt, ok := fooValue.(int)
 
-	fooValue, fooPresent := metricsReport.Metrics[0]["foo"]
+		Expect(ok).To(BeTrue())
+		Expect(fooInt).To(Equal(1))
 
-	if !fooPresent {
-		t.Fatalf("expected foo to be a metric")
-	}
+		barValue, barPresent := metricsReport.Metrics[0]["bar"]
 
-	if fooInt, ok := fooValue.(int); ok && fooInt != 1 {
-		t.Fatalf("fooValue = %d; want 1", fooInt)
-	}
+		Expect(barPresent).To(BeTrue())
 
-	barValue, barPresent := metricsReport.Metrics[0]["bar"]
+		barInt, ok := barValue.(int)
 
-	if !barPresent {
-		t.Fatalf("expected bar to be a metric")
-	}
-
-	if barInt, ok := barValue.(int); ok && barInt != 2 {
-		t.Fatalf("barValue = %d; want 2", barInt)
-	}
-}
+		Expect(ok).To(BeTrue())
+		Expect(barInt).To(Equal(2))
+	})
+})

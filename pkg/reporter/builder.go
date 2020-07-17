@@ -15,17 +15,14 @@
 package reporter
 
 import (
-	"fmt"
 	"time"
 
+	"emperror.dev/errors"
 	"github.com/google/uuid"
 	"github.com/imdario/mergo"
 	"github.com/mitchellh/mapstructure"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-var log = logf.Log.WithName("report")
 
 type ReportMetadata struct {
 	ReportID       uuid.UUID                            `json:"report_id"`
@@ -35,12 +32,11 @@ type ReportMetadata struct {
 }
 
 type ReportSourceMetadata struct {
-	RhmClusterID string `json:"rhm_cluster_id"`
-	RhmAccountID string `json:"rhm_account_id"`
+	RhmClusterID string `json:"rhmClusterId"`
+	RhmAccountID string `json:"rhmAccountId"`
 }
 
 type ReportSliceKey uuid.UUID
-
 
 func (sliceKey ReportSliceKey) MarshalText() ([]byte, error) {
 	return uuid.UUID(sliceKey).MarshalText()
@@ -50,7 +46,7 @@ func (sliceKey ReportSliceKey) MarshalBinary() ([]byte, error) {
 	return uuid.UUID(sliceKey).MarshalBinary()
 }
 
-func (sliceKey ReportSliceKey) String() (string) {
+func (sliceKey ReportSliceKey) String() string {
 	return uuid.UUID(sliceKey).String()
 }
 
@@ -74,25 +70,22 @@ type MetricKey struct {
 }
 
 type MetricBase struct {
-	Key     MetricKey `mapstructure:",squash"`
-	metrics map[string]interface{}
+	Key              MetricKey              `mapstructure:",squash"`
+	AdditionalLabels map[string]interface{} `mapstructure:"additionalLabels"`
+	Metrics          map[string]interface{} `mapstructure:"rhmUsageMetrics"`
 }
 
 func TimeToReportTimeStr(myTime time.Time) string {
 	return myTime.Format(time.RFC3339)
 }
 
-func (m *MetricBase) AddMetrics(keysAndValues ...interface{}) error {
+func kvToMap(keysAndValues []interface{}) (map[string]interface{}, error) {
+	metrics := make(map[string]interface{})
 	if len(keysAndValues)%2 != 0 {
-		err := fmt.Errorf("keyAndValues must be a length of 2")
-		log.Error(err, "invalid arguments")
+		return nil, errors.New("keyAndValues must be a length of 2")
 	}
 
 	chunks := utils.ChunkBy(keysAndValues, 2)
-
-	if m.metrics == nil {
-		m.metrics = make(map[string]interface{})
-	}
 
 	for _, chunk := range chunks {
 		key := chunk[0]
@@ -101,12 +94,49 @@ func (m *MetricBase) AddMetrics(keysAndValues ...interface{}) error {
 		keyStr, ok := key.(string)
 
 		if !ok {
-			err := fmt.Errorf("key is not a string %t", key)
-			log.Error(err, "error converting key")
-			return err
+			return nil, errors.Errorf("key type %t is not a string", key)
 		}
 
-		m.metrics[keyStr] = value
+		metrics[keyStr] = value
+	}
+
+	return metrics, nil
+}
+
+func (m *MetricBase) AddAdditionalLabels(keysAndValues ...interface{}) error {
+	metrics, err := kvToMap(keysAndValues)
+
+	if err != nil {
+		return errors.Wrap(err, "error converting to map")
+	}
+
+	if m.AdditionalLabels == nil {
+		m.AdditionalLabels = make(map[string]interface{})
+	}
+
+	err = mergo.Merge(&m.AdditionalLabels, metrics)
+	if err != nil {
+		return errors.Wrap(err, "error merging additional labels")
+	}
+
+	return nil
+}
+
+func (m *MetricBase) AddMetrics(keysAndValues ...interface{}) error {
+	metrics, err := kvToMap(keysAndValues)
+
+	if err != nil {
+		return errors.Wrap(err, "error converting to map")
+	}
+
+	if m.Metrics == nil {
+		m.Metrics = make(map[string]interface{})
+	}
+
+	err = mergo.Merge(&m.Metrics, metrics)
+
+	if err != nil {
+		return errors.Wrap(err, "error merging maps")
 	}
 
 	return nil
@@ -117,12 +147,7 @@ func (m *MetricsReport) AddMetrics(metrics ...*MetricBase) error {
 		result := make(map[string]interface{})
 		err := mapstructure.Decode(metric, &result)
 		if err != nil {
-			log.Error(err, "error adding metric")
-			return err
-		}
-		err = mergo.Merge(&result, metric.metrics)
-		if err != nil {
-			log.Error(err, "error adding metric")
+			logger.Error(err, "error adding metric")
 			return err
 		}
 		m.Metrics = append(m.Metrics, result)

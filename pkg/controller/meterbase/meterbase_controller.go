@@ -183,7 +183,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
 // and what is in the MeterBase.Spec
 func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespac e", request.Namespace, "Request.Name", request.Name)
+	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterBase")
 
 	cc := r.ccprovider.NewCommandRunner(r.client, r.scheme, reqLogger)
@@ -434,9 +434,15 @@ func (r *ReconcileMeterBase) uninstallPrometheusOperator(
 	service, _ := factory.NewPrometheusOperatorService()
 
 	return []ClientAction{
-		HandleResult(GetAction(types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service), OnContinue(DeleteAction(service))),
-		HandleResult(GetAction(types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}, deployment), OnContinue(DeleteAction(deployment))),
-		HandleResult(GetAction(types.NamespacedName{Namespace: cm.Namespace, Name: cm.Name}, cm), OnContinue(DeleteAction(cm))),
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service),
+			OnContinue(DeleteAction(service))),
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}, deployment),
+			OnContinue(DeleteAction(deployment))),
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: cm.Namespace, Name: cm.Name}, cm),
+			OnContinue(DeleteAction(cm))),
 	}
 }
 

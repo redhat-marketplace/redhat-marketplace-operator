@@ -36,14 +36,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 )
 
 // TestMeterBaseController runs ReconcileMemcached.Reconcile() against a
 // fake client that tracks a MeterBase object.
 func TestRazeeDeployController(t *testing.T) {
 	// Set the logger to development mode for verbose logs.
-	logf.SetLogger(logf.ZapLogger(true))
+	logger.SetLoggerToZap()
 
 	viper.Set("assets", "../../../assets")
 	scheme.Scheme.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment.DeepCopy(), &marketplacev1alpha1.RazeeDeploymentList{})

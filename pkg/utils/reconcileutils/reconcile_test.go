@@ -22,6 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	flogger "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 )
 
 var _ = Describe("ReconcileUtils", func() {
@@ -195,7 +196,7 @@ func NewTestHarness() *testHarness {
 func (h *testHarness) execClientCommands(
 	client client.Client,
 ) (*ExecResult, error) {
-	logf.SetLogger(logf.ZapLogger(true))
+	flogger.SetLoggerToZap()
 	logger := logf.Log.WithName("clienttest")
 	collector := NewCollector()
 	patcher := patch.RHMDefaultPatcher

@@ -26,12 +26,11 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 )
 
 func TestMeterDefinitionController(t *testing.T) {
-	logf.SetLogger(logf.ZapLogger(true))
-
+	logger.SetLoggerToZap()
 	viper.Set("assets", "../../../assets")
 
 	t.Run("Test No Service Monitors", testNoServiceMonitors)
