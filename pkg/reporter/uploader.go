@@ -13,15 +13,56 @@ import (
 	"strings"
 
 	"emperror.dev/errors"
+	"github.com/gotidy/ptr"
 	"golang.org/x/net/http2"
 )
 
+type RedHatInsightsUploaderConfig struct {
+	URL                 string
+	Token               string
+	OperatorVersion     string
+	ClusterID           string
+	AdditionalCertFiles []string
+	httpVersion         *int
+}
+
 type RedHatInsightsUploader struct {
-	Url             string
-	Token           string
-	OperatorVersion string
-	ClusterID       string
-	httpVersion     int
+	RedHatInsightsUploaderConfig
+	client *http.Client
+}
+
+func NewRedHatInsightsUploader(
+	config RedHatInsightsUploaderConfig,
+) (*RedHatInsightsUploader, error) {
+	tlsConfig, err := generateCACertPool(config.AdditionalCertFiles...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	client := &http.Client{}
+
+	// default to 2 unless otherwise overridden
+	if config.httpVersion == nil {
+		config.httpVersion = ptr.Int(2)
+	}
+
+	// Use the proper transport in the client
+	switch *config.httpVersion {
+	case 1:
+		client.Transport = &http.Transport{
+			TLSClientConfig: tlsConfig,
+		}
+	case 2:
+		client.Transport = &http2.Transport{
+			TLSClientConfig: tlsConfig,
+		}
+	}
+
+	return &RedHatInsightsUploader{
+		client:                       client,
+		RedHatInsightsUploaderConfig: config,
+	}, nil
 }
 
 var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
@@ -30,8 +71,10 @@ func escapeQuotes(s string) string {
 	return quoteEscaper.Replace(s)
 }
 
-const contentType = "application/vnd.redhat.hccm.tar+tgz"
+const mktplaceFileUploadType = "application/vnd.redhat.mkt.tar+tgz"
 const userAgentFmt = "marketplace-operator/%s cluster/%s"
+
+const uploadURL = "%s/api/ingress/v1/upload"
 
 func getUserAgent(version, clusterID string) string {
 	return fmt.Sprintf(userAgentFmt, version, clusterID)
@@ -51,7 +94,7 @@ func (r *RedHatInsightsUploader) uploadFileRequest(path string) (*http.Request, 
 	h.Set("Content-Disposition",
 		fmt.Sprintf(`form-data; name="%s"; filename="%s"`,
 			escapeQuotes("file"), escapeQuotes(filepath.Base(path))))
-	h.Set("Content-Type", contentType)
+	h.Set("Content-Type", mktplaceFileUploadType)
 	part, err := writer.CreatePart(h)
 
 	if err != nil {
@@ -64,7 +107,7 @@ func (r *RedHatInsightsUploader) uploadFileRequest(path string) (*http.Request, 
 		return nil, err
 	}
 
-	_ = writer.WriteField("type", contentType)
+	_ = writer.WriteField("type", mktplaceFileUploadType)
 
 	if err != nil {
 		return nil, err
@@ -75,7 +118,7 @@ func (r *RedHatInsightsUploader) uploadFileRequest(path string) (*http.Request, 
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", r.Url, body)
+	req, err := http.NewRequest("POST", fmt.Sprintf(uploadURL, r.URL), body)
 
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", r.Token))
@@ -84,12 +127,6 @@ func (r *RedHatInsightsUploader) uploadFileRequest(path string) (*http.Request, 
 }
 
 func (r *RedHatInsightsUploader) UploadFile(path string) error {
-	client, err := r.getClient()
-
-	if err != nil {
-		return errors.Wrap(err, "failed to get client")
-	}
-
 	req, err := r.uploadFileRequest(path)
 
 	if err != nil {
@@ -97,7 +134,7 @@ func (r *RedHatInsightsUploader) UploadFile(path string) error {
 	}
 
 	// Perform the request
-	resp, err := client.Do(req)
+	resp, err := r.client.Do(req)
 	if err != nil {
 		logger.Error(err, "failed to post")
 	}
@@ -111,46 +148,15 @@ func (r *RedHatInsightsUploader) UploadFile(path string) error {
 		"retrieved response",
 		"statusCode", resp.StatusCode,
 		"proto", resp.Proto,
-		"body", string(body))
+		"body", string(body),
+		"headers", resp.Header)
 
 	if resp.StatusCode >= 300 || resp.StatusCode < 200 {
 		return errors.NewWithDetails("failed to upload field",
 			"statusCode", resp.StatusCode,
 			"proto", resp.Proto,
-			"body", string(body))
+			"body", string(body),
+			"headers", resp.Header)
 	}
 	return nil
-}
-
-func (r *RedHatInsightsUploader) getClient() (*http.Client, error) {
-	client := &http.Client{}
-
-	// Create a pool with the server certificate since it is not signed
-	// by a known CA
-	// caCert, err := ioutil.ReadFile("server.crt")
-	// if err != nil {
-	// 	log.Fatalf("Reading server certificate: %s", err)
-	// }
-	// caCertPool := x509.NewCertPool()
-	// caCertPool.AppendCertsFromPEM(caCert)
-
-	// Create TLS configuration with the certificate of the server
-	// tlsConfig := &tls.Config{
-	// 	RootCAs: caCertPool,
-	// }
-
-	// Use the proper transport in the client
-	switch r.httpVersion {
-	case 1:
-		client.Transport = &http.Transport{
-			//TLSClientConfig: tlsConfig,
-		}
-	case 2:
-		client.Transport = &http2.Transport{
-			//TLSClientConfig: tlsConfig,
-		}
-	}
-
-	return client, nil
-
 }

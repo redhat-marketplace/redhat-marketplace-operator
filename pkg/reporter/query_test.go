@@ -45,9 +45,9 @@ var _ = Describe("Query", func() {
 			Step:  time.Minute * 60,
 		}
 
-		v1api := getTestAPI(mockResponseRoundTripper())
+		v1api := getTestAPI(mockResponseRoundTripper("../../test/mockresponses/prometheus-query-range.json"))
 		sut = &MarketplaceReporter{
-			api:   v1api,
+			api: v1api,
 		}
 	})
 
@@ -61,7 +61,7 @@ var _ = Describe("Query", func() {
 		matrixResult, ok := result.(model.Matrix)
 
 		Expect(ok).To(BeTrue(), "result is not a matrix")
-		Expect(len(matrixResult)).To(Equal(1))
+		Expect(len(matrixResult)).To(Equal(2))
 	})
 
 	It("should build a query", func() {

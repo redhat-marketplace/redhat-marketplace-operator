@@ -45,11 +45,9 @@ var (
 // Update the CR status for each report and queue
 
 type MarketplaceReporter struct {
-	api             v1.API
-	maxRoutines     int
-	queryResults    chan model.Value
-	mgr             manager.Manager
-	outputDirectory string
+	api v1.API
+	mgr manager.Manager
+	MarketplaceReporterConfig
 }
 
 func NewMarketplaceReporter(config *MarketplaceReporterConfig) (*MarketplaceReporter, error) {
@@ -98,9 +96,8 @@ func NewMarketplaceReporter(config *MarketplaceReporterConfig) (*MarketplaceRepo
 	v1api := v1.NewAPI(client)
 
 	return &MarketplaceReporter{
-		api:             v1api,
-		mgr:             mgr,
-		outputDirectory: config.OutputDirectory,
+		api: v1api,
+		mgr: mgr,
 	}, nil
 }
 
@@ -169,6 +166,7 @@ func (r *MarketplaceReporter) CollectMetrics(
 func (r *MarketplaceReporter) GetMeterDefs(
 	meterDefLabels *metav1.LabelSelector,
 ) ([]*marketplacev1alpha1.MeterDefinition, error) {
+	//TODO: do this
 	return nil, nil
 }
 
@@ -223,7 +221,7 @@ func (r *MarketplaceReporter) Query(
 	}
 
 	var wg sync.WaitGroup
-	for w := 1; w <= 10; w++ {
+	for w := 1; w <= *r.MaxRoutines; w++ {
 		wg.Add(1)
 
 		go func() {
@@ -312,7 +310,7 @@ func (r *MarketplaceReporter) Process(
 	}
 
 	var wg sync.WaitGroup
-	for w := 1; w <= 10; w++ {
+	for w := 1; w <= *r.MaxRoutines; w++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -335,8 +333,7 @@ func (r *MarketplaceReporter) WriteReport(
 		RhmClusterID: marketplaceConfig.Spec.ClusterUUID,
 	})
 
-	// TODO: make this configurable
-	const partitionSize = 100
+	var partitionSize = *r.MetricsPerFile
 
 	metricsArr := make([]*MetricBase, 0, len(metrics))
 
@@ -365,7 +362,7 @@ func (r *MarketplaceReporter) WriteReport(
 			return nil, err
 		}
 		filename := filepath.Join(
-			r.outputDirectory,
+			r.OutputDirectory,
 			fmt.Sprintf("%s.json", metricReport.ReportSliceID.String()))
 
 		err = ioutil.WriteFile(
@@ -387,7 +384,7 @@ func (r *MarketplaceReporter) WriteReport(
 		return nil, err
 	}
 
-	filename := filepath.Join(r.outputDirectory, "metadata.json")
+	filename := filepath.Join(r.OutputDirectory, "metadata.json")
 	err = ioutil.WriteFile(filename, marshallBytes, 0600)
 	if err != nil {
 		logger.Error(err, "failed to write file", "file", filename)

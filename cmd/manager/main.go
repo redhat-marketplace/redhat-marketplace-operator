@@ -43,7 +43,7 @@ func makeMarketplaceController(
 			(*pflag.FlagSet)(controllerFlags),
 		},
 		Controllers: controllerList,
-		Schemes: localSchemes,
+		Schemes:     localSchemes,
 	}
 }
 

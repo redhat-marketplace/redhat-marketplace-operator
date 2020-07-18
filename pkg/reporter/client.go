@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"emperror.dev/errors"
 	"github.com/prometheus/client_golang/api"
 )
 
@@ -16,23 +17,36 @@ type PrometheusSecureClientConfig struct {
 }
 
 func NewSecureClient(config *PrometheusSecureClientConfig) (api.Client, error) {
-	caCert, err := ioutil.ReadFile(config.ServerCertFile)
+	tlsConfig, err := generateCACertPool(config.ServerCertFile)
+
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to get tlsConfig")
 	}
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
 
 	transport := &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs:      caCertPool,
-			},
+		TLSClientConfig: tlsConfig,
 	}
 
 	client, err := api.NewClient(api.Config{
-		Address: config.Address,
+		Address:      config.Address,
 		RoundTripper: transport,
 	})
 
 	return client, err
+}
+
+func generateCACertPool(files ...string) (*tls.Config, error) {
+	caCertPool := x509.NewCertPool()
+
+	for _, file := range files {
+		caCert, err := ioutil.ReadFile(file)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load cert file")
+		}
+		caCertPool.AppendCertsFromPEM(caCert)
+	}
+
+	return &tls.Config{
+		RootCAs: caCertPool,
+	}, nil
 }

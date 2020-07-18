@@ -31,6 +31,7 @@ require (
 	github.com/mikefarah/yq/v3 v3.0.0-20200415014842-6f0a329331f9
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.3.2
+	github.com/moby/moby v1.13.1
 	github.com/noqcks/gucci v0.0.4
 	github.com/onsi/ginkgo v1.13.0
 	github.com/onsi/gomega v1.10.1
@@ -62,6 +63,7 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
 	k8s.io/kubectl v0.18.2
+	k8s.io/kubernetes v1.13.0
 	sigs.k8s.io/controller-runtime v0.6.0
 )
 

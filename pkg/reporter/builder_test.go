@@ -19,6 +19,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 )
 
 var _ = Describe("Builder", func() {
@@ -26,11 +27,12 @@ var _ = Describe("Builder", func() {
 		metricsReport *MetricsReport
 		key           MetricKey
 		metricBase    *MetricBase
+		sliceID       = uuid.New()
 	)
 
 	BeforeEach(func() {
 		metricsReport = &MetricsReport{
-			ReportSliceID: ReportSliceKey(uuid.New()),
+			ReportSliceID: ReportSliceKey(sliceID),
 		}
 		key = MetricKey{
 			ReportPeriodStart: "start",
@@ -38,6 +40,8 @@ var _ = Describe("Builder", func() {
 			IntervalStart:     "istart",
 			IntervalEnd:       "iend",
 			MeterDomain:       "test",
+			MeterKind:         "foo",
+			MeterVersion:      "v1",
 		}
 		metricBase = &MetricBase{
 			Key: key,
@@ -46,24 +50,34 @@ var _ = Describe("Builder", func() {
 
 	It("should add metrics to a base", func() {
 		Expect(metricBase.AddMetrics("foo", 1, "bar", 2)).To(Succeed())
+		Expect(metricBase.AddAdditionalLabels("extra", "g")).To(Succeed())
 		Expect(metricsReport.AddMetrics(metricBase)).To(Succeed())
 		Expect(len(metricsReport.Metrics)).To(Equal(1))
 
-		fooValue, fooPresent := metricsReport.Metrics[0]["foo"]
-		Expect(fooPresent).To(BeTrue())
+		id := func(element interface{}) string {
+			return "0"
+		}
 
-		fooInt, ok := fooValue.(int)
-
-		Expect(ok).To(BeTrue())
-		Expect(fooInt).To(Equal(1))
-
-		barValue, barPresent := metricsReport.Metrics[0]["bar"]
-
-		Expect(barPresent).To(BeTrue())
-
-		barInt, ok := barValue.(int)
-
-		Expect(ok).To(BeTrue())
-		Expect(barInt).To(Equal(2))
+		Expect(metricsReport).To(PointTo(MatchAllFields(Fields{
+			"ReportSliceID": Equal(ReportSliceKey(sliceID)),
+			"Metrics": MatchAllElements(id, Elements{
+				"0": MatchAllKeys(Keys{
+					"report_period_start": Equal("start"),
+					"report_period_end":   Equal("end"),
+					"interval_start":      Equal("istart"),
+					"interval_end":        Equal("iend"),
+					"domain":              Equal("test"),
+					"version":             Equal("v1"),
+					"kind":                Equal("foo"),
+					"additionalLabels": MatchAllKeys(Keys{
+						"extra": Equal("g"),
+					}),
+					"rhmUsageMetrics": MatchAllKeys(Keys{
+						"foo": Equal(1),
+						"bar": Equal(2),
+					}),
+				}),
+			}),
+		})))
 	})
 })
