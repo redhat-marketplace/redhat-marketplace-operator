@@ -220,13 +220,13 @@ jobs:
       - name: Build bundles
         run: |
           make generate-csv opm-bundle-last-beta opm-index-base
-          yq w -i ./deploy/olm-catalog/test-registry-${TAG}.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}"
+          yq w ./deploy/olm-catalog/test-registry.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ./test-registry-${TAG}.yaml
 
       - name: Upload results
         uses: actions/upload-artifact@v1
         with:
           name: test-catalog-source
-          path: ./deploy/olm-catalog/test-registry-{{ env.TAG }}.yaml
+          path: ./test-registry-${TAG}.yaml
 
   tag:
     name: Push other tags
