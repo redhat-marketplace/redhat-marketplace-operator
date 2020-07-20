@@ -5,7 +5,7 @@ OLM_REPO=$1
 OLM_PACKAGE_NAME=$2
 OVERRIDE="${OVERRIDE:-false}"
 
-VERSIONS=$(find deploy/olm-catalog/redhat-marketplace-operator -maxdepth 1 -type d -exec basename {} \; | grep -E '\d+\.\d+\.\d+')
+VERSIONS=$(find deploy/olm-catalog/redhat-marketplace-operator -maxdepth 1 -type d -printf "%f\n" | grep -P '\d+\.\d+\.\d+')
 
 for VERSION in $VERSIONS; do
 	TAG="$OLM_REPO:v$VERSION"
