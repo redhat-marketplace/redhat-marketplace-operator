@@ -40,6 +40,7 @@ var log = logf.Log.WithName("controller_olm_clusterserviceversion_watcher")
 const operatorTag = "marketplace.redhat.com/operator"
 const watchTag = "razee/watch-resource"
 const allnamespaceTag = "olm.copiedFrom"
+const IgnoreTag = "marketplace.redhat.com/ignore"
 
 // Add creates a new ClusterServiceVersion Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -65,7 +66,17 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			UpdateFunc: func(evt event.UpdateEvent) bool {
 				_, okAllNamespace := evt.MetaNew.GetLabels()[allnamespaceTag]
 				watchLabel, watchOk := evt.MetaNew.GetLabels()[watchTag]
-				return !okAllNamespace && !(watchOk && watchLabel == "lite")
+				_, ignoreOk := evt.MetaNew.GetAnnotations()[IgnoreTag]
+
+				if ignoreOk {
+					return false
+				}
+
+				if okAllNamespace {
+					return false
+				}
+
+				return !(watchOk && watchLabel == "lite")
 			},
 			DeleteFunc: func(evt event.DeleteEvent) bool {
 				return false
@@ -122,11 +133,12 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 
 	sub := &olmv1alpha1.SubscriptionList{}
 
-	if err = r.client.List(context.TODO(), sub, client.InNamespace(request.NamespacedName.Namespace)); err != nil {
+	if err := r.client.List(context.TODO(), sub, client.InNamespace(request.NamespacedName.Namespace)); err != nil {
 		return reconcile.Result{}, err
 	}
 
 	reqLogger.Info("found Subscription in namespaces", "count", len(sub.Items))
+	hasMarketplaceSub := false
 
 	if len(sub.Items) > 0 {
 		// add razee watch label to CSV if subscription has rhm/operator label
@@ -135,12 +147,17 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 				if value == "true" {
 					if s.Status.InstalledCSV == request.NamespacedName.Name {
 						reqLogger.Info("found Subscription with installed CSV")
+
+						hasMarketplaceSub = true
+
 						labels := CSV.GetLabels()
+						clusterOriginalLabels := CSV.DeepCopy().GetLabels()
 						if labels == nil {
 							labels = make(map[string]string)
 						}
-						clusterOriginalLabels := CSV.DeepCopy().GetLabels()
+
 						labels[watchTag] = "lite"
+
 						if !reflect.DeepEqual(labels, clusterOriginalLabels) {
 							CSV.SetLabels(labels)
 							if err := r.client.Update(context.TODO(), CSV); err != nil {
@@ -155,7 +172,27 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 				}
 			}
 		}
-		return reconcile.Result{}, nil
+	}
+
+	if !hasMarketplaceSub {
+		annotations := CSV.GetAnnotations()
+		clusterOriginalAnnotations := CSV.DeepCopy().GetAnnotations()
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
+
+		annotations[IgnoreTag] = "true"
+
+		if !reflect.DeepEqual(annotations, clusterOriginalAnnotations) {
+			CSV.SetAnnotations(annotations)
+			if err := r.client.Update(context.TODO(), CSV); err != nil {
+				reqLogger.Error(err, "Failed to patch clusterserviceversion ignore tag")
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("Patched clusterserviceversion with ignore tag")
+		} else {
+			reqLogger.Info("No patch needed on clusterserviceversion resource for ignore tag")
+		}
 	}
 
 	reqLogger.Info("reconcilation complete")

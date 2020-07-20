@@ -57,10 +57,16 @@ jobs:
           curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
           chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu && sudo mkdir -p /usr/local/bin/ && sudo cp operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk && rm operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
           python -m pip install --upgrade pip
-          pip3 install operator-courier
+          pip3 install -Iv operator-courier==$COURIER_VERSION
+          curl -LO https://github.com/operator-framework/operator-registry/releases/download/${OPM_VERSION}/linux-amd64-opm
+          chmod +x linux-amd64-opm && sudo cp linux-amd64-opm /usr/local/bin/opm && rm linux-amd64-opm
           echo "::add-path::/usr/local/bin"
+          sudo apt-get install -y sed
+          sudo snap install yq
         env:
           RELEASE_VERSION: v0.18.0
+          OPM_VERSION: v1.12.5
+          COURIER_VERSION: 2.1.7
 
       - name: Create CSV
         id: bundle
@@ -69,20 +75,10 @@ jobs:
           CSV_CHANNEL: ${{ matrix.channel }}
           CSV_DEFAULT_CHANNEL: ${{ matrix.channel == 'stable' }}
 
-      - name: Create branch
-        if: ${{ matrix.channel == 'stable' && github.event_name == 'push' }}
+      - name: Create commit
         run: |
           git config user.name 'RHM Oper Bot'
           git config user.email 'rhmoper@us.ibm.com'
           git add ./deploy/olm-catalog
           git commit -m "chore: update csv"
           git push
-
-      - name: Open a PR to the default branch
-        uses: vsoch/pull-request-action@1.0.2
-        env:
-          GITHUB_TOKEN: ${{ secrets.pullRequestSecret }}
-          PULL_REQUEST_FROM_BRANCH: '${{ env.pr_branch }}'
-          PULL_REQUEST_BRANCH: master
-          PULL_REQUEST_TITLE: 'Release ${{ steps.vars.outputs.version }}'
-          PULL_REQUEST_BODY: "Release PR - merge when ready.\n\nSteps:\n1. Release the beta channel bundle from the PR 'Generate Bundle' check.\n1. Test beta. Make changes to release branch as necessary.\n1. Release the stable channel.\n1. Merge this PR."
