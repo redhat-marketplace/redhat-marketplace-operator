@@ -226,7 +226,7 @@ jobs:
         uses: actions/upload-artifact@v1
         with:
           name: test-catalog-source
-          path: ./test-registry-${TAG}.yaml
+          path: ./test-registry-{{ env.TAG }}.yaml
 
   tag:
     name: Push other tags
