@@ -131,11 +131,8 @@ type RemoteResourceS3Spec struct {
 // +optional
 // +kubebuilder:pruning:PreserveUnknownFields
 type RemoteResourceS3Status struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-
-	RazeeLogs RazeeLogs `json:"razeeLogs,omitempty"`
+	Touched   *bool     `json:"touched,omitempty"`
+	RazeeLogs RazeeLogs `json:"razee-logs,omitempty"`
 }
 
 // RazeeLogs holds log output from the RRS3 controller

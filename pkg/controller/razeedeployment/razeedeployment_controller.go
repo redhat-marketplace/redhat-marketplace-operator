@@ -889,7 +889,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				return reconcile.Result{}, err
 			}
 			reqLogger.Info("RemoteResourceS3 deployment created successfully")
-	
+
 			message := "RemoteResourceS3 deployment install starting"
 			instance.Status.Conditions.SetCondition(status.Condition{
 				Type:    marketplacev1alpha1.ConditionInstalling,
@@ -897,11 +897,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				Reason:  marketplacev1alpha1.ReasonRhmRemoteResourceS3DeploymentStart,
 				Message: message,
 			})
-	
+
 			_ = r.client.Status().Update(context.TODO(), instance)
-	
+
 			return reconcile.Result{Requeue: true}, nil
-	
+
 		} else {
 			reqLogger.Error(err, "Failed to get RemoteResourceS3 deployment from Cluster")
 			return reconcile.Result{}, err
@@ -910,10 +910,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	if err == nil {
 		latestRemoteResourcesDeployment := r.makeRemoteResourceS3Deployment(instance)
 		if !reflect.DeepEqual(latestRemoteResourcesDeployment.Spec.Template.Spec.Containers[0].Image, rrs3Deployment.Spec.Template.Spec.Containers[0].Image) {
-			updatedRRS3Deployment:= rrs3Deployment.DeepCopy()
+			updatedRRS3Deployment := rrs3Deployment.DeepCopy()
 			updatedRRS3Deployment.Spec.Template.Spec.Containers[0].Image = latestRemoteResourcesDeployment.Spec.Template.Spec.Containers[0].Image
 			reqLogger.Info("Change detected on resource", latestRemoteResourcesDeployment.GetName(), "update")
-		
+
 			reqLogger.Info("Updating resource", "resource: ", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
 			err = r.client.Update(context.TODO(), updatedRRS3Deployment)
 			if err != nil {
@@ -945,37 +945,37 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		Name:      utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
 		Namespace: request.Namespace,
 	}, watchKeeperDeployment)
-	if err != nil{
-		if errors.IsNotFound(err){
-		reqLogger.V(0).Info("Creating watch-keeper deployment")
-		watchKeeperDeployment = r.makeWatchKeeperDeployment(instance)
-		err = r.client.Create(context.TODO(), watchKeeperDeployment)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create watch-keeper deployment on cluster")
-			return reconcile.Result{}, err
-		}
-		reqLogger.Info("watch-keeper deployment created successfully")
+	if err != nil {
+		if errors.IsNotFound(err) {
+			reqLogger.V(0).Info("Creating watch-keeper deployment")
+			watchKeeperDeployment = r.makeWatchKeeperDeployment(instance)
+			err = r.client.Create(context.TODO(), watchKeeperDeployment)
+			if err != nil {
+				reqLogger.Error(err, "Failed to create watch-keeper deployment on cluster")
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("watch-keeper deployment created successfully")
 
-		message := "watch-keeper install starting"
-		instance.Status.Conditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ConditionInstalling,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonWatchKeeperDeploymentStart,
-			Message: message,
-		})
+			message := "watch-keeper install starting"
+			instance.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionInstalling,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonWatchKeeperDeploymentStart,
+				Message: message,
+			})
 
-		_ = r.client.Status().Update(context.TODO(), instance)
+			_ = r.client.Status().Update(context.TODO(), instance)
 
-		return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, nil
 		} else {
-		reqLogger.Error(err, "Failed to get RemoteResourceS3 from Cluster")
-		return reconcile.Result{}, err
+			reqLogger.Error(err, "Failed to get RemoteResourceS3 from Cluster")
+			return reconcile.Result{}, err
 		}
 	}
 	if err == nil {
 		latestWatchKeeperDeployment := r.makeWatchKeeperDeployment(instance)
 		if !reflect.DeepEqual(latestWatchKeeperDeployment.Spec.Template.Spec.Containers[0].Image, watchKeeperDeployment.Spec.Template.Spec.Containers[0].Image) {
-			updatedWatchKeeperDeployment:= watchKeeperDeployment.DeepCopy()
+			updatedWatchKeeperDeployment := watchKeeperDeployment.DeepCopy()
 			updatedWatchKeeperDeployment.Spec.Template.Spec.Containers[0].Image = latestWatchKeeperDeployment.Spec.Template.Spec.Containers[0].Image
 			reqLogger.Info("Change detected on resource", latestWatchKeeperDeployment.GetName(), "update")
 			watchKeeperDeployment.Spec.Template.Spec.Containers[0].Image = latestWatchKeeperDeployment.Spec.Template.Spec.Containers[0].Image
@@ -1446,6 +1446,48 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 									},
 								},
 								{
+									Name: "CONFIG_NAMESPACE",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "metadata.namespace",
+										},
+									},
+								},
+								{
+									Name: "START_DELAY_MAX",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: utils.WATCH_KEEPER_CONFIG_NAME,
+											},
+											Key:      "START_DELAY_MAX",
+											Optional: ptr.Bool(true),
+										},
+									},
+								},
+								{
+									Name: "RAZEEDASH_URL",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: utils.WATCH_KEEPER_CONFIG_NAME,
+											},
+											Key: "RAZEEDASH_URL",
+										},
+									},
+								},
+								{
+									Name: "RAZEEDASH_ORG_KEY",
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: utils.WATCH_KEEPER_SECRET_NAME,
+											},
+											Key: "RAZEEDASH_ORG_KEY",
+										},
+									},
+								},
+								{
 									Name:  "NODE_ENV",
 									Value: "production",
 								},
@@ -1461,24 +1503,24 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 								InitialDelaySeconds: 600,
 								PeriodSeconds:       300,
 								TimeoutSeconds:      30,
-								SuccessThreshold: 1,
+								SuccessThreshold:    1,
 								FailureThreshold:    1,
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name: utils.WATCH_KEEPER_CONFIG_NAME,
+									Name:      utils.WATCH_KEEPER_CONFIG_NAME,
 									MountPath: "/usr/src/app/envs/watch-keeper-config",
 								},
 								{
-									Name: utils.WATCH_KEEPER_SECRET_NAME,
+									Name:      utils.WATCH_KEEPER_SECRET_NAME,
 									MountPath: "/usr/src/app/envs/watch-keeper-secret",
 								},
 								{
-									Name: "razee-identity-config",
+									Name:      "razee-identity-config",
 									MountPath: "/usr/src/app/envs/razee-identity-config",
 								},
 								{
-									Name: "razee-identity-secret",
+									Name:      "razee-identity-secret",
 									MountPath: "/usr/src/app/envs/razee-identity-secret",
 								},
 							},
@@ -1493,9 +1535,9 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 										Name: utils.WATCH_KEEPER_CONFIG_NAME,
 									},
 									DefaultMode: ptr.Int32(0400),
-									Optional: ptr.Bool(true),
+									Optional:    ptr.Bool(true),
 								},
-							},	
+							},
 						},
 						{
 							Name: utils.WATCH_KEEPER_SECRET_NAME,
@@ -1505,9 +1547,9 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 										Name: utils.WATCH_KEEPER_SECRET_NAME,
 									},
 									DefaultMode: ptr.Int32(0400),
-									Optional: ptr.Bool(true),
+									Optional:    ptr.Bool(true),
 								},
-							},	
+							},
 						},
 						{
 							Name: "razee-identity-config",
@@ -1517,9 +1559,9 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 										Name: "razee-identity-config",
 									},
 									DefaultMode: ptr.Int32(0400),
-									Optional: ptr.Bool(true),
+									Optional:    ptr.Bool(true),
 								},
-							},	
+							},
 						},
 						{
 							Name: "razee-identity-secret",
@@ -1529,9 +1571,9 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 										Name: "razee-identity-secret",
 									},
 									DefaultMode: ptr.Int32(0400),
-									Optional: ptr.Bool(true),
+									Optional:    ptr.Bool(true),
 								},
-							},	
+							},
 						},
 					},
 				},

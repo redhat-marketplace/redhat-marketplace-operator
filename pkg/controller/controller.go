@@ -33,4 +33,5 @@ var ControllerSet = wire.NewSet(
 	ProvideOlmSubscriptionController,
 	ProvideNodeController,
 	ProvideOlmClusterServiceVersionController,
+	ProvideRemoteResourceS3Controller,
 )
