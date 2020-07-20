@@ -194,7 +194,7 @@ spec:
         status:
           description: RemoteResourceS3Status defines the observed state of RemoteResourceS3
           properties:
-            razeeLogs:
+            razee-logs:
               description: RazeeLogs holds log output from the RRS3 controller
               properties:
                 error:
@@ -203,6 +203,12 @@ spec:
                   description: Log holds a log message as <log hash>:<log message>
                   type: object
               type: object
+            touched:
+              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                of cluster Important: Run "operator-sdk generate k8s" to regenerate
+                code after modifying this file Add custom validation using kubebuilder
+                tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html'
+              type: boolean
           type: object
       type: object
   version: v1alpha1
