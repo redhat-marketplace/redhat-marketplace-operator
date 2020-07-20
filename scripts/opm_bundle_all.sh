@@ -5,18 +5,18 @@ OLM_REPO=$1
 OLM_PACKAGE_NAME=$2
 OVERRIDE="${OVERRIDE:-false}"
 
-VERSIONS=$(ls deploy/olm-catalog/redhat-marketplace-operator | egrep '\d+\.\d+\.\d+')
+VERSIONS=$(find deploy/olm-catalog/redhat-marketplace-operator -d 1 -type d -exec basename {} \; | grep -E '\d+\.\d+\.\d+')
 
 for VERSION in $VERSIONS; do
 	TAG="$OLM_REPO:v$VERSION"
 	EXISTS=false
-	skopeo inspect docker://${TAG} >/dev/null
 
-	if [[ $? == 0 ]]; then
+	if skopeo inspect "docker://${TAG}" >/dev/null; then
+    echo "${TAG} exists"
 		EXISTS=true
 	fi
 
-	if [ "$EXISTS" == "false" || "$OVERRIDE" == "true" ]; then
+	if [ "$EXISTS" == "false" ] || [ "$OVERRIDE" == "true" ]; then
 		echo "Building bundle for $VERSION b/c != $LAST_VERSION"
 		operator-sdk bundle create "$TAG" \
 			--directory "./deploy/olm-catalog/redhat-marketplace-operator/$VERSION" \
