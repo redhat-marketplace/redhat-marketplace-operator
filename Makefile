@@ -347,7 +347,7 @@ OLM_PACKAGE_NAME ?= redhat-marketplace-operator-test
 TAG ?= latest
 
 opm-bundle-all: # used to bundle all the versions available
-	./scripts/opm_bundle_all.sh $(OLM_REPO) $(OLM_PACKAGE_NAME) $(VERSION)
+	./scripts/opm_bundle_all.sh $(OLM_REPO) $(OLM_PACKAGE_NAME)
 
 opm-bundle-last-edge: ## Bundle latest for edge
 	operator-sdk bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)

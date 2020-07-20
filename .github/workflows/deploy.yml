@@ -86,6 +86,13 @@ jobs:
       - name: Test
         run: make test
 
+      - name: Turnstyle
+        uses: softprops/turnstyle@v1
+        with:
+          continue-after-seconds: 30
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Check if tag exists
         id: checktag
         shell: bash {0}
@@ -121,6 +128,13 @@ jobs:
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
+
+      - name: Turnstyle
+        uses: softprops/turnstyle@v1
+        with:
+          continue-after-seconds: 30
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check if tag exists
         id: image
