@@ -241,6 +241,26 @@ func (in *MeterBaseStatus) DeepCopyInto(out *MeterBaseStatus) {
 		*out = new(v1.PrometheusStatus)
 		**out = **in
 	}
+	if in.Replicas != nil {
+		in, out := &in.Replicas, &out.Replicas
+		*out = new(int32)
+		**out = **in
+	}
+	if in.UpdatedReplicas != nil {
+		in, out := &in.UpdatedReplicas, &out.UpdatedReplicas
+		*out = new(int32)
+		**out = **in
+	}
+	if in.AvailableReplicas != nil {
+		in, out := &in.AvailableReplicas, &out.AvailableReplicas
+		*out = new(int32)
+		**out = **in
+	}
+	if in.UnavailableReplicas != nil {
+		in, out := &in.UnavailableReplicas, &out.UnavailableReplicas
+		*out = new(int32)
+		**out = **in
+	}
 	return
 }
 
@@ -498,15 +518,26 @@ func (in *MeterReportSpec) DeepCopyInto(out *MeterReportSpec) {
 	*out = *in
 	in.StartTime.DeepCopyInto(&out.StartTime)
 	in.EndTime.DeepCopyInto(&out.EndTime)
-	if in.PrometheusServiceLabels != nil {
-		in, out := &in.PrometheusServiceLabels, &out.PrometheusServiceLabels
-		*out = new(metav1.LabelSelector)
-		(*in).DeepCopyInto(*out)
+	if in.PrometheusService != nil {
+		in, out := &in.PrometheusService, &out.PrometheusService
+		*out = new(corev1.ObjectReference)
+		**out = **in
 	}
 	if in.MeterDefinitionLabels != nil {
 		in, out := &in.MeterDefinitionLabels, &out.MeterDefinitionLabels
 		*out = new(metav1.LabelSelector)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.MeterDefinitions != nil {
+		in, out := &in.MeterDefinitions, &out.MeterDefinitions
+		*out = make([]*MeterDefinition, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(MeterDefinition)
+				(*in).DeepCopyInto(*out)
+			}
+		}
 	}
 	return
 }
@@ -528,17 +559,6 @@ func (in *MeterReportStatus) DeepCopyInto(out *MeterReportStatus) {
 		in, out := &in.Conditions, &out.Conditions
 		*out = new(batchv1.JobCondition)
 		(*in).DeepCopyInto(*out)
-	}
-	if in.MeterDefinitions != nil {
-		in, out := &in.MeterDefinitions, &out.MeterDefinitions
-		*out = make([]*MeterDefinition, len(*in))
-		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(MeterDefinition)
-				(*in).DeepCopyInto(*out)
-			}
-		}
 	}
 	if in.Active != nil {
 		in, out := &in.Active, &out.Active

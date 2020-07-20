@@ -30,7 +30,7 @@ import (
 )
 
 func TestMeterDefinitionController(t *testing.T) {
-	logger.SetLoggerToZap()
+	logger.SetLoggerToDevelopmentZap()
 	viper.Set("assets", "../../../assets")
 
 	t.Run("Test No Service Monitors", testNoServiceMonitors)

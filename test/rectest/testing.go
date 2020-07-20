@@ -199,8 +199,6 @@ func (tc *ControllerReconcileStep) Test(t ReconcileTester, r *ReconcilerTest) {
 			}
 
 			if indx == tc.Max-1 {
-				assert.Equalf(t, DoneResult, result,
-					"%+v", tc.TestLineError(fmt.Errorf("did not successfully reconcile")))
 				exit = true
 			}
 		}

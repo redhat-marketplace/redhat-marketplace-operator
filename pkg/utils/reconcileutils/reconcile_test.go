@@ -196,7 +196,7 @@ func NewTestHarness() *testHarness {
 func (h *testHarness) execClientCommands(
 	client client.Client,
 ) (*ExecResult, error) {
-	flogger.SetLoggerToZap()
+	flogger.SetLoggerToDevelopmentZap()
 	logger := logf.Log.WithName("clienttest")
 	collector := NewCollector()
 	patcher := patch.RHMDefaultPatcher

@@ -288,7 +288,8 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 				updatedInstance.Status.Replicas = &prometheusStatefulset.Status.CurrentReplicas
 				updatedInstance.Status.UpdatedReplicas = &prometheusStatefulset.Status.UpdatedReplicas
 				updatedInstance.Status.AvailableReplicas = &prometheusStatefulset.Status.ReadyReplicas
-				updatedInstance.Status.UnavailableReplicas = ptr.Int32(prometheusStatefulset.Status.CurrentReplicas - prometheusStatefulset.Status.ReadyReplicas)
+				updatedInstance.Status.UnavailableReplicas = ptr.Int32(
+					prometheusStatefulset.Status.CurrentReplicas - prometheusStatefulset.Status.ReadyReplicas)
 
 				if reflect.DeepEqual(updatedInstance.Status, instance.Status) {
 					reqLogger.Info("prometheus statefulset status is up to date")
@@ -493,7 +494,7 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 				kubeletCertsCM,
 			),
 			OnNotFound(Call(func() (ClientAction, error) {
-				return nil, merrors.New("require kubelet-serving-a configmap is not found")
+				return nil, merrors.New("require kubelet-serving configmap is not found")
 			})),
 			OnContinue(manifests.CreateOrUpdateFactoryItemAction(
 				&corev1.ConfigMap{},
@@ -516,7 +517,7 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 			OnNotFound(Call(r.createPrometheus(instance, factory))),
 			OnContinue(Call(func() (ClientAction, error) {
 				updatedPrometheus := prometheus.DeepCopy()
-				expectedPrometheus, err := r.newPrometheusOperator(instance, r.opts, factory)
+				expectedPrometheus, err := r.newPrometheusOperator(instance, factory)
 
 				if err != nil {
 					return nil, merrors.Wrap(err, "error updating prometheus")
@@ -562,7 +563,7 @@ func (r *ReconcileMeterBase) uninstallPrometheus(
 	secret2, _ := factory.PrometheusHtpasswdSecret("foo")
 	secret3, _ := factory.PrometheusRBACProxySecret()
 	secrets := []*corev1.Secret{secret0, secret1, secret2, secret3}
-	prom, _ := r.newPrometheusOperator(instance, r.opts, factory)
+	prom, _ := r.newPrometheusOperator(instance, factory)
 	service, _ := factory.PrometheusService()
 
 	actions := []ClientAction{
@@ -580,8 +581,12 @@ func (r *ReconcileMeterBase) uninstallPrometheus(
 	}
 
 	return append(actions,
-		HandleResult(GetAction(types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service), OnContinue(DeleteAction(service))),
-		HandleResult(GetAction(types.NamespacedName{Namespace: prom.Namespace, Name: prom.Name}, prom), OnContinue(DeleteAction(prom))),
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service),
+			OnContinue(DeleteAction(service))),
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: prom.Namespace, Name: prom.Name}, prom),
+			OnContinue(DeleteAction(prom))),
 	)
 }
 
@@ -605,7 +610,7 @@ func (r *ReconcileMeterBase) createPrometheus(
 	factory *manifests.Factory,
 ) func() (ClientAction, error) {
 	return func() (ClientAction, error) {
-		newProm, err := r.newPrometheusOperator(instance, r.opts, factory)
+		newProm, err := r.newPrometheusOperator(instance, factory)
 		createResult := &ExecResult{}
 
 		if err != nil {
@@ -641,18 +646,25 @@ func (r *ReconcileMeterBase) createPrometheus(
 
 func (r *ReconcileMeterBase) newPrometheusOperator(
 	cr *marketplacev1alpha1.MeterBase,
-	opt *MeterbaseOpts,
 	factory *manifests.Factory,
 ) (*monitoringv1.Prometheus, error) {
+	prom, err := factory.NewPrometheusDeployment()
+	prom.Name = cr.Name
+	prom.ObjectMeta.Name = cr.Name
+
+	if err != nil {
+		return prom, err
+	}
+
 	storageClass := ""
 	if cr.Spec.Prometheus.Storage.Class == nil {
 		foundDefaultClass, err := utils.GetDefaultStorageClass(r.client)
 
 		if err != nil {
-			return nil, err
-		} else {
-			storageClass = foundDefaultClass
+			return prom, err
 		}
+
+		storageClass = foundDefaultClass
 	} else {
 		storageClass = *cr.Spec.Prometheus.Storage.Class
 	}
@@ -666,20 +678,12 @@ func (r *ReconcileMeterBase) newPrometheusOperator(
 	})
 
 	if err != nil {
-		return nil, err
+		return prom, err
 	}
 
-	prom, err := factory.NewPrometheusDeployment()
-	prom.Name = cr.Name
-
-	if err != nil {
-		return nil, err
-	}
-
-	prom.ObjectMeta.Name = cr.Name
 	prom.Spec.Storage.VolumeClaimTemplate = pvc
 
-	return prom, nil
+	return prom, err
 }
 
 func (r *ReconcileMeterBase) installServiceMonitors(instance *marketplacev1alpha1.MeterBase) []ClientAction {

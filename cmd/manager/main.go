@@ -15,27 +15,43 @@
 package main
 
 import (
-	"github.com/google/wire"
+	"fmt"
+	"os"
+
+	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	loggerf "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 )
 
-var MarketplaceControllerSet = wire.NewSet(
-	controller.ControllerSet,
-	controller.ProvideControllerFlagSet,
-	controller.SchemeDefinitions,
-	makeMarketplaceController,
-	reconcileutils.ProvideDefaultCommandRunnerProvider,
-	wire.Bind(new(reconcileutils.ClientCommandRunnerProvider), new(*reconcileutils.DefaultCommandRunnerProvider)),
+var (
+	logger            = loggerf.NewLogger("marketplaceControllerManager")
+	metricsHost       = "0.0.0.0"
+	metricsPort int32 = 8383
 )
+
+func provideOptions(kscheme *runtime.Scheme) (*manager.Options, error) {
+	watchNamespace, err := k8sutil.GetWatchNamespace()
+	if err != nil {
+		logger.Error(err, "Failed to get watch namespace")
+		return nil, err
+	}
+
+	return &manager.Options{
+		Namespace:          watchNamespace,
+		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		Scheme:             kscheme,
+	}, nil
+}
 
 func makeMarketplaceController(
 	controllerFlags *controller.ControllerFlagSet,
 	controllerList controller.ControllerList,
-	localSchemes controller.LocalSchemes,
+	mgr manager.Manager,
 ) *managers.ControllerMain {
 	return &managers.ControllerMain{
 		Name: "redhat-marketplace-operator",
@@ -43,11 +59,17 @@ func makeMarketplaceController(
 			(*pflag.FlagSet)(controllerFlags),
 		},
 		Controllers: controllerList,
-		Schemes:     localSchemes,
+		Manager:     mgr,
 	}
 }
 
 func main() {
-	marketplaceController := InitializeMarketplaceController()
+	marketplaceController, err := InitializeMarketplaceController()
+
+	if err != nil {
+		logger.Error(err, "failed to start marketplace controller")
+		os.Exit(1)
+	}
+
 	marketplaceController.Run()
 }

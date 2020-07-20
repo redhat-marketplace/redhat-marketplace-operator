@@ -1,34 +1,32 @@
 package reporter
 
 import (
+	"github.com/google/wire"
 	"github.com/gotidy/ptr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 type Name types.NamespacedName
+type PrometheusService *corev1.Service
+type ReportOutputDir string
 
-type MarketplaceReporterConfig struct {
-	PrometheusService *corev1.Service
-	Schemes           []*controller.SchemeDefinition
-	WatchNamespace    string
+// Top level config
+type Config struct {
+	OutputDirectory   string
+}
+
+type reporterConfig struct {
 	OutputDirectory   string
 	MetricsPerFile    *int
 	MaxRoutines       *int
 }
 
-type ReportOutputDir string
-
-func ProvideMarketplacReportConfig(
-	prometheusService *corev1.Service,
-	localSchemes controller.LocalSchemes,
-	dir ReportOutputDir,
-) *MarketplaceReporterConfig {
-	cfg := &MarketplaceReporterConfig{
-		OutputDirectory:   string(dir),
-		PrometheusService: prometheusService,
-		Schemes:           localSchemes,
+func ProvideReporterConfig(
+	reportConfig Config,
+) *reporterConfig {
+	cfg := &reporterConfig{
+		OutputDirectory:   reportConfig.OutputDirectory,
 	}
 	cfg.setDefaults()
 
@@ -40,7 +38,7 @@ const (
 	defaultMaxRoutines    = 50
 )
 
-func (c *MarketplaceReporterConfig) setDefaults() {
+func (c *reporterConfig) setDefaults() {
 	if c.MetricsPerFile == nil {
 		c.MetricsPerFile = ptr.Int(defaultMetricsPerFile)
 	}
@@ -49,3 +47,9 @@ func (c *MarketplaceReporterConfig) setDefaults() {
 		c.MaxRoutines = ptr.Int(defaultMaxRoutines)
 	}
 }
+
+var ReporterSet = wire.NewSet(
+	ProvideReporterConfig,
+	NewMarketplaceReporter,
+	NewRedHatInsightsUploader,
+)

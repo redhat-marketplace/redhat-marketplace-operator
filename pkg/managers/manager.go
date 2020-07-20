@@ -16,18 +16,21 @@ package managers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"runtime"
 
+	"github.com/google/wire"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc
+	"emperror.dev/errors"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
@@ -38,6 +41,7 @@ import (
 	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -45,12 +49,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
-var (
+const (
 	metricsHost               = "0.0.0.0"
 	metricsPort         int32 = 8383
 	operatorMetricsPort int32 = 8686
 )
-var log = logf.Log.WithName("cmd")
+
+var (
+	log               = logf.Log.WithName("cmd")
+	ProvideManagerSet = wire.NewSet(
+		config.GetConfig,
+		kubernetes.NewForConfig,
+		ProvideManager,
+		ProvideScheme,
+		ProvideClient,
+	)
+)
 
 func printVersion() {
 	log.Info(fmt.Sprintf("Operator Version: %s", version.Version))
@@ -65,7 +79,7 @@ type ControllerMain struct {
 	Name        OperatorName
 	FlagSets    []*pflag.FlagSet
 	Controllers []*controller.ControllerDefinition
-	Schemes     []*controller.SchemeDefinition
+	Manager     manager.Manager
 }
 
 func (m *ControllerMain) Run() {
@@ -99,12 +113,6 @@ func (m *ControllerMain) Run() {
 
 	printVersion()
 
-	watchNamespace, err := k8sutil.GetWatchNamespace()
-	if err != nil {
-		log.Error(err, "Failed to get watch namespace")
-		os.Exit(1)
-	}
-
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -120,34 +128,7 @@ func (m *ControllerMain) Run() {
 		os.Exit(1)
 	}
 
-	scheme := k8sscheme.Scheme
-
-	// Setup Scheme for all resources
-	if err := apis.AddToScheme(scheme); err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-
-	for _, apiScheme := range m.Schemes {
-		log.Info("adding scheme", "scheme", apiScheme.Name)
-		if err := apiScheme.AddToScheme(scheme); err != nil {
-			log.Error(err, "failed to add scheme")
-			os.Exit(1)
-		}
-	}
-
-	opts := manager.Options{
-		Namespace:          watchNamespace,
-		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-		Scheme:             scheme,
-	}
-
-	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := manager.New(cfg, opts)
-	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
+	mgr := m.Manager
 
 	log.Info("Registering Components.")
 
@@ -239,4 +220,46 @@ func serveCRMetrics(cfg *rest.Config, operatorNs string) error {
 		return err
 	}
 	return nil
+}
+
+func ProvideManager(
+	cfg *rest.Config,
+	kscheme *k8sruntime.Scheme,
+	localSchemes controller.LocalSchemes,
+	opts *manager.Options,
+) (manager.Manager, error) {
+	if err := apis.AddToScheme(kscheme); err != nil {
+		log.Error(err, "failed to add scheme")
+		return nil, errors.Wrap(err, "could not add apis to scheme")
+	}
+
+	for _, apiScheme := range localSchemes {
+		log.Info("adding scheme", "scheme", apiScheme.Name)
+		if err := apiScheme.AddToScheme(kscheme); err != nil {
+			log.Error(err, "failed to add scheme")
+			return nil, errors.Wrap(err, "failed to add scheme")
+		}
+	}
+
+	if opts == nil {
+		return nil, errors.New("opts not provided")
+	}
+
+	// Create a new Cmd to provide shared dependencies and start components
+	return manager.New(cfg, *opts)
+}
+
+func ProvideScheme(c *rest.Config) (*k8sruntime.Scheme, error) {
+	scheme := k8sruntime.NewScheme()
+	err := k8sscheme.AddToScheme(scheme)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return scheme, err
+}
+
+func ProvideClient(mgr manager.Manager) client.Client {
+	return mgr.GetClient()
 }

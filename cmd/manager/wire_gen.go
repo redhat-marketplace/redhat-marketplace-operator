@@ -9,11 +9,12 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 // Injectors from wire.go:
 
-func InitializeMarketplaceController() *managers.ControllerMain {
+func InitializeMarketplaceController() (*managers.ControllerMain, error) {
 	controllerFlagSet := controller.ProvideControllerFlagSet()
 	defaultCommandRunnerProvider := reconcileutils.ProvideDefaultCommandRunnerProvider()
 	marketplaceController := controller.ProvideMarketplaceController(defaultCommandRunnerProvider)
@@ -22,11 +23,27 @@ func InitializeMarketplaceController() *managers.ControllerMain {
 	razeeDeployController := controller.ProvideRazeeDeployController()
 	olmSubscriptionController := controller.ProvideOlmSubscriptionController()
 	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController)
+	restConfig, err := config.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	scheme, err := managers.ProvideScheme(restConfig)
+	if err != nil {
+		return nil, err
+	}
 	opsSrcSchemeDefinition := controller.ProvideOpsSrcScheme()
 	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
 	olmV1SchemeDefinition := controller.ProvideOLMV1Scheme()
 	olmV1Alpha1SchemeDefinition := controller.ProvideOLMV1Alpha1Scheme()
 	localSchemes := controller.ProvideLocalSchemes(opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition)
-	controllerMain := makeMarketplaceController(controllerFlagSet, controllerList, localSchemes)
-	return controllerMain
+	options, err := provideOptions(scheme)
+	if err != nil {
+		return nil, err
+	}
+	manager, err := managers.ProvideManager(restConfig, scheme, localSchemes, options)
+	if err != nil {
+		return nil, err
+	}
+	controllerMain := makeMarketplaceController(controllerFlagSet, controllerList, manager)
+	return controllerMain, nil
 }

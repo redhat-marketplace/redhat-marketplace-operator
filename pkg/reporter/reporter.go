@@ -1,10 +1,10 @@
 package reporter
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -15,20 +15,16 @@ import (
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	loggerf "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sscheme "k8s.io/client-go/kubernetes/scheme"
-	k8sconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 var (
-	metricsHost            = "0.0.0.0"
-	metricsPort      int32 = 8383
-	additionalLabels       = []model.LabelName{"pod", "namespace", "service"}
-	logger                 = loggerf.NewLogger("reporter")
+	additionalLabels = []model.LabelName{"pod", "namespace", "service"}
+	logger           = loggerf.NewLogger("reporter")
 )
 
 // Goals of the reporter:
@@ -45,46 +41,24 @@ var (
 // Update the CR status for each report and queue
 
 type MarketplaceReporter struct {
-	api v1.API
-	mgr manager.Manager
-	MarketplaceReporterConfig
+	api               v1.API
+	mgr               manager.Manager
+	report            *marketplacev1alpha1.MeterReport
+	meterDefinitions  []*marketplacev1alpha1.MeterDefinition
+	prometheusService *corev1.Service
+	*reporterConfig
 }
 
-func NewMarketplaceReporter(config *MarketplaceReporterConfig) (*MarketplaceReporter, error) {
+type ReportName types.NamespacedName
+
+func NewMarketplaceReporter(
+	config *reporterConfig,
+	mgr manager.Manager,
+	report *marketplacev1alpha1.MeterReport,
+	meterDefinitions []*marketplacev1alpha1.MeterDefinition,
+	prometheusService *corev1.Service,
+) (*MarketplaceReporter, error) {
 	// Get a config to talk to the apiserver
-	cfg, err := k8sconfig.GetConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	scheme := k8sscheme.Scheme
-
-	if err := apis.AddToScheme(scheme); err != nil {
-		logger.Error(err, "failed to add scheme")
-		return nil, err
-	}
-
-	for _, apiScheme := range config.Schemes {
-		logger.Info("adding scheme", "scheme", apiScheme.Name)
-		if err := apiScheme.AddToScheme(scheme); err != nil {
-			logger.Error(err, "failed to add scheme")
-			return nil, err
-		}
-	}
-
-	opts := manager.Options{
-		Namespace:          config.WatchNamespace,
-		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-		Scheme:             scheme,
-	}
-
-	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := manager.New(cfg, opts)
-	if err != nil {
-		logger.Error(err, "")
-		os.Exit(1)
-	}
-
 	client, err := api.NewClient(api.Config{
 		Address: "https://localhost:9090", //TODO: replace with https
 	})
@@ -96,26 +70,20 @@ func NewMarketplaceReporter(config *MarketplaceReporterConfig) (*MarketplaceRepo
 	v1api := v1.NewAPI(client)
 
 	return &MarketplaceReporter{
-		api: v1api,
-		mgr: mgr,
+		api:               v1api,
+		mgr:               mgr,
+		report:            report,
+		meterDefinitions:  meterDefinitions,
+		reporterConfig:    config,
+		prometheusService: prometheusService,
 	}, nil
 }
 
-func (r *MarketplaceReporter) GetMeterReport() (*marketplacev1alpha1.MeterReport, error) {
-	return nil, nil
-}
-
-func (r *MarketplaceReporter) CollectMetrics(
-	report *marketplacev1alpha1.MeterReport,
-	meterDefinitions []*marketplacev1alpha1.MeterDefinition,
-) (map[MetricKey]*MetricBase, error) {
-	// ctx, cancel := context.WithCancel(context.Background())
-	// defer cancel()
-
+func (r *MarketplaceReporter) CollectMetrics(ctx context.Context) (map[MetricKey]*MetricBase, error) {
 	resultsMap := make(map[MetricKey]*MetricBase)
 	var resultsMapMutex sync.Mutex
 
-	meterDefsChan := make(chan *marketplacev1alpha1.MeterDefinition, len(meterDefinitions))
+	meterDefsChan := make(chan *marketplacev1alpha1.MeterDefinition, len(r.meterDefinitions))
 	promModelsChan := make(chan meterDefPromModel)
 	errorsChan := make(chan error)
 	queryDone := make(chan bool, 1)
@@ -123,17 +91,17 @@ func (r *MarketplaceReporter) CollectMetrics(
 
 	logger.Info("starting query")
 
-	go r.Query(
-		report.Spec.StartTime.Time,
-		report.Spec.EndTime.Time,
+	go r.query(
+		r.report.Spec.StartTime.Time,
+		r.report.Spec.EndTime.Time,
 		meterDefsChan,
 		promModelsChan,
 		queryDone,
 		errorsChan)
 
-	go r.Process(promModelsChan, resultsMap, &resultsMapMutex, report, processDone, errorsChan)
+	go r.process(promModelsChan, resultsMap, &resultsMapMutex, r.report, processDone, errorsChan)
 
-	for _, meterDef := range meterDefinitions {
+	for _, meterDef := range r.meterDefinitions {
 		meterDefsChan <- meterDef
 	}
 
@@ -163,20 +131,13 @@ func (r *MarketplaceReporter) CollectMetrics(
 	return resultsMap, nil
 }
 
-func (r *MarketplaceReporter) GetMeterDefs(
-	meterDefLabels *metav1.LabelSelector,
-) ([]*marketplacev1alpha1.MeterDefinition, error) {
-	//TODO: do this
-	return nil, nil
-}
-
 type meterDefPromModel struct {
 	*marketplacev1alpha1.MeterDefinition
 	model.Value
 	MetricName string
 }
 
-func (r *MarketplaceReporter) Query(
+func (r *MarketplaceReporter) query(
 	startTime, endTime time.Time,
 	inMeterDefs <-chan *marketplacev1alpha1.MeterDefinition,
 	outPromModels chan<- meterDefPromModel,
@@ -235,7 +196,7 @@ func (r *MarketplaceReporter) Query(
 	done <- true
 }
 
-func (r *MarketplaceReporter) Process(
+func (r *MarketplaceReporter) process(
 	inPromModels <-chan meterDefPromModel,
 	results map[MetricKey]*MetricBase,
 	mutex sync.Locker,

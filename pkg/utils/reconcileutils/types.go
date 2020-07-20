@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	"github.com/google/wire"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/codelocation"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -82,3 +83,9 @@ func (d *DefaultCommandRunnerProvider) NewCommandRunner(client client.Client, sc
 func ProvideDefaultCommandRunnerProvider() *DefaultCommandRunnerProvider {
 	return &DefaultCommandRunnerProvider{}
 }
+
+var CommandRunnerProviderSet = wire.NewSet(
+	ProvideDefaultCommandRunnerProvider,
+	NewClientCommand,
+	wire.Bind(new(ClientCommandRunnerProvider), new(*DefaultCommandRunnerProvider)),
+)

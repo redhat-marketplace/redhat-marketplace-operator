@@ -24,6 +24,7 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -33,7 +34,7 @@ import (
 
 func TestMarketplaceConfigController(t *testing.T) {
 	// Set the logger to development mode for verbose logs.
-	logger.SetLoggerToZap()
+	logger.SetLoggerToDevelopmentZap()
 
 	defaultFeatures := []string{"razee", "meterbase"}
 	viper.Set("assets", "../../../assets")
@@ -71,7 +72,11 @@ func setup(r *ReconcilerTest) error {
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
 
 	r.Client = fake.NewFakeClient(r.GetGetObjects()...)
-	r.Reconciler = &ReconcileMarketplaceConfig{client: r.Client, scheme: s}
+	r.Reconciler = &ReconcileMarketplaceConfig{
+		client:     r.Client,
+		scheme:     s,
+		ccprovider: &reconcileutils.DefaultCommandRunnerProvider{},
+	}
 	return nil
 }
 

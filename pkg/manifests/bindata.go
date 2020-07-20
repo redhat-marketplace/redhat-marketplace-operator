@@ -153,7 +153,7 @@ func assetsPrometheusDeploymentYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/deployment.yaml", size: 3408, mode: os.FileMode(420), modTime: time.Unix(1594210914, 0)}
+	info := bindataFileInfo{name: "assets/prometheus/deployment.yaml", size: 3408, mode: os.FileMode(420), modTime: time.Unix(1594775794, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -173,7 +173,7 @@ func assetsPrometheusHtpasswdSecretYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/htpasswd-secret.yaml", size: 192, mode: os.FileMode(420), modTime: time.Unix(1594304914, 0)}
+	info := bindataFileInfo{name: "assets/prometheus/htpasswd-secret.yaml", size: 192, mode: os.FileMode(420), modTime: time.Unix(1594775794, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -193,7 +193,7 @@ func assetsPrometheusKubeRbacProxySecretYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/kube-rbac-proxy-secret.yaml", size: 459, mode: os.FileMode(420), modTime: time.Unix(1594305061, 0)}
+	info := bindataFileInfo{name: "assets/prometheus/kube-rbac-proxy-secret.yaml", size: 459, mode: os.FileMode(420), modTime: time.Unix(1594775794, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -213,7 +213,7 @@ func assetsPrometheusKubeStateServiceMonitorYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/kube-state-service-monitor.yaml", size: 1014, mode: os.FileMode(420), modTime: time.Unix(1594301587, 0)}
+	info := bindataFileInfo{name: "assets/prometheus/kube-state-service-monitor.yaml", size: 1014, mode: os.FileMode(420), modTime: time.Unix(1594775794, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -233,7 +233,7 @@ func assetsPrometheusKubeletServingCaBundleYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/kubelet-serving-ca-bundle.yaml", size: 143, mode: os.FileMode(420), modTime: time.Unix(1594213807, 0)}
+	info := bindataFileInfo{name: "assets/prometheus/kubelet-serving-ca-bundle.yaml", size: 143, mode: os.FileMode(420), modTime: time.Unix(1594775794, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -273,7 +273,7 @@ func assetsPrometheusPrometheusDatasourcesSecretYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/prometheus-datasources-secret.yaml", size: 133, mode: os.FileMode(420), modTime: time.Unix(1594326552, 0)}
+	info := bindataFileInfo{name: "assets/prometheus/prometheus-datasources-secret.yaml", size: 133, mode: os.FileMode(420), modTime: time.Unix(1594775794, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -313,7 +313,7 @@ func assetsPrometheusPrometheusYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/prometheus.yaml", size: 3954, mode: os.FileMode(420), modTime: time.Unix(1594322380, 0)}
+	info := bindataFileInfo{name: "assets/prometheus/prometheus.yaml", size: 3954, mode: os.FileMode(420), modTime: time.Unix(1594775794, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -333,7 +333,7 @@ func assetsPrometheusProxySecretYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/proxy-secret.yaml", size: 189, mode: os.FileMode(420), modTime: time.Unix(1594308433, 0)}
+	info := bindataFileInfo{name: "assets/prometheus/proxy-secret.yaml", size: 189, mode: os.FileMode(420), modTime: time.Unix(1594775794, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -353,7 +353,7 @@ func assetsPrometheusServiceYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/service.yaml", size: 494, mode: os.FileMode(420), modTime: time.Unix(1594304821, 0)}
+	info := bindataFileInfo{name: "assets/prometheus/service.yaml", size: 494, mode: os.FileMode(420), modTime: time.Unix(1594775794, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -373,7 +373,7 @@ func assetsPrometheusServingCertsCaBundleYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/serving-certs-ca-bundle.yaml", size: 212, mode: os.FileMode(420), modTime: time.Unix(1594304852, 0)}
+	info := bindataFileInfo{name: "assets/prometheus/serving-certs-ca-bundle.yaml", size: 212, mode: os.FileMode(420), modTime: time.Unix(1594775794, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -393,7 +393,7 @@ func assetsPrometheusOperatorDeploymentYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus-operator/deployment.yaml", size: 3408, mode: os.FileMode(420), modTime: time.Unix(1594157558, 0)}
+	info := bindataFileInfo{name: "assets/prometheus-operator/deployment.yaml", size: 3408, mode: os.FileMode(420), modTime: time.Unix(1594775794, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -413,7 +413,7 @@ func assetsPrometheusOperatorOperatorCertsCaBundleYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus-operator/operator-certs-ca-bundle.yaml", size: 213, mode: os.FileMode(420), modTime: time.Unix(1593696936, 0)}
+	info := bindataFileInfo{name: "assets/prometheus-operator/operator-certs-ca-bundle.yaml", size: 213, mode: os.FileMode(420), modTime: time.Unix(1594775794, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -433,7 +433,7 @@ func assetsPrometheusOperatorServiceYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus-operator/service.yaml", size: 585, mode: os.FileMode(420), modTime: time.Unix(1593698038, 0)}
+	info := bindataFileInfo{name: "assets/prometheus-operator/service.yaml", size: 585, mode: os.FileMode(420), modTime: time.Unix(1594775794, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -493,7 +493,7 @@ func assetsRazeeRemoteResourceS3Yaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/razee/remote-resource-s3.yaml", size: 1819, mode: os.FileMode(420), modTime: time.Unix(1591987436, 0)}
+	info := bindataFileInfo{name: "assets/razee/remote-resource-s3.yaml", size: 1819, mode: os.FileMode(420), modTime: time.Unix(1594775794, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -513,7 +513,7 @@ func assetsRazeeWatchKeeperYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/razee/watch-keeper.yaml", size: 2267, mode: os.FileMode(420), modTime: time.Unix(1591987436, 0)}
+	info := bindataFileInfo{name: "assets/razee/watch-keeper.yaml", size: 2267, mode: os.FileMode(420), modTime: time.Unix(1594775794, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }

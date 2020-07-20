@@ -6,22 +6,58 @@
 package report
 
 import (
+	"context"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/reporter"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 // Injectors from wire.go:
 
-func initializeMarketplaceReporter(reportName reporter.ReporterName) (*reporter.MarketplaceReporter, error) {
-	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
-	v := provideMarketplaceReporterSchemes(monitoringSchemeDefinition)
-	marketplaceReporterConfig, err := reporter.NewMarketplaceReporterConfig(reportName, v)
+func initializeMarketplaceReporter(ctx context.Context, reportName reporter.ReportName, config2 reporter.Config) (*reporter.MarketplaceReporter, error) {
+	reporterConfig := reporter.ProvideReporterConfig(config2)
+	restConfig, err := config.GetConfig()
 	if err != nil {
 		return nil, err
 	}
-	marketplaceReporter, err := reporter.NewMarketplaceReporter(marketplaceReporterConfig)
+	scheme, err := managers.ProvideScheme(restConfig)
+	if err != nil {
+		return nil, err
+	}
+	opsSrcSchemeDefinition := controller.ProvideOpsSrcScheme()
+	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
+	olmV1SchemeDefinition := controller.ProvideOLMV1Scheme()
+	olmV1Alpha1SchemeDefinition := controller.ProvideOLMV1Alpha1Scheme()
+	localSchemes := controller.ProvideLocalSchemes(opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition)
+	options, err := provideOptions(scheme)
+	if err != nil {
+		return nil, err
+	}
+	manager, err := managers.ProvideManager(restConfig, scheme, localSchemes, options)
+	if err != nil {
+		return nil, err
+	}
+	client := managers.ProvideClient(manager)
+	logger := _wireLoggerValue
+	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logger)
+	meterReport, err := getMarketplaceReport(ctx, clientCommandRunner, reportName)
+	if err != nil {
+		return nil, err
+	}
+	v := getMeterDefinitions(meterReport)
+	service, err := getPrometheusService(ctx, meterReport, clientCommandRunner)
+	if err != nil {
+		return nil, err
+	}
+	marketplaceReporter, err := reporter.NewMarketplaceReporter(reporterConfig, manager, meterReport, v, service)
 	if err != nil {
 		return nil, err
 	}
 	return marketplaceReporter, nil
 }
+
+var (
+	_wireLoggerValue = log
+)

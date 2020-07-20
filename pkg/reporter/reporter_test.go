@@ -2,6 +2,7 @@ package reporter
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -49,15 +50,17 @@ var _ = Describe("Reporter", func() {
 
 		Expect(err).To(Succeed())
 
-		cfg := MarketplaceReporterConfig{
+		cfg := &reporterConfig{
 			OutputDirectory: dir,
 		}
 
 		cfg.setDefaults()
 
 		sut = &MarketplaceReporter{
-			api:                       v1api,
-			MarketplaceReporterConfig: cfg,
+			api:            v1api,
+			reporterConfig: cfg,
+			report: report,
+			meterDefinitions: meterDefinitions,
 		}
 
 		config = &marketplacev1alpha1.MarketplaceConfig{
@@ -135,15 +138,17 @@ var _ = Describe("Reporter", func() {
 		BeforeEach(func() {
 			v1api := getTestAPI(mockResponseRoundTripper(generatedFile))
 
-			cfg := MarketplaceReporterConfig{
+			cfg := &reporterConfig{
 				OutputDirectory: dir,
 			}
 
 			cfg.setDefaults()
 
 			sut = &MarketplaceReporter{
-				api:                       v1api,
-				MarketplaceReporterConfig: cfg,
+				api:              v1api,
+				reporterConfig:   cfg,
+				report:           report,
+				meterDefinitions: meterDefinitions,
 			}
 		})
 
@@ -154,7 +159,7 @@ var _ = Describe("Reporter", func() {
 				m2 := &runtime.MemStats{}
 
 				runtime.ReadMemStats(m)
-				results, err := sut.CollectMetrics(report, meterDefinitions)
+				results, err := sut.CollectMetrics(context.TODO())
 				runtime.ReadMemStats(m2)
 
 				Expect(err).To(Succeed())
@@ -171,7 +176,7 @@ var _ = Describe("Reporter", func() {
 
 	It("query, build and submit a report", func(done Done) {
 		By("collecting metrics")
-		results, err := sut.CollectMetrics(report, meterDefinitions)
+		results, err := sut.CollectMetrics(context.TODO())
 
 		Expect(err).To(Succeed())
 		Expect(results).ToNot(BeEmpty())

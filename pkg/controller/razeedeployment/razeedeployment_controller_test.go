@@ -43,7 +43,7 @@ import (
 // fake client that tracks a MeterBase object.
 func TestRazeeDeployController(t *testing.T) {
 	// Set the logger to development mode for verbose logs.
-	logger.SetLoggerToZap()
+	logger.SetLoggerToDevelopmentZap()
 
 	viper.Set("assets", "../../../assets")
 	scheme.Scheme.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment.DeepCopy(), &marketplacev1alpha1.RazeeDeploymentList{})

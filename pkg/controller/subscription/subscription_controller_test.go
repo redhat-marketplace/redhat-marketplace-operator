@@ -38,7 +38,7 @@ import (
 
 func TestSubscriptionController(t *testing.T) {
 	// Set the logger to development mode for verbose logs.
-	logger.SetLoggerToZap()
+	logger.SetLoggerToDevelopmentZap()
 
 	defaultFeatures := []string{"razee", "meterbase"}
 	viper.Set("assets", "../../../assets")

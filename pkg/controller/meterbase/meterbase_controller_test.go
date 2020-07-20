@@ -28,6 +28,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 	"github.com/spf13/viper"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -38,19 +39,19 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 var _ = Describe("MeterbaseController", func() {
 	var (
-		name, namespace string
-		meterbase       *marketplacev1alpha1.MeterBase
-		ctrlScheme      *runtime.Scheme
-		req             reconcile.Request
-		options         []StepOption
-		storageClass    *storagev1.StorageClass
+		name, namespace  string
+		meterbase        *marketplacev1alpha1.MeterBase
+		ctrlScheme       *runtime.Scheme
+		req              reconcile.Request
+		options          []StepOption
+		storageClass     *storagev1.StorageClass
+		kubeletServingCA *corev1.ConfigMap
+		statefulSet      *appsv1.StatefulSet
 	)
 
 	BeforeEach(func() {
@@ -97,6 +98,22 @@ var _ = Describe("MeterbaseController", func() {
 		olmv1alpha1.AddToScheme(ctrlScheme)
 		monitoringv1.AddToScheme(ctrlScheme)
 		ctrlScheme.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
+
+		kubeletServingCA = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "openshift-config-managed",
+				Name:      "kubelet-serving-ca",
+			},
+			Data: map[string]string{
+				"foo": "bar",
+			},
+		}
+		statefulSet = &appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      "prometheus-" + name,
+			},
+		}
 	})
 
 	Describe("check test flags", func() {
@@ -105,60 +122,6 @@ var _ = Describe("MeterbaseController", func() {
 			Expect(flagset.HasFlags()).To(BeTrue(), "no flags on the flagset")
 		})
 	})
-
-	// Describe("when kubelet and kubestate missing", func() {
-	// 	var (
-	// 		client   client.Client
-	// 		ctrl     *ReconcileMeterBase
-	// 		test     *ReconcilerTest
-	// 		ctx      context.Context
-	// 		mockCtrl *gomock.Controller
-	// 	)
-
-	// 	BeforeEach(func() {
-	// 		ctrl = &ReconcileMeterBase{
-	// 			client:       client,
-	// 			scheme:       ctrlScheme,
-	// 			ccprovider:   &reconcileutils.DefaultCommandRunnerProvider{},
-	// 			patchChecker: reconcileutils.NewPatchChecker(utils.RhmPatchMaker),
-	// 			opts: &MeterbaseOpts{
-	// 				PullPolicy: v1.PullAlways,
-	// 				AssetPath:  "../../../assets",
-	// 			},
-	// 		}
-
-	// 		client = ClientErrorStub(mockCtrl,
-	// 			fake.NewFakeClientWithScheme(ctrlScheme, meterbase, storageClass, kubelet, kubestate),
-	// 			mockErr)
-
-	// 		test = NewReconcilerTestSimple(ctrl, client)
-	// 		ctx = context.TODO()
-
-	// 		test.TestAll(GinkgoT(),
-	// 			ReconcileStep(options,
-	// 				ReconcileWithUntilDone(true),
-	// 			),
-	// 		)
-	// 	})
-
-	// 	ExpectGetObject := func(name, namespace string, obj runtime.Object) Assertion {
-	// 		return Expect(client.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, obj))
-	// 	}
-
-	// 	It("should create a prometheus sub", func() {
-	// 		ExpectGetObject(name, namespace, &olmv1alpha1.Subscription{}).To(Succeed())
-	// 	})
-	// 	It("should create a prometheus obj", func() {
-	// 		ExpectGetObject(name, namespace, &monitoringv1.Prometheus{}).To(Succeed())
-	// 	})
-	// 	It("should create a prometheus service", func() {
-	// 		ExpectGetObject(name, namespace, &corev1.Service{}).To(Succeed())
-	// 	})
-	// 	It("should not create service monitors", func() {
-	// 		ExpectGetObject("rhm-kube-state-metrics", namespace, &monitoringv1.ServiceMonitor{}).To(HaveOccurred())
-	// 		ExpectGetObject("rhm-kubelet", namespace, &monitoringv1.ServiceMonitor{}).To(HaveOccurred())
-	// 	})
-	// })
 
 	Describe("when the client errors", func() {
 		var (
@@ -176,7 +139,6 @@ var _ = Describe("MeterbaseController", func() {
 		})
 
 		BeforeEach(func() {
-			logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
 			mockErr = merrors.New("mock error")
 			mockCtrl = gomock.NewController(GinkgoT())
 			kubelet = &monitoringv1.ServiceMonitor{
@@ -210,7 +172,7 @@ var _ = Describe("MeterbaseController", func() {
 		Context("when kubestate and kubelet don't exists", func() {
 			BeforeEach(func() {
 				client = ClientErrorStub(mockCtrl,
-					fake.NewFakeClientWithScheme(ctrlScheme, meterbase, storageClass),
+					fake.NewFakeClientWithScheme(ctrlScheme, meterbase, storageClass, kubeletServingCA, statefulSet),
 					mockErr)
 
 				ctrl = &ReconcileMeterBase{
@@ -224,9 +186,11 @@ var _ = Describe("MeterbaseController", func() {
 					},
 				}
 
-				test = NewReconcilerTestSimple(ctrl, client)
 				ctx = context.TODO()
+			})
 
+			It("should not create service monitors", func() {
+				test = NewReconcilerTestSimple(ctrl, client)
 				test.TestAll(GinkgoT(),
 					ReconcileStep(options,
 						ReconcileWithUntilDone(true),
@@ -234,21 +198,12 @@ var _ = Describe("MeterbaseController", func() {
 					),
 				)
 			})
-
-			It("should create service monitors", func() {
-				ExpectGetObject(name, namespace, &olmv1alpha1.Subscription{}).To(Succeed())
-				ExpectGetObject(name, namespace, &monitoringv1.Prometheus{}).To(Succeed())
-				ExpectGetObject(name, namespace, &corev1.Service{}).To(Succeed())
-				ExpectGetObject("rhm-kube-state-metrics", namespace, &monitoringv1.ServiceMonitor{}).To(HaveOccurred())
-				ExpectGetObject("rhm-kubelet", namespace, &monitoringv1.ServiceMonitor{}).To(HaveOccurred())
-			})
-
 		})
 
 		Context("when kubestate and kubelet are present", func() {
 			BeforeEach(func() {
 				client = ClientErrorStub(mockCtrl,
-					fake.NewFakeClientWithScheme(ctrlScheme, meterbase, storageClass, kubelet, kubestate),
+					fake.NewFakeClientWithScheme(ctrlScheme, meterbase, storageClass, kubelet, kubestate, kubeletServingCA, statefulSet),
 					mockErr)
 
 				ctrl = &ReconcileMeterBase{
@@ -274,9 +229,7 @@ var _ = Describe("MeterbaseController", func() {
 			})
 
 			It("should create service monitors", func() {
-				ExpectGetObject(name, namespace, &olmv1alpha1.Subscription{}).To(Succeed())
 				ExpectGetObject(name, namespace, &monitoringv1.Prometheus{}).To(Succeed())
-				ExpectGetObject(name, namespace, &corev1.Service{}).To(Succeed())
 				ExpectGetObject("rhm-kube-state-metrics", namespace, &monitoringv1.ServiceMonitor{}).To(Succeed())
 				ExpectGetObject("rhm-kubelet", namespace, &monitoringv1.ServiceMonitor{}).To(Succeed())
 			})
@@ -298,7 +251,7 @@ var _ = Describe("MeterbaseController", func() {
 					},
 				}
 				client = ClientErrorStub(mockCtrl,
-					fake.NewFakeClientWithScheme(ctrlScheme, meterbase, storageClass, kubelet, kubestate, prom),
+					fake.NewFakeClientWithScheme(ctrlScheme, meterbase, storageClass, kubelet, kubestate, prom, kubeletServingCA, statefulSet),
 					mockErr)
 
 				ctrl = &ReconcileMeterBase{
@@ -324,11 +277,9 @@ var _ = Describe("MeterbaseController", func() {
 			})
 
 			It("should update prometheus to default", func() {
-				ExpectGetObject(name, namespace, &olmv1alpha1.Subscription{}).To(Succeed())
 				ExpectGetObject(name, namespace, &monitoringv1.Prometheus{}).To(Succeed())
 				ExpectGetObject("rhm-kube-state-metrics", namespace, &monitoringv1.ServiceMonitor{}).To(Succeed())
 				ExpectGetObject("rhm-kubelet", namespace, &monitoringv1.ServiceMonitor{}).To(Succeed())
-				ExpectGetObject(name, namespace, &corev1.Service{}).To(Succeed())
 			})
 		})
 	})
