@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package node
+package remoteresources3
 
 import (
 	"context"
-	"reflect"
 
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	corev1 "k8s.io/api/core/v1"
+	"github.com/gotidy/ptr"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,12 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var log = logf.Log.WithName("controller_node_watcher")
-
-const (
-	watchResourceTag   = "razee/watch-resource"
-	watchResourceValue = "lite"
-)
+var log = logf.Log.WithName("controller_remoteresources3")
 
 // Add creates a new Node Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -48,13 +43,13 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileNode{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileRemoteResourceS3{client: mgr.GetClient(), scheme: mgr.GetScheme()}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("node-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("remoteresources3-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
@@ -62,23 +57,22 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	labelPreds := []predicate.Predicate{
 		predicate.Funcs{
 			UpdateFunc: func(evt event.UpdateEvent) bool {
-				watchResourceTag, ok := evt.MetaNew.GetLabels()[watchResourceTag]
-				return !(ok && watchResourceTag == watchResourceValue)
+				return true
 			},
 			CreateFunc: func(evt event.CreateEvent) bool {
-				watchResourceTag, ok := evt.Meta.GetLabels()[watchResourceTag]
-				return !(ok && watchResourceTag == watchResourceValue)
+				return true
 			},
 			GenericFunc: func(evt event.GenericEvent) bool {
-				watchResourceTag, ok := evt.Meta.GetLabels()[watchResourceTag]
-				return !(ok && watchResourceTag == watchResourceValue)
+				return false
+			},
+			DeleteFunc: func(evt event.DeleteEvent) bool {
+				return false
 			},
 		},
 	}
 
 	// Watch for changes to primary resource Node
-
-	err = c.Watch(&source.Kind{Type: &corev1.Node{}}, &handler.EnqueueRequestForObject{}, labelPreds...)
+	err = c.Watch(&source.Kind{Type: &marketplacev1alpha1.RemoteResourceS3{}}, &handler.EnqueueRequestForObject{}, labelPreds...)
 	if err != nil {
 		return err
 	}
@@ -87,10 +81,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 }
 
 // blank assignment to verify that ReconcileNode implements reconcile.Reconciler
-var _ reconcile.Reconciler = &ReconcileNode{}
+var _ reconcile.Reconciler = &ReconcileRemoteResourceS3{}
 
 // ReconcileNode reconciles a Node object
-type ReconcileNode struct {
+type ReconcileRemoteResourceS3 struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
@@ -99,41 +93,36 @@ type ReconcileNode struct {
 
 // Reconcile reads that state of the cluster for a Node object and makes changes based on the state read
 // and what is in the Node.Spec
-func (r *ReconcileNode) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Name", request.Name)
-	reqLogger.Info("Reconciling Node")
+func (r *ReconcileRemoteResourceS3) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+	reqLogger := log.WithValues("Request.Name", request.Name, "Request.Namespace", request.Namespace)
+	reqLogger.Info("Reconciling RemoteResourceS3")
 
 	// Fetch the Node instance
-	instance := &corev1.Node{}
+	instance := &marketplacev1alpha1.RemoteResourceS3{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			reqLogger.Error(err, "node does not exist")
+			reqLogger.Error(err, "remoteresources3 does not exist")
 			return reconcile.Result{}, nil
 		}
 		reqLogger.Error(err, "Failed to get node")
 		return reconcile.Result{}, err
 	}
 
-	labels := instance.GetLabels()
-	if labels == nil {
-		labels = make(map[string]string)
-	}
-	nodeOriginalLabels := instance.DeepCopy().GetLabels()
-	labels[watchResourceTag] = watchResourceValue
-	if !reflect.DeepEqual(labels, nodeOriginalLabels) {
-		instance.SetLabels(labels)
-		if err := r.client.Update(context.TODO(), instance); err != nil {
-			reqLogger.Error(err, "Failed to patch node with razee/watch-resource: lite label")
+	if instance.Status.Touched == nil {
+		instance.Status = marketplacev1alpha1.RemoteResourceS3Status{
+			Touched: ptr.Bool(true),
+		}
+		err := r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
 			return reconcile.Result{}, err
 		}
-		reqLogger.Info("Patched node with razee/watch-resource: lite label")
-	} else {
-		reqLogger.Info("No patch needed on node resource")
+		reqLogger.Info("updated remoteresources3")
 	}
-	reqLogger.Info("reconcilation complete")
+
+	reqLogger.Info("finished reconcile")
 	return reconcile.Result{}, nil
 }

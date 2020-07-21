@@ -49,10 +49,10 @@ type RazeeConfigurationValues struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	RazeeDashUrl string `json:"razeeDashUrl,omitempty"`
-	// The url of the filesource arg that gets passed into the razeedeploy-job
+	// FileSourceURL DEPRECATED: The url of the filesource arg that gets passed into the razeedeploy-job
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	FileSourceURL string `json:"fileSourceUrl,omitempty"`
+	FileSourceURL *string `json:"fileSourceUrl,omitempty"`
 }
 
 // RazeeDeploymentSpec defines the desired state of RazeeDeployment
@@ -97,6 +97,12 @@ type RazeeDeploymentSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	ChildUrl *string `json:"childUrl,omitempty"`
+	// Flag used by the RazeeDeployment Controller to decide whether to run legacy uninstall job
+	// Used internally by the Operator
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	LegacyUninstallHasRun *bool `json:"legacyUninstallHasRun,omitempty"`
 }
 
 // TODO: on version change, rename conditions to jobConditions
@@ -109,15 +115,14 @@ type RazeeDeploymentStatus struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	Conditions status.Conditions `json:"installConditions,omitempty"`
-	// Conditions represent the latest available observations of an object's stateonfig
+	// JobConditions DEPRECATED: represent the latest available observations of an object's stateonfig
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	JobConditions *batch.JobCondition `json:"conditions,omitempty"`
-	// JobState is the status of the Razee Install Job
+	// JobState DEPRECATED: is the status of the Razee Install Job
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
-	JobState batch.JobStatus `json:"jobState,omitempty"`
-
+	JobState *batch.JobStatus `json:"jobState,omitempty"`
 	// MissingValuesFromSecret validates the secret provided has all the correct fields
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
@@ -138,6 +143,10 @@ type RazeeDeploymentStatus struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	RazeeJobInstall *RazeeJobInstallStruct `json:"razee_job_install,omitempty"`
+	// NodesFromRazeeDeployments contains the pods names created by the rhm-watch-keeper and rhm-remote-resources3-controller deployments
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	NodesFromRazeeDeployments []string `json:"nodesFromRazeeDeployments,omitempty"`
 }
 
 type RazeeJobInstallStruct struct {
@@ -154,12 +163,11 @@ type RazeeJobInstallStruct struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // RazeeDeployment is the resources that deploys Razee for the Red Hat Marketplace.
 // This is an internal resource not meant to be modified directly.
-//
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=razeedeployments,scope=Namespaced
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="(Internal) Razee Deployment"
-// +operator-sdk:gen-csv:customresourcedefinitions.resources=`Job,v1,"redhat-marketplace-operator"`
+// +operator-sdk:gen-csv:customresourcedefinitions.resources=`Deployment,v1,"redhat-marketplace-operator"`
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`ConfigMap,v1,"redhat-marketplace-operator"`
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`Secret,v1,"redhat-marketplace-operator"`
 type RazeeDeployment struct {
@@ -187,15 +195,19 @@ func init() {
 const (
 
 	// Reasons for install
-	ReasonRazeeStartInstall                 status.ConditionReason = "StartRazeeInstall"
-	ReasonWatchKeeperNonNamespacedInstalled status.ConditionReason = "FinishedWatchKeeperNonNamespaceInstall"
-	ReasonWatchKeeperLimitPollInstalled     status.ConditionReason = "FinishedWatchKeeperLimitPollInstall"
-	ReasonRazeeClusterMetaDataInstalled     status.ConditionReason = "FinishedRazeeClusterMetaDataInstall"
-	ReasonWatchKeeperConfigInstalled        status.ConditionReason = "FinishedWatchKeeperConfigInstall"
-	ReasonWatchKeeperSecretInstalled        status.ConditionReason = "FinishedWatchKeeperSecretInstall"
-	ReasonCosReaderKeyInstalled             status.ConditionReason = "FinishedCosReaderKeyInstall"
-	ReasonRazeeDeployJobStart               status.ConditionReason = "StartRazeeDeployJob"
-	ReasonRazeeDeployJobFinished            status.ConditionReason = "FinishedRazeeDeployJob"
-	ReasonParentRRS3Installed               status.ConditionReason = "FinishParentRRS3Install"
-	ReasonRazeeInstallFinished              status.ConditionReason = "FinishedRazeeInstall"
+	ReasonRazeeStartInstall                        status.ConditionReason = "StartRazeeInstall"
+	ReasonWatchKeeperNonNamespacedInstalled        status.ConditionReason = "FinishedWatchKeeperNonNamespaceInstall"
+	ReasonWatchKeeperLimitPollInstalled            status.ConditionReason = "FinishedWatchKeeperLimitPollInstall"
+	ReasonRazeeClusterMetaDataInstalled            status.ConditionReason = "FinishedRazeeClusterMetaDataInstall"
+	ReasonWatchKeeperConfigInstalled               status.ConditionReason = "FinishedWatchKeeperConfigInstall"
+	ReasonWatchKeeperSecretInstalled               status.ConditionReason = "FinishedWatchKeeperSecretInstall"
+	ReasonCosReaderKeyInstalled                    status.ConditionReason = "FinishedCosReaderKeyInstall"
+	ReasonRazeeDeployJobStart                      status.ConditionReason = "StartRazeeDeployJob"
+	ReasonRazeeDeployJobFinished                   status.ConditionReason = "FinishedRazeeDeployJob"
+	ReasonParentRRS3Installed                      status.ConditionReason = "FinishParentRRS3Install"
+	ReasonRazeeInstallFinished                     status.ConditionReason = "FinishedRazeeInstall"
+	ReasonWatchKeeperDeploymentStart               status.ConditionReason = "StartWatchKeeperDeploymentInstall"
+	ReasonWatchKeeperDeploymentInstalled           status.ConditionReason = "FinishedWatchKeeperDeploymentInstall"
+	ReasonRhmRemoteResourceS3DeploymentStart     status.ConditionReason = "StartRemoteResourceS3DeploymentInstall"
+	ReasonRhmRemoteResourceS3DeploymentInstalled status.ConditionReason = "FinishedRemoteResourceS3DeploymentInstall"
 )

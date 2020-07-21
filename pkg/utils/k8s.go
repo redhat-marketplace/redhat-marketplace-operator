@@ -164,8 +164,8 @@ func BuildNewOpSrc() *opsrcv1.OperatorSource {
 	return opsrc
 }
 
-// BuildNewCatalogSrc returns a new Catalog Source
-func BuildNewCatalogSrc() *operatorsv1alpha1.CatalogSource {
+// BuildNewIBMCatalogSrc returns a new IBM Catalog Source
+func BuildNewIBMCatalogSrc() *operatorsv1alpha1.CatalogSource {
 	catalogSrc := &operatorsv1alpha1.CatalogSource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: IBM_CATALOGSRC_NAME,
@@ -177,6 +177,26 @@ func BuildNewCatalogSrc() *operatorsv1alpha1.CatalogSource {
 			Publisher:      "IBM",
 			SourceType:     "grpc",
 			Image:          "docker.io/ibmcom/ibm-operator-catalog",
+			UpdateStrategy: &operatorsv1alpha1.UpdateStrategy{RegistryPoll: &operatorsv1alpha1.RegistryPoll{Interval: &metav1.Duration{Duration: (time.Minute * 45)}}},
+		},
+	}
+
+	return catalogSrc
+}
+
+// BuildNewOpencloudCatalogSrc returns a new Opencloud Catalog Source
+func BuildNewOpencloudCatalogSrc() *operatorsv1alpha1.CatalogSource {
+	catalogSrc := &operatorsv1alpha1.CatalogSource{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: OPENCLOUD_CATALOGSRC_NAME,
+			// Must always be openshift-marketplace
+			Namespace: OPERATOR_MKTPLACE_NS,
+		},
+		Spec: operatorsv1alpha1.CatalogSourceSpec{
+			DisplayName:    "IBMCS Operators",
+			Publisher:      "IBM",
+			SourceType:     "grpc",
+			Image:          "docker.io/ibmcom/ibm-common-service-catalog",
 			UpdateStrategy: &operatorsv1alpha1.UpdateStrategy{RegistryPoll: &operatorsv1alpha1.RegistryPoll{Interval: &metav1.Duration{Duration: (time.Minute * 45)}}},
 		},
 	}
