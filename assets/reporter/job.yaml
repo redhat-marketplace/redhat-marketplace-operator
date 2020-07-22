@@ -1,0 +1,18 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rhm-meter-report
+  labels:
+    marketplace.redhat.com/report: 'true'
+spec:
+  completions: 1
+  parallelism: 1
+  backoffLimit: 5
+  template:
+    spec:
+      serviceAccount: redhat-marketplace-operator
+      restartPolicy: Never
+      containers:
+        - name: reporter
+          image: redhat-markplace-reporter
+          args: ['report', '--name', 'name', '--namespace', 'namespace']

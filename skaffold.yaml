@@ -30,6 +30,7 @@ deploy:
       - name: rhm-operator
         artifactOverrides:
           image: redhat-marketplace-operator
+          reporterImage: redhat-marketplace-reporter
         chartPath: deploy/chart
         wait: true
         valuesFiles:

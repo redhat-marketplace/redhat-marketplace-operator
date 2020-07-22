@@ -26,8 +26,8 @@ import (
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc
 	"emperror.dev/errors"
@@ -78,7 +78,7 @@ type OperatorName string
 type ControllerMain struct {
 	Name        OperatorName
 	FlagSets    []*pflag.FlagSet
-	Controllers []*controller.ControllerDefinition
+	Controllers []controller.AddController
 	Manager     manager.Manager
 }
 

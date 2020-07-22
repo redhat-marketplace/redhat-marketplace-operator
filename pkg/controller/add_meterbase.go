@@ -20,15 +20,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-type MeterbaseController ControllerDefinition
+type MeterbaseController struct {
+	*baseDefinition
+}
 
 func ProvideMeterbaseController(
 	commandRunner reconcileutils.ClientCommandRunnerProvider,
 ) *MeterbaseController {
 	return &MeterbaseController{
-		Add: func(mgr manager.Manager) error {
-			return meterbase.Add(mgr, commandRunner)
+		baseDefinition: &baseDefinition{
+			AddFunc: func(mgr manager.Manager) error {
+				return meterbase.Add(mgr, commandRunner)
+			},
+			FlagSetFunc: meterbase.FlagSet,
 		},
-		FlagSet: meterbase.FlagSet,
 	}
 }

@@ -59,6 +59,7 @@ func NewMarketplaceReporter(
 	prometheusService *corev1.Service,
 ) (*MarketplaceReporter, error) {
 	// Get a config to talk to the apiserver
+
 	client, err := api.NewClient(api.Config{
 		Address: "https://localhost:9090", //TODO: replace with https
 	})

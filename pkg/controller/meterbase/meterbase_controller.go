@@ -33,7 +33,6 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,12 +66,6 @@ var (
 
 func init() {
 	meterbaseFlagSet = pflag.NewFlagSet("meterbase", pflag.ExitOnError)
-	meterbaseFlagSet.String("related-image-prom-server",
-		utils.Getenv(RELATED_IMAGE_PROM_SERVER, DEFAULT_PROM_SERVER),
-		"image for prometheus")
-	meterbaseFlagSet.String("related-image-configmap-reload",
-		utils.Getenv(RELATED_IMAGE_CONFIGMAP_RELOAD, DEFAULT_CONFIGMAP_RELOAD),
-		"image for prometheus")
 }
 
 func FlagSet() *pflag.FlagSet {
@@ -106,10 +99,10 @@ type ReconcileMeterBase struct {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(
 	mgr manager.Manager,
-	ccprovider ClientCommandRunnerProvider) reconcile.Reconciler {
+	ccprovider ClientCommandRunnerProvider,
+) reconcile.Reconciler {
 	promOpts := &MeterbaseOpts{
 		PullPolicy: "IfNotPresent",
-		AssetPath:  viper.GetString("assets"),
 	}
 	return &ReconcileMeterBase{
 		client:     mgr.GetClient(),
@@ -353,7 +346,6 @@ type Images struct {
 
 type MeterbaseOpts struct {
 	corev1.PullPolicy
-	AssetPath string
 }
 
 func (r *ReconcileMeterBase) reconcilePrometheusSubscription(

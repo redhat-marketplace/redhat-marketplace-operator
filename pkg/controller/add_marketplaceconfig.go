@@ -20,15 +20,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-type MarketplaceController ControllerDefinition
+type MarketplaceController struct {
+	*baseDefinition
+}
 
 func ProvideMarketplaceController(
 	commandRunner reconcileutils.ClientCommandRunnerProvider,
 ) *MarketplaceController {
 	return &MarketplaceController{
-		Add: func(mgr manager.Manager) error {
-			return marketplaceconfig.Add(mgr, commandRunner)
+		baseDefinition: &baseDefinition{
+			AddFunc: func(mgr manager.Manager) error {
+				return marketplaceconfig.Add(mgr, commandRunner)
+			},
+			FlagSetFunc: marketplaceconfig.FlagSet,
 		},
-		FlagSet: marketplaceconfig.FlagSet,
 	}
 }

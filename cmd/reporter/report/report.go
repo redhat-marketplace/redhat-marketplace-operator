@@ -26,8 +26,9 @@ var ReportCmd = &cobra.Command{
 	Short: "Print the version number of Hugo",
 	Long:  `All software has versions. This is Hugo's`,
 	Run: func(cmd *cobra.Command, args []string) {
+		outputDir := os.TempDir()
 		cfg := reporter.Config{
-			OutputDirectory: ".",
+			OutputDirectory: outputDir,
 		}
 
 		ctx := context.TODO()
@@ -43,12 +44,14 @@ var ReportCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		_, err = report.CollectMetrics(ctx)
+		metrics, err := report.CollectMetrics(ctx)
 
 		if err != nil {
 			log.Error(err, "")
 			os.Exit(1)
 		}
+
+		log.Info("metrics", "metrics", metrics)
 
 		os.Exit(0)
 	},

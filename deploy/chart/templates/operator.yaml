@@ -40,6 +40,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: RELATED_IMAGE_REPORTER
+              value: {{ .Values.reporterImage }}
             {{- if .Values.env -}}
             {{- toYaml .Values.env | nindent 12 }}
             {{- end -}}

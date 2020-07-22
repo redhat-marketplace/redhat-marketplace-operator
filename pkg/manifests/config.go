@@ -6,12 +6,14 @@ import (
 	"io"
 
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
 	v1 "k8s.io/api/core/v1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
 type Config struct {
-	MarketplaceOperatorConfig *MarketplaceOperatorConfig `json:"-"`
+	RelatedImages             *config.RelatedImages      `json:"relatedImages"`
+	MarketplaceOperatorConfig *MarketplaceOperatorConfig `json:"operatorConfig"`
 	Platform                  configv1.PlatformType      `json:"-"`
 }
 
@@ -24,6 +26,10 @@ type PrometheusOperatorConfig struct {
 	LogLevel           string            `json:"logLevel"`
 	NodeSelector       map[string]string `json:"nodeSelector"`
 	Tolerations        []v1.Toleration   `json:"tolerations"`
+}
+
+type RelatedImages struct {
+	Reporter string
 }
 
 func (c *Config) LoadPlatform(load func() (*configv1.Infrastructure, error)) error {
@@ -59,6 +65,15 @@ func NewConfig(content io.Reader) (*Config, error) {
 
 func NewDefaultConfig() *Config {
 	c := &Config{}
+	moc := MarketplaceOperatorConfig{}
+	c.MarketplaceOperatorConfig = &moc
+	c.applyDefaults()
+	return c
+}
+
+func NewOperatorConfig(cfg *config.OperatorConfig) *Config {
+	c := &Config{}
+	c.RelatedImages = &cfg.RelatedImages
 	moc := MarketplaceOperatorConfig{}
 	c.MarketplaceOperatorConfig = &moc
 	c.applyDefaults()
