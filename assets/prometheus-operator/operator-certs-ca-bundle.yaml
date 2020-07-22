@@ -6,4 +6,4 @@ metadata:
   annotations:
     service.alpha.openshift.io/inject-cabundle: "true"
   name: operator-certs-ca-bundle
-  namespace: openshift-redhat-marketplace
+  namespace: redhat-marketplace

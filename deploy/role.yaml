@@ -271,7 +271,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: redhat-marketplace-prometheus
-  namespace: openshift-redhat-marketplace
+  namespace: redhat-marketplace
 rules:
 - apiGroups:
   - ""
@@ -285,7 +285,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: redhat-marketplace-operator
-  namespace: openshift-redhat-marketplace
+  namespace: redhat-marketplace
 rules:
 - apiGroups:
   - ""

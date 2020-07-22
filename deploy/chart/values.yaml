@@ -4,11 +4,12 @@
 
 name: redhat-marketplace-operator
 replicaCount: 1
-namespace: openshift-redhat-marketplace
+namespace: redhat-marketplace
 image: quay.io/rh-marketplace/redhat-marketplace-operator:dev
 pullPolicy: Always
 watchNamespace: '' # watch all namespaces
 serviceAccountName: redhat-marketplace-operator
+devpostfix: ''
 env:
   - name: RELATED_IMAGE_RAZEE_JOB
     value: quay.io/razee/razeedeploy-delta:1.1.3

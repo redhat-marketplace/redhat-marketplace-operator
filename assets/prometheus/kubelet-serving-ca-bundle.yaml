@@ -4,4 +4,4 @@ data:
 kind: ConfigMap
 metadata:
   name: kubelet-serving-ca-bundle
-  namespace: openshift-redhat-marketplace
+  namespace: redhat-marketplace

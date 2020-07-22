@@ -1,12 +1,16 @@
+{{- $postfix := "" }}
 {{- $namespace := .Values.namespace }}
 {{- range .Values.roles }}
 {{- $role := . }}
 {{- if empty $role.rules }}
 {{- else }}
+{{- if eq $role.type "ClusterRole" }}
+{{- $postfix = $.Values.devpostfix }}
+{{- end }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: {{ $role.type }}
 metadata:
-  name: {{ $role.name }}
+  name: {{ $role.name }}{{ $postfix }}
   {{- if eq $role.type "Role" }}
   namespace: {{ $namespace }}
   {{- end }}
@@ -15,3 +19,4 @@ rules:
 ---
 {{- end  }}
 {{- end  }}
+

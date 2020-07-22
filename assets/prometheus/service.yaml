@@ -6,7 +6,7 @@ metadata:
   labels:
     prometheus: redhat-marketplace
   name: rhm-prometheus-meterbase
-  namespace: openshift-redhat-marketplace
+  namespace: redhat-marketplace
 spec:
   ports:
   - name: web

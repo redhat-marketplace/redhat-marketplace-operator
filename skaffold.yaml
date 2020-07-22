@@ -31,6 +31,9 @@ deploy:
         artifactOverrides:
           image: redhat-marketplace-operator
         chartPath: deploy/chart
+        setValueTemplates: 
+          devpostfix: "{{.DEVPOSTFIX}}"
+          namespace: "{{.NAMESPACE}}"
         wait: true
         valuesFiles:
           - deploy/chart/values.yaml
@@ -42,4 +45,3 @@ deploy:
       delete:
         - "--wait"
         - "--timeout=30s"
-

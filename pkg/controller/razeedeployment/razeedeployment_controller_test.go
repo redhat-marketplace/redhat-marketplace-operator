@@ -21,6 +21,7 @@ import (
 
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -36,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 )
 
 // TestMeterBaseController runs ReconcileMemcached.Reconcile() against a
@@ -76,7 +76,7 @@ func setup(r *ReconcilerTest) error {
 
 var (
 	name       = utils.RAZEE_NAME
-	namespace  = "openshift-redhat-marketplace"
+	namespace  = "redhat-marketplace"
 	secretName = "rhm-operator-secret"
 
 	opts = []StepOption{

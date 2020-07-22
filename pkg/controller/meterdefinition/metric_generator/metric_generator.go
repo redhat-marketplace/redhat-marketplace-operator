@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package metric_list
+package metric_generator
 
 import (
 	"context"
@@ -120,16 +120,16 @@ func buildServiceMetric(s *corev1.Service, def *marketplacev1alpha1.MeterDefinit
 }
 
 // findMeterDefPods() returns a PodList of pods, associated with MeterDefinition
-func findMeterDefPods(def *marketplacev1alpha1.MeterDefinition, rclient client.Client) (*corev1.PodList, error) {
+func findMeterDefPods(rclient client.Client) (*corev1.PodList, error) {
 	var err error
 	meterDefPods := &corev1.PodList{}
 
 	//QUESTION: do we want to use def.Spec.PodSelector or just:
-	// "marketplace.redhat.com/metered.kind": "Service",
+	// "marketplace.redhat.com/metered.kind": "Pod",
 
 	listOpts := []client.ListOption{
 		client.MatchingLabels(map[string]string{
-			"marketplace.redhat.com/metered.kind": "Service",
+			"marketplace.redhat.com/metered.kind": "Pod",
 		}),
 	}
 
@@ -143,7 +143,7 @@ func findMeterDefPods(def *marketplacev1alpha1.MeterDefinition, rclient client.C
 }
 
 // findMeterDefServices() returns a ServiceList of Services, associated with MeterDefinition
-func findMeterDefServices(def *marketplacev1alpha1.MeterDefinition, rclient client.Client) (*corev1.ServiceList, error) {
+func findMeterDefServices(rclient client.Client) (*corev1.ServiceList, error) {
 	var err error
 	meterDefServices := &corev1.ServiceList{}
 
@@ -183,9 +183,9 @@ func generateMetrics(podList *corev1.PodList, serviceList *corev1.ServiceList, d
 4. Repeat every 5 minutes
 
 TODO:
-- differntiate between existing and new pods/services
-- update the labels used to select pods/services
+- filter between existing and new pods/services
 - add unit tests
+- mgr.Add(runnable)
 */
 func cycleMeterDefMeters(def *marketplacev1alpha1.MeterDefinition, rclient client.Client) {
 
@@ -196,11 +196,11 @@ func cycleMeterDefMeters(def *marketplacev1alpha1.MeterDefinition, rclient clien
 		meterDefServices := &corev1.ServiceList{}
 		var err error
 		for {
-			meterDefPods, err = findMeterDefPods(def, rclient)
+			meterDefPods, err = findMeterDefPods(rclient)
 			if err != nil {
 				reqLogger.Error(err, "Failed to retrieve pods associated with MeterDefinition")
 			}
-			meterDefServices, err = findMeterDefServices(def, rclient)
+			meterDefServices, err = findMeterDefServices(rclient)
 			if err != nil {
 				reqLogger.Error(err, "Failed to retrieve services associated with MeterDefinition")
 			}
