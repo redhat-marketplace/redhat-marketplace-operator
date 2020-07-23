@@ -6,7 +6,6 @@ metadata:
     app.kubernetes.io/name: prometheus-operator
     app.kubernetes.io/version: v0.38.1
   name: prometheus-operator
-  namespace: openshift-redhat-marketplace
 spec:
   replicas: 1
   selector:
@@ -27,9 +26,9 @@ spec:
         - --config-reloader-image=quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:b0291b4faa4f1932ea379fce9199b698f4aeb081493862af66519e5551c533d9
         - --prometheus-config-reloader=quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:7c21484c93f2034adfc8f61a1ee197b470bd2337c24da3d36e99599324988b78
 
-        - --namespaces=openshift-redhat-marketplace
-        - --prometheus-instance-namespaces=openshift-redhat-marketplace
-        - --alertmanager-instance-namespaces=openshift-redhat-marketplace
+        - --namespaces={{NAMESPACE}}
+        - --prometheus-instance-namespaces={{NAMESPACE}}
+        - --alertmanager-instance-namespaces={{NAMESPACE}}
         - --manage-crds=false
         image:  quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:2864bca09678ed871246a3064b1ae697615089cc3abc78266d6f726fe4311a5b
         name: prometheus-operator
@@ -50,7 +49,7 @@ spec:
         - --logtostderr
         - --secure-listen-address=:8443
         - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
-        - --upstream=https://prometheus-operator.openshift-redhat-marketplace.svc:8080/
+        - --upstream=https://prometheus-operator.{{NAMESPACE}}.svc:8080/
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
         image: quay.io/coreos/kube-rbac-proxy:v0.4.1

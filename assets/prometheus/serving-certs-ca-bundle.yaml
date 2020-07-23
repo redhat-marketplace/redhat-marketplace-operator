@@ -6,4 +6,3 @@ metadata:
   annotations:
     service.alpha.openshift.io/inject-cabundle: "true"
   name: serving-certs-ca-bundle
-  namespace: openshift-redhat-marketplace

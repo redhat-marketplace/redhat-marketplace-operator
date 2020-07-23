@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"io"
+	"strings"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
@@ -182,6 +183,23 @@ func (f *Factory) NewPrometheusOperatorDeployment() (*appsv1.Deployment, error) 
 	if c.ServiceAccountName != "" {
 		dep.Spec.Template.Spec.ServiceAccountName = c.ServiceAccountName
 	}
+
+	replacer := strings.NewReplacer("{{NAMESPACE}}", f.namespace)
+
+	updatedContainers := []corev1.Container{}
+
+	for _, container := range dep.Spec.Template.Spec.Containers {
+		newArgs := []string{}
+		for _, arg := range container.Args {
+			newArgs = append(newArgs, replacer.Replace(arg))
+		}
+
+		newContainer := container.DeepCopy()
+		newContainer.Args = newArgs
+		updatedContainers = append(updatedContainers, *newContainer)
+	}
+
+	dep.Spec.Template.Spec.Containers = updatedContainers
 
 	return dep, err
 }

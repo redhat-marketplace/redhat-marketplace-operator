@@ -8,6 +8,7 @@ namespace: openshift-redhat-marketplace
 image: quay.io/rh-marketplace/redhat-marketplace-operator:dev
 reporterImage: quay.io/rh-marketplace/redhat-marketplace-reporter:dev
 pullPolicy: Always
+devpostfix: ''
 watchNamespace: '' # watch all namespaces
 serviceAccountName: redhat-marketplace-operator
 env:
