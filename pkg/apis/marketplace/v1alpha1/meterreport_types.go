@@ -18,10 +18,12 @@ type MeterReportSpec struct {
 	PrometheusService *corev1.ObjectReference `json:"prometheusService"`
 
 	// MeterDefinitions includes the meter defs to be included in this job.
+	// +optional
 	MeterDefinitionLabels *metav1.LabelSelector `json:"meterDefinitionLabels"`
 
 	// MeterDefinitions is the list of meterDefinitions included in the report
-	MeterDefinitions []*MeterDefinition `json:"meterDefinitions"`
+	// +optional
+	MeterDefinitions []*MeterDefinition `json:"meterDefinitions,omitempty"`
 }
 
 // MeterReportStatus defines the observed state of MeterReport

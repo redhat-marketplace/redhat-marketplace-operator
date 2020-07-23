@@ -124,8 +124,7 @@ func findMeterDefPods(rclient client.Client) (*corev1.PodList, error) {
 	var err error
 	meterDefPods := &corev1.PodList{}
 
-	//QUESTION: do we want to use def.Spec.PodSelector or just:
-	// "marketplace.redhat.com/metered.kind": "Pod",
+	// What we want to do is: get list of MeterDefinitions -> Get pod labels -> get pods -> generate those metrics
 
 	listOpts := []client.ListOption{
 		client.MatchingLabels(map[string]string{
@@ -185,7 +184,7 @@ func generateMetrics(podList *corev1.PodList, serviceList *corev1.ServiceList, d
 TODO:
 - filter between existing and new pods/services
 - add unit tests
-- mgr.Add(runnable)
+- mgr.Add(runnable) ..
 */
 func cycleMeterDefMeters(def *marketplacev1alpha1.MeterDefinition, rclient client.Client) {
 

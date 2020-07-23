@@ -11,3 +11,7 @@ spec:
   meterDefinitionLabels:
     matchLabels:
       report: "1"
+  prometheusService:
+    name: rhm-prometheus-meterbase
+    namespace: openshift-redhat-marketplace
+    targetPort: "web"

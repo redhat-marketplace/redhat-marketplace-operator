@@ -441,8 +441,6 @@ spec:
               type: string
           required:
           - endTime
-          - meterDefinitionLabels
-          - meterDefinitions
           - prometheusService
           - startTime
           type: object

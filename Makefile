@@ -115,7 +115,7 @@ docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
 
 skaffold-dev: ## Run skaffold dev. Will unique tag the operator and rebuild.
 	make create
-	DOCKER_EXEC=$(DOCKER_EXEC) skaffold dev --tail --port-forward --default-repo $(IMAGE_REGISTRY)
+	DOCKER_EXEC=$(DOCKER_EXEC) skaffold dev --tail --port-forward --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE)
 
 skaffold-run: ## Run skaffold run. Will uniquely tag the operator.
 	make helm
@@ -210,6 +210,10 @@ delete: ##delete the contents created in 'make create'
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml
 	- kubectl delete namespace ${NAMESPACE}
+
+meterdef: ##applies MeterDefinition CR
+	@echo creating CR
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_meterdefinition_cr.yaml --namespace=${NAMESPACE}
 
 delete-razee: ##delete the razee CR
 	@echo deleting razee CR

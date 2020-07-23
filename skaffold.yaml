@@ -34,7 +34,7 @@ deploy:
         setValueTemplates: 
           devpostfix: "{{.DEVPOSTFIX}}"
           namespace: "{{.NAMESPACE}}"
-        wait: true
+        wait: false
         valuesFiles:
           - deploy/chart/values.yaml
   kubectl:
