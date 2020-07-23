@@ -16,7 +16,7 @@ import (
 
 // Injectors from wire.go:
 
-func initializeMarketplaceReporter(ctx context.Context, reportName reporter.ReportName, config2 reporter.Config) (*reporter.MarketplaceReporter, error) {
+func initializeMarketplaceReporter(ctx context.Context, reportName reporter.ReportName, config2 reporter.Config, stopCh <-chan struct{}) (*reporter.MarketplaceReporter, error) {
 	reporterConfig := reporter.ProvideReporterConfig(config2)
 	restConfig, err := config.GetConfig()
 	if err != nil {
@@ -39,7 +39,10 @@ func initializeMarketplaceReporter(ctx context.Context, reportName reporter.Repo
 	if err != nil {
 		return nil, err
 	}
-	client := managers.ProvideClient(manager)
+	client, err := managers.ProvideStartedClient(manager, stopCh)
+	if err != nil {
+		return nil, err
+	}
 	logger := _wireLoggerValue
 	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logger)
 	meterReport, err := getMarketplaceReport(ctx, clientCommandRunner, reportName)

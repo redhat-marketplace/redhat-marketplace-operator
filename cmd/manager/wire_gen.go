@@ -6,10 +6,11 @@
 package main
 
 import (
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	config2 "sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 // Injectors from wire.go:
@@ -22,8 +23,13 @@ func InitializeMarketplaceController() (*managers.ControllerMain, error) {
 	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider)
 	razeeDeployController := controller.ProvideRazeeDeployController()
 	olmSubscriptionController := controller.ProvideOlmSubscriptionController()
-	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController)
-	restConfig, err := config.GetConfig()
+	operatorConfig, err := config.ProvideConfig()
+	if err != nil {
+		return nil, err
+	}
+	meterReportController := controller.ProvideMeterReportController(defaultCommandRunnerProvider, operatorConfig)
+	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, meterReportController)
+	restConfig, err := config2.GetConfig()
 	if err != nil {
 		return nil, err
 	}

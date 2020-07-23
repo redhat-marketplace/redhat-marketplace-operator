@@ -1,35 +1,41 @@
 apiVersion: skaffold/v2beta5
 kind: Config
+metadata:
+  name: redhat-marketplace-operator
 build:
+  local:
+    concurrency: 0
+    useBuildkit: true
   tagPolicy:
     envTemplate:
       template: '{{.IMAGE_NAME}}'
-  cluster: {}
   artifacts:
     - image: redhat-marketplace-operator
-      custom:
-        buildCommand: ./scripts/skaffold_build.sh
-        dependencies:
-          paths:
-            - ./cmd
-            - ./pkg
-          ignore:
-            - vendor/**
+      docker:
+        dockerfile: build/Dockerfile
+        buildArgs:
+          VERSION: '{{.VERSION}}'
+        cacheFrom:
+          - registry.access.redhat.com/ubi8/ubi:latest
+          - quay.io/rh-marketplace/golang-base:1.14
     - image: redhat-marketplace-reporter
-      custom:
-        buildCommand: ./scripts/skaffold-build-reporter.sh
-        dependencies:
-          paths:
-            - ./cmd
-            - ./pkg
-          ignore:
-            - vendor/**
+      docker:
+        dockerfile: build/reporter.Dockerfile
+        buildArgs:
+          VERSION: '{{.VERSION}}'
+        cacheFrom:
+          - registry.access.redhat.com/ubi8/ubi:latest
+          - quay.io/rh-marketplace/golang-base:1.14
 deploy:
   helm:
     releases:
       - name: rhm-operator
         artifactOverrides:
           image: redhat-marketplace-operator
+          reporterImage: redhat-marketplace-reporter
+        setValueTemplates:
+          namespace: '{{.NAMESPACE}}'
+          devpostfix: '{{.DEVPOSTFIX}}'
         chartPath: deploy/chart
         setValueTemplates: 
           devpostfix: "{{.DEVPOSTFIX}}"
@@ -43,5 +49,17 @@ deploy:
     flags:
       disableValidation: true
       delete:
-        - "--wait"
-        - "--timeout=30s"
+        - '--wait'
+        - '--timeout=30s'
+profiles:
+  - name: dev
+    activation:
+      - command: dev
+  - name: base
+    build:
+      artifacts:
+        - image: golang-base
+          docker:
+            dockerfile: build/base.Dockerfile
+            cacheFrom:
+              - registry.access.redhat.com/ubi8/ubi:latest

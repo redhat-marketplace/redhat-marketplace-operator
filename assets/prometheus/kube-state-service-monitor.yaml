@@ -6,7 +6,6 @@ metadata:
     marketplace.redhat.com/metered: "true"
     marketplace.redhat.com/metered.kind: InternalServiceMonitor
   name: kube-state-metrics
-  namespace: redhat-marketplace
 spec:
   endpoints:
   - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token

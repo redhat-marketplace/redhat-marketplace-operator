@@ -51,7 +51,7 @@ func SetupTestEnv(
 	err = scheme.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	connSchemes := initializeLocalSchemes()
+	connSchemes, _ := initializeLocalSchemes()
 
 	Expect(connSchemes).ToNot(BeEmpty())
 
@@ -62,7 +62,7 @@ func SetupTestEnv(
 
 	// +kubebuilder:scaffold:scheme
 
-	controllers := initializeControllers()
+	controllers, _ := initializeControllers()
 
 	opts := manager.Options{
 		Namespace: "",

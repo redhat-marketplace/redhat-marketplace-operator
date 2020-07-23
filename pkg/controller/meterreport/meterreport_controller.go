@@ -2,16 +2,18 @@ package meterreport
 
 import (
 	"context"
+	"reflect"
 
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/manifests"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -23,13 +25,26 @@ var log = logf.Log.WithName("controller_meterreport")
 
 // Add creates a new MeterReport Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
+func Add(
+	mgr manager.Manager,
+	ccprovider ClientCommandRunnerProvider,
+	cfg *config.OperatorConfig,
+) error {
+	return add(mgr, newReconciler(mgr, ccprovider, cfg))
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileMeterReport{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+func newReconciler(
+	mgr manager.Manager,
+	ccprovider ClientCommandRunnerProvider,
+	cfg *config.OperatorConfig,
+) reconcile.Reconciler {
+	return &ReconcileMeterReport{
+		client:     mgr.GetClient(),
+		scheme:     mgr.GetScheme(),
+		ccprovider: ccprovider,
+		cfg:        cfg,
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -65,8 +80,10 @@ var _ reconcile.Reconciler = &ReconcileMeterReport{}
 type ReconcileMeterReport struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	client     client.Client
+	scheme     *runtime.Scheme
+	cfg        *config.OperatorConfig
+	ccprovider ClientCommandRunnerProvider
 }
 
 // Reconcile reads that state of the cluster for a MeterReport object and makes changes based on the state read
@@ -80,68 +97,83 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterReport")
 
+	cc := r.ccprovider.NewCommandRunner(r.client, r.scheme, reqLogger)
+
 	// Fetch the MeterReport instance
 	instance := &marketplacev1alpha1.MeterReport{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
+
+	if result, _ := cc.Do(context.TODO(), GetAction(request.NamespacedName, instance)); !result.Is(Continue) {
+		if result.Is(NotFound) {
+			reqLogger.Info("MeterReport resource not found. Ignoring since object must be deleted.")
 			return reconcile.Result{}, nil
 		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
-	}
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
-
-	// Set MeterReport instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
-		if err != nil {
-			return reconcile.Result{}, err
+		if result.Is(Error) {
+			reqLogger.Error(result.GetError(), "Failed to get MeterReport.")
 		}
 
-		// Pod created successfully - don't requeue
-		return reconcile.Result{}, nil
-	} else if err != nil {
+		return result.Return()
+	}
+
+	c := manifests.NewOperatorConfig(r.cfg)
+	factory := manifests.NewFactory(instance.Namespace, c)
+
+	job, err := factory.ReporterJob(instance)
+
+	reqLogger.Info("config",
+		"config", r.cfg.Image,
+		"envvar", utils.Getenv("RELATED_IMAGE_REPORTER", ""),
+		"job", job)
+
+	if err != nil {
+		reqLogger.Error(err, "failed to get job template")
 		return reconcile.Result{}, err
 	}
 
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	if result, _ := cc.Do(
+		context.TODO(),
+		HandleResult(
+			GetAction(types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job),
+			OnNotFound(CreateAction(job, CreateWithAddOwner(instance))),
+		),
+	); !result.Is(Continue) {
+		if result.Is(Error) {
+			reqLogger.Error(result.GetError(), "Failed to get create job.")
+		}
+
+		return result.Return()
+	}
+
+	jr := &marketplacev1alpha1.JobReference{}
+	jr.SetFromJob(job)
+
+	if result, _ := cc.Do(context.TODO(), Call(r.updateStatus(instance, jr))); !result.Is(Continue) {
+		if result.Is(Error) {
+			reqLogger.Error(result.GetError(), "Failed to get update status.")
+		}
+
+		return result.Return()
+	}
+
+	reqLogger.Info("reconcile finished")
 	return reconcile.Result{}, nil
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *marketplacev1alpha1.MeterReport) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
-	}
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
-				},
-			},
-		},
+func (r *ReconcileMeterReport) updateStatus(
+	instance *marketplacev1alpha1.MeterReport,
+	jobRef *marketplacev1alpha1.JobReference,
+) func() (ClientAction, error) {
+	return func() (ClientAction, error) {
+		reqLogger := log.WithValues("Instance.Namespace", instance.Namespace, "Instance.Name", instance.Name)
+
+		if !reflect.DeepEqual(instance.Status.AssociatedJob, jobRef) {
+			instance.Status.AssociatedJob = jobRef
+
+			reqLogger.Info("Updating MeterReport status associatedJob")
+
+			return UpdateAction(instance, UpdateStatusOnly(true)), nil
+		}
+
+		return nil, nil
 	}
 }

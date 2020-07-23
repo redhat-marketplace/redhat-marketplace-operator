@@ -19,14 +19,15 @@ import (
 	"os"
 
 	homedir "github.com/mitchellh/go-homedir"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/cmd/reporter/report"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/cmd/reporter/report"
 )
 
 var (
 	// Used for flags.
-	cfgFile     string
+	cfgFile string
 
 	rootCmd = &cobra.Command{
 		Use:   "redhat-marketplace-reporter",
@@ -35,6 +36,7 @@ var (
 )
 
 func init() {
+	logger.SetLoggerToDevelopmentZap()
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.AddCommand(report.ReportCmd)
@@ -70,5 +72,10 @@ func initConfig() {
 }
 
 func main() {
-	rootCmd.Execute()
+	err := rootCmd.Execute()
+
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }

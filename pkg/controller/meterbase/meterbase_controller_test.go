@@ -182,7 +182,6 @@ var _ = Describe("MeterbaseController", func() {
 					patcher:    patch.RHMDefaultPatcher,
 					opts: &MeterbaseOpts{
 						PullPolicy: v1.PullAlways,
-						AssetPath:  "../../../assets",
 					},
 				}
 
@@ -213,7 +212,6 @@ var _ = Describe("MeterbaseController", func() {
 					patcher:    patch.RHMDefaultPatcher,
 					opts: &MeterbaseOpts{
 						PullPolicy: v1.PullAlways,
-						AssetPath:  "../../../assets",
 					},
 				}
 
@@ -261,7 +259,6 @@ var _ = Describe("MeterbaseController", func() {
 					patcher:    patch.RHMDefaultPatcher,
 					opts: &MeterbaseOpts{
 						PullPolicy: v1.PullAlways,
-						AssetPath:  "../../../assets",
 					},
 				}
 

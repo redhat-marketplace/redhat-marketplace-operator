@@ -46,16 +46,19 @@ type MeterDefinitionSpec struct {
 	// namespace lookups
 	UseOperatorGroup bool `json:"useOperatorGroup,omitempty"`
 
+	// TODO: renaming these
 	// ServiceLabels of the meterics you want to track.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	ServiceMeterLabels []string `json:"serviceMeterLabels,omitempty"`
 
+	// TODO: renaming these
 	// PodLabels of the prometheus metrics you want to track.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	PodMeterLabels []string `json:"podMeterLabels,omitempty"`	
 
+	// TODO: consider an array
 	// ServiceMonitors to be selected for target discovery.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
@@ -67,6 +70,7 @@ type MeterDefinitionSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	ServiceMonitorNamespaceSelector *metav1.LabelSelector `json:"serviceMonitorNamespaceSelector,omitempty"`
 
+	// TODO: consider an array
 	// PodSelectors to select pods for metering
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true

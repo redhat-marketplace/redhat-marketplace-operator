@@ -21,11 +21,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-type ControllerDefinition struct {
-	Add     func(mgr manager.Manager) error
-	FlagSet func() *pflag.FlagSet
-	Options controllerOptions
+type AddController interface {
+	Add(mgr manager.Manager) error
+	FlagSet() *pflag.FlagSet
 }
+
+type baseDefinition struct {
+	AddFunc     func(mgr manager.Manager) error
+	FlagSetFunc func() *pflag.FlagSet
+	Options     controllerOptions
+}
+
+func (c *baseDefinition) Add(mgr manager.Manager) error {
+	return c.AddFunc(mgr)
+}
+
+func (c *baseDefinition) FlagSet() *pflag.FlagSet {
+	return c.FlagSetFunc()
+}
+
 //go:generate go-options -option ControllerOption -imports=github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils controllerOptions
 type controllerOptions struct {
 	ClientCommandProvider reconcileutils.ClientCommandRunnerProvider
@@ -35,7 +49,7 @@ type SetClientCommandRunner interface {
 	SetClientCommandRunner(mgr manager.Manager, ccprovider reconcileutils.ClientCommandRunnerProvider) error
 }
 
-type ControllerList []*ControllerDefinition
+type ControllerList []AddController
 
 var ControllerSet = wire.NewSet(
 	ProvideMarketplaceController,
@@ -43,6 +57,7 @@ var ControllerSet = wire.NewSet(
 	ProvideRazeeDeployController,
 	ProvideMeterDefinitionController,
 	ProvideOlmSubscriptionController,
+	ProvideMeterReportController,
 	ProvideControllerList,
 )
 
@@ -52,12 +67,14 @@ func ProvideControllerList(
 	meterDefinitionC *MeterDefinitionController,
 	razeeC *RazeeDeployController,
 	olmSubscriptionC *OlmSubscriptionController,
+	meterReport *MeterReportController,
 ) ControllerList {
-	return []*ControllerDefinition{
-		(*ControllerDefinition)(myController),
-		(*ControllerDefinition)(meterbaseC),
-		(*ControllerDefinition)(meterDefinitionC),
-		(*ControllerDefinition)(razeeC),
-		(*ControllerDefinition)(olmSubscriptionC),
+	return []AddController{
+		myController,
+		meterbaseC,
+		meterDefinitionC,
+		razeeC,
+		olmSubscriptionC,
+		meterReport,
 	}
 }

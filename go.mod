@@ -10,6 +10,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.1.0
 	github.com/Shyp/bump_version v0.0.0-20180222180749-d7594d2951e2
 	github.com/banzaicloud/k8s-objectmatcher v1.3.0
+	github.com/bazelbuild/bazel-gazelle v0.21.1 // indirect
 	github.com/code-ready/crc v0.0.0-20200430050718-9d5f3259f30b
 	github.com/coreos/prometheus-operator v0.38.1-0.20200424145508-7e176fda06cc
 	github.com/fatih/structtag v1.2.0 // indirect
@@ -24,6 +25,7 @@ require (
 	github.com/gotidy/ptr v1.0.1
 	github.com/imdario/mergo v0.3.8
 	github.com/jessfraz/dockfmt v0.3.3 // indirect
+	github.com/jpillora/backoff v1.0.0
 	github.com/jteeuwen/go-bindata v3.0.7+incompatible // indirect
 	github.com/kisielk/errcheck v1.3.0 // indirect
 	github.com/launchdarkly/go-options v1.0.0

@@ -8,9 +8,12 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"io"
+	"strings"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -29,6 +32,8 @@ const (
 	PrometheusDatasourcesSecret      = "assets/prometheus/prometheus-datasources-secret.yaml"
 	PrometheusServingCertsCABundle   = "assets/prometheus/serving-certs-ca-bundle.yaml"
 	PrometheusKubeletServingCABundle = "assets/prometheus/kubelet-serving-ca-bundle.yaml"
+
+	ReporterJob = "assets/reporter/job.yaml"
 )
 
 func MustAssetReader(asset string) io.Reader {
@@ -99,6 +104,19 @@ func (f *Factory) NewSecret(manifest io.Reader) (*v1.Secret, error) {
 	return s, nil
 }
 
+func (f *Factory) NewJob(manifest io.Reader) (*batchv1.Job, error) {
+	j, err := NewJob(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	if j.GetNamespace() == "" {
+		j.SetNamespace(f.namespace)
+	}
+
+	return j, nil
+}
+
 func (f *Factory) NewPrometheus(manifest io.Reader) (*monitoringv1.Prometheus, error) {
 	d, err := NewPrometheus(manifest)
 	if err != nil {
@@ -165,6 +183,23 @@ func (f *Factory) NewPrometheusOperatorDeployment() (*appsv1.Deployment, error) 
 	if c.ServiceAccountName != "" {
 		dep.Spec.Template.Spec.ServiceAccountName = c.ServiceAccountName
 	}
+
+	replacer := strings.NewReplacer("{{NAMESPACE}}", f.namespace)
+
+	updatedContainers := []corev1.Container{}
+
+	for _, container := range dep.Spec.Template.Spec.Containers {
+		newArgs := []string{}
+		for _, arg := range container.Args {
+			newArgs = append(newArgs, replacer.Replace(arg))
+		}
+
+		newContainer := container.DeepCopy()
+		newContainer.Args = newArgs
+		updatedContainers = append(updatedContainers, *newContainer)
+	}
+
+	dep.Spec.Template.Spec.Containers = updatedContainers
 
 	return dep, err
 }
@@ -248,6 +283,26 @@ func (f *Factory) PrometheusServingCertsCABundle() (*v1.ConfigMap, error) {
 	return c, nil
 }
 
+func (f *Factory) ReporterJob(report *marketplacev1alpha1.MeterReport) (*batchv1.Job, error) {
+	j, err := f.NewJob(MustAssetReader(ReporterJob))
+
+	if err != nil {
+		return nil, err
+	}
+
+	container := j.Spec.Template.Spec.Containers[0]
+	container.Image = f.config.RelatedImages.Image.Reporter
+
+	j.Name = report.GetName()
+	container.Args = []string{
+		"report", "--name", report.Name, "--namespace", report.Namespace,
+	}
+
+	j.Spec.Template.Spec.Containers[0] = container
+
+	return j, nil
+}
+
 func NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
 	d := appsv1.Deployment{}
 	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&d)
@@ -295,6 +350,15 @@ func NewSecret(manifest io.Reader) (*v1.Secret, error) {
 		return nil, err
 	}
 	return &s, nil
+}
+
+func NewJob(manifest io.Reader) (*batchv1.Job, error) {
+	j := batchv1.Job{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&j)
+	if err != nil {
+		return nil, err
+	}
+	return &j, nil
 }
 
 // GeneratePassword returns a base64 encoded securely random bytes.

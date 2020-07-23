@@ -9,6 +9,7 @@ FROM_VERSION ?= $(shell go run scripts/version/main.go last)
 OPERATOR_IMAGE_TAG ?= $(VERSION)
 CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 DOCKER_EXEC ?= $(shell command -v docker)
+DEVPOSTFIX ?= ""
 
 SERVICE_ACCOUNT := redhat-marketplace-operator
 SECRETS_NAME := my-docker-secrets
@@ -44,22 +45,13 @@ uninstall: ## Uninstall all that all performed in the $ make install
 
 ##@ Build
 
+.PHONY: build-base
+build-base:
+	skaffold build --tag="1.14" -p base
+
 .PHONY: build
 build: ## Build the operator executable
-	DOCKER_EXEC=$(DOCKER_EXEC) VERSION=$(VERSION) PUSH_IMAGE=false IMAGE=$(OPERATOR_IMAGE) ./scripts/skaffold_build.sh
-
-.PHONY: build-reporter
-build-reporter: ## Build the operator executable
-	VERSION=$(VERSION) PUSH_IMAGE=$(PUSH_IMAGE) IMAGE=$(REPORTER_IMAGE) ./scripts/skaffold-build-reporter.sh
-
-.PHONY: push
-push: push ## Push the operator image
-	PUSH_IMAGE=true make build
-
-.PHONY: push-reporter
-push-reporter: ## Push the repoter image
-	PUSH_IMAGE=true make build-reporter
-
+	skaffold build -p dev --tag $(OPERATOR_IMAGE_TAG) --default-repo $(IMAGE_REGISTRY) --name $(NAMESPACE)
 
 helm: ## build helm base charts
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE) --set namespace=$(NAMESPACE)
@@ -115,7 +107,7 @@ docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
 
 skaffold-dev: ## Run skaffold dev. Will unique tag the operator and rebuild.
 	make create
-	DOCKER_EXEC=$(DOCKER_EXEC) skaffold dev --tail --port-forward --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE)
+	DEVPOSTFIX=$(DEVPOSTFIX) DOCKER_EXEC=$(DOCKER_EXEC) skaffold dev --tail --port-forward --default-repo $(IMAGE_REGISTRY)
 
 skaffold-run: ## Run skaffold run. Will uniquely tag the operator.
 	make helm

@@ -21,15 +21,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-type MeterDefinitionController ControllerDefinition
+type MeterDefinitionController struct {
+	*baseDefinition
+}
 
 func ProvideMeterDefinitionController(
 	commandRunner reconcileutils.ClientCommandRunnerProvider,
 ) *MeterDefinitionController {
 	return &MeterDefinitionController{
-		Add: func(mgr manager.Manager) error {
-			return meterdefinition.Add(mgr, commandRunner)
+		baseDefinition: &baseDefinition{
+			AddFunc: func(mgr manager.Manager) error {
+				return meterdefinition.Add(mgr, commandRunner)
+			},
+			FlagSetFunc: func() *pflag.FlagSet { return nil },
 		},
-		FlagSet: func() *pflag.FlagSet { return nil },
 	}
 }

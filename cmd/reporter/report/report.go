@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"emperror.dev/errors"
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/reporter"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
@@ -17,17 +16,27 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-var log = logf.Log.WithName("reporter_report")
+var log = logf.Log.WithName("reporter_report_cmd")
 
 var name, namespace string
 
 var ReportCmd = &cobra.Command{
 	Use:   "report",
-	Short: "Print the version number of Hugo",
-	Long:  `All software has versions. This is Hugo's`,
+	Short: "Run the report",
+	Long:  `Runs the report. Takes it name and namespace as args`,
 	Run: func(cmd *cobra.Command, args []string) {
+		log.Info("running the report command")
+		outputDir := os.TempDir()
 		cfg := reporter.Config{
-			OutputDirectory: ".",
+			OutputDirectory: outputDir,
+		}
+
+		stopCh := make(chan struct{})
+		defer close(stopCh)
+
+		if name == "" || namespace == "" {
+			log.Error(errors.New("name or namespace not provided"), "namespace or name not provided")
+			os.Exit(1)
 		}
 
 		ctx := context.TODO()
@@ -36,6 +45,7 @@ var ReportCmd = &cobra.Command{
 			ctx,
 			reporter.ReportName{Namespace: namespace, Name: name},
 			cfg,
+			stopCh,
 		)
 
 		if err != nil {
@@ -43,12 +53,14 @@ var ReportCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		_, err = report.CollectMetrics(ctx)
+		metrics, err := report.CollectMetrics(ctx)
 
 		if err != nil {
 			log.Error(err, "")
 			os.Exit(1)
 		}
+
+		log.Info("metrics", "metrics", metrics)
 
 		os.Exit(0)
 	},
@@ -56,19 +68,13 @@ var ReportCmd = &cobra.Command{
 
 func init() {
 	ReportCmd.Flags().StringVar(&name, "name", "", "name of the report")
-	ReportCmd.Flags().StringVar(&name, "namespace", "", "namespace of the report")
+	ReportCmd.Flags().StringVar(&namespace, "namespace", "", "namespace of the report")
 }
 
 func provideOptions(kscheme *runtime.Scheme) (*manager.Options, error) {
-	watchNamespace, err := k8sutil.GetWatchNamespace()
-	if err != nil {
-		log.Error(err, "Failed to get watch namespace")
-		return nil, err
-	}
-
 	return &manager.Options{
-		Namespace:          watchNamespace,
-		Scheme:             kscheme,
+		Namespace: "",
+		Scheme:    kscheme,
 	}, nil
 }
 

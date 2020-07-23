@@ -19,10 +19,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 )
 
 const meterDefinitionFinalizer = "meterdefinition.finalizer.marketplace.redhat.com"
@@ -57,10 +57,10 @@ func newReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider) 
 	opts := &MeterDefOpts{}
 
 	return &ReconcileMeterDefinition{
-		client: mgr.GetClient(),
-		scheme: mgr.GetScheme(),
+		client:     mgr.GetClient(),
+		scheme:     mgr.GetScheme(),
 		ccprovider: ccprovider,
-		opts: opts}
+		opts:       opts}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -95,10 +95,10 @@ var _ reconcile.Reconciler = &ReconcileMeterDefinition{}
 type ReconcileMeterDefinition struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	client     client.Client
+	scheme     *runtime.Scheme
 	ccprovider ClientCommandRunnerProvider
-	opts   *MeterDefOpts
+	opts       *MeterDefOpts
 }
 
 type MeterDefOpts struct{}
@@ -108,6 +108,8 @@ type MeterDefOpts struct{}
 func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterDefinition")
+
+	cc := r.ccprovider.NewCommandRunner(r.client, r.scheme, reqLogger)
 
 	// Fetch the MeterDefinition instance
 	instance := &marketplacev1alpha1.MeterDefinition{}
@@ -233,7 +235,6 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-
 	//---
 	// Reconcile service monitors
 	//---
@@ -326,12 +327,13 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		newMonitor.Spec.NamespaceSelector.MatchNames = []string{serviceMonitor.Namespace}
 		configureServiceMonitorFromMeterLabels(instance, newMonitor)
 
-		if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(newMonitor); err != nil {
-			reqLogger.Error(err, "Failed to set annotation")
+		if result, _ := cc.Do(context.TODO(),
+			CreateAction(newMonitor,
+				CreateWithAddOwner(instance),
+				CreateWithPatch(patch.RHMDefaultPatcher))); !result.Is(Continue) {
+			reqLogger.Error(err, "Failed to create service monitor on cluster")
 			return reconcile.Result{}, err
 		}
-
-		err := r.client.Create(context.TODO(), newMonitor)
 		if err != nil {
 			reqLogger.Error(err, "Failed to create service monitor on cluster")
 			return reconcile.Result{}, err
@@ -348,7 +350,6 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	if len(toBeCreatedServiceMonitors) > 0 {
 		return reconcile.Result{Requeue: true}, nil
 	}
-
 
 	// update service monitor
 

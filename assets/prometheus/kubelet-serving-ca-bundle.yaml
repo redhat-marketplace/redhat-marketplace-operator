@@ -4,4 +4,3 @@ data:
 kind: ConfigMap
 metadata:
   name: kubelet-serving-ca-bundle
-  namespace: redhat-marketplace
