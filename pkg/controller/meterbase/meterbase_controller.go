@@ -333,6 +333,21 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		return result.Return()
 	}
 
+	// Create meter reports ---
+	// collect meter reports - list
+	// check for last n exists - last 30 since time of creation
+	// verify no gaps - 0-1, 2-3 - 1-2 is missing, then create 1-2
+	// create any new reports necessary
+	// use UTC for dates
+	// requeue every 10 minutes
+	// ex:
+	//
+	// I get a list of 0-1, 2-3, 3-4, 4-5 and my time is now 6, with a start of 0
+	// I should create 1-2, and 5-6
+	//
+	// If my start is -1
+	// -1-0 and 1-2, 5-6
+
 	reqLogger.Info("finished reconciling")
 	return reconcile.Result{}, nil
 }
