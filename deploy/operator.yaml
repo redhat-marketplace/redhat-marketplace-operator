@@ -21,8 +21,8 @@ spec:
       containers:
         - name: redhat-marketplace-operator
           # Replace this with the built image name
-          image: redhat-marketplace-operator
-          imagePullPolicy: IfNotPresent
+          image: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-operator:0.1.4
+          imagePullPolicy: Always
           securityContext:
             {}
           command:
@@ -42,5 +42,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: RELATED_IMAGE_REPORTER
+              value: quay.io/rh-marketplace/redhat-marketplace-reporter:dev
             - name: RELATED_IMAGE_RAZEE_JOB
               value: quay.io/razee/razeedeploy-delta:1.1.3

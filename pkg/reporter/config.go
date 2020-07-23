@@ -20,6 +20,7 @@ type reporterConfig struct {
 	OutputDirectory   string
 	MetricsPerFile    *int
 	MaxRoutines       *int
+	Retry             *int
 }
 
 func ProvideReporterConfig(
@@ -45,6 +46,10 @@ func (c *reporterConfig) setDefaults() {
 
 	if c.MaxRoutines == nil {
 		c.MaxRoutines = ptr.Int(defaultMaxRoutines)
+	}
+
+	if c.Retry == nil {
+		c.Retry = ptr.Int(5)
 	}
 }
 

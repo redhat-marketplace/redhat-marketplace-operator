@@ -16,6 +16,7 @@ import (
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	loggerf "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -58,8 +59,6 @@ func NewMarketplaceReporter(
 	meterDefinitions []*marketplacev1alpha1.MeterDefinition,
 	prometheusService *corev1.Service,
 ) (*MarketplaceReporter, error) {
-	// Get a config to talk to the apiserver
-
 	client, err := api.NewClient(api.Config{
 		Address: "https://localhost:9090", //TODO: replace with https
 	})
@@ -167,7 +166,20 @@ func (r *MarketplaceReporter) query(
 				SumBy:     []string{"meter_kind", "meter_domain", "meter_version", "pod", "namespace"},
 			}
 			logger.Info("test", "query", query.String())
-			val, warnings, err := r.queryRange(query)
+
+			var val model.Value
+			var warnings v1.Warnings
+
+			err := utils.Retry(func() error {
+				var err error
+				val, warnings, err = r.queryRange(query)
+
+				if err != nil {
+					return err
+				}
+
+				return nil
+			}, *r.Retry)
 
 			if warnings != nil {
 				logger.Info("warnings %v", warnings)

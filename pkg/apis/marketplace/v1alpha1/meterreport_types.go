@@ -12,13 +12,14 @@ type MeterReportSpec struct {
 	// StartTime of the job
 	StartTime metav1.Time `json:"startTime"`
 
-	// EndTime of the jbo
+	// EndTime of the job
 	EndTime metav1.Time `json:"endTime"`
 
 	// PrometheusService is the definition for the service labels.
 	PrometheusService *ServiceReference `json:"prometheusService"`
 
 	// MeterDefinitions includes the meter defs to be included in this job.
+	// +optional
 	MeterDefinitionLabels *metav1.LabelSelector `json:"meterDefinitionLabels"`
 
 	// MeterDefinitions is the list of meterDefinitions included in the report

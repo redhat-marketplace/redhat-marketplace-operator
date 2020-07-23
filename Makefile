@@ -44,13 +44,17 @@ uninstall: ## Uninstall all that all performed in the $ make install
 
 ##@ Build
 
+.PHONY: build-base
+build-base:
+	skaffold build --tag="1.14" -p base
+
 .PHONY: build
 build: ## Build the operator executable
-	DOCKER_EXEC=$(DOCKER_EXEC) VERSION=$(VERSION) PUSH_IMAGE=false IMAGE=$(OPERATOR_IMAGE) ./scripts/skaffold_build.sh
+	skaffold build -p dev --tag $(OPERATOR_IMAGE_TAG) --default-repo $(IMAGE_REGISTRY)
 
 .PHONY: build-reporter
 build-reporter: ## Build the operator executable
-	VERSION=$(VERSION) PUSH_IMAGE=$(PUSH_IMAGE) IMAGE=$(REPORTER_IMAGE) ./scripts/skaffold-build-reporter.sh
+	DOCKER_EXEC=$(DOCKER_EXEC) VERSION=$(VERSION) PUSH_IMAGE=false IMAGE=$(REPORTER_IMAGE)  BUILD_FILE=./build/reporter.Dockerfile ./scripts/skaffold_build.sh
 
 .PHONY: push
 push: push ## Push the operator image

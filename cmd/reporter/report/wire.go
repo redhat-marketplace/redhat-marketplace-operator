@@ -18,12 +18,14 @@ func initializeMarketplaceReporter(
 	ctx context.Context,
 	reportName reporter.ReportName,
 	config reporter.Config,
+	stopCh <-chan struct{},
 ) (*reporter.MarketplaceReporter, error) {
 	panic(wire.Build(
 		provideOptions,
 		controller.SchemeDefinitions,
 		reporter.ReporterSet,
 		managers.ProvideManagerSet,
+		managers.ProvideStartedClient,
 		reconcileutils.CommandRunnerProviderSet,
 		wire.InterfaceValue(new(logr.Logger), log),
 		getMarketplaceReport,

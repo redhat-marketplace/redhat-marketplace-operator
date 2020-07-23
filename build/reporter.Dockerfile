@@ -1,18 +1,39 @@
+# syntax = docker/dockerfile:experimental
+#
+ARG VERSION=latest
+
+FROM quay.io/rh-marketplace/golang-base:1.14 as builder
+WORKDIR /usr/local/go/src/github.com/redhat-marketplace/redhat-marketplace-operator
+
+ENV PATH=$PATH:/usr/local/go/bin
+ENV CGO_ENABLED=0 GOOS=linux
+
+COPY go.mod go.sum ./
+COPY version version
+COPY cmd cmd
+COPY pkg pkg
+COPY test test
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+  --mount=type=cache,target=/root/.cache/go-build \
+   go build -o build/_output/bin/redhat-marketplace-reporter ./cmd/reporter
+
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 
 LABEL name="Red Hat Marketplace Reporter" \
   maintainer="ztaylor@ibm.com" \
   vendor="Red Hat Marketplace" \
   release="1" \
-  summary="Red Hat Marketplace Operator Image" \
-  description="Operator for the Red Hat Marketplace"
+  summary="Red Hat Marketplace Reporter Image" \
+  description="Reporter for the Red Hat Marketplace" \
+  version="$VERSION"
 
 ENV USER_UID=1001 \
     USER_NAME=redhat-marketplace-reporter \
     ASSETS=/usr/local/bin/assets
 # install operator binary
-COPY build/_output/bin /usr/local/bin
-COPY build/_output/assets /usr/local/bin/assets
+COPY --from=builder /usr/local/go/src/github.com/redhat-marketplace/redhat-marketplace-operator/build/_output/bin /usr/local/bin
+COPY assets /usr/local/bin/assets
 COPY build/bin/entrypoint /usr/local/bin/entrypoint
 COPY build/bin/user_setup /usr/local/bin/user_setup
 COPY LICENSE  /licenses/

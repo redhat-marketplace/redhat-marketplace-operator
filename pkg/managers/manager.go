@@ -62,7 +62,6 @@ var (
 		kubernetes.NewForConfig,
 		ProvideManager,
 		ProvideScheme,
-		ProvideClient,
 	)
 )
 
@@ -262,4 +261,15 @@ func ProvideScheme(c *rest.Config) (*k8sruntime.Scheme, error) {
 
 func ProvideClient(mgr manager.Manager) client.Client {
 	return mgr.GetClient()
+}
+
+func ProvideStartedClient(mgr manager.Manager, stopCh <-chan struct{}) (client.Client, error) {
+	client := mgr.GetClient()
+	err := mgr.GetCache().Start(stopCh)
+
+	if err != nil {
+		return client, err
+	}
+
+	return client, nil
 }

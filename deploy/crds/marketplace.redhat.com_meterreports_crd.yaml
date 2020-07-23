@@ -32,7 +32,7 @@ spec:
           description: MeterReportSpec defines the desired state of MeterReport
           properties:
             endTime:
-              description: EndTime of the jbo
+              description: EndTime of the job
               format: date-time
               type: string
             meterDefinitionLabels:
@@ -118,8 +118,8 @@ spec:
                           of the meter
                         type: string
                       podMeterLabels:
-                        description: PodLabels of the prometheus metrics you want
-                          to track.
+                        description: 'TODO: renaming these PodLabels of the prometheus
+                          metrics you want to track.'
                         items:
                           type: string
                         type: array
@@ -170,7 +170,8 @@ spec:
                             type: object
                         type: object
                       podMonitorSelector:
-                        description: PodSelectors to select pods for metering
+                        description: 'TODO: consider an array PodSelectors to select
+                          pods for metering'
                         properties:
                           matchExpressions:
                             description: matchExpressions is a list of label selector
@@ -215,7 +216,8 @@ spec:
                             type: object
                         type: object
                       serviceMeterLabels:
-                        description: ServiceLabels of the meterics you want to track.
+                        description: 'TODO: renaming these ServiceLabels of the meterics
+                          you want to track.'
                         items:
                           type: string
                         type: array
@@ -266,7 +268,8 @@ spec:
                             type: object
                         type: object
                       serviceMonitorSelector:
-                        description: ServiceMonitors to be selected for target discovery.
+                        description: 'TODO: consider an array ServiceMonitors to be
+                          selected for target discovery.'
                         properties:
                           matchExpressions:
                             description: matchExpressions is a list of label selector
@@ -425,7 +428,6 @@ spec:
               type: string
           required:
           - endTime
-          - meterDefinitionLabels
           - prometheusService
           - startTime
           type: object
