@@ -92,7 +92,7 @@ spec:
                     are ANDed.
                   type: object
               type: object
-            podMonitorSelector:
+            podSelector:
               description: 'TODO: consider an array PodSelectors to select pods for
                 metering'
               properties:

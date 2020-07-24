@@ -74,7 +74,7 @@ type MeterDefinitionSpec struct {
 	// PodSelectors to select pods for metering
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	PodSelector *metav1.LabelSelector `json:"podMonitorSelector,omitempty"`
+	PodSelector *metav1.LabelSelector `json:"podSelector,omitempty"`
 
 	// PodNamespaceSelector to select namespaces for pods for metering
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true

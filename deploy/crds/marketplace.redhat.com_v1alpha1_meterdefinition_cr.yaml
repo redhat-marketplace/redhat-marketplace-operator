@@ -1,7 +1,7 @@
 apiVersion: marketplace.redhat.com/v1alpha1
 kind: MeterDefinition
 metadata:
-  name: example-meterdefinition
+  name: example-meterdefinition-2
 spec:
   # Add fields here
   meterDomain: apps.partner.metering.com
@@ -15,11 +15,11 @@ spec:
     - label: kube_pod_container_resource_requests
       query: kube_pod_container_resource_requests{resource="memory"}
       type: avg
-  serviceMonitorSelector:
+  podSelector:
     matchLabels:
       app: example-app
       marketplace.redhat.com/metered: "true"
-  podSelector:
+  serviceMonitorSelector:
     matchLabels:
       app: example-app
       marketplace.redhat.com/metered: "true"

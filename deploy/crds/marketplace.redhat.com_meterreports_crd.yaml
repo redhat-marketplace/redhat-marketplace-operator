@@ -169,7 +169,7 @@ spec:
                               only "value". The requirements are ANDed.
                             type: object
                         type: object
-                      podMonitorSelector:
+                      podSelector:
                         description: 'TODO: consider an array PodSelectors to select
                           pods for metering'
                         properties:
