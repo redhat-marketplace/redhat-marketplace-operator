@@ -52,6 +52,7 @@ var (
 	log                      = logf.Log.WithName("controller_marketplaceconfig")
 	marketplaceConfigFlagSet *pflag.FlagSet
 	defaultFeatures          = []string{RAZEE_FLAG, METERBASE_FLAG}
+	generateMetricsFlag      = false
 )
 
 // Init declares our FlagSet for the MarketplaceConfig
@@ -228,7 +229,11 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		}
 	}
 
-	metricGen.CycleMeterDefMeters(r.client)
+	if !generateMetricsFlag {
+		generateMetricsFlag = true
+		reqLogger.Info("CALLING THE CYCLE FUNCTION!!!!!!!!!!!!!!!!")
+		metricGen.CycleMeterDefMeters(r.client)
+	}
 
 	installFeatures := viper.GetStringSlice("features")
 	installSet := make(map[string]bool)

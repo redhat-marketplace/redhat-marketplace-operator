@@ -19,7 +19,7 @@ spec:
     matchLabels:
       app: example-app
       marketplace.redhat.com/metered: "true"
-  podMetricSelector:
+  podSelector:
     matchLabels:
       app: example-app
       marketplace.redhat.com/metered: "true"
