@@ -274,7 +274,7 @@ func CycleMeterDefMeters(rclient client.Client) {
 		log := logf.Log.WithName("metric_generator")
 		var err error
 		for {
-			log.Info("-----------------CYCLE OF FUNCTION _ LETS GO AGAIN ----------------") //REMOVE
+			log.Info("--Cycling function: CycleMeterDefMeters()--")
 			log.Info("Pods - Retrieving MeterDefintion Info")
 			err = findAndGenerateDefPods(rclient)
 			if err != nil {
@@ -286,7 +286,7 @@ func CycleMeterDefMeters(rclient client.Client) {
 				log.Error(err, "Failed to generate metrics for services associated with MeterDefinition")
 			}
 
-			time.Sleep(time.Second * 30) // CHANGE BACK TO 5 MINUTES
+			time.Sleep(time.Time * 5)
 		}
 	}(rclient)
 }
