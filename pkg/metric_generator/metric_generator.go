@@ -29,12 +29,15 @@ import (
 
 const ()
 
-var ()
+var (
+	existingPods     map[*corev1.Pod]bool
+	existingServices map[*corev1.Service]bool
+)
 
 // NOTE: FamilyGenerator provides everything needed to generate a metric family with a Kubernetes object.
 // A family object (in kube-state-metrics) represents a set of metrics with the same: name, type, and help text.
 
-// buildPodMetric creates the metrics for pod using both rhm-operator(meterdef) and kube-state-metrics labels
+// buildPodMetric creates metrics for pods using both the rhm-operator(meterdef) and the kube-state-metrics labels
 func buildPodMetric(p *corev1.Pod, def *marketplacev1alpha1.MeterDefinition) []kbsm.FamilyGenerator {
 
 	// rhm-operator labels
@@ -84,7 +87,7 @@ func buildPodMetric(p *corev1.Pod, def *marketplacev1alpha1.MeterDefinition) []k
 	return podMetricsFamilies
 }
 
-//
+//buildServiceMetric creates metrics for services using both the rhm-operator(meterdef) and the kube-state-metrics labels
 func buildServiceMetric(s *corev1.Service, def *marketplacev1alpha1.MeterDefinition) []kbsm.FamilyGenerator {
 
 	// rhm-operator labels
@@ -119,62 +122,108 @@ func buildServiceMetric(s *corev1.Service, def *marketplacev1alpha1.MeterDefinit
 	return serviceMetricsFamilies
 }
 
-// findMeterDefPods() returns a PodList of pods, associated with MeterDefinition
-func findMeterDefPods(rclient client.Client) (*corev1.PodList, error) {
+// findAndGenerateDefPods() find and generates pods associated with MeterDefinition
+// Gets a list of MeterDefinitions -> Gets pod labels -> Gets pods -> Generates pod metrics
+func findAndGenerateDefPods(rclient client.Client) error {
+	log := logf.Log.WithName("metric_generator")
 	var err error
-	meterDefPods := &corev1.PodList{}
+	meterDefList := &MeterDefList{}
 
-	// What we want to do is: get list of MeterDefinitions -> Get pod labels -> get pods -> generate those metrics
-
-	listOpts := []client.ListOption{
-		client.MatchingLabels(map[string]string{
-			"marketplace.redhat.com/metered.kind": "Pod",
-		}),
-	}
-
-	err = rclient.List(context.TODO(), meterDefPods, listOpts...)
+	// Get a list of meterdefinitions
+	err = rclient.List(context.TODO(), meterDefList)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return meterDefPods, nil
+	// for each meterdefinition, get its podlabels
+	for _, meterdef := range meterDefList.Items {
 
+		if meterdef.Spec.PodSelector == nil {
+			log.Info("no labels for this meterdefinition", "MeterDefinition Name: ", meterdef.GetName(), "MeterDefinition Namespace: ", meterdef.GetNamespace())
+		} else {
+			log.Info("Looking up pods for the folling meterdefinition", "MeterDefinition Name: ", meterdef.GetName(), "MeterDefinition Namespace: ", meterdef.GetNamespace())
+
+			podLabels := &metav1.LabelSelector{}
+			podLabels = meterdef.Spec.PodSelector
+
+			listOpts := []client.ListOption{
+				client.MatchingLabels(podLabels.MatchLabels),
+			}
+
+			//retrieve a list of pods, matching the pod labels
+			meterdefPods := &corev1.PodList{}
+			err = rclient.List(context.TODO(), meterdefPods, listOpts...)
+			if err != nil {
+				return err
+			}
+
+			//for each new pod -> create metric
+			//add to map of known pods
+			//otherwise nothing
+			for _, pod := range meterdefPods.Items {
+				if _, ok := existingPods[&pod]; ok {
+					//TODO: print already tracking this pod
+				} else {
+					buildPodMetric(&pod, &meterdef)
+					existingPods[&pod] = true
+				}
+			}
+		}
+	}
+	return nil
 }
 
-// findMeterDefServices() returns a ServiceList of Services, associated with MeterDefinition
-func findMeterDefServices(rclient client.Client) (*corev1.ServiceList, error) {
+// findAndGenerateDefServices() find and generates pods associated with MeterDefinition
+// Gets a list of MeterDefinitions -> Gets service labels -> Gets services -> Generates service metrics
+func findAndGenerateDefServices(rclient client.Client) error {
+	log := logf.Log.WithName("metric_generator")
 	var err error
-	meterDefServices := &corev1.ServiceList{}
+	meterDefList := &MeterDefList{}
 
-	listOpts := []client.ListOption{
-		client.MatchingLabels(map[string]string{
-			"marketplace.redhat.com/metered.kind": "Service",
-		}),
-	}
-
-	err = rclient.List(context.TODO(), meterDefServices, listOpts...)
+	// Get a list of meterdefinitions
+	err = rclient.List(context.TODO(), meterDefList)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return meterDefServices, nil
+	// for each meterdefinition, get its podlabels
+	for _, meterdef := range meterDefList.Items {
 
+		if meterdef.Spec.ServiceMonitorSelector == nil {
+			log.Info("no labels for this meterdefinition", "MeterDefinition Name: ", meterdef.GetName(), "MeterDefinition Namespace: ", meterdef.GetNamespace())
+		} else {
+			log.Info("Looking up services for the folling meterdefinition", "MeterDefinition Name: ", meterdef.GetName(), "MeterDefinition Namespace: ", meterdef.GetNamespace())
+
+			serviceLabels := &metav1.LabelSelector{}
+			serviceLabels = meterdef.Spec.ServiceMonitorSelector
+
+			listOpts := []client.ListOption{
+				client.MatchingLabels(serviceLabels.MatchLabels),
+			}
+
+			//retrieve a list of pods, matching the pod labels
+			meterdefServices := &corev1.ServiceList{}
+			err = rclient.List(context.TODO(), meterdefServices, listOpts...)
+			if err != nil {
+				return err
+			}
+
+			//for each new pod -> create metric
+			//add to map of known pods
+			//otherwise nothing
+			for _, service := range meterdefServices.Items {
+				if _, ok := existingServices[&service]; ok {
+					//TODO: print already tracking this pod
+				} else {
+					buildServiceMetric(&service, &meterdef)
+					existingServices[&service] = true
+				}
+			}
+		}
+	}
+	return nil
 }
 
-//generateMetrics() generates metrics for the passed list of pods/services
-func generateMetrics(podList *corev1.PodList, serviceList *corev1.ServiceList, def *marketplacev1alpha1.MeterDefinition) {
-
-	for _, pod := range podList.Items {
-		buildPodMetric(&pod, def)
-	}
-
-	for _, service := range serviceList.Items {
-		buildServiceMetric(&service, def)
-	}
-
-}
-
-//cycleMeterDefMeters cylces through the process of tracking and gnerating metrics for pods&services associated with MeterDefinition
 /*
 1. Get a list of pods associated with MeterDef
 2. Get a list of services associated with MeterDef
@@ -182,32 +231,28 @@ func generateMetrics(podList *corev1.PodList, serviceList *corev1.ServiceList, d
 4. Repeat every 5 minutes
 
 TODO:
-- filter between existing and new pods/services
+- check for deleted pods/services
 - add unit tests
 - mgr.Add(runnable) ..
 */
-func cycleMeterDefMeters(def *marketplacev1alpha1.MeterDefinition, rclient client.Client) {
 
-	go func(def *marketplacev1alpha1.MeterDefinition, rclient client.Client) {
-		log := logf.Log.WithName("controller_meterdefinition")
-		reqLogger := log.WithValues("Request.Namespace", def.GetNamespace(), "Request.Name", def.GetName)
-		meterDefPods := &corev1.PodList{}
-		meterDefServices := &corev1.ServiceList{}
+//CycleMeterDefMeters() cylces through the process of tracking and gnerating metrics for pods&services associated with MeterDefinition
+func CycleMeterDefMeters(rclient client.Client) {
+
+	go func(rclient client.Client) {
+		log := logf.Log.WithName("metric_generator")
 		var err error
 		for {
-			meterDefPods, err = findMeterDefPods(rclient)
+			err = findAndGenerateDefPods(rclient)
 			if err != nil {
-				reqLogger.Error(err, "Failed to retrieve pods associated with MeterDefinition")
+				log.Error(err, "Failed to generate metrics for pods associated with MeterDefinition")
 			}
-			meterDefServices, err = findMeterDefServices(rclient)
+			err = findAndGenerateDefServices(rclient)
 			if err != nil {
-				reqLogger.Error(err, "Failed to retrieve services associated with MeterDefinition")
+				log.Error(err, "Failed to generate metrics for services associated with MeterDefinition")
 			}
-
-			generateMetrics(meterDefPods, meterDefServices, def)
 
 			time.Sleep(time.Minute * 5)
 		}
-	}(def, rclient)
-
+	}(rclient)
 }

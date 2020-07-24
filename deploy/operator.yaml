@@ -4,7 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redhat-marketplace-operator
-  namespace: redhat-marketplace
+  namespace: redhat-marketplace-2
 spec:
   replicas: 1
   selector:

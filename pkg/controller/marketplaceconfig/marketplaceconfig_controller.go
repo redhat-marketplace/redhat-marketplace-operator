@@ -21,6 +21,7 @@ import (
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	metricGen "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/metric_generator"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	pflag "github.com/spf13/pflag"
@@ -226,6 +227,8 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			return reconcile.Result{}, err
 		}
 	}
+
+	metricGen.CycleMeterDefMeters(r.client)
 
 	installFeatures := viper.GetStringSlice("features")
 	installSet := make(map[string]bool)

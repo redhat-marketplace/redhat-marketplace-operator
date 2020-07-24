@@ -26,7 +26,7 @@ type OlmSubscriptionController struct {
 func ProvideOlmSubscriptionController() *OlmSubscriptionController {
 	return &OlmSubscriptionController{
 		baseDefinition: &baseDefinition{
-			AddFunc: subscription.Add,
+			AddFunc:     subscription.Add,
 			FlagSetFunc: func() *pflag.FlagSet { return nil },
 		},
 	}

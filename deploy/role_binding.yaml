@@ -7,7 +7,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-operator
-  namespace: redhat-marketplace
+  namespace: redhat-marketplace-2
 roleRef:
   kind: ClusterRole
   name: redhat-marketplace-operator
@@ -21,7 +21,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-razeedeploy
-  namespace: redhat-marketplace
+  namespace: redhat-marketplace-2
 roleRef:
   kind: ClusterRole
   name: redhat-marketplace-razeedeploy
@@ -35,7 +35,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-prometheus-operator
-  namespace: redhat-marketplace
+  namespace: redhat-marketplace-2
 roleRef:
   kind: ClusterRole
   name: prometheus-operator
@@ -49,7 +49,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-prometheus
-  namespace: redhat-marketplace
+  namespace: redhat-marketplace-2
 roleRef:
   kind: ClusterRole
   name: redhat-marketplace-prometheus
@@ -60,11 +60,11 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: rhm-redhat-marketplace-prometheus-binding
-  namespace: redhat-marketplace
+  namespace: redhat-marketplace-2
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-prometheus
-  namespace: redhat-marketplace
+  namespace: redhat-marketplace-2
 roleRef:
   kind: Role
   name: redhat-marketplace-prometheus
@@ -75,11 +75,11 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: rhm-redhat-marketplace-operator-binding
-  namespace: redhat-marketplace
+  namespace: redhat-marketplace-2
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-operator
-  namespace: redhat-marketplace
+  namespace: redhat-marketplace-2
 roleRef:
   kind: Role
   name: redhat-marketplace-operator

@@ -56,7 +56,7 @@ type MeterDefinitionSpec struct {
 	// PodLabels of the prometheus metrics you want to track.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	PodMeterLabels []string `json:"podMeterLabels,omitempty"`	
+	PodMeterLabels []string `json:"podMeterLabels,omitempty"`
 
 	// TODO: consider an array
 	// ServiceMonitors to be selected for target discovery.

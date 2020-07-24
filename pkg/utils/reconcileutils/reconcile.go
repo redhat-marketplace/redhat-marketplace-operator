@@ -151,17 +151,16 @@ func ReturnFinishedResult() *ReturnResponse {
 func RequeueResponse() *ReturnResponse {
 	return &ReturnResponse{
 		BaseAction: NewBaseAction("requeueReponse"),
-		ExecResult:   NewExecResult(Requeue, reconcile.Result{Requeue: true}, nil),
+		ExecResult: NewExecResult(Requeue, reconcile.Result{Requeue: true}, nil),
 	}
 }
 
 func RequeueAfterResponse(d time.Duration) *ReturnResponse {
 	return &ReturnResponse{
 		BaseAction: NewBaseAction("requeueReponse"),
-		ExecResult:   NewExecResult(Requeue, reconcile.Result{RequeueAfter: d}, nil),
+		ExecResult: NewExecResult(Requeue, reconcile.Result{RequeueAfter: d}, nil),
 	}
 }
-
 
 type handleResult struct {
 	BaseAction

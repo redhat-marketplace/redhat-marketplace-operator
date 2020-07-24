@@ -33,9 +33,6 @@ deploy:
         artifactOverrides:
           image: redhat-marketplace-operator
           reporterImage: redhat-marketplace-reporter
-        setValueTemplates:
-          namespace: '{{.NAMESPACE}}'
-          devpostfix: '{{.DEVPOSTFIX}}'
         chartPath: deploy/chart
         setValueTemplates: 
           devpostfix: "{{.DEVPOSTFIX}}"

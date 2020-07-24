@@ -10,7 +10,7 @@ import (
 )
 
 type deleteAction struct {
-	obj           runtime.Object
+	obj runtime.Object
 	BaseAction
 	deleteActionOptions
 }
@@ -26,7 +26,7 @@ func DeleteAction(
 ) *deleteAction {
 	deleteOpts, _ := newDeleteActionOptions(opts...)
 	return &deleteAction{
-		obj:           obj,
+		obj:                 obj,
 		deleteActionOptions: deleteOpts,
 	}
 }

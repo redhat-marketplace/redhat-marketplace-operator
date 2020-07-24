@@ -57,9 +57,9 @@ var _ = Describe("Reporter", func() {
 		cfg.setDefaults()
 
 		sut = &MarketplaceReporter{
-			api:            v1api,
-			reporterConfig: cfg,
-			report: report,
+			api:              v1api,
+			reporterConfig:   cfg,
+			report:           report,
 			meterDefinitions: meterDefinitions,
 		}
 
