@@ -16,12 +16,14 @@ package metric_generator
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"time"
 
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
 	kbsm "k8s.io/kube-state-metrics/pkg/metric"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -30,8 +32,8 @@ import (
 const ()
 
 var (
-	existingPods     = make(map[*corev1.Pod]bool)
-	existingServices = make(map[*corev1.Service]bool)
+	existingPods     = make(map[string]bool)
+	existingServices = make(map[string]bool)
 )
 
 // NOTE: FamilyGenerator provides everything needed to generate a metric family with a Kubernetes object.
@@ -168,14 +170,19 @@ func findAndGenerateDefPods(rclient client.Client) error {
 			//add to map of known pods
 			//otherwise nothing
 			for _, pod := range meterdefPods.Items {
-				log.Info("Pod associated with MeterDef found", "Name:", pod.GetName(), "Namespace: ", pod.GetNamespace())
-				if _, ok := existingPods[&pod]; ok {
-					log.Info("Pod already being tracked")
+				log.Info("Pod associated with MeterDef found", "Pod Name:", pod.GetName(), "Pod Namespace: ", pod.GetNamespace())
+				mapName, nil := runtimeObjectToString(&pod)
+				if err != nil {
+					log.Error(err, "Could not retrieve mapName of pod")
 				} else {
-					log.Info("Pod currently not being tracked")
-					buildPodMetric(&pod, &meterdef)
-					existingPods[&pod] = true
-					log.Info("Metrics for pod, created")
+					if _, ok := existingPods[mapName]; ok {
+						log.Info("Pod already being tracked")
+					} else {
+						log.Info("Pod currently not being tracked")
+						buildPodMetric(&pod, &meterdef)
+						existingPods[mapName] = true
+						log.Info("Metrics for pod, created")
+					}
 				}
 			}
 		}
@@ -229,14 +236,19 @@ func findAndGenerateDefServices(rclient client.Client) error {
 			//add to map of known pods
 			//otherwise nothing
 			for _, service := range meterdefServices.Items {
-				log.Info("Service associated with MeterDef found", "Name:", service.GetName(), "Namespace: ", service.GetNamespace())
-				if _, ok := existingServices[&service]; ok {
-					log.Info("Service already being tracked")
+				log.Info("Service associated with MeterDef found", "Service Name:", service.GetName(), "Service Namespace: ", service.GetNamespace())
+				mapName, nil := runtimeObjectToString(&service)
+				if err != nil {
+					log.Error(err, "Could not retrieve map name of service")
 				} else {
-					log.Info("Service currently not being tracked")
-					buildServiceMetric(&service, &meterdef)
-					existingServices[&service] = true
-					log.Info("Metrics for service, created")
+					if _, ok := existingServices[mapName]; ok {
+						log.Info("Service already being tracked")
+					} else {
+						log.Info("Service currently not being tracked")
+						buildServiceMetric(&service, &meterdef)
+						existingServices[mapName] = true
+						log.Info("Metrics for service, created")
+					}
 				}
 			}
 		}
@@ -244,11 +256,16 @@ func findAndGenerateDefServices(rclient client.Client) error {
 	return nil
 }
 
-/*
-TODO:
-- check for deleted pods/services
-- add unit tests
-*/
+func runtimeObjectToString(r runtime.Object) (string, error) {
+	switch v := r.(type) {
+	case *corev1.Pod:
+		return "pod:" + v.GetName() + ":" + v.GetNamespace(), nil
+	case *corev1.Service:
+		return "service:" + v.GetName() + ":" + v.GetNamespace(), nil
+	default:
+		return "", errors.New("Passed an expected type")
+	}
+}
 
 //CycleMeterDefMeters() cylces through the process of tracking and gnerating metrics for pods&services associated with MeterDefinition
 func CycleMeterDefMeters(rclient client.Client) {
