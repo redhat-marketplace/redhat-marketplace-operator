@@ -1,5 +1,5 @@
 SHELL:=/bin/bash
-NAMESPACE ?= redhat-marketplace
+NAMESPACE ?= openshift-redhat-marketplace
 OPSRC_NAMESPACE = marketplace-operator
 OPERATOR_SOURCE = redhat-marketplace-operators
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
@@ -202,11 +202,7 @@ delete: ##delete the contents created in 'make create'
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml
 	- kubectl delete namespace ${NAMESPACE}
-
-meterdef: ##applies MeterDefinition CR
-	@echo creating CR
-	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_meterdefinition_cr.yaml --namespace=${NAMESPACE}
-
+	
 delete-razee: ##delete the razee CR
 	@echo deleting razee CR
 	- kubectl delete -f  deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}

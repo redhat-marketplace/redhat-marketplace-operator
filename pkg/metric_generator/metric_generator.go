@@ -286,7 +286,7 @@ func CycleMeterDefMeters(rclient client.Client) {
 				log.Error(err, "Failed to generate metrics for services associated with MeterDefinition")
 			}
 
-			time.Sleep(time.Time * 5)
+			time.Sleep(time.Minute * 5)
 		}
 	}(rclient)
 }
