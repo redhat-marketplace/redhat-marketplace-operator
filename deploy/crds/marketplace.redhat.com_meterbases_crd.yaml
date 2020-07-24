@@ -196,11 +196,6 @@ spec:
                 deployment that have the desired version spec.
               format: int32
               type: integer
-          required:
-          - availableReplicas
-          - replicas
-          - unavailableReplicas
-          - updatedReplicas
           type: object
       type: object
   version: v1alpha1

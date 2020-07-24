@@ -45,7 +45,7 @@ type MarketplaceReporter struct {
 	api               v1.API
 	mgr               manager.Manager
 	report            *marketplacev1alpha1.MeterReport
-	meterDefinitions  []*marketplacev1alpha1.MeterDefinition
+	meterDefinitions  []*marketplacev1alpha1.MeterDefinitionSpec
 	prometheusService *corev1.Service
 	*reporterConfig
 }
@@ -56,7 +56,7 @@ func NewMarketplaceReporter(
 	config *reporterConfig,
 	mgr manager.Manager,
 	report *marketplacev1alpha1.MeterReport,
-	meterDefinitions []*marketplacev1alpha1.MeterDefinition,
+	meterDefinitions []*marketplacev1alpha1.MeterDefinitionSpec,
 	prometheusService *corev1.Service,
 ) (*MarketplaceReporter, error) {
 	client, err := api.NewClient(api.Config{
@@ -83,7 +83,7 @@ func (r *MarketplaceReporter) CollectMetrics(ctx context.Context) (map[MetricKey
 	resultsMap := make(map[MetricKey]*MetricBase)
 	var resultsMapMutex sync.Mutex
 
-	meterDefsChan := make(chan *marketplacev1alpha1.MeterDefinition, len(r.meterDefinitions))
+	meterDefsChan := make(chan *marketplacev1alpha1.MeterDefinitionSpec, len(r.meterDefinitions))
 	promModelsChan := make(chan meterDefPromModel)
 	errorsChan := make(chan error)
 	queryDone := make(chan bool, 1)
@@ -132,20 +132,20 @@ func (r *MarketplaceReporter) CollectMetrics(ctx context.Context) (map[MetricKey
 }
 
 type meterDefPromModel struct {
-	*marketplacev1alpha1.MeterDefinition
+	*marketplacev1alpha1.MeterDefinitionSpec
 	model.Value
 	MetricName string
 }
 
 func (r *MarketplaceReporter) query(
 	startTime, endTime time.Time,
-	inMeterDefs <-chan *marketplacev1alpha1.MeterDefinition,
+	inMeterDefs <-chan *marketplacev1alpha1.MeterDefinitionSpec,
 	outPromModels chan<- meterDefPromModel,
 	done chan<- bool,
 	errorsch chan<- error,
 ) {
-	queryProcess := func(mdef *marketplacev1alpha1.MeterDefinition) {
-		for _, metric := range mdef.Spec.ServiceMeterLabels {
+	queryProcess := func(mdef *marketplacev1alpha1.MeterDefinitionSpec) {
+		for _, metric := range mdef.ServiceMeters{
 			logger.Info("query", "metric", metric)
 			// TODO: use metadata to build a smart roll up
 			// Guage = delta
@@ -154,9 +154,9 @@ func (r *MarketplaceReporter) query(
 			query := &PromQuery{
 				Metric: metric,
 				Labels: map[string]string{
-					"meter_domain":  mdef.Spec.MeterDomain,
-					"meter_kind":    mdef.Spec.MeterKind,
-					"meter_version": mdef.Spec.MeterVersion,
+					"meter_domain":  mdef.Group,
+					"meter_kind":    mdef.Kind,
+					"meter_version": mdef.Version,
 				},
 				Functions: []string{"increase"},
 				Time:      "60m",
@@ -219,7 +219,7 @@ func (r *MarketplaceReporter) process(
 ) {
 	syncProcess := func(
 		name string,
-		mdef *marketplacev1alpha1.MeterDefinition,
+		mdef *marketplacev1alpha1.MeterDefinitionSpec,
 		report *marketplacev1alpha1.MeterReport,
 		m model.Value,
 	) {
@@ -238,9 +238,9 @@ func (r *MarketplaceReporter) process(
 							ReportPeriodEnd:   report.Spec.EndTime.Format(time.RFC3339),
 							IntervalStart:     pair.Timestamp.Time().Format(time.RFC3339),
 							IntervalEnd:       pair.Timestamp.Add(time.Hour).Time().Format(time.RFC3339),
-							MeterDomain:       mdef.Spec.MeterDomain,
-							MeterKind:         mdef.Spec.MeterKind,
-							MeterVersion:      mdef.Spec.MeterVersion,
+							MeterDomain:       mdef.Group,
+							MeterKind:         mdef.Kind,
+							MeterVersion:      mdef.Version,
 						}
 
 						mutex.Lock()
@@ -289,7 +289,7 @@ func (r *MarketplaceReporter) process(
 		go func() {
 			defer wg.Done()
 			for pmodel := range inPromModels {
-				syncProcess(pmodel.MetricName, pmodel.MeterDefinition, report, pmodel.Value)
+				syncProcess(pmodel.MetricName, pmodel.MeterDefinitionSpec, report, pmodel.Value)
 			}
 		}()
 	}

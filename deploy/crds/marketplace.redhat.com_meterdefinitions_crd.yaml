@@ -33,212 +33,66 @@ spec:
         spec:
           description: MeterDefinitionSpec defines the desired metering spec
           properties:
-            meterDomain:
+            discoveredPods:
+              description: Pods is the list of discovered pods
+              items:
+                properties:
+                  name:
+                    description: Name of the job Required
+                    type: string
+                  namespace:
+                    description: Namespace of the job Required
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
+              type: array
+            discoveredServices:
+              description: Services is the list of discovered services
+              items:
+                properties:
+                  name:
+                    description: Name of the job Required
+                    type: string
+                  namespace:
+                    description: Namespace of the job Required
+                    type: string
+                  targetPort:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: Port name is the name of the part to select Required
+                    x-kubernetes-int-or-string: true
+                required:
+                - name
+                - namespace
+                - targetPort
+                type: object
+              type: array
+            group:
               description: MeterDomain defines the primary CRD domain of the meter
               type: string
-            meterKind:
+            kind:
               description: MeterKind defines the primary CRD kind of the meter
               type: string
-            meterVersion:
+            podMeters:
+              description: PodMeters of the prometheus metrics you want to track.
+              items:
+                type: string
+              type: array
+            serviceMeters:
+              description: ServiceMeters of the meterics you want to track.
+              items:
+                type: string
+              type: array
+            version:
               description: MeterVersion defines the primary CRD version of the meter
               type: string
-            podMeterLabels:
-              description: 'TODO: renaming these PodLabels of the prometheus metrics
-                you want to track.'
-              items:
-                type: string
-              type: array
-            podMonitorNamespaceSelector:
-              description: PodNamespaceSelector to select namespaces for pods for
-                metering
-              properties:
-                matchExpressions:
-                  description: matchExpressions is a list of label selector requirements.
-                    The requirements are ANDed.
-                  items:
-                    description: A label selector requirement is a selector that contains
-                      values, a key, and an operator that relates the key and values.
-                    properties:
-                      key:
-                        description: key is the label key that the selector applies
-                          to.
-                        type: string
-                      operator:
-                        description: operator represents a key's relationship to a
-                          set of values. Valid operators are In, NotIn, Exists and
-                          DoesNotExist.
-                        type: string
-                      values:
-                        description: values is an array of string values. If the operator
-                          is In or NotIn, the values array must be non-empty. If the
-                          operator is Exists or DoesNotExist, the values array must
-                          be empty. This array is replaced during a strategic merge
-                          patch.
-                        items:
-                          type: string
-                        type: array
-                    required:
-                    - key
-                    - operator
-                    type: object
-                  type: array
-                matchLabels:
-                  additionalProperties:
-                    type: string
-                  description: matchLabels is a map of {key,value} pairs. A single
-                    {key,value} in the matchLabels map is equivalent to an element
-                    of matchExpressions, whose key field is "key", the operator is
-                    "In", and the values array contains only "value". The requirements
-                    are ANDed.
-                  type: object
-              type: object
-            podMonitorSelector:
-              description: 'TODO: consider an array PodSelectors to select pods for
-                metering'
-              properties:
-                matchExpressions:
-                  description: matchExpressions is a list of label selector requirements.
-                    The requirements are ANDed.
-                  items:
-                    description: A label selector requirement is a selector that contains
-                      values, a key, and an operator that relates the key and values.
-                    properties:
-                      key:
-                        description: key is the label key that the selector applies
-                          to.
-                        type: string
-                      operator:
-                        description: operator represents a key's relationship to a
-                          set of values. Valid operators are In, NotIn, Exists and
-                          DoesNotExist.
-                        type: string
-                      values:
-                        description: values is an array of string values. If the operator
-                          is In or NotIn, the values array must be non-empty. If the
-                          operator is Exists or DoesNotExist, the values array must
-                          be empty. This array is replaced during a strategic merge
-                          patch.
-                        items:
-                          type: string
-                        type: array
-                    required:
-                    - key
-                    - operator
-                    type: object
-                  type: array
-                matchLabels:
-                  additionalProperties:
-                    type: string
-                  description: matchLabels is a map of {key,value} pairs. A single
-                    {key,value} in the matchLabels map is equivalent to an element
-                    of matchExpressions, whose key field is "key", the operator is
-                    "In", and the values array contains only "value". The requirements
-                    are ANDed.
-                  type: object
-              type: object
-            serviceMeterLabels:
-              description: 'TODO: renaming these ServiceLabels of the meterics you
-                want to track.'
-              items:
-                type: string
-              type: array
-            serviceMonitorNamespaceSelector:
-              description: Namespaces to be selected for ServiceMonitor discovery.
-                If nil, only check own namespace.
-              properties:
-                matchExpressions:
-                  description: matchExpressions is a list of label selector requirements.
-                    The requirements are ANDed.
-                  items:
-                    description: A label selector requirement is a selector that contains
-                      values, a key, and an operator that relates the key and values.
-                    properties:
-                      key:
-                        description: key is the label key that the selector applies
-                          to.
-                        type: string
-                      operator:
-                        description: operator represents a key's relationship to a
-                          set of values. Valid operators are In, NotIn, Exists and
-                          DoesNotExist.
-                        type: string
-                      values:
-                        description: values is an array of string values. If the operator
-                          is In or NotIn, the values array must be non-empty. If the
-                          operator is Exists or DoesNotExist, the values array must
-                          be empty. This array is replaced during a strategic merge
-                          patch.
-                        items:
-                          type: string
-                        type: array
-                    required:
-                    - key
-                    - operator
-                    type: object
-                  type: array
-                matchLabels:
-                  additionalProperties:
-                    type: string
-                  description: matchLabels is a map of {key,value} pairs. A single
-                    {key,value} in the matchLabels map is equivalent to an element
-                    of matchExpressions, whose key field is "key", the operator is
-                    "In", and the values array contains only "value". The requirements
-                    are ANDed.
-                  type: object
-              type: object
-            serviceMonitorSelector:
-              description: 'TODO: consider an array ServiceMonitors to be selected
-                for target discovery.'
-              properties:
-                matchExpressions:
-                  description: matchExpressions is a list of label selector requirements.
-                    The requirements are ANDed.
-                  items:
-                    description: A label selector requirement is a selector that contains
-                      values, a key, and an operator that relates the key and values.
-                    properties:
-                      key:
-                        description: key is the label key that the selector applies
-                          to.
-                        type: string
-                      operator:
-                        description: operator represents a key's relationship to a
-                          set of values. Valid operators are In, NotIn, Exists and
-                          DoesNotExist.
-                        type: string
-                      values:
-                        description: values is an array of string values. If the operator
-                          is In or NotIn, the values array must be non-empty. If the
-                          operator is Exists or DoesNotExist, the values array must
-                          be empty. This array is replaced during a strategic merge
-                          patch.
-                        items:
-                          type: string
-                        type: array
-                    required:
-                    - key
-                    - operator
-                    type: object
-                  type: array
-                matchLabels:
-                  additionalProperties:
-                    type: string
-                  description: matchLabels is a map of {key,value} pairs. A single
-                    {key,value} in the matchLabels map is equivalent to an element
-                    of matchExpressions, whose key field is "key", the operator is
-                    "In", and the values array contains only "value". The requirements
-                    are ANDed.
-                  type: object
-              type: object
-            useOperatorGroup:
-              description: OperatorGroup if the meter definition includes use operator
-                group, we will find the operator group associated to the product and
-                use it for determining namespace lookups
-              type: boolean
           required:
-          - meterDomain
-          - meterKind
-          - meterVersion
+          - group
+          - kind
+          - version
           type: object
         status:
           description: MeterDefinitionStatus defines the observed state of MeterDefinition

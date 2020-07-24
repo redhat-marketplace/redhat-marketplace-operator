@@ -4,22 +4,10 @@ metadata:
   name: example-meterdefinition
 spec:
   # Add fields here
-  meterDomain: apps.partner.metering.com
-  meterVersion: v1
-  meterKind: App
-  serviceMeterQueries:
-    - label: requests
-      query: requests{resource="memory"}
-      type: sum
-  podMeterQueries:
-    - label: kube_pod_container_resource_requests
-      query: kube_pod_container_resource_requests{resource="memory"}
-      type: avg
-  serviceMonitorSelector:
-    matchLabels:
-      app: example-app
-      marketplace.redhat.com/metered: "true"
-  podMetricSelector:
-    matchLabels:
-      app: example-app
-      marketplace.redhat.com/metered: "true"
+  group: partner.metering.com
+  version: v1alpha1
+  kind: App
+  serviceMeters:
+    - labels
+  podMeters:
+    - kube_pod_container_resource_requests

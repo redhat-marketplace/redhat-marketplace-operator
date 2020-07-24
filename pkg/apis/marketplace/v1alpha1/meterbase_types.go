@@ -94,15 +94,19 @@ type MeterBaseStatus struct {
 
 	// Total number of non-terminated pods targeted by this Prometheus deployment
 	// (their labels match the selector).
-	Replicas *int32 `json:"replicas"`
+	// +optional
+	Replicas *int32 `json:"replicas,omitempty"`
 	// Total number of non-terminated pods targeted by this Prometheus deployment
 	// that have the desired version spec.
-	UpdatedReplicas *int32 `json:"updatedReplicas"`
+	// +optional
+	UpdatedReplicas *int32 `json:"updatedReplicas,omitempty"`
 	// Total number of available pods (ready for at least minReadySeconds)
 	// targeted by this Prometheus deployment.
-	AvailableReplicas *int32 `json:"availableReplicas"`
+	// +optional
+	AvailableReplicas *int32 `json:"availableReplicas,omitempty"`
 	// Total number of unavailable pods targeted by this Prometheus deployment.
-	UnavailableReplicas *int32 `json:"unavailableReplicas"`
+	// +optional
+	UnavailableReplicas *int32 `json:"unavailableReplicas,omitempty"`
 }
 
 // MeterBase is the resource that sets up Metering for Red Hat Marketplace.

@@ -76,9 +76,13 @@ func (i *do) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 		action.Bind(result)
 		result, err = action.Exec(ctx, c)
 
+		if err != nil {
+			logger.Error(err, "error from action")
+			return NewExecResult(Error, reconcile.Result{}, err), err
+		}
+
 		if result == nil {
-			err := emperrors.New("result should not be nil")
-			logger.Error(err, "result should not be nil")
+			err = emperrors.New("result should not be nil")
 			return NewExecResult(Error, reconcile.Result{}, err), err
 		}
 
@@ -93,7 +97,6 @@ func (i *do) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 		}
 	}
 
-	logger.V(2).Info("final result occurred", "result", *result)
 	return result, nil
 }
 

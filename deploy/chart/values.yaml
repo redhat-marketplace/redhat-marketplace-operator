@@ -43,6 +43,8 @@ roles:
         resources:
           - deployments
           - statefulsets
+          - replicasets
+          - daemonsets
         verbs:
           - get
           - list

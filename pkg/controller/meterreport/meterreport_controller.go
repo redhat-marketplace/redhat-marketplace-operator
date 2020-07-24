@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 )
 
 var log = logf.Log.WithName("controller_meterreport")
@@ -88,8 +89,6 @@ type ReconcileMeterReport struct {
 
 // Reconcile reads that state of the cluster for a MeterReport object and makes changes based on the state read
 // and what is in the MeterReport.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
-// a Pod as an example
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
@@ -144,7 +143,7 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 		return result.Return()
 	}
 
-	jr := &marketplacev1alpha1.JobReference{}
+	jr := &common.JobReference{}
 	jr.SetFromJob(job)
 
 	if result, _ := cc.Do(context.TODO(), Call(r.updateStatus(instance, jr))); !result.Is(Continue) {
@@ -161,7 +160,7 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 
 func (r *ReconcileMeterReport) updateStatus(
 	instance *marketplacev1alpha1.MeterReport,
-	jobRef *marketplacev1alpha1.JobReference,
+	jobRef *common.JobReference,
 ) func() (ClientAction, error) {
 	return func() (ClientAction, error) {
 		reqLogger := log.WithValues("Instance.Namespace", instance.Namespace, "Instance.Name", instance.Name)

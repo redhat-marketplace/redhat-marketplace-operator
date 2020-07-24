@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	"github.com/operator-framework/operator-sdk/pkg/status"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -24,62 +25,38 @@ import (
 // MeterDefinitionSpec defines the desired metering spec
 // +k8s:openapi-gen=true
 type MeterDefinitionSpec struct {
-
 	// MeterDomain defines the primary CRD domain of the meter
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	MeterDomain string `json:"meterDomain"`
+	Group string `json:"group"`
 
 	// MeterVersion defines the primary CRD version of the meter
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	MeterVersion string `json:"meterVersion"`
+	Version string `json:"version"`
 
 	// MeterKind defines the primary CRD kind of the meter
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	MeterKind string `json:"meterKind"`
+	Kind string `json:"kind"`
 
-	// OperatorGroup if the meter definition includes
-	// use operator group, we will find the operator group
-	// associated to the product and use it for determining
-	// namespace lookups
-	UseOperatorGroup bool `json:"useOperatorGroup,omitempty"`
-
-	// TODO: renaming these
-	// ServiceLabels of the meterics you want to track.
+	// ServiceMeters of the meterics you want to track.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	ServiceMeterLabels []string `json:"serviceMeterLabels,omitempty"`
+	ServiceMeters []string `json:"serviceMeters,omitempty"`
 
-	// TODO: renaming these
-	// PodLabels of the prometheus metrics you want to track.
+	// PodMeters of the prometheus metrics you want to track.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	PodMeterLabels []string `json:"podMeterLabels,omitempty"`	
+	PodMeters []string `json:"podMeters,omitempty"`
 
-	// TODO: consider an array
-	// ServiceMonitors to be selected for target discovery.
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	ServiceMonitorSelector *metav1.LabelSelector `json:"serviceMonitorSelector,omitempty"`
+	// Services is the list of discovered services
+	// +optional
+	Services []*common.ServiceReference `json:"discoveredServices,omitempty"`
 
-	// Namespaces to be selected for ServiceMonitor discovery. If nil, only
-	// check own namespace.
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	ServiceMonitorNamespaceSelector *metav1.LabelSelector `json:"serviceMonitorNamespaceSelector,omitempty"`
-
-	// TODO: consider an array
-	// PodSelectors to select pods for metering
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	PodSelector *metav1.LabelSelector `json:"podMonitorSelector,omitempty"`
-
-	// PodNamespaceSelector to select namespaces for pods for metering
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	PodNamespaceSelector *metav1.LabelSelector `json:"podMonitorNamespaceSelector,omitempty"`
+	// Pods is the list of discovered pods
+	// +optional
+	Pods []*common.PodReference `json:"discoveredPods,omitempty"`
 }
 
 // MeterLabelQuery helps define a meter label to build and search for

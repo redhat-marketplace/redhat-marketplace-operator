@@ -118,6 +118,6 @@ func getPrometheusService(
 
 func getMeterDefinitions(
 	report *marketplacev1alpha1.MeterReport,
-) []*marketplacev1alpha1.MeterDefinition {
+) []*marketplacev1alpha1.MeterDefinitionSpec {
 	return report.Spec.MeterDefinitions
 }
