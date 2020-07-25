@@ -22,6 +22,7 @@ import (
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	metricGen "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/metric_generator"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	pflag "github.com/spf13/pflag"
@@ -54,6 +55,7 @@ var (
 	log                      = logf.Log.WithName("controller_marketplaceconfig")
 	marketplaceConfigFlagSet *pflag.FlagSet
 	defaultFeatures          = []string{RAZEE_FLAG, METERBASE_FLAG}
+	generateMetricsFlag      = false
 )
 
 // Init declares our FlagSet for the MarketplaceConfig
@@ -233,6 +235,12 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
 			return reconcile.Result{}, err
 		}
+	}
+
+	if !generateMetricsFlag {
+		generateMetricsFlag = true
+		reqLogger.Info("CALLING THE CYCLE FUNCTION!!!!!!!!!!!!!!!!")
+		metricGen.CycleMeterDefMeters(r.client)
 	}
 
 	installFeatures := viper.GetStringSlice("features")

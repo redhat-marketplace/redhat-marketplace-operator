@@ -25,14 +25,14 @@ type PatchMaker interface {
 }
 
 var (
-	IgnoreStatusFields = patch.IgnoreStatusFields
+	IgnoreStatusFields                         = patch.IgnoreStatusFields
 	IgnoreVolumeClaimTemplateTypeMetaAndStatus = patch.IgnoreVolumeClaimTemplateTypeMetaAndStatus
 )
 
 type Patcher struct {
 	PatchAnnotator
 	PatchMaker
-	PatchOptions   []patch.CalculateOption
+	PatchOptions []patch.CalculateOption
 }
 
 var RHMDefaultPatcher = NewPatcher(
@@ -48,8 +48,8 @@ func NewPatcher(
 
 	return Patcher{
 		PatchAnnotator: annotator,
-		PatchMaker: patch.NewPatchMaker(annotator),
-		PatchOptions: options,
+		PatchMaker:     patch.NewPatchMaker(annotator),
+		PatchOptions:   options,
 	}
 }
 

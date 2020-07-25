@@ -77,7 +77,7 @@ func setup(r *ReconcilerTest) error {
 
 var (
 	name       = utils.RAZEE_NAME
-	namespace  = "openshift-redhat-marketplace"
+	namespace  = "redhat-marketplace"
 	secretName = "rhm-operator-secret"
 
 	opts = []StepOption{

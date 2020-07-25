@@ -13,21 +13,21 @@ type ReportOutputDir string
 
 // Top level config
 type Config struct {
-	OutputDirectory   string
+	OutputDirectory string
 }
 
 type reporterConfig struct {
-	OutputDirectory   string
-	MetricsPerFile    *int
-	MaxRoutines       *int
-	Retry             *int
+	OutputDirectory string
+	MetricsPerFile  *int
+	MaxRoutines     *int
+	Retry           *int
 }
 
 func ProvideReporterConfig(
 	reportConfig Config,
 ) *reporterConfig {
 	cfg := &reporterConfig{
-		OutputDirectory:   reportConfig.OutputDirectory,
+		OutputDirectory: reportConfig.OutputDirectory,
 	}
 	cfg.setDefaults()
 

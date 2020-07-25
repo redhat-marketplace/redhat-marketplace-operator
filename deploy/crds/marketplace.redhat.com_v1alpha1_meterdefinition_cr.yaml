@@ -1,7 +1,7 @@
 apiVersion: marketplace.redhat.com/v1alpha1
 kind: MeterDefinition
 metadata:
-  name: example-meterdefinition
+  name: example-meterdefinition-2
 spec:
   # Add fields here
   group: partner.metering.com

@@ -9,6 +9,7 @@ require (
 	github.com/Azure/go-autorest/autorest/adal v0.8.1 // indirect
 	github.com/Masterminds/semver/v3 v3.1.0
 	github.com/Shyp/bump_version v0.0.0-20180222180749-d7594d2951e2
+	github.com/arekkas/kubernetes v1.2.3
 	github.com/banzaicloud/k8s-objectmatcher v1.3.0
 	github.com/code-ready/crc v0.0.0-20200430050718-9d5f3259f30b
 	github.com/coreos/prometheus-operator v0.38.1-0.20200424145508-7e176fda06cc
@@ -19,6 +20,7 @@ require (
 	github.com/go-openapi/spec v0.19.4 // indirect
 	github.com/golang/mock v1.4.3
 	github.com/golangci/golangci-lint v1.27.0
+	github.com/google/cadvisor v0.37.0 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
 	github.com/gotidy/ptr v1.0.1
@@ -37,9 +39,9 @@ require (
 	github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b
 	github.com/operator-framework/operator-sdk v0.18.0
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.5.1
-	github.com/prometheus/common v0.9.1
-	github.com/rogpeppe/go-internal v1.5.2 // indirect
+	github.com/prometheus/client_golang v1.7.1
+	github.com/prometheus/common v0.10.0
+	github.com/rkt/rkt v1.30.0
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
@@ -59,6 +61,7 @@ require (
 	k8s.io/apimachinery v0.18.3
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
+	k8s.io/kube-state-metrics v1.7.2
 	k8s.io/kubectl v0.18.2
 	sigs.k8s.io/controller-runtime v0.6.0
 )

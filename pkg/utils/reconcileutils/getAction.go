@@ -12,7 +12,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-
 type getAction struct {
 	BaseAction
 	NamespacedName types.NamespacedName
