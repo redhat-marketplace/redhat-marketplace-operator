@@ -15,19 +15,20 @@
 package razeedeployment
 
 import (
-	"context"
 	"testing"
 	"time"
 
+	"github.com/gotidy/ptr"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 )
 
 // TestMeterBaseController runs ReconcileMemcached.Reconcile() against a
@@ -46,12 +46,13 @@ func TestRazeeDeployController(t *testing.T) {
 	logger.SetLoggerToDevelopmentZap()
 
 	viper.Set("assets", "../../../assets")
-	scheme.Scheme.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment.DeepCopy(), &marketplacev1alpha1.RazeeDeploymentList{})
+	scheme.Scheme.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment.DeepCopy(), &marketplacev1alpha1.RazeeDeploymentList{}, &marketplacev1alpha1.RemoteResourceS3{}, &marketplacev1alpha1.RemoteResourceS3List{})
 
 	t.Run("Test Clean Install", testCleanInstall)
 	t.Run("Test No Secret", testNoSecret)
 	t.Run("Test Bad Name", testBadName)
 	t.Run("Test Full Uninstall", testFullUninstall)
+	t.Run("Test Legacy Uninstall", testLegacyUninstall)
 }
 
 func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
@@ -70,7 +71,7 @@ func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Uns
 
 func setup(r *ReconcilerTest) error {
 	r.SetClient(fake.NewFakeClient(r.GetGetObjects()...))
-	r.SetReconciler(&ReconcileRazeeDeployment{client: r.GetClient(), scheme: scheme.Scheme, opts: &RazeeOpts{RazeeJobImage: "test"}})
+	r.SetReconciler(&ReconcileRazeeDeployment{client: r.GetClient(), scheme: scheme.Scheme, opts: &RazeeOpts{RhmRRS3DeploymentImage: "rhm-rrs3-deployment-image", RhmWatchKeeperImage: "rhm-watch-keeper-image"}})
 	return nil
 }
 
@@ -89,6 +90,18 @@ var (
 		},
 	}
 	razeeDeployment = marketplacev1alpha1.RazeeDeployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
+			Enabled:               true,
+			ClusterUUID:           "foo",
+			DeploySecretName:      &secretName,
+			LegacyUninstallHasRun: ptr.Bool(true),
+		},
+	}
+	razeeDeploymentLegacyUninstall = marketplacev1alpha1.RazeeDeployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -143,6 +156,17 @@ var (
 			"spec": "console",
 		},
 	}
+	clusterVersion = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "config.openshift.io/v1",
+			"kind":       "ClusterVersion",
+			"metadata": map[string]interface{}{
+				"name": "version",
+			},
+			"spec": "console",
+		},
+	}
+
 	secret = corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "rhm-operator-secret",
@@ -158,6 +182,7 @@ var (
 			utils.FILE_SOURCE_URL_FIELD:    []byte("file-source-url"),
 		},
 	}
+
 	razeeJob = batch.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.RAZEE_DEPLOY_JOB_NAME,
@@ -171,7 +196,7 @@ var (
 			},
 		},
 	}
-	razeeSecret = corev1.Secret{
+	cosReaderKeySecret = corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.COS_READER_KEY_NAME,
 			Namespace: namespace,
@@ -192,9 +217,21 @@ var (
 			Namespace: namespace,
 		},
 	}
+	clusterRole = rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "redhat-marketplace-operator",
+			Namespace: namespace,
+		},
+	}
 	deployment = appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "watch-keeper",
+			Name:      utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
+			Namespace: namespace,
+		},
+	}
+	parentRRS3 = marketplacev1alpha1.RemoteResourceS3{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.PARENT_RRS3_RESOURCE_NAME,
 			Namespace: namespace,
 		},
 	}
@@ -205,20 +242,25 @@ func testFullUninstall(t *testing.T) {
 
 	reconcilerTest := NewReconcilerTest(setup,
 		&razeeDeploymentDeletion,
-		&razeeJob,
-		&razeeSecret,
+		&parentRRS3,
+		&cosReaderKeySecret,
 		&configMap,
-		&serviceAccount,
 		&deployment,
 	)
 
 	reconcilerTest.TestAll(t,
-		//Requeue until we have created the job and waiting for it to finish
 		ReconcileStep(opts,
-			ReconcileWithExpectedResults(
-				append(
-					RangeReconcileResults(RequeueResult, 2),
-					AnyResult)...)),
+			ReconcileWithUntilDone(true)),
+		ListStep(opts,
+			ListWithObj(&marketplacev1alpha1.RemoteResourceS3List{}),
+			ListWithFilter(
+				client.InNamespace(namespace),
+			),
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+				list, ok := i.(*marketplacev1alpha1.RemoteResourceS3List)
+				assert.Truef(t, ok, "expected RemoteResourceS3List got type %T", i)
+				assert.Equal(t, 0, len(list.Items))
+			})),
 		ListStep(opts,
 			ListWithObj(&corev1.ConfigMapList{}),
 			ListWithFilter(
@@ -226,19 +268,7 @@ func testFullUninstall(t *testing.T) {
 			),
 			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*corev1.ConfigMapList)
-
 				assert.Truef(t, ok, "expected configMap list got type %T", i)
-				assert.Equal(t, 0, len(list.Items))
-			})),
-		ListStep(opts,
-			ListWithObj(&corev1.ServiceAccountList{}),
-			ListWithFilter(
-				client.InNamespace(namespace),
-			),
-			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
-				list, ok := i.(*corev1.ServiceAccountList)
-
-				assert.Truef(t, ok, "expected service account list got type %T", i)
 				assert.Equal(t, 0, len(list.Items))
 			})),
 		ListStep(opts,
@@ -253,6 +283,37 @@ func testFullUninstall(t *testing.T) {
 				assert.Equal(t, 0, len(list.Items))
 			})),
 		ListStep(opts,
+			ListWithObj(&appsv1.DeploymentList{}),
+			ListWithFilter(
+				client.InNamespace(namespace),
+			),
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+				list, ok := i.(*appsv1.DeploymentList)
+
+				assert.Truef(t, ok, "expected deployment list got type %T", i)
+				assert.Equal(t, 0, len(list.Items))
+			})),
+	)
+}
+
+func testLegacyUninstall(t *testing.T) {
+	t.Parallel()
+
+	reconcilerTest := NewReconcilerTest(setup,
+		&razeeDeploymentLegacyUninstall,
+		&secret,
+		&namespObj,
+	)
+
+	reconcilerTest.TestAll(t,
+		ReconcileStep(opts,
+			ReconcileWithExpectedResults(
+				RequeueResult,
+				RequeueResult,
+				RequeueResult,
+			),
+		),
+		ListStep(append(opts, WithStepName("Get Legacy Job")),
 			ListWithObj(&batch.JobList{}),
 			ListWithFilter(
 				client.InNamespace(namespace),
@@ -263,7 +324,29 @@ func testFullUninstall(t *testing.T) {
 				assert.Truef(t, ok, "expected job list got type %T", i)
 				assert.Equal(t, 0, len(list.Items))
 			})),
-		ListStep(opts,
+		ListStep(append(opts, WithStepName("Get Service Account")),
+			ListWithObj(&corev1.ServiceAccountList{}),
+			ListWithFilter(
+				client.InNamespace(namespace),
+			),
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+				list, ok := i.(*corev1.ServiceAccountList)
+
+				assert.Truef(t, ok, "expected service account list got type %T", i)
+				assert.Equal(t, 0, len(list.Items))
+			})),
+		ListStep(append(opts, WithStepName("Get Cluster Role")),
+			ListWithObj(&rbacv1.ClusterRoleList{}),
+			ListWithFilter(
+				client.InNamespace(namespace),
+			),
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+				list, ok := i.(*rbacv1.ClusterRoleList)
+
+				assert.Truef(t, ok, "expected cluster role list got type %T", i)
+				assert.Equal(t, 0, len(list.Items))
+			})),
+		ListStep(append(opts, WithStepName("Get Deployment")),
 			ListWithObj(&appsv1.DeploymentList{}),
 			ListWithFilter(
 				client.InNamespace(namespace),
@@ -285,15 +368,13 @@ func testCleanInstall(t *testing.T) {
 		&namespObj,
 		console,
 		cluster,
+		clusterVersion,
 	)
 	reconcilerTest.TestAll(t,
-		//Requeue until we have created the job and waiting for it to finish
 		ReconcileStep(opts,
 			ReconcileWithExpectedResults(
 				append(
-					RangeReconcileResults(RequeueResult, 15),
-					RequeueAfterResult(time.Second*30),
-					RequeueAfterResult(time.Second*15))...)),
+					RangeReconcileResults(RequeueResult, 15))...)),
 		// Let's do some client checks
 		ListStep(opts,
 			ListWithObj(&corev1.ConfigMapList{}),
@@ -335,30 +416,6 @@ func testCleanInstall(t *testing.T) {
 				assert.Contains(t, names, utils.WATCH_KEEPER_SECRET_NAME)
 				assert.Contains(t, names, utils.RHM_OPERATOR_SECRET_NAME)
 				assert.Contains(t, names, utils.COS_READER_KEY_NAME)
-			})),
-		GetStep(opts,
-			GetWithObj(&batch.Job{}),
-			GetWithNamespacedName(utils.RAZEE_DEPLOY_JOB_NAME, namespace),
-			GetWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
-				myJob, ok := i.(*batch.Job)
-
-				if !ok {
-					require.FailNowf(t, "", "Type is not expected %T", i)
-				}
-
-				myJob.Status.Conditions = []batch.JobCondition{
-					{
-						Type:               batch.JobComplete,
-						Status:             corev1.ConditionTrue,
-						LastProbeTime:      metav1.Now(),
-						LastTransitionTime: metav1.Now(),
-						Reason:             "Job is complete",
-						Message:            "Job is complete",
-					},
-				}
-				myJob.Status.Succeeded = 1
-
-				r.Client.Status().Update(context.TODO(), myJob)
 			})),
 		ReconcileStep(opts,
 			ReconcileWithUntilDone(true)),

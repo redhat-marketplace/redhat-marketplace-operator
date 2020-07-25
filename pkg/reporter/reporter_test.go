@@ -32,7 +32,7 @@ var _ = Describe("Reporter", func() {
 		sut              *MarketplaceReporter
 		config           *marketplacev1alpha1.MarketplaceConfig
 		report           *marketplacev1alpha1.MeterReport
-		meterDefinitions []*marketplacev1alpha1.MeterDefinition
+		meterDefinitions []*marketplacev1alpha1.MeterDefinitionSpec
 		dir, dir2        string
 		uploader         *RedHatInsightsUploader
 		generatedFile    string
@@ -57,9 +57,9 @@ var _ = Describe("Reporter", func() {
 		cfg.setDefaults()
 
 		sut = &MarketplaceReporter{
-			api:            v1api,
-			reporterConfig: cfg,
-			report: report,
+			api:              v1api,
+			reporterConfig:   cfg,
+			report:           report,
 			meterDefinitions: meterDefinitions,
 		}
 
@@ -77,22 +77,18 @@ var _ = Describe("Reporter", func() {
 			},
 		}
 
-		meterDefinitions = []*marketplacev1alpha1.MeterDefinition{
+		meterDefinitions = []*marketplacev1alpha1.MeterDefinitionSpec{
 			{
-				Spec: marketplacev1alpha1.MeterDefinitionSpec{
-					MeterDomain:        "apps.partner.metering.com",
-					MeterKind:          "App",
-					MeterVersion:       "v1",
-					ServiceMeterLabels: []string{"rpc_durations_seconds_count", "rpc_durations_seconds_sum"},
-				},
+				Group:         "apps.partner.metering.com",
+				Kind:          "App",
+				Version:       "v1",
+				ServiceMeters: []string{"rpc_durations_seconds_count", "rpc_durations_seconds_sum"},
 			},
 			{
-				Spec: marketplacev1alpha1.MeterDefinitionSpec{
-					MeterDomain:        "apps.partner.metering.com",
-					MeterKind:          "App2",
-					MeterVersion:       "v1",
-					ServiceMeterLabels: []string{"rpc_durations_seconds_count", "rpc_durations_seconds_sum"},
-				},
+				Group:         "apps.partner.metering.com",
+				Kind:          "App2",
+				Version:       "v1",
+				ServiceMeters: []string{"rpc_durations_seconds_count", "rpc_durations_seconds_sum"},
 			},
 		}
 

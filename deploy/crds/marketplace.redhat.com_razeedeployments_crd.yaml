@@ -52,8 +52,8 @@ spec:
                   description: The file name of the child RemoteResourecS3
                   type: string
                 fileSourceUrl:
-                  description: The url of the filesource arg that gets passed into
-                    the razeedeploy-job
+                  description: 'FileSourceURL DEPRECATED: The url of the filesource
+                    arg that gets passed into the razeedeploy-job'
                   type: string
                 ibmCosReaderKey:
                   description: Api key used to access the bucket IBM COS
@@ -105,6 +105,10 @@ spec:
                 work. Setting enabled to "true" will create a Razee namespace and
                 deploy it's componenets. Set to "false" to bypass Razee installation
               type: boolean
+            legacyUninstallHasRun:
+              description: Flag used by the RazeeDeployment Controller to decide whether
+                to run legacy uninstall job Used internally by the Operator
+              type: boolean
             targetNamespace:
               description: TargetNamespace is configurable target of the razee namespace
                 This is to support legancy installs. Please do not edit.
@@ -117,8 +121,8 @@ spec:
           description: RazeeDeploymentStatus defines the observed state of RazeeDeployment
           properties:
             conditions:
-              description: Conditions represent the latest available observations
-                of an object's stateonfig
+              description: 'JobConditions DEPRECATED: represent the latest available
+                observations of an object''s stateonfig'
               properties:
                 lastProbeTime:
                   description: Last time the condition was checked.
@@ -188,7 +192,8 @@ spec:
                 type: object
               type: array
             jobState:
-              description: JobState is the status of the Razee Install Job
+              description: 'JobState DEPRECATED: is the status of the Razee Install
+                Job'
               properties:
                 active:
                   description: The number of actively running pods.
@@ -257,6 +262,12 @@ spec:
             missingValuesFromSecret:
               description: MissingValuesFromSecret validates the secret provided has
                 all the correct fields
+              items:
+                type: string
+              type: array
+            nodesFromRazeeDeployments:
+              description: NodesFromRazeeDeployments contains the pods names created
+                by the rhm-watch-keeper and rhm-remote-resources3-controller deployments
               items:
                 type: string
               type: array

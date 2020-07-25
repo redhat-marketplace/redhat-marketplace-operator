@@ -55,20 +55,14 @@ var (
 			Namespace: namespace,
 		},
 		Spec: marketplacev1alpha1.MeterDefinitionSpec{
-			MeterDomain:  "apps.partner.metering.com",
-			MeterKind:    "App",
-			MeterVersion: "v1",
-			ServiceMeterLabels: []string{
+			Group:  "apps.partner.metering.com",
+			Kind:    "App",
+			Version: "v1",
+			ServiceMeters: []string{
 				"rpc_duration_seconds.*",
 			},
-			PodMeterLabels: []string{
+			PodMeters: []string{
 				"foo",
-			},
-			ServiceMonitorNamespaceSelector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app":                            "example-app",
-					"marketplace.redhat.com/metered": "true",
-				},
 			},
 		},
 	}

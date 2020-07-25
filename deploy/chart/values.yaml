@@ -1,7 +1,6 @@
 # Default values for chart.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
-
 name: redhat-marketplace-operator
 replicaCount: 1
 namespace: openshift-redhat-marketplace
@@ -12,13 +11,26 @@ devpostfix: ''
 watchNamespace: '' # watch all namespaces
 serviceAccountName: redhat-marketplace-operator
 env:
-  - name: RELATED_IMAGE_RAZEE_JOB
-    value: quay.io/razee/razeedeploy-delta:1.1.3
+  - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
+    value: quay.io/razee/remoteresources3:0.6.2
+  - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
+    value: quay.io/razee/watch-keeper:0.5.3
 roles:
   - name: redhat-marketplace-operator
     serviceAccountName: redhat-marketplace-operator
     type: ClusterRole
     rules:
+      - apiGroups:
+          - rbac.authorization.k8s.io
+        resources:
+          - clusterroles
+        resourceNames:
+          - razeedeploy-admin-cr
+          - redhat-marketplace-razeedeploy
+        verbs:
+          - get
+          - list
+          - delete
       - apiGroups:
           - ''
         resources:
@@ -35,6 +47,16 @@ roles:
           - get
           - list
           - watch
+      - apiGroups:
+          - ''
+        resources:
+          - nodes
+        verbs:
+          - get
+          - list
+          - watch
+          - patch
+          - update
       - apiGroups: ['batch', 'extensions']
         resources: ['jobs']
         verbs: ['get', 'list', 'watch']
@@ -89,14 +111,18 @@ roles:
           - operators.coreos.com
         resources:
           - subscriptions
+          - clusterserviceversions
         verbs:
           - get
           - list
+          - update
           - watch
+          - delete
       - apiGroups:
           - operators.coreos.com
         resources:
           - operatorsources
+          - catalogsources
         verbs:
           - get
           - list
@@ -108,6 +134,18 @@ roles:
           - redhat-marketplace
         resources:
           - operatorsources
+        verbs:
+          - get
+          - delete
+          - patch
+          - update
+      - apiGroups:
+          - operators.coreos.com
+        resourceNames:
+          - ibm-operator-catalog
+          - opencloud-operators
+        resources:
+          - catalogsources
         verbs:
           - get
           - delete
@@ -137,25 +175,11 @@ roles:
           - patch
           - update
       - apiGroups:
-          - apiextensions.k8s.io
-        resources:
-          - customresourcedefinitions
-        resourceNames:
-          - remoteresources.deploy.razee.io
-          - remoteresourcess3.deploy.razee.io
-          - featureflagsetsld.deploy.razee.io
-          - managedsets.deploy.razee.io
-          - mustachetemplates.deploy.razee.io
-          - remoteresourcess3decrypt.deploy.razee.io
-        verbs:
-          - get
-          - list
-          - delete
-      - apiGroups:
           - config.openshift.io
         resources:
           - consoles
           - infrastructures
+          - clusterversions
         verbs:
           - get
           - list
@@ -169,6 +193,7 @@ roles:
           - razeedeployments
           - meterbases
           - marketplaceconfigs
+          - remoteresources3s
         verbs:
           - '*'
       - apiGroups:
@@ -203,17 +228,29 @@ roles:
           - watch-keeper-limit-poll
           - watch-keeper-non-namespaced
           - razee-cluster-metadata
-  - name: redhat-marketplace-razeedeploy
-    serviceAccountName: redhat-marketplace-razeedeploy
+  # redhat-marketplace-remoteresources3deployment ClusterRole
+  - name: redhat-marketplace-remoteresources3deployment
+    serviceAccountName: redhat-marketplace-remoteresources3deployment
     type: ClusterRole
     rules:
       - apiGroups:
-          - '*'
+          - operators.coreos.com
+          - marketplace.redhat.com
         resources:
           - '*'
         verbs:
           - '*'
       - nonResourceURLs:
+          - '*'
+        verbs: ['get', 'list', 'watch']
+  # redhat-marketplace-remoteresources3deployment ClusterRole
+  - name: redhat-marketplace-remoteresources3deployment
+    serviceAccountName: redhat-marketplace-remoteresources3deployment
+    type: Role
+    rules:
+      - apiGroups:
+          - '*'
+        resources:
           - '*'
         verbs:
           - '*'
@@ -282,10 +319,38 @@ roles:
           - configmaps
         verbs:
           - get
+  # redhat-marketplace-watch-keeper ClusterRole
+  - name: redhat-marketplace-watch-keeper
+    serviceAccountName: redhat-marketplace-watch-keeper
+    type: ClusterRole
+    rules:
+      - apiGroups:
+          - '*'
+        resources:
+          - '*'
+        verbs: ['get', 'list', 'watch']
+      - nonResourceURLs:
+          - '*'
+        verbs: ['get', 'list', 'watch']
+  # rhm-operator Role
   - name: redhat-marketplace-operator
     serviceAccountName: redhat-marketplace-operator
     type: Role
     rules:
+      - apiGroups:
+          - deploy.razee.io
+        resources:
+          - '*'
+          - remoteresourcess3
+          - remoteresources
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - patch
+          - watch
       - apiGroups:
           - ''
         resources:
@@ -358,20 +423,6 @@ roles:
           - list
           - patch
           - update
-          - watch
-      - apiGroups:
-          - deploy.razee.io
-        resources:
-          - '*'
-          - remoteresourcess3
-          - remoteresources
-        verbs:
-          - create
-          - delete
-          - get
-          - list
-          - update
-          - patch
           - watch
       - apiGroups:
           - ''

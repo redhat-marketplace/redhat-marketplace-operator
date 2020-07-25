@@ -17,8 +17,10 @@ package utils
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"time"
 
 	emperrors "emperror.dev/errors"
 	"github.com/gotidy/ptr"
@@ -34,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/operrors"
@@ -162,6 +165,46 @@ func BuildNewOpSrc() *opsrcv1.OperatorSource {
 	return opsrc
 }
 
+// BuildNewIBMCatalogSrc returns a new IBM Catalog Source
+func BuildNewIBMCatalogSrc() *operatorsv1alpha1.CatalogSource {
+	catalogSrc := &operatorsv1alpha1.CatalogSource{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: IBM_CATALOGSRC_NAME,
+			// Must always be openshift-marketplace
+			Namespace: OPERATOR_MKTPLACE_NS,
+		},
+		Spec: operatorsv1alpha1.CatalogSourceSpec{
+			DisplayName:    "IBM Operator Catalog",
+			Publisher:      "IBM",
+			SourceType:     "grpc",
+			Image:          "docker.io/ibmcom/ibm-operator-catalog",
+			UpdateStrategy: &operatorsv1alpha1.UpdateStrategy{RegistryPoll: &operatorsv1alpha1.RegistryPoll{Interval: &metav1.Duration{Duration: (time.Minute * 45)}}},
+		},
+	}
+
+	return catalogSrc
+}
+
+// BuildNewOpencloudCatalogSrc returns a new Opencloud Catalog Source
+func BuildNewOpencloudCatalogSrc() *operatorsv1alpha1.CatalogSource {
+	catalogSrc := &operatorsv1alpha1.CatalogSource{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: OPENCLOUD_CATALOGSRC_NAME,
+			// Must always be openshift-marketplace
+			Namespace: OPERATOR_MKTPLACE_NS,
+		},
+		Spec: operatorsv1alpha1.CatalogSourceSpec{
+			DisplayName:    "IBMCS Operators",
+			Publisher:      "IBM",
+			SourceType:     "grpc",
+			Image:          "docker.io/ibmcom/ibm-common-service-catalog",
+			UpdateStrategy: &operatorsv1alpha1.UpdateStrategy{RegistryPoll: &operatorsv1alpha1.RegistryPoll{Interval: &metav1.Duration{Duration: (time.Minute * 45)}}},
+		},
+	}
+
+	return catalogSrc
+}
+
 // BuildRazeeCrd returns a RazeeDeployment cr with default values
 func BuildRazeeCr(namespace, clusterUUID string, deploySecretName *string) *marketplacev1alpha1.RazeeDeployment {
 
@@ -232,4 +275,74 @@ func LoadYAML(filename string, i interface{}) (interface{}, error) {
 	}
 
 	return genericTypeVal, nil
+}
+
+// filterByNamespace returns the runtime.Object filtered by namespaces ListOptions
+func FilterByNamespace(obj runtime.Object, namespaces []corev1.Namespace, rClient client.Client, options ...client.ListOption) error {
+	var err error
+	var listOpts []client.ListOption
+	for _, opt := range options {
+		listOpts = append(listOpts, opt)
+	}
+
+	if len(namespaces) == 0 {
+		// if no namespaces are passed, return resources across all namespaces
+		listOpts = append(listOpts, client.InNamespace(""))
+		return getResources(obj, listOpts, rClient)
+
+	}
+
+	if len(namespaces) == 1 {
+		//if passed a single namespace, return resources across that namespace
+		listOpts = append(listOpts, client.InNamespace(namespaces[0].ObjectMeta.Name))
+		err = getResources(obj, listOpts, rClient)
+		return err
+	}
+
+	//if more than one namespaces is passed, loop through and append the resources
+	switch listType := obj.(type) {
+	case *corev1.PodList:
+		for _, ns := range namespaces {
+			temp := &corev1.PodList{}
+			listOpts = append(listOpts, client.InNamespace(ns.ObjectMeta.Name))
+			err = getResources(temp, listOpts, rClient)
+			for _, i := range temp.Items {
+				listType.Items = append(listType.Items, i)
+			}
+		}
+	case *monitoringv1.ServiceMonitorList:
+		for _, ns := range namespaces {
+			temp := &monitoringv1.ServiceMonitorList{}
+			listOpts = append(listOpts, client.InNamespace(ns.ObjectMeta.Name))
+			err = getResources(temp, listOpts, rClient)
+			for _, i := range temp.Items {
+				listType.Items = append(listType.Items, i)
+			}
+		}
+	case *corev1.ServiceList:
+		for _, ns := range namespaces {
+			temp := &corev1.ServiceList{}
+			listOpts = append(listOpts, client.InNamespace(ns.ObjectMeta.Name))
+			err = getResources(temp, listOpts, rClient)
+			for _, i := range temp.Items {
+				listType.Items = append(listType.Items, i)
+			}
+		}
+	default:
+		err = errors.New("type is not supported for filter aggregation")
+	}
+	return err
+}
+
+// getResources() is a helper function for FilterByNamespace(), it returns a the runtime.Object filled with resources from the requested namespaces
+// the namespaces are preset in listOpts
+func getResources(obj runtime.Object, listOpts []client.ListOption, rClient client.Client) error {
+
+	err := rClient.List(context.TODO(), obj, listOpts...)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
 }

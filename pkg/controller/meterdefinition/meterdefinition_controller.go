@@ -218,11 +218,11 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		}
 	}
 
-	// Check if the RazeeDeployment instance is being marked for deletion
+	// Check if the MeterDefinition instance is being marked for deletion
 	isMarkedForDeletion := instance.GetDeletionTimestamp() != nil
 	if isMarkedForDeletion {
 		if utils.Contains(instance.GetFinalizers(), meterDefinitionFinalizer) {
-			//Run finalization logic for the razeeDeploymentFinalizer.
+			//Run finalization logic for the MeterDefinitionFinalizer.
 			//If it fails, don't remove the finalizer so we can retry during the next reconcile
 			return r.finalizeMeterDefinition(instance)
 		}
@@ -567,7 +567,7 @@ func (r *ReconcileMeterDefinition) finalizeMeterDefinition(req *marketplacev1alp
 	return reconcile.Result{}, nil
 }
 
-// addFinalizer adds finalizers to the RazeeDeployment CR
+// addFinalizer adds finalizers to the MeterDefinition CR
 func (r *ReconcileMeterDefinition) addFinalizer(instance *marketplacev1alpha1.MeterDefinition) error {
 	log.Info("Adding Finalizer to %s/%s", instance.Name, instance.Namespace)
 	instance.SetFinalizers(append(instance.GetFinalizers(), meterDefinitionFinalizer))

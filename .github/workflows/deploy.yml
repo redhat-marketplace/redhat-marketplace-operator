@@ -3,12 +3,12 @@ name: Deploy Image
 on:
   push:
     branches:
-      - master
-      - develop
-  pull_request:
-    branches:
-      - master
-
+      - "master"
+      - "develop"
+      - "feature/**"
+      - "bugfix/**"
+      - "release/**"
+      - "hotfix/**"
 env:
   pushImage: true
 
@@ -23,14 +23,12 @@ jobs:
       hash: ${{ steps.vars.outputs.hash }}
       tagExists: ${{ steps.checktag.outputs.exists }}
       dockertag: ${{ steps.vars.outputs.dockertag }}
+      crs: ${{ steps.vars.outputs.crs }}
+      gittagpushed: ${{ steps.tag.outputs.gittagpushed }}
     env:
       TAGPREFIX: ''
 
     steps:
-      - name: Dump GitHub context
-        env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: echo "$GITHUB_CONTEXT"
 
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
@@ -43,12 +41,37 @@ jobs:
         run: |
           echo "::set-env name=TAGPREFIX::dev-"
 
+      - name: Set branch prefix for fix
+        if: github.event_name == 'push' && startsWith(github.ref,'refs/heads/bugfix/')
+        run: |
+          NAME=$(echo "${{ github.ref }}" | sed 's/refs\/heads\/bugfix\///')
+          echo "::set-env name=TAGPREFIX::bugfix-${NAME}-"
+
+      - name: Set branch prefix for feat
+        if: github.event_name == 'push' && startsWith(github.ref,'refs/heads/feature/')
+        run: |
+          NAME=$(echo "${{ github.ref }}" | sed 's/refs\/heads\/feature\///')
+          echo "::set-env name=TAGPREFIX::feat-${NAME}-"
+
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
+
+      - name: Get if gittag is pushed
+        shell: bash {0}
+        id: tag
+        run: |
+          VERSION=$(make current-version)
+          RESULT=$(git tag --list | grep -E "$VERSION")
+          IS_TAGGED=false
+          if [ "$RESULT" != "" ] ; then
+            IS_TAGGED=true
+          fi
 
       - name: Get Vars
         id: vars
         run: |
+
+          echo "::set-output name=gittagpushed::${IS_TAGGED}"
           echo "::set-output name=version::$(make current-version)"
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
           echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
@@ -63,6 +86,13 @@ jobs:
       - name: Test
         run: make test
 
+      - name: Turnstyle
+        uses: softprops/turnstyle@v1
+        with:
+          continue-after-seconds: 30
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Check if tag exists
         id: checktag
         shell: bash {0}
@@ -76,6 +106,7 @@ jobs:
     name: Deploy
     runs-on: ubuntu-latest
     needs: [build]
+    if: ${{ needs.build.outputs.gittagpushed != 'true' }}
     strategy:
       matrix:
         registry:
@@ -97,6 +128,13 @@ jobs:
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
+
+      - name: Turnstyle
+        uses: softprops/turnstyle@v1
+        with:
+          continue-after-seconds: 30
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check if tag exists
         id: image
@@ -124,6 +162,7 @@ jobs:
     name: Deploy OPM Index
     runs-on: ubuntu-latest
     needs: [build]
+    if: ${{ needs.build.outputs.gittagpushed != 'true' }}
     strategy:
       matrix:
         registry:
@@ -160,7 +199,7 @@ jobs:
           curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
           chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu && sudo mkdir -p /usr/local/bin/ && sudo cp operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk && rm operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
           python -m pip install --upgrade pip
-          pip3 install operator-courier
+          pip3 install -Iv operator-courier==$COURIER_VERSION
           curl -LO https://github.com/operator-framework/operator-registry/releases/download/${OPM_VERSION}/linux-amd64-opm
           chmod +x linux-amd64-opm && sudo cp linux-amd64-opm /usr/local/bin/opm && rm linux-amd64-opm
           echo "::add-path::/usr/local/bin"
@@ -169,6 +208,7 @@ jobs:
         env:
           RELEASE_VERSION: v0.18.0
           OPM_VERSION: v1.12.5
+          COURIER_VERSION: 2.1.7
 
       - name: Login ${{ matrix.name }}
         run: make docker-login
@@ -180,19 +220,23 @@ jobs:
       - name: Build bundles
         run: |
           make generate-csv opm-bundle-last-beta opm-index-base
-          yq w -i ./deploy/olm-catalog/test-registry.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}"
+          yq w ./deploy/olm-catalog/test-registry.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ./test-registry-${TAG}.yaml
 
       - name: Upload results
         uses: actions/upload-artifact@v1
         with:
           name: test-catalog-source
-          path: ./deploy/olm-catalog/test-registry.yaml
+          path: ./test-registry-${{ env.TAG }}.yaml
 
   tag:
     name: Push other tags
     runs-on: ubuntu-latest
     needs: [build, deploy]
-    if: (github.event_name == 'push' && github.ref != 'refs/heads/develop') || github.event_name == 'pull_request'
+    if: |
+      github.event_name == 'push'
+      && (startsWith(github.ref,'refs/heads/release/')
+          || startsWith(github.ref,'refs/heads/hotfix/')
+          || github.ref == 'refs/heads/master' )
     strategy:
       matrix:
         registry:
@@ -235,6 +279,7 @@ jobs:
           - 'marketplace.redhat.com_v1alpha1_meterbase_cr.yaml'
           - 'marketplace.redhat.com_v1alpha1_meterdefinition_cr.yaml'
           - 'marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml'
+          - 'marketplace.redhat.com_v1alpha1_remoteresources3_cr.yaml'
     steps:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
@@ -264,11 +309,12 @@ jobs:
           curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
           chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu && sudo mkdir -p /usr/local/bin/ && sudo cp operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk && rm operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
           python -m pip install --upgrade pip
-          pip3 install operator-courier
+          pip3 install -Iv operator-courier==$COURIER_VERSION
           sudo snap install yq
           echo "::add-path::/usr/local/bin"
         env:
           RELEASE_VERSION: v0.18.0
+          COURIER_VERSION: 2.1.7
 
       - name: Run scorecard for ${{ matrix.cr }}
         shell: bash {0}
@@ -276,7 +322,7 @@ jobs:
         run: |
           echo "Updating osdk to version ${VERSION}"
           make generate-csv
-          yq w -i .osdk-scorecard.yaml 'scorecard.plugins.*.*.csv-path' deploy/olm-catalog/redhat-marketplace-operator/${VERSION}/redhat-marketplace-operator.v${VERSION}.clusterserviceversion.yaml
+          yq w .osdk-scorecard.yaml.tpl 'scorecard.plugins.*.*.csv-path' deploy/olm-catalog/redhat-marketplace-operator/${VERSION}/redhat-marketplace-operator.v${VERSION}.clusterserviceversion.yaml  > .osdk-scorecard.yaml
           yq w -i .osdk-scorecard.yaml 'scorecard.plugins.*.*.cr-manifest.+' deploy/crds/${{ matrix.cr  }}
           ./scripts/scorecard.sh
 

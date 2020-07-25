@@ -1,0 +1,62 @@
+name: Push OPM Bundles
+
+on:
+  push:
+    branches:
+      - 'develop'
+
+jobs:
+  version:
+    name: Bump Version
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        registry:
+          - 'quay.io/rh-marketplace'
+        include:
+          - registry: quay.io/rh-marketplace
+            name: quay
+            key: quayUser
+            value: quayPassword
+    steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.14
+        id: go
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: Install operator-sdk
+        run: |
+          cd /tmp
+          curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
+          chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu && sudo mkdir -p /usr/local/bin/ && sudo cp operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk && rm operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
+          python -m pip install --upgrade pip
+          pip3 install -Iv operator-courier==$COURIER_VERSION
+          curl -LO https://github.com/operator-framework/operator-registry/releases/download/${OPM_VERSION}/linux-amd64-opm
+          chmod +x linux-amd64-opm && sudo cp linux-amd64-opm /usr/local/bin/opm && rm linux-amd64-opm
+          echo "::add-path::/usr/local/bin"
+          sudo apt-get install -y sed
+          sudo snap install yq
+        env:
+          RELEASE_VERSION: v0.18.0
+          OPM_VERSION: v1.12.5
+          COURIER_VERSION: 2.1.7
+
+      - name: Login ${{ matrix.name }}
+        run: make docker-login
+        env:
+          DOCKER_USER: ${{ secrets[matrix.key] }}
+          DOCKER_PASSWORD: ${{ secrets[matrix.value] }}
+          REGISTRY: ${{ matrix.registry }}
+
+      - name: Build all bundles
+        run: |
+          make opm-bundle-all

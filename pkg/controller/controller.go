@@ -59,6 +59,9 @@ var ControllerSet = wire.NewSet(
 	ProvideOlmSubscriptionController,
 	ProvideMeterReportController,
 	ProvideControllerList,
+	ProvideNodeController,
+	ProvideOlmClusterServiceVersionController,
+	ProvideRemoteResourceS3Controller,
 )
 
 func ProvideControllerList(
@@ -68,6 +71,9 @@ func ProvideControllerList(
 	razeeC *RazeeDeployController,
 	olmSubscriptionC *OlmSubscriptionController,
 	meterReport *MeterReportController,
+	olmClusterServiceVersionC *OlmClusterServiceVersionController,
+	remoteResourceS3C *RemoteResourceS3Controller,
+	nodeC *NodeController,
 ) ControllerList {
 	return []AddController{
 		myController,
@@ -76,5 +82,8 @@ func ProvideControllerList(
 		razeeC,
 		olmSubscriptionC,
 		meterReport,
+		olmClusterServiceVersionC,
+		remoteResourceS3C,
+		nodeC,
 	}
 }

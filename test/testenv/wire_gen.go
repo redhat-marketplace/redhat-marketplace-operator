@@ -35,7 +35,10 @@ func initializeControllers() (controller.ControllerList, error) {
 		return nil, err
 	}
 	meterReportController := controller.ProvideMeterReportController(defaultCommandRunnerProvider, operatorConfig)
-	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, meterReportController)
+	olmClusterServiceVersionController := controller.ProvideOlmClusterServiceVersionController()
+	remoteResourceS3Controller := controller.ProvideRemoteResourceS3Controller()
+	nodeController := controller.ProvideNodeController()
+	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, meterReportController, olmClusterServiceVersionController, remoteResourceS3Controller, nodeController)
 	return controllerList, nil
 }
 

@@ -7,4 +7,5 @@ spec:
   rhmAccountID: example-userid
   clusterUUID: example-clusterUUID
   deploySecretName: rhm-operator-secret
+  installIBMCatalogSource: false
  
