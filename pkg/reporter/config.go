@@ -14,24 +14,9 @@ type ReportOutputDir string
 // Top level config
 type Config struct {
 	OutputDirectory string
-}
-
-type reporterConfig struct {
-	OutputDirectory string
 	MetricsPerFile  *int
 	MaxRoutines     *int
 	Retry           *int
-}
-
-func ProvideReporterConfig(
-	reportConfig Config,
-) *reporterConfig {
-	cfg := &reporterConfig{
-		OutputDirectory: reportConfig.OutputDirectory,
-	}
-	cfg.setDefaults()
-
-	return cfg
 }
 
 const (
@@ -39,7 +24,7 @@ const (
 	defaultMaxRoutines    = 50
 )
 
-func (c *reporterConfig) setDefaults() {
+func (c *Config) SetDefaults() {
 	if c.MetricsPerFile == nil {
 		c.MetricsPerFile = ptr.Int(defaultMetricsPerFile)
 	}
@@ -54,7 +39,6 @@ func (c *reporterConfig) setDefaults() {
 }
 
 var ReporterSet = wire.NewSet(
-	ProvideReporterConfig,
 	NewMarketplaceReporter,
 	NewRedHatInsightsUploader,
 )

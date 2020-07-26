@@ -15,3 +15,11 @@ spec:
     name: rhm-prometheus-meterbase
     namespace: openshift-redhat-marketplace
     targetPort: "web"
+  meterDefinitions:
+    - group: partner.metering.com
+      version: v1alpha1
+      kind: App
+      serviceMeters:
+        - labels
+      podMeters:
+        - kube_pod_container_resource_requests

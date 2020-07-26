@@ -20,7 +20,8 @@ require (
 	github.com/go-openapi/spec v0.19.4 // indirect
 	github.com/golang/mock v1.4.3
 	github.com/golangci/golangci-lint v1.27.0
-	github.com/google/cadvisor v0.37.0 // indirect
+	github.com/google/cadvisor v0.37.0
+	github.com/google/martian v2.1.0+incompatible
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
 	github.com/gotidy/ptr v1.0.1

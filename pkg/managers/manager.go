@@ -19,14 +19,18 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/google/wire"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
+	"k8s.io/apimachinery/pkg/api/meta"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc
@@ -56,12 +60,25 @@ const (
 )
 
 var (
-	log               = logf.Log.WithName("cmd")
+	log = logf.Log.WithName("cmd")
+	// ProvideManagerSet is to be used by
+	// wire files to get a controller manager
 	ProvideManagerSet = wire.NewSet(
 		config.GetConfig,
 		kubernetes.NewForConfig,
 		ProvideManager,
 		ProvideScheme,
+		ProvideManagerClient,
+	)
+	// ProvideCacheClientSet is to be used by
+	// wire files to get a cached client
+	ProvideCachedClientSet = wire.NewSet(
+		config.GetConfig,
+		kubernetes.NewForConfig,
+		ProvideClient,
+		ProvideScheme,
+		NewDynamicRESTMapper,
+		ProvideNewCache,
 	)
 )
 
@@ -248,7 +265,50 @@ func ProvideManager(
 	return manager.New(cfg, *opts)
 }
 
-func ProvideScheme(c *rest.Config) (*k8sruntime.Scheme, error) {
+type ClientOptions struct {
+	SyncPeriod   *time.Duration
+	DryRunClient bool
+	Namespace    string
+}
+
+func ProvideNewCache(
+	c *rest.Config,
+	mapper meta.RESTMapper,
+	scheme *k8sruntime.Scheme,
+	options ClientOptions,
+) (cache.Cache, error) {
+	return cache.New(c,
+		cache.Options{
+			Scheme:    scheme,
+			Mapper:    mapper,
+			Resync:    options.SyncPeriod,
+			Namespace: options.Namespace,
+		})
+}
+
+func ProvideClient(
+	c *rest.Config,
+	mapper meta.RESTMapper,
+	scheme *k8sruntime.Scheme,
+	inCache cache.Cache,
+	options ClientOptions,
+) (client.Client, error) {
+	writeObj, err := defaultNewClient(inCache, c, client.Options{Scheme: scheme, Mapper: mapper})
+	if err != nil {
+		return nil, err
+	}
+
+	if options.DryRunClient {
+		writeObj = client.NewDryRunClient(writeObj)
+	}
+
+	return writeObj, nil
+}
+
+func ProvideScheme(
+	c *rest.Config,
+	localSchemes controller.LocalSchemes,
+) (*k8sruntime.Scheme, error) {
 	scheme := k8sruntime.NewScheme()
 	err := k8sscheme.AddToScheme(scheme)
 
@@ -256,20 +316,44 @@ func ProvideScheme(c *rest.Config) (*k8sruntime.Scheme, error) {
 		return nil, err
 	}
 
+	if err = apis.AddToScheme(scheme); err != nil {
+		log.Error(err, "failed to add scheme")
+		return nil, errors.Wrap(err, "could not add apis to scheme")
+	}
+
+	for _, apiScheme := range localSchemes {
+		log.Info("adding scheme", "scheme", apiScheme.Name)
+		if err = apiScheme.AddToScheme(scheme); err != nil {
+			log.Error(err, "failed to add scheme")
+			return nil, errors.Wrap(err, "failed to add scheme")
+		}
+	}
+
 	return scheme, err
 }
 
-func ProvideClient(mgr manager.Manager) client.Client {
+func ProvideManagerClient(mgr manager.Manager) client.Client {
 	return mgr.GetClient()
 }
 
-func ProvideStartedClient(mgr manager.Manager, stopCh <-chan struct{}) (client.Client, error) {
-	client := mgr.GetClient()
-	err := mgr.GetCache().Start(stopCh)
+func NewDynamicRESTMapper(cfg *rest.Config) (meta.RESTMapper, error) {
+	return apiutil.NewDynamicRESTMapper(cfg)
+}
 
+// defaultNewClient creates the default caching client
+func defaultNewClient(ca cache.Cache, config *rest.Config, options client.Options) (client.Client, error) {
+	// Create the Client for Write operations.
+	c, err := client.New(config, options)
 	if err != nil {
-		return client, err
+		return nil, err
 	}
 
-	return client, nil
+	return &client.DelegatingClient{
+		Reader: &client.DelegatingReader{
+			CacheReader:  ca,
+			ClientReader: c,
+		},
+		Writer:       c,
+		StatusClient: c,
+	}, nil
 }

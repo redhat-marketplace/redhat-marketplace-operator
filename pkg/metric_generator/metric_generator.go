@@ -15,18 +15,14 @@
 package metric_generator
 
 import (
-	"context"
 	"errors"
 	"strconv"
-	"time"
 
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	kbsm "k8s.io/kube-state-metrics/pkg/metric"
-	client "sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const ()
@@ -44,9 +40,9 @@ func buildPodMetric(p *corev1.Pod, def *marketplacev1alpha1.MeterDefinition) []k
 
 	// rhm-operator labels
 	metered := "true"
-	meterDefKind := def.Spec.MeterKind
-	meterDefVersion := def.Spec.MeterVersion
-	meterDefDomain := def.Spec.MeterDomain
+	meterDefKind := def.Spec.Kind
+	meterDefVersion := def.Spec.Version
+	meterDefDomain := def.Spec.Group
 
 	// metric specific labels
 	createdBy := metav1.GetControllerOf(p)
@@ -91,13 +87,12 @@ func buildPodMetric(p *corev1.Pod, def *marketplacev1alpha1.MeterDefinition) []k
 
 //buildServiceMetric creates metrics for services using both the rhm-operator(meterdef) and the kube-state-metrics labels
 func buildServiceMetric(s *corev1.Service, def *marketplacev1alpha1.MeterDefinition) []kbsm.FamilyGenerator {
-
 	// rhm-operator labels
 	metered := "true"
 	deployed := "true"
-	meterDefKind := def.Spec.MeterKind
-	meterDefVersion := def.Spec.MeterVersion
-	meterDefDomain := def.Spec.MeterDomain
+	meterDefKind := def.Spec.Kind
+	meterDefVersion := def.Spec.Version
+	meterDefDomain := def.Spec.Group
 
 	// kube-state-metric labels
 	clusterIP := s.Spec.ClusterIP
@@ -124,137 +119,137 @@ func buildServiceMetric(s *corev1.Service, def *marketplacev1alpha1.MeterDefinit
 	return serviceMetricsFamilies
 }
 
-// findAndGenerateDefPods() find and generates pods associated with MeterDefinition
-// Gets a list of MeterDefinitions -> Gets pod labels -> Gets pods -> Generates pod metrics
-func findAndGenerateDefPods(rclient client.Client) error {
-	log := logf.Log.WithName("metric_generator")
-	var err error
-	meterDefList := &marketplacev1alpha1.MeterDefinitionList{}
+// // findAndGenerateDefPods() find and generates pods associated with MeterDefinition
+// // Gets a list of MeterDefinitions -> Gets pod labels -> Gets pods -> Generates pod metrics
+// func findAndGenerateDefPods(rclient client.Client) error {
+// 	log := logf.Log.WithName("metric_generator")
+// 	var err error
+// 	meterDefList := &marketplacev1alpha1.MeterDefinitionList{}
 
-	// Get a list of meterdefinitions
-	log.Info("retrieving a list of meterdefinitions - for pods")
-	err = rclient.List(context.TODO(), meterDefList)
-	if err != nil {
-		return err
-	}
+// 	// Get a list of meterdefinitions
+// 	log.Info("retrieving a list of meterdefinitions - for pods")
+// 	err = rclient.List(context.TODO(), meterDefList)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	if len(meterDefList.Items) == 0 {
-		log.Info("No instances of MeterDefinition found")
-	}
+// 	if len(meterDefList.Items) == 0 {
+// 		log.Info("No instances of MeterDefinition found")
+// 	}
 
-	// for each meterdefinition, get its podlabels
-	for _, meterdef := range meterDefList.Items {
-		if meterdef.Spec.PodSelector == nil {
-			log.Info("No labels for this meterdefinition", "MeterDefinition Name: ", meterdef.GetName(), "MeterDefinition Namespace: ", meterdef.GetNamespace())
-		} else {
-			log.Info("Labels found for", "MeterDefinition Name: ", meterdef.GetName(), "MeterDefinition Namespace: ", meterdef.GetNamespace())
+// 	// for each meterdefinition, get its podlabels
+// 	for _, meterdef := range meterDefList.Items {
+// 		if meterdef.Spec.PodSelector == nil {
+// 			log.Info("No labels for this meterdefinition", "MeterDefinition Name: ", meterdef.GetName(), "MeterDefinition Namespace: ", meterdef.GetNamespace())
+// 		} else {
+// 			log.Info("Labels found for", "MeterDefinition Name: ", meterdef.GetName(), "MeterDefinition Namespace: ", meterdef.GetNamespace())
 
-			podLabels := &metav1.LabelSelector{}
-			podLabels = meterdef.Spec.PodSelector
+// 			podLabels := &metav1.LabelSelector{}
+// 			podLabels = meterdef.Spec.PodSelector
 
-			listOpts := []client.ListOption{
-				client.MatchingLabels(podLabels.MatchLabels),
-			}
+// 			listOpts := []client.ListOption{
+// 				client.MatchingLabels(podLabels.MatchLabels),
+// 			}
 
-			//retrieve a list of pods, matching the pod labels
-			meterdefPods := &corev1.PodList{}
-			err = rclient.List(context.TODO(), meterdefPods, listOpts...)
-			if err != nil {
-				return err
-			}
-			if len(meterdefPods.Items) == 0 {
-				log.Info("No pods associated with meterdefinition found")
-			}
+// 			//retrieve a list of pods, matching the pod labels
+// 			meterdefPods := &corev1.PodList{}
+// 			err = rclient.List(context.TODO(), meterdefPods, listOpts...)
+// 			if err != nil {
+// 				return err
+// 			}
+// 			if len(meterdefPods.Items) == 0 {
+// 				log.Info("No pods associated with meterdefinition found")
+// 			}
 
-			//for each new pod -> create metric
-			//add to map of known pods
-			//otherwise nothing
-			for _, pod := range meterdefPods.Items {
-				log.Info("Pod associated with MeterDef found", "Pod Name:", pod.GetName(), "Pod Namespace: ", pod.GetNamespace())
-				mapName, nil := runtimeObjectToString(&pod)
-				if err != nil {
-					log.Error(err, "Could not retrieve mapName of pod")
-				} else {
-					if _, ok := existingPods[mapName]; ok {
-						log.Info("Pod already being tracked")
-					} else {
-						log.Info("Pod currently not being tracked")
-						buildPodMetric(&pod, &meterdef)
-						existingPods[mapName] = true
-						log.Info("Metrics for pod, created")
-					}
-				}
-			}
-		}
-	}
-	return nil
-}
+// 			//for each new pod -> create metric
+// 			//add to map of known pods
+// 			//otherwise nothing
+// 			for _, pod := range meterdefPods.Items {
+// 				log.Info("Pod associated with MeterDef found", "Pod Name:", pod.GetName(), "Pod Namespace: ", pod.GetNamespace())
+// 				mapName, nil := runtimeObjectToString(&pod)
+// 				if err != nil {
+// 					log.Error(err, "Could not retrieve mapName of pod")
+// 				} else {
+// 					if _, ok := existingPods[mapName]; ok {
+// 						log.Info("Pod already being tracked")
+// 					} else {
+// 						log.Info("Pod currently not being tracked")
+// 						buildPodMetric(&pod, &meterdef)
+// 						existingPods[mapName] = true
+// 						log.Info("Metrics for pod, created")
+// 					}
+// 				}
+// 			}
+// 		}
+// 	}
+// 	return nil
+// }
 
-// findAndGenerateDefServices() find and generates pods associated with MeterDefinition
-// Gets a list of MeterDefinitions -> Gets service labels -> Gets services -> Generates service metrics
-func findAndGenerateDefServices(rclient client.Client) error {
-	log := logf.Log.WithName("metric_generator")
-	var err error
-	meterDefList := &marketplacev1alpha1.MeterDefinitionList{}
+// // findAndGenerateDefServices() find and generates pods associated with MeterDefinition
+// // Gets a list of MeterDefinitions -> Gets service labels -> Gets services -> Generates service metrics
+// func findAndGenerateDefServices(rclient client.Client) error {
+// 	log := logf.Log.WithName("metric_generator")
+// 	var err error
+// 	meterDefList := &marketplacev1alpha1.MeterDefinitionList{}
 
-	log.Info("retrieving a list of meterdefinitions - for services")
-	// Get a list of meterdefinitions
-	err = rclient.List(context.TODO(), meterDefList)
-	if err != nil {
-		return err
-	}
+// 	log.Info("retrieving a list of meterdefinitions - for services")
+// 	// Get a list of meterdefinitions
+// 	err = rclient.List(context.TODO(), meterDefList)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	if len(meterDefList.Items) == 0 {
-		log.Info("No instances of MeterDefinition found")
-	} // for each meterdefinition, get its podlabels
+// 	if len(meterDefList.Items) == 0 {
+// 		log.Info("No instances of MeterDefinition found")
+// 	} // for each meterdefinition, get its podlabels
 
-	for _, meterdef := range meterDefList.Items {
+// 	for _, meterdef := range meterDefList.Items {
 
-		if meterdef.Spec.ServiceMonitorSelector == nil {
-			log.Info("No labels for this meterdefinition", "MeterDefinition Name: ", meterdef.GetName(), "MeterDefinition Namespace: ", meterdef.GetNamespace())
-		} else {
-			log.Info("Labels found for", "MeterDefinition Name: ", meterdef.GetName(), "MeterDefinition Namespace: ", meterdef.GetNamespace())
+// 		if meterdef.Spec.ServiceMonitorSelector == nil {
+// 			log.Info("No labels for this meterdefinition", "MeterDefinition Name: ", meterdef.GetName(), "MeterDefinition Namespace: ", meterdef.GetNamespace())
+// 		} else {
+// 			log.Info("Labels found for", "MeterDefinition Name: ", meterdef.GetName(), "MeterDefinition Namespace: ", meterdef.GetNamespace())
 
-			serviceLabels := &metav1.LabelSelector{}
-			serviceLabels = meterdef.Spec.ServiceMonitorSelector
+// 			serviceLabels := &metav1.LabelSelector{}
+// 			serviceLabels = meterdef.Spec.ServiceMonitorSelector
 
-			listOpts := []client.ListOption{
-				client.MatchingLabels(serviceLabels.MatchLabels),
-			}
+// 			listOpts := []client.ListOption{
+// 				client.MatchingLabels(serviceLabels.MatchLabels),
+// 			}
 
-			//retrieve a list of pods, matching the pod labels
-			meterdefServices := &corev1.ServiceList{}
-			err = rclient.List(context.TODO(), meterdefServices, listOpts...)
-			if err != nil {
-				return err
-			}
+// 			//retrieve a list of pods, matching the pod labels
+// 			meterdefServices := &corev1.ServiceList{}
+// 			err = rclient.List(context.TODO(), meterdefServices, listOpts...)
+// 			if err != nil {
+// 				return err
+// 			}
 
-			if len(meterdefServices.Items) == 0 {
-				log.Info("No services associated with meterdefinition found")
-			}
-			//for each new pod -> create metric
-			//add to map of known pods
-			//otherwise nothing
-			for _, service := range meterdefServices.Items {
-				log.Info("Service associated with MeterDef found", "Service Name:", service.GetName(), "Service Namespace: ", service.GetNamespace())
-				mapName, nil := runtimeObjectToString(&service)
-				if err != nil {
-					log.Error(err, "Could not retrieve map name of service")
-				} else {
-					if _, ok := existingServices[mapName]; ok {
-						log.Info("Service already being tracked")
-					} else {
-						log.Info("Service currently not being tracked")
-						buildServiceMetric(&service, &meterdef)
-						existingServices[mapName] = true
-						log.Info("Metrics for service, created")
-					}
-				}
-			}
-		}
-	}
-	return nil
-}
+// 			if len(meterdefServices.Items) == 0 {
+// 				log.Info("No services associated with meterdefinition found")
+// 			}
+// 			//for each new pod -> create metric
+// 			//add to map of known pods
+// 			//otherwise nothing
+// 			for _, service := range meterdefServices.Items {
+// 				log.Info("Service associated with MeterDef found", "Service Name:", service.GetName(), "Service Namespace: ", service.GetNamespace())
+// 				mapName, nil := runtimeObjectToString(&service)
+// 				if err != nil {
+// 					log.Error(err, "Could not retrieve map name of service")
+// 				} else {
+// 					if _, ok := existingServices[mapName]; ok {
+// 						log.Info("Service already being tracked")
+// 					} else {
+// 						log.Info("Service currently not being tracked")
+// 						buildServiceMetric(&service, &meterdef)
+// 						existingServices[mapName] = true
+// 						log.Info("Metrics for service, created")
+// 					}
+// 				}
+// 			}
+// 		}
+// 	}
+// 	return nil
+//}
 
 func runtimeObjectToString(r runtime.Object) (string, error) {
 	switch v := r.(type) {
@@ -268,25 +263,25 @@ func runtimeObjectToString(r runtime.Object) (string, error) {
 }
 
 //CycleMeterDefMeters() cylces through the process of tracking and gnerating metrics for pods&services associated with MeterDefinition
-func CycleMeterDefMeters(rclient client.Client) {
+// func CycleMeterDefMeters(rclient client.Client) {
 
-	go func(rclient client.Client) {
-		log := logf.Log.WithName("metric_generator")
-		var err error
-		for {
-			log.Info("--Cycling function: CycleMeterDefMeters()--")
-			log.Info("Pods - Retrieving MeterDefintion Info")
-			err = findAndGenerateDefPods(rclient)
-			if err != nil {
-				log.Error(err, "Failed to generate metrics for pods associated with MeterDefinition")
-			}
-			log.Info("Services - Retrieving MeterDefinition Info")
-			err = findAndGenerateDefServices(rclient)
-			if err != nil {
-				log.Error(err, "Failed to generate metrics for services associated with MeterDefinition")
-			}
+// 	go func(rclient client.Client) {
+// 		log := logf.Log.WithName("metric_generator")
+// 		var err error
+// 		for {
+// 			log.Info("--Cycling function: CycleMeterDefMeters()--")
+// 			log.Info("Pods - Retrieving MeterDefintion Info")
+// 			//err = findAndGenerateDefPods(rclient)
+// 			if err != nil {
+// 				log.Error(err, "Failed to generate metrics for pods associated with MeterDefinition")
+// 			}
+// 			log.Info("Services - Retrieving MeterDefinition Info")
+// 			//err = findAndGenerateDefServices(rclient)
+// 			if err != nil {
+// 				log.Error(err, "Failed to generate metrics for services associated with MeterDefinition")
+// 			}
 
-			time.Sleep(time.Minute * 5)
-		}
-	}(rclient)
-}
+// 			time.Sleep(time.Minute * 5)
+// 		}
+// 	}(rclient)
+// }

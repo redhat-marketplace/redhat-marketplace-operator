@@ -13,6 +13,12 @@ func Retry(f func() error, retry int) error {
 		Jitter: true,
 	}
 
+	err = f()
+
+	if err == nil {
+		return nil
+	}
+
 	for i := 0; i < retry; i++ {
 		err = f()
 

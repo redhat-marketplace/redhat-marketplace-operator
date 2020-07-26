@@ -20,7 +20,7 @@ import (
 	loggerf "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -43,18 +43,18 @@ var (
 
 type MarketplaceReporter struct {
 	api               v1.API
-	mgr               manager.Manager
+	k8sclient         client.Client
 	report            *marketplacev1alpha1.MeterReport
 	meterDefinitions  []*marketplacev1alpha1.MeterDefinitionSpec
 	prometheusService *corev1.Service
-	*reporterConfig
+	*Config
 }
 
 type ReportName types.NamespacedName
 
 func NewMarketplaceReporter(
-	config *reporterConfig,
-	mgr manager.Manager,
+	config *Config,
+	k8sclient client.Client,
 	report *marketplacev1alpha1.MeterReport,
 	meterDefinitions []*marketplacev1alpha1.MeterDefinitionSpec,
 	prometheusService *corev1.Service,
@@ -71,27 +71,39 @@ func NewMarketplaceReporter(
 
 	return &MarketplaceReporter{
 		api:               v1api,
-		mgr:               mgr,
+		k8sclient:         k8sclient,
 		report:            report,
 		meterDefinitions:  meterDefinitions,
-		reporterConfig:    config,
+		Config:            config,
 		prometheusService: prometheusService,
 	}, nil
 }
 
-func (r *MarketplaceReporter) CollectMetrics(ctx context.Context) (map[MetricKey]*MetricBase, error) {
+var ErrNoMeterDefinitionsFound = errors.New("no meterDefinitions found")
+
+func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricKey]*MetricBase, error) {
+	ctx, cancel := context.WithCancel(ctxIn)
+	defer cancel()
+
 	resultsMap := make(map[MetricKey]*MetricBase)
 	var resultsMapMutex sync.Mutex
+
+	if len(r.meterDefinitions) == 0 {
+		return resultsMap, errors.Wrap(ErrNoMeterDefinitionsFound, "no meterDefs found")
+	}
 
 	meterDefsChan := make(chan *marketplacev1alpha1.MeterDefinitionSpec, len(r.meterDefinitions))
 	promModelsChan := make(chan meterDefPromModel)
 	errorsChan := make(chan error)
-	queryDone := make(chan bool, 1)
-	processDone := make(chan bool, 1)
+	queryDone := make(chan bool)
+	processDone := make(chan bool)
+
+	defer close(errorsChan)
 
 	logger.Info("starting query")
 
 	go r.query(
+		ctx,
 		r.report.Spec.StartTime.Time,
 		r.report.Spec.EndTime.Time,
 		meterDefsChan,
@@ -99,28 +111,44 @@ func (r *MarketplaceReporter) CollectMetrics(ctx context.Context) (map[MetricKey
 		queryDone,
 		errorsChan)
 
-	go r.process(promModelsChan, resultsMap, &resultsMapMutex, r.report, processDone, errorsChan)
+	logger.Info("starting processing")
 
+	go r.process(
+		ctx,
+		promModelsChan,
+		resultsMap,
+		&resultsMapMutex,
+		r.report,
+		processDone,
+		errorsChan)
+
+	// send & close data pipe
 	for _, meterDef := range r.meterDefinitions {
 		meterDefsChan <- meterDef
 	}
-
 	close(meterDefsChan)
-
-	<-queryDone
-	close(promModelsChan)
-
-	<-processDone
-	logger.Info("processing done")
-
-	logger.Info("closing errors channel")
-	close(errorsChan)
 
 	errorList := []error{}
 
-	for err := range errorsChan {
-		errorList = append(errorList, err)
-	}
+	go func() {
+		for err := range errorsChan {
+			logger.Error(err, "error occurred processing")
+			errorList = append(errorList, err)
+		}
+	}()
+
+	func() {
+		for {
+			select {
+			case <-queryDone:
+				logger.Info("querying done")
+				close(promModelsChan)
+			case <-processDone:
+				logger.Info("processing done")
+				return
+			}
+		}
+	}()
 
 	if len(errorList) != 0 {
 		err := errors.Combine(errorList...)
@@ -138,14 +166,15 @@ type meterDefPromModel struct {
 }
 
 func (r *MarketplaceReporter) query(
+	ctx context.Context,
 	startTime, endTime time.Time,
 	inMeterDefs <-chan *marketplacev1alpha1.MeterDefinitionSpec,
 	outPromModels chan<- meterDefPromModel,
-	done chan<- bool,
+	done chan bool,
 	errorsch chan<- error,
 ) {
 	queryProcess := func(mdef *marketplacev1alpha1.MeterDefinitionSpec) {
-		for _, metric := range mdef.ServiceMeters{
+		for _, metric := range mdef.ServiceMeters {
 			logger.Info("query", "metric", metric)
 			// TODO: use metadata to build a smart roll up
 			// Guage = delta
@@ -188,34 +217,28 @@ func (r *MarketplaceReporter) query(
 			if err != nil {
 				logger.Error(err, "error encountered")
 				errorsch <- err
+				return
 			}
 
 			outPromModels <- meterDefPromModel{mdef, val, metric}
 		}
 	}
 
-	var wg sync.WaitGroup
-	for w := 1; w <= *r.MaxRoutines; w++ {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-			for mdef := range inMeterDefs {
-				queryProcess(mdef)
-			}
-		}()
-	}
-	wg.Wait()
-	done <- true
+	wgWait(ctx, "queryProcess", *r.MaxRoutines, done, func() {
+		for mdef := range inMeterDefs {
+			queryProcess(mdef)
+		}
+	})
 }
 
 func (r *MarketplaceReporter) process(
+	ctx context.Context,
 	inPromModels <-chan meterDefPromModel,
 	results map[MetricKey]*MetricBase,
 	mutex sync.Locker,
 	report *marketplacev1alpha1.MeterReport,
-	done chan<- bool,
-	errorsch chan<- error,
+	done chan bool,
+	errorsch chan error,
 ) {
 	syncProcess := func(
 		name string,
@@ -283,18 +306,11 @@ func (r *MarketplaceReporter) process(
 		}
 	}
 
-	var wg sync.WaitGroup
-	for w := 1; w <= *r.MaxRoutines; w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for pmodel := range inPromModels {
-				syncProcess(pmodel.MetricName, pmodel.MeterDefinitionSpec, report, pmodel.Value)
-			}
-		}()
-	}
-	wg.Wait()
-	done <- true
+	wgWait(ctx, "syncProcess", *r.MaxRoutines, done, func() {
+		for pmodel := range inPromModels {
+			syncProcess(pmodel.MetricName, pmodel.MeterDefinitionSpec, report, pmodel.Value)
+		}
+	})
 }
 
 func (r *MarketplaceReporter) WriteReport(
@@ -378,4 +394,32 @@ func getKeysFromMetric(metric model.Metric, labels []model.LabelName) []interfac
 		}
 	}
 	return allLabels
+}
+
+func wgWait(ctx context.Context, processName string, maxRoutines int, done chan bool, waitFunc func()) {
+	var wg sync.WaitGroup
+	for w := 1; w <= maxRoutines; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			waitFunc()
+		}()
+	}
+
+	wait := make(chan bool)
+	defer close(wait)
+
+	go func() {
+		wg.Wait()
+		wait <- true
+	}()
+
+	select {
+	case <-ctx.Done():
+		logger.Info("canceling wg", "name", processName)
+	case <- wait:
+		logger.Info("wg is done", "name", processName)
+	}
+
+	done <- true
 }

@@ -3,26 +3,24 @@
 //go:generate wire
 //+build !wireinject
 
-package report
+package reporter
 
 import (
 	"context"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/reporter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 // Injectors from wire.go:
 
-func initializeMarketplaceReporter(ctx context.Context, reportName reporter.ReportName, config2 reporter.Config, stopCh <-chan struct{}) (*reporter.MarketplaceReporter, error) {
-	reporterConfig := reporter.ProvideReporterConfig(config2)
+func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task, error) {
 	restConfig, err := config.GetConfig()
 	if err != nil {
 		return nil, err
 	}
-	scheme, err := managers.ProvideScheme(restConfig)
+	restMapper, err := managers.NewDynamicRESTMapper(restConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -31,30 +29,48 @@ func initializeMarketplaceReporter(ctx context.Context, reportName reporter.Repo
 	olmV1SchemeDefinition := controller.ProvideOLMV1Scheme()
 	olmV1Alpha1SchemeDefinition := controller.ProvideOLMV1Alpha1Scheme()
 	localSchemes := controller.ProvideLocalSchemes(opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition)
-	options, err := provideOptions(scheme)
+	scheme, err := managers.ProvideScheme(restConfig, localSchemes)
 	if err != nil {
 		return nil, err
 	}
-	manager, err := managers.ProvideManager(restConfig, scheme, localSchemes, options)
+	clientOptions := getClientOptions()
+	cache, err := managers.ProvideNewCache(restConfig, restMapper, scheme, clientOptions)
 	if err != nil {
 		return nil, err
 	}
-	client, err := managers.ProvideStartedClient(manager, stopCh)
+	client, err := managers.ProvideClient(restConfig, restMapper, scheme, cache, clientOptions)
 	if err != nil {
 		return nil, err
 	}
-	logger := _wireLoggerValue
-	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logger)
-	meterReport, err := getMarketplaceReport(ctx, clientCommandRunner, reportName)
+	task := &Task{
+		ReportName: reportName,
+		Cache:      cache,
+		K8SClient:  client,
+		Ctx:        ctx,
+		Config:     config2,
+		K8SScheme:  scheme,
+	}
+	return task, nil
+}
+
+func NewReporter(task *Task) (*MarketplaceReporter, error) {
+	reporterConfig := task.Config
+	client := task.K8SClient
+	contextContext := task.Ctx
+	scheme := task.K8SScheme
+	logrLogger := _wireLoggerValue
+	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logrLogger)
+	reportName := task.ReportName
+	meterReport, err := getMarketplaceReport(contextContext, clientCommandRunner, reportName)
 	if err != nil {
 		return nil, err
 	}
 	v := getMeterDefinitions(meterReport)
-	service, err := getPrometheusService(ctx, meterReport, clientCommandRunner)
+	service, err := getPrometheusService(contextContext, meterReport, clientCommandRunner)
 	if err != nil {
 		return nil, err
 	}
-	marketplaceReporter, err := reporter.NewMarketplaceReporter(reporterConfig, manager, meterReport, v, service)
+	marketplaceReporter, err := NewMarketplaceReporter(reporterConfig, client, meterReport, v, service)
 	if err != nil {
 		return nil, err
 	}
@@ -62,5 +78,5 @@ func initializeMarketplaceReporter(ctx context.Context, reportName reporter.Repo
 }
 
 var (
-	_wireLoggerValue = log
+	_wireLoggerValue = logger
 )
