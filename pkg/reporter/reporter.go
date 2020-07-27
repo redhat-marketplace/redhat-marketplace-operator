@@ -194,7 +194,7 @@ func (r *MarketplaceReporter) query(
 				Step:      time.Hour,
 				SumBy:     []string{"meter_kind", "meter_domain", "meter_version", "pod", "namespace"},
 			}
-			logger.Info("test", "query", query.String())
+			logger.Info("output", "query", query.String())
 
 			var val model.Value
 			var warnings v1.Warnings

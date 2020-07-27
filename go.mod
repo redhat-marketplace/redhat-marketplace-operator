@@ -1,17 +1,17 @@
 module github.com/redhat-marketplace/redhat-marketplace-operator
 
-go 1.13
+go 1.14
 
 require (
 	cloud.google.com/go v0.53.0 // indirect
 	emperror.dev/errors v0.7.0
-	github.com/Azure/go-autorest/autorest v0.9.3 // indirect
-	github.com/Azure/go-autorest/autorest/adal v0.8.1 // indirect
 	github.com/Masterminds/semver/v3 v3.1.0
 	github.com/Shyp/bump_version v0.0.0-20180222180749-d7594d2951e2
-	github.com/arekkas/kubernetes v1.2.3
 	github.com/banzaicloud/k8s-objectmatcher v1.3.0
 	github.com/code-ready/crc v0.0.0-20200430050718-9d5f3259f30b
+	github.com/containerd/containerd v1.3.3 // indirect
+	github.com/containerd/ttrpc v1.0.0 // indirect
+	github.com/containerd/typeurl v1.0.0 // indirect
 	github.com/coreos/prometheus-operator v0.38.1-0.20200424145508-7e176fda06cc
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32 // indirect
@@ -20,14 +20,13 @@ require (
 	github.com/go-openapi/spec v0.19.4 // indirect
 	github.com/golang/mock v1.4.3
 	github.com/golangci/golangci-lint v1.27.0
-	github.com/google/cadvisor v0.37.0
-	github.com/google/martian v2.1.0+incompatible
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
 	github.com/gotidy/ptr v1.0.1
 	github.com/imdario/mergo v0.3.8
 	github.com/jpillora/backoff v1.0.0
 	github.com/launchdarkly/go-options v1.0.0
+	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/meirf/gopart v0.0.0-20180520194036-37e9492a85a8
 	github.com/mikefarah/yq/v3 v3.0.0-20200415014842-6f0a329331f9
 	github.com/mitchellh/go-homedir v1.1.0
@@ -35,6 +34,7 @@ require (
 	github.com/noqcks/gucci v0.0.4
 	github.com/onsi/ginkgo v1.13.0
 	github.com/onsi/gomega v1.10.1
+	github.com/opencontainers/runc v1.0.0-rc90.0.20200616040943-82d2fa4eb069 // indirect
 	github.com/openshift/api v0.0.0-20200205133042-34f0ec8dab87
 	github.com/operator-framework/api v0.3.7-0.20200528122852-759ca0d84007
 	github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b
@@ -42,7 +42,6 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/common v0.10.0
-	github.com/rkt/rkt v1.30.0
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
@@ -57,13 +56,16 @@ require (
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a // indirect
 	golang.org/x/tools v0.0.0-20200708181441-6004c8539734 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
+	google.golang.org/protobuf v1.24.0 // indirect
 	honnef.co/go/tools v0.0.1-2020.1.4 // indirect
 	k8s.io/api v0.18.3
 	k8s.io/apimachinery v0.18.3
 	k8s.io/client-go v12.0.0+incompatible
+	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
-	k8s.io/kube-state-metrics v1.7.2
+	k8s.io/kube-state-metrics v1.9.7
 	k8s.io/kubectl v0.18.2
+	k8s.io/utils v0.0.0-20200414100711-2df71ebbae66 // indirect
 	sigs.k8s.io/controller-runtime v0.6.0
 )
 

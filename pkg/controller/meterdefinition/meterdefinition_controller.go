@@ -24,12 +24,11 @@ import (
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -41,7 +40,6 @@ import (
 )
 
 const meterDefinitionFinalizer = "meterdefinition.finalizer.marketplace.redhat.com"
-const ownerRefContains = "metadata.ownerReferences.contains"
 
 var log = logf.Log.WithName("controller_meterdefinition")
 
@@ -67,31 +65,8 @@ func newReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider) 
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
-	err := mgr.GetFieldIndexer().IndexField(context.TODO(), &corev1.Pod{}, ownerRefContains, indexGVK)
-	if err != nil {
-		return err
-	}
-	err = mgr.GetFieldIndexer().IndexField(context.TODO(), &appsv1.Deployment{}, ownerRefContains, indexGVK)
-	if err != nil {
-		return err
-	}
-	err = mgr.GetFieldIndexer().IndexField(context.TODO(), &appsv1.ReplicaSet{}, ownerRefContains, indexGVK)
-	if err != nil {
-		return err
-	}
-	err = mgr.GetFieldIndexer().IndexField(context.TODO(), &appsv1.DaemonSet{}, ownerRefContains, indexGVK)
-	if err != nil {
-		return err
-	}
-	err = mgr.GetFieldIndexer().IndexField(context.TODO(), &appsv1.StatefulSet{}, ownerRefContains, indexGVK)
-	if err != nil {
-		return err
-	}
-	err = mgr.GetFieldIndexer().IndexField(context.TODO(), &batchv1.Job{}, ownerRefContains, indexGVK)
-	if err != nil {
-		return err
-	}
-	err = mgr.GetFieldIndexer().IndexField(context.TODO(), &monitoringv1.ServiceMonitor{}, ownerRefContains, indexGVK)
+	err := rhmclient.AddGVKIndexer(mgr.GetFieldIndexer())
+
 	if err != nil {
 		return err
 	}
@@ -116,56 +91,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	return nil
-}
-
-func objRefToStr(apiversion, kind string) string {
-	result := strings.Split(apiversion, "/")
-
-	if len(result) != 2 {
-		return ""
-	}
-
-	group, version := result[0], result[1]
-	return strings.ToLower(fmt.Sprintf("%s.%s.%s", kind, version, group))
-}
-
-func indexGVK(obj runtime.Object) []string {
-	results := []string{}
-	if meta, ok := obj.(metav1.Object); ok {
-		owner := metav1.GetControllerOf(meta)
-		if owner == nil {
-			return nil
-		}
-
-		gvk := objRefToStr(owner.APIVersion, owner.Kind)
-
-		if gvk == "" {
-			return nil
-		}
-
-		data := []string{gvk, fmt.Sprintf("%s/%s", owner.Name, gvk), string(owner.UID)}
-		log.V(4).Info("indexing gvk", "gvk", gvk, "name", meta.GetName(), "namespace", meta.GetNamespace(), "data", data)
-
-		return data
-	}
-
-	return results
-}
-
-func getOwnersReferences(object metav1.Object, isController bool) []metav1.OwnerReference {
-	if object == nil {
-		return nil
-	}
-	// If not filtered as Controller only, then use all the OwnerReferences
-	if !isController {
-		return object.GetOwnerReferences()
-	}
-	// If filtered to a Controller, only take the Controller OwnerReference
-	if ownerRef := metav1.GetControllerOf(object); ownerRef != nil {
-		return []metav1.OwnerReference{*ownerRef}
-	}
-	// No Controller OwnerReference found
 	return nil
 }
 
@@ -243,22 +168,22 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 
 	result, _ = cc.Do(context.TODO(),
 		HandleResult(
-			ListAction(deploymentList, client.MatchingFields{ownerRefContains: gvkStr}),
+			ListAction(deploymentList, client.MatchingFields{rhmclient.OwnerRefContains: gvkStr}),
 			OnContinue(Call(func() (ClientAction, error) {
 				actions := []ClientAction{}
 
 				for _, depl := range deploymentList.Items {
-					actions = append(actions, ListAppendAction(replicaSetList, client.MatchingField(ownerRefContains, string(depl.UID))))
+					actions = append(actions, ListAppendAction(replicaSetList, client.MatchingField(rhmclient.OwnerRefContains, string(depl.UID))))
 				}
 				return Do(actions...), nil
 			})),
 		),
 		HandleResult(
 			Do(
-				ListAppendAction(replicaSetList, client.MatchingField(ownerRefContains, gvkStr)),
-				ListAction(statefulsetList, client.MatchingField(ownerRefContains, gvkStr)),
-				ListAction(daemonsetList, client.MatchingField(ownerRefContains, gvkStr)),
-				ListAction(serviceMonitors, client.MatchingField(ownerRefContains, gvkStr)),
+				ListAppendAction(replicaSetList, client.MatchingField(rhmclient.OwnerRefContains, gvkStr)),
+				ListAction(statefulsetList, client.MatchingField(rhmclient.OwnerRefContains, gvkStr)),
+				ListAction(daemonsetList, client.MatchingField(rhmclient.OwnerRefContains, gvkStr)),
+				ListAction(serviceMonitors, client.MatchingField(rhmclient.OwnerRefContains, gvkStr)),
 			),
 			OnContinue(Call(func() (ClientAction, error) {
 				for _, rs := range replicaSetList.Items {
@@ -276,7 +201,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 				actions := []ClientAction{}
 
 				for _, lookup := range podLookupStrings {
-					actions = append(actions, ListAppendAction(podList, client.MatchingFields{ownerRefContains: lookup}))
+					actions = append(actions, ListAppendAction(podList, client.MatchingFields{rhmclient.OwnerRefContains: lookup}))
 				}
 
 				return Do(actions...), nil

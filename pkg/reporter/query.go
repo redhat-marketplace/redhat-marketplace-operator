@@ -92,7 +92,7 @@ func (r *MarketplaceReporter) queryRange(query *PromQuery) (model.Value, v1.Warn
 	result, warnings, err := r.api.QueryRange(ctx, query.String(), timeRange)
 
 	if err != nil {
-		logger.Error(err, "querying prometheus")
+		logger.Error(err, "querying prometheus", "warnings", warnings)
 		return nil, warnings, err
 	}
 	if len(warnings) > 0 {
