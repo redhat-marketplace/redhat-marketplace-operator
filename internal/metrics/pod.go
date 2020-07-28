@@ -1,4 +1,4 @@
-package metric_generator
+package metrics
 
 import (
 	"context"
@@ -23,17 +23,6 @@ var (
 	descPodLabelsDefaultLabels = []string{"namespace", "pod"}
 )
 
-func makePodMetric(p *corev1.Pod, meterDefDomain, meterDefKind, meterDefVersion string) *kbsm.Metric {
-	podUID := string(p.UID)
-	priorityClass := p.Spec.PriorityClassName
-
-	return &kbsm.Metric{
-		LabelKeys:   []string{"pod_uid", "meter_def_kind", "meter_def_version", "meter_def_domain", "priority_class"},
-		LabelValues: []string{podUID, meterDefKind, meterDefVersion, meterDefDomain, priorityClass},
-		Value:       1,
-	}
-}
-
 var podMetricsFamilies = []FamilyGenerator{
 	{
 		FamilyGenerator: kbsm.FamilyGenerator{
@@ -44,9 +33,14 @@ var podMetricsFamilies = []FamilyGenerator{
 		GenerateMeterFunc: wrapPodFunc(func(pod *corev1.Pod, meterDefinitions []*marketplacev1alpha1.MeterDefinition) *kbsm.Family {
 			metrics := []*kbsm.Metric{}
 
-			for _, meterDef := range meterDefinitions {
-				metrics = append(metrics, makePodMetric(pod, meterDef.Spec.Group, meterDef.Spec.Kind, meterDef.Spec.Version))
-			}
+			podUID := string(pod.UID)
+			priorityClass := pod.Spec.PriorityClassName
+
+			metrics = append(metrics, &kbsm.Metric{
+				LabelKeys:   []string{"pod_uid", "priority_class"},
+				LabelValues: []string{podUID, priorityClass},
+				Value:       1,
+			})
 
 			return &kbsm.Family{
 				Metrics: metrics,
@@ -87,6 +81,8 @@ func wrapPodFunc(f func(*v1.Pod, []*marketplacev1alpha1.MeterDefinition) *kbsm.F
 			m.LabelValues = append([]string{pod.Namespace, pod.Name}, m.LabelValues...)
 		}
 
+		metricFamily.Metrics = MapMeterDefinitions(metricFamily.Metrics, meterDefinitions)
+
 		return metricFamily
 	}
 }
@@ -105,6 +101,7 @@ type PodMeterDefFetcher struct {
 
 func (p *PodMeterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplacev1alpha1.MeterDefinition, error) {
 	cc := p.cc
+	findOwner := &findOwnerHelper{p.cc}
 	results := []*marketplacev1alpha1.MeterDefinition{}
 	pod, ok := obj.(*corev1.Pod)
 
@@ -119,6 +116,7 @@ func (p *PodMeterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplac
 	}
 
 	namespace := pod.GetNamespace()
+	var err error
 	var serviceDefOwner *metav1.OwnerReference
 
 	for i := 0; i < 10; i++ {
@@ -147,29 +145,12 @@ func (p *PodMeterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplac
 			break
 		}
 
-		result, _ := cc.Do(
-			context.TODO(),
-			GetAction(
-				types.NamespacedName{
-					Namespace: namespace,
-					Name:      owner.Name,
-				},
-				lookupObj,
-			))
+		owner, err = findOwner.FindOwner(owner.Name, namespace, lookupObj)
 
-		if !result.Is(Continue) {
-			if result.Is(Error) {
-				log.Error(result, "failed to get owner")
-			}
-			return results, result
-		}
-
-		o, err := meta.Accessor(lookupObj)
 		if err != nil {
-			return results, nil
+			return results, err
 		}
 
-		owner = metav1.GetControllerOf(o)
 		if owner == nil {
 			return results, nil
 		}
@@ -196,4 +177,37 @@ func (p *PodMeterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplac
 	}
 
 	return results, nil
+}
+
+type findOwnerHelper struct {
+	cc ClientCommandRunner
+}
+
+func (f *findOwnerHelper) FindOwner(name, namespace string, lookupObj runtime.Object) (owner *metav1.OwnerReference, err error) {
+	result, _ := f.cc.Do(
+		context.TODO(),
+		GetAction(
+			types.NamespacedName{
+				Namespace: namespace,
+				Name:      name,
+			},
+			lookupObj,
+		))
+
+	if !result.Is(Continue) {
+		if result.Is(Error) {
+			log.Error(result, "failed to get owner")
+		}
+
+		err = result
+		return
+	}
+
+	o, err := meta.Accessor(lookupObj)
+	if err != nil {
+		return
+	}
+
+	owner = metav1.GetControllerOf(o)
+	return
 }

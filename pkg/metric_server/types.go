@@ -1,4 +1,4 @@
-package metric_generator
+package metric_server
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,7 +11,7 @@ var (
 
 	DefaultResources = map[string]struct{}{
 		"pods": struct{}{},
-		//"services": struct{}{},
+		"services": struct{}{},
 	}
 
 	DefaultEnabledResources = []string{"pods", "services"}

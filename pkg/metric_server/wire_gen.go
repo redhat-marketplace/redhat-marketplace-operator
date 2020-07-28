@@ -3,7 +3,7 @@
 //go:generate wire
 //+build !wireinject
 
-package metric_generator
+package metric_server
 
 import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"

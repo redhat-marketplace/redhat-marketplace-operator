@@ -1,4 +1,4 @@
-package metric_generator
+package metric_server
 
 import (
 	"compress/gzip"
@@ -11,10 +11,11 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/internal/metrics"
+	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
-	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/client"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	clientset "k8s.io/client-go/kubernetes"
@@ -53,7 +54,7 @@ func (s *Service) Serve(done <-chan struct{}) error {
 	rhmclient.AddMeterDefIndex(s.cache)
 
 	opts := s.opts
-	storeBuilder := NewBuilder()
+	storeBuilder := metrics.NewBuilder()
 	storeBuilder.WithNamespaces(options.DefaultNamespaces)
 
 	proc.StartReaper()
@@ -114,7 +115,7 @@ func telemetryServer(registry prometheus.Gatherer, host string, port int) {
 	}
 }
 
-func serveMetrics(ctx context.Context, storeBuilder *Builder, opts *options.Options, host string, port int, enableGZIPEncoding bool) {
+func serveMetrics(ctx context.Context, storeBuilder *metrics.Builder, opts *options.Options, host string, port int, enableGZIPEncoding bool) {
 	// Address to listen on for web interface and telemetry
 	listenAddress := net.JoinHostPort(host, strconv.Itoa(port))
 
@@ -154,7 +155,7 @@ func serveMetrics(ctx context.Context, storeBuilder *Builder, opts *options.Opti
 }
 
 type metricHandler struct {
-	stores             []*MetricsStore
+	stores             []*metrics.MetricsStore
 	enableGZIPEncoding bool
 }
 

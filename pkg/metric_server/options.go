@@ -1,4 +1,4 @@
-package metric_generator
+package metric_server
 
 import (
 	"flag"

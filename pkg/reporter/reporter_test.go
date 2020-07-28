@@ -50,15 +50,15 @@ var _ = Describe("Reporter", func() {
 
 		Expect(err).To(Succeed())
 
-		cfg := &reporterConfig{
+		cfg := &Config{
 			OutputDirectory: dir,
 		}
 
-		cfg.setDefaults()
+		cfg.SetDefaults()
 
 		sut = &MarketplaceReporter{
 			api:              v1api,
-			reporterConfig:   cfg,
+			Config:           cfg,
 			report:           report,
 			meterDefinitions: meterDefinitions,
 		}
@@ -134,15 +134,15 @@ var _ = Describe("Reporter", func() {
 		BeforeEach(func() {
 			v1api := getTestAPI(mockResponseRoundTripper(generatedFile))
 
-			cfg := &reporterConfig{
+			cfg := &Config{
 				OutputDirectory: dir,
 			}
 
-			cfg.setDefaults()
+			cfg.SetDefaults()
 
 			sut = &MarketplaceReporter{
 				api:              v1api,
-				reporterConfig:   cfg,
+				Config:           cfg,
 				report:           report,
 				meterDefinitions: meterDefinitions,
 			}

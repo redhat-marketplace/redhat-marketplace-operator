@@ -1,4 +1,4 @@
-package metric_generator
+package metrics
 
 import (
 	"context"
@@ -66,7 +66,7 @@ func (b *Builder) WithClientCommand(cc reconcileutils.ClientCommandRunner) {
 
 func (b *Builder) Build() []*MetricsStore {
 	stores := []*MetricsStore{}
-	activeStoreNames := []string{"pods"}
+	activeStoreNames := []string{"pods", "services"}
 
 	klog.Info("Active resources", "resources", strings.Join(activeStoreNames, ","))
 
@@ -78,7 +78,8 @@ func (b *Builder) Build() []*MetricsStore {
 }
 
 var availableStores = map[string]func(f *Builder) *MetricsStore{
-	"pods": func(b *Builder) *MetricsStore { return b.buildPodStore() },
+	"pods":    func(b *Builder) *MetricsStore { return b.buildPodStore() },
+	"services": func(b *Builder) *MetricsStore { return b.buildServiceStore() },
 	// "services": func(b *Builder) cache.Store {
 	// 	return b.buildServiceStore()
 	// },
@@ -100,9 +101,20 @@ func createPodListWatch(kubeClient clientset.Interface, ns string) cache.ListerW
 	}
 }
 
-// func (b *Builder) buildServiceStore() cache.Store {
-// 	return b.buildStoreFunc(serviceMetricsFamilies, &v1.Service{}, createServiceListWatch)
-// }
+func createServiceListWatch(kubeClient clientset.Interface, ns string) cache.ListerWatcher {
+	return &cache.ListWatch{
+		ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+			return kubeClient.CoreV1().Services(ns).List(context.TODO(), opts)
+		},
+		WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+			return kubeClient.CoreV1().Services(ns).Watch(context.TODO(), opts)
+		},
+	}
+}
+
+func (b *Builder) buildServiceStore() *MetricsStore {
+	return b.buildStore(serviceMetricsFamilies, &v1.Service{}, &ServiceMeterDefFetcher{b.cc}, createServiceListWatch)
+}
 
 func (b *Builder) buildPodStore() *MetricsStore {
 	return b.buildStore(podMetricsFamilies, &v1.Pod{}, &PodMeterDefFetcher{b.cc}, createPodListWatch)
@@ -111,7 +123,7 @@ func (b *Builder) buildPodStore() *MetricsStore {
 func (b *Builder) buildStore(
 	metricFamilies []FamilyGenerator,
 	expectedType interface{},
-  fetcher MeterDefinitionFetcher,
+	fetcher MeterDefinitionFetcher,
 	listWatchFunc func(kubeClient clientset.Interface, ns string) cache.ListerWatcher,
 ) *MetricsStore {
 	composedMetricGenFuncs := ComposeMetricGenFuncs(metricFamilies)

@@ -1,4 +1,4 @@
-package metric_generator
+package metrics
 
 import (
 	"io"

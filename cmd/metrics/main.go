@@ -5,7 +5,7 @@ import (
 	"os"
 
 	homedir "github.com/mitchellh/go-homedir"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/metric_generator"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/metric_server"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -16,7 +16,7 @@ var (
 	// Used for flags.
 	cfgFile string
 
-	opts = &metric_generator.Options{}
+	opts = &metric_server.Options{}
 
 	rootCmd = &cobra.Command{
 		Use:   "redhat-marketplace-metrics",
@@ -30,7 +30,7 @@ var (
 func run(cmd *cobra.Command, args []string) {
 	log.Info("serving metrics")
 
-	server, err := metric_generator.NewServer(opts)
+	server, err := metric_server.NewServer(opts)
 
 	if err != nil {
 		log.Error(err, "failed to get server")
