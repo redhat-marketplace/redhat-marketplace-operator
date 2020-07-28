@@ -9,8 +9,8 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	"time"
 )
 
 import (
@@ -46,22 +46,25 @@ func NewServer(opts *Options) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
 	options := ConvertOptions(opts)
+	registry := provideRegistry()
 	logger := _wireLoggerValue
 	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logger)
-	collectorRefreshRate := _wireCollectorRefreshRateValue
-	stopCollector := _wireStopCollectorValue
-	collector := NewMeterCollector(clientCommandRunner, collectorRefreshRate, cache, stopCollector)
 	service := &Service{
-		k8sclient: client,
-		opts:      options,
-		collector: collector,
+		k8sclient:       client,
+		k8sRestClient:   clientset,
+		opts:            options,
+		cache:           cache,
+		metricsRegistry: registry,
+		cc:              clientCommandRunner,
 	}
 	return service, nil
 }
 
 var (
-	_wireLoggerValue               = log
-	_wireCollectorRefreshRateValue = CollectorRefreshRate(time.Minute * 5)
-	_wireStopCollectorValue        = collectorStop
+	_wireLoggerValue = log
 )

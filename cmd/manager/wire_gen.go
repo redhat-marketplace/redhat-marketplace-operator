@@ -36,15 +36,15 @@ func InitializeMarketplaceController() (*managers.ControllerMain, error) {
 	if err != nil {
 		return nil, err
 	}
-	scheme, err := managers.ProvideScheme(restConfig)
-	if err != nil {
-		return nil, err
-	}
 	opsSrcSchemeDefinition := controller.ProvideOpsSrcScheme()
 	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
 	olmV1SchemeDefinition := controller.ProvideOLMV1Scheme()
 	olmV1Alpha1SchemeDefinition := controller.ProvideOLMV1Alpha1Scheme()
 	localSchemes := controller.ProvideLocalSchemes(opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition)
+	scheme, err := managers.ProvideScheme(restConfig, localSchemes)
+	if err != nil {
+		return nil, err
+	}
 	options, err := provideOptions(scheme)
 	if err != nil {
 		return nil, err

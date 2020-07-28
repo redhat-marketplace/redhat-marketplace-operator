@@ -91,5 +91,6 @@ func (o *Options) AddFlags() {
 }
 
 func (o *Options) Mount(addFlags func(newSet *pflag.FlagSet)) {
+	o.AddFlags()
 	addFlags(o.flags)
 }

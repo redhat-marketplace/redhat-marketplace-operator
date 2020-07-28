@@ -13,11 +13,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/client"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	metricsstore "k8s.io/kube-state-metrics/pkg/metrics_store"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kube-state-metrics/pkg/options"
 	"k8s.io/kube-state-metrics/pkg/util/proc"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -27,43 +30,44 @@ const (
 )
 
 var log = logger.NewLogger("meteric_generator")
-
-var collectorStop = StopCollector(make(chan struct{}))
+var reg = prometheus.NewRegistry()
 
 type Service struct {
-	k8sclient client.Client
-	opts      *options.Options
-	collector *Collector
+	k8sclient       client.Client
+	k8sRestClient   clientset.Interface
+	opts            *options.Options
+	cache           cache.Cache
+	metricsRegistry *prometheus.Registry
+	cc              reconcileutils.ClientCommandRunner
 }
 
-func (s *Service) Serve(done chan struct{}) error {
+func (s *Service) Serve(done <-chan struct{}) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err := s.collector.Register()
+	go func() {
+		err := s.cache.Start(ctx.Done())
+		log.Error(err, "error starting cache")
+	}()
 
-	if err != nil {
-		return err
-	}
+	rhmclient.AddMeterDefIndex(s.cache)
 
 	opts := s.opts
 	storeBuilder := NewBuilder()
-	metricsRegistry := prometheus.NewRegistry()
 	storeBuilder.WithNamespaces(options.DefaultNamespaces)
 
 	proc.StartReaper()
 
-	storeBuilder.WithKubeClient(s.k8sclient)
+	storeBuilder.WithContext(ctx)
+	storeBuilder.WithKubeClient(s.k8sRestClient)
+	storeBuilder.WithClientCommand(s.cc)
 	storeBuilder.WithSharding(opts.Shard, opts.TotalShards)
-	storeBuilder.WithCollector(s.collector)
 
-	go s.collector.Run()
-
-	metricsRegistry.MustRegister(
+	s.metricsRegistry.MustRegister(
 		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
 		prometheus.NewGoCollector(),
 	)
-	go telemetryServer(metricsRegistry, s.opts.TelemetryHost, s.opts.TelemetryPort)
+	go telemetryServer(s.metricsRegistry, s.opts.TelemetryHost, s.opts.TelemetryPort)
 
 	serveMetrics(ctx, storeBuilder, s.opts, s.opts.Host, opts.Port, s.opts.EnableGZIPEncoding)
 	return nil
@@ -74,6 +78,10 @@ func getClientOptions() managers.ClientOptions {
 		Namespace:    "",
 		DryRunClient: false,
 	}
+}
+
+func provideRegistry() *prometheus.Registry {
+	return prometheus.NewRegistry()
 }
 
 func telemetryServer(registry prometheus.Gatherer, host string, port int) {
@@ -115,6 +123,8 @@ func serveMetrics(ctx context.Context, storeBuilder *Builder, opts *options.Opti
 	mux := http.NewServeMux()
 	stores := storeBuilder.Build()
 
+	log.Info("built stores")
+
 	m := &metricHandler{stores, enableGZIPEncoding}
 	mux.Handle(metricsPath, m)
 
@@ -144,7 +154,7 @@ func serveMetrics(ctx context.Context, storeBuilder *Builder, opts *options.Opti
 }
 
 type metricHandler struct {
-	stores             []*metricsstore.MetricsStore
+	stores             []*MetricsStore
 	enableGZIPEncoding bool
 }
 

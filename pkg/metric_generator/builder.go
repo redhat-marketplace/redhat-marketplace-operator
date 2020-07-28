@@ -4,24 +4,28 @@ import (
 	"context"
 	"strings"
 
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
+	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	generator "k8s.io/kube-state-metrics/pkg/metric"
-	metricsstore "k8s.io/kube-state-metrics/pkg/metrics_store"
 	"k8s.io/kube-state-metrics/pkg/options"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Builder struct {
-	kubeClient       client.Client
+	kubeContClient   client.Client
+	kubeClient       clientset.Interface
 	namespaces       options.NamespaceList
 	ctx              context.Context
 	enabledResources []string
 	shard            int32
 	totalShards      int
-
-	collector *Collector
+	cc               reconcileutils.ClientCommandRunner
 }
 
 // NewBuilder returns a new builder.
@@ -47,16 +51,21 @@ func (b *Builder) WithContext(ctx context.Context) {
 }
 
 // WithKubeClient sets the kubeClient property of a Builder.
-func (b *Builder) WithKubeClient(c client.Client) {
+func (b *Builder) WithKubeClient(c clientset.Interface) {
 	b.kubeClient = c
 }
 
-func (b *Builder) WithCollector(c *Collector) {
-	b.collector = c
+// WithKubeControllerClient sets the kubeClient property of a Builder.
+func (b *Builder) WithKubeControllerClient(c client.Client) {
+	b.kubeContClient = c
 }
 
-func (b *Builder) Build() []*metricsstore.MetricsStore {
-	stores := []*metricsstore.MetricsStore{}
+func (b *Builder) WithClientCommand(cc reconcileutils.ClientCommandRunner) {
+	b.cc = cc
+}
+
+func (b *Builder) Build() []*MetricsStore {
+	stores := []*MetricsStore{}
 	activeStoreNames := []string{"pods"}
 
 	klog.Info("Active resources", "resources", strings.Join(activeStoreNames, ","))
@@ -68,20 +77,8 @@ func (b *Builder) Build() []*metricsstore.MetricsStore {
 	return stores
 }
 
-var availableStores = map[string]func(f *Builder) *metricsstore.MetricsStore{
-	"pods": func(b *Builder) *metricsstore.MetricsStore {
-		store := b.buildPodStore()
-		podChan := make(chan *v1.Pod)
-		b.collector.RegisterPodListener(podChan)
-
-		go func() {
-			for pod := range podChan {
-				store.Add(pod)
-			}
-		}()
-
-		return store
-	},
+var availableStores = map[string]func(f *Builder) *MetricsStore{
+	"pods": func(b *Builder) *MetricsStore { return b.buildPodStore() },
 	// "services": func(b *Builder) cache.Store {
 	// 	return b.buildServiceStore()
 	// },
@@ -92,25 +89,78 @@ func resourceExists(name string) bool {
 	return ok
 }
 
+func createPodListWatch(kubeClient clientset.Interface, ns string) cache.ListerWatcher {
+	return &cache.ListWatch{
+		ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+			return kubeClient.CoreV1().Pods(ns).List(context.TODO(), opts)
+		},
+		WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+			return kubeClient.CoreV1().Pods(ns).Watch(context.TODO(), opts)
+		},
+	}
+}
+
 // func (b *Builder) buildServiceStore() cache.Store {
 // 	return b.buildStoreFunc(serviceMetricsFamilies, &v1.Service{}, createServiceListWatch)
 // }
 
-func (b *Builder) buildPodStore() *metricsstore.MetricsStore {
-	return b.buildStore(podMetricsFamilies, &v1.Pod{})
+func (b *Builder) buildPodStore() *MetricsStore {
+	return b.buildStore(podMetricsFamilies, &v1.Pod{}, &PodMeterDefFetcher{b.cc}, createPodListWatch)
 }
 
 func (b *Builder) buildStore(
-	metricFamilies []generator.FamilyGenerator,
+	metricFamilies []FamilyGenerator,
 	expectedType interface{},
-) *metricsstore.MetricsStore {
-	composedMetricGenFuncs := generator.ComposeMetricGenFuncs(metricFamilies)
-	familyHeaders := generator.ExtractMetricFamilyHeaders(metricFamilies)
+  fetcher MeterDefinitionFetcher,
+	listWatchFunc func(kubeClient clientset.Interface, ns string) cache.ListerWatcher,
+) *MetricsStore {
+	composedMetricGenFuncs := ComposeMetricGenFuncs(metricFamilies)
+	familyHeaders := ExtractMetricFamilyHeaders(metricFamilies)
 
-	store := metricsstore.NewMetricsStore(
+	store := NewMetricsStore(
 		familyHeaders,
 		composedMetricGenFuncs,
+		fetcher,
 	)
+	b.reflectorPerNamespace(expectedType, store, listWatchFunc)
 
 	return store
+}
+
+// reflectorPerNamespace creates a Kubernetes client-go reflector with the given
+// listWatchFunc for each given namespace and registers it with the given store.
+func (b *Builder) reflectorPerNamespace(
+	expectedType interface{},
+	store cache.Store,
+	listWatchFunc func(kubeClient clientset.Interface, ns string) cache.ListerWatcher,
+) {
+	for _, ns := range b.namespaces {
+		lw := listWatchFunc(b.kubeClient, ns)
+		reflector := cache.NewReflector(lw, expectedType, store, 0)
+		go reflector.Run(b.ctx.Done())
+	}
+}
+
+func ComposeMetricGenFuncs(familyGens []FamilyGenerator) func(interface{}, []*marketplacev1alpha1.MeterDefinition) []FamilyByteSlicer {
+	return func(obj interface{}, meterDefinitions []*marketplacev1alpha1.MeterDefinition) []FamilyByteSlicer {
+		families := make([]FamilyByteSlicer, len(familyGens))
+
+		for i, gen := range familyGens {
+			families[i] = gen.GenerateMeterFunc(obj, meterDefinitions)
+		}
+
+		return families
+	}
+}
+
+// ExtractMetricFamilyHeaders takes in a slice of FamilyGenerator metrics and
+// returns the extracted headers.
+func ExtractMetricFamilyHeaders(families []FamilyGenerator) []string {
+	headers := make([]string, len(families))
+
+	for i, f := range families {
+		headers[i] = f.generateHeader()
+	}
+
+	return headers
 }

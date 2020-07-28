@@ -19,7 +19,7 @@ type Logger struct {
 
 func NewLogger(name string) *Logger {
 	return &Logger{
-		Logger: logf.Log.WithName("controller_meterbase"),
+		Logger: logf.Log.WithName(name),
 	}
 }
 

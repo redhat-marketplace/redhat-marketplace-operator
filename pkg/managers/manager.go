@@ -69,6 +69,7 @@ var (
 		ProvideManager,
 		ProvideScheme,
 		ProvideManagerClient,
+		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
 	)
 	// ProvideCacheClientSet is to be used by
 	// wire files to get a cached client
@@ -79,6 +80,7 @@ var (
 		ProvideScheme,
 		NewDynamicRESTMapper,
 		ProvideNewCache,
+		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
 	)
 )
 

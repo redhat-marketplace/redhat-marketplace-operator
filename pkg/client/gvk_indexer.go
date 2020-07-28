@@ -5,58 +5,46 @@ import (
 	"fmt"
 	"strings"
 
-	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 )
 
+const MeterDefinitionGVK = "meterdefinition.marketplace.redhat.com/gvk"
+const MeterDefinitionPods = "meterdefinition.marketplace.redhat.com/pods"
 const OwnerRefContains = "metadata.ownerReferences.contains"
 
 var log = logger.NewLogger("client")
 
-func AddGVKIndexer(fieldIndexer client.FieldIndexer) error {
-	err := fieldIndexer.IndexField(context.TODO(), &corev1.Pod{}, OwnerRefContains, indexGVK)
-	if err != nil {
-		return err
-	}
-	err = fieldIndexer.IndexField(context.TODO(), &appsv1.Deployment{}, OwnerRefContains, indexGVK)
-	if err != nil {
-		return err
-	}
-	err = fieldIndexer.IndexField(context.TODO(), &appsv1.ReplicaSet{}, OwnerRefContains, indexGVK)
-	if err != nil {
-		return err
-	}
-	err = fieldIndexer.IndexField(context.TODO(), &appsv1.DaemonSet{}, OwnerRefContains, indexGVK)
-	if err != nil {
-		return err
-	}
-	err = fieldIndexer.IndexField(context.TODO(), &appsv1.StatefulSet{}, OwnerRefContains, indexGVK)
-	if err != nil {
-		return err
-	}
-	err = fieldIndexer.IndexField(context.TODO(), &batchv1.Job{}, OwnerRefContains, indexGVK)
-	if err != nil {
-		return err
-	}
-	err = fieldIndexer.IndexField(context.TODO(), &monitoringv1.ServiceMonitor{}, OwnerRefContains, indexGVK)
-	if err != nil {
-		return err
-	}
-	err = fieldIndexer.IndexField(context.TODO(), &corev1.Service{}, OwnerRefContains, indexGVK)
-	if err != nil {
-		return err
-	}
+func AddGVKIndexer(cc ClientCommandRunner, fieldIndexer client.FieldIndexer) error {
+	// err := fieldIndexer.IndexField(context.TODO(), &corev1.Pod{}, MeterDefinitionGVK, findPodOwner(cc))
+	// if err != nil {
+	// 	return err
+	//}
+	// err = fieldIndexer.IndexField(context.TODO(), &marketplacev1alpha1.MeterDefinition{}, MeterDefinitionPods, findPodsForMeterDef(cc))
+	// if err != nil {
+	// 	return err
+	// }
+	// err = fieldIndexer.IndexField(context.TODO(), &monitoringv1.ServiceMonitor{}, OwnerRefContains, indexGVK)
+	// if err != nil {
+	// 	return err
+	// }
+	// err = fieldIndexer.IndexField(context.TODO(), &corev1.Service{}, OwnerRefContains, indexGVK)
+	// if err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
 
-func objRefToStr(apiversion, kind string) string {
+func AddMeterDefIndex(fieldIndexer client.FieldIndexer) error {
+	return fieldIndexer.IndexField(context.Background(), &marketplacev1alpha1.MeterDefinition{}, MeterDefinitionGVK, IndexMeterDefinitionGVK)
+}
+
+func ObjRefToStr(apiversion, kind string) string {
 	result := strings.Split(apiversion, "/")
 
 	if len(result) != 2 {
@@ -75,13 +63,17 @@ func indexGVK(obj runtime.Object) []string {
 			return nil
 		}
 
-		gvk := objRefToStr(owner.APIVersion, owner.Kind)
+		gvk := ObjRefToStr(owner.APIVersion, owner.Kind)
 
 		if gvk == "" {
 			return nil
 		}
 
-		data := []string{gvk, fmt.Sprintf("%s/%s", owner.Name, gvk), string(owner.UID)}
+		data := []string{
+			"gvk:" + gvk,
+			"named:" + fmt.Sprintf("%s/%s", owner.Name, gvk),
+			"uid:" + string(owner.UID),
+		}
 		log.V(4).Info("indexing gvk", "gvk", gvk, "name", meta.GetName(), "namespace", meta.GetNamespace(), "data", data)
 
 		return data
@@ -104,4 +96,15 @@ func getOwnersReferences(object metav1.Object, isController bool) []metav1.Owner
 	}
 	// No Controller OwnerReference found
 	return nil
+}
+
+func IndexMeterDefinitionGVK(obj runtime.Object) []string {
+	meterDef, ok := obj.(*marketplacev1alpha1.MeterDefinition)
+
+	if !ok {
+		return []string{}
+	}
+
+	gvk := ObjRefToStr(meterDef.Spec.Group+"/"+meterDef.Spec.Version, meterDef.Spec.Kind)
+	return []string{gvk}
 }

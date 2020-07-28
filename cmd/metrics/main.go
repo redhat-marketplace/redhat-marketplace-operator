@@ -5,7 +5,6 @@ import (
 	"os"
 
 	homedir "github.com/mitchellh/go-homedir"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/cmd/reporter/report"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/metric_generator"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	"github.com/spf13/cobra"
@@ -22,7 +21,7 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "redhat-marketplace-metrics",
 		Short: "Report Meter data for Red Hat Marketplace.",
-		Run: run,
+		Run:   run,
 	}
 
 	log = logger.NewLogger("metrics_cmd")
@@ -39,9 +38,13 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	err = server.Serve(ctx.Done())
 
-	server.Serve(ctx.Done())
+	if err != nil {
+		log.Error(err, "error running server")
+		cancel()
+		os.Exit(1)
+	}
 
 	os.Exit(0)
 }
@@ -50,9 +53,8 @@ func init() {
 	logger.SetLoggerToDevelopmentZap()
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.AddCommand(report.ReportCmd)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cobra.yaml)")
-	opts.Mount(rootCmd.Flags().AddFlagSet)
+	opts.Mount(rootCmd.PersistentFlags().AddFlagSet)
 }
 
 func er(msg interface{}) {
