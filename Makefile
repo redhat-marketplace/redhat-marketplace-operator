@@ -149,13 +149,13 @@ setup-minikube: ## Setup minikube for full operator dev
 		kubectl apply -f https://raw.githubusercontent.com/kubernetes/kube-state-metrics/master/examples/standard/$$item ; \
 	done
 
-setup-operator-sdk-run: ## Create ns, crds, sa, role, and rolebinding before operator-sdk run
+setup-operator-sdk: ## Create ns, crds, sa, role, and rolebinding before operator-sdk run
 	- make helm
 	- make create
 	- make deploy-services
 	- . ./scripts/operator_sdk_sa_kubeconfig.sh $(CLUSTER_SERVER) $(NAMESPACE) $(SERVICE_ACCOUNT)
 
-operator-sdk-run: ## Run operator locally outside the cluster during development cycle
+run-operator-sdk: ## Run operator locally outside the cluster during development cycle
 	operator-sdk run local --watch-namespace="" --kubeconfig=./sa.kubeconfig
 
 ##@ Manual Testing
