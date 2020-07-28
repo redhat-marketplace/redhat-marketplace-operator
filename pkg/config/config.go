@@ -3,8 +3,8 @@ package config
 import (
 	"strings"
 
-	"github.com/spf13/viper"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	"github.com/spf13/viper"
 )
 
 type OperatorConfig struct {

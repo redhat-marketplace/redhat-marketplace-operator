@@ -24,6 +24,7 @@ import (
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	opsrcApi "github.com/operator-framework/operator-marketplace/pkg/apis"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,7 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 )
 
 func TestSubscriptionController(t *testing.T) {

@@ -145,7 +145,7 @@ func (r *MarketplaceReporter) query(
 	errorsch chan<- error,
 ) {
 	queryProcess := func(mdef *marketplacev1alpha1.MeterDefinitionSpec) {
-		for _, metric := range mdef.ServiceMeters{
+		for _, metric := range mdef.ServiceMeters {
 			logger.Info("query", "metric", metric)
 			// TODO: use metadata to build a smart roll up
 			// Guage = delta

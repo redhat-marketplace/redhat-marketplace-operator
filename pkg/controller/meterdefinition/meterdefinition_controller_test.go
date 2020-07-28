@@ -19,6 +19,7 @@ import (
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 	"github.com/spf13/viper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,7 +27,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 )
 
 func TestMeterDefinitionController(t *testing.T) {
@@ -55,7 +55,7 @@ var (
 			Namespace: namespace,
 		},
 		Spec: marketplacev1alpha1.MeterDefinitionSpec{
-			Group:  "apps.partner.metering.com",
+			Group:   "apps.partner.metering.com",
 			Kind:    "App",
 			Version: "v1",
 			ServiceMeters: []string{
