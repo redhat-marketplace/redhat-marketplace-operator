@@ -9,8 +9,8 @@ import (
 var log = logger.NewLogger("meterics")
 
 func GetMeterDefLabelsKeys(mdef *marketplacev1alpha1.MeterDefinition) ([]string, []string) {
-	return []string{"meter_def_domain", "meter_def_kind", "meter_def_version"},
-		[]string{mdef.Spec.Group, mdef.Spec.Kind, mdef.Spec.Version}
+	return []string{"meter_def_name", "meter_def_namespace", "meter_def_domain", "meter_def_kind", "meter_def_version"},
+		[]string{mdef.Name, mdef.Namespace, mdef.Spec.Group, mdef.Spec.Kind, mdef.Spec.Version}
 }
 
 func GetAllMeterLabelsKeys(mdefs []*marketplacev1alpha1.MeterDefinition) ([]string, []string) {

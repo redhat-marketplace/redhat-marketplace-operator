@@ -53,7 +53,8 @@ spec:
         - --upstream=https://prometheus-operator.redhat-marketplace.svc:8080/
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
-        image: quay.io/coreos/kube-rbac-proxy:v0.4.1
+        - --upstream-ca-file=/etc/configmaps/operator-cert-ca-bundle/service-ca.crt
+        image: quay.io/coreos/kube-rbac-proxy:v0.5.0
         name: kube-rbac-proxy
         ports:
         - containerPort: 8443

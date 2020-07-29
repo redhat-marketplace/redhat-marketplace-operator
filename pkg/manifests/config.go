@@ -30,6 +30,8 @@ type PrometheusOperatorConfig struct {
 
 type RelatedImages struct {
 	Reporter string
+	MetricState string
+	KubeRbacProxy string
 }
 
 func (c *Config) LoadPlatform(load func() (*configv1.Infrastructure, error)) error {
@@ -64,7 +66,9 @@ func NewConfig(content io.Reader) (*Config, error) {
 }
 
 func NewDefaultConfig() *Config {
+	cfg, _ := config.ProvideConfig()
 	c := &Config{}
+	c.RelatedImages = &cfg.RelatedImages
 	moc := MarketplaceOperatorConfig{}
 	c.MarketplaceOperatorConfig = &moc
 	c.applyDefaults()

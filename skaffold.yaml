@@ -26,6 +26,14 @@ build:
         cacheFrom:
           - registry.access.redhat.com/ubi8/ubi:latest
           - quay.io/rh-marketplace/golang-base:1.14
+    - image: redhat-marketplace-metric-state
+      docker:
+        dockerfile: build/metricState.Dockerfile
+        buildArgs:
+          VERSION: '{{.VERSION}}'
+        cacheFrom:
+          - registry.access.redhat.com/ubi8/ubi:latest
+          - quay.io/rh-marketplace/golang-base:1.14
 deploy:
   helm:
     releases:
@@ -33,6 +41,7 @@ deploy:
         artifactOverrides:
           image: redhat-marketplace-operator
           reporterImage: redhat-marketplace-reporter
+          metricStateImage: redhat-marketplace-metric-state
         chartPath: deploy/chart
         setValueTemplates: 
           devpostfix: "{{.DEVPOSTFIX}}"
@@ -47,7 +56,7 @@ deploy:
       disableValidation: true
       delete:
         - '--wait'
-        - '--timeout=30s'
+        - '--timeout=120s'
 profiles:
   - name: dev
     activation:

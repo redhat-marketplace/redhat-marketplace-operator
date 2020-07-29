@@ -253,6 +253,7 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		Do(r.reconcilePrometheusOperator(instance, factory)...),
 		Do(r.reconcilePrometheus(instance, prometheus, factory)...),
 		Do(r.installServiceMonitors(instance)...),
+		Do(r.installMetricStateDeployment(instance, factory)...),
 	); !result.Is(Continue) {
 		if err != nil {
 			reqLogger.Error(err, "error in reconcile")
@@ -427,6 +428,44 @@ func (r *ReconcileMeterBase) reconcilePrometheusOperator(
 			service,
 			func() (runtime.Object, error) {
 				return factory.NewPrometheusOperatorService()
+			},
+			args,
+		),
+	}
+}
+
+func (r *ReconcileMeterBase) installMetricStateDeployment(
+	instance *marketplacev1alpha1.MeterBase,
+	factory *manifests.Factory,
+) []ClientAction {
+	deployment := &appsv1.Deployment{}
+	service := &corev1.Service{}
+	serviceMonitor := &monitoringv1.ServiceMonitor{}
+
+	args := manifests.CreateOrUpdateFactoryItemArgs{
+		Owner:   instance,
+		Patcher: r.patcher,
+	}
+
+	return []ClientAction{
+		manifests.CreateOrUpdateFactoryItemAction(
+			deployment,
+			func() (runtime.Object, error) {
+				return factory.MetricStateDeployment()
+			},
+			args,
+		),
+		manifests.CreateOrUpdateFactoryItemAction(
+			service,
+			func() (runtime.Object, error) {
+				return factory.MetricStateService()
+			},
+			args,
+		),
+		manifests.CreateOrUpdateFactoryItemAction(
+			serviceMonitor,
+			func() (runtime.Object, error) {
+				return factory.MetricStateServiceMonitor()
 			},
 			args,
 		),

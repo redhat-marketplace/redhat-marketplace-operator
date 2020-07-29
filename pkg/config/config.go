@@ -13,7 +13,9 @@ type OperatorConfig struct {
 
 type RelatedImages struct {
 	Image struct {
-		Reporter string `mapstructure:"reporter"`
+		Reporter      string `mapstructure:"reporter"`
+		KubeRbacProxy string `mapstructure:"kubeRbacProxy"`
+		MetricState   string `mapstructure:"metricState"`
 	}
 }
 
@@ -33,6 +35,8 @@ func ProvideConfig() (*OperatorConfig, error) {
 	}
 
 	cfg.RelatedImages.Image.Reporter = utils.Getenv("RELATED_IMAGE_REPORTER", "")
+	cfg.RelatedImages.Image.KubeRbacProxy = utils.Getenv("RELATED_IMAGE_KUBE_RBAC_PROXY", "")
+	cfg.RelatedImages.Image.MetricState = utils.Getenv("RELATED_IMAGE_METRIC_STATE", "")
 
 	return cfg, nil
 }

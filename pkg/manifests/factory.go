@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"strings"
 
@@ -34,6 +35,10 @@ const (
 	PrometheusKubeletServingCABundle = "assets/prometheus/kubelet-serving-ca-bundle.yaml"
 
 	ReporterJob = "assets/reporter/job.yaml"
+
+	MetricStateDeployment     = "assets/metric-state/deployment.yaml"
+	MetricStateServiceMonitor = "assets/metric-state/service-monitor.yaml"
+	MetricStateService        = "assets/metric-state/service.yaml"
 )
 
 func MustAssetReader(asset string) io.Reader {
@@ -303,6 +308,64 @@ func (f *Factory) ReporterJob(report *marketplacev1alpha1.MeterReport) (*batchv1
 	return j, nil
 }
 
+func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
+	d, err := f.NewDeployment(MustAssetReader(MetricStateDeployment))
+	if err != nil {
+		return nil, err
+	}
+
+	for i, container := range d.Spec.Template.Spec.Containers {
+		switch container.Name {
+		case "kube-rbac-proxy-1":
+			d.Spec.Template.Spec.Containers[i].Image = f.config.RelatedImages.Image.KubeRbacProxy
+		case "kube-rbac-proxy-2":
+			d.Spec.Template.Spec.Containers[i].Image = f.config.RelatedImages.Image.KubeRbacProxy
+		case "metric-state":
+			d.Spec.Template.Spec.Containers[i].Image = f.config.RelatedImages.Image.MetricState
+		}
+	}
+
+	d.Namespace = f.namespace
+
+	return d, nil
+}
+
+func (f *Factory) MetricStateServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
+	sm, err := f.NewServiceMonitor(MustAssetReader(MetricStateServiceMonitor))
+	if err != nil {
+		return nil, err
+	}
+
+	sm.Spec.Endpoints[0].TLSConfig.ServerName = fmt.Sprintf("rhm-metric-state.%s.svc", f.namespace)
+	sm.Namespace = f.namespace
+
+	return sm, nil
+}
+
+func (f *Factory) MetricStateService() (*v1.Service, error) {
+	s, err := f.NewService(MustAssetReader(MetricStateService))
+	if err != nil {
+		return nil, err
+	}
+
+	s.Namespace = f.namespace
+
+	return s, nil
+}
+
+func (f *Factory) NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMonitor, error) {
+	sm, err := NewServiceMonitor(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	if sm.GetNamespace() == "" {
+		sm.SetNamespace(f.namespace)
+	}
+
+	return sm, nil
+}
+
 func NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
 	d := appsv1.Deployment{}
 	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&d)
@@ -370,4 +433,14 @@ func GeneratePassword(n int) (string, error) {
 	}
 
 	return base64.StdEncoding.EncodeToString(b), err
+}
+
+func NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMonitor, error) {
+	sm := monitoringv1.ServiceMonitor{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&sm)
+	if err != nil {
+		return nil, err
+	}
+
+	return &sm, nil
 }

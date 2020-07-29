@@ -10,6 +10,7 @@ ENV CGO_ENABLED=0 GOOS=linux
 
 COPY go.mod go.sum ./
 COPY version version
+COPY internal internal
 COPY cmd cmd
 COPY pkg pkg
 COPY test test
