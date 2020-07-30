@@ -177,7 +177,7 @@ func testClusterServiceVersionWithSubscriptionWithoutLabels(t *testing.T) {
 	)
 }
 
-func testBuildMeterDefCRfunc(t *testing.T) {
+func testBuildMeterDefinitionFromString(t *testing.T) {
 	t.Parallel()
 	name := "example-meterdefinition"
 	group := "partner.metering.com"
@@ -201,12 +201,32 @@ func testBuildMeterDefCRfunc(t *testing.T) {
 	}
 
 	meterStr := "{\"name\": \"" + name + "\",\"group\": \"" + group + "\",\"version\": \"" + version + "\",\"kind\": \"" + kind + "\",\"serviceMeters\": [\"labels\"],\"podMeters\": [\"kube_pod_container_resource_requests\"]}"
-	meter, err := buildMeterDefCR(meterStr, namespace)
+	meter, err := buildMeterDefinitionFromString(meterStr, namespace)
 	if err != nil {
 		t.Errorf("Failed to build MeterDefinition CR: %v", err)
 	} else {
 		if !reflect.DeepEqual(meter, ogMeter) {
 			t.Errorf("Expected MeterDefinition is different from actual MeterDefinition")
+		}
+	}
+}
+
+func testgetMeterDefinitionString(t *testing.T) {
+	t.Parallel()
+	name := "example-meterdefinition"
+	group := "partner.metering.com"
+	version := "v1alpha"
+	kind := "App"
+
+	listStr := "apiVersion\": \"marketplace.redhat.com/v1alpha1\",\"kind\": \"MarketplaceConfig\",\"metadata\": {\"name\": \"marketplaceconfig\"},\"spec\": {\"clusterUUID\": \"example-clusterUUID\",\"deploySecretName\": \"rhm-operator-secret\",\"installIBMCatalogSource\": false,\"rhmAccountID\": \"example-userid\"}"
+	meterStr := "{\"name\": \"" + name + "\",\"group\": \"" + group + "\",\"version\": \"" + version + "\",\"kind\": \"" + kind + "\",\"serviceMeters\": [\"labels\"],\"podMeters\": [\"kube_pod_container_resource_requests\"]}"
+	listStr = "[" + listStr + ", " + meterStr + "]"
+	meter, err := getMeterDefinitionString(listStr)
+	if err != nil {
+		t.Errorf("Failed to get MeterDefinition String: %v", err)
+	} else {
+		if meter != meterStr {
+			t.Errorf("Expected MeterDefinition (string) is different from actual MeterDefinition.")
 		}
 	}
 }

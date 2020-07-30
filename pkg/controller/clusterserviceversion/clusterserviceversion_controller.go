@@ -200,7 +200,31 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 	return reconcile.Result{}, nil
 }
 
-func buildMeterDefCR(meterdefString, namespace string) (*marketplacev1alpha1.MeterDefinition, error) {
+func getMeterDefinitionString(almExample string) (string, error) {
+	var err error
+	var objs []runtime.Object
+	var result string
+
+	data := []byte(almExample)
+	err = json.Unmarshal(data, &objs)
+	if err != nil {
+		return "", nil
+	}
+
+	for _, obj := range objs {
+		if obj.GetObjectKind().GroupVersionKind().Kind == "MeterDefinition" {
+			res, err := json.Marshal(obj)
+			if err != nil {
+				return "", err
+			}
+			result = string(res)
+		}
+	}
+
+	return result, nil
+}
+
+func buildMeterDefinitionFromString(meterdefString, namespace string) (*marketplacev1alpha1.MeterDefinition, error) {
 	var meterdef *marketplacev1alpha1.MeterDefinition
 	data := []byte(meterdefString)
 	err := json.Unmarshal(data, meterdef)

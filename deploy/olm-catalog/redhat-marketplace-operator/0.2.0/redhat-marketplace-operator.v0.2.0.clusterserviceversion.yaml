@@ -65,7 +65,7 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "MeterDefinition",
           "metadata": {
-            "name": "example-meterdefinition-2"\\\
+            "name": "example-meterdefinition-2"
           },
           "spec": {
             "group": "partner.metering.com",
