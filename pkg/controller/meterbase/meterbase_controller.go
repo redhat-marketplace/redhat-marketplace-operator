@@ -17,11 +17,13 @@ package meterbase
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
@@ -240,115 +242,101 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, nil
 	}
 
-	// message := "Meter Base install starting"
-	// if instance.Status.Conditions == nil {
-	// 	instance.Status.Conditions = &status.Conditions{}
-	// }
+	message := "Meter Base install starting"
+	if instance.Status.Conditions == nil {
+		instance.Status.Conditions = &status.Conditions{}
+	}
 
-	/// ---
-	/// Install Objects
-	/// ---
+	// / ---
+	// / Install Objects
+	// / ---
 
-	// prometheus := &monitoringv1.Prometheus{}
-	// if result, err := cc.Do(context.TODO(),
-	// 	Do(r.reconcilePrometheusOperator(instance, factory)...),
-	// 	Do(r.reconcilePrometheus(instance, prometheus, factory)...),
-	// 	Do(r.installServiceMonitors(instance)...),
-	// 	Do(r.installMetricStateDeployment(instance, factory)...),
-	// ); !result.Is(Continue) {
-	// 	if err != nil {
-	// 		reqLogger.Error(err, "error in reconcile")
-	// 		return result.ReturnWithError(merrors.Wrap(err, "error creating prometheus"))
-	// 	}
+	prometheus := &monitoringv1.Prometheus{}
+	if result, err := cc.Do(context.TODO(),
+		Do(r.reconcilePrometheusOperator(instance, factory)...),
+		Do(r.reconcilePrometheus(instance, prometheus, factory)...),
+		Do(r.installServiceMonitors(instance)...),
+		Do(r.installMetricStateDeployment(instance, factory)...),
+	); !result.Is(Continue) {
+		if err != nil {
+			reqLogger.Error(err, "error in reconcile")
+			return result.ReturnWithError(merrors.Wrap(err, "error creating prometheus"))
+		}
 
-	// 	return result.Return()
-	// }
+		return result.Return()
+	}
 
-	// // ----
-	// // Update our status
-	// // ----
+	// ----
+	// Update our status
+	// ----
 
-	// // Set status for prometheus
+	// Set status for prometheus
 
-	// prometheusStatefulset := &appsv1.StatefulSet{}
-	// if result, err := cc.Do(
-	// 	context.TODO(),
-	// 	HandleResult(
-	// 		GetAction(types.NamespacedName{
-	// 			Namespace: prometheus.Namespace,
-	// 			Name:      fmt.Sprintf("prometheus-%s", prometheus.Name),
-	// 		}, prometheusStatefulset),
-	// 		OnContinue(Call(func() (ClientAction, error) {
-	// 			updatedInstance := instance.DeepCopy()
-	// 			updatedInstance.Status.Replicas = &prometheusStatefulset.Status.CurrentReplicas
-	// 			updatedInstance.Status.UpdatedReplicas = &prometheusStatefulset.Status.UpdatedReplicas
-	// 			updatedInstance.Status.AvailableReplicas = &prometheusStatefulset.Status.ReadyReplicas
-	// 			updatedInstance.Status.UnavailableReplicas = ptr.Int32(
-	// 				prometheusStatefulset.Status.CurrentReplicas - prometheusStatefulset.Status.ReadyReplicas)
+	prometheusStatefulset := &appsv1.StatefulSet{}
+	if result, err := cc.Do(
+		context.TODO(),
+		HandleResult(
+			GetAction(types.NamespacedName{
+				Namespace: prometheus.Namespace,
+				Name:      fmt.Sprintf("prometheus-%s", prometheus.Name),
+			}, prometheusStatefulset),
+			OnContinue(Call(func() (ClientAction, error) {
+				updatedInstance := instance.DeepCopy()
+				updatedInstance.Status.Replicas = &prometheusStatefulset.Status.CurrentReplicas
+				updatedInstance.Status.UpdatedReplicas = &prometheusStatefulset.Status.UpdatedReplicas
+				updatedInstance.Status.AvailableReplicas = &prometheusStatefulset.Status.ReadyReplicas
+				updatedInstance.Status.UnavailableReplicas = ptr.Int32(
+					prometheusStatefulset.Status.CurrentReplicas - prometheusStatefulset.Status.ReadyReplicas)
 
-	// 			if reflect.DeepEqual(updatedInstance.Status, instance.Status) {
-	// 				reqLogger.Info("prometheus statefulset status is up to date")
-	// 				return nil, nil
-	// 			}
+				if reflect.DeepEqual(updatedInstance.Status, instance.Status) {
+					reqLogger.Info("prometheus statefulset status is up to date")
+					return nil, nil
+				}
 
-	// 			var action ClientAction = nil
+				var action ClientAction = nil
 
-	// 			reqLogger.Info("statefulset status", "status", updatedInstance.Status)
+				reqLogger.Info("statefulset status", "status", updatedInstance.Status)
 
-	// 			if updatedInstance.Status.Replicas != updatedInstance.Status.AvailableReplicas {
-	// 				reqLogger.Info("prometheus statefulset has not finished roll out",
-	// 					"replicas", updatedInstance.Status.Replicas,
-	// 					"available", updatedInstance.Status.AvailableReplicas)
-	// 				action = RequeueAfterResponse(30 * time.Second)
-	// 			}
+				if updatedInstance.Status.Replicas != updatedInstance.Status.AvailableReplicas {
+					reqLogger.Info("prometheus statefulset has not finished roll out",
+						"replicas", updatedInstance.Status.Replicas,
+						"available", updatedInstance.Status.AvailableReplicas)
+					action = RequeueAfterResponse(30 * time.Second)
+				}
 
-	// 			return HandleResult(
-	// 				UpdateAction(updatedInstance, UpdateStatusOnly(true)),
-	// 				OnContinue(action)), nil
-	// 		})),
-	// 		OnNotFound(Call(func() (ClientAction, error) {
-	// 			log.Info("can't find prometheus statefulset, requeuing")
-	// 			return RequeueAfterResponse(30 * time.Second), nil
-	// 		})),
-	// 	),
-	// ); result.Is(Error) || result.Is(Requeue) {
-	// 	if err != nil {
-	// 		return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
-	// 	}
+				return HandleResult(
+					UpdateAction(updatedInstance, UpdateStatusOnly(true)),
+					OnContinue(action)), nil
+			})),
+			OnNotFound(Call(func() (ClientAction, error) {
+				log.Info("can't find prometheus statefulset, requeuing")
+				return RequeueAfterResponse(30 * time.Second), nil
+			})),
+		),
+	); result.Is(Error) || result.Is(Requeue) {
+		if err != nil {
+			return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
+		}
 
-	// 	return result.Return()
-	// }
+		return result.Return()
+	}
 
-	// // Update final condition
+	// Update final condition
 
-	// message = "Meter Base install complete"
-	// if result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, instance.Status.Conditions, status.Condition{
-	// 	Type:    marketplacev1alpha1.ConditionInstalling,
-	// 	Status:  corev1.ConditionTrue,
-	// 	Reason:  marketplacev1alpha1.ReasonMeterBaseFinishInstall,
-	// 	Message: message,
-	// })); result.Is(Error) || result.Is(Requeue) {
-	// 	if err != nil {
-	// 		return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
-	// 	}
+	message = "Meter Base install complete"
+	if result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, instance.Status.Conditions, status.Condition{
+		Type:    marketplacev1alpha1.ConditionInstalling,
+		Status:  corev1.ConditionTrue,
+		Reason:  marketplacev1alpha1.ReasonMeterBaseFinishInstall,
+		Message: message,
+	})); result.Is(Error) || result.Is(Requeue) {
+		if err != nil {
+			return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
+		}
 
-	// 	return result.Return()
-	// }
+		return result.Return()
+	}
 
-	// Create meter reports ---
-	// collect meter reports - list
-	// check for last n exists - last 30 since time of creation
-	// verify no gaps - 0-1, 2-3 - 1-2 is missing, then create 1-2
-	// create any new reports necessary
-	// use UTC for dates
-	// requeue every 10 minutes
-	// ex:
-	//
-	// I get a list of 0-1, 2-3, 3-4, 4-5 and my time is now 6, with a start of 0
-	// I should create 1-2, and 5-6
-	//
-	// If my start is -1
-	// -1-0 and 1-2, 5-6
 	meterReportList := &marketplacev1alpha1.MeterReportList{}
 	if result, err := cc.Do(
 		context.TODO(),
