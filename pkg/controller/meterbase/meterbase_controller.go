@@ -247,9 +247,9 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		instance.Status.Conditions = &status.Conditions{}
 	}
 
-	// / ---
-	// / Install Objects
-	// / ---
+	// ---
+	// Install Objects
+	// ---
 
 	prometheus := &monitoringv1.Prometheus{}
 	if result, err := cc.Do(context.TODO(),
