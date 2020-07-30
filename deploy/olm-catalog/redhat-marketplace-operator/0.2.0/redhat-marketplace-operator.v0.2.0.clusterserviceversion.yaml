@@ -2,6 +2,25 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
+    marketplace.redhat.com/meterdefinition: :-
+      {
+          "apiVersion": "marketplace.redhat.com/v1alpha1",
+          "kind": "MeterDefinition",
+          "metadata": {
+            "name": "example-meterdefinition-2"
+          },
+          "spec": {
+            "group": "partner.metering.com",
+            "kind": "App",
+            "podMeters": [
+              "kube_pod_container_resource_requests"
+            ],
+            "serviceMeters": [
+              "labels"
+            ],
+            "version": "v1alpha1"
+          }
+        }
     alm-examples: |-
       [
         {
@@ -46,25 +65,57 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "MeterDefinition",
           "metadata": {
-            "name": "example-meterdefinition"
+            "name": "example-meterdefinition-2"\\\
           },
           "spec": {
-            "meterDomain": "apps.partner.metering.com",
-            "meterKind": "App",
-            "meterVersion": "v1",
-            "podMeterLabels": [
-              "bar"
+            "group": "partner.metering.com",
+            "kind": "App",
+            "podMeters": [
+              "kube_pod_container_resource_requests"
             ],
-            "serviceMeterLabels": [
-              "rpc_durations_seconds.*"
+            "serviceMeters": [
+              "labels"
             ],
-            "serviceMonitorNamespaceSelector": {},
-            "serviceMonitorSelector": {
+            "version": "v1alpha1"
+          }
+        },
+        {
+          "apiVersion": "marketplace.redhat.com/v1alpha1",
+          "kind": "MeterReport",
+          "metadata": {
+            "name": "example-meterreport"
+          },
+          "spec": {
+            "endTime": "2020-04-19T16:00:00Z",
+            "meterDefinitionLabels": {
               "matchLabels": {
-                "app": "example-app",
-                "marketplace.redhat.com/metered": "true"
+                "report": "1"
               }
-            }
+            },
+            "meterDefinitions": [
+              {
+                "group": "partner.metering.com",
+                "kind": "App",
+                "podMeters": [
+                  "kube_pod_container_resource_requests"
+                ],
+                "serviceMeters": [
+                  "labels"
+                ],
+                "version": "v1alpha1"
+              }
+            ],
+            "prometheusService": {
+              "name": "rhm-prometheus-meterbase",
+              "namespace": "openshift-redhat-marketplace",
+              "targetPort": "web"
+            },
+            "prometheusServiceLabels": {
+              "matchLabels": {
+                "meterbase_cr": "rhm-marketplaceconfig-meterbase"
+              }
+            },
+            "startTime": "2020-04-19T13:00:00Z"
           }
         },
         {
@@ -113,8 +164,8 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Developer Tools
     certified: "true"
-    containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:0.2.0-31a92f
-    createdAt: 2020-07-20T04:39:10Z
+    containerImage: quay.io/namsimar/redhat-marketplace-operator:latest
+    createdAt: 2020-07-29T10:40:43Z
     description: The Red Hat Marketplace Operator provides cluster management, metering
       and operator installation for Red Hat Marketplace customers.
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","meterbases.marketplace.redhat.com","meterdefinitions.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
@@ -234,34 +285,21 @@ spec:
         name: redhat-marketplace-operator
         version: v1
       specDescriptors:
-      - description: MeterDomain defines the primary CRD domain of the meter
-        displayName: Meter Domain
-        path: meterDomain
+      - description: Group defines the operator group of the meter
+        displayName: Group
+        path: group
       - description: MeterKind defines the primary CRD kind of the meter
-        displayName: Meter Kind
-        path: meterKind
+        displayName: Kind
+        path: kind
+      - description: PodMeters of the prometheus metrics you want to track.
+        displayName: Pod Meters
+        path: podMeters
+      - description: ServiceMeters of the meterics you want to track.
+        displayName: Service Meters
+        path: serviceMeters
       - description: MeterVersion defines the primary CRD version of the meter
-        displayName: Meter Version
-        path: meterVersion
-      - description: PodLabels of the prometheus metrics you want to track.
-        displayName: Pod Meter Labels
-        path: podMeterLabels
-      - description: PodNamespaceSelector to select namespaces for pods for metering
-        displayName: Pod Namespace Selector
-        path: podMonitorNamespaceSelector
-      - description: PodSelectors to select pods for metering
-        displayName: Pod Selector
-        path: podMonitorSelector
-      - description: ServiceLabels of the meterics you want to track.
-        displayName: Service Meter Labels
-        path: serviceMeterLabels
-      - description: Namespaces to be selected for ServiceMonitor discovery. If nil,
-          only check own namespace.
-        displayName: Service Monitor Namespace Selector
-        path: serviceMonitorNamespaceSelector
-      - description: ServiceMonitors to be selected for target discovery.
-        displayName: Service Monitor Selector
-        path: serviceMonitorSelector
+        displayName: Version
+        path: version
       statusDescriptors:
       - description: Conditions represent the latest available observations of an
           object's state
@@ -272,8 +310,8 @@ spec:
       - description: PodLabels of the prometheus kube-state metrics you want to track.
         displayName: Pod Labels
         path: podLabels
-      - description: Pods is the list of current pod mointors being watched for this
-          meter definition
+      - description: Pods is the list of current pods being watched for this meter
+          definition
         displayName: Pods
         path: pods
       - description: ServiceLabels of the meterics you want to track.
@@ -283,6 +321,10 @@ spec:
           for this meter definition
         displayName: Service Monitors
         path: serviceMonitors
+      version: v1alpha1
+    - description: MeterReport is the Schema for the meterreports API
+      kind: MeterReport
+      name: meterreports.marketplace.redhat.com
       version: v1alpha1
     - description: RazeeDeployment is the resources that deploys Razee for the Red
         Hat Marketplace. This is an internal resource not meant to be modified directly.
@@ -544,6 +586,9 @@ spec:
           - apps
           resources:
           - deployments
+          - statefulsets
+          - replicasets
+          - daemonsets
           verbs:
           - get
           - list
@@ -723,6 +768,56 @@ spec:
         serviceAccountName: redhat-marketplace-remoteresources3deployment
       - rules:
         - apiGroups:
+          - ""
+          resources:
+          - nodes/metrics
+          verbs:
+          - get
+        - nonResourceURLs:
+          - /metrics
+          verbs:
+          - get
+        - apiGroups:
+          - authentication.k8s.io
+          resources:
+          - tokenreviews
+          verbs:
+          - create
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
+        - apiGroups:
+          - ""
+          resources:
+          - namespaces
+          verbs:
+          - get
+        - apiGroups:
+          - ""
+          resources:
+          - services
+          - endpoints
+          - pods
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - '*'
+          verbs:
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        serviceAccountName: redhat-marketplace-prometheus
+      - rules:
+        - apiGroups:
           - '*'
           resources:
           - '*'
@@ -768,11 +863,17 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.name
+                - name: RELATED_IMAGE_REPORTER
+                  value: quay.io/rh-marketplace/redhat-marketplace-reporter:dev
+                - name: RELATED_IMAGE_KUBE_RBAC_PROXY
+                  value: quay.io/coreos/kube-rbac-proxy:v0.5.0
+                - name: RELATED_IMAGE_METRIC_STATE
+                  value: quay.io/rh-marketplace/redhat-marketplace-metric-state:dev
                 - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
                   value: quay.io/razee/remoteresources3:0.6.2
                 - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
                   value: quay.io/razee/watch-keeper:0.5.3
-                image: quay.io/rh-marketplace/redhat-marketplace-operator:0.2.0-31a92f
+                image: quay.io/namsimar/redhat-marketplace-operator:latest
                 imagePullPolicy: Always
                 name: redhat-marketplace-operator
                 resources: {}
@@ -787,6 +888,14 @@ spec:
           verbs:
           - '*'
         serviceAccountName: redhat-marketplace-remoteresources3deployment
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - get
+        serviceAccountName: redhat-marketplace-prometheus
       - rules:
         - apiGroups:
           - deploy.razee.io
@@ -821,6 +930,19 @@ spec:
           - patch
           - update
           - watch
+        - apiGroups:
+          - operators.coreos.com
+          resources:
+          - subscriptions
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+          - patch
+          - watch
+          - update
         - apiGroups:
           - batch
           - extensions
@@ -860,8 +982,7 @@ spec:
         - apiGroups:
           - monitoring.coreos.com
           resources:
-          - prometheuses
-          - servicemonitors
+          - '*'
           verbs:
           - create
           - delete

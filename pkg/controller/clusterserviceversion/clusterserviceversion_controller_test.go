@@ -15,11 +15,14 @@
 package clusterserviceversion
 
 import (
+	"reflect"
 	"testing"
 
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -172,4 +175,38 @@ func testClusterServiceVersionWithSubscriptionWithoutLabels(t *testing.T) {
 			}),
 		),
 	)
+}
+
+func testBuildMeterDefCRfunc(t *testing.T) {
+	t.Parallel()
+	name := "example-meterdefinition"
+	group := "partner.metering.com"
+	version := "v1alpha"
+	kind := "App"
+	serviceMeters := []string{"labels"}
+	podMeters := []string{"kube_pod_container_resource_requests"}
+
+	ogMeter := &marketplacev1alpha1.MeterDefinition{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: marketplacev1alpha1.MeterDefinitionSpec{
+			Group:         group,
+			Version:       version,
+			Kind:          kind,
+			ServiceMeters: serviceMeters,
+			PodMeters:     podMeters,
+		},
+	}
+
+	meterStr := "{\"name\": \"" + name + "\",\"group\": \"" + group + "\",\"version\": \"" + version + "\",\"kind\": \"" + kind + "\",\"serviceMeters\": [\"labels\"],\"podMeters\": [\"kube_pod_container_resource_requests\"]}"
+	meter, err := buildMeterDefCR(meterStr, namespace)
+	if err != nil {
+		t.Errorf("Failed to build MeterDefinition CR: %v", err)
+	} else {
+		if !reflect.DeepEqual(meter, ogMeter) {
+			t.Errorf("Expected MeterDefinition is different from actual MeterDefinition")
+		}
+	}
 }

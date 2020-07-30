@@ -16,15 +16,15 @@ package clusterserviceversion
 
 import (
 	"context"
+	"encoding/json"
 	"reflect"
 
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
-
 	"k8s.io/apimachinery/pkg/runtime"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -131,6 +131,11 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 		return reconcile.Result{}, err
 	}
 
+	annotations := CSV.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
 	sub := &olmv1alpha1.SubscriptionList{}
 
 	if err := r.client.List(context.TODO(), sub, client.InNamespace(request.NamespacedName.Namespace)); err != nil {
@@ -175,11 +180,7 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 	}
 
 	if !hasMarketplaceSub {
-		annotations := CSV.GetAnnotations()
 		clusterOriginalAnnotations := CSV.DeepCopy().GetAnnotations()
-		if annotations == nil {
-			annotations = make(map[string]string)
-		}
 
 		annotations[IgnoreTag] = "true"
 
@@ -197,4 +198,15 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 
 	reqLogger.Info("reconcilation complete")
 	return reconcile.Result{}, nil
+}
+
+func buildMeterDefCR(meterdefString, namespace string) (*marketplacev1alpha1.MeterDefinition, error) {
+	var meterdef *marketplacev1alpha1.MeterDefinition
+	data := []byte(meterdefString)
+	err := json.Unmarshal(data, meterdef)
+	if err != nil {
+		return meterdef, err
+	}
+	meterdef.Namespace = namespace
+	return meterdef, nil
 }

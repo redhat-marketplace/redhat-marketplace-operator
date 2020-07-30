@@ -25,7 +25,7 @@ import (
 // MeterDefinitionSpec defines the desired metering spec
 // +k8s:openapi-gen=true
 type MeterDefinitionSpec struct {
-	// MeterDomain defines the primary CRD domain of the meter
+	// Group defines the operator group of the meter
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Group string `json:"group"`
