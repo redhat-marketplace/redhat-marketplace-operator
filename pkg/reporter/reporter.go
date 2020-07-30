@@ -417,7 +417,7 @@ func wgWait(ctx context.Context, processName string, maxRoutines int, done chan 
 	select {
 	case <-ctx.Done():
 		logger.Info("canceling wg", "name", processName)
-	case <- wait:
+	case <-wait:
 		logger.Info("wg is done", "name", processName)
 	}
 

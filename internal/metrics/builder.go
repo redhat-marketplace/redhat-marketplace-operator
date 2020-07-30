@@ -78,7 +78,7 @@ func (b *Builder) Build() []*MetricsStore {
 }
 
 var availableStores = map[string]func(f *Builder) *MetricsStore{
-	"pods":    func(b *Builder) *MetricsStore { return b.buildPodStore() },
+	"pods":     func(b *Builder) *MetricsStore { return b.buildPodStore() },
 	"services": func(b *Builder) *MetricsStore { return b.buildServiceStore() },
 	// "services": func(b *Builder) cache.Store {
 	// 	return b.buildServiceStore()

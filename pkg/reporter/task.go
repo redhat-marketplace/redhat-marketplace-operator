@@ -8,19 +8,19 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 type Task struct {
 	ReportName ReportName
-	Cache     cache.Cache
-	K8SClient client.Client
-	Ctx       context.Context
-	Config    *Config
-	K8SScheme *runtime.Scheme
+	Cache      cache.Cache
+	K8SClient  client.Client
+	Ctx        context.Context
+	Config     *Config
+	K8SScheme  *runtime.Scheme
 }
 
 func (r *Task) Run() error {

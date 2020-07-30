@@ -10,7 +10,7 @@ var (
 	DefaultNamespaces = options.NamespaceList{metav1.NamespaceAll}
 
 	DefaultResources = map[string]struct{}{
-		"pods": struct{}{},
+		"pods":     struct{}{},
 		"services": struct{}{},
 	}
 

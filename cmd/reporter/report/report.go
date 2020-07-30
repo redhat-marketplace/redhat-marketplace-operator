@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"emperror.dev/errors"
+	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/reporter"
 	"github.com/spf13/cobra"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"github.com/gotidy/ptr"
 )
 
 var log = logf.Log.WithName("reporter_report_cmd")
@@ -35,7 +35,7 @@ var ReportCmd = &cobra.Command{
 
 		cfg := &reporter.Config{
 			OutputDirectory: tmpDir,
-			Retry: ptr.Int(1),
+			Retry:           ptr.Int(1),
 		}
 		cfg.SetDefaults()
 
