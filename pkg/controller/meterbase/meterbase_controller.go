@@ -405,21 +405,15 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 				endTime := startTime.AddDate(0, 0, 1)
 				newMeterReportName := r.newMeterReportNameFromDate(startTime)
 				newMeterReport := &marketplacev1alpha1.MeterReport{}
-				// see if the report exists already, if not create it
-				HandleResult(
+				
+				// see if the scheduled report exists already, if not create it
+				return HandleResult(
 					GetAction(types.NamespacedName{ Name: newMeterReportName,Namespace: request.Namespace},newMeterReport),
 					OnNotFound(Call(func() (ClientAction, error) {
 						newMeterReport = r.newMeterReport(request.Namespace, startTime, endTime, newMeterReportName)
 						return CreateAction(newMeterReport), nil
 					})),			
-				)
-			
-				// err := r.client.Create(context.TODO(), newMeterReport)
-				// if err != nil {
-				// 	reqLogger.Error(err, "error creating new report")
-				// }
-
-				return nil, nil
+				),nil
 			})),
 			OnNotFound(Call(func() (ClientAction, error) {
 				log.Info("can't find meter report list, requeuing")
@@ -495,26 +489,6 @@ func (r *ReconcileMeterBase) generateExpectedDates(reportRange int) []string {
 	return expectedCreatedDates
 
 }
-
-// func (r *ReconcileMeterBase) pruneOldReports(meterReportNames []string, request marketplacev1alpha1.MeterBase) ([]string, error){
-// 	for _,reportName := range meterReportNames {
-// 		limit := time.Now().In(loc).AddDate(0, 0, reportRange)
-// 		dateCreated, _ := r.retrieveCreatedDate(reportName)
-// 		if dateCreated.Before(limit) {
-// 			meterReportNames = utils.RemoveKey(meterReportNames,reportName)
-// 			deleteReport := &marketplacev1alpha1.MeterReport{
-// 				ObjectMeta: metav1.ObjectMeta{
-// 					Name:      reportName,
-// 					Namespace: request.Namespace,
-// 				},
-// 			}
-// 			err := r.client.Delete(context.TODO(), deleteReport)
-// 			if err != nil {
-// 				reqLogger.Error(err, "Failed to delete MeterReport", "Resource", "Meter Report")
-// 			}
-// 		}
-// 	}
-// }
 
 func (r *ReconcileMeterBase) newMeterReport(namespace string, startTime time.Time, endTime time.Time, meterReportName string) *marketplacev1alpha1.MeterReport {
 	return &marketplacev1alpha1.MeterReport{
