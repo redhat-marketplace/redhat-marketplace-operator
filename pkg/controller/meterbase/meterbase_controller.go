@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -30,6 +32,7 @@ import (
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	status "github.com/operator-framework/operator-sdk/pkg/status"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/spf13/pflag"
@@ -348,6 +351,93 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	//
 	// If my start is -1
 	// -1-0 and 1-2, 5-6
+	meterReportList := &marketplacev1alpha1.MeterReportList{}
+	if result, err := cc.Do(
+		context.TODO(),
+		HandleResult(
+			ListAction(meterReportList, client.InNamespace(request.Namespace)),
+			OnContinue(Call(func() (ClientAction, error) {
+
+				var meterReportNames []string
+				for _, report := range meterReportList.Items {
+					meterReportNames = append(meterReportNames, report.Name)
+				}
+
+				sort.Strings(meterReportNames)
+				loc, _ := time.LoadLocation("UTC")
+
+				/*  
+					prune old reports
+				*/
+
+				for _,reportName := range meterReportNames {
+					limit := time.Now().In(loc).AddDate(0, 0, -30)
+					dateCreated, _ := r.retrieveCreatedDate(reportName)
+					if dateCreated.Before(limit) {
+						meterReportNames = utils.RemoveKey(meterReportNames,reportName)
+						deleteReport := &marketplacev1alpha1.MeterReport{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      reportName,
+								Namespace: request.Namespace,
+							},
+						}
+						err := r.client.Delete(context.TODO(), deleteReport)
+						if err != nil {
+							reqLogger.Error(err, "Failed to delete MeterReport", "Resource", "Meter Report")
+						}
+					}
+				}
+				
+				/*  
+					fill in gaps of missing reports
+				*/
+				expectedCreatedDates := r.generateExpectedDates()
+				foundCreatedDates := r.generateFoundCreatedDates(meterReportNames)
+
+				// find the diff between the dates we expect and the dates found on the cluster
+				diffs := utils.FindDiff(expectedCreatedDates, foundCreatedDates)
+				for _,missingReportDateString := range diffs {
+					fmt.Println("diff: ", missingReportDateString)
+
+					missingReportName := r.newMeterReportNameFromString(missingReportDateString)
+					missingReportStartDate,_ := time.Parse(utils.DATE_FORMAT, missingReportDateString)
+					missingReportEndDate := missingReportStartDate.AddDate(0, 0, 1)
+
+					missingMeterReport := r.newMeterReport(request.Namespace, missingReportStartDate, missingReportEndDate, missingReportName)
+					err := r.client.Create(context.TODO(), missingMeterReport)
+					if err != nil {
+						reqLogger.Error(err, "error creating new report")
+					}
+				}
+
+				/*
+				    Create scheduled reports
+				*/
+
+				startTime := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc)
+				endTime := startTime.AddDate(0, 0, 1)
+				newMeterReportName := r.newMeterReportNameFromDate(startTime)
+				newMeterReport := r.newMeterReport(request.Namespace, startTime, endTime, newMeterReportName)
+				err := r.client.Create(context.TODO(), newMeterReport)
+				if err != nil {
+					reqLogger.Error(err, "error creating new report")
+				}
+
+				return nil, nil
+			})),
+			OnNotFound(Call(func() (ClientAction, error) {
+				log.Info("can't find meter report list, requeuing")
+				return RequeueAfterResponse(30 * time.Second), nil
+			})),
+		),
+	); result.Is(Error) || result.Is(Requeue) {
+		if err != nil {
+			return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
+		}
+
+		return result.Return()
+	}
+
 
 	reqLogger.Info("finished reconciling")
 	return reconcile.Result{}, nil
@@ -362,6 +452,72 @@ type Images struct {
 
 type MeterbaseOpts struct {
 	corev1.PullPolicy
+}
+
+func (r *ReconcileMeterBase) retrieveCreatedDate(reportName string) (time.Time, error) {
+	dateString := strings.SplitN(reportName, "-", 3)[2:]
+	return time.Parse(utils.DATE_FORMAT, strings.Join(dateString, ""))
+}
+
+func (r *ReconcileMeterBase) newMeterReportNameFromDate(date time.Time) string {
+	prefix := "meter-report-"
+	dateSuffix := strings.Join(strings.Fields(date.String())[:1], "")
+	return fmt.Sprintf("%s%s", prefix, dateSuffix)
+}
+
+func (r *ReconcileMeterBase) newMeterReportNameFromString(dateString string) string {
+	prefix := "meter-report-"
+	dateSuffix := dateString
+	return fmt.Sprintf("%s%s", prefix, dateSuffix)
+}
+
+func (r *ReconcileMeterBase) generateExpectedDates() []string {
+	loc, _ := time.LoadLocation("UTC")
+	// set start date
+	startDate := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc).AddDate(0, 0, -30)
+	fmt.Println("START DATE", startDate)
+
+	// set end date
+	endDate := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc)
+	fmt.Println("END DATE", endDate)
+
+	// loop through the range of dates we expect 
+	var expectedCreatedDates []string
+	for d := startDate; d.After(endDate) == false; d = d.AddDate(0, 0, 1) {
+		expectedCreatedDates = append(expectedCreatedDates, d.Format(utils.DATE_FORMAT))
+	}
+
+	return expectedCreatedDates
+
+}
+
+func (r *ReconcileMeterBase) generateFoundCreatedDates(meterReportNames []string) []string {
+	var foundCreatedDates []string
+	for _, reportName := range meterReportNames {
+		dateString := strings.SplitN(reportName, "-", 3)[2:]
+		foundCreatedDates = append(foundCreatedDates, strings.Join(dateString, "")) 
+	}
+	return foundCreatedDates
+}
+
+func (r *ReconcileMeterBase) newMeterReport(namespace string, startTime time.Time, endTime time.Time, meterReportName string) *marketplacev1alpha1.MeterReport {
+	return &marketplacev1alpha1.MeterReport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      meterReportName,
+			Namespace: namespace,
+		},
+		Spec: marketplacev1alpha1.MeterReportSpec{
+			StartTime: metav1.NewTime(startTime),
+			EndTime:   metav1.NewTime(endTime),
+			PrometheusService: &common.ServiceReference {
+				Name:      "rhm-prometheus-meterbase",
+				Namespace: "openshift-redhat-marketplace",
+				TargetPort: intstr.IntOrString{
+					StrVal: "web",
+				},
+			},
+		},
+	}
 }
 
 func (r *ReconcileMeterBase) reconcilePrometheusSubscription(
