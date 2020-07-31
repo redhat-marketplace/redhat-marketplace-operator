@@ -63,6 +63,10 @@ const (
 	CHILD_RRS3_YAML_FIELD                     = "CHILD_RRS3_YAML_FILENAME"
 	RAZEE_DASH_URL_FIELD                      = "RAZEE_DASH_URL"
 	FILE_SOURCE_URL_FIELD                     = "FILE_SOURCE_URL"
+
+	/* CSV Controller Values */
+	CSV_FINALIZER = "csv.finalizer.marketplace.redhat.com"
+	CSV_NAME      = "redhat-marketplace-operator"
 )
 
 var (
