@@ -25,6 +25,7 @@ const (
 	PrometheusOperatorService       = "assets/prometheus-operator/service.yaml"
 	PrometheusOperatorCertsCABundle = "assets/prometheus-operator/operator-certs-ca-bundle.yaml"
 
+	PrometheusAdditionalScrapeConfig = "assets/prometheus/additional-scrape-configs.yaml"
 	PrometheusHtpasswd               = "assets/prometheus/htpasswd-secret.yaml"
 	PrometheusRBACProxySecret        = "assets/prometheus/kube-rbac-proxy-secret.yaml"
 	PrometheusDeployment             = "assets/prometheus/prometheus.yaml"
@@ -168,6 +169,18 @@ func (f *Factory) PrometheusProxySecret() (*v1.Secret, error) {
 		return nil, err
 	}
 	s.Data["session_secret"] = []byte(p)
+	s.Namespace = f.namespace
+
+	return s, nil
+}
+
+func (f *Factory) PrometheusAdditionalConfigSecret(data []byte) (*v1.Secret, error) {
+	s, err := f.NewSecret(MustAssetReader(PrometheusAdditionalScrapeConfig))
+	if err != nil {
+		return nil, err
+	}
+
+	s.Data["meterdef.yaml"] = data
 	s.Namespace = f.namespace
 
 	return s, nil
@@ -336,7 +349,8 @@ func (f *Factory) MetricStateServiceMonitor() (*monitoringv1.ServiceMonitor, err
 		return nil, err
 	}
 
-	sm.Spec.Endpoints[0].TLSConfig.ServerName = fmt.Sprintf("rhm-metric-state.%s.svc", f.namespace)
+	sm.Spec.Endpoints[0].TLSConfig.ServerName = fmt.Sprintf("rhm-metric-state-service.%s.svc", f.namespace)
+	sm.Spec.Endpoints[1].TLSConfig.ServerName = fmt.Sprintf("rhm-metric-state-service.%s.svc", f.namespace)
 	sm.Namespace = f.namespace
 
 	return sm, nil

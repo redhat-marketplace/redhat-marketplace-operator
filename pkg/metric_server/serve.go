@@ -20,7 +20,7 @@ import (
 
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kube-state-metrics/pkg/options"
-	"k8s.io/kube-state-metrics/pkg/util/proc"
+	"github.com/openshift/origin/pkg/util/proc"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -52,6 +52,7 @@ func (s *Service) Serve(done <-chan struct{}) error {
 	}()
 
 	rhmclient.AddMeterDefIndex(s.cache)
+	rhmclient.AddOperatorSourceIndex(s.cache)
 
 	opts := s.opts
 	storeBuilder := metrics.NewBuilder()
@@ -62,7 +63,6 @@ func (s *Service) Serve(done <-chan struct{}) error {
 	storeBuilder.WithContext(ctx)
 	storeBuilder.WithKubeClient(s.k8sRestClient)
 	storeBuilder.WithClientCommand(s.cc)
-	storeBuilder.WithSharding(opts.Shard, opts.TotalShards)
 
 	s.metricsRegistry.MustRegister(
 		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),

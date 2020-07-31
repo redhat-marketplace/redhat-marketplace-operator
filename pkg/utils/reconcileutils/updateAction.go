@@ -9,6 +9,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/codelocation"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -141,35 +142,35 @@ func (u *updateStatusConditionAction) Exec(ctx context.Context, c *ClientCommand
 
 type updateWithPatchAction struct {
 	*BaseAction
-	oldObject, updatedObject runtime.Object
-	patcher                  patch.Patcher
+	object    runtime.Object
+	patchData []byte
+	patchType types.PatchType
+	patcher   patch.Patcher
 }
 
 func UpdateWithPatchAction(
-	oldObject runtime.Object,
-	updatedObject runtime.Object,
-	patcher patch.Patcher,
+	object runtime.Object,
+	patchType types.PatchType,
+	patchData []byte,
 ) *updateWithPatchAction {
 	return &updateWithPatchAction{
-		BaseAction:    NewBaseAction("updateWithPatchAction"),
-		oldObject:     oldObject,
-		updatedObject: updatedObject,
-		patcher:       patcher,
+		BaseAction: NewBaseAction("updateWithPatchAction"),
+		object:     object,
+		patchData:  patchData,
+		patchType:  patchType,
 	}
 }
 
 func (a *updateWithPatchAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 	reqLogger := a.GetReqLogger(c)
 
-	patch, err := a.patcher.Calculate(a.oldObject, a.updatedObject)
+	reqLogger.Info("updating with patch", "patch", string(a.patchData))
+	err := c.client.Patch(ctx, a.object, client.RawPatch(a.patchType, a.patchData))
+
 	if err != nil {
-		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error calculating patch")
+		reqLogger.Error(err, "error updating with patch")
+		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error while updating with patch")
 	}
 
-	if patch.IsEmpty() {
-		return NewExecResult(Continue, reconcile.Result{}, nil), nil
-	}
-
-	reqLogger.Info("updating with patch", "patch", patch.String())
-	return c.Do(ctx, UpdateAction(a.updatedObject, UpdateWithPatch(a.patcher)))
+	return NewExecResult(Requeue, reconcile.Result{Requeue: true}, nil), nil
 }

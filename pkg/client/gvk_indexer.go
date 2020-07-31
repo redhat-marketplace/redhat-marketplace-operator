@@ -5,39 +5,34 @@ import (
 	"fmt"
 	"strings"
 
+	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const MeterDefinitionGVK = "meterdefinition.marketplace.redhat.com/gvk"
-const MeterDefinitionPods = "meterdefinition.marketplace.redhat.com/pods"
-const OwnerRefContains = "metadata.ownerReferences.contains"
+const (
+	MeterDefinitionGVK  = "meterdefinition.marketplace.redhat.com/gvk"
+	MeterDefinitionPods = "meterdefinition.marketplace.redhat.com/pods"
+
+	OwnerRefContains    = "metadata.ownerReferences.contains"
+
+	OperatorSourceNamespaces   = "operatorsource.namespace"
+	OperatorSourceProvidedAPIs = "operatorsource.providedAPIs"
+)
 
 var log = logger.NewLogger("client")
 
-func AddGVKIndexer(cc ClientCommandRunner, fieldIndexer client.FieldIndexer) error {
-	// err := fieldIndexer.IndexField(context.TODO(), &corev1.Pod{}, MeterDefinitionGVK, findPodOwner(cc))
-	// if err != nil {
-	// 	return err
-	//}
-	// err = fieldIndexer.IndexField(context.TODO(), &marketplacev1alpha1.MeterDefinition{}, MeterDefinitionPods, findPodsForMeterDef(cc))
-	// if err != nil {
-	// 	return err
-	// }
-	// err = fieldIndexer.IndexField(context.TODO(), &monitoringv1.ServiceMonitor{}, OwnerRefContains, indexGVK)
-	// if err != nil {
-	// 	return err
-	// }
-	// err = fieldIndexer.IndexField(context.TODO(), &corev1.Service{}, OwnerRefContains, indexGVK)
-	// if err != nil {
-	// 	return err
-	// }
+func AddOperatorSourceIndex(fieldIndexer client.FieldIndexer) error {
+	err := fieldIndexer.IndexField(context.Background(), &olmv1.OperatorGroup{}, OperatorSourceNamespaces, IndexOperatorSourceNamespaces)
 
-	return nil
+	if err != nil {
+		return err
+	}
+
+	return fieldIndexer.IndexField(context.Background(), &olmv1.OperatorGroup{}, OperatorSourceProvidedAPIs, IndexOperatorSourceProvidedAPIs)
 }
 
 func AddMeterDefIndex(fieldIndexer client.FieldIndexer) error {
@@ -107,4 +102,32 @@ func IndexMeterDefinitionGVK(obj runtime.Object) []string {
 
 	gvk := ObjRefToStr(meterDef.Spec.Group+"/"+meterDef.Spec.Version, meterDef.Spec.Kind)
 	return []string{gvk}
+}
+
+func IndexOperatorSourceNamespaces(obj runtime.Object) []string {
+	og, ok := obj.(*olmv1.OperatorGroup)
+
+	if !ok {
+		return []string{}
+	}
+
+	return og.Status.Namespaces
+}
+
+func IndexOperatorSourceProvidedAPIs(obj runtime.Object) []string {
+	og, ok := obj.(*olmv1.OperatorGroup)
+
+	if !ok {
+		return []string{}
+	}
+
+	val, ok := og.GetAnnotations()["olm.providedAPIs"]
+
+	if !ok {
+		return []string{}
+	}
+
+	vals := strings.Split(val, ",")
+
+	return vals
 }

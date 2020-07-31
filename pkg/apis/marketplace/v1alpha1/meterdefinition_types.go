@@ -33,12 +33,31 @@ type MeterDefinitionSpec struct {
 	// MeterVersion defines the primary CRD version of the meter
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// TODO: delete this
 	Version string `json:"version"`
 
 	// MeterKind defines the primary CRD kind of the meter
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Kind string `json:"kind"`
+
+	// WorkloadVertex is the top most object of a workload. It allows
+	// you to identify the upper bounds of your workloads. If you select
+	// OperatorGroup it will use the OperatorGroup associated with the
+	// Operator to select the namespaces. If you select Namespace, the
+	// workloads will be filtered by labels or annotations.
+	// +kubebuilder:validation:Enum=Namespace;OperatorGroup
+	WorkloadVertex `json:"vertex,omitempty"`
+
+	// VertexFilters are used when Namespace is selected. Can be omitted
+	// if you select OperatorGroup
+	VertexSelectors map[string]string `json:"vertexSelectors,omitempty"`
+
+	// Workloads identify the workloads to meter.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +kubebuilder:validation:MinItems=1
+	Workloads []Workload `json:"workloads,omitempty"`
 
 	// ServiceMeters of the meterics you want to track.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
@@ -59,6 +78,60 @@ type MeterDefinitionSpec struct {
 	Pods []*common.PodReference `json:"discoveredPods,omitempty"`
 }
 
+const (
+	VertexOperatorGroup WorkloadVertex = "OperatorGroup"
+	VertexNamespace = "Namespace"
+)
+const (
+	WorkloadTypePod WorkloadType = "Pod"
+	WorkloadTypeService = "Service"
+)
+
+type WorkloadVertex string
+type WorkloadType string
+
+// Workload helps identify what to target for metering.
+type Workload struct {
+	// Name of the workload, must be unique in a meter definition.
+	Name string `json:"name"`
+
+	// OwningGVK is the name of the GVK to look for as the owner of all the
+	// meterable assets. If omitted, the labels and annotations are used instead.
+	Owner GroupVersionKind `json:"owner"`
+
+	// WorkloadType identifies the type of workload to look for. This can be
+	// pod or service right now.
+  // +kubebuilder:validation:Enum=Pod;Service
+	WorkloadType string `json:"type"`
+
+	// Labels are used to filter to the correct workload.
+	Labels      map[string]string `json:"labels,omitempty"`
+
+	// Annotations are used to filter to the correct workload.
+	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// MetricLabels are the labels to collect
+	MetricLabels []MeterLabelQuery
+}
+
+// WorkloadStatus provides quick status to check if
+// workloads are working correctly
+type WorkloadStatus struct {
+	// Name of the workload, must be unique in a meter definition.
+	Name string `json:"name"`
+
+	CurrentMetricValue string `json:"currentValue"`
+
+	LastReadTime metav1.Time `json:"startTime"`
+}
+
+type GroupVersionKind struct {
+	// ApiVersion of the CRD
+	ApiVersion string `json:"apiVersion"`
+	// Kind of the CRD
+	Kind       string `json:"kind"`
+}
+
 // MeterLabelQuery helps define a meter label to build and search for
 type MeterLabelQuery struct {
 	// Label is the name of the meter
@@ -71,11 +144,12 @@ type MeterLabelQuery struct {
 	// Aggregation to use with the query
 	// +kubebuilder:default=sum
 	// +kubebuilder:validation:Enum:=sum;min;max;avg;count
-	Aggregation string `json:"aggregation"`
+	Aggregation string `json:"aggregation,omitempty"`
 }
 
 // MeterDefinitionStatus defines the observed state of MeterDefinition
 // +k8s:openapi-gen=true
+// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 type MeterDefinitionStatus struct {
 
 	// Conditions represent the latest available observations of an object's state
@@ -90,6 +164,9 @@ type MeterDefinitionStatus struct {
 	// PodLabels of the prometheus kube-state metrics you want to track.
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	PodLabels []string `json:"podLabels"`
+
+	// OperatorGroup is the identifier for the owning operatorGroup
+	OperatorGroup common.NamespacedNameReference `json:"operatorGroup"`
 
 	// ServiceMonitors is the list of service monitors being watched for
 	// this meter definition
