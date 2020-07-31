@@ -357,6 +357,7 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 
 				meterReportNames, err := r.pruneReports(meterReportNames, loc, reportRange, request)
 				if err != nil {
+					//TODO: do we need to return an err reconcile result here ? 
 					reqLogger.Error(err, err.Error())
 				}
 
@@ -366,9 +367,8 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 
 				expectedCreatedDates := r.generateExpectedDates(reportRange)
 				foundCreatedDates := r.generateFoundCreatedDates(meterReportNames)
-
-				// find the diff between the dates we expect and the dates found on the cluster and create any missing reports
 				r.createMissingReports(expectedCreatedDates,foundCreatedDates,request)
+
 				/*
 				   Create scheduled reports
 				*/
@@ -376,13 +376,12 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 				startTime := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc)
 				endTime := startTime.AddDate(0, 0, 1)
 				newMeterReportName := r.newMeterReportNameFromDate(startTime)
-				fmt.Println("NEW METER REPORT NAME", newMeterReportName)
 				newMeterReport := &marketplacev1alpha1.MeterReport{}
 
-				// see if the scheduled report exists already, if not create it
 				return HandleResult(
 					GetAction(types.NamespacedName{Name: newMeterReportName, Namespace: request.Namespace}, newMeterReport),
 					OnNotFound(Call(func() (ClientAction, error) {
+						reqLogger.Info("Creating new MeterReport","Resource",meterReportName)
 						newMeterReport = r.newMeterReport(request.Namespace, startTime, endTime, newMeterReportName)
 						return CreateAction(newMeterReport), nil
 					})),
@@ -402,7 +401,6 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	reqLogger.Info("finished reconciling")
-	// return reconcile.Result{}, nil
 	return reconcile.Result{RequeueAfter: time.Hour * 1}, nil
 }
 
@@ -433,7 +431,6 @@ func (r *ReconcileMeterBase) pruneReports(meterReportNames []string, loc *time.L
 		limit := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc).In(loc).AddDate(0, 0, reportRange)
 		dateCreated, _ := r.retrieveCreatedDate(reportName)
 		if dateCreated.Before(limit) {
-			// println("DELETING REPORT: ", reportName)
 			reqLogger.Info("Deleting Report", "Resource", reportName)
 			meterReportNames = utils.RemoveKey(meterReportNames, reportName)
 			deleteReport := &marketplacev1alpha1.MeterReport{
@@ -491,6 +488,7 @@ func (r *ReconcileMeterBase) generateFoundCreatedDates(meterReportNames []string
 
 func (r *ReconcileMeterBase) generateExpectedDates(reportRange int) []string {
 	loc, _ := time.LoadLocation("UTC")
+	
 	// set start date
 	startDate := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc).AddDate(0, 0, reportRange)
 	fmt.Println("START DATE", startDate)
