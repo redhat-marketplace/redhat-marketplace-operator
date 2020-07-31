@@ -2,25 +2,6 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    marketplace.redhat.com/meterdefinition: :-
-      {
-          "apiVersion": "marketplace.redhat.com/v1alpha1",
-          "kind": "MeterDefinition",
-          "metadata": {
-            "name": "example-meterdefinition-2"
-          },
-          "spec": {
-            "group": "partner.metering.com",
-            "kind": "App",
-            "podMeters": [
-              "kube_pod_container_resource_requests"
-            ],
-            "serviceMeters": [
-              "labels"
-            ],
-            "version": "v1alpha1"
-          }
-        }
     alm-examples: |-
       [
         {
@@ -165,7 +146,7 @@ metadata:
     categories: Developer Tools
     certified: "true"
     containerImage: quay.io/namsimar/redhat-marketplace-operator:latest
-    createdAt: 2020-07-29T10:40:43Z
+    createdAt: 2020-07-31T09:32:58Z
     description: The Red Hat Marketplace Operator provides cluster management, metering
       and operator installation for Red Hat Marketplace customers.
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","meterbases.marketplace.redhat.com","meterdefinitions.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
@@ -854,7 +835,7 @@ spec:
                 - name: OPERATOR_NAME
                   value: redhat-marketplace-operator
                 - name: WATCH_NAMESPACE
-                  value:
+                  value: "null"
                 - name: POD_NAMESPACE
                   valueFrom:
                     fieldRef:
