@@ -349,13 +349,13 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 
 				sort.Strings(meterReportNames)
 				loc, _ := time.LoadLocation("UTC")
-				reportRange := -30
+				dateRange := -30
 
 				/*
 					prune old reports
 				*/
 
-				meterReportNames, err := r.pruneReports(meterReportNames, loc, reportRange, request)
+				meterReportNames, err := r.removeOldReports(meterReportNames, loc, dateRange, request)
 				if err != nil {
 					//TODO: do we need to return an err reconcile result here ? 
 					reqLogger.Error(err, err.Error())
@@ -365,9 +365,9 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 					fill in gaps of missing reports
 				*/
 
-				expectedCreatedDates := r.generateExpectedDates(reportRange)
+				expectedCreatedDates := r.generateExpectedDates(dateRange)
 				foundCreatedDates := r.generateFoundCreatedDates(meterReportNames)
-				r.createMissingReports(expectedCreatedDates,foundCreatedDates,request)
+				r.createReportIfNotFound(expectedCreatedDates,foundCreatedDates,request)
 
 				/*
 				   Create scheduled reports
@@ -404,7 +404,7 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	return reconcile.Result{RequeueAfter: time.Hour * 1}, nil
 }
 
-func (r *ReconcileMeterBase) createMissingReports(expectedCreatedDates []string, foundCreatedDates []string, request reconcile.Request) error {
+func (r *ReconcileMeterBase) createReportIfNotFound(expectedCreatedDates []string, foundCreatedDates []string, request reconcile.Request) error {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	// find the diff between the dates we expect and the dates found on the cluster and create any missing reports
 	missingReports := utils.FindDiff(expectedCreatedDates, foundCreatedDates)
@@ -425,10 +425,10 @@ func (r *ReconcileMeterBase) createMissingReports(expectedCreatedDates []string,
 	return nil
 }
 
-func (r *ReconcileMeterBase) pruneReports(meterReportNames []string, loc *time.Location, reportRange int, request reconcile.Request) ([]string, error) {
+func (r *ReconcileMeterBase) removeOldReports(meterReportNames []string, loc *time.Location, dateRange int, request reconcile.Request) ([]string, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	for _, reportName := range meterReportNames {
-		limit := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc).In(loc).AddDate(0, 0, reportRange)
+		limit := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc).In(loc).AddDate(0, 0, dateRange)
 		dateCreated, _ := r.retrieveCreatedDate(reportName)
 		if dateCreated.Before(limit) {
 			reqLogger.Info("Deleting Report", "Resource", reportName)
@@ -486,11 +486,11 @@ func (r *ReconcileMeterBase) generateFoundCreatedDates(meterReportNames []string
 	return foundCreatedDates
 }
 
-func (r *ReconcileMeterBase) generateExpectedDates(reportRange int) []string {
+func (r *ReconcileMeterBase) generateExpectedDates(dateRange int) []string {
 	loc, _ := time.LoadLocation("UTC")
 	
 	// set start date
-	startDate := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc).AddDate(0, 0, reportRange)
+	startDate := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc).AddDate(0, 0, dateRange)
 	fmt.Println("START DATE", startDate)
 
 	// set end date
