@@ -15,6 +15,9 @@
 package clusterserviceversion
 
 import (
+	// "encoding/json"
+	"fmt"
+	// "io/ioutil"
 	"reflect"
 	"testing"
 
@@ -177,19 +180,24 @@ func testClusterServiceVersionWithSubscriptionWithoutLabels(t *testing.T) {
 	)
 }
 
-func testBuildMeterDefinitionFromString(t *testing.T) {
-	t.Parallel()
+func TestBuildMeterDefinitionFromString(t *testing.T) {
+	meter := &marketplacev1alpha1.MeterDefinition{}
 	name := "example-meterdefinition"
 	group := "partner.metering.com"
 	version := "v1alpha"
 	kind := "App"
 	serviceMeters := []string{"labels"}
 	podMeters := []string{"kube_pod_container_resource_requests"}
+	var ann = map[string]string{
+		"csvName":      csvName,
+		"csvNamespace": namespace,
+	}
 
 	ogMeter := &marketplacev1alpha1.MeterDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:        name,
+			Namespace:   namespace,
+			Annotations: ann,
 		},
 		Spec: marketplacev1alpha1.MeterDefinitionSpec{
 			Group:         group,
@@ -200,32 +208,37 @@ func testBuildMeterDefinitionFromString(t *testing.T) {
 		},
 	}
 
-	meterStr := "{\"name\": \"" + name + "\",\"group\": \"" + group + "\",\"version\": \"" + version + "\",\"kind\": \"" + kind + "\",\"serviceMeters\": [\"labels\"],\"podMeters\": [\"kube_pod_container_resource_requests\"]}"
-	meter, err := buildMeterDefinitionFromString(meterStr, namespace)
+	meterStr := "{\"metadata\":{\"name\":\"" + name + "\",\"namespace\":\"" + namespace + "\",\"creationTimestamp\":null},\"spec\":{\"group\":\"" + group + "\",\"version\":\"" + version + "\",\"kind\":\"" + kind + "\",\"serviceMeters\":[\"labels\"],\"podMeters\":[\"kube_pod_container_resource_requests\"]},\"status\":{\"serviceLabels\":null,\"podLabels\":null,\"serviceMonitors\":null,\"pods\":null}}"
+	_, err := meter.BuildMeterDefinitionFromString(meterStr, csvName, namespace)
 	if err != nil {
 		t.Errorf("Failed to build MeterDefinition CR: %v", err)
 	} else {
 		if !reflect.DeepEqual(meter, ogMeter) {
+			fmt.Println("OG METER: ")
+			fmt.Println(ogMeter)
+			fmt.Println("CREATED METER: ")
+			fmt.Println(meter)
 			t.Errorf("Expected MeterDefinition is different from actual MeterDefinition")
 		}
 	}
 }
 
-func testgetMeterDefinitionString(t *testing.T) {
-	t.Parallel()
+func TestGetMeterDefinitionString(t *testing.T) {
 	name := "example-meterdefinition"
+	name2 := "name2"
 	group := "partner.metering.com"
 	version := "v1alpha"
 	kind := "App"
 
-	listStr := "apiVersion\": \"marketplace.redhat.com/v1alpha1\",\"kind\": \"MarketplaceConfig\",\"metadata\": {\"name\": \"marketplaceconfig\"},\"spec\": {\"clusterUUID\": \"example-clusterUUID\",\"deploySecretName\": \"rhm-operator-secret\",\"installIBMCatalogSource\": false,\"rhmAccountID\": \"example-userid\"}"
-	meterStr := "{\"name\": \"" + name + "\",\"group\": \"" + group + "\",\"version\": \"" + version + "\",\"kind\": \"" + kind + "\",\"serviceMeters\": [\"labels\"],\"podMeters\": [\"kube_pod_container_resource_requests\"]}"
+	listStr := "{\"metadata\":{\"name\":\"" + name2 + "\",\"namespace\":\"" + namespace + "\",\"creationTimestamp\":null},\"spec\":{\"group\":\"" + group + "\",\"version\":\"" + version + "\",\"kind\":\"" + kind + "\",\"serviceMeters\":[\"labels\"],\"podMeters\":[\"kube_pod_container_resource_requests\"]},\"status\":{\"serviceLabels\":null,\"podLabels\":null,\"serviceMonitors\":null,\"pods\":null}}"
+	meterStr := "{\"metadata\":{\"name\":\"" + name + "\",\"namespace\":\"" + namespace + "\",\"creationTimestamp\":null},\"spec\":{\"group\":\"" + group + "\",\"version\":\"" + version + "\",\"kind\":\"" + kind + "\",\"serviceMeters\":[\"labels\"],\"podMeters\":[\"kube_pod_container_resource_requests\"]},\"status\":{\"serviceLabels\":null,\"podLabels\":null,\"serviceMonitors\":null,\"pods\":null}}"
 	listStr = "[" + listStr + ", " + meterStr + "]"
 	meter, err := getMeterDefinitionString(listStr)
 	if err != nil {
 		t.Errorf("Failed to get MeterDefinition String: %v", err)
 	} else {
 		if meter != meterStr {
+			t.Log(meter)
 			t.Errorf("Expected MeterDefinition (string) is different from actual MeterDefinition.")
 		}
 	}

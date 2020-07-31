@@ -29,8 +29,8 @@ type PrometheusOperatorConfig struct {
 }
 
 type RelatedImages struct {
-	Reporter string
-	MetricState string
+	Reporter      string
+	MetricState   string
 	KubeRbacProxy string
 }
 

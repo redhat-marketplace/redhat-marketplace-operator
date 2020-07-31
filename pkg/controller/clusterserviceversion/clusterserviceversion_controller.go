@@ -17,13 +17,15 @@ package clusterserviceversion
 import (
 	"context"
 	"encoding/json"
+	goerr "errors"
+	"io/ioutil"
 	"reflect"
 
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -37,10 +39,12 @@ import (
 
 var log = logf.Log.WithName("controller_olm_clusterserviceversion_watcher")
 
-const operatorTag = "marketplace.redhat.com/operator"
-const watchTag = "razee/watch-resource"
-const allnamespaceTag = "olm.copiedFrom"
-const IgnoreTag = "marketplace.redhat.com/ignore"
+const (
+	operatorTag     = "marketplace.redhat.com/operator"
+	watchTag        = "razee/watch-resource"
+	allnamespaceTag = "olm.copiedFrom"
+	IgnoreTag       = "marketplace.redhat.com/ignore"
+)
 
 // Add creates a new ClusterServiceVersion Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -79,7 +83,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 				return !(watchOk && watchLabel == "lite")
 			},
 			DeleteFunc: func(evt event.DeleteEvent) bool {
-				return false
+				return true
 			},
 			CreateFunc: func(evt event.CreateEvent) bool {
 				_, okAllNamespace := evt.Meta.GetLabels()[allnamespaceTag]
@@ -155,6 +159,17 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 
 						hasMarketplaceSub = true
 
+						// meterDefinitionString, err := getMeterDefinitionString(annotations["alm-example"])
+						// if err != nil {
+						// 	reqLogger.Error(err, "Failed to retrieve the MeterDefinition String for this CSV")
+						// 	return reconcile.Result{}, err
+						// }
+						// meterDefinition, err := buildMeterDefinitionFromString(meterDefinitionString, CSV.GetName(), CSV.GetNamespace())
+						// if err != nil {
+						// 	reqLogger.Error(err, "Could not build a copy of MeterDefinition")
+						// 	return reconcile.Result{}, err
+						// }
+
 						labels := CSV.GetLabels()
 						clusterOriginalLabels := CSV.DeepCopy().GetLabels()
 						if labels == nil {
@@ -164,6 +179,13 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 						labels[watchTag] = "lite"
 
 						if !reflect.DeepEqual(labels, clusterOriginalLabels) {
+							// 	//CSV is new
+							// 	err = r.client.Create(context.TODO(), meterDefinition)
+							// 	if err != nil {
+							// 		reqLogger.Error(err, "Could not create MeterDefinition")
+							// 		return reconcile.Result{}, err
+							// 	}
+
 							CSV.SetLabels(labels)
 							if err := r.client.Update(context.TODO(), CSV); err != nil {
 								reqLogger.Error(err, "Failed to patch clusterserviceversion with razee/watch-resource: lite label")
@@ -171,6 +193,18 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 							}
 							reqLogger.Info("Patched clusterserviceversion with razee/watch-resource: lite label")
 						} else {
+							// //CSV is not new
+							// existingMeterDefinition := &marketplacev1alpha1.MeterDefinition{}
+							// // err = r.client.Get(context.TODO(), type.NamespacedName{Namespace: request.NamespacedName.Namespace}, existingMeterDefinition)
+							// // if err != nil {
+							// // 	reqLogger.Error(err, "Could not retrieve the existing MeterDefinition")
+							// // 	return reconcile.Result{}, err
+							// // }
+							// if !reflect.DeepEqual(meterDefinition, existingMeterDefinition) {
+							// 	// err = errors.New("Existing MeterDefinition does not match expected MeterDefinition from CSV")
+							// 	// Should I reconcile here?
+							// }
+
 							reqLogger.Info("No patch needed on clusterserviceversion resource")
 						}
 					}
@@ -202,13 +236,20 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 
 func getMeterDefinitionString(almExample string) (string, error) {
 	var err error
-	var objs []runtime.Object
+	var objs []unstructured.Unstructured
 	var result string
 
 	data := []byte(almExample)
+
 	err = json.Unmarshal(data, &objs)
 	if err != nil {
-		return "", nil
+		return "", err
+	}
+
+	b, err := json.Marshal(objs)
+	err = ioutil.WriteFile("after", b, 0644)
+	if err != nil {
+		return "", err
 	}
 
 	for _, obj := range objs {
@@ -218,19 +259,10 @@ func getMeterDefinitionString(almExample string) (string, error) {
 				return "", err
 			}
 			result = string(res)
+			return result, nil
 		}
 	}
 
-	return result, nil
-}
-
-func buildMeterDefinitionFromString(meterdefString, namespace string) (*marketplacev1alpha1.MeterDefinition, error) {
-	var meterdef *marketplacev1alpha1.MeterDefinition
-	data := []byte(meterdefString)
-	err := json.Unmarshal(data, meterdef)
-	if err != nil {
-		return meterdef, err
-	}
-	meterdef.Namespace = namespace
-	return meterdef, nil
+	err = goerr.New("Could not find a kind MeterDefinition")
+	return result, err
 }

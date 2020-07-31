@@ -348,7 +348,7 @@ spec:
                 type: object
               type: array
             group:
-              description: MeterDomain defines the primary CRD domain of the meter
+              description: Group defines the operator group of the meter
               type: string
             kind:
               description: MeterKind defines the primary CRD kind of the meter

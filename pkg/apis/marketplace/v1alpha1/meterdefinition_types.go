@@ -15,6 +15,8 @@
 package v1alpha1
 
 import (
+	"encoding/json"
+
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -130,4 +132,21 @@ type MeterDefinitionList struct {
 
 func init() {
 	SchemeBuilder.Register(&MeterDefinition{}, &MeterDefinitionList{})
+}
+
+func (meterdef *MeterDefinition) BuildMeterDefinitionFromString(meterdefString, name, namespace string) (*MeterDefinition, error) {
+	data := []byte(meterdefString)
+	err := json.Unmarshal(data, meterdef)
+	if err != nil {
+		return meterdef, err
+	}
+
+	csvInfo := make(map[string]string)
+	csvInfo["csvName"] = name
+	csvInfo["csvNamespace"] = namespace
+	meterdef.SetAnnotations(csvInfo)
+
+	meterdef.Namespace = namespace
+
+	return meterdef, nil
 }
