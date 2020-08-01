@@ -240,100 +240,100 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, nil
 	}
 
-	message := "Meter Base install starting"
+	// message := "Meter Base install starting"
 	if instance.Status.Conditions == nil {
 		instance.Status.Conditions = &status.Conditions{}
 	}
 
-	---
-	Install Objects
-	---
+	// ---
+	// Install Objects
+	// ---
 
-	prometheus := &monitoringv1.Prometheus{}
-	if result, err := cc.Do(context.TODO(),
-		Do(r.reconcilePrometheusOperator(instance, factory)...),
-		Do(r.reconcilePrometheus(instance, prometheus, factory)...),
-		Do(r.installServiceMonitors(instance)...),
-		Do(r.installMetricStateDeployment(instance, factory)...),
-	); !result.Is(Continue) {
-		if err != nil {
-			reqLogger.Error(err, "error in reconcile")
-			return result.ReturnWithError(merrors.Wrap(err, "error creating prometheus"))
-		}
+	// prometheus := &monitoringv1.Prometheus{}
+	// if result, err := cc.Do(context.TODO(),
+	// 	Do(r.reconcilePrometheusOperator(instance, factory)...),
+	// 	Do(r.reconcilePrometheus(instance, prometheus, factory)...),
+	// 	Do(r.installServiceMonitors(instance)...),
+	// 	Do(r.installMetricStateDeployment(instance, factory)...),
+	// ); !result.Is(Continue) {
+	// 	if err != nil {
+	// 		reqLogger.Error(err, "error in reconcile")
+	// 		return result.ReturnWithError(merrors.Wrap(err, "error creating prometheus"))
+	// 	}
 
-		return result.Return()
-	}
+	// 	return result.Return()
+	// }
 
-	// ----
-	// Update our status
-	// ----
+	// // ----
+	// // Update our status
+	// // ----
 
-	// Set status for prometheus
+	// // Set status for prometheus
 
-	prometheusStatefulset := &appsv1.StatefulSet{}
-	if result, err := cc.Do(
-		context.TODO(),
-		HandleResult(
-			GetAction(types.NamespacedName{
-				Namespace: prometheus.Namespace,
-				Name:      fmt.Sprintf("prometheus-%s", prometheus.Name),
-			}, prometheusStatefulset),
-			OnContinue(Call(func() (ClientAction, error) {
-				updatedInstance := instance.DeepCopy()
-				updatedInstance.Status.Replicas = &prometheusStatefulset.Status.CurrentReplicas
-				updatedInstance.Status.UpdatedReplicas = &prometheusStatefulset.Status.UpdatedReplicas
-				updatedInstance.Status.AvailableReplicas = &prometheusStatefulset.Status.ReadyReplicas
-				updatedInstance.Status.UnavailableReplicas = ptr.Int32(
-					prometheusStatefulset.Status.CurrentReplicas - prometheusStatefulset.Status.ReadyReplicas)
+	// prometheusStatefulset := &appsv1.StatefulSet{}
+	// if result, err := cc.Do(
+	// 	context.TODO(),
+	// 	HandleResult(
+	// 		GetAction(types.NamespacedName{
+	// 			Namespace: prometheus.Namespace,
+	// 			Name:      fmt.Sprintf("prometheus-%s", prometheus.Name),
+	// 		}, prometheusStatefulset),
+	// 		OnContinue(Call(func() (ClientAction, error) {
+	// 			updatedInstance := instance.DeepCopy()
+	// 			updatedInstance.Status.Replicas = &prometheusStatefulset.Status.CurrentReplicas
+	// 			updatedInstance.Status.UpdatedReplicas = &prometheusStatefulset.Status.UpdatedReplicas
+	// 			updatedInstance.Status.AvailableReplicas = &prometheusStatefulset.Status.ReadyReplicas
+	// 			updatedInstance.Status.UnavailableReplicas = ptr.Int32(
+	// 				prometheusStatefulset.Status.CurrentReplicas - prometheusStatefulset.Status.ReadyReplicas)
 
-				if reflect.DeepEqual(updatedInstance.Status, instance.Status) {
-					reqLogger.Info("prometheus statefulset status is up to date")
-					return nil, nil
-				}
+	// 			if reflect.DeepEqual(updatedInstance.Status, instance.Status) {
+	// 				reqLogger.Info("prometheus statefulset status is up to date")
+	// 				return nil, nil
+	// 			}
 
-				var action ClientAction = nil
+	// 			var action ClientAction = nil
 
-				reqLogger.Info("statefulset status", "status", updatedInstance.Status)
+	// 			reqLogger.Info("statefulset status", "status", updatedInstance.Status)
 
-				if updatedInstance.Status.Replicas != updatedInstance.Status.AvailableReplicas {
-					reqLogger.Info("prometheus statefulset has not finished roll out",
-						"replicas", updatedInstance.Status.Replicas,
-						"available", updatedInstance.Status.AvailableReplicas)
-					action = RequeueAfterResponse(30 * time.Second)
-				}
+	// 			if updatedInstance.Status.Replicas != updatedInstance.Status.AvailableReplicas {
+	// 				reqLogger.Info("prometheus statefulset has not finished roll out",
+	// 					"replicas", updatedInstance.Status.Replicas,
+	// 					"available", updatedInstance.Status.AvailableReplicas)
+	// 				action = RequeueAfterResponse(30 * time.Second)
+	// 			}
 
-				return HandleResult(
-					UpdateAction(updatedInstance, UpdateStatusOnly(true)),
-					OnContinue(action)), nil
-			})),
-			OnNotFound(Call(func() (ClientAction, error) {
-				log.Info("can't find prometheus statefulset, requeuing")
-				return RequeueAfterResponse(30 * time.Second), nil
-			})),
-		),
-	); result.Is(Error) || result.Is(Requeue) {
-		if err != nil {
-			return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
-		}
+	// 			return HandleResult(
+	// 				UpdateAction(updatedInstance, UpdateStatusOnly(true)),
+	// 				OnContinue(action)), nil
+	// 		})),
+	// 		OnNotFound(Call(func() (ClientAction, error) {
+	// 			log.Info("can't find prometheus statefulset, requeuing")
+	// 			return RequeueAfterResponse(30 * time.Second), nil
+	// 		})),
+	// 	),
+	// ); result.Is(Error) || result.Is(Requeue) {
+	// 	if err != nil {
+	// 		return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
+	// 	}
 
-		return result.Return()
-	}
+	// 	return result.Return()
+	// }
 
-	// Update final condition
+	// // Update final condition
 
-	message = "Meter Base install complete"
-	if result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, instance.Status.Conditions, status.Condition{
-		Type:    marketplacev1alpha1.ConditionInstalling,
-		Status:  corev1.ConditionTrue,
-		Reason:  marketplacev1alpha1.ReasonMeterBaseFinishInstall,
-		Message: message,
-	})); result.Is(Error) || result.Is(Requeue) {
-		if err != nil {
-			return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
-		}
+	// message = "Meter Base install complete"
+	// if result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, instance.Status.Conditions, status.Condition{
+	// 	Type:    marketplacev1alpha1.ConditionInstalling,
+	// 	Status:  corev1.ConditionTrue,
+	// 	Reason:  marketplacev1alpha1.ReasonMeterBaseFinishInstall,
+	// 	Message: message,
+	// })); result.Is(Error) || result.Is(Requeue) {
+	// 	if err != nil {
+	// 		return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
+	// 	}
 
-		return result.Return()
-	}
+	// 	return result.Return()
+	// }
 
 	meterReportList := &marketplacev1alpha1.MeterReportList{}
 	if result, err := cc.Do(
@@ -342,12 +342,8 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 			ListAction(meterReportList, client.InNamespace(request.Namespace)),
 			OnContinue(Call(func() (ClientAction, error) {
 
-				var meterReportNames []string
-				for _, report := range meterReportList.Items {
-					meterReportNames = append(meterReportNames, report.Name)
-				}
 
-				sort.Strings(meterReportNames)
+				meterReportNames := r.sortMeterReports(meterReportList)
 				loc, _ := time.LoadLocation("UTC")
 				dateRange := -30
 
@@ -373,19 +369,8 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 				   Create scheduled reports
 				*/
 
-				startTime := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc)
-				endTime := startTime.AddDate(0, 0, 1)
-				newMeterReportName := r.newMeterReportNameFromDate(startTime)
-				newMeterReport := &marketplacev1alpha1.MeterReport{}
-
-				return HandleResult(
-					GetAction(types.NamespacedName{Name: newMeterReportName, Namespace: request.Namespace}, newMeterReport),
-					OnNotFound(Call(func() (ClientAction, error) {
-						reqLogger.Info("Creating new MeterReport","Resource",meterReportName)
-						newMeterReport = r.newMeterReport(request.Namespace, startTime, endTime, newMeterReportName)
-						return CreateAction(newMeterReport), nil
-					})),
-				), nil
+				result := r.createScheduledReports(loc,request)
+				return result,nil
 			})),
 			OnNotFound(Call(func() (ClientAction, error) {
 				log.Info("can't find meter report list, requeuing")
@@ -404,12 +389,30 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	return reconcile.Result{RequeueAfter: time.Hour * 1}, nil
 }
 
+func(r *ReconcileMeterBase) createScheduledReports(loc *time.Location,request reconcile.Request )ClientAction{
+	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+
+	startTime := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc)
+	endTime := startTime.AddDate(0, 0, 1)
+	newMeterReportName := r.newMeterReportNameFromDate(startTime)
+	newMeterReport := &marketplacev1alpha1.MeterReport{}
+
+	return HandleResult(
+		GetAction(types.NamespacedName{Name: newMeterReportName, Namespace: request.Namespace}, newMeterReport),
+		OnNotFound(Call(func() (ClientAction, error) {
+			reqLogger.Info("Creating new MeterReport","Resource",newMeterReportName)
+			newMeterReport = r.newMeterReport(request.Namespace, startTime, endTime, newMeterReportName)
+			return CreateAction(newMeterReport), nil
+		})),
+	)
+}
+
 func (r *ReconcileMeterBase) createReportIfNotFound(expectedCreatedDates []string, foundCreatedDates []string, request reconcile.Request) error {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	
 	// find the diff between the dates we expect and the dates found on the cluster and create any missing reports
 	missingReports := utils.FindDiff(expectedCreatedDates, foundCreatedDates)
 	for _, missingReportDateString := range missingReports {
-		fmt.Println("missing", missingReportDateString)
 		missingReportName := r.newMeterReportNameFromString(missingReportDateString)
 		missingReportStartDate, _ := time.Parse(utils.DATE_FORMAT, missingReportDateString)
 		missingReportEndDate := missingReportStartDate.AddDate(0, 0, 1)
@@ -419,7 +422,7 @@ func (r *ReconcileMeterBase) createReportIfNotFound(expectedCreatedDates []strin
 		if err != nil {
 			return err
 		}
-		reqLogger.Info("Created Report", "Resource", missingReportName)
+		reqLogger.Info("Created Missing Report", "Resource", missingReportName)
 	}
 
 	return nil
@@ -458,6 +461,17 @@ type Images struct {
 
 type MeterbaseOpts struct {
 	corev1.PullPolicy
+}
+
+func (r * ReconcileMeterBase) sortMeterReports(meterReportList *marketplacev1alpha1.MeterReportList)[]string{
+
+	var meterReportNames []string
+	for _, report := range meterReportList.Items {
+		meterReportNames = append(meterReportNames, report.Name)
+	}
+
+	sort.Strings(meterReportNames)
+	return meterReportNames
 }
 
 func (r *ReconcileMeterBase) retrieveCreatedDate(reportName string) (time.Time, error) {
