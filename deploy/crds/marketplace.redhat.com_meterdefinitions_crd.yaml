@@ -350,24 +350,237 @@ spec:
             group:
               description: MeterDomain defines the primary CRD domain of the meter
               type: string
+            installedBy:
+              $ref: '#/definitions/github.com~1redhat-marketplace~1redhat-marketplace-operator~1pkg~1apis~1marketplace~1common~0NamespacedNameReference'
+              description: InstalledBy is a reference to the CSV that install the
+                meter definition. This is used to determine an operator group.
             kind:
               description: MeterKind defines the primary CRD kind of the meter
               type: string
             podMeters:
-              description: PodMeters of the prometheus metrics you want to track.
+              description: 'PodMeters of the prometheus metrics you want to track.
+                TODO: delete this'
               items:
                 type: string
               type: array
             serviceMeters:
-              description: ServiceMeters of the meterics you want to track.
+              description: 'ServiceMeters of the meterics you want to track. TODO:
+                delete this'
               items:
                 type: string
               type: array
             version:
-              description: MeterVersion defines the primary CRD version of the meter
+              description: 'MeterVersion defines the primary CRD version of the meter
+                TODO: delete this'
               type: string
+            workloadVertexLabelSelectors:
+              description: VertexFilters are used when Namespace is selected. Can
+                be omitted if you select OperatorGroup
+              properties:
+                matchExpressions:
+                  description: matchExpressions is a list of label selector requirements.
+                    The requirements are ANDed.
+                  items:
+                    description: A label selector requirement is a selector that contains
+                      values, a key, and an operator that relates the key and values.
+                    properties:
+                      key:
+                        description: key is the label key that the selector applies
+                          to.
+                        type: string
+                      operator:
+                        description: operator represents a key's relationship to a
+                          set of values. Valid operators are In, NotIn, Exists and
+                          DoesNotExist.
+                        type: string
+                      values:
+                        description: values is an array of string values. If the operator
+                          is In or NotIn, the values array must be non-empty. If the
+                          operator is Exists or DoesNotExist, the values array must
+                          be empty. This array is replaced during a strategic merge
+                          patch.
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - key
+                    - operator
+                    type: object
+                  type: array
+                matchLabels:
+                  additionalProperties:
+                    type: string
+                  description: matchLabels is a map of {key,value} pairs. A single
+                    {key,value} in the matchLabels map is equivalent to an element
+                    of matchExpressions, whose key field is "key", the operator is
+                    "In", and the values array contains only "value". The requirements
+                    are ANDed.
+                  type: object
+              type: object
+            workloadVertexType:
+              description: WorkloadVertex is the top most object of a workload. It
+                allows you to identify the upper bounds of your workloads. If you
+                select OperatorGroup it will use the OperatorGroup associated with
+                the Operator to select the namespaces. If you select Namespace, the
+                workloads will be filtered by labels or annotations.
+              enum:
+              - Namespace
+              - OperatorGroup
+              type: string
+            workloads:
+              description: Workloads identify the workloads to meter.
+              items:
+                description: Workload helps identify what to target for metering.
+                properties:
+                  annotationSelector:
+                    description: Annotations are used to filter to the correct workload.
+                    properties:
+                      matchExpressions:
+                        description: matchExpressions is a list of label selector
+                          requirements. The requirements are ANDed.
+                        items:
+                          description: A label selector requirement is a selector
+                            that contains values, a key, and an operator that relates
+                            the key and values.
+                          properties:
+                            key:
+                              description: key is the label key that the selector
+                                applies to.
+                              type: string
+                            operator:
+                              description: operator represents a key's relationship
+                                to a set of values. Valid operators are In, NotIn,
+                                Exists and DoesNotExist.
+                              type: string
+                            values:
+                              description: values is an array of string values. If
+                                the operator is In or NotIn, the values array must
+                                be non-empty. If the operator is Exists or DoesNotExist,
+                                the values array must be empty. This array is replaced
+                                during a strategic merge patch.
+                              items:
+                                type: string
+                              type: array
+                          required:
+                          - key
+                          - operator
+                          type: object
+                        type: array
+                      matchLabels:
+                        additionalProperties:
+                          type: string
+                        description: matchLabels is a map of {key,value} pairs. A
+                          single {key,value} in the matchLabels map is equivalent
+                          to an element of matchExpressions, whose key field is "key",
+                          the operator is "In", and the values array contains only
+                          "value". The requirements are ANDed.
+                        type: object
+                    type: object
+                  labelSelector:
+                    description: Labels are used to filter to the correct workload.
+                    properties:
+                      matchExpressions:
+                        description: matchExpressions is a list of label selector
+                          requirements. The requirements are ANDed.
+                        items:
+                          description: A label selector requirement is a selector
+                            that contains values, a key, and an operator that relates
+                            the key and values.
+                          properties:
+                            key:
+                              description: key is the label key that the selector
+                                applies to.
+                              type: string
+                            operator:
+                              description: operator represents a key's relationship
+                                to a set of values. Valid operators are In, NotIn,
+                                Exists and DoesNotExist.
+                              type: string
+                            values:
+                              description: values is an array of string values. If
+                                the operator is In or NotIn, the values array must
+                                be non-empty. If the operator is Exists or DoesNotExist,
+                                the values array must be empty. This array is replaced
+                                during a strategic merge patch.
+                              items:
+                                type: string
+                              type: array
+                          required:
+                          - key
+                          - operator
+                          type: object
+                        type: array
+                      matchLabels:
+                        additionalProperties:
+                          type: string
+                        description: matchLabels is a map of {key,value} pairs. A
+                          single {key,value} in the matchLabels map is equivalent
+                          to an element of matchExpressions, whose key field is "key",
+                          the operator is "In", and the values array contains only
+                          "value". The requirements are ANDed.
+                        type: object
+                    type: object
+                  metricLabels:
+                    description: MetricLabels are the labels to collect
+                    items:
+                      description: MeterLabelQuery helps define a meter label to build
+                        and search for
+                      properties:
+                        aggregation:
+                          default: sum
+                          description: Aggregation to use with the query
+                          enum:
+                          - sum
+                          - min
+                          - max
+                          - avg
+                          - count
+                          type: string
+                        label:
+                          description: Label is the name of the meter
+                          type: string
+                        query:
+                          description: Query to use for the label
+                          type: string
+                      required:
+                      - label
+                      type: object
+                    type: array
+                  name:
+                    description: Name of the workload, must be unique in a meter definition.
+                    type: string
+                  ownerCRD:
+                    description: OwningGVK is the name of the GVK to look for as the
+                      owner of all the meterable assets. If omitted, the labels and
+                      annotations are used instead.
+                    properties:
+                      apiVersion:
+                        description: APIVersion of the CRD
+                        type: string
+                      kind:
+                        description: Kind of the CRD
+                        type: string
+                    required:
+                    - apiVersion
+                    - kind
+                    type: object
+                  type:
+                    description: WorkloadType identifies the type of workload to look
+                      for. This can be pod or service right now.
+                    enum:
+                    - Pod
+                    - ServiceMonitor
+                    - PVC
+                    type: string
+                required:
+                - name
+                - type
+                type: object
+              minItems: 1
+              type: array
           required:
           - group
+          - installedBy
           - kind
           - version
           type: object
@@ -415,6 +628,37 @@ spec:
                 - type
                 type: object
               type: array
+            operatorGroup:
+              description: OperatorGroup is the identifier for the owning operatorGroup
+              properties:
+                groupVersionKind:
+                  description: GroupVersionKind of the resourse Required
+                  properties:
+                    apiVersion:
+                      description: APIVersion of the CRD
+                      type: string
+                    kind:
+                      description: Kind of the CRD
+                      type: string
+                  required:
+                  - apiVersion
+                  - kind
+                  type: object
+                name:
+                  description: Name of the resource Required
+                  type: string
+                namespace:
+                  description: Namespace of the resource Required
+                  type: string
+                uid:
+                  description: Namespace of the resource Required
+                  type: string
+              required:
+              - groupVersionKind
+              - name
+              - namespace
+              - uid
+              type: object
             podLabels:
               description: PodLabels of the prometheus kube-state metrics you want
                 to track.
@@ -436,13 +680,80 @@ spec:
               description: ServiceMonitors is the list of service monitors being watched
                 for this meter definition
               items:
+                description: JobStatus represents the current job for the report and
+                  it's status.
+                properties:
+                  groupVersionKind:
+                    description: GroupVersionKind of the resourse Required
+                    properties:
+                      apiVersion:
+                        description: APIVersion of the CRD
+                        type: string
+                      kind:
+                        description: Kind of the CRD
+                        type: string
+                    required:
+                    - apiVersion
+                    - kind
+                    type: object
+                  name:
+                    description: Name of the resource Required
+                    type: string
+                  namespace:
+                    description: Namespace of the resource Required
+                    type: string
+                  uid:
+                    description: Namespace of the resource Required
+                    type: string
+                required:
+                - groupVersionKind
+                - name
+                - namespace
+                - uid
+                type: object
+              type: array
+            workloadResource:
+              items:
+                properties:
+                  groupVersionKind:
+                    description: GroupVersionKind of the resourse Required
+                    properties:
+                      apiVersion:
+                        description: APIVersion of the CRD
+                        type: string
+                      kind:
+                        description: Kind of the CRD
+                        type: string
+                    required:
+                    - apiVersion
+                    - kind
+                    type: object
+                  name:
+                    description: Name of the resource Required
+                    type: string
+                  namespace:
+                    description: Namespace of the resource Required
+                    type: string
+                  referencedWorkloadName:
+                    type: string
+                  uid:
+                    description: Namespace of the resource Required
+                    type: string
+                required:
+                - groupVersionKind
+                - name
+                - namespace
+                - referencedWorkloadName
+                - uid
                 type: object
               type: array
           required:
+          - operatorGroup
           - podLabels
           - pods
           - serviceLabels
           - serviceMonitors
+          - workloadResource
           type: object
       type: object
   version: v1alpha1

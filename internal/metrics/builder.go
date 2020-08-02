@@ -158,7 +158,9 @@ func ComposeMetricGenFuncs(familyGens []FamilyGenerator) func(interface{}, []*ma
 		families := make([]FamilyByteSlicer, len(familyGens))
 
 		for i, gen := range familyGens {
-			families[i] = gen.GenerateMeterFunc(obj, meterDefinitions)
+			family := gen.GenerateMeterFunc(obj, meterDefinitions)
+			family.Name = gen.Name
+			families[i] = family
 		}
 
 		return families

@@ -17,6 +17,7 @@ package v1alpha1
 import (
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -41,17 +42,21 @@ type MeterDefinitionSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Kind string `json:"kind"`
 
+	// InstalledBy is a reference to the CSV that install the meter
+	// definition. This is used to determine an operator group.
+	InstalledBy CSVNamespacedName `json:"installedBy"`
+
 	// WorkloadVertex is the top most object of a workload. It allows
 	// you to identify the upper bounds of your workloads. If you select
 	// OperatorGroup it will use the OperatorGroup associated with the
 	// Operator to select the namespaces. If you select Namespace, the
 	// workloads will be filtered by labels or annotations.
 	// +kubebuilder:validation:Enum=Namespace;OperatorGroup
-	WorkloadVertex `json:"vertex,omitempty"`
+	WorkloadVertex `json:"workloadVertexType,omitempty"`
 
 	// VertexFilters are used when Namespace is selected. Can be omitted
 	// if you select OperatorGroup
-	VertexSelectors map[string]string `json:"vertexSelectors,omitempty"`
+	VertexLabelSelector metav1.LabelSelector `json:"workloadVertexLabelSelectors,omitempty"`
 
 	// Workloads identify the workloads to meter.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
@@ -62,11 +67,13 @@ type MeterDefinitionSpec struct {
 	// ServiceMeters of the meterics you want to track.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// TODO: delete this
 	ServiceMeters []string `json:"serviceMeters,omitempty"`
 
 	// PodMeters of the prometheus metrics you want to track.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// TODO: delete this
 	PodMeters []string `json:"podMeters,omitempty"`
 
 	// Services is the list of discovered services
@@ -79,39 +86,70 @@ type MeterDefinitionSpec struct {
 }
 
 const (
-	VertexOperatorGroup WorkloadVertex = "OperatorGroup"
-	VertexNamespace = "Namespace"
+	WorkloadVertexOperatorGroup WorkloadVertex = "OperatorGroup"
+	WorkloadVertexNamespace                    = "Namespace"
 )
 const (
-	WorkloadTypePod WorkloadType = "Pod"
-	WorkloadTypeService = "Service"
+	WorkloadTypePod            WorkloadType = "Pod"
+	WorkloadTypeServiceMonitor              = "ServiceMonitor"
+	WorkloadTypePVC                         = "PVC"
 )
 
 type WorkloadVertex string
 type WorkloadType string
+type CSVNamespacedName common.NamespacedNameReference
 
 // Workload helps identify what to target for metering.
 type Workload struct {
 	// Name of the workload, must be unique in a meter definition.
 	Name string `json:"name"`
 
-	// OwningGVK is the name of the GVK to look for as the owner of all the
-	// meterable assets. If omitted, the labels and annotations are used instead.
-	Owner GroupVersionKind `json:"owner"`
-
 	// WorkloadType identifies the type of workload to look for. This can be
 	// pod or service right now.
-  // +kubebuilder:validation:Enum=Pod;Service
-	WorkloadType string `json:"type"`
+	// +kubebuilder:validation:Enum=Pod;ServiceMonitor;PVC
+	WorkloadType WorkloadType `json:"type"`
+
+	// OwningGVK is the name of the GVK to look for as the owner of all the
+	// meterable assets. If omitted, the labels and annotations are used instead.
+	// +optional
+	Owner *common.GroupVersionKind `json:"ownerCRD,omitempty"`
 
 	// Labels are used to filter to the correct workload.
-	Labels      map[string]string `json:"labels,omitempty"`
+	LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
 
 	// Annotations are used to filter to the correct workload.
-	Annotations map[string]string `json:"annotations,omitempty"`
+	AnnotationSelector *metav1.LabelSelector `json:"annotationSelector,omitempty"`
 
 	// MetricLabels are the labels to collect
-	MetricLabels []MeterLabelQuery
+	MetricLabels []MeterLabelQuery `json:"metricLabels,omitempty"`
+}
+
+type WorkloadResource struct {
+	ReferencedWorkloadName string `json:"referencedWorkloadName"`
+
+	common.NamespacedNameReference `json:",inline"`
+}
+
+func NewWorkloadResource(workload Workload, obj interface{}) (*WorkloadResource, error) {
+	accessor, err := meta.Accessor(obj)
+
+	if err != nil {
+		return nil, err
+	}
+	gvk, err := common.NewGroupVersionKind(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	return &WorkloadResource{
+		ReferencedWorkloadName: workload.Name,
+		NamespacedNameReference: common.NamespacedNameReference{
+			Name: accessor.GetName(),
+			Namespace: accessor.GetNamespace(),
+			UID: accessor.GetUID(),
+			GroupVersionKind: gvk,
+		},
+	}, nil
 }
 
 // WorkloadStatus provides quick status to check if
@@ -123,13 +161,6 @@ type WorkloadStatus struct {
 	CurrentMetricValue string `json:"currentValue"`
 
 	LastReadTime metav1.Time `json:"startTime"`
-}
-
-type GroupVersionKind struct {
-	// ApiVersion of the CRD
-	ApiVersion string `json:"apiVersion"`
-	// Kind of the CRD
-	Kind       string `json:"kind"`
 }
 
 // MeterLabelQuery helps define a meter label to build and search for
@@ -171,12 +202,15 @@ type MeterDefinitionStatus struct {
 	// ServiceMonitors is the list of service monitors being watched for
 	// this meter definition
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	ServiceMonitors []*metav1.ObjectMeta `json:"serviceMonitors"`
+	ServiceMonitors []common.NamespacedNameReference `json:"serviceMonitors"`
 
 	// Pods is the list of current pods being watched for
 	// this meter definition
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Pods []*metav1.ObjectMeta `json:"pods"`
+
+
+	WorkloadResources []WorkloadResource `json:"workloadResource"`
 }
 
 // MeterDefinition is internal Meter Definitions defined by Operators from Red Hat Marketplace.
@@ -188,6 +222,7 @@ type MeterDefinitionStatus struct {
 // +kubebuilder:resource:path=meterdefinitions,scope=Namespaced
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="(Internal) Meter Definitions"
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`ServiceMonitor,v1,"redhat-marketplace-operator"`
+// +genclient
 type MeterDefinition struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

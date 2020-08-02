@@ -11,10 +11,8 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	kbsm "k8s.io/kube-state-metrics/pkg/metric"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -101,7 +99,7 @@ type PodMeterDefFetcher struct {
 
 func (p *PodMeterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplacev1alpha1.MeterDefinition, error) {
 	cc := p.cc
-	findOwner := &findOwnerHelper{p.cc}
+	findOwner := &rhmclient.FindOwnerHelper{p.cc}
 	results := []*marketplacev1alpha1.MeterDefinition{}
 	pod, ok := obj.(*corev1.Pod)
 
@@ -161,7 +159,7 @@ func (p *PodMeterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplac
 	meterDefinitions := &marketplacev1alpha1.MeterDefinitionList{}
 	result, _ := cc.Do(
 		context.TODO(),
-		ListAction(meterDefinitions, client.MatchingField(rhmclient.MeterDefinitionGVK, ownerGVK)),
+		ListAction(meterDefinitions, client.MatchingField(rhmclient.IndexMeterDefinitionGVK, ownerGVK)),
 	)
 
 	if !result.Is(Continue) {
@@ -177,37 +175,4 @@ func (p *PodMeterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplac
 	}
 
 	return results, nil
-}
-
-type findOwnerHelper struct {
-	cc ClientCommandRunner
-}
-
-func (f *findOwnerHelper) FindOwner(name, namespace string, lookupObj runtime.Object) (owner *metav1.OwnerReference, err error) {
-	result, _ := f.cc.Do(
-		context.TODO(),
-		GetAction(
-			types.NamespacedName{
-				Namespace: namespace,
-				Name:      name,
-			},
-			lookupObj,
-		))
-
-	if !result.Is(Continue) {
-		if result.Is(Error) {
-			log.Error(result, "failed to get owner")
-		}
-
-		err = result
-		return
-	}
-
-	o, err := meta.Accessor(lookupObj)
-	if err != nil {
-		return
-	}
-
-	owner = metav1.GetControllerOf(o)
-	return
 }

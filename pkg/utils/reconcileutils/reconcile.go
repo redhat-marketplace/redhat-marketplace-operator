@@ -160,7 +160,7 @@ func RequeueResponse() *ReturnResponse {
 
 func RequeueAfterResponse(d time.Duration) *ReturnResponse {
 	return &ReturnResponse{
-		BaseAction: NewBaseAction("requeueAfterReponse"),
+		BaseAction: NewBaseAction("requeueReponse"),
 		ExecResult: NewExecResult(Requeue, reconcile.Result{RequeueAfter: d}, nil),
 	}
 }

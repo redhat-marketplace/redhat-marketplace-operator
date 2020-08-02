@@ -8,35 +8,76 @@ import (
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
-	MeterDefinitionGVK  = "meterdefinition.marketplace.redhat.com/gvk"
-	MeterDefinitionPods = "meterdefinition.marketplace.redhat.com/pods"
+	IndexMeterDefinitionGVK  = "meterdefinition.marketplace.redhat.com/gvk"
+	IndexMeterDefinitionPods = "meterdefinition.marketplace.redhat.com/pods"
 
-	OwnerRefContains    = "metadata.ownerReferences.contains"
+	IndexOwnerRefContains = ".metadata.ownerReferences"
+	IndexAnnotations      = ".metadata.annotations"
 
-	OperatorSourceNamespaces   = "operatorsource.namespace"
-	OperatorSourceProvidedAPIs = "operatorsource.providedAPIs"
+	IndexOperatorSourceNamespaces   = "operatorsource.namespace"
+	IndexOperatorSourceProvidedAPIs = "operatorsource.providedAPIs"
 )
 
 var log = logger.NewLogger("client")
 
+func AddOwningControllerIndex(fieldIndexer client.FieldIndexer, types []runtime.Object) error {
+	for _, rType := range types {
+		err := fieldIndexer.IndexField(context.Background(), rType, IndexOwnerRefContains, indexOwner)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func AddOperatorSourceIndex(fieldIndexer client.FieldIndexer) error {
-	err := fieldIndexer.IndexField(context.Background(), &olmv1.OperatorGroup{}, OperatorSourceNamespaces, IndexOperatorSourceNamespaces)
+	err := fieldIndexer.IndexField(context.Background(),
+		&olmv1.OperatorGroup{},
+		IndexOperatorSourceNamespaces,
+		indexOperatorSourceNamespaces)
 
 	if err != nil {
 		return err
 	}
 
-	return fieldIndexer.IndexField(context.Background(), &olmv1.OperatorGroup{}, OperatorSourceProvidedAPIs, IndexOperatorSourceProvidedAPIs)
+	return fieldIndexer.IndexField(
+		context.Background(),
+		&olmv1.OperatorGroup{},
+		IndexOperatorSourceProvidedAPIs,
+		indexOperatorSourceProvidedAPIs)
 }
 
 func AddMeterDefIndex(fieldIndexer client.FieldIndexer) error {
-	return fieldIndexer.IndexField(context.Background(), &marketplacev1alpha1.MeterDefinition{}, MeterDefinitionGVK, IndexMeterDefinitionGVK)
+	return fieldIndexer.IndexField(
+		context.Background(),
+		&marketplacev1alpha1.MeterDefinition{},
+		IndexMeterDefinitionGVK,
+		indexMeterDefinitionGVK)
+}
+
+func AddAnnotationIndex(fieldIndexer client.FieldIndexer, types []runtime.Object) error {
+	for _, rType := range types {
+		err := fieldIndexer.IndexField(
+			context.Background(),
+			rType, IndexAnnotations, indexAnnotations)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func ObjRefToStr(apiversion, kind string) string {
@@ -50,7 +91,19 @@ func ObjRefToStr(apiversion, kind string) string {
 	return strings.ToLower(fmt.Sprintf("%s.%s.%s", kind, version, group))
 }
 
-func indexGVK(obj runtime.Object) []string {
+func indexAnnotations(obj runtime.Object) []string {
+	results := []string{}
+	if meta, ok := obj.(metav1.Object); ok {
+
+		for key, val := range meta.GetAnnotations() {
+			results = append(results, fmt.Sprintf("%s=%s", key, val))
+		}
+	}
+
+	return results
+}
+
+func indexOwner(obj runtime.Object) []string {
 	results := []string{}
 	if meta, ok := obj.(metav1.Object); ok {
 		owner := metav1.GetControllerOf(meta)
@@ -93,7 +146,7 @@ func getOwnersReferences(object metav1.Object, isController bool) []metav1.Owner
 	return nil
 }
 
-func IndexMeterDefinitionGVK(obj runtime.Object) []string {
+func indexMeterDefinitionGVK(obj runtime.Object) []string {
 	meterDef, ok := obj.(*marketplacev1alpha1.MeterDefinition)
 
 	if !ok {
@@ -104,7 +157,7 @@ func IndexMeterDefinitionGVK(obj runtime.Object) []string {
 	return []string{gvk}
 }
 
-func IndexOperatorSourceNamespaces(obj runtime.Object) []string {
+func indexOperatorSourceNamespaces(obj runtime.Object) []string {
 	og, ok := obj.(*olmv1.OperatorGroup)
 
 	if !ok {
@@ -114,7 +167,7 @@ func IndexOperatorSourceNamespaces(obj runtime.Object) []string {
 	return og.Status.Namespaces
 }
 
-func IndexOperatorSourceProvidedAPIs(obj runtime.Object) []string {
+func indexOperatorSourceProvidedAPIs(obj runtime.Object) []string {
 	og, ok := obj.(*olmv1.OperatorGroup)
 
 	if !ok {
@@ -130,4 +183,37 @@ func IndexOperatorSourceProvidedAPIs(obj runtime.Object) []string {
 	vals := strings.Split(val, ",")
 
 	return vals
+}
+
+type FindOwnerHelper struct {
+	cc reconcileutils.ClientCommandRunner
+}
+
+func (f *FindOwnerHelper) FindOwner(name, namespace string, lookupObj runtime.Object) (owner *metav1.OwnerReference, err error) {
+	result, _ := f.cc.Do(
+		context.TODO(),
+		reconcileutils.GetAction(
+			types.NamespacedName{
+				Namespace: namespace,
+				Name:      name,
+			},
+			lookupObj,
+		))
+
+	if !result.Is(reconcileutils.Continue) {
+		if result.Is(reconcileutils.Error) {
+			log.Error(result, "failed to get owner")
+		}
+
+		err = result
+		return
+	}
+
+	o, err := meta.Accessor(lookupObj)
+	if err != nil {
+		return
+	}
+
+	owner = metav1.GetControllerOf(o)
+	return
 }

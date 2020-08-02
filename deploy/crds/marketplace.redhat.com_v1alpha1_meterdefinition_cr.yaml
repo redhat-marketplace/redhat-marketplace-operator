@@ -5,8 +5,21 @@ metadata:
 spec:
   # Add fields here
   group: partner.metering.com
-  version: v1alpha1
   kind: App
+
+  workloadVertexType: OperatorGroup
+  workloads:
+    - name: app-pods
+      type: Pod
+      owner:
+        apiVersion: partner.metering.com/v1alpha1
+        kind: App
+      metricLabels:
+        label: container_spec_cpu_shares
+        query: |-
+          {job: kubelet}
+        aggregation: sum
+
   serviceMeters:
     - labels
   podMeters:

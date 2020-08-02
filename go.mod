@@ -9,7 +9,6 @@ require (
 	github.com/Shyp/bump_version v0.0.0-20180222180749-d7594d2951e2
 	github.com/banzaicloud/k8s-objectmatcher v1.3.0
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/code-ready/crc v0.0.0-20200430050718-9d5f3259f30b
 	github.com/containerd/containerd v1.3.4 // indirect
 	github.com/containerd/typeurl v1.0.0 // indirect
 	github.com/coreos/prometheus-operator v0.40.0
@@ -35,7 +34,6 @@ require (
 	github.com/mikefarah/yq/v3 v3.0.0-20200415014842-6f0a329331f9
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.3.2
-	github.com/noqcks/gucci v0.0.4
 	github.com/onsi/ginkgo v1.13.0
 	github.com/onsi/gomega v1.10.1
 	github.com/opencontainers/go-digest v1.0.0 // indirect
@@ -55,7 +53,6 @@ require (
 	github.com/spf13/viper v1.6.2
 	github.com/stretchr/testify v1.5.1
 	github.com/tcnksm/ghr v0.13.0
-	github.com/urfave/cli v1.22.2 // indirect
 	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	golang.org/x/tools v0.0.0-20200710042808-f1c4188a97a1 // indirect
@@ -66,6 +63,7 @@ require (
 	k8s.io/api v0.18.6
 	k8s.io/apimachinery v0.18.6
 	k8s.io/client-go v12.0.0+incompatible
+	k8s.io/code-generator v0.18.6
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
 	k8s.io/kube-state-metrics v1.7.2

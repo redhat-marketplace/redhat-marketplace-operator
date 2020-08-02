@@ -132,13 +132,16 @@ code-dev: ## Run the default dev commands which are the go fmt and vet then exec
 	- make code-fmt
 	- make code-vet
 
+.PHONY: k8s-gen
+k8s-gen: \
+	cd ./scripts && go mod vendor
+	. ./scripts/update-codegen.sh
+
 code-gen: ## Run the operator-sdk commands to generated code (k8s and crds)
 	@echo Generating k8s
 	operator-sdk generate k8s
 	@echo Updating the CRD files with the OpenAPI validations
 	operator-sdk generate crds --crd-version=v1beta1
-	@echo Generating the yamls for deployment
-	- make helm
 	@echo Go generating
 	- go generate ./...
 
@@ -220,7 +223,7 @@ delete: ##delete the contents created in 'make create'
 	- kubectl patch customresourcedefinition.apiextensions.k8s.io remoteresources3s.marketplace.redhat.com -p '{"metadata":{"finalizers":[]}}' --type=merge
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_remoteresources3s_crd.yaml -n ${NAMESPACE}
 	- kubectl delete namespace ${NAMESPACE}
-	
+
 delete-razee: ##delete the razee CR
 	@echo deleting razee CR
 	- kubectl delete -f  deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
