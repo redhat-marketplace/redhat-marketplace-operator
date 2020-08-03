@@ -19,6 +19,7 @@ import (
 	goerr "errors"
 	"reflect"
 	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -44,7 +45,7 @@ const (
 	operatorTag     = "marketplace.redhat.com/operator"
 	watchTag        = "razee/watch-resource"
 	allnamespaceTag = "olm.copiedFrom"
-	IgnoreTag       = "marketplace.redhat.com/ignore"
+	ignoreTag       = "marketplace.redhat.com/ignore"
 	trackMeterTag   = "marketplace.redhat.com/track-meter"
 )
 
@@ -70,49 +71,54 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	labelPreds := []predicate.Predicate{
 		predicate.Funcs{
 			UpdateFunc: func(evt event.UpdateEvent) bool {
-				// _, okAllNamespace := evt.MetaNew.GetLabels()[allnamespaceTag]
-				// watchLabel, watchOk := evt.MetaNew.GetLabels()[watchTag]
-				// _, ignoreOk := evt.MetaNew.GetAnnotations()[IgnoreTag]
+				_, okAllNamespace := evt.MetaNew.GetLabels()[allnamespaceTag]
+				watchLabel, watchOk := evt.MetaNew.GetLabels()[watchTag]
+				_, ignoreOk := evt.MetaNew.GetAnnotations()[ignoreTag]
 
-				// if ignoreOk {
-				// 	return false
-				// }
+				if strings.Contains(evt.MetaNew.GetName(), utils.CSV_NAME) {
+					return true
+				}
 
-				// if okAllNamespace {
-				// 	return false
-				// }
+				if ignoreOk {
+					return false
+				}
 
-				// return !(watchOk && watchLabel == "lite")
-				return strings.Contains(evt.MetaNew.GetName(), utils.CSV_NAME)
-				// return true
+				if okAllNamespace {
+					return false
+				}
+
+				return !(watchOk && watchLabel == "lite")
 			},
 			DeleteFunc: func(evt event.DeleteEvent) bool {
-				// _, okAllNamespace := evt.Meta.GetLabels()[allnamespaceTag]
-				// watchLabel, watchOk := evt.Meta.GetLabels()[watchTag]
-				// _, ignoreOk := evt.Meta.GetAnnotations()[IgnoreTag]
+				_, okAllNamespace := evt.Meta.GetLabels()[allnamespaceTag]
+				watchLabel, watchOk := evt.Meta.GetLabels()[watchTag]
+				_, ignoreOk := evt.Meta.GetAnnotations()[ignoreTag]
 
-				// if ignoreOk {
-				// 	return false
-				// }
+				if strings.Contains(evt.Meta.GetName(), utils.CSV_NAME) {
+					return true
+				}
 
-				// if okAllNamespace {
-				// 	return false
-				// }
+				if ignoreOk {
+					return false
+				}
 
-				// return !(watchOk && watchLabel == "lite")
-				return strings.Contains(evt.Meta.GetName(), utils.CSV_NAME)
-				// return true
+				if okAllNamespace {
+					return false
+				}
+
+				return !(watchOk && watchLabel == "lite")
 			},
 			CreateFunc: func(evt event.CreateEvent) bool {
-				// _, okAllNamespace := evt.Meta.GetLabels()[allnamespaceTag]
-				// return !okAllNamespace
-				return strings.Contains(evt.Meta.GetName(), utils.CSV_NAME)
-				// return true
+				_, okAllNamespace := evt.Meta.GetLabels()[allnamespaceTag]
+
+				if strings.Contains(evt.Meta.GetName(), utils.CSV_NAME) {
+					return true
+				}
+
+				return !okAllNamespace
 			},
 			GenericFunc: func(evt event.GenericEvent) bool {
-				// return false
 				return strings.Contains(evt.Meta.GetName(), utils.CSV_NAME)
-				// return true
 			},
 		},
 	}
@@ -122,40 +128,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err != nil {
 		return err
 	}
-	return nil
 
-	p := []predicate.Predicate{
-		predicate.Funcs{
-			CreateFunc: func(evt event.CreateEvent) bool {
-				return false
-			},
-			UpdateFunc: func(evt event.UpdateEvent) bool {
-				ann := evt.MetaOld.GetAnnotations()
-				if _, ok := ann[utils.CSV_ANNOTATION_NAME]; ok {
-					return true
-				}
-				return false
-			},
-			DeleteFunc: func(evt event.DeleteEvent) bool {
-				ann := evt.Meta.GetAnnotations()
-				if _, ok := ann[utils.CSV_ANNOTATION_NAME]; ok {
-					return true
-				}
-				return false
-			},
-			GenericFunc: func(evt event.GenericEvent) bool {
-				ann := evt.Meta.GetAnnotations()
-				if _, ok := ann[utils.CSV_ANNOTATION_NAME]; ok {
-					return true
-				}
-				return false
-			},
-		},
-	}
-	err = c.Watch(&source.Kind{Type: &marketplacev1alpha1.MeterDefinition{}}, &handler.EnqueueRequestForObject{}, p...)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -201,83 +174,80 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 	if strings.Contains(CSV.GetName(), utils.CSV_NAME) {
 		// examine DeletionTimestamp to determine if object is under deletion
 		if CSV.ObjectMeta.DeletionTimestamp.IsZero() {
-
 			// Case 1: the object is not being deleted
 
-			//so if it does not have our finalizer,
-			// then lets add the finalizer and update the object. This is equivalent
-			// registering our finalizer.
+			// Check if there is a finalizer attached to CSV
 			if !utils.Contains(CSV.GetFinalizers(), utils.CSV_FINALIZER) {
+				// if no -> register finalizer
 				CSV.ObjectMeta.Finalizers = append(CSV.ObjectMeta.Finalizers, utils.CSV_FINALIZER)
 				if err := r.client.Update(context.Background(), CSV); err != nil {
 					return reconcile.Result{}, err
-				} else {
-					reqLogger.Info("-------------Added finalizer-------------") //KEEP THIS - FIX WORDING
 				}
+				reqLogger.Info("added finailzer to CSV")
+			}
 
-				// retrives the string representatino of the MeterDefinition from annotations
-				// and builds a MeterDefinition instance out of it
-				reqLogger.Info("-------------Retrieving MeterDefinition String-------------") // KEEP THIS - FIX WORDING
-				meterDefinitionString, ok := annotations["meterDefinition"]
-				if ok {
-					reqLogger.Info("------------- FOUND IT-------------") // FIX WORDING
-				} else {
-					reqLogger.Info("------------- DID NOT FIND IT -------------") // FIX WORDING --> return err?
-				}
-				reqLogger.Info("-------------Building a copy of MeterDefinition-------------") //FIX WORDING
-				meterDefinition := &marketplacev1alpha1.MeterDefinition{}
-				_, err = meterDefinition.BuildMeterDefinitionFromString(meterDefinitionString, CSV.GetName(), CSV.GetNamespace(), utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
+			// retrives the string representatin of the MeterDefinition from annotations
+			// and builds a MeterDefinition instance out of it
+			reqLogger.Info("retrieving MeterDefinition string from csv") // KEEP THIS - FIX WORDING
+			meterDefinitionString, ok := annotations[utils.CSV_METERDEFINITION_ANNOTATION]
+			if ok {
+				reqLogger.Info("retrieval successful") // FIX WORDING
+			} else {
+				err = goerr.New("could not retrieve MeterDefinitionString")
+				reqLogger.Error(err, "was expecting a an annotation for meterdefinition in CSV")
+			}
+			reqLogger.Info("-------------Building a copy of MeterDefinition-------------") //FIX WORDING
+			meterDefinition := &marketplacev1alpha1.MeterDefinition{}
+			_, err = meterDefinition.BuildMeterDefinitionFromString(meterDefinitionString, CSV.GetName(), CSV.GetNamespace(), utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
+			if err != nil {
+				reqLogger.Error(err, "Could not build a local copy of the MeterDefinition")
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("-------------CHECKING IF CSV IS CURRENTLY BEING TRACKED-------------") // COMPLETLY REWORD -> checking if CSV is being tracked
+			//checks if the CSV is new or old (aka. is it already being tracked)
+			if val, ok := annotations[trackMeterTag]; ok && val == "true" {
+				// Case 1: The CSV is old: no action required
+				reqLogger.Info("-------------CSV IS OLD-------------") // FIX WORDING
+				existingMeterDefinition := &marketplacev1alpha1.MeterDefinition{}
+				err = r.client.Get(context.TODO(), client.ObjectKey{Name: meterDefinition.GetName(), Namespace: meterDefinition.GetNamespace()}, existingMeterDefinition)
 				if err != nil {
-					reqLogger.Error(err, "Could not build a copy of the MeterDefinition")
+					reqLogger.Error(err, "Could not retrieve the existing MeterDefinition")
 					return reconcile.Result{}, err
 				}
-				reqLogger.Info("-------------NOW CHECK ANNOTATIONS-------------")
-				if val, ok := annotations[trackMeterTag]; ok && val == "true" {
-					// The CSV has already been created, and we are already tracking
-
-					//CSV is not new
-					//In this case: compare the existing MeterDefinition, with whats in the annotations
-					reqLogger.Info("-------------CSV already tracked-------------")
-					existingMeterDefinition := &marketplacev1alpha1.MeterDefinition{}
-					err = r.client.Get(context.TODO(), client.ObjectKey{Name: meterDefinition.GetName(), Namespace: meterDefinition.GetNamespace()}, existingMeterDefinition)
-					if err != nil {
-						reqLogger.Error(err, "Could not retrieve the existing MeterDefinition")
-						return reconcile.Result{}, err
-					}
-					if !reflect.DeepEqual(meterDefinition, existingMeterDefinition) {
-						err = goerr.New("Existing MeterDefinition and Expected MeterDefinition mismatch")
-						reqLogger.Error(err, "The existing meterdefinition is different from the expected meterdefinition")
-					}
+				if !reflect.DeepEqual(meterDefinition, existingMeterDefinition) {
+					err = goerr.New("Existing MeterDefinition and Expected MeterDefinition mismatch")
+					reqLogger.Error(err, "The existing meterdefinition is different from the expected meterdefinition")
 				} else {
-					// The CSV is new, we must track it and create the Meter Definition
-					annotations[trackMeterTag] = "true"
-
-					CSV.SetAnnotations(annotations)
-					if err := r.client.Update(context.TODO(), CSV); err != nil {
-						reqLogger.Error(err, "Failed to patch clusterserviceversion trackMeter Tag")
-						return reconcile.Result{}, err
-					}
-					reqLogger.Info("Patched clusterserviceversion with trackMeter tag")
-					//CSV is new
-					//In this case: create the MeterDefinition
-					reqLogger.Info("-------------CSV IS NEW-------------")
-					err = r.client.Create(context.TODO(), meterDefinition)
-					if err != nil {
-						reqLogger.Error(err, "Could not create MeterDefinition")
-						return reconcile.Result{}, err
-					}
-
+					reqLogger.Info("-------------- METER DEFINITION MATCHES ------------")
 				}
+			} else {
+				reqLogger.Info("-------------CSV IS NEW-------------")
+				// Case 2: The CSV is new: we must track it & we must create the Meter Definition
+				annotations[trackMeterTag] = "true"
+
+				CSV.SetAnnotations(annotations)
+				if err := r.client.Update(context.TODO(), CSV); err != nil {
+					reqLogger.Error(err, "Failed to patch clusterserviceversion with trackMeter Tag")
+					return reconcile.Result{}, err
+				}
+				reqLogger.Info("Patched clusterserviceversion with trackMeter tag")
+				err = r.client.Create(context.TODO(), meterDefinition)
+				if err != nil {
+					reqLogger.Error(err, "Could not create MeterDefinition")
+					return reconcile.Result{}, err
+				}
+
 			}
 		} else {
 			// Case 2: The object is being deleted
-			reqLogger.Info("-------------CSV Finalizer Name: -------------", "name: ", strings.Join(CSV.GetFinalizers(), ", "), "coded name: ", utils.CSV_FINALIZER)
+			reqLogger.Info("-------------CSV Finalizer Name: -------------", "name: ", strings.Join(CSV.GetFinalizers(), ", "), "coded name: ", utils.CSV_FINALIZER) // REMOVE THIS
 			if utils.Contains(CSV.GetFinalizers(), utils.CSV_FINALIZER) {
 				// our finalizer is present, so lets handle any external dependency
-				reqLogger.Info("-------------Deleting CSV-------------")
+				reqLogger.Info("-------------Deleting CSV-------------") // FIX WORDING
 				if err := r.deleteExternalResources(CSV); err != nil {
 					// if fail to delete the external dependency here, return with error
 					// so that it can be retried
+					reqLogger.Error(err, "------- COULD NOT DELETE CSV -------") // FIX WORDING
 					return reconcile.Result{}, err
 				}
 				// remove our finalizer from the list and update it.
@@ -342,7 +312,7 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 	if !hasMarketplaceSub {
 		clusterOriginalAnnotations := CSV.DeepCopy().GetAnnotations()
 
-		annotations[IgnoreTag] = "true"
+		annotations[ignoreTag] = "true"
 
 		if !reflect.DeepEqual(annotations, clusterOriginalAnnotations) {
 			CSV.SetAnnotations(annotations)
@@ -357,13 +327,13 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 	}
 
 	reqLogger.Info("reconcilation complete")
-	return reconcile.Result{}, nil
+	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
 }
 
 // deleteExternalResources searches for the MeterDefinition created by the CSV, if it's found delete it
 func (r *ReconcileClusterServiceVersion) deleteExternalResources(CSV *olmv1alpha1.ClusterServiceVersion) error {
 	reqLogger := log.WithValues("Request.Name", CSV.GetName(), "Request.Namespace", CSV.GetNamespace())
-	reqLogger.Info("-------------DELETING CSV-------------")
+	reqLogger.Info("deleting csv")
 	var err error
 
 	meterDefinitionList := &marketplacev1alpha1.MeterDefinitionList{}
@@ -372,19 +342,21 @@ func (r *ReconcileClusterServiceVersion) deleteExternalResources(CSV *olmv1alpha
 		return err
 	}
 
+	// search specifically for the Meter Definition created by the CSV
 	for _, meterDefinition := range meterDefinitionList.Items {
 		ann := meterDefinition.GetAnnotations()
 		if _, ok := ann[utils.CSV_ANNOTATION_NAME]; ok {
+			// CSV specific MeterDefinition found; delete it
 			err = r.client.Delete(context.TODO(), &meterDefinition, client.PropagationPolicy(metav1.DeletePropagationForeground))
 			if err != nil {
 				return err
 			} else {
-				reqLogger.Info("FOUND AND DELETED METER DEFINITION")
+				reqLogger.Info("found and deleted MeterDefinition")
 				return nil
 			}
 		}
 	}
 
-	reqLogger.Info("NO METER DEFINITION FOUND")
+	reqLogger.Info("no meterdefinition found")
 	return nil
 }
