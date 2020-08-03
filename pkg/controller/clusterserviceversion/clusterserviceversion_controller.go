@@ -148,7 +148,6 @@ type ReconcileClusterServiceVersion struct {
 func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Name", request.Name, "Request.Namespace", request.Namespace)
 	reqLogger.Info("Reconciling ClusterServiceVersion")
-	reqLogger.Info("------------------_________________------------------______________-----------------")
 	// Fetch the ClusterServiceVersion instance
 	CSV := &olmv1alpha1.ClusterServiceVersion{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, CSV)
@@ -218,7 +217,7 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 					err = goerr.New("Existing MeterDefinition and Expected MeterDefinition mismatch")
 					reqLogger.Error(err, "The existing meterdefinition is different from the expected meterdefinition")
 				} else {
-					reqLogger.Info("-------------- METER DEFINITION MATCHES ------------")
+					reqLogger.Info("meter definition matches")
 				}
 			} else {
 				reqLogger.Info("csv is new")
