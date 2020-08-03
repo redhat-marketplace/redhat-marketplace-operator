@@ -402,8 +402,8 @@ func (r *ReconcileMeterBase) createReportIfNotFound(expectedCreatedDates []strin
 
 func (r *ReconcileMeterBase) removeOldReports(meterReportNames []string, loc *time.Location, dateRange int, request reconcile.Request) ([]string, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	limit := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc).In(loc).AddDate(0, 0, dateRange)
 	for _, reportName := range meterReportNames {
-		limit := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc).In(loc).AddDate(0, 0, dateRange)
 		dateCreated, _ := r.retrieveCreatedDate(reportName)
 		if dateCreated.Before(limit) {
 			reqLogger.Info("Deleting Report", "Resource", reportName)
