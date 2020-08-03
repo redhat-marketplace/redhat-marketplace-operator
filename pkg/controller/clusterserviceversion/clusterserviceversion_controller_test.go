@@ -15,9 +15,7 @@
 package clusterserviceversion
 
 import (
-	// "encoding/json"
 	"fmt"
-	// "io/ioutil"
 	"reflect"
 	"testing"
 
