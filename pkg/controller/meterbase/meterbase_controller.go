@@ -452,15 +452,13 @@ func (r *ReconcileMeterBase) retrieveCreatedDate(reportName string) (time.Time, 
 }
 
 func (r *ReconcileMeterBase) newMeterReportNameFromDate(date time.Time) string {
-	prefix := "meter-report-"
 	dateSuffix := strings.Join(strings.Fields(date.String())[:1], "")
-	return fmt.Sprintf("%s%s", prefix, dateSuffix)
+	return fmt.Sprintf("%s%s", utils.METER_REPORT_PREFIX, dateSuffix)
 }
 
 func (r *ReconcileMeterBase) newMeterReportNameFromString(dateString string) string {
-	prefix := "meter-report-"
 	dateSuffix := dateString
-	return fmt.Sprintf("%s%s", prefix, dateSuffix)
+	return fmt.Sprintf("%s%s", utils.METER_REPORT_PREFIX, dateSuffix)
 }
 
 func (r *ReconcileMeterBase) generateFoundCreatedDates(meterReportNames []string) []string {
