@@ -65,8 +65,10 @@ const (
 	FILE_SOURCE_URL_FIELD                     = "FILE_SOURCE_URL"
 
 	/* CSV Controller Values */
-	CSV_FINALIZER = "csv.finalizer.marketplace.redhat.com"
-	CSV_NAME      = "redhat-marketplace-operator"
+	CSV_FINALIZER            = "csv.finalizer.marketplace.redhat.com"
+	CSV_NAME                 = "redhat-marketplace-operator"
+	CSV_ANNOTATION_NAME      = "csvName"
+	CSV_ANNOTATION_NAMESPACE = "csvNamespace"
 )
 
 var (

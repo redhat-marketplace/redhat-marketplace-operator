@@ -16,9 +16,7 @@ package clusterserviceversion
 
 import (
 	"context"
-	"encoding/json"
 	goerr "errors"
-	"io/ioutil"
 	"reflect"
 	"strings"
 
@@ -133,21 +131,21 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			},
 			UpdateFunc: func(evt event.UpdateEvent) bool {
 				ann := evt.MetaOld.GetAnnotations()
-				if _, ok := ann["csvName"]; ok {
+				if _, ok := ann[utils.CSV_ANNOTATION_NAME]; ok {
 					return true
 				}
 				return false
 			},
 			DeleteFunc: func(evt event.DeleteEvent) bool {
 				ann := evt.Meta.GetAnnotations()
-				if _, ok := ann["csvName"]; ok {
+				if _, ok := ann[utils.CSV_ANNOTATION_NAME]; ok {
 					return true
 				}
 				return false
 			},
 			GenericFunc: func(evt event.GenericEvent) bool {
 				ann := evt.Meta.GetAnnotations()
-				if _, ok := ann["csvName"]; ok {
+				if _, ok := ann[utils.CSV_ANNOTATION_NAME]; ok {
 					return true
 				}
 				return false
@@ -199,11 +197,14 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 		annotations = make(map[string]string)
 	}
 
+	//check if the CSV name, matches the RHM-Operator CSV name
 	if strings.Contains(CSV.GetName(), utils.CSV_NAME) {
 		// examine DeletionTimestamp to determine if object is under deletion
 		if CSV.ObjectMeta.DeletionTimestamp.IsZero() {
 
-			// The object is not being deleted, so if it does not have our finalizer,
+			// Case 1: the object is not being deleted
+
+			//so if it does not have our finalizer,
 			// then lets add the finalizer and update the object. This is equivalent
 			// registering our finalizer.
 			if !utils.Contains(CSV.GetFinalizers(), utils.CSV_FINALIZER) {
@@ -211,21 +212,21 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 				if err := r.client.Update(context.Background(), CSV); err != nil {
 					return reconcile.Result{}, err
 				} else {
-					reqLogger.Info("-------------Added finalizer-------------")
+					reqLogger.Info("-------------Added finalizer-------------") //KEEP THIS - FIX WORDING
 				}
 
-				reqLogger.Info("-------------FOUND: CSV, NOW CHECK ANNOTATIONS-------------")
 				// retrives the string representatino of the MeterDefinition from annotations
 				// and builds a MeterDefinition instance out of it
-				reqLogger.Info("-------------Retrieving MeterDefinition String-------------")
-				meterDefinitionString, err := getMeterDefinitionString(annotations["alm-example"])
-				if err != nil {
-					reqLogger.Error(err, "Failed to retrieve the MeterDefinition String for this CSV")
-					return reconcile.Result{}, err
+				reqLogger.Info("-------------Retrieving MeterDefinition String-------------") // KEEP THIS - FIX WORDING
+				meterDefinitionString, ok := annotations["meterDefinition"]
+				if ok {
+					reqLogger.Info("------------- FOUND IT-------------") // FIX WORDING
+				} else {
+					reqLogger.Info("------------- DID NOT FIND IT -------------") // FIX WORDING --> return err?
 				}
-				reqLogger.Info("-------------Building a copy of MeterDefinition-------------")
+				reqLogger.Info("-------------Building a copy of MeterDefinition-------------") //FIX WORDING
 				meterDefinition := &marketplacev1alpha1.MeterDefinition{}
-				_, err = meterDefinition.BuildMeterDefinitionFromString(meterDefinitionString, CSV.GetName(), CSV.GetNamespace())
+				_, err = meterDefinition.BuildMeterDefinitionFromString(meterDefinitionString, CSV.GetName(), CSV.GetNamespace(), utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
 				if err != nil {
 					reqLogger.Error(err, "Could not build a copy of the MeterDefinition")
 					return reconcile.Result{}, err
@@ -269,7 +270,7 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 				}
 			}
 		} else {
-			// The object is being deleted
+			// Case 2: The object is being deleted
 			reqLogger.Info("-------------CSV Finalizer Name: -------------", "name: ", strings.Join(CSV.GetFinalizers(), ", "), "coded name: ", utils.CSV_FINALIZER)
 			if utils.Contains(CSV.GetFinalizers(), utils.CSV_FINALIZER) {
 				// our finalizer is present, so lets handle any external dependency
@@ -359,39 +360,6 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 	return reconcile.Result{}, nil
 }
 
-func getMeterDefinitionString(almExample string) (string, error) {
-	var err error
-	var objs []runtime.Unstructured
-	var result string
-
-	data := []byte(almExample)
-
-	err = json.Unmarshal(data, &objs)
-	if err != nil {
-		return "", err
-	}
-
-	b, err := json.Marshal(objs)
-	err = ioutil.WriteFile("after", b, 0644)
-	if err != nil {
-		return "", err
-	}
-
-	for _, obj := range objs {
-		if obj.GetObjectKind().GroupVersionKind().Kind == "MeterDefinition" {
-			res, err := json.Marshal(obj)
-			if err != nil {
-				return "", err
-			}
-			result = string(res)
-			return result, nil
-		}
-	}
-
-	err = goerr.New("Could not find a kind MeterDefinition")
-	return result, err
-}
-
 // deleteExternalResources searches for the MeterDefinition created by the CSV, if it's found delete it
 func (r *ReconcileClusterServiceVersion) deleteExternalResources(CSV *olmv1alpha1.ClusterServiceVersion) error {
 	reqLogger := log.WithValues("Request.Name", CSV.GetName(), "Request.Namespace", CSV.GetNamespace())
@@ -406,7 +374,7 @@ func (r *ReconcileClusterServiceVersion) deleteExternalResources(CSV *olmv1alpha
 
 	for _, meterDefinition := range meterDefinitionList.Items {
 		ann := meterDefinition.GetAnnotations()
-		if _, ok := ann["csvName"]; ok {
+		if _, ok := ann[utils.CSV_ANNOTATION_NAME]; ok {
 			err = r.client.Delete(context.TODO(), &meterDefinition, client.PropagationPolicy(metav1.DeletePropagationForeground))
 			if err != nil {
 				return err

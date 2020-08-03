@@ -19,6 +19,7 @@ import (
 
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -134,7 +135,7 @@ func init() {
 	SchemeBuilder.Register(&MeterDefinition{}, &MeterDefinitionList{})
 }
 
-func (meterdef *MeterDefinition) BuildMeterDefinitionFromString(meterdefString, name, namespace string) (*MeterDefinition, error) {
+func (meterdef *MeterDefinition) BuildMeterDefinitionFromString(meterdefString, name, namespace, nameLabel, namespaceLabel string) (*MeterDefinition, error) {
 	data := []byte(meterdefString)
 	err := json.Unmarshal(data, meterdef)
 	if err != nil {
@@ -142,8 +143,8 @@ func (meterdef *MeterDefinition) BuildMeterDefinitionFromString(meterdefString, 
 	}
 
 	csvInfo := make(map[string]string)
-	csvInfo["csvName"] = name
-	csvInfo["csvNamespace"] = namespace
+	csvInfo[nameLabel] = name
+	csvInfo[namespaceLabel] = namespace
 	meterdef.SetAnnotations(csvInfo)
 
 	meterdef.Namespace = namespace

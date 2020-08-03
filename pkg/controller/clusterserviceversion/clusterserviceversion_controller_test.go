@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"testing"
 
+	utils "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -189,8 +190,8 @@ func TestBuildMeterDefinitionFromString(t *testing.T) {
 	serviceMeters := []string{"labels"}
 	podMeters := []string{"kube_pod_container_resource_requests"}
 	var ann = map[string]string{
-		"csvName":      csvName,
-		"csvNamespace": namespace,
+		utils.CSV_ANNOTATION_NAME:      csvName,
+		utils.CSV_ANNOTATION_NAMESPACE: namespace,
 	}
 
 	ogMeter := &marketplacev1alpha1.MeterDefinition{
@@ -209,7 +210,7 @@ func TestBuildMeterDefinitionFromString(t *testing.T) {
 	}
 
 	meterStr := "{\"metadata\":{\"name\":\"" + name + "\",\"namespace\":\"" + namespace + "\",\"creationTimestamp\":null},\"spec\":{\"group\":\"" + group + "\",\"version\":\"" + version + "\",\"kind\":\"" + kind + "\",\"serviceMeters\":[\"labels\"],\"podMeters\":[\"kube_pod_container_resource_requests\"]},\"status\":{\"serviceLabels\":null,\"podLabels\":null,\"serviceMonitors\":null,\"pods\":null}}"
-	_, err := meter.BuildMeterDefinitionFromString(meterStr, csvName, namespace)
+	_, err := meter.BuildMeterDefinitionFromString(meterStr, csvName, namespace, utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
 	if err != nil {
 		t.Errorf("Failed to build MeterDefinition CR: %v", err)
 	} else {
@@ -219,27 +220,6 @@ func TestBuildMeterDefinitionFromString(t *testing.T) {
 			fmt.Println("CREATED METER: ")
 			fmt.Println(meter)
 			t.Errorf("Expected MeterDefinition is different from actual MeterDefinition")
-		}
-	}
-}
-
-func TestGetMeterDefinitionString(t *testing.T) {
-	name := "example-meterdefinition"
-	name2 := "name2"
-	group := "partner.metering.com"
-	version := "v1alpha"
-	kind := "App"
-
-	listStr := "{\"metadata\":{\"name\":\"" + name2 + "\",\"namespace\":\"" + namespace + "\",\"creationTimestamp\":null},\"spec\":{\"group\":\"" + group + "\",\"version\":\"" + version + "\",\"kind\":\"" + kind + "\",\"serviceMeters\":[\"labels\"],\"podMeters\":[\"kube_pod_container_resource_requests\"]},\"status\":{\"serviceLabels\":null,\"podLabels\":null,\"serviceMonitors\":null,\"pods\":null}}"
-	meterStr := "{\"metadata\":{\"name\":\"" + name + "\",\"namespace\":\"" + namespace + "\",\"creationTimestamp\":null},\"spec\":{\"group\":\"" + group + "\",\"version\":\"" + version + "\",\"kind\":\"" + kind + "\",\"serviceMeters\":[\"labels\"],\"podMeters\":[\"kube_pod_container_resource_requests\"]},\"status\":{\"serviceLabels\":null,\"podLabels\":null,\"serviceMonitors\":null,\"pods\":null}}"
-	listStr = "[" + listStr + ", " + meterStr + "]"
-	meter, err := getMeterDefinitionString(listStr)
-	if err != nil {
-		t.Errorf("Failed to get MeterDefinition String: %v", err)
-	} else {
-		if meter != meterStr {
-			t.Log(meter)
-			t.Errorf("Expected MeterDefinition (string) is different from actual MeterDefinition.")
 		}
 	}
 }
