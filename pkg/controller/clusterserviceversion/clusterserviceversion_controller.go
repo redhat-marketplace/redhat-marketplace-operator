@@ -170,42 +170,32 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 		annotations = make(map[string]string)
 	}
 
-	// examine DeletionTimestamp to determine if object is under deletion
-	if CSV.ObjectMeta.DeletionTimestamp.IsZero() {
-		// Case 1: the object is not being deleted
-
-		// Check if there is a finalizer attached to CSV
-		if !utils.Contains(CSV.GetFinalizers(), utils.CSV_FINALIZER) {
-			// if no -> register finalizer
-			CSV.ObjectMeta.Finalizers = append(CSV.ObjectMeta.Finalizers, utils.CSV_FINALIZER)
-			if err := r.client.Update(context.Background(), CSV); err != nil {
-				return reconcile.Result{}, err
-			}
-			reqLogger.Info("added finailzer to CSV")
-		}
-
-		result, isRequeue, err := r.reconcileMeterDefAnnotation(CSV, annotations)
-		if isRequeue {
+	// check if CSV is being deleted
+	// if yes -> finalizer logic
+	// if no -> do nothing
+	if !CSV.ObjectMeta.DeletionTimestamp.IsZero() && utils.Contains(CSV.GetFinalizers(), utils.CSV_FINALIZER) {
+		//Run finalization logic for the CSV.
+		result, isReconcile, err := r.finalizeCSV(CSV)
+		if isReconcile {
 			return result, err
 		}
-
-	} else {
-		// Case 2: The object is being deleted
-		if utils.Contains(CSV.GetFinalizers(), utils.CSV_FINALIZER) {
-			// our finalizer is present, so lets handle any external dependency
-			reqLogger.Info("deleting csv")
-			if err := r.deleteExternalResources(CSV); err != nil {
-				reqLogger.Error(err, "unable to delete csv")
-			}
-			// remove our finalizer from the list and update it.
-			CSV.SetFinalizers(utils.RemoveKey(CSV.GetFinalizers(), utils.CSV_FINALIZER))
-			r.client.Update(context.Background(), CSV)
-		}
-
-		// Stop reconciliation as the item is being deleted
-		return reconcile.Result{}, nil
 	}
 
+	// Check if there is a finalizer attached to CSV
+	// intentionally ran, after we checked if CSV is being deleted
+	if !utils.Contains(CSV.GetFinalizers(), utils.CSV_FINALIZER) {
+		// if no -> register finalizer
+		CSV.ObjectMeta.Finalizers = append(CSV.ObjectMeta.Finalizers, utils.CSV_FINALIZER)
+		if err := r.client.Update(context.Background(), CSV); err != nil {
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("added finailzer to CSV")
+	}
+
+	result, isRequeue, err := r.reconcileMeterDefAnnotation(CSV, annotations)
+	if isRequeue {
+		return result, err
+	}
 	sub := &olmv1alpha1.SubscriptionList{}
 
 	if err := r.client.List(context.TODO(), sub, client.InNamespace(request.NamespacedName.Namespace)); err != nil {
@@ -272,6 +262,23 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 
 	reqLogger.Info("reconcilation complete")
 	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
+}
+
+func (r *ReconcileClusterServiceVersion) finalizeCSV(CSV *olmv1alpha1.ClusterServiceVersion) (reconcile.Result, bool, error) {
+	reqLogger := log.WithValues("Request.Name", CSV.GetName(), "Request.Namespace", CSV.GetNamespace())
+
+	reqLogger.Info("deleting csv")
+	if err := r.deleteExternalResources(CSV); err != nil {
+		reqLogger.Error(err, "unable to delete csv")
+		return reconcile.Result{}, false, err
+	}
+	// remove our finalizer from the list and update it.
+	CSV.SetFinalizers(utils.RemoveKey(CSV.GetFinalizers(), utils.CSV_FINALIZER))
+	r.client.Update(context.Background(), CSV)
+
+	// Stop reconciliation as the item is being deleted
+	return reconcile.Result{}, true, nil
+
 }
 
 // deleteExternalResources searches for the MeterDefinition created by the CSV, if it's found delete it
