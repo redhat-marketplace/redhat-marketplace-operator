@@ -191,23 +191,23 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 			reqLogger.Info("retrieving MeterDefinition string from csv") // KEEP THIS - FIX WORDING
 			meterDefinitionString, ok := annotations[utils.CSV_METERDEFINITION_ANNOTATION]
 			if ok {
-				reqLogger.Info("retrieval successful") // FIX WORDING
+				reqLogger.Info("retrieval successful")
 			} else {
 				err = goerr.New("could not retrieve MeterDefinitionString")
 				reqLogger.Error(err, "was expecting a an annotation for meterdefinition in CSV")
 			}
-			reqLogger.Info("-------------Building a copy of MeterDefinition-------------") //FIX WORDING
+			reqLogger.Info("building a local copy of MeterDefinition") //FIX WORDING
 			meterDefinition := &marketplacev1alpha1.MeterDefinition{}
 			_, err = meterDefinition.BuildMeterDefinitionFromString(meterDefinitionString, CSV.GetName(), CSV.GetNamespace(), utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
 			if err != nil {
 				reqLogger.Error(err, "Could not build a local copy of the MeterDefinition")
 				return reconcile.Result{}, err
 			}
-			reqLogger.Info("-------------CHECKING IF CSV IS CURRENTLY BEING TRACKED-------------") // COMPLETLY REWORD -> checking if CSV is being tracked
+			reqLogger.Info("Checking if the csv is being tracked")
 			//checks if the CSV is new or old (aka. is it already being tracked)
 			if val, ok := annotations[trackMeterTag]; ok && val == "true" {
 				// Case 1: The CSV is old: no action required
-				reqLogger.Info("-------------CSV IS OLD-------------") // FIX WORDING
+				reqLogger.Info("CSV is already tracked")
 				existingMeterDefinition := &marketplacev1alpha1.MeterDefinition{}
 				err = r.client.Get(context.TODO(), client.ObjectKey{Name: meterDefinition.GetName(), Namespace: meterDefinition.GetNamespace()}, existingMeterDefinition)
 				if err != nil {
@@ -221,7 +221,7 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 					reqLogger.Info("-------------- METER DEFINITION MATCHES ------------")
 				}
 			} else {
-				reqLogger.Info("-------------CSV IS NEW-------------")
+				reqLogger.Info("csv is new")
 				// Case 2: The CSV is new: we must track it & we must create the Meter Definition
 				annotations[trackMeterTag] = "true"
 
@@ -240,14 +240,13 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 			}
 		} else {
 			// Case 2: The object is being deleted
-			reqLogger.Info("-------------CSV Finalizer Name: -------------", "name: ", strings.Join(CSV.GetFinalizers(), ", "), "coded name: ", utils.CSV_FINALIZER) // REMOVE THIS
 			if utils.Contains(CSV.GetFinalizers(), utils.CSV_FINALIZER) {
 				// our finalizer is present, so lets handle any external dependency
-				reqLogger.Info("-------------Deleting CSV-------------") // FIX WORDING
+				reqLogger.Info("deleting csv") // FIX WORDING
 				if err := r.deleteExternalResources(CSV); err != nil {
 					// if fail to delete the external dependency here, return with error
 					// so that it can be retried
-					reqLogger.Error(err, "------- COULD NOT DELETE CSV -------") // FIX WORDING
+					reqLogger.Error(err, "unable to delete csv") // FIX WORDING
 					return reconcile.Result{}, err
 				}
 				// remove our finalizer from the list and update it.
@@ -327,7 +326,7 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 	}
 
 	reqLogger.Info("reconcilation complete")
-	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 }
 
 // deleteExternalResources searches for the MeterDefinition created by the CSV, if it's found delete it
