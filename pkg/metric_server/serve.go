@@ -16,11 +16,15 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	"github.com/openshift/origin/pkg/util/proc"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/meter_definition"
+	corev1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kube-state-metrics/pkg/options"
-	"github.com/openshift/origin/pkg/util/proc"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -40,19 +44,43 @@ type Service struct {
 	cache           cache.Cache
 	metricsRegistry *prometheus.Registry
 	cc              reconcileutils.ClientCommandRunner
+	meterDefStore   *meter_definition.MeterDefinitionStore
 }
 
 func (s *Service) Serve(done <-chan struct{}) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	err := rhmclient.AddMeterDefIndex(s.cache)
+	if err != nil {
+		log.Error(err, "")
+		return err
+	}
+
+	err = rhmclient.AddOperatorSourceIndex(s.cache)
+	if err != nil {
+		log.Error(err, "")
+		return err
+	}
+
+	err = rhmclient.AddUIDIndex(s.cache,
+		[]runtime.Object{
+			&marketplacev1alpha1.MeterDefinition{},
+			&corev1.Pod{},
+		})
+
+	if err != nil {
+		log.Error(err, "")
+		return err
+	}
+
 	go func() {
 		err := s.cache.Start(ctx.Done())
 		log.Error(err, "error starting cache")
 	}()
 
-	rhmclient.AddMeterDefIndex(s.cache)
-	rhmclient.AddOperatorSourceIndex(s.cache)
+	s.meterDefStore.SetNamespaces(options.DefaultNamespaces)
+	s.meterDefStore.Start()
 
 	opts := s.opts
 	storeBuilder := metrics.NewBuilder()
@@ -63,6 +91,7 @@ func (s *Service) Serve(done <-chan struct{}) error {
 	storeBuilder.WithContext(ctx)
 	storeBuilder.WithKubeClient(s.k8sRestClient)
 	storeBuilder.WithClientCommand(s.cc)
+	storeBuilder.WithMeterDefinitionStore(s.meterDefStore)
 
 	s.metricsRegistry.MustRegister(
 		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
@@ -83,6 +112,10 @@ func getClientOptions() managers.ClientOptions {
 
 func provideRegistry() *prometheus.Registry {
 	return prometheus.NewRegistry()
+}
+
+func provideContext() context.Context {
+	return context.Background()
 }
 
 func telemetryServer(registry prometheus.Gatherer, host string, port int) {

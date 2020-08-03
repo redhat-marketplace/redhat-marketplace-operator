@@ -9,6 +9,7 @@ require (
 	github.com/Shyp/bump_version v0.0.0-20180222180749-d7594d2951e2
 	github.com/banzaicloud/k8s-objectmatcher v1.3.0
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/cespare/xxhash v1.1.0
 	github.com/containerd/containerd v1.3.4 // indirect
 	github.com/containerd/typeurl v1.0.0 // indirect
 	github.com/coreos/prometheus-operator v0.40.0

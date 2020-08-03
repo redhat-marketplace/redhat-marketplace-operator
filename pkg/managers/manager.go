@@ -27,6 +27,7 @@ import (
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"k8s.io/apimachinery/pkg/api/meta"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -69,6 +70,7 @@ var (
 		ProvideManager,
 		ProvideScheme,
 		ProvideManagerClient,
+		dynamic.NewForConfig,
 		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
 	)
 	// ProvideCacheClientSet is to be used by
@@ -80,6 +82,7 @@ var (
 		ProvideScheme,
 		NewDynamicRESTMapper,
 		ProvideNewCache,
+		dynamic.NewForConfig,
 		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
 	)
 )

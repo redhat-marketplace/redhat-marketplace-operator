@@ -23,6 +23,14 @@ roles:
     type: ClusterRole
     rules:
       - apiGroups:
+          - '*'
+        resources:
+          - '*'
+        verbs: ['get', 'list', 'watch']
+      - nonResourceURLs:
+          - '*'
+        verbs: ['get', 'list', 'watch']
+      - apiGroups:
           - rbac.authorization.k8s.io
         resources:
           - clusterroles
@@ -41,6 +49,7 @@ roles:
           - services/finalizers
           - endpoints
           - persistentvolumeclaims
+          - persistentvolumes
           - events
           - configmaps
           - secrets

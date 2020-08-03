@@ -1,7 +1,7 @@
 apiVersion: marketplace.redhat.com/v1alpha1
 kind: MeterDefinition
 metadata:
-  name: example-meterdefinition-2
+  name: example-meterdefinition-3
 spec:
   # Add fields here
   group: partner.metering.com
@@ -11,9 +11,9 @@ spec:
   workloads:
     - name: app-pods
       type: Pod
-      ownerCRD:
-        apiVersion: partner.metering.com/v1alpha1
-        kind: App
+      labelSelector:
+        matchLabels:
+          marketplace.redhat.com/product.id: abas342341321-12341451
       metricLabels:
         - label: container_spec_cpu_shares
           query: |-

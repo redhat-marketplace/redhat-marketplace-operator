@@ -8,11 +8,11 @@ import (
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -25,6 +25,8 @@ const (
 
 	IndexOperatorSourceNamespaces   = "operatorsource.namespace"
 	IndexOperatorSourceProvidedAPIs = "operatorsource.providedAPIs"
+
+	IndexUID = ".metadata.UID"
 )
 
 var log = logger.NewLogger("client")
@@ -38,6 +40,25 @@ func AddOwningControllerIndex(fieldIndexer client.FieldIndexer, types []runtime.
 		}
 	}
 
+	return nil
+}
+
+func AddUIDIndex(fieldIndexer client.FieldIndexer, types []runtime.Object) error {
+	for _, rType := range types {
+		err := fieldIndexer.IndexField(
+			context.Background(),
+			rType,
+			IndexUID,
+			func(obj runtime.Object) []string {
+				if meta, ok := obj.(metav1.Object); ok {
+					return []string{string(meta.GetUID())}
+				}
+				return []string{}
+			})
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -186,30 +207,47 @@ func indexOperatorSourceProvidedAPIs(obj runtime.Object) []string {
 }
 
 type FindOwnerHelper struct {
-	cc reconcileutils.ClientCommandRunner
+	client     dynamic.Interface
+	restMapper meta.RESTMapper
 }
 
-func (f *FindOwnerHelper) FindOwner(name, namespace string, lookupObj runtime.Object) (owner *metav1.OwnerReference, err error) {
-	result, _ := f.cc.Do(
-		context.TODO(),
-		reconcileutils.GetAction(
-			types.NamespacedName{
-				Namespace: namespace,
-				Name:      name,
-			},
-			lookupObj,
-		))
+func NewFindOwnerHelper(
+	inClient dynamic.Interface,
+	restMapper meta.RESTMapper,
+) *FindOwnerHelper {
+	return &FindOwnerHelper{
+		client:     inClient,
+		restMapper: restMapper,
+	}
+}
 
-	if !result.Is(reconcileutils.Continue) {
-		if result.Is(reconcileutils.Error) {
-			log.Error(result, "failed to get owner")
-		}
+func (f *FindOwnerHelper) FindOwner(name, namespace string, lookupOwner *metav1.OwnerReference) (owner *metav1.OwnerReference, err error) {
+	apiVersionSplit := strings.Split(lookupOwner.APIVersion, "/")
+	var group, version string
 
-		err = result
-		return
+	if len(apiVersionSplit) == 1 {
+		group = lookupOwner.APIVersion
+	} else {
+		group = apiVersionSplit[0]
+		version = apiVersionSplit[1]
 	}
 
-	o, err := meta.Accessor(lookupObj)
+	mapping, err := f.restMapper.RESTMapping(schema.GroupKind{
+		Group: group,
+		Kind:  lookupOwner.Kind,
+	}, version)
+
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := f.client.Resource(mapping.Resource).Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+
+	if err != nil {
+		return nil, err
+	}
+
+	o, err := meta.Accessor(result)
 	if err != nil {
 		return
 	}

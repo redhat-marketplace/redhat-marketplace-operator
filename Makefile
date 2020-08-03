@@ -134,7 +134,7 @@ code-dev: ## Run the default dev commands which are the go fmt and vet then exec
 
 .PHONY: k8s-gen
 k8s-gen: \
-	cd ./scripts && go mod vendor
+	$(shell cd ./scripts && go mod vendor)
 	. ./scripts/update-codegen.sh
 
 code-gen: ## Run the operator-sdk commands to generated code (k8s and crds)

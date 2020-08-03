@@ -35,7 +35,8 @@ type MeterDefinitionSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// TODO: delete this
-	Version string `json:"version"`
+	// +optional
+	Version string `json:"version,omitempty"`
 
 	// MeterKind defines the primary CRD kind of the meter
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
@@ -44,7 +45,8 @@ type MeterDefinitionSpec struct {
 
 	// InstalledBy is a reference to the CSV that install the meter
 	// definition. This is used to determine an operator group.
-	InstalledBy CSVNamespacedName `json:"installedBy"`
+	// +optional
+	InstalledBy *common.NamespacedNameReference `json:"installedBy,omitempty"`
 
 	// WorkloadVertex is the top most object of a workload. It allows
 	// you to identify the upper bounds of your workloads. If you select
@@ -56,7 +58,7 @@ type MeterDefinitionSpec struct {
 
 	// VertexFilters are used when Namespace is selected. Can be omitted
 	// if you select OperatorGroup
-	VertexLabelSelector metav1.LabelSelector `json:"workloadVertexLabelSelectors,omitempty"`
+	VertexLabelSelector *metav1.LabelSelector `json:"workloadVertexLabelSelectors,omitempty"`
 
 	// Workloads identify the workloads to meter.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
@@ -169,11 +171,9 @@ type MeterLabelQuery struct {
 	Label string `json:"label"`
 
 	// Query to use for the label
-	// +kubebuilder:default={}
 	Query string `json:"query,omitempty"`
 
 	// Aggregation to use with the query
-	// +kubebuilder:default=sum
 	// +kubebuilder:validation:Enum:=sum;min;max;avg;count
 	Aggregation string `json:"aggregation,omitempty"`
 }

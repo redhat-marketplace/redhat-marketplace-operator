@@ -34,3 +34,7 @@ var (
 	// AddToScheme add to scheme
 	AddToScheme = SchemeBuilder.AddToScheme
 )
+
+func Resource(resource string) schema.GroupResource {
+	return SchemeGroupVersion.WithResource(resource).GroupResource()
+}

@@ -1,7 +1,8 @@
 package common
 
 import (
-	"k8s.io/apimachinery/pkg/api/meta"
+	"errors"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -22,7 +23,7 @@ type NamespacedNameReference struct {
 	// Required
 	Name string `json:"name"`
 
-	// GroupVersionKind of the resourse
+	// GroupVersionKind of the resource
 	// Required
 	GroupVersionKind `json:"groupVersionKind"`
 }
@@ -34,15 +35,21 @@ type GroupVersionKind struct {
 	Kind string `json:"kind"`
 }
 
+func (g GroupVersionKind) String() string {
+	return g.APIVersion + "/" + g.Kind
+}
+
 func NewGroupVersionKind(t interface{}) (GroupVersionKind, error) {
-	typeAccessor, err := meta.TypeAccessor(t)
-	if err != nil {
-		return GroupVersionKind{}, err
+	v, ok := t.(runtime.Object)
+	if !ok {
+		return GroupVersionKind{}, errors.New("not a runtime object")
 	}
 
+	apiVersion, kind := v.GetObjectKind().GroupVersionKind().ToAPIVersionAndKind()
+
 	return GroupVersionKind{
-		APIVersion: typeAccessor.GetAPIVersion(),
-		Kind:       typeAccessor.GetKind(),
+		APIVersion: apiVersion,
+		Kind:       kind,
 	}, nil
 }
 

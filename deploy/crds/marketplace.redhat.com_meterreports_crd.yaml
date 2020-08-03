@@ -378,10 +378,38 @@ spec:
                       meter
                     type: string
                   installedBy:
-                    $ref: '#/definitions/github.com~1redhat-marketplace~1redhat-marketplace-operator~1pkg~1apis~1marketplace~1common~0NamespacedNameReference'
                     description: InstalledBy is a reference to the CSV that install
                       the meter definition. This is used to determine an operator
                       group.
+                    properties:
+                      groupVersionKind:
+                        description: GroupVersionKind of the resourse Required
+                        properties:
+                          apiVersion:
+                            description: APIVersion of the CRD
+                            type: string
+                          kind:
+                            description: Kind of the CRD
+                            type: string
+                        required:
+                        - apiVersion
+                        - kind
+                        type: object
+                      name:
+                        description: Name of the resource Required
+                        type: string
+                      namespace:
+                        description: Namespace of the resource Required
+                        type: string
+                      uid:
+                        description: Namespace of the resource Required
+                        type: string
+                    required:
+                    - groupVersionKind
+                    - name
+                    - namespace
+                    - uid
+                    type: object
                   kind:
                     description: MeterKind defines the primary CRD kind of the meter
                     type: string
@@ -559,7 +587,6 @@ spec:
                               to build and search for
                             properties:
                               aggregation:
-                                default: sum
                                 description: Aggregation to use with the query
                                 enum:
                                 - sum
@@ -613,9 +640,7 @@ spec:
                     type: array
                 required:
                 - group
-                - installedBy
                 - kind
-                - version
                 type: object
               type: array
             prometheusService:

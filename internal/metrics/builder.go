@@ -2,9 +2,11 @@ package metrics
 
 import (
 	"context"
+	"reflect"
 	"strings"
 
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/meter_definition"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,6 +28,7 @@ type Builder struct {
 	shard            int32
 	totalShards      int
 	cc               reconcileutils.ClientCommandRunner
+	meterDefStore    *meter_definition.MeterDefinitionStore
 }
 
 // NewBuilder returns a new builder.
@@ -64,6 +67,10 @@ func (b *Builder) WithClientCommand(cc reconcileutils.ClientCommandRunner) {
 	b.cc = cc
 }
 
+func (b *Builder) WithMeterDefinitionStore(store *meter_definition.MeterDefinitionStore) {
+	b.meterDefStore = store
+}
+
 func (b *Builder) Build() []*MetricsStore {
 	stores := []*MetricsStore{}
 	activeStoreNames := []string{"pods", "services"}
@@ -78,7 +85,7 @@ func (b *Builder) Build() []*MetricsStore {
 }
 
 var availableStores = map[string]func(f *Builder) *MetricsStore{
-	"pods":    func(b *Builder) *MetricsStore { return b.buildPodStore() },
+	"pods":     func(b *Builder) *MetricsStore { return b.buildPodStore() },
 	"services": func(b *Builder) *MetricsStore { return b.buildServiceStore() },
 	// "services": func(b *Builder) cache.Store {
 	// 	return b.buildServiceStore()
@@ -113,17 +120,21 @@ func createServiceListWatch(kubeClient clientset.Interface, ns string) cache.Lis
 }
 
 func (b *Builder) buildServiceStore() *MetricsStore {
-	return b.buildStore(serviceMetricsFamilies, &v1.Service{}, &ServiceMeterDefFetcher{b.cc}, createServiceListWatch)
+	return b.buildStore(
+		serviceMetricsFamilies,
+		&v1.Service{},
+		&ServiceMeterDefFetcher{b.cc, b.meterDefStore},
+		createServiceListWatch)
 }
 
 func (b *Builder) buildPodStore() *MetricsStore {
-	return b.buildStore(podMetricsFamilies, &v1.Pod{}, &PodMeterDefFetcher{b.cc}, createPodListWatch)
+	return b.buildStore(podMetricsFamilies, &v1.Pod{}, &PodMeterDefFetcher{b.cc, b.meterDefStore}, createPodListWatch)
 }
 
 func (b *Builder) buildStore(
 	metricFamilies []FamilyGenerator,
 	expectedType interface{},
-	fetcher MeterDefinitionFetcher,
+	meterDefFetcher MeterDefinitionFetcher,
 	listWatchFunc func(kubeClient clientset.Interface, ns string) cache.ListerWatcher,
 ) *MetricsStore {
 	composedMetricGenFuncs := ComposeMetricGenFuncs(metricFamilies)
@@ -132,9 +143,32 @@ func (b *Builder) buildStore(
 	store := NewMetricsStore(
 		familyHeaders,
 		composedMetricGenFuncs,
-		fetcher,
+		meterDefFetcher,
 	)
-	b.reflectorPerNamespace(expectedType, store, listWatchFunc)
+
+	ch := make(chan *meter_definition.ObjectResourceMessage)
+	b.meterDefStore.RegisterListener(ch)
+
+	go func() {
+		defer close(ch)
+
+		for {
+			select {
+			case msg := <-ch:
+				if reflect.TypeOf(msg.Object) != reflect.TypeOf(expectedType) {
+					break
+				}
+				switch msg.Action {
+				case meter_definition.AddMessageAction:
+					_ = store.Add(msg.Object)
+				case meter_definition.DeleteMessageAction:
+					_ = store.Delete(msg.Object)
+				}
+			case <-b.ctx.Done():
+				return
+			}
+		}
+	}()
 
 	return store
 }
