@@ -16,12 +16,12 @@ package clusterserviceversion
 
 import (
 	"context"
+	"encoding/json"
 	"reflect"
 	"time"
 
-	emperr "emperror.dev/errors"
-
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -373,18 +373,22 @@ func (r *ReconcileClusterServiceVersion) reconcileMeterDefAnnotation(CSV *olmv1a
 		}
 
 		if !reflect.DeepEqual(meterDefinition.Spec, actualMeterDefinition.Spec) && !reflect.DeepEqual(meterDefinition.ObjectMeta, actualMeterDefinition.ObjectMeta) {
-			err = emperr.New("Actual MeterDefinition and Expected MeterDefinition mismatch")
-			reqLogger.Error(err, "The actual meterdefinition is different from the expected meterdefinition")
+			reqLogger.Info("The actual meterdefinition is different from the expected meterdefinition")
 
-			//Patch
-			patch := client.MergeFrom(meterDefinition.DeepCopy())
-			err = r.client.Patch(context.TODO(), actualMeterDefinition, patch)
+			patch, err := json.Marshal(meterDefinition)
+			if err != nil {
+				return reconcile.Result{}, true, err
+			}
+			err = r.client.Patch(context.TODO(), meterDefinition, client.RawPatch(types.MergePatchType, patch))
+			if err != nil {
+				return reconcile.Result{}, true, err
+			}
+			err = r.client.Update(context.TODO(), actualMeterDefinition)
 			if err != nil {
 				return reconcile.Result{}, true, err
 			}
 			reqLogger.Info("Patch to update MeterDefinition successful. Requeuing")
-			err = emperr.New("Actual MeterDefinition and Expected MeterDefinition mismatch")
-			return reconcile.Result{}, true, err
+			return reconcile.Result{Requeue: true}, true, nil
 		}
 		reqLogger.Info("meter definition matches")
 		return reconcile.Result{}, false, nil
