@@ -17,7 +17,6 @@ package clusterserviceversion
 import (
 	"context"
 	"reflect"
-	"strings"
 	"time"
 
 	emperr "emperror.dev/errors"
@@ -75,8 +74,12 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 				_, okAllNamespace := evt.MetaNew.GetLabels()[allnamespaceTag]
 				watchLabel, watchOk := evt.MetaNew.GetLabels()[watchTag]
 				_, ignoreOk := evt.MetaNew.GetAnnotations()[ignoreTag]
+				ann := evt.MetaNew.GetAnnotations()
+				if ann == nil {
+					ann = make(map[string]string)
+				}
 
-				if strings.Contains(evt.MetaNew.GetName(), utils.CSV_NAME) {
+				if _, annOk := ann[utils.CSV_METERDEFINITION_ANNOTATION]; annOk {
 					return true
 				}
 
@@ -94,8 +97,12 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 				_, okAllNamespace := evt.Meta.GetLabels()[allnamespaceTag]
 				watchLabel, watchOk := evt.Meta.GetLabels()[watchTag]
 				_, ignoreOk := evt.Meta.GetAnnotations()[ignoreTag]
+				ann := evt.Meta.GetAnnotations()
+				if ann == nil {
+					ann = make(map[string]string)
+				}
 
-				if strings.Contains(evt.Meta.GetName(), utils.CSV_NAME) {
+				if _, annOk := ann[utils.CSV_METERDEFINITION_ANNOTATION]; annOk {
 					return true
 				}
 
@@ -111,15 +118,27 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			},
 			CreateFunc: func(evt event.CreateEvent) bool {
 				_, okAllNamespace := evt.Meta.GetLabels()[allnamespaceTag]
+				ann := evt.Meta.GetAnnotations()
+				if ann == nil {
+					ann = make(map[string]string)
+				}
 
-				if strings.Contains(evt.Meta.GetName(), utils.CSV_NAME) {
+				if _, annOk := ann[utils.CSV_METERDEFINITION_ANNOTATION]; annOk {
 					return true
 				}
 
 				return !okAllNamespace
 			},
 			GenericFunc: func(evt event.GenericEvent) bool {
-				return strings.Contains(evt.Meta.GetName(), utils.CSV_NAME)
+				ann := evt.Meta.GetAnnotations()
+				if ann == nil {
+					ann = make(map[string]string)
+				}
+
+				if _, annOk := ann[utils.CSV_METERDEFINITION_ANNOTATION]; annOk {
+					return true
+				}
+				return false
 			},
 		},
 	}
@@ -356,6 +375,15 @@ func (r *ReconcileClusterServiceVersion) reconcileMeterDefAnnotation(CSV *olmv1a
 		if !reflect.DeepEqual(meterDefinition.Spec, actualMeterDefinition.Spec) && !reflect.DeepEqual(meterDefinition.ObjectMeta, actualMeterDefinition.ObjectMeta) {
 			err = emperr.New("Actual MeterDefinition and Expected MeterDefinition mismatch")
 			reqLogger.Error(err, "The actual meterdefinition is different from the expected meterdefinition")
+
+			//Patch
+			patch := client.MergeFrom(meterDefinition.DeepCopy())
+			err = r.client.Patch(context.TODO(), actualMeterDefinition, patch)
+			if err != nil {
+				return reconcile.Result{}, true, err
+			}
+			reqLogger.Info("Patch to update MeterDefinition successful. Requeuing")
+			err = emperr.New("Actual MeterDefinition and Expected MeterDefinition mismatch")
 			return reconcile.Result{}, true, err
 		}
 		reqLogger.Info("meter definition matches")
