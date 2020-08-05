@@ -2,14 +2,28 @@ package reporter
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"path/filepath"
+
+	"bytes"
 
 	"emperror.dev/errors"
+	"github.com/go-logr/logr"
+	"github.com/google/uuid"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	"github.com/prometheus/client_golang/api"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/version"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/util/jsonpath"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -21,17 +35,13 @@ type Task struct {
 	Ctx        context.Context
 	Config     *Config
 	K8SScheme  *runtime.Scheme
+	Uploader   *RedHatInsightsUploader
 }
 
 func (r *Task) Run() error {
 	logger.Info("task run start")
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-
-	go func() {
-		err := r.Cache.Start(stopCh)
-		logger.Error(err, "")
-	}()
 
 	logger.Info("creating reporter")
 	reporter, err := NewReporter(r)
@@ -48,8 +58,92 @@ func (r *Task) Run() error {
 		return err
 	}
 
-	logger.Info("metrics", "metrics", metrics)
+	reportID := uuid.New()
+
+	logger.Info("writing report", "reportID", reportID)
+
+	files, err := reporter.WriteReport(
+		reportID,
+		metrics)
+
+	if err != nil {
+		return errors.Wrap(err, "error writing report")
+	}
+
+	dirpath := filepath.Dir(files[0])
+	fileName := fmt.Sprintf("%s/../upload-%s.tar.gz", dirpath, reportID.String())
+	err = TargzFolder(dirpath, fileName)
+
+	logger.Info("tarring", "outputfile", fileName)
+
+	if err != nil {
+		return errors.Wrap(err, "error targzing file")
+	}
+
+	err = r.Uploader.UploadFile(fileName)
+
+	if err != nil {
+		return errors.Wrap(err, "error uploading file")
+	}
+
+	logger.Info("uploaded metrics", "metrics", len(metrics))
 	return nil
+}
+
+func provideApiClient(
+	report *marketplacev1alpha1.MeterReport,
+	promService *corev1.Service,
+	config *Config,
+) (api.Client, error) {
+
+	if config.Local {
+		client, err := api.NewClient(api.Config{
+			Address: "http://localhost:9090",
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		return client, nil
+	}
+
+	var port int32
+	name := promService.Name
+	namespace := promService.Namespace
+	targetPort := report.Spec.PrometheusService.TargetPort
+
+	switch {
+	case targetPort.Type == intstr.Int:
+		port = targetPort.IntVal
+	default:
+		for _, p := range promService.Spec.Ports {
+			if p.Name == targetPort.StrVal {
+				port = p.Port
+			}
+		}
+	}
+
+	var auth = ""
+	if config.TokenFile != "" {
+		content, err := ioutil.ReadFile(config.TokenFile)
+		if err != nil {
+			return nil, err
+		}
+		auth = fmt.Sprintf(string(content))
+	}
+
+	conf, err := NewSecureClient(&PrometheusSecureClientConfig{
+		Address:        fmt.Sprintf("https://%s.%s.svc:%v", name, namespace, port),
+		ServerCertFile: config.CaFile,
+		Token:          auth,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return conf, nil
 }
 
 func getClientOptions() managers.ClientOptions {
@@ -57,6 +151,81 @@ func getClientOptions() managers.ClientOptions {
 		Namespace:    "",
 		DryRunClient: false,
 	}
+}
+
+func provideProductionInsights(
+	ctx context.Context,
+	cc ClientCommandRunner,
+	log logr.Logger,
+	isCacheStarted managers.CacheIsStarted,
+) (*RedHatInsightsUploaderConfig, error) {
+	secret := &corev1.Secret{}
+	clusterVersion := &openshiftconfigv1.ClusterVersion{}
+	result, _ := cc.Do(ctx,
+		GetAction(types.NamespacedName{
+			Name:      "pull-secret",
+			Namespace: "openshift-config",
+		}, secret),
+		GetAction(types.NamespacedName{
+			Name: "version",
+		}, clusterVersion))
+
+	if !result.Is(Continue) {
+		return nil, result
+	}
+
+	dockerConfigBytes, ok := secret.Data[".dockerconfigjson"]
+
+	if !ok {
+		return nil, errors.New(".dockerconfigjson is not found in secret")
+	}
+
+	var dockerObj interface{}
+	err := json.Unmarshal(dockerConfigBytes, &dockerObj)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal dockerConfigJson object")
+	}
+
+	cloudAuthPath := jsonpath.New("cloudauthpath")
+	err = cloudAuthPath.Parse(`{.auths.cloud\.openshift\.com.auth}`)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get jsonpath of cloud token")
+	}
+
+	buf := new(bytes.Buffer)
+	err = cloudAuthPath.Execute(buf, dockerObj)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get jsonpath of cloud token")
+	}
+
+	cloudToken := buf.String()
+
+	return &RedHatInsightsUploaderConfig{
+		URL:             "https://cloud.redhat.com",
+		ClusterID:       string(clusterVersion.Spec.ClusterID), // get from cluster
+		OperatorVersion: version.Version,
+		Token:           cloudToken, // get from secret
+	}, nil
+}
+
+func getMarketplaceConfig(
+	ctx context.Context,
+	cc ClientCommandRunner,
+) (config *marketplacev1alpha1.MarketplaceConfig, returnErr error) {
+	config = &marketplacev1alpha1.MarketplaceConfig{}
+
+	if result, _ := cc.Do(ctx,
+		GetAction(
+			types.NamespacedName{Namespace: "openshift-redhat-marketplace", Name: utils.MARKETPLACECONFIG_NAME}, config,
+		)); !result.Is(Continue) {
+		returnErr = errors.Wrap(result, "failed to get mkplc config")
+	}
+
+	logger.Info("retrieved meter report")
+	return
 }
 
 func getMarketplaceReport(
@@ -100,7 +269,34 @@ func getPrometheusService(
 }
 
 func getMeterDefinitions(
+	ctx context.Context,
 	report *marketplacev1alpha1.MeterReport,
-) []*marketplacev1alpha1.MeterDefinitionSpec {
-	return report.Spec.MeterDefinitions
+	cc ClientCommandRunner,
+) ([]marketplacev1alpha1.MeterDefinition, error) {
+	defs := &marketplacev1alpha1.MeterDefinitionList{}
+
+	if len(report.Spec.MeterDefinitions) > 0 {
+		return report.Spec.MeterDefinitions, nil
+	}
+
+	result, _ := cc.Do(ctx,
+		HandleResult(
+			ListAction(defs, client.InNamespace("")),
+			OnContinue(Call(func() (ClientAction, error) {
+				for _, item := range defs.Items {
+					item.Status = marketplacev1alpha1.MeterDefinitionStatus{}
+				}
+
+				report.Spec.MeterDefinitions = defs.Items
+
+				return UpdateAction(report), nil
+			})),
+		),
+	)
+
+	if !result.Is(Continue) {
+		return nil, errors.Wrap(result, "failed to get meterdefs")
+	}
+
+	return defs.Items, nil
 }

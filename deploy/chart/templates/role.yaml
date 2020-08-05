@@ -12,7 +12,7 @@ kind: {{ $role.type }}
 metadata:
   name: {{ $role.name }}{{ $postfix }}
   {{- if eq $role.type "Role" }}
-  namespace: {{ $namespace }}
+  namespace: {{ $role.namespace | default $namespace }}
   {{- end }}
 rules:
 {{- toYaml $role.rules | nindent 0 }}

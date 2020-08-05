@@ -1,8 +1,9 @@
 package v1alpha1
 
 import (
+	"github.com/operator-framework/operator-sdk/pkg/status"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
-	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -19,18 +20,60 @@ type MeterReportSpec struct {
 
 	// MeterDefinitions is the list of meterDefinitions included in the report
 	// +optional
-	MeterDefinitions []*MeterDefinitionSpec `json:"meterDefinitions,omitempty"`
+	MeterDefinitions []MeterDefinition `json:"meterDefinitions,omitempty"`
 }
 
 // MeterReportStatus defines the observed state of MeterReport
 type MeterReportStatus struct {
 	// Conditions represent the latest available observations of an object's stateonfig
-	Conditions *batchv1.JobCondition `json:"conditions,omitempty"`
+	Conditions *status.Conditions `json:"conditions,omitempty"`
 
 	// A list of pointers to currently running jobs.
 	// +optional
 	AssociatedJob *common.JobReference `json:"jobReference,omitempty"`
 }
+
+const (
+	ReportConditionTypeJobRunning      status.ConditionType   = "JobRunning"
+	ReportConditionReasonJobSubmitted  status.ConditionReason = "Submitted"
+	ReportConditionReasonJobNotStarted status.ConditionReason = "NotStarted"
+	ReportConditionReasonJobWaiting    status.ConditionReason = "Waiting"
+	ReportConditionReasonJobFinished   status.ConditionReason = "Finished"
+	ReportConditionReasonJobErrored    status.ConditionReason = "Errored"
+)
+
+var (
+	ReportConditionJobNotStarted = status.Condition{
+		Type:    ReportConditionTypeJobRunning,
+		Status:  corev1.ConditionFalse,
+		Reason:  ReportConditionReasonJobNotStarted,
+		Message: "Job has not been started",
+	}
+	ReportConditionJobSubmitted = status.Condition{
+		Type:    ReportConditionTypeJobRunning,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReportConditionReasonJobSubmitted,
+		Message: "Job has been submitted",
+	}
+	ReportConditionJobWaiting = status.Condition{
+		Type:    ReportConditionTypeJobRunning,
+		Status:  corev1.ConditionFalse,
+		Reason:  ReportConditionReasonJobWaiting,
+		Message: "Report end time has not progressed.",
+	}
+	ReportConditionJobFinished = status.Condition{
+		Type:    ReportConditionTypeJobRunning,
+		Status:  corev1.ConditionFalse,
+		Reason:  ReportConditionReasonJobFinished,
+		Message: "Job has finished",
+	}
+	ReportConditionJobErrored = status.Condition{
+		Type:    ReportConditionTypeJobRunning,
+		Status:  corev1.ConditionFalse,
+		Reason:  ReportConditionReasonJobErrored,
+		Message: "Job has errored",
+	}
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

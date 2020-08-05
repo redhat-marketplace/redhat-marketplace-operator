@@ -18,10 +18,15 @@ func NewTask(
 	config *Config,
 ) (*Task, error) {
 	panic(wire.Build(
+		reconcileutils.CommandRunnerProviderSet,
 		managers.ProvideCachedClientSet,
 		wire.Struct(new(Task), "*"),
+		wire.InterfaceValue(new(logr.Logger), logger),
 		getClientOptions,
 		controller.SchemeDefinitions,
+		NewRedHatInsightsUploader,
+		provideProductionInsights,
+		wire.Struct(new(managers.CacheIsIndexed)),
 	))
 }
 
@@ -31,11 +36,13 @@ func NewReporter(
 	panic(wire.Build(
 		wire.FieldsOf(new(*Task),
 			"ReportName", "K8SClient", "Ctx", "Config", "K8SScheme"),
+		provideApiClient,
 		reconcileutils.CommandRunnerProviderSet,
 		wire.InterfaceValue(new(logr.Logger), logger),
 		getMarketplaceReport,
 		getPrometheusService,
 		getMeterDefinitions,
+		getMarketplaceConfig,
 		ReporterSet,
 	))
 }

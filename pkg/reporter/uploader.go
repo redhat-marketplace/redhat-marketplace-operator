@@ -18,12 +18,12 @@ import (
 )
 
 type RedHatInsightsUploaderConfig struct {
-	URL                 string
-	Token               string
-	OperatorVersion     string
-	ClusterID           string
-	AdditionalCertFiles []string
-	httpVersion         *int
+	URL                 string   `json:"url"`
+	Token               string   `json:"-"`
+	OperatorVersion     string   `json:"operatorVersion"`
+	ClusterID           string   `json:"clusterID"`
+	AdditionalCertFiles []string `json:"additionalCertFiles,omitempty"`
+	httpVersion         *int     `json:"-"`
 }
 
 type RedHatInsightsUploader struct {
@@ -32,7 +32,7 @@ type RedHatInsightsUploader struct {
 }
 
 func NewRedHatInsightsUploader(
-	config RedHatInsightsUploaderConfig,
+	config *RedHatInsightsUploaderConfig,
 ) (*RedHatInsightsUploader, error) {
 	tlsConfig, err := generateCACertPool(config.AdditionalCertFiles...)
 
@@ -61,7 +61,7 @@ func NewRedHatInsightsUploader(
 
 	return &RedHatInsightsUploader{
 		client:                       client,
-		RedHatInsightsUploaderConfig: config,
+		RedHatInsightsUploaderConfig: *config,
 	}, nil
 }
 
@@ -137,6 +137,7 @@ func (r *RedHatInsightsUploader) UploadFile(path string) error {
 	resp, err := r.client.Do(req)
 	if err != nil {
 		logger.Error(err, "failed to post")
+		return errors.Wrap(err, "failed to post")
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)

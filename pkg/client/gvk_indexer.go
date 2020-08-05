@@ -5,43 +5,97 @@ import (
 	"fmt"
 	"strings"
 
+	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const MeterDefinitionGVK = "meterdefinition.marketplace.redhat.com/gvk"
-const MeterDefinitionPods = "meterdefinition.marketplace.redhat.com/pods"
-const OwnerRefContains = "metadata.ownerReferences.contains"
+const (
+	IndexMeterDefinitionGVK  = "meterdefinition.marketplace.redhat.com/gvk"
+	IndexMeterDefinitionPods = "meterdefinition.marketplace.redhat.com/pods"
+
+	IndexOwnerRefContains = ".metadata.ownerReferences"
+	IndexAnnotations      = ".metadata.annotations"
+
+	IndexOperatorSourceNamespaces   = "operatorsource.namespace"
+	IndexOperatorSourceProvidedAPIs = "operatorsource.providedAPIs"
+
+	IndexUID = ".metadata.UID"
+)
 
 var log = logger.NewLogger("client")
 
-func AddGVKIndexer(cc ClientCommandRunner, fieldIndexer client.FieldIndexer) error {
-	// err := fieldIndexer.IndexField(context.TODO(), &corev1.Pod{}, MeterDefinitionGVK, findPodOwner(cc))
-	// if err != nil {
-	// 	return err
-	//}
-	// err = fieldIndexer.IndexField(context.TODO(), &marketplacev1alpha1.MeterDefinition{}, MeterDefinitionPods, findPodsForMeterDef(cc))
-	// if err != nil {
-	// 	return err
-	// }
-	// err = fieldIndexer.IndexField(context.TODO(), &monitoringv1.ServiceMonitor{}, OwnerRefContains, indexGVK)
-	// if err != nil {
-	// 	return err
-	// }
-	// err = fieldIndexer.IndexField(context.TODO(), &corev1.Service{}, OwnerRefContains, indexGVK)
-	// if err != nil {
-	// 	return err
-	// }
+func AddOwningControllerIndex(fieldIndexer client.FieldIndexer, types []runtime.Object) error {
+	for _, rType := range types {
+		err := fieldIndexer.IndexField(context.Background(), rType, IndexOwnerRefContains, indexOwner)
+
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
 
+func AddUIDIndex(fieldIndexer client.FieldIndexer, types []runtime.Object) error {
+	for _, rType := range types {
+		err := fieldIndexer.IndexField(
+			context.Background(),
+			rType,
+			IndexUID,
+			func(obj runtime.Object) []string {
+				if meta, ok := obj.(metav1.Object); ok {
+					return []string{string(meta.GetUID())}
+				}
+				return []string{}
+			})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func AddOperatorSourceIndex(fieldIndexer client.FieldIndexer) error {
+	err := fieldIndexer.IndexField(context.Background(),
+		&olmv1.OperatorGroup{},
+		IndexOperatorSourceNamespaces,
+		indexOperatorSourceNamespaces)
+
+	if err != nil {
+		return err
+	}
+
+	return fieldIndexer.IndexField(
+		context.Background(),
+		&olmv1.OperatorGroup{},
+		IndexOperatorSourceProvidedAPIs,
+		indexOperatorSourceProvidedAPIs)
+}
+
 func AddMeterDefIndex(fieldIndexer client.FieldIndexer) error {
-	return fieldIndexer.IndexField(context.Background(), &marketplacev1alpha1.MeterDefinition{}, MeterDefinitionGVK, IndexMeterDefinitionGVK)
+	return fieldIndexer.IndexField(
+		context.Background(),
+		&marketplacev1alpha1.MeterDefinition{},
+		IndexMeterDefinitionGVK,
+		indexMeterDefinitionGVK)
+}
+
+func AddAnnotationIndex(fieldIndexer client.FieldIndexer, types []runtime.Object) error {
+	for _, rType := range types {
+		err := fieldIndexer.IndexField(
+			context.Background(),
+			rType, IndexAnnotations, indexAnnotations)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func ObjRefToStr(apiversion, kind string) string {
@@ -55,7 +109,19 @@ func ObjRefToStr(apiversion, kind string) string {
 	return strings.ToLower(fmt.Sprintf("%s.%s.%s", kind, version, group))
 }
 
-func indexGVK(obj runtime.Object) []string {
+func indexAnnotations(obj runtime.Object) []string {
+	results := []string{}
+	if meta, ok := obj.(metav1.Object); ok {
+
+		for key, val := range meta.GetAnnotations() {
+			results = append(results, fmt.Sprintf("%s=%s", key, val))
+		}
+	}
+
+	return results
+}
+
+func indexOwner(obj runtime.Object) []string {
 	results := []string{}
 	if meta, ok := obj.(metav1.Object); ok {
 		owner := metav1.GetControllerOf(meta)
@@ -98,7 +164,7 @@ func getOwnersReferences(object metav1.Object, isController bool) []metav1.Owner
 	return nil
 }
 
-func IndexMeterDefinitionGVK(obj runtime.Object) []string {
+func indexMeterDefinitionGVK(obj runtime.Object) []string {
 	meterDef, ok := obj.(*marketplacev1alpha1.MeterDefinition)
 
 	if !ok {
@@ -107,4 +173,32 @@ func IndexMeterDefinitionGVK(obj runtime.Object) []string {
 
 	gvk := ObjRefToStr(meterDef.Spec.Group+"/"+meterDef.Spec.Version, meterDef.Spec.Kind)
 	return []string{gvk}
+}
+
+func indexOperatorSourceNamespaces(obj runtime.Object) []string {
+	og, ok := obj.(*olmv1.OperatorGroup)
+
+	if !ok {
+		return []string{}
+	}
+
+	return og.Status.Namespaces
+}
+
+func indexOperatorSourceProvidedAPIs(obj runtime.Object) []string {
+	og, ok := obj.(*olmv1.OperatorGroup)
+
+	if !ok {
+		return []string{}
+	}
+
+	val, ok := og.GetAnnotations()["olm.providedAPIs"]
+
+	if !ok {
+		return []string{}
+	}
+
+	vals := strings.Split(val, ",")
+
+	return vals
 }

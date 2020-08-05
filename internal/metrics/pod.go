@@ -5,18 +5,11 @@ import (
 	"strings"
 
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/client"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/meter_definition"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	kbsm "k8s.io/kube-state-metrics/pkg/metric"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -87,21 +80,12 @@ func wrapPodFunc(f func(*v1.Pod, []*marketplacev1alpha1.MeterDefinition) *kbsm.F
 	}
 }
 
-var (
-	replicaSetGVK    = rhmclient.ObjRefToStr("apps/v1", "replicaset")
-	deploymentSetGVK = rhmclient.ObjRefToStr("apps/v1", "deployment")
-	daemonSetGVK     = rhmclient.ObjRefToStr("apps/v1", "daemonset")
-	statefulSetGVK   = rhmclient.ObjRefToStr("apps/v1", "statefulset")
-	jobGVK           = rhmclient.ObjRefToStr("batch/v1", "job")
-)
-
 type PodMeterDefFetcher struct {
-	cc ClientCommandRunner
+	cc                   ClientCommandRunner
+	meterDefinitionStore *meter_definition.MeterDefinitionStore
 }
 
 func (p *PodMeterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplacev1alpha1.MeterDefinition, error) {
-	cc := p.cc
-	findOwner := &findOwnerHelper{p.cc}
 	results := []*marketplacev1alpha1.MeterDefinition{}
 	pod, ok := obj.(*corev1.Pod)
 
@@ -109,105 +93,26 @@ func (p *PodMeterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplac
 		return results, nil
 	}
 
-	owner := metav1.GetControllerOf(pod)
+	refs := p.meterDefinitionStore.GetMeterDefinitionRefs(pod.UID)
 
-	if owner == nil {
-		return results, nil
-	}
+	for _, ref := range refs {
+		meterDefinition := &marketplacev1alpha1.MeterDefinition{}
 
-	namespace := pod.GetNamespace()
-	var err error
-	var serviceDefOwner *metav1.OwnerReference
+		result, _ := p.cc.Do(
+			context.TODO(),
+			GetAction(ref.MeterDef, meterDefinition),
+		)
 
-	for i := 0; i < 10; i++ {
-		var lookupObj runtime.Object
-		ownerGVK := rhmclient.ObjRefToStr(owner.APIVersion, owner.Kind)
-
-		log.Info("matching", "ownerGVK", ownerGVK, "replicaset", replicaSetGVK)
-
-		switch ownerGVK {
-		case replicaSetGVK:
-			lookupObj = &appsv1.ReplicaSet{}
-		case daemonSetGVK:
-			lookupObj = &appsv1.DaemonSet{}
-		case statefulSetGVK:
-			lookupObj = &appsv1.StatefulSet{}
-		case deploymentSetGVK:
-			lookupObj = &appsv1.Deployment{}
-		case jobGVK:
-			lookupObj = &batchv1.Job{}
-		default:
-			serviceDefOwner = owner
-			lookupObj = nil
-		}
-
-		if lookupObj == nil {
-			break
-		}
-
-		owner, err = findOwner.FindOwner(owner.Name, namespace, lookupObj)
-
-		if err != nil {
-			return results, err
-		}
-
-		if owner == nil {
+		if !result.Is(Continue) {
+			if result.Is(Error) {
+				log.Error(result, "failed to get owner")
+				return results, result
+			}
 			return results, nil
 		}
-	}
 
-	ownerGVK := rhmclient.ObjRefToStr(serviceDefOwner.APIVersion, serviceDefOwner.Kind)
-
-	meterDefinitions := &marketplacev1alpha1.MeterDefinitionList{}
-	result, _ := cc.Do(
-		context.TODO(),
-		ListAction(meterDefinitions, client.MatchingField(rhmclient.MeterDefinitionGVK, ownerGVK)),
-	)
-
-	if !result.Is(Continue) {
-		if result.Is(Error) {
-			log.Error(result, "failed to get owner")
-			return results, result
-		}
-		return results, nil
-	}
-
-	for i := 0; i < len(meterDefinitions.Items); i++ {
-		results = append(results, &meterDefinitions.Items[i])
+		results = append(results, meterDefinition)
 	}
 
 	return results, nil
-}
-
-type findOwnerHelper struct {
-	cc ClientCommandRunner
-}
-
-func (f *findOwnerHelper) FindOwner(name, namespace string, lookupObj runtime.Object) (owner *metav1.OwnerReference, err error) {
-	result, _ := f.cc.Do(
-		context.TODO(),
-		GetAction(
-			types.NamespacedName{
-				Namespace: namespace,
-				Name:      name,
-			},
-			lookupObj,
-		))
-
-	if !result.Is(Continue) {
-		if result.Is(Error) {
-			log.Error(result, "failed to get owner")
-		}
-
-		err = result
-		return
-	}
-
-	o, err := meta.Accessor(lookupObj)
-	if err != nil {
-		return
-	}
-
-	owner = metav1.GetControllerOf(o)
-	return
 }

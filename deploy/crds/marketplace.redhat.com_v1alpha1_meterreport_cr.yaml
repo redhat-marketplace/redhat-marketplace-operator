@@ -3,23 +3,9 @@ kind: MeterReport
 metadata:
   name: example-meterreport
 spec:
-  startTime: 2020-04-19T13:00:00Z
-  endTime: 2020-04-19T16:00:00Z
-  prometheusServiceLabels:
-    matchLabels:
-      meterbase_cr: rhm-marketplaceconfig-meterbase
-  meterDefinitionLabels:
-    matchLabels:
-      report: "1"
+  startTime: 2020-08-04T00:00:00Z
+  endTime: 2020-08-05T00:00:00Z
   prometheusService:
     name: rhm-prometheus-meterbase
     namespace: openshift-redhat-marketplace
-    targetPort: "web"
-  meterDefinitions:
-    - group: partner.metering.com
-      version: v1alpha1
-      kind: App
-      serviceMeters:
-        - labels
-      podMeters:
-        - kube_pod_container_resource_requests
+    targetPort: 'rbac'

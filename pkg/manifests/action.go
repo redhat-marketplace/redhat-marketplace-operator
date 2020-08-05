@@ -5,9 +5,11 @@ import (
 	"fmt"
 
 	emperrors "emperror.dev/errors"
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -72,8 +74,14 @@ func (a *createOrUpdateFactoryItemAction) Exec(ctx context.Context, c *ClientCom
 				return nil, nil
 			}
 
-			reqLogger.V(2).Info("updating with patch", "patch", patch.String())
-			return UpdateAction(result, UpdateWithPatch(a.patcher)), nil
+			patchBytes, err := jsonpatch.CreateMergePatch(patch.Original, patch.Modified)
+
+			if err != nil {
+				return nil, err
+			}
+
+			reqLogger.Info("updating with patch")
+			return UpdateWithPatchAction(result, types.MergePatchType, patchBytes), nil
 		})))
 	cmd.Bind(a.GetLastResult())
 	return c.Do(ctx, cmd)

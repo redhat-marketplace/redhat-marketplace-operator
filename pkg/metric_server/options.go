@@ -42,10 +42,6 @@ func ConvertOptions(optsIn *Options) *options.Options {
 		TelemetryPort:      optsIn.TelemetryPort,
 		TelemetryHost:      optsIn.TelemetryHost,
 		Namespaces:         optsIn.Namespaces,
-		Shard:              optsIn.Shard,
-		TotalShards:        optsIn.TotalShards,
-		Pod:                optsIn.Pod,
-		Namespace:          optsIn.Namespace,
 		Version:            optsIn.Version,
 		EnableGZIPEncoding: optsIn.EnableGZIPEncoding,
 	}

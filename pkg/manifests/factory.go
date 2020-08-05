@@ -5,18 +5,21 @@ package manifests
 import (
 	"bytes"
 	"crypto/rand"
-	"crypto/sha256"
+	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
 	"io"
 	"strings"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/gotidy/ptr"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -25,6 +28,7 @@ const (
 	PrometheusOperatorService       = "assets/prometheus-operator/service.yaml"
 	PrometheusOperatorCertsCABundle = "assets/prometheus-operator/operator-certs-ca-bundle.yaml"
 
+	PrometheusAdditionalScrapeConfig = "assets/prometheus/additional-scrape-configs.yaml"
 	PrometheusHtpasswd               = "assets/prometheus/htpasswd-secret.yaml"
 	PrometheusRBACProxySecret        = "assets/prometheus/kube-rbac-proxy-secret.yaml"
 	PrometheusDeployment             = "assets/prometheus/prometheus.yaml"
@@ -122,17 +126,19 @@ func (f *Factory) NewJob(manifest io.Reader) (*batchv1.Job, error) {
 	return j, nil
 }
 
-func (f *Factory) NewPrometheus(manifest io.Reader) (*monitoringv1.Prometheus, error) {
-	d, err := NewPrometheus(manifest)
+func (f *Factory) NewPrometheus(
+	manifest io.Reader,
+) (*monitoringv1.Prometheus, error) {
+	p, err := NewPrometheus(manifest)
 	if err != nil {
 		return nil, err
 	}
 
-	if d.GetNamespace() == "" {
-		d.SetNamespace(f.namespace)
+	if p.GetNamespace() == "" {
+		p.SetNamespace(f.namespace)
 	}
 
-	return d, nil
+	return p, nil
 }
 
 func (f *Factory) PrometheusService() (*v1.Service, error) {
@@ -173,8 +179,20 @@ func (f *Factory) PrometheusProxySecret() (*v1.Secret, error) {
 	return s, nil
 }
 
+func (f *Factory) PrometheusAdditionalConfigSecret(data []byte) (*v1.Secret, error) {
+	s, err := f.NewSecret(MustAssetReader(PrometheusAdditionalScrapeConfig))
+	if err != nil {
+		return nil, err
+	}
+
+	s.Data["meterdef.yaml"] = data
+	s.Namespace = f.namespace
+
+	return s, nil
+}
+
 func (f *Factory) NewPrometheusOperatorDeployment() (*appsv1.Deployment, error) {
-	c := f.config.MarketplaceOperatorConfig.PrometheusOperatorConfig
+	c := f.config.PrometheusOperatorConfig
 	dep, err := f.NewDeployment(MustAssetReader(PrometheusOperatorDeployment))
 
 	if len(c.NodeSelector) > 0 {
@@ -209,10 +227,44 @@ func (f *Factory) NewPrometheusOperatorDeployment() (*appsv1.Deployment, error) 
 	return dep, err
 }
 
-func (f *Factory) NewPrometheusDeployment() (*monitoringv1.Prometheus, error) {
-	d, err := f.NewPrometheus(MustAssetReader(PrometheusDeployment))
+func (f *Factory) NewPrometheusDeployment(
+	cr *marketplacev1alpha1.MeterBase,
+	cfg *corev1.Secret,
+) (*monitoringv1.Prometheus, error) {
+	p, err := f.NewPrometheus(MustAssetReader(PrometheusDeployment))
+	p.Name = cr.Name
+	p.ObjectMeta.Name = cr.Name
 
-	return d, err
+	if f.config.PrometheusConfig.Retention != "" {
+		p.Spec.Retention = f.config.PrometheusConfig.Retention
+	}
+
+	pvc, err := utils.NewPersistentVolumeClaim(utils.PersistentVolume{
+		ObjectMeta: &metav1.ObjectMeta{
+			Name: "storage-volume",
+		},
+		StorageClass: ptr.String(""),
+		StorageSize:  &cr.Spec.Prometheus.Storage.Size,
+	})
+
+	if err != nil {
+		return p, err
+	}
+
+	p.Spec.Storage.VolumeClaimTemplate = monitoringv1.EmbeddedPersistentVolumeClaim{
+		Spec: pvc.Spec,
+	}
+
+	if cfg != nil {
+		p.Spec.AdditionalScrapeConfigs = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: cfg.GetName(),
+			},
+			Key: "meterdef.yaml",
+		}
+	}
+
+	return p, err
 }
 
 func (f *Factory) NewPrometheusOperatorService() (*corev1.Service, error) {
@@ -271,7 +323,7 @@ func (f *Factory) PrometheusHtpasswdSecret(password string) (*v1.Secret, error) 
 }
 
 func (f *Factory) generateHtpasswdSecret(s *v1.Secret, password string) {
-	h := sha256.New()
+	h := sha1.New()
 	h.Write([]byte(password))
 	s.Data["auth"] = []byte("internal:{SHA}" + base64.StdEncoding.EncodeToString(h.Sum(nil)))
 	s.Namespace = f.namespace
@@ -299,9 +351,12 @@ func (f *Factory) ReporterJob(report *marketplacev1alpha1.MeterReport) (*batchv1
 	container.Image = f.config.RelatedImages.Image.Reporter
 
 	j.Name = report.GetName()
-	container.Args = []string{
-		"report", "--name", report.Name, "--namespace", report.Namespace,
-	}
+	container.Args = append(container.Args,
+		"--name",
+		report.Name,
+		"--namespace",
+		report.Namespace,
+	)
 
 	j.Spec.Template.Spec.Containers[0] = container
 
@@ -336,7 +391,8 @@ func (f *Factory) MetricStateServiceMonitor() (*monitoringv1.ServiceMonitor, err
 		return nil, err
 	}
 
-	sm.Spec.Endpoints[0].TLSConfig.ServerName = fmt.Sprintf("rhm-metric-state.%s.svc", f.namespace)
+	sm.Spec.Endpoints[0].TLSConfig.ServerName = fmt.Sprintf("rhm-metric-state-service.%s.svc", f.namespace)
+	sm.Spec.Endpoints[1].TLSConfig.ServerName = fmt.Sprintf("rhm-metric-state-service.%s.svc", f.namespace)
 	sm.Namespace = f.namespace
 
 	return sm, nil

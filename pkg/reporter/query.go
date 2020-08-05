@@ -23,60 +23,71 @@ import (
 
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 )
 
 type PromQuery struct {
-	Metric     string
-	Functions  []string
-	Labels     map[string]string
-	Start, End time.Time
-	Step       time.Duration
-	Time       string
-	SumBy      []string
+	Type     v1alpha1.WorkloadType
+	MeterDef struct {
+		Name, Namespace string
+	}
+	Metric        string
+	Labels        map[string]string
+	Start, End    time.Time
+	Step          time.Duration
+	Time          string
+	AggregateFunc string
+	AggregateBy   []string
+}
+
+func (q *PromQuery) makeLeftSide() string {
+	switch q.Type {
+	case v1alpha1.WorkloadTypePod:
+		return fmt.Sprintf(`avg(meterdef_pod_info{meter_def_name="%v",meter_def_namespace="%v"}) without (pod_uid, instance, container, endpoint, job, service)`, q.MeterDef.Name, q.MeterDef.Namespace)
+	case v1alpha1.WorkloadTypeServiceMonitor:
+		return fmt.Sprintf(`avg(meterdef_service_info{meter_def_name="%v",meter_def_namespace="%v"}) without (pod_uid, instance, container, endpoint, job, pod)`, q.MeterDef.Name, q.MeterDef.Namespace)
+	default:
+		return "NOTSUPPORTED"
+	}
+}
+
+func (q *PromQuery) makeJoin() string {
+	switch q.Type {
+	case v1alpha1.WorkloadTypePod:
+		return "* on(pod,namespace) group_right"
+	case v1alpha1.WorkloadTypeServiceMonitor:
+		return "* on(service,namespace) group_right"
+	default:
+		return "NOTSUPPORTED"
+	}
+}
+
+func (q *PromQuery) makeAggregateBy() string {
+	switch q.Type {
+	case v1alpha1.WorkloadTypePod:
+		return fmt.Sprintf(`%v by (pod,namespace)`, q.AggregateFunc)
+	case v1alpha1.WorkloadTypeServiceMonitor:
+		return fmt.Sprintf(`%v by (service,namespace)`, q.AggregateFunc)
+	default:
+		return "NOTSUPPORTED"
+	}
 }
 
 func (q *PromQuery) String() string {
+	aggregate := q.makeAggregateBy()
+	leftSide := q.makeLeftSide()
+	join := q.makeJoin()
+
 	labelsArr := make([]string, 0, len(q.Labels))
 	for key, val := range q.Labels {
 		labelsArr = append(labelsArr, fmt.Sprintf(`%s="%s"`, key, val))
 	}
 
-	var sb strings.Builder
+	query := fmt.Sprintf("%s{%s}", q.Metric, strings.Join(labelsArr, ","))
 
-	sb.WriteString(q.Metric)
-
-	if len(labelsArr) > 0 {
-		sb.WriteString(fmt.Sprintf("{%s}", strings.Join(labelsArr, ",")))
-
-		if q.Time != "" {
-			sb.WriteString(fmt.Sprintf("[%s]", q.Time))
-		}
-	}
-
-	returnString := sb.String()
-
-	if len(q.Functions) > 0 {
-		var finalSB strings.Builder
-		for i := len(q.Functions) - 1; i >= 0; i-- {
-			funcStr := q.Functions[i]
-
-			finalSB.WriteString(fmt.Sprintf("%s(", funcStr))
-		}
-
-		finalSB.WriteString(sb.String())
-
-		for range q.Functions {
-			finalSB.WriteString(")")
-		}
-
-		returnString = finalSB.String()
-	}
-
-	if len(q.SumBy) > 0 {
-		returnString = fmt.Sprintf("sum by (%s) (%s)", strings.Join(q.SumBy, ","), returnString)
-	}
-
-	return returnString
+	return fmt.Sprintf(
+		`%v (%v %v %v)`, aggregate, leftSide, join, query,
+	)
 }
 
 func (r *MarketplaceReporter) queryRange(query *PromQuery) (model.Value, v1.Warnings, error) {

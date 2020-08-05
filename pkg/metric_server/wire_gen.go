@@ -6,9 +6,14 @@
 package metric_server
 
 import (
+	"github.com/coreos/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/generated/clientset/versioned/typed/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/meter_definition"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
@@ -32,7 +37,8 @@ func NewServer(opts *Options) (*Service, error) {
 	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
 	olmV1SchemeDefinition := controller.ProvideOLMV1Scheme()
 	olmV1Alpha1SchemeDefinition := controller.ProvideOLMV1Alpha1Scheme()
-	localSchemes := controller.ProvideLocalSchemes(opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition)
+	openshiftConfigV1SchemeDefinition := controller.ProvideOpenshiftConfigV1Scheme()
+	localSchemes := controller.ProvideLocalSchemes(opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition, openshiftConfigV1SchemeDefinition)
 	scheme, err := managers.ProvideScheme(restConfig, localSchemes)
 	if err != nil {
 		return nil, err
@@ -42,7 +48,7 @@ func NewServer(opts *Options) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	client, err := managers.ProvideClient(restConfig, restMapper, scheme, cache, clientOptions)
+	clientClient, err := managers.ProvideClient(restConfig, restMapper, scheme, cache, clientOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -53,14 +59,36 @@ func NewServer(opts *Options) (*Service, error) {
 	options := ConvertOptions(opts)
 	registry := provideRegistry()
 	logger := _wireLoggerValue
-	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logger)
+	clientCommandRunner := reconcileutils.NewClientCommand(clientClient, scheme, logger)
+	context := provideContext()
+	dynamicInterface, err := dynamic.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+	findOwnerHelper := client.NewFindOwnerHelper(dynamicInterface, restMapper)
+	monitoringV1Client, err := v1.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+	marketplaceV1alpha1Client, err := v1alpha1.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+	meterDefinitionStore := meter_definition.NewMeterDefinitionStore(context, logger, clientCommandRunner, clientset, findOwnerHelper, monitoringV1Client, marketplaceV1alpha1Client)
+	cacheIsIndexed, err := addIndex(context, cache)
+	if err != nil {
+		return nil, err
+	}
+	cacheIsStarted := managers.StartCache(context, cache, logger, cacheIsIndexed)
 	service := &Service{
-		k8sclient:       client,
+		k8sclient:       clientClient,
 		k8sRestClient:   clientset,
 		opts:            options,
 		cache:           cache,
 		metricsRegistry: registry,
 		cc:              clientCommandRunner,
+		meterDefStore:   meterDefinitionStore,
+		isCacheStarted:  cacheIsStarted,
 	}
 	return service, nil
 }

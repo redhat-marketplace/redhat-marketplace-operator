@@ -9,7 +9,6 @@ reporterImage: quay.io/rh-marketplace/redhat-marketplace-reporter:dev
 metricStateImage: quay.io/rh-marketplace/redhat-marketplace-metric-state:dev
 kubeRbacProxyImage: quay.io/coreos/kube-rbac-proxy:v0.5.0
 pullPolicy: Always
-devpostfix: ''
 watchNamespace: '' # watch all namespaces
 serviceAccountName: redhat-marketplace-operator
 devpostfix: ''
@@ -23,6 +22,14 @@ roles:
     serviceAccountName: redhat-marketplace-operator
     type: ClusterRole
     rules:
+      - apiGroups:
+          - '*'
+        resources:
+          - '*'
+        verbs: ['get', 'list', 'watch']
+      - nonResourceURLs:
+          - '*'
+        verbs: ['get', 'list', 'watch']
       - apiGroups:
           - rbac.authorization.k8s.io
         resources:
@@ -42,6 +49,7 @@ roles:
           - services/finalizers
           - endpoints
           - persistentvolumeclaims
+          - persistentvolumes
           - events
           - configmaps
           - secrets
@@ -231,6 +239,25 @@ roles:
           - watch-keeper-limit-poll
           - watch-keeper-non-namespaced
           - razee-cluster-metadata
+      - apiGroups:
+          - authentication.k8s.io
+        resources:
+          - tokenreviews
+        verbs:
+          - create
+      - apiGroups:
+          - authorization.k8s.io
+        resources:
+          - subjectaccessreviews
+        verbs:
+          - create
+  # reporter: gives access to query prometheus
+      - nonResourceURLs:
+          - /api/v1/query
+          - /api/v1/query_range
+        verbs:
+          - get
+          - create
   # redhat-marketplace-remoteresources3deployment ClusterRole
   - name: redhat-marketplace-remoteresources3deployment
     serviceAccountName: redhat-marketplace-remoteresources3deployment
@@ -335,6 +362,21 @@ roles:
       - nonResourceURLs:
           - '*'
         verbs: ['get', 'list', 'watch']
+  # redhat-marketplace-watch-keeper ClusterRole
+  - name: redhat-marketplace-reporter
+    namespace: openshift-config
+    serviceAccountName: redhat-marketplace-operator
+    type: Role
+    rules:
+      - apiGroups: ['']
+        #
+        # at the HTTP level, the name of the resource for accessing Secret
+        # objects is "secrets"
+        resources: ['secrets']
+        verbs: ['get', 'watch', 'list']
+        resourceNames:
+          - pull-secret
+
   # rhm-operator Role
   - name: redhat-marketplace-operator
     serviceAccountName: redhat-marketplace-operator
@@ -457,4 +499,3 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
-

@@ -237,8 +237,10 @@ func (h *testHarness) execClientCommands(
 			h.updatedPod = h.pod.DeepCopy()
 			h.updatedPod.Annotations["foo"] = "bar"
 
+			patch, _ := patcher.Calculate(h.pod, h.updatedPod)
+
 			return HandleResult(
-				UpdateWithPatchAction(h.pod, h.updatedPod, patcher),
+				UpdateWithPatchAction(h.pod, types.MergePatchType, patch.Patch),
 				OnRequeue(UpdateStatusCondition(h.meterbase, h.meterbase.Status.Conditions, h.condition)),
 			), nil
 		}),

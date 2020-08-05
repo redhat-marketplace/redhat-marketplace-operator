@@ -23,7 +23,7 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 100Mi
+              memory: 150Mi
           securityContext: {}
           terminationMessagePolicy: FallbackToLogsOnError
           ports:
@@ -37,11 +37,11 @@ spec:
             - --logtostderr
             - --secure-listen-address=:9092
             - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
-            - --upstream=https://rhm-metric-state.openshift-redhat-marketplace.svc:8080/
+            - --upstream=http://127.0.0.1:8080/
             - --tls-cert-file=/etc/tls/private/tls.crt
             - --tls-private-key-file=/etc/tls/private/tls.key
             - --upstream-ca-file=/etc/configmaps/serving-cert-ca-bundle/service-ca.crt
-          image: quay.io/coreos/kube-rbac-proxy:v0.4.1
+          image: quay.io/coreos/kube-rbac-proxy:v0.5.0
           name: kube-rbac-proxy-1
           ports:
             - containerPort: 9092
@@ -63,11 +63,11 @@ spec:
             - --logtostderr
             - --secure-listen-address=:9093
             - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
-            - --upstream=https://rhm-metric-state.openshift-redhat-marketplace.svc:8081/
+            - --upstream=http://127.0.0.1:8081/
             - --tls-cert-file=/etc/tls/private/tls.crt
             - --tls-private-key-file=/etc/tls/private/tls.key
-            - --upstream-ca-file=/etc/configmaps/serving-cert-ca-bundle/service-ca.crt
-          image: quay.io/coreos/kube-rbac-proxy:v0.4.1
+            - --upstream-ca-file=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt
+          image: quay.io/coreos/kube-rbac-proxy:v0.5.0
           name: kube-rbac-proxy-2
           ports:
             - containerPort: 9093
@@ -82,7 +82,7 @@ spec:
             - mountPath: /etc/tls/private
               name: rhm-metric-state-tls
               readOnly: false
-            - mountPath: /etc/configmaps/serving-cert-ca-bundle
+            - mountPath: /etc/configmaps/serving-certs-ca-bundle
               name: serving-certs-ca-bundle
               readOnly: false
       nodeSelector:

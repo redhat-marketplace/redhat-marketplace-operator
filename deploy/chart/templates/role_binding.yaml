@@ -14,7 +14,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: rhm-{{ $role.name }}-binding{{ $postfix }}
   {{- if eq $role.type "Role" }}
-  namespace: {{ $namespace }}
+  namespace: {{ $role.namespace | default $namespace }}
   {{- end }}
 subjects:
 - kind: ServiceAccount
