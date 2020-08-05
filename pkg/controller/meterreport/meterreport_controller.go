@@ -3,15 +3,20 @@ package meterreport
 import (
 	"context"
 	"reflect"
+	"time"
 
+	"github.com/operator-framework/operator-sdk/pkg/status"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -19,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 )
 
 var log = logf.Log.WithName("controller_meterreport")
@@ -44,6 +48,7 @@ func newReconciler(
 		client:     mgr.GetClient(),
 		scheme:     mgr.GetScheme(),
 		ccprovider: ccprovider,
+		patcher:    patch.RHMDefaultPatcher,
 		cfg:        cfg,
 	}
 }
@@ -58,6 +63,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// Watch for changes to primary resource MeterReport
 	err = c.Watch(&source.Kind{Type: &marketplacev1alpha1.MeterReport{}}, &handler.EnqueueRequestForObject{})
+	if err != nil {
+		return err
+	}
+
+	err = c.Watch(&source.Kind{Type: &batchv1.Job{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &marketplacev1alpha1.MeterReport{},
+	})
 	if err != nil {
 		return err
 	}
@@ -85,6 +98,7 @@ type ReconcileMeterReport struct {
 	scheme     *runtime.Scheme
 	cfg        *config.OperatorConfig
 	ccprovider ClientCommandRunnerProvider
+	patcher    patch.Patcher
 }
 
 // Reconcile reads that state of the cluster for a MeterReport object and makes changes based on the state read
@@ -114,28 +128,59 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 		return result.Return()
 	}
 
+	if instance.Status.Conditions == nil {
+		conds := status.NewConditions(marketplacev1alpha1.ReportConditionJobNotStarted)
+		instance.Status.Conditions = &conds
+	}
+
+	job := &batchv1.Job{}
+
 	c := manifests.NewOperatorConfig(r.cfg)
 	factory := manifests.NewFactory(instance.Namespace, c)
 
-	job, err := factory.ReporterJob(instance)
-
 	reqLogger.Info("config",
 		"config", r.cfg.Image,
-		"envvar", utils.Getenv("RELATED_IMAGE_REPORTER", ""),
-		"job", job)
+		"envvar", utils.Getenv("RELATED_IMAGE_REPORTER", ""))
 
-	if err != nil {
-		reqLogger.Error(err, "failed to get job template")
-		return reconcile.Result{}, err
+	endTime := instance.Spec.EndTime.UTC()
+	now := metav1.Now().UTC()
+
+	reqLogger.Info("time", "now", now, "endTime", endTime)
+
+	if now.UTC().Before(endTime.UTC()) {
+		waitTime := now.Add(endTime.Sub(now))
+		waitTime.Add(time.Minute * 5)
+		timeToWait := waitTime.Sub(now)
+		reqLogger.Info("report was schedule before it was ready to run", "add", timeToWait)
+		result, _ := cc.Do(
+			context.TODO(),
+			HandleResult(
+				UpdateStatusCondition(instance, instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobWaiting),
+				OnAny(RequeueAfterResponse(timeToWait)),
+			),
+		)
+		if result.Is(Error) {
+			reqLogger.Error(result.GetError(), "Failed to get create job.")
+		}
+
+		return result.Return()
+
 	}
 
-	if result, _ := cc.Do(
+	result, _ := cc.Do(
 		context.TODO(),
 		HandleResult(
-			GetAction(types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job),
-			OnNotFound(CreateAction(job, CreateWithAddOwner(instance))),
+			manifests.CreateIfNotExistsFactoryItem(
+				job,
+				func() (runtime.Object, error) {
+					return factory.ReporterJob(instance)
+				}, CreateWithAddOwner(instance),
+			),
+			OnAny(UpdateStatusCondition(instance, instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobSubmitted)),
 		),
-	); !result.Is(Continue) {
+	)
+
+	if !result.Is(Continue) {
 		if result.Is(Error) {
 			reqLogger.Error(result.GetError(), "Failed to get create job.")
 		}
@@ -146,33 +191,53 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 	jr := &common.JobReference{}
 	jr.SetFromJob(job)
 
-	if result, _ := cc.Do(context.TODO(), Call(r.updateStatus(instance, jr))); !result.Is(Continue) {
-		if result.Is(Error) {
-			reqLogger.Error(result.GetError(), "Failed to get update status.")
+	// if job is not done, then update status and continue
+	if !jr.IsDone() {
+		if !reflect.DeepEqual(instance.Status.AssociatedJob, jr) {
+			instance.Status.AssociatedJob = jr
+
+			reqLogger.Info("Updating MeterReport status associatedJob")
+			if result, _ := cc.Do(context.TODO(), UpdateAction(instance, UpdateStatusOnly(true))); !result.Is(Continue) {
+				if result.Is(Error) {
+					reqLogger.Error(result.GetError(), "Failed to get update status.")
+					return reconcile.Result{Requeue: true}, result
+				}
+
+				return result.Return()
+			}
 		}
 
+		return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
+	}
+
+	instance.Status.AssociatedJob = jr
+
+	// if report failed
+	switch {
+	case jr.IsFailed():
+		reqLogger.Info("job failed")
+		result, _ = cc.Do(context.TODO(),
+			DeleteAction(job),
+			HandleResult(
+				UpdateStatusCondition(
+					instance,
+					instance.Status.Conditions,
+					marketplacev1alpha1.ReportConditionJobErrored),
+				OnAny(RequeueAfterResponse(1*time.Hour)),
+			),
+		)
+	case jr.IsSuccessful():
+		reqLogger.Info("job is complete")
+		result, _ = cc.Do(context.TODO(),
+			UpdateStatusCondition(instance, instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobFinished),
+		)
+
+	}
+
+	if result != nil && !result.Is(Continue) {
 		return result.Return()
 	}
 
 	reqLogger.Info("reconcile finished")
 	return reconcile.Result{}, nil
-}
-
-func (r *ReconcileMeterReport) updateStatus(
-	instance *marketplacev1alpha1.MeterReport,
-	jobRef *common.JobReference,
-) func() (ClientAction, error) {
-	return func() (ClientAction, error) {
-		reqLogger := log.WithValues("Instance.Namespace", instance.Namespace, "Instance.Name", instance.Name)
-
-		if !reflect.DeepEqual(instance.Status.AssociatedJob, jobRef) {
-			instance.Status.AssociatedJob = jobRef
-
-			reqLogger.Info("Updating MeterReport status associatedJob")
-
-			return UpdateAction(instance, UpdateStatusOnly(true)), nil
-		}
-
-		return nil, nil
-	}
 }

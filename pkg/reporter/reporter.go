@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -44,8 +45,9 @@ var (
 type MarketplaceReporter struct {
 	api               v1.API
 	k8sclient         client.Client
+	mktconfig         *marketplacev1alpha1.MarketplaceConfig
 	report            *marketplacev1alpha1.MeterReport
-	meterDefinitions  []*marketplacev1alpha1.MeterDefinitionSpec
+	meterDefinitions  []marketplacev1alpha1.MeterDefinition
 	prometheusService *corev1.Service
 	*Config
 }
@@ -56,22 +58,15 @@ func NewMarketplaceReporter(
 	config *Config,
 	k8sclient client.Client,
 	report *marketplacev1alpha1.MeterReport,
-	meterDefinitions []*marketplacev1alpha1.MeterDefinitionSpec,
+	mktconfig *marketplacev1alpha1.MarketplaceConfig,
+	meterDefinitions []marketplacev1alpha1.MeterDefinition,
 	prometheusService *corev1.Service,
+	apiClient api.Client,
 ) (*MarketplaceReporter, error) {
-	client, err := api.NewClient(api.Config{
-		Address: "https://localhost:9090", //TODO: replace with https
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	v1api := v1.NewAPI(client)
-
 	return &MarketplaceReporter{
-		api:               v1api,
+		api:               v1.NewAPI(apiClient),
 		k8sclient:         k8sclient,
+		mktconfig:         mktconfig,
 		report:            report,
 		meterDefinitions:  meterDefinitions,
 		Config:            config,
@@ -92,7 +87,7 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 		return resultsMap, errors.Wrap(ErrNoMeterDefinitionsFound, "no meterDefs found")
 	}
 
-	meterDefsChan := make(chan *marketplacev1alpha1.MeterDefinitionSpec, len(r.meterDefinitions))
+	meterDefsChan := make(chan *marketplacev1alpha1.MeterDefinition, len(r.meterDefinitions))
 	promModelsChan := make(chan meterDefPromModel)
 	errorsChan := make(chan error)
 	queryDone := make(chan bool)
@@ -124,7 +119,7 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 
 	// send & close data pipe
 	for _, meterDef := range r.meterDefinitions {
-		meterDefsChan <- meterDef
+		meterDefsChan <- &meterDef
 	}
 	close(meterDefsChan)
 
@@ -160,7 +155,7 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 }
 
 type meterDefPromModel struct {
-	*marketplacev1alpha1.MeterDefinitionSpec
+	*marketplacev1alpha1.MeterDefinition
 	model.Value
 	MetricName string
 }
@@ -168,59 +163,61 @@ type meterDefPromModel struct {
 func (r *MarketplaceReporter) query(
 	ctx context.Context,
 	startTime, endTime time.Time,
-	inMeterDefs <-chan *marketplacev1alpha1.MeterDefinitionSpec,
+	inMeterDefs <-chan *marketplacev1alpha1.MeterDefinition,
 	outPromModels chan<- meterDefPromModel,
 	done chan bool,
 	errorsch chan<- error,
 ) {
-	queryProcess := func(mdef *marketplacev1alpha1.MeterDefinitionSpec) {
-		for _, metric := range mdef.ServiceMeters {
-			logger.Info("query", "metric", metric)
-			// TODO: use metadata to build a smart roll up
-			// Guage = delta
-			// Counter = increase
-			// Histogram and summary are unsupported
-			query := &PromQuery{
-				Metric: metric,
-				Labels: map[string]string{
-					"meter_domain":  mdef.Group,
-					"meter_kind":    mdef.Kind,
-					"meter_version": mdef.Version,
-				},
-				Functions: []string{"increase"},
-				Time:      "60m",
-				Start:     startTime,
-				End:       endTime,
-				Step:      time.Hour,
-				SumBy:     []string{"meter_kind", "meter_domain", "meter_version", "pod", "namespace"},
-			}
-			logger.Info("output", "query", query.String())
+	queryProcess := func(mdef *marketplacev1alpha1.MeterDefinition) {
+		for _, workload := range mdef.Spec.Workloads {
+			for _, metric := range workload.MetricLabels {
+				logger.Info("query", "metric", metric)
+				// TODO: use metadata to build a smart roll up
+				// Guage = delta
+				// Counter = increase
+				// Histogram and summary are unsupported
+				query := &PromQuery{
+					Metric: metric.Label,
+					Type:   workload.WorkloadType,
+					MeterDef: struct{ Name, Namespace string }{
+						Name:      mdef.Name,
+						Namespace: mdef.Namespace,
+					},
+					Labels:        metric.Query,
+					Time:          "60m",
+					Start:         startTime,
+					End:           endTime,
+					Step:          time.Hour,
+					AggregateFunc: metric.Aggregation,
+				}
+				logger.Info("output", "query", query.String())
 
-			var val model.Value
-			var warnings v1.Warnings
+				var val model.Value
+				var warnings v1.Warnings
 
-			err := utils.Retry(func() error {
-				var err error
-				val, warnings, err = r.queryRange(query)
+				err := utils.Retry(func() error {
+					var err error
+					val, warnings, err = r.queryRange(query)
 
-				if err != nil {
-					return err
+					if err != nil {
+						return errors.Wrap(err, "error with query")
+					}
+
+					return nil
+				}, *r.Retry)
+
+				if warnings != nil {
+					logger.Info("warnings %v", warnings)
 				}
 
-				return nil
-			}, *r.Retry)
+				if err != nil {
+					logger.Error(err, "error encountered")
+					errorsch <- err
+					return
+				}
 
-			if warnings != nil {
-				logger.Info("warnings %v", warnings)
+				outPromModels <- meterDefPromModel{mdef, val, metric.Label}
 			}
-
-			if err != nil {
-				logger.Error(err, "error encountered")
-				errorsch <- err
-				return
-			}
-
-			outPromModels <- meterDefPromModel{mdef, val, metric}
 		}
 	}
 
@@ -242,7 +239,7 @@ func (r *MarketplaceReporter) process(
 ) {
 	syncProcess := func(
 		name string,
-		mdef *marketplacev1alpha1.MeterDefinitionSpec,
+		mdef *marketplacev1alpha1.MeterDefinition,
 		report *marketplacev1alpha1.MeterReport,
 		m model.Value,
 	) {
@@ -261,9 +258,8 @@ func (r *MarketplaceReporter) process(
 							ReportPeriodEnd:   report.Spec.EndTime.Format(time.RFC3339),
 							IntervalStart:     pair.Timestamp.Time().Format(time.RFC3339),
 							IntervalEnd:       pair.Timestamp.Add(time.Hour).Time().Format(time.RFC3339),
-							MeterDomain:       mdef.Group,
-							MeterKind:         mdef.Kind,
-							MeterVersion:      mdef.Version,
+							MeterDomain:       mdef.Spec.Group,
+							MeterKind:         mdef.Spec.Kind,
 						}
 
 						mutex.Lock()
@@ -308,24 +304,29 @@ func (r *MarketplaceReporter) process(
 
 	wgWait(ctx, "syncProcess", *r.MaxRoutines, done, func() {
 		for pmodel := range inPromModels {
-			syncProcess(pmodel.MetricName, pmodel.MeterDefinitionSpec, report, pmodel.Value)
+			syncProcess(pmodel.MetricName, pmodel.MeterDefinition, report, pmodel.Value)
 		}
 	})
 }
 
 func (r *MarketplaceReporter) WriteReport(
 	source uuid.UUID,
-	marketplaceConfig *marketplacev1alpha1.MarketplaceConfig,
-	report *marketplacev1alpha1.MeterReport,
 	metrics map[MetricKey]*MetricBase) ([]string, error) {
 	metadata := NewReportMetadata(source, ReportSourceMetadata{
-		RhmAccountID: marketplaceConfig.Spec.RhmAccountID,
-		RhmClusterID: marketplaceConfig.Spec.ClusterUUID,
+		RhmAccountID: r.mktconfig.Spec.RhmAccountID,
+		RhmClusterID: r.mktconfig.Spec.ClusterUUID,
 	})
 
 	var partitionSize = *r.MetricsPerFile
 
 	metricsArr := make([]*MetricBase, 0, len(metrics))
+
+	filedir := filepath.Join(r.Config.OutputDirectory, source.String())
+	err := os.Mkdir(filedir, 0755)
+
+	if err != nil {
+		return []string{}, errors.Wrap(err, "error creating directory")
+	}
 
 	for _, v := range metrics {
 		metricsArr = append(metricsArr, v)
@@ -352,7 +353,7 @@ func (r *MarketplaceReporter) WriteReport(
 			return nil, err
 		}
 		filename := filepath.Join(
-			r.OutputDirectory,
+			filedir,
 			fmt.Sprintf("%s.json", metricReport.ReportSliceID.String()))
 
 		err = ioutil.WriteFile(
@@ -374,7 +375,7 @@ func (r *MarketplaceReporter) WriteReport(
 		return nil, err
 	}
 
-	filename := filepath.Join(r.OutputDirectory, "metadata.json")
+	filename := filepath.Join(filedir, "metadata.json")
 	err = ioutil.WriteFile(filename, marshallBytes, 0600)
 	if err != nil {
 		logger.Error(err, "failed to write file", "file", filename)
@@ -417,7 +418,7 @@ func wgWait(ctx context.Context, processName string, maxRoutines int, done chan 
 	select {
 	case <-ctx.Done():
 		logger.Info("canceling wg", "name", processName)
-	case <- wait:
+	case <-wait:
 		logger.Info("wg is done", "name", processName)
 	}
 

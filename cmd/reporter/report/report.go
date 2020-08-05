@@ -6,15 +6,17 @@ import (
 	"time"
 
 	"emperror.dev/errors"
+	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/reporter"
 	"github.com/spf13/cobra"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"github.com/gotidy/ptr"
 )
 
 var log = logf.Log.WithName("reporter_report_cmd")
 
-var name, namespace string
+var name, namespace, cafile, tokenFile string
+var local bool
+var retry int
 
 var ReportCmd = &cobra.Command{
 	Use:   "report",
@@ -35,7 +37,10 @@ var ReportCmd = &cobra.Command{
 
 		cfg := &reporter.Config{
 			OutputDirectory: tmpDir,
-			Retry: ptr.Int(1),
+			Retry:           ptr.Int(retry),
+			CaFile:          cafile,
+			TokenFile:       tokenFile,
+			Local:           local,
 		}
 		cfg.SetDefaults()
 
@@ -51,7 +56,10 @@ var ReportCmd = &cobra.Command{
 		}
 
 		err = task.Run()
-		log.Error(err, "error running task")
+		if err != nil {
+			log.Error(err, "error running task")
+			os.Exit(1)
+		}
 
 		os.Exit(0)
 	},
@@ -60,4 +68,8 @@ var ReportCmd = &cobra.Command{
 func init() {
 	ReportCmd.Flags().StringVar(&name, "name", "", "name of the report")
 	ReportCmd.Flags().StringVar(&namespace, "namespace", "", "namespace of the report")
+	ReportCmd.Flags().StringVar(&cafile, "cafile", "", "cafile for prometheus")
+	ReportCmd.Flags().StringVar(&tokenFile, "tokenfile", "", "token file for prometheus")
+	ReportCmd.Flags().BoolVar(&local, "local", false, "run locally")
+	ReportCmd.Flags().IntVar(&retry, "retry", 3, "number of retries")
 }

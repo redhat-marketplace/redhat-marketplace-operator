@@ -37,7 +37,8 @@ func NewServer(opts *Options) (*Service, error) {
 	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
 	olmV1SchemeDefinition := controller.ProvideOLMV1Scheme()
 	olmV1Alpha1SchemeDefinition := controller.ProvideOLMV1Alpha1Scheme()
-	localSchemes := controller.ProvideLocalSchemes(opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition)
+	openshiftConfigV1SchemeDefinition := controller.ProvideOpenshiftConfigV1Scheme()
+	localSchemes := controller.ProvideLocalSchemes(opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition, openshiftConfigV1SchemeDefinition)
 	scheme, err := managers.ProvideScheme(restConfig, localSchemes)
 	if err != nil {
 		return nil, err
@@ -74,6 +75,11 @@ func NewServer(opts *Options) (*Service, error) {
 		return nil, err
 	}
 	meterDefinitionStore := meter_definition.NewMeterDefinitionStore(context, logger, clientCommandRunner, clientset, findOwnerHelper, monitoringV1Client, marketplaceV1alpha1Client)
+	cacheIsIndexed, err := addIndex(context, cache)
+	if err != nil {
+		return nil, err
+	}
+	cacheIsStarted := managers.StartCache(context, cache, logger, cacheIsIndexed)
 	service := &Service{
 		k8sclient:       clientClient,
 		k8sRestClient:   clientset,
@@ -82,6 +88,7 @@ func NewServer(opts *Options) (*Service, error) {
 		metricsRegistry: registry,
 		cc:              clientCommandRunner,
 		meterDefStore:   meterDefinitionStore,
+		isCacheStarted:  cacheIsStarted,
 	}
 	return service, nil
 }

@@ -45,39 +45,12 @@ type Service struct {
 	metricsRegistry *prometheus.Registry
 	cc              reconcileutils.ClientCommandRunner
 	meterDefStore   *meter_definition.MeterDefinitionStore
+	isCacheStarted  managers.CacheIsStarted
 }
 
 func (s *Service) Serve(done <-chan struct{}) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	err := rhmclient.AddMeterDefIndex(s.cache)
-	if err != nil {
-		log.Error(err, "")
-		return err
-	}
-
-	err = rhmclient.AddOperatorSourceIndex(s.cache)
-	if err != nil {
-		log.Error(err, "")
-		return err
-	}
-
-	err = rhmclient.AddUIDIndex(s.cache,
-		[]runtime.Object{
-			&marketplacev1alpha1.MeterDefinition{},
-			&corev1.Pod{},
-		})
-
-	if err != nil {
-		log.Error(err, "")
-		return err
-	}
-
-	go func() {
-		err := s.cache.Start(ctx.Done())
-		log.Error(err, "error starting cache")
-	}()
 
 	s.meterDefStore.SetNamespaces(options.DefaultNamespaces)
 	s.meterDefStore.Start()
@@ -108,6 +81,36 @@ func getClientOptions() managers.ClientOptions {
 		Namespace:    "",
 		DryRunClient: false,
 	}
+}
+
+func addIndex(
+	ctx context.Context,
+	cache cache.Cache) (managers.CacheIsIndexed, error) {
+	err := rhmclient.AddMeterDefIndex(cache)
+	if err != nil {
+		log.Error(err, "")
+		return managers.CacheIsIndexed{}, err
+	}
+
+	err = rhmclient.AddOperatorSourceIndex(cache)
+	if err != nil {
+		log.Error(err, "")
+		return managers.CacheIsIndexed{}, err
+	}
+
+	err = rhmclient.AddUIDIndex(cache,
+		[]runtime.Object{
+			&marketplacev1alpha1.MeterDefinition{},
+			&corev1.Pod{},
+			&corev1.Service{},
+		})
+
+	if err != nil {
+		log.Error(err, "")
+		return managers.CacheIsIndexed{}, err
+	}
+
+	return managers.CacheIsIndexed{}, nil
 }
 
 func provideRegistry() *prometheus.Registry {

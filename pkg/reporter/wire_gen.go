@@ -28,7 +28,8 @@ func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task
 	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
 	olmV1SchemeDefinition := controller.ProvideOLMV1Scheme()
 	olmV1Alpha1SchemeDefinition := controller.ProvideOLMV1Alpha1Scheme()
-	localSchemes := controller.ProvideLocalSchemes(opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition)
+	openshiftConfigV1SchemeDefinition := controller.ProvideOpenshiftConfigV1Scheme()
+	localSchemes := controller.ProvideLocalSchemes(opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition, openshiftConfigV1SchemeDefinition)
 	scheme, err := managers.ProvideScheme(restConfig, localSchemes)
 	if err != nil {
 		return nil, err
@@ -42,6 +43,18 @@ func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task
 	if err != nil {
 		return nil, err
 	}
+	logrLogger := _wireLoggerValue
+	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logrLogger)
+	cacheIsIndexed := managers.CacheIsIndexed{}
+	cacheIsStarted := managers.StartCache(ctx, cache, logrLogger, cacheIsIndexed)
+	redHatInsightsUploaderConfig, err := provideProductionInsights(ctx, clientCommandRunner, logrLogger, cacheIsStarted)
+	if err != nil {
+		return nil, err
+	}
+	redHatInsightsUploader, err := NewRedHatInsightsUploader(redHatInsightsUploaderConfig)
+	if err != nil {
+		return nil, err
+	}
 	task := &Task{
 		ReportName: reportName,
 		Cache:      cache,
@@ -49,28 +62,44 @@ func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task
 		Ctx:        ctx,
 		Config:     config2,
 		K8SScheme:  scheme,
+		Uploader:   redHatInsightsUploader,
 	}
 	return task, nil
 }
+
+var (
+	_wireLoggerValue = logger
+)
 
 func NewReporter(task *Task) (*MarketplaceReporter, error) {
 	reporterConfig := task.Config
 	client := task.K8SClient
 	contextContext := task.Ctx
 	scheme := task.K8SScheme
-	logrLogger := _wireLoggerValue
+	logrLogger := _wireLoggerLoggerValue
 	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logrLogger)
 	reportName := task.ReportName
 	meterReport, err := getMarketplaceReport(contextContext, clientCommandRunner, reportName)
 	if err != nil {
 		return nil, err
 	}
-	v := getMeterDefinitions(meterReport)
+	marketplaceConfig, err := getMarketplaceConfig(contextContext, clientCommandRunner)
+	if err != nil {
+		return nil, err
+	}
+	v, err := getMeterDefinitions(contextContext, meterReport, clientCommandRunner)
+	if err != nil {
+		return nil, err
+	}
 	service, err := getPrometheusService(contextContext, meterReport, clientCommandRunner)
 	if err != nil {
 		return nil, err
 	}
-	marketplaceReporter, err := NewMarketplaceReporter(reporterConfig, client, meterReport, v, service)
+	apiClient, err := provideApiClient(meterReport, service, reporterConfig)
+	if err != nil {
+		return nil, err
+	}
+	marketplaceReporter, err := NewMarketplaceReporter(reporterConfig, client, meterReport, marketplaceConfig, v, service, apiClient)
 	if err != nil {
 		return nil, err
 	}
@@ -78,5 +107,5 @@ func NewReporter(task *Task) (*MarketplaceReporter, error) {
 }
 
 var (
-	_wireLoggerValue = logger
+	_wireLoggerLoggerValue = logger
 )

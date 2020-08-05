@@ -56,6 +56,18 @@ func (a *createAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 	key, _ := client.ObjectKeyFromObject(a.newObject)
 	reqLogger = reqLogger.WithValues("requestType", fmt.Sprintf("%T", a.newObject), "key", key)
 
+	if a.WithAddOwner != nil {
+		if meta, ok := a.newObject.(metav1.Object); ok {
+			if err := controllerutil.SetControllerReference(
+				a.WithAddOwner.(metav1.Object),
+				meta,
+				c.scheme); err != nil {
+				c.log.Error(err, "Failed to create.", "obj", a.newObject)
+				return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error adding owner")
+			}
+		}
+	}
+
 	if a.WithPatch != nil {
 		if err := a.WithPatch.SetLastAppliedAnnotation(a.newObject); err != nil {
 			reqLogger.Error(err, "failure creating patch")
@@ -68,18 +80,6 @@ func (a *createAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 	if err != nil {
 		c.log.Error(err, "Failed to create.", "obj", a.newObject)
 		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error with create")
-	}
-
-	if a.WithAddOwner != nil {
-		if meta, ok := a.newObject.(metav1.Object); ok {
-			if err := controllerutil.SetControllerReference(
-				a.WithAddOwner.(metav1.Object),
-				meta,
-				c.scheme); err != nil {
-				c.log.Error(err, "Failed to create.", "obj", a.newObject)
-				return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error adding owner")
-			}
-		}
 	}
 
 	return NewExecResult(Requeue, reconcile.Result{Requeue: true}, nil), nil

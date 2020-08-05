@@ -222,6 +222,13 @@ func OnContinue(action ClientAction) ClientActionBranch {
 	}
 }
 
+func OnAny(action ClientAction) ClientActionBranch {
+	return ClientActionBranch{
+		Any:    true,
+		Action: action,
+	}
+}
+
 func (r *handleResult) Bind(result *ExecResult) {
 	r.lastResult = result
 }
@@ -235,7 +242,7 @@ func (r *handleResult) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 		if myVar.Is(branch.Status) {
 			logger.V(2).Info("branch matched", "status", branch.Status)
 
-			if branch.Action == nil {
+			if branch.Action == nil || branch.Any {
 				return myVar, err
 			}
 

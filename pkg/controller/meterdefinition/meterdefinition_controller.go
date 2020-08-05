@@ -65,6 +65,7 @@ func newReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider) 
 		scheme:     mgr.GetScheme(),
 		ccprovider: ccprovider,
 		opts:       opts,
+		patcher:    patch.RHMDefaultPatcher,
 	}
 }
 
@@ -496,23 +497,23 @@ func labelsForKubeStateMonitor(name, namespace string) map[string]string {
 	}
 }
 
-func configureServiceMonitorFromMeterLabels(def *v1alpha1.MeterDefinition, monitor *monitoringv1.ServiceMonitor) {
-	endpoints := []monitoringv1.Endpoint{}
-	for _, endpoint := range monitor.Spec.Endpoints {
-		newEndpoint := endpoint.DeepCopy()
-		relabelConfigs := []*monitoringv1.RelabelConfig{
-			makeRelabelReplaceConfig([]string{"__name__"}, "meter_kind", "(.*)", def.Spec.Kind),
-			makeRelabelReplaceConfig([]string{"__name__"}, "meter_domain", "(.*)", def.Spec.Group),
-		}
-		metricRelabelConfigs := []*monitoringv1.RelabelConfig{
-			makeRelabelKeepConfig([]string{"__name__"}, labelsToRegex(def.Spec.ServiceMeters)),
-		}
-		newEndpoint.RelabelConfigs = append(newEndpoint.RelabelConfigs, relabelConfigs...)
-		newEndpoint.MetricRelabelConfigs = metricRelabelConfigs
-		endpoints = append(endpoints, *newEndpoint)
-	}
-	monitor.Spec.Endpoints = endpoints
-}
+// func configureServiceMonitorFromMeterLabels(def *v1alpha1.MeterDefinition, monitor *monitoringv1.ServiceMonitor) {
+// 	endpoints := []monitoringv1.Endpoint{}
+// 	for _, endpoint := range monitor.Spec.Endpoints {
+// 		newEndpoint := endpoint.DeepCopy()
+// 		relabelConfigs := []*monitoringv1.RelabelConfig{
+// 			makeRelabelReplaceConfig([]string{"__name__"}, "meter_kind", "(.*)", def.Spec.Kind),
+// 			makeRelabelReplaceConfig([]string{"__name__"}, "meter_domain", "(.*)", def.Spec.Group),
+// 		}
+// 		metricRelabelConfigs := []*monitoringv1.RelabelConfig{
+// 			makeRelabelKeepConfig([]string{"__name__"}, labelsToRegex(def.Spec.ServiceMeters)),
+// 		}
+// 		newEndpoint.RelabelConfigs = append(newEndpoint.RelabelConfigs, relabelConfigs...)
+// 		newEndpoint.MetricRelabelConfigs = metricRelabelConfigs
+// 		endpoints = append(endpoints, *newEndpoint)
+// 	}
+// 	monitor.Spec.Endpoints = endpoints
+// }
 
 func makeRelabelConfig(source []string, action, target string) *monitoringv1.RelabelConfig {
 	return &monitoringv1.RelabelConfig{

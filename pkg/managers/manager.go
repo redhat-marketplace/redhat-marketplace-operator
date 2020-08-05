@@ -21,6 +21,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/google/wire"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
@@ -79,9 +80,10 @@ var (
 		config.GetConfig,
 		kubernetes.NewForConfig,
 		ProvideClient,
+		ProvideNewCache,
+		StartCache,
 		ProvideScheme,
 		NewDynamicRESTMapper,
-		ProvideNewCache,
 		dynamic.NewForConfig,
 		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
 	)
@@ -276,19 +278,20 @@ type ClientOptions struct {
 	Namespace    string
 }
 
-func ProvideNewCache(
-	c *rest.Config,
-	mapper meta.RESTMapper,
-	scheme *k8sruntime.Scheme,
-	options ClientOptions,
-) (cache.Cache, error) {
-	return cache.New(c,
-		cache.Options{
-			Scheme:    scheme,
-			Mapper:    mapper,
-			Resync:    options.SyncPeriod,
-			Namespace: options.Namespace,
-		})
+type CacheIsStarted struct{}
+type CacheIsIndexed struct{}
+
+func StartCache(
+	ctx context.Context,
+	cache cache.Cache,
+	log logr.Logger,
+	isIndexed CacheIsIndexed,
+) CacheIsStarted {
+	go func() {
+		err := cache.Start(ctx.Done())
+		log.Error(err, "error starting cache")
+	}()
+	return CacheIsStarted{}
 }
 
 func ProvideClient(
@@ -308,6 +311,21 @@ func ProvideClient(
 	}
 
 	return writeObj, nil
+}
+
+func ProvideNewCache(
+	c *rest.Config,
+	mapper meta.RESTMapper,
+	scheme *k8sruntime.Scheme,
+	options ClientOptions,
+) (cache.Cache, error) {
+	return cache.New(c,
+		cache.Options{
+			Scheme:    scheme,
+			Mapper:    mapper,
+			Resync:    options.SyncPeriod,
+			Namespace: options.Namespace,
+		})
 }
 
 func ProvideScheme(

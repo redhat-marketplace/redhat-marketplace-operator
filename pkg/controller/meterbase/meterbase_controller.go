@@ -808,13 +808,7 @@ func (r *ReconcileMeterBase) newPrometheusOperator(
 	factory *manifests.Factory,
 	cfg *corev1.Secret,
 ) (*monitoringv1.Prometheus, error) {
-	prom, err := factory.NewPrometheusDeployment()
-	prom.Name = cr.Name
-	prom.ObjectMeta.Name = cr.Name
-
-	if err != nil {
-		return prom, err
-	}
+	prom, err := factory.NewPrometheusDeployment(cr, cfg)
 
 	storageClass := ""
 	if cr.Spec.Prometheus.Storage.Class == nil {
@@ -829,31 +823,7 @@ func (r *ReconcileMeterBase) newPrometheusOperator(
 		storageClass = *cr.Spec.Prometheus.Storage.Class
 	}
 
-	pvc, err := utils.NewPersistentVolumeClaim(utils.PersistentVolume{
-		ObjectMeta: &metav1.ObjectMeta{
-			Name: "storage-volume",
-		},
-		StorageClass: &storageClass,
-		StorageSize:  &cr.Spec.Prometheus.Storage.Size,
-	})
-
-	if err != nil {
-		return prom, err
-	}
-
-	prom.Spec.Storage.VolumeClaimTemplate = monitoringv1.EmbeddedPersistentVolumeClaim{
-		Spec: pvc.Spec,
-	}
-
-	if cfg != nil {
-		prom.Spec.AdditionalScrapeConfigs = &corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: cfg.GetName(),
-			},
-			Key: "meterdef.yaml",
-		}
-	}
-
+	prom.Spec.Storage.VolumeClaimTemplate.Spec.StorageClassName = ptr.String(storageClass)
 	return prom, err
 }
 

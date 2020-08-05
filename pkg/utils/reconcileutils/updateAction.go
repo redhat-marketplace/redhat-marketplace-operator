@@ -117,8 +117,9 @@ func (u *updateStatusConditionAction) Exec(ctx context.Context, c *ClientCommand
 	}
 
 	if isNil(u.conditions) {
-		reqLogger.Info("setting default conditions")
-		u.conditions = &status.Conditions{}
+		err := emperrors.WithStack(ErrNilObject)
+		reqLogger.Info("conditions cannot be nil")
+		return NewExecResult(Error, reconcile.Result{}, err), emperrors.New("conditions cannot be nil")
 	}
 
 	key, _ := client.ObjectKeyFromObject(u.instance)

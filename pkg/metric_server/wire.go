@@ -31,5 +31,6 @@ func NewServer(
 		monitoringv1client.NewForConfig,
 		provideContext,
 		rhmclient.NewFindOwnerHelper,
+		addIndex,
 	))
 }

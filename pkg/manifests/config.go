@@ -12,13 +12,10 @@ import (
 )
 
 type Config struct {
-	RelatedImages             *config.RelatedImages      `json:"relatedImages"`
-	MarketplaceOperatorConfig *MarketplaceOperatorConfig `json:"operatorConfig"`
-	Platform                  configv1.PlatformType      `json:"-"`
-}
-
-type MarketplaceOperatorConfig struct {
+	RelatedImages            *config.RelatedImages     `json:"relatedImages"`
 	PrometheusOperatorConfig *PrometheusOperatorConfig `json:"prometheusOperator"`
+	PrometheusConfig         *PrometheusConfig         `json:"prometheusConfig"`
+	Platform                 configv1.PlatformType     `json:"-"`
 }
 
 type PrometheusOperatorConfig struct {
@@ -28,9 +25,13 @@ type PrometheusOperatorConfig struct {
 	Tolerations        []v1.Toleration   `json:"tolerations"`
 }
 
+type PrometheusConfig struct {
+	Retention string `json:"retention"`
+}
+
 type RelatedImages struct {
-	Reporter string
-	MetricState string
+	Reporter      string
+	MetricState   string
 	KubeRbacProxy string
 }
 
@@ -53,15 +54,12 @@ func NewConfigFromString(content string) (*Config, error) {
 
 func NewConfig(content io.Reader) (*Config, error) {
 	c := Config{}
-	moc := MarketplaceOperatorConfig{}
-	err := k8syaml.NewYAMLOrJSONDecoder(content, 4096).Decode(&moc)
+	err := k8syaml.NewYAMLOrJSONDecoder(content, 4096).Decode(&c)
 	if err != nil {
 		return nil, err
 	}
-	c.MarketplaceOperatorConfig = &moc
 	res := &c
 	res.applyDefaults()
-
 	return res, nil
 }
 
@@ -69,8 +67,6 @@ func NewDefaultConfig() *Config {
 	cfg, _ := config.ProvideConfig()
 	c := &Config{}
 	c.RelatedImages = &cfg.RelatedImages
-	moc := MarketplaceOperatorConfig{}
-	c.MarketplaceOperatorConfig = &moc
 	c.applyDefaults()
 	return c
 }
@@ -78,14 +74,17 @@ func NewDefaultConfig() *Config {
 func NewOperatorConfig(cfg *config.OperatorConfig) *Config {
 	c := &Config{}
 	c.RelatedImages = &cfg.RelatedImages
-	moc := MarketplaceOperatorConfig{}
-	c.MarketplaceOperatorConfig = &moc
 	c.applyDefaults()
 	return c
 }
 
 func (c *Config) applyDefaults() {
-	if c.MarketplaceOperatorConfig.PrometheusOperatorConfig == nil {
-		c.MarketplaceOperatorConfig.PrometheusOperatorConfig = &PrometheusOperatorConfig{}
+	if c.PrometheusOperatorConfig == nil {
+		c.PrometheusOperatorConfig = &PrometheusOperatorConfig{}
+	}
+
+	if c.PrometheusConfig == nil {
+		c.PrometheusConfig = &PrometheusConfig{}
+		c.PrometheusConfig.Retention = "30d"
 	}
 }

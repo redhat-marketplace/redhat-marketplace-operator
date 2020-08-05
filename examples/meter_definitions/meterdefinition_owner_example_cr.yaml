@@ -2,6 +2,7 @@ apiVersion: marketplace.redhat.com/v1alpha1
 kind: MeterDefinition
 metadata:
   name: example-meterdefinition-2
+  namespace: metering-example-operator
 spec:
   # Add fields here
   group: partner.metering.com
@@ -16,8 +17,6 @@ spec:
         kind: App
       metricLabels:
         - label: container_spec_cpu_shares
-          query: |-
-            {job: kubelet}
           aggregation: sum
     - name: servicemon
       type: ServiceMonitor
@@ -26,8 +25,6 @@ spec:
         kind: App
       metricLabels:
         - label: container_spec_cpu_shares
-          query: |-
-            {job: kubelet}
           aggregation: sum
   serviceMeters:
     - labels

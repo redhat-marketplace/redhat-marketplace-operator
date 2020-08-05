@@ -67,7 +67,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 				_, okAllNamespace := evt.MetaNew.GetLabels()[allnamespaceTag]
 				watchLabel, watchOk := evt.MetaNew.GetLabels()[watchTag]
 				_, ignoreOk := evt.MetaNew.GetAnnotations()[IgnoreTag]
-
+			
 				if ignoreOk {
 					return false
 				}

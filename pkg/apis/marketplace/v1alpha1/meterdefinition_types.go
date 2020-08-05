@@ -31,7 +31,8 @@ type MeterDefinitionSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Group string `json:"group"`
 
-	// MeterVersion defines the primary CRD version of the meter
+	// MeterVersion defines the primary CRD version of the meter, ths
+	// is optional.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// TODO: delete this
@@ -65,26 +66,6 @@ type MeterDefinitionSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +kubebuilder:validation:MinItems=1
 	Workloads []Workload `json:"workloads,omitempty"`
-
-	// ServiceMeters of the meterics you want to track.
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	// TODO: delete this
-	ServiceMeters []string `json:"serviceMeters,omitempty"`
-
-	// PodMeters of the prometheus metrics you want to track.
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	// TODO: delete this
-	PodMeters []string `json:"podMeters,omitempty"`
-
-	// Services is the list of discovered services
-	// +optional
-	Services []*common.ServiceReference `json:"discoveredServices,omitempty"`
-
-	// Pods is the list of discovered pods
-	// +optional
-	Pods []*common.PodReference `json:"discoveredPods,omitempty"`
 }
 
 const (
@@ -171,7 +152,7 @@ type MeterLabelQuery struct {
 	Label string `json:"label"`
 
 	// Query to use for the label
-	Query string `json:"query,omitempty"`
+	Query map[string]string `json:"query,omitempty"`
 
 	// Aggregation to use with the query
 	// +kubebuilder:validation:Enum:=sum;min;max;avg;count
@@ -188,29 +169,10 @@ type MeterDefinitionStatus struct {
 	// +optional
 	Conditions status.Conditions `json:"conditions,omitempty"`
 
-	// ServiceLabels of the meterics you want to track.
-	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	ServiceLabels []string `json:"serviceLabels"`
-
-	// PodLabels of the prometheus kube-state metrics you want to track.
-	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	PodLabels []string `json:"podLabels"`
-
-	// OperatorGroup is the identifier for the owning operatorGroup
-	OperatorGroup common.NamespacedNameReference `json:"operatorGroup"`
-
-	// ServiceMonitors is the list of service monitors being watched for
+	// WorkloadResources is the list of resoruces discovered by
 	// this meter definition
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	ServiceMonitors []common.NamespacedNameReference `json:"serviceMonitors"`
-
-	// Pods is the list of current pods being watched for
-	// this meter definition
-	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	Pods []*metav1.ObjectMeta `json:"pods"`
-
-
-	WorkloadResources []WorkloadResource `json:"workloadResource"`
+	WorkloadResources []WorkloadResource `json:"workloadResource,omitempty"`
 }
 
 // MeterDefinition is internal Meter Definitions defined by Operators from Red Hat Marketplace.

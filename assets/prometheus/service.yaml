@@ -2,20 +2,20 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    service.alpha.openshift.io/serving-cert-secret-name: rhm-prometheus-meterbase-tls
+    service.beta.openshift.io/serving-cert-secret-name: rhm-prometheus-meterbase-tls
   labels:
     prometheus: redhat-marketplace
   name: rhm-prometheus-meterbase
 spec:
   ports:
-  - name: web
+  - name: https
     port: 9091
-    targetPort: web
-  - name: tenancy
+    targetPort: https
+  - name: rbac
     port: 9092
-    targetPort: tenancy
+    targetPort: rbac
   selector:
     app: prometheus
-    prometheus: redhat-marketplace
+    prometheus: meterbase
   sessionAffinity: ClientIP
   type: ClusterIP

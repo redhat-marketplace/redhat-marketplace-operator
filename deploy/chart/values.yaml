@@ -251,6 +251,13 @@ roles:
           - subjectaccessreviews
         verbs:
           - create
+  # reporter: gives access to query prometheus
+      - nonResourceURLs:
+          - /api/v1/query
+          - /api/v1/query_range
+        verbs:
+          - get
+          - create
   # redhat-marketplace-remoteresources3deployment ClusterRole
   - name: redhat-marketplace-remoteresources3deployment
     serviceAccountName: redhat-marketplace-remoteresources3deployment
@@ -355,6 +362,21 @@ roles:
       - nonResourceURLs:
           - '*'
         verbs: ['get', 'list', 'watch']
+  # redhat-marketplace-watch-keeper ClusterRole
+  - name: redhat-marketplace-reporter
+    namespace: openshift-config
+    serviceAccountName: redhat-marketplace-operator
+    type: Role
+    rules:
+      - apiGroups: ['']
+        #
+        # at the HTTP level, the name of the resource for accessing Secret
+        # objects is "secrets"
+        resources: ['secrets']
+        verbs: ['get', 'watch', 'list']
+        resourceNames:
+          - pull-secret
+
   # rhm-operator Role
   - name: redhat-marketplace-operator
     serviceAccountName: redhat-marketplace-operator

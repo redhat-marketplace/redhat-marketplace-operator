@@ -92,7 +92,7 @@ var _ = Describe("Reporter", func() {
 			},
 		}
 
-		uploader, err = NewRedHatInsightsUploader(RedHatInsightsUploaderConfig{
+		uploader, err = NewRedHatInsightsUploader(&RedHatInsightsUploaderConfig{
 			URL:             "https://cloud.redhat.com",
 			ClusterID:       "2858312a-ff6a-41ae-b108-3ed7b12111ef",
 			OperatorVersion: "1.0.0",
