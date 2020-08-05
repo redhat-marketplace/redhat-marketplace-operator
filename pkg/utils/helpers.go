@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/operator-framework/operator-sdk/pkg/status"
@@ -233,4 +234,12 @@ func ConditionsEqual(a status.Conditions, b status.Conditions) bool {
 func PrettyPrint(in interface{}) {
 	out, _ := json.MarshalIndent(in, "", "    ")
 	println(string(out))
+}
+
+func TruncateTime(t time.Time, loc *time.Location) time.Time {
+	if loc == nil {
+		loc = time.UTC
+	}
+
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc)
 }

@@ -345,7 +345,7 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		HandleResult(
 			ListAction(meterReportList, client.InNamespace(request.Namespace)),
 			OnContinue(Call(func() (ClientAction, error) {
-				loc, _ := time.LoadLocation("UTC")
+				loc := time.UTC
 				dateRangeInDays := -30
 
 				meterReportNames := r.sortMeterReports(meterReportList)
@@ -356,13 +356,20 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 					reqLogger.Error(err, err.Error())
 				}
 
-
 				// fill in gaps of missing reports
-				expectedCreatedDates := r.generateExpectedDates(dateRangeInDays)
+				// we want the min date to be install date - 1 day
+				endDate := time.Now().In(loc)
+
+				minDate := instance.ObjectMeta.CreationTimestamp.Time.In(loc)
+				minDate = utils.TruncateTime(minDate, loc)
+
+				expectedCreatedDates := r.generateExpectedDates(endDate, loc, dateRangeInDays, minDate)
 				foundCreatedDates := r.generateFoundCreatedDates(meterReportNames)
+
+				log.Info("report dates", "expected", expectedCreatedDates, "found", foundCreatedDates, "min", minDate)
 				err = r.createReportIfNotFound(expectedCreatedDates, foundCreatedDates, request)
 
-				return nil,err
+				return nil, err
 			})),
 			OnNotFound(Call(func() (ClientAction, error) {
 				log.Info("can't find meter report list, requeuing")
@@ -404,7 +411,7 @@ func (r *ReconcileMeterBase) createReportIfNotFound(expectedCreatedDates []strin
 
 func (r *ReconcileMeterBase) removeOldReports(meterReportNames []string, loc *time.Location, dateRange int, request reconcile.Request) ([]string, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	limit := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc).In(loc).AddDate(0, 0, dateRange)
+	limit := utils.TruncateTime(time.Now(), loc).AddDate(0, 0, dateRange)
 	for _, reportName := range meterReportNames {
 		dateCreated, _ := r.retrieveCreatedDate(reportName)
 		if dateCreated.Before(limit) {
@@ -472,16 +479,16 @@ func (r *ReconcileMeterBase) generateFoundCreatedDates(meterReportNames []string
 	return foundCreatedDates
 }
 
-func (r *ReconcileMeterBase) generateExpectedDates(dateRange int) []string {
-	loc, _ := time.LoadLocation("UTC")
-
+func (r *ReconcileMeterBase) generateExpectedDates(endTime time.Time, loc *time.Location, dateRange int, minDate time.Time) []string {
 	// set start date
-	startDate := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc).AddDate(0, 0, dateRange)
-	fmt.Println("START DATE", startDate)
+	startDate := utils.TruncateTime(endTime, loc).AddDate(0, 0, dateRange)
+
+	if minDate.After(startDate) {
+		startDate = utils.TruncateTime(minDate, loc)
+	}
 
 	// set end date
-	endDate := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc)
-	fmt.Println("END DATE", endDate)
+	endDate := utils.TruncateTime(endTime, loc)
 
 	// loop through the range of dates we expect
 	var expectedCreatedDates []string
@@ -490,7 +497,6 @@ func (r *ReconcileMeterBase) generateExpectedDates(dateRange int) []string {
 	}
 
 	return expectedCreatedDates
-
 }
 
 func (r *ReconcileMeterBase) newMeterReport(namespace string, startTime time.Time, endTime time.Time, meterReportName string) *marketplacev1alpha1.MeterReport {

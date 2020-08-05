@@ -16,6 +16,7 @@ package meterbase
 
 import (
 	"context"
+	"time"
 
 	merrors "emperror.dev/errors"
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
@@ -120,6 +121,51 @@ var _ = Describe("MeterbaseController", func() {
 		It("should compile flags", func() {
 			flagset := FlagSet()
 			Expect(flagset.HasFlags()).To(BeTrue(), "no flags on the flagset")
+		})
+	})
+
+	FDescribe("check date functions", func() {
+		var (
+			client             client.Client
+			ctrl               *ReconcileMeterBase
+			mockCtrl           *gomock.Controller
+			mockErr            error
+		)
+
+		AfterEach(func() {
+			mockCtrl.Finish()
+		})
+
+		BeforeEach(func() {
+			mockErr = merrors.New("mock error")
+			mockCtrl = gomock.NewController(GinkgoT())
+			client = ClientErrorStub(mockCtrl,
+				fake.NewFakeClientWithScheme(ctrlScheme, meterbase, storageClass, kubeletServingCA, statefulSet),
+				mockErr)
+
+			ctrl = &ReconcileMeterBase{
+				client:     client,
+				scheme:     ctrlScheme,
+				ccprovider: &reconcileutils.DefaultCommandRunnerProvider{},
+				patcher:    patch.RHMDefaultPatcher,
+				opts: &MeterbaseOpts{
+					PullPolicy: v1.PullAlways,
+				},
+			}
+		})
+
+		It("reports should calculate the correct dates to create", func() {
+			endDate := time.Now().UTC()
+			endDate = endDate.AddDate(0, 0, 0)
+			minDate := endDate.AddDate(0, 0, 0)
+
+			exp := ctrl.generateExpectedDates(endDate, time.UTC, -30, minDate)
+			Expect(exp).To(HaveLen(1))
+
+			minDate = endDate.AddDate(0, 0, -2)
+
+			exp = ctrl.generateExpectedDates(endDate, time.UTC, -30, minDate)
+			Expect(exp).To(HaveLen(3))
 		})
 	})
 

@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/operator-framework/operator-sdk/pkg/status"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
