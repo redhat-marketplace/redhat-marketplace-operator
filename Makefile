@@ -240,7 +240,7 @@ lint: ## lint the repo
 
 .PHONY: test
 test: ## Run go tests
-  make testbin
+	make testbin
 	@echo ... Run tests
 	go test ./...
 
