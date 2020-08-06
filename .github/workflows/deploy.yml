@@ -179,6 +179,7 @@ jobs:
             key: quayUser
             value: quayPassword
     env:
+      IMAGE_REGISTRY: ${{ matrix.registry }}
       OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
       OLM_REPO: ${{ matrix.registry }}/operator-manifest
       OLM_BUNDLE_REPO: ${{ matrix.registry }}/operator-manifest-bundle
