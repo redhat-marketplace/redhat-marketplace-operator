@@ -239,9 +239,16 @@ lint: ## lint the repo
 	go run github.com/golangci/golangci-lint/cmd/golangci-lint run
 
 .PHONY: test
-test: ## Run go tests
+test: testbin ## Run go tests
 	@echo ... Run tests
 	go test ./...
+
+K8S_VERSION = v1.18.2
+ETCD_VERSION = v3.4.3
+testbin:
+	curl -sSLo setup_envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/kubebuilder/master/scripts/setup_envtest_bins.sh
+	chmod +x setup_envtest.sh
+	./setup_envtest.sh $(K8S_VERSION) $(ETCD_VERSION)
 
 .PHONY: test-cover
 test-cover: ## Run coverage on code

@@ -130,3 +130,4 @@ modd.conf
 
 tmp/
 scripts/vendor/
+testbin/
