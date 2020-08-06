@@ -1,4 +1,4 @@
-package reconcileutils_test
+package meterdefinition_test
 
 import (
 	"testing"
@@ -9,8 +9,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-func TestReconcileutils(t *testing.T) {
+func TestMeterdefinition(t *testing.T) {
 	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Reconcileutils Suite")
+	RunSpecs(t, "Meterdefinition Suite")
 }

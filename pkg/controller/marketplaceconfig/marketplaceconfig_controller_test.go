@@ -24,7 +24,6 @@ import (
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/types"
@@ -34,9 +33,6 @@ import (
 )
 
 func TestMarketplaceConfigController(t *testing.T) {
-	// Set the logger to development mode for verbose logs.
-	logger.SetLoggerToDevelopmentZap()
-
 	defaultFeatures := []string{"razee", "meterbase"}
 	viper.Set("assets", "../../../assets")
 	viper.Set("features", defaultFeatures)

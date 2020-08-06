@@ -1,10 +1,9 @@
 package node
 
 import (
-	"testing"
-
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 
+	. "github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,19 +13,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
-func TestNodeController(t *testing.T) {
-	// Set the logger to development mode for verbose logs.
-	logf.SetLogger(logf.ZapLogger(true))
-
-	t.Run("Test New Node", testNewNode)
-	t.Run("Test Labels Absent", testNodeLabelsAbsent)
-	t.Run("Test different Labels present", testNodeDiffLabelsPresent)
-	t.Run("Test unknown Labels present", testNodeUnknown)
-	t.Run("Test multiple nodes present", testMultipleNodes)
-}
+var _ = Describe("Testing with Ginkgo", func() {
+	It("node controller", func() {
+		testNewNode(GinkgoT())
+		testNodeLabelsAbsent(GinkgoT())
+		testNodeDiffLabelsPresent(GinkgoT())
+		testNodeUnknown(GinkgoT())
+		testMultipleNodes(GinkgoT())
+	})
+})
 
 var (
 	name             = "new-node"
@@ -88,7 +85,7 @@ func setup(r *ReconcilerTest) error {
 	return nil
 }
 
-func testNewNode(t *testing.T) {
+func testNewNode(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, node.DeepCopyObject())
 	reconcilerTest.TestAll(t,
@@ -113,7 +110,7 @@ func testNewNode(t *testing.T) {
 	)
 }
 
-func testNodeLabelsAbsent(t *testing.T) {
+func testNodeLabelsAbsent(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, nodeLabelsAbsent.DeepCopyObject())
 	reconcilerTest.TestAll(t,
@@ -137,7 +134,7 @@ func testNodeLabelsAbsent(t *testing.T) {
 	)
 }
 
-func testNodeDiffLabelsPresent(t *testing.T) {
+func testNodeDiffLabelsPresent(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, nodeLabelsDiff.DeepCopyObject())
 	reconcilerTest.TestAll(t,
@@ -162,7 +159,7 @@ func testNodeDiffLabelsPresent(t *testing.T) {
 	)
 }
 
-func testNodeUnknown(t *testing.T) {
+func testNodeUnknown(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, nodeLabelsDiff.DeepCopyObject())
 	reconcilerTest.TestAll(t,
@@ -186,7 +183,7 @@ func testNodeUnknown(t *testing.T) {
 	)
 }
 
-func testMultipleNodes(t *testing.T) {
+func testMultipleNodes(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, node.DeepCopyObject(), nodeLabelsAbsent.DeepCopyObject())
 	reconcilerTest.TestAll(t,

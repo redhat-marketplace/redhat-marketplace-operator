@@ -544,4 +544,3 @@ func makeRelabelKeepConfig(source []string, regex string) *monitoringv1.RelabelC
 func labelsToRegex(labels []string) string {
 	return fmt.Sprintf("(%s)", strings.Join(labels, "|"))
 }
-

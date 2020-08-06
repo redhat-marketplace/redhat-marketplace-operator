@@ -7,6 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/test/mock/mock_client"
@@ -36,6 +37,7 @@ var _ = Describe("CreateAction", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		patcher = mock_patch.NewMockPatchAnnotator(ctrl)
 		client = mock_client.NewMockClient(ctrl)
+		apis.AddToScheme(scheme.Scheme)
 		//statusWriter = mock_client.NewMockStatusWriter(ctrl)
 		cc = NewClientCommand(client, scheme.Scheme, logger)
 		ctx = context.TODO()
@@ -97,9 +99,9 @@ var _ = Describe("CreateAction", func() {
 
 			result, err := cc.Do(ctx, sut)
 
-			Expect(err).ToNot(Succeed())
+			Expect(err).To(Succeed())
 			Expect(result).ToNot(BeNil())
-			Expect(result.Status).To(Equal(Error))
+			Expect(result.Status).To(Equal(Requeue))
 		})
 
 		It("should handle create with error", func() {
@@ -134,25 +136,6 @@ var _ = Describe("CreateAction", func() {
 
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(expectedErr))
-			Expect(result).ToNot(BeNil())
-			Expect(result.Status).To(Equal(Error))
-		})
-	})
-
-	Context("with no condition updates", func() {
-		BeforeEach(func() {
-			sut = CreateAction(pod,
-				CreateWithPatch(utils.RhmAnnotator),
-				CreateWithAddOwner(meterbase),
-			)
-		})
-
-		It("should handle create", func() {
-			client.EXPECT().Create(ctx, pod).Return(nil).Times(1)
-
-			result, err := cc.Do(ctx, sut)
-
-			Expect(err).ToNot(Succeed())
 			Expect(result).ToNot(BeNil())
 			Expect(result.Status).To(Equal(Error))
 		})

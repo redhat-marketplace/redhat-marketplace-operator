@@ -15,10 +15,9 @@
 package clusterserviceversion
 
 import (
-	"testing"
-
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 
+	. "github.com/onsi/ginkgo"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,18 +27,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
-func TestClusterServiceVersionController(t *testing.T) {
+var _ = Describe("Testing with Ginkgo", func() {
+	It("cluster service version controller", func() {
 
-	logf.SetLogger(logf.ZapLogger(true))
-	_ = olmv1alpha1.AddToScheme(scheme.Scheme)
-
-	t.Run("Test New Cluster Service Version with installed CSV", testClusterServiceVersionWithInstalledCSV)
-	t.Run("Test New Cluster Service Version without installed CSV", testClusterServiceVersionWithoutInstalledCSV)
-	t.Run("Test New Cluster Service Version with Sub without labels", testClusterServiceVersionWithSubscriptionWithoutLabels)
-}
+		_ = olmv1alpha1.AddToScheme(scheme.Scheme)
+		testClusterServiceVersionWithInstalledCSV(GinkgoT())
+		testClusterServiceVersionWithoutInstalledCSV(GinkgoT())
+		testClusterServiceVersionWithSubscriptionWithoutLabels(GinkgoT())
+	})
+})
 
 var (
 	csvName   = "new-clusterserviceversion"
@@ -105,7 +103,7 @@ func setup(r *ReconcilerTest) error {
 	return nil
 }
 
-func testClusterServiceVersionWithInstalledCSV(t *testing.T) {
+func testClusterServiceVersionWithInstalledCSV(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, clusterserviceversion, subscription)
 	reconcilerTest.TestAll(t,
@@ -128,7 +126,7 @@ func testClusterServiceVersionWithInstalledCSV(t *testing.T) {
 	)
 }
 
-func testClusterServiceVersionWithoutInstalledCSV(t *testing.T) {
+func testClusterServiceVersionWithoutInstalledCSV(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, clusterserviceversion, subscriptionDifferentCSV)
 	reconcilerTest.TestAll(t,
@@ -151,7 +149,7 @@ func testClusterServiceVersionWithoutInstalledCSV(t *testing.T) {
 	)
 }
 
-func testClusterServiceVersionWithSubscriptionWithoutLabels(t *testing.T) {
+func testClusterServiceVersionWithSubscriptionWithoutLabels(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, clusterserviceversion, subscriptionWithoutLabels)
 	reconcilerTest.TestAll(t,

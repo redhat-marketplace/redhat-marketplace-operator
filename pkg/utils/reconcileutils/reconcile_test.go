@@ -6,6 +6,7 @@ import (
 	emperrors "emperror.dev/errors"
 	"github.com/golang/mock/gomock"
 	"github.com/operator-framework/operator-sdk/pkg/status"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
@@ -13,7 +14,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kubectl/pkg/scheme"
@@ -22,7 +22,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	flogger "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 )
 
 var _ = Describe("ReconcileUtils", func() {
@@ -38,6 +37,8 @@ var _ = Describe("ReconcileUtils", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		client = mock_client.NewMockClient(ctrl)
 		statusWriter = mock_client.NewMockStatusWriter(ctrl)
+
+		apis.AddToScheme(scheme.Scheme)
 	})
 
 	AfterEach(func() {
@@ -57,7 +58,7 @@ var _ = Describe("ReconcileUtils", func() {
 		Expect(err).ToNot(BeNil())
 		Expect(result).ToNot(BeNil())
 		Expect(result.Status).To(Equal(Error))
-		Expect(result.Err).To(Equal(sut.testErr))
+		Expect(result.Err).To(MatchError(sut.testErr))
 	}
 
 	It("should return err immediately if get errors", func() {
@@ -119,11 +120,8 @@ var _ = Describe("ReconcileUtils", func() {
 				Return(nil).
 				Times(1),
 			client.EXPECT().
-				Update(sut.ctx, gomock.Any()).
-				DoAndReturn(func(ctx context.Context, obj runtime.Object) error {
-					if obj == nil {
-						Expect(obj).ToNot(BeNil())
-					}
+				Patch(sut.ctx, gomock.Any(), gomock.Any()).
+				DoAndReturn(func(ctx context.Context, val1, val2 interface{}) error {
 					return nil
 				}).Times(1),
 		)
@@ -139,7 +137,7 @@ var _ = Describe("ReconcileUtils", func() {
 
 		client.EXPECT().Create(sut.ctx, sut.pod).Return(nil).Times(0)
 		client.EXPECT().
-			Update(sut.ctx, gomock.Any()).
+			Patch(sut.ctx, gomock.Any(), gomock.Any()).
 			Return(nil).Times(0)
 
 		gomock.InOrder(
@@ -173,6 +171,7 @@ func NewTestHarness() *testHarness {
 	harness.meterbase = &marketplacev1alpha1.MeterBase{
 		Status: marketplacev1alpha1.MeterBaseStatus{},
 	}
+
 	harness.testErr = emperrors.New("a test error")
 	harness.namespacedName = types.NamespacedName{Name: "foo", Namespace: "ns"}
 	harness.pod = &corev1.Pod{
@@ -182,6 +181,7 @@ func NewTestHarness() *testHarness {
 			Namespace: "bar",
 		},
 	}
+	harness.meterbase.Status.Conditions = &status.Conditions{}
 	utils.RhmAnnotator.SetLastAppliedAnnotation(harness.pod)
 	harness.ctx = context.TODO()
 	harness.condition = status.Condition{
@@ -196,7 +196,6 @@ func NewTestHarness() *testHarness {
 func (h *testHarness) execClientCommands(
 	client client.Client,
 ) (*ExecResult, error) {
-	flogger.SetLoggerToDevelopmentZap()
 	logger := logf.Log.WithName("clienttest")
 	collector := NewCollector()
 	patcher := patch.RHMDefaultPatcher
@@ -238,6 +237,10 @@ func (h *testHarness) execClientCommands(
 			h.updatedPod.Annotations["foo"] = "bar"
 
 			patch, _ := patcher.Calculate(h.pod, h.updatedPod)
+
+			if patch.IsEmpty() {
+				return nil, nil
+			}
 
 			return HandleResult(
 				UpdateWithPatchAction(h.pod, types.MergePatchType, patch.Patch),

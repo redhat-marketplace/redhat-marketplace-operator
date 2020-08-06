@@ -143,10 +143,6 @@ jobs:
           skopeo inspect docker://${TAG} --creds ${{ secrets[matrix.key] }}:${{ secrets[matrix.value] }} > /dev/null
           [[ $? == 0 ]] && echo ::set-env name=exists::true || echo ::set-env name=exists::false
 
-      - name: Build
-        if: env.exists != 'true'
-        run: make build
-
       - name: Login ${{ matrix.name }}
         run: make docker-login
         env:
@@ -154,9 +150,9 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets[matrix.value] }}
           REGISTRY: ${{ matrix.registry }}
 
-      - name: Deploy ${{ matrix.name }}
-        if: env.exists != 'true' && env.pushImage == 'true'
-        run: make push
+      - name: Build
+        if: env.exists != 'true'
+        run: make build
 
   opm:
     name: Deploy OPM Index

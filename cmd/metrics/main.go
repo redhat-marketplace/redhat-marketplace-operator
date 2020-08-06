@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 )
 
 var (
@@ -50,7 +52,7 @@ func run(cmd *cobra.Command, args []string) {
 }
 
 func init() {
-	logger.SetLoggerToDevelopmentZap()
+	logf.SetLogger(zap.Logger())
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cobra.yaml)")

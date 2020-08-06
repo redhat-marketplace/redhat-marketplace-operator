@@ -20,9 +20,10 @@ import (
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/cmd/reporter/report"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 )
 
 var (
@@ -36,7 +37,7 @@ var (
 )
 
 func init() {
-	logger.SetLoggerToDevelopmentZap()
+	logf.SetLogger(zap.Logger())
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.AddCommand(report.ReportCmd)

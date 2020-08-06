@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/operator-framework/operator-sdk/pkg/status"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	utilspatch "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/test/mock/mock_client"
@@ -38,6 +39,7 @@ var _ = Describe("UpdateAction", func() {
 		patcher = mock_patch.NewMockPatchMaker(ctrl)
 		client = mock_client.NewMockClient(ctrl)
 		statusWriter = mock_client.NewMockStatusWriter(ctrl)
+		apis.AddToScheme(scheme.Scheme)
 		cc = NewClientCommand(client, scheme.Scheme, logger)
 		ctx = context.TODO()
 
@@ -47,8 +49,10 @@ var _ = Describe("UpdateAction", func() {
 				Name:      "foo",
 				Namespace: "bar",
 			},
+			Status: corev1.PodStatus{
+				Conditions: []corev1.PodCondition{},
+			},
 		}
-
 	})
 
 	AfterEach(func() {
@@ -147,6 +151,7 @@ var _ = Describe("UpdateAction", func() {
 			meterbase = &marketplacev1alpha1.MeterBase{
 				Status: marketplacev1alpha1.MeterBaseStatus{},
 			}
+			meterbase.Status.Conditions = &status.Conditions{}
 		})
 
 		It("should handle nil", func() {
