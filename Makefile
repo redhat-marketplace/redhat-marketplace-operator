@@ -248,8 +248,9 @@ K8S_VERSION = v1.18.2
 ETCD_VERSION = v3.4.3
 testbin:
 	curl -sSLo setup_envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/kubebuilder/master/scripts/setup_envtest_bins.sh
-	chmod +x setup_envtest.sh testbin/etcd testbin/kubectl testbin/kube-apiserver
+	chmod +x setup_envtest.sh
 	./setup_envtest.sh $(K8S_VERSION) $(ETCD_VERSION)
+	chmod +x testbin/etcd testbin/kubectl testbin/kube-apiserver
 
 .PHONY: test-cover
 test-cover: ## Run coverage on code
