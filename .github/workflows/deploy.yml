@@ -86,6 +86,16 @@ jobs:
       - name: Test
         run: make test
 
+
+      - name: Install skaffold
+        run: |
+          cd /tmp
+          curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/${SKAFFOLD_VERSION}/skaffold-linux-amd64 && \
+          sudo install skaffold /usr/local/bin/
+          echo "::add-path::/usr/local/bin"
+        env:
+          SKAFFOLD_VERSION: v1.13.1
+
       - name: Turnstyle
         uses: softprops/turnstyle@v1
         with:
