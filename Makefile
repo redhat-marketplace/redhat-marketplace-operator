@@ -239,7 +239,8 @@ lint: ## lint the repo
 	go run github.com/golangci/golangci-lint/cmd/golangci-lint run
 
 .PHONY: test
-test: testbin ## Run go tests
+test: ## Run go tests
+  make testbin
 	@echo ... Run tests
 	go test ./...
 
