@@ -1,10 +1,13 @@
 package metrics
 
 import (
+	"context"
 	"io"
+	"reflect"
 	"sync"
 
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/meter_definition"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -37,21 +40,55 @@ type MetricsStore struct {
 	// and returns them grouped by metric family.
 	generateMetricsFunc func(interface{}, []*marketplacev1alpha1.MeterDefinition) []FamilyByteSlicer
 
+	meterDefStore *meter_definition.MeterDefinitionStore
+
 	meterDefFetcher MeterDefinitionFetcher
+
+	expectedType interface{}
 }
 
 // NewMetricsStore returns a new MetricsStore
 func NewMetricsStore(
 	headers []string,
 	generateFunc func(interface{}, []*marketplacev1alpha1.MeterDefinition) []FamilyByteSlicer,
+	meterDefStore *meter_definition.MeterDefinitionStore,
 	meterDefFetcher MeterDefinitionFetcher,
+	expectedType interface{},
 ) *MetricsStore {
 	return &MetricsStore{
 		generateMetricsFunc: generateFunc,
 		headers:             headers,
 		meterDefFetcher:     meterDefFetcher,
+		meterDefStore:       meterDefStore,
 		metrics:             map[types.UID][][]byte{},
 	}
+}
+
+func (s *MetricsStore) Start(
+	ctx context.Context,
+) {
+	ch := make(chan *meter_definition.ObjectResourceMessage)
+	defer close(ch)
+	s.meterDefStore.RegisterListener(ch)
+
+	go func() {
+		for {
+			select {
+			case msg := <-ch:
+				if reflect.TypeOf(msg.Object) != reflect.TypeOf(s.expectedType) {
+					break
+				}
+				switch msg.Action {
+				case meter_definition.AddMessageAction:
+					_ = s.Add(msg.Object)
+				case meter_definition.DeleteMessageAction:
+					_ = s.Delete(msg.Object)
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 }
 
 // Implementing k8s.io/client-go/tools/cache.Store interface

@@ -1,12 +1,7 @@
 package metrics
 
 import (
-	"context"
-	"strings"
-
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/meter_definition"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	kbsm "k8s.io/kube-state-metrics/pkg/metric"
@@ -42,26 +37,6 @@ var podMetricsFamilies = []FamilyGenerator{
 	},
 }
 
-type FamilyGenerator struct {
-	GenerateMeterFunc func(interface{}, []*marketplacev1alpha1.MeterDefinition) *kbsm.Family
-	kbsm.FamilyGenerator
-}
-
-func (g *FamilyGenerator) generateHeader() string {
-	header := strings.Builder{}
-	header.WriteString("# HELP ")
-	header.WriteString(g.Name)
-	header.WriteByte(' ')
-	header.WriteString(g.Help)
-	header.WriteByte('\n')
-	header.WriteString("# TYPE ")
-	header.WriteString(g.Name)
-	header.WriteByte(' ')
-	header.WriteString(string(g.Type))
-
-	return header.String()
-}
-
 // wrapPodFunc is a helper function for generating pod-based metrics
 func wrapPodFunc(f func(*v1.Pod, []*marketplacev1alpha1.MeterDefinition) *kbsm.Family) func(obj interface{}, meterDefinitions []*marketplacev1alpha1.MeterDefinition) *kbsm.Family {
 	return func(obj interface{}, meterDefinitions []*marketplacev1alpha1.MeterDefinition) *kbsm.Family {
@@ -78,41 +53,4 @@ func wrapPodFunc(f func(*v1.Pod, []*marketplacev1alpha1.MeterDefinition) *kbsm.F
 
 		return metricFamily
 	}
-}
-
-type PodMeterDefFetcher struct {
-	cc                   ClientCommandRunner
-	meterDefinitionStore *meter_definition.MeterDefinitionStore
-}
-
-func (p *PodMeterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplacev1alpha1.MeterDefinition, error) {
-	results := []*marketplacev1alpha1.MeterDefinition{}
-	pod, ok := obj.(*corev1.Pod)
-
-	if !ok {
-		return results, nil
-	}
-
-	refs := p.meterDefinitionStore.GetMeterDefinitionRefs(pod.UID)
-
-	for _, ref := range refs {
-		meterDefinition := &marketplacev1alpha1.MeterDefinition{}
-
-		result, _ := p.cc.Do(
-			context.TODO(),
-			GetAction(ref.MeterDef, meterDefinition),
-		)
-
-		if !result.Is(Continue) {
-			if result.Is(Error) {
-				log.Error(result, "failed to get owner")
-				return results, result
-			}
-			return results, nil
-		}
-
-		results = append(results, meterDefinition)
-	}
-
-	return results, nil
 }

@@ -265,6 +265,12 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: marketplaceConfig.Namespace}, foundRazee)
 		if err != nil && errors.IsNotFound(err) {
 			newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName)
+
+			// Sets the owner for foundRazee
+			if err = controllerutil.SetControllerReference(marketplaceConfig, newRazeeCrd, r.scheme); err != nil {
+				return reconcile.Result{}, err
+			}
+
 			reqLogger.Info("creating razee cr")
 			err = r.client.Create(context.TODO(), newRazeeCrd)
 
@@ -292,10 +298,6 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			return reconcile.Result{Requeue: true}, nil
 		} else if err != nil {
 			reqLogger.Error(err, "Failed to get RazeeDeployment CR")
-			return reconcile.Result{}, err
-		}
-		// Sets the owner for foundRazee
-		if err = controllerutil.SetControllerReference(marketplaceConfig, foundRazee, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
 		reqLogger.Info("found razee")
@@ -329,13 +331,24 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 	var foundMeterBase *marketplacev1alpha1.MeterBase
 
+	found := false
+	foundMeterBase = &marketplacev1alpha1.MeterBase{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: marketplaceConfig.Namespace}, foundMeterBase)
+
+	if err != nil && errors.IsNotFound(err) {
+		found = true
+	}
+
 	_, installExists = installSet[METERBASE_FLAG]
-	if installExists {
+	if installExists && *marketplaceConfig.Spec.EnableMetering {
 		// Check if MeterBase exists, if not create one
-		foundMeterBase = &marketplacev1alpha1.MeterBase{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: marketplaceConfig.Namespace}, foundMeterBase)
-		if err != nil && errors.IsNotFound(err) {
+		if !found {
 			newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
+
+			if err = controllerutil.SetControllerReference(marketplaceConfig, newMeterBaseCr, r.scheme); err != nil {
+				return reconcile.Result{}, err
+			}
+
 			reqLogger.Info("creating meterbase")
 			err = r.client.Create(context.TODO(), newMeterBaseCr)
 			if err != nil {
@@ -364,13 +377,11 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			reqLogger.Error(err, "Failed to get MeterBase CR")
 			return reconcile.Result{}, err
 		}
-		// Sets the owner for MeterBase
-		if err = controllerutil.SetControllerReference(marketplaceConfig, foundMeterBase, r.scheme); err != nil {
-			return reconcile.Result{}, err
-		}
+
 		reqLogger.Info("found meterbase")
+	} else {
+
 	}
-	//TODO: update meterbase
 
 	// Check if operator source exists, or create a new one
 	foundOpSrc := &opsrcv1.OperatorSource{}

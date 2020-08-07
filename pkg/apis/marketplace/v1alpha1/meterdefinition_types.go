@@ -21,49 +21,48 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// TODO: Add open API validation
-
 // MeterDefinitionSpec defines the desired metering spec
 // +k8s:openapi-gen=true
 type MeterDefinitionSpec struct {
-	// MeterDomain defines the primary CRD domain of the meter
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// Group defines the primary CRD domain of the meter
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	Group string `json:"group"`
 
-	// MeterVersion defines the primary CRD version of the meter, ths
+	// Version defines the primary CRD version of the meter, ths
 	// is optional.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	// TODO: delete this
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +optional
 	Version string `json:"version,omitempty"`
 
-	// MeterKind defines the primary CRD kind of the meter
+	// Kind defines the primary CRD kind of the meter
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	Kind string `json:"kind"`
 
 	// InstalledBy is a reference to the CSV that install the meter
 	// definition. This is used to determine an operator group.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +optional
 	InstalledBy *common.NamespacedNameReference `json:"installedBy,omitempty"`
 
-	// WorkloadVertex is the top most object of a workload. It allows
-	// you to identify the upper bounds of your workloads. If you select
-	// OperatorGroup it will use the OperatorGroup associated with the
-	// Operator to select the namespaces. If you select Namespace, the
-	// workloads will be filtered by labels or annotations.
+	// WorkloadVertexType is the top most object of a workload. It allows
+	// you to identify the upper bounds of your workloads.
 	// +kubebuilder:validation:Enum=Namespace;OperatorGroup
-	WorkloadVertex `json:"workloadVertexType,omitempty"`
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:Namespace,urn:alm:descriptor:com.tectonic.ui:select:OperatorGroup"
+	WorkloadVertexType WorkloadVertex `json:"workloadVertexType,omitempty"`
 
 	// VertexFilters are used when Namespace is selected. Can be omitted
 	// if you select OperatorGroup
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:workloadVertexType:Namespace"
+	// +optional
 	VertexLabelSelector *metav1.LabelSelector `json:"workloadVertexLabelSelectors,omitempty"`
 
 	// Workloads identify the workloads to meter.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +kubebuilder:validation:MinItems=1
 	Workloads []Workload `json:"workloads,omitempty"`
 }
@@ -75,7 +74,7 @@ const (
 const (
 	WorkloadTypePod            WorkloadType = "Pod"
 	WorkloadTypeServiceMonitor              = "ServiceMonitor"
-	WorkloadTypePVC                         = "PVC"
+	WorkloadTypePVC                         = "PersistentVolumeClaim"
 )
 
 type WorkloadVertex string
@@ -85,25 +84,41 @@ type CSVNamespacedName common.NamespacedNameReference
 // Workload helps identify what to target for metering.
 type Workload struct {
 	// Name of the workload, must be unique in a meter definition.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	Name string `json:"name"`
 
 	// WorkloadType identifies the type of workload to look for. This can be
 	// pod or service right now.
-	// +kubebuilder:validation:Enum=Pod;ServiceMonitor;PVC
+	// +kubebuilder:validation:Enum=Pod;ServiceMonitor;PersistentVolumeClaim
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:Pod,urn:alm:descriptor:com.tectonic.ui:select:ServiceMonitor,urn:alm:descriptor:com.tectonic.ui:select:PersistentVolumeClaim"
 	WorkloadType WorkloadType `json:"type"`
 
-	// OwningGVK is the name of the GVK to look for as the owner of all the
+	// OwnerCRD is the name of the GVK to look for as the owner of all the
 	// meterable assets. If omitted, the labels and annotations are used instead.
 	// +optional
-	Owner *common.GroupVersionKind `json:"ownerCRD,omitempty"`
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:text"
+	OwnerCRD *common.GroupVersionKind `json:"ownerCRD,omitempty"`
 
-	// Labels are used to filter to the correct workload.
+	// LabelSelector are used to filter to the correct workload.
+	// +optional
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
 
-	// Annotations are used to filter to the correct workload.
+	// AnnotationSelector are used to filter to the correct workload.
+	// +optional
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	AnnotationSelector *metav1.LabelSelector `json:"annotationSelector,omitempty"`
 
 	// MetricLabels are the labels to collect
+	// +required
+	// +kubebuilder:validation:MinItems=1
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	MetricLabels []MeterLabelQuery `json:"metricLabels,omitempty"`
 }
 
@@ -149,13 +164,19 @@ type WorkloadStatus struct {
 // MeterLabelQuery helps define a meter label to build and search for
 type MeterLabelQuery struct {
 	// Label is the name of the meter
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	Label string `json:"label"`
 
 	// Query to use for the label
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	Query map[string]string `json:"query,omitempty"`
 
 	// Aggregation to use with the query
-	// +kubebuilder:validation:Enum:=sum;min;max;avg;count
+	// +kubebuilder:validation:Enum:=sum;min;max;avg
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:sum,urn:alm:descriptor:com.tectonic.ui:select:min,urn:alm:descriptor:com.tectonic.ui:select:max,urn:alm:descriptor:com.tectonic.ui:select:avg"
 	Aggregation string `json:"aggregation,omitempty"`
 }
 
@@ -165,7 +186,7 @@ type MeterLabelQuery struct {
 type MeterDefinitionStatus struct {
 
 	// Conditions represent the latest available observations of an object's state
-	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors.x-descriptors="urn:alm:descriptor:io.kubernetes.conditions"
 	// +optional
 	Conditions status.Conditions `json:"conditions,omitempty"`
 
@@ -175,15 +196,14 @@ type MeterDefinitionStatus struct {
 	WorkloadResources []WorkloadResource `json:"workloadResource,omitempty"`
 }
 
-// MeterDefinition is internal Meter Definitions defined by Operators from Red Hat Marketplace.
-// This is an internal resource not meant to be modified directly.
+// MeterDefinition defines the meter workloads used to enable pay for
+// use billing.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 //
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=meterdefinitions,scope=Namespaced
-// +operator-sdk:gen-csv:customresourcedefinitions.displayName="(Internal) Meter Definitions"
-// +operator-sdk:gen-csv:customresourcedefinitions.resources=`ServiceMonitor,v1,"redhat-marketplace-operator"`
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Meter Definitions"
 // +genclient
 type MeterDefinition struct {
 	metav1.TypeMeta   `json:",inline"`

@@ -30,8 +30,12 @@ type NamespacedNameReference struct {
 
 type GroupVersionKind struct {
 	// APIVersion of the CRD
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="text"
 	APIVersion string `json:"apiVersion"`
 	// Kind of the CRD
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="text"
 	Kind string `json:"kind"`
 }
 

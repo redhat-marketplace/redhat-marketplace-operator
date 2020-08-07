@@ -114,7 +114,7 @@ func (f *WorkloadFilterForOwner) Filter(obj interface{}) (bool, error) {
 		return false, nil
 	}
 
-	if owner.APIVersion == f.workload.Owner.APIVersion && owner.Kind == f.workload.Owner.Kind {
+	if owner.APIVersion == f.workload.OwnerCRD.APIVersion && owner.Kind == f.workload.OwnerCRD.Kind {
 		return true, nil
 	}
 
@@ -132,7 +132,7 @@ func (f *WorkloadFilterForOwner) Filter(obj interface{}) (bool, error) {
 			return false, nil
 		}
 
-		if owner.APIVersion == f.workload.Owner.APIVersion && owner.Kind == f.workload.Owner.Kind {
+		if owner.APIVersion == f.workload.OwnerCRD.APIVersion && owner.Kind == f.workload.OwnerCRD.Kind {
 			return true, nil
 		}
 	}

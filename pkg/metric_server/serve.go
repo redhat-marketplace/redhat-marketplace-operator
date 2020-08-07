@@ -160,6 +160,10 @@ func serveMetrics(ctx context.Context, storeBuilder *metrics.Builder, opts *opti
 	mux := http.NewServeMux()
 	stores := storeBuilder.Build()
 
+	for _, store := range stores {
+		store.Start(ctx)
+	}
+
 	log.Info("built stores")
 
 	m := &metricHandler{stores, enableGZIPEncoding}

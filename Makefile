@@ -20,6 +20,11 @@ REPORTER_IMAGE_NAME ?= redhat-marketplace-reporter
 REPORTER_IMAGE_TAG ?= $(VERSION)
 REPORTER_IMAGE := $(IMAGE_REGISTRY)/$(REPORTER_IMAGE_NAME):$(REPORTER_IMAGE_TAG)
 
+
+METRIC_STATE_IMAGE_NAME ?= redhat-marketplace-metric-state
+METRIC_STATE_IMAGE_TAG ?= $(VERSION)
+METRIC_STATE_IMAGE := $(IMAGE_REGISTRY)/$(METRIC_STATE_IMAGE_NAME):$(METRIC_STATE_IMAGE_TAG)
+
 PUSH_IMAGE ?= false
 PULL_POLICY ?= IfNotPresent
 .DEFAULT_GOAL := help
@@ -54,7 +59,7 @@ build: ## Build the operator executable
 	skaffold build -p dev --tag $(OPERATOR_IMAGE_TAG) --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE)
 
 helm: ## build helm base charts
-	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE) --set namespace=$(NAMESPACE)
+	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE) --set-metricStateImage=$(METRIC_STATE_IMAGE) --set-reporterImage=$(REPORTER_IMAGE) --set namespace=$(NAMESPACE)
 
 MANIFEST_CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/manifests/redhat-marketplace-operator.clusterserviceversion.yaml
 VERSION_CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/redhat-marketplace-operator.v$(VERSION).clusterserviceversion.yaml
