@@ -60,6 +60,7 @@ func NewMetricsStore(
 		headers:             headers,
 		meterDefFetcher:     meterDefFetcher,
 		meterDefStore:       meterDefStore,
+		expectedType:        expectedType,
 		metrics:             map[types.UID][][]byte{},
 	}
 }
@@ -68,16 +69,19 @@ func (s *MetricsStore) Start(
 	ctx context.Context,
 ) {
 	ch := make(chan *meter_definition.ObjectResourceMessage)
-	defer close(ch)
 	s.meterDefStore.RegisterListener(ch)
+	expType := s.expectedType
 
 	go func() {
+		defer close(ch)
+
 		for {
 			select {
 			case msg := <-ch:
-				if reflect.TypeOf(msg.Object) != reflect.TypeOf(s.expectedType) {
+				if msg == nil || reflect.TypeOf(msg.Object) != reflect.TypeOf(expType) {
 					break
 				}
+
 				switch msg.Action {
 				case meter_definition.AddMessageAction:
 					_ = s.Add(msg.Object)

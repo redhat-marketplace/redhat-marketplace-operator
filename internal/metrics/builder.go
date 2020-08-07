@@ -68,7 +68,7 @@ func (b *Builder) WithMeterDefinitionStore(store *meter_definition.MeterDefiniti
 
 func (b *Builder) Build() []*MetricsStore {
 	stores := []*MetricsStore{}
-	activeStoreNames := []string{"pods", "services"}
+	activeStoreNames := []string{"pods", "services", "persistentvolumeclaims"}
 
 	klog.Info("Active resources", "resources", strings.Join(activeStoreNames, ","))
 
