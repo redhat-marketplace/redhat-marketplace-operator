@@ -237,10 +237,8 @@ spec:
                           description: Label is the name of the meter
                           type: string
                         query:
-                          additionalProperties:
-                            type: string
                           description: Query to use for the label
-                          type: object
+                          type: string
                       required:
                       - label
                       type: object

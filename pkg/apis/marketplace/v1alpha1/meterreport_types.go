@@ -5,6 +5,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // MeterReportSpec defines the desired state of MeterReport
@@ -34,6 +35,12 @@ type MeterReportStatus struct {
 	// A list of pointers to currently running jobs.
 	// +optional
 	AssociatedJob *common.JobReference `json:"jobReference,omitempty"`
+
+	// MetricUploadCount is the number of metrics in the report
+	MetricUploadCount *int `json:"metricUploadCount,omitempty"`
+
+	// UploadID is the ID associated with the upload
+	UploadID *types.UID `json:"uploadUID,omitempty"`
 }
 
 const (

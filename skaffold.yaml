@@ -49,18 +49,21 @@ deploy:
         wait: false
         valuesFiles:
           - deploy/chart/values.yaml
-  kubectl:
-    manifests:
-      - deploy/crds/*cr.yaml
-    flags:
-      disableValidation: true
-      delete:
-        - '--wait'
-        - '--timeout=120s'
+
 profiles:
   - name: dev
     activation:
       - command: dev
+  - name: with-examples
+    deploy:
+      kubectl:
+        manifests:
+          - deploy/crds/*cr.yaml
+        flags:
+          disableValidation: true
+          delete:
+            - '--wait'
+            - '--timeout=120s'
   - name: base
     build:
       artifacts:

@@ -275,10 +275,8 @@ spec:
                                     description: Label is the name of the meter
                                     type: string
                                   query:
-                                    additionalProperties:
-                                      type: string
                                     description: Query to use for the label
-                                    type: object
+                                    type: string
                                 required:
                                 - label
                                 type: object
@@ -787,6 +785,12 @@ spec:
               - name
               - namespace
               type: object
+            metricUploadCount:
+              description: MetricUploadCount is the number of metrics in the report
+              type: integer
+            uploadUID:
+              description: UploadID is the ID associated with the upload
+              type: string
           type: object
       type: object
   version: v1alpha1

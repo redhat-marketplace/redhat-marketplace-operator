@@ -57,6 +57,7 @@ func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task
 	}
 	task := &Task{
 		ReportName: reportName,
+		CC:         clientCommandRunner,
 		Cache:      cache,
 		K8SClient:  client,
 		Ctx:        ctx,

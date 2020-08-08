@@ -99,7 +99,13 @@ spec:
   nodeSelector:
     kubernetes.io/os: linux
   securityContext: {}
+  serviceMonitorSelector:
+    matchLabels:
+      marketplace.redhat.com/notused: 'notused'
   serviceMonitorNamespaceSelector: {}
+  additionalScrapeConfigs:
+    name: rhm-meterbase-additional-scrape-configs
+    key: meterdef.yaml
   secrets:
     - kube-rbac-proxy
     - rhm-prometheus-meterbase-tls

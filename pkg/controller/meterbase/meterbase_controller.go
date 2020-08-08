@@ -367,7 +367,7 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 				foundCreatedDates := r.generateFoundCreatedDates(meterReportNames)
 
 				log.Info("report dates", "expected", expectedCreatedDates, "found", foundCreatedDates, "min", minDate)
-				err = r.createReportIfNotFound(expectedCreatedDates, foundCreatedDates, request)
+				err = r.createReportIfNotFound(expectedCreatedDates, foundCreatedDates, request, instance)
 
 				return nil, err
 			})),
@@ -388,7 +388,9 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	return reconcile.Result{RequeueAfter: time.Hour * 1}, nil
 }
 
-func (r *ReconcileMeterBase) createReportIfNotFound(expectedCreatedDates []string, foundCreatedDates []string, request reconcile.Request) error {
+const promServiceName = "rhm-prometheus-meterbase"
+
+func (r *ReconcileMeterBase) createReportIfNotFound(expectedCreatedDates []string, foundCreatedDates []string, request reconcile.Request, instance *marketplacev1alpha1.MeterBase) error {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
 	// find the diff between the dates we expect and the dates found on the cluster and create any missing reports
@@ -398,7 +400,7 @@ func (r *ReconcileMeterBase) createReportIfNotFound(expectedCreatedDates []strin
 		missingReportStartDate, _ := time.Parse(utils.DATE_FORMAT, missingReportDateString)
 		missingReportEndDate := missingReportStartDate.AddDate(0, 0, 1)
 
-		missingMeterReport := r.newMeterReport(request.Namespace, missingReportStartDate, missingReportEndDate, missingReportName)
+		missingMeterReport := r.newMeterReport(request.Namespace, missingReportStartDate, missingReportEndDate, missingReportName, instance, promServiceName)
 		err := r.client.Create(context.TODO(), missingMeterReport)
 		if err != nil {
 			return err
@@ -499,7 +501,7 @@ func (r *ReconcileMeterBase) generateExpectedDates(endTime time.Time, loc *time.
 	return expectedCreatedDates
 }
 
-func (r *ReconcileMeterBase) newMeterReport(namespace string, startTime time.Time, endTime time.Time, meterReportName string) *marketplacev1alpha1.MeterReport {
+func (r *ReconcileMeterBase) newMeterReport(namespace string, startTime time.Time, endTime time.Time, meterReportName string, instance *marketplacev1alpha1.MeterBase, prometheusServiceName string) *marketplacev1alpha1.MeterReport {
 	return &marketplacev1alpha1.MeterReport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      meterReportName,
@@ -509,11 +511,9 @@ func (r *ReconcileMeterBase) newMeterReport(namespace string, startTime time.Tim
 			StartTime: metav1.NewTime(startTime),
 			EndTime:   metav1.NewTime(endTime),
 			PrometheusService: &common.ServiceReference{
-				Name:      "rhm-prometheus-meterbase",
-				Namespace: "openshift-redhat-marketplace",
-				TargetPort: intstr.IntOrString{
-					StrVal: "web",
-				},
+				Name:       prometheusServiceName,
+				Namespace:  instance.Namespace,
+				TargetPort: intstr.FromString("rbac"),
 			},
 		},
 	}
@@ -798,7 +798,7 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 		manifests.CreateOrUpdateFactoryItemAction(
 			&corev1.Service{},
 			func() (runtime.Object, error) {
-				return factory.PrometheusService()
+				return factory.PrometheusService(instance.Name)
 			},
 			args),
 		HandleResult(
@@ -875,7 +875,8 @@ func (r *ReconcileMeterBase) uninstallPrometheus(
 	secret3, _ := factory.PrometheusRBACProxySecret()
 	secrets := []*corev1.Secret{secret0, secret1, secret2, secret3}
 	prom, _ := r.newPrometheusOperator(instance, factory, nil)
-	service, _ := factory.PrometheusService()
+	service, _ := factory.PrometheusService(instance.Name)
+	deployment, _ := factory.MetricStateDeployment()
 
 	actions := []ClientAction{
 		HandleResult(
@@ -898,6 +899,9 @@ func (r *ReconcileMeterBase) uninstallPrometheus(
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: prom.Namespace, Name: prom.Name}, prom),
 			OnContinue(DeleteAction(prom))),
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}, deployment),
+			OnContinue(DeleteAction(deployment))),
 	)
 }
 

@@ -104,7 +104,7 @@ func (b *Builder) buildPodStore() *MetricsStore {
 
 func (b *Builder) buildPVCStore() *MetricsStore {
 	return b.buildStore(
-		podMetricsFamilies,
+		pvcMetricsFamilies,
 		&v1.PersistentVolumeClaim{},
 		&MeterDefFetcher{b.cc, b.meterDefStore},
 	)

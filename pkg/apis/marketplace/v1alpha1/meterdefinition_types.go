@@ -171,7 +171,7 @@ type MeterLabelQuery struct {
 	// Query to use for the label
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	Query map[string]string `json:"query,omitempty"`
+	Query string `json:"query,omitempty"`
 
 	// Aggregation to use with the query
 	// +kubebuilder:validation:Enum:=sum;min;max;avg
