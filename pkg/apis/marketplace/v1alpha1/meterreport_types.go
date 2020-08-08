@@ -41,6 +41,10 @@ type MeterReportStatus struct {
 
 	// UploadID is the ID associated with the upload
 	UploadID *types.UID `json:"uploadUID,omitempty"`
+
+	// QueryErrorList shows if there were any errors from queries
+	// for the report.
+	QueryErrorList []string `json:"queryErrorList,omitEmpty"`
 }
 
 const (

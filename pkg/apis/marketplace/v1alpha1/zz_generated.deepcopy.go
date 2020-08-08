@@ -705,6 +705,11 @@ func (in *MeterReportStatus) DeepCopyInto(out *MeterReportStatus) {
 		*out = new(types.UID)
 		**out = **in
 	}
+	if in.QueryErrorList != nil {
+		in, out := &in.QueryErrorList, &out.QueryErrorList
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

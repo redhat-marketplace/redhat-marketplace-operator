@@ -788,9 +788,17 @@ spec:
             metricUploadCount:
               description: MetricUploadCount is the number of metrics in the report
               type: integer
+            queryErrorList:
+              description: QueryErrorList shows if there were any errors from queries
+                for the report.
+              items:
+                type: string
+              type: array
             uploadUID:
               description: UploadID is the ID associated with the upload
               type: string
+          required:
+          - queryErrorList
           type: object
       type: object
   version: v1alpha1

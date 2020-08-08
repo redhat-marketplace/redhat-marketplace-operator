@@ -648,6 +648,19 @@ func (r *ReconcileMeterBase) uninstallPrometheusOperator(
 	}
 }
 
+var ignoreKubeStateList = []string{
+	"kube_configmap.*",
+	"kube_cronjob.*",
+	"kube_daemonset.*",
+	"kube_deployment.*",
+	"kube_endpoint.*",
+	"kube_job.*",
+	"kube_node_status.*",
+	"kube_replicaset.*",
+	"kube_secret.*",
+	"kube_statefulset.*",
+}
+
 func (r *ReconcileMeterBase) reconcileAdditionalConfigSecret(
 	cc ClientCommandRunner,
 	instance *marketplacev1alpha1.MeterBase,
@@ -687,6 +700,23 @@ func (r *ReconcileMeterBase) reconcileAdditionalConfigSecret(
 				OnError(ReturnWithError(errors.New("required serviceMonitor errored")))),
 		),
 		Call(func() (ClientAction, error) {
+			newEndpoints := []monitoringv1.Endpoint{}
+
+			for _, ep := range openshiftKubeStateMonitor.Spec.Endpoints {
+				newEp := ep.DeepCopy()
+				configs := []*monitoringv1.RelabelConfig{
+					{
+						SourceLabels: []string{"[__name__]"},
+						Action:       "drop",
+						Regex:        fmt.Sprintf("(%s)", strings.Join(ignoreKubeStateList, "|")),
+					},
+				}
+				newEp.RelabelConfigs = append(configs, ep.RelabelConfigs...)
+				newEndpoints = append(newEndpoints, *newEp)
+			}
+
+			openshiftKubeStateMonitor.Spec.Endpoints = newEndpoints
+
 			sMons := map[string]*monitoringv1.ServiceMonitor{
 				"kube-state": openshiftKubeStateMonitor,
 				"kubelet":    openshiftKubeletMonitor,

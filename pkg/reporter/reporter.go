@@ -76,7 +76,7 @@ func NewMarketplaceReporter(
 
 var ErrNoMeterDefinitionsFound = errors.New("no meterDefinitions found")
 
-func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricKey]*MetricBase, error) {
+func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricKey]*MetricBase, []error, error) {
 	ctx, cancel := context.WithCancel(ctxIn)
 	defer cancel()
 
@@ -84,7 +84,7 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 	var resultsMapMutex sync.Mutex
 
 	if len(r.meterDefinitions) == 0 {
-		return resultsMap, errors.Wrap(ErrNoMeterDefinitionsFound, "no meterDefs found")
+		return resultsMap, []error{}, errors.Wrap(ErrNoMeterDefinitionsFound, "no meterDefs found")
 	}
 
 	meterDefsChan := make(chan *marketplacev1alpha1.MeterDefinition, len(r.meterDefinitions))
@@ -145,13 +145,7 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 		}
 	}()
 
-	if len(errorList) != 0 {
-		err := errors.Combine(errorList...)
-		logger.Error(err, "processing errored")
-		return nil, err
-	}
-
-	return resultsMap, nil
+	return resultsMap, errorList, nil
 }
 
 type meterDefPromModel struct {

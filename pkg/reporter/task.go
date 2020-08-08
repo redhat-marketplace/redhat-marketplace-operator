@@ -55,7 +55,7 @@ func (r *Task) Run() error {
 	}
 
 	logger.Info("starting collection")
-	metrics, err := reporter.CollectMetrics(r.Ctx)
+	metrics, errorList, err := reporter.CollectMetrics(r.Ctx)
 
 	if err != nil {
 		logger.Error(err, "error collecting metrics")
@@ -96,6 +96,13 @@ func (r *Task) Run() error {
 				GetAction(types.NamespacedName(r.ReportName), report),
 				OnContinue(Call(func() (ClientAction, error) {
 					report.Status.MetricUploadCount = ptr.Int(len(metrics))
+
+					report.Status.QueryErrorList = []string{}
+
+					for _, err := range errorList {
+						report.Status.QueryErrorList = append(report.Status.QueryErrorList, err.Error())
+					}
+
 					return UpdateAction(report), nil
 				})),
 			),

@@ -77,7 +77,7 @@ func NewReporter(task *Task) (*MarketplaceReporter, error) {
 	client := task.K8SClient
 	contextContext := task.Ctx
 	scheme := task.K8SScheme
-	logrLogger := _wireLoggerLoggerValue
+	logrLogger := _wireLogrLoggerValue
 	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logrLogger)
 	reportName := task.ReportName
 	meterReport, err := getMarketplaceReport(contextContext, clientCommandRunner, reportName)
@@ -108,5 +108,5 @@ func NewReporter(task *Task) (*MarketplaceReporter, error) {
 }
 
 var (
-	_wireLoggerLoggerValue = logger
+	_wireLogrLoggerValue = logger
 )

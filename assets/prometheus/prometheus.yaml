@@ -96,6 +96,7 @@ spec:
   serviceAccountName: redhat-marketplace-prometheus
   priorityClassName: system-cluster-critical
   listenLocal: true
+  retention: 30d
   nodeSelector:
     kubernetes.io/os: linux
   securityContext: {}
