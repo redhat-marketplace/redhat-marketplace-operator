@@ -36,7 +36,7 @@ type MeterDefinitionSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +optional
-	Version string `json:"version,omitempty"`
+	Version string `json:"meterVersion,omitempty"`
 
 	// Kind defines the primary CRD kind of the meter
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
@@ -63,6 +63,17 @@ type MeterDefinitionSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:workloadVertexType:Namespace"
 	// +optional
 	VertexLabelSelector *metav1.LabelSelector `json:"workloadVertexLabelSelectors,omitempty"`
+
+	    // ServiceMeterLabels DEPRECATED: name of the meterics you want to track.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +optional
+	ServiceMeterLabels []string `json:"serviceMeterLabels,omitempty"`
+	// PodMeterLabels DEPRECATED: name of the prometheus metrics you want to track.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +optional
+	PodMeterLabels []string `json:"podMeterLabels,omitempty"`
 
 	// Workloads identify the workloads to meter.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true

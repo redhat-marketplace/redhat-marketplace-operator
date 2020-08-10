@@ -152,6 +152,13 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, nil
 	}
 
+	if instance.Spec.ServiceMeterLabels != nil {
+		instance.Spec.ServiceMeterLabels = nil
+	}
+	if instance.Spec.PodMeterLabels != nil {
+		instance.Spec.PodMeterLabels = nil
+	}
+
 	// var namespaces []string
 
 	// switch instance.Spec.WorkloadVertex {
