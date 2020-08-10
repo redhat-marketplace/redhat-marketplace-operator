@@ -74,7 +74,8 @@ func NewServer(opts *Options) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	meterDefinitionStore := meter_definition.NewMeterDefinitionStore(context, logger, clientCommandRunner, clientset, findOwnerHelper, monitoringV1Client, marketplaceV1alpha1Client)
+	meterDefinitionStore := meter_definition.NewMeterDefinitionStore(context, logger, clientCommandRunner, clientset, findOwnerHelper, monitoringV1Client, marketplaceV1alpha1Client, scheme)
+	statusProcessor := meter_definition.NewStatusProcessor(logger, clientCommandRunner, meterDefinitionStore)
 	cacheIsIndexed, err := addIndex(context, cache)
 	if err != nil {
 		return nil, err
@@ -88,6 +89,7 @@ func NewServer(opts *Options) (*Service, error) {
 		metricsRegistry: registry,
 		cc:              clientCommandRunner,
 		meterDefStore:   meterDefinitionStore,
+		statusProcessor: statusProcessor,
 		isCacheStarted:  cacheIsStarted,
 	}
 	return service, nil

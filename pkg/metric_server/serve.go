@@ -45,6 +45,7 @@ type Service struct {
 	metricsRegistry *prometheus.Registry
 	cc              reconcileutils.ClientCommandRunner
 	meterDefStore   *meter_definition.MeterDefinitionStore
+	statusProcessor  *meter_definition.StatusProcessor
 	isCacheStarted  managers.CacheIsStarted
 }
 
@@ -60,6 +61,8 @@ func (s *Service) Serve(done <-chan struct{}) error {
 	storeBuilder.WithNamespaces(options.DefaultNamespaces)
 
 	proc.StartReaper()
+
+	go s.statusProcessor.Start(ctx)
 
 	storeBuilder.WithContext(ctx)
 	storeBuilder.WithKubeClient(s.k8sRestClient)

@@ -81,7 +81,6 @@ func (s *MetricsStore) Start(
 				if msg == nil || reflect.TypeOf(msg.Object) != reflect.TypeOf(expType) {
 					break
 				}
-
 				switch msg.Action {
 				case meter_definition.AddMessageAction:
 					_ = s.Add(msg.Object)

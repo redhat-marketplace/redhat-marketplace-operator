@@ -15,10 +15,13 @@
 package v1alpha1
 
 import (
+	"strings"
+
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
 // MeterDefinitionSpec defines the desired metering spec
@@ -128,13 +131,23 @@ type WorkloadResource struct {
 	common.NamespacedNameReference `json:",inline"`
 }
 
-func NewWorkloadResource(workload Workload, obj interface{}) (*WorkloadResource, error) {
+type ByAlphabetical []WorkloadResource
+
+func (a ByAlphabetical) Len() int { return len(a) }
+func (a ByAlphabetical) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByAlphabetical) Less(i, j int) bool {
+	return strings.Compare(a[i].ReferencedWorkloadName, a[j].ReferencedWorkloadName) > 0 &&
+		strings.Compare(a[i].NamespacedNameReference.Namespace, a[j].NamespacedNameReference.Namespace) > 0 &&
+		strings.Compare(a[i].NamespacedNameReference.Name, a[j].NamespacedNameReference.Name) > 0
+}
+
+func NewWorkloadResource(workload Workload, obj interface{}, scheme *runtime.Scheme) (*WorkloadResource, error) {
 	accessor, err := meta.Accessor(obj)
 
 	if err != nil {
 		return nil, err
 	}
-	gvk, err := common.NewGroupVersionKind(obj)
+	gvk, err := common.NewGroupVersionKind(obj, scheme)
 	if err != nil {
 		return nil, err
 	}

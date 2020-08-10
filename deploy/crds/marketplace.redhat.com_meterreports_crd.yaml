@@ -797,8 +797,6 @@ spec:
             uploadUID:
               description: UploadID is the ID associated with the upload
               type: string
-          required:
-          - queryErrorList
           type: object
       type: object
   version: v1alpha1

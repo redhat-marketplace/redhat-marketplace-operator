@@ -37,14 +37,17 @@ type MeterReportStatus struct {
 	AssociatedJob *common.JobReference `json:"jobReference,omitempty"`
 
 	// MetricUploadCount is the number of metrics in the report
+	// +optional
 	MetricUploadCount *int `json:"metricUploadCount,omitempty"`
 
 	// UploadID is the ID associated with the upload
+	// +optional
 	UploadID *types.UID `json:"uploadUID,omitempty"`
 
 	// QueryErrorList shows if there were any errors from queries
 	// for the report.
-	QueryErrorList []string `json:"queryErrorList,omitEmpty"`
+	// +optional
+	QueryErrorList []string `json:"queryErrorList,omitempty"`
 }
 
 const (

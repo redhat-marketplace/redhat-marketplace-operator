@@ -32,9 +32,9 @@ const (
 )
 
 type ObjectResourceMessage struct {
-	Action ObjectResourceMessageAction
-	Object interface{}
-	*ObjectResourceValue
+	Action               ObjectResourceMessageAction `json:"action"`
+	Object               interface{}                 `json:"object"`
+	*ObjectResourceValue `json:"resourceValue,omitempty"`
 }
 
 type ObjectResourceKey struct {
@@ -82,8 +82,9 @@ type MeterDefinitionStore struct {
 
 	mutex sync.RWMutex
 
-	ctx context.Context
-	log logr.Logger
+	ctx    context.Context
+	log    logr.Logger
+	scheme *runtime.Scheme
 
 	cc ClientCommandRunner
 
@@ -105,6 +106,7 @@ func NewMeterDefinitionStore(
 	findOwner *rhmclient.FindOwnerHelper,
 	monitoringClient *monitoringv1client.MonitoringV1Client,
 	marketplaceclient *marketplacev1alpha1client.MarketplaceV1alpha1Client,
+	scheme *runtime.Scheme,
 ) *MeterDefinitionStore {
 	return &MeterDefinitionStore{
 		ctx:                    ctx,
@@ -114,6 +116,7 @@ func NewMeterDefinitionStore(
 		monitoringClient:       monitoringClient,
 		marketplaceClient:      marketplaceclient,
 		findOwner:              findOwner,
+		scheme:                 scheme,
 		listeners:              []chan *ObjectResourceMessage{},
 		meterDefinitionFilters: make(map[MeterDefUID]*MeterDefinitionLookupFilter),
 		objectResourceSet:      make(map[ObjectResourceKey]*ObjectResourceValue),
@@ -157,6 +160,20 @@ func (s *MeterDefinitionStore) GetMeterDefinitionRefs(uid types.UID) []*ObjectRe
 			vals = append(vals, val)
 		}
 	}
+	return vals
+}
+
+func (s *MeterDefinitionStore) GetMeterDefObjects(meterDefUID types.UID) []*ObjectResourceValue {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	vals := []*ObjectResourceValue{}
+	for key, val := range s.objectResourceSet {
+		if key.MeterDefUID == MeterDefUID(meterDefUID) && val.Matched {
+			vals = append(vals, val)
+		}
+	}
+
 	return vals
 }
 
@@ -215,7 +232,7 @@ func (s *MeterDefinitionStore) Add(obj interface{}) error {
 				return nil
 			}
 
-			resource, err := v1alpha1.NewWorkloadResource(*workload, obj)
+			resource, err := v1alpha1.NewWorkloadResource(*workload, obj, s.scheme)
 			if err != nil {
 				s.log.Error(err, "")
 				return err

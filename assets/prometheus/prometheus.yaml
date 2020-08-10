@@ -102,7 +102,7 @@ spec:
   securityContext: {}
   serviceMonitorSelector:
     matchLabels:
-      marketplace.redhat.com/notused: 'notused'
+      marketplace.redhat.com/metering: 'true'
   serviceMonitorNamespaceSelector: {}
   additionalScrapeConfigs:
     name: rhm-meterbase-additional-scrape-configs
