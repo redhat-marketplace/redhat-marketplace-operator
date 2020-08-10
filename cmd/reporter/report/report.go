@@ -44,7 +44,7 @@ var ReportCmd = &cobra.Command{
 		}
 		cfg.SetDefaults()
 
-		thttps://w3.ibm.com/developer/opensource/frequently-asked-questions/ask, err := reporter.NewTask(
+		task, err := reporter.NewTask(
 			ctx,
 			reporter.ReportName{Namespace: namespace, Name: name},
 			cfg,
