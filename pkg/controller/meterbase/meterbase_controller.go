@@ -706,7 +706,7 @@ func (r *ReconcileMeterBase) reconcileAdditionalConfigSecret(
 				newEp := ep.DeepCopy()
 				configs := []*monitoringv1.RelabelConfig{
 					{
-						SourceLabels: []string{"[__name__]"},
+						SourceLabels: []string{"__name__"},
 						Action:       "drop",
 						Regex:        fmt.Sprintf("(%s)", strings.Join(ignoreKubeStateList, "|")),
 					},
