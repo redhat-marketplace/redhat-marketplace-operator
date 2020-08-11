@@ -203,6 +203,7 @@ jobs:
 
       - name: Install operator-sdk
         run: |
+          make install-tools
           cd /tmp
           curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
           chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu && sudo mkdir -p /usr/local/bin/ && sudo cp operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk && rm operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
@@ -213,7 +214,6 @@ jobs:
           echo "::add-path::/usr/local/bin"
           sudo apt-get install -y sed
           sudo snap install yq
-          make install-tools
         env:
           RELEASE_VERSION: v0.18.0
           OPM_VERSION: v1.12.5
@@ -314,6 +314,7 @@ jobs:
 
       - name: Install operator-sdk
         run: |
+          make install-tools
           cd /tmp
           curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
           chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu && sudo mkdir -p /usr/local/bin/ && sudo cp operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk && rm operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
@@ -321,7 +322,6 @@ jobs:
           pip3 install -Iv operator-courier==$COURIER_VERSION
           sudo snap install yq
           echo "::add-path::/usr/local/bin"
-          make install-tools
         env:
           RELEASE_VERSION: v0.18.0
           COURIER_VERSION: 2.1.7
