@@ -172,6 +172,13 @@ func ReturnWithError(err error) *ReturnResponse {
 	}
 }
 
+func ContinueResponse() *ReturnResponse {
+	return &ReturnResponse{
+		BaseAction: NewBaseAction("continueReponse"),
+		ExecResult: NewExecResult(Continue, reconcile.Result{}, nil),
+	}
+}
+
 type handleResult struct {
 	BaseAction
 	Action   ClientAction
@@ -248,19 +255,9 @@ func (r *handleResult) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 
 			var2, err := branch.Action.Exec(ctx, c)
 
-			if myVar.Is(Error) {
-				logger.V(2).Info("returning original error")
-				return myVar, myVar.Err
-			}
-
 			if err != nil {
 				logger.Error(err, "error occurred on branch")
 				return var2, err
-			}
-
-			if myVar.Is(Requeue) {
-				logger.V(2).Info("returning original requeue")
-				return myVar, nil
 			}
 
 			return var2, err

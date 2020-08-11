@@ -129,6 +129,12 @@ func (a *createIfNotExistsAction) Exec(ctx context.Context, c *ClientCommand) (*
 		ctx,
 		HandleResult(
 			GetAction(key, a.newObject),
-			OnNotFound(CreateAction(result, a.createActionOptions...))),
+			OnNotFound(
+				HandleResult(
+					CreateAction(result, a.createActionOptions...),
+					OnRequeue(ContinueResponse()),
+				),
+			),
+		),
 	)
 }
