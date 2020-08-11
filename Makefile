@@ -50,6 +50,11 @@ uninstall: ## Uninstall all that all performed in the $ make install
 
 ##@ Build
 
+.PHONY: install-tools
+install-tools:
+	@echo Installing tools from tools.go
+	@cat scripts/tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go install %
+
 .PHONY: build-base
 build-base:
 	skaffold build --tag="1.14" -p base
@@ -73,10 +78,10 @@ generate-bundle: ## Generate the csv
 		--package redhat-marketplace-operator \
 		--default-channel=$(CSV_DEFAULT_CHANNEl) \
 		--channels $(CHANNELS)
-	@go run github.com/mikefarah/yq/v3 w -i $(MANIFEST_CSV_FILE) 'metadata.annotations.containerImage' $(OPERATOR_IMAGE)
-	@go run github.com/mikefarah/yq/v3 w -i $(MANIFEST_CSV_FILE) 'metadata.annotations.createdAt' $(CREATED_TIME)
-	@go run github.com/mikefarah/yq/v3 d -i $(MANIFEST_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
-	@go run github.com/mikefarah/yq/v3 w -i $(MANIFEST_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
+	yq w -i $(MANIFEST_CSV_FILE) 'metadata.annotations.containerImage' $(OPERATOR_IMAGE)
+	yq w -i $(MANIFEST_CSV_FILE) 'metadata.annotations.createdAt' $(CREATED_TIME)
+	yq d -i $(MANIFEST_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
+	yq w -i $(MANIFEST_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
 
 INTERNAL_CRDS='["razeedeployments.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
 
@@ -90,21 +95,21 @@ generate-csv: ## Generate the csv
 		--operator-name=redhat-marketplace-operator \
 		--update-crds \
 		--make-manifests=false
-	@go run github.com/mikefarah/yq/v3 w -i $(VERSION_CSV_FILE) 'metadata.annotations.containerImage' $(OPERATOR_IMAGE)
-	@go run github.com/mikefarah/yq/v3 w -i $(VERSION_CSV_FILE) 'metadata.annotations.createdAt' $(CREATED_TIME)
-	@go run github.com/mikefarah/yq/v3 w -i $(VERSION_CSV_FILE) 'metadata.annotations."operators.operatorframework.io/internal-objects"' $(INTERNAL_CRDS)
-	@go run github.com/mikefarah/yq/v3 d -i $(VERSION_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
-	@go run github.com/mikefarah/yq/v3 w -i $(VERSION_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
+	yq w -i $(VERSION_CSV_FILE) 'metadata.annotations.containerImage' $(OPERATOR_IMAGE)
+	yq w -i $(VERSION_CSV_FILE) 'metadata.annotations.createdAt' $(CREATED_TIME)
+	yq w -i $(VERSION_CSV_FILE) 'metadata.annotations."operators.operatorframework.io/internal-objects"' $(INTERNAL_CRDS)
+	yq d -i $(VERSION_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
+	yq w -i $(VERSION_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
 
 PACKAGE_FILE ?= ./deploy/olm-catalog/redhat-marketplace-operator/redhat-marketplace-operator.package.yaml
 
 manifest-package-beta: # Make sure we have the right versions
-	@go run github.com/mikefarah/yq/v3 w -i $(PACKAGE_FILE) 'channels.(name==stable).currentCSV' redhat-marketplace-operator.v$(FROM_VERSION)
-	@go run github.com/mikefarah/yq/v3 w -i $(PACKAGE_FILE) 'channels.(name==beta).currentCSV' redhat-marketplace-operator.v$(VERSION)
+	yq w -i $(PACKAGE_FILE) 'channels.(name==stable).currentCSV' redhat-marketplace-operator.v$(FROM_VERSION)
+	yq w -i $(PACKAGE_FILE) 'channels.(name==beta).currentCSV' redhat-marketplace-operator.v$(VERSION)
 
 manifest-package-stable: # Make sure we have the right versions
-	@go run github.com/mikefarah/yq/v3 w -i $(PACKAGE_FILE) 'channels.(name==stable).currentCSV' redhat-marketplace-operator.v$(VERSION)
-	@go run github.com/mikefarah/yq/v3 w -i $(PACKAGE_FILE) 'channels.(name==beta).currentCSV' redhat-marketplace-operator.v$(VERSION)
+	yq w -i $(PACKAGE_FILE) 'channels.(name==stable).currentCSV' redhat-marketplace-operator.v$(VERSION)
+	yq w -i $(PACKAGE_FILE) 'channels.(name==beta).currentCSV' redhat-marketplace-operator.v$(VERSION)
 
 REGISTRY ?= quay.io
 
@@ -241,7 +246,7 @@ create-razee: ##create the razee CR
 
 .PHONY: lint
 lint: ## lint the repo
-	go run github.com/golangci/golangci-lint/cmd/golangci-lint run
+	golangci-lint run
 
 .PHONY: test
 test: ## Run go tests
@@ -288,11 +293,11 @@ deploy-test-prometheus: ## Helper to setup minikube
 
 .PHONY: check-licenses
 check-licenses: ## Check if all files have licenses
-	go run github.com/google/addlicense -check -c "IBM Corp." **/*.go
+	addlicense -check -c "IBM Corp." **/*.go
 
 .PHONY: add-licenses
 add-licenses: ## Add licenses to the go file
-	go run github.com/google/addlicense -c "IBM Corp." **/*.go
+	github.com/google/addlicense -c "IBM Corp." **/*.go
 
 scorecard: ## Run scorecard tests
 	operator-sdk scorecard -b ./deploy/olm-catalog/redhat-marketplace-operator
@@ -373,13 +378,13 @@ opm-bundle-all: # used to bundle all the versions available
 
 opm-bundle-last-edge: ## Bundle latest for edge
 	operator-sdk bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
-	@go run github.com/mikefarah/yq/v3 w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' edge
+	yq w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' edge
 	docker build -f bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" .
 	docker push "$(OLM_REPO):$(TAG)"
 
 opm-bundle-last-beta: ## Bundle latest for beta
 	operator-sdk bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
-	@go run github.com/mikefarah/yq/v3 w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' beta
+	yq w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' beta
 	docker build -f bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" .
 	docker push "$(OLM_REPO):$(TAG)"
 

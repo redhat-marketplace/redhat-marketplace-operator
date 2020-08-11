@@ -63,6 +63,7 @@ jobs:
           echo "::add-path::/usr/local/bin"
           sudo apt-get install -y sed
           sudo snap install yq
+          make install-tools
         env:
           RELEASE_VERSION: v0.18.0
           OPM_VERSION: v1.12.5

@@ -61,6 +61,7 @@ jobs:
           python -m pip install --upgrade pip
           pip3 install -Iv operator-courier==$COURIER_VERSION
           echo "::add-path::/usr/local/bin"
+          make install-tools
         env:
           RELEASE_VERSION: v0.18.0
           COURIER_VERSION: 2.1.7
