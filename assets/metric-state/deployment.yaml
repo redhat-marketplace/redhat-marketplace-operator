@@ -20,6 +20,7 @@ spec:
       containers:
         - name: metric-state
           image: metric-state
+          imagePullPolicy: Always
           resources:
             requests:
               cpu: 100m
