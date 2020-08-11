@@ -5,9 +5,11 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // MeterReportSpec defines the desired state of MeterReport
+// +k8s:openapi-gen=true
 type MeterReportSpec struct {
 	// StartTime of the job
 	StartTime metav1.Time `json:"startTime"`
@@ -26,11 +28,26 @@ type MeterReportSpec struct {
 // MeterReportStatus defines the observed state of MeterReport
 type MeterReportStatus struct {
 	// Conditions represent the latest available observations of an object's stateonfig
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors.x-descriptors="urn:alm:descriptor:io.kubernetes.conditions"
 	Conditions *status.Conditions `json:"conditions,omitempty"`
 
 	// A list of pointers to currently running jobs.
 	// +optional
 	AssociatedJob *common.JobReference `json:"jobReference,omitempty"`
+
+	// MetricUploadCount is the number of metrics in the report
+	// +optional
+	MetricUploadCount *int `json:"metricUploadCount,omitempty"`
+
+	// UploadID is the ID associated with the upload
+	// +optional
+	UploadID *types.UID `json:"uploadUID,omitempty"`
+
+	// QueryErrorList shows if there were any errors from queries
+	// for the report.
+	// +optional
+	QueryErrorList []string `json:"queryErrorList,omitempty"`
 }
 
 const (
@@ -79,6 +96,7 @@ var (
 
 // MeterReport is the Schema for the meterreports API
 // +kubebuilder:subresource:status
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Reports"
 // +kubebuilder:resource:path=meterreports,scope=Namespaced
 type MeterReport struct {
 	metav1.TypeMeta   `json:",inline"`

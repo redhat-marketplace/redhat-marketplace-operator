@@ -120,7 +120,7 @@ type MeterBaseStatus struct {
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=meterbases,scope=Namespaced
-// +operator-sdk:gen-csv:customresourcedefinitions.displayName="(Internal) Meter Config"
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Metering"
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`ServiceMonitor,v1,"redhat-marketplace-operator"`
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`Prometheus,v1,"redhat-marketplace-operator"`
 type MeterBase struct {

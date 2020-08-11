@@ -141,13 +141,18 @@ func (f *Factory) NewPrometheus(
 	return p, nil
 }
 
-func (f *Factory) PrometheusService() (*v1.Service, error) {
+func (f *Factory) PrometheusService(instanceName string) (*v1.Service, error) {
 	s, err := f.NewService(MustAssetReader(PrometheusService))
 	if err != nil {
 		return nil, err
 	}
 
 	s.Namespace = f.namespace
+
+	s.Labels["app"] = "prometheus"
+	s.Labels["prometheus"] = instanceName
+
+	s.Spec.Selector["prometheus"] = instanceName
 
 	return s, nil
 }

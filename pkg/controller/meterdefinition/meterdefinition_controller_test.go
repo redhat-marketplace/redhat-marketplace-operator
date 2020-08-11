@@ -57,8 +57,6 @@ var (
 		Spec: marketplacev1alpha1.MeterDefinitionSpec{
 			Group:   "apps.partner.metering.com",
 			Kind:    "App",
-			Version: "v1",
-
 		},
 	}
 )

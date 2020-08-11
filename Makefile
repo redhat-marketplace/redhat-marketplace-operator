@@ -20,6 +20,11 @@ REPORTER_IMAGE_NAME ?= redhat-marketplace-reporter
 REPORTER_IMAGE_TAG ?= $(VERSION)
 REPORTER_IMAGE := $(IMAGE_REGISTRY)/$(REPORTER_IMAGE_NAME):$(REPORTER_IMAGE_TAG)
 
+
+METRIC_STATE_IMAGE_NAME ?= redhat-marketplace-metric-state
+METRIC_STATE_IMAGE_TAG ?= $(VERSION)
+METRIC_STATE_IMAGE := $(IMAGE_REGISTRY)/$(METRIC_STATE_IMAGE_NAME):$(METRIC_STATE_IMAGE_TAG)
+
 PUSH_IMAGE ?= false
 PULL_POLICY ?= IfNotPresent
 .DEFAULT_GOAL := help
@@ -54,7 +59,7 @@ build: ## Build the operator executable
 	skaffold build -p dev --tag $(OPERATOR_IMAGE_TAG) --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE)
 
 helm: ## build helm base charts
-	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE) --set namespace=$(NAMESPACE)
+	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE),metricStateImage=$(METRIC_STATE_IMAGE),reporterImage=$(REPORTER_IMAGE) --set namespace=$(NAMESPACE)
 
 MANIFEST_CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/manifests/redhat-marketplace-operator.clusterserviceversion.yaml
 VERSION_CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/redhat-marketplace-operator.v$(VERSION).clusterserviceversion.yaml
@@ -73,7 +78,7 @@ generate-bundle: ## Generate the csv
 	@go run github.com/mikefarah/yq/v3 d -i $(MANIFEST_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
 	@go run github.com/mikefarah/yq/v3 w -i $(MANIFEST_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
 
-INTERNAL_CRDS='["razeedeployments.marketplace.redhat.com","meterbases.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
+INTERNAL_CRDS='["razeedeployments.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
 
 generate-csv: ## Generate the csv
 	make helm
@@ -364,7 +369,7 @@ OLM_PACKAGE_NAME ?= redhat-marketplace-operator-test
 TAG ?= latest
 
 opm-bundle-all: # used to bundle all the versions available
-	./scripts/opm_bundle_all.sh $(OLM_REPO) $(OLM_PACKAGE_NAME)
+	./scripts/opm_bundle_all.sh $(OLM_REPO) $(OLM_PACKAGE_NAME) $(VERSION)
 
 opm-bundle-last-edge: ## Bundle latest for edge
 	operator-sdk bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)

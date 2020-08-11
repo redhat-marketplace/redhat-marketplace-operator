@@ -46,15 +46,12 @@ const (
 	CSCFinalizer                    = "finalizer.MarketplaceConfigs.operators.coreos.com"
 	RELATED_IMAGE_MARKETPLACE_AGENT = "RELATED_IMAGE_MARKETPLACE_AGENT"
 	DEFAULT_IMAGE_MARKETPLACE_AGENT = "marketplace-agent:latest"
-	RAZEE_FLAG                      = "razee"
-	METERBASE_FLAG                  = "meterbase"
 	IBM_CATALOG_SOURCE_FLAG         = true
 )
 
 var (
 	log                      = logf.Log.WithName("controller_marketplaceconfig")
 	marketplaceConfigFlagSet *pflag.FlagSet
-	defaultFeatures          = []string{RAZEE_FLAG, METERBASE_FLAG}
 	generateMetricsFlag      = false
 )
 
@@ -62,16 +59,6 @@ var (
 // Currently only has 1 set of flags for setting the Image
 func init() {
 	marketplaceConfigFlagSet = pflag.NewFlagSet("marketplaceconfig", pflag.ExitOnError)
-	marketplaceConfigFlagSet.StringSlice(
-		"features",
-		defaultFeatures,
-		"List of additional features to install. Ex. [razee, meterbase], etc.",
-	)
-	marketplaceConfigFlagSet.Bool(
-		"IBMCatalogSource",
-		IBM_CATALOG_SOURCE_FLAG,
-		"Whether to install the IBM Catalog Source",
-	)
 }
 
 // FlagSet returns our FlagSet
@@ -247,95 +234,103 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	// 	metricGen.CycleMeterDefMeters(r.client)
 	// }
 
-	installFeatures := viper.GetStringSlice("features")
-	installSet := make(map[string]bool)
-	for _, installFlag := range installFeatures {
-		reqLogger.Info("Feature Flag Found", "Flag Name: ", installFlag)
-		installSet[installFlag] = true
-	}
-
 	var foundRazee *marketplacev1alpha1.RazeeDeployment
 
-	// If auto-install is true MarketplaceConfig should create RazeeDeployment CR and MeterBase CR
-	reqLogger.Info("auto installing crs")
-	_, installExists := installSet[RAZEE_FLAG]
-	if installExists {
-		//Check if RazeeDeployment exists, if not create one
-		foundRazee = &marketplacev1alpha1.RazeeDeployment{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: marketplaceConfig.Namespace}, foundRazee)
-		if err != nil && errors.IsNotFound(err) {
-			newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName)
-			reqLogger.Info("creating razee cr")
-			err = r.client.Create(context.TODO(), newRazeeCrd)
+	//Check if RazeeDeployment exists, if not create one
+	foundRazee = &marketplacev1alpha1.RazeeDeployment{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: marketplaceConfig.Namespace}, foundRazee)
+	if err != nil && errors.IsNotFound(err) {
+		newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName)
 
-			if err != nil {
-				reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
-				return reconcile.Result{}, err
-			}
-
-			patch := client.MergeFrom(marketplaceConfig.DeepCopy())
-
-			marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-				Type:    marketplacev1alpha1.ConditionInstalling,
-				Status:  corev1.ConditionTrue,
-				Reason:  marketplacev1alpha1.ReasonRazeeInstalled,
-				Message: "RazeeDeployment installed.",
-			})
-
-			err = r.client.Status().Patch(context.TODO(), marketplaceConfig, patch)
-
-			if err != nil {
-				reqLogger.Error(err, "failed to update status")
-				return reconcile.Result{}, err
-			}
-
-			return reconcile.Result{Requeue: true}, nil
-		} else if err != nil {
-			reqLogger.Error(err, "Failed to get RazeeDeployment CR")
-			return reconcile.Result{}, err
-		}
 		// Sets the owner for foundRazee
-		if err = controllerutil.SetControllerReference(marketplaceConfig, foundRazee, r.scheme); err != nil {
+		if err = controllerutil.SetControllerReference(marketplaceConfig, newRazeeCrd, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
-		reqLogger.Info("found razee")
 
-		updatedRazee := foundRazee.DeepCopy()
-		updatedRazee.Spec.ClusterUUID = marketplaceConfig.Spec.ClusterUUID
-		updatedRazee.Spec.DeploySecretName = marketplaceConfig.Spec.DeploySecretName
+		reqLogger.Info("creating razee cr")
+		err = r.client.Create(context.TODO(), newRazeeCrd)
 
-		if !reflect.DeepEqual(foundRazee, updatedRazee) {
-			reqLogger.Info("updating razee cr")
-			err = r.client.Update(context.TODO(), updatedRazee)
-
-			if err != nil {
-				reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
-				return reconcile.Result{}, err
-			}
-
-			patch := client.MergeFrom(marketplaceConfig.DeepCopy())
-
-			marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-				Type:    marketplacev1alpha1.ConditionInstalling,
-				Status:  corev1.ConditionTrue,
-				Reason:  marketplacev1alpha1.ReasonRazeeInstalled,
-				Message: "RazeeDeployment updated.",
-			})
-
-			_ = r.client.Status().Patch(context.TODO(), marketplaceConfig, patch)
-			return reconcile.Result{Requeue: true}, nil
+		if err != nil {
+			reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
+			return reconcile.Result{}, err
 		}
+
+		patch := client.MergeFrom(marketplaceConfig.DeepCopy())
+
+		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionInstalling,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonRazeeInstalled,
+			Message: "RazeeDeployment installed.",
+		})
+
+		err = r.client.Status().Patch(context.TODO(), marketplaceConfig, patch)
+
+		if err != nil {
+			reqLogger.Error(err, "failed to update status")
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get RazeeDeployment CR")
+		return reconcile.Result{}, err
 	}
 
-	var foundMeterBase *marketplacev1alpha1.MeterBase
+	updatedRazee := foundRazee.DeepCopy()
+	updatedRazee.Spec.ClusterUUID = marketplaceConfig.Spec.ClusterUUID
+	updatedRazee.Spec.DeploySecretName = marketplaceConfig.Spec.DeploySecretName
 
-	_, installExists = installSet[METERBASE_FLAG]
-	if installExists {
+	if !reflect.DeepEqual(foundRazee, updatedRazee) {
+		reqLogger.Info("updating razee cr")
+		err = r.client.Update(context.TODO(), updatedRazee)
+
+		if err != nil {
+			reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
+			return reconcile.Result{}, err
+		}
+
+		patch := client.MergeFrom(marketplaceConfig.DeepCopy())
+
+		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionInstalling,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonRazeeInstalled,
+			Message: "RazeeDeployment updated.",
+		})
+
+		_ = r.client.Status().Patch(context.TODO(), marketplaceConfig, patch)
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	foundMeterBase := &marketplacev1alpha1.MeterBase{}
+	result, _ := cc.Do(
+		context.TODO(),
+		GetAction(
+			types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: marketplaceConfig.Namespace},
+			foundMeterBase,
+		),
+	)
+
+	if result.Is(Error) {
+		return result.Return()
+	}
+
+	reqLogger.Info("meterbase install info",
+		"enabled", *marketplaceConfig.Spec.EnableMetering,
+		"found", !result.Is(NotFound),
+	)
+
+	if *marketplaceConfig.Spec.EnableMetering {
+		reqLogger.Info("meterbase is enabled")
 		// Check if MeterBase exists, if not create one
-		foundMeterBase = &marketplacev1alpha1.MeterBase{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: marketplaceConfig.Namespace}, foundMeterBase)
-		if err != nil && errors.IsNotFound(err) {
+		if result.Is(NotFound) {
 			newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
+
+			if err = controllerutil.SetControllerReference(marketplaceConfig, newMeterBaseCr, r.scheme); err != nil {
+				return reconcile.Result{}, err
+			}
+
 			reqLogger.Info("creating meterbase")
 			err = r.client.Create(context.TODO(), newMeterBaseCr)
 			if err != nil {
@@ -364,13 +359,17 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			reqLogger.Error(err, "Failed to get MeterBase CR")
 			return reconcile.Result{}, err
 		}
-		// Sets the owner for MeterBase
-		if err = controllerutil.SetControllerReference(marketplaceConfig, foundMeterBase, r.scheme); err != nil {
-			return reconcile.Result{}, err
-		}
+
 		reqLogger.Info("found meterbase")
+	} else {
+		cc.Do(
+			context.TODO(),
+			HandleResult(
+				GetAction(
+					types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: marketplaceConfig.Namespace}, foundMeterBase),
+				OnContinue(DeleteAction(foundMeterBase))),
+		)
 	}
-	//TODO: update meterbase
 
 	// Check if operator source exists, or create a new one
 	foundOpSrc := &opsrcv1.OperatorSource{}

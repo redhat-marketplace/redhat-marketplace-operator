@@ -4,9 +4,9 @@
 name: redhat-marketplace-operator
 replicaCount: 1
 namespace: redhat-marketplace
-image: quay.io/rh-marketplace/redhat-marketplace-operator:dev
-reporterImage: quay.io/rh-marketplace/redhat-marketplace-reporter:dev
-metricStateImage: quay.io/rh-marketplace/redhat-marketplace-metric-state:dev
+image: quay.io/rh-marketplace/redhat-marketplace-operator:latest
+reporterImage: quay.io/rh-marketplace/redhat-marketplace-reporter:latest
+metricStateImage: quay.io/rh-marketplace/redhat-marketplace-metric-state:latest
 kubeRbacProxyImage: quay.io/coreos/kube-rbac-proxy:v0.5.0
 pullPolicy: Always
 watchNamespace: '' # watch all namespaces
@@ -251,7 +251,7 @@ roles:
           - subjectaccessreviews
         verbs:
           - create
-  # reporter: gives access to query prometheus
+      # reporter: gives access to query prometheus
       - nonResourceURLs:
           - /api/v1/query
           - /api/v1/query_range
@@ -283,10 +283,88 @@ roles:
         resources:
           - '*'
         verbs:
-          - '*'
-  - name: prometheus-operator
+          - '*kkkkjj'
+  - name: redhat-marketplace-prometheus-operator
     serviceAccountName: redhat-marketplace-prometheus-operator
     type: ClusterRole
+    rules:
+      - apiGroups:
+          - apiextensions.k8s.io
+        resources:
+          - customresourcedefinitions
+        verbs:
+          - create
+      - apiGroups:
+          - apiextensions.k8s.io
+        resourceNames:
+          - alertmanagers.monitoring.coreos.com
+          - podmonitors.monitoring.coreos.com
+          - prometheuses.monitoring.coreos.com
+          - prometheusrules.monitoring.coreos.com
+          - servicemonitors.monitoring.coreos.com
+        resources:
+          - customresourcedefinitions
+        verbs:
+          - get
+          - update
+      - apiGroups:
+          - monitoring.coreos.com
+        resources:
+          - alertmanagers
+          - prometheuses
+          - prometheuses/finalizers
+          - alertmanagers/finalizers
+          - servicemonitors
+          - podmonitors
+          - prometheusrules
+        verbs:
+          - '*'
+      - apiGroups:
+          - apps
+        resources:
+          - statefulsets
+        verbs:
+          - '*'
+      - apiGroups:
+          - ''
+        resources:
+          - configmaps
+          - secrets
+        verbs:
+          - '*'
+      - apiGroups:
+          - ''
+        resources:
+          - pods
+        verbs:
+          - list
+          - delete
+      - apiGroups:
+          - ''
+        resources:
+          - services
+          - services/finalizers
+          - endpoints
+        verbs:
+          - get
+          - create
+          - update
+          - delete
+      - apiGroups:
+          - ''
+        resources:
+          - nodes
+        verbs:
+          - list
+          - watch
+      - apiGroups:
+          - ''
+        resources:
+          - namespaces
+        verbs:
+          - get
+          - list
+          - watch
   - name: redhat-marketplace-prometheus
     serviceAccountName: redhat-marketplace-prometheus
     type: ClusterRole

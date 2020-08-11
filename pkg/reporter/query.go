@@ -19,8 +19,6 @@ import (
 	"fmt"
 	"time"
 
-	"strings"
-
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
@@ -32,7 +30,7 @@ type PromQuery struct {
 		Name, Namespace string
 	}
 	Metric        string
-	Labels        map[string]string
+	Query         string
 	Start, End    time.Time
 	Step          time.Duration
 	Time          string
@@ -78,12 +76,12 @@ func (q *PromQuery) String() string {
 	leftSide := q.makeLeftSide()
 	join := q.makeJoin()
 
-	labelsArr := make([]string, 0, len(q.Labels))
-	for key, val := range q.Labels {
-		labelsArr = append(labelsArr, fmt.Sprintf(`%s="%s"`, key, val))
+	var query string
+	if q.Query != "" {
+		query = q.Query
+	} else {
+		query = fmt.Sprintf("%s{}", q.Metric)
 	}
-
-	query := fmt.Sprintf("%s{%s}", q.Metric, strings.Join(labelsArr, ","))
 
 	return fmt.Sprintf(
 		`%v (%v %v %v)`, aggregate, leftSide, join, query,

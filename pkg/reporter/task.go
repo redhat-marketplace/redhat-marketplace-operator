@@ -12,8 +12,10 @@ import (
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
+	"github.com/gotidy/ptr"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	"github.com/prometheus/client_golang/api"
+	"github.com/prometheus/common/log"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
@@ -30,12 +32,14 @@ import (
 
 type Task struct {
 	ReportName ReportName
-	Cache      cache.Cache
-	K8SClient  client.Client
-	Ctx        context.Context
-	Config     *Config
-	K8SScheme  *runtime.Scheme
-	Uploader   *RedHatInsightsUploader
+
+	CC        ClientCommandRunner
+	Cache     cache.Cache
+	K8SClient client.Client
+	Ctx       context.Context
+	Config    *Config
+	K8SScheme *runtime.Scheme
+	Uploader  *RedHatInsightsUploader
 }
 
 func (r *Task) Run() error {
@@ -51,7 +55,7 @@ func (r *Task) Run() error {
 	}
 
 	logger.Info("starting collection")
-	metrics, err := reporter.CollectMetrics(r.Ctx)
+	metrics, errorList, err := reporter.CollectMetrics(r.Ctx)
 
 	if err != nil {
 		logger.Error(err, "error collecting metrics")
@@ -76,10 +80,6 @@ func (r *Task) Run() error {
 
 	logger.Info("tarring", "outputfile", fileName)
 
-	if err != nil {
-		return errors.Wrap(err, "error targzing file")
-	}
-
 	err = r.Uploader.UploadFile(fileName)
 
 	if err != nil {
@@ -87,6 +87,38 @@ func (r *Task) Run() error {
 	}
 
 	logger.Info("uploaded metrics", "metrics", len(metrics))
+
+	report := &marketplacev1alpha1.MeterReport{}
+	err = utils.Retry(func() error {
+		result, _ := r.CC.Do(
+			r.Ctx,
+			HandleResult(
+				GetAction(types.NamespacedName(r.ReportName), report),
+				OnContinue(Call(func() (ClientAction, error) {
+					report.Status.MetricUploadCount = ptr.Int(len(metrics))
+
+					report.Status.QueryErrorList = []string{}
+
+					for _, err := range errorList {
+						report.Status.QueryErrorList = append(report.Status.QueryErrorList, err.Error())
+					}
+
+					return UpdateAction(report), nil
+				})),
+			),
+		)
+
+		if result.Is(Error) {
+			return result
+		}
+
+		return nil
+	}, 3)
+
+	if err != nil {
+		log.Error(err, "failed to update report")
+	}
+
 	return nil
 }
 
@@ -293,6 +325,10 @@ func getMeterDefinitions(
 			})),
 		),
 	)
+
+	if result.Is(NotFound) {
+		return []marketplacev1alpha1.MeterDefinition{}, nil
+	}
 
 	if !result.Is(Continue) {
 		return nil, errors.Wrap(result, "failed to get meterdefs")

@@ -1,11 +1,7 @@
 package metrics
 
 import (
-	"context"
-
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/meter_definition"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	v1 "k8s.io/api/core/v1"
 	kbsm "k8s.io/kube-state-metrics/pkg/metric"
 )
@@ -55,41 +51,4 @@ func wrapServiceFunc(f func(*v1.Service, []*marketplacev1alpha1.MeterDefinition)
 
 		return metricFamily
 	}
-}
-
-type ServiceMeterDefFetcher struct {
-	cc ClientCommandRunner
-	meterDefinitionStore *meter_definition.MeterDefinitionStore
-}
-
-func (p *ServiceMeterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplacev1alpha1.MeterDefinition, error) {
-	results := []*marketplacev1alpha1.MeterDefinition{}
-	service, ok := obj.(*v1.Service)
-
-	if !ok {
-		return results, nil
-	}
-
-	refs := p.meterDefinitionStore.GetMeterDefinitionRefs(service.UID)
-
-	for _, ref := range refs {
-		meterDefinition := &marketplacev1alpha1.MeterDefinition{}
-
-		result, _ := p.cc.Do(
-			context.TODO(),
-			GetAction(ref.MeterDef, meterDefinition),
-		)
-
-		if !result.Is(Continue) {
-			if result.Is(Error) {
-				log.Error(result, "failed to get owner")
-				return results, result
-			}
-			return results, nil
-		}
-
-		results = append(results, meterDefinition)
-	}
-
-	return results, nil
 }

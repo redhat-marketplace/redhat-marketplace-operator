@@ -51,14 +51,14 @@ func (a *createOrUpdateFactoryItemAction) Exec(ctx context.Context, c *ClientCom
 
 	if err != nil {
 		reqLogger.Error(err, "failure creating factory obj")
-		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error with patch")
+		return NewExecResult(Error, reconcile.Result{Requeue: true}, err), emperrors.Wrap(err, "error with patch")
 	}
 
 	key, err := client.ObjectKeyFromObject(result)
 
 	if err != nil {
 		reqLogger.Error(err, "failure getting factory obj name")
-		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error with patch")
+		return NewExecResult(Error, reconcile.Result{Requeue: true}, err), emperrors.Wrap(err, "error with patch")
 	}
 
 	cmd := HandleResult(
@@ -118,7 +118,7 @@ func (a *createIfNotExistsAction) Exec(ctx context.Context, c *ClientCommand) (*
 
 	if err != nil {
 		reqLogger.Error(err, "failure creating factory obj")
-		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error with patch")
+		return NewExecResult(Error, reconcile.Result{Requeue: true}, err), emperrors.Wrap(err, "error with create")
 	}
 
 	key, _ := client.ObjectKeyFromObject(result)
@@ -129,6 +129,12 @@ func (a *createIfNotExistsAction) Exec(ctx context.Context, c *ClientCommand) (*
 		ctx,
 		HandleResult(
 			GetAction(key, a.newObject),
-			OnNotFound(CreateAction(result, a.createActionOptions...))),
+			OnNotFound(
+				HandleResult(
+					CreateAction(result, a.createActionOptions...),
+					OnRequeue(ContinueResponse()),
+				),
+			),
+		),
 	)
 }

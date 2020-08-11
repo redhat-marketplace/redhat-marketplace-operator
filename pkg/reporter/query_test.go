@@ -36,10 +36,7 @@ var _ = Describe("Query", func() {
 	BeforeEach(func() {
 		rpcDurationSecondsQuery = &PromQuery{
 			Metric: "rpc_durations_seconds_count",
-			Labels: map[string]string{
-				"meter_kind":   "App",
-				"meter_domain": "apps.partner.metering.com",
-			},
+			Query: `foo{bar="true"}`,
 			Start: start,
 			End:   end,
 			Step:  time.Minute * 60,

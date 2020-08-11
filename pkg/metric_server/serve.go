@@ -45,6 +45,7 @@ type Service struct {
 	metricsRegistry *prometheus.Registry
 	cc              reconcileutils.ClientCommandRunner
 	meterDefStore   *meter_definition.MeterDefinitionStore
+	statusProcessor  *meter_definition.StatusProcessor
 	isCacheStarted  managers.CacheIsStarted
 }
 
@@ -60,6 +61,8 @@ func (s *Service) Serve(done <-chan struct{}) error {
 	storeBuilder.WithNamespaces(options.DefaultNamespaces)
 
 	proc.StartReaper()
+
+	go s.statusProcessor.Start(ctx)
 
 	storeBuilder.WithContext(ctx)
 	storeBuilder.WithKubeClient(s.k8sRestClient)
@@ -86,13 +89,8 @@ func getClientOptions() managers.ClientOptions {
 func addIndex(
 	ctx context.Context,
 	cache cache.Cache) (managers.CacheIsIndexed, error) {
-	err := rhmclient.AddMeterDefIndex(cache)
-	if err != nil {
-		log.Error(err, "")
-		return managers.CacheIsIndexed{}, err
-	}
 
-	err = rhmclient.AddOperatorSourceIndex(cache)
+	err := rhmclient.AddOperatorSourceIndex(cache)
 	if err != nil {
 		log.Error(err, "")
 		return managers.CacheIsIndexed{}, err
@@ -159,6 +157,10 @@ func serveMetrics(ctx context.Context, storeBuilder *metrics.Builder, opts *opti
 
 	mux := http.NewServeMux()
 	stores := storeBuilder.Build()
+
+	for _, store := range stores {
+		store.Start(ctx)
+	}
 
 	log.Info("built stores")
 

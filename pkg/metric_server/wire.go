@@ -27,6 +27,7 @@ func NewServer(
 		wire.InterfaceValue(new(logr.Logger), log),
 		provideRegistry,
 		meter_definition.NewMeterDefinitionStore,
+		meter_definition.NewStatusProcessor,
 		marketplacev1alpha1client.NewForConfig,
 		monitoringv1client.NewForConfig,
 		provideContext,

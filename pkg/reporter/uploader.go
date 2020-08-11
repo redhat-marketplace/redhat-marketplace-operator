@@ -23,7 +23,7 @@ type RedHatInsightsUploaderConfig struct {
 	OperatorVersion     string   `json:"operatorVersion"`
 	ClusterID           string   `json:"clusterID"`
 	AdditionalCertFiles []string `json:"additionalCertFiles,omitempty"`
-	httpVersion         *int     `json:"-"`
+	httpVersion         *int
 }
 
 type RedHatInsightsUploader struct {

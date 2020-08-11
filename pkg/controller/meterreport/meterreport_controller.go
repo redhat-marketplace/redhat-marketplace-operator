@@ -217,7 +217,7 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 	case jr.IsFailed():
 		reqLogger.Info("job failed")
 		result, _ = cc.Do(context.TODO(),
-			DeleteAction(job),
+			DeleteAction(job, DeleteWithDeleteOptions(client.PropagationPolicy(metav1.DeletePropagationBackground))),
 			HandleResult(
 				UpdateStatusCondition(
 					instance,

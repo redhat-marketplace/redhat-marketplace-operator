@@ -2,6 +2,7 @@ package reporter
 
 import (
 	"bytes"
+
 	"context"
 	"encoding/json"
 	"fmt"
@@ -28,13 +29,13 @@ import (
 var _ = PDescribe("Reporter", func() {
 	const count = 4416
 	var (
-		err              error
-		sut              *MarketplaceReporter
-		config           *marketplacev1alpha1.MarketplaceConfig
-		report           *marketplacev1alpha1.MeterReport
-		dir, dir2        string
-		uploader         *RedHatInsightsUploader
-		generatedFile    string
+		err           error
+		sut           *MarketplaceReporter
+		config        *marketplacev1alpha1.MarketplaceConfig
+		report        *marketplacev1alpha1.MeterReport
+		dir, dir2     string
+		uploader      *RedHatInsightsUploader
+		generatedFile string
 
 		startStr = "2020-04-19T00:00:00Z"
 		endStr   = "2020-07-19T00:00:00Z"
@@ -138,9 +139,9 @@ var _ = PDescribe("Reporter", func() {
 			cfg.SetDefaults()
 
 			sut = &MarketplaceReporter{
-				api:              v1api,
-				Config:           cfg,
-				report:           report,
+				api:    v1api,
+				Config: cfg,
+				report: report,
 			}
 		})
 
@@ -151,10 +152,11 @@ var _ = PDescribe("Reporter", func() {
 				m2 := &runtime.MemStats{}
 
 				runtime.ReadMemStats(m)
-				results, err := sut.CollectMetrics(context.TODO())
+				results, errs, err := sut.CollectMetrics(context.TODO())
 				runtime.ReadMemStats(m2)
 
 				Expect(err).To(Succeed())
+				Expect(errs).To(BeEmpty())
 				Expect(results).ToNot(BeEmpty())
 				Expect(len(results)).To(Equal(count))
 
@@ -168,9 +170,10 @@ var _ = PDescribe("Reporter", func() {
 
 	It("query, build and submit a report", func(done Done) {
 		By("collecting metrics")
-		results, err := sut.CollectMetrics(context.TODO())
+		results, errs, err := sut.CollectMetrics(context.TODO())
 
 		Expect(err).To(Succeed())
+		Expect(errs).To(BeEmpty())
 		Expect(results).ToNot(BeEmpty())
 		Expect(len(results)).To(Equal(count))
 

@@ -133,7 +133,7 @@ func (s *MeterDefinitionLookupFilter) findNamespaces(
 	functionError := errors.NewWithDetails("error with findNamespaces", "meterdef", instance.Name+"/"+instance.Namespace)
 	reqLogger := s.log.WithValues("func", "findNamespaces", "meterdef", instance.Name+"/"+instance.Namespace)
 
-	switch instance.Spec.WorkloadVertex {
+	switch instance.Spec.WorkloadVertexType {
 	case v1alpha1.WorkloadVertexOperatorGroup:
 		reqLogger.Info("operatorGroup vertex")
 		csv := &olmv1alpha1.ClusterServiceVersion{}
@@ -252,7 +252,7 @@ func (s *MeterDefinitionLookupFilter) createFilters(
 
 		runtimeFilters = append(runtimeFilters, typeFilter)
 
-		if workload.LabelSelector == nil && workload.AnnotationSelector == nil && workload.Owner == nil {
+		if workload.LabelSelector == nil && workload.AnnotationSelector == nil && workload.OwnerCRD == nil {
 			return nil, errors.New("workload isn't specific enough. 1 of owner, annotationSelector or labelSelector is required.")
 		}
 
@@ -280,7 +280,7 @@ func (s *MeterDefinitionLookupFilter) createFilters(
 			})
 		}
 
-		if workload.Owner != nil {
+		if workload.OwnerCRD != nil {
 			runtimeFilters = append(runtimeFilters, &WorkloadFilterForOwner{
 				workload:  workload,
 				findOwner: s.findOwner,

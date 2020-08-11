@@ -4,8 +4,8 @@ metadata:
   name: example-meterdefinition-2
 spec:
   # Add fields here
-  group: partner.metering.com
-  kind: App
+  meterGroup: partner.metering.com
+  meterKind: App
   workloadVertexType: OperatorGroup
   workloads:
     - name: app-pods

@@ -75,11 +75,11 @@ func (a *createAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 		}
 	}
 
-	reqLogger.V(0).Info("Creating object", "object", a.newObject)
+	reqLogger.Info("Creating object", "object", a.newObject)
 	err := c.client.Create(ctx, a.newObject)
 	if err != nil {
 		c.log.Error(err, "Failed to create.", "obj", a.newObject)
-		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error with create")
+		return NewExecResult(Error, reconcile.Result{Requeue: true}, err), emperrors.Wrap(err, "error with create")
 	}
 
 	return NewExecResult(Requeue, reconcile.Result{Requeue: true}, nil), nil

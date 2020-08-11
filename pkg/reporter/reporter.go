@@ -18,15 +18,15 @@ import (
 	"github.com/prometheus/common/model"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
-	loggerf "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
 	additionalLabels = []model.LabelName{"pod", "namespace", "service"}
-	logger           = loggerf.NewLogger("reporter")
+	logger           = logf.Log.WithName("reporter")
 )
 
 // Goals of the reporter:
@@ -76,7 +76,7 @@ func NewMarketplaceReporter(
 
 var ErrNoMeterDefinitionsFound = errors.New("no meterDefinitions found")
 
-func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricKey]*MetricBase, error) {
+func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricKey]*MetricBase, []error, error) {
 	ctx, cancel := context.WithCancel(ctxIn)
 	defer cancel()
 
@@ -84,7 +84,7 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 	var resultsMapMutex sync.Mutex
 
 	if len(r.meterDefinitions) == 0 {
-		return resultsMap, errors.Wrap(ErrNoMeterDefinitionsFound, "no meterDefs found")
+		return resultsMap, []error{}, errors.Wrap(ErrNoMeterDefinitionsFound, "no meterDefs found")
 	}
 
 	meterDefsChan := make(chan *marketplacev1alpha1.MeterDefinition, len(r.meterDefinitions))
@@ -145,13 +145,7 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 		}
 	}()
 
-	if len(errorList) != 0 {
-		err := errors.Combine(errorList...)
-		logger.Error(err, "processing errored")
-		return nil, err
-	}
-
-	return resultsMap, nil
+	return resultsMap, errorList, nil
 }
 
 type meterDefPromModel struct {
@@ -183,7 +177,7 @@ func (r *MarketplaceReporter) query(
 						Name:      mdef.Name,
 						Namespace: mdef.Namespace,
 					},
-					Labels:        metric.Query,
+					Query:         metric.Query,
 					Time:          "60m",
 					Start:         startTime,
 					End:           endTime,
@@ -249,7 +243,7 @@ func (r *MarketplaceReporter) process(
 			matrixVals := m.(model.Matrix)
 
 			for _, matrix := range matrixVals {
-				logger.Debug("adding metric", "metric", matrix.Metric)
+				logger.Info("adding metric", "metric", matrix.Metric)
 
 				for _, pair := range matrix.Values {
 					func() {
@@ -273,7 +267,7 @@ func (r *MarketplaceReporter) process(
 							}
 						}
 
-						logger.Debug("adding pair", "metric", matrix.Metric, "pair", pair)
+						logger.Info("adding pair", "metric", matrix.Metric, "pair", pair)
 						metricPairs := []interface{}{name, pair.Value.String()}
 
 						err := base.AddAdditionalLabels(getKeysFromMetric(matrix.Metric, additionalLabels)...)
@@ -347,7 +341,7 @@ func (r *MarketplaceReporter) WriteReport(
 		metadata.UpdateMetricsReport(metricReport)
 
 		marshallBytes, err := json.Marshal(metricReport)
-		logger.Debug(string(marshallBytes))
+		logger.Info(string(marshallBytes))
 		if err != nil {
 			logger.Error(err, "failed to marshal metrics report", "report", metricReport)
 			return nil, err

@@ -1,11 +1,11 @@
 package common
 
 import (
-	"errors"
-
+	"emperror.dev/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
 // JobStatus represents the current job for the report and it's status.
@@ -30,8 +30,12 @@ type NamespacedNameReference struct {
 
 type GroupVersionKind struct {
 	// APIVersion of the CRD
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="text"
 	APIVersion string `json:"apiVersion"`
 	// Kind of the CRD
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="text"
 	Kind string `json:"kind"`
 }
 
@@ -39,13 +43,19 @@ func (g GroupVersionKind) String() string {
 	return g.APIVersion + "/" + g.Kind
 }
 
-func NewGroupVersionKind(t interface{}) (GroupVersionKind, error) {
+func NewGroupVersionKind(t interface{}, scheme *runtime.Scheme) (GroupVersionKind, error) {
 	v, ok := t.(runtime.Object)
 	if !ok {
 		return GroupVersionKind{}, errors.New("not a runtime object")
 	}
 
-	apiVersion, kind := v.GetObjectKind().GroupVersionKind().ToAPIVersionAndKind()
+	gvk, err := apiutil.GVKForObject(v, scheme)
+
+	if !ok {
+		return GroupVersionKind{}, errors.Wrap(err, "can't get gvk")
+	}
+
+	apiVersion, kind := gvk.ToAPIVersionAndKind()
 
 	return GroupVersionKind{
 		APIVersion: apiVersion,
