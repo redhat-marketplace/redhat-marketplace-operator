@@ -11,16 +11,20 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-
 type FindOwnerHelper struct {
 	client     dynamic.Interface
 	restMapper meta.RESTMapper
 }
 
-func NewFindOwnerHelper(
-	inClient dynamic.Interface,
-	restMapper meta.RESTMapper,
-) *FindOwnerHelper {
+func (f *FindOwnerHelper) GetClient() dynamic.Interface {
+	return f.client
+}
+
+func (f *FindOwnerHelper) GetRestMapper() meta.RESTMapper {
+	return f.restMapper
+}
+
+func NewFindOwnerHelper(inClient dynamic.Interface, restMapper meta.RESTMapper) *FindOwnerHelper {
 	return &FindOwnerHelper{
 		client:     inClient,
 		restMapper: restMapper,
