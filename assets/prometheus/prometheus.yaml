@@ -57,6 +57,8 @@ spec:
       volumeMounts:
         - mountPath: /etc/tls/private
           name: secret-rhm-prometheus-meterbase-tls
+        - mountPath: /etc/proxy/secrets
+          name: secret-rhm-prometheus-meterbase-proxy
         - mountPath: /etc/proxy/htpasswd
           name: secret-rhm-prometheus-meterbase-htpasswd
     - args:
@@ -108,6 +110,7 @@ spec:
   secrets:
     - kube-rbac-proxy
     - rhm-prometheus-meterbase-tls
+    - rhm-prometheus-meterbase-proxy
     - rhm-prometheus-meterbase-htpasswd
   configmaps:
     - serving-certs-ca-bundle

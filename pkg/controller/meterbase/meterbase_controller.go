@@ -805,6 +805,12 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 		manifests.CreateIfNotExistsFactoryItem(
 			&corev1.Secret{},
 			func() (runtime.Object, error) {
+				return factory.PrometheusRBACProxySecret()
+			},
+		),
+		manifests.CreateIfNotExistsFactoryItem(
+			&corev1.Secret{},
+			func() (runtime.Object, error) {
 				data, ok := dataSecret.Data["basicAuthSecret"]
 
 				if !ok {
@@ -828,6 +834,7 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 				},
 				args,
 			))),
+
 		manifests.CreateOrUpdateFactoryItemAction(
 			&corev1.Service{},
 			func() (runtime.Object, error) {
