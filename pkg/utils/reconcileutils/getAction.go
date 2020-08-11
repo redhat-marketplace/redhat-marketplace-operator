@@ -49,7 +49,7 @@ func (g *getAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, er
 	if isNil(g.Object) {
 		err := emperrors.New("object to get is nil")
 		reqLogger.Error(err, "updatedObject is nil")
-		return NewExecResult(Error, reconcile.Result{}, err), err
+		return NewExecResult(Error, reconcile.Result{Requeue: true}, err), err
 	}
 
 	reqLogger = reqLogger.WithValues("requestType", fmt.Sprintf("%T", g.Object), "key", g.NamespacedName)
@@ -62,7 +62,7 @@ func (g *getAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, er
 		}
 		if err != nil {
 			reqLogger.Error(err, "error getting")
-			return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error during get")
+			return NewExecResult(Error, reconcile.Result{Requeue: true}, err), emperrors.Wrap(err, "error during get")
 		}
 	}
 

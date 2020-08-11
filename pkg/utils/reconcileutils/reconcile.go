@@ -86,13 +86,13 @@ func (i *do) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 			return NewExecResult(Error, reconcile.Result{}, err), err
 		}
 
-		logger.V(2).Info("action returned result", "result", *result)
+		logger.Info("action returned result", "result", *result)
 		switch result.Status {
 		case Error:
-			logger.V(2).Info("returning error", "err", err)
+			logger.Info("returning error", "err", err)
 			return result, emperrors.Wrap(err, "error executing do")
 		case Requeue:
-			logger.V(2).Info("returning requeue")
+			logger.Info("returning requeue")
 			return result, nil
 		}
 	}

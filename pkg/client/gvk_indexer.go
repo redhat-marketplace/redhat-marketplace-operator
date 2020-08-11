@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -14,7 +13,6 @@ import (
 )
 
 const (
-	IndexMeterDefinitionGVK  = "meterdefinition.marketplace.redhat.com/gvk"
 	IndexMeterDefinitionPods = "meterdefinition.marketplace.redhat.com/pods"
 
 	IndexOwnerRefContains = ".metadata.ownerReferences"
@@ -74,14 +72,6 @@ func AddOperatorSourceIndex(fieldIndexer client.FieldIndexer) error {
 		&olmv1.OperatorGroup{},
 		IndexOperatorSourceProvidedAPIs,
 		indexOperatorSourceProvidedAPIs)
-}
-
-func AddMeterDefIndex(fieldIndexer client.FieldIndexer) error {
-	return fieldIndexer.IndexField(
-		context.Background(),
-		&marketplacev1alpha1.MeterDefinition{},
-		IndexMeterDefinitionGVK,
-		indexMeterDefinitionGVK)
 }
 
 func AddAnnotationIndex(fieldIndexer client.FieldIndexer, types []runtime.Object) error {
@@ -162,17 +152,6 @@ func getOwnersReferences(object metav1.Object, isController bool) []metav1.Owner
 	}
 	// No Controller OwnerReference found
 	return nil
-}
-
-func indexMeterDefinitionGVK(obj runtime.Object) []string {
-	meterDef, ok := obj.(*marketplacev1alpha1.MeterDefinition)
-
-	if !ok {
-		return []string{}
-	}
-
-	gvk := ObjRefToStr(meterDef.Spec.Group+"/"+meterDef.Spec.Version, meterDef.Spec.Kind)
-	return []string{gvk}
 }
 
 func indexOperatorSourceNamespaces(obj runtime.Object) []string {

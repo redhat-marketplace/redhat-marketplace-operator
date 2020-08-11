@@ -548,6 +548,21 @@ func (in *MeterDefinitionSpec) DeepCopyInto(out *MeterDefinitionSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.Version != nil {
+		in, out := &in.Version, &out.Version
+		*out = new(string)
+		**out = **in
+	}
+	if in.ServiceMeterLabels != nil {
+		in, out := &in.ServiceMeterLabels, &out.ServiceMeterLabels
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.PodMeterLabels != nil {
+		in, out := &in.PodMeterLabels, &out.PodMeterLabels
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

@@ -5,8 +5,8 @@ metadata:
   namespace: metering-example-operator
 spec:
   # Add fields here
-  group: partner.metering.com
-  kind: App
+  meterGroup: partner.metering.com
+  meterKind: App
 
   workloadVertexType: OperatorGroup
   workloads:
@@ -24,9 +24,5 @@ spec:
         apiVersion: partner.metering.com/v1alpha1
         kind: App
       metricLabels:
-        - label: container_spec_cpu_shares
+        - label: service_count
           aggregation: sum
-  serviceMeters:
-    - labels
-  podMeters:
-    - kube_pod_container_resource_requests

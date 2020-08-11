@@ -4,9 +4,8 @@ metadata:
   name: example-meterdefinition-3
 spec:
   # Add fields here
-  group: partner.metering.com
-  kind: App
-
+  meterGroup: partner.metering.com
+  meterKind: App
   workloadVertexType: OperatorGroup
   workloads:
     - name: app-pods
@@ -17,7 +16,3 @@ spec:
       metricLabels:
         - label: container_spec_cpu_shares
           aggregation: sum
-  serviceMeters:
-    - labels
-  podMeters:
-    - kube_pod_container_resource_requests

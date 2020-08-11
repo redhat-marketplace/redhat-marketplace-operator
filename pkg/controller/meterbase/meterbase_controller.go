@@ -222,6 +222,7 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 			RunFinalizer(instance, utils.CONTROLLER_FINALIZER,
 				Do(r.uninstallPrometheusOperator(instance, factory)...),
 				Do(r.uninstallPrometheus(instance, factory)...),
+				Do(r.uninstallMetricState(instance, factory)...),
 			)),
 	); !result.Is(Continue) {
 
@@ -254,17 +255,18 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 
 	cfg := &corev1.Secret{}
 	prometheus := &monitoringv1.Prometheus{}
-	if result, err := cc.Do(context.TODO(),
+	if result, _ := cc.Do(context.TODO(),
 		Do(r.reconcilePrometheusOperator(instance, factory)...),
 		Do(r.installMetricStateDeployment(instance, factory)...),
 		Do(r.reconcileAdditionalConfigSecret(cc, instance, prometheus, factory, cfg)...),
 		Do(r.reconcilePrometheus(instance, prometheus, factory, cfg)...),
 	); !result.Is(Continue) {
-		if err != nil {
-			reqLogger.Error(err, "error in reconcile")
-			return result.ReturnWithError(merrors.Wrap(err, "error creating prometheus"))
+		if result.Is(Error) {
+			reqLogger.Error(result, "error in reconcile")
+			return result.ReturnWithError(merrors.Wrap(result, "error creating prometheus"))
 		}
 
+		reqLogger.Info("returing result", "result", *result)
 		return result.Return()
 	}
 
@@ -803,12 +805,13 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 		manifests.CreateIfNotExistsFactoryItem(
 			&corev1.Secret{},
 			func() (runtime.Object, error) {
-				return factory.PrometheusHtpasswdSecret(string(dataSecret.Data["basicAuthSecret"]))
-			}),
-		manifests.CreateIfNotExistsFactoryItem(
-			&corev1.Secret{},
-			func() (runtime.Object, error) {
-				return factory.PrometheusRBACProxySecret()
+				data, ok := dataSecret.Data["basicAuthSecret"]
+
+				if !ok {
+					return nil, merrors.New("basicAuthSecret not on data")
+				}
+
+				return factory.PrometheusHtpasswdSecret(string(data))
 			}),
 		HandleResult(
 			GetAction(
@@ -894,6 +897,27 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 	}
 }
 
+func (r *ReconcileMeterBase) uninstallMetricState(
+	instance *marketplacev1alpha1.MeterBase,
+	factory *manifests.Factory,
+) []ClientAction {
+	deployment, _ := factory.MetricStateDeployment()
+	service2, _ := factory.MetricStateService()
+	sm, _ := factory.MetricStateServiceMonitor()
+
+	return []ClientAction{
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: sm.Namespace, Name: sm.Name}, sm),
+			OnContinue(DeleteAction(sm))),
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: service2.Namespace, Name: service2.Name}, deployment),
+			OnContinue(DeleteAction(service2))),
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}, deployment),
+			OnContinue(DeleteAction(deployment))),
+	}
+}
+
 func (r *ReconcileMeterBase) uninstallPrometheus(
 	instance *marketplacev1alpha1.MeterBase,
 	factory *manifests.Factory,
@@ -907,6 +931,8 @@ func (r *ReconcileMeterBase) uninstallPrometheus(
 	prom, _ := r.newPrometheusOperator(instance, factory, nil)
 	service, _ := factory.PrometheusService(instance.Name)
 	deployment, _ := factory.MetricStateDeployment()
+	service2, _ := factory.MetricStateService()
+	sm, _ := factory.MetricStateServiceMonitor()
 
 	actions := []ClientAction{
 		HandleResult(
@@ -924,14 +950,20 @@ func (r *ReconcileMeterBase) uninstallPrometheus(
 
 	return append(actions,
 		HandleResult(
+			GetAction(types.NamespacedName{Namespace: sm.Namespace, Name: sm.Name}, sm),
+			OnContinue(DeleteAction(sm))),
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: service2.Namespace, Name: service2.Name}, deployment),
+			OnContinue(DeleteAction(service2))),
+		HandleResult(
 			GetAction(types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service),
 			OnContinue(DeleteAction(service))),
 		HandleResult(
-			GetAction(types.NamespacedName{Namespace: prom.Namespace, Name: prom.Name}, prom),
-			OnContinue(DeleteAction(prom))),
-		HandleResult(
 			GetAction(types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}, deployment),
 			OnContinue(DeleteAction(deployment))),
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: prom.Namespace, Name: prom.Name}, prom),
+			OnContinue(DeleteAction(prom))),
 	)
 }
 

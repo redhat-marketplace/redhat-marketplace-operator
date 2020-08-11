@@ -27,21 +27,15 @@ import (
 // MeterDefinitionSpec defines the desired metering spec
 // +k8s:openapi-gen=true
 type MeterDefinitionSpec struct {
+
 	// Group defines the primary CRD domain of the meter
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:text"
-	Group string `json:"group"`
-
-	// Version defines the primary CRD version of the meter, ths
-	// is optional.
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// +optional
-	Version string `json:"meterVersion,omitempty"`
+	Group string `json:"meterGroup"`
 
 	// Kind defines the primary CRD kind of the meter
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:text"
-	Kind string `json:"kind"`
+	Kind string `json:"meterKind"`
 
 	// InstalledBy is a reference to the CSV that install the meter
 	// definition. This is used to determine an operator group.
@@ -64,21 +58,31 @@ type MeterDefinitionSpec struct {
 	// +optional
 	VertexLabelSelector *metav1.LabelSelector `json:"workloadVertexLabelSelectors,omitempty"`
 
-	    // ServiceMeterLabels DEPRECATED: name of the meterics you want to track.
+	// Workloads identify the workloads to meter.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +kubebuilder:validation:MinItems=1
+	Workloads []Workload `json:"workloads,omitempty"`
+
+	// TODO: remove gracefully at some point
+	// Version DEPRECATED: defines the primary CRD version of the meter.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +optional
+	Version *string `json:"meterVersion,omitempty"`
+
+	// TODO: remove gracefully at some point
+	// ServiceMeterLabels DEPRECATED: name of the meterics you want to track.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +optional
 	ServiceMeterLabels []string `json:"serviceMeterLabels,omitempty"`
+
+	// TODO: remove gracefully at some point
 	// PodMeterLabels DEPRECATED: name of the prometheus metrics you want to track.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +optional
 	PodMeterLabels []string `json:"podMeterLabels,omitempty"`
-
-	// Workloads identify the workloads to meter.
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +kubebuilder:validation:MinItems=1
-	Workloads []Workload `json:"workloads,omitempty"`
 }
 
 const (

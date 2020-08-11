@@ -89,13 +89,8 @@ func getClientOptions() managers.ClientOptions {
 func addIndex(
 	ctx context.Context,
 	cache cache.Cache) (managers.CacheIsIndexed, error) {
-	err := rhmclient.AddMeterDefIndex(cache)
-	if err != nil {
-		log.Error(err, "")
-		return managers.CacheIsIndexed{}, err
-	}
 
-	err = rhmclient.AddOperatorSourceIndex(cache)
+	err := rhmclient.AddOperatorSourceIndex(cache)
 	if err != nil {
 		log.Error(err, "")
 		return managers.CacheIsIndexed{}, err

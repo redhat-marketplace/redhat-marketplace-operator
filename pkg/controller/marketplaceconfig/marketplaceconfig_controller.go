@@ -362,7 +362,13 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 		reqLogger.Info("found meterbase")
 	} else {
-		// delete
+		cc.Do(
+			context.TODO(),
+			HandleResult(
+				GetAction(
+					types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: marketplaceConfig.Namespace}, foundMeterBase),
+				OnContinue(DeleteAction(foundMeterBase))),
+		)
 	}
 
 	// Check if operator source exists, or create a new one
