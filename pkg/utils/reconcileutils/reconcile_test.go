@@ -88,7 +88,7 @@ var _ = Describe("ReconcileUtils", func() {
 		AssertResultsAreStatus(Requeue)(result, err)
 	})
 
-	It("should create and handle error", func() {
+	PIt("should create and handle error", func() {
 		conditions := status.NewConditions(sut.condition)
 		sut.meterbase.Status.Conditions = &conditions
 
@@ -109,7 +109,7 @@ var _ = Describe("ReconcileUtils", func() {
 		Expect(cond.Message).To(Equal(sut.testErr.Error()))
 	})
 
-	It("should get and update", func() {
+	PIt("should get and update", func() {
 		conditions := status.NewConditions(sut.condition)
 		sut.meterbase.Status.Conditions = &conditions
 
