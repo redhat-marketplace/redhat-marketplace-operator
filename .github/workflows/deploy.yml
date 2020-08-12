@@ -117,6 +117,7 @@ jobs:
             key: quayUser
             value: quayPassword
     env:
+      IMAGE_REGISTRY: ${{ matrix.registry }}
       OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
       TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag}}
     steps:
@@ -143,9 +144,15 @@ jobs:
           skopeo inspect docker://${TAG} --creds ${{ secrets[matrix.key] }}:${{ secrets[matrix.value] }} > /dev/null
           [[ $? == 0 ]] && echo ::set-env name=exists::true || echo ::set-env name=exists::false
 
-      - name: Build
-        if: env.exists != 'true'
-        run: make build
+
+      - name: Install skaffold
+        run: |
+          cd /tmp
+          curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/${SKAFFOLD_VERSION}/skaffold-linux-amd64 && \
+          sudo install skaffold /usr/local/bin/
+          echo "::add-path::/usr/local/bin"
+        env:
+          SKAFFOLD_VERSION: v1.13.1
 
       - name: Login ${{ matrix.name }}
         run: make docker-login
@@ -154,9 +161,9 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets[matrix.value] }}
           REGISTRY: ${{ matrix.registry }}
 
-      - name: Deploy ${{ matrix.name }}
-        if: env.exists != 'true' && env.pushImage == 'true'
-        run: make push
+      - name: Build
+        if: env.exists != 'true'
+        run: make build
 
   opm:
     name: Deploy OPM Index
@@ -173,6 +180,7 @@ jobs:
             key: quayUser
             value: quayPassword
     env:
+      IMAGE_REGISTRY: ${{ matrix.registry }}
       OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
       OLM_REPO: ${{ matrix.registry }}/operator-manifest
       OLM_BUNDLE_REPO: ${{ matrix.registry }}/operator-manifest-bundle
@@ -195,6 +203,7 @@ jobs:
 
       - name: Install operator-sdk
         run: |
+          make install-tools
           cd /tmp
           curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
           chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu && sudo mkdir -p /usr/local/bin/ && sudo cp operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk && rm operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
@@ -305,6 +314,7 @@ jobs:
 
       - name: Install operator-sdk
         run: |
+          make install-tools
           cd /tmp
           curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
           chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu && sudo mkdir -p /usr/local/bin/ && sudo cp operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk && rm operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu

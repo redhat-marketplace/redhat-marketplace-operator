@@ -19,32 +19,34 @@ import (
 	"reflect"
 	"testing"
 
-	utils "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	"github.com/gotidy/ptr"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 
+	. "github.com/onsi/ginkgo"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	utils "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
-func TestClusterServiceVersionController(t *testing.T) {
+var _ = Describe("Testing with Ginkgo", func() {
+	It("cluster service version controller", func() {
 
-	logf.SetLogger(logf.ZapLogger(true))
-	_ = olmv1alpha1.AddToScheme(scheme.Scheme)
-
-	t.Run("Test New Cluster Service Version with installed CSV", testClusterServiceVersionWithInstalledCSV)
-	t.Run("Test New Cluster Service Version without installed CSV", testClusterServiceVersionWithoutInstalledCSV)
-	t.Run("Test New Cluster Service Version with Sub without labels", testClusterServiceVersionWithSubscriptionWithoutLabels)
-}
+		_ = olmv1alpha1.AddToScheme(scheme.Scheme)
+		testClusterServiceVersionWithInstalledCSV(GinkgoT())
+		testClusterServiceVersionWithoutInstalledCSV(GinkgoT())
+		testClusterServiceVersionWithSubscriptionWithoutLabels(GinkgoT())
+	})
+})
 
 var (
 	csvName   = "new-clusterserviceversion"
@@ -110,7 +112,7 @@ func setup(r *ReconcilerTest) error {
 	return nil
 }
 
-func testClusterServiceVersionWithInstalledCSV(t *testing.T) {
+func testClusterServiceVersionWithInstalledCSV(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, clusterserviceversion, subscription)
 	reconcilerTest.TestAll(t,
@@ -133,7 +135,7 @@ func testClusterServiceVersionWithInstalledCSV(t *testing.T) {
 	)
 }
 
-func testClusterServiceVersionWithoutInstalledCSV(t *testing.T) {
+func testClusterServiceVersionWithoutInstalledCSV(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, clusterserviceversion, subscriptionDifferentCSV)
 	reconcilerTest.TestAll(t,
@@ -156,7 +158,7 @@ func testClusterServiceVersionWithoutInstalledCSV(t *testing.T) {
 	)
 }
 
-func testClusterServiceVersionWithSubscriptionWithoutLabels(t *testing.T) {
+func testClusterServiceVersionWithSubscriptionWithoutLabels(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, clusterserviceversion, subscriptionWithoutLabels)
 	reconcilerTest.TestAll(t,
@@ -185,8 +187,6 @@ func TestBuildMeterDefinitionFromString(t *testing.T) {
 	group := "partner.metering.com"
 	version := "v1alpha"
 	kind := "App"
-	serviceMeters := []string{"labels"}
-	podMeters := []string{"kube_pod_container_resource_requests"}
 	var ann = map[string]string{
 		utils.CSV_ANNOTATION_NAME:      csvName,
 		utils.CSV_ANNOTATION_NAMESPACE: namespace,
@@ -199,16 +199,14 @@ func TestBuildMeterDefinitionFromString(t *testing.T) {
 			Annotations: ann,
 		},
 		Spec: marketplacev1alpha1.MeterDefinitionSpec{
-			Group:         group,
-			Version:       version,
-			Kind:          kind,
-			ServiceMeters: serviceMeters,
-			PodMeters:     podMeters,
+			Group:   group,
+			Version: ptr.String(version),
+			Kind:    kind,
 		},
 	}
 
-	meterStr := "{\"metadata\":{\"name\":\"" + name + "\",\"namespace\":\"" + namespace + "\",\"creationTimestamp\":null},\"spec\":{\"group\":\"" + group + "\",\"version\":\"" + version + "\",\"kind\":\"" + kind + "\",\"serviceMeters\":[\"labels\"],\"podMeters\":[\"kube_pod_container_resource_requests\"]},\"status\":{\"serviceLabels\":null,\"podLabels\":null,\"serviceMonitors\":null,\"pods\":null}}"
-	_, err := meter.BuildMeterDefinitionFromString(meterStr, csvName, namespace, utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
+	meterStr, _ := json.Marshal(ogMeter)
+	_, err := meter.BuildMeterDefinitionFromString(string(meterStr), csvName, namespace, utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
 	if err != nil {
 		t.Errorf("Failed to build MeterDefinition CR: %v", err)
 	} else {

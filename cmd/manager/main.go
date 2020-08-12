@@ -34,6 +34,7 @@ var (
 	metricsPort int32 = 8383
 )
 
+
 func provideOptions(kscheme *runtime.Scheme) (*manager.Options, error) {
 	watchNamespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {

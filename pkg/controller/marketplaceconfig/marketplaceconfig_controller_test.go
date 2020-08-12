@@ -15,16 +15,15 @@
 package marketplaceconfig
 
 import (
-	"testing"
-
+	"github.com/gotidy/ptr"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 
+	. "github.com/onsi/ginkgo"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	opsrcApi "github.com/operator-framework/operator-marketplace/pkg/apis"
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/types"
@@ -33,17 +32,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func TestMarketplaceConfigController(t *testing.T) {
-	// Set the logger to development mode for verbose logs.
-	logger.SetLoggerToDevelopmentZap()
+var _ = Describe("Testing with Ginkgo", func() {
+	It("marketplace config controller", func() {
 
-	defaultFeatures := []string{"razee", "meterbase"}
-	viper.Set("assets", "../../../assets")
-	viper.Set("features", defaultFeatures)
-	viper.Set("IBMCatalogSource", true)
+		defaultFeatures := []string{"razee", "meterbase"}
+		viper.Set("assets", "../../../assets")
+		viper.Set("features", defaultFeatures)
+		viper.Set("IBMCatalogSource", true)
+		testCleanInstall(GinkgoT())
+	})
 
-	t.Run("Test Clean Install", testCleanInstall)
-}
+})
 
 var (
 	name                 = utils.MARKETPLACECONFIG_NAME
@@ -67,6 +66,7 @@ var (
 )
 
 func setup(r *ReconcilerTest) error {
+
 	s := scheme.Scheme
 	_ = opsrcApi.AddToScheme(s)
 	_ = operatorsv1alpha1.AddToScheme(s)
@@ -83,8 +83,9 @@ func setup(r *ReconcilerTest) error {
 	return nil
 }
 
-func testCleanInstall(t *testing.T) {
+func testCleanInstall(t GinkgoTInterface) {
 	t.Parallel()
+	marketplaceconfig.Spec.EnableMetering = ptr.Bool(true)
 	reconcilerTest := NewReconcilerTest(setup, marketplaceconfig)
 	reconcilerTest.TestAll(t,
 		ReconcileStep(opts, ReconcileWithExpectedResults(
@@ -111,13 +112,4 @@ func testCleanInstall(t *testing.T) {
 			GetWithObj(&operatorsv1alpha1.CatalogSource{}),
 		),
 	)
-}
-
-// Test whether flags have been set or notkk
-func TestMarketplaceConfigControllerFlags(t *testing.T) {
-	flagset := FlagSet()
-
-	if !flagset.HasFlags() {
-		t.Errorf("no flags on flagset")
-	}
 }

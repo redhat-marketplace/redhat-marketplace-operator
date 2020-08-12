@@ -15,13 +15,12 @@
 package razeedeployment
 
 import (
-	"testing"
 	"time"
 
 	"github.com/gotidy/ptr"
+	. "github.com/onsi/ginkgo"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -39,21 +38,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// TestMeterBaseController runs ReconcileMemcached.Reconcile() against a
-// fake client that tracks a MeterBase object.
-func TestRazeeDeployController(t *testing.T) {
-	// Set the logger to development mode for verbose logs.
-	logger.SetLoggerToDevelopmentZap()
+var _ = Describe("Testing with Ginkgo", func() {
+	It("razee deploy controller", func() {
 
-	viper.Set("assets", "../../../assets")
-	scheme.Scheme.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment.DeepCopy(), &marketplacev1alpha1.RazeeDeploymentList{}, &marketplacev1alpha1.RemoteResourceS3{}, &marketplacev1alpha1.RemoteResourceS3List{})
-
-	t.Run("Test Clean Install", testCleanInstall)
-	t.Run("Test No Secret", testNoSecret)
-	t.Run("Test Bad Name", testBadName)
-	t.Run("Test Full Uninstall", testFullUninstall)
-	t.Run("Test Legacy Uninstall", testLegacyUninstall)
-}
+		// TestMeterBaseController runs ReconcileMemcached.Reconcile() against a
+		// fake client that tracks a MeterBase object.
+		viper.Set("assets", "../../../assets")
+		scheme.Scheme.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment.DeepCopy(), &marketplacev1alpha1.RazeeDeploymentList{}, &marketplacev1alpha1.RemoteResourceS3{}, &marketplacev1alpha1.RemoteResourceS3List{})
+		testCleanInstall(GinkgoT())
+		testNoSecret(GinkgoT())
+		testBadName(GinkgoT())
+		testFullUninstall(GinkgoT())
+		testLegacyUninstall(GinkgoT())
+	})
+})
 
 func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
@@ -237,7 +235,7 @@ var (
 	}
 )
 
-func testFullUninstall(t *testing.T) {
+func testFullUninstall(t GinkgoTInterface) {
 	t.Parallel()
 
 	reconcilerTest := NewReconcilerTest(setup,
@@ -296,7 +294,7 @@ func testFullUninstall(t *testing.T) {
 	)
 }
 
-func testLegacyUninstall(t *testing.T) {
+func testLegacyUninstall(t GinkgoTInterface) {
 	t.Parallel()
 
 	reconcilerTest := NewReconcilerTest(setup,
@@ -360,7 +358,7 @@ func testLegacyUninstall(t *testing.T) {
 	)
 }
 
-func testCleanInstall(t *testing.T) {
+func testCleanInstall(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup,
 		&razeeDeployment,
@@ -440,7 +438,7 @@ var (
 	}
 )
 
-func testNoSecret(t *testing.T) {
+func testNoSecret(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, &razeeDeployment, &namespObj)
 	reconcilerTest.TestAll(t,
@@ -453,7 +451,7 @@ func testNoSecret(t *testing.T) {
 		))
 }
 
-func testBadName(t *testing.T) {
+func testBadName(t GinkgoTInterface) {
 	t.Parallel()
 	razeeDeploymentLocalDeployment := razeeDeployment.DeepCopy()
 	razeeDeploymentLocalDeployment.Name = "foo"

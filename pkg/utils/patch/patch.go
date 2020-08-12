@@ -37,8 +37,7 @@ type Patcher struct {
 
 var RHMDefaultPatcher = NewPatcher(
 	"marketplace.redhat.com/last-applied",
-	patch.IgnoreStatusFields(),
-	patch.IgnoreVolumeClaimTemplateTypeMetaAndStatus())
+	patch.IgnoreStatusFields())
 
 func NewPatcher(
 	annotation string,

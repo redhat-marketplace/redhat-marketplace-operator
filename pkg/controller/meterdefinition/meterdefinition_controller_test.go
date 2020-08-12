@@ -15,11 +15,10 @@
 package meterdefinition
 
 import (
-	"testing"
-
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	. "github.com/onsi/ginkgo"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 	"github.com/spf13/viper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,12 +28,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func TestMeterDefinitionController(t *testing.T) {
-	logger.SetLoggerToDevelopmentZap()
-	viper.Set("assets", "../../../assets")
+var _ = Describe("Testing with Ginkgo", func() {
+	It("meter definition controller", func() {
 
-	t.Run("Test No Service Monitors", testNoServiceMonitors)
-}
+		viper.Set("assets", "../../../assets")
+		testNoServiceMonitors(GinkgoT())
+	})
+})
 
 var (
 	name      = "meterdefinition"
@@ -57,13 +57,6 @@ var (
 		Spec: marketplacev1alpha1.MeterDefinitionSpec{
 			Group:   "apps.partner.metering.com",
 			Kind:    "App",
-			Version: "v1",
-			ServiceMeters: []string{
-				"rpc_duration_seconds.*",
-			},
-			PodMeters: []string{
-				"foo",
-			},
 		},
 	}
 )
@@ -74,11 +67,11 @@ func setup(r *ReconcilerTest) error {
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterdefinition)
 
 	r.Client = fake.NewFakeClient(r.GetGetObjects()...)
-	r.Reconciler = &ReconcileMeterDefinition{client: r.Client, scheme: s}
+	r.Reconciler = &ReconcileMeterDefinition{client: r.Client, scheme: s, ccprovider: &reconcileutils.DefaultCommandRunnerProvider{}}
 	return nil
 }
 
-func testNoServiceMonitors(t *testing.T) {
+func testNoServiceMonitors(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, meterdefinition)
 	reconcilerTest.TestAll(t,

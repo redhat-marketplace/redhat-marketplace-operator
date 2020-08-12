@@ -68,6 +68,7 @@ func (b *BaseAction) GetLastResult() *ExecResult {
 type ClientActionBranch struct {
 	Status ActionResultStatus
 	Action ClientAction
+	Any    bool
 }
 
 type ClientCommandRunnerProvider interface {

@@ -25,8 +25,6 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           command:
             - redhat-marketplace-operator
-          args:
-            - "--features=\"razee\""
           env:
             - name: OPERATOR_NAME
               value: {{ .Values.name }}

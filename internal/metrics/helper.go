@@ -1,16 +1,43 @@
 package metrics
 
 import (
+	"context"
+	"strings"
+
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/meter_definition"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/types"
 	kbsm "k8s.io/kube-state-metrics/pkg/metric"
 )
 
 var log = logger.NewLogger("meterics")
 
+type FamilyGenerator struct {
+	GenerateMeterFunc func(interface{}, []*marketplacev1alpha1.MeterDefinition) *kbsm.Family
+	kbsm.FamilyGenerator
+}
+
+func (g *FamilyGenerator) generateHeader() string {
+	header := strings.Builder{}
+	header.WriteString("# HELP ")
+	header.WriteString(g.Name)
+	header.WriteByte(' ')
+	header.WriteString(g.Help)
+	header.WriteByte('\n')
+	header.WriteString("# TYPE ")
+	header.WriteString(g.Name)
+	header.WriteByte(' ')
+	header.WriteString(string(g.Type))
+
+	return header.String()
+}
+
 func GetMeterDefLabelsKeys(mdef *marketplacev1alpha1.MeterDefinition) ([]string, []string) {
-	return []string{"meter_def_name", "meter_def_namespace", "meter_def_domain", "meter_def_kind", "meter_def_version"},
-		[]string{mdef.Name, mdef.Namespace, mdef.Spec.Group, mdef.Spec.Kind, mdef.Spec.Version}
+	return []string{"meter_def_name", "meter_def_namespace", "meter_def_domain", "meter_def_kind"},
+		[]string{mdef.Name, mdef.Namespace, mdef.Spec.Group, mdef.Spec.Kind}
 }
 
 func GetAllMeterLabelsKeys(mdefs []*marketplacev1alpha1.MeterDefinition) ([]string, []string) {
@@ -40,4 +67,61 @@ func MapMeterDefinitions(metrics []*kbsm.Metric, mdefs []*marketplacev1alpha1.Me
 	}
 
 	return newMeters
+}
+
+type MeterDefFetcher struct {
+	cc                   reconcileutils.ClientCommandRunner
+	meterDefinitionStore *meter_definition.MeterDefinitionStore
+}
+
+func (p *MeterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplacev1alpha1.MeterDefinition, error) {
+	results := []*marketplacev1alpha1.MeterDefinition{}
+	metaobj, err := meta.Accessor(obj)
+
+	if err != nil {
+		return results, err
+	}
+
+	return p.getMeterDefs(metaobj.GetUID())
+}
+
+func (p *MeterDefFetcher) getMeterDefs(
+	uid types.UID,
+) ([]*marketplacev1alpha1.MeterDefinition, error) {
+	results := []*marketplacev1alpha1.MeterDefinition{}
+	refs := p.meterDefinitionStore.GetMeterDefinitionRefs(uid)
+
+	for _, ref := range refs {
+		meterDefinition := &marketplacev1alpha1.MeterDefinition{}
+		err := p.getMeterDef(ref.MeterDef, meterDefinition)
+
+		if err != nil {
+			return results, err
+		}
+
+		results = append(results, meterDefinition)
+	}
+
+	return results, nil
+
+}
+
+func (p *MeterDefFetcher) getMeterDef(
+	name types.NamespacedName,
+	mdef *marketplacev1alpha1.MeterDefinition,
+) error {
+	result, _ := p.cc.Do(
+		context.TODO(),
+		reconcileutils.GetAction(name, mdef),
+	)
+
+	if !result.Is(reconcileutils.Continue) {
+		if result.Is(reconcileutils.Error) {
+			log.Error(result, "failed to get owner")
+			return result
+		}
+		return result
+	}
+
+	return nil
 }

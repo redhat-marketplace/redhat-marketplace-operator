@@ -127,3 +127,7 @@ deploy/role_binding.yaml
 deploy/service_account.yaml
 
 modd.conf
+
+tmp/
+scripts/vendor/
+testbin/

@@ -1,15 +1,9 @@
 package metrics
 
 import (
-	"context"
-
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/client"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kbsm "k8s.io/kube-state-metrics/pkg/metric"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -57,45 +51,4 @@ func wrapServiceFunc(f func(*v1.Service, []*marketplacev1alpha1.MeterDefinition)
 
 		return metricFamily
 	}
-}
-
-type ServiceMeterDefFetcher struct {
-	cc ClientCommandRunner
-}
-
-func (s *ServiceMeterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplacev1alpha1.MeterDefinition, error) {
-	results := []*marketplacev1alpha1.MeterDefinition{}
-	service, ok := obj.(*v1.Service)
-
-	if !ok {
-		return results, nil
-	}
-
-	owner := metav1.GetControllerOf(service)
-
-	if owner == nil {
-		return results, nil
-	}
-
-	ownerGVK := rhmclient.ObjRefToStr(owner.APIVersion, owner.Kind)
-
-	meterDefinitions := &marketplacev1alpha1.MeterDefinitionList{}
-	result, _ := s.cc.Do(
-		context.TODO(),
-		ListAction(meterDefinitions, client.MatchingField(rhmclient.MeterDefinitionGVK, ownerGVK)),
-	)
-
-	if !result.Is(Continue) {
-		if result.Is(Error) {
-			log.Error(result, "failed to get owner")
-			return results, result
-		}
-		return results, nil
-	}
-
-	for i := 0; i < len(meterDefinitions.Items); i++ {
-		results = append(results, &meterDefinitions.Items[i])
-	}
-
-	return results, nil
 }

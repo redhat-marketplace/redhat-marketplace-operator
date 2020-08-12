@@ -21,12 +21,14 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/google/wire"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"k8s.io/apimachinery/pkg/api/meta"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -69,6 +71,7 @@ var (
 		ProvideManager,
 		ProvideScheme,
 		ProvideManagerClient,
+		dynamic.NewForConfig,
 		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
 	)
 	// ProvideCacheClientSet is to be used by
@@ -77,9 +80,11 @@ var (
 		config.GetConfig,
 		kubernetes.NewForConfig,
 		ProvideClient,
+		ProvideNewCache,
+		StartCache,
 		ProvideScheme,
 		NewDynamicRESTMapper,
-		ProvideNewCache,
+		dynamic.NewForConfig,
 		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
 	)
 )
@@ -273,19 +278,20 @@ type ClientOptions struct {
 	Namespace    string
 }
 
-func ProvideNewCache(
-	c *rest.Config,
-	mapper meta.RESTMapper,
-	scheme *k8sruntime.Scheme,
-	options ClientOptions,
-) (cache.Cache, error) {
-	return cache.New(c,
-		cache.Options{
-			Scheme:    scheme,
-			Mapper:    mapper,
-			Resync:    options.SyncPeriod,
-			Namespace: options.Namespace,
-		})
+type CacheIsStarted struct{}
+type CacheIsIndexed struct{}
+
+func StartCache(
+	ctx context.Context,
+	cache cache.Cache,
+	log logr.Logger,
+	isIndexed CacheIsIndexed,
+) CacheIsStarted {
+	go func() {
+		err := cache.Start(ctx.Done())
+		log.Error(err, "error starting cache")
+	}()
+	return CacheIsStarted{}
 }
 
 func ProvideClient(
@@ -305,6 +311,21 @@ func ProvideClient(
 	}
 
 	return writeObj, nil
+}
+
+func ProvideNewCache(
+	c *rest.Config,
+	mapper meta.RESTMapper,
+	scheme *k8sruntime.Scheme,
+	options ClientOptions,
+) (cache.Cache, error) {
+	return cache.New(c,
+		cache.Options{
+			Scheme:    scheme,
+			Mapper:    mapper,
+			Resync:    options.SyncPeriod,
+			Namespace: options.Namespace,
+		})
 }
 
 func ProvideScheme(

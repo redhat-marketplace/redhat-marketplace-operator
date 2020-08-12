@@ -17,6 +17,9 @@ type Config struct {
 	MetricsPerFile  *int
 	MaxRoutines     *int
 	Retry           *int
+	CaFile          string
+	TokenFile       string
+	Local           bool
 }
 
 const (

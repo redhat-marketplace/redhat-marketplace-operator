@@ -1,0 +1,18 @@
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: MeterDefinition
+metadata:
+  name: example-meterdefinition-3
+spec:
+  # Add fields here
+  meterGroup: partner.metering.com
+  meterKind: App
+  workloadVertexType: OperatorGroup
+  workloads:
+    - name: app-pods
+      type: Pod
+      labelSelector:
+        matchLabels:
+          marketplace.redhat.com/product.id: abas342341321-12341451
+      metricLabels:
+        - label: container_spec_cpu_shares
+          aggregation: sum

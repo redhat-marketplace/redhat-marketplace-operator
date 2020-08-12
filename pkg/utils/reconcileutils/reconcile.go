@@ -86,13 +86,13 @@ func (i *do) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 			return NewExecResult(Error, reconcile.Result{}, err), err
 		}
 
-		logger.V(2).Info("action returned result", "result", *result)
+		logger.Info("action returned result", "result", *result)
 		switch result.Status {
 		case Error:
-			logger.V(2).Info("returning error", "err", err)
+			logger.Info("returning error", "err", err)
 			return result, emperrors.Wrap(err, "error executing do")
 		case Requeue:
-			logger.V(2).Info("returning requeue")
+			logger.Info("returning requeue")
 			return result, nil
 		}
 	}
@@ -165,6 +165,20 @@ func RequeueAfterResponse(d time.Duration) *ReturnResponse {
 	}
 }
 
+func ReturnWithError(err error) *ReturnResponse {
+	return &ReturnResponse{
+		BaseAction: NewBaseAction("errorReponse"),
+		ExecResult: NewExecResult(Error, reconcile.Result{}, err),
+	}
+}
+
+func ContinueResponse() *ReturnResponse {
+	return &ReturnResponse{
+		BaseAction: NewBaseAction("continueReponse"),
+		ExecResult: NewExecResult(Continue, reconcile.Result{}, nil),
+	}
+}
+
 type handleResult struct {
 	BaseAction
 	Action   ClientAction
@@ -215,6 +229,13 @@ func OnContinue(action ClientAction) ClientActionBranch {
 	}
 }
 
+func OnAny(action ClientAction) ClientActionBranch {
+	return ClientActionBranch{
+		Any:    true,
+		Action: action,
+	}
+}
+
 func (r *handleResult) Bind(result *ExecResult) {
 	r.lastResult = result
 }
@@ -228,25 +249,15 @@ func (r *handleResult) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 		if myVar.Is(branch.Status) {
 			logger.V(2).Info("branch matched", "status", branch.Status)
 
-			if branch.Action == nil {
+			if branch.Action == nil || branch.Any {
 				return myVar, err
 			}
 
 			var2, err := branch.Action.Exec(ctx, c)
 
-			if myVar.Is(Error) {
-				logger.V(2).Info("returning original error")
-				return myVar, myVar.Err
-			}
-
 			if err != nil {
 				logger.Error(err, "error occurred on branch")
 				return var2, err
-			}
-
-			if myVar.Is(Requeue) {
-				logger.V(2).Info("returning original requeue")
-				return myVar, nil
 			}
 
 			return var2, err

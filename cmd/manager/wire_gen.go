@@ -40,7 +40,8 @@ func InitializeMarketplaceController() (*managers.ControllerMain, error) {
 	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
 	olmV1SchemeDefinition := controller.ProvideOLMV1Scheme()
 	olmV1Alpha1SchemeDefinition := controller.ProvideOLMV1Alpha1Scheme()
-	localSchemes := controller.ProvideLocalSchemes(opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition)
+	openshiftConfigV1SchemeDefinition := controller.ProvideOpenshiftConfigV1Scheme()
+	localSchemes := controller.ProvideLocalSchemes(opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition, openshiftConfigV1SchemeDefinition)
 	scheme, err := managers.ProvideScheme(restConfig, localSchemes)
 	if err != nil {
 		return nil, err

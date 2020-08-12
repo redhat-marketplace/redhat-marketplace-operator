@@ -28,7 +28,7 @@ const (
 	COS_READER_KEY_NAME                    = "rhm-cos-reader-key"
 	RAZEE_UNINSTALL_NAME                   = "razee-uninstall-job"
 	RHM_OPERATOR_SECRET_NAME               = "rhm-operator-secret"
-	MARKETPLACECONFIG_NAME                 = "rhm-marketplaceconfig"
+	MARKETPLACECONFIG_NAME                 = "marketplaceconfig"
 	METERBASE_NAME                         = "rhm-marketplaceconfig-meterbase"
 	RAZEE_NAME                             = "rhm-marketplaceconfig-razeedeployment"
 	OPSRC_NAME                             = "redhat-marketplace"
@@ -70,6 +70,10 @@ const (
 	CSV_ANNOTATION_NAME            = "csvName"
 	CSV_ANNOTATION_NAMESPACE       = "csvNamespace"
 	CSV_METERDEFINITION_ANNOTATION = "meterDefinition"
+
+	/* Time and Date */
+	DATE_FORMAT = "2006-01-02"
+	METER_REPORT_PREFIX = "meter-report-"
 )
 
 var (

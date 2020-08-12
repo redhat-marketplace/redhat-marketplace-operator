@@ -22,9 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // StorageSpec contains configuration for pvc claims.
 type StorageSpec struct {
 	// Storage class for the prometheus stateful set. Default is "" i.e. default.
@@ -77,6 +74,13 @@ type MeterBaseSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	Prometheus *PrometheusSpec `json:"prometheus,omitempty"`
+
+	// AdditionalConfigs are set by meter definitions and meterbase to what is available on the
+	// system.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	AdditionalScrapeConfigs *corev1.SecretKeySelector `json:"additionalScrapeConfigs,omitempty"`
 }
 
 // MeterBaseStatus defines the observed state of MeterBase.
@@ -116,7 +120,7 @@ type MeterBaseStatus struct {
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=meterbases,scope=Namespaced
-// +operator-sdk:gen-csv:customresourcedefinitions.displayName="(Internal) Meter Config"
+// +operator-sdk:gen-csv:customresourcedefinitions.displayName="Metering"
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`ServiceMonitor,v1,"redhat-marketplace-operator"`
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`Prometheus,v1,"redhat-marketplace-operator"`
 type MeterBase struct {

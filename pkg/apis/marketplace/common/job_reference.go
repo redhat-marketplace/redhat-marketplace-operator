@@ -40,6 +40,11 @@ type JobReference struct {
 	// The number of pods which reached phase Failed.
 	// +optional
 	Failed int32 `json:"failed,omitempty" protobuf:"varint,6,opt,name=failed"`
+
+	// Specifies the number of retries before marking this job failed.
+	// Defaults to 6
+	// +optional
+	BackoffLimit int32 `json:"backoffLimit,omitempty" protobuf:"varint,7,opt,name=backoffLimit"`
 }
 
 func (j *JobReference) NamespacedName() types.NamespacedName {
@@ -55,18 +60,27 @@ func (j *JobReference) SetFromJob(job *batchv1.Job) {
 	j.StartTime = job.Status.StartTime
 	j.CompletionTime = job.Status.CompletionTime
 	j.Succeeded = job.Status.Succeeded
-	j.Active = job.Status.Succeeded
+	j.Active = job.Status.Active
 	j.Failed = job.Status.Failed
+	j.BackoffLimit = 6
+	if job.Spec.BackoffLimit != nil {
+		j.BackoffLimit = *job.Spec.BackoffLimit
+	}
+
 }
 
 func (j *JobReference) IsSuccessful() bool {
-	return j.Succeeded > 0
+	return j.Succeeded >= 1
 }
 
 func (j *JobReference) IsFailed() bool {
-	return j.Failed > 0 && j.Succeeded == 0 && !j.IsActive()
+	return j.Failed == j.BackoffLimit+1 && !j.IsSuccessful()
 }
 
 func (j *JobReference) IsActive() bool {
 	return j.Active > 0
+}
+
+func (j *JobReference) IsDone() bool {
+	return !j.IsActive() && (j.IsSuccessful() || j.IsFailed())
 }

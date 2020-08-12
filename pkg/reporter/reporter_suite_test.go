@@ -5,11 +5,12 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	loggerf "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func TestReporter(t *testing.T) {
-	loggerf.SetLoggerToDevelopmentZap()
+	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Reporter Suite")
 }
