@@ -60,9 +60,6 @@ spec:
                     description: MeterDefinitionSpec defines the desired metering
                       spec
                     properties:
-                      group:
-                        description: Group defines the primary CRD domain of the meter
-                        type: string
                       installedBy:
                         description: InstalledBy is a reference to the CSV that install
                           the meter definition. This is used to determine an operator
@@ -96,13 +93,28 @@ spec:
                         - namespace
                         - uid
                         type: object
-                      kind:
+                      meterGroup:
+                        description: Group defines the primary CRD domain of the meter
+                        type: string
+                      meterKind:
                         description: Kind defines the primary CRD kind of the meter
                         type: string
-                      version:
-                        description: Version defines the primary CRD version of the
-                          meter, ths is optional.
+                      meterVersion:
+                        description: 'TODO: remove gracefully at some point Version
+                          defines the primary CRD version of the meter, ths is optional.'
                         type: string
+                      podMeterLabels:
+                        description: 'TODO: remove gracefully at some point PodMeterLabels
+                          DEPRECATED: name of the prometheus metrics you want to track.'
+                        items:
+                          type: string
+                        type: array
+                      serviceMeterLabels:
+                        description: 'TODO: remove gracefully at some point ServiceMeterLabels
+                          DEPRECATED: name of the meterics you want to track.'
+                        items:
+                          type: string
+                        type: array
                       workloadVertexLabelSelectors:
                         description: VertexFilters are used when Namespace is selected.
                           Can be omitted if you select OperatorGroup
@@ -275,10 +287,8 @@ spec:
                                     description: Label is the name of the meter
                                     type: string
                                   query:
-                                    additionalProperties:
-                                      type: string
                                     description: Query to use for the label
-                                    type: object
+                                    type: string
                                 required:
                                 - label
                                 type: object
@@ -318,8 +328,8 @@ spec:
                         minItems: 1
                         type: array
                     required:
-                    - group
-                    - kind
+                    - meterGroup
+                    - meterKind
                     type: object
                   status:
                     description: MeterDefinitionStatus defines the observed state
@@ -787,6 +797,18 @@ spec:
               - name
               - namespace
               type: object
+            metricUploadCount:
+              description: MetricUploadCount is the number of metrics in the report
+              type: integer
+            queryErrorList:
+              description: QueryErrorList shows if there were any errors from queries
+                for the report.
+              items:
+                type: string
+              type: array
+            uploadUID:
+              description: UploadID is the ID associated with the upload
+              type: string
           type: object
       type: object
   version: v1alpha1
