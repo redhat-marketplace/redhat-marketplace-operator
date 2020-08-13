@@ -5,9 +5,9 @@ import (
 	. "github.com/onsi/gomega"
 
 	rhmClient "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/client"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 	"k8s.io/apimachinery/pkg/api/meta"
+	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -17,11 +17,11 @@ var _ = Describe("FindOwner", func() {
 
 	var (
 		ownerHelper *rhmClient.FindOwnerHelper
-		name, namespace string
+		// name, namespace string
 		inClient   dynamic.Interface
 		restMapper meta.RESTMapper
 		restConfig *rest.Config
-		lookupOwner, owner *metav1.OwnerReference
+		// lookupOwner, owner *metav1.OwnerReference
 	)
 
 	BeforeEach(func() {
@@ -45,26 +45,26 @@ var _ = Describe("FindOwner", func() {
 		})
 	})
 
-	Describe("FindOnwer function test", func() {
-		BeforeEach(func() {
-			namespace = "redhat-marketplace-operator"
-			name = "rhm-marketplace"
-		})
-		Context("When the function succeeeds, and the OwnerReference is returned", func(){
-			It("Should return the OwnerReference", func(){
+	// Describe("FindOnwer function test", func() {
+	// 	BeforeEach(func() {
+	// 		namespace = "redhat-marketplace-operator"
+	// 		name = "rhm-marketplace"
+	// 	})
+	// 	Context("When the function succeeeds, and the OwnerReference is returned", func(){
+	// 		It("Should return the OwnerReference", func(){
 
-			})
-		})
-		Context("When the function fails, and an error is returned", func(){
-			It("Should fail to get mapping", func(){
-				Expect(err).To(HaveOccurred())
-			})
-			It("Should fail to get resources", func(){
-				Expect(err).To(HaveOccurred())
-			})
-			It("Should fail to get meta.Accessor", func(){
-				Expect(err).To(HaveOccurred())
-			})
-		})
-	})
+	// 		})
+	// 	})
+	// 	Context("When the function fails, and an error is returned", func(){
+	// 		It("Should fail to get mapping", func(){
+	// 			Expect(err).To(HaveOccurred())
+	// 		})
+	// 		It("Should fail to get resources", func(){
+	// 			Expect(err).To(HaveOccurred())
+	// 		})
+	// 		It("Should fail to get meta.Accessor", func(){
+	// 			Expect(err).To(HaveOccurred())
+	// 		})
+	// 	})
+	// })
 })

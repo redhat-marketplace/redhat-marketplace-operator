@@ -230,7 +230,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 	// if !generateMetricsFlag {
 	// 	generateMetricsFlag = true
-	// 	reqLogger.Info("CALLING THE CYCLE FUNCTION!!!!!!!!!!!!!!!!")
+	// 	reqLogger.Info("Calling the cycle function")
 	// 	metricGen.CycleMeterDefMeters(r.client)
 	// }
 
