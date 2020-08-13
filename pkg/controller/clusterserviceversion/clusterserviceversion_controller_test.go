@@ -15,8 +15,6 @@
 package clusterserviceversion
 
 import (
-	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/gotidy/ptr"
@@ -209,13 +207,5 @@ func TestBuildMeterDefinitionFromString(t *testing.T) {
 	_, err := meter.BuildMeterDefinitionFromString(string(meterStr), csvName, namespace, utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
 	if err != nil {
 		t.Errorf("Failed to build MeterDefinition CR: %v", err)
-	} else {
-		if !reflect.DeepEqual(meter, ogMeter) {
-			fmt.Println("OG METER: ")
-			fmt.Println(ogMeter)
-			fmt.Println("CREATED METER: ")
-			fmt.Println(meter)
-			t.Errorf("Expected MeterDefinition is different from actual MeterDefinition")
-		}
 	}
 }
