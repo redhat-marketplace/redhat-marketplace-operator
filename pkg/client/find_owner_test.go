@@ -39,32 +39,35 @@ var _ = Describe("FindOwner", func() {
 		})
 		Context("Get restMapper", func() {
 			It("Should be nil", func() {
-				Expect(ownerHelper.GetRestMapper()).To(BeNil())
+				Expect(ownerHelper.GetRestMapper()).To(Equal(restMapper))
 				// Is this always expected to be nil?
 			})
 		})
 	})
 
-	// Describe("FindOnwer function test", func() {
-	// 	BeforeEach(func() {
-	// 		namespace = "redhat-marketplace-operator"
-	// 		name = "rhm-marketplace"
-	// 	})
-	// 	Context("When the function succeeeds, and the OwnerReference is returned", func(){
-	// 		It("Should return the OwnerReference", func(){
+	XDescribe("FindOnwer function test", func() {
+		var (
+			err error
+		)
+		BeforeEach(func() {
+			// namespace = "redhat-marketplace-operator"
+			// name = "rhm-marketplace"
+		})
+		Context("When the function succeeeds, and the OwnerReference is returned", func() {
+			It("Should return the OwnerReference", func() {
 
-	// 		})
-	// 	})
-	// 	Context("When the function fails, and an error is returned", func(){
-	// 		It("Should fail to get mapping", func(){
-	// 			Expect(err).To(HaveOccurred())
-	// 		})
-	// 		It("Should fail to get resources", func(){
-	// 			Expect(err).To(HaveOccurred())
-	// 		})
-	// 		It("Should fail to get meta.Accessor", func(){
-	// 			Expect(err).To(HaveOccurred())
-	// 		})
-	// 	})
-	// })
+			})
+		})
+		Context("When the function fails, and an error is returned", func() {
+			It("Should fail to get mapping", func() {
+				Expect(err).To(HaveOccurred())
+			})
+			It("Should fail to get resources", func() {
+				Expect(err).To(HaveOccurred())
+			})
+			It("Should fail to get meta.Accessor", func() {
+				Expect(err).To(HaveOccurred())
+			})
+		})
+	})
 })

@@ -1,45 +1,58 @@
 package client_test
 
-// import (
-// 	. "github.com/onsi/ginkgo"
-// 	. "github.com/onsi/gomega"
+import (
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 
-// 	rhmClient "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/client"
-// 	"sigs.k8s.io/controller-runtime/pkg/client"
-// 	// "k8s.io/apimachinery/pkg/runtime"
-// 	corev1 "k8s.io/api/core/v1"
-// 	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-// )
+	// marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	rhmClient "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/client"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	// corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
-// var _ = Describe("FindOwner", func() {
+var _ = Describe("FindOwner", func() {
 
-// 	var (
-// 		fieldIndexer client.FieldIndexer
-// 		err          error
-// 		podList &corev1.PodList{}
-// 	)
+	var (
+		fieldIndexer client.FieldIndexer
+		err          error
+		objs         []runtime.Object
+		namespace    string
+	)
 
-// 	Describe("AddOwningControllerIndex function test", func() {
-// 		var(
-// 			pass []
-// 		)
+	BeforeEach(func() {
+		namespace = "testingNamespace"
+	})
 
-// 		// BeforeEach(func(){
-// 		// 	fieldIndexer
-// 		// })
+	Describe("AddOwningControllerIndex function test", func() {
+		var (
+			marketplaceconfig = utils.BuildMarketplaceConfigCR(namespace, "example-id")
+			razeedeployment   = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName)
+			meterbase         = utils.BuildMeterBaseCr(namespace)
+		)
 
-// 		Context("Should successfully add Owning Controller Index", func() {
-// 			It("Error should be nil", func() {
-// 				err = rhmClient.AddOwningControllerIndex(fieldIndexer, []corev1.Pod{})
-// 				Expect(err).To(BeNil())
-// 			})
-// 		})
-// 		Context("Should fail to add Owning Controller Index", func() {
-// 			It("Error should not be nil", func() {
-// 				err = rhmClient.AddOwningControllerIndex(fieldIndexer, &corev1.Pod{})
-// 				Expect(err).To(BeNil())
-// 			})
-// 		})
-// 	})
+		BeforeEach(func() {
+			objs = []runtime.Object{
+				marketplaceconfig,
+				razeedeployment,
+				meterbase,
+			}
+		})
 
-// })
+		Context("Should successfully add Owning Controller Index", func() {
+			It("Error should be nil", func() {
+				err = rhmClient.AddOwningControllerIndex(fieldIndexer, objs)
+				Expect(err).To(BeNil())
+			})
+		})
+		Context("Should fail to add Owning Controller Index", func() {
+			It("Error should not be nil", func() {
+				err = rhmClient.AddOwningControllerIndex(fieldIndexer, objs)
+				Expect(err).To(BeNil())
+			})
+		})
+	})
+
+})
