@@ -19,23 +19,23 @@ cp -r "$ROOT/deploy/olm-catalog/redhat-marketplace-operator" "$ROOT/bundle"
 PACKAGE_PATH="$ROOT/bundle/redhat-marketplace-operator"
 CSV_PATH="$ROOT/bundle/redhat-marketplace-operator/${VERSION}"
 
-go run github.com/mikefarah/yq/v3 w \
+yq w \
     -i $CSV_PATH/redhat-marketplace-operator.v${VERSION}.clusterserviceversion.yaml \
     'metadata.annotations.containerImage' ${REGISTRY_IMAGE}
 
-go run github.com/mikefarah/yq/v3 w \
+yq w \
     -i $CSV_PATH/redhat-marketplace-operator.v${VERSION}.clusterserviceversion.yaml \
     'metadata.annotations.createdAt' ${CREATED_TIME}
 
-go run github.com/mikefarah/yq/v3 w \
+yq w \
     -i $CSV_PATH/redhat-marketplace-operator.v${VERSION}.clusterserviceversion.yaml \
     'spec.install.spec.deployments[0].spec.template.spec.containers[0].image' ${REGISTRY_IMAGE}
 
-STABLE=$(go run github.com/mikefarah/yq/v3 r \
+STABLE=$(go yq r \
      $PACKAGE_PATH/redhat-marketplace-operator.package.yaml \
     'channels.(name==stable).currentCSV' | sed 's/redhat-marketplace-operator\.v//')
 
-BETA=$(go run github.com/mikefarah/yq/v3 r \
+BETA=$(go yq r \
      $PACKAGE_PATH/redhat-marketplace-operator.package.yaml \
      'channels.(name==beta).currentCSV' | sed 's/redhat-marketplace-operator\.v//')
 

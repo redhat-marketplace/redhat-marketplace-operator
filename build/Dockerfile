@@ -29,8 +29,8 @@ LABEL name="Red Hat Marketplace Operator" \
   version="$VERSION"
 
 RUN microdnf update --setopt=tsflags=nodocs -y \
-    && microdnf clean all \
-    && rm -rf /var/cache/yum
+  && microdnf clean all \
+  && rm -rf /var/cache/yum
 
 ENV USER_UID=1001 \
   USER_NAME=redhat-marketplace-operator \

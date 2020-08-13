@@ -72,6 +72,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
 	k8s.io/kube-state-metrics v1.7.2
 	k8s.io/kubectl v0.18.2
+	k8s.io/utils v0.0.0-20200414100711-2df71ebbae66
 	sigs.k8s.io/controller-runtime v0.6.0
 )
 

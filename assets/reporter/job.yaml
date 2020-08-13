@@ -15,6 +15,7 @@ spec:
       containers:
         - name: reporter
           image: redhat-markplace-reporter
+          imagePullPolicy: Always
           # additional args are added in factory
           args:
             [
@@ -38,7 +39,7 @@ spec:
         - name: token-vol
           projected:
             sources:
-            - serviceAccountToken:
-                audience: rhm-prometheus-meterbase.openshift-redhat-marketplace.svc
-                expirationSeconds: 3600
-                path: token
+              - serviceAccountToken:
+                  audience: rhm-prometheus-meterbase.openshift-redhat-marketplace.svc
+                  expirationSeconds: 3600
+                  path: token

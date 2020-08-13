@@ -64,6 +64,13 @@ const (
 	RAZEE_DASH_URL_FIELD                      = "RAZEE_DASH_URL"
 	FILE_SOURCE_URL_FIELD                     = "FILE_SOURCE_URL"
 
+	/* CSV Controller Values */
+	CSV_FINALIZER                  = "csv.finalizer.marketplace.redhat.com"
+	CSV_NAME                       = "redhat-marketplace-operator"
+	CSV_ANNOTATION_NAME            = "csvName"
+	CSV_ANNOTATION_NAMESPACE       = "csvNamespace"
+	CSV_METERDEFINITION_ANNOTATION = "marketplace.redhat.com/meterDefinition"
+
 	/* Time and Date */
 	DATE_FORMAT = "2006-01-02"
 	METER_REPORT_PREFIX = "meter-report-"
