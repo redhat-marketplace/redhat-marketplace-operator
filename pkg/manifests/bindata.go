@@ -115,7 +115,7 @@ func assetsMetricStateDeploymentYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/metric-state/deployment.yaml", size: 3867, mode: os.FileMode(420), modTime: time.Unix(1597166922, 0)}
+	info := bindataFileInfo{name: "assets/metric-state/deployment.yaml", size: 3867, mode: os.FileMode(420), modTime: time.Unix(1597268408, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -155,7 +155,7 @@ func assetsMetricStateServiceYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/metric-state/service.yaml", size: 559, mode: os.FileMode(420), modTime: time.Unix(1597134867, 0)}
+	info := bindataFileInfo{name: "assets/metric-state/service.yaml", size: 559, mode: os.FileMode(420), modTime: time.Unix(1597268408, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -175,7 +175,7 @@ func assetsPrometheusAdditionalScrapeConfigsYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/additional-scrape-configs.yaml", size: 95, mode: os.FileMode(420), modTime: time.Unix(1597134867, 0)}
+	info := bindataFileInfo{name: "assets/prometheus/additional-scrape-configs.yaml", size: 95, mode: os.FileMode(420), modTime: time.Unix(1597268408, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -335,7 +335,7 @@ func assetsPrometheusPrometheusYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/prometheus.yaml", size: 4214, mode: os.FileMode(420), modTime: time.Unix(1597135022, 0)}
+	info := bindataFileInfo{name: "assets/prometheus/prometheus.yaml", size: 4214, mode: os.FileMode(420), modTime: time.Unix(1597268408, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -375,7 +375,7 @@ func assetsPrometheusServiceYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/service.yaml", size: 440, mode: os.FileMode(420), modTime: time.Unix(1597134867, 0)}
+	info := bindataFileInfo{name: "assets/prometheus/service.yaml", size: 440, mode: os.FileMode(420), modTime: time.Unix(1597268408, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -415,7 +415,7 @@ func assetsPrometheusOperatorDeploymentYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus-operator/deployment.yaml", size: 3306, mode: os.FileMode(420), modTime: time.Unix(1597134867, 0)}
+	info := bindataFileInfo{name: "assets/prometheus-operator/deployment.yaml", size: 3306, mode: os.FileMode(420), modTime: time.Unix(1597268408, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -555,7 +555,7 @@ func assetsReporterJobYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/reporter/job.yaml", size: 1334, mode: os.FileMode(420), modTime: time.Unix(1597166942, 0)}
+	info := bindataFileInfo{name: "assets/reporter/job.yaml", size: 1334, mode: os.FileMode(420), modTime: time.Unix(1597268408, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }

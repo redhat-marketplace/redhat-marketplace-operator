@@ -37,7 +37,7 @@ spec:
                 meter definition. This is used to determine an operator group.
               properties:
                 groupVersionKind:
-                  description: GroupVersionKind of the resource Required
+                  description: GroupVersionKind of the resource
                   properties:
                     apiVersion:
                       description: APIVersion of the CRD
@@ -56,33 +56,31 @@ spec:
                   description: Namespace of the resource Required
                   type: string
                 uid:
-                  description: Namespace of the resource Required
+                  description: Namespace of the resource
                   type: string
               required:
-              - groupVersionKind
               - name
               - namespace
-              - uid
               type: object
             meterGroup:
-              description: Group defines the primary CRD domain of the meter
+              description: Group defines the operator group of the meter
               type: string
             meterKind:
               description: Kind defines the primary CRD kind of the meter
               type: string
             meterVersion:
-              description: 'TODO: remove gracefully at some point Version defines
-                the primary CRD version of the meter, ths is optional.'
+              description: Version defines the primary CRD version of the meter. This
+                field is no longer used.
               type: string
             podMeterLabels:
-              description: 'TODO: remove gracefully at some point PodMeterLabels DEPRECATED:
-                name of the prometheus metrics you want to track.'
+              description: PodMeterLabels name of the prometheus metrics you want
+                to track. User workloads instead.
               items:
                 type: string
               type: array
             serviceMeterLabels:
-              description: 'TODO: remove gracefully at some point ServiceMeterLabels
-                DEPRECATED: name of the meterics you want to track.'
+              description: ServiceMeterLabels name of the meterics you want to track.
+                Use workloads instead.
               items:
                 type: string
               type: array
@@ -342,7 +340,7 @@ spec:
               items:
                 properties:
                   groupVersionKind:
-                    description: GroupVersionKind of the resource Required
+                    description: GroupVersionKind of the resource
                     properties:
                       apiVersion:
                         description: APIVersion of the CRD
@@ -363,14 +361,12 @@ spec:
                   referencedWorkloadName:
                     type: string
                   uid:
-                    description: Namespace of the resource Required
+                    description: Namespace of the resource
                     type: string
                 required:
-                - groupVersionKind
                 - name
                 - namespace
                 - referencedWorkloadName
-                - uid
                 type: object
               type: array
           type: object
