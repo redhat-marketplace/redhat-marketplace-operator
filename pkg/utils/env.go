@@ -69,7 +69,7 @@ const (
 	CSV_NAME                       = "redhat-marketplace-operator"
 	CSV_ANNOTATION_NAME            = "csvName"
 	CSV_ANNOTATION_NAMESPACE       = "csvNamespace"
-	CSV_METERDEFINITION_ANNOTATION = "meterDefinition"
+	CSV_METERDEFINITION_ANNOTATION = "marketplace.redhat.com/meterDefinition"
 
 	/* Time and Date */
 	DATE_FORMAT = "2006-01-02"

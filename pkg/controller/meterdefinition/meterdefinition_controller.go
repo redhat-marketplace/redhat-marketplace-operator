@@ -144,6 +144,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	// Check if the MeterDefinition instance is being marked for deletion
 	isMarkedForDeletion := instance.GetDeletionTimestamp() != nil
 	if isMarkedForDeletion {
+
 		if utils.Contains(instance.GetFinalizers(), meterDefinitionFinalizer) {
 			//Run finalization logic for the MeterDefinitionFinalizer.
 			//If it fails, don't remove the finalizer so we can retry during the next reconcile

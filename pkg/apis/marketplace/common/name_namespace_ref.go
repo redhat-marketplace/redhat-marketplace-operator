@@ -12,8 +12,8 @@ import (
 type NamespacedNameReference struct {
 
 	// Namespace of the resource
-	// Required
-	UID types.UID `json:"uid"`
+	// +optional
+	UID types.UID `json:"uid,omitempty"`
 
 	// Namespace of the resource
 	// Required
@@ -24,8 +24,8 @@ type NamespacedNameReference struct {
 	Name string `json:"name"`
 
 	// GroupVersionKind of the resource
-	// Required
-	GroupVersionKind `json:"groupVersionKind"`
+	// +optional
+	*GroupVersionKind `json:"groupVersionKind,omitempty"`
 }
 
 type GroupVersionKind struct {

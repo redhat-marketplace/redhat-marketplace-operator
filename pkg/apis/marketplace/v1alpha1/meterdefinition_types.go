@@ -63,22 +63,19 @@ type MeterDefinitionSpec struct {
 	// +kubebuilder:validation:MinItems=1
 	Workloads []Workload `json:"workloads,omitempty"`
 
-	// TODO: remove gracefully at some point
-	// Version DEPRECATED: defines the primary CRD version of the meter.
+	// Version defines the primary CRD version of the meter. This field is no longer used.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +optional
 	Version *string `json:"meterVersion,omitempty"`
 
-	// TODO: remove gracefully at some point
-	// ServiceMeterLabels DEPRECATED: name of the meterics you want to track.
+	// ServiceMeterLabels name of the meterics you want to track. Use workloads instead.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +optional
 	ServiceMeterLabels []string `json:"serviceMeterLabels,omitempty"`
 
-	// TODO: remove gracefully at some point
-	// PodMeterLabels DEPRECATED: name of the prometheus metrics you want to track.
+	// PodMeterLabels name of the prometheus metrics you want to track. User workloads instead.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +optional
@@ -148,7 +145,7 @@ type WorkloadResource struct {
 
 type ByAlphabetical []WorkloadResource
 
-func (a ByAlphabetical) Len() int { return len(a) }
+func (a ByAlphabetical) Len() int      { return len(a) }
 func (a ByAlphabetical) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a ByAlphabetical) Less(i, j int) bool {
 	return strings.Compare(a[i].ReferencedWorkloadName, a[j].ReferencedWorkloadName) > 0 &&
@@ -170,10 +167,10 @@ func NewWorkloadResource(workload Workload, obj interface{}, scheme *runtime.Sch
 	return &WorkloadResource{
 		ReferencedWorkloadName: workload.Name,
 		NamespacedNameReference: common.NamespacedNameReference{
-			Name: accessor.GetName(),
-			Namespace: accessor.GetNamespace(),
-			UID: accessor.GetUID(),
-			GroupVersionKind: gvk,
+			Name:             accessor.GetName(),
+			Namespace:        accessor.GetNamespace(),
+			UID:              accessor.GetUID(),
+			GroupVersionKind: &gvk,
 		},
 	}, nil
 }
@@ -267,6 +264,10 @@ func (meterdef *MeterDefinition) BuildMeterDefinitionFromString(meterdefString, 
 	meterdef.SetAnnotations(csvInfo)
 
 	meterdef.Namespace = namespace
+	meterdef.Spec.InstalledBy = &common.NamespacedNameReference{
+		Name:      name,
+		Namespace: namespace,
+	}
 
 	return meterdef, nil
 }
