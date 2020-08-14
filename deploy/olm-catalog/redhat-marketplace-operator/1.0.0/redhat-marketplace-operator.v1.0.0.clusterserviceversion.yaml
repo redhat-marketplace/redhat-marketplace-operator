@@ -132,8 +132,8 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Developer Tools
     certified: "true"
-    containerImage: quay.io/zach_source/redhat-marketplace-operator:latest
-    createdAt: 2020-08-11T15:21:01Z
+    containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:1.0.0-f00d8b
+    createdAt: 2020-08-14T08:01:54Z
     description: The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
@@ -269,17 +269,17 @@ spec:
             path: meterKind
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:text
-          - description: 'TODO: remove gracefully at some point Version DEPRECATED: defines the primary CRD version of the meter.'
+          - description: Version defines the primary CRD version of the meter. This field is no longer used.
             displayName: Version
             path: meterVersion
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:hidden
-          - description: 'TODO: remove gracefully at some point PodMeterLabels DEPRECATED: name of the prometheus metrics you want to track.'
+          - description: PodMeterLabels name of the prometheus metrics you want to track. User workloads instead.
             displayName: Pod Meter Labels
             path: podMeterLabels
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:hidden
-          - description: 'TODO: remove gracefully at some point ServiceMeterLabels DEPRECATED: name of the meterics you want to track.'
+          - description: ServiceMeterLabels name of the meterics you want to track. Use workloads instead.
             displayName: Service Meter Labels
             path: serviceMeterLabels
             x-descriptors:
@@ -350,7 +350,7 @@ spec:
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:select:PersistentVolumeClaim
               - urn:alm:descriptor:com.tectonic.ui:select:Pod
-              - urn:alm:descriptor:com.tectonic.ui:select:ServiceMonitor
+              - urn:alm:descriptor:com.tectonic.ui:select:Service
         statusDescriptors:
           - description: WorkloadResources is the list of resoruces discovered by this meter definition
             displayName: Workload Resources
@@ -381,17 +381,17 @@ spec:
             path: meterDefinitions[0].spec.meterKind
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:text
-          - description: 'TODO: remove gracefully at some point Version DEPRECATED: defines the primary CRD version of the meter.'
+          - description: Version defines the primary CRD version of the meter. This field is no longer used.
             displayName: Version
             path: meterDefinitions[0].spec.meterVersion
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:hidden
-          - description: 'TODO: remove gracefully at some point PodMeterLabels DEPRECATED: name of the prometheus metrics you want to track.'
+          - description: PodMeterLabels name of the prometheus metrics you want to track. User workloads instead.
             displayName: Pod Meter Labels
             path: meterDefinitions[0].spec.podMeterLabels
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:hidden
-          - description: 'TODO: remove gracefully at some point ServiceMeterLabels DEPRECATED: name of the meterics you want to track.'
+          - description: ServiceMeterLabels name of the meterics you want to track. Use workloads instead.
             displayName: Service Meter Labels
             path: meterDefinitions[0].spec.serviceMeterLabels
             x-descriptors:
@@ -462,7 +462,7 @@ spec:
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:select:PersistentVolumeClaim
               - urn:alm:descriptor:com.tectonic.ui:select:Pod
-              - urn:alm:descriptor:com.tectonic.ui:select:ServiceMonitor
+              - urn:alm:descriptor:com.tectonic.ui:select:Service
           - description: APIVersion of the CRD
             displayName: APIVersion
             path: meterDefinitions[0].status.workloadResource[0].apiVersion
@@ -1083,16 +1083,16 @@ spec:
                           fieldRef:
                             fieldPath: metadata.name
                       - name: RELATED_IMAGE_REPORTER
-                        value: quay.io/zach_source/redhat-marketplace-reporter:1.0.0
+                        value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-reporter:1.0.0
                       - name: RELATED_IMAGE_KUBE_RBAC_PROXY
                         value: quay.io/coreos/kube-rbac-proxy:v0.5.0
                       - name: RELATED_IMAGE_METRIC_STATE
-                        value: quay.io/zach_source/redhat-marketplace-metric-state:1.0.0
+                        value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-metric-state:1.0.0
                       - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
                         value: quay.io/razee/remoteresources3:0.6.2
                       - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
                         value: quay.io/razee/watch-keeper:0.5.3
-                    image: quay.io/zach_source/redhat-marketplace-operator:latest
+                    image: quay.io/rh-marketplace/redhat-marketplace-operator:1.0.0-f00d8b
                     imagePullPolicy: Always
                     name: redhat-marketplace-operator
                     resources: {}
