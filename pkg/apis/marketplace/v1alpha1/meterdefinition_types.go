@@ -20,9 +20,31 @@ import (
 
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
+)
+
+const (
+	MeterDefConditionTypeHasResult           status.ConditionType   = "FoundMatches"
+	MeterDefConditionReasonNoResultsInStatus status.ConditionReason = "No results in status"
+	MeterDefConditionReasonResultsInStatus   status.ConditionReason = "Results in status"
+)
+
+var (
+	MeterDefConditionNoResults = status.Condition{
+		Type:    MeterDefConditionTypeHasResult,
+		Status:  corev1.ConditionFalse,
+		Reason:  MeterDefConditionReasonNoResultsInStatus,
+		Message: "Meter definition has no results yet.",
+	}
+	MeterDefConditionHasResults = status.Condition{
+		Type:    MeterDefConditionTypeHasResult,
+		Status:  corev1.ConditionTrue,
+		Reason:  MeterDefConditionReasonResultsInStatus,
+		Message: "Meter definition has results.",
+	}
 )
 
 // MeterDefinitionSpec defines the desired metering spec
