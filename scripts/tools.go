@@ -30,4 +30,5 @@ import (
 	_ "github.com/spf13/cobra"
 	_ "github.com/tcnksm/ghr"
 	_ "k8s.io/code-generator/cmd/client-gen"
+	_ "github.com/google/addlicense"
 )
