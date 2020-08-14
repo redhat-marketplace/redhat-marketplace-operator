@@ -9,6 +9,7 @@ require (
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
 	github.com/golang/mock v1.4.0
 	github.com/golangci/golangci-lint v1.27.0
+	github.com/google/addlicense v0.0.0-20200622132530-df58acafd6d5
 	github.com/google/go-cmp v0.5.0 // indirect
 	github.com/google/wire v0.4.0
 	github.com/launchdarkly/go-options v1.0.0
