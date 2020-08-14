@@ -175,6 +175,25 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	mapFn := handler.ToRequestsFunc(
+		func(a handler.MapObject) []reconcile.Request {
+			return []reconcile.Request{
+				{NamespacedName: types.NamespacedName{
+					Name:      "rhm-marketplaceconfig-meterbase",
+					Namespace: "openshift-redhat-marketplace",
+				}},
+			}
+		})
+
+	err = c.Watch(
+		&source.Kind{Type: &corev1.Namespace{}},
+		&handler.EnqueueRequestsFromMapFunc{
+			ToRequests: mapFn,
+		})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -557,6 +576,8 @@ func (r *ReconcileMeterBase) reconcilePrometheusOperator(
 	instance *marketplacev1alpha1.MeterBase,
 	factory *manifests.Factory,
 ) []ClientAction {
+	reqLogger := log.WithValues("Request.Namespace", instance.Namespace, "Request.Name", instance.Name)
+	nsList := &corev1.NamespaceList{}
 	cm := &corev1.ConfigMap{}
 	deployment := &appsv1.Deployment{}
 	service := &corev1.Service{}
@@ -566,7 +587,19 @@ func (r *ReconcileMeterBase) reconcilePrometheusOperator(
 		Patcher: r.patcher,
 	}
 
+	nsLabelSelector, _ := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key:      "openshift.io/cluster-monitoring",
+				Operator: "DoesNotExist",
+			},
+		},
+	})
+
 	return []ClientAction{
+		ListAction(nsList, client.MatchingLabelsSelector{
+			Selector: nsLabelSelector,
+		}),
 		manifests.CreateOrUpdateFactoryItemAction(
 			cm,
 			func() (runtime.Object, error) {
@@ -577,7 +610,12 @@ func (r *ReconcileMeterBase) reconcilePrometheusOperator(
 		manifests.CreateOrUpdateFactoryItemAction(
 			deployment,
 			func() (runtime.Object, error) {
-				return factory.NewPrometheusOperatorDeployment()
+				nsValues := []string{}
+				for _, ns := range nsList.Items {
+					nsValues = append(nsValues, ns.Name)
+				}
+				reqLogger.Info("found namespaces", "ns", nsValues)
+				return factory.NewPrometheusOperatorDeployment(nsValues)
 			},
 			args,
 		),
@@ -634,7 +672,7 @@ func (r *ReconcileMeterBase) uninstallPrometheusOperator(
 	factory *manifests.Factory,
 ) []ClientAction {
 	cm, _ := factory.NewPrometheusOperatorCertsCABundle()
-	deployment, _ := factory.NewPrometheusOperatorDeployment()
+	deployment, _ := factory.NewPrometheusOperatorDeployment([]string{})
 	service, _ := factory.NewPrometheusOperatorService()
 
 	return []ClientAction{
