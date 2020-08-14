@@ -74,6 +74,8 @@ jobs:
         run: make generate-csv bundle
         env:
           CSV_CHANNEL: ${{ matrix.channel }}
+          IMAGE_REGISTRY: quay.io/rh-marketplace
+          OPERATOR_IMAGE_TAG: ${{ steps.vars.outputs.hash }}
           CSV_DEFAULT_CHANNEL: ${{ matrix.channel == 'stable' }}
 
       - name: Create commit
