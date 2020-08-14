@@ -75,7 +75,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			UpdateFunc: func(evt event.UpdateEvent) bool {
 				_, okAllNamespace := evt.MetaNew.GetLabels()[allnamespaceTag]
 				watchLabel, watchOk := evt.MetaNew.GetLabels()[watchTag]
-				_, ignoreOk := evt.MetaNew.GetAnnotations()[ignoreTag]
+				ignoreVal, ignoreOk := evt.MetaNew.GetAnnotations()[ignoreTag]
+
 				ann := evt.MetaNew.GetAnnotations()
 				if ann == nil {
 					ann = make(map[string]string)
@@ -88,7 +89,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 					return true
 				}
 
-				if ignoreOk {
+				if ignoreOk && ignoreVal == "2" {
 					return false
 				}
 
@@ -241,6 +242,11 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 		for _, s := range sub.Items {
 			if value, ok := s.GetLabels()[operatorTag]; ok {
 				if value == "true" {
+					if len(s.Status.InstalledCSV) == 0 {
+						reqLogger.Info("Requeue clusterserviceversion to wait for subscription getting installedCSV updated")
+						return reconcile.Result{RequeueAfter: time.Second * 5}, nil
+					}
+
 					if s.Status.InstalledCSV == request.NamespacedName.Name {
 						reqLogger.Info("found Subscription with installed CSV")
 
@@ -277,7 +283,7 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 	if !hasMarketplaceSub {
 		clusterOriginalAnnotations := CSV.DeepCopy().GetAnnotations()
 
-		annotations[ignoreTag] = "true"
+		annotations[ignoreTag] = "2"
 
 		if !reflect.DeepEqual(annotations, clusterOriginalAnnotations) {
 			CSV.SetAnnotations(annotations)
