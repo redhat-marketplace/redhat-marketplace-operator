@@ -77,7 +77,7 @@ jobs:
           echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
           echo "::set-output name=dockertag::${TAGPREFIX}$(make current-version)-${FILEHASH:0:6}"
         env:
-          FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'version/**', 'go.sum', 'go.mod') }}
+          FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'interal/**', 'version/**', 'go.sum', 'go.mod') }}
 
       - name: Get dependencies
         run: |
