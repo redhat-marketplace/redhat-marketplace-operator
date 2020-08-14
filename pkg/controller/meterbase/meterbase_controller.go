@@ -608,6 +608,13 @@ func (r *ReconcileMeterBase) reconcilePrometheusOperator(
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
+			service,
+			func() (runtime.Object, error) {
+				return factory.NewPrometheusOperatorService()
+			},
+			args,
+		),
+		manifests.CreateOrUpdateFactoryItemAction(
 			deployment,
 			func() (runtime.Object, error) {
 				nsValues := []string{instance.Namespace}
@@ -616,13 +623,6 @@ func (r *ReconcileMeterBase) reconcilePrometheusOperator(
 				}
 				reqLogger.Info("found namespaces", "ns", nsValues)
 				return factory.NewPrometheusOperatorDeployment(nsValues)
-			},
-			args,
-		),
-		manifests.CreateOrUpdateFactoryItemAction(
-			service,
-			func() (runtime.Object, error) {
-				return factory.NewPrometheusOperatorService()
 			},
 			args,
 		),
