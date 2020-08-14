@@ -1,12 +1,9 @@
 # syntax = docker/dockerfile:experimental
 #
-ARG VERSION=latest
-
 FROM quay.io/rh-marketplace/golang-base:1.14 as builder
 WORKDIR /usr/local/go/src/github.com/redhat-marketplace/redhat-marketplace-operator
 
-ENV PATH=$PATH:/usr/local/go/bin
-ENV CGO_ENABLED=0 GOOS=linux
+ENV PATH=$PATH:/usr/local/go/bin CGO_ENABLED=0 GOOS=linux
 
 COPY go.mod go.sum ./
 COPY version version
@@ -21,13 +18,15 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 
+ARG app_version=latest
+
 LABEL name="Red Hat Marketplace Reporter" \
-  maintainer="ztaylor@ibm.com" \
+  maintainer="rhmoper@us.ibm.com" \
   vendor="Red Hat Marketplace" \
   release="1" \
   summary="Red Hat Marketplace Reporter Image" \
   description="Reporter for the Red Hat Marketplace" \
-  version="$VERSION"
+  version="${app_version}"
 
 ENV USER_UID=1001 \
     USER_NAME=redhat-marketplace-reporter \

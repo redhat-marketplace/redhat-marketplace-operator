@@ -610,7 +610,7 @@ func (r *ReconcileMeterBase) reconcilePrometheusOperator(
 		manifests.CreateOrUpdateFactoryItemAction(
 			deployment,
 			func() (runtime.Object, error) {
-				nsValues := []string{}
+				nsValues := []string{instance.Namespace}
 				for _, ns := range nsList.Items {
 					nsValues = append(nsValues, ns.Name)
 				}
