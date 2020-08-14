@@ -112,6 +112,8 @@ cover.out
 bundle/
 
 .action-secrets.txt
+*.coverprofile
+pkg/**/*.json
 .osdk-scorecard.yaml
 cache/
 scorecard-output.json
@@ -123,3 +125,9 @@ deploy/operator.yaml
 deploy/role.yaml
 deploy/role_binding.yaml
 deploy/service_account.yaml
+
+modd.conf
+
+tmp/
+scripts/vendor/
+testbin/

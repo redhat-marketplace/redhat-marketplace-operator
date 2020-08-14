@@ -1,0 +1,31 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    marketplace.redhat.com/deployed: "true"
+    marketplace.redhat.com/metered: "true"
+    marketplace.redhat.com/metered.kind: InternalServiceMonitor
+  name: kube-state-metrics
+spec:
+  endpoints:
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    honorLabels: true
+    interval: 2m
+    port: https-main
+    scheme: https
+    scrapeTimeout: 2m
+    tlsConfig:
+      caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
+      serverName: server-name-replaced-at-runtime
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    interval: 2m
+    port: https-self
+    scheme: https
+    scrapeTimeout: 2m
+    tlsConfig:
+      caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
+      serverName: server-name-replaced-at-runtime
+  jobLabel: k8s-app
+  selector:
+    matchLabels:
+      k8s-app: kube-state-metrics

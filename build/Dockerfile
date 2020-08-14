@@ -1,23 +1,22 @@
-FROM registry.access.redhat.com/ubi8/ubi:latest as golang
+# syntax = docker/dockerfile:experimental
+ARG VERSION=latest
 
-ENV VERSION=1.14.2 OS=linux ARCH=amd64
-
-RUN dnf -y install git
-
-RUN curl -o go$VERSION.$OS-$ARCH.tar.gz https://dl.google.com/go/go$VERSION.$OS-$ARCH.tar.gz && \
-  tar -C /usr/local -xzf go$VERSION.$OS-$ARCH.tar.gz && \
-  echo 'PATH=$PATH:/usr/local/go/bin' >> /etc/profile && \
-  echo 'PATH=$PATH:/usr/local/go/bin' >> $HOME/.profile
-
-FROM golang as builder
+FROM quay.io/rh-marketplace/golang-base:1.14 as builder
+WORKDIR /usr/local/go/src/github.com/redhat-marketplace/redhat-marketplace-operator
 
 ENV PATH=$PATH:/usr/local/go/bin
+ENV CGO_ENABLED=0 GOOS=linux
 
-WORKDIR /usr/local/go/src/github.com/redhat-marketplace/redhat-marketplace-operator
-COPY go.sum go.mod ./
-RUN go mod download
-COPY . ./
-RUN CGO_ENABLED=0 GOOS=linux go build -o build/_output/bin/redhat-marketplace-operator ./cmd/manager
+COPY go.mod go.sum ./
+COPY cmd cmd
+COPY internal internal
+COPY pkg pkg
+COPY test test
+COPY version version
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+  --mount=type=cache,target=/root/.cache/go-build \
+   go build -o build/_output/bin/redhat-marketplace-operator ./cmd/manager
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 
@@ -26,15 +25,17 @@ LABEL name="Red Hat Marketplace Operator" \
   vendor="Red Hat Marketplace" \
   release="1" \
   summary="Red Hat Marketplace Operator Image" \
-  description="Operator for the Red Hat Marketplace"
+  description="Operator for the Red Hat Marketplace" \
+  version="$VERSION"
 
 RUN microdnf update --setopt=tsflags=nodocs -y \
-    && microdnf clean all \
-    && rm -rf /var/cache/yum
+  && microdnf clean all \
+  && rm -rf /var/cache/yum
 
 ENV USER_UID=1001 \
-    USER_NAME=redhat-marketplace-operator \
-    ASSETS=/usr/local/bin/assets
+  USER_NAME=redhat-marketplace-operator \
+  ASSETS=/usr/local/bin/assets
+
 # install operator binary
 COPY --from=builder /usr/local/go/src/github.com/redhat-marketplace/redhat-marketplace-operator/build/_output/bin /usr/local/bin
 COPY assets /usr/local/bin/assets

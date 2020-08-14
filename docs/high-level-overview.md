@@ -81,7 +81,7 @@ Currently RazeeDeployment creates:
 ## Other Controllers
 
 ### Node Controller
-Node controller is responsible for ensuring Kubernetes nodes are patched with the label, `razee/watch-resource: lite`. 
+Node controller is responsible for ensuring Kubernetes nodes are patched with the label, `razee/watch-resource: lite`.
 
 ### Subscription Controller
 Subscription Controller is responsible for creating operator groups during installation. And deleting CSV's and subscriptions during uninstallation.

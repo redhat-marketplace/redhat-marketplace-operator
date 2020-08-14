@@ -1,10 +1,23 @@
+// Copyright 2020 IBM Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package node
 
 import (
-	"testing"
-
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 
+	. "github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,19 +27,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
-func TestNodeController(t *testing.T) {
-	// Set the logger to development mode for verbose logs.
-	logf.SetLogger(logf.ZapLogger(true))
-
-	t.Run("Test New Node", testNewNode)
-	t.Run("Test Labels Absent", testNodeLabelsAbsent)
-	t.Run("Test different Labels present", testNodeDiffLabelsPresent)
-	t.Run("Test unknown Labels present", testNodeUnknown)
-	t.Run("Test multiple nodes present", testMultipleNodes)
-}
+var _ = Describe("Testing with Ginkgo", func() {
+	It("node controller", func() {
+		testNewNode(GinkgoT())
+		testNodeLabelsAbsent(GinkgoT())
+		testNodeDiffLabelsPresent(GinkgoT())
+		testNodeUnknown(GinkgoT())
+		testMultipleNodes(GinkgoT())
+	})
+})
 
 var (
 	name             = "new-node"
@@ -88,7 +99,7 @@ func setup(r *ReconcilerTest) error {
 	return nil
 }
 
-func testNewNode(t *testing.T) {
+func testNewNode(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, node.DeepCopyObject())
 	reconcilerTest.TestAll(t,
@@ -102,7 +113,7 @@ func testNewNode(t *testing.T) {
 				client.MatchingLabels(map[string]string{
 					watchResourceTag: watchResourceValue,
 				})),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*corev1.NodeList)
 
 				assert.Truef(t, ok, "expected node list got type %T", i)
@@ -113,7 +124,7 @@ func testNewNode(t *testing.T) {
 	)
 }
 
-func testNodeLabelsAbsent(t *testing.T) {
+func testNodeLabelsAbsent(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, nodeLabelsAbsent.DeepCopyObject())
 	reconcilerTest.TestAll(t,
@@ -127,7 +138,7 @@ func testNodeLabelsAbsent(t *testing.T) {
 				client.MatchingLabels(map[string]string{
 					watchResourceTag: watchResourceValue,
 				})),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*corev1.NodeList)
 
 				assert.Truef(t, ok, "expected node list got type %T", i)
@@ -137,7 +148,7 @@ func testNodeLabelsAbsent(t *testing.T) {
 	)
 }
 
-func testNodeDiffLabelsPresent(t *testing.T) {
+func testNodeDiffLabelsPresent(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, nodeLabelsDiff.DeepCopyObject())
 	reconcilerTest.TestAll(t,
@@ -151,7 +162,7 @@ func testNodeDiffLabelsPresent(t *testing.T) {
 				client.MatchingLabels(map[string]string{
 					watchResourceTag: watchResourceValue,
 				})),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*corev1.NodeList)
 
 				assert.Truef(t, ok, "expected node list got type %T", i)
@@ -162,7 +173,7 @@ func testNodeDiffLabelsPresent(t *testing.T) {
 	)
 }
 
-func testNodeUnknown(t *testing.T) {
+func testNodeUnknown(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, nodeLabelsDiff.DeepCopyObject())
 	reconcilerTest.TestAll(t,
@@ -176,7 +187,7 @@ func testNodeUnknown(t *testing.T) {
 				client.MatchingLabels(map[string]string{
 					watchResourceTag: watchResourceValue,
 				})),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*corev1.NodeList)
 
 				assert.Truef(t, ok, "expected node list got type %T", i)
@@ -186,7 +197,7 @@ func testNodeUnknown(t *testing.T) {
 	)
 }
 
-func testMultipleNodes(t *testing.T) {
+func testMultipleNodes(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, node.DeepCopyObject(), nodeLabelsAbsent.DeepCopyObject())
 	reconcilerTest.TestAll(t,
@@ -200,7 +211,7 @@ func testMultipleNodes(t *testing.T) {
 				client.MatchingLabels(map[string]string{
 					watchResourceTag: watchResourceValue,
 				})),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*corev1.NodeList)
 
 				assert.Truef(t, ok, "expected node list got type %T", i)
