@@ -19,7 +19,9 @@ import (
 	b64 "encoding/base64"
 	json "encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
+	"time"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/operator-framework/operator-sdk/pkg/status"
@@ -36,6 +38,10 @@ const RhmAnnotationKey = "marketplace.redhat.com/last-applied"
 
 var RhmAnnotator = patch.NewAnnotator(RhmAnnotationKey)
 var RhmPatchMaker = patch.NewPatchMaker(RhmAnnotator)
+
+func IsNil(i interface{}) bool {
+	return i == nil || reflect.ValueOf(i).IsNil()
+}
 
 func Contains(s []string, e string) bool {
 	for _, a := range s {
@@ -75,6 +81,20 @@ func RemoveKey(list []string, key string) []string {
 		}
 	}
 	return newList
+}
+
+func FindDiff(a, b []string) []string {
+	mb := make(map[string]struct{}, len(b))
+	for _, x := range b {
+		mb[x] = struct{}{}
+	}
+	var diff []string
+	for _, x := range a {
+		if _, found := mb[x]; !found {
+			diff = append(diff, x)
+		}
+	}
+	return diff
 }
 
 func RetrieveSecretField(in []byte) (string, error) {
@@ -214,4 +234,12 @@ func ConditionsEqual(a status.Conditions, b status.Conditions) bool {
 func PrettyPrint(in interface{}) {
 	out, _ := json.MarshalIndent(in, "", "    ")
 	println(string(out))
+}
+
+func TruncateTime(t time.Time, loc *time.Location) time.Time {
+	if loc == nil {
+		loc = time.UTC
+	}
+
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc)
 }

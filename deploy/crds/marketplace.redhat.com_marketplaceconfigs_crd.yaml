@@ -39,6 +39,9 @@ spec:
               description: DeploySecretName is the secret name that contains the deployment
                 information
               type: string
+            enableMetering:
+              description: EnableMetering enables the Marketplace Metering components
+              type: boolean
             installIBMCatalogSource:
               description: InstallIBMCatalogSource is the flag that indicates if the
                 IBM Catalog Source is installed
@@ -95,7 +98,7 @@ spec:
                 type: object
               type: array
             meterBaseSubConditions:
-              description: Conditions represent the latest available observations
+              description: MeterBaseSubConditions represent the latest available observations
                 of the meterbase object's state
               items:
                 description: "Condition represents an observation of an object's state.
@@ -136,7 +139,7 @@ spec:
                 type: object
               type: array
             razeeSubConditions:
-              description: Conditions represent the latest available observations
+              description: RazeeSubConditions represent the latest available observations
                 of the razee object's state
               items:
                 description: "Condition represents an observation of an object's state.

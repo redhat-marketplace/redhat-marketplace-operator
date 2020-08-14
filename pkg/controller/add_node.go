@@ -19,11 +19,15 @@ import (
 	"github.com/spf13/pflag"
 )
 
-type NodeController ControllerDefinition
+type NodeController struct {
+	*baseDefinition
+}
 
 func ProvideNodeController() *NodeController {
 	return &NodeController{
-		Add:     node.Add,
-		FlagSet: func() *pflag.FlagSet { return nil },
+		baseDefinition: &baseDefinition{
+			AddFunc:     node.Add,
+			FlagSetFunc: func() *pflag.FlagSet { return nil },
+		},
 	}
 }

@@ -3,11 +3,15 @@
 # Declare variables to be passed into your templates.
 name: redhat-marketplace-operator
 replicaCount: 1
-namespace: openshift-redhat-marketplace
-image: quay.io/rh-marketplace/redhat-marketplace-operator:dev
+namespace: redhat-marketplace
+image: quay.io/rh-marketplace/redhat-marketplace-operator:latest
+reporterImage: quay.io/rh-marketplace/redhat-marketplace-reporter:latest
+metricStateImage: quay.io/rh-marketplace/redhat-marketplace-metric-state:latest
+kubeRbacProxyImage: quay.io/coreos/kube-rbac-proxy:v0.5.0
 pullPolicy: Always
 watchNamespace: '' # watch all namespaces
 serviceAccountName: redhat-marketplace-operator
+devpostfix: ''
 env:
   - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
     value: quay.io/razee/remoteresources3:0.6.2
@@ -18,6 +22,14 @@ roles:
     serviceAccountName: redhat-marketplace-operator
     type: ClusterRole
     rules:
+      - apiGroups:
+          - '*'
+        resources:
+          - '*'
+        verbs: ['get', 'list', 'watch']
+      - nonResourceURLs:
+          - '*'
+        verbs: ['get', 'list', 'watch']
       - apiGroups:
           - rbac.authorization.k8s.io
         resources:
@@ -37,6 +49,7 @@ roles:
           - services/finalizers
           - endpoints
           - persistentvolumeclaims
+          - persistentvolumes
           - events
           - configmaps
           - secrets
@@ -62,6 +75,9 @@ roles:
           - apps
         resources:
           - deployments
+          - statefulsets
+          - replicasets
+          - daemonsets
         verbs:
           - get
           - list
@@ -223,6 +239,25 @@ roles:
           - watch-keeper-limit-poll
           - watch-keeper-non-namespaced
           - razee-cluster-metadata
+      - apiGroups:
+          - authentication.k8s.io
+        resources:
+          - tokenreviews
+        verbs:
+          - create
+      - apiGroups:
+          - authorization.k8s.io
+        resources:
+          - subjectaccessreviews
+        verbs:
+          - create
+      # reporter: gives access to query prometheus
+      - nonResourceURLs:
+          - /api/v1/query
+          - /api/v1/query_range
+        verbs:
+          - get
+          - create
   # redhat-marketplace-remoteresources3deployment ClusterRole
   - name: redhat-marketplace-remoteresources3deployment
     serviceAccountName: redhat-marketplace-remoteresources3deployment
@@ -248,7 +283,150 @@ roles:
         resources:
           - '*'
         verbs:
+          - '*kkkkjj'
+  - name: redhat-marketplace-prometheus-operator
+    serviceAccountName: redhat-marketplace-prometheus-operator
+    type: ClusterRole
+    rules:
+      - apiGroups:
+          - apiextensions.k8s.io
+        resources:
+          - customresourcedefinitions
+        verbs:
+          - create
+      - apiGroups:
+          - apiextensions.k8s.io
+        resourceNames:
+          - alertmanagers.monitoring.coreos.com
+          - podmonitors.monitoring.coreos.com
+          - prometheuses.monitoring.coreos.com
+          - prometheusrules.monitoring.coreos.com
+          - servicemonitors.monitoring.coreos.com
+        resources:
+          - customresourcedefinitions
+        verbs:
+          - get
+          - update
+      - apiGroups:
+          - monitoring.coreos.com
+        resources:
+          - alertmanagers
+          - prometheuses
+          - prometheuses/finalizers
+          - alertmanagers/finalizers
+          - servicemonitors
+          - podmonitors
+          - prometheusrules
+        verbs:
           - '*'
+      - apiGroups:
+          - apps
+        resources:
+          - statefulsets
+        verbs:
+          - '*'
+      - apiGroups:
+          - ''
+        resources:
+          - configmaps
+          - secrets
+        verbs:
+          - '*'
+      - apiGroups:
+          - ''
+        resources:
+          - pods
+        verbs:
+          - list
+          - delete
+      - apiGroups:
+          - ''
+        resources:
+          - services
+          - services/finalizers
+          - endpoints
+        verbs:
+          - get
+          - create
+          - update
+          - delete
+      - apiGroups:
+          - ''
+        resources:
+          - nodes
+        verbs:
+          - list
+          - watch
+      - apiGroups:
+          - ''
+        resources:
+          - namespaces
+        verbs:
+          - get
+          - list
+          - watch
+  - name: redhat-marketplace-prometheus
+    serviceAccountName: redhat-marketplace-prometheus
+    type: ClusterRole
+    rules:
+      - apiGroups:
+          - ''
+        resources:
+          - nodes/metrics
+        verbs:
+          - get
+      - nonResourceURLs:
+          - /metrics
+        verbs:
+          - get
+      - apiGroups:
+          - authentication.k8s.io
+        resources:
+          - tokenreviews
+        verbs:
+          - create
+      - apiGroups:
+          - authorization.k8s.io
+        resources:
+          - subjectaccessreviews
+        verbs:
+          - create
+      - apiGroups:
+          - ''
+        resources:
+          - namespaces
+        verbs:
+          - get
+      - apiGroups:
+          - ''
+        resources:
+          - services
+          - endpoints
+          - pods
+        verbs:
+          - get
+          - list
+          - watch
+      - apiGroups:
+          - monitoring.coreos.com
+        resources:
+          - '*'
+        verbs:
+          - get
+          - list
+          - patch
+          - update
+          - watch
+  - name: redhat-marketplace-prometheus
+    serviceAccountName: redhat-marketplace-prometheus
+    type: Role
+    rules:
+      - apiGroups:
+          - ''
+        resources:
+          - configmaps
+        verbs:
+          - get
   # redhat-marketplace-watch-keeper ClusterRole
   - name: redhat-marketplace-watch-keeper
     serviceAccountName: redhat-marketplace-watch-keeper
@@ -262,6 +440,21 @@ roles:
       - nonResourceURLs:
           - '*'
         verbs: ['get', 'list', 'watch']
+  # redhat-marketplace-watch-keeper ClusterRole
+  - name: redhat-marketplace-reporter
+    namespace: openshift-config
+    serviceAccountName: redhat-marketplace-operator
+    type: Role
+    rules:
+      - apiGroups: ['']
+        #
+        # at the HTTP level, the name of the resource for accessing Secret
+        # objects is "secrets"
+        resources: ['secrets']
+        verbs: ['get', 'watch', 'list']
+        resourceNames:
+          - pull-secret
+
   # rhm-operator Role
   - name: redhat-marketplace-operator
     serviceAccountName: redhat-marketplace-operator
@@ -301,6 +494,19 @@ roles:
           - update
           - watch
       - apiGroups:
+          - operators.coreos.com
+        resources:
+          - subscriptions
+        verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+          - patch
+          - watch
+          - update
+      - apiGroups:
           - batch
           - extensions
         resources:
@@ -332,8 +538,7 @@ roles:
       - apiGroups:
           - monitoring.coreos.com
         resources:
-          - prometheuses
-          - servicemonitors
+          - '*'
         verbs:
           - create
           - delete

@@ -19,11 +19,15 @@ import (
 	"github.com/spf13/pflag"
 )
 
-type OlmClusterServiceVersionController ControllerDefinition
+type OlmClusterServiceVersionController struct {
+	*baseDefinition
+}
 
 func ProvideOlmClusterServiceVersionController() *OlmClusterServiceVersionController {
 	return &OlmClusterServiceVersionController{
-		Add:     clusterserviceversion.Add,
-		FlagSet: func() *pflag.FlagSet { return nil },
+		baseDefinition: &baseDefinition{
+			AddFunc:     clusterserviceversion.Add,
+			FlagSetFunc: func() *pflag.FlagSet { return nil },
+		},
 	}
 }

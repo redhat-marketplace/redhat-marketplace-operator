@@ -28,7 +28,7 @@ const (
 	COS_READER_KEY_NAME                    = "rhm-cos-reader-key"
 	RAZEE_UNINSTALL_NAME                   = "razee-uninstall-job"
 	RHM_OPERATOR_SECRET_NAME               = "rhm-operator-secret"
-	MARKETPLACECONFIG_NAME                 = "rhm-marketplaceconfig"
+	MARKETPLACECONFIG_NAME                 = "marketplaceconfig"
 	METERBASE_NAME                         = "rhm-marketplaceconfig-meterbase"
 	RAZEE_NAME                             = "rhm-marketplaceconfig-razeedeployment"
 	OPSRC_NAME                             = "redhat-marketplace"
@@ -40,6 +40,9 @@ const (
 	WATCH_KEEPER_LIMITPOLL_NAME            = "watch-keeper-limit-poll"
 	WATCH_KEEPER_CONFIG_NAME               = "watch-keeper-config"
 	WATCH_KEEPER_SECRET_NAME               = "watch-keeper-secret"
+
+	/* All Controllers */
+	CONTROLLER_FINALIZER = "finalizer.marketplace.redhat.com"
 
 	/* RBAC */
 	CLUSTER_ROLE              = "redhat-marketplace-operator"
@@ -60,9 +63,24 @@ const (
 	CHILD_RRS3_YAML_FIELD                     = "CHILD_RRS3_YAML_FILENAME"
 	RAZEE_DASH_URL_FIELD                      = "RAZEE_DASH_URL"
 	FILE_SOURCE_URL_FIELD                     = "FILE_SOURCE_URL"
+
+	/* CSV Controller Values */
+	CSV_FINALIZER                  = "csv.finalizer.marketplace.redhat.com"
+	CSV_NAME                       = "redhat-marketplace-operator"
+	CSV_ANNOTATION_NAME            = "csvName"
+	CSV_ANNOTATION_NAMESPACE       = "csvNamespace"
+	CSV_METERDEFINITION_ANNOTATION = "marketplace.redhat.com/meterDefinition"
+
+
+	/* Time and Date */
+	DATE_FORMAT = "2006-01-02"
+	METER_REPORT_PREFIX = "meter-report-"
 )
 
 var (
+	/* Metering Annotations */
+	MeteredAnnotation = []string{"marketplace.redhat.com/metering", "true"}
+
 	/* Labels*/
 	LABEL_RHM_OPERATOR_WATCH = []string{"marketplace.redhat.com/watch", "true"}
 )

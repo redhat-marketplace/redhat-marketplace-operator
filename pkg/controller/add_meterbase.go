@@ -16,13 +16,23 @@ package controller
 
 import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller/meterbase"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-type MeterbaseController ControllerDefinition
+type MeterbaseController struct {
+	*baseDefinition
+}
 
-func ProvideMeterbaseController() *MeterbaseController {
+func ProvideMeterbaseController(
+	commandRunner reconcileutils.ClientCommandRunnerProvider,
+) *MeterbaseController {
 	return &MeterbaseController{
-		Add:     meterbase.Add,
-		FlagSet: meterbase.FlagSet,
+		baseDefinition: &baseDefinition{
+			AddFunc: func(mgr manager.Manager) error {
+				return meterbase.Add(mgr, commandRunner)
+			},
+			FlagSetFunc: meterbase.FlagSet,
+		},
 	}
 }

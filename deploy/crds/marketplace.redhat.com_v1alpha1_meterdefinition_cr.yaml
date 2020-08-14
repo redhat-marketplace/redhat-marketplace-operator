@@ -1,18 +1,18 @@
 apiVersion: marketplace.redhat.com/v1alpha1
 kind: MeterDefinition
 metadata:
-  name: example-meterdefinition
+  name: example-meterdefinition-2
 spec:
   # Add fields here
-  meterDomain: apps.partner.metering.com
-  meterVersion: v1
+  meterGroup: partner.metering.com
   meterKind: App
-  serviceMeterLabels:
-    - rpc_durations_seconds.*
-  podMeterLabels:
-    - bar
-  serviceMonitorSelector:
-    matchLabels:
-      app: example-app
-      marketplace.redhat.com/metered: "true"
-  serviceMonitorNamespaceSelector: {}
+  workloadVertexType: OperatorGroup
+  workloads:
+    - name: app-pods
+      type: Pod
+      ownerCRD:
+        apiVersion: partner.metering.com/v1alpha1
+        kind: App
+      metricLabels:
+        - label: container_spec_cpu_shares
+          aggregation: sum
