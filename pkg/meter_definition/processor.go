@@ -43,6 +43,7 @@ type processorImpl struct {
 	log logr.Logger
 	cc  ClientCommandRunner
 
+	name          string
 	retryCount    int
 	digestersSize int
 	resourceChan  chan *ObjectResourceMessage
@@ -56,17 +57,19 @@ type processorImpl struct {
 // store when Start is called. This returns the default implementation
 // of a processor that supports retry and multiple concurrent workers.
 func NewProcessor(
+	name string,
 	log logr.Logger,
 	cc ClientCommandRunner,
 	meterDefStore *MeterDefinitionStore,
 	processor ObjectResourceMessageProcessor,
 ) Processor {
 	return &processorImpl{
+		name:          name,
 		log:           log,
 		cc:            cc,
 		meterDefStore: meterDefStore,
 		processor:     processor,
-		digestersSize: 4,
+		digestersSize: 1,
 		retryCount:    3,
 	}
 }
@@ -77,7 +80,7 @@ func NewProcessor(
 // wait until the context is closed, and the wait group is finished to exit.
 func (u *processorImpl) Start(ctx context.Context) error {
 	u.resourceChan = make(chan *ObjectResourceMessage)
-	u.meterDefStore.RegisterListener(u.resourceChan)
+	u.meterDefStore.RegisterListener(u.name, u.resourceChan)
 
 	var wg sync.WaitGroup
 

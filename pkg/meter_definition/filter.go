@@ -22,13 +22,12 @@ import (
 	"emperror.dev/errors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/client"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var filterLogs = logger.NewLogger("filter")
+var filterLogs = logf.Log.WithName("filter")
 
 type FilterRuntimeObject interface {
 	Filter(interface{}) (bool, error)
@@ -89,20 +88,23 @@ func (f *WorkloadTypeFilter) String() string {
 }
 
 func (f *WorkloadTypeFilter) Filter(obj interface{}) (bool, error) {
-	o, ok := obj.(runtime.Object)
-	if !ok {
-		return false, nil
-	}
+	objType := reflect.TypeOf(obj)
 
 	for _, gvk := range f.gvks {
-		if gvk == reflect.TypeOf(o) {
+		if gvk == objType {
 			filterLogs.Info("matching gvk",
 				"matched", "true",
 				"gvk", gvk,
 				"obj", fmt.Sprintf("%T", obj))
 			return true, nil
+		} else {
+			filterLogs.Info("not matching",
+				"matched", "false",
+				"gvk", gvk,
+				"obj", fmt.Sprintf("%T", obj))
 		}
 	}
+
 	return false, nil
 }
 

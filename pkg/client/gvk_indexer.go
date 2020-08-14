@@ -20,10 +20,10 @@ import (
 	"strings"
 
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -38,7 +38,7 @@ const (
 	IndexUID = ".metadata.UID"
 )
 
-var log = logger.NewLogger("client")
+var log = logf.Log.WithName("client")
 
 func AddOwningControllerIndex(fieldIndexer client.FieldIndexer, types []runtime.Object) error {
 	for _, rType := range types {
@@ -128,25 +128,13 @@ func indexAnnotations(obj runtime.Object) []string {
 func indexOwner(obj runtime.Object) []string {
 	results := []string{}
 	if meta, ok := obj.(metav1.Object); ok {
-		owner := metav1.GetControllerOf(meta)
-		if owner == nil {
-			return nil
+		for _, ref := range meta.GetOwnerReferences() {
+			results = append(results, string(ref.UID))
 		}
 
-		gvk := ObjRefToStr(owner.APIVersion, owner.Kind)
+		log.V(4).Info("indexing owenrs", "name", meta.GetName(), "namespace", meta.GetNamespace(), "results", results)
 
-		if gvk == "" {
-			return nil
-		}
-
-		data := []string{
-			"gvk:" + gvk,
-			"named:" + fmt.Sprintf("%s/%s", owner.Name, gvk),
-			"uid:" + string(owner.UID),
-		}
-		log.V(4).Info("indexing gvk", "gvk", gvk, "name", meta.GetName(), "namespace", meta.GetNamespace(), "data", data)
-
-		return data
+		return results
 	}
 
 	return results

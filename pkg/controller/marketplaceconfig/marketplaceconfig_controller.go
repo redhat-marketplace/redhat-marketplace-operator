@@ -177,7 +177,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	}
 
 	if marketplaceConfig.Spec.EnableMetering == nil {
-		marketplaceConfig.Spec.EnableMetering = ptr.Bool(false)
+		marketplaceConfig.Spec.EnableMetering = ptr.Bool(true)
 	}
 
 	newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName)

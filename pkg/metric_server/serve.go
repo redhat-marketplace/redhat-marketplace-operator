@@ -23,12 +23,12 @@ import (
 	"strconv"
 	"strings"
 
+	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/internal/metrics"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -41,6 +41,7 @@ import (
 	"k8s.io/kube-state-metrics/pkg/options"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -48,27 +49,25 @@ const (
 	healthzPath = "/healthz"
 )
 
-var log = logger.NewLogger("meteric_generator")
+var log = logf.Log.WithName("meteric_generator")
 var reg = prometheus.NewRegistry()
 
 type Service struct {
-	k8sclient       client.Client
-	k8sRestClient   clientset.Interface
-	opts            *options.Options
-	cache           cache.Cache
-	metricsRegistry *prometheus.Registry
-	cc              reconcileutils.ClientCommandRunner
-	meterDefStore   *meter_definition.MeterDefinitionStore
+	k8sclient        client.Client
+	k8sRestClient    clientset.Interface
+	opts             *options.Options
+	cache            cache.Cache
+	metricsRegistry  *prometheus.Registry
+	cc               reconcileutils.ClientCommandRunner
+	meterDefStore    *meter_definition.MeterDefinitionStore
 	statusProcessor  *meter_definition.StatusProcessor
-	isCacheStarted  managers.CacheIsStarted
+	serviceProcessor *meter_definition.ServiceProcessor
+	isCacheStarted   managers.CacheIsStarted
 }
 
 func (s *Service) Serve(done <-chan struct{}) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	s.meterDefStore.SetNamespaces(options.DefaultNamespaces)
-	s.meterDefStore.Start()
 
 	opts := s.opts
 	storeBuilder := metrics.NewBuilder()
@@ -76,7 +75,19 @@ func (s *Service) Serve(done <-chan struct{}) error {
 
 	proc.StartReaper()
 
-	go s.statusProcessor.Start(ctx)
+	go func() {
+		err := s.statusProcessor.Start(ctx)
+		log.Error(err, "failed to register status processor")
+		panic(err)
+	}()
+	go func() {
+		err := s.serviceProcessor.Start(ctx)
+		log.Error(err, "failed to register service processor")
+		panic(err)
+	}()
+
+	s.meterDefStore.SetNamespaces(options.DefaultNamespaces)
+	s.meterDefStore.Start()
 
 	storeBuilder.WithContext(ctx)
 	storeBuilder.WithKubeClient(s.k8sRestClient)
@@ -110,11 +121,26 @@ func addIndex(
 		return managers.CacheIsIndexed{}, err
 	}
 
-	err = rhmclient.AddUIDIndex(cache,
+	err = rhmclient.AddOwningControllerIndex(cache,
 		[]runtime.Object{
-			&marketplacev1alpha1.MeterDefinition{},
 			&corev1.Pod{},
 			&corev1.Service{},
+			&corev1.PersistentVolumeClaim{},
+			&monitoringv1.ServiceMonitor{},
+		})
+
+	if err != nil {
+		log.Error(err, "")
+		return managers.CacheIsIndexed{}, err
+	}
+
+	err = rhmclient.AddUIDIndex(cache,
+		[]runtime.Object{
+			&corev1.Pod{},
+			&corev1.Service{},
+			&corev1.PersistentVolumeClaim{},
+			&marketplacev1alpha1.MeterDefinition{},
+			&monitoringv1.ServiceMonitor{},
 		})
 
 	if err != nil {

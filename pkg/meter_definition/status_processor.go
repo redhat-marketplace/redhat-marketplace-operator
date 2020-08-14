@@ -16,12 +16,14 @@ package meter_definition
 
 import (
 	"context"
-	"reflect"
+	"fmt"
 	"sort"
+	"sync"
 
 	"github.com/go-logr/logr"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // StatusProcessor will update the meter definition
@@ -30,6 +32,8 @@ type StatusProcessor struct {
 	log           logr.Logger
 	cc            ClientCommandRunner
 	meterDefStore *MeterDefinitionStore
+	mutex         sync.Mutex
+	locks         map[types.NamespacedName]sync.Mutex
 }
 
 // NewStatusProcessor is the provider that creates
@@ -43,12 +47,13 @@ func NewStatusProcessor(
 		log:           log,
 		cc:            cc,
 		meterDefStore: meterDefStore,
+		locks:         make(map[types.NamespacedName]sync.Mutex),
 	}
 }
 
 // Start will register it's listener and execute the function.
 func (u *StatusProcessor) Start(ctx context.Context) error {
-	p := NewProcessor(u.log, u.cc, u.meterDefStore, u)
+	p := NewProcessor("statusProcessor", u.log, u.cc, u.meterDefStore, u)
 	return p.Start(ctx)
 }
 
@@ -63,33 +68,54 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj *ObjectResourceMess
 		return nil
 	}
 
-	if inObj.Action == DeleteMessageAction {
-		return nil
+	if inObj != nil {
+	
 	}
+
+	u.mutex.Lock()
+	lock, exists := u.locks[inObj.MeterDef]
+
+	if !exists {
+		u.locks[inObj.MeterDef] = sync.Mutex{}
+		lock, _ = u.locks[inObj.MeterDef]
+	}
+	u.mutex.Unlock()
+
+	lock.Lock()
+	defer lock.Unlock()
+
+	log.Info("incoming obj", "type", fmt.Sprintf("%T", inObj.Object), "mdef", inObj.MeterDef)
 
 	result, _ := u.cc.Do(ctx,
 		HandleResult(
 			GetAction(inObj.MeterDef, mdef),
 			OnContinue(Call(func() (ClientAction, error) {
-				objs := u.meterDefStore.GetMeterDefObjects(mdef.UID)
-				log.Info("found objs", "objs", len(objs))
+				log.Info("found objs", "mdef", inObj.MeterDef)
 
-				updatedMeterDef := mdef.DeepCopy()
-				resources := make([]marketplacev1alpha1.WorkloadResource, 0, len(objs))
+				resources := []marketplacev1alpha1.WorkloadResource{}
 
-				for _, obj := range objs {
-					resource := obj.WorkloadResource
-					resources = append(resources, *resource)
+				set := map[types.UID]marketplacev1alpha1.WorkloadResource{}
+
+				for _, obj := range mdef.Status.WorkloadResources {
+					set[obj.UID] = obj
+				}
+
+				switch inObj.Action {
+				case DeleteMessageAction:
+					delete(set, inObj.ObjectResourceValue.UID)
+				case AddMessageAction:
+					set[inObj.ObjectResourceValue.UID] = *inObj.ObjectResourceValue.WorkloadResource
+				}
+
+				for _, obj := range set {
+					resources = append(resources, obj)
 				}
 
 				sort.Sort(marketplacev1alpha1.ByAlphabetical(resources))
-				updatedMeterDef.Status.WorkloadResources = resources
+				mdef.Status.WorkloadResources = resources
 
-				if reflect.DeepEqual(updatedMeterDef.Status, mdef.Status) {
-					return nil, nil
-				}
-
-				return UpdateAction(updatedMeterDef, UpdateStatusOnly(true)), nil
+				log.Info("updating meter def", "mdef", inObj.MeterDef, "uid", mdef.UID, "len", len(mdef.Status.WorkloadResources))
+				return UpdateAction(mdef, UpdateStatusOnly(true)), nil
 			})),
 		),
 	)
@@ -99,6 +125,7 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj *ObjectResourceMess
 	}
 
 	if result.Is(Error) {
+		log.Error(result, "failed run")
 		return result
 	}
 

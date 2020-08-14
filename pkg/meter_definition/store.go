@@ -16,6 +16,7 @@ package meter_definition
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -109,7 +110,8 @@ type MeterDefinitionStore struct {
 	monitoringClient  *monitoringv1client.MonitoringV1Client
 	marketplaceClient *marketplacev1alpha1client.MarketplaceV1alpha1Client
 
-	listeners []chan *ObjectResourceMessage
+	listenerMutex sync.Mutex
+	listeners     []chan *ObjectResourceMessage
 }
 
 func NewMeterDefinitionStore(
@@ -137,7 +139,10 @@ func NewMeterDefinitionStore(
 	}
 }
 
-func (s *MeterDefinitionStore) RegisterListener(ch chan *ObjectResourceMessage) {
+func (s *MeterDefinitionStore) RegisterListener(name string, ch chan *ObjectResourceMessage) {
+	s.listenerMutex.Lock()
+	defer s.listenerMutex.Unlock()
+	s.log.Info("registering listener", "name", name)
 	s.listeners = append(s.listeners, ch)
 }
 
@@ -155,14 +160,12 @@ func (s *MeterDefinitionStore) removeMeterDefinition(meterdef *v1alpha1.MeterDef
 }
 
 func (s *MeterDefinitionStore) broadcast(msg *ObjectResourceMessage) {
+	s.listenerMutex.Lock()
+	defer s.listenerMutex.Unlock()
 	for _, ch := range s.listeners {
 		ch <- msg
 	}
 }
-
-var (
-	meterDefGVK, _ = meta.TypeAccessor(&v1alpha1.MeterDefinition{})
-)
 
 func (s *MeterDefinitionStore) GetMeterDefinitionRefs(uid types.UID) []*ObjectResourceValue {
 	s.mutex.RLock()
@@ -191,6 +194,14 @@ func (s *MeterDefinitionStore) GetMeterDefObjects(meterDefUID types.UID) []*Obje
 	return vals
 }
 
+type result struct {
+	meterDefUID MeterDefUID
+	workload    *v1alpha1.Workload
+	ok          bool
+	lookup      *MeterDefinitionLookupFilter
+	key         ObjectResourceKey
+}
+
 // Implementing k8s.io/client-go/tools/cache.Store interface
 
 // Add inserts adds to the OwnerCache by calling the metrics generator functions and
@@ -198,15 +209,25 @@ func (s *MeterDefinitionStore) GetMeterDefObjects(meterDefUID types.UID) []*Obje
 func (s *MeterDefinitionStore) Add(obj interface{}) error {
 
 	if meterdef, ok := obj.(*v1alpha1.MeterDefinition); ok {
-		lookup, err := NewMeterDefinitionLookupFilter(s.cc, meterdef, s.findOwner)
+		err := func() error {
+			s.mutex.Lock()
+			defer s.mutex.Unlock()
+			lookup, err := NewMeterDefinitionLookupFilter(s.cc, meterdef, s.findOwner)
+
+			if err != nil {
+				s.log.Error(err, "error building lookup")
+				return err
+			}
+
+			s.log.Info("found lookup", "lookup", lookup)
+			s.meterDefinitionFilters[MeterDefUID(meterdef.UID)] = lookup
+			return nil
+		}()
 
 		if err != nil {
-			s.log.Error(err, "error building lookup")
 			return err
 		}
 
-		s.log.Info("found lookup", "lookup", lookup)
-		s.meterDefinitionFilters[MeterDefUID(meterdef.UID)] = lookup
 		return nil
 	}
 
@@ -216,50 +237,62 @@ func (s *MeterDefinitionStore) Add(obj interface{}) error {
 	}
 
 	// look over all meterDefinitions, matching workloads are saved
-	for meterDefUID, lookup := range s.meterDefinitionFilters {
-		key := NewObjectResourceKey(o, meterDefUID)
+	results := []result{}
+
+	err = func() error {
 		s.mutex.RLock()
-		previousResult, ok := s.objectResourceSet[key]
-		s.mutex.RUnlock()
+		defer s.mutex.RUnlock()
+		for meterDefUID, lookup := range s.meterDefinitionFilters {
+			key := NewObjectResourceKey(o, meterDefUID)
+			workload, ok, err := lookup.FindMatchingWorkloads(obj)
 
-		if ok && previousResult.MeterDefHash == lookup.Hash() &&
-			o.GetGeneration() == previousResult.Generation {
-			// no change in the lookup, result would not have changed
-			break
-		}
-
-		workload, ok, err := lookup.FindMatchingWorkloads(obj)
-
-		if err != nil {
-			s.log.Error(err, "")
-			return err
-		}
-
-		var msg *ObjectResourceMessage
-		err = func() error {
-			s.mutex.Lock()
-			defer s.mutex.Unlock()
-
-			if !ok {
-				value := NewObjectResourceValue(lookup, nil, o, ok)
-				s.objectResourceSet[key] = value
-				return nil
-			}
-
-			resource, err := v1alpha1.NewWorkloadResource(*workload, obj, s.scheme)
 			if err != nil {
 				s.log.Error(err, "")
 				return err
 			}
 
-			value := NewObjectResourceValue(lookup, resource, o, ok)
-			s.objectResourceSet[key] = value
+			results = append(results, result{
+				meterDefUID: meterDefUID,
+				workload:    workload,
+				ok:          ok,
+				lookup:      lookup,
+				key:         key,
+			})
+		}
+		return nil
+	}()
 
-			msg = &ObjectResourceMessage{
+	if err != nil {
+		return err
+	}
+
+	for _, result := range results {
+		if !result.ok {
+			continue
+		}
+
+		err := func() error {
+			s.mutex.Lock()
+			defer s.mutex.Unlock()
+
+			log.Info("workload found", "obj", obj, "meterDefUID", string(result.meterDefUID))
+			resource, err := v1alpha1.NewWorkloadResource(*result.workload, obj, s.scheme)
+			if err != nil {
+				s.log.Error(err, "")
+				return err
+			}
+
+			value := NewObjectResourceValue(result.lookup, resource, o, result.ok)
+			s.objectResourceSet[result.key] = value
+
+			msg := &ObjectResourceMessage{
 				Action:              AddMessageAction,
 				Object:              obj,
 				ObjectResourceValue: value,
 			}
+
+			log.Info("broadcasting message", "msg", msg, "type", fmt.Sprintf("%T", obj), "mdef", value.MeterDef, "workloadName", value.WorkloadResource.Name)
+			s.broadcast(msg)
 
 			return nil
 		}()
@@ -267,11 +300,6 @@ func (s *MeterDefinitionStore) Add(obj interface{}) error {
 		if err != nil {
 			return err
 		}
-
-		if msg != nil {
-			s.broadcast(msg)
-		}
-
 	}
 
 	return nil
@@ -298,14 +326,14 @@ func (s *MeterDefinitionStore) Delete(obj interface{}) error {
 		return err
 	}
 
-	s.broadcast(&ObjectResourceMessage{
-		Action:              DeleteMessageAction,
-		Object:              o,
-		ObjectResourceValue: nil,
-	})
-
-	for key := range s.objectResourceSet {
+	for key, val := range s.objectResourceSet {
 		if key.ObjectUID == ObjectUID(o.GetUID()) {
+			s.broadcast(&ObjectResourceMessage{
+				Action:              DeleteMessageAction,
+				Object:              o,
+				ObjectResourceValue: val,
+			})
+
 			delete(s.objectResourceSet, key)
 		}
 	}
@@ -337,16 +365,24 @@ func (s *MeterDefinitionStore) GetByKey(key string) (item interface{}, exists bo
 // given list.
 func (s *MeterDefinitionStore) Replace(list []interface{}, _ string) error {
 	s.mutex.Lock()
-	s.objectResourceSet = make(map[ObjectResourceKey]*ObjectResourceValue)
+	for _, item := range list {
+		o, _ := meta.Accessor(item)
+
+		for key, val := range s.objectResourceSet {
+			if key.ObjectUID == ObjectUID(o.GetUID()) {
+				s.broadcast(&ObjectResourceMessage{
+					Action:              DeleteMessageAction,
+					Object:              item,
+					ObjectResourceValue: val,
+				})
+
+				delete(s.objectResourceSet, key)
+			}
+		}
+	}
 	s.mutex.Unlock()
 
 	for _, o := range list {
-		s.broadcast(&ObjectResourceMessage{
-			Action:              DeleteMessageAction,
-			Object:              o,
-			ObjectResourceValue: nil,
-		})
-
 		err := s.Add(o)
 		if err != nil {
 			return err
@@ -362,6 +398,14 @@ func (s *MeterDefinitionStore) Resync() error {
 }
 
 func (s *MeterDefinitionStore) Start() {
+	for _, ns := range s.namespaces {
+		lister := CreateMeterDefinitionWatch(s.marketplaceClient, ns)
+		reflector := cache.NewReflector(lister, &v1alpha1.MeterDefinition{}, s, 0)
+		go reflector.Run(s.ctx.Done())
+	}
+
+	time.Sleep(5 * time.Second)
+
 	for _, ns := range s.namespaces {
 		for expectedType, lister := range s.createWatchers(ns) {
 			reflector := cache.NewReflector(lister, expectedType, s, 0)
@@ -397,7 +441,5 @@ func (s *MeterDefinitionStore) createWatchers(ns string) map[runtime.Object]cach
 		&corev1.Pod{}:                   CreatePodListWatch(s.kubeClient, ns),
 		&corev1.Service{}:               CreateServiceListWatch(s.kubeClient, ns),
 		&monitoringv1.ServiceMonitor{}:  CreateServiceMonitorListWatch(s.monitoringClient, ns),
-		&v1alpha1.MeterDefinition{}:     CreateMeterDefinitionWatch(s.marketplaceClient, ns),
-		//CreateServiceListWatch(s.kubeClient, ns),
 	}
 }

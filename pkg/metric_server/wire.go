@@ -42,6 +42,7 @@ func NewServer(
 		provideRegistry,
 		meter_definition.NewMeterDefinitionStore,
 		meter_definition.NewStatusProcessor,
+		meter_definition.NewServiceProcessor,
 		marketplacev1alpha1client.NewForConfig,
 		monitoringv1client.NewForConfig,
 		provideContext,
