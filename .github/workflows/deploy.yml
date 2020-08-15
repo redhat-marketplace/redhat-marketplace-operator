@@ -1,17 +1,11 @@
 name: Deploy Image
 
 on:
-  workflow_run:
-    workflows: ["Create Manifest"]
-    branches:
-      - "release/**"
-      - "hotfix/**"
-    types:
-      - completed
-      - requested
   push:
     branches:
       - "master"
+      - "release/**"
+      - "hotfix/**"
       - "develop"
       - "feature/**"
       - "bugfix/**"

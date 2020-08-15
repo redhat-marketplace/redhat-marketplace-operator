@@ -1,12 +1,5 @@
 name: Create Manifest
 
-on:
-  push:
-    branches:
-      - 'release/**'
-      - 'hotfix/**'
-    paths-ignore:
-      - 'deploy/olm-catalog/redhat-marketplace-operator/**'
 env:
   pushImage: true
 
