@@ -621,6 +621,7 @@ func (r *ReconcileMeterBase) reconcilePrometheusOperator(
 				for _, ns := range nsList.Items {
 					nsValues = append(nsValues, ns.Name)
 				}
+				sort.Strings(nsValues)
 				reqLogger.Info("found namespaces", "ns", nsValues)
 				return factory.NewPrometheusOperatorDeployment(nsValues)
 			},

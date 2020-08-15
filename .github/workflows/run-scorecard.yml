@@ -1,15 +1,15 @@
 name: Run Scorecard
 
 on:
- workflow_run:
-    workflows: ["Deploy Image"]
+  workflow_run:
+    workflows: ['Deploy Image']
     branches:
-      - "master"
-      - "develop"
-      - "feature/**"
-      - "bugfix/**"
-      - "release/**"
-      - "hotfix/**"
+      - 'master'
+      - 'develop'
+      - 'feature/**'
+      - 'bugfix/**'
+      - 'release/**'
+      - 'hotfix/**'
     types:
       - completed
       - requested
@@ -18,7 +18,6 @@ jobs:
   scorecard:
     name: Scorecard
     runs-on: ubuntu-latest
-    needs: [build, deploy]
     continue-on-error: true
     strategy:
       matrix:

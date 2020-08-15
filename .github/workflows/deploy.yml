@@ -1,14 +1,20 @@
 name: Deploy Image
 
 on:
+  workflow_run:
+    workflows: ["Create Manifest"]
+    branches:
+      - "release/**"
+      - "hotfix/**"
+    types:
+      - completed
+      - requested
   push:
     branches:
       - "master"
       - "develop"
       - "feature/**"
       - "bugfix/**"
-      - "release/**"
-      - "hotfix/**"
 env:
   pushImage: true
 
@@ -29,6 +35,10 @@ jobs:
       TAGPREFIX: ''
 
     steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.4.1
+        with:
+          access_token: ${{ github.token }}
 
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
