@@ -18,8 +18,8 @@ spec:
       metricLabels:
         - label: container_spec_cpu_shares
           aggregation: sum
-    - name: servicemon
-      type: ServiceMonitor
+    - name: service
+      type: Service
       ownerCRD:
         apiVersion: partner.metering.com/v1alpha1
         kind: App

@@ -277,7 +277,7 @@ spec:
                       for. This can be pod or service right now.
                     enum:
                     - Pod
-                    - ServiceMonitor
+                    - Service
                     - PersistentVolumeClaim
                     type: string
                 required:

@@ -90,21 +90,23 @@ func NewServer(opts *Options) (*Service, error) {
 	}
 	meterDefinitionStore := meter_definition.NewMeterDefinitionStore(context, logger, clientCommandRunner, clientset, findOwnerHelper, monitoringV1Client, marketplaceV1alpha1Client, scheme)
 	statusProcessor := meter_definition.NewStatusProcessor(logger, clientCommandRunner, meterDefinitionStore)
+	serviceProcessor := meter_definition.NewServiceProcessor(logger, clientCommandRunner, meterDefinitionStore)
 	cacheIsIndexed, err := addIndex(context, cache)
 	if err != nil {
 		return nil, err
 	}
 	cacheIsStarted := managers.StartCache(context, cache, logger, cacheIsIndexed)
 	service := &Service{
-		k8sclient:       clientClient,
-		k8sRestClient:   clientset,
-		opts:            options,
-		cache:           cache,
-		metricsRegistry: registry,
-		cc:              clientCommandRunner,
-		meterDefStore:   meterDefinitionStore,
-		statusProcessor: statusProcessor,
-		isCacheStarted:  cacheIsStarted,
+		k8sclient:        clientClient,
+		k8sRestClient:    clientset,
+		opts:             options,
+		cache:            cache,
+		metricsRegistry:  registry,
+		cc:               clientCommandRunner,
+		meterDefStore:    meterDefinitionStore,
+		statusProcessor:  statusProcessor,
+		serviceProcessor: serviceProcessor,
+		isCacheStarted:   cacheIsStarted,
 	}
 	return service, nil
 }

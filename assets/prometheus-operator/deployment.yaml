@@ -26,7 +26,7 @@ spec:
         - --config-reloader-image=quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:b0291b4faa4f1932ea379fce9199b698f4aeb081493862af66519e5551c533d9
         - --prometheus-config-reloader=quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:7c21484c93f2034adfc8f61a1ee197b470bd2337c24da3d36e99599324988b78
 
-        - --namespaces={{NAMESPACE}}
+        - --namespaces={{NAMESPACES}}
         - --prometheus-instance-namespaces={{NAMESPACE}}
         - --alertmanager-instance-namespaces={{NAMESPACE}}
         - --manage-crds=false

@@ -27,13 +27,13 @@ import (
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/client"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type MeterDefinitionLookupFilter struct {
@@ -46,7 +46,7 @@ type MeterDefinitionLookupFilter struct {
 }
 
 var (
-	log = logger.NewLogger("meterDefLookupFilter")
+	log = logf.Log.WithName("meterDefLookupFilter")
 )
 
 func NewMeterDefinitionLookupFilter(
@@ -110,10 +110,11 @@ func (s *MeterDefinitionLookupFilter) FindMatchingWorkloads(obj interface{}) (*v
 		return nil, false, err
 	}
 
-	filterLogger := s.log.WithValues("obj", o.GetName()+"/"+o.GetNamespace(), "type", fmt.Sprintf("%T", obj))
+	filterLogger := s.log.WithValues("obj", o.GetName()+"/"+o.GetNamespace(), "type", fmt.Sprintf("%T", obj), "filterLen", len(s.filters))
 
 	for key, workloadFilters := range s.filters {
-		pass := true
+		filterLogger.Info("testing", "key", key, "filters", printFilterList(workloadFilters))
+		results := []bool{}
 		for i, filter := range workloadFilters {
 			ans, err := filter.Filter(obj)
 
@@ -123,18 +124,20 @@ func (s *MeterDefinitionLookupFilter) FindMatchingWorkloads(obj interface{}) (*v
 			}
 
 			if !ans {
-				filterLogger.Info("workload failed", "workloadStatus", "fail", "filters", printFilterList(workloadFilters), "i", i, "filter", filter)
-				pass = false
 				break
 			}
+
+			results = append(results, ans)
+		}
+
+		if len(results) == 0 || len(results) != len(workloadFilters) {
+			filterLogger.Info("workload did not pass all filters", "workloadStatus", "fail", "filters", printFilterList(workloadFilters))
+			continue
 		}
 
 		filterLogger.Info("workload passed all filters", "workloadStatus", "pass", "filters", printFilterList(workloadFilters))
 		workload, _ := s.workloads[key]
-
-		if pass {
-			return &workload, true, nil
-		}
+		return &workload, true, nil
 	}
 
 	return nil, false, nil
@@ -252,6 +255,9 @@ func (s *MeterDefinitionLookupFilter) createFilters(
 		case v1alpha1.WorkloadTypePVC:
 			gvk := reflect.TypeOf(&corev1.PersistentVolumeClaim{})
 			typeFilter.gvks = []reflect.Type{gvk}
+		case v1alpha1.WorkloadTypeService:
+			gvk1 := reflect.TypeOf(&corev1.Service{})
+			typeFilter.gvks = []reflect.Type{gvk1}
 		case v1alpha1.WorkloadTypeServiceMonitor:
 			gvk1 := reflect.TypeOf(&corev1.Service{})
 			gvk2 := reflect.TypeOf(&monitoringv1.ServiceMonitor{})

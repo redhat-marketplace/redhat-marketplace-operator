@@ -293,11 +293,11 @@ deploy-test-prometheus: ## Helper to setup minikube
 
 .PHONY: check-licenses
 check-licenses: ## Check if all files have licenses
-	addlicense -check -c "IBM Corp." **/*.go
+	addlicense -check -c "IBM Corp." ./pkg/**/*.go ./cmd/**/*.go ./internal/**/*.go ./test/**/*.go
 
 .PHONY: add-licenses
 add-licenses: ## Add licenses to the go file
-	addlicense -c "IBM Corp." **/*.go
+	addlicense -c "IBM Corp." ./pkg/**/*.go ./cmd/**/*.go ./internal/**/*.go ./test/**/*.go
 
 scorecard: ## Run scorecard tests
 	operator-sdk scorecard -b ./deploy/olm-catalog/redhat-marketplace-operator

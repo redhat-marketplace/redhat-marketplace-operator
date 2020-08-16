@@ -210,7 +210,7 @@ func (f *Factory) PrometheusAdditionalConfigSecret(data []byte) (*v1.Secret, err
 	return s, nil
 }
 
-func (f *Factory) NewPrometheusOperatorDeployment() (*appsv1.Deployment, error) {
+func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployment, error) {
 	c := f.config.PrometheusOperatorConfig
 	dep, err := f.NewDeployment(MustAssetReader(PrometheusOperatorDeployment))
 
@@ -227,13 +227,16 @@ func (f *Factory) NewPrometheusOperatorDeployment() (*appsv1.Deployment, error) 
 	}
 
 	replacer := strings.NewReplacer("{{NAMESPACE}}", f.namespace)
+	replacerNamespaces := strings.NewReplacer("{{NAMESPACES}}", strings.Join(ns, ","))
 
 	updatedContainers := []corev1.Container{}
 
 	for _, container := range dep.Spec.Template.Spec.Containers {
 		newArgs := []string{}
 		for _, arg := range container.Args {
-			newArgs = append(newArgs, replacer.Replace(arg))
+			newArg := replacer.Replace(arg)
+			newArg = replacerNamespaces.Replace(newArg)
+			newArgs = append(newArgs, newArg)
 		}
 
 		newContainer := container.DeepCopy()

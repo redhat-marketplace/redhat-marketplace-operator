@@ -71,12 +71,16 @@ const (
 	CSV_ANNOTATION_NAMESPACE       = "csvNamespace"
 	CSV_METERDEFINITION_ANNOTATION = "marketplace.redhat.com/meterDefinition"
 
+
 	/* Time and Date */
 	DATE_FORMAT = "2006-01-02"
 	METER_REPORT_PREFIX = "meter-report-"
 )
 
 var (
+	/* Metering Annotations */
+	MeteredAnnotation = []string{"marketplace.redhat.com/metering", "true"}
+
 	/* Labels*/
 	LABEL_RHM_OPERATOR_WATCH = []string{"marketplace.redhat.com/watch", "true"}
 )

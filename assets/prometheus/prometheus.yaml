@@ -103,7 +103,9 @@ spec:
   serviceMonitorSelector:
     matchLabels:
       marketplace.redhat.com/metering: 'true'
-  serviceMonitorNamespaceSelector: {}
+  serviceMonitorNamespaceSelector:
+    matchExpressions:
+      - {key: "openshift.io/cluster-monitoring", operator: DoesNotExist}
   additionalScrapeConfigs:
     name: rhm-meterbase-additional-scrape-configs
     key: meterdef.yaml

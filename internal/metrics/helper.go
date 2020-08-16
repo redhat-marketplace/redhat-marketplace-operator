@@ -1,3 +1,17 @@
+// Copyright 2020 IBM Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package metrics
 
 import (
@@ -6,14 +20,14 @@ import (
 
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/meter_definition"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	kbsm "k8s.io/kube-state-metrics/pkg/metric"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var log = logger.NewLogger("meterics")
+var log = logf.Log.WithName("meteric")
 
 type FamilyGenerator struct {
 	GenerateMeterFunc func(interface{}, []*marketplacev1alpha1.MeterDefinition) *kbsm.Family

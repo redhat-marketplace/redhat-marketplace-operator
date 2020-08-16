@@ -88,6 +88,7 @@ const (
 )
 const (
 	WorkloadTypePod            WorkloadType = "Pod"
+	WorkloadTypeService                     = "Service"
 	WorkloadTypeServiceMonitor              = "ServiceMonitor"
 	WorkloadTypePVC                         = "PersistentVolumeClaim"
 )
@@ -105,9 +106,9 @@ type Workload struct {
 
 	// WorkloadType identifies the type of workload to look for. This can be
 	// pod or service right now.
-	// +kubebuilder:validation:Enum=Pod;ServiceMonitor;PersistentVolumeClaim
+	// +kubebuilder:validation:Enum=Pod;Service;PersistentVolumeClaim
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:Pod,urn:alm:descriptor:com.tectonic.ui:select:ServiceMonitor,urn:alm:descriptor:com.tectonic.ui:select:PersistentVolumeClaim"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:Pod,urn:alm:descriptor:com.tectonic.ui:select:Service,urn:alm:descriptor:com.tectonic.ui:select:PersistentVolumeClaim"
 	WorkloadType WorkloadType `json:"type"`
 
 	// OwnerCRD is the name of the GVK to look for as the owner of all the
