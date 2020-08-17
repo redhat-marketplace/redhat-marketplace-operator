@@ -1,5 +1,10 @@
 name: Create Manifest
 
+on:
+  workflow_dispatch:
+    inputs:
+      input: 'hi'
+
 env:
   pushImage: true
 
