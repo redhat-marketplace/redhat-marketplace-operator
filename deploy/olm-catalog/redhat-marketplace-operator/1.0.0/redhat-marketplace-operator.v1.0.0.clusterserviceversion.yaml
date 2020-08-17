@@ -132,8 +132,8 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Developer Tools
     certified: "true"
-    containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:1.0.0-53a1bb
-    createdAt: 2020-08-15T02:44:59Z
+    containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:1.0.0-5e3979
+    createdAt: 2020-08-17T20:16:46Z
     description: The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
@@ -528,7 +528,7 @@ spec:
           - description: DeploySecretName is the name of our secret where Razee variables are stored.
             displayName: Deploy Secret Name
             path: deploySecretName
-          - description: Enabled is the flag that controls if the controller does work. Setting enabled to "true" will create a Razee namespace and deploy it's componenets. Set to "false" to bypass Razee installation
+          - description: Enabled is the flag that controls if the controller does work. Setting enabled to true will create a Razee namespace and deploy it's componenets. Set to false to bypass Razee installation
             displayName: Enabled
             path: enabled
           - description: Flag used by the RazeeDeployment Controller to decide whether to run legacy uninstall job Used internally by the Operator
@@ -1083,16 +1083,16 @@ spec:
                           fieldRef:
                             fieldPath: metadata.name
                       - name: RELATED_IMAGE_REPORTER
-                        value: quay.io/rh-marketplace/redhat-marketplace-reporter:1.0.0-53a1bb
+                        value: quay.io/rh-marketplace/redhat-marketplace-reporter:1.0.0-5e3979
                       - name: RELATED_IMAGE_KUBE_RBAC_PROXY
                         value: quay.io/coreos/kube-rbac-proxy:v0.5.0
                       - name: RELATED_IMAGE_METRIC_STATE
-                        value: quay.io/rh-marketplace/redhat-marketplace-metric-state:1.0.0-53a1bb
+                        value: quay.io/rh-marketplace/redhat-marketplace-metric-state:1.0.0-5e3979
                       - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
                         value: quay.io/razee/remoteresources3:0.6.2
                       - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
                         value: quay.io/razee/watch-keeper:0.5.3
-                    image: quay.io/rh-marketplace/redhat-marketplace-operator:1.0.0-53a1bb
+                    image: quay.io/rh-marketplace/redhat-marketplace-operator:1.0.0-5e3979
                     imagePullPolicy: Always
                     name: redhat-marketplace-operator
                     resources: {}
