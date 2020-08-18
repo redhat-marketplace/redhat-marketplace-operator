@@ -26,9 +26,6 @@ var _ = Describe("FindOwner", func() {
 		objs  []runtime.Object
 	)
 
-	BeforeEach(func() {
-	})
-
 	Describe("Testing GVK_Indexer File, for successful cases", func() {
 
 		BeforeEach(func() {

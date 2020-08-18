@@ -44,7 +44,7 @@ var _ = Describe("FindOwner", func() {
 		ownerHelper = rhmClient.NewFindOwnerHelper(inClient, restMapper)
 	})
 
-	XDescribe("NewFindOwnerHelper function test", func() {
+	Describe("NewFindOwnerHelper function test", func() {
 		Context("Get RestConfig", func() {
 			It("Should not be nil", func() {
 				Expect(restConfig).NotTo(BeNil())
@@ -53,16 +53,18 @@ var _ = Describe("FindOwner", func() {
 		Context("Get restMapper", func() {
 			It("Should be the same as original restMapper", func() {
 				Expect(ownerHelper.GetRestMapper()).To(Equal(restMapper))
+				Expect(ownerHelper.GetRestMapper()).ToNot(BeNil())
 			})
 		})
 		Context("Get Client", func() {
 			It("Should be the same as original dynamic.Interface", func() {
 				Expect(ownerHelper.GetClient()).To(Equal(inClient))
+				Expect(ownerHelper.GetClient()).ToNot(BeNil())
 			})
 		})
 	})
 
-	XDescribe("FindOwner function test", func() {
+	Describe("FindOwner function test", func() {
 		var (
 			err              error
 			meterdef         *marketplacev1alpha1.MeterDefinition
@@ -168,14 +170,6 @@ var _ = Describe("FindOwner", func() {
 					}
 				}()
 				_, err = ownerHelper.FindOwner(name, namespace, owner)
-			})
-			PIt("Should fail to get mapping", func() {
-				owner.APIVersion = "wrong/fakevfake"
-
-				owner, err = ownerHelper.FindOwner(name, namespace, owner)
-				if err != nil {
-					Fail("Failed")
-				}
 			})
 			It("Should fail to get resources", func() {
 				owner, err = ownerHelper.FindOwner("wrongName", "worngNamespace", owner)
