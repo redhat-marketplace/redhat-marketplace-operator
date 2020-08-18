@@ -2,8 +2,6 @@ package client_test
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -18,13 +16,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	// "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	// "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 var _ = Describe("FindOwner", func() {
@@ -47,7 +44,7 @@ var _ = Describe("FindOwner", func() {
 		ownerHelper = rhmClient.NewFindOwnerHelper(inClient, restMapper)
 	})
 
-	XDescribe("NewFindOwnerHelper function test", func() {
+	Describe("NewFindOwnerHelper function test", func() {
 		Context("Get RestConfig", func() {
 			It("Should not be nil", func() {
 				Expect(restConfig).NotTo(BeNil())
@@ -125,27 +122,43 @@ var _ = Describe("FindOwner", func() {
 		})
 		Context("When the function succeeeds, and the OwnerReference is returned", func() {
 			It("Should return the OwnerReference", func() {
-				meterdef.SetOwnerReferences(pod.GetOwnerReferences())
+				err = cl.Create(context.TODO(), testNs)
+				if err != nil && !errors.IsAlreadyExists(err) {
+					Fail("Cant Create Namespace: " + err.Error())
+				}
 				err = cl.Create(context.TODO(), pod)
 				if err != nil && !errors.IsAlreadyExists(err) {
 					Fail("Cant Create pod: " + err.Error())
 				}
-				err = cl.Create(context.TODO(), testNs)
-				if err != nil && !errors.IsAlreadyExists(err) {
-					Fail("Cant Create Namespace: " + err.Error())
+				podret := &corev1.Pod{}
+				err = cl.Get(context.TODO(), types.NamespacedName{Name: "pod", Namespace: namespace}, podret)
+				if err != nil {
+					Fail("Could not get pod: " + err.Error())
+				}
+				controller := true
+				blockownerdeletion := false
+				meterdef.OwnerReferences = []metav1.OwnerReference{
+					{
+						APIVersion:         "v1",
+						Kind:               "Pod",
+						Name:               "pod",
+						UID:                podret.UID,
+						Controller:         &controller,
+						BlockOwnerDeletion: &blockownerdeletion,
+					},
 				}
 				err = cl.Create(context.TODO(), meterdef)
 				if err != nil && !errors.IsAlreadyExists(err) {
 					Fail("Cant Create MeterDef: " + err.Error())
 				}
-				time.Sleep(8 * time.Second)
+				time.Sleep(7 * time.Second)
 				owner, err = ownerHelper.FindOwner(name, namespace, owner)
 				Expect(err).To(BeNil())
-				Expect(owner).ToNot(BeNil())
+				Expect(owner.Name).To(Equal("pod"))
 			})
 		})
 		Context("When the function fails, and an error is returned", func() {
-			PIt("Should panic: OwnerReference is nil", func() {
+			It("Should panic: OwnerReference is nil", func() {
 				obj := interface{}(meterdef)
 				meta, _ := obj.(metav1.Object)
 				owner = metav1.GetControllerOf(meta)
@@ -164,10 +177,7 @@ var _ = Describe("FindOwner", func() {
 					Fail("Failed")
 				}
 			})
-			JustAfterEach(func() {
-				fmt.Println("Owner: ", owner)
-			})
-			PIt("Should fail to get resources", func() {
+			It("Should fail to get resources", func() {
 				owner, err = ownerHelper.FindOwner("wrongName", "worngNamespace", owner)
 				Expect(err).To(HaveOccurred())
 			})
@@ -186,8 +196,7 @@ func setup(restConfig *rest.Config) client.Client {
 
 	cl, err := client.New(restConfig, client.Options{})
 	if err != nil {
-		fmt.Println("failed to create client")
-		os.Exit(1)
+		Fail("failed to create client")
 	}
 	return cl
 }
