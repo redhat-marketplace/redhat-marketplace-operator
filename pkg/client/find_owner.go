@@ -68,12 +68,13 @@ func (f *FindOwnerHelper) FindOwner(name, namespace string, lookupOwner *metav1.
 	result, err := f.client.Resource(mapping.Resource).Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get resource")
+		s := "failed to get resource" + mapping.Resource.String()
+		return nil, errors.Wrap(err, s)
 	}
 
 	o, err := meta.Accessor(result)
 	if err != nil {
-		return
+		return nil, errors.Wrap(err, "failed #3")
 	}
 
 	owner = metav1.GetControllerOf(o)
