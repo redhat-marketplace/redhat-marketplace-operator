@@ -74,7 +74,10 @@ func (f *FindOwnerHelper) FindOwner(name, namespace string, lookupOwner *metav1.
 
 	o, err := meta.Accessor(result)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed #3")
+		return nil, errors.Wrap(err, "failed to get accessor")
+	}
+	if o == nil {
+		return nil, errors.New("empty o")
 	}
 
 	owner = metav1.GetControllerOf(o)

@@ -3,6 +3,8 @@ package client_test
 import (
 	"context"
 	"fmt"
+	"os"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -13,50 +15,39 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	// "k8s.io/apimachinery/pkg/types"
+	// "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	// cmd "k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	// "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 var _ = Describe("FindOwner", func() {
 
 	var (
-		ownerHelper     *rhmClient.FindOwnerHelper
-		name, namespace string
-		inClient        dynamic.Interface
-		restMapper      meta.RESTMapper
-		restConfig      *rest.Config
-		testNs          *corev1.Namespace
-		fakeClient      client.Client
-		// lookupOwner, owner *metav1.OwnerReference
-
+		ownerHelper *rhmClient.FindOwnerHelper
+		inClient    dynamic.Interface
+		restMapper  meta.RESTMapper
+		restConfig  *rest.Config
+		testNs      *corev1.Namespace
+		cl          client.Client
 	)
 
 	BeforeEach(func() {
 
-		namespace = "test-ns"
-		testNs = &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: namespace,
-			},
-		}
-		fakeClient = setup(testNs)
-		// restConfig := cmd.NewConfig()
 		restConfig, _ = config.GetConfig()
 		inClient, _ = dynamic.NewForConfig(restConfig)
 		restMapper, _ = managers.NewDynamicRESTMapper(restConfig)
+		cl = setup(restConfig)
 		ownerHelper = rhmClient.NewFindOwnerHelper(inClient, restMapper)
 	})
 
-	Describe("NewFindOwnerHelper function test", func() {
+	XDescribe("NewFindOwnerHelper function test", func() {
 		Context("Get RestConfig", func() {
 			It("Should not be nil", func() {
 				Expect(restConfig).NotTo(BeNil())
@@ -80,14 +71,22 @@ var _ = Describe("FindOwner", func() {
 			meterdef         *marketplacev1alpha1.MeterDefinition
 			owner            *metav1.OwnerReference
 			kind, apiVersion string
+			name, namespace  string
 			pod              *corev1.Pod
 		)
 		BeforeEach(func() {
 
-			namespace = "nam-test-1"
 			name = "test-meterdef"
+			namespace = "test-ns"
+
+			testNs = &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: namespace,
+				},
+			}
 			wl := marketplacev1alpha1.Workload{
-				Name: "podcpu",
+				Name:         "podcpu",
+				WorkloadType: "Pod",
 			}
 			meterdef = &marketplacev1alpha1.MeterDefinition{
 				ObjectMeta: metav1.ObjectMeta{
@@ -112,28 +111,41 @@ var _ = Describe("FindOwner", func() {
 					Name:      "pod",
 					Namespace: namespace,
 				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "nginx",
+							Image: "nginx",
+						},
+					},
+				},
 			}
-			fakeClient.Create(context.TODO(), meterdef)
 			owner = metav1.NewControllerRef(pod, meterdef.GroupVersionKind())
 
 		})
 		Context("When the function succeeeds, and the OwnerReference is returned", func() {
 			It("Should return the OwnerReference", func() {
+				meterdef.SetOwnerReferences(pod.GetOwnerReferences())
+				err = cl.Create(context.TODO(), pod)
+				if err != nil && !errors.IsAlreadyExists(err) {
+					Fail("Cant Create pod: " + err.Error())
+				}
+				err = cl.Create(context.TODO(), testNs)
+				if err != nil && !errors.IsAlreadyExists(err) {
+					Fail("Cant Create Namespace: " + err.Error())
+				}
+				err = cl.Create(context.TODO(), meterdef)
+				if err != nil && !errors.IsAlreadyExists(err) {
+					Fail("Cant Create MeterDef: " + err.Error())
+				}
+				time.Sleep(8 * time.Second)
 				owner, err = ownerHelper.FindOwner(name, namespace, owner)
-				Expect(meterdef.APIVersion).To(Equal(apiVersion))
 				Expect(err).To(BeNil())
-			})
-			JustAfterEach(func() {
-				fmt.Println("Owner:", owner)
-				fmt.Println("MeterDefinition:" + meterdef.GroupVersionKind().String())
-				fmt.Println("G:" + meterdef.GroupVersionKind().Group)
-				fmt.Println("V:" + meterdef.GroupVersionKind().Version)
-				fmt.Println("K:" + meterdef.GroupVersionKind().Kind)
-
+				Expect(owner).ToNot(BeNil())
 			})
 		})
 		Context("When the function fails, and an error is returned", func() {
-			It("Should panic: OwnerReference is nil", func() {
+			PIt("Should panic: OwnerReference is nil", func() {
 				obj := interface{}(meterdef)
 				meta, _ := obj.(metav1.Object)
 				owner = metav1.GetControllerOf(meta)
@@ -143,43 +155,39 @@ var _ = Describe("FindOwner", func() {
 					}
 				}()
 				_, err = ownerHelper.FindOwner(name, namespace, owner)
-
 			})
-			// It("Should panic: Object.Kind is empty", func() {
-			// 	defer func() {
-			// 		if r := recover(); r == nil {
-			// 			Fail("Did not panic")
-			// 		}
-			// 	}()
-			// 	_, err = ownerHelper.FindOwner(name, namespace, owner)
-			// })  When we're not logged in via oc
-			It("Should fail to get mapping", func() {
-				meterdef.APIVersion = "wrong/fake1"
+			PIt("Should fail to get mapping", func() {
+				owner.APIVersion = "wrong/fakevfake"
+
 				owner, err = ownerHelper.FindOwner(name, namespace, owner)
-				// Expect(err).To(ContainSubstring("failed to get mapping", err)) FIX
-				Expect(err).ToNot(BeNil())
+				if err != nil {
+					Fail("Failed")
+				}
+			})
+			JustAfterEach(func() {
+				fmt.Println("Owner: ", owner)
 			})
 			PIt("Should fail to get resources", func() {
-				Expect(err).To(HaveOccurred())
-			})
-			PIt("Should fail to get meta.Accessor", func() {
+				owner, err = ownerHelper.FindOwner("wrongName", "worngNamespace", owner)
 				Expect(err).To(HaveOccurred())
 			})
 		})
 	})
 })
 
-// setup returns a fakeClient for testing purposes
-func setup(testNs *corev1.Namespace) client.Client {
+// setup returns a client for testing purposes
+func setup(restConfig *rest.Config) client.Client {
 	defaultFeatures := []string{"razee", "meterbase"}
 	viper.Set("assets", "../../../assets")
 	viper.Set("features", defaultFeatures)
-	objs := []runtime.Object{
-		testNs,
-	}
 	s := scheme.Scheme
 	_ = monitoringv1.AddToScheme(s)
+	_ = marketplacev1alpha1.AddToScheme(s)
 
-	client := fake.NewFakeClient(objs...)
-	return client
+	cl, err := client.New(restConfig, client.Options{})
+	if err != nil {
+		fmt.Println("failed to create client")
+		os.Exit(1)
+	}
+	return cl
 }
