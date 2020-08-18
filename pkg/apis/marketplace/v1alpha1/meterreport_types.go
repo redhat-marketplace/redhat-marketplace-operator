@@ -26,15 +26,19 @@ import (
 // +k8s:openapi-gen=true
 type MeterReportSpec struct {
 	// StartTime of the job
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	StartTime metav1.Time `json:"startTime"`
 
 	// EndTime of the job
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	EndTime metav1.Time `json:"endTime"`
 
 	// PrometheusService is the definition for the service labels.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	PrometheusService *common.ServiceReference `json:"prometheusService"`
 
 	// MeterDefinitions is the list of meterDefinitions included in the report
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	MeterDefinitions []MeterDefinition `json:"meterDefinitions,omitempty"`
 }
@@ -47,19 +51,23 @@ type MeterReportStatus struct {
 	Conditions *status.Conditions `json:"conditions,omitempty"`
 
 	// A list of pointers to currently running jobs.
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	AssociatedJob *common.JobReference `json:"jobReference,omitempty"`
 
 	// MetricUploadCount is the number of metrics in the report
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	MetricUploadCount *int `json:"metricUploadCount,omitempty"`
 
 	// UploadID is the ID associated with the upload
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	UploadID *types.UID `json:"uploadUID,omitempty"`
 
 	// QueryErrorList shows if there were any errors from queries
 	// for the report.
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	QueryErrorList []string `json:"queryErrorList,omitempty"`
 }
