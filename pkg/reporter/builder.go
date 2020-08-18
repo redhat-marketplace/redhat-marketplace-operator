@@ -15,9 +15,11 @@
 package reporter
 
 import (
+	"fmt"
 	"time"
 
 	"emperror.dev/errors"
+	"github.com/cespare/xxhash"
 	"github.com/google/uuid"
 	"github.com/imdario/mergo"
 	"github.com/mitchellh/mapstructure"
@@ -60,6 +62,7 @@ type MetricsReport struct {
 }
 
 type MetricKey struct {
+	MetricID          string `mapstructure:"metric_id"`
 	ReportPeriodStart string `mapstructure:"report_period_start"`
 	ReportPeriodEnd   string `mapstructure:"report_period_end"`
 	IntervalStart     string `mapstructure:"interval_start"`
@@ -67,6 +70,20 @@ type MetricKey struct {
 	MeterDomain       string `mapstructure:"domain"`
 	MeterKind         string `mapstructure:"kind"`
 	MeterVersion      string `mapstructure:"version"`
+}
+
+func (k *MetricKey) Init(ClusterID, unit, namespace string) {
+	hash := xxhash.New()
+
+	hash.Write([]byte(ClusterID))
+	hash.Write([]byte(k.IntervalStart))
+	hash.Write([]byte(k.IntervalEnd))
+	hash.Write([]byte(k.MeterDomain))
+	hash.Write([]byte(k.MeterKind))
+	hash.Write([]byte(unit))
+	hash.Write([]byte(namespace))
+
+	k.MetricID = fmt.Sprintf("%x", hash.Sum64())
 }
 
 type MetricBase struct {

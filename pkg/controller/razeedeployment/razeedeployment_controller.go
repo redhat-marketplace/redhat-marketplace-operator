@@ -1714,6 +1714,14 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 
 	reqLogger.Info("Listing parentRRS3")
 
+	if req.Spec.TargetNamespace == nil {
+		if req.Status.RazeeJobInstall != nil {
+			req.Spec.TargetNamespace = &req.Status.RazeeJobInstall.RazeeNamespace
+		} else {
+			req.Spec.TargetNamespace = &req.Namespace
+		}
+	}
+
 	parentRRS3 := marketplacev1alpha1.RemoteResourceS3{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, &parentRRS3)
 	if err != nil && !errors.IsNotFound((err)) {

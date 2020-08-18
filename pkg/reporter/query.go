@@ -22,13 +22,12 @@ import (
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type PromQuery struct {
-	Type     v1alpha1.WorkloadType
-	MeterDef struct {
-		Name, Namespace string
-	}
+	Type          v1alpha1.WorkloadType
+	MeterDef      types.NamespacedName
 	Metric        string
 	Query         string
 	Start, End    time.Time
@@ -40,8 +39,13 @@ type PromQuery struct {
 
 func (q *PromQuery) makeLeftSide() string {
 	switch q.Type {
+	case v1alpha1.WorkloadTypePVC:
+		return fmt.Sprintf(`avg(meterdef_persistentvolumeclaim_info{meter_def_name="%v",meter_def_namespace="%v",phase="Bound"}) without (instance, container, endpoint, job, service)`, q.MeterDef.Name, q.MeterDef.Namespace)
 	case v1alpha1.WorkloadTypePod:
 		return fmt.Sprintf(`avg(meterdef_pod_info{meter_def_name="%v",meter_def_namespace="%v"}) without (pod_uid, instance, container, endpoint, job, service)`, q.MeterDef.Name, q.MeterDef.Namespace)
+	case v1alpha1.WorkloadTypeService:
+		// Service and service monitor are handled the same
+		fallthrough
 	case v1alpha1.WorkloadTypeServiceMonitor:
 		return fmt.Sprintf(`avg(meterdef_service_info{meter_def_name="%v",meter_def_namespace="%v"}) without (pod_uid, instance, container, endpoint, job, pod)`, q.MeterDef.Name, q.MeterDef.Namespace)
 	default:
@@ -51,8 +55,12 @@ func (q *PromQuery) makeLeftSide() string {
 
 func (q *PromQuery) makeJoin() string {
 	switch q.Type {
+	case v1alpha1.WorkloadTypePVC:
+		return "* on(persistentvolumeclaim,namespace) group_right"
 	case v1alpha1.WorkloadTypePod:
 		return "* on(pod,namespace) group_right"
+	case v1alpha1.WorkloadTypeService:
+		fallthrough
 	case v1alpha1.WorkloadTypeServiceMonitor:
 		return "* on(service,namespace) group_right"
 	default:
@@ -62,8 +70,12 @@ func (q *PromQuery) makeJoin() string {
 
 func (q *PromQuery) makeAggregateBy() string {
 	switch q.Type {
+	case v1alpha1.WorkloadTypePVC:
+		return fmt.Sprintf(`%v by (persistentvolumeclaim,namespace)`, q.AggregateFunc)
 	case v1alpha1.WorkloadTypePod:
 		return fmt.Sprintf(`%v by (pod,namespace)`, q.AggregateFunc)
+	case v1alpha1.WorkloadTypeService:
+		fallthrough
 	case v1alpha1.WorkloadTypeServiceMonitor:
 		return fmt.Sprintf(`%v by (service,namespace)`, q.AggregateFunc)
 	default:

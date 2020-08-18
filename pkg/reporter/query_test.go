@@ -18,9 +18,11 @@ import (
 	"time"
 
 	"github.com/prometheus/common/model"
+	"k8s.io/apimachinery/pkg/types"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 )
 
 var _ = Describe("Query", func() {
@@ -36,10 +38,10 @@ var _ = Describe("Query", func() {
 	BeforeEach(func() {
 		rpcDurationSecondsQuery = &PromQuery{
 			Metric: "rpc_durations_seconds_count",
-			Query: `foo{bar="true"}`,
-			Start: start,
-			End:   end,
-			Step:  time.Minute * 60,
+			Query:  `foo{bar="true"}`,
+			Start:  start,
+			End:    end,
+			Step:   time.Minute * 60,
 		}
 
 		v1api := getTestAPI(mockResponseRoundTripper("../../test/mockresponses/prometheus-query-range.json"))
@@ -59,6 +61,22 @@ var _ = Describe("Query", func() {
 
 		Expect(ok).To(BeTrue(), "result is not a matrix")
 		Expect(len(matrixResult)).To(Equal(2))
+	})
+
+	It("should build a query", func() {
+		q1 := &PromQuery{
+			Metric: "foo",
+			Query:  "kube_persistentvolumeclaim_resource_requests_storage_bytes",
+			MeterDef: types.NamespacedName{
+				Name:      "foo",
+				Namespace: "foons",
+			},
+			AggregateFunc: "sum",
+			Type:          v1alpha1.WorkloadTypePVC,
+		}
+
+		expected := "sum by (persistentvolumeclaim,namespace) (avg(meterdef_persistentvolumeclaim_info{meter_def_name=\"foo\",meter_def_namespace=\"foons\",phase=\"Bound\"}) without (instance, container, endpoint, job, service) * on(persistentvolumeclaim,namespace) group_right kube_persistentvolumeclaim_resource_requests_storage_bytes)"
+		Expect(q1.String()).To(Equal(expected), "failed to create query for pvc")
 	})
 
 	PIt("should build a query", func() {
