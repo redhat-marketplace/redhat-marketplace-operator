@@ -1,15 +1,15 @@
 name: Create Manifest
 
 on:
-  # workflow_dispatch:
-  #   inputs:
-  #     input: 'hi'
-  push:
-    branches:
-      - 'release/**'
-      - 'hotfix/**'
-    paths-ignore:
-      - 'deploy/olm-catalog/redhat-marketplace-operator/**'
+  workflow_dispatch:
+    inputs:
+      input: 'hi'
+  # push:
+      #  branches:
+      #  - 'release/**'
+      #  - 'hotfix/**'
+      #  paths-ignore:
+      #    - 'deploy/olm-catalog/redhat-marketplace-operator/**'
 
 env:
   pushImage: true
