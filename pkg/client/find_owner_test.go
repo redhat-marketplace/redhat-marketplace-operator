@@ -44,7 +44,7 @@ var _ = Describe("FindOwner", func() {
 		ownerHelper = rhmClient.NewFindOwnerHelper(inClient, restMapper)
 	})
 
-	Describe("NewFindOwnerHelper function test", func() {
+	XDescribe("NewFindOwnerHelper function test", func() {
 		Context("Get RestConfig", func() {
 			It("Should not be nil", func() {
 				Expect(restConfig).NotTo(BeNil())
@@ -62,7 +62,7 @@ var _ = Describe("FindOwner", func() {
 		})
 	})
 
-	Describe("FindOwner function test", func() {
+	XDescribe("FindOwner function test", func() {
 		var (
 			err              error
 			meterdef         *marketplacev1alpha1.MeterDefinition
