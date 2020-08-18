@@ -4,7 +4,6 @@
 |:-------:|:----------------------------------------------------------------------------------------------------------------------------:|
 | Develop | ![Test - Develop](https://github.com/redhat-marketplace/redhat-marketplace-operator/workflows/Test/badge.svg?branch=develop)  ![Deploy - Develop](https://github.com/redhat-marketplace/redhat-marketplace-operator/workflows/Deploy%20Image/badge.svg?branch=develop) |
 | Master  | ![Test - Master](https://github.com/redhat-marketplace/redhat-marketplace-operator/workflows/Test/badge.svg?branch=master) ![Deploy - Master](https://github.com/redhat-marketplace/redhat-marketplace-operator/workflows/Deploy%20Image/badge.svg?branch=master) |
-|         |                                                                                                                              |
 
 ## Description
 
@@ -12,8 +11,8 @@ The Red Hat Marketplace operator is the Openshift client side tool for the Red H
 
 ## Documentation
 
-[Getting Started](docs/getting-started.md)
-
 [Table of Contents](docs/table-of-contents.md)
 
-## Test
+[Getting Started](docs/getting-started.md)
+
+[High Level Overview](docs/high-level-overview.md)

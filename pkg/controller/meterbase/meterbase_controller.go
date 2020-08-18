@@ -608,21 +608,22 @@ func (r *ReconcileMeterBase) reconcilePrometheusOperator(
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
-			deployment,
+			service,
 			func() (runtime.Object, error) {
-				nsValues := []string{}
-				for _, ns := range nsList.Items {
-					nsValues = append(nsValues, ns.Name)
-				}
-				reqLogger.Info("found namespaces", "ns", nsValues)
-				return factory.NewPrometheusOperatorDeployment(nsValues)
+				return factory.NewPrometheusOperatorService()
 			},
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
-			service,
+			deployment,
 			func() (runtime.Object, error) {
-				return factory.NewPrometheusOperatorService()
+				nsValues := []string{instance.Namespace}
+				for _, ns := range nsList.Items {
+					nsValues = append(nsValues, ns.Name)
+				}
+				sort.Strings(nsValues)
+				reqLogger.Info("found namespaces", "ns", nsValues)
+				return factory.NewPrometheusOperatorDeployment(nsValues)
 			},
 			args,
 		),

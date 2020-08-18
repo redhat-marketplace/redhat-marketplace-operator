@@ -14,7 +14,7 @@ build:
       docker:
         dockerfile: build/Dockerfile
         buildArgs:
-          VERSION: '{{.VERSION}}'
+          app_version: '{{.VERSION}}'
         cacheFrom:
           - registry.access.redhat.com/ubi8/ubi:latest
           - quay.io/rh-marketplace/golang-base:1.14
@@ -22,7 +22,7 @@ build:
       docker:
         dockerfile: build/reporter.Dockerfile
         buildArgs:
-          VERSION: '{{.VERSION}}'
+          app_version: '{{.VERSION}}'
         cacheFrom:
           - registry.access.redhat.com/ubi8/ubi:latest
           - quay.io/rh-marketplace/golang-base:1.14
@@ -30,7 +30,7 @@ build:
       docker:
         dockerfile: build/metricState.Dockerfile
         buildArgs:
-          VERSION: '{{.VERSION}}'
+          app_version: '{{.VERSION}}'
         cacheFrom:
           - registry.access.redhat.com/ubi8/ubi:latest
           - quay.io/rh-marketplace/golang-base:1.14

@@ -83,11 +83,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &monitoringv1.ServiceMonitor{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &v1alpha1.MeterDefinition{},
-	})
-
 	return err
 }
 
@@ -134,24 +129,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 
 	reqLogger.Info("Found instance", "instance", instance.Name)
 
-	// Adding a finalizer to this CR
-	if !utils.Contains(instance.GetFinalizers(), meterDefinitionFinalizer) {
-		if err := r.addFinalizer(instance); err != nil {
-			return reconcile.Result{}, err
-		}
-	}
-
-	// Check if the MeterDefinition instance is being marked for deletion
-	isMarkedForDeletion := instance.GetDeletionTimestamp() != nil
-	if isMarkedForDeletion {
-
-		if utils.Contains(instance.GetFinalizers(), meterDefinitionFinalizer) {
-			//Run finalization logic for the MeterDefinitionFinalizer.
-			//If it fails, don't remove the finalizer so we can retry during the next reconcile
-			return r.finalizeMeterDefinition(instance)
-		}
-		return reconcile.Result{}, nil
-	}
+	var queue bool
 
 	if instance.Spec.ServiceMeterLabels != nil {
 		instance.Spec.ServiceMeterLabels = nil
@@ -160,300 +138,28 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		instance.Spec.PodMeterLabels = nil
 	}
 
-	// var namespaces []string
+	switch {
+	case instance.Status.Conditions.IsUnknownFor(v1alpha1.MeterDefConditionTypeHasResult):
+		fallthrough
+	case len(instance.Status.WorkloadResources) == 0:
+		queue = instance.Status.Conditions.SetCondition(v1alpha1.MeterDefConditionNoResults)
+	case len(instance.Status.WorkloadResources) > 0:
+		queue = instance.Status.Conditions.SetCondition(v1alpha1.MeterDefConditionHasResults)
+	}
 
-	// switch instance.Spec.WorkloadVertex {
-	// case v1alpha1.WorkloadVertexOperatorGroup:
-	// 	reqLogger.Info("operatorGroup vertex")
-	// 	csv := &olmv1.ClusterServiceVersion{}
+	result, _ = cc.Do(
+		context.TODO(),
+		Call(func() (ClientAction, error) {
+			if !queue {
+				return nil, nil
+			}
 
-	// 	if instance.Spec.InstalledBy == nil {
-	// 		reqLogger.Info("installed by not found", "meterdef", instance.Name+"/"+instance.Namespace)
-
-	// 		return result.Return()
-	// 	}
-
-	// 	result, _ := cc.Do(context.TODO(),
-	// 		GetAction(instance.Spec.InstalledBy.ToTypes(), csv),
-	// 	)
-
-	// 	if !result.Is(Continue) {
-	// 		// TODO: set condition and requeue later, may be too early
-	// 		reqLogger.Info("csv not found", "csv", instance.Spec.InstalledBy)
-
-	// 		return result.Return()
-	// 	}
-
-	// 	olmNamespacesStr, ok := csv.GetAnnotations()["olm.targetNamespaces"]
-
-	// 	if !ok {
-	// 		// set condition and requeue for later
-	// 		reqLogger.Info("olmNamespaces not found")
-	// 		return result.Return()
-	// 	}
-
-	// 	if olmNamespacesStr == "" {
-	// 		reqLogger.Info("operatorGroup is for all namespaces")
-	// 		namespaces = []string{corev1.NamespaceAll}
-	// 		break
-	// 	}
-
-	// 	namespaces = strings.Split(olmNamespacesStr, ",")
-	// case v1alpha1.WorkloadVertexNamespace:
-	// 	reqLogger.Info("namespace vertex with filter")
-
-	// 	if instance.Spec.VertexLabelSelectors == nil || len(instance.Spec.VertexLabelSelectors) == 0 {
-	// 		reqLogger.Info("namespace vertex is for all namespaces")
-	// 		break
-	// 	}
-
-	// 	namespaceList := &corev1.NamespaceList{}
-
-	// 	result, _ := cc.Do(context.TODO(),
-	// 		ListAction(namespaceList, instance.Spec.VertexLabelSelector),
-	// 	)
-
-	// 	if !result.Is(Continue) {
-	// 		// TODO: set condition and requeue later, may be too early
-	// 		reqLogger.Info("csv not found", "csv", instance.Spec.InstalledBy)
-
-	// 		return result.Return()
-	// 	}
-
-	// 	for _, ns := range namespaceList {
-	// 		namespaces = append(namespaces, ns.GetName())
-	// 	}
-	// }
-
-	// if len(namespaces) == 0 {
-	// 	reqLogger.Info("no namespaces found to filter on, will quit")
-
-	// 	//TODO: set condition
-	// 	//
-	// 	return reconcile.Result{RequeueAfter: 30 * time.Minute}, nil
-	// }
-
-	// reqLogger.Info("found namespaces", "namespaces", namespaces)
-
-	// // find pods, services, service monitors, and pvcs
-	// // annotate meterdef with these finds, also include in status
-	// // use annotations to drive the metric service
-
-	// pods := []*corev1.Pod{}
-	// serviceMonitors := []*monitoringv1.ServiceMonitor{}
-	// services := []*corev1.Service{}
-	// pvcs := []*corev1.PersistentVolumeClaim{}
-
-	// // two strategies. Bottom up, or top down.
-
-	// // Bottom Up
-	// // Start with pods, filter, go to owner. If owner not provided, stop.
-
-	// namespaceOptions := []client.ListOption{}
-
-	// for _, ns := range namespaces {
-	// 	for _, workload := range instance.Spec.Workloads {
-	// 		if workload.Owner != nil {
-	// 			// easier lookup
-	// 		}
-
-	// 		// harder lookup
-	// 		listOptions := []client.ListOption{client.InNamespace(ns)}
-
-	// 		if workload.LabelSelector != nil {
-	// 			listOptions = append(listOptions, client.MatchingLabelsSelector{Selector: workload.Labels})
-	// 		}
-
-	// 		if workload.AnnotationSelector != nil {
-	// 			fieldSelector := fields.Set{}
-	// 			for key, val := range workload.AnnotationSelector.MatchAnnotations {
-	// 				fieldSelector[rhmclient.IndexAnnotations] = fmt.Sprintf("%s=%s", key, value)
-	// 			}
-	// 			listOptions = append(listOptions, client.MatchingFieldsSelector{Selector: fieldSelector})
-	// 		}
-
-	// 		var lookupList []runtime.Object
-	// 		switch workload.WorkloadType {
-	// 		case WorkloadTypePod:
-	// 			// find pods
-	// 			lookupList = pods
-	// 		case WorkloadTypeServiceMonitor:
-	// 			// find service monitors and services
-	// 			lookupList = serviceMonitors
-	// 		case WorkloadTypePVC:
-	// 			// find pvcs attached to pods
-	// 			lookupList = pvcs
-	// 		}
-
-	// 		result, _ := cc.Do(
-	// 			context.TODO(),
-	// 			ListAppendAction(pods,
-	// 				client.MatchingFieldsSelector{Selector: workload.AnnotationSelector},
-	// 				listOptions...,
-	// 			),
-	// 		)
-
-	// 		if !result.Is(Continue) {
-	// 			if result.Is(Error) {
-	// 				reqLogger.Error(result, "failed to build list")
-	// 			}
-	// 			return result.Return()
-	// 		}
-	// 	}
-	// }
-
-	// serviceMonitorReferences := []common.NamespacedNameReference{}
-
-	// // Find services from service monitors
-	// for _, sm := range serviceMonitors {
-	// 	result, _ := cc.Do(
-	// 		context.TODO(),
-	// 		ListAppendAction(
-	// 			services,
-	// 			client.MatchingLabelsSelector{Selector: sm.Spec.Selector},
-	// 		),
-	// 	)
-	// 	if !result.Is(Continue) {
-	// 		if result.Is(Error) {
-	// 			reqLogger.Error(result, "failed to build list")
-	// 		}
-	// 		return result.Return()
-	// 	}
-
-	// 	serviceMonitorReferences = append(serviceMonitorReferences, common.NamespacedNameFromMeta(sm))
-	// }
-
-	// // Collector meteredUIDs for annotations and status; store in our cache
-	// meteredUIDs := []types.UID{}
-
-	// for _, p := range pods {
-	// 	meteredUIDs = append(meteredUIDs, p.UID)
-	// 	ownerMap.Store(instance.UID, p.UID, &request)
-	// }
-
-	// for _, s := range services {
-	// 	meteredUIDs = append(meteredUIDs, s.UID)
-	// 	ownerMap.Store(instance.UID, s.UID, &request)
-	// }
-
-	// for _, pv := range pvcs {
-	// 	meteredUIDs = append(meteredUIDs, pv.UID)
-	// 	ownerMap.Store(instance.UID, pv.UID, &request)
-	// }
-
-	// // set annotations and status
-	// sort.Sort(meteredUIDs)
-	// ogInstance = instance.DeepCopy()
-	// instance.Annotations[MeteredResourceAnnotationKey] = strings.Join(meteredUIDs, ",")
-	// instance.Status.ServiceMonitors = serviceMonitorReferences
-
-	// patch, err := r.patcher.Calculate(ogInstance, instance)
-
-	// if err != nil {
-	// 	return reconcile.Result{}, err
-	// }
-
-	// patchBytes, err := jsonpatch.CreateMergePatch(patch.Original, patch.Modified)
-
-	// if err != nil {
-	// 	return reconcile.Result{}, err
-	// }
-
-	// result, _ = cc.Do(context.TODO(),
-	// 	UpdateWithPatchAction(instance, types.MergePatchType, patchBytes),
-	// )
-
-	// if !result.Is(Continue) {
-	// 	if result.Is(Error) {
-	// 		reqLogger.Error(result, "failed to build list")
-	// 	}
-	// 	return result.Return()
-	// }
-
-	//
-	// loop over workloads using vertex to find dependents.
-	//
-	//
-
-	// gvkStr := strings.ToLower(fmt.Sprintf("%s.%s.%s", instance.Spec.Kind, instance.Spec.Version, instance.Spec.Group))
-
-	// podRefs := []*common.PodReference{}
-	// podList := &corev1.PodList{}
-	// replicaSetList := &appsv1.ReplicaSetList{}
-	// deploymentList := &appsv1.DeploymentList{}
-	// statefulsetList := &appsv1.StatefulSetList{}
-	// daemonsetList := &appsv1.DaemonSetList{}
-	// podLookupStrings := []string{gvkStr}
-	// serviceMonitors := &monitoringv1.ServiceMonitorList{}
-
-	// result, _ = cc.Do(context.TODO(),
-	// 	HandleResult(
-	// 		ListAction(deploymentList, client.MatchingFields{rhmclient.OwnerRefContains: gvkStr}),
-	// 		OnContinue(Call(func() (ClientAction, error) {
-	// 			actions := []ClientAction{}
-
-	// 			for _, depl := range deploymentList.Items {
-	// 				actions = append(actions, ListAppendAction(replicaSetList, client.MatchingField(rhmclient.OwnerRefContains, string(depl.UID))))
-	// 			}
-	// 			return Do(actions...), nil
-	// 		})),
-	// 	),
-	// 	HandleResult(
-	// 		Do(
-	// 			ListAppendAction(replicaSetList, client.MatchingField(rhmclient.OwnerRefContains, gvkStr)),
-	// 			ListAction(statefulsetList, client.MatchingField(rhmclient.OwnerRefContains, gvkStr)),
-	// 			ListAction(daemonsetList, client.MatchingField(rhmclient.OwnerRefContains, gvkStr)),
-	// 			ListAction(serviceMonitors, client.MatchingField(rhmclient.OwnerRefContains, gvkStr)),
-	// 		),
-	// 		OnContinue(Call(func() (ClientAction, error) {
-	// 			for _, rs := range replicaSetList.Items {
-	// 				podLookupStrings = append(podLookupStrings, string(rs.UID))
-	// 			}
-
-	// 			for _, item := range statefulsetList.Items {
-	// 				podLookupStrings = append(podLookupStrings, string(item.UID))
-	// 			}
-
-	// 			for _, item := range daemonsetList.Items {
-	// 				podLookupStrings = append(podLookupStrings, string(item.UID))
-	// 			}
-
-	// 			actions := []ClientAction{}
-
-	// 			for _, lookup := range podLookupStrings {
-	// 				actions = append(actions, ListAppendAction(podList, client.MatchingFields{rhmclient.OwnerRefContains: lookup}))
-	// 			}
-
-	// 			return Do(actions...), nil
-	// 		}))),
-	// )
-
-	// if !result.Is(Continue) {
-	// 	if result.Is(Error) {
-	// 		reqLogger.Error(result, "failed to get lists")
-	// 	}
-	// 	return result.Return()
-	// }
-
-	// for _, p := range podList.Items {
-	// 	pr := &common.PodReference{}
-	// 	pr.FromPod(&p)
-	// 	podRefs = append(podRefs, pr)
-	// }
-
-	// reqLogger.Info("some data", "refs", podRefs, "serviceMonitors", serviceMonitors)
-
-	// if !reflect.DeepEqual(instance.Spec.Pods, podRefs) {
-	// 	instance.Spec.Pods = podRefs
-	// 	result, _ = cc.Do(context.TODO(), UpdateAction(instance))
-
-	// 	if !result.Is(Continue) {
-	// 		if result.Is(Error) {
-	// 			reqLogger.Error(result, "failed to get lists")
-	// 		}
-	// 		return result.Return()
-	// 	}
-	// }
+			return UpdateAction(instance, UpdateStatusOnly(true)), nil
+		}),
+	)
+	if result.Is(Error) {
+		reqLogger.Error(result.GetError(), "Failed to update status.")
+	}
 
 	reqLogger.Info("finished reconciling")
 	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
@@ -504,24 +210,6 @@ func labelsForKubeStateMonitor(name, namespace string) map[string]string {
 		"marketplace.redhat.com/meterDefinition.name":      name,
 	}
 }
-
-// func configureServiceMonitorFromMeterLabels(def *v1alpha1.MeterDefinition, monitor *monitoringv1.ServiceMonitor) {
-// 	endpoints := []monitoringv1.Endpoint{}
-// 	for _, endpoint := range monitor.Spec.Endpoints {
-// 		newEndpoint := endpoint.DeepCopy()
-// 		relabelConfigs := []*monitoringv1.RelabelConfig{
-// 			makeRelabelReplaceConfig([]string{"__name__"}, "meter_kind", "(.*)", def.Spec.Kind),
-// 			makeRelabelReplaceConfig([]string{"__name__"}, "meter_domain", "(.*)", def.Spec.Group),
-// 		}
-// 		metricRelabelConfigs := []*monitoringv1.RelabelConfig{
-// 			makeRelabelKeepConfig([]string{"__name__"}, labelsToRegex(def.Spec.ServiceMeters)),
-// 		}
-// 		newEndpoint.RelabelConfigs = append(newEndpoint.RelabelConfigs, relabelConfigs...)
-// 		newEndpoint.MetricRelabelConfigs = metricRelabelConfigs
-// 		endpoints = append(endpoints, *newEndpoint)
-// 	}
-// 	monitor.Spec.Endpoints = endpoints
-// }
 
 func makeRelabelConfig(source []string, action, target string) *monitoringv1.RelabelConfig {
 	return &monitoringv1.RelabelConfig{

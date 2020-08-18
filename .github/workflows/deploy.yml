@@ -4,11 +4,11 @@ on:
   push:
     branches:
       - "master"
+      - "release/**"
+      - "hotfix/**"
       - "develop"
       - "feature/**"
       - "bugfix/**"
-      - "release/**"
-      - "hotfix/**"
 env:
   pushImage: true
 
@@ -29,6 +29,10 @@ jobs:
       TAGPREFIX: ''
 
     steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.4.1
+        with:
+          access_token: ${{ github.token }}
 
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
@@ -77,7 +81,7 @@ jobs:
           echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
           echo "::set-output name=dockertag::${TAGPREFIX}$(make current-version)-${FILEHASH:0:6}"
         env:
-          FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'version/**', 'go.sum', 'go.mod') }}
+          FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'interal/**', 'version/**', 'go.sum', 'go.mod') }}
 
       - name: Get dependencies
         run: |
@@ -119,6 +123,7 @@ jobs:
     env:
       IMAGE_REGISTRY: ${{ matrix.registry }}
       OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
+      OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
       TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag}}
     steps:
       - name: Set up Go 1.x
@@ -185,6 +190,7 @@ jobs:
       OLM_REPO: ${{ matrix.registry }}/operator-manifest
       OLM_BUNDLE_REPO: ${{ matrix.registry }}/operator-manifest-bundle
       TAG: ${{ needs.build.outputs.dockertag }}
+      OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
       VERSION: ${{ needs.build.outputs.version }}
     steps:
       - name: Set up Go 1.x
@@ -272,72 +278,3 @@ jobs:
         if: env.exists != 'true' && env.pushImage == 'true'
         run: |
           skopeo copy "docker://${FROM_OPERATOR_IMAGE}" "docker://${TO_OPERATOR_IMAGE}" --dest-creds ${{ secrets[matrix.key] }}:${{ secrets[matrix.value] }}
-
-  scorecard:
-    name: Scorecard
-    runs-on: ubuntu-latest
-    needs: [build, deploy]
-    continue-on-error: true
-    env:
-      OPERATOR_IMAGE: quay.io/rh-marketplace/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
-      VERSION: ${{ needs.build.outputs.version }}
-    strategy:
-      matrix:
-        cr:
-          - 'marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml'
-          - 'marketplace.redhat.com_v1alpha1_meterbase_cr.yaml'
-          - 'marketplace.redhat.com_v1alpha1_meterdefinition_cr.yaml'
-          - 'marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml'
-          - 'marketplace.redhat.com_v1alpha1_remoteresources3_cr.yaml'
-    steps:
-      - name: Set up Go 1.x
-        uses: actions/setup-go@v2
-        with:
-          go-version: ^1.14
-        id: go
-
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.8
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
-
-      - uses: engineerd/setup-kind@v0.3.0
-
-      - name: Checking cluster info
-        run: |
-          kubectl cluster-info
-          echo "current-context:" $(kubectl config current-context)
-          echo "environment-kubeconfig:" ${KUBECONFIG}
-
-      - name: Install operator-sdk
-        run: |
-          make install-tools
-          cd /tmp
-          curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
-          chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu && sudo mkdir -p /usr/local/bin/ && sudo cp operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk && rm operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
-          python -m pip install --upgrade pip
-          pip3 install -Iv operator-courier==$COURIER_VERSION
-          sudo snap install yq
-          echo "::add-path::/usr/local/bin"
-        env:
-          RELEASE_VERSION: v0.18.0
-          COURIER_VERSION: 2.1.7
-
-      - name: Run scorecard for ${{ matrix.cr }}
-        shell: bash {0}
-        continue-on-error: true
-        run: |
-          echo "Updating osdk to version ${VERSION}"
-          make generate-csv
-          yq w .osdk-scorecard.yaml.tpl 'scorecard.plugins.*.*.csv-path' deploy/olm-catalog/redhat-marketplace-operator/${VERSION}/redhat-marketplace-operator.v${VERSION}.clusterserviceversion.yaml  > .osdk-scorecard.yaml
-          yq w -i .osdk-scorecard.yaml 'scorecard.plugins.*.*.cr-manifest.+' deploy/crds/${{ matrix.cr  }}
-          ./scripts/scorecard.sh
-
-      - name: Upload results
-        uses: actions/upload-artifact@v1
-        with:
-          name: ${{ matrix.cr }}-results
-          path: ./scorecard-output.json
