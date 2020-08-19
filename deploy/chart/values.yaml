@@ -283,7 +283,7 @@ roles:
         resources:
           - '*'
         verbs:
-          - '*kkkkjj'
+          - '*'
   - name: redhat-marketplace-prometheus-operator
     serviceAccountName: redhat-marketplace-prometheus-operator
     type: ClusterRole
