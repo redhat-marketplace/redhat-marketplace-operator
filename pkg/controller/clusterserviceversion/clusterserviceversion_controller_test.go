@@ -17,29 +17,34 @@ package clusterserviceversion
 import (
 	"testing"
 
+	"github.com/gotidy/ptr"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 
+	. "github.com/onsi/ginkgo"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	utils "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
-func TestClusterServiceVersionController(t *testing.T) {
+var _ = Describe("Testing with Ginkgo", func() {
+	It("cluster service version controller", func() {
 
-	logf.SetLogger(logf.ZapLogger(true))
-	_ = olmv1alpha1.AddToScheme(scheme.Scheme)
-
-	t.Run("Test New Cluster Service Version with installed CSV", testClusterServiceVersionWithInstalledCSV)
-	t.Run("Test New Cluster Service Version without installed CSV", testClusterServiceVersionWithoutInstalledCSV)
-	t.Run("Test New Cluster Service Version with Sub without labels", testClusterServiceVersionWithSubscriptionWithoutLabels)
-}
+		_ = olmv1alpha1.AddToScheme(scheme.Scheme)
+		testClusterServiceVersionWithInstalledCSV(GinkgoT())
+		testClusterServiceVersionWithoutInstalledCSV(GinkgoT())
+		testClusterServiceVersionWithSubscriptionWithoutLabels(GinkgoT())
+	})
+})
 
 var (
 	csvName   = "new-clusterserviceversion"
@@ -105,7 +110,7 @@ func setup(r *ReconcilerTest) error {
 	return nil
 }
 
-func testClusterServiceVersionWithInstalledCSV(t *testing.T) {
+func testClusterServiceVersionWithInstalledCSV(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, clusterserviceversion, subscription)
 	reconcilerTest.TestAll(t,
@@ -118,7 +123,7 @@ func testClusterServiceVersionWithInstalledCSV(t *testing.T) {
 				client.MatchingLabels(map[string]string{
 					watchTag: "lite",
 				})),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
 
 				assert.Truef(t, ok, "expected cluster service version list got type %T", i)
@@ -128,7 +133,7 @@ func testClusterServiceVersionWithInstalledCSV(t *testing.T) {
 	)
 }
 
-func testClusterServiceVersionWithoutInstalledCSV(t *testing.T) {
+func testClusterServiceVersionWithoutInstalledCSV(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, clusterserviceversion, subscriptionDifferentCSV)
 	reconcilerTest.TestAll(t,
@@ -141,7 +146,7 @@ func testClusterServiceVersionWithoutInstalledCSV(t *testing.T) {
 				client.MatchingLabels(map[string]string{
 					watchTag: "lite",
 				})),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
 
 				assert.Truef(t, ok, "expected cluster service version list got type %T", i)
@@ -151,7 +156,7 @@ func testClusterServiceVersionWithoutInstalledCSV(t *testing.T) {
 	)
 }
 
-func testClusterServiceVersionWithSubscriptionWithoutLabels(t *testing.T) {
+func testClusterServiceVersionWithSubscriptionWithoutLabels(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, clusterserviceversion, subscriptionWithoutLabels)
 	reconcilerTest.TestAll(t,
@@ -164,7 +169,7 @@ func testClusterServiceVersionWithSubscriptionWithoutLabels(t *testing.T) {
 				client.MatchingLabels(map[string]string{
 					watchTag: "lite",
 				})),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
 
 				assert.Truef(t, ok, "expected cluster service version list got type %T", i)
@@ -172,4 +177,35 @@ func testClusterServiceVersionWithSubscriptionWithoutLabels(t *testing.T) {
 			}),
 		),
 	)
+}
+
+func TestBuildMeterDefinitionFromString(t *testing.T) {
+	meter := &marketplacev1alpha1.MeterDefinition{}
+	name := "example-meterdefinition"
+	group := "partner.metering.com"
+	version := "v1alpha"
+	kind := "App"
+	var ann = map[string]string{
+		utils.CSV_ANNOTATION_NAME:      csvName,
+		utils.CSV_ANNOTATION_NAMESPACE: namespace,
+	}
+
+	ogMeter := &marketplacev1alpha1.MeterDefinition{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        name,
+			Namespace:   namespace,
+			Annotations: ann,
+		},
+		Spec: marketplacev1alpha1.MeterDefinitionSpec{
+			Group:   group,
+			Version: ptr.String(version),
+			Kind:    kind,
+		},
+	}
+
+	meterStr, _ := json.Marshal(ogMeter)
+	_, err := meter.BuildMeterDefinitionFromString(string(meterStr), csvName, namespace, utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
+	if err != nil {
+		t.Errorf("Failed to build MeterDefinition CR: %v", err)
+	}
 }

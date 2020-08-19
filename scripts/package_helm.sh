@@ -21,12 +21,12 @@ rolesyaml=${charttmpdir}/role-values.yaml
 cp -R deploy/chart/ ${charttmpdir}
 echo "version: $version" >> ${charttmpdir}/Chart.yaml
 
-#go run github.com/mikefarah/yq/v3 r ./deploy/role.yaml rules > ${rolesyaml}
-#go run github.com/mikefarah/yq/v3 p -i ${rolesyaml} operator.rules
+#go run yq r ./deploy/role.yaml rules > ${rolesyaml}
+#go run yq p -i ${rolesyaml} operator.rules
 
 mkdir -p ${chartdir}
 
-go run helm.sh/helm/v3/cmd/helm template \
+helm template \
     ${charttmpdir} \
     -f ${values} \
     --output-dir ${charttmpdir} \

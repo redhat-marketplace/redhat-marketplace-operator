@@ -60,7 +60,7 @@ type RazeeConfigurationValues struct {
 type RazeeDeploymentSpec struct {
 
 	// Enabled is the flag that controls if the controller does work. Setting
-	// enabled to "true" will create a Razee namespace and deploy it's componenets. Set to "false" to bypass Razee installation
+	// enabled to true will create a Razee namespace and deploy it's componenets. Set to false to bypass Razee installation
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Enabled bool `json:"enabled"`
@@ -195,19 +195,19 @@ func init() {
 const (
 
 	// Reasons for install
-	ReasonRazeeStartInstall                        status.ConditionReason = "StartRazeeInstall"
-	ReasonWatchKeeperNonNamespacedInstalled        status.ConditionReason = "FinishedWatchKeeperNonNamespaceInstall"
-	ReasonWatchKeeperLimitPollInstalled            status.ConditionReason = "FinishedWatchKeeperLimitPollInstall"
-	ReasonRazeeClusterMetaDataInstalled            status.ConditionReason = "FinishedRazeeClusterMetaDataInstall"
-	ReasonWatchKeeperConfigInstalled               status.ConditionReason = "FinishedWatchKeeperConfigInstall"
-	ReasonWatchKeeperSecretInstalled               status.ConditionReason = "FinishedWatchKeeperSecretInstall"
-	ReasonCosReaderKeyInstalled                    status.ConditionReason = "FinishedCosReaderKeyInstall"
-	ReasonRazeeDeployJobStart                      status.ConditionReason = "StartRazeeDeployJob"
-	ReasonRazeeDeployJobFinished                   status.ConditionReason = "FinishedRazeeDeployJob"
-	ReasonParentRRS3Installed                      status.ConditionReason = "FinishParentRRS3Install"
-	ReasonRazeeInstallFinished                     status.ConditionReason = "FinishedRazeeInstall"
-	ReasonWatchKeeperDeploymentStart               status.ConditionReason = "StartWatchKeeperDeploymentInstall"
-	ReasonWatchKeeperDeploymentInstalled           status.ConditionReason = "FinishedWatchKeeperDeploymentInstall"
+	ReasonRazeeStartInstall                      status.ConditionReason = "StartRazeeInstall"
+	ReasonWatchKeeperNonNamespacedInstalled      status.ConditionReason = "FinishedWatchKeeperNonNamespaceInstall"
+	ReasonWatchKeeperLimitPollInstalled          status.ConditionReason = "FinishedWatchKeeperLimitPollInstall"
+	ReasonRazeeClusterMetaDataInstalled          status.ConditionReason = "FinishedRazeeClusterMetaDataInstall"
+	ReasonWatchKeeperConfigInstalled             status.ConditionReason = "FinishedWatchKeeperConfigInstall"
+	ReasonWatchKeeperSecretInstalled             status.ConditionReason = "FinishedWatchKeeperSecretInstall"
+	ReasonCosReaderKeyInstalled                  status.ConditionReason = "FinishedCosReaderKeyInstall"
+	ReasonRazeeDeployJobStart                    status.ConditionReason = "StartRazeeDeployJob"
+	ReasonRazeeDeployJobFinished                 status.ConditionReason = "FinishedRazeeDeployJob"
+	ReasonParentRRS3Installed                    status.ConditionReason = "FinishParentRRS3Install"
+	ReasonRazeeInstallFinished                   status.ConditionReason = "FinishedRazeeInstall"
+	ReasonWatchKeeperDeploymentStart             status.ConditionReason = "StartWatchKeeperDeploymentInstall"
+	ReasonWatchKeeperDeploymentInstalled         status.ConditionReason = "FinishedWatchKeeperDeploymentInstall"
 	ReasonRhmRemoteResourceS3DeploymentStart     status.ConditionReason = "StartRemoteResourceS3DeploymentInstall"
 	ReasonRhmRemoteResourceS3DeploymentInstalled status.ConditionReason = "FinishedRemoteResourceS3DeploymentInstall"
 )

@@ -1,0 +1,11 @@
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: MeterReport
+metadata:
+  name: example-meterreport
+spec:
+  startTime: 2020-08-04T00:00:00Z
+  endTime: 2020-08-05T00:00:00Z
+  prometheusService:
+    name: rhm-prometheus-meterbase
+    namespace: openshift-redhat-marketplace
+    targetPort: 'rbac'

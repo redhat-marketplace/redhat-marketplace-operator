@@ -15,60 +15,62 @@
 package main
 
 import (
-	"github.com/google/wire"
+	"fmt"
+	"os"
+
+	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
+	loggerf "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 )
 
-var MarketplaceControllerSet = wire.NewSet(
-	controller.ControllerSet,
-	controller.ProvideControllerFlagSet,
-	managers.SchemeDefinitions,
-	makeMarketplaceController,
+var (
+	logger            = loggerf.NewLogger("marketplaceControllerManager")
+	metricsHost       = "0.0.0.0"
+	metricsPort int32 = 8383
 )
+
+
+func provideOptions(kscheme *runtime.Scheme) (*manager.Options, error) {
+	watchNamespace, err := k8sutil.GetWatchNamespace()
+	if err != nil {
+		logger.Error(err, "Failed to get watch namespace")
+		return nil, err
+	}
+
+	return &manager.Options{
+		Namespace:          watchNamespace,
+		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		Scheme:             kscheme,
+	}, nil
+}
 
 func makeMarketplaceController(
-	myController *controller.MarketplaceController,
-	meterbaseC *controller.MeterbaseController,
-	meterDefinitionC *controller.MeterDefinitionController,
-	razeeC *controller.RazeeDeployController,
-	olmSubscriptionC *controller.OlmSubscriptionController,
-	olmClusterServiceVersionC *controller.OlmClusterServiceVersionController,
-	remoteResourceS3C *controller.RemoteResourceS3Controller,
-	nodeC *controller.NodeController,
 	controllerFlags *controller.ControllerFlagSet,
-	opsSrcScheme *managers.OpsSrcSchemeDefinition,
-	monitoringScheme *managers.MonitoringSchemeDefinition,
-	olmv1Scheme *managers.OlmV1SchemeDefinition,
-	olmv1alphaScheme *managers.OlmV1Alpha1SchemeDefinition,
+	controllerList controller.ControllerList,
+	mgr manager.Manager,
 ) *managers.ControllerMain {
 	return &managers.ControllerMain{
 		Name: "redhat-marketplace-operator",
 		FlagSets: []*pflag.FlagSet{
 			(*pflag.FlagSet)(controllerFlags),
 		},
-		Controllers: []*controller.ControllerDefinition{
-			(*controller.ControllerDefinition)(myController),
-			(*controller.ControllerDefinition)(meterbaseC),
-			(*controller.ControllerDefinition)(meterDefinitionC),
-			(*controller.ControllerDefinition)(razeeC),
-			(*controller.ControllerDefinition)(olmSubscriptionC),
-			(*controller.ControllerDefinition)(olmClusterServiceVersionC),
-			(*controller.ControllerDefinition)(nodeC),
-			(*controller.ControllerDefinition)(remoteResourceS3C),
-		},
-		Schemes: []*managers.SchemeDefinition{
-			(*managers.SchemeDefinition)(monitoringScheme),
-			(*managers.SchemeDefinition)(opsSrcScheme),
-			(*managers.SchemeDefinition)(olmv1Scheme),
-			(*managers.SchemeDefinition)(olmv1alphaScheme),
-		},
+		Controllers: controllerList,
+		Manager:     mgr,
 	}
 }
 
 func main() {
-	marketplaceController := initializeMarketplaceController()
+	marketplaceController, err := InitializeMarketplaceController()
+
+	if err != nil {
+		logger.Error(err, "failed to start marketplace controller")
+		os.Exit(1)
+	}
+
 	marketplaceController.Run()
 }

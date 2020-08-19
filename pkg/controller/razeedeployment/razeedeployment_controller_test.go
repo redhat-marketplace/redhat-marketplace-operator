@@ -15,10 +15,10 @@
 package razeedeployment
 
 import (
-	"testing"
 	"time"
 
 	"github.com/gotidy/ptr"
+	. "github.com/onsi/ginkgo"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
@@ -36,24 +36,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
-// TestMeterBaseController runs ReconcileMemcached.Reconcile() against a
-// fake client that tracks a MeterBase object.
-func TestRazeeDeployController(t *testing.T) {
-	// Set the logger to development mode for verbose logs.
-	logf.SetLogger(logf.ZapLogger(true))
+var _ = Describe("Testing with Ginkgo", func() {
+	It("razee deploy controller", func() {
 
-	viper.Set("assets", "../../../assets")
-	scheme.Scheme.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment.DeepCopy(), &marketplacev1alpha1.RazeeDeploymentList{}, &marketplacev1alpha1.RemoteResourceS3{}, &marketplacev1alpha1.RemoteResourceS3List{})
-
-	t.Run("Test Clean Install", testCleanInstall)
-	t.Run("Test No Secret", testNoSecret)
-	t.Run("Test Bad Name", testBadName)
-	t.Run("Test Full Uninstall", testFullUninstall)
-	t.Run("Test Legacy Uninstall", testLegacyUninstall)
-}
+		// TestMeterBaseController runs ReconcileMemcached.Reconcile() against a
+		// fake client that tracks a MeterBase object.
+		viper.Set("assets", "../../../assets")
+		scheme.Scheme.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment.DeepCopy(), &marketplacev1alpha1.RazeeDeploymentList{}, &marketplacev1alpha1.RemoteResourceS3{}, &marketplacev1alpha1.RemoteResourceS3List{})
+		testCleanInstall(GinkgoT())
+		testNoSecret(GinkgoT())
+		testBadName(GinkgoT())
+		testFullUninstall(GinkgoT())
+		testLegacyUninstall(GinkgoT())
+	})
+})
 
 func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
@@ -77,7 +75,7 @@ func setup(r *ReconcilerTest) error {
 
 var (
 	name       = utils.RAZEE_NAME
-	namespace  = "openshift-redhat-marketplace"
+	namespace  = "redhat-marketplace"
 	secretName = "rhm-operator-secret"
 
 	opts = []StepOption{
@@ -107,10 +105,9 @@ var (
 			Namespace: namespace,
 		},
 		Spec: marketplacev1alpha1.RazeeDeploymentSpec{
-			Enabled:               true,
-			ClusterUUID:           "foo",
-			DeploySecretName:      &secretName,
-
+			Enabled:          true,
+			ClusterUUID:      "foo",
+			DeploySecretName: &secretName,
 		},
 	}
 	razeeDeploymentDeletion = marketplacev1alpha1.RazeeDeployment{
@@ -238,7 +235,7 @@ var (
 	}
 )
 
-func testFullUninstall(t *testing.T) {
+func testFullUninstall(t GinkgoTInterface) {
 	t.Parallel()
 
 	reconcilerTest := NewReconcilerTest(setup,
@@ -251,15 +248,14 @@ func testFullUninstall(t *testing.T) {
 
 	reconcilerTest.TestAll(t,
 		ReconcileStep(opts,
-        ReconcileWithUntilDone(true)),
+			ReconcileWithUntilDone(true)),
 		ListStep(opts,
 			ListWithObj(&marketplacev1alpha1.RemoteResourceS3List{}),
 			ListWithFilter(
 				client.InNamespace(namespace),
 			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*marketplacev1alpha1.RemoteResourceS3List)
-
 				assert.Truef(t, ok, "expected RemoteResourceS3List got type %T", i)
 				assert.Equal(t, 0, len(list.Items))
 			})),
@@ -268,9 +264,8 @@ func testFullUninstall(t *testing.T) {
 			ListWithFilter(
 				client.InNamespace(namespace),
 			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*corev1.ConfigMapList)
-
 				assert.Truef(t, ok, "expected configMap list got type %T", i)
 				assert.Equal(t, 0, len(list.Items))
 			})),
@@ -279,7 +274,7 @@ func testFullUninstall(t *testing.T) {
 			ListWithFilter(
 				client.InNamespace(namespace),
 			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*corev1.SecretList)
 
 				assert.Truef(t, ok, "expected secret list got type %T", i)
@@ -290,7 +285,7 @@ func testFullUninstall(t *testing.T) {
 			ListWithFilter(
 				client.InNamespace(namespace),
 			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*appsv1.DeploymentList)
 
 				assert.Truef(t, ok, "expected deployment list got type %T", i)
@@ -299,7 +294,7 @@ func testFullUninstall(t *testing.T) {
 	)
 }
 
-func testLegacyUninstall(t *testing.T) {
+func testLegacyUninstall(t GinkgoTInterface) {
 	t.Parallel()
 
 	reconcilerTest := NewReconcilerTest(setup,
@@ -310,51 +305,51 @@ func testLegacyUninstall(t *testing.T) {
 
 	reconcilerTest.TestAll(t,
 		ReconcileStep(opts,
-            ReconcileWithExpectedResults(
-                RequeueResult,
-                RequeueResult,
+			ReconcileWithExpectedResults(
+				RequeueResult,
+				RequeueResult,
 				RequeueResult,
 			),
 		),
-		ListStep(append(opts,WithStepName("Get Legacy Job")),
+		ListStep(append(opts, WithStepName("Get Legacy Job")),
 			ListWithObj(&batch.JobList{}),
 			ListWithFilter(
 				client.InNamespace(namespace),
 			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*batch.JobList)
 
 				assert.Truef(t, ok, "expected job list got type %T", i)
 				assert.Equal(t, 0, len(list.Items))
 			})),
-		ListStep(append(opts,WithStepName("Get Service Account")),
+		ListStep(append(opts, WithStepName("Get Service Account")),
 			ListWithObj(&corev1.ServiceAccountList{}),
 			ListWithFilter(
 				client.InNamespace(namespace),
 			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*corev1.ServiceAccountList)
 
 				assert.Truef(t, ok, "expected service account list got type %T", i)
 				assert.Equal(t, 0, len(list.Items))
 			})),
-		ListStep(append(opts,WithStepName("Get Cluster Role")),
+		ListStep(append(opts, WithStepName("Get Cluster Role")),
 			ListWithObj(&rbacv1.ClusterRoleList{}),
 			ListWithFilter(
 				client.InNamespace(namespace),
 			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*rbacv1.ClusterRoleList)
 
 				assert.Truef(t, ok, "expected cluster role list got type %T", i)
 				assert.Equal(t, 0, len(list.Items))
 			})),
-		ListStep(append(opts,WithStepName("Get Deployment")),
+		ListStep(append(opts, WithStepName("Get Deployment")),
 			ListWithObj(&appsv1.DeploymentList{}),
 			ListWithFilter(
 				client.InNamespace(namespace),
 			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*appsv1.DeploymentList)
 
 				assert.Truef(t, ok, "expected deployment list got type %T", i)
@@ -363,7 +358,7 @@ func testLegacyUninstall(t *testing.T) {
 	)
 }
 
-func testCleanInstall(t *testing.T) {
+func testCleanInstall(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup,
 		&razeeDeployment,
@@ -384,7 +379,7 @@ func testCleanInstall(t *testing.T) {
 			ListWithFilter(
 				client.InNamespace(namespace),
 			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*corev1.ConfigMapList)
 
 				assert.Truef(t, ok, "expected operator group list got type %T", i)
@@ -405,7 +400,7 @@ func testCleanInstall(t *testing.T) {
 			ListWithFilter(
 				client.InNamespace(namespace),
 			),
-			ListWithCheckResult(func(r *ReconcilerTest, t *testing.T, i runtime.Object) {
+			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
 				list, ok := i.(*corev1.SecretList)
 
 				assert.Truef(t, ok, "expected operator group list got type %T", i)
@@ -443,7 +438,7 @@ var (
 	}
 )
 
-func testNoSecret(t *testing.T) {
+func testNoSecret(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, &razeeDeployment, &namespObj)
 	reconcilerTest.TestAll(t,
@@ -456,7 +451,7 @@ func testNoSecret(t *testing.T) {
 		))
 }
 
-func testBadName(t *testing.T) {
+func testBadName(t GinkgoTInterface) {
 	t.Parallel()
 	razeeDeploymentLocalDeployment := razeeDeployment.DeepCopy()
 	razeeDeploymentLocalDeployment.Name = "foo"

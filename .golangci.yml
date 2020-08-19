@@ -27,9 +27,8 @@ linters-settings:
       - ifElseChain
       - octalLiteral
       - whyNoLint
-      - wrapperFunc
   gocyclo:
-    min-complexity: 15
+    min-complexity: 20
   goimports:
     local-prefixes: github.com/golangci/golangci-lint
   golint:
@@ -76,6 +75,7 @@ linters:
     - gocritic
     - gofmt
     - goimports
+    - exhaustive
     - golint
     - gomnd
     - goprintffuncname
@@ -101,13 +101,13 @@ linters:
     - whitespace
 
     # don't enable:
-    # - gocyclo # gocyclo figures complexity of a function
+    - godox
+    - gocyclo # gocyclo figures complexity of a function
     # - gochecknoinits # errors on init functions
     # - asciicheck
     # - gochecknoglobals
     # - gocognit
     # - godot
-    # - godox
     # - goerr113
     # - maligned
     # - nestif
@@ -121,17 +121,21 @@ issues:
     - path: _test\.go
       linters:
         - gomnd
+    - linters:
+        - lll
+        - gocyclo
+      source: "^//go:generate "
 
-run:
-  skip-dirs:
-    - test/testdata_etc
-    - internal/cache
-    - internal/renameio
-    - internal/robustio
+# run:
+#   skip-dirs:
+#     - test/testdata_etc
+#     - internal/cache
+#     - internal/renameio
+#     - internal/robustio
 
 # golangci.com configuration
 # https://github.com/golangci/golangci/wiki/Configuration
 service:
   golangci-lint-version: 1.23.x # use the fixed version to not introduce new linters unexpectedly
-  prepare:
-    - echo "here I can run custom commands, but no preparation needed for this repo"
+  # prepare:
+  #   - echo "here I can run custom commands, but no preparation needed for this repo"

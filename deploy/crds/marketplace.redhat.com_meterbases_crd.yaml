@@ -32,6 +32,24 @@ spec:
         spec:
           description: MeterBaseSpec defines the desired state of MeterBase
           properties:
+            additionalScrapeConfigs:
+              description: AdditionalConfigs are set by meter definitions and meterbase
+                to what is available on the system.
+              properties:
+                key:
+                  description: The key of the secret to select from.  Must be a valid
+                    secret key.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    TODO: Add other useful fields. apiVersion, kind, uid?'
+                  type: string
+                optional:
+                  description: Specify whether the Secret or its key must be defined
+                  type: boolean
+              required:
+              - key
+              type: object
             enabled:
               description: Enabled is the flag that controls if the controller does
                 work. Setting enabled to "true" will install metering components.
@@ -99,6 +117,11 @@ spec:
         status:
           description: MeterBaseStatus defines the observed state of MeterBase.
           properties:
+            availableReplicas:
+              description: Total number of available pods (ready for at least minReadySeconds)
+                targeted by this Prometheus deployment.
+              format: int32
+              type: integer
             conditions:
               description: MeterBaseConditions represent the latest available observations
                 of an object's stateonfig
@@ -176,6 +199,21 @@ spec:
               - unavailableReplicas
               - updatedReplicas
               type: object
+            replicas:
+              description: Total number of non-terminated pods targeted by this Prometheus
+                deployment (their labels match the selector).
+              format: int32
+              type: integer
+            unavailableReplicas:
+              description: Total number of unavailable pods targeted by this Prometheus
+                deployment.
+              format: int32
+              type: integer
+            updatedReplicas:
+              description: Total number of non-terminated pods targeted by this Prometheus
+                deployment that have the desired version spec.
+              format: int32
+              type: integer
           type: object
       type: object
   version: v1alpha1
