@@ -30,6 +30,7 @@ import (
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -39,7 +40,7 @@ import (
 )
 
 var (
-	additionalLabels = []model.LabelName{"pod", "namespace", "service"}
+	additionalLabels = []model.LabelName{"pod", "namespace", "service", "persistentvolumeclaim"}
 	logger           = logf.Log.WithName("reporter")
 )
 
@@ -166,6 +167,7 @@ type meterDefPromModel struct {
 	*marketplacev1alpha1.MeterDefinition
 	model.Value
 	MetricName string
+	Type       v1alpha1.WorkloadType
 }
 
 func (r *MarketplaceReporter) query(
@@ -187,7 +189,7 @@ func (r *MarketplaceReporter) query(
 				query := &PromQuery{
 					Metric: metric.Label,
 					Type:   workload.WorkloadType,
-					MeterDef: struct{ Name, Namespace string }{
+					MeterDef: types.NamespacedName{
 						Name:      mdef.Name,
 						Namespace: mdef.Namespace,
 					},
@@ -224,7 +226,7 @@ func (r *MarketplaceReporter) query(
 					return
 				}
 
-				outPromModels <- meterDefPromModel{mdef, val, metric.Label}
+				outPromModels <- meterDefPromModel{mdef, val, metric.Label, query.Type}
 			}
 		}
 	}
@@ -246,6 +248,7 @@ func (r *MarketplaceReporter) process(
 	errorsch chan error,
 ) {
 	syncProcess := func(
+		pmodel meterDefPromModel,
 		name string,
 		mdef *marketplacev1alpha1.MeterDefinition,
 		report *marketplacev1alpha1.MeterReport,
@@ -261,6 +264,40 @@ func (r *MarketplaceReporter) process(
 
 				for _, pair := range matrix.Values {
 					func() {
+
+						labels := getKeysFromMetric(matrix.Metric, additionalLabels)
+						labelMatrix, err := kvToMap(labels)
+
+						if err != nil {
+							errorsch <- errors.Wrap(err, "failed adding additional labels")
+							return
+						}
+
+						var objName string
+						namespace := labelMatrix["namespace"].(string)
+
+						switch pmodel.Type {
+						case v1alpha1.WorkloadTypePVC:
+							if pvc, ok := labelMatrix["persistentvolumeclaim"]; ok {
+								objName = pvc.(string)
+							}
+						case v1alpha1.WorkloadTypePod:
+							if pod, ok := labelMatrix["pod"]; ok {
+								objName = pod.(string)
+							}
+						case v1alpha1.WorkloadTypeServiceMonitor:
+							fallthrough
+						case v1alpha1.WorkloadTypeService:
+							if service, ok := labelMatrix["service"]; ok {
+								objName = service.(string)
+							}
+						}
+
+						if objName == "" {
+							errorsch <- errors.New("can't fine objName")
+							return
+						}
+
 						key := MetricKey{
 							ReportPeriodStart: report.Spec.StartTime.Format(time.RFC3339),
 							ReportPeriodEnd:   report.Spec.EndTime.Format(time.RFC3339),
@@ -269,6 +306,8 @@ func (r *MarketplaceReporter) process(
 							MeterDomain:       mdef.Spec.Group,
 							MeterKind:         mdef.Spec.Kind,
 						}
+
+						key.Init(r.mktconfig.Spec.ClusterUUID, objName, namespace)
 
 						mutex.Lock()
 						defer mutex.Unlock()
@@ -284,7 +323,7 @@ func (r *MarketplaceReporter) process(
 						logger.Info("adding pair", "metric", matrix.Metric, "pair", pair)
 						metricPairs := []interface{}{name, pair.Value.String()}
 
-						err := base.AddAdditionalLabels(getKeysFromMetric(matrix.Metric, additionalLabels)...)
+						err = base.AddAdditionalLabels(labels...)
 
 						if err != nil {
 							errorsch <- errors.Wrap(err, "failed adding additional labels")
@@ -312,7 +351,7 @@ func (r *MarketplaceReporter) process(
 
 	wgWait(ctx, "syncProcess", *r.MaxRoutines, done, func() {
 		for pmodel := range inPromModels {
-			syncProcess(pmodel.MetricName, pmodel.MeterDefinition, report, pmodel.Value)
+			syncProcess(pmodel, pmodel.MetricName, pmodel.MeterDefinition, report, pmodel.Value)
 		}
 	})
 }

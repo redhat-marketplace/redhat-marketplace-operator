@@ -94,13 +94,15 @@ func (r *Task) Run() error {
 
 	logger.Info("tarring", "outputfile", fileName)
 
-	err = r.Uploader.UploadFile(fileName)
+	if r.Config.Upload {
+		err = r.Uploader.UploadFile(fileName)
 
-	if err != nil {
-		return errors.Wrap(err, "error uploading file")
+		if err != nil {
+			return errors.Wrap(err, "error uploading file")
+		}
+
+		logger.Info("uploaded metrics", "metrics", len(metrics))
 	}
-
-	logger.Info("uploaded metrics", "metrics", len(metrics))
 
 	report := &marketplacev1alpha1.MeterReport{}
 	err = utils.Retry(func() error {

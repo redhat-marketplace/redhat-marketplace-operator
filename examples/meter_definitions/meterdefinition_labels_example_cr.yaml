@@ -16,3 +16,13 @@ spec:
       metricLabels:
         - label: container_spec_cpu_shares
           aggregation: sum
+    - name: app-pvc
+      type: PersistentVolumeClaim
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: foo
+      metricLabels:
+        - label: kube_persistentvolumeclaim_resource_requests_storage_bytes
+          query: kube_persistentvolumeclaim_resource_requests_storage_bytes
+          aggregation: sum
+

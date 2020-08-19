@@ -254,27 +254,42 @@ jobs:
           || github.ref == 'refs/heads/master' )
     strategy:
       matrix:
-        registry:
-          - 'scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd'
+        image:
+          - redhat-marketplace-operator
+          - redhat-marketplace-reporter
+          - redhat-marketplace-metric-state
         include:
-          - registry: scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd
+          - image: redhat-marketplace-operator
+            registry: scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd
             fromRegistry: quay.io/rh-marketplace
             name: PC
             key: pcUser
             value: pcPassword
+          - image: redhat-marketplace-reporter
+            registry: scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e
+            fromRegistry: quay.io/rh-marketplace
+            name: PC
+            key: pcUser
+            value: pcPasswordReporter
+          - image: redhat-marketplace-metric-state
+            registry: scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4
+            fromRegistry: quay.io/rh-marketplace
+            name: PC
+            key: pcUser
+            value: pcPasswordMetricState
     env:
-      FROM_OPERATOR_IMAGE: ${{ matrix.fromRegistry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
-      TO_OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
-      TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
+      FROM_OPERATOR_IMAGE: ${{ matrix.fromRegistry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
+      TO_OPERATOR_IMAGE: ${{ matrix.registry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
+      TAG: ${{ matrix.registry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
     steps:
-      - name: Check if tag exists
+      - name: Check if tag exists in ${{ matrix.name }}
         id: image
         shell: bash {0}
         run: |
           skopeo inspect docker://${TAG} --creds ${{ secrets[matrix.key] }}:${{ secrets[matrix.value] }} > /dev/null
           [[ $? == 0 ]] && echo ::set-env name=exists::true || echo ::set-env name=exists::false
 
-      - name: Copy ${{ matrix.name }}
+      - name: Copy ${{ matrix.image }} to ${{ matrix.name }}
         if: env.exists != 'true' && env.pushImage == 'true'
         run: |
           skopeo copy "docker://${FROM_OPERATOR_IMAGE}" "docker://${TO_OPERATOR_IMAGE}" --dest-creds ${{ secrets[matrix.key] }}:${{ secrets[matrix.value] }}

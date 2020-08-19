@@ -129,11 +129,11 @@ metadata:
           }
         }
       ]
-    capabilities: Seamless Upgrades
+    capabilities: Full Lifecycle
     categories: Developer Tools
     certified: "true"
-    containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:1.0.0-53a1bb
-    createdAt: 2020-08-15T02:44:59Z
+    containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:1.0.0-7cf9e7
+    createdAt: 2020-08-18T19:06:16Z
     description: The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
@@ -264,6 +264,11 @@ spec:
             path: installedBy.kind
             x-descriptors:
               - text
+          - description: Group defines the operator group of the meter
+            displayName: Group
+            path: meterGroup
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:text
           - description: Kind defines the primary CRD kind of the meter
             displayName: Kind
             path: meterKind
@@ -361,6 +366,12 @@ spec:
         kind: MeterReport
         name: meterreports.marketplace.redhat.com
         specDescriptors:
+          - description: EndTime of the job
+            displayName: End Time
+            path: endTime
+          - description: MeterDefinitions is the list of meterDefinitions included in the report
+            displayName: Meter Definitions
+            path: meterDefinitions
           - description: InstalledBy is a reference to the CSV that install the meter definition. This is used to determine an operator group.
             displayName: Installed By
             path: meterDefinitions[0].spec.installedBy
@@ -376,6 +387,11 @@ spec:
             path: meterDefinitions[0].spec.installedBy.kind
             x-descriptors:
               - text
+          - description: Group defines the operator group of the meter
+            displayName: Group
+            path: meterDefinitions[0].spec.meterGroup
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:text
           - description: Kind defines the primary CRD kind of the meter
             displayName: Kind
             path: meterDefinitions[0].spec.meterKind
@@ -473,12 +489,30 @@ spec:
             path: meterDefinitions[0].status.workloadResource[0].kind
             x-descriptors:
               - text
+          - description: PrometheusService is the definition for the service labels.
+            displayName: Prometheus Service
+            path: prometheusService
+          - description: StartTime of the job
+            displayName: Start Time
+            path: startTime
         statusDescriptors:
           - description: Conditions represent the latest available observations of an object's stateonfig
             displayName: Conditions
             path: conditions
             x-descriptors:
               - urn:alm:descriptor:io.kubernetes.conditions
+          - description: A list of pointers to currently running jobs.
+            displayName: Associated Job
+            path: jobReference
+          - description: MetricUploadCount is the number of metrics in the report
+            displayName: Metric Upload Count
+            path: metricUploadCount
+          - description: QueryErrorList shows if there were any errors from queries for the report.
+            displayName: Query Error List
+            path: queryErrorList
+          - description: UploadID is the ID associated with the upload
+            displayName: Upload ID
+            path: uploadUID
         version: v1alpha1
       - description: RazeeDeployment is the resources that deploys Razee for the Red Hat Marketplace. This is an internal resource not meant to be modified directly.
         displayName: (Internal) Razee Deployment
@@ -528,7 +562,7 @@ spec:
           - description: DeploySecretName is the name of our secret where Razee variables are stored.
             displayName: Deploy Secret Name
             path: deploySecretName
-          - description: Enabled is the flag that controls if the controller does work. Setting enabled to "true" will create a Razee namespace and deploy it's componenets. Set to "false" to bypass Razee installation
+          - description: Enabled is the flag that controls if the controller does work. Setting enabled to true will create a Razee namespace and deploy it's componenets. Set to false to bypass Razee installation
             displayName: Enabled
             path: enabled
           - description: Flag used by the RazeeDeployment Controller to decide whether to run legacy uninstall job Used internally by the Operator
@@ -1083,16 +1117,16 @@ spec:
                           fieldRef:
                             fieldPath: metadata.name
                       - name: RELATED_IMAGE_REPORTER
-                        value: quay.io/rh-marketplace/redhat-marketplace-reporter:1.0.0-53a1bb
+                        value: quay.io/rh-marketplace/redhat-marketplace-reporter:1.0.0-7cf9e7
                       - name: RELATED_IMAGE_KUBE_RBAC_PROXY
                         value: quay.io/coreos/kube-rbac-proxy:v0.5.0
                       - name: RELATED_IMAGE_METRIC_STATE
-                        value: quay.io/rh-marketplace/redhat-marketplace-metric-state:1.0.0-53a1bb
+                        value: quay.io/rh-marketplace/redhat-marketplace-metric-state:1.0.0-7cf9e7
                       - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
                         value: quay.io/razee/remoteresources3:0.6.2
                       - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
                         value: quay.io/razee/watch-keeper:0.5.3
-                    image: quay.io/rh-marketplace/redhat-marketplace-operator:1.0.0-53a1bb
+                    image: quay.io/rh-marketplace/redhat-marketplace-operator:1.0.0-7cf9e7
                     imagePullPolicy: Always
                     name: redhat-marketplace-operator
                     resources: {}

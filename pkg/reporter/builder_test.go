@@ -35,6 +35,7 @@ var _ = Describe("Builder", func() {
 			ReportSliceID: ReportSliceKey(sliceID),
 		}
 		key = MetricKey{
+			MetricID:          "id",
 			ReportPeriodStart: "start",
 			ReportPeriodEnd:   "end",
 			IntervalStart:     "istart",
@@ -62,6 +63,7 @@ var _ = Describe("Builder", func() {
 			"ReportSliceID": Equal(ReportSliceKey(sliceID)),
 			"Metrics": MatchAllElements(id, Elements{
 				"0": MatchAllKeys(Keys{
+					"metric_id":           Equal("id"),
 					"report_period_start": Equal("start"),
 					"report_period_end":   Equal("end"),
 					"interval_start":      Equal("istart"),

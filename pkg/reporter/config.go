@@ -34,6 +34,7 @@ type Config struct {
 	CaFile          string
 	TokenFile       string
 	Local           bool
+	Upload          bool
 }
 
 const (

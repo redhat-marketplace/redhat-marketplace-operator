@@ -51,6 +51,7 @@ var (
 // +k8s:openapi-gen=true
 type MeterDefinitionSpec struct {
 	// Group defines the operator group of the meter
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	Group string `json:"meterGroup"`
 
