@@ -1,9 +1,6 @@
 name: Create Manifest
 
 on:
-  workflow_dispatch:
-    inputs:
-      input: 'hi'
   push:
     branches:
       - 'release/**'
