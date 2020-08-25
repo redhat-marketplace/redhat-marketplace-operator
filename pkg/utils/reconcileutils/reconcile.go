@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type call struct {
@@ -309,6 +310,18 @@ type ClientCommand struct {
 	client client.Client
 	scheme *runtime.Scheme
 	log    logr.Logger
+}
+
+
+func NewLoglessClientCommand(
+	client client.Client,
+	scheme *runtime.Scheme,
+) ClientCommandRunner {
+	return &ClientCommand{
+		client: client,
+		scheme: scheme,
+		log:    logf.Log.WithName("clientcommand"),
+	}
 }
 
 func NewClientCommand(

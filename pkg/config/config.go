@@ -48,9 +48,9 @@ func ProvideConfig() (*OperatorConfig, error) {
 		return nil, err
 	}
 
-	cfg.RelatedImages.Image.Reporter = utils.Getenv("RELATED_IMAGE_REPORTER", "")
-	cfg.RelatedImages.Image.KubeRbacProxy = utils.Getenv("RELATED_IMAGE_KUBE_RBAC_PROXY", "")
-	cfg.RelatedImages.Image.MetricState = utils.Getenv("RELATED_IMAGE_METRIC_STATE", "")
+	cfg.RelatedImages.Image.Reporter = utils.Getenv("RELATED_IMAGE_REPORTER", "reporter:latest")
+	cfg.RelatedImages.Image.KubeRbacProxy = utils.Getenv("RELATED_IMAGE_KUBE_RBAC_PROXY", "rbac-proxy:latest")
+	cfg.RelatedImages.Image.MetricState = utils.Getenv("RELATED_IMAGE_METRIC_STATE", "metric-state:latest")
 
 	return cfg, nil
 }

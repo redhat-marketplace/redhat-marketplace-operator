@@ -251,9 +251,9 @@ lint: ## lint the repo
 
 .PHONY: test
 test: ## Run go tests
-	make testbin
+	-make testbin
 	@echo ... Run tests
-	go test ./...
+	ginkgo -r
 
 K8S_VERSION = v1.18.2
 ETCD_VERSION = v3.4.3
@@ -266,10 +266,23 @@ testbin:
 .PHONY: test-cover
 test-cover: ## Run coverage on code
 	@echo Running coverage
-	go test -coverprofile cover.out ./...
+	ginkgo -coverprofile cover.out -r
+
+CONTROLLERS=$(shell go list ./pkg/... ./cmd/... ./internal/... | grep -v 'pkg/generated' | xargs | sed -e 's/ /,/g')
+#INTEGRATION_TESTS=$(shell go list ./test/... | xargs | sed -e 's/ /,/g')
+
+test-ci: testbin ## test-ci runs all tests for CI builds
+	@echo "testing"
+	ginkgo -r -coverprofile=cover.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --trace --race --progress -coverpkg=$(CONTROLLERS)
+	cat cover.out.tmp | grep -v "_generated.go|zz_generated" > cover.out
+
+cover.out:
+	make test-ci
+
+test-cover-text: cover.out ## Run coverage and display as html
 	go tool cover -func=cover.out
 
-test-cover-html: test-cover ## Run coverage and display as html
+test-cover-html: cover.out ## Run coverage and display as html
 	go tool cover -html=cover.out
 
 .PHONY: test-integration

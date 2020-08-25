@@ -21,6 +21,7 @@ require (
 	github.com/go-logr/logr v0.1.0
 	github.com/golang/mock v1.4.3
 	github.com/golangci/golangci-lint v1.27.0
+	github.com/google/addlicense v0.0.0-20200817051935-6f4cd4aacc89 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
 	github.com/gophercloud/gophercloud v0.12.0 // indirect
@@ -35,7 +36,8 @@ require (
 	github.com/mikefarah/yq/v3 v3.0.0-20200415014842-6f0a329331f9
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.3.2
-	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852
+	github.com/ogier/pflag v0.0.1 // indirect
+	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852 // indirect
 	github.com/onsi/ginkgo v1.13.0
 	github.com/onsi/gomega v1.10.1
 	github.com/opencontainers/go-digest v1.0.0 // indirect
@@ -55,7 +57,7 @@ require (
 	github.com/spf13/viper v1.6.2
 	github.com/stretchr/testify v1.5.1
 	github.com/tcnksm/ghr v0.13.0
-	go.uber.org/zap v1.14.1
+	go.uber.org/zap v1.14.1 // indirect
 	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	golang.org/x/tools/gopls v0.4.4 // indirect

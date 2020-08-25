@@ -269,7 +269,7 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	message = "Meter Base install started"
-	if instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionInstalling).IsUnknown() {
+	if instance.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionInstalling) {
 		if result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, instance.Status.Conditions, status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,

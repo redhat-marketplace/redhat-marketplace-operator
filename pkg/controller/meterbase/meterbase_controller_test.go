@@ -31,7 +31,7 @@ var _ = Describe("MeterbaseController", func() {
 
 	Describe("check date functions", func() {
 		var (
-			ctrl     *ReconcileMeterBase
+			ctrl *ReconcileMeterBase
 		)
 
 		BeforeEach(func() {

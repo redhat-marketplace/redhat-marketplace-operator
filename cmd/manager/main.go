@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
@@ -72,5 +73,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	marketplaceController.Run()
+	marketplaceController.ParseFlags()
+
+	marketplaceController.Run(signals.SetupSignalHandler())
 }
