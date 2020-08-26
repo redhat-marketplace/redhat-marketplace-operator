@@ -26,8 +26,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/version"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/version"
 	pflag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
@@ -55,7 +55,6 @@ const (
 var (
 	log                      = logf.Log.WithName("controller_marketplaceconfig")
 	marketplaceConfigFlagSet *pflag.FlagSet
-	defaultFeatures          = []string{RAZEE_FLAG, METERBASE_FLAG}
 	originalRhmOperatorInfo  = make(map[string]string)
 	rhmOperatorInfoGauge     prometheus.Gauge
 	generateMetricsFlag      = false
@@ -525,6 +524,8 @@ func checkRhmOperatorInfoGauge(gauge prometheus.Gauge, marketplaceconfig marketp
 			time.Sleep(15 * time.Second)
 		}
 	}()
+}
+
 // Begin installation or deletion of Catalog Source
 func (r *ReconcileMarketplaceConfig) createCatalogSource(request reconcile.Request, marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, catalogName string) (bool, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name, "CatalogSource.Name", catalogName)
