@@ -15,32 +15,34 @@
 package marketplaceconfig
 
 import (
-	"testing"
-
+	"github.com/gotidy/ptr"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 
+	. "github.com/onsi/ginkgo"
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	opsrcApi "github.com/operator-framework/operator-marketplace/pkg/apis"
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
-func TestMarketplaceConfigController(t *testing.T) {
-	// Set the logger to development mode for verbose logs.
-	logf.SetLogger(logf.ZapLogger(true))
+var _ = Describe("Testing with Ginkgo", func() {
+	It("marketplace config controller", func() {
 
-	defaultFeatures := []string{"razee", "meterbase"}
-	viper.Set("assets", "../../../assets")
-	viper.Set("features", defaultFeatures)
+		defaultFeatures := []string{"razee", "meterbase"}
+		viper.Set("assets", "../../../assets")
+		viper.Set("features", defaultFeatures)
+		viper.Set("IBMCatalogSource", true)
+		testCleanInstall(GinkgoT())
+	})
 
-	t.Run("Test Clean Install", testCleanInstall)
-}
+})
 
 var (
 	name                 = utils.MARKETPLACECONFIG_NAME
@@ -64,23 +66,30 @@ var (
 )
 
 func setup(r *ReconcilerTest) error {
+
 	s := scheme.Scheme
 	_ = opsrcApi.AddToScheme(s)
+	_ = operatorsv1alpha1.AddToScheme(s)
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, marketplaceconfig)
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeedeployment)
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
 
 	r.Client = fake.NewFakeClient(r.GetGetObjects()...)
-	r.Reconciler = &ReconcileMarketplaceConfig{client: r.Client, scheme: s}
+	r.Reconciler = &ReconcileMarketplaceConfig{
+		client:     r.Client,
+		scheme:     s,
+		ccprovider: &reconcileutils.DefaultCommandRunnerProvider{},
+	}
 	return nil
 }
 
-func testCleanInstall(t *testing.T) {
+func testCleanInstall(t GinkgoTInterface) {
 	t.Parallel()
+	marketplaceconfig.Spec.EnableMetering = ptr.Bool(true)
 	reconcilerTest := NewReconcilerTest(setup, marketplaceconfig)
 	reconcilerTest.TestAll(t,
 		ReconcileStep(opts, ReconcileWithExpectedResults(
-			append(RangeReconcileResults(RequeueResult, 3), DoneResult)...,
+			append(RangeReconcileResults(RequeueResult, 5), DoneResult)...,
 		)),
 		GetStep(opts,
 			GetWithNamespacedName(razeeName, namespace),
@@ -94,14 +103,13 @@ func testCleanInstall(t *testing.T) {
 			GetWithNamespacedName(utils.OPSRC_NAME, utils.OPERATOR_MKTPLACE_NS),
 			GetWithObj(&opsrcv1.OperatorSource{}),
 		),
+		GetStep(opts,
+			GetWithNamespacedName(utils.IBM_CATALOGSRC_NAME, utils.OPERATOR_MKTPLACE_NS),
+			GetWithObj(&operatorsv1alpha1.CatalogSource{}),
+		),
+		GetStep(opts,
+			GetWithNamespacedName(utils.OPENCLOUD_CATALOGSRC_NAME, utils.OPERATOR_MKTPLACE_NS),
+			GetWithObj(&operatorsv1alpha1.CatalogSource{}),
+		),
 	)
-}
-
-// Test whether flags have been set or notkk
-func TestMarketplaceConfigControllerFlags(t *testing.T) {
-	flagset := FlagSet()
-
-	if !flagset.HasFlags() {
-		t.Errorf("no flags on flagset")
-	}
 }

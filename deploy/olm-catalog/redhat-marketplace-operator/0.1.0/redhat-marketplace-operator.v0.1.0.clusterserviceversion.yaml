@@ -354,5 +354,4 @@ spec:
   maturity: stable
   provider:
     name: Red Hat Marketplace
-  replaces: redhat-marketplace-operator.v0.0.2
   version: 0.1.0

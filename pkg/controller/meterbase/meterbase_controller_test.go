@@ -15,176 +15,41 @@
 package meterbase
 
 import (
-	// "context"
-	// "math/rand"
-	// "strconv"
-	"testing"
+	"time"
 
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
-	"github.com/spf13/viper"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
-var (
-	name      = "redhat-marketplace-operator"
-	namespace = "rhm-marketplace"
-	meterbase = &marketplacev1alpha1.MeterBase{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: marketplacev1alpha1.MeterBaseSpec{
-			Enabled: true,
-			Prometheus: &marketplacev1alpha1.PrometheusSpec{
-				Storage: marketplacev1alpha1.StorageSpec{
-					Size: resource.MustParse("30Gi"),
-				},
-			},
-		},
-	}
-	req = reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Name:      name,
-			Namespace: namespace,
-		},
-	}
-	options = []StepOption{
-		WithRequest(req),
-	}
-)
+var _ = Describe("MeterbaseController", func() {
+	Describe("check test flags", func() {
+		It("should compile flags", func() {
+			flagset := FlagSet()
+			Expect(flagset).ToNot(BeNil())
+		})
+	})
 
-// TestMeterBaseController runs ReconcileMeterBase.Reconcile() against a
-// fake client that tracks a MeterBase object.
-func TestMeterBaseController(t *testing.T) {
-	// Set the logger to development mode for verbose logs.
-	logf.SetLogger(logf.ZapLogger(true))
+	Describe("check date functions", func() {
+		var (
+			ctrl *ReconcileMeterBase
+		)
 
-	viper.Set("assets", "../../../assets")
+		BeforeEach(func() {
+			ctrl = &ReconcileMeterBase{}
+		})
 
-}
+		It("reports should calculate the correct dates to create", func() {
+			endDate := time.Now().UTC()
+			endDate = endDate.AddDate(0, 0, 0)
+			minDate := endDate.AddDate(0, 0, 0)
 
-func setup(r *ReconcilerTest) error {
-	s := scheme.Scheme
-	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
-	// Create a fake client to mock API calls.
-	cl := fake.NewFakeClient(r.GetGetObjects()...)
-	// Create a ReconcileMeterBase object with the scheme and fake client.
-	rm := &ReconcileMeterBase{client: cl, scheme: s}
+			exp := ctrl.generateExpectedDates(endDate, time.UTC, -30, minDate)
+			Expect(exp).To(HaveLen(1))
 
-	r.SetClient(cl)
-	r.SetReconciler(rm)
-	return nil
-}
+			minDate = endDate.AddDate(0, 0, -2)
 
-func testCleanInstall(t *testing.T) {
-	t.Parallel()
-	reconcilerTest := NewReconcilerTest(setup, meterbase)
-	reconcilerTest.TestAll(t,
-		ReconcileStep(options,
-			ReconcileWithExpectedResults(DoneResult),
-		),
-		GetStep(options,
-			GetWithObj(&corev1.ConfigMap{}),
-			GetWithNamespacedName(name, namespace)),
-	)
-	// Register operator types with the runtime scheme.
-
-	// Mock request to simulate Reconcile() being called on an event for a
-	// watched resource .
-
-	// res, err = r.Reconcile(req)
-	// if err != nil {
-	// 	t.Fatalf("reconcile: (%v)", err)
-	// }
-	// // Check the result of reconciliation to make sure it has the desired state.
-	// if !res.Requeue {
-	// 	t.Error("reconcile did not requeue request as expected")
-	// }
-
-	// // Check if Deployment has been created and has the correct size.
-	// dep := &appsv1.StatefulSet{}
-	// err = cl.Get(context.TODO(), req.NamespacedName, dep)
-	// if err != nil {
-	// 	t.Fatalf("get statefulset: (%v)", err)
-	// }
-
-	// if len(dep.Spec.VolumeClaimTemplates) != 1 {
-	// 	t.Errorf("volume claim count (%d) is not the expected size (%d)", len(dep.Spec.VolumeClaimTemplates), 1)
-	// }
-
-	// vctSpec := dep.Spec.VolumeClaimTemplates[0].Spec
-	// size := vctSpec.Resources.Requests["storage"]
-	// expectedSize := resource.MustParse("30Gi")
-
-	// if !expectedSize.Equal(size) {
-	// 	t.Errorf("volume claim (%v) is not the expected size (%v)", size, expectedSize)
-	// }
-
-	// res, err = r.Reconcile(req)
-	// if err != nil {
-	// 	t.Fatalf("reconcile: (%v)", err)
-	// }
-
-	// // Check the result of reconciliation to make sure it has the desired state.
-	// if !res.Requeue {
-	// 	t.Error("reconcile did not requeue request as expected")
-	// }
-
-	// //Check if Service has been created.
-	// ser := &corev1.Service{}
-	// err = cl.Get(context.TODO(), req.NamespacedName, ser)
-	// if err != nil {
-	// 	t.Fatalf("get service: (%v)", err)
-	// }
-
-	// // Create the 3 expected pods in namespace and collect their names to check
-	// // later.
-	// podLabels := labelsForPrometheus(name)
-	// pod := corev1.Pod{
-	// 	ObjectMeta: metav1.ObjectMeta{
-	// 		Namespace: namespace,
-	// 		Labels:    podLabels,
-	// 	},
-	// }
-	// podNames := make([]string, 1)
-	// for i := 0; i < 1; i++ {
-	// 	pod.ObjectMeta.Name = name + ".pod." + strconv.Itoa(rand.Int())
-	// 	podNames[i] = pod.ObjectMeta.Name
-	// 	if err = cl.Create(context.TODO(), pod.DeepCopy()); err != nil {
-	// 		t.Fatalf("create pod %d: (%v)", i, err)
-	// 	}
-	// }
-
-	// //Reconcile again so Reconcile() checks pods and updates the MeterBase
-	// //resources' Status.
-	// res, err = r.Reconcile(req)
-	// if err != nil {
-	// 	t.Fatalf("reconcile: (%v)", err)
-	// }
-	// if res != (reconcile.Result{}) {
-	// 	t.Error("reconcile did not return an empty Result")
-	// }
-
-	// // Get the updated MeterBase object.
-	// meterbase = &marketplacev1alpha1.MeterBase{}
-	// err = r.client.Get(context.TODO(), req.NamespacedName, meterbase)
-	// if err != nil {
-	// 	t.Errorf("get meterbase: (%v)", err)
-	// }
-}
-
-func TestMeterBaseControllerFlags(t *testing.T) {
-	flagset := FlagSet()
-
-	if !flagset.HasFlags() {
-		t.Errorf("no flags on flagset")
-	}
-}
+			exp = ctrl.generateExpectedDates(endDate, time.UTC, -30, minDate)
+			Expect(exp).To(HaveLen(3))
+		})
+	})
+})

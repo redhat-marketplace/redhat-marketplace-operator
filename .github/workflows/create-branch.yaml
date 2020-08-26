@@ -1,0 +1,57 @@
+name: Create Branch
+
+on:
+  push:
+    branches:
+      - 'release/**'
+      - 'hotfix/**'
+
+jobs:
+  create-bundle:
+    name: Create Manifest
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        channel: ['stable']
+        include:
+          - channel: 'stable'
+            tags: ['release']
+            draft: 'false'
+            message: 'Stable release should be merged.'
+    steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.14
+        id: go
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.pullRequestSecret }}
+
+      - name: Get Vars
+        id: vars
+        run: |
+          echo ::set-env name=pr_branch::$(echo $BRANCH | sed 's/refs\/heads\///')
+          echo "::set-output name=version::$(make current-version)"
+          echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
+          echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
+          echo "::set-env name=OPERATOR_IMAGE::quay.io/rh-marketplace/redhat-marketplace-operator:$(make current-version)-${FILEHASH:0:6}"
+        env:
+          FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'interal/**', 'version/**', 'go.sum', 'go.mod') }}
+          BRANCH: ${{ github.ref }}
+
+      - name: Open a PR to the default branch
+        uses: vsoch/pull-request-action@1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.pullRequestSecret }}
+          PULL_REQUEST_FROM_BRANCH: '${{ env.pr_branch }}'
+          PULL_REQUEST_BRANCH: master
+          PULL_REQUEST_TITLE: 'Release ${{ steps.vars.outputs.version }}'
+          PULL_REQUEST_BODY: "Release PR - merge when ready.\n\nSteps:\n1. Release the beta channel bundle from the PR 'Generate Bundle' check.\n1. Test beta. Make changes to release branch as necessary.\n1. Release the stable channel.\n1. Merge this PR."

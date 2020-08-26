@@ -15,10 +15,10 @@
 package meterdefinition
 
 import (
-	"testing"
-
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	. "github.com/onsi/ginkgo"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
 	"github.com/spf13/viper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,16 +26,15 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
-func TestMeterDefinitionController(t *testing.T) {
-	logf.SetLogger(logf.ZapLogger(true))
+var _ = Describe("Testing with Ginkgo", func() {
+	It("meter definition controller", func() {
 
-	viper.Set("assets", "../../../assets")
-
-	t.Run("Test No Service Monitors", testNoServiceMonitors)
-}
+		viper.Set("assets", "../../../assets")
+		testNoServiceMonitors(GinkgoT())
+	})
+})
 
 var (
 	name      = "meterdefinition"
@@ -56,21 +55,8 @@ var (
 			Namespace: namespace,
 		},
 		Spec: marketplacev1alpha1.MeterDefinitionSpec{
-			MeterDomain:  "apps.partner.metering.com",
-			MeterKind:    "App",
-			MeterVersion: "v1",
-			ServiceMeterLabels: []string{
-				"rpc_duration_seconds.*",
-			},
-			PodMeterLabels: []string{
-				"foo",
-			},
-			ServiceMonitorNamespaceSelector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app":                            "example-app",
-					"marketplace.redhat.com/metered": "true",
-				},
-			},
+			Group:   "apps.partner.metering.com",
+			Kind:    "App",
 		},
 	}
 )
@@ -81,11 +67,11 @@ func setup(r *ReconcilerTest) error {
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterdefinition)
 
 	r.Client = fake.NewFakeClient(r.GetGetObjects()...)
-	r.Reconciler = &ReconcileMeterDefinition{client: r.Client, scheme: s}
+	r.Reconciler = &ReconcileMeterDefinition{client: r.Client, scheme: s, ccprovider: &reconcileutils.DefaultCommandRunnerProvider{}}
 	return nil
 }
 
-func testNoServiceMonitors(t *testing.T) {
+func testNoServiceMonitors(t GinkgoTInterface) {
 	t.Parallel()
 	reconcilerTest := NewReconcilerTest(setup, meterdefinition)
 	reconcilerTest.TestAll(t,

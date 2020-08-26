@@ -1,26 +1,74 @@
-apiVersion: skaffold/v2beta1
+apiVersion: skaffold/v2beta5
 kind: Config
+metadata:
+  name: redhat-marketplace-operator
 build:
+  local:
+    concurrency: 4
+    useBuildkit: true
   tagPolicy:
     envTemplate:
       template: '{{.IMAGE_NAME}}'
-  cluster: {}
   artifacts:
     - image: redhat-marketplace-operator
-      custom:
-        buildCommand: ./scripts/skaffold_build.sh
-        dependencies:
-          paths:
-            - ./cmd
-            - ./pkg
-            - ./assets
-            - ./deploy/chart
-          ignore:
-            - vendor/**
+      docker:
+        dockerfile: build/Dockerfile
+        buildArgs:
+          app_version: '{{.VERSION}}'
+        cacheFrom:
+          - registry.access.redhat.com/ubi8/ubi:latest
+          - quay.io/rh-marketplace/golang-base:1.14
+    - image: redhat-marketplace-reporter
+      docker:
+        dockerfile: build/reporter.Dockerfile
+        buildArgs:
+          app_version: '{{.VERSION}}'
+        cacheFrom:
+          - registry.access.redhat.com/ubi8/ubi:latest
+          - quay.io/rh-marketplace/golang-base:1.14
+    - image: redhat-marketplace-metric-state
+      docker:
+        dockerfile: build/metricState.Dockerfile
+        buildArgs:
+          app_version: '{{.VERSION}}'
+        cacheFrom:
+          - registry.access.redhat.com/ubi8/ubi:latest
+          - quay.io/rh-marketplace/golang-base:1.14
 deploy:
-  kubectl:
-    manifests:
-      - deploy/crds/*cr.yaml
-      - deploy/*.yaml
-    flags:
-      disableValidation: true
+  helm:
+    releases:
+      - name: rhm-operator
+        artifactOverrides:
+          image: redhat-marketplace-operator
+          reporterImage: redhat-marketplace-reporter
+          metricStateImage: redhat-marketplace-metric-state
+        chartPath: deploy/chart
+        setValueTemplates: 
+          devpostfix: "{{.DEVPOSTFIX}}"
+          namespace: "{{.NAMESPACE}}"
+        wait: false
+        valuesFiles:
+          - deploy/chart/values.yaml
+
+profiles:
+  - name: dev
+    activation:
+      - command: dev
+  - name: with-examples
+    deploy:
+      kubectl:
+        manifests:
+          - deploy/crds/*cr.yaml
+        flags:
+          disableValidation: true
+          delete:
+            - '--wait'
+            - '--timeout=120s'
+  - name: base
+    build:
+      artifacts:
+        - image: golang-base
+          docker:
+            dockerfile: build/base.Dockerfile
+            cacheFrom:
+              - registry.access.redhat.com/ubi8/ubi:latest
