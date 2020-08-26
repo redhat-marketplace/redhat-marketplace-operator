@@ -254,8 +254,6 @@ func (f *Factory) NewPrometheusDeployment(
 	cfg *corev1.Secret,
 ) (*monitoringv1.Prometheus, error) {
 	p, err := f.NewPrometheus(MustAssetReader(PrometheusDeployment))
-	p.Name = cr.Name
-	p.ObjectMeta.Name = cr.Name
 
 	if f.config.PrometheusConfig.Retention != "" {
 		p.Spec.Retention = f.config.PrometheusConfig.Retention

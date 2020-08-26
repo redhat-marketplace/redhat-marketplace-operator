@@ -1,7 +1,7 @@
 apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
 metadata:
-  name: prometheus-meterbase
+  name: rhm-meterbase
   labels:
     prometheus: redhat-marketplace
 spec:
