@@ -46,6 +46,7 @@ install: ## Install all resources (CR/CRD's, RBAC and Operator)
 
 uninstall: ## Uninstall all that all performed in the $ make install
 	@echo ....... Uninstalling .......
+	@make patch
 	@make delete
 
 ##@ Build
@@ -213,26 +214,32 @@ apply: ##applies changes to crds
 delete-resources: ## delete-resources
 	- kubectl delete -n ${NAMESPACE} razeedeployments.marketplace.redhat.com --all
 
+patch: ## patch resources which typically get stuck in terminating
+	- kubectl patch marketplaceconfig rhm-marketplaceconfig -n ${NAMESPACE} -p '{"metadata":{"finalizers":[]}}' --type=merge
+	- kubectl patch razeedeployment rhm-marketplaceconfig-razeedeployment -n ${NAMESPACE} -p '{"metadata":{"finalizers":[]}}' --type=merge
+	- kubectl patch meterbase rhm-marketplaceconfig-meterbase -n ${NAMESPACE} -p '{"metadata":{"finalizers":[]}}' --type=merge
+	- kubectl patch remoteresources3s.marketplace.redhat.com parent -p '{"metadata":{"finalizers":[]}}' --type=merge
+	- kubectl patch remoteresources3s.marketplace.redhat.com child -p '{"metadata":{"finalizers":[]}}' --type=merge
+	- kubectl patch customresourcedefinition.apiextensions.k8s.io remoteresources3s.marketplace.redhat.com -p '{"metadata":{"finalizers":[]}}' --type=merge
+
 delete: ##delete the contents created in 'make create'
 	@echo deleting resources
 	- kubectl delete opsrc ${OPERATOR_SOURCE} -n openshift-marketplace
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_meterdefinition_cr.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_meterbase_cr.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterreports_crd.yaml
 	- kubectl delete -f deploy/operator.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/role_binding.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/role.yaml -n ${NAMESPACE}
 	- kubectl delete -f deploy/service_account.yaml -n ${NAMESPACE}
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_marketplaceconfigs_crd.yaml
-	- kubectl patch Razeedeployment rhm-marketplaceconfig-razeedeployment -p '{"metadata":{"finalizers":[]}}' --type=merge
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_razeedeployments_crd.yaml
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterbases_crd.yaml
-	- kubectl delete -f deploy/crds/marketplace.redhat.com_meterdefinitions_crd.yaml
-	- kubectl patch remoteresources3s.marketplace.redhat.com parent -p '{"metadata":{"finalizers":[]}}' --type=merge
-	- kubectl patch remoteresources3s.marketplace.redhat.com child -p '{"metadata":{"finalizers":[]}}' --type=merge
-	- kubectl patch customresourcedefinition.apiextensions.k8s.io remoteresources3s.marketplace.redhat.com -p '{"metadata":{"finalizers":[]}}' --type=merge
 	- kubectl delete -f deploy/crds/marketplace.redhat.com_remoteresources3s_crd.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_meterdefinition_cr.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_meterbase_cr.yaml -n ${NAMESPACE}
+	- kubectl delete -f deploy/crds/marketplace.redhat.com_v1alpha1_meterreport_cr.yaml -n ${NAMESPACE}
 	- kubectl delete namespace ${NAMESPACE}
 
 delete-razee: ##delete the razee CR
