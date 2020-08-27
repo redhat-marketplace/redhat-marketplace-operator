@@ -86,7 +86,6 @@ var _ = Describe("MeterbaseController", func() {
 					},
 				}
 
-				Expect(k8sClient.Create(context.Background(), base)).Should(Succeed())
 				Expect(k8sClient.Create(context.Background(), kubeletMonitor)).Should(Succeed())
 				Expect(k8sClient.Create(context.Background(), kubeStateMonitor)).Should(Succeed())
 			})
@@ -95,6 +94,8 @@ var _ = Describe("MeterbaseController", func() {
 				cm := &corev1.ConfigMap{}
 				deployment := &appsv1.Deployment{}
 				service := &corev1.Service{}
+
+				Expect(k8sClient.Create(context.Background(), base)).Should(Succeed())
 
 				By("create prometheus operator")
 				Eventually(func() bool {
@@ -146,7 +147,7 @@ var _ = Describe("MeterbaseController", func() {
 					return result.Is(Continue) &&
 						base.Status.Conditions.IsFalseFor(v1alpha1.ConditionInstalling) &&
 						base.Status.Conditions.GetCondition(v1alpha1.ConditionInstalling).Reason == v1alpha1.ReasonMeterBaseFinishInstall
-				})
+				}, timeout, interval)
 			})
 		})
 	})

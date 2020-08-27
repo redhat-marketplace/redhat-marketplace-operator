@@ -2,21 +2,17 @@ package testenv
 
 import (
 	"context"
-	"go/build"
 	"os"
 	"path/filepath"
-	"reflect"
 	"testing"
 	"time"
 
-	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
-	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 
 	//olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
+
 	//"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
@@ -56,19 +52,6 @@ func TestEnv(t *testing.T) {
 		[]Reporter{printer.NewlineReporter{}})
 }
 
-func getModuleDirectory(pkgpath string) (*build.Package, error) {
-	dir, _ := filepath.Abs(filepath.Dir(os.Args[0]))
-	dir = filepath.Join(dir, "..", "..")
-	ctxt := build.Default
-	ctxt.Dir = dir
-	return ctxt.Import(
-		pkgpath,
-		dir,
-		build.FindOnly,
-	)
-
-}
-
 var _ = BeforeSuite(func(done Done) {
 	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
 
@@ -78,27 +61,6 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(os.Setenv("WATCH_NAMESPACE", "")).To(Succeed())
 
 	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
-
-	pkg, err := getModuleDirectory(reflect.TypeOf(olmv1.OperatorGroup{}).PkgPath())
-	Expect(err).To(Succeed())
-
-	olmPath := filepath.Join(pkg.PkgRoot, "..", "crds")
-	Expect(olmPath).To(BeADirectory(), "olmPath")
-
-	pkg, err = getModuleDirectory(reflect.TypeOf(monitoringv1.Prometheus{}).PkgPath())
-	Expect(err).To(Succeed())
-	monitoringPath := filepath.Join(
-		pkg.PkgRoot,
-		"..", "example", "prometheus-operator-crd",
-	)
-	Expect(monitoringPath).To(BeADirectory(), "monitoringPath")
-
-	pkg, err = getModuleDirectory(reflect.TypeOf(opsrcv1.OperatorSource{}).PkgPath())
-	Expect(err).To(Succeed())
-	opsrcPath := filepath.Join(
-		pkg.PkgRoot, "..", "manifests",
-	)
-	Expect(opsrcPath).To(BeADirectory())
 
 	By("bootstrapping test environment")
 	t := true
@@ -110,8 +72,7 @@ var _ = BeforeSuite(func(done Done) {
 		testEnv = &envtest.Environment{
 			CRDDirectoryPaths: []string{
 				filepath.Join("..", "..", "deploy", "crds"),
-				olmPath,
-				monitoringPath,
+				filepath.Join(".", "testdata"),
 			},
 		}
 	}
@@ -129,6 +90,8 @@ var _ = BeforeSuite(func(done Done) {
 	go func() {
 		ctrlMain.Run(stop)
 	}()
+
+	time.Sleep(time.Second*5)
 
 	k8sManager = ctrlMain.Manager
 	k8sClient = ctrlMain.Manager.GetClient()

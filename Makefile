@@ -50,6 +50,11 @@ uninstall: ## Uninstall all that all performed in the $ make install
 
 ##@ Build
 
+.PHONY: clean
+clean: ## Clean up generated files that are emphemeral
+	- rm ./deploy/role.yaml ./deploy/operator.yaml ./deploy/role_binding.yaml ./deploy/service_account.yaml
+
+
 .PHONY: install-tools
 install-tools:
 	@echo Installing tools from tools.go
@@ -266,7 +271,7 @@ testbin:
 .PHONY: test-cover
 test-cover: ## Run coverage on code
 	@echo Running coverage
-	ginkgo -coverprofile cover.out -r
+	maket test-ci
 
 CONTROLLERS=$(shell go list ./pkg/... ./cmd/... ./internal/... | grep -v 'pkg/generated' | xargs | sed -e 's/ /,/g')
 #INTEGRATION_TESTS=$(shell go list ./test/... | xargs | sed -e 's/ /,/g')
@@ -274,7 +279,7 @@ CONTROLLERS=$(shell go list ./pkg/... ./cmd/... ./internal/... | grep -v 'pkg/ge
 test-ci: testbin ## test-ci runs all tests for CI builds
 	@echo "testing"
 	ginkgo -r -coverprofile=cover.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --trace --race --progress -coverpkg=$(CONTROLLERS)
-	cat cover.out.tmp | grep -v "_generated.go|zz_generated" > cover.out
+	cat cover.out.tmp | grep -v "_generated.go|zz_generated|testbin.go" > cover.out
 
 cover.out:
 	make test-ci

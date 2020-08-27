@@ -190,7 +190,7 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 					return factory.ReporterJob(instance)
 				}, CreateWithAddOwner(instance),
 			),
-			OnAny(UpdateStatusCondition(instance, instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobSubmitted)),
+			OnRequeue(UpdateStatusCondition(instance, instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobSubmitted)),
 		),
 	)
 
@@ -214,7 +214,7 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 			if result, _ := cc.Do(context.TODO(), UpdateAction(instance, UpdateStatusOnly(true))); !result.Is(Continue) {
 				if result.Is(Error) {
 					reqLogger.Error(result.GetError(), "Failed to get update status.")
-					return reconcile.Result{Requeue: true}, result
+					return reconcile.Result{RequeueAfter: 30*time.Second}, result
 				}
 
 				return result.Return()
