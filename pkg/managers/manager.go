@@ -142,7 +142,6 @@ func (m *ControllerMain) ParseFlags() {
 
 func (m *ControllerMain) Run(stop <-chan struct{}) {
 	logf.SetLogger(zap.Logger())
-	log.Info("flags", "assets", viper.Get("assets"))
 
 	printVersion()
 

@@ -36,7 +36,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 	It("marketplace config controller", func() {
 
 		defaultFeatures := []string{"razee", "meterbase"}
-		viper.Set("assets", "../../../assets")
 		viper.Set("features", defaultFeatures)
 		viper.Set("IBMCatalogSource", true)
 		testCleanInstall(GinkgoT())

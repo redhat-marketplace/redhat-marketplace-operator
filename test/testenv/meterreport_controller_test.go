@@ -16,7 +16,7 @@ import (
 
 var _ = Describe("MeterReportController", func() {
 	const timeout = time.Second * 30
-	const interval = time.Second * 1
+	const interval = time.Second * 5
 
 	Context("MeterReport reconcile", func() {
 		var (
@@ -66,7 +66,7 @@ var _ = Describe("MeterReportController", func() {
 					context.Background(),
 					GetAction(types.NamespacedName{Name: meterreport.Name, Namespace: namespace}, meterreport),
 				)
-				if !result.Is(Continue){
+				if !result.Is(Continue) {
 					return nil
 				}
 
@@ -76,6 +76,24 @@ var _ = Describe("MeterReportController", func() {
 					WithTransform(func(o *common.JobReference) string {
 						return o.Name
 					}, Equal(job.Name))))
+
+			updateJob := job.DeepCopy()
+			updateJob.Status.Failed = 0
+			updateJob.Status.Active = 0
+			updateJob.Status.Succeeded = 1
+			Expect(k8sClient.Status().Update(context.Background(), updateJob)).Should(Succeed())
+
+			Eventually(func() string {
+				result, _ := cc.Do(
+					context.Background(),
+					GetAction(types.NamespacedName{Name: meterreport.Name, Namespace: namespace}, meterreport),
+				)
+				if !result.Is(Continue) {
+					return ""
+				}
+
+				return meterreport.Status.Conditions.GetCondition(v1alpha1.ReportConditionTypeJobRunning).Message
+			}, timeout, interval).Should(Equal(v1alpha1.ReportConditionJobFinished.Message))
 		})
 	})
 })

@@ -50,7 +50,6 @@ var (
 // setup returns a fakeClient for testing purposes
 func setup() client.Client {
 	defaultFeatures := []string{"razee", "meterbase"}
-	viper.Set("assets", "../../../assets")
 	viper.Set("features", defaultFeatures)
 	testNs1.ObjectMeta.Name = testNamespace1
 	testNs2.ObjectMeta.Name = testNamespace2

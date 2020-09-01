@@ -47,7 +47,7 @@ var log = logf.Log.WithName("controller_meterreport")
 func Add(
 	mgr manager.Manager,
 	ccprovider ClientCommandRunnerProvider,
-	cfg *config.OperatorConfig,
+	cfg config.OperatorConfig,
 ) error {
 	return add(mgr, newReconciler(mgr, ccprovider, cfg))
 }
@@ -56,7 +56,7 @@ func Add(
 func newReconciler(
 	mgr manager.Manager,
 	ccprovider ClientCommandRunnerProvider,
-	cfg *config.OperatorConfig,
+	cfg config.OperatorConfig,
 ) reconcile.Reconciler {
 	return &ReconcileMeterReport{
 		client:     mgr.GetClient(),
@@ -110,7 +110,7 @@ type ReconcileMeterReport struct {
 	// that reads objects from the cache and writes to the apiserver
 	client     client.Client
 	scheme     *runtime.Scheme
-	cfg        *config.OperatorConfig
+	cfg        config.OperatorConfig
 	ccprovider ClientCommandRunnerProvider
 	patcher    patch.Patcher
 }
@@ -153,7 +153,7 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 	factory := manifests.NewFactory(instance.Namespace, c)
 
 	reqLogger.Info("config",
-		"config", r.cfg.Image,
+		"config", r.cfg.RelatedImages,
 		"envvar", utils.Getenv("RELATED_IMAGE_REPORTER", ""))
 
 	endTime := instance.Spec.EndTime.UTC()
@@ -205,8 +205,16 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 	jr := &common.JobReference{}
 	jr.SetFromJob(job)
 
+	reqLogger.Info("reviewing job", "jr", jr,
+		"active", jr.Active,
+		"failed", jr.Failed,
+		"backoff", jr.BackoffLimit,
+		"success", jr.Succeeded,
+	)
+
 	// if job is not done, then update status and continue
 	if !jr.IsDone() {
+		reqLogger.Info("job not done", "jr", jr)
 		if !reflect.DeepEqual(instance.Status.AssociatedJob, jr) {
 			instance.Status.AssociatedJob = jr
 
@@ -214,16 +222,18 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 			if result, _ := cc.Do(context.TODO(), UpdateAction(instance, UpdateStatusOnly(true))); !result.Is(Continue) {
 				if result.Is(Error) {
 					reqLogger.Error(result.GetError(), "Failed to get update status.")
-					return reconcile.Result{RequeueAfter: 30*time.Second}, result
+					return reconcile.Result{RequeueAfter: 30 * time.Second}, result
 				}
 
 				return result.Return()
 			}
 		}
 
-		return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
+		reqLogger.Info("requeueing", "jr", jr)
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
+	reqLogger.Info("job is done", "jr", jr)
 	instance.Status.AssociatedJob = jr
 
 	// if report failed

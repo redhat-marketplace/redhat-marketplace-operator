@@ -54,10 +54,10 @@ uninstall: ## Uninstall all that all performed in the $ make install
 clean: ## Clean up generated files that are emphemeral
 	- rm ./deploy/role.yaml ./deploy/operator.yaml ./deploy/role_binding.yaml ./deploy/service_account.yaml
 
-
 .PHONY: install-tools
 install-tools:
 	@echo Installing tools from tools.go
+	@$(shell cd ./scripts && GO111MODULE=off go get -tags tools)
 	@cat scripts/tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go install %
 
 .PHONY: build-base
@@ -149,11 +149,13 @@ code-dev: ## Run the default dev commands which are the go fmt and vet then exec
 	- make code-vet
 
 .PHONY: k8s-gen
-k8s-gen: \
-	$(shell cd ./scripts && go mod vendor)
+k8s-gen:
 	. ./scripts/update-codegen.sh
 
 code-gen: ## Run the operator-sdk commands to generated code (k8s and crds)
+ifndef GOROOT
+	$(error GOROOT is undefined)
+endif
 	@echo Generating k8s
 	operator-sdk generate k8s
 	@echo Updating the CRD files with the OpenAPI validations

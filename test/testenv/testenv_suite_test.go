@@ -91,7 +91,9 @@ var _ = BeforeSuite(func(done Done) {
 		ctrlMain.Run(stop)
 	}()
 
-	time.Sleep(time.Second*5)
+	Eventually(func() bool {
+		return ctrlMain.Manager.GetCache().WaitForCacheSync(stop)
+	}).Should(BeTrue())
 
 	k8sManager = ctrlMain.Manager
 	k8sClient = ctrlMain.Manager.GetClient()
