@@ -5,8 +5,6 @@ metadata:
 spec:
   enabled: true
   prometheus:
-    crcEnabled: true
-    replicas: 2
     # Resource limits for the prometheus instance. Recommended:
     resources:
       limits:
