@@ -37,10 +37,11 @@ type StorageSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Size resource.Quantity `json:"size,omitempty"`
 
-	// EmptyDir is a temporary storage type that is used to 
+	// EmptyDir is a temporary storage type that gets created on the prometheus pod. When this is defined metering will run on CRC.  
 	// +kubebuilder:validation:Type=object
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	EmptyDir *corev1.EmptyDirVolumeSource `json:"emptyDir,omitempty"`
 }
 
@@ -65,9 +66,10 @@ type PrometheusSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Storage StorageSpec `json:"storage"`
 
-	// OPTIONAL: Replicas for the deployment. Used primarily when running metering to CRC
+	// Replicas defines the number of desired replicas for the prometheus deployment. Used primarily when running metering on CRC
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
 	Replicas *int32 `json:"replicas,omitempty"`
 }
 
