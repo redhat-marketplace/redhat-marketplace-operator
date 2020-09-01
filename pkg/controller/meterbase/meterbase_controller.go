@@ -1091,14 +1091,9 @@ func (r *ReconcileMeterBase) newPrometheusOperator(
 	utils.PrettyPrint(cr)
 	if cr.Spec.Prometheus.Storage.EmptyDir != nil {
 		log.Info("CRC Enabled")
-
 		prom.Spec.Storage.EmptyDir = cr.Spec.Prometheus.Storage.EmptyDir
-		
-		utils.PrettyPrint(prom)
 	}
 
-
-	
 	if cr.Spec.Prometheus.Replicas != nil {
 		prom.Spec.Replicas = cr.Spec.Prometheus.Replicas
 	}
