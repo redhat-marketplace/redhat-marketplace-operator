@@ -36,7 +36,14 @@ type StorageSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Size resource.Quantity `json:"size,omitempty"`
+
+	// EmptyDir is a temporary storage type that is used to 
+	// +kubebuilder:validation:Type=object
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	EmptyDir *corev1.EmptyDirVolumeSource `json:"emptyDir,omitempty"`
 }
+
 
 // PrometheusSpec contains configuration regarding prometheus
 // deployment used for metering.
@@ -57,6 +64,11 @@ type PrometheusSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Storage StorageSpec `json:"storage"`
+
+	// OPTIONAL: Replicas for the deployment. Used primarily when running metering to CRC
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	Replicas *int32 `json:"replicas,omitempty"`
 }
 
 // MeterBaseSpec defines the desired state of MeterBase
@@ -68,7 +80,7 @@ type MeterBaseSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Enabled bool `json:"enabled"`
-
+	
 	// Prometheus deployment configuration.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true

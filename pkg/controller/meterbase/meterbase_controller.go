@@ -1088,22 +1088,44 @@ func (r *ReconcileMeterBase) newPrometheusOperator(
 	cfg *corev1.Secret,
 ) (*monitoringv1.Prometheus, error) {
 	prom, err := factory.NewPrometheusDeployment(cr, cfg)
+	utils.PrettyPrint(cr)
+	if cr.Spec.Prometheus.Storage.EmptyDir != nil {
+		log.Info("CRC Enabled")
 
-	storageClass := ""
+		prom.Spec.Storage.EmptyDir = cr.Spec.Prometheus.Storage.EmptyDir
+		
+		utils.PrettyPrint(prom)
+	}
+
+
+	
+	if cr.Spec.Prometheus.Replicas != nil {
+		prom.Spec.Replicas = cr.Spec.Prometheus.Replicas
+	}
+
+	if cr.Spec.Prometheus.Storage.EmptyDir == nil {
+		log.Info("CRC Not Enabled")
+		storageClass,err := r.setDefaultStorageClass(cr)
+		if err != nil {
+			return prom,err
+		}
+		prom.Spec.Storage.VolumeClaimTemplate.Spec.StorageClassName = storageClass
+	}
+	return prom, err
+}
+
+func(r *ReconcileMeterBase) setDefaultStorageClass(cr *marketplacev1alpha1.MeterBase)(*string,error){
 	if cr.Spec.Prometheus.Storage.Class == nil {
 		foundDefaultClass, err := utils.GetDefaultStorageClass(r.client)
 
 		if err != nil {
-			return prom, err
+			return nil, err
 		}
 
-		storageClass = foundDefaultClass
-	} else {
-		storageClass = *cr.Spec.Prometheus.Storage.Class
-	}
-
-	prom.Spec.Storage.VolumeClaimTemplate.Spec.StorageClassName = ptr.String(storageClass)
-	return prom, err
+		return ptr.String(foundDefaultClass),nil
+	} 
+	
+	return cr.Spec.Prometheus.Storage.Class,nil
 }
 
 // serviceForPrometheus function takes in a Prometheus object and returns a Service for that object.

@@ -811,6 +811,11 @@ func (in *PrometheusSpec) DeepCopyInto(out *PrometheusSpec) {
 		}
 	}
 	in.Storage.DeepCopyInto(&out.Storage)
+	if in.Replicas != nil {
+		in, out := &in.Replicas, &out.Replicas
+		*out = new(int32)
+		**out = **in
+	}
 	return
 }
 
@@ -1209,6 +1214,11 @@ func (in *StorageSpec) DeepCopyInto(out *StorageSpec) {
 		**out = **in
 	}
 	out.Size = in.Size.DeepCopy()
+	if in.EmptyDir != nil {
+		in, out := &in.EmptyDir, &out.EmptyDir
+		*out = new(v1.EmptyDirVolumeSource)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
