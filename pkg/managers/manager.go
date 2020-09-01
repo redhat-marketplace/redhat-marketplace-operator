@@ -17,7 +17,6 @@ package managers
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"runtime"
 	"time"
@@ -27,8 +26,6 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
@@ -140,18 +137,6 @@ func (m *ControllerMain) Run() {
 
 	printVersion()
 
-	watchNamespace, err := k8sutil.GetWatchNamespace()
-	if err != nil {
-		log.Error(err, "Failed to get watch namespace")
-		os.Exit(1)
-	}
-
-	// Expose custom metrics to port 2112/metrics
-	http.Handle("/metrics", promhttp.Handler())
-	go func() {
-		http.ListenAndServe(utils.CUSTOM_METRICS_PORT_STRINGVAL, nil)
-	}()
-
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -211,7 +196,6 @@ func addMetrics(ctx context.Context, cfg *rest.Config) {
 	servicePorts := []v1.ServicePort{
 		{Port: metricsPort, Name: metrics.OperatorPortName, Protocol: v1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: metricsPort}},
 		{Port: operatorMetricsPort, Name: metrics.CRPortName, Protocol: v1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: operatorMetricsPort}},
-		{Port: utils.CUSTOM_METRICS_PORT, Name: utils.CUSTOM_METRICS_PORT_NAME, Protocol: v1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: utils.CUSTOM_METRICS_PORT}},
 	}
 
 	// Create Service object to expose the metrics port(s).

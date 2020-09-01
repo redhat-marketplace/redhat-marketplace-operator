@@ -41,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -245,8 +246,8 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			"clustter_uuid": originalRhmOperatorInfo["cluster_uuid"],
 			"namespace":     originalRhmOperatorInfo["namespace"]},
 	})
-	prometheus.Unregister(rhmOperatorInfoGauge)
-	prometheus.MustRegister(rhmOperatorInfoGauge)
+	metrics.Registry.Unregister(rhmOperatorInfoGauge)
+	metrics.Registry.MustRegister(rhmOperatorInfoGauge)
 	checkRhmOperatorInfoGauge(rhmOperatorInfoGauge, *marketplaceConfig)
 
 	installFeatures := viper.GetStringSlice("features")

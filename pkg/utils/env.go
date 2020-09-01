@@ -71,10 +71,6 @@ const (
 	CSV_ANNOTATION_NAMESPACE       = "csvNamespace"
 	CSV_METERDEFINITION_ANNOTATION = "marketplace.redhat.com/meterDefinition"
 
-	/* Custom Metric Values */
-	CUSTOM_METRICS_PORT           = 2112
-	CUSTOM_METRICS_PORT_NAME      = "custom-metrics"
-	CUSTOM_METRICS_PORT_STRINGVAL = ":2112"
 	/* Time and Date */
 	DATE_FORMAT         = "2006-01-02"
 	METER_REPORT_PREFIX = "meter-report-"
