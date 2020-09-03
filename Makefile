@@ -259,7 +259,7 @@ lint: ## lint the repo
 .PHONY: test
 test: testbin ## test-ci runs all tests for CI builds
 	@echo "testing"
-	ginkgo -r -randomizeAllSpecs -randomizeSuites -cover -race -progress -trace
+	ginkgo -r --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace
 
 
 K8S_VERSION = v1.18.2
@@ -278,7 +278,7 @@ CONTROLLERS=$(shell go list ./pkg/... ./cmd/... ./internal/... | grep -v 'pkg/ge
 
 test-ci: testbin ## test-ci runs all tests for CI builds
 	@echo "testing"
-	ginkgo -r -coverprofile=cover.out.tmp -outputdir=. -randomizeAllSpecs -randomizeSuites -cover -race -progress -coverpkg=$(CONTROLLERS)
+	ginkgo -r -coverprofile=cover.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --coverpkg=$(CONTROLLERS)
 	cat cover.out.tmp | grep -v "_generated.go|zz_generated|testbin.go" > cover.out
 
 cover.out:
