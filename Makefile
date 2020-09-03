@@ -144,6 +144,10 @@ code-dev: ## Run the default dev commands which are the go fmt and vet then exec
 	- make code-fmt
 	- make code-vet
 
+set-namespace: ## Set the default namespace and change the context for all subsequent kubectl commands
+	@echo Setting default namespace
+	kubectl config set-context --current --namespace=${NAMESPACE}
+
 .PHONY: k8s-gen
 k8s-gen: \
 	$(shell cd ./scripts && go mod vendor)

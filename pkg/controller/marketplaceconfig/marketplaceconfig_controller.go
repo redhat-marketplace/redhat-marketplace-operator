@@ -58,7 +58,7 @@ var (
 	marketplaceConfigFlagSet *pflag.FlagSet
 	originalRhmOperatorInfo  = make(map[string]string)
 	rhmOperatorInfoGauge     prometheus.Gauge
-	generateMetricsFlag      = false
+	isMetricsInit            = false
 )
 
 // Init declares our FlagSet for the MarketplaceConfig
@@ -234,21 +234,25 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		}
 	}
 
-	// Create and expose the rhmOperatorInfoGauge -> keeps track of cluster information
-	// if cluster information is correct: rhmOperatorInfoGauge=1 otherwise rhmOperatorInfoGauge=0
-	originalRhmOperatorInfo["operator_version"] = version.Version
-	originalRhmOperatorInfo["cluster_uuid"] = marketplaceConfig.Spec.ClusterUUID
-	originalRhmOperatorInfo["namespace"] = marketplaceConfig.Namespace
-	rhmOperatorInfoGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "rhm_operator_info",
-		Help: "This gauge checks whether all cluster information is present",
-		ConstLabels: prometheus.Labels{"operator_version": originalRhmOperatorInfo["operator_version"],
-			"clustter_uuid": originalRhmOperatorInfo["cluster_uuid"],
-			"namespace":     originalRhmOperatorInfo["namespace"]},
-	})
-	metrics.Registry.Unregister(rhmOperatorInfoGauge)
-	metrics.Registry.MustRegister(rhmOperatorInfoGauge)
-	checkRhmOperatorInfoGauge(rhmOperatorInfoGauge, *marketplaceConfig)
+	if !isMetricsInit {
+		reqLogger.Info("Initializing rhm-metrics")
+		// Create and expose the rhmOperatorInfoGauge -> keeps track of cluster information
+		// if cluster information is correct: rhmOperatorInfoGauge=1 otherwise rhmOperatorInfoGauge=0
+		originalRhmOperatorInfo["operator_version"] = version.Version
+		originalRhmOperatorInfo["cluster_uuid"] = marketplaceConfig.Spec.ClusterUUID
+		originalRhmOperatorInfo["namespace"] = marketplaceConfig.Namespace
+		rhmOperatorInfoGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "rhm_operator_info",
+			Help: "This gauge checks whether all cluster information is present",
+			ConstLabels: prometheus.Labels{"operator_version": originalRhmOperatorInfo["operator_version"],
+				"clustter_uuid": originalRhmOperatorInfo["cluster_uuid"],
+				"namespace":     originalRhmOperatorInfo["namespace"]},
+		})
+		metrics.Registry.Unregister(rhmOperatorInfoGauge)
+		metrics.Registry.MustRegister(rhmOperatorInfoGauge)
+		checkRhmOperatorInfoGauge(rhmOperatorInfoGauge, *marketplaceConfig)
+		isMetricsInit = true
+	}
 
 	installFeatures := viper.GetStringSlice("features")
 	installSet := make(map[string]bool)
@@ -256,11 +260,6 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		reqLogger.Info("Feature Flag Found", "Flag Name: ", installFlag)
 		installSet[installFlag] = true
 	}
-	// if !generateMetricsFlag {
-	// 	generateMetricsFlag = true
-	// 	reqLogger.Info("CALLING THE CYCLE FUNCTION!!!!!!!!!!!!!!!!")
-	// 	metricGen.CycleMeterDefMeters(r.client)
-	// }
 
 	var foundRazee *marketplacev1alpha1.RazeeDeployment
 

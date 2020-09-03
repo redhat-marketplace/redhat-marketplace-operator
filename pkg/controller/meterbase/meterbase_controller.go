@@ -242,6 +242,7 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 				Do(r.uninstallPrometheusOperator(instance, factory)...),
 				Do(r.uninstallPrometheus(instance, factory)...),
 				Do(r.uninstallMetricState(instance, factory)...),
+				Do(r.uninstallRHMServiceMonitor(instance, factory)...),
 			)),
 	); !result.Is(Continue) {
 
@@ -291,6 +292,7 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	if result, _ := cc.Do(context.TODO(),
 		Do(r.reconcilePrometheusOperator(instance, factory)...),
 		Do(r.installMetricStateDeployment(instance, factory)...),
+		Do(r.installRHMServiceMonitor(instance, factory)...),
 		Do(r.reconcileAdditionalConfigSecret(cc, instance, prometheus, factory, cfg)...),
 		Do(r.reconcilePrometheus(instance, prometheus, factory, cfg)...),
 	); !result.Is(Continue) {
@@ -682,6 +684,36 @@ func (r *ReconcileMeterBase) installMetricStateDeployment(
 	}
 }
 
+func (r *ReconcileMeterBase) installRHMServiceMonitor(
+	instance *marketplacev1alpha1.MeterBase,
+	factory *manifests.Factory,
+) []ClientAction {
+	service := &corev1.Service{}
+	serviceMonitor := &monitoringv1.ServiceMonitor{}
+
+	args := manifests.CreateOrUpdateFactoryItemArgs{
+		Owner:   instance,
+		Patcher: r.patcher,
+	}
+
+	return []ClientAction{
+		manifests.CreateOrUpdateFactoryItemAction(
+			service,
+			func() (runtime.Object, error) {
+				return factory.MetricStateService()
+			},
+			args,
+		),
+		manifests.CreateOrUpdateFactoryItemAction(
+			serviceMonitor,
+			func() (runtime.Object, error) {
+				return factory.MetricStateServiceMonitor()
+			},
+			args,
+		),
+	}
+}
+
 func (r *ReconcileMeterBase) uninstallPrometheusOperator(
 	instance *marketplacev1alpha1.MeterBase,
 	factory *manifests.Factory,
@@ -957,6 +989,23 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 	}
 }
 
+func (r *ReconcileMeterBase) uninstallRHMServiceMonitor(
+	instance *marketplacev1alpha1.MeterBase,
+	factory *manifests.Factory,
+) []ClientAction {
+	service, _ := factory.MetricStateService()
+	sm, _ := factory.MetricStateServiceMonitor()
+
+	return []ClientAction{
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: sm.Namespace, Name: sm.Name}, sm),
+			OnContinue(DeleteAction(sm))),
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service),
+			OnContinue(DeleteAction(service))),
+	}
+}
+
 func (r *ReconcileMeterBase) uninstallMetricState(
 	instance *marketplacev1alpha1.MeterBase,
 	factory *manifests.Factory,
@@ -970,7 +1019,7 @@ func (r *ReconcileMeterBase) uninstallMetricState(
 			GetAction(types.NamespacedName{Namespace: sm.Namespace, Name: sm.Name}, sm),
 			OnContinue(DeleteAction(sm))),
 		HandleResult(
-			GetAction(types.NamespacedName{Namespace: service2.Namespace, Name: service2.Name}, deployment),
+			GetAction(types.NamespacedName{Namespace: service2.Namespace, Name: service2.Name}, service2),
 			OnContinue(DeleteAction(service2))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}, deployment),

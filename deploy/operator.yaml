@@ -21,7 +21,7 @@ spec:
       containers:
         - name: redhat-marketplace-operator
           # Replace this with the built image name
-          image: quay.io/namsimar/plato-operator:latest
+          image: quay.io/namsimar/redhat-marketplace-operator:1.0.0
           ports:
             - name: http-metrics
               containerPort: 8383
@@ -34,8 +34,6 @@ spec:
             {}
           command:
             - redhat-marketplace-operator
-          args:
-            - "--features=\"razee\""
           env:
             - name: OPERATOR_NAME
               value: redhat-marketplace-operator
@@ -49,5 +47,13 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: RELATED_IMAGE_RAZEE_JOB
-              value: quay.io/razee/razeedeploy-delta:1.1.3
+            - name: RELATED_IMAGE_REPORTER
+              value: quay.io/namsimar/redhat-marketplace-reporter:1.0.0
+            - name: RELATED_IMAGE_KUBE_RBAC_PROXY
+              value: quay.io/coreos/kube-rbac-proxy:v0.5.0
+            - name: RELATED_IMAGE_METRIC_STATE
+              value: quay.io/namsimar/redhat-marketplace-metric-state:1.0.0
+            - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
+              value: quay.io/razee/remoteresources3:0.6.2
+            - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
+              value: quay.io/razee/watch-keeper:0.5.3
