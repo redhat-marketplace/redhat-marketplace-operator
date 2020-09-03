@@ -89,10 +89,6 @@ jobs:
 
       - name: Test
         run: |
-          command -v uname
-          command -v tr
-          command -v sed
-          command -v tar
           make install-tools test-ci
 
       - name: Turnstyle
