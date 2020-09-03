@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = Describe("MeterbaseController", func() {
+var _ = PDescribe("MeterbaseController", func() {
 
 	const timeout = time.Second * 30
 	const interval = time.Second * 1
