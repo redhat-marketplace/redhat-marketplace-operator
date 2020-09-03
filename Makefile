@@ -261,7 +261,6 @@ test: testbin ## test-ci runs all tests for CI builds
 	@echo "testing"
 	ginkgo -r --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace
 
-
 K8S_VERSION = v1.18.2
 ETCD_VERSION = v3.4.3
 testbin:

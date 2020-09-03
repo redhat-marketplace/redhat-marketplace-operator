@@ -15,24 +15,27 @@
 package utils
 
 import (
+	. "github.com/onsi/ginkgo"
 	"os"
-	"testing"
 )
 
-func TestEnvUtils(t *testing.T) {
-	os.Setenv("TEST", "1")
+var _ = Describe("Testing with Ginkgo", func() {
+	Context("env utils", func() {
 
-	t.Run("env var exists", func(t *testing.T) {
-		testVar := Getenv("TEST", "2")
-		if testVar != "1" {
-			t.Errorf("%s is not equal to %s", testVar, "1")
-		}
-	})
+		It("env var exists", func() {
+			os.Setenv("TEST", "1")
+			testVar := Getenv("TEST", "2")
+			if testVar != "1" {
+				GinkgoT().Errorf("%s is not equal to %s", testVar, "1")
+			}
+		})
 
-	t.Run("env var does not exist", func(t *testing.T) {
-		testVar := Getenv("DOESNOEXIST", "2")
-		if testVar != "2" {
-			t.Errorf("%s is not equal to %s", testVar, "2")
-		}
+		It("env var does not exist", func() {
+			testVar := Getenv("DOESNOEXIST", "2")
+			if testVar != "2" {
+				GinkgoT().Errorf("%s is not equal to %s", testVar, "2")
+			}
+		})
+
 	})
-}
+})
