@@ -85,6 +85,7 @@ func setup(r *ReconcilerTest) error {
 func testCleanInstall(t GinkgoTInterface) {
 	t.Parallel()
 	marketplaceconfig.Spec.EnableMetering = ptr.Bool(true)
+	marketplaceconfig.Spec.InstallIBMCatalogSource = ptr.Bool(true)
 	reconcilerTest := NewReconcilerTest(setup, marketplaceconfig)
 	reconcilerTest.TestAll(t,
 		ReconcileStep(opts, ReconcileWithExpectedResults(

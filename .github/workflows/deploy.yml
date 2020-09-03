@@ -37,7 +37,7 @@ jobs:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.14
+          go-version: ^1.15
         id: go
 
       - name: Set branch prefix for dev
@@ -88,7 +88,12 @@ jobs:
           go mod download
 
       - name: Test
-        run: make install-tools test-ci
+        run: |
+          command -v uname
+          command -v tr
+          command -v sed
+          command -v tar
+          make install-tools test-ci
 
       - name: Turnstyle
         uses: softprops/turnstyle@v1
