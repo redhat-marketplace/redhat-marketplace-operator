@@ -116,12 +116,6 @@ func (m *ControllerMain) Run() {
 		os.Exit(1)
 	}
 
-	// Expose custom metrics to port 2112/metrics
-	http.Handle("/metrics", promhttp.Handler())
-	go func() {
-		http.ListenAndServe(utils.CUSTOM_METRICS_PORT_STRINGVAL, nil)
-	}()
-
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -208,7 +202,6 @@ func addMetrics(ctx context.Context, cfg *rest.Config) {
 	servicePorts := []v1.ServicePort{
 		{Port: metricsPort, Name: metrics.OperatorPortName, Protocol: v1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: metricsPort}},
 		{Port: operatorMetricsPort, Name: metrics.CRPortName, Protocol: v1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: operatorMetricsPort}},
-		{Port: utils.CUSTOM_METRICS_PORT, Name: utils.CUSTOM_METRICS_PORT_NAME, Protocol: v1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: utils.CUSTOM_METRICS_PORT}},
 	}
 
 	// Create Service object to expose the metrics port(s).
