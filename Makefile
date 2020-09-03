@@ -265,7 +265,7 @@ test: testbin ## test-ci runs all tests for CI builds
 K8S_VERSION = v1.18.2
 ETCD_VERSION = v3.4.3
 testbin:
-	./scripts/setup_envtest.sh $(K8S_VERSION) $(ETCD_VERSION)
+	/bin/sh ./scripts/setup_envtest.sh $(K8S_VERSION) $(ETCD_VERSION)
 	chmod +x testbin/etcd testbin/kubectl testbin/kube-apiserver
 
 .PHONY: test-cover
