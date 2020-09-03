@@ -21,7 +21,6 @@ import (
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	pflag "github.com/spf13/pflag"
@@ -36,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -55,22 +55,22 @@ var (
 	registry                 = prometheus.NewRegistry()
 
 	/* Gauges to track install */
-	rhmInstallSucceedGauge = promauto.NewGauge(prometheus.GaugeOpts{
+	rhmInstallSucceedGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "rhm_operator_status_install_succeeded",
 		Help: "This gauge states whether the rhm-operator has been successfuly installed: 0=false, 1=true",
 	})
 
-	rhmInstallFailedGauge = promauto.NewGauge(prometheus.GaugeOpts{
+	rhmInstallFailedGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "rhm_operator_status_install_failed",
 		Help: "This gauge states whether the rhm-operator install has failed: 0=false, 1=true",
 	})
 
-	rhmOperatorInstallStartTimeGauge = promauto.NewGauge(prometheus.GaugeOpts{
+	rhmInstallStartTimeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "rhm_operator_status_install_start_time",
 		Help: "This gauge states when the rhm-operator began installing",
 	})
 
-	rhmOperatorInstallEndTimeGauge = promauto.NewGauge(prometheus.GaugeOpts{
+	rhmInstallEndTimeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "rhm_operator_status_install_end_time",
 		Help: "This gauge states when the rhm-operator finished installing",
 	})
@@ -85,6 +85,16 @@ func init() {
 		defaultFeatures,
 		"List of additional features to install. Ex. [razee, meterbase], etc.",
 	)
+
+	metrics.Registry.Unregister(rhmInstallSucceedGauge)
+	metrics.Registry.Unregister(rhmInstallFailedGauge)
+	metrics.Registry.Unregister(rhmInstallStartTimeGauge)
+	metrics.Registry.Unregister(rhmInstallEndTimeGauge)
+	metrics.Registry.Register(rhmInstallSucceedGauge)
+	metrics.Registry.Register(rhmInstallFailedGauge)
+	metrics.Registry.Register(rhmInstallStartTimeGauge)
+	metrics.Registry.Register(rhmInstallEndTimeGauge)
+
 }
 
 // FlagSet returns our FlagSet
@@ -199,7 +209,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	}
 
 	if !utils.GAUGE_FLAGS["rhm_operator_status_install_start_time"] {
-		rhmOperatorInstallStartTimeGauge.SetToCurrentTime()
+		rhmInstallStartTimeGauge.SetToCurrentTime()
 		utils.GAUGE_FLAGS["rhm_operator_status_install_start_time"] = true
 	}
 
@@ -439,7 +449,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	}
 
 	if !utils.GAUGE_FLAGS["rhm_operator_status_install_end_time"] {
-		rhmOperatorInstallEndTimeGauge.SetToCurrentTime()
+		rhmInstallEndTimeGauge.SetToCurrentTime()
 		utils.GAUGE_FLAGS["rhm_operator_status_install_end_time"] = true
 	}
 

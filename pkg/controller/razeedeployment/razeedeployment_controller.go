@@ -22,7 +22,6 @@ import (
 
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/spf13/pflag"
@@ -43,6 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -54,7 +54,7 @@ var (
 	razeeFlagSet              *pflag.FlagSet
 	RELATED_IMAGE_RAZEE_JOB   = "RELATED_IMAGE_RAZEE_JOB"
 
-	rhmNoSecretGauge = promauto.NewGauge(prometheus.GaugeOpts{
+	rhmNoSecretGauge = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "rhm_operator_status_install_no_secret",
 		Help: "This gauge states whether a secret was found: 0=Secret Found, 1=No Secret",
 	})
@@ -63,6 +63,8 @@ var (
 func init() {
 	razeeFlagSet = pflag.NewFlagSet("razee", pflag.ExitOnError)
 	razeeFlagSet.String("razee-job-image", utils.Getenv(RELATED_IMAGE_RAZEE_JOB, utils.DEFAULT_RAZEE_JOB_IMAGE), "image for the razee job")
+	metrics.Registry.Unregister(rhmNoSecretGauge)
+	metrics.Registry.Register(rhmNoSecretGauge)
 }
 
 func FlagSet() *pflag.FlagSet {
