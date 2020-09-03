@@ -91,7 +91,7 @@ jobs:
         env:
           KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT: true
         run: |
-          make install-tools test
+          make install-tools test-ci
 
       - name: Turnstyle
         uses: softprops/turnstyle@v1

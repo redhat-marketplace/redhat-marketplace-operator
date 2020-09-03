@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = PDescribe("MeterReportController", func() {
+var _ = Describe("MeterReportController", func() {
 	const timeout = time.Second * 30
 	const interval = time.Second * 5
 
