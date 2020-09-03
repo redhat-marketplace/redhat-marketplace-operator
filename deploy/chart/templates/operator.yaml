@@ -25,8 +25,6 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           command:
             - redhat-marketplace-operator
-          args:
-            - "--features=\"razee\""
           env:
             - name: OPERATOR_NAME
               value: {{ .Values.name }}
@@ -40,6 +38,12 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: RELATED_IMAGE_REPORTER
+              value: {{ .Values.reporterImage }}
+            - name: RELATED_IMAGE_KUBE_RBAC_PROXY
+              value: {{ .Values.kubeRbacProxyImage }}
+            - name: RELATED_IMAGE_METRIC_STATE
+              value: {{ .Values.metricStateImage }}
             {{- if .Values.env -}}
             {{- toYaml .Values.env | nindent 12 }}
             {{- end -}}

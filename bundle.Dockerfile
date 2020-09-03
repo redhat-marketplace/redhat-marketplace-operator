@@ -6,6 +6,9 @@ LABEL operators.operatorframework.io.bundle.metadata.v1=metadata/
 LABEL operators.operatorframework.io.bundle.package.v1=redhat-marketplace-operator-test
 LABEL operators.operatorframework.io.bundle.channels.v1=stable,beta
 LABEL operators.operatorframework.io.bundle.channel.default.v1=stable
+LABEL operators.operatorframework.io.metrics.mediatype.v1=metrics+v1
+LABEL operators.operatorframework.io.metrics.builder=operator-sdk-v0.19.1
+LABEL operators.operatorframework.io.metrics.project_layout=go
 
-COPY deploy/olm-catalog/redhat-marketplace-operator/0.1.2 /manifests/
+COPY deploy/olm-catalog/redhat-marketplace-operator/1.0.0 /manifests/
 COPY deploy/olm-catalog/redhat-marketplace-operator/metadata /metadata/

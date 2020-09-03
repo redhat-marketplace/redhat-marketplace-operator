@@ -1,6 +1,7 @@
 apiVersion: v2
 name: redhat-marketplace-operator-template-chart
 description: A template chart for building the operators
+version: 0.0.1
 
 # A chart can be either an 'application' or a 'library' chart.
 #

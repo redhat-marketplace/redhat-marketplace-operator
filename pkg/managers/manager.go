@@ -16,22 +16,28 @@ package managers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"runtime"
+	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/google/wire"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	"k8s.io/apimachinery/pkg/api/meta"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc
+	"emperror.dev/errors"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
@@ -42,6 +48,7 @@ import (
 	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -49,13 +56,39 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
-var (
+const (
 	metricsHost               = "0.0.0.0"
 	metricsPort         int32 = 8383
 	operatorMetricsPort int32 = 8686
 )
 
-var log = logf.Log.WithName("cmd")
+var (
+	log = logf.Log.WithName("cmd")
+	// ProvideManagerSet is to be used by
+	// wire files to get a controller manager
+	ProvideManagerSet = wire.NewSet(
+		config.GetConfig,
+		kubernetes.NewForConfig,
+		ProvideManager,
+		ProvideScheme,
+		ProvideManagerClient,
+		dynamic.NewForConfig,
+		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
+	)
+	// ProvideCacheClientSet is to be used by
+	// wire files to get a cached client
+	ProvideCachedClientSet = wire.NewSet(
+		config.GetConfig,
+		kubernetes.NewForConfig,
+		ProvideClient,
+		ProvideNewCache,
+		StartCache,
+		ProvideScheme,
+		NewDynamicRESTMapper,
+		dynamic.NewForConfig,
+		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
+	)
+)
 
 func printVersion() {
 	log.Info(fmt.Sprintf("Operator Version: %s", version.Version))
@@ -66,16 +99,11 @@ func printVersion() {
 
 type OperatorName string
 
-type SchemeDefinition struct {
-	Name        string
-	AddToScheme func(s *k8sruntime.Scheme) error
-}
-
 type ControllerMain struct {
 	Name        OperatorName
 	FlagSets    []*pflag.FlagSet
-	Controllers []*controller.ControllerDefinition
-	Schemes     []*SchemeDefinition
+	Controllers []controller.AddController
+	Manager     manager.Manager
 }
 
 func (m *ControllerMain) Run() {
@@ -110,12 +138,6 @@ func (m *ControllerMain) Run() {
 
 	printVersion()
 
-	watchNamespace, err := k8sutil.GetWatchNamespace()
-	if err != nil {
-		log.Error(err, "Failed to get watch namespace")
-		os.Exit(1)
-	}
-
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -131,34 +153,7 @@ func (m *ControllerMain) Run() {
 		os.Exit(1)
 	}
 
-	scheme := k8sscheme.Scheme
-
-	// Setup Scheme for all resources
-	if err := apis.AddToScheme(scheme); err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-
-	for _, apiScheme := range m.Schemes {
-		log.Info("adding scheme", "scheme", apiScheme.Name)
-		if err := apiScheme.AddToScheme(scheme); err != nil {
-			log.Error(err, "failed to add scheme")
-			os.Exit(1)
-		}
-	}
-
-	opts := manager.Options{
-		Namespace:          watchNamespace,
-		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-		Scheme:             scheme,
-	}
-
-	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := manager.New(cfg, opts)
-	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
+	mgr := m.Manager
 
 	log.Info("Registering Components.")
 
@@ -250,4 +245,140 @@ func serveCRMetrics(cfg *rest.Config, operatorNs string) error {
 		return err
 	}
 	return nil
+}
+
+func ProvideManager(
+	cfg *rest.Config,
+	kscheme *k8sruntime.Scheme,
+	localSchemes controller.LocalSchemes,
+	opts *manager.Options,
+) (manager.Manager, error) {
+	if err := apis.AddToScheme(kscheme); err != nil {
+		log.Error(err, "failed to add scheme")
+		return nil, errors.Wrap(err, "could not add apis to scheme")
+	}
+
+	for _, apiScheme := range localSchemes {
+		log.Info("adding scheme", "scheme", apiScheme.Name)
+		if err := apiScheme.AddToScheme(kscheme); err != nil {
+			log.Error(err, "failed to add scheme")
+			return nil, errors.Wrap(err, "failed to add scheme")
+		}
+	}
+
+	if opts == nil {
+		return nil, errors.New("opts not provided")
+	}
+
+	// Create a new Cmd to provide shared dependencies and start components
+	return manager.New(cfg, *opts)
+}
+
+type ClientOptions struct {
+	SyncPeriod   *time.Duration
+	DryRunClient bool
+	Namespace    string
+}
+
+type CacheIsStarted struct{}
+type CacheIsIndexed struct{}
+
+func StartCache(
+	ctx context.Context,
+	cache cache.Cache,
+	log logr.Logger,
+	isIndexed CacheIsIndexed,
+) CacheIsStarted {
+	go func() {
+		err := cache.Start(ctx.Done())
+		log.Error(err, "error starting cache")
+	}()
+	return CacheIsStarted{}
+}
+
+func ProvideClient(
+	c *rest.Config,
+	mapper meta.RESTMapper,
+	scheme *k8sruntime.Scheme,
+	inCache cache.Cache,
+	options ClientOptions,
+) (client.Client, error) {
+	writeObj, err := defaultNewClient(inCache, c, client.Options{Scheme: scheme, Mapper: mapper})
+	if err != nil {
+		return nil, err
+	}
+
+	if options.DryRunClient {
+		writeObj = client.NewDryRunClient(writeObj)
+	}
+
+	return writeObj, nil
+}
+
+func ProvideNewCache(
+	c *rest.Config,
+	mapper meta.RESTMapper,
+	scheme *k8sruntime.Scheme,
+	options ClientOptions,
+) (cache.Cache, error) {
+	return cache.New(c,
+		cache.Options{
+			Scheme:    scheme,
+			Mapper:    mapper,
+			Resync:    options.SyncPeriod,
+			Namespace: options.Namespace,
+		})
+}
+
+func ProvideScheme(
+	c *rest.Config,
+	localSchemes controller.LocalSchemes,
+) (*k8sruntime.Scheme, error) {
+	scheme := k8sruntime.NewScheme()
+	err := k8sscheme.AddToScheme(scheme)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err = apis.AddToScheme(scheme); err != nil {
+		log.Error(err, "failed to add scheme")
+		return nil, errors.Wrap(err, "could not add apis to scheme")
+	}
+
+	for _, apiScheme := range localSchemes {
+		log.Info("adding scheme", "scheme", apiScheme.Name)
+		if err = apiScheme.AddToScheme(scheme); err != nil {
+			log.Error(err, "failed to add scheme")
+			return nil, errors.Wrap(err, "failed to add scheme")
+		}
+	}
+
+	return scheme, err
+}
+
+func ProvideManagerClient(mgr manager.Manager) client.Client {
+	return mgr.GetClient()
+}
+
+func NewDynamicRESTMapper(cfg *rest.Config) (meta.RESTMapper, error) {
+	return apiutil.NewDynamicRESTMapper(cfg)
+}
+
+// defaultNewClient creates the default caching client
+func defaultNewClient(ca cache.Cache, config *rest.Config, options client.Options) (client.Client, error) {
+	// Create the Client for Write operations.
+	c, err := client.New(config, options)
+	if err != nil {
+		return nil, err
+	}
+
+	return &client.DelegatingClient{
+		Reader: &client.DelegatingReader{
+			CacheReader:  ca,
+			ClientReader: c,
+		},
+		Writer:       c,
+		StatusClient: c,
+	}, nil
 }

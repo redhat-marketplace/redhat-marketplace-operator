@@ -19,11 +19,15 @@ import (
 	"github.com/spf13/pflag"
 )
 
-type OlmSubscriptionController ControllerDefinition
+type OlmSubscriptionController struct {
+	*baseDefinition
+}
 
 func ProvideOlmSubscriptionController() *OlmSubscriptionController {
 	return &OlmSubscriptionController{
-		Add:     subscription.Add,
-		FlagSet: func() *pflag.FlagSet { return nil },
+		baseDefinition: &baseDefinition{
+			AddFunc:     subscription.Add,
+			FlagSetFunc: func() *pflag.FlagSet { return nil },
+		},
 	}
 }

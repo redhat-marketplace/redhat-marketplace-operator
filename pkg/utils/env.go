@@ -20,22 +20,29 @@ import (
 
 const (
 	/* Resource Names */
-	RAZEE_DEPLOY_JOB_NAME            = "razeedeploy-job"
-	RAZEE_JOB_NAME                   = "rhm-razeedeploy-job"
-	PARENT_RRS3_RESOURCE_NAME        = "parent"
-	COS_READER_KEY_NAME              = "rhm-cos-reader-key"
-	RAZEE_UNINSTALL_NAME             = "razee-uninstall-job"
-	RHM_OPERATOR_SECRET_NAME         = "rhm-operator-secret"
-	MARKETPLACECONFIG_NAME           = "rhm-marketplaceconfig"
-	METERBASE_NAME                   = "rhm-marketplaceconfig-meterbase"
-	RAZEE_NAME                       = "rhm-marketplaceconfig-razeedeployment"
-	OPSRC_NAME                       = "redhat-marketplace"
-	OPERATOR_MKTPLACE_NS             = "openshift-marketplace"
-	RAZEE_CLUSTER_METADATA_NAME      = "razee-cluster-metadata"
-	WATCH_KEEPER_NON_NAMESPACED_NAME = "watch-keeper-non-namespaced"
-	WATCH_KEEPER_LIMITPOLL_NAME      = "watch-keeper-limit-poll"
-	WATCH_KEEPER_CONFIG_NAME         = "watch-keeper-config"
-	WATCH_KEEPER_SECRET_NAME         = "watch-keeper-secret"
+	RHM_WATCHKEEPER_DEPLOYMENT_NAME        = "rhm-watch-keeper"
+	RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME = "rhm-remoteresources3-controller"
+	RAZEE_DEPLOY_JOB_NAME                  = "razeedeploy-job"
+	RAZEE_JOB_NAME                         = "rhm-razeedeploy-job"
+	PARENT_RRS3_RESOURCE_NAME              = "parent"
+	COS_READER_KEY_NAME                    = "rhm-cos-reader-key"
+	RAZEE_UNINSTALL_NAME                   = "razee-uninstall-job"
+	RHM_OPERATOR_SECRET_NAME               = "rhm-operator-secret"
+	MARKETPLACECONFIG_NAME                 = "marketplaceconfig"
+	METERBASE_NAME                         = "rhm-marketplaceconfig-meterbase"
+	RAZEE_NAME                             = "rhm-marketplaceconfig-razeedeployment"
+	OPSRC_NAME                             = "redhat-marketplace"
+	IBM_CATALOGSRC_NAME                    = "ibm-operator-catalog"
+	OPENCLOUD_CATALOGSRC_NAME              = "opencloud-operators"
+	OPERATOR_MKTPLACE_NS                   = "openshift-marketplace"
+	RAZEE_CLUSTER_METADATA_NAME            = "razee-cluster-metadata"
+	WATCH_KEEPER_NON_NAMESPACED_NAME       = "watch-keeper-non-namespaced"
+	WATCH_KEEPER_LIMITPOLL_NAME            = "watch-keeper-limit-poll"
+	WATCH_KEEPER_CONFIG_NAME               = "watch-keeper-config"
+	WATCH_KEEPER_SECRET_NAME               = "watch-keeper-secret"
+
+	/* All Controllers */
+	CONTROLLER_FINALIZER = "finalizer.marketplace.redhat.com"
 
 	/* RBAC */
 	CLUSTER_ROLE              = "redhat-marketplace-operator"
@@ -46,30 +53,33 @@ const (
 	REPORTING_SERVICE_ACCOUNT = "redhat-marketplace-reporting"
 
 	/* Razee Controller Values */
-	PARENT_RRS3                = "parentRRS3"
-	RAZEE_DEPLOYMENT_FINALIZER = "razeedeploy.finalizer.marketplace.redhat.com"
-	DEFAULT_RAZEE_JOB_IMAGE    = "quay.io/razee/razeedeploy-delta:1.1.0"
-	WATCH_KEEPER_VERSION       = "0.5.0"
-	FEATURE_FLAG_VERSION       = "0.6.1"
-	MANAGED_SET_VERSION        = "0.4.2"
-	MUSTACHE_TEMPLATE_VERSION  = "0.6.3"
-	REMOTE_RESOURCE_VERSION    = "0.4.2"
-	REMOTE_RESOURCE_S3_VERSION = "0.5.2"
-	IBM_COS_READER_KEY_FIELD   = "IBM_COS_READER_KEY"
-	BUCKET_NAME_FIELD          = "BUCKET_NAME"
-	IBM_COS_URL_FIELD          = "IBM_COS_URL"
-	RAZEE_DASH_ORG_KEY_FIELD   = "RAZEE_DASH_ORG_KEY"
-	CHILD_RRS3_YAML_FIELD      = "CHILD_RRS3_YAML_FILENAME"
-	RAZEE_DASH_URL_FIELD       = "RAZEE_DASH_URL"
-	FILE_SOURCE_URL_FIELD      = "FILE_SOURCE_URL"
+	RAZEE_DEPLOYMENT_FINALIZER                = "razeedeploy.finalizer.marketplace.redhat.com"
+	DEFAULT_RHM_RRS3_DEPLOYMENT_IMAGE         = "quay.io/razee/remoteresources3:0.6.2"
+	DEFAULT_RHM_WATCH_KEEPER_DEPLOYMENT_IMAGE = "quay.io/razee/watch-keeper:0.5.3"
+	IBM_COS_READER_KEY_FIELD                  = "IBM_COS_READER_KEY"
+	BUCKET_NAME_FIELD                         = "BUCKET_NAME"
+	IBM_COS_URL_FIELD                         = "IBM_COS_URL"
+	RAZEE_DASH_ORG_KEY_FIELD                  = "RAZEE_DASH_ORG_KEY"
+	CHILD_RRS3_YAML_FIELD                     = "CHILD_RRS3_YAML_FILENAME"
+	RAZEE_DASH_URL_FIELD                      = "RAZEE_DASH_URL"
+	FILE_SOURCE_URL_FIELD                     = "FILE_SOURCE_URL"
 
-	/* Custom Metric Values */
-	CUSTOM_METRICS_PORT           = 2112
-	CUSTOM_METRICS_PORT_NAME      = "custom-metrics"
-	CUSTOM_METRICS_PORT_STRINGVAL = ":2112"
+	/* CSV Controller Values */
+	CSV_FINALIZER                  = "csv.finalizer.marketplace.redhat.com"
+	CSV_NAME                       = "redhat-marketplace-operator"
+	CSV_ANNOTATION_NAME            = "csvName"
+	CSV_ANNOTATION_NAMESPACE       = "csvNamespace"
+	CSV_METERDEFINITION_ANNOTATION = "marketplace.redhat.com/meterDefinition"
+
+	/* Time and Date */
+	DATE_FORMAT         = "2006-01-02"
+	METER_REPORT_PREFIX = "meter-report-"
 )
 
 var (
+	/* Metering Annotations */
+	MeteredAnnotation = []string{"marketplace.redhat.com/metering", "true"}
+
 	/* Labels*/
 	LABEL_RHM_OPERATOR_WATCH = []string{"marketplace.redhat.com/watch", "true"}
 

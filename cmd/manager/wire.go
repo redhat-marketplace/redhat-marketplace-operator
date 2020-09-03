@@ -19,9 +19,21 @@ package main
 
 import (
 	"github.com/google/wire"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 )
 
-func initializeMarketplaceController() *managers.ControllerMain {
-	panic(wire.Build(MarketplaceControllerSet))
+func InitializeMarketplaceController() (*managers.ControllerMain, error) {
+	panic(wire.Build(
+		config.ProvideConfig,
+		controller.ControllerSet,
+		controller.ProvideControllerFlagSet,
+		controller.SchemeDefinitions,
+		makeMarketplaceController,
+		reconcileutils.CommandRunnerProviderSet,
+		managers.ProvideManagerSet,
+		provideOptions,
+	))
 }

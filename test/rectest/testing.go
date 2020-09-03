@@ -18,9 +18,10 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/test/mock/mock_client"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,13 +31,30 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+type ReconcileTester interface {
+	Fail()
+	Error(args ...interface{})
+	Errorf(format string, args ...interface{})
+	FailNow()
+	Fatal(args ...interface{})
+	Fatalf(format string, args ...interface{})
+	Log(args ...interface{})
+	Logf(format string, args ...interface{})
+	Failed() bool
+	Parallel()
+	Skip(args ...interface{})
+	Skipf(format string, args ...interface{})
+	SkipNow()
+	Skipped() bool
+}
+
 // - interfaces -
-type ReconcilerTestValidationFunc func(*ReconcilerTest, *testing.T, runtime.Object)
+type ReconcilerTestValidationFunc func(*ReconcilerTest, ReconcileTester, runtime.Object)
 type ReconcilerSetupFunc func(*ReconcilerTest) error
 
 type TestCaseStep interface {
 	GetStepName() string
-	Test(t *testing.T, reconcilerTest *ReconcilerTest)
+	Test(t ReconcileTester, reconcilerTest *ReconcilerTest)
 }
 
 // - end of interfaces -
@@ -76,6 +94,16 @@ type ReconcileResult struct {
 
 var testSetupLock sync.Mutex
 
+func NewReconcilerTestSimple(
+	reconciler reconcile.Reconciler,
+	client client.Client,
+) *ReconcilerTest {
+	return &ReconcilerTest{
+		Reconciler: reconciler,
+		Client:     client,
+	}
+}
+
 // NewReconcilerTest creates a new reconciler test with a setup func
 // using the provided runtime objects to creat on the client.
 func NewReconcilerTest(setup ReconcilerSetupFunc, predefinedObjs ...runtime.Object) *ReconcilerTest {
@@ -93,7 +121,7 @@ func NewReconcilerTest(setup ReconcilerSetupFunc, predefinedObjs ...runtime.Obje
 	}
 }
 
-func Ignore(r *ReconcilerTest, t *testing.T, obj runtime.Object) {}
+func Ignore(r *ReconcilerTest, t ReconcileTester, obj runtime.Object) {}
 
 type ControllerReconcileStep struct {
 	stepOptions
@@ -122,11 +150,11 @@ func (tc *ControllerReconcileStep) GetStepName() string {
 	return tc.StepName
 }
 
-func (tc *ControllerReconcileStep) Test(t *testing.T, r *ReconcilerTest) {
+func (tc *ControllerReconcileStep) Test(t ReconcileTester, r *ReconcilerTest) {
 	// Reconcile again so Reconcile() checks for the OperatorSource
 
 	if tc.UntilDone {
-		tc.Max = 10
+		tc.Max = 1000
 	}
 
 	if tc.Max == 0 {
@@ -138,43 +166,43 @@ func (tc *ControllerReconcileStep) Test(t *testing.T, r *ReconcilerTest) {
 
 		indx := i
 
-		t.Run(fmt.Sprintf("%v_of_%v_expresult", indx+1, tc.Max), func(t *testing.T) {
-			res, err := r.Reconciler.Reconcile(tc.Request)
-			result := ReconcileResult{res, err}
+		res, err := r.Reconciler.Reconcile(tc.Request)
+		result := ReconcileResult{res, err}
 
-			expectedResult := AnyResult
+		expectedResult := AnyResult
 
-			if indx < len(tc.ExpectedResults) {
-				expectedResult = tc.ExpectedResults[indx]
+		if indx < len(tc.ExpectedResults) {
+			expectedResult = tc.ExpectedResults[indx]
+		}
+
+		if expectedResult != AnyResult {
+			assert.Equalf(t, expectedResult, result,
+				"%+v", tc.TestLineError(fmt.Errorf("incorrect expected result")))
+		} else {
+			// stop if done or if there was an error
+			if result == DoneResult {
+				if len(tc.ExpectedResults) != 0 && indx >= len(tc.ExpectedResults) && !tc.UntilDone {
+					assert.Equalf(t, len(tc.ExpectedResults)-1, indx,
+						"%+v", tc.TestLineError(fmt.Errorf("expected reconcile count did not match")))
+				}
+				t.Logf("reconcile completed in %v turns", indx+1)
+				exit = true
 			}
 
-			if expectedResult != AnyResult {
-				assert.Equalf(t, expectedResult, result,
-					"%+v", tc.TestLineError(fmt.Errorf("incorrect expected result")))
-			} else {
-				// stop if done or if there was an error
-				if result == DoneResult {
-					if len(tc.ExpectedResults) != 0 && indx >= len(tc.ExpectedResults) && !tc.UntilDone {
-						assert.Equalf(t, len(tc.ExpectedResults)-1, indx,
-							"%+v", tc.TestLineError(fmt.Errorf("expected reconcile count did not match")))
-					}
-					t.Logf("reconcile completed in %v turns", indx+1)
-					exit = true
-				}
-
+			if !tc.IgnoreError {
+				t.Logf("ignore error")
 				if err != nil {
 					assert.Equalf(t, DoneResult, result,
-						"%+v", tc.TestLineError(fmt.Errorf("error while reconciling")))
-					exit = true
-				}
-
-				if indx == tc.Max-1 {
-					assert.Equalf(t, DoneResult, result,
-						"%+v", tc.TestLineError(fmt.Errorf("did not successfully reconcile")))
+						"%+v", tc.TestLineError(err))
 					exit = true
 				}
 			}
-		})
+
+			if indx == tc.Max-1 {
+				exit = true
+			}
+		}
+
 		if exit {
 			break
 		}
@@ -207,9 +235,8 @@ func (tc *ClientGetStep) GetStepName() string {
 	return tc.StepName
 }
 
-func (tc *ClientGetStep) Test(t *testing.T, r *ReconcilerTest) {
+func (tc *ClientGetStep) Test(t ReconcileTester, r *ReconcilerTest) {
 	// Reconcile again so Reconcile() checks for the OperatorSource
-	t.Helper()
 	err := r.GetClient().Get(
 		context.TODO(),
 		types.NamespacedName{
@@ -219,15 +246,8 @@ func (tc *ClientGetStep) Test(t *testing.T, r *ReconcilerTest) {
 		tc.Obj,
 	)
 
-	require.NoErrorf(t, err, "get (%T): (%v); err=%+v",
-		tc.Obj, err, tc.TestLineError(err))
-
-	if !t.Run("check list result", func(t *testing.T) {
-		t.Helper()
-		tc.CheckResult(r, t, tc.Obj)
-	}) {
-		assert.FailNowf(t, "failed get check", "%+v", tc.testLine)
-	}
+	require.NoErrorf(t, err, "get (%T): (%v); err=%+v", tc.Obj, err, tc.TestLineError(err))
+	tc.CheckResult(r, t, tc.Obj)
 }
 
 type ClientListStep struct {
@@ -256,8 +276,7 @@ func (tc *ClientListStep) GetStepName() string {
 	return tc.StepName
 }
 
-func (tc *ClientListStep) Test(t *testing.T, r *ReconcilerTest) {
-	t.Helper()
+func (tc *ClientListStep) Test(t ReconcileTester, r *ReconcilerTest) {
 	// Reconcile again so Reconcile() checks for the OperatorSource
 	err := r.GetClient().List(context.TODO(),
 		tc.Obj,
@@ -269,18 +288,12 @@ func (tc *ClientListStep) Test(t *testing.T, r *ReconcilerTest) {
 			"%+v", tc.TestLineError(errors.Errorf("get (%T): (%v)", tc.Obj, err)))
 	}
 
-	if !t.Run("check list result", func(t *testing.T) {
-		t.Helper()
-		tc.CheckResult(r, t, tc.Obj)
-	}) {
-		assert.FailNowf(t, "failed check list", "%+v", tc.testLine)
-	}
+	tc.CheckResult(r, t, tc.Obj)
 }
 
 var testAllMutex sync.Mutex
 
-func (r *ReconcilerTest) TestAll(t *testing.T, testCases ...TestCaseStep) {
-	t.Helper()
+func (r *ReconcilerTest) TestAll(t ReconcileTester, testCases ...TestCaseStep) {
 	if r.SetupFunc != nil {
 		testAllMutex.Lock()
 		err := r.SetupFunc(r)
@@ -301,11 +314,122 @@ func (r *ReconcilerTest) TestAll(t *testing.T, testCases ...TestCaseStep) {
 		rectest := r
 		testData := testData
 
-		success := t.Run(testName, func(t *testing.T) {
-			t.Helper()
-			testData.Test(t, rectest)
-		})
-
-		require.Truef(t, success, "Step %s failed", testName)
+		testData.Test(t, rectest)
 	}
+}
+
+func getNamespacedName(callName string, obj runtime.Object) string {
+	key, err := client.ObjectKeyFromObject(obj)
+
+	if err != nil {
+		return callName
+	}
+
+	return fmt.Sprintf("%s-%s-%s.%s", obj.GetObjectKind().GroupVersionKind().String(), callName, key.Name, key.Namespace)
+}
+
+func ClientErrorStub(ctrl *gomock.Controller, clientImpl client.Client, mockErr error) client.Client {
+	mock := mock_client.NewMockClient(ctrl)
+	statusWriter := mock_client.NewMockStatusWriter(ctrl)
+	called := make(map[string]bool)
+
+	mock.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, obj runtime.Object, opts ...client.CreateOption) error {
+			name := getNamespacedName("create", obj)
+
+			if _, ok := called[name]; !ok {
+				called[name] = true
+				return mockErr
+			}
+
+			return clientImpl.Create(ctx, obj, opts...)
+		}).AnyTimes()
+
+	mock.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, obj runtime.Object, opts ...client.UpdateOption) error {
+			name := getNamespacedName("update", obj)
+
+			if _, ok := called[name]; !ok {
+				called[name] = true
+				return mockErr
+			}
+
+			return clientImpl.Update(ctx, obj, opts...)
+		}).AnyTimes()
+
+	mock.EXPECT().Delete(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, obj runtime.Object, opts ...client.DeleteOption) error {
+			name := getNamespacedName("delete", obj)
+
+			if _, ok := called[name]; !ok {
+				called[name] = true
+				return mockErr
+			}
+
+			return clientImpl.Delete(ctx, obj, opts...)
+		}).AnyTimes()
+
+	mock.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, obj runtime.Object, opts ...client.ListOption) error {
+			name := getNamespacedName("list", obj)
+
+			if _, ok := called[name]; !ok {
+				called[name] = true
+				return mockErr
+			}
+
+			return clientImpl.List(ctx, obj, opts...)
+		}).AnyTimes()
+
+	mock.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, obj runtime.Object, patch client.Patch, opts ...client.PatchOption) error {
+			name := getNamespacedName("patch", obj)
+
+			if _, ok := called[name]; !ok {
+				called[name] = true
+				return mockErr
+			}
+
+			return clientImpl.Patch(ctx, obj, patch, opts...)
+		}).AnyTimes()
+
+	mock.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, key client.ObjectKey, obj runtime.Object) error {
+			name := getNamespacedName("get", obj)
+
+			if _, ok := called[name]; !ok {
+				called[name] = true
+				return mockErr
+			}
+
+			return clientImpl.Get(ctx, key, obj)
+		}).AnyTimes()
+
+	statusWriter.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, obj runtime.Object, patch client.Patch, opts ...client.PatchOption) error {
+			name := getNamespacedName("patch-status", obj)
+
+			if _, ok := called[name]; !ok {
+				called[name] = true
+				return mockErr
+			}
+
+			return clientImpl.Status().Patch(ctx, obj, patch, opts...)
+		}).AnyTimes()
+
+	statusWriter.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, obj runtime.Object, opts ...client.UpdateOption) error {
+			name := getNamespacedName("update-status", obj)
+
+			if _, ok := called[name]; !ok {
+				called[name] = true
+				return mockErr
+			}
+
+			return clientImpl.Status().Update(ctx, obj, opts...)
+		}).AnyTimes()
+
+	mock.EXPECT().Status().Return(statusWriter).AnyTimes()
+
+	return mock
 }

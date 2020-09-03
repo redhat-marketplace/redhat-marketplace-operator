@@ -16,13 +16,23 @@ package controller
 
 import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller/marketplaceconfig"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-type MarketplaceController ControllerDefinition
+type MarketplaceController struct {
+	*baseDefinition
+}
 
-func ProvideMarketplaceController() *MarketplaceController {
+func ProvideMarketplaceController(
+	commandRunner reconcileutils.ClientCommandRunnerProvider,
+) *MarketplaceController {
 	return &MarketplaceController{
-		Add:     marketplaceconfig.Add,
-		FlagSet: marketplaceconfig.FlagSet,
+		baseDefinition: &baseDefinition{
+			AddFunc: func(mgr manager.Manager) error {
+				return marketplaceconfig.Add(mgr, commandRunner)
+			},
+			FlagSetFunc: marketplaceconfig.FlagSet,
+		},
 	}
 }

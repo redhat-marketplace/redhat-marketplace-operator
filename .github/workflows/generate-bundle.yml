@@ -50,19 +50,21 @@ jobs:
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
           echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
         env:
-          FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'version/**', 'go.sum', 'go.mod') }}
+          FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'interal/**', 'version/**', 'go.sum', 'go.mod') }}
           BRANCH: ${{ github.ref }}
 
       - name: Install operator-sdk
         run: |
+          make install-tools
           cd /tmp
           curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
           chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu && sudo mkdir -p /usr/local/bin/ && sudo cp operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk && rm operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
           python -m pip install --upgrade pip
-          pip3 install operator-courier
+          pip3 install -Iv operator-courier==$COURIER_VERSION
           echo "::add-path::/usr/local/bin"
         env:
           RELEASE_VERSION: v0.18.0
+          COURIER_VERSION: 2.1.7
 
       - name: Create Bundle
         id: bundle
@@ -70,6 +72,8 @@ jobs:
         env:
           CSV_CHANNEL: ${{ matrix.channel }}
           CSV_DEFAULT_CHANNEL: ${{ matrix.channel == 'stable' }}
+          IMAGE_REGISTRY: quay.io/rh-marketplace
+          OPERATOR_IMAGE_TAG: ${{ steps.vars.outputs.hash }}
           OPERATOR_IMAGE: quay.io/rh-marketplace/redhat-marketplace-operator:${{ steps.vars.outputs.hash }}
 
       - name: Upload bundle to actions

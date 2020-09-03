@@ -18,11 +18,15 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller/razeedeployment"
 )
 
-type RazeeDeployController ControllerDefinition
+type RazeeDeployController struct {
+	*baseDefinition
+}
 
 func ProvideRazeeDeployController() *RazeeDeployController {
 	return &RazeeDeployController{
-		Add:     razeedeployment.Add,
-		FlagSet: razeedeployment.FlagSet,
+		baseDefinition: &baseDefinition{
+			AddFunc:     razeedeployment.Add,
+			FlagSetFunc: razeedeployment.FlagSet,
+		},
 	}
 }
