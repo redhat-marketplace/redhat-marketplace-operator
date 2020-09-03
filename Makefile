@@ -257,10 +257,10 @@ lint: ## lint the repo
 	golangci-lint run
 
 .PHONY: test
-test: ## Run go tests
-	-make testbin
-	@echo ... Run tests
-	ginkgo -r
+test: testbin ## test-ci runs all tests for CI builds
+	@echo "testing"
+	ginkgo -r -randomizeAllSpecs -randomizeSuites -cover -race -progress
+
 
 K8S_VERSION = v1.18.2
 ETCD_VERSION = v3.4.3
@@ -271,14 +271,14 @@ testbin:
 .PHONY: test-cover
 test-cover: ## Run coverage on code
 	@echo Running coverage
-	maket test-ci
+	make test-ci
 
 CONTROLLERS=$(shell go list ./pkg/... ./cmd/... ./internal/... | grep -v 'pkg/generated' | xargs | sed -e 's/ /,/g')
 #INTEGRATION_TESTS=$(shell go list ./test/... | xargs | sed -e 's/ /,/g')
 
 test-ci: testbin ## test-ci runs all tests for CI builds
 	@echo "testing"
-	ginkgo -r -coverprofile=cover.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --trace --race --progress -coverpkg=$(CONTROLLERS)
+	ginkgo -r -coverprofile=cover.out.tmp -outputdir=. -randomizeAllSpecs -randomizeSuites -cover -race -progress -coverpkg=$(CONTROLLERS)
 	cat cover.out.tmp | grep -v "_generated.go|zz_generated|testbin.go" > cover.out
 
 cover.out:

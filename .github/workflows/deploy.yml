@@ -89,7 +89,7 @@ jobs:
 
       - name: Test
         run: |
-          make install-tools test-ci
+          make install-tools test
 
       - name: Turnstyle
         uses: softprops/turnstyle@v1
