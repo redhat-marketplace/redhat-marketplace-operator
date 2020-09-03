@@ -102,8 +102,8 @@ spec:
               type: string
             enabled:
               description: Enabled is the flag that controls if the controller does
-                work. Setting enabled to "true" will create a Razee namespace and
-                deploy it's componenets. Set to "false" to bypass Razee installation
+                work. Setting enabled to true will create a Razee namespace and deploy
+                it's componenets. Set to false to bypass Razee installation
               type: boolean
             legacyUninstallHasRun:
               description: Flag used by the RazeeDeployment Controller to decide whether

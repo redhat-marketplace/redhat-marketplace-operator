@@ -140,8 +140,8 @@ func NewMeterDefinitionStore(
 }
 
 func (s *MeterDefinitionStore) RegisterListener(name string, ch chan *ObjectResourceMessage) {
-	s.listenerMutex.Lock()
-	defer s.listenerMutex.Unlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	s.log.Info("registering listener", "name", name)
 	s.listeners = append(s.listeners, ch)
 }
@@ -160,10 +160,13 @@ func (s *MeterDefinitionStore) removeMeterDefinition(meterdef *v1alpha1.MeterDef
 }
 
 func (s *MeterDefinitionStore) broadcast(msg *ObjectResourceMessage) {
-	s.listenerMutex.Lock()
-	defer s.listenerMutex.Unlock()
 	for _, ch := range s.listeners {
-		ch <- msg
+		select {
+		case ch <- msg:
+			s.log.V(3).Info("sent message",  "msg", msg)
+		default:
+			s.log.V(3).Info("no message sent", "msg", msg)
+		}
 	}
 }
 
