@@ -259,7 +259,7 @@ lint: ## lint the repo
 .PHONY: test
 test: testbin ## test-ci runs all tests for CI builds
 	@echo "testing"
-	ginkgo -r -randomizeAllSpecs -randomizeSuites -cover -race -progress
+	ginkgo -r -randomizeAllSpecs -randomizeSuites -cover -race -progress -trace
 
 
 K8S_VERSION = v1.18.2
