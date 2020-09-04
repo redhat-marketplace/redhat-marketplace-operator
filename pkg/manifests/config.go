@@ -26,7 +26,7 @@ import (
 )
 
 type Config struct {
-	RelatedImages            *config.RelatedImages     `json:"relatedImages"`
+	RelatedImages            config.RelatedImages      `json:"relatedImages"`
 	PrometheusOperatorConfig *PrometheusOperatorConfig `json:"prometheusOperator"`
 	PrometheusConfig         *PrometheusConfig         `json:"prometheusConfig"`
 	Platform                 configv1.PlatformType     `json:"-"`
@@ -80,14 +80,14 @@ func NewConfig(content io.Reader) (*Config, error) {
 func NewDefaultConfig() *Config {
 	cfg, _ := config.ProvideConfig()
 	c := &Config{}
-	c.RelatedImages = &cfg.RelatedImages
+	c.RelatedImages = cfg.RelatedImages
 	c.applyDefaults()
 	return c
 }
 
-func NewOperatorConfig(cfg *config.OperatorConfig) *Config {
+func NewOperatorConfig(cfg config.OperatorConfig) *Config {
 	c := &Config{}
-	c.RelatedImages = &cfg.RelatedImages
+	c.RelatedImages = cfg.RelatedImages
 	c.applyDefaults()
 	return c
 }

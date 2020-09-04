@@ -15,42 +15,35 @@
 package config
 
 import (
-	"strings"
-
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
-	"github.com/spf13/viper"
+	"github.com/caarlos0/env/v6"
 )
 
+// OperatorConfig is the configuration for the operator
 type OperatorConfig struct {
-	RelatedImages `mapstructure:"related"`
+	RelatedImages
+	Features
 }
 
+// RelatedImages stores relatedimages for the operator
 type RelatedImages struct {
-	Image struct {
-		Reporter      string `mapstructure:"reporter"`
-		KubeRbacProxy string `mapstructure:"kubeRbacProxy"`
-		MetricState   string `mapstructure:"metricState"`
-	}
+	Reporter      string `env:"RELATED_IMAGE_REPORTER" envDefault:"reporter:latest"`
+	KubeRbacProxy string `env:"RELATED_IMAGE_KUBE_RBAC_PROXY" envDefault:"kube-proxy:latest"`
+	MetricState   string `env:"RELATED_IMAGE_METRIC_STATE" envDefault:"metric-state:latest"`
 }
 
-func ProvideConfig() (*OperatorConfig, error) {
-	cfg := &OperatorConfig{}
+// Features store feature flags
+type Features struct {
+	IBMCatalog bool `env:"FEATURE_IBMCATALOG" envDefault:"true"`
+}
 
-	replacer := strings.NewReplacer(
-		".", "_",
-	)
-	viper.SetEnvPrefix("")
-	viper.SetEnvKeyReplacer(replacer)
-	viper.AutomaticEnv()
+// ProvideConfig gets the config from env vars
+func ProvideConfig() (OperatorConfig, error) {
+	cfg := OperatorConfig{}
 
-	err := viper.Unmarshal(cfg)
+	err := env.Parse(&cfg)
 	if err != nil {
-		return nil, err
+		return cfg, err
 	}
-
-	cfg.RelatedImages.Image.Reporter = utils.Getenv("RELATED_IMAGE_REPORTER", "")
-	cfg.RelatedImages.Image.KubeRbacProxy = utils.Getenv("RELATED_IMAGE_KUBE_RBAC_PROXY", "")
-	cfg.RelatedImages.Image.MetricState = utils.Getenv("RELATED_IMAGE_METRIC_STATE", "")
 
 	return cfg, nil
 }

@@ -138,7 +138,7 @@ func (a *createIfNotExistsAction) Exec(ctx context.Context, c *ClientCommand) (*
 	key, _ := client.ObjectKeyFromObject(result)
 	reqLogger = reqLogger.WithValues("requestType", fmt.Sprintf("%T", a.newObject), "key", key)
 
-	reqLogger.V(0).Info("Creating object if not found", "object", a.newObject)
+	reqLogger.V(0).Info("Creating object if not found", "object", result)
 	return c.Do(
 		ctx,
 		HandleResult(
