@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type call struct {
@@ -72,6 +73,15 @@ func Do(actions ...ClientAction) ClientAction {
 	}
 }
 
+func internalDo(actions ...ClientAction) ClientAction {
+	return &do{
+		Actions: actions,
+		BaseAction: BaseAction{
+			codelocation: codelocation.New(2),
+		},
+	}
+}
+
 type do struct {
 	BaseAction
 	Actions []ClientAction
@@ -100,7 +110,6 @@ func (i *do) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 			return NewExecResult(Error, reconcile.Result{}, err), err
 		}
 
-		logger.Info("action returned result", "result", *result)
 		switch result.Status {
 		case Error:
 			logger.Info("returning error", "err", err)
@@ -111,6 +120,7 @@ func (i *do) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 		}
 	}
 
+	logger.Info("action returned result", "result", *result)
 	return result, nil
 }
 
@@ -311,6 +321,18 @@ type ClientCommand struct {
 	log    logr.Logger
 }
 
+
+func NewLoglessClientCommand(
+	client client.Client,
+	scheme *runtime.Scheme,
+) ClientCommandRunner {
+	return &ClientCommand{
+		client: client,
+		scheme: scheme,
+		log:    logf.Log.WithName("clientcommand"),
+	}
+}
+
 func NewClientCommand(
 	client client.Client,
 	scheme *runtime.Scheme,
@@ -327,7 +349,7 @@ func (c *ClientCommand) Do(
 	ctx context.Context,
 	actions ...ClientAction,
 ) (*ExecResult, error) {
-	return Do(actions...).Exec(ctx, c)
+	return internalDo(actions...).Exec(ctx, c)
 }
 
 func (c *ClientCommand) Exec(

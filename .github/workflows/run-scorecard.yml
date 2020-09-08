@@ -51,7 +51,7 @@ jobs:
           echo "::set-env name=VERSION::${VERSION}
           echo "::set-env name=OPERATOR_IMAGE::quay.io/rh-marketplace/redhat-marketplace-operator:${DOCKERTAG}
         env:
-          FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'interal/**', 'version/**', 'go.sum', 'go.mod') }}
+          FILEHASH: ${{ hashFiles('cmd/**', 'pkg/**', 'interal/**', 'version/**', 'go.sum', 'go.mod') }}
 
       - uses: engineerd/setup-kind@v0.3.0
 

@@ -38,7 +38,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 	It("subscription controller", func() {
 
 		defaultFeatures := []string{"razee", "meterbase"}
-		viper.Set("assets", "../../../assets")
 		viper.Set("features", defaultFeatures)
 		_ = opsrcApi.AddToScheme(scheme.Scheme)
 		_ = olmv1alpha1.AddToScheme(scheme.Scheme)

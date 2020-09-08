@@ -53,7 +53,6 @@ import (
 	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
 const (
@@ -68,6 +67,16 @@ var (
 	// wire files to get a controller manager
 	ProvideManagerSet = wire.NewSet(
 		config.GetConfig,
+		kubernetes.NewForConfig,
+		ProvideManager,
+		ProvideScheme,
+		ProvideManagerClient,
+		dynamic.NewForConfig,
+		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
+	)
+	// ProvideConfiglessManagerSet is the same as ProvideManagerSet
+	// but with no config. This allows for use of envtest
+	ProvideConfiglessManagerSet = wire.NewSet(
 		kubernetes.NewForConfig,
 		ProvideManager,
 		ProvideScheme,
@@ -106,8 +115,7 @@ type ControllerMain struct {
 	Manager     manager.Manager
 }
 
-func (m *ControllerMain) Run() {
-
+func (m *ControllerMain) ParseFlags() {
 	// adding controller flags
 	for _, flags := range m.FlagSets {
 		pflag.CommandLine.AddFlagSet(flags)
@@ -131,10 +139,10 @@ func (m *ControllerMain) Run() {
 		log.Error(err, "")
 		os.Exit(1)
 	}
+}
 
+func (m *ControllerMain) Run(stop <-chan struct{}) {
 	logf.SetLogger(zap.Logger())
-
-	log.Info("flags", "assets", viper.Get("assets"))
 
 	printVersion()
 
@@ -171,7 +179,7 @@ func (m *ControllerMain) Run() {
 	log.Info("Starting the Cmd.")
 
 	// Start the Cmd
-	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(stop); err != nil {
 		log.Error(err, "Manager exited non-zero")
 		os.Exit(1)
 	}

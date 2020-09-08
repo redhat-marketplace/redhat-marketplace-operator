@@ -24,10 +24,10 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	"github.com/prometheus/client_golang/prometheus"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	pflag "github.com/spf13/pflag"
-	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -580,8 +580,14 @@ func (r *ReconcileMarketplaceConfig) createCatalogSource(request reconcile.Reque
 	var installCatalogSrc bool
 
 	if installCatalogSrcP == nil {
+		cfg, _ := config.ProvideConfig()
+
 		reqLogger.Info("MarketplaceConfig.Spec.InstallIBMCatalogSource not found. Using flag.")
-		installCatalogSrc = viper.GetBool("IBMCatalogSource")
+		installCatalogSrc = cfg.Features.IBMCatalog
+
+		marketplaceConfig.Spec.InstallIBMCatalogSource = &installCatalogSrc
+		r.client.Update(context.TODO(), marketplaceConfig)
+		return true, nil
 	} else {
 		reqLogger.Info("MarketplaceConfig.Spec.InstallIBMCatalogSource found")
 		installCatalogSrc = *installCatalogSrcP

@@ -15,6 +15,7 @@ require (
 	github.com/launchdarkly/go-options v1.0.0
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/mikefarah/yq/v3 v3.0.0-20200415014842-6f0a329331f9
+	github.com/onsi/ginkgo v1.12.0
 	github.com/redhat-marketplace/redhat-marketplace-operator v0.0.0-20200728164645-5917fd387248
 	github.com/sirupsen/logrus v1.6.0 // indirect
 	github.com/spf13/cobra v1.0.0

@@ -37,7 +37,7 @@ jobs:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.14
+          go-version: ^1.15
         id: go
 
       - name: Set branch prefix for dev
@@ -81,14 +81,17 @@ jobs:
           echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
           echo "::set-output name=dockertag::${TAGPREFIX}$(make current-version)-${FILEHASH:0:6}"
         env:
-          FILEHASH: ${{ hashFiles('build/**', 'assets/**', 'cmd/**', 'pkg/**', 'interal/**', 'version/**', 'go.sum', 'go.mod') }}
+          FILEHASH: ${{ hashFiles('cmd/**', 'pkg/**', 'interal/**', 'version/**', 'go.sum', 'go.mod') }}
 
       - name: Get dependencies
         run: |
           go mod download
 
       - name: Test
-        run: make test
+        env:
+          KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT: true
+        run: |
+          make install-tools test-ci
 
       - name: Turnstyle
         uses: softprops/turnstyle@v1

@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build e2e
-
-package e2e
+package metadata
 
 import (
 	"testing"
 
-	f "github.com/operator-framework/operator-sdk/pkg/test"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
-func TestMain(m *testing.M) {
-	f.MainEntry(m)
+func TestMetadata(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Metadata Suite")
 }
