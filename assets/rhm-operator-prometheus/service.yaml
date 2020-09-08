@@ -8,9 +8,9 @@ metadata:
   name: rhm-operator-metrics
 spec:
   ports:
-    - name: http-metrics
+    - name: rhm-metrics
       port: 8383
-      targetPort: https-metrics
+      targetPort: rhm-metrics
   selector:
     name: redhat-marketplace-operator
   sessionAffinity: ClientIP

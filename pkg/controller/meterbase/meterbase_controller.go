@@ -702,14 +702,14 @@ func (r *ReconcileMeterBase) installRHMServiceMonitor(
 		manifests.CreateOrUpdateFactoryItemAction(
 			service,
 			func() (runtime.Object, error) {
-				return factory.MetricStateService()
+				return factory.OperatorService()
 			},
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
 			serviceMonitor,
 			func() (runtime.Object, error) {
-				return factory.MetricStateServiceMonitor()
+				return factory.OperatorServiceMonitor()
 			},
 			args,
 		),
@@ -995,8 +995,8 @@ func (r *ReconcileMeterBase) uninstallRHMServiceMonitor(
 	instance *marketplacev1alpha1.MeterBase,
 	factory *manifests.Factory,
 ) []ClientAction {
-	service, _ := factory.MetricStateService()
-	sm, _ := factory.MetricStateServiceMonitor()
+	service, _ := factory.OperatorService()
+	sm, _ := factory.OperatorServiceMonitor()
 
 	return []ClientAction{
 		HandleResult(

@@ -8,7 +8,7 @@ spec:
   endpoints:
   - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
     interval: 2m
-    port: http-metrics
+    port: rhm-metrics
     scheme: TCP
     scrapeTimeout: 2m
     tlsConfig:

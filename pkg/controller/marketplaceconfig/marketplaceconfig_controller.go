@@ -56,6 +56,7 @@ const (
 var (
 	log                      = logf.Log.WithName("controller_marketplaceconfig")
 	marketplaceConfigFlagSet *pflag.FlagSet
+	generateMetricsFlag      = false
 	originalRhmOperatorInfo  = make(map[string]string)
 	rhmOperatorInfoGauge     prometheus.Gauge
 	isMetricsInit            = false
@@ -252,13 +253,6 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		metrics.Registry.MustRegister(rhmOperatorInfoGauge)
 		checkRhmOperatorInfoGauge(rhmOperatorInfoGauge, *marketplaceConfig)
 		isMetricsInit = true
-	}
-
-	installFeatures := viper.GetStringSlice("features")
-	installSet := make(map[string]bool)
-	for _, installFlag := range installFeatures {
-		reqLogger.Info("Feature Flag Found", "Flag Name: ", installFlag)
-		installSet[installFlag] = true
 	}
 
 	var foundRazee *marketplacev1alpha1.RazeeDeployment

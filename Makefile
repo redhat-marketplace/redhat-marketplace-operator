@@ -259,6 +259,10 @@ delete-razee: ##delete the razee CR
 	@echo deleting razee CR
 	- kubectl delete -f  deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
 
+delete-mkconfig: ##delete the marketplaceconfig CR
+	@echo deleting marketplaceconfig CR
+	- kubectl apply -f deploy/crds/marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml --namespace=${NAMESPACE}
+
 create-razee: ##create the razee CR
 	@echo creating razee CR
 	- kubectl create -f  deploy/crds/marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml -n ${NAMESPACE}
