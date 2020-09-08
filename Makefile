@@ -62,7 +62,7 @@ install-tools:
 
 .PHONY: build-base
 build-base:
-	skaffold build --tag="1.14" -p base
+	skaffold build --tag="1.15" -p base
 
 .PHONY: build
 build: ## Build the operator executable

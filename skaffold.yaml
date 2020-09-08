@@ -17,7 +17,7 @@ build:
           app_version: '{{.VERSION}}'
         cacheFrom:
           - registry.access.redhat.com/ubi8/ubi:latest
-          - quay.io/rh-marketplace/golang-base:1.14
+          - quay.io/rh-marketplace/golang-base:1.15
     - image: redhat-marketplace-reporter
       docker:
         dockerfile: build/reporter.Dockerfile
@@ -25,7 +25,7 @@ build:
           app_version: '{{.VERSION}}'
         cacheFrom:
           - registry.access.redhat.com/ubi8/ubi:latest
-          - quay.io/rh-marketplace/golang-base:1.14
+          - quay.io/rh-marketplace/golang-base:1.15
     - image: redhat-marketplace-metric-state
       docker:
         dockerfile: build/metricState.Dockerfile
@@ -33,7 +33,8 @@ build:
           app_version: '{{.VERSION}}'
         cacheFrom:
           - registry.access.redhat.com/ubi8/ubi:latest
-          - quay.io/rh-marketplace/golang-base:1.14
+          - quay.io/rh-marketplace/golang-base:1.15
+
 deploy:
   helm:
     releases:
@@ -72,3 +73,14 @@ profiles:
             dockerfile: build/base.Dockerfile
             cacheFrom:
               - registry.access.redhat.com/ubi8/ubi:latest
+  - name: authcheck
+    build:
+      artifacts:
+        - image: redhat-marketplace-auth-check
+          docker:
+            dockerfile: build/authcheck.Dockerfile
+            buildArgs:
+              app_version: '{{.VERSION}}'
+            cacheFrom:
+              - registry.access.redhat.com/ubi8/ubi:latest
+              - quay.io/rh-marketplace/golang-base:1.15
