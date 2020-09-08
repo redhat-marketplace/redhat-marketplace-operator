@@ -373,7 +373,7 @@ func (f *Factory) ReporterJob(report *marketplacev1alpha1.MeterReport) (*batchv1
 	}
 
 	container := j.Spec.Template.Spec.Containers[0]
-	container.Image = f.config.RelatedImages.Image.Reporter
+	container.Image = f.config.RelatedImages.Reporter
 
 	j.Name = report.GetName()
 	container.Args = append(container.Args,
@@ -397,11 +397,11 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 	for i, container := range d.Spec.Template.Spec.Containers {
 		switch container.Name {
 		case "kube-rbac-proxy-1":
-			d.Spec.Template.Spec.Containers[i].Image = f.config.RelatedImages.Image.KubeRbacProxy
+			d.Spec.Template.Spec.Containers[i].Image = f.config.RelatedImages.KubeRbacProxy
 		case "kube-rbac-proxy-2":
-			d.Spec.Template.Spec.Containers[i].Image = f.config.RelatedImages.Image.KubeRbacProxy
+			d.Spec.Template.Spec.Containers[i].Image = f.config.RelatedImages.KubeRbacProxy
 		case "metric-state":
-			d.Spec.Template.Spec.Containers[i].Image = f.config.RelatedImages.Image.MetricState
+			d.Spec.Template.Spec.Containers[i].Image = f.config.RelatedImages.MetricState
 		}
 	}
 

@@ -577,7 +577,7 @@ func assetsRhmOperatorPrometheusServiceMonitorYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/rhm-operator-prometheus/service-monitor.yaml", size: 549, mode: os.FileMode(420), modTime: time.Unix(1599563889, 0)}
+	info := bindataFileInfo{name: "assets/rhm-operator-prometheus/service-monitor.yaml", size: 549, mode: os.FileMode(420), modTime: time.Unix(1599566591, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -597,7 +597,7 @@ func assetsRhmOperatorPrometheusServiceYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/rhm-operator-prometheus/service.yaml", size: 393, mode: os.FileMode(420), modTime: time.Unix(1599564350, 0)}
+	info := bindataFileInfo{name: "assets/rhm-operator-prometheus/service.yaml", size: 393, mode: os.FileMode(420), modTime: time.Unix(1599566591, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }

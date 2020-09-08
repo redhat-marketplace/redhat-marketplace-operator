@@ -36,7 +36,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 	It("marketplace config controller", func() {
 
 		defaultFeatures := []string{"razee", "meterbase"}
-		viper.Set("assets", "../../../assets")
 		viper.Set("features", defaultFeatures)
 		viper.Set("IBMCatalogSource", true)
 		testCleanInstall(GinkgoT())
@@ -86,6 +85,7 @@ func setup(r *ReconcilerTest) error {
 func testCleanInstall(t GinkgoTInterface) {
 	t.Parallel()
 	marketplaceconfig.Spec.EnableMetering = ptr.Bool(true)
+	marketplaceconfig.Spec.InstallIBMCatalogSource = ptr.Bool(true)
 	reconcilerTest := NewReconcilerTest(setup, marketplaceconfig)
 	reconcilerTest.TestAll(t,
 		ReconcileStep(opts, ReconcileWithExpectedResults(

@@ -1139,7 +1139,7 @@ spec:
               resources:
                 - '*'
               verbs:
-                - '*kkkkjj'
+                - '*'
           serviceAccountName: redhat-marketplace-remoteresources3deployment
         - rules:
             - apiGroups:
