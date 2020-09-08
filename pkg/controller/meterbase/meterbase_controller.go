@@ -1088,7 +1088,6 @@ func (r *ReconcileMeterBase) newPrometheusOperator(
 	cfg *corev1.Secret,
 ) (*monitoringv1.Prometheus, error) {
 	prom, err := factory.NewPrometheusDeployment(cr, cfg)
-	utils.PrettyPrint(cr)
 	if cr.Spec.Prometheus.Storage.EmptyDir != nil {
 		log.Info("CRC Enabled")
 		prom.Spec.Storage.EmptyDir = cr.Spec.Prometheus.Storage.EmptyDir
