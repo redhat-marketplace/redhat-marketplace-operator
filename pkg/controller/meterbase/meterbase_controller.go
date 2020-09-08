@@ -964,7 +964,7 @@ func (r *ReconcileMeterBase) uninstallMetricState(
 	factory *manifests.Factory,
 ) []ClientAction {
 	deployment, _ := factory.MetricStateDeployment()
-	service2, _ := factory.MetricStateService()
+	service, _ := factory.MetricStateService()
 	sm, _ := factory.MetricStateServiceMonitor()
 
 	return []ClientAction{
@@ -972,8 +972,8 @@ func (r *ReconcileMeterBase) uninstallMetricState(
 			GetAction(types.NamespacedName{Namespace: sm.Namespace, Name: sm.Name}, sm),
 			OnContinue(DeleteAction(sm))),
 		HandleResult(
-			GetAction(types.NamespacedName{Namespace: service2.Namespace, Name: service2.Name}, deployment),
-			OnContinue(DeleteAction(service2))),
+			GetAction(types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service),
+			OnContinue(DeleteAction(service))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}, deployment),
 			OnContinue(DeleteAction(deployment))),
