@@ -4,13 +4,14 @@ metadata:
   annotations:
     service.beta.openshift.io/serving-cert-secret-name: rhm-metric-state-tls
   labels:
-    redhat.marketplace.com/name: redhat-marketplace-operator
-  name: rhm-custom-metrics-service
+    name: redhat-marketplace-operator
+  name: rhm-operator-metrics
 spec:
   ports:
-    - name: custom-metrics
+    - name: rhm-metrics
       port: 8383
+      targetPort: rhm-metrics
   selector:
-    redhat.marketplace.com/name: redhat-marketplace-operator
+    name: redhat-marketplace-operator
   sessionAffinity: ClientIP
   type: ClusterIP

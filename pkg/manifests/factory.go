@@ -57,6 +57,9 @@ const (
 	MetricStateDeployment     = "assets/metric-state/deployment.yaml"
 	MetricStateServiceMonitor = "assets/metric-state/service-monitor.yaml"
 	MetricStateService        = "assets/metric-state/service.yaml"
+
+	OperatorServiceMonitor = "assets/rhm-operator-prometheus/service-monitor.yaml"
+	OperatorService        = "assets/rhm-operator-prometheus/service.yaml"
 )
 
 func MustAssetReader(asset string) io.Reader {
@@ -405,6 +408,29 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 	d.Namespace = f.namespace
 
 	return d, nil
+}
+
+func (f *Factory) OperatorServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
+	sm, err := f.NewServiceMonitor(MustAssetReader(OperatorServiceMonitor))
+	if err != nil {
+		return nil, err
+	}
+
+	sm.Spec.Endpoints[0].TLSConfig.ServerName = fmt.Sprintf("rhm-metric-state-service.%s.svc", f.namespace)
+	sm.Namespace = f.namespace
+
+	return sm, nil
+}
+
+func (f *Factory) OperatorService() (*v1.Service, error) {
+	s, err := f.NewService(MustAssetReader(OperatorService))
+	if err != nil {
+		return nil, err
+	}
+
+	s.Namespace = f.namespace
+
+	return s, nil
 }
 
 func (f *Factory) MetricStateServiceMonitor() (*monitoringv1.ServiceMonitor, error) {

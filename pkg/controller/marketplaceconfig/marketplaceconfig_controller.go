@@ -89,7 +89,6 @@ func init() {
 	metrics.Registry.Register(rhmInstallFailedGauge)
 	metrics.Registry.Register(rhmInstallStartTimeGauge)
 	metrics.Registry.Register(rhmInstallEndTimeGauge)
-
 }
 
 // FlagSet returns our FlagSet
@@ -257,7 +256,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		err = r.client.Status().Update(context.TODO(), marketplaceConfig)
 
 		if err != nil {
-			reqLogger.Error(err, "Failed to create a new CR.")
+			reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
 			if !utils.GAUGE_FLAGS["rhm_operator_status_install_failed"] {
 				rhmInstallFailedGauge.Set(1)
 			}
@@ -270,18 +269,6 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		utils.GAUGE_FLAGS["rhm_operator_status_install_start_time"] = true
 	}
 
-	installFeatures := viper.GetStringSlice("features")
-	installSet := make(map[string]bool)
-	for _, installFlag := range installFeatures {
-		reqLogger.Info("Feature Flag Found", "Flag Name: ", installFlag)
-		installSet[installFlag] = true
-	}
-	// if !generateMetricsFlag {
-	// 	generateMetricsFlag = true
-	// 	reqLogger.Info("CALLING THE CYCLE FUNCTION!!!!!!!!!!!!!!!!")
-	// 	metricGen.CycleMeterDefMeters(r.client)
-	// }
-
 	var foundRazee *marketplacev1alpha1.RazeeDeployment
 
 	//Check if RazeeDeployment exists, if not create one
@@ -290,13 +277,6 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	if err != nil && errors.IsNotFound(err) {
 		newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName)
 
-		if err != nil {
-			reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
-			if !utils.GAUGE_FLAGS["rhm_operator_status_install_failed"] {
-				rhmInstallFailedGauge.Set(1)
-			}
-			return reconcile.Result{}, err
-		}
 		// Sets the owner for foundRazee
 		if err = controllerutil.SetControllerReference(marketplaceConfig, newRazeeCrd, r.scheme); err != nil {
 			return reconcile.Result{}, err
@@ -307,6 +287,9 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 		if err != nil {
 			reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
+			if !utils.GAUGE_FLAGS["rhm_operator_status_install_failed"] {
+				rhmInstallFailedGauge.Set(1)
+			}
 			return reconcile.Result{}, err
 		}
 
@@ -319,22 +302,22 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			Message: "RazeeDeployment installed.",
 		})
 
-		return reconcile.Result{Requeue: true}, nil
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get RazeeDeployment CR")
-		if !utils.GAUGE_FLAGS["rhm_operator_status_install_failed"] {
-			rhmInstallFailedGauge.Set(1)
-		}
 		err = r.client.Status().Patch(context.TODO(), marketplaceConfig, patch)
 
 		if err != nil {
 			reqLogger.Error(err, "failed to update status")
+			if !utils.GAUGE_FLAGS["rhm_operator_status_install_failed"] {
+				rhmInstallFailedGauge.Set(1)
+			}
 			return reconcile.Result{}, err
 		}
 
 		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
 		reqLogger.Error(err, "Failed to get RazeeDeployment CR")
+		if !utils.GAUGE_FLAGS["rhm_operator_status_install_failed"] {
+			rhmInstallFailedGauge.Set(1)
+		}
 		return reconcile.Result{}, err
 	}
 
@@ -353,13 +336,6 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 		patch := client.MergeFrom(marketplaceConfig.DeepCopy())
 
-		if err != nil {
-			reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
-			if !utils.GAUGE_FLAGS["rhm_operator_status_install_failed"] {
-				rhmInstallFailedGauge.Set(1)
-			}
-			return reconcile.Result{}, err
-		}
 		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,
