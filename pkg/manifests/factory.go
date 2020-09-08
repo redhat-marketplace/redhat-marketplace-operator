@@ -58,8 +58,8 @@ const (
 	MetricStateServiceMonitor = "assets/metric-state/service-monitor.yaml"
 	MetricStateService        = "assets/metric-state/service.yaml"
 
-	OperatorServiceMonitor = "assets/custom-prometheus/operator-service-monitor.yaml"
-	OperatorService        = "assets/custom-prometheus/operator-service.yaml"
+	OperatorServiceMonitor = "assets/rhm-operator-prometheus/service-monitor.yaml"
+	OperatorService        = "assets/rhm-operator-prometheus/service.yaml"
 )
 
 func MustAssetReader(asset string) io.Reader {
@@ -416,8 +416,7 @@ func (f *Factory) OperatorServiceMonitor() (*monitoringv1.ServiceMonitor, error)
 		return nil, err
 	}
 
-	sm.Spec.Endpoints[0].TLSConfig.ServerName = fmt.Sprintf("rhm-operator-service.%s.svc", f.namespace)
-	sm.Spec.Endpoints[1].TLSConfig.ServerName = fmt.Sprintf("rhm-operator-service.%s.svc", f.namespace)
+	sm.Spec.Endpoints[0].TLSConfig.ServerName = fmt.Sprintf("rhm-metric-state-service.%s.svc", f.namespace)
 	sm.Namespace = f.namespace
 
 	return sm, nil
