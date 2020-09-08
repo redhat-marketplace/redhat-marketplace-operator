@@ -25,6 +25,9 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           command:
             - redhat-marketplace-operator
+          ports:
+            - containerPort: {{ .Values.operatorPort }}
+              name: {{ .Values.operatorPortName }}
           env:
             - name: OPERATOR_NAME
               value: {{ .Values.name }}
