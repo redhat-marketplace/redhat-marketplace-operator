@@ -17,7 +17,6 @@ package managers
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"runtime"
 	"time"
