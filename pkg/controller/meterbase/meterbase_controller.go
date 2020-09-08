@@ -269,17 +269,19 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	message = "Meter Base install started"
-	if result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, instance.Status.Conditions, status.Condition{
-		Type:    marketplacev1alpha1.ConditionInstalling,
-		Status:  corev1.ConditionTrue,
-		Reason:  marketplacev1alpha1.ReasonMeterBaseStartInstall,
-		Message: message,
-	})); result.Is(Error) || result.Is(Requeue) {
-		if err != nil {
-			return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
-		}
+	if instance.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionInstalling) {
+		if result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, instance.Status.Conditions, status.Condition{
+			Type:    marketplacev1alpha1.ConditionInstalling,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonMeterBaseStartInstall,
+			Message: message,
+		})); result.Is(Error) || result.Is(Requeue) {
+			if err != nil {
+				return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
+			}
 
-		return result.Return()
+			return result.Return()
+		}
 	}
 
 	// ---

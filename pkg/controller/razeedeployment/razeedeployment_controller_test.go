@@ -22,7 +22,6 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/rectest"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
@@ -43,7 +42,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 		// TestMeterBaseController runs ReconcileMemcached.Reconcile() against a
 		// fake client that tracks a MeterBase object.
-		viper.Set("assets", "../../../assets")
 		scheme.Scheme.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeeDeployment.DeepCopy(), &marketplacev1alpha1.RazeeDeploymentList{}, &marketplacev1alpha1.RemoteResourceS3{}, &marketplacev1alpha1.RemoteResourceS3List{})
 		testCleanInstall(GinkgoT())
 		testNoSecret(GinkgoT())

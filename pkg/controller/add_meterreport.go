@@ -28,7 +28,7 @@ type MeterReportController struct {
 
 func ProvideMeterReportController(
 	commandRunner reconcileutils.ClientCommandRunnerProvider,
-	cfg *config.OperatorConfig,
+	cfg config.OperatorConfig,
 ) *MeterReportController {
 	return &MeterReportController{
 		baseDefinition: &baseDefinition{

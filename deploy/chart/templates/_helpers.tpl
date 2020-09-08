@@ -36,7 +36,6 @@ Common labels
 */}}
 {{- define "chart.labels" -}}
 redhat.marketplace.com/name: {{ $.Values.name }}
-redhat.marketplace.com/version: {{ $.Chart.Version }}
 {{- end -}}
 
 {{/*

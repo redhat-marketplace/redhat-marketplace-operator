@@ -61,7 +61,9 @@ func (r *Task) Run() error {
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 
-	logger.Info("creating reporter")
+	r.Cache.WaitForCacheSync(stopCh)
+
+	logger.Info("creating reporter job")
 	reporter, err := NewReporter(r)
 
 	if err != nil {

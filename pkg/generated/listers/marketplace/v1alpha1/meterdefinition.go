@@ -24,8 +24,10 @@ import (
 )
 
 // MeterDefinitionLister helps list MeterDefinitions.
+// All objects returned here must be treated as read-only.
 type MeterDefinitionLister interface {
 	// List lists all MeterDefinitions in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.MeterDefinition, err error)
 	// MeterDefinitions returns an object that can list and get MeterDefinitions.
 	MeterDefinitions(namespace string) MeterDefinitionNamespaceLister
@@ -56,10 +58,13 @@ func (s *meterDefinitionLister) MeterDefinitions(namespace string) MeterDefiniti
 }
 
 // MeterDefinitionNamespaceLister helps list and get MeterDefinitions.
+// All objects returned here must be treated as read-only.
 type MeterDefinitionNamespaceLister interface {
 	// List lists all MeterDefinitions in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.MeterDefinition, err error)
 	// Get retrieves the MeterDefinition from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.MeterDefinition, error)
 	MeterDefinitionNamespaceListerExpansion
 }

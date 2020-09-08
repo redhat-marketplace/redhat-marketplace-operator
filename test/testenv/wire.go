@@ -20,23 +20,48 @@ package testenv
 import (
 	"github.com/google/wire"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-var TestControllerSet = wire.NewSet(
+var testControllerSet = wire.NewSet(
 	ControllerSet,
 	ProvideControllerFlagSet,
 	SchemeDefinitions,
+	managers.ProvideConfiglessManagerSet,
 	config.ProvideConfig,
 	reconcileutils.ProvideDefaultCommandRunnerProvider,
+	provideOptions,
+	makeMarketplaceController,
 	wire.Bind(new(reconcileutils.ClientCommandRunnerProvider), new(*reconcileutils.DefaultCommandRunnerProvider)),
 )
 
-func initializeLocalSchemes() (LocalSchemes, error) {
-	panic(wire.Build(TestControllerSet))
+func initializeMainCtrl(cfg *rest.Config) (*managers.ControllerMain, error) {
+	panic(wire.Build(testControllerSet))
 }
 
-func initializeControllers() (ControllerList, error) {
-	panic(wire.Build(TestControllerSet))
+func provideOptions(kscheme *runtime.Scheme) (*manager.Options, error) {
+	return &manager.Options{
+		Namespace:          "",
+		Scheme:             kscheme,
+		MetricsBindAddress: "0",
+	}, nil
+}
+
+func makeMarketplaceController(
+	controllerList controller.ControllerList,
+	mgr manager.Manager,
+) *managers.ControllerMain {
+	return &managers.ControllerMain{
+		Name:        "redhat-marketplace-operator",
+		FlagSets:    []*pflag.FlagSet{},
+		Controllers: controllerList,
+		Manager:     mgr,
+	}
 }

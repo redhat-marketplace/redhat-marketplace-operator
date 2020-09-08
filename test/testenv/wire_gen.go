@@ -9,22 +9,17 @@ import (
 	"github.com/google/wire"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 // Injectors from wire.go:
 
-func initializeLocalSchemes() (controller.LocalSchemes, error) {
-	opsSrcSchemeDefinition := controller.ProvideOpsSrcScheme()
-	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
-	olmV1SchemeDefinition := controller.ProvideOLMV1Scheme()
-	olmV1Alpha1SchemeDefinition := controller.ProvideOLMV1Alpha1Scheme()
-	openshiftConfigV1SchemeDefinition := controller.ProvideOpenshiftConfigV1Scheme()
-	localSchemes := controller.ProvideLocalSchemes(opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition, openshiftConfigV1SchemeDefinition)
-	return localSchemes, nil
-}
-
-func initializeControllers() (controller.ControllerList, error) {
+func initializeMainCtrl(cfg *rest.Config) (*managers.ControllerMain, error) {
 	defaultCommandRunnerProvider := reconcileutils.ProvideDefaultCommandRunnerProvider()
 	marketplaceController := controller.ProvideMarketplaceController(defaultCommandRunnerProvider)
 	meterbaseController := controller.ProvideMeterbaseController(defaultCommandRunnerProvider)
@@ -40,9 +35,50 @@ func initializeControllers() (controller.ControllerList, error) {
 	remoteResourceS3Controller := controller.ProvideRemoteResourceS3Controller()
 	nodeController := controller.ProvideNodeController()
 	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, meterReportController, olmClusterServiceVersionController, remoteResourceS3Controller, nodeController)
-	return controllerList, nil
+	opsSrcSchemeDefinition := controller.ProvideOpsSrcScheme()
+	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
+	olmV1SchemeDefinition := controller.ProvideOLMV1Scheme()
+	olmV1Alpha1SchemeDefinition := controller.ProvideOLMV1Alpha1Scheme()
+	openshiftConfigV1SchemeDefinition := controller.ProvideOpenshiftConfigV1Scheme()
+	localSchemes := controller.ProvideLocalSchemes(opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition, openshiftConfigV1SchemeDefinition)
+	scheme, err := managers.ProvideScheme(cfg, localSchemes)
+	if err != nil {
+		return nil, err
+	}
+	options, err := provideOptions(scheme)
+	if err != nil {
+		return nil, err
+	}
+	manager, err := managers.ProvideManager(cfg, scheme, localSchemes, options)
+	if err != nil {
+		return nil, err
+	}
+	controllerMain := makeMarketplaceController(controllerList, manager)
+	return controllerMain, nil
 }
 
 // wire.go:
 
-var TestControllerSet = wire.NewSet(controller.ControllerSet, controller.ProvideControllerFlagSet, controller.SchemeDefinitions, config.ProvideConfig, reconcileutils.ProvideDefaultCommandRunnerProvider, wire.Bind(new(reconcileutils.ClientCommandRunnerProvider), new(*reconcileutils.DefaultCommandRunnerProvider)))
+var testControllerSet = wire.NewSet(controller.ControllerSet, controller.ProvideControllerFlagSet, controller.SchemeDefinitions, managers.ProvideConfiglessManagerSet, config.ProvideConfig, reconcileutils.ProvideDefaultCommandRunnerProvider, provideOptions,
+	makeMarketplaceController, wire.Bind(new(reconcileutils.ClientCommandRunnerProvider), new(*reconcileutils.DefaultCommandRunnerProvider)),
+)
+
+func provideOptions(kscheme *runtime.Scheme) (*manager.Options, error) {
+	return &manager.Options{
+		Namespace:          "",
+		Scheme:             kscheme,
+		MetricsBindAddress: "0",
+	}, nil
+}
+
+func makeMarketplaceController(
+	controllerList controller.ControllerList,
+	mgr manager.Manager,
+) *managers.ControllerMain {
+	return &managers.ControllerMain{
+		Name:        "redhat-marketplace-operator",
+		FlagSets:    []*pflag.FlagSet{},
+		Controllers: controllerList,
+		Manager:     mgr,
+	}
+}
