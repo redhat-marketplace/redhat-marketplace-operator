@@ -2,14 +2,14 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   labels:
-    name: redhat-marketplace-operator
+    marketplace.redhat.com/metering: 'true'
   name: rhm-operator-metrics
 spec:
   endpoints:
   - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
     interval: 2m
     port: rhm-metrics
-    scheme: TCP
+    scheme: http
     scrapeTimeout: 2m
     tlsConfig:
       caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
@@ -17,4 +17,4 @@ spec:
   jobLabel: k8s-app
   selector:
     matchLabels:
-      name: redhat-marketplace-operator
+      name: redhat-marketplace-operator 

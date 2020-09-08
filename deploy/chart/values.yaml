@@ -12,6 +12,8 @@ pullPolicy: Always
 watchNamespace: '' # watch all namespaces
 serviceAccountName: redhat-marketplace-operator
 devpostfix: ''
+operatorPort: 8383
+operatorPortName: rhm-metrics
 env:
   - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
     value: quay.io/razee/remoteresources3:0.6.2

@@ -20,18 +20,14 @@ spec:
         - name: {{ .Values.name }}
           # Replace this with the built image name
           image: {{ .Values.image }}
-          ports:
-            - name: http-metrics
-              containerPort: 8383
-            - name: cr-metrics
-              containerPort: 8686
-            - name: custom-metrics
-              containerPort: 2112
           imagePullPolicy: {{ .Values.pullPolicy }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           command:
             - redhat-marketplace-operator
+          ports:
+            - containerPort: {{ .Values.operatorPort }}
+              name: {{ .Values.operatorPortName }}
           env:
             - name: OPERATOR_NAME
               value: {{ .Values.name }}

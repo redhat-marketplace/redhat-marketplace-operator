@@ -12,6 +12,6 @@ spec:
       port: 8383
       targetPort: rhm-metrics
   selector:
-    name: redhat-marketplace-operator
+    redhat.marketplace.com/name: redhat-marketplace-operator
   sessionAffinity: ClientIP
-  type: ClusterIP
+  type: ClusterIP 
