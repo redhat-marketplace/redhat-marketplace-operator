@@ -1723,6 +1723,7 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 	}
 
 	parentRRS3 := marketplacev1alpha1.RemoteResourceS3{}
+	reqLogger.Info("Finding resource : ", "Parent", utils.PARENT_RRS3_RESOURCE_NAME)
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, &parentRRS3)
 	if err != nil && !errors.IsNotFound((err)) {
 		reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
@@ -1734,6 +1735,7 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 		if err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "could not delete parentRRS3", "Resource", utils.PARENT_RRS3_RESOURCE_NAME)
 		}
+		return reconcile.Result{RequeueAfter: time.Second * 2}, err
 	}
 
 	configMaps := []string{
