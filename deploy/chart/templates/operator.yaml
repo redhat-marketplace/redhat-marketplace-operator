@@ -44,6 +44,8 @@ spec:
               value: {{ .Values.kubeRbacProxyImage }}
             - name: RELATED_IMAGE_METRIC_STATE
               value: {{ .Values.metricStateImage }}
+            - name: RELATED_IMAGE_AUTHCHECK
+              value: {{ .Values.authCheckImage }}
             {{- if .Values.env -}}
             {{- toYaml .Values.env | nindent 12 }}
             {{- end -}}

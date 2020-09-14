@@ -18,10 +18,12 @@
 package main
 
 import (
+	"github.com/go-logr/logr"
 	"github.com/google/wire"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 )
 
@@ -31,9 +33,12 @@ func InitializeMarketplaceController() (*managers.ControllerMain, error) {
 		controller.ControllerSet,
 		controller.ProvideControllerFlagSet,
 		controller.SchemeDefinitions,
-		makeMarketplaceController,
 		reconcileutils.CommandRunnerProviderSet,
 		managers.ProvideManagerSet,
+		runnables.NewPodMonitor,
+		providePodMonitorConfig,
+		wire.InterfaceValue(new(logr.Logger), logger),
+		makeMarketplaceController,
 		provideOptions,
 	))
 }

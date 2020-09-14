@@ -25,11 +25,11 @@ import (
 )
 
 type FindOwnerHelper struct {
-	client DynamicClient
+	client *DynamicClient
 }
 
 func NewFindOwnerHelper(
-	dynamicClient DynamicClient,
+	dynamicClient *DynamicClient,
 ) *FindOwnerHelper {
 	return &FindOwnerHelper{
 		client: dynamicClient,

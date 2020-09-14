@@ -20,6 +20,7 @@ require (
 	github.com/golang/mock v1.4.3
 	github.com/golangci/golangci-lint v1.27.0
 	github.com/google/addlicense v0.0.0-20200827091314-d1655b921368 // indirect
+	github.com/google/martian v2.1.0+incompatible
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
 	github.com/gophercloud/gophercloud v0.12.0 // indirect

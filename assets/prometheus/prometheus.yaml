@@ -20,6 +20,13 @@ spec:
             topologyKey: kubernetes.io/hostname
           weight: 100
   containers:
+    - image: redhat-marketplace-authcheck:latest
+      name: authcheck
+      resources:
+        requests:
+          cpu: 10m
+          memory: 20Mi
+      terminationMessagePolicy: FallbackToLogsOnError
     - args:
         - -provider=openshift
         - -https-address=:9091
@@ -105,7 +112,7 @@ spec:
       marketplace.redhat.com/metering: 'true'
   serviceMonitorNamespaceSelector:
     matchExpressions:
-      - {key: "openshift.io/cluster-monitoring", operator: DoesNotExist}
+      - { key: 'openshift.io/cluster-monitoring', operator: DoesNotExist }
   additionalScrapeConfigs:
     name: rhm-meterbase-additional-scrape-configs
     key: meterdef.yaml

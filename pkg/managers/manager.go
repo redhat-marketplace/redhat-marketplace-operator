@@ -42,6 +42,7 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/version"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -112,10 +113,11 @@ type ControllerMain struct {
 	FlagSets    []*pflag.FlagSet
 	Controllers []controller.AddController
 	Manager     manager.Manager
+	PodMonitor  *runnables.PodMonitor
 }
 
 func (m *ControllerMain) ParseFlags() {
-		// adding controller flags
+	// adding controller flags
 	for _, flags := range m.FlagSets {
 		pflag.CommandLine.AddFlagSet(flags)
 	}
@@ -171,6 +173,9 @@ func (m *ControllerMain) Run(stop <-chan struct{}) {
 			os.Exit(1)
 		}
 	}
+
+	log.Info("starting pod monitor")
+	m.Manager.Add(m.PodMonitor)
 
 	// Add the Metrics Service
 	addMetrics(ctx, cfg)

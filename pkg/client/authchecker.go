@@ -49,19 +49,25 @@ func NewAuthChecker(
 }
 
 func (a *AuthChecker) Run(ctx context.Context) error {
-	timer := time.NewTimer(a.retryTime)
+	ticker := time.NewTicker(a.retryTime)
+	log := a.logger
 
 	for {
 		select {
-		case <-timer.C:
+		case <-ticker.C:
 			list, err := a.resourceClient.Namespace(a.namespace).List(context.Background(), metav1.ListOptions{})
-			if errors.IsUnauthorized(err) {
-				log.Error(err, "list call is unauthorized")
-				return err
+
+			if err != nil {
+				if errors.IsUnauthorized(err) {
+					log.Error(err, "list call is unauthorized")
+					return err
+				}
+				log.Error(err, "failed to get list")
+			} else {
+				log.Info("retrieved list", "len", len(list.Items))
 			}
-			log.Info("retrieved list", "len", len(list.Items))
 		case <-ctx.Done():
-			timer.Stop()
+			ticker.Stop()
 			return nil
 		}
 	}

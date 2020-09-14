@@ -34,7 +34,14 @@ build:
         cacheFrom:
           - registry.access.redhat.com/ubi8/ubi:latest
           - quay.io/rh-marketplace/golang-base:1.15
-
+    - image: redhat-marketplace-authcheck
+      docker:
+        dockerfile: build/authcheck.Dockerfile
+        buildArgs:
+          app_version: '{{.VERSION}}'
+        cacheFrom:
+          - registry.access.redhat.com/ubi8/ubi:latest
+          - quay.io/rh-marketplace/golang-base:1.15
 deploy:
   helm:
     releases:
@@ -43,8 +50,9 @@ deploy:
           image: redhat-marketplace-operator
           reporterImage: redhat-marketplace-reporter
           metricStateImage: redhat-marketplace-metric-state
+          authCheckImage: redhat-marketplace-authcheck
         chartPath: deploy/chart
-        setValueTemplates: 
+        setValueTemplates:
           devpostfix: "{{.DEVPOSTFIX}}"
           namespace: "{{.NAMESPACE}}"
         wait: false
@@ -73,14 +81,4 @@ profiles:
             dockerfile: build/base.Dockerfile
             cacheFrom:
               - registry.access.redhat.com/ubi8/ubi:latest
-  - name: authcheck
-    build:
-      artifacts:
-        - image: redhat-marketplace-auth-check
-          docker:
-            dockerfile: build/authcheck.Dockerfile
-            buildArgs:
-              app_version: '{{.VERSION}}'
-            cacheFrom:
-              - registry.access.redhat.com/ubi8/ubi:latest
-              - quay.io/rh-marketplace/golang-base:1.15
+

@@ -32,8 +32,13 @@ spec:
               name: web
             - containerPort: 8081
               name: metrics
-          args:
-            -
+        - image: redhat-marketplace-authcheck:latest
+          name: authcheck
+          resources:
+            requests:
+              cpu: 10m
+              memory: 20Mi
+          terminationMessagePolicy: FallbackToLogsOnError
         - args:
             - --logtostderr
             - --secure-listen-address=:9092

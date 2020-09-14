@@ -25,6 +25,10 @@ METRIC_STATE_IMAGE_NAME ?= redhat-marketplace-metric-state
 METRIC_STATE_IMAGE_TAG ?= $(OPERATOR_IMAGE_TAG)
 METRIC_STATE_IMAGE := $(IMAGE_REGISTRY)/$(METRIC_STATE_IMAGE_NAME):$(METRIC_STATE_IMAGE_TAG)
 
+AUTHCHECK_IMAGE_NAME ?= redhat-marketplace-authcheck
+AUTHCHECK_IMAGE_TAG ?= $(OPERATOR_IMAGE_TAG)
+AUTHCHECK_IMAGE := $(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME):$(AUTHCHECK_IMAGE_TAG)
+
 PUSH_IMAGE ?= false
 PULL_POLICY ?= IfNotPresent
 .DEFAULT_GOAL := help
@@ -62,14 +66,14 @@ install-tools:
 
 .PHONY: build-base
 build-base:
-	skaffold build --tag="1.15" -p base
+	skaffold build --tag="1.15" -p base --default-repo quay.io/rh-marketplace
 
 .PHONY: build
 build: ## Build the operator executable
 	VERSION=$(VERSION) skaffold build --tag $(OPERATOR_IMAGE_TAG) --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --cache-artifacts=false
 
 helm: ## build helm base charts
-	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE),metricStateImage=$(METRIC_STATE_IMAGE),reporterImage=$(REPORTER_IMAGE) --set namespace=$(NAMESPACE)
+	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE),metricStateImage=$(METRIC_STATE_IMAGE),reporterImage=$(REPORTER_IMAGE),authCheckImage=$(AUTHCHECK_IMAGE) --set namespace=$(NAMESPACE)
 
 MANIFEST_CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/manifests/redhat-marketplace-operator.clusterserviceversion.yaml
 VERSION_CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/redhat-marketplace-operator.v$(VERSION).clusterserviceversion.yaml

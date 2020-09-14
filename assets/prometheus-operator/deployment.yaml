@@ -20,70 +20,77 @@ spec:
         app.kubernetes.io/version: v0.38.1
     spec:
       containers:
-      - args:
-        - --kubelet-service=kube-system/kubelet
-        - --logtostderr=true
-        - --config-reloader-image=quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:b0291b4faa4f1932ea379fce9199b698f4aeb081493862af66519e5551c533d9
-        - --prometheus-config-reloader=quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:7c21484c93f2034adfc8f61a1ee197b470bd2337c24da3d36e99599324988b78
+        - args:
+            - --kubelet-service=kube-system/kubelet
+            - --logtostderr=true
+            - --config-reloader-image=quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:b0291b4faa4f1932ea379fce9199b698f4aeb081493862af66519e5551c533d9
+            - --prometheus-config-reloader=quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:7c21484c93f2034adfc8f61a1ee197b470bd2337c24da3d36e99599324988b78
 
-        - --namespaces={{NAMESPACES}}
-        - --prometheus-instance-namespaces={{NAMESPACE}}
-        - --alertmanager-instance-namespaces={{NAMESPACE}}
-        - --manage-crds=false
-        image:  quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:2864bca09678ed871246a3064b1ae697615089cc3abc78266d6f726fe4311a5b
-        name: prometheus-operator
-        ports:
-        - containerPort: 8080
-          name: http
-        resources:
-          requests:
-            cpu: 5m
-            memory: 60Mi
-        securityContext: {}
-        terminationMessagePolicy: FallbackToLogsOnError
-        volumeMounts:
-        - mountPath: /etc/tls/private
-          name: prometheus-operator-tls
-          readOnly: false
-      - args:
-        - --logtostderr
-        - --secure-listen-address=:8443
-        - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
-        - --upstream=https://prometheus-operator.{{NAMESPACE}}.svc:8080/
-        - --tls-cert-file=/etc/tls/private/tls.crt
-        - --tls-private-key-file=/etc/tls/private/tls.key
-        image: quay.io/coreos/kube-rbac-proxy:v0.5.0
-        name: kube-rbac-proxy
-        ports:
-        - containerPort: 8443
-          name: https
-        resources:
-          requests:
-            cpu: 1m
-            memory: 40Mi
-        securityContext: {}
-        terminationMessagePolicy: FallbackToLogsOnError
-        volumeMounts:
-        - mountPath: /etc/tls/private
-          name: prometheus-operator-tls
-          readOnly: false
-        - mountPath: /etc/configmaps/operator-cert-ca-bundle
-          name: operator-certs-ca-bundle
-          readOnly: false
+            - --namespaces={{NAMESPACES}}
+            - --prometheus-instance-namespaces={{NAMESPACE}}
+            - --alertmanager-instance-namespaces={{NAMESPACE}}
+            - --manage-crds=false
+          image: quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:2864bca09678ed871246a3064b1ae697615089cc3abc78266d6f726fe4311a5b
+          name: prometheus-operator
+          ports:
+            - containerPort: 8080
+              name: http
+          resources:
+            requests:
+              cpu: 5m
+              memory: 60Mi
+          securityContext: {}
+          terminationMessagePolicy: FallbackToLogsOnError
+          volumeMounts:
+            - mountPath: /etc/tls/private
+              name: prometheus-operator-tls
+              readOnly: false
+        - image: redhat-marketplace-authcheck:latest
+          name: authcheck
+          resources:
+            requests:
+              cpu: 10m
+              memory: 20Mi
+          terminationMessagePolicy: FallbackToLogsOnError
+        - args:
+            - --logtostderr
+            - --secure-listen-address=:8443
+            - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+            - --upstream=https://prometheus-operator.{{NAMESPACE}}.svc:8080/
+            - --tls-cert-file=/etc/tls/private/tls.crt
+            - --tls-private-key-file=/etc/tls/private/tls.key
+          image: quay.io/coreos/kube-rbac-proxy:v0.5.0
+          name: kube-rbac-proxy
+          ports:
+            - containerPort: 8443
+              name: https
+          resources:
+            requests:
+              cpu: 1m
+              memory: 40Mi
+          securityContext: {}
+          terminationMessagePolicy: FallbackToLogsOnError
+          volumeMounts:
+            - mountPath: /etc/tls/private
+              name: prometheus-operator-tls
+              readOnly: false
+            - mountPath: /etc/configmaps/operator-cert-ca-bundle
+              name: operator-certs-ca-bundle
+              readOnly: false
       nodeSelector:
         beta.kubernetes.io/os: linux
-        node-role.kubernetes.io/master: ""
+        node-role.kubernetes.io/master: ''
       priorityClassName: system-cluster-critical
       securityContext: {}
       serviceAccountName: redhat-marketplace-prometheus-operator
       tolerations:
-      - effect: NoSchedule
-        key: node-role.kubernetes.io/master
-        operator: Exists
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+          operator: Exists
       volumes:
-      - name: prometheus-operator-tls
-        secret:
-          secretName: prometheus-operator-tls
-      - configMap:
+        - name: prometheus-operator-tls
+          secret:
+            secretName: prometheus-operator-tls
+        - configMap:
+            name: operator-certs-ca-bundle
           name: operator-certs-ca-bundle
-        name: operator-certs-ca-bundle

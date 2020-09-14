@@ -75,6 +75,19 @@ func NewFactory(namespace string, c *Config) *Factory {
 	}
 }
 
+func (f *Factory) ReplaceImages(container *corev1.Container) {
+	switch container.Name {
+	case "kube-rbac-proxy-1":
+		container.Image = f.config.RelatedImages.KubeRbacProxy
+	case "kube-rbac-proxy-2":
+		container.Image = f.config.RelatedImages.KubeRbacProxy
+	case "metric-state":
+		container.Image = f.config.RelatedImages.MetricState
+	case "authcheck":
+		container.Image = f.config.RelatedImages.AuthChecker
+	}
+}
+
 func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
 	d, err := NewDeployment(manifest)
 	if err != nil {
@@ -229,22 +242,19 @@ func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployme
 	replacer := strings.NewReplacer("{{NAMESPACE}}", f.namespace)
 	replacerNamespaces := strings.NewReplacer("{{NAMESPACES}}", strings.Join(ns, ","))
 
-	updatedContainers := []corev1.Container{}
-
-	for _, container := range dep.Spec.Template.Spec.Containers {
+	for i := range dep.Spec.Template.Spec.Containers {
+		container := &dep.Spec.Template.Spec.Containers[i]
 		newArgs := []string{}
+
 		for _, arg := range container.Args {
 			newArg := replacer.Replace(arg)
 			newArg = replacerNamespaces.Replace(newArg)
 			newArgs = append(newArgs, newArg)
 		}
 
-		newContainer := container.DeepCopy()
-		newContainer.Args = newArgs
-		updatedContainers = append(updatedContainers, *newContainer)
+		f.ReplaceImages(container)
+		container.Args = newArgs
 	}
-
-	dep.Spec.Template.Spec.Containers = updatedContainers
 
 	return dep, err
 }
@@ -284,6 +294,10 @@ func (f *Factory) NewPrometheusDeployment(
 			},
 			Key: "meterdef.yaml",
 		}
+	}
+
+	for i := range p.Spec.Containers {
+		f.ReplaceImages(&p.Spec.Containers[i])
 	}
 
 	return p, err
@@ -391,15 +405,8 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 		return nil, err
 	}
 
-	for i, container := range d.Spec.Template.Spec.Containers {
-		switch container.Name {
-		case "kube-rbac-proxy-1":
-			d.Spec.Template.Spec.Containers[i].Image = f.config.RelatedImages.KubeRbacProxy
-		case "kube-rbac-proxy-2":
-			d.Spec.Template.Spec.Containers[i].Image = f.config.RelatedImages.KubeRbacProxy
-		case "metric-state":
-			d.Spec.Template.Spec.Containers[i].Image = f.config.RelatedImages.MetricState
-		}
+	for i := range d.Spec.Template.Spec.Containers {
+		f.ReplaceImages(&d.Spec.Template.Spec.Containers[i])
 	}
 
 	d.Namespace = f.namespace
