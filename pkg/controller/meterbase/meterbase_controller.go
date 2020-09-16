@@ -964,7 +964,7 @@ func (r *ReconcileMeterBase) uninstallMetricState(
 	factory *manifests.Factory,
 ) []ClientAction {
 	deployment, _ := factory.MetricStateDeployment()
-	service2, _ := factory.MetricStateService()
+	service, _ := factory.MetricStateService()
 	sm, _ := factory.MetricStateServiceMonitor()
 
 	return []ClientAction{
@@ -972,8 +972,8 @@ func (r *ReconcileMeterBase) uninstallMetricState(
 			GetAction(types.NamespacedName{Namespace: sm.Namespace, Name: sm.Name}, sm),
 			OnContinue(DeleteAction(sm))),
 		HandleResult(
-			GetAction(types.NamespacedName{Namespace: service2.Namespace, Name: service2.Name}, deployment),
-			OnContinue(DeleteAction(service2))),
+			GetAction(types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service),
+			OnContinue(DeleteAction(service))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}, deployment),
 			OnContinue(DeleteAction(deployment))),
@@ -1090,22 +1090,38 @@ func (r *ReconcileMeterBase) newPrometheusOperator(
 	cfg *corev1.Secret,
 ) (*monitoringv1.Prometheus, error) {
 	prom, err := factory.NewPrometheusDeployment(cr, cfg)
+	if cr.Spec.Prometheus.Storage.EmptyDir != nil {
+		log.Info("CRC Enabled")
+		prom.Spec.Storage.EmptyDir = cr.Spec.Prometheus.Storage.EmptyDir
+	}
 
-	storageClass := ""
+	if cr.Spec.Prometheus.Replicas != nil {
+		prom.Spec.Replicas = cr.Spec.Prometheus.Replicas
+	}
+
+	if cr.Spec.Prometheus.Storage.EmptyDir == nil {
+		log.Info("CRC Not Enabled")
+		storageClass,err := r.setDefaultStorageClass(cr)
+		if err != nil {
+			return prom,err
+		}
+		prom.Spec.Storage.VolumeClaimTemplate.Spec.StorageClassName = storageClass
+	}
+	return prom, err
+}
+
+func(r *ReconcileMeterBase) setDefaultStorageClass(cr *marketplacev1alpha1.MeterBase)(*string,error){
 	if cr.Spec.Prometheus.Storage.Class == nil {
 		foundDefaultClass, err := utils.GetDefaultStorageClass(r.client)
 
 		if err != nil {
-			return prom, err
+			return nil, err
 		}
 
-		storageClass = foundDefaultClass
-	} else {
-		storageClass = *cr.Spec.Prometheus.Storage.Class
-	}
-
-	prom.Spec.Storage.VolumeClaimTemplate.Spec.StorageClassName = ptr.String(storageClass)
-	return prom, err
+		return ptr.String(foundDefaultClass),nil
+	} 
+	
+	return cr.Spec.Prometheus.Storage.Class,nil
 }
 
 // serviceForPrometheus function takes in a Prometheus object and returns a Service for that object.

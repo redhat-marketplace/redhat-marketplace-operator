@@ -58,11 +58,6 @@ spec:
             prometheus:
               description: Prometheus deployment configuration.
               properties:
-                replicas:
-                  description: 'OPTIONAL: Replicas for the deployment. Used primarily
-                    when running metering to CRC'
-                  format: int32
-                  type: integer
                 resources:
                   description: Resource requirements for the deployment. Default is
                     not defined.
@@ -102,30 +97,6 @@ spec:
                       description: Storage class for the prometheus stateful set.
                         Default is "" i.e. default.
                       type: string
-                    emptyDir:
-                      description: EmptyDir is a temporary storage type that is used
-                        to
-                      properties:
-                        medium:
-                          description: 'What type of storage medium should back this
-                            directory. The default is "" which means to use the node''s
-                            default medium. Must be an empty string (default) or Memory.
-                            More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir'
-                          type: string
-                        sizeLimit:
-                          anyOf:
-                          - type: integer
-                          - type: string
-                          description: 'Total amount of local storage required for
-                            this EmptyDir volume. The size limit is also applicable
-                            for memory medium. The maximum usage on memory medium
-                            EmptyDir would be the minimum value between the SizeLimit
-                            specified here and the sum of memory limits of all containers
-                            in a pod. The default is nil which means that the limit
-                            is undefined. More info: http://kubernetes.io/docs/user-guide/volumes#emptydir'
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                          x-kubernetes-int-or-string: true
-                      type: object
                     size:
                       anyOf:
                       - type: integer

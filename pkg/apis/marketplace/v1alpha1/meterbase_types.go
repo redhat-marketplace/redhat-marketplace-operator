@@ -36,7 +36,16 @@ type StorageSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Size resource.Quantity `json:"size,omitempty"`
+
+	// EmptyDir is a temporary storage type that gets created on the prometheus pod. When this is defined metering will run on CRC.  
+	// +kubebuilder:validation:Type=object
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +optional
+	EmptyDir *corev1.EmptyDirVolumeSource `json:"emptyDir,omitempty"`
 }
+
 
 // PrometheusSpec contains configuration regarding prometheus
 // deployment used for metering.
@@ -57,6 +66,13 @@ type PrometheusSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Storage StorageSpec `json:"storage"`
+
+	// Replicas defines the number of desired replicas for the prometheus deployment. Used primarily when running metering on CRC
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +optional
+	Replicas *int32 `json:"replicas,omitempty"`
 }
 
 // MeterBaseSpec defines the desired state of MeterBase
@@ -68,7 +84,7 @@ type MeterBaseSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Enabled bool `json:"enabled"`
-
+	
 	// Prometheus deployment configuration.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
