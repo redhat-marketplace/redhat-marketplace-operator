@@ -174,8 +174,10 @@ func (m *ControllerMain) Run(stop <-chan struct{}) {
 		}
 	}
 
-	log.Info("starting pod monitor")
-	m.Manager.Add(m.PodMonitor)
+	if m.PodMonitor != nil {
+		log.Info("starting pod monitor")
+		m.Manager.Add(m.PodMonitor)
+	}
 
 	// Add the Metrics Service
 	addMetrics(ctx, cfg)

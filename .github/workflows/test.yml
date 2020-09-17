@@ -1,0 +1,47 @@
+name: Test Image
+
+on:
+  push:
+    branches:
+      - "master"
+      - "release/**"
+      - "hotfix/**"
+      - "develop"
+      - "feature/**"
+      - "bugfix/**"
+env:
+  pushImage: true
+
+jobs:
+  build:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.4.1
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.15
+        id: go
+
+      - name: Get if gittag is pushed
+        shell: bash {0}
+        id: tag
+        run: |
+          VERSION=$(make current-version)
+          RESULT=$(git tag --list | grep -E "$VERSION")
+          IS_TAGGED=false
+          if [ "$RESULT" != "" ] ; then
+            IS_TAGGED=true
+          fi
+      - uses: engineerd/setup-kind@v0.3.0
+
+      - name: Test
+        env:
+          USE_EXISTING_CLUSTER: true
+        run: |
+          make install-tools test-ci

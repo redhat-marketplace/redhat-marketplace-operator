@@ -1,7 +1,8 @@
 name: Deploy Image
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Test Image"]
     branches:
       - "master"
       - "release/**"
@@ -9,12 +10,14 @@ on:
       - "develop"
       - "feature/**"
       - "bugfix/**"
+    types:
+      - completed
 env:
   pushImage: true
 
 jobs:
   build:
-    name: Test
+    name: Build
     runs-on: ubuntu-latest
 
     outputs:
@@ -82,16 +85,6 @@ jobs:
           echo "::set-output name=dockertag::${TAGPREFIX}$(make current-version)-${FILEHASH:0:6}"
         env:
           FILEHASH: ${{ hashFiles('cmd/**', 'pkg/**', 'interal/**', 'version/**', 'go.sum', 'go.mod') }}
-
-      - name: Get dependencies
-        run: |
-          go mod download
-
-      - name: Test
-        env:
-          KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT: true
-        run: |
-          make install-tools test-ci
 
       - name: Turnstyle
         uses: softprops/turnstyle@v1

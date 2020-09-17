@@ -66,6 +66,14 @@ deploy:
         valuesFiles:
           - deploy/chart/values.yaml
 
+portForward:
+  - resourceType: StatefulSet
+    resourceName: prometheus-rhm-marketplaceconfig-meterbase
+    port: 9090
+  - resourceType: Deployment
+    resourceName: rhm-metric-state
+    port: 8080
+
 profiles:
   - name: dev
     activation:
