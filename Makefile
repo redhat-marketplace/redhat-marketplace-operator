@@ -279,10 +279,10 @@ test-cover: ## Run coverage on code
 CONTROLLERS=$(shell go list ./pkg/... ./cmd/... ./internal/... | grep -v 'pkg/generated' | xargs | sed -e 's/ /,/g')
 #INTEGRATION_TESTS=$(shell go list ./test/... | xargs | sed -e 's/ /,/g')
 
-test-ci: testbin ## test-ci runs all tests for CI builds
+test-ci: ## test-ci runs all tests for CI builds
 	@echo "testing"
 	ginkgo -r -coverprofile=cover.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
-	USE_EXISTING_CLUSTER=true ginkgo -r -coverprofile=cover.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --coverpkg=$(CONTROLLERS) ./test
+	ginkgo -r -coverprofile=cover.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --coverpkg=$(CONTROLLERS) ./test
 	cat cover.out.tmp | grep -v "_generated.go|zz_generated|testbin.go" > cover.out
 
 cover.out:
