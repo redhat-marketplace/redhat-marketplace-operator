@@ -915,6 +915,7 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 				updatedPrometheus.Spec.Volumes = expectedPrometheus.Spec.Volumes
 				updatedPrometheus.Spec.VolumeMounts = expectedPrometheus.Spec.VolumeMounts
 				updatedPrometheus.Spec.AdditionalScrapeConfigs = expectedPrometheus.Spec.AdditionalScrapeConfigs
+				updatedPrometheus.Spec.Containers = expectedPrometheus.Spec.Containers
 
 				patch, err := r.patcher.Calculate(prometheus, updatedPrometheus)
 				if err != nil {

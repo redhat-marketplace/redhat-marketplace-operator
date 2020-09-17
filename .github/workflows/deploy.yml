@@ -280,6 +280,12 @@ jobs:
             name: PC
             key: pcUser
             value: pcPasswordMetricState
+          - image: redhat-marketplace-authcheck
+            registry: scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785
+            fromRegistry: quay.io/rh-marketplace
+            name: PC
+            key: pcUser
+            value: pcPassword
     env:
       FROM_OPERATOR_IMAGE: ${{ matrix.fromRegistry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
       TO_OPERATOR_IMAGE: ${{ matrix.registry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}

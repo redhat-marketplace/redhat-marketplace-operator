@@ -114,7 +114,7 @@ func assetsMetricStateDeploymentYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/metric-state/deployment.yaml", size: 4067, mode: os.FileMode(420), modTime: time.Unix(1599759675, 0)}
+	info := bindataFileInfo{name: "assets/metric-state/deployment.yaml", size: 4067, mode: os.FileMode(420), modTime: time.Unix(1600270619, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -274,11 +274,7 @@ func assetsPrometheusPrometheusAdditionalYaml() (*asset, error) {
 		return nil, err
 	}
 
-<<<<<<< HEAD
 	info := bindataFileInfo{name: "assets/prometheus/prometheus-additional.yaml", size: 3217, mode: os.FileMode(420), modTime: time.Unix(1599587957, 0)}
-=======
-	info := bindataFileInfo{name: "assets/prometheus/prometheus-additional.yaml", size: 3217, mode: os.FileMode(420), modTime: time.Unix(1595284153, 0)}
->>>>>>> develop
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -318,11 +314,7 @@ func assetsPrometheusPrometheusRulesYaml() (*asset, error) {
 		return nil, err
 	}
 
-<<<<<<< HEAD
 	info := bindataFileInfo{name: "assets/prometheus/prometheus-rules.yaml", size: 334, mode: os.FileMode(420), modTime: time.Unix(1599587957, 0)}
-=======
-	info := bindataFileInfo{name: "assets/prometheus/prometheus-rules.yaml", size: 334, mode: os.FileMode(420), modTime: time.Unix(1595284153, 0)}
->>>>>>> develop
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -342,7 +334,7 @@ func assetsPrometheusPrometheusYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/prometheus.yaml", size: 4510, mode: os.FileMode(420), modTime: time.Unix(1599747678, 0)}
+	info := bindataFileInfo{name: "assets/prometheus/prometheus.yaml", size: 4510, mode: os.FileMode(420), modTime: time.Unix(1600270619, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -422,7 +414,7 @@ func assetsPrometheusOperatorDeploymentYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus-operator/deployment.yaml", size: 3706, mode: os.FileMode(420), modTime: time.Unix(1599759691, 0)}
+	info := bindataFileInfo{name: "assets/prometheus-operator/deployment.yaml", size: 3706, mode: os.FileMode(420), modTime: time.Unix(1600270619, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -482,11 +474,7 @@ func assetsRazeeRazeeJobYaml() (*asset, error) {
 		return nil, err
 	}
 
-<<<<<<< HEAD
 	info := bindataFileInfo{name: "assets/razee/razee-job.yaml", size: 359, mode: os.FileMode(420), modTime: time.Unix(1599587957, 0)}
-=======
-	info := bindataFileInfo{name: "assets/razee/razee-job.yaml", size: 359, mode: os.FileMode(420), modTime: time.Unix(1595284153, 0)}
->>>>>>> develop
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -506,11 +494,7 @@ func assetsRazeeRazeeNamespaceYaml() (*asset, error) {
 		return nil, err
 	}
 
-<<<<<<< HEAD
 	info := bindataFileInfo{name: "assets/razee/razee-namespace.yaml", size: 54, mode: os.FileMode(420), modTime: time.Unix(1599587957, 0)}
-=======
-	info := bindataFileInfo{name: "assets/razee/razee-namespace.yaml", size: 54, mode: os.FileMode(420), modTime: time.Unix(1595284153, 0)}
->>>>>>> develop
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
