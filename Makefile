@@ -279,14 +279,19 @@ test-cover: ## Run coverage on code
 CONTROLLERS=$(shell go list ./pkg/... ./cmd/... ./internal/... | grep -v 'pkg/generated' | xargs | sed -e 's/ /,/g')
 #INTEGRATION_TESTS=$(shell go list ./test/... | xargs | sed -e 's/ /,/g')
 
-test-ci: ## test-ci runs all tests for CI builds
-	@echo "testing"
+test-ci: test-ci test-ci-unit test-join
+
+test-ci-unit: ## test-ci runs all tests for CI builds
 	ginkgo -r -coverprofile=cover.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
+
+test-ci-int: ## test-ci runs all tests for CI builds
 	ginkgo -r -coverprofile=cover.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --coverpkg=$(CONTROLLERS) ./test
+
+test-join:
 	cat cover.out.tmp | grep -v "_generated.go|zz_generated|testbin.go" > cover.out
 
 cover.out:
-	make test-ci
+	make test-join
 
 test-cover-text: cover.out ## Run coverage and display as html
 	go tool cover -func=cover.out
