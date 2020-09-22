@@ -24,13 +24,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
-
-	//olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-
-	//"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/onsi/gomega/types"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	//"k8s.io/apimachinery/pkg/runtime"
@@ -41,6 +39,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	// register tests
+	"github.com/redhat-marketplace/redhat-marketplace-operator/test/testenv/apis"
 )
 
 func TestTestenv(t *testing.T) {
@@ -113,14 +114,19 @@ var _ = BeforeSuite(func(done Done) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
 		},
-	})).To(Succeed())
+	})).To(SatisfyAny(
+		Succeed(),
+		WithTransform(errors.IsAlreadyExists, BeTrue()),
+	))
 	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "openshift-monitoring",
 		},
-	})).To(Succeed())
+	})).To(SucceedOrAlreadyExist)
 
 	cc = reconcileutils.NewLoglessClientCommand(k8sClient, k8sManager.GetScheme())
+
+	apis.K8sClient = k8sClient
 
 	close(done)
 }, 60)
@@ -138,3 +144,7 @@ var _ = AfterSuite(func() {
 	}
 })
 
+var SucceedOrAlreadyExist types.GomegaMatcher = SatisfyAny(
+	Succeed(),
+	WithTransform(errors.IsAlreadyExists, BeTrue()),
+)
