@@ -51,8 +51,11 @@ jobs:
         run: |
           make test-ci-unit
 
+      - uses: engineerd/setup-kind@v0.3.0
+
       - name: Test Integration
         env:
+          USE_EXISTING_CLUSTER: true
           KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT: true
         run: |
           make test-ci-int
