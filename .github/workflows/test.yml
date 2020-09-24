@@ -44,6 +44,7 @@ jobs:
 
       - name: Install tools
         run: |
+          sudo echo "127.0.0.1 localhost" >> /etc/hosts
           make install-tools testbin
 
       - name: Test Unit
