@@ -51,6 +51,8 @@ jobs:
           make test-ci-unit
 
       - name: Test Integration
+        env:
+          KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT: true
         run: |
           make test-ci-int
 
