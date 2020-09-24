@@ -44,7 +44,7 @@ jobs:
 
       - name: Install tools
         run: |
-          make install-tools test-bin
+          make install-tools testbin
 
       - name: Test Unit
         run: |
