@@ -284,7 +284,7 @@ test-ci: test-ci test-ci-unit test-join
 test-ci-unit: ## test-ci runs all tests for CI builds
 	ginkgo -r -coverprofile=cover.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
 
-test-ci-int: ## test-ci runs all tests for CI builds
+test-ci-int: testbin ## test-ci runs all tests for CI builds
 	ginkgo -r -coverprofile=cover.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --coverpkg=$(CONTROLLERS) ./test
 
 test-join:

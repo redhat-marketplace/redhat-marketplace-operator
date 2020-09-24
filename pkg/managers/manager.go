@@ -180,7 +180,9 @@ func (m *ControllerMain) Run(stop <-chan struct{}) {
 	}
 
 	// Add the Metrics Service
-	addMetrics(ctx, cfg)
+	go func() {
+		addMetrics(ctx, cfg)
+	}()
 
 	log.Info("Starting the Cmd.")
 

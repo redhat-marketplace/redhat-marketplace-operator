@@ -97,18 +97,18 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(ctrlMain).ToNot(BeNil())
 
+	k8sClient, err = client.New(cfg, client.Options{Scheme: ctrlMain.Manager.GetScheme()})
+	Expect(err).NotTo(HaveOccurred())
+
 	stop = make(chan struct{})
 
 	go func() {
 		ctrlMain.Run(stop)
 	}()
 
-	Eventually(func() bool {
-		return ctrlMain.Manager.GetCache().WaitForCacheSync(stop)
-	}).Should(BeTrue())
-
 	k8sManager = ctrlMain.Manager
-	k8sClient = ctrlMain.Manager.GetClient()
+	apis.K8sClient = k8sClient
+
 	Expect(k8sClient).ToNot(BeNil())
 	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -126,7 +126,7 @@ var _ = BeforeSuite(func(done Done) {
 
 	cc = reconcileutils.NewLoglessClientCommand(k8sClient, k8sManager.GetScheme())
 
-	apis.K8sClient = k8sClient
+	time.Sleep(time.Second * 5)
 
 	close(done)
 }, 60)
