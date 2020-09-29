@@ -333,8 +333,8 @@ test-cover-html: cover.out ## Run coverage and display as html
 
 test-generate-certs:
 	mkdir -p test/certs
-	cd test/certs && cfssl gencert -initca ca-csr.json | cfssljson -bare ca
-	cd test/certs && cfssl gencert -ca=ca.pem -ca-key=ca-key.pem --config=ca-config.json -profile=kubernetes server-csr.json | cfssljson -bare server
+	cd test/certs && ../../testbin/cfssl gencert -initca ca-csr.json | ../../testbin/cfssljson -bare ca
+	cd test/certs && ../../testbin/cfssl gencert -ca=ca.pem -ca-key=ca-key.pem --config=ca-config.json -profile=kubernetes server-csr.json | ../../testbin/cfssljson -bare server
 
 
 ##@ Misc
