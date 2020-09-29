@@ -38,6 +38,14 @@ CLUSTER_SERVER ?= https://api.crc.testing:6443
 # The namespace where the operator watches for changes. Set "" for AllNamespaces, set "ns1,ns2" for MultiNamespace
 OPERATOR_WATCH_NAMESPACE ?= ""
 
+## Tool paths
+operator-sdk = ./testbin/operator-sdk
+skaffold = ./testbin/skaffold
+cfssl = ./testbin/cfssl
+cfssljson = ./testbin/cfssljson
+cfssl-certinfo = ./testbin/cfssl-certinfo
+opm = ./testbin/opm
+
 ##@ Application
 
 install: ## Install all resources (CR/CRD's, RBAC and Operator)
@@ -56,36 +64,16 @@ uninstall: ## Uninstall all that all performed in the $ make install
 
 .PHONY: clean
 clean: ## Clean up generated files that are emphemeral
+	- rm -rf ./testbin
 	- rm ./deploy/role.yaml ./deploy/operator.yaml ./deploy/role_binding.yaml ./deploy/service_account.yaml
 
-.PHONY: install-tools
-install-tools: ./testbin/cfssl ./testbin/cfssljson ./testbin/cfssl-certinfo
-	@echo Installing tools from tools.go
-	@$(shell cd ./scripts && GO111MODULE=off go get -tags tools)
-	@cat scripts/tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go install %
-
-./testbin/cfssl:
-	mkdir -p testbin
-	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl_1.4.1_linux_amd64 -o cfssl
-	chmod +x ./testbin/cfssl
-
-./testbin/cfssljson:
-	mkdir -p testbin
-	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssljson_1.4.1_linux_amd64 -o cfssljson
-	chmod +x ./testbin/cfssljson
-
-./testbin/cfssl-certinfo:
-	mkdir -p testbin
-	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl-certinfo_1.4.1_linux_amd64 -o cfssl-certinfo
-	chmod +x ./testbin/cfssl-certinfo
-
 .PHONY: build-base
-build-base:
-	skaffold build --tag="1.15" -p base --default-repo quay.io/rh-marketplace
+build-base: $(skaffold)
+	$(skaffold) build --tag="1.15" -p base --default-repo quay.io/rh-marketplace
 
 .PHONY: build
-build: ## Build the operator executable
-	VERSION=$(VERSION) skaffold build --tag $(OPERATOR_IMAGE_TAG) --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --cache-artifacts=false
+build: $(skaffold) ## Build the operator executable
+	VERSION=$(VERSION) $(skaffold) build --tag $(OPERATOR_IMAGE_TAG) --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --cache-artifacts=false
 
 helm: ## build helm base charts
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE),metricStateImage=$(METRIC_STATE_IMAGE),reporterImage=$(REPORTER_IMAGE),authCheckImage=$(AUTHCHECK_IMAGE) --set namespace=$(NAMESPACE)
@@ -143,15 +131,15 @@ docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
 
 ##@ Development
 
-skaffold-dev: ## Run skaffold dev. Will unique tag the operator and rebuild.
+skaffold-dev: $(skaffold) ## Run skaffold dev. Will unique tag the operator and rebuild.
 	make create
-	DEVPOSTFIX=$(DEVPOSTFIX) DOCKER_EXEC=$(DOCKER_EXEC) skaffold dev --tail --port-forward --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --trigger manual
+	DEVPOSTFIX=$(DEVPOSTFIX) DOCKER_EXEC=$(DOCKER_EXEC) $(skaffold) dev --tail --port-forward --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --trigger manual
 
-skaffold-run: ## Run skaffold run. Will uniquely tag the operator.
+skaffold-run: $(skaffold) ## Run skaffold run. Will uniquely tag the operator.
 	make helm
 	make create
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=redhat-marketplace-operator --set pullPolicy=IfNotPresent
-	DOCKER_EXEC=$(DOCKER_EXEC) skaffold run --tail --default-repo $(IMAGE_REGISTRY) --cleanup=false
+	DOCKER_EXEC=$(DOCKER_EXEC) $(skaffold) run --tail --default-repo $(IMAGE_REGISTRY) --cleanup=false
 
 code-vet: ## Run go vet for this project. More info: https://golang.org/cmd/vet/
 	@echo go vet
@@ -200,7 +188,7 @@ setup-operator-sdk: ## Create ns, crds, sa, role, and rolebinding before operato
 	- . ./scripts/operator_sdk_sa_kubeconfig.sh $(CLUSTER_SERVER) $(NAMESPACE) $(SERVICE_ACCOUNT)
 
 run-operator-sdk: ## Run operator locally outside the cluster during development cycle
-	operator-sdk run local --watch-namespace="" --kubeconfig=./sa.kubeconfig
+	$(operator-sdk) run local --watch-namespace="" --kubeconfig=./sa.kubeconfig
 
 ##@ Manual Testing
 
@@ -279,12 +267,6 @@ lint: ## lint the repo
 test: testbin ## test-ci runs all tests for CI builds
 	@echo "testing"
 	ginkgo -r --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace
-
-K8S_VERSION = v1.18.2
-ETCD_VERSION = v3.4.3
-testbin:
-	/bin/bash ./scripts/setup_envtest.sh $(K8S_VERSION) $(ETCD_VERSION)
-	chmod +x testbin/etcd testbin/kubectl testbin/kube-apiserver
 
 load-kind:
 	kind load docker-image $(REPORTER_IMAGE) --name=kind
@@ -452,7 +434,59 @@ opm-index-base: ## Create an index base
 install-test-registry: ## Install the test registry
 	kubectl apply -f ./deploy/olm-catalog/test-registry.yaml
 
-##@ Help
+
+##@ Tools
+
+.PHONY: install-tools
+install-tools: testbin $(cfssl) $(cfssljson) $(cfssl-certinfo) $(skaffold) $(operator-sdk) $(opm)
+	@echo Installing tools from tools.go
+	@$(shell cd ./scripts && GO111MODULE=off go get -tags tools)
+	@cat scripts/tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go install %
+
+UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
+
+K8S_VERSION = v1.18.2
+ETCD_VERSION = v3.4.3
+testbin:
+	/bin/bash ./scripts/setup_envtest.sh $(K8S_VERSION) $(ETCD_VERSION)
+	chmod +x testbin/etcd testbin/kubectl testbin/kube-apiserver
+
+$(cfssl):
+	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl_1.4.1_$(UNAME)_amd64 -o cfssl
+	chmod +x ./testbin/cfssl
+
+$(cfssljson):
+	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssljson_1.4.1_$(UNAME)_amd64 -o cfssljson
+	chmod +x ./testbin/cfssljson
+
+$(cfssl-certinfo):
+	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl-certinfo_1.4.1_$(UNAME)_amd64 -o cfssl-certinfo
+	chmod +x ./testbin/cfssl-certinfo
+
+operator_sdk_version ?= v0.18.0
+
+ifeq ($(UNAME),darwin)
+	operator_sdk_uname = apple-darwin
+else
+	operator_sdk_uname = linux-gnu
+endif
+
+$(operator-sdk):
+	echo $(operator_sdk_uname)
+	curl -LO https://github.com/operator-framework/operator-sdk/releases/download/$(operator_sdk_version)/operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname)
+	chmod +x operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname) && mv operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname) ./testbin/operator-sdk
+
+skaffold_version ?= v1.14.0
+
+$(skaffold):
+	curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/$(skaffold_version)/skaffold-$(UNAME)-amd64
+	chmod +x skaffold && mv skaffold ./testbin
+
+opm_version ?= v1.12.5
+
+$(opm):
+	curl -LO https://github.com/operator-framework/operator-registry/releases/download/$(opm_version)/$(UNAME)-amd64-opm
+	chmod +x $(UNAME)-amd64-opm && cp $(UNAME)-amd64-opm ./testbin/opm && rm $(UNAME)-amd64-opm
 
 .PHONY: help
 help: ## Display this help

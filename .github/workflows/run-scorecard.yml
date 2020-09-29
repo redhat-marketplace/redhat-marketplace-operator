@@ -1,18 +1,11 @@
 name: Run Scorecard
 
 on:
-  workflow_run:
-    workflows: ['Deploy Image']
+  push:
     branches:
-      - 'master'
-      - 'develop'
-      - 'feature/**'
-      - 'bugfix/**'
-      - 'release/**'
-      - 'hotfix/**'
-    types:
-      - completed
-      - requested
+      - "master"
+      - "release/**"
+      - "develop"
 
 jobs:
   scorecard:
@@ -62,18 +55,22 @@ jobs:
           echo "current-context:" $(kubectl config current-context)
           echo "environment-kubeconfig:" ${KUBECONFIG}
 
+      - name: Cache tools
+        id: tools
+        uses: actions/cache@v2
+        with:
+          path: |
+            testbin
+          key: tools-${{ runner.os }}-${{ hashFiles('Makefile') }}
+
       - name: Install operator-sdk
         run: |
           make install-tools
-          cd /tmp
-          curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
-          chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu && sudo mkdir -p /usr/local/bin/ && sudo cp operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk && rm operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
           python -m pip install --upgrade pip
           pip3 install -Iv operator-courier==$COURIER_VERSION
           sudo snap install yq
           echo "::add-path::/usr/local/bin"
         env:
-          RELEASE_VERSION: v0.18.0
           COURIER_VERSION: 2.1.7
 
       - name: Run scorecard for ${{ matrix.cr }}
