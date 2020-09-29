@@ -35,6 +35,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -59,6 +60,8 @@ const (
 	MetricStateService        = "assets/metric-state/service.yaml"
 )
 
+var log = logf.Log.WithName("manifests_factory")
+
 func MustAssetReader(asset string) io.Reader {
 	return bytes.NewReader(MustAsset(asset))
 }
@@ -72,6 +75,19 @@ func NewFactory(namespace string, c *Config) *Factory {
 	return &Factory{
 		namespace: namespace,
 		config:    c,
+	}
+}
+
+func (f *Factory) ReplaceImages(container *corev1.Container) {
+	switch container.Name {
+	case "kube-rbac-proxy-1":
+		container.Image = f.config.RelatedImages.KubeRbacProxy
+	case "kube-rbac-proxy-2":
+		container.Image = f.config.RelatedImages.KubeRbacProxy
+	case "metric-state":
+		container.Image = f.config.RelatedImages.MetricState
+	case "authcheck":
+		container.Image = f.config.RelatedImages.AuthChecker
 	}
 }
 
@@ -229,22 +245,19 @@ func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployme
 	replacer := strings.NewReplacer("{{NAMESPACE}}", f.namespace)
 	replacerNamespaces := strings.NewReplacer("{{NAMESPACES}}", strings.Join(ns, ","))
 
-	updatedContainers := []corev1.Container{}
-
-	for _, container := range dep.Spec.Template.Spec.Containers {
+	for i := range dep.Spec.Template.Spec.Containers {
+		container := &dep.Spec.Template.Spec.Containers[i]
 		newArgs := []string{}
+
 		for _, arg := range container.Args {
 			newArg := replacer.Replace(arg)
 			newArg = replacerNamespaces.Replace(newArg)
 			newArgs = append(newArgs, newArg)
 		}
 
-		newContainer := container.DeepCopy()
-		newContainer.Args = newArgs
-		updatedContainers = append(updatedContainers, *newContainer)
+		f.ReplaceImages(container)
+		container.Args = newArgs
 	}
-
-	dep.Spec.Template.Spec.Containers = updatedContainers
 
 	return dep, err
 }
@@ -253,7 +266,14 @@ func (f *Factory) NewPrometheusDeployment(
 	cr *marketplacev1alpha1.MeterBase,
 	cfg *corev1.Secret,
 ) (*monitoringv1.Prometheus, error) {
+	logger :=	log.WithValues("func", "NewPrometheusDeployment")
 	p, err := f.NewPrometheus(MustAssetReader(PrometheusDeployment))
+
+	if err != nil {
+		logger.Error(err, "failed to read the file")
+		return p, err
+	}
+
 	p.Name = cr.Name
 	p.ObjectMeta.Name = cr.Name
 
@@ -269,10 +289,6 @@ func (f *Factory) NewPrometheusDeployment(
 		StorageSize:  &cr.Spec.Prometheus.Storage.Size,
 	})
 
-	if err != nil {
-		return p, err
-	}
-
 	p.Spec.Storage.VolumeClaimTemplate = monitoringv1.EmbeddedPersistentVolumeClaim{
 		Spec: pvc.Spec,
 	}
@@ -284,6 +300,10 @@ func (f *Factory) NewPrometheusDeployment(
 			},
 			Key: "meterdef.yaml",
 		}
+	}
+
+	for i := range p.Spec.Containers {
+		f.ReplaceImages(&p.Spec.Containers[i])
 	}
 
 	return p, err
@@ -391,15 +411,8 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 		return nil, err
 	}
 
-	for i, container := range d.Spec.Template.Spec.Containers {
-		switch container.Name {
-		case "kube-rbac-proxy-1":
-			d.Spec.Template.Spec.Containers[i].Image = f.config.RelatedImages.KubeRbacProxy
-		case "kube-rbac-proxy-2":
-			d.Spec.Template.Spec.Containers[i].Image = f.config.RelatedImages.KubeRbacProxy
-		case "metric-state":
-			d.Spec.Template.Spec.Containers[i].Image = f.config.RelatedImages.MetricState
-		}
+	for i := range d.Spec.Template.Spec.Containers {
+		f.ReplaceImages(&d.Spec.Template.Spec.Containers[i])
 	}
 
 	d.Namespace = f.namespace

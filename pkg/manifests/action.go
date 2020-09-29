@@ -81,20 +81,23 @@ func (a *createOrUpdateFactoryItemAction) Exec(ctx context.Context, c *ClientCom
 		OnContinue(Call(func() (ClientAction, error) {
 			patch, err := a.patcher.Calculate(a.object, result)
 			if err != nil {
-				return nil, err
+				return nil, emperrors.Wrap(err, "error creating patch")
 			}
 
 			if patch.IsEmpty() {
 				return nil, nil
 			}
 
+			reqLogger.Info("updating with patch",
+				"patch", string(patch.Patch),
+			)
+
 			patchBytes, err := jsonpatch.CreateMergePatch(patch.Original, patch.Modified)
 
 			if err != nil {
-				return nil, err
+				return nil, emperrors.Wrap(err, "error creating json patch")
 			}
 
-			reqLogger.Info("updating with patch")
 			return UpdateWithPatchAction(result, types.MergePatchType, patchBytes), nil
 		})))
 	cmd.Bind(a.GetLastResult())

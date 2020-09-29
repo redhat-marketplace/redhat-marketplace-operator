@@ -25,6 +25,10 @@ METRIC_STATE_IMAGE_NAME ?= redhat-marketplace-metric-state
 METRIC_STATE_IMAGE_TAG ?= $(OPERATOR_IMAGE_TAG)
 METRIC_STATE_IMAGE := $(IMAGE_REGISTRY)/$(METRIC_STATE_IMAGE_NAME):$(METRIC_STATE_IMAGE_TAG)
 
+AUTHCHECK_IMAGE_NAME ?= redhat-marketplace-authcheck
+AUTHCHECK_IMAGE_TAG ?= $(OPERATOR_IMAGE_TAG)
+AUTHCHECK_IMAGE := $(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME):$(AUTHCHECK_IMAGE_TAG)
+
 PUSH_IMAGE ?= false
 PULL_POLICY ?= IfNotPresent
 .DEFAULT_GOAL := help
@@ -55,21 +59,36 @@ clean: ## Clean up generated files that are emphemeral
 	- rm ./deploy/role.yaml ./deploy/operator.yaml ./deploy/role_binding.yaml ./deploy/service_account.yaml
 
 .PHONY: install-tools
-install-tools:
+install-tools: ./testbin/cfssl ./testbin/cfssljson ./testbin/cfssl-certinfo
 	@echo Installing tools from tools.go
 	@$(shell cd ./scripts && GO111MODULE=off go get -tags tools)
 	@cat scripts/tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go install %
 
+./testbin/cfssl:
+	mkdir -p testbin
+	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl_1.4.1_linux_amd64 -o cfssl
+	chmod +x ./testbin/cfssl
+
+./testbin/cfssljson:
+	mkdir -p testbin
+	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssljson_1.4.1_linux_amd64 -o cfssljson
+	chmod +x ./testbin/cfssljson
+
+./testbin/cfssl-certinfo:
+	mkdir -p testbin
+	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl-certinfo_1.4.1_linux_amd64 -o cfssl-certinfo
+	chmod +x ./testbin/cfssl-certinfo
+
 .PHONY: build-base
 build-base:
-	skaffold build --tag="1.14" -p base
+	skaffold build --tag="1.15" -p base --default-repo quay.io/rh-marketplace
 
 .PHONY: build
 build: ## Build the operator executable
 	VERSION=$(VERSION) skaffold build --tag $(OPERATOR_IMAGE_TAG) --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --cache-artifacts=false
 
 helm: ## build helm base charts
-	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE),metricStateImage=$(METRIC_STATE_IMAGE),reporterImage=$(REPORTER_IMAGE) --set namespace=$(NAMESPACE)
+	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE),metricStateImage=$(METRIC_STATE_IMAGE),reporterImage=$(REPORTER_IMAGE),authCheckImage=$(AUTHCHECK_IMAGE) --set namespace=$(NAMESPACE)
 
 MANIFEST_CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/manifests/redhat-marketplace-operator.clusterserviceversion.yaml
 VERSION_CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/redhat-marketplace-operator.v$(VERSION).clusterserviceversion.yaml
@@ -267,6 +286,16 @@ testbin:
 	/bin/bash ./scripts/setup_envtest.sh $(K8S_VERSION) $(ETCD_VERSION)
 	chmod +x testbin/etcd testbin/kubectl testbin/kube-apiserver
 
+load-kind:
+	kind load docker-image $(REPORTER_IMAGE) --name=kind
+	kind load docker-image $(METRIC_STATE_IMAGE)  --name=kind
+	kind load docker-image $(AUTHCHECK_IMAGE)  --name=kind
+
+	for IMAGE in "registry.redhat.io/openshift4/ose-configmap-reloader:latest" "registry.redhat.io/openshift4/ose-prometheus-config-reloader:latest" "registry.redhat.io/openshift4/ose-prometheus-operator:latest" "registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest" "registry.redhat.io/openshift4/ose-oauth-proxy:latest"; do \
+		docker pull $$IMAGE ; \
+		kind load docker-image $$IMAGE ; \
+	done
+
 .PHONY: test-cover
 test-cover: ## Run coverage on code
 	@echo Running coverage
@@ -275,14 +304,22 @@ test-cover: ## Run coverage on code
 CONTROLLERS=$(shell go list ./pkg/... ./cmd/... ./internal/... | grep -v 'pkg/generated' | xargs | sed -e 's/ /,/g')
 #INTEGRATION_TESTS=$(shell go list ./test/... | xargs | sed -e 's/ /,/g')
 
-test-ci: testbin ## test-ci runs all tests for CI builds
-	@echo "testing"
+.PHONY: test-ci
+test-ci: test-ci test-ci-unit test-join
+
+.PHONY: test-ci-unit
+test-ci-unit: ## test-ci-unit runs all tests for CI builds
 	ginkgo -r -coverprofile=cover.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
-	ginkgo -r -skipPackage test/testenv  -coverprofile=cover.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./test
+
+.PHONY: test-ci-int
+test-ci-int: testbin ./test/certs/server.pem ## test-ci-int runs all tests for CI builds
+	ginkgo -r -coverprofile=cover.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --coverpkg=$(CONTROLLERS) ./test
+
+test-join:
 	cat cover.out.tmp | grep -v "_generated.go|zz_generated|testbin.go" > cover.out
 
 cover.out:
-	make test-ci
+	make test-join
 
 test-cover-text: cover.out ## Run coverage and display as html
 	go tool cover -func=cover.out
@@ -290,19 +327,18 @@ test-cover-text: cover.out ## Run coverage and display as html
 test-cover-html: cover.out ## Run coverage and display as html
 	go tool cover -html=cover.out
 
-.PHONY: test-integration
-test-integration:
-	@echo Test integration
+./test/certs/server.pem:
+	make test-generate-certs
+./test/certs/server-key.pem:
+	make test-generate-certs
+./test/certs/ca.pem:
+	make test-generate-certs
 
-.PHONY: test-e2e
-test-e2e: ## Run integration e2e tests with different options.
-	@echo ... Making build for e2e ...
-	@echo ... Applying code templates for e2e ...
-	- make code-templates
-	@echo ... Running the same e2e tests with different args ...
-	@echo ... Running locally ...
-	- kubectl create namespace ${NAMESPACE} || true
-	- operator-sdk test local ./test/e2e --namespace=${NAMESPACE} --go-test-flags="-tags e2e"
+test-generate-certs:
+	mkdir -p test/certs
+	cd test/certs && ../../testbin/cfssl gencert -initca ca-csr.json | ../../testbin/cfssljson -bare ca
+	cd test/certs && ../../testbin/cfssl gencert -ca=ca.pem -ca-key=ca-key.pem --config=ca-config.json -profile=kubernetes server-csr.json | ../../testbin/cfssljson -bare server
+
 
 ##@ Misc
 

@@ -29,6 +29,7 @@ type RelatedImages struct {
 	Reporter      string `env:"RELATED_IMAGE_REPORTER" envDefault:"reporter:latest"`
 	KubeRbacProxy string `env:"RELATED_IMAGE_KUBE_RBAC_PROXY" envDefault:"kube-proxy:latest"`
 	MetricState   string `env:"RELATED_IMAGE_METRIC_STATE" envDefault:"metric-state:latest"`
+	AuthChecker   string `env:"RELATED_IMAGE_AUTHCHECK" envDefault:"authcheck:latest"`
 }
 
 // Features store feature flags

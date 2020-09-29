@@ -17,11 +17,14 @@ require (
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32 // indirect
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
 	github.com/go-logr/logr v0.1.0
+	github.com/go-openapi/errors v0.19.4
 	github.com/golang/mock v1.4.3
 	github.com/golangci/golangci-lint v1.27.0
 	github.com/google/addlicense v0.0.0-20200827091314-d1655b921368 // indirect
+	github.com/google/martian v2.1.0+incompatible
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
+	github.com/goph/emperror v0.17.2
 	github.com/gophercloud/gophercloud v0.12.0 // indirect
 	github.com/gotidy/ptr v1.0.1
 	github.com/imdario/mergo v0.3.8
@@ -50,12 +53,12 @@ require (
 	github.com/spf13/viper v1.6.2
 	github.com/stretchr/testify v1.5.1
 	github.com/tcnksm/ghr v0.13.0
-	golang.org/x/net v0.0.0-20200707034311-ab3426394381
+	go.uber.org/zap v1.14.1
+	golang.org/x/net v0.0.0-20200822124328-c89045814202
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
-	golang.org/x/tools v0.0.0-20200729181040-64cdafbe085c // indirect
+	golang.org/x/tools/gopls v0.5.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0
-	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
-	honnef.co/go/tools v0.0.1-2020.1.4 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
 	k8s.io/api v0.18.6
 	k8s.io/apimachinery v0.18.6
 	k8s.io/client-go v12.0.0+incompatible

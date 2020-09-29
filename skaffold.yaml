@@ -1,4 +1,4 @@
-apiVersion: skaffold/v2beta5
+apiVersion: skaffold/v2beta7
 kind: Config
 metadata:
   name: redhat-marketplace-operator
@@ -7,8 +7,15 @@ build:
     concurrency: 4
     useBuildkit: true
   tagPolicy:
-    envTemplate:
-      template: '{{.IMAGE_NAME}}'
+    customTemplate:
+      template: '{{.VER}}_{{.COMMIT}}'
+      components:
+        - name: VER
+          envTemplate:
+            template: '{{.VERSION}}'
+        - name: COMMIT
+          gitCommit:
+            variant: AbbrevCommitSha
   artifacts:
     - image: redhat-marketplace-operator
       docker:
@@ -17,7 +24,7 @@ build:
           app_version: '{{.VERSION}}'
         cacheFrom:
           - registry.access.redhat.com/ubi8/ubi:latest
-          - quay.io/rh-marketplace/golang-base:1.14
+          - quay.io/rh-marketplace/golang-base:1.15
     - image: redhat-marketplace-reporter
       docker:
         dockerfile: build/reporter.Dockerfile
@@ -25,7 +32,7 @@ build:
           app_version: '{{.VERSION}}'
         cacheFrom:
           - registry.access.redhat.com/ubi8/ubi:latest
-          - quay.io/rh-marketplace/golang-base:1.14
+          - quay.io/rh-marketplace/golang-base:1.15
     - image: redhat-marketplace-metric-state
       docker:
         dockerfile: build/metricState.Dockerfile
@@ -33,7 +40,15 @@ build:
           app_version: '{{.VERSION}}'
         cacheFrom:
           - registry.access.redhat.com/ubi8/ubi:latest
-          - quay.io/rh-marketplace/golang-base:1.14
+          - quay.io/rh-marketplace/golang-base:1.15
+    - image: redhat-marketplace-authcheck
+      docker:
+        dockerfile: build/authcheck.Dockerfile
+        buildArgs:
+          app_version: '{{.VERSION}}'
+        cacheFrom:
+          - registry.access.redhat.com/ubi8/ubi:latest
+          - quay.io/rh-marketplace/golang-base:1.15
 deploy:
   helm:
     releases:
@@ -42,13 +57,22 @@ deploy:
           image: redhat-marketplace-operator
           reporterImage: redhat-marketplace-reporter
           metricStateImage: redhat-marketplace-metric-state
+          authCheckImage: redhat-marketplace-authcheck
         chartPath: deploy/chart
-        setValueTemplates: 
-          devpostfix: "{{.DEVPOSTFIX}}"
-          namespace: "{{.NAMESPACE}}"
+        setValueTemplates:
+          devpostfix: '{{.DEVPOSTFIX}}'
+          namespace: '{{.NAMESPACE}}'
         wait: false
         valuesFiles:
           - deploy/chart/values.yaml
+
+portForward:
+  - resourceType: StatefulSet
+    resourceName: prometheus-rhm-marketplaceconfig-meterbase
+    port: 9090
+  - resourceType: Deployment
+    resourceName: rhm-metric-state
+    port: 8080
 
 profiles:
   - name: dev

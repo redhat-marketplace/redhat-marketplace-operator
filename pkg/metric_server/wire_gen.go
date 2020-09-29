@@ -65,7 +65,8 @@ func NewServer(opts *Options) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	findOwnerHelper := client.NewFindOwnerHelper(dynamicInterface, restMapper)
+	dynamicClient := client.NewDynamicClient(dynamicInterface, restMapper)
+	findOwnerHelper := client.NewFindOwnerHelper(dynamicClient)
 	monitoringV1Client, err := v1.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err

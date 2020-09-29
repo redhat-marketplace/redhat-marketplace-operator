@@ -23,6 +23,13 @@ spec:
     spec:
       serviceAccountName: razeedeploy-sa
       containers:
+        - image: redhat-marketplace-authcheck:latest
+          name: authcheck
+          resources:
+            requests:
+              cpu: 10m
+              memory: 20Mi
+          terminationMessagePolicy: FallbackToLogsOnError
         - image: 'quay.io/razee/remoteresources3:0.5.2'
           resources:
             limits:

@@ -20,6 +20,7 @@ import (
 	monitoringv1client "github.com/coreos/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
 	"github.com/go-logr/logr"
 	"github.com/google/wire"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/client"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	marketplacev1alpha1client "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/generated/clientset/versioned/typed/marketplace/v1alpha1"
@@ -47,6 +48,7 @@ func NewServer(
 		monitoringv1client.NewForConfig,
 		provideContext,
 		rhmclient.NewFindOwnerHelper,
+		client.NewDynamicClient,
 		addIndex,
 	))
 }
