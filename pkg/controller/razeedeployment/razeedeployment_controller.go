@@ -1583,6 +1583,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 	}
 }
 
+// TODO: use factory
 func (r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *marketplacev1alpha1.RazeeDeployment) *appsv1.Deployment {
 	rep := ptr.Int32(1)
 	return &appsv1.Deployment{

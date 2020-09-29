@@ -19,7 +19,6 @@ import (
 	"time"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-	"github.com/gotidy/ptr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
@@ -34,8 +33,8 @@ import (
 
 var _ = Describe("MeterbaseController", func() {
 
-	const timeout = time.Second * 30
-	const interval = time.Second * 1
+	const timeout = time.Second * 60
+	const interval = time.Second * 5
 
 	var (
 		base             *v1alpha1.MeterBase
@@ -55,8 +54,10 @@ var _ = Describe("MeterbaseController", func() {
 						Enabled: true,
 						Prometheus: &v1alpha1.PrometheusSpec{
 							Storage: v1alpha1.StorageSpec{
-								Class: ptr.String("default"),
-								Size:  resource.MustParse("20Gi"),
+								EmptyDir: &corev1.EmptyDirVolumeSource{
+									Medium: "",
+								},
+								Size: resource.MustParse("1Gi"),
 							},
 						},
 					},
@@ -100,8 +101,14 @@ var _ = Describe("MeterbaseController", func() {
 					},
 				}
 
-				Expect(k8sClient.Create(context.Background(), kubeletMonitor)).Should(Succeed())
-				Expect(k8sClient.Create(context.Background(), kubeStateMonitor)).Should(Succeed())
+				Expect(k8sClient.Create(context.Background(), kubeletMonitor)).Should(SucceedOrAlreadyExist)
+				Expect(k8sClient.Create(context.Background(), kubeStateMonitor)).Should(SucceedOrAlreadyExist)
+			})
+
+			AfterEach(func() {
+				k8sClient.Delete(context.TODO(), base)
+				k8sClient.Delete(context.TODO(), kubeletMonitor)
+				k8sClient.Delete(context.TODO(), kubeStateMonitor)
 			})
 
 			It("should create all assets", func() {
@@ -109,7 +116,7 @@ var _ = Describe("MeterbaseController", func() {
 				deployment := &appsv1.Deployment{}
 				service := &corev1.Service{}
 
-				Expect(k8sClient.Create(context.Background(), base)).Should(Succeed())
+				Expect(k8sClient.Create(context.TODO(), base)).Should(Succeed())
 
 				By("create prometheus operator")
 				Eventually(func() bool {
@@ -161,7 +168,18 @@ var _ = Describe("MeterbaseController", func() {
 					return result.Is(Continue) &&
 						base.Status.Conditions.IsFalseFor(v1alpha1.ConditionInstalling) &&
 						base.Status.Conditions.GetCondition(v1alpha1.ConditionInstalling).Reason == v1alpha1.ReasonMeterBaseFinishInstall
-				}, timeout, interval)
+				}, timeout, interval).Should(BeTrue())
+
+				Expect(k8sClient.Delete(context.TODO(), base)).To(Succeed())
+
+				Eventually(func() bool {
+					result, _ := cc.Do(
+						context.Background(),
+						GetAction(types.NamespacedName{Name: base.Name, Namespace: namespace}, base),
+					)
+
+					return result.Is(NotFound)
+				}, timeout, interval).Should(BeTrue())
 			})
 		})
 	})

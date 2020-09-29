@@ -8,7 +8,7 @@ image: quay.io/rh-marketplace/redhat-marketplace-operator:latest
 reporterImage: quay.io/rh-marketplace/redhat-marketplace-reporter:latest
 metricStateImage: quay.io/rh-marketplace/redhat-marketplace-metric-state:latest
 authCheckImage: quay.io/rh-marketplace/redhat-marketplace-authcheck:latest
-kubeRbacProxyImage: quay.io/coreos/kube-rbac-proxy:v0.5.0
+kubeRbacProxyImage: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
 pullPolicy: Always
 watchNamespace: '' # watch all namespaces
 serviceAccountName: redhat-marketplace-operator
@@ -320,6 +320,7 @@ roles:
           - servicemonitors
           - podmonitors
           - prometheusrules
+          - '*'
         verbs:
           - '*'
       - apiGroups:

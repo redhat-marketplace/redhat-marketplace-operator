@@ -51,7 +51,8 @@ spec:
           value: ''
         - name: NO_PROXY
           value: ''
-      image: quay.io/openshift/origin-oauth-proxy:latest
+      image: registry.redhat.io/openshift4/ose-oauth-proxy:latest
+      imagePullPolicy: IfNotPresent
       name: prometheus-proxy
       ports:
         - containerPort: 9091
@@ -77,7 +78,8 @@ spec:
         - --tls-cert-file=/etc/tls/private/tls.crt
         - --tls-private-key-file=/etc/tls/private/tls.key
         - --upstream-ca-file=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt
-      image: quay.io/coreos/kube-rbac-proxy:v0.5.0
+      image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
+      imagePullPolicy: IfNotPresent
       name: kube-rbac-proxy-1
       ports:
         - containerPort: 9092
@@ -121,7 +123,7 @@ spec:
     - rhm-prometheus-meterbase-tls
     - rhm-prometheus-meterbase-proxy
     - rhm-prometheus-meterbase-htpasswd
-  configmaps:
+  configMaps:
     - serving-certs-ca-bundle
     - kubelet-serving-ca-bundle
   storage:

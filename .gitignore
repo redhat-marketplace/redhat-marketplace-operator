@@ -132,3 +132,10 @@ modd.conf
 tmp/
 scripts/vendor/
 testbin/
+
+test/certs/**
+!test/certs/config.json
+!test/certs/csr.json
+!test/certs/ca-config.json
+!test/certs/ca-csr.json
+!test/certs/server-csr.json

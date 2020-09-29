@@ -42,6 +42,13 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
+      - name: Login Docker
+        run: make docker-login
+        env:
+          DOCKER_USER: ${{ secrets["REDHAT_IO_USER"] }}
+          DOCKER_PASSWORD: ${{ secrets["REDHAT_IO_PASSWORD"] }}
+          REGISTRY: registry.redhat.io
+
       - name: Install tools
         run: |
           echo "127.0.0.1 localhost" | sudo tee -a /etc/hosts
@@ -58,7 +65,7 @@ jobs:
           USE_EXISTING_CLUSTER: true
           KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT: true
         run: |
-          make test-ci-int
+          make load-kind test-ci-int
 
       - name: Cover
         run: |

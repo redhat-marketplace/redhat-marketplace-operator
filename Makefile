@@ -59,10 +59,22 @@ clean: ## Clean up generated files that are emphemeral
 	- rm ./deploy/role.yaml ./deploy/operator.yaml ./deploy/role_binding.yaml ./deploy/service_account.yaml
 
 .PHONY: install-tools
-install-tools:
+install-tools: ./testbin/cfssl ./testbin/cfssljson ./testbin/cfssl-certinfo
 	@echo Installing tools from tools.go
 	@$(shell cd ./scripts && GO111MODULE=off go get -tags tools)
 	@cat scripts/tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go install %
+
+./testbin/cfssl:
+	curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl_1.4.1_linux_amd64 -o cfssl
+	chmod +x cfssl
+
+./testbin/cfssljson:
+	curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssljson_1.4.1_linux_amd64 -o cfssljson
+	chmod +x cfssljson
+
+./testbin/cfssl-certinfo:
+	curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl-certinfo_1.4.1_linux_amd64 -o cfssl-certinfo
+	chmod +x cfssl-certinfo
 
 .PHONY: build-base
 build-base:
@@ -271,6 +283,16 @@ testbin:
 	/bin/bash ./scripts/setup_envtest.sh $(K8S_VERSION) $(ETCD_VERSION)
 	chmod +x testbin/etcd testbin/kubectl testbin/kube-apiserver
 
+load-kind:
+	kind load docker-image $(REPORTER_IMAGE) --name=kind
+	kind load docker-image $(METRIC_STATE_IMAGE)  --name=kind
+	kind load docker-image $(AUTHCHECK_IMAGE)  --name=kind
+
+	for IMAGE in "registry.redhat.io/openshift4/ose-configmap-reloader:latest" "registry.redhat.io/openshift4/ose-prometheus-config-reloader:latest" "registry.redhat.io/openshift4/ose-prometheus-operator:latest" "registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest" "registry.redhat.io/openshift4/ose-oauth-proxy:latest"; do \
+		docker pull $$IMAGE ; \
+		kind load docker-image $$IMAGE ; \
+	done
+
 .PHONY: test-cover
 test-cover: ## Run coverage on code
 	@echo Running coverage
@@ -279,12 +301,15 @@ test-cover: ## Run coverage on code
 CONTROLLERS=$(shell go list ./pkg/... ./cmd/... ./internal/... | grep -v 'pkg/generated' | xargs | sed -e 's/ /,/g')
 #INTEGRATION_TESTS=$(shell go list ./test/... | xargs | sed -e 's/ /,/g')
 
+.PHONY: test-ci
 test-ci: test-ci test-ci-unit test-join
 
-test-ci-unit: ## test-ci runs all tests for CI builds
+.PHONY: test-ci-unit
+test-ci-unit: ## test-ci-unit runs all tests for CI builds
 	ginkgo -r -coverprofile=cover.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
 
-test-ci-int: testbin ## test-ci runs all tests for CI builds
+.PHONY: test-ci-int
+test-ci-int: testbin ./test/certs/server.pem ## test-ci-int runs all tests for CI builds
 	ginkgo -r -coverprofile=cover.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --coverpkg=$(CONTROLLERS) ./test
 
 test-join:
@@ -299,19 +324,18 @@ test-cover-text: cover.out ## Run coverage and display as html
 test-cover-html: cover.out ## Run coverage and display as html
 	go tool cover -html=cover.out
 
-.PHONY: test-integration
-test-integration:
-	@echo Test integration
+./test/certs/server.pem:
+	make test-generate-certs
+./test/certs/server-key.pem:
+	make test-generate-certs
+./test/certs/ca.pem:
+	make test-generate-certs
 
-.PHONY: test-e2e
-test-e2e: ## Run integration e2e tests with different options.
-	@echo ... Making build for e2e ...
-	@echo ... Applying code templates for e2e ...
-	- make code-templates
-	@echo ... Running the same e2e tests with different args ...
-	@echo ... Running locally ...
-	- kubectl create namespace ${NAMESPACE} || true
-	- operator-sdk test local ./test/e2e --namespace=${NAMESPACE} --go-test-flags="-tags e2e"
+test-generate-certs:
+	mkdir -p test/certs
+	cd test/certs && cfssl gencert -initca ca-csr.json | cfssljson -bare ca
+	cd test/certs && cfssl gencert -ca=ca.pem -ca-key=ca-key.pem --config=ca-config.json -profile=kubernetes server-csr.json | cfssljson -bare server
+
 
 ##@ Misc
 

@@ -15,8 +15,11 @@
 package patch
 
 import (
+	"encoding/json"
+
 	"emperror.dev/errors"
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
+	"github.com/goph/emperror"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -51,7 +54,9 @@ type Patcher struct {
 
 var RHMDefaultPatcher = NewPatcher(
 	"marketplace.redhat.com/last-applied",
-	patch.IgnoreStatusFields())
+	patch.IgnoreStatusFields(),
+	IgnoreMetadata(),
+)
 
 func NewPatcher(
 	annotation string,
@@ -81,4 +86,51 @@ func (p Patcher) Calculate(
 	}
 
 	return c, err
+}
+
+func IgnoreMetadata() patch.CalculateOption {
+	return func(current, modified []byte) ([]byte, []byte, error) {
+		current, err := deleteMetadata(current)
+		if err != nil {
+			return []byte{}, []byte{}, emperror.Wrap(err, "could not delete status field from current byte sequence")
+		}
+
+		modified, err = deleteMetadata(modified)
+		if err != nil {
+			return []byte{}, []byte{}, emperror.Wrap(err, "could not delete status field from modified byte sequence")
+		}
+
+		return current, modified, nil
+	}
+}
+
+func deleteMetadata(obj []byte) ([]byte, error) {
+	var objectMap map[string]interface{}
+	err := json.Unmarshal(obj, &objectMap)
+	if err != nil {
+		return []byte{}, emperror.Wrap(err, "could not unmarshal byte sequence")
+	}
+
+	if o, ok := objectMap["metadata"]; ok {
+		o := o.(map[string]interface{})
+		if _, ok := o["creationTimestamp"]; ok {
+			delete(o, "creationTimestamp")
+		}
+		if _, ok := o["uid"]; ok {
+			delete(o, "uid")
+		}
+		if _, ok := o["selfLink"]; ok {
+			delete(o, "selfLink")
+		}
+		if _, ok := o["resourceVersion"]; ok {
+			delete(o, "resourceVersion")
+		}
+	}
+
+	obj, err = json.Marshal(objectMap)
+	if err != nil {
+		return []byte{}, emperror.Wrap(err, "could not marshal byte sequence")
+	}
+
+	return obj, nil
 }

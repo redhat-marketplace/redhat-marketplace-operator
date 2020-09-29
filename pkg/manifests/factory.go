@@ -35,6 +35,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -58,6 +59,8 @@ const (
 	MetricStateServiceMonitor = "assets/metric-state/service-monitor.yaml"
 	MetricStateService        = "assets/metric-state/service.yaml"
 )
+
+var log = logf.Log.WithName("manifests_factory")
 
 func MustAssetReader(asset string) io.Reader {
 	return bytes.NewReader(MustAsset(asset))
@@ -263,7 +266,14 @@ func (f *Factory) NewPrometheusDeployment(
 	cr *marketplacev1alpha1.MeterBase,
 	cfg *corev1.Secret,
 ) (*monitoringv1.Prometheus, error) {
+	logger :=	log.WithValues("func", "NewPrometheusDeployment")
 	p, err := f.NewPrometheus(MustAssetReader(PrometheusDeployment))
+
+	if err != nil {
+		logger.Error(err, "failed to read the file")
+		return p, err
+	}
+
 	p.Name = cr.Name
 	p.ObjectMeta.Name = cr.Name
 
@@ -278,10 +288,6 @@ func (f *Factory) NewPrometheusDeployment(
 		StorageClass: ptr.String(""),
 		StorageSize:  &cr.Spec.Prometheus.Storage.Size,
 	})
-
-	if err != nil {
-		return p, err
-	}
 
 	p.Spec.Storage.VolumeClaimTemplate = monitoringv1.EmbeddedPersistentVolumeClaim{
 		Spec: pvc.Spec,
