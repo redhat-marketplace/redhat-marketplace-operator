@@ -45,8 +45,8 @@ jobs:
       - name: Login Docker
         run: make docker-login
         env:
-          DOCKER_USER: ${{ secrets["REDHAT_IO_USER"] }}
-          DOCKER_PASSWORD: ${{ secrets["REDHAT_IO_PASSWORD"] }}
+          DOCKER_USER: ${{ secrets.REDHAT_IO_USER }}
+          DOCKER_PASSWORD: ${{ secrets.REDHAT_IO_PASSWORD }}
           REGISTRY: registry.redhat.io
 
       - name: Install tools
