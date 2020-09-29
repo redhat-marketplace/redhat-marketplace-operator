@@ -86,7 +86,7 @@ CHANNELS ?= beta
 
 generate-bundle: ## Generate the csv
 	make helm
-	operator-sdk bundle create --generate-only \
+	$(operator-sdk) bundle create --generate-only \
 		--package redhat-marketplace-operator \
 		--default-channel=$(CSV_DEFAULT_CHANNEl) \
 		--channels $(CHANNELS)
@@ -99,7 +99,7 @@ INTERNAL_CRDS='["razeedeployments.marketplace.redhat.com","remoteresources3s.mar
 
 generate-csv: ## Generate the csv
 	make helm
-	operator-sdk generate csv \
+	$(operator-sdk) generate csv \
 		--from-version=$(FROM_VERSION) \
 		--csv-version=$(VERSION) \
 		--csv-channel=$(CSV_CHANNEL) \
@@ -164,9 +164,9 @@ ifndef GOROOT
 	$(error GOROOT is undefined)
 endif
 	@echo Generating k8s
-	operator-sdk generate k8s
+	$(operator-sdk) generate k8s
 	@echo Updating the CRD files with the OpenAPI validations
-	operator-sdk generate crds --crd-version=v1beta1
+	$(operator-sdk) generate crds --crd-version=v1beta1
 	@echo Go generating
 	- go generate ./...
 
@@ -337,7 +337,7 @@ add-licenses: ## Add licenses to the go file
 	addlicense -c "IBM Corp." ./pkg/**/*.go ./cmd/**/*.go ./internal/**/*.go ./test/**/*.go
 
 scorecard: ## Run scorecard tests
-	operator-sdk scorecard -b ./deploy/olm-catalog/redhat-marketplace-operator
+	$(operator-sdk) scorecard -b ./deploy/olm-catalog/redhat-marketplace-operator
 
 ##@ Publishing
 
@@ -414,19 +414,19 @@ opm-bundle-all: # used to bundle all the versions available
 	./scripts/opm_bundle_all.sh $(OLM_REPO) $(OLM_PACKAGE_NAME) $(VERSION)
 
 opm-bundle-last-edge: ## Bundle latest for edge
-	operator-sdk bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
+	$(operator-sdk) bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
 	yq w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' edge
 	docker build -f bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" .
 	docker push "$(OLM_REPO):$(TAG)"
 
 opm-bundle-last-beta: ## Bundle latest for beta
-	operator-sdk bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
+	$(operator-sdk) bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
 	yq w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' beta
 	docker build -f bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" .
 	docker push "$(OLM_REPO):$(TAG)"
 
 olm-bundle-last-stable: ## Bundle latest for stable
-	operator-sdk bundle create "$(OLM_REPO):$(TAG)" --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
+	$(operator-sdk) bundle create "$(OLM_REPO):$(TAG)" --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
 
 opm-index-base: ## Create an index base
 	./scripts/opm_build_index.sh $(OLM_REPO) $(OLM_BUNDLE_REPO) $(TAG) $(VERSION)
