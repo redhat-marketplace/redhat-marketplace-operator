@@ -486,7 +486,7 @@ opm_version ?= v1.12.5
 
 $(opm):
 	curl -LO https://github.com/operator-framework/operator-registry/releases/download/$(opm_version)/$(UNAME)-amd64-opm
-	chmod +x $(UNAME)-amd64-opm && cp $(UNAME)-amd64-opm ./testbin/opm && rm $(UNAME)-amd64-opm
+	chmod +x $(UNAME)-amd64-opm && mv $(UNAME)-amd64-opm ./testbin/opm
 
 .PHONY: help
 help: ## Display this help

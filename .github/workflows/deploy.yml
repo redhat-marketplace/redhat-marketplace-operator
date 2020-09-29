@@ -77,6 +77,14 @@ jobs:
 
       - uses: engineerd/setup-kind@v0.3.0
 
+      - uses: satackey/action-docker-layer-caching@v0.0.8
+        # Ignore the failure of a step and avoid terminating the job.
+        continue-on-error: true
+        with:
+          key: rhm-op-docker-cache-{hash}
+          restore-keys: |
+            rhm-op-docker-cache-
+
       - name: Build
         run: |
           make build load-kind
@@ -256,6 +264,14 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           checkName: test
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: satackey/action-docker-layer-caching@v0.0.8
+        # Ignore the failure of a step and avoid terminating the job.
+        continue-on-error: true
+        with:
+          key: rhm-op-docker-cache-{hash}
+          restore-keys: |
+            rhm-op-docker-cache-
 
       - name: Build
         if: env.exists != 'true'
