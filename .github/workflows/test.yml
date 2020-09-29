@@ -43,17 +43,6 @@ jobs:
             IS_TAGGED=true
           fi
 
-      - name: Get if gittag is pushed
-        shell: bash {0}
-        id: tag
-        run: |
-          VERSION=$(make current-version)
-          RESULT=$(git tag --list | grep -E "$VERSION")
-          IS_TAGGED=false
-          if [ "$RESULT" != "" ] ; then
-            IS_TAGGED=true
-          fi
-
       - name: Get Vars
         id: vars
         run: |
