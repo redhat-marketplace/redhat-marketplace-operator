@@ -64,15 +64,15 @@ jobs:
         env:
           SKAFFOLD_VERSION: v1.14.0
 
-      - name: Login ${{ matrix.name }}
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: Login Quay
         run: make docker-login
         env:
           DOCKER_USER: ${{ secrets.quayUser }}
           DOCKER_PASSWORD: ${{ secrets.quayPassword }}
           REGISTRY: quay.io/rh-marketplace
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
 
       - name: Login Docker
         run: make docker-login
