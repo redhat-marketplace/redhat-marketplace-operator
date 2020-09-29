@@ -32,6 +32,7 @@ jobs:
       TAGPREFIX: ''
 
     steps:
+      - uses: haya14busa/action-workflow_run-status@v1
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.4.1
         with:
@@ -122,6 +123,7 @@ jobs:
       OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
       TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag}}
     steps:
+      - uses: haya14busa/action-workflow_run-status@v1
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
@@ -189,6 +191,7 @@ jobs:
       OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
       VERSION: ${{ needs.build.outputs.version }}
     steps:
+      - uses: haya14busa/action-workflow_run-status@v1
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
@@ -284,6 +287,7 @@ jobs:
       TO_OPERATOR_IMAGE: ${{ matrix.registry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
       TAG: ${{ matrix.registry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
     steps:
+      - uses: haya14busa/action-workflow_run-status@v1
       - name: Check if tag exists in ${{ matrix.name }}
         id: image
         shell: bash {0}
