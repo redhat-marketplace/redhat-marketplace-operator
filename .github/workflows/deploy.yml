@@ -153,7 +153,7 @@ jobs:
           sudo install skaffold /usr/local/bin/
           echo "::add-path::/usr/local/bin"
         env:
-          SKAFFOLD_VERSION: v1.13.1
+          SKAFFOLD_VERSION: v1.14.0
 
       - name: Login ${{ matrix.name }}
         run: make docker-login

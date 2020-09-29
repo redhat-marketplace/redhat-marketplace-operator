@@ -3,12 +3,12 @@ name: Test Image
 on:
   push:
     branches:
-      - "master"
-      - "release/**"
-      - "hotfix/**"
-      - "develop"
-      - "feature/**"
-      - "bugfix/**"
+      - 'master'
+      - 'release/**'
+      - 'hotfix/**'
+      - 'develop'
+      - 'feature/**'
+      - 'bugfix/**'
 env:
   pushImage: true
 
@@ -28,6 +28,10 @@ jobs:
           go-version: ^1.15
         id: go
 
+      - name: Set branch prefix for dev
+        run: |
+          echo "::set-env name=TAGPREFIX::test-"
+
       - name: Get if gittag is pushed
         shell: bash {0}
         id: tag
@@ -39,6 +43,45 @@ jobs:
             IS_TAGGED=true
           fi
 
+      - name: Get if gittag is pushed
+        shell: bash {0}
+        id: tag
+        run: |
+          VERSION=$(make current-version)
+          RESULT=$(git tag --list | grep -E "$VERSION")
+          IS_TAGGED=false
+          if [ "$RESULT" != "" ] ; then
+            IS_TAGGED=true
+          fi
+
+      - name: Get Vars
+        id: vars
+        run: |
+
+          echo "::set-output name=gittagpushed::${IS_TAGGED}"
+          echo "::set-output name=version::$(make current-version)"
+          echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
+          echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
+          echo "::set-output name=dockertag::${TAGPREFIX}$(make current-version)-${FILEHASH:0:6}"
+        env:
+          FILEHASH: ${{ hashFiles('cmd/**', 'pkg/**', 'interal/**', 'version/**', 'go.sum', 'go.mod') }}
+
+      - name: Install skaffold
+        run: |
+          cd /tmp
+          curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/${SKAFFOLD_VERSION}/skaffold-linux-amd64 && \
+          sudo install skaffold /usr/local/bin/
+          echo "::add-path::/usr/local/bin"
+        env:
+          SKAFFOLD_VERSION: v1.14.0
+
+      - name: Login ${{ matrix.name }}
+        run: make docker-login
+        env:
+          DOCKER_USER: ${{ secrets.quayUser }}
+          DOCKER_PASSWORD: ${{ secrets.quayPassword }}
+          REGISTRY: quay.io/rh-marketplace
+
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
@@ -48,6 +91,10 @@ jobs:
           DOCKER_USER: ${{ secrets.REDHAT_IO_USER }}
           DOCKER_PASSWORD: ${{ secrets.REDHAT_IO_PASSWORD }}
           REGISTRY: registry.redhat.io
+
+      - name: Build
+        if: env.exists != 'true'
+        run: make build
 
       - name: Install tools
         run: |
