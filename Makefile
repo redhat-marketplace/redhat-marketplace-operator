@@ -65,16 +65,19 @@ install-tools: ./testbin/cfssl ./testbin/cfssljson ./testbin/cfssl-certinfo
 	@cat scripts/tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go install %
 
 ./testbin/cfssl:
-	curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl_1.4.1_linux_amd64 -o cfssl
-	chmod +x cfssl
+	mkdir -p testbin
+	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl_1.4.1_linux_amd64 -o cfssl
+	chmod +x ./testbin/cfssl
 
 ./testbin/cfssljson:
-	curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssljson_1.4.1_linux_amd64 -o cfssljson
-	chmod +x cfssljson
+	mkdir -p testbin
+	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssljson_1.4.1_linux_amd64 -o cfssljson
+	chmod +x ./testbin/cfssljson
 
 ./testbin/cfssl-certinfo:
-	curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl-certinfo_1.4.1_linux_amd64 -o cfssl-certinfo
-	chmod +x cfssl-certinfo
+	mkdir -p testbin
+	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl-certinfo_1.4.1_linux_amd64 -o cfssl-certinfo
+	chmod +x ./testbin/cfssl-certinfo
 
 .PHONY: build-base
 build-base:

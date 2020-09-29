@@ -69,12 +69,16 @@ jobs:
 
       - uses: engineerd/setup-kind@v0.3.0
 
+      - name: Build
+        run: |
+          make build load-kind
+
       - name: Test Integration
         env:
           USE_EXISTING_CLUSTER: true
           KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT: true
         run: |
-          make build load-kind test-ci-int
+          make test-ci-int
 
       - name: Cover
         run: |
