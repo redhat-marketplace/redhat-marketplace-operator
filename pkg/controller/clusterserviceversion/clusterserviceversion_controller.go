@@ -49,6 +49,8 @@ const (
 	allnamespaceTag = "olm.copiedFrom"
 	ignoreTag       = "marketplace.redhat.com/ignore"
 	trackMeterTag   = "marketplace.redhat.com/track-meter"
+	meterDefStatus  = "marketplace.redhat.com/meterDefStatus"
+	meterDefError   = "marketplace.redhat.com/meterDefError"
 )
 
 // Add creates a new ClusterServiceVersion Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -167,7 +169,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	err = c.Watch(&source.Kind{Type: &marketplacev1alpha1.MeterDefinition{}}, &handler.EnqueueRequestForOwner{
 		IsController: false,
-		OwnerType: &olmv1alpha1.ClusterServiceVersion{},
+		OwnerType:    &olmv1alpha1.ClusterServiceVersion{},
 	})
 	if err != nil {
 		return err
@@ -225,6 +227,10 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 	}
 
 	result, isRequeue, err := r.reconcileMeterDefAnnotation(CSV, annotations)
+
+	// check if err is instance of json.parsing error
+	// if yes -> add failiure annotation
+
 	if isRequeue {
 		return result, err
 	}
@@ -361,6 +367,8 @@ func (r *ReconcileClusterServiceVersion) reconcileMeterDefAnnotation(CSV *olmv1a
 	meterDefinitionString, ok := annotations[utils.CSV_METERDEFINITION_ANNOTATION]
 	if !ok {
 		reqLogger.Info("No value for ", "key: ", utils.CSV_METERDEFINITION_ANNOTATION)
+		delete(annotations, meterDefError)
+		delete(annotations, meterDefStatus)
 		return reconcile.Result{}, false, nil
 	}
 
@@ -376,9 +384,18 @@ func (r *ReconcileClusterServiceVersion) reconcileMeterDefAnnotation(CSV *olmv1a
 
 	if err != nil {
 		reqLogger.Error(err, "Could not build a local copy of the MeterDefinition")
+		reqLogger.Info("Adding failiure annotation in csv file ")
+		annotations[meterDefStatus] = "error"
+		annotations[meterDefError] = err.Error()
+		CSV.SetAnnotations(annotations)
+		if err := r.client.Update(context.TODO(), CSV); err != nil {
+			reqLogger.Error(err, "Failed to patch clusterserviceversion with MeterDefinition status")
+			return reconcile.Result{}, true, err
+		}
+		reqLogger.Info("Patched clusterserviceversion with MeterDefinition status")
 		return reconcile.Result{}, true, err
 	}
-
+	reqLogger.Info("marketplacev1alpha1.MeterDefinitionList >>>> ")
 	// Case 1: The CSV is old: compare vs. expected MeterDefinition
 	list := &marketplacev1alpha1.MeterDefinitionList{}
 	err = r.client.List(context.TODO(), list, client.InNamespace(meterDefinition.GetNamespace()))
@@ -387,7 +404,7 @@ func (r *ReconcileClusterServiceVersion) reconcileMeterDefAnnotation(CSV *olmv1a
 		reqLogger.Error(err, "Could not retrieve the existing MeterDefinition")
 		return reconcile.Result{}, true, err
 	}
-
+	reqLogger.Info("marketplacev1alpha1.MeterDefinitionList End --- ")
 	var actualMeterDefinition *marketplacev1alpha1.MeterDefinition
 
 	// Find the meterdef, we're use the InstalledBy field
@@ -469,6 +486,16 @@ func (r *ReconcileClusterServiceVersion) reconcileMeterDefAnnotation(CSV *olmv1a
 		reqLogger.Error(err, "Could not create MeterDefinition")
 		return reconcile.Result{Requeue: true}, true, err
 	}
+
+	//Add success message annotation to csv
+	delete(annotations, meterDefError)
+	annotations[meterDefStatus] = "success"
+	CSV.SetAnnotations(annotations)
+	if err := r.client.Update(context.TODO(), CSV); err != nil {
+		reqLogger.Error(err, "Failed to patch clusterserviceversion with MeterDefinition status")
+		return reconcile.Result{}, true, err
+	}
+	reqLogger.Info("Patched clusterserviceversion with MeterDefinition status")
 
 	return reconcile.Result{}, true, nil
 
