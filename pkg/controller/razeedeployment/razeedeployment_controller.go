@@ -1307,6 +1307,19 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperConfig(instance *marketplacev1
 	}
 }
 
+func(r *ReconcileRazeeDeployment) makeWatchKeeperConfigVolume()corev1.Volume{
+	return corev1.Volume{
+		Name: utils.WATCH_KEEPER_CONFIG_NAME,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: utils.WATCH_KEEPER_CONFIG_NAME,
+				},
+			},
+		},
+	}
+}
+
 // GetDataFromRhmSecret Uses the SecretKeySelector struct to to retrieve byte data from a specified key
 func (r *ReconcileRazeeDeployment) GetDataFromRhmSecret(request reconcile.Request, sel corev1.SecretKeySelector) ([]byte, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "request.Name", request.Name)
@@ -1447,50 +1460,19 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 									},
 								},
 								{
-									Name: "CONFIG_NAMESPACE",
-									ValueFrom: &corev1.EnvVarSource{
-										FieldRef: &corev1.ObjectFieldSelector{
-											FieldPath: "metadata.namespace",
-										},
-									},
-								},
-								{
-									Name: "START_DELAY_MAX",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: utils.WATCH_KEEPER_CONFIG_NAME,
-											},
-											Key:      "START_DELAY_MAX",
-											Optional: ptr.Bool(true),
-										},
-									},
-								},
-								{
-									Name: "RAZEEDASH_URL",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: utils.WATCH_KEEPER_CONFIG_NAME,
-											},
-											Key: "RAZEEDASH_URL",
-										},
-									},
-								},
-								{
-									Name: "RAZEEDASH_ORG_KEY",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: utils.WATCH_KEEPER_SECRET_NAME,
-											},
-											Key: "RAZEEDASH_ORG_KEY",
-										},
-									},
-								},
-								{
 									Name:  "NODE_ENV",
 									Value: "production",
+								},
+								{
+									Name: "KUBECONFIG",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: utils.WATCH_KEEPER_CONFIG_NAME,
+											},
+											Key: "KUBECONFIG",
+										},
+									},
 								},
 							},
 							ImagePullPolicy: corev1.PullAlways,
