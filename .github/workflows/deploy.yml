@@ -267,11 +267,7 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets[matrix.value] }}
           REGISTRY: ${{ matrix.registry }}
 
-      - name: Build
-        run: |
-          make build
-
-      - name: Push
+      - name: Build & Push
         if: env.exists != 'true'
         run: make build
 
