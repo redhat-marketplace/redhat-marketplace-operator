@@ -17,6 +17,12 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    needs: [build]
+    env:
+      IMAGE_REGISTRY: ${{ matrix.registry }}
+      OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
+      OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
+      TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag}}
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.4.1
@@ -75,13 +81,25 @@ jobs:
         run: |
           make test-ci-unit
 
-      - uses: engineerd/setup-kind@v0.3.0
+      - uses: engineerd/setup-kind@v0.4.0
 
-      - name: Build
+      - name: Wait for build to succeed
+        uses: fountainhead/action-wait-for-check@v1.0.0
+        id: wait-for-build
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          checkName: Build
+          timeoutSeconds: 1000
+          intervalSeconds: 10
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Load Kind
+        if: steps.wait-for-build.outputs.conclusion == 'success'
         run: |
-          make build load-kind
+          make load-kind
 
       - name: Test Integration
+        if: steps.wait-for-build.outputs.conclusion == 'success'
         env:
           USE_EXISTING_CLUSTER: true
           KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT: true
@@ -249,15 +267,11 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets[matrix.value] }}
           REGISTRY: ${{ matrix.registry }}
 
-      - name: Wait for test to succeed
-        uses: fountainhead/action-wait-for-check@v1.0.0
-        id: wait-for-test
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          checkName: Test
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
       - name: Build
+        run: |
+          make build
+
+      - name: Push
         if: env.exists != 'true'
         run: make build
 
