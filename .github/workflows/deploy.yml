@@ -103,16 +103,14 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Fail
-        if: steps.wait-for-build.outputs.conclusion == 'success'
-
+        if: steps.wait-for-build.outputs.conclusion != 'success'
+        run: exit 1
 
       - name: Load Kind
-        if: steps.wait-for-build.outputs.conclusion == 'success'
         run: |
           make load-kind
 
       - name: Test Integration
-        if: steps.wait-for-build.outputs.conclusion == 'success'
         env:
           USE_EXISTING_CLUSTER: true
           KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT: true
@@ -120,7 +118,6 @@ jobs:
           make test-ci-int
 
       - name: Cover
-        if: steps.wait-for-build.outputs.conclusion == 'success'
         run: |
           make test-cover-text
 
