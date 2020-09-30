@@ -268,13 +268,9 @@ test: testbin ## test-ci runs all tests for CI builds
 	ginkgo -r --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace
 
 load-kind:
-	kind load docker-image $(REPORTER_IMAGE) --name=kind
-	kind load docker-image $(METRIC_STATE_IMAGE)  --name=kind
-	kind load docker-image $(AUTHCHECK_IMAGE)  --name=kind
-
-	for IMAGE in "registry.redhat.io/openshift4/ose-configmap-reloader:latest" "registry.redhat.io/openshift4/ose-prometheus-config-reloader:latest" "registry.redhat.io/openshift4/ose-prometheus-operator:latest" "registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest" "registry.redhat.io/openshift4/ose-oauth-proxy:latest"; do \
+	for IMAGE in $(REPORTER_IMAGE) $(METRIC_STATE_IMAGE) $(AUTHCHECK_IMAGE); do \
 		docker pull $$IMAGE ; \
-		kind load docker-image $$IMAGE ; \
+		kind load docker-image $$IMAGE --name=kind ; \
 	done
 
 .PHONY: test-cover
