@@ -22,7 +22,6 @@ jobs:
           - 'marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml'
           - 'marketplace.redhat.com_v1alpha1_remoteresources3_cr.yaml'
     steps:
-      - uses: haya14busa/action-workflow_run-status@v1
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
