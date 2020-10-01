@@ -45,7 +45,7 @@ cfssljson = ./testbin/cfssljson
 cfssl-certinfo = ./testbin/cfssl-certinfo
 opm = ./testbin/opm
 kind = $(shell go env GOPATH)/bin/kind
-gocovmerge = $(GOPATH)/bin/gocovmerge
+gocovmerge = $(shell go env GOPATH)/bin/gocovmerge
 
 ##@ Application
 
@@ -302,7 +302,7 @@ test-ci-int: testbin ./test/certs/server.pem ## test-ci-int runs all tests for C
 	ginkgo -r -coverprofile=cover-int.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --coverpkg=$(CONTROLLERS) ./test
 	cat cover-int.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-int.out
 
-test-join:
+test-join: $(gocovmerge)
 	$(gocovmerge) cover-int.out cover-unit.out > cover.out
 
 cover.out:
