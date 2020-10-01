@@ -11,7 +11,10 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	utils "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/test/mock/mock_client"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kubectl/pkg/scheme"
+	"k8s.io/utils/pointer"
 	k8client "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -36,6 +39,7 @@ var _ = Describe("JsonMeterDefValidation", func() {
 		client = mock_client.NewMockClient(ctrl)
 		//statusWriter = mock_client.NewMockStatusWriter(ctrl)
 		apis.AddToScheme(scheme.Scheme)
+		olmv1alpha1.AddToScheme(scheme.Scheme)
 		//cc = reconcileutils.NewClientCommand(client, scheme.Scheme, logger)
 		ctx = context.TODO()
 
@@ -112,21 +116,51 @@ var _ = Describe("JsonMeterDefValidation", func() {
 					  }]
 					}
 				  }`
-			ann             = map[string]string{utils.CSV_METERDEFINITION_ANNOTATION: meterDefJson}
-			list            *marketplacev1alpha1.MeterDefinitionList
-			meterDefinition *marketplacev1alpha1.MeterDefinition
+			ann                  = map[string]string{utils.CSV_METERDEFINITION_ANNOTATION: meterDefJson}
+			trackmeterAnnotation = map[string]string{trackMeterTag: "true"}
+			list                 *marketplacev1alpha1.MeterDefinitionList
+			meterDefinition      *marketplacev1alpha1.MeterDefinition
+
+			//meterDefinitionNew   *marketplacev1alpha1.MeterDefinition
+			gvk *schema.GroupVersionKind
 		)
 		BeforeEach(func() {
 			list = &marketplacev1alpha1.MeterDefinitionList{}
 			meterDefinition = &marketplacev1alpha1.MeterDefinition{}
+
+			//meterDefinitionNew = nil
+			gvk = &schema.GroupVersionKind{}
+			gvk.Kind = "ClusterServiceVersion"
+			gvk.Version = "operators.coreos.com/v1alpha1"
 			meterDefinition.SetNamespace("test-namespace")
+			CSV.SetNamespace("test-namespace")
+			CSV.SetName("mock-csv")
+			CSV.SetAnnotations(trackmeterAnnotation)
+			_, _ = meterDefinition.BuildMeterDefinitionFromString(
+				meterDefJson,
+				CSV.GetName(),
+				CSV.GetNamespace(),
+				utils.CSV_ANNOTATION_NAME,
+				utils.CSV_ANNOTATION_NAMESPACE)
+			ref := metav1.OwnerReference{
+				APIVersion:         gvk.GroupVersion().String(),
+				Kind:               gvk.Kind,
+				Name:               CSV.GetName(),
+				UID:                CSV.GetUID(),
+				BlockOwnerDeletion: pointer.BoolPtr(false),
+				Controller:         pointer.BoolPtr(false),
+			}
+
+			meterDefinition.ObjectMeta.OwnerReferences = append(meterDefinition.ObjectMeta.OwnerReferences, ref)
 		})
 		It("CSV should have annotation meterDefStatus with value 'error' and meterDefError", func() {
 			client.EXPECT().List(ctx, list, k8client.InNamespace(meterDefinition.GetNamespace())).Return(nil).Times(1)
-
+			client.EXPECT().Update(ctx, CSV).Return(nil).Times(2)
+			client.EXPECT().Create(ctx, meterDefinition).Return(nil).Times(1)
 			sut.reconcileMeterDefAnnotation(CSV, ann)
 			Expect(CSV.GetAnnotations()[meterDefStatus]).To(Equal("success"))
-			Expect(CSV.GetAnnotations()[meterDefError]).Should(BeNil())
+			Expect(CSV.GetAnnotations()[meterDefError]).Should(BeEmpty())
+
 		})
 	})
 
