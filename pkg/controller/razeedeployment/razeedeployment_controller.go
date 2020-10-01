@@ -751,6 +751,15 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				return reconcile.Result{}, err
 			}
 
+			// watchKeeperSecretVolumeMount := corev1.VolumeMount{}
+			// watchKeeperSecretVolumeMount = r.makeWatchKeeperSecretVolumeMount()
+
+			// err = r.client.Create(context.TODO(),watchKeeperSecretVolumeMount)
+			// if err != nil {
+			// 	reqLogger.Error(err, "Failed to create resource", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
+			// 	return reconcile.Result{}, err
+			// }
+
 			message := "watch-keeper-secret install finished"
 			instance.Status.Conditions.SetCondition(status.Condition{
 				Type:    marketplacev1alpha1.ConditionInstalling,
@@ -800,6 +809,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			return reconcile.Result{}, err
 		}
 	}
+
+	// temp := corev1.ConfigMap{}
+	// temp = *r.makeWatchKeeperConfig(instance)
+	// r.client.Create(context.TODO(),temp)
 
 	// create ibm-cos-reader-key
 	ibmCosReaderKey := corev1.Secret{}
@@ -1320,6 +1333,13 @@ func(r *ReconcileRazeeDeployment) makeWatchKeeperConfigVolume()corev1.Volume{
 	}
 }
 
+func (r *ReconcileRazeeDeployment) makeWatchKeeperConfigVolumeMount()corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name: utils.WATCH_KEEPER_CONFIG_NAME,
+		MountPath: "/home/node/envs/watch-keeper-config",
+	}
+}
+
 // GetDataFromRhmSecret Uses the SecretKeySelector struct to to retrieve byte data from a specified key
 func (r *ReconcileRazeeDeployment) GetDataFromRhmSecret(request reconcile.Request, sel corev1.SecretKeySelector) ([]byte, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "request.Name", request.Name)
@@ -1353,6 +1373,13 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperSecret(instance *marketplacev1
 		},
 		Data: map[string][]byte{"RAZEEDASH_ORG_KEY": key},
 	}, err
+}
+
+func (r *ReconcileRazeeDeployment) makeWatchKeeperSecretVolumeMount() corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name: utils.WATCH_KEEPER_SECRET_NAME,
+		MountPath: "/home/node/envs/watch-keeper-secret",
+	}
 }
 
 // Creates the rhm-cos-reader-key and applies the ibm-cos-reader-key from rhm-operator-secret using the selector stored on the Razeedeployment cr
@@ -1439,7 +1466,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 					ServiceAccountName: "redhat-marketplace-watch-keeper",
 					Containers: []corev1.Container{
 						{
-							Image: r.opts.RhmWatchKeeperImage,
+							Image: "quay.io/razee/watch-keeper:0.6.6",
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse("400m"),
@@ -1463,17 +1490,17 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 									Name:  "NODE_ENV",
 									Value: "production",
 								},
-								{
-									Name: "KUBECONFIG",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: utils.WATCH_KEEPER_CONFIG_NAME,
-											},
-											Key: "KUBECONFIG",
-										},
-									},
-								},
+								// {
+								// 	Name: "KUBECONFIG",
+								// 	ValueFrom: &corev1.EnvVarSource{
+								// 		ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+								// 			LocalObjectReference: corev1.LocalObjectReference{
+								// 				Name: utils.WATCH_KEEPER_CONFIG_NAME,
+								// 			},
+								// 			Key: "KUBECONFIG",
+								// 		},
+								// 	},
+								// },
 							},
 							ImagePullPolicy: corev1.PullAlways,
 							Name:            "watch-keeper",
@@ -1492,20 +1519,20 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      utils.WATCH_KEEPER_CONFIG_NAME,
-									MountPath: "/usr/src/app/envs/watch-keeper-config",
+									MountPath: "/home/node/envs/watch-keeper-config",
 								},
 								{
 									Name:      utils.WATCH_KEEPER_SECRET_NAME,
-									MountPath: "/usr/src/app/envs/watch-keeper-secret",
+									MountPath: "/home/node/envs/watch-keeper-secret",
 								},
-								{
-									Name:      "razee-identity-config",
-									MountPath: "/usr/src/app/envs/razee-identity-config",
-								},
-								{
-									Name:      "razee-identity-secret",
-									MountPath: "/usr/src/app/envs/razee-identity-secret",
-								},
+								// {
+								// 	Name:      "razee-identity-config",
+								// 	MountPath: "/usr/src/app/envs/razee-identity-config",
+								// },
+								// {
+								// 	Name:      "razee-identity-secret",
+								// 	MountPath: "/usr/src/app/envs/razee-identity-secret",
+								// },
 							},
 						},
 					},
@@ -1534,30 +1561,30 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 								},
 							},
 						},
-						{
-							Name: "razee-identity-config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "razee-identity-config",
-									},
-									DefaultMode: ptr.Int32(0400),
-									Optional:    ptr.Bool(true),
-								},
-							},
-						},
-						{
-							Name: "razee-identity-secret",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "razee-identity-secret",
-									},
-									DefaultMode: ptr.Int32(0400),
-									Optional:    ptr.Bool(true),
-								},
-							},
-						},
+						// {
+						// 	Name: "razee-identity-config",
+						// 	VolumeSource: corev1.VolumeSource{
+						// 		ConfigMap: &corev1.ConfigMapVolumeSource{
+						// 			LocalObjectReference: corev1.LocalObjectReference{
+						// 				Name: "razee-identity-config",
+						// 			},
+						// 			DefaultMode: ptr.Int32(0400),
+						// 			Optional:    ptr.Bool(true),
+						// 		},
+						// 	},
+						// },
+						// {
+						// 	Name: "razee-identity-secret",
+						// 	VolumeSource: corev1.VolumeSource{
+						// 		ConfigMap: &corev1.ConfigMapVolumeSource{
+						// 			LocalObjectReference: corev1.LocalObjectReference{
+						// 				Name: "razee-identity-secret",
+						// 			},
+						// 			DefaultMode: ptr.Int32(0400),
+						// 			Optional:    ptr.Bool(true),
+						// 		},
+						// 	},
+						// },
 					},
 				},
 			},
