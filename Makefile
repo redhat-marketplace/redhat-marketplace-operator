@@ -20,7 +20,6 @@ REPORTER_IMAGE_NAME ?= redhat-marketplace-reporter
 REPORTER_IMAGE_TAG ?= $(OPERATOR_IMAGE_TAG)
 REPORTER_IMAGE := $(IMAGE_REGISTRY)/$(REPORTER_IMAGE_NAME):$(REPORTER_IMAGE_TAG)
 
-
 METRIC_STATE_IMAGE_NAME ?= redhat-marketplace-metric-state
 METRIC_STATE_IMAGE_TAG ?= $(OPERATOR_IMAGE_TAG)
 METRIC_STATE_IMAGE := $(IMAGE_REGISTRY)/$(METRIC_STATE_IMAGE_NAME):$(METRIC_STATE_IMAGE_TAG)
@@ -269,13 +268,9 @@ test: testbin ## test-ci runs all tests for CI builds
 	ginkgo -r --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace
 
 load-kind:
-	kind load docker-image $(REPORTER_IMAGE) --name=kind
-	kind load docker-image $(METRIC_STATE_IMAGE)  --name=kind
-	kind load docker-image $(AUTHCHECK_IMAGE)  --name=kind
-
-	for IMAGE in "registry.redhat.io/openshift4/ose-configmap-reloader:latest" "registry.redhat.io/openshift4/ose-prometheus-config-reloader:latest" "registry.redhat.io/openshift4/ose-prometheus-operator:latest" "registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest" "registry.redhat.io/openshift4/ose-oauth-proxy:latest"; do \
+	for IMAGE in $(REPORTER_IMAGE) $(METRIC_STATE_IMAGE) $(AUTHCHECK_IMAGE); do \
 		docker pull $$IMAGE ; \
-		kind load docker-image $$IMAGE ; \
+		kind load docker-image $$IMAGE --name=kind ; \
 	done
 
 .PHONY: test-cover
@@ -451,15 +446,15 @@ testbin:
 	/bin/bash ./scripts/setup_envtest.sh $(K8S_VERSION) $(ETCD_VERSION)
 	chmod +x testbin/etcd testbin/kubectl testbin/kube-apiserver
 
-$(cfssl):
+$(cfssl): testbin
 	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl_1.4.1_$(UNAME)_amd64 -o cfssl
 	chmod +x ./testbin/cfssl
 
-$(cfssljson):
+$(cfssljson): testbin
 	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssljson_1.4.1_$(UNAME)_amd64 -o cfssljson
 	chmod +x ./testbin/cfssljson
 
-$(cfssl-certinfo):
+$(cfssl-certinfo): testbin
 	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl-certinfo_1.4.1_$(UNAME)_amd64 -o cfssl-certinfo
 	chmod +x ./testbin/cfssl-certinfo
 
@@ -471,14 +466,14 @@ else
 	operator_sdk_uname = linux-gnu
 endif
 
-$(operator-sdk):
+$(operator-sdk): testbin
 	echo $(operator_sdk_uname)
 	curl -LO https://github.com/operator-framework/operator-sdk/releases/download/$(operator_sdk_version)/operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname)
 	chmod +x operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname) && mv operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname) ./testbin/operator-sdk
 
 skaffold_version ?= v1.14.0
 
-$(skaffold):
+$(skaffold): testbin
 	curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/$(skaffold_version)/skaffold-$(UNAME)-amd64
 	chmod +x skaffold && mv skaffold ./testbin
 

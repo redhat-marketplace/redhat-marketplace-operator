@@ -88,6 +88,11 @@ profiles:
           delete:
             - '--wait'
             - '--timeout=120s'
+  - name: 43
+    build:
+      tagPolicy:
+        envTemplate:
+          template: '{{.IMAGE_NAME}}'
   - name: base
     build:
       artifacts:

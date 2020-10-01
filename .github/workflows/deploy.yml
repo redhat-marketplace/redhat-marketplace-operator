@@ -18,6 +18,15 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     needs: [build]
+    strategy:
+      matrix:
+        registry:
+          - 'quay.io/rh-marketplace'
+        include:
+          - registry: quay.io/rh-marketplace
+            name: quay
+            key: quayUser
+            value: quayPassword
     env:
       IMAGE_REGISTRY: ${{ matrix.registry }}
       OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
@@ -93,13 +102,15 @@ jobs:
           intervalSeconds: 10
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      - name: Fail
+        if: steps.wait-for-build.outputs.conclusion != 'success'
+        run: exit 1
+
       - name: Load Kind
-        if: steps.wait-for-build.outputs.conclusion == 'success'
         run: |
           make load-kind
 
       - name: Test Integration
-        if: steps.wait-for-build.outputs.conclusion == 'success'
         env:
           USE_EXISTING_CLUSTER: true
           KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT: true
