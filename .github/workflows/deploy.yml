@@ -172,7 +172,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Fail
-        if: steps.wait-for-build.outputs.conclusion != 'success'
+        if: steps.wait-for-deploy.outputs.conclusion == 'failure'
         run: exit 1
 
       - name: Load Kind
