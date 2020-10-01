@@ -14,7 +14,7 @@ env:
   pushImage: true
 
 jobs:
-  test:
+  test-unit:
     name: Test
     runs-on: ubuntu-latest
     needs: [build]
@@ -90,6 +90,77 @@ jobs:
         run: |
           make test-ci-unit
 
+      - uses: actions/upload-artifact@v2
+        with:
+          name: cover-unit.out
+          path: cover-unit.out
+
+  test-integration:
+    name: Test Integration
+    runs-on: ubuntu-latest
+    needs: [build]
+    strategy:
+      matrix:
+        registry:
+          - 'quay.io/rh-marketplace'
+        include:
+          - registry: quay.io/rh-marketplace
+            name: quay
+            key: quayUser
+            value: quayPassword
+    env:
+      IMAGE_REGISTRY: ${{ matrix.registry }}
+      OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
+      OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
+      TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag}}
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.4.1
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.15
+        id: go
+
+      - name: Get if gittag is pushed
+        shell: bash {0}
+        id: tag
+        run: |
+          VERSION=$(make current-version)
+          RESULT=$(git tag --list | grep -E "$VERSION")
+          IS_TAGGED=false
+          if [ "$RESULT" != "" ] ; then
+            IS_TAGGED=true
+          fi
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: Cache Go Mod
+        uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - uses: engineerd/setup-kind@v0.4.0
+
+      - name: Login Docker
+        run: make docker-login
+        env:
+          DOCKER_USER: ${{ secrets.REDHAT_IO_USER }}
+          DOCKER_PASSWORD: ${{ secrets.REDHAT_IO_PASSWORD }}
+          REGISTRY: registry.redhat.io
+
+      - name: Install tools
+        run: |
+          echo "127.0.0.1 localhost" | sudo tee -a /etc/hosts
+          make install-tools testbin
+
       - uses: engineerd/setup-kind@v0.4.0
 
       - name: Wait for build to succeed
@@ -117,9 +188,32 @@ jobs:
         run: |
           make test-ci-int
 
-      - name: Cover
+      - uses: actions/upload-artifact@v2
+        with:
+          name: cover-int.out
+          path: cover-int.out
+
+  cover:
+    name: Cover
+    runs-on: ubuntu-latest
+    needs: [test-unit, test-integration]
+    steps:
+      - uses: actions/download-artifact@v2
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.15
+        id: go
+      - name: Report cover
         run: |
-          make test-cover-text
+            make test-join
+            make test-cover-html
+            make test-cover-text
+            go tool cover -html=cover.out -o cover.html
+      - uses: actions/upload-artifact@v2
+        with:
+          name: cover
+          path: cover.html
 
   build:
     name: Build
@@ -257,14 +351,6 @@ jobs:
           skopeo inspect docker://${TAG} --creds ${{ secrets[matrix.key] }}:${{ secrets[matrix.value] }} > /dev/null
           [[ $? == 0 ]] && echo ::set-env name=exists::true || echo ::set-env name=exists::false
 
-      - name: Cache tools
-        id: tools
-        uses: actions/cache@v2
-        with:
-          path: |
-            testbin
-          key: tools-${{ runner.os }}-${{ hashFiles('Makefile') }}
-
       - name: Install tools
         run: |
           make install-tools
@@ -318,14 +404,6 @@ jobs:
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
-
-      - name: Cache tools
-        id: tools
-        uses: actions/cache@v2
-        with:
-          path: |
-            testbin
-          key: tools-${{ runner.os }}-${{ hashFiles('Makefile') }}
 
       - name: Install operator-sdk
         run: |

@@ -27,7 +27,7 @@ require (
 	github.com/goph/emperror v0.17.2
 	github.com/gophercloud/gophercloud v0.12.0 // indirect
 	github.com/gotidy/ptr v1.0.1
-	github.com/imdario/mergo v0.3.8
+	github.com/imdario/mergo v0.3.9
 	github.com/jpillora/backoff v1.0.0
 	github.com/launchdarkly/go-options v1.0.0
 	github.com/mattn/go-colorable v0.1.7 // indirect
@@ -41,6 +41,7 @@ require (
 	github.com/openshift/api v0.0.0-20200205133042-34f0ec8dab87
 	github.com/openshift/origin v0.0.0-20160503220234-8f127d736703
 	github.com/operator-framework/api v0.3.8
+	github.com/operator-framework/operator-lib v0.1.0
 	github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b
 	github.com/operator-framework/operator-sdk v0.19.2
 	github.com/pkg/errors v0.9.1
@@ -53,6 +54,7 @@ require (
 	github.com/spf13/viper v1.6.2
 	github.com/stretchr/testify v1.5.1
 	github.com/tcnksm/ghr v0.13.0
+	github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad // indirect
 	go.uber.org/zap v1.14.1
 	golang.org/x/net v0.0.0-20200822124328-c89045814202
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
@@ -67,8 +69,8 @@ require (
 	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
 	k8s.io/kube-state-metrics v1.7.2
 	k8s.io/kubectl v0.18.2
-	k8s.io/utils v0.0.0-20200414100711-2df71ebbae66
-	sigs.k8s.io/controller-runtime v0.6.0
+	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451
+	sigs.k8s.io/controller-runtime v0.6.1
 )
 
 replace (
