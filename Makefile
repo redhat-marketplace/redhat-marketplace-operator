@@ -44,7 +44,7 @@ cfssl = ./testbin/cfssl
 cfssljson = ./testbin/cfssljson
 cfssl-certinfo = ./testbin/cfssl-certinfo
 opm = ./testbin/opm
-kind = ./testbin/kind
+kind = $(shell go env GOPATH)/bin/kind
 gocovmerge = $(GOPATH)/bin/gocovmerge
 
 ##@ Application
@@ -276,9 +276,9 @@ test-int-kind:
 	- USE_EXISTING_CLUSTER=true make test-ci-int
 
 load-kind:
-	for IMAGE in $(REPORTER_IMAGE) $(METRIC_STATE_IMAGE) $(AUTHCHECK_IMAGE); do \
-		docker pull $$IMAGE ; \
-		$(kind) load docker-image $$IMAGE --name=kind ; \
+	for IMAGE in "registry.redhat.io/openshift4/ose-configmap-reloader:latest" "registry.redhat.io/openshift4/ose-prometheus-config-reloader:latest" "registry.redhat.io/openshift4/ose-prometheus-operator:latest" "registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest" "registry.redhat.io/openshift4/ose-oauth-proxy:latest"; do \
+			docker pull $$IMAGE ; \
+			$(kind) load docker-image $$IMAGE --name=kind ; \
 	done
 
 .PHONY: test-cover
@@ -443,7 +443,7 @@ install-test-registry: ## Install the test registry
 ##@ Tools
 
 .PHONY: install-tools
-install-tools: testbin $(cfssl) $(cfssljson) $(cfssl-certinfo) $(skaffold) $(operator-sdk) $(opm)
+install-tools: testbin $(cfssl) $(cfssljson) $(cfssl-certinfo) $(skaffold) $(operator-sdk) $(opm) $(kind)
 	@echo Installing tools from tools.go
 	@$(shell cd ./scripts && GO111MODULE=off go get -tags tools)
 	@cat scripts/tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go install %
@@ -479,6 +479,9 @@ $(cfssljson):
 $(cfssl-certinfo):
 	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl-certinfo_1.4.1_$(UNAME)_amd64 -o cfssl-certinfo
 	chmod +x ./testbin/cfssl-certinfo
+
+$(kind):
+	GO111MODULE="on" go get sigs.k8s.io/kind
 
 operator_sdk_version ?= v0.18.0
 

@@ -161,12 +161,12 @@ jobs:
           echo "127.0.0.1 localhost" | sudo tee -a /etc/hosts
           make install-tools testbin
 
-      - name: Wait for build to succeed
+      - name: Wait for deploy to succeed
         uses: fountainhead/action-wait-for-check@v1.0.0
-        id: wait-for-build
+        id: wait-for-deploy
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          checkName: Build
+          checkName: Deploy
           timeoutSeconds: 1000
           intervalSeconds: 10
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
