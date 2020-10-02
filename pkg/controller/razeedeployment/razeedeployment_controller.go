@@ -1486,19 +1486,17 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 										Name: utils.WATCH_KEEPER_CONFIG_NAME,
 									},
 									DefaultMode: ptr.Int32(0400),
-									Optional:    ptr.Bool(true),
+									Optional:    ptr.Bool(false),
 								},
 							},
 						},
 						{
 							Name: utils.WATCH_KEEPER_SECRET_NAME,
 							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: utils.WATCH_KEEPER_SECRET_NAME,
-									},
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: utils.WATCH_KEEPER_SECRET_NAME,
 									DefaultMode: ptr.Int32(0400),
-									Optional:    ptr.Bool(true),
+									Optional:    ptr.Bool(false),
 								},
 							},
 						},
