@@ -751,15 +751,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				return reconcile.Result{}, err
 			}
 
-			// watchKeeperSecretVolumeMount := corev1.VolumeMount{}
-			// watchKeeperSecretVolumeMount = r.makeWatchKeeperSecretVolumeMount()
-
-			// err = r.client.Create(context.TODO(),watchKeeperSecretVolumeMount)
-			// if err != nil {
-			// 	reqLogger.Error(err, "Failed to create resource", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
-			// 	return reconcile.Result{}, err
-			// }
-
 			message := "watch-keeper-secret install finished"
 			instance.Status.Conditions.SetCondition(status.Condition{
 				Type:    marketplacev1alpha1.ConditionInstalling,
@@ -809,10 +800,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			return reconcile.Result{}, err
 		}
 	}
-
-	// temp := corev1.ConfigMap{}
-	// temp = *r.makeWatchKeeperConfig(instance)
-	// r.client.Create(context.TODO(),temp)
 
 	// create ibm-cos-reader-key
 	ibmCosReaderKey := corev1.Secret{}
@@ -1466,7 +1453,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 					ServiceAccountName: "redhat-marketplace-watch-keeper",
 					Containers: []corev1.Container{
 						{
-							Image: "quay.io/razee/watch-keeper:0.6.6",
+							Image: r.opts.RhmWatchKeeperImage,
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse("400m"),
@@ -1490,17 +1477,6 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 									Name:  "NODE_ENV",
 									Value: "production",
 								},
-								// {
-								// 	Name: "KUBECONFIG",
-								// 	ValueFrom: &corev1.EnvVarSource{
-								// 		ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-								// 			LocalObjectReference: corev1.LocalObjectReference{
-								// 				Name: utils.WATCH_KEEPER_CONFIG_NAME,
-								// 			},
-								// 			Key: "KUBECONFIG",
-								// 		},
-								// 	},
-								// },
 							},
 							ImagePullPolicy: corev1.PullAlways,
 							Name:            "watch-keeper",
@@ -1525,14 +1501,6 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 									Name:      utils.WATCH_KEEPER_SECRET_NAME,
 									MountPath: "/home/node/envs/watch-keeper-secret",
 								},
-								// {
-								// 	Name:      "razee-identity-config",
-								// 	MountPath: "/usr/src/app/envs/razee-identity-config",
-								// },
-								// {
-								// 	Name:      "razee-identity-secret",
-								// 	MountPath: "/usr/src/app/envs/razee-identity-secret",
-								// },
 							},
 						},
 					},
