@@ -77,10 +77,10 @@ setup_testenv_bin() {
       [[ -x $TESTBIN_DIR/kube-apiserver && -x ${TESTBIN_DIR}/kubectl ]] || curl -L https://dl.k8s.io/${K8S_VER}/kubernetes-server-${OS}-${ARCH}.tar.gz | tar zx -C ${TESTBIN_DIR} --strip-components=3 kubernetes/server/bin/kube-apiserver kubernetes/server/bin/kubectl
     fi
   fi
-  export PATH=/$TESTBIN_DIR:$PATH
-  export TEST_ASSET_KUBECTL=/$TESTBIN_DIR/kubectl
-  export TEST_ASSET_KUBE_APISERVER=/$TESTBIN_DIR/kube-apiserver
-  export TEST_ASSET_ETCD=/$TESTBIN_DIR/etcd
+  export PATH=./$TESTBIN_DIR:$PATH
+  export TEST_ASSET_KUBECTL=./$TESTBIN_DIR/kubectl
+  export TEST_ASSET_KUBE_APISERVER=./$TESTBIN_DIR/kube-apiserver
+  export TEST_ASSET_ETCD=./$TESTBIN_DIR/etcd
 }
 
 setup_testenv_bin

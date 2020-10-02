@@ -112,15 +112,15 @@ func (i *do) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 
 		switch result.Status {
 		case Error:
-			logger.Info("returning error", "err", err)
+			logger.Error(err, "action errored")
 			return result, emperrors.Wrap(err, "error executing do")
 		case Requeue:
-			logger.Info("returning requeue")
+			logger.V(4).Info("returning requeue")
 			return result, nil
 		}
 	}
 
-	logger.Info("action returned result", "result", *result)
+	logger.V(4).Info("action returned result", "result", *result)
 	return result, nil
 }
 

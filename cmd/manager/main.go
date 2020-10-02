@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/spf13/pflag"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers/runnables"
 	loggerf "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 )
 
@@ -34,7 +36,6 @@ var (
 	metricsHost       = "0.0.0.0"
 	metricsPort int32 = 8383
 )
-
 
 func provideOptions(kscheme *runtime.Scheme) (*manager.Options, error) {
 	watchNamespace, err := k8sutil.GetWatchNamespace()
@@ -50,10 +51,18 @@ func provideOptions(kscheme *runtime.Scheme) (*manager.Options, error) {
 	}, nil
 }
 
+func providePodMonitorConfig() runnables.PodMonitorConfig {
+	return runnables.PodMonitorConfig{
+		Namespace: "openshift-redhat-marketplace",
+		RetryTime: 30 * time.Second,
+	}
+}
+
 func makeMarketplaceController(
 	controllerFlags *controller.ControllerFlagSet,
 	controllerList controller.ControllerList,
 	mgr manager.Manager,
+	podmonitor *runnables.PodMonitor,
 ) *managers.ControllerMain {
 	return &managers.ControllerMain{
 		Name: "redhat-marketplace-operator",
@@ -62,6 +71,7 @@ func makeMarketplaceController(
 		},
 		Controllers: controllerList,
 		Manager:     mgr,
+		PodMonitor:  podmonitor,
 	}
 }
 

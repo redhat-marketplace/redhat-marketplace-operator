@@ -9,6 +9,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	config2 "sigs.k8s.io/controller-runtime/pkg/client/config"
 )
@@ -54,6 +55,15 @@ func InitializeMarketplaceController() (*managers.ControllerMain, error) {
 	if err != nil {
 		return nil, err
 	}
-	controllerMain := makeMarketplaceController(controllerFlagSet, controllerList, manager)
+	logrLogger := _wireLoggerValue
+	client := managers.ProvideManagerClient(manager)
+	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logrLogger)
+	podMonitorConfig := providePodMonitorConfig()
+	podMonitor := runnables.NewPodMonitor(logrLogger, clientCommandRunner, podMonitorConfig)
+	controllerMain := makeMarketplaceController(controllerFlagSet, controllerList, manager, podMonitor)
 	return controllerMain, nil
 }
+
+var (
+	_wireLoggerValue = logger
+)

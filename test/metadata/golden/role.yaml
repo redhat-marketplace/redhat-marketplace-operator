@@ -308,6 +308,7 @@ rules:
   - servicemonitors
   - podmonitors
   - prometheusrules
+  - '*'
   verbs:
   - '*'
 - apiGroups:

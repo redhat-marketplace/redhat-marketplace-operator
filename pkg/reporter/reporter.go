@@ -99,7 +99,8 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 	var resultsMapMutex sync.Mutex
 
 	if len(r.meterDefinitions) == 0 {
-		return resultsMap, []error{}, errors.Wrap(ErrNoMeterDefinitionsFound, "no meterDefs found")
+		logger.Info("no meterdefs found")
+		return resultsMap, []error{}, nil
 	}
 
 	meterDefsChan := make(chan *marketplacev1alpha1.MeterDefinition, len(r.meterDefinitions))

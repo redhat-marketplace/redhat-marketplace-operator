@@ -1,20 +1,220 @@
-name: Deploy Image
+name: Test & Deploy Image
 
 on:
   push:
     branches:
-      - "master"
-      - "release/**"
-      - "hotfix/**"
-      - "develop"
-      - "feature/**"
-      - "bugfix/**"
+      - 'master'
+      - 'release/**'
+      - 'hotfix/**'
+      - 'develop'
+      - 'feature/**'
+      - 'bugfix/**'
+
 env:
   pushImage: true
 
 jobs:
-  build:
+  test-unit:
     name: Test
+    runs-on: ubuntu-latest
+    needs: [build]
+    strategy:
+      matrix:
+        registry:
+          - 'quay.io/rh-marketplace'
+        include:
+          - registry: quay.io/rh-marketplace
+            name: quay
+            key: quayUser
+            value: quayPassword
+    env:
+      IMAGE_REGISTRY: ${{ matrix.registry }}
+      OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
+      OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
+      TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag}}
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.4.1
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.15
+        id: go
+
+      - name: Get if gittag is pushed
+        shell: bash {0}
+        id: tag
+        run: |
+          VERSION=$(make current-version)
+          RESULT=$(git tag --list | grep -E "$VERSION")
+          IS_TAGGED=false
+          if [ "$RESULT" != "" ] ; then
+            IS_TAGGED=true
+          fi
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: Cache Go Mod
+        uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Login Docker
+        run: make docker-login
+        env:
+          DOCKER_USER: ${{ secrets.REDHAT_IO_USER }}
+          DOCKER_PASSWORD: ${{ secrets.REDHAT_IO_PASSWORD }}
+          REGISTRY: registry.redhat.io
+
+      - name: Cache tools
+        id: tools
+        uses: actions/cache@v2
+        with:
+          path: |
+            testbin
+          key: tools-${{ runner.os }}-${{ hashFiles('Makefile') }}
+
+      - name: Install tools
+        run: |
+          echo "127.0.0.1 localhost" | sudo tee -a /etc/hosts
+          make install-tools testbin
+
+      - name: Test Unit
+        run: |
+          make test-ci-unit
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: cover-unit.out
+          path: cover-unit.out
+
+  test-integration:
+    name: Test Integration
+    runs-on: ubuntu-latest
+    needs: [build]
+    strategy:
+      matrix:
+        registry:
+          - 'quay.io/rh-marketplace'
+        include:
+          - registry: quay.io/rh-marketplace
+            name: quay
+            key: quayUser
+            value: quayPassword
+    env:
+      IMAGE_REGISTRY: ${{ matrix.registry }}
+      OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
+      OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
+      TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag}}
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.4.1
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.15
+        id: go
+
+      - name: Get if gittag is pushed
+        shell: bash {0}
+        id: tag
+        run: |
+          VERSION=$(make current-version)
+          RESULT=$(git tag --list | grep -E "$VERSION")
+          IS_TAGGED=false
+          if [ "$RESULT" != "" ] ; then
+            IS_TAGGED=true
+          fi
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: Cache Go Mod
+        uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - uses: engineerd/setup-kind@v0.4.0
+
+      - name: Login Docker
+        run: make docker-login
+        env:
+          DOCKER_USER: ${{ secrets.REDHAT_IO_USER }}
+          DOCKER_PASSWORD: ${{ secrets.REDHAT_IO_PASSWORD }}
+          REGISTRY: registry.redhat.io
+
+      - name: Install tools
+        run: |
+          echo "127.0.0.1 localhost" | sudo tee -a /etc/hosts
+          make install-tools testbin
+
+      - name: Wait for deploy to succeed
+        uses: fountainhead/action-wait-for-check@v1.0.0
+        id: wait-for-deploy
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          checkName: Deploy (quay.io/rh-marketplace)
+          timeoutSeconds: 1000
+          intervalSeconds: 10
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Fail
+        if: steps.wait-for-deploy.outputs.conclusion == 'failure'
+        run: exit 1
+
+      - name: Load Kind
+        run: |
+          make load-kind
+
+      - name: Test Integration
+        env:
+          USE_EXISTING_CLUSTER: true
+          KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT: true
+        run: |
+          make test-ci-int
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: cover-int.out
+          path: cover-int.out
+
+  cover:
+    name: Cover
+    runs-on: ubuntu-latest
+    needs: [test-unit, test-integration]
+    steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.15
+        id: go
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+      - uses: actions/download-artifact@v2
+      - name: Report cover
+        run: |
+            make test-join test-cover-text
+            go tool cover -html=cover.out -o cover.html
+      - uses: actions/upload-artifact@v2
+        with:
+          name: cover
+          path: cover.html
+
+  build:
+    name: Build
     runs-on: ubuntu-latest
 
     outputs:
@@ -27,7 +227,6 @@ jobs:
       gittagpushed: ${{ steps.tag.outputs.gittagpushed }}
     env:
       TAGPREFIX: ''
-
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.4.1
@@ -83,16 +282,6 @@ jobs:
         env:
           FILEHASH: ${{ hashFiles('cmd/**', 'pkg/**', 'interal/**', 'version/**', 'go.sum', 'go.mod') }}
 
-      - name: Get dependencies
-        run: |
-          go mod download
-
-      - name: Test
-        env:
-          KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT: true
-        run: |
-          make install-tools test-ci
-
       - name: Turnstyle
         uses: softprops/turnstyle@v1
         with:
@@ -145,6 +334,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Cache Go Mod
+        uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
       - name: Check if tag exists
         id: image
         shell: bash {0}
@@ -152,15 +349,11 @@ jobs:
           skopeo inspect docker://${TAG} --creds ${{ secrets[matrix.key] }}:${{ secrets[matrix.value] }} > /dev/null
           [[ $? == 0 ]] && echo ::set-env name=exists::true || echo ::set-env name=exists::false
 
-
-      - name: Install skaffold
+      - name: Install tools
         run: |
-          cd /tmp
-          curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/${SKAFFOLD_VERSION}/skaffold-linux-amd64 && \
-          sudo install skaffold /usr/local/bin/
-          echo "::add-path::/usr/local/bin"
+          make install-tools
         env:
-          SKAFFOLD_VERSION: v1.13.1
+          SKAFFOLD_VERSION: v1.14.0
 
       - name: Login ${{ matrix.name }}
         run: make docker-login
@@ -169,7 +362,7 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets[matrix.value] }}
           REGISTRY: ${{ matrix.registry }}
 
-      - name: Build
+      - name: Build & Push
         if: env.exists != 'true'
         run: make build
 
@@ -213,19 +406,14 @@ jobs:
       - name: Install operator-sdk
         run: |
           make install-tools
-          cd /tmp
-          curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
-          chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu && sudo mkdir -p /usr/local/bin/ && sudo cp operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk && rm operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
           python -m pip install --upgrade pip
           pip3 install -Iv operator-courier==$COURIER_VERSION
-          curl -LO https://github.com/operator-framework/operator-registry/releases/download/${OPM_VERSION}/linux-amd64-opm
-          chmod +x linux-amd64-opm && sudo cp linux-amd64-opm /usr/local/bin/opm && rm linux-amd64-opm
-          echo "::add-path::/usr/local/bin"
           sudo apt-get install -y sed
           sudo snap install yq
+          echo "::add-path::`pwd`/testbin/bin"
         env:
-          RELEASE_VERSION: v0.18.0
-          OPM_VERSION: v1.12.5
+          operator_sdk_version: v0.18.0
+          opm_version: v1.12.5
           COURIER_VERSION: 2.1.7
 
       - name: Login ${{ matrix.name }}
@@ -280,6 +468,12 @@ jobs:
             name: PC
             key: pcUser
             value: pcPasswordMetricState
+          - image: redhat-marketplace-authcheck
+            registry: scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785
+            fromRegistry: quay.io/rh-marketplace
+            name: PC
+            key: pcUser
+            value: pcPassword
     env:
       FROM_OPERATOR_IMAGE: ${{ matrix.fromRegistry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
       TO_OPERATOR_IMAGE: ${{ matrix.registry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}

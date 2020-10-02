@@ -19,5 +19,5 @@ VERSIONS_LIST=$(echo $VERSIONS | xargs | sed -e "s/ / $OLM_REPO_E:v/g" | sed -e 
 echo "Using tag ${OLM_BUNDLE_REPO}:${TAG}"
 echo "Building index with $VERSIONS_LIST"
 echo ""
-opm index add -u docker --bundles "$VERSIONS_LIST" --tag "${OLM_BUNDLE_REPO}:${TAG}"
+./testbin/opm index add -u docker --bundles "$VERSIONS_LIST" --tag "${OLM_BUNDLE_REPO}:${TAG}"
 docker push "${OLM_BUNDLE_REPO}:${TAG}"

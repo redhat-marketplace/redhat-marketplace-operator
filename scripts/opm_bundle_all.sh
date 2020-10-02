@@ -19,7 +19,7 @@ for VERSION in $VERSIONS; do
 
 	if [ "$EXISTS" == "false" ] || [ "$OVERRIDE" == "true" ]; then
 		echo "Building bundle for $VERSION b/c != $LAST_VERSION"
-		operator-sdk bundle create "$TAG" \
+		./testbin/operator-sdk bundle create "$TAG" \
 			--directory "./deploy/olm-catalog/redhat-marketplace-operator/$VERSION" \
 			-c stable,beta \
 			--package "${OLM_PACKAGE_NAME}" \

@@ -314,6 +314,10 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	prometheusStatefulset := &appsv1.StatefulSet{}
 	if result, err := cc.Do(
 		context.TODO(),
+		GetAction(types.NamespacedName{
+			Namespace: instance.Namespace,
+			Name:      instance.Name,
+		}, instance),
 		HandleResult(
 			GetAction(types.NamespacedName{
 				Namespace: prometheus.Namespace,
@@ -840,12 +844,11 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 	kubeletCertsCM := &corev1.ConfigMap{}
 
 	return []ClientAction{
-		manifests.CreateOrUpdateFactoryItemAction(
+		manifests.CreateIfNotExistsFactoryItem(
 			&corev1.ConfigMap{},
 			func() (runtime.Object, error) {
 				return factory.PrometheusServingCertsCABundle()
 			},
-			args,
 		),
 		manifests.CreateIfNotExistsFactoryItem(
 			dataSecret,
@@ -863,7 +866,7 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 				return factory.PrometheusRBACProxySecret()
 			},
 		),
-		manifests.CreateIfNotExistsFactoryItem(
+		HandleResult(manifests.CreateIfNotExistsFactoryItem(
 			&corev1.Secret{},
 			func() (runtime.Object, error) {
 				data, ok := dataSecret.Data["basicAuthSecret"]
@@ -874,6 +877,8 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 
 				return factory.PrometheusHtpasswdSecret(string(data))
 			}),
+			OnError(RequeueResponse()),
+		),
 		HandleResult(
 			GetAction(
 				types.NamespacedName{Namespace: "openshift-config-managed", Name: "kubelet-serving-ca"},
@@ -915,6 +920,7 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 				updatedPrometheus.Spec.Volumes = expectedPrometheus.Spec.Volumes
 				updatedPrometheus.Spec.VolumeMounts = expectedPrometheus.Spec.VolumeMounts
 				updatedPrometheus.Spec.AdditionalScrapeConfigs = expectedPrometheus.Spec.AdditionalScrapeConfigs
+				updatedPrometheus.Spec.Containers = expectedPrometheus.Spec.Containers
 
 				patch, err := r.patcher.Calculate(prometheus, updatedPrometheus)
 				if err != nil {
@@ -1090,27 +1096,29 @@ func (r *ReconcileMeterBase) newPrometheusOperator(
 	cfg *corev1.Secret,
 ) (*monitoringv1.Prometheus, error) {
 	prom, err := factory.NewPrometheusDeployment(cr, cfg)
-	if cr.Spec.Prometheus.Storage.EmptyDir != nil {
-		log.Info("CRC Enabled")
-		prom.Spec.Storage.EmptyDir = cr.Spec.Prometheus.Storage.EmptyDir
-	}
 
 	if cr.Spec.Prometheus.Replicas != nil {
 		prom.Spec.Replicas = cr.Spec.Prometheus.Replicas
 	}
 
-	if cr.Spec.Prometheus.Storage.EmptyDir == nil {
-		log.Info("CRC Not Enabled")
-		storageClass,err := r.setDefaultStorageClass(cr)
+	if cr.Spec.Prometheus.Storage.Class != nil {
+		storageClass, err := r.setDefaultStorageClass(cr)
 		if err != nil {
-			return prom,err
+			return prom, err
 		}
+
+		prom.Spec.Storage.VolumeClaimTemplate.Spec.Resources.Requests[corev1.ResourceStorage] = cr.Spec.Prometheus.Storage.Size
 		prom.Spec.Storage.VolumeClaimTemplate.Spec.StorageClassName = storageClass
+	} else {
+		if cr.Spec.Prometheus.Storage.EmptyDir != nil {
+			prom.Spec.Storage.EmptyDir = cr.Spec.Prometheus.Storage.EmptyDir
+		}
 	}
+
 	return prom, err
 }
 
-func(r *ReconcileMeterBase) setDefaultStorageClass(cr *marketplacev1alpha1.MeterBase)(*string,error){
+func (r *ReconcileMeterBase) setDefaultStorageClass(cr *marketplacev1alpha1.MeterBase) (*string, error) {
 	if cr.Spec.Prometheus.Storage.Class == nil {
 		foundDefaultClass, err := utils.GetDefaultStorageClass(r.client)
 
@@ -1118,10 +1126,10 @@ func(r *ReconcileMeterBase) setDefaultStorageClass(cr *marketplacev1alpha1.Meter
 			return nil, err
 		}
 
-		return ptr.String(foundDefaultClass),nil
-	} 
-	
-	return cr.Spec.Prometheus.Storage.Class,nil
+		return ptr.String(foundDefaultClass), nil
+	}
+
+	return cr.Spec.Prometheus.Storage.Class, nil
 }
 
 // serviceForPrometheus function takes in a Prometheus object and returns a Service for that object.

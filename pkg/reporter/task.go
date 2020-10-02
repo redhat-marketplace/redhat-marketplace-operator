@@ -344,13 +344,13 @@ func getMeterDefinitions(
 		),
 	)
 
+	if result.Is(Error) {
+		return nil, errors.Wrap(result, "failed to get meterdefs")
+	}
+  
 	if result.Is(NotFound) {
 		return []marketplacev1alpha1.MeterDefinition{}, nil
 	}
-
-	if !result.Is(Continue) {
-		return nil, errors.Wrap(result, "failed to get meterdefs")
-	}
-
+  
 	return defs.Items, nil
 }

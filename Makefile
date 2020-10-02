@@ -20,10 +20,13 @@ REPORTER_IMAGE_NAME ?= redhat-marketplace-reporter
 REPORTER_IMAGE_TAG ?= $(OPERATOR_IMAGE_TAG)
 REPORTER_IMAGE := $(IMAGE_REGISTRY)/$(REPORTER_IMAGE_NAME):$(REPORTER_IMAGE_TAG)
 
-
 METRIC_STATE_IMAGE_NAME ?= redhat-marketplace-metric-state
 METRIC_STATE_IMAGE_TAG ?= $(OPERATOR_IMAGE_TAG)
 METRIC_STATE_IMAGE := $(IMAGE_REGISTRY)/$(METRIC_STATE_IMAGE_NAME):$(METRIC_STATE_IMAGE_TAG)
+
+AUTHCHECK_IMAGE_NAME ?= redhat-marketplace-authcheck
+AUTHCHECK_IMAGE_TAG ?= $(OPERATOR_IMAGE_TAG)
+AUTHCHECK_IMAGE := $(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME):$(AUTHCHECK_IMAGE_TAG)
 
 PUSH_IMAGE ?= false
 PULL_POLICY ?= IfNotPresent
@@ -33,6 +36,16 @@ PULL_POLICY ?= IfNotPresent
 CLUSTER_SERVER ?= https://api.crc.testing:6443
 # The namespace where the operator watches for changes. Set "" for AllNamespaces, set "ns1,ns2" for MultiNamespace
 OPERATOR_WATCH_NAMESPACE ?= ""
+
+## Tool paths
+operator-sdk = ./testbin/operator-sdk
+skaffold = ./testbin/skaffold
+cfssl = ./testbin/cfssl
+cfssljson = ./testbin/cfssljson
+cfssl-certinfo = ./testbin/cfssl-certinfo
+opm = ./testbin/opm
+kind = $(shell go env GOPATH)/bin/kind
+gocovmerge = $(shell go env GOPATH)/bin/gocovmerge
 
 ##@ Application
 
@@ -52,24 +65,19 @@ uninstall: ## Uninstall all that all performed in the $ make install
 
 .PHONY: clean
 clean: ## Clean up generated files that are emphemeral
+	- rm -rf ./testbin
 	- rm ./deploy/role.yaml ./deploy/operator.yaml ./deploy/role_binding.yaml ./deploy/service_account.yaml
 
-.PHONY: install-tools
-install-tools:
-	@echo Installing tools from tools.go
-	@$(shell cd ./scripts && GO111MODULE=off go get -tags tools)
-	@cat scripts/tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go install %
-
 .PHONY: build-base
-build-base:
-	skaffold build --tag="1.14" -p base
+build-base: $(skaffold)
+	$(skaffold) build --tag="1.15" -p base --default-repo quay.io/rh-marketplace
 
 .PHONY: build
-build: ## Build the operator executable
-	VERSION=$(VERSION) skaffold build --tag $(OPERATOR_IMAGE_TAG) --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --cache-artifacts=false
+build: $(skaffold) ## Build the operator executable
+	VERSION=$(VERSION) $(skaffold) build --tag $(OPERATOR_IMAGE_TAG) --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --cache-artifacts=false
 
 helm: ## build helm base charts
-	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE),metricStateImage=$(METRIC_STATE_IMAGE),reporterImage=$(REPORTER_IMAGE) --set namespace=$(NAMESPACE)
+	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE),metricStateImage=$(METRIC_STATE_IMAGE),reporterImage=$(REPORTER_IMAGE),authCheckImage=$(AUTHCHECK_IMAGE) --set namespace=$(NAMESPACE)
 
 MANIFEST_CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/manifests/redhat-marketplace-operator.clusterserviceversion.yaml
 VERSION_CSV_FILE := ./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)/redhat-marketplace-operator.v$(VERSION).clusterserviceversion.yaml
@@ -79,7 +87,7 @@ CHANNELS ?= beta
 
 generate-bundle: ## Generate the csv
 	make helm
-	operator-sdk bundle create --generate-only \
+	$(operator-sdk) bundle create --generate-only \
 		--package redhat-marketplace-operator \
 		--default-channel=$(CSV_DEFAULT_CHANNEl) \
 		--channels $(CHANNELS)
@@ -92,7 +100,7 @@ INTERNAL_CRDS='["razeedeployments.marketplace.redhat.com","remoteresources3s.mar
 
 generate-csv: ## Generate the csv
 	make helm
-	operator-sdk generate csv \
+	$(operator-sdk) generate csv \
 		--from-version=$(FROM_VERSION) \
 		--csv-version=$(VERSION) \
 		--csv-channel=$(CSV_CHANNEL) \
@@ -124,15 +132,15 @@ docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
 
 ##@ Development
 
-skaffold-dev: ## Run skaffold dev. Will unique tag the operator and rebuild.
+skaffold-dev: $(skaffold) ## Run skaffold dev. Will unique tag the operator and rebuild.
 	make create
-	DEVPOSTFIX=$(DEVPOSTFIX) DOCKER_EXEC=$(DOCKER_EXEC) skaffold dev --tail --port-forward --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --trigger manual
+	DEVPOSTFIX=$(DEVPOSTFIX) DOCKER_EXEC=$(DOCKER_EXEC) $(skaffold) dev --tail --port-forward --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --trigger manual
 
-skaffold-run: ## Run skaffold run. Will uniquely tag the operator.
+skaffold-run: $(skaffold) ## Run skaffold run. Will uniquely tag the operator.
 	make helm
 	make create
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=redhat-marketplace-operator --set pullPolicy=IfNotPresent
-	DOCKER_EXEC=$(DOCKER_EXEC) skaffold run --tail --default-repo $(IMAGE_REGISTRY) --cleanup=false
+	DOCKER_EXEC=$(DOCKER_EXEC) $(skaffold) run --tail --default-repo $(IMAGE_REGISTRY) --cleanup=false
 
 code-vet: ## Run go vet for this project. More info: https://golang.org/cmd/vet/
 	@echo go vet
@@ -157,9 +165,9 @@ ifndef GOROOT
 	$(error GOROOT is undefined)
 endif
 	@echo Generating k8s
-	operator-sdk generate k8s
+	$(operator-sdk) generate k8s
 	@echo Updating the CRD files with the OpenAPI validations
-	operator-sdk generate crds --crd-version=v1beta1
+	$(operator-sdk) generate crds --crd-version=v1beta1
 	@echo Go generating
 	- go generate ./...
 
@@ -181,7 +189,7 @@ setup-operator-sdk: ## Create ns, crds, sa, role, and rolebinding before operato
 	- . ./scripts/operator_sdk_sa_kubeconfig.sh $(CLUSTER_SERVER) $(NAMESPACE) $(SERVICE_ACCOUNT)
 
 run-operator-sdk: ## Run operator locally outside the cluster during development cycle
-	operator-sdk run local --watch-namespace="" --kubeconfig=./sa.kubeconfig
+	$(operator-sdk) run local --watch-namespace="" --kubeconfig=./sa.kubeconfig
 
 ##@ Manual Testing
 
@@ -261,11 +269,17 @@ test: testbin ## test-ci runs all tests for CI builds
 	@echo "testing"
 	ginkgo -r --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace
 
-K8S_VERSION = v1.18.2
-ETCD_VERSION = v3.4.3
-testbin:
-	/bin/bash ./scripts/setup_envtest.sh $(K8S_VERSION) $(ETCD_VERSION)
-	chmod +x testbin/etcd testbin/kubectl testbin/kube-apiserver
+test-int-kind:
+	- $(kind) create cluster
+	- $(kind) export kubeconfig
+	- make load-kind
+	- USE_EXISTING_CLUSTER=true make test-ci-int
+
+load-kind:
+	for IMAGE in "registry.redhat.io/openshift4/ose-configmap-reloader:latest" "registry.redhat.io/openshift4/ose-prometheus-config-reloader:latest" "registry.redhat.io/openshift4/ose-prometheus-operator:latest" "registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest" "registry.redhat.io/openshift4/ose-oauth-proxy:latest"; do \
+			docker pull $$IMAGE ; \
+			$(kind) load docker-image $$IMAGE --name=kind ; \
+	done
 
 .PHONY: test-cover
 test-cover: ## Run coverage on code
@@ -275,14 +289,27 @@ test-cover: ## Run coverage on code
 CONTROLLERS=$(shell go list ./pkg/... ./cmd/... ./internal/... | grep -v 'pkg/generated' | xargs | sed -e 's/ /,/g')
 #INTEGRATION_TESTS=$(shell go list ./test/... | xargs | sed -e 's/ /,/g')
 
-test-ci: testbin ## test-ci runs all tests for CI builds
-	@echo "testing"
-	ginkgo -r -coverprofile=cover.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
-	ginkgo -r -skipPackage test/testenv  -coverprofile=cover.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./test
-	cat cover.out.tmp | grep -v "_generated.go|zz_generated|testbin.go" > cover.out
+.PHONY: test-ci
+test-ci: test-ci test-ci-unit test-join
+
+.PHONY: test-ci-unit
+test-ci-unit: ## test-ci-unit runs all tests for CI builds
+	ginkgo -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
+	cat cover-unit.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-unit.out
+
+.PHONY: test-ci-int
+test-ci-int: testbin ./test/certs/server.pem ## test-ci-int runs all tests for CI builds
+	ginkgo -r -coverprofile=cover-int.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --coverpkg=$(CONTROLLERS) ./test
+	cat cover-int.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-int.out
+
+test-join: $(gocovmerge)
+	$(gocovmerge) cover-int.out cover-unit.out > cover.out
+
+$(gocovmerge):
+	GO111MODULE="on" go get "github.com/wadey/gocovmerge"
 
 cover.out:
-	make test-ci
+	make test-join
 
 test-cover-text: cover.out ## Run coverage and display as html
 	go tool cover -func=cover.out
@@ -290,19 +317,18 @@ test-cover-text: cover.out ## Run coverage and display as html
 test-cover-html: cover.out ## Run coverage and display as html
 	go tool cover -html=cover.out
 
-.PHONY: test-integration
-test-integration:
-	@echo Test integration
+./test/certs/server.pem:
+	make test-generate-certs
+./test/certs/server-key.pem:
+	make test-generate-certs
+./test/certs/ca.pem:
+	make test-generate-certs
 
-.PHONY: test-e2e
-test-e2e: ## Run integration e2e tests with different options.
-	@echo ... Making build for e2e ...
-	@echo ... Applying code templates for e2e ...
-	- make code-templates
-	@echo ... Running the same e2e tests with different args ...
-	@echo ... Running locally ...
-	- kubectl create namespace ${NAMESPACE} || true
-	- operator-sdk test local ./test/e2e --namespace=${NAMESPACE} --go-test-flags="-tags e2e"
+test-generate-certs:
+	mkdir -p test/certs
+	cd test/certs && ../../testbin/cfssl gencert -initca ca-csr.json | ../../testbin/cfssljson -bare ca
+	cd test/certs && ../../testbin/cfssl gencert -ca=ca.pem -ca-key=ca-key.pem --config=ca-config.json -profile=kubernetes server-csr.json | ../../testbin/cfssljson -bare server
+
 
 ##@ Misc
 
@@ -319,7 +345,7 @@ add-licenses: ## Add licenses to the go file
 	addlicense -c "IBM Corp." ./pkg/**/*.go ./cmd/**/*.go ./internal/**/*.go ./test/**/*.go
 
 scorecard: ## Run scorecard tests
-	operator-sdk scorecard -b ./deploy/olm-catalog/redhat-marketplace-operator
+	$(operator-sdk) scorecard -b ./deploy/olm-catalog/redhat-marketplace-operator
 
 ##@ Publishing
 
@@ -396,19 +422,19 @@ opm-bundle-all: # used to bundle all the versions available
 	./scripts/opm_bundle_all.sh $(OLM_REPO) $(OLM_PACKAGE_NAME) $(VERSION)
 
 opm-bundle-last-edge: ## Bundle latest for edge
-	operator-sdk bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
+	$(operator-sdk) bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
 	yq w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' edge
 	docker build -f bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" .
 	docker push "$(OLM_REPO):$(TAG)"
 
 opm-bundle-last-beta: ## Bundle latest for beta
-	operator-sdk bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
+	$(operator-sdk) bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
 	yq w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' beta
 	docker build -f bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" .
 	docker push "$(OLM_REPO):$(TAG)"
 
 olm-bundle-last-stable: ## Bundle latest for stable
-	operator-sdk bundle create "$(OLM_REPO):$(TAG)" --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
+	$(operator-sdk) bundle create "$(OLM_REPO):$(TAG)" --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
 
 opm-index-base: ## Create an index base
 	./scripts/opm_build_index.sh $(OLM_REPO) $(OLM_BUNDLE_REPO) $(TAG) $(VERSION)
@@ -416,7 +442,74 @@ opm-index-base: ## Create an index base
 install-test-registry: ## Install the test registry
 	kubectl apply -f ./deploy/olm-catalog/test-registry.yaml
 
-##@ Help
+
+##@ Tools
+
+.PHONY: install-tools
+install-tools: testbin $(cfssl) $(cfssljson) $(cfssl-certinfo) $(skaffold) $(operator-sdk) $(opm) $(kind)
+	@echo Installing tools from tools.go
+	@$(shell cd ./scripts && GO111MODULE=off go get -tags tools)
+	@cat scripts/tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go install %
+
+UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
+
+testbin:
+	mkdir -p testbin
+
+testbin/etcd:
+	make install-envtest
+
+testbin/kubectl:
+	make install-envtest
+
+testbin/kube-apiserver:
+	make install-envtest
+
+K8S_VERSION = v1.18.2
+ETCD_VERSION = v3.4.3
+install-envtest:
+	/bin/bash ./scripts/setup_envtest.sh $(K8S_VERSION) $(ETCD_VERSION)
+	chmod +x testbin/etcd testbin/kubectl testbin/kube-apiserver
+
+$(cfssl):
+	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl_1.4.1_$(UNAME)_amd64 -o cfssl
+	chmod +x ./testbin/cfssl
+
+$(cfssljson):
+	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssljson_1.4.1_$(UNAME)_amd64 -o cfssljson
+	chmod +x ./testbin/cfssljson
+
+$(cfssl-certinfo):
+	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl-certinfo_1.4.1_$(UNAME)_amd64 -o cfssl-certinfo
+	chmod +x ./testbin/cfssl-certinfo
+
+$(kind):
+	GO111MODULE="on" go get sigs.k8s.io/kind
+
+operator_sdk_version ?= v0.18.0
+
+ifeq ($(UNAME),darwin)
+	operator_sdk_uname = apple-darwin
+else
+	operator_sdk_uname = linux-gnu
+endif
+
+$(operator-sdk):
+	echo $(operator_sdk_uname)
+	curl -LO https://github.com/operator-framework/operator-sdk/releases/download/$(operator_sdk_version)/operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname)
+	chmod +x operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname) && mv operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname) ./testbin/operator-sdk
+
+skaffold_version ?= v1.14.0
+
+$(skaffold):
+	curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/$(skaffold_version)/skaffold-$(UNAME)-amd64
+	chmod +x skaffold && mv skaffold ./testbin
+
+opm_version ?= v1.12.5
+
+$(opm):
+	curl -LO https://github.com/operator-framework/operator-registry/releases/download/$(opm_version)/$(UNAME)-amd64-opm
+	chmod +x $(UNAME)-amd64-opm && mv $(UNAME)-amd64-opm ./testbin/opm
 
 .PHONY: help
 help: ## Display this help
