@@ -21,6 +21,7 @@ import (
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	appsv1 "k8s.io/api/apps/v1"
@@ -159,16 +160,24 @@ var _ = Describe("MeterbaseController", func() {
 
 				By("finish installing")
 
-				Eventually(func() bool {
+				Eventually(func() map[string]interface{} {
 					result, _ := cc.Do(
 						context.Background(),
 						GetAction(types.NamespacedName{Name: base.Name, Namespace: namespace}, base),
 					)
 
-					return result.Is(Continue) &&
-						base.Status.Conditions.IsFalseFor(v1alpha1.ConditionInstalling) &&
-						base.Status.Conditions.GetCondition(v1alpha1.ConditionInstalling).Reason == v1alpha1.ReasonMeterBaseFinishInstall
-				}, timeout, interval).Should(BeTrue())
+					return map[string]interface{}{
+						"resultStatus":    result.Status,
+						"conditionStatus": base.Status.Conditions.GetCondition(v1alpha1.ConditionInstalling).Status,
+						"reason":          base.Status.Conditions.GetCondition(v1alpha1.ConditionInstalling).Reason,
+					}
+				}, timeout, interval).Should(
+					MatchAllKeys(Keys{
+						"resultStatus":    Equal(Continue),
+						"conditionStatus": Equal(corev1.ConditionTrue),
+						"reason":          Equal(v1alpha1.ReasonMeterBasePrometheusInstall),
+					}),
+				)
 
 				Expect(k8sClient.Delete(context.TODO(), base)).To(Succeed())
 

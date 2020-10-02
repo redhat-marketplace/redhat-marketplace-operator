@@ -44,6 +44,8 @@ cfssl = ./testbin/cfssl
 cfssljson = ./testbin/cfssljson
 cfssl-certinfo = ./testbin/cfssl-certinfo
 opm = ./testbin/opm
+kind = $(shell go env GOPATH)/bin/kind
+gocovmerge = $(shell go env GOPATH)/bin/gocovmerge
 
 ##@ Application
 
@@ -267,10 +269,16 @@ test: testbin ## test-ci runs all tests for CI builds
 	@echo "testing"
 	ginkgo -r --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace
 
+test-int-kind:
+	- $(kind) create cluster
+	- $(kind) export kubeconfig
+	- make load-kind
+	- USE_EXISTING_CLUSTER=true make test-ci-int
+
 load-kind:
-	for IMAGE in $(REPORTER_IMAGE) $(METRIC_STATE_IMAGE) $(AUTHCHECK_IMAGE); do \
-		docker pull $$IMAGE ; \
-		kind load docker-image $$IMAGE --name=kind ; \
+	for IMAGE in "registry.redhat.io/openshift4/ose-configmap-reloader:latest" "registry.redhat.io/openshift4/ose-prometheus-config-reloader:latest" "registry.redhat.io/openshift4/ose-prometheus-operator:latest" "registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest" "registry.redhat.io/openshift4/ose-oauth-proxy:latest"; do \
+			docker pull $$IMAGE ; \
+			$(kind) load docker-image $$IMAGE --name=kind ; \
 	done
 
 .PHONY: test-cover
@@ -286,14 +294,16 @@ test-ci: test-ci test-ci-unit test-join
 
 .PHONY: test-ci-unit
 test-ci-unit: ## test-ci-unit runs all tests for CI builds
-	ginkgo -r -coverprofile=cover.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
+	ginkgo -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
+	cat cover-unit.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-unit.out
 
 .PHONY: test-ci-int
 test-ci-int: testbin ./test/certs/server.pem ## test-ci-int runs all tests for CI builds
-	ginkgo -r -coverprofile=cover.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --coverpkg=$(CONTROLLERS) ./test
+	ginkgo -r -coverprofile=cover-int.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --coverpkg=$(CONTROLLERS) ./test
+	cat cover-int.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-int.out
 
-test-join:
-	cat cover.out.tmp | grep -v "_generated.go|zz_generated|testbin.go" > cover.out
+test-join: $(gocovmerge)
+	$(gocovmerge) cover-int.out cover-unit.out > cover.out
 
 cover.out:
 	make test-join
@@ -433,30 +443,45 @@ install-test-registry: ## Install the test registry
 ##@ Tools
 
 .PHONY: install-tools
-install-tools: testbin $(cfssl) $(cfssljson) $(cfssl-certinfo) $(skaffold) $(operator-sdk) $(opm)
+install-tools: testbin $(cfssl) $(cfssljson) $(cfssl-certinfo) $(skaffold) $(operator-sdk) $(opm) $(kind)
 	@echo Installing tools from tools.go
 	@$(shell cd ./scripts && GO111MODULE=off go get -tags tools)
 	@cat scripts/tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go install %
 
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
 
+testbin:
+	mkdir -p testbin
+
+testbin/etcd:
+	make install-envtest
+
+testbin/kubectl:
+	make install-envtest
+
+testbin/kube-apiserver:
+	make install-envtest
+
 K8S_VERSION = v1.18.2
 ETCD_VERSION = v3.4.3
-testbin:
+install-envtest:
 	/bin/bash ./scripts/setup_envtest.sh $(K8S_VERSION) $(ETCD_VERSION)
 	chmod +x testbin/etcd testbin/kubectl testbin/kube-apiserver
 
-$(cfssl): testbin
+$(cfssl):
 	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl_1.4.1_$(UNAME)_amd64 -o cfssl
 	chmod +x ./testbin/cfssl
 
-$(cfssljson): testbin
+$(cfssljson):
 	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssljson_1.4.1_$(UNAME)_amd64 -o cfssljson
 	chmod +x ./testbin/cfssljson
 
-$(cfssl-certinfo): testbin
+$(cfssl-certinfo):
 	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl-certinfo_1.4.1_$(UNAME)_amd64 -o cfssl-certinfo
 	chmod +x ./testbin/cfssl-certinfo
+
+$(kind):
+	GO111MODULE="on" go get sigs.k8s.io/kind
 
 operator_sdk_version ?= v0.18.0
 
@@ -466,14 +491,14 @@ else
 	operator_sdk_uname = linux-gnu
 endif
 
-$(operator-sdk): testbin
+$(operator-sdk):
 	echo $(operator_sdk_uname)
 	curl -LO https://github.com/operator-framework/operator-sdk/releases/download/$(operator_sdk_version)/operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname)
 	chmod +x operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname) && mv operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname) ./testbin/operator-sdk
 
 skaffold_version ?= v1.14.0
 
-$(skaffold): testbin
+$(skaffold):
 	curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/$(skaffold_version)/skaffold-$(UNAME)-amd64
 	chmod +x skaffold && mv skaffold ./testbin
 
