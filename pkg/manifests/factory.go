@@ -266,7 +266,7 @@ func (f *Factory) NewPrometheusDeployment(
 	cr *marketplacev1alpha1.MeterBase,
 	cfg *corev1.Secret,
 ) (*monitoringv1.Prometheus, error) {
-	logger :=	log.WithValues("func", "NewPrometheusDeployment")
+	logger := log.WithValues("func", "NewPrometheusDeployment")
 	p, err := f.NewPrometheus(MustAssetReader(PrometheusDeployment))
 
 	if err != nil {
@@ -277,15 +277,29 @@ func (f *Factory) NewPrometheusDeployment(
 	p.Name = cr.Name
 	p.ObjectMeta.Name = cr.Name
 
+	if cr.Spec.Prometheus.Replicas != nil {
+		p.Spec.Replicas = cr.Spec.Prometheus.Replicas
+	}
+
 	if f.config.PrometheusConfig.Retention != "" {
 		p.Spec.Retention = f.config.PrometheusConfig.Retention
+	}
+
+	//Set empty dir if present in the CR, will override a pvc specified (per prometheus docs)
+	if cr.Spec.Prometheus.Storage.EmptyDir != nil {
+		p.Spec.Storage.EmptyDir = cr.Spec.Prometheus.Storage.EmptyDir
+	}
+
+	storageClass := ptr.String("")
+	if cr.Spec.Prometheus.Storage.Class != nil {
+		storageClass = cr.Spec.Prometheus.Storage.Class
 	}
 
 	pvc, err := utils.NewPersistentVolumeClaim(utils.PersistentVolume{
 		ObjectMeta: &metav1.ObjectMeta{
 			Name: "storage-volume",
 		},
-		StorageClass: ptr.String(""),
+		StorageClass: storageClass,
 		StorageSize:  &cr.Spec.Prometheus.Storage.Size,
 	})
 

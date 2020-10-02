@@ -1097,39 +1097,16 @@ func (r *ReconcileMeterBase) newPrometheusOperator(
 ) (*monitoringv1.Prometheus, error) {
 	prom, err := factory.NewPrometheusDeployment(cr, cfg)
 
-	if cr.Spec.Prometheus.Replicas != nil {
-		prom.Spec.Replicas = cr.Spec.Prometheus.Replicas
-	}
-
-	if cr.Spec.Prometheus.Storage.Class != nil {
-		storageClass, err := r.setDefaultStorageClass(cr)
-		if err != nil {
-			return prom, err
-		}
-
-		prom.Spec.Storage.VolumeClaimTemplate.Spec.Resources.Requests[corev1.ResourceStorage] = cr.Spec.Prometheus.Storage.Size
-		prom.Spec.Storage.VolumeClaimTemplate.Spec.StorageClassName = storageClass
-	} else {
-		if cr.Spec.Prometheus.Storage.EmptyDir != nil {
-			prom.Spec.Storage.EmptyDir = cr.Spec.Prometheus.Storage.EmptyDir
-		}
-	}
-
-	return prom, err
-}
-
-func (r *ReconcileMeterBase) setDefaultStorageClass(cr *marketplacev1alpha1.MeterBase) (*string, error) {
 	if cr.Spec.Prometheus.Storage.Class == nil {
-		foundDefaultClass, err := utils.GetDefaultStorageClass(r.client)
+		defaultClass, err := utils.GetDefaultStorageClass(r.client)
 
 		if err != nil {
 			return nil, err
 		}
-
-		return ptr.String(foundDefaultClass), nil
+		prom.Spec.Storage.VolumeClaimTemplate.Spec.StorageClassName = ptr.String(defaultClass)
 	}
 
-	return cr.Spec.Prometheus.Storage.Class, nil
+	return prom, err
 }
 
 // serviceForPrometheus function takes in a Prometheus object and returns a Service for that object.
