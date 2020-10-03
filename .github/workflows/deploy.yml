@@ -92,7 +92,7 @@ jobs:
 
       - uses: actions/upload-artifact@v2
         with:
-          name: cover-unit.out
+          name: cover-unit
           path: cover-unit.out
 
   test-integration:
@@ -188,7 +188,7 @@ jobs:
 
       - uses: actions/upload-artifact@v2
         with:
-          name: cover-int.out
+          name: cover-int
           path: cover-int.out
 
   cover:
@@ -206,9 +206,9 @@ jobs:
       - uses: actions/download-artifact@v2
       - name: Report cover
         run: |
-            make test-join
-            make test-cover-html
-            make test-cover-text
+            cp cover-int/cover-int.out .
+            cp cover-unit/cover-unit.out .
+            make test-join test-cover-text
             go tool cover -html=cover.out -o cover.html
       - uses: actions/upload-artifact@v2
         with:

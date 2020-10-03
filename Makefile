@@ -132,15 +132,17 @@ docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
 
 ##@ Development
 
+ARGS ?=
+
 skaffold-dev: $(skaffold) ## Run skaffold dev. Will unique tag the operator and rebuild.
 	make create
-	DEVPOSTFIX=$(DEVPOSTFIX) DOCKER_EXEC=$(DOCKER_EXEC) $(skaffold) dev --tail --port-forward --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --trigger manual
+	DEVPOSTFIX=$(DEVPOSTFIX) DOCKER_EXEC=$(DOCKER_EXEC) $(skaffold) dev --tail --port-forward --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --trigger manual $(ARGS)
 
 skaffold-run: $(skaffold) ## Run skaffold run. Will uniquely tag the operator.
 	make helm
 	make create
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=redhat-marketplace-operator --set pullPolicy=IfNotPresent
-	DOCKER_EXEC=$(DOCKER_EXEC) $(skaffold) run --tail --default-repo $(IMAGE_REGISTRY) --cleanup=false
+	DOCKER_EXEC=$(DOCKER_EXEC) $(skaffold) run --tail --default-repo $(IMAGE_REGISTRY) --cleanup=false $(ARGS)
 
 code-vet: ## Run go vet for this project. More info: https://golang.org/cmd/vet/
 	@echo go vet
@@ -267,7 +269,7 @@ lint: ## lint the repo
 .PHONY: test
 test: testbin ## test-ci runs all tests for CI builds
 	@echo "testing"
-	ginkgo -r --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace
+	make test-ci-unit test-int-kind
 
 test-int-kind:
 	- $(kind) create cluster
@@ -304,6 +306,9 @@ test-ci-int: testbin ./test/certs/server.pem ## test-ci-int runs all tests for C
 
 test-join: $(gocovmerge)
 	$(gocovmerge) cover-int.out cover-unit.out > cover.out
+
+$(gocovmerge):
+	GO111MODULE="on" go get "github.com/wadey/gocovmerge"
 
 cover.out:
 	make test-join
@@ -464,23 +469,23 @@ testbin/kube-apiserver:
 
 K8S_VERSION = v1.18.2
 ETCD_VERSION = v3.4.3
-install-envtest:
+install-envtest: ./testbin
 	/bin/bash ./scripts/setup_envtest.sh $(K8S_VERSION) $(ETCD_VERSION)
 	chmod +x testbin/etcd testbin/kubectl testbin/kube-apiserver
 
-$(cfssl):
+$(cfssl): ./testbin
 	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl_1.4.1_$(UNAME)_amd64 -o cfssl
 	chmod +x ./testbin/cfssl
 
-$(cfssljson):
+$(cfssljson): ./testbin
 	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssljson_1.4.1_$(UNAME)_amd64 -o cfssljson
 	chmod +x ./testbin/cfssljson
 
-$(cfssl-certinfo):
+$(cfssl-certinfo): ./testbin
 	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl-certinfo_1.4.1_$(UNAME)_amd64 -o cfssl-certinfo
 	chmod +x ./testbin/cfssl-certinfo
 
-$(kind):
+$(kind): ./testbin
 	GO111MODULE="on" go get sigs.k8s.io/kind
 
 operator_sdk_version ?= v0.18.0
@@ -491,20 +496,20 @@ else
 	operator_sdk_uname = linux-gnu
 endif
 
-$(operator-sdk):
+$(operator-sdk): ./testbin
 	echo $(operator_sdk_uname)
 	curl -LO https://github.com/operator-framework/operator-sdk/releases/download/$(operator_sdk_version)/operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname)
 	chmod +x operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname) && mv operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname) ./testbin/operator-sdk
 
 skaffold_version ?= v1.14.0
 
-$(skaffold):
+$(skaffold): ./testbin
 	curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/$(skaffold_version)/skaffold-$(UNAME)-amd64
-	chmod +x skaffold && mv skaffold ./testbin
+	chmod +x skaffold && mv skaffold ./testbin/skaffold
 
 opm_version ?= v1.12.5
 
-$(opm):
+$(opm): ./testbin
 	curl -LO https://github.com/operator-framework/operator-registry/releases/download/$(opm_version)/$(UNAME)-amd64-opm
 	chmod +x $(UNAME)-amd64-opm && mv $(UNAME)-amd64-opm ./testbin/opm
 
