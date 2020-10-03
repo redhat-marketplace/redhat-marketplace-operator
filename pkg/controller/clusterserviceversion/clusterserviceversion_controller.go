@@ -48,9 +48,8 @@ const (
 	watchTag        = "razee/watch-resource"
 	allnamespaceTag = "olm.copiedFrom"
 	ignoreTag       = "marketplace.redhat.com/ignore"
-	trackMeterTag   = "marketplace.redhat.com/track-meter"
-	meterDefStatus  = "marketplace.redhat.com/meterDefStatus"
-	meterDefError   = "marketplace.redhat.com/meterDefError"
+	meterDefStatus  = "marketplace.redhat.com/meterDefinitionStatus"
+	meterDefError   = "marketplace.redhat.com/meterDefinitionError"
 )
 
 // Add creates a new ClusterServiceVersion Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -451,15 +450,6 @@ func (r *ReconcileClusterServiceVersion) reconcileMeterDefAnnotation(CSV *olmv1a
 	}
 
 	// Case 2: The CSV is new: we must track it & we must create the Meter Definition
-	reqLogger.Info("csv is new")
-	annotations[trackMeterTag] = "true"
-	CSV.SetAnnotations(annotations)
-	if err := r.client.Update(context.TODO(), CSV); err != nil {
-		reqLogger.Error(err, "Failed to patch clusterserviceversion with trackMeter Tag")
-		return reconcile.Result{}, true, err
-	}
-	reqLogger.Info("Patched clusterserviceversion with trackMeter tag")
-
 	gvk, err := apiutil.GVKForObject(CSV, r.scheme)
 	if err != nil {
 		return reconcile.Result{}, true, err
@@ -484,7 +474,16 @@ func (r *ReconcileClusterServiceVersion) reconcileMeterDefAnnotation(CSV *olmv1a
 	err = r.client.Create(context.TODO(), meterDefinition)
 	if err != nil {
 		reqLogger.Error(err, "Could not create MeterDefinition")
-		return reconcile.Result{Requeue: true}, true, err
+		reqLogger.Info("Adding failiure annotation in csv file ")
+		annotations[meterDefStatus] = "error"
+		annotations[meterDefError] = err.Error()
+		CSV.SetAnnotations(annotations)
+		if err := r.client.Update(context.TODO(), CSV); err != nil {
+			reqLogger.Error(err, "Failed to patch clusterserviceversion with MeterDefinition status")
+			return reconcile.Result{}, true, err
+		}
+		reqLogger.Info("Patched clusterserviceversion with MeterDefinition status")
+		return reconcile.Result{}, true, err
 	}
 
 	//Add success message annotation to csv
