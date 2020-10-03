@@ -206,9 +206,7 @@ jobs:
       - uses: actions/download-artifact@v2
       - name: Report cover
         run: |
-            make test-join
-            make test-cover-html
-            make test-cover-text
+            make test-join test-cover-text
             go tool cover -html=cover.out -o cover.html
       - uses: actions/upload-artifact@v2
         with:

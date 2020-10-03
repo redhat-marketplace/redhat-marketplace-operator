@@ -305,6 +305,9 @@ test-ci-int: testbin ./test/certs/server.pem ## test-ci-int runs all tests for C
 test-join: $(gocovmerge)
 	$(gocovmerge) cover-int.out cover-unit.out > cover.out
 
+$(gocovmerge):
+	GO111MODULE="on" go get "github.com/wadey/gocovmerge"
+
 cover.out:
 	make test-join
 
