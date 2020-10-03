@@ -269,7 +269,7 @@ lint: ## lint the repo
 .PHONY: test
 test: testbin ## test-ci runs all tests for CI builds
 	@echo "testing"
-	ginkgo -r --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace
+	make test-ci-unit test-int-kind
 
 test-int-kind:
 	- $(kind) create cluster

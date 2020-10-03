@@ -27,8 +27,8 @@ var _ = Describe("JsonMeterDefValidation", func() {
 		//patcher      *mock_patch.MockPatchMaker
 		sut *ReconcileClusterServiceVersion
 		//cc  reconcileutils.ClientCommandRunner
-		meterDefStatus = "marketplace.redhat.com/meterDefStatus"
-		meterDefError  = "marketplace.redhat.com/meterDefError"
+		meterDefStatus = "marketplace.redhat.com/meterDefinitionStatus"
+		meterDefError  = "marketplace.redhat.com/meterDefinitionError"
 		CSV            = &olmv1alpha1.ClusterServiceVersion{}
 	)
 
@@ -117,7 +117,6 @@ var _ = Describe("JsonMeterDefValidation", func() {
 					}
 				  }`
 			ann                  = map[string]string{utils.CSV_METERDEFINITION_ANNOTATION: meterDefJson}
-			trackmeterAnnotation = map[string]string{trackMeterTag: "true"}
 			list                 *marketplacev1alpha1.MeterDefinitionList
 			meterDefinition      *marketplacev1alpha1.MeterDefinition
 
@@ -135,7 +134,6 @@ var _ = Describe("JsonMeterDefValidation", func() {
 			meterDefinition.SetNamespace("test-namespace")
 			CSV.SetNamespace("test-namespace")
 			CSV.SetName("mock-csv")
-			CSV.SetAnnotations(trackmeterAnnotation)
 			_, _ = meterDefinition.BuildMeterDefinitionFromString(
 				meterDefJson,
 				CSV.GetName(),
@@ -155,7 +153,7 @@ var _ = Describe("JsonMeterDefValidation", func() {
 		})
 		It("CSV should have annotation meterDefStatus with value 'error' and meterDefError", func() {
 			client.EXPECT().List(ctx, list, k8client.InNamespace(meterDefinition.GetNamespace())).Return(nil).Times(1)
-			client.EXPECT().Update(ctx, CSV).Return(nil).Times(2)
+			client.EXPECT().Update(ctx, CSV).Return(nil).Times(1)
 			client.EXPECT().Create(ctx, meterDefinition).Return(nil).Times(1)
 			sut.reconcileMeterDefAnnotation(CSV, ann)
 			Expect(CSV.GetAnnotations()[meterDefStatus]).To(Equal("success"))
