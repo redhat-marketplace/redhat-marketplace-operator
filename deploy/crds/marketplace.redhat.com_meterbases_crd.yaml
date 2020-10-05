@@ -59,8 +59,9 @@ spec:
               description: Prometheus deployment configuration.
               properties:
                 replicas:
-                  description: 'OPTIONAL: Replicas for the deployment. Used primarily
-                    when running metering to CRC'
+                  description: Replicas defines the number of desired replicas for
+                    the prometheus deployment. Used primarily when running metering
+                    on CRC
                   format: int32
                   type: integer
                 resources:
@@ -103,8 +104,9 @@ spec:
                         Default is "" i.e. default.
                       type: string
                     emptyDir:
-                      description: EmptyDir is a temporary storage type that is used
-                        to
+                      description: EmptyDir is a temporary storage type that gets
+                        created on the prometheus pod. When this is defined metering
+                        will run on CRC.
                       properties:
                         medium:
                           description: 'What type of storage medium should back this
