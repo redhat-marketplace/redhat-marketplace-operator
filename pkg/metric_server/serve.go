@@ -30,6 +30,7 @@ import (
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	"github.com/sasha-s/go-deadlock"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
@@ -59,10 +60,12 @@ type Service struct {
 	cache            cache.Cache
 	metricsRegistry  *prometheus.Registry
 	cc               reconcileutils.ClientCommandRunner
-	meterDefStore    *meter_definition.MeterDefinitionStore
+	meterDefStore    *meter_definition.MeterDefinitionStoreBuilder
 	statusProcessor  *meter_definition.StatusProcessor
 	serviceProcessor *meter_definition.ServiceProcessor
 	isCacheStarted   managers.CacheIsStarted
+
+	mutex deadlock.Mutex `wire:"-"`
 }
 
 func (s *Service) Serve(done <-chan struct{}) error {
@@ -75,24 +78,34 @@ func (s *Service) Serve(done <-chan struct{}) error {
 
 	proc.StartReaper()
 
-	go func() {
-		err := s.statusProcessor.Start(ctx)
-		log.Error(err, "failed to register status processor")
-		panic(err)
-	}()
-	go func() {
-		err := s.serviceProcessor.Start(ctx)
-		log.Error(err, "failed to register service processor")
-		panic(err)
-	}()
-
 	s.meterDefStore.SetNamespaces(options.DefaultNamespaces)
-	s.meterDefStore.Start()
+	stores := s.meterDefStore.CreateStores()
 
 	storeBuilder.WithContext(ctx)
 	storeBuilder.WithKubeClient(s.k8sRestClient)
 	storeBuilder.WithClientCommand(s.cc)
-	storeBuilder.WithMeterDefinitionStore(s.meterDefStore)
+	storeBuilder.WithMeterDefinitionStores(stores)
+
+	for expectedType, store := range stores {
+		log.Info("stores", "type", expectedType, "store", store)
+		p := s.statusProcessor.New(store)
+		go func() {
+			err := p.Start(ctx)
+			log.Error(err, "failed to register status processor")
+
+			panic(err)
+		}()
+	}
+
+	store := stores[meter_definition.ServiceStore]
+	log.Info("service stores", "store", store)
+	p := s.serviceProcessor.New(store)
+
+	go func() {
+		err := p.Start(ctx)
+		log.Error(err, "failed to register service processor")
+		panic(err)
+	}()
 
 	s.metricsRegistry.MustRegister(
 		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),

@@ -54,7 +54,7 @@ func NewMeterDefinitionLookupFilter(
 	meterdef *v1alpha1.MeterDefinition,
 	findOwner *rhmclient.FindOwnerHelper,
 ) (*MeterDefinitionLookupFilter, error) {
-	log.Info("building filters", "meterdef", meterdef)
+	log.V(4).Info("building filters", "meterdef", meterdef)
 
 	s := &MeterDefinitionLookupFilter{
 		MeterDefName: types.NamespacedName{Name: meterdef.Name, Namespace: meterdef.Namespace},
@@ -111,9 +111,10 @@ func (s *MeterDefinitionLookupFilter) FindMatchingWorkloads(obj interface{}) (*v
 	}
 
 	filterLogger := s.log.WithValues("obj", o.GetName()+"/"+o.GetNamespace(), "type", fmt.Sprintf("%T", obj), "filterLen", len(s.filters))
+	debugFilterLogger := filterLogger.V(4)
 
 	for key, workloadFilters := range s.filters {
-		filterLogger.Info("testing", "key", key, "filters", printFilterList(workloadFilters))
+		debugFilterLogger.Info("testing", "key", key, "filters", printFilterList(workloadFilters))
 		results := []bool{}
 		for i, filter := range workloadFilters {
 			ans, err := filter.Filter(obj)
@@ -131,11 +132,11 @@ func (s *MeterDefinitionLookupFilter) FindMatchingWorkloads(obj interface{}) (*v
 		}
 
 		if len(results) == 0 || len(results) != len(workloadFilters) {
-			filterLogger.Info("workload did not pass all filters", "workloadStatus", "fail", "filters", printFilterList(workloadFilters))
+			debugFilterLogger.Info("workload did not pass all filters", "workloadStatus", "fail", "filters", printFilterList(workloadFilters))
 			continue
 		}
 
-		filterLogger.Info("workload passed all filters", "workloadStatus", "pass", "filters", printFilterList(workloadFilters))
+		debugFilterLogger.Info("workload passed all filters", "workloadStatus", "pass", "filters", printFilterList(workloadFilters))
 		workload, _ := s.workloads[key]
 		return &workload, true, nil
 	}

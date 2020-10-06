@@ -41,7 +41,7 @@ func NewServer(
 		wire.Struct(new(Service), "*"),
 		wire.InterfaceValue(new(logr.Logger), log),
 		provideRegistry,
-		meter_definition.NewMeterDefinitionStore,
+		meter_definition.NewMeterDefinitionStoreBuilder,
 		meter_definition.NewStatusProcessor,
 		meter_definition.NewServiceProcessor,
 		marketplacev1alpha1client.NewForConfig,
