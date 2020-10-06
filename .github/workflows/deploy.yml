@@ -323,7 +323,7 @@ jobs:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.14
+          go-version: ^1.15
         id: go
 
       - name: Check out code into the Go module directory
@@ -394,7 +394,7 @@ jobs:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.14
+          go-version: ^1.15
         id: go
 
       - name: Set up Python
