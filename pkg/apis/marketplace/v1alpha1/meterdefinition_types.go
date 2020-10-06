@@ -227,6 +227,12 @@ type MeterLabelQuery struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:sum,urn:alm:descriptor:com.tectonic.ui:select:min,urn:alm:descriptor:com.tectonic.ui:select:max,urn:alm:descriptor:com.tectonic.ui:select:avg"
 	Aggregation string `json:"aggregation,omitempty"`
+
+	// AdditionalFields are supplementary 
+	// +kubebuilder:validation:Enum:=sum;min;max;avg
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:sum,urn:alm:descriptor:com.tectonic.ui:select:min,urn:alm:descriptor:com.tectonic.ui:select:max,urn:alm:descriptor:com.tectonic.ui:select:additionalFields"
+	AdditionalFields []string `json:"additionalFields,omitempty"`
 }
 
 // MeterDefinitionStatus defines the observed state of MeterDefinition

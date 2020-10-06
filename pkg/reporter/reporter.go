@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -203,6 +204,16 @@ func (r *MarketplaceReporter) query(
 				}
 				logger.Info("output", "query", query.String())
 
+				// TODO: check for additionalFields
+				if metric.AdditionalFields != nil {
+
+					// for _,additionalField := range metric.AdditionalFields {
+					// 	processAdditionalFields(metric.Query,additionalField)
+					// }
+
+					
+				}
+			
 				var val model.Value
 				var warnings v1.Warnings
 
@@ -471,4 +482,54 @@ func wgWait(ctx context.Context, processName string, maxRoutines int, done chan 
 	}
 
 	done <- true
+}
+
+// processAdditionalFields 
+func processAdditionalFields(originalQuery string,additionalFields []string ) string {
+	queryLabels := getLabelsFromMetricQuery(originalQuery)
+	updatedQuery := ""
+	if strings.Contains(queryLabels,"group_right"){
+		trimmedQueryLables := strings.Split(queryLabels, "group_right")
+		updatedQuery = checkForAdditionalFieldsInQueryLabels(originalQuery,strings.Join(trimmedQueryLables,""),additionalFields)
+
+	} else {
+		queryLabels = checkForAdditionalFieldsInQueryLabels(originalQuery,queryLabels,additionalFields)
+	}
+
+	return updatedQuery
+}
+
+func checkForAdditionalFieldsInQueryLabels(originalQuery string, originalQueryLabels string,additionalFields []string) (string) {
+	updatedQueryLabel := originalQueryLabels
+
+	for _,additionalField := range additionalFields {
+		if !strings.Contains(originalQueryLabels,additionalField) {
+			additionalFieldLabel := fmt.Sprintf("%s%s",",additionalField=",additionalField)
+      updatedQueryLabel += additionalFieldLabel
+		}
+	}
+
+	out := strings.Replace(originalQuery,originalQueryLabels,updatedQueryLabel,-1)
+	return out
+
+}
+
+func getLabelsFromMetricQuery(in string) string {
+
+	out := GetStringInBetween(in,"{", "}")
+	return out
+}
+
+// GetStringInBetween Returns empty string if no start string found
+func GetStringInBetween(str string, start string, end string) (result string) {
+    s := strings.Index(str, start)
+    if s == -1 {
+        return
+    }
+    s += len(start)
+    e := strings.Index(str, end)
+    if e == -1 {
+        return
+    }
+    return str[s:e]
 }
