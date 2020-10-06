@@ -5,6 +5,7 @@ go 1.14
 require (
 	emperror.dev/errors v0.7.0
 	github.com/Azure/go-autorest/autorest v0.11.2 // indirect
+	github.com/Azure/go-autorest/logger v0.2.0
 	github.com/Masterminds/semver/v3 v3.1.0
 	github.com/Shyp/bump_version v0.0.0-20180222180749-d7594d2951e2
 	github.com/banzaicloud/k8s-objectmatcher v1.3.0
@@ -44,10 +45,12 @@ require (
 	github.com/operator-framework/operator-lib v0.1.0
 	github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b
 	github.com/operator-framework/operator-sdk v0.19.2
+	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/alertmanager v0.21.0 // indirect
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/common v0.10.0
+	github.com/sasha-s/go-deadlock v0.2.0
 	github.com/sirupsen/logrus v1.6.0 // indirect
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5

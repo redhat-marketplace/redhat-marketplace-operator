@@ -30,9 +30,8 @@ import (
 // ServiceProcessor will update the meter definition
 // status with the objects that matched it.
 type ServiceProcessor struct {
-	log           logr.Logger
-	cc            ClientCommandRunner
-	meterDefStore *MeterDefinitionStore
+	log logr.Logger
+	cc  ClientCommandRunner
 }
 
 // NewServiceProcessor is the provider that creates
@@ -40,19 +39,17 @@ type ServiceProcessor struct {
 func NewServiceProcessor(
 	log logr.Logger,
 	cc ClientCommandRunner,
-	meterDefStore *MeterDefinitionStore,
 ) *ServiceProcessor {
 	return &ServiceProcessor{
-		log:           log,
-		cc:            cc,
-		meterDefStore: meterDefStore,
+		log: log,
+		cc:  cc,
 	}
 }
 
 // Start will register it's listener and execute the function.
-func (u *ServiceProcessor) Start(ctx context.Context) error {
-	p := NewProcessor("serviceProcessor", u.log, u.cc, u.meterDefStore, u)
-	return p.Start(ctx)
+func (u *ServiceProcessor) New(store *MeterDefinitionStore) Processor {
+	p := NewProcessor("serviceProcessor", u.log, u.cc, store, u)
+	return p
 }
 
 var serviceType = reflect.TypeOf(&corev1.Service{})

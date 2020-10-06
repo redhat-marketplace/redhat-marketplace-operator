@@ -17,9 +17,9 @@ package meter_definition
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
+	"emperror.dev/errors"
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringv1client "github.com/coreos/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
 	"github.com/go-logr/logr"
@@ -27,65 +27,17 @@ import (
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/client"
 	marketplacev1alpha1client "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/generated/clientset/versioned/typed/marketplace/v1alpha1"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	"github.com/sasha-s/go-deadlock"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type ObjectUID types.UID
-type MeterDefUID types.UID
-type ResourceSet map[MeterDefUID]*v1alpha1.WorkloadResource
-type ObjectResourceMessageAction string
-
-const (
-	AddMessageAction    ObjectResourceMessageAction = "Add"
-	DeleteMessageAction                             = "Delete"
-)
-
-type ObjectResourceMessage struct {
-	Action               ObjectResourceMessageAction `json:"action"`
-	Object               interface{}                 `json:"object"`
-	*ObjectResourceValue `json:"resourceValue,omitempty"`
-}
-
-type ObjectResourceKey struct {
-	ObjectUID
-	MeterDefUID
-}
-
-func NewObjectResourceKey(object metav1.Object, meterdefUID MeterDefUID) ObjectResourceKey {
-	return ObjectResourceKey{
-		ObjectUID:   ObjectUID(object.GetUID()),
-		MeterDefUID: meterdefUID,
-	}
-}
-
-type ObjectResourceValue struct {
-	MeterDef     types.NamespacedName
-	MeterDefHash string
-	Generation   int64
-	Matched      bool
-	*v1alpha1.WorkloadResource
-}
-
-func NewObjectResourceValue(
-	lookup *MeterDefinitionLookupFilter,
-	resource *v1alpha1.WorkloadResource,
-	obj metav1.Object,
-	matched bool,
-) *ObjectResourceValue {
-	return &ObjectResourceValue{
-		MeterDef:         lookup.MeterDefName,
-		MeterDefHash:     lookup.Hash(),
-		WorkloadResource: resource,
-		Generation:       obj.GetGeneration(),
-		Matched:          matched,
-	}
-}
+type MeterDefinitionStores = map[string]*MeterDefinitionStore
 
 // MeterDefinitionStore keeps the MeterDefinitions in place
 // and tracks the dependents using the rules based on the
@@ -94,27 +46,53 @@ func NewObjectResourceValue(
 type MeterDefinitionStore struct {
 	meterDefinitionFilters map[MeterDefUID]*MeterDefinitionLookupFilter
 	objectResourceSet      map[ObjectResourceKey]*ObjectResourceValue
+	objectsSeen            map[ObjectUID]interface{}
 
-	mutex sync.RWMutex
+	mutex deadlock.Mutex
 
 	ctx    context.Context
 	log    logr.Logger
 	scheme *runtime.Scheme
 
+	// client command runner to execute some code
 	cc ClientCommandRunner
 
+	// namespaces to listen to
 	namespaces []string
 
+	// kubeClient to query kube
 	kubeClient        clientset.Interface
 	findOwner         *rhmclient.FindOwnerHelper
 	monitoringClient  *monitoringv1client.MonitoringV1Client
 	marketplaceClient *marketplacev1alpha1client.MarketplaceV1alpha1Client
 
-	listenerMutex sync.Mutex
+	// listeners are used for downstream
+	listenerMutex deadlock.Mutex
 	listeners     []chan *ObjectResourceMessage
+
+	// resyncObjChan will resync the store
+	resyncObjChan chan interface{}
 }
 
-func NewMeterDefinitionStore(
+type MeterDefinitionStoreBuilder struct {
+	ctx    context.Context
+	log    logr.Logger
+	scheme *runtime.Scheme
+
+	// client command runner to execute some code
+	cc ClientCommandRunner
+
+	// namespaces to listen to
+	namespaces []string
+
+	// kubeClient to query kube
+	kubeClient        clientset.Interface
+	findOwner         *rhmclient.FindOwnerHelper
+	monitoringClient  *monitoringv1client.MonitoringV1Client
+	marketplaceClient *marketplacev1alpha1client.MarketplaceV1alpha1Client
+}
+
+func NewMeterDefinitionStoreBuilder(
 	ctx context.Context,
 	log logr.Logger,
 	cc ClientCommandRunner,
@@ -123,16 +101,34 @@ func NewMeterDefinitionStore(
 	monitoringClient *monitoringv1client.MonitoringV1Client,
 	marketplaceclient *marketplacev1alpha1client.MarketplaceV1alpha1Client,
 	scheme *runtime.Scheme,
-) *MeterDefinitionStore {
+) *MeterDefinitionStoreBuilder {
+	return &MeterDefinitionStoreBuilder{
+		ctx:               ctx,
+		log:               log,
+		cc:                cc,
+		kubeClient:        kubeClient,
+		monitoringClient:  monitoringClient,
+		marketplaceClient: marketplaceclient,
+		findOwner:         findOwner,
+		scheme:            scheme,
+	}
+}
+
+func (s *MeterDefinitionStoreBuilder) NewInstance() *MeterDefinitionStore {
 	return &MeterDefinitionStore{
-		ctx:                    ctx,
-		log:                    log,
-		cc:                     cc,
-		kubeClient:             kubeClient,
-		monitoringClient:       monitoringClient,
-		marketplaceClient:      marketplaceclient,
-		findOwner:              findOwner,
-		scheme:                 scheme,
+		ctx:                    s.ctx,
+		log:                    s.log,
+		cc:                     s.cc,
+		scheme:                 s.scheme,
+		kubeClient:             s.kubeClient,
+		monitoringClient:       s.monitoringClient,
+		marketplaceClient:      s.marketplaceClient,
+		findOwner:              s.findOwner,
+		namespaces:             s.namespaces,
+		mutex:                  deadlock.Mutex{},
+		listenerMutex:          deadlock.Mutex{},
+		resyncObjChan:          make(chan interface{}),
+		objectsSeen:            make(map[ObjectUID]interface{}),
 		listeners:              []chan *ObjectResourceMessage{},
 		meterDefinitionFilters: make(map[MeterDefUID]*MeterDefinitionLookupFilter),
 		objectResourceSet:      make(map[ObjectResourceKey]*ObjectResourceValue),
@@ -152,27 +148,40 @@ func (s *MeterDefinitionStore) addMeterDefinition(meterdef *v1alpha1.MeterDefini
 
 func (s *MeterDefinitionStore) removeMeterDefinition(meterdef *v1alpha1.MeterDefinition) {
 	delete(s.meterDefinitionFilters, MeterDefUID(meterdef.UID))
-	for key := range s.objectResourceSet {
+	toDelete := []ObjectResourceKey{}
+
+	for key, val := range s.objectResourceSet {
 		if key.MeterDefUID == MeterDefUID(meterdef.GetUID()) {
-			delete(s.objectResourceSet, key)
+			toDelete = append(toDelete, key)
+			s.broadcast(&ObjectResourceMessage{
+				Action: DeleteMessageAction,
+				Object: val.Object,
+			})
 		}
 	}
+
+	for _, key := range toDelete {
+		delete(s.objectResourceSet, key)
+	}
+
+	s.broadcast(&ObjectResourceMessage{
+		Action: DeleteMessageAction,
+		Object: meterdef,
+	})
 }
 
 func (s *MeterDefinitionStore) broadcast(msg *ObjectResourceMessage) {
 	for _, ch := range s.listeners {
 		select {
 		case ch <- msg:
-			s.log.V(3).Info("sent message",  "msg", msg)
-		default:
-			s.log.V(3).Info("no message sent", "msg", msg)
+			s.log.V(3).Info("sent message", "msg", msg)
 		}
 	}
 }
 
 func (s *MeterDefinitionStore) GetMeterDefinitionRefs(uid types.UID) []*ObjectResourceValue {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	vals := []*ObjectResourceValue{}
 	for key, val := range s.objectResourceSet {
@@ -184,8 +193,8 @@ func (s *MeterDefinitionStore) GetMeterDefinitionRefs(uid types.UID) []*ObjectRe
 }
 
 func (s *MeterDefinitionStore) GetMeterDefObjects(meterDefUID types.UID) []*ObjectResourceValue {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	vals := []*ObjectResourceValue{}
 	for key, val := range s.objectResourceSet {
@@ -210,101 +219,161 @@ type result struct {
 // Add inserts adds to the OwnerCache by calling the metrics generator functions and
 // adding the generated metrics to the metrics map that underlies the MetricStore.
 func (s *MeterDefinitionStore) Add(obj interface{}) error {
+	runtimeObj, ok := obj.(runtime.Object)
 
-	if meterdef, ok := obj.(*v1alpha1.MeterDefinition); ok {
-		err := func() error {
-			s.mutex.Lock()
-			defer s.mutex.Unlock()
-			lookup, err := NewMeterDefinitionLookupFilter(s.cc, meterdef, s.findOwner)
-
-			if err != nil {
-				s.log.Error(err, "error building lookup")
-				return err
-			}
-
-			s.log.Info("found lookup", "lookup", lookup)
-			s.meterDefinitionFilters[MeterDefUID(meterdef.UID)] = lookup
-			return nil
-		}()
-
-		if err != nil {
-			return err
-		}
-
-		return nil
+	if !ok {
+		err := errors.New("obj not a runtime.Object")
+		s.log.Error(err, "obj not a runtime object")
+		return err
 	}
 
-	o, err := meta.Accessor(obj)
+	key, _ := client.ObjectKeyFromObject(runtimeObj)
+	logger := s.log.WithValues("func", "add", "name/namespace", key)
+	logger.V(2).Info("adding obj")
+
+	if meterdef, ok := obj.(*v1alpha1.MeterDefinition); ok {
+		return s.handleMeterDefinition(meterdef)
+	}
+
+	// save obj to objectsSeen
+	err := s.addSeenObject(obj)
 	if err != nil {
+		logger.Error(err, "failed to add to seen object list")
 		return err
 	}
 
 	// look over all meterDefinitions, matching workloads are saved
 	results := []result{}
 
-	err = func() error {
-		s.mutex.RLock()
-		defer s.mutex.RUnlock()
-		for meterDefUID, lookup := range s.meterDefinitionFilters {
-			key := NewObjectResourceKey(o, meterDefUID)
-			workload, ok, err := lookup.FindMatchingWorkloads(obj)
+	err = s.findObjectMatches(obj, &results)
+	if err != nil {
+		logger.Error(err, "failed get find object matches")
+		return err
+	}
 
-			if err != nil {
-				s.log.Error(err, "")
-				return err
-			}
-
-			results = append(results, result{
-				meterDefUID: meterDefUID,
-				workload:    workload,
-				ok:          ok,
-				lookup:      lookup,
-				key:         key,
-			})
-		}
+	if len(results) == 0 {
+		logger.V(2).Info("no results returned")
 		return nil
-	}()
+	}
 
+	matchedResults := []result{}
+	for _, result := range results {
+		if !result.ok {
+			logger.V(4).Info("no match", "obj", obj, "meterDefUID", string(result.meterDefUID))
+			continue
+		}
+
+		matchedResults = append(matchedResults, result)
+	}
+
+	if len(matchedResults) == 0 {
+		logger.V(2).Info("no matched results returned")
+		return nil
+	}
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	logger.Info("return matched results", len(matchedResults))
+
+	for _, result := range matchedResults {
+		resource, err := v1alpha1.NewWorkloadResource(*result.workload, obj, s.scheme)
+		if err != nil {
+			logger.Error(err, "failed to init a new workload resource")
+			return err
+		}
+
+		value, err := NewObjectResourceValue(result.lookup, resource, obj, result.ok)
+		if err != nil {
+			logger.Error(err, "failed to init a new workload resource value")
+			return err
+		}
+
+		s.objectResourceSet[result.key] = value
+
+		msg := &ObjectResourceMessage{
+			Action:              AddMessageAction,
+			Object:              obj,
+			ObjectResourceValue: value,
+		}
+
+		logger.Info("broadcasting message", "msg", msg,
+			"type", fmt.Sprintf("%T", obj),
+			"mdef", value.MeterDef,
+			"workloadName", value.WorkloadResource.Name)
+		s.broadcast(msg)
+	}
+
+	return nil
+}
+
+func (s *MeterDefinitionStore) handleMeterDefinition(meterdef *v1alpha1.MeterDefinition) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	// remove meterdefs that don't fit the type
+	s.log.Info("adding meterdef", "name", meterdef.Name, "namespace", meterdef.Namespace)
+	lookup, err := NewMeterDefinitionLookupFilter(s.cc, meterdef, s.findOwner)
+
+	if err != nil {
+		s.log.Error(err, "error building lookup")
+		return err
+	}
+
+	s.log.Info("found lookup", "lookup", lookup)
+	s.meterDefinitionFilters[MeterDefUID(meterdef.UID)] = lookup
+
+	msg := &ObjectResourceMessage{
+		Action: AddMessageAction,
+		Object: interface{}(meterdef),
+	}
+
+	s.log.Info("broadcasting meterdef message", "msg", msg)
+	s.broadcast(msg)
+
+	return nil
+}
+
+func (s *MeterDefinitionStore) addSeenObject(obj interface{}) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	o, err := meta.Accessor(obj)
 	if err != nil {
 		return err
 	}
 
-	for _, result := range results {
-		if !result.ok {
-			continue
-		}
+	uid := ObjectUID(o.GetUID())
+	s.objectsSeen[uid] = obj
+	return nil
+}
 
-		err := func() error {
-			s.mutex.Lock()
-			defer s.mutex.Unlock()
+func (s *MeterDefinitionStore) findObjectMatches(obj interface{}, results *[]result) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
-			log.Info("workload found", "obj", obj, "meterDefUID", string(result.meterDefUID))
-			resource, err := v1alpha1.NewWorkloadResource(*result.workload, obj, s.scheme)
-			if err != nil {
-				s.log.Error(err, "")
-				return err
-			}
-
-			value := NewObjectResourceValue(result.lookup, resource, o, result.ok)
-			s.objectResourceSet[result.key] = value
-
-			msg := &ObjectResourceMessage{
-				Action:              AddMessageAction,
-				Object:              obj,
-				ObjectResourceValue: value,
-			}
-
-			log.Info("broadcasting message", "msg", msg, "type", fmt.Sprintf("%T", obj), "mdef", value.MeterDef, "workloadName", value.WorkloadResource.Name)
-			s.broadcast(msg)
-
-			return nil
-		}()
-
-		if err != nil {
-			return err
-		}
+	o, err := meta.Accessor(obj)
+	if err != nil {
+		return err
 	}
 
+	for meterDefUID, lookup := range s.meterDefinitionFilters {
+		key := NewObjectResourceKey(o, meterDefUID)
+		workload, ok, err := lookup.FindMatchingWorkloads(obj)
+
+		if err != nil {
+			s.log.Error(err, "error matching")
+			return err
+		}
+
+		*results = append(*results, result{
+			meterDefUID: meterDefUID,
+			workload:    workload,
+			ok:          ok,
+			lookup:      lookup,
+			key:         key,
+		})
+	}
 	return nil
 }
 
@@ -319,27 +388,28 @@ func (s *MeterDefinitionStore) Delete(obj interface{}) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if meterdef, ok := obj.(*v1alpha1.MeterDefinition); ok {
-		s.removeMeterDefinition(meterdef)
-		return nil
-	}
-
 	o, err := meta.Accessor(obj)
 	if err != nil {
 		return err
 	}
 
-	for key, val := range s.objectResourceSet {
-		if key.ObjectUID == ObjectUID(o.GetUID()) {
-			s.broadcast(&ObjectResourceMessage{
-				Action:              DeleteMessageAction,
-				Object:              o,
-				ObjectResourceValue: val,
-			})
+	delete(s.objectsSeen, ObjectUID(o.GetUID()))
 
+	if meterdef, ok := obj.(*v1alpha1.MeterDefinition); ok {
+		s.removeMeterDefinition(meterdef)
+		return nil
+	}
+
+	for key, _ := range s.objectResourceSet {
+		if key.ObjectUID == ObjectUID(o.GetUID()) {
 			delete(s.objectResourceSet, key)
 		}
 	}
+
+	s.broadcast(&ObjectResourceMessage{
+		Action: DeleteMessageAction,
+		Object: obj,
+	})
 
 	return nil
 }
@@ -367,27 +437,12 @@ func (s *MeterDefinitionStore) GetByKey(key string) (item interface{}, exists bo
 // Replace will delete the contents of the store, using instead the
 // given list.
 func (s *MeterDefinitionStore) Replace(list []interface{}, _ string) error {
-	s.mutex.Lock()
-	for _, item := range list {
-		o, _ := meta.Accessor(item)
-
-		for key, val := range s.objectResourceSet {
-			if key.ObjectUID == ObjectUID(o.GetUID()) {
-				s.broadcast(&ObjectResourceMessage{
-					Action:              DeleteMessageAction,
-					Object:              item,
-					ObjectResourceValue: val,
-				})
-
-				delete(s.objectResourceSet, key)
-			}
-		}
-	}
-	s.mutex.Unlock()
-
 	for _, o := range list {
-		err := s.Add(o)
-		if err != nil {
+		if err := s.Delete(o); err != nil {
+			return err
+		}
+
+		if err := s.Add(o); err != nil {
 			return err
 		}
 	}
@@ -397,35 +452,42 @@ func (s *MeterDefinitionStore) Replace(list []interface{}, _ string) error {
 
 // Resync implements the Resync method of the store interface.
 func (s *MeterDefinitionStore) Resync() error {
+	s.mutex.Lock()
+	objs := []interface{}{}
+	for _, obj := range s.objectsSeen {
+		objs = append(objs, obj)
+	}
+	s.mutex.Unlock()
+
+	for _, obj := range objs {
+		s.Add(obj)
+	}
+
 	return nil
 }
 
 func (s *MeterDefinitionStore) Start() {
-	for _, ns := range s.namespaces {
-		lister := CreateMeterDefinitionWatch(s.marketplaceClient, ns)
-		reflector := cache.NewReflector(lister, &v1alpha1.MeterDefinition{}, s, 0)
-		go reflector.Run(s.ctx.Done())
-	}
+	go func() {
+		select {
+		case obj := <-s.resyncObjChan:
+			err := s.Add(obj)
 
-	time.Sleep(5 * time.Second)
-
-	for _, ns := range s.namespaces {
-		for expectedType, lister := range s.createWatchers(ns) {
-			reflector := cache.NewReflector(lister, expectedType, s, 0)
-			go reflector.Run(s.ctx.Done())
+			if err != nil {
+				s.log.Error(err, "resyncing state error")
+			}
+		case <-s.ctx.Done():
+			close(s.resyncObjChan)
+			return
 		}
-	}
+	}()
+
 	go func() {
 		ticker := time.NewTicker(30 * time.Second)
 		for {
 			select {
 			case <-ticker.C:
 				func() {
-					s.mutex.RLock()
-					defer s.mutex.RUnlock()
-
-					s.log.Info("current state",
-						"meterDefs", s.meterDefinitionFilters)
+					s.log.Info("current state", "meterDefs", s.meterDefinitionFilters)
 				}()
 			case <-s.ctx.Done():
 				return
@@ -434,15 +496,102 @@ func (s *MeterDefinitionStore) Start() {
 	}()
 }
 
-func (s *MeterDefinitionStore) SetNamespaces(ns []string) {
+func (s *MeterDefinitionStoreBuilder) CreateStores() MeterDefinitionStores {
+	stores := make(MeterDefinitionStores)
+
+	for _, storeConfig := range storeConfigs {
+		store := s.NewInstance()
+
+		for _, createLister := range storeConfig.createListers {
+			for _, ns := range s.namespaces {
+				lister := createLister(s, ns)
+				reflector := cache.NewReflector(lister.lister, lister.expectedType, store, 5*60*time.Second)
+				go reflector.Run(s.ctx.Done())
+			}
+		}
+
+		go store.Start()
+		stores[storeConfig.name] = store
+	}
+
+	return stores
+}
+
+func (s *MeterDefinitionStoreBuilder) SetNamespaces(ns []string) {
 	s.namespaces = ns
 }
 
-func (s *MeterDefinitionStore) createWatchers(ns string) map[runtime.Object]cache.ListerWatcher {
-	return map[runtime.Object]cache.ListerWatcher{
-		&corev1.PersistentVolumeClaim{}: CreatePVCListWatch(s.kubeClient, ns),
-		&corev1.Pod{}:                   CreatePodListWatch(s.kubeClient, ns),
-		&corev1.Service{}:               CreateServiceListWatch(s.kubeClient, ns),
-		&monitoringv1.ServiceMonitor{}:  CreateServiceMonitorListWatch(s.monitoringClient, ns),
+type storeConfig struct {
+	name          string
+	createListers []createLister
+}
+
+type reflectorConfig struct {
+	expectedType runtime.Object
+	lister       cache.ListerWatcher
+}
+
+type createLister = func(*MeterDefinitionStoreBuilder, string) reflectorConfig
+
+const (
+	ServiceStore          string = "serviceStore"
+	PodStore                     = "podStore"
+	PersistentVolumeStore        = "pvcStore"
+)
+
+var (
+	storeConfigs []storeConfig = []storeConfig{pvcStore, podStore, serviceStore}
+	pvcStore     storeConfig   = storeConfig{
+		name: PersistentVolumeStore,
+		createListers: []createLister{
+			pvcLister, meterDefLister,
+		},
+	}
+	podStore = storeConfig{
+		name: PodStore,
+		createListers: []createLister{
+			podLister, meterDefLister,
+		},
+	}
+	serviceStore = storeConfig{
+		name: ServiceStore,
+		createListers: []createLister{
+			serviceLister, serviceMonitorLister, meterDefLister,
+		},
+	}
+)
+
+func pvcLister(s *MeterDefinitionStoreBuilder, ns string) reflectorConfig {
+	return reflectorConfig{
+		expectedType: &corev1.PersistentVolumeClaim{},
+		lister:       CreatePVCListWatch(s.kubeClient, ns),
+	}
+}
+
+func podLister(s *MeterDefinitionStoreBuilder, ns string) reflectorConfig {
+	return reflectorConfig{
+		expectedType: &corev1.Pod{},
+		lister:       CreatePodListWatch(s.kubeClient, ns),
+	}
+}
+
+func serviceLister(s *MeterDefinitionStoreBuilder, ns string) reflectorConfig {
+	return reflectorConfig{
+		expectedType: &corev1.Service{},
+		lister:       CreateServiceListWatch(s.kubeClient, ns),
+	}
+}
+
+func serviceMonitorLister(s *MeterDefinitionStoreBuilder, ns string) reflectorConfig {
+	return reflectorConfig{
+		expectedType: &monitoringv1.ServiceMonitor{},
+		lister:       CreateServiceMonitorListWatch(s.monitoringClient, ns),
+	}
+}
+
+func meterDefLister(s *MeterDefinitionStoreBuilder, ns string) reflectorConfig {
+	return reflectorConfig{
+		expectedType: &v1alpha1.MeterDefinition{},
+		lister:       CreateMeterDefinitionWatch(s.marketplaceClient, ns),
 	}
 }
