@@ -475,7 +475,7 @@ jobs:
             fromRegistry: quay.io/rh-marketplace
             name: PC
             key: pcUser
-            value: pcPassword
+            value: pcPasswordAuthCheck
     env:
       FROM_OPERATOR_IMAGE: ${{ matrix.fromRegistry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
       TO_OPERATOR_IMAGE: ${{ matrix.registry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
