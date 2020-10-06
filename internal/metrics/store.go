@@ -19,10 +19,10 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"sync"
 
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/meter_definition"
+	"github.com/sasha-s/go-deadlock"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -40,7 +40,7 @@ type MeterDefinitionFetcher interface {
 // generated based on those objects.
 type MetricsStore struct {
 	// Protects metrics
-	mutex sync.RWMutex
+	mutex deadlock.RWMutex
 	// metrics is a map indexed by Kubernetes object id, containing a slice of
 	// metric families, containing a slice of metrics. We need to keep metrics
 	// grouped by metric families in order to zip families with their help text in
@@ -59,7 +59,7 @@ type MetricsStore struct {
 
 	meterDefFetcher MeterDefinitionFetcher
 
-	expectedType interface{}
+	expectedType reflect.Type
 }
 
 // NewMetricsStore returns a new MetricsStore
@@ -68,7 +68,7 @@ func NewMetricsStore(
 	generateFunc func(interface{}, []*marketplacev1alpha1.MeterDefinition) []FamilyByteSlicer,
 	meterDefStore *meter_definition.MeterDefinitionStore,
 	meterDefFetcher MeterDefinitionFetcher,
-	expectedType interface{},
+	expectedType reflect.Type,
 ) *MetricsStore {
 	return &MetricsStore{
 		generateMetricsFunc: generateFunc,
@@ -83,9 +83,10 @@ func NewMetricsStore(
 func (s *MetricsStore) Start(
 	ctx context.Context,
 ) {
-	ch := make(chan *meter_definition.ObjectResourceMessage)
-	s.meterDefStore.RegisterListener(fmt.Sprintf("metricStore-%T", s.expectedType), ch)
-	expectedTypeVal := reflect.TypeOf(s.expectedType)
+	log.Info("starting metric store", "name", fmt.Sprintf("metricStore-%v", s.expectedType))
+
+	ch := make(chan *meter_definition.ObjectResourceMessage, 10)
+	s.meterDefStore.RegisterListener(fmt.Sprintf("metricStore-%v", s.expectedType), ch)
 
 	go func() {
 		defer close(ch)
@@ -93,13 +94,16 @@ func (s *MetricsStore) Start(
 		for {
 			select {
 			case msg := <-ch:
-				if msg == nil || reflect.TypeOf(msg.Object) != expectedTypeVal {
-					break
+				if msg == nil || reflect.TypeOf(msg.Object) != s.expectedType {
+					log.Info("received unexpected type", "received", reflect.TypeOf(msg.Object), "expectedType", s.expectedType)
+					continue
 				}
 				switch msg.Action {
 				case meter_definition.AddMessageAction:
+					log.Info("addMessageAction", "message", msg, "expectedType", s.expectedType)
 					_ = s.Add(msg.Object)
 				case meter_definition.DeleteMessageAction:
+					log.Info("deleteMessageAction", "message", msg, "expectedType", s.expectedType)
 					_ = s.Delete(msg.Object)
 				}
 			case <-ctx.Done():
@@ -148,7 +152,6 @@ func (s *MetricsStore) Update(obj interface{}) error {
 
 // Delete deletes an existing entry in the MetricsStore.
 func (s *MetricsStore) Delete(obj interface{}) error {
-
 	o, err := meta.Accessor(obj)
 	if err != nil {
 		return err

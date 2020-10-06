@@ -1,0 +1,74 @@
+package metrics
+
+import (
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	kbsm "k8s.io/kube-state-metrics/pkg/metric"
+)
+
+var (
+	descMeterDefinitionLabelsDefaultLabels = []string{"namespace", "name"}
+)
+
+var meterDefinitionMetricsFamilies = []FamilyGenerator{
+	{
+		FamilyGenerator: kbsm.FamilyGenerator{
+			Name: "meterdef_metric_label_info",
+			Type: kbsm.Gauge,
+			Help: "Metering info for meterDefinition",
+		},
+		GenerateMeterFunc: wrapMeterDefinitionFunc(func(meterDefinition *marketplacev1alpha1.MeterDefinition, meterDefinitions []*marketplacev1alpha1.MeterDefinition) *kbsm.Family {
+			metrics := []*kbsm.Metric{}
+
+			meterDefinitionUID := string(meterDefinition.UID)
+			for _, workload := range meterDefinition.Spec.Workloads {
+				for _, metricLabel := range workload.MetricLabels {
+					labels := map[string]string{
+						"meter_definition_uid": meterDefinitionUID,
+						"workload_vertex_type": string(meterDefinition.Spec.WorkloadVertexType),
+						"workload_name":        workload.Name,
+						"workload_type":        string(workload.WorkloadType),
+						"metric_label":         metricLabel.Label,
+						"metric_aggregation":   metricLabel.Aggregation,
+						"metric_query":         metricLabel.Query,
+					}
+
+					keys := []string{}
+					values := []string{}
+
+					for key, value := range labels {
+						keys = append(keys, key)
+						values = append(values, value)
+					}
+
+					metrics = append(metrics, &kbsm.Metric{
+						LabelKeys:   keys,
+						LabelValues: values,
+						Value:       1,
+					})
+				}
+			}
+
+			return &kbsm.Family{
+				Metrics: metrics,
+			}
+		}),
+	},
+}
+
+// wrapMeterDefinitionFunc is a helper function for generating meterDefinition-based metrics
+func wrapMeterDefinitionFunc(f func(*marketplacev1alpha1.MeterDefinition, []*marketplacev1alpha1.MeterDefinition) *kbsm.Family) func(obj interface{}, mdefs []*marketplacev1alpha1.MeterDefinition) *kbsm.Family {
+	return func(obj interface{}, meterDefinitions []*marketplacev1alpha1.MeterDefinition) *kbsm.Family {
+		meterDefinition := obj.(*marketplacev1alpha1.MeterDefinition)
+
+		metricFamily := f(meterDefinition, []*marketplacev1alpha1.MeterDefinition{})
+
+		for _, m := range metricFamily.Metrics {
+			m.LabelKeys = append(descMeterDefinitionLabelsDefaultLabels, m.LabelKeys...)
+			m.LabelValues = append([]string{meterDefinition.Namespace, meterDefinition.Name}, m.LabelValues...)
+		}
+
+		metricFamily.Metrics = MapMeterDefinitions(metricFamily.Metrics, meterDefinitions)
+
+		return metricFamily
+	}
+}

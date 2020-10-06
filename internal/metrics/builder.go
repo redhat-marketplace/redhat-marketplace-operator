@@ -16,6 +16,7 @@ package metrics
 
 import (
 	"context"
+	"reflect"
 	"strings"
 
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
@@ -37,7 +38,7 @@ type Builder struct {
 	shard            int32
 	totalShards      int
 	cc               reconcileutils.ClientCommandRunner
-	meterDefStore    *meter_definition.MeterDefinitionStore
+	meterDefStores   meter_definition.MeterDefinitionStores
 }
 
 // NewBuilder returns a new builder.
@@ -76,13 +77,13 @@ func (b *Builder) WithClientCommand(cc reconcileutils.ClientCommandRunner) {
 	b.cc = cc
 }
 
-func (b *Builder) WithMeterDefinitionStore(store *meter_definition.MeterDefinitionStore) {
-	b.meterDefStore = store
+func (b *Builder) WithMeterDefinitionStores(stores meter_definition.MeterDefinitionStores) {
+	b.meterDefStores = stores
 }
 
 func (b *Builder) Build() []*MetricsStore {
 	stores := []*MetricsStore{}
-	activeStoreNames := []string{"pods", "services", "persistentvolumeclaims"}
+	activeStoreNames := []string{"pods", "services", "persistentvolumeclaims", "meterdefinitions"}
 
 	klog.Info("Active resources", "resources", strings.Join(activeStoreNames, ","))
 
@@ -98,36 +99,57 @@ var availableStores = map[string]func(f *Builder) *MetricsStore{
 	"pods":                   func(b *Builder) *MetricsStore { return b.buildPodStore() },
 	"services":               func(b *Builder) *MetricsStore { return b.buildServiceStore() },
 	"persistentvolumeclaims": func(b *Builder) *MetricsStore { return b.buildPVCStore() },
+	"meterdefinitions":       func(b *Builder) *MetricsStore { return b.buildMeterDefinitionStore() },
 }
+
+var (
+	serviceType reflect.Type = reflect.TypeOf(&v1.Service{})
+	podType = reflect.TypeOf(&v1.Pod{})
+	persistentVolType = reflect.TypeOf(&v1.PersistentVolumeClaim{})
+	meterDefinitionType = reflect.TypeOf(&marketplacev1alpha1.MeterDefinition{})
+)
 
 func (b *Builder) buildServiceStore() *MetricsStore {
 	return b.buildStore(
 		serviceMetricsFamilies,
-		&v1.Service{},
-		&MeterDefFetcher{b.cc, b.meterDefStore},
+		serviceType,
+		&meterDefFetcher{b.cc, b.meterDefStores[meter_definition.ServiceStore]},
+		b.meterDefStores[meter_definition.ServiceStore],
 	)
 }
 
 func (b *Builder) buildPodStore() *MetricsStore {
 	return b.buildStore(
 		podMetricsFamilies,
-		&v1.Pod{},
-		&MeterDefFetcher{b.cc, b.meterDefStore},
+		podType,
+		&meterDefFetcher{b.cc, b.meterDefStores[meter_definition.PodStore]},
+		b.meterDefStores[meter_definition.PodStore],
 	)
 }
 
 func (b *Builder) buildPVCStore() *MetricsStore {
 	return b.buildStore(
 		pvcMetricsFamilies,
-		&v1.PersistentVolumeClaim{},
-		&MeterDefFetcher{b.cc, b.meterDefStore},
+		persistentVolType,
+		&meterDefFetcher{b.cc, b.meterDefStores[meter_definition.PersistentVolumeStore]},
+		b.meterDefStores[meter_definition.PersistentVolumeStore],
+	)
+}
+
+func (b *Builder) buildMeterDefinitionStore() *MetricsStore {
+	return b.buildStore(
+		meterDefinitionMetricsFamilies,
+		meterDefinitionType,
+		emptyFetcher,
+		b.meterDefStores[meter_definition.PodStore],
 	)
 }
 
 func (b *Builder) buildStore(
 	metricFamilies []FamilyGenerator,
-	expectedType interface{},
+	expectedType reflect.Type,
 	meterDefFetcher MeterDefinitionFetcher,
+	meterStore *meter_definition.MeterDefinitionStore,
 ) *MetricsStore {
 	composedMetricGenFuncs := ComposeMetricGenFuncs(metricFamilies)
 	familyHeaders := ExtractMetricFamilyHeaders(metricFamilies)
@@ -135,7 +157,7 @@ func (b *Builder) buildStore(
 	return NewMetricsStore(
 		familyHeaders,
 		composedMetricGenFuncs,
-		b.meterDefStore,
+		meterStore,
 		meterDefFetcher,
 		expectedType,
 	)
@@ -166,4 +188,3 @@ func ExtractMetricFamilyHeaders(families []FamilyGenerator) []string {
 
 	return headers
 }
-
