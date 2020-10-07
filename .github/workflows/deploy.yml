@@ -216,7 +216,7 @@ jobs:
           path: cover.html
 
   build:
-    name: Build
+    name: Preset
     runs-on: ubuntu-latest
 
     outputs:
@@ -244,7 +244,7 @@ jobs:
       - name: Set branch prefix for dev
         if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
         run: |
-          echo "::set-env name=TAGPREFIX::dev-"
+          echo "echo "TAGPREFIX=dev-" >> $GITHUB_ENV"
 
       - name: Set branch prefix for fix
         if: github.event_name == 'push' && startsWith(github.ref,'refs/heads/bugfix/')
@@ -307,10 +307,27 @@ jobs:
     if: ${{ needs.build.outputs.gittagpushed != 'true' }}
     strategy:
       matrix:
-        registry:
+        image:
           - 'quay.io/rh-marketplace'
+
         include:
           - registry: quay.io/rh-marketplace
+            image: redhat-marketplace-operator
+            name: quay
+            key: quayUser
+            value: quayPassword
+          - registry: quay.io/rh-marketplace
+            image: redhat-marketplace-reporter
+            name: quay
+            key: quayUser
+            value: quayPassword
+          - registry: quay.io/rh-marketplace
+            image: redhat-marketplace-metric-state
+            name: quay
+            key: quayUser
+            value: quayPassword
+          - registry: quay.io/rh-marketplace
+            image: redhat-marketplace-authcheck
             name: quay
             key: quayUser
             value: quayPassword
@@ -318,7 +335,8 @@ jobs:
       IMAGE_REGISTRY: ${{ matrix.registry }}
       OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
       OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
-      TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag}}
+      BUILD_IMAGE: ${{ matrix.image }}
+      TAG: ${{ matrix.registry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
     steps:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
@@ -384,7 +402,6 @@ jobs:
             value: quayPassword
     env:
       IMAGE_REGISTRY: ${{ matrix.registry }}
-      OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
       OLM_REPO: ${{ matrix.registry }}/redhat-marketplace-operator-manifest
       OLM_BUNDLE_REPO: ${{ matrix.registry }}/redhat-marketplace-operator-bundle
       TAG: ${{ needs.build.outputs.dockertag }}
