@@ -385,8 +385,8 @@ jobs:
     env:
       IMAGE_REGISTRY: ${{ matrix.registry }}
       OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
-      OLM_REPO: ${{ matrix.registry }}/operator-manifest
-      OLM_BUNDLE_REPO: ${{ matrix.registry }}/operator-manifest-bundle
+      OLM_REPO: ${{ matrix.registry }}/redhat-marketplace-operator-manifest
+      OLM_BUNDLE_REPO: ${{ matrix.registry }}/redhat-marketplace-operator-bundle
       TAG: ${{ needs.build.outputs.dockertag }}
       OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
       VERSION: ${{ needs.build.outputs.version }}
@@ -427,7 +427,7 @@ jobs:
 
       - name: Build bundles
         run: |
-          make generate-csv opm-bundle-last-beta opm-index-base
+          make generate-csv opm-bundle-last-beta opm-index-base opm-bundle-last-stable
           yq w ./deploy/olm-catalog/test-registry.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ./test-registry-${TAG}.yaml
 
       - name: Upload results
@@ -439,7 +439,7 @@ jobs:
   tag:
     name: Push other tags
     runs-on: ubuntu-latest
-    needs: [build, deploy]
+    needs: [build, deploy, opm]
     if: |
       github.event_name == 'push'
       && (startsWith(github.ref,'refs/heads/release/')
@@ -451,6 +451,8 @@ jobs:
           - redhat-marketplace-operator
           - redhat-marketplace-reporter
           - redhat-marketplace-metric-state
+          - redhat-marketplace-authcheck
+          - redhat-marketplace-operator-manifest
         include:
           - image: redhat-marketplace-operator
             registry: scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd
@@ -476,6 +478,12 @@ jobs:
             name: PC
             key: pcUser
             value: pcPasswordAuthCheck
+          - image: redhat-marketplace-operator-manifest
+            registry: scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785
+            fromRegistry: quay.io/rh-marketplace
+            name: PC
+            key: pcUser
+            value: pcPasswordOperatorManifest
     env:
       FROM_OPERATOR_IMAGE: ${{ matrix.fromRegistry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
       TO_OPERATOR_IMAGE: ${{ matrix.registry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}

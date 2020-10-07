@@ -108,13 +108,13 @@ generate-csv: ## Generate the csv
 		--default-channel=$(CSV_DEFAULT_CHANNEL) \
 		--operator-name=redhat-marketplace-operator \
 		--update-crds \
-		--make-manifests=false
-	$(yq) w -i $(VERSION_CSV_FILE) 'metadata.annotations.containerImage' $(OPERATOR_IMAGE)
-	$(yq) w -i $(VERSION_CSV_FILE) 'metadata.annotations.createdAt' $(CREATED_TIME)
-	$(yq) w -i $(VERSION_CSV_FILE) 'metadata.annotations.capabilities' "Full Lifecycle"
-	$(yq) w -i $(VERSION_CSV_FILE) 'metadata.annotations."operators.operatorframework.io/internal-objects"' $(INTERNAL_CRDS)
-	$(yq) d -i $(VERSION_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
-	$(yq) w -i $(VERSION_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
+		--make-manifests=true
+	$(yq) w -i $(MANIFEST_CSV_FILE) 'metadata.annotations.containerImage' $(OPERATOR_IMAGE)
+	$(yq) w -i $(MANIFEST_CSV_FILE) 'metadata.annotations.createdAt' $(CREATED_TIME)
+	$(yq) w -i $(MANIFEST_CSV_FILE) 'metadata.annotations.capabilities' "Full Lifecycle"
+	$(yq) w -i $(MANIFEST_CSV_FILE) 'metadata.annotations."operators.operatorframework.io/internal-objects"' $(INTERNAL_CRDS)
+	$(yq) d -i $(MANIFEST_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).valueFrom'
+	$(yq) w -i $(MANIFEST_CSV_FILE) 'spec.install.spec.deployments[*].spec.template.spec.containers[*].env(name==WATCH_NAMESPACE).value' ''
 
 PACKAGE_FILE ?= ./deploy/olm-catalog/redhat-marketplace-operator/redhat-marketplace-operator.package.yaml
 
@@ -416,28 +416,31 @@ release-finish: ## Start a release
 
 ##@ OPM
 
-OLM_REPO ?= quay.io/rh-marketplace/operator-manifest
-OLM_BUNDLE_REPO ?= quay.io/rh-marketplace/operator-manifest-bundle
+OLM_REPO ?= quay.io/rh-marketplace/redhat-marketplace-operator-manifest
+OLM_BUNDLE_REPO ?= quay.io/rh-marketplace/redhat-marketplace-operator-bundle
 OLM_PACKAGE_NAME ?= redhat-marketplace-operator-test
-TAG ?= latest
+TAG ?= $(VERSION)
 
 opm-bundle-all: # used to bundle all the versions available
 	./scripts/opm_bundle_all.sh $(OLM_REPO) $(OLM_PACKAGE_NAME) $(VERSION)
 
 opm-bundle-last-edge: ## Bundle latest for edge
-	$(operator-sdk) bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
+	$(operator-sdk) bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/manifests" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
 	$(yq) w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' edge
 	docker build -f bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" .
 	docker push "$(OLM_REPO):$(TAG)"
 
 opm-bundle-last-beta: ## Bundle latest for beta
-	$(operator-sdk) bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
+	$(operator-sdk) bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/manifests" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
 	$(yq) w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' beta
 	docker build -f bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" .
 	docker push "$(OLM_REPO):$(TAG)"
 
-olm-bundle-last-stable: ## Bundle latest for stable
-	$(operator-sdk) bundle create "$(OLM_REPO):$(TAG)" --directory "./deploy/olm-catalog/redhat-marketplace-operator/$(VERSION)" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
+opm-bundle-last-stable: ## Bundle latest for stable
+	$(operator-sdk) bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/manifests" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
+	$(yq) w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' beta
+	docker build -f bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" .
+	docker push "$(OLM_REPO):$(TAG)"
 
 opm-index-base: ## Create an index base
 	./scripts/opm_build_index.sh $(OLM_REPO) $(OLM_BUNDLE_REPO) $(TAG) $(VERSION)
@@ -489,7 +492,7 @@ $(cfssl-certinfo): ./testbin
 $(kind): ./testbin
 	GO111MODULE="on" go get sigs.k8s.io/kind
 
-operator_sdk_version ?= v0.18.0
+operator_sdk_version ?= v0.19.4
 
 ifeq ($(UNAME),darwin)
 	operator_sdk_uname = apple-darwin
