@@ -424,22 +424,14 @@ TAG ?= $(VERSION)
 opm-bundle-all: # used to bundle all the versions available
 	./scripts/opm_bundle_all.sh $(OLM_REPO) $(OLM_PACKAGE_NAME) $(VERSION)
 
-opm-bundle-last-edge: ## Bundle latest for edge
-	$(operator-sdk) bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/manifests" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
-	$(yq) w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' edge
-	docker build -f bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" .
-	docker push "$(OLM_REPO):$(TAG)"
-
 opm-bundle-last-beta: ## Bundle latest for beta
 	$(operator-sdk) bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/manifests" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
-	$(yq) w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' beta
-	docker build -f bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" .
+	docker build -f bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" --build-arg channels=beta .
 	docker push "$(OLM_REPO):$(TAG)"
 
 opm-bundle-last-stable: ## Bundle latest for stable
 	$(operator-sdk) bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/manifests" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
-	$(yq) w -i deploy/olm-catalog/redhat-marketplace-operator/metadata/annotations.yaml 'annotations."operators.operatorframework.io.bundle.channels.v1"' beta
-	docker build -f bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" .
+	docker build -f bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" --build-arg channels=stable,beta .
 	docker push "$(OLM_REPO):$(TAG)"
 
 opm-index-base: ## Create an index base
