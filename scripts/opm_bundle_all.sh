@@ -13,18 +13,13 @@ for VERSION in $VERSIONS; do
 	EXISTS=false
 
 	if skopeo inspect "docker://${TAG}" >/dev/null; then
-    echo "${TAG} exists"
+		echo "${TAG} exists"
 		EXISTS=true
 	fi
 
 	if [ "$EXISTS" == "false" ] || [ "$OVERRIDE" == "true" ]; then
 		echo "Building bundle for $VERSION b/c != $LAST_VERSION"
-		./testbin/operator-sdk bundle create "$TAG" \
-			--directory "./deploy/olm-catalog/redhat-marketplace-operator/$VERSION" \
-			-c stable,beta \
-			--package "${OLM_PACKAGE_NAME}" \
-			--default-channel stable \
-			--overwrite
+		docker build -f bundle.Dockerfile --build-arg manifests="deploy/olm-catalog/redhat-marketplace-operator/$VERSION" -t $TAG .
 		echo "Pushing bundle for $VERSION"
 		docker push "$TAG"
 	fi

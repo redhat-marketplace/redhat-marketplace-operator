@@ -418,7 +418,7 @@ release-finish: ## Start a release
 
 OLM_REPO ?= quay.io/rh-marketplace/redhat-marketplace-operator-manifest
 OLM_BUNDLE_REPO ?= quay.io/rh-marketplace/redhat-marketplace-operator-bundle
-OLM_PACKAGE_NAME ?= redhat-marketplace-operator-test
+OLM_PACKAGE_NAME ?= redhat-marketplace-operator
 TAG ?= $(VERSION)
 
 opm-bundle-all: # used to bundle all the versions available
