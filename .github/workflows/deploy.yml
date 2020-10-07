@@ -371,6 +371,7 @@ jobs:
 
   deploy-done:
     needs: [deploy]
+    runs-on: ubuntu-latest
     name: 'Deploy Finished'
     steps:
       - name: Finished
