@@ -333,7 +333,7 @@ jobs:
         id: image
         shell: bash {0}
         run: |
-          skopeo inspect docker://${TAG} --creds ${{ secrets[quayUser] }}:${{ secrets[quayPassword] }} > /dev/null
+          skopeo inspect docker://${TAG} --creds ${{ secrets['quayUser'] }}:${{ secrets['quayPassword'] }} > /dev/null
           [[ $? == 0 ]] && echo ::set-env name=exists::true || echo ::set-env name=exists::false
 
       - name: Install tools
@@ -345,8 +345,8 @@ jobs:
       - name: Login ${{ matrix.name }}
         run: make docker-login
         env:
-          DOCKER_USER: ${{ secrets[quayUser] }}
-          DOCKER_PASSWORD: ${{ secrets[quayPassword] }}
+          DOCKER_USER: ${{ secrets['quayUser'] }}
+          DOCKER_PASSWORD: ${{ secrets['quayPassword'] }}
 
       - name: Build & Push
         if: env.exists != 'true'
