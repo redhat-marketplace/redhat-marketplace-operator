@@ -479,7 +479,7 @@ jobs:
             key: pcUser
             value: pcPasswordAuthCheck
           - image: redhat-marketplace-operator-manifest
-            registry: scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785
+            registry: scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1
             fromRegistry: quay.io/rh-marketplace
             name: PC
             key: pcUser
