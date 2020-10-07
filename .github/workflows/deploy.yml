@@ -363,7 +363,7 @@ jobs:
         env:
           DOCKER_USER: ${{ secrets[matrix.key] }}
           DOCKER_PASSWORD: ${{ secrets[matrix.value] }}
-          REGISTRY: ${{ jobs.deploy.image_registry }}
+          REGISTRY: ${{ jobs.deploy.env.image_registry }}
 
       - name: Build & Push
         if: env.exists != 'true'
