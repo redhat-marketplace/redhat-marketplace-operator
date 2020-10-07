@@ -166,7 +166,7 @@ jobs:
         id: wait-for-deploy
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          checkName: Deploy (quay.io/rh-marketplace)
+          checkName: Deploy Finished
           timeoutSeconds: 1000
           intervalSeconds: 10
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -206,10 +206,10 @@ jobs:
       - uses: actions/download-artifact@v2
       - name: Report cover
         run: |
-            cp cover-int/cover-int.out .
-            cp cover-unit/cover-unit.out .
-            make test-join test-cover-text
-            go tool cover -html=cover.out -o cover.html
+          cp cover-int/cover-int.out .
+          cp cover-unit/cover-unit.out .
+          make test-join test-cover-text
+          go tool cover -html=cover.out -o cover.html
       - uses: actions/upload-artifact@v2
         with:
           name: cover
@@ -226,7 +226,6 @@ jobs:
       tagExists: ${{ steps.checktag.outputs.exists }}
       dockertag: ${{ steps.vars.outputs.dockertag }}
       crs: ${{ steps.vars.outputs.crs }}
-      gittagpushed: ${{ steps.tag.outputs.gittagpushed }}
     env:
       TAGPREFIX: ''
     steps:
@@ -261,22 +260,9 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
-      - name: Get if gittag is pushed
-        shell: bash {0}
-        id: tag
-        run: |
-          VERSION=$(make current-version)
-          RESULT=$(git tag --list | grep -E "$VERSION")
-          IS_TAGGED=false
-          if [ "$RESULT" != "" ] ; then
-            IS_TAGGED=true
-          fi
-
       - name: Get Vars
         id: vars
         run: |
-
-          echo "::set-output name=gittagpushed::${IS_TAGGED}"
           echo "::set-output name=version::$(make current-version)"
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
           echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
@@ -304,35 +290,32 @@ jobs:
     name: Deploy
     runs-on: ubuntu-latest
     needs: [build]
-    if: ${{ needs.build.outputs.gittagpushed != 'true' }}
     strategy:
       matrix:
         image:
-          - 'quay.io/rh-marketplace'
-
+          - redhat-marketplace-operator
+          - redhat-marketplace-reporter
+          - redhat-marketplace-metric-state
+          - redhat-marketplace-authcheck
         include:
-          - registry: quay.io/rh-marketplace
-            image: redhat-marketplace-operator
+          - image: redhat-marketplace-operator
             name: quay
             key: quayUser
             value: quayPassword
-          - registry: quay.io/rh-marketplace
-            image: redhat-marketplace-reporter
+          - image: redhat-marketplace-reporter
             name: quay
             key: quayUser
             value: quayPassword
-          - registry: quay.io/rh-marketplace
-            image: redhat-marketplace-metric-state
+          - image: redhat-marketplace-metric-state
             name: quay
             key: quayUser
             value: quayPassword
-          - registry: quay.io/rh-marketplace
-            image: redhat-marketplace-authcheck
+          - image: redhat-marketplace-authcheck
             name: quay
             key: quayUser
             value: quayPassword
     env:
-      IMAGE_REGISTRY: ${{ matrix.registry }}
+      IMAGE_REGISTRY: quay.io/rh-marketplace
       OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
       OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
       BUILD_IMAGE: ${{ matrix.image }}
@@ -386,11 +369,18 @@ jobs:
         if: env.exists != 'true'
         run: make build
 
+  deploy-done:
+    needs: [deploy]
+    name: 'Deploy Finished'
+    steps:
+      - name: Finished
+        run: |
+          echo "done"
+
   opm:
     name: Deploy OPM Index
     runs-on: ubuntu-latest
     needs: [build]
-    if: ${{ needs.build.outputs.gittagpushed != 'true' }}
     strategy:
       matrix:
         registry:
