@@ -509,7 +509,7 @@ $(skaffold): ./testbin
 	curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/$(skaffold_version)/skaffold-$(UNAME)-amd64
 	chmod +x skaffold && mv skaffold ./testbin/skaffold
 
-opm_version ?= v1.12.5
+opm_version ?= v1.14.1
 
 $(opm): ./testbin
 	curl -LO https://github.com/operator-framework/operator-registry/releases/download/$(opm_version)/$(UNAME)-amd64-opm
