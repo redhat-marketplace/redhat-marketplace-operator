@@ -418,17 +418,18 @@ jobs:
 
       - name: Build bundles
         env:
+          TAG: ${{ needs.build.outputs.dockertag }}-test
+          OLM_PACKAGE_NAME: redhat-marketplace-operator-test
+        run: |
+          make generate-csv opm-bundle-last-beta opm-index-base
+          yq w ./deploy/olm-catalog/test-registry.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ./test-registry-${TAG}-test.yaml
+
+      - name: Build bundles
+        env:
           TAG: ${{ needs.build.outputs.dockertag }}-stable
         run: |
           make generate-csv opm-bundle-last-stable opm-index-base
-          yq w ./deploy/olm-catalog/test-registry.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ./test-registry-${TAG}.yaml
-
-      - name: Build beta bundles
-        env:
-          TAG: ${{ needs.build.outputs.dockertag }}-beta
-        run: |
-          make opm-bundle-last-beta opm-index-base
-          yq w ./deploy/olm-catalog/test-registry.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ./test-registry-${TAG}.yaml
+          yq w ./deploy/olm-catalog/test-registry.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ./test-registry-${TAG}-stable.yaml
 
       - name: Upload results
         uses: actions/upload-artifact@v1
