@@ -432,12 +432,12 @@ opm-bundle-all: # used to bundle all the versions available
 
 opm-bundle-last-beta: ## Bundle latest for beta
 	$(operator-sdk) bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/manifests" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
-	docker build -f bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" --build-arg channels=beta .
+	docker build -f custom-bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" --build-arg channels=beta .
 	docker push "$(OLM_REPO):$(TAG)"
 
 opm-bundle-last-stable: ## Bundle latest for stable
 	$(operator-sdk) bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/manifests" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
-	docker build -f bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" --build-arg channels=stable,beta .
+	docker build -f custom-bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" --build-arg channels=stable,beta .
 	docker push "$(OLM_REPO):$(TAG)"
 
 opm-index-base: ## Create an index base

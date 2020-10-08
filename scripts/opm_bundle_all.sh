@@ -19,7 +19,7 @@ for VERSION in $VERSIONS; do
 
 	if [ "$EXISTS" == "false" ] || [ "$OVERRIDE" == "true" ]; then
 		echo "Building bundle for $VERSION b/c != $LAST_VERSION"
-		docker build -f bundle.Dockerfile --build-arg manifests="deploy/olm-catalog/redhat-marketplace-operator/$VERSION" -t $TAG .
+		docker build -f custom-bundle.Dockerfile --build-arg manifests="deploy/olm-catalog/redhat-marketplace-operator/$VERSION" -t $TAG .
 		echo "Pushing bundle for $VERSION"
 		docker push "$TAG"
 	fi
