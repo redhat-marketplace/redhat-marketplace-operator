@@ -418,16 +418,9 @@ jobs:
 
       - name: Build bundles
         env:
-          TAG: ${{ needs.build.outputs.dockertag }}-test
-        run: |
-          make generate-csv opm-bundle-last-beta opm-index-base
-          yq w ./deploy/olm-catalog/test-registry.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ./test-registry-${TAG}-test.yaml
-
-      - name: Build bundles
-        env:
           TAG: ${{ needs.build.outputs.dockertag }}
         run: |
-          make generate-csv opm-bundle-last-stable opm-index-base
+          make opm-bundle-last-stable opm-index-base
           yq w ./deploy/olm-catalog/test-registry.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ./test-registry-${TAG}.yaml
 
       - name: Upload results
@@ -435,7 +428,6 @@ jobs:
         with:
           name: test-catalog-source
           path: |
-              ./test-registry-${{ env.TAG }}-test.yaml
               ./test-registry-${{ env.TAG }}.yaml
 
   tag:
