@@ -16,6 +16,8 @@ VERSIONS=$(echo "$VERSIONS,$OLM_REPO:$TAG")
 echo "Making version list"
 VERSIONS_LIST=$(echo $VERSIONS | xargs | sed -e "s/ / $OLM_REPO_E:v/g" | sed -e "s/^/$OLM_REPO_E:v/g" | sed -e 's/ /,/g')
 
+echo $VERSIONS_LIST
+
 echo "Using tag ${OLM_BUNDLE_REPO}:${TAG}"
 echo "Building index with $VERSIONS_LIST"
 echo ""

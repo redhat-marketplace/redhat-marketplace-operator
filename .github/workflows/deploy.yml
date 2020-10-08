@@ -419,7 +419,6 @@ jobs:
       - name: Build bundles
         env:
           TAG: ${{ needs.build.outputs.dockertag }}-test
-          OLM_PACKAGE_NAME: redhat-marketplace-operator-test
         run: |
           make generate-csv opm-bundle-last-beta opm-index-base
           yq w ./deploy/olm-catalog/test-registry.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ./test-registry-${TAG}-test.yaml
