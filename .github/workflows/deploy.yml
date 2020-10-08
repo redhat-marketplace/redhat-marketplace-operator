@@ -426,16 +426,18 @@ jobs:
 
       - name: Build bundles
         env:
-          TAG: ${{ needs.build.outputs.dockertag }}-stable
+          TAG: ${{ needs.build.outputs.dockertag }}
         run: |
           make generate-csv opm-bundle-last-stable opm-index-base
-          yq w ./deploy/olm-catalog/test-registry.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ./test-registry-${TAG}-stable.yaml
+          yq w ./deploy/olm-catalog/test-registry.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ./test-registry-${TAG}.yaml
 
       - name: Upload results
         uses: actions/upload-artifact@v1
         with:
           name: test-catalog-source
-          path: ./test-registry-${{ env.TAG }}.yaml
+          path: |
+              ./test-registry-${{ env.TAG }}-test.yaml
+              ./test-registry-${{ env.TAG }}.yaml
 
   tag:
     name: Push other tags
