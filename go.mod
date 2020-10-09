@@ -1,6 +1,6 @@
 module github.com/redhat-marketplace/redhat-marketplace-operator
 
-go 1.14
+go 1.15
 
 require (
 	emperror.dev/errors v0.7.0
