@@ -167,6 +167,7 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 
 type meterDefPromModel struct {
 	*marketplacev1alpha1.MeterDefinition
+	additionalFieldArray []string
 	model.Value
 	MetricName string
 	Type       v1alpha1.WorkloadType
@@ -188,6 +189,7 @@ func (r *MarketplaceReporter) query(
 				// Guage = delta
 				// Counter = increase
 				// Histogram and summary are unsupported
+				var additionalFieldLabels []string
 				query := &PromQuery{
 					Metric: metric.Label,
 					Type:   workload.WorkloadType,
@@ -204,14 +206,12 @@ func (r *MarketplaceReporter) query(
 				}
 				logger.Info("output", "query", query.String())
 
-				// TODO: check for additionalFields
 				if metric.AdditionalFields != nil {
-
-					// for _,additionalField := range metric.AdditionalFields {
-					// 	processAdditionalFields(metric.Query,additionalField)
-					// }
-
-					
+					fmt.Println("ADDITIONAL FIELDS PRESENT")
+					query.Query = updateQueryWithAdditionalFields(metric.Query,metric.AdditionalFields)
+					// {addF1="test", addF2="test2"}
+					additionalFieldLabels = getKeyValuePairFromQuery(metric.Query)
+					fmt.Println("UPDATED QUERY: ",query.Query)
 				}
 			
 				var val model.Value
@@ -238,7 +238,7 @@ func (r *MarketplaceReporter) query(
 					return
 				}
 
-				outPromModels <- meterDefPromModel{mdef, val, metric.Label, query.Type}
+				outPromModels <- meterDefPromModel{mdef, additionalFieldLabels, val, metric.Label, query.Type}
 			}
 		}
 	}
@@ -278,6 +278,8 @@ func (r *MarketplaceReporter) process(
 					func() {
 
 						labels := getKeysFromMetric(matrix.Metric, additionalLabels)
+						labels = append(labels, pmodel.additionalFieldArray)
+						fmt.Println("LABELS: ",labels)
 						labelMatrix, err := kvToMap(labels)
 
 						if err != nil {
@@ -306,7 +308,7 @@ func (r *MarketplaceReporter) process(
 						}
 
 						if objName == "" {
-							errorsch <- errors.New("can't fine objName")
+							errorsch <- errors.New("can't find objName")
 							return
 						}
 
@@ -484,16 +486,16 @@ func wgWait(ctx context.Context, processName string, maxRoutines int, done chan 
 	done <- true
 }
 
-// processAdditionalFields 
-func processAdditionalFields(originalQuery string,additionalFields []string ) string {
+func updateQueryWithAdditionalFields(originalQuery string,additionalFields []string ) (updatedQuery string) {
 	queryLabels := getLabelsFromMetricQuery(originalQuery)
-	updatedQuery := ""
+	fmt.Println("Original Query Labels",queryLabels )
+	// updatedQuery := ""
 	if strings.Contains(queryLabels,"group_right"){
 		trimmedQueryLables := strings.Split(queryLabels, "group_right")
 		updatedQuery = checkForAdditionalFieldsInQueryLabels(originalQuery,strings.Join(trimmedQueryLables,""),additionalFields)
 
 	} else {
-		queryLabels = checkForAdditionalFieldsInQueryLabels(originalQuery,queryLabels,additionalFields)
+		updatedQuery = checkForAdditionalFieldsInQueryLabels(originalQuery,queryLabels,additionalFields)
 	}
 
 	return updatedQuery
@@ -505,7 +507,7 @@ func checkForAdditionalFieldsInQueryLabels(originalQuery string, originalQueryLa
 	for _,additionalField := range additionalFields {
 		if !strings.Contains(originalQueryLabels,additionalField) {
 			additionalFieldLabel := fmt.Sprintf("%s%s",",additionalField=",additionalField)
-      updatedQueryLabel += additionalFieldLabel
+      		updatedQueryLabel += additionalFieldLabel
 		}
 	}
 
@@ -515,7 +517,6 @@ func checkForAdditionalFieldsInQueryLabels(originalQuery string, originalQueryLa
 }
 
 func getLabelsFromMetricQuery(in string) string {
-
 	out := GetStringInBetween(in,"{", "}")
 	return out
 }
@@ -533,3 +534,15 @@ func GetStringInBetween(str string, start string, end string) (result string) {
     }
     return str[s:e]
 }
+
+func getKeyValuePairFromQuery(in string) (keyValuePairsArray []string) {
+	labels := getLabelsFromMetricQuery(in)
+	temp := strings.Split(labels,",")
+   
+	for _,kvPairString := range temp {
+	  keyValuePairArray := strings.Split(kvPairString, "=")
+	  keyValuePairsArray = append(keyValuePairsArray,keyValuePairArray[0],keyValuePairArray[1])
+	}
+	
+	return keyValuePairsArray
+  }

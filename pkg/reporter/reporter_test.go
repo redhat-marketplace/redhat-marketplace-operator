@@ -24,7 +24,6 @@ import (
 	"math/rand"
 	"net/http"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -40,11 +39,11 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 )
 
-var _ = PDescribe("Reporter", func() {
+var _ = Describe("Reporter", func() {
 	const count = 4416
 	var (
 		err           error
-		sut           *MarketplaceReporter
+sut           *MarketplaceReporter
 		config        *marketplacev1alpha1.MarketplaceConfig
 		report        *marketplacev1alpha1.MeterReport
 		dir, dir2     string
@@ -77,19 +76,48 @@ var _ = PDescribe("Reporter", func() {
 			},
 		}
 
-		sut = &MarketplaceReporter{
-			api:       v1api,
-			Config:    cfg,
-			report:    report,
-			mktconfig: config,
-		}
-
 		report = &marketplacev1alpha1.MeterReport{
 			Spec: marketplacev1alpha1.MeterReportSpec{
 				StartTime: metav1.Time{Time: start},
 				EndTime:   metav1.Time{Time: end},
 			},
 		}
+
+		sut = &MarketplaceReporter{
+			api:       v1api,
+			Config:    cfg,
+			report:    report,
+			mktconfig: config,
+			meterDefinitions: []marketplacev1alpha1.MeterDefinition{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-meterdef",
+						Namespace: "namespace",
+					},
+					Spec: marketplacev1alpha1.MeterDefinitionSpec{
+						Group:   "apps.partner.metering.com",
+						Kind:    "MeterDefinition",
+						Workloads: []marketplacev1alpha1.Workload{
+							{
+								WorkloadType: "Pod",
+								MetricLabels: []marketplacev1alpha1.MeterLabelQuery{
+									{
+										Query: "rate(container_cpu_usage_seconds_total{}[5m])*100",
+										AdditionalFields: map[string]string{
+											"test-field-1" : "test-key-1",
+											"test-field-2" : "test-key-2",
+										},
+									},
+								},
+								
+							},
+						},
+					},
+				},
+			},
+		}
+
+
 
 		// meterDefinitions = []*marketplacev1alpha1.MeterDefinitionSpec{
 		// 	{
@@ -142,45 +170,45 @@ var _ = PDescribe("Reporter", func() {
 		generatedFile = GenerateRandomData(start, end)
 	})
 
-	Context("benchmark", func() {
-		BeforeEach(func() {
-			v1api := getTestAPI(mockResponseRoundTripper(generatedFile))
+	// Context("benchmark", func() {
+	// 	BeforeEach(func() {
+	// 		v1api := getTestAPI(mockResponseRoundTripper(generatedFile))
 
-			cfg := &Config{
-				OutputDirectory: dir,
-			}
+	// 		cfg := &Config{
+	// 			OutputDirectory: dir,
+	// 		}
 
-			cfg.SetDefaults()
+	// 		cfg.SetDefaults()
 
-			sut = &MarketplaceReporter{
-				api:    v1api,
-				Config: cfg,
-				report: report,
-			}
-		})
+	// 		sut = &MarketplaceReporter{
+	// 			api:    v1api,
+	// 			Config: cfg,
+	// 			report: report,
+	// 		}
+	// 	})
 
-		Measure("collect metrics", func(b Benchmarker) {
-			btest := b.Time("runtime", func() {
-				runtime.GC()
-				m := &runtime.MemStats{}
-				m2 := &runtime.MemStats{}
+	// 	Measure("collect metrics", func(b Benchmarker) {
+	// 		btest := b.Time("runtime", func() {
+	// 			runtime.GC()
+	// 			m := &runtime.MemStats{}
+	// 			m2 := &runtime.MemStats{}
 
-				runtime.ReadMemStats(m)
-				results, errs, err := sut.CollectMetrics(context.TODO())
-				runtime.ReadMemStats(m2)
+	// 			runtime.ReadMemStats(m)
+	// 			results, errs, err := sut.CollectMetrics(context.TODO())
+	// 			runtime.ReadMemStats(m2)
 
-				Expect(err).To(Succeed())
-				Expect(errs).To(BeEmpty())
-				Expect(results).ToNot(BeEmpty())
-				Expect(len(results)).To(Equal(count))
+	// 			Expect(err).To(Succeed())
+	// 			Expect(errs).To(BeEmpty())
+	// 			Expect(results).ToNot(BeEmpty())
+	// 			Expect(len(results)).To(Equal(count))
 
-				b.RecordValue("disk usage (in MB)", float64((m2.Alloc-m.Alloc)/1024/1024))
-			})
+	// 			b.RecordValue("disk usage (in MB)", float64((m2.Alloc-m.Alloc)/1024/1024))
+	// 		})
 
-			Expect(btest.Seconds()).Should(BeNumerically("<", 1))
-		}, 10)
+	// 		Expect(btest.Seconds()).Should(BeNumerically("<", 1))
+	// 	}, 10)
 
-	})
+	// })
 
 	It("query, build and submit a report", func(done Done) {
 		By("collecting metrics")
@@ -222,6 +250,8 @@ var _ = PDescribe("Reporter", func() {
 								"namespace": Equal("metering-example-operator"),
 								"pod":       Equal("example-app-pod"),
 								"service":   Equal("example-app-pod"),
+								"test-field-1" : Equal("test-key-1"),
+								"test-field-2" : Equal("test-key-2"),
 							}),
 							"domain":              Equal("apps.partner.metering.com"),
 							"interval_start":      HavePrefix("2020-"),
