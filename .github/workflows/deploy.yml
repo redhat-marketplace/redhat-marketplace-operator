@@ -418,7 +418,7 @@ jobs:
 
       - name: Build bundles
         run: |
-          make opm-bundle-last-stable opm-index-base
+          make generate-csv opm-bundle-last-stable opm-index-base
           yq w ./deploy/olm-catalog/test-registry.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ./test-registry-${TAG}.yaml
 
       - name: Create test catalog
