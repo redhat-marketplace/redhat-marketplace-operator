@@ -102,11 +102,8 @@ sut           *MarketplaceReporter
 								WorkloadType: "Pod",
 								MetricLabels: []marketplacev1alpha1.MeterLabelQuery{
 									{
-										Query: "rate(container_cpu_usage_seconds_total{}[5m])*100",
-										AdditionalFields: map[string]string{
-											"test-field-1" : "test-key-1",
-											"test-field-2" : "test-key-2",
-										},
+										Query: "rate(container_cpu_usage_seconds_total{test-field-1=test-value-1,test-field-2=test-value-2}[5m])*100",
+										AdditionalFields: []string{"test-field-1","test-field-2"},
 									},
 								},
 								
@@ -250,8 +247,8 @@ sut           *MarketplaceReporter
 								"namespace": Equal("metering-example-operator"),
 								"pod":       Equal("example-app-pod"),
 								"service":   Equal("example-app-pod"),
-								"test-field-1" : Equal("test-key-1"),
-								"test-field-2" : Equal("test-key-2"),
+								"test-field-1" : Equal("test-value-1"),
+								"test-field-2" : Equal("test-value-2"),
 							}),
 							"domain":              Equal("apps.partner.metering.com"),
 							"interval_start":      HavePrefix("2020-"),

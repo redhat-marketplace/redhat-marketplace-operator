@@ -97,6 +97,7 @@ func TimeToReportTimeStr(myTime time.Time) string {
 }
 
 func kvToMap(keysAndValues []interface{}) (map[string]interface{}, error) {
+	fmt.Println(keysAndValues)
 	metrics := make(map[string]interface{})
 	if len(keysAndValues)%2 != 0 {
 		return nil, errors.New("keyAndValues must be a length of 2")

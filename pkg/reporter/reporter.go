@@ -167,7 +167,7 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 
 type meterDefPromModel struct {
 	*marketplacev1alpha1.MeterDefinition
-	additionalFieldArray []string
+	additionalFieldMap map[string]string
 	model.Value
 	MetricName string
 	Type       v1alpha1.WorkloadType
@@ -189,7 +189,7 @@ func (r *MarketplaceReporter) query(
 				// Guage = delta
 				// Counter = increase
 				// Histogram and summary are unsupported
-				var additionalFieldLabels []string
+				var additionalFieldMap map[string]string
 				query := &PromQuery{
 					Metric: metric.Label,
 					Type:   workload.WorkloadType,
@@ -210,8 +210,10 @@ func (r *MarketplaceReporter) query(
 					fmt.Println("ADDITIONAL FIELDS PRESENT")
 					query.Query = updateQueryWithAdditionalFields(metric.Query,metric.AdditionalFields)
 					// {addF1="test", addF2="test2"}
-					additionalFieldLabels = getKeyValuePairFromQuery(metric.Query)
+					// additionalFieldLabels = getKeyValuePairFromQuery(metric.Query)
+					additionalFieldMap = getMapFromQuery(metric.Query)
 					fmt.Println("UPDATED QUERY: ",query.Query)
+
 				}
 			
 				var val model.Value
@@ -238,7 +240,7 @@ func (r *MarketplaceReporter) query(
 					return
 				}
 
-				outPromModels <- meterDefPromModel{mdef, additionalFieldLabels, val, metric.Label, query.Type}
+				outPromModels <- meterDefPromModel{mdef, additionalFieldMap, val, metric.Label, query.Type}
 			}
 		}
 	}
@@ -278,10 +280,13 @@ func (r *MarketplaceReporter) process(
 					func() {
 
 						labels := getKeysFromMetric(matrix.Metric, additionalLabels)
-						labels = append(labels, pmodel.additionalFieldArray)
-						fmt.Println("LABELS: ",labels)
+						// labels = append(labels, pmodel.additionalFieldArray)
+						// fmt.Println("LABELS: ",labels)
 						labelMatrix, err := kvToMap(labels)
-
+						// for key,val := range pmodel.additionalFieldMap{
+						// 	labelMatrix[key] = val
+						// }
+						
 						if err != nil {
 							errorsch <- errors.Wrap(err, "failed adding additional labels")
 							return
@@ -545,4 +550,18 @@ func getKeyValuePairFromQuery(in string) (keyValuePairsArray []string) {
 	}
 	
 	return keyValuePairsArray
+  }
+
+  func getMapFromQuery(in string) (map[string]string) {
+	labels := getLabelsFromMetricQuery(in)
+	labelMap := make(map[string]string)
+	temp := strings.Split(labels,",")
+
+	for _,kvPairString := range temp {
+	  keyValuePairArray := strings.Split(kvPairString, "=")
+	  labelMap[keyValuePairArray[0]] = keyValuePairArray[1]
+	//   keyValuePairsArray = append(keyValuePairsArray,keyValuePairArray[0],keyValuePairArray[1])
+	}
+	
+	return labelMap
   }
