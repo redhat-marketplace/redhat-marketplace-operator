@@ -73,9 +73,9 @@ func (s *scanResults) IsPassed() bool {
 }
 
 type connectResponse struct {
-	Status  string                   `json:"status"`
-	Message string                   `json:"message"`
-	Code    int32                    `json:"code"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
+	Code    int32  `json:"code"`
 }
 
 func (c *connectResponse) IsOK() bool {
@@ -88,6 +88,7 @@ func (c *connectResponse) IsPublished() bool {
 
 func (c *connectClient) GetDigestStatus(opsid, digest string) (*scanResults, error) {
 	url := fmt.Sprintf("%s/container/%s/certResults/%s", domain, opsid, digest)
+	fmt.Printf("url is %s\n", url)
 	resp, err := c.Get(url)
 	defer resp.Body.Close()
 
@@ -101,12 +102,39 @@ func (c *connectClient) GetDigestStatus(opsid, digest string) (*scanResults, err
 		return nil, errors.Wrap(err, "error reading body")
 	}
 
+	var cResp connectResponse
+	err = json.Unmarshal(body, &cResp)
+
+	fmt.Printf("scanResults %s\n", string(body))
+
+	if err != nil {
+		return nil, errors.Wrap(err, "error json marshalling")
+	}
+
+	var rawJson map[string]interface{}
+	err = json.Unmarshal(body, &rawJson)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "error json marshalling")
+	}
+
+	if !cResp.IsOK() {
+		return nil, nil
+	}
+
+	if _, ok := rawJson["data"].([]interface{}); ok {
+		return nil, nil
+	}
+
 	var data scanResults
 	err = json.Unmarshal(body, &data)
 
 	if err != nil {
-		fmt.Println(string(body))
-		return nil, errors.Wrap(err, "error json marshalling")
+		return &scanResults{
+			Code:    cResp.Code,
+			Status:  cResp.Status,
+			Message: cResp.Message,
+		}, nil
 	}
 
 	return &data, nil

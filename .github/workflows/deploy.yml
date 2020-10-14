@@ -489,7 +489,12 @@ jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
-    needs: [build, deploy, opm, cover]
+    if: |
+      github.event_name == 'push'
+      && (startsWith(github.ref,'refs/heads/release/')
+          || startsWith(github.ref,'refs/heads/hotfix/')
+          || github.ref == 'refs/heads/master' )
+    needs: [tag]
     env:
       TAG: ${{ needs.build.outputs.dockertag }}
       OS_PIDS: "ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4 ospid-ffed416e-c18d-4b88-8660-f586a4792785"
@@ -504,5 +509,6 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
       - name: Publish
+
         run: |
           make wait-and-publish

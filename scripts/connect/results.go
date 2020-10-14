@@ -37,6 +37,11 @@ func (c containerResults) Process(client *connectClient, containers map[string]s
 			break
 		}
 
+		if status == nil {
+			fmt.Printf("digest status is not ready\n")
+			continue
+		}
+
 		if !status.IsPassed() {
 			fmt.Printf("digest status is not passed for pid %s\n", pid)
 			continue
