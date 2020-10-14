@@ -437,7 +437,7 @@ jobs:
       - name: Upload results
         uses: actions/upload-artifact@v1
         with:
-          name: ${{}}catalog-source-${{ matrix.channel }}
+          name: ${{ matrix.packageName }}-catalog-${{ matrix.channel }}
           path: ./test-registry-${{ matrix.channel }}-${{ env.TAG }}.yaml
 
   tag:
