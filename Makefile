@@ -419,7 +419,7 @@ wait-and-publish:
 	for i in "$${!array[@]}"; do \
 			PID="$${array[$$i]}" ; \
 			REPO="$${repos[$$i]}" ; \
-			RESULT=`skopeo inspect docker://quay.io/rh-marketplace/$$REPO:$$TAG` ; \
+			RESULT=`skopeo inspect docker://$$REPO:$$TAG` ; \
 			if [ $$? -ne 0 ]; then echo "failed to get skopeo" && exit 1 ; fi ; \
 			DIGEST=`echo $$RESULT | jq -r '.Digest'` ; \
 			RESULTS="--containers $$PID=$$DIGEST $$RESULTS" ; \

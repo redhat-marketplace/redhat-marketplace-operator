@@ -421,7 +421,7 @@ jobs:
         uses: actions/upload-artifact@v1
         with:
           name: ${{ matrix.packageName }}-catalog-${{ matrix.channel }}
-          path: ./registry-${{ matrix.channel }}-${{ needs.build.outputs.dockertag }}.yaml
+          path: ./registry-${{ matrix.channel }}-${{ needs.build.outputs.dockertag }}-${{ needs.build.outputs.now }}.yaml
 
   tag:
     name: Push other tags
