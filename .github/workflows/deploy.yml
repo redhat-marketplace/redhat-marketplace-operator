@@ -359,14 +359,6 @@ jobs:
         channel:
           - stable
         include:
-          - channel: beta
-            packageName: redhat-marketplace-operator-test
-            imageRegistry: quay.io/rh-marketplace
-            olmRepo: quay.io/rh-marketplace/redhat-marketplace-operator-test-manifest
-            indexRepo: quay.io/rh-marketplace/redhat-marketplace-operator-test-index
-            name: quay
-            key: quayUser
-            value: quayPassword
           - channel: stable
             packageName: redhat-marketplace-operator
             imageRegistry: quay.io/rh-marketplace
