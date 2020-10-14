@@ -223,7 +223,6 @@ jobs:
       version: ${{ steps.vars.outputs.version }}
       tag: ${{ steps.vars.outputs.tag }}
       hash: ${{ steps.vars.outputs.hash }}
-      tagExists: ${{ steps.checktag.outputs.exists }}
       dockertag: ${{ steps.vars.outputs.dockertag }}
       crs: ${{ steps.vars.outputs.crs }}
     env:
@@ -276,15 +275,6 @@ jobs:
           continue-after-seconds: 45
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Check if tag exists
-        id: checktag
-        shell: bash {0}
-        run: |
-          skopeo inspect docker://${TAG} > /dev/null
-          ([[ $? == 0 ]] && echo "exists=true" || echo "exists=false") >> $GITHUB_ENV
-        env:
-          TAG: quay.io/rh-marketplace/redhat-marketplace-operator:${{ steps.vars.outputs.dockertag }}
 
   deploy:
     name: Deploy
@@ -438,7 +428,7 @@ jobs:
         uses: actions/upload-artifact@v1
         with:
           name: ${{ matrix.packageName }}-catalog-${{ matrix.channel }}
-          path: ./test-registry-${{ matrix.channel }}-${{ env.TAG }}.yaml
+          path: ./registry-${{ matrix.channel }}${{ env.tag }}.yaml
 
   tag:
     name: Push other tags
