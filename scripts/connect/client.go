@@ -86,20 +86,20 @@ func (c *connectResponse) IsPublished() bool {
 	return c.Code == 423
 }
 
-func (c *connectClient) GetDigestStatus(opsid, digest string) (*scanResults, error) {
+func (c *connectClient) GetDigestStatus(opsid, digest string) (*connectResponse, *scanResults, error) {
 	url := fmt.Sprintf("%s/container/%s/certResults/%s", domain, opsid, digest)
 	fmt.Printf("url is %s\n", url)
 	resp, err := c.Get(url)
 	defer resp.Body.Close()
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "error reading body")
+		return nil, nil, errors.Wrap(err, "error reading body")
 	}
 
 	var cResp connectResponse
@@ -108,36 +108,36 @@ func (c *connectClient) GetDigestStatus(opsid, digest string) (*scanResults, err
 	fmt.Printf("scanResults %s\n", string(body))
 
 	if err != nil {
-		return nil, errors.Wrap(err, "error json marshalling")
+		return nil, nil, errors.Wrap(err, "error json marshalling")
 	}
 
 	var rawJson map[string]interface{}
 	err = json.Unmarshal(body, &rawJson)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "error json marshalling")
+		return &cResp, nil, errors.Wrap(err, "error json marshalling")
 	}
 
 	if !cResp.IsOK() {
-		return nil, nil
+		return &cResp, nil, nil
 	}
 
 	if _, ok := rawJson["data"].([]interface{}); ok {
-		return nil, nil
+		return &cResp, nil, nil
 	}
 
 	var data scanResults
 	err = json.Unmarshal(body, &data)
 
 	if err != nil {
-		return &scanResults{
+		return &cResp, &scanResults{
 			Code:    cResp.Code,
 			Status:  cResp.Status,
 			Message: cResp.Message,
 		}, nil
 	}
 
-	return &data, nil
+	return &cResp, &data, nil
 }
 
 func (c *connectClient) PublishDigest(opsid, digest, tag string) (*connectResponse, error) {

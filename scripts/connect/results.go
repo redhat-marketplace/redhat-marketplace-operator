@@ -30,20 +30,15 @@ func (c containerResults) Process(client *connectClient, containers map[string]s
 		}
 
 		fmt.Printf("getting digest status for %s\n", pid)
-		status, err := client.GetDigestStatus(pid, digest)
+		cResp, _, err := client.GetDigestStatus(pid, digest)
 		if err != nil {
 			c[pid].Finished = true
 			c[pid].Error = errors.Wrap(err, "failed to get digest status")
 			break
 		}
 
-		if status == nil {
+		if !cResp.IsOK() || cResp.Message != "Project found" {
 			fmt.Printf("digest status is not ready\n")
-			continue
-		}
-
-		if !status.IsPassed() {
-			fmt.Printf("digest status is not passed for pid %s\n", pid)
 			continue
 		}
 
@@ -62,7 +57,6 @@ func (c containerResults) Process(client *connectClient, containers map[string]s
 
 		if !result.IsOK() && !result.IsPublished() {
 			err := errors.Errorf("pid %s failed to publish: %s", pid, result.Message)
-			c[pid].Finished = true
 			c[pid].Error = err
 			continue
 		}
