@@ -422,13 +422,13 @@ jobs:
       - name: Build bundles ${{ matrix.channel }}
         run: |
           make generate-csv opm-bundle-last-${{ matrix.channel }} opm-index-base
-          yq w ./deploy/olm-catalog/test-registry.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ./registry-${{ matrix.channel }}${TAG}.yaml
+          yq w ./deploy/olm-catalog/test-registry.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ./registry-${{ matrix.channel }}-${TAG}.yaml
 
       - name: Upload results
         uses: actions/upload-artifact@v1
         with:
           name: ${{ matrix.packageName }}-catalog-${{ matrix.channel }}
-          path: ./registry-${{ matrix.channel }}${{ env.tag }}.yaml
+          path: ./registry-${{ matrix.channel }}-${{ needs.build.outputs.dockertag }}.yaml
 
   tag:
     name: Push other tags
@@ -498,7 +498,7 @@ jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
-    needs: [cover]
+    needs: [build, deploy, opm, cover]
     env:
       TAG: ${{ needs.build.outputs.dockertag }}
       OS_PIDS: "ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4 ospid-ffed416e-c18d-4b88-8660-f586a4792785"
