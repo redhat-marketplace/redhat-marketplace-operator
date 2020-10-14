@@ -224,6 +224,7 @@ jobs:
       tag: ${{ steps.vars.outputs.tag }}
       hash: ${{ steps.vars.outputs.hash }}
       dockertag: ${{ steps.vars.outputs.dockertag }}
+      now: ${{ steps.vars.outputs.now }}
       crs: ${{ steps.vars.outputs.crs }}
     env:
       TAGPREFIX: ''
@@ -266,6 +267,7 @@ jobs:
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
           echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
           echo "::set-output name=dockertag::${TAGPREFIX}$(make current-version)-${GITHUB_SHA::8}"
+          echo "::set-outut name=now::$(date +'%Y-%m-%dT%H:%M:%S')"
         env:
           FILEHASH: ${{ hashFiles('cmd/**', 'pkg/**', 'interal/**', 'version/**', 'go.sum', 'go.mod') }}
 
@@ -371,7 +373,7 @@ jobs:
       IMAGE_REGISTRY: ${{ matrix.imageRegistry }}
       OLM_REPO: ${{ matrix.olmRepo }}
       OLM_BUNDLE_REPO: ${{ matrix.indexRepo }}
-      TAG: ${{ needs.build.outputs.dockertag }}
+      TAG: ${{ needs.build.outputs.dockertag }}-${{ needs.build.outputs.now }}
       OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
       VERSION: ${{ needs.build.outputs.version }}
       OLM_PACKAGE_NAME: ${{ matrix.packageName }}
@@ -491,7 +493,7 @@ jobs:
     env:
       TAG: ${{ needs.build.outputs.dockertag }}
       OS_PIDS: "ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4 ospid-ffed416e-c18d-4b88-8660-f586a4792785"
-      REPOS: "redhat-marketplace-operator redhat-marketplace-reporter redhat-marketplace-metric-state redhat-marketplace-authcheck"
+      REPOS: "quay.io/rh-marketplace/redhat-marketplace-operator quay.io/rh-marketplace/redhat-marketplace-reporter registry.connect.redhat.com/rh-marketplace/redhat-marketplace-metric-state registry.connect.redhat.com/rh-marketplace/redhat-marketplace-authcheck"
       RH_CONNECT_TOKEN: ${{ secrets.redhat_api_key }}
     steps:
       - name: Set up Go 1.x
@@ -501,6 +503,12 @@ jobs:
         id: go
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
+      - name: Login Docker
+        run: make docker-login
+        env:
+          DOCKER_USER: ${{ secrets.REDHAT_IO_USER }}
+          DOCKER_PASSWORD: ${{ secrets.REDHAT_IO_PASSWORD }}
+          REGISTRY: registry.redhat.io
       - name: Publish
         run: |
           make wait-and-publish
@@ -528,7 +536,7 @@ jobs:
     env:
       FROM_OPERATOR_IMAGE: ${{ matrix.fromRegistry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
       TO_OPERATOR_IMAGE: ${{ matrix.registry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
-      TAG: ${{ matrix.registry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
+      TAG: ${{ matrix.registry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}-${{ needs.build.outputs.now }}
     steps:
       - name: Check if tag exists in ${{ matrix.name }}
         id: image

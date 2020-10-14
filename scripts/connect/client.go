@@ -82,8 +82,8 @@ func (c *connectResponse) IsOK() bool {
 	return c.Code == 200
 }
 
-func (c *connectResponse) IsPublished() bool {
-	return c.Code == 423
+func (c *connectResponse) IsError() bool {
+	return c.Code >= 300
 }
 
 func (c *connectClient) GetDigestStatus(opsid, digest string) (*connectResponse, *scanResults, error) {
@@ -150,6 +150,8 @@ func (c *connectClient) PublishDigest(opsid, digest, tag string) (*connectRespon
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
+
+	fmt.Printf("publishResults %s\n", string(body))
 
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading body")

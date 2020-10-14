@@ -55,7 +55,7 @@ func (c containerResults) Process(client *connectClient, containers map[string]s
 			continue
 		}
 
-		if !result.IsOK() && !result.IsPublished() {
+		if !result.IsOK() && !result.IsError() {
 			err := errors.Errorf("pid %s failed to publish: %s", pid, result.Message)
 			c[pid].Error = err
 			continue
