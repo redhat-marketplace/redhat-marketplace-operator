@@ -427,7 +427,7 @@ jobs:
         env:
           DOCKER_USER: ${{ secrets[matrix.key] }}
           DOCKER_PASSWORD: ${{ secrets[matrix.value] }}
-          REGISTRY: ${{ matrix.registry }}
+          REGISTRY: ${{ matrix.imageRegistry }}
 
       - name: Build bundles ${{ matrix.channel }}
         run: |
