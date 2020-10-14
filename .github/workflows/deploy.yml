@@ -437,7 +437,6 @@ jobs:
           - redhat-marketplace-reporter
           - redhat-marketplace-metric-state
           - redhat-marketplace-authcheck
-          - redhat-marketplace-operator-manifest
         include:
           - image: redhat-marketplace-operator
             registry: scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd
