@@ -358,7 +358,6 @@ jobs:
       matrix:
         channel:
           - stable
-          - beta
         include:
           - channel: beta
             packageName: redhat-marketplace-operator-test
