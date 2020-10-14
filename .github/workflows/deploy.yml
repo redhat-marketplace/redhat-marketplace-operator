@@ -267,7 +267,7 @@ jobs:
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
           echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
           echo "::set-output name=dockertag::${TAGPREFIX}$(make current-version)-${GITHUB_SHA::8}"
-          echo "::set-outut name=now::$(date +'%Y-%m-%dT%H:%M:%S')"
+          echo "::set-output name=now::$(date +'%Y-%m-%dT%H:%M:%S')"
         env:
           FILEHASH: ${{ hashFiles('cmd/**', 'pkg/**', 'interal/**', 'version/**', 'go.sum', 'go.mod') }}
 
@@ -493,7 +493,7 @@ jobs:
     env:
       TAG: ${{ needs.build.outputs.dockertag }}
       OS_PIDS: "ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4 ospid-ffed416e-c18d-4b88-8660-f586a4792785"
-      REPOS: "quay.io/rh-marketplace/redhat-marketplace-operator quay.io/rh-marketplace/redhat-marketplace-reporter registry.connect.redhat.com/rh-marketplace/redhat-marketplace-metric-state registry.connect.redhat.com/rh-marketplace/redhat-marketplace-authcheck"
+      REPOS: "quay.io/rh-marketplace/redhat-marketplace-operator quay.io/rh-marketplace/redhat-marketplace-reporter quay.io/rh-marketplace/redhat-marketplace-metric-state quay.io/rh-marketplace/redhat-marketplace-authcheck"
       RH_CONNECT_TOKEN: ${{ secrets.redhat_api_key }}
     steps:
       - name: Set up Go 1.x
