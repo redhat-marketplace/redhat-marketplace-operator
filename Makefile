@@ -410,6 +410,7 @@ OS_PIDS ?= ""
 REPOS ?= ""
 TAG ?= ""
 CREDS ?= ""
+TIMEOUT ?= 20
 
 wait-and-publish:
 	RESULTS=""; \
@@ -425,7 +426,7 @@ wait-and-publish:
 	done ; \
 	echo $$RESULTS ; \
 	cd scripts ; \
-	go run main.go wait-and-publish --timeout 10 --tag $(TAG) $$RESULTS
+	go run main.go wait-and-publish --timeout $(TIMEOUT) --tag $(TAG) $$RESULTS
 
 ##@ Release
 

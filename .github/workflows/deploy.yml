@@ -424,7 +424,7 @@ jobs:
   tag:
     name: Push other tags
     runs-on: ubuntu-latest
-    needs: [build, deploy, opm]
+    needs: [build, deploy]
     if: |
       github.event_name == 'push'
       && (startsWith(github.ref,'refs/heads/release/')
@@ -463,12 +463,6 @@ jobs:
             name: PC
             key: pcUser
             value: pcPasswordAuthCheck
-          - image: redhat-marketplace-operator-manifest
-            registry: scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1
-            fromRegistry: quay.io/rh-marketplace
-            name: PC
-            key: pcUser
-            value: pcPasswordOperatorManifest
     env:
       FROM_OPERATOR_IMAGE: ${{ matrix.fromRegistry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
       TO_OPERATOR_IMAGE: ${{ matrix.registry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
@@ -509,6 +503,42 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
       - name: Publish
-
         run: |
           make wait-and-publish
+
+  tag-bundle:
+    name: Push bundle tag
+    runs-on: ubuntu-latest
+    needs: [build, deploy, opm, cover]
+    if: |
+      github.event_name == 'push'
+      && (startsWith(github.ref,'refs/heads/release/')
+          || startsWith(github.ref,'refs/heads/hotfix/')
+          || github.ref == 'refs/heads/master' )
+    strategy:
+      matrix:
+        image:
+          - redhat-marketplace-operator-manifest
+        include:
+          - image: redhat-marketplace-operator-manifest
+            registry: scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1
+            fromRegistry: quay.io/rh-marketplace
+            name: PC
+            key: pcUser
+            value: pcPasswordOperatorManifest
+    env:
+      FROM_OPERATOR_IMAGE: ${{ matrix.fromRegistry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
+      TO_OPERATOR_IMAGE: ${{ matrix.registry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
+      TAG: ${{ matrix.registry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
+    steps:
+      - name: Check if tag exists in ${{ matrix.name }}
+        id: image
+        shell: bash {0}
+        run: |
+          skopeo inspect docker://${TAG} --creds ${{ secrets[matrix.key] }}:${{ secrets[matrix.value] }} > /dev/null
+          ([[ $? == 0 ]] && echo "exists=true" || echo "exists=false") >> $GITHUB_ENV
+
+      - name: Copy ${{ matrix.image }} to ${{ matrix.name }}
+        if: env.exists != 'true' && env.pushImage == 'true'
+        run: |
+          skopeo copy "docker://${FROM_OPERATOR_IMAGE}" "docker://${TO_OPERATOR_IMAGE}" --dest-creds ${{ secrets[matrix.key] }}:${{ secrets[matrix.value] }}
