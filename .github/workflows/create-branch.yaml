@@ -38,11 +38,11 @@ jobs:
       - name: Get Vars
         id: vars
         run: |
-          echo ::set-env name=pr_branch::$(echo $BRANCH | sed 's/refs\/heads\///')
+          echo pr_branch="$(echo $BRANCH | sed 's/refs\/heads\///')" >> $GITHUB_ENV
           echo "::set-output name=version::$(make current-version)"
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
           echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
-          echo "::set-env name=OPERATOR_IMAGE::quay.io/rh-marketplace/redhat-marketplace-operator:$(make current-version)-${FILEHASH:0:6}"
+          echo "OPERATOR_IMAGE=quay.io/rh-marketplace/redhat-marketplace-operator:$(make current-version)-${FILEHASH:0:6}" >> $GITHUB_ENV
         env:
           FILEHASH: ${{ hashFiles('cmd/**', 'pkg/**', 'interal/**', 'version/**', 'go.sum', 'go.mod') }}
           BRANCH: ${{ github.ref }}

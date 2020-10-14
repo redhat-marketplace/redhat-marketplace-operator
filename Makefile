@@ -406,6 +406,27 @@ publish-pc: ## Publish to partner connect
 publish-status-pc: ## Get publish status to partner connect
 	@curl -X GET 'https://connect.redhat.com/api/v2/projects/$(REDHAT_PROJECT_ID)?tags=$(TAG)' -H "Authorization: Bearer $(REDHAT_API_KEY)" -H "Content-type: application/json" | jq
 
+OS_PIDS ?= ""
+REPOS ?= ""
+TAG ?= ""
+CREDS ?= ""
+
+wait-and-publish:
+	RESULTS=""; \
+	array=($(OS_PIDS)) ; \
+	repos=($(REPOS)) ; \
+	for i in "$${!array[@]}"; do \
+			PID="$${array[$$i]}" ; \
+			REPO="$${repos[$$i]}" ; \
+			RESULT=`skopeo inspect docker://quay.io/rh-marketplace/$$REPO:$$TAG` ; \
+			if [ $$? -ne 0 ]; then echo "failed to get skopeo" && exit 1 ; fi ; \
+			DIGEST=`echo $$RESULT | jq -r '.Digest'` ; \
+			RESULTS="--containers $$PID=$$DIGEST $$RESULTS" ; \
+	done ; \
+	echo $$RESULTS ; \
+	cd scripts ; \
+	go run main.go wait-and-publish --timeout 10 --tag $(TAG) $$RESULTS
+
 ##@ Release
 
 .PHONY: current-version
@@ -433,12 +454,16 @@ opm-bundle-all: # used to bundle all the versions available
 opm-bundle-last-beta: ## Bundle latest for beta
 	$(operator-sdk) bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/manifests" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
 	docker build -f custom-bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" --build-arg channels=beta .
+	docker tag "$(OLM_REPO):$(TAG)" "$(OLM_REPO):$(VERSION)"
 	docker push "$(OLM_REPO):$(TAG)"
+	docker push "$(OLM_REPO):$(VERSION)"
 
 opm-bundle-last-stable: ## Bundle latest for stable
 	$(operator-sdk) bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/manifests" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
 	docker build -f custom-bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" --build-arg channels=stable,beta .
+	docker tag "$(OLM_REPO):$(TAG)" "$(OLM_REPO):$(VERSION)"
 	docker push "$(OLM_REPO):$(TAG)"
+	docker push "$(OLM_REPO):$(VERSION)"
 
 opm-index-base: ## Create an index base
 	./scripts/opm_build_index.sh $(OLM_REPO) $(OLM_BUNDLE_REPO) $(TAG) $(VERSION)

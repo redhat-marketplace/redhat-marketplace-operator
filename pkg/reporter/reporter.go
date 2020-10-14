@@ -360,9 +360,18 @@ func (r *MarketplaceReporter) process(
 func (r *MarketplaceReporter) WriteReport(
 	source uuid.UUID,
 	metrics map[MetricKey]*MetricBase) ([]string, error) {
+
+	env := ReportProductionEnv
+	envAnnotation, ok := r.mktconfig.Annotations["marketplace.redhat.com/environment"]
+
+	if ok && envAnnotation == ReportSandboxEnv.String() {
+		env = ReportSandboxEnv
+	}
+
 	metadata := NewReportMetadata(source, ReportSourceMetadata{
 		RhmAccountID: r.mktconfig.Spec.RhmAccountID,
 		RhmClusterID: r.mktconfig.Spec.ClusterUUID,
+		RhmEnvironment: env,
 	})
 
 	var partitionSize = *r.MetricsPerFile
