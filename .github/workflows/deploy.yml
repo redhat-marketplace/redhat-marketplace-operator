@@ -508,7 +508,7 @@ jobs:
         env:
           DOCKER_USER: ${{ secrets.REDHAT_IO_USER }}
           DOCKER_PASSWORD: ${{ secrets.REDHAT_IO_PASSWORD }}
-          REGISTRY: registry.redhat.io
+          REGISTRY: registry.connect.redhat.com
       - name: Publish
         run: |
           make wait-and-publish
