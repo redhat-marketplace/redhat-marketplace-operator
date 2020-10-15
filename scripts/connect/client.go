@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"emperror.dev/errors"
@@ -103,8 +104,12 @@ func (p *pcTag) String() string {
 }
 
 func (c *connectClient) PublishDigest(opsid, digest, tag string) (*connectResponse, error) {
-	url := fmt.Sprintf("%s/projects/%s/containers/%s/tags/%s/publish", domain, opsid, digest, tag)
-	resp, err := c.Post(url, "application/json", strings.NewReader("{}"))
+	projectURL := fmt.Sprintf("%s/projects/%s/containers/%s/tags/%s/publish?latest=true", domain, opsid, digest, tag)
+	u, _ := url.Parse(projectURL)
+
+	fmt.Println(u.String())
+
+	resp, err := c.Post(u.String(), "application/json", strings.NewReader("{}"))
 	defer resp.Body.Close()
 
 	if err != nil {
