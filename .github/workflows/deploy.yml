@@ -263,7 +263,7 @@ jobs:
       - name: Set branch prefix for dev
         if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
         run: |
-          echo "TAGPREFIX=dev-" >> $GITHUB_ENV"
+          echo "TAGPREFIX=dev-" >> $GITHUB_ENV
 
       - name: Set branch prefix for fix
         if: github.event_name == 'push' && startsWith(github.ref,'refs/heads/bugfix/')
