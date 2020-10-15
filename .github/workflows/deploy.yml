@@ -112,7 +112,7 @@ jobs:
       IMAGE_REGISTRY: ${{ matrix.registry }}
       OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
       OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
-      TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag}}
+      TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.4.1
@@ -218,9 +218,6 @@ jobs:
   build:
     name: Preset
     runs-on: ubuntu-latest
-
-
-
     outputs:
       version: ${{ steps.vars.outputs.version }}
       tag: ${{ steps.vars.outputs.tag }}
@@ -231,15 +228,12 @@ jobs:
     env:
       TAGPREFIX: ''
     steps:
-      - if: "!contains(github.event.head_commit.message, '!build')"
-        name: 'Skipping build if build flag (!build) is not present'
-        runs-on: ubuntu-latest
-        timeout-minutes: 3
-        steps:
-          - uses: styfle/cancel-workflow-action@0.5.0
-            with:
-              workflow_id: ${{ github.run_id }}
-              access_token: ${{ github.token }}
+      - name: "Cancel if build flag (!build) is not on last commit"
+        uses: styfle/cancel-workflow-action@0.5.0
+        if: "!contains(github.event.head_commit.message, '!build')"
+        with:
+          workflow_id: ${{ github.run_id }}
+          access_token: ${{ github.token }}
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.4.1
         with:
