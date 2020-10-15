@@ -229,11 +229,22 @@ jobs:
       TAGPREFIX: ''
     steps:
       - name: "Cancel if build flag (!build) is not on last commit"
-        uses: styfle/cancel-workflow-action@0.5.0
+        uses: actions/github-script@v2
+        id: check
         if: "!contains(github.event.head_commit.message, '!build')"
         with:
-          workflow_id: ${{ github.run_id }}
-          access_token: ${{ github.token }}
+          script: |
+            const { owner, repo } = context.repo
+            console.log('Cancelling ...');
+            const run_id = "${{ github.run_id }}";
+            await github.actions.cancelWorkflowRun({ owner, repo, run_id });
+            return 'stop'
+          result-encoding: string
+      - name: Waiting for cancellation
+        run: sleep 60
+        if: steps.check.outputs.result == 'stop'
+      - name: Should build?
+        run: test "${{ steps.check.outputs.result }}" != "stop"
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.4.1
         with:
