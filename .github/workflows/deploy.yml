@@ -219,6 +219,8 @@ jobs:
     name: Preset
     runs-on: ubuntu-latest
 
+
+
     outputs:
       version: ${{ steps.vars.outputs.version }}
       tag: ${{ steps.vars.outputs.tag }}
@@ -229,6 +231,15 @@ jobs:
     env:
       TAGPREFIX: ''
     steps:
+      - if: "!contains(github.event.head_commit.message, '!build')"
+        name: 'Skipping build if build flag (!build) is not present'
+        runs-on: ubuntu-latest
+        timeout-minutes: 3
+        steps:
+          - uses: styfle/cancel-workflow-action@0.5.0
+            with:
+              workflow_id: ${{ github.run_id }}
+              access_token: ${{ github.token }}
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.4.1
         with:
@@ -516,7 +527,7 @@ jobs:
   tag-bundle:
     name: Push bundle tag
     runs-on: ubuntu-latest
-    needs: [build, deploy, opm, cover]
+    needs: [build, deploy, opm, cover, publish]
     if: |
       github.event_name == 'push'
       && (startsWith(github.ref,'refs/heads/release/')

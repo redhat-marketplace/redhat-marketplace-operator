@@ -55,6 +55,7 @@ func (c containerResults) Process(client *connectClient, pids map[string]string,
 		}
 
 		if fetchedTag.Published {
+			fmt.Printf("pid %s has been published\n", pid)
 			c[pid].Finished = true
 			continue
 		}
@@ -80,8 +81,7 @@ func (c containerResults) Process(client *connectClient, pids map[string]string,
 			continue
 		}
 
-		fmt.Printf("pid %s has been published\n", pid)
-		c[pid].Finished = true
+		fmt.Printf("pid %s has been submitted for publish\n", pid)
 	}
 
 }
