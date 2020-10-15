@@ -16,8 +16,11 @@ VERSIONS=$(echo "$VERSIONS,$OLM_REPO:$TAG")
 echo "Making version list"
 VERSIONS_LIST=$(echo $VERSIONS | xargs | sed -e "s/ / $OLM_REPO_E:v/g" | sed -e "s/^/$OLM_REPO_E:v/g" | sed -e 's/ /,/g')
 
+echo $VERSIONS_LIST
+
 echo "Using tag ${OLM_BUNDLE_REPO}:${TAG}"
 echo "Building index with $VERSIONS_LIST"
 echo ""
-./testbin/opm index add -u docker --bundles "$VERSIONS_LIST" --tag "${OLM_BUNDLE_REPO}:${TAG}"
+./testbin/opm index add -u docker --generate --bundles "$VERSIONS_LIST" --tag "${OLM_BUNDLE_REPO}:${TAG}"
+docker build -f custom-index.Dockerfile -t "${OLM_BUNDLE_REPO}:${TAG}" .
 docker push "${OLM_BUNDLE_REPO}:${TAG}"

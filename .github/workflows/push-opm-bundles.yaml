@@ -22,7 +22,7 @@ jobs:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.14
+          go-version: ^1.15
         id: go
 
       - name: Set up Python
@@ -43,7 +43,7 @@ jobs:
           pip3 install -Iv operator-courier==$COURIER_VERSION
           curl -LO https://github.com/operator-framework/operator-registry/releases/download/${OPM_VERSION}/linux-amd64-opm
           chmod +x linux-amd64-opm && sudo cp linux-amd64-opm /usr/local/bin/opm && rm linux-amd64-opm
-          echo "::add-path::/usr/local/bin"
+          echo "/usr/local/bin" >> $GITHUB_PATH
           sudo apt-get install -y sed
           sudo snap install yq
         env:

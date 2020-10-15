@@ -1101,7 +1101,7 @@ func (r *ReconcileMeterBase) newPrometheusOperator(
 		defaultClass, err := utils.GetDefaultStorageClass(r.client)
 
 		if err != nil {
-			return nil, err
+			return prom, err
 		}
 		prom.Spec.Storage.VolumeClaimTemplate.Spec.StorageClassName = ptr.String(defaultClass)
 	}
