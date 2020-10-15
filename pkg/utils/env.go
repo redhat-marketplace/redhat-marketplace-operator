@@ -71,9 +71,8 @@ const (
 	CSV_ANNOTATION_NAMESPACE       = "csvNamespace"
 	CSV_METERDEFINITION_ANNOTATION = "marketplace.redhat.com/meterDefinition"
 
-
 	/* Time and Date */
-	DATE_FORMAT = "2006-01-02"
+	DATE_FORMAT         = "2006-01-02"
 	METER_REPORT_PREFIX = "meter-report-"
 )
 

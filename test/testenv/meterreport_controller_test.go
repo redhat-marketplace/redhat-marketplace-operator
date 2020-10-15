@@ -62,7 +62,7 @@ var _ = Describe("MeterReportController", func() {
 			}
 		})
 
-		AfterEach(func(){
+		AfterEach(func() {
 			k8sClient.Delete(context.TODO(), meterreport)
 		})
 
@@ -77,7 +77,7 @@ var _ = Describe("MeterReportController", func() {
 				)
 				return result.Is(Continue)
 			}, timeout, interval).Should(BeTrue())
-	
+
 			Eventually(func() *common.JobReference {
 				result, _ := cc.Do(
 					context.Background(),

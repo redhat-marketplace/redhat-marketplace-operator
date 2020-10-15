@@ -32,6 +32,7 @@ import (
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo"
@@ -40,17 +41,17 @@ import (
 )
 
 var _ = Describe("Reporter", func() {
-	const count = 4416
+	const count = 48
 	var (
 		err           error
-sut           *MarketplaceReporter
+		sut           *MarketplaceReporter
 		config        *marketplacev1alpha1.MarketplaceConfig
 		report        *marketplacev1alpha1.MeterReport
 		dir, dir2     string
 		uploader      *RedHatInsightsUploader
 		generatedFile string
 
-		startStr = "2020-04-19T00:00:00Z"
+		startStr = "2020-07-18T00:00:00Z"
 		endStr   = "2020-07-19T00:00:00Z"
 		start, _ = time.Parse(time.RFC3339, startStr)
 		end, _   = time.Parse(time.RFC3339, endStr)
@@ -95,39 +96,29 @@ sut           *MarketplaceReporter
 						Namespace: "namespace",
 					},
 					Spec: marketplacev1alpha1.MeterDefinitionSpec{
-						Group:   "apps.partner.metering.com",
-						Kind:    "MeterDefinition",
+						Group: "apps.partner.metering.com",
+						Kind:  "App",
 						Workloads: []marketplacev1alpha1.Workload{
 							{
 								WorkloadType: "Pod",
 								MetricLabels: []marketplacev1alpha1.MeterLabelQuery{
 									{
-										Query: "rate(container_cpu_usage_seconds_total{test-field-1=test-value-1,test-field-2=test-value-2}[5m])*100",
-										AdditionalFields: []string{"test-field-1","test-field-2"},
+										Label: 			  "rpc_durations_seconds_count",
+										Query:            "rate(rpc_durations_seconds_count{test_field_1=test-value-1,test_field_2=test-value-2}[5m])*100",
+										AdditionalFields: []string{"test_field_1", "test_field_2"},
+									},
+									{
+										Label: 			  "rpc_durations_seconds_sum",
+										Query:            "rate(rpc_durations_seconds_sum{}[5m])*100",
+										// AdditionalFields: []string{"test_field_1", "test_field_2"},
 									},
 								},
-								
 							},
 						},
 					},
 				},
 			},
 		}
-
-
-
-		// meterDefinitions = []*marketplacev1alpha1.MeterDefinitionSpec{
-		// 	{
-		// 		Group:   "apps.partner.metering.com",
-		// 		Kind:    "App",
-		// 		Version: "v1",
-		// 	},
-		// 	{
-		// 		Group:   "apps.partner.metering.com",
-		// 		Kind:    "App2",
-		// 		Version: "v1",
-		// 	},
-		// }
 
 		uploader, err = NewRedHatInsightsUploader(&RedHatInsightsUploaderConfig{
 			URL:             "https://cloud.redhat.com",
@@ -167,46 +158,6 @@ sut           *MarketplaceReporter
 		generatedFile = GenerateRandomData(start, end)
 	})
 
-	// Context("benchmark", func() {
-	// 	BeforeEach(func() {
-	// 		v1api := getTestAPI(mockResponseRoundTripper(generatedFile))
-
-	// 		cfg := &Config{
-	// 			OutputDirectory: dir,
-	// 		}
-
-	// 		cfg.SetDefaults()
-
-	// 		sut = &MarketplaceReporter{
-	// 			api:    v1api,
-	// 			Config: cfg,
-	// 			report: report,
-	// 		}
-	// 	})
-
-	// 	Measure("collect metrics", func(b Benchmarker) {
-	// 		btest := b.Time("runtime", func() {
-	// 			runtime.GC()
-	// 			m := &runtime.MemStats{}
-	// 			m2 := &runtime.MemStats{}
-
-	// 			runtime.ReadMemStats(m)
-	// 			results, errs, err := sut.CollectMetrics(context.TODO())
-	// 			runtime.ReadMemStats(m2)
-
-	// 			Expect(err).To(Succeed())
-	// 			Expect(errs).To(BeEmpty())
-	// 			Expect(results).ToNot(BeEmpty())
-	// 			Expect(len(results)).To(Equal(count))
-
-	// 			b.RecordValue("disk usage (in MB)", float64((m2.Alloc-m.Alloc)/1024/1024))
-	// 		})
-
-	// 		Expect(btest.Seconds()).Should(BeNumerically("<", 1))
-	// 	}, 10)
-
-	// })
-
 	It("query, build and submit a report", func(done Done) {
 		By("collecting metrics")
 		results, errs, err := sut.CollectMetrics(context.TODO())
@@ -224,7 +175,7 @@ sut           *MarketplaceReporter
 
 		Expect(err).To(Succeed())
 		Expect(files).ToNot(BeEmpty())
-		Expect(len(files)).To(Equal(10))
+		Expect(len(files)).To(Equal(2))
 		for _, file := range files {
 			By(fmt.Sprintf("testing file %s", file))
 			Expect(file).To(BeAnExistingFile())
@@ -239,28 +190,32 @@ sut           *MarketplaceReporter
 				id := func(element interface{}) string {
 					return "row"
 				}
+				fmt.Println("file bytes")
+				utils.PrettyPrint(data)
 				Expect(data).To(MatchAllKeys(Keys{
 					"report_slice_id": Not(BeEmpty()),
 					"metrics": MatchElements(id, AllowDuplicates, Elements{
 						"row": MatchAllKeys(Keys{
 							"additionalLabels": MatchAllKeys(Keys{
-								"namespace": Equal("metering-example-operator"),
-								"pod":       Equal("example-app-pod"),
-								"service":   Equal("example-app-pod"),
-								"test-field-1" : Equal("test-value-1"),
-								"test-field-2" : Equal("test-value-2"),
+								"namespace":             Equal("metering-example-operator"),
+								"pod":                   Equal("example-app-pod"),
+								"service":               Equal("example-app-pod"),
+								"persistentvolumeclaim": Equal("example-pvc"),
+								"test_field_1":          Equal("test-value-1"),
+								"test_field_2":          Equal("test-value-2"),
 							}),
 							"domain":              Equal("apps.partner.metering.com"),
 							"interval_start":      HavePrefix("2020-"),
 							"interval_end":        HavePrefix("2020-"),
 							"kind":                Or(Equal("App"), Equal("App2")),
+							"metric_id": BeAssignableToTypeOf(""),
 							"report_period_end":   Equal(endStr),
 							"report_period_start": Equal(startStr),
 							"rhmUsageMetrics": MatchAllKeys(Keys{
 								"rpc_durations_seconds_count": BeAssignableToTypeOf(""),
 								"rpc_durations_seconds_sum":   BeAssignableToTypeOf(""),
 							}),
-							"version": Equal("v1"),
+							"version" : Equal(""),
 						}),
 					}),
 				}))
@@ -377,12 +332,14 @@ func GenerateRandomData(start, end time.Time) string {
 
 	makeData := func(kind string) map[string]string {
 		return map[string]string{
-			"meter_domain":  "apps.partner.metering.com",
-			"meter_kind":    kind,
-			"meter_version": "v1",
-			"namespace":     "metering-example-operator",
-			"pod":           "example-app-pod",
-			"service":       "example-app-pod",
+			"meter_domain":          "apps.partner.metering.com",
+			"meter_kind":            kind,
+			"namespace":             "metering-example-operator",
+			"pod":                   "example-app-pod",
+			"service":               "example-app-pod",
+			"persistentvolumeclaim": "example-pvc",
+			"test_field_1" : "test-value-1",
+			"test_field_2" : "test-value-2",
 		}
 	}
 

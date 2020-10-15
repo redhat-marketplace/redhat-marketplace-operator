@@ -97,9 +97,11 @@ func TimeToReportTimeStr(myTime time.Time) string {
 }
 
 func kvToMap(keysAndValues []interface{}) (map[string]interface{}, error) {
-	fmt.Println(keysAndValues)
+	// fmt.Println(keysAndValues)
 	metrics := make(map[string]interface{})
 	if len(keysAndValues)%2 != 0 {
+		// fmt.Println("modulus",len(keysAndValues)%2)
+		// fmt.Println("length",len(keysAndValues))
 		return nil, errors.New("keyAndValues must be a length of 2")
 	}
 
@@ -160,7 +162,7 @@ func (m *MetricBase) AddMetrics(keysAndValues ...interface{}) error {
 	return nil
 }
 
-func (m *MetricsReport) AddMetrics(metrics ...*MetricBase) error {
+func (m *MetricsReport) AddMetricsToReport(metrics ...*MetricBase) error {
 	for _, metric := range metrics {
 		result := make(map[string]interface{})
 		err := mapstructure.Decode(metric, &result)

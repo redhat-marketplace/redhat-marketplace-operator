@@ -7,10 +7,10 @@
         "metric": {
           "meter_domain": "apps.partner.metering.com",
           "meter_kind": "App",
-          "meter_version": "v1",
           "namespace": "metering-example-operator",
           "pod": "example-app-pod",
-          "service": "example-app-pod"
+          "service": "example-app-pod",
+          "persistentvolumeclaim" : "example-pvc-1"
         },
         "values": [
           [
@@ -30,7 +30,8 @@
           "meter_version": "v1",
           "namespace": "metering-example-operator2",
           "pod": "example-app-pod2",
-          "service": "example-app-pod2"
+          "service": "example-app-pod2",
+          "persistentvolumeclaim" : "example-pvc-2"
         },
         "values": [
           [

@@ -250,5 +250,4 @@ var SucceedOrAlreadyExist types.GomegaMatcher = SatisfyAny(
 	WithTransform(errors.IsAlreadyExists, BeTrue()),
 )
 
-
 var IsNotFound types.GomegaMatcher = WithTransform(errors.IsNotFound, BeTrue())

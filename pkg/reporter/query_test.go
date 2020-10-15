@@ -92,7 +92,7 @@ var _ = Describe("Query", func() {
 	// 						{
 	// 							Query: "rate(container_cpu_usage_seconds_total{}[5m])*100",
 	// 						},
-							
+
 	// 					},
 	// 				},
 	// 			},
@@ -110,10 +110,9 @@ var _ = Describe("Query", func() {
 	// 		AggregateFunc: "sum",
 	// 		Type:          v1alpha1.WorkloadTypePVC,
 	// 	}
-		
+
 	// 	sut.query()
-		
-	
+
 	// })
 
 	PIt("should build a query", func() {

@@ -5,10 +5,10 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("JobReference", func(){
+var _ = Describe("JobReference", func() {
 	var jr *JobReference
 
-	BeforeEach(func(){
+	BeforeEach(func() {
 		jr = &JobReference{}
 
 		jr.Succeeded = 0
