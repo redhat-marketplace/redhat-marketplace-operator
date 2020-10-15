@@ -231,7 +231,11 @@ jobs:
       - name: "Cancel if build flag (!build) is not on last commit"
         uses: actions/github-script@v2
         id: check
-        if: "!contains(github.event.head_commit.message, '!build')"
+        if: |
+          github.event_name == 'push'
+          && (startsWith(github.ref,'refs/heads/release/')
+              || startsWith(github.ref,'refs/heads/hotfix/'))
+          && !contains(github.event.head_commit.message, '!build')
         with:
           script: |
             const { owner, repo } = context.repo
@@ -446,8 +450,7 @@ jobs:
     if: |
       github.event_name == 'push'
       && (startsWith(github.ref,'refs/heads/release/')
-          || startsWith(github.ref,'refs/heads/hotfix/')
-          || github.ref == 'refs/heads/master' )
+          || startsWith(github.ref,'refs/heads/hotfix/'))
     strategy:
       matrix:
         image:
@@ -503,8 +506,7 @@ jobs:
     if: |
       github.event_name == 'push'
       && (startsWith(github.ref,'refs/heads/release/')
-          || startsWith(github.ref,'refs/heads/hotfix/')
-          || github.ref == 'refs/heads/master' )
+          || startsWith(github.ref,'refs/heads/hotfix/'))
     needs: [build, tag]
     env:
       TAG: ${{ needs.build.outputs.dockertag }}
@@ -536,8 +538,7 @@ jobs:
     if: |
       github.event_name == 'push'
       && (startsWith(github.ref,'refs/heads/release/')
-          || startsWith(github.ref,'refs/heads/hotfix/')
-          || github.ref == 'refs/heads/master' )
+          || startsWith(github.ref,'refs/heads/hotfix/'))
     strategy:
       matrix:
         image:
