@@ -86,58 +86,20 @@ func (c *connectResponse) IsError() bool {
 	return c.Code >= 300
 }
 
-func (c *connectClient) GetDigestStatus(opsid, digest string) (*connectResponse, *scanResults, error) {
-	url := fmt.Sprintf("%s/container/%s/certResults/%s", domain, opsid, digest)
-	fmt.Printf("url is %s\n", url)
-	resp, err := c.Get(url)
-	defer resp.Body.Close()
+type tagResponse struct {
+	Tags []pcTag `json:"tags"`
+}
 
-	if err != nil {
-		return nil, nil, err
-	}
+type pcTag struct {
+	Digest      string
+	Name        string
+	HealthIndex string `json:"health_index"`
+	Published   bool
+	ScanStatus  string `json:"scan_status"`
+}
 
-	body, err := ioutil.ReadAll(resp.Body)
-
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "error reading body")
-	}
-
-	var cResp connectResponse
-	err = json.Unmarshal(body, &cResp)
-
-	fmt.Printf("scanResults %s\n", string(body))
-
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "error json marshalling")
-	}
-
-	var rawJson map[string]interface{}
-	err = json.Unmarshal(body, &rawJson)
-
-	if err != nil {
-		return &cResp, nil, errors.Wrap(err, "error json marshalling")
-	}
-
-	if !cResp.IsOK() {
-		return &cResp, nil, nil
-	}
-
-	if _, ok := rawJson["data"].([]interface{}); ok {
-		return &cResp, nil, nil
-	}
-
-	var data scanResults
-	err = json.Unmarshal(body, &data)
-
-	if err != nil {
-		return &cResp, &scanResults{
-			Code:    cResp.Code,
-			Status:  cResp.Status,
-			Message: cResp.Message,
-		}, nil
-	}
-
-	return &cResp, &data, nil
+func (p *pcTag) String() string {
+	return p.Digest + " " + p.Name + " " + p.ScanStatus
 }
 
 func (c *connectClient) PublishDigest(opsid, digest, tag string) (*connectResponse, error) {
@@ -161,9 +123,55 @@ func (c *connectClient) PublishDigest(opsid, digest, tag string) (*connectRespon
 	err = json.Unmarshal(body, &data)
 
 	if err != nil {
-		fmt.Println(string(body))
 		return nil, errors.Wrap(err, "error json marshalling")
 	}
 
 	return &data, nil
+}
+
+func (c *connectClient) GetTag(opsid, digest string) (*pcTag, error) {
+	projectURL := fmt.Sprintf("%s/projects/%s/tags", domain, opsid)
+	req, err := http.NewRequest("POST", projectURL, strings.NewReader("{}"))
+	//base, err := url.Parse(projectURL)
+
+	if err != nil {
+		return nil, err
+	}
+
+	q := req.URL.Query()
+	q.Add("digests", digest)
+	req.URL.RawQuery = q.Encode()
+
+	fmt.Println(req.URL.String())
+
+	resp, err := c.Do(req)
+	defer resp.Body.Close()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != 200 {
+		return nil, errors.Errorf("non 200 response %v", resp.Status)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	fmt.Printf("body: %s\n", string(body))
+
+	if err != nil {
+		return nil, errors.Wrap(err, "error reading body")
+	}
+
+	var data tagResponse
+	err = json.Unmarshal(body, &data)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "error json marshalling")
+	}
+
+	if len(data.Tags) == 0 {
+		return nil, nil
+	}
+
+	return &data.Tags[0], nil
 }

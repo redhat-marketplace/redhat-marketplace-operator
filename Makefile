@@ -422,7 +422,7 @@ wait-and-publish:
 			RESULT=`skopeo inspect docker://$$REPO:$$TAG` ; \
 			if [ $$? -ne 0 ]; then echo "failed to get skopeo" && exit 1 ; fi ; \
 			DIGEST=`echo $$RESULT | jq -r '.Digest'` ; \
-			RESULTS="--containers $$PID=$$DIGEST $$RESULTS" ; \
+			RESULTS="--pid $$PID=$$DIGEST $$RESULTS" ; \
 	done ; \
 	echo $$RESULTS ; \
 	cd scripts ; \

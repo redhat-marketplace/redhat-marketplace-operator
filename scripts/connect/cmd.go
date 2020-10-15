@@ -13,12 +13,12 @@ import (
 var (
 	pid, digest, tag string
 	timeout          int64
-	containers       map[string]string
+	pidsToDigest     map[string]string
 )
 
 var WaitAndPublishCmd = &cobra.Command{
-	Use:   "wait-and-publish",
-	Short: "Wait for the set of images to have a passing result and then publish it",
+	Use:          "wait-and-publish",
+	Short:        "Wait for the set of images to have a passing result and then publish it",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		token := os.Getenv("RH_CONNECT_TOKEN")
@@ -30,7 +30,7 @@ var WaitAndPublishCmd = &cobra.Command{
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*time.Duration(timeout))
 		defer cancel()
 
-		results := newContainerResults(containers)
+		results := newContainerResults(pidsToDigest)
 		client := NewConnectClient(token)
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
@@ -43,8 +43,8 @@ var WaitAndPublishCmd = &cobra.Command{
 		}
 
 		process := func() (bool, error) {
-			fmt.Println("processing containers")
-			results.Process(client, containers, tag)
+			fmt.Printf("processing containers for tag %s\n", tag)
+			results.Process(client, pidsToDigest, tag)
 
 			if results.IsFinished() {
 				if results.HasError() {
@@ -96,5 +96,5 @@ func handleErr(err error) {
 func init() {
 	WaitAndPublishCmd.Flags().Int64Var(&timeout, "timeout", 10, "timeout in minutes")
 	WaitAndPublishCmd.Flags().StringVar(&tag, "tag", "", "tag of the container")
-	WaitAndPublishCmd.Flags().StringToStringVar(&containers, "containers", nil, "opsid to digest mapping, fmt: opsid=digets")
+	WaitAndPublishCmd.Flags().StringToStringVar(&pidsToDigest, "pid", nil, "opsid to digest mapping")
 }

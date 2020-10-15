@@ -13,36 +13,55 @@ type containerResult struct {
 	Error    error
 }
 
-func newContainerResults(containers map[string]string) containerResults {
+func newContainerResults(pids map[string]string) containerResults {
 	results := make(containerResults)
 
-	for key := range containers {
+	for key := range pids {
 		results[key] = &containerResult{}
 	}
 
 	return results
 }
 
-func (c containerResults) Process(client *connectClient, containers map[string]string, tag string) {
-	for pid, digest := range containers {
+func (c containerResults) Process(client *connectClient, pids map[string]string, tag string) {
+	for pid, digest := range pids {
 		if c[pid].Finished {
 			continue
 		}
 
 		fmt.Printf("getting digest status for %s\n", pid)
-		cResp, _, err := client.GetDigestStatus(pid, digest)
+		fetchedTag, err := client.GetTag(pid, digest)
 		if err != nil {
 			c[pid].Finished = true
 			c[pid].Error = errors.Wrap(err, "failed to get digest status")
-			break
-		}
-
-		if !cResp.IsOK() || cResp.Message != "Project found" {
-			fmt.Printf("digest status is not ready\n")
 			continue
 		}
 
-		result, err := client.PublishDigest(pid, digest, tag)
+		if fetchedTag == nil {
+			fmt.Printf("tag not found\n")
+			continue
+		}
+
+		fmt.Printf("retrieved (%s) for pid %s\n", fetchedTag.String(), pid)
+
+		switch fetchedTag.ScanStatus {
+		case "scan_in_progress":
+			fmt.Printf("pid %s still scanning\n", pid)
+			continue
+		case "failed":
+			c[pid].Finished = true
+			c[pid].Error = errors.Wrap(err, "scan failed")
+			continue
+		}
+
+		if fetchedTag.Published {
+			c[pid].Finished = true
+			continue
+		}
+
+		fmt.Printf("pid %s with tag %s passed scan, publishing...\n", pid, tag)
+
+		result, err := client.PublishDigest(pid, fetchedTag.Digest, tag)
 		if err != nil {
 			if result != nil {
 				err = errors.Wrapf(err, "pid %s failed to publish: %s %s", pid, result.Status, result.Message)
