@@ -19,6 +19,7 @@
 package tools
 
 import (
+	_ "github.com/wadey/gocovmerge"
 	_ "github.com/Masterminds/semver/v3"
 	_ "github.com/Shyp/bump_version"
 	_ "github.com/go-bindata/go-bindata/go-bindata"

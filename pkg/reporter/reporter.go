@@ -99,7 +99,8 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 	var resultsMapMutex sync.Mutex
 
 	if len(r.meterDefinitions) == 0 {
-		return resultsMap, []error{}, errors.Wrap(ErrNoMeterDefinitionsFound, "no meterDefs found")
+		logger.Info("no meterdefs found")
+		return resultsMap, []error{}, nil
 	}
 
 	meterDefsChan := make(chan *marketplacev1alpha1.MeterDefinition, len(r.meterDefinitions))
@@ -359,9 +360,18 @@ func (r *MarketplaceReporter) process(
 func (r *MarketplaceReporter) WriteReport(
 	source uuid.UUID,
 	metrics map[MetricKey]*MetricBase) ([]string, error) {
+
+	env := ReportProductionEnv
+	envAnnotation, ok := r.mktconfig.Annotations["marketplace.redhat.com/environment"]
+
+	if ok && envAnnotation == ReportSandboxEnv.String() {
+		env = ReportSandboxEnv
+	}
+
 	metadata := NewReportMetadata(source, ReportSourceMetadata{
 		RhmAccountID: r.mktconfig.Spec.RhmAccountID,
 		RhmClusterID: r.mktconfig.Spec.ClusterUUID,
+		RhmEnvironment: env,
 	})
 
 	var partitionSize = *r.MetricsPerFile

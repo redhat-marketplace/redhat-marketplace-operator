@@ -1,5 +1,5 @@
 # syntax = docker/dockerfile:experimental
-FROM quay.io/rh-marketplace/golang-base:1.14 as builder
+FROM quay.io/rh-marketplace/golang-base:1.15 as builder
 WORKDIR /usr/local/go/src/github.com/redhat-marketplace/redhat-marketplace-operator
 
 ENV PATH=$PATH:/usr/local/go/bin CGO_ENABLED=0 GOOS=linux

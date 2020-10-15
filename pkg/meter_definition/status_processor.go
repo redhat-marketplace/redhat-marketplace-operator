@@ -31,7 +31,6 @@ import (
 type StatusProcessor struct {
 	log           logr.Logger
 	cc            ClientCommandRunner
-	meterDefStore *MeterDefinitionStore
 	mutex         sync.Mutex
 	locks         map[types.NamespacedName]sync.Mutex
 }
@@ -41,25 +40,22 @@ type StatusProcessor struct {
 func NewStatusProcessor(
 	log logr.Logger,
 	cc ClientCommandRunner,
-	meterDefStore *MeterDefinitionStore,
 ) *StatusProcessor {
 	return &StatusProcessor{
 		log:           log,
 		cc:            cc,
-		meterDefStore: meterDefStore,
 		locks:         make(map[types.NamespacedName]sync.Mutex),
 	}
 }
 
 // Start will register it's listener and execute the function.
-func (u *StatusProcessor) Start(ctx context.Context) error {
-	p := NewProcessor("statusProcessor", u.log, u.cc, u.meterDefStore, u)
-	return p.Start(ctx)
+func (u *StatusProcessor) New(store *MeterDefinitionStore) Processor {
+	return NewProcessor("statusProcessor", u.log, u.cc, store, u)
 }
 
 // Process will receive a new ObjectResourceMessage and find and update the metere
 // definition associated with the object. To prevent gaps, it bulk retrieves the
-// resoruces and checks it against the status.
+// resources and checks it against the status.
 func (u *StatusProcessor) Process(ctx context.Context, inObj *ObjectResourceMessage) error {
 	log := u.log.WithValues("process", "statusProcessor")
 	mdef := &marketplacev1alpha1.MeterDefinition{}
@@ -68,8 +64,8 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj *ObjectResourceMess
 		return nil
 	}
 
-	if inObj != nil {
-	
+	if inObj.ObjectResourceValue == nil {
+		return nil
 	}
 
 	u.mutex.Lock()

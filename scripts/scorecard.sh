@@ -10,7 +10,7 @@ kubectl apply -f deploy/role.yaml -f deploy/service_account.yaml -f deploy/role_
 sleep 10
 
 echo "Running scorecard"
-operator-sdk scorecard -b ./deploy/olm-catalog/redhat-marketplace-operator --config ./.osdk-scorecard.yaml -o json >scorecard-output.json
+./testbin/operator-sdk scorecard -b ./deploy/olm-catalog/redhat-marketplace-operator --config ./.osdk-scorecard.yaml -o json >scorecard-output.json
 
 echo "Scorecard complete"
 

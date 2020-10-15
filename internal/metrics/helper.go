@@ -66,6 +66,10 @@ func GetAllMeterLabelsKeys(mdefs []*marketplacev1alpha1.MeterDefinition) ([]stri
 }
 
 func MapMeterDefinitions(metrics []*kbsm.Metric, mdefs []*marketplacev1alpha1.MeterDefinition) []*kbsm.Metric {
+	if len(mdefs) == 0 {
+		return metrics
+	}
+
 	newMeters := make([]*kbsm.Metric, 0, len(mdefs))
 
 	for _, m := range metrics {
@@ -83,12 +87,22 @@ func MapMeterDefinitions(metrics []*kbsm.Metric, mdefs []*marketplacev1alpha1.Me
 	return newMeters
 }
 
-type MeterDefFetcher struct {
+type emptyMeterDefFetcher struct {}
+
+var emptyFetcher MeterDefinitionFetcher = &emptyMeterDefFetcher{}
+
+func (p *emptyMeterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplacev1alpha1.MeterDefinition, error) {
+	return []*marketplacev1alpha1.MeterDefinition{}, nil
+}
+
+type meterDefFetcher struct {
 	cc                   reconcileutils.ClientCommandRunner
 	meterDefinitionStore *meter_definition.MeterDefinitionStore
 }
 
-func (p *MeterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplacev1alpha1.MeterDefinition, error) {
+var _ MeterDefinitionFetcher = &meterDefFetcher{}
+
+func (p *meterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplacev1alpha1.MeterDefinition, error) {
 	results := []*marketplacev1alpha1.MeterDefinition{}
 	metaobj, err := meta.Accessor(obj)
 
@@ -99,7 +113,7 @@ func (p *MeterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplacev1
 	return p.getMeterDefs(metaobj.GetUID())
 }
 
-func (p *MeterDefFetcher) getMeterDefs(
+func (p *meterDefFetcher) getMeterDefs(
 	uid types.UID,
 ) ([]*marketplacev1alpha1.MeterDefinition, error) {
 	results := []*marketplacev1alpha1.MeterDefinition{}
@@ -120,7 +134,7 @@ func (p *MeterDefFetcher) getMeterDefs(
 
 }
 
-func (p *MeterDefFetcher) getMeterDef(
+func (p *meterDefFetcher) getMeterDef(
 	name types.NamespacedName,
 	mdef *marketplacev1alpha1.MeterDefinition,
 ) error {

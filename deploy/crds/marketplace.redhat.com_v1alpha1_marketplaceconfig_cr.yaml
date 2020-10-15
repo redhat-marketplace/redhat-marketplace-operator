@@ -1,6 +1,7 @@
 apiVersion: marketplace.redhat.com/v1alpha1
 kind: MarketplaceConfig
 metadata:
+  # NOTE: Named this way to prevent an error in scanning
   name: rhm-marketplaceconfig
 spec:
   # Add fields here 

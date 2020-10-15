@@ -1,0 +1,1171 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: |-
+      [
+        {
+          "apiVersion": "marketplace.redhat.com/v1alpha1",
+          "kind": "MarketplaceConfig",
+          "metadata": {
+            "name": "rhm-marketplaceconfig"
+          },
+          "spec": {
+            "clusterUUID": "example-clusterUUID",
+            "deploySecretName": "rhm-operator-secret",
+            "installIBMCatalogSource": false,
+            "rhmAccountID": "example-userid"
+          }
+        },
+        {
+          "apiVersion": "marketplace.redhat.com/v1alpha1",
+          "kind": "MeterBase",
+          "metadata": {
+            "name": "meterbase"
+          },
+          "spec": {
+            "enabled": true,
+            "prometheus": {
+              "resources": {
+                "limits": {
+                  "cpu": "2",
+                  "memory": "2Gi"
+                },
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1G"
+                }
+              },
+              "storage": {
+                "size": "20Gi"
+              }
+            }
+          }
+        },
+        {
+          "apiVersion": "marketplace.redhat.com/v1alpha1",
+          "kind": "MeterDefinition",
+          "metadata": {
+            "name": "example-meterdefinition-2"
+          },
+          "spec": {
+            "meterGroup": "partner.metering.com",
+            "meterKind": "App",
+            "workloadVertexType": "OperatorGroup",
+            "workloads": [
+              {
+                "metricLabels": [
+                  {
+                    "aggregation": "sum",
+                    "label": "container_spec_cpu_shares"
+                  }
+                ],
+                "name": "app-pods",
+                "ownerCRD": {
+                  "apiVersion": "partner.metering.com/v1alpha1",
+                  "kind": "App"
+                },
+                "type": "Pod"
+              }
+            ]
+          }
+        },
+        {
+          "apiVersion": "marketplace.redhat.com/v1alpha1",
+          "kind": "MeterReport",
+          "metadata": {
+            "name": "example-meterreport"
+          },
+          "spec": {
+            "endTime": "2020-08-05T00:00:00Z",
+            "prometheusService": {
+              "name": "rhm-prometheus-meterbase",
+              "namespace": "openshift-redhat-marketplace",
+              "targetPort": "rbac"
+            },
+            "startTime": "2020-08-04T00:00:00Z"
+          }
+        },
+        {
+          "apiVersion": "marketplace.redhat.com/v1alpha1",
+          "kind": "RazeeDeployment",
+          "metadata": {
+            "name": "razeedeployment-example"
+          },
+          "spec": {
+            "clusterUUID": "example-cluster-uuid",
+            "enabled": true
+          }
+        },
+        {
+          "apiVersion": "marketplace.redhat.com/v1alpha1",
+          "kind": "RemoteResourceS3",
+          "metadata": {
+            "name": "example-remoteresources3"
+          },
+          "spec": {
+            "auth": {
+              "iam": {
+                "apiKeyRef": {
+                  "valueFrom": {
+                    "secretKeyRef": {
+                      "key": "accesskey",
+                      "name": "rhm-cos-reader-key"
+                    }
+                  }
+                },
+                "grantType": "urn:ibm:params:oauth:grant-type:apikey",
+                "responseType": "cloud_iam",
+                "url": "https://iam.cloud.ibm.com/identity/token"
+              }
+            },
+            "requests": [
+              {
+                "options": {
+                  "url": "https://s3.us-east.cloud-object-storage.appdomain.cloud/your-accountId/your-cluster-uuid/name-of-child.yaml"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    capabilities: Full Lifecycle
+    categories: Developer Tools
+    certified: "true"
+    containerImage: quay.io/zach_source/redhat-marketplace-operator:latest
+    createdAt: 2020-10-13T16:59:55Z
+    description: The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
+    operatorframework.io/suggested-namespace: openshift-redhat-marketplace
+    operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
+    repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
+    support: IBM Corporation
+  name: redhat-marketplace-operator.v1.0.3
+  namespace: redhat-marketplace-operator
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+      - description: MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers
+        displayName: Marketplace
+        kind: MarketplaceConfig
+        name: marketplaceconfigs.marketplace.redhat.com
+        resources:
+          - kind: MeterBase
+            name: redhat-marketplace-operator
+            version: v1alpha1
+          - kind: OperatorSource
+            name: redhat-marketplace-operator
+            version: v1
+          - kind: RazeeDeployment
+            name: redhat-marketplace-operator
+            version: v1alpha1
+        specDescriptors:
+          - description: ClusterUUID is the Red Hat Marketplace cluster identifier
+            displayName: Cluster UUID
+            path: clusterUUID
+            x-descriptors:
+              - hidden
+          - description: DeploySecretName is the secret name that contains the deployment information
+            displayName: Marketplace Secret Name
+            path: deploySecretName
+            x-descriptors:
+              - Secret
+          - description: EnableMetering enables the Marketplace Metering components
+            displayName: Enable Metering?
+            path: enableMetering
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: InstallIBMCatalogSource is the flag that indicates if the IBM Catalog Source is installed
+            displayName: Install IBM Catalog Source?
+            path: installIBMCatalogSource
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: RhmAccountID is the Red Hat Marketplace Account identifier
+            displayName: Marketplace Accound ID
+            path: rhmAccountID
+            x-descriptors:
+              - text
+        statusDescriptors:
+          - description: Conditions represent the latest available observations of an object's stateonfig
+            displayName: Conditions
+            path: conditions
+            x-descriptors:
+              - urn:alm:descriptor:io.kubernetes.conditions
+          - description: MeterBaseSubConditions represent the latest available observations of the meterbase object's state
+            displayName: Meter Base Sub Conditions
+            path: meterBaseSubConditions
+          - description: RazeeSubConditions represent the latest available observations of the razee object's state
+            displayName: Razee Sub Conditions
+            path: razeeSubConditions
+        version: v1alpha1
+      - description: MeterBase is the resource that sets up Metering for Red Hat Marketplace. This is an internal resource not meant to be modified directly.
+        displayName: Metering
+        kind: MeterBase
+        name: meterbases.marketplace.redhat.com
+        resources:
+          - kind: Prometheus
+            name: redhat-marketplace-operator
+            version: v1
+          - kind: ServiceMonitor
+            name: redhat-marketplace-operator
+            version: v1
+        specDescriptors:
+          - description: AdditionalConfigs are set by meter definitions and meterbase to what is available on the system.
+            displayName: Additional Scrape Configs
+            path: additionalScrapeConfigs
+          - description: Enabled is the flag that controls if the controller does work. Setting enabled to "true" will install metering components. False will suspend controller operations for metering components.
+            displayName: Enabled
+            path: enabled
+          - description: Prometheus deployment configuration.
+            displayName: Prometheus
+            path: prometheus
+          - description: Replicas defines the number of desired replicas for the prometheus deployment. Used primarily when running metering on CRC
+            displayName: Replicas
+            path: prometheus.replicas
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:hidden
+          - description: Selector for the pods in the Prometheus deployment
+            displayName: Node Selector
+            path: prometheus.selector
+            x-descriptors:
+              - 'urn:alm:descriptor:com.tectonic.ui:selector:'
+          - description: Storage for the deployment.
+            displayName: Storage
+            path: prometheus.storage
+          - description: Storage class for the prometheus stateful set. Default is "" i.e. default.
+            displayName: Class
+            path: prometheus.storage.class
+          - description: EmptyDir is a temporary storage type that gets created on the prometheus pod. When this is defined metering will run on CRC.
+            displayName: Empty Dir
+            path: prometheus.storage.emptyDir
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:hidden
+          - description: Storage size for the prometheus deployment. Default is 40Gi.
+            displayName: Size
+            path: prometheus.storage.size
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:podCount
+        statusDescriptors:
+          - description: MeterBaseConditions represent the latest available observations of an object's stateonfig
+            displayName: Conditions
+            path: conditions
+            x-descriptors:
+              - urn:alm:descriptor:io.kubernetes.conditions
+          - description: PrometheusStatus is the most recent observed status of the Prometheus cluster. Read-only. Not included when requesting from the apiserver, only from the Prometheus
+            displayName: Prometheus Status
+            path: prometheusStatus
+        version: v1alpha1
+      - description: MeterDefinition defines the meter workloads used to enable pay for use billing.
+        displayName: Meter Definitions
+        kind: MeterDefinition
+        name: meterdefinitions.marketplace.redhat.com
+        specDescriptors:
+          - description: InstalledBy is a reference to the CSV that install the meter definition. This is used to determine an operator group.
+            displayName: Installed By
+            path: installedBy
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:hidden
+          - description: APIVersion of the CRD
+            displayName: APIVersion
+            path: installedBy.apiVersion
+            x-descriptors:
+              - text
+          - description: Kind of the CRD
+            displayName: Kind
+            path: installedBy.kind
+            x-descriptors:
+              - text
+          - description: Group defines the operator group of the meter
+            displayName: Group
+            path: meterGroup
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:text
+          - description: Kind defines the primary CRD kind of the meter
+            displayName: Kind
+            path: meterKind
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:text
+          - description: Version defines the primary CRD version of the meter. This field is no longer used.
+            displayName: Version
+            path: meterVersion
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:hidden
+          - description: PodMeterLabels name of the prometheus metrics you want to track. User workloads instead.
+            displayName: Pod Meter Labels
+            path: podMeterLabels
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:hidden
+          - description: ServiceMeterLabels name of the meterics you want to track. Use workloads instead.
+            displayName: Service Meter Labels
+            path: serviceMeterLabels
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:hidden
+          - description: VertexFilters are used when Namespace is selected. Can be omitted if you select OperatorGroup
+            displayName: Vertex Label Selector
+            path: workloadVertexLabelSelectors
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:fieldDependency:workloadVertexType:Namespace
+          - description: WorkloadVertexType is the top most object of a workload. It allows you to identify the upper bounds of your workloads.
+            displayName: Workload Vertex Type
+            path: workloadVertexType
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:select:Namespace
+              - urn:alm:descriptor:com.tectonic.ui:select:OperatorGroup
+          - description: Workloads identify the workloads to meter.
+            displayName: Workloads
+            path: workloads
+          - description: AnnotationSelector are used to filter to the correct workload.
+            displayName: Annotation Selector
+            path: workloads[0].annotationSelector
+          - description: LabelSelector are used to filter to the correct workload.
+            displayName: Label Selector
+            path: workloads[0].labelSelector
+          - description: MetricLabels are the labels to collect
+            displayName: Metric Labels
+            path: workloads[0].metricLabels
+          - description: Aggregation to use with the query
+            displayName: Aggregation
+            path: workloads[0].metricLabels[0].aggregation
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:select:avg
+              - urn:alm:descriptor:com.tectonic.ui:select:max
+              - urn:alm:descriptor:com.tectonic.ui:select:min
+              - urn:alm:descriptor:com.tectonic.ui:select:sum
+          - description: Label is the name of the meter
+            displayName: Label
+            path: workloads[0].metricLabels[0].label
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:label
+              - urn:alm:descriptor:com.tectonic.ui:text
+          - description: Query to use for the label
+            displayName: Query
+            path: workloads[0].metricLabels[0].query
+          - description: Name of the workload, must be unique in a meter definition.
+            displayName: Name
+            path: workloads[0].name
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:text
+          - description: OwnerCRD is the name of the GVK to look for as the owner of all the meterable assets. If omitted, the labels and annotations are used instead.
+            displayName: Owner CRD
+            path: workloads[0].ownerCRD
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:text
+          - description: APIVersion of the CRD
+            displayName: APIVersion
+            path: workloads[0].ownerCRD.apiVersion
+            x-descriptors:
+              - text
+          - description: Kind of the CRD
+            displayName: Kind
+            path: workloads[0].ownerCRD.kind
+            x-descriptors:
+              - text
+          - description: WorkloadType identifies the type of workload to look for. This can be pod or service right now.
+            displayName: Workload Type
+            path: workloads[0].type
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:select:PersistentVolumeClaim
+              - urn:alm:descriptor:com.tectonic.ui:select:Pod
+              - urn:alm:descriptor:com.tectonic.ui:select:Service
+        statusDescriptors:
+          - description: WorkloadResources is the list of resoruces discovered by this meter definition
+            displayName: Workload Resources
+            path: workloadResource
+        version: v1alpha1
+      - description: MeterReport is the Schema for the meterreports API
+        displayName: Reports
+        kind: MeterReport
+        name: meterreports.marketplace.redhat.com
+        specDescriptors:
+          - description: EndTime of the job
+            displayName: End Time
+            path: endTime
+          - description: MeterDefinitions is the list of meterDefinitions included in the report
+            displayName: Meter Definitions
+            path: meterDefinitions
+          - description: InstalledBy is a reference to the CSV that install the meter definition. This is used to determine an operator group.
+            displayName: Installed By
+            path: meterDefinitions[0].spec.installedBy
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:hidden
+          - description: APIVersion of the CRD
+            displayName: APIVersion
+            path: meterDefinitions[0].spec.installedBy.apiVersion
+            x-descriptors:
+              - text
+          - description: Kind of the CRD
+            displayName: Kind
+            path: meterDefinitions[0].spec.installedBy.kind
+            x-descriptors:
+              - text
+          - description: Group defines the operator group of the meter
+            displayName: Group
+            path: meterDefinitions[0].spec.meterGroup
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:text
+          - description: Kind defines the primary CRD kind of the meter
+            displayName: Kind
+            path: meterDefinitions[0].spec.meterKind
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:text
+          - description: Version defines the primary CRD version of the meter. This field is no longer used.
+            displayName: Version
+            path: meterDefinitions[0].spec.meterVersion
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:hidden
+          - description: PodMeterLabels name of the prometheus metrics you want to track. User workloads instead.
+            displayName: Pod Meter Labels
+            path: meterDefinitions[0].spec.podMeterLabels
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:hidden
+          - description: ServiceMeterLabels name of the meterics you want to track. Use workloads instead.
+            displayName: Service Meter Labels
+            path: meterDefinitions[0].spec.serviceMeterLabels
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:hidden
+          - description: VertexFilters are used when Namespace is selected. Can be omitted if you select OperatorGroup
+            displayName: Vertex Label Selector
+            path: meterDefinitions[0].spec.workloadVertexLabelSelectors
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:fieldDependency:workloadVertexType:Namespace
+          - description: WorkloadVertexType is the top most object of a workload. It allows you to identify the upper bounds of your workloads.
+            displayName: Workload Vertex Type
+            path: meterDefinitions[0].spec.workloadVertexType
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:select:Namespace
+              - urn:alm:descriptor:com.tectonic.ui:select:OperatorGroup
+          - description: Workloads identify the workloads to meter.
+            displayName: Workloads
+            path: meterDefinitions[0].spec.workloads
+          - description: AnnotationSelector are used to filter to the correct workload.
+            displayName: Annotation Selector
+            path: meterDefinitions[0].spec.workloads[0].annotationSelector
+          - description: LabelSelector are used to filter to the correct workload.
+            displayName: Label Selector
+            path: meterDefinitions[0].spec.workloads[0].labelSelector
+          - description: MetricLabels are the labels to collect
+            displayName: Metric Labels
+            path: meterDefinitions[0].spec.workloads[0].metricLabels
+          - description: Aggregation to use with the query
+            displayName: Aggregation
+            path: meterDefinitions[0].spec.workloads[0].metricLabels[0].aggregation
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:select:avg
+              - urn:alm:descriptor:com.tectonic.ui:select:max
+              - urn:alm:descriptor:com.tectonic.ui:select:min
+              - urn:alm:descriptor:com.tectonic.ui:select:sum
+          - description: Label is the name of the meter
+            displayName: Label
+            path: meterDefinitions[0].spec.workloads[0].metricLabels[0].label
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:label
+              - urn:alm:descriptor:com.tectonic.ui:text
+          - description: Query to use for the label
+            displayName: Query
+            path: meterDefinitions[0].spec.workloads[0].metricLabels[0].query
+          - description: Name of the workload, must be unique in a meter definition.
+            displayName: Name
+            path: meterDefinitions[0].spec.workloads[0].name
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:text
+          - description: OwnerCRD is the name of the GVK to look for as the owner of all the meterable assets. If omitted, the labels and annotations are used instead.
+            displayName: Owner CRD
+            path: meterDefinitions[0].spec.workloads[0].ownerCRD
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:text
+          - description: APIVersion of the CRD
+            displayName: APIVersion
+            path: meterDefinitions[0].spec.workloads[0].ownerCRD.apiVersion
+            x-descriptors:
+              - text
+          - description: Kind of the CRD
+            displayName: Kind
+            path: meterDefinitions[0].spec.workloads[0].ownerCRD.kind
+            x-descriptors:
+              - text
+          - description: WorkloadType identifies the type of workload to look for. This can be pod or service right now.
+            displayName: Workload Type
+            path: meterDefinitions[0].spec.workloads[0].type
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:select:PersistentVolumeClaim
+              - urn:alm:descriptor:com.tectonic.ui:select:Pod
+              - urn:alm:descriptor:com.tectonic.ui:select:Service
+          - description: APIVersion of the CRD
+            displayName: APIVersion
+            path: meterDefinitions[0].status.workloadResource[0].apiVersion
+            x-descriptors:
+              - text
+          - description: Kind of the CRD
+            displayName: Kind
+            path: meterDefinitions[0].status.workloadResource[0].kind
+            x-descriptors:
+              - text
+          - description: PrometheusService is the definition for the service labels.
+            displayName: Prometheus Service
+            path: prometheusService
+          - description: StartTime of the job
+            displayName: Start Time
+            path: startTime
+        statusDescriptors:
+          - description: Conditions represent the latest available observations of an object's stateonfig
+            displayName: Conditions
+            path: conditions
+            x-descriptors:
+              - urn:alm:descriptor:io.kubernetes.conditions
+          - description: A list of pointers to currently running jobs.
+            displayName: Associated Job
+            path: jobReference
+          - description: MetricUploadCount is the number of metrics in the report
+            displayName: Metric Upload Count
+            path: metricUploadCount
+          - description: QueryErrorList shows if there were any errors from queries for the report.
+            displayName: Query Error List
+            path: queryErrorList
+          - description: UploadID is the ID associated with the upload
+            displayName: Upload ID
+            path: uploadUID
+        version: v1alpha1
+      - description: RazeeDeployment is the resources that deploys Razee for the Red Hat Marketplace. This is an internal resource not meant to be modified directly.
+        displayName: (Internal) Razee Deployment
+        kind: RazeeDeployment
+        name: razeedeployments.marketplace.redhat.com
+        resources:
+          - kind: ConfigMap
+            name: redhat-marketplace-operator
+            version: v1
+          - kind: Deployment
+            name: redhat-marketplace-operator
+            version: v1
+          - kind: Secret
+            name: redhat-marketplace-operator
+            version: v1
+        specDescriptors:
+          - description: Location of your IBM Cloud Object Storage resources Used internally by the Operator
+            displayName: Child Url
+            path: childUrl
+          - description: ClusterUUID is the cluster identifier, used for installing razee.
+            displayName: Cluster UUID
+            path: clusterUUID
+          - description: Configuration values provided from redhat marketplace These are used internally by the Operator
+            displayName: Deploy Config
+            path: deployConfig
+          - description: BucketName is the name of the bucket in Cloud Object Storage and correlates to your accountID
+            displayName: Bucket Name
+            path: deployConfig.bucketName
+          - description: The file name of the child RemoteResourecS3
+            displayName: Child RSS3 FIle Name
+            path: deployConfig.childRRS3FileName
+          - description: 'FileSourceURL DEPRECATED: The url of the filesource arg that gets passed into the razeedeploy-job'
+            displayName: File Source URL
+            path: deployConfig.fileSourceUrl
+          - description: Api key used to access the bucket IBM COS
+            displayName: Ibm Cos Reader Key
+            path: deployConfig.ibmCosReaderKey
+          - description: Base url for the instance of IBM COS
+            displayName: Ibm Cos URL
+            path: deployConfig.ibmCosUrl
+          - description: Key used to identify a particular razee instance
+            displayName: Razee Dash Org Key
+            path: deployConfig.razeeDashOrgKey
+          - description: Url used by the razee install to post data
+            displayName: Razee Dash Url
+            path: deployConfig.razeeDashUrl
+          - description: DeploySecretName is the name of our secret where Razee variables are stored.
+            displayName: Deploy Secret Name
+            path: deploySecretName
+          - description: Enabled is the flag that controls if the controller does work. Setting enabled to true will create a Razee namespace and deploy it's componenets. Set to false to bypass Razee installation
+            displayName: Enabled
+            path: enabled
+          - description: Flag used by the RazeeDeployment Controller to decide whether to run legacy uninstall job Used internally by the Operator
+            displayName: Legacy Uninstall Has Run
+            path: legacyUninstallHasRun
+          - description: TargetNamespace is configurable target of the razee namespace This is to support legancy installs. Please do not edit.
+            displayName: Target Namespace
+            path: targetNamespace
+        statusDescriptors:
+          - description: 'JobConditions DEPRECATED: represent the latest available observations of an object''s stateonfig'
+            displayName: Job Conditions
+            path: conditions
+            x-descriptors:
+              - urn:alm:descriptor:io.kubernetes.conditions
+          - description: RazeeConditions represent the latest available observations of an object's stateonfig
+            displayName: Conditions
+            path: installConditions
+          - description: 'JobState DEPRECATED: is the status of the Razee Install Job'
+            displayName: Job State
+            path: jobState
+          - description: 'LocalSecretVarsPopulated DEPRECATED: informs if the correct local variables are correct set.'
+            displayName: Local Secret Vars Populated
+            path: localSecretVarsPopulated
+          - description: MissingValuesFromSecret validates the secret provided has all the correct fields
+            displayName: Missing Deploy Secret Values
+            path: missingValuesFromSecret
+          - description: NodesFromRazeeDeployments contains the pods names created by the rhm-watch-keeper and rhm-remote-resources3-controller deployments
+            displayName: Nodes From Razee Deployments
+            path: nodesFromRazeeDeployments
+          - description: RazeePrerequestesCreated is the list of configmaps and secrets required to be installed
+            displayName: Razee Prerequisites Created
+            path: razeePrerequisitesCreated
+          - description: RazeeJobInstall contains information regarding the install job so it can be removed
+            displayName: Razee Job Install
+            path: razee_job_install
+          - description: RazeeInstallURL is the url used to install the Razee resources
+            displayName: Razee Install URL
+            path: razee_job_install.razee_install_url
+          - description: RazeeNamespace is the namespace targeted for the Razee install
+            displayName: Razee Namespace
+            path: razee_job_install.razee_namespace
+          - description: 'RedHatMarketplaceSecretFound DEPRECATED: is the status of finding the secret in the cluster'
+            displayName: Red Hat Marketplace Secret Found
+            path: redHatMarketplaceSecretFound
+        version: v1alpha1
+      - description: RemoteResourceS3 is the Schema for the remoteresources3s API
+        displayName: (Internal)RemoteResourceS3
+        kind: RemoteResourceS3
+        name: remoteresources3s.marketplace.redhat.com
+        specDescriptors:
+          - description: Auth provides options to authenticate to a remote location
+            displayName: Auth
+            path: auth
+          - description: AccessKeyID is a unique identifier for an AWS account and is used by AWS to look up your Secret Access Key
+            displayName: Access Key ID
+            path: auth.hmac.accessKeyId
+          - description: AccessKeyIDRef holds reference information to an AccessKeyID stored in a secret on your cluster
+            displayName: Acces Key IDRef
+            path: auth.hmac.accessKeyIdRef
+          - displayName: Value From
+            path: auth.hmac.accessKeyIdRef.valueFrom
+          - displayName: Secret Key Ref
+            path: auth.hmac.accessKeyIdRef.valueFrom.secretKeyRef
+          - description: SecretAccessKey is used by AWS to calculate a request signature. Your SecretAccessKey is a shared secret known only to you and AWS
+            displayName: Secret Access Key
+            path: auth.hmac.secretAccessKey
+          - description: SecretAccessKeyRef holds reference information to an SecretAccessKey stored in a secret on your cluster
+            displayName: Secret Access Key Ref
+            path: auth.hmac.secretAccessKeyRef
+          - displayName: Value From
+            path: auth.hmac.secretAccessKeyRef.valueFrom
+          - displayName: Secret Key Ref
+            path: auth.hmac.secretAccessKeyRef.valueFrom.secretKeyRef
+          - description: APIKey is the API Key used to authenticate to your IBM Cloud Object Storage instance
+            displayName: APIKey
+            path: auth.iam.apiKey
+          - description: APIKeyRef holds reference information used to locate a secret which contains your IBM COS api key
+            displayName: APIKey Ref
+            path: auth.iam.apiKeyRef
+          - displayName: Value From
+            path: auth.iam.apiKeyRef.valueFrom
+          - displayName: Secret Key Ref
+            path: auth.iam.apiKeyRef.valueFrom.secretKeyRef
+          - description: GrantType determines what authentication flow will be used to generate an access token. GrantType for IAM will usually be " "urn:ibm:params:oauth:grant-type:apikey""
+            displayName: Grant Type
+            path: auth.iam.grantType
+          - description: ResponseType specifies which grant type your application is requesting. ResponseType for IAM will usually be "cloud_iam"
+            displayName: Response Type
+            path: auth.iam.responseType
+          - description: URL is the auth endpoint. URL for IAM will usually be "https://iam.cloud.ibm.com/identity/token"
+            displayName: URL
+            path: auth.iam.url
+          - description: Requests array contains information regarding the location of your remote resource
+            displayName: Requests
+            path: requests
+          - description: if downloading or applying a child resource fails, RemoteResource will stop execution and report error to .status. You can allow execution to continue by marking a reference as optional.
+            displayName: Optional
+            path: requests[0].optional
+          - displayName: Options
+            path: requests[0].options
+          - displayName: Headers
+            path: requests[0].options.headers
+          - displayName: URI
+            path: requests[0].options.uri
+          - displayName: URL
+            path: requests[0].options.url
+        version: v1alpha1
+  description: |
+    The Red Hat Marketplace Operator provides cluster management, metering and
+    operator installation for Red Hat Marketplace customers.
+
+    ### **Important Note**
+
+    All installations for the Marketplace operator should start at [marketplace.redhat.com](marketplace.redhat.com). Please visit us to onboard.
+
+    ### Changes to your Cluster:
+
+    **Note**: The Red Hat Marketplace Operator uses an open-source project called [Razee](https://razee.io/) for management between the cluster and marketplace.
+    View the [code on Github.](https://github.com/razee-io/Razee/blob/master/README.md)
+
+    **RazeeDeployment Controller**: The RazeeDeployment Controller creates the `razee-deploy-job` which runs in the `openshift-redhat-marketplace` namespace. This job is deleted after successful completion. View [`razee-deploy-job` on Github.](https://github.com/razee-io/razeedeploy-delta)
+
+    **Razee agent**: The `razee-deploy-job` creates the `razee` namespace and installs the Razee agent and its associated resources. The Razee agent must be running to communicate with the Red Hat Marketplace.
+
+    ### Installation
+
+    View the [automated installation instructions](https://marketplace.redhat.com/en-us/documentation/clusters) in our documentation.
+
+    ### Documentation
+
+    You can find our documentation [here.](https://marketplace.redhat.com/en-us/documentation/)
+
+    ### Getting help
+
+    If you encounter any issues while using Red Hat Marketplace operator, you
+    can create an issue on our [Github
+    repo](https://github.com/redhat-marketplace/redhat-marketplace-operator) for
+    bugs, enhancements, or other requests. You can also visit our main page and
+    review our [support](https://marketplace.redhat.com/en-us/support) and [documentation](https://marketplace.redhat.com/en-us/documentation/).
+  displayName: Red Hat Marketplace Operator
+  icon:
+    - base64data: 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
+      mediatype: image/png
+  install:
+    spec:
+      clusterPermissions:
+        - rules:
+            - apiGroups:
+                - '*'
+              resources:
+                - '*'
+              verbs:
+                - get
+                - list
+                - watch
+            - nonResourceURLs:
+                - '*'
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - rbac.authorization.k8s.io
+              resourceNames:
+                - razeedeploy-admin-cr
+                - redhat-marketplace-razeedeploy
+              resources:
+                - clusterroles
+              verbs:
+                - get
+                - list
+                - delete
+            - apiGroups:
+                - ""
+              resources:
+                - pods
+                - services
+                - services/finalizers
+                - endpoints
+                - persistentvolumeclaims
+                - persistentvolumes
+                - events
+                - configmaps
+                - secrets
+                - namespaces
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - ""
+              resources:
+                - nodes
+              verbs:
+                - get
+                - list
+                - watch
+                - patch
+                - update
+            - apiGroups:
+                - batch
+                - extensions
+              resources:
+                - jobs
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - apps
+              resources:
+                - deployments
+                - statefulsets
+                - replicasets
+                - daemonsets
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - apps
+              resourceNames:
+                - redhat-marketplace-operator
+              resources:
+                - deployments/finalizers
+              verbs:
+                - update
+            - apiGroups:
+                - storage.k8s.io
+              resources:
+                - storageclasses
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - monitoring.coreos.com
+              resources:
+                - servicemonitors
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - monitoring.coreos.com
+              resources:
+                - prometheuses
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - operators.coreos.com
+              resources:
+                - subscriptions
+                - clusterserviceversions
+              verbs:
+                - get
+                - list
+                - update
+                - watch
+                - delete
+            - apiGroups:
+                - operators.coreos.com
+              resources:
+                - operatorsources
+                - catalogsources
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+            - apiGroups:
+                - operators.coreos.com
+              resourceNames:
+                - redhat-marketplace
+              resources:
+                - operatorsources
+              verbs:
+                - get
+                - delete
+                - patch
+                - update
+            - apiGroups:
+                - operators.coreos.com
+              resourceNames:
+                - ibm-operator-catalog
+                - opencloud-operators
+              resources:
+                - catalogsources
+              verbs:
+                - get
+                - delete
+                - patch
+                - update
+            - apiGroups:
+                - operators.coreos.com
+              resources:
+                - operatorgroups
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - deploy.razee.io
+              resources:
+                - remoteresourcess3
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+            - apiGroups:
+                - config.openshift.io
+              resources:
+                - consoles
+                - infrastructures
+                - clusterversions
+              verbs:
+                - get
+                - list
+                - patch
+                - update
+            - apiGroups:
+                - marketplace.redhat.com
+              resources:
+                - '*'
+                - meterdefinitions
+                - razeedeployments
+                - meterbases
+                - marketplaceconfigs
+                - remoteresources3s
+              verbs:
+                - '*'
+            - apiGroups:
+                - ""
+              resourceNames:
+                - rhm-cos-reader-key
+                - watch-keeper-secret
+              resources:
+                - secrets
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - ""
+              resourceNames:
+                - watch-keeper-config
+                - watch-keeper-limit-poll
+                - watch-keeper-non-namespaced
+                - razee-cluster-metadata
+              resources:
+                - configmaps
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - authentication.k8s.io
+              resources:
+                - tokenreviews
+              verbs:
+                - create
+            - apiGroups:
+                - authorization.k8s.io
+              resources:
+                - subjectaccessreviews
+              verbs:
+                - create
+            - nonResourceURLs:
+                - /api/v1/query
+                - /api/v1/query_range
+              verbs:
+                - get
+                - create
+          serviceAccountName: redhat-marketplace-operator
+      deployments:
+        - name: redhat-marketplace-operator
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                redhat.marketplace.com/name: redhat-marketplace-operator
+            strategy: {}
+            template:
+              metadata:
+                labels:
+                  redhat.marketplace.com/name: redhat-marketplace-operator
+              spec:
+                containers:
+                  - command:
+                      - redhat-marketplace-operator
+                    env:
+                      - name: OPERATOR_NAME
+                        value: redhat-marketplace-operator
+                      - name: WATCH_NAMESPACE
+                        value:
+                      - name: POD_NAMESPACE
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.namespace
+                      - name: POD_NAME
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.name
+                      - name: RELATED_IMAGE_REPORTER
+                        value: quay.io/zach_source/redhat-marketplace-reporter:latest
+                      - name: RELATED_IMAGE_KUBE_RBAC_PROXY
+                        value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
+                      - name: RELATED_IMAGE_METRIC_STATE
+                        value: quay.io/zach_source/redhat-marketplace-metric-state:latest
+                      - name: RELATED_IMAGE_AUTHCHECK
+                        value: quay.io/zach_source/redhat-marketplace-authcheck:latest
+                      - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
+                        value: quay.io/razee/remoteresources3:0.6.2
+                      - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
+                        value: quay.io/razee/watch-keeper:0.6.6
+                      - name: IBMCATALOGSOURCE
+                        value: "true"
+                    image: quay.io/zach_source/redhat-marketplace-operator:latest
+                    imagePullPolicy: Always
+                    name: redhat-marketplace-operator
+                    resources: {}
+                    securityContext: {}
+                serviceAccountName: redhat-marketplace-operator
+      permissions:
+        - rules:
+            - apiGroups:
+                - ""
+              resourceNames:
+                - pull-secret
+              resources:
+                - secrets
+              verbs:
+                - get
+                - watch
+                - list
+            - apiGroups:
+                - deploy.razee.io
+              resources:
+                - '*'
+                - remoteresourcess3
+                - remoteresources
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - update
+                - patch
+                - watch
+            - apiGroups:
+                - ""
+              resources:
+                - pods
+                - services
+                - services/finalizers
+                - endpoints
+                - persistentvolumeclaims
+                - events
+                - configmaps
+                - secrets
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - operators.coreos.com
+              resources:
+                - subscriptions
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - delete
+                - patch
+                - watch
+                - update
+            - apiGroups:
+                - batch
+                - extensions
+              resources:
+                - jobs
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - apps
+              resources:
+                - deployments
+                - daemonsets
+                - replicasets
+                - statefulsets
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - apps
+              resourceNames:
+                - redhat-marketplace-operator
+              resources:
+                - deployments/finalizers
+              verbs:
+                - update
+            - apiGroups:
+                - monitoring.coreos.com
+              resources:
+                - '*'
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - ""
+              resourceNames:
+                - razeedeploy-sa
+                - watch-keeper-sa
+              resources:
+                - serviceaccounts
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - update
+                - patch
+                - watch
+          serviceAccountName: redhat-marketplace-operator
+    strategy: deployment
+  installModes:
+    - supported: true
+      type: OwnNamespace
+    - supported: true
+      type: SingleNamespace
+    - supported: false
+      type: MultiNamespace
+    - supported: false
+      type: AllNamespaces
+  keywords:
+    - red hat marketplace
+    - operators
+    - buy
+  links:
+    - name: Visit the marketplace!
+      url: https://marketplace.redhat.com
+    - name: About
+      url: https://marketplace.redhat.com/en-us/about
+    - name: Support
+      url: https://marketplace.redhat.com/en-us/support
+  maintainers:
+    - email: ztaylor@ibm.com
+      name: Zach Taylor
+  maturity: stable
+  provider:
+    name: Red Hat Marketplace
+  replaces: redhat-marketplace-operator.v1.0.2
+  version: 1.0.3

@@ -179,7 +179,7 @@ func UpdateWithPatchAction(
 func (a *updateWithPatchAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 	reqLogger := a.GetReqLogger(c)
 
-	reqLogger.Info("updating with patch", "patch", string(a.patchData))
+	reqLogger.V(4).Info("updating with patch", "patch", string(a.patchData))
 	err := c.client.Patch(ctx, a.object, client.RawPatch(a.patchType, a.patchData))
 
 	if err != nil {

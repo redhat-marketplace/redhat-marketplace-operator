@@ -1447,48 +1447,6 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 									},
 								},
 								{
-									Name: "CONFIG_NAMESPACE",
-									ValueFrom: &corev1.EnvVarSource{
-										FieldRef: &corev1.ObjectFieldSelector{
-											FieldPath: "metadata.namespace",
-										},
-									},
-								},
-								{
-									Name: "START_DELAY_MAX",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: utils.WATCH_KEEPER_CONFIG_NAME,
-											},
-											Key:      "START_DELAY_MAX",
-											Optional: ptr.Bool(true),
-										},
-									},
-								},
-								{
-									Name: "RAZEEDASH_URL",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: utils.WATCH_KEEPER_CONFIG_NAME,
-											},
-											Key: "RAZEEDASH_URL",
-										},
-									},
-								},
-								{
-									Name: "RAZEEDASH_ORG_KEY",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: utils.WATCH_KEEPER_SECRET_NAME,
-											},
-											Key: "RAZEEDASH_ORG_KEY",
-										},
-									},
-								},
-								{
 									Name:  "NODE_ENV",
 									Value: "production",
 								},
@@ -1510,19 +1468,11 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      utils.WATCH_KEEPER_CONFIG_NAME,
-									MountPath: "/usr/src/app/envs/watch-keeper-config",
+									MountPath: "/home/node/envs/watch-keeper-config",
 								},
 								{
 									Name:      utils.WATCH_KEEPER_SECRET_NAME,
-									MountPath: "/usr/src/app/envs/watch-keeper-secret",
-								},
-								{
-									Name:      "razee-identity-config",
-									MountPath: "/usr/src/app/envs/razee-identity-config",
-								},
-								{
-									Name:      "razee-identity-secret",
-									MountPath: "/usr/src/app/envs/razee-identity-secret",
+									MountPath: "/home/node/envs/watch-keeper-secret",
 								},
 							},
 						},
@@ -1536,43 +1486,17 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 										Name: utils.WATCH_KEEPER_CONFIG_NAME,
 									},
 									DefaultMode: ptr.Int32(0400),
-									Optional:    ptr.Bool(true),
+									Optional:    ptr.Bool(false),
 								},
 							},
 						},
 						{
 							Name: utils.WATCH_KEEPER_SECRET_NAME,
 							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: utils.WATCH_KEEPER_SECRET_NAME,
-									},
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: utils.WATCH_KEEPER_SECRET_NAME,
 									DefaultMode: ptr.Int32(0400),
-									Optional:    ptr.Bool(true),
-								},
-							},
-						},
-						{
-							Name: "razee-identity-config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "razee-identity-config",
-									},
-									DefaultMode: ptr.Int32(0400),
-									Optional:    ptr.Bool(true),
-								},
-							},
-						},
-						{
-							Name: "razee-identity-secret",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "razee-identity-secret",
-									},
-									DefaultMode: ptr.Int32(0400),
-									Optional:    ptr.Bool(true),
+									Optional:    ptr.Bool(false),
 								},
 							},
 						},
@@ -1583,6 +1507,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 	}
 }
 
+// TODO: use factory
 func (r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *marketplacev1alpha1.RazeeDeployment) *appsv1.Deployment {
 	rep := ptr.Int32(1)
 	return &appsv1.Deployment{
@@ -1723,6 +1648,7 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 	}
 
 	parentRRS3 := marketplacev1alpha1.RemoteResourceS3{}
+	reqLogger.Info("Finding resource : ", "Parent", utils.PARENT_RRS3_RESOURCE_NAME)
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, &parentRRS3)
 	if err != nil && !errors.IsNotFound((err)) {
 		reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
@@ -1734,6 +1660,7 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 		if err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "could not delete parentRRS3", "Resource", utils.PARENT_RRS3_RESOURCE_NAME)
 		}
+		return reconcile.Result{RequeueAfter: time.Second * 2}, err
 	}
 
 	configMaps := []string{

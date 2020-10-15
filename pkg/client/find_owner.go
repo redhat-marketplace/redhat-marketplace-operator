@@ -22,22 +22,17 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
 )
 
-
 type FindOwnerHelper struct {
-	client     dynamic.Interface
-	restMapper meta.RESTMapper
+	client *DynamicClient
 }
 
 func NewFindOwnerHelper(
-	inClient dynamic.Interface,
-	restMapper meta.RESTMapper,
+	dynamicClient *DynamicClient,
 ) *FindOwnerHelper {
 	return &FindOwnerHelper{
-		client:     inClient,
-		restMapper: restMapper,
+		client: dynamicClient,
 	}
 }
 
@@ -52,7 +47,7 @@ func (f *FindOwnerHelper) FindOwner(name, namespace string, lookupOwner *metav1.
 		version = apiVersionSplit[1]
 	}
 
-	mapping, err := f.restMapper.RESTMapping(schema.GroupKind{
+	resourceClient, err := f.client.ClientForKind(schema.GroupKind{
 		Group: group,
 		Kind:  lookupOwner.Kind,
 	}, version)
@@ -61,7 +56,7 @@ func (f *FindOwnerHelper) FindOwner(name, namespace string, lookupOwner *metav1.
 		return nil, errors.Wrap(err, "failed to get mapping")
 	}
 
-	result, err := f.client.Resource(mapping.Resource).Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	result, err := resourceClient.Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get resource")

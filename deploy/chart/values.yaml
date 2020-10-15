@@ -7,7 +7,8 @@ namespace: redhat-marketplace
 image: quay.io/rh-marketplace/redhat-marketplace-operator:latest
 reporterImage: quay.io/rh-marketplace/redhat-marketplace-reporter:latest
 metricStateImage: quay.io/rh-marketplace/redhat-marketplace-metric-state:latest
-kubeRbacProxyImage: quay.io/coreos/kube-rbac-proxy:v0.5.0
+authCheckImage: quay.io/rh-marketplace/redhat-marketplace-authcheck:latest
+kubeRbacProxyImage: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
 pullPolicy: Always
 watchNamespace: '' # watch all namespaces
 serviceAccountName: redhat-marketplace-operator
@@ -16,7 +17,7 @@ env:
   - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
     value: quay.io/razee/remoteresources3:0.6.2
   - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
-    value: quay.io/razee/watch-keeper:0.5.3
+    value: quay.io/razee/watch-keeper:0.6.6
   - name: IBMCATALOGSOURCE
     value: "true"
 roles:
@@ -319,6 +320,7 @@ roles:
           - servicemonitors
           - podmonitors
           - prometheusrules
+          - '*'
         verbs:
           - '*'
       - apiGroups:

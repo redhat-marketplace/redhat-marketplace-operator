@@ -65,7 +65,8 @@ func NewServer(opts *Options) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	findOwnerHelper := client.NewFindOwnerHelper(dynamicInterface, restMapper)
+	dynamicClient := client.NewDynamicClient(dynamicInterface, restMapper)
+	findOwnerHelper := client.NewFindOwnerHelper(dynamicClient)
 	monitoringV1Client, err := v1.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err
@@ -74,9 +75,9 @@ func NewServer(opts *Options) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	meterDefinitionStore := meter_definition.NewMeterDefinitionStore(context, logger, clientCommandRunner, clientset, findOwnerHelper, monitoringV1Client, marketplaceV1alpha1Client, scheme)
-	statusProcessor := meter_definition.NewStatusProcessor(logger, clientCommandRunner, meterDefinitionStore)
-	serviceProcessor := meter_definition.NewServiceProcessor(logger, clientCommandRunner, meterDefinitionStore)
+	meterDefinitionStoreBuilder := meter_definition.NewMeterDefinitionStoreBuilder(context, logger, clientCommandRunner, clientset, findOwnerHelper, monitoringV1Client, marketplaceV1alpha1Client, scheme)
+	statusProcessor := meter_definition.NewStatusProcessor(logger, clientCommandRunner)
+	serviceProcessor := meter_definition.NewServiceProcessor(logger, clientCommandRunner)
 	cacheIsIndexed, err := addIndex(context, cache)
 	if err != nil {
 		return nil, err
@@ -89,7 +90,7 @@ func NewServer(opts *Options) (*Service, error) {
 		cache:            cache,
 		metricsRegistry:  registry,
 		cc:               clientCommandRunner,
-		meterDefStore:    meterDefinitionStore,
+		meterDefStore:    meterDefinitionStoreBuilder,
 		statusProcessor:  statusProcessor,
 		serviceProcessor: serviceProcessor,
 		isCacheStarted:   cacheIsStarted,

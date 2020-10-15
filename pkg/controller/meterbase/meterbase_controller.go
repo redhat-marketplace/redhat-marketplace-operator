@@ -314,6 +314,10 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	prometheusStatefulset := &appsv1.StatefulSet{}
 	if result, err := cc.Do(
 		context.TODO(),
+		GetAction(types.NamespacedName{
+			Namespace: instance.Namespace,
+			Name:      instance.Name,
+		}, instance),
 		HandleResult(
 			GetAction(types.NamespacedName{
 				Namespace: prometheus.Namespace,
@@ -840,12 +844,11 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 	kubeletCertsCM := &corev1.ConfigMap{}
 
 	return []ClientAction{
-		manifests.CreateOrUpdateFactoryItemAction(
+		manifests.CreateIfNotExistsFactoryItem(
 			&corev1.ConfigMap{},
 			func() (runtime.Object, error) {
 				return factory.PrometheusServingCertsCABundle()
 			},
-			args,
 		),
 		manifests.CreateIfNotExistsFactoryItem(
 			dataSecret,
@@ -863,7 +866,7 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 				return factory.PrometheusRBACProxySecret()
 			},
 		),
-		manifests.CreateIfNotExistsFactoryItem(
+		HandleResult(manifests.CreateIfNotExistsFactoryItem(
 			&corev1.Secret{},
 			func() (runtime.Object, error) {
 				data, ok := dataSecret.Data["basicAuthSecret"]
@@ -874,6 +877,8 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 
 				return factory.PrometheusHtpasswdSecret(string(data))
 			}),
+			OnError(RequeueResponse()),
+		),
 		HandleResult(
 			GetAction(
 				types.NamespacedName{Namespace: "openshift-config-managed", Name: "kubelet-serving-ca"},
@@ -915,6 +920,7 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 				updatedPrometheus.Spec.Volumes = expectedPrometheus.Spec.Volumes
 				updatedPrometheus.Spec.VolumeMounts = expectedPrometheus.Spec.VolumeMounts
 				updatedPrometheus.Spec.AdditionalScrapeConfigs = expectedPrometheus.Spec.AdditionalScrapeConfigs
+				updatedPrometheus.Spec.Containers = expectedPrometheus.Spec.Containers
 
 				patch, err := r.patcher.Calculate(prometheus, updatedPrometheus)
 				if err != nil {
@@ -964,7 +970,7 @@ func (r *ReconcileMeterBase) uninstallMetricState(
 	factory *manifests.Factory,
 ) []ClientAction {
 	deployment, _ := factory.MetricStateDeployment()
-	service2, _ := factory.MetricStateService()
+	service, _ := factory.MetricStateService()
 	sm, _ := factory.MetricStateServiceMonitor()
 
 	return []ClientAction{
@@ -972,8 +978,8 @@ func (r *ReconcileMeterBase) uninstallMetricState(
 			GetAction(types.NamespacedName{Namespace: sm.Namespace, Name: sm.Name}, sm),
 			OnContinue(DeleteAction(sm))),
 		HandleResult(
-			GetAction(types.NamespacedName{Namespace: service2.Namespace, Name: service2.Name}, deployment),
-			OnContinue(DeleteAction(service2))),
+			GetAction(types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service),
+			OnContinue(DeleteAction(service))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}, deployment),
 			OnContinue(DeleteAction(deployment))),
@@ -1091,20 +1097,15 @@ func (r *ReconcileMeterBase) newPrometheusOperator(
 ) (*monitoringv1.Prometheus, error) {
 	prom, err := factory.NewPrometheusDeployment(cr, cfg)
 
-	storageClass := ""
 	if cr.Spec.Prometheus.Storage.Class == nil {
-		foundDefaultClass, err := utils.GetDefaultStorageClass(r.client)
+		defaultClass, err := utils.GetDefaultStorageClass(r.client)
 
 		if err != nil {
 			return prom, err
 		}
-
-		storageClass = foundDefaultClass
-	} else {
-		storageClass = *cr.Spec.Prometheus.Storage.Class
+		prom.Spec.Storage.VolumeClaimTemplate.Spec.StorageClassName = ptr.String(defaultClass)
 	}
 
-	prom.Spec.Storage.VolumeClaimTemplate.Spec.StorageClassName = ptr.String(storageClass)
 	return prom, err
 }
 
