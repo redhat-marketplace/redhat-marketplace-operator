@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"reflect"
 	"time"
 
 	emperrors "emperror.dev/errors"
@@ -40,6 +41,7 @@ import (
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/operrors"
+	appsv1 "k8s.io/api/apps/v1"
 )
 
 type PersistentVolume struct {
@@ -345,4 +347,75 @@ func getResources(obj runtime.Object, listOpts []client.ListOption, rClient clie
 
 	return nil
 
+}
+
+func DeploymentNeedsUpdate(original, updated appsv1.Deployment) (bool, string) {
+	for k, v := range updated.Labels {
+		if v2, ok := original.Labels[k]; !ok || v != v2 {
+			return true, "labels"
+		}
+	}
+
+	if !reflect.DeepEqual(updated.Spec.Strategy, original.Spec.Strategy) {
+		return true, "strategy"
+	}
+
+	for k, v := range updated.Annotations {
+		if v2, ok := original.Annotations[k]; !ok || v != v2 {
+			return true, "annotations"
+		}
+	}
+
+	if !reflect.DeepEqual(updated.Spec.Replicas, original.Spec.Replicas) {
+		return true, "replicas"
+	}
+
+	if !reflect.DeepEqual(updated.ObjectMeta.OwnerReferences, original.ObjectMeta.OwnerReferences) {
+		return true, "owner"
+	}
+
+	if !reflect.DeepEqual(original.Spec.Selector, updated.Spec.Selector) {
+		return true, "selector"
+	}
+
+	if len(updated.Spec.Template.Spec.Containers) != len(original.Spec.Template.Spec.Containers) {
+		return true, "containerLength"
+	}
+
+	for i := range updated.Spec.Template.Spec.Containers {
+		oContainer := original.Spec.Template.Spec.Containers[i]
+		uContainer := updated.Spec.Template.Spec.Containers[i]
+
+		if !reflect.DeepEqual(oContainer.Env, uContainer.Env) {
+			return true, fmt.Sprintf("container[%v].Env = %v | %v", i, oContainer.Env, uContainer.Env)
+		}
+
+		if !reflect.DeepEqual(oContainer.Resources, uContainer.Resources) {
+			return true, fmt.Sprintf("container[%v].Resources", i)
+		}
+
+		if !reflect.DeepEqual(oContainer.Ports, uContainer.Ports) {
+			return true, fmt.Sprintf("container[%v].Ports", i)
+		}
+
+		if !reflect.DeepEqual(oContainer.Image, uContainer.Image) {
+			return true, fmt.Sprintf("container[%v].Image", i)
+		}
+
+		if !reflect.DeepEqual(oContainer.VolumeMounts, uContainer.VolumeMounts) {
+			return true, fmt.Sprintf("container[%v].VolumeMounts", i)
+		}
+	}
+
+	if len(updated.Spec.Template.Spec.Volumes) != len(original.Spec.Template.Spec.Volumes) {
+		return true, "volumeLength"
+	}
+
+	for i := range updated.Spec.Template.Spec.Volumes {
+		if !reflect.DeepEqual(original.Spec.Template.Spec.Volumes[i], updated.Spec.Template.Spec.Volumes[i]) {
+			return true, fmt.Sprintf("volumes[%v]", i)
+		}
+	}
+
+	return false, ""
 }
