@@ -139,7 +139,8 @@ metadata:
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
-  name: redhat-marketplace-operator.v1.0.3
+    olm.skipRange: '>=1.0.0 <1.0.4'
+  name: redhat-marketplace-operator.v1.0.4
   namespace: redhat-marketplace-operator
 spec:
   apiservicedefinitions: {}
@@ -1167,5 +1168,5 @@ spec:
   maturity: stable
   provider:
     name: Red Hat Marketplace
-  replaces: redhat-marketplace-operator.v1.0.2
-  version: 1.0.3
+  replaces: redhat-marketplace-operator.v1.0.3
+  version: 1.0.4

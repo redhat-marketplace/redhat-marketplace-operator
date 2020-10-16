@@ -1,0 +1,5 @@
+name: Publish Production Bundle
+
+on:
+  pull_request:
+    types: [closed]
