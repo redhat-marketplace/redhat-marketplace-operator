@@ -210,11 +210,11 @@ func (r *MarketplaceReporter) query(
 				if metric.AdditionalFields != nil {
 					fmt.Println("ADDITIONAL FIELDS PRESENT")
 					query.Query = updateQueryWithAdditionalFields(metric.Query, metric.AdditionalFields)
-					// {addF1="test", addF2="test2"}
-					// additionalFieldLabels = getKeyValuePairFromQuery(metric.Query)
 					additionalFieldMap = getMapFromQuery(metric.Query)
+					checkAddtlFieldsWithQueryValues := func(additionalFieldMap map[string]string,query []string){
+						
+					}
 					fmt.Println("UPDATED QUERY: ", query.Query)
-
 				}
 
 				var val model.Value

@@ -16,6 +16,8 @@ package reporter
 
 import (
 	"bytes"
+	"path/filepath"
+	"strings"
 
 	"context"
 	"encoding/json"
@@ -23,8 +25,6 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,12 +32,12 @@ import (
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	"github.com/onsi/gomega/types"
 )
 
 var _ = Describe("Reporter", func() {
@@ -47,7 +47,7 @@ var _ = Describe("Reporter", func() {
 		sut           *MarketplaceReporter
 		config        *marketplacev1alpha1.MarketplaceConfig
 		report        *marketplacev1alpha1.MeterReport
-		dir, dir2     string
+		dir, dir2    string
 		uploader      *RedHatInsightsUploader
 		generatedFile string
 
@@ -56,6 +56,40 @@ var _ = Describe("Reporter", func() {
 		start, _ = time.Parse(time.RFC3339, startStr)
 		end, _   = time.Parse(time.RFC3339, endStr)
 	)
+
+	id := func(element interface{}) string {
+		return "row"
+	}
+
+	additionalLabels := Keys{
+		"namespace":             Equal("metering-example-operator"),
+		"pod":                   Equal("example-app-pod"),
+		"service":               Equal("example-app-pod"),
+		"persistentvolumeclaim": Equal("example-pvc"),
+	}
+
+	expectedMetricRow := Keys{
+		"additionalLabels": MatchAllKeys(additionalLabels),
+		"domain":              Equal("apps.partner.metering.com"),
+		"interval_start":      HavePrefix("2020-"),
+		"interval_end":        HavePrefix("2020-"),
+		"kind":                Or(Equal("App"), Equal("App2")),
+		"metric_id": BeAssignableToTypeOf(""),
+		"report_period_end":   Equal(endStr),
+		"report_period_start": Equal(startStr),
+		"rhmUsageMetrics": MatchAllKeys(Keys{
+			"rpc_durations_seconds_count": BeAssignableToTypeOf(""),
+			"rpc_durations_seconds_sum":   BeAssignableToTypeOf(""),
+		}),
+		"version" : Equal(""),
+	}
+
+	expectedFields := Keys{
+		"report_slice_id": Not(BeEmpty()),
+		"metrics": MatchElements(id, AllowDuplicates, Elements{
+			"row": MatchAllKeys(expectedMetricRow),
+		}),
+	}
 
 	BeforeEach(func() {
 		v1api := getTestAPI(mockResponseRoundTripper(generatedFile))
@@ -104,8 +138,8 @@ var _ = Describe("Reporter", func() {
 								MetricLabels: []marketplacev1alpha1.MeterLabelQuery{
 									{
 										Label: 			  "rpc_durations_seconds_count",
-										Query:            "rate(rpc_durations_seconds_count{test_field_1=test-value-1,test_field_2=test-value-2}[5m])*100",
-										AdditionalFields: []string{"test_field_1", "test_field_2"},
+										Query:            "rate(rpc_durations_seconds_count{}[5m])*100",
+										// AdditionalFields: []string{"test_field_1", "test_field_2"},
 									},
 									{
 										Label: 			  "rpc_durations_seconds_sum",
@@ -176,51 +210,23 @@ var _ = Describe("Reporter", func() {
 		Expect(err).To(Succeed())
 		Expect(files).ToNot(BeEmpty())
 		Expect(len(files)).To(Equal(2))
-		for _, file := range files {
-			By(fmt.Sprintf("testing file %s", file))
-			Expect(file).To(BeAnExistingFile())
+		// for _, file := range files {
+		// 	By(fmt.Sprintf("testing file %s", file))
+		// 	Expect(file).To(BeAnExistingFile())
 
-			if !strings.Contains(file, "metadata") {
-				fileBytes, err := ioutil.ReadFile(file)
-				Expect(err).To(Succeed(), "file does not exist")
-				data := make(map[string]interface{})
-				err = json.Unmarshal(fileBytes, &data)
-				Expect(err).To(Succeed(), "file data did not parse to json")
+		// 	if !strings.Contains(file, "metadata") {
+		// 		fileBytes, err := ioutil.ReadFile(file)
+		// 		Expect(err).To(Succeed(), "file does not exist")
+		// 		data := make(map[string]interface{})
+		// 		err = json.Unmarshal(fileBytes, &data)
+		// 		Expect(err).To(Succeed(), "file data did not parse to json")
 
-				id := func(element interface{}) string {
-					return "row"
-				}
-				fmt.Println("file bytes")
-				utils.PrettyPrint(data)
-				Expect(data).To(MatchAllKeys(Keys{
-					"report_slice_id": Not(BeEmpty()),
-					"metrics": MatchElements(id, AllowDuplicates, Elements{
-						"row": MatchAllKeys(Keys{
-							"additionalLabels": MatchAllKeys(Keys{
-								"namespace":             Equal("metering-example-operator"),
-								"pod":                   Equal("example-app-pod"),
-								"service":               Equal("example-app-pod"),
-								"persistentvolumeclaim": Equal("example-pvc"),
-								"test_field_1":          Equal("test-value-1"),
-								"test_field_2":          Equal("test-value-2"),
-							}),
-							"domain":              Equal("apps.partner.metering.com"),
-							"interval_start":      HavePrefix("2020-"),
-							"interval_end":        HavePrefix("2020-"),
-							"kind":                Or(Equal("App"), Equal("App2")),
-							"metric_id": BeAssignableToTypeOf(""),
-							"report_period_end":   Equal(endStr),
-							"report_period_start": Equal(startStr),
-							"rhmUsageMetrics": MatchAllKeys(Keys{
-								"rpc_durations_seconds_count": BeAssignableToTypeOf(""),
-								"rpc_durations_seconds_sum":   BeAssignableToTypeOf(""),
-							}),
-							"version" : Equal(""),
-						}),
-					}),
-				}))
-			}
-		}
+		// 		fmt.Println("file bytes")
+		// 		utils.PrettyPrint(data)
+		// 		Expect(data).To(MatchAllKeys(expectedFields))
+		// 	}
+		// }
+		runTestOnFiles(files,expectedFields)
 
 		dirPath := filepath.Dir(files[0])
 		fileName := fmt.Sprintf("%s/test-upload.tar.gz", dir2)
@@ -237,10 +243,72 @@ var _ = Describe("Reporter", func() {
 
 		close(done)
 	}, 20)
+
+	When("AdditionalFields are defined on the meter def", func() {
+		BeforeEach(func(){
+			additionalFields := Keys{
+				"test_field_1" : Equal("test-value-1"),
+				"test_field_2" : Equal("test-value-2"),
+			}
+
+			for label, matcher := range additionalFields{
+				additionalLabels[label] = matcher
+			}
+
+			fmt.Println("NEW ADDITIONAL LABELS", additionalLabels)
+		})
+
+		It("Should include additional fields defined on the meterdefintion on the meter report's additional fields", func(done Done) {
+
+			sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].Query = "rate(rpc_durations_seconds_count{test_field_1=test-value-1,test_field_2=test-value-2}[5m])*100"
+			sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].AdditionalFields = []string{"test_field_1", "test_field_2"}
+
+			results, errs, err := sut.CollectMetrics(context.TODO())
+	
+			Expect(err).To(Succeed())
+			Expect(errs).To(BeEmpty())
+			Expect(results).ToNot(BeEmpty())
+			Expect(len(results)).To(Equal(count))
+	
+			By("writing report")
+	
+			files, err := sut.WriteReport(
+				uuid.New(),
+				results)
+	
+			Expect(err).To(Succeed())
+			Expect(files).ToNot(BeEmpty())
+			Expect(len(files)).To(Equal(2))
+	
+			runTestOnFiles(files,expectedFields)
+			close(done)
+		},20)
+	})
+	
 })
 
 // RoundTripFunc is a type that represents a round trip function call for std http lib
 type RoundTripFunc func(req *http.Request) *http.Response
+
+// 
+func runTestOnFiles(files []string, expectedFields map[interface{}]types.GomegaMatcher) {
+	for _, file := range files {
+		By(fmt.Sprintf("testing file %s", file))
+		Expect(file).To(BeAnExistingFile())
+
+		if !strings.Contains(file, "metadata") {
+			fileBytes, err := ioutil.ReadFile(file)
+			Expect(err).To(Succeed(), "file does not exist")
+			data := make(map[string]interface{})
+			err = json.Unmarshal(fileBytes, &data)
+			Expect(err).To(Succeed(), "file data did not parse to json")
+			
+			// fmt.Println("file bytes")
+			// utils.PrettyPrint(data)
+			Expect(data).To(MatchAllKeys(expectedFields))
+		}
+	}
+}
 
 // RoundTrip is a wrapper function that calls an external function for mocking
 func (f RoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
