@@ -443,7 +443,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	razeePrereqs := []string{}
 	razeePrereqs = append(razeePrereqs, fmt.Sprintf("%v namespace", razeeNamespace.Name))
 
-	if reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
+	if !reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
 		instance.Status.RazeePrerequisitesCreated = razeePrereqs
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
@@ -520,7 +520,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	razeePrereqs = append(razeePrereqs, utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
 
-	if reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
+	if !reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
 		instance.Status.RazeePrerequisitesCreated = razeePrereqs
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
@@ -591,7 +591,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	razeePrereqs = append(razeePrereqs, utils.WATCH_KEEPER_LIMITPOLL_NAME)
 
-	if reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
+	if !reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
 		instance.Status.RazeePrerequisitesCreated = razeePrereqs
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
@@ -665,7 +665,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	razeePrereqs = append(razeePrereqs, utils.WATCH_KEEPER_LIMITPOLL_NAME)
 
-	if reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
+	if !reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
 		instance.Status.RazeePrerequisitesCreated = razeePrereqs
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
@@ -741,7 +741,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	razeePrereqs = append(razeePrereqs, utils.WATCH_KEEPER_CONFIG_NAME)
 
-	if reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
+	if !reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
 		instance.Status.RazeePrerequisitesCreated = razeePrereqs
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
@@ -808,7 +808,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	razeePrereqs = append(razeePrereqs, utils.WATCH_KEEPER_SECRET_NAME)
 
-	if reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
+	if !reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
 		instance.Status.RazeePrerequisitesCreated = razeePrereqs
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
@@ -877,7 +877,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	razeePrereqs = append(razeePrereqs, utils.COS_READER_KEY_NAME)
 
-	if reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
+	if !reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
 		instance.Status.RazeePrerequisitesCreated = razeePrereqs
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
@@ -1139,7 +1139,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	razeePrereqs = append(razeePrereqs, utils.PARENT_RRS3_RESOURCE_NAME)
 
-	if reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
+	if !reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
 		instance.Status.RazeePrerequisitesCreated = razeePrereqs
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
