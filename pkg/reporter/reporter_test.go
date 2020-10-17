@@ -32,6 +32,7 @@ import (
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo"
@@ -210,22 +211,7 @@ var _ = Describe("Reporter", func() {
 		Expect(err).To(Succeed())
 		Expect(files).ToNot(BeEmpty())
 		Expect(len(files)).To(Equal(2))
-		// for _, file := range files {
-		// 	By(fmt.Sprintf("testing file %s", file))
-		// 	Expect(file).To(BeAnExistingFile())
 
-		// 	if !strings.Contains(file, "metadata") {
-		// 		fileBytes, err := ioutil.ReadFile(file)
-		// 		Expect(err).To(Succeed(), "file does not exist")
-		// 		data := make(map[string]interface{})
-		// 		err = json.Unmarshal(fileBytes, &data)
-		// 		Expect(err).To(Succeed(), "file data did not parse to json")
-
-		// 		fmt.Println("file bytes")
-		// 		utils.PrettyPrint(data)
-		// 		Expect(data).To(MatchAllKeys(expectedFields))
-		// 	}
-		// }
 		runTestOnFiles(files,expectedFields)
 
 		dirPath := filepath.Dir(files[0])
@@ -245,7 +231,9 @@ var _ = Describe("Reporter", func() {
 	}, 20)
 
 	When("AdditionalFields are defined on the meter def", func() {
-		BeforeEach(func(){
+
+		It("Should include additional fields defined on the meterdefintion on the meter report's additional fields", func(done Done) {
+
 			additionalFields := Keys{
 				"test_field_1" : Equal("test-value-1"),
 				"test_field_2" : Equal("test-value-2"),
@@ -254,11 +242,6 @@ var _ = Describe("Reporter", func() {
 			for label, matcher := range additionalFields{
 				additionalLabels[label] = matcher
 			}
-
-			fmt.Println("NEW ADDITIONAL LABELS", additionalLabels)
-		})
-
-		It("Should include additional fields defined on the meterdefintion on the meter report's additional fields", func(done Done) {
 
 			sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].Query = "rate(rpc_durations_seconds_count{test_field_1=test-value-1,test_field_2=test-value-2}[5m])*100"
 			sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].AdditionalFields = []string{"test_field_1", "test_field_2"}
@@ -283,7 +266,38 @@ var _ = Describe("Reporter", func() {
 			runTestOnFiles(files,expectedFields)
 			close(done)
 		},20)
+
+		It("Should throw an error when the additionalFields defined on the MetricLabel do not match the labels on the meterdef query",func(done Done){
+
+			// sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].Query = "rate(rpc_durations_seconds_count{test_field_1=test-value-1,test_field_2=test-value-2}[5m])*100"
+			// sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].AdditionalFields = []string{"wrong_field_1", "test_field_2"}
+			
+
+			sut.meterDefinitions[0].Spec.Workloads = []marketplacev1alpha1.Workload{
+				{
+					WorkloadType: "Pod",
+					MetricLabels: []marketplacev1alpha1.MeterLabelQuery{
+					
+						{
+							Label: 			  "rpc_durations_seconds_sum",
+							Query:            "rate(rpc_durations_seconds_count{test_field_1=test-value-1,test_field_2=test-value-2}[5m])*100",
+							AdditionalFields: []string{"wrong_field_1", "test_field_2"},
+						},
+					},
+				},
+			}
+		
+			utils.PrettyPrint(sut.meterDefinitions,"")
+			_, errs, _ := sut.CollectMetrics(context.TODO())
+			fmt.Println("errs (from test code)", errs)
+			fmt.Println("errs length (from test code)",len(errs))
+			Expect(errs[0]).To(MatchError("AdditionalField label on meterdef spec does not match label in query: test_field_1"))
+			Expect(errs).To(HaveLen(1))
+			close(done)
+		},20)
 	})
+
+
 	
 })
 
@@ -302,9 +316,6 @@ func runTestOnFiles(files []string, expectedFields map[interface{}]types.GomegaM
 			data := make(map[string]interface{})
 			err = json.Unmarshal(fileBytes, &data)
 			Expect(err).To(Succeed(), "file data did not parse to json")
-			
-			// fmt.Println("file bytes")
-			// utils.PrettyPrint(data)
 			Expect(data).To(MatchAllKeys(expectedFields))
 		}
 	}

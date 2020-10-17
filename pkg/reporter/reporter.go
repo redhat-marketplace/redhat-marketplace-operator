@@ -145,7 +145,9 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 	go func() {
 		for err := range errorsChan {
 			logger.Error(err, "error occurred processing")
+			fmt.Println("error from errorsChan",err)
 			errorList = append(errorList, err)
+			fmt.Println("errorList",errorList)
 		}
 	}()
 
@@ -207,14 +209,16 @@ func (r *MarketplaceReporter) query(
 				}
 				logger.Info("output", "query", query.String())
 
+				var errorArr []error
 				if metric.AdditionalFields != nil {
-					fmt.Println("ADDITIONAL FIELDS PRESENT")
 					query.Query = updateQueryWithAdditionalFields(metric.Query, metric.AdditionalFields)
 					additionalFieldMap = getMapFromQuery(metric.Query)
-					checkAddtlFieldsWithQueryValues := func(additionalFieldMap map[string]string,query []string){
-						
+					err := compareAdditionalFieldsWithQueryValues(additionalFieldMap, metric.AdditionalFields) 
+					if err != nil {
+						fmt.Println("err", err)
+						errorArr = append(errorArr, err)
 					}
-					fmt.Println("UPDATED QUERY: ", query.Query)
+
 				}
 
 				var val model.Value
@@ -230,14 +234,21 @@ func (r *MarketplaceReporter) query(
 
 					return nil
 				}, *r.Retry)
-
+				
+				if err != nil {
+					errorArr = append(errorArr, err)
+				}
+				
 				if warnings != nil {
 					logger.Info("warnings %v", warnings)
 				}
-
-				if err != nil {
-					logger.Error(err, "error encountered")
-					errorsch <- err
+				
+				fmt.Println("errorArr",errorArr)
+				if len(errorArr) > 0 {
+					for _,err := range errorArr {
+						errorsch <- err
+					}
+					
 					return
 				}
 
@@ -253,7 +264,6 @@ func (r *MarketplaceReporter) query(
 	})
 }
 
-//
 func (r *MarketplaceReporter) process(
 	ctx context.Context,
 	inPromModels <-chan meterDefPromModel,
@@ -282,13 +292,7 @@ func (r *MarketplaceReporter) process(
 					func() {
 
 						labels := getKeysFromMetric(matrix.Metric, additionalLabels)
-						// labels = append(labels, pmodel.additionalFieldMap)
-						// fmt.Println("LABELS: ",labels)
 						labelMatrix, err := kvToMap(labels)
-						// for key,val := range pmodel.additionalFieldMap{
-						// 	labelMatrix[key] = val
-						// }
-						// fmt.Println("LABEL MATRIX",labelMatrix)
 
 						if err != nil {
 							errorsch <- errors.Wrap(err, "failed adding additional labels")
@@ -344,13 +348,11 @@ func (r *MarketplaceReporter) process(
 
 						logger.Info("adding pair", "metric", matrix.Metric, "pair", pair)
 						metricPairs := []interface{}{name, pair.Value.String()}
-						fmt.Println("metricPairs: ", metricPairs)
 						
 						for key,value := range pmodel.additionalFieldMap{
 							labels = append(labels, key, value)
 						}
 
-						fmt.Println("LABELS",labels)
 						err = base.AddAdditionalLabels(labels...)
 
 						if err != nil {
@@ -502,7 +504,7 @@ func wgWait(ctx context.Context, processName string, maxRoutines int, done chan 
 
 func updateQueryWithAdditionalFields(originalQuery string, additionalFields []string) (updatedQuery string) {
 	queryLabels := getLabelsFromMetricQuery(originalQuery)
-	fmt.Println("Original Query Labels", queryLabels)
+	// fmt.Println("Original Query Labels", queryLabels)
 	// updatedQuery := ""
 	if strings.Contains(queryLabels, "group_right") {
 		trimmedQueryLables := strings.Split(queryLabels, "group_right")
@@ -549,17 +551,18 @@ func GetStringInBetween(str string, start string, end string) (result string) {
 	return str[s:e]
 }
 
-func getKeyValuePairFromQuery(in string) (keyValuePairsArray []string) {
-	labels := getLabelsFromMetricQuery(in)
-	temp := strings.Split(labels, ",")
+//TODO: not being used
+// func getKeyValuePairFromQuery(in string) (keyValuePairsArray []string) {
+// 	labels := getLabelsFromMetricQuery(in)
+// 	temp := strings.Split(labels, ",")
 
-	for _, kvPairString := range temp {
-		keyValuePairArray := strings.Split(kvPairString, "=")
-		keyValuePairsArray = append(keyValuePairsArray, keyValuePairArray[0], keyValuePairArray[1])
-	}
+// 	for _, kvPairString := range temp {
+// 		keyValuePairArray := strings.Split(kvPairString, "=")
+// 		keyValuePairsArray = append(keyValuePairsArray, keyValuePairArray[0], keyValuePairArray[1])
+// 	}
 
-	return keyValuePairsArray
-}
+// 	return keyValuePairsArray
+// }
 
 func getMapFromQuery(in string) map[string]string {
 	labels := getLabelsFromMetricQuery(in)
@@ -573,4 +576,16 @@ func getMapFromQuery(in string) map[string]string {
 	}
 
 	return labelMap
+}
+
+func compareAdditionalFieldsWithQueryValues(additionalFieldMap map[string]string,additionalFieldsOnMeterdef []string) error { 
+	
+	for key := range additionalFieldMap {
+		if !utils.Contains(additionalFieldsOnMeterdef,key) {
+			msg := fmt.Sprintf("AdditionalField label on meterdef spec does not match label in query: %s",key)
+			return errors.New(msg)
+		} 
+	}
+
+	return nil
 }
