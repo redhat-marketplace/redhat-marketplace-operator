@@ -145,9 +145,9 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 	go func() {
 		for err := range errorsChan {
 			logger.Error(err, "error occurred processing")
-			fmt.Println("error from errorsChan",err)
+			fmt.Println("error from errorsChan", err)
 			errorList = append(errorList, err)
-			fmt.Println("errorList",errorList)
+			fmt.Println("errorList", errorList)
 		}
 	}()
 
@@ -213,7 +213,7 @@ func (r *MarketplaceReporter) query(
 				if metric.AdditionalFields != nil {
 					query.Query = updateQueryWithAdditionalFields(metric.Query, metric.AdditionalFields)
 					additionalFieldMap = getMapFromQuery(metric.Query)
-					err := compareAdditionalFieldsWithQueryValues(additionalFieldMap, metric.AdditionalFields) 
+					err := compareAdditionalFieldsWithQueryValues(additionalFieldMap, metric.AdditionalFields)
 					if err != nil {
 						fmt.Println("err", err)
 						errorArr = append(errorArr, err)
@@ -234,21 +234,21 @@ func (r *MarketplaceReporter) query(
 
 					return nil
 				}, *r.Retry)
-				
+
 				if err != nil {
 					errorArr = append(errorArr, err)
 				}
-				
+
 				if warnings != nil {
 					logger.Info("warnings %v", warnings)
 				}
-				
-				fmt.Println("errorArr",errorArr)
+
+				fmt.Println("errorArr", errorArr)
 				if len(errorArr) > 0 {
-					for _,err := range errorArr {
+					for _, err := range errorArr {
 						errorsch <- err
 					}
-					
+
 					return
 				}
 
@@ -348,8 +348,8 @@ func (r *MarketplaceReporter) process(
 
 						logger.Info("adding pair", "metric", matrix.Metric, "pair", pair)
 						metricPairs := []interface{}{name, pair.Value.String()}
-						
-						for key,value := range pmodel.additionalFieldMap{
+
+						for key, value := range pmodel.additionalFieldMap {
 							labels = append(labels, key, value)
 						}
 
@@ -578,13 +578,13 @@ func getMapFromQuery(in string) map[string]string {
 	return labelMap
 }
 
-func compareAdditionalFieldsWithQueryValues(additionalFieldMap map[string]string,additionalFieldsOnMeterdef []string) error { 
-	
+func compareAdditionalFieldsWithQueryValues(additionalFieldMap map[string]string, additionalFieldsOnMeterdef []string) error {
+
 	for key := range additionalFieldMap {
-		if !utils.Contains(additionalFieldsOnMeterdef,key) {
-			msg := fmt.Sprintf("AdditionalField label on meterdef spec does not match label in query: %s",key)
+		if !utils.Contains(additionalFieldsOnMeterdef, key) {
+			msg := fmt.Sprintf("AdditionalField label on meterdef spec does not match label in query: %s", key)
 			return errors.New(msg)
-		} 
+		}
 	}
 
 	return nil

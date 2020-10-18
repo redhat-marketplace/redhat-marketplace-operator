@@ -48,7 +48,7 @@ var _ = Describe("Reporter", func() {
 		sut           *MarketplaceReporter
 		config        *marketplacev1alpha1.MarketplaceConfig
 		report        *marketplacev1alpha1.MeterReport
-		dir, dir2    string
+		dir, dir2     string
 		uploader      *RedHatInsightsUploader
 		generatedFile string
 
@@ -70,19 +70,19 @@ var _ = Describe("Reporter", func() {
 	}
 
 	expectedMetricRow := Keys{
-		"additionalLabels": MatchAllKeys(additionalLabels),
+		"additionalLabels":    MatchAllKeys(additionalLabels),
 		"domain":              Equal("apps.partner.metering.com"),
 		"interval_start":      HavePrefix("2020-"),
 		"interval_end":        HavePrefix("2020-"),
 		"kind":                Or(Equal("App"), Equal("App2")),
-		"metric_id": BeAssignableToTypeOf(""),
+		"metric_id":           BeAssignableToTypeOf(""),
 		"report_period_end":   Equal(endStr),
 		"report_period_start": Equal(startStr),
 		"rhmUsageMetrics": MatchAllKeys(Keys{
 			"rpc_durations_seconds_count": BeAssignableToTypeOf(""),
 			"rpc_durations_seconds_sum":   BeAssignableToTypeOf(""),
 		}),
-		"version" : Equal(""),
+		"version": Equal(""),
 	}
 
 	expectedFields := Keys{
@@ -138,13 +138,13 @@ var _ = Describe("Reporter", func() {
 								WorkloadType: "Pod",
 								MetricLabels: []marketplacev1alpha1.MeterLabelQuery{
 									{
-										Label: 			  "rpc_durations_seconds_count",
-										Query:            "rate(rpc_durations_seconds_count{}[5m])*100",
+										Label: "rpc_durations_seconds_count",
+										Query: "rate(rpc_durations_seconds_count{}[5m])*100",
 										// AdditionalFields: []string{"test_field_1", "test_field_2"},
 									},
 									{
-										Label: 			  "rpc_durations_seconds_sum",
-										Query:            "rate(rpc_durations_seconds_sum{}[5m])*100",
+										Label: "rpc_durations_seconds_sum",
+										Query: "rate(rpc_durations_seconds_sum{}[5m])*100",
 										// AdditionalFields: []string{"test_field_1", "test_field_2"},
 									},
 								},
@@ -212,7 +212,7 @@ var _ = Describe("Reporter", func() {
 		Expect(files).ToNot(BeEmpty())
 		Expect(len(files)).To(Equal(2))
 
-		runTestOnFiles(files,expectedFields)
+		runTestOnFiles(files, expectedFields)
 
 		dirPath := filepath.Dir(files[0])
 		fileName := fmt.Sprintf("%s/test-upload.tar.gz", dir2)
@@ -235,11 +235,11 @@ var _ = Describe("Reporter", func() {
 		It("Should include additional fields defined on the meterdefintion on the meter report's additional fields", func(done Done) {
 
 			additionalFields := Keys{
-				"test_field_1" : Equal("test-value-1"),
-				"test_field_2" : Equal("test-value-2"),
+				"test_field_1": Equal("test-value-1"),
+				"test_field_2": Equal("test-value-2"),
 			}
 
-			for label, matcher := range additionalFields{
+			for label, matcher := range additionalFields {
 				additionalLabels[label] = matcher
 			}
 
@@ -247,64 +247,61 @@ var _ = Describe("Reporter", func() {
 			sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].AdditionalFields = []string{"test_field_1", "test_field_2"}
 
 			results, errs, err := sut.CollectMetrics(context.TODO())
-	
+
 			Expect(err).To(Succeed())
 			Expect(errs).To(BeEmpty())
 			Expect(results).ToNot(BeEmpty())
 			Expect(len(results)).To(Equal(count))
-	
+
 			By("writing report")
-	
+
 			files, err := sut.WriteReport(
 				uuid.New(),
 				results)
-	
+
 			Expect(err).To(Succeed())
 			Expect(files).ToNot(BeEmpty())
 			Expect(len(files)).To(Equal(2))
-	
-			runTestOnFiles(files,expectedFields)
-			close(done)
-		},20)
 
-		It("Should throw an error when the additionalFields defined on the MetricLabel do not match the labels on the meterdef query",func(done Done){
+			runTestOnFiles(files, expectedFields)
+			close(done)
+		}, 20)
+
+		It("Should throw an error when the additionalFields defined on the MetricLabel do not match the labels on the meterdef query", func(done Done) {
 
 			// sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].Query = "rate(rpc_durations_seconds_count{test_field_1=test-value-1,test_field_2=test-value-2}[5m])*100"
 			// sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].AdditionalFields = []string{"wrong_field_1", "test_field_2"}
-			
 
 			sut.meterDefinitions[0].Spec.Workloads = []marketplacev1alpha1.Workload{
 				{
 					WorkloadType: "Pod",
 					MetricLabels: []marketplacev1alpha1.MeterLabelQuery{
-					
+
 						{
-							Label: 			  "rpc_durations_seconds_sum",
+							Label:            "rpc_durations_seconds_sum",
 							Query:            "rate(rpc_durations_seconds_count{test_field_1=test-value-1,test_field_2=test-value-2}[5m])*100",
 							AdditionalFields: []string{"wrong_field_1", "test_field_2"},
 						},
 					},
 				},
 			}
-		
-			utils.PrettyPrint(sut.meterDefinitions,"")
+
+			utils.PrettyPrint(sut.meterDefinitions, "")
 			_, errs, _ := sut.CollectMetrics(context.TODO())
-			fmt.Println("errs (from test code)", errs)
-			fmt.Println("errs length (from test code)",len(errs))
+			fmt.Println("errs (from test code blah)", errs)
+			fmt.Println("errs length (from test code)", len(errs))
 			Expect(errs[0]).To(MatchError("AdditionalField label on meterdef spec does not match label in query: test_field_1"))
 			Expect(errs).To(HaveLen(1))
 			close(done)
-		},20)
+		}, 20)
 	})
 
-
-	
 })
 
 // RoundTripFunc is a type that represents a round trip function call for std http lib
 type RoundTripFunc func(req *http.Request) *http.Response
 
-// 
+//
 func runTestOnFiles(files []string, expectedFields map[interface{}]types.GomegaMatcher) {
 	for _, file := range files {
 		By(fmt.Sprintf("testing file %s", file))
@@ -417,8 +414,8 @@ func GenerateRandomData(start, end time.Time) string {
 			"pod":                   "example-app-pod",
 			"service":               "example-app-pod",
 			"persistentvolumeclaim": "example-pvc",
-			"test_field_1" : "test-value-1",
-			"test_field_2" : "test-value-2",
+			"test_field_1":          "test-value-1",
+			"test_field_2":          "test-value-2",
 		}
 	}
 
