@@ -145,9 +145,7 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 	go func() {
 		for err := range errorsChan {
 			logger.Error(err, "error occurred processing")
-			fmt.Println("error from errorsChan", err)
 			errorList = append(errorList, err)
-			fmt.Println("errorList", errorList)
 		}
 	}()
 
@@ -211,14 +209,11 @@ func (r *MarketplaceReporter) query(
 
 				var errorArr []error
 				if metric.AdditionalFields != nil {
-					query.Query = updateQueryWithAdditionalFields(metric.Query, metric.AdditionalFields)
-					additionalFieldMap = getMapFromQuery(metric.Query)
-					err := compareAdditionalFieldsWithQueryValues(additionalFieldMap, metric.AdditionalFields)
+					err := validateQuery(metric.Query, metric.AdditionalFields)
 					if err != nil {
-						fmt.Println("err", err)
 						errorArr = append(errorArr, err)
 					}
-
+					additionalFieldMap = createMapFromQuery(metric.Query)
 				}
 
 				var val model.Value
@@ -243,9 +238,9 @@ func (r *MarketplaceReporter) query(
 					logger.Info("warnings %v", warnings)
 				}
 
-				fmt.Println("errorArr", errorArr)
 				if len(errorArr) > 0 {
 					for _, err := range errorArr {
+						logger.Error(err, "error encountered")
 						errorsch <- err
 					}
 
@@ -502,90 +497,71 @@ func wgWait(ctx context.Context, processName string, maxRoutines int, done chan 
 	done <- true
 }
 
-func updateQueryWithAdditionalFields(originalQuery string, additionalFields []string) (updatedQuery string) {
+func validateQuery(originalQuery string, additionalFields []string) (err error) {
 	queryLabels := getLabelsFromMetricQuery(originalQuery)
-	// fmt.Println("Original Query Labels", queryLabels)
-	// updatedQuery := ""
+
 	if strings.Contains(queryLabels, "group_right") {
 		trimmedQueryLables := strings.Split(queryLabels, "group_right")
-		updatedQuery = checkForAdditionalFieldsInQueryLabels(originalQuery, strings.Join(trimmedQueryLables, ""), additionalFields)
+		err = checkForAdditionalFieldsInQueryLabels(originalQuery, strings.Join(trimmedQueryLables, ""), additionalFields)
 
 	} else {
-		updatedQuery = checkForAdditionalFieldsInQueryLabels(originalQuery, queryLabels, additionalFields)
+		err = checkForAdditionalFieldsInQueryLabels(originalQuery, queryLabels, additionalFields)
 	}
 
-	return updatedQuery
+	return err
 }
 
-func checkForAdditionalFieldsInQueryLabels(originalQuery string, originalQueryLabels string, additionalFields []string) string {
-	updatedQueryLabel := originalQueryLabels
-
+func checkForAdditionalFieldsInQueryLabels(originalQuery string, originalQueryLabels string, additionalFields []string) (error) {
 	for _, additionalField := range additionalFields {
+
+		// query doesn't contain a key for additionalField or the key doesn't match
 		if !strings.Contains(originalQueryLabels, additionalField) {
-			additionalFieldLabel := fmt.Sprintf("%s%s", ",additionalField=", additionalField)
-			updatedQueryLabel += additionalFieldLabel
-		}
-	}
-
-	out := strings.Replace(originalQuery, originalQueryLabels, updatedQueryLabel, -1)
-	return out
-
-}
-
-func getLabelsFromMetricQuery(in string) string {
-	out := GetStringInBetween(in, "{", "}")
-	return out
-}
-
-// GetStringInBetween Returns empty string if no start string found
-func GetStringInBetween(str string, start string, end string) (result string) {
-	s := strings.Index(str, start)
-	if s == -1 {
-		return
-	}
-	s += len(start)
-	e := strings.Index(str, end)
-	if e == -1 {
-		return
-	}
-	return str[s:e]
-}
-
-//TODO: not being used
-// func getKeyValuePairFromQuery(in string) (keyValuePairsArray []string) {
-// 	labels := getLabelsFromMetricQuery(in)
-// 	temp := strings.Split(labels, ",")
-
-// 	for _, kvPairString := range temp {
-// 		keyValuePairArray := strings.Split(kvPairString, "=")
-// 		keyValuePairsArray = append(keyValuePairsArray, keyValuePairArray[0], keyValuePairArray[1])
-// 	}
-
-// 	return keyValuePairsArray
-// }
-
-func getMapFromQuery(in string) map[string]string {
-	labels := getLabelsFromMetricQuery(in)
-	labelMap := make(map[string]string)
-	temp := strings.Split(labels, ",")
-
-	for _, kvPairString := range temp {
-		keyValuePairArray := strings.Split(kvPairString, "=")
-		labelMap[keyValuePairArray[0]] = keyValuePairArray[1]
-		//   keyValuePairsArray = append(keyValuePairsArray,keyValuePairArray[0],keyValuePairArray[1])
-	}
-
-	return labelMap
-}
-
-func compareAdditionalFieldsWithQueryValues(additionalFieldMap map[string]string, additionalFieldsOnMeterdef []string) error {
-
-	for key := range additionalFieldMap {
-		if !utils.Contains(additionalFieldsOnMeterdef, key) {
-			msg := fmt.Sprintf("AdditionalField label on meterdef spec does not match label in query: %s", key)
+			msg := fmt.Sprintf("Query doesn't contain a key value for additionalField: %s", additionalField)
 			return errors.New(msg)
 		}
 	}
 
 	return nil
 }
+
+// func createKeyValuePairsFromAddFieldsInQuery(originalQuery string)(keyValuePairsArray[]string){
+// 	labels := getLabelsFromMetricQuery(originalQuery)
+// 	labelsFromQuery := strings.Split(labels, ",")
+
+// 	for _, kvPairString := range labelsFromQuery {
+// 		labelKeyAndValue := strings.Split(kvPairString, "=")
+// 		// labelMap[labelKeyAndValue[0]] = labelKeyAndValue[1]
+// 		keyValuePairsArray = append(keyValuePairsArray, labelKeyAndValue[0],labelKeyAndValue[1])
+// 	}
+
+// 	return keyValuePairsArray
+// }
+
+func getLabelsFromMetricQuery(originalQuery string) string {
+	out := utils.GetStringInBetween(originalQuery, "{", "}")
+	return out
+}
+
+func createMapFromQuery(originalQuery string) map[string]string {
+	labels := getLabelsFromMetricQuery(originalQuery)
+	labelMap := make(map[string]string)
+	labelsFromQuery := strings.Split(labels, ",")
+
+	for _, kvPairString := range labelsFromQuery {
+		labelKeyAndValue := strings.Split(kvPairString, "=")
+		labelMap[labelKeyAndValue[0]] = labelKeyAndValue[1]
+	}
+
+	return labelMap
+}
+
+// func compareAdditionalFieldsWithQueryValues(additionalFieldMap map[string]string, additionalFieldsOnMeterdef []string) error {
+// 	for key := range additionalFieldMap {
+// 		if !utils.Contains(additionalFieldsOnMeterdef, key) {
+// 			msg := fmt.Sprintf("AdditionalField label on meterdef spec does not match label in query: %s", key)
+// 			return errors.New(msg)
+// 		}
+// 	}
+
+// 	return nil
+// }

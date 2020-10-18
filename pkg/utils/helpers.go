@@ -247,3 +247,17 @@ func TruncateTime(t time.Time, loc *time.Location) time.Time {
 
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc)
 }
+
+// GetStringInBetween Returns empty string if no start string found
+func GetStringInBetween(str string, start string, end string) (result string) {
+	s := strings.Index(str, start)
+	if s == -1 {
+		return
+	}
+	s += len(start)
+	e := strings.Index(str, end)
+	if e == -1 {
+		return
+	}
+	return str[s:e]
+}
