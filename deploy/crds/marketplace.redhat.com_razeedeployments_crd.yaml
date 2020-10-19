@@ -308,10 +308,6 @@ spec:
               items:
                 type: string
               type: array
-            razeePrerequisitesCreatedCount:
-              description: RazeePrerequisitesCreatedCount is the list of configmaps
-                and secrets required to be installed
-              type: integer
             redHatMarketplaceSecretFound:
               description: 'RedHatMarketplaceSecretFound DEPRECATED: is the status
                 of finding the secret in the cluster'
