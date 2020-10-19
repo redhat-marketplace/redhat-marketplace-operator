@@ -278,6 +278,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	//Add count
+
+	instance.Status.RazeePrerequisitesCreatedCount = len(instance.Status.RazeePrerequisitesCreated)
+	instance.Status.NodesFromRazeeDeploymentsCount = len(instance.Status.NodesFromRazeeDeployments)
+
 	// Check if the RazeeDeployment instance is being marked for deletion
 	isMarkedForDeletion := instance.GetDeletionTimestamp() != nil
 	if isMarkedForDeletion {
@@ -1494,7 +1499,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 							Name: utils.WATCH_KEEPER_SECRET_NAME,
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName: utils.WATCH_KEEPER_SECRET_NAME,
+									SecretName:  utils.WATCH_KEEPER_SECRET_NAME,
 									DefaultMode: ptr.Int32(0400),
 									Optional:    ptr.Bool(false),
 								},

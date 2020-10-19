@@ -996,12 +996,14 @@ func (r *ReconcileMeterBase) uninstallPrometheus(
 	secret2, _ := factory.PrometheusHtpasswdSecret("foo")
 	secret3, _ := factory.PrometheusRBACProxySecret()
 	secrets := []*corev1.Secret{secret0, secret1, secret2, secret3}
-	prom, _ := r.newPrometheusOperator(instance, factory, nil)
+	prom, err := r.newPrometheusOperator(instance, factory, nil)
 	service, _ := factory.PrometheusService(instance.Name)
 	deployment, _ := factory.MetricStateDeployment()
 	service2, _ := factory.MetricStateService()
 	sm, _ := factory.MetricStateServiceMonitor()
-
+	if err != nil {
+		log.Error(err, "Error getting prom operator")
+	}
 	actions := []ClientAction{
 		HandleResult(
 			GetAction(
@@ -1101,7 +1103,7 @@ func (r *ReconcileMeterBase) newPrometheusOperator(
 		defaultClass, err := utils.GetDefaultStorageClass(r.client)
 
 		if err != nil {
-			return nil, err
+			return prom, err
 		}
 		prom.Spec.Storage.VolumeClaimTemplate.Spec.StorageClassName = ptr.String(defaultClass)
 	}
