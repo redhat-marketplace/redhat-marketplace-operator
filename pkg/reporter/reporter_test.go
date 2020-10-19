@@ -32,6 +32,7 @@ import (
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo"
@@ -266,31 +267,31 @@ var _ = Describe("Reporter", func() {
 			close(done)
 		}, 20)
 
-		It("Should throw an error when the additionalFields defined on the MetricLabel do not match the labels on the meterdef query", func(done Done) {
+		FIt("Should throw an error when the additionalFields defined on the MetricLabel do not match the labels on the meterdef query", func(done Done) {
 
-			// sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].Query = "rate(rpc_durations_seconds_count{test_field_1=test-value-1,test_field_2=test-value-2}[5m])*100"
-			// sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].AdditionalFields = []string{"wrong_field_1", "test_field_2"}
+			sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].Query = "rate(rpc_durations_seconds_count{test_field_1=test-value-1,test_field_2=test-value-2}[5m])*100"
+			sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].AdditionalFields = []string{"wrong_field_1", "test_field_2"}
 
-			sut.meterDefinitions[0].Spec.Workloads = []marketplacev1alpha1.Workload{
-				{
-					WorkloadType: "Pod",
-					MetricLabels: []marketplacev1alpha1.MeterLabelQuery{
+			// sut.meterDefinitions[0].Spec.Workloads = []marketplacev1alpha1.Workload{
+			// 	{
+			// 		WorkloadType: "Pod",
+			// 		MetricLabels: []marketplacev1alpha1.MeterLabelQuery{
 
-						{
-							Label:            "rpc_durations_seconds_sum",
-							Query:            "rate(rpc_durations_seconds_count{test_field_1=test-value-1,test_field_2=test-value-2}[5m])*100",
-							AdditionalFields: []string{"wrong_field_1", "test_field_2"},
-						},
-					},
-				},
-			}
+			// 			{
+			// 				Label:            "rpc_durations_seconds_sum",
+			// 				Query:            "rate(rpc_durations_seconds_count{test_field_1=test-value-1,test_field_2=test-value-2}[5m])*100",
+			// 				AdditionalFields: []string{"wrong_field_1", "test_field_2"},
+			// 			},
+			// 		},
+			// 	},
+			// }
 
-			// utils.PrettyPrint(sut.meterDefinitions, "")
+			utils.PrettyPrint(sut.meterDefinitions, "")
 			_, errs, _ := sut.CollectMetrics(context.TODO())
-			fmt.Println("errs (from test code blah)", errs)
+			fmt.Println("errs (from test code foo)", errs)
 			fmt.Println("errs length (from test code)", len(errs))
-			Expect(errs[0]).To(MatchError("Query doesn't contain a key value for additionalField: wrong_field_1"))
 			Expect(errs).To(HaveLen(1))
+			Expect(errs[0]).To(MatchError("Query doesn't contain a key value for additionalField: wrong_field_1"))
 			close(done)
 		}, 20)
 	})
