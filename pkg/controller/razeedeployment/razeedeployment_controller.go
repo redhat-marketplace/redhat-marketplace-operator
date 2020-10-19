@@ -1498,7 +1498,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 							Name: utils.WATCH_KEEPER_SECRET_NAME,
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName:  utils.WATCH_KEEPER_SECRET_NAME,
+									SecretName: utils.WATCH_KEEPER_SECRET_NAME,
 									DefaultMode: ptr.Int32(0400),
 									Optional:    ptr.Bool(false),
 								},
