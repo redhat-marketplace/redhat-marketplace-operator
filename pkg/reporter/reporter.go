@@ -104,13 +104,21 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 		return resultsMap, []error{}, nil
 	}
 
+	// data channels ; closed by this func
 	meterDefsChan := make(chan *marketplacev1alpha1.MeterDefinition, len(r.meterDefinitions))
 	promModelsChan := make(chan meterDefPromModel)
+
+	// error channels
 	errorsChan := make(chan error)
+
+	// done channels
 	queryDone := make(chan bool)
 	processDone := make(chan bool)
+	errorDone := make(chan bool)
 
-	defer close(errorsChan)
+	defer close(queryDone)
+	defer close(processDone)
+	defer close(errorDone)
 
 	logger.Info("starting query")
 
@@ -142,27 +150,30 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 
 	errorList := []error{}
 
+	// Collect errors function
 	go func() {
-		for err := range errorsChan {
-			logger.Error(err, "error occurred processing")
-			errorList = append(errorList, err)
-		}
-	}()
-
-	func() {
-		for {
-			select {
-			case <-queryDone:
-				logger.Info("querying done")
-				close(promModelsChan)
-			case <-processDone:
-				logger.Info("processing done")
+		for  {
+			if err, more := <-errorsChan; more {
+				logger.Error(err, "error occurred processing")
+				errorList = append(errorList, err)
+			} else {
+				errorDone <- true
 				return
 			}
 		}
 	}()
 
-	return resultsMap, errorList, nil
+	<-queryDone
+	logger.Info("querying done")
+	close(promModelsChan)
+
+	<-processDone
+	logger.Info("processing done")
+	close(errorsChan)
+
+	<-errorDone
+
+	return resultsMap, errorList, errors.Combine(errorList...)
 }
 
 type meterDefPromModel struct {
@@ -511,7 +522,7 @@ func validateQuery(originalQuery string, additionalFields []string) (err error) 
 	return err
 }
 
-func checkForAdditionalFieldsInQueryLabels(originalQuery string, originalQueryLabels string, additionalFields []string) (error) {
+func checkForAdditionalFieldsInQueryLabels(originalQuery string, originalQueryLabels string, additionalFields []string) error {
 	for _, additionalField := range additionalFields {
 
 		// query doesn't contain a key for additionalField or the key doesn't match
