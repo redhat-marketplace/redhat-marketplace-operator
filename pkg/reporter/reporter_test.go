@@ -32,7 +32,6 @@ import (
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo"
@@ -286,11 +285,11 @@ var _ = Describe("Reporter", func() {
 				},
 			}
 
-			utils.PrettyPrint(sut.meterDefinitions, "")
+			// utils.PrettyPrint(sut.meterDefinitions, "")
 			_, errs, _ := sut.CollectMetrics(context.TODO())
 			fmt.Println("errs (from test code blah)", errs)
 			fmt.Println("errs length (from test code)", len(errs))
-			Expect(errs[0]).To(MatchError("AdditionalField label on meterdef spec does not match label in query: test_field_1"))
+			Expect(errs[0]).To(MatchError("Query doesn't contain a key value for additionalField: wrong_field_1"))
 			Expect(errs).To(HaveLen(1))
 			close(done)
 		}, 20)
