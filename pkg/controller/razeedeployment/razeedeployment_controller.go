@@ -278,11 +278,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	//Add count
-
-	instance.Status.RazeePrerequisitesCreatedCount = len(instance.Status.RazeePrerequisitesCreated)
-	instance.Status.NodesFromRazeeDeploymentsCount = len(instance.Status.NodesFromRazeeDeployments)
-
 	// Check if the RazeeDeployment instance is being marked for deletion
 	isMarkedForDeletion := instance.GetDeletionTimestamp() != nil
 	if isMarkedForDeletion {
@@ -293,6 +288,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		}
 		return reconcile.Result{}, nil
 	}
+
+	//Add NodesFromRazeeDeployments Count
+
+	instance.Status.NodesFromRazeeDeploymentsCount = len(instance.Status.NodesFromRazeeDeployments)
 
 	if instance.Spec.TargetNamespace == nil {
 		if instance.Status.RazeeJobInstall != nil {
