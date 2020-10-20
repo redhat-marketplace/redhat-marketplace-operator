@@ -229,7 +229,7 @@ var _ = Describe("Reporter", func() {
 	}, 20)
 
 	When("AdditionalFields are defined on the meter def", func() {
-		It("Should include additional fields defined on the meterdefintion on the meter report's additional fields", func(done Done) {
+		It("Should add the additional fields from the meterdefintion query to the meter report's additionalFields", func(done Done) {
 
 			additionalFields := Keys{
 				"test_field_1": Equal("test-value-1"),
@@ -266,8 +266,8 @@ var _ = Describe("Reporter", func() {
 		}, 20)
 	})
 
-	When("AdditionalFields don't match the query on meterdef", func() {
-		It("Should throw an error", func(done Done) {
+	When("AdditionalFields aren't found in the meterdef query", func() {
+		It("Should report an error and include the mismatchted fields", func(done Done) {
 
 			sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].Query = "rate(rpc_durations_seconds_count{test_field_1=test-value-1,test_field_2=test-value-2}[5m])*100"
 			sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].AdditionalFields = []string{"wrong_field_1", "wrong_field_2", "test_field_2"}
@@ -276,8 +276,8 @@ var _ = Describe("Reporter", func() {
 
 			Expect(results).To(HaveLen(0), "length of results")
 			Expect(errs).To(HaveLen(2), "length of error list")
-			Expect(errs[0]).To(MatchError("Query doesn't contain a key value for additionalField: wrong_field_1"))
-			Expect(errs[1]).To(MatchError("Query doesn't contain a key value for additionalField: wrong_field_2"))
+			Expect(errs[0]).To(MatchError("Query doesn't contain a label key for additionalField: wrong_field_1"))
+			Expect(errs[1]).To(MatchError("Query doesn't contain a label key for additionalField: wrong_field_2"))
 			close(done)
 		}, 20)
 	})

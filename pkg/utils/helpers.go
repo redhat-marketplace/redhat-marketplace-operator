@@ -231,13 +231,9 @@ func ConditionsEqual(a status.Conditions, b status.Conditions) bool {
 	return true
 }
 
-func PrettyPrint(in interface{}, logMessage string) {
+func PrettyPrint(in interface{}) {
 	out, _ := json.MarshalIndent(in, "", "    ")
-
-	if logMessage == "" {
-		println(string(out))
-	}
-
+	println(string(out))
 }
 
 func TruncateTime(t time.Time, loc *time.Location) time.Time {

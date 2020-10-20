@@ -532,7 +532,7 @@ func getLabelsFromMetricQuery(queryLabel string, originalQueryString string) (la
 func checkForAdditionalFieldsInQuery(originalQuery string, parsedQueryString string, additionalFields []string) (errorList []error) {
 	for _, additionalField := range additionalFields {
 		if !strings.Contains(parsedQueryString, additionalField) {
-			msg := fmt.Sprintf("Query doesn't contain a key value for additionalField: %s", additionalField)
+			msg := fmt.Sprintf("Query doesn't contain a label key for additionalField: %s", additionalField)
 			errorList = append(errorList, errors.New(msg))
 		}
 	}
