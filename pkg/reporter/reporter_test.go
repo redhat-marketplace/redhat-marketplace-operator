@@ -208,7 +208,7 @@ var _ = Describe("Reporter", func() {
 
 		Expect(err).To(Succeed())
 		Expect(files).ToNot(BeEmpty())
-		Expect(len(files)).To(Equal(2),"length of files")
+		Expect(len(files)).To(Equal(2), "length of files")
 
 		runTestOnFiles(files, expectedFields)
 
@@ -243,7 +243,7 @@ var _ = Describe("Reporter", func() {
 			sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].Query = "rate(rpc_durations_seconds_count{test_field_1=test-value-1,test_field_2=test-value-2}[5m])*100"
 			sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].AdditionalFields = []string{"test_field_1", "test_field_2"}
 
-			utils.PrettyPrint(sut.meterDefinitions,"")
+			utils.PrettyPrint(sut.meterDefinitions, "")
 			results, errs, err := sut.CollectMetrics(context.TODO())
 
 			Expect(err).To(Succeed())
@@ -266,20 +266,20 @@ var _ = Describe("Reporter", func() {
 		}, 20)
 	})
 
-	When("AdditionalFields don't match the query on meterdef",func ()  {
-		It("Should throw an error",func(done Done){
-			
-				sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].Query = "rate(rpc_durations_seconds_count{test_field_1=test-value-1,test_field_2=test-value-2}[5m])*100"
-				sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].AdditionalFields = []string{"wrong_field_1","wrong_field_2","test_field_2"}
+	When("AdditionalFields don't match the query on meterdef", func() {
+		It("Should throw an error", func(done Done) {
 
-				results, errs, _ := sut.CollectMetrics(context.TODO())
+			sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].Query = "rate(rpc_durations_seconds_count{test_field_1=test-value-1,test_field_2=test-value-2}[5m])*100"
+			sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].AdditionalFields = []string{"wrong_field_1", "wrong_field_2", "test_field_2"}
 
-				Expect(results).To(HaveLen(0),"length of results")
-				Expect(errs).To(HaveLen(2),"length of error list")
-				Expect(errs[0]).To(MatchError("Query doesn't contain a key value for additionalField: wrong_field_1"))
-				Expect(errs[1]).To(MatchError("Query doesn't contain a key value for additionalField: wrong_field_2"))
-				close(done)
-		},20)
+			results, errs, _ := sut.CollectMetrics(context.TODO())
+
+			Expect(results).To(HaveLen(0), "length of results")
+			Expect(errs).To(HaveLen(2), "length of error list")
+			Expect(errs[0]).To(MatchError("Query doesn't contain a key value for additionalField: wrong_field_1"))
+			Expect(errs[1]).To(MatchError("Query doesn't contain a key value for additionalField: wrong_field_2"))
+			close(done)
+		}, 20)
 	})
 
 })

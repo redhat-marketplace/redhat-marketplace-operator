@@ -152,7 +152,7 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 
 	// Collect errors function
 	go func() {
-		for  {
+		for {
 			if err, more := <-errorsChan; more {
 				logger.Error(err, "error occurred processing")
 				errorList = append(errorList, err)
@@ -222,18 +222,18 @@ func (r *MarketplaceReporter) query(
 				if metric.AdditionalFields != nil {
 
 					// parse out the labels from the query {key='value',key='value} => ["key='value'","key='value'"]
-					parsedlabels := getLabelsFromMetricQuery(query.Metric,metric.Query)
+					parsedlabels := getLabelsFromMetricQuery(query.Metric, metric.Query)
 
-					// loop through the additionalField slice and check whether all of the additionalFields are present in the query 
-					queryValidationErrors := checkForAdditionalFieldsInQuery(metric.Query,parsedlabels,metric.AdditionalFields)
+					// loop through the additionalField slice and check whether all of the additionalFields are present in the query
+					queryValidationErrors := checkForAdditionalFieldsInQuery(metric.Query, parsedlabels, metric.AdditionalFields)
 					if len(queryValidationErrors) > 0 {
-						for _,err := range queryValidationErrors {
-							errorArr = append(errorArr,err)
+						for _, err := range queryValidationErrors {
+							errorArr = append(errorArr, err)
 						}
 					}
-					
+
 					if len(queryValidationErrors) == 0 {
-						additionalFieldMap = createAdditionalFieldsMapFromQuery(parsedlabels,metric.AdditionalFields)
+						additionalFieldMap = createAdditionalFieldsMapFromQuery(parsedlabels, metric.AdditionalFields)
 					}
 				}
 
@@ -518,12 +518,12 @@ func wgWait(ctx context.Context, processName string, maxRoutines int, done chan 
 	done <- true
 }
 
-func getLabelsFromMetricQuery(queryLabel string,originalQueryString string) (labels string) {
-	arr := strings.Split(originalQueryString,"(")
-	for _,word := range arr {
-	  if strings.Contains(word,queryLabel){
-		  labels = utils.GetStringInBetween(originalQueryString,"{", "}")
-	  }  
+func getLabelsFromMetricQuery(queryLabel string, originalQueryString string) (labels string) {
+	arr := strings.Split(originalQueryString, "(")
+	for _, word := range arr {
+		if strings.Contains(word, queryLabel) {
+			labels = utils.GetStringInBetween(originalQueryString, "{", "}")
+		}
 	}
 
 	return labels
@@ -540,14 +540,14 @@ func checkForAdditionalFieldsInQuery(originalQuery string, parsedQueryString str
 	return errorList
 }
 
-func createAdditionalFieldsMapFromQuery(parsedLabels string,additionalFields []string) map[string]string {
+func createAdditionalFieldsMapFromQuery(parsedLabels string, additionalFields []string) map[string]string {
 	labelMap := make(map[string]string)
 
 	labelsFromQuery := strings.Split(parsedLabels, ",")
 	for _, kvPairString := range labelsFromQuery {
 		labelKeyAndValue := strings.Split(kvPairString, "=")
-		if utils.Contains(additionalFields,labelKeyAndValue[0]){
-		labelMap[labelKeyAndValue[0]] = labelKeyAndValue[1]
+		if utils.Contains(additionalFields, labelKeyAndValue[0]) {
+			labelMap[labelKeyAndValue[0]] = labelKeyAndValue[1]
 		}
 	}
 	return labelMap
