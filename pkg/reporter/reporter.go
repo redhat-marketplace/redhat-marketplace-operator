@@ -543,11 +543,11 @@ func checkForAdditionalFieldsInQuery(originalQuery string, parsedQueryString str
 func createAdditionalFieldsMapFromQuery(parsedLabels string, additionalFields []string) map[string]string {
 	labelMap := make(map[string]string)
 
-	labelsFromQuery := strings.Split(parsedLabels, ",")
-	for _, kvPairString := range labelsFromQuery {
-		labelKeyAndValue := strings.Split(kvPairString, "=")
-		if utils.Contains(additionalFields, labelKeyAndValue[0]) {
-			labelMap[labelKeyAndValue[0]] = labelKeyAndValue[1]
+	labelPairs := strings.Split(parsedLabels, ",")
+	for _, keyValuePairString := range labelPairs {
+		keyValuePairArray := strings.Split(keyValuePairString, "=")
+		if utils.Contains(additionalFields, keyValuePairArray[0]) {
+			labelMap[keyValuePairArray[0]] = keyValuePairArray[1]
 		}
 	}
 	return labelMap
