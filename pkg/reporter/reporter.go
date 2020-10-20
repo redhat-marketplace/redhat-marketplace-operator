@@ -540,7 +540,6 @@ func getLabelsFromMetricQuery(queryLabel string,originalQueryString string) (lab
 func createMapFromQuery(labels string,additionalFields []string) map[string]string {
 	labelMap := make(map[string]string)
 	labelsFromQuery := strings.Split(labels, ",")
-	fmt.Println("labelsFromQuery",labelsFromQuery)
 	for _, kvPairString := range labelsFromQuery {
 		labelKeyAndValue := strings.Split(kvPairString, "=")
 		if utils.Contains(additionalFields,labelKeyAndValue[0]){
