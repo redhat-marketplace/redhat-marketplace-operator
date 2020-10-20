@@ -274,7 +274,7 @@ var _ = Describe("Reporter", func() {
 
 				results, errs, _ := sut.CollectMetrics(context.TODO())
 
-				Expect(results).To(HaveLen(0),"lenght of results")
+				Expect(results).To(HaveLen(0),"length of results")
 				Expect(errs).To(HaveLen(2),"length of error list")
 				Expect(errs[0]).To(MatchError("Query doesn't contain a key value for additionalField: wrong_field_1"))
 				Expect(errs[1]).To(MatchError("Query doesn't contain a key value for additionalField: wrong_field_2"))
