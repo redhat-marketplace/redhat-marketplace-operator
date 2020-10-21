@@ -221,17 +221,12 @@ func (r *MarketplaceReporter) query(
 				logger.Info("output", "query", query.String())
 
 				if metric.AdditionalFields != nil {
-					parsedlabels := getLabelsFromMetricQuery(query.Metric, metric.Query)
-					queryValidationErrors := checkForAdditionalFieldsInQuery(metric.Query, parsedlabels, metric.AdditionalFields)
-					if len(queryValidationErrors) > 0 {
-						for _, err := range queryValidationErrors {
-							errorArr = append(errorArr, err)
-						}
+					queryValidationErrors, addFieldMap := processAdditionalFields(metric.Label, metric.Query, metric.AdditionalFields)
+					for _, err := range queryValidationErrors {
+						errorArr = append(errorArr, err)
 					}
 
-					if len(queryValidationErrors) == 0 {
-						additionalFieldMap = createAdditionalFieldsMapFromQuery(parsedlabels, metric.AdditionalFields)
-					}
+					additionalFieldMap = addFieldMap
 				}
 
 				var val model.Value
@@ -526,26 +521,25 @@ func getLabelsFromMetricQuery(queryLabel string, originalQueryString string) (pa
 	return parsedLabels
 }
 
-func checkForAdditionalFieldsInQuery(originalQueryString string, parsedQueryString string, additionalFieldsFromMeterDef []string) (queryValidationErrors []error) {
+func processAdditionalFields(queryLabel string, originalQueryString string, additionalFieldsFromMeterDef []string) ([]error, map[string]string) {
+	var queryValidationErrors []error
+	parsedQueryString := getLabelsFromMetricQuery(queryLabel, originalQueryString)
+	labelPairs := strings.Split(parsedQueryString, ",")
+	labelMap := make(map[string]string)
+
 	for _, additionalField := range additionalFieldsFromMeterDef {
 		if !strings.Contains(parsedQueryString, additionalField) {
 			msg := fmt.Sprintf("Query doesn't contain a label key for additionalField: %s", additionalField)
 			queryValidationErrors = append(queryValidationErrors, errors.New(msg))
+		} else {
+			for _, keyValuePairString := range labelPairs {
+				keyValuePairArray := strings.Split(keyValuePairString, "=")
+				if additionalField == keyValuePairArray[0] {
+					labelMap[keyValuePairArray[0]] = keyValuePairArray[1]
+				}
+			}
 		}
 	}
 
-	return queryValidationErrors
-}
-
-func createAdditionalFieldsMapFromQuery(parsedLabels string, additionalFieldsFromMeterDef []string) map[string]string {
-	labelMap := make(map[string]string)
-
-	labelPairs := strings.Split(parsedLabels, ",")
-	for _, keyValuePairString := range labelPairs {
-		keyValuePairArray := strings.Split(keyValuePairString, "=")
-		if utils.Contains(additionalFieldsFromMeterDef, keyValuePairArray[0]) {
-			labelMap[keyValuePairArray[0]] = keyValuePairArray[1]
-		}
-	}
-	return labelMap
+	return queryValidationErrors, labelMap
 }
