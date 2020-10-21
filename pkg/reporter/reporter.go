@@ -203,7 +203,7 @@ func (r *MarketplaceReporter) query(
 				// Histogram and summary are unsupported
 				var errorArr []error
 				var additionalFieldMap map[string]string
-				
+
 				query := &PromQuery{
 					Metric: metric.Label,
 					Type:   workload.WorkloadType,
@@ -522,8 +522,8 @@ func getLabelsFromMetricQuery(queryLabel string, originalQueryString string) (la
 	return labels
 }
 
-func checkForAdditionalFieldsInQuery(originalQuery string, parsedQueryString string, additionalFields []string) (errorList []error) {
-	for _, additionalField := range additionalFields {
+func checkForAdditionalFieldsInQuery(originalQueryString string, parsedQueryString string, additionalFieldsFromMeterDef []string) (errorList []error) {
+	for _, additionalField := range additionalFieldsFromMeterDef {
 		if !strings.Contains(parsedQueryString, additionalField) {
 			msg := fmt.Sprintf("Query doesn't contain a label key for additionalField: %s", additionalField)
 			errorList = append(errorList, errors.New(msg))
@@ -533,13 +533,13 @@ func checkForAdditionalFieldsInQuery(originalQuery string, parsedQueryString str
 	return errorList
 }
 
-func createAdditionalFieldsMapFromQuery(parsedLabels string, additionalFields []string) map[string]string {
+func createAdditionalFieldsMapFromQuery(parsedLabels string, additionalFieldsFromMeterDef []string) map[string]string {
 	labelMap := make(map[string]string)
 
 	labelPairs := strings.Split(parsedLabels, ",")
 	for _, keyValuePairString := range labelPairs {
 		keyValuePairArray := strings.Split(keyValuePairString, "=")
-		if utils.Contains(additionalFields, keyValuePairArray[0]) {
+		if utils.Contains(additionalFieldsFromMeterDef, keyValuePairArray[0]) {
 			labelMap[keyValuePairArray[0]] = keyValuePairArray[1]
 		}
 	}
