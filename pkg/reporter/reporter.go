@@ -203,6 +203,7 @@ func (r *MarketplaceReporter) query(
 				// Histogram and summary are unsupported
 				var errorArr []error
 				var additionalFieldMap map[string]string
+				
 				query := &PromQuery{
 					Metric: metric.Label,
 					Type:   workload.WorkloadType,
@@ -222,11 +223,7 @@ func (r *MarketplaceReporter) query(
 				if metric.AdditionalFields != nil {
 					parsedlabels := getLabelsFromMetricQuery(query.Metric, metric.Query)
 					queryValidationErrors := checkForAdditionalFieldsInQuery(metric.Query, parsedlabels, metric.AdditionalFields)
-					if len(queryValidationErrors) > 0 {
-						for _, err := range queryValidationErrors {
-							errorArr = append(errorArr, err)
-						}
-					}
+					errorArr = queryValidationErrors
 
 					if len(queryValidationErrors) == 0 {
 						additionalFieldMap = createAdditionalFieldsMapFromQuery(parsedlabels, metric.AdditionalFields)
