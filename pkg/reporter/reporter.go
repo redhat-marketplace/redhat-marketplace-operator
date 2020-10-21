@@ -202,7 +202,7 @@ func (r *MarketplaceReporter) query(
 				// Counter = increase
 				// Histogram and summary are unsupported
 				var errorArr []error
-				var additionalFieldMap map[string]string
+				additionalFieldMap := make(map[string]string)
 
 				query := &PromQuery{
 					Metric: metric.Label,
@@ -221,12 +221,10 @@ func (r *MarketplaceReporter) query(
 				logger.Info("output", "query", query.String())
 
 				if metric.AdditionalFields != nil {
-					queryValidationErrors, addFieldMap := processAdditionalFields(metric.Label, metric.Query, metric.AdditionalFields)
+					queryValidationErrors := processAdditionalFields(metric.Label, metric.Query, metric.AdditionalFields, additionalFieldMap)
 					for _, err := range queryValidationErrors {
 						errorArr = append(errorArr, err)
 					}
-
-					additionalFieldMap = addFieldMap
 				}
 
 				var val model.Value
@@ -521,11 +519,10 @@ func getLabelsFromMetricQuery(queryLabel string, originalQueryString string) (pa
 	return parsedLabels
 }
 
-func processAdditionalFields(queryLabel string, originalQueryString string, additionalFieldsFromMeterDef []string) ([]error, map[string]string) {
+func processAdditionalFields(queryLabel string, originalQueryString string, additionalFieldsFromMeterDef []string, additionalFieldMap map[string]string) []error {
 	var queryValidationErrors []error
 	parsedQueryString := getLabelsFromMetricQuery(queryLabel, originalQueryString)
 	labelPairs := strings.Split(parsedQueryString, ",")
-	labelMap := make(map[string]string)
 
 	for _, additionalField := range additionalFieldsFromMeterDef {
 		if !strings.Contains(parsedQueryString, additionalField) {
@@ -535,11 +532,11 @@ func processAdditionalFields(queryLabel string, originalQueryString string, addi
 			for _, keyValuePairString := range labelPairs {
 				keyValuePairArray := strings.Split(keyValuePairString, "=")
 				if additionalField == keyValuePairArray[0] {
-					labelMap[keyValuePairArray[0]] = keyValuePairArray[1]
+					additionalFieldMap[keyValuePairArray[0]] = keyValuePairArray[1]
 				}
 			}
 		}
 	}
 
-	return queryValidationErrors, labelMap
+	return queryValidationErrors
 }
