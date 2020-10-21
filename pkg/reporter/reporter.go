@@ -220,11 +220,7 @@ func (r *MarketplaceReporter) query(
 				logger.Info("output", "query", query.String())
 
 				if metric.AdditionalFields != nil {
-
-					// parse out the labels from the query {key='value',key='value} => ["key='value'","key='value'"]
 					parsedlabels := getLabelsFromMetricQuery(query.Metric, metric.Query)
-
-					// loop through the additionalField slice and check whether all of the additionalFields are present in the query
 					queryValidationErrors := checkForAdditionalFieldsInQuery(metric.Query, parsedlabels, metric.AdditionalFields)
 					if len(queryValidationErrors) > 0 {
 						for _, err := range queryValidationErrors {
