@@ -519,6 +519,15 @@ func getLabelsFromMetricQuery(queryLabel string, originalQueryString string) (pa
 	return parsedLabels
 }
 
+func addAdditionalFieldKVPairsToMap(labelPairs []string, additionalField string ,additionalFieldMap map[string]string){
+	for _, keyValuePairString := range labelPairs {
+		keyValuePairArray := strings.Split(keyValuePairString, "=")
+		if additionalField == keyValuePairArray[0] {
+			additionalFieldMap[keyValuePairArray[0]] = keyValuePairArray[1]
+		}
+	}
+}
+
 func processAdditionalFields(queryLabel string, originalQueryString string, additionalFieldsFromMeterDef []string, additionalFieldMap map[string]string) []error {
 	var queryValidationErrors []error
 	parsedQueryString := getLabelsFromMetricQuery(queryLabel, originalQueryString)
@@ -529,12 +538,7 @@ func processAdditionalFields(queryLabel string, originalQueryString string, addi
 			msg := fmt.Sprintf("Query doesn't contain a label key for additionalField: %s", additionalField)
 			queryValidationErrors = append(queryValidationErrors, errors.New(msg))
 		} else {
-			for _, keyValuePairString := range labelPairs {
-				keyValuePairArray := strings.Split(keyValuePairString, "=")
-				if additionalField == keyValuePairArray[0] {
-					additionalFieldMap[keyValuePairArray[0]] = keyValuePairArray[1]
-				}
-			}
+			addAdditionalFieldKVPairsToMap(labelPairs,additionalField,additionalFieldMap)
 		}
 	}
 
