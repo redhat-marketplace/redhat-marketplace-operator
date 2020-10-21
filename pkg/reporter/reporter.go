@@ -223,7 +223,11 @@ func (r *MarketplaceReporter) query(
 				if metric.AdditionalFields != nil {
 					parsedlabels := getLabelsFromMetricQuery(query.Metric, metric.Query)
 					queryValidationErrors := checkForAdditionalFieldsInQuery(metric.Query, parsedlabels, metric.AdditionalFields)
-					errorArr = queryValidationErrors
+					if len(queryValidationErrors) > 0 {
+						for _, err := range queryValidationErrors {
+							errorArr = append(errorArr, err)
+						}
+					}
 
 					if len(queryValidationErrors) == 0 {
 						additionalFieldMap = createAdditionalFieldsMapFromQuery(parsedlabels, metric.AdditionalFields)
