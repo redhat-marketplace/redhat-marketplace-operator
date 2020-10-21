@@ -511,26 +511,26 @@ func wgWait(ctx context.Context, processName string, maxRoutines int, done chan 
 	done <- true
 }
 
-func getLabelsFromMetricQuery(queryLabel string, originalQueryString string) (labels string) {
+func getLabelsFromMetricQuery(queryLabel string, originalQueryString string) (parsedLabels string) {
 	arr := strings.Split(originalQueryString, "(")
 	for _, word := range arr {
 		if strings.Contains(word, queryLabel) {
-			labels = utils.GetStringInBetween(originalQueryString, "{", "}")
+			parsedLabels = utils.GetStringInBetween(originalQueryString, "{", "}")
 		}
 	}
 
-	return labels
+	return parsedLabels
 }
 
-func checkForAdditionalFieldsInQuery(originalQueryString string, parsedQueryString string, additionalFieldsFromMeterDef []string) (errorList []error) {
+func checkForAdditionalFieldsInQuery(originalQueryString string, parsedQueryString string, additionalFieldsFromMeterDef []string) (queryValidationErrors []error) {
 	for _, additionalField := range additionalFieldsFromMeterDef {
 		if !strings.Contains(parsedQueryString, additionalField) {
 			msg := fmt.Sprintf("Query doesn't contain a label key for additionalField: %s", additionalField)
-			errorList = append(errorList, errors.New(msg))
+			queryValidationErrors = append(queryValidationErrors, errors.New(msg))
 		}
 	}
 
-	return errorList
+	return queryValidationErrors
 }
 
 func createAdditionalFieldsMapFromQuery(parsedLabels string, additionalFieldsFromMeterDef []string) map[string]string {
