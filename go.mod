@@ -1,6 +1,6 @@
 module github.com/redhat-marketplace/redhat-marketplace-operator
 
-go 1.14
+go 1.15
 
 require (
 	emperror.dev/errors v0.7.0
@@ -33,6 +33,7 @@ require (
 	github.com/launchdarkly/go-options v1.0.0
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
+	github.com/mcuadros/go-lookup v0.0.0-20200831155250-80f87a4fa5ee
 	github.com/meirf/gopart v0.0.0-20180520194036-37e9492a85a8
 	github.com/mikefarah/yq/v3 v3.0.0-20200415014842-6f0a329331f9
 	github.com/mitchellh/go-homedir v1.1.0
@@ -60,7 +61,7 @@ require (
 	github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad // indirect
 	go.uber.org/zap v1.14.1
 	golang.org/x/net v0.0.0-20200822124328-c89045814202
-	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
+	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	golang.org/x/tools/gopls v0.5.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776

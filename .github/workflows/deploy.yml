@@ -112,7 +112,7 @@ jobs:
       IMAGE_REGISTRY: ${{ matrix.registry }}
       OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
       OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
-      TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag}}
+      TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.4.1
@@ -166,7 +166,7 @@ jobs:
         id: wait-for-deploy
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          checkName: Deploy (quay.io/rh-marketplace)
+          checkName: Deploy Finished
           timeoutSeconds: 1000
           intervalSeconds: 10
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -206,30 +206,49 @@ jobs:
       - uses: actions/download-artifact@v2
       - name: Report cover
         run: |
-            cp cover-int/cover-int.out .
-            cp cover-unit/cover-unit.out .
-            make test-join test-cover-text
-            go tool cover -html=cover.out -o cover.html
+          cp cover-int/cover-int.out .
+          cp cover-unit/cover-unit.out .
+          make test-join test-cover-text
+          go tool cover -html=cover.out -o cover.html
       - uses: actions/upload-artifact@v2
         with:
           name: cover
           path: cover.html
 
   build:
-    name: Build
+    name: Preset
     runs-on: ubuntu-latest
-
     outputs:
       version: ${{ steps.vars.outputs.version }}
       tag: ${{ steps.vars.outputs.tag }}
       hash: ${{ steps.vars.outputs.hash }}
-      tagExists: ${{ steps.checktag.outputs.exists }}
       dockertag: ${{ steps.vars.outputs.dockertag }}
+      now: ${{ steps.vars.outputs.now }}
       crs: ${{ steps.vars.outputs.crs }}
-      gittagpushed: ${{ steps.tag.outputs.gittagpushed }}
     env:
       TAGPREFIX: ''
     steps:
+      - name: "Cancel if build flag (!build) is not on last commit"
+        uses: actions/github-script@v2
+        id: check
+        if: |
+          github.event_name == 'push'
+          && (startsWith(github.ref,'refs/heads/release/')
+              || startsWith(github.ref,'refs/heads/hotfix/'))
+          && !contains(github.event.head_commit.message, '!build')
+        with:
+          script: |
+            const { owner, repo } = context.repo
+            console.log('Cancelling ...');
+            const run_id = "${{ github.run_id }}";
+            await github.actions.cancelWorkflowRun({ owner, repo, run_id });
+            return 'stop'
+          result-encoding: string
+      - name: Waiting for cancellation
+        run: sleep 60
+        if: steps.check.outputs.result == 'stop'
+      - name: Should build?
+        run: test "${{ steps.check.outputs.result }}" != "stop"
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.4.1
         with:
@@ -244,86 +263,63 @@ jobs:
       - name: Set branch prefix for dev
         if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
         run: |
-          echo "::set-env name=TAGPREFIX::dev-"
+          echo "TAGPREFIX=dev-" >> $GITHUB_ENV
 
       - name: Set branch prefix for fix
         if: github.event_name == 'push' && startsWith(github.ref,'refs/heads/bugfix/')
         run: |
           NAME=$(echo "${{ github.ref }}" | sed 's/refs\/heads\/bugfix\///')
-          echo "::set-env name=TAGPREFIX::bugfix-${NAME}-"
+          echo "TAGPREFIX=bugfix-${NAME}-" >> $GITHUB_ENV
 
       - name: Set branch prefix for feat
         if: github.event_name == 'push' && startsWith(github.ref,'refs/heads/feature/')
         run: |
           NAME=$(echo "${{ github.ref }}" | sed 's/refs\/heads\/feature\///')
-          echo "::set-env name=TAGPREFIX::feat-${NAME}-"
+          echo "TAGPREFIX=feat-${NAME}-" >> $GITHUB_ENV
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
-      - name: Get if gittag is pushed
-        shell: bash {0}
-        id: tag
-        run: |
-          VERSION=$(make current-version)
-          RESULT=$(git tag --list | grep -E "$VERSION")
-          IS_TAGGED=false
-          if [ "$RESULT" != "" ] ; then
-            IS_TAGGED=true
-          fi
-
       - name: Get Vars
         id: vars
         run: |
-
-          echo "::set-output name=gittagpushed::${IS_TAGGED}"
           echo "::set-output name=version::$(make current-version)"
           echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
           echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
-          echo "::set-output name=dockertag::${TAGPREFIX}$(make current-version)-${FILEHASH:0:6}"
+          echo "::set-output name=dockertag::${TAGPREFIX}$(make current-version)-${GITHUB_SHA::8}"
+          echo "::set-output name=now::$(date +'%Y%m%dT%H%M%S')"
         env:
           FILEHASH: ${{ hashFiles('cmd/**', 'pkg/**', 'interal/**', 'version/**', 'go.sum', 'go.mod') }}
 
       - name: Turnstyle
         uses: softprops/turnstyle@v1
         with:
-          continue-after-seconds: 30
+          continue-after-seconds: 45
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Check if tag exists
-        id: checktag
-        shell: bash {0}
-        run: |
-          skopeo inspect docker://${TAG} > /dev/null
-          [[ $? == 0 ]] && echo ::set-output name=exists::true || echo ::set-output name=exists::false
-        env:
-          TAG: quay.io/rh-marketplace/redhat-marketplace-operator:${{ steps.vars.outputs.dockertag }}
 
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
     needs: [build]
-    if: ${{ needs.build.outputs.gittagpushed != 'true' }}
     strategy:
       matrix:
-        registry:
-          - 'quay.io/rh-marketplace'
-        include:
-          - registry: quay.io/rh-marketplace
-            name: quay
-            key: quayUser
-            value: quayPassword
+        image:
+          - redhat-marketplace-operator
+          - redhat-marketplace-reporter
+          - redhat-marketplace-metric-state
+          - redhat-marketplace-authcheck
     env:
-      IMAGE_REGISTRY: ${{ matrix.registry }}
-      OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
+      IMAGE_REGISTRY: quay.io/rh-marketplace
+      REGISTRY: quay.io/rh-marketplace
       OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
-      TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag}}
+      BUILD_IMAGE: ${{ matrix.image }}
+      TAG: quay.io/rh-marketplace/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
     steps:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.14
+          go-version: ^1.15
         id: go
 
       - name: Check out code into the Go module directory
@@ -332,7 +328,7 @@ jobs:
       - name: Turnstyle
         uses: softprops/turnstyle@v1
         with:
-          continue-after-seconds: 30
+          continue-after-seconds: 45
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -348,8 +344,8 @@ jobs:
         id: image
         shell: bash {0}
         run: |
-          skopeo inspect docker://${TAG} --creds ${{ secrets[matrix.key] }}:${{ secrets[matrix.value] }} > /dev/null
-          [[ $? == 0 ]] && echo ::set-env name=exists::true || echo ::set-env name=exists::false
+          skopeo inspect docker://${TAG} --creds ${{ secrets['quayUser'] }}:${{ secrets['quayPassword'] }} > /dev/null
+          ([[ $? == 0 ]] && echo "exists=true" || echo "exists=false") >> $GITHUB_ENV
 
       - name: Install tools
         run: |
@@ -360,41 +356,52 @@ jobs:
       - name: Login ${{ matrix.name }}
         run: make docker-login
         env:
-          DOCKER_USER: ${{ secrets[matrix.key] }}
-          DOCKER_PASSWORD: ${{ secrets[matrix.value] }}
-          REGISTRY: ${{ matrix.registry }}
+          DOCKER_USER: ${{ secrets['quayUser'] }}
+          DOCKER_PASSWORD: ${{ secrets['quayPassword'] }}
 
       - name: Build & Push
         if: env.exists != 'true'
         run: make build
 
+  deploy-done:
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    name: 'Deploy Finished'
+    steps:
+      - name: Finished
+        run: |
+          echo "done"
+
   opm:
     name: Deploy OPM Index
     runs-on: ubuntu-latest
     needs: [build]
-    if: ${{ needs.build.outputs.gittagpushed != 'true' }}
     strategy:
       matrix:
-        registry:
-          - 'quay.io/rh-marketplace'
+        channel:
+          - stable
         include:
-          - registry: quay.io/rh-marketplace
+          - channel: stable
+            packageName: redhat-marketplace-operator
+            imageRegistry: quay.io/rh-marketplace
+            olmRepo: quay.io/rh-marketplace/redhat-marketplace-operator-manifest
+            indexRepo: quay.io/rh-marketplace/redhat-marketplace-operator-bundle
             name: quay
             key: quayUser
             value: quayPassword
     env:
-      IMAGE_REGISTRY: ${{ matrix.registry }}
-      OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
-      OLM_REPO: ${{ matrix.registry }}/operator-manifest
-      OLM_BUNDLE_REPO: ${{ matrix.registry }}/operator-manifest-bundle
-      TAG: ${{ needs.build.outputs.dockertag }}
+      IMAGE_REGISTRY: ${{ matrix.imageRegistry }}
+      OLM_REPO: ${{ matrix.olmRepo }}
+      OLM_BUNDLE_REPO: ${{ matrix.indexRepo }}
+      TAG: ${{ needs.build.outputs.dockertag }}-${{ needs.build.outputs.now }}
       OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
       VERSION: ${{ needs.build.outputs.version }}
+      OLM_PACKAGE_NAME: ${{ matrix.packageName }}
     steps:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.14
+          go-version: ^1.15
         id: go
 
       - name: Set up Python
@@ -412,7 +419,7 @@ jobs:
           pip3 install -Iv operator-courier==$COURIER_VERSION
           sudo apt-get install -y sed
           sudo snap install yq
-          echo "::add-path::`pwd`/testbin/bin"
+          echo "`pwd`/testbin/bin" >> $GITHUB_PATH
         env:
           operator_sdk_version: v0.18.0
           opm_version: v1.12.5
@@ -423,18 +430,18 @@ jobs:
         env:
           DOCKER_USER: ${{ secrets[matrix.key] }}
           DOCKER_PASSWORD: ${{ secrets[matrix.value] }}
-          REGISTRY: ${{ matrix.registry }}
+          REGISTRY: ${{ matrix.imageRegistry }}
 
-      - name: Build bundles
+      - name: Build bundles ${{ matrix.channel }}
         run: |
-          make generate-csv opm-bundle-last-beta opm-index-base
-          yq w ./deploy/olm-catalog/test-registry.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ./test-registry-${TAG}.yaml
+          make generate-csv opm-bundle-last-${{ matrix.channel }} opm-index-base
+          yq w ./deploy/olm-catalog/test-registry.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ./registry-${{ matrix.channel }}-${TAG}.yaml
 
       - name: Upload results
         uses: actions/upload-artifact@v1
         with:
-          name: test-catalog-source
-          path: ./test-registry-${{ env.TAG }}.yaml
+          name: ${{ matrix.packageName }}-catalog-${{ matrix.channel }}
+          path: ./registry-${{ matrix.channel }}-${{ needs.build.outputs.dockertag }}-${{ needs.build.outputs.now }}.yaml
 
   tag:
     name: Push other tags
@@ -443,14 +450,14 @@ jobs:
     if: |
       github.event_name == 'push'
       && (startsWith(github.ref,'refs/heads/release/')
-          || startsWith(github.ref,'refs/heads/hotfix/')
-          || github.ref == 'refs/heads/master' )
+          || startsWith(github.ref,'refs/heads/hotfix/'))
     strategy:
       matrix:
         image:
           - redhat-marketplace-operator
           - redhat-marketplace-reporter
           - redhat-marketplace-metric-state
+          - redhat-marketplace-authcheck
         include:
           - image: redhat-marketplace-operator
             registry: scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd
@@ -475,7 +482,7 @@ jobs:
             fromRegistry: quay.io/rh-marketplace
             name: PC
             key: pcUser
-            value: pcPassword
+            value: pcPasswordAuthCheck
     env:
       FROM_OPERATOR_IMAGE: ${{ matrix.fromRegistry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
       TO_OPERATOR_IMAGE: ${{ matrix.registry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
@@ -486,7 +493,73 @@ jobs:
         shell: bash {0}
         run: |
           skopeo inspect docker://${TAG} --creds ${{ secrets[matrix.key] }}:${{ secrets[matrix.value] }} > /dev/null
-          [[ $? == 0 ]] && echo ::set-env name=exists::true || echo ::set-env name=exists::false
+          ([[ $? == 0 ]] && echo "exists=true" || echo "exists=false") >> $GITHUB_ENV
+
+      - name: Copy ${{ matrix.image }} to ${{ matrix.name }}
+        if: env.exists != 'true' && env.pushImage == 'true'
+        run: |
+          skopeo copy "docker://${FROM_OPERATOR_IMAGE}" "docker://${TO_OPERATOR_IMAGE}" --dest-creds ${{ secrets[matrix.key] }}:${{ secrets[matrix.value] }}
+
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push'
+      && (startsWith(github.ref,'refs/heads/release/')
+          || startsWith(github.ref,'refs/heads/hotfix/'))
+    needs: [build, tag]
+    env:
+      TAG: ${{ needs.build.outputs.dockertag }}
+      OS_PIDS: "ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4 ospid-ffed416e-c18d-4b88-8660-f586a4792785"
+      REPOS: "quay.io/rh-marketplace/redhat-marketplace-operator quay.io/rh-marketplace/redhat-marketplace-reporter quay.io/rh-marketplace/redhat-marketplace-metric-state quay.io/rh-marketplace/redhat-marketplace-authcheck"
+      RH_CONNECT_TOKEN: ${{ secrets.redhat_api_key }}
+    steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.15
+        id: go
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+      - name: Login Docker
+        run: make docker-login
+        env:
+          DOCKER_USER: ${{ secrets.REDHAT_IO_USER }}
+          DOCKER_PASSWORD: ${{ secrets.REDHAT_IO_PASSWORD }}
+          REGISTRY: registry.connect.redhat.com
+      - name: Publish
+        run: |
+          make wait-and-publish
+
+  tag-bundle:
+    name: Push bundle tag
+    runs-on: ubuntu-latest
+    needs: [build, deploy, opm, cover, publish]
+    if: |
+      github.event_name == 'push'
+      && (startsWith(github.ref,'refs/heads/release/')
+          || startsWith(github.ref,'refs/heads/hotfix/'))
+    strategy:
+      matrix:
+        image:
+          - redhat-marketplace-operator-manifest
+        include:
+          - image: redhat-marketplace-operator-manifest
+            registry: scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1
+            fromRegistry: quay.io/rh-marketplace
+            name: PC
+            key: pcUser
+            value: pcPasswordOperatorManifest
+    env:
+      FROM_OPERATOR_IMAGE: ${{ matrix.fromRegistry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}-${{ needs.build.outputs.now }}
+      TO_OPERATOR_IMAGE: ${{ matrix.registry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}-${{ needs.build.outputs.now }}
+    steps:
+      - name: Check if tag exists in ${{ matrix.name }}
+        id: image
+        shell: bash {0}
+        run: |
+          skopeo inspect docker://${TO_OPERATOR_IMAGE} --creds ${{ secrets[matrix.key] }}:${{ secrets[matrix.value] }} > /dev/null
+          ([[ $? == 0 ]] && echo "exists=true" || echo "exists=false") >> $GITHUB_ENV
 
       - name: Copy ${{ matrix.image }} to ${{ matrix.name }}
         if: env.exists != 'true' && env.pushImage == 'true'

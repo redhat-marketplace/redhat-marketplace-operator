@@ -26,6 +26,27 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 )
 
+type ReportEnvironment string
+
+const (
+	ReportProductionEnv ReportEnvironment = "production"
+	ReportSandboxEnv    ReportEnvironment = "sandbox"
+)
+
+func (m ReportEnvironment) MarshalText() ([]byte, error) {
+	return []byte(string(m)), nil
+}
+
+func (m *ReportEnvironment) UnmarshalText(data []byte) error {
+	str := ReportEnvironment(string(data))
+	*m = str
+	return nil
+}
+
+func (m ReportEnvironment) String() string {
+	return string(m)
+}
+
 type ReportMetadata struct {
 	ReportID       uuid.UUID                            `json:"report_id"`
 	Source         uuid.UUID                            `json:"source"`
@@ -34,8 +55,9 @@ type ReportMetadata struct {
 }
 
 type ReportSourceMetadata struct {
-	RhmClusterID string `json:"rhmClusterId"`
-	RhmAccountID string `json:"rhmAccountId"`
+	RhmClusterID   string            `json:"rhmClusterId"`
+	RhmAccountID   string            `json:"rhmAccountId"`
+	RhmEnvironment ReportEnvironment `json:"rhmEnvironment,omitempty"`
 }
 
 type ReportSliceKey uuid.UUID
@@ -44,8 +66,21 @@ func (sliceKey ReportSliceKey) MarshalText() ([]byte, error) {
 	return uuid.UUID(sliceKey).MarshalText()
 }
 
-func (sliceKey ReportSliceKey) MarshalBinary() ([]byte, error) {
-	return uuid.UUID(sliceKey).MarshalBinary()
+func (sliceKey *ReportSliceKey) UnmarshalText(data []byte) error {
+	id, err := uuid.NewUUID()
+
+	if err != nil {
+		return err
+	}
+
+	err = id.UnmarshalText(data)
+
+	if err != nil {
+		return err
+	}
+
+	*sliceKey = ReportSliceKey(id)
+	return nil
 }
 
 func (sliceKey ReportSliceKey) String() string {

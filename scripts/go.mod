@@ -1,8 +1,9 @@
 module github.com/redhat-marketplace/redhat-marketplace-operator/tooling
 
-go 1.14
+go 1.15
 
 require (
+	emperror.dev/errors v0.7.0
 	github.com/Masterminds/semver/v3 v3.1.0
 	github.com/Shyp/bump_version v0.0.0-20180222180749-d7594d2951e2
 	github.com/code-ready/crc v1.10.0
@@ -21,6 +22,7 @@ require (
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.6.1 // indirect
 	github.com/tcnksm/ghr v0.13.0
+	github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad
 	golang.org/x/sys v0.0.0-20200602225109-6fdc65e7d980 // indirect
 	golang.org/x/tools v0.0.0-20200731060945-b5fad4ed8dd6 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect

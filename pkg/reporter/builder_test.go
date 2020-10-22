@@ -15,6 +15,8 @@
 package reporter
 
 import (
+	"encoding/json"
+
 	"github.com/google/uuid"
 
 	. "github.com/onsi/ginkgo"
@@ -49,6 +51,23 @@ var _ = Describe("Builder", func() {
 		}
 	})
 
+	It("should serialize source metadata to json", func() {
+		metadata := NewReportMetadata(uuid.New(), ReportSourceMetadata{
+			RhmClusterID: "testCluster",
+			RhmEnvironment: ReportSandboxEnv,
+			RhmAccountID: "testAccount",
+		})
+
+		metadata.AddMetricsReport(metricsReport)
+
+		data, err := json.Marshal(metadata)
+		Expect(err).To(Succeed())
+
+		u := ReportMetadata{}
+		Expect(json.Unmarshal(data, &u)).To(Succeed())
+		Expect(u.SourceMetadata.RhmEnvironment).To(Equal(ReportSandboxEnv))
+	})
+
 	It("should add metrics to a base", func() {
 		Expect(metricBase.AddMetrics("foo", 1, "bar", 2)).To(Succeed())
 		Expect(metricBase.AddAdditionalLabels("extra", "g")).To(Succeed())
@@ -81,5 +100,12 @@ var _ = Describe("Builder", func() {
 				}),
 			}),
 		})))
+
+		data, err := json.Marshal(metricsReport)
+		Expect(err).To(Succeed())
+
+		u := MetricsReport{}
+		Expect(json.Unmarshal(data, &u)).To(Succeed())
+		Expect(u.ReportSliceID).To(Equal(ReportSliceKey(sliceID)))
 	})
 })

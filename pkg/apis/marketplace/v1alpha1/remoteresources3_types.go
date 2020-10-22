@@ -19,15 +19,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 //Auth allows you authenticate to remote storage locations using either HMAC or IAM authentication schemes.
 type Auth struct {
+	// Hmac is the credentials to access the storage location.
 	// +optional
 	Hmac *Hmac `json:"hmac,omitempty"`
+	// Iam is the credentials for Iam auth.
 	// +optional
 	Iam *Iam `json:"iam,omitempty"`
 }
@@ -75,6 +72,7 @@ type Iam struct {
 
 // SecretAccessKeyRef holds reference information to an SecretAccessKey stored in a secret on your cluster
 type SecretAccessKeyRef struct {
+	// ValueFrom is the pointer to the secret key ref
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +kubebuilder:validation:Required
 	ValueFrom ValueFrom `json:"valueFrom,omitempty"`
@@ -82,6 +80,7 @@ type SecretAccessKeyRef struct {
 
 // AccesKeyIDRef holds reference information to an AccessKeyID stored in a secret on your cluster
 type AccesKeyIDRef struct {
+	// ValueFrom is the pointer to the secret key ref
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +kubebuilder:validation:Required
 	ValueFrom ValueFrom `json:"valueFrom,omitempty"`
@@ -89,6 +88,7 @@ type AccesKeyIDRef struct {
 
 //APIKeyRef holds the location of the api key used to authenticate to a cloud object storage instance
 type APIKeyRef struct {
+	// ValueFrom is the pointer to the secret key ref
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +kubebuilder:validation:Required
 	ValueFrom ValueFrom `json:"valueFrom,omitempty"`
@@ -96,6 +96,7 @@ type APIKeyRef struct {
 
 //ValueFrom holds source for the environment variable's value. Cannot be used if value is not empty.
 type ValueFrom struct {
+	// SecretKeyRef is the pointer to the secret key ref
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +kubebuilder:validation:Required
 	SecretKeyRef corev1.SecretKeySelector `json:"secretKeyRef,omitempty"`
@@ -103,10 +104,11 @@ type ValueFrom struct {
 
 // Request holds requests that populate the Requests array
 type Request struct {
+	// Options is the configurable options for the request
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +kubebuilder:validation:Required
 	Options Options `json:"options,omitempty"`
-	// if downloading or applying a child resource fails, RemoteResource will stop execution and report error to .status. You can allow execution to continue by marking a reference as optional.
+	// Optional if downloading or applying a child resource fails, RemoteResource will stop execution and report error to .status. You can allow execution to continue by marking a reference as optional.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	Optional bool `json:"optional,omitempty"`
@@ -114,12 +116,15 @@ type Request struct {
 
 //Options holds the options object which will be passed as-is to the http request. Allows you to specify things like headers for authentication.
 type Options struct {
+	// URL of the request
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	URL string `json:"url,omitempty"`
+	// URI of the request
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	URI string `json:"uri,omitempty"`
+	// Headers of the request
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	Headers map[string]Header `json:"headers,omitempty"`
@@ -145,7 +150,9 @@ type RemoteResourceS3Spec struct {
 // +optional
 // +kubebuilder:pruning:PreserveUnknownFields
 type RemoteResourceS3Status struct {
+	// Touched is if the status has been touched
 	Touched   *bool     `json:"touched,omitempty"`
+	// RazeeLogs is the logs from the controller
 	RazeeLogs RazeeLogs `json:"razee-logs,omitempty"`
 }
 
@@ -153,6 +160,7 @@ type RemoteResourceS3Status struct {
 // +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 // +optional
 type RazeeLogs struct {
+	// Log is a line of log from the controller
 	Log Log `json:"error,omitempty"`
 }
 
@@ -161,8 +169,8 @@ type RazeeLogs struct {
 // +optional
 type Log map[string]string
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // RemoteResourceS3 is the Schema for the remoteresources3s API
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=remoteresources3s,scope=Namespaced
