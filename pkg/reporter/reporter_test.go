@@ -229,7 +229,7 @@ var _ = Describe("Reporter", func() {
 
 	Describe("AdditionalFields logic", func() {
 		When("AdditionalFields are defined on the meter def", func() {
-			It("Should add the additional fields from the meterdefintion query to the meter report's additionalLabels", func(done Done) {
+			It("Should add the additional fields found on the meterdefintion query to the meter report's additionalLabels", func(done Done) {
 
 				additionalFields := Keys{
 					"test_field_1": Equal("test-value-1"),
@@ -266,7 +266,7 @@ var _ = Describe("Reporter", func() {
 		})
 
 		When("AdditionalFields aren't found in the meterdef query", func() {
-			It("Should report an error that reports the mismatchted fields", func(done Done) {
+			It("Should report an error that indicates the mismatchted fields", func(done Done) {
 
 				sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].Query = "rate(rpc_durations_seconds_count{test_field_1=test-value-1,test_field_2=test-value-2}[5m])*100"
 				sut.meterDefinitions[0].Spec.Workloads[0].MetricLabels[0].AdditionalFields = []string{"wrong_field_1", "wrong_field_2", "test_field_2"}
