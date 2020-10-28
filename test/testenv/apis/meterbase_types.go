@@ -59,7 +59,7 @@ var _ = Describe("MeterBase", func() {
 
 	AfterEach(func() {
 		// Add any teardown steps that needs to be executed after each test
-		K8sClient.Delete(context.Background(), &created)
+		K8sClient.Delete(context.TODO(), &created)
 	})
 
 	// Add Tests for OpenAPI validation (or additional CRD features) specified in
@@ -89,10 +89,10 @@ var _ = Describe("MeterBase", func() {
 			}
 
 			By("creating an API obj")
-			Expect(K8sClient.Create(context.Background(), &created)).To(Succeed())
+			Expect(K8sClient.Create(context.TODO(), &created)).To(Succeed())
 
 			fetched = v1alpha1.MeterBase{}
-			Expect(K8sClient.Get(context.Background(), key, &fetched)).To(Succeed())
+			Expect(K8sClient.Get(context.TODO(), key, &fetched)).To(Succeed())
 			Expect(fetched).ToNot(BeNil())
 			Expect(fetched).To(MatchFields(IgnoreExtras, Fields{
 				"ObjectMeta": MatchFields(IgnoreExtras, Fields{
@@ -113,8 +113,8 @@ var _ = Describe("MeterBase", func() {
 			}))
 
 			By("deleting the created object")
-			Expect(K8sClient.Delete(context.Background(), &created)).To(Succeed())
-			err := K8sClient.Get(context.Background(), key, &created)
+			Expect(K8sClient.Delete(context.TODO(), &created)).To(Succeed())
+			err := K8sClient.Get(context.TODO(), key, &created)
 			Expect(err).To(HaveOccurred())
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 		})

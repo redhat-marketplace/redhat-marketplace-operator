@@ -79,15 +79,17 @@ func NewFactory(namespace string, c *Config) *Factory {
 }
 
 func (f *Factory) ReplaceImages(container *corev1.Container) {
-	switch container.Name {
-	case "kube-rbac-proxy-1":
+	switch {
+	case strings.HasPrefix(container.Name, "kube-rbac-proxy"):
 		container.Image = f.config.RelatedImages.KubeRbacProxy
-	case "kube-rbac-proxy-2":
-		container.Image = f.config.RelatedImages.KubeRbacProxy
-	case "metric-state":
+	case container.Name == "metric-state":
 		container.Image = f.config.RelatedImages.MetricState
-	case "authcheck":
+	case container.Name == "authcheck":
 		container.Image = f.config.RelatedImages.AuthChecker
+	case container.Name == "prometheus-operator":
+		container.Image = f.config.RelatedImages.PrometheusOperator
+	case container.Name == "prometheus-proxy":
+		container.Image = f.config.RelatedImages.OAuthProxy
 	}
 }
 
@@ -242,8 +244,12 @@ func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployme
 		dep.Spec.Template.Spec.ServiceAccountName = c.ServiceAccountName
 	}
 
-	replacer := strings.NewReplacer("{{NAMESPACE}}", f.namespace)
-	replacerNamespaces := strings.NewReplacer("{{NAMESPACES}}", strings.Join(ns, ","))
+	replacer := strings.NewReplacer(
+		"{{NAMESPACE}}", f.namespace,
+		"{{NAMESPACES}}", strings.Join(ns, ","),
+		"{{CONFIGMAP_RELOADER_IMAGE}}", f.config.RelatedImages.ConfigMapReloader,
+		"{{PROM_CONFIGMAP_RELOADER_IMAGE}}", f.config.RelatedImages.PrometheusConfigMapReloader,
+	)
 
 	for i := range dep.Spec.Template.Spec.Containers {
 		container := &dep.Spec.Template.Spec.Containers[i]
@@ -251,7 +257,6 @@ func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployme
 
 		for _, arg := range container.Args {
 			newArg := replacer.Replace(arg)
-			newArg = replacerNamespaces.Replace(newArg)
 			newArgs = append(newArgs, newArg)
 		}
 
@@ -276,6 +281,8 @@ func (f *Factory) NewPrometheusDeployment(
 
 	p.Name = cr.Name
 	p.ObjectMeta.Name = cr.Name
+
+	p.Spec.Image = &f.config.RelatedImages.Prometheus
 
 	if cr.Spec.Prometheus.Replicas != nil {
 		p.Spec.Replicas = cr.Spec.Prometheus.Replicas
@@ -413,6 +420,10 @@ func (f *Factory) ReporterJob(report *marketplacev1alpha1.MeterReport) (*batchv1
 		"--namespace",
 		report.Namespace,
 	)
+
+	if len(report.Spec.ExtraArgs) > 0 {
+		container.Args = append(container.Args, report.Spec.ExtraArgs...)
+	}
 
 	j.Spec.Template.Spec.Containers[0] = container
 

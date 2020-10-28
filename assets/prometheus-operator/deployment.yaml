@@ -31,8 +31,8 @@ spec:
         - args:
             - --kubelet-service=kube-system/kubelet
             - --logtostderr=true
-            - --config-reloader-image=registry.redhat.io/openshift4/ose-configmap-reloader:latest
-            - --prometheus-config-reloader=registry.redhat.io/openshift4/ose-prometheus-config-reloader:latest
+            - --config-reloader-image={{CONFIGMAP_RELOADER_IMAGE}}
+            - --prometheus-config-reloader={{PROM_CONFIGMAP_RELOADER_IMAGE}}
             - --namespaces={{NAMESPACES}}
             - --prometheus-instance-namespaces={{NAMESPACE}}
             - --alertmanager-instance-namespaces={{NAMESPACE}}

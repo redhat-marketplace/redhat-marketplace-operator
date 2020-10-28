@@ -28,14 +28,14 @@ import (
 
 var (
 	tlsResources = []types.NamespacedName{
-		{Namespace: namespace, Name: "prometheus-operator-tls"},
-		{Namespace: namespace, Name: "rhm-metric-state-tls"},
-		{Namespace: namespace, Name: "rhm-prometheus-meterbase-tls"},
+		{Namespace: Namespace, Name: "prometheus-operator-tls"},
+		{Namespace: Namespace, Name: "rhm-metric-state-tls"},
+		{Namespace: Namespace, Name: "rhm-prometheus-meterbase-tls"},
 	}
 	certsResources = []types.NamespacedName{
 		{Namespace: "openshift-config-managed", Name: "kubelet-serving-ca"},
-		{Namespace: namespace, Name: "serving-certs-ca-bundle"},
-		{Namespace: namespace, Name: "operator-certs-ca-bundle"},
+		{Namespace: Namespace, Name: "serving-certs-ca-bundle"},
+		{Namespace: Namespace, Name: "operator-certs-ca-bundle"},
 	}
 	createdObjects = []runtime.Object{}
 	mutex          = sync.Mutex{}
@@ -54,7 +54,7 @@ func addCerts() {
 				Namespace: resource.Namespace,
 				Name:      resource.Name,
 				Annotations: map[string]string{
-					"service.alpha.openshift.io/inject-cabundle": "true",
+					"service.beta.openshift.io/inject-cabundle": "true",
 				},
 			},
 			Data: map[string]string{

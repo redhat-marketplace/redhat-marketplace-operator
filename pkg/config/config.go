@@ -26,10 +26,15 @@ type OperatorConfig struct {
 
 // RelatedImages stores relatedimages for the operator
 type RelatedImages struct {
-	Reporter      string `env:"RELATED_IMAGE_REPORTER" envDefault:"reporter:latest"`
-	KubeRbacProxy string `env:"RELATED_IMAGE_KUBE_RBAC_PROXY" envDefault:"kube-proxy:latest"`
-	MetricState   string `env:"RELATED_IMAGE_METRIC_STATE" envDefault:"metric-state:latest"`
-	AuthChecker   string `env:"RELATED_IMAGE_AUTHCHECK" envDefault:"authcheck:latest"`
+	Reporter                    string `env:"RELATED_IMAGE_REPORTER" envDefault:"reporter:latest"`
+	KubeRbacProxy               string `env:"RELATED_IMAGE_KUBE_RBAC_PROXY" envDefault:"kube-proxy:latest"`
+	MetricState                 string `env:"RELATED_IMAGE_METRIC_STATE" envDefault:"metric-state:latest"`
+	AuthChecker                 string `env:"RELATED_IMAGE_AUTHCHECK" envDefault:"authcheck:latest"`
+	Prometheus                  string `env:"RELATED_IMAGE_PROMETHEUS" envDefault:"registry.redhat.io/openshift4/ose-prometheus:latest"`
+	PrometheusOperator          string `env:"RELATED_IMAGE_PROMETHEUS_OPERATOR" envDefault:"registry.redhat.io/openshift4/ose-prometheus-operator:latest"`
+	ConfigMapReloader           string `env:"RELATED_IMAGE_CONFIGMAP_RELOADER" envDefault:"registry.redhat.io/openshift4/ose-configmap-reloader:latest"`
+	PrometheusConfigMapReloader string `env:"RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER" envDefault:"registry.redhat.io/openshift4/ose-prometheus-config-reloader:latest"`
+	OAuthProxy                  string `env:"RELATED_IMAGE_OAUTH_PROXY" envDefault:"registry.redhat.io/openshift4/ose-oauth-proxy:latest"`
 }
 
 // Features store feature flags

@@ -405,12 +405,20 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 				minDate = utils.TruncateTime(minDate, loc)
 
 				expectedCreatedDates := r.generateExpectedDates(endDate, loc, dateRangeInDays, minDate)
-				foundCreatedDates := r.generateFoundCreatedDates(meterReportNames)
+				foundCreatedDates, err := r.generateFoundCreatedDates(meterReportNames)
+
+				if err != nil {
+					return nil, err
+				}
 
 				log.Info("report dates", "expected", expectedCreatedDates, "found", foundCreatedDates, "min", minDate)
 				err = r.createReportIfNotFound(expectedCreatedDates, foundCreatedDates, request, instance)
 
-				return nil, err
+				if err != nil {
+					return nil, err
+				}
+
+				return nil, nil
 			})),
 			OnNotFound(Call(func() (ClientAction, error) {
 				log.Info("can't find meter report list, requeuing")
@@ -456,7 +464,12 @@ func (r *ReconcileMeterBase) removeOldReports(meterReportNames []string, loc *ti
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	limit := utils.TruncateTime(time.Now(), loc).AddDate(0, 0, dateRange)
 	for _, reportName := range meterReportNames {
-		dateCreated, _ := r.retrieveCreatedDate(reportName)
+		dateCreated, err := r.retrieveCreatedDate(reportName)
+
+		if err != nil {
+			continue
+		}
+
 		if dateCreated.Before(limit) {
 			reqLogger.Info("Deleting Report", "Resource", reportName)
 			meterReportNames = utils.RemoveKey(meterReportNames, reportName)
@@ -499,7 +512,13 @@ func (r *ReconcileMeterBase) sortMeterReports(meterReportList *marketplacev1alph
 }
 
 func (r *ReconcileMeterBase) retrieveCreatedDate(reportName string) (time.Time, error) {
-	dateString := strings.SplitN(reportName, "-", 3)[2:]
+	splitStr := strings.SplitN(reportName, "-", 3)
+
+	if len(splitStr) != 3 {
+		return time.Now(), errors.New("failed to get date")
+	}
+
+	dateString := splitStr[2:]
 	return time.Parse(utils.DATE_FORMAT, strings.Join(dateString, ""))
 }
 
@@ -513,13 +532,20 @@ func (r *ReconcileMeterBase) newMeterReportNameFromString(dateString string) str
 	return fmt.Sprintf("%s%s", utils.METER_REPORT_PREFIX, dateSuffix)
 }
 
-func (r *ReconcileMeterBase) generateFoundCreatedDates(meterReportNames []string) []string {
+func (r *ReconcileMeterBase) generateFoundCreatedDates(meterReportNames []string) ([]string, error) {
 	var foundCreatedDates []string
 	for _, reportName := range meterReportNames {
-		dateString := strings.SplitN(reportName, "-", 3)[2:]
+		splitStr := strings.SplitN(reportName, "-", 3)
+
+		if len(splitStr) != 3 {
+			log.Info("meterreport name was irregular", "name", reportName)
+			continue
+		}
+
+		dateString := splitStr[2:]
 		foundCreatedDates = append(foundCreatedDates, strings.Join(dateString, ""))
 	}
-	return foundCreatedDates
+	return foundCreatedDates, nil
 }
 
 func (r *ReconcileMeterBase) generateExpectedDates(endTime time.Time, loc *time.Location, dateRange int, minDate time.Time) []string {
@@ -620,12 +646,11 @@ func (r *ReconcileMeterBase) reconcilePrometheusOperator(
 		ListAction(nsList, client.MatchingLabelsSelector{
 			Selector: nsLabelSelector,
 		}),
-		manifests.CreateOrUpdateFactoryItemAction(
+		manifests.CreateIfNotExistsFactoryItem(
 			cm,
 			func() (runtime.Object, error) {
 				return factory.NewPrometheusOperatorCertsCABundle()
 			},
-			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
 			service,

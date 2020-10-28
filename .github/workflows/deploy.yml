@@ -148,6 +148,8 @@ jobs:
             ${{ runner.os }}-go-
 
       - uses: engineerd/setup-kind@v0.4.0
+        with:
+          config: ./kind-cluster.yaml
 
       - name: Login Docker
         run: make docker-login
@@ -361,7 +363,7 @@ jobs:
 
       - name: Build & Push
         if: env.exists != 'true'
-        run: make build
+        run: make build-image
 
   deploy-done:
     needs: [deploy]

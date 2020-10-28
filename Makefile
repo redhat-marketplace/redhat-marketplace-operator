@@ -38,12 +38,12 @@ CLUSTER_SERVER ?= https://api.crc.testing:6443
 OPERATOR_WATCH_NAMESPACE ?= ""
 
 ## Tool paths
-operator-sdk = ./testbin/operator-sdk
-skaffold = ./testbin/skaffold
-cfssl = ./testbin/cfssl
-cfssljson = ./testbin/cfssljson
-cfssl-certinfo = ./testbin/cfssl-certinfo
-opm = ./testbin/opm
+operator-sdk = testbin/operator-sdk
+skaffold = testbin/skaffold
+cfssl = testbin/cfssl
+cfssljson = testbin/cfssljson
+cfssl-certinfo = testbin/cfssl-certinfo
+opm = testbin/opm
 kind = $(shell go env GOPATH)/bin/kind
 gocovmerge = $(shell go env GOPATH)/bin/gocovmerge
 yq = $(shell go env GOPATH)/bin/yq
@@ -65,22 +65,36 @@ uninstall: ## Uninstall all that all performed in the $ make install
 ##@ Build
 
 .PHONY: clean
-clean: ## Clean up generated files that are emphemeral
-	- rm -rf ./testbin
+clean: ## Clean up generated files
 	- rm ./deploy/role.yaml ./deploy/operator.yaml ./deploy/role_binding.yaml ./deploy/service_account.yaml
+
+.PHONY: clean-tools
+clean-tools: ## Clean up generated files that are emphemeral
+	- rm -rf testbin
 
 
 .PHONY: build-base
 build-base: $(skaffold)
 	$(skaffold) build --tag="1.15" -p base --default-repo quay.io/rh-marketplace
 
+.PHONY: build
+build: ## Build all operators
+	@VERSION=$(VERSION) $(skaffold) build --tag $(OPERATOR_IMAGE_TAG) --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE)
+
+.PHONY: build-json
+build-json: ## Build all operators with json output
+	@VERSION=$(VERSION) $(skaffold) build --tag $(OPERATOR_IMAGE_TAG) --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --output="{{ json . }}" --quiet
+
+KIND_NAME?=test
+
+.PHONY: build-and-load-kind
+build-and-load-kind: ## Build all operators with json output
+	- make build-json | jq -r '.builds[].tag' | xargs -n 1 -t kind load docker-image --name=$(KIND_NAME)
+
 BUILD_IMAGE ?= redhat-marketplace-operator
 
-build-all:
-	VERSION=$(VERSION) $(skaffold) build --tag $(OPERATOR_IMAGE_TAG) --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --cache-artifacts=false
-
 .PHONY: build
-build: $(skaffold) ## Build the operator executable
+build-image: $(skaffold) ## Build the operator executable
 	VERSION=$(VERSION) $(skaffold) build --tag $(OPERATOR_IMAGE_TAG) --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --cache-artifacts=false -b $(BUILD_IMAGE)
 
 helm: ## build helm base charts
@@ -278,17 +292,12 @@ test: testbin ## test-ci runs all tests for CI builds
 	@echo "testing"
 	make test-ci-unit test-int-kind
 
-test-int-kind:
-	- $(kind) create cluster
-	- $(kind) export kubeconfig
-	- make load-kind
-	- USE_EXISTING_CLUSTER=true make test-ci-int
+TEST_TAG?=$(shell date +'%Y%m%d')
 
-load-kind:
-	for IMAGE in "registry.redhat.io/openshift4/ose-configmap-reloader:latest" "registry.redhat.io/openshift4/ose-prometheus-config-reloader:latest" "registry.redhat.io/openshift4/ose-prometheus-operator:latest" "registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest" "registry.redhat.io/openshift4/ose-oauth-proxy:latest"; do \
-			docker pull $$IMAGE ; \
-			$(kind) load docker-image $$IMAGE --name=kind ; \
-	done
+test-int-kind:
+	- $(kind) create cluster --name test --config ./kind-cluster.yaml
+	- $(kind) export kubeconfig --name test
+	- USE_EXISTING_CLUSTER=true make test-ci-int
 
 .PHONY: test-cover
 test-cover: ## Run coverage on code
@@ -308,7 +317,7 @@ test-ci-unit: ## test-ci-unit runs all tests for CI builds
 
 .PHONY: test-ci-int
 test-ci-int: testbin ./test/certs/server.pem ## test-ci-int runs all tests for CI builds
-	ginkgo -r -coverprofile=cover-int.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --coverpkg=$(CONTROLLERS) ./test
+	TEST_TAG=$(TEST_TAG) ginkgo -r -coverprofile=cover-int.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --coverpkg=$(CONTROLLERS) ./test
 	cat cover-int.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-int.out
 
 test-join: $(gocovmerge)
@@ -335,8 +344,8 @@ test-cover-html: cover.out ## Run coverage and display as html
 
 test-generate-certs:
 	mkdir -p test/certs
-	cd test/certs && ../../testbin/cfssl gencert -initca ca-csr.json | ../../testbin/cfssljson -bare ca
-	cd test/certs && ../../testbin/cfssl gencert -ca=ca.pem -ca-key=ca-key.pem --config=ca-config.json -profile=kubernetes server-csr.json | ../../testbin/cfssljson -bare server
+	cd test/certs && ../../$(cfssl) gencert -initca ca-csr.json | ../../$(cfssljson) -bare ca
+	cd test/certs && ../../$(cfssl) gencert -ca=ca.pem -ca-key=ca-key.pem --config=ca-config.json -profile=kubernetes server-csr.json | ../../$(cfssljson) -bare server
 
 
 ##@ Misc
@@ -497,23 +506,23 @@ testbin/kube-apiserver:
 
 K8S_VERSION = v1.18.2
 ETCD_VERSION = v3.4.3
-install-envtest: ./testbin
+install-envtest: testbin
 	/bin/bash ./scripts/setup_envtest.sh $(K8S_VERSION) $(ETCD_VERSION)
 	chmod +x testbin/etcd testbin/kubectl testbin/kube-apiserver
 
-$(cfssl): ./testbin
+$(cfssl): testbin
 	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl_1.4.1_$(UNAME)_amd64 -o cfssl
-	chmod +x ./testbin/cfssl
+	chmod +x testbin/cfssl
 
-$(cfssljson): ./testbin
+$(cfssljson): testbin
 	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssljson_1.4.1_$(UNAME)_amd64 -o cfssljson
-	chmod +x ./testbin/cfssljson
+	chmod +x testbin/cfssljson
 
-$(cfssl-certinfo): ./testbin
+$(cfssl-certinfo): testbin
 	cd testbin && curl -L https://github.com/cloudflare/cfssl/releases/download/v1.4.1/cfssl-certinfo_1.4.1_$(UNAME)_amd64 -o cfssl-certinfo
-	chmod +x ./testbin/cfssl-certinfo
+	chmod +x testbin/cfssl-certinfo
 
-$(kind): ./testbin
+$(kind): testbin
 	GO111MODULE="on" go get sigs.k8s.io/kind
 
 operator_sdk_version ?= v0.19.4
@@ -524,22 +533,22 @@ else
 	operator_sdk_uname = linux-gnu
 endif
 
-$(operator-sdk): ./testbin
+$(operator-sdk): testbin
 	echo $(operator_sdk_uname)
 	curl -LO https://github.com/operator-framework/operator-sdk/releases/download/$(operator_sdk_version)/operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname)
-	chmod +x operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname) && mv operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname) ./testbin/operator-sdk
+	chmod +x operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname) && mv operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname) testbin/operator-sdk
 
-skaffold_version ?= v1.14.0
+skaffold_version ?= v1.15.0
 
-$(skaffold): ./testbin
+$(skaffold): testbin
 	curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/$(skaffold_version)/skaffold-$(UNAME)-amd64
-	chmod +x skaffold && mv skaffold ./testbin/skaffold
+	chmod +x skaffold && mv skaffold testbin/skaffold
 
 opm_version ?= v1.14.1
 
-$(opm): ./testbin
+$(opm): testbin
 	curl -LO https://github.com/operator-framework/operator-registry/releases/download/$(opm_version)/$(UNAME)-amd64-opm
-	chmod +x $(UNAME)-amd64-opm && mv $(UNAME)-amd64-opm ./testbin/opm
+	chmod +x $(UNAME)-amd64-opm && mv $(UNAME)-amd64-opm testbin/opm
 
 .PHONY: help
 help: ## Display this help

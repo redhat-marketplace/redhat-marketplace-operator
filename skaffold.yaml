@@ -4,6 +4,7 @@ metadata:
   name: redhat-marketplace-operator
 build:
   local:
+    push: true
     concurrency: 4
     useBuildkit: true
   tagPolicy:

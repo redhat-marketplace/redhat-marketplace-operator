@@ -14,7 +14,7 @@ import (
 
 var log = logf.Log.WithName("reporter_report_cmd")
 
-var name, namespace, cafile, tokenFile string
+var name, namespace, cafile, tokenFile, uploadTarget string
 var local, upload bool
 var retry int
 
@@ -42,6 +42,7 @@ var ReportCmd = &cobra.Command{
 			TokenFile:       tokenFile,
 			Local:           local,
 			Upload:          upload,
+			UploaderTarget:  reporter.MustParseUploaderTarget(uploadTarget),
 		}
 		cfg.SetDefaults()
 
@@ -71,7 +72,11 @@ func init() {
 	ReportCmd.Flags().StringVar(&namespace, "namespace", "", "namespace of the report")
 	ReportCmd.Flags().StringVar(&cafile, "cafile", "", "cafile for prometheus")
 	ReportCmd.Flags().StringVar(&tokenFile, "tokenfile", "", "token file for prometheus")
+	ReportCmd.Flags().StringVar(&uploadTarget, "uploadTarget", "", "target to upload to")
 	ReportCmd.Flags().BoolVar(&local, "local", false, "run locally")
 	ReportCmd.Flags().BoolVar(&upload, "upload", true, "to upload the payload")
 	ReportCmd.Flags().IntVar(&retry, "retry", 3, "number of retries")
+
+	ReportCmd.Flags().MarkHidden("uploadTarget")
+	ReportCmd.Flags().MarkHidden("local")
 }

@@ -16,6 +16,8 @@ package reporter
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -27,9 +29,43 @@ import (
 	"strings"
 
 	"emperror.dev/errors"
+	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/version"
 	"golang.org/x/net/http2"
+	corev1 "k8s.io/api/core/v1"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/jsonpath"
 )
+
+type UploaderTarget string
+
+var (
+	UploaderTargetRedHatInsights UploaderTarget = "redhat-insights"
+	UploaderTargetNoOp           UploaderTarget = "noop"
+)
+
+func (u UploaderTarget) String() string {
+	return string(u)
+}
+
+func MustParseUploaderTarget(s string) UploaderTarget {
+	switch s {
+	case string(UploaderTargetRedHatInsights):
+		fallthrough
+	case string(UploaderTargetNoOp):
+		return UploaderTarget(s)
+	default:
+		panic(errors.Errorf("provided string is not a valid upload target %s", s))
+	}
+}
+
+type Uploader interface {
+	UploadFile(path string) error
+}
 
 type RedHatInsightsUploaderConfig struct {
 	URL                 string   `json:"url"`
@@ -45,9 +81,11 @@ type RedHatInsightsUploader struct {
 	client *http.Client
 }
 
+var _ Uploader = &RedHatInsightsUploader{}
+
 func NewRedHatInsightsUploader(
 	config *RedHatInsightsUploaderConfig,
-) (*RedHatInsightsUploader, error) {
+) (Uploader, error) {
 	tlsConfig, err := generateCACertPool(config.AdditionalCertFiles...)
 
 	if err != nil {
@@ -174,4 +212,94 @@ func (r *RedHatInsightsUploader) UploadFile(path string) error {
 			"headers", resp.Header)
 	}
 	return nil
+}
+
+type NoOpUploader struct{}
+
+var _ Uploader = &NoOpUploader{}
+
+func (r *NoOpUploader) UploadFile(path string) error {
+	log := logger.WithValues("uploader", "noop")
+	log.Info("upload is a no op")
+	return nil
+}
+
+func ProvideUploader(
+	ctx context.Context,
+	cc ClientCommandRunner,
+	log logr.Logger,
+	isCacheStarted managers.CacheIsStarted,
+	uploaderTarget UploaderTarget,
+) (Uploader, error) {
+	switch uploaderTarget {
+	case UploaderTargetRedHatInsights:
+		config, err := provideProductionInsightsConfig(ctx, cc, log)
+
+		if err != nil {
+			return nil, err
+		}
+
+		return NewRedHatInsightsUploader(config)
+	case UploaderTargetNoOp:
+		return &NoOpUploader{}, nil
+	}
+
+	return nil, errors.Errorf("uploader target not available %s", string(uploaderTarget))
+}
+
+func provideProductionInsightsConfig(
+	ctx context.Context,
+	cc ClientCommandRunner,
+	log logr.Logger,
+) (*RedHatInsightsUploaderConfig, error) {
+	secret := &corev1.Secret{}
+	clusterVersion := &openshiftconfigv1.ClusterVersion{}
+	result, _ := cc.Do(ctx,
+		GetAction(types.NamespacedName{
+			Name:      "pull-secret",
+			Namespace: "openshift-config",
+		}, secret),
+		GetAction(types.NamespacedName{
+			Name: "version",
+		}, clusterVersion))
+
+	if !result.Is(Continue) {
+		return nil, result
+	}
+
+	dockerConfigBytes, ok := secret.Data[".dockerconfigjson"]
+
+	if !ok {
+		return nil, errors.New(".dockerconfigjson is not found in secret")
+	}
+
+	var dockerObj interface{}
+	err := json.Unmarshal(dockerConfigBytes, &dockerObj)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal dockerConfigJson object")
+	}
+
+	cloudAuthPath := jsonpath.New("cloudauthpath")
+	err = cloudAuthPath.Parse(`{.auths.cloud\.openshift\.com.auth}`)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get jsonpath of cloud token")
+	}
+
+	buf := new(bytes.Buffer)
+	err = cloudAuthPath.Execute(buf, dockerObj)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get jsonpath of cloud token")
+	}
+
+	cloudToken := buf.String()
+
+	return &RedHatInsightsUploaderConfig{
+		URL:             "https://cloud.redhat.com",
+		ClusterID:       string(clusterVersion.Spec.ClusterID), // get from cluster
+		OperatorVersion: version.Version,
+		Token:           cloudToken, // get from secret
+	}, nil
 }

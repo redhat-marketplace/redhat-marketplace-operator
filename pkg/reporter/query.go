@@ -17,8 +17,10 @@ package reporter
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
+	"emperror.dev/errors"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
@@ -114,11 +116,32 @@ func (r *MarketplaceReporter) queryRange(query *PromQuery) (model.Value, v1.Warn
 
 	if err != nil {
 		logger.Error(err, "querying prometheus", "warnings", warnings)
-		return nil, warnings, err
+		return nil, warnings, toError(err)
 	}
 	if len(warnings) > 0 {
 		logger.Info("warnings", "warnings", warnings)
 	}
 
 	return result, warnings, nil
+}
+
+var ClientError = errors.New("clientError")
+var ClientErrorUnauthorized = errors.New("clientError: Unauthorized")
+var ServerError = errors.New("serverError")
+
+func toError(err error) error {
+	if v, ok := err.(*v1.Error); ok {
+		if v.Type == v1.ErrClient {
+			if strings.Contains(strings.ToLower(v.Msg), "unauthorized") {
+				return errors.Combine(ClientErrorUnauthorized, err)
+			}
+
+			return errors.Combine(ClientError, err)
+		}
+
+
+		return errors.Combine(ServerError, err)
+	}
+
+	return err
 }

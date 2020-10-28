@@ -33,6 +33,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/version"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -103,13 +104,21 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 		return resultsMap, []error{}, nil
 	}
 
+	// data channels ; closed by this func
 	meterDefsChan := make(chan *marketplacev1alpha1.MeterDefinition, len(r.meterDefinitions))
 	promModelsChan := make(chan meterDefPromModel)
+
+	// error channels
 	errorsChan := make(chan error)
+
+	// done channels
 	queryDone := make(chan bool)
 	processDone := make(chan bool)
+	errorDone := make(chan bool)
 
-	defer close(errorsChan)
+	defer close(queryDone)
+	defer close(processDone)
+	defer close(errorDone)
 
 	logger.Info("starting query")
 
@@ -141,27 +150,30 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 
 	errorList := []error{}
 
+	// Collect errors function
 	go func() {
-		for err := range errorsChan {
-			logger.Error(err, "error occurred processing")
-			errorList = append(errorList, err)
-		}
-	}()
-
-	func() {
 		for {
-			select {
-			case <-queryDone:
-				logger.Info("querying done")
-				close(promModelsChan)
-			case <-processDone:
-				logger.Info("processing done")
+			if err, more := <-errorsChan; more {
+				logger.Error(err, "error occurred processing")
+				errorList = append(errorList, err)
+			} else {
+				errorDone <- true
 				return
 			}
 		}
 	}()
 
-	return resultsMap, errorList, nil
+	<-queryDone
+	logger.Info("querying done")
+	close(promModelsChan)
+
+	<-processDone
+	logger.Info("processing done")
+	close(errorsChan)
+
+	<-errorDone
+
+	return resultsMap, errorList, errors.Combine(errorList...)
 }
 
 type meterDefPromModel struct {
@@ -369,9 +381,10 @@ func (r *MarketplaceReporter) WriteReport(
 	}
 
 	metadata := NewReportMetadata(source, ReportSourceMetadata{
-		RhmAccountID: r.mktconfig.Spec.RhmAccountID,
-		RhmClusterID: r.mktconfig.Spec.ClusterUUID,
+		RhmAccountID:   r.mktconfig.Spec.RhmAccountID,
+		RhmClusterID:   r.mktconfig.Spec.ClusterUUID,
 		RhmEnvironment: env,
+		Version:        version.Version,
 	})
 
 	var partitionSize = *r.MetricsPerFile

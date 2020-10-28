@@ -41,6 +41,12 @@ type MeterReportSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	MeterDefinitions []MeterDefinition `json:"meterDefinitions,omitempty"`
+
+	// ExtraArgs is a set of arguments to pass to the job
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
+	// +optional
+	ExtraArgs []string `json:"extraJobArgs,omitempty"`
 }
 
 // MeterReportStatus defines the observed state of MeterReport

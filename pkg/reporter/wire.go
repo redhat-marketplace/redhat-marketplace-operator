@@ -34,12 +34,12 @@ func NewTask(
 	panic(wire.Build(
 		reconcileutils.CommandRunnerProviderSet,
 		managers.ProvideCachedClientSet,
+		wire.FieldsOf(new(*Config), "UploaderTarget"),
 		wire.Struct(new(Task), "*"),
 		wire.InterfaceValue(new(logr.Logger), logger),
 		getClientOptions,
 		controller.SchemeDefinitions,
-		NewRedHatInsightsUploader,
-		provideProductionInsights,
+		ProvideUploader,
 		wire.Struct(new(managers.CacheIsIndexed)),
 	))
 }
