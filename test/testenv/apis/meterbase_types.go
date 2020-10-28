@@ -113,10 +113,7 @@ var _ = Describe("MeterBase", func() {
 			}))
 
 			By("deleting the created object")
-			Expect(K8sClient.Delete(context.TODO(), &created)).To(Succeed())
-			err := K8sClient.Get(context.TODO(), key, &created)
-			Expect(err).To(HaveOccurred())
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(K8sClient.Get(context.TODO(), key, &created)).To(Succeed())
 		})
 	})
 })

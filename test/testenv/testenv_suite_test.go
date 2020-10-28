@@ -17,6 +17,7 @@ package testenv
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -43,6 +44,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -57,12 +59,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	// register tests
+	"github.com/onsi/ginkgo/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/test/testenv/apis"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/test/testenv/controller"
 )
 
 const (
-	timeout   = time.Second * 180
+	timeout   = time.Second * 300
 	interval  = time.Second * 1
 	Namespace = "openshift-redhat-marketplace"
 )
@@ -108,7 +111,7 @@ var (
 
 func TestEnv(t *testing.T) {
 	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
-	RegisterFailHandler(Fail)
+	RegisterFailHandler(PodFailHandler)
 
 	RunSpecsWithDefaultAndCustomReporters(t,
 		"Controller EnvTest Suite",
@@ -246,7 +249,8 @@ var _ = BeforeSuite(func() {
 
 	Expect(ctrlMain.Manager.GetCache().WaitForCacheSync(stop)).Should(BeTrue())
 
-	time.Sleep(10 * time.Second)
+	// By("debugging pods")
+	// go debugPods(stop)
 
 	By("create prereqs")
 	Expect(k8sClient.Create(context.TODO(), marketplaceCfg)).Should(SucceedOrAlreadyExist)
@@ -263,28 +267,20 @@ var _ = BeforeSuite(func() {
 	}, timeout).Should(BeTrue())
 
 	By("update meterbase")
-	base.Spec = v1alpha1.MeterBaseSpec{
-		Enabled: true,
-		Prometheus: &v1alpha1.PrometheusSpec{
-			Storage: v1alpha1.StorageSpec{
-				EmptyDir: &corev1.EmptyDirVolumeSource{
-					Medium: "",
-				},
-				Size: resource.MustParse("1Gi"),
-			},
-		},
-	}
-	By("update meterbase")
-	Expect(k8sClient.Update(context.TODO(), base)).Should(Succeed())
+
 	By("wait for meterbase")
 	WaitForMeterBaseToDeploy(base)
 })
 
 var _ = AfterSuite(func() {
+	if CurrentGinkgoTestDescription().Failed {
+		printDebug()
+	}
+
 	By("delete prereqs")
 	k8sClient.Delete(context.TODO(), marketplaceCfg)
 	k8sClient.Delete(context.TODO(), base)
-	time.Sleep(30 * time.Second)
+	time.Sleep(20 * time.Second)
 
 	pullSecret := &corev1.Secret{}
 	err := k8sClient.Get(context.TODO(),
@@ -295,8 +291,6 @@ var _ = AfterSuite(func() {
 	if err == nil {
 		k8sClient.Delete(context.TODO(), pullSecret)
 	}
-
-	time.Sleep(10 * time.Second)
 
 	By("clean up certs")
 	cleanupCerts()
@@ -439,17 +433,50 @@ func loadFiles() {
 
 }
 
-// func debugPods(done chan interface{}) {
-// 	w := GinkgoWriter
-// 	output := func(s string) error {
-// 		return io.WriteString(GinkgoWriter, s)
-// 	}
+func PodFailHandler(message string, callerSkip ...int) {
+	printDebug()
+	Fail(message, callerSkip...)
+}
 
-// 	for {
-// 		select {
-// 		case <- done:
-// 			return
-// 		case
-// 		}
-// 	}
-// }
+func printDebug() {
+	lists := []runtime.Object{
+		&corev1.PodList{},
+		&appsv1.DeploymentList{},
+		&appsv1.StatefulSetList{},
+		&v1alpha1.MeterBaseList{},
+		&v1alpha1.RazeeDeploymentList{},
+		&v1alpha1.MarketplaceConfigList{},
+	}
+
+	for _, list := range lists {
+		k8sClient.List(context.TODO(), list, client.InNamespace(Namespace))
+		printList(list)
+	}
+}
+
+func printList(list runtime.Object) {
+	preamble := "\x1b[1mDEBUG %T\x1b[0m"
+	if config.DefaultReporterConfig.NoColor {
+		preamble = "DEBUG %T"
+	}
+
+	extractedList, err := meta.ExtractList(list)
+
+	if err != nil {
+		return
+	}
+
+	for _, item := range extractedList {
+		data, err := json.MarshalIndent(item, "", "  ")
+		typePre := fmt.Sprintf(preamble, item)
+
+		access, _ := meta.Accessor(item)
+
+		if err != nil {
+			continue
+		}
+
+		fmt.Fprintf(GinkgoWriter,
+			"%s: %s/%s debug output: %s\n", typePre, access.GetName(), access.GetNamespace(), string(data))
+	}
+}
