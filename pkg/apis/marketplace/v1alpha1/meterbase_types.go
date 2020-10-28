@@ -37,7 +37,7 @@ type StorageSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Size resource.Quantity `json:"size,omitempty"`
 
-	// EmptyDir is a temporary storage type that gets created on the prometheus pod. When this is defined metering will run on CRC.  
+	// EmptyDir is a temporary storage type that gets created on the prometheus pod. When this is defined metering will run on CRC.
 	// +kubebuilder:validation:Type=object
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
@@ -45,7 +45,6 @@ type StorageSpec struct {
 	// +optional
 	EmptyDir *corev1.EmptyDirVolumeSource `json:"emptyDir,omitempty"`
 }
-
 
 // PrometheusSpec contains configuration regarding prometheus
 // deployment used for metering.
@@ -84,7 +83,7 @@ type MeterBaseSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Enabled bool `json:"enabled"`
-	
+
 	// Prometheus deployment configuration.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
@@ -132,7 +131,12 @@ type MeterBaseStatus struct {
 // MeterBase is the resource that sets up Metering for Red Hat Marketplace.
 // This is an internal resource not meant to be modified directly.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-//
+// +kubebuilder:printcolumn:name="INSTALLING",type=string,JSONPath=`.status.conditions[?(@.type == "Installing")].status`
+// +kubebuilder:printcolumn:name="STEP",type=string,JSONPath=`.status.conditions[?(@.type == "Installing")].reason`
+// +kubebuilder:printcolumn:name="AvailableReplicas",type=integer,JSONPath=`.status.availableReplicas`
+// +kubebuilder:printcolumn:name="Replicas",type=integer,JSONPath=`.status.replicas`
+// +kubebuilder:printcolumn:name="UpdatedReplicas",type=integer,JSONPath=`.status.updatedReplicas`
+// +kubebuilder:printcolumn:name="UnavailableReplicas",type=integer,JSONPath=`.status.unavailableReplicas`
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=meterbases,scope=Namespaced

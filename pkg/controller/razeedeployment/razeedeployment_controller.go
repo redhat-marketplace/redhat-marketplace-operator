@@ -305,6 +305,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, nil
 	}
 
+	//Add NodesFromRazeeDeployments Count
+
+	instance.Status.NodesFromRazeeDeploymentsCount = len(instance.Status.NodesFromRazeeDeployments)
+
 	if instance.Spec.TargetNamespace == nil {
 		if instance.Status.RazeeJobInstall != nil {
 			instance.Spec.TargetNamespace = &instance.Status.RazeeJobInstall.RazeeNamespace
