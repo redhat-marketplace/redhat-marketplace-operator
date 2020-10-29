@@ -30,6 +30,7 @@ var _ = Describe("Builder", func() {
 		key           MetricKey
 		metricBase    *MetricBase
 		sliceID       = uuid.New()
+		metadata      *ReportMetadata
 	)
 
 	BeforeEach(func() {
@@ -52,6 +53,12 @@ var _ = Describe("Builder", func() {
 		metricBase = &MetricBase{
 			Key: key,
 		}
+		metadata = NewReportMetadata(uuid.New(), ReportSourceMetadata{
+			RhmClusterID:   "testCluster",
+			RhmEnvironment: ReportSandboxEnv,
+			RhmAccountID:   "testAccount",
+		})
+
 	})
 
 	It("should serialize source metadata to json", func() {
@@ -72,6 +79,9 @@ var _ = Describe("Builder", func() {
 	})
 
 	It("should add metrics to a base", func() {
+
+		metricsReport.AddMetadata(metadata.ToFlat())
+
 		Expect(metricBase.AddMetrics("foo", 1, "bar", 2)).To(Succeed())
 		Expect(metricBase.AddAdditionalLabels("extra", "g")).To(Succeed())
 		Expect(metricsReport.AddMetrics(metricBase)).To(Succeed())
@@ -83,6 +93,7 @@ var _ = Describe("Builder", func() {
 
 		Expect(metricsReport).To(PointTo(MatchAllFields(Fields{
 			"ReportSliceID": Equal(ReportSliceKey(sliceID)),
+			"Metadata":      PointTo(Equal(*metadata.ToFlat())),
 			"Metrics": MatchAllElements(id, Elements{
 				"0": MatchAllKeys(Keys{
 					"metric_id":           Equal("id"),
