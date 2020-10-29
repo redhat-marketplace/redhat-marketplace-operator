@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"emperror.dev/errors"
-	"google.golang.org/genproto/googleapis/streetview/publish/v1"
 )
 
 type containerResults map[string]*containerResult
@@ -61,7 +60,7 @@ func (c containerResults) Process(client *connectClient, pids map[string]string,
 			continue
 		}
 
-		if(!publish) {
+		if(!publishImage) {
 			fmt.Println("publishing disabled")
 			continue
 		}

@@ -419,7 +419,7 @@ OS_PIDS ?= ""
 REPOS ?= ""
 TAG ?= ""
 CREDS ?= ""
-TIMEOUT ?= 20
+TIMEOUT ?= 15
 
 wait-and-publish:
 	RESULTS=""; \
