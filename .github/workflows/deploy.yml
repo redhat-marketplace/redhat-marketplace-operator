@@ -111,6 +111,8 @@ jobs:
     env:
       IMAGE_REGISTRY: ${{ matrix.registry }}
       OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
+      OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
+      TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.4.1
@@ -123,6 +125,17 @@ jobs:
           go-version: ^1.15
         id: go
 
+      - name: Get if gittag is pushed
+        shell: bash {0}
+        id: tag
+        run: |
+          VERSION=$(make current-version)
+          RESULT=$(git tag --list | grep -E "$VERSION")
+          IS_TAGGED=false
+          if [ "$RESULT" != "" ] ; then
+            IS_TAGGED=true
+          fi
+
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
@@ -133,6 +146,12 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+
+      - uses: engineerd/setup-kind@v0.4.0
+        with:
+          name: test
+          version: 'v0.9.0'
+          config: ./kind-cluster.yaml
 
       - name: Login Docker
         run: make docker-login
@@ -146,18 +165,26 @@ jobs:
           echo "127.0.0.1 localhost" | sudo tee -a /etc/hosts
           make install-tools testbin
 
-      - uses: engineerd/setup-kind@v0.4.0
+      - name: Wait for deploy to succeed
+        uses: fountainhead/action-wait-for-check@v1.0.0
+        id: wait-for-deploy
         with:
-          name: test
-          version: 'v0.9.0'
-          config: kind-cluster.yaml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          checkName: Deploy Finished
+          timeoutSeconds: 1000
+          intervalSeconds: 10
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Fail
+        if: steps.wait-for-deploy.outputs.conclusion == 'failure'
+        run: exit 1
 
       - name: Test Integration
         env:
           USE_EXISTING_CLUSTER: true
           KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT: true
         run: |
-          USE_EXISTING_CLUSTER=true make test-ci-int
+          make test-ci-int
 
       - uses: actions/upload-artifact@v2
         with:
@@ -201,6 +228,27 @@ jobs:
     env:
       TAGPREFIX: ''
     steps:
+      - name: "Cancel if build flag (!build) is not on last commit"
+        uses: actions/github-script@v2
+        id: check
+        if: |
+          github.event_name == 'push'
+          && (startsWith(github.ref,'refs/heads/release/')
+              || startsWith(github.ref,'refs/heads/hotfix/'))
+          && !contains(github.event.head_commit.message, '!build')
+        with:
+          script: |
+            const { owner, repo } = context.repo
+            console.log('Cancelling ...');
+            const run_id = "${{ github.run_id }}";
+            await github.actions.cancelWorkflowRun({ owner, repo, run_id });
+            return 'stop'
+          result-encoding: string
+      - name: Waiting for cancellation
+        run: sleep 60
+        if: steps.check.outputs.result == 'stop'
+      - name: Should build?
+        run: test "${{ steps.check.outputs.result }}" != "stop"
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.4.1
         with:
@@ -253,7 +301,7 @@ jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    needs: [build, test-integration]
+    needs: [build]
     strategy:
       matrix:
         image:
@@ -268,28 +316,6 @@ jobs:
       BUILD_IMAGE: ${{ matrix.image }}
       TAG: quay.io/rh-marketplace/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
     steps:
-      - name: 'Cancel if publish flag (!publish) is not on last commit'
-        uses: actions/github-script@v2
-        id: check
-        if: |
-          github.event_name == 'push'
-          && (startsWith(github.ref,'refs/heads/release/')
-              || startsWith(github.ref,'refs/heads/hotfix/'))
-          && !contains(github.event.head_commit.message, '!publish')
-        with:
-          script: |
-            const { owner, repo } = context.repo
-            console.log('Cancelling ...');
-            const run_id = "${{ github.run_id }}";
-            await github.actions.cancelWorkflowRun({ owner, repo, run_id });
-            return 'stop'
-          result-encoding: string
-      - name: Waiting for cancellation
-        run: sleep 60
-        if: steps.check.outputs.result == 'stop'
-      - name: Should build?
-        run: test "${{ steps.check.outputs.result }}" != "stop"
-
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
@@ -420,7 +446,7 @@ jobs:
   tag:
     name: Push other tags
     runs-on: ubuntu-latest
-    needs: [build, deploy, test-integration]
+    needs: [build, deploy]
     if: |
       github.event_name == 'push'
       && (startsWith(github.ref,'refs/heads/release/')
@@ -481,12 +507,11 @@ jobs:
       github.event_name == 'push'
       && (startsWith(github.ref,'refs/heads/release/')
           || startsWith(github.ref,'refs/heads/hotfix/'))
-    needs: [build, tag, test-integration]
-    continue-on-error: true
+    needs: [build, tag]
     env:
       TAG: ${{ needs.build.outputs.dockertag }}
-      OS_PIDS: 'ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4 ospid-ffed416e-c18d-4b88-8660-f586a4792785'
-      REPOS: 'quay.io/rh-marketplace/redhat-marketplace-operator quay.io/rh-marketplace/redhat-marketplace-reporter quay.io/rh-marketplace/redhat-marketplace-metric-state quay.io/rh-marketplace/redhat-marketplace-authcheck'
+      OS_PIDS: "ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4 ospid-ffed416e-c18d-4b88-8660-f586a4792785"
+      REPOS: "quay.io/rh-marketplace/redhat-marketplace-operator quay.io/rh-marketplace/redhat-marketplace-reporter quay.io/rh-marketplace/redhat-marketplace-metric-state quay.io/rh-marketplace/redhat-marketplace-authcheck"
       RH_CONNECT_TOKEN: ${{ secrets.redhat_api_key }}
     steps:
       - name: Set up Go 1.x
