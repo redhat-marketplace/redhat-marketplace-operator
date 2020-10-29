@@ -75,6 +75,12 @@ func (c containerResults) Process(client *connectClient, pids map[string]string,
 			continue
 		}
 
+		if result.IsAlreadyPublished() {
+			fmt.Printf("pid %s has been published\n", pid)
+			c[pid].Finished = true
+			continue
+		}
+
 		if !result.IsOK() && !result.IsError() {
 			err := errors.Errorf("pid %s failed to publish: %s", pid, result.Message)
 			c[pid].Error = err
