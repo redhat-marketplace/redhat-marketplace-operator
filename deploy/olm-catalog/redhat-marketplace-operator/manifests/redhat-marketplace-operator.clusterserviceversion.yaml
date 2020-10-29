@@ -132,14 +132,14 @@ metadata:
     capabilities: Full Lifecycle
     categories: Developer Tools
     certified: "true"
-    containerImage: quay.io/zach_source/redhat-marketplace-operator:latest
-    createdAt: 2020-10-13T16:59:55Z
+    containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:1.0.5-31c2ff8f
+    createdAt: 2020-10-29T09:58:58Z
     description: The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
+    olm.skipRange: '>=1.0.0 <1.0.5'
     operatorframework.io/suggested-namespace: openshift-redhat-marketplace
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
-    olm.skipRange: '>=1.0.0 <1.0.5'
   name: redhat-marketplace-operator.v1.0.5
   namespace: redhat-marketplace-operator
 spec:
@@ -381,6 +381,11 @@ spec:
           - description: EndTime of the job
             displayName: End Time
             path: endTime
+          - description: ExtraArgs is a set of arguments to pass to the job
+            displayName: Extra Args
+            path: extraJobArgs
+            x-descriptors:
+              - hidden
           - description: MeterDefinitions is the list of meterDefinitions included in the report
             displayName: Meter Definitions
             path: meterDefinitions
@@ -604,6 +609,9 @@ spec:
           - description: NodesFromRazeeDeployments contains the pods names created by the rhm-watch-keeper and rhm-remote-resources3-controller deployments
             displayName: Nodes From Razee Deployments
             path: nodesFromRazeeDeployments
+          - description: NodesFromRazeeDeploymentsCount contains the pods names created by the rhm-watch-keeper and rhm-remote-resources3-controller deployments
+            displayName: Nodes From Razee Deployments Count
+            path: nodesFromRazeeDeploymentsCount
           - description: RazeePrerequestesCreated is the list of configmaps and secrets required to be installed
             displayName: Razee Prerequisites Created
             path: razeePrerequisitesCreated
@@ -634,9 +642,11 @@ spec:
           - description: AccessKeyIDRef holds reference information to an AccessKeyID stored in a secret on your cluster
             displayName: Acces Key IDRef
             path: auth.hmac.accessKeyIdRef
-          - displayName: Value From
+          - description: ValueFrom is the pointer to the secret key ref
+            displayName: Value From
             path: auth.hmac.accessKeyIdRef.valueFrom
-          - displayName: Secret Key Ref
+          - description: SecretKeyRef is the pointer to the secret key ref
+            displayName: Secret Key Ref
             path: auth.hmac.accessKeyIdRef.valueFrom.secretKeyRef
           - description: SecretAccessKey is used by AWS to calculate a request signature. Your SecretAccessKey is a shared secret known only to you and AWS
             displayName: Secret Access Key
@@ -644,9 +654,11 @@ spec:
           - description: SecretAccessKeyRef holds reference information to an SecretAccessKey stored in a secret on your cluster
             displayName: Secret Access Key Ref
             path: auth.hmac.secretAccessKeyRef
-          - displayName: Value From
+          - description: ValueFrom is the pointer to the secret key ref
+            displayName: Value From
             path: auth.hmac.secretAccessKeyRef.valueFrom
-          - displayName: Secret Key Ref
+          - description: SecretKeyRef is the pointer to the secret key ref
+            displayName: Secret Key Ref
             path: auth.hmac.secretAccessKeyRef.valueFrom.secretKeyRef
           - description: APIKey is the API Key used to authenticate to your IBM Cloud Object Storage instance
             displayName: APIKey
@@ -654,9 +666,11 @@ spec:
           - description: APIKeyRef holds reference information used to locate a secret which contains your IBM COS api key
             displayName: APIKey Ref
             path: auth.iam.apiKeyRef
-          - displayName: Value From
+          - description: ValueFrom is the pointer to the secret key ref
+            displayName: Value From
             path: auth.iam.apiKeyRef.valueFrom
-          - displayName: Secret Key Ref
+          - description: SecretKeyRef is the pointer to the secret key ref
+            displayName: Secret Key Ref
             path: auth.iam.apiKeyRef.valueFrom.secretKeyRef
           - description: GrantType determines what authentication flow will be used to generate an access token. GrantType for IAM will usually be " "urn:ibm:params:oauth:grant-type:apikey""
             displayName: Grant Type
@@ -670,16 +684,20 @@ spec:
           - description: Requests array contains information regarding the location of your remote resource
             displayName: Requests
             path: requests
-          - description: if downloading or applying a child resource fails, RemoteResource will stop execution and report error to .status. You can allow execution to continue by marking a reference as optional.
+          - description: Optional if downloading or applying a child resource fails, RemoteResource will stop execution and report error to .status. You can allow execution to continue by marking a reference as optional.
             displayName: Optional
             path: requests[0].optional
-          - displayName: Options
+          - description: Options is the configurable options for the request
+            displayName: Options
             path: requests[0].options
-          - displayName: Headers
+          - description: Headers of the request
+            displayName: Headers
             path: requests[0].options.headers
-          - displayName: URI
+          - description: URI of the request
+            displayName: URI
             path: requests[0].options.uri
-          - displayName: URL
+          - description: URL of the request
+            displayName: URL
             path: requests[0].options.url
         version: v1alpha1
   description: |
@@ -1000,20 +1018,32 @@ spec:
                           fieldRef:
                             fieldPath: metadata.name
                       - name: RELATED_IMAGE_REPORTER
-                        value: quay.io/zach_source/redhat-marketplace-reporter:latest
+                        value: quay.io/rh-marketplace/redhat-marketplace-reporter:1.0.5-31c2ff8f
                       - name: RELATED_IMAGE_KUBE_RBAC_PROXY
                         value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
                       - name: RELATED_IMAGE_METRIC_STATE
-                        value: quay.io/zach_source/redhat-marketplace-metric-state:latest
+                        value: quay.io/rh-marketplace/redhat-marketplace-metric-state:1.0.5-31c2ff8f
                       - name: RELATED_IMAGE_AUTHCHECK
-                        value: quay.io/zach_source/redhat-marketplace-authcheck:latest
+                        value: quay.io/rh-marketplace/redhat-marketplace-authcheck:1.0.5-31c2ff8f
                       - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
                         value: quay.io/razee/remoteresources3:0.6.2
                       - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
                         value: quay.io/razee/watch-keeper:0.6.6
+                      - name: RELATED_IMAGE_PROMETHEUS
+                        value: registry.redhat.io/openshift4/ose-prometheus:v4.5
+                      - name: RELATED_IMAGE_OAUTH_PROXY
+                        value: registry.redhat.io/openshift4/ose-oauth-proxy:v4.5
+                      - name: RELATED_IMAGE_PROMETHEUS_OPERATOR
+                        value: registry.redhat.io/openshift4/ose-prometheus-operator:v4.5
+                      - name: RELATED_IMAGE_CONFIGMAP_RELOADER
+                        value: registry.redhat.io/openshift4/ose-configmap-reloader:v4.5
+                      - name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
+                        value: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5
+                      - name: RELATED_IMAGE_KUBE_RBAC
+                        value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
                       - name: IBMCATALOGSOURCE
                         value: "true"
-                    image: quay.io/zach_source/redhat-marketplace-operator:latest
+                    image: quay.io/rh-marketplace/redhat-marketplace-operator:1.0.5-31c2ff8f
                     imagePullPolicy: Always
                     name: redhat-marketplace-operator
                     resources: {}
@@ -1168,5 +1198,5 @@ spec:
   maturity: stable
   provider:
     name: Red Hat Marketplace
-  replaces: redhat-marketplace-operator.v1.0.3
-  version: 1.0.4
+  replaces: redhat-marketplace-operator.v1.0.4
+  version: 1.0.5

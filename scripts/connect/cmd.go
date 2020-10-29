@@ -13,6 +13,7 @@ import (
 var (
 	pid, digest, tag string
 	timeout          int64
+	publish          bool
 	pidsToDigest     map[string]string
 )
 
@@ -96,5 +97,6 @@ func handleErr(err error) {
 func init() {
 	WaitAndPublishCmd.Flags().Int64Var(&timeout, "timeout", 10, "timeout in minutes")
 	WaitAndPublishCmd.Flags().StringVar(&tag, "tag", "", "tag of the container")
+	WaitAndPublishCmd.Flags().BoolVar(&publish, "publish", false, "publish")
 	WaitAndPublishCmd.Flags().StringToStringVar(&pidsToDigest, "pid", nil, "opsid to digest mapping")
 }

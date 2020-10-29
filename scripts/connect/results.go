@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"emperror.dev/errors"
+	"google.golang.org/genproto/googleapis/streetview/publish/v1"
 )
 
 type containerResults map[string]*containerResult
@@ -57,6 +58,11 @@ func (c containerResults) Process(client *connectClient, pids map[string]string,
 		if fetchedTag.Published {
 			fmt.Printf("pid %s has been published\n", pid)
 			c[pid].Finished = true
+			continue
+		}
+
+		if(!publish) {
+			fmt.Println("publishing disabled")
 			continue
 		}
 
