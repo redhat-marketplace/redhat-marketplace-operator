@@ -80,6 +80,7 @@ type MarketplaceConfigStatus struct {
 // +kubebuilder:resource:path=marketplaceconfigs,scope=Namespaced
 // +kubebuilder:printcolumn:name="INSTALLING",type=string,JSONPath=`.status.conditions[?(@.type == "Installing")].status`
 // +kubebuilder:printcolumn:name="STEP",type=string,JSONPath=`.status.conditions[?(@.type == "Installing")].reason`
+// +kubebuilder:printcolumn:name="REGISTRATION",type=string,JSONPath=`.status.conditions[?(@.type == "Registered")].status`
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="Marketplace"
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`RazeeDeployment,v1alpha1,"redhat-marketplace-operator"`
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`OperatorSource,v1,"redhat-marketplace-operator"`
@@ -100,6 +101,8 @@ const (
 	ConditionComplete status.ConditionType = "Complete"
 	// ConditionError means the installation has failed.
 	ConditionError status.ConditionType = "Error"
+	// ConditionError means the installation has failed.
+	ConditionRegistered status.ConditionType = "Registered"
 
 	// Reasons for install
 	ReasonStartInstall          status.ConditionReason = "StartInstall"
@@ -109,6 +112,7 @@ const (
 	ReasonCatalogSourceInstall  status.ConditionReason = "CatalogSourceInstalled"
 	ReasonCatalogSourceDelete   status.ConditionReason = "CatalogSourceDeleted"
 	ReasonInstallFinished       status.ConditionReason = "FinishedInstall"
+	ReasonRegistration          status.ConditionReason = "StartRegistration"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

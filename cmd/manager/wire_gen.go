@@ -32,7 +32,8 @@ func InitializeMarketplaceController() (*managers.ControllerMain, error) {
 	olmClusterServiceVersionController := controller.ProvideOlmClusterServiceVersionController()
 	remoteResourceS3Controller := controller.ProvideRemoteResourceS3Controller()
 	nodeController := controller.ProvideNodeController()
-	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, meterReportController, olmClusterServiceVersionController, remoteResourceS3Controller, nodeController)
+	clusterRegistrationController := controller.ProvideClusterRegistrationController()
+	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, meterReportController, olmClusterServiceVersionController, remoteResourceS3Controller, nodeController, clusterRegistrationController)
 	restConfig, err := config2.GetConfig()
 	if err != nil {
 		return nil, err

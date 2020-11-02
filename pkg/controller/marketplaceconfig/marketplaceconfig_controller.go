@@ -16,7 +16,12 @@ package marketplaceconfig
 
 import (
 	"context"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
 	"reflect"
+	"time"
 
 	"github.com/gotidy/ptr"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -28,6 +33,7 @@ import (
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	pflag "github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,6 +52,10 @@ const (
 	CSCFinalizer                    = "finalizer.MarketplaceConfigs.operators.coreos.com"
 	RELATED_IMAGE_MARKETPLACE_AGENT = "RELATED_IMAGE_MARKETPLACE_AGENT"
 	DEFAULT_IMAGE_MARKETPLACE_AGENT = "marketplace-agent:latest"
+	RHM_REGISTRATION_ENDPOINT       = "https://marketplace.redhat.com/provisioning/v1/registered-clusters?accountId=account-id&uuid=cluster-uuid&status=INSTALLED"
+	RHM_PULL_SECRET_ENDPOINT        = "https://marketplace.redhat.com/provisioning/v1/rhm-operator/rhm-operator-secret"
+	RHM_PULL_SECRET_NAME            = "redhat-marketplace-pull-secret"
+	RHM_PULL_SECRET_KEY             = "PULL_SECRET"
 	IBM_CATALOG_SOURCE_FLAG         = true
 )
 
@@ -468,9 +478,83 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		reqLogger.Error(err, "failed to update status")
 		return reconcile.Result{}, err
 	}
-
+	reqLogger.Info("Finding Cluster registration status")
+	//Fetch the Secret with name redhat-marketplace-pull-secret
+	secret := v1.Secret{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: RHM_PULL_SECRET_NAME, Namespace: request.Namespace}, &secret)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	//Calling POST endpoint to pull the secret definition
+	bearerToken := "Bearer " + string(secret.Data[RHM_PULL_SECRET_KEY])
+	httpClient := &http.Client{}
+	accountId := marketplaceConfig.Spec.RhmAccountID
+	clusterUuid := marketplaceConfig.Spec.ClusterUUID
+	u, err := url.Parse(RHM_REGISTRATION_ENDPOINT)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	q := u.Query()
+	q.Set("accountId", accountId)
+	q.Set("uuid", clusterUuid)
+	u.RawQuery = q.Encode()
+	req, _ := http.NewRequest("GET", u.String(), nil)
+	req.Header.Add("Authorization", bearerToken)
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	defer resp.Body.Close()
+	clusterDef, err := ioutil.ReadAll(resp.Body)
+	if resp.StatusCode == 200 && string(clusterDef) != "" {
+		reqLogger.Info("Cluster Registered")
+		message := "Cluster Registered Successfully"
+		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionRegistered,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonRegistration,
+			Message: message,
+		})
+	} else if resp.StatusCode == 500 {
+		message := "Registration Service Unavailable"
+		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionError,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonRegistration,
+			Message: message,
+		})
+	} else if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+		message := "Client Error, Please check connection to registration service "
+		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionError,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonRegistration,
+			Message: message,
+		})
+	} else if resp.StatusCode == 408 {
+		message := "DNS/Internet gateway failure - Disconnected env "
+		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionError,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonRegistration,
+			Message: message,
+		})
+	} else {
+		message := fmt.Sprint("Error with Cluster Registration with http status code: ", resp.StatusCode)
+		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionError,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonRegistration,
+			Message: message,
+		})
+	}
+	err = r.client.Status().Update(context.TODO(), marketplaceConfig)
+	if err != nil {
+		reqLogger.Error(err, "Failed to update status")
+		return reconcile.Result{}, err
+	}
 	reqLogger.Info("reconciling finished")
-	return reconcile.Result{}, nil
+	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
 }
 
 // labelsForMarketplaceConfig returs the labels for selecting the resources
