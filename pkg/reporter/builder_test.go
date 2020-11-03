@@ -71,7 +71,7 @@ var _ = Describe("Builder", func() {
 	It("should add metrics to a base", func() {
 		Expect(metricBase.AddMetrics("foo", 1, "bar", 2)).To(Succeed())
 		Expect(metricBase.AddAdditionalLabels("extra", "g")).To(Succeed())
-		Expect(metricsReport.AddMetricsToReport(metricBase)).To(Succeed())
+		Expect(metricsReport.AddMetrics(metricBase)).To(Succeed())
 		Expect(len(metricsReport.Metrics)).To(Equal(1))
 
 		id := func(element interface{}) string {
