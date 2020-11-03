@@ -194,7 +194,7 @@ func (m *MetricBase) AddMetrics(keysAndValues ...interface{}) error {
 	return nil
 }
 
-func (m *MetricsReport) AddMetricsToReport(metrics ...*MetricBase) error {
+func (m *MetricsReport) AddMetrics(metrics ...*MetricBase) error {
 	for _, metric := range metrics {
 		result := make(map[string]interface{})
 		err := mapstructure.Decode(metric, &result)
