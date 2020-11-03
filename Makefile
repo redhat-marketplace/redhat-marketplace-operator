@@ -11,6 +11,11 @@ CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 DOCKER_EXEC ?= $(shell command -v docker)
 DEVPOSTFIX ?= ""
 
+# set these variables to the tag or SHA for the ubi image used in the Dockerfile.
+# use 'docker manifest inspect registry.access.redhat.com/ubi8/ubi-minimal:<tag>' to get the SHA values
+UBI_IMAGE_SHA_PPC=2507309a69f786388f4aad70cfd27a4582f3bd2df19a4608166845a1ba4d6f36
+UBI_IMAGE_SHA_390=8782de8892bd10bbfa0220442fc71d45e660f0e8a811000f0f5d729ebffff645
+
 SERVICE_ACCOUNT := redhat-marketplace-operator
 SECRETS_NAME := my-docker-secrets
 
@@ -96,6 +101,39 @@ BUILD_IMAGE ?= redhat-marketplace-operator
 .PHONY: build
 build-image: $(skaffold) ## Build the operator executable
 	VERSION=$(VERSION) $(skaffold) build --tag $(OPERATOR_IMAGE_TAG) --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --cache-artifacts=false -b $(BUILD_IMAGE)
+
+# build architecture-specific images
+.PHONY: build-amd
+build-amd: $(skaffold) ## Build the operator executable for amd64
+	@echo Building amd64 image
+	VERSION=$(VERSION) $(skaffold) build --profile amd --tag $(OPERATOR_IMAGE_TAG) --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --cache-artifacts=false
+
+.PHONY: build-ppc
+build-ppc: $(skaffold) ## Build the operator executable for ppc64le
+	@echo Building ppc64le image
+	@docker run --rm --privileged multiarch/qemu-user-static:register --reset
+	VERSION=$(VERSION) ARCH=ppc64le UBI_IMAGE_SHA=$(UBI_IMAGE_SHA_PPC) $(skaffold) build --profile ppc --tag $(OPERATOR_IMAGE_TAG) --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --cache-artifacts=false
+
+.PHONY: build-390
+build-390: $(skaffold) ## Build the operator executable for s390x
+	@echo Building s390x image
+	@docker run --rm --privileged multiarch/qemu-user-static:register --reset
+	VERSION=$(VERSION) ARCH=s390x UBI_IMAGE_SHA=$(UBI_IMAGE_SHA_390) $(skaffold) build --profile s390 --tag $(OPERATOR_IMAGE_TAG) --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --cache-artifacts=false
+
+# build multiarch images
+.PHONY: build-multiarch
+build-multiarch:
+	@echo Building multiarch images
+	@curl -L -o /tmp/manifest-tool https://github.com/estesp/manifest-tool/releases/download/v1.0.0/manifest-tool-linux-amd64
+	@chmod +x /tmp/manifest-tool
+	/tmp/manifest-tool push from-args --platforms linux/amd64,linux/ppc64le,linux/s390x --template $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME)-ARCH:$(OPERATOR_IMAGE_TAG) --target $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME) --ignore-missing
+	/tmp/manifest-tool push from-args --platforms linux/amd64,linux/ppc64le,linux/s390x --template $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME)-ARCH:$(OPERATOR_IMAGE_TAG) --target $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG) --ignore-missing
+	/tmp/manifest-tool push from-args --platforms linux/amd64,linux/ppc64le,linux/s390x --template $(IMAGE_REGISTRY)/$(REPORTER_IMAGE_NAME)-ARCH:$(REPORTER_IMAGE_TAG) --target $(IMAGE_REGISTRY)/$(REPORTER_IMAGE_NAME) --ignore-missing
+	/tmp/manifest-tool push from-args --platforms linux/amd64,linux/ppc64le,linux/s390x --template $(IMAGE_REGISTRY)/$(REPORTER_IMAGE_NAME)-ARCH:$(REPORTER_IMAGE_TAG) --target $(IMAGE_REGISTRY)/$(REPORTER_IMAGE_NAME):$(REPORTER_IMAGE_TAG) --ignore-missing
+	/tmp/manifest-tool push from-args --platforms linux/amd64,linux/ppc64le,linux/s390x --template $(IMAGE_REGISTRY)/$(METRIC_STATE_IMAGE_NAME)-ARCH:$(METRIC_STATE_IMAGE_TAG) --target $(IMAGE_REGISTRY)/$(METRIC_STATE_IMAGE_NAME) --ignore-missing
+	/tmp/manifest-tool push from-args --platforms linux/amd64,linux/ppc64le,linux/s390x --template $(IMAGE_REGISTRY)/$(METRIC_STATE_IMAGE_NAME)-ARCH:$(METRIC_STATE_IMAGE_TAG) --target $(IMAGE_REGISTRY)/$(METRIC_STATE_IMAGE_NAME):$(METRIC_STATE_IMAGE_TAG) --ignore-missing
+	/tmp/manifest-tool push from-args --platforms linux/amd64,linux/ppc64le,linux/s390x --template $(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME)-ARCH:$(AUTHCHECK_IMAGE_TAG) --target $(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME) --ignore-missing
+	/tmp/manifest-tool push from-args --platforms linux/amd64,linux/ppc64le,linux/s390x --template $(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME)-ARCH:$(AUTHCHECK_IMAGE_TAG) --target $(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME):$(AUTHCHECK_IMAGE_TAG) --ignore-missing
 
 helm: ## build helm base charts
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=$(OPERATOR_IMAGE),metricStateImage=$(METRIC_STATE_IMAGE),reporterImage=$(REPORTER_IMAGE),authCheckImage=$(AUTHCHECK_IMAGE) --set namespace=$(NAMESPACE)
