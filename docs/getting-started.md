@@ -37,7 +37,7 @@ These are core skills that are always applicable, regardless of what aspect of t
   - [Channels](https://tour.golang.org/concurrency/2) (**Recommended**)
 - Operators
   - [Read the intro blog ](https://coreos.com/blog/introducing-operators.html)
-  - Walk through the [operator-sdk getting started](https://github.com/operator-framework/getting-started)
+  - Walk through the [operator-sdk getting started](https://sdk.operatorframework.io/docs/building-operators/golang/quickstart/)
 - Kubernetes
   - [Basics](https://kubernetes.io/docs/tutorials/kubernetes-basics/)
   - [Deploy a deploymentset](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
@@ -69,7 +69,7 @@ Some extra resources that could be useful.
 These are the required tools (and coding languages) to get the project up and running.
 1. Install [golang](https://golang.org/doc/install)
 1. Install [operator-sdk](https://github.com/operator-framework/operator-sdk)
-1. Install [minikube](https://kubernetes.io/docs/tasks/tools/install-minikube/) or Install [CRC](https://developers.redhat.com/products/codeready-containers) (**Recommended**)
+1. Install [minikube](https://kubernetes.io/docs/tasks/tools/install-minikube/) and Install [CRC](https://developers.redhat.com/products/codeready-containers) (**Recommended**)
 1. Install [docker-for-mac](https://docs.docker.com/docker-for-mac/install)
 
 _Note:_ You can use minikube, but we'll need to install additional resources.
