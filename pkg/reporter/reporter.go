@@ -430,7 +430,7 @@ func (r *MarketplaceReporter) WriteReport(
 		metricReport := NewReport()
 		metadata.AddMetricsReport(metricReport)
 
-		err := metricReport.AddMetricsToReport(metricsArr[idxRange.Low:idxRange.High]...)
+		err := metricReport.AddMetrics(metricsArr[idxRange.Low:idxRange.High]...)
 
 		if err != nil {
 			return filenames, err
