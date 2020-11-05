@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -56,6 +57,10 @@ func providePodMonitorConfig() runnables.PodMonitorConfig {
 		Namespace: "openshift-redhat-marketplace",
 		RetryTime: 30 * time.Second,
 	}
+}
+
+func provideContext() context.Context {
+	return context.TODO()
 }
 
 func makeMarketplaceController(

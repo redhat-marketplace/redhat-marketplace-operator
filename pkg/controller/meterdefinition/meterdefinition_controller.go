@@ -21,6 +21,7 @@ import (
 	"time"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/prometheus/client_golang/api"
 	v1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/meter_definition"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
@@ -52,18 +53,20 @@ var store *meter_definition.MeterDefinitionStore
 func Add(
 	mgr manager.Manager,
 	ccprovider ClientCommandRunnerProvider,
+	promAPIClient api.Client,
 ) error {
-	return add(mgr, newReconciler(mgr, ccprovider))
+	return add(mgr, newReconciler(mgr, ccprovider,promAPIClient))
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider, promAPIClient api.Client) reconcile.Reconciler {
 	opts := &MeterDefOpts{}
 
 	return &ReconcileMeterDefinition{
 		client:     mgr.GetClient(),
 		scheme:     mgr.GetScheme(),
 		ccprovider: ccprovider,
+		promAPIClient: promAPIClient,
 		opts:       opts,
 		patcher:    patch.RHMDefaultPatcher,
 	}
@@ -96,6 +99,7 @@ type ReconcileMeterDefinition struct {
 	client     client.Client
 	scheme     *runtime.Scheme
 	ccprovider ClientCommandRunnerProvider
+	promAPIClient api.Client
 	opts       *MeterDefOpts
 	patcher    patch.Patcher
 }
@@ -109,7 +113,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	reqLogger.Info("Reconciling MeterDefinition")
 
 	cc := r.ccprovider.NewCommandRunner(r.client, r.scheme, reqLogger)
-
+	
 	// Fetch the MeterDefinition instance
 	instance := &v1alpha1.MeterDefinition{}
 	result, _ := cc.Do(context.TODO(), GetAction(request.NamespacedName, instance))

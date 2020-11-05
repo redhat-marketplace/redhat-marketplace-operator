@@ -6,12 +6,13 @@
 package main
 
 import (
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
+	config2 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers/runnables"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/reporter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
-	config2 "sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 // Injectors from wire.go:
@@ -21,19 +22,8 @@ func InitializeMarketplaceController() (*managers.ControllerMain, error) {
 	defaultCommandRunnerProvider := reconcileutils.ProvideDefaultCommandRunnerProvider()
 	marketplaceController := controller.ProvideMarketplaceController(defaultCommandRunnerProvider)
 	meterbaseController := controller.ProvideMeterbaseController(defaultCommandRunnerProvider)
-	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider)
-	razeeDeployController := controller.ProvideRazeeDeployController()
-	olmSubscriptionController := controller.ProvideOlmSubscriptionController()
-	operatorConfig, err := config.ProvideConfig()
-	if err != nil {
-		return nil, err
-	}
-	meterReportController := controller.ProvideMeterReportController(defaultCommandRunnerProvider, operatorConfig)
-	olmClusterServiceVersionController := controller.ProvideOlmClusterServiceVersionController()
-	remoteResourceS3Controller := controller.ProvideRemoteResourceS3Controller()
-	nodeController := controller.ProvideNodeController()
-	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, meterReportController, olmClusterServiceVersionController, remoteResourceS3Controller, nodeController)
-	restConfig, err := config2.GetConfig()
+	context := provideContext()
+	restConfig, err := config.GetConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -55,9 +45,29 @@ func InitializeMarketplaceController() (*managers.ControllerMain, error) {
 	if err != nil {
 		return nil, err
 	}
-	logrLogger := _wireLoggerValue
 	client := managers.ProvideManagerClient(manager)
+	logrLogger := _wireLoggerValue
 	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logrLogger)
+	service, err := reporter.QueryForPrometheusService(context, clientCommandRunner)
+	if err != nil {
+		return nil, err
+	}
+	apiClient, err := reporter.ProvideApiClient(service)
+	if err != nil {
+		return nil, err
+	}
+	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider, apiClient)
+	razeeDeployController := controller.ProvideRazeeDeployController()
+	olmSubscriptionController := controller.ProvideOlmSubscriptionController()
+	operatorConfig, err := config2.ProvideConfig()
+	if err != nil {
+		return nil, err
+	}
+	meterReportController := controller.ProvideMeterReportController(defaultCommandRunnerProvider, operatorConfig)
+	olmClusterServiceVersionController := controller.ProvideOlmClusterServiceVersionController()
+	remoteResourceS3Controller := controller.ProvideRemoteResourceS3Controller()
+	nodeController := controller.ProvideNodeController()
+	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, meterReportController, olmClusterServiceVersionController, remoteResourceS3Controller, nodeController)
 	podMonitorConfig := providePodMonitorConfig()
 	podMonitor := runnables.NewPodMonitor(logrLogger, clientCommandRunner, podMonitorConfig)
 	controllerMain := makeMarketplaceController(controllerFlagSet, controllerList, manager, podMonitor)

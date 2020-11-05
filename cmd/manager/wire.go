@@ -24,11 +24,15 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers/runnables"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/reporter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 )
 
 func InitializeMarketplaceController() (*managers.ControllerMain, error) {
 	panic(wire.Build(
+		provideContext,
+		reporter.QueryForPrometheusService,
+		reporter.ProvideApiClient,
 		config.ProvideConfig,
 		controller.ControllerSet,
 		controller.ProvideControllerFlagSet,
