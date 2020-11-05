@@ -175,6 +175,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	err = c.Watch(&source.Kind{Type: &appsv1.StatefulSet{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &marketplacev1alpha1.MeterBase{},
+	})
+	if err != nil {
+		return err
+	}
+
 	mapFn := handler.ToRequestsFunc(
 		func(a handler.MapObject) []reconcile.Request {
 			return []reconcile.Request{
@@ -325,31 +333,29 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 			}, prometheusStatefulset),
 			OnContinue(Call(func() (ClientAction, error) {
 				updatedInstance := instance.DeepCopy()
-				updatedInstance.Status.Replicas = &prometheusStatefulset.Status.CurrentReplicas
+				updatedInstance.Status.Replicas = &prometheusStatefulset.Status.Replicas
 				updatedInstance.Status.UpdatedReplicas = &prometheusStatefulset.Status.UpdatedReplicas
 				updatedInstance.Status.AvailableReplicas = &prometheusStatefulset.Status.ReadyReplicas
 				updatedInstance.Status.UnavailableReplicas = ptr.Int32(
 					prometheusStatefulset.Status.CurrentReplicas - prometheusStatefulset.Status.ReadyReplicas)
 
-				if reflect.DeepEqual(updatedInstance.Status, instance.Status) {
-					reqLogger.Info("prometheus statefulset status is up to date")
-					return nil, nil
-				}
-
 				var action ClientAction = nil
 
 				reqLogger.Info("statefulset status", "status", updatedInstance.Status)
 
-				if updatedInstance.Status.Replicas != updatedInstance.Status.AvailableReplicas {
+				if prometheusStatefulset.Status.Replicas != prometheusStatefulset.Status.ReadyReplicas {
 					reqLogger.Info("prometheus statefulset has not finished roll out",
-						"replicas", updatedInstance.Status.Replicas,
-						"available", updatedInstance.Status.AvailableReplicas)
-					action = RequeueAfterResponse(30 * time.Second)
+						"replicas", prometheusStatefulset.Status.Replicas,
+						"ready", prometheusStatefulset.Status.ReadyReplicas)
+					action = RequeueAfterResponse(5 * time.Second)
 				}
 
-				return HandleResult(
-					UpdateAction(updatedInstance, UpdateStatusOnly(true)),
-					OnContinue(action)), nil
+				if !reflect.DeepEqual(updatedInstance.Status, instance.Status) {
+					reqLogger.Info("prometheus statefulset status is up to date")
+					return HandleResult(UpdateAction(updatedInstance, UpdateStatusOnly(true)), OnContinue(action)), nil
+				}
+
+				return action, nil
 			})),
 			OnNotFound(Call(func() (ClientAction, error) {
 				log.Info("can't find prometheus statefulset, requeuing")

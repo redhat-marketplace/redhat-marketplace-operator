@@ -3,6 +3,16 @@ kind: CustomResourceDefinition
 metadata:
   name: razeedeployments.marketplace.redhat.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.installConditions[?(@.type == "Installing")].status
+    name: INSTALLING
+    type: string
+  - JSONPath: .status.installConditions[?(@.type == "Installing")].reason
+    name: STEP
+    type: string
+  - JSONPath: .status.nodesFromRazeeDeploymentsCount
+    name: APPS
+    type: integer
   group: marketplace.redhat.com
   names:
     kind: RazeeDeployment
@@ -271,6 +281,11 @@ spec:
               items:
                 type: string
               type: array
+            nodesFromRazeeDeploymentsCount:
+              description: NodesFromRazeeDeploymentsCount contains the pods names
+                created by the rhm-watch-keeper and rhm-remote-resources3-controller
+                deployments
+              type: integer
             razee_job_install:
               description: RazeeJobInstall contains information regarding the install
                 job so it can be removed

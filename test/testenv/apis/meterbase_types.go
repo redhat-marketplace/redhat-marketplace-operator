@@ -25,7 +25,6 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -113,10 +112,7 @@ var _ = Describe("MeterBase", func() {
 			}))
 
 			By("deleting the created object")
-			Expect(K8sClient.Delete(context.TODO(), &created)).To(Succeed())
-			err := K8sClient.Get(context.TODO(), key, &created)
-			Expect(err).To(HaveOccurred())
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(K8sClient.Get(context.TODO(), key, &created)).To(Succeed())
 		})
 	})
 })

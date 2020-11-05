@@ -3,6 +3,13 @@ kind: CustomResourceDefinition
 metadata:
   name: marketplaceconfigs.marketplace.redhat.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.conditions[?(@.type == "Installing")].status
+    name: INSTALLING
+    type: string
+  - JSONPath: .status.conditions[?(@.type == "Installing")].reason
+    name: STEP
+    type: string
   group: marketplace.redhat.com
   names:
     kind: MarketplaceConfig

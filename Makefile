@@ -457,7 +457,7 @@ OS_PIDS ?= ""
 REPOS ?= ""
 TAG ?= ""
 CREDS ?= ""
-TIMEOUT ?= 20
+TIMEOUT ?= 15
 
 wait-and-publish:
 	RESULTS=""; \
@@ -514,6 +514,7 @@ opm-bundle-last-stable: ## Bundle latest for stable
 	docker push "$(OLM_REPO):$(VERSION)"
 
 opm-index-base: ## Create an index base
+	git fetch --tags
 	./scripts/opm_build_index.sh $(OLM_REPO) $(OLM_BUNDLE_REPO) $(TAG) $(VERSION)
 
 install-test-registry: ## Install the test registry
