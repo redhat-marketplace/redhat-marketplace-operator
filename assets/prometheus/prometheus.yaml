@@ -106,6 +106,8 @@ spec:
   priorityClassName: system-cluster-critical
   listenLocal: true
   retention: 30d
+  image: registry.redhat.io/openshift4/ose-prometheus:latest
+  imagePullPolicy: IfNotPresent
   nodeSelector:
     kubernetes.io/os: linux
   securityContext: {}

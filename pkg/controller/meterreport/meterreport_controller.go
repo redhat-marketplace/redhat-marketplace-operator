@@ -230,7 +230,7 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 		}
 
 		reqLogger.Info("requeueing", "jr", jr)
-		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
 	reqLogger.Info("job is done", "jr", jr)

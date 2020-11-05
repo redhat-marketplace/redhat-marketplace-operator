@@ -175,6 +175,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	err = c.Watch(&source.Kind{Type: &appsv1.StatefulSet{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &marketplacev1alpha1.MeterBase{},
+	})
+	if err != nil {
+		return err
+	}
+
 	mapFn := handler.ToRequestsFunc(
 		func(a handler.MapObject) []reconcile.Request {
 			return []reconcile.Request{
@@ -325,31 +333,29 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 			}, prometheusStatefulset),
 			OnContinue(Call(func() (ClientAction, error) {
 				updatedInstance := instance.DeepCopy()
-				updatedInstance.Status.Replicas = &prometheusStatefulset.Status.CurrentReplicas
+				updatedInstance.Status.Replicas = &prometheusStatefulset.Status.Replicas
 				updatedInstance.Status.UpdatedReplicas = &prometheusStatefulset.Status.UpdatedReplicas
 				updatedInstance.Status.AvailableReplicas = &prometheusStatefulset.Status.ReadyReplicas
 				updatedInstance.Status.UnavailableReplicas = ptr.Int32(
 					prometheusStatefulset.Status.CurrentReplicas - prometheusStatefulset.Status.ReadyReplicas)
 
-				if reflect.DeepEqual(updatedInstance.Status, instance.Status) {
-					reqLogger.Info("prometheus statefulset status is up to date")
-					return nil, nil
-				}
-
 				var action ClientAction = nil
 
 				reqLogger.Info("statefulset status", "status", updatedInstance.Status)
 
-				if updatedInstance.Status.Replicas != updatedInstance.Status.AvailableReplicas {
+				if prometheusStatefulset.Status.Replicas != prometheusStatefulset.Status.ReadyReplicas {
 					reqLogger.Info("prometheus statefulset has not finished roll out",
-						"replicas", updatedInstance.Status.Replicas,
-						"available", updatedInstance.Status.AvailableReplicas)
-					action = RequeueAfterResponse(30 * time.Second)
+						"replicas", prometheusStatefulset.Status.Replicas,
+						"ready", prometheusStatefulset.Status.ReadyReplicas)
+					action = RequeueAfterResponse(5 * time.Second)
 				}
 
-				return HandleResult(
-					UpdateAction(updatedInstance, UpdateStatusOnly(true)),
-					OnContinue(action)), nil
+				if !reflect.DeepEqual(updatedInstance.Status, instance.Status) {
+					reqLogger.Info("prometheus statefulset status is up to date")
+					return HandleResult(UpdateAction(updatedInstance, UpdateStatusOnly(true)), OnContinue(action)), nil
+				}
+
+				return action, nil
 			})),
 			OnNotFound(Call(func() (ClientAction, error) {
 				log.Info("can't find prometheus statefulset, requeuing")
@@ -405,12 +411,20 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 				minDate = utils.TruncateTime(minDate, loc)
 
 				expectedCreatedDates := r.generateExpectedDates(endDate, loc, dateRangeInDays, minDate)
-				foundCreatedDates := r.generateFoundCreatedDates(meterReportNames)
+				foundCreatedDates, err := r.generateFoundCreatedDates(meterReportNames)
+
+				if err != nil {
+					return nil, err
+				}
 
 				log.Info("report dates", "expected", expectedCreatedDates, "found", foundCreatedDates, "min", minDate)
 				err = r.createReportIfNotFound(expectedCreatedDates, foundCreatedDates, request, instance)
 
-				return nil, err
+				if err != nil {
+					return nil, err
+				}
+
+				return nil, nil
 			})),
 			OnNotFound(Call(func() (ClientAction, error) {
 				log.Info("can't find meter report list, requeuing")
@@ -456,7 +470,12 @@ func (r *ReconcileMeterBase) removeOldReports(meterReportNames []string, loc *ti
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	limit := utils.TruncateTime(time.Now(), loc).AddDate(0, 0, dateRange)
 	for _, reportName := range meterReportNames {
-		dateCreated, _ := r.retrieveCreatedDate(reportName)
+		dateCreated, err := r.retrieveCreatedDate(reportName)
+
+		if err != nil {
+			continue
+		}
+
 		if dateCreated.Before(limit) {
 			reqLogger.Info("Deleting Report", "Resource", reportName)
 			meterReportNames = utils.RemoveKey(meterReportNames, reportName)
@@ -499,7 +518,13 @@ func (r *ReconcileMeterBase) sortMeterReports(meterReportList *marketplacev1alph
 }
 
 func (r *ReconcileMeterBase) retrieveCreatedDate(reportName string) (time.Time, error) {
-	dateString := strings.SplitN(reportName, "-", 3)[2:]
+	splitStr := strings.SplitN(reportName, "-", 3)
+
+	if len(splitStr) != 3 {
+		return time.Now(), errors.New("failed to get date")
+	}
+
+	dateString := splitStr[2:]
 	return time.Parse(utils.DATE_FORMAT, strings.Join(dateString, ""))
 }
 
@@ -513,13 +538,20 @@ func (r *ReconcileMeterBase) newMeterReportNameFromString(dateString string) str
 	return fmt.Sprintf("%s%s", utils.METER_REPORT_PREFIX, dateSuffix)
 }
 
-func (r *ReconcileMeterBase) generateFoundCreatedDates(meterReportNames []string) []string {
+func (r *ReconcileMeterBase) generateFoundCreatedDates(meterReportNames []string) ([]string, error) {
 	var foundCreatedDates []string
 	for _, reportName := range meterReportNames {
-		dateString := strings.SplitN(reportName, "-", 3)[2:]
+		splitStr := strings.SplitN(reportName, "-", 3)
+
+		if len(splitStr) != 3 {
+			log.Info("meterreport name was irregular", "name", reportName)
+			continue
+		}
+
+		dateString := splitStr[2:]
 		foundCreatedDates = append(foundCreatedDates, strings.Join(dateString, ""))
 	}
-	return foundCreatedDates
+	return foundCreatedDates, nil
 }
 
 func (r *ReconcileMeterBase) generateExpectedDates(endTime time.Time, loc *time.Location, dateRange int, minDate time.Time) []string {
@@ -620,12 +652,11 @@ func (r *ReconcileMeterBase) reconcilePrometheusOperator(
 		ListAction(nsList, client.MatchingLabelsSelector{
 			Selector: nsLabelSelector,
 		}),
-		manifests.CreateOrUpdateFactoryItemAction(
+		manifests.CreateIfNotExistsFactoryItem(
 			cm,
 			func() (runtime.Object, error) {
 				return factory.NewPrometheusOperatorCertsCABundle()
 			},
-			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
 			service,

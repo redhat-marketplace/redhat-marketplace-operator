@@ -7,7 +7,8 @@
     "kubernetes.default",
     "kubernetes.default.svc",
     "kubernetes.default.svc.cluster",
-    "kubernetes.default.svc.cluster.local"
+    "kubernetes.default.svc.cluster.local",
+    "*.openshift-redhat-marketplace.svc"
   ],
   "key": {
     "algo": "rsa",

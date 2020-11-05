@@ -16,30 +16,23 @@ package reporter
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
 
-	"bytes"
-
 	"emperror.dev/errors"
-	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/gotidy/ptr"
-	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	"github.com/prometheus/client_golang/api"
 	"github.com/prometheus/common/log"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/version"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/util/jsonpath"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -53,7 +46,7 @@ type Task struct {
 	Ctx       context.Context
 	Config    *Config
 	K8SScheme *runtime.Scheme
-	Uploader  *RedHatInsightsUploader
+	Uploader
 }
 
 func (r *Task) Run() error {
@@ -203,64 +196,6 @@ func getClientOptions() managers.ClientOptions {
 	}
 }
 
-func provideProductionInsights(
-	ctx context.Context,
-	cc ClientCommandRunner,
-	log logr.Logger,
-	isCacheStarted managers.CacheIsStarted,
-) (*RedHatInsightsUploaderConfig, error) {
-	secret := &corev1.Secret{}
-	clusterVersion := &openshiftconfigv1.ClusterVersion{}
-	result, _ := cc.Do(ctx,
-		GetAction(types.NamespacedName{
-			Name:      "pull-secret",
-			Namespace: "openshift-config",
-		}, secret),
-		GetAction(types.NamespacedName{
-			Name: "version",
-		}, clusterVersion))
-
-	if !result.Is(Continue) {
-		return nil, result
-	}
-
-	dockerConfigBytes, ok := secret.Data[".dockerconfigjson"]
-
-	if !ok {
-		return nil, errors.New(".dockerconfigjson is not found in secret")
-	}
-
-	var dockerObj interface{}
-	err := json.Unmarshal(dockerConfigBytes, &dockerObj)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal dockerConfigJson object")
-	}
-
-	cloudAuthPath := jsonpath.New("cloudauthpath")
-	err = cloudAuthPath.Parse(`{.auths.cloud\.openshift\.com.auth}`)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get jsonpath of cloud token")
-	}
-
-	buf := new(bytes.Buffer)
-	err = cloudAuthPath.Execute(buf, dockerObj)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get jsonpath of cloud token")
-	}
-
-	cloudToken := buf.String()
-
-	return &RedHatInsightsUploaderConfig{
-		URL:             "https://cloud.redhat.com",
-		ClusterID:       string(clusterVersion.Spec.ClusterID), // get from cluster
-		OperatorVersion: version.Version,
-		Token:           cloudToken, // get from secret
-	}, nil
-}
-
 func getMarketplaceConfig(
 	ctx context.Context,
 	cc ClientCommandRunner,
@@ -347,10 +282,10 @@ func getMeterDefinitions(
 	if result.Is(Error) {
 		return nil, errors.Wrap(result, "failed to get meterdefs")
 	}
-  
+
 	if result.Is(NotFound) {
 		return []marketplacev1alpha1.MeterDefinition{}, nil
 	}
-  
+
 	return defs.Items, nil
 }

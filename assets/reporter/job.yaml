@@ -23,13 +23,24 @@ spec:
               '--cafile',
               '/etc/configmaps/operator-cert-ca-bundle/service-ca.crt',
               '--tokenfile',
-              '/var/run/secrets/kubernetes.io/serviceaccount/token',
+              '/etc/auth-service-account/token',
             ]
+          runAsUser:
           volumeMounts:
             - mountPath: /etc/configmaps/operator-cert-ca-bundle
               name: operator-certs-ca-bundle
+              readOnly: true
+            - mountPath: /etc/auth-service-account
+              name: token-vol
               readOnly: true
       volumes:
         - configMap:
             name: operator-certs-ca-bundle
           name: operator-certs-ca-bundle
+        - name: token-vol
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: rhm-prometheus-meterbase.openshift-redhat-marketplace.svc
+                  expirationSeconds: 3600
+                  path: token

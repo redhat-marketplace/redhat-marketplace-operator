@@ -48,7 +48,7 @@ var _ = PDescribe("Reporter", func() {
 		config        *marketplacev1alpha1.MarketplaceConfig
 		report        *marketplacev1alpha1.MeterReport
 		dir, dir2     string
-		uploader      *RedHatInsightsUploader
+		uploader      Uploader
 		generatedFile string
 
 		startStr = "2020-04-19T00:00:00Z"
@@ -112,12 +112,12 @@ var _ = PDescribe("Reporter", func() {
 		})
 
 		Expect(err).To(Succeed())
-		uploader.client.Transport = &stubRoundTripper{
+		uploader.(*RedHatInsightsUploader).client.Transport = &stubRoundTripper{
 			roundTrip: func(req *http.Request) *http.Response {
 				headers := make(http.Header)
 				headers.Add("content-type", "text")
 
-				Expect(req.URL.String()).To(Equal(fmt.Sprintf(uploadURL, uploader.URL)), "url does not match expected")
+				Expect(req.URL.String()).To(Equal(fmt.Sprintf(uploadURL, uploader.(*RedHatInsightsUploader).URL)), "url does not match expected")
 				_, meta, _ := req.FormFile("file")
 				header := meta.Header
 

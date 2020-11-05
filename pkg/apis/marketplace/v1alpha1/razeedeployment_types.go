@@ -147,6 +147,10 @@ type RazeeDeploymentStatus struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	NodesFromRazeeDeployments []string `json:"nodesFromRazeeDeployments,omitempty"`
+	// NodesFromRazeeDeploymentsCount contains the pods names created by the rhm-watch-keeper and rhm-remote-resources3-controller deployments
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	NodesFromRazeeDeploymentsCount int `json:"nodesFromRazeeDeploymentsCount,omitempty"`
 }
 
 type RazeeJobInstallStruct struct {
@@ -166,6 +170,9 @@ type RazeeJobInstallStruct struct {
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=razeedeployments,scope=Namespaced
+// +kubebuilder:printcolumn:name="INSTALLING",type=string,JSONPath=`.status.installConditions[?(@.type == "Installing")].status`
+// +kubebuilder:printcolumn:name="STEP",type=string,JSONPath=`.status.installConditions[?(@.type == "Installing")].reason`
+// +kubebuilder:printcolumn:name="APPS",type=integer,JSONPath=`.status.nodesFromRazeeDeploymentsCount`
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="(Internal) Razee Deployment"
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`Deployment,v1,"redhat-marketplace-operator"`
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`ConfigMap,v1,"redhat-marketplace-operator"`

@@ -35,6 +35,7 @@ type Config struct {
 	TokenFile       string
 	Local           bool
 	Upload          bool
+	UploaderTarget
 }
 
 const (
@@ -53,6 +54,10 @@ func (c *Config) SetDefaults() {
 
 	if c.Retry == nil {
 		c.Retry = ptr.Int(5)
+	}
+
+	if c.UploaderTarget == "" {
+		c.UploaderTarget = UploaderTargetRedHatInsights
 	}
 }
 

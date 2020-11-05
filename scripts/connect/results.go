@@ -60,6 +60,11 @@ func (c containerResults) Process(client *connectClient, pids map[string]string,
 			continue
 		}
 
+		if(!publishImage) {
+			fmt.Println("publishing disabled")
+			continue
+		}
+
 		fmt.Printf("pid %s with tag %s passed scan, publishing...\n", pid, tag)
 
 		result, err := client.PublishDigest(pid, fetchedTag.Digest, tag)
@@ -72,6 +77,12 @@ func (c containerResults) Process(client *connectClient, pids map[string]string,
 
 			c[pid].Finished = true
 			c[pid].Error = err
+			continue
+		}
+
+		if result.IsAlreadyPublished() {
+			fmt.Printf("pid %s has been published\n", pid)
+			c[pid].Finished = true
 			continue
 		}
 

@@ -58,6 +58,7 @@ type ReportSourceMetadata struct {
 	RhmClusterID   string            `json:"rhmClusterId"`
 	RhmAccountID   string            `json:"rhmAccountId"`
 	RhmEnvironment ReportEnvironment `json:"rhmEnvironment,omitempty"`
+	Version        string            `json:"version,omitempty"`
 }
 
 type ReportSliceKey uuid.UUID

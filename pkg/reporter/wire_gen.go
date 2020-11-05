@@ -47,11 +47,8 @@ func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task
 	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logrLogger)
 	cacheIsIndexed := managers.CacheIsIndexed{}
 	cacheIsStarted := managers.StartCache(ctx, cache, logrLogger, cacheIsIndexed)
-	redHatInsightsUploaderConfig, err := provideProductionInsights(ctx, clientCommandRunner, logrLogger, cacheIsStarted)
-	if err != nil {
-		return nil, err
-	}
-	redHatInsightsUploader, err := NewRedHatInsightsUploader(redHatInsightsUploaderConfig)
+	uploaderTarget := config2.UploaderTarget
+	uploader, err := ProvideUploader(ctx, clientCommandRunner, logrLogger, cacheIsStarted, uploaderTarget)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +60,7 @@ func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task
 		Ctx:        ctx,
 		Config:     config2,
 		K8SScheme:  scheme,
-		Uploader:   redHatInsightsUploader,
+		Uploader:   uploader,
 	}
 	return task, nil
 }

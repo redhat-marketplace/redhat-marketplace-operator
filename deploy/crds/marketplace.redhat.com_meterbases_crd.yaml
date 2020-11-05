@@ -3,6 +3,25 @@ kind: CustomResourceDefinition
 metadata:
   name: meterbases.marketplace.redhat.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.conditions[?(@.type == "Installing")].status
+    name: INSTALLING
+    type: string
+  - JSONPath: .status.conditions[?(@.type == "Installing")].reason
+    name: STEP
+    type: string
+  - JSONPath: .status.availableReplicas
+    name: AvailableReplicas
+    type: integer
+  - JSONPath: .status.replicas
+    name: Replicas
+    type: integer
+  - JSONPath: .status.updatedReplicas
+    name: UpdatedReplicas
+    type: integer
+  - JSONPath: .status.unavailableReplicas
+    name: UnavailableReplicas
+    type: integer
   group: marketplace.redhat.com
   names:
     kind: MeterBase
