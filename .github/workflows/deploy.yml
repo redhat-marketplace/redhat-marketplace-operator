@@ -354,7 +354,7 @@ jobs:
   opm:
     name: Deploy OPM Index
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [build, tag]
     strategy:
       matrix:
         channel:
@@ -362,12 +362,9 @@ jobs:
         include:
           - channel: stable
             packageName: redhat-marketplace-operator
-            imageRegistry: quay.io/rh-marketplace
+            imageRegistry: registry.connect.redhat.com/rh-marketplace
             olmRepo: quay.io/rh-marketplace/redhat-marketplace-operator-manifest
             indexRepo: quay.io/rh-marketplace/redhat-marketplace-operator-bundle
-            name: quay
-            key: quayUser
-            value: quayPassword
     env:
       IMAGE_REGISTRY: ${{ matrix.imageRegistry }}
       OLM_REPO: ${{ matrix.olmRepo }}
@@ -404,12 +401,12 @@ jobs:
           opm_version: v1.12.5
           COURIER_VERSION: 2.1.7
 
-      - name: Login ${{ matrix.name }}
+      - name: Login quay.io
         run: make docker-login
         env:
-          DOCKER_USER: ${{ secrets[matrix.key] }}
-          DOCKER_PASSWORD: ${{ secrets[matrix.value] }}
-          REGISTRY: ${{ matrix.imageRegistry }}
+          DOCKER_USER: ${{ secrets['quayUser'] }}
+          DOCKER_PASSWORD: ${{ secrets['quayPassword'] }}
+          REGISTRY: quay.io/rh-marketplace
 
       - name: Build bundles ${{ matrix.channel }}
         run: |
