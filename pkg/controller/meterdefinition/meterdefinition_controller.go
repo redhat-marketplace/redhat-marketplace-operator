@@ -20,14 +20,22 @@ import (
 	"strings"
 	"time"
 
+	"emperror.dev/errors"
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/gotidy/ptr"
 	"github.com/prometheus/client_golang/api"
+
+	// promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/model"
 	v1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/meter_definition"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -149,6 +157,71 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		queue = instance.Status.Conditions.SetCondition(v1alpha1.MeterDefConditionNoResults)
 	case len(instance.Status.WorkloadResources) > 0:
 		queue = instance.Status.Conditions.SetCondition(v1alpha1.MeterDefConditionHasResults)
+	}
+
+
+	// client, err := api.NewClient(api.Config{
+	// 	Address: "http://localhost:9090",
+	// })
+	// client, err := prometheus.ProvideApiClient()
+	// client, err := r.promClient
+	// if err != nil {
+	// 	reqLogger.Error(err, "error")
+	// }
+
+	loc, _ := time.LoadLocation("UTC")
+	promAPI := v1.NewAPI(r.promAPIClient)
+	var val model.Value
+	for _, workload := range instance.Spec.Workloads {
+		for _, metric := range workload.MetricLabels {
+			reqLogger.Info("query", "metric", metric)
+			query := &prometheus.PromQuery{
+				Metric: metric.Label,
+				Type:   workload.WorkloadType,
+				MeterDef: types.NamespacedName{
+					Name:      instance.Name,
+					Namespace: instance.Namespace,
+				},
+				Query:         metric.Query,
+				Time:          "60m",
+				Start:         time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), 0, 0, 0, loc),
+				End:           time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), -1, 0, 0, loc),
+				Step:          time.Hour,
+				AggregateFunc: metric.Aggregation,
+			}
+
+			reqLogger.Info("output", "query", query.String())
+
+			var warnings v1.Warnings
+
+			err := utils.Retry(func() error {
+				var err error
+				val, warnings, err = prometheus.QueryRange(query, promAPI)
+
+				if err != nil {
+					return errors.Wrap(err, "error with query")
+				}
+
+				return nil
+			}, *ptr.Int(2))
+
+			if warnings != nil {
+				reqLogger.Info("warnings %v", warnings)
+			}
+
+			if err != nil {
+				reqLogger.Error(err, "error encountered")
+				return reconcile.Result{}, err
+			}
+		}
+	}
+
+	s := fmt.Sprintf("%s", val)
+	reqLogger.Info("output","query_data",s)
+
+	if s != "" {
+		fmt.Println("QUERY PREVIEW: ",s)
+		instance.Status.QueryPreview = s
 	}
 
 	result, _ = cc.Do(

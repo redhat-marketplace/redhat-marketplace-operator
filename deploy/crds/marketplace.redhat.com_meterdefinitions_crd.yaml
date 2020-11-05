@@ -334,6 +334,8 @@ spec:
                 - type
                 type: object
               type: array
+            queryPreview:
+              type: string
             workloadResource:
               description: WorkloadResources is the list of resoruces discovered by
                 this meter definition

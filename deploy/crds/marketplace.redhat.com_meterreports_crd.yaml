@@ -35,6 +35,11 @@ spec:
               description: EndTime of the job
               format: date-time
               type: string
+            extraJobArgs:
+              description: ExtraArgs is a set of arguments to pass to the job
+              items:
+                type: string
+              type: array
             meterDefinitions:
               description: MeterDefinitions is the list of meterDefinitions included
                 in the report
@@ -377,6 +382,8 @@ spec:
                           - type
                           type: object
                         type: array
+                      queryPreview:
+                        type: string
                       workloadResource:
                         description: WorkloadResources is the list of resoruces discovered
                           by this meter definition
