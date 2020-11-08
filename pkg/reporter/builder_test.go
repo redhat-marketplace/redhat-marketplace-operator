@@ -53,9 +53,9 @@ var _ = Describe("Builder", func() {
 
 	It("should serialize source metadata to json", func() {
 		metadata := NewReportMetadata(uuid.New(), ReportSourceMetadata{
-			RhmClusterID: "testCluster",
+			RhmClusterID:   "testCluster",
 			RhmEnvironment: ReportSandboxEnv,
-			RhmAccountID: "testAccount",
+			RhmAccountID:   "testAccount",
 		})
 
 		metadata.AddMetricsReport(metricsReport)

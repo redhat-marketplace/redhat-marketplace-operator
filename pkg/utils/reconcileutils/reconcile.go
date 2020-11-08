@@ -23,8 +23,8 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/codelocation"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type call struct {
@@ -320,7 +320,6 @@ type ClientCommand struct {
 	scheme *runtime.Scheme
 	log    logr.Logger
 }
-
 
 func NewLoglessClientCommand(
 	client client.Client,

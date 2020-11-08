@@ -103,10 +103,10 @@ var availableStores = map[string]func(f *Builder) *MetricsStore{
 }
 
 var (
-	serviceType reflect.Type = reflect.TypeOf(&v1.Service{})
-	podType = reflect.TypeOf(&v1.Pod{})
-	persistentVolType = reflect.TypeOf(&v1.PersistentVolumeClaim{})
-	meterDefinitionType = reflect.TypeOf(&marketplacev1alpha1.MeterDefinition{})
+	serviceType         reflect.Type = reflect.TypeOf(&v1.Service{})
+	podType                          = reflect.TypeOf(&v1.Pod{})
+	persistentVolType                = reflect.TypeOf(&v1.PersistentVolumeClaim{})
+	meterDefinitionType              = reflect.TypeOf(&marketplacev1alpha1.MeterDefinition{})
 )
 
 func (b *Builder) buildServiceStore() *MetricsStore {

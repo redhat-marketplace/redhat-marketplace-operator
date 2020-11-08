@@ -33,6 +33,8 @@ type PrometheusSecureClientConfig struct {
 	UserAuth *UserAuth
 
 	ServerCertFile string
+
+	CaCert *[]byte
 }
 
 type UserAuth struct {
@@ -66,6 +68,57 @@ func NewSecureClient(config *PrometheusSecureClientConfig) (api.Client, error) {
 	})
 
 	return client, err
+}
+
+func NewSecureClientFromConfigMap(config *PrometheusSecureClientConfig) (api.Client, error) {
+	tlsConfig, err := generateCACertPoolFromConfigMap(*config.CaCert)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get tlsConfig")
+	}
+
+	var transport http.RoundTripper
+
+	transport = &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
+
+	if config.UserAuth != nil {
+		transport = WithBasicAuth(transport, config.UserAuth.Username, config.UserAuth.Password)
+	}
+
+	if config.Token != "" {
+		transport = WithBearerAuth(transport, config.Token)
+	}
+
+	client, err := api.NewClient(api.Config{
+		Address:      config.Address,
+		RoundTripper: transport,
+	})
+
+	return client, err
+}
+
+func generateCACertPoolFromConfigMap(caCert []byte) (*tls.Config, error) {
+	caCertPool, err := x509.SystemCertPool()
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get system cert pool")
+	}
+
+	// for _, file := range files {
+	// 	caCert, err := ioutil.ReadFile(file)
+	// 	if err != nil {
+	// 		return nil, errors.Wrap(err, "failed to load cert file")
+	// 	}
+	// 	caCertPool.AppendCertsFromPEM(caCert)
+	// }
+
+	caCertPool.AppendCertsFromPEM(caCert)
+
+	return &tls.Config{
+		RootCAs: caCertPool,
+	}, nil
 }
 
 func generateCACertPool(files ...string) (*tls.Config, error) {

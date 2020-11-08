@@ -139,7 +139,6 @@ func toError(err error) error {
 			return errors.Combine(ClientError, err)
 		}
 
-
 		return errors.Combine(ServerError, err)
 	}
 

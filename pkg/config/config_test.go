@@ -25,7 +25,7 @@ var _ = Describe("Config", func() {
 	Context("with defaults", func() {
 		It("should set defaults", func() {
 
-		cfg, err := ProvideConfig()
+			cfg, err := ProvideConfig()
 			Expect(err).To(Succeed())
 			Expect(cfg).ToNot(BeNil())
 

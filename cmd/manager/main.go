@@ -21,15 +21,16 @@ import (
 	"time"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers/runnables"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/reporter"
+	loggerf "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
-
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers/runnables"
-	loggerf "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 )
 
 var (
@@ -61,6 +62,15 @@ func providePodMonitorConfig() runnables.PodMonitorConfig {
 
 func provideContext() context.Context {
 	return context.TODO()
+}
+
+func provideQueryPromFunc() reconcileutils.QueryForPrometheusServiceFunc {
+	// var q reconcileutils.QueryForPrometheusService
+	return reporter.QueryForPrometheusService
+}
+
+func provideAPIClient() reconcileutils.ProvideAPIClientFunc {
+	return reporter.ProvideApiClient
 }
 
 func makeMarketplaceController(

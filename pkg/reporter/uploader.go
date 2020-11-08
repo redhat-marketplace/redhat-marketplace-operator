@@ -31,12 +31,12 @@ import (
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/version"
 	"golang.org/x/net/http2"
 	corev1 "k8s.io/api/core/v1"
-	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/jsonpath"
 )

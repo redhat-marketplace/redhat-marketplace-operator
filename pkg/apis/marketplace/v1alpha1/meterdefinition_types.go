@@ -227,7 +227,6 @@ type MeterLabelQuery struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:sum,urn:alm:descriptor:com.tectonic.ui:select:min,urn:alm:descriptor:com.tectonic.ui:select:max,urn:alm:descriptor:com.tectonic.ui:select:avg"
 	Aggregation string `json:"aggregation,omitempty"`
-
 }
 
 // MeterDefinitionStatus defines the observed state of MeterDefinition

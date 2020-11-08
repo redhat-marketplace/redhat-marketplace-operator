@@ -117,6 +117,7 @@ func QueryRange(query *PromQuery, promApi v1.API) (model.Value, v1.Warnings, err
 	}
 
 	result, warnings, err := promApi.QueryRange(ctx, query.String(), timeRange)
+	fmt.Println("RESULT", result)
 
 	if err != nil {
 		logger.Error(err, "querying prometheus", "warnings", warnings)

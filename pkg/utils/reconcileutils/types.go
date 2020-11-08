@@ -19,7 +19,9 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/google/wire"
+	"github.com/prometheus/client_golang/api"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/codelocation"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -104,3 +106,7 @@ var CommandRunnerProviderSet = wire.NewSet(
 	NewClientCommand,
 	wire.Bind(new(ClientCommandRunnerProvider), new(*DefaultCommandRunnerProvider)),
 )
+
+type QueryForPrometheusServiceFunc = func(ctx context.Context, cc ClientCommandRunner) (service *corev1.Service, returnErr error)
+
+type ProvideAPIClientFunc = func(promService *corev1.Service, caCert *[]byte) (api.Client, error)

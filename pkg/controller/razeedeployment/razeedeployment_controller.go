@@ -1499,7 +1499,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 									Name: "NAMESPACE",
 									ValueFrom: &corev1.EnvVarSource{
 										FieldRef: &corev1.ObjectFieldSelector{
-											FieldPath: "metadata.namespace",
+											FieldPath:  "metadata.namespace",
 											APIVersion: "v1",
 										},
 									},

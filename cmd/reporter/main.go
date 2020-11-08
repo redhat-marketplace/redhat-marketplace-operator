@@ -19,11 +19,11 @@ import (
 	"os"
 
 	homedir "github.com/mitchellh/go-homedir"
+	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/cmd/reporter/report"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 )
 
 var (

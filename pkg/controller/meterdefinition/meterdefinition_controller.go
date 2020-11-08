@@ -23,7 +23,7 @@ import (
 	"emperror.dev/errors"
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/gotidy/ptr"
-	"github.com/prometheus/client_golang/api"
+	corev1 "k8s.io/api/core/v1"
 
 	// promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -61,22 +61,24 @@ var store *meter_definition.MeterDefinitionStore
 func Add(
 	mgr manager.Manager,
 	ccprovider ClientCommandRunnerProvider,
-	promAPIClient api.Client,
+	queryForPrometheus QueryForPrometheusServiceFunc,
+	provideAPIClient ProvideAPIClientFunc,
 ) error {
-	return add(mgr, newReconciler(mgr, ccprovider,promAPIClient))
+	return add(mgr, newReconciler(mgr, ccprovider, queryForPrometheus, provideAPIClient))
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider, promAPIClient api.Client) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider, queryForPrometheus QueryForPrometheusServiceFunc, provideAPIClient ProvideAPIClientFunc) reconcile.Reconciler {
 	opts := &MeterDefOpts{}
 
 	return &ReconcileMeterDefinition{
-		client:     mgr.GetClient(),
-		scheme:     mgr.GetScheme(),
-		ccprovider: ccprovider,
-		promAPIClient: promAPIClient,
-		opts:       opts,
-		patcher:    patch.RHMDefaultPatcher,
+		client:             mgr.GetClient(),
+		scheme:             mgr.GetScheme(),
+		ccprovider:         ccprovider,
+		queryForPrometheus: queryForPrometheus,
+		provideAPIClient:   provideAPIClient,
+		opts:               opts,
+		patcher:            patch.RHMDefaultPatcher,
 	}
 }
 
@@ -104,12 +106,13 @@ var _ reconcile.Reconciler = &ReconcileMeterDefinition{}
 type ReconcileMeterDefinition struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client     client.Client
-	scheme     *runtime.Scheme
-	ccprovider ClientCommandRunnerProvider
-	promAPIClient api.Client
-	opts       *MeterDefOpts
-	patcher    patch.Patcher
+	client             client.Client
+	scheme             *runtime.Scheme
+	ccprovider         ClientCommandRunnerProvider
+	queryForPrometheus QueryForPrometheusServiceFunc
+	provideAPIClient   ProvideAPIClientFunc
+	opts               *MeterDefOpts
+	patcher            patch.Patcher
 }
 
 type MeterDefOpts struct{}
@@ -121,7 +124,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	reqLogger.Info("Reconciling MeterDefinition")
 
 	cc := r.ccprovider.NewCommandRunner(r.client, r.scheme, reqLogger)
-	
+
 	// Fetch the MeterDefinition instance
 	instance := &v1alpha1.MeterDefinition{}
 	result, _ := cc.Do(context.TODO(), GetAction(request.NamespacedName, instance))
@@ -159,7 +162,6 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		queue = instance.Status.Conditions.SetCondition(v1alpha1.MeterDefConditionHasResults)
 	}
 
-
 	// client, err := api.NewClient(api.Config{
 	// 	Address: "http://localhost:9090",
 	// })
@@ -167,10 +169,58 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	// client, err := r.promClient
 	// if err != nil {
 	// 	reqLogger.Error(err, "error")
-	// }
+	if r.queryForPrometheus == nil {
+		reqLogger.Info("queryForProm", "setup", "is not present")
+	}
 
+	service, err := r.queryForPrometheus(context.TODO(), cc)
+	if err != nil {
+		reqLogger.Error(err, "error encountered")
+	}
+
+	if service == nil {
+		reqLogger.Info("SERVICE IS NIL")
+	}
+
+	reqLogger.Info("Info", "SERVICE NAME", service.Name)
+
+	//TODO: query the cm for cert
+	certConfigMap := &corev1.ConfigMap{}
+
+	name := types.NamespacedName{
+		Name:      "operator-certs-ca-bundle",
+		Namespace: "openshift-redhat-marketplace",
+	}
+
+	if result, _ := cc.Do(context.TODO(), GetAction(name, certConfigMap)); !result.Is(Continue) {
+		reqLogger.Error(result.GetError(), "Failed to update status.")
+	}
+
+	//TODO: get cert from CM
+	dataMap := &certConfigMap.Data
+	var cert []byte
+	for _,value := range *dataMap{
+		b := []byte(value)
+		cert = b
+	}
+
+	reqLogger.Info("Info","cert",cert)
+
+	client, err := r.provideAPIClient(service,&cert)
 	loc, _ := time.LoadLocation("UTC")
-	promAPI := v1.NewAPI(r.promAPIClient)
+
+	if client == nil {
+		reqLogger.Info("CLIENT IS NIL")
+	}
+
+	// var promAPI v1.API
+	promAPI := v1.NewAPI(client)
+	reqLogger.Info("Info", "return prom api", promAPI)
+
+	if promAPI == nil {
+		reqLogger.Info("PROM API IS NIL")
+	}
+
 	var val model.Value
 	for _, workload := range instance.Spec.Workloads {
 		for _, metric := range workload.MetricLabels {
@@ -185,7 +235,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 				Query:         metric.Query,
 				Time:          "60m",
 				Start:         time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), 0, 0, 0, loc),
-				End:           time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), -1, 0, 0, loc),
+				End:           time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour()-1, 0, 0, 0, loc),
 				Step:          time.Hour,
 				AggregateFunc: metric.Aggregation,
 			}
@@ -193,7 +243,6 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 			reqLogger.Info("output", "query", query.String())
 
 			var warnings v1.Warnings
-
 			err := utils.Retry(func() error {
 				var err error
 				val, warnings, err = prometheus.QueryRange(query, promAPI)
@@ -216,11 +265,14 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		}
 	}
 
-	s := fmt.Sprintf("%s", val)
-	reqLogger.Info("output","query_data",s)
+	var s string
+	if val != nil {
+		s = fmt.Sprintf("%s", val)
+		reqLogger.Info("output", "query_data", s)
+	}
 
 	if s != "" {
-		fmt.Println("QUERY PREVIEW: ",s)
+		fmt.Println("QUERY PREVIEW: ", s)
 		instance.Status.QueryPreview = s
 	}
 
