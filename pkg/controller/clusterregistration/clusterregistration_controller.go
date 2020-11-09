@@ -140,7 +140,7 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 		reqLogger.Info("MarketPlace config object err >>>>>>>>>>>>>>")
 		//return reconcile.Result{}, err
 	}
-	reqLogger.Info("FInding MarketPlace config object >>>>>>>>>>>>>>")
+	reqLogger.Info("Finding MarketPlace config object >>>>>>>>>>>>>>")
 	if err == nil && marketplaceConfig.Spec.RhmAccountID != "" {
 		// Marketplace config object found
 		reqLogger.Info("MarketPlace config object found")
