@@ -181,6 +181,7 @@ type meterDefPromModel struct {
 	model.Value
 	MetricName string
 	Type       v1alpha1.WorkloadType
+	Workload   v1alpha1.Workload
 }
 
 func (r *MarketplaceReporter) query(
@@ -239,7 +240,7 @@ func (r *MarketplaceReporter) query(
 					return
 				}
 
-				outPromModels <- meterDefPromModel{mdef, val, metric.Label, query.Type}
+				outPromModels <- meterDefPromModel{mdef, val, metric.Label, query.Type, workload}
 			}
 		}
 	}
@@ -307,7 +308,7 @@ func (r *MarketplaceReporter) process(
 						}
 
 						if objName == "" {
-							errorsch <- errors.New("can't fine objName")
+							errorsch <- errors.New("can't find objName")
 							return
 						}
 
@@ -318,9 +319,12 @@ func (r *MarketplaceReporter) process(
 							IntervalEnd:       pair.Timestamp.Add(time.Hour).Time().Format(time.RFC3339),
 							MeterDomain:       mdef.Spec.Group,
 							MeterKind:         mdef.Spec.Kind,
+							Namespace:         namespace,
+							ResourceName:      objName,
+							Workload:          pmodel.Workload.Name,
 						}
 
-						key.Init(r.mktconfig.Spec.ClusterUUID, objName, namespace)
+						key.Init(r.mktconfig.Spec.ClusterUUID)
 
 						mutex.Lock()
 						defer mutex.Unlock()
