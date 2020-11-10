@@ -26,6 +26,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -146,7 +147,7 @@ func (t *TestHarness) Setup() error {
 		}
 	}
 
-	err = t.Client.Create(context.TODO(), &corev1.Namespace{
+	err = t.Upsert(context.TODO(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: t.config.Namespace,
 		},
@@ -209,17 +210,44 @@ func (t *TestHarness) Stop() error {
 
 	for _, feature := range t.features {
 		if f, ok := feature.(HasCleanup); ok {
+			t.logger.Info("cleaning up for feature", "feature", feature.Name())
 			arr := f.HasCleanup()
 
-			if len(arr) > 0 {
-				for _, obj := range arr {
-					t.Client.Delete(context.TODO(), obj)
-				}
+			for _, obj := range arr {
+				t.Client.Delete(context.TODO(), obj)
 			}
 		}
 	}
 
 	close(t.stop)
+
+	return nil
+}
+
+func (t *TestHarness) Upsert(ctx context.Context, obj runtime.Object) error {
+	err := t.Create(ctx, obj)
+
+	if err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			oldObj := obj.DeepCopyObject()
+			key, _ := client.ObjectKeyFromObject(oldObj)
+			err := t.Get(ctx, key, oldObj)
+
+			if err != nil {
+				return err
+			}
+
+			acc1, _ := meta.Accessor(obj)
+			acc2, _ := meta.Accessor(oldObj)
+
+			acc1.SetGeneration(acc2.GetGeneration())
+			acc1.SetResourceVersion(acc2.GetResourceVersion())
+
+			return t.Update(ctx, obj)
+		}
+
+		return err
+	}
 
 	return nil
 }
@@ -307,7 +335,7 @@ func (e *addPullSecret) Setup(h *TestHarness) error {
 		},
 	}
 
-	Expect(h.Client.Create(context.TODO(), &pullSecret)).To(SucceedOrAlreadyExist)
+	Expect(h.Upsert(context.TODO(), &pullSecret)).To(SucceedOrAlreadyExist)
 
 	e.pullSecret = &pullSecret
 
@@ -428,7 +456,7 @@ func (d *deployLocal) Setup(h *TestHarness) error {
 			err := yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(dat)), 100).Decode(obj)
 			Expect(err).ShouldNot(HaveOccurred())
 
-			Expect(h.Create(context.TODO(), obj)).To(SucceedOrAlreadyExist, rec.filename, " ", obj)
+			Expect(h.Upsert(context.TODO(), obj)).To(Succeed(), rec.filename, " ", obj)
 			d.cleanup = append(d.cleanup, obj)
 		}
 	}
@@ -490,7 +518,7 @@ func (d *createMarketplaceConfig) Before(t *TestHarness) error {
 		return err
 	}
 
-	Expect(t.Create(context.TODO(), d.marketplaceCfg)).Should(SucceedOrAlreadyExist)
+	Expect(t.Upsert(context.TODO(), d.marketplaceCfg)).Should(SucceedOrAlreadyExist)
 
 	By("wait for marketplaceconfig")
 	Eventually(func() bool {

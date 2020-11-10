@@ -125,7 +125,9 @@ var _ = AfterSuite(func() {
 		printDebug()
 	}
 
-	close(stop)
+	if stop != nil {
+		close(stop)
+	}
 
 	By("tearing down the test environment")
 	gexec.KillAndWait(5 * time.Second)

@@ -55,7 +55,7 @@ func (e *mockOpenShift) Setup(h *TestHarness) error {
 
 	for _, namespace := range additionalNamespaces {
 		ok, err := SucceedOrAlreadyExist.Match(
-			h.Client.Create(context.TODO(), &corev1.Namespace{
+			h.Upsert(context.TODO(), &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: namespace,
 				},
@@ -108,8 +108,8 @@ func (e *mockOpenShift) Setup(h *TestHarness) error {
 
 	e.cleanup = []runtime.Object{kubeletMonitor, kubeStateMonitor}
 
-	Expect(h.Client.Create(context.TODO(), kubeletMonitor)).To(SucceedOrAlreadyExist)
-	Expect(h.Client.Create(context.TODO(), kubeStateMonitor)).To(SucceedOrAlreadyExist)
+	Expect(h.Upsert(context.TODO(), kubeletMonitor)).To(SucceedOrAlreadyExist)
+	Expect(h.Upsert(context.TODO(), kubeStateMonitor)).To(SucceedOrAlreadyExist)
 
 	var (
 		tlsResources = []types.NamespacedName{
@@ -124,7 +124,7 @@ func (e *mockOpenShift) Setup(h *TestHarness) error {
 		}
 	)
 
-	serviceCA, err := ioutil.ReadFile("../certs/kubelet-client-current.pem")
+	serviceCA, err := ioutil.ReadFile("../certs/ca.crt")
 	Expect(err).To(Succeed())
 
 	for _, resource := range certsResources {
@@ -141,13 +141,13 @@ func (e *mockOpenShift) Setup(h *TestHarness) error {
 			},
 		}
 
-		Expect(h.Create(context.TODO(), configmap)).Should(SucceedOrAlreadyExist, "failed to create", "name", resource.Name)
+		Expect(h.Upsert(context.TODO(), configmap)).Should(Succeed(), "failed to create", "name", resource.Name)
 		e.cleanup = append(e.cleanup, configmap)
 	}
 
-	serverCrt, err := ioutil.ReadFile("../certs/kubelet.crt")
+	serverCrt, err := ioutil.ReadFile("../certs/server.pem")
 	Expect(err).To(Succeed())
-	serverKey, err := ioutil.ReadFile("../certs/kubelet.key")
+	serverKey, err := ioutil.ReadFile("../certs/server-key.pem")
 	Expect(err).To(Succeed())
 
 	for _, resource := range tlsResources {
@@ -163,7 +163,7 @@ func (e *mockOpenShift) Setup(h *TestHarness) error {
 			},
 		}
 
-		Expect(h.Create(context.TODO(), secret)).Should(SucceedOrAlreadyExist, "failed to create", "name", resource.Name)
+		Expect(h.Upsert(context.TODO(), secret)).Should(Succeed(), "failed to create", "name", resource.Name)
 		e.cleanup = append(e.cleanup, secret)
 	}
 

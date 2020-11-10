@@ -43,12 +43,13 @@ CLUSTER_SERVER ?= https://api.crc.testing:6443
 OPERATOR_WATCH_NAMESPACE ?= ""
 
 ## Tool paths
-operator-sdk = testbin/operator-sdk
-skaffold = testbin/skaffold
-cfssl = testbin/cfssl
-cfssljson = testbin/cfssljson
-cfssl-certinfo = testbin/cfssl-certinfo
-opm = testbin/opm
+pwd = $(shell pwd)
+operator-sdk = $(pwd)/testbin/operator-sdk
+skaffold = $(pwd)/testbin/skaffold
+cfssl = $(pwd)/testbin/cfssl
+cfssljson = $(pwd)/testbin/cfssljson
+cfssl-certinfo = $(pwd)/testbin/cfssl-certinfo
+opm =  $(pwd)/testbin/opm
 kind = $(shell go env GOPATH)/bin/kind
 gocovmerge = $(shell go env GOPATH)/bin/gocovmerge
 yq = $(shell go env GOPATH)/bin/yq
@@ -337,9 +338,12 @@ KIND_CONTROL_PLANE_NODE ?= $(KIND_CLUSTER_NAME)-control-plane
 setup-kind: ## setup the kind cluster for integration test
 	- $(kind) create cluster --name $(KIND_CLUSTER_NAME) --config ./kind-cluster.yaml
 	- $(kind) export kubeconfig --name  $(KIND_CLUSTER_NAME)
-	- docker cp $(KIND_CONTROL_PLANE_NODE):$(shell docker exec $(KIND_CONTROL_PLANE_NODE) readlink -f /var/lib/kubelet/pki/kubelet-client-current.pem) ./test/certs/kubelet-client-current.pem
-	- docker cp $(KIND_CONTROL_PLANE_NODE):/var/lib/kubelet/pki/kubelet.key ./test/certs/kubelet.key
-	- docker cp $(KIND_CONTROL_PLANE_NODE):/var/lib/kubelet/pki/kubelet.crt ./test/certs/kubelet.crt
+	- for file in ca.crt ca.key apiserver.crt; do \
+    docker cp $(KIND_CONTROL_PLANE_NODE):/etc/kubernetes/pki/$$file ./test/certs/$$file ; \
+    done
+	- $(cfssl) certinfo -cert apiserver.crt | jq ".sans" > sans.json
+	- cd test/certs && $(jq) -n --argfile o1 server-csr.json --argfile o2 sans.json '$o1 | .hosts = $o2 | .hosts[.hosts | length] |= . + "*.openshift-redhat-marketplace.svc"'
+	- cd test/certs && $(cfssl) gencert -ca=ca.crt -ca-key=ca.key -profile=kubernetes server-csr.json | $(cfssljson) -bare server
 
 test-int-kind: ## test integration using kind
 	- make setup-kind
@@ -383,8 +387,8 @@ test-cover-html: cover.out ## Run coverage and display as html
 
 test-generate-certs:
 	mkdir -p test/certs
-	cd test/certs && ../../$(cfssl) gencert -initca ca-csr.json | ../../$(cfssljson) -bare ca
-	cd test/certs && ../../$(cfssl) gencert -ca=ca.pem -ca-key=ca-key.pem --config=ca-config.json -profile=kubernetes server-csr.json | ../../$(cfssljson) -bare server
+	#cd test/certs && $(cfssl) gencert -initca ca-csr.json | ../../$(cfssljson) -bare ca
+	cd test/certs && $(cfssl) gencert -ca=ca.crt -ca-key=ca.key -profile=kubernetes server-csr.json | ../../$(cfssljson) -bare server
 
 
 ##@ Misc
