@@ -112,7 +112,11 @@ const (
 	ReasonCatalogSourceInstall  status.ConditionReason = "CatalogSourceInstalled"
 	ReasonCatalogSourceDelete   status.ConditionReason = "CatalogSourceDeleted"
 	ReasonInstallFinished       status.ConditionReason = "FinishedInstall"
-	ReasonRegistration          status.ConditionReason = "StartRegistration"
+	ReasonRegistrationStatus    status.ConditionReason = "Cluster Registered"
+	ReasonServiceUnavailable    status.ConditionReason = "Service Unavailable"
+	ReasonInternetDisconnected  status.ConditionReason = "Internt Not Available"
+	ReasonClientError           status.ConditionReason = "Client Error"
+	ReasonRegistrationError     status.ConditionReason = "Http Error"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

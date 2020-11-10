@@ -3,11 +3,7 @@ package clusterregistration
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
-	"net/http"
-	"net/url"
 
-	yaml "github.com/ghodss/yaml"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -131,8 +127,8 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 		reqLogger.Info("Secret updated with status on failiure")
 	}
 	//Calling POST endpoint to pull the secret definition
-	bearerToken := "Bearer " + string(secret.Data[RHM_PULL_SECRET_KEY])
-	httpClient := &http.Client{}
+	//bearerToken := "Bearer " + string(secret.Data[RHM_PULL_SECRET_KEY])
+	//httpClient := &http.Client{}
 	// Fetch the Marketplace Config object
 	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
 	err = r.client.Get(context.TODO(), request.NamespacedName, marketplaceConfig)
@@ -144,57 +140,19 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 	if err == nil && marketplaceConfig.Spec.RhmAccountID != "" {
 		// Marketplace config object found
 		reqLogger.Info("MarketPlace config object found")
-		accountId := marketplaceConfig.Spec.RhmAccountID
-		clusterUuid := marketplaceConfig.Spec.ClusterUUID
-		u, err := url.Parse(RHM_REGISTRATION_ENDPOINT)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		q := u.Query()
-		q.Set("accountId", accountId)
-		q.Set("uuid", clusterUuid)
-		u.RawQuery = q.Encode()
-		req, _ := http.NewRequest("GET", u.String(), nil)
-		req.Header.Add("Authorization", bearerToken)
-		resp, err := httpClient.Do(req)
-
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		defer resp.Body.Close()
-		clusterDef, err := ioutil.ReadAll(resp.Body)
-		if resp.StatusCode == 200 && string(clusterDef) != "" {
+		clusterRegisterationStatus, _ := ClusterRegistrationStatus(&HttpClusterConfig{
+			Url:         RHM_REGISTRATION_ENDPOINT,
+			AccountId:   marketplaceConfig.Spec.RhmAccountID,
+			ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
+			Token:       "Bearer " + string(secret.Data[RHM_PULL_SECRET_KEY]),
+		})
+		if clusterRegisterationStatus == true {
 			return reconcile.Result{}, nil
 		}
 	}
 	reqLogger.Info("MarketPlace config object not found ")
-	//Calling POST endpoint to pull the secret definition
-
-	req, _ := http.NewRequest("GET", RHM_PULL_SECRET_ENDPOINT, nil)
-	req.Header.Add("Authorization", bearerToken)
-	resp, err := httpClient.Do(req)
-
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	defer resp.Body.Close()
-	rhOperatorSecretDef, err := ioutil.ReadAll(resp.Body)
-	reqLogger.Info("Responste SatusCode to pull secret from Marketplace endpoint", "status", resp.StatusCode)
-	// Check condition if status code is not 200
-	if resp.StatusCode != 200 {
-		reqLogger.Info("Updating secret with error status", "response", string(rhOperatorSecretDef))
-		annotations[RHM_PULL_SECRET_STATUS] = "error"
-		annotations[RHM_PULL_SECRET_MESSAGE] = string(rhOperatorSecretDef)
-		secret.SetAnnotations(annotations)
-		if err := r.client.Update(context.TODO(), &secret); err != nil {
-			reqLogger.Error(err, "Failed to patch secret with Endpoint status")
-			return reconcile.Result{}, err
-		}
-		reqLogger.Info("Secret updated with status on failiure")
-	}
 	// Check condition if secret is having different namespace
 	if secret.ObjectMeta.Namespace != RHM_NAMESPACE {
-		reqLogger.Info("Updating secret with error status", "response", string(rhOperatorSecretDef))
 		annotations[RHM_PULL_SECRET_STATUS] = "error"
 		annotations[RHM_PULL_SECRET_MESSAGE] = "Secret should create in 'openshift-redhat-marketplace' namespace"
 		secret.SetAnnotations(annotations)
@@ -204,22 +162,32 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 		}
 		reqLogger.Info("Secret updated with status on failiure")
 	}
+
+	//Calling POST endpoint to pull the secret definition
+	data, err := GetMarketPlaceSecret(&HttpClusterConfig{
+		Url:   RHM_PULL_SECRET_ENDPOINT,
+		Token: "Bearer " + string(secret.Data[RHM_PULL_SECRET_KEY]),
+	})
+	reqLogger.Info("RHMarketPlaceSecret data found")
 	if err != nil {
+		annotations[RHM_PULL_SECRET_STATUS] = "error"
+		annotations[RHM_PULL_SECRET_MESSAGE] = string(data)
+		secret.SetAnnotations(annotations)
+		if err := r.client.Update(context.TODO(), &secret); err != nil {
+			reqLogger.Error(err, "Failed to patch secret with Endpoint status")
+		}
 		return reconcile.Result{}, err
+		reqLogger.Info("Secret updated with status on failiure")
 	}
 	//Convert yaml string to Secret object
+	reqLogger.Info("Secret object", "data", data)
 	secretObj := v1.Secret{}
-	data, err := yaml.YAMLToJSON(rhOperatorSecretDef) //Converting Yaml to JSON so it can parse to secret object
-	if err != nil {
-		reqLogger.Error(err, "Failed to parse Yaml to json")
-		return reconcile.Result{}, err
-	}
 	err = json.Unmarshal(data, &secretObj)
-
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	//Apply http request response in cluster to create secret
+
 	err = r.client.Create(context.TODO(), &secretObj)
 	if err != nil {
 		reqLogger.Error(err, "Failed to Create Secret Object")

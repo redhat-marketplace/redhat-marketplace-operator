@@ -16,10 +16,6 @@ package marketplaceconfig
 
 import (
 	"context"
-	"fmt"
-	"io/ioutil"
-	"net/http"
-	"net/url"
 	"reflect"
 	"time"
 
@@ -485,70 +481,15 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	//Calling POST endpoint to pull the secret definition
-	bearerToken := "Bearer " + string(secret.Data[RHM_PULL_SECRET_KEY])
-	httpClient := &http.Client{}
-	accountId := marketplaceConfig.Spec.RhmAccountID
-	clusterUuid := marketplaceConfig.Spec.ClusterUUID
-	u, err := url.Parse(RHM_REGISTRATION_ENDPOINT)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	q := u.Query()
-	q.Set("accountId", accountId)
-	q.Set("uuid", clusterUuid)
-	u.RawQuery = q.Encode()
-	req, _ := http.NewRequest("GET", u.String(), nil)
-	req.Header.Add("Authorization", bearerToken)
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	defer resp.Body.Close()
-	clusterDef, err := ioutil.ReadAll(resp.Body)
-	if resp.StatusCode == 200 && string(clusterDef) != "" {
-		reqLogger.Info("Cluster Registered")
-		message := "Cluster Registered Successfully"
-		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ConditionRegistered,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonRegistration,
-			Message: message,
-		})
-	} else if resp.StatusCode == 500 {
-		message := "Registration Service Unavailable"
-		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ConditionError,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonRegistration,
-			Message: message,
-		})
-	} else if resp.StatusCode >= 400 && resp.StatusCode < 500 {
-		message := "Client Error, Please check connection to registration service "
-		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ConditionError,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonRegistration,
-			Message: message,
-		})
-	} else if resp.StatusCode == 408 {
-		message := "DNS/Internet gateway failure - Disconnected env "
-		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ConditionError,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonRegistration,
-			Message: message,
-		})
-	} else {
-		message := fmt.Sprint("Error with Cluster Registration with http status code: ", resp.StatusCode)
-		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ConditionError,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonRegistration,
-			Message: message,
-		})
-	}
-	err = r.client.Status().Update(context.TODO(), marketplaceConfig)
+	//Finding Marketplace config status based on Cluster Registration
+	marketplaceConfigStatus, err := ClusterRegistrationStatus(&MarketplaceClientConfig{
+		Url:         RHM_REGISTRATION_ENDPOINT,
+		AccountId:   marketplaceConfig.Spec.RhmAccountID,
+		ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
+		Token:       "Bearer " + string(secret.Data[RHM_PULL_SECRET_KEY]),
+	}, *marketplaceConfig)
+
+	err = r.client.Status().Update(context.TODO(), &marketplaceConfigStatus)
 	if err != nil {
 		reqLogger.Error(err, "Failed to update status")
 		return reconcile.Result{}, err
