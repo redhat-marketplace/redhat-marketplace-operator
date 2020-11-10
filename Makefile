@@ -341,7 +341,7 @@ setup-kind: ## setup the kind cluster for integration test
 	- for file in ca.crt ca.key apiserver.crt; do \
     docker cp $(KIND_CONTROL_PLANE_NODE):/etc/kubernetes/pki/$$file ./test/certs/$$file ; \
     done
-	- $(cfssl) certinfo -cert apiserver.crt | jq ".sans" > sans.json
+	- cd test/certs && $(cfssl) certinfo -cert apiserver.crt | jq ".sans" > sans.json
 	- cd test/certs && $(jq) -n --argfile o1 server-csr.json --argfile o2 sans.json '$o1 | .hosts = $o2 | .hosts[.hosts | length] |= . + "*.openshift-redhat-marketplace.svc"'
 	- cd test/certs && $(cfssl) gencert -ca=ca.crt -ca-key=ca.key -profile=kubernetes server-csr.json | $(cfssljson) -bare server
 
