@@ -331,10 +331,18 @@ test: testbin ## test-ci runs all tests for CI builds
 	make test-ci-unit test-int-kind
 
 TEST_TAG?=$(shell date +'%Y%m%d')
+KIND_CLUSTER_NAME ?= test
+KIND_CONTROL_PLANE_NODE ?= $(KIND_CLUSTER_NAME)-control-plane
 
-test-int-kind:
-	- $(kind) create cluster --name test --config ./kind-cluster.yaml
-	- $(kind) export kubeconfig --name test
+setup-kind: ## setup the kind cluster for integration test
+	- $(kind) create cluster --name $(KIND_CLUSTER_NAME) --config ./kind-cluster.yaml
+	- $(kind) export kubeconfig --name  $(KIND_CLUSTER_NAME)
+	- docker cp $(KIND_CONTROL_PLANE_NODE):$(shell docker exec $(KIND_CONTROL_PLANE_NODE) readlink -f /var/lib/kubelet/pki/kubelet-client-current.pem) ./test/certs/kubelet-client-current.pem
+	- docker cp $(KIND_CONTROL_PLANE_NODE):/var/lib/kubelet/pki/kubelet.key ./test/certs/kubelet.key
+	- docker cp $(KIND_CONTROL_PLANE_NODE):/var/lib/kubelet/pki/kubelet.crt ./test/certs/kubelet.crt
+
+test-int-kind: ## test integration using kind
+	- make setup-kind
 	- USE_EXISTING_CLUSTER=true make test-ci-int
 
 .PHONY: test-cover
@@ -372,13 +380,6 @@ test-cover-text: cover.out ## Run coverage and display as html
 
 test-cover-html: cover.out ## Run coverage and display as html
 	go tool cover -html=cover.out
-
-./test/certs/server.pem:
-	make test-generate-certs
-./test/certs/server-key.pem:
-	make test-generate-certs
-./test/certs/ca.pem:
-	make test-generate-certs
 
 test-generate-certs:
 	mkdir -p test/certs

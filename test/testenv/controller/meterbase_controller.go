@@ -31,6 +31,14 @@ const timeout = time.Second * 120
 const interval = time.Second * 3
 
 var _ = Describe("MeterbaseController", func() {
+	BeforeEach(func(){
+		Expect(TestHarness.BeforeAll()).To(Succeed())
+	})
+
+	AfterEach(func(){
+		Expect(TestHarness.AfterAll()).To(Succeed())
+	})
+
 	Context("MeterBase reconcile", func() {
 		Context("creating a meterbase", func() {
 			It("should create all assets", func(done Done) {
