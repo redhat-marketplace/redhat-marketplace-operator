@@ -39,7 +39,7 @@ import (
 )
 
 const (
-	timeout  = time.Second * 60
+	timeout  = time.Second * 180
 	interval = time.Second * 1
 )
 
@@ -240,6 +240,7 @@ func (t *TestHarness) Upsert(ctx context.Context, obj runtime.Object) error {
 			acc1, _ := meta.Accessor(obj)
 			acc2, _ := meta.Accessor(oldObj)
 
+			acc1.SetUID(acc2.GetUID())
 			acc1.SetGeneration(acc2.GetGeneration())
 			acc1.SetResourceVersion(acc2.GetResourceVersion())
 
@@ -518,7 +519,7 @@ func (d *createMarketplaceConfig) Before(t *TestHarness) error {
 		return err
 	}
 
-	Expect(t.Upsert(context.TODO(), d.marketplaceCfg)).Should(SucceedOrAlreadyExist)
+	Expect(t.Create(context.TODO(), d.marketplaceCfg)).Should(SucceedOrAlreadyExist)
 
 	By("wait for marketplaceconfig")
 	Eventually(func() bool {

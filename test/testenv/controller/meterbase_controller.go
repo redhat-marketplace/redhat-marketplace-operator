@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-const timeout = time.Second * 120
+const timeout = time.Second * 180
 const interval = time.Second * 3
 
 var _ = Describe("MeterbaseController", func() {

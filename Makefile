@@ -8,11 +8,10 @@ VERSION ?= $(shell go run scripts/version/main.go)
 FROM_VERSION ?= $(shell go run scripts/version/main.go last)
 OPERATOR_IMAGE_TAG ?= $(VERSION)
 CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
-DOCKER_EXEC ?= $(shell command -v docker)
 DEVPOSTFIX ?= ""
 
 # set these variables to the tag or SHA for the ubi image used in the Dockerfile.
-# use 'docker manifest inspect registry.access.redhat.com/ubi8/ubi-minimal:<tag>' to get the SHA values
+# use '$(docker) manifest inspect registry.access.redhat.com/ubi8/ubi-minimal:<tag>' to get the SHA values
 UBI_IMAGE_SHA_PPC=2507309a69f786388f4aad70cfd27a4582f3bd2df19a4608166845a1ba4d6f36
 UBI_IMAGE_SHA_390=8782de8892bd10bbfa0220442fc71d45e660f0e8a811000f0f5d729ebffff645
 
@@ -44,6 +43,8 @@ OPERATOR_WATCH_NAMESPACE ?= ""
 
 ## Tool paths
 pwd = $(shell pwd)
+docker ?= $(shell command -v docker)
+jq ?= $(shell command -v jq)
 operator-sdk = $(pwd)/testbin/operator-sdk
 skaffold = $(pwd)/testbin/skaffold
 cfssl = $(pwd)/testbin/cfssl
@@ -95,7 +96,7 @@ KIND_NAME?=test
 
 .PHONY: build-and-load-kind
 build-and-load-kind: ## Build all operators with json output
-	- make build-json | jq -r '.builds[].tag' | xargs -n 1 -t kind load docker-image --name=$(KIND_NAME)
+	- make build-json | $(jq) -r '.builds[].tag' | xargs -n 1 -t kind load docker-image --name=$(KIND_NAME)
 
 BUILD_IMAGE ?= redhat-marketplace-operator
 
@@ -112,13 +113,13 @@ build-amd: $(skaffold) ## Build the operator executable for amd64
 .PHONY: build-ppc
 build-ppc: $(skaffold) ## Build the operator executable for ppc64le
 	@echo Building ppc64le image
-	@docker run --rm --privileged multiarch/qemu-user-static:register --reset
+	@$(docker) run --rm --privileged multiarch/qemu-user-static:register --reset
 	VERSION=$(VERSION) ARCH=ppc64le UBI_IMAGE_SHA=$(UBI_IMAGE_SHA_PPC) $(skaffold) build --profile ppc --tag $(OPERATOR_IMAGE_TAG) --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --cache-artifacts=false
 
 .PHONY: build-390
 build-390: $(skaffold) ## Build the operator executable for s390x
 	@echo Building s390x image
-	@docker run --rm --privileged multiarch/qemu-user-static:register --reset
+	@$(docker) run --rm --privileged multiarch/qemu-user-static:register --reset
 	VERSION=$(VERSION) ARCH=s390x UBI_IMAGE_SHA=$(UBI_IMAGE_SHA_390) $(skaffold) build --profile s390 --tag $(OPERATOR_IMAGE_TAG) --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --cache-artifacts=false
 
 # build multiarch images
@@ -187,8 +188,8 @@ manifest-package-stable: # Make sure we have the right versions
 
 REGISTRY ?= quay.io
 
-docker-login: ## Log into docker using env $DOCKER_USER and $DOCKER_PASSWORD
-	@$(DOCKER_EXEC) login -u="$(DOCKER_USER)" -p="$(DOCKER_PASSWORD)" $(REGISTRY)
+docker-login: ## Log into $(docker) using env $DOCKER_USER and $DOCKER_PASSWORD
+	@$(docker) login -u="$(DOCKER_USER)" -p="$(DOCKER_PASSWORD)" $(REGISTRY)
 
 ##@ Development
 
@@ -196,13 +197,13 @@ ARGS ?=
 
 skaffold-dev: $(skaffold) ## Run skaffold dev. Will unique tag the operator and rebuild.
 	make create
-	DEVPOSTFIX=$(DEVPOSTFIX) DOCKER_EXEC=$(DOCKER_EXEC) $(skaffold) dev --tail --port-forward --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --trigger manual $(ARGS)
+	DEVPOSTFIX=$(DEVPOSTFIX) docker=$(DOCKER_EXEC) $(skaffold) dev --tail --port-forward --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --trigger manual $(ARGS)
 
 skaffold-run: $(skaffold) ## Run skaffold run. Will uniquely tag the operator.
 	make helm
 	make create
 	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=redhat-marketplace-operator --set pullPolicy=IfNotPresent
-	DOCKER_EXEC=$(DOCKER_EXEC) $(skaffold) run --tail --default-repo $(IMAGE_REGISTRY) --cleanup=false $(ARGS)
+	docker=$(DOCKER_EXEC) $(skaffold) run --tail --default-repo $(IMAGE_REGISTRY) --cleanup=false $(ARGS)
 
 code-vet: ## Run go vet for this project. More info: https://golang.org/cmd/vet/
 	@echo go vet
@@ -331,7 +332,6 @@ test: testbin ## test-ci runs all tests for CI builds
 	@echo "testing"
 	make test-ci-unit test-int-kind
 
-TEST_TAG?=$(shell date +'%Y%m%d')
 KIND_CLUSTER_NAME ?= test
 KIND_CONTROL_PLANE_NODE ?= $(KIND_CLUSTER_NAME)-control-plane
 
@@ -339,11 +339,11 @@ setup-kind: ## setup the kind cluster for integration test
 	- $(kind) create cluster --name $(KIND_CLUSTER_NAME) --config ./kind-cluster.yaml
 	- $(kind) export kubeconfig --name  $(KIND_CLUSTER_NAME)
 	- for file in ca.crt ca.key apiserver.crt; do \
-    docker cp $(KIND_CONTROL_PLANE_NODE):/etc/kubernetes/pki/$$file ./test/certs/$$file ; \
+    $(docker) cp $(KIND_CONTROL_PLANE_NODE):/etc/kubernetes/pki/$$file ./test/certs/$$file ; \
     done
-	- cd test/certs && $(cfssl) certinfo -cert apiserver.crt | jq ".sans" > sans.json
-	- cd test/certs && $(jq) -n --argfile o1 server-csr.json --argfile o2 sans.json '$o1 | .hosts = $o2 | .hosts[.hosts | length] |= . + "*.openshift-redhat-marketplace.svc"'
-	- cd test/certs && $(cfssl) gencert -ca=ca.crt -ca-key=ca.key -profile=kubernetes server-csr.json | $(cfssljson) -bare server
+	- cd test/certs && $(cfssl) certinfo -cert apiserver.crt | $(jq) -r ".sans" > sans.json
+	- cd test/certs	&& $(jq) -n --argfile o1 server-csr.json --argfile o2 sans.json '$$o1 | .hosts = $$o2 | .hosts[.hosts | length] |= . + "*.openshift-redhat-marketplace.svc"' > marketplace-csr.json
+	- cd test/certs && $(cfssl) gencert -ca=ca.crt -ca-key=ca.key -profile=kubernetes marketplace-csr.json | $(cfssljson) -bare server
 
 test-int-kind: ## test integration using kind
 	- make setup-kind
@@ -366,8 +366,8 @@ test-ci-unit: ## test-ci-unit runs all tests for CI builds
 	cat cover-unit.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-unit.out
 
 .PHONY: test-ci-int
-test-ci-int: testbin ./test/certs/server.pem ## test-ci-int runs all tests for CI builds
-	TEST_TAG=$(TEST_TAG) ginkgo -r -coverprofile=cover-int.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --coverpkg=$(CONTROLLERS) ./test
+test-ci-int: setup-kind ## test-ci-int runs all tests for CI builds
+	ginkgo -r -coverprofile=cover-int.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --coverpkg=$(CONTROLLERS) ./test
 	cat cover-int.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-int.out
 
 test-join: $(gocovmerge)
@@ -431,15 +431,15 @@ upload-bundle: ## Uploads bundle to partner connect (use with caution and only o
 .PHONY: publish-image
 publish-image: ## Publish image
 	make build
-	$(DOCKER_EXEC) tag $(OPERATOR_IMAGE) $(REDHAT_OPERATOR_IMAGE)
-	$(DOCKER_EXEC) push $(OPERATOR_IMAGE)
-	$(DOCKER_EXEC) push $(REDHAT_OPERATOR_IMAGE)
+	$(docker) tag $(OPERATOR_IMAGE) $(REDHAT_OPERATOR_IMAGE)
+	$(docker) push $(OPERATOR_IMAGE)
+	$(docker) push $(REDHAT_OPERATOR_IMAGE)
 
 IMAGE ?= $(OPERATOR_IMAGE)
 
 tag-and-push: ## Tag and push operator-image
-	$(DOCKER_EXEC) tag $(IMAGE) $(TAG)
-	$(DOCKER_EXEC) push $(TAG)
+	$(docker) tag $(IMAGE) $(TAG)
+	$(docker) push $(TAG)
 
 ARGS ?= "--patch"
 
@@ -473,7 +473,7 @@ wait-and-publish:
 			REPO="$${repos[$$i]}" ; \
 			RESULT=`skopeo inspect docker://$$REPO:$$TAG` ; \
 			if [ $$? -ne 0 ]; then echo "failed to get skopeo" && exit 1 ; fi ; \
-			DIGEST=`echo $$RESULT | jq -r '.Digest'` ; \
+			DIGEST=`echo $$RESULT | $(jq) -r '.Digest'` ; \
 			RESULTS="--pid $$PID=$$DIGEST $$RESULTS" ; \
 	done ; \
 	echo $$RESULTS ; \
@@ -506,17 +506,17 @@ opm-bundle-all: # used to bundle all the versions available
 
 opm-bundle-last-beta: ## Bundle latest for beta
 	$(operator-sdk) bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/manifests" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
-	docker build -f custom-bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" --build-arg channels=beta .
-	docker tag "$(OLM_REPO):$(TAG)" "$(OLM_REPO):$(VERSION)"
-	docker push "$(OLM_REPO):$(TAG)"
-	docker push "$(OLM_REPO):$(VERSION)"
+	$(docker) build -f custom-bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" --build-arg channels=beta .
+	$(docker) tag "$(OLM_REPO):$(TAG)" "$(OLM_REPO):$(VERSION)"
+	$(docker) push "$(OLM_REPO):$(TAG)"
+	$(docker) push "$(OLM_REPO):$(VERSION)"
 
 opm-bundle-last-stable: ## Bundle latest for stable
 	$(operator-sdk) bundle create -g --directory "./deploy/olm-catalog/redhat-marketplace-operator/manifests" -c stable,beta --default-channel stable --package $(OLM_PACKAGE_NAME)
-	docker build -f custom-bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" --build-arg channels=stable,beta .
-	docker tag "$(OLM_REPO):$(TAG)" "$(OLM_REPO):$(VERSION)"
-	docker push "$(OLM_REPO):$(TAG)"
-	docker push "$(OLM_REPO):$(VERSION)"
+	$(docker) build -f custom-bundle.Dockerfile -t "$(OLM_REPO):$(TAG)" --build-arg channels=stable,beta .
+	$(docker) tag "$(OLM_REPO):$(TAG)" "$(OLM_REPO):$(VERSION)"
+	$(docker) push "$(OLM_REPO):$(TAG)"
+	$(docker) push "$(OLM_REPO):$(VERSION)"
 
 opm-index-base: ## Create an index base
 	git fetch --tags
