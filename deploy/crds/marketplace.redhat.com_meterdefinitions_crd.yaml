@@ -334,8 +334,27 @@ spec:
                 - type
                 type: object
               type: array
-            queryPreview:
-              type: string
+            results:
+              description: Results is the result of the queries defined on the meterdefinition.
+                This will generate data for the previous 3 hours on whichever workload
+                you specify This is intended to be a preview to check whether a query
+                is working as intended.
+              items:
+                description: Result
+                properties:
+                  MetricData:
+                    format: int32
+                    type: integer
+                  endTime:
+                    type: string
+                  queryName:
+                    type: string
+                  startTime:
+                    type: string
+                  workloadName:
+                    type: string
+                type: object
+              type: array
             workloadResource:
               description: WorkloadResources is the list of resoruces discovered by
                 this meter definition

@@ -196,7 +196,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Error(result.GetError(), "Failed to update status.")
 	}
 
-	//TODO: get cert from CM
+	// get cert from ConfigMap
 	dataMap := &certConfigMap.Data
 	var cert []byte
 	for _,value := range *dataMap{
@@ -221,11 +221,17 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Info("PROM API IS NIL")
 	}
 
-	var val model.Value
+	var queryPreviewResult *v1alpha1.Result
+	var queryPreviewResultArray []v1alpha1.Result
+
 	for _, workload := range instance.Spec.Workloads {
-		for _, metric := range workload.MetricLabels {
+		var val model.Value
+		var metric v1alpha1.MeterLabelQuery
+		var query *prometheus.PromQuery
+
+		for _, metric = range workload.MetricLabels {
 			reqLogger.Info("query", "metric", metric)
-			query := &prometheus.PromQuery{
+			query = &prometheus.PromQuery{
 				Metric: metric.Label,
 				Type:   workload.WorkloadType,
 				MeterDef: types.NamespacedName{
@@ -234,8 +240,8 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 				},
 				Query:         metric.Query,
 				Time:          "60m",
-				Start:         time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), 0, 0, 0, loc),
-				End:           time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour()-1, 0, 0, 0, loc),
+				Start:         time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute()-2, 0, 0, loc),
+				End:           time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute(), 0, 0, loc),
 				Step:          time.Hour,
 				AggregateFunc: metric.Aggregation,
 			}
@@ -262,19 +268,33 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 				reqLogger.Error(err, "error encountered")
 				return reconcile.Result{}, err
 			}
+
+			matrix := val.(model.Matrix)
+			for _,m := range matrix{
+				for _,pair := range m.Values {
+					queryPreviewResult = &v1alpha1.Result{
+						WorkloadName: workload.Name,
+						QueryName: metric.Label,
+						StartTime: fmt.Sprintf("%s",query.Start),
+						EndTime: fmt.Sprintf("%s",query.End),
+						MetricData: int32(pair.Value),
+					}
+				}
+			}
+
+			if queryPreviewResult != nil{
+				reqLogger.Info("output", "query preview result", queryPreviewResult)
+				// instance.Status.Results = append(instance.Status.Results, *queryPreviewResult)
+				queryPreviewResultArray = append(queryPreviewResultArray, *queryPreviewResult)
+			}
+		
+			if queryPreviewResult == nil {
+				reqLogger.Info("output", "query preview result", "no data returned from query")
+			}
 		}
 	}
 
-	var s string
-	if val != nil {
-		s = fmt.Sprintf("%s", val)
-		reqLogger.Info("output", "query_data", s)
-	}
-
-	if s != "" {
-		fmt.Println("QUERY PREVIEW: ", s)
-		instance.Status.QueryPreview = s
-	}
+	instance.Status.Results = queryPreviewResultArray
 
 	result, _ = cc.Do(
 		context.TODO(),
@@ -293,6 +313,10 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	reqLogger.Info("finished reconciling")
 	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 }
+
+// func (queryPreview v1alpha1.Result) IsEmpty() bool {
+// 	return reflect.DeepEqual(queryPreview,v1alpha1.Result{})
+// }
 
 func (r *ReconcileMeterDefinition) finalizeMeterDefinition(req *v1alpha1.MeterDefinition) (reconcile.Result, error) {
 	var err error

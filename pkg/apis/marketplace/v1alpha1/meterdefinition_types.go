@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 
 	"github.com/operator-framework/operator-sdk/pkg/status"
@@ -229,6 +230,17 @@ type MeterLabelQuery struct {
 	Aggregation string `json:"aggregation,omitempty"`
 }
 
+// Result 
+// +k8s:openapi-gen=true
+// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+type Result struct {
+	WorkloadName string `json:"workloadName,omitempty"`
+	QueryName string `json:"queryName,omitempty"`
+	StartTime string `json:"startTime,omitempty"`
+	EndTime string `json:"endTime,omitempty"`
+	MetricData int32 `json:"MetricData,omitempty"`
+}
+
 // MeterDefinitionStatus defines the observed state of MeterDefinition
 // +k8s:openapi-gen=true
 // +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
@@ -244,7 +256,12 @@ type MeterDefinitionStatus struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	WorkloadResources []WorkloadResource `json:"workloadResource,omitempty"`
 
-	QueryPreview string `json:"queryPreview,omitempty"`
+	// Results is the result of the queries defined on the meterdefinition. 
+	// This will generate data for the previous 3 hours on whichever workload you specify
+	// This is intended to be a preview to check whether a query is working as intended. 
+	// +k8s:openapi-gen=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	Results []Result `json:"results,omitempty"`
 }
 
 // MeterDefinition defines the meter workloads used to enable pay for
@@ -296,4 +313,8 @@ func (meterdef *MeterDefinition) BuildMeterDefinitionFromString(meterdefString, 
 	}
 
 	return meterdef, nil
+}
+
+func (queryPreview Result) IsEmpty() bool {
+	return reflect.DeepEqual(queryPreview,Result{})
 }

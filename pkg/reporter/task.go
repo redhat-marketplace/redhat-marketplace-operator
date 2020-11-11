@@ -217,7 +217,7 @@ func ProvideApiClient(
 
 	var auth = ""
 
-	content, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
+	content, err := ioutil.ReadFile("/etc/auth-service-account/token")
 	fmt.Println("CONTENT",content)
 	if err != nil {
 		fmt.Println("TOKEN ERR",err)
