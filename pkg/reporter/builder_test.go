@@ -45,6 +45,9 @@ var _ = Describe("Builder", func() {
 			MeterDomain:       "test",
 			MeterKind:         "foo",
 			MeterVersion:      "v1",
+			ResourceName:      "foo",
+			Namespace:         "bar",
+			Workload:          "awesome",
 		}
 		metricBase = &MetricBase{
 			Key: key,
@@ -53,9 +56,9 @@ var _ = Describe("Builder", func() {
 
 	It("should serialize source metadata to json", func() {
 		metadata := NewReportMetadata(uuid.New(), ReportSourceMetadata{
-			RhmClusterID: "testCluster",
+			RhmClusterID:   "testCluster",
 			RhmEnvironment: ReportSandboxEnv,
-			RhmAccountID: "testAccount",
+			RhmAccountID:   "testAccount",
 		})
 
 		metadata.AddMetricsReport(metricsReport)
@@ -90,6 +93,9 @@ var _ = Describe("Builder", func() {
 					"domain":              Equal("test"),
 					"version":             Equal("v1"),
 					"kind":                Equal("foo"),
+					"resource_name":       Equal("foo"),
+					"namespace":           Equal("bar"),
+					"workload":            Equal("awesome"),
 					"additionalLabels": MatchAllKeys(Keys{
 						"extra": Equal("g"),
 					}),
