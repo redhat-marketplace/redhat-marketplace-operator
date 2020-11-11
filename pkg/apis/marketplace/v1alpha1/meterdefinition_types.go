@@ -238,7 +238,7 @@ type Result struct {
 	QueryName string `json:"queryName,omitempty"`
 	StartTime string `json:"startTime,omitempty"`
 	EndTime string `json:"endTime,omitempty"`
-	MetricData int32 `json:"MetricData,omitempty"`
+	Value int32 `json:"value,omitempty"`
 }
 
 // MeterDefinitionStatus defines the observed state of MeterDefinition

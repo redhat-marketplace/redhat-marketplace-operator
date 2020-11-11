@@ -17,6 +17,7 @@ package meterdefinition
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -162,13 +163,6 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		queue = instance.Status.Conditions.SetCondition(v1alpha1.MeterDefConditionHasResults)
 	}
 
-	// client, err := api.NewClient(api.Config{
-	// 	Address: "http://localhost:9090",
-	// })
-	// client, err := prometheus.ProvideApiClient()
-	// client, err := r.promClient
-	// if err != nil {
-	// 	reqLogger.Error(err, "error")
 	if r.queryForPrometheus == nil {
 		reqLogger.Info("queryForProm", "setup", "is not present")
 	}
@@ -240,7 +234,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 				},
 				Query:         metric.Query,
 				Time:          "60m",
-				Start:         time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute()-2, 0, 0, loc),
+				Start:         time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute()-1, 0, 0, loc),
 				End:           time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute(), 0, 0, loc),
 				Step:          time.Hour,
 				AggregateFunc: metric.Aggregation,
@@ -277,24 +271,23 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 						QueryName: metric.Label,
 						StartTime: fmt.Sprintf("%s",query.Start),
 						EndTime: fmt.Sprintf("%s",query.End),
-						MetricData: int32(pair.Value),
+						Value: int32(pair.Value),
 					}
 				}
 			}
 
 			if queryPreviewResult != nil{
 				reqLogger.Info("output", "query preview result", queryPreviewResult)
-				// instance.Status.Results = append(instance.Status.Results, *queryPreviewResult)
 				queryPreviewResultArray = append(queryPreviewResultArray, *queryPreviewResult)
-			}
-		
-			if queryPreviewResult == nil {
-				reqLogger.Info("output", "query preview result", "no data returned from query")
 			}
 		}
 	}
 
-	instance.Status.Results = queryPreviewResultArray
+	if !reflect.DeepEqual(queryPreviewResultArray,instance.Status.Results) {
+		queue = true
+		instance.Status.Results = queryPreviewResultArray
+		reqLogger.Info("output","Status.Results",instance.Status.Results)
+	}
 
 	result, _ = cc.Do(
 		context.TODO(),

@@ -72,7 +72,7 @@ func ContainsMultiple(inArray []string, referenceArray []string) []string {
 	return temp
 }
 
-// Remove() will remove the key from the list
+// RemoveKey will remove the key from the list
 func RemoveKey(list []string, key string) []string {
 	newList := []string{}
 	for _, s := range list {
@@ -208,7 +208,7 @@ func Equal(a []string, b []string) bool {
 	return true
 }
 
-// AppendResourceList() returns the the combined ResourceList
+// AppendResourceList returns the combined ResourceList
 func AppendResourceList(list1 corev1.ResourceList, list2 corev1.ResourceList) corev1.ResourceList {
 	result := corev1.ResourceList{}
 	for k, v := range list1 {

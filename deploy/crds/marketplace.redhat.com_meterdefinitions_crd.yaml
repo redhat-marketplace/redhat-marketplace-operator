@@ -342,15 +342,15 @@ spec:
               items:
                 description: Result
                 properties:
-                  MetricData:
-                    format: int32
-                    type: integer
                   endTime:
                     type: string
                   queryName:
                     type: string
                   startTime:
                     type: string
+                  value:
+                    format: int32
+                    type: integer
                   workloadName:
                     type: string
                 type: object
