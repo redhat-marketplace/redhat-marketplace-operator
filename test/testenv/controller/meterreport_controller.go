@@ -31,6 +31,13 @@ import (
 )
 
 var _ = Describe("MeterReportController", func() {
+	BeforeEach(func() {
+		Expect(TestHarness.BeforeAll()).To(Succeed())
+	})
+
+	AfterEach(func() {
+		Expect(TestHarness.AfterAll()).To(Succeed())
+	})
 
 	Context("MeterReport reconcile", func() {
 		var (

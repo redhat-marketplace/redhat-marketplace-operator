@@ -147,12 +147,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - uses: engineerd/setup-kind@v0.4.0
-        with:
-          name: test
-          version: 'v0.9.0'
-          config: ./kind-cluster.yaml
-
       - name: Login Docker
         run: make docker-login
         env:

@@ -9,6 +9,7 @@ require (
 	github.com/Shyp/bump_version v0.0.0-20180222180749-d7594d2951e2
 	github.com/banzaicloud/k8s-objectmatcher v1.3.0
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/caarlos0/env v3.5.0+incompatible
 	github.com/caarlos0/env/v6 v6.3.0
 	github.com/cespare/xxhash v1.1.0
 	github.com/coreos/prometheus-operator v0.40.0

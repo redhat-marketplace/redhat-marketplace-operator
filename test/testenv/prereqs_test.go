@@ -15,9 +15,7 @@
 package testenv
 
 import (
-	"context"
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -61,13 +59,3 @@ var (
 		},
 	}
 )
-
-func CreatePrereqs() {
-	Expect(k8sClient.Create(context.TODO(), kubeletMonitor)).Should(SucceedOrAlreadyExist)
-	Expect(k8sClient.Create(context.TODO(), kubeStateMonitor)).Should(SucceedOrAlreadyExist)
-}
-
-func DeletePrereqs() {
-	k8sClient.Delete(context.TODO(), kubeletMonitor)
-	k8sClient.Delete(context.TODO(), kubeStateMonitor)
-}

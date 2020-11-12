@@ -21,6 +21,20 @@ import (
 
 // Injectors from wire.go:
 
+func initializeScheme(cfg *rest.Config) (*runtime.Scheme, error) {
+	opsSrcSchemeDefinition := controller.ProvideOpsSrcScheme()
+	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
+	olmV1SchemeDefinition := controller.ProvideOLMV1Scheme()
+	olmV1Alpha1SchemeDefinition := controller.ProvideOLMV1Alpha1Scheme()
+	openshiftConfigV1SchemeDefinition := controller.ProvideOpenshiftConfigV1Scheme()
+	localSchemes := controller.ProvideLocalSchemes(opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition, openshiftConfigV1SchemeDefinition)
+	scheme, err := managers.ProvideScheme(cfg, localSchemes)
+	if err != nil {
+		return nil, err
+	}
+	return scheme, nil
+}
+
 func initializeMainCtrl(cfg *rest.Config) (*managers.ControllerMain, error) {
 	defaultCommandRunnerProvider := reconcileutils.ProvideDefaultCommandRunnerProvider()
 	marketplaceController := controller.ProvideMarketplaceController(defaultCommandRunnerProvider)

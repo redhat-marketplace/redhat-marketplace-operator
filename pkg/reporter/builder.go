@@ -105,19 +105,25 @@ type MetricKey struct {
 	IntervalEnd       string `mapstructure:"interval_end"`
 	MeterDomain       string `mapstructure:"domain"`
 	MeterKind         string `mapstructure:"kind"`
-	MeterVersion      string `mapstructure:"version"`
+	MeterVersion      string `mapstructure:"version,omitempty"`
+	Workload          string `mapstructure:"workload,omitempty"`
+	Namespace         string `mapstructure:"namespace,omitempty"`
+	ResourceName      string `mapstructure:"resource_name,omitempty"`
 }
 
-func (k *MetricKey) Init(ClusterID, unit, namespace string) {
+func (k *MetricKey) Init(
+	clusterID string,
+) {
 	hash := xxhash.New()
 
-	hash.Write([]byte(ClusterID))
+	hash.Write([]byte(clusterID))
 	hash.Write([]byte(k.IntervalStart))
 	hash.Write([]byte(k.IntervalEnd))
 	hash.Write([]byte(k.MeterDomain))
 	hash.Write([]byte(k.MeterKind))
-	hash.Write([]byte(unit))
-	hash.Write([]byte(namespace))
+	hash.Write([]byte(k.Workload))
+	hash.Write([]byte(k.Namespace))
+	hash.Write([]byte(k.ResourceName))
 
 	k.MetricID = fmt.Sprintf("%x", hash.Sum64())
 }
