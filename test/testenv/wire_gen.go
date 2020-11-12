@@ -6,10 +6,12 @@
 package testenv
 
 import (
+	"context"
 	"github.com/google/wire"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/reporter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -23,7 +25,9 @@ func initializeMainCtrl(cfg *rest.Config) (*managers.ControllerMain, error) {
 	defaultCommandRunnerProvider := reconcileutils.ProvideDefaultCommandRunnerProvider()
 	marketplaceController := controller.ProvideMarketplaceController(defaultCommandRunnerProvider)
 	meterbaseController := controller.ProvideMeterbaseController(defaultCommandRunnerProvider)
-	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider)
+	v := provideQueryPromFunc()
+	v2 := provideAPIClient()
+	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider, v, v2)
 	razeeDeployController := controller.ProvideRazeeDeployController()
 	olmSubscriptionController := controller.ProvideOlmSubscriptionController()
 	operatorConfig, err := config.ProvideConfig()
@@ -59,7 +63,9 @@ func initializeMainCtrl(cfg *rest.Config) (*managers.ControllerMain, error) {
 
 // wire.go:
 
-var testControllerSet = wire.NewSet(controller.ControllerSet, controller.ProvideControllerFlagSet, controller.SchemeDefinitions, managers.ProvideConfiglessManagerSet, config.ProvideConfig, reconcileutils.ProvideDefaultCommandRunnerProvider, provideOptions,
+var testControllerSet = wire.NewSet(
+	provideQueryPromFunc,
+	provideAPIClient, controller.ControllerSet, controller.ProvideControllerFlagSet, controller.SchemeDefinitions, managers.ProvideConfiglessManagerSet, config.ProvideConfig, reconcileutils.ProvideDefaultCommandRunnerProvider, provideOptions,
 	makeMarketplaceController, wire.Bind(new(reconcileutils.ClientCommandRunnerProvider), new(*reconcileutils.DefaultCommandRunnerProvider)),
 )
 
@@ -81,4 +87,16 @@ func makeMarketplaceController(
 		Controllers: controllerList,
 		Manager:     mgr,
 	}
+}
+
+func provideContext() context.Context {
+	return context.TODO()
+}
+
+func provideQueryPromFunc() reconcileutils.QueryForPrometheusServiceFunc {
+	return reporter.QueryForPrometheusService
+}
+
+func provideAPIClient() reconcileutils.ProvideAPIClientFunc {
+	return reporter.ProvideApiClient
 }

@@ -65,7 +65,6 @@ func provideContext() context.Context {
 }
 
 func provideQueryPromFunc() reconcileutils.QueryForPrometheusServiceFunc {
-	// var q reconcileutils.QueryForPrometheusService
 	return reporter.QueryForPrometheusService
 }
 

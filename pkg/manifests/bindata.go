@@ -334,7 +334,7 @@ func assetsPrometheusPrometheusYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/prometheus.yaml", size: 4703, mode: os.FileMode(420), modTime: time.Unix(1604420470, 0)}
+	info := bindataFileInfo{name: "assets/prometheus/prometheus.yaml", size: 4703, mode: os.FileMode(420), modTime: time.Unix(1605134244, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -394,7 +394,7 @@ func assetsPrometheusServingCertsCaBundleYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/serving-certs-ca-bundle.yaml", size: 169, mode: os.FileMode(420), modTime: time.Unix(1604420470, 0)}
+	info := bindataFileInfo{name: "assets/prometheus/serving-certs-ca-bundle.yaml", size: 169, mode: os.FileMode(420), modTime: time.Unix(1605134244, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -414,7 +414,7 @@ func assetsPrometheusOperatorDeploymentYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus-operator/deployment.yaml", size: 3611, mode: os.FileMode(420), modTime: time.Unix(1604420470, 0)}
+	info := bindataFileInfo{name: "assets/prometheus-operator/deployment.yaml", size: 3611, mode: os.FileMode(420), modTime: time.Unix(1605134244, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -434,7 +434,7 @@ func assetsPrometheusOperatorOperatorCertsCaBundleYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus-operator/operator-certs-ca-bundle.yaml", size: 170, mode: os.FileMode(420), modTime: time.Unix(1604420470, 0)}
+	info := bindataFileInfo{name: "assets/prometheus-operator/operator-certs-ca-bundle.yaml", size: 170, mode: os.FileMode(420), modTime: time.Unix(1605134244, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -554,7 +554,7 @@ func assetsReporterJobYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/reporter/job.yaml", size: 1365, mode: os.FileMode(420), modTime: time.Unix(1604420470, 0)}
+	info := bindataFileInfo{name: "assets/reporter/job.yaml", size: 1365, mode: os.FileMode(420), modTime: time.Unix(1605134244, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
