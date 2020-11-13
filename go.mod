@@ -27,6 +27,7 @@ require (
 	github.com/goph/emperror v0.17.2
 	github.com/gophercloud/gophercloud v0.12.0 // indirect
 	github.com/gotidy/ptr v1.0.1
+	github.com/hashicorp/consul/api v1.4.0
 	github.com/imdario/mergo v0.3.9
 	github.com/jpillora/backoff v1.0.0
 	github.com/launchdarkly/go-options v1.0.0
@@ -49,6 +50,7 @@ require (
 	github.com/prometheus/alertmanager v0.21.0 // indirect
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/common v0.10.0
+	github.com/prometheus/prometheus v2.3.2+incompatible
 	github.com/sasha-s/go-deadlock v0.2.0
 	github.com/sirupsen/logrus v1.6.0 // indirect
 	github.com/spf13/cobra v1.0.0
