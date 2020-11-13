@@ -3,8 +3,11 @@ package clusterregistration
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
+	"github.com/dgrijalva/jwt-go"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/marketplace"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,7 +31,7 @@ const (
 	RHM_OPERATOR_SECRET_NAME  = "rhm-operator-secret"
 	RHM_PULL_SECRET_KEY       = "PULL_SECRET"
 	RHM_PULL_SECRET_ENDPOINT  = "https://marketplace.redhat.com/provisioning/v1/rhm-operator/rhm-operator-secret"
-	RHM_REGISTRATION_ENDPOINT = "https://marketplace.redhat.com/provisioning/v1/registered-clusters?accountId=account-id&uuid=cluster-uuid&status=INSTALLED"
+	RHM_REGISTRATION_ENDPOINT = "https://marketplace.redhat.com/provisioning/v1/registered-clusters?accountId=account-id&uuid=cluster-uuid"
 	RHM_PULL_SECRET_STATUS    = "marketplace.redhat.com/rhm-operator-secret-Status"
 	RHM_PULL_SECRET_MESSAGE   = "marketplace.redhat.com/rhm-operator-secret-message"
 	RHM_NAMESPACE             = "openshift-redhat-marketplace"
@@ -126,6 +129,21 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 		}
 		reqLogger.Info("Secret updated with status on failiure")
 	}
+
+	//Get Account Id from Pull Secret Token
+	rhmAccountId, err := GetAccountIdFromJWTToken(string(secret.Data[RHM_PULL_SECRET_KEY]))
+	reqLogger.Info("Account id found in token", "accountid", rhmAccountId)
+	if rhmAccountId == "" || err != nil {
+		reqLogger.Info("Token is missing account id >>>>>")
+		annotations[RHM_PULL_SECRET_STATUS] = "error"
+		annotations[RHM_PULL_SECRET_MESSAGE] = "Account id is not available in provided token, Pleasr generate token from RH Marketplace again"
+		secret.SetAnnotations(annotations)
+		if err := r.client.Update(context.TODO(), &secret); err != nil {
+			reqLogger.Error(err, "Failed to patch secret with Endpoint status")
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("Secret updated with account id missing error")
+	}
 	//Calling POST endpoint to pull the secret definition
 	//bearerToken := "Bearer " + string(secret.Data[RHM_PULL_SECRET_KEY])
 	//httpClient := &http.Client{}
@@ -138,15 +156,20 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 	}
 	reqLogger.Info("Finding MarketPlace config object >>>>>>>>>>>>>>")
 	if err == nil && marketplaceConfig.Spec.RhmAccountID != "" {
-		// Marketplace config object found
-		reqLogger.Info("MarketPlace config object found")
-		clusterRegisterationStatus, _ := ClusterRegistrationStatus(&HttpClusterConfig{
-			Url:         RHM_REGISTRATION_ENDPOINT,
+		//Setting MarketplaceClientAccount
+
+		marketplaceClientAccount := &MarketplaceClientAccount{
 			AccountId:   marketplaceConfig.Spec.RhmAccountID,
 			ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
-			Token:       "Bearer " + string(secret.Data[RHM_PULL_SECRET_KEY]),
-		})
-		if clusterRegisterationStatus == true {
+		}
+		// Marketplace config object found
+		reqLogger.Info("MarketPlace config object found")
+		registrationStatusOutput, _ := ClusterRegistrationStatus(&MarketplaceClientConfig{
+			Url:   RHM_REGISTRATION_ENDPOINT,
+			Token: string(secret.Data[RHM_PULL_SECRET_KEY]),
+		}, marketplaceClientAccount)
+
+		if registrationStatusOutput.RegistrationStatus == "INSTALLED" {
 			return reconcile.Result{}, nil
 		}
 	}
@@ -163,13 +186,16 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 		reqLogger.Info("Secret updated with status on failiure")
 	}
 
+	reqLogger.Info("RHMarketPlace Pull Secret token found>>>>>>>", "token", string(secret.Data[RHM_PULL_SECRET_KEY]))
 	//Calling POST endpoint to pull the secret definition
-	data, err := GetMarketPlaceSecret(&HttpClusterConfig{
+	data, err := GetMarketPlaceSecret(&MarketplaceClientConfig{
 		Url:   RHM_PULL_SECRET_ENDPOINT,
-		Token: "Bearer " + string(secret.Data[RHM_PULL_SECRET_KEY]),
+		Token: string(secret.Data[RHM_PULL_SECRET_KEY]),
 	})
 	reqLogger.Info("RHMarketPlaceSecret data found")
 	if err != nil {
+		reqLogger.Info("RHMarketPlaceSecret failiure")
+		reqLogger.Error(err, "RHMarketPlaceSecret failiure")
 		annotations[RHM_PULL_SECRET_STATUS] = "error"
 		annotations[RHM_PULL_SECRET_MESSAGE] = string(data)
 		secret.SetAnnotations(annotations)
@@ -177,7 +203,7 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 			reqLogger.Error(err, "Failed to patch secret with Endpoint status")
 		}
 		return reconcile.Result{}, err
-		reqLogger.Info("Secret updated with status on failiure")
+
 	}
 	//Convert yaml string to Secret object
 	reqLogger.Info("Secret object", "data", data)
@@ -242,7 +268,7 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 	newMarketplaceConfig.ObjectMeta.Name = "marketplaceconfig"
 	newMarketplaceConfig.ObjectMeta.Namespace = "openshift-redhat-marketplace"
 	newMarketplaceConfig.Spec.ClusterUUID = clusterID
-	newMarketplaceConfig.Spec.RhmAccountID = "5f08d00472746d0014e10903" //Hard coded
+	newMarketplaceConfig.Spec.RhmAccountID = rhmAccountId
 	// Create Marketplace Config object with ClusterID
 	reqLogger.Info("Marketplace Config creating >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 	err = r.client.Create(context.TODO(), newMarketplaceConfig)
@@ -252,4 +278,19 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 	}
 	reqLogger.Info("Marketplace Config Created >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 	return reconcile.Result{}, nil
+}
+
+//Parsing JWT token and fetching rhmAccountId
+func GetAccountIdFromJWTToken(jwtToken string) (string, error) {
+	token, err := jwt.Parse(jwtToken, nil)
+	if err != nil {
+		return "", err
+	}
+	if claims, ok := token.Claims.(jwt.MapClaims); ok {
+		rhmAccountClaim := claims["rhmAccountId"]
+		if rhmAccountID, ok := rhmAccountClaim.(string); ok {
+			return rhmAccountID, nil
+		}
+	}
+	return "", errors.New("rhmAccountId not found")
 }

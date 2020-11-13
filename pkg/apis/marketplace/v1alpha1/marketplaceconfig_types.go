@@ -101,8 +101,10 @@ const (
 	ConditionComplete status.ConditionType = "Complete"
 	// ConditionError means the installation has failed.
 	ConditionError status.ConditionType = "Error"
-	// ConditionError means the installation has failed.
+	// ConditionRegistered means the cluster registered.
 	ConditionRegistered status.ConditionType = "Registered"
+	// ConditionRegistered means the cluster registered.
+	ConditionRegistrationError status.ConditionType = "Registation Error"
 
 	// Reasons for install
 	ReasonStartInstall          status.ConditionReason = "StartInstall"

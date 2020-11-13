@@ -25,6 +25,7 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	pflag "github.com/spf13/pflag"
@@ -48,7 +49,7 @@ const (
 	CSCFinalizer                    = "finalizer.MarketplaceConfigs.operators.coreos.com"
 	RELATED_IMAGE_MARKETPLACE_AGENT = "RELATED_IMAGE_MARKETPLACE_AGENT"
 	DEFAULT_IMAGE_MARKETPLACE_AGENT = "marketplace-agent:latest"
-	RHM_REGISTRATION_ENDPOINT       = "https://marketplace.redhat.com/provisioning/v1/registered-clusters?accountId=account-id&uuid=cluster-uuid&status=INSTALLED"
+	RHM_REGISTRATION_ENDPOINT       = "https://marketplace.redhat.com/provisioning/v1/registered-clusters?accountId=account-id&uuid=cluster-uuid"
 	RHM_PULL_SECRET_ENDPOINT        = "https://marketplace.redhat.com/provisioning/v1/rhm-operator/rhm-operator-secret"
 	RHM_PULL_SECRET_NAME            = "redhat-marketplace-pull-secret"
 	RHM_PULL_SECRET_KEY             = "PULL_SECRET"
@@ -481,15 +482,21 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	//Finding Marketplace config status based on Cluster Registration
-	marketplaceConfigStatus, err := ClusterRegistrationStatus(&MarketplaceClientConfig{
-		Url:         RHM_REGISTRATION_ENDPOINT,
+	//Setting MarketplaceClientAccount
+
+	marketplaceClientAccount := &MarketplaceClientAccount{
 		AccountId:   marketplaceConfig.Spec.RhmAccountID,
 		ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
-		Token:       "Bearer " + string(secret.Data[RHM_PULL_SECRET_KEY]),
-	}, *marketplaceConfig)
+	}
 
-	err = r.client.Status().Update(context.TODO(), &marketplaceConfigStatus)
+	//Finding Marketplace config status based on Cluster Registration
+	marketplaceStatusConditions, err := ClusterRegistrationStatusConditions(&MarketplaceClientConfig{
+		Url:   RHM_REGISTRATION_ENDPOINT,
+		Token: string(secret.Data[RHM_PULL_SECRET_KEY]),
+	}, marketplaceClientAccount, &marketplaceConfig.Status.Conditions)
+	marketplaceConfig.Status.Conditions = *marketplaceStatusConditions
+	//Updating Marketplace Config with Cluster Registration status
+	err = r.client.Status().Update(context.TODO(), marketplaceConfig)
 	if err != nil {
 		reqLogger.Error(err, "Failed to update status")
 		return reconcile.Result{}, err
