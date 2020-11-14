@@ -132,14 +132,14 @@ func (m *MarketplaceClient) RegistrationStatus(account *MarketplaceClientAccount
 			RegistrationStatus: "NotRegistered",
 		}
 	}
-	registrationStatus := GetRegistrationValue(string(clusterDef))
+	registrationStatus := getRegistrationValue(string(clusterDef))
 	return RegistrationStatusOutput{
 		StatusCode:         resp.StatusCode,
 		RegistrationStatus: registrationStatus,
 	}
 }
 
-func GetRegistrationValue(jsonString string) string {
+func getRegistrationValue(jsonString string) string {
 	var registeredAccount []RegisteredAccount
 	err := json.Unmarshal([]byte(jsonString), &registeredAccount)
 	if err != nil {
@@ -149,7 +149,8 @@ func GetRegistrationValue(jsonString string) string {
 	account := registeredAccount[0]
 	return account.Status
 }
-func ClusterRegistrationStatus(marketplaceClientConfig *MarketplaceClientConfig, marketplaceClientAccount *MarketplaceClientAccount) (*RegistrationStatusOutput, error) {
+
+/*func ClusterRegistrationStatus(marketplaceClientConfig *MarketplaceClientConfig, marketplaceClientAccount *MarketplaceClientAccount) (*RegistrationStatusOutput, error) {
 	newMarketPlaceClient, err := NewMarketplaceClient(marketplaceClientConfig)
 	//registrationStatusOutput = &RegistrationStatusOutput{}
 	if err != nil {
@@ -157,8 +158,8 @@ func ClusterRegistrationStatus(marketplaceClientConfig *MarketplaceClientConfig,
 	}
 	registrationStatusOutput := newMarketPlaceClient.RegistrationStatus(marketplaceClientAccount)
 	return &registrationStatusOutput, nil
-}
-func ClusterRegistrationStatusConditions(marketplaceClientConfig *MarketplaceClientConfig, marketplaceClientAccount *MarketplaceClientAccount, conditions *status.Conditions) (*status.Conditions, error) {
+}*/
+/*func ClusterRegistrationStatusConditions(marketplaceClientConfig *MarketplaceClientConfig, marketplaceClientAccount *MarketplaceClientAccount, conditions *status.Conditions) (*status.Conditions, error) {
 	conditions.RemoveCondition(marketplacev1alpha1.ConditionRegistered)
 	conditions.RemoveCondition(marketplacev1alpha1.ConditionRegistrationError)
 	newMarketPlaceClient, err := NewMarketplaceClient(marketplaceClientConfig)
@@ -173,10 +174,10 @@ func ClusterRegistrationStatusConditions(marketplaceClientConfig *MarketplaceCli
 		return conditions, err
 	}
 	registrationStatusOutput := newMarketPlaceClient.RegistrationStatus(marketplaceClientAccount)
-	condition := TransformConfigStatus(registrationStatusOutput)
+	condition := transformConfigStatus(registrationStatusOutput)
 	conditions.SetCondition(condition)
 	return conditions, nil
-}
+}*/
 
 func TransformConfigStatus(resp RegistrationStatusOutput) status.Condition {
 	if resp.StatusCode == 200 && resp.RegistrationStatus == "INSTALLED" {
@@ -224,10 +225,9 @@ func TransformConfigStatus(resp RegistrationStatusOutput) status.Condition {
 
 }
 
-func GetMarketPlaceSecret(marketplaceClientConfig *MarketplaceClientConfig) ([]byte, error) {
-	newMarketPlaceClient, err := NewMarketplaceClient(marketplaceClientConfig)
-	u := newMarketPlaceClient.endpoint
-	resp, err := newMarketPlaceClient.httpClient.Get(u.String())
+func (mhttp *MarketplaceClient) GetMarketPlaceSecret() ([]byte, error) {
+	u := mhttp.endpoint
+	resp, err := mhttp.httpClient.Get(u.String())
 	if err != nil {
 		return nil, err
 	}

@@ -484,17 +484,26 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	}
 	//Setting MarketplaceClientAccount
 
+	mClientRegistrationConfig := &MarketplaceClientConfig{
+		Url:   RHM_REGISTRATION_ENDPOINT,
+		Token: string(secret.Data[RHM_PULL_SECRET_KEY]),
+	}
+	marketPlaceRegistrationClient, err := NewMarketplaceClient(mClientRegistrationConfig)
+
 	marketplaceClientAccount := &MarketplaceClientAccount{
 		AccountId:   marketplaceConfig.Spec.RhmAccountID,
 		ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
 	}
-
+	registrationStatusOutput := marketPlaceRegistrationClient.RegistrationStatus(marketplaceClientAccount)
+	statusCondition := TransformConfigStatus(registrationStatusOutput)
 	//Finding Marketplace config status based on Cluster Registration
-	marketplaceStatusConditions, err := ClusterRegistrationStatusConditions(&MarketplaceClientConfig{
+	/*marketplaceStatusConditions, err := ClusterRegistrationStatusConditions(&MarketplaceClientConfig{
 		Url:   RHM_REGISTRATION_ENDPOINT,
 		Token: string(secret.Data[RHM_PULL_SECRET_KEY]),
-	}, marketplaceClientAccount, &marketplaceConfig.Status.Conditions)
-	marketplaceConfig.Status.Conditions = *marketplaceStatusConditions
+	}, marketplaceClientAccount, &marketplaceConfig.Status.Conditions)*/
+	marketplaceConfig.Status.Conditions.RemoveCondition(marketplacev1alpha1.ConditionRegistered)
+	marketplaceConfig.Status.Conditions.RemoveCondition(marketplacev1alpha1.ConditionRegistrationError)
+	marketplaceConfig.Status.Conditions.SetCondition(statusCondition)
 	//Updating Marketplace Config with Cluster Registration status
 	err = r.client.Status().Update(context.TODO(), marketplaceConfig)
 	if err != nil {

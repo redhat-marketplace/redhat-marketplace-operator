@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 
 	"github.com/dgrijalva/jwt-go"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
@@ -73,8 +74,21 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			if !ok {
 				return false
 			}
-			value := secret.ObjectMeta.Name
-			return value == RHM_PULL_SECRET_NAME
+			secretName := secret.ObjectMeta.Name
+			if _, ok := secret.Data[RHM_PULL_SECRET_KEY]; ok && secretName == RHM_PULL_SECRET_NAME {
+				return true
+			}
+			return false
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			secret, ok := e.ObjectNew.(*v1.Secret)
+			if !ok {
+				return false
+			}
+			if _, ok := secret.Data[RHM_PULL_SECRET_KEY]; !ok {
+				return false
+			}
+			return e.ObjectOld != e.ObjectNew
 		},
 	}
 	err = c.Watch(&source.Kind{Type: &v1.Secret{}}, &handler.EnqueueRequestForObject{}, namePredicate)
@@ -91,8 +105,118 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 	reqLogger.Info("Reconciling ClusterRegistration")
 
 	//Fetch the Secret with name redhat-marketplace-pull-secret
-	secret := v1.Secret{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: RHM_PULL_SECRET_NAME, Namespace: request.Namespace}, &secret)
+	rhmPullSecret := v1.Secret{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: RHM_PULL_SECRET_NAME, Namespace: request.Namespace}, &rhmPullSecret)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	annotations := rhmPullSecret.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	reqLogger.Info("redhat-marketplace-pull-secret Secret found")
+
+	// Check condition if 'PULL_SECRET' key is missing in secret
+	if _, ok := rhmPullSecret.Data[RHM_PULL_SECRET_KEY]; !ok {
+		reqLogger.Info("Missing token filed in secret")
+		annotations[RHM_PULL_SECRET_STATUS] = "error"
+		annotations[RHM_PULL_SECRET_MESSAGE] = "key with name 'PULL_SECRET' is missing in secret"
+		rhmPullSecret.SetAnnotations(annotations)
+		if err := r.client.Update(context.TODO(), &rhmPullSecret); err != nil {
+			reqLogger.Error(err, "Failed to patch secret with Endpoint status")
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("Secret updated with status on failiure")
+	}
+
+	//Get Account Id from Pull Secret Token
+	rhmAccountId, err := getAccountIdFromJWTToken(string(rhmPullSecret.Data[RHM_PULL_SECRET_KEY]))
+	reqLogger.Info("Account id found in token", "accountid", rhmAccountId)
+	if rhmAccountId == "" || err != nil {
+		reqLogger.Error(err, "Token is missing account id")
+		annotations[RHM_PULL_SECRET_STATUS] = "error"
+		annotations[RHM_PULL_SECRET_MESSAGE] = "Account id is not available in provided token, Pleasr generate token from RH Marketplace again"
+		rhmPullSecret.SetAnnotations(annotations)
+		if err := r.client.Update(context.TODO(), &rhmPullSecret); err != nil {
+			reqLogger.Error(err, "Failed to patch secret with Endpoint status")
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("Secret updated with account id missing error")
+	}
+
+	// Check condition if secret is having different namespace
+	if rhmPullSecret.ObjectMeta.Namespace != RHM_NAMESPACE {
+		annotations[RHM_PULL_SECRET_STATUS] = "error"
+		annotations[RHM_PULL_SECRET_MESSAGE] = "Secret should create in 'openshift-redhat-marketplace' namespace"
+		rhmPullSecret.SetAnnotations(annotations)
+		if err := r.client.Update(context.TODO(), &rhmPullSecret); err != nil {
+			reqLogger.Error(err, "Failed to patch secret with Endpoint status")
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("Secret updated with status on failiure")
+	}
+
+	// Fetch the Marketplace Config object
+	reqLogger.Info("Finding MarketPlace config object >>>>>>>>>>>>>>")
+	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+	err = r.client.Get(context.TODO(), request.NamespacedName, marketplaceConfig)
+	if err != nil {
+		reqLogger.Info("MarketPlace config object not found, move to create")
+
+	}
+
+	if err == nil && marketplaceConfig.Spec.RhmAccountID != "" {
+		reqLogger.Info("MarketPlace config object found, check status if its installed or not")
+		//Setting MarketplaceClientAccount
+		mClientRegistrationConfig := &MarketplaceClientConfig{
+			Url:   RHM_REGISTRATION_ENDPOINT,
+			Token: string(rhmPullSecret.Data[RHM_PULL_SECRET_KEY]),
+		}
+		marketplaceClientAccount := &MarketplaceClientAccount{
+			AccountId:   marketplaceConfig.Spec.RhmAccountID,
+			ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
+		}
+		newMarketPlaceRegistrationClient, err := NewMarketplaceClient(mClientRegistrationConfig)
+		if err != nil {
+			return reconcile.Result{}, nil
+		}
+		// Marketplace config object found
+		reqLogger.Info("Pulling MarketPlace config object status")
+		registrationStatusOutput := newMarketPlaceRegistrationClient.RegistrationStatus(marketplaceClientAccount)
+
+		if registrationStatusOutput.RegistrationStatus == "INSTALLED" {
+			reqLogger.Info("MarketPlace config object is already registered for account", "accountid", marketplaceConfig.Spec.RhmAccountID)
+			return reconcile.Result{}, nil
+		}
+	}
+	reqLogger.Info("MarketPlace config object not found ")
+
+	reqLogger.Info("RHMarketPlace Pull Secret token found>>>>>>>", "token", string(rhmPullSecret.Data[RHM_PULL_SECRET_KEY]))
+	//Calling POST endpoint to pull the secret definition
+	mClientPullSecretConfig := &MarketplaceClientConfig{
+		Url:   RHM_PULL_SECRET_ENDPOINT,
+		Token: string(rhmPullSecret.Data[RHM_PULL_SECRET_KEY]),
+	}
+	newMarketPlaceSecretClient, err := NewMarketplaceClient(mClientPullSecretConfig)
+	data, err := newMarketPlaceSecretClient.GetMarketPlaceSecret()
+
+	reqLogger.Info("RHMarketPlaceSecret data found")
+	if err != nil {
+		reqLogger.Info("RHMarketPlaceSecret failiure")
+		reqLogger.Error(err, "RHMarketPlaceSecret failiure")
+		annotations[RHM_PULL_SECRET_STATUS] = "error"
+		annotations[RHM_PULL_SECRET_MESSAGE] = string(data)
+		rhmPullSecret.SetAnnotations(annotations)
+		if err := r.client.Update(context.TODO(), &rhmPullSecret); err != nil {
+			reqLogger.Error(err, "Failed to patch secret with Endpoint status")
+		}
+		return reconcile.Result{}, err
+
+	}
+	//Convert yaml string to Secret object
+	reqLogger.Info("Secret object", "data", data)
+	newOptSecretObj := v1.Secret{}
+	err = json.Unmarshal(data, &newOptSecretObj)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -102,130 +226,37 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: RHM_OPERATOR_SECRET_NAME, Namespace: request.Namespace}, &optSecret)
 	if err != nil {
 		reqLogger.Error(err, "rhm-operator-secret Secret not found")
-	}
-	if err == nil {
-		reqLogger.Info("Deleteing rhm-operator-secret")
-		err := r.client.Delete(context.TODO(), &optSecret)
+		err = r.client.Create(context.TODO(), &newOptSecretObj)
 		if err != nil {
-			reqLogger.Error(err, "could not delete optSecret", "Resource", RHM_OPERATOR_SECRET_NAME)
+			reqLogger.Error(err, "Failed to Create Secret Object")
 			return reconcile.Result{}, err
 		}
+	}
 
-	}
-	reqLogger.Info("redhat-marketplace-pull-secret Secret found")
-	annotations := secret.GetAnnotations()
-	if annotations == nil {
-		annotations = make(map[string]string)
-	}
-	// Check condition if 'PULL_SECRET' key is missing in secret
-	if _, ok := secret.Data[RHM_PULL_SECRET_KEY]; !ok {
-		reqLogger.Info("Missing token filed in secret")
-		annotations[RHM_PULL_SECRET_STATUS] = "error"
-		annotations[RHM_PULL_SECRET_MESSAGE] = "key with name 'PULL_SECRET' is missing in secret"
-		secret.SetAnnotations(annotations)
-		if err := r.client.Update(context.TODO(), &secret); err != nil {
-			reqLogger.Error(err, "Failed to patch secret with Endpoint status")
-			return reconcile.Result{}, err
+	if err == nil {
+		reqLogger.Info("optSecret child value>>>>>", "optSecretchild", optSecret.Data["CHILD_RRS3_YAML_FILENAME"])
+		reqLogger.Info("newOptSecretObj child value>>>>>", "newOptSecretObjchild", newOptSecretObj.Data["CHILD_RRS3_YAML_FILENAME"])
+		reqLogger.Info("Comparing old and new rhm-operator-secret")
+		//compareRhmOperatorSecretObject(newOptSecretObj,optSecret)
+		optSecretChanged := reflect.DeepEqual(newOptSecretObj.Data, optSecret.Data)
+		if !optSecretChanged {
+			reqLogger.Info("rhm-operator-secret are different copy, Replacing with new", "optSecretChanged", optSecretChanged)
+			err := r.client.Update(context.TODO(), &newOptSecretObj)
+			if err != nil {
+				reqLogger.Error(err, "could not update rhm-operator-secret with new object", "Resource", RHM_OPERATOR_SECRET_NAME)
+				return reconcile.Result{}, err
+			}
 		}
-		reqLogger.Info("Secret updated with status on failiure")
-	}
-
-	//Get Account Id from Pull Secret Token
-	rhmAccountId, err := GetAccountIdFromJWTToken(string(secret.Data[RHM_PULL_SECRET_KEY]))
-	reqLogger.Info("Account id found in token", "accountid", rhmAccountId)
-	if rhmAccountId == "" || err != nil {
-		reqLogger.Info("Token is missing account id >>>>>")
-		annotations[RHM_PULL_SECRET_STATUS] = "error"
-		annotations[RHM_PULL_SECRET_MESSAGE] = "Account id is not available in provided token, Pleasr generate token from RH Marketplace again"
-		secret.SetAnnotations(annotations)
-		if err := r.client.Update(context.TODO(), &secret); err != nil {
-			reqLogger.Error(err, "Failed to patch secret with Endpoint status")
-			return reconcile.Result{}, err
-		}
-		reqLogger.Info("Secret updated with account id missing error")
-	}
-	//Calling POST endpoint to pull the secret definition
-	//bearerToken := "Bearer " + string(secret.Data[RHM_PULL_SECRET_KEY])
-	//httpClient := &http.Client{}
-	// Fetch the Marketplace Config object
-	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-	err = r.client.Get(context.TODO(), request.NamespacedName, marketplaceConfig)
-	if err != nil {
-		reqLogger.Info("MarketPlace config object err >>>>>>>>>>>>>>")
-		//return reconcile.Result{}, err
-	}
-	reqLogger.Info("Finding MarketPlace config object >>>>>>>>>>>>>>")
-	if err == nil && marketplaceConfig.Spec.RhmAccountID != "" {
-		//Setting MarketplaceClientAccount
-
-		marketplaceClientAccount := &MarketplaceClientAccount{
-			AccountId:   marketplaceConfig.Spec.RhmAccountID,
-			ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
-		}
-		// Marketplace config object found
-		reqLogger.Info("MarketPlace config object found")
-		registrationStatusOutput, _ := ClusterRegistrationStatus(&MarketplaceClientConfig{
-			Url:   RHM_REGISTRATION_ENDPOINT,
-			Token: string(secret.Data[RHM_PULL_SECRET_KEY]),
-		}, marketplaceClientAccount)
-
-		if registrationStatusOutput.RegistrationStatus == "INSTALLED" {
-			return reconcile.Result{}, nil
-		}
-	}
-	reqLogger.Info("MarketPlace config object not found ")
-	// Check condition if secret is having different namespace
-	if secret.ObjectMeta.Namespace != RHM_NAMESPACE {
-		annotations[RHM_PULL_SECRET_STATUS] = "error"
-		annotations[RHM_PULL_SECRET_MESSAGE] = "Secret should create in 'openshift-redhat-marketplace' namespace"
-		secret.SetAnnotations(annotations)
-		if err := r.client.Update(context.TODO(), &secret); err != nil {
-			reqLogger.Error(err, "Failed to patch secret with Endpoint status")
-			return reconcile.Result{}, err
-		}
-		reqLogger.Info("Secret updated with status on failiure")
-	}
-
-	reqLogger.Info("RHMarketPlace Pull Secret token found>>>>>>>", "token", string(secret.Data[RHM_PULL_SECRET_KEY]))
-	//Calling POST endpoint to pull the secret definition
-	data, err := GetMarketPlaceSecret(&MarketplaceClientConfig{
-		Url:   RHM_PULL_SECRET_ENDPOINT,
-		Token: string(secret.Data[RHM_PULL_SECRET_KEY]),
-	})
-	reqLogger.Info("RHMarketPlaceSecret data found")
-	if err != nil {
-		reqLogger.Info("RHMarketPlaceSecret failiure")
-		reqLogger.Error(err, "RHMarketPlaceSecret failiure")
-		annotations[RHM_PULL_SECRET_STATUS] = "error"
-		annotations[RHM_PULL_SECRET_MESSAGE] = string(data)
-		secret.SetAnnotations(annotations)
-		if err := r.client.Update(context.TODO(), &secret); err != nil {
-			reqLogger.Error(err, "Failed to patch secret with Endpoint status")
-		}
-		return reconcile.Result{}, err
 
 	}
-	//Convert yaml string to Secret object
-	reqLogger.Info("Secret object", "data", data)
-	secretObj := v1.Secret{}
-	err = json.Unmarshal(data, &secretObj)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	//Apply http request response in cluster to create secret
 
-	err = r.client.Create(context.TODO(), &secretObj)
-	if err != nil {
-		reqLogger.Error(err, "Failed to Create Secret Object")
-		return reconcile.Result{}, err
-	}
 	//Update secret with status
 	if err == nil {
 		reqLogger.Info("Updating secret with success status")
 		annotations[RHM_PULL_SECRET_STATUS] = "success"
 		annotations[RHM_PULL_SECRET_MESSAGE] = "rhm-operator-secret generated successfully"
-		secret.SetAnnotations(annotations)
-		if err := r.client.Update(context.TODO(), &secret); err != nil {
+		rhmPullSecret.SetAnnotations(annotations)
+		if err := r.client.Update(context.TODO(), &rhmPullSecret); err != nil {
 			reqLogger.Error(err, "Failed to patch secret with Endpoint status")
 			return reconcile.Result{}, err
 		}
@@ -281,11 +312,8 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 }
 
 //Parsing JWT token and fetching rhmAccountId
-func GetAccountIdFromJWTToken(jwtToken string) (string, error) {
-	token, err := jwt.Parse(jwtToken, nil)
-	if err != nil {
-		return "", err
-	}
+func getAccountIdFromJWTToken(jwtToken string) (string, error) {
+	token, _ := jwt.Parse(jwtToken, nil)
 	if claims, ok := token.Claims.(jwt.MapClaims); ok {
 		rhmAccountClaim := claims["rhmAccountId"]
 		if rhmAccountID, ok := rhmAccountClaim.(string); ok {
