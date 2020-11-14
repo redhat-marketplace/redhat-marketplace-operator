@@ -1,9 +1,10 @@
 package harness
 
 import (
+	"bytes"
+	"fmt"
 	"io"
 
-	"emperror.dev/errors"
 	"github.com/caarlos0/env"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -30,12 +31,17 @@ func (e *deployHelm) HasCleanup() []runtime.Object {
 }
 
 func (e *deployHelm) Setup(h *TestHarness) error {
-	buildCmd := GetCommand("./testbin/skaffold", "build", "--default-repo", e.ImageRegistry, "--namespace", e.Namespace, "-q")
-	deployCmd := GetCommand("./testbin/skaffold", "deploy", "--build-artifacts", "-")
+	var buildOut, buildErr, deployOut, deployErr bytes.Buffer
+
+	buildCmd := GetCommand("./testbin/skaffold", "build", "--default-repo", e.ImageRegistry, "-q")
+	deployCmd := GetCommand("./testbin/skaffold", "deploy", fmt.Sprintf("--namespace=%s", e.Namespace), "--build-artifacts", "-")
 	r, w := io.Pipe()
 
 	buildCmd.Stdout = w
-	deployCmd.Stdin = r
+	buildCmd.Stderr = &buildErr
+	deployCmd.Stdin = io.TeeReader(r, &buildOut)
+	deployCmd.Stdout = &deployOut
+	deployCmd.Stderr = &deployErr
 
 	buildCmd.Start()
 	deployCmd.Start()
@@ -44,21 +50,22 @@ func (e *deployHelm) Setup(h *TestHarness) error {
 	err2 := deployCmd.Wait()
 	r.Close()
 
-	if err != nil || err2 != nil {
-		return errors.Combine(err, err2)
+	if err != nil {
+		h.logger.Error(err, "failed to build", "output", buildOut.String(), "error", buildErr.String())
+		return err
+	}
+
+	if err2 != nil {
+		h.logger.Error(err2, "failed to deploy ", "output", deployOut.String(), "error", deployErr.String())
+		return err2
 	}
 
 	return nil
 }
 
 func (e *deployHelm) Teardown(h *TestHarness) error {
-	cmd := GetCommand("./testbin/skaffold", "delete", "--default-repo", "$IMAGE_REGISTRY", "--namespace", "$NAMESPACE")
-	err := cmd.Run()
-	out, _ := cmd.CombinedOutput()
-
-	if err != nil {
-		return errors.Wrap(err, string(out))
-	}
+	cmd := GetCommand("./testbin/skaffold", "delete", "--namespace", e.Namespace)
+	cmd.Run()
 
 	return nil
 }
