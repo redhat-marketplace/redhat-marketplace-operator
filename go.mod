@@ -15,7 +15,7 @@ require (
 	github.com/coreos/prometheus-operator v0.40.0
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fatih/structtag v1.2.0 // indirect
-	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32 // indirect
+	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
 	github.com/go-logr/logr v0.1.0
 	github.com/golang/mock v1.4.3

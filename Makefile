@@ -335,18 +335,19 @@ test: testbin ## test-ci runs all tests for CI builds
 KIND_CLUSTER_NAME ?= test
 KIND_CONTROL_PLANE_NODE ?= $(KIND_CLUSTER_NAME)-control-plane
 
-setup-kind: ## setup the kind cluster for integration test
-	- $(kind) create cluster --name $(KIND_CLUSTER_NAME) --config ./kind-cluster.yaml
-	- $(kind) export kubeconfig --name  $(KIND_CLUSTER_NAME)
-	- for file in ca.crt ca.key apiserver.crt; do \
+setup-kind: ## setup the kind cluster for integration test; requires .docker/config.json to house the passwords for auth to registry.redhat.io
+	@[[ "$(cat ~/.docker/config.json | jq -r '.credStore')" != "" ]] && echo "remove credStore from .docker/config.json and relog into docker login registry.redhat.io" && exit 1 || echo "looking good"
+	@- $(kind) create cluster --name $(KIND_CLUSTER_NAME) --config ./kind-cluster.yaml
+	@- $(kind) export kubeconfig --name  $(KIND_CLUSTER_NAME)
+	@for file in ca.crt ca.key apiserver.crt; do \
     $(docker) cp $(KIND_CONTROL_PLANE_NODE):/etc/kubernetes/pki/$$file ./test/certs/$$file ; \
     done
-	- cd test/certs && $(cfssl) certinfo -cert apiserver.crt | $(jq) -r ".sans" > sans.json
-	- cd test/certs	&& $(jq) -n --argfile o1 server-csr.json --argfile o2 sans.json '$$o1 | .hosts = $$o2 | .hosts[.hosts | length] |= . + "*.openshift-redhat-marketplace.svc"' > marketplace-csr.json
-	- cd test/certs && $(cfssl) gencert -ca=ca.crt -ca-key=ca.key -profile=kubernetes marketplace-csr.json | $(cfssljson) -bare server
+	@cd test/certs && $(cfssl) certinfo -cert apiserver.crt | $(jq) -r ".sans" > sans.json
+	@cd test/certs	&& $(jq) -n --argfile o1 server-csr.json --argfile o2 sans.json '$$o1 | .hosts = $$o2 | .hosts[.hosts | length] |= . + "*.openshift-redhat-marketplace.svc"' > marketplace-csr.json
+	@cd test/certs && $(cfssl) gencert -ca=ca.crt -ca-key=ca.key -profile=kubernetes marketplace-csr.json | $(cfssljson) -bare server
 
 test-int-kind: ## test integration using kind
-	- make setup-kind
+	@make setup-kind
 	- USE_EXISTING_CLUSTER=true make test-ci-int
 
 .PHONY: test-cover

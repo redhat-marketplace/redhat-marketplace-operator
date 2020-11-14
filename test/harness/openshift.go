@@ -17,6 +17,7 @@ package harness
 import (
 	"context"
 	"io/ioutil"
+	"path/filepath"
 
 	"emperror.dev/errors"
 	"github.com/caarlos0/env/v6"
@@ -28,14 +29,16 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+const FeatureMockOpenShift string = "MockOpenShift"
+
 type mockOpenShift struct {
-	Namespace       string   `env:"NAMESPACE" envDefault:"openshift-redhat-marketplace"`
+	Namespace string `env:"NAMESPACE" envDefault:"openshift-redhat-marketplace"`
 
 	cleanup []runtime.Object
 }
 
 func (e *mockOpenShift) Name() string {
-	return "MockOpenShift"
+	return FeatureMockOpenShift
 }
 
 func (e *mockOpenShift) Parse() error {
@@ -113,18 +116,20 @@ func (e *mockOpenShift) Setup(h *TestHarness) error {
 
 	var (
 		tlsResources = []types.NamespacedName{
-			{Namespace: h.config.Namespace, Name: "prometheus-operator-tls"},
-			{Namespace: h.config.Namespace, Name: "rhm-metric-state-tls"},
-			{Namespace: h.config.Namespace, Name: "rhm-prometheus-meterbase-tls"},
+			{Namespace: h.Config.Namespace, Name: "prometheus-operator-tls"},
+			{Namespace: h.Config.Namespace, Name: "rhm-metric-state-tls"},
+			{Namespace: h.Config.Namespace, Name: "rhm-prometheus-meterbase-tls"},
 		}
 		certsResources = []types.NamespacedName{
 			{Namespace: "openshift-config-managed", Name: "kubelet-serving-ca"},
-			{Namespace: h.config.Namespace, Name: "serving-certs-ca-bundle"},
-			{Namespace: h.config.Namespace, Name: "operator-certs-ca-bundle"},
+			{Namespace: h.Config.Namespace, Name: "serving-certs-ca-bundle"},
+			{Namespace: h.Config.Namespace, Name: "operator-certs-ca-bundle"},
 		}
 	)
 
-	serviceCA, err := ioutil.ReadFile("../certs/ca.crt")
+	rootDir, _ := GetRootDirectory()
+
+	serviceCA, err := ioutil.ReadFile(filepath.Join(rootDir, "test/certs/ca.crt"))
 	Expect(err).To(Succeed())
 
 	for _, resource := range certsResources {
@@ -145,9 +150,9 @@ func (e *mockOpenShift) Setup(h *TestHarness) error {
 		e.cleanup = append(e.cleanup, configmap)
 	}
 
-	serverCrt, err := ioutil.ReadFile("../certs/server.pem")
+	serverCrt, err := ioutil.ReadFile(filepath.Join(rootDir, "test/certs/server.pem"))
 	Expect(err).To(Succeed())
-	serverKey, err := ioutil.ReadFile("../certs/server-key.pem")
+	serverKey, err := ioutil.ReadFile(filepath.Join(rootDir, "test/certs/server-key.pem"))
 	Expect(err).To(Succeed())
 
 	for _, resource := range tlsResources {
