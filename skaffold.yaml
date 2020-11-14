@@ -63,6 +63,7 @@ deploy:
         setValueTemplates:
           devpostfix: '{{.DEVPOSTFIX}}'
           namespace: '{{.NAMESPACE}}'
+          imagePullSecret: '{{.PULL_SECRET_NAME}}'
         wait: false
         valuesFiles:
           - deploy/chart/values.yaml

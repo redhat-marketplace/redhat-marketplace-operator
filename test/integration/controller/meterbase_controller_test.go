@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+package controller_test
 
 import (
 	"context"
@@ -32,11 +32,11 @@ const interval = time.Second * 3
 
 var _ = Describe("MeterbaseController", func() {
 	BeforeEach(func(){
-		Expect(TestHarness.BeforeAll()).To(Succeed())
+		Expect(testHarness.BeforeAll()).To(Succeed())
 	})
 
 	AfterEach(func(){
-		Expect(TestHarness.AfterAll()).To(Succeed())
+		Expect(testHarness.AfterAll()).To(Succeed())
 	})
 
 	Context("MeterBase reconcile", func() {
@@ -48,7 +48,7 @@ var _ = Describe("MeterbaseController", func() {
 
 				By("create prometheus operator")
 				Eventually(func() bool {
-					result, _ := CC.Do(
+					result, _ := testHarness.Do(
 						context.TODO(),
 						GetAction(types.NamespacedName{Name: "operator-certs-ca-bundle", Namespace: Namespace}, cm),
 						GetAction(types.NamespacedName{Name: "prometheus-operator", Namespace: Namespace}, deployment),
@@ -64,7 +64,7 @@ var _ = Describe("MeterbaseController", func() {
 				serviceMonitor := &monitoringv1.ServiceMonitor{}
 
 				Eventually(func() bool {
-					result, _ := CC.Do(
+					result, _ := testHarness.Do(
 						context.TODO(),
 						GetAction(types.NamespacedName{Name: "rhm-metric-state", Namespace: Namespace}, deployment),
 						GetAction(types.NamespacedName{Name: "rhm-metric-state-service", Namespace: Namespace}, service),
@@ -78,7 +78,7 @@ var _ = Describe("MeterbaseController", func() {
 				secret := &corev1.Secret{}
 
 				Eventually(func() bool {
-					result, _ := CC.Do(
+					result, _ := testHarness.Do(
 						context.TODO(),
 						GetAction(types.NamespacedName{Name: "rhm-meterbase-additional-scrape-configs", Namespace: Namespace}, secret),
 					)

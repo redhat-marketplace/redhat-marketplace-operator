@@ -21,7 +21,7 @@ import (
 
 // Injectors from wire.go:
 
-func initializeScheme(cfg *rest.Config) (*runtime.Scheme, error) {
+func InitializeScheme(cfg *rest.Config) (*runtime.Scheme, error) {
 	opsSrcSchemeDefinition := controller.ProvideOpsSrcScheme()
 	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
 	olmV1SchemeDefinition := controller.ProvideOLMV1Scheme()
@@ -35,7 +35,7 @@ func initializeScheme(cfg *rest.Config) (*runtime.Scheme, error) {
 	return scheme, nil
 }
 
-func initializeMainCtrl(cfg *rest.Config) (*managers.ControllerMain, error) {
+func InitializeMainCtrl(cfg *rest.Config) (*managers.ControllerMain, error) {
 	defaultCommandRunnerProvider := reconcileutils.ProvideDefaultCommandRunnerProvider()
 	marketplaceController := controller.ProvideMarketplaceController(defaultCommandRunnerProvider)
 	meterbaseController := controller.ProvideMeterbaseController(defaultCommandRunnerProvider)
@@ -52,7 +52,8 @@ func initializeMainCtrl(cfg *rest.Config) (*managers.ControllerMain, error) {
 	olmClusterServiceVersionController := controller.ProvideOlmClusterServiceVersionController()
 	remoteResourceS3Controller := controller.ProvideRemoteResourceS3Controller()
 	nodeController := controller.ProvideNodeController()
-	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, meterReportController, olmClusterServiceVersionController, remoteResourceS3Controller, nodeController)
+	clusterRegistrationController := controller.ProvideClusterRegistrationController()
+	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, meterReportController, olmClusterServiceVersionController, remoteResourceS3Controller, nodeController, clusterRegistrationController)
 	opsSrcSchemeDefinition := controller.ProvideOpsSrcScheme()
 	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
 	olmV1SchemeDefinition := controller.ProvideOLMV1Scheme()
