@@ -1,3 +1,17 @@
+// Copyright 2020 IBM Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package harness
 
 import (
@@ -34,12 +48,11 @@ func (e *deployHelm) HasCleanup() []runtime.Object {
 func (e *deployHelm) Setup(h *TestHarness) error {
 	var buildOut, buildErr, deployOut, deployErr bytes.Buffer
 
-	additionalArgs := []string{}
-	if e.ImageTag == "" && e.ImageTag != "latest" {
+	additionalArgs := []string{"build", "--detect-minikube=true", "--default-repo", e.ImageRegistry, "-q"}
+	if e.ImageTag != "" {
 		additionalArgs = append(additionalArgs, "-t", e.ImageTag, "--dry-run=true")
 	}
 
-	additionalArgs = append(additionalArgs, "build", "--detect-minikube=true", "--default-repo", e.ImageRegistry, "-q")
 	buildCmd := GetCommand("./testbin/skaffold", additionalArgs...)
 	deployCmd := GetCommand("./testbin/skaffold", "deploy", fmt.Sprintf("--namespace=%s", e.Namespace), "--build-artifacts", "-")
 	r, w := io.Pipe()
