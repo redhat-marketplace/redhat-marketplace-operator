@@ -95,6 +95,20 @@ profiles:
       tagPolicy:
         envTemplate:
           template: '{{.IMAGE_NAME}}'
+  - name: integration-test
+    build:
+      artifacts:
+        - image: rhm-operator-integration-tests
+          docker:
+            dockerfile: build/Dockerfile
+            buildArgs:
+              app_version: '{{.VERSION}}'
+            cacheFrom:
+              - registry.access.redhat.com/ubi8/ubi:latest
+              - quay.io/rh-marketplace/golang-base:1.15
+    deploy:
+
+
   - name: base
     build:
       artifacts:

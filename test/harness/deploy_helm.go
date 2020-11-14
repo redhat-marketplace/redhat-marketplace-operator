@@ -14,6 +14,7 @@ const FeatureDeployHelm string = "DeployHelm"
 type deployHelm struct {
 	Namespace     string `env:"NAMESPACE" envDefault:"openshift-redhat-marketplace"`
 	ImageRegistry string `env:"IMAGE_REGISTRY"`
+	ImageTag      string `env:"OPERATOR_IMAGE_TAG"`
 
 	cleanup []runtime.Object
 }
@@ -33,7 +34,13 @@ func (e *deployHelm) HasCleanup() []runtime.Object {
 func (e *deployHelm) Setup(h *TestHarness) error {
 	var buildOut, buildErr, deployOut, deployErr bytes.Buffer
 
-	buildCmd := GetCommand("./testbin/skaffold", "build", "--default-repo", e.ImageRegistry, "-q")
+	additionalArgs := []string{}
+	if e.ImageTag == "" && e.ImageTag != "latest" {
+		additionalArgs = append(additionalArgs, "-t", e.ImageTag, "--dry-run=true")
+	}
+
+	additionalArgs = append(additionalArgs, "build", "--detect-minikube=true", "--default-repo", e.ImageRegistry, "-q")
+	buildCmd := GetCommand("./testbin/skaffold", additionalArgs...)
 	deployCmd := GetCommand("./testbin/skaffold", "deploy", fmt.Sprintf("--namespace=%s", e.Namespace), "--build-artifacts", "-")
 	r, w := io.Pipe()
 
