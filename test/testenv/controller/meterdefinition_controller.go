@@ -18,6 +18,7 @@ import (
 
 	// promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -78,12 +79,12 @@ var _ = Describe("MeterReportController", func() {
 				
 			},120)
 			
-			// loc, _ := time.LoadLocation("UTC")
-			// start := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute()-1, 0, 0, loc)
-			// end := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute(), 0, 0, loc)
-			// generatedFile := GenerateRandomData(start, end)
-			// v1api := getTestAPI(mockResponseRoundTripper(generatedFile))
-			// utils.PrettyPrint(v1api)
+			loc, _ := time.LoadLocation("UTC")
+			start := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute()-1, 0, 0, loc)
+			end := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute(), 0, 0, loc)
+			generatedFile := GenerateRandomData(start, end)
+			v1api := getTestAPI(mockResponseRoundTripper(generatedFile))
+			utils.PrettyPrint(v1api)
 			close(done)
 		})
 

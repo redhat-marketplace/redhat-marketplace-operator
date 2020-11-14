@@ -196,6 +196,10 @@ func ProvideApiClient(
 ) (api.Client, error) {
 
 	var port int32
+	if promService == nil {
+		return nil, errors.New("Prometheus service not defined")
+	}
+
 	name := promService.Name
 	namespace := promService.Namespace
 	fmt.Println("PROMSERVICE NAME",name)
@@ -216,7 +220,7 @@ func ProvideApiClient(
 	fmt.Println("PORT",port)
 
 	var auth = ""
-
+	
 	content, err := ioutil.ReadFile("/etc/auth-service-account/token")
 	fmt.Println("CONTENT",content)
 	if err != nil {
