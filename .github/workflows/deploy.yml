@@ -243,12 +243,14 @@ jobs:
         run: |
           NAME=$(echo "${{ github.ref }}" | sed 's/refs\/heads\/bugfix\///')
           echo "TAGPREFIX=bugfix-${NAME}-" >> $GITHUB_ENV
+          echo "QUAY_EXPIRATION=1w" >> $GITHUB_ENV
 
       - name: Set branch prefix for feat
         if: github.event_name == 'push' && startsWith(github.ref,'refs/heads/feature/')
         run: |
           NAME=$(echo "${{ github.ref }}" | sed 's/refs\/heads\/feature\///')
           echo "TAGPREFIX=feat-${NAME}-" >> $GITHUB_ENV
+          echo "QUAY_EXPIRATION=1w" >> $GITHUB_ENV
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2

@@ -9,6 +9,7 @@ FROM_VERSION ?= $(shell go run scripts/version/main.go last)
 OPERATOR_IMAGE_TAG ?= $(VERSION)
 CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 DEVPOSTFIX ?= ""
+QUAY_EXPIRATION ?= never
 
 # set these variables to the tag or SHA for the ubi image used in the Dockerfile.
 # use '$(docker) manifest inspect registry.access.redhat.com/ubi8/ubi-minimal:<tag>' to get the SHA values

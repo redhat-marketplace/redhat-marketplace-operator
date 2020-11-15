@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 name: redhat-marketplace-operator
 replicaCount: 1
-namespace: redhat-marketplace
+namespace: openshift-redhat-marketplace
 image: quay.io/rh-marketplace/redhat-marketplace-operator:latest
 reporterImage: quay.io/rh-marketplace/redhat-marketplace-reporter:latest
 metricStateImage: quay.io/rh-marketplace/redhat-marketplace-metric-state:latest

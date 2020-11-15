@@ -19,6 +19,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 
 ARG app_version=latest
+ARG quay_expiration=never
 
 LABEL name="Red Hat Marketplace Metric State" \
   maintainer="rhmoper@us.ibm.com" \
@@ -26,7 +27,8 @@ LABEL name="Red Hat Marketplace Metric State" \
   release="1" \
   summary="Red Hat Marketplace Metric State" \
   description="Metric State for the Red Hat Marketplace" \
-  version="${app_version}"
+  version="${app_version}" \
+  quay.expires-after=${quay_expiration}
 
 ENV USER_UID=1001 \
     USER_NAME=redhat-marketplace-metric-state \

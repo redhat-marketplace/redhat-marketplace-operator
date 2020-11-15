@@ -18,6 +18,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 
 ARG app_version=latest
+ARG quay_expiration=never
 
 LABEL name="Red Hat Marketplace Operator" \
   maintainer="rhmoper@us.ibm.com" \
@@ -25,7 +26,8 @@ LABEL name="Red Hat Marketplace Operator" \
   release="1" \
   summary="Red Hat Marketplace Operator Image" \
   description="Operator for the Red Hat Marketplace" \
-  version="${app_version}"
+  version="${app_version}" \
+  quay.expires-after=${quay_expiration}
 
 RUN microdnf update --setopt=tsflags=nodocs -y \
   && microdnf clean all \
