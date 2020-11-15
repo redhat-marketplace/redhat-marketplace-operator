@@ -219,6 +219,7 @@ jobs:
       dockertag: ${{ steps.vars.outputs.dockertag }}
       now: ${{ steps.vars.outputs.now }}
       crs: ${{ steps.vars.outputs.crs }}
+      quayExpiration: ${{ steps.vars.outputs.quayExpiration }}
     env:
       TAGPREFIX: ''
     steps:
@@ -263,7 +264,7 @@ jobs:
           echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
           echo "::set-output name=dockertag::${TAGPREFIX}$(make current-version)-${GITHUB_SHA::8}"
           echo "::set-output name=now::$(date +'%Y%m%dT%H%M%S')"
-          echo "::set-output name=quayExpiration::${QUAY_EXPIRATION:=never}"
+          echo "::set-output name=quayExpiration::${QUAY_EXPIRATION:-never}"
         env:
           FILEHASH: ${{ hashFiles('cmd/**', 'pkg/**', 'interal/**', 'version/**', 'go.sum', 'go.mod') }}
 
