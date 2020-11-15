@@ -1,3 +1,17 @@
+// Copyright 2020 IBM Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package harness
 
 import (
@@ -114,20 +128,31 @@ bigloop:
 func (t *TestHarness) Start() (context.Context, error) {
 	var err error
 
-	fmt.Println("starting env")
 	cfg, err := t.testEnv.Start()
-	Expect(err).ToNot(HaveOccurred())
+	if err != nil {
+		return t.context, err
+	}
 
 	t.kscheme, err = t.Config.ProvideScheme(cfg)
-	Expect(err).ToNot(HaveOccurred())
+	if err != nil {
+		return t.context, err
+	}
 
 	t.Client, err = client.New(cfg, client.Options{Scheme: t.kscheme})
-	Expect(err).ToNot(HaveOccurred())
+
+	if err != nil {
+		return t.context, err
+	}
 
 	t.ClientCommandRunner = reconcileutils.NewClientCommand(t.Client, t.kscheme, t.logger)
 
 	err = t.Setup()
-	Expect(err).ToNot(HaveOccurred())
+
+	if err != nil {
+		t.Stop()
+
+		return t.context, err
+	}
 
 	return t.context, nil
 }
@@ -159,7 +184,9 @@ func (t *TestHarness) Setup() error {
 		},
 	})
 
-	Expect(err).To(SucceedOrAlreadyExist)
+	if err != nil {
+		return err
+	}
 
 	sort.Sort(ByPriority(t.features))
 
@@ -361,7 +388,7 @@ func (e *addPullSecret) Setup(h *TestHarness) error {
 		},
 	}
 
-	Expect(h.Upsert(context.TODO(), &pullSecret)).To(SucceedOrAlreadyExist)
+	h.Upsert(context.TODO(), &pullSecret)
 
 	e.pullSecret = &pullSecret
 
@@ -428,7 +455,11 @@ func (d *createMarketplaceConfig) Before(t *TestHarness) error {
 		return err
 	}
 
-	Expect(t.Create(context.TODO(), d.marketplaceCfg)).Should(SucceedOrAlreadyExist)
+	err := t.Create(context.TODO(), d.marketplaceCfg)
+
+	if err != nil {
+		return err
+	}
 
 	By("wait for marketplaceconfig")
 	Eventually(func() bool {

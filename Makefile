@@ -9,6 +9,7 @@ FROM_VERSION ?= $(shell go run scripts/version/main.go last)
 OPERATOR_IMAGE_TAG ?= $(VERSION)
 CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 DEVPOSTFIX ?= ""
+QUAY_EXPIRATION ?= never
 
 # set these variables to the tag or SHA for the ubi image used in the Dockerfile.
 # use '$(docker) manifest inspect registry.access.redhat.com/ubi8/ubi-minimal:<tag>' to get the SHA values
@@ -368,7 +369,7 @@ test-ci-unit: ## test-ci-unit runs all tests for CI builds
 
 .PHONY: test-ci-int
 test-ci-int: setup-kind ## test-ci-int runs all tests for CI builds
-	ginkgo -r -coverprofile=cover-int.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --coverpkg=$(CONTROLLERS) ./test
+	NAMESPACE=$(NAMESPACE) ginkgo -r -coverprofile=cover-int.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --coverpkg=$(CONTROLLERS) ./test
 	cat cover-int.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-int.out
 
 test-join: $(gocovmerge)
