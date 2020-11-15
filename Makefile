@@ -369,7 +369,7 @@ test-ci-unit: ## test-ci-unit runs all tests for CI builds
 
 .PHONY: test-ci-int
 test-ci-int: setup-kind ## test-ci-int runs all tests for CI builds
-	ginkgo -r -coverprofile=cover-int.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --coverpkg=$(CONTROLLERS) ./test
+	NAMESPACE=$(NAMESPACE) ginkgo -r -coverprofile=cover-int.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --coverpkg=$(CONTROLLERS) ./test
 	cat cover-int.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-int.out
 
 test-join: $(gocovmerge)

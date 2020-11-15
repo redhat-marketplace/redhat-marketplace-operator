@@ -263,6 +263,7 @@ jobs:
           echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
           echo "::set-output name=dockertag::${TAGPREFIX}$(make current-version)-${GITHUB_SHA::8}"
           echo "::set-output name=now::$(date +'%Y%m%dT%H%M%S')"
+          echo "::set-output name=quayExpiration::${QUAY_EXPIRATION:=never}"
         env:
           FILEHASH: ${{ hashFiles('cmd/**', 'pkg/**', 'interal/**', 'version/**', 'go.sum', 'go.mod') }}
 
@@ -290,6 +291,7 @@ jobs:
       OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
       BUILD_IMAGE: ${{ matrix.image }}
       TAG: quay.io/rh-marketplace/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
+      QUAY_EXPIRATION: ${{ needs.build.outputs.quayExpiration }}
     steps:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2

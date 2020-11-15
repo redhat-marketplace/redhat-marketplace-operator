@@ -23,6 +23,7 @@ build:
         dockerfile: build/Dockerfile
         buildArgs:
           app_version: '{{.VERSION}}'
+          quay_expiration: '{{.QUAY_EXPIRATION}}'
         cacheFrom:
           - registry.access.redhat.com/ubi8/ubi:latest
           - quay.io/rh-marketplace/golang-base:1.15
@@ -31,6 +32,7 @@ build:
         dockerfile: build/reporter.Dockerfile
         buildArgs:
           app_version: '{{.VERSION}}'
+          quay_expiration: '{{.QUAY_EXPIRATION}}'
         cacheFrom:
           - registry.access.redhat.com/ubi8/ubi:latest
           - quay.io/rh-marketplace/golang-base:1.15
@@ -39,6 +41,7 @@ build:
         dockerfile: build/metricState.Dockerfile
         buildArgs:
           app_version: '{{.VERSION}}'
+          quay_expiration: '{{.QUAY_EXPIRATION}}'
         cacheFrom:
           - registry.access.redhat.com/ubi8/ubi:latest
           - quay.io/rh-marketplace/golang-base:1.15
@@ -47,6 +50,7 @@ build:
         dockerfile: build/authcheck.Dockerfile
         buildArgs:
           app_version: '{{.VERSION}}'
+          quay_expiration: '{{.QUAY_EXPIRATION}}'
         cacheFrom:
           - registry.access.redhat.com/ubi8/ubi:latest
           - quay.io/rh-marketplace/golang-base:1.15
@@ -106,9 +110,6 @@ profiles:
             cacheFrom:
               - registry.access.redhat.com/ubi8/ubi:latest
               - quay.io/rh-marketplace/golang-base:1.15
-    deploy:
-
-
   - name: base
     build:
       artifacts:
