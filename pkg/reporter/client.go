@@ -18,6 +18,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -72,7 +73,7 @@ func NewSecureClient(config *PrometheusSecureClientConfig) (api.Client, error) {
 
 func NewSecureClientFromConfigMap(config *PrometheusSecureClientConfig) (api.Client, error) {
 	tlsConfig, err := generateCACertPoolFromConfigMap(*config.CaCert)
-
+	fmt.Println("TLSCONFIG",tlsConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get tlsConfig")
 	}
@@ -91,11 +92,13 @@ func NewSecureClientFromConfigMap(config *PrometheusSecureClientConfig) (api.Cli
 		transport = WithBearerAuth(transport, config.Token)
 	}
 
+	fmt.Println("TRANSPORT :",transport)
 	client, err := api.NewClient(api.Config{
 		Address:      config.Address,
 		RoundTripper: transport,
 	})
 
+	fmt.Println("CLIENT FROM NewSecureClientFromConfigMap",client)
 	return client, err
 }
 

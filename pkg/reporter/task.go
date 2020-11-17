@@ -231,17 +231,17 @@ func ProvideApiClient(
 	fmt.Println("AUTH",auth)
 	conf, err := NewSecureClientFromConfigMap(&PrometheusSecureClientConfig{
 		Address:        fmt.Sprintf("https://%s.%s.svc:%v", name, namespace, port),
-		// ServerCertFile:  "MIIDUTCCAjmgAwIBAgIIe5Ow8170mucwDQYJKoZIhvcNAQELBQAwNjE0MDIGA1UEAwwrb3BlbnNoaWZ0LXNlcnZpY2Utc2VydmluZy1zaWduZXJAMTU5Nzk5NjA2MDAeFw0yMDA4MjEwNzQ3MzlaFw0yMjEwMjAwNzQ3NDBaMDYxNDAyBgNVBAMMK29wZW5zaGlmdC1zZXJ2aWNlLXNlcnZpbmctc2lnbmVyQDE1OTc5OTYwNjAwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCsMtPOFBWqC4PwMf01kIcLCRdCfM/wCIJ1vvnzZYD1WspJ67rkKZzMU1TQ2T6iuTekvbw/JrrZ6QuCYjQZc4KpB3wyGv725OaPw9LCVG/GlpUtZYARjrxnMKiBtuHC+iQcL+SWEpeLHk/WSpYPclyKpFLXZunZN6sN7wTGuiDPF7pu+pw/KTtcgeun/92rS8JAKH48Y3X2248LOxmZ+niDgi91NvqTqvYey+mvdDquptE3hDHXa7PlZMW2ryIH23Mw52j+pzSKfzHBa6mstGxx9nBpLLQi8+M8pyEIfhUHMcIpQYRO5FO42fzrm3TJw6STOZecsGBci6N4W6iBJkeBAgMBAAGjYzBhMA4GA1UdDwEB/wQEAwICpDAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBSANhk2c9D9oCif2wgxY4J4oSReaTAfBgNVHSMEGDAWgBSANhk2c9D9oCif2wgxY4J4oSReaTANBgkqhkiG9w0BAQsFAAOCAQEAMMle/y6QMeFek9ZuggdtGzUK9jpoM9C83GLLOt8dpqYR2Xy4qdjpkHZRKUy2YnBOb2ulKVD4Dh7FcfdUO4AEO6J6DXBgioDwrD5FjXxLjgaq3JqX+qqFIL4yMKpTy6hxBOisfwdcX60MM8O0xVU5GOhOKKhorq4zR7cgX9Xnjo1oBmqXuFWdEUS9iecDJkTbpjDWj9gcsFjiYsefuzmm93V3w4/Y0G2M0/czvrFgbg/peqPRufEUu5gtcUupMCe/gSgFAUBwn/cuOSFhvupW6ONGTpownxQbSJ9g/dzBnX3S4niF3Lf5Qfa2d7rvkwBkVpfbwh1ATWbIK2McjQspZw==",
 		Token:          auth,
 		CaCert: caCert,
 	})
 
+	fmt.Println("ADDRESS", fmt.Sprintf("https://%s.%s.svc:%v", name, namespace, port))
 	if conf == nil {
-		fmt.Println("*--------- CONF IS NIL ----------*")
+		fmt.Println("conf is nil")
 	}
 
 	if err != nil {
-		log.Error(err,"failed to setup NewSecureClient()")
+		log.Error(err,"failed to setup NewSecureClient")
 		return nil, err
 	}
 

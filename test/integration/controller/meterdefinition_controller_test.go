@@ -13,29 +13,32 @@ import (
 	"github.com/meirf/gopart"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	. "github.com/onsi/gomega/gstruct"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 
 	// promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
+
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = Describe("MeterReportController", func() {
+var _ = FDescribe("MeterDefController reconcile", func() {
 	BeforeEach(func() {
-		Expect(TestHarness.BeforeAll()).To(Succeed())
+		Expect(testHarness.BeforeAll()).To(Succeed())
 	})
 
 	AfterEach(func() {
-		Expect(TestHarness.AfterAll()).To(Succeed())
+		Expect(testHarness.AfterAll()).To(Succeed())
 	})
 
 	Context("Meterdefinition reconcile", func() {
-
 		var meterdef *v1alpha1.MeterDefinition
-
 		BeforeEach(func(done Done){
 			meterdef = &v1alpha1.MeterDefinition{
 				ObjectMeta: metav1.ObjectMeta{
@@ -50,11 +53,15 @@ var _ = Describe("MeterReportController", func() {
 						{
 							Name:         "test",
 							WorkloadType: v1alpha1.WorkloadTypePod,
-							LabelSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"app.kubernetes.io/name": "rhm-metric-state",
-								},
+							OwnerCRD: &common.GroupVersionKind{
+								APIVersion: "marketplace.redhat.com/v1alpha1",
+								Kind: "MeterBase",
 							},
+							// LabelSelector: &metav1.LabelSelector{
+							// 	MatchLabels: map[string]string{
+							// 		"app.kubernetes.io/name": "rhm-metric-state",
+							// 	},
+							// },
 							MetricLabels: []v1alpha1.MeterLabelQuery{
 								{
 									Aggregation: "sum",
@@ -66,47 +73,69 @@ var _ = Describe("MeterReportController", func() {
 					},
 				},
 			}
-			
-			It("Should create a meterdef on setup",func(){
-				// By("create prometheus operator")
-				Eventually(func() bool {
-					result, _ := CC.Do(
-						context.TODO(),
-						CreateAction(meterdef),
-					)
-					return result.Is(Continue)
-				}, timeout, interval).Should(BeTrue())
-				
-			},120)
-			
-			loc, _ := time.LoadLocation("UTC")
-			start := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute()-1, 0, 0, loc)
-			end := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute(), 0, 0, loc)
-			generatedFile := GenerateRandomData(start, end)
-			v1api := getTestAPI(mockResponseRoundTripper(generatedFile))
-			utils.PrettyPrint(v1api)
+					
+			Expect(testHarness.Create(context.TODO(), meterdef)).Should(SucceedOrAlreadyExist)
 			close(done)
-		})
+		},120)
 
-		// AfterEach(func(done Done) {
-		// 	K8sClient.Delete(context.TODO(), meterdef)
+		It("Should find a meterdef",func(done Done){
+			Eventually(func() bool {
+				result, _ := testHarness.Do(
+					context.TODO(),
+					GetAction(types.NamespacedName{Name: meterdef.Name, Namespace: Namespace}, meterdef),
+				)
 
-		// 	Expect(K8sClient.Delete(context.TODO(), meterdef)).Should(Succeed())
-		// 	close(done)
-		// }, 120)
+				utils.PrettyPrint(meterdef.Status)
+				return result.Is(Continue)
+			}, timeout, interval).Should(BeTrue())
 
-		// It("Should find a meterdef",func(){
-		// 	// By("create prometheus operator")
-		// 	foundMdef := v1alpha1.MeterDefinition{}
-		// 	Eventually(func() bool {
-		// 		result, _ := CC.Do(
-		// 			context.TODO(),
-		// 			GetAction(types.NamespacedName{Name:  "test-meterdef", Namespace: Namespace}, &foundMdef),
-		// 		)
-		// 		return result.Is(Continue)
-		// 	}, timeout, interval).Should(BeTrue())
-			
-		// },120)
+			var final Keys
+			Eventually(func() map[string]interface{}{
+				result, _ := testHarness.Do(
+					context.TODO(),
+					GetAction(types.NamespacedName{Name: meterdef.Name, Namespace: Namespace}, meterdef),
+				)
+
+				if !result.Is(Continue) {
+					return map[string]interface{}{
+						"resultStatus": result.Status,
+					}
+				}
+
+				
+				if meterdef.Status.Results != nil {
+					fmt.Println("RESULTS",meterdef.Status.Results)
+					utils.PrettyPrint(meterdef.Status.Results)
+					final = Keys{
+						"value":     Equal(meterdef.Status.Results[0].Value),
+						"endTime":    Equal(meterdef.Status.Results[0].EndTime),
+						"startTime":    Equal(meterdef.Status.Results[0].StartTime),
+						"queryName":    Equal(meterdef.Status.Results[0].QueryName),
+						"workloadName":    Equal(meterdef.Status.Results[0].WorkloadName),
+					}
+
+					return map[string]interface{}{
+						"value":     meterdef.Status.Results[0].Value,
+						"endTime": meterdef.Status.Results[0].EndTime,
+						"startTime": meterdef.Status.Results[0].StartTime,
+						"queryName": meterdef.Status.Results[0].QueryName,
+						"workloadName": meterdef.Status.Results[0].WorkloadName,
+					}
+				}
+
+				final = Keys{
+					"runtimeError":  Equal("wrong"),
+				}
+
+				return map[string]interface{}{
+					"runtimeError" : "right",
+				}
+				
+			},300,interval).Should(
+				MatchAllKeys(final))
+
+			close(done)
+		},180)
 	})
 })
 

@@ -207,6 +207,8 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Info("CLIENT IS NIL")
 	}
 
+	reqLogger.Info("Info","client",client)
+
 	// var promAPI v1.API
 	promAPI := v1.NewAPI(client)
 	reqLogger.Info("Info", "return prom api", promAPI)
@@ -304,7 +306,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	}
 
 	reqLogger.Info("finished reconciling")
-	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
+	return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 }
 
 // func (queryPreview v1alpha1.Result) IsEmpty() bool {
