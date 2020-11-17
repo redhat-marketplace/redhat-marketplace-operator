@@ -131,7 +131,7 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 					"runtimeError" : "right",
 				}
 				
-			},300,interval).Should(
+			},500,interval).Should(
 				MatchAllKeys(final))
 
 			close(done)
