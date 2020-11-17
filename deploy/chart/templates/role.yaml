@@ -1,5 +1,5 @@
 {{- $postfix := "" }}
-{{- $namespace := .Values.namespace }}
+{{- $namespace := .Values.namespace | default "openshift-redhat-marketplace" }}
 {{- range .Values.roles }}
 {{- $role := . }}
 {{- if empty $role.rules }}

@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 name: redhat-marketplace-operator
 replicaCount: 1
-namespace: redhat-marketplace
+namespace: openshift-redhat-marketplace
 image: quay.io/rh-marketplace/redhat-marketplace-operator:latest
 reporterImage: quay.io/rh-marketplace/redhat-marketplace-reporter:latest
 metricStateImage: quay.io/rh-marketplace/redhat-marketplace-metric-state:latest
@@ -13,6 +13,7 @@ pullPolicy: Always
 watchNamespace: '' # watch all namespaces
 serviceAccountName: redhat-marketplace-operator
 devpostfix: ''
+imagePullSecret: ''
 env:
   - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
     value: quay.io/razee/remoteresources3:0.6.2

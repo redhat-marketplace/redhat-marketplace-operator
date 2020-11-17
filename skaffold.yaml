@@ -23,6 +23,7 @@ build:
         dockerfile: build/Dockerfile
         buildArgs:
           app_version: '{{.VERSION}}'
+          quay_expiration: '{{.QUAY_EXPIRATION}}'
         cacheFrom:
           - registry.access.redhat.com/ubi8/ubi:latest
           - quay.io/rh-marketplace/golang-base:1.15
@@ -31,6 +32,7 @@ build:
         dockerfile: build/reporter.Dockerfile
         buildArgs:
           app_version: '{{.VERSION}}'
+          quay_expiration: '{{.QUAY_EXPIRATION}}'
         cacheFrom:
           - registry.access.redhat.com/ubi8/ubi:latest
           - quay.io/rh-marketplace/golang-base:1.15
@@ -39,6 +41,7 @@ build:
         dockerfile: build/metricState.Dockerfile
         buildArgs:
           app_version: '{{.VERSION}}'
+          quay_expiration: '{{.QUAY_EXPIRATION}}'
         cacheFrom:
           - registry.access.redhat.com/ubi8/ubi:latest
           - quay.io/rh-marketplace/golang-base:1.15
@@ -47,6 +50,7 @@ build:
         dockerfile: build/authcheck.Dockerfile
         buildArgs:
           app_version: '{{.VERSION}}'
+          quay_expiration: '{{.QUAY_EXPIRATION}}'
         cacheFrom:
           - registry.access.redhat.com/ubi8/ubi:latest
           - quay.io/rh-marketplace/golang-base:1.15
@@ -63,6 +67,7 @@ deploy:
         setValueTemplates:
           devpostfix: '{{.DEVPOSTFIX}}'
           namespace: '{{.NAMESPACE}}'
+          imagePullSecret: '{{.PULL_SECRET_NAME}}'
         wait: false
         valuesFiles:
           - deploy/chart/values.yaml
@@ -94,6 +99,17 @@ profiles:
       tagPolicy:
         envTemplate:
           template: '{{.IMAGE_NAME}}'
+  - name: integration-test
+    build:
+      artifacts:
+        - image: rhm-operator-integration-tests
+          docker:
+            dockerfile: build/Dockerfile
+            buildArgs:
+              app_version: '{{.VERSION}}'
+            cacheFrom:
+              - registry.access.redhat.com/ubi8/ubi:latest
+              - quay.io/rh-marketplace/golang-base:1.15
   - name: base
     build:
       artifacts:
