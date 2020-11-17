@@ -34,6 +34,8 @@ var meterDefinitionMetricsFamilies = []FamilyGenerator{
 			metrics := []*kbsm.Metric{}
 
 			meterDefinitionUID := string(meterDefinition.UID)
+			meterGroup := string(meterDefinition.Spec.Group)
+			meterKind := string(meterDefinition.Spec.Kind)
 			for _, workload := range meterDefinition.Spec.Workloads {
 				for _, metricLabel := range workload.MetricLabels {
 					labels := map[string]string{
@@ -44,6 +46,8 @@ var meterDefinitionMetricsFamilies = []FamilyGenerator{
 						"metric_label":         metricLabel.Label,
 						"metric_aggregation":   metricLabel.Aggregation,
 						"metric_query":         metricLabel.Query,
+						"meter_group":          meterGroup,
+						"meter_kind":           meterKind,
 					}
 
 					keys := []string{}

@@ -43,6 +43,7 @@ import (
 var (
 	additionalLabels = []model.LabelName{"pod", "namespace", "service", "persistentvolumeclaim"}
 	logger           = logf.Log.WithName("reporter")
+	mdefLabels       = []model.LabelName{"meter_group", "meter_kind", "metric_aggregation", "metric_label", "metric_query", "name", "namespace", "workload_type"}
 )
 
 // Goals of the reporter:
@@ -104,21 +105,117 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 		return resultsMap, []error{}, nil
 	}
 
+	mdefQuery := "meterdef_metric_label_info{}"
+	var result model.Value
+	var warnings v1.Warnings
+	var err error
+
+	logger.Info("output", "query", mdefQuery)
+
+	err = utils.Retry(func() error {
+		qctx, qcancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer qcancel()
+
+		timeRange := v1.Range{
+			Start: r.report.Spec.StartTime.Time,
+			End:   r.report.Spec.EndTime.Time,
+			Step:  time.Hour,
+		}
+
+		result, warnings, err = r.api.QueryRange(qctx, mdefQuery, timeRange)
+
+		if err != nil {
+			logger.Error(err, "querying prometheus", "warnings", warnings)
+			return err
+		}
+		if len(warnings) > 0 {
+			logger.Info("warnings", "warnings", warnings)
+		}
+
+		return nil
+	}, *r.Retry)
+
+	if err != nil {
+		logger.Error(err, "error encountered")
+		return resultsMap, []error{}, err
+	}
+
+	errorList := []error{}
+
 	// data channels ; closed by this func
-	meterDefsChan := make(chan *marketplacev1alpha1.MeterDefinition, len(r.meterDefinitions))
+	meterDefsChan := make(chan *meterDefPromQuery)
 	promModelsChan := make(chan meterDefPromModel)
 
 	// error channels
 	errorsChan := make(chan error)
 
 	// done channels
+	meterDefsDone := make(chan bool)
 	queryDone := make(chan bool)
 	processDone := make(chan bool)
 	errorDone := make(chan bool)
 
+	defer close(meterDefsDone)
 	defer close(queryDone)
 	defer close(processDone)
 	defer close(errorDone)
+
+	logger.Info("starting build queries")
+
+	// build queries func
+	go func() {
+		switch result.Type() {
+		case model.ValMatrix:
+			matrixVals := result.(model.Matrix)
+
+			for _, matrix := range matrixVals {
+				labels := getKeysFromMetric(matrix.Metric, mdefLabels)
+				labelMatrix, err := kvToMap(labels)
+
+				if err != nil {
+					errorList = append(errorList, errors.Wrap(err, "failed adding additional labels"))
+					return
+				}
+
+				logger.Info(fmt.Sprintf("dac debug %v", labelMatrix))
+
+				metricLabel := labelMatrix["metric_label"].(string)
+				workloadType := marketplacev1alpha1.WorkloadType(labelMatrix["workload_type"].(string))
+				name := labelMatrix["name"].(string)
+				namespace := labelMatrix["namespace"].(string)
+				metricQuery := labelMatrix["metric_query"].(string)
+				metricAggregation := labelMatrix["metric_aggregation"].(string)
+				meterGroup := labelMatrix["meter_group"].(string)
+				meterKind := labelMatrix["meter_kind"].(string)
+
+				query := &PromQuery{
+					Metric: metricLabel,
+					Type:   workloadType,
+					MeterDef: types.NamespacedName{
+						Name:      name,
+						Namespace: namespace,
+					},
+					Query:         metricQuery,
+					Time:          "60m",
+					Start:         r.report.Spec.StartTime.Time,
+					End:           r.report.Spec.EndTime.Time,
+					Step:          time.Hour,
+					AggregateFunc: metricAggregation,
+				}
+
+				meterDefsChan <- &meterDefPromQuery{query: query, meterGroup: meterGroup, meterKind: meterKind}
+			}
+		case model.ValString:
+		case model.ValVector:
+		case model.ValScalar:
+		case model.ValNone:
+			errorList = append(errorList, errors.Errorf("can't process model type=%s", result.Type()))
+			return
+		}
+
+		meterDefsDone <- true
+		return
+	}()
 
 	logger.Info("starting query")
 
@@ -142,14 +239,6 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 		processDone,
 		errorsChan)
 
-	// send & close data pipe
-	for _, meterDef := range r.meterDefinitions {
-		meterDefsChan <- &meterDef
-	}
-	close(meterDefsChan)
-
-	errorList := []error{}
-
 	// Collect errors function
 	go func() {
 		for {
@@ -162,6 +251,10 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 			}
 		}
 	}()
+
+	<-meterDefsDone
+	logger.Info("build queries done")
+	close(meterDefsChan)
 
 	<-queryDone
 	logger.Info("querying done")
@@ -177,71 +270,62 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 }
 
 type meterDefPromModel struct {
-	*marketplacev1alpha1.MeterDefinition
+	mdef *meterDefPromQuery
 	model.Value
 	MetricName string
 	Type       v1alpha1.WorkloadType
 }
 
+type meterDefPromQuery struct {
+	query      *PromQuery
+	meterGroup string
+	meterKind  string
+}
+
 func (r *MarketplaceReporter) query(
 	ctx context.Context,
 	startTime, endTime time.Time,
-	inMeterDefs <-chan *marketplacev1alpha1.MeterDefinition,
+	inMeterDefs <-chan *meterDefPromQuery,
 	outPromModels chan<- meterDefPromModel,
 	done chan bool,
 	errorsch chan<- error,
 ) {
-	queryProcess := func(mdef *marketplacev1alpha1.MeterDefinition) {
-		for _, workload := range mdef.Spec.Workloads {
-			for _, metric := range workload.MetricLabels {
-				logger.Info("query", "metric", metric)
-				// TODO: use metadata to build a smart roll up
-				// Guage = delta
-				// Counter = increase
-				// Histogram and summary are unsupported
-				query := &PromQuery{
-					Metric: metric.Label,
-					Type:   workload.WorkloadType,
-					MeterDef: types.NamespacedName{
-						Name:      mdef.Name,
-						Namespace: mdef.Namespace,
-					},
-					Query:         metric.Query,
-					Time:          "60m",
-					Start:         startTime,
-					End:           endTime,
-					Step:          time.Hour,
-					AggregateFunc: metric.Aggregation,
-				}
-				logger.Info("output", "query", query.String())
+	queryProcess := func(mdef *meterDefPromQuery) {
+		logger.Info("query", "metric")
+		// TODO: use metadata to build a smart roll up
+		// Guage = delta
+		// Counter = increase
+		// Histogram and summary are unsupported
+		query := mdef.query
 
-				var val model.Value
-				var warnings v1.Warnings
+		logger.Info("output", "query", query.String())
 
-				err := utils.Retry(func() error {
-					var err error
-					val, warnings, err = r.queryRange(query)
+		var val model.Value
+		var warnings v1.Warnings
 
-					if err != nil {
-						return errors.Wrap(err, "error with query")
-					}
+		err := utils.Retry(func() error {
+			var err error
+			val, warnings, err = r.queryRange(query)
 
-					return nil
-				}, *r.Retry)
-
-				if warnings != nil {
-					logger.Info("warnings %v", warnings)
-				}
-
-				if err != nil {
-					logger.Error(err, "error encountered")
-					errorsch <- err
-					return
-				}
-
-				outPromModels <- meterDefPromModel{mdef, val, metric.Label, query.Type}
+			if err != nil {
+				return errors.Wrap(err, "error with query")
 			}
+
+			return nil
+		}, *r.Retry)
+
+		if warnings != nil {
+			logger.Info("warnings %v", warnings)
 		}
+
+		if err != nil {
+			logger.Error(err, "error encountered")
+			errorsch <- err
+			return
+		}
+
+		outPromModels <- meterDefPromModel{mdef, val, query.Metric, query.Type}
+
 	}
 
 	wgWait(ctx, "queryProcess", *r.MaxRoutines, done, func() {
@@ -263,7 +347,6 @@ func (r *MarketplaceReporter) process(
 	syncProcess := func(
 		pmodel meterDefPromModel,
 		name string,
-		mdef *marketplacev1alpha1.MeterDefinition,
 		report *marketplacev1alpha1.MeterReport,
 		m model.Value,
 	) {
@@ -316,8 +399,8 @@ func (r *MarketplaceReporter) process(
 							ReportPeriodEnd:   report.Spec.EndTime.Format(time.RFC3339),
 							IntervalStart:     pair.Timestamp.Time().Format(time.RFC3339),
 							IntervalEnd:       pair.Timestamp.Add(time.Hour).Time().Format(time.RFC3339),
-							MeterDomain:       mdef.Spec.Group,
-							MeterKind:         mdef.Spec.Kind,
+							MeterDomain:       pmodel.mdef.meterGroup,
+							MeterKind:         pmodel.mdef.meterKind,
 						}
 
 						key.Init(r.mktconfig.Spec.ClusterUUID, objName, namespace)
@@ -364,7 +447,7 @@ func (r *MarketplaceReporter) process(
 
 	wgWait(ctx, "syncProcess", *r.MaxRoutines, done, func() {
 		for pmodel := range inPromModels {
-			syncProcess(pmodel, pmodel.MetricName, pmodel.MeterDefinition, report, pmodel.Value)
+			syncProcess(pmodel, pmodel.MetricName, report, pmodel.Value)
 		}
 	})
 }
