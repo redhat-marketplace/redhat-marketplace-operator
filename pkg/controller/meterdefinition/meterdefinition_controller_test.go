@@ -28,10 +28,21 @@ import (
 )
 
 var _ = Describe("Testing with Ginkgo", func() {
+	var (
+		ctrl *ReconcileMeterDefinition
+	)
+
+	BeforeEach(func() {
+		ctrl = &ReconcileMeterDefinition{}
+	})
 	It("meter definition controller", func() {
 
 		testNoServiceMonitors(GinkgoT())
 	})
+	
+	It("Should log an error if something is nil", func (done Done)  {
+		
+	},120)
 })
 
 var (

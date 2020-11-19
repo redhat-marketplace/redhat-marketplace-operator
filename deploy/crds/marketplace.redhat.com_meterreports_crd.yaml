@@ -383,11 +383,13 @@ spec:
                           type: object
                         type: array
                       results:
-                        description: Results is the result of a query defined on the
-                          meterdefinition. This will generate data for the previous
-                          hour on whichever workload you specify This is intended
-                          to be a preview to check whether a query is working as intended.
+                        description: Results is a list of Results that get returned
+                          from a query to prometheus
                         items:
+                          description: Result is a result of a query defined on the
+                            meterdefinition. This will generate data for the previous
+                            hour on whichever workload you specify. This will allow
+                            you to check whether a query is working as intended.
                           properties:
                             endTime:
                               type: string

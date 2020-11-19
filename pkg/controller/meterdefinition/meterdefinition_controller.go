@@ -23,10 +23,10 @@ import (
 
 	"emperror.dev/errors"
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	v1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
@@ -177,9 +177,10 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Error(err, "error encountered")
 	}
 
-	loc, _ := time.LoadLocation("UTC")
-	var client api.Client
-	var promAPI v1.API
+	// loc, _ := time.LoadLocation("UTC")
+	// var queryPreviewResult *v1alpha1.Result
+	var queryPreviewResultArray []v1alpha1.Result
+
 	if certConfigMap != nil && token != "" && service != nil {
 		cert, err := getCertificateFromConfigMap(*certConfigMap)
 		if err != nil {
@@ -187,87 +188,28 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		}
 
 		if r.cfg.PathToKubeProxyAPIToken == "" {
-			return reconcile.Result{}, errors.New("file path to kube proxy token is nil")
+			// return reconcile.Result{}, errors.New("file path to kube proxy token is nil")
+			reqLogger.Error(err, "error encountered")
 		}
 
-		client, err = prometheus.ProvideApiClientFromCert(r.cfg.PathToKubeProxyAPIToken, service, &cert, token)
-
+		client, err := prometheus.ProvideApiClientFromCert(r.cfg.PathToKubeProxyAPIToken, service, &cert, token)
 		if client == nil {
-			return reconcile.Result{}, errors.New("client is nil")
+			// return reconcile.Result{}, errors.New("client is nil")
+			reqLogger.Error(err, "error encountered")
 		}
 
-		promAPI = v1.NewAPI(client)
+		promAPI := v1.NewAPI(client)
 		if promAPI == nil {
-			return reconcile.Result{}, errors.New("promApi is nil")
+			// return reconcile.Result{}, errors.New("promApi is nil")
+			reqLogger.Error(err, "error encountered")
 		}
-	}
 
-	var queryPreviewResult *v1alpha1.Result
-	var queryPreviewResultArray []v1alpha1.Result
-
-	for _, workload := range instance.Spec.Workloads {
-		var val model.Value
-		var metric v1alpha1.MeterLabelQuery
-		var query *prometheus.PromQuery
-
-		for _, metric = range workload.MetricLabels {
-			reqLogger.Info("query", "metric", metric)
-			query = &prometheus.PromQuery{
-				Metric: metric.Label,
-				Type:   workload.WorkloadType,
-				MeterDef: types.NamespacedName{
-					Name:      instance.Name,
-					Namespace: instance.Namespace,
-				},
-				Query:         metric.Query,
-				Time:          "60m",
-				Start:         time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute()-1, 0, 0, loc),
-				End:           time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute(), 0, 0, loc),
-				Step:          time.Hour,
-				AggregateFunc: metric.Aggregation,
-			}
-
-			reqLogger.Info("output", "query", query.String())
-
-			var warnings v1.Warnings
-			err := utils.Retry(func() error {
-				var err error
-				val, warnings, err = prometheus.QueryRange(query, promAPI)
-
-				if err != nil {
-					return errors.Wrap(err, "error with query")
-				}
-
-				return nil
-			}, *ptr.Int(2))
-
-			if warnings != nil {
-				reqLogger.Info("warnings %v", warnings)
-			}
-
-			if err != nil {
-				reqLogger.Error(err, "error encountered")
-				return reconcile.Result{}, err
-			}
-
-			matrix := val.(model.Matrix)
-			for _, m := range matrix {
-				for _, pair := range m.Values {
-					queryPreviewResult = &v1alpha1.Result{
-						WorkloadName: workload.Name,
-						QueryName:    metric.Label,
-						StartTime:    fmt.Sprintf("%s", query.Start),
-						EndTime:      fmt.Sprintf("%s", query.End),
-						Value:        int32(pair.Value),
-					}
-				}
-			}
-
-			if queryPreviewResult != nil {
-				reqLogger.Info("output", "query preview result", queryPreviewResult)
-				queryPreviewResultArray = append(queryPreviewResultArray, *queryPreviewResult)
-			}
+		queryPreviewResultArray, err = generateQueryPreview(instance, reqLogger,promAPI)
+		if err != nil {
+			// return reconcile.Result{}, err
+			reqLogger.Error(err, "error encountered")
 		}
+
 	}
 
 	if !reflect.DeepEqual(queryPreviewResultArray, instance.Status.Results) {
@@ -341,6 +283,77 @@ func getCertificateFromConfigMap(certConfigMap corev1.ConfigMap) (cert []byte, r
 
 	cert = []byte(out)
 	return cert, nil
+}
+
+func generateQueryPreview(instance *v1alpha1.MeterDefinition, reqLogger logr.Logger, promAPI v1.API)(queryPreviewResultArray []v1alpha1.Result,returnErr error){
+	loc, _ := time.LoadLocation("UTC")
+	var queryPreviewResult *v1alpha1.Result
+
+	for _, workload := range instance.Spec.Workloads {
+		var val model.Value
+		var metric v1alpha1.MeterLabelQuery
+		var query *prometheus.PromQuery
+
+		for _, metric = range workload.MetricLabels {
+			reqLogger.Info("query", "metric", metric)
+			query = &prometheus.PromQuery{
+				Metric: metric.Label,
+				Type:   workload.WorkloadType,
+				MeterDef: types.NamespacedName{
+					Name:      instance.Name,
+					Namespace: instance.Namespace,
+				},
+				Query:         metric.Query,
+				Time:          "60m",
+				Start:         time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute()-1, 0, 0, loc),
+				End:           time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute(), 0, 0, loc),
+				Step:          time.Hour,
+				AggregateFunc: metric.Aggregation,
+			}
+
+			reqLogger.Info("output", "query", query.String())
+
+			var warnings v1.Warnings
+			err := utils.Retry(func() error {
+				var err error
+				val, warnings, err = prometheus.QueryRange(query, promAPI)
+				if err != nil {
+					return errors.Wrap(err, "error with query")
+				}
+
+				return nil
+			}, *ptr.Int(2))
+
+			if warnings != nil {
+				reqLogger.Info("warnings %v", warnings)
+			}
+
+			if err != nil {
+				returnErr = errors.Wrap(err, "error with query")
+				return nil,returnErr
+			}
+
+			matrix := val.(model.Matrix)
+			for _, m := range matrix {
+				for _, pair := range m.Values {
+					queryPreviewResult = &v1alpha1.Result{
+						WorkloadName: workload.Name,
+						QueryName:    metric.Label,
+						StartTime:    fmt.Sprintf("%s", query.Start),
+						EndTime:      fmt.Sprintf("%s", query.End),
+						Value:        int32(pair.Value),
+					}
+				}
+			}
+
+			if queryPreviewResult != nil {
+				reqLogger.Info("output", "query preview result", queryPreviewResult)
+				queryPreviewResultArray = append(queryPreviewResultArray, *queryPreviewResult)
+			}
+		}
+	}
+
+	return queryPreviewResultArray,nil
 }
 
 func (r *ReconcileMeterDefinition) finalizeMeterDefinition(req *v1alpha1.MeterDefinition) (reconcile.Result, error) {
