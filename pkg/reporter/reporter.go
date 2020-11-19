@@ -177,8 +177,6 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 					return
 				}
 
-				logger.Info(fmt.Sprintf("dac debug %v", labelMatrix))
-
 				metricLabel := labelMatrix["metric_label"].(string)
 				workloadType := marketplacev1alpha1.WorkloadType(labelMatrix["workload_type"].(string))
 				name := labelMatrix["name"].(string)
