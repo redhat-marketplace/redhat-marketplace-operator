@@ -25,7 +25,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/reporter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,8 +33,6 @@ import (
 )
 
 var testControllerSet = wire.NewSet(
-	provideQueryPromFunc,
-	provideAPIClient,
 	ControllerSet,
 	ProvideControllerFlagSet,
 	SchemeDefinitions,
@@ -79,10 +76,4 @@ func provideContext() context.Context {
 	return context.TODO()
 }
 
-func provideQueryPromFunc() reconcileutils.QueryForPrometheusServiceFunc {
-	return reporter.QueryForPrometheusService
-}
 
-func provideAPIClient() reconcileutils.ProvideAPIClientFunc {
-	return reporter.ProvideApiClient
-}

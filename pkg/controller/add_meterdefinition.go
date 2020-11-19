@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller/meterdefinition"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 
@@ -29,15 +30,12 @@ type MeterDefinitionController struct {
 
 func ProvideMeterDefinitionController(
 	commandRunner reconcileutils.ClientCommandRunnerProvider,
-	// promAPIClient api.Client,
-	//TODO: move these types to a different file
-	q reconcileutils.QueryForPrometheusServiceFunc,
-	p reconcileutils.ProvideAPIClientFunc,
+	cfg config.OperatorConfig,
 ) *MeterDefinitionController {
 	return &MeterDefinitionController{
 		baseDefinition: &baseDefinition{
 			AddFunc: func(mgr manager.Manager) error {
-				return meterdefinition.Add(mgr, commandRunner, q, p)
+				return meterdefinition.Add(mgr, commandRunner,cfg)
 			},
 			FlagSetFunc: func() *pflag.FlagSet { return nil },
 		},

@@ -21,15 +21,13 @@ func InitializeMarketplaceController() (*managers.ControllerMain, error) {
 	defaultCommandRunnerProvider := reconcileutils.ProvideDefaultCommandRunnerProvider()
 	marketplaceController := controller.ProvideMarketplaceController(defaultCommandRunnerProvider)
 	meterbaseController := controller.ProvideMeterbaseController(defaultCommandRunnerProvider)
-	v := provideQueryPromFunc()
-	v2 := provideAPIClient()
-	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider, v, v2)
-	razeeDeployController := controller.ProvideRazeeDeployController()
-	olmSubscriptionController := controller.ProvideOlmSubscriptionController()
 	operatorConfig, err := config.ProvideConfig()
 	if err != nil {
 		return nil, err
 	}
+	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider, operatorConfig)
+	razeeDeployController := controller.ProvideRazeeDeployController()
+	olmSubscriptionController := controller.ProvideOlmSubscriptionController()
 	meterReportController := controller.ProvideMeterReportController(defaultCommandRunnerProvider, operatorConfig)
 	olmClusterServiceVersionController := controller.ProvideOlmClusterServiceVersionController()
 	remoteResourceS3Controller := controller.ProvideRemoteResourceS3Controller()

@@ -189,67 +189,6 @@ func provideApiClient(
 	return conf, nil
 }
 
-func ProvideApiClient(
-	// promTargetPort targetPort,
-	promService *corev1.Service,
-	caCert *[]byte,
-) (api.Client, error) {
-
-	var port int32
-	if promService == nil {
-		return nil, errors.New("Prometheus service not defined")
-	}
-
-	name := promService.Name
-	namespace := promService.Namespace
-	fmt.Println("PROMSERVICE NAME",name)
-	fmt.Println("PROMSERVICE NAMESPACE",namespace)
-	targetPort := intstr.FromString("rbac")
-	
-	switch {
-	case targetPort.Type == intstr.Int:
-		port = targetPort.IntVal
-	default:
-		for _, p := range promService.Spec.Ports {
-			if p.Name == targetPort.StrVal {
-				port = p.Port
-			}
-		}
-	}
-
-	fmt.Println("PORT",port)
-
-	var auth = ""
-	
-	content, err := ioutil.ReadFile("/etc/auth-service-account/token")
-	fmt.Println("CONTENT",content)
-	if err != nil {
-		fmt.Println("TOKEN ERR",err)
-		return nil, err
-	}
-	auth = fmt.Sprintf(string(content))
-	fmt.Println("AUTH",auth)
-	conf, err := NewSecureClientFromConfigMap(&PrometheusSecureClientConfig{
-		Address:        fmt.Sprintf("https://%s.%s.svc:%v", name, namespace, port),
-		Token:          auth,
-		CaCert: caCert,
-	})
-
-	fmt.Println("ADDRESS", fmt.Sprintf("https://%s.%s.svc:%v", name, namespace, port))
-	if conf == nil {
-		fmt.Println("conf is nil")
-	}
-
-	if err != nil {
-		log.Error(err,"failed to setup NewSecureClient")
-		return nil, err
-	}
-
-	fmt.Println("conf",conf)
-
-	return conf, nil
-}
-
 func getClientOptions() managers.ClientOptions {
 	return managers.ClientOptions{
 		Namespace:    "",
@@ -312,25 +251,6 @@ func getPrometheusService(
 
 	logger.Info("retrieved prometheus service")
 	return
-}
-
-func QueryForPrometheusService(
-	ctx context.Context,
-	cc ClientCommandRunner,
-) (service *corev1.Service, returnErr error) {
-	service = &corev1.Service{}
-
-	name := types.NamespacedName{
-		Name:      "rhm-prometheus-meterbase",
-		Namespace: "openshift-redhat-marketplace",
-	}
-
-	if result, _ := cc.Do(ctx, GetAction(name, service)); !result.Is(Continue) {
-		returnErr = errors.Wrap(result, "failed to get report")
-	}
-	
-	logger.Info("retrieved prometheus service")
-	return service,nil
 }
 
 func getMeterDefinitions(

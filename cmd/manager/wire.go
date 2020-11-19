@@ -29,11 +29,6 @@ import (
 
 func InitializeMarketplaceController() (*managers.ControllerMain, error) {
 	panic(wire.Build(
-		// provideContext,
-		// reporter.QueryForPrometheusService,
-		// reporter.ProvideApiClient,
-		provideAPIClient,
-		provideQueryPromFunc,
 		config.ProvideConfig,
 		controller.ControllerSet,
 		controller.ProvideControllerFlagSet,

@@ -22,6 +22,7 @@ import (
 type OperatorConfig struct {
 	RelatedImages
 	Features
+	FilePaths
 }
 
 // RelatedImages stores relatedimages for the operator
@@ -40,6 +41,11 @@ type RelatedImages struct {
 // Features store feature flags
 type Features struct {
 	IBMCatalog bool `env:"FEATURE_IBMCATALOG" envDefault:"true"`
+}
+
+// FilePaths 
+type FilePaths struct {
+	PathToKubeProxyAPIToken string `env:"PATH_TO_KUBE_PROXY_TOKEN" envDefault:"/etc/auth-service-account/token"`
 }
 
 // ProvideConfig gets the config from env vars
