@@ -21,8 +21,7 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/caarlos0/env/v6"
-	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-	. "github.com/onsi/gomega"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -111,8 +110,8 @@ func (e *mockOpenShift) Setup(h *TestHarness) error {
 
 	e.cleanup = []runtime.Object{kubeletMonitor, kubeStateMonitor}
 
-	Expect(h.Upsert(context.TODO(), kubeletMonitor)).To(SucceedOrAlreadyExist)
-	Expect(h.Upsert(context.TODO(), kubeStateMonitor)).To(SucceedOrAlreadyExist)
+	h.Upsert(context.TODO(), kubeletMonitor)
+	h.Upsert(context.TODO(), kubeStateMonitor)
 
 	var (
 		tlsResources = []types.NamespacedName{
@@ -130,7 +129,9 @@ func (e *mockOpenShift) Setup(h *TestHarness) error {
 	rootDir, _ := GetRootDirectory()
 
 	serviceCA, err := ioutil.ReadFile(filepath.Join(rootDir, "test/certs/ca.crt"))
-	Expect(err).To(Succeed())
+	if err != nil {
+		return err
+	}
 
 	for _, resource := range certsResources {
 		configmap := &corev1.ConfigMap{
@@ -146,14 +147,22 @@ func (e *mockOpenShift) Setup(h *TestHarness) error {
 			},
 		}
 
-		Expect(h.Upsert(context.TODO(), configmap)).Should(Succeed(), "failed to create", "name", resource.Name)
+		err := h.Upsert(context.TODO(), configmap)
 		e.cleanup = append(e.cleanup, configmap)
+
+		if err != nil {
+			return err
+		}
 	}
 
 	serverCrt, err := ioutil.ReadFile(filepath.Join(rootDir, "test/certs/server.pem"))
-	Expect(err).To(Succeed())
+	if err != nil {
+		return err
+	}
 	serverKey, err := ioutil.ReadFile(filepath.Join(rootDir, "test/certs/server-key.pem"))
-	Expect(err).To(Succeed())
+	if err != nil {
+		return err
+	}
 
 	for _, resource := range tlsResources {
 		secret := &corev1.Secret{
@@ -168,7 +177,10 @@ func (e *mockOpenShift) Setup(h *TestHarness) error {
 			},
 		}
 
-		Expect(h.Upsert(context.TODO(), secret)).Should(Succeed(), "failed to create", "name", resource.Name)
+		err := h.Upsert(context.TODO(), secret)
+		if err != nil {
+			return err
+		}
 		e.cleanup = append(e.cleanup, secret)
 	}
 

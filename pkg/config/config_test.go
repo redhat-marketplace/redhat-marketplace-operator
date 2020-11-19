@@ -30,7 +30,7 @@ var _ = Describe("Config", func() {
 			Expect(cfg).ToNot(BeNil())
 
 			Expect(cfg.RelatedImages.Reporter).To(Equal("reporter:latest"))
-			Expect(cfg.IBMCatalog).To(BeTrue())
+			Expect(cfg.Features.IBMCatalog).To(BeTrue())
 		})
 	})
 

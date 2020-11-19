@@ -1,13 +1,16 @@
 package marketplace
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
-	"errors"
 	"fmt"
 	ioutil "io/ioutil"
 	"net/http"
 	"net/url"
 
+	"emperror.dev/errors"
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -17,9 +20,24 @@ import (
 
 var logger = logf.Log.WithName("marketplace")
 
+const (
+	ProductionURL = "https://marketplace.redhat.com"
+)
+
+// endpoints
+const (
+	pullSecretEndpoint   = "provisioning/v1/rhm-operator/rhm-operator-secret"
+	registrationEndpoint = "provisioning/v1/registered-clusters"
+)
+
+const (
+	RegistrationStatusInstalled = "INSTALLED"
+)
+
 type MarketplaceClientConfig struct {
-	Url   string
-	Token string
+	Url      string
+	Token    string
+	Insecure bool
 }
 
 type MarketplaceClientAccount struct {
@@ -39,19 +57,39 @@ type RegisteredAccount struct {
 }
 
 func NewMarketplaceClient(clientConfig *MarketplaceClientConfig) (*MarketplaceClient, error) {
-	var transport http.RoundTripper
+	var tlsConfig *tls.Config
+
+	if clientConfig.Insecure {
+		tlsConfig = &tls.Config{InsecureSkipVerify: true}
+	} else {
+		caCertPool, err := x509.SystemCertPool()
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get cert pool")
+		}
+
+		tlsConfig = &tls.Config{
+			RootCAs: caCertPool,
+		}
+	}
+
+	var transport http.RoundTripper = &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
+
 	if clientConfig.Token != "" {
-		//logger.Info("Token found >>>>>>>>>>>>>>>>", "clienConfigToken", clientConfig.Token)
 		transport = WithBearerAuth(transport, clientConfig.Token)
 	}
+
 	u, err := url.Parse(clientConfig.Url)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to parse url")
 	}
-	//logger.Info("MarketplaceClient creating and returning >>>>>>>>>>>>>>>")
+
 	return &MarketplaceClient{
-		endpoint:   u,
-		httpClient: http.Client{Transport: transport},
+		endpoint: u,
+		httpClient: http.Client{
+			Transport: transport,
+		},
 	}, nil
 }
 
@@ -66,13 +104,23 @@ func WithBearerAuth(rt http.RoundTripper, token string) http.RoundTripper {
 	return addHead
 }
 
-func WithQuery(u *url.URL, clientAccount *MarketplaceClientAccount) *url.URL {
-	q := u.Query()
-	//logger.Info("MarketplaceClientAccount query >>>>>> : ", "accountId", clientAccount.AccountId, "uuid", clientAccount.ClusterUuid)
-	q.Set("accountId", clientAccount.AccountId)
-	q.Set("uuid", clientAccount.ClusterUuid)
-	u.RawQuery = q.Encode()
-	return u
+func buildQuery(u *url.URL, path string, args ...string) (*url.URL, error) {
+	buildU := *u
+	buildU.Path = path
+
+	if len(args)%2 != 0 {
+		return nil, errors.New("query args are not divisible by 2")
+	}
+
+	if len(args) > 0 {
+		q := buildU.Query()
+		for i := 0; i < len(args); i = i + 2 {
+			q.Set(args[i], args[i+1])
+		}
+		buildU.RawQuery = q.Encode()
+	}
+
+	return &buildU, nil
 }
 
 func WithHeader(rt http.RoundTripper) withHeader {
@@ -97,154 +145,152 @@ type RegistrationStatusInput struct {
 
 type RegistrationStatusOutput struct {
 	StatusCode         int
+	Registration       *RegisteredAccount
 	RegistrationStatus string
-	//anything else you need
+	Err                error
 }
 
-func (m *MarketplaceClient) RegistrationStatus(account *MarketplaceClientAccount) RegistrationStatusOutput {
-	//	logger.Info("RegistrationStatus method called >>>>>>> ")
-	u := WithQuery(m.endpoint, account)
-	//logger.Info("RegistrationStatus method calling query >>>>>>> ", "url", u.String())
-	resp, err := m.httpClient.Get(u.String())
-	logger.Info("RegistrationStatus status code : ", "httpstatus", resp.StatusCode)
-	if err != nil {
-		return RegistrationStatusOutput{
-			StatusCode:         resp.StatusCode,
-			RegistrationStatus: "Request not Complete, Http error",
-		}
+func (m *MarketplaceClient) RegistrationStatus(account *MarketplaceClientAccount) (RegistrationStatusOutput, error) {
+	if account == nil {
+		err := errors.New("account info missing")
+		return RegistrationStatusOutput{Err: err}, err
 	}
+
+	u, err := buildQuery(m.endpoint, registrationEndpoint,
+		"accountId", account.AccountId,
+		"uuid", account.ClusterUuid)
+
+	if err != nil {
+		return RegistrationStatusOutput{Err: err}, err
+	}
+
+	logger.Info("status query", "query", u.String())
+	resp, err := m.httpClient.Get(u.String())
+
+	if err != nil || resp.StatusCode != 200 {
+		return RegistrationStatusOutput{
+			RegistrationStatus: "HttpError",
+			Err:                err,
+			StatusCode:         resp.StatusCode,
+		}, err
+	}
+
+	logger.Info("RegistrationStatus status code", "httpstatus", resp.StatusCode)
+	clusterDef, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
 
-	clusterDef, err := ioutil.ReadAll(resp.Body)
-	//logger.Info("clusterDef Json value for registeredAccount: ", "clusterDef", clusterDef)
+	if err != nil {
+		return RegistrationStatusOutput{Err: err}, err
+	}
+
+	registrations, err := getRegistrations(string(clusterDef))
 
 	if err != nil {
+		return RegistrationStatusOutput{Err: err}, err
+	}
+
+	if len(registrations) == 0 {
 		return RegistrationStatusOutput{
 			StatusCode:         resp.StatusCode,
-			RegistrationStatus: "Error with JSON response",
+			RegistrationStatus: "UNREGISTERED",
+		}, nil
+	}
+
+	for _, registration := range registrations {
+		if registration.Uuid == account.ClusterUuid {
+			return RegistrationStatusOutput{
+				StatusCode:         resp.StatusCode,
+				Registration:       &registration,
+				RegistrationStatus: registration.Status,
+			}, nil
 		}
 	}
 
-	if string(clusterDef) == "[]" {
-		logger.Info("Account is not registered")
-		return RegistrationStatusOutput{
-			StatusCode:         resp.StatusCode,
-			RegistrationStatus: "NotRegistered",
-		}
-	}
-	registrationStatus := getRegistrationValue(string(clusterDef))
 	return RegistrationStatusOutput{
 		StatusCode:         resp.StatusCode,
-		RegistrationStatus: registrationStatus,
-	}
+		RegistrationStatus: "UNREGISTERED",
+	}, nil
 }
 
-func getRegistrationValue(jsonString string) string {
+func getRegistrations(jsonString string) ([]RegisteredAccount, error) {
 	var registeredAccount []RegisteredAccount
 	err := json.Unmarshal([]byte(jsonString), &registeredAccount)
 	if err != nil {
 		logger.Error(err, "Error in GetRegistrationValue Parser for registeredAccount")
+		return nil, nil
 	}
-	//logger.Info("GetRegistrationValue Json value for registeredAccount: ", "registeredAccount", registeredAccount)
-	account := registeredAccount[0]
-	return account.Status
+	return registeredAccount, nil
 }
 
-/*func ClusterRegistrationStatus(marketplaceClientConfig *MarketplaceClientConfig, marketplaceClientAccount *MarketplaceClientAccount) (*RegistrationStatusOutput, error) {
-	newMarketPlaceClient, err := NewMarketplaceClient(marketplaceClientConfig)
-	//registrationStatusOutput = &RegistrationStatusOutput{}
-	if err != nil {
-		return nil, err
-	}
-	registrationStatusOutput := newMarketPlaceClient.RegistrationStatus(marketplaceClientAccount)
-	return &registrationStatusOutput, nil
-}*/
-/*func ClusterRegistrationStatusConditions(marketplaceClientConfig *MarketplaceClientConfig, marketplaceClientAccount *MarketplaceClientAccount, conditions *status.Conditions) (*status.Conditions, error) {
-	conditions.RemoveCondition(marketplacev1alpha1.ConditionRegistered)
-	conditions.RemoveCondition(marketplacev1alpha1.ConditionRegistrationError)
-	newMarketPlaceClient, err := NewMarketplaceClient(marketplaceClientConfig)
-	if err != nil {
-		message := "Http Client Error with Cluster Registration "
+func (resp RegistrationStatusOutput) TransformConfigStatus() status.Conditions {
+	conditions := status.NewConditions(status.Condition{
+		Type:    marketplacev1alpha1.ConditionRegistered,
+		Status:  corev1.ConditionFalse,
+		Reason:  marketplacev1alpha1.ReasonRegistrationFailure,
+		Message: "Cluster is not registered",
+	})
+
+	if resp.StatusCode == 200 && resp.RegistrationStatus == "INSTALLED" {
+		message := "Cluster Registered Successfully"
 		conditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ConditionRegistrationError,
+			Type:    marketplacev1alpha1.ConditionRegistered,
 			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonRegistrationError,
+			Reason:  marketplacev1alpha1.ReasonRegistrationSuccess,
 			Message: message,
 		})
-		return conditions, err
-	}
-	registrationStatusOutput := newMarketPlaceClient.RegistrationStatus(marketplaceClientAccount)
-	condition := transformConfigStatus(registrationStatusOutput)
-	conditions.SetCondition(condition)
-	return conditions, nil
-}*/
-
-func TransformConfigStatus(resp RegistrationStatusOutput) status.Condition {
-	if resp.StatusCode == 200 && resp.RegistrationStatus == "INSTALLED" {
-		//reqLogger.Info("Cluster Registered")
-		message := "Cluster Registered Successfully"
-		return status.Condition{
+	} else {
+		msg := http.StatusText(resp.StatusCode)
+		msg = fmt.Sprintf("registration failed: %s", msg)
+		conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionRegistered,
 			Status:  corev1.ConditionFalse,
-			Reason:  marketplacev1alpha1.ReasonRegistrationStatus,
-			Message: message,
-		}
-	} else if resp.StatusCode == 500 {
-		message := "Registration Service Unavailable"
-		return status.Condition{
-			Type:    marketplacev1alpha1.ConditionRegistrationError,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonServiceUnavailable,
-			Message: message,
-		}
-	} else if resp.StatusCode == 408 {
-		message := "DNS/Internet gateway failure - Disconnected env "
-		return status.Condition{
-			Type:    marketplacev1alpha1.ConditionRegistrationError,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonInternetDisconnected,
-			Message: message,
-		}
-	} else if resp.StatusCode >= 400 && resp.StatusCode < 500 {
-		message := "Client Error, Please check connection to registration service "
-		return status.Condition{
-			Type:    marketplacev1alpha1.ConditionRegistrationError,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonClientError,
-			Message: message,
-		}
-	} else {
-		message := fmt.Sprint("Error with Cluster Registration with http status code: ", resp.StatusCode)
-		return status.Condition{
-			Type:    marketplacev1alpha1.ConditionRegistrationError,
-			Status:  corev1.ConditionTrue,
 			Reason:  marketplacev1alpha1.ReasonRegistrationError,
-			Message: message,
-		}
+			Message: msg,
+		})
 	}
 
+	return conditions
 }
 
-func (mhttp *MarketplaceClient) GetMarketPlaceSecret() ([]byte, error) {
-	u := mhttp.endpoint
+func (mhttp *MarketplaceClient) GetMarketplaceSecret() (*corev1.Secret, error) {
+	u, err := buildQuery(mhttp.endpoint, pullSecretEndpoint)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to build query")
+	}
+
 	resp, err := mhttp.httpClient.Get(u.String())
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 	defer resp.Body.Close()
+
 	rhOperatorSecretDef, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return rhOperatorSecretDef, err
+		return nil, errors.Wrap(err, "")
 	}
+
 	if resp.StatusCode != 200 {
-		return nil, errors.New(fmt.Sprintf("%s%d", "Request not successful, http status code: ", resp.StatusCode))
+		return nil, errors.NewWithDetails("request not successful", "statuscode", resp.StatusCode)
 	}
 
-	data, err := yaml.YAMLToJSON(rhOperatorSecretDef) //Converting Yaml to JSON so it can parse to secret object
+	newOptSecretObj := corev1.Secret{}
+	err = yaml.Unmarshal(rhOperatorSecretDef, &newOptSecretObj)
 	if err != nil {
-		return data, err
+		return nil, errors.Wrap(err, "failed to unmarshal secret")
 	}
 
-	return data, nil
+	return &newOptSecretObj, nil
+}
 
+// GetAccountIdFromJWTToken will parse JWT token and fetch the rhmAccountId
+func GetAccountIdFromJWTToken(jwtToken string) (string, error) {
+	token, _ := jwt.Parse(jwtToken, nil)
+	if claims, ok := token.Claims.(jwt.MapClaims); ok {
+		rhmAccountClaim := claims["rhmAccountId"]
+		if rhmAccountID, ok := rhmAccountClaim.(string); ok {
+			return rhmAccountID, nil
+		}
+	}
+	return "", errors.New("rhmAccountId not found")
 }

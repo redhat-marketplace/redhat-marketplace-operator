@@ -372,6 +372,17 @@ test-ci-int: setup-kind ## test-ci-int runs all tests for CI builds
 	NAMESPACE=$(NAMESPACE) ginkgo -r -coverprofile=cover-int.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --coverpkg=$(CONTROLLERS) ./test
 	cat cover-int.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-int.out
 
+CLUSTER_TYPE ?= kind
+
+.PHONY: tdd
+tdd: ## tdd runs integration tests
+ifeq ($(CLUSTER_TYPE),kind)
+	cd ./scripts/skaffold-tdd-tool && NAMESPACE=$(NAMESPACE) go run .
+else
+	cd ./scripts/skaffold-tdd-tool && DISABLED_FEATURES="MockOpenShift" NAMESPACE=$(NAMESPACE) go run .
+endif
+
+
 test-join: $(gocovmerge)
 	$(gocovmerge) cover-int.out cover-unit.out > cover.out
 
@@ -391,7 +402,6 @@ test-generate-certs:
 	mkdir -p test/certs
 	#cd test/certs && $(cfssl) gencert -initca ca-csr.json | ../../$(cfssljson) -bare ca
 	cd test/certs && $(cfssl) gencert -ca=ca.crt -ca-key=ca.key -profile=kubernetes server-csr.json | ../../$(cfssljson) -bare server
-
 
 ##@ Misc
 
@@ -578,6 +588,7 @@ ifeq ($(UNAME),darwin)
 else
 	operator_sdk_uname = linux-gnu
 endif
+
 
 $(operator-sdk): testbin
 	echo $(operator_sdk_uname)

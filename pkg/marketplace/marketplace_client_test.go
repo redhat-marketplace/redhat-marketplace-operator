@@ -1,7 +1,9 @@
 package marketplace
 
 import (
+	"crypto/tls"
 	ioutil "io/ioutil"
+	"net/http"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -13,95 +15,88 @@ var _ = Describe("Marketplace Config Status", func() {
 	var (
 		marketplaceClientConfig  *MarketplaceClientConfig
 		marketplaceClientAccount *MarketplaceClientAccount
-		newMarketPlaceClient     *MarketplaceClient
+		mclient                  *MarketplaceClient
 		registrationStatus       *RegistrationStatusOutput
 		server                   *ghttp.Server
 		statusCode               int
 		body                     []byte
 		path                     string
-		addr                     string
+		err                      error
 	)
 
 	BeforeEach(func() {
 		// start a test http server
-		server = ghttp.NewServer()
+		server = ghttp.NewTLSServer()
 
+		addr := "https://" + server.Addr() + path
+		marketplaceClientConfig = &MarketplaceClientConfig{
+			Url:   addr,
+			Token: "Bearer token",
+		}
+		mclient, err = NewMarketplaceClient(marketplaceClientConfig)
+		mclient.httpClient.Transport.(withHeader).rt.(*http.Transport).TLSClientConfig = &tls.Config{
+			RootCAs:            server.HTTPTestServer.TLS.RootCAs,
+			InsecureSkipVerify: true,
+		}
+
+		Expect(err).To(Succeed())
+		Expect(mclient.endpoint).ToNot(BeNil())
+
+		marketplaceClientAccount = &MarketplaceClientAccount{
+			AccountId:   "accountid",
+			ClusterUuid: "test",
+		}
 	})
 	AfterEach(func() {
 		server.Close()
 	})
+
 	Context("Marketplace Pull Secret without any error", func() {
 		BeforeEach(func() {
 			statusCode = 200
-			path = "/provisioning/v1/rhm-operator/rhm-operator-secret"
+			path = "/" + pullSecretEndpoint
 			body, err := ioutil.ReadFile("../../test/mockresponses/marketplace-pull-secret.yaml")
 			if err != nil {
 				panic(err)
 			}
-			addr = "http://" + server.Addr() + path
-			marketplaceClientConfig = &MarketplaceClientConfig{
-				Url:   addr,
-				Token: "Bearer token",
-			}
-			newMarketPlaceClient, _ = NewMarketplaceClient(marketplaceClientConfig)
+
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", path),
 					ghttp.RespondWithPtr(&statusCode, &body),
 				))
-
 		})
-		It("Expect rhm-operator-secret ", func() {
-			data, err := newMarketPlaceClient.GetMarketPlaceSecret()
+		It("should retrieve rhm-operator-secret ", func() {
+			data, err := mclient.GetMarketplaceSecret()
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(data).Should(ContainSubstring("rhm-operator-secret"))
-
 		})
 	})
+
 	Context("Cluster Registration Status is INSTALLED", func() {
 		BeforeEach(func() {
 			statusCode = 200
-			path = "/provisioning/v1/registered-clusters"
+			path = "/" + registrationEndpoint
+
 			body, _ = ioutil.ReadFile("../../test/mockresponses/registration-response.json")
-			addr = "http://" + server.Addr() + path
-			marketplaceClientConfig = &MarketplaceClientConfig{
-				Url:   addr,
-				Token: "Bearer token",
-			}
-			marketplaceClientAccount = &MarketplaceClientAccount{
-				AccountId:   "accountid",
-				ClusterUuid: "clusterid",
-			}
-			newMarketPlaceClient, _ = NewMarketplaceClient(marketplaceClientConfig)
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", path),
+					ghttp.VerifyRequest("GET", path, "accountId=accountid&uuid=test"),
 					ghttp.RespondWithPtr(&statusCode, &body),
 				))
-
 		})
 		It("Expect true value for registration status", func() {
-			registrationStatusOutput := newMarketPlaceClient.RegistrationStatus(marketplaceClientAccount)
+			registrationStatusOutput, err := mclient.RegistrationStatus(marketplaceClientAccount)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(registrationStatusOutput.RegistrationStatus).To(Equal("INSTALLED"))
-
 		})
 	})
 
 	Context("Cluster Registration Status is blank", func() {
 		BeforeEach(func() {
 			statusCode = 200
-			path = "/provisioning/v1/registered-clusters"
+			path = "/" + registrationEndpoint
 			body = []byte("[]")
-			addr = "http://" + server.Addr() + path
-			marketplaceClientConfig = &MarketplaceClientConfig{
-				Url:   addr,
-				Token: "Bearer token",
-			}
-			marketplaceClientAccount = &MarketplaceClientAccount{
-				AccountId:   "accountid",
-				ClusterUuid: "clusterid",
-			}
-			newMarketPlaceClient, _ = NewMarketplaceClient(marketplaceClientConfig)
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", path),
@@ -110,8 +105,9 @@ var _ = Describe("Marketplace Config Status", func() {
 
 		})
 		It("Expect true value for registration status", func() {
-			registrationStatusOutput := newMarketPlaceClient.RegistrationStatus(marketplaceClientAccount)
-			Expect(registrationStatusOutput.RegistrationStatus).To(Equal("NotRegistered"))
+			registrationStatusOutput, err := mclient.RegistrationStatus(marketplaceClientAccount)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(registrationStatusOutput.RegistrationStatus).To(Equal("UNREGISTERED"))
 
 		})
 	})
@@ -125,9 +121,10 @@ var _ = Describe("Marketplace Config Status", func() {
 
 		})
 		It("Expect 200 status and status as registered", func() {
-			statusConditions := TransformConfigStatus(*registrationStatus)
-			Expect(statusConditions.Reason).To(Equal(marketplacev1alpha1.ReasonRegistrationStatus))
-
+			statusConditions := registrationStatus.TransformConfigStatus()
+			Expect(statusConditions.IsTrueFor(marketplacev1alpha1.ConditionRegistered)).To(BeTrue())
+			reason := statusConditions.GetCondition(marketplacev1alpha1.ConditionRegistered).Reason
+			Expect(reason).To(Equal(marketplacev1alpha1.ReasonRegistrationSuccess))
 		})
 	})
 
@@ -139,8 +136,10 @@ var _ = Describe("Marketplace Config Status", func() {
 			}
 		})
 		It("Expect 500 status and status as registered", func() {
-			statusConditions := TransformConfigStatus(*registrationStatus)
-			Expect(statusConditions.Reason).To(Equal(marketplacev1alpha1.ReasonServiceUnavailable))
+			statusConditions := registrationStatus.TransformConfigStatus()
+			Expect(statusConditions.IsFalseFor(marketplacev1alpha1.ConditionRegistered)).To(BeTrue())
+			reason := statusConditions.GetCondition(marketplacev1alpha1.ConditionRegistered).Reason
+			Expect(reason).To(Equal(marketplacev1alpha1.ReasonRegistrationError))
 
 		})
 	})
@@ -153,9 +152,10 @@ var _ = Describe("Marketplace Config Status", func() {
 			}
 		})
 		It("Expect 408 status and status as registered", func() {
-			statusConditions := TransformConfigStatus(*registrationStatus)
-			Expect(statusConditions.Reason).To(Equal(marketplacev1alpha1.ReasonInternetDisconnected))
-
+			statusConditions := registrationStatus.TransformConfigStatus()
+			Expect(statusConditions.IsFalseFor(marketplacev1alpha1.ConditionRegistered)).To(BeTrue())
+			reason := statusConditions.GetCondition(marketplacev1alpha1.ConditionRegistered).Reason
+			Expect(reason).To(Equal(marketplacev1alpha1.ReasonRegistrationError))
 		})
 	})
 
@@ -167,9 +167,11 @@ var _ = Describe("Marketplace Config Status", func() {
 			}
 		})
 		It("Expect 400 status and status as registered", func() {
-			statusConditions := TransformConfigStatus(*registrationStatus)
-			Expect(statusConditions.Reason).To(Equal(marketplacev1alpha1.ReasonClientError))
+			statusConditions := registrationStatus.TransformConfigStatus()
+			Expect(statusConditions.IsFalseFor(marketplacev1alpha1.ConditionRegistered)).To(BeTrue())
 
+			reason := statusConditions.GetCondition(marketplacev1alpha1.ConditionRegistered).Reason
+			Expect(reason).To(Equal(marketplacev1alpha1.ReasonRegistrationError))
 		})
 	})
 	Context("Marketplace Config Status with http status code 300", func() {
@@ -180,9 +182,8 @@ var _ = Describe("Marketplace Config Status", func() {
 			}
 		})
 		It("Expect 300 status and status as registered", func() {
-			statusConditions := TransformConfigStatus(*registrationStatus)
-			Expect(statusConditions.Reason).To(Equal(marketplacev1alpha1.ReasonRegistrationError))
-
+			statusConditions := registrationStatus.TransformConfigStatus()
+			Expect(statusConditions.IsFalseFor(marketplacev1alpha1.ConditionRegistered)).To(BeTrue())
 		})
 	})
 	/*

@@ -15,13 +15,19 @@
 package config
 
 import (
+	"sync"
+
 	"github.com/caarlos0/env/v6"
 )
 
+var global *OperatorConfig
+var globalMutex = sync.RWMutex{}
+
 // OperatorConfig is the configuration for the operator
 type OperatorConfig struct {
-	RelatedImages
-	Features
+	RelatedImages RelatedImages
+	Features      Features
+	Marketplace   Marketplace
 }
 
 // RelatedImages stores relatedimages for the operator
@@ -42,14 +48,27 @@ type Features struct {
 	IBMCatalog bool `env:"FEATURE_IBMCATALOG" envDefault:"true"`
 }
 
+// Marketplace configuration
+type Marketplace struct {
+	URL            string `env:"MARKETPLACE_URL" envDefault:"https://marketplace.redhat.com"`
+	InsecureClient bool   `env:"MARKETPLACE_HTTP_INSECURE_MODE" envDefault:"false"`
+}
+
 // ProvideConfig gets the config from env vars
 func ProvideConfig() (OperatorConfig, error) {
-	cfg := OperatorConfig{}
+	globalMutex.Lock()
+	defer globalMutex.Unlock()
 
-	err := env.Parse(&cfg)
-	if err != nil {
-		return cfg, err
+	if global == nil {
+		cfg := OperatorConfig{}
+		err := env.Parse(&cfg)
+		if err != nil {
+			return cfg, err
+		}
+		global = &cfg
 	}
 
-	return cfg, nil
+	return *global, nil
 }
+
+var GetConfig = ProvideConfig

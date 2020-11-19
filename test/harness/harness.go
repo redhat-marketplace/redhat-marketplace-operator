@@ -165,10 +165,6 @@ func (t *TestHarness) Setup() error {
 	}
 
 	os.Setenv("WATCH_NAMESPACE", t.Config.WatchNamespace)
-	t.testEnv = &envtest.Environment{
-		UseExistingCluster: ptr.Bool(true),
-	}
-
 	for _, feature := range t.features {
 		t.logger.Info("loading env overrides", "feature", feature.Name())
 		err := feature.Parse()
