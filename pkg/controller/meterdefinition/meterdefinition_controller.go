@@ -26,7 +26,6 @@ import (
 	"github.com/gotidy/ptr"
 	corev1 "k8s.io/api/core/v1"
 
-	// promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
@@ -55,11 +54,8 @@ const (
 )
 
 var (
-	log = logf.Log.WithName("controller_meterdefinition")
+	log   = logf.Log.WithName("controller_meterdefinition")
 	store *meter_definition.MeterDefinitionStore
-	// pathToKubeProxyToken = "/etc/auth-service-account/token"
-	// meterDefControllerFlagSet *pflag.FlagSet
-
 )
 
 // Add creates a new MeterDefinition Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -69,17 +65,17 @@ func Add(
 	ccprovider ClientCommandRunnerProvider,
 	cfg config.OperatorConfig,
 ) error {
-	return add(mgr, newReconciler(mgr, ccprovider,cfg))
+	return add(mgr, newReconciler(mgr, ccprovider, cfg))
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider,	cfg config.OperatorConfig,) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider, cfg config.OperatorConfig) reconcile.Reconciler {
 	return &ReconcileMeterDefinition{
-		client:             mgr.GetClient(),
-		scheme:             mgr.GetScheme(),
-		ccprovider:         ccprovider,
-		cfg:        		cfg,
-		patcher:            patch.RHMDefaultPatcher,
+		client:     mgr.GetClient(),
+		scheme:     mgr.GetScheme(),
+		ccprovider: ccprovider,
+		cfg:        cfg,
+		patcher:    patch.RHMDefaultPatcher,
 	}
 }
 
@@ -107,11 +103,11 @@ var _ reconcile.Reconciler = &ReconcileMeterDefinition{}
 type ReconcileMeterDefinition struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client             client.Client
-	scheme             *runtime.Scheme
-	ccprovider         ClientCommandRunnerProvider
-	opts               *MeterDefOpts
-	patcher            patch.Patcher
+	client     client.Client
+	scheme     *runtime.Scheme
+	ccprovider ClientCommandRunnerProvider
+	opts       *MeterDefOpts
+	patcher    patch.Patcher
 	cfg        config.OperatorConfig
 }
 
@@ -162,12 +158,12 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		queue = instance.Status.Conditions.SetCondition(v1alpha1.MeterDefConditionHasResults)
 	}
 
-	service, err := queryForPrometheusService(context.TODO(), cc)
+	service, err := queryForPrometheusService(context.TODO(), cc,request)
 	if err != nil {
 		reqLogger.Error(err, "error encountered")
 	}
 
-	certConfigMap, err := queryForCertConfigMap(context.TODO(),cc)
+	certConfigMap, err := queryForCertConfigMap(context.TODO(), cc,request)
 	if err != nil {
 		reqLogger.Error(err, "error encountered")
 	}
@@ -180,22 +176,22 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	loc, _ := time.LoadLocation("UTC")
 	var client api.Client
 	var promAPI v1.API
-	if certConfigMap != nil && token != ""  && service != nil {
-		cert,err := getCertificateFromConfigMap(*certConfigMap)
+	if certConfigMap != nil && token != "" && service != nil {
+		cert, err := getCertificateFromConfigMap(*certConfigMap)
 		if err != nil {
-			reqLogger.Error(err,"error encountered")
+			reqLogger.Error(err, "error encountered")
 		}
-	
+
 		if r.cfg.PathToKubeProxyAPIToken == "" {
 			return reconcile.Result{}, errors.New("file path to kube proxy token is nil")
 		}
-	
-		client, err = prometheus.ProvideApiClientFromCert(r.cfg.PathToKubeProxyAPIToken,service,&cert,token)
+
+		client, err = prometheus.ProvideApiClientFromCert(r.cfg.PathToKubeProxyAPIToken, service, &cert, token)
 
 		if client == nil {
 			return reconcile.Result{}, errors.New("client is nil")
 		}
-	
+
 		promAPI = v1.NewAPI(client)
 		if promAPI == nil {
 			return reconcile.Result{}, errors.New("promApi is nil")
@@ -251,29 +247,29 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 			}
 
 			matrix := val.(model.Matrix)
-			for _,m := range matrix{
-				for _,pair := range m.Values {
+			for _, m := range matrix {
+				for _, pair := range m.Values {
 					queryPreviewResult = &v1alpha1.Result{
 						WorkloadName: workload.Name,
-						QueryName: metric.Label,
-						StartTime: fmt.Sprintf("%s",query.Start),
-						EndTime: fmt.Sprintf("%s",query.End),
-						Value: int32(pair.Value),
+						QueryName:    metric.Label,
+						StartTime:    fmt.Sprintf("%s", query.Start),
+						EndTime:      fmt.Sprintf("%s", query.End),
+						Value:        int32(pair.Value),
 					}
 				}
 			}
 
-			if queryPreviewResult != nil{
+			if queryPreviewResult != nil {
 				reqLogger.Info("output", "query preview result", queryPreviewResult)
 				queryPreviewResultArray = append(queryPreviewResultArray, *queryPreviewResult)
 			}
 		}
 	}
 
-	if !reflect.DeepEqual(queryPreviewResultArray,instance.Status.Results) {
+	if !reflect.DeepEqual(queryPreviewResultArray, instance.Status.Results) {
 		queue = true
 		instance.Status.Results = queryPreviewResultArray
-		reqLogger.Info("output","Status.Results",instance.Status.Results)
+		reqLogger.Info("output", "Status.Results", instance.Status.Results)
 	}
 
 	result, _ = cc.Do(
@@ -297,49 +293,50 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 func queryForPrometheusService(
 	ctx context.Context,
 	cc ClientCommandRunner,
+	req reconcile.Request,
 ) (service *corev1.Service, returnErr error) {
 	service = &corev1.Service{}
 
 	name := types.NamespacedName{
 		Name:      "rhm-prometheus-meterbase",
-		Namespace: "openshift-redhat-marketplace",
+		Namespace: req.Namespace,
 	}
 
 	if result, _ := cc.Do(ctx, GetAction(name, service)); !result.Is(Continue) {
 		returnErr = errors.Wrap(result, "failed to get prometheus service")
 	}
-	
+
 	log.Info("retrieved prometheus service")
-	return service,nil
+	return service, nil
 }
 
-func queryForCertConfigMap(ctx context.Context,cc ClientCommandRunner)(configMap *corev1.ConfigMap, returnErr error){
-		certConfigMap := &corev1.ConfigMap{}
+func queryForCertConfigMap(ctx context.Context, cc ClientCommandRunner,req reconcile.Request) (configMap *corev1.ConfigMap, returnErr error) {
+	certConfigMap := &corev1.ConfigMap{}
 
-		name := types.NamespacedName{
-			Name:      "operator-certs-ca-bundle",
-			Namespace: "openshift-redhat-marketplace",
-		}
-	
-		if result, _ := cc.Do(context.TODO(), GetAction(name, certConfigMap)); !result.Is(Continue) {
-			returnErr = errors.Wrap(result.GetError(),"Failed to retrieve operator-certs-ca-bundle.")
-		}
+	name := types.NamespacedName{
+		Name:      utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
+		Namespace: req.Namespace,
+	}
 
-		log.Info("retrieved configmap")
-		return certConfigMap,nil
+	if result, _ := cc.Do(context.TODO(), GetAction(name, certConfigMap)); !result.Is(Continue) {
+		returnErr = errors.Wrap(result.GetError(), "Failed to retrieve operator-certs-ca-bundle.")
+	}
+
+	log.Info("retrieved configmap")
+	return certConfigMap, nil
 }
 
-func getCertificateFromConfigMap(certConfigMap corev1.ConfigMap)(cert []byte,returnErr error){
+func getCertificateFromConfigMap(certConfigMap corev1.ConfigMap) (cert []byte, returnErr error) {
 	log.Info("extracting cert from config map")
 
-	out,ok := certConfigMap.Data["service-ca.crt"]
-	
+	out, ok := certConfigMap.Data["service-ca.crt"]
+
 	if !ok {
 		returnErr = errors.New("Error retrieving cert from config map")
 	}
 
 	cert = []byte(out)
-	return cert,nil
+	return cert, nil
 }
 
 func (r *ReconcileMeterDefinition) finalizeMeterDefinition(req *v1alpha1.MeterDefinition) (reconcile.Result, error) {

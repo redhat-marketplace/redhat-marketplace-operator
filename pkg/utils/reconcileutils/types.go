@@ -104,5 +104,3 @@ var CommandRunnerProviderSet = wire.NewSet(
 	NewClientCommand,
 	wire.Bind(new(ClientCommandRunnerProvider), new(*DefaultCommandRunnerProvider)),
 )
-
-

@@ -8,7 +8,6 @@ import (
 
 	. "github.com/onsi/gomega/gstruct"
 
-	// promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
@@ -29,7 +28,7 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 
 	Context("Meterdefinition reconcile", func() {
 		var meterdef *v1alpha1.MeterDefinition
-		BeforeEach(func(done Done){
+		BeforeEach(func(done Done) {
 			meterdef = &v1alpha1.MeterDefinition{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-meterdef",
@@ -45,7 +44,7 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 							WorkloadType: v1alpha1.WorkloadTypePod,
 							OwnerCRD: &common.GroupVersionKind{
 								APIVersion: "marketplace.redhat.com/v1alpha1",
-								Kind: "MeterBase",
+								Kind:       "MeterBase",
 							},
 							MetricLabels: []v1alpha1.MeterLabelQuery{
 								{
@@ -58,12 +57,12 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 					},
 				},
 			}
-					
+
 			Expect(testHarness.Create(context.TODO(), meterdef)).Should(SucceedOrAlreadyExist)
 			close(done)
-		},120)
+		}, 120)
 
-		PIt("Should find a meterdef",func(done Done){
+		PIt("Should find a meterdef", func(done Done) {
 			Eventually(func() bool {
 				result, _ := testHarness.Do(
 					context.TODO(),
@@ -72,53 +71,59 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 
 				utils.PrettyPrint(meterdef.Status)
 				return result.Is(Continue)
-			}, timeout, interval).Should(BeTrue())
+			}, timeout, interval).Should(BeTrue(),"Find a meterdef and update status conditions")
+
+			Eventually(func() (assertion bool) {
+				assertion = runAssertionOnMeterDef(*meterdef)
+				return assertion
+
+			}, 300, interval).Should(BeTrue(),"Query prometheus and append metric data to status")
 			close(done)
-		},180)
+		}, 300)
 
-		FIt("Should query prom and append metric data to meterdef status", func(done Done){
-			Eventually(func() (assertion bool){
-				result, _ := testHarness.Do(
-					context.TODO(),
-					GetAction(types.NamespacedName{Name: meterdef.Name, Namespace: Namespace}, meterdef),
-				)
+		// FIt("Should query prom and append metric data to meterdef status", func(done Done) {
+		// 	Eventually(func() (assertion bool) {
+		// 		result, _ := testHarness.Do(
+		// 			context.TODO(),
+		// 			GetAction(types.NamespacedName{Name: meterdef.Name, Namespace: Namespace}, meterdef),
+		// 		)
 
-				if !result.Is(Continue) {
-					return false
-				}
+		// 		if !result.Is(Continue) {
+		// 			return false
+		// 		}
 
-				assertion = runAssertionOnMeterDef(*meterdef)			
-				return assertion		
+		// 		assertion = runAssertionOnMeterDef(*meterdef)
+		// 		return assertion
 
-			},300,interval).Should(BeTrue())
-			close(done)
-		},300)
+		// 	}, 300, interval).Should(BeTrue())
+		// 	close(done)
+		// }, 300)
 	})
 })
 
-func runAssertionOnMeterDef(meterdef v1alpha1.MeterDefinition)(assertion bool){
+func runAssertionOnMeterDef(meterdef v1alpha1.MeterDefinition) (assertion bool) {
 	if meterdef.Status.Results != nil {
 		if meterdef.Status.Results[0].Value > 0 {
 			startTime := meterdef.Status.Results[0].StartTime
 			endTime := meterdef.Status.Results[0].EndTime
-			
+
 			result := map[string]interface{}{
-				"value": meterdef.Status.Results[0].Value,
-				"endTime": meterdef.Status.Results[0].EndTime,
-				"startTime": meterdef.Status.Results[0].StartTime,
-				"queryName": meterdef.Status.Results[0].QueryName,
+				"value":        meterdef.Status.Results[0].Value,
+				"endTime":      meterdef.Status.Results[0].EndTime,
+				"startTime":    meterdef.Status.Results[0].StartTime,
+				"queryName":    meterdef.Status.Results[0].QueryName,
 				"workloadName": meterdef.Status.Results[0].WorkloadName,
 			}
 
-			assertion = Expect(result).Should(MatchAllKeys(Keys{ 
+			assertion = Expect(result).Should(MatchAllKeys(Keys{
 				"workloadName": Equal("test"),
-				"queryName" : Equal("test"),
-				"startTime" : Equal(startTime),
-				"endTime" : Equal(endTime),
-				"value" : Equal(int32(1)),	
+				"queryName":    Equal("test"),
+				"startTime":    Equal(startTime),
+				"endTime":      Equal(endTime),
+				"value":        Equal(int32(1)),
 			}))
 		}
-	} 
+	}
 
 	return assertion
 }

@@ -26,7 +26,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	// v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 )
 
 var logger = logf.Log.WithName("reporter")

@@ -16,7 +16,6 @@ package v1alpha1
 
 import (
 	"encoding/json"
-	"reflect"
 	"strings"
 
 	"github.com/operator-framework/operator-sdk/pkg/status"
@@ -230,15 +229,14 @@ type MeterLabelQuery struct {
 	Aggregation string `json:"aggregation,omitempty"`
 }
 
-// Result 
 // +k8s:openapi-gen=true
 // +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 type Result struct {
 	WorkloadName string `json:"workloadName,omitempty"`
-	QueryName string `json:"queryName,omitempty"`
-	StartTime string `json:"startTime,omitempty"`
-	EndTime string `json:"endTime,omitempty"`
-	Value int32 `json:"value,omitempty"`
+	QueryName    string `json:"queryName,omitempty"`
+	StartTime    string `json:"startTime,omitempty"`
+	EndTime      string `json:"endTime,omitempty"`
+	Value        int32  `json:"value,omitempty"`
 }
 
 // MeterDefinitionStatus defines the observed state of MeterDefinition
@@ -251,14 +249,14 @@ type MeterDefinitionStatus struct {
 	// +optional
 	Conditions status.Conditions `json:"conditions,omitempty"`
 
-	// WorkloadResources is the list of resoruces discovered by
+	// WorkloadResources is the list of resources discovered by
 	// this meter definition
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	WorkloadResources []WorkloadResource `json:"workloadResource,omitempty"`
 
-	// Results is the result of the queries defined on the meterdefinition. 
-	// This will generate data for the previous 3 hours on whichever workload you specify
-	// This is intended to be a preview to check whether a query is working as intended. 
+	// Results is the result of a query defined on the meterdefinition.
+	// This will generate data for the previous hour on whichever workload you specify
+	// This is intended to be a preview to check whether a query is working as intended.
 	// +k8s:openapi-gen=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Results []Result `json:"results,omitempty"`
@@ -313,8 +311,4 @@ func (meterdef *MeterDefinition) BuildMeterDefinitionFromString(meterdefString, 
 	}
 
 	return meterdef, nil
-}
-
-func (queryPreview Result) IsEmpty() bool {
-	return reflect.DeepEqual(queryPreview,Result{})
 }

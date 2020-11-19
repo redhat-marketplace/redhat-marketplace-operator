@@ -18,8 +18,6 @@
 package testenv
 
 import (
-	"context"
-
 	"github.com/google/wire"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
@@ -71,9 +69,3 @@ func makeMarketplaceController(
 		Manager:     mgr,
 	}
 }
-
-func provideContext() context.Context {
-	return context.TODO()
-}
-
-

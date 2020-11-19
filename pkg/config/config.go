@@ -43,7 +43,7 @@ type Features struct {
 	IBMCatalog bool `env:"FEATURE_IBMCATALOG" envDefault:"true"`
 }
 
-// FilePaths 
+// FilePaths
 type FilePaths struct {
 	PathToKubeProxyAPIToken string `env:"PATH_TO_KUBE_PROXY_TOKEN" envDefault:"/etc/auth-service-account/token"`
 }

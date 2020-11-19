@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -19,15 +18,14 @@ var output = flag.String("output", "", "The output file name, or empty to use st
 func main() {
 	flag.Parse()
 
-	its := []struct{
+	its := []struct {
 		sym string
 		typ reflect.Type
 	}{
-		
-		{ "PatchAnnotator", reflect.TypeOf((*pkg_.PatchAnnotator)(nil)).Elem()},
-		
-		{ "PatchMaker", reflect.TypeOf((*pkg_.PatchMaker)(nil)).Elem()},
-		
+
+		{"PatchAnnotator", reflect.TypeOf((*pkg_.PatchAnnotator)(nil)).Elem()},
+
+		{"PatchMaker", reflect.TypeOf((*pkg_.PatchMaker)(nil)).Elem()},
 	}
 	pkg := &model.Package{
 		// NOTE: This behaves contrary to documented behaviour if the

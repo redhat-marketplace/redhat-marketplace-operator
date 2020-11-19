@@ -383,13 +383,11 @@ spec:
                           type: object
                         type: array
                       results:
-                        description: Results is the result of the queries defined
-                          on the meterdefinition. This will generate data for the
-                          previous 3 hours on whichever workload you specify This
-                          is intended to be a preview to check whether a query is
-                          working as intended.
+                        description: Results is the result of a query defined on the
+                          meterdefinition. This will generate data for the previous
+                          hour on whichever workload you specify This is intended
+                          to be a preview to check whether a query is working as intended.
                         items:
-                          description: Result
                           properties:
                             endTime:
                               type: string
@@ -405,7 +403,7 @@ spec:
                           type: object
                         type: array
                       workloadResource:
-                        description: WorkloadResources is the list of resoruces discovered
+                        description: WorkloadResources is the list of resources discovered
                           by this meter definition
                         items:
                           properties:

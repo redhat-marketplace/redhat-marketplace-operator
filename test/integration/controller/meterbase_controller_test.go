@@ -31,11 +31,11 @@ const timeout = time.Second * 180
 const interval = time.Second * 3
 
 var _ = Describe("MeterbaseController", func() {
-	BeforeEach(func(){
+	BeforeEach(func() {
 		Expect(testHarness.BeforeAll()).To(Succeed())
 	})
 
-	AfterEach(func(){
+	AfterEach(func() {
 		Expect(testHarness.AfterAll()).To(Succeed())
 	})
 

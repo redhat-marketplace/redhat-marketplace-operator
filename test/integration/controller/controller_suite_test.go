@@ -66,9 +66,9 @@ var _ = BeforeSuite(func() {
 			harness.FeatureDeployHelm,
 			harness.FeatureCreateMarketplaceConfig,
 		},
-		Namespace:       "openshift-redhat-marketplace",
-		WatchNamespace:  "",
-		ProvideScheme:   testenv.InitializeScheme,
+		Namespace:      "openshift-redhat-marketplace",
+		WatchNamespace: "",
+		ProvideScheme:  testenv.InitializeScheme,
 	})
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("%v+", err))
 

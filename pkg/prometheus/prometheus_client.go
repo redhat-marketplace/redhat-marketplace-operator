@@ -12,7 +12,6 @@ import (
 	"github.com/prometheus/client_golang/api"
 	"github.com/prometheus/common/log"
 
-	// . "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -48,7 +47,7 @@ func ProvideApiClientFromCert(
 	name := promService.Name
 	namespace := promService.Namespace
 	targetPort := intstr.FromString("rbac")
-	
+
 	switch {
 	case targetPort.Type == intstr.Int:
 		port = targetPort.IntVal
@@ -61,25 +60,24 @@ func ProvideApiClientFromCert(
 	}
 
 	conf, err := NewSecureClientFromCert(&PrometheusSecureClientConfig{
-		Address:        fmt.Sprintf("https://%s.%s.svc:%v", name, namespace, port),
-		Token:          auth,
-		CaCert: caCert,
+		Address: fmt.Sprintf("https://%s.%s.svc:%v", name, namespace, port),
+		Token:   auth,
+		CaCert:  caCert,
 	})
 
 	if err != nil {
-		log.Error(err,"failed to setup NewSecureClient")
+		log.Error(err, "failed to setup NewSecureClient")
 		return nil, err
 	}
 
-
 	if conf == nil {
-		return nil,errors.New("client configuration is nil")
+		return nil, errors.New("client configuration is nil")
 	}
 
 	return conf, nil
 }
 
-func GetAuthToken(apiTokenPath string)(token string, returnErr error){
+func GetAuthToken(apiTokenPath string) (token string, returnErr error) {
 	content, err := ioutil.ReadFile(apiTokenPath)
 	if err != nil {
 		return "", err
@@ -88,9 +86,38 @@ func GetAuthToken(apiTokenPath string)(token string, returnErr error){
 	return token, nil
 }
 
+func NewSecureClient(config *PrometheusSecureClientConfig) (api.Client, error) {
+	tlsConfig, err := GenerateCACertPool(config.ServerCertFile)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get tlsConfig")
+	}
+
+	var transport http.RoundTripper
+
+	transport = &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
+
+	if config.UserAuth != nil {
+		transport = WithBasicAuth(transport, config.UserAuth.Username, config.UserAuth.Password)
+	}
+
+	if config.Token != "" {
+		transport = WithBearerAuth(transport, config.Token)
+	}
+
+	client, err := api.NewClient(api.Config{
+		Address:      config.Address,
+		RoundTripper: transport,
+	})
+
+	return client, err
+}
+
 func NewSecureClientFromCert(config *PrometheusSecureClientConfig) (api.Client, error) {
 	tlsConfig, err := generateCACertPoolFromCert(*config.CaCert)
-	fmt.Println("TLSCONFIG :\n",tlsConfig)
+	fmt.Println("TLSCONFIG :\n", tlsConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get tlsConfig")
 	}
@@ -125,6 +152,26 @@ func generateCACertPoolFromCert(caCert []byte) (*tls.Config, error) {
 	}
 
 	caCertPool.AppendCertsFromPEM(caCert)
+
+	return &tls.Config{
+		RootCAs: caCertPool,
+	}, nil
+}
+
+func GenerateCACertPool(files ...string) (*tls.Config, error) {
+	caCertPool, err := x509.SystemCertPool()
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get system cert pool")
+	}
+
+	for _, file := range files {
+		caCert, err := ioutil.ReadFile(file)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load cert file")
+		}
+		caCertPool.AppendCertsFromPEM(caCert)
+	}
 
 	return &tls.Config{
 		RootCAs: caCertPool,

@@ -236,16 +236,15 @@ func PrettyPrint(in interface{}) {
 	println(string(out))
 }
 
-func PrettyPrintWithLog(message string,in interface{}) {
-
+func PrettyPrintWithLog(message string, in interface{}) {
 	indented, _ := json.MarshalIndent(in, "", "    ")
 
-  if message != "" {
-    out := fmt.Sprintf("%s\n%s", message,indented)
-    fmt.Println(string(out))
-  } else {
-    fmt.Println(string(indented))
-  }
+	if message != "" {
+		out := fmt.Sprintf("%s\n%s", message, indented)
+		fmt.Println(string(out))
+	} else {
+		fmt.Println(string(indented))
+	}
 }
 
 func TruncateTime(t time.Time, loc *time.Location) time.Time {

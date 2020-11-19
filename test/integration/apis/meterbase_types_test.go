@@ -49,7 +49,7 @@ var _ = Describe("MeterBase", func() {
 		created, fetched v1alpha1.MeterBase
 	)
 
-	AfterEach(func(){
+	AfterEach(func() {
 		testHarness.Delete(context.TODO(), &created)
 	})
 

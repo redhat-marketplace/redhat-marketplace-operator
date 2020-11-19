@@ -27,6 +27,7 @@ import (
 	"github.com/prometheus/common/log"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
@@ -176,7 +177,7 @@ func provideApiClient(
 		auth = fmt.Sprintf(string(content))
 	}
 
-	conf, err := NewSecureClient(&PrometheusSecureClientConfig{
+	conf, err := prometheus.NewSecureClient(&prometheus.PrometheusSecureClientConfig{
 		Address:        fmt.Sprintf("https://%s.%s.svc:%v", name, namespace, port),
 		ServerCertFile: config.CaFile,
 		Token:          auth,
