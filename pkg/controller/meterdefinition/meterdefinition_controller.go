@@ -162,12 +162,12 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		queue = instance.Status.Conditions.SetCondition(v1alpha1.MeterDefConditionHasResults)
 	}
 
-	service, err := queryForPrometheusService(context.TODO(), cc, request)
+	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
 	if err != nil {
 		reqLogger.Error(err, "error encountered")
 	}
 
-	certConfigMap, err := queryForCertConfigMap(context.TODO(), cc, request)
+	certConfigMap, err := r.queryForCertConfigMap(context.TODO(), cc, request)
 	if err != nil {
 		reqLogger.Error(err, "error encountered")
 	}
@@ -177,39 +177,40 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Error(err, "error encountered")
 	}
 
-	// loc, _ := time.LoadLocation("UTC")
-	// var queryPreviewResult *v1alpha1.Result
 	var queryPreviewResultArray []v1alpha1.Result
 
 	if certConfigMap != nil && token != "" && service != nil {
-		cert, err := getCertificateFromConfigMap(*certConfigMap)
+		cert, err := r.getCertificateFromConfigMap(*certConfigMap)
 		if err != nil {
 			reqLogger.Error(err, "error encountered")
 		}
 
 		if r.cfg.PathToKubeProxyAPIToken == "" {
-			// return reconcile.Result{}, errors.New("file path to kube proxy token is nil")
-			reqLogger.Error(err, "error encountered")
+			return reconcile.Result{}, errors.New("file path to kube proxy token is nil")
+			// reqLogger.Error(err, "error encountered")
 		}
 
 		client, err := prometheus.ProvideApiClientFromCert(r.cfg.PathToKubeProxyAPIToken, service, &cert, token)
+		if err != nil {
+			return reconcile.Result{}, errors.New("error generating client")
+		}
+
 		if client == nil {
-			// return reconcile.Result{}, errors.New("client is nil")
-			reqLogger.Error(err, "error encountered")
+			return reconcile.Result{}, errors.New("client is nil")
+			// reqLogger.Error(err, "error encountered")
 		}
 
 		promAPI := v1.NewAPI(client)
 		if promAPI == nil {
-			// return reconcile.Result{}, errors.New("promApi is nil")
-			reqLogger.Error(err, "error encountered")
+			return reconcile.Result{}, errors.New("promApi is nil")
+			// reqLogger.Error(err, "error encountered")
 		}
 
-		queryPreviewResultArray, err = generateQueryPreview(instance, reqLogger,promAPI)
+		queryPreviewResultArray, err = r.generateQueryPreview(instance, reqLogger,promAPI)
 		if err != nil {
-			// return reconcile.Result{}, err
-			reqLogger.Error(err, "error encountered")
+			return reconcile.Result{}, err
+			// reqLogger.Error(err, "error encountered")
 		}
-
 	}
 
 	if !reflect.DeepEqual(queryPreviewResultArray, instance.Status.Results) {
@@ -236,12 +237,12 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 }
 
-func queryForPrometheusService(
+func (r *ReconcileMeterDefinition) queryForPrometheusService(
 	ctx context.Context,
 	cc ClientCommandRunner,
 	req reconcile.Request,
-) (service *corev1.Service, returnErr error) {
-	service = &corev1.Service{}
+) (*corev1.Service, error) {
+	service := &corev1.Service{}
 
 	name := types.NamespacedName{
 		Name:      "rhm-prometheus-meterbase",
@@ -249,14 +250,14 @@ func queryForPrometheusService(
 	}
 
 	if result, _ := cc.Do(ctx, GetAction(name, service)); !result.Is(Continue) {
-		returnErr = errors.Wrap(result, "failed to get prometheus service")
+		return nil, errors.Wrap(result, "failed to get prometheus service")
 	}
 
 	log.Info("retrieved prometheus service")
 	return service, nil
 }
 
-func queryForCertConfigMap(ctx context.Context, cc ClientCommandRunner, req reconcile.Request) (configMap *corev1.ConfigMap, returnErr error) {
+func (r *ReconcileMeterDefinition) queryForCertConfigMap(ctx context.Context, cc ClientCommandRunner, req reconcile.Request) (*corev1.ConfigMap,error) {
 	certConfigMap := &corev1.ConfigMap{}
 
 	name := types.NamespacedName{
@@ -265,14 +266,14 @@ func queryForCertConfigMap(ctx context.Context, cc ClientCommandRunner, req reco
 	}
 
 	if result, _ := cc.Do(context.TODO(), GetAction(name, certConfigMap)); !result.Is(Continue) {
-		returnErr = errors.Wrap(result.GetError(), "Failed to retrieve operator-certs-ca-bundle.")
+		return nil, errors.Wrap(result.GetError(), "Failed to retrieve operator-certs-ca-bundle.")
 	}
 
 	log.Info("retrieved configmap")
 	return certConfigMap, nil
 }
 
-func getCertificateFromConfigMap(certConfigMap corev1.ConfigMap) (cert []byte, returnErr error) {
+func (r *ReconcileMeterDefinition) getCertificateFromConfigMap(certConfigMap corev1.ConfigMap) (cert []byte, returnErr error) {
 	log.Info("extracting cert from config map")
 
 	out, ok := certConfigMap.Data["service-ca.crt"]
@@ -285,7 +286,7 @@ func getCertificateFromConfigMap(certConfigMap corev1.ConfigMap) (cert []byte, r
 	return cert, nil
 }
 
-func generateQueryPreview(instance *v1alpha1.MeterDefinition, reqLogger logr.Logger, promAPI v1.API)(queryPreviewResultArray []v1alpha1.Result,returnErr error){
+func (r *ReconcileMeterDefinition) generateQueryPreview(instance *v1alpha1.MeterDefinition, reqLogger logr.Logger, promAPI v1.API)(queryPreviewResultArray []v1alpha1.Result,returnErr error){
 	loc, _ := time.LoadLocation("UTC")
 	var queryPreviewResult *v1alpha1.Result
 
