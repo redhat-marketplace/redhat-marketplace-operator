@@ -238,7 +238,6 @@ func PrettyPrint(in interface{}) {
 
 func PrettyPrintWithLog(message string, in interface{}) {
 	indented, _ := json.MarshalIndent(in, "", "    ")
-
 	if message != "" {
 		out := fmt.Sprintf("%s\n%s", message, indented)
 		fmt.Println(string(out))

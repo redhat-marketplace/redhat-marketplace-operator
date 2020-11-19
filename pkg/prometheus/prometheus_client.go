@@ -117,7 +117,6 @@ func NewSecureClient(config *PrometheusSecureClientConfig) (api.Client, error) {
 
 func NewSecureClientFromCert(config *PrometheusSecureClientConfig) (api.Client, error) {
 	tlsConfig, err := generateCACertPoolFromCert(*config.CaCert)
-	fmt.Println("TLSCONFIG :\n", tlsConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get tlsConfig")
 	}

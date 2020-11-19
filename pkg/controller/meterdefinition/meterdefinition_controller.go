@@ -54,7 +54,8 @@ const (
 )
 
 var (
-	log   = logf.Log.WithName("controller_meterdefinition")
+	log = logf.Log.WithName("controller_meterdefinition")
+	// uid to name and namespace
 	store *meter_definition.MeterDefinitionStore
 )
 
@@ -70,11 +71,14 @@ func Add(
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider, cfg config.OperatorConfig) reconcile.Reconciler {
+	opts := &MeterDefOpts{}
+
 	return &ReconcileMeterDefinition{
 		client:     mgr.GetClient(),
 		scheme:     mgr.GetScheme(),
 		ccprovider: ccprovider,
 		cfg:        cfg,
+		opts:       opts,
 		patcher:    patch.RHMDefaultPatcher,
 	}
 }
@@ -158,12 +162,12 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		queue = instance.Status.Conditions.SetCondition(v1alpha1.MeterDefConditionHasResults)
 	}
 
-	service, err := queryForPrometheusService(context.TODO(), cc,request)
+	service, err := queryForPrometheusService(context.TODO(), cc, request)
 	if err != nil {
 		reqLogger.Error(err, "error encountered")
 	}
 
-	certConfigMap, err := queryForCertConfigMap(context.TODO(), cc,request)
+	certConfigMap, err := queryForCertConfigMap(context.TODO(), cc, request)
 	if err != nil {
 		reqLogger.Error(err, "error encountered")
 	}
@@ -287,7 +291,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	}
 
 	reqLogger.Info("finished reconciling")
-	return reconcile.Result{RequeueAfter: time.Second * 60}, nil
+	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 }
 
 func queryForPrometheusService(
@@ -310,7 +314,7 @@ func queryForPrometheusService(
 	return service, nil
 }
 
-func queryForCertConfigMap(ctx context.Context, cc ClientCommandRunner,req reconcile.Request) (configMap *corev1.ConfigMap, returnErr error) {
+func queryForCertConfigMap(ctx context.Context, cc ClientCommandRunner, req reconcile.Request) (configMap *corev1.ConfigMap, returnErr error) {
 	certConfigMap := &corev1.ConfigMap{}
 
 	name := types.NamespacedName{

@@ -229,6 +229,9 @@ type MeterLabelQuery struct {
 	Aggregation string `json:"aggregation,omitempty"`
 }
 
+// Result is a result of a query defined on the meterdefinition.
+// This will generate data for the previous hour on whichever workload you specify.
+// This will allow you to check whether a query is working as intended.
 // +k8s:openapi-gen=true
 // +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 type Result struct {
@@ -254,9 +257,7 @@ type MeterDefinitionStatus struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	WorkloadResources []WorkloadResource `json:"workloadResource,omitempty"`
 
-	// Results is the result of a query defined on the meterdefinition.
-	// This will generate data for the previous hour on whichever workload you specify
-	// This is intended to be a preview to check whether a query is working as intended.
+	// Results is a list of Results that get returned from a query to prometheus
 	// +k8s:openapi-gen=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Results []Result `json:"results,omitempty"`

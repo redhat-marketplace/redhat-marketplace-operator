@@ -40,7 +40,7 @@ const (
 	WATCH_KEEPER_LIMITPOLL_NAME            = "watch-keeper-limit-poll"
 	WATCH_KEEPER_CONFIG_NAME               = "watch-keeper-config"
 	WATCH_KEEPER_SECRET_NAME               = "watch-keeper-secret"
-	OPERATOR_CERTS_CA_BUNDLE_NAME = "operator-certs-ca-bundle"
+	OPERATOR_CERTS_CA_BUNDLE_NAME          = "operator-certs-ca-bundle"
 
 	/* All Controllers */
 	CONTROLLER_FINALIZER = "finalizer.marketplace.redhat.com"
