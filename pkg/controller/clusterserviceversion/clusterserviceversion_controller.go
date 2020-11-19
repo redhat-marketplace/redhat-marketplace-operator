@@ -48,7 +48,7 @@ const (
 	watchTag        = "razee/watch-resource"
 	allnamespaceTag = "olm.copiedFrom"
 	ignoreTag       = "marketplace.redhat.com/ignore"
-	ignoreTagValue  = "3"
+	ignoreTagValue  = "2"
 	meterDefStatus  = "marketplace.redhat.com/meterDefinitionStatus"
 	meterDefError   = "marketplace.redhat.com/meterDefinitionError"
 )
