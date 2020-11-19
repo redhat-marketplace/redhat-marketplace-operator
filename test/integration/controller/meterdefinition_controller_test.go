@@ -71,33 +71,27 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 
 				utils.PrettyPrint(meterdef.Status)
 				return result.Is(Continue)
-			}, timeout, interval).Should(BeTrue(),"Find a meterdef and update status conditions")
+			}, timeout, interval).Should(BeTrue())
+			close(done)
+		}, 180)
 
+		FIt("Should query prom and append metric data to meterdef status", func(done Done) {
 			Eventually(func() (assertion bool) {
+				result, _ := testHarness.Do(
+					context.TODO(),
+					GetAction(types.NamespacedName{Name: meterdef.Name, Namespace: Namespace}, meterdef),
+				)
+
+				if !result.Is(Continue) {
+					return false
+				}
+
 				assertion = runAssertionOnMeterDef(*meterdef)
 				return assertion
 
-			}, 300, interval).Should(BeTrue(),"Query prometheus and append metric data to status")
+			}, 300, interval).Should(BeTrue())
 			close(done)
 		}, 300)
-
-		// FIt("Should query prom and append metric data to meterdef status", func(done Done) {
-		// 	Eventually(func() (assertion bool) {
-		// 		result, _ := testHarness.Do(
-		// 			context.TODO(),
-		// 			GetAction(types.NamespacedName{Name: meterdef.Name, Namespace: Namespace}, meterdef),
-		// 		)
-
-		// 		if !result.Is(Continue) {
-		// 			return false
-		// 		}
-
-		// 		assertion = runAssertionOnMeterDef(*meterdef)
-		// 		return assertion
-
-		// 	}, 300, interval).Should(BeTrue())
-		// 	close(done)
-		// }, 300)
 	})
 })
 
