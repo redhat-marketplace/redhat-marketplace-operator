@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	"github.com/operator-framework/operator-sdk/pkg/status"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -43,6 +44,7 @@ type MarketplaceConfigSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable Metering?"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
 	EnableMetering *bool `json:"enableMetering,omitempty"`
 
 	// InstallIBMCatalogSource is the flag that indicates if the IBM Catalog Source is installed
@@ -50,6 +52,12 @@ type MarketplaceConfigSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Install IBM Catalog Source?"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
 	InstallIBMCatalogSource *bool `json:"installIBMCatalogSource,omitempty"`
+
+	// The features that can be enabled or disabled
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Disabled Features"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
+	Features *common.Features `json:"features,omitempty"`
 }
 
 // MarketplaceConfigStatus defines the observed state of MarketplaceConfig
@@ -100,6 +108,8 @@ const (
 	ConditionComplete status.ConditionType = "Complete"
 	// ConditionError means the installation has failed.
 	ConditionError status.ConditionType = "Error"
+	// ConditionEnabled means the particular option is enabled
+	ConditionEnabled status.ConditionType = "Enabled"
 
 	// Reasons for install
 	ReasonStartInstall          status.ConditionReason = "StartInstall"
