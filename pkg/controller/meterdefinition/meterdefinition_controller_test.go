@@ -40,11 +40,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 		testNoServiceMonitors(GinkgoT())
 	})
-	
-	// It("Should log an error if something is nil", func (done Done)  {
-	// 	service, err := ctrl.queryForPrometheusService()
 
-	// },120)
 })
 
 var (

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"emperror.dev/errors"
@@ -57,6 +58,8 @@ var (
 	log = logf.Log.WithName("controller_meterdefinition")
 	// uid to name and namespace
 	store *meter_definition.MeterDefinitionStore
+
+	mutex sync.Mutex
 )
 
 // Add creates a new MeterDefinition Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -115,6 +118,10 @@ type ReconcileMeterDefinition struct {
 	cfg        config.OperatorConfig
 }
 
+// type FunctionSet struct {
+
+// }
+
 type MeterDefOpts struct{}
 
 // Reconcile reads that state of the cluster for a MeterDefinition object and makes changes based on the state read
@@ -164,12 +171,17 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 
 	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
 	if err != nil {
+		// instance.Status.Conditions.SetCondition()
 		reqLogger.Error(err, "error encountered")
 	}
 
 	certConfigMap, err := r.queryForCertConfigMap(context.TODO(), cc, request)
 	if err != nil {
 		reqLogger.Error(err, "error encountered")
+	}
+
+	if r.cfg.PathToKubeProxyAPIToken == "" {
+		return reconcile.Result{}, errors.New("file path to kube proxy token is nil")
 	}
 
 	token, err := prometheus.GetAuthToken(r.cfg.PathToKubeProxyAPIToken)
@@ -182,34 +194,24 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	if certConfigMap != nil && token != "" && service != nil {
 		cert, err := r.getCertificateFromConfigMap(*certConfigMap)
 		if err != nil {
-			reqLogger.Error(err, "error encountered")
+			return reconcile.Result{}, err
 		}
 
-		if r.cfg.PathToKubeProxyAPIToken == "" {
-			return reconcile.Result{}, errors.New("file path to kube proxy token is nil")
-			// reqLogger.Error(err, "error encountered")
-		}
+		
 
-		client, err := prometheus.ProvideApiClientFromCert(r.cfg.PathToKubeProxyAPIToken, service, &cert, token)
+		client, err := prometheus.ProvideApiClientFromCert(r.cfg.PathToKubeProxyAPIToken, service, &cert, token,&mutex)
 		if err != nil {
-			return reconcile.Result{}, errors.New("error generating client")
+			return reconcile.Result{}, err
 		}
-
-		if client == nil {
-			return reconcile.Result{}, errors.New("client is nil")
-			// reqLogger.Error(err, "error encountered")
-		}
-
+		
 		promAPI := v1.NewAPI(client)
 		if promAPI == nil {
 			return reconcile.Result{}, errors.New("promApi is nil")
-			// reqLogger.Error(err, "error encountered")
 		}
 
 		queryPreviewResultArray, err = r.generateQueryPreview(instance, reqLogger,promAPI)
 		if err != nil {
 			return reconcile.Result{}, err
-			// reqLogger.Error(err, "error encountered")
 		}
 	}
 

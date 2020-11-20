@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sync"
 
 	"emperror.dev/errors"
 	"github.com/prometheus/client_golang/api"
@@ -37,6 +38,7 @@ func ProvideApiClientFromCert(
 	promService *corev1.Service,
 	caCert *[]byte,
 	auth string,
+	mutex *sync.Mutex,
 ) (api.Client, error) {
 
 	var port int32
@@ -63,7 +65,7 @@ func ProvideApiClientFromCert(
 		Address: fmt.Sprintf("https://%s.%s.svc:%v", name, namespace, port),
 		Token:   auth,
 		CaCert:  caCert,
-	})
+	},mutex)
 
 	if err != nil {
 		log.Error(err, "failed to setup NewSecureClient")
@@ -115,7 +117,10 @@ func NewSecureClient(config *PrometheusSecureClientConfig) (api.Client, error) {
 	return client, err
 }
 
-func NewSecureClientFromCert(config *PrometheusSecureClientConfig) (api.Client, error) {
+func NewSecureClientFromCert(config *PrometheusSecureClientConfig, mutex *sync.Mutex) (api.Client, error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	tlsConfig, err := generateCACertPoolFromCert(*config.CaCert)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get tlsConfig")

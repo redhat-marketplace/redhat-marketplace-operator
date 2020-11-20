@@ -62,7 +62,7 @@ var _ = BeforeSuite(func() {
 	testHarness, err = harness.NewTestHarness(harness.TestHarnessOptions{
 		EnabledFeatures: []string{
 			harness.FeatureAddPullSecret,
-			harness.FeatureMockOpenShift,
+			// harness.FeatureMockOpenShift,
 			harness.FeatureDeployHelm,
 			harness.FeatureCreateMarketplaceConfig,
 		},
@@ -79,3 +79,4 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	testHarness.Stop()
 }, 60)
+

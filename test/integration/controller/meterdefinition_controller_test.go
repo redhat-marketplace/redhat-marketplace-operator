@@ -11,7 +11,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
-
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -75,7 +74,7 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 			close(done)
 		}, 180)
 
-		FIt("Should query prom and append metric data to meterdef status", func(done Done) {
+		PIt("Should query prom and append metric data to meterdef status", func(done Done) {
 			Eventually(func() (assertion bool) {
 				result, _ := testHarness.Do(
 					context.TODO(),
