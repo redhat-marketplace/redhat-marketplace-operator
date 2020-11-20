@@ -242,7 +242,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update status")
+			reqLogger.Error(err, "Failed to update status for razee disabled")
 			return reconcile.Result{}, err
 		}
 
@@ -265,7 +265,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update status")
+			reqLogger.Error(err, "Failed to update status for invalid razee name")
 			return reconcile.Result{}, err
 		}
 
@@ -423,6 +423,36 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	// Update the Spec TargetNamespace
 	reqLogger.V(0).Info("All required razee configuration values have been found")
 
+	// Check if the RazeeDeployment is disabled, in this case remove the razee deployment and parents3
+	rrs3DeploymentEnabled := instance.Spec.Features == nil || instance.Spec.Features.Deployment == nil || *instance.Spec.Features.Deployment
+	if !rrs3DeploymentEnabled {
+		//razee deployment disabled - if the deployment was found, delete it
+		if !errors.IsNotFound(err) {
+			res, err := r.removeRazeeDeployments(instance)
+			if res != nil {
+				return *res, err
+			}
+		}
+
+		//Deployment is disabled - update status
+		reqLogger.V(0).Info("RemoteResourceS3 deployment is disabled")
+		//update status to reflect disabled
+		message := "RemoteResourceS3 deployment disabled"
+		changed := instance.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionEnabled,
+			Status:  corev1.ConditionFalse,
+			Reason:  marketplacev1alpha1.ReasonRhmRemoteResourceS3DeploymentEnabled,
+			Message: message,
+		})
+
+		if changed {
+			reqLogger.Info("RemoteResourceS3 disabled status updated")
+
+			_ = r.client.Status().Update(context.TODO(), instance)
+			r.client.Get(context.TODO(), request.NamespacedName, instance)
+		}
+	}
+
 	/******************************************************************************
 	APPLY OR UPDATE RAZEE RESOURCES
 	/******************************************************************************/
@@ -451,7 +481,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		instance.Status.RazeePrerequisitesCreated = razeePrereqs
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update status")
+			reqLogger.Error(err, "Failed to update status for razee namespace")
 		}
 		r.client.Get(context.TODO(), request.NamespacedName, instance)
 	}
@@ -526,9 +556,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	if reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
 		instance.Status.RazeePrerequisitesCreated = razeePrereqs
+		reqLogger.Info("updating status - razeeprereqs for watchkeeper non namespaced name")
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update status")
+			reqLogger.Error(err, "Failed to update status for watchkeeper non namespaced name")
 		}
 		r.client.Get(context.TODO(), request.NamespacedName, instance)
 	}
@@ -559,6 +590,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 				Reason:  marketplacev1alpha1.ReasonWatchKeeperLimitPollInstalled,
 				Message: message,
 			})
+			_ = r.client.Status().Update(context.TODO(), instance)
 
 			reqLogger.Info("Resource created successfully", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
 			return reconcile.Result{Requeue: true}, nil
@@ -597,9 +629,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	if reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
 		instance.Status.RazeePrerequisitesCreated = razeePrereqs
+		reqLogger.Info("updating status - razeeprereqs for watchkeeper limit poll name")
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update status")
+			reqLogger.Error(err, "Failed to update status for watchkeeper limit poll name")
 		}
 		r.client.Get(context.TODO(), request.NamespacedName, instance)
 	}
@@ -632,6 +665,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			})
 
 			_ = r.client.Status().Update(context.TODO(), instance)
+
 			reqLogger.Info("Resource created successfully", "resource: ", utils.RAZEE_CLUSTER_METADATA_NAME)
 			return reconcile.Result{Requeue: true}, nil
 		} else {
@@ -671,9 +705,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	if reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
 		instance.Status.RazeePrerequisitesCreated = razeePrereqs
+		reqLogger.Info("updating status- razeeprereqs for watchkeeper cluster meta data")
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update status")
+			reqLogger.Error(err, "Failed to update status for watchkeeper cluster meta data")
 		}
 		r.client.Get(context.TODO(), request.NamespacedName, instance)
 	}
@@ -706,7 +741,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			})
 
 			_ = r.client.Status().Update(context.TODO(), instance)
-			r.client.Get(context.TODO(), request.NamespacedName, instance)
 
 			reqLogger.Info("Resource created successfully", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
 			return reconcile.Result{Requeue: true}, nil
@@ -747,9 +781,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	if reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
 		instance.Status.RazeePrerequisitesCreated = razeePrereqs
+		reqLogger.Info("updating status - razeeprereqs for watchkeeper config")
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update status")
+			reqLogger.Error(err, "Failed to update status for watchkeeper config")
 		}
 		r.client.Get(context.TODO(), request.NamespacedName, instance)
 	}
@@ -779,7 +814,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			})
 
 			_ = r.client.Status().Update(context.TODO(), instance)
-			r.client.Get(context.TODO(), request.NamespacedName, instance)
 
 			reqLogger.Info("Resource created successfully", "resource: ", utils.WATCH_KEEPER_SECRET_NAME)
 			return reconcile.Result{Requeue: true}, nil
@@ -814,9 +848,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	if reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
 		instance.Status.RazeePrerequisitesCreated = razeePrereqs
+		reqLogger.Info("updating status - razeeprereqs for watchkeeper secret")
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update status")
+			reqLogger.Error(err, "Failed to update status for watchkeeper secret")
 		}
 		r.client.Get(context.TODO(), request.NamespacedName, instance)
 	}
@@ -848,7 +883,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			})
 
 			_ = r.client.Status().Update(context.TODO(), instance)
-			r.client.Get(context.TODO(), request.NamespacedName, instance)
 
 			reqLogger.Info("Resource created successfully", "resource: ", utils.COS_READER_KEY_NAME)
 			return reconcile.Result{Requeue: true}, nil
@@ -883,9 +917,10 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	if reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
 		instance.Status.RazeePrerequisitesCreated = razeePrereqs
+		reqLogger.Info("updating status - razeeprereqs for cos reader key name")
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update status")
+			reqLogger.Error(err, "Failed to update status for cos reader key name")
 		}
 		r.client.Get(context.TODO(), request.NamespacedName, instance)
 	}
@@ -893,86 +928,91 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 	/******************************************************************************
 	Create watch-keeper deployment,rrs3-controller deployment, apply parent rrs3
 	/******************************************************************************/
-	rrs3Deployment := &appsv1.Deployment{}
-	reqLogger.V(0).Info("Finding Rhm RemoteResourceS3 deployment")
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-		Namespace: request.Namespace,
-	}, rrs3Deployment)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.V(0).Info("Creating RemoteResourceS3 deployment")
-			rrs3Deployment = r.makeRemoteResourceS3Deployment(instance)
 
-			if err := controllerutil.SetControllerReference(instance, rrs3Deployment, r.scheme); err != nil {
-				reqLogger.Error(err, "Failed to set controller reference")
-				return reconcile.Result{}, err
-			}
-
-			err = r.client.Create(context.TODO(), rrs3Deployment)
-			if err != nil {
-				reqLogger.Error(err, "Failed to create RemoteResourceS3 deployment on cluster")
-				return reconcile.Result{}, err
-			}
-			reqLogger.Info("RemoteResourceS3 deployment created successfully")
-
-			message := "RemoteResourceS3 deployment install starting"
-			instance.Status.Conditions.SetCondition(status.Condition{
-				Type:    marketplacev1alpha1.ConditionInstalling,
-				Status:  corev1.ConditionTrue,
-				Reason:  marketplacev1alpha1.ReasonRhmRemoteResourceS3DeploymentStart,
-				Message: message,
-			})
-
-			_ = r.client.Status().Update(context.TODO(), instance)
-			r.client.Get(context.TODO(), request.NamespacedName, instance)
-
-			return reconcile.Result{Requeue: true}, nil
-
-		} else {
-			reqLogger.Error(err, "Failed to get RemoteResourceS3 deployment from Cluster")
-			return reconcile.Result{}, err
-		}
-	}
-
-	latestRemoteResourcesDeployment := r.makeRemoteResourceS3Deployment(instance)
-	updatedRemoteResourcesDeployment := rrs3Deployment.DeepCopy()
-
-	for k, v := range latestRemoteResourcesDeployment.Labels {
-		if v2, ok := updatedRemoteResourcesDeployment.Labels[k]; !ok || v != v2 {
-			updatedRemoteResourcesDeployment.ObjectMeta.Labels[k] = v
-		}
-	}
-
-	for k, v := range latestRemoteResourcesDeployment.Annotations {
-		if v2, ok := updatedRemoteResourcesDeployment.Annotations[k]; !ok || v != v2 {
-			updatedRemoteResourcesDeployment.ObjectMeta.Annotations[k] = v
-		}
-	}
-
-	updatedRemoteResourcesDeployment.Spec.Template.Spec.Containers = latestRemoteResourcesDeployment.Spec.Template.Spec.Containers
-	updatedRemoteResourcesDeployment.Spec.Template.Spec.Volumes = latestRemoteResourcesDeployment.Spec.Template.Spec.Volumes
-
-	if update, whatchanged := utils.DeploymentNeedsUpdate(*rrs3Deployment, *updatedRemoteResourcesDeployment); update {
-		reqLogger.Info("Change detected on resource", latestRemoteResourcesDeployment.GetName(), "update", "change", whatchanged)
-
-		reqLogger.Info("Updating resource", "resource: ", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
-		err = r.client.Update(context.TODO(), updatedRemoteResourcesDeployment)
+	//Only create the razee deployment when it is enabled
+	if rrs3DeploymentEnabled {
+		rrs3Deployment := &appsv1.Deployment{}
+		reqLogger.V(0).Info("Finding Rhm RemoteResourceS3 deployment")
+		err = r.client.Get(context.TODO(), types.NamespacedName{
+			Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+			Namespace: request.Namespace,
+		}, rrs3Deployment)
 		if err != nil {
-			reqLogger.Info("Failed to update resource", "resource", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
-			return reconcile.Result{}, err
-		}
-		reqLogger.Info("Resource updated successfully", "resource", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
-		return reconcile.Result{Requeue: true}, nil
-	}
+			if errors.IsNotFound(err) {
+				reqLogger.V(0).Info("Creating RemoteResourceS3 deployment")
+				rrs3Deployment = r.makeRemoteResourceS3Deployment(instance)
 
-	message := "RemoteResourceS3 deployment install finished"
-	instance.Status.Conditions.SetCondition(status.Condition{
-		Type:    marketplacev1alpha1.ConditionInstalling,
-		Status:  corev1.ConditionTrue,
-		Reason:  marketplacev1alpha1.ReasonRhmRemoteResourceS3DeploymentInstalled,
-		Message: message,
-	})
+				if err := controllerutil.SetControllerReference(instance, rrs3Deployment, r.scheme); err != nil {
+					reqLogger.Error(err, "Failed to set controller reference")
+					return reconcile.Result{}, err
+				}
+
+				err = r.client.Create(context.TODO(), rrs3Deployment)
+				if err != nil {
+					reqLogger.Error(err, "Failed to create RemoteResourceS3 deployment on cluster")
+					return reconcile.Result{}, err
+				}
+				reqLogger.Info("RemoteResourceS3 deployment created successfully")
+
+				message := "RemoteResourceS3 deployment install finished"
+				instance.Status.Conditions.SetCondition(status.Condition{
+					Type:    marketplacev1alpha1.ConditionInstalling,
+					Status:  corev1.ConditionTrue,
+					Reason:  marketplacev1alpha1.ReasonRhmRemoteResourceS3DeploymentStart,
+					Message: message,
+				})
+
+				//Deployment is enabled - update status
+				message = "RemoteResourceS3 deployment enabled"
+				instance.Status.Conditions.SetCondition(status.Condition{
+					Type:    marketplacev1alpha1.ConditionEnabled,
+					Status:  corev1.ConditionTrue,
+					Reason:  marketplacev1alpha1.ReasonRhmRemoteResourceS3DeploymentEnabled,
+					Message: message,
+				})
+
+				_ = r.client.Status().Update(context.TODO(), instance)
+
+				return reconcile.Result{Requeue: true}, nil
+
+			} else {
+				reqLogger.Error(err, "Failed to get RemoteResourceS3 deployment from Cluster")
+				return reconcile.Result{}, err
+			}
+		}
+
+		//Reconcile any updates
+		latestRemoteResourcesDeployment := r.makeRemoteResourceS3Deployment(instance)
+		updatedRemoteResourcesDeployment := rrs3Deployment.DeepCopy()
+
+		for k, v := range latestRemoteResourcesDeployment.Labels {
+			if v2, ok := updatedRemoteResourcesDeployment.Labels[k]; !ok || v != v2 {
+				updatedRemoteResourcesDeployment.ObjectMeta.Labels[k] = v
+			}
+		}
+
+		for k, v := range latestRemoteResourcesDeployment.Annotations {
+			if v2, ok := updatedRemoteResourcesDeployment.Annotations[k]; !ok || v != v2 {
+				updatedRemoteResourcesDeployment.ObjectMeta.Annotations[k] = v
+			}
+		}
+
+		updatedRemoteResourcesDeployment.Spec.Template.Spec.Containers = latestRemoteResourcesDeployment.Spec.Template.Spec.Containers
+		updatedRemoteResourcesDeployment.Spec.Template.Spec.Volumes = latestRemoteResourcesDeployment.Spec.Template.Spec.Volumes
+
+		if update, whatchanged := utils.DeploymentNeedsUpdate(*rrs3Deployment, *updatedRemoteResourcesDeployment); update {
+			reqLogger.Info("Change detected on resource", latestRemoteResourcesDeployment.GetName(), "update", "change", whatchanged)
+
+			reqLogger.Info("Updating resource", "resource: ", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+			err = r.client.Update(context.TODO(), updatedRemoteResourcesDeployment)
+			if err != nil {
+				reqLogger.Info("Failed to update resource", "resource", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("Resource updated successfully", "resource", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+			return reconcile.Result{Requeue: true}, nil
+		}
+	}
 
 	watchKeeperDeployment := &appsv1.Deployment{}
 	reqLogger.V(0).Info("Finding watch-keeper deployment")
@@ -997,7 +1037,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			}
 			reqLogger.Info("watch-keeper deployment created successfully")
 
-			message := "watch-keeper install starting"
+			message := "watch-keeper install finished"
 			instance.Status.Conditions.SetCondition(status.Condition{
 				Type:    marketplacev1alpha1.ConditionInstalling,
 				Status:  corev1.ConditionTrue,
@@ -1006,7 +1046,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 			})
 
 			_ = r.client.Status().Update(context.TODO(), instance)
-			r.client.Get(context.TODO(), request.NamespacedName, instance)
 
 			return reconcile.Result{Requeue: true}, nil
 		} else {
@@ -1051,14 +1090,6 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	message = "watch-keeper install finished"
-	instance.Status.Conditions.SetCondition(status.Condition{
-		Type:    marketplacev1alpha1.ConditionInstalling,
-		Status:  corev1.ConditionTrue,
-		Reason:  marketplacev1alpha1.ReasonWatchKeeperDeploymentInstalled,
-		Message: message,
-	})
-
 	podList := &corev1.PodList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(*instance.Spec.TargetNamespace),
@@ -1078,78 +1109,83 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	if !reflect.DeepEqual(podNames, instance.Status.NodesFromRazeeDeployments) {
 		instance.Status.NodesFromRazeeDeployments = podNames
+		reqLogger.Info("updating status - podlist for razee deployments")
 		err := r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update Status.")
+			reqLogger.Error(err, "Failed to update Status with podlist.")
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	parentRRS3 := &marketplacev1alpha1.RemoteResourceS3{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name:      utils.PARENT_RRS3_RESOURCE_NAME,
-		Namespace: *instance.Spec.TargetNamespace},
-		parentRRS3)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.V(0).Info("Resource does not exist", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
-			parentRRS3 := r.makeParentRemoteResourceS3(instance)
+	//Only create the parent s3 resource when the razee deployment is enabled
+	if rrs3DeploymentEnabled {
 
-			err = r.client.Create(context.TODO(), parentRRS3)
-			if err != nil {
-				reqLogger.Info("Failed to create resource", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
+		parentRRS3 := &marketplacev1alpha1.RemoteResourceS3{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{
+			Name:      utils.PARENT_RRS3_RESOURCE_NAME,
+			Namespace: *instance.Spec.TargetNamespace},
+			parentRRS3)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				reqLogger.V(0).Info("Resource does not exist", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
+				parentRRS3 := r.makeParentRemoteResourceS3(instance)
+
+				err = r.client.Create(context.TODO(), parentRRS3)
+				if err != nil {
+					reqLogger.Info("Failed to create resource", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
+					return reconcile.Result{}, err
+				}
+				message := "ParentRRS3 install finished"
+				instance.Status.Conditions.SetCondition(status.Condition{
+					Type:    marketplacev1alpha1.ConditionInstalling,
+					Status:  corev1.ConditionTrue,
+					Reason:  marketplacev1alpha1.ReasonParentRRS3Installed,
+					Message: message,
+				})
+
+				_ = r.client.Status().Update(context.TODO(), instance)
+
+				reqLogger.Info("Resource created successfully", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
+				return reconcile.Result{Requeue: true}, nil
+			} else {
+				reqLogger.Info("Failed to get resource", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
 				return reconcile.Result{}, err
 			}
-			message := "ParentRRS3 install finished"
-			instance.Status.Conditions.SetCondition(status.Condition{
-				Type:    marketplacev1alpha1.ConditionInstalling,
-				Status:  corev1.ConditionTrue,
-				Reason:  marketplacev1alpha1.ReasonParentRRS3Installed,
-				Message: message,
-			})
+		}
 
-			_ = r.client.Status().Update(context.TODO(), instance)
-			r.client.Get(context.TODO(), request.NamespacedName, instance)
+		reqLogger.V(0).Info("Resource already exists", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
 
-			reqLogger.Info("Resource created successfully", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
+		newParentValues := r.makeParentRemoteResourceS3(instance)
+		updatedParentRRS3 := parentRRS3.DeepCopy()
+		updatedParentRRS3.Spec = newParentValues.Spec
+
+		if !reflect.DeepEqual(updatedParentRRS3.Spec, parentRRS3.Spec) {
+			reqLogger.Info("Change detected on resource", updatedParentRRS3.GetName(), "update")
+
+			reqLogger.Info("Updating resource", "resource: ", utils.PARENT_RRS3_RESOURCE_NAME)
+			err = r.client.Update(context.TODO(), updatedParentRRS3)
+			if err != nil {
+				reqLogger.Info("Failed to update resource", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("Resource updated successfully", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
 			return reconcile.Result{Requeue: true}, nil
-		} else {
-			reqLogger.Info("Failed to get resource", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
-			return reconcile.Result{}, err
 		}
-	}
 
-	reqLogger.V(0).Info("Resource already exists", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
+		reqLogger.V(0).Info("No change detected on resource", "resource", updatedParentRRS3.GetName())
 
-	newParentValues := r.makeParentRemoteResourceS3(instance)
-	updatedParentRRS3 := parentRRS3.DeepCopy()
-	updatedParentRRS3.Spec = newParentValues.Spec
+		razeePrereqs = append(razeePrereqs, utils.PARENT_RRS3_RESOURCE_NAME)
 
-	if !reflect.DeepEqual(updatedParentRRS3.Spec, parentRRS3.Spec) {
-		reqLogger.Info("Change detected on resource", updatedParentRRS3.GetName(), "update")
-
-		reqLogger.Info("Updating resource", "resource: ", utils.PARENT_RRS3_RESOURCE_NAME)
-		err = r.client.Update(context.TODO(), updatedParentRRS3)
-		if err != nil {
-			reqLogger.Info("Failed to update resource", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
-			return reconcile.Result{}, err
+		if reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
+			instance.Status.RazeePrerequisitesCreated = razeePrereqs
+			reqLogger.Info("updating status - razeeprereqs for parent rrs3")
+			err = r.client.Status().Update(context.TODO(), instance)
+			if err != nil {
+				reqLogger.Error(err, "Failed to update status for parent rrs3")
+			}
+			r.client.Get(context.TODO(), request.NamespacedName, instance)
 		}
-		reqLogger.Info("Resource updated successfully", "resource", utils.PARENT_RRS3_RESOURCE_NAME)
-		return reconcile.Result{Requeue: true}, nil
-	}
-
-	reqLogger.V(0).Info("No change detected on resource", "resource", updatedParentRRS3.GetName())
-
-	razeePrereqs = append(razeePrereqs, utils.PARENT_RRS3_RESOURCE_NAME)
-
-	if reflect.DeepEqual(instance.Status.RazeePrerequisitesCreated, razeePrereqs) {
-		instance.Status.RazeePrerequisitesCreated = razeePrereqs
-		err = r.client.Status().Update(context.TODO(), instance)
-		if err != nil {
-			reqLogger.Error(err, "Failed to update status")
-		}
-		r.client.Get(context.TODO(), request.NamespacedName, instance)
 	}
 
 	/******************************************************************************
@@ -1266,7 +1302,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		r.uninstallLegacyResources(instance)
 	}
 
-	message = "Razee install complete"
+	message := "Razee install complete"
 	change1 := instance.Status.Conditions.SetCondition(status.Condition{
 		Type:    marketplacev1alpha1.ConditionInstalling,
 		Status:  corev1.ConditionFalse,
@@ -1282,13 +1318,11 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 		Message: message,
 	})
 
-	r.client.Get(context.TODO(), request.NamespacedName, instance)
-
 	if change1 || change2 {
 		reqLogger.Info("Updating final status")
 		err = r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update status")
+			reqLogger.Error(err, "Failed to update final status")
 			return reconcile.Result{}, err
 		}
 		r.client.Get(context.TODO(), request.NamespacedName, instance)
@@ -1499,7 +1533,7 @@ func (r *ReconcileRazeeDeployment) makeWatchKeeperDeployment(instance *marketpla
 									Name: "NAMESPACE",
 									ValueFrom: &corev1.EnvVarSource{
 										FieldRef: &corev1.ObjectFieldSelector{
-											FieldPath: "metadata.namespace",
+											FieldPath:  "metadata.namespace",
 											APIVersion: "v1",
 										},
 									},
@@ -1686,6 +1720,44 @@ func (r *ReconcileRazeeDeployment) makeRemoteResourceS3Deployment(instance *mark
 	}
 }
 
+//Undeploy the razee deployment and parent
+func (r *ReconcileRazeeDeployment) removeRazeeDeployments(
+	req *marketplacev1alpha1.RazeeDeployment,
+) (*reconcile.Result, error) {
+	reqLogger := log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
+	reqLogger.Info("Starting delete of razee deployments")
+
+	parentRRS3 := marketplacev1alpha1.RemoteResourceS3{}
+	reqLogger.Info("Finding resource : ", "Parent", utils.PARENT_RRS3_RESOURCE_NAME)
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, &parentRRS3)
+	if err != nil && !errors.IsNotFound((err)) {
+		reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
+	}
+
+	if err == nil {
+		reqLogger.Info("Deleteing parentRRS3")
+		err := r.client.Delete(context.TODO(), &parentRRS3, client.PropagationPolicy(metav1.DeletePropagationForeground))
+		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "could not delete parentRRS3", "Resource", utils.PARENT_RRS3_RESOURCE_NAME)
+		}
+		return &reconcile.Result{RequeueAfter: time.Second * 2}, err
+	}
+
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+			Namespace: *req.Spec.TargetNamespace,
+		},
+	}
+	reqLogger.Info("deleting deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+	err = r.client.Delete(context.TODO(), deployment, client.PropagationPolicy(metav1.DeletePropagationForeground))
+	if err != nil && !errors.IsNotFound((err)) {
+		reqLogger.Error(err, "could not delete deployment", "name", utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME)
+	}
+
+	return nil, nil
+}
+
 // fullUninstall deletes resources created by razee deployment
 func (r *ReconcileRazeeDeployment) fullUninstall(
 	req *marketplacev1alpha1.RazeeDeployment,
@@ -1705,20 +1777,10 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 		}
 	}
 
-	parentRRS3 := marketplacev1alpha1.RemoteResourceS3{}
-	reqLogger.Info("Finding resource : ", "Parent", utils.PARENT_RRS3_RESOURCE_NAME)
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, &parentRRS3)
-	if err != nil && !errors.IsNotFound((err)) {
-		reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
-	}
-
-	if err == nil {
-		reqLogger.Info("Deleteing parentRRS3")
-		err := r.client.Delete(context.TODO(), &parentRRS3, client.PropagationPolicy(deletePolicy))
-		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "could not delete parentRRS3", "Resource", utils.PARENT_RRS3_RESOURCE_NAME)
-		}
-		return reconcile.Result{RequeueAfter: time.Second * 2}, err
+	//Remove razee deployments and reconcile if requested
+	res, err := r.removeRazeeDeployments(req)
+	if res != nil {
+		return *res, err
 	}
 
 	configMaps := []string{
@@ -1763,7 +1825,6 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 
 	deploymentNames := []string{
 		utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
-		utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 	}
 
 	for _, deploymentName := range deploymentNames {
