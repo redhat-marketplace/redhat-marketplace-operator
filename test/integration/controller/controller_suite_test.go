@@ -79,4 +79,3 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	testHarness.Stop()
 }, 60)
-

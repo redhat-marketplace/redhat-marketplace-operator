@@ -65,7 +65,7 @@ func ProvideApiClientFromCert(
 		Address: fmt.Sprintf("https://%s.%s.svc:%v", name, namespace, port),
 		Token:   auth,
 		CaCert:  caCert,
-	},mutex)
+	}, mutex)
 
 	if err != nil {
 		log.Error(err, "failed to setup NewSecureClient")

@@ -119,10 +119,6 @@ type ReconcileMeterDefinition struct {
 	cfg        config.OperatorConfig
 }
 
-// type FunctionSet struct {
-
-// }
-
 type MeterDefOpts struct{}
 
 // Reconcile reads that state of the cluster for a MeterDefinition object and makes changes based on the state read
@@ -156,7 +152,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 
 	queue = true
 	instance.Status.Conditions = nil
-	
+
 	if instance.Spec.ServiceMeterLabels != nil {
 		instance.Spec.ServiceMeterLabels = nil
 	}
@@ -177,7 +173,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	if err != nil {
 		reqLogger.Error(err, "error encountered")
 	}
- 
+
 	certConfigMap, err := r.queryForCertConfigMap(context.TODO(), cc, request)
 	if err != nil {
 		queue = true
@@ -187,11 +183,11 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Error(err, "error encountered")
 	}
 
-	//TODO: need test case 
+	//TODO: need test case
 	if r.cfg.PathToKubeProxyAPIToken == "" {
 		err = errors.New("path to kube proxy token is nil")
 		reqLogger.Error(err, "error encountered")
-		result := r.triggerStatusUpdate(instance,err,reqLogger,queue)
+		result := r.triggerStatusUpdate(instance, err, reqLogger, queue)
 		if result.Is(Error) {
 			reqLogger.Error(result.GetError(), "Failed to update status.")
 		}
@@ -210,7 +206,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		cert, err := r.getCertificateFromConfigMap(*certConfigMap)
 		if err != nil {
 			reqLogger.Error(err, "error encountered")
-			result := r.triggerStatusUpdate(instance,err,reqLogger,queue)
+			result := r.triggerStatusUpdate(instance, err, reqLogger, queue)
 			if result.Is(Error) {
 				reqLogger.Error(result.GetError(), "Failed to update status.")
 			}
@@ -218,22 +214,22 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		}
 
 		//TODO: need test case
-		client, err := prometheus.ProvideApiClientFromCert(r.cfg.PathToKubeProxyAPIToken, service, &cert, token,&mutex)
+		client, err := prometheus.ProvideApiClientFromCert(r.cfg.PathToKubeProxyAPIToken, service, &cert, token, &mutex)
 		if err != nil {
 			reqLogger.Error(err, "error encountered")
-			result := r.triggerStatusUpdate(instance,err,reqLogger,queue)
+			result := r.triggerStatusUpdate(instance, err, reqLogger, queue)
 			if result.Is(Error) {
 				reqLogger.Error(result.GetError(), "Failed to update status.")
 			}
 			return reconcile.Result{}, err
 		}
-		
+
 		promAPI := v1.NewAPI(client)
 		if promAPI == nil {
 			return reconcile.Result{}, errors.New("promApi is nil")
 		}
 
-		queryPreviewResultArray, err = r.generateQueryPreview(instance, reqLogger,promAPI)
+		queryPreviewResultArray, err = r.generateQueryPreview(instance, reqLogger, promAPI)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -263,11 +259,11 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 }
 
-func(r *ReconcileMeterDefinition) triggerStatusUpdate(instance *v1alpha1.MeterDefinition,err error,reqLogger logr.Logger,queue bool) *ExecResult{
+func (r *ReconcileMeterDefinition) triggerStatusUpdate(instance *v1alpha1.MeterDefinition, err error, reqLogger logr.Logger, queue bool) *ExecResult {
 	instance.Status.Conditions.SetCondition(status.Condition{
 		Message: err.Error(),
 	})
-	
+
 	cc := r.ccprovider.NewCommandRunner(r.client, r.scheme, reqLogger)
 	result, _ := cc.Do(
 		context.TODO(),
@@ -303,7 +299,7 @@ func (r *ReconcileMeterDefinition) queryForPrometheusService(
 	return service, nil
 }
 
-func (r *ReconcileMeterDefinition) queryForCertConfigMap(ctx context.Context, cc ClientCommandRunner, req reconcile.Request) (*corev1.ConfigMap,error) {
+func (r *ReconcileMeterDefinition) queryForCertConfigMap(ctx context.Context, cc ClientCommandRunner, req reconcile.Request) (*corev1.ConfigMap, error) {
 	certConfigMap := &corev1.ConfigMap{}
 
 	name := types.NamespacedName{
@@ -333,7 +329,7 @@ func (r *ReconcileMeterDefinition) getCertificateFromConfigMap(certConfigMap cor
 	return cert, nil
 }
 
-func (r *ReconcileMeterDefinition) generateQueryPreview(instance *v1alpha1.MeterDefinition, reqLogger logr.Logger, promAPI v1.API)(queryPreviewResultArray []v1alpha1.Result,returnErr error){
+func (r *ReconcileMeterDefinition) generateQueryPreview(instance *v1alpha1.MeterDefinition, reqLogger logr.Logger, promAPI v1.API) (queryPreviewResultArray []v1alpha1.Result, returnErr error) {
 	loc, _ := time.LoadLocation("UTC")
 	var queryPreviewResult *v1alpha1.Result
 
@@ -378,7 +374,7 @@ func (r *ReconcileMeterDefinition) generateQueryPreview(instance *v1alpha1.Meter
 
 			if err != nil {
 				returnErr = errors.Wrap(err, "error with query")
-				return nil,returnErr
+				return nil, returnErr
 			}
 
 			matrix := val.(model.Matrix)
@@ -401,7 +397,7 @@ func (r *ReconcileMeterDefinition) generateQueryPreview(instance *v1alpha1.Meter
 		}
 	}
 
-	return queryPreviewResultArray,nil
+	return queryPreviewResultArray, nil
 }
 
 func (r *ReconcileMeterDefinition) finalizeMeterDefinition(req *v1alpha1.MeterDefinition) (reconcile.Result, error) {

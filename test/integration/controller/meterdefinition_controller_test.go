@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotidy/ptr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -29,23 +28,10 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 	})
 
 	Context("Meterdefinition reconcile", func() {
-		
+
 		var meterdef *v1alpha1.MeterDefinition
 
 		BeforeEach(func(done Done) {
-			marketplaceconfig := v1alpha1.MarketplaceConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "marketplaceconfig",
-					Namespace: Namespace,
-				},
-				Spec: v1alpha1.MarketplaceConfigSpec{
-					RhmAccountID:            "example-userid",
-					ClusterUUID:             "example-clusterUUID",
-					DeploySecretName:        ptr.String("rhm-operator-secret"),
-					InstallIBMCatalogSource: ptr.Bool(false),
-				},
-			}
-
 			meterdef = &v1alpha1.MeterDefinition{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-meterdef",
@@ -76,7 +62,6 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 			}
 
 			Expect(testHarness.Create(context.TODO(), meterdef)).Should(SucceedOrAlreadyExist)
-			Expect(testHarness.Create(context.TODO(), &marketplaceconfig)).Should(SucceedOrAlreadyExist)
 			close(done)
 		}, 120)
 
@@ -103,7 +88,7 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 		}, 300)
 
 		When("There is a misssing or misconfigured prerequisite object the meterdef controller should log an error to conditions", func() {
-			foundCertConfigMap := corev1.ConfigMap {
+			foundCertConfigMap := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
 					Namespace: Namespace,
@@ -147,7 +132,7 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 			Context("cert config map is misconfigured", func() {
 				BeforeEach(func(done Done) {
 					Eventually(func() (assertion bool) {
-						err := testHarness.Get(context.TODO(),types.NamespacedName{Name: utils.OPERATOR_CERTS_CA_BUNDLE_NAME, Namespace: Namespace}, foundCertConfigMap.DeepCopyObject())
+						err := testHarness.Get(context.TODO(), types.NamespacedName{Name: utils.OPERATOR_CERTS_CA_BUNDLE_NAME, Namespace: Namespace}, foundCertConfigMap.DeepCopyObject())
 						if err != nil {
 							fmt.Println("error retrieving", err)
 							assertion = false
@@ -158,22 +143,22 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 							"wrong-key": "wrong-key",
 						}
 
-						err = testHarness.Update(context.TODO(),foundCertConfigMap.DeepCopyObject())
+						err = testHarness.Update(context.TODO(), foundCertConfigMap.DeepCopyObject())
 						if err != nil {
-							fmt.Println("error updating",err)
+							fmt.Println("error updating", err)
 							assertion = false
 							return assertion
 						}
-	
+
 						assertion = true
 						return assertion
-					},300).Should(BeTrue())
+					}, 300).Should(BeTrue())
 					close(done)
 				}, 300)
 
 				It("Should log an error if the config map is misconfigured", func(done Done) {
 					Eventually(func() (assertion bool) {
-						err := testHarness.Get(context.TODO(),types.NamespacedName{Name: meterdef.Name, Namespace: Namespace}, meterdef)
+						err := testHarness.Get(context.TODO(), types.NamespacedName{Name: meterdef.Name, Namespace: Namespace}, meterdef)
 						if err != nil {
 							assertion = false
 							return assertion
