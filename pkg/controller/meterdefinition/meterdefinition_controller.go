@@ -26,6 +26,7 @@ import (
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
+	"github.com/operator-framework/operator-sdk/pkg/status"
 	corev1 "k8s.io/api/core/v1"
 
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -69,11 +70,11 @@ func Add(
 	ccprovider ClientCommandRunnerProvider,
 	cfg config.OperatorConfig,
 ) error {
-	return add(mgr, newReconciler(mgr, ccprovider, cfg))
+	return add(mgr, NewReconciler(mgr, ccprovider, cfg))
 }
 
-// newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider, cfg config.OperatorConfig) reconcile.Reconciler {
+// NewReconciler returns a new reconcile.Reconciler
+func NewReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider, cfg config.OperatorConfig) reconcile.Reconciler {
 	opts := &MeterDefOpts{}
 
 	return &ReconcileMeterDefinition{
@@ -153,6 +154,9 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 
 	var queue bool
 
+	queue = true
+	instance.Status.Conditions = nil
+	
 	if instance.Spec.ServiceMeterLabels != nil {
 		instance.Spec.ServiceMeterLabels = nil
 	}
@@ -171,19 +175,30 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 
 	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
 	if err != nil {
-		// instance.Status.Conditions.SetCondition()
 		reqLogger.Error(err, "error encountered")
 	}
-
+ 
 	certConfigMap, err := r.queryForCertConfigMap(context.TODO(), cc, request)
 	if err != nil {
+		queue = true
+		instance.Status.Conditions.SetCondition(status.Condition{
+			Message: err.Error(),
+		})
 		reqLogger.Error(err, "error encountered")
 	}
 
+	//TODO: need test case 
 	if r.cfg.PathToKubeProxyAPIToken == "" {
+		err = errors.New("path to kube proxy token is nil")
+		reqLogger.Error(err, "error encountered")
+		result := r.triggerStatusUpdate(instance,err,reqLogger,queue)
+		if result.Is(Error) {
+			reqLogger.Error(result.GetError(), "Failed to update status.")
+		}
 		return reconcile.Result{}, errors.New("file path to kube proxy token is nil")
 	}
 
+	// TODO: need test case
 	token, err := prometheus.GetAuthToken(r.cfg.PathToKubeProxyAPIToken)
 	if err != nil {
 		reqLogger.Error(err, "error encountered")
@@ -194,13 +209,22 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	if certConfigMap != nil && token != "" && service != nil {
 		cert, err := r.getCertificateFromConfigMap(*certConfigMap)
 		if err != nil {
+			reqLogger.Error(err, "error encountered")
+			result := r.triggerStatusUpdate(instance,err,reqLogger,queue)
+			if result.Is(Error) {
+				reqLogger.Error(result.GetError(), "Failed to update status.")
+			}
 			return reconcile.Result{}, err
 		}
 
-		
-
+		//TODO: need test case
 		client, err := prometheus.ProvideApiClientFromCert(r.cfg.PathToKubeProxyAPIToken, service, &cert, token,&mutex)
 		if err != nil {
+			reqLogger.Error(err, "error encountered")
+			result := r.triggerStatusUpdate(instance,err,reqLogger,queue)
+			if result.Is(Error) {
+				reqLogger.Error(result.GetError(), "Failed to update status.")
+			}
 			return reconcile.Result{}, err
 		}
 		
@@ -237,6 +261,26 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 
 	reqLogger.Info("finished reconciling")
 	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
+}
+
+func(r *ReconcileMeterDefinition) triggerStatusUpdate(instance *v1alpha1.MeterDefinition,err error,reqLogger logr.Logger,queue bool) *ExecResult{
+	instance.Status.Conditions.SetCondition(status.Condition{
+		Message: err.Error(),
+	})
+	
+	cc := r.ccprovider.NewCommandRunner(r.client, r.scheme, reqLogger)
+	result, _ := cc.Do(
+		context.TODO(),
+		Call(func() (ClientAction, error) {
+			if !queue {
+				return nil, nil
+			}
+
+			return UpdateAction(instance, UpdateStatusOnly(true)), nil
+		}),
+	)
+
+	return result
 }
 
 func (r *ReconcileMeterDefinition) queryForPrometheusService(
@@ -282,6 +326,7 @@ func (r *ReconcileMeterDefinition) getCertificateFromConfigMap(certConfigMap cor
 
 	if !ok {
 		returnErr = errors.New("Error retrieving cert from config map")
+		return nil, returnErr
 	}
 
 	cert = []byte(out)

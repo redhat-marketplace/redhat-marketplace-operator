@@ -52,7 +52,7 @@ var _ = Describe("MeterReportController", func() {
 			start, end = time.Now(), time.Now()
 
 			start.Add(-5 * time.Minute)
-
+			
 			meterdef = &v1alpha1.MeterDefinition{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test",
