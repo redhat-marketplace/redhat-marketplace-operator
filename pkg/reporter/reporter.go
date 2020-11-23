@@ -105,7 +105,9 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 		return resultsMap, []error{}, nil
 	}
 
-	mdefQuery := "meterdef_metric_label_info{}"
+	// Returns a set of elements without duplicates
+	// Ignore labels such that a pod restart, meterdefinition recreate, or other labels do not generate a new unique element
+	mdefQuery := "(meterdef_metric_label_info{} + ignoring(container, endpoint, instance, job, meter_definition_uid, pod, service) meterdef_metric_label_info{})"
 	var result model.Value
 	var warnings v1.Warnings
 	var err error
@@ -289,7 +291,6 @@ func (r *MarketplaceReporter) query(
 	errorsch chan<- error,
 ) {
 	queryProcess := func(mdef *meterDefPromQuery) {
-		logger.Info("query", "metric")
 		// TODO: use metadata to build a smart roll up
 		// Guage = delta
 		// Counter = increase
