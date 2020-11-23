@@ -10,7 +10,7 @@ before_install:
   - go get github.com/onsi/ginkgo/ginkgo
   - docker pull docker.io/docker/dockerfile:experimental
   - docker pull docker.io/docker/dockerfile-copy:v0.1.9
-  - VERSION=`go run scripts/version/main.go last`
+  - VERSION=`go run scripts/version/main.go`
 
 go:
   - "1.15.x"
