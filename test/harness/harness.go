@@ -461,6 +461,7 @@ func (d *createMarketplaceConfig) Before(t *TestHarness) error {
 		return err
 	}
 
+
 	By("wait for marketplaceconfig")
 	Eventually(func() bool {
 		err := t.Get(context.TODO(), k8stypes.NamespacedName{Name: d.base.Name, Namespace: d.Namespace}, d.base)

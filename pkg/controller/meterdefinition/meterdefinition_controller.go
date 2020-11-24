@@ -169,8 +169,13 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		queue = instance.Status.Conditions.SetCondition(v1alpha1.MeterDefConditionHasResults)
 	}
 
+	//TODO: need test case
 	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
 	if err != nil {
+		queue = true
+		instance.Status.Conditions.SetCondition(status.Condition{
+			Message: err.Error(),
+		})
 		reqLogger.Error(err, "error encountered")
 	}
 

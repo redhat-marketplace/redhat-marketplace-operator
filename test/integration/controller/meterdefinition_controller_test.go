@@ -12,7 +12,8 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+
+	// . "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -67,121 +68,158 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 
 		It("Should find a meterdef", func(done Done) {
 			Eventually(func() bool {
-				result, _ := testHarness.Do(
-					context.TODO(),
-					GetAction(types.NamespacedName{Name: meterdef.Name, Namespace: Namespace}, meterdef),
-				)
-
-				return result.Is(Continue)
-			}, timeout, interval).Should(BeTrue())
+				return Expect(testHarness.Get(context.TODO(),types.NamespacedName{Name: meterdef.Name, Namespace: Namespace},meterdef)).Should(BeTrue())
+			}, timeout).Should(BeTrue())
 			close(done)
-		}, 180)
+		},180)
 
 		It("Should query prometheus and append metric data to meterdef status", func(done Done) {
 			Eventually(func() (assertion bool) {
-
+				err := testHarness.Get(context.TODO(),types.NamespacedName{Name: meterdef.Name, Namespace: Namespace},meterdef)
+				if err != nil {
+					assertion = false
+					return assertion
+				}
+				utils.PrettyPrintWithLog("status from metric test",meterdef.Status)
 				assertion = runAssertionOnMeterDef(*meterdef)
 				return assertion
 
-			}, 300, interval).Should(BeTrue())
+			}, 300).Should(BeTrue())
 			close(done)
 		}, 300)
 
-		When("There is a misssing or misconfigured prerequisite object the meterdef controller should log an error to conditions", func() {
-			foundCertConfigMap := corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
-					Namespace: Namespace,
-				},
-			}
+		foundCertConfigMap := corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
+				Namespace: Namespace,
+			},
+		}
 
-			Context("cert config map is missing", func() {
-				BeforeEach(func(done Done) {
-					Eventually(func() (assertion bool) {
-						testHarness.Get(context.TODO(), types.NamespacedName{Name: foundCertConfigMap.Name, Namespace: foundCertConfigMap.Namespace}, &foundCertConfigMap)
-						assertion = Expect(testHarness.Delete(context.TODO(), &foundCertConfigMap)).Should(Succeed())
+		Context("Error handling for cert config map", func() {
+			BeforeEach(func(done Done) {
+				Eventually(func() (assertion bool) {
+					testHarness.Get(context.TODO(), types.NamespacedName{Name: foundCertConfigMap.Name, Namespace: foundCertConfigMap.Namespace}, &foundCertConfigMap)
+					assertion = Expect(testHarness.Delete(context.TODO(), &foundCertConfigMap)).Should(Succeed())
+					return assertion
+				},300).Should(BeTrue())
+				close(done)
+			}, 300)
+
+			It("Should log an error if the config map is not found", func(done Done) {
+				Eventually(func() (assertion bool) {
+					err := testHarness.Get(context.TODO(),types.NamespacedName{Name: meterdef.Name, Namespace: Namespace},meterdef)
+					if err != nil {
+						assertion = false
 						return assertion
-					}, 300).Should(BeTrue())
-					close(done)
-				}, 300)
-
-				It("Should log an error if the config map is not found", func(done Done) {
-					Eventually(func() (assertion bool) {
-						result, _ := testHarness.Do(
-							context.TODO(),
-							GetAction(types.NamespacedName{Name: meterdef.Name, Namespace: Namespace}, meterdef),
-						)
-
-						if !result.Is(Continue) {
-							return false
+					}
+					utils.PrettyPrintWithLog("meterdef status from config map not found test",meterdef.Status)
+					for _, condition := range meterdef.Status.Conditions {
+						if condition.Message == "Failed to retrieve operator-certs-ca-bundle.: ConfigMap \"operator-certs-ca-bundle\" not found" {
+							assertion = true
 						}
+					}
 
-						for _, condition := range meterdef.Status.Conditions {
-							if condition.Message == "Failed to retrieve operator-certs-ca-bundle.: ConfigMap \"operator-certs-ca-bundle\" not found" {
-								assertion = true
-							}
-						}
+					return assertion
 
-						return assertion
-
-					}, 300, interval).Should(BeTrue())
-					close(done)
-				}, 300)
-			})
-
-			Context("cert config map is misconfigured", func() {
-				BeforeEach(func(done Done) {
-					Eventually(func() (assertion bool) {
-						err := testHarness.Get(context.TODO(), types.NamespacedName{Name: utils.OPERATOR_CERTS_CA_BUNDLE_NAME, Namespace: Namespace}, foundCertConfigMap.DeepCopyObject())
-						if err != nil {
-							fmt.Println("error retrieving", err)
-							assertion = false
-							return assertion
-						}
-
-						foundCertConfigMap.Data = map[string]string{
-							"wrong-key": "wrong-key",
-						}
-
-						err = testHarness.Update(context.TODO(), foundCertConfigMap.DeepCopyObject())
-						if err != nil {
-							fmt.Println("error updating", err)
-							assertion = false
-							return assertion
-						}
-
-						assertion = true
-						return assertion
-					}, 300).Should(BeTrue())
-					close(done)
-				}, 300)
-
-				It("Should log an error if the config map is misconfigured", func(done Done) {
-					Eventually(func() (assertion bool) {
-						err := testHarness.Get(context.TODO(), types.NamespacedName{Name: meterdef.Name, Namespace: Namespace}, meterdef)
-						if err != nil {
-							assertion = false
-							return assertion
-						}
-						utils.PrettyPrintWithLog("Meterdef Status Error", meterdef.Status.Conditions)
-
-						for _, condition := range meterdef.Status.Conditions {
-							if condition.Message == "Error retrieving cert from config map" {
-								assertion = true
-								return assertion
-							}
-						}
-
-						return assertion
-
-					}, 300, interval).Should(BeTrue())
-					close(done)
-				}, 300)
-			})
+				}, 300).Should(BeTrue())
+				close(done)
+			}, 300)
 		})
 
+		Context("Error handling for cert config map", func() {
+			BeforeEach(func(done Done) {
+				//TODO: do I need eventually here ? 
+				Eventually(func() (assertion bool) {
+					err := testHarness.Get(context.TODO(), types.NamespacedName{Name: utils.OPERATOR_CERTS_CA_BUNDLE_NAME, Namespace: Namespace}, foundCertConfigMap.DeepCopyObject())
+					if err != nil {
+						fmt.Println("error retrieving", err)
+						assertion = false
+						return assertion
+					}
+
+					foundCertConfigMap.Data = map[string]string{
+						"wrong-key": "wrong-key",
+					}
+
+					err = testHarness.Update(context.TODO(), foundCertConfigMap.DeepCopyObject())
+					if err != nil {
+						fmt.Println("error updating", err)
+						assertion = false
+						return assertion
+					}
+
+					assertion = true
+					return assertion
+				}, 300).Should(BeTrue())
+
+				close(done)
+			}, 300)
+
+			It("Should log an error if the config map is misconfigured", func(done Done) {
+				Eventually(func() (assertion bool) {
+					//TODO: add the get in this tests' BeforeEach() ? 
+					err := testHarness.Get(context.TODO(), types.NamespacedName{Name: meterdef.Name, Namespace: Namespace}, meterdef)
+					if err != nil {
+						assertion = false
+						return assertion
+					}
+
+					for _, condition := range meterdef.Status.Conditions {
+						if condition.Message == "Error retrieving cert from config map" {
+							assertion = true
+							return assertion
+						}
+					}
+
+					return assertion
+
+				}, 300, interval).Should(BeTrue())
+				close(done)
+			}, 300)
+		})
+		
+		Context("Error handling for prometheus service", func(){
+			BeforeEach(func(done Done) {
+				//TODO: do I need eventually here ? 
+				promservice := corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:  "rhm-prometheus-meterbase",
+						Namespace: Namespace,
+					},
+				}
+				
+				Expect(testHarness.Delete(context.TODO(),&promservice)).Should(Succeed())
+				close(done)
+			}, 300)
+
+			It("Should log an error if the prometheus service isn't found",func(done Done){
+				Eventually(func()(assertion bool){
+					err := testHarness.Get(context.TODO(),types.NamespacedName{Name:meterdef.Name,Namespace:meterdef.Namespace},meterdef)
+					if err != nil {
+						assertion = false
+					}
+
+					errorMsg := "failed to get prometheus service: Service \"rhm-prometheus-meterbase\" not found"
+					assertion = runAssertionOnConditions(meterdef.Status,errorMsg)
+					return assertion
+				},300).Should(BeTrue())
+				close(done)
+			},300)
+		})
 	})
 })
+
+func runAssertionOnConditions(status v1alpha1.MeterDefinitionStatus,errorMsg string)(assertion bool){
+	for _, condition := range status.Conditions {
+		if condition.Message == errorMsg {
+			assertion = true
+			return assertion
+		}
+	}
+
+	assertion = false
+	return assertion
+}
 
 func runAssertionOnMeterDef(meterdef v1alpha1.MeterDefinition) (assertion bool) {
 	if meterdef.Status.Results != nil {
@@ -202,7 +240,7 @@ func runAssertionOnMeterDef(meterdef v1alpha1.MeterDefinition) (assertion bool) 
 				"queryName":    Equal("test"),
 				"startTime":    Equal(startTime),
 				"endTime":      Equal(endTime),
-				"value":        Equal(int32(1)),
+				"value":        BeEquivalentTo(int32(1)),
 			}))
 		}
 	}
