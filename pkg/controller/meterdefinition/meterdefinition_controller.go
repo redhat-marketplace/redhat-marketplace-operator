@@ -172,11 +172,8 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 
 	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
 	if err != nil {
-		queue = true
-		instance.Status.Conditions.SetCondition(status.Condition{
-			Message: err.Error(),
-		})
-		reqLogger.Error(err, "error encountered")
+		_ = r.updateConditions(instance, err, reqLogger, queue)
+		return reconcile.Result{}, err
 	}
 
 	certConfigMap, err := r.queryForCertConfigMap(context.TODO(), cc, request)
