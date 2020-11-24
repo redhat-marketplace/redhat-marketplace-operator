@@ -218,7 +218,6 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 			return reconcile.Result{}, err
 		}
 
-		//TODO: need test case
 		client, err := prometheus.ProvideApiClientFromCert(r.cfg.PathToKubeProxyAPIToken, service, &cert, token, &mutex)
 		if err != nil {
 			reqLogger.Error(err, "error encountered")
