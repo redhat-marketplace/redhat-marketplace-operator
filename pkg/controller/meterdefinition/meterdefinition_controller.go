@@ -169,7 +169,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		queue = instance.Status.Conditions.SetCondition(v1alpha1.MeterDefConditionHasResults)
 	}
 
-	//TODO: need test case
+
 	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
 	if err != nil {
 		queue = true
@@ -181,22 +181,15 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 
 	certConfigMap, err := r.queryForCertConfigMap(context.TODO(), cc, request)
 	if err != nil {
-		queue = true
-		instance.Status.Conditions.SetCondition(status.Condition{
-			Message: err.Error(),
-		})
-		reqLogger.Error(err, "error encountered")
+		_ = r.updateConditions(instance, err, reqLogger, queue)
+		return reconcile.Result{}, err
 	}
 
 	//TODO: need test case
 	if r.cfg.PathToKubeProxyAPIToken == "" {
 		err = errors.New("path to kube proxy token is nil")
-		reqLogger.Error(err, "error encountered")
-		result := r.triggerStatusUpdate(instance, err, reqLogger, queue)
-		if result.Is(Error) {
-			reqLogger.Error(result.GetError(), "Failed to update status.")
-		}
-		return reconcile.Result{}, errors.New("file path to kube proxy token is nil")
+		_ = r.updateConditions(instance, err, reqLogger, queue)
+		return reconcile.Result{}, err
 	}
 
 	// TODO: need test case
@@ -210,31 +203,26 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	if certConfigMap != nil && token != "" && service != nil {
 		cert, err := r.getCertificateFromConfigMap(*certConfigMap)
 		if err != nil {
-			reqLogger.Error(err, "error encountered")
-			result := r.triggerStatusUpdate(instance, err, reqLogger, queue)
-			if result.Is(Error) {
-				reqLogger.Error(result.GetError(), "Failed to update status.")
-			}
+			_ = r.updateConditions(instance, err, reqLogger, queue)
 			return reconcile.Result{}, err
 		}
 
 		client, err := prometheus.ProvideApiClientFromCert(r.cfg.PathToKubeProxyAPIToken, service, &cert, token, &mutex)
 		if err != nil {
-			reqLogger.Error(err, "error encountered")
-			result := r.triggerStatusUpdate(instance, err, reqLogger, queue)
-			if result.Is(Error) {
-				reqLogger.Error(result.GetError(), "Failed to update status.")
-			}
+			_ = r.updateConditions(instance, err, reqLogger, queue)
 			return reconcile.Result{}, err
 		}
 
 		promAPI := v1.NewAPI(client)
 		if promAPI == nil {
-			return reconcile.Result{}, errors.New("promApi is nil")
+			err = errors.New("promApi is nil")
+			_ = r.updateConditions(instance, err, reqLogger, queue)
+			return reconcile.Result{}, err
 		}
 
 		queryPreviewResultArray, err = r.generateQueryPreview(instance, reqLogger, promAPI)
 		if err != nil {
+			_ = r.updateConditions(instance, err, reqLogger, queue)
 			return reconcile.Result{}, err
 		}
 	}
@@ -263,10 +251,12 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 }
 
-func (r *ReconcileMeterDefinition) triggerStatusUpdate(instance *v1alpha1.MeterDefinition, err error, reqLogger logr.Logger, queue bool) *ExecResult {
+func (r *ReconcileMeterDefinition) updateConditions(instance *v1alpha1.MeterDefinition, err error, reqLogger logr.Logger, queue bool) *ExecResult {
 	instance.Status.Conditions.SetCondition(status.Condition{
 		Message: err.Error(),
 	})
+
+	reqLogger.Error(err, "error encountered")
 
 	cc := r.ccprovider.NewCommandRunner(r.client, r.scheme, reqLogger)
 	result, _ := cc.Do(
@@ -279,6 +269,10 @@ func (r *ReconcileMeterDefinition) triggerStatusUpdate(instance *v1alpha1.MeterD
 			return UpdateAction(instance, UpdateStatusOnly(true)), nil
 		}),
 	)
+
+	if result.Is(Error) {
+		reqLogger.Error(result.GetError(), "Failed to update status.")
+	}
 
 	return result
 }
