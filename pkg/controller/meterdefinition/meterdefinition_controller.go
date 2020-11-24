@@ -192,6 +192,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	// TODO: need test case
 	token, err := prometheus.GetAuthToken(r.cfg.PathToKubeProxyAPIToken)
 	if err != nil {
+		_ = r.updateConditions(instance, err, reqLogger, queue)
 		reqLogger.Error(err, "error encountered")
 	}
 
