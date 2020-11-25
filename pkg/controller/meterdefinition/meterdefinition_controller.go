@@ -172,28 +172,28 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 
 	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
 	if err != nil {
-		_ = r.updateConditions(instance, err, reqLogger, queue)
+		_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
 		return reconcile.Result{}, err
 	}
 
 	certConfigMap, err := r.queryForCertConfigMap(context.TODO(), cc, request)
 	if err != nil {
-		_ = r.updateConditions(instance, err, reqLogger, queue)
+		_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
 		return reconcile.Result{}, err
 	}
 
 	//TODO: need test case
 	if r.cfg.PathToKubeProxyAPIToken == "" {
 		err = errors.New("path to kube proxy token is nil")
-		_ = r.updateConditions(instance, err, reqLogger, queue)
+		_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
 		return reconcile.Result{}, err
 	}
 
 	// TODO: need test case
 	token, err := prometheus.GetAuthToken(r.cfg.PathToKubeProxyAPIToken)
 	if err != nil {
-		_ = r.updateConditions(instance, err, reqLogger, queue)
-		reqLogger.Error(err, "error encountered")
+		_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
+		return reconcile.Result{}, err
 	}
 
 	var queryPreviewResultArray []v1alpha1.Result
@@ -201,26 +201,26 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	if certConfigMap != nil && token != "" && service != nil {
 		cert, err := r.getCertificateFromConfigMap(*certConfigMap)
 		if err != nil {
-			_ = r.updateConditions(instance, err, reqLogger, queue)
+			_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
 			return reconcile.Result{}, err
 		}
 
 		client, err := prometheus.ProvideApiClientFromCert(r.cfg.PathToKubeProxyAPIToken, service, &cert, token, &mutex)
 		if err != nil {
-			_ = r.updateConditions(instance, err, reqLogger, queue)
+			_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
 			return reconcile.Result{}, err
 		}
 
 		promAPI := v1.NewAPI(client)
 		if promAPI == nil {
 			err = errors.New("promApi is nil")
-			_ = r.updateConditions(instance, err, reqLogger, queue)
+			_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
 			return reconcile.Result{}, err
 		}
 
 		queryPreviewResultArray, err = r.generateQueryPreview(instance, reqLogger, promAPI)
 		if err != nil {
-			_ = r.updateConditions(instance, err, reqLogger, queue)
+			_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
 			return reconcile.Result{}, err
 		}
 	}
@@ -249,7 +249,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 }
 
-func (r *ReconcileMeterDefinition) updateConditions(instance *v1alpha1.MeterDefinition, err error, reqLogger logr.Logger, queue bool) *ExecResult {
+func (r *ReconcileMeterDefinition) updateConditionsWithError(instance *v1alpha1.MeterDefinition, err error, reqLogger logr.Logger, queue bool) *ExecResult {
 	instance.Status.Conditions.SetCondition(status.Condition{
 		Message: err.Error(),
 	})

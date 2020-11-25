@@ -3,7 +3,6 @@ package controller_test
 import (
 	"context"
 	"fmt"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -26,14 +25,13 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 	})
 
 	AfterEach(func() {
-		time.Sleep(time.Second * 30)
 		Expect(testHarness.AfterAll()).To(Succeed())
 	})
 
 	Context("Meterdefinition reconcile", func() {
 
 		var meterdef *v1alpha1.MeterDefinition
-		certConfigMap := corev1.ConfigMap{
+		certConfigMap := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
 				Namespace: Namespace,
@@ -87,19 +85,17 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 		},180)
 
 		It("Should query prometheus and append metric data to meterdef status", func(done Done) {
-			Eventually(func() (assertion bool) {
+			Eventually(func() bool {
 				err := testHarness.Get(context.TODO(),types.NamespacedName{Name: meterdef.Name, Namespace: Namespace},meterdef)
 				if err != nil {
 					fmt.Println(err)
-					assertion = false
-					return assertion
+					return false 
 				}
 				if err != nil {
-					assertion = false
-					return assertion
+					return false
 				}
 
-				assertion = runAssertionOnMeterDef(*meterdef)
+				assertion := runAssertionOnMeterDef(*meterdef)
 				return assertion
 
 			}, 300).Should(BeTrue())
@@ -108,31 +104,26 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 
 		Context("Error handling for operator-cert-ca-bundle config map", func() {
 			BeforeEach(func(done Done) {
-				Eventually(func() (assertion bool) {
-					err := testHarness.Get(context.TODO(), types.NamespacedName{Name: certConfigMap.Name, Namespace: certConfigMap.Namespace}, &certConfigMap)
+				Eventually(func() bool {
+					err := testHarness.Get(context.TODO(), types.NamespacedName{Name: certConfigMap.Name, Namespace: certConfigMap.Namespace}, certConfigMap)
 					if err != nil {
-						assertion = false
-						return assertion
+						return false
 					}
-					assertion = Expect(testHarness.Delete(context.TODO(), &certConfigMap)).Should(Succeed())
+
+					assertion := Expect(testHarness.Delete(context.TODO(), certConfigMap)).Should(Succeed())
 					return assertion
 				},300).Should(BeTrue())
 				close(done)
 			}, 300)
 
 			It("Should log an error if the operator-cert-ca-bundle config map is not found", func(done Done) {
-				Eventually(func() (assertion bool) {
+				Eventually(func() bool {
 					err := testHarness.Get(context.TODO(),types.NamespacedName{Name: meterdef.Name, Namespace: Namespace},meterdef)
 					if err != nil {
-						assertion = false
-						return assertion
+						return false
 					}
 
-					for _, condition := range meterdef.Status.Conditions {
-						if condition.Message == "Failed to retrieve operator-certs-ca-bundle.: ConfigMap \"operator-certs-ca-bundle\" not found" {
-							assertion = true
-						}
-					}
+					assertion := runAssertionOnConditions(meterdef.Status,"Failed to retrieve operator-certs-ca-bundle.: ConfigMap \"operator-certs-ca-bundle\" not found")
 
 					return assertion
 
@@ -141,57 +132,32 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 			}, 300)
 		})
 
-		Context("Error handling for operator-cert-ca-bundle config map", func() {
+		FContext("Error handling for operator-cert-ca-bundle config map", func() {
 			BeforeEach(func(done Done) {
-				Eventually(func() (assertion bool) {
-					err := testHarness.Get(context.TODO(), types.NamespacedName{Name: utils.OPERATOR_CERTS_CA_BUNDLE_NAME, Namespace: Namespace}, certConfigMap.DeepCopyObject())
-					if err != nil {
-						fmt.Println("error retrieving", err)
-						assertion = false
-						return assertion
-					}
-
-					certConfigMap.Data = map[string]string{
+				Eventually(func() bool {
+					certConfigMap.Data = map[string]string {
 						"wrong-key": "wrong-key",
 					}
 
-					err = testHarness.Upsert(context.TODO(), certConfigMap.DeepCopyObject())
-					if err != nil {
-						fmt.Println("error updating", err)
-						assertion = false
-						return assertion
-					}
+					assertion := Expect(testHarness.Upsert(context.TODO(), certConfigMap)).Should(Succeed())
 
-					assertion = true
 					return assertion
 				}, 300).Should(BeTrue())
-
 				close(done)
 			}, 300)
 
-			// delete and let test harness regenerate
-			AfterEach(func(){
-				Expect(testHarness.Delete(context.TODO(),&certConfigMap)).Should(Succeed())
-			})
-
 			It("Should log an error if the operator-cert-ca-bundle config map is misconfigured", func(done Done) {
-				Eventually(func() (assertion bool) {
+				Eventually(func() bool {
 					err := testHarness.Get(context.TODO(), types.NamespacedName{Name: meterdef.Name, Namespace: Namespace}, meterdef)
 					if err != nil {
-						assertion = false
-						return assertion
+						return false 
 					}
 
-					for _, condition := range meterdef.Status.Conditions {
-						if condition.Message == "Error retrieving cert from config map" {
-							assertion = true
-							return assertion
-						}
-					}
+					assertion := runAssertionOnConditions(meterdef.Status,"Error retrieving cert from config map" )
 
 					return assertion
 
-				}, 300, interval).Should(BeTrue())
+				}, 300).Should(BeTrue())
 				close(done)
 			}, 300)
 		})
@@ -210,14 +176,14 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 			}, 300)
 
 			It("Should log an error if the prometheus service isn't found",func(done Done){
-				Eventually(func()(assertion bool){
+				Eventually(func() bool{
 					err := testHarness.Get(context.TODO(),types.NamespacedName{Name:meterdef.Name,Namespace:meterdef.Namespace},meterdef)
 					if err != nil {
-						assertion = false
+						 return false
 					}
 
 					errorMsg := "failed to get prometheus service: Service \"rhm-prometheus-meterbase\" not found"
-					assertion = runAssertionOnConditions(meterdef.Status,errorMsg)
+					assertion := runAssertionOnConditions(meterdef.Status,errorMsg)
 					return assertion
 				},300).Should(BeTrue())
 				close(done)
