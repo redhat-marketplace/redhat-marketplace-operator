@@ -27,8 +27,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	"github.com/operator-framework/operator-sdk/pkg/status"
-	corev1 "k8s.io/api/core/v1"
-
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	v1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
@@ -38,7 +36,10 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -190,22 +191,48 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	}
 
 	// TODO: need test case
-	token, err := prometheus.GetAuthToken(r.cfg.PathToKubeProxyAPIToken)
+	// token, err := prometheus.GetAuthToken(r.cfg.PathToKubeProxyAPIToken)
+	// utils.PrettyPrintWithLog("auth-service-account:",token)
+	// if err != nil {
+	// 	_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
+	// 	return reconcile.Result{}, err
+	// }
+
+	bearerToken,secretName,err := r.getTokenFromServiceAccount(instance,reqLogger,cc)
 	if err != nil {
-		_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
-		return reconcile.Result{}, err
+		reqLogger.Error(err,"error retrieving bearer token")
+		return reconcile.Result{},err
 	}
+
+	reqLogger.Info("Bearer Token","token string",bearerToken)
+
+	consoleUrl,err := r.getConsoleUrl(reqLogger)
+	if err != nil {
+		reqLogger.Error(err,"err finding console resource")
+	}
+
+	reqLogger.Info("info","console url",consoleUrl)
+	
+	authToken, err := r.requestAuthTokenFromServiceSecret(bearerToken,secretName,cc,reqLogger)
+	if err != nil {
+		reqLogger.Error(err,"error retrieving auth token")
+		return reconcile.Result{},err
+	}
+
+	reqLogger.Info("Auth Token","token string",authToken)
+	//TODO: use this token to 
 
 	var queryPreviewResultArray []v1alpha1.Result
 
-	if certConfigMap != nil && token != "" && service != nil {
+	if certConfigMap != nil && authToken != "" && service != nil {
 		cert, err := r.getCertificateFromConfigMap(*certConfigMap)
 		if err != nil {
 			_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
 			return reconcile.Result{}, err
 		}
 
-		client, err := prometheus.ProvideApiClientFromCert(r.cfg.PathToKubeProxyAPIToken, service, &cert, token, &mutex)
+		//TODO: global var cache this, with a mutex
+		client, err := prometheus.ProvideApiClientFromCert(service, &cert, token, &mutex)
 		if err != nil {
 			_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
 			return reconcile.Result{}, err
@@ -247,6 +274,120 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 
 	reqLogger.Info("finished reconciling")
 	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
+}
+
+func(r *ReconcileMeterDefinition)getConsoleUrl(reqLogger logr.Logger)(string,error){
+	console := &unstructured.Unstructured{}
+	console.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "config.openshift.io",
+		Kind:    "Console",
+		Version: "v1",
+	})
+	err := r.client.Get(context.Background(), client.ObjectKey{
+		Name: "cluster",
+	}, console)
+
+	if err != nil {
+		reqLogger.Error(err, "Failed to retrieve Console resource")
+		return "", err
+	}
+
+	status,ok := console.Object["status"].(map[string]string); if !ok {
+		return "",errors.New("error converting status to map")
+	}
+	url := status["consoleUrl"]
+	reqLogger.Info("console url","test",url)
+	return url, nil
+}
+
+func (r *ReconcileMeterDefinition) requestAuthTokenFromServiceSecret(bearerToken string, secretName string, cc ClientCommandRunner,reqLogger logr.Logger) (string,error) {
+
+	console := &unstructured.Unstructured{}
+	console.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "config.openshift.io",
+		Kind:    "Console",
+		Version: "v1",
+	})
+	err := r.client.Get(context.Background(), client.ObjectKey{
+		Name: "cluster",
+	}, console)
+
+	if err != nil {
+		reqLogger.Error(err, "Failed to retrieve Console resource")
+		return "", err
+	}
+
+	status,ok := console.Object["status"].(map[string]string); if !ok {
+		return "",errors.New("error converting status to map")
+	}
+	url := status["consoleUrl"]
+	reqLogger.Info("console url","test",url)
+	return url, nil
+
+}
+
+// func (r *ReconcileMeterDefinition) requestAuthTokenFromServiceSecret(bearerToken string, secretName string, cc ClientCommandRunner) (string,error) {
+
+// 	createdTr := &authv1.TokenRequest{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name: "auth-token-request",
+// 			Namespace: "openshift-redhat-marketplace",
+// 		},
+// 		Spec: authv1.TokenRequestSpec{
+// 			BoundObjectRef: &authv1.BoundObjectReference{
+// 				Kind: "Secret",
+// 				Name: secretName,
+// 			},
+// 		},
+// 	}
+
+// 	if result, _ := cc.Do(context.TODO(), CreateAction(createdTr)); !result.Is(Continue) {
+// 		return "",result.GetError()
+// 	}
+
+// 	foundTr := &authv1.TokenRequest{}
+// 	if result, _ := cc.Do(context.TODO(), GetAction(types.NamespacedName{Name:createdTr.Name,Namespace: "openshift-redhat-marketplaces" },foundTr)); !result.Is(Continue) {
+// 		return "",result.GetError()
+// 	}
+
+// 	return foundTr.Status.Token,nil
+
+// }
+
+func (r *ReconcileMeterDefinition) getTokenFromServiceAccount(instance *v1alpha1.MeterDefinition, reqLogger logr.Logger,cc ClientCommandRunner)(string,string,error){
+	sa := &corev1.ServiceAccount{}
+	name := types.NamespacedName{Name: utils.OPERATOR_SERVICE_ACCOUNT, Namespace: instance.Namespace}
+
+	if result, _ := cc.Do(context.TODO(), GetAction(name, sa)); !result.Is(Continue) {
+		return "", "",result.GetError()
+	}
+
+	var foundObjRef corev1.ObjectReference
+	for _,objRef := range sa.Secrets {
+		if strings.Contains(objRef.Name,"token"){
+			foundObjRef = objRef 
+		}
+	}
+
+	tokenSecret := &corev1.Secret{}
+	secretName := types.NamespacedName{Name: foundObjRef.Name,Namespace: "openshift-redhat-marketplace"}
+	reqLogger.Info("FOUND OBJ REF: ","obj",secretName.Name)
+	if result, _ := cc.Do(context.TODO(), GetAction(secretName, tokenSecret)); !result.Is(Continue) {
+		return "", "",result.GetError()
+	}
+
+	selector := corev1.SecretKeySelector{
+		LocalObjectReference: corev1.LocalObjectReference{Name: foundObjRef.Name},
+		Key: "token",
+	}
+
+	tokenBytes,err := utils.ExtractCredKey(tokenSecret,selector)
+	if err != nil {
+		return "","",err
+	}
+
+	token := string(tokenBytes)
+	return token,foundObjRef.Name,nil
 }
 
 func (r *ReconcileMeterDefinition) updateConditionsWithError(instance *v1alpha1.MeterDefinition, err error, reqLogger logr.Logger, queue bool) *ExecResult {

@@ -504,6 +504,7 @@ roles:
           - events
           - configmaps
           - secrets
+          - serviceaccounts/token
         verbs:
           - create
           - delete

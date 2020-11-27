@@ -45,6 +45,7 @@ type Features struct {
 
 // FilePaths
 type FilePaths struct {
+	//TODO: rename this
 	PathToKubeProxyAPIToken string `env:"PATH_TO_KUBE_PROXY_TOKEN" envDefault:"/etc/auth-service-account/token"`
 }
 

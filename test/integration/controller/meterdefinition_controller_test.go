@@ -19,7 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = FDescribe("MeterDefController reconcile", func() {
+var _ = Describe("MeterDefController reconcile", func() {
 	BeforeEach(func() {
 		Expect(testHarness.BeforeAll()).To(Succeed())
 	})
@@ -132,7 +132,7 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 			}, 300)
 		})
 
-		FContext("Error handling for operator-cert-ca-bundle config map", func() {
+		Context("Error handling for operator-cert-ca-bundle config map", func() {
 			BeforeEach(func(done Done) {
 				Eventually(func() bool {
 					certConfigMap.Data = map[string]string {

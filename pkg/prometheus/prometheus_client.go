@@ -12,6 +12,7 @@ import (
 	"emperror.dev/errors"
 	"github.com/prometheus/client_golang/api"
 	"github.com/prometheus/common/log"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -34,10 +35,9 @@ type UserAuth struct {
 }
 
 func ProvideApiClientFromCert(
-	apiTokenPath string,
 	promService *corev1.Service,
 	caCert *[]byte,
-	auth string,
+	token string,
 	mutex *sync.Mutex,
 ) (api.Client, error) {
 
@@ -63,7 +63,7 @@ func ProvideApiClientFromCert(
 
 	conf, err := NewSecureClientFromCert(&PrometheusSecureClientConfig{
 		Address: fmt.Sprintf("https://%s.%s.svc:%v", name, namespace, port),
-		Token:   auth,
+		Token:   token,
 		CaCert:  caCert,
 	}, mutex)
 
@@ -81,6 +81,16 @@ func ProvideApiClientFromCert(
 
 func GetAuthToken(apiTokenPath string) (token string, returnErr error) {
 	content, err := ioutil.ReadFile(apiTokenPath)
+	utils.PrettyPrintWithLog("CONTENT: ",content)
+	if err != nil {
+		return "", err
+	}
+	token = fmt.Sprintf(string(content))
+	return token, nil
+}
+
+func GetAuthTokenForKubeAdm() (token string, returnErr error) {
+	content, err := ioutil.ReadFile("/etc/kubeadmin/token")
 	if err != nil {
 		return "", err
 	}
@@ -118,6 +128,7 @@ func NewSecureClient(config *PrometheusSecureClientConfig) (api.Client, error) {
 }
 
 func NewSecureClientFromCert(config *PrometheusSecureClientConfig, mutex *sync.Mutex) (api.Client, error) {
+	//TODO: this needs to be a global var in the meterdef controller
 	mutex.Lock()
 	defer mutex.Unlock()
 
