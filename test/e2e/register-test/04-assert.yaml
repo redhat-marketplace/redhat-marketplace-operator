@@ -1,3 +1,23 @@
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: MarketplaceConfig
+metadata:
+  name: marketplaceconfig
+  namespace: openshift-redhat-marketplace
+spec:
+  installIBMCatalogSource: true
+status:
+  conditions:
+    - message: Finished Installing necessary components
+      reason: FinishedInstall
+      status: 'True'
+      type: Complete
+    - message: Finished Installing necessary components
+      reason: FinishedInstall
+      status: 'False'
+      type: Installing
+    - reason: ClusterRegistered
+      type: Registered
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:

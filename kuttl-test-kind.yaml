@@ -6,16 +6,4 @@ parallel: 1
 crdDir: deploy/crds
 testDirs:
   - test/e2e/
-timeout: 120
-#commands:
-  # - script: |
-  #     kubectl create secret generic regcred \
-  #       --namespace $NAMESPACE \
-  #       --from-file=.dockerconfigjson=$HOME/.docker/config.json \
-  #       --type=kubernetes.io/dockerconfigjson
-  #   ignoreFailure: true
-  # - timeout: 300
-  #   script: |
-  #     export PULL_SECRET_NAME=regcred
-  #     cd ../../..
-  #     skaffold build --namespace $NAMESPACE --detect-minikube=true --default-repo $IMAGE_REGISTRY -q | skaffold deploy --namespace $NAMESPACE --build-artifacts -
+timeout: 180

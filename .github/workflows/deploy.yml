@@ -189,13 +189,10 @@ jobs:
         env:
           USE_EXISTING_CLUSTER: true
           KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT: true
+          TEST_PULL_SECRET: ${{ secrets.TEST_PULL_SECRET }}
         run: |
+          echo "PULL_SECRET=$TEST_PULL_SECRET" >> redhat-marketplace-pull-secret.env
           make test-ci-int
-
-      - uses: actions/upload-artifact@v2
-        with:
-          name: cover-int
-          path: cover-int.out
 
   cover:
     name: Cover
@@ -212,9 +209,9 @@ jobs:
       - uses: actions/download-artifact@v2
       - name: Report cover
         run: |
-          cp cover-int/cover-int.out .
-          cp cover-unit/cover-unit.out .
-          make test-join test-cover-text
+          cp cover-int/cover-int.out ./cover.out
+          #cp cover-unit/cover-unit.out .
+          #make test-join test-cover-text
           go tool cover -html=cover.out -o cover.html
       - uses: actions/upload-artifact@v2
         with:

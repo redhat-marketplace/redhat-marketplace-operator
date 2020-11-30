@@ -672,9 +672,6 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 							},
 						},
 					},
-					SecurityContext: &corev1.PodSecurityContext{
-						FSGroup: ptr.Int64(1000),
-					},
 					Volumes: []corev1.Volume{
 						{
 							Name: utils.WATCH_KEEPER_CONFIG_NAME,
@@ -817,9 +814,6 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 								},
 							},
 						},
-					},
-					SecurityContext: &corev1.PodSecurityContext{
-						FSGroup: ptr.Int64(1000),
 					},
 					Volumes: []corev1.Volume{
 						{
