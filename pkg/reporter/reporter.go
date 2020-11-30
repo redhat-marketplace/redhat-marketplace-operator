@@ -179,6 +179,39 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 					return
 				}
 
+				_, ok := labelMatrix["metric_label"]
+				if !ok {
+					continue
+				}
+				_, ok = labelMatrix["workload_type"]
+				if !ok {
+					continue
+				}
+				_, ok = labelMatrix["name"]
+				if !ok {
+					continue
+				}
+				_, ok = labelMatrix["namespace"]
+				if !ok {
+					continue
+				}
+				_, ok = labelMatrix["metric_query"]
+				if !ok {
+					continue
+				}
+				_, ok = labelMatrix["metric_aggregation"]
+				if !ok {
+					continue
+				}
+				_, ok = labelMatrix["meter_group"]
+				if !ok {
+					continue
+				}
+				_, ok = labelMatrix["meter_kind"]
+				if !ok {
+					continue
+				}
+
 				metricLabel := labelMatrix["metric_label"].(string)
 				workloadType := marketplacev1alpha1.WorkloadType(labelMatrix["workload_type"].(string))
 				name := labelMatrix["name"].(string)
