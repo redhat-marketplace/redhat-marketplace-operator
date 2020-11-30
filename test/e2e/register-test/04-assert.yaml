@@ -15,7 +15,9 @@ status:
       reason: FinishedInstall
       status: 'False'
       type: Installing
-    - reason: ClusterRegistered
+    - message: Cluster Registered Successfully
+      reason: ClusterRegistered
+      status: 'True'
       type: Registered
 ---
 apiVersion: apps/v1
@@ -60,27 +62,6 @@ metadata:
   finalizers:
   - children.downloads.deploy.razee.io
   name: parent
-  namespace: openshift-redhat-marketplace
-spec:
-  auth:
-    iam:
-      apiKeyRef:
-        valueFrom:
-          secretKeyRef:
-            key: accesskey
-            name: rhm-cos-reader-key
-      grantType: urn:ibm:params:oauth:grant-type:apikey
-      responseType: cloud_iam
-      url: https://iam.cloud.ibm.com/identity/token
-status:
-  touched: true
----
-apiVersion: marketplace.redhat.com/v1alpha1
-kind: RemoteResourceS3
-metadata:
-  finalizers:
-  - children.downloads.deploy.razee.io
-  name: child
   namespace: openshift-redhat-marketplace
 spec:
   auth:

@@ -171,20 +171,6 @@ jobs:
           kubectl krew install kuttl
           make setup-kind
 
-      - name: Wait for deploy to succeed
-        uses: fountainhead/action-wait-for-check@v1.0.0
-        id: wait-for-deploy
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          checkName: Deploy Finished
-          timeoutSeconds: 1000
-          intervalSeconds: 10
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
-      - name: Fail
-        if: steps.wait-for-deploy.outputs.conclusion == 'failure'
-        run: exit 1
-
       - name: Test Integration
         env:
           USE_EXISTING_CLUSTER: true
@@ -192,7 +178,7 @@ jobs:
           TEST_PULL_SECRET: ${{ secrets.TEST_PULL_SECRET }}
         run: |
           echo "PULL_SECRET=$TEST_PULL_SECRET" >> redhat-marketplace-pull-secret.env
-          make test-ci-int
+          make test-ci-int-kind
 
   cover:
     name: Cover
@@ -287,7 +273,11 @@ jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [build, test-unit, test-integration]
+    if: |
+      github.event_name == 'push'
+      && (startsWith(github.ref,'refs/heads/release/')
+          || startsWith(github.ref,'refs/heads/hotfix/'))
     strategy:
       matrix:
         image:
@@ -363,6 +353,10 @@ jobs:
     name: Deploy OPM Index
     runs-on: ubuntu-latest
     needs: [build, tag]
+    if: |
+      github.event_name == 'push'
+      && (startsWith(github.ref,'refs/heads/release/')
+          || startsWith(github.ref,'refs/heads/hotfix/'))
     strategy:
       matrix:
         channel:

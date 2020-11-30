@@ -46,7 +46,7 @@ spec:
     spec:
       containers:
         - name: mockauthcontroller
-          image: mockauthcontroller:latest
+          image: mockauthcontroller:${TAG}
           imagePullPolicy: IfNotPresent
           terminationMessagePolicy: FallbackToLogsOnError
       serviceAccountName: mockauthcontroller

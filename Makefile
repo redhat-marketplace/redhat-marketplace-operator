@@ -331,7 +331,7 @@ lint: ## lint the repo
 .PHONY: test
 test: testbin ## test-ci runs all tests for CI builds
 	@echo "testing"
-	make test-ci-unit test-int-kind
+	make test-ci-unit
 
 KIND_CLUSTER_NAME ?= test
 KIND_CONTROL_PLANE_NODE ?= $(KIND_CLUSTER_NAME)-control-plane
@@ -358,9 +358,8 @@ kind-certs:
 	@cd test/certs	&& $(jq) -n --argfile o1 server-csr.json --argfile o2 sans.json '$$o1 | .hosts = $$o2 | .hosts[.hosts | length] |= . + "*.openshift-redhat-marketplace.svc"' > marketplace-csr.json
 	@cd test/certs && $(cfssl) gencert -ca=ca.crt -ca-key=ca.key -profile=kubernetes marketplace-csr.json | $(cfssljson) -bare server
 
-test-int-kind: ## test integration using kind
-	@make setup-kind
-	- USE_EXISTING_CLUSTER=true make test-ci-int
+ test-ci-int-kind: ## test integration using kind
+	PULL_SECRET_NAME=regcred IS_KIND=true kubectl kuttl test --namespace openshift-redhat-marketplace --kind-context test --config ./kuttl-test-kind.yaml ./test/e2e --test ^register-test$
 
 .PHONY: test-cover
 test-cover: ## Run coverage on code

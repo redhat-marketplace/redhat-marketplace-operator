@@ -56,6 +56,13 @@ type Marketplace struct {
 	InsecureClient bool   `env:"MARKETPLACE_HTTP_INSECURE_MODE" envDefault:"false"`
 }
 
+func reset() {
+	globalMutex.Lock()
+	defer globalMutex.Unlock()
+
+	global = nil
+}
+
 // ProvideConfig gets the config from env vars
 func ProvideConfig() (OperatorConfig, error) {
 	globalMutex.Lock()

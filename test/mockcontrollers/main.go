@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/pflag"
@@ -65,13 +66,13 @@ func main() {
 	}
 
 	termChan := make(chan os.Signal)
-	signal.Notify(termChan)
-
+	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM)
 	log.Info("starting")
 	ctx, cancel := context.WithCancel(context.Background())
 	go handleSecretGeneration(ctx)
 	go handleCABundleInsertion(ctx)
-	<-termChan
+	t := <-termChan
+	log.Error(err, "getting killed", "signal", t)
 	cancel()
 	log.Info("exiting")
 }
@@ -113,6 +114,13 @@ func handleCABundleInsertion(ctx context.Context) {
 					getResult, _ := client.Resource(configRes).Namespace(*namespace).Get(ctx, obj.GetName(), metav1.GetOptions{})
 
 					if v, ok := getResult.Object["data"]; ok {
+						if v == nil {
+							continue
+						}
+						if _, ok := v.(map[string]interface{}); !ok {
+							continue
+						}
+
 						if crt, ok := v.(map[string]interface{})["service-ca.crt"]; ok && crt.(string) == string(serviceCA) {
 							continue
 						}

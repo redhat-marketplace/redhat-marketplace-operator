@@ -420,8 +420,6 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		requeueFlag, err := r.createCatalogSource(request, marketplaceConfig, catalogSrcName)
 		if requeueFlag && err == nil {
 			return reconcile.Result{Requeue: true}, nil
-		} else if !requeueFlag && err != nil {
-			return reconcile.Result{}, err
 		}
 	}
 
@@ -520,6 +518,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			reqLogger.Error(err, "Failed to update status")
 			return reconcile.Result{}, err
 		}
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	reqLogger.Info("reconciling finished")

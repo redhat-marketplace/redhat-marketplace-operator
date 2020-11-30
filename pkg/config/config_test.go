@@ -22,10 +22,13 @@ import (
 )
 
 var _ = Describe("Config", func() {
+	BeforeEach(func() {
+		reset()
+	})
 	Context("with defaults", func() {
 		It("should set defaults", func() {
 
-		cfg, err := ProvideConfig()
+			cfg, err := ProvideConfig()
 			Expect(err).To(Succeed())
 			Expect(cfg).ToNot(BeNil())
 
@@ -38,6 +41,7 @@ var _ = Describe("Config", func() {
 		BeforeEach(func() {
 			os.Setenv("FEATURE_IBMCATALOG", "false")
 			os.Setenv("RELATED_IMAGE_METRIC_STATE", "foo")
+			reset()
 		})
 
 		AfterEach(func() {

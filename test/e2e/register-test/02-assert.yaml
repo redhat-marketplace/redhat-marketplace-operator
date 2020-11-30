@@ -15,6 +15,10 @@ status:
       reason: FinishedInstall
       status: 'False'
       type: Installing
+    - message: Cluster Registered Successfully
+      reason: ClusterRegistered
+      status: 'False'
+      type: Registered
 ---
 apiVersion: apps/v1
 kind: Deployment

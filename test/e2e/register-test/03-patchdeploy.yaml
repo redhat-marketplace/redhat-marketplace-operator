@@ -1,5 +1,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: if "$IS_KIND" ; then kubectl patch deployment rhm-remoteresources3-controller -n $NAMESPACE --patch "$(cat razeeservices-patch.yaml)" ; fi
-  - script: if "$IS_KIND" ; then kubectl patch deployment rhm-watch-keeper -n $NAMESPACE --patch "$(cat razeeservices-patch.yaml)" ; fi
+  - script: if [ "$IS_KIND" != "" ] ; then kubectl patch deployment rhm-remoteresources3-controller -n $NAMESPACE --patch "$(cat razeeservices-patch.yaml)" ; fi
+  - script: if [ "$IS_KIND" != "" ] ; then kubectl patch deployment rhm-watch-keeper -n $NAMESPACE --patch "$(cat razeeservices-patch.yaml)" ; fi
