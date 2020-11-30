@@ -1,9 +1,9 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - timeout: 500
+  - timeout: 600
     script: |
-      echo $PULL_SECRET && cd ../../.. && ./testbin/skaffold build --namespace ${NAMESPACE} --detect-minikube=true --default-repo $IMAGE_REGISTRY -q | ./testbin/skaffold deploy --namespace ${NAMESPACE} --build-artifacts -
+      cd ../../.. && make skaffold-run
 delete:
   - apiVersion: marketplace.redhat.com/v1alpha1
     kind: MarketplaceConfig

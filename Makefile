@@ -200,11 +200,8 @@ skaffold-dev: $(skaffold) ## Run skaffold dev. Will unique tag the operator and 
 	make create
 	DEVPOSTFIX=$(DEVPOSTFIX) docker=$(DOCKER_EXEC) $(skaffold) dev --tail --port-forward --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) $(ARGS)
 
-skaffold-run: $(skaffold) ## Run skaffold run. Will uniquely tag the operator.
-	make helm
-	make create
-	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=redhat-marketplace-operator --set pullPolicy=IfNotPresent
-	docker=$(DOCKER_EXEC) $(skaffold) run --tail --default-repo $(IMAGE_REGISTRY) --cleanup=false $(ARGS)
+skaffold-run: $(skaffold) ## Run skaffold run. Will unique tag the operator and rebuild.
+	DEVPOSTFIX=$(DEVPOSTFIX) docker=$(DOCKER_EXEC) $(skaffold) run --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) $(ARGS)
 
 code-vet: ## Run go vet for this project. More info: https://golang.org/cmd/vet/
 	@echo go vet
