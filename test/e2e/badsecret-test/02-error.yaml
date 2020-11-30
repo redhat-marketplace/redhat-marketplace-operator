@@ -17,5 +17,15 @@ status:
       type: Installing
     - message: Cluster Registered Successfully
       reason: ClusterRegistered
-      status: "True"
+      status: 'True'
       type: Registered
+  meterBaseSubConditions:
+    - message: Meter Base install complete
+      reason: FinishedMeterBaseInstall
+      status: 'False'
+      type: Installing
+  razeeSubConditions:
+    - message: ParentRRS3 install finished
+      reason: FinishParentRRS3Install
+      status: 'True'
+      type: Installing

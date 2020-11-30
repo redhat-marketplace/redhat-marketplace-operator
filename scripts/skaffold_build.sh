@@ -38,8 +38,8 @@ exec=$(echo $BUILDARGS | jq -r --arg i $imageName '.[$i].exec')
 bin=$(echo $BUILDARGS | jq -r --arg i $imageName '.[$i].bin_out')
 
 if [[ "$cmd" == "dependencies" ]]; then
-	OUTPUT=$(go list -f '{{ join .Deps "\n" }}' $exec 2>/dev/null | grep github.com/redhat-marketplace/redhat-marketplace-operator | sed -e 's/github.com\/redhat-marketplace\/redhat-marketplace-operator\///' | xargs find . | uniq | xargs jq -nc '$ARGS.positional' --args)
-	execFiles=$(find . $exec | xargs jq -nc '$ARGS.positional' --args)
+	OUTPUT=$(go list -f '{{ join .Deps "\n" }}' $exec 2>/dev/null | grep github.com/redhat-marketplace/redhat-marketplace-operator | sed -e 's/github.com\/redhat-marketplace\/redhat-marketplace-operator\///' | xargs find | uniq | xargs jq -nc '$ARGS.positional' --args)
+	execFiles=$(find $exec | xargs jq -nc '$ARGS.positional' --args)
 	OUTPUT=$(echo $OUTPUT | jq --argjson e $execFiles '. + $e')
 	OUTPUT=$(echo $OUTPUT | jq '. + ["build/Dockerfile", "build/bin/entrypoint", "build/bin/user_setup"]')
 	echo $OUTPUT
