@@ -31,19 +31,19 @@ BUILDARGS=$(
 		  }
 		}
 	EOM
-         )
+)
 
 name=$(echo $BUILDARGS | jq -r --arg i $imageName '.[$i].name')
 exec=$(echo $BUILDARGS | jq -r --arg i $imageName '.[$i].exec')
 bin=$(echo $BUILDARGS | jq -r --arg i $imageName '.[$i].bin_out')
 
 if [[ "$cmd" == "dependencies" ]]; then
-	  OUTPUT=$(go list -f '{{ join .Deps "\n" }}' $exec  2>/dev/null | grep github.com/redhat-marketplace/redhat-marketplace-operator | sed -e 's/github.com\/redhat-marketplace\/redhat-marketplace-operator\///' | xargs fd . | uniq | xargs jq -nc '$ARGS.positional' --args)
-    execFiles=$(fd . $exec | xargs jq -nc '$ARGS.positional' --args )
-    OUTPUT=$(echo $OUTPUT | jq --argjson e $execFiles '. + $e')
-    OUTPUT=$(echo $OUTPUT | jq '. + ["build/Dockerfile", "build/bin/entrypoint", "build/bin/user_setup"]')
-    echo $OUTPUT
-  exit 0
+	OUTPUT=$(go list -f '{{ join .Deps "\n" }}' $exec 2>/dev/null | grep github.com/redhat-marketplace/redhat-marketplace-operator | sed -e 's/github.com\/redhat-marketplace\/redhat-marketplace-operator\///' | xargs fd . | uniq | xargs jq -nc '$ARGS.positional' --args)
+	execFiles=$(fd . $exec | xargs jq -nc '$ARGS.positional' --args)
+	OUTPUT=$(echo $OUTPUT | jq --argjson e $execFiles '. + $e')
+	OUTPUT=$(echo $OUTPUT | jq '. + ["build/Dockerfile", "build/bin/entrypoint", "build/bin/user_setup"]')
+	echo $OUTPUT
+	exit 0
 fi
 
 QUAY_EXPIRATION=${QUAY_EXPIRATION:-never}
@@ -55,12 +55,12 @@ fi
 
 unset PUSH
 
-if $PUSH_IMAGE; then
-	PUSH=--push
-fi
-
 echo $args $PUSH
 
 export DOCKER_BUILDKIT=1
 
-${DOCKER_EXEC} build -f ./build/Dockerfile --tag $IMAGE --build-arg name="$name" --build-arg exec=$exec --build-arg bin=$bin --build-arg bin_out=$bin --build-arg BUILDKIT_INLINE_CACHE=1 --build-arg app_version=\"$VERSION\" --build-arg quay_expiration=\"$QUAY_EXPIRATION\" $PUSH .
+${DOCKER_EXEC} build -f ./build/Dockerfile --tag $IMAGE --build-arg name="$name" --build-arg exec=$exec --build-arg bin=$bin --build-arg bin_out=$bin --build-arg BUILDKIT_INLINE_CACHE=1 --build-arg app_version=\"$VERSION\" --build-arg quay_expiration=\"$QUAY_EXPIRATION\" .
+
+if $PUSH_IMAGE; then
+	${DOCKER_EXEC} push $IMAGE
+fi
