@@ -16,7 +16,7 @@ env:
 jobs:
   test-unit:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [build]
     strategy:
       matrix:
@@ -97,7 +97,7 @@ jobs:
 
   test-integration:
     name: Test Integration
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [build]
     strategy:
       matrix:
@@ -182,7 +182,7 @@ jobs:
 
   cover:
     name: Cover
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [test-unit, test-integration]
     steps:
       - name: Set up Go 1.x
@@ -206,7 +206,7 @@ jobs:
 
   build:
     name: Preset
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     outputs:
       version: ${{ steps.vars.outputs.version }}
       tag: ${{ steps.vars.outputs.tag }}
@@ -272,7 +272,7 @@ jobs:
 
   deploy:
     name: Deploy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [build, test-unit, test-integration]
     if: |
       github.event_name == 'push'
@@ -342,7 +342,7 @@ jobs:
 
   deploy-done:
     needs: [deploy]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     name: 'Deploy Finished'
     steps:
       - name: Finished
@@ -351,7 +351,7 @@ jobs:
 
   opm:
     name: Deploy OPM Index
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [build, tag]
     if: |
       github.event_name == 'push'
@@ -423,7 +423,7 @@ jobs:
 
   tag:
     name: Push other tags
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [build, deploy, test-integration]
     if: |
       github.event_name == 'push'
@@ -480,7 +480,7 @@ jobs:
 
   publish:
     name: Publish
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     if: |
       github.event_name == 'push'
       && (startsWith(github.ref,'refs/heads/release/')
@@ -533,7 +533,7 @@ jobs:
 
   tag-bundle:
     name: Push bundle tag
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [build, deploy, opm, cover, publish]
     if: |
       github.event_name == 'push'
