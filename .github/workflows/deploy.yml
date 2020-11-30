@@ -166,9 +166,9 @@ jobs:
             "$KREW" install krew
           )
           echo "${KREW_ROOT:-$HOME/.krew}/bin" >> $GITHUB_PATH
-          kubectl krew install kuttl
       - name: Install tools
         run: |
+          kubectl krew install kuttl
           make setup-kind
 
       - name: Wait for deploy to succeed
