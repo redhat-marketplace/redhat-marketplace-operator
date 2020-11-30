@@ -380,7 +380,7 @@ test-ci-unit: ## test-ci-unit runs all tests for CI builds
 
 .PHONY: test-ci-int
 test-ci-int:  ## test-ci-int runs all tests for CI builds
-	NAMESPACE=$(NAMESPACE) ginkgo -r --randomizeAllSpecs --randomizeSuites --race --progress --trace ./test
+	kubectl kuttl test --namespace openshift-redhat-marketplace --kind-context test --config ./kuttl-test-kind.yaml ./test/e2e --test ^register-test$
 
 CLUSTER_TYPE ?= kind
 
