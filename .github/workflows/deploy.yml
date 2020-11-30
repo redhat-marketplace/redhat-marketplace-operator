@@ -166,7 +166,12 @@ jobs:
             "$KREW" install krew
           )
           echo "${KREW_ROOT:-$HOME/.krew}/bin" >> $GITHUB_PATH
-      - name: Install tools
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Setup kind
         run: |
           kubectl krew install kuttl
           make setup-kind
@@ -329,6 +334,10 @@ jobs:
           make install-tools
         env:
           SKAFFOLD_VERSION: v1.14.0
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
 
       - name: Login ${{ matrix.name }}
         run: make docker-login
