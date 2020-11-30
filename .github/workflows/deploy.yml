@@ -158,6 +158,15 @@ jobs:
         run: |
           echo "127.0.0.1 localhost" | sudo tee -a /etc/hosts
           make install-tools testbin
+          (
+            set -x; cd "$(mktemp -d)" &&
+            curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/krew.tar.gz" &&
+            tar zxvf krew.tar.gz &&
+            KREW=./krew-"$(uname | tr '[:upper:]' '[:lower:]')_$(uname -m | sed -e 's/x86_64/amd64/' -e 's/arm.*$/arm/')" &&
+            "$KREW" install krew
+          )
+          kubectl krew install kuttl
+          make setup-kind
 
       - name: Wait for deploy to succeed
         uses: fountainhead/action-wait-for-check@v1.0.0

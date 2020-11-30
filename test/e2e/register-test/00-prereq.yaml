@@ -1,0 +1,12 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+delete:
+  - apiVersion: marketplace.redhat.com/v1alpha1
+    kind: MarketplaceConfig
+    name: marketplaceconfig
+  - apiVersion: v1
+    kind: Secret
+    name: redhat-marketplace-pull-secret
+  - apiVersion: v1
+    kind: Secret
+    name: rhm-operator-secret

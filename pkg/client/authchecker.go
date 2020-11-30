@@ -22,7 +22,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
+	emperrors "emperror.dev/errors"
 )
 
 type AuthChecker struct {
@@ -64,24 +66,43 @@ func NewAuthChecker(
 
 func (a *AuthChecker) Run(ctx context.Context) error {
 	ticker := time.NewTicker(a.retryTime)
+	defer ticker.Stop()
 	log := a.logger
+
+	log.Info("starting to monitor", "namespace", a.namespace)
+
+	resourceWatch, err := a.resourceClient.Namespace(a.namespace).Watch(ctx, metav1.ListOptions{})
+
+	if err != nil {
+		if errors.IsUnauthorized(err) {
+			log.Error(err, "list call is unauthorized")
+			return err
+		}
+		log.Error(err, "list call errored")
+		return err
+	}
+
+	defer resourceWatch.Stop()
 
 	for {
 		select {
-		case <-ticker.C:
-			list, err := a.resourceClient.Namespace(a.namespace).List(context.Background(), metav1.ListOptions{})
+		case evt := <- resourceWatch.ResultChan():
+			if evt.Type == watch.Error {
+				obj, ok := evt.Object.(*metav1.Status)
+				if !ok {
+					err := emperrors.NewWithDetails("watch returned an error", "evt.Object", evt.Object)
+					log.Error(err, "unknown error")
+				}
 
-			if err != nil {
-				if errors.IsUnauthorized(err) {
+				if obj.Status == metav1.StatusFailure && obj.Reason == metav1.StatusReasonUnauthorized {
+					err := emperrors.NewWithDetails("watch returned an unauthorized error", "status", obj)
 					log.Error(err, "list call is unauthorized")
 					return err
 				}
-				log.Error(err, "failed to get list")
 			} else {
-				log.Info("retrieved list", "len", len(list.Items))
+				log.V(5).Info("see an event", "type", evt.Type)
 			}
 		case <-ctx.Done():
-			ticker.Stop()
 			return nil
 		}
 	}

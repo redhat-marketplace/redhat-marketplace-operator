@@ -230,14 +230,24 @@ func (resp RegistrationStatusOutput) TransformConfigStatus() status.Conditions {
 		Message: "Cluster is not registered",
 	})
 
-	if resp.StatusCode == 200 && resp.RegistrationStatus == "INSTALLED" {
-		message := "Cluster Registered Successfully"
-		conditions.SetCondition(status.Condition{
-			Type:    marketplacev1alpha1.ConditionRegistered,
-			Status:  corev1.ConditionTrue,
-			Reason:  marketplacev1alpha1.ReasonRegistrationSuccess,
-			Message: message,
-		})
+	if resp.StatusCode == 200 {
+		if resp.RegistrationStatus == "INSTALLED" {
+			message := "Cluster Registered Successfully"
+			conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionRegistered,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonRegistrationSuccess,
+				Message: message,
+			})
+		} else {
+			message := fmt.Sprintf("Cluster registration pending: %s", resp.RegistrationStatus)
+			conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionRegistered,
+				Status:  corev1.ConditionFalse,
+				Reason:  marketplacev1alpha1.ReasonRegistrationSuccess,
+				Message: message,
+			})
+		}
 	} else {
 		msg := http.StatusText(resp.StatusCode)
 		msg = fmt.Sprintf("registration failed: %s", msg)
@@ -283,14 +293,26 @@ func (mhttp *MarketplaceClient) GetMarketplaceSecret() (*corev1.Secret, error) {
 	return &newOptSecretObj, nil
 }
 
+type MarketplaceClaims struct {
+	AccountID string `json:"rhmAccountId"`
+	jwt.StandardClaims
+}
+
 // GetAccountIdFromJWTToken will parse JWT token and fetch the rhmAccountId
 func GetAccountIdFromJWTToken(jwtToken string) (string, error) {
-	token, _ := jwt.Parse(jwtToken, nil)
-	if claims, ok := token.Claims.(jwt.MapClaims); ok {
-		rhmAccountClaim := claims["rhmAccountId"]
-		if rhmAccountID, ok := rhmAccountClaim.(string); ok {
-			return rhmAccountID, nil
-		}
+	// TODO: add verification of public key
+	//token, err := jwt.Parse(jwtToken, nil)
+	token, _, err := new(jwt.Parser).ParseUnverified(jwtToken, &MarketplaceClaims{})
+
+	if err != nil {
+		return "", err
 	}
-	return "", errors.New("rhmAccountId not found")
+
+	claims, ok := token.Claims.(*MarketplaceClaims)
+
+	if !ok {
+		return "", errors.New("token claims is not *MarketplaceClaims")
+	}
+
+	return claims.AccountID, nil
 }

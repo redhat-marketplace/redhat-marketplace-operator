@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"reflect"
 	"time"
 
 	emperrors "emperror.dev/errors"
@@ -30,6 +29,9 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/conversion"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -349,73 +351,62 @@ func getResources(obj runtime.Object, listOpts []client.ListOption, rClient clie
 
 }
 
-func DeploymentNeedsUpdate(original, updated appsv1.Deployment) (bool, string) {
-	for k, v := range updated.Labels {
-		if v2, ok := original.Labels[k]; !ok || v != v2 {
-			return true, "labels"
+var eq = conversion.EqualitiesOrDie(
+	func(a, b resource.Quantity) bool {
+		// Ignore formatting, only care that numeric value stayed the same.
+		// TODO: if we decide it's important, it should be safe to start comparing the format.
+		//
+		// Uninitialized quantities are equivalent to 0 quantities.
+		return a.Cmp(b) == 0
+	},
+	func(a, b metav1.MicroTime) bool {
+		return a.UTC() == b.UTC()
+	},
+	func(a, b metav1.Time) bool {
+		return a.UTC() == b.UTC()
+	},
+	func(a, b labels.Selector) bool {
+		return a.String() == b.String()
+	},
+	func(a, b fields.Selector) bool {
+		return a.String() == b.String()
+	},
+	func(a, b corev1.ObjectFieldSelector) bool {
+		if a.APIVersion == "" {
+			a.APIVersion = "v1"
 		}
+		if b.APIVersion == "" {
+			b.APIVersion = "v1"
+		}
+		return a.APIVersion == b.APIVersion && a.FieldPath == b.FieldPath
+	},
+)
+
+func DeploymentNeedsUpdate(original, updated appsv1.Deployment) (bool, string) {
+	if !eq.DeepEqual(updated.Labels, original.Labels) {
+		return true, "labels"
 	}
 
-	if !reflect.DeepEqual(updated.Spec.Strategy, original.Spec.Strategy) {
+	if !eq.DeepEqual(updated.Annotations, original.Annotations) {
+		return true, "annotations"
+	}
+
+	if !eq.DeepEqual(updated.Spec.Strategy, original.Spec.Strategy) {
 		return true, "strategy"
 	}
 
-	for k, v := range updated.Annotations {
-		if v2, ok := original.Annotations[k]; !ok || v != v2 {
-			return true, "annotations"
-		}
-	}
-
-	if !reflect.DeepEqual(updated.Spec.Replicas, original.Spec.Replicas) {
-		return true, "replicas"
-	}
-
-	if !reflect.DeepEqual(updated.ObjectMeta.OwnerReferences, original.ObjectMeta.OwnerReferences) {
+	if !eq.DeepEqual(updated.ObjectMeta.OwnerReferences, original.ObjectMeta.OwnerReferences) {
 		return true, "owner"
 	}
 
-	if !reflect.DeepEqual(original.Spec.Selector, updated.Spec.Selector) {
-		return true, "selector"
+	if !eq.DeepEqual(original.Spec.Template.Spec.Volumes, updated.Spec.Template.Spec.Volumes) {
+		return true, "spec.volumes"
 	}
 
-	if len(updated.Spec.Template.Spec.Containers) != len(original.Spec.Template.Spec.Containers) {
-		return true, "containerLength"
+	if !eq.DeepEqual(original.Spec.Template.Spec.Containers, updated.Spec.Template.Spec.Containers) {
+		return true, "spec.containers"
 	}
 
-	for i := range updated.Spec.Template.Spec.Containers {
-		oContainer := original.Spec.Template.Spec.Containers[i]
-		uContainer := updated.Spec.Template.Spec.Containers[i]
-
-		if !reflect.DeepEqual(oContainer.Env, uContainer.Env) {
-			return true, fmt.Sprintf("container[%v].Env = %v | %v", i, oContainer.Env, uContainer.Env)
-		}
-
-		if !reflect.DeepEqual(oContainer.Resources, uContainer.Resources) {
-			return true, fmt.Sprintf("container[%v].Resources", i)
-		}
-
-		if !reflect.DeepEqual(oContainer.Ports, uContainer.Ports) {
-			return true, fmt.Sprintf("container[%v].Ports", i)
-		}
-
-		if !reflect.DeepEqual(oContainer.Image, uContainer.Image) {
-			return true, fmt.Sprintf("container[%v].Image", i)
-		}
-
-		if !reflect.DeepEqual(oContainer.VolumeMounts, uContainer.VolumeMounts) {
-			return true, fmt.Sprintf("container[%v].VolumeMounts", i)
-		}
-	}
-
-	if len(updated.Spec.Template.Spec.Volumes) != len(original.Spec.Template.Spec.Volumes) {
-		return true, "volumeLength"
-	}
-
-	for i := range updated.Spec.Template.Spec.Volumes {
-		if !reflect.DeepEqual(original.Spec.Template.Spec.Volumes[i], updated.Spec.Template.Spec.Volumes[i]) {
-			return true, fmt.Sprintf("volumes[%v]", i)
-		}
-	}
-
+	//return !eq.DeepEqual(original.Spec, updated.Spec), "spec"
 	return false, ""
 }

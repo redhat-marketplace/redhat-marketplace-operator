@@ -33,6 +33,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -86,6 +87,7 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 		container.Image = f.config.RelatedImages.MetricState
 	case container.Name == "authcheck":
 		container.Image = f.config.RelatedImages.AuthChecker
+		container.Args = append(container.Args, "--namespace", f.namespace)
 	case container.Name == "prometheus-operator":
 		container.Image = f.config.RelatedImages.PrometheusOperator
 	case container.Name == "prometheus-proxy":
@@ -255,12 +257,13 @@ func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployme
 		container := &dep.Spec.Template.Spec.Containers[i]
 		newArgs := []string{}
 
+		f.ReplaceImages(container)
+
 		for _, arg := range container.Args {
 			newArg := replacer.Replace(arg)
 			newArgs = append(newArgs, newArg)
 		}
 
-		f.ReplaceImages(container)
 		container.Args = newArgs
 	}
 
@@ -559,4 +562,289 @@ func NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMonitor, error)
 	}
 
 	return &sm, nil
+}
+
+func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDeployment) *appsv1.Deployment {
+	rep := ptr.Int32(1)
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
+			Namespace: f.namespace,
+			Labels: map[string]string{
+				"razee/watch-resource": "lite",
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: rep,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":      utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
+					"owned-by": "marketplace.redhat.com-razee",
+				},
+			},
+			Strategy: appsv1.DeploymentStrategy{
+				Type: "RollingUpdate",
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app":                  utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
+						"razee/watch-resource": "lite",
+						"owned-by":             "marketplace.redhat.com-razee",
+					},
+					Name: utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
+				},
+				Spec: corev1.PodSpec{
+					ServiceAccountName: "redhat-marketplace-watch-keeper",
+					Containers: []corev1.Container{
+						{
+							Image:           f.config.RelatedImages.AuthChecker,
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Name:            "authcheck",
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("20m"),
+									corev1.ResourceMemory: resource.MustParse("40Mi"),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("10m"),
+									corev1.ResourceMemory: resource.MustParse("20Mi"),
+								},
+							},
+							Args: []string{
+								"--namespace", f.namespace,
+							},
+							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+						},
+						{
+							Image:                    f.config.RelatedImages.WatchKeeper,
+							ImagePullPolicy:          corev1.PullIfNotPresent,
+							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("400m"),
+									corev1.ResourceMemory: resource.MustParse("500Mi"),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("50m"),
+									corev1.ResourceMemory: resource.MustParse("100Mi"),
+								},
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name: "NAMESPACE",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath:  "metadata.namespace",
+											APIVersion: "v1",
+										},
+									},
+								},
+								{
+									Name:  "NODE_ENV",
+									Value: "production",
+								},
+							},
+							Name: "watch-keeper",
+							LivenessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									Exec: &corev1.ExecAction{
+										Command: []string{"sh/liveness.sh"},
+									},
+								},
+								InitialDelaySeconds: 600,
+								PeriodSeconds:       300,
+								TimeoutSeconds:      30,
+								SuccessThreshold:    1,
+								FailureThreshold:    1,
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      utils.WATCH_KEEPER_CONFIG_NAME,
+									MountPath: "/home/node/envs/watch-keeper-config",
+									ReadOnly:  true,
+								},
+								{
+									Name:      utils.WATCH_KEEPER_SECRET_NAME,
+									MountPath: "/home/node/envs/watch-keeper-secret",
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					SecurityContext: &corev1.PodSecurityContext{
+						FSGroup: ptr.Int64(1000),
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: utils.WATCH_KEEPER_CONFIG_NAME,
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: utils.WATCH_KEEPER_CONFIG_NAME,
+									},
+									DefaultMode: ptr.Int32(0440),
+									Optional:    ptr.Bool(false),
+								},
+							},
+						},
+						{
+							Name: utils.WATCH_KEEPER_SECRET_NAME,
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName:  utils.WATCH_KEEPER_SECRET_NAME,
+									DefaultMode: ptr.Int32(0400),
+									Optional:    ptr.Bool(false),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.RazeeDeployment) *appsv1.Deployment {
+	rep := ptr.Int32(1)
+
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+			Namespace: f.namespace,
+			Labels: map[string]string{
+				"razee/watch-resource": "lite",
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: rep,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+					"owned-by": "marketplace.redhat.com-razee",
+				},
+			},
+			Strategy: appsv1.DeploymentStrategy{
+				Type: "RollingUpdate",
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app":                  utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+						"razee/watch-resource": "lite",
+						"owned-by":             "marketplace.redhat.com-razee",
+					},
+					Name: utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+				},
+				Spec: corev1.PodSpec{
+					ServiceAccountName: "redhat-marketplace-remoteresources3deployment",
+					Containers: []corev1.Container{
+						{
+							Image:           f.config.RelatedImages.AuthChecker,
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Name:            "authcheck",
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("20m"),
+									corev1.ResourceMemory: resource.MustParse("40Mi"),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("10m"),
+									corev1.ResourceMemory: resource.MustParse("20Mi"),
+								},
+							},
+							Args: []string{
+								"--namespace", f.namespace,
+							},
+							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+						},
+						{
+							Image:                    f.config.RelatedImages.RemoteResourceS3,
+							ImagePullPolicy:          corev1.PullIfNotPresent,
+							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("100m"),
+									corev1.ResourceMemory: resource.MustParse("200Mi"),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("40m"),
+									corev1.ResourceMemory: resource.MustParse("75Mi"),
+								},
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name: "CRD_WATCH_TIMEOUT_SECONDS",
+									ValueFrom: &corev1.EnvVarSource{
+										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "razeedeploy-overrides",
+											},
+											Key:      "CRD_WATCH_TIMEOUT_SECONDS",
+											Optional: ptr.Bool(true),
+										},
+									},
+								},
+								{
+									Name:  "GROUP",
+									Value: "marketplace.redhat.com",
+								},
+								{
+									Name:  "VERSION",
+									Value: "v1alpha1",
+								},
+							},
+							Name: utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+							LivenessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									Exec: &corev1.ExecAction{
+										Command: []string{"sh/liveness.sh"},
+									},
+								},
+								InitialDelaySeconds: 30,
+								PeriodSeconds:       150,
+								TimeoutSeconds:      30,
+								FailureThreshold:    1,
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									MountPath: "/usr/src/app/download-cache",
+									Name:      "cache-volume",
+								},
+								{
+									MountPath: "/usr/src/app/config",
+									Name:      "razeedeploy-config",
+								},
+							},
+						},
+					},
+					SecurityContext: &corev1.PodSecurityContext{
+						FSGroup: ptr.Int64(1000),
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "cache-volume",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{
+									Medium: corev1.StorageMediumDefault,
+								},
+							},
+						},
+						{
+							Name: "razeedeploy-config",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "razeedeploy-config",
+									},
+									DefaultMode: ptr.Int32(440),
+									Optional:    ptr.Bool(true),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }

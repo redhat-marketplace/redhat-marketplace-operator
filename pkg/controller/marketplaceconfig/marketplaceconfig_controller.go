@@ -425,8 +425,6 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		}
 	}
 
-	// Start status update
-
 	var updated bool
 
 	updated = updated || marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
@@ -475,7 +473,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.RHMPullSecretName, Namespace: request.Namespace}, &secret)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			reqLogger.Error(err, "error finding rhm_pull_secret")
+			reqLogger.Error(err, "error finding", "name", utils.RHMPullSecretName)
 			return reconcile.Result{}, nil
 		}
 
@@ -490,7 +488,6 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		}
 
 		if ok {
-			reqLogger.Info("secret", "secret", string(pullSecret))
 			marketplaceClient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
 				Url:      cfg.Marketplace.URL,
 				Token:    string(pullSecret),

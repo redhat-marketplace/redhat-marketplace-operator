@@ -38,12 +38,12 @@ func InitializeMainCtrl(cfg *rest.Config) (*managers.ControllerMain, error) {
 	marketplaceController := controller.ProvideMarketplaceController(defaultCommandRunnerProvider)
 	meterbaseController := controller.ProvideMeterbaseController(defaultCommandRunnerProvider)
 	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider)
-	razeeDeployController := controller.ProvideRazeeDeployController()
-	olmSubscriptionController := controller.ProvideOlmSubscriptionController()
 	operatorConfig, err := config.ProvideConfig()
 	if err != nil {
 		return nil, err
 	}
+	razeeDeployController := controller.ProvideRazeeDeployController(operatorConfig)
+	olmSubscriptionController := controller.ProvideOlmSubscriptionController()
 	meterReportController := controller.ProvideMeterReportController(defaultCommandRunnerProvider, operatorConfig)
 	olmClusterServiceVersionController := controller.ProvideOlmClusterServiceVersionController()
 	remoteResourceS3Controller := controller.ProvideRemoteResourceS3Controller()

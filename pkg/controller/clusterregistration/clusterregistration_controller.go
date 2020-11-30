@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 
+	"github.com/google/uuid"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
@@ -12,10 +13,12 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -82,7 +85,15 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		DeleteFunc: func(event.DeleteEvent) bool {
 			return false
 		},
-		GenericFunc: func(event.GenericEvent) bool {
+		GenericFunc: func(e event.GenericEvent) bool {
+			secret, ok := e.Object.(*v1.Secret)
+			if !ok {
+				return false
+			}
+			secretName := secret.ObjectMeta.Name
+			if _, ok := secret.Data[utils.RHMPullSecretKey]; ok && secretName == utils.RHMPullSecretName {
+				return true
+			}
 			return false
 		},
 	}
@@ -139,7 +150,7 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 	if rhmAccountId == "" || err != nil {
 		reqLogger.Error(err, "Token is missing account id")
 		annotations[utils.RHMPullSecretStatus] = "error"
-		annotations[utils.RHMPullSecretMessage] = "Account id is not available in provided token, Pleasr generate token from RH Marketplace again"
+		annotations[utils.RHMPullSecretMessage] = "Account id is not available in provided token, please generate token from RH Marketplace again"
 		rhmPullSecret.SetAnnotations(annotations)
 		if err := r.client.Update(context.TODO(), &rhmPullSecret); err != nil {
 			reqLogger.Error(err, "Failed to patch secret with Endpoint status")
@@ -157,20 +168,6 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
-	// Fetch the Marketplace Config object
-	reqLogger.Info("Finding MarketPlace config object ")
-	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name:      utils.MARKETPLACECONFIG_NAME,
-		Namespace: request.Name,
-	}, marketplaceConfig)
-	if err != nil {
-		if !k8serrors.IsNotFound(err) {
-			return reconcile.Result{}, err
-		}
-		reqLogger.Info("MarketPlace config object not found, move to create")
-	}
-
 	cfg, _ := config.GetConfig()
 
 	mclient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
@@ -184,13 +181,24 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, nil
 	}
 
-	if err == nil && marketplaceConfig.Spec.RhmAccountID != "" {
+
+	newMarketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Namespace: request.Namespace,
+		Name:      "marketplaceconfig",
+	}, newMarketplaceConfig)
+
+	if err != nil && k8serrors.IsNotFound(err) {
+		newMarketplaceConfig = nil
+	}
+
+	if newMarketplaceConfig != nil {
 		reqLogger.Info("MarketPlace config object found, check status if its installed or not")
 		//Setting MarketplaceClientAccount
 
 		marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
-			AccountId:   marketplaceConfig.Spec.RhmAccountID,
-			ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
+			AccountId:   newMarketplaceConfig.Spec.RhmAccountID,
+			ClusterUuid: newMarketplaceConfig.Spec.ClusterUUID,
 		}
 
 		// Marketplace config object found
@@ -212,8 +220,6 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 				}
 				reqLogger.Info("Secret updated with status on success")
 			}
-
-			return reconcile.Result{}, nil
 		}
 	}
 
@@ -231,13 +237,18 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 		}
 		return reconcile.Result{}, err
 	}
+	newOptSecretObj.SetNamespace(request.Namespace)
 
 	//Fetch the Secret with name redhat-Operator-secret
-	secretKey, _ := client.ObjectKeyFromObject(newOptSecretObj)
-	secretKey.Namespace = request.Namespace // override the namespace with our request just incase
+	secretKeyname := types.NamespacedName{
+		Name:      newOptSecretObj.Name,
+		Namespace: newOptSecretObj.Namespace,
+	}
 
-	optSecret := v1.Secret{}
-	err = r.client.Get(context.TODO(), secretKey, &optSecret)
+	reqLogger.Info("retrieving secret", "name", secretKeyname.Name, "namespace", secretKeyname.Namespace)
+
+	optSecret := &v1.Secret{}
+	err = r.client.Get(context.TODO(), secretKeyname, optSecret)
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
 			reqLogger.Error(err, "bad error getting secret")
@@ -250,19 +261,14 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 			reqLogger.Error(err, "Failed to Create Secret Object")
 			return reconcile.Result{}, err
 		}
-	}
-
-	if err == nil {
+	} else {
 		reqLogger.Info("Comparing old and new rhm-operator-secret")
-		//compareRhmOperatorSecretObject(newOptSecretObj,optSecret)
-		optSecretChanged := reflect.DeepEqual(newOptSecretObj.Data, optSecret.Data)
 
-		if !optSecretChanged {
-			reqLogger.Info("rhm-operator-secret are different copy, Replacing with new", "optSecretChanged", optSecretChanged)
-
+		if !reflect.DeepEqual(newOptSecretObj.Data, optSecret.Data) {
+			reqLogger.Info("rhm-operator-secret are different copy")
 			optSecret.Data = newOptSecretObj.Data
 
-			err := r.client.Update(context.TODO(), &optSecret)
+			err := r.client.Update(context.TODO(), optSecret)
 			if err != nil {
 				reqLogger.Error(err, "could not update rhm-operator-secret with new object", "Resource", utils.RHMOperatorSecretName)
 				return reconcile.Result{}, err
@@ -283,6 +289,7 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 		reqLogger.Info("Secret updated with status on success")
 	}
 
+
 	//Create Markeplace Config object
 	reqLogger.Info("finding clusterversion resource")
 	clusterVersion := &openshiftconfigv1.ClusterVersion{}
@@ -291,46 +298,79 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 	}, clusterVersion)
 
 	if err != nil {
-		reqLogger.Error(err, "Failed to retrieve clusterversion resource")
-		return reconcile.Result{}, err
+		if !k8serrors.IsNotFound(err) && !meta.IsNoMatchError(err) {
+			reqLogger.Error(err, "Failed to retrieve clusterversion resource")
+			return reconcile.Result{}, err
+		}
+		clusterVersion = nil
 	}
 
-	clusterID := clusterVersion.Spec.ClusterID
+	var clusterID string
+	if clusterVersion != nil {
+		clusterID = string(clusterVersion.Spec.ClusterID)
+		reqLogger.Info("Clusterversion object found with clusterID", "clusterID", clusterID)
+	} else {
+		clusterID = uuid.New().String()
+		reqLogger.Info("Clusterversion object not found, generating clusterID", "clusterID", clusterID)
+	}
 
-	reqLogger.Info("Clusterversion object found with clusterID", "clusterID", clusterID)
-	newMarketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
-
+	newMarketplaceConfig = &marketplacev1alpha1.MarketplaceConfig{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{
 		Namespace: request.Namespace,
-		Name:      request.Name,
+		Name:      "marketplaceconfig",
 	}, newMarketplaceConfig)
 
 	if err != nil {
-		if !k8serrors.IsNotFound(err) {
-			reqLogger.Error(err, "failed to get marketplaceconfig")
-			return reconcile.Result{}, err
+		if k8serrors.IsNotFound(err) {
+			newMarketplaceConfig.ObjectMeta.Name = "marketplaceconfig"
+			newMarketplaceConfig.ObjectMeta.Namespace = request.Namespace
+			newMarketplaceConfig.Spec.ClusterUUID = string(clusterID)
+			newMarketplaceConfig.Spec.RhmAccountID = rhmAccountId
+			// Create Marketplace Config object with ClusterID
+			reqLogger.Info("Marketplace Config creating")
+			err = r.client.Create(context.TODO(), newMarketplaceConfig)
+			if err != nil {
+				reqLogger.Error(err, "Failed to Create Marketplace Config Object")
+				return reconcile.Result{}, err
+			}
+
+			return reconcile.Result{Requeue: true}, nil
 		}
 
-		newMarketplaceConfig.ObjectMeta.Name = "marketplaceconfig"
-		newMarketplaceConfig.ObjectMeta.Namespace = request.Namespace
-		newMarketplaceConfig.Spec.ClusterUUID = string(clusterID)
-		newMarketplaceConfig.Spec.RhmAccountID = rhmAccountId
-		// Create Marketplace Config object with ClusterID
-		reqLogger.Info("Marketplace Config creating ")
-		err = r.client.Create(context.TODO(), newMarketplaceConfig)
-		if err != nil {
-			reqLogger.Error(err, "Failed to Create Marketplace Config Object")
-			return reconcile.Result{}, err
-		}
+		reqLogger.Error(err, "failed to get marketplaceconfig")
+		return reconcile.Result{}, err
 	}
 
+	owners := newMarketplaceConfig.GetOwnerReferences()
+
 	if newMarketplaceConfig.Spec.ClusterUUID != string(clusterID) ||
-		newMarketplaceConfig.Spec.RhmAccountID != rhmAccountId {
+		newMarketplaceConfig.Spec.RhmAccountID != rhmAccountId ||
+		!reflect.DeepEqual(newMarketplaceConfig.GetOwnerReferences(), owners) {
 
 		newMarketplaceConfig.Spec.ClusterUUID = string(clusterID)
 		newMarketplaceConfig.Spec.RhmAccountID = rhmAccountId
 
 		err = r.client.Update(context.TODO(), newMarketplaceConfig)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update Marketplace Config Object")
+			return reconcile.Result{}, err
+		}
+	}
+
+	ownerFound := false
+	for _, owner := range rhmPullSecret.ObjectMeta.OwnerReferences {
+		if owner.Name == rhmPullSecret.Name &&
+			owner.Kind == rhmPullSecret.Kind &&
+			owner.APIVersion == rhmPullSecret.APIVersion {
+			ownerFound = true
+		}
+	}
+
+	if err := controllerutil.SetOwnerReference(
+		newMarketplaceConfig,
+		&rhmPullSecret,
+		r.scheme); !ownerFound && err == nil {
+		r.client.Update(context.TODO(), &rhmPullSecret)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Marketplace Config Object")
 			return reconcile.Result{}, err
