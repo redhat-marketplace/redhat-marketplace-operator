@@ -58,7 +58,6 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
-
       - name: Cache Go Mod
         uses: actions/cache@v2
         with:
@@ -155,6 +154,13 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.REDHAT_IO_PASSWORD }}
           REGISTRY: registry.redhat.io
 
+      - name: Login quay.io
+        run: make docker-login
+        env:
+          DOCKER_USER: ${{ secrets['quayUser'] }}
+          DOCKER_PASSWORD: ${{ secrets['quayPassword'] }}
+          REGISTRY: quay.io/rh-marketplace
+
       - name: Install tools
         run: |
           echo "127.0.0.1 localhost" | sudo tee -a /etc/hosts
@@ -183,6 +189,7 @@ jobs:
           KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT: true
           TEST_PULL_SECRET: ${{ secrets.TEST_PULL_SECRET }}
         run: |
+          export QUAY_EXPIRATION=1d
           echo "PULL_SECRET=$TEST_PULL_SECRET" >> redhat-marketplace-pull-secret.env
           make test-ci-int-kind
 
