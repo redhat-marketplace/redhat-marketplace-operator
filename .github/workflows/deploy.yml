@@ -16,7 +16,7 @@ env:
 jobs:
   test-unit:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [build]
     strategy:
       matrix:
@@ -97,7 +97,7 @@ jobs:
 
   test-integration:
     name: Test Integration
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [build]
     strategy:
       matrix:
@@ -154,40 +154,48 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.REDHAT_IO_PASSWORD }}
           REGISTRY: registry.redhat.io
 
+      - name: Login quay.io
+        run: make docker-login
+        env:
+          DOCKER_USER: ${{ secrets['quayUser'] }}
+          DOCKER_PASSWORD: ${{ secrets['quayPassword'] }}
+          REGISTRY: quay.io/rh-marketplace
+
       - name: Install tools
         run: |
           echo "127.0.0.1 localhost" | sudo tee -a /etc/hosts
           make install-tools testbin
+          (
+            set -x; cd "$(mktemp -d)" &&
+            curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/krew.tar.gz" &&
+            tar zxvf krew.tar.gz &&
+            KREW=./krew-"$(uname | tr '[:upper:]' '[:lower:]')_$(uname -m | sed -e 's/x86_64/amd64/' -e 's/arm.*$/arm/')" &&
+            "$KREW" install krew
+          )
+          echo "${KREW_ROOT:-$HOME/.krew}/bin" >> $GITHUB_PATH
 
-      - name: Wait for deploy to succeed
-        uses: fountainhead/action-wait-for-check@v1.0.0
-        id: wait-for-deploy
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          checkName: Deploy Finished
-          timeoutSeconds: 1000
-          intervalSeconds: 10
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
 
-      - name: Fail
-        if: steps.wait-for-deploy.outputs.conclusion == 'failure'
-        run: exit 1
+      - name: Setup kind
+        run: |
+          kubectl krew install kuttl
+          make setup-kind
 
       - name: Test Integration
         env:
           USE_EXISTING_CLUSTER: true
           KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT: true
+          TEST_PULL_SECRET: ${{ secrets.TEST_PULL_SECRET }}
         run: |
-          make test-ci-int
-
-      - uses: actions/upload-artifact@v2
-        with:
-          name: cover-int
-          path: cover-int.out
+          export QUAY_EXPIRATION=1d
+          echo "PULL_SECRET=$TEST_PULL_SECRET" > redhat-marketplace-pull-secret.env
+          make test-ci-int-kind
 
   cover:
     name: Cover
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [test-unit, test-integration]
     steps:
       - name: Set up Go 1.x
@@ -200,9 +208,9 @@ jobs:
       - uses: actions/download-artifact@v2
       - name: Report cover
         run: |
-          cp cover-int/cover-int.out .
-          cp cover-unit/cover-unit.out .
-          make test-join test-cover-text
+          cp cover-int/cover-int.out ./cover.out
+          #cp cover-unit/cover-unit.out .
+          #make test-join test-cover-text
           go tool cover -html=cover.out -o cover.html
       - uses: actions/upload-artifact@v2
         with:
@@ -211,7 +219,7 @@ jobs:
 
   build:
     name: Preset
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     outputs:
       version: ${{ steps.vars.outputs.version }}
       tag: ${{ steps.vars.outputs.tag }}
@@ -277,8 +285,12 @@ jobs:
 
   deploy:
     name: Deploy
-    runs-on: ubuntu-latest
-    needs: [build]
+    runs-on: ubuntu-20.04
+    needs: [build, test-unit, test-integration]
+    if: |
+      github.event_name == 'push'
+      && (startsWith(github.ref,'refs/heads/release/')
+          || startsWith(github.ref,'refs/heads/hotfix/'))
     strategy:
       matrix:
         image:
@@ -331,6 +343,10 @@ jobs:
         env:
           SKAFFOLD_VERSION: v1.14.0
 
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+
       - name: Login ${{ matrix.name }}
         run: make docker-login
         env:
@@ -343,7 +359,7 @@ jobs:
 
   deploy-done:
     needs: [deploy]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     name: 'Deploy Finished'
     steps:
       - name: Finished
@@ -352,8 +368,12 @@ jobs:
 
   opm:
     name: Deploy OPM Index
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [build, tag]
+    if: |
+      github.event_name == 'push'
+      && (startsWith(github.ref,'refs/heads/release/')
+          || startsWith(github.ref,'refs/heads/hotfix/'))
     strategy:
       matrix:
         channel:
@@ -420,7 +440,7 @@ jobs:
 
   tag:
     name: Push other tags
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [build, deploy, test-integration]
     if: |
       github.event_name == 'push'
@@ -477,7 +497,7 @@ jobs:
 
   publish:
     name: Publish
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     if: |
       github.event_name == 'push'
       && (startsWith(github.ref,'refs/heads/release/')
@@ -530,7 +550,7 @@ jobs:
 
   tag-bundle:
     name: Push bundle tag
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [build, deploy, opm, cover, publish]
     if: |
       github.event_name == 'push'

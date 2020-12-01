@@ -35,8 +35,7 @@ spec:
               description: Auth provides options to authenticate to a remote location
               properties:
                 hmac:
-                  description: Hmac allows you to connect to s3 buckets using an HMAC
-                    key/id pair.
+                  description: Hmac is the credentials to access the storage location.
                   properties:
                     accessKeyId:
                       description: AccessKeyID is a unique identifier for an AWS account
@@ -47,11 +46,12 @@ spec:
                         AccessKeyID stored in a secret on your cluster
                       properties:
                         valueFrom:
-                          description: ValueFrom holds source for the environment
-                            variable's value. Cannot be used if value is not empty.
+                          description: ValueFrom is the pointer to the secret key
+                            ref
                           properties:
                             secretKeyRef:
-                              description: SecretKeySelector selects a key of a Secret.
+                              description: SecretKeyRef is the pointer to the secret
+                                key ref
                               properties:
                                 key:
                                   description: The key of the secret to select from.  Must
@@ -81,11 +81,12 @@ spec:
                         to an SecretAccessKey stored in a secret on your cluster
                       properties:
                         valueFrom:
-                          description: ValueFrom holds source for the environment
-                            variable's value. Cannot be used if value is not empty.
+                          description: ValueFrom is the pointer to the secret key
+                            ref
                           properties:
                             secretKeyRef:
-                              description: SecretKeySelector selects a key of a Secret.
+                              description: SecretKeyRef is the pointer to the secret
+                                key ref
                               properties:
                                 key:
                                   description: The key of the secret to select from.  Must
@@ -107,8 +108,7 @@ spec:
                       type: object
                   type: object
                 iam:
-                  description: Iam Allows you to connect to s3 buckets using an IAM
-                    provider and api key.
+                  description: Iam is the credentials for Iam auth.
                   properties:
                     apiKey:
                       description: APIKey is the API Key used to authenticate to your
@@ -119,11 +119,12 @@ spec:
                         a secret which contains your IBM COS api key
                       properties:
                         valueFrom:
-                          description: ValueFrom holds source for the environment
-                            variable's value. Cannot be used if value is not empty.
+                          description: ValueFrom is the pointer to the secret key
+                            ref
                           properties:
                             secretKeyRef:
-                              description: SecretKeySelector selects a key of a Secret.
+                              description: SecretKeyRef is the pointer to the secret
+                                key ref
                               properties:
                                 key:
                                   description: The key of the secret to select from.  Must
@@ -165,15 +166,13 @@ spec:
                 description: Request holds requests that populate the Requests array
                 properties:
                   optional:
-                    description: if downloading or applying a child resource fails,
-                      RemoteResource will stop execution and report error to .status.
-                      You can allow execution to continue by marking a reference as
-                      optional.
+                    description: Optional if downloading or applying a child resource
+                      fails, RemoteResource will stop execution and report error to
+                      .status. You can allow execution to continue by marking a reference
+                      as optional.
                     type: boolean
                   options:
-                    description: Options holds the options object which will be passed
-                      as-is to the http request. Allows you to specify things like
-                      headers for authentication.
+                    description: Options is the configurable options for the request
                     properties:
                       headers:
                         additionalProperties:
@@ -182,10 +181,13 @@ spec:
                           description: Header allows you to provide additional information
                             with your request
                           type: object
+                        description: Headers of the request
                         type: object
                       uri:
+                        description: URI of the request
                         type: string
                       url:
+                        description: URL of the request
                         type: string
                     type: object
                 type: object
@@ -195,15 +197,16 @@ spec:
           description: RemoteResourceS3Status defines the observed state of RemoteResourceS3
           properties:
             razee-logs:
-              description: RazeeLogs holds log output from the RRS3 controller
+              description: RazeeLogs is the logs from the controller
               properties:
                 error:
                   additionalProperties:
                     type: string
-                  description: Log holds a log message as <log hash>:<log message>
+                  description: Log is a line of log from the controller
                   type: object
               type: object
             touched:
+              description: Touched is if the status has been touched
               type: boolean
           type: object
       type: object

@@ -198,13 +198,10 @@ ARGS ?=
 
 skaffold-dev: $(skaffold) ## Run skaffold dev. Will unique tag the operator and rebuild.
 	make create
-	DEVPOSTFIX=$(DEVPOSTFIX) docker=$(DOCKER_EXEC) $(skaffold) dev --tail --port-forward --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) --trigger manual $(ARGS)
+	DEVPOSTFIX=$(DEVPOSTFIX) docker=$(DOCKER_EXEC) $(skaffold) dev --tail --port-forward --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) $(ARGS)
 
-skaffold-run: $(skaffold) ## Run skaffold run. Will uniquely tag the operator.
-	make helm
-	make create
-	. ./scripts/package_helm.sh $(VERSION) deploy ./deploy/chart/values.yaml --set image=redhat-marketplace-operator --set pullPolicy=IfNotPresent
-	docker=$(DOCKER_EXEC) $(skaffold) run --tail --default-repo $(IMAGE_REGISTRY) --cleanup=false $(ARGS)
+skaffold-run: $(skaffold) ## Run skaffold run. Will unique tag the operator and rebuild.
+	DEVPOSTFIX=$(DEVPOSTFIX) docker=$(DOCKER_EXEC) $(skaffold) run --default-repo $(IMAGE_REGISTRY) --detect-minikube=true --namespace $(NAMESPACE) $(ARGS)
 
 code-vet: ## Run go vet for this project. More info: https://golang.org/cmd/vet/
 	@echo go vet
@@ -331,7 +328,7 @@ lint: ## lint the repo
 .PHONY: test
 test: testbin ## test-ci runs all tests for CI builds
 	@echo "testing"
-	make test-ci-unit test-int-kind
+	make test-ci-unit
 
 KIND_CLUSTER_NAME ?= test
 KIND_CONTROL_PLANE_NODE ?= $(KIND_CLUSTER_NAME)-control-plane
@@ -340,6 +337,17 @@ setup-kind: ## setup the kind cluster for integration test; requires .docker/con
 	@[[ "$(cat ~/.docker/config.json | jq -r '.credStore')" != "" ]] && echo "remove credStore from .docker/config.json and relog into docker login registry.redhat.io" && exit 1 || echo "looking good"
 	@- $(kind) create cluster --name $(KIND_CLUSTER_NAME) --config ./kind-cluster.yaml
 	@- $(kind) export kubeconfig --name  $(KIND_CLUSTER_NAME)
+	@- make kind-certs
+	@- operator-sdk olm install
+	@- echo "openshift-monitoring openshift-config-managed openshift-config openshift-redhat-marketplace openshift-marketplace" | xargs -n 1 kubectl create ns
+	@- find | grep test/testdata | grep monitoring | xargs -n 1 kubectl apply -f
+	@- helm repo add bitnami https://charts.bitnami.com/bitnami --force-update
+	@- helm install kube-state-metrics bitnami/kube-state-metrics -n openshift-monitoring --set namespace=openshift-monitoring,serviceMonitor.enabled=true,serviceMonitor.namespace=openshift-monitoring,fullnameOverride=kube-state-metrics
+	@- kubectl apply -f ./test/testdata/kind-metrics-server.yaml
+	@- kubectl create secret generic regcred  --namespace $$NAMESPACE --from-file=.dockerconfigjson=$$HOME/.docker/config.json --type=kubernetes.io/dockerconfigjson
+	@- ./test/mockcontrollers/deploy.sh
+
+kind-certs:
 	@for file in ca.crt ca.key apiserver.crt; do \
     $(docker) cp $(KIND_CONTROL_PLANE_NODE):/etc/kubernetes/pki/$$file ./test/certs/$$file ; \
     done
@@ -347,9 +355,8 @@ setup-kind: ## setup the kind cluster for integration test; requires .docker/con
 	@cd test/certs	&& $(jq) -n --argfile o1 server-csr.json --argfile o2 sans.json '$$o1 | .hosts = $$o2 | .hosts[.hosts | length] |= . + "*.openshift-redhat-marketplace.svc"' > marketplace-csr.json
 	@cd test/certs && $(cfssl) gencert -ca=ca.crt -ca-key=ca.key -profile=kubernetes marketplace-csr.json | $(cfssljson) -bare server
 
-test-int-kind: ## test integration using kind
-	@make setup-kind
-	- USE_EXISTING_CLUSTER=true make test-ci-int
+ test-ci-int-kind: ## test integration using kind
+	PULL_SECRET_NAME=regcred IS_KIND=true kubectl kuttl test --namespace openshift-redhat-marketplace --kind-context test --config ./kuttl-test-kind.yaml ./test/e2e --test ^register-test$
 
 .PHONY: test-cover
 test-cover: ## Run coverage on code
@@ -368,9 +375,19 @@ test-ci-unit: ## test-ci-unit runs all tests for CI builds
 	cat cover-unit.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-unit.out
 
 .PHONY: test-ci-int
-test-ci-int: setup-kind ## test-ci-int runs all tests for CI builds
-	NAMESPACE=$(NAMESPACE) ginkgo -r -coverprofile=cover-int.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace --coverpkg=$(CONTROLLERS) ./test
-	cat cover-int.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-int.out
+test-ci-int:  ## test-ci-int runs all tests for CI builds
+	kubectl kuttl test --namespace openshift-redhat-marketplace --kind-context test --config ./kuttl-test-kind.yaml ./test/e2e --test ^register-test$
+
+CLUSTER_TYPE ?= kind
+
+.PHONY: tdd
+tdd: ## tdd runs integration tests
+ifeq ($(CLUSTER_TYPE),kind)
+	cd ./scripts/skaffold-tdd-tool && NAMESPACE=$(NAMESPACE) go run .
+else
+	cd ./scripts/skaffold-tdd-tool && DISABLED_FEATURES="MockOpenShift" NAMESPACE=$(NAMESPACE) go run .
+endif
+
 
 test-join: $(gocovmerge)
 	$(gocovmerge) cover-int.out cover-unit.out > cover.out
@@ -391,7 +408,6 @@ test-generate-certs:
 	mkdir -p test/certs
 	#cd test/certs && $(cfssl) gencert -initca ca-csr.json | ../../$(cfssljson) -bare ca
 	cd test/certs && $(cfssl) gencert -ca=ca.crt -ca-key=ca.key -profile=kubernetes server-csr.json | ../../$(cfssljson) -bare server
-
 
 ##@ Misc
 
@@ -579,12 +595,13 @@ else
 	operator_sdk_uname = linux-gnu
 endif
 
+
 $(operator-sdk): testbin
 	echo $(operator_sdk_uname)
 	curl -LO https://github.com/operator-framework/operator-sdk/releases/download/$(operator_sdk_version)/operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname)
 	chmod +x operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname) && mv operator-sdk-$(operator_sdk_version)-x86_64-$(operator_sdk_uname) testbin/operator-sdk
 
-skaffold_version ?= v1.15.0
+skaffold_version ?= v1.17.0
 
 $(skaffold): testbin
 	curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/$(skaffold_version)/skaffold-$(UNAME)-amd64
