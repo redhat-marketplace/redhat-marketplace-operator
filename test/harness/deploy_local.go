@@ -23,9 +23,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/caarlos0/env"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/caarlos0/env/v6"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -100,15 +98,15 @@ func (d *deployLocal) Setup(h *TestHarness) error {
 		{"../../deploy/role.yaml", func(dat string) runtime.Object {
 			switch {
 			case strings.Contains(dat, "kind: Role"):
-				GinkgoWriter.Write([]byte("adding kind Role\n"))
+				fmt.Print("adding kind Role\n")
 				obj := &rbacv1.Role{}
 				return obj
 			case strings.Contains(dat, "kind: ClusterRole"):
-				GinkgoWriter.Write([]byte("adding kind ClusterRole\n"))
+				fmt.Print("adding kind ClusterRole\n")
 				obj := &rbacv1.ClusterRole{}
 				return obj
 			default:
-				GinkgoWriter.Write([]byte("type not found\n"))
+				fmt.Print("type not found\n")
 				return nil
 			}
 		}},
@@ -116,14 +114,14 @@ func (d *deployLocal) Setup(h *TestHarness) error {
 			switch {
 			case strings.Contains(dat, "kind: RoleBinding"):
 				obj := &rbacv1.RoleBinding{}
-				GinkgoWriter.Write([]byte("adding kind RoleBinding\n"))
+				fmt.Print("adding kind RoleBinding\n")
 				return obj
 			case strings.Contains(dat, "kind: ClusterRoleBinding"):
 				obj := &rbacv1.ClusterRoleBinding{}
-				GinkgoWriter.Write([]byte("adding kind ClusterRoleBinding\n"))
+				fmt.Print("adding kind ClusterRoleBinding\n")
 				return obj
 			default:
-				GinkgoWriter.Write([]byte("type not found\n"))
+				fmt.Print("type not found\n")
 				return nil
 			}
 		}},
@@ -131,7 +129,9 @@ func (d *deployLocal) Setup(h *TestHarness) error {
 
 	for _, rec := range loadFiles {
 		dat, err := ioutil.ReadFile(rec.filename)
-		Expect(err).ShouldNot(HaveOccurred())
+		if err != nil {
+			return err
+		}
 
 		datArray := strings.Split(string(dat), "---")
 		for _, dat := range datArray {
@@ -142,10 +142,15 @@ func (d *deployLocal) Setup(h *TestHarness) error {
 			}
 
 			err := yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(dat)), 100).Decode(obj)
-			Expect(err).ShouldNot(HaveOccurred())
+			if err != nil {
+				return err
+			}
 
-			Expect(h.Upsert(context.TODO(), obj)).To(Succeed(), rec.filename, " ", obj)
+			err = h.Upsert(context.TODO(), obj)
 			d.cleanup = append(d.cleanup, obj)
+			if err != nil {
+				return err
+			}
 		}
 	}
 

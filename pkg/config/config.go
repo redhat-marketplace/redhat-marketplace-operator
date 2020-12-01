@@ -15,20 +15,25 @@
 package config
 
 import (
+	"sync"
+
 	"github.com/caarlos0/env/v6"
 )
 
+var global *OperatorConfig
+var globalMutex = sync.RWMutex{}
+
 // OperatorConfig is the configuration for the operator
 type OperatorConfig struct {
-	RelatedImages
-	Features
-	FilePaths
+	RelatedImages RelatedImages
+	Features      Features
+	Marketplace   Marketplace
 }
 
 // RelatedImages stores relatedimages for the operator
 type RelatedImages struct {
 	Reporter                    string `env:"RELATED_IMAGE_REPORTER" envDefault:"reporter:latest"`
-	KubeRbacProxy               string `env:"RELATED_IMAGE_KUBE_RBAC_PROXY" envDefault:"kube-proxy:latest"`
+	KubeRbacProxy               string `env:"RELATED_IMAGE_KUBE_RBAC_PROXY" envDefault:"registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5"`
 	MetricState                 string `env:"RELATED_IMAGE_METRIC_STATE" envDefault:"metric-state:latest"`
 	AuthChecker                 string `env:"RELATED_IMAGE_AUTHCHECK" envDefault:"authcheck:latest"`
 	Prometheus                  string `env:"RELATED_IMAGE_PROMETHEUS" envDefault:"registry.redhat.io/openshift4/ose-prometheus:latest"`
@@ -36,6 +41,8 @@ type RelatedImages struct {
 	ConfigMapReloader           string `env:"RELATED_IMAGE_CONFIGMAP_RELOADER" envDefault:"registry.redhat.io/openshift4/ose-configmap-reloader:latest"`
 	PrometheusConfigMapReloader string `env:"RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER" envDefault:"registry.redhat.io/openshift4/ose-prometheus-config-reloader:latest"`
 	OAuthProxy                  string `env:"RELATED_IMAGE_OAUTH_PROXY" envDefault:"registry.redhat.io/openshift4/ose-oauth-proxy:latest"`
+	RemoteResourceS3            string `env:"RELATED_IMAGE_RHM_RRS3_DEPLOYMENT" envDefault:"quay.io/razee/remoteresources3:0.6.2"`
+	WatchKeeper                 string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"quay.io/razee/watch-keeper:0.6.6"`
 }
 
 // Features store feature flags
@@ -43,20 +50,34 @@ type Features struct {
 	IBMCatalog bool `env:"FEATURE_IBMCATALOG" envDefault:"true"`
 }
 
-// FilePaths
-type FilePaths struct {
-	//TODO: rename this
-	PathToKubeProxyAPIToken string `env:"PATH_TO_KUBE_PROXY_TOKEN" envDefault:"/etc/auth-service-account/token"`
+// Marketplace configuration
+type Marketplace struct {
+	URL            string `env:"MARKETPLACE_URL" envDefault:"https://marketplace.redhat.com"`
+	InsecureClient bool   `env:"MARKETPLACE_HTTP_INSECURE_MODE" envDefault:"false"`
+}
+
+func reset() {
+	globalMutex.Lock()
+	defer globalMutex.Unlock()
+
+	global = nil
 }
 
 // ProvideConfig gets the config from env vars
 func ProvideConfig() (OperatorConfig, error) {
-	cfg := OperatorConfig{}
+	globalMutex.Lock()
+	defer globalMutex.Unlock()
 
-	err := env.Parse(&cfg)
-	if err != nil {
-		return cfg, err
+	if global == nil {
+		cfg := OperatorConfig{}
+		err := env.Parse(&cfg)
+		if err != nil {
+			return cfg, err
+		}
+		global = &cfg
 	}
 
-	return cfg, nil
+	return *global, nil
 }
+
+var GetConfig = ProvideConfig

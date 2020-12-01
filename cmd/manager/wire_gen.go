@@ -22,26 +22,23 @@ func InitializeMarketplaceController() (*managers.ControllerMain, error) {
 	defaultCommandRunnerProvider := reconcileutils.ProvideDefaultCommandRunnerProvider()
 	marketplaceController := controller.ProvideMarketplaceController(defaultCommandRunnerProvider)
 	meterbaseController := controller.ProvideMeterbaseController(defaultCommandRunnerProvider)
+	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider)
 	operatorConfig, err := config.ProvideConfig()
 	if err != nil {
 		return nil, err
 	}
-	restConfig, err := config2.GetConfig()
-	if err != nil {
-		return nil, err
-	}
-	clientset, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return nil, err
-	}
-	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider, operatorConfig, clientset)
-	razeeDeployController := controller.ProvideRazeeDeployController()
+	razeeDeployController := controller.ProvideRazeeDeployController(operatorConfig)
 	olmSubscriptionController := controller.ProvideOlmSubscriptionController()
 	meterReportController := controller.ProvideMeterReportController(defaultCommandRunnerProvider, operatorConfig)
 	olmClusterServiceVersionController := controller.ProvideOlmClusterServiceVersionController()
 	remoteResourceS3Controller := controller.ProvideRemoteResourceS3Controller()
 	nodeController := controller.ProvideNodeController()
-	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, meterReportController, olmClusterServiceVersionController, remoteResourceS3Controller, nodeController)
+	clusterRegistrationController := controller.ProvideClusterRegistrationController()
+	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, meterReportController, olmClusterServiceVersionController, remoteResourceS3Controller, nodeController, clusterRegistrationController)
+	restConfig, err := config2.GetConfig()
+	if err != nil {
+		return nil, err
+	}
 	opsSrcSchemeDefinition := controller.ProvideOpsSrcScheme()
 	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
 	olmV1SchemeDefinition := controller.ProvideOLMV1Scheme()
@@ -61,10 +58,14 @@ func InitializeMarketplaceController() (*managers.ControllerMain, error) {
 		return nil, err
 	}
 	logrLogger := _wireLoggerValue
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
 	client := managers.ProvideManagerClient(manager)
 	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logrLogger)
 	podMonitorConfig := providePodMonitorConfig()
-	podMonitor := runnables.NewPodMonitor(logrLogger, clientCommandRunner, podMonitorConfig)
+	podMonitor := runnables.NewPodMonitor(logrLogger, clientset, clientCommandRunner, podMonitorConfig)
 	controllerMain := makeMarketplaceController(controllerFlagSet, controllerList, manager, podMonitor)
 	return controllerMain, nil
 }

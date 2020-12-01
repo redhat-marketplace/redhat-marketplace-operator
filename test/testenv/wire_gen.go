@@ -38,6 +38,7 @@ func InitializeMainCtrl(cfg *rest.Config) (*managers.ControllerMain, error) {
 	defaultCommandRunnerProvider := reconcileutils.ProvideDefaultCommandRunnerProvider()
 	marketplaceController := controller.ProvideMarketplaceController(defaultCommandRunnerProvider)
 	meterbaseController := controller.ProvideMeterbaseController(defaultCommandRunnerProvider)
+	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider)
 	operatorConfig, err := config.ProvideConfig()
 	if err != nil {
 		return nil, err
@@ -47,13 +48,14 @@ func InitializeMainCtrl(cfg *rest.Config) (*managers.ControllerMain, error) {
 		return nil, err
 	}
 	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider, operatorConfig, clientset)
-	razeeDeployController := controller.ProvideRazeeDeployController()
+	razeeDeployController := controller.ProvideRazeeDeployController(operatorConfig)
 	olmSubscriptionController := controller.ProvideOlmSubscriptionController()
 	meterReportController := controller.ProvideMeterReportController(defaultCommandRunnerProvider, operatorConfig)
 	olmClusterServiceVersionController := controller.ProvideOlmClusterServiceVersionController()
 	remoteResourceS3Controller := controller.ProvideRemoteResourceS3Controller()
 	nodeController := controller.ProvideNodeController()
-	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, meterReportController, olmClusterServiceVersionController, remoteResourceS3Controller, nodeController)
+	clusterRegistrationController := controller.ProvideClusterRegistrationController()
+	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, meterReportController, olmClusterServiceVersionController, remoteResourceS3Controller, nodeController, clusterRegistrationController)
 	opsSrcSchemeDefinition := controller.ProvideOpsSrcScheme()
 	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
 	olmV1SchemeDefinition := controller.ProvideOLMV1Scheme()

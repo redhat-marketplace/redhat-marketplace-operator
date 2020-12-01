@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"sort"
 	"time"
 
@@ -50,6 +49,15 @@ import (
 const (
 	timeout  = time.Second * 180
 	interval = time.Second * 1
+)
+
+var (
+	HarnessFeatures []FeatureFlag = []FeatureFlag{
+		&addPullSecret{},
+		&mockOpenShift{},
+		&deployHelm{},
+		&createMarketplaceConfig{},
+	}
 )
 
 type TestHarness struct {
@@ -91,8 +99,8 @@ func NewTestHarness(
 	testEnv := envtest.Environment{
 		UseExistingCluster: &t,
 		CRDDirectoryPaths: []string{
-			filepath.Join(rootDir, "deploy", "crds"),
-			filepath.Join(rootDir, "test", "testdata"),
+			//filepath.Join(rootDir, "deploy", "crds"),
+			//filepath.Join(rootDir, "test", "testdata"),
 		},
 	}
 
@@ -130,7 +138,7 @@ func (t *TestHarness) Start() (context.Context, error) {
 
 	cfg, err := t.testEnv.Start()
 	if err != nil {
-		return t.context, err
+		return t.context, errors.Wrap(err, "failed to start testenv")
 	}
 
 	t.kscheme, err = t.Config.ProvideScheme(cfg)
@@ -165,10 +173,6 @@ func (t *TestHarness) Setup() error {
 	}
 
 	os.Setenv("WATCH_NAMESPACE", t.Config.WatchNamespace)
-	t.testEnv = &envtest.Environment{
-		UseExistingCluster: ptr.Bool(true),
-	}
-
 	for _, feature := range t.features {
 		t.logger.Info("loading env overrides", "feature", feature.Name())
 		err := feature.Parse()
@@ -240,30 +244,34 @@ func (t *TestHarness) AfterAll() error {
 }
 
 func (t *TestHarness) Stop() error {
-	sort.Sort(sort.Reverse(ByPriority(t.features)))
+	if t.Client != nil {
+		sort.Sort(sort.Reverse(ByPriority(t.features)))
 
-	for _, feature := range t.features {
-		if f, ok := feature.(HasCleanup); ok {
-			t.logger.Info("cleaning up for feature", "feature", feature.Name())
-			arr := f.HasCleanup()
+		for _, feature := range t.features {
+			if f, ok := feature.(HasCleanup); ok {
+				t.logger.Info("cleaning up for feature", "feature", feature.Name())
+				arr := f.HasCleanup()
 
-			for _, obj := range arr {
-				t.Client.Delete(context.TODO(), obj)
+				for _, obj := range arr {
+					t.Client.Delete(context.TODO(), obj)
+				}
+			}
+			if f, ok := feature.(TeardownFunc); ok {
+				t.logger.Info("tearing down for feature", "feature", feature.Name())
+				err := f.Teardown(t)
+
+				if err != nil {
+					t.logger.Error(err, "failed to tear down")
+				}
 			}
 		}
-		if f, ok := feature.(TeardownFunc); ok {
-			t.logger.Info("tearing down for feature", "feature", feature.Name())
-			err := f.Teardown(t)
 
-			if err != nil {
-				t.logger.Error(err, "failed to tear down")
-			}
-		}
+		close(t.stop)
 	}
 
-	close(t.stop)
-
-	t.testEnv.Stop()
+	if t.testEnv != nil {
+		t.testEnv.Stop()
+	}
 
 	return nil
 }
@@ -327,15 +335,6 @@ type ByPriority []FeatureFlag
 func (a ByPriority) Len() int           { return len(a) }
 func (a ByPriority) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByPriority) Less(i, j int) bool { return getPriority(a[i]) < getPriority(a[j]) }
-
-var (
-	HarnessFeatures []FeatureFlag = []FeatureFlag{
-		&addPullSecret{},
-		&mockOpenShift{},
-		&deployHelm{},
-		&createMarketplaceConfig{},
-	}
-)
 
 func getPriority(f FeatureFlag) int {
 	for i, f2 := range HarnessFeatures {

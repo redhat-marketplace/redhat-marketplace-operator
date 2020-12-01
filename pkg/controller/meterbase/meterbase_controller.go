@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
@@ -912,7 +911,7 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 		),
 		HandleResult(
 			GetAction(
-				types.NamespacedName{Namespace: "openshift-config-managed", Name: "kubelet-serving-ca"},
+				types.NamespacedName{Namespace: instance.Namespace, Name: "serving-certs-ca-bundle"},
 				kubeletCertsCM,
 			),
 			OnNotFound(Call(func() (ClientAction, error) {
@@ -938,61 +937,53 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 				prometheus,
 			),
 			OnNotFound(Call(r.createPrometheus(instance, factory, configSecret))),
-			OnContinue(Call(func() (ClientAction, error) {
-				updatedPrometheus := prometheus.DeepCopy()
-				expectedPrometheus, err := r.newPrometheusOperator(instance, factory, configSecret)
+			OnContinue(
+				Call(func() (ClientAction, error) {
+					expectedPrometheus, err := r.newPrometheusOperator(instance, factory, configSecret)
 
-				if err != nil {
-					return nil, merrors.Wrap(err, "error updating prometheus")
-				}
+					if err != nil {
+						return nil, merrors.Wrap(err, "error updating prometheus")
+					}
+					patch, err := r.patcher.Calculate(prometheus, expectedPrometheus)
+					if err != nil {
+						return nil, err
+					}
 
-				updatedPrometheus.ObjectMeta.Name = expectedPrometheus.ObjectMeta.Name
-				updatedPrometheus.Spec.Secrets = expectedPrometheus.Spec.Secrets
-				updatedPrometheus.Spec.Volumes = expectedPrometheus.Spec.Volumes
-				updatedPrometheus.Spec.VolumeMounts = expectedPrometheus.Spec.VolumeMounts
-				updatedPrometheus.Spec.AdditionalScrapeConfigs = expectedPrometheus.Spec.AdditionalScrapeConfigs
-				updatedPrometheus.Spec.Containers = expectedPrometheus.Spec.Containers
+					if patch.IsEmpty() {
+						return nil, nil
+					}
 
-				patch, err := r.patcher.Calculate(prometheus, updatedPrometheus)
-				if err != nil {
-					return nil, err
-				}
+					r.patcher.SetLastAppliedAnnotation(expectedPrometheus)
 
-				if patch.IsEmpty() {
-					return nil, nil
-				}
+					patch, err = r.patcher.Calculate(prometheus, expectedPrometheus)
+					if err != nil {
+						return nil, merrors.Wrap(err, "error creating patch")
+					}
 
-				patchBytes, err := jsonpatch.CreateMergePatch(patch.Original, patch.Modified)
+					if patch.IsEmpty() {
+						return nil, nil
+					}
 
-				if err != nil {
-					return nil, err
-				}
+					updateResult := &ExecResult{}
 
-				updateResult := &ExecResult{}
-
-				return HandleResult(
-					StoreResult(
-						updateResult,
-						UpdateWithPatchAction(prometheus, types.MergePatchType, patchBytes),
-					),
-					OnError(
-						Call(func() (ClientAction, error) {
-							return UpdateStatusCondition(
-								instance, instance.Status.Conditions, status.Condition{
-									Type:    marketplacev1alpha1.ConditionError,
-									Status:  corev1.ConditionFalse,
-									Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
-									Message: updateResult.Error(),
-								}), nil
-						})),
-					OnRequeue(
-						UpdateStatusCondition(instance, instance.Status.Conditions, status.Condition{
-							Type:    marketplacev1alpha1.ConditionInstalling,
-							Status:  corev1.ConditionTrue,
-							Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
-							Message: "updated prometheus",
-						}))), nil
-			}))),
+					return HandleResult(
+						StoreResult(
+							updateResult,
+							UpdateWithPatchAction(prometheus, types.MergePatchType, patch.Patch),
+						),
+						OnError(
+							Call(func() (ClientAction, error) {
+								return UpdateStatusCondition(
+									instance, instance.Status.Conditions, status.Condition{
+										Type:    marketplacev1alpha1.ConditionError,
+										Status:  corev1.ConditionFalse,
+										Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
+										Message: updateResult.Error(),
+									}), nil
+							})),
+					), nil
+				},
+				))),
 	}
 }
 
