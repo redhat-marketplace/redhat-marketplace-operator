@@ -60,12 +60,7 @@ var _ = BeforeSuite(func() {
 	var err error
 	By("setting up env")
 	testHarness, err = harness.NewTestHarness(harness.TestHarnessOptions{
-		EnabledFeatures: []string{
-			harness.FeatureAddPullSecret,
-			harness.FeatureMockOpenShift,
-			harness.FeatureDeployHelm,
-			harness.FeatureCreateMarketplaceConfig,
-		},
+		EnabledFeatures: []string{},
 		Namespace:       "openshift-redhat-marketplace",
 		WatchNamespace:  "",
 		ProvideScheme:   testenv.InitializeScheme,

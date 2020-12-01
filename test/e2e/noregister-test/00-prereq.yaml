@@ -1,0 +1,11 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+delete:
+  - apiVersion: marketplace.redhat.com/v1alpha1
+    kind: MarketplaceConfig
+    name: marketplaceconfig
+  - apiVersion: v1
+    kind: Secret
+    name: redhat-marketplace-pull-secret
+commands:
+  - script: cd ../../.. && skaffold build --namespace $NAMESPACE --detect-minikube=true --default-repo $IMAGE_REGISTRY -q | skaffold deploy --namespace $NAMESPACE --build-artifacts -

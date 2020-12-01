@@ -22,15 +22,18 @@ import (
 )
 
 var _ = Describe("Config", func() {
+	BeforeEach(func() {
+		reset()
+	})
 	Context("with defaults", func() {
 		It("should set defaults", func() {
 
-		cfg, err := ProvideConfig()
+			cfg, err := ProvideConfig()
 			Expect(err).To(Succeed())
 			Expect(cfg).ToNot(BeNil())
 
 			Expect(cfg.RelatedImages.Reporter).To(Equal("reporter:latest"))
-			Expect(cfg.IBMCatalog).To(BeTrue())
+			Expect(cfg.Features.IBMCatalog).To(BeTrue())
 		})
 	})
 
@@ -38,6 +41,7 @@ var _ = Describe("Config", func() {
 		BeforeEach(func() {
 			os.Setenv("FEATURE_IBMCATALOG", "false")
 			os.Setenv("RELATED_IMAGE_METRIC_STATE", "foo")
+			reset()
 		})
 
 		AfterEach(func() {

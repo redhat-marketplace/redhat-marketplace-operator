@@ -22,7 +22,6 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/client"
 	"github.com/spf13/cobra"
-	"golang.org/x/net/context"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -49,6 +48,13 @@ func init() {
 }
 
 func run(cmd *cobra.Command, args []string) {
+	log.Info("starting up with vars",
+		"group", group,
+		"kind", kind,
+		"namespace", namespace,
+		"retry", retry,
+	)
+
 	authChecker, err := InitializeAuthChecker(client.AuthCheckerConfig{
 		Namespace: namespace,
 		RetryTime: time.Duration(retry) * time.Second,
@@ -56,21 +62,17 @@ func run(cmd *cobra.Command, args []string) {
 		Group:     group,
 		Version:   version,
 	})
-
 	if err != nil {
 		log.Error(err, "error starting auth checker")
 		er(err)
 	}
 
-	ctx := context.Background()
-	err = authChecker.Run(ctx)
+	err = authChecker.Run(cmd.Context())
 
 	if err != nil {
 		log.Error(err, "error checking auth")
 		er(err)
 	}
-
-	os.Exit(0)
 }
 
 func er(msg interface{}) {
@@ -85,4 +87,6 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+
+	os.Exit(0)
 }
