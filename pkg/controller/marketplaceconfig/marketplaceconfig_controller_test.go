@@ -88,9 +88,7 @@ func testCleanInstall(t GinkgoTInterface) {
 	marketplaceconfig.Spec.InstallIBMCatalogSource = ptr.Bool(true)
 	reconcilerTest := NewReconcilerTest(setup, marketplaceconfig)
 	reconcilerTest.TestAll(t,
-		ReconcileStep(opts, ReconcileWithExpectedResults(
-			append(RangeReconcileResults(RequeueResult, 5), DoneResult)...,
-		)),
+		ReconcileStep(opts, ReconcileWithUntilDone(true)),
 		GetStep(opts,
 			GetWithNamespacedName(razeeName, namespace),
 			GetWithObj(&marketplacev1alpha1.RazeeDeployment{}),

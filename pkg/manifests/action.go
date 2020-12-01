@@ -19,11 +19,11 @@ import (
 	"fmt"
 
 	emperrors "emperror.dev/errors"
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -77,9 +77,31 @@ func (a *createOrUpdateFactoryItemAction) Exec(ctx context.Context, c *ClientCom
 
 	cmd := HandleResult(
 		GetAction(key, a.object),
-		OnNotFound(CreateAction(result, CreateWithAddOwner(a.owner), CreateWithPatch(a.patcher))),
+		OnNotFound(CreateAction(result,
+			CreateWithAddOwner(a.owner),
+			CreateWithPatch(a.patcher))),
 		OnContinue(Call(func() (ClientAction, error) {
+			// handle case if original config is missing
+			if orig, _ := a.patcher.GetOriginalConfiguration(a.object); orig == nil {
+				data, _ := a.patcher.GetModifiedConfiguration(a.object, false)
+				a.patcher.SetOriginalConfiguration(a.object, data)
+			}
+
 			patch, err := a.patcher.Calculate(a.object, result)
+			if err != nil {
+				return nil, emperrors.Wrap(err, "error creating patch")
+			}
+
+			if patch.IsEmpty() {
+				return nil, nil
+			}
+
+			err = a.patcher.SetLastAppliedAnnotation(result)
+			if err != nil {
+				return nil, emperrors.Wrap(err, "error creating patch")
+			}
+
+			patch, err = a.patcher.Calculate(a.object, result)
 			if err != nil {
 				return nil, emperrors.Wrap(err, "error creating patch")
 			}
@@ -92,13 +114,12 @@ func (a *createOrUpdateFactoryItemAction) Exec(ctx context.Context, c *ClientCom
 				"patch", string(patch.Patch),
 			)
 
-			patchBytes, err := jsonpatch.CreateMergePatch(patch.Original, patch.Modified)
-
+			jsonPatch, err := jsonmergepatch.CreateThreeWayJSONMergePatch(patch.Original, patch.Modified, patch.Current)
 			if err != nil {
-				return nil, emperrors.Wrap(err, "error creating json patch")
+				return nil, emperrors.Wrap(err, "Failed to generate merge patch")
 			}
 
-			return UpdateWithPatchAction(result, types.MergePatchType, patchBytes), nil
+			return UpdateWithPatchAction(a.object, types.MergePatchType, jsonPatch), nil
 		})))
 	cmd.Bind(a.GetLastResult())
 	return c.Do(ctx, cmd)

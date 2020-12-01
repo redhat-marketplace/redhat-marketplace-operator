@@ -1,7 +1,7 @@
 FROM registry.access.redhat.com/ubi8/ubi:latest as golang
 
 ARG ARCH=amd64
-ENV VERSION=1.15.1 OS=linux ARCH=${ARCH}
+ENV VERSION=1.15.5 OS=linux ARCH=${ARCH}
 
 RUN dnf -y install git
 

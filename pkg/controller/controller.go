@@ -62,6 +62,7 @@ var ControllerSet = wire.NewSet(
 	ProvideNodeController,
 	ProvideOlmClusterServiceVersionController,
 	ProvideRemoteResourceS3Controller,
+	ProvideClusterRegistrationController,
 )
 
 func ProvideControllerList(
@@ -74,6 +75,7 @@ func ProvideControllerList(
 	olmClusterServiceVersionC *OlmClusterServiceVersionController,
 	remoteResourceS3C *RemoteResourceS3Controller,
 	nodeC *NodeController,
+	clusterregistrationC *ClusterRegistrationController,
 ) ControllerList {
 	return []AddController{
 		myController,
@@ -85,5 +87,6 @@ func ProvideControllerList(
 		olmClusterServiceVersionC,
 		remoteResourceS3C,
 		nodeC,
+		clusterregistrationC,
 	}
 }

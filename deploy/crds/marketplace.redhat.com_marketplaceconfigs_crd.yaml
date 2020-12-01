@@ -10,6 +10,12 @@ spec:
   - JSONPath: .status.conditions[?(@.type == "Installing")].reason
     name: STEP
     type: string
+  - JSONPath: .status.conditions[?(@.type == "Registered")].status
+    name: REGISTERED
+    type: string
+  - JSONPath: .status.conditions[?(@.type == "Registered")].message
+    name: REGISTERED_MSG
+    type: string
   group: marketplace.redhat.com
   names:
     kind: MarketplaceConfig
@@ -39,6 +45,11 @@ spec:
         spec:
           description: MarketplaceConfigSpec defines the desired state of MarketplaceConfig
           properties:
+            clusterName:
+              description: ClusterName is the name that will be assigned to your cluster
+                in the Red Hat Marketplace UI. If you have set the name in the UI
+                first, this name will be ignored.
+              type: string
             clusterUUID:
               description: ClusterUUID is the Red Hat Marketplace cluster identifier
               type: string

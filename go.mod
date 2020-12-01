@@ -13,7 +13,8 @@ require (
 	github.com/caarlos0/env/v6 v6.3.0
 	github.com/cespare/xxhash v1.1.0
 	github.com/coreos/prometheus-operator v0.40.0
-	github.com/evanphx/json-patch v4.5.0+incompatible
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/evanphx/json-patch v4.9.0+incompatible
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
@@ -36,6 +37,8 @@ require (
 	github.com/mikefarah/yq/v3 v3.0.0-20200415014842-6f0a329331f9
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.3.2
+	github.com/ogier/pflag v0.0.1 // indirect
+	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852
 	github.com/onsi/ginkgo v1.13.0
 	github.com/onsi/gomega v1.10.1
 	github.com/openshift/api v0.0.0-20200205133042-34f0ec8dab87
@@ -46,6 +49,7 @@ require (
 	github.com/pelletier/go-toml v1.8.0 // indirect
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.43.0
 	github.com/prometheus/alertmanager v0.21.0 // indirect
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/common v0.10.0
@@ -60,12 +64,11 @@ require (
 	golang.org/x/net v0.0.0-20200822124328-c89045814202
 	golang.org/x/sys v0.0.0-20200814200057-3d37ad5750ed // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
-	golang.org/x/tools v0.0.0-20200914163123-ea50a3c84940 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
-	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
-	k8s.io/api v0.18.6
-	k8s.io/apimachinery v0.18.8
+	honnef.co/go/tools v0.0.1-2020.1.6 // indirect
+	k8s.io/api v0.18.12
+	k8s.io/apimachinery v0.18.12
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/code-generator v0.18.6
 	k8s.io/klog v1.0.0
@@ -73,13 +76,15 @@ require (
 	k8s.io/kube-state-metrics v1.7.2
 	k8s.io/kubectl v0.18.2
 	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451
-	sigs.k8s.io/controller-runtime v0.6.1
+	sigs.k8s.io/controller-runtime v0.6.3
 	sigs.k8s.io/kind v0.9.0 // indirect
+	sigs.k8s.io/yaml v1.2.0
 )
 
 replace (
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v14.2.0+incompatible // Required by OLM
 	github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.6.0
+	github.com/coreos/prometheus-operator => github.com/prometheus-operator/prometheus-operator v0.41.0
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v1.8.2-0.20200609102542-5d7e3e970602
-	k8s.io/client-go => k8s.io/client-go v0.18.3 // Required by prometheus-operator
+	k8s.io/client-go => k8s.io/client-go v0.18.12 // Required by prometheus-operator
 )

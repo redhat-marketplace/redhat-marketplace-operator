@@ -40,8 +40,6 @@ spec:
                   fieldPath: metadata.name
             - name: RELATED_IMAGE_REPORTER
               value: {{ .Values.reporterImage }}
-            - name: RELATED_IMAGE_KUBE_RBAC_PROXY
-              value: {{ .Values.kubeRbacProxyImage }}
             - name: RELATED_IMAGE_METRIC_STATE
               value: {{ .Values.metricStateImage }}
             - name: RELATED_IMAGE_AUTHCHECK
