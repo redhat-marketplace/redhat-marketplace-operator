@@ -410,6 +410,11 @@ func (r *MarketplaceReporter) WriteReport(
 
 	for idxRange := range gopart.Partition(len(metricsArr), partitionSize) {
 		metricReport := NewReport()
+
+		if r.Config.UploaderTarget != UploaderTargetRedHatInsights {
+			metricReport.AddMetadata(metadata.ToFlat())
+		}
+
 		metadata.AddMetricsReport(metricReport)
 
 		err := metricReport.AddMetrics(metricsArr[idxRange.Low:idxRange.High]...)
