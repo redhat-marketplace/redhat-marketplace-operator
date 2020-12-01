@@ -99,6 +99,7 @@ jobs:
     name: Test Integration
     runs-on: ubuntu-20.04
     needs: [build]
+    if: false
     strategy:
       matrix:
         registry:
