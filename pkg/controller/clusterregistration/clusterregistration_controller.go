@@ -181,7 +181,6 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, nil
 	}
 
-
 	newMarketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{
 		Namespace: request.Namespace,
@@ -288,7 +287,6 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 		}
 		reqLogger.Info("Secret updated with status on success")
 	}
-
 
 	//Create Markeplace Config object
 	reqLogger.Info("finding clusterversion resource")

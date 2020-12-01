@@ -57,12 +57,23 @@ const (
 	MeteredResourceAnnotationKey = "marketplace.redhat.com/meteredUIDs"
 )
 
+type ServiceAccountClient struct {
+	KubernetesInterface kubernetes.Interface
+	Token               *Token
+	sync.Mutex
+}
+
+type Token struct {
+	AuthToken           string
+	ExpirationTimestamp metav1.Time
+}
+
 var (
 	log = logf.Log.WithName("controller_meterdefinition")
 	// uid to name and namespace
 	store *meter_definition.MeterDefinitionStore
 
-	mutex sync.Mutex
+	saClient ServiceAccountClient
 )
 
 // Add creates a new MeterDefinition Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -71,23 +82,25 @@ func Add(
 	mgr manager.Manager,
 	ccprovider ClientCommandRunnerProvider,
 	cfg config.OperatorConfig,
-	serviceAccountClient kubernetes.Interface,
+	kubernetesInterface kubernetes.Interface,
 ) error {
-	return add(mgr, NewReconciler(mgr, ccprovider, cfg,serviceAccountClient))
+	return add(mgr, NewReconciler(mgr, ccprovider, cfg, kubernetesInterface))
 }
 
 // NewReconciler returns a new reconcile.Reconciler
-func NewReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider, cfg config.OperatorConfig,serviceAccountClient kubernetes.Interface) reconcile.Reconciler {
+func NewReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider, cfg config.OperatorConfig, kubernetesInterface kubernetes.Interface) reconcile.Reconciler {
 	opts := &MeterDefOpts{}
-	
+
+	saClient.KubernetesInterface = kubernetesInterface
+
 	return &ReconcileMeterDefinition{
-		client:     mgr.GetClient(),
-		serviceAccountClient: serviceAccountClient,
-		scheme:     mgr.GetScheme(),
-		ccprovider: ccprovider,
-		cfg:        cfg,
-		opts:       opts,
-		patcher:    patch.RHMDefaultPatcher,
+		client:               mgr.GetClient(),
+		serviceAccountClient: &saClient,
+		scheme:               mgr.GetScheme(),
+		ccprovider:           ccprovider,
+		cfg:                  cfg,
+		opts:                 opts,
+		patcher:              patch.RHMDefaultPatcher,
 	}
 }
 
@@ -115,13 +128,13 @@ var _ reconcile.Reconciler = &ReconcileMeterDefinition{}
 type ReconcileMeterDefinition struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client     client.Client
-	serviceAccountClient kubernetes.Interface
-	scheme     *runtime.Scheme
-	ccprovider ClientCommandRunnerProvider
-	opts       *MeterDefOpts
-	patcher    patch.Patcher
-	cfg        config.OperatorConfig
+	client               client.Client
+	serviceAccountClient *ServiceAccountClient
+	scheme               *runtime.Scheme
+	ccprovider           ClientCommandRunnerProvider
+	opts                 *MeterDefOpts
+	patcher              patch.Patcher
+	cfg                  config.OperatorConfig
 }
 
 type MeterDefOpts struct{}
@@ -174,7 +187,6 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		queue = instance.Status.Conditions.SetCondition(v1alpha1.MeterDefConditionHasResults)
 	}
 
-
 	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
 	if err != nil {
 		_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
@@ -188,23 +200,24 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	}
 
 	reqLogger.Info("retrieving service account token")
-	authToken, err := r.getServiceAccountToken()
+
+	authToken, err := r.getServiceAccountToken(instance,reqLogger)
 	if err != nil {
 		_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
-			return reconcile.Result{}, err
+		return reconcile.Result{}, err
 	}
 
 	var queryPreviewResultArray []v1alpha1.Result
 
-	if certConfigMap != nil  && authToken != "" && service != nil {
+	if certConfigMap != nil && authToken != "" && service != nil {
 		cert, err := r.getCertificateFromConfigMap(*certConfigMap)
 		if err != nil {
 			_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
 			return reconcile.Result{}, err
 		}
-	
+
 		//TODO: cache this with a global var and add mutex
-		client, err := prometheus.ProvideApiClientFromCert(service, &cert, authToken, &mutex)
+		client, err := prometheus.ProvideApiClientFromCert(service, &cert, authToken)
 		if err != nil {
 			_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
 			return reconcile.Result{}, err
@@ -248,22 +261,63 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	return reconcile.Result{RequeueAfter: time.Minute * 2}, nil
 }
 
-func(r *ReconcileMeterDefinition) getServiceAccountToken()(string,error){
+func (r *ReconcileMeterDefinition) getServiceAccountToken(instance *v1alpha1.MeterDefinition, reqLogger logr.Logger) (string, error) {
+	r.serviceAccountClient.Lock()
+	defer r.serviceAccountClient.Unlock()
+
+	now := metav1.Now().UTC()
+
+	client := r.serviceAccountClient.KubernetesInterface.CoreV1().ServiceAccounts(instance.Namespace)
+
 	tr := &authv1.TokenRequest{
 		Spec: authv1.TokenRequestSpec{
-			Audiences: []string{"rhm-prometheus-meterbase.openshift-redhat-marketplace.svc"},
+			Audiences:         []string{"rhm-prometheus-meterbase.openshift-redhat-marketplace.svc"},
 			ExpirationSeconds: ptr.Int64(3600),
 		},
 	}
+
 	opts := metav1.CreateOptions{}
-	tr,err := r.serviceAccountClient.CoreV1().ServiceAccounts("openshift-redhat-marketplace").CreateToken(context.TODO(),"redhat-marketplace-operator",tr,opts)
+
+	if r.serviceAccountClient.Token == nil {
+
+		tr, err := client.CreateToken(context.TODO(), utils.OPERATOR_SERVICE_ACCOUNT, tr, opts)
+		if err != nil {
+			return "", err
+		}
+
+		utils.PrettyPrintWithLog("token request response", tr)
+
+		saClient.Token.AuthToken = tr.Status.Token
+		saClient.Token.ExpirationTimestamp = tr.Status.ExpirationTimestamp
+		token := tr.Status.Token
+		return token, nil
+
+	}
+
+	if now.UTC().After(r.serviceAccountClient.Token.ExpirationTimestamp.Time) {
+
+		reqLogger.Info("service account token is expired")
+
+		tr, err := client.CreateToken(context.TODO(), utils.OPERATOR_SERVICE_ACCOUNT, tr, opts)
+		if err != nil {
+			return "", err
+		}
+
+		token := tr.Status.Token
+		saClient.Token.AuthToken = tr.Status.Token
+		saClient.Token.ExpirationTimestamp = tr.Status.ExpirationTimestamp
+		return token, nil
+	}
+
+	tr, err := client.CreateToken(context.TODO(), utils.OPERATOR_SERVICE_ACCOUNT, tr, opts)
 	if err != nil {
 		return "", err
 	}
 
 	token := tr.Status.Token
+	saClient.Token.AuthToken = tr.Status.Token
+	saClient.Token.ExpirationTimestamp = tr.Status.ExpirationTimestamp
 	return token, nil
-
 }
 
 func (r *ReconcileMeterDefinition) updateConditionsWithError(instance *v1alpha1.MeterDefinition, err error, reqLogger logr.Logger, queue bool) *ExecResult {

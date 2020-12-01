@@ -33,7 +33,6 @@ type MarketplaceConfigSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
 	ClusterUUID string `json:"clusterUUID"`
 
-
 	// ClusterName is the name that will be assigned to your cluster in the Red Hat Marketplace UI.
 	// If you have set the name in the UI first, this name will be ignored.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true

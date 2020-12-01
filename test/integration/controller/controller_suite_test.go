@@ -21,7 +21,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 
 	"k8s.io/client-go/rest"
@@ -71,22 +70,6 @@ var _ = BeforeSuite(func() {
 	_, err = testHarness.Start()
 	Expect(err).ToNot(HaveOccurred())
 })
-
-func SetStub(stub bool)*config.OperatorConfig{
-
-	if stub {
-		config,err := config.ProvideConfig()
-		if err != nil {
-			fmt.Println("err with stub",err)
-		}
-	
-		config.PathToKubeProxyAPIToken = ""
-		return &config
-	}
-
-	return nil
-}
-
 
 var _ = AfterSuite(func() {
 	testHarness.Stop()

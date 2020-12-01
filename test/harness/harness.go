@@ -98,7 +98,7 @@ func NewTestHarness(
 	t := true
 	testEnv := envtest.Environment{
 		UseExistingCluster: &t,
-		CRDDirectoryPaths: []string{
+		CRDDirectoryPaths:  []string{
 			//filepath.Join(rootDir, "deploy", "crds"),
 			//filepath.Join(rootDir, "test", "testdata"),
 		},
@@ -459,7 +459,6 @@ func (d *createMarketplaceConfig) Before(t *TestHarness) error {
 	if err != nil {
 		return err
 	}
-
 
 	By("wait for marketplaceconfig")
 	Eventually(func() bool {

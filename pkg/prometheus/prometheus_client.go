@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"sync"
 
 	"emperror.dev/errors"
 	"github.com/prometheus/client_golang/api"
@@ -38,7 +37,6 @@ func ProvideApiClientFromCert(
 	promService *corev1.Service,
 	caCert *[]byte,
 	token string,
-	mutex *sync.Mutex,
 ) (api.Client, error) {
 
 	var port int32
@@ -65,7 +63,7 @@ func ProvideApiClientFromCert(
 		Address: fmt.Sprintf("https://%s.%s.svc:%v", name, namespace, port),
 		Token:   token,
 		CaCert:  caCert,
-	}, mutex)
+	})
 
 	if err != nil {
 		log.Error(err, "failed to setup NewSecureClient")
@@ -81,7 +79,7 @@ func ProvideApiClientFromCert(
 
 func GetAuthToken(apiTokenPath string) (token string, returnErr error) {
 	content, err := ioutil.ReadFile(apiTokenPath)
-	utils.PrettyPrintWithLog("CONTENT: ",content)
+	utils.PrettyPrintWithLog("CONTENT: ", content)
 	if err != nil {
 		return "", err
 	}
@@ -99,7 +97,7 @@ func GetAuthTokenForKubeAdm() (token string, returnErr error) {
 }
 
 func NewSecureClient(config *PrometheusSecureClientConfig) (api.Client, error) {
-	tlsConfig, err := generateCACertPool(config.ServerCertFile)
+	tlsConfig, err := GenerateCACertPool(config.ServerCertFile)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get tlsConfig")
@@ -127,10 +125,7 @@ func NewSecureClient(config *PrometheusSecureClientConfig) (api.Client, error) {
 	return client, err
 }
 
-func NewSecureClientFromCert(config *PrometheusSecureClientConfig, mutex *sync.Mutex) (api.Client, error) {
-	//TODO: this needs to be a global var in the meterdef controller
-	mutex.Lock()
-	defer mutex.Unlock()
+func NewSecureClientFromCert(config *PrometheusSecureClientConfig) (api.Client, error) {
 
 	tlsConfig, err := generateCACertPoolFromCert(*config.CaCert)
 	if err != nil {
@@ -174,7 +169,7 @@ func generateCACertPoolFromCert(caCert []byte) (*tls.Config, error) {
 	}, nil
 }
 
-func generateCACertPool(files ...string) (*tls.Config, error) {
+func GenerateCACertPool(files ...string) (*tls.Config, error) {
 	caCertPool, err := x509.SystemCertPool()
 
 	if err != nil {

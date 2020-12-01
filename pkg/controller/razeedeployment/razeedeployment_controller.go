@@ -1381,7 +1381,7 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 		}
 	}
 
-	childRRS3:= marketplacev1alpha1.RemoteResourceS3{}
+	childRRS3 := marketplacev1alpha1.RemoteResourceS3{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: "child", Namespace: *req.Spec.TargetNamespace}, &childRRS3)
 	if err != nil && !errors.IsNotFound((err)) {
 		reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
