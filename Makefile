@@ -201,7 +201,7 @@ skaffold-dev: $(skaffold) ## Run skaffold dev. Will unique tag the operator and 
 	DEVPOSTFIX=$(DEVPOSTFIX) docker=$(DOCKER_EXEC) $(skaffold) dev --tail --port-forward --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) $(ARGS)
 
 skaffold-run: $(skaffold) ## Run skaffold run. Will unique tag the operator and rebuild.
-	DEVPOSTFIX=$(DEVPOSTFIX) docker=$(DOCKER_EXEC) $(skaffold) run --default-repo $(IMAGE_REGISTRY) --namespace $(NAMESPACE) $(ARGS)
+	DEVPOSTFIX=$(DEVPOSTFIX) docker=$(DOCKER_EXEC) $(skaffold) run --default-repo $(IMAGE_REGISTRY) --detect-minikube=true --namespace $(NAMESPACE) $(ARGS)
 
 code-vet: ## Run go vet for this project. More info: https://golang.org/cmd/vet/
 	@echo go vet
