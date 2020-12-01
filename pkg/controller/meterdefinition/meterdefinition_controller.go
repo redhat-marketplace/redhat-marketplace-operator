@@ -248,7 +248,6 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	return reconcile.Result{RequeueAfter: time.Minute * 2}, nil
 }
 
-// CreateToken(ctx context.Context, serviceAccountName string, tokenRequest *authenticationv1.TokenRequest, opts metav1.CreateOptions) (*authenticationv1.TokenRequest, error)
 func(r *ReconcileMeterDefinition) getServiceAccountToken()(string,error){
 	tr := &authv1.TokenRequest{
 		Spec: authv1.TokenRequestSpec{
