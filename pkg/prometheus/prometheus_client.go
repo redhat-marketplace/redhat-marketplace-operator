@@ -99,7 +99,7 @@ func GetAuthTokenForKubeAdm() (token string, returnErr error) {
 }
 
 func NewSecureClient(config *PrometheusSecureClientConfig) (api.Client, error) {
-	tlsConfig, err := GenerateCACertPool(config.ServerCertFile)
+	tlsConfig, err := generateCACertPool(config.ServerCertFile)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get tlsConfig")
@@ -141,6 +141,7 @@ func NewSecureClientFromCert(config *PrometheusSecureClientConfig, mutex *sync.M
 
 	transport = &http.Transport{
 		TLSClientConfig: tlsConfig,
+		// ResponseHeaderTimeout: 60 * time.Second,
 	}
 
 	if config.UserAuth != nil {
@@ -173,7 +174,7 @@ func generateCACertPoolFromCert(caCert []byte) (*tls.Config, error) {
 	}, nil
 }
 
-func GenerateCACertPool(files ...string) (*tls.Config, error) {
+func generateCACertPool(files ...string) (*tls.Config, error) {
 	caCertPool, err := x509.SystemCertPool()
 
 	if err != nil {

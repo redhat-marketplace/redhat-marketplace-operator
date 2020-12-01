@@ -11,6 +11,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	"k8s.io/client-go/kubernetes"
 	config2 "sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
@@ -25,7 +26,15 @@ func InitializeMarketplaceController() (*managers.ControllerMain, error) {
 	if err != nil {
 		return nil, err
 	}
-	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider, operatorConfig)
+	restConfig, err := config2.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider, operatorConfig, clientset)
 	razeeDeployController := controller.ProvideRazeeDeployController()
 	olmSubscriptionController := controller.ProvideOlmSubscriptionController()
 	meterReportController := controller.ProvideMeterReportController(defaultCommandRunnerProvider, operatorConfig)
@@ -33,10 +42,6 @@ func InitializeMarketplaceController() (*managers.ControllerMain, error) {
 	remoteResourceS3Controller := controller.ProvideRemoteResourceS3Controller()
 	nodeController := controller.ProvideNodeController()
 	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, meterReportController, olmClusterServiceVersionController, remoteResourceS3Controller, nodeController)
-	restConfig, err := config2.GetConfig()
-	if err != nil {
-		return nil, err
-	}
 	opsSrcSchemeDefinition := controller.ProvideOpsSrcScheme()
 	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
 	olmV1SchemeDefinition := controller.ProvideOLMV1Scheme()

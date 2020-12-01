@@ -36,11 +36,12 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -70,16 +71,18 @@ func Add(
 	mgr manager.Manager,
 	ccprovider ClientCommandRunnerProvider,
 	cfg config.OperatorConfig,
+	serviceAccountClient kubernetes.Interface,
 ) error {
-	return add(mgr, NewReconciler(mgr, ccprovider, cfg))
+	return add(mgr, NewReconciler(mgr, ccprovider, cfg,serviceAccountClient))
 }
 
 // NewReconciler returns a new reconcile.Reconciler
-func NewReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider, cfg config.OperatorConfig) reconcile.Reconciler {
+func NewReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider, cfg config.OperatorConfig,serviceAccountClient kubernetes.Interface) reconcile.Reconciler {
 	opts := &MeterDefOpts{}
-
+	
 	return &ReconcileMeterDefinition{
 		client:     mgr.GetClient(),
+		serviceAccountClient: serviceAccountClient,
 		scheme:     mgr.GetScheme(),
 		ccprovider: ccprovider,
 		cfg:        cfg,
@@ -113,6 +116,7 @@ type ReconcileMeterDefinition struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client     client.Client
+	serviceAccountClient kubernetes.Interface
 	scheme     *runtime.Scheme
 	ccprovider ClientCommandRunnerProvider
 	opts       *MeterDefOpts
@@ -183,56 +187,24 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	//TODO: need test case
-	if r.cfg.PathToKubeProxyAPIToken == "" {
-		err = errors.New("path to kube proxy token is nil")
+	reqLogger.Info("retrieving service account token")
+	authToken, err := r.getServiceAccountToken()
+	if err != nil {
 		_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
-		return reconcile.Result{}, err
+			return reconcile.Result{}, err
 	}
-
-	// TODO: need test case
-	// token, err := prometheus.GetAuthToken(r.cfg.PathToKubeProxyAPIToken)
-	// utils.PrettyPrintWithLog("auth-service-account:",token)
-	// if err != nil {
-	// 	_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
-	// 	return reconcile.Result{}, err
-	// }
-
-	bearerToken,secretName,err := r.getTokenFromServiceAccount(instance,reqLogger,cc)
-	if err != nil {
-		reqLogger.Error(err,"error retrieving bearer token")
-		return reconcile.Result{},err
-	}
-
-	reqLogger.Info("Bearer Token","token string",bearerToken)
-
-	consoleUrl,err := r.getConsoleUrl(reqLogger)
-	if err != nil {
-		reqLogger.Error(err,"err finding console resource")
-	}
-
-	reqLogger.Info("info","console url",consoleUrl)
-	
-	authToken, err := r.requestAuthTokenFromServiceSecret(bearerToken,secretName,cc,reqLogger)
-	if err != nil {
-		reqLogger.Error(err,"error retrieving auth token")
-		return reconcile.Result{},err
-	}
-
-	reqLogger.Info("Auth Token","token string",authToken)
-	//TODO: use this token to 
 
 	var queryPreviewResultArray []v1alpha1.Result
 
-	if certConfigMap != nil && authToken != "" && service != nil {
+	if certConfigMap != nil  && authToken != "" && service != nil {
 		cert, err := r.getCertificateFromConfigMap(*certConfigMap)
 		if err != nil {
 			_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
 			return reconcile.Result{}, err
 		}
-
-		//TODO: global var cache this, with a mutex
-		client, err := prometheus.ProvideApiClientFromCert(service, &cert, token, &mutex)
+	
+		//TODO: cache this with a global var and add mutex
+		client, err := prometheus.ProvideApiClientFromCert(service, &cert, authToken, &mutex)
 		if err != nil {
 			_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
 			return reconcile.Result{}, err
@@ -273,121 +245,26 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	}
 
 	reqLogger.Info("finished reconciling")
-	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
+	return reconcile.Result{RequeueAfter: time.Minute * 2}, nil
 }
 
-func(r *ReconcileMeterDefinition)getConsoleUrl(reqLogger logr.Logger)(string,error){
-	console := &unstructured.Unstructured{}
-	console.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "config.openshift.io",
-		Kind:    "Console",
-		Version: "v1",
-	})
-	err := r.client.Get(context.Background(), client.ObjectKey{
-		Name: "cluster",
-	}, console)
-
+// CreateToken(ctx context.Context, serviceAccountName string, tokenRequest *authenticationv1.TokenRequest, opts metav1.CreateOptions) (*authenticationv1.TokenRequest, error)
+func(r *ReconcileMeterDefinition) getServiceAccountToken()(string,error){
+	tr := &authv1.TokenRequest{
+		Spec: authv1.TokenRequestSpec{
+			Audiences: []string{"rhm-prometheus-meterbase.openshift-redhat-marketplace.svc"},
+			ExpirationSeconds: ptr.Int64(3600),
+		},
+	}
+	opts := metav1.CreateOptions{}
+	tr,err := r.serviceAccountClient.CoreV1().ServiceAccounts("openshift-redhat-marketplace").CreateToken(context.TODO(),"redhat-marketplace-operator",tr,opts)
 	if err != nil {
-		reqLogger.Error(err, "Failed to retrieve Console resource")
 		return "", err
 	}
 
-	status,ok := console.Object["status"].(map[string]string); if !ok {
-		return "",errors.New("error converting status to map")
-	}
-	url := status["consoleUrl"]
-	reqLogger.Info("console url","test",url)
-	return url, nil
-}
+	token := tr.Status.Token
+	return token, nil
 
-func (r *ReconcileMeterDefinition) requestAuthTokenFromServiceSecret(bearerToken string, secretName string, cc ClientCommandRunner,reqLogger logr.Logger) (string,error) {
-
-	console := &unstructured.Unstructured{}
-	console.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "config.openshift.io",
-		Kind:    "Console",
-		Version: "v1",
-	})
-	err := r.client.Get(context.Background(), client.ObjectKey{
-		Name: "cluster",
-	}, console)
-
-	if err != nil {
-		reqLogger.Error(err, "Failed to retrieve Console resource")
-		return "", err
-	}
-
-	status,ok := console.Object["status"].(map[string]string); if !ok {
-		return "",errors.New("error converting status to map")
-	}
-	url := status["consoleUrl"]
-	reqLogger.Info("console url","test",url)
-	return url, nil
-
-}
-
-// func (r *ReconcileMeterDefinition) requestAuthTokenFromServiceSecret(bearerToken string, secretName string, cc ClientCommandRunner) (string,error) {
-
-// 	createdTr := &authv1.TokenRequest{
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Name: "auth-token-request",
-// 			Namespace: "openshift-redhat-marketplace",
-// 		},
-// 		Spec: authv1.TokenRequestSpec{
-// 			BoundObjectRef: &authv1.BoundObjectReference{
-// 				Kind: "Secret",
-// 				Name: secretName,
-// 			},
-// 		},
-// 	}
-
-// 	if result, _ := cc.Do(context.TODO(), CreateAction(createdTr)); !result.Is(Continue) {
-// 		return "",result.GetError()
-// 	}
-
-// 	foundTr := &authv1.TokenRequest{}
-// 	if result, _ := cc.Do(context.TODO(), GetAction(types.NamespacedName{Name:createdTr.Name,Namespace: "openshift-redhat-marketplaces" },foundTr)); !result.Is(Continue) {
-// 		return "",result.GetError()
-// 	}
-
-// 	return foundTr.Status.Token,nil
-
-// }
-
-func (r *ReconcileMeterDefinition) getTokenFromServiceAccount(instance *v1alpha1.MeterDefinition, reqLogger logr.Logger,cc ClientCommandRunner)(string,string,error){
-	sa := &corev1.ServiceAccount{}
-	name := types.NamespacedName{Name: utils.OPERATOR_SERVICE_ACCOUNT, Namespace: instance.Namespace}
-
-	if result, _ := cc.Do(context.TODO(), GetAction(name, sa)); !result.Is(Continue) {
-		return "", "",result.GetError()
-	}
-
-	var foundObjRef corev1.ObjectReference
-	for _,objRef := range sa.Secrets {
-		if strings.Contains(objRef.Name,"token"){
-			foundObjRef = objRef 
-		}
-	}
-
-	tokenSecret := &corev1.Secret{}
-	secretName := types.NamespacedName{Name: foundObjRef.Name,Namespace: "openshift-redhat-marketplace"}
-	reqLogger.Info("FOUND OBJ REF: ","obj",secretName.Name)
-	if result, _ := cc.Do(context.TODO(), GetAction(secretName, tokenSecret)); !result.Is(Continue) {
-		return "", "",result.GetError()
-	}
-
-	selector := corev1.SecretKeySelector{
-		LocalObjectReference: corev1.LocalObjectReference{Name: foundObjRef.Name},
-		Key: "token",
-	}
-
-	tokenBytes,err := utils.ExtractCredKey(tokenSecret,selector)
-	if err != nil {
-		return "","",err
-	}
-
-	token := string(tokenBytes)
-	return token,foundObjRef.Name,nil
 }
 
 func (r *ReconcileMeterDefinition) updateConditionsWithError(instance *v1alpha1.MeterDefinition, err error, reqLogger logr.Logger, queue bool) *ExecResult {

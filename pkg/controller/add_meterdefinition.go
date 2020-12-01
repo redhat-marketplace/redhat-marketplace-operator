@@ -18,6 +18,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller/meterdefinition"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/spf13/pflag"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -30,11 +31,12 @@ type MeterDefinitionController struct {
 func ProvideMeterDefinitionController(
 	commandRunner reconcileutils.ClientCommandRunnerProvider,
 	cfg config.OperatorConfig,
+	serviceAccountClient kubernetes.Interface,
 ) *MeterDefinitionController {
 	return &MeterDefinitionController{
 		baseDefinition: &baseDefinition{
 			AddFunc: func(mgr manager.Manager) error {
-				return meterdefinition.Add(mgr, commandRunner, cfg)
+				return meterdefinition.Add(mgr, commandRunner, cfg,serviceAccountClient)
 			},
 			FlagSetFunc: func() *pflag.FlagSet { return nil },
 		},
