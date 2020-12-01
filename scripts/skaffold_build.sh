@@ -56,34 +56,22 @@ fi
 ${DOCKER_EXEC} buildx &>/dev/null
 if [ $? -eq 0 ]; then
 
+	ARGS=--load
+	if $PUSH_IMAGE; then
+		ARGS=--push
+	fi
+
 	${DOCKER_EXEC} buildx build \
 		-f ./build/Dockerfile \
-		--cache-from "type=local,src=/tmp/.buildx-cache" \
-		--cache-to "type=local,dest=/tmp/.buildx-cache" \
 		--tag $IMAGE \
-		--output "type=image,push=false" \
 		--build-arg name="$name" \
 		--build-arg exec=$exec \
 		--build-arg bin=$bin \
 		--build-arg bin_out=$bin \
 		--build-arg app_version=\"$VERSION\" \
 		--build-arg quay_expiration=\"$QUAY_EXPIRATION\" \
+		$ARGS \
 		.
-
-	if $PUSH_IMAGE; then
-		${DOCKER_EXEC} buildx build \
-			-f ./build/Dockerfile \
-			--cache-from "type=local,src=/tmp/.buildx-cache" \
-			--tag $IMAGE \
-			--output "type=image,push=true" \
-			--build-arg name="$name" \
-			--build-arg exec=$exec \
-			--build-arg bin=$bin \
-			--build-arg bin_out=$bin \
-			--build-arg app_version=\"$VERSION\" \
-			--build-arg quay_expiration=\"$QUAY_EXPIRATION\" \
-			.
-	fi
 else
 	${DOCKER_EXEC} build -f ./build/Dockerfile \
 		--tag $IMAGE \
