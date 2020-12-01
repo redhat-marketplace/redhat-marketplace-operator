@@ -16,7 +16,7 @@ status:
       status: 'False'
       type: Installing
     - reason: ClusterRegistered
-      status: 'False'
+      status: 'True'
       type: Registered
   meterBaseSubConditions:
     - message: Meter Base install complete
@@ -24,9 +24,13 @@ status:
       status: 'False'
       type: Installing
   razeeSubConditions:
-    - message: ParentRRS3 install finished
-      reason: FinishParentRRS3Install
-      status: 'True'
+    - message: Razee install complete
+      reason: FinishedRazeeInstall
+      status: "True"
+      type: Complete
+    - message: Razee install complete
+      reason: FinishedRazeeInstall
+      status: "False"
       type: Installing
 ---
 apiVersion: apps/v1
