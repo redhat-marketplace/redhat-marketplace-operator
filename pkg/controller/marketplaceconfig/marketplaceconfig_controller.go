@@ -227,26 +227,30 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		err = r.client.Update(context.TODO(), marketplaceConfig)
 
 		if err != nil {
-			reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
+			reqLogger.Error(err, "Failed to create to updatee the marketplace config")
 			return reconcile.Result{}, err
 		}
 
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	if marketplaceConfig.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionInstalling) == nil {
-		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+	if marketplaceConfig.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionInstalling) {
+		ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,
 			Reason:  marketplacev1alpha1.ReasonStartInstall,
 			Message: "Installing starting",
 		})
 
-		err = r.client.Status().Update(context.TODO(), marketplaceConfig)
+		if ok {
+			err = r.client.Status().Update(context.TODO(), marketplaceConfig)
 
-		if err != nil {
-			reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
-			return reconcile.Result{}, err
+			if err != nil {
+				reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
+				return reconcile.Result{}, err
+			}
+
+			return reconcile.Result{Requeue: true}, nil
 		}
 	}
 
@@ -260,6 +264,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 		// Sets the owner for foundRazee
 		if err = controllerutil.SetControllerReference(marketplaceConfig, newRazeeCrd, r.scheme); err != nil {
+			reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
 			return reconcile.Result{}, err
 		}
 
@@ -271,20 +276,20 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			return reconcile.Result{}, err
 		}
 
-		patch := client.MergeFrom(marketplaceConfig.DeepCopy())
-
-		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+		ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,
 			Reason:  marketplacev1alpha1.ReasonRazeeInstalled,
 			Message: "RazeeDeployment installed.",
 		})
 
-		err = r.client.Status().Patch(context.TODO(), marketplaceConfig, patch)
+		if ok {
+			err = r.client.Status().Update(context.TODO(), marketplaceConfig)
 
-		if err != nil {
-			reqLogger.Error(err, "failed to update status")
-			return reconcile.Result{}, err
+			if err != nil {
+				reqLogger.Error(err, "failed to update status")
+				return reconcile.Result{}, err
+			}
 		}
 
 		return reconcile.Result{Requeue: true}, nil
@@ -306,16 +311,16 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			return reconcile.Result{}, err
 		}
 
-		patch := client.MergeFrom(marketplaceConfig.DeepCopy())
-
-		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+		ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,
 			Reason:  marketplacev1alpha1.ReasonRazeeInstalled,
 			Message: "RazeeDeployment updated.",
 		})
 
-		_ = r.client.Status().Patch(context.TODO(), marketplaceConfig, patch)
+		if ok {
+			_ = r.client.Status().Update(context.TODO(), marketplaceConfig)
+		}
 		return reconcile.Result{Requeue: true}, nil
 	}
 
@@ -340,6 +345,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
 
 		if err = controllerutil.SetControllerReference(marketplaceConfig, newMeterBaseCr, r.scheme); err != nil {
+			reqLogger.Error(err, "Failed to set controller ref")
 			return reconcile.Result{}, err
 		}
 
@@ -350,20 +356,20 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			return reconcile.Result{}, err
 		}
 
-		patch := client.MergeFrom(marketplaceConfig.DeepCopy())
-
-		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+		ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,
 			Reason:  marketplacev1alpha1.ReasonMeterBaseInstalled,
 			Message: "Meter base installed.",
 		})
 
-		err = r.client.Status().Patch(context.TODO(), marketplaceConfig, patch)
+		if ok {
+			err = r.client.Status().Update(context.TODO(), marketplaceConfig)
 
-		if err != nil {
-			reqLogger.Error(err, "failed to update status")
-			return reconcile.Result{}, err
+			if err != nil {
+				reqLogger.Error(err, "failed to update status")
+				return reconcile.Result{}, err
+			}
 		}
 
 		return reconcile.Result{Requeue: true}, nil
@@ -390,20 +396,20 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			return reconcile.Result{}, err
 		}
 
-		patch := client.MergeFrom(marketplaceConfig.DeepCopy())
-
-		marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+		changed := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,
 			Reason:  marketplacev1alpha1.ReasonOperatorSourceInstall,
 			Message: "RHM Operator source installed.",
 		})
 
-		err = r.client.Status().Patch(context.TODO(), marketplaceConfig, patch)
+		if changed {
+			err = r.client.Status().Update(context.TODO(), marketplaceConfig)
 
-		if err != nil {
-			reqLogger.Error(err, "failed to update status")
-			return reconcile.Result{}, err
+			if err != nil {
+				reqLogger.Error(err, "failed to update status")
+				return reconcile.Result{}, err
+			}
 		}
 
 		// Operator Source created successfully - return and requeue
@@ -477,37 +483,40 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 		reqLogger.Error(err, "error fetching secret")
 		return reconcile.Result{}, err
-	} else {
-		//Setting MarketplaceClientAccount
-		pullSecret, ok := secret.Data[utils.RHMPullSecretKey]
+	}
+	//Setting MarketplaceClientAccount
+	pullSecret, ok := secret.Data[utils.RHMPullSecretKey]
 
-		if !ok {
-			reqLogger.Error(err, "secret is missing appropriate field and can't check status")
+	if !ok {
+		reqLogger.Error(err, "secret is missing appropriate field and can't check status")
+	}
+
+	if ok {
+		reqLogger.Info("attempting to update registration")
+		marketplaceClient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
+			Url:      cfg.Marketplace.URL,
+			Token:    string(pullSecret),
+			Insecure: cfg.Marketplace.InsecureClient,
+		})
+
+		marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
+			AccountId:   marketplaceConfig.Spec.RhmAccountID,
+			ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
 		}
 
-		if ok {
-			marketplaceClient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
-				Url:      cfg.Marketplace.URL,
-				Token:    string(pullSecret),
-				Insecure: cfg.Marketplace.InsecureClient,
-			})
+		registrationStatusOutput, err := marketplaceClient.RegistrationStatus(marketplaceClientAccount)
 
-			marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
-				AccountId:   marketplaceConfig.Spec.RhmAccountID,
-				ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
-			}
+		if err != nil {
+			reqLogger.Error(err, "registration status failed")
+			return reconcile.Result{Requeue: true}, nil
+		}
 
-			registrationStatusOutput, err := marketplaceClient.RegistrationStatus(marketplaceClientAccount)
+		reqLogger.Info("attempting to update registration", "status", registrationStatusOutput.RegistrationStatus)
 
-			if err != nil {
-				reqLogger.Error(err, "registration status failed")
-			}
+		statusConditions := registrationStatusOutput.TransformConfigStatus()
 
-			statusConditions := registrationStatusOutput.TransformConfigStatus()
-
-			for _, cond := range statusConditions {
-				updated = updated || marketplaceConfig.Status.Conditions.SetCondition(cond)
-			}
+		for _, cond := range statusConditions {
+			updated = updated || marketplaceConfig.Status.Conditions.SetCondition(cond)
 		}
 	}
 
@@ -522,7 +531,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	}
 
 	reqLogger.Info("reconciling finished")
-	return reconcile.Result{RequeueAfter: time.Second * 60}, nil
+	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
 }
 
 // labelsForMarketplaceConfig returs the labels for selecting the resources
@@ -581,20 +590,20 @@ func (r *ReconcileMarketplaceConfig) createCatalogSource(request reconcile.Reque
 				return false, err
 			}
 
-			patch := client.MergeFrom(marketplaceConfig.DeepCopy())
-
-			marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+			ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
 				Type:    marketplacev1alpha1.ConditionInstalling,
 				Status:  corev1.ConditionTrue,
 				Reason:  marketplacev1alpha1.ReasonCatalogSourceInstall,
 				Message: catalogName + " catalog source installed.",
 			})
 
-			err = r.client.Status().Patch(context.TODO(), marketplaceConfig, patch)
+			if ok {
+				err = r.client.Status().Update(context.TODO(), marketplaceConfig)
 
-			if err != nil {
-				reqLogger.Error(err, "failed to update status")
-				return false, err
+				if err != nil {
+					reqLogger.Error(err, "failed to update status")
+					return false, err
+				}
 			}
 
 			// catalog source created successfully - return and requeue
@@ -620,19 +629,19 @@ func (r *ReconcileMarketplaceConfig) createCatalogSource(request reconcile.Reque
 				return false, err
 			}
 
-			patch := client.MergeFrom(marketplaceConfig.DeepCopy())
-
-			marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+			ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
 				Type:    marketplacev1alpha1.ConditionInstalling,
 				Status:  corev1.ConditionTrue,
 				Reason:  marketplacev1alpha1.ReasonCatalogSourceDelete,
 				Message: catalogName + " catalog source deleted.",
 			})
 
-			err = r.client.Status().Patch(context.TODO(), marketplaceConfig, patch)
-			if err != nil {
-				reqLogger.Error(err, "failed to update status")
-				return false, err
+			if ok {
+				err = r.client.Status().Update(context.TODO(), marketplaceConfig)
+				if err != nil {
+					reqLogger.Error(err, "failed to update status")
+					return false, err
+				}
 			}
 
 			// catalog source deleted successfully - return and requeue

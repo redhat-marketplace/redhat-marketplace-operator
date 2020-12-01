@@ -1,35 +1,3 @@
-apiVersion: marketplace.redhat.com/v1alpha1
-kind: MarketplaceConfig
-metadata:
-  name: marketplaceconfig
-  namespace: openshift-redhat-marketplace
-spec:
-  installIBMCatalogSource: true
-status:
-  conditions:
-    - message: Finished Installing necessary components
-      reason: FinishedInstall
-      status: 'True'
-      type: Complete
-    - message: Finished Installing necessary components
-      reason: FinishedInstall
-      status: 'False'
-      type: Installing
-    - message: Cluster Registered Successfully
-      reason: ClusterRegistered
-      status: 'True'
-      type: Registered
-  meterBaseSubConditions:
-    - message: Meter Base install complete
-      reason: FinishedMeterBaseInstall
-      status: 'False'
-      type: Installing
-  razeeSubConditions:
-    - message: ParentRRS3 install finished
-      reason: FinishParentRRS3Install
-      status: 'True'
-      type: Installing
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:

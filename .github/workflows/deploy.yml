@@ -190,7 +190,7 @@ jobs:
           TEST_PULL_SECRET: ${{ secrets.TEST_PULL_SECRET }}
         run: |
           export QUAY_EXPIRATION=1d
-          echo "PULL_SECRET=$TEST_PULL_SECRET" >> redhat-marketplace-pull-secret.env
+          echo "PULL_SECRET=$TEST_PULL_SECRET" > redhat-marketplace-pull-secret.env
           make test-ci-int-kind
 
   cover:
