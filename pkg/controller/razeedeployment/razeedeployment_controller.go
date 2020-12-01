@@ -1395,19 +1395,43 @@ func (r *ReconcileRazeeDeployment) removeRazeeDeployments(
 	reqLogger := log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 	reqLogger.Info("Starting delete of razee deployments")
 
+	reqLogger.Info("Listing chjildRRS3")
+	childRRS3 := marketplacev1alpha1.RemoteResourceS3{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: "child", Namespace: *req.Spec.TargetNamespace}, &childRRS3)
+	if err != nil && !errors.IsNotFound((err)) {
+		reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
+	}
+
+	needReconcile := false
+
+	if err == nil || err != nil && !errors.IsNotFound(err) {
+		reqLogger.Info("Deleteing childRRS3")
+		err := r.client.Delete(context.TODO(), &childRRS3)
+		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "could not delete childRRS3", "Resource", "child")
+		}
+		needReconcile = true
+	}
+
+	reqLogger.Info("Listing parentRRS3")
 	parentRRS3 := marketplacev1alpha1.RemoteResourceS3{}
 	reqLogger.Info("Finding resource : ", "Parent", utils.PARENT_RRS3_RESOURCE_NAME)
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, &parentRRS3)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, &parentRRS3)
 	if err != nil && !errors.IsNotFound((err)) {
 		reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
 	}
 
 	if err == nil {
 		reqLogger.Info("Deleteing parentRRS3")
-		err := r.client.Delete(context.TODO(), &parentRRS3, client.PropagationPolicy(metav1.DeletePropagationForeground))
+		err := r.client.Delete(context.TODO(), &parentRRS3)
 		if err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "could not delete parentRRS3", "Resource", utils.PARENT_RRS3_RESOURCE_NAME)
 		}
+		needReconcile = true
+	}
+
+	//Only reconcile once after deleting both child and parent RRS3 resource
+	if needReconcile {
 		return &reconcile.Result{RequeueAfter: time.Second * 2}, err
 	}
 
@@ -1433,8 +1457,6 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 	reqLogger := log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 	reqLogger.Info("Starting full uninstall of razee")
 
-	reqLogger.Info("Listing parentRRS3")
-
 	if req.Spec.TargetNamespace == nil {
 		if req.Status.RazeeJobInstall != nil {
 			req.Spec.TargetNamespace = &req.Status.RazeeJobInstall.RazeeNamespace
@@ -1443,35 +1465,10 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 		}
 	}
 
-	childRRS3 := marketplacev1alpha1.RemoteResourceS3{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: "child", Namespace: *req.Spec.TargetNamespace}, &childRRS3)
-	if err != nil && !errors.IsNotFound((err)) {
-		reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
-	}
-
-	if err == nil || err != nil && !errors.IsNotFound(err) {
-		reqLogger.Info("Deleteing childRRS3")
-		err := r.client.Delete(context.TODO(), &childRRS3)
-		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "could not delete childRRS3", "Resource", "child")
-		}
-		return reconcile.Result{RequeueAfter: time.Second * 2}, err
-	}
-
-	parentRRS3 := marketplacev1alpha1.RemoteResourceS3{}
-	reqLogger.Info("Finding resource : ", "Parent", utils.PARENT_RRS3_RESOURCE_NAME)
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.PARENT_RRS3_RESOURCE_NAME, Namespace: *req.Spec.TargetNamespace}, &parentRRS3)
-	if err != nil && !errors.IsNotFound((err)) {
-		reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")
-	}
-
-	if err == nil || err != nil && !errors.IsNotFound(err) {
-		reqLogger.Info("Deleteing parentRRS3")
-		err := r.client.Delete(context.TODO(), &parentRRS3)
-		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "could not delete parentRRS3", "Resource", utils.PARENT_RRS3_RESOURCE_NAME)
-		}
-		return reconcile.Result{RequeueAfter: time.Second * 2}, err
+	//Remove razee deployments and reconcile if requested
+	res, err := r.removeRazeeDeployments(req)
+	if res != nil {
+		return *res, err
 	}
 
 	configMaps := []string{
