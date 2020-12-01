@@ -27,6 +27,7 @@ type PodMonitor struct {
 type PodMonitorConfig struct {
 	Namespace string
 	RetryTime time.Duration
+
 }
 
 func NewPodMonitor(
