@@ -197,7 +197,7 @@ jobs:
   cover:
     name: Cover
     runs-on: ubuntu-20.04
-    needs: [test-unit, test-integration]
+    needs: [test-unit]
     steps:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
@@ -287,7 +287,7 @@ jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-20.04
-    needs: [build, test-unit, test-integration]
+    needs: [build, test-unit]
     if: |
       github.event_name == 'push'
       && (startsWith(github.ref,'refs/heads/release/')
@@ -442,7 +442,7 @@ jobs:
   tag:
     name: Push other tags
     runs-on: ubuntu-20.04
-    needs: [build, deploy, test-integration]
+    needs: [build, deploy]
     if: |
       github.event_name == 'push'
       && (startsWith(github.ref,'refs/heads/release/')
