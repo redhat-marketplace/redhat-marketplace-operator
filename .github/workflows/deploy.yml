@@ -209,8 +209,8 @@ jobs:
       - uses: actions/download-artifact@v2
       - name: Report cover
         run: |
-          cp cover-int/cover-int.out ./cover.out
-          #cp cover-unit/cover-unit.out .
+          #cp cover-int/cover-int.out .
+          cp cover-unit/cover-unit.out ./cover.out
           #make test-join test-cover-text
           go tool cover -html=cover.out -o cover.html
       - uses: actions/upload-artifact@v2
