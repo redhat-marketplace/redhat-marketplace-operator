@@ -48,6 +48,7 @@ const (
 	watchTag        = "razee/watch-resource"
 	allnamespaceTag = "olm.copiedFrom"
 	ignoreTag       = "marketplace.redhat.com/ignore"
+	ignoreTagValue  = "2"
 	meterDefStatus  = "marketplace.redhat.com/meterDefinitionStatus"
 	meterDefError   = "marketplace.redhat.com/meterDefinitionError"
 )
@@ -90,7 +91,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 					return true
 				}
 
-				if ignoreOk && ignoreVal == "2" {
+				if ignoreOk && ignoreVal == ignoreTagValue {
 					return false
 				}
 
@@ -288,7 +289,7 @@ func (r *ReconcileClusterServiceVersion) Reconcile(request reconcile.Request) (r
 	if !hasMarketplaceSub {
 		clusterOriginalAnnotations := CSV.DeepCopy().GetAnnotations()
 
-		annotations[ignoreTag] = "2"
+		annotations[ignoreTag] = ignoreTagValue
 
 		if !reflect.DeepEqual(annotations, clusterOriginalAnnotations) {
 			CSV.SetAnnotations(annotations)
