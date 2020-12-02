@@ -30,6 +30,7 @@ const (
 	RHM_OPERATOR_SECRET_NAME               = "rhm-operator-secret"
 	MARKETPLACECONFIG_NAME                 = "marketplaceconfig"
 	METERBASE_NAME                         = "rhm-marketplaceconfig-meterbase"
+	PROMETHEUS_METERBASE_NAME              = "rhm-prometheus-meterbase"
 	RAZEE_NAME                             = "rhm-marketplaceconfig-razeedeployment"
 	OPSRC_NAME                             = "redhat-marketplace"
 	IBM_CATALOGSRC_NAME                    = "ibm-operator-catalog"

@@ -63,7 +63,7 @@ type ServiceAccountClient struct {
 }
 
 type Token struct {
-	AuthToken           string
+	AuthToken           *string
 	ExpirationTimestamp metav1.Time
 }
 
@@ -72,7 +72,7 @@ var (
 	// uid to name and namespace
 	store *meter_definition.MeterDefinitionStore
 
-	saClient ServiceAccountClient
+	saClient *ServiceAccountClient
 )
 
 // Add creates a new MeterDefinition Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -90,11 +90,16 @@ func Add(
 func NewReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider, kubernetesInterface kubernetes.Interface) reconcile.Reconciler {
 	opts := &MeterDefOpts{}
 
-	saClient.KubernetesInterface = kubernetesInterface
+	saClient = &ServiceAccountClient{
+		KubernetesInterface: kubernetesInterface,
+		Token: &Token{
+			AuthToken: ptr.String(""),
+		},
+	}
 
 	return &ReconcileMeterDefinition{
 		client:               mgr.GetClient(),
-		serviceAccountClient: &saClient,
+		serviceAccountClient: saClient,
 		scheme:               mgr.GetScheme(),
 		ccprovider:           ccprovider,
 		opts:                 opts,
@@ -190,19 +195,23 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	certConfigMap, err := r.queryForCertConfigMap(context.TODO(), cc, request)
+	reqLogger.Info("found prometheus service")
+
+	certConfigMap, err := r.getCertConfigMap(context.TODO(), cc, request)
 	if err != nil {
 		_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
 		return reconcile.Result{}, err
 	}
 
-	reqLogger.Info("retrieving service account token")
+	reqLogger.Info("found operator-certs-ca-bundle")
 
 	authToken, err := r.getServiceAccountToken(instance,reqLogger)
 	if err != nil {
 		_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
 		return reconcile.Result{}, err
 	}
+
+	reqLogger.Info("found prometheus auth token")
 
 	var queryPreviewResultArray []v1alpha1.Result
 
@@ -213,12 +222,15 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 			return reconcile.Result{}, err
 		}
 
-		//TODO: cache this with a global var and add mutex
+		reqLogger.Info("found cert from configmap")
+
 		client, err := prometheus.ProvideApiClientFromCert(service, &cert, authToken)
 		if err != nil {
 			_ = r.updateConditionsWithError(instance, err, reqLogger, queue)
 			return reconcile.Result{}, err
 		}
+
+		reqLogger.Info("prometheus client created")
 
 		promAPI := v1.NewAPI(client)
 		if promAPI == nil {
@@ -255,7 +267,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	}
 
 	reqLogger.Info("finished reconciling")
-	return reconcile.Result{RequeueAfter: time.Minute * 2}, nil
+	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 }
 
 func (r *ReconcileMeterDefinition) getServiceAccountToken(instance *v1alpha1.MeterDefinition, reqLogger logr.Logger) (string, error) {
@@ -282,10 +294,29 @@ func (r *ReconcileMeterDefinition) getServiceAccountToken(instance *v1alpha1.Met
 			return "", err
 		}
 
-		utils.PrettyPrintWithLog("token request response", tr)
+		if tr.Status.Token == "" {
+			fmt.Println("Status.Token is nil")
+		}
 
-		saClient.Token.AuthToken = tr.Status.Token
-		saClient.Token.ExpirationTimestamp = tr.Status.ExpirationTimestamp
+		reqLogger.Info("auth token from service account found")
+
+		if r.serviceAccountClient == nil {
+			fmt.Println("saClient is nil")
+		}
+
+		if r.serviceAccountClient.Token == nil {
+			fmt.Println("sr.serviceAccountClient.Token is nil")
+		}
+
+		if r.serviceAccountClient.Token.AuthToken == nil {
+			fmt.Println("sr.serviceAccountClient.Token.AuthToken is nil")
+		}
+
+		r.serviceAccountClient.Token = &Token{
+			AuthToken: ptr.String(tr.Status.Token),
+			ExpirationTimestamp: tr.Status.ExpirationTimestamp,
+		}
+
 		token := tr.Status.Token
 		return token, nil
 
@@ -300,9 +331,11 @@ func (r *ReconcileMeterDefinition) getServiceAccountToken(instance *v1alpha1.Met
 			return "", err
 		}
 
+		r.serviceAccountClient.Token = &Token{
+			AuthToken: ptr.String(tr.Status.Token),
+			ExpirationTimestamp: tr.Status.ExpirationTimestamp,
+		}
 		token := tr.Status.Token
-		saClient.Token.AuthToken = tr.Status.Token
-		saClient.Token.ExpirationTimestamp = tr.Status.ExpirationTimestamp
 		return token, nil
 	}
 
@@ -311,9 +344,11 @@ func (r *ReconcileMeterDefinition) getServiceAccountToken(instance *v1alpha1.Met
 		return "", err
 	}
 
+	r.serviceAccountClient.Token = &Token{
+		AuthToken: ptr.String(tr.Status.Token),
+		ExpirationTimestamp: tr.Status.ExpirationTimestamp,
+	}
 	token := tr.Status.Token
-	saClient.Token.AuthToken = tr.Status.Token
-	saClient.Token.ExpirationTimestamp = tr.Status.ExpirationTimestamp
 	return token, nil
 }
 
@@ -351,7 +386,7 @@ func (r *ReconcileMeterDefinition) queryForPrometheusService(
 	service := &corev1.Service{}
 
 	name := types.NamespacedName{
-		Name:      "rhm-prometheus-meterbase",
+		Name:      utils.PROMETHEUS_METERBASE_NAME,
 		Namespace: req.Namespace,
 	}
 
@@ -363,7 +398,7 @@ func (r *ReconcileMeterDefinition) queryForPrometheusService(
 	return service, nil
 }
 
-func (r *ReconcileMeterDefinition) queryForCertConfigMap(ctx context.Context, cc ClientCommandRunner, req reconcile.Request) (*corev1.ConfigMap, error) {
+func (r *ReconcileMeterDefinition) getCertConfigMap(ctx context.Context, cc ClientCommandRunner, req reconcile.Request) (*corev1.ConfigMap, error) {
 	certConfigMap := &corev1.ConfigMap{}
 
 	name := types.NamespacedName{
@@ -403,7 +438,7 @@ func (r *ReconcileMeterDefinition) generateQueryPreview(instance *v1alpha1.Meter
 		var query *prometheus.PromQuery
 
 		for _, metric = range workload.MetricLabels {
-			reqLogger.Info("query", "metric", metric)
+			reqLogger.Info("meterdef preview query ", "metric", metric)
 			query = &prometheus.PromQuery{
 				Metric: metric.Label,
 				Type:   workload.WorkloadType,
@@ -419,7 +454,7 @@ func (r *ReconcileMeterDefinition) generateQueryPreview(instance *v1alpha1.Meter
 				AggregateFunc: metric.Aggregation,
 			}
 
-			reqLogger.Info("output", "query", query.String())
+			reqLogger.Info("meterdef preview query", "query", query.String())
 
 			var warnings v1.Warnings
 			err := utils.Retry(func() error {
@@ -437,9 +472,12 @@ func (r *ReconcileMeterDefinition) generateQueryPreview(instance *v1alpha1.Meter
 			}
 
 			if err != nil {
+				reqLogger.Error(err,"prometheus.QueryRange()")
 				returnErr = errors.Wrap(err, "error with query")
 				return nil, returnErr
 			}
+
+			reqLogger.Info("meterdef preview","result value",val)
 
 			matrix := val.(model.Matrix)
 			for _, m := range matrix {
