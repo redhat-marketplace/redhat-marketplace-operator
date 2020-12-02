@@ -85,9 +85,6 @@ const (
 	/* Time and Date */
 	DATE_FORMAT         = "2006-01-02"
 	METER_REPORT_PREFIX = "meter-report-"
-
-	/* Meterdef Controller Flags*/
-	PATH_TO_KUBE_PROXY_TOKEN = "/etc/auth-service-account/token"
 )
 
 var (

@@ -30,7 +30,6 @@ import (
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	v1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/meter_definition"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
@@ -81,14 +80,14 @@ var (
 func Add(
 	mgr manager.Manager,
 	ccprovider ClientCommandRunnerProvider,
-	cfg config.OperatorConfig,
+
 	kubernetesInterface kubernetes.Interface,
 ) error {
-	return add(mgr, NewReconciler(mgr, ccprovider, cfg, kubernetesInterface))
+	return add(mgr, NewReconciler(mgr, ccprovider, kubernetesInterface))
 }
 
 // NewReconciler returns a new reconcile.Reconciler
-func NewReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider, cfg config.OperatorConfig, kubernetesInterface kubernetes.Interface) reconcile.Reconciler {
+func NewReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider, kubernetesInterface kubernetes.Interface) reconcile.Reconciler {
 	opts := &MeterDefOpts{}
 
 	saClient.KubernetesInterface = kubernetesInterface
@@ -98,7 +97,6 @@ func NewReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider, 
 		serviceAccountClient: &saClient,
 		scheme:               mgr.GetScheme(),
 		ccprovider:           ccprovider,
-		cfg:                  cfg,
 		opts:                 opts,
 		patcher:              patch.RHMDefaultPatcher,
 	}
@@ -134,7 +132,6 @@ type ReconcileMeterDefinition struct {
 	ccprovider           ClientCommandRunnerProvider
 	opts                 *MeterDefOpts
 	patcher              patch.Patcher
-	cfg                  config.OperatorConfig
 }
 
 type MeterDefOpts struct{}

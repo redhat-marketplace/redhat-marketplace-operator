@@ -21,10 +21,6 @@ spec:
           # Replace this with the built image name
           image: {{ .Values.image }}
           imagePullPolicy: {{ .Values.pullPolicy }}
-          volumeMounts:
-            - mountPath: /etc/auth-service-account
-              name: token-vol
-              readOnly: true
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           command:
@@ -51,11 +47,4 @@ spec:
             {{- if .Values.env -}}
             {{- toYaml .Values.env | nindent 12 }}
             {{- end }}
-      volumes:
-        - name: token-vol
-          projected:
-            sources:
-              - serviceAccountToken:
-                  audience: rhm-prometheus-meterbase.openshift-redhat-marketplace.svc
-                  expirationSeconds: 3600
-                  path: token
+ 

@@ -34,8 +34,6 @@ env:
     value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
   - name: IBMCATALOGSOURCE
     value: 'true'
-  - name: PATH_TO_KUBE_PROXY_TOKEN
-    value: /etc/auth-service-account/token
 roles:
   - name: redhat-marketplace-operator
     serviceAccountName: redhat-marketplace-operator
