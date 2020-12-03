@@ -920,7 +920,7 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 			OnContinue(manifests.CreateOrUpdateFactoryItemAction(
 				&corev1.ConfigMap{},
 				func() (runtime.Object, error) {
-					return factory.PrometheusKubeletServingCABundle(kubeletCertsCM.Data)
+					return factory.PrometheusKubeletServingCABundle(kubeletCertsCM.Data["service-ca.crt"])
 				},
 				args,
 			))),

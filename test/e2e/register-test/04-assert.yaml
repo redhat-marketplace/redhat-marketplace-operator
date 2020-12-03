@@ -15,8 +15,9 @@ status:
       reason: FinishedInstall
       status: 'False'
       type: Installing
-    - reason: ClusterRegistered
-      status: 'False'
+    - message: Cluster Registered Successfully
+      reason: ClusterRegistered
+      status: 'True'
       type: Registered
   meterBaseSubConditions:
     - message: Meter Base install complete
