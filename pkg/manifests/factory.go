@@ -343,14 +343,16 @@ func (f *Factory) NewPrometheusOperatorCertsCABundle() (*corev1.ConfigMap, error
 	return f.NewConfigMap(MustAssetReader(PrometheusOperatorCertsCABundle))
 }
 
-func (f *Factory) PrometheusKubeletServingCABundle(data map[string]string) (*v1.ConfigMap, error) {
+func (f *Factory) PrometheusKubeletServingCABundle(data string) (*v1.ConfigMap, error) {
 	c, err := f.NewConfigMap(MustAssetReader(PrometheusKubeletServingCABundle))
 	if err != nil {
 		return nil, err
 	}
 
 	c.Namespace = f.namespace
-	c.Data = data
+	c.Data = map[string]string{
+		"ca-bundle.crt": data,
+	}
 
 	return c, nil
 }
