@@ -85,10 +85,26 @@ func (q *PromQuery) makeAggregateBy() string {
 	}
 }
 
+func (q *PromQuery) makeJoinRightSideLabels() string {
+	switch q.Type {
+	case v1alpha1.WorkloadTypePVC:
+		return "* on(persistentvolumeclaim,namespace) group_right group without()"
+	case v1alpha1.WorkloadTypePod:
+		return "* on(pod,namespace) group_right group without()"
+	case v1alpha1.WorkloadTypeService:
+		fallthrough
+	case v1alpha1.WorkloadTypeServiceMonitor:
+		return "* on(service,namespace) group_right group without()"
+	default:
+		return "NOTSUPPORTED"
+	}
+}
+
 func (q *PromQuery) String() string {
 	aggregate := q.makeAggregateBy()
 	leftSide := q.makeLeftSide()
 	join := q.makeJoin()
+	joinRightSideLabels := q.makeJoinRightSideLabels()
 
 	var query string
 	if q.Query != "" {
@@ -98,7 +114,7 @@ func (q *PromQuery) String() string {
 	}
 
 	return fmt.Sprintf(
-		`%v (%v %v %v)`, aggregate, leftSide, join, query,
+		`%v (%v %v %v) %v (%v)`, aggregate, leftSide, join, query, joinRightSideLabels, query,
 	)
 }
 
@@ -138,7 +154,6 @@ func toError(err error) error {
 
 			return errors.Combine(ClientError, err)
 		}
-
 
 		return errors.Combine(ServerError, err)
 	}

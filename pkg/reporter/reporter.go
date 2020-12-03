@@ -197,6 +197,7 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 				}
 				_, ok = labelMatrix["metric_query"]
 				if !ok {
+					errorList = append(errorList, errors.Errorf("can't build query for meterdefinition %s, metricLabel %s: query is undefined", labelMatrix["name"].(string), labelMatrix["metric_label"].(string)))
 					continue
 				}
 				_, ok = labelMatrix["metric_aggregation"]
@@ -393,7 +394,7 @@ func (r *MarketplaceReporter) process(
 				for _, pair := range matrix.Values {
 					func() {
 
-						labels := getKeysFromMetric(matrix.Metric, additionalLabels)
+						labels := getAllKeysFromMetric(matrix.Metric)
 						labelMatrix, err := kvToMap(labels)
 
 						if err != nil {
@@ -578,6 +579,14 @@ func getKeysFromMetric(metric model.Metric, labels []model.LabelName) []interfac
 		if val, ok := metric[label]; ok {
 			allLabels = append(allLabels, string(label), string(val))
 		}
+	}
+	return allLabels
+}
+
+func getAllKeysFromMetric(metric model.Metric) []interface{} {
+	allLabels := make([]interface{}, 0, len(metric)*2)
+	for k, v := range metric {
+		allLabels = append(allLabels, string(k), string(v))
 	}
 	return allLabels
 }
