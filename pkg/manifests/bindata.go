@@ -334,8 +334,8 @@ func assetsPrometheusPrometheusYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/prometheus.yaml", size: 4761, mode: os.FileMode(420), modTime: time.Unix(1606839427, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/prometheus/prometheus.yaml", size: 4761, mode: os.FileMode(0644), modTime: time.Unix(1606859852, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x0, 0x4d, 0xf2, 0xb, 0x2e, 0xd5, 0xeb, 0x28, 0x86, 0x68, 0xc9, 0xc6, 0x5e, 0x13, 0x46, 0x22, 0x5c, 0x75, 0x7d, 0x77, 0x3d, 0x4d, 0x6, 0x52, 0x47, 0x8, 0xbb, 0x65, 0x98, 0x2a, 0xe6, 0x97}}
 	return a, nil
 }
 

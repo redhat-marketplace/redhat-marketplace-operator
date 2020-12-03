@@ -15,6 +15,7 @@
 package reporter
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -54,11 +55,45 @@ type ReportMetadata struct {
 	ReportSlices   map[ReportSliceKey]ReportSlicesValue `json:"report_slices"`
 }
 
+func (m *ReportMetadata) ToFlat() *ReportFlatMetadata {
+	return &ReportFlatMetadata{
+		ReportID: m.ReportID.String(),
+		Source:   m.Source.String(),
+		Metadata: m.SourceMetadata,
+	}
+}
+
 type ReportSourceMetadata struct {
-	RhmClusterID   string            `json:"rhmClusterId"`
-	RhmAccountID   string            `json:"rhmAccountId"`
-	RhmEnvironment ReportEnvironment `json:"rhmEnvironment,omitempty"`
-	Version        string            `json:"version,omitempty"`
+	RhmClusterID   string            `json:"rhmClusterId" mapstructure:"rhmClusterId"`
+	RhmAccountID   string            `json:"rhmAccountId" mapstructure:"rhmAccountId"`
+	RhmEnvironment ReportEnvironment `json:"rhmEnvironment,omitempty" mapstructure:"rhmEnvironment,omitempty"`
+	Version        string            `json:"version,omitempty" mapstructure:"version,omitempty"`
+}
+
+type ReportFlatMetadata struct {
+	ReportID string               `mapstructure:"report_id"`
+	Source   string               `mapstructure:"source"`
+	Metadata ReportSourceMetadata `mapstructure:",squash"`
+}
+
+func (d ReportFlatMetadata) MarshalJSON() ([]byte, error) {
+	result := make(map[string]interface{})
+	err := mapstructure.Decode(d, &result)
+	if err != nil {
+		return []byte{}, err
+	}
+	return json.Marshal(&result)
+}
+
+func (d *ReportFlatMetadata) UnmarshalJSON(data []byte) error {
+	var jd map[string]interface{}
+	if err := json.Unmarshal(data, &jd); err != nil {
+		return err
+	}
+	if err := mapstructure.Decode(jd, d); err != nil {
+		return err
+	}
+	return nil
 }
 
 type ReportSliceKey uuid.UUID
@@ -95,6 +130,7 @@ type ReportSlicesValue struct {
 type MetricsReport struct {
 	ReportSliceID ReportSliceKey           `json:"report_slice_id"`
 	Metrics       []map[string]interface{} `json:"metrics"`
+	Metadata      *ReportFlatMetadata      `json:"metadata,omitempty"`
 }
 
 type MetricKey struct {
@@ -213,6 +249,10 @@ func (m *MetricsReport) AddMetrics(metrics ...*MetricBase) error {
 	}
 
 	return nil
+}
+
+func (m *MetricsReport) AddMetadata(metadata *ReportFlatMetadata) {
+	m.Metadata = metadata
 }
 
 func (r *ReportMetadata) AddMetricsReport(report *MetricsReport) {
