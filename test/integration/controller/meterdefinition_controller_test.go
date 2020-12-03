@@ -72,7 +72,7 @@ var _ = Describe("MeterDefController reconcile", func() {
 			close(done)
 		}, 120)
 
-		It("Should find a meterdef", func(done Done) {
+		FIt("Should find a meterdef", func(done Done) {
 			Eventually(func() bool {
 				err := testHarness.Get(context.TODO(), types.NamespacedName{Name: meterdef.Name, Namespace: Namespace}, meterdef)
 				if err != nil {
