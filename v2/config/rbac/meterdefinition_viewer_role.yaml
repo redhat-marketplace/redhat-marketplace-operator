@@ -1,0 +1,20 @@
+# permissions for end users to view meterdefinitions.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: meterdefinition-viewer-role
+rules:
+- apiGroups:
+  - marketplace.redhat.com.redhat.com
+  resources:
+  - meterdefinitions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com.redhat.com
+  resources:
+  - meterdefinitions/status
+  verbs:
+  - get

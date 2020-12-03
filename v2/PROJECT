@@ -1,0 +1,11 @@
+domain: redhat.com
+layout: go.kubebuilder.io/v2
+projectName: v2
+repo: github.com/redhat-marketplace/redhat-marketplace-operator/v2
+resources:
+- group: marketplace.redhat.com
+  kind: MeterDefinition
+  version: v1beta1
+version: 3-alpha
+plugins:
+  go.sdk.operatorframework.io/v2-alpha: {}
