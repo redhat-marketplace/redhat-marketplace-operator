@@ -171,56 +171,22 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 			matrixVals := result.(model.Matrix)
 
 			for _, matrix := range matrixVals {
-				labels := getKeysFromMetric(matrix.Metric, mdefLabels)
-				labelMatrix, err := kvToMap(labels)
+				metricLabel := string(matrix.Metric[model.LabelName("metric_label")])
+				workloadType := marketplacev1alpha1.WorkloadType(string(matrix.Metric[model.LabelName("workload_type")]))
+				name := string(matrix.Metric[model.LabelName("name")])
+				namespace := string(matrix.Metric[model.LabelName("namespace")])
+				metricAggregation := string(matrix.Metric[model.LabelName("metric_aggregation")])
+				meterGroup := string(matrix.Metric[model.LabelName("meter_group")])
+				meterKind := string(matrix.Metric[model.LabelName("meter_kind")])
 
-				if err != nil {
-					errorList = append(errorList, errors.Wrap(err, "failed adding additional labels"))
-					return
+				// query is not required in the MeterDefinition spec
+				// set to empty string if not found, PromQuery.String() handles the emptry string case
+				var metricQuery string
+				if _, ok := matrix.Metric[model.LabelName("metric_query")]; ok {
+					metricQuery = string(matrix.Metric[model.LabelName("metric_query")])
+				} else {
+					metricQuery = ""
 				}
-
-				_, ok := labelMatrix["metric_label"]
-				if !ok {
-					continue
-				}
-				_, ok = labelMatrix["workload_type"]
-				if !ok {
-					continue
-				}
-				_, ok = labelMatrix["name"]
-				if !ok {
-					continue
-				}
-				_, ok = labelMatrix["namespace"]
-				if !ok {
-					continue
-				}
-				_, ok = labelMatrix["metric_query"]
-				if !ok {
-					errorList = append(errorList, errors.Errorf("can't build query for meterdefinition %s, metricLabel %s: query is undefined", labelMatrix["name"].(string), labelMatrix["metric_label"].(string)))
-					continue
-				}
-				_, ok = labelMatrix["metric_aggregation"]
-				if !ok {
-					continue
-				}
-				_, ok = labelMatrix["meter_group"]
-				if !ok {
-					continue
-				}
-				_, ok = labelMatrix["meter_kind"]
-				if !ok {
-					continue
-				}
-
-				metricLabel := labelMatrix["metric_label"].(string)
-				workloadType := marketplacev1alpha1.WorkloadType(labelMatrix["workload_type"].(string))
-				name := labelMatrix["name"].(string)
-				namespace := labelMatrix["namespace"].(string)
-				metricQuery := labelMatrix["metric_query"].(string)
-				metricAggregation := labelMatrix["metric_aggregation"].(string)
-				meterGroup := labelMatrix["meter_group"].(string)
-				meterKind := labelMatrix["meter_kind"].(string)
 
 				query := &PromQuery{
 					Metric: metricLabel,
@@ -395,30 +361,25 @@ func (r *MarketplaceReporter) process(
 					func() {
 
 						labels := getAllKeysFromMetric(matrix.Metric)
-						labelMatrix, err := kvToMap(labels)
-
-						if err != nil {
-							errorsch <- errors.Wrap(err, "failed adding additional labels")
-							return
-						}
 
 						var objName string
-						namespace := labelMatrix["namespace"].(string)
+
+						namespace := string(matrix.Metric[model.LabelName("namespace")])
 
 						switch pmodel.Type {
 						case v1alpha1.WorkloadTypePVC:
-							if pvc, ok := labelMatrix["persistentvolumeclaim"]; ok {
-								objName = pvc.(string)
+							if pvc, ok := matrix.Metric[model.LabelName("persistentvolumeclaim")]; ok {
+								objName = string(pvc)
 							}
 						case v1alpha1.WorkloadTypePod:
-							if pod, ok := labelMatrix["pod"]; ok {
-								objName = pod.(string)
+							if pod, ok := matrix.Metric[model.LabelName("pod")]; ok {
+								objName = string(pod)
 							}
 						case v1alpha1.WorkloadTypeServiceMonitor:
 							fallthrough
 						case v1alpha1.WorkloadTypeService:
-							if service, ok := labelMatrix["service"]; ok {
-								objName = service.(string)
+							if service, ok := matrix.Metric[model.LabelName("service")]; ok {
+								objName = string(service)
 							}
 						}
 
@@ -452,7 +413,7 @@ func (r *MarketplaceReporter) process(
 						logger.Info("adding pair", "metric", matrix.Metric, "pair", pair)
 						metricPairs := []interface{}{name, pair.Value.String()}
 
-						err = base.AddAdditionalLabels(labels...)
+						err := base.AddAdditionalLabels(labels...)
 
 						if err != nil {
 							errorsch <- errors.Wrap(err, "failed adding additional labels")
