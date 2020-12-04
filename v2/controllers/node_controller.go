@@ -18,47 +18,36 @@ import (
 	"context"
 	"reflect"
 
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
-
-var log = logf.Log.WithName("controller_node_watcher")
 
 const (
 	watchResourceTag   = "razee/watch-resource"
 	watchResourceValue = "lite"
 )
 
-// Add creates a new Node Controller and adds it to the Manager. The Manager will set fields on the Controller
-// and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
-}
-
-// newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileNode{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+// ReconcileNode reconciles a Node object
+type ReconcileNode struct {
+	// This client, initialized using mgr.Client() above, is a split client
+	// that reads objects from the cache and writes to the apiserver
+	client client.Client
+	scheme *runtime.Scheme
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func (r *ReconcileNode) SetupWithManager(mgr ctrl.Manager) error {
 	// Create a new controller
-	c, err := controller.New("node-controller", mgr, controller.Options{Reconciler: r})
-	if err != nil {
-		return err
-	}
-
+	//
 	labelPreds := []predicate.Predicate{
 		predicate.Funcs{
 			UpdateFunc: func(evt event.UpdateEvent) bool {
@@ -76,25 +65,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		},
 	}
 
-	// Watch for changes to primary resource Node
-
-	err = c.Watch(&source.Kind{Type: &corev1.Node{}}, &handler.EnqueueRequestForObject{}, labelPreds...)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// blank assignment to verify that ReconcileNode implements reconcile.Reconciler
-var _ reconcile.Reconciler = &ReconcileNode{}
-
-// ReconcileNode reconciles a Node object
-type ReconcileNode struct {
-	// This client, initialized using mgr.Client() above, is a split client
-	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	return ctrl.NewControllerManagedBy(mgr).
+		Watches(&source.Kind{Type: &corev1.Node{}}, &handler.EnqueueRequestForObject{}, labelPreds...).
+		Complete(r)
 }
 
 // Reconcile reads that state of the cluster for a Node object and makes changes based on the state read

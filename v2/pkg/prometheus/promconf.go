@@ -12,30 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controllers
+package prometheus
 
 import (
 	"context"
 	"fmt"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	promop "github.com/prometheus-operator/prometheus-operator/pkg/prometheus"
-	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/prometheus"
+	"github.com/prometheus-operator/prometheus-operator/pkg/assets"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func loadBasicAuthSecrets(
+func LoadBasicAuthSecrets(
 	client client.Client,
 	mons map[string]*monitoringv1.ServiceMonitor,
 	remoteReads []monitoringv1.RemoteReadSpec,
 	remoteWrites []monitoringv1.RemoteWriteSpec,
 	apiserverConfig *monitoringv1.APIServerConfig,
 	SecretsInPromNS *corev1.SecretList,
-) (map[string]prom.BasicAuthCredentials, error) {
+) (map[string]assets.BasicAuthCredentials, error) {
 
-	secrets := map[string]prom.BasicAuthCredentials{}
+	secrets := map[string]assets.BasicAuthCredentials{}
 	nsSecretCache := make(map[string]*corev1.Secret)
 	for _, mon := range mons {
 		for i, ep := range mon.Spec.Endpoints {
@@ -83,23 +82,23 @@ func loadBasicAuthSecrets(
 
 }
 
-func loadBasicAuthSecretFromAPI(basicAuth *monitoringv1.BasicAuth, c client.Client, ns string, cache map[string]*corev1.Secret) (prom.BasicAuthCredentials, error) {
+func loadBasicAuthSecretFromAPI(basicAuth *monitoringv1.BasicAuth, c client.Client, ns string, cache map[string]*corev1.Secret) (assets.BasicAuthCredentials, error) {
 	var username string
 	var password string
 	var err error
 
 	if username, err = getCredFromSecret(c, basicAuth.Username, "username", ns, ns+"/"+basicAuth.Username.Name, cache); err != nil {
-		return prom.BasicAuthCredentials{}, err
+		return assets.BasicAuthCredentials{}, err
 	}
 
 	if password, err = getCredFromSecret(c, basicAuth.Password, "password", ns, ns+"/"+basicAuth.Password.Name, cache); err != nil {
-		return prom.BasicAuthCredentials{}, err
+		return assets.BasicAuthCredentials{}, err
 	}
 
-	return prom.BasicAuthCredentials{Username: username, Password: password}, nil
+	return assets.BasicAuthCredentials{Username: username, Password: password}, nil
 }
 
-func loadBasicAuthSecret(basicAuth *monitoringv1.BasicAuth, s *corev1.SecretList) (prom.BasicAuthCredentials, error) {
+func loadBasicAuthSecret(basicAuth *monitoringv1.BasicAuth, s *corev1.SecretList) (assets.BasicAuthCredentials, error) {
 	var username string
 	var password string
 	var err error
@@ -108,13 +107,13 @@ func loadBasicAuthSecret(basicAuth *monitoringv1.BasicAuth, s *corev1.SecretList
 
 		if secret.Name == basicAuth.Username.Name {
 			if username, err = extractCredKey(&secret, basicAuth.Username, "username"); err != nil {
-				return prom.BasicAuthCredentials{}, err
+				return assets.BasicAuthCredentials{}, err
 			}
 		}
 
 		if secret.Name == basicAuth.Password.Name {
 			if password, err = extractCredKey(&secret, basicAuth.Password, "password"); err != nil {
-				return prom.BasicAuthCredentials{}, err
+				return assets.BasicAuthCredentials{}, err
 			}
 
 		}
@@ -124,10 +123,10 @@ func loadBasicAuthSecret(basicAuth *monitoringv1.BasicAuth, s *corev1.SecretList
 	}
 
 	if username == "" && password == "" {
-		return prom.BasicAuthCredentials{}, fmt.Errorf("basic auth username and password secret not found")
+		return assets.BasicAuthCredentials{}, fmt.Errorf("basic auth username and password secret not found")
 	}
 
-	return prom.BasicAuthCredentials{Username: username, Password: password}, nil
+	return assets.BasicAuthCredentials{Username: username, Password: password}, nil
 }
 
 func extractCredKey(secret *corev1.Secret, sel corev1.SecretKeySelector, cred string) (string, error) {
@@ -150,8 +149,8 @@ func getCredFromSecret(c client.Client, sel corev1.SecretKeySelector, namespace 
 	return extractCredKey(s, sel, cred)
 }
 
-func loadBearerTokensFromSecrets(client client.Client, mons map[string]*monitoringv1.ServiceMonitor) (map[string]promop.BearerToken, error) {
-	tokens := map[string]promop.BearerToken{}
+func LoadBearerTokensFromSecrets(client client.Client, mons map[string]*monitoringv1.ServiceMonitor) (map[string]assets.BearerToken, error) {
+	tokens := map[string]assets.BearerToken{}
 	nsSecretCache := make(map[string]*corev1.Secret)
 
 	for _, mon := range mons {
@@ -175,7 +174,7 @@ func loadBearerTokensFromSecrets(client client.Client, mons map[string]*monitori
 				)
 			}
 
-			tokens[fmt.Sprintf("serviceMonitor/%s/%s/%d", mon.Namespace, mon.Name, i)] = promop.BearerToken(token)
+			tokens[fmt.Sprintf("serviceMonitor/%s/%s/%d", mon.Namespace, mon.Name, i)] = assets.BearerToken(token)
 		}
 	}
 

@@ -23,10 +23,10 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/blang/semver"
-	v1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	"github.com/prometheus-operator/prometheus-operator/pkg/operator"
-	"github.com/prometheus-operator/prometheus-operator/pkg/prometheus"
 	log "github.com/go-logr/logr"
+	v1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/prometheus-operator/prometheus-operator/pkg/assets"
+	"github.com/prometheus-operator/prometheus-operator/pkg/operator"
 	yaml "gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -71,7 +71,7 @@ func (cg *configGenerator) GenerateConfig(
 	p *v1.Prometheus,
 	sMons map[string]*v1.ServiceMonitor,
 	basicAuthSecrets map[string]BasicAuthCredentials,
-	bearerTokens map[string]prometheus.BearerToken,
+	bearerTokens map[string]assets.BearerToken,
 	ruleConfigMapNames []string,
 ) ([]byte, error) {
 	versionStr := p.Spec.Version
@@ -215,7 +215,7 @@ func (cg *configGenerator) generateServiceMonitorConfig(
 	i int,
 	apiserverConfig *v1.APIServerConfig,
 	basicAuthSecrets map[string]BasicAuthCredentials,
-	bearerTokens map[string]prometheus.BearerToken,
+	bearerTokens map[string]assets.BearerToken,
 	overrideHonorLabels bool,
 	overrideHonorTimestamps bool,
 	ignoreNamespaceSelectors bool) yaml.MapSlice {

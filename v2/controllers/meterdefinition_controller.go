@@ -22,16 +22,14 @@ import (
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	v1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/metering/pkg/meter_definition"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/utils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/patch"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -41,50 +39,6 @@ const meterDefinitionFinalizer = "meterdefinition.finalizer.marketplace.redhat.c
 const (
 	MeteredResourceAnnotationKey = "marketplace.redhat.com/meteredUIDs"
 )
-
-var log = logf.Log.WithName("controller_meterdefinition")
-
-// uid to name and namespace
-var store *meter_definition.MeterDefinitionStore
-
-// Add creates a new MeterDefinition Controller and adds it to the Manager. The Manager will set fields on the Controller
-// and Start it when the Manager is Started.
-func Add(
-	mgr manager.Manager,
-	ccprovider ClientCommandRunnerProvider,
-) error {
-	return add(mgr, newReconciler(mgr, ccprovider))
-}
-
-// newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider) reconcile.Reconciler {
-	opts := &MeterDefOpts{}
-
-	return &ReconcileMeterDefinition{
-		client:     mgr.GetClient(),
-		scheme:     mgr.GetScheme(),
-		ccprovider: ccprovider,
-		opts:       opts,
-		patcher:    patch.RHMDefaultPatcher,
-	}
-}
-
-// add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
-	// Create a new controller
-	c, err := controller.New("meterdefinition-controller", mgr, controller.Options{Reconciler: r})
-	if err != nil {
-		return err
-	}
-
-	// Watch for changes to primary resource MeterDefinition
-	err = c.Watch(&source.Kind{Type: &v1alpha1.MeterDefinition{}}, &handler.EnqueueRequestForObject{})
-	if err != nil {
-		return err
-	}
-
-	return err
-}
 
 // blank assignment to verify that ReconcileMeterDefinition implements reconcile.Reconciler
 var _ reconcile.Reconciler = &ReconcileMeterDefinition{}
@@ -96,11 +50,17 @@ type ReconcileMeterDefinition struct {
 	client     client.Client
 	scheme     *runtime.Scheme
 	ccprovider ClientCommandRunnerProvider
-	opts       *MeterDefOpts
 	patcher    patch.Patcher
 }
 
-type MeterDefOpts struct{}
+// add adds a new Controller to mgr with r as the reconcile.Reconciler
+func (r *ReconcileMeterDefinition) SetupWithManager(mgr ctrl.Manager) error {
+	// Create a new controller
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&v1alpha1.MeterDefinition{}).
+		Watches(&source.Kind{Type: &v1alpha1.MeterDefinition{}}, &handler.EnqueueRequestForObject{}).
+		Complete(r)
+}
 
 // Reconcile reads that state of the cluster for a MeterDefinition object and makes changes based on the state read
 // and what is in the MeterDefinition.Spec

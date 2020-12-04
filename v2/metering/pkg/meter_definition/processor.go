@@ -19,8 +19,8 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/utils"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 )
 
 // Processor provies and interface for starting a job runner of some sort. It takes a

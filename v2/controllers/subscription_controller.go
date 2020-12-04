@@ -17,7 +17,7 @@ package controllers
 import (
 	"context"
 
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -25,8 +25,8 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -35,30 +35,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var log = logf.Log.WithName("controller_olm_subscription_watcher")
-
 const operatorTag = "marketplace.redhat.com/operator"
 const uninstallTag = "marketplace.redhat.com/uninstall"
 
-// Add creates a new Subscription Controller and adds it to the Manager. The Manager will set fields on the Controller
-// and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
-}
+// blank assignment to verify that ReconcileSubscription implements reconcile.Reconciler
+var _ reconcile.Reconciler = &ReconcileSubscription{}
 
-// newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileSubscription{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+// ReconcileSubscription reconciles a Subscription object
+type ReconcileSubscription struct {
+	// This client, initialized using mgr.Client() above, is a split client
+	// that reads objects from the cache and writes to the apiserver
+	client client.Client
+	scheme *runtime.Scheme
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
-	// Create a new controller
-	c, err := controller.New("subscription-controller", mgr, controller.Options{Reconciler: r})
-	if err != nil {
-		return err
-	}
-
+func (r *ReconcileSubscription) SetupWithManager(mgr manager.Manager) error {
 	labelPreds := []predicate.Predicate{
 		predicate.Funcs{
 			UpdateFunc: func(evt event.UpdateEvent) bool {
@@ -84,24 +76,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		},
 	}
 
-	// Watch for changes to primary resource Subscription
-	err = c.Watch(&source.Kind{Type: &olmv1alpha1.Subscription{}}, &handler.EnqueueRequestForObject{}, labelPreds...)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// blank assignment to verify that ReconcileSubscription implements reconcile.Reconciler
-var _ reconcile.Reconciler = &ReconcileSubscription{}
-
-// ReconcileSubscription reconciles a Subscription object
-type ReconcileSubscription struct {
-	// This client, initialized using mgr.Client() above, is a split client
-	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	return ctrl.NewControllerManagedBy(mgr).
+		Watches(&source.Kind{Type: &olmv1alpha1.Subscription{}}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(labelPreds...)).
+		Complete(r)
 }
 
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read

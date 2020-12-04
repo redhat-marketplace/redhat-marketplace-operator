@@ -19,27 +19,27 @@ import (
 	"reflect"
 	"time"
 
-	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/reconcileutils"
-	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/status"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -60,9 +60,9 @@ var _ reconcile.Reconciler = &ReconcileMarketplaceConfig{}
 type ReconcileMarketplaceConfig struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client     client.Client
-	scheme     *runtime.Scheme
-	ccprovider ClientCommandRunnerProvider
+	client client.Client
+	scheme *runtime.Scheme
+	cc     ClientCommandRunner
 }
 
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
@@ -72,8 +72,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	reqLogger.Info("Reconciling MarketplaceConfig")
 
 	cfg, _ := config.GetConfig()
-
-	cc := r.ccprovider.NewCommandRunner(r.client, r.scheme, reqLogger)
+	cc := r.cc
 
 	// Fetch the MarketplaceConfig instance
 	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
@@ -293,7 +292,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	reqLogger.Info("found meterbase")
 
 	// Check if operator source exists, or create a new one
-	foundOpSrc := &opsrcv1.OperatorSource{}
+	foundOpSrc := &unstructured.Unstructured{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{
 		Name:      utils.OPSRC_NAME,
 		Namespace: utils.OPERATOR_MKTPLACE_NS},
@@ -304,7 +303,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		reqLogger.Info("Creating a new opsource")
 		err = r.client.Create(context.TODO(), newOpSrc)
 		if err != nil {
-			reqLogger.Info("Failed to create an OperatorSource.", "OperatorSource.Namespace ", newOpSrc.Namespace, "OperatorSource.Name", newOpSrc.Name)
+			reqLogger.Info("Failed to create an OperatorSource.", "OperatorSource.Namespace ", newOpSrc.GetNamespace(), "OperatorSource.Name", newOpSrc.GetName())
 			return reconcile.Result{}, err
 		}
 
@@ -324,8 +323,6 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			}
 		}
 
-		// Operator Source created successfully - return and requeue
-		newOpSrc.ForceUpdate()
 		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
 		// Could not get Operator Source
@@ -570,85 +567,30 @@ func (r *ReconcileMarketplaceConfig) createCatalogSource(request reconcile.Reque
 	return false, nil
 }
 
-type Injector struct {
-	F func(inject.Func) error
-}
-
-func (i *Injector) InjectFunc(f inject.Func) error {
-	if i.F == nil {
-		return nil
-	}
-	return i.F(f)
-}
-
-var _ inject.Injector = &Injector{}
-
-func InjectCCR(i interface{}) {
-	if ii, ok := i.(InjectClientCommandRunner); ok {
-		ii.InjectReconcileCommandRunner(nil)
-	}
-}
-
-type InjectClientCommandRunner interface {
-	InjectReconcileCommandRunner(ccp ClientCommandRunnerProvider)
-}
-
-func (r *ReconcileMarketplaceConfig) InjectReconcileCommandRunner(ccp ClientCommandRunnerProvider) {
-	r.ccprovider = ccp
-}
-
-func (r *ReconcileMarketplaceConfig) InjectFunc(f inject.Func) error {
-	return f(r)
+func (r *ReconcileMarketplaceConfig) InjectCommandRunner(ccp ClientCommandRunner) {
+	r.cc = ccp
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func (r *ReconcileMarketplaceConfig) SetupWithManager(mgr manager.Manager) error {
 	// Create a new controller
-	c, err := controller.New("marketplaceconfig-controller", mgr, controller.Options{Reconciler: r})
-	if err != nil {
-		return err
-	}
-
-	// Watch for changes to primary resource MarketplaceConfig
-	err = c.Watch(&source.Kind{Type: &marketplacev1alpha1.MarketplaceConfig{}}, &handler.EnqueueRequestForObject{})
-	if err != nil {
-		return err
-	}
-
-	// Watch for changes to secondary resource Pods and requeue the owner MarketplaceConfig
-	//
 	ownerHandler := &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
 	}
 
-	err = c.Watch(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, ownerHandler)
-	if err != nil {
-		return err
-	}
-
-	err = c.Watch(&source.Kind{Type: &marketplacev1alpha1.MeterBase{}}, ownerHandler)
-	if err != nil {
-		return err
-	}
-
-	// Watch for RazeeDeployment
-	err = c.Watch(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
-	})
-	if err != nil {
-		return err
-	}
-
-	// Watch for MeterBase
-	err = c.Watch(&source.Kind{Type: &marketplacev1alpha1.MeterBase{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&marketplacev1alpha1.MarketplaceConfig{}).
+		Watches(&source.Kind{Type: &marketplacev1alpha1.MarketplaceConfig{}}, &handler.EnqueueRequestForObject{}).
+		Watches(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, ownerHandler).
+		Watches(&source.Kind{Type: &marketplacev1alpha1.MeterBase{}}, ownerHandler).
+		Watches(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
+		}).
+		Watches(&source.Kind{Type: &marketplacev1alpha1.MeterBase{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
+		}).
+		Complete(r)
 }

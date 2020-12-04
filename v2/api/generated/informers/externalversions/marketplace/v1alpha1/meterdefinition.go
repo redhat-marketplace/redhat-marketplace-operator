@@ -20,10 +20,10 @@ import (
 	"context"
 	time "time"
 
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
 	versioned "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/generated/clientset/versioned"
 	internalinterfaces "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/generated/informers/externalversions/internalinterfaces"
 	v1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/generated/listers/marketplace/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"

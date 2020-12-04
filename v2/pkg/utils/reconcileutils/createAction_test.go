@@ -22,7 +22,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/test/mock/mock_client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/test/mock/mock_patch"
 	corev1 "k8s.io/api/core/v1"

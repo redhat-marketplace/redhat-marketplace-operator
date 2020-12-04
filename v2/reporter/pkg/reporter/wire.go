@@ -23,7 +23,7 @@ import (
 	"github.com/google/wire"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 )
 
 func NewTask(

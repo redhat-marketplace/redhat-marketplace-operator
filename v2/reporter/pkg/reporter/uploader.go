@@ -32,7 +32,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/reconcileutils"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	"golang.org/x/net/http2"
 	corev1 "k8s.io/api/core/v1"

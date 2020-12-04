@@ -19,9 +19,9 @@ import (
 	"fmt"
 
 	emperrors "emperror.dev/errors"
-	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/status"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/codelocation"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/patch"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/codelocation"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
+	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,7 +34,7 @@ type updateAction struct {
 	updateActionOptions
 }
 
-//go:generate go-options -imports=github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/patch  -option UpdateActionOption -prefix Update updateActionOptions
+//go:generate go-options -imports=github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch  -option UpdateActionOption -prefix Update updateActionOptions
 type updateActionOptions struct {
 	StatusOnly bool
 	WithPatch  patch.PatchAnnotator

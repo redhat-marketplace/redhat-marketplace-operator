@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
-	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/utils"
+	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/test/mock/mock_client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -115,9 +115,9 @@ var _ = Describe("JsonMeterDefValidation", func() {
 					  }]
 					}
 				  }`
-			ann                  = map[string]string{utils.CSV_METERDEFINITION_ANNOTATION: meterDefJson}
-			list                 *marketplacev1alpha1.MeterDefinitionList
-			meterDefinition      *marketplacev1alpha1.MeterDefinition
+			ann             = map[string]string{utils.CSV_METERDEFINITION_ANNOTATION: meterDefJson}
+			list            *marketplacev1alpha1.MeterDefinitionList
+			meterDefinition *marketplacev1alpha1.MeterDefinition
 
 			//meterDefinitionNew   *marketplacev1alpha1.MeterDefinition
 			gvk *schema.GroupVersionKind

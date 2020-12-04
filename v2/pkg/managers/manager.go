@@ -16,9 +16,6 @@ package managers
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"runtime"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -30,14 +27,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc
-	"emperror.dev/errors"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
+
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
@@ -53,23 +48,25 @@ const (
 
 var (
 	log = logf.Log.WithName("cmd")
+
 	// ProvideManagerSet is to be used by
 	// wire files to get a controller manager
 	ProvideManagerSet = wire.NewSet(
-		config.GetConfig,
+		wire.FieldsOf(new(*ControllerFields), "Client", "Logger", "Scheme", "Config"),
 		kubernetes.NewForConfig,
-		ProvideManagerClient,
 		dynamic.NewForConfig,
 		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
 	)
+
 	// ProvideConfiglessManagerSet is the same as ProvideManagerSet
 	// but with no config. This allows for use of envtest
 	ProvideConfiglessManagerSet = wire.NewSet(
+		wire.FieldsOf(new(*ControllerFields), "Client", "Logger", "Scheme", "Config"),
 		kubernetes.NewForConfig,
-		ProvideManagerClient,
 		dynamic.NewForConfig,
 		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
 	)
+
 	// ProvideCacheClientSet is to be used by
 	// wire files to get a cached client
 	ProvideCachedClientSet = wire.NewSet(
@@ -84,166 +81,51 @@ var (
 	)
 )
 
-func printVersion() {
-	log.Info(fmt.Sprintf("Operator Version: %s", version.Version))
-	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
-	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
-	log.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
-}
-
 type OperatorName string
 
 type ControllerMain struct {
-	Name        OperatorName
-	FlagSets    []*pflag.FlagSet
-	Manager     manager.Manager
+	Name     OperatorName
+	FlagSets []*pflag.FlagSet
+	Manager  manager.Manager
 }
 
-func (m *ControllerMain) ParseFlags() {
-	// adding controller flags
-	for _, flags := range m.FlagSets {
-		pflag.CommandLine.AddFlagSet(flags)
-	}
-
-	// adding controller flags
-	for _, controller := range m.Controllers {
-		pflag.CommandLine.AddFlagSet(controller.FlagSet())
-	}
-
-	pflag.CommandLine.AddFlagSet(zap.FlagSet())
-
-	pflag.Parse()
-
-	// adding viper so we can get our flags without having to pass it down
-	err := viper.BindPFlags(pflag.CommandLine)
-
-	// Check if viper has boud flags properly
-	// If not exit with "Cancelled" code
-	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
+type ControllerFields struct {
+	Client client.Client
+	Scheme *k8sruntime.Scheme
+	Logger logr.Logger
+	Config *rest.Config
 }
 
-func (m *ControllerMain) Run(stop <-chan struct{}) {
-	logf.SetLogger(zap.Logger())
+var _ inject.Client = &ControllerFields{}
+var _ inject.Logger = &ControllerFields{}
+var _ inject.Scheme = &ControllerFields{}
+var _ inject.Config = &ControllerFields{}
 
-	printVersion()
-
-	// Get a config to talk to the apiserver
-	cfg, err := config.GetConfig()
-	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-
-	ctx := context.TODO()
-	// Become the leader before proceeding
-	err = leader.Become(ctx, (string)(m.Name))
-	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-
-	mgr := m.Manager
-
-	log.Info("Registering Components.")
-
-	// Setup all Controllers
-	for _, control := range m.Controllers {
-		if err := control.Add(mgr); err != nil {
-			log.Error(err, "")
-			os.Exit(1)
-		}
-	}
-
-	if m.PodMonitor != nil {
-		log.Info("starting pod monitor")
-		m.Manager.Add(m.PodMonitor)
-	}
-
-	// Add the Metrics Service
-	go func() {
-		addMetrics(ctx, cfg)
-	}()
-
-	log.Info("Starting the Cmd.")
-
-	// Start the Cmd
-	if err := mgr.Start(stop); err != nil {
-		log.Error(err, "Manager exited non-zero")
-		os.Exit(1)
-	}
-}
-
-// addMetrics will create the Services and Service Monitors to allow the operator export the metrics by using
-// the Prometheus operator
-func addMetrics(ctx context.Context, cfg *rest.Config) {
-	// Get the namespace the operator is currently deployed in.
-	operatorNs, err := k8sutil.GetOperatorNamespace()
-	if err != nil {
-		if errors.Is(err, k8sutil.ErrRunLocal) {
-			log.Info("Skipping CR metrics server creation; not running in a cluster.")
-			return
-		}
-	}
-
-	if err := serveCRMetrics(cfg, operatorNs); err != nil {
-		log.Info("Could not generate and serve custom resource metrics", "error", err.Error())
-	}
-
-	// Add to the below struct any other metrics ports you want to expose.
-	servicePorts := []v1.ServicePort{
-		{Port: metricsPort, Name: metrics.OperatorPortName, Protocol: v1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: metricsPort}},
-		{Port: operatorMetricsPort, Name: metrics.CRPortName, Protocol: v1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: operatorMetricsPort}},
-	}
-
-	// Create Service object to expose the metrics port(s).
-	service, err := metrics.CreateMetricsService(ctx, cfg, servicePorts)
-	if err != nil {
-		log.Info("Could not create metrics Service", "error", err.Error())
-	}
-
-	// CreateServiceMonitors will automatically create the prometheus-operator ServiceMonitor resources
-	// necessary to configure Prometheus to scrape metrics from this operator.
-	services := []*v1.Service{service}
-
-	// The ServiceMonitor is created in the same namespace where the operator is deployed
-	_, err = metrics.CreateServiceMonitors(cfg, operatorNs, services)
-	if err != nil {
-		log.Info("Could not create ServiceMonitor object", "error", err.Error())
-		// If this operator is deployed to a cluster without the prometheus-operator running, it will return
-		// ErrServiceMonitorNotPresent, which can be used to safely skip ServiceMonitor creation.
-		if err == metrics.ErrServiceMonitorNotPresent {
-			log.Info("Install prometheus-operator in your cluster to create ServiceMonitor objects", "error", err.Error())
-		}
-	}
-}
-
-// serveCRMetrics gets the Operator/CustomResource GVKs and generates metrics based on those types.
-// It serves those metrics on "http://metricsHost:operatorMetricsPort".
-func serveCRMetrics(cfg *rest.Config, operatorNs string) error {
-	// The function below returns a list of filtered operator/CR specific GVKs. For more control, override the GVK list below
-	// with your own custom logic. Note that if you are adding third party API schemas, probably you will need to
-	// customize this implementation to avoid permissions issues.
-	filteredGVK, err := k8sutil.GetGVKsFromAddToScheme(apis.AddToScheme)
-	if err != nil {
-		return err
-	}
-
-	// The metrics will be generated from the namespaces which are returned here.
-	// NOTE that passing nil or an empty list of namespaces in GenerateAndServeCRMetrics will result in an error.
-	ns, err := kubemetrics.GetNamespacesForMetrics(operatorNs)
-	if err != nil {
-		return err
-	}
-
-	// Generate and serve custom resource specific metrics.
-	err = kubemetrics.GenerateAndServeCRMetrics(cfg, ns, filteredGVK, metricsHost, operatorMetricsPort)
-	if err != nil {
-		return err
-	}
+func (m *ControllerFields) InjectLogger(l logr.Logger) error {
+	m.Logger = l
 	return nil
+}
+
+func (m *ControllerFields) InjectScheme(scheme *k8sruntime.Scheme) error {
+	m.Scheme = scheme
+	return nil
+}
+
+func (m *ControllerFields) InjectClient(client client.Client) error {
+	m.Client = client
+	return nil
+}
+
+func (m *ControllerFields) InjectConfig(cfg *rest.Config) error {
+	m.Config = cfg
+	return nil
+}
+
+func ProvidePodMonitorConfig(namespace DeployedNamespace) runnables.PodMonitorConfig {
+	return runnables.PodMonitorConfig{
+		Namespace: string(namespace),
+		RetryTime: 30 * time.Second,
+	}
 }
 
 type ClientOptions struct {

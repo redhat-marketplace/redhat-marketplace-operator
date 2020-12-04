@@ -25,18 +25,18 @@ import (
 
 	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/patch"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	merrors "emperror.dev/errors"
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/status"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
-	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/prometheus"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/utils"
-	"github.com/spf13/pflag"
+	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,10 +44,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -58,33 +55,6 @@ const (
 	RELATED_IMAGE_PROM_SERVER      = "RELATED_IMAGE_PROM_SERVER"
 	RELATED_IMAGE_CONFIGMAP_RELOAD = "RELATED_IMAGE_CONFIGMAP_RELOAD"
 )
-
-//ConfigmapReload: "jimmidyson/configmap-reload:v0.3.0",
-//Server:          "prom/prometheus:v2.15.2",
-
-var (
-	log = logf.Log.WithName("controller_meterbase")
-
-	meterbaseFlagSet *pflag.FlagSet
-)
-
-func init() {
-	meterbaseFlagSet = pflag.NewFlagSet("meterbase", pflag.ExitOnError)
-}
-
-func FlagSet() *pflag.FlagSet {
-	return meterbaseFlagSet
-}
-
-// Add creates a new MeterBase Controller and adds it to the Manager. The Manager will set fields on the Controller
-// and Start it when the Manager is Started.
-func Add(
-	mgr manager.Manager,
-	ccprovider ClientCommandRunnerProvider,
-) error {
-	reconciler := newReconciler(mgr, ccprovider)
-	return add(mgr, reconciler)
-}
 
 // blank assignment to verify that ReconcileMeterBase implements reconcile.Reconciler
 var _ reconcile.Reconciler = &ReconcileMeterBase{}
@@ -100,88 +70,8 @@ type ReconcileMeterBase struct {
 	patcher    patch.Patcher
 }
 
-// newReconciler returns a new reconcile.Reconciler
-func newReconciler(
-	mgr manager.Manager,
-	ccprovider ClientCommandRunnerProvider,
-) reconcile.Reconciler {
-	promOpts := &MeterbaseOpts{
-		PullPolicy: "IfNotPresent",
-	}
-	return &ReconcileMeterBase{
-		client:     mgr.GetClient(),
-		scheme:     mgr.GetScheme(),
-		ccprovider: ccprovider,
-		patcher:    patch.RHMDefaultPatcher,
-		opts:       promOpts,
-	}
-}
-
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
-	// Create a new controller
-	c, err := controller.New("meterbase-controller", mgr, controller.Options{Reconciler: r})
-	if err != nil {
-		return err
-	}
-
-	// Watch for changes to primary resource MeterBase
-	err = c.Watch(&source.Kind{Type: &marketplacev1alpha1.MeterBase{}}, &handler.EnqueueRequestForObject{})
-	if err != nil {
-		return err
-	}
-
-	// watch configmap
-	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &marketplacev1alpha1.MeterBase{},
-	})
-	if err != nil {
-		return err
-	}
-
-	// watch prometheus
-	err = c.Watch(&source.Kind{Type: &monitoringv1.Prometheus{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &marketplacev1alpha1.MeterBase{},
-	})
-	if err != nil {
-		return err
-	}
-
-	// watch headless service
-	err = c.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &marketplacev1alpha1.MeterBase{},
-	})
-	if err != nil {
-		return err
-	}
-
-	err = c.Watch(&source.Kind{Type: &monitoringv1.ServiceMonitor{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &marketplacev1alpha1.MeterBase{},
-	})
-	if err != nil {
-		return err
-	}
-
-	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &marketplacev1alpha1.MeterBase{},
-	})
-	if err != nil {
-		return err
-	}
-
-	err = c.Watch(&source.Kind{Type: &appsv1.StatefulSet{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &marketplacev1alpha1.MeterBase{},
-	})
-	if err != nil {
-		return err
-	}
-
+func (r *ReconcileMeterBase) SetupWithManager(mgr ctrl.Manager) error {
 	mapFn := handler.ToRequestsFunc(
 		func(a handler.MapObject) []reconcile.Request {
 			return []reconcile.Request{
@@ -192,16 +82,46 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			}
 		})
 
-	err = c.Watch(
-		&source.Kind{Type: &corev1.Namespace{}},
-		&handler.EnqueueRequestsFromMapFunc{
-			ToRequests: mapFn,
-		})
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&marketplacev1alpha1.MeterDefinition{}).
+		Watches(
+			&source.Kind{Type: &marketplacev1alpha1.MeterBase{}},
+			&handler.EnqueueRequestForObject{}).
+		Watches(
+			&source.Kind{Type: &corev1.ConfigMap{}},
+			&handler.EnqueueRequestForOwner{
+				IsController: true,
+				OwnerType:    &marketplacev1alpha1.MeterBase{}}).
+		Watches(
+			&source.Kind{Type: &monitoringv1.Prometheus{}},
+			&handler.EnqueueRequestForOwner{
+				IsController: true,
+				OwnerType:    &marketplacev1alpha1.MeterBase{}}).
+		Watches(
+			&source.Kind{Type: &corev1.Service{}},
+			&handler.EnqueueRequestForOwner{
+				IsController: true,
+				OwnerType:    &marketplacev1alpha1.MeterBase{}}).
+		Watches(
+			&source.Kind{Type: &monitoringv1.ServiceMonitor{}},
+			&handler.EnqueueRequestForOwner{
+				IsController: true,
+				OwnerType:    &marketplacev1alpha1.MeterBase{}}).
+		Watches(
+			&source.Kind{Type: &corev1.Secret{}},
+			&handler.EnqueueRequestForOwner{
+				IsController: true,
+				OwnerType:    &marketplacev1alpha1.MeterBase{}}).
+		Watches(
+			&source.Kind{Type: &appsv1.StatefulSet{}},
+			&handler.EnqueueRequestForOwner{
+				IsController: true,
+				OwnerType:    &marketplacev1alpha1.MeterBase{}}).
+		Watches(
+			&source.Kind{Type: &corev1.Namespace{}},
+			&handler.EnqueueRequestsFromMapFunc{
+				ToRequests: mapFn,
+			}).Complete(r)
 }
 
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
@@ -816,12 +736,12 @@ func (r *ReconcileMeterBase) reconcileAdditionalConfigSecret(
 
 			cfgGen := prom.NewConfigGenerator(log)
 
-			basicAuthSecrets, err := loadBasicAuthSecrets(r.client, sMons, prometheus.Spec.RemoteRead, prometheus.Spec.RemoteWrite, prometheus.Spec.APIServerConfig, secretsInNamespace)
+			basicAuthSecrets, err := prom.LoadBasicAuthSecrets(r.client, sMons, prometheus.Spec.RemoteRead, prometheus.Spec.RemoteWrite, prometheus.Spec.APIServerConfig, secretsInNamespace)
 			if err != nil {
 				return nil, err
 			}
 
-			bearerTokens, err := loadBearerTokensFromSecrets(r.client, sMons)
+			bearerTokens, err := prom.LoadBearerTokensFromSecrets(r.client, sMons)
 			if err != nil {
 				return nil, err
 			}
@@ -1175,14 +1095,4 @@ func (r *ReconcileMeterBase) newBaseConfigMap(filename string, cr *marketplacev1
 // belonging to the given prometheus CR name.
 func labelsForPrometheusOperator(name string) map[string]string {
 	return map[string]string{"prometheus": name}
-}
-
-func labelsForServiceMonitor(name, namespace string) map[string]string {
-	return map[string]string{
-		"marketplace.redhat.com/metered":                  "true",
-		"marketplace.redhat.com/deployed":                 "true",
-		"marketplace.redhat.com/metered.kind":             "InternalServiceMonitor",
-		"marketplace.redhat.com/serviceMonitor.Name":      name,
-		"marketplace.redhat.com/serviceMonitor.Namespace": namespace,
-	}
 }

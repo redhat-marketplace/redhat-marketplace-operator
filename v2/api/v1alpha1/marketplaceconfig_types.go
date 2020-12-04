@@ -15,7 +15,7 @@
 package v1alpha1
 
 import (
-	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/status"
+	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -32,7 +32,6 @@ type MarketplaceConfigSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
 	ClusterUUID string `json:"clusterUUID"`
-
 
 	// ClusterName is the name that will be assigned to your cluster in the Red Hat Marketplace UI.
 	// If you have set the name in the UI first, this name will be ignored.

@@ -18,10 +18,10 @@ import (
 	"context"
 	"time"
 
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/reconcileutils"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -31,11 +31,11 @@ const timeout = time.Second * 180
 const interval = time.Second * 3
 
 var _ = Describe("MeterbaseController", func() {
-	BeforeEach(func(){
+	BeforeEach(func() {
 		Expect(testHarness.BeforeAll()).To(Succeed())
 	})
 
-	AfterEach(func(){
+	AfterEach(func() {
 		Expect(testHarness.AfterAll()).To(Succeed())
 	})
 

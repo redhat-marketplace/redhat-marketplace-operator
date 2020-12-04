@@ -28,7 +28,7 @@ import (
 
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
-	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/utils"
+	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -465,7 +465,6 @@ func (r *ReconcileClusterRegistration) SetupWithManager(mgr manager.Manager, r r
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&olmv1alpha1.ClusterServiceVersion{}).
 		Watches(
 			&source.Kind{Type: &olmv1alpha1.ClusterServiceVersion{}},
 			&handler.EnqueueRequestForObject{},

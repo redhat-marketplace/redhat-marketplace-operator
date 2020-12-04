@@ -22,14 +22,13 @@ import (
 
 	emperrors "emperror.dev/errors"
 	"github.com/gotidy/ptr"
-	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/status"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/utils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/patch"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/reconcileutils"
-	"github.com/spf13/pflag"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	"golang.org/x/time/rate"
 	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
@@ -43,11 +42,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -58,72 +58,29 @@ var (
 	razeeWatchTag            = "razee/watch-resource"
 	razeeWatchTagValueLite   = "lite"
 	razeeWatchTagValueDetail = "detail"
-	log                      = logf.Log.WithName("controller_razeedeployment")
 )
 
-func init() {
+// blank assignment to verify that ReconcileRazeeDeployment implements reconcile.Reconciler
+var _ reconcile.Reconciler = &ReconcileRazeeDeployment{}
+
+// ReconcileRazeeDeployment reconciles a RazeeDeployment object
+type ReconcileRazeeDeployment struct {
+	// This client, initialized using mgr.Client() above, is a split client
+	// that reads objects from the cache and writes to the apiserver
+	client client.Client
+	scheme *runtime.Scheme
+	opts   *RazeeOpts
+	cfg    config.OperatorConfig
 }
 
-func FlagSet() *pflag.FlagSet {
-	return nil
-}
-
-// Add creates a new RazeeDeployment Controller and adds it to the Manager. The Manager will set fields on the Controller
-// and Start it when the Manager is Started.
-func Add(mgr manager.Manager, cfg config.OperatorConfig) error {
-	return add(mgr, newReconciler(mgr, cfg))
-}
-
-// newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, cfg config.OperatorConfig) reconcile.Reconciler {
-	razeeOpts := &RazeeOpts{
-		RhmWatchKeeperImage:    cfg.RelatedImages.WatchKeeper,
-		RhmRRS3DeploymentImage: cfg.RelatedImages.RemoteResourceS3,
-	}
-
-	return &ReconcileRazeeDeployment{
-		client: mgr.GetClient(),
-		scheme: mgr.GetScheme(),
-		opts:   razeeOpts,
-		cfg:    cfg,
-	}
+type RazeeOpts struct {
+	RhmWatchKeeperImage    string
+	RhmRRS3DeploymentImage string
+	ClusterUUID            string
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
-	// Create a new controller
-	c, err := controller.New("razeedeployment-controller", mgr, controller.Options{
-		Reconciler: r,
-		RateLimiter: workqueue.NewMaxOfRateLimiter(
-			workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, 1000*time.Second),
-			&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(10), 300)},
-		),
-	})
-	if err != nil {
-		return err
-	}
-
-	// Watch for changes to primary resource RazeeDeployment
-	err = c.Watch(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, &handler.EnqueueRequestForObject{})
-	if err != nil {
-		return err
-	}
-
-	err = c.Watch(&source.Kind{Type: &batch.Job{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
-	})
-	if err != nil {
-		return err
-	}
-
-	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
-	})
-	if err != nil {
-		return err
-	}
+func (r *ReconcileRazeeDeployment) SetupWithManager(mgr manager.Manager) error {
 
 	// This mapFn will queue the default named razeedeployment
 	mapFn := handler.ToRequestsFunc(
@@ -175,37 +132,31 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		},
 	}
 
-	err = c.Watch(
-		&source.Kind{Type: &corev1.Secret{}},
-		&handler.EnqueueRequestsFromMapFunc{
-			ToRequests: mapFn,
-		},
-		p)
-	if err != nil {
-		return err
-	}
-
-	return nil
-
-}
-
-// blank assignment to verify that ReconcileRazeeDeployment implements reconcile.Reconciler
-var _ reconcile.Reconciler = &ReconcileRazeeDeployment{}
-
-// ReconcileRazeeDeployment reconciles a RazeeDeployment object
-type ReconcileRazeeDeployment struct {
-	// This client, initialized using mgr.Client() above, is a split client
-	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
-	opts   *RazeeOpts
-	cfg    config.OperatorConfig
-}
-
-type RazeeOpts struct {
-	RhmWatchKeeperImage    string
-	RhmRRS3DeploymentImage string
-	ClusterUUID            string
+	// Create a new controller
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&marketplacev1alpha1.RazeeDeployment{}).
+		WithOptions(controller.Options{
+			Reconciler: r,
+			RateLimiter: workqueue.NewMaxOfRateLimiter(
+				workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, 1000*time.Second),
+				&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(10), 300)},
+			),
+		}).
+		Watches(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, &handler.EnqueueRequestForObject{}).
+		Watches(&source.Kind{Type: &batch.Job{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
+		}).
+		Watches(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &marketplacev1alpha1.RazeeDeployment{},
+		}).
+		Watches(&source.Kind{Type: &corev1.Secret{}},
+			&handler.EnqueueRequestsFromMapFunc{
+				ToRequests: mapFn,
+			},
+			builder.WithPredicates(p)).
+		Complete(r)
 }
 
 // Reconcile reads that state of the cluster for a RazeeDeployment object and makes changes based on the state read
@@ -1381,7 +1332,7 @@ func (r *ReconcileRazeeDeployment) fullUninstall(
 		}
 	}
 
-	childRRS3:= marketplacev1alpha1.RemoteResourceS3{}
+	childRRS3 := marketplacev1alpha1.RemoteResourceS3{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: "child", Namespace: *req.Spec.TargetNamespace}, &childRRS3)
 	if err != nil && !errors.IsNotFound((err)) {
 		reqLogger.Error(err, "could not get resource", "Kind", "RemoteResourceS3")

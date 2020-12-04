@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
-	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/utils"
+	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

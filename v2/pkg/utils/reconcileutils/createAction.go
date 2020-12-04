@@ -19,8 +19,8 @@ import (
 	"fmt"
 
 	emperrors "emperror.dev/errors"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/codelocation"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/patch"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/codelocation"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,7 +34,7 @@ type createAction struct {
 	createActionOptions
 }
 
-//go:generate go-options -option CreateActionOption -imports=k8s.io/apimachinery/pkg/runtime,github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/patch -prefix Create createActionOptions
+//go:generate go-options -option CreateActionOption -imports=k8s.io/apimachinery/pkg/runtime,github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch -prefix Create createActionOptions
 type createActionOptions struct {
 	WithPatch    patch.PatchAnnotator
 	WithAddOwner runtime.Object `options:",nil"`

@@ -26,10 +26,11 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 
 	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/controllers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -67,8 +68,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	mgr = InjectableManager{
-		mgr.Add() // proxy add to inject things into runnables we may want to use??
+	cfg, err := config.GetConfig()
+	if err != nil {
+		setupLog.Error(err, "unable to get config")
+		os.Exit(1)
+	}
+
+	mgr, err = managers.ProvideInjectableManager(mgr, managers.DeployedNamespace(cfg.DeployedNamespace))
+	if err != nil {
+		setupLog.Error(err, "unable to inject manager")
+		os.Exit(1)
 	}
 
 	if err = (&controllers.MeterDefinitionReconciler{

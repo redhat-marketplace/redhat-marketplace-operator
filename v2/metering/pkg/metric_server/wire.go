@@ -26,7 +26,7 @@ import (
 	marketplacev1alpha1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/generated/clientset/versioned/typed/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/metering/pkg/meter_definition"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 )
 
 func NewServer(

@@ -19,87 +19,27 @@ import (
 	"reflect"
 	"time"
 
-	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/status"
+	"github.com/go-logr/logr"
+	"github.com/prometheus-operator/prometheus-operator/pkg/operator"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/utils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/patch"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
-
-var log = logf.Log.WithName("controller_meterreport")
-
-// Add creates a new MeterReport Controller and adds it to the Manager. The Manager will set fields on the Controller
-// and Start it when the Manager is Started.
-func Add(
-	mgr manager.Manager,
-	ccprovider ClientCommandRunnerProvider,
-	cfg config.OperatorConfig,
-) error {
-	return add(mgr, newReconciler(mgr, ccprovider, cfg))
-}
-
-// newReconciler returns a new reconcile.Reconciler
-func newReconciler(
-	mgr manager.Manager,
-	ccprovider ClientCommandRunnerProvider,
-	cfg config.OperatorConfig,
-) reconcile.Reconciler {
-	return &ReconcileMeterReport{
-		client:     mgr.GetClient(),
-		scheme:     mgr.GetScheme(),
-		ccprovider: ccprovider,
-		patcher:    patch.RHMDefaultPatcher,
-		cfg:        cfg,
-	}
-}
-
-// add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
-	// Create a new controller
-	c, err := controller.New("meterreport-controller", mgr, controller.Options{Reconciler: r})
-	if err != nil {
-		return err
-	}
-
-	// Watch for changes to primary resource MeterReport
-	err = c.Watch(&source.Kind{Type: &marketplacev1alpha1.MeterReport{}}, &handler.EnqueueRequestForObject{})
-	if err != nil {
-		return err
-	}
-
-	err = c.Watch(&source.Kind{Type: &batchv1.Job{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &marketplacev1alpha1.MeterReport{},
-	})
-	if err != nil {
-		return err
-	}
-
-	// Watch for changes to secondary resource Pods and requeue the owner MeterReport
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &marketplacev1alpha1.MeterReport{},
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
 
 // blank assignment to verify that ReconcileMeterReport implements reconcile.Reconciler
 var _ reconcile.Reconciler = &ReconcileMeterReport{}
@@ -108,11 +48,28 @@ var _ reconcile.Reconciler = &ReconcileMeterReport{}
 type ReconcileMeterReport struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client     client.Client
-	scheme     *runtime.Scheme
-	cfg        config.OperatorConfig
-	ccprovider ClientCommandRunnerProvider
-	patcher    patch.Patcher
+	client.Client
+	Log    logr.Logger
+	Scheme *runtime.Scheme
+
+	CC      ClientCommandRunner
+	patcher patch.Patcher
+	cfg     config.OperatorConfig
+}
+
+func (r *ReconcileMeterReport) SetupWithManager(mgr manager.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&marketplacev1alpha1.MeterReport{}).
+		Watches(&source.Kind{Type: &marketplacev1alpha1.MeterReport{}}, &handler.EnqueueRequestForObject{}).
+		Watches(&source.Kind{Type: &batchv1.Job{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &marketplacev1alpha1.MeterReport{},
+		}).
+		Watches(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &marketplacev1alpha1.MeterReport{},
+		}).
+		Complete(r)
 }
 
 // Reconcile reads that state of the cluster for a MeterReport object and makes changes based on the state read
@@ -124,7 +81,7 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterReport")
 
-	cc := r.ccprovider.NewCommandRunner(r.client, r.scheme, reqLogger)
+	cc := r.CC
 
 	// Fetch the MeterReport instance
 	instance := &marketplacev1alpha1.MeterReport{}

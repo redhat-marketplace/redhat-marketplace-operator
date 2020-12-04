@@ -19,7 +19,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/google/wire"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/codelocation"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/codelocation"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

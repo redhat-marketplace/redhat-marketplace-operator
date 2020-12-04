@@ -15,7 +15,7 @@
 package reconcileutils
 
 import (
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 )

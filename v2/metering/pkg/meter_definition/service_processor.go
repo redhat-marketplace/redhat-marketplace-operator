@@ -20,9 +20,9 @@ import (
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/go-logr/logr"
-	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/client"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/utils"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/reconcileutils"
+	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/client"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

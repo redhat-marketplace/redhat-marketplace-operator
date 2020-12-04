@@ -20,8 +20,8 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
-	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	opsrcApi "github.com/operator-framework/api/pkg/operators/v1"
+	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,76 +32,71 @@ import (
 )
 
 var _ = Describe("Testing with Ginkgo", func() {
-	It("RHM subscription controller", func() {
+	var (
+		name      = rhmOperatorName
+		namespace = "openshift-redhat-marketplace"
 
-		/*
-			defaultFeatures := []string{"meterbase"}
-			viper.Set("features", defaultFeatures)
-		*/
+		req = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      name,
+				Namespace: namespace,
+			},
+		}
+		opts = []StepOption{
+			WithRequest(req),
+		}
+
+		subscription = &olmv1alpha1.Subscription{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+				Labels: map[string]string{
+					opreqControlLabel: "true",
+				},
+			},
+			Spec: &olmv1alpha1.SubscriptionSpec{
+				CatalogSource:          "source",
+				CatalogSourceNamespace: "source-namespace",
+				Package:                "source-package",
+			},
+		}
+	)
+
+	var setup = func(r *ReconcilerTest) error {
+		r.Client = fake.NewFakeClient(r.GetGetObjects()...)
+		r.Reconciler = &ReconcileSubscription{client: r.Client, scheme: scheme.Scheme}
+		return nil
+	}
+
+	var testUpdateSubscription = func(t GinkgoTInterface) {
+		t.Parallel()
+		reconcilerTest := NewReconcilerTest(setup, subscription)
+		reconcilerTest.TestAll(t,
+			// Reconcile to create obj
+			ReconcileStep(opts,
+				ReconcileWithExpectedResults(DoneResult)),
+			// List and check results
+			ListStep(opts,
+				ListWithObj(&olmv1alpha1.SubscriptionList{}),
+				ListWithFilter(
+					client.InNamespace(namespace),
+					client.MatchingLabels(map[string]string{
+						doNotUninstallLabel: "true",
+					})),
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+					list, ok := i.(*olmv1alpha1.SubscriptionList)
+
+					assert.Truef(t, ok, "expected subscription list, got type %T", i)
+					assert.Equal(t, 1, len(list.Items))
+				}),
+			),
+		)
+	}
+
+	It("RHM subscription controller", func() {
 		_ = opsrcApi.AddToScheme(scheme.Scheme)
 		_ = olmv1alpha1.AddToScheme(scheme.Scheme)
 		_ = olmv1.AddToScheme(scheme.Scheme)
 		testUpdateSubscription(GinkgoT())
 	})
 })
-
-var (
-	name      = rhmOperatorName
-	namespace = "openshift-redhat-marketplace"
-
-	req = reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Name:      name,
-			Namespace: namespace,
-		},
-	}
-	opts = []StepOption{
-		WithRequest(req),
-	}
-
-	subscription = &olmv1alpha1.Subscription{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels: map[string]string{
-				opreqControlLabel: "true",
-			},
-		},
-		Spec: &olmv1alpha1.SubscriptionSpec{
-			CatalogSource:          "source",
-			CatalogSourceNamespace: "source-namespace",
-			Package:                "source-package",
-		},
-	}
-)
-
-func setup(r *ReconcilerTest) error {
-	r.Client = fake.NewFakeClient(r.GetGetObjects()...)
-	r.Reconciler = &ReconcileSubscription{client: r.Client, scheme: scheme.Scheme}
-	return nil
-}
-
-func testUpdateSubscription(t GinkgoTInterface) {
-	t.Parallel()
-	reconcilerTest := NewReconcilerTest(setup, subscription)
-	reconcilerTest.TestAll(t,
-		// Reconcile to create obj
-		ReconcileStep(opts,
-			ReconcileWithExpectedResults(DoneResult)),
-		// List and check results
-		ListStep(opts,
-			ListWithObj(&olmv1alpha1.SubscriptionList{}),
-			ListWithFilter(
-				client.InNamespace(namespace),
-				client.MatchingLabels(map[string]string{
-					doNotUninstallLabel: "true",
-				})),
-			ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
-				list, ok := i.(*olmv1alpha1.SubscriptionList)
-
-				assert.Truef(t, ok, "expected subscription list, got type %T", i)
-				assert.Equal(t, 1, len(list.Items))
-			}),
-		),
-	)
-}

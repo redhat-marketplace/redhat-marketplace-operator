@@ -18,8 +18,8 @@ import (
 	"context"
 
 	"emperror.dev/errors"
-	"github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/scheme"
 	"github.com/golang/mock/gomock"
+	"github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/scheme"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/test/mock/mock_client"
 	corev1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"

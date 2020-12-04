@@ -29,6 +29,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -38,11 +39,10 @@ import (
 	k8yaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/operrors"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/operrors"
 	appsv1 "k8s.io/api/apps/v1"
 )
 
@@ -150,23 +150,24 @@ func BuildMarketplaceConfigCR(namespace, customerID string) *marketplacev1alpha1
 }
 
 // BuildNewOpSrc returns a new Operator Source
-func BuildNewOpSrc() *opsrcv1.OperatorSource {
-	opsrc := &opsrcv1.OperatorSource{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: OPSRC_NAME,
-			// Must always be openshift-marketplace
-			Namespace: OPERATOR_MKTPLACE_NS,
-		},
-		Spec: opsrcv1.OperatorSourceSpec{
-			DisplayName:       "Red Hat Marketplace",
-			Endpoint:          "https://quay.io/cnr",
-			Publisher:         "Red Hat Marketplace",
-			RegistryNamespace: "redhat-marketplace",
-			Type:              "appregistry",
+func BuildNewOpSrc() *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "operators.coreos.com/v1",
+			"kind":       "OperatorSource",
+			"metadata": map[string]interface{}{
+				"namespace": OPSRC_NAME,
+				"name":      OPERATOR_MKTPLACE_NS,
+			},
+			"spec": map[string]string{
+				"DisplayName":       "Red Hat Marketplace",
+				"Endpoint":          "https://quay.io/cnr",
+				"Publisher":         "Red Hat Marketplace",
+				"RegistryNamespace": "redhat-marketplace",
+				"Type":              "appregistry",
+			},
 		},
 	}
-
-	return opsrc
 }
 
 // BuildNewIBMCatalogSrc returns a new IBM Catalog Source

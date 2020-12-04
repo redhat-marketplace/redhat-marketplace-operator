@@ -15,10 +15,10 @@
 package controllers
 
 import (
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	. "github.com/onsi/ginkgo"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/test/rectest"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -27,55 +27,54 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-var _ = Describe("Testing with Ginkgo", func() {
+var _ = Describe("MeterDefinitionController", func() {
+	var (
+		name      = "meterdefinition"
+		namespace = "redhat-marketplace-operator"
+		req       = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      name,
+				Namespace: namespace,
+			},
+		}
+
+		opts = []StepOption{
+			WithRequest(req),
+		}
+		meterdefinition = &marketplacev1alpha1.MeterDefinition{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+			},
+			Spec: marketplacev1alpha1.MeterDefinitionSpec{
+				Group: "apps.partner.metering.com",
+				Kind:  "App",
+			},
+		}
+	)
+
+	var setup = func(r *ReconcilerTest) error {
+		s := scheme.Scheme
+		_ = monitoringv1.AddToScheme(s)
+		s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterdefinition)
+
+		r.Client = fake.NewFakeClient(r.GetGetObjects()...)
+		r.Reconciler = &ReconcileMeterDefinition{client: r.Client, scheme: s, ccprovider: &reconcileutils.DefaultCommandRunnerProvider{}}
+		return nil
+	}
+
+	var testNoServiceMonitors = func(t GinkgoTInterface) {
+		t.Parallel()
+		reconcilerTest := NewReconcilerTest(setup, meterdefinition)
+		reconcilerTest.TestAll(t,
+			ReconcileStep(
+				opts,
+				ReconcileWithExpectedResults(DoneResult),
+			),
+		)
+	}
 	It("meter definition controller", func() {
 
 		testNoServiceMonitors(GinkgoT())
 	})
 })
-
-var (
-	name      = "meterdefinition"
-	namespace = "redhat-marketplace-operator"
-	req       = reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Name:      name,
-			Namespace: namespace,
-		},
-	}
-
-	opts = []StepOption{
-		WithRequest(req),
-	}
-	meterdefinition = &marketplacev1alpha1.MeterDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: marketplacev1alpha1.MeterDefinitionSpec{
-			Group:   "apps.partner.metering.com",
-			Kind:    "App",
-		},
-	}
-)
-
-func setup(r *ReconcilerTest) error {
-	s := scheme.Scheme
-	_ = monitoringv1.AddToScheme(s)
-	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterdefinition)
-
-	r.Client = fake.NewFakeClient(r.GetGetObjects()...)
-	r.Reconciler = &ReconcileMeterDefinition{client: r.Client, scheme: s, ccprovider: &reconcileutils.DefaultCommandRunnerProvider{}}
-	return nil
-}
-
-func testNoServiceMonitors(t GinkgoTInterface) {
-	t.Parallel()
-	reconcilerTest := NewReconcilerTest(setup, meterdefinition)
-	reconcilerTest.TestAll(t,
-		ReconcileStep(
-			opts,
-			ReconcileWithExpectedResults(DoneResult),
-		),
-	)
-}

@@ -10,7 +10,7 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -317,7 +317,6 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 
 func (r *ReconcileClusterRegistration) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&marketplacev1alpha1.MeterDefinition{}).
 		Watches(
 			&source.Kind{Type: &v1.Secret{}},
 			&handler.EnqueueRequestForObject{},

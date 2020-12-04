@@ -18,13 +18,13 @@ import (
 	"context"
 	"time"
 
+	emperrors "emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
-	emperrors "emperror.dev/errors"
 )
 
 type AuthChecker struct {
@@ -86,7 +86,7 @@ func (a *AuthChecker) Run(ctx context.Context) error {
 
 	for {
 		select {
-		case evt := <- resourceWatch.ResultChan():
+		case evt := <-resourceWatch.ResultChan():
 			if evt.Type == watch.Error {
 				obj, ok := evt.Object.(*metav1.Status)
 				if !ok {

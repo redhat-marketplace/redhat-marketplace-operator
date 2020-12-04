@@ -24,7 +24,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/imdario/mergo"
 	"github.com/mitchellh/mapstructure"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 )
 
 type ReportEnvironment string

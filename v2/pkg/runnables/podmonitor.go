@@ -7,7 +7,7 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/reconcileutils"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -27,7 +27,6 @@ type PodMonitor struct {
 type PodMonitorConfig struct {
 	Namespace string
 	RetryTime time.Duration
-
 }
 
 func NewPodMonitor(
@@ -42,6 +41,10 @@ func NewPodMonitor(
 		config: config,
 		client: client,
 	}
+}
+
+func (a *PodMonitor) NeedLeaderElection() bool {
+	return true
 }
 
 func (a *PodMonitor) Start(stop <-chan struct{}) error {

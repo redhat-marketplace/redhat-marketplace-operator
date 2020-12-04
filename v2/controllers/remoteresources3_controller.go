@@ -17,6 +17,7 @@ package controllers
 import (
 	"context"
 
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -25,6 +26,7 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -33,27 +35,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var log = logf.Log.WithName("controller_remoteresources3")
+// blank assignment to verify that ReconcileNode implements reconcile.Reconciler
+var _ reconcile.Reconciler = &ReconcileRemoteResourceS3{}
 
-// Add creates a new Node Controller and adds it to the Manager. The Manager will set fields on the Controller
-// and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
+// ReconcileNode reconciles a Node object
+type ReconcileRemoteResourceS3 struct {
+	// This client, initialized using mgr.Client() above, is a split client
+	// that reads objects from the cache and writes to the apiserver
+	client client.Client
+	scheme *runtime.Scheme
 }
 
-// newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileRemoteResourceS3{client: mgr.GetClient(), scheme: mgr.GetScheme()}
-}
-
-// add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
-	// Create a new controller
-	c, err := controller.New("remoteresources3-controller", mgr, controller.Options{Reconciler: r})
-	if err != nil {
-		return err
-	}
-
+func (r *ReconcileRemoteResourceS3) SetupWithManager(mgr manager.Manager) error {
 	labelPreds := []predicate.Predicate{
 		predicate.Funcs{
 			UpdateFunc: func(evt event.UpdateEvent) bool {
@@ -71,24 +64,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		},
 	}
 
-	// Watch for changes to primary resource Node
-	err = c.Watch(&source.Kind{Type: &marketplacev1alpha1.RemoteResourceS3{}}, &handler.EnqueueRequestForObject{}, labelPreds...)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// blank assignment to verify that ReconcileNode implements reconcile.Reconciler
-var _ reconcile.Reconciler = &ReconcileRemoteResourceS3{}
-
-// ReconcileNode reconciles a Node object
-type ReconcileRemoteResourceS3 struct {
-	// This client, initialized using mgr.Client() above, is a split client
-	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	return ctrl.NewControllerManagedBy(mgr).
+		Watches(&source.Kind{Type: &marketplacev1alpha1.RemoteResourceS3{}}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(labelPreds...)).
+		Complete(r)
 }
 
 // Reconcile reads that state of the cluster for a Node object and makes changes based on the state read

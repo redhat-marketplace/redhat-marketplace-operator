@@ -19,7 +19,7 @@ import (
 	"fmt"
 
 	emperrors "emperror.dev/errors"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/codelocation"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/codelocation"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"

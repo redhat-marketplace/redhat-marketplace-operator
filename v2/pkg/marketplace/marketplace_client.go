@@ -25,8 +25,8 @@ import (
 
 	"emperror.dev/errors"
 	jwt "github.com/dgrijalva/jwt-go"
-	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/status"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
+	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
