@@ -171,26 +171,18 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 			matrixVals := result.(model.Matrix)
 
 			for _, matrix := range matrixVals {
-				metricLabel := string(matrix.Metric[model.LabelName("metric_label")])
-				workloadType := marketplacev1alpha1.WorkloadType(string(matrix.Metric[model.LabelName("workload_type")]))
-				name := string(matrix.Metric[model.LabelName("name")])
-				namespace := string(matrix.Metric[model.LabelName("namespace")])
-				metricAggregation := string(matrix.Metric[model.LabelName("metric_aggregation")])
-				meterGroup := string(matrix.Metric[model.LabelName("meter_group")])
-				meterKind := string(matrix.Metric[model.LabelName("meter_kind")])
-
-				// query is not required in the MeterDefinition spec
-				// set to empty string if not found, PromQuery.String() handles the emptry string case
-				var metricQuery string
-				if _, ok := matrix.Metric[model.LabelName("metric_query")]; ok {
-					metricQuery = string(matrix.Metric[model.LabelName("metric_query")])
-				} else {
-					metricQuery = ""
-				}
+				metricLabel, _ := getMatrixValue(matrix.Metric, "metric_label")
+				workloadType, _ := getMatrixValue(matrix.Metric, "workload_type")
+				name, _ := getMatrixValue(matrix.Metric, "name")
+				namespace, _ := getMatrixValue(matrix.Metric, "namespace")
+				metricAggregation, _ := getMatrixValue(matrix.Metric, "metric_aggregation")
+				metricQuery, _ := getMatrixValue(matrix.Metric, "metric_query")
+				meterGroup, _ := getMatrixValue(matrix.Metric, "meter_group")
+				meterKind, _ := getMatrixValue(matrix.Metric, "meter_kind")
 
 				query := &PromQuery{
 					Metric: metricLabel,
-					Type:   workloadType,
+					Type:   marketplacev1alpha1.WorkloadType(workloadType),
 					MeterDef: types.NamespacedName{
 						Name:      name,
 						Namespace: namespace,
@@ -364,23 +356,17 @@ func (r *MarketplaceReporter) process(
 
 						var objName string
 
-						namespace := string(matrix.Metric[model.LabelName("namespace")])
+						namespace, _ := getMatrixValue(matrix.Metric, "namespace")
 
 						switch pmodel.Type {
 						case v1alpha1.WorkloadTypePVC:
-							if pvc, ok := matrix.Metric[model.LabelName("persistentvolumeclaim")]; ok {
-								objName = string(pvc)
-							}
+							objName, _ = getMatrixValue(matrix.Metric, "persistentvolumeclaim")
 						case v1alpha1.WorkloadTypePod:
-							if pod, ok := matrix.Metric[model.LabelName("pod")]; ok {
-								objName = string(pod)
-							}
+							objName, _ = getMatrixValue(matrix.Metric, "pod")
 						case v1alpha1.WorkloadTypeServiceMonitor:
 							fallthrough
 						case v1alpha1.WorkloadTypeService:
-							if service, ok := matrix.Metric[model.LabelName("service")]; ok {
-								objName = string(service)
-							}
+							objName, _ = getMatrixValue(matrix.Metric, "service")
 						}
 
 						if objName == "" {
@@ -550,6 +536,13 @@ func getAllKeysFromMetric(metric model.Metric) []interface{} {
 		allLabels = append(allLabels, string(k), string(v))
 	}
 	return allLabels
+}
+
+func getMatrixValue(m model.Metric, labelName string) (string, bool) {
+	if v, ok := m[model.LabelName(labelName)]; ok {
+		return string(v), true
+	}
+	return "", false
 }
 
 func wgWait(ctx context.Context, processName string, maxRoutines int, done chan bool, waitFunc func()) {
