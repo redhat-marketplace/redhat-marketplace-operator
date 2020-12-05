@@ -16,6 +16,8 @@ IMG ?= controller:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
+GOPATH=$(shell go env GOPATH)
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -66,6 +68,21 @@ vet:
 generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
+# Generate API
+generate-api: code-generator
+	@{ \
+	set -e ;\
+	API_TEMP_DIR=$$(mktemp -d) ;\
+	$(CODEGEN_PKG)/generate-groups.sh \
+		"defaulter,client,informer,lister" \
+    github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated \
+    github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis \
+    marketplace:v1alpha1,v1beta1 \
+    --output-base $$API_TEMP_DIR \
+    --go-header-file hack/boilerplate.go.txt ; \
+	cp -r "$$API_TEMP_DIR/github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated" "apis/marketplace" ;\
+	}
+
 # Build the docker image
 docker-build: test
 	docker build . -t ${IMG}
@@ -89,6 +106,21 @@ ifeq (, $(shell which controller-gen))
 CONTROLLER_GEN=$(GOBIN)/controller-gen
 else
 CONTROLLER_GEN=$(shell which controller-gen)
+endif
+
+code-generator:
+ifeq (, $(shell ls $(GOPATH)/src/k8s.io/code-generator))
+	@{ \
+	set -e ;\
+	K8S_CODEGEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$K8S_CODEGEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get sigs.k8s.io/k8s.io/code-generator@v0.19.4 ;\
+	rm -rf $$K8S_CODEGEN_TMP_DIR ;\
+	}
+CODEGEN_PKG=$(GOPATH)/src/k8s.io/code-generator
+else
+CODEGEN_PKG=$(GOPATH)/src/k8s.io/code-generator
 endif
 
 kustomize:

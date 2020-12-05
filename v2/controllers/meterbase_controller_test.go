@@ -22,20 +22,13 @@ import (
 )
 
 var _ = Describe("MeterbaseController", func() {
-	Describe("check test flags", func() {
-		It("should compile flags", func() {
-			flagset := FlagSet()
-			Expect(flagset).ToNot(BeNil())
-		})
-	})
-
 	Describe("check date functions", func() {
 		var (
-			ctrl *ReconcileMeterBase
+			ctrl *MeterBaseReconciler
 		)
 
 		BeforeEach(func() {
-			ctrl = &ReconcileMeterBase{}
+			ctrl = &MeterBaseReconciler{}
 		})
 
 		It("reports should calculate the correct dates to create", func() {

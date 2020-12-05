@@ -25,7 +25,7 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/go-logr/logr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/client"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"

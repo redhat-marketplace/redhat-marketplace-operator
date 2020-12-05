@@ -19,6 +19,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 
+	"github.com/go-logr/logr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,10 +46,11 @@ var _ reconcile.Reconciler = &RHMSubscriptionController{}
 
 // RHMSubscriptionController reconciles a Subscription object
 type RHMSubscriptionController struct {
-	// This client, initialized using mgr.Client() above, is a split client
+	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	Client client.Client
+	Scheme *runtime.Scheme
+	Log    logr.Logger
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -58,16 +60,16 @@ func (r *RHMSubscriptionController) SetupWithManager(mgr manager.Manager) error 
 	labelPreds := []predicate.Predicate{
 		predicate.Funcs{
 			UpdateFunc: func(evt event.UpdateEvent) bool {
-				return checkForRhmSubscription(evt.MetaNew)
+				return r.checkForRhmSubscription(evt.MetaNew)
 			},
 			CreateFunc: func(evt event.CreateEvent) bool {
-				return checkForRhmSubscription(evt.Meta)
+				return r.checkForRhmSubscription(evt.Meta)
 			},
 			DeleteFunc: func(evt event.DeleteEvent) bool {
 				return false
 			},
 			GenericFunc: func(evt event.GenericEvent) bool {
-				return checkForRhmSubscription(evt.Meta)
+				return r.checkForRhmSubscription(evt.Meta)
 			},
 		},
 	}
@@ -80,12 +82,12 @@ func (r *RHMSubscriptionController) SetupWithManager(mgr manager.Manager) error 
 // Reconcile reads the state of the cluster for a Subscription object
 // and makes changes based on the state read and what is in the Subscription.Spec
 func (r *RHMSubscriptionController) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling RHM Subscription")
 
 	// Fetch the Subscription instance
 	instance := &olmv1alpha1.Subscription{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -105,7 +107,7 @@ func (r *RHMSubscriptionController) Reconcile(request reconcile.Request) (reconc
 	labels := updatedSubscription.GetLabels()
 	labels[doNotUninstallLabel] = "true"
 	updatedSubscription.SetLabels(labels)
-	if err := r.client.Update(context.TODO(), updatedSubscription); err != nil {
+	if err := r.Client.Update(context.TODO(), updatedSubscription); err != nil {
 		reqLogger.Error(err, "Failed to update RHM subscription with doNotUninstall label")
 		return reconcile.Result{}, err
 	}
@@ -116,8 +118,8 @@ func (r *RHMSubscriptionController) Reconcile(request reconcile.Request) (reconc
 }
 
 // Determine if a Subscription event is for the RHM operator and if it needs the doNotUninstall label
-func checkForRhmSubscription(meta metav1.Object) bool {
-	reqLogger := log.WithValues("func", "checkForRhmSubscription")
+func (r *RHMSubscriptionController) checkForRhmSubscription(meta metav1.Object) bool {
+	reqLogger := r.Log.WithValues("func", "checkForRhmSubscription")
 	if meta.GetName() != rhmOperatorName {
 		// the subscription event is not for the RHM operator, so ignore it
 		return false

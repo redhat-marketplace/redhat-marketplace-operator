@@ -23,7 +23,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/controller"
-	marketplacev1alpha1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/generated/clientset/versioned/typed/marketplace/v1alpha1"
+	marketplacev1alpha1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/metering/pkg/meter_definition"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"

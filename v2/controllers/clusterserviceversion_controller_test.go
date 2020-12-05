@@ -15,14 +15,12 @@
 package controllers
 
 import (
-	"testing"
-
 	"github.com/gotidy/ptr"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/test/rectest"
 
 	. "github.com/onsi/ginkgo"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -97,7 +95,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 		setup = func(r *ReconcilerTest) error {
 			r.Client = fake.NewFakeClient(r.GetGetObjects()...)
-			r.Reconciler = &ReconcileClusterServiceVersion{client: r.Client, scheme: scheme.Scheme}
+			r.Reconciler = &ClusterServiceVersionReconciler{Client: r.Client, Scheme: scheme.Scheme}
 			return nil
 		}
 

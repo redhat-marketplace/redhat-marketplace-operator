@@ -23,7 +23,7 @@ import (
 	"emperror.dev/errors"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 )
 

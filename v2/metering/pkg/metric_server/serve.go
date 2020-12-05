@@ -35,7 +35,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"github.com/openshift/origin/pkg/util/proc"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/metering/pkg/meter_definition"
 	corev1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"

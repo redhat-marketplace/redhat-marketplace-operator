@@ -19,16 +19,15 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -36,17 +35,18 @@ import (
 )
 
 // blank assignment to verify that ReconcileNode implements reconcile.Reconciler
-var _ reconcile.Reconciler = &ReconcileRemoteResourceS3{}
+var _ reconcile.Reconciler = &RemoteResourceS3Reconciler{}
 
 // ReconcileNode reconciles a Node object
-type ReconcileRemoteResourceS3 struct {
-	// This client, initialized using mgr.Client() above, is a split client
+type RemoteResourceS3Reconciler struct {
+	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	Client client.Client
+	Scheme *runtime.Scheme
+	Log    logr.Logger
 }
 
-func (r *ReconcileRemoteResourceS3) SetupWithManager(mgr manager.Manager) error {
+func (r *RemoteResourceS3Reconciler) SetupWithManager(mgr manager.Manager) error {
 	labelPreds := []predicate.Predicate{
 		predicate.Funcs{
 			UpdateFunc: func(evt event.UpdateEvent) bool {
@@ -71,13 +71,13 @@ func (r *ReconcileRemoteResourceS3) SetupWithManager(mgr manager.Manager) error 
 
 // Reconcile reads that state of the cluster for a Node object and makes changes based on the state read
 // and what is in the Node.Spec
-func (r *ReconcileRemoteResourceS3) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Name", request.Name, "Request.Namespace", request.Namespace)
+func (r *RemoteResourceS3Reconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+	reqLogger := r.Log.WithValues("Request.Name", request.Name, "Request.Namespace", request.Namespace)
 	reqLogger.Info("Reconciling RemoteResourceS3")
 
 	// Fetch the Node instance
 	instance := &marketplacev1alpha1.RemoteResourceS3{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -94,7 +94,7 @@ func (r *ReconcileRemoteResourceS3) Reconcile(request reconcile.Request) (reconc
 		instance.Status = marketplacev1alpha1.RemoteResourceS3Status{
 			Touched: ptr.Bool(true),
 		}
-		err := r.client.Status().Update(context.TODO(), instance)
+		err := r.Client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			return reconcile.Result{}, err
 		}

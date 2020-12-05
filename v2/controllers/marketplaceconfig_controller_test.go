@@ -21,7 +21,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	opsrcApi "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/spf13/viper"
@@ -64,9 +64,9 @@ var _ = Describe("Testing with Ginkgo", func() {
 		s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
 
 		r.Client = fake.NewFakeClient(r.GetGetObjects()...)
-		r.Reconciler = &ReconcileMarketplaceConfig{
-			client: r.Client,
-			scheme: s,
+		r.Reconciler = &MarketplaceConfigReconciler{
+			Client: r.Client,
+			Scheme: s,
 			cc:     reconcileutils.NewLoglessClientCommand(r.Client, s),
 		}
 		return nil

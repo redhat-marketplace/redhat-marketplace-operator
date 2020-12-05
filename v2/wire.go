@@ -20,25 +20,23 @@ package main
 import (
 	"github.com/go-logr/logr"
 	"github.com/google/wire"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers/runnables"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/controller"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 )
 
-func InitializeMarketplaceController() (*managers.ControllerMain, error) {
+func InitializeMarketplaceController(mgr ctrl.Manager) (*InjectableManager, error) {
 	panic(wire.Build(
+		builder.ControllerManagedBy,
+		wire.InterfaceValue(new(logr.Logger), ctrl.Log),
 		config.ProvideConfig,
-		controller.ControllerSet,
-		controller.ProvideControllerFlagSet,
-		controller.SchemeDefinitions,
 		reconcileutils.CommandRunnerProviderSet,
 		managers.ProvideManagerSet,
 		runnables.NewPodMonitor,
 		providePodMonitorConfig,
-		wire.InterfaceValue(new(logr.Logger), logger),
-		makeMarketplaceController,
-		provideOptions,
 	))
 }

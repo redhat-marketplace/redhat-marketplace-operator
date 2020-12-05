@@ -39,7 +39,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 	var (
 		name             = "new-subscription"
 		namespace        = "arbitrary-namespace"
-		kind             = "Subscription"
 		uninstallSubName = "sub-uninstall"
 
 		req = reconcile.Request{
@@ -114,7 +113,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 	var setup = func(r *ReconcilerTest) error {
 		r.Client = fake.NewFakeClient(r.GetGetObjects()...)
-		r.Reconciler = &ReconcileSubscription{client: r.Client, scheme: scheme.Scheme}
+		r.Reconciler = &SubscriptionReconciler{Client: r.Client, Scheme: scheme.Scheme}
 		return nil
 	}
 

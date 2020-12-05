@@ -20,7 +20,7 @@ import (
 	"io"
 	"reflect"
 
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/metering/pkg/meter_definition"
 	"github.com/sasha-s/go-deadlock"
 	"k8s.io/apimachinery/pkg/api/meta"

@@ -20,15 +20,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	v1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
+	v1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -41,20 +41,22 @@ const (
 )
 
 // blank assignment to verify that ReconcileMeterDefinition implements reconcile.Reconciler
-var _ reconcile.Reconciler = &ReconcileMeterDefinition{}
+var _ reconcile.Reconciler = &MeterDefinitionReconciler{}
 
-// ReconcileMeterDefinition reconciles a MeterDefinition object
-type ReconcileMeterDefinition struct {
-	// This client, initialized using mgr.Client() above, is a split client
+// MeterDefinitionReconciler reconciles a MeterDefinition object
+type MeterDefinitionReconciler struct {
+	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	client     client.Client
-	scheme     *runtime.Scheme
+	Client client.Client
+	Log    logr.Logger
+	Scheme *runtime.Scheme
+
 	ccprovider ClientCommandRunnerProvider
 	patcher    patch.Patcher
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func (r *ReconcileMeterDefinition) SetupWithManager(mgr ctrl.Manager) error {
+func (r *MeterDefinitionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Create a new controller
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.MeterDefinition{}).
@@ -64,11 +66,11 @@ func (r *ReconcileMeterDefinition) SetupWithManager(mgr ctrl.Manager) error {
 
 // Reconcile reads that state of the cluster for a MeterDefinition object and makes changes based on the state read
 // and what is in the MeterDefinition.Spec
-func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterDefinition")
 
-	cc := r.ccprovider.NewCommandRunner(r.client, r.scheme, reqLogger)
+	cc := r.ccprovider.NewCommandRunner(r.Client, r.Scheme, reqLogger)
 
 	// Fetch the MeterDefinition instance
 	instance := &v1alpha1.MeterDefinition{}
@@ -125,13 +127,13 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 }
 
-func (r *ReconcileMeterDefinition) finalizeMeterDefinition(req *v1alpha1.MeterDefinition) (reconcile.Result, error) {
+func (r *MeterDefinitionReconciler) finalizeMeterDefinition(req *v1alpha1.MeterDefinition) (reconcile.Result, error) {
 	var err error
 
 	// TODO: add finalizers
 
 	req.SetFinalizers(utils.RemoveKey(req.GetFinalizers(), meterDefinitionFinalizer))
-	err = r.client.Update(context.TODO(), req)
+	err = r.Client.Update(context.TODO(), req)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -139,13 +141,13 @@ func (r *ReconcileMeterDefinition) finalizeMeterDefinition(req *v1alpha1.MeterDe
 }
 
 // addFinalizer adds finalizers to the MeterDefinition CR
-func (r *ReconcileMeterDefinition) addFinalizer(instance *v1alpha1.MeterDefinition) error {
-	log.Info("Adding Finalizer to %s/%s", instance.Name, instance.Namespace)
+func (r *MeterDefinitionReconciler) addFinalizer(instance *v1alpha1.MeterDefinition) error {
+	r.Log.Info("Adding Finalizer to %s/%s", instance.Name, instance.Namespace)
 	instance.SetFinalizers(append(instance.GetFinalizers(), meterDefinitionFinalizer))
 
-	err := r.client.Update(context.TODO(), instance)
+	err := r.Client.Update(context.TODO(), instance)
 	if err != nil {
-		log.Error(err, "Failed to update RazeeDeployment with the Finalizer %s/%s", instance.Name, instance.Namespace)
+		r.Log.Error(err, "Failed to update RazeeDeployment with the Finalizer %s/%s", instance.Name, instance.Namespace)
 		return err
 	}
 	return nil

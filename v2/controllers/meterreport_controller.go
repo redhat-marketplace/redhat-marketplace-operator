@@ -20,9 +20,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/prometheus-operator/prometheus-operator/pkg/operator"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/common"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
@@ -42,10 +41,10 @@ import (
 )
 
 // blank assignment to verify that ReconcileMeterReport implements reconcile.Reconciler
-var _ reconcile.Reconciler = &ReconcileMeterReport{}
+var _ reconcile.Reconciler = &MeterReportReconciler{}
 
-// ReconcileMeterReport reconciles a MeterReport object
-type ReconcileMeterReport struct {
+// MeterReportReconciler reconciles a MeterReport object
+type MeterReportReconciler struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client.Client
@@ -57,7 +56,7 @@ type ReconcileMeterReport struct {
 	cfg     config.OperatorConfig
 }
 
-func (r *ReconcileMeterReport) SetupWithManager(mgr manager.Manager) error {
+func (r *MeterReportReconciler) SetupWithManager(mgr manager.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplacev1alpha1.MeterReport{}).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.MeterReport{}}, &handler.EnqueueRequestForObject{}).
@@ -77,8 +76,8 @@ func (r *ReconcileMeterReport) SetupWithManager(mgr manager.Manager) error {
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterReport")
 
 	cc := r.CC
@@ -101,7 +100,7 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 
 	if instance.Status.Conditions == nil {
 		conds := status.NewConditions(marketplacev1alpha1.ReportConditionJobNotStarted)
-		instance.Status.Conditions = &conds
+		instance.Status.Conditions = conds
 	}
 
 	job := &batchv1.Job{}
@@ -126,7 +125,7 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 		result, _ := cc.Do(
 			context.TODO(),
 			HandleResult(
-				UpdateStatusCondition(instance, instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobWaiting),
+				UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobWaiting),
 				OnAny(RequeueAfterResponse(timeToWait)),
 			),
 		)
@@ -147,7 +146,7 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 					return factory.ReporterJob(instance)
 				}, CreateWithAddOwner(instance),
 			),
-			OnRequeue(UpdateStatusCondition(instance, instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobSubmitted)),
+			OnRequeue(UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobSubmitted)),
 		),
 	)
 
@@ -202,7 +201,7 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 			HandleResult(
 				UpdateStatusCondition(
 					instance,
-					instance.Status.Conditions,
+					&instance.Status.Conditions,
 					marketplacev1alpha1.ReportConditionJobErrored),
 				OnAny(RequeueAfterResponse(1*time.Hour)),
 			),
@@ -210,7 +209,7 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 	case jr.IsSuccessful():
 		reqLogger.Info("job is complete")
 		result, _ = cc.Do(context.TODO(),
-			UpdateStatusCondition(instance, instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobFinished),
+			UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobFinished),
 		)
 
 	}

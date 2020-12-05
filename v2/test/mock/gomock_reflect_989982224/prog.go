@@ -10,7 +10,7 @@ import (
 
 	"github.com/golang/mock/mockgen/model"
 
-	pkg_ "github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/reconcileutils"
+	pkg_ "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 )
 
 var output = flag.String("output", "", "The output file name, or empty to use stdout.")
@@ -29,7 +29,7 @@ func main() {
 		// NOTE: This behaves contrary to documented behaviour if the
 		// package name is not the final component of the import path.
 		// The reflect package doesn't expose the package name, though.
-		Name: path.Base("github.com/redhat-marketplace/redhat-marketplace-operator/v2/utils/pkg/reconcileutils"),
+		Name: path.Base("github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"),
 	}
 
 	for _, it := range its {

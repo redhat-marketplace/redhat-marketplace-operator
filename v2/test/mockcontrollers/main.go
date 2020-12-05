@@ -48,8 +48,6 @@ var serverKeyFile, serverCertFile, caCertFile *string
 var log = logf.Log.WithName("mockcontroller")
 
 func main() {
-	logf.SetLogger(zap.Logger())
-
 	if home := homedir.HomeDir(); home != "" {
 		kubeconfig = pflag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
 	} else {

@@ -70,7 +70,7 @@ func honorLabels(userHonorLabels, overrideHonorLabels bool) bool {
 func (cg *configGenerator) GenerateConfig(
 	p *v1.Prometheus,
 	sMons map[string]*v1.ServiceMonitor,
-	basicAuthSecrets map[string]BasicAuthCredentials,
+	basicAuthSecrets map[string]assets.BasicAuthCredentials,
 	bearerTokens map[string]assets.BearerToken,
 	ruleConfigMapNames []string,
 ) ([]byte, error) {
@@ -203,18 +203,13 @@ func addTLStoYaml(cfg yaml.MapSlice, namespace string, tls *v1.TLSConfig) yaml.M
 	return cfg
 }
 
-type BasicAuthCredentials struct {
-	Username string
-	Password string
-}
-
 func (cg *configGenerator) generateServiceMonitorConfig(
 	version semver.Version,
 	m *v1.ServiceMonitor,
 	ep v1.Endpoint,
 	i int,
 	apiserverConfig *v1.APIServerConfig,
-	basicAuthSecrets map[string]BasicAuthCredentials,
+	basicAuthSecrets map[string]assets.BasicAuthCredentials,
 	bearerTokens map[string]assets.BearerToken,
 	overrideHonorLabels bool,
 	overrideHonorTimestamps bool,
@@ -477,7 +472,7 @@ func getNamespacesFromNamespaceSelector(nsel *v1.NamespaceSelector, namespace st
 	return nsel.MatchNames
 }
 
-func (cg *configGenerator) generateK8SSDConfig(namespaces []string, apiserverConfig *v1.APIServerConfig, basicAuthSecrets map[string]BasicAuthCredentials, role string) yaml.MapItem {
+func (cg *configGenerator) generateK8SSDConfig(namespaces []string, apiserverConfig *v1.APIServerConfig, basicAuthSecrets map[string]assets.BasicAuthCredentials, role string) yaml.MapItem {
 	k8sSDConfig := yaml.MapSlice{
 		{
 			Key:   "role",

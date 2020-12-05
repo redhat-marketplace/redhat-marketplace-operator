@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"emperror.dev/errors"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"

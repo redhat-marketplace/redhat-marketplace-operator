@@ -21,7 +21,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/test/mock/mock_client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/test/mock/mock_patch"
@@ -50,7 +50,7 @@ var _ = Describe("CreateAction", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		patcher = mock_patch.NewMockPatchAnnotator(ctrl)
 		client = mock_client.NewMockClient(ctrl)
-		marketpalcev1alpha1.AddToScheme(scheme.Scheme)
+		marketplacev1alpha1.AddToScheme(scheme.Scheme)
 		//statusWriter = mock_client.NewMockStatusWriter(ctrl)
 		cc = NewClientCommand(client, scheme.Scheme, logger)
 		ctx = context.TODO()

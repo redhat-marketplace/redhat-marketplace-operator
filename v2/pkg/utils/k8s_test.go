@@ -20,7 +20,7 @@ import (
 	"emperror.dev/errors"
 	. "github.com/onsi/ginkgo"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"

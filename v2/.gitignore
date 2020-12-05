@@ -143,3 +143,4 @@ test/certs/**
 !test/certs/server-csr.json
 
 redhat-marketplace-pull-secret.env
+bin/

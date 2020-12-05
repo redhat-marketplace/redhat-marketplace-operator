@@ -19,6 +19,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 
+	"github.com/go-logr/logr"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -39,18 +40,19 @@ const operatorTag = "marketplace.redhat.com/operator"
 const uninstallTag = "marketplace.redhat.com/uninstall"
 
 // blank assignment to verify that ReconcileSubscription implements reconcile.Reconciler
-var _ reconcile.Reconciler = &ReconcileSubscription{}
+var _ reconcile.Reconciler = &SubscriptionReconciler{}
 
-// ReconcileSubscription reconciles a Subscription object
-type ReconcileSubscription struct {
-	// This client, initialized using mgr.Client() above, is a split client
+// SubscriptionReconciler reconciles a Subscription object
+type SubscriptionReconciler struct {
+	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	Client client.Client
+	Scheme *runtime.Scheme
+	Log    logr.Logger
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func (r *ReconcileSubscription) SetupWithManager(mgr manager.Manager) error {
+func (r *SubscriptionReconciler) SetupWithManager(mgr manager.Manager) error {
 	labelPreds := []predicate.Predicate{
 		predicate.Funcs{
 			UpdateFunc: func(evt event.UpdateEvent) bool {
@@ -83,13 +85,13 @@ func (r *ReconcileSubscription) SetupWithManager(mgr manager.Manager) error {
 
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
 // and what is in the Subscription.Spec
-func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+func (r *SubscriptionReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Subscription")
 
 	// Fetch the Subscription instance
 	instance := &olmv1alpha1.Subscription{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -109,7 +111,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 	groups := &olmv1.OperatorGroupList{}
 
 	// find operator groups
-	err = r.client.List(context.TODO(),
+	err = r.Client.List(context.TODO(),
 		groups,
 		client.InNamespace(instance.GetNamespace()))
 
@@ -140,7 +142,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 			"name", og.GetName(),
 			"namespace", og.GetNamespace())
 
-		err = r.client.Delete(context.TODO(), og)
+		err = r.Client.Delete(context.TODO(), og)
 
 		// nothing to create
 		if err != nil {
@@ -158,7 +160,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		reqLogger.Info("creating an operator group",
 			"generate-name", og.GetGenerateName(),
 			"namespace", og.GetNamespace())
-		err = r.client.Create(context.TODO(), og)
+		err = r.Client.Create(context.TODO(), og)
 
 		// nothing to create
 		if err != nil {
@@ -179,7 +181,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileSubscription) createOperatorGroup(instance *olmv1alpha1.Subscription) *olmv1.OperatorGroup {
+func (r *SubscriptionReconciler) createOperatorGroup(instance *olmv1alpha1.Subscription) *olmv1.OperatorGroup {
 	return &olmv1.OperatorGroup{
 		ObjectMeta: v1.ObjectMeta{
 			Namespace:    instance.Namespace,
@@ -196,14 +198,14 @@ func (r *ReconcileSubscription) createOperatorGroup(instance *olmv1alpha1.Subscr
 	}
 }
 
-func (r *ReconcileSubscription) uninstall(sub *olmv1alpha1.Subscription) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Subscription.Namespace", sub.Namespace, "Subscription.Name", sub.Name, "Subscription.Spec.Package", sub.Spec.Package)
+func (r *SubscriptionReconciler) uninstall(sub *olmv1alpha1.Subscription) (reconcile.Result, error) {
+	reqLogger := r.Log.WithValues("Subscription.Namespace", sub.Namespace, "Subscription.Name", sub.Name, "Subscription.Spec.Package", sub.Spec.Package)
 	reqLogger.Info("started to uninstall operator")
 
 	csvName := sub.Status.InstalledCSV
 
 	// delete sub
-	err := r.client.Delete(context.TODO(), sub)
+	err := r.Client.Delete(context.TODO(), sub)
 	if err != nil && !errors.IsNotFound((err)) {
 		reqLogger.Error(err, "could not delete sub")
 	}
@@ -215,12 +217,12 @@ func (r *ReconcileSubscription) uninstall(sub *olmv1alpha1.Subscription) (reconc
 			Name:      csvName,
 			Namespace: sub.Namespace,
 		}
-		err = r.client.Get(context.TODO(), csvNamespacedName, csvObj)
+		err = r.Client.Get(context.TODO(), csvNamespacedName, csvObj)
 		if err != nil && !errors.IsNotFound((err)) {
 			reqLogger.Error(err, "could not delete csv", "csv name", csvName)
 		}
 		if err == nil {
-			err = r.client.Delete(context.TODO(), csvObj)
+			err = r.Client.Delete(context.TODO(), csvObj)
 			if err != nil && !errors.IsNotFound((err)) {
 				reqLogger.Error(err, "could not delete csv", "csv name", csvName)
 			}

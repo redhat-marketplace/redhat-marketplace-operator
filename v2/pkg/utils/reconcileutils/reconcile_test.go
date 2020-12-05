@@ -19,7 +19,7 @@ import (
 
 	emperrors "emperror.dev/errors"
 	"github.com/golang/mock/gomock"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
@@ -103,7 +103,7 @@ var _ = Describe("ReconcileUtils", func() {
 
 	PIt("should create and handle error", func() {
 		conditions := status.NewConditions(sut.condition)
-		sut.meterbase.Status.Conditions = &conditions
+		sut.meterbase.Status.Conditions = conditions
 
 		gomock.InOrder(
 			client.EXPECT().
@@ -124,7 +124,7 @@ var _ = Describe("ReconcileUtils", func() {
 
 	PIt("should get and update", func() {
 		conditions := status.NewConditions(sut.condition)
-		sut.meterbase.Status.Conditions = &conditions
+		sut.meterbase.Status.Conditions = conditions
 
 		client.EXPECT().Create(sut.ctx, sut.pod).Return(nil).Times(0)
 		gomock.InOrder(
@@ -145,7 +145,7 @@ var _ = Describe("ReconcileUtils", func() {
 
 	It("should get and delete", func() {
 		conditions := status.NewConditions(sut.condition)
-		sut.meterbase.Status.Conditions = &conditions
+		sut.meterbase.Status.Conditions = conditions
 		sut.pod.Annotations["foo"] = "bar"
 
 		client.EXPECT().Create(sut.ctx, sut.pod).Return(nil).Times(0)
@@ -194,7 +194,7 @@ func NewTestHarness() *testHarness {
 			Namespace: "bar",
 		},
 	}
-	harness.meterbase.Status.Conditions = &status.Conditions{}
+	harness.meterbase.Status.Conditions = status.Conditions{}
 	utils.RhmAnnotator.SetLastAppliedAnnotation(harness.pod)
 	harness.ctx = context.TODO()
 	harness.condition = status.Condition{
@@ -226,7 +226,7 @@ func (h *testHarness) execClientCommands(
 						CreateWithPatch(utils.RhmAnnotator),
 						CreateWithAddOwner(h.pod),
 					)),
-					OnRequeue(UpdateStatusCondition(h.meterbase, h.meterbase.Status.Conditions, status.Condition{
+					OnRequeue(UpdateStatusCondition(h.meterbase, &h.meterbase.Status.Conditions, status.Condition{
 						Type:    marketplacev1alpha1.ConditionInstalling,
 						Status:  corev1.ConditionTrue,
 						Reason:  marketplacev1alpha1.ReasonMeterBaseStartInstall,
@@ -234,7 +234,7 @@ func (h *testHarness) execClientCommands(
 					})),
 					OnError(
 						Call(func() (ClientAction, error) {
-							return UpdateStatusCondition(h.meterbase, h.meterbase.Status.Conditions, status.Condition{
+							return UpdateStatusCondition(h.meterbase, &h.meterbase.Status.Conditions, status.Condition{
 								Type:    marketplacev1alpha1.ConditionError,
 								Status:  corev1.ConditionTrue,
 								Reason:  marketplacev1alpha1.ReasonMeterBaseStartInstall,
@@ -257,12 +257,12 @@ func (h *testHarness) execClientCommands(
 
 			return HandleResult(
 				UpdateWithPatchAction(h.pod, types.MergePatchType, patch.Patch),
-				OnRequeue(UpdateStatusCondition(h.meterbase, h.meterbase.Status.Conditions, h.condition)),
+				OnRequeue(UpdateStatusCondition(h.meterbase, &h.meterbase.Status.Conditions, h.condition)),
 			), nil
 		}),
 		HandleResult(
 			DeleteAction(h.pod),
-			OnNotFound(UpdateStatusCondition(h.meterbase, h.meterbase.Status.Conditions, h.condition)),
+			OnNotFound(UpdateStatusCondition(h.meterbase, &h.meterbase.Status.Conditions, h.condition)),
 		),
 	)
 }

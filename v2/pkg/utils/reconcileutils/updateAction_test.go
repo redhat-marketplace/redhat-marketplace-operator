@@ -22,7 +22,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	utilspatch "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/test/mock/mock_client"
@@ -164,7 +164,7 @@ var _ = Describe("UpdateAction", func() {
 			meterbase = &marketplacev1alpha1.MeterBase{
 				Status: marketplacev1alpha1.MeterBaseStatus{},
 			}
-			meterbase.Status.Conditions = &status.Conditions{}
+			meterbase.Status.Conditions = status.Conditions{}
 		})
 
 		It("should handle nil", func() {
@@ -184,7 +184,7 @@ var _ = Describe("UpdateAction", func() {
 				client.EXPECT().Status().Return(statusWriter).Times(1),
 				statusWriter.EXPECT().Update(ctx, meterbase).Return(testErr).Times(1),
 			)
-			result, err := cc.Do(ctx, UpdateStatusCondition(meterbase, meterbase.Status.Conditions, condition))
+			result, err := cc.Do(ctx, UpdateStatusCondition(meterbase, &meterbase.Status.Conditions, condition))
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(testErr))
 			Expect(result).ToNot(BeNil())

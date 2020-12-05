@@ -35,7 +35,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 		name             = "new-node"
 		nameLabelsAbsent = "new-node-labels-absent"
 		nameLabelsDiff   = "new-node-diff-labels"
-		kind             = "Node"
 
 		node = corev1.Node{
 			TypeMeta: v1.TypeMeta{
@@ -87,7 +86,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 	var setup = func(r *ReconcilerTest) error {
 		r.Client = fake.NewFakeClient(r.GetGetObjects()...)
-		r.Reconciler = &ReconcileNode{client: r.Client, scheme: scheme.Scheme}
+		r.Reconciler = &NodeReconciler{Client: r.Client, Scheme: scheme.Scheme}
 		return nil
 	}
 

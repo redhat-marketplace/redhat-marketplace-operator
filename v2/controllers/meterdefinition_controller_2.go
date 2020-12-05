@@ -24,11 +24,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1beta1"
+	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 )
 
-// MeterDefinitionReconciler reconciles a MeterDefinition object
-type MeterDefinitionReconciler struct {
+// MeterDefinitionReconciler2 reconciles a MeterDefinition object
+type MeterDefinitionReconciler2 struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
@@ -37,7 +37,7 @@ type MeterDefinitionReconciler struct {
 // +kubebuilder:rbac:groups=marketplace.redhat.com.redhat.com,resources=meterdefinitions,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=marketplace.redhat.com.redhat.com,resources=meterdefinitions/status,verbs=get;update;patch
 
-func (r *MeterDefinitionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *MeterDefinitionReconciler2) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 	_ = r.Log.WithValues("meterdefinition", req.NamespacedName)
 
@@ -46,7 +46,7 @@ func (r *MeterDefinitionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 	return ctrl.Result{}, nil
 }
 
-func (r *MeterDefinitionReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *MeterDefinitionReconciler2) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplaceredhatcomv1beta1.MeterDefinition{}).
 		Complete(r)

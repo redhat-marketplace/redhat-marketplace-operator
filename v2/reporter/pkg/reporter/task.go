@@ -25,7 +25,7 @@ import (
 	"github.com/gotidy/ptr"
 	"github.com/prometheus/client_golang/api"
 	"github.com/prometheus/common/log"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"

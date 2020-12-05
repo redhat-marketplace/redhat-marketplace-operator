@@ -19,7 +19,7 @@ import (
 
 	"github.com/gotidy/ptr"
 	. "github.com/onsi/ginkgo"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/test/rectest"
 	"github.com/stretchr/testify/assert"
@@ -40,7 +40,7 @@ import (
 var _ = Describe("Testing with Ginkgo", func() {
 	var setup = func(r *ReconcilerTest) error {
 		r.SetClient(fake.NewFakeClient(r.GetGetObjects()...))
-		r.SetReconciler(&ReconcileRazeeDeployment{client: r.GetClient(), scheme: scheme.Scheme, opts: &RazeeOpts{RhmRRS3DeploymentImage: "rhm-rrs3-deployment-image", RhmWatchKeeperImage: "rhm-watch-keeper-image"}})
+		r.SetReconciler(&RazeeDeploymentReconciler{Client: r.GetClient(), Scheme: scheme.Scheme})
 		return nil
 	}
 

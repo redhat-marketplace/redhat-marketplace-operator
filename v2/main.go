@@ -27,9 +27,16 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1beta1"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
+	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
+	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/controllers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	// +kubebuilder:scaffold:imports
 )
@@ -41,7 +48,13 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(marketplaceredhatcomv1beta1.AddToScheme(scheme))
+	utilruntime.Must(marketplaceredhatcomv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(openshiftconfigv1.AddToScheme(scheme))
+	utilruntime.Must(olmv1.AddToScheme(scheme))
+	utilruntime.Must(opsrcv1.AddToScheme(scheme))
+	utilruntime.Must(olmv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(monitoringv1.AddToScheme(scheme))
+	// utilruntime.Must(marketplaceredhatcomv1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -74,9 +87,45 @@ func main() {
 		os.Exit(1)
 	}
 
-	mgr, err = managers.ProvideInjectableManager(mgr, managers.DeployedNamespace(cfg.DeployedNamespace))
+	mgr, err = inject.ProvideInjectableManager(mgr, managers.DeployedNamespace(cfg.DeployedNamespace))
 	if err != nil {
 		setupLog.Error(err, "unable to inject manager")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.ClusterRegistrationReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("ClusterRegistration"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ClusterRegistration")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.ClusterServiceVersionReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("ClusterServiceVersion"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ClusterServiceVersion")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.MarketplaceConfigReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("MarketplaceConfig"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "MarketplaceConfig")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.MeterBaseReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("MeterBase"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "MeterBase")
 		os.Exit(1)
 	}
 
@@ -88,6 +137,61 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "MeterDefinition")
 		os.Exit(1)
 	}
+
+	if err = (&controllers.MeterReportReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("MeterReport"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "MeterReport")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.NodeReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("Node"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Node")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.RHMSubscriptionController{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("RHMSubscription"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "RHMSubscription")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.RazeeDeploymentReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("RazeeDeployment"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "RazeeDeployment")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.RemoteResourceS3Reconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("RemoteResourceS3"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "RemoteResourceS3")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.SubscriptionReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("SubscriptionReconciler"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "SubscriptionReconciler")
+		os.Exit(1)
+	}
+
 	if err = (&marketplaceredhatcomv1beta1.MeterDefinition{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "MeterDefinition")
 		os.Exit(1)

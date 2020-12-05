@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/test/mock/mock_client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,7 +24,7 @@ var _ = Describe("JsonMeterDefValidation", func() {
 		//statusWriter *mock_client.MockStatusWriter
 		ctx context.Context
 		//patcher      *mock_patch.MockPatchMaker
-		sut *ReconcileClusterServiceVersion
+		sut *ClusterServiceVersionReconciler
 		//cc  reconcileutils.ClientCommandRunner
 		meterDefStatus = "marketplace.redhat.com/meterDefinitionStatus"
 		meterDefError  = "marketplace.redhat.com/meterDefinitionError"
@@ -42,7 +42,7 @@ var _ = Describe("JsonMeterDefValidation", func() {
 		//cc = reconcileutils.NewClientCommand(client, scheme.Scheme, logger)
 		ctx = context.TODO()
 
-		sut = &ReconcileClusterServiceVersion{client: client, scheme: scheme.Scheme}
+		sut = &ClusterServiceVersionReconciler{Client: client, Scheme: scheme.Scheme}
 
 	})
 

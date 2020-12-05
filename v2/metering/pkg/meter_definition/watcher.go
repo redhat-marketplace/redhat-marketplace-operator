@@ -18,7 +18,7 @@ import (
 	"context"
 
 	monitoringv1client "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
-	marketplacev1alpha1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/generated/clientset/versioned/typed/marketplace/v1alpha1"
+	marketplacev1alpha1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"

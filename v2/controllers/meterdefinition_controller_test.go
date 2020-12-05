@@ -17,7 +17,7 @@ package controllers
 import (
 	. "github.com/onsi/ginkgo"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/test/rectest"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,7 +59,7 @@ var _ = Describe("MeterDefinitionController", func() {
 		s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterdefinition)
 
 		r.Client = fake.NewFakeClient(r.GetGetObjects()...)
-		r.Reconciler = &ReconcileMeterDefinition{client: r.Client, scheme: s, ccprovider: &reconcileutils.DefaultCommandRunnerProvider{}}
+		r.Reconciler = &MeterDefinitionReconciler{Client: r.Client, Scheme: s, ccprovider: &reconcileutils.DefaultCommandRunnerProvider{}}
 		return nil
 	}
 

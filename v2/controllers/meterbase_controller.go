@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
@@ -32,8 +33,8 @@ import (
 	merrors "emperror.dev/errors"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/common"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/api/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
@@ -57,21 +58,22 @@ const (
 )
 
 // blank assignment to verify that ReconcileMeterBase implements reconcile.Reconciler
-var _ reconcile.Reconciler = &ReconcileMeterBase{}
+var _ reconcile.Reconciler = &MeterBaseReconciler{}
 
-// ReconcileMeterBase reconciles a MeterBase object
-type ReconcileMeterBase struct {
-	// This client, initialized using mgr.Client() above, is a split client
+// MeterBaseReconciler reconciles a MeterBase object
+type MeterBaseReconciler struct {
+	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	client     client.Client
-	scheme     *runtime.Scheme
-	opts       *MeterbaseOpts
+	Client client.Client
+	Scheme *runtime.Scheme
+	Log    logr.Logger
+
 	ccprovider ClientCommandRunnerProvider
 	patcher    patch.Patcher
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func (r *ReconcileMeterBase) SetupWithManager(mgr ctrl.Manager) error {
+func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	mapFn := handler.ToRequestsFunc(
 		func(a handler.MapObject) []reconcile.Request {
 			return []reconcile.Request{
@@ -126,11 +128,11 @@ func (r *ReconcileMeterBase) SetupWithManager(mgr ctrl.Manager) error {
 
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
 // and what is in the MeterBase.Spec
-func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterBase")
 
-	cc := r.ccprovider.NewCommandRunner(r.client, r.scheme, reqLogger)
+	cc := r.ccprovider.NewCommandRunner(r.Client, r.Scheme, reqLogger)
 
 	// Fetch the MeterBase instance
 	instance := &marketplacev1alpha1.MeterBase{}
@@ -192,12 +194,12 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 
 	message := "Meter Base install starting"
 	if instance.Status.Conditions == nil {
-		instance.Status.Conditions = &status.Conditions{}
+		instance.Status.Conditions = status.Conditions{}
 	}
 
 	message = "Meter Base install started"
 	if instance.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionInstalling) {
-		if result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, instance.Status.Conditions, status.Condition{
+		if result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 			Type:    marketplacev1alpha1.ConditionInstalling,
 			Status:  corev1.ConditionTrue,
 			Reason:  marketplacev1alpha1.ReasonMeterBaseStartInstall,
@@ -277,7 +279,7 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 				return action, nil
 			})),
 			OnNotFound(Call(func() (ClientAction, error) {
-				log.Info("can't find prometheus statefulset, requeuing")
+				reqLogger.Info("can't find prometheus statefulset, requeuing")
 				return RequeueAfterResponse(30 * time.Second), nil
 			})),
 		),
@@ -292,7 +294,7 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	// Update final condition
 
 	message = "Meter Base install complete"
-	if result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, instance.Status.Conditions, status.Condition{
+	if result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 		Type:    marketplacev1alpha1.ConditionInstalling,
 		Status:  corev1.ConditionFalse,
 		Reason:  marketplacev1alpha1.ReasonMeterBaseFinishInstall,
@@ -336,7 +338,7 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 					return nil, err
 				}
 
-				log.Info("report dates", "expected", expectedCreatedDates, "found", foundCreatedDates, "min", minDate)
+				reqLogger.Info("report dates", "expected", expectedCreatedDates, "found", foundCreatedDates, "min", minDate)
 				err = r.createReportIfNotFound(expectedCreatedDates, foundCreatedDates, request, instance)
 
 				if err != nil {
@@ -346,7 +348,7 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 				return nil, nil
 			})),
 			OnNotFound(Call(func() (ClientAction, error) {
-				log.Info("can't find meter report list, requeuing")
+				reqLogger.Info("can't find meter report list, requeuing")
 				return RequeueAfterResponse(30 * time.Second), nil
 			})),
 		),
@@ -364,8 +366,8 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 
 const promServiceName = "rhm-prometheus-meterbase"
 
-func (r *ReconcileMeterBase) createReportIfNotFound(expectedCreatedDates []string, foundCreatedDates []string, request reconcile.Request, instance *marketplacev1alpha1.MeterBase) error {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+func (r *MeterBaseReconciler) createReportIfNotFound(expectedCreatedDates []string, foundCreatedDates []string, request reconcile.Request, instance *marketplacev1alpha1.MeterBase) error {
+	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
 	// find the diff between the dates we expect and the dates found on the cluster and create any missing reports
 	missingReports := utils.FindDiff(expectedCreatedDates, foundCreatedDates)
@@ -375,7 +377,7 @@ func (r *ReconcileMeterBase) createReportIfNotFound(expectedCreatedDates []strin
 		missingReportEndDate := missingReportStartDate.AddDate(0, 0, 1)
 
 		missingMeterReport := r.newMeterReport(request.Namespace, missingReportStartDate, missingReportEndDate, missingReportName, instance, promServiceName)
-		err := r.client.Create(context.TODO(), missingMeterReport)
+		err := r.Client.Create(context.TODO(), missingMeterReport)
 		if err != nil {
 			return err
 		}
@@ -385,8 +387,8 @@ func (r *ReconcileMeterBase) createReportIfNotFound(expectedCreatedDates []strin
 	return nil
 }
 
-func (r *ReconcileMeterBase) removeOldReports(meterReportNames []string, loc *time.Location, dateRange int, request reconcile.Request) ([]string, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+func (r *MeterBaseReconciler) removeOldReports(meterReportNames []string, loc *time.Location, dateRange int, request reconcile.Request) ([]string, error) {
+	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	limit := utils.TruncateTime(time.Now(), loc).AddDate(0, 0, dateRange)
 	for _, reportName := range meterReportNames {
 		dateCreated, err := r.retrieveCreatedDate(reportName)
@@ -404,7 +406,7 @@ func (r *ReconcileMeterBase) removeOldReports(meterReportNames []string, loc *ti
 					Namespace: request.Namespace,
 				},
 			}
-			err := r.client.Delete(context.TODO(), deleteReport)
+			err := r.Client.Delete(context.TODO(), deleteReport)
 			if err != nil {
 				return nil, err
 			}
@@ -414,18 +416,7 @@ func (r *ReconcileMeterBase) removeOldReports(meterReportNames []string, loc *ti
 	return meterReportNames, nil
 }
 
-// configPath: /etc/config/prometheus.yml
-
-type Images struct {
-	ConfigmapReload string
-	Server          string
-}
-
-type MeterbaseOpts struct {
-	corev1.PullPolicy
-}
-
-func (r *ReconcileMeterBase) sortMeterReports(meterReportList *marketplacev1alpha1.MeterReportList) []string {
+func (r *MeterBaseReconciler) sortMeterReports(meterReportList *marketplacev1alpha1.MeterReportList) []string {
 
 	var meterReportNames []string
 	for _, report := range meterReportList.Items {
@@ -436,7 +427,7 @@ func (r *ReconcileMeterBase) sortMeterReports(meterReportList *marketplacev1alph
 	return meterReportNames
 }
 
-func (r *ReconcileMeterBase) retrieveCreatedDate(reportName string) (time.Time, error) {
+func (r *MeterBaseReconciler) retrieveCreatedDate(reportName string) (time.Time, error) {
 	splitStr := strings.SplitN(reportName, "-", 3)
 
 	if len(splitStr) != 3 {
@@ -447,23 +438,24 @@ func (r *ReconcileMeterBase) retrieveCreatedDate(reportName string) (time.Time, 
 	return time.Parse(utils.DATE_FORMAT, strings.Join(dateString, ""))
 }
 
-func (r *ReconcileMeterBase) newMeterReportNameFromDate(date time.Time) string {
+func (r *MeterBaseReconciler) newMeterReportNameFromDate(date time.Time) string {
 	dateSuffix := strings.Join(strings.Fields(date.String())[:1], "")
 	return fmt.Sprintf("%s%s", utils.METER_REPORT_PREFIX, dateSuffix)
 }
 
-func (r *ReconcileMeterBase) newMeterReportNameFromString(dateString string) string {
+func (r *MeterBaseReconciler) newMeterReportNameFromString(dateString string) string {
 	dateSuffix := dateString
 	return fmt.Sprintf("%s%s", utils.METER_REPORT_PREFIX, dateSuffix)
 }
 
-func (r *ReconcileMeterBase) generateFoundCreatedDates(meterReportNames []string) ([]string, error) {
+func (r *MeterBaseReconciler) generateFoundCreatedDates(meterReportNames []string) ([]string, error) {
+	reqLogger := r.Log.WithValues("func", "generateFoundCreatedDates")
 	var foundCreatedDates []string
 	for _, reportName := range meterReportNames {
 		splitStr := strings.SplitN(reportName, "-", 3)
 
 		if len(splitStr) != 3 {
-			log.Info("meterreport name was irregular", "name", reportName)
+			reqLogger.Info("meterreport name was irregular", "name", reportName)
 			continue
 		}
 
@@ -473,7 +465,7 @@ func (r *ReconcileMeterBase) generateFoundCreatedDates(meterReportNames []string
 	return foundCreatedDates, nil
 }
 
-func (r *ReconcileMeterBase) generateExpectedDates(endTime time.Time, loc *time.Location, dateRange int, minDate time.Time) []string {
+func (r *MeterBaseReconciler) generateExpectedDates(endTime time.Time, loc *time.Location, dateRange int, minDate time.Time) []string {
 	// set start date
 	startDate := utils.TruncateTime(endTime, loc).AddDate(0, 0, dateRange)
 
@@ -493,7 +485,7 @@ func (r *ReconcileMeterBase) generateExpectedDates(endTime time.Time, loc *time.
 	return expectedCreatedDates
 }
 
-func (r *ReconcileMeterBase) newMeterReport(namespace string, startTime time.Time, endTime time.Time, meterReportName string, instance *marketplacev1alpha1.MeterBase, prometheusServiceName string) *marketplacev1alpha1.MeterReport {
+func (r *MeterBaseReconciler) newMeterReport(namespace string, startTime time.Time, endTime time.Time, meterReportName string, instance *marketplacev1alpha1.MeterBase, prometheusServiceName string) *marketplacev1alpha1.MeterReport {
 	return &marketplacev1alpha1.MeterReport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      meterReportName,
@@ -511,7 +503,7 @@ func (r *ReconcileMeterBase) newMeterReport(namespace string, startTime time.Tim
 	}
 }
 
-func (r *ReconcileMeterBase) reconcilePrometheusSubscription(
+func (r *MeterBaseReconciler) reconcilePrometheusSubscription(
 	instance *marketplacev1alpha1.MeterBase,
 	subscription *olmv1alpha1.Subscription,
 ) []ClientAction {
@@ -543,11 +535,11 @@ func (r *ReconcileMeterBase) reconcilePrometheusSubscription(
 	}
 }
 
-func (r *ReconcileMeterBase) reconcilePrometheusOperator(
+func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 	instance *marketplacev1alpha1.MeterBase,
 	factory *manifests.Factory,
 ) []ClientAction {
-	reqLogger := log.WithValues("Request.Namespace", instance.Namespace, "Request.Name", instance.Name)
+	reqLogger := r.Log.WithValues("Request.Namespace", instance.Namespace, "Request.Name", instance.Name)
 	nsList := &corev1.NamespaceList{}
 	cm := &corev1.ConfigMap{}
 	deployment := &appsv1.Deployment{}
@@ -600,7 +592,7 @@ func (r *ReconcileMeterBase) reconcilePrometheusOperator(
 	}
 }
 
-func (r *ReconcileMeterBase) installMetricStateDeployment(
+func (r *MeterBaseReconciler) installMetricStateDeployment(
 	instance *marketplacev1alpha1.MeterBase,
 	factory *manifests.Factory,
 ) []ClientAction {
@@ -638,7 +630,7 @@ func (r *ReconcileMeterBase) installMetricStateDeployment(
 	}
 }
 
-func (r *ReconcileMeterBase) uninstallPrometheusOperator(
+func (r *MeterBaseReconciler) uninstallPrometheusOperator(
 	instance *marketplacev1alpha1.MeterBase,
 	factory *manifests.Factory,
 ) []ClientAction {
@@ -672,13 +664,14 @@ var ignoreKubeStateList = []string{
 	"kube_statefulset.*",
 }
 
-func (r *ReconcileMeterBase) reconcileAdditionalConfigSecret(
+func (r *MeterBaseReconciler) reconcileAdditionalConfigSecret(
 	cc ClientCommandRunner,
 	instance *marketplacev1alpha1.MeterBase,
 	prometheus *monitoringv1.Prometheus,
 	factory *manifests.Factory,
 	additionalConfigSecret *corev1.Secret,
 ) []ClientAction {
+	reqLogger := r.Log.WithValues("func", "reconcileAdditionalConfigSecret", "Request.Namespace", instance.Namespace, "Request.Name", instance.Name)
 	openshiftKubeletMonitor := &monitoringv1.ServiceMonitor{}
 	openshiftKubeStateMonitor := &monitoringv1.ServiceMonitor{}
 	metricStateMonitor := &monitoringv1.ServiceMonitor{}
@@ -687,7 +680,7 @@ func (r *ReconcileMeterBase) reconcileAdditionalConfigSecret(
 	sm, err := factory.MetricStateServiceMonitor()
 
 	if err != nil {
-		log.Error(err, "error getting metric state")
+		reqLogger.Error(err, "error getting metric state")
 	}
 
 	return []ClientAction{
@@ -734,14 +727,14 @@ func (r *ReconcileMeterBase) reconcileAdditionalConfigSecret(
 			}
 			sMons[metricStateMonitor.Name] = metricStateMonitor
 
-			cfgGen := prom.NewConfigGenerator(log)
+			cfgGen := prom.NewConfigGenerator(reqLogger)
 
-			basicAuthSecrets, err := prom.LoadBasicAuthSecrets(r.client, sMons, prometheus.Spec.RemoteRead, prometheus.Spec.RemoteWrite, prometheus.Spec.APIServerConfig, secretsInNamespace)
+			basicAuthSecrets, err := prom.LoadBasicAuthSecrets(r.Client, sMons, prometheus.Spec.RemoteRead, prometheus.Spec.RemoteWrite, prometheus.Spec.APIServerConfig, secretsInNamespace)
 			if err != nil {
 				return nil, err
 			}
 
-			bearerTokens, err := prom.LoadBearerTokensFromSecrets(r.client, sMons)
+			bearerTokens, err := prom.LoadBearerTokensFromSecrets(r.Client, sMons)
 			if err != nil {
 				return nil, err
 			}
@@ -779,7 +772,7 @@ func (r *ReconcileMeterBase) reconcileAdditionalConfigSecret(
 	}
 }
 
-func (r *ReconcileMeterBase) reconcilePrometheus(
+func (r *MeterBaseReconciler) reconcilePrometheus(
 	instance *marketplacev1alpha1.MeterBase,
 	prometheus *monitoringv1.Prometheus,
 	factory *manifests.Factory,
@@ -894,7 +887,7 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 						OnError(
 							Call(func() (ClientAction, error) {
 								return UpdateStatusCondition(
-									instance, instance.Status.Conditions, status.Condition{
+									instance, &instance.Status.Conditions, status.Condition{
 										Type:    marketplacev1alpha1.ConditionError,
 										Status:  corev1.ConditionFalse,
 										Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
@@ -907,7 +900,7 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 	}
 }
 
-func (r *ReconcileMeterBase) uninstallMetricState(
+func (r *MeterBaseReconciler) uninstallMetricState(
 	instance *marketplacev1alpha1.MeterBase,
 	factory *manifests.Factory,
 ) []ClientAction {
@@ -928,7 +921,7 @@ func (r *ReconcileMeterBase) uninstallMetricState(
 	}
 }
 
-func (r *ReconcileMeterBase) uninstallPrometheus(
+func (r *MeterBaseReconciler) uninstallPrometheus(
 	instance *marketplacev1alpha1.MeterBase,
 	factory *manifests.Factory,
 ) []ClientAction {
@@ -977,7 +970,7 @@ func (r *ReconcileMeterBase) uninstallPrometheus(
 	)
 }
 
-func (r *ReconcileMeterBase) reconcilePrometheusService(
+func (r *MeterBaseReconciler) reconcilePrometheusService(
 	instance *marketplacev1alpha1.MeterBase,
 	service *corev1.Service,
 ) []ClientAction {
@@ -992,7 +985,7 @@ func (r *ReconcileMeterBase) reconcilePrometheusService(
 	}
 }
 
-func (r *ReconcileMeterBase) createPrometheus(
+func (r *MeterBaseReconciler) createPrometheus(
 	instance *marketplacev1alpha1.MeterBase,
 	factory *manifests.Factory,
 	configSecret *corev1.Secret,
@@ -1014,7 +1007,7 @@ func (r *ReconcileMeterBase) createPrometheus(
 				)),
 			OnError(
 				Call(func() (ClientAction, error) {
-					return UpdateStatusCondition(instance, instance.Status.Conditions, status.Condition{
+					return UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 						Type:    marketplacev1alpha1.ConditionError,
 						Status:  corev1.ConditionFalse,
 						Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
@@ -1022,7 +1015,7 @@ func (r *ReconcileMeterBase) createPrometheus(
 					}), nil
 				})),
 			OnRequeue(
-				UpdateStatusCondition(instance, instance.Status.Conditions, status.Condition{
+				UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 					Type:    marketplacev1alpha1.ConditionInstalling,
 					Status:  corev1.ConditionTrue,
 					Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
@@ -1032,7 +1025,7 @@ func (r *ReconcileMeterBase) createPrometheus(
 	}
 }
 
-func (r *ReconcileMeterBase) newPrometheusOperator(
+func (r *MeterBaseReconciler) newPrometheusOperator(
 	cr *marketplacev1alpha1.MeterBase,
 	factory *manifests.Factory,
 	cfg *corev1.Secret,
@@ -1040,7 +1033,7 @@ func (r *ReconcileMeterBase) newPrometheusOperator(
 	prom, err := factory.NewPrometheusDeployment(cr, cfg)
 
 	if cr.Spec.Prometheus.Storage.Class == nil {
-		defaultClass, err := utils.GetDefaultStorageClass(r.client)
+		defaultClass, err := utils.GetDefaultStorageClass(r.Client)
 
 		if err != nil {
 			return prom, err
@@ -1052,7 +1045,7 @@ func (r *ReconcileMeterBase) newPrometheusOperator(
 }
 
 // serviceForPrometheus function takes in a Prometheus object and returns a Service for that object.
-func (r *ReconcileMeterBase) serviceForPrometheus(
+func (r *MeterBaseReconciler) serviceForPrometheus(
 	cr *marketplacev1alpha1.MeterBase,
 	port int32) *corev1.Service {
 
@@ -1078,7 +1071,7 @@ func (r *ReconcileMeterBase) serviceForPrometheus(
 	return ser
 }
 
-func (r *ReconcileMeterBase) newBaseConfigMap(filename string, cr *marketplacev1alpha1.MeterBase) (*corev1.ConfigMap, error) {
+func (r *MeterBaseReconciler) newBaseConfigMap(filename string, cr *marketplacev1alpha1.MeterBase) (*corev1.ConfigMap, error) {
 	int, err := utils.LoadYAML(filename, corev1.ConfigMap{})
 	if err != nil {
 		return nil, err

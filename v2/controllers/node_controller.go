@@ -18,7 +18,9 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -36,16 +38,17 @@ const (
 	watchResourceValue = "lite"
 )
 
-// ReconcileNode reconciles a Node object
-type ReconcileNode struct {
-	// This client, initialized using mgr.Client() above, is a split client
+// NodeReconciler reconciles a Node object
+type NodeReconciler struct {
+	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	Client client.Client
+	Scheme *runtime.Scheme
+	Log    logr.Logger
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func (r *ReconcileNode) SetupWithManager(mgr ctrl.Manager) error {
+func (r *NodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Create a new controller
 	//
 	labelPreds := []predicate.Predicate{
@@ -66,19 +69,19 @@ func (r *ReconcileNode) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		Watches(&source.Kind{Type: &corev1.Node{}}, &handler.EnqueueRequestForObject{}, labelPreds...).
+		Watches(&source.Kind{Type: &corev1.Node{}}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(labelPreds...)).
 		Complete(r)
 }
 
 // Reconcile reads that state of the cluster for a Node object and makes changes based on the state read
 // and what is in the Node.Spec
-func (r *ReconcileNode) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Name", request.Name)
+func (r *NodeReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+	reqLogger := r.Log.WithValues("Request.Name", request.Name)
 	reqLogger.Info("Reconciling Node")
 
 	// Fetch the Node instance
 	instance := &corev1.Node{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -99,7 +102,7 @@ func (r *ReconcileNode) Reconcile(request reconcile.Request) (reconcile.Result, 
 	labels[watchResourceTag] = watchResourceValue
 	if !reflect.DeepEqual(labels, nodeOriginalLabels) {
 		instance.SetLabels(labels)
-		if err := r.client.Update(context.TODO(), instance); err != nil {
+		if err := r.Client.Update(context.TODO(), instance); err != nil {
 			reqLogger.Error(err, "Failed to patch node with razee/watch-resource: lite label")
 			return reconcile.Result{}, err
 		}
