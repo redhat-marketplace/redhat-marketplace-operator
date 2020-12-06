@@ -44,14 +44,12 @@ RUN microdnf update --setopt=tsflags=nodocs -y \
 
 ENV USER_UID=1001 \
   USER_NAME=redhat-marketplace-operator \
-  ASSETS=/usr/local/bin/assets \
   BINFILE=${bin}
 
 # install operator binary
 COPY --from=builder /app/bin /usr/local/bin
-COPY assets /usr/local/bin/assets
-COPY build/bin/entrypoint /usr/local/bin/entrypoint
-COPY build/bin/user_setup /usr/local/bin/user_setup
+COPY hack/docker/bin/entrypoint /usr/local/bin/entrypoint
+COPY hack/docker/bin/user_setup /usr/local/bin/user_setup
 COPY LICENSE  /licenses/
 RUN  /usr/local/bin/user_setup
 

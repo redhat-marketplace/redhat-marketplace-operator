@@ -120,7 +120,7 @@ var (
 	}
 )
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // MeterReport is the Schema for the meterreports API
 // +kubebuilder:subresource:status
@@ -134,7 +134,7 @@ type MeterReport struct {
 	Status MeterReportStatus `json:"status,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // MeterReportList contains a list of MeterReport
 type MeterReportList struct {

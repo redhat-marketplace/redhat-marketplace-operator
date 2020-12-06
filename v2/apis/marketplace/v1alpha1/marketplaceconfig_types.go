@@ -78,7 +78,7 @@ type MarketplaceConfigStatus struct {
 }
 
 // MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 //
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
@@ -130,7 +130,7 @@ const (
 	ReasonNoError               status.ConditionReason = ReasonOperatingNormally
 )
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // MarketplaceConfigList contains a list of MarketplaceConfig
 type MarketplaceConfigList struct {

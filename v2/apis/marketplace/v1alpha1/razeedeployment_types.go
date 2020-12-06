@@ -164,7 +164,7 @@ type RazeeJobInstallStruct struct {
 	RazeeInstallURL string `json:"razee_install_url"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 // RazeeDeployment is the resources that deploys Razee for the Red Hat Marketplace.
 // This is an internal resource not meant to be modified directly.
 // +k8s:openapi-gen=true
@@ -185,7 +185,7 @@ type RazeeDeployment struct {
 	Status RazeeDeploymentStatus `json:"status,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // RazeeDeploymentList contains a list of RazeeDeployment
 type RazeeDeploymentList struct {

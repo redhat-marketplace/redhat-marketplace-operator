@@ -170,7 +170,7 @@ type RazeeLogs struct {
 type Log map[string]string
 
 // RemoteResourceS3 is the Schema for the remoteresources3s API
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=remoteresources3s,scope=Namespaced
@@ -183,7 +183,7 @@ type RemoteResourceS3 struct {
 	Status RemoteResourceS3Status `json:"status,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // RemoteResourceS3List contains a list of RemoteResourceS3
 type RemoteResourceS3List struct {

@@ -34,8 +34,8 @@ type MeterDefinitionReconciler2 struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=marketplace.redhat.com.redhat.com,resources=meterdefinitions,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=marketplace.redhat.com.redhat.com,resources=meterdefinitions/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions/status,verbs=get;update;patch
 
 func (r *MeterDefinitionReconciler2) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()

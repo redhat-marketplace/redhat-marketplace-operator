@@ -247,7 +247,7 @@ type MeterDefinitionStatus struct {
 
 // MeterDefinition defines the meter workloads used to enable pay for
 // use billing.
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 //
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
@@ -262,7 +262,7 @@ type MeterDefinition struct {
 	Status MeterDefinitionStatus `json:"status,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // MeterDefinitionList contains a list of MeterDefinition
 type MeterDefinitionList struct {

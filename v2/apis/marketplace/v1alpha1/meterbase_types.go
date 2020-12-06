@@ -130,7 +130,7 @@ type MeterBaseStatus struct {
 
 // MeterBase is the resource that sets up Metering for Red Hat Marketplace.
 // This is an internal resource not meant to be modified directly.
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="INSTALLING",type=string,JSONPath=`.status.conditions[?(@.type == "Installing")].status`
 // +kubebuilder:printcolumn:name="STEP",type=string,JSONPath=`.status.conditions[?(@.type == "Installing")].reason`
 // +kubebuilder:printcolumn:name="AvailableReplicas",type=integer,JSONPath=`.status.availableReplicas`
@@ -151,7 +151,7 @@ type MeterBase struct {
 	Status MeterBaseStatus `json:"status,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // MeterBaseList contains a list of MeterBase
 type MeterBaseList struct {

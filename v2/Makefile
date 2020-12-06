@@ -1,7 +1,5 @@
 # Current Operator version
-VERSION ?= 0.0.1
-# Default bundle image tag
-BUNDLE_IMG ?= controller-bundle:$(VERSION)
+VERSION ?= 1.0.5
 # Options for 'bundle-build'
 ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
@@ -11,8 +9,16 @@ BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
+IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
+OPERATOR_IMAGE_NAME = redhat-marketplace-operator
+OPERATOR_IMAGE_TAG ?= $(VERSION)
+
+BUNDLE_NAME ?= redhat-marketplace-operator-manifest
+BUNDLE_IMG ?= $(IMAGE_REGISTRY)/$(BUNDLE_NAME):$(VERSION)
+OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
+
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= $(OPERATOR_IMAGE)
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
@@ -138,9 +144,24 @@ else
 KUSTOMIZE=$(shell which kustomize)
 endif
 
+openapi-gen:
+ifeq (, $(shell which openapi-gen))
+	@{ \
+	set -e ;\
+	OPENAPI_GEN_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$OPENAPI_GEN_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get github.com/kubernetes/kube-openapi/cmd/openapi-gen@690f563a49b523b7e87ea117b6bf448aead23b09 ;\
+	rm -rf $$OPENAPI_GEN_GEN_TMP_DIR ;\
+	}
+OPENAPI_GEN=$(GOBIN)/openapi-gen
+else
+OPENAPI_GEN=$(shell which openapi-gen)
+endif
+
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
-bundle: manifests
+bundle: manifests kustomize
 	operator-sdk generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
