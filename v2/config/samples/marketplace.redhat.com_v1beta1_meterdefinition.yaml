@@ -3,5 +3,3 @@ kind: MeterDefinition
 metadata:
   name: meterdefinition-sample
 spec:
-  # Add fields here
-  foo: bar

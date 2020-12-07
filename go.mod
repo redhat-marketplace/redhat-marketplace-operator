@@ -44,7 +44,7 @@ require (
 	github.com/openshift/api v0.0.0-20200205133042-34f0ec8dab87
 	github.com/openshift/origin v0.0.0-20160503220234-8f127d736703
 	github.com/operator-framework/api v0.3.8
-	github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b
+	github.com/operator-framework/operator-marketplace 13d3a27470e1029a90683d403b5a6296b2f84cc5
 	github.com/operator-framework/operator-sdk v0.19.2
 	github.com/pelletier/go-toml v1.8.0 // indirect
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect

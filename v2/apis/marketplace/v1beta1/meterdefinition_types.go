@@ -254,7 +254,6 @@ type MeterDefinitionStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 // +kubebuilder:resource:path=meterdefinitions,scope=Namespaced
-// +kubebuilder:validation:XPreserveUnknownFields=false
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="Meter Definitions"
 // +genclient
 type MeterDefinition struct {
