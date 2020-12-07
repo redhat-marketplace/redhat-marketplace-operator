@@ -592,6 +592,13 @@ func (in *MeterDefinitionStatus) DeepCopyInto(out *MeterDefinitionStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.ErrorConditions != nil {
+		in, out := &in.ErrorConditions, &out.ErrorConditions
+		*out = make(status.Conditions, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.WorkloadResources != nil {
 		in, out := &in.WorkloadResources, &out.WorkloadResources
 		*out = make([]WorkloadResource, len(*in))

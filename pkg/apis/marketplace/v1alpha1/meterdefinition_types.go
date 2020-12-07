@@ -30,6 +30,13 @@ const (
 	MeterDefConditionTypeHasResult           status.ConditionType   = "FoundMatches"
 	MeterDefConditionReasonNoResultsInStatus status.ConditionReason = "No results in status"
 	MeterDefConditionReasonResultsInStatus   status.ConditionReason = "Results in status"
+	PrometheusReconcileError                 status.ConditionType   = "Prometheus Reconcile Error"
+	GetCertConfigMapReconcileError           status.ConditionType   = "Cert Config Map Reconcile Error"
+	AuthTokenReconcileError                  status.ConditionType   = "Auth Token Reconcile Error"
+	ProvidePrometheusClientError             status.ConditionType   = "Prometheus Client Error"
+	ParseCertFromConfigMapError              status.ConditionType   = "Cert Config Map Data Error"
+	NewPromAPIError                          status.ConditionType   = "New Prometheus API Error"
+	QueryPreviewGenerationError              status.ConditionType   = "Query Preview Generation Error"
 )
 
 var (
@@ -115,6 +122,7 @@ const (
 	WorkloadTypeServiceMonitor              = "ServiceMonitor"
 	WorkloadTypePVC                         = "PersistentVolumeClaim"
 )
+const ReconcileError status.ConditionType = "Reconcile Error"
 
 type WorkloadVertex string
 type WorkloadType string
@@ -246,7 +254,6 @@ type Result struct {
 // +k8s:openapi-gen=true
 // +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 type MeterDefinitionStatus struct {
-
 	// Conditions represent the latest available observations of an object's state
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors.x-descriptors="urn:alm:descriptor:io.kubernetes.conditions"
 	// +optional

@@ -53,8 +53,8 @@ var _ = Describe("MeterDefController reconcile", func() {
 							Name:         "test",
 							WorkloadType: v1alpha1.WorkloadTypePod,
 							OwnerCRD: &common.GroupVersionKind{
-								APIVersion: "marketplace.redhat.com/v1alpha1",
-								Kind:       "MeterBase",
+								APIVersion: "apps/v1",
+								Kind:       "StatefulSet",
 							},
 							MetricLabels: []v1alpha1.MeterLabelQuery{
 								{
@@ -72,17 +72,18 @@ var _ = Describe("MeterDefController reconcile", func() {
 			close(done)
 		}, 120)
 
-		FIt("Should find a meterdef", func(done Done) {
+		It("Should find a meterdef", func(done Done) {
 			Eventually(func() bool {
 				err := testHarness.Get(context.TODO(), types.NamespacedName{Name: meterdef.Name, Namespace: Namespace}, meterdef)
 				if err != nil {
+					utils.PrettyPrintWithLog("error retrieving meterdef", err)
 					return false
 				}
 
 				return true
-			}, timeout).Should(BeTrue())
+			}, timeout).Should(BeTrue(), "before each in metric data test")
 			close(done)
-		}, 180)
+		}, 300)
 
 		It("Should query prometheus and append metric data to meterdef status", func(done Done) {
 			Eventually(func() bool {
@@ -91,16 +92,14 @@ var _ = Describe("MeterDefController reconcile", func() {
 					fmt.Println(err)
 					return false
 				}
-				if err != nil {
-					return false
-				}
 
+				// utils.PrettyPrintWithLog("results from meterdef",meterdef.Status)
 				assertion := runAssertionOnMeterDef(*meterdef)
 				return assertion
 
 			}, 300).Should(BeTrue())
 			close(done)
-		}, 300)
+		}, 400)
 
 		Context("Error handling for operator-cert-ca-bundle config map", func() {
 			BeforeEach(func(done Done) {
@@ -135,14 +134,18 @@ var _ = Describe("MeterDefController reconcile", func() {
 		Context("Error handling for operator-cert-ca-bundle config map", func() {
 			BeforeEach(func(done Done) {
 				Eventually(func() bool {
+					certConfigMap.ObjectMeta = metav1.ObjectMeta{
+						Name:      utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
+						Namespace: "openshift-redhat-marketplace",
+					}
 					certConfigMap.Data = map[string]string{
 						"wrong-key": "wrong-key",
 					}
 
 					assertion := Expect(testHarness.Upsert(context.TODO(), certConfigMap)).Should(Succeed())
-
+					// utils.PrettyPrintWithLog("config map",certConfigMap)
 					return assertion
-				}, 300).Should(BeTrue())
+				}, 300).Should(BeTrue(), "Expect upsert of misconfigured configmap to be succeed")
 				close(done)
 			}, 300)
 
