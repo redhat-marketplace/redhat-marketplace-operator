@@ -75,7 +75,8 @@ var (
 
 	saClient *ServiceAccountClient
 
-	// used to fullfill return parameters for functions that return (reconcile.Result,error)
+	// arbitrary assignment used to fullfill return parameters for functions that return (reconcile.Result,error)
+	// ** always evaluate this upon returning - do not return this without a conditional ** 
 	passthrough = reconcile.Result{}
 )
 
@@ -224,7 +225,6 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		if (passthrough) != result {
 			return result, err
 		}
-
 	}
 
 	reqLogger.Info("found prometheus service")
@@ -343,6 +343,47 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 
 	reqLogger.Info("finished reconciling")
 	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+}
+
+func(r *ReconcileMeterDefinition) updateErrorConditionsCC(conditionMsg error, conditionType status.ConditionType, update bool,cc ClientCommandRunner,instance *v1alpha1.MeterDefinition,reqLogger logr.Logger) (*ExecResult){
+	
+	result, _ := cc.Do(
+		context.TODO(),
+		Call(func() (ClientAction, error) {
+			if !update {
+				return nil, nil
+			}
+
+			return UpdateStatusCondition(instance,&instance.Status.Conditions,status.Condition{
+				Message: conditionMsg.Error(),
+				Type:    status.ConditionType(conditionType),
+			}), nil
+		}),
+	)
+	if result.Is(Error) {
+		reqLogger.Error(result.GetError(), "Failed to update status.")
+	}
+
+	return result
+}
+
+func(r *ReconcileMeterDefinition) updateStatusCC(conditionMsg error, conditionType status.ConditionType, update bool,cc ClientCommandRunner,instance *v1alpha1.MeterDefinition,reqLogger logr.Logger) (*ExecResult){
+	
+	result, _ := cc.Do(
+		context.TODO(),
+		Call(func() (ClientAction, error) {
+			if !update {
+				return nil, nil
+			}
+
+			return UpdateAction(instance, UpdateStatusOnly(true)), nil
+		}),
+	)
+	if result.Is(Error) {
+		reqLogger.Error(result.GetError(), "Failed to update status.")
+	}
+
+	return result
 }
 
 func (r *ReconcileMeterDefinition) updateConditionsWithError(conditionMsg error, conditionType status.ConditionType, instance *v1alpha1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) (reconcile.Result, error) {

@@ -20,9 +20,36 @@ import (
 )
 
 var _ = Describe("MeterDefController reconcile", func() {
-	BeforeEach(func() {
-		Expect(testHarness.BeforeAll()).To(Succeed())
-	})
+	certConfigMap := &corev1.ConfigMap{}
+
+	promService := &corev1.Service{}
+
+	BeforeEach(func(done Done) {
+
+		Eventually(func() bool{
+			return Expect(testHarness.BeforeAll()).To(Succeed())
+		},300).Should(BeTrue())
+
+		Eventually(func() bool {
+			assertion := Expect(testHarness.BeforeAll()).To(Succeed())
+
+			err := testHarness.Get(context.TODO(), types.NamespacedName{Name: utils.OPERATOR_CERTS_CA_BUNDLE_NAME, Namespace: Namespace}, certConfigMap)
+			if err != nil {
+				return false
+			}
+
+			err = testHarness.Get(context.TODO(), types.NamespacedName{Name: utils.PROMETHEUS_METERBASE_NAME, Namespace: Namespace}, promService)
+			if err != nil {
+				return false
+			}
+
+			assertion = true
+
+			return assertion
+		}, 400).Should(BeTrue())
+		close(done)
+		
+	},600)
 
 	AfterEach(func() {
 		Expect(testHarness.AfterAll()).To(Succeed())
@@ -97,7 +124,7 @@ var _ = Describe("MeterDefController reconcile", func() {
 				assertion := runAssertionOnMeterDef(*meterdef)
 				return assertion
 
-			}, 300).Should(BeTrue())
+			}, 400).Should(BeTrue())
 			close(done)
 		}, 400)
 
