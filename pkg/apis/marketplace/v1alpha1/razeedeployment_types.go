@@ -225,4 +225,5 @@ const (
 	ReasonRhmRemoteResourceS3DeploymentStart     status.ConditionReason = "StartRemoteResourceS3DeploymentInstall"
 	ReasonRhmRemoteResourceS3DeploymentInstalled status.ConditionReason = "FinishedRemoteResourceS3DeploymentInstall"
 	ReasonRhmRemoteResourceS3DeploymentEnabled   status.ConditionReason = "EnabledRemoteResourceS3DeploymentInstall"
+	ReasonRhmRegistrationWatchkeeperEnabled      status.ConditionReason = "EnabledRegistrationWatchkeeperInstall"
 )

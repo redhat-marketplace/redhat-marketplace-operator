@@ -24,4 +24,12 @@ type Features struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
 	// +optional
 	Deployment *bool `json:"deployment,omitempty"`
+
+	// Deployment represents the enablement of the registration watchkeeper deployment, defaults to true when not set
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable Watchkeeper deployment?"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
+	// +optional
+	Registration *bool `json:"registration,omitempty"`
 }

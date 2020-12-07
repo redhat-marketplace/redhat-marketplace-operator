@@ -34,7 +34,6 @@ type MarketplaceConfigSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
 	ClusterUUID string `json:"clusterUUID"`
 
-
 	// ClusterName is the name that will be assigned to your cluster in the Red Hat Marketplace UI.
 	// If you have set the name in the UI first, this name will be ignored.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
@@ -115,8 +114,6 @@ const (
 	ConditionComplete status.ConditionType = "Complete"
 	// ConditionError means the installation has failed.
 	ConditionError status.ConditionType = "Error"
-	// ConditionEnabled means the particular option is enabled
-	ConditionEnabled status.ConditionType = "Enabled"
 	// ConditionRegistered means the cluster registered.
 	ConditionRegistered status.ConditionType = "Registered"
 	// ConditionRegistered means the cluster registered.
@@ -138,6 +135,12 @@ const (
 	ReasonRegistrationError     status.ConditionReason = "HttpError"
 	ReasonOperatingNormally     status.ConditionReason = "OperatingNormally"
 	ReasonNoError               status.ConditionReason = ReasonOperatingNormally
+
+	// Enablement/Disablement of features conditions
+	// ConditionDeploymentEnabled means the particular option is enabled
+	ConditionDeploymentEnabled status.ConditionType = "DeploymentEnabled"
+	// ConditionRegistrationEnabled means the particular option is enabled
+	ConditionRegistrationEnabled status.ConditionType = "RegistrationEnabled"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

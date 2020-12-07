@@ -16,6 +16,11 @@ func (in *Features) DeepCopyInto(out *Features) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.Registration != nil {
+		in, out := &in.Registration, &out.Registration
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 
