@@ -2,8 +2,8 @@
 
 | Branch  | Builds                                                                                                                       |
 |:-------:|:----------------------------------------------------------------------------------------------------------------------------:|
-| Develop | ![Test - Develop](https://github.com/redhat-marketplace/redhat-marketplace-operator/workflows/Test/badge.svg?branch=develop)  ![Deploy - Develop](https://github.com/redhat-marketplace/redhat-marketplace-operator/workflows/Deploy%20Image/badge.svg?branch=develop) |
-| Master  | ![Test - Master](https://github.com/redhat-marketplace/redhat-marketplace-operator/workflows/Test/badge.svg?branch=master) ![Deploy - Master](https://github.com/redhat-marketplace/redhat-marketplace-operator/workflows/Deploy%20Image/badge.svg?branch=master) |
+| Develop | ![Test & Deploy Image](https://github.com/redhat-marketplace/redhat-marketplace-operator/workflows/Test%20&%20Deploy%20Image/badge.svg) |
+| Master  | ![Test & Deploy Image](https://github.com/redhat-marketplace/redhat-marketplace-operator/workflows/Test%20&%20Deploy%20Image/badge.svg?branch=master) |
 
 ## Description
 

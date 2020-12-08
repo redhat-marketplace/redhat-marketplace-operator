@@ -72,7 +72,7 @@ func init() {
 	ReportCmd.Flags().StringVar(&namespace, "namespace", "", "namespace of the report")
 	ReportCmd.Flags().StringVar(&cafile, "cafile", "", "cafile for prometheus")
 	ReportCmd.Flags().StringVar(&tokenFile, "tokenfile", "", "token file for prometheus")
-	ReportCmd.Flags().StringVar(&uploadTarget, "uploadTarget", "", "target to upload to")
+	ReportCmd.Flags().StringVar(&uploadTarget, "uploadTarget", "redhat-insights", "target to upload to")
 	ReportCmd.Flags().BoolVar(&local, "local", false, "run locally")
 	ReportCmd.Flags().BoolVar(&upload, "upload", true, "to upload the payload")
 	ReportCmd.Flags().IntVar(&retry, "retry", 3, "number of retries")

@@ -77,6 +77,11 @@ type connectResponse struct {
 	Status  string `json:"status"`
 	Message string `json:"message"`
 	Code    int32  `json:"code"`
+	Data    connectResponseData  `json:"data,omitempty"`
+}
+
+type connectResponseData struct {
+	Errors []string `json:"errors,omitempty"`
 }
 
 func (c *connectResponse) IsOK() bool {
@@ -85,6 +90,12 @@ func (c *connectResponse) IsOK() bool {
 
 func (c *connectResponse) IsError() bool {
 	return c.Code >= 300
+}
+
+func (c *connectResponse) IsAlreadyPublished() bool {
+	return c.Code == 423 &&
+		len(c.Data.Errors) == 1 &&
+		strings.Contains(c.Data.Errors[0], "Container image is already published")
 }
 
 type tagResponse struct {

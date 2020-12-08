@@ -1,0 +1,29 @@
+[
+    {
+        "_id": "test",
+        "metadata": {
+            "created": 1234,
+            "modified": 1234
+        },
+        "accountId": "accountid",
+        "name": "test",
+        "uuid": "test",
+        "status": "INSTALLED",
+        "consoleURL": "https://console-openshift-console.testing",
+        "platformType": "test",
+        "razee": {
+            "clusterId": "clusterId",
+            "namespace": "namespace",
+            "created": "created",
+            "updated": "updated"
+        },
+        "isTrialCluster": false,
+        "rhmOperator": {
+            "version": "version",
+            "deleted": true,
+            "created": "created",
+            "updated": "updated"
+        },
+        "ocpVersion": "4.5.14"
+    }
+]

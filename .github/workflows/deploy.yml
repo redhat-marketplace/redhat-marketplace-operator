@@ -16,7 +16,7 @@ env:
 jobs:
   test-unit:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [build]
     strategy:
       matrix:
@@ -97,8 +97,9 @@ jobs:
 
   test-integration:
     name: Test Integration
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [build]
+    if: false
     strategy:
       matrix:
         registry:
@@ -147,10 +148,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - uses: engineerd/setup-kind@v0.4.0
-        with:
-          config: ./kind-cluster.yaml
-
       - name: Login Docker
         run: make docker-login
         env:
@@ -158,45 +155,49 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.REDHAT_IO_PASSWORD }}
           REGISTRY: registry.redhat.io
 
+      - name: Login quay.io
+        run: make docker-login
+        env:
+          DOCKER_USER: ${{ secrets['quayUser'] }}
+          DOCKER_PASSWORD: ${{ secrets['quayPassword'] }}
+          REGISTRY: quay.io/rh-marketplace
+
       - name: Install tools
         run: |
           echo "127.0.0.1 localhost" | sudo tee -a /etc/hosts
           make install-tools testbin
+          (
+            set -x; cd "$(mktemp -d)" &&
+            curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/krew.tar.gz" &&
+            tar zxvf krew.tar.gz &&
+            KREW=./krew-"$(uname | tr '[:upper:]' '[:lower:]')_$(uname -m | sed -e 's/x86_64/amd64/' -e 's/arm.*$/arm/')" &&
+            "$KREW" install krew
+          )
+          echo "${KREW_ROOT:-$HOME/.krew}/bin" >> $GITHUB_PATH
 
-      - name: Wait for deploy to succeed
-        uses: fountainhead/action-wait-for-check@v1.0.0
-        id: wait-for-deploy
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          checkName: Deploy Finished
-          timeoutSeconds: 1000
-          intervalSeconds: 10
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
 
-      - name: Fail
-        if: steps.wait-for-deploy.outputs.conclusion == 'failure'
-        run: exit 1
-
-      - name: Load Kind
+      - name: Setup kind
         run: |
-          make load-kind
+          kubectl krew install kuttl
+          make setup-kind
 
       - name: Test Integration
         env:
           USE_EXISTING_CLUSTER: true
           KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT: true
+          TEST_PULL_SECRET: ${{ secrets.TEST_PULL_SECRET }}
         run: |
-          make test-ci-int
-
-      - uses: actions/upload-artifact@v2
-        with:
-          name: cover-int
-          path: cover-int.out
+          export QUAY_EXPIRATION=1d
+          echo "PULL_SECRET=$TEST_PULL_SECRET" > redhat-marketplace-pull-secret.env
+          make test-ci-int-kind
 
   cover:
     name: Cover
-    runs-on: ubuntu-latest
-    needs: [test-unit, test-integration]
+    runs-on: ubuntu-20.04
+    needs: [test-unit]
     steps:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
@@ -208,9 +209,9 @@ jobs:
       - uses: actions/download-artifact@v2
       - name: Report cover
         run: |
-          cp cover-int/cover-int.out .
-          cp cover-unit/cover-unit.out .
-          make test-join test-cover-text
+          #cp cover-int/cover-int.out .
+          cp cover-unit/cover-unit.out ./cover.out
+          #make test-join test-cover-text
           go tool cover -html=cover.out -o cover.html
       - uses: actions/upload-artifact@v2
         with:
@@ -219,7 +220,7 @@ jobs:
 
   build:
     name: Preset
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     outputs:
       version: ${{ steps.vars.outputs.version }}
       tag: ${{ steps.vars.outputs.tag }}
@@ -227,30 +228,10 @@ jobs:
       dockertag: ${{ steps.vars.outputs.dockertag }}
       now: ${{ steps.vars.outputs.now }}
       crs: ${{ steps.vars.outputs.crs }}
+      quayExpiration: ${{ steps.vars.outputs.quayExpiration }}
     env:
       TAGPREFIX: ''
     steps:
-      - name: "Cancel if build flag (!build) is not on last commit"
-        uses: actions/github-script@v2
-        id: check
-        if: |
-          github.event_name == 'push'
-          && (startsWith(github.ref,'refs/heads/release/')
-              || startsWith(github.ref,'refs/heads/hotfix/'))
-          && !contains(github.event.head_commit.message, '!build')
-        with:
-          script: |
-            const { owner, repo } = context.repo
-            console.log('Cancelling ...');
-            const run_id = "${{ github.run_id }}";
-            await github.actions.cancelWorkflowRun({ owner, repo, run_id });
-            return 'stop'
-          result-encoding: string
-      - name: Waiting for cancellation
-        run: sleep 60
-        if: steps.check.outputs.result == 'stop'
-      - name: Should build?
-        run: test "${{ steps.check.outputs.result }}" != "stop"
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.4.1
         with:
@@ -272,12 +253,14 @@ jobs:
         run: |
           NAME=$(echo "${{ github.ref }}" | sed 's/refs\/heads\/bugfix\///')
           echo "TAGPREFIX=bugfix-${NAME}-" >> $GITHUB_ENV
+          echo "QUAY_EXPIRATION=1w" >> $GITHUB_ENV
 
       - name: Set branch prefix for feat
         if: github.event_name == 'push' && startsWith(github.ref,'refs/heads/feature/')
         run: |
           NAME=$(echo "${{ github.ref }}" | sed 's/refs\/heads\/feature\///')
           echo "TAGPREFIX=feat-${NAME}-" >> $GITHUB_ENV
+          echo "QUAY_EXPIRATION=1w" >> $GITHUB_ENV
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
@@ -290,6 +273,7 @@ jobs:
           echo "::set-output name=hash::$(make current-version)-${FILEHASH:0:6}"
           echo "::set-output name=dockertag::${TAGPREFIX}$(make current-version)-${GITHUB_SHA::8}"
           echo "::set-output name=now::$(date +'%Y%m%dT%H%M%S')"
+          echo "::set-output name=quayExpiration::${QUAY_EXPIRATION:-never}"
         env:
           FILEHASH: ${{ hashFiles('cmd/**', 'pkg/**', 'interal/**', 'version/**', 'go.sum', 'go.mod') }}
 
@@ -302,8 +286,12 @@ jobs:
 
   deploy:
     name: Deploy
-    runs-on: ubuntu-latest
-    needs: [build, test-integration]
+    runs-on: ubuntu-20.04
+    needs: [build, test-unit]
+    if: |
+      github.event_name == 'push'
+      && (startsWith(github.ref,'refs/heads/release/')
+          || startsWith(github.ref,'refs/heads/hotfix/'))
     strategy:
       matrix:
         image:
@@ -317,6 +305,7 @@ jobs:
       OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
       BUILD_IMAGE: ${{ matrix.image }}
       TAG: quay.io/rh-marketplace/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}
+      QUAY_EXPIRATION: ${{ needs.build.outputs.quayExpiration }}
     steps:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
@@ -355,6 +344,10 @@ jobs:
         env:
           SKAFFOLD_VERSION: v1.14.0
 
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+
       - name: Login ${{ matrix.name }}
         run: make docker-login
         env:
@@ -367,7 +360,7 @@ jobs:
 
   deploy-done:
     needs: [deploy]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     name: 'Deploy Finished'
     steps:
       - name: Finished
@@ -376,8 +369,12 @@ jobs:
 
   opm:
     name: Deploy OPM Index
-    runs-on: ubuntu-latest
-    needs: [build]
+    runs-on: ubuntu-20.04
+    needs: [build, tag]
+    if: |
+      github.event_name == 'push'
+      && (startsWith(github.ref,'refs/heads/release/')
+          || startsWith(github.ref,'refs/heads/hotfix/'))
     strategy:
       matrix:
         channel:
@@ -385,12 +382,9 @@ jobs:
         include:
           - channel: stable
             packageName: redhat-marketplace-operator
-            imageRegistry: quay.io/rh-marketplace
+            imageRegistry: registry.connect.redhat.com/rh-marketplace
             olmRepo: quay.io/rh-marketplace/redhat-marketplace-operator-manifest
             indexRepo: quay.io/rh-marketplace/redhat-marketplace-operator-bundle
-            name: quay
-            key: quayUser
-            value: quayPassword
     env:
       IMAGE_REGISTRY: ${{ matrix.imageRegistry }}
       OLM_REPO: ${{ matrix.olmRepo }}
@@ -427,12 +421,12 @@ jobs:
           opm_version: v1.12.5
           COURIER_VERSION: 2.1.7
 
-      - name: Login ${{ matrix.name }}
+      - name: Login quay.io
         run: make docker-login
         env:
-          DOCKER_USER: ${{ secrets[matrix.key] }}
-          DOCKER_PASSWORD: ${{ secrets[matrix.value] }}
-          REGISTRY: ${{ matrix.imageRegistry }}
+          DOCKER_USER: ${{ secrets['quayUser'] }}
+          DOCKER_PASSWORD: ${{ secrets['quayPassword'] }}
+          REGISTRY: quay.io/rh-marketplace
 
       - name: Build bundles ${{ matrix.channel }}
         run: |
@@ -447,7 +441,7 @@ jobs:
 
   tag:
     name: Push other tags
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [build, deploy]
     if: |
       github.event_name == 'push'
@@ -504,7 +498,7 @@ jobs:
 
   publish:
     name: Publish
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     if: |
       github.event_name == 'push'
       && (startsWith(github.ref,'refs/heads/release/')
@@ -512,10 +506,31 @@ jobs:
     needs: [build, tag]
     env:
       TAG: ${{ needs.build.outputs.dockertag }}
-      OS_PIDS: "ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4 ospid-ffed416e-c18d-4b88-8660-f586a4792785"
-      REPOS: "quay.io/rh-marketplace/redhat-marketplace-operator quay.io/rh-marketplace/redhat-marketplace-reporter quay.io/rh-marketplace/redhat-marketplace-metric-state quay.io/rh-marketplace/redhat-marketplace-authcheck"
+      OS_PIDS: 'ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4 ospid-ffed416e-c18d-4b88-8660-f586a4792785'
+      REPOS: 'quay.io/rh-marketplace/redhat-marketplace-operator quay.io/rh-marketplace/redhat-marketplace-reporter quay.io/rh-marketplace/redhat-marketplace-metric-state quay.io/rh-marketplace/redhat-marketplace-authcheck'
       RH_CONNECT_TOKEN: ${{ secrets.redhat_api_key }}
     steps:
+      - name: 'Cancel if publish flag (!publish) is not on last commit'
+        uses: actions/github-script@v2
+        id: check
+        if: |
+          github.event_name == 'push'
+          && (startsWith(github.ref,'refs/heads/release/')
+              || startsWith(github.ref,'refs/heads/hotfix/'))
+          && !contains(github.event.head_commit.message, '!publish')
+        with:
+          script: |
+            const { owner, repo } = context.repo
+            console.log('Cancelling ...');
+            const run_id = "${{ github.run_id }}";
+            await github.actions.cancelWorkflowRun({ owner, repo, run_id });
+            return 'stop'
+          result-encoding: string
+      - name: Waiting for cancellation
+        run: sleep 60
+        if: steps.check.outputs.result == 'stop'
+      - name: Should build?
+        run: test "${{ steps.check.outputs.result }}" != "stop"
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
@@ -530,12 +545,13 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.REDHAT_IO_PASSWORD }}
           REGISTRY: registry.connect.redhat.com
       - name: Publish
+        continue-on-error: true
         run: |
           make wait-and-publish
 
   tag-bundle:
     name: Push bundle tag
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [build, deploy, opm, cover, publish]
     if: |
       github.event_name == 'push'

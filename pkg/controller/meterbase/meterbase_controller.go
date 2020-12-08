@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
@@ -168,6 +167,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &marketplacev1alpha1.MeterBase{},
+	})
+	if err != nil {
+		return err
+	}
+
+	err = c.Watch(&source.Kind{Type: &appsv1.StatefulSet{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &marketplacev1alpha1.MeterBase{},
 	})
@@ -325,31 +332,29 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 			}, prometheusStatefulset),
 			OnContinue(Call(func() (ClientAction, error) {
 				updatedInstance := instance.DeepCopy()
-				updatedInstance.Status.Replicas = &prometheusStatefulset.Status.CurrentReplicas
+				updatedInstance.Status.Replicas = &prometheusStatefulset.Status.Replicas
 				updatedInstance.Status.UpdatedReplicas = &prometheusStatefulset.Status.UpdatedReplicas
 				updatedInstance.Status.AvailableReplicas = &prometheusStatefulset.Status.ReadyReplicas
 				updatedInstance.Status.UnavailableReplicas = ptr.Int32(
 					prometheusStatefulset.Status.CurrentReplicas - prometheusStatefulset.Status.ReadyReplicas)
 
-				if reflect.DeepEqual(updatedInstance.Status, instance.Status) {
-					reqLogger.Info("prometheus statefulset status is up to date")
-					return nil, nil
-				}
-
 				var action ClientAction = nil
 
 				reqLogger.Info("statefulset status", "status", updatedInstance.Status)
 
-				if updatedInstance.Status.Replicas != updatedInstance.Status.AvailableReplicas {
+				if prometheusStatefulset.Status.Replicas != prometheusStatefulset.Status.ReadyReplicas {
 					reqLogger.Info("prometheus statefulset has not finished roll out",
-						"replicas", updatedInstance.Status.Replicas,
-						"available", updatedInstance.Status.AvailableReplicas)
-					action = RequeueAfterResponse(30 * time.Second)
+						"replicas", prometheusStatefulset.Status.Replicas,
+						"ready", prometheusStatefulset.Status.ReadyReplicas)
+					action = RequeueAfterResponse(5 * time.Second)
 				}
 
-				return HandleResult(
-					UpdateAction(updatedInstance, UpdateStatusOnly(true)),
-					OnContinue(action)), nil
+				if !reflect.DeepEqual(updatedInstance.Status, instance.Status) {
+					reqLogger.Info("prometheus statefulset status is up to date")
+					return HandleResult(UpdateAction(updatedInstance, UpdateStatusOnly(true)), OnContinue(action)), nil
+				}
+
+				return action, nil
 			})),
 			OnNotFound(Call(func() (ClientAction, error) {
 				log.Info("can't find prometheus statefulset, requeuing")
@@ -906,7 +911,7 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 		),
 		HandleResult(
 			GetAction(
-				types.NamespacedName{Namespace: "openshift-config-managed", Name: "kubelet-serving-ca"},
+				types.NamespacedName{Namespace: instance.Namespace, Name: "serving-certs-ca-bundle"},
 				kubeletCertsCM,
 			),
 			OnNotFound(Call(func() (ClientAction, error) {
@@ -915,7 +920,7 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 			OnContinue(manifests.CreateOrUpdateFactoryItemAction(
 				&corev1.ConfigMap{},
 				func() (runtime.Object, error) {
-					return factory.PrometheusKubeletServingCABundle(kubeletCertsCM.Data)
+					return factory.PrometheusKubeletServingCABundle(kubeletCertsCM.Data["service-ca.crt"])
 				},
 				args,
 			))),
@@ -932,61 +937,53 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 				prometheus,
 			),
 			OnNotFound(Call(r.createPrometheus(instance, factory, configSecret))),
-			OnContinue(Call(func() (ClientAction, error) {
-				updatedPrometheus := prometheus.DeepCopy()
-				expectedPrometheus, err := r.newPrometheusOperator(instance, factory, configSecret)
+			OnContinue(
+				Call(func() (ClientAction, error) {
+					expectedPrometheus, err := r.newPrometheusOperator(instance, factory, configSecret)
 
-				if err != nil {
-					return nil, merrors.Wrap(err, "error updating prometheus")
-				}
+					if err != nil {
+						return nil, merrors.Wrap(err, "error updating prometheus")
+					}
+					patch, err := r.patcher.Calculate(prometheus, expectedPrometheus)
+					if err != nil {
+						return nil, err
+					}
 
-				updatedPrometheus.ObjectMeta.Name = expectedPrometheus.ObjectMeta.Name
-				updatedPrometheus.Spec.Secrets = expectedPrometheus.Spec.Secrets
-				updatedPrometheus.Spec.Volumes = expectedPrometheus.Spec.Volumes
-				updatedPrometheus.Spec.VolumeMounts = expectedPrometheus.Spec.VolumeMounts
-				updatedPrometheus.Spec.AdditionalScrapeConfigs = expectedPrometheus.Spec.AdditionalScrapeConfigs
-				updatedPrometheus.Spec.Containers = expectedPrometheus.Spec.Containers
+					if patch.IsEmpty() {
+						return nil, nil
+					}
 
-				patch, err := r.patcher.Calculate(prometheus, updatedPrometheus)
-				if err != nil {
-					return nil, err
-				}
+					r.patcher.SetLastAppliedAnnotation(expectedPrometheus)
 
-				if patch.IsEmpty() {
-					return nil, nil
-				}
+					patch, err = r.patcher.Calculate(prometheus, expectedPrometheus)
+					if err != nil {
+						return nil, merrors.Wrap(err, "error creating patch")
+					}
 
-				patchBytes, err := jsonpatch.CreateMergePatch(patch.Original, patch.Modified)
+					if patch.IsEmpty() {
+						return nil, nil
+					}
 
-				if err != nil {
-					return nil, err
-				}
+					updateResult := &ExecResult{}
 
-				updateResult := &ExecResult{}
-
-				return HandleResult(
-					StoreResult(
-						updateResult,
-						UpdateWithPatchAction(prometheus, types.MergePatchType, patchBytes),
-					),
-					OnError(
-						Call(func() (ClientAction, error) {
-							return UpdateStatusCondition(
-								instance, instance.Status.Conditions, status.Condition{
-									Type:    marketplacev1alpha1.ConditionError,
-									Status:  corev1.ConditionFalse,
-									Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
-									Message: updateResult.Error(),
-								}), nil
-						})),
-					OnRequeue(
-						UpdateStatusCondition(instance, instance.Status.Conditions, status.Condition{
-							Type:    marketplacev1alpha1.ConditionInstalling,
-							Status:  corev1.ConditionTrue,
-							Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
-							Message: "updated prometheus",
-						}))), nil
-			}))),
+					return HandleResult(
+						StoreResult(
+							updateResult,
+							UpdateWithPatchAction(prometheus, types.MergePatchType, patch.Patch),
+						),
+						OnError(
+							Call(func() (ClientAction, error) {
+								return UpdateStatusCondition(
+									instance, instance.Status.Conditions, status.Condition{
+										Type:    marketplacev1alpha1.ConditionError,
+										Status:  corev1.ConditionFalse,
+										Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
+										Message: updateResult.Error(),
+									}), nil
+							})),
+					), nil
+				},
+				))),
 	}
 }
 

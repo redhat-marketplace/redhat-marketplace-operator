@@ -42,7 +42,11 @@ var testControllerSet = wire.NewSet(
 	wire.Bind(new(reconcileutils.ClientCommandRunnerProvider), new(*reconcileutils.DefaultCommandRunnerProvider)),
 )
 
-func initializeMainCtrl(cfg *rest.Config) (*managers.ControllerMain, error) {
+func InitializeScheme(cfg *rest.Config) (*runtime.Scheme, error) {
+	panic(wire.Build(testControllerSet))
+}
+
+func InitializeMainCtrl(cfg *rest.Config) (*managers.ControllerMain, error) {
 	panic(wire.Build(testControllerSet))
 }
 

@@ -266,6 +266,7 @@ type meterDefPromModel struct {
 	model.Value
 	MetricName string
 	Type       v1alpha1.WorkloadType
+	Workload   v1alpha1.Workload
 }
 
 type meterDefPromQuery struct {
@@ -370,7 +371,7 @@ func (r *MarketplaceReporter) process(
 						}
 
 						if objName == "" {
-							errorsch <- errors.New("can't fine objName")
+							errorsch <- errors.New("can't find objName")
 							return
 						}
 
@@ -381,9 +382,12 @@ func (r *MarketplaceReporter) process(
 							IntervalEnd:       pair.Timestamp.Add(time.Hour).Time().Format(time.RFC3339),
 							MeterDomain:       pmodel.mdef.meterGroup,
 							MeterKind:         pmodel.mdef.meterKind,
+							Namespace:         namespace,
+							ResourceName:      objName,
+							Workload:          pmodel.Workload.Name,
 						}
 
-						key.Init(r.mktconfig.Spec.ClusterUUID, objName, namespace)
+						key.Init(r.mktconfig.Spec.ClusterUUID)
 
 						mutex.Lock()
 						defer mutex.Unlock()
@@ -469,6 +473,11 @@ func (r *MarketplaceReporter) WriteReport(
 
 	for idxRange := range gopart.Partition(len(metricsArr), partitionSize) {
 		metricReport := NewReport()
+
+		if r.Config.UploaderTarget != UploaderTargetRedHatInsights {
+			metricReport.AddMetadata(metadata.ToFlat())
+		}
+
 		metadata.AddMetricsReport(metricReport)
 
 		err := metricReport.AddMetrics(metricsArr[idxRange.Low:idxRange.High]...)

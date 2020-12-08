@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package apis
+package apis_test
 
 import (
 	"context"
@@ -25,16 +25,12 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const namespace = "openshift-redhat-marketplace"
-
-var K8sClient client.Client
 
 func RandomString(length int) string {
 	rand.Seed(time.Now().UnixNano())
@@ -53,13 +49,8 @@ var _ = Describe("MeterBase", func() {
 		created, fetched v1alpha1.MeterBase
 	)
 
-	BeforeEach(func() {
-		// Add any setup steps that needs to be executed before each test
-	})
-
-	AfterEach(func() {
-		// Add any teardown steps that needs to be executed after each test
-		K8sClient.Delete(context.TODO(), &created)
+	AfterEach(func(){
+		testHarness.Delete(context.TODO(), &created)
 	})
 
 	// Add Tests for OpenAPI validation (or additional CRD features) specified in
@@ -89,10 +80,10 @@ var _ = Describe("MeterBase", func() {
 			}
 
 			By("creating an API obj")
-			Expect(K8sClient.Create(context.TODO(), &created)).To(Succeed())
+			Expect(testHarness.Create(context.TODO(), &created)).To(Succeed())
 
 			fetched = v1alpha1.MeterBase{}
-			Expect(K8sClient.Get(context.TODO(), key, &fetched)).To(Succeed())
+			Expect(testHarness.Get(context.TODO(), key, &fetched)).To(Succeed())
 			Expect(fetched).ToNot(BeNil())
 			Expect(fetched).To(MatchFields(IgnoreExtras, Fields{
 				"ObjectMeta": MatchFields(IgnoreExtras, Fields{
@@ -113,10 +104,7 @@ var _ = Describe("MeterBase", func() {
 			}))
 
 			By("deleting the created object")
-			Expect(K8sClient.Delete(context.TODO(), &created)).To(Succeed())
-			err := K8sClient.Get(context.TODO(), key, &created)
-			Expect(err).To(HaveOccurred())
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(testHarness.Get(context.TODO(), key, &created)).To(Succeed())
 		})
 	})
 })

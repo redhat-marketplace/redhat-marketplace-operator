@@ -19,22 +19,38 @@ import (
 
 // Injectors from wire.go:
 
-func initializeMainCtrl(cfg *rest.Config) (*managers.ControllerMain, error) {
+func InitializeScheme(cfg *rest.Config) (*runtime.Scheme, error) {
+	opsSrcSchemeDefinition := controller.ProvideOpsSrcScheme()
+	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
+	olmV1SchemeDefinition := controller.ProvideOLMV1Scheme()
+	olmV1Alpha1SchemeDefinition := controller.ProvideOLMV1Alpha1Scheme()
+	openshiftConfigV1SchemeDefinition := controller.ProvideOpenshiftConfigV1Scheme()
+	localSchemes := controller.ProvideLocalSchemes(opsSrcSchemeDefinition, monitoringSchemeDefinition, olmV1SchemeDefinition, olmV1Alpha1SchemeDefinition, openshiftConfigV1SchemeDefinition)
+	scheme, err := managers.ProvideScheme(cfg, localSchemes)
+	if err != nil {
+		return nil, err
+	}
+	return scheme, nil
+}
+
+func InitializeMainCtrl(cfg *rest.Config) (*managers.ControllerMain, error) {
 	defaultCommandRunnerProvider := reconcileutils.ProvideDefaultCommandRunnerProvider()
 	marketplaceController := controller.ProvideMarketplaceController(defaultCommandRunnerProvider)
 	meterbaseController := controller.ProvideMeterbaseController(defaultCommandRunnerProvider)
 	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider)
-	razeeDeployController := controller.ProvideRazeeDeployController()
-	olmSubscriptionController := controller.ProvideOlmSubscriptionController()
 	operatorConfig, err := config.ProvideConfig()
 	if err != nil {
 		return nil, err
 	}
+	razeeDeployController := controller.ProvideRazeeDeployController(operatorConfig)
+	olmSubscriptionController := controller.ProvideOlmSubscriptionController()
 	meterReportController := controller.ProvideMeterReportController(defaultCommandRunnerProvider, operatorConfig)
 	olmClusterServiceVersionController := controller.ProvideOlmClusterServiceVersionController()
 	remoteResourceS3Controller := controller.ProvideRemoteResourceS3Controller()
 	nodeController := controller.ProvideNodeController()
-	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, meterReportController, olmClusterServiceVersionController, remoteResourceS3Controller, nodeController)
+	rhmSubscriptionController := controller.ProvideRhmSubscriptionController()
+	clusterRegistrationController := controller.ProvideClusterRegistrationController()
+	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, meterReportController, olmClusterServiceVersionController, remoteResourceS3Controller, nodeController, rhmSubscriptionController, clusterRegistrationController)
 	opsSrcSchemeDefinition := controller.ProvideOpsSrcScheme()
 	monitoringSchemeDefinition := controller.ProvideMonitoringScheme()
 	olmV1SchemeDefinition := controller.ProvideOLMV1Scheme()
