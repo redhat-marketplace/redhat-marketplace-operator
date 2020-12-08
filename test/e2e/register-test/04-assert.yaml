@@ -15,7 +15,8 @@ status:
       reason: FinishedInstall
       status: 'False'
       type: Installing
-    - reason: ClusterRegistered
+    - message: Cluster Registered Successfully
+      reason: ClusterRegistered
       status: 'True'
       type: Registered
   meterBaseSubConditions:
@@ -28,10 +29,18 @@ status:
       reason: FinishedRazeeInstall
       status: "True"
       type: Complete
+    - message: RemoteResourceS3 deployment enabled
+      reason: EnabledRemoteResourceS3DeploymentInstall
+      status: "True"
+      type: DeploymentEnabled
     - message: Razee install complete
       reason: FinishedRazeeInstall
       status: "False"
       type: Installing
+    - message: Registration deployment enabled
+      reason: EnabledRegistrationWatchkeeperInstall
+      status: "True"
+      type: RegistrationEnabled
 ---
 apiVersion: apps/v1
 kind: StatefulSet
