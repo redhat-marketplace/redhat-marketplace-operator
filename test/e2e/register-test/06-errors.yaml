@@ -40,7 +40,6 @@ metadata:
   finalizers:
   - children.downloads.deploy.razee.io
   name: parent
-  namespace: openshift-redhat-marketplace
 spec:
   auth:
     iam:
@@ -61,7 +60,6 @@ metadata:
   finalizers:
   - children.downloads.deploy.razee.io
   name: child
-  namespace: openshift-redhat-marketplace
 spec:
   auth:
     iam:
