@@ -86,7 +86,7 @@ var _ = Describe("MeterbaseController", func() {
 				}, timeout, interval).Should(BeTrue())
 
 				close(done)
-			})
+			},180)
 		})
 	})
 })

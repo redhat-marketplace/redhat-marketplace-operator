@@ -36,7 +36,7 @@ func ProvideMeterDefinitionController(
 	return &MeterDefinitionController{
 		baseDefinition: &baseDefinition{
 			AddFunc: func(mgr manager.Manager) error {
-				return meterdefinition.Add(mgr, commandRunner, serviceAccountClient)
+				return meterdefinition.Add(mgr, commandRunner, serviceAccountClient,cfg)
 			},
 			FlagSetFunc: func() *pflag.FlagSet { return nil },
 		},

@@ -28,6 +28,7 @@ type OperatorConfig struct {
 	RelatedImages RelatedImages
 	Features      Features
 	Marketplace   Marketplace
+	ControllerReconcileSettings ControllerReconcileSettings
 }
 
 // RelatedImages stores relatedimages for the operator
@@ -54,6 +55,10 @@ type Features struct {
 type Marketplace struct {
 	URL            string `env:"MARKETPLACE_URL" envDefault:"https://marketplace.redhat.com"`
 	InsecureClient bool   `env:"MARKETPLACE_HTTP_INSECURE_MODE" envDefault:"false"`
+}
+
+type ControllerReconcileSettings struct {
+	MeterDefControllerRequeueRate string `env:"METER_DEF_CONTROLLER_REQUEUE_RATE" envDefault:"3600"`
 }
 
 func reset() {

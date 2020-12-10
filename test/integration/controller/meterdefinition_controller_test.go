@@ -6,6 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/gomega/gstruct"
 
@@ -13,67 +14,35 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 
-	// . "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
+var meterDefName = "test"
 var _ = Describe("MeterDefController reconcile", func() {
-	certConfigMap := &corev1.ConfigMap{}
-
-	promService := &corev1.Service{}
-
-	BeforeEach(func(done Done) {
-
-		Eventually(func() bool{
-			return Expect(testHarness.BeforeAll()).To(Succeed())
-		},300).Should(BeTrue())
-
-		Eventually(func() bool {
-			assertion := Expect(testHarness.BeforeAll()).To(Succeed())
-
-			err := testHarness.Get(context.TODO(), types.NamespacedName{Name: utils.OPERATOR_CERTS_CA_BUNDLE_NAME, Namespace: Namespace}, certConfigMap)
-			if err != nil {
-				return false
-			}
-
-			err = testHarness.Get(context.TODO(), types.NamespacedName{Name: utils.PROMETHEUS_METERBASE_NAME, Namespace: Namespace}, promService)
-			if err != nil {
-				return false
-			}
-
-			assertion = true
-
-			return assertion
-		}, 400).Should(BeTrue())
-		close(done)
-		
-	},600)
+	BeforeEach(func() {
+		Expect(testHarness.BeforeAll()).To(Succeed())
+	})
 
 	AfterEach(func() {
 		Expect(testHarness.AfterAll()).To(Succeed())
+		// clearMeterBaseLabels()
 	})
 
 	Context("Meterdefinition reconcile", func() {
 
-		var meterdef *v1alpha1.MeterDefinition
-		certConfigMap := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
-				Namespace: Namespace,
-			},
-		}
+		// var meterdef *v1alpha1.MeterDefinition
 
 		BeforeEach(func(done Done) {
-			meterdef = &v1alpha1.MeterDefinition{
+			meterdef := &v1alpha1.MeterDefinition{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-meterdef",
+					Name:      meterDefName,
 					Namespace: Namespace,
 				},
 				Spec: v1alpha1.MeterDefinitionSpec{
-					Group:              "testgroup",
-					Kind:               "testkind",
+					Group:              "marketplace.redhat.com",
+					Kind:               "MetricState",
 					WorkloadVertexType: v1alpha1.WorkloadVertexOperatorGroup,
 					Workloads: []v1alpha1.Workload{
 						{
@@ -95,130 +64,139 @@ var _ = Describe("MeterDefController reconcile", func() {
 				},
 			}
 
-			Expect(testHarness.Create(context.TODO(), meterdef)).Should(SucceedOrAlreadyExist)
-			close(done)
-		}, 120)
+			// create the meterdef
+			Eventually(func()bool{
+				return Expect(testHarness.Create(context.TODO(), meterdef)).Should(SucceedOrAlreadyExist,"create the meterdef")
+			},180).Should(BeTrue(),"Should create a meterdef if not found")
+	
+			//update the meterbase to trigger a requeue
+			// updateMeterBaseLabels()
+		
+			// clear conditions on the meterdef
+			// clearMeterDefConditions()
 
-		It("Should find a meterdef", func(done Done) {
-			Eventually(func() bool {
-				err := testHarness.Get(context.TODO(), types.NamespacedName{Name: meterdef.Name, Namespace: Namespace}, meterdef)
-				if err != nil {
-					utils.PrettyPrintWithLog("error retrieving meterdef", err)
-					return false
-				}
+			// check for config map and prom service
+			Eventually(func()bool{
+				certConfigMap := &corev1.ConfigMap{}
+				promService := &corev1.Service{}
 
-				return true
-			}, timeout).Should(BeTrue(), "before each in metric data test")
-			close(done)
-		}, 300)
-
-		It("Should query prometheus and append metric data to meterdef status", func(done Done) {
-			Eventually(func() bool {
-				err := testHarness.Get(context.TODO(), types.NamespacedName{Name: meterdef.Name, Namespace: Namespace}, meterdef)
-				if err != nil {
-					fmt.Println(err)
-					return false
-				}
-
-				// utils.PrettyPrintWithLog("results from meterdef",meterdef.Status)
-				assertion := runAssertionOnMeterDef(*meterdef)
+				assertion := Expect(testHarness.Get(context.TODO(), types.NamespacedName{Name: utils.OPERATOR_CERTS_CA_BUNDLE_NAME, Namespace: Namespace}, certConfigMap)).Should(Succeed(),"find config map")
+				assertion = Expect(testHarness.Get(context.TODO(), types.NamespacedName{Name: utils.PROMETHEUS_METERBASE_NAME, Namespace: Namespace}, promService)).Should(Succeed(),"find prom service")
 				return assertion
-
-			}, 400).Should(BeTrue())
+			},300).Should(BeTrue(),"check for config map and prom service")
 			close(done)
 		}, 400)
 
-		Context("Error handling for operator-cert-ca-bundle config map", func() {
-			BeforeEach(func(done Done) {
-				Eventually(func() bool {
-					err := testHarness.Get(context.TODO(), types.NamespacedName{Name: certConfigMap.Name, Namespace: certConfigMap.Namespace}, certConfigMap)
-					if err != nil {
-						return false
-					}
+		It("Should find a meterdef", func(done Done) {
+			Eventually(func() bool {
+				meterdef := &v1alpha1.MeterDefinition{}
+				assertion := Expect(testHarness.Get(context.TODO(), types.NamespacedName{Name: meterDefName, Namespace: Namespace}, meterdef)).Should(Succeed(),"find a meterdef")
+				return assertion
+			}, 180).Should(BeTrue(),"should find a meterdef")
+			close(done)
+		}, 180)
 
-					assertion := Expect(testHarness.Delete(context.TODO(), certConfigMap)).Should(Succeed())
-					return assertion
-				}, 300).Should(BeTrue())
-				close(done)
-			}, 300)
+		It("Should query prometheus and append metric data to meterdef status", func(done Done) {
+			Eventually(func() bool {
+				meterdef := &v1alpha1.MeterDefinition{}
+				assertion := Expect(testHarness.Get(context.TODO(), types.NamespacedName{Name: meterDefName, Namespace: Namespace}, meterdef)).Should(Succeed())
+				assertion = runAssertionOnMeterDef(meterdef)
+				return assertion
+			}, 500).Should(BeTrue())
+			close(done)
+		}, 500,30)
 
-			It("Should log an error if the operator-cert-ca-bundle config map is not found", func(done Done) {
-				Eventually(func() bool {
-					err := testHarness.Get(context.TODO(), types.NamespacedName{Name: meterdef.Name, Namespace: Namespace}, meterdef)
-					if err != nil {
-						return false
-					}
+		// TODO: these probably better for the meterbase controller int test
 
-					assertion := runAssertionOnConditions(meterdef.Status, "Failed to retrieve operator-certs-ca-bundle.: ConfigMap \"operator-certs-ca-bundle\" not found")
+		// Context("Error handling for operator-cert-ca-bundle config map - not found error", func() {
+		// 	certConfigMap := &corev1.ConfigMap{
+		// 		ObjectMeta: metav1.ObjectMeta{
+		// 			Name:      utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
+		// 			Namespace: Namespace,
+		// 		},
+		// 	}
+		// 	BeforeEach(func(done Done) {
+		// 		Eventually(func() bool {
+					
+		// 			assertion := Expect(testHarness.Delete(context.TODO(), certConfigMap)).Should(Succeed(),"delete cert config map")
+		// 			return assertion
+		// 		}, 300).Should(BeTrue())
 
-					return assertion
+		// 		clearMeterDefConditions()
+		// 		close(done)
+		// 	}, 300)
 
-				}, 300).Should(BeTrue())
-				close(done)
-			}, 300)
-		})
+		// 	It("Should log an error if the operator-cert-ca-bundle config map is not found", func(done Done) {
+		// 		meterdef := &v1alpha1.MeterDefinition{}
+		// 		Eventually(func() bool {
+		// 			assertion := Expect(testHarness.Get(context.TODO(), types.NamespacedName{Name: meterDefName, Namespace: Namespace}, meterdef)).Should(Succeed())
+		// 			assertion = runAssertionOnConditions(meterdef.Status, "Failed to retrieve operator-certs-ca-bundle.: ConfigMap \"operator-certs-ca-bundle\" not found")
 
-		Context("Error handling for operator-cert-ca-bundle config map", func() {
-			BeforeEach(func(done Done) {
-				Eventually(func() bool {
-					certConfigMap.ObjectMeta = metav1.ObjectMeta{
-						Name:      utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
-						Namespace: "openshift-redhat-marketplace",
-					}
-					certConfigMap.Data = map[string]string{
-						"wrong-key": "wrong-key",
-					}
+		// 			return assertion
 
-					assertion := Expect(testHarness.Upsert(context.TODO(), certConfigMap)).Should(Succeed())
-					// utils.PrettyPrintWithLog("config map",certConfigMap)
-					return assertion
-				}, 300).Should(BeTrue(), "Expect upsert of misconfigured configmap to be succeed")
-				close(done)
-			}, 300)
+		// 		}, 300).Should(BeTrue())
+		// 		close(done)
+		// 	}, 300)
+		// })
 
-			It("Should log an error if the operator-cert-ca-bundle config map is misconfigured", func(done Done) {
-				Eventually(func() bool {
-					err := testHarness.Get(context.TODO(), types.NamespacedName{Name: meterdef.Name, Namespace: Namespace}, meterdef)
-					if err != nil {
-						return false
-					}
+		// Context("Error handling for operator-cert-ca-bundle config map - key mis-match error", func() {
+		// 	BeforeEach(func(done Done) {
+		// 		Eventually(func() bool {
+		// 			updatedCertConfigMap := &corev1.ConfigMap{
+		// 				ObjectMeta: metav1.ObjectMeta{
+		// 					Name: utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
+		// 					Namespace: Namespace,
+		// 				},
+		// 			}
+		// 			updatedCertConfigMap.Data = map[string]string{
+		// 				"wrong-key": "wrong-value",
+		// 			}
+		// 			assertion := Expect(testHarness.Upsert(context.TODO(),updatedCertConfigMap)).Should(Succeed())
+		// 			assertion = Expect(testHarness.Get(context.TODO(), types.NamespacedName{Name: utils.OPERATOR_CERTS_CA_BUNDLE_NAME, Namespace: Namespace}, updatedCertConfigMap)).Should(Succeed())	
+		// 			return assertion
+		// 		}, 300).Should(BeTrue())
+		// 		close(done)
+		// 	}, 300)
+			
+			
+		// 	It("Should log an error if the operator-cert-ca-bundle config map is misconfigured", func(done Done) {
+		// 		meterdef := &v1alpha1.MeterDefinition{}
+		// 		Eventually(func() bool {
+		// 			assertion := Expect(testHarness.Get(context.TODO(), types.NamespacedName{Name: meterDefName, Namespace: Namespace}, meterdef)).Should(Succeed())
+		// 			assertion = runAssertionOnConditions(meterdef.Status, "Error retrieving cert from config map")
+		// 			return assertion
 
-					assertion := runAssertionOnConditions(meterdef.Status, "Error retrieving cert from config map")
+		// 		}, 300).Should(BeTrue())
+		// 		close(done)
+		// 	}, 300)
+		// })
 
-					return assertion
+		// Context("Error handling for prometheus service", func() {
+		// 	BeforeEach(func(done Done) {
+		// 		promservice := corev1.Service{
+		// 			ObjectMeta: metav1.ObjectMeta{
+		// 				Name:      "rhm-prometheus-meterbase",
+		// 				Namespace: Namespace,
+		// 			},
+		// 		}
 
-				}, 300).Should(BeTrue())
-				close(done)
-			}, 300)
-		})
+		// 		Expect(testHarness.Delete(context.TODO(), &promservice)).Should(Succeed())
 
-		Context("Error handling for prometheus service", func() {
-			BeforeEach(func(done Done) {
-				promservice := corev1.Service{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "rhm-prometheus-meterbase",
-						Namespace: Namespace,
-					},
-				}
+		// 		close(done)
+		// 	}, 300)
 
-				Expect(testHarness.Delete(context.TODO(), &promservice)).Should(Succeed())
-				close(done)
-			}, 300)
 
-			It("Should log an error if the prometheus service isn't found", func(done Done) {
-				Eventually(func() bool {
-					err := testHarness.Get(context.TODO(), types.NamespacedName{Name: meterdef.Name, Namespace: meterdef.Namespace}, meterdef)
-					if err != nil {
-						return false
-					}
-
-					errorMsg := "failed to get prometheus service: Service \"rhm-prometheus-meterbase\" not found"
-					assertion := runAssertionOnConditions(meterdef.Status, errorMsg)
-					return assertion
-				}, 300).Should(BeTrue())
-				close(done)
-			}, 300)
-		})
+		// 	It("Should log an error if the prometheus service isn't found", func(done Done) {
+		// 		meterdef := &v1alpha1.MeterDefinition{}
+		// 		Eventually(func() bool {
+		// 			assertion := Expect(testHarness.Get(context.TODO(), types.NamespacedName{Name: meterDefName, Namespace: Namespace}, meterdef)).Should(Succeed())
+		// 			errorMsg := "failed to get prometheus service: Service \"rhm-prometheus-meterbase\" not found"
+		// 			assertion = runAssertionOnConditions(meterdef.Status, errorMsg)
+		// 			return assertion
+		// 		}, 300).Should(BeTrue())
+		// 		close(done)
+		// 	}, 300)
+		// })
 	})
 })
 
@@ -234,7 +212,7 @@ func runAssertionOnConditions(status v1alpha1.MeterDefinitionStatus, errorMsg st
 	return assertion
 }
 
-func runAssertionOnMeterDef(meterdef v1alpha1.MeterDefinition) (assertion bool) {
+func runAssertionOnMeterDef(meterdef *v1alpha1.MeterDefinition) (assertion bool) {
 	if meterdef.Status.Results != nil {
 		if meterdef.Status.Results[0].Value > 0 {
 			startTime := meterdef.Status.Results[0].StartTime
@@ -260,4 +238,107 @@ func runAssertionOnMeterDef(meterdef v1alpha1.MeterDefinition) (assertion bool) 
 	}
 
 	return assertion
+}
+
+func GetOperatorPodObject()(bool,*corev1.Pod,string){
+	listOpts := []client.ListOption{
+        client.InNamespace(Namespace),
+        client.MatchingLabels(map[string]string{
+            "redhat.marketplace.com/name": "redhat-marketplace-operator",
+        }),
+    }
+
+    var operatorPodName string
+    podList := &corev1.PodList{}
+    assertion := Expect(testHarness.List(context.TODO(),podList,listOpts...)).Should(Succeed())
+
+    podNames := utils.GetPodNames(podList.Items)
+    if len(podNames) == 1 {
+		fmt.Println(podNames[0])
+        operatorPodName = podNames[0]
+    }
+    
+    operatorPod := &corev1.Pod{
+        ObjectMeta: metav1.ObjectMeta{
+            Name: operatorPodName,
+            Namespace: Namespace,
+            Labels: map[string]string{
+                "redhat.marketplace.com/name": "redhat-marketplace-operator",
+            },
+        },
+	}
+	
+	return assertion,operatorPod,operatorPodName
+}
+
+func IsRHMPodRunning(rhmPod *corev1.Pod) bool{
+    if rhmPod.Status.ContainerStatuses == nil {
+        return false
+    }
+
+    for _,containerStatus := range rhmPod.Status.ContainerStatuses{
+        if containerStatus.Ready == true {
+			fmt.Println("rhm container running")
+            return true
+        }
+    }
+
+    return false
+}
+
+func deleteOperatorPod() bool{
+	assertion,operatorPod,_ := GetOperatorPodObject()
+	assertion = Expect(testHarness.Delete(context.TODO(), operatorPod)).Should(Succeed())
+	if assertion == true{
+		fmt.Println("deleted operator pod, sleeping for 60 secs")
+	}
+  
+    return assertion
+}
+
+func clearMeterDefConditions(){
+	Eventually(func()bool{
+		updatedMeterDef := &v1alpha1.MeterDefinition{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: meterDefName,
+				Namespace: Namespace,
+			},
+		}
+		
+		updatedMeterDef.Status.Conditions = nil
+		assertion := Expect(testHarness.Upsert(context.TODO(),updatedMeterDef)).Should(Succeed(),"update to clear meterdef status")
+		
+		if assertion == true {
+			fmt.Println("cleared conditions on meterdef")
+		}
+		
+		return assertion
+	},300).Should(BeTrue(),"reset conditions on the meterdef")
+}
+
+func updateMeterBaseLabels(){
+	Eventually(func()bool{
+		meterbase := &v1alpha1.MeterBase{}
+		assertion := Expect(testHarness.Get(context.TODO(),types.NamespacedName{Name: utils.METERBASE_NAME,Namespace: Namespace},meterbase)).Should(Succeed())
+		patch := client.MergeFrom(meterbase.DeepCopy())
+
+		meterbase.Labels = map[string]string{
+			"int-test" : "force-requeue",
+		}
+
+		assertion = Expect(testHarness.Patch(context.TODO(),meterbase,patch)).Should(Succeed())
+		return assertion
+	},120).Should(BeTrue())
+}
+
+func clearMeterBaseLabels(){
+	Eventually(func()bool{
+		meterbase := &v1alpha1.MeterBase{}
+		assertion := Expect(testHarness.Get(context.TODO(),types.NamespacedName{Name: utils.METERBASE_NAME,Namespace: Namespace},meterbase)).Should(Succeed())
+		patch := client.MergeFrom(meterbase.DeepCopy())
+
+		meterbase.Labels = nil
+		assertion = Expect(testHarness.Patch(context.TODO(),meterbase,patch)).Should(Succeed())
+		return assertion
+	},120).Should(BeTrue())
 }

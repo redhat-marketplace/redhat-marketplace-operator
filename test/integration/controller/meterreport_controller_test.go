@@ -23,10 +23,8 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -57,21 +55,20 @@ var _ = Describe("MeterReportController", func() {
 
 			meterdef = &v1alpha1.MeterDefinition{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test",
+					Name:      meterDefName,
 					Namespace: Namespace,
 				},
 				Spec: v1alpha1.MeterDefinitionSpec{
-					Group:              "testgroup",
-					Kind:               "testkind",
+					Group:              "marketplace.redhat.com",
+					Kind:               "MetricState",
 					WorkloadVertexType: v1alpha1.WorkloadVertexOperatorGroup,
 					Workloads: []v1alpha1.Workload{
 						{
 							Name:         "test",
 							WorkloadType: v1alpha1.WorkloadTypePod,
-							LabelSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"app.kubernetes.io/name": "rhm-metric-state",
-								},
+							OwnerCRD: &common.GroupVersionKind{
+								APIVersion: "apps/v1",
+								Kind:       "StatefulSet",
 							},
 							MetricLabels: []v1alpha1.MeterLabelQuery{
 								{
@@ -108,28 +105,8 @@ var _ = Describe("MeterReportController", func() {
 			}
 
 			Expect(testHarness.Create(context.TODO(), meterdef)).Should(SucceedOrAlreadyExist)
-
-			certConfigMap := &corev1.ConfigMap{}
-			promService := &corev1.Service{}
-			Eventually(func() bool {
-				assertion := Expect(testHarness.BeforeAll()).To(Succeed())
-	
-				err := testHarness.Get(context.TODO(), types.NamespacedName{Name: utils.OPERATOR_CERTS_CA_BUNDLE_NAME, Namespace: Namespace}, certConfigMap)
-				if err != nil {
-					return false
-				}
-	
-				err = testHarness.Get(context.TODO(), types.NamespacedName{Name: utils.PROMETHEUS_METERBASE_NAME, Namespace: Namespace}, promService)
-				if err != nil {
-					return false
-				}
-	
-				assertion = true
-	
-				return assertion
-			}, 400).Should(BeTrue())
 			close(done)
-		}, 400)
+		}, 120)
 
 		AfterEach(func(done Done) {
 			testHarness.Delete(context.TODO(), meterreport)
