@@ -30,6 +30,42 @@ status:
       status: 'True'
       type: Installing
 ---
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: rhm-marketplaceconfig-meterbase
+spec:
+  enableAdminAPI: true
+  image: registry.redhat.io/openshift4/ose-prometheus:v4.5
+  listenLocal: true
+  nodeSelector:
+    kubernetes.io/os: linux
+  priorityClassName: system-cluster-critical
+  replicas: 2
+  resources:
+    requests:
+      cpu: 70m
+      memory: 1Gi
+  retention: 30d
+  retentionSize: 18GB
+  serviceAccountName: redhat-marketplace-prometheus
+  serviceMonitorNamespaceSelector:
+    matchExpressions:
+      - key: openshift.io/cluster-monitoring
+        operator: DoesNotExist
+  serviceMonitorSelector:
+    matchLabels:
+      marketplace.redhat.com/metering: 'true'
+  storage:
+    volumeClaimTemplate:
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 20Gi
+
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -70,7 +106,7 @@ apiVersion: marketplace.redhat.com/v1alpha1
 kind: RemoteResourceS3
 metadata:
   finalizers:
-  - children.downloads.deploy.razee.io
+    - children.downloads.deploy.razee.io
   name: parent
   namespace: openshift-redhat-marketplace
 spec:

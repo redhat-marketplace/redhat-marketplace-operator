@@ -55,7 +55,7 @@ type PersistentVolume struct {
 
 func NewPersistentVolumeClaim(values PersistentVolume) (corev1.PersistentVolumeClaim, error) {
 	// set some defaults
-	quantity := resource.MustParse("10Gi")
+	quantity := resource.MustParse("20Gi")
 	accessMode := corev1.ReadWriteOnce
 	defaults := PersistentVolume{
 		ObjectMeta:   &metav1.ObjectMeta{},
@@ -238,7 +238,7 @@ func BuildMeterBaseCr(namespace string) *marketplacev1alpha1.MeterBase {
 			Enabled: true,
 			Prometheus: &marketplacev1alpha1.PrometheusSpec{
 				Storage: marketplacev1alpha1.StorageSpec{
-					Size: resource.MustParse("10Gi"),
+					Size: resource.MustParse("20Gi"),
 				},
 			},
 		},

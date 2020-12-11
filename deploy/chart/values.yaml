@@ -30,7 +30,7 @@ env:
     value: registry.redhat.io/openshift4/ose-configmap-reloader:v4.5
   - name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
     value: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5
-  - name: RELATED_IMAGE_KUBE_RBAC_PROXY
+  - name: RELATED_IMAGE_KUBE_RBAC
     value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
   - name: IBMCATALOGSOURCE
     value: 'true'

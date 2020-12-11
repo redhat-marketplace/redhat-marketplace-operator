@@ -23,8 +23,8 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/codelocation"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type call struct {
@@ -94,6 +94,10 @@ func (i *do) Bind(result *ExecResult) {
 func (i *do) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 	logger := c.log.WithValues("file", i.codelocation, "action", "Do")
 
+	if len(i.Actions) == 0 {
+		return NewExecResult(Continue, reconcile.Result{}, nil), nil
+	}
+
 	var err error
 	result := i.lastResult
 	for _, action := range i.Actions {
@@ -120,7 +124,9 @@ func (i *do) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 		}
 	}
 
-	logger.V(4).Info("action returned result", "result", *result)
+	if result != nil {
+		logger.V(4).Info("action returned result", "result", *result)
+	}
 	return result, nil
 }
 
@@ -320,7 +326,6 @@ type ClientCommand struct {
 	scheme *runtime.Scheme
 	log    logr.Logger
 }
-
 
 func NewLoglessClientCommand(
 	client client.Client,
