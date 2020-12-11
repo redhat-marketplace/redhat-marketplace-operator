@@ -41,6 +41,7 @@ import (
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/operrors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -210,7 +211,7 @@ func BuildNewOpencloudCatalogSrc() *operatorsv1alpha1.CatalogSource {
 }
 
 // BuildRazeeCrd returns a RazeeDeployment cr with default values
-func BuildRazeeCr(namespace, clusterUUID string, deploySecretName *string) *marketplacev1alpha1.RazeeDeployment {
+func BuildRazeeCr(namespace, clusterUUID string, deploySecretName *string, features *common.Features) *marketplacev1alpha1.RazeeDeployment {
 
 	cr := &marketplacev1alpha1.RazeeDeployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -221,6 +222,7 @@ func BuildRazeeCr(namespace, clusterUUID string, deploySecretName *string) *mark
 			Enabled:          true,
 			ClusterUUID:      clusterUUID,
 			DeploySecretName: deploySecretName,
+			Features:         features.DeepCopy(),
 		},
 	}
 
