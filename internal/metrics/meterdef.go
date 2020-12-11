@@ -33,37 +33,21 @@ var meterDefinitionMetricsFamilies = []FamilyGenerator{
 		GenerateMeterFunc: wrapMeterDefinitionFunc(func(meterDefinition *marketplacev1alpha1.MeterDefinition, meterDefinitions []*marketplacev1alpha1.MeterDefinition) *kbsm.Family {
 			metrics := []*kbsm.Metric{}
 
-			meterDefinitionUID := string(meterDefinition.UID)
-			meterGroup := string(meterDefinition.Spec.Group)
-			meterKind := string(meterDefinition.Spec.Kind)
-			for _, workload := range meterDefinition.Spec.Workloads {
-				for _, metricLabel := range workload.MetricLabels {
-					labels := map[string]string{
-						"meter_definition_uid": meterDefinitionUID,
-						"workload_vertex_type": string(meterDefinition.Spec.WorkloadVertexType),
-						"workload_name":        workload.Name,
-						"workload_type":        string(workload.WorkloadType),
-						"metric_label":         metricLabel.Label,
-						"metric_aggregation":   metricLabel.Aggregation,
-						"metric_query":         metricLabel.Query,
-						"meter_group":          meterGroup,
-						"meter_kind":           meterKind,
-					}
+			allLabels := meterDefinition.ToPrometheusLabels()
+			for _, labels := range allLabels {
+				keys := []string{}
+				values := []string{}
 
-					keys := []string{}
-					values := []string{}
-
-					for key, value := range labels {
-						keys = append(keys, key)
-						values = append(values, value)
-					}
-
-					metrics = append(metrics, &kbsm.Metric{
-						LabelKeys:   keys,
-						LabelValues: values,
-						Value:       1,
-					})
+				for key, value := range labels {
+					keys = append(keys, key)
+					values = append(values, value)
 				}
+
+				metrics = append(metrics, &kbsm.Metric{
+					LabelKeys:   keys,
+					LabelValues: values,
+					Value:       1,
+				})
 			}
 
 			return &kbsm.Family{

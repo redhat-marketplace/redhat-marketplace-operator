@@ -48,7 +48,7 @@ var _ = Describe("Builder", func() {
 			MeterVersion:      "v1",
 			ResourceName:      "foo",
 			Namespace:         "bar",
-			Workload:          "awesome",
+			Label:             "awesome",
 		}
 		metricBase = &MetricBase{
 			Key: key,
