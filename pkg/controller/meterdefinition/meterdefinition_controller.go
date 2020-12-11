@@ -44,6 +44,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	typedv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -471,6 +472,26 @@ func (r *ReconcileMeterDefinition) getServiceAccountToken(instance *v1alpha1.Met
 	defer r.serviceAccountClient.Unlock()
 
 	now := metav1.Now().UTC()
+	client,tr := r.newSAClientAndToken(instance)
+	opts := metav1.CreateOptions{}
+
+	if r.serviceAccountClient.Token == nil {
+		reqLogger.Info("auth token from service account found")
+
+		return r.returnToken(client,tr,opts)
+	}
+
+	if now.UTC().After(r.serviceAccountClient.Token.ExpirationTimestamp.Time) {
+
+		reqLogger.Info("service account token is expired")
+
+		return r.returnToken(client,tr,opts)
+	}
+
+	return r.returnToken(client,tr,opts)
+}
+
+func (r *ReconcileMeterDefinition) newSAClientAndToken(instance *v1alpha1.MeterDefinition)(typedv1.ServiceAccountInterface,*authv1.TokenRequest){
 
 	client := r.serviceAccountClient.KubernetesInterface.CoreV1().ServiceAccounts(instance.Namespace)
 
@@ -481,43 +502,9 @@ func (r *ReconcileMeterDefinition) getServiceAccountToken(instance *v1alpha1.Met
 		},
 	}
 
-	opts := metav1.CreateOptions{}
-
-	if r.serviceAccountClient.Token == nil {
-		reqLogger.Info("auth token from service account found")
-
-		tr, err := client.CreateToken(context.TODO(), utils.OPERATOR_SERVICE_ACCOUNT, tr, opts)
-		if err != nil {
-			return "", err
-		}
-
-		r.serviceAccountClient.Token = &Token{
-			AuthToken:           ptr.String(tr.Status.Token),
-			ExpirationTimestamp: tr.Status.ExpirationTimestamp,
-		}
-
-		token := tr.Status.Token
-		return token, nil
-	}
-
-	if now.UTC().After(r.serviceAccountClient.Token.ExpirationTimestamp.Time) {
-
-		reqLogger.Info("service account token is expired")
-
-		tr, err := client.CreateToken(context.TODO(), utils.OPERATOR_SERVICE_ACCOUNT, tr, opts)
-		if err != nil {
-			return "", err
-		}
-
-		r.serviceAccountClient.Token = &Token{
-			AuthToken:           ptr.String(tr.Status.Token),
-			ExpirationTimestamp: tr.Status.ExpirationTimestamp,
-		}
-
-		token := tr.Status.Token
-		return token, nil
-	}
-
+	return client,tr
+}
+func(r *ReconcileMeterDefinition) returnToken(client typedv1.ServiceAccountInterface,tr *authv1.TokenRequest,opts metav1.CreateOptions)(string,error){
 	tr, err := client.CreateToken(context.TODO(), utils.OPERATOR_SERVICE_ACCOUNT, tr, opts)
 	if err != nil {
 		return "", err
