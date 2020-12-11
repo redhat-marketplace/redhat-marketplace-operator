@@ -136,7 +136,6 @@ func NewSecureClientFromCert(config *PrometheusSecureClientConfig) (api.Client, 
 
 	transport = &http.Transport{
 		TLSClientConfig: tlsConfig,
-		// ResponseHeaderTimeout: 60 * time.Second,
 	}
 
 	if config.UserAuth != nil {

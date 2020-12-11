@@ -55,20 +55,21 @@ var _ = Describe("MeterReportController", func() {
 
 			meterdef = &v1alpha1.MeterDefinition{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      meterDefName,
+					Name:      "test",
 					Namespace: Namespace,
 				},
 				Spec: v1alpha1.MeterDefinitionSpec{
-					Group:              "marketplace.redhat.com",
-					Kind:               "MetricState",
+					Group:              "testgroup",
+					Kind:               "testkind",
 					WorkloadVertexType: v1alpha1.WorkloadVertexOperatorGroup,
 					Workloads: []v1alpha1.Workload{
 						{
 							Name:         "test",
 							WorkloadType: v1alpha1.WorkloadTypePod,
-							OwnerCRD: &common.GroupVersionKind{
-								APIVersion: "apps/v1",
-								Kind:       "StatefulSet",
+							LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app.kubernetes.io/name": "rhm-metric-state",
+								},
 							},
 							MetricLabels: []v1alpha1.MeterLabelQuery{
 								{
@@ -110,7 +111,6 @@ var _ = Describe("MeterReportController", func() {
 
 		AfterEach(func(done Done) {
 			testHarness.Delete(context.TODO(), meterreport)
-
 			Expect(testHarness.Delete(context.TODO(), meterdef)).Should(Succeed())
 			close(done)
 		}, 120)
