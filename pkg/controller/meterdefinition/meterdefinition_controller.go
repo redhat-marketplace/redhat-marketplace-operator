@@ -86,11 +86,11 @@ func Add(
 	kubernetesInterface kubernetes.Interface,
 	cfg config.OperatorConfig,
 ) error {
-	return add(mgr, NewReconciler(mgr, ccprovider, kubernetesInterface, cfg))
+	return add(mgr, newReconciler(mgr, ccprovider, kubernetesInterface, cfg))
 }
 
-// NewReconciler returns a new reconcile.Reconciler
-func NewReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider, kubernetesInterface kubernetes.Interface, cfg config.OperatorConfig) reconcile.Reconciler {
+// newReconciler returns a new reconcile.Reconciler
+func newReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider, kubernetesInterface kubernetes.Interface, cfg config.OperatorConfig) reconcile.Reconciler {
 	opts := &MeterDefOpts{}
 
 	saClient = &ServiceAccountClient{
