@@ -76,7 +76,6 @@ var (
 	store *meter_definition.MeterDefinitionStore
 
 	saClient *ServiceAccountClient
-
 )
 
 // Add creates a new MeterDefinition Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -91,7 +90,7 @@ func Add(
 }
 
 // NewReconciler returns a new reconcile.Reconciler
-func NewReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider, kubernetesInterface kubernetes.Interface,cfg config.OperatorConfig) reconcile.Reconciler {
+func NewReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider, kubernetesInterface kubernetes.Interface, cfg config.OperatorConfig) reconcile.Reconciler {
 	opts := &MeterDefOpts{}
 
 	saClient = &ServiceAccountClient{
@@ -152,7 +151,6 @@ type MeterDefOpts struct{}
 func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
-
 	reqLogger.Info("Reconciling MeterDefinition")
 
 	cc := r.ccprovider.NewCommandRunner(r.client, r.scheme, reqLogger)
@@ -195,33 +193,32 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	}
 
 	if update == true {
-		result := r.updateStatusWithCondition(update,v1alpha1.MeterDefConditionHasResults,instance,request,reqLogger)
-		if !result.Is(Continue){
-			return result.ReconcileResult,result.Err
+		result := r.updateStatusWithCondition(update, v1alpha1.MeterDefConditionHasResults, instance, request, reqLogger)
+		if !result.Is(Continue) {
+			return result.ReconcileResult, result.Err
 		}
 	}
 
 	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
-	result = r.updateOrClearCondition(err,v1alpha1.PrometheusReconcileError,instance,request,reqLogger)
-	if !result.Is(Continue){
-		return result.ReconcileResult,result.Err
+	result = r.updateOrClearCondition(err, v1alpha1.PrometheusReconcileError, instance, request, reqLogger)
+	if !result.Is(Continue) {
+		return result.ReconcileResult, result.Err
 	}
 
 	reqLogger.Info("found prometheus service")
 
 	certConfigMap, err := r.getCertConfigMap(context.TODO(), cc, request)
-	result = r.updateOrClearCondition(err,v1alpha1.GetCertConfigMapReconcileError,instance,request,reqLogger)
-	if !result.Is(Continue){
-		return result.ReconcileResult,result.Err
+	result = r.updateOrClearCondition(err, v1alpha1.GetCertConfigMapReconcileError, instance, request, reqLogger)
+	if !result.Is(Continue) {
+		return result.ReconcileResult, result.Err
 	}
-
 
 	reqLogger.Info("found operator-certs-ca-bundle")
 
 	authToken, err := r.getServiceAccountToken(instance, reqLogger)
-	result = r.updateOrClearCondition(err,v1alpha1.AuthTokenReconcileError,instance,request,reqLogger)
-	if !result.Is(Continue){
-		return result.ReconcileResult,result.Err
+	result = r.updateOrClearCondition(err, v1alpha1.AuthTokenReconcileError, instance, request, reqLogger)
+	if !result.Is(Continue) {
+		return result.ReconcileResult, result.Err
 	}
 
 	reqLogger.Info("found prometheus auth token")
@@ -230,17 +227,17 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 
 	if certConfigMap != nil && authToken != "" && service != nil {
 		cert, err := r.getCertificateFromConfigMap(*certConfigMap)
-		result = r.updateOrClearCondition(err,v1alpha1.ParseCertFromConfigMapError,instance,request,reqLogger)
-		if !result.Is(Continue){
-			return result.ReconcileResult,result.Err
+		result = r.updateOrClearCondition(err, v1alpha1.ParseCertFromConfigMapError, instance, request, reqLogger)
+		if !result.Is(Continue) {
+			return result.ReconcileResult, result.Err
 		}
 
 		reqLogger.Info("found cert from configmap")
 
 		client, err := prometheus.ProvideApiClientFromCert(service, &cert, authToken)
-		result = r.updateOrClearCondition(err,v1alpha1.ProvidePrometheusClientError,instance,request,reqLogger)
-		if !result.Is(Continue){
-			return result.ReconcileResult,result.Err
+		result = r.updateOrClearCondition(err, v1alpha1.ProvidePrometheusClientError, instance, request, reqLogger)
+		if !result.Is(Continue) {
+			return result.ReconcileResult, result.Err
 		}
 
 		reqLogger.Info("prometheus client created")
@@ -251,29 +248,28 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 			if !result.Is(Continue) {
 				return result.ReconcileResult, result.Err
 			}
-		} 
+		}
 
 		result = r.clearCondition(v1alpha1.NewPromAPIError, instance, reqLogger, request)
 		if !result.Is(Continue) {
 			return result.ReconcileResult, result.Err
 		}
-		
 
 		queryPreviewResultArray, err = r.generateQueryPreview(instance, reqLogger, promAPI)
-		result = r.updateOrClearCondition(err,v1alpha1.QueryPreviewGenerationError,instance,request,reqLogger)
-		if !result.Is(Continue){
-			return result.ReconcileResult,result.Err
+		result = r.updateOrClearCondition(err, v1alpha1.QueryPreviewGenerationError, instance, request, reqLogger)
+		if !result.Is(Continue) {
+			return result.ReconcileResult, result.Err
 		}
-	
+
 	}
 
 	if !reflect.DeepEqual(queryPreviewResultArray, instance.Status.Results) {
 		instance.Status.Results = queryPreviewResultArray
 		reqLogger.Info("output", "Status.Results", instance.Status.Results)
 
-		result := r.updateStatus(instance,request,reqLogger)
-		if !result.Is(Continue){
-			return result.ReconcileResult,result.Err
+		result := r.updateStatus(instance, request, reqLogger)
+		if !result.Is(Continue) {
+			return result.ReconcileResult, result.Err
 		}
 	}
 
@@ -288,28 +284,28 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	//TODO: look to break out some of these into appropriate libraries
 
 ***********************************************************/
-func(r *ReconcileMeterDefinition) setRequeueRate(reqLogger logr.Logger)(requeueRate time.Duration){
+func (r *ReconcileMeterDefinition) setRequeueRate(reqLogger logr.Logger) (requeueRate time.Duration) {
 
-	requeueInt,err := strconv.Atoi(r.cfg.ControllerReconcileSettings.MeterDefControllerRequeueRate)
+	requeueInt, err := strconv.Atoi(r.cfg.ControllerReconcileSettings.MeterDefControllerRequeueRate)
 	if err != nil {
-		reqLogger.Error(err,"error converting requeue env var to int")
+		reqLogger.Error(err, "error converting requeue env var to int")
 		requeueRate = time.Second * 3600
 		return requeueRate
 	}
 
 	requeueRate = time.Duration(requeueInt) * time.Second
-	reqLogger.Info("meterdef_preview","requeue rate",requeueRate)
+	reqLogger.Info("meterdef_preview", "requeue rate", requeueRate)
 	return requeueRate
 
 }
 
-func(r *ReconcileMeterDefinition) updateOrClearCondition(topLevelError error,condition status.ConditionType,instance *v1alpha1.MeterDefinition,request reconcile.Request,reqLogger logr.Logger)*ExecResult{
+func (r *ReconcileMeterDefinition) updateOrClearCondition(topLevelError error, condition status.ConditionType, instance *v1alpha1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
 	if topLevelError != nil {
 		result := r.updateConditionsWithError(topLevelError, condition, instance, request, reqLogger)
 		if !result.Is(Continue) {
 			return &ExecResult{
 				ReconcileResult: result.ReconcileResult,
-				Err: result.Err,
+				Err:             result.Err,
 			}
 		}
 
@@ -318,7 +314,7 @@ func(r *ReconcileMeterDefinition) updateOrClearCondition(topLevelError error,con
 		if !result.Is(Continue) {
 			return &ExecResult{
 				ReconcileResult: result.ReconcileResult,
-				Err: result.Err,
+				Err:             result.Err,
 			}
 		}
 	}
@@ -328,27 +324,27 @@ func(r *ReconcileMeterDefinition) updateOrClearCondition(topLevelError error,con
 	}
 }
 
-func(r *ReconcileMeterDefinition) updateStatus(instance *v1alpha1.MeterDefinition,request reconcile.Request, reqLogger logr.Logger) *ExecResult{
-	
-		err := r.client.Status().Update(context.TODO(), instance)
-		if err != nil {
-			if k8serrors.IsConflict(err) {
-				return r.handleUpdateConflictForStatusOnly(instance,request,reqLogger)
-			}
+func (r *ReconcileMeterDefinition) updateStatus(instance *v1alpha1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
 
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err: err,
-			}
+	err := r.client.Status().Update(context.TODO(), instance)
+	if err != nil {
+		if k8serrors.IsConflict(err) {
+			return r.handleUpdateConflictForStatusOnly(instance, request, reqLogger)
 		}
+
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
 
 	return &ExecResult{
 		Status: Continue,
 	}
 }
 
-func(r *ReconcileMeterDefinition) updateStatusWithCondition(update bool,condition status.Condition,instance *v1alpha1.MeterDefinition,request reconcile.Request, reqLogger logr.Logger) *ExecResult{
-	
+func (r *ReconcileMeterDefinition) updateStatusWithCondition(update bool, condition status.Condition, instance *v1alpha1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
+
 	if update == true {
 		err := r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
@@ -358,7 +354,7 @@ func(r *ReconcileMeterDefinition) updateStatusWithCondition(update bool,conditio
 
 			return &ExecResult{
 				ReconcileResult: reconcile.Result{},
-				Err: err,
+				Err:             err,
 			}
 		}
 	}
@@ -385,44 +381,43 @@ func (r *ReconcileMeterDefinition) updateConditionsWithError(conditionMsg error,
 			reqLogger.Error(err, "error updating status")
 			return &ExecResult{
 				ReconcileResult: reconcile.Result{},
-				Err: err,
+				Err:             err,
 			}
 		}
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{Requeue: true},
-			Err: nil,
+			Err:             nil,
 		}
 	}
 
 	return &ExecResult{
 		Status: Continue,
-
 	}
 }
 
-func (r *ReconcileMeterDefinition) handleUpdateConflictForStatusOnly(instance *v1alpha1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) *ExecResult{
+func (r *ReconcileMeterDefinition) handleUpdateConflictForStatusOnly(instance *v1alpha1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
 	reqLogger.Info("conflict err")
-	
+
 	latestMeterdef := v1alpha1.MeterDefinition{}
 	r.client.Get(context.TODO(), request.NamespacedName, &latestMeterdef)
-	
+
 	latestMeterdef.Status = instance.Status
 	err := r.client.Status().Update(context.TODO(), &latestMeterdef)
 	if err != nil {
 		reqLogger.Error(err, "error updating with resource version port")
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
-			Err: err,
+			Err:             err,
 		}
 	}
 
 	return &ExecResult{
 		ReconcileResult: reconcile.Result{Requeue: true},
-		Err: err,
+		Err:             err,
 	}
 }
 
-func (r *ReconcileMeterDefinition) handleUpdateConflictForStatusCondition(condition status.Condition, request reconcile.Request, reqLogger logr.Logger) *ExecResult{
+func (r *ReconcileMeterDefinition) handleUpdateConflictForStatusCondition(condition status.Condition, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
 	reqLogger.Info("conflict err")
 
 	latestMeterdef := v1alpha1.MeterDefinition{}
@@ -434,13 +429,13 @@ func (r *ReconcileMeterDefinition) handleUpdateConflictForStatusCondition(condit
 		reqLogger.Error(err, "error updating with resource version port")
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
-			Err: err,
+			Err:             err,
 		}
 	}
 
 	return &ExecResult{
 		ReconcileResult: reconcile.Result{Requeue: true},
-		Err: err,
+		Err:             err,
 	}
 }
 
@@ -461,13 +456,13 @@ func (r *ReconcileMeterDefinition) handleUpdateConflictForErrorConditions(err er
 		reqLogger.Error(err, "error updating with resource version port")
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
-			Err: err,
+			Err:             err,
 		}
 	}
 
 	return &ExecResult{
 		ReconcileResult: reconcile.Result{Requeue: true},
-		Err: err,
+		Err:             err,
 	}
 }
 
@@ -518,7 +513,7 @@ func (r *ReconcileMeterDefinition) getServiceAccountToken(instance *v1alpha1.Met
 			AuthToken:           ptr.String(tr.Status.Token),
 			ExpirationTimestamp: tr.Status.ExpirationTimestamp,
 		}
-		
+
 		token := tr.Status.Token
 		return token, nil
 	}
@@ -555,20 +550,20 @@ func (r *ReconcileMeterDefinition) clearCondition(conditionType status.Condition
 						reqLogger.Error(err, "error updating with resource version port")
 						return &ExecResult{
 							ReconcileResult: reconcile.Result{},
-							Err: err,
+							Err:             err,
 						}
 					}
 
 					return &ExecResult{
 						ReconcileResult: reconcile.Result{},
-						Err: err,
+						Err:             err,
 					}
 				}
 
 				reqLogger.Error(err, "removing old conditions", "clear conditions", "error updating status")
 				return &ExecResult{
 					ReconcileResult: reconcile.Result{},
-					Err: err,
+					Err:             err,
 				}
 			}
 		}
@@ -649,7 +644,7 @@ func (r *ReconcileMeterDefinition) generateQueryPreview(instance *v1alpha1.Meter
 				},
 				Query:         metric.Query,
 				Time:          "60m",
-				Start:         time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute()-1, 0, 0, loc),
+				Start:         time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour()-1, time.Now().Minute(), 0, 0, loc),
 				End:           time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute(), 0, 0, loc),
 				Step:          time.Hour,
 				AggregateFunc: metric.Aggregation,

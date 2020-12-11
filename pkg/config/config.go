@@ -25,9 +25,9 @@ var globalMutex = sync.RWMutex{}
 
 // OperatorConfig is the configuration for the operator
 type OperatorConfig struct {
-	RelatedImages RelatedImages
-	Features      Features
-	Marketplace   Marketplace
+	RelatedImages               RelatedImages
+	Features                    Features
+	Marketplace                 Marketplace
 	ControllerReconcileSettings ControllerReconcileSettings
 }
 
