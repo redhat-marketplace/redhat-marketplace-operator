@@ -86,7 +86,7 @@ func (a *AuthChecker) Run(ctx context.Context) error {
 
 	for {
 		select {
-		case evt := <-resourceWatch.ResultChan():
+		case evt := <- resourceWatch.ResultChan():
 			if evt.Type == watch.Error {
 				obj, ok := evt.Object.(*metav1.Status)
 				if !ok {

@@ -76,7 +76,7 @@ var (
 	// uid to name and namespace
 	store *meter_definition.MeterDefinitionStore
 
-	saClient *ServiceAccountClient
+	saClient *prometheus.ServiceAccountClient
 )
 
 // Add creates a new MeterDefinition Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -94,16 +94,18 @@ func Add(
 func newReconciler(mgr manager.Manager, ccprovider ClientCommandRunnerProvider, kubernetesInterface kubernetes.Interface, cfg config.OperatorConfig) reconcile.Reconciler {
 	opts := &MeterDefOpts{}
 
-	saClient = &ServiceAccountClient{
-		KubernetesInterface: kubernetesInterface,
-		Token: &Token{
-			AuthToken: ptr.String(""),
-		},
-	}
+	// saClient = &ServiceAccountClient{
+	// 	KubernetesInterface: kubernetesInterface,
+	// 	Token: &Token{
+	// 		AuthToken: ptr.String(""),
+	// 	},
+	// }
 
+	
+	
 	return &ReconcileMeterDefinition{
 		client:               mgr.GetClient(),
-		serviceAccountClient: saClient,
+		// serviceAccountClient: saClient,
 		scheme:               mgr.GetScheme(),
 		ccprovider:           ccprovider,
 		opts:                 opts,
@@ -175,6 +177,8 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 
 	reqLogger.Info("Found instance", "instance", instance.Name)
 
+	saClient := prometheus.NewServiceAccountClient(instance.Namespace,utils.PrometheusAudience,3600,r.serviceAccountClient.KubernetesInterface)
+
 	var update bool
 
 	if instance.Spec.ServiceMeterLabels != nil {
@@ -196,14 +200,14 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	if update == true {
 		result := r.updateStatusWithCondition(update, v1alpha1.MeterDefConditionHasResults, instance, request, reqLogger)
 		if !result.Is(Continue) {
-			return result.ReconcileResult, result.Err
+			return result.Return()
 		}
 	}
 
 	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
 	result = r.updateOrClearCondition(err, v1alpha1.PrometheusReconcileError, instance, request, reqLogger)
 	if !result.Is(Continue) {
-		return result.ReconcileResult, result.Err
+		return result.Return()
 	}
 
 	reqLogger.Info("found prometheus service")
@@ -211,15 +215,16 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	certConfigMap, err := r.getCertConfigMap(context.TODO(), cc, request)
 	result = r.updateOrClearCondition(err, v1alpha1.GetCertConfigMapReconcileError, instance, request, reqLogger)
 	if !result.Is(Continue) {
-		return result.ReconcileResult, result.Err
+		return result.Return()
 	}
 
 	reqLogger.Info("found operator-certs-ca-bundle")
 
-	authToken, err := r.getServiceAccountToken(instance, reqLogger)
+	// authToken, err := r.getServiceAccountToken(instance, reqLogger)
+	authToken,err := saClient.NewServiceAccountToken(utils.OPERATOR_CERTS_CA_BUNDLE_NAME,utils.PrometheusAudience,3600,reqLogger)
 	result = r.updateOrClearCondition(err, v1alpha1.AuthTokenReconcileError, instance, request, reqLogger)
 	if !result.Is(Continue) {
-		return result.ReconcileResult, result.Err
+		return result.Return()
 	}
 
 	reqLogger.Info("found prometheus auth token")
@@ -230,15 +235,14 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		cert, err := r.getCertificateFromConfigMap(*certConfigMap)
 		result = r.updateOrClearCondition(err, v1alpha1.ParseCertFromConfigMapError, instance, request, reqLogger)
 		if !result.Is(Continue) {
-			return result.ReconcileResult, result.Err
+			return result.Return()
 		}
 
 		reqLogger.Info("found cert from configmap")
-
 		client, err := prometheus.ProvideApiClientFromCert(service, &cert, authToken)
 		result = r.updateOrClearCondition(err, v1alpha1.ProvidePrometheusClientError, instance, request, reqLogger)
 		if !result.Is(Continue) {
-			return result.ReconcileResult, result.Err
+			return result.Return()
 		}
 
 		reqLogger.Info("prometheus client created")
@@ -247,19 +251,19 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		if promAPI == nil {
 			result = r.updateConditionsWithError(errors.New("promApi is nil"), v1alpha1.NewPromAPIError, instance, request, reqLogger)
 			if !result.Is(Continue) {
-				return result.ReconcileResult, result.Err
+				return result.Return()
 			}
 		}
 
 		result = r.clearCondition(v1alpha1.NewPromAPIError, instance, reqLogger, request)
 		if !result.Is(Continue) {
-			return result.ReconcileResult, result.Err
+			return result.Return()
 		}
 
 		queryPreviewResultArray, err = r.generateQueryPreview(instance, reqLogger, promAPI)
 		result = r.updateOrClearCondition(err, v1alpha1.QueryPreviewGenerationError, instance, request, reqLogger)
 		if !result.Is(Continue) {
-			return result.ReconcileResult, result.Err
+			return result.Return()
 		}
 
 	}
@@ -270,7 +274,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 
 		result := r.updateStatus(instance, request, reqLogger)
 		if !result.Is(Continue) {
-			return result.ReconcileResult, result.Err
+			return result.Return()
 		}
 	}
 
@@ -504,6 +508,7 @@ func (r *ReconcileMeterDefinition) newSAClientAndToken(instance *v1alpha1.MeterD
 
 	return client,tr
 }
+
 func(r *ReconcileMeterDefinition) returnToken(client typedv1.ServiceAccountInterface,tr *authv1.TokenRequest,opts metav1.CreateOptions)(string,error){
 	tr, err := client.CreateToken(context.TODO(), utils.OPERATOR_SERVICE_ACCOUNT, tr, opts)
 	if err != nil {

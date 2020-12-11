@@ -87,7 +87,7 @@ func MapMeterDefinitions(metrics []*kbsm.Metric, mdefs []*marketplacev1alpha1.Me
 	return newMeters
 }
 
-type emptyMeterDefFetcher struct{}
+type emptyMeterDefFetcher struct {}
 
 var emptyFetcher MeterDefinitionFetcher = &emptyMeterDefFetcher{}
 

@@ -86,6 +86,9 @@ const (
 	/* Time and Date */
 	DATE_FORMAT         = "2006-01-02"
 	METER_REPORT_PREFIX = "meter-report-"
+
+	/* Auth */
+	PrometheusAudience = "rhm-prometheus-meterbase.openshift-redhat-marketplace.svc"
 )
 
 var (
