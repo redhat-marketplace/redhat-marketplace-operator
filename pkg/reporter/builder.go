@@ -142,7 +142,7 @@ type MetricKey struct {
 	MeterDomain       string `mapstructure:"domain"`
 	MeterKind         string `mapstructure:"kind"`
 	MeterVersion      string `mapstructure:"version,omitempty"`
-	Workload          string `mapstructure:"workload,omitempty"`
+	Label             string `mapstructure:"workload,omitempty"`
 	Namespace         string `mapstructure:"namespace,omitempty"`
 	ResourceName      string `mapstructure:"resource_name,omitempty"`
 }
@@ -157,7 +157,7 @@ func (k *MetricKey) Init(
 	hash.Write([]byte(k.IntervalEnd))
 	hash.Write([]byte(k.MeterDomain))
 	hash.Write([]byte(k.MeterKind))
-	hash.Write([]byte(k.Workload))
+	hash.Write([]byte(k.Label))
 	hash.Write([]byte(k.Namespace))
 	hash.Write([]byte(k.ResourceName))
 
