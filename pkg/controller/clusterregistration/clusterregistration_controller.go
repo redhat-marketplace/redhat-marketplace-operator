@@ -289,7 +289,7 @@ func (r *ReconcileClusterRegistration) Reconcile(request reconcile.Request) (rec
 		reqLogger.Info("Secret updated with status on success")
 	}
 
-	
+
 	//Create Markeplace Config object
 	reqLogger.Info("finding clusterversion resource")
 	clusterVersion := &openshiftconfigv1.ClusterVersion{}
