@@ -20,6 +20,8 @@ package tools
 
 import (
 	"github.com/Masterminds/semver/v3"
+	"github.com/spf13/cobra"
+	"github.com/tcnksm/ghr"
 	"github.com/Shyp/bump_version"
 	"github.com/kevinburke/go-bindata"
 	"github.com/golang/mock/mockgen"
@@ -27,7 +29,5 @@ import (
 	"github.com/google/wire"
 	"github.com/launchdarkly/go-options"
 	"github.com/mikefarah/yq/v3"
-	"github.com/spf13/cobra"
-	"github.com/tcnksm/ghr"
 	"k8s.io/code-generator/cmd/client-gen"
 )
