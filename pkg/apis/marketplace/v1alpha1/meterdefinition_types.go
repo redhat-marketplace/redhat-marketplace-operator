@@ -243,7 +243,7 @@ type MeterLabelQuery struct {
 // +k8s:openapi-gen=true
 // +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 type Result struct {
-	WorkloadName string `json:"workloadName,omitempty"`
+	MetricName string `json:"metricName,omitempty"`
 	QueryName    string `json:"queryName,omitempty"`
 	StartTime    string `json:"startTime,omitempty"`
 	EndTime      string `json:"endTime,omitempty"`
