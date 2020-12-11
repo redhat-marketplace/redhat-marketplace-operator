@@ -108,6 +108,8 @@ spec:
   serviceAccountName: redhat-marketplace-prometheus
   priorityClassName: system-cluster-critical
   listenLocal: true
+  enableAdminAPI: true
+  retentionSize: 19GB
   retention: 30d
   image: registry.redhat.io/openshift4/ose-prometheus:latest
   imagePullPolicy: IfNotPresent
@@ -137,4 +139,4 @@ spec:
         storageClassName: 'standard'
         resources:
           requests:
-            storage: 5Gi
+            storage: 25Gi
