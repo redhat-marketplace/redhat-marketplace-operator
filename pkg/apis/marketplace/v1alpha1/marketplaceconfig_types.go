@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	"github.com/operator-framework/operator-sdk/pkg/status"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -55,6 +56,12 @@ type MarketplaceConfigSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Install IBM Catalog Source?"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
 	InstallIBMCatalogSource *bool `json:"installIBMCatalogSource,omitempty"`
+
+	// The features that can be enabled or disabled
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Disabled Features"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
+	Features *common.Features `json:"features,omitempty"`
 }
 
 // MarketplaceConfigStatus defines the observed state of MarketplaceConfig
@@ -128,6 +135,12 @@ const (
 	ReasonRegistrationError     status.ConditionReason = "HttpError"
 	ReasonOperatingNormally     status.ConditionReason = "OperatingNormally"
 	ReasonNoError               status.ConditionReason = ReasonOperatingNormally
+
+	// Enablement/Disablement of features conditions
+	// ConditionDeploymentEnabled means the particular option is enabled
+	ConditionDeploymentEnabled status.ConditionType = "DeploymentEnabled"
+	// ConditionRegistrationEnabled means the particular option is enabled
+	ConditionRegistrationEnabled status.ConditionType = "RegistrationEnabled"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

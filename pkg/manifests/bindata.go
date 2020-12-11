@@ -1,28 +1,29 @@
 // Code generated for package manifests by go-bindata DO NOT EDIT. (@generated)
 // sources:
-// ../../assets/metric-state/deployment.yaml
-// ../../assets/metric-state/service-monitor.yaml
-// ../../assets/metric-state/service.yaml
-// ../../assets/prometheus/additional-scrape-configs.yaml
-// ../../assets/prometheus/htpasswd-secret.yaml
-// ../../assets/prometheus/kube-rbac-proxy-secret.yaml
-// ../../assets/prometheus/kube-state-service-monitor.yaml
-// ../../assets/prometheus/kubelet-serving-ca-bundle.yaml
-// ../../assets/prometheus/prometheus-additional.yaml
-// ../../assets/prometheus/prometheus-datasources-secret.yaml
-// ../../assets/prometheus/prometheus-rules.yaml
-// ../../assets/prometheus/prometheus.yaml
-// ../../assets/prometheus/proxy-secret.yaml
-// ../../assets/prometheus/service.yaml
-// ../../assets/prometheus/serving-certs-ca-bundle.yaml
-// ../../assets/prometheus-operator/deployment.yaml
-// ../../assets/prometheus-operator/operator-certs-ca-bundle.yaml
-// ../../assets/prometheus-operator/service.yaml
-// ../../assets/razee/razee-job.yaml
-// ../../assets/razee/razee-namespace.yaml
-// ../../assets/razee/remote-resource-s3.yaml
-// ../../assets/razee/watch-keeper.yaml
-// ../../assets/reporter/job.yaml
+// ../../assets/metric-state/deployment.yaml (4.191kB)
+// ../../assets/metric-state/service-monitor.yaml (965B)
+// ../../assets/metric-state/service.yaml (559B)
+// ../../assets/prometheus/additional-scrape-configs.yaml (95B)
+// ../../assets/prometheus/htpasswd-secret.yaml (150B)
+// ../../assets/prometheus/kube-rbac-proxy-secret.yaml (417B)
+// ../../assets/prometheus/kube-state-service-monitor.yaml (972B)
+// ../../assets/prometheus/kubelet-serving-ca-bundle.yaml (101B)
+// ../../assets/prometheus/prometheus-additional.yaml (3.217kB)
+// ../../assets/prometheus/prometheus-datasources-secret.yaml (91B)
+// ../../assets/prometheus/prometheus-rules.yaml (334B)
+// ../../assets/prometheus/prometheus.yaml (4.807kB)
+// ../../assets/prometheus/proxy-secret.yaml (147B)
+// ../../assets/prometheus/service.yaml (440B)
+// ../../assets/prometheus/serving-certs-ca-bundle.yaml (169B)
+// ../../assets/prometheus-operator/deployment.yaml (3.611kB)
+// ../../assets/prometheus-operator/operator-certs-ca-bundle.yaml (170B)
+// ../../assets/prometheus-operator/service.yaml (543B)
+// ../../assets/razee/razee-job.yaml (359B)
+// ../../assets/razee/razee-namespace.yaml (54B)
+// ../../assets/razee/remote-resource-s3.yaml (2.049kB)
+// ../../assets/razee/watch-keeper.yaml (2.267kB)
+// ../../assets/reporter/job.yaml (1.365kB)
+
 package manifests
 
 import (
@@ -114,8 +115,8 @@ func assetsMetricStateDeploymentYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/metric-state/deployment.yaml", size: 4191, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/metric-state/deployment.yaml", size: 4191, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x41, 0xbd, 0x50, 0x1d, 0x86, 0x79, 0x87, 0x2e, 0xb6, 0xa8, 0xf4, 0xab, 0x6f, 0x1b, 0x44, 0x6, 0xa8, 0x86, 0x30, 0x1b, 0x48, 0x2a, 0xde, 0xab, 0xff, 0x7f, 0xd7, 0x1f, 0x85, 0x88, 0x79, 0xe3}}
 	return a, nil
 }
 
@@ -134,8 +135,8 @@ func assetsMetricStateServiceMonitorYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/metric-state/service-monitor.yaml", size: 965, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/metric-state/service-monitor.yaml", size: 965, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x62, 0x96, 0xa0, 0x1b, 0x1d, 0xe6, 0x7f, 0xfe, 0xa9, 0xca, 0x1b, 0x9f, 0x4d, 0xe2, 0xc7, 0x33, 0x99, 0x5, 0x38, 0x3b, 0x2b, 0x94, 0x4c, 0xd, 0xff, 0xf8, 0x52, 0xfb, 0x86, 0xb1, 0xc7, 0x26}}
 	return a, nil
 }
 
@@ -154,8 +155,8 @@ func assetsMetricStateServiceYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/metric-state/service.yaml", size: 559, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/metric-state/service.yaml", size: 559, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xc, 0xf3, 0x41, 0xe1, 0xb, 0xf2, 0x42, 0x97, 0x1c, 0xad, 0xdc, 0xee, 0xa3, 0xc8, 0x30, 0x74, 0xa6, 0x4a, 0xf7, 0x8f, 0x11, 0x4b, 0x40, 0xdc, 0xb3, 0xac, 0x3e, 0x4c, 0x4c, 0xb5, 0x32, 0x29}}
 	return a, nil
 }
 
@@ -174,8 +175,8 @@ func assetsPrometheusAdditionalScrapeConfigsYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/additional-scrape-configs.yaml", size: 95, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/prometheus/additional-scrape-configs.yaml", size: 95, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x0, 0x63, 0x5, 0x23, 0x5a, 0x8d, 0x6d, 0x73, 0xc1, 0x2c, 0x3, 0x6e, 0x80, 0x55, 0xdf, 0x9, 0x8, 0x9e, 0x3a, 0x7b, 0x1, 0x64, 0x41, 0x76, 0xd0, 0x71, 0x11, 0x2b, 0x85, 0x26, 0xe6, 0x5e}}
 	return a, nil
 }
 
@@ -194,8 +195,8 @@ func assetsPrometheusHtpasswdSecretYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/htpasswd-secret.yaml", size: 150, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/prometheus/htpasswd-secret.yaml", size: 150, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xc0, 0xff, 0x20, 0xc8, 0x4c, 0x89, 0x62, 0x43, 0x54, 0x98, 0x2b, 0xef, 0x84, 0x2d, 0x33, 0x8, 0xd9, 0x2e, 0x72, 0x58, 0x86, 0x7, 0xa6, 0x29, 0x80, 0x9f, 0xdb, 0xc3, 0x4d, 0xc3, 0x79, 0x31}}
 	return a, nil
 }
 
@@ -214,8 +215,8 @@ func assetsPrometheusKubeRbacProxySecretYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/kube-rbac-proxy-secret.yaml", size: 417, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/prometheus/kube-rbac-proxy-secret.yaml", size: 417, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x69, 0x6d, 0x4, 0x4d, 0xdc, 0x7d, 0xd6, 0x82, 0x2b, 0xe1, 0x29, 0x56, 0xc3, 0xf3, 0x61, 0x74, 0xdc, 0x31, 0x75, 0x22, 0x24, 0xbb, 0xa4, 0x63, 0xc, 0x21, 0xe9, 0x99, 0xcc, 0x39, 0xbf, 0x6d}}
 	return a, nil
 }
 
@@ -234,8 +235,8 @@ func assetsPrometheusKubeStateServiceMonitorYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/kube-state-service-monitor.yaml", size: 972, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/prometheus/kube-state-service-monitor.yaml", size: 972, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x5a, 0xfc, 0x45, 0x17, 0xce, 0xc2, 0xc3, 0x6a, 0x44, 0xec, 0x43, 0xc8, 0x48, 0xe, 0x3, 0xbd, 0x9b, 0x3e, 0xe2, 0x3, 0xd9, 0x95, 0x9c, 0x2, 0xdd, 0x5c, 0x3f, 0x99, 0x6f, 0xcf, 0xe7, 0x64}}
 	return a, nil
 }
 
@@ -254,8 +255,8 @@ func assetsPrometheusKubeletServingCaBundleYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/kubelet-serving-ca-bundle.yaml", size: 101, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/prometheus/kubelet-serving-ca-bundle.yaml", size: 101, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xe2, 0x5a, 0x8e, 0x4b, 0x57, 0xe4, 0x1b, 0x25, 0x7a, 0x40, 0x5d, 0x99, 0xe6, 0x4b, 0x36, 0x7c, 0x9e, 0x23, 0xd6, 0x91, 0x5a, 0xe0, 0xf2, 0xf4, 0x22, 0xf2, 0x34, 0x60, 0x7d, 0x9c, 0xfd, 0x4e}}
 	return a, nil
 }
 
@@ -274,8 +275,8 @@ func assetsPrometheusPrometheusAdditionalYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/prometheus-additional.yaml", size: 3217, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/prometheus/prometheus-additional.yaml", size: 3217, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xd7, 0x0, 0xb, 0x39, 0x31, 0xea, 0xc9, 0x64, 0xaa, 0x17, 0x3d, 0xfc, 0x8b, 0x85, 0xc4, 0x48, 0x5d, 0xb8, 0x7e, 0x9d, 0x48, 0x41, 0x63, 0xd9, 0x81, 0xac, 0xd5, 0x8e, 0x25, 0x56, 0xde, 0x7e}}
 	return a, nil
 }
 
@@ -294,8 +295,8 @@ func assetsPrometheusPrometheusDatasourcesSecretYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/prometheus-datasources-secret.yaml", size: 91, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/prometheus/prometheus-datasources-secret.yaml", size: 91, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xaa, 0xac, 0xbe, 0x97, 0x80, 0xa0, 0x55, 0xa3, 0x7, 0xee, 0x1e, 0xb0, 0xe8, 0x18, 0x8e, 0xb9, 0xac, 0xa4, 0x10, 0xa0, 0xac, 0x7b, 0xa1, 0x71, 0x6f, 0xce, 0xf8, 0x1, 0xfd, 0xf2, 0x1a, 0xa0}}
 	return a, nil
 }
 
@@ -314,12 +315,12 @@ func assetsPrometheusPrometheusRulesYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/prometheus-rules.yaml", size: 334, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/prometheus/prometheus-rules.yaml", size: 334, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xe5, 0xc7, 0x2b, 0x5d, 0x31, 0x65, 0x71, 0xa8, 0x2f, 0xac, 0xbc, 0xec, 0xd2, 0x43, 0x25, 0x59, 0x93, 0xc9, 0x12, 0x4b, 0x16, 0x22, 0xc0, 0x46, 0x94, 0xed, 0xab, 0xfe, 0xf8, 0x6d, 0x57, 0x5b}}
 	return a, nil
 }
 
-var _assetsPrometheusPrometheusYaml = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\xd4\x58\x5b\x6f\x1a\x4b\x12\x7e\xe7\x57\xb4\x78\x41\x5a\xa5\x19\x60\x93\x4d\x32\x12\x0f\x5e\xcc\xc6\xd6\xfa\x82\x82\xb5\x97\x97\x45\xed\x9e\x62\x68\xd1\x97\xd9\xea\x1a\x62\x64\xe5\xbf\x1f\xf5\xcc\x00\x33\x30\x36\xf6\x39\xca\xc3\xc9\x53\xdc\x55\xf5\x4d\x5d\xbf\xee\x42\x64\xea\x5f\x80\x5e\x39\x1b\x33\xe3\xac\x22\x87\xca\xa6\x7d\xe9\x10\x9c\xef\x4b\x67\xa2\xcd\xb0\xb3\x56\x36\x89\xd9\x0c\x9d\x01\x5a\x41\xee\x3b\x06\x48\x24\x82\x44\xdc\x61\xcc\x0a\x03\x31\xcb\xf6\x42\x6e\x80\x00\x1f\x85\x87\x0e\x63\x5a\x3c\x82\xf6\x41\x8d\xd5\x54\x62\x86\x90\xac\x04\x71\x23\x70\x0d\x94\x69\x21\xa1\xe3\x33\x90\x41\x51\x2c\x97\xca\x2a\xda\x56\x46\x2e\xb9\xb0\xa4\x2e\x1a\x87\x01\x0b\x96\x80\x08\xc9\x65\x1e\xfc\x9d\xcb\x15\x24\xb9\x56\x36\xbd\x4e\xad\xdb\x1f\x4f\x9f\x40\xe6\x14\x62\xab\xcc\x18\xe3\x05\x62\x85\xf6\x00\x68\x0e\xa2\xf0\xaf\xf0\x77\x0e\x1a\x24\x39\x6c\x8a\x18\x33\x82\xe4\x6a\xfa\x94\x21\xf8\x90\x30\x7f\x2c\x0f\xe8\x6b\xd8\xd6\x93\x71\xa2\xc1\x98\xcb\x00\x45\x40\x67\xd7\xb6\x45\xbc\x11\x3a\x87\x16\xe8\x0a\xfe\x4b\x13\x32\x24\xdf\x67\x42\x9e\x5a\xf0\xb6\x1c\xd7\x15\xc8\x65\x4e\xbb\x74\xfb\xcf\xe0\xf1\x3a\x7f\x04\xb4\x40\xe0\xfb\xca\x45\x2b\xe7\x29\x20\xd7\xf4\x7f\x80\x4a\x57\x14\xb3\xe1\x60\xd0\x61\x4c\x3a\x4b\x42\x59\xc0\xea\xb3\x9c\x29\x23\x52\x68\xab\x2b\x17\x39\xad\xe4\x0a\xe4\x3a\xd6\x82\xc0\x53\xe7\xe0\x79\xcc\xf6\xc2\xea\x14\xc1\xbb\x1c\x1b\xe1\x20\xfc\x3f\x07\x4f\x8d\x00\x65\x96\x07\x57\x4c\xed\xc8\x80\x71\xb8\x8d\xd9\x68\x70\xab\xf6\xc7\x5a\x19\xd5\x62\x39\x6a\xb5\xfc\x78\xb0\x24\x40\xa3\xac\x08\xad\x73\x0b\xde\x8b\x14\x66\x4e\x2b\xb9\x8d\xd9\x3f\x84\xd6\x8f\x42\xae\x1f\xdc\x8d\x4b\xfd\xbd\x9d\x22\x3a\xac\x72\x20\x30\xf5\xf5\x4e\xe3\x19\xba\x8d\x4a\x00\xc7\x2e\x03\xeb\x57\x6a\x49\x75\xe9\x8a\x28\xf3\x5c\x24\x49\xe8\xa7\x71\xfc\x75\xf0\x75\x78\x2c\xde\x4b\xeb\x02\x30\x42\x69\x9e\x38\x23\x94\x1d\xff\xa5\x2e\xc9\x33\x4f\x08\xc2\x8c\x83\x6d\x1c\x45\xda\x49\xa1\x43\x31\x03\xf8\xa0\x09\x9e\x09\xef\x7f\x24\x7c\xa9\x34\x8c\x23\x20\x19\x65\xe8\x9e\xb6\xd1\x4e\x10\x85\xca\xd4\x2d\xf6\x21\x70\x0f\xb8\x51\xa1\xb0\x52\xba\xdc\xd2\xb8\xa5\xe6\x2d\x03\xc0\x59\xaf\x8e\x21\x70\xfc\xdc\xdd\x55\xbb\x1b\xb3\xee\xa1\x93\xbb\x1f\x58\x77\x03\xf8\x18\x4e\x53\xa0\xee\xcf\xde\x0b\x20\x09\x68\x48\x05\x01\xcf\x51\xfb\xf1\x73\x37\xea\xc6\xec\xcd\xa0\x0d\x54\x4e\xda\x73\x09\x48\x65\x2a\x48\xfb\x28\x43\xb5\x11\x04\xe1\xff\x7d\x89\x74\xac\xbc\x86\x6d\xbb\xee\x1a\xb6\x75\x5d\xa9\x15\xd8\x90\x33\x89\x40\x55\xb6\x37\x02\x23\xcc\x6d\x54\x1e\xfa\xa8\x39\x7c\x55\x7a\xab\xec\x46\xe4\xd6\x60\x1b\x88\xce\xad\x15\x34\x11\x0f\xf5\xdb\x61\xfa\x92\xa3\x16\xe5\xdf\xed\x85\x94\xa2\xb2\x5c\xab\x22\x8c\x90\x80\x7e\x06\xe6\x65\xed\x77\x79\x2e\xc5\x71\xe2\xfc\x5a\x65\x05\x1f\x70\x84\x14\x9e\xc6\xff\x8b\x0c\x10\x2a\xb9\xeb\x12\xb0\x9b\xfa\xfc\x94\x14\x71\xf5\xf0\x30\x5b\xcc\xbe\xdf\xff\xe7\xbf\xb5\x99\x2d\x58\x32\x66\xbd\x5e\xab\xfa\xfc\x1d\xfa\x77\xf7\x67\x95\xf7\xdc\x96\x2a\x4f\xb8\xed\x97\x0d\x1f\x22\xde\x67\xe7\x63\xe4\x3c\x70\x57\xc4\x56\x14\xa2\x49\x76\x05\xc2\x2c\xd7\x7a\x47\x23\xd7\xcb\x3b\x47\x33\x04\x0f\xb6\x49\x88\xb5\x7b\xb4\xc0\xd9\xdd\x77\x0e\xa9\xc1\x2d\x7b\x06\x9e\x39\xa4\x98\x35\xc8\x63\x87\x55\x10\xcc\xaf\x20\xd6\xdf\x43\x8f\x8c\x6d\x9c\xce\x0d\xdc\x86\xde\x68\x84\x62\xc2\xc9\x4c\xd0\x2a\x66\xc7\x13\x75\x12\x52\xd5\xf5\xb8\x32\xbc\xed\xc5\x11\x46\xf3\x15\xe4\xc6\x88\xbc\x1b\xbb\x5e\x8f\x97\xd1\x77\x04\xfa\x6e\xf8\x86\x61\xcb\x65\xc2\xb5\x4b\xc9\x79\x4a\x00\xb1\x71\xee\x41\xe6\x08\x5c\x2b\x4f\x60\x1b\xf7\xc9\xa8\xa1\x57\x70\x9c\xca\x56\x80\xdc\xe7\x8a\xc0\x8f\x1f\x6e\xe6\x8b\xe9\xe4\xf2\x6a\xba\xf8\x3e\xbf\x58\xfc\xfb\xfa\xe1\x6a\x71\x31\x9d\x2f\x86\xa3\x2f\x8b\x6f\x93\xdb\xc5\xfc\xea\x62\xf4\xe9\x6f\x1f\x0e\x5a\xd3\xc9\xe5\x19\xbd\x13\x9c\xc9\xdf\x27\x6f\xc2\x69\xd5\x7b\x05\xad\x11\x59\x31\x76\x05\x51\x72\x91\x27\x0a\xac\x04\x3f\x7e\x29\xd1\xfd\x03\xa5\x9d\xde\x5c\x7d\xbf\x91\x0d\xe8\xe3\x2b\x75\x38\xfa\xdc\x1f\xf4\x07\xfd\x61\x71\xa5\x46\xa7\x09\x06\xac\x93\xf2\x99\x9b\xa4\x30\xa9\xe4\xe1\x4a\x79\xc5\xf2\xe8\x5e\xd9\x3b\xc6\xa5\xa8\x59\x49\x67\x97\x2a\x35\x22\xf3\x25\x1b\xdb\xb4\xf0\xc8\x07\xad\xc7\xdc\x26\x1a\x76\x2c\xcd\x1b\xf4\xfc\x66\x8a\x0b\x8c\xcf\xf1\x51\xc8\x3f\x46\x73\x47\x30\x7c\xf8\x76\x9e\x1b\x9d\x4c\x56\xc0\xf9\x15\x34\x57\x0c\x96\xa2\xed\xc4\x59\x82\x27\x8a\xd9\xf3\xcf\x3f\x15\x01\x86\xd8\x45\x72\x6f\xf5\x36\x66\x4b\xa1\x3d\xbc\xf2\xcd\xf3\x8d\x73\xe2\xca\xde\x84\x9f\xb7\x38\x75\x04\x21\xd3\x4a\x0a\x1f\xb3\x51\xe7\xa4\x6e\xc7\x35\x2b\xea\xf5\x79\x5f\xaf\x5d\xad\x86\xdf\x42\xa9\xaa\x86\xbe\x28\x9f\x1d\x77\x65\x4b\x9c\x79\x93\x66\xa8\x5c\x51\x5a\x2d\xbc\x2f\x4d\xfc\xd6\x13\x18\x2e\x75\xee\x09\x90\x4b\x54\xa4\xa4\xd0\x61\x89\x2d\x98\xf5\x26\x3c\xa6\x63\x46\x98\x97\xee\x13\xd8\x62\xb5\x64\x7f\x1d\x04\xce\x7e\xf3\x04\xd5\xd6\xe0\xfd\xf0\x9c\x1b\x1c\xeb\x12\x68\x6e\xa5\xcd\x97\x97\xf3\x31\xd3\xca\xe6\x4f\x9d\x97\xba\xb6\x4a\xd2\x6d\xb9\xe2\x37\xb1\x8a\xbd\xf6\xa6\xb6\xa9\x87\xa3\x03\x25\x56\x91\x48\x67\xa2\xa2\xcf\x94\x4d\x63\xd6\x0b\x79\xe8\x9d\x00\xdf\xed\x1e\xdc\x2d\x5f\x68\xd9\x9c\x39\x7b\x2e\x37\xe6\xde\x3e\x49\x21\x9c\x5d\x0d\x0e\x3f\x48\xf4\x3e\xd4\xf6\xe6\x4b\x07\xfe\xce\xd1\xf4\x49\x79\x62\x21\x38\x91\x24\x2a\xd4\x42\xe8\xb9\x44\x91\xc1\xa4\xe8\xcc\xea\x2b\x15\x47\xac\x4c\x6d\x4a\x0e\x06\xdc\x17\x16\xbc\x6c\xe6\x72\x76\x0a\x8f\x0a\xe5\x04\x96\xfd\xad\x30\xba\x4c\x6b\x78\x35\xec\xf6\xdd\x23\x02\xab\x4e\xcf\x8e\xe5\x2b\x2a\x6f\xc2\xa9\x3d\x12\x4a\x8f\x6f\x45\xb6\xf7\xe9\xb5\x31\x2c\x3d\xd6\x40\x87\x61\xad\xc9\x3d\x39\x0c\xed\xdb\x39\xd0\xd4\x44\x0b\x65\x1e\xc0\x64\xa1\x49\x77\xf5\xda\xfd\x46\x53\xfd\x55\x5a\xd5\x66\xa8\xe7\x49\xd8\x44\x60\xd2\xab\xd1\xef\x09\x23\xb7\x73\xf2\xc1\x0b\xf6\xe9\x9b\xea\xfc\x16\x00\x00\xff\xff\x85\x9f\xc3\xa6\x99\x12\x00\x00")
+var _assetsPrometheusPrometheusYaml = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\xd4\x58\x4b\x6f\x1a\xc9\x16\xde\xf3\x2b\x4a\x6c\x90\xae\x52\x34\x70\x93\x9b\xa4\x25\x16\x04\x73\x6d\x6b\xfc\x40\xc1\x9a\xc7\x66\x50\x51\x7d\x68\x4a\xd4\xa3\xa7\xea\x34\x31\x63\xe5\xbf\x8f\xaa\x5f\x74\x43\xdb\xd8\x33\xca\x62\xb2\x8a\xcf\xe3\xeb\xf3\xfc\xaa\x0a\x96\x88\x9f\xc1\x3a\x61\x74\x48\x94\xd1\x02\x8d\x15\x3a\xee\x73\x63\xc1\xb8\x3e\x37\x2a\xd8\x0d\x3b\x5b\xa1\xa3\x90\xcc\xad\x51\x80\x1b\x48\x5d\x47\x01\xb2\x88\x21\x0b\x3b\x84\x68\xa6\x20\x24\x49\xa5\xa4\x0a\x10\xec\x8a\x39\xe8\x10\x22\xd9\x0a\xa4\xf3\x66\xa4\x66\x12\x12\x0b\xd1\x86\x21\x55\xcc\x6e\x01\x13\xc9\x38\x74\x5c\x02\xdc\x1b\xb2\xf5\x5a\x68\x81\xfb\xc2\xc9\x44\x13\x8d\x62\xd2\x10\x7a\x2c\x58\x83\xb5\x10\x5d\xa4\x3e\xde\x05\xdf\x40\x94\x4a\xa1\xe3\xeb\x58\x9b\x4a\x3c\x7b\x04\x9e\xa2\xcf\xad\x70\x23\x84\x66\x88\x05\xda\x03\x58\x75\x50\xf9\x7f\x59\xbc\x0b\x90\xc0\xd1\xd8\xa6\x8a\x10\xc5\x90\x6f\x66\x8f\x89\x05\xe7\x0b\xe6\x8e\xf5\x1e\x7d\x0b\xfb\x7a\x31\x4e\x2c\x08\x31\x09\x58\xe6\xd1\xc9\xb5\x6e\x51\xef\x98\x4c\xa1\x05\xba\x80\xff\xd4\x84\xf4\xc5\x77\x09\xe3\xa7\x1e\xb4\xad\xc6\x75\x03\x34\x89\x91\x26\xde\xff\xe4\x23\xde\xa6\x2b\xb0\x1a\x10\x5c\x5f\x98\x60\x63\x1c\x7a\xe4\x9a\xfd\x37\x10\xf1\x06\x43\x32\x1c\x0c\x3a\x84\x70\xa3\x91\x09\x0d\xb6\xf8\x2c\x25\x42\xb1\x18\xda\xfa\x4a\x59\x8a\x1b\xbe\x01\xbe\x0d\x25\x43\x70\xd8\x39\x44\x1e\x92\x4a\x59\x48\x2d\x38\x93\xda\x46\x3a\x16\xfe\x48\xc1\x61\x23\x41\x9e\xa4\x3e\x14\x55\x13\x29\x50\xc6\xee\x43\x32\x1a\xdc\x8a\x4a\x2c\x85\x12\x2d\x9e\xa3\x56\xcf\xf7\x07\x4f\x04\xab\x84\x66\x7e\x74\x6e\xc1\x39\x16\xc3\xdc\x48\xc1\xf7\x21\xf9\x3f\x93\x72\xc5\xf8\xf6\xc1\xdc\x98\xd8\xdd\xeb\x99\xb5\xc6\x16\x35\x60\x36\x76\xf5\x49\xa3\x89\x35\x3b\x11\x81\x1d\x9b\x04\xb4\xdb\x88\x35\xd6\xb5\x1b\xc4\xc4\x51\x16\x45\x7e\x9e\xc6\xe1\xe7\xc1\xe7\xe1\xb1\xba\xd2\xd6\x15\xa0\x98\x90\x34\x32\x8a\x09\x3d\xfe\x4f\x5d\x93\x26\x0e\x2d\x30\x35\xf6\xbe\x61\x10\x48\xc3\x99\xf4\xcd\xf4\xe0\x83\x26\x78\xc2\x9c\xfb\x16\xd1\xb5\x90\x30\x0e\x00\x79\x90\x58\xf3\xb8\x0f\x4a\x45\xe0\x3b\x53\xf7\xa8\x52\xa0\x0e\xec\x4e\xf8\xc6\x72\x6e\x52\x8d\xe3\x96\x9e\xb7\x2c\x00\x25\xbd\x3a\x06\xb3\xe3\xa7\x6e\xd9\xed\x6e\x48\xba\x87\x49\xee\xbe\x23\xdd\x1d\xd8\x95\x97\xc6\x80\xdd\xef\xbd\x67\x40\x22\x90\x10\x33\x04\x9a\x5a\xe9\xc6\x4f\xdd\xa0\x1b\x92\x57\x83\x36\x50\x29\x4a\x47\x39\x58\xcc\x4b\x81\xd2\x05\x89\x15\x3b\x86\xe0\xff\xdf\xe7\x16\x8f\x8d\xb7\xb0\x6f\xb7\xdd\xc2\xbe\x6e\xcb\xa5\x00\xed\x6b\xc6\x2d\x60\x51\xed\x1d\xb3\x81\x4d\x75\x90\x0b\x5d\xd0\x5c\xbe\xa2\xbc\x45\x75\x03\x34\x5b\xd0\x0d\x44\x63\xb6\x02\x9a\x88\x87\xfe\x95\x98\x2e\xe7\xa8\x65\xfe\x77\x7b\x23\x39\x2b\x3c\xb7\x22\x4b\xc3\x17\xa0\x9f\x80\x7a\xde\xfa\x4d\x91\x73\x76\x5c\x38\xb7\x15\x49\xc6\x07\xd4\x42\x0c\x8f\xe3\xdf\x03\x05\x68\x05\x2f\xa7\x04\xf4\xae\xbe\x3f\x39\x45\x5c\x3d\x3c\xcc\x97\xf3\xaf\xf7\xbf\xfe\x56\xdb\xd9\x8c\x25\x43\xd2\xeb\xb5\x9a\x2f\xde\x60\x7f\x77\x7f\xd6\xb8\xe2\xb6\x58\x38\xb4\xfb\x7e\x3e\xf0\x3e\xe3\xaa\x3a\xef\x03\xe3\x80\x9a\x2c\xb7\xac\x11\x4d\xb2\xcb\x10\xe6\xa9\x94\x25\x8d\x5c\xaf\xef\x0c\xce\x2d\x38\xd0\x4d\x42\xac\x9d\xa3\x19\x4e\x79\xde\x19\x8b\x0d\x6e\xa9\x18\x78\x6e\x2c\x86\xa4\x41\x1e\x25\x56\x46\x30\x3f\x82\x58\xff\x0e\x3d\x12\xb2\x33\x32\x55\x70\xeb\x67\xa3\x91\x8a\xf2\x92\x39\xc3\x4d\x48\x8e\x37\xea\x24\xa5\x62\xea\xed\x46\xd1\xb6\x1b\x87\x5f\xcd\x17\x90\x1b\x2b\xf2\x66\xec\x7a\x3f\x9e\x47\x2f\x09\xf4\xcd\xf0\x0d\xc7\x96\xc3\x84\x4a\x13\xa3\x71\x18\x81\xb5\x0d\xb9\x03\x9e\x5a\xa0\x52\x38\x04\xdd\x38\x4f\x46\x0d\xbb\x8c\xe3\x44\xb2\x01\x4b\x5d\x2a\x10\xdc\xf8\xe1\x66\xb1\x9c\x4d\x2f\xae\x66\xcb\xaf\x8b\xc9\xf2\x97\xeb\x87\xab\xe5\x64\xb6\x58\x0e\x47\x9f\x96\x97\xd3\xdb\xe5\xe2\x6a\x32\xfa\xf0\xbf\x77\x07\xab\xd9\xf4\xe2\x8c\xdd\x09\xce\xf4\xcb\xf4\x55\x38\xad\x76\x2f\xa0\x35\x32\xcb\xd6\x2e\x23\x4a\xca\xd2\x48\x80\xe6\xe0\xc6\xcf\x15\xba\x7f\xa0\xb4\xd3\x93\xab\xef\x76\xbc\x01\x7d\x7c\xa4\x0e\x47\x1f\xfb\x83\xfe\xa0\x3f\xcc\x8e\xd4\xe0\xb4\xc0\x60\xeb\xa4\x7c\xe6\x24\xc9\x5c\x0a\xbd\x3f\x52\x5e\xf0\x3c\x3a\x57\xaa\xc0\x28\x67\x35\x2f\x6e\xf4\x5a\xc4\x8a\x25\x2e\x67\x63\x1d\x67\x11\x39\x6f\xb5\x4a\x75\x24\xa1\x64\x69\xda\xa0\xe7\x57\x53\x9c\x67\x7c\x6a\x57\x8c\xff\x33\x9a\x3b\x82\xa1\xc3\xd7\xf3\xdc\xe8\x64\xb3\x3c\xce\x8f\xa0\xb9\x6c\xb1\x04\xee\xa7\x46\x23\x3c\x62\x48\x9e\xbe\xff\xab\x08\xd0\xe7\xce\xa2\x7b\x2d\xf7\x21\x59\x33\xe9\xe0\x85\x6f\x9e\x1f\x9c\x93\x50\x2a\x17\x7a\xde\xe3\x34\x10\x0b\x89\x14\x9c\xb9\x90\x8c\x3a\x27\x7d\x3b\xee\x59\xd6\xaf\x8f\x55\xbf\xca\x5e\x0d\x2f\x7d\xab\x8a\x81\x9e\xe4\xd7\x8e\xbb\x7c\x24\xce\xdc\x49\x13\x2b\x4c\xd6\x5a\xc9\x9c\xcb\x5d\xdc\xde\x21\x28\xca\x65\xea\x10\x2c\xe5\x56\xa0\xe0\x4c\xfa\x47\x6c\xc6\xac\x37\xfe\x32\x1d\x12\xb4\xa9\x0f\x1f\x34\x5b\x49\x98\x44\x4a\xe8\xc9\xfc\xba\x12\x5b\x40\xd0\x7e\x2c\x16\xe2\x4f\x08\xc9\xf0\xf3\xe5\x97\xba\x34\x24\xff\x1d\x78\x82\x7f\xf5\xba\xd5\xde\xcc\xd5\xa6\x9d\xdb\x32\x6d\x22\x68\x3e\x61\x9b\xd7\x34\xe3\x42\x22\x85\x4e\x1f\x3b\xcf\x8d\x78\x51\xd1\xdb\xfc\xf7\x80\x26\x56\xf6\x08\xbe\xa9\x3d\xeb\xbd\xe8\xc0\x9f\x45\x26\xdc\xa8\x20\x1b\x4a\xa1\xe3\x90\xf4\x7c\x75\x7a\x27\xc0\x77\xe5\xed\xbc\xe5\x0b\x2d\xcf\x6c\x4a\x9e\xf2\xe7\x75\xaf\x2a\x92\x4f\xa7\x6c\xd8\xe1\xd7\x8b\xde\xbb\xda\x23\xfb\xc2\x80\xbb\x33\x38\x7b\x14\x0e\x89\x4f\x8e\x45\x91\xf0\xbd\x60\x72\xc1\x2d\x4b\x60\x9a\x8d\x71\xf1\x95\x82\x50\x36\xaa\xb6\x52\x07\x07\xea\x32\x0f\x9a\x4f\x7e\xbe\x68\x59\x44\x99\x71\x04\xeb\xfe\x9e\x29\x99\x97\xd5\x5f\x31\xca\xc7\xf1\x11\xdb\x15\xd2\xb3\x3b\xfc\x82\xc9\xab\x70\x6a\x37\x8a\x3c\xe2\x5b\x96\x54\x31\xbd\xb4\xb3\x79\xc4\x12\xf0\xb0\xd9\x35\xbd\x43\x63\xfd\xf8\x76\x0e\x9c\x36\x95\x4c\xa8\x07\x50\x89\x1f\xd2\xb2\x5f\xe5\x0f\x3a\xc5\x5f\xb9\x57\x6d\xe1\x7a\x0e\x99\x8e\x98\x8d\x7a\x35\xae\x3e\xa1\xef\x76\x02\x3f\x44\x41\x46\x1f\x2e\x45\xe7\xaf\x00\x00\x00\xff\xff\x02\x62\x6c\x1e\xc7\x12\x00\x00")
 
 func assetsPrometheusPrometheusYamlBytes() ([]byte, error) {
 	return bindataRead(
@@ -334,8 +335,8 @@ func assetsPrometheusPrometheusYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/prometheus.yaml", size: 4761, mode: os.FileMode(420), modTime: time.Unix(1607095278, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/prometheus/prometheus.yaml", size: 4807, mode: os.FileMode(0644), modTime: time.Unix(1607665154, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xe3, 0xd2, 0xb6, 0xa7, 0x3b, 0x42, 0x16, 0xb1, 0x98, 0xb2, 0x9b, 0x7e, 0xf4, 0x5b, 0x23, 0x43, 0xe5, 0x34, 0xc5, 0x56, 0x9a, 0x1f, 0x2c, 0x78, 0xf, 0xf3, 0x95, 0xb8, 0xd4, 0x45, 0x35, 0x8a}}
 	return a, nil
 }
 
@@ -354,8 +355,8 @@ func assetsPrometheusProxySecretYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/proxy-secret.yaml", size: 147, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/prometheus/proxy-secret.yaml", size: 147, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x30, 0x35, 0x99, 0xa6, 0x8f, 0x38, 0xff, 0x45, 0x63, 0xc6, 0x2d, 0xc5, 0x7d, 0xb2, 0x64, 0xd2, 0xc4, 0x64, 0x9c, 0x64, 0xa9, 0x71, 0x12, 0x90, 0xfa, 0x86, 0x53, 0xf2, 0xb8, 0x2c, 0x7c, 0x43}}
 	return a, nil
 }
 
@@ -374,8 +375,8 @@ func assetsPrometheusServiceYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/service.yaml", size: 440, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/prometheus/service.yaml", size: 440, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x6b, 0x65, 0x47, 0xd9, 0xe8, 0x6a, 0x5a, 0xa0, 0x75, 0x87, 0xd1, 0xef, 0x28, 0xe2, 0x7f, 0x4b, 0x99, 0x87, 0x84, 0xa3, 0xb0, 0x67, 0x39, 0x3a, 0x35, 0x5, 0xa6, 0xa8, 0x69, 0xfd, 0xdc, 0x5d}}
 	return a, nil
 }
 
@@ -394,8 +395,8 @@ func assetsPrometheusServingCertsCaBundleYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/serving-certs-ca-bundle.yaml", size: 169, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/prometheus/serving-certs-ca-bundle.yaml", size: 169, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x14, 0x6e, 0x93, 0x4e, 0x33, 0x7f, 0xb9, 0xe7, 0x45, 0x41, 0x85, 0x6, 0x2c, 0x36, 0x84, 0x49, 0xf5, 0xbb, 0x7e, 0xc6, 0x6a, 0x11, 0xd5, 0x47, 0x81, 0x2e, 0xfa, 0xce, 0x48, 0x64, 0xa9, 0x37}}
 	return a, nil
 }
 
@@ -414,8 +415,8 @@ func assetsPrometheusOperatorDeploymentYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus-operator/deployment.yaml", size: 3611, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/prometheus-operator/deployment.yaml", size: 3611, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xd3, 0xa1, 0x77, 0x8c, 0xac, 0xc4, 0x77, 0x45, 0x5e, 0x40, 0x6a, 0x80, 0xb6, 0x5, 0xfa, 0x80, 0x2d, 0x92, 0x11, 0xdd, 0xc4, 0xd1, 0x84, 0x64, 0x4f, 0x69, 0x5b, 0xaf, 0xab, 0xd1, 0x26, 0x1a}}
 	return a, nil
 }
 
@@ -434,8 +435,8 @@ func assetsPrometheusOperatorOperatorCertsCaBundleYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus-operator/operator-certs-ca-bundle.yaml", size: 170, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/prometheus-operator/operator-certs-ca-bundle.yaml", size: 170, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xa1, 0xdf, 0x64, 0x34, 0x32, 0xdf, 0x88, 0x59, 0xb2, 0x9b, 0x78, 0x91, 0xbe, 0x4d, 0x79, 0x35, 0x9d, 0x14, 0x5e, 0xda, 0x7b, 0xdf, 0x6c, 0xe8, 0x60, 0xb8, 0xa1, 0x33, 0x51, 0xe9, 0x30, 0x6d}}
 	return a, nil
 }
 
@@ -454,8 +455,8 @@ func assetsPrometheusOperatorServiceYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus-operator/service.yaml", size: 543, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/prometheus-operator/service.yaml", size: 543, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x67, 0xe1, 0xe5, 0x1, 0x98, 0xa3, 0x4e, 0x7, 0x9f, 0x3a, 0x6, 0x40, 0x8, 0xa0, 0x35, 0xcf, 0xb2, 0x6a, 0x55, 0x83, 0x11, 0x54, 0xa4, 0x81, 0xfd, 0xbb, 0x7, 0xc5, 0xfa, 0x98, 0x1f, 0x39}}
 	return a, nil
 }
 
@@ -474,8 +475,8 @@ func assetsRazeeRazeeJobYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/razee/razee-job.yaml", size: 359, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/razee/razee-job.yaml", size: 359, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xa0, 0xba, 0x89, 0x9d, 0x86, 0xdc, 0x14, 0xd1, 0xe1, 0x32, 0x9a, 0x88, 0x81, 0xb7, 0x68, 0x91, 0xfd, 0x32, 0x62, 0x3e, 0x5e, 0x1f, 0x7f, 0x5a, 0x62, 0x4e, 0x6e, 0x73, 0xe3, 0xc, 0x8d, 0x3a}}
 	return a, nil
 }
 
@@ -494,8 +495,8 @@ func assetsRazeeRazeeNamespaceYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/razee/razee-namespace.yaml", size: 54, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/razee/razee-namespace.yaml", size: 54, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x14, 0xab, 0x1e, 0xd8, 0x3a, 0x3e, 0x60, 0x88, 0x41, 0x4e, 0xab, 0xe2, 0x19, 0x9b, 0x62, 0x10, 0x7f, 0x1, 0xc1, 0x93, 0x68, 0x59, 0xb2, 0xe5, 0xb5, 0x67, 0xaa, 0x38, 0x8, 0x64, 0xcb, 0x66}}
 	return a, nil
 }
 
@@ -514,8 +515,8 @@ func assetsRazeeRemoteResourceS3Yaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/razee/remote-resource-s3.yaml", size: 2049, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/razee/remote-resource-s3.yaml", size: 2049, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xf2, 0x62, 0xe3, 0x1a, 0x5d, 0x8c, 0xe5, 0xab, 0x24, 0x99, 0x93, 0x0, 0x42, 0x17, 0x2f, 0xb2, 0x53, 0x67, 0x48, 0x76, 0x1, 0x54, 0x7d, 0x2a, 0xd6, 0x1f, 0xd4, 0x1a, 0x83, 0x10, 0xe1, 0x85}}
 	return a, nil
 }
 
@@ -534,8 +535,8 @@ func assetsRazeeWatchKeeperYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/razee/watch-keeper.yaml", size: 2267, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/razee/watch-keeper.yaml", size: 2267, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xcb, 0xaf, 0x3d, 0x6a, 0x73, 0xa7, 0x17, 0xe5, 0x27, 0xe, 0x4d, 0x69, 0xf2, 0x7c, 0x55, 0xcd, 0xef, 0x74, 0xba, 0x8e, 0x2, 0xa4, 0x2d, 0x79, 0xaa, 0xd2, 0x91, 0x34, 0x2b, 0x5e, 0xc8, 0xd8}}
 	return a, nil
 }
 
@@ -554,8 +555,8 @@ func assetsReporterJobYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/reporter/job.yaml", size: 1365, mode: os.FileMode(420), modTime: time.Unix(1607016894, 0)}
-	a := &asset{bytes: bytes, info: info}
+	info := bindataFileInfo{name: "assets/reporter/job.yaml", size: 1365, mode: os.FileMode(0644), modTime: time.Unix(1607350701, 0)}
+	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xb, 0x4c, 0xbf, 0x32, 0x1a, 0x90, 0xf9, 0xbb, 0x5b, 0x81, 0x6e, 0xdf, 0x55, 0xd2, 0xaf, 0x68, 0xa3, 0xca, 0x7a, 0x4f, 0x43, 0x82, 0xed, 0xc3, 0xd9, 0x49, 0x63, 0xee, 0x86, 0xb6, 0x8a, 0xec}}
 	return a, nil
 }
 

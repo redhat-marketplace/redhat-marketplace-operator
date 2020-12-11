@@ -43,6 +43,7 @@ import (
 var (
 	additionalLabels = []model.LabelName{"pod", "namespace", "service", "persistentvolumeclaim"}
 	logger           = logf.Log.WithName("reporter")
+	mdefLabels       = []model.LabelName{"meter_group", "meter_kind", "metric_aggregation", "metric_label", "metric_query", "name", "namespace", "workload_type"}
 )
 
 // Goals of the reporter:
@@ -99,26 +100,32 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 	resultsMap := make(map[MetricKey]*MetricBase)
 	var resultsMapMutex sync.Mutex
 
-	if len(r.meterDefinitions) == 0 {
-		logger.Info("no meterdefs found")
-		return resultsMap, []error{}, nil
-	}
+	errorList := []error{}
 
 	// data channels ; closed by this func
-	meterDefsChan := make(chan *marketplacev1alpha1.MeterDefinition, len(r.meterDefinitions))
+	meterDefsChan := make(chan *meterDefPromQuery)
 	promModelsChan := make(chan meterDefPromModel)
 
 	// error channels
 	errorsChan := make(chan error)
 
 	// done channels
+	meterDefsDone := make(chan bool)
 	queryDone := make(chan bool)
 	processDone := make(chan bool)
 	errorDone := make(chan bool)
 
+	defer close(meterDefsDone)
 	defer close(queryDone)
 	defer close(processDone)
 	defer close(errorDone)
+
+	logger.Info("starting build queries")
+
+	go r.retrieveMeterDefinitions(
+		meterDefsChan,
+		errorsChan,
+		meterDefsDone)
 
 	logger.Info("starting query")
 
@@ -138,17 +145,8 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 		promModelsChan,
 		resultsMap,
 		&resultsMapMutex,
-		r.report,
 		processDone,
 		errorsChan)
-
-	// send & close data pipe
-	for _, meterDef := range r.meterDefinitions {
-		meterDefsChan <- &meterDef
-	}
-	close(meterDefsChan)
-
-	errorList := []error{}
 
 	// Collect errors function
 	go func() {
@@ -162,6 +160,10 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 			}
 		}
 	}()
+
+	<-meterDefsDone
+	logger.Info("build queries done")
+	close(meterDefsChan)
 
 	<-queryDone
 	logger.Info("querying done")
@@ -177,72 +179,166 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 }
 
 type meterDefPromModel struct {
-	*marketplacev1alpha1.MeterDefinition
+	mdef *meterDefPromQuery
 	model.Value
 	MetricName string
 	Type       v1alpha1.WorkloadType
-	Workload   v1alpha1.Workload
+}
+
+type meterDefPromQuery struct {
+	uid        string
+	query      *PromQuery
+	meterGroup string
+	meterKind  string
+	label      string
+}
+
+func (s *meterDefPromQuery) String() string {
+	return "[" + s.uid + " " + s.meterGroup + " " + s.meterKind + " " + s.label + "]"
+}
+
+func (r *MarketplaceReporter) retrieveMeterDefinitions(
+	meterDefsChan chan *meterDefPromQuery,
+	errorChan chan error,
+	meterDefsDone chan bool,
+) {
+	var result model.Value
+	var warnings v1.Warnings
+	var err error
+
+	defer func(){
+		meterDefsDone <- true
+	}()
+
+	err = utils.Retry(func() error {
+		query := &MeterDefinitionQuery{
+			Start: r.report.Spec.StartTime.Time,
+			End:   r.report.Spec.EndTime.Time,
+			Step:  time.Hour,
+		}
+
+		q, _ := query.Print()
+		logger.Info("output", "query", q)
+
+		result, warnings, err = r.queryMeterDefinitions(query)
+
+		if err != nil {
+			logger.Error(err, "querying prometheus", "warnings", warnings)
+			return err
+		}
+
+		if len(warnings) > 0 {
+			logger.Info("warnings", "warnings", warnings)
+		}
+
+		return nil
+	}, *r.Retry)
+
+	if err != nil {
+		logger.Error(err, "error encountered")
+		errorChan <- err
+		return
+	}
+
+	// Use defined on the report queries for fallback for a while
+	definedPromQueries := []*meterDefPromQuery{}
+
+	for _, mdef := range r.meterDefinitions {
+		labels := mdef.ToPrometheusLabels()
+		for _, label := range labels {
+			promQuery := buildPromQuery(label, r.report.Spec.StartTime.Time, r.report.Spec.EndTime.Time)
+			logger.Info("found prom queries on the report", "uidQuery", promQuery)
+			definedPromQueries = append(definedPromQueries, promQuery)
+		}
+	}
+
+	switch result.Type() {
+	case model.ValMatrix:
+		matrixVals := result.(model.Matrix)
+		for _, matrix := range matrixVals {
+			meterGroup, _ := getMatrixValue(matrix.Metric, "meter_group")
+			meterKind, _ := getMatrixValue(matrix.Metric, "meter_kind")
+
+			// skip 0 data groups
+			if meterGroup == "" && meterKind == "" {
+				continue
+			}
+
+			var min, max time.Time
+			for i, v := range matrix.Values {
+				if i == 0 {
+					min = v.Timestamp.Time()
+					max = v.Timestamp.Time()
+				}
+
+				if v.Timestamp.Time().Before(min) {
+					min = v.Timestamp.Time()
+				}
+				if v.Timestamp.Time().After(max) {
+					max = v.Timestamp.Time()
+				}
+			}
+
+			max = max.Add(-time.Second)
+			promQuery := buildPromQuery(matrix.Metric, min, max)
+
+			logger.Info("getting query", "query", promQuery.String())
+			meterDefsChan <- promQuery
+		}
+	case model.ValString:
+	case model.ValVector:
+	case model.ValScalar:
+	case model.ValNone:
+	}
+
+	return
 }
 
 func (r *MarketplaceReporter) query(
 	ctx context.Context,
 	startTime, endTime time.Time,
-	inMeterDefs <-chan *marketplacev1alpha1.MeterDefinition,
+	inMeterDefs <-chan *meterDefPromQuery,
 	outPromModels chan<- meterDefPromModel,
 	done chan bool,
 	errorsch chan<- error,
 ) {
-	queryProcess := func(mdef *marketplacev1alpha1.MeterDefinition) {
-		for _, workload := range mdef.Spec.Workloads {
-			for _, metric := range workload.MetricLabels {
-				logger.Info("query", "metric", metric)
-				// TODO: use metadata to build a smart roll up
-				// Guage = delta
-				// Counter = increase
-				// Histogram and summary are unsupported
-				query := &PromQuery{
-					Metric: metric.Label,
-					Type:   workload.WorkloadType,
-					MeterDef: types.NamespacedName{
-						Name:      mdef.Name,
-						Namespace: mdef.Namespace,
-					},
-					Query:         metric.Query,
-					Time:          "60m",
-					Start:         startTime,
-					End:           endTime,
-					Step:          time.Hour,
-					AggregateFunc: metric.Aggregation,
-				}
-				logger.Info("output", "query", query.String())
+	queryProcess := func(mdef *meterDefPromQuery) {
+		// TODO: use metadata to build a smart roll up
+		// Guage = delta
+		// Counter = increase
+		// Histogram and summary are unsupported
+		query := mdef.query
+		var val model.Value
+		var warnings v1.Warnings
 
-				var val model.Value
-				var warnings v1.Warnings
+		err := utils.Retry(func() error {
+			var err error
+			val, warnings, err = r.queryRange(query)
 
-				err := utils.Retry(func() error {
-					var err error
-					val, warnings, err = r.queryRange(query)
-
-					if err != nil {
-						return errors.Wrap(err, "error with query")
-					}
-
-					return nil
-				}, *r.Retry)
-
-				if warnings != nil {
-					logger.Info("warnings %v", warnings)
-				}
-
-				if err != nil {
-					logger.Error(err, "error encountered")
-					errorsch <- err
-					return
-				}
-
-				outPromModels <- meterDefPromModel{mdef, val, metric.Label, query.Type, workload}
+			if err != nil {
+				return errors.Wrap(err, "error with query")
 			}
+
+			return nil
+		}, *r.Retry)
+
+		if warnings != nil {
+			logger.Info("warnings %v", warnings)
 		}
+
+		if err != nil {
+			logger.Error(err, "error encountered")
+			errorsch <- err
+			return
+		}
+
+		outPromModels <- meterDefPromModel{
+			mdef:       mdef,
+			Value:      val,
+			MetricName: query.Metric,
+			Type:       query.Type,
+		}
+
 	}
 
 	wgWait(ctx, "queryProcess", *r.MaxRoutines, done, func() {
@@ -257,15 +353,12 @@ func (r *MarketplaceReporter) process(
 	inPromModels <-chan meterDefPromModel,
 	results map[MetricKey]*MetricBase,
 	mutex sync.Locker,
-	report *marketplacev1alpha1.MeterReport,
 	done chan bool,
 	errorsch chan error,
 ) {
 	syncProcess := func(
 		pmodel meterDefPromModel,
 		name string,
-		mdef *marketplacev1alpha1.MeterDefinition,
-		report *marketplacev1alpha1.MeterReport,
 		m model.Value,
 	) {
 		//# do the work
@@ -274,37 +367,25 @@ func (r *MarketplaceReporter) process(
 			matrixVals := m.(model.Matrix)
 
 			for _, matrix := range matrixVals {
-				logger.Info("adding metric", "metric", matrix.Metric)
+				logger.V(4).Info("adding metric", "metric", matrix.Metric)
 
 				for _, pair := range matrix.Values {
 					func() {
-
-						labels := getKeysFromMetric(matrix.Metric, additionalLabels)
-						labelMatrix, err := kvToMap(labels)
-
-						if err != nil {
-							errorsch <- errors.Wrap(err, "failed adding additional labels")
-							return
-						}
+						labels := getAllKeysFromMetric(matrix.Metric)
 
 						var objName string
-						namespace := labelMatrix["namespace"].(string)
+
+						namespace, _ := getMatrixValue(matrix.Metric, "namespace")
 
 						switch pmodel.Type {
 						case v1alpha1.WorkloadTypePVC:
-							if pvc, ok := labelMatrix["persistentvolumeclaim"]; ok {
-								objName = pvc.(string)
-							}
+							objName, _ = getMatrixValue(matrix.Metric, "persistentvolumeclaim")
 						case v1alpha1.WorkloadTypePod:
-							if pod, ok := labelMatrix["pod"]; ok {
-								objName = pod.(string)
-							}
+							objName, _ = getMatrixValue(matrix.Metric, "pod")
 						case v1alpha1.WorkloadTypeServiceMonitor:
 							fallthrough
 						case v1alpha1.WorkloadTypeService:
-							if service, ok := labelMatrix["service"]; ok {
-								objName = service.(string)
-							}
+							objName, _ = getMatrixValue(matrix.Metric, "service")
 						}
 
 						if objName == "" {
@@ -313,15 +394,15 @@ func (r *MarketplaceReporter) process(
 						}
 
 						key := MetricKey{
-							ReportPeriodStart: report.Spec.StartTime.Format(time.RFC3339),
-							ReportPeriodEnd:   report.Spec.EndTime.Format(time.RFC3339),
+							ReportPeriodStart: r.report.Spec.StartTime.Format(time.RFC3339),
+							ReportPeriodEnd:   r.report.Spec.EndTime.Format(time.RFC3339),
 							IntervalStart:     pair.Timestamp.Time().Format(time.RFC3339),
 							IntervalEnd:       pair.Timestamp.Add(time.Hour).Time().Format(time.RFC3339),
-							MeterDomain:       mdef.Spec.Group,
-							MeterKind:         mdef.Spec.Kind,
+							MeterDomain:       pmodel.mdef.meterGroup,
+							MeterKind:         pmodel.mdef.meterKind,
 							Namespace:         namespace,
 							ResourceName:      objName,
-							Workload:          pmodel.Workload.Name,
+							Label:             pmodel.mdef.label,
 						}
 
 						key.Init(r.mktconfig.Spec.ClusterUUID)
@@ -337,10 +418,10 @@ func (r *MarketplaceReporter) process(
 							}
 						}
 
-						logger.Info("adding pair", "metric", matrix.Metric, "pair", pair)
+						logger.V(4).Info("adding pair", "metric", matrix.Metric, "pair", pair)
 						metricPairs := []interface{}{name, pair.Value.String()}
 
-						err = base.AddAdditionalLabels(labels...)
+						err := base.AddAdditionalLabels(labels...)
 
 						if err != nil {
 							errorsch <- errors.Wrap(err, "failed adding additional labels")
@@ -368,7 +449,7 @@ func (r *MarketplaceReporter) process(
 
 	wgWait(ctx, "syncProcess", *r.MaxRoutines, done, func() {
 		for pmodel := range inPromModels {
-			syncProcess(pmodel, pmodel.MetricName, pmodel.MeterDefinition, report, pmodel.Value)
+			syncProcess(pmodel, pmodel.MetricName, pmodel.Value)
 		}
 	})
 }
@@ -426,7 +507,7 @@ func (r *MarketplaceReporter) WriteReport(
 		metadata.UpdateMetricsReport(metricReport)
 
 		marshallBytes, err := json.Marshal(metricReport)
-		logger.Info(string(marshallBytes))
+		logger.V(4).Info(string(marshallBytes))
 		if err != nil {
 			logger.Error(err, "failed to marshal metrics report", "report", metricReport)
 			return nil, err
@@ -474,6 +555,64 @@ func getKeysFromMetric(metric model.Metric, labels []model.LabelName) []interfac
 		}
 	}
 	return allLabels
+}
+
+func getAllKeysFromMetric(metric model.Metric) []interface{} {
+	allLabels := make([]interface{}, 0, len(metric)*2)
+	for k, v := range metric {
+		allLabels = append(allLabels, string(k), string(v))
+	}
+	return allLabels
+}
+
+func getMatrixValue(m interface{}, labelName string) (string, bool) {
+	switch iMap := m.(type) {
+	case model.Metric:
+		if v, ok := iMap[model.LabelName(labelName)]; ok {
+			return string(v), true
+		}
+		return "", false
+	case map[string]string:
+
+		if v, ok := iMap[labelName]; ok {
+			return string(v), true
+		}
+		return "", false
+	default:
+		return "", false
+	}
+}
+
+func buildPromQuery(labels interface{}, start, end time.Time) *meterDefPromQuery {
+	meter_definition_uid, _ := getMatrixValue(labels, "meter_definition_uid")
+	metricLabel, _ := getMatrixValue(labels, "metric_label")
+	workloadType, _ := getMatrixValue(labels, "workload_type")
+	name, _ := getMatrixValue(labels, "name")
+	namespace, _ := getMatrixValue(labels, "namespace")
+	metricAggregation, _ := getMatrixValue(labels, "metric_aggregation")
+	metricQuery, _ := getMatrixValue(labels, "metric_query")
+	meterGroup, _ := getMatrixValue(labels, "meter_group")
+	meterKind, _ := getMatrixValue(labels, "meter_kind")
+
+	if metricAggregation == "" {
+		metricAggregation = "sum"
+	}
+
+	query := NewPromQuery(&PromQueryArgs{
+		Metric: metricLabel,
+		Type:   marketplacev1alpha1.WorkloadType(workloadType),
+		MeterDef: types.NamespacedName{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Query:         metricQuery,
+		Start:         start,
+		End:           end,
+		Step:          time.Hour,
+		AggregateFunc: metricAggregation,
+	})
+
+	return &meterDefPromQuery{uid: meter_definition_uid, query: query, meterGroup: meterGroup, meterKind: meterKind, label: metricLabel}
 }
 
 func wgWait(ctx context.Context, processName string, maxRoutines int, done chan bool, waitFunc func()) {

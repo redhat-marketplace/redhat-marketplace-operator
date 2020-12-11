@@ -181,7 +181,14 @@ func (m *MarketplaceClient) RegistrationStatus(account *MarketplaceClientAccount
 	logger.Info("status query", "query", u.String())
 	resp, err := m.httpClient.Get(u.String())
 
-	if err != nil || resp.StatusCode != 200 {
+	if err != nil {
+		return RegistrationStatusOutput{
+			RegistrationStatus: "HttpError",
+			Err:                err,
+			StatusCode:         http.StatusInternalServerError,
+		}, err
+	}
+	if resp.StatusCode != 200 {
 		return RegistrationStatusOutput{
 			RegistrationStatus: "HttpError",
 			Err:                err,

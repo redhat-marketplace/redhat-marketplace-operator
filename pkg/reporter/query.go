@@ -20,23 +20,46 @@ import (
 	"strings"
 	"time"
 
+	"text/template"
+
 	"emperror.dev/errors"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-type PromQuery struct {
+type PromQueryArgs struct {
 	Type          v1alpha1.WorkloadType
 	MeterDef      types.NamespacedName
 	Metric        string
 	Query         string
 	Start, End    time.Time
 	Step          time.Duration
-	Time          string
 	AggregateFunc string
-	AggregateBy   []string
+	GroupBy       []string
+	Without       []string
+}
+
+type PromQuery struct {
+	*PromQueryArgs
+}
+
+func NewPromQuery(
+	args *PromQueryArgs,
+) *PromQuery {
+	pq := &PromQuery{PromQueryArgs: args}
+	pq.defaulter()
+	return pq
+}
+
+const TypeNotSupportedErr = errors.Sentinel("type is not supported")
+
+func (q *PromQuery) typeNotSupportedError() error {
+	err := errors.WithDetails(TypeNotSupportedErr, "type", string(q.Type))
+	logger.Error(err, "type not supported", "type", string(q.Type))
+	return err
 }
 
 func (q *PromQuery) makeLeftSide() string {
@@ -51,55 +74,75 @@ func (q *PromQuery) makeLeftSide() string {
 	case v1alpha1.WorkloadTypeServiceMonitor:
 		return fmt.Sprintf(`avg(meterdef_service_info{meter_def_name="%v",meter_def_namespace="%v"}) without (pod_uid, instance, container, endpoint, job, pod)`, q.MeterDef.Name, q.MeterDef.Namespace)
 	default:
-		return "NOTSUPPORTED"
+		panic(q.typeNotSupportedError())
 	}
 }
 
-func (q *PromQuery) makeJoin() string {
+func (q *PromQuery) defaulter() {
+	q.defaultWithout()
+	q.defaultGroupBy()
+}
+
+func (q *PromQuery) defaultWithout() {
+	// we want to make sure
 	switch q.Type {
 	case v1alpha1.WorkloadTypePVC:
-		return "* on(persistentvolumeclaim,namespace) group_right"
+		q.Without = append(q.Without, "instance")
 	case v1alpha1.WorkloadTypePod:
-		return "* on(pod,namespace) group_right"
+		q.Without = append(q.Without, "pod_ip", "instance", "image_id", "host_ip", "node")
 	case v1alpha1.WorkloadTypeService:
 		fallthrough
 	case v1alpha1.WorkloadTypeServiceMonitor:
-		return "* on(service,namespace) group_right"
+		q.Without = append(q.Without, "instance", "cluster_ip")
 	default:
-		return "NOTSUPPORTED"
+		panic(q.typeNotSupportedError())
 	}
 }
 
-func (q *PromQuery) makeAggregateBy() string {
+func (q *PromQuery) defaultGroupBy() {
+	if len(q.GroupBy) != 0 {
+		return
+	}
+
 	switch q.Type {
 	case v1alpha1.WorkloadTypePVC:
-		return fmt.Sprintf(`%v by (persistentvolumeclaim,namespace)`, q.AggregateFunc)
+		q.GroupBy = []string{"persistentvolumeclaim", "namespace"}
 	case v1alpha1.WorkloadTypePod:
-		return fmt.Sprintf(`%v by (pod,namespace)`, q.AggregateFunc)
+		q.GroupBy = []string{"pod", "namespace"}
 	case v1alpha1.WorkloadTypeService:
 		fallthrough
 	case v1alpha1.WorkloadTypeServiceMonitor:
-		return fmt.Sprintf(`%v by (service,namespace)`, q.AggregateFunc)
+		q.GroupBy = []string{"service", "namespace"}
 	default:
-		return "NOTSUPPORTED"
+		panic(q.typeNotSupportedError())
 	}
 }
 
-func (q *PromQuery) String() string {
-	aggregate := q.makeAggregateBy()
-	leftSide := q.makeLeftSide()
-	join := q.makeJoin()
+const resultQueryTemplateStr = `
+{{- .AggregateFunc }} by ({{ .GroupBy }}) ({{ .LeftSide }} * on({{ .GroupBy }}) group_right {{ .Query }}) * on({{ .GroupBy }}) group_right group without({{ .Without }}) ({{ .Query }})`
 
-	var query string
-	if q.Query != "" {
-		query = q.Query
-	} else {
-		query = fmt.Sprintf("%s{}", q.Metric)
+var resultQueryTemplate *template.Template = utils.Must(func() (interface{}, error) {
+	return template.New("resultQuery").Parse(resultQueryTemplateStr)
+}).(*template.Template)
+
+type ResultQueryArgs struct {
+	AggregateFunc, GroupBy, LeftSide, Without, Query string
+}
+
+func (q *PromQuery) GetQueryArgs() ResultQueryArgs {
+	return ResultQueryArgs{
+		Query:         q.Query,
+		AggregateFunc: q.AggregateFunc,
+		GroupBy:       strings.Join(q.GroupBy, ","),
+		LeftSide:      q.makeLeftSide(),
+		Without:       strings.Join(q.Without, ","),
 	}
+}
 
-	return fmt.Sprintf(
-		`%v (%v %v %v)`, aggregate, leftSide, join, query,
-	)
+func (q *PromQuery) Print() (string, error) {
+	var buf strings.Builder
+	err := resultQueryTemplate.Execute(&buf, q.GetQueryArgs())
+	return buf.String(), err
 }
 
 func (r *MarketplaceReporter) queryRange(query *PromQuery) (model.Value, v1.Warnings, error) {
@@ -112,7 +155,15 @@ func (r *MarketplaceReporter) queryRange(query *PromQuery) (model.Value, v1.Warn
 		Step:  query.Step,
 	}
 
-	result, warnings, err := r.api.QueryRange(ctx, query.String(), timeRange)
+	q, err := query.Print()
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	logger.Info("executing query", "query", q)
+
+	result, warnings, err := r.api.QueryRange(ctx, q, timeRange)
 
 	if err != nil {
 		logger.Error(err, "querying prometheus", "warnings", warnings)
@@ -143,4 +194,55 @@ func toError(err error) error {
 	}
 
 	return err
+}
+
+type MeterDefinitionQuery struct {
+	Start, End time.Time
+	Step       time.Duration
+}
+
+// Returns a set of elements without duplicates
+// Ignore labels such that a pod restart, meterdefinition recreate, or other labels do not generate a new unique element
+// Use max over time to get the meter definition most prevalent for the hour
+const meterDefinitionQueryStr = `max_over_time(((meterdef_metric_label_info{} + ignoring(container, endpoint, instance, job, meter_definition_uid, pod, service) meterdef_metric_label_info{}) or on() vector(0))[{{ .Step }}:{{ .Step }}])`
+
+var meterDefinitionQueryTemplate *template.Template = utils.Must(func() (interface{}, error) {
+	return template.New("meterDefinitionQuery").Parse(meterDefinitionQueryStr)
+}).(*template.Template)
+
+func (q *MeterDefinitionQuery) Print() (string, error) {
+	var buf strings.Builder
+	err := meterDefinitionQueryTemplate.Execute(&buf, q)
+	return buf.String(), err
+}
+
+func (r *MarketplaceReporter) queryMeterDefinitions(query *MeterDefinitionQuery) (model.Value, v1.Warnings, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	timeRange := v1.Range{
+		Start: query.Start,
+		End:   query.End,
+		Step:  query.Step,
+	}
+
+	q, err := query.Print()
+
+	if err != nil {
+		logger.Error(err, "error with query")
+		return nil, nil, err
+	}
+
+	logger.Info("executing query", "query", q)
+	result, warnings, err := r.api.QueryRange(ctx, q, timeRange)
+
+	if err != nil {
+		logger.Error(err, "querying prometheus", "warnings", warnings)
+		return nil, warnings, toError(err)
+	}
+	if len(warnings) > 0 {
+		logger.Info("warnings", "warnings", warnings)
+	}
+
+	return result, warnings, nil
 }

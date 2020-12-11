@@ -19,9 +19,11 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/gotidy/ptr"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	"github.com/operator-framework/operator-sdk/pkg/status"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/marketplace"
@@ -185,7 +187,22 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		marketplaceConfig.Spec.EnableMetering = nil
 	}
 
-	newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName)
+	//Initialize enabled features if not set
+	if marketplaceConfig.Spec.Features == nil {
+		marketplaceConfig.Spec.Features = &common.Features{
+			Deployment:   ptr.Bool(true),
+			Registration: ptr.Bool(true),
+		}
+	} else {
+		if marketplaceConfig.Spec.Features.Deployment == nil {
+			marketplaceConfig.Spec.Features.Deployment = ptr.Bool(true)
+		}
+		if marketplaceConfig.Spec.Features.Registration == nil {
+			marketplaceConfig.Spec.Features.Registration = ptr.Bool(true)
+		}
+	}
+
+	newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
 	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
 	// Add finalizer and execute it if the resource is deleted
 	if result, _ := cc.Do(
@@ -260,7 +277,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	foundRazee = &marketplacev1alpha1.RazeeDeployment{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: marketplaceConfig.Namespace}, foundRazee)
 	if err != nil && errors.IsNotFound(err) {
-		newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName)
+		newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
 
 		// Sets the owner for foundRazee
 		if err = controllerutil.SetControllerReference(marketplaceConfig, newRazeeCrd, r.scheme); err != nil {
@@ -301,6 +318,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	updatedRazee := foundRazee.DeepCopy()
 	updatedRazee.Spec.ClusterUUID = marketplaceConfig.Spec.ClusterUUID
 	updatedRazee.Spec.DeploySecretName = marketplaceConfig.Spec.DeploySecretName
+	updatedRazee.Spec.Features = marketplaceConfig.Spec.Features.DeepCopy()
 
 	if !reflect.DeepEqual(foundRazee, updatedRazee) {
 		reqLogger.Info("updating razee cr")

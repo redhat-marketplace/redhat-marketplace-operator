@@ -14,14 +14,11 @@ require (
 	github.com/cespare/xxhash v1.1.0
 	github.com/coreos/prometheus-operator v0.40.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
-	github.com/evanphx/json-patch v4.9.0+incompatible
 	github.com/fatih/structtag v1.2.0 // indirect
-	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
-	github.com/go-bindata/go-bindata v3.1.2+incompatible
+	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32 // indirect
 	github.com/go-logr/logr v0.1.0
 	github.com/golang/mock v1.4.3
 	github.com/golangci/golangci-lint v1.27.0
-	github.com/google/addlicense v0.0.0-20200906110928-a0294312aa76 // indirect
 	github.com/google/go-cmp v0.5.1 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0
@@ -31,6 +28,7 @@ require (
 	github.com/hashicorp/consul/api v1.4.0
 	github.com/imdario/mergo v0.3.9
 	github.com/jpillora/backoff v1.0.0
+	github.com/kevinburke/go-bindata v3.22.0+incompatible
 	github.com/launchdarkly/go-options v1.0.0
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
@@ -38,9 +36,8 @@ require (
 	github.com/mikefarah/yq/v3 v3.0.0-20200415014842-6f0a329331f9
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.3.2
-	github.com/ogier/pflag v0.0.1 // indirect
 	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852
-	github.com/onsi/ginkgo v1.13.0
+	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.1
 	github.com/openshift/api v0.0.0-20200205133042-34f0ec8dab87
 	github.com/openshift/origin v0.0.0-20160503220234-8f127d736703
@@ -62,10 +59,11 @@ require (
 	github.com/spf13/viper v1.6.2
 	github.com/stretchr/testify v1.5.1
 	github.com/tcnksm/ghr v0.13.0
-	github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad // indirect
-	golang.org/x/net v0.0.0-20200822124328-c89045814202
-	golang.org/x/sys v0.0.0-20200814200057-3d37ad5750ed // indirect
+	golang.org/x/lint v0.0.0-20201208152925-83fdc39ff7b5 // indirect
+	golang.org/x/mod v0.4.0 // indirect
+	golang.org/x/net v0.0.0-20201021035429-f5854403a974
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
+	golang.org/x/tools v0.0.0-20201208211828-de58e7c01d49 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
 	honnef.co/go/tools v0.0.1-2020.1.6 // indirect
@@ -79,7 +77,6 @@ require (
 	k8s.io/kubectl v0.18.2
 	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451
 	sigs.k8s.io/controller-runtime v0.6.3
-	sigs.k8s.io/kind v0.9.0 // indirect
 	sigs.k8s.io/yaml v1.2.0
 )
 

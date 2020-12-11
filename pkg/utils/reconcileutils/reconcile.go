@@ -94,6 +94,10 @@ func (i *do) Bind(result *ExecResult) {
 func (i *do) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 	logger := c.log.WithValues("file", i.codelocation, "action", "Do")
 
+	if len(i.Actions) == 0 {
+		return NewExecResult(Continue, reconcile.Result{}, nil), nil
+	}
+
 	var err error
 	result := i.lastResult
 	for _, action := range i.Actions {
@@ -120,7 +124,9 @@ func (i *do) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 		}
 	}
 
-	logger.V(4).Info("action returned result", "result", *result)
+	if result != nil {
+		logger.V(4).Info("action returned result", "result", *result)
+	}
 	return result, nil
 }
 

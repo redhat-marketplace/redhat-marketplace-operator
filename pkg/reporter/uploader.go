@@ -42,23 +42,36 @@ import (
 	"k8s.io/client-go/util/jsonpath"
 )
 
-type UploaderTarget string
+type UploaderTarget interface {
+	Name() string
+}
 
 var (
-	UploaderTargetRedHatInsights UploaderTarget = "redhat-insights"
-	UploaderTargetNoOp           UploaderTarget = "noop"
+	UploaderTargetRedHatInsights UploaderTarget = &RedHatInsightsUploader{}
+	UploaderTargetNoOp           UploaderTarget = &NoOpUploader{}
+	UploaderTargetLocalPath      UploaderTarget = &LocalFilePathUploader{}
 )
 
-func (u UploaderTarget) String() string {
-	return string(u)
+func (u *RedHatInsightsUploader) Name() string {
+	return "redhat-insights"
+}
+
+func (u *NoOpUploader) Name() string {
+	return "noop"
+}
+
+func (u *LocalFilePathUploader) Name() string {
+	return "local-path"
 }
 
 func MustParseUploaderTarget(s string) UploaderTarget {
 	switch s {
-	case string(UploaderTargetRedHatInsights):
-		fallthrough
-	case string(UploaderTargetNoOp):
-		return UploaderTarget(s)
+	case UploaderTargetRedHatInsights.Name():
+		return UploaderTargetRedHatInsights
+	case UploaderTargetLocalPath.Name():
+		return UploaderTargetLocalPath
+	case UploaderTargetNoOp.Name():
+		return UploaderTargetNoOp
 	default:
 		panic(errors.Errorf("provided string is not a valid upload target %s", s))
 	}
@@ -225,6 +238,40 @@ func (r *NoOpUploader) UploadFile(path string) error {
 	return nil
 }
 
+type LocalFilePathUploader struct {
+	LocalFilePath string
+}
+
+func (r *LocalFilePathUploader) UploadFile(path string) error {
+	if _, err := os.Stat(r.LocalFilePath); err != nil {
+		return err
+	}
+
+	if r.LocalFilePath == "" {
+		r.LocalFilePath = "."
+	}
+
+	log := logger.WithValues("uploader", "localFilePath")
+
+	baseName := filepath.Base(path)
+	fileName := filepath.Join(r.LocalFilePath, baseName)
+
+	input, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Error(err, "Error opening input", "name", path)
+		return err
+	}
+
+	log.Info("creating file", "name", fileName)
+	err = ioutil.WriteFile(fileName, input, 0644)
+	if err != nil {
+		log.Error(err, "Error creating", "name", fileName)
+		return err
+	}
+
+	return nil
+}
+
 func ProvideUploader(
 	ctx context.Context,
 	cc ClientCommandRunner,
@@ -232,8 +279,8 @@ func ProvideUploader(
 	isCacheStarted managers.CacheIsStarted,
 	uploaderTarget UploaderTarget,
 ) (Uploader, error) {
-	switch uploaderTarget {
-	case UploaderTargetRedHatInsights:
+	switch uploaderTarget.(type) {
+	case *RedHatInsightsUploader:
 		config, err := provideProductionInsightsConfig(ctx, cc, log)
 
 		if err != nil {
@@ -241,11 +288,13 @@ func ProvideUploader(
 		}
 
 		return NewRedHatInsightsUploader(config)
-	case UploaderTargetNoOp:
-		return &NoOpUploader{}, nil
+	case *NoOpUploader:
+		return uploaderTarget.(Uploader), nil
+	case *LocalFilePathUploader:
+		return uploaderTarget.(Uploader), nil
 	}
 
-	return nil, errors.Errorf("uploader target not available %s", string(uploaderTarget))
+	return nil, errors.Errorf("uploader target not available %s", uploaderTarget.Name())
 }
 
 func provideProductionInsightsConfig(
