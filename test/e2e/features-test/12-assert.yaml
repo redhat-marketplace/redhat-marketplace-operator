@@ -41,41 +41,42 @@ status:
       status: "True"
       type: RegistrationEnabled
 ---
-apiVersion: monitoring.coreos.com/v1
-kind: Prometheus
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: RazeeDeployment
 metadata:
-  name: rhm-marketplaceconfig-meterbase
+  finalizers:
+  - razeedeploy.finalizer.marketplace.redhat.com
+  name: rhm-marketplaceconfig-razeedeployment
+  ownerReferences:
+  - apiVersion: marketplace.redhat.com/v1alpha1
+    controller: true
+    kind: MarketplaceConfig
+    name: marketplaceconfig
 spec:
-  enableAdminAPI: true
-  image: registry.redhat.io/openshift4/ose-prometheus:v4.5
-  listenLocal: true
-  nodeSelector:
-    kubernetes.io/os: linux
-  priorityClassName: system-cluster-critical
-  replicas: 2
-  resources:
-    requests:
-      cpu: 70m
-      memory: 1Gi
-  retention: 30d
-  retentionSize: 18GB
-  serviceAccountName: redhat-marketplace-prometheus
-  serviceMonitorNamespaceSelector:
-    matchExpressions:
-      - key: openshift.io/cluster-monitoring
-        operator: DoesNotExist
-  serviceMonitorSelector:
-    matchLabels:
-      marketplace.redhat.com/metering: 'true'
-  storage:
-    volumeClaimTemplate:
-      spec:
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 20Gi
-
+  enabled: true
+  features:
+    deployment: true
+    registration: true
+  legacyUninstallHasRun: true
+status:
+  installConditions:
+    - message: Razee install complete
+      reason: FinishedRazeeInstall
+      status: "True"
+      type: Complete
+    - message: RemoteResourceS3 deployment enabled
+      reason: EnabledRemoteResourceS3DeploymentInstall
+      status: "True"
+      type: DeploymentEnabled
+    - message: Razee install complete
+      reason: FinishedRazeeInstall
+      status: "False"
+      type: Installing
+    - message: Registration deployment enabled
+      reason: EnabledRegistrationWatchkeeperInstall
+      status: "True"
+      type: RegistrationEnabled
+  nodesFromRazeeDeploymentsCount: 2
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -117,7 +118,7 @@ apiVersion: marketplace.redhat.com/v1alpha1
 kind: RemoteResourceS3
 metadata:
   finalizers:
-    - children.downloads.deploy.razee.io
+  - children.downloads.deploy.razee.io
   name: parent
 spec:
   auth:

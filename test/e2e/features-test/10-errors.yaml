@@ -1,0 +1,14 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rhm-remoteresources3-controller
+---
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: RemoteResourceS3
+metadata:
+  name: parent
+---
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: RemoteResourceS3
+metadata:
+  name: child

@@ -305,6 +305,12 @@ func (f *Factory) NewPrometheusDeployment(
 		storageClass = cr.Spec.Prometheus.Storage.Class
 	}
 
+	quanBytes := cr.Spec.Prometheus.Storage.Size.DeepCopy()
+	quanBytes.Sub(resource.MustParse("2Gi"))
+	replacer := strings.NewReplacer("Mi", "MB", "Gi", "GB", "Ti", "TB")
+	storageSize := replacer.Replace(quanBytes.String())
+	p.Spec.RetentionSize = storageSize
+
 	pvc, err := utils.NewPersistentVolumeClaim(utils.PersistentVolume{
 		ObjectMeta: &metav1.ObjectMeta{
 			Name: "storage-volume",
@@ -430,6 +436,8 @@ func (f *Factory) ReporterJob(report *marketplacev1alpha1.MeterReport) (*batchv1
 		container.Args = append(container.Args, report.Spec.ExtraArgs...)
 	}
 
+	// Keep last 3 days of data
+	j.Spec.TTLSecondsAfterFinished = ptr.Int32(86400 * 3)
 	j.Spec.Template.Spec.Containers[0] = container
 
 	return j, nil
