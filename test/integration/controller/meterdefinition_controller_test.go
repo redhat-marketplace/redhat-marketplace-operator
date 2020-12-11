@@ -111,18 +111,6 @@ var _ = Describe("MeterDefController reconcile", func() {
 	})
 })
 
-func runAssertionOnConditions(status v1alpha1.MeterDefinitionStatus, errorMsg string) (assertion bool) {
-	for _, condition := range status.Conditions {
-		if condition.Message == errorMsg {
-			assertion = true
-			return assertion
-		}
-	}
-
-	assertion = false
-	return assertion
-}
-
 func runAssertionOnMeterDef(meterdef *v1alpha1.MeterDefinition) (assertion bool) {
 	if meterdef.Status.Results != nil {
 		if meterdef.Status.Results[0].Value > 0 {
