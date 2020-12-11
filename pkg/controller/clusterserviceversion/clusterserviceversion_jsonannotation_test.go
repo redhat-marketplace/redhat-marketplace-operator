@@ -116,9 +116,9 @@ var _ = Describe("JsonMeterDefValidation", func() {
 					  }]
 					}
 				  }`
-			ann             = map[string]string{utils.CSV_METERDEFINITION_ANNOTATION: meterDefJson}
-			list            *marketplacev1alpha1.MeterDefinitionList
-			meterDefinition *marketplacev1alpha1.MeterDefinition
+			ann             	= map[string]string{utils.CSV_METERDEFINITION_ANNOTATION: meterDefJson}
+			list            	*marketplacev1alpha1.MeterDefinitionList
+			meterDefinition 	*marketplacev1alpha1.MeterDefinition
 
 			//meterDefinitionNew   *marketplacev1alpha1.MeterDefinition
 			gvk *schema.GroupVersionKind

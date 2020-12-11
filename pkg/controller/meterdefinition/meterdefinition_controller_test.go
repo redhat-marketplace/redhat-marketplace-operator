@@ -32,7 +32,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 		testNoServiceMonitors(GinkgoT())
 	})
-
 })
 
 var (
@@ -54,8 +53,8 @@ var (
 			Namespace: namespace,
 		},
 		Spec: marketplacev1alpha1.MeterDefinitionSpec{
-			Group: "apps.partner.metering.com",
-			Kind:  "App",
+			Group:   "apps.partner.metering.com",
+			Kind:    "App",
 		},
 	}
 )

@@ -18,12 +18,12 @@ var _ = Describe("checkpath", func() {
 				"wheels": true,
 				"count":  4,
 				"parts":  []string{"a", "b", "c"},
-				"nestedArray": []map[string]interface{}{
+				"nestedArray" :[]map[string]interface{}{
 					{
-						"count": 4,
+						"count":  4,
 					},
 					{
-						"count": 2,
+						"count":  2,
 					},
 				},
 			},
@@ -38,12 +38,12 @@ var _ = Describe("checkpath", func() {
 				"wheels": true,
 				"count":  4,
 				"parts":  []string{"a", "b", "c"},
-				"nestedArray": []map[string]interface{}{
+				"nestedArray" :[]map[string]interface{}{
 					{
-						"count": 3,
+						"count":  3,
 					},
 					{
-						"count": 2,
+						"count":  2,
 					},
 				},
 			},
@@ -62,7 +62,7 @@ var _ = Describe("checkpath", func() {
 	It("find one thing wrong", func() {
 		updates := &CheckUpdatePath{
 			Root: "$.foo",
-			Update: func() {
+			Update: func(){
 				obj2["foo"] = obj1["foo"]
 			},
 		}
@@ -93,7 +93,7 @@ var _ = Describe("checkpath", func() {
 					Root: "$.count",
 				},
 			},
-			Update: func() {
+			Update: func(){
 				obj1["car"].(map[string]interface{})["nestedArray"] = obj2["car"].(map[string]interface{})["nestedArray"]
 			},
 		}
