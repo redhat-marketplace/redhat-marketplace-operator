@@ -9,4 +9,3 @@ spec:
   clusterUUID: example-clusterUUID
   deploySecretName: rhm-operator-secret
   installIBMCatalogSource: false
- 
