@@ -244,7 +244,7 @@ type MeterLabelQuery struct {
 // +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 type Result struct {
 	MetricName string `json:"metricName,omitempty"`
-	QueryName    string `json:"queryName,omitempty"`
+	Query    string `json:"query,omitempty"`
 	StartTime    string `json:"startTime,omitempty"`
 	EndTime      string `json:"endTime,omitempty"`
 	Value        int32  `json:"value,omitempty"`
