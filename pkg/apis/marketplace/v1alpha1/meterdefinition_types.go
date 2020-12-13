@@ -30,13 +30,15 @@ const (
 	MeterDefConditionTypeHasResult           status.ConditionType   = "FoundMatches"
 	MeterDefConditionReasonNoResultsInStatus status.ConditionReason = "No results in status"
 	MeterDefConditionReasonResultsInStatus   status.ConditionReason = "Results in status"
-	PrometheusReconcileError                 status.ConditionType   = "Prometheus Reconcile Error"
-	GetCertConfigMapReconcileError           status.ConditionType   = "Cert Config Map Reconcile Error"
-	AuthTokenReconcileError                  status.ConditionType   = "Auth Token Reconcile Error"
-	ProvidePrometheusClientError             status.ConditionType   = "Prometheus Client Error"
-	ParseCertFromConfigMapError              status.ConditionType   = "Cert Config Map Data Error"
-	NewPromAPIError                          status.ConditionType   = "New Prometheus API Error"
-	QueryPreviewGenerationError              status.ConditionType   = "Query Preview Generation Error"
+
+	MeterDefConditionTypeReconcileError 	 status.ConditionType   = "MeterDefReconcileError"
+	PrometheusReconcileError                 status.ConditionReason   = "Prometheus Reconcile Error"
+	GetCertConfigMapReconcileError           status.ConditionReason   = "Cert Config Map Reconcile Error"
+	ProvideAuthTokenReconcileError                  status.ConditionReason   = "Auth Token Reconcile Error"
+	ProvidePrometheusClientError             status.ConditionReason   = "Prometheus Client Error"
+	ParseCertFromConfigMapError              status.ConditionReason   = "Cert Config Map Data Error"
+	NewPromAPIError                          status.ConditionReason   = "New Prometheus API Error"
+	QueryPreviewGenerationError              status.ConditionReason   = "Query Preview Generation Error"
 )
 
 var (
@@ -243,8 +245,11 @@ type MeterLabelQuery struct {
 // +k8s:openapi-gen=true
 // +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 type Result struct {
+	// MetricName is the identifier that you will use to identify your query
 	MetricName string `json:"metricName,omitempty"`
-	QueryName    string `json:"queryName,omitempty"`
+
+	// Query is the compiled query that is given to Prometheus
+	Query    string `json:"query,omitempty"`
 	StartTime    string `json:"startTime,omitempty"`
 	EndTime      string `json:"endTime,omitempty"`
 	Value        int32  `json:"value,omitempty"`

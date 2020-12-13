@@ -151,7 +151,7 @@ type RemoteResourceS3Spec struct {
 // +kubebuilder:pruning:PreserveUnknownFields
 type RemoteResourceS3Status struct {
 	// Touched is if the status has been touched
-	Touched *bool `json:"touched,omitempty"`
+	Touched   *bool     `json:"touched,omitempty"`
 	// RazeeLogs is the logs from the controller
 	RazeeLogs RazeeLogs `json:"razee-logs,omitempty"`
 }

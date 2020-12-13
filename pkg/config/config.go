@@ -16,6 +16,7 @@ package config
 
 import (
 	"sync"
+	"time"
 
 	"github.com/caarlos0/env/v6"
 )
@@ -58,7 +59,7 @@ type Marketplace struct {
 }
 
 type ControllerReconcileSettings struct {
-	MeterDefControllerRequeueRate string `env:"METER_DEF_CONTROLLER_REQUEUE_RATE" envDefault:"3600"`
+	MeterDefControllerRequeueRate time.Duration `env:"METER_DEF_CONTROLLER_REQUEUE_RATE" envDefault:"3600s"`
 }
 
 func reset() {

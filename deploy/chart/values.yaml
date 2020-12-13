@@ -34,8 +34,8 @@ env:
     value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
   - name: IBMCATALOGSOURCE
     value: 'true'
-  # - name: METER_DEF_CONTROLLER_REQUEUE_RATE
-  #   value: "3600"
+  - name: METER_DEF_CONTROLLER_REQUEUE_RATE
+    value: "3600s"
 roles:
   - name: redhat-marketplace-operator
     serviceAccountName: redhat-marketplace-operator

@@ -32,6 +32,7 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/version"
 	corev1 "k8s.io/api/core/v1"
@@ -187,7 +188,7 @@ type meterDefPromModel struct {
 
 type meterDefPromQuery struct {
 	uid        string
-	query      *PromQuery
+	query      *prometheus.PromQuery
 	meterGroup string
 	meterKind  string
 	label      string
@@ -211,7 +212,7 @@ func (r *MarketplaceReporter) retrieveMeterDefinitions(
 	}()
 
 	err = utils.Retry(func() error {
-		query := &MeterDefinitionQuery{
+		query := &prometheus.MeterDefinitionQuery{
 			Start: r.report.Spec.StartTime.Time,
 			End:   r.report.Spec.EndTime.Time,
 			Step:  time.Hour,
@@ -220,7 +221,7 @@ func (r *MarketplaceReporter) retrieveMeterDefinitions(
 		q, _ := query.Print()
 		logger.Info("output", "query", q)
 
-		result, warnings, err = r.queryMeterDefinitions(query)
+		result, warnings, err = prometheus.QueryMeterDefinitions(query,r.api)
 
 		if err != nil {
 			logger.Error(err, "querying prometheus", "warnings", warnings)
@@ -313,7 +314,7 @@ func (r *MarketplaceReporter) query(
 
 		err := utils.Retry(func() error {
 			var err error
-			val, warnings, err = r.queryRange(query)
+			val, warnings, err = prometheus.ReportQuery(query,r.api)
 
 			if err != nil {
 				return errors.Wrap(err, "error with query")
@@ -598,7 +599,7 @@ func buildPromQuery(labels interface{}, start, end time.Time) *meterDefPromQuery
 		metricAggregation = "sum"
 	}
 
-	query := NewPromQuery(&PromQueryArgs{
+	query := prometheus.NewPromQuery(&prometheus.PromQueryArgs{
 		Metric: metricLabel,
 		Type:   marketplacev1alpha1.WorkloadType(workloadType),
 		MeterDef: types.NamespacedName{

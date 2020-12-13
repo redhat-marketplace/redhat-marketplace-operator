@@ -345,15 +345,18 @@ spec:
                 properties:
                   endTime:
                     type: string
-                  queryName:
+                  metricName:
+                    description: MetricName is the identifier that you will use to
+                      identify your query
+                    type: string
+                  query:
+                    description: Query is the compiled query that is given to Prometheus
                     type: string
                   startTime:
                     type: string
                   value:
                     format: int32
                     type: integer
-                  workloadName:
-                    type: string
                 type: object
               type: array
             workloadResource:
