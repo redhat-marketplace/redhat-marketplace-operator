@@ -331,8 +331,17 @@ func parseCertificateFromConfigMap(certConfigMap corev1.ConfigMap) (cert []byte,
 	return cert, nil
 }
 
+
+func returnQueryRange()(startTime time.Time, endTime time.Time){
+	baseTime := time.Now().Truncate(time.Minute)
+	end := baseTime
+	start := end.Add(-time.Hour)
+	return start,end
+}
+
 func generateQueryPreview(instance *v1alpha1.MeterDefinition, prometheusAPI *PrometheusAPI, reqLogger logr.Logger) (queryPreviewResultArray []v1alpha1.Result, returnErr error) {
-	loc, _ := time.LoadLocation("UTC")
+
+	startTime, endTime := returnQueryRange()
 	var queryPreviewResult *v1alpha1.Result
 
 	for _, workload := range instance.Spec.Workloads {
@@ -351,8 +360,8 @@ func generateQueryPreview(instance *v1alpha1.MeterDefinition, prometheusAPI *Pro
 				},
 				Query:         metric.Query,
 				Time:          "60m",
-				Start:         time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour()-1, time.Now().Minute(), 0, 0, loc),
-				End:           time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute(), 0, 0, loc),
+				Start:         startTime,
+				End:           endTime,
 				Step:          time.Hour,
 				AggregateFunc: metric.Aggregation,
 			})
