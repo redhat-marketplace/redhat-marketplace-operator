@@ -164,7 +164,7 @@ func updateOperatorDeploymentRequeueRate() bool {
 
 	patch := client.MergeFrom(rhmDeployment.DeepCopy())
 
-	rhmContainer.Env[envIndex].Value = "25s"
+	rhmContainer.Env[envIndex].Value = "30s"
 	assertion = Expect(testHarness.Patch(context.TODO(), rhmDeployment, patch)).Should(Succeed())
 
 	// assertion = Expect(testHarness.Update(context.TODO(), rhmDeployment)).Should(Succeed(), "update deployment")
