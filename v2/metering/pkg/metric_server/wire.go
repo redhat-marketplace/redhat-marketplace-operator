@@ -17,15 +17,14 @@
 package metric_server
 
 import (
-	monitoringv1client "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
 	"github.com/go-logr/logr"
 	"github.com/google/wire"
+	monitoringv1client "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
+	marketplacev1alpha1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/metering/pkg/meter_definition"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/controller"
-	marketplacev1alpha1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/metering/pkg/meter_definition"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 )
 
@@ -34,8 +33,8 @@ func NewServer(
 ) (*Service, error) {
 	panic(wire.Build(
 		managers.ProvideCachedClientSet,
+		provideScheme,
 		getClientOptions,
-		controller.SchemeDefinitions,
 		reconcileutils.CommandRunnerProviderSet,
 		ConvertOptions,
 		wire.Struct(new(Service), "*"),

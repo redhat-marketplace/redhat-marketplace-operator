@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controllers
+package marketplace
 
 import (
 	"context"
@@ -32,6 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -156,7 +157,7 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 								return factory.ReporterJob(instance)
 							}, CreateWithAddOwner(instance),
 						),
-						OnRequeue(UpdateStatusCondition(instance, instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobSubmitted)),
+						OnRequeue(UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobSubmitted)),
 					), nil
 				}),
 			),
@@ -229,7 +230,7 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 			HandleResult(
 				GetAction(types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job),
 				OnContinue(DeleteAction(job, DeleteWithDeleteOptions(client.PropagationPolicy(metav1.DeletePropagationBackground))))),
-			UpdateStatusCondition(instance, instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobFinished),
+			UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobFinished),
 		)
 	}
 

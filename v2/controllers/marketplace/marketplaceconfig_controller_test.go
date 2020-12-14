@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controllers
+package marketplace
 
 import (
 	"github.com/gotidy/ptr"
@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	opsrcApi "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
@@ -50,8 +51,13 @@ var _ = Describe("Testing with Ginkgo", func() {
 		opts = []StepOption{
 			WithRequest(req),
 		}
+
+		features = &common.Features{
+			Deployment: ptr.Bool(true),
+		}
+
 		marketplaceconfig = utils.BuildMarketplaceConfigCR(namespace, customerID)
-		razeedeployment   = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName)
+		razeedeployment   = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
 		meterbase         = utils.BuildMeterBaseCr(namespace)
 	)
 

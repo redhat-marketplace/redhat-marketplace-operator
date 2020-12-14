@@ -15,8 +15,8 @@
 package v1alpha1
 
 import (
-	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

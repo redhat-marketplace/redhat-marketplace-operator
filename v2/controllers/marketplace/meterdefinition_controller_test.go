@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controllers
+package marketplace
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -59,7 +59,11 @@ var _ = Describe("MeterDefinitionController", func() {
 		s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterdefinition)
 
 		r.Client = fake.NewFakeClient(r.GetGetObjects()...)
-		r.Reconciler = &MeterDefinitionReconciler{Client: r.Client, Scheme: s, ccprovider: &reconcileutils.DefaultCommandRunnerProvider{}}
+		r.Reconciler = &MeterDefinitionReconciler{
+			Client:     r.Client,
+			Scheme:     s,
+			ccprovider: &reconcileutils.DefaultCommandRunnerProvider{},
+		}
 		return nil
 	}
 

@@ -21,6 +21,7 @@ import (
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/spf13/cobra"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -38,7 +39,7 @@ var (
 )
 
 func init() {
-	logf.SetLogger(zap.Logger())
+	logf.SetLogger(zap.New(zap.UseDevMode(true)))
 	rootCmd.Flags().StringVar(&group, "group", "", "kube group to list")
 	rootCmd.Flags().StringVar(&kind, "kind", "Pod", "kube kind to list")
 	rootCmd.Flags().StringVar(&version, "version", "v1", "kube version to list")

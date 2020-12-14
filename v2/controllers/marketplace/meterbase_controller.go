@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controllers
+package marketplace
 
 import (
 	"context"
@@ -914,10 +914,7 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 	}
 }
 
-<<<<<<< HEAD:v2/controllers/marketplace/meterbase_controller.go
-func (r *MeterBaseReconciler) uninstallMetricState(
-=======
-func (r *ReconcileMeterBase) recyclePrometheusPods(
+func (r *MeterBaseReconciler) recyclePrometheusPods(
 	log logr.Logger,
 	instance *marketplacev1alpha1.MeterBase,
 	factory *manifests.Factory,
@@ -959,7 +956,7 @@ func (r *ReconcileMeterBase) recyclePrometheusPods(
 	}
 }
 
-func (r *ReconcileMeterBase) verifyPVCSize(
+func (r *MeterBaseReconciler) verifyPVCSize(
 	log logr.Logger,
 	instance *marketplacev1alpha1.MeterBase,
 	factory *manifests.Factory,
@@ -1039,8 +1036,7 @@ func (r *ReconcileMeterBase) verifyPVCSize(
 	}
 }
 
-func (r *ReconcileMeterBase) uninstallMetricState(
->>>>>>> develop:pkg/controller/meterbase/meterbase_controller.go
+func (r *MeterBaseReconciler) uninstallMetricState(
 	instance *marketplacev1alpha1.MeterBase,
 	factory *manifests.Factory,
 ) []ClientAction {

@@ -14,7 +14,6 @@
 
 package utils
 
-
 func Must(in func() (interface{}, error)) interface{} {
 	i, err := in()
 

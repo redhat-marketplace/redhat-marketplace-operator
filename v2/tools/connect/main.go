@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/redhat-marketplace/redhat-marketplace-operator/tooling/connect"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/tools/connect"
 	"github.com/spf13/cobra"
 )
 

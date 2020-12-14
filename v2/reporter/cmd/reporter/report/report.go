@@ -7,7 +7,7 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/gotidy/ptr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/reporter"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/reporter/pkg/reporter"
 	"github.com/spf13/cobra"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )

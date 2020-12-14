@@ -121,6 +121,18 @@ spec:
                 work. Setting enabled to true will create a Razee namespace and deploy
                 it's componenets. Set to false to bypass Razee installation
               type: boolean
+            features:
+              description: The features that can be enabled or disabled
+              properties:
+                deployment:
+                  description: Deployment represents the enablement of the razee deployment,
+                    defaults to true when not set
+                  type: boolean
+                registration:
+                  description: Deployment represents the enablement of the registration
+                    watchkeeper deployment, defaults to true when not set
+                  type: boolean
+              type: object
             legacyUninstallHasRun:
               description: Flag used by the RazeeDeployment Controller to decide whether
                 to run legacy uninstall job Used internally by the Operator

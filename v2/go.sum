@@ -1077,6 +1077,9 @@ github.com/openzipkin/zipkin-go v0.2.1/go.mod h1:NaW6tEwdmWMaCDZzg8sh+IBNOxHMPnh
 github.com/openzipkin/zipkin-go v0.2.2/go.mod h1:NaW6tEwdmWMaCDZzg8sh+IBNOxHMPnhQw8ySjnjRyN4=
 github.com/operator-framework/api v0.3.25 h1:d6WgHCshCffT37okVZeL+IbGlhrsHy57xdfMnopC8rI=
 github.com/operator-framework/api v0.3.25/go.mod h1:GVNiB6AQucwdZz3ZFXNv9HtcLOzcFnr6O/QldzKG93g=
+github.com/operator-framework/operator-marketplace v0.0.0-20201206020501-ca70ae8f43b9 h1:j1A8rIooAuRQTMweYAg8oB+Kk2OfjvTyQie0bEnmDHc=
+github.com/operator-framework/operator-marketplace v0.0.0-20201206020501-ca70ae8f43b9/go.mod h1:msZSL8pXwzQjB+hU+awVrZQw94IwJi3sNZVD3NoESIs=
+github.com/operator-framework/operator-sdk v1.2.0 h1:Ql/UXtQQz21juAwsWV5lctcFwsNI90GKdf1/saJZWj0=
 github.com/pact-foundation/pact-go v1.0.4/go.mod h1:uExwJY4kCzNPcHRj+hCR/HBbOOIwwtUjcrb0b5/5kLM=
 github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 github.com/pascaldekloe/goe v0.1.0/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=

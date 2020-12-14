@@ -66,6 +66,18 @@ spec:
             enableMetering:
               description: EnableMetering enables the Marketplace Metering components
               type: boolean
+            features:
+              description: The features that can be enabled or disabled
+              properties:
+                deployment:
+                  description: Deployment represents the enablement of the razee deployment,
+                    defaults to true when not set
+                  type: boolean
+                registration:
+                  description: Deployment represents the enablement of the registration
+                    watchkeeper deployment, defaults to true when not set
+                  type: boolean
+              type: object
             installIBMCatalogSource:
               description: InstallIBMCatalogSource is the flag that indicates if the
                 IBM Catalog Source is installed

@@ -19,24 +19,16 @@ build:
   artifacts:
     - image: redhat-marketplace-operator
       custom:
-        buildCommand: ./scripts/skaffold_build.sh build operator
-        dependencies:
-          command: ./scripts/skaffold_build.sh dependencies operator
+        buildCommand: ./hack/skaffold_build.sh build operator
     - image: redhat-marketplace-reporter
       custom:
-        buildCommand: ./scripts/skaffold_build.sh build reporter
-        dependencies:
-          command: ./scripts/skaffold_build.sh dependencies reporter
+        buildCommand: cd reporter && ../hack/skaffold_build.sh build reporter
     - image: redhat-marketplace-metric-state
       custom:
-        buildCommand: ./scripts/skaffold_build.sh build metric-state
-        dependencies:
-          command: ./scripts/skaffold_build.sh dependencies metric-state
+        buildCommand: cd reporter && ../hack/skaffold_build.sh build metric-state
     - image: redhat-marketplace-authcheck
       custom:
-        buildCommand: ./scripts/skaffold_build.sh build authcheck
-        dependencies:
-          command: ./scripts/skaffold_build.sh dependencies authcheck
+        buildCommand: cd reporter && ../hack/skaffold_build.sh build authcheck
 deploy:
   helm:
     releases:

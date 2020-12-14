@@ -21,10 +21,10 @@ package tools
 import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/Shyp/bump_version"
-	"github.com/kevinburke/go-bindata"
 	"github.com/golang/mock/mockgen"
 	"github.com/golangci/golangci-lint/cmd/golangci-lint"
 	"github.com/google/wire"
+	"github.com/kevinburke/go-bindata"
 	"github.com/launchdarkly/go-options"
 	"github.com/mikefarah/yq/v3"
 	"github.com/spf13/cobra"

@@ -19,11 +19,12 @@ import (
 	"os"
 
 	homedir "github.com/mitchellh/go-homedir"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/metric_server"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/metering/pkg/metric_server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var (
@@ -64,12 +65,11 @@ func run(cmd *cobra.Command, args []string) {
 }
 
 func init() {
-	logf.SetLogger(zap.Logger())
+	logf.SetLogger(zap.New(zap.UseDevMode(true)))
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cobra.yaml)")
 	opts.Mount(rootCmd.PersistentFlags().AddFlagSet)
-	rootCmd.PersistentFlags().AddFlagSet(zap.FlagSet())
 }
 
 func er(msg interface{}) {

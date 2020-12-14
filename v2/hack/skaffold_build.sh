@@ -48,21 +48,21 @@ fi
 
 QUAY_EXPIRATION=${QUAY_EXPIRATION:-never}
 VERSION=${VERSION:-latest}
+EXPERIMENTAL=$(docker version -f '{{.Server.Experimental}}')
 
 if [ "${DOCKER_EXEC}" == "" ]; then
 	DOCKER_EXEC=$(command -v docker)
 fi
 
 ${DOCKER_EXEC} buildx &>/dev/null
-if [ $? -eq 0 ]; then
-
+if [ $? -eq 0 ] && [ "$EXPERIMENTAL" == "true" ]; then
 	ARGS=--load
 	if $PUSH_IMAGE; then
 		ARGS=--push
 	fi
 
 	${DOCKER_EXEC} buildx build \
-		-f ./build/Dockerfile \
+		-f ./Dockerfile \
 		--tag $IMAGE \
 		--build-arg name="$name" \
 		--build-arg exec=$exec \
@@ -73,7 +73,7 @@ if [ $? -eq 0 ]; then
 		$ARGS \
 		.
 else
-	${DOCKER_EXEC} build -f ./build/Dockerfile \
+	${DOCKER_EXEC} build -f ./Dockerfile \
 		--tag $IMAGE \
 		--build-arg name="$name" \
 		--build-arg exec=$exec \

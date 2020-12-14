@@ -1,4 +1,4 @@
-module github.com/redhat-marketplace/redhat-marketplace-operator/scripts/skaffold-tdd-tool
+module github.com/redhat-marketplace/redhat-marketplace-operator/v2/tools/skaffold-tdd-tool
 
 go 1.15
 
@@ -37,6 +37,6 @@ replace (
 	github.com/docker/docker v1.14.0-0.20190319215453-e7b5f7dbe98c => github.com/docker/docker v17.12.0-ce-rc1.0.20190319215453-e7b5f7dbe98c+incompatible
 	github.com/operator-framework/operator-marketplace => github.com/operator-framework/operator-marketplace v0.0.0-20201110032404-0e3bd3db36a6
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v1.8.2-0.20200609102542-5d7e3e970602
-	github.com/redhat-marketplace/redhat-marketplace-operator => ../..
+	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../..
 	k8s.io/client-go => k8s.io/client-go v0.19.4 // Required by prometheus-operator
 )
