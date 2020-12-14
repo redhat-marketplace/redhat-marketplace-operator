@@ -295,3 +295,30 @@ func (meterdef *MeterDefinition) BuildMeterDefinitionFromString(meterdefString, 
 
 	return meterdef, nil
 }
+
+func (meterdef *MeterDefinition) ToPrometheusLabels() []map[string]string {
+	allMdefs := []map[string]string{}
+
+	meterDefinitionUID := string(meterdef.UID)
+	meterGroup := string(meterdef.Spec.Group)
+	meterKind := string(meterdef.Spec.Kind)
+	for _, workload := range meterdef.Spec.Workloads {
+		for _, metricLabel := range workload.MetricLabels {
+			labels := map[string]string{
+				"meter_definition_uid": meterDefinitionUID,
+				"workload_vertex_type": string(meterdef.Spec.WorkloadVertexType),
+				"workload_name":        workload.Name,
+				"workload_type":        string(workload.WorkloadType),
+				"metric_label":         metricLabel.Label,
+				"metric_aggregation":   metricLabel.Aggregation,
+				"metric_query":         metricLabel.Query,
+				"meter_group":          meterGroup,
+				"meter_kind":           meterKind,
+			}
+
+			allMdefs = append(allMdefs, labels)
+		}
+	}
+
+	return allMdefs
+}

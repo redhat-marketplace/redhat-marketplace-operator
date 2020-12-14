@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -215,9 +216,12 @@ var (
 	testNamespace1        = "testing-namespace-1"
 	testNamespace2        = "testing-namespace-2"
 	testNamespace3        = "testing-namespace-3"
+	features              = &common.Features{
+		Deployment: ptr.Bool(true),
+	}
 
 	marketplaceconfig = BuildMarketplaceConfigCR(testNamespace1, customerID)
-	razeedeployment   = BuildRazeeCr(testNamespace1, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName)
+	razeedeployment   = BuildRazeeCr(testNamespace1, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
 	meterbase         = BuildMeterBaseCr(testNamespace1)
 
 	testNs1 = &corev1.Namespace{}

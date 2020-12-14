@@ -12,29 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package reconcileutils
+package utils
 
-import "reflect"
 
-func isNil(i interface{}) bool {
-	return i == nil || reflect.ValueOf(i).IsNil()
-}
+func Must(in func() (interface{}, error)) interface{} {
+	i, err := in()
 
-func Contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
+	if err != nil {
+		panic(err)
 	}
 
-	return false
-}
-
-func Remove(s []string, e string) []string {
-	for i, a := range s {
-		if a == e {
-			return append(s[:i], s[i+1:]...)
-		}
-	}
-	return s
+	return i
 }

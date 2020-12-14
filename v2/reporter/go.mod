@@ -17,11 +17,12 @@ require (
 	github.com/onsi/gomega v1.10.3
 	github.com/prometheus/client_golang v1.8.0
 	github.com/prometheus/common v0.15.0
+	github.com/redhat-marketplace/redhat-marketplace-operator v0.0.0-20201211175424-6b3ce5b64e99 // indirect
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.1
 	golang.org/x/net v0.0.0-20201202161906-c7110b5ffcbb
 	k8s.io/api v0.19.4
 	k8s.io/apimachinery v0.19.4
-	k8s.io/client-go v11.0.0+incompatible
+	k8s.io/client-go v12.0.0+incompatible
 	sigs.k8s.io/controller-runtime v0.6.4
 )

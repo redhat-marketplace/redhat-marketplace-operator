@@ -97,7 +97,22 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		marketplaceConfig.Spec.EnableMetering = nil
 	}
 
-	newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName)
+	//Initialize enabled features if not set
+	if marketplaceConfig.Spec.Features == nil {
+		marketplaceConfig.Spec.Features = &common.Features{
+			Deployment:   ptr.Bool(true),
+			Registration: ptr.Bool(true),
+		}
+	} else {
+		if marketplaceConfig.Spec.Features.Deployment == nil {
+			marketplaceConfig.Spec.Features.Deployment = ptr.Bool(true)
+		}
+		if marketplaceConfig.Spec.Features.Registration == nil {
+			marketplaceConfig.Spec.Features.Registration = ptr.Bool(true)
+		}
+	}
+
+	newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
 	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
 	// Add finalizer and execute it if the resource is deleted
 	if result, _ := cc.Do(
@@ -172,7 +187,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	foundRazee = &marketplacev1alpha1.RazeeDeployment{}
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: marketplaceConfig.Namespace}, foundRazee)
 	if err != nil && errors.IsNotFound(err) {
-		newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName)
+		newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
 
 		// Sets the owner for foundRazee
 		if err = controllerutil.SetControllerReference(marketplaceConfig, newRazeeCrd, r.Scheme); err != nil {
@@ -213,6 +228,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	updatedRazee := foundRazee.DeepCopy()
 	updatedRazee.Spec.ClusterUUID = marketplaceConfig.Spec.ClusterUUID
 	updatedRazee.Spec.DeploySecretName = marketplaceConfig.Spec.DeploySecretName
+	updatedRazee.Spec.Features = marketplaceConfig.Spec.Features.DeepCopy()
 
 	if !reflect.DeepEqual(foundRazee, updatedRazee) {
 		reqLogger.Info("updating razee cr")

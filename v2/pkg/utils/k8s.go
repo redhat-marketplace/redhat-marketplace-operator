@@ -43,6 +43,7 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/operrors"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	appsv1 "k8s.io/api/apps/v1"
 )
 
@@ -55,7 +56,7 @@ type PersistentVolume struct {
 
 func NewPersistentVolumeClaim(values PersistentVolume) (corev1.PersistentVolumeClaim, error) {
 	// set some defaults
-	quantity := resource.MustParse("10Gi")
+	quantity := resource.MustParse("20Gi")
 	accessMode := corev1.ReadWriteOnce
 	defaults := PersistentVolume{
 		ObjectMeta:   &metav1.ObjectMeta{},
@@ -211,7 +212,7 @@ func BuildNewOpencloudCatalogSrc() *operatorsv1alpha1.CatalogSource {
 }
 
 // BuildRazeeCrd returns a RazeeDeployment cr with default values
-func BuildRazeeCr(namespace, clusterUUID string, deploySecretName *string) *marketplacev1alpha1.RazeeDeployment {
+func BuildRazeeCr(namespace, clusterUUID string, deploySecretName *string, features *common.Features) *marketplacev1alpha1.RazeeDeployment {
 
 	cr := &marketplacev1alpha1.RazeeDeployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -222,6 +223,7 @@ func BuildRazeeCr(namespace, clusterUUID string, deploySecretName *string) *mark
 			Enabled:          true,
 			ClusterUUID:      clusterUUID,
 			DeploySecretName: deploySecretName,
+			Features:         features.DeepCopy(),
 		},
 	}
 
@@ -239,7 +241,7 @@ func BuildMeterBaseCr(namespace string) *marketplacev1alpha1.MeterBase {
 			Enabled: true,
 			Prometheus: &marketplacev1alpha1.PrometheusSpec{
 				Storage: marketplacev1alpha1.StorageSpec{
-					Size: resource.MustParse("10Gi"),
+					Size: resource.MustParse("20Gi"),
 				},
 			},
 		},

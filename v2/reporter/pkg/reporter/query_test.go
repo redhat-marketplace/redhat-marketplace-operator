@@ -36,15 +36,16 @@ var _ = Describe("Query", func() {
 	)
 
 	BeforeEach(func() {
-		rpcDurationSecondsQuery = &PromQuery{
+		rpcDurationSecondsQuery = NewPromQuery(&PromQueryArgs{
 			Metric: "rpc_durations_seconds_count",
 			Query:  `foo{bar="true"}`,
+			Type:   v1alpha1.WorkloadTypePod,
 			Start:  start,
 			End:    end,
 			Step:   time.Minute * 60,
-		}
+		})
 
-		v1api := getTestAPI(mockResponseRoundTripper("../../test/mockresponses/prometheus-query-range.json"))
+		v1api := getTestAPI(mockResponseRoundTripper("../../test/mockresponses/prometheus-query-range.json", []v1alpha1.MeterDefinition{}))
 		sut = &MarketplaceReporter{
 			api: v1api,
 		}
@@ -64,7 +65,7 @@ var _ = Describe("Query", func() {
 	})
 
 	It("should build a query", func() {
-		q1 := &PromQuery{
+		q1 := NewPromQuery(&PromQueryArgs{
 			Metric: "foo",
 			Query:  "kube_persistentvolumeclaim_resource_requests_storage_bytes",
 			MeterDef: types.NamespacedName{
@@ -73,26 +74,11 @@ var _ = Describe("Query", func() {
 			},
 			AggregateFunc: "sum",
 			Type:          v1alpha1.WorkloadTypePVC,
-		}
+		})
 
-		expected := "sum by (persistentvolumeclaim,namespace) (avg(meterdef_persistentvolumeclaim_info{meter_def_name=\"foo\",meter_def_namespace=\"foons\",phase=\"Bound\"}) without (instance, container, endpoint, job, service) * on(persistentvolumeclaim,namespace) group_right kube_persistentvolumeclaim_resource_requests_storage_bytes)"
-		Expect(q1.String()).To(Equal(expected), "failed to create query for pvc")
-	})
-
-	PIt("should build a query", func() {
-		By("building a query with no args")
-		q1 := &PromQuery{
-			Metric: "foo",
-		}
-
-		Expect(q1.String()).To(Equal("foo"), "failed to create query with no args")
-
-		By("building a complicated query")
-
-		expectedFields := []string{`rpc_durations_seconds_count`, `meter_kind="App"`, `meter_domain="apps.partner.metering.com"`}
-
-		for _, field := range expectedFields {
-			Expect(rpcDurationSecondsQuery).To(ContainSubstring(field))
-		}
+		expected := `sum by (persistentvolumeclaim,namespace) (avg(meterdef_persistentvolumeclaim_info{meter_def_name="foo",meter_def_namespace="foons",phase="Bound"}) without (instance, container, endpoint, job, service) * on(persistentvolumeclaim,namespace) group_right kube_persistentvolumeclaim_resource_requests_storage_bytes) * on(persistentvolumeclaim,namespace) group_right group without(instance) (kube_persistentvolumeclaim_resource_requests_storage_bytes)`
+		q, err := q1.Print()
+		Expect(err).To(Succeed())
+		Expect(q).To(Equal(expected), "failed to create query for pvc")
 	})
 })

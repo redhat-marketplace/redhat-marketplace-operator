@@ -14,7 +14,7 @@ import (
 
 var log = logf.Log.WithName("reporter_report_cmd")
 
-var name, namespace, cafile, tokenFile, uploadTarget string
+var name, namespace, cafile, tokenFile, uploadTarget, localFilePath string
 var local, upload bool
 var retry int
 
@@ -35,6 +35,13 @@ var ReportCmd = &cobra.Command{
 
 		tmpDir := os.TempDir()
 
+		uploadTarget := reporter.MustParseUploaderTarget(uploadTarget)
+
+		switch v := uploadTarget.(type) {
+		case *reporter.LocalFilePathUploader:
+			v.LocalFilePath = localFilePath
+		}
+
 		cfg := &reporter.Config{
 			OutputDirectory: tmpDir,
 			Retry:           ptr.Int(retry),
@@ -42,7 +49,7 @@ var ReportCmd = &cobra.Command{
 			TokenFile:       tokenFile,
 			Local:           local,
 			Upload:          upload,
-			UploaderTarget:  reporter.MustParseUploaderTarget(uploadTarget),
+			UploaderTarget:  uploadTarget,
 		}
 		cfg.SetDefaults()
 
@@ -73,10 +80,8 @@ func init() {
 	ReportCmd.Flags().StringVar(&cafile, "cafile", "", "cafile for prometheus")
 	ReportCmd.Flags().StringVar(&tokenFile, "tokenfile", "", "token file for prometheus")
 	ReportCmd.Flags().StringVar(&uploadTarget, "uploadTarget", "redhat-insights", "target to upload to")
+	ReportCmd.Flags().StringVar(&localFilePath, "localFilePath", ".", "target to upload to")
 	ReportCmd.Flags().BoolVar(&local, "local", false, "run locally")
 	ReportCmd.Flags().BoolVar(&upload, "upload", true, "to upload the payload")
 	ReportCmd.Flags().IntVar(&retry, "retry", 3, "number of retries")
-
-	ReportCmd.Flags().MarkHidden("uploadTarget")
-	ReportCmd.Flags().MarkHidden("local")
 }

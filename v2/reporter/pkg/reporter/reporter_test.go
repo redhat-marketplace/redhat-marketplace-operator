@@ -23,8 +23,8 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -32,33 +32,33 @@ import (
 	"github.com/meirf/gopart"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 )
 
-var _ = PDescribe("Reporter", func() {
-	const count = 4416
+var _ = Describe("Reporter", func() {
+	const count = 1488
 	var (
 		err           error
 		sut           *MarketplaceReporter
 		config        *marketplacev1alpha1.MarketplaceConfig
-		report        *marketplacev1alpha1.MeterReport
 		dir, dir2     string
 		uploader      Uploader
 		generatedFile string
 
-		startStr = "2020-04-19T00:00:00Z"
+		startStr = "2020-06-19T00:00:00Z"
 		endStr   = "2020-07-19T00:00:00Z"
 		start, _ = time.Parse(time.RFC3339, startStr)
 		end, _   = time.Parse(time.RFC3339, endStr)
 	)
 
 	BeforeEach(func() {
-		v1api := getTestAPI(mockResponseRoundTripper(generatedFile))
 		dir, err = ioutil.TempDir("", "report")
 		dir2, err = ioutil.TempDir("", "targz")
 
@@ -77,32 +77,121 @@ var _ = PDescribe("Reporter", func() {
 			},
 		}
 
+		v1api := getTestAPI(mockResponseRoundTripper(generatedFile, []marketplacev1alpha1.MeterDefinition{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "bar",
+					UID:       types.UID("a"),
+				},
+				Spec: marketplacev1alpha1.MeterDefinitionSpec{
+					Group:              "apps.partner.metering.com",
+					Kind:               "App",
+					WorkloadVertexType: marketplacev1alpha1.WorkloadVertexOperatorGroup,
+					Workloads: []marketplacev1alpha1.Workload{
+						{
+							Name:         "foo",
+							WorkloadType: marketplacev1alpha1.WorkloadTypePod,
+							MetricLabels: []marketplacev1alpha1.MeterLabelQuery{
+								{
+									Label:       "rpc_durations_seconds_sum",
+									Query:       "rpc_durations_seconds_sum",
+									Aggregation: "sum",
+								},
+								{
+									Label:       "rpc_durations_seconds_count",
+									Query:       "my_query",
+									Aggregation: "sum",
+								},
+							},
+							OwnerCRD: &common.GroupVersionKind{
+								APIVersion: "apps.partner.metering.com/v1",
+								Kind:       "App",
+							},
+						},
+					},
+				},
+			},
+		}))
+
 		sut = &MarketplaceReporter{
 			api:       v1api,
 			Config:    cfg,
-			report:    report,
 			mktconfig: config,
-		}
-
-		report = &marketplacev1alpha1.MeterReport{
-			Spec: marketplacev1alpha1.MeterReportSpec{
-				StartTime: metav1.Time{Time: start},
-				EndTime:   metav1.Time{Time: end},
+			meterDefinitions: []marketplacev1alpha1.MeterDefinition{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo",
+						Namespace: "bar",
+						UID:       types.UID("a"),
+					},
+					Spec: marketplacev1alpha1.MeterDefinitionSpec{
+						Group: "apps.partner.metering.com",
+						Kind:  "App",
+						Workloads: []marketplacev1alpha1.Workload{
+							{
+								WorkloadType: marketplacev1alpha1.WorkloadTypePod,
+								Name:         "foo",
+								MetricLabels: []marketplacev1alpha1.MeterLabelQuery{
+									{
+										Label:       "rpc_durations_seconds_sum",
+										Query:       "rpc_durations_seconds_sum",
+										Aggregation: "sum",
+									},
+									{
+										Label:       "rpc_durations_seconds_count",
+										Query:       "my_query",
+										Aggregation: "sum",
+									},
+								},
+								OwnerCRD: &common.GroupVersionKind{
+									APIVersion: "apps.partner.metering.com/v1",
+									Kind:       "App",
+								},
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo2",
+						Namespace: "bar",
+					},
+					Spec: marketplacev1alpha1.MeterDefinitionSpec{
+						Group: "apps.partner.metering.com",
+						Kind:  "App2",
+						Workloads: []marketplacev1alpha1.Workload{
+							{
+								WorkloadType: marketplacev1alpha1.WorkloadTypePod,
+								Name:         "foo2",
+								MetricLabels: []marketplacev1alpha1.MeterLabelQuery{
+									{
+										Label:       "rpc_durations_seconds_sum",
+										Query:       "rpc_durations_seconds_sum",
+										Aggregation: "sum",
+									},
+									{
+										Label:       "rpc_durations_seconds_count",
+										Query:       "my_query",
+										Aggregation: "sum",
+									},
+								},
+								OwnerCRD: &common.GroupVersionKind{
+									APIVersion: "apps.partner.metering.com/v1",
+									Kind:       "App",
+								},
+							},
+						},
+					},
+				},
+			},
+			report: &marketplacev1alpha1.MeterReport{
+				Spec: marketplacev1alpha1.MeterReportSpec{
+					StartTime: metav1.Time{Time: start},
+					EndTime:   metav1.Time{Time: end},
+				},
 			},
 		}
-
-		// meterDefinitions = []*marketplacev1alpha1.MeterDefinitionSpec{
-		// 	{
-		// 		Group:   "apps.partner.metering.com",
-		// 		Kind:    "App",
-		// 		Version: "v1",
-		// 	},
-		// 	{
-		// 		Group:   "apps.partner.metering.com",
-		// 		Kind:    "App2",
-		// 		Version: "v1",
-		// 	},
-		// }
 
 		uploader, err = NewRedHatInsightsUploader(&RedHatInsightsUploaderConfig{
 			URL:             "https://cloud.redhat.com",
@@ -142,46 +231,6 @@ var _ = PDescribe("Reporter", func() {
 		generatedFile = GenerateRandomData(start, end)
 	})
 
-	Context("benchmark", func() {
-		BeforeEach(func() {
-			v1api := getTestAPI(mockResponseRoundTripper(generatedFile))
-
-			cfg := &Config{
-				OutputDirectory: dir,
-			}
-
-			cfg.SetDefaults()
-
-			sut = &MarketplaceReporter{
-				api:    v1api,
-				Config: cfg,
-				report: report,
-			}
-		})
-
-		Measure("collect metrics", func(b Benchmarker) {
-			btest := b.Time("runtime", func() {
-				runtime.GC()
-				m := &runtime.MemStats{}
-				m2 := &runtime.MemStats{}
-
-				runtime.ReadMemStats(m)
-				results, errs, err := sut.CollectMetrics(context.TODO())
-				runtime.ReadMemStats(m2)
-
-				Expect(err).To(Succeed())
-				Expect(errs).To(BeEmpty())
-				Expect(results).ToNot(BeEmpty())
-				Expect(len(results)).To(Equal(count))
-
-				b.RecordValue("disk usage (in MB)", float64((m2.Alloc-m.Alloc)/1024/1024))
-			})
-
-			Expect(btest.Seconds()).Should(BeNumerically("<", 1))
-		}, 10)
-
-	})
-
 	It("query, build and submit a report", func(done Done) {
 		By("collecting metrics")
 		results, errs, err := sut.CollectMetrics(context.TODO())
@@ -198,8 +247,30 @@ var _ = PDescribe("Reporter", func() {
 			results)
 
 		Expect(err).To(Succeed())
+
+		// map[
+		//   additionalLabels:map[
+		//     meter_domain:apps.partner.metering.com
+		//     meter_kind:App
+		//     meter_version:v1
+		//     namespace:metering-example-operator
+		//     pod:example-app-pod
+		//     service:example-app-pod
+		//   ]
+		//   domain:apps.partner.metering.com
+		//   interval_end:2020-05-06T01:00:00-04:00
+		//   interval_start:2020-05-06T00:00:00-04:00
+		//   kind:App
+		//   metric_id:58ad150151d9b785
+		//   namespace:metering-example-operator
+		//   report_period_end:2020-07-19T00:00:00Z
+		//   report_period_start:2020-04-19T00:00:00Z
+		//   resource_name:example-app-pod
+		//   rhmUsageMetrics:map[foo:8.721652873135618]
+		//   workload:foo
+		// ],
 		Expect(files).ToNot(BeEmpty())
-		Expect(len(files)).To(Equal(10))
+		Expect(len(files)).To(Equal(4))
 		for _, file := range files {
 			By(fmt.Sprintf("testing file %s", file))
 			Expect(file).To(BeAnExistingFile())
@@ -214,29 +285,40 @@ var _ = PDescribe("Reporter", func() {
 				id := func(element interface{}) string {
 					return "row"
 				}
+
 				Expect(data).To(MatchAllKeys(Keys{
 					"report_slice_id": Not(BeEmpty()),
 					"metrics": MatchElements(id, AllowDuplicates, Elements{
 						"row": MatchAllKeys(Keys{
 							"additionalLabels": MatchAllKeys(Keys{
-								"namespace": Equal("metering-example-operator"),
-								"pod":       Equal("example-app-pod"),
-								"service":   Equal("example-app-pod"),
+								"namespace":     Equal("metering-example-operator"),
+								"pod":           Equal("example-app-pod"),
+								"meter_kind":    Or(Equal("App"), Equal("App2"), Equal("App3")),
+								"meter_domain":  Equal("apps.partner.metering.com"),
+								"meter_version": Equal("v1"),
+								"service":       Equal("example-app-pod"),
 							}),
 							"domain":              Equal("apps.partner.metering.com"),
 							"interval_start":      HavePrefix("2020-"),
 							"interval_end":        HavePrefix("2020-"),
-							"kind":                Or(Equal("App"), Equal("App2")),
+							"metric_id":           BeAssignableToTypeOf(""),
 							"report_period_end":   Equal(endStr),
+							"kind":                Or(Equal("App"), Equal("App2"), Equal("App3")),
+							"namespace":           Equal("metering-example-operator"),
 							"report_period_start": Equal(startStr),
-							"rhmUsageMetrics": MatchAllKeys(Keys{
+							"resource_name":       Equal("example-app-pod"),
+							"workload":            Or(Equal("rpc_durations_seconds_sum"), Equal("rpc_durations_seconds_count")),
+							"rhmUsageMetrics": Or(MatchAllKeys(Keys{
 								"rpc_durations_seconds_count": BeAssignableToTypeOf(""),
-								"rpc_durations_seconds_sum":   BeAssignableToTypeOf(""),
 							}),
-							"version": Equal("v1"),
+								MatchAllKeys(Keys{
+									"rpc_durations_seconds_sum": BeAssignableToTypeOf(""),
+								})),
 						}),
 					}),
 				}))
+
+				fmt.Println(file)
 			}
 		}
 
@@ -278,7 +360,7 @@ func getTestAPI(trip RoundTripFunc) v1.API {
 	return v1api
 }
 
-func mockResponseRoundTripper(file string) RoundTripFunc {
+func mockResponseRoundTripper(file string, meterdefinitions []marketplacev1alpha1.MeterDefinition) RoundTripFunc {
 	return func(req *http.Request) *http.Response {
 		headers := make(http.Header)
 		headers.Add("content-type", "application/json")
@@ -288,6 +370,24 @@ func mockResponseRoundTripper(file string) RoundTripFunc {
 		fileBytes, err := ioutil.ReadFile(file)
 
 		Expect(err).To(Succeed(), "failed to load mock file for response")
+		defer req.Body.Close()
+		body, err := ioutil.ReadAll(req.Body)
+
+		Expect(err).To(Succeed())
+
+		query, _ := url.ParseQuery(string(body))
+
+		if strings.Contains(query["query"][0], "meterdef_metric_label_info{}") {
+			fmt.Println("using meter_label_info")
+			meterDefInfo := GenerateMeterInfoResponse(meterdefinitions)
+			return &http.Response{
+				StatusCode: 200,
+				// Send response to be tested
+				Body: ioutil.NopCloser(bytes.NewBuffer(meterDefInfo)),
+				// Must be set to non-nil value or it panics
+				Header: headers,
+			}
+		}
 
 		return &http.Response{
 			StatusCode: 200,
@@ -320,6 +420,39 @@ type fakeData struct {
 type fakeMetrics struct {
 	Status string
 	Data   fakeData
+}
+
+func GenerateMeterInfoResponse(meterdefinitions []marketplacev1alpha1.MeterDefinition) []byte {
+	results := []map[string]interface{}{}
+	for _, mdef := range meterdefinitions {
+		labels := mdef.ToPrometheusLabels()
+
+		for _, labelMap := range labels {
+			labelMap["name"] = mdef.Name
+			labelMap["namespace"] = mdef.Namespace
+			results = append(results, map[string]interface{}{
+				"metric": labelMap,
+				"values": [][]interface{}{
+					{1, "1"},
+					{2, "1"},
+				},
+			})
+		}
+	}
+
+	data := map[string]interface{}{
+		"status": "success",
+		"data": map[string]interface{}{
+			"resultType": "matrix",
+			"result":     results,
+		},
+	}
+
+	bytes, _ := json.Marshal(&data)
+
+	fmt.Println(string(bytes))
+
+	return bytes
 }
 
 func GenerateRandomData(start, end time.Time) string {

@@ -21,7 +21,7 @@ package tools
 import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/Shyp/bump_version"
-	"github.com/go-bindata/go-bindata"
+	"github.com/kevinburke/go-bindata"
 	"github.com/golang/mock/mockgen"
 	"github.com/golangci/golangci-lint/cmd/golangci-lint"
 	"github.com/google/wire"
