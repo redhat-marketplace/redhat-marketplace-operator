@@ -32,10 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-type PrometheusAPI struct {
-	promAPI v1.API
-}
-
 type PrometheusSecureClientConfig struct {
 	Address string
 
@@ -98,8 +94,6 @@ func providePrometheusAPI (
 	// p.promAPI = promAPI
 	return promAPI,nil
 }
-
-
 
 func GetAuthToken(apiTokenPath string) (token string, returnErr error) {
 	content, err := ioutil.ReadFile(apiTokenPath)

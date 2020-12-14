@@ -58,6 +58,26 @@ func NewPromQuery(
 	return pq
 }
 
+type PrometheusAPI struct {
+	v1.API
+}
+
+/* 
+ instance *v1alpha1.MeterDefinition, promService *corev1.Service, caCert *[]byte, token string, reqLogger logr.Logger
+*/
+func NewPromAPI(
+	promService *corev1.Service,
+	caCert *[]byte,
+	token string,
+) (*PrometheusAPI,error) {
+	promAPI,err := providePrometheusAPI(promService,caCert,token)
+	if err != nil {
+		return nil,err
+	}
+	prometheusAPI := &PrometheusAPI{promAPI}
+	return prometheusAPI,nil
+}
+
 //TODO: what's the difference between these ?
 // func (q *PromQuery) makeLeftSide() string {
 // 	switch q.Type {
@@ -179,11 +199,9 @@ func (q *PromQuery) String() string {
 	)
 }
 
-func ReportQueryWithApi(query *PromQuery,promService *corev1.Service,caCert *[]byte,token string,) (model.Value, v1.Warnings, error) {
+func (p *PrometheusAPI)ReportQueryWithApi(query *PromQuery) (model.Value, v1.Warnings, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
-	promAPI,err := providePrometheusAPI(promService,caCert,token)
 
 	timeRange := v1.Range{
 		Start: query.Start,
@@ -192,7 +210,7 @@ func ReportQueryWithApi(query *PromQuery,promService *corev1.Service,caCert *[]b
 	}
 
 	// result, warnings, err := promApi.QueryRange(ctx, query.String(), timeRange)
-	result, warnings, err := promAPI.QueryRange(ctx, query.String(), timeRange)
+	result, warnings, err := p.QueryRange(ctx, query.String(), timeRange)
 
 	if err != nil {
 		logger.Error(err, "querying prometheus", "warnings", warnings)
@@ -205,6 +223,7 @@ func ReportQueryWithApi(query *PromQuery,promService *corev1.Service,caCert *[]b
 	return result, warnings, nil
 }
 
+//TODO: being used in the reporter
 func ReportQuery(query *PromQuery, promApi v1.API) (model.Value, v1.Warnings, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
