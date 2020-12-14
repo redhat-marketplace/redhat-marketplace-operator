@@ -31,7 +31,6 @@ const (
 	MeterDefConditionReasonNoResultsInStatus status.ConditionReason = "No results in status"
 	MeterDefConditionReasonResultsInStatus   status.ConditionReason = "Results in status"
 
-	MeterDefConditionTypeReconcileError status.ConditionType   = "MeterDefReconcileError"
 	PrometheusReconcileError            status.ConditionReason = "Prometheus Reconcile Error"
 	GetCertConfigMapReconcileError      status.ConditionReason = "Cert Config Map Reconcile Error"
 	ProvideAuthTokenReconcileError      status.ConditionReason = "Auth Token Reconcile Error"

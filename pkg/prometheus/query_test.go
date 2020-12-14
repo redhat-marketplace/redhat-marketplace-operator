@@ -28,7 +28,7 @@ import (
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/mock/mock_query"
 )
 
-var _ = FDescribe("Pometheus Query", func() {
+var _ = Describe("Pometheus Query", func() {
 
 	var (
 		promAPI  v1.API

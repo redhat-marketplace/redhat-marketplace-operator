@@ -33,19 +33,6 @@ import (
 
 var logger = logf.Log.WithName("reporter")
 
-// type PromQuery struct {
-	// Type          v1alpha1.WorkloadType
-	// MeterDef      types.NamespacedName
-	// Metric        string
-	// Query         string
-	// Start, End    time.Time
-	// Step          time.Duration
-	// Time          string
-	// AggregateFunc string
-	// AggregateBy   []string
-// 	api           v1.API
-// }
-
 type PromQueryArgs struct {
 	Type          v1alpha1.WorkloadType
 	MeterDef      types.NamespacedName
