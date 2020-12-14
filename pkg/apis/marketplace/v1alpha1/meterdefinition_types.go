@@ -31,14 +31,14 @@ const (
 	MeterDefConditionReasonNoResultsInStatus status.ConditionReason = "No results in status"
 	MeterDefConditionReasonResultsInStatus   status.ConditionReason = "Results in status"
 
-	MeterDefConditionTypeReconcileError 	 status.ConditionType   = "MeterDefReconcileError"
-	PrometheusReconcileError                 status.ConditionReason   = "Prometheus Reconcile Error"
-	GetCertConfigMapReconcileError           status.ConditionReason   = "Cert Config Map Reconcile Error"
-	ProvideAuthTokenReconcileError                  status.ConditionReason   = "Auth Token Reconcile Error"
-	ProvidePrometheusClientError             status.ConditionReason   = "Prometheus Client Error"
-	ParseCertFromConfigMapError              status.ConditionReason   = "Cert Config Map Data Error"
-	NewPromAPIError                          status.ConditionReason   = "New Prometheus API Error"
-	QueryPreviewGenerationError              status.ConditionReason   = "Query Preview Generation Error"
+	MeterDefConditionTypeReconcileError status.ConditionType   = "MeterDefReconcileError"
+	PrometheusReconcileError            status.ConditionReason = "Prometheus Reconcile Error"
+	GetCertConfigMapReconcileError      status.ConditionReason = "Cert Config Map Reconcile Error"
+	ProvideAuthTokenReconcileError      status.ConditionReason = "Auth Token Reconcile Error"
+	ProvidePrometheusClientError        status.ConditionReason = "Prometheus Client Error"
+	ParseCertFromConfigMapError         status.ConditionReason = "Cert Config Map Data Error"
+	NewPromAPIError                     status.ConditionReason = "New Prometheus API Error"
+	QueryPreviewGenerationError         status.ConditionReason = "Query Preview Generation Error"
 )
 
 var (
@@ -246,13 +246,24 @@ type MeterLabelQuery struct {
 // +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 type Result struct {
 	// MetricName is the identifier that you will use to identify your query
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	MetricName string `json:"metricName,omitempty"`
 
 	// Query is the compiled query that is given to Prometheus
-	Query    string `json:"query,omitempty"`
-	StartTime    string `json:"startTime,omitempty"`
-	EndTime      string `json:"endTime,omitempty"`
-	Value        int32  `json:"value,omitempty"`
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	Query string `json:"query,omitempty"`
+
+	// StartTime of the job
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	StartTime string `json:"startTime,omitempty"`
+
+	// EndTime of the job
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	EndTime string `json:"endTime,omitempty"`
+
+	// Value is the metric value returned from Prometheus
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	Value int32 `json:"value,omitempty"`
 }
 
 // MeterDefinitionStatus defines the observed state of MeterDefinition

@@ -24,12 +24,17 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/prometheus/client_golang/api"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/log"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
+
+type PrometheusAPI struct {
+	promAPI v1.API
+}
 
 type PrometheusSecureClientConfig struct {
 	Address string
@@ -47,15 +52,15 @@ type UserAuth struct {
 	Username, Password string
 }
 
-func ProvideApiClientFromCert(
+func providePrometheusAPI (
 	promService *corev1.Service,
 	caCert *[]byte,
 	token string,
-) (api.Client, error) {
+)  (v1.API, error) {
 
 	var port int32
 	if promService == nil {
-		return nil, errors.New("Prometheus service not defined")
+		return nil,errors.New("Prometheus service not defined")
 	}
 
 	name := promService.Name
@@ -81,15 +86,20 @@ func ProvideApiClientFromCert(
 
 	if err != nil {
 		log.Error(err, "failed to setup NewSecureClient")
-		return nil, err
+		return nil,err
 	}
 
 	if conf == nil {
-		return nil, errors.New("client configuration is nil")
+		log.Error(err, "failed to setup NewSecureClient")
+		return nil,errors.New("client configuration is nil")
 	}
 
-	return conf, nil
+	promAPI := v1.NewAPI(conf)
+	// p.promAPI = promAPI
+	return promAPI,nil
 }
+
+
 
 func GetAuthToken(apiTokenPath string) (token string, returnErr error) {
 	content, err := ioutil.ReadFile(apiTokenPath)

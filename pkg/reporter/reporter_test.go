@@ -30,10 +30,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/meirf/gopart"
-	"github.com/prometheus/client_golang/api"
-	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/mock/mock_query"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -77,7 +76,7 @@ var _ = Describe("Reporter", func() {
 			},
 		}
 
-		v1api := getTestAPI(mockResponseRoundTripper(generatedFile, []marketplacev1alpha1.MeterDefinition{
+		v1api := GetTestAPI(mockResponseRoundTripper(generatedFile, []marketplacev1alpha1.MeterDefinition{
 			{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -201,8 +200,8 @@ var _ = Describe("Reporter", func() {
 		})
 
 		Expect(err).To(Succeed())
-		uploader.(*RedHatInsightsUploader).client.Transport = &stubRoundTripper{
-			roundTrip: func(req *http.Request) *http.Response {
+		uploader.(*RedHatInsightsUploader).client.Transport = &StubRoundTripper{
+			StubRoundTrip: func(req *http.Request) *http.Response {
 				headers := make(http.Header)
 				headers.Add("content-type", "text")
 
@@ -339,27 +338,6 @@ var _ = Describe("Reporter", func() {
 	}, 20)
 })
 
-// RoundTripFunc is a type that represents a round trip function call for std http lib
-type RoundTripFunc func(req *http.Request) *http.Response
-
-// RoundTrip is a wrapper function that calls an external function for mocking
-func (f RoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
-	return f(req), nil
-}
-
-func getTestAPI(trip RoundTripFunc) v1.API {
-	conf := api.Config{
-		Address:      "http://localhost:9090",
-		RoundTripper: trip,
-	}
-	client, err := api.NewClient(conf)
-
-	Expect(err).To(Succeed())
-
-	v1api := v1.NewAPI(client)
-	return v1api
-}
-
 func mockResponseRoundTripper(file string, meterdefinitions []marketplacev1alpha1.MeterDefinition) RoundTripFunc {
 	return func(req *http.Request) *http.Response {
 		headers := make(http.Header)
@@ -399,62 +377,6 @@ func mockResponseRoundTripper(file string, meterdefinitions []marketplacev1alpha
 	}
 }
 
-type stubRoundTripper struct {
-	roundTrip RoundTripFunc
-}
-
-func (s *stubRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	return s.roundTrip(req), nil
-}
-
-type fakeResult struct {
-	Metric map[string]string
-	Values []interface{}
-}
-
-type fakeData struct {
-	ResultType string
-	Result     []*fakeResult
-}
-
-type fakeMetrics struct {
-	Status string
-	Data   fakeData
-}
-
-func GenerateMeterInfoResponse(meterdefinitions []marketplacev1alpha1.MeterDefinition) []byte {
-	results := []map[string]interface{}{}
-	for _, mdef := range meterdefinitions {
-		labels := mdef.ToPrometheusLabels()
-
-		for _, labelMap := range labels {
-			labelMap["name"] = mdef.Name
-			labelMap["namespace"] = mdef.Namespace
-			results = append(results, map[string]interface{}{
-				"metric": labelMap,
-				"values": [][]interface{}{
-					{1, "1"},
-					{2, "1"},
-				},
-			})
-		}
-	}
-
-	data := map[string]interface{}{
-		"status": "success",
-		"data": map[string]interface{}{
-			"resultType": "matrix",
-			"result":     results,
-		},
-	}
-
-	bytes, _ := json.Marshal(&data)
-
-	fmt.Println(string(bytes))
-
-	return bytes
-}
-
 func GenerateRandomData(start, end time.Time) string {
 	next := start
 	kinds := []string{"App", "App2"}
@@ -492,21 +414,21 @@ func GenerateRandomData(start, end time.Time) string {
 		}
 	}
 
-	results := []*fakeResult{}
+	results := []*FakeResult{}
 
 	for _, kind := range kinds {
 		for idxRange := range gopart.Partition(len(data[kind]), 24) {
 			array := data[kind][idxRange.Low:idxRange.High]
-			results = append(results, &fakeResult{
+			results = append(results, &FakeResult{
 				Metric: makeData(kind),
 				Values: array,
 			})
 		}
 	}
 
-	fakem := &fakeMetrics{
+	fakem := &FakeMetrics{
 		Status: "success",
-		Data: fakeData{
+		Data: FakeData{
 			ResultType: "matrix",
 			Result:     results,
 		},

@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/mock"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/mock/mock_query"
 )
 
 var _ = FDescribe("Pometheus Query", func() {

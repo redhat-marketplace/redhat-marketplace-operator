@@ -17,30 +17,18 @@ package meterdefinition
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
-	"sync"
-	"time"
 
-	"emperror.dev/errors"
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-	"github.com/go-logr/logr"
-	"github.com/gotidy/ptr"
-	"github.com/operator-framework/operator-sdk/pkg/status"
-	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
-	"github.com/prometheus/common/model"
 	v1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/meter_definition"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/prometheus"
+
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
-	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -56,17 +44,6 @@ const meterDefinitionFinalizer = "meterdefinition.finalizer.marketplace.redhat.c
 const (
 	MeteredResourceAnnotationKey = "marketplace.redhat.com/meteredUIDs"
 )
-
-type ServiceAccountClient struct {
-	KubernetesInterface kubernetes.Interface
-	Token               *Token
-	sync.Mutex
-}
-
-type Token struct {
-	AuthToken           *string
-	ExpirationTimestamp metav1.Time
-}
 
 var (
 	log = logf.Log.WithName("controller_meterdefinition")
@@ -127,7 +104,6 @@ type ReconcileMeterDefinition struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client               client.Client
-	// serviceAccountClient *ServiceAccountClient
 	kubernetesInterface  kubernetes.Interface
 	scheme               *runtime.Scheme
 	ccprovider           ClientCommandRunnerProvider
@@ -184,291 +160,26 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		update = instance.Status.Conditions.SetCondition(v1alpha1.MeterDefConditionHasResults)
 	}
 
-	update = r.queryPreview(cc,instance,request,reqLogger)
+	update = r.QueryPreview(cc,instance,request,reqLogger)
 
-	result = r.updateStatus(update,instance, request, reqLogger)
-	if !result.Is(Continue) {
-		return result.Return()
+	result, _ = cc.Do(
+		context.TODO(),
+		Call(func() (ClientAction, error) {
+			if !update {
+				return nil, nil
+			}
+
+			return UpdateAction(instance, UpdateStatusOnly(true)), nil
+		}),
+	)
+	if result.Is(Error) {
+		reqLogger.Error(result.GetError(), "Failed to update status.")
 	}
 
 	reqLogger.Info("meterdef_preview","requeue rate",r.cfg.ControllerReconcileSettings.MeterDefControllerRequeueRate)
 
 	reqLogger.Info("finished reconciling")
 	return reconcile.Result{RequeueAfter: r.cfg.ControllerReconcileSettings.MeterDefControllerRequeueRate}, nil
-}
-
-/**********************************************************
-	Controller Specific Functions
-***********************************************************/
-func(r *ReconcileMeterDefinition) queryPreview(cc ClientCommandRunner, instance *v1alpha1.MeterDefinition,request reconcile.Request, reqLogger logr.Logger)(update bool){
-	var queryPreviewResult []v1alpha1.Result
-	
-	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
-	update = r.updateConditionsWithErrorReason(err,v1alpha1.PrometheusReconcileError,instance,request,reqLogger)
-	if update{
-		return update
-	}
-
-	certConfigMap, err := r.getCertConfigMap(context.TODO(), cc, request)
-	update = r.updateConditionsWithErrorReason(err,v1alpha1.GetCertConfigMapReconcileError,instance,request,reqLogger)
-	if update{
-		return update
-	}
-
-	saClient := prometheus.NewServiceAccountClient(instance.Namespace,r.kubernetesInterface)
-
-	authToken,err := saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT,utils.PrometheusAudience,3600,reqLogger)
-	update = r.updateConditionsWithErrorReason(err,v1alpha1.ProvideAuthTokenReconcileError,instance,request,reqLogger)
-	if update{
-		return update
-	}
-
-	if certConfigMap != nil && authToken != "" && service != nil {
-		cert, err := r.parseCertificateFromConfigMap(*certConfigMap)
-		update = r.updateConditionsWithErrorReason(err,v1alpha1.ParseCertFromConfigMapError,instance,request,reqLogger)
-		if update{
-			return update
-		}
-
-		client, err := prometheus.ProvideApiClientFromCert(service, &cert, authToken)
-		update = r.updateConditionsWithErrorReason(err,v1alpha1.ProvidePrometheusClientError,instance,request,reqLogger)
-		if update{
-			return update
-		}
-
-		promAPI := v1.NewAPI(client)
-		if promAPI == nil {
-			update = r.updateConditionsWithErrorReason(err,v1alpha1.NewPromAPIError,instance,request,reqLogger)
-			if update{
-				return update
-			}
-
-		}
-
-		reqLogger.Info("generatring meterdef preview")
-		queryPreviewResult, err = r.generateQueryPreview(instance, reqLogger, promAPI)
-		update = r.updateConditionsWithErrorReason(err,v1alpha1.QueryPreviewGenerationError,instance,request,reqLogger)
-		if update{
-			return update
-		}
-	}
-
-	if !reflect.DeepEqual(queryPreviewResult, instance.Status.Results) {
-		update = true
-		instance.Status.Results = queryPreviewResult
-		reqLogger.Info("output", "Status.Results", instance.Status.Results)
-	}
-
-	return false
-}
-
-func (r *ReconcileMeterDefinition) updateConditionsWithErrorReason(err error, conditionReason status.ConditionReason, instance *v1alpha1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) bool {
-	
-	if err != nil {
-		reqLogger.Info("Updating status with error")
-
-		update := instance.Status.Conditions.SetCondition(status.Condition{
-			Message: err.Error(),
-			// Type:    status.ConditionType(v1alpha1.MeterDefConditionTypeReconcileError),
-			Reason: status.ConditionReason(conditionReason),
-		})
-	
-		return update
-	}
-
-	update := r.clearErrorConditions(conditionReason,instance,reqLogger,request)
-	if update {
-		return update
-	}
-	
-	return false
-}
-
-func (r *ReconcileMeterDefinition) updateStatus(update bool,instance *v1alpha1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
-
-	if update {
-		err := r.client.Status().Update(context.TODO(), instance)
-		if err != nil {
-			if k8serrors.IsConflict(err) {
-				return r.handleUpdateConflictForStatusOnly(instance, request, reqLogger)
-			}
-	
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
-
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{Requeue: true},
-			Err: nil,
-		}
-	}
-
-	return &ExecResult{
-		Status: Continue,
-	}
-	
-}
-
-/* 
-	had to write a one-off here. Conditions.RemoveCondition() takes a ConditionType which we're not setting
-*/
-func (r *ReconcileMeterDefinition) clearErrorConditions(conditionReason status.ConditionReason, instance *v1alpha1.MeterDefinition, reqLogger logr.Logger, request reconcile.Request)(update bool) {
-	for index, condition := range instance.Status.Conditions {
-		if condition.Reason == conditionReason {
-			reqLogger.Info("clearing condition", "condition", conditionReason)
-			instance.Status.Conditions = append(instance.Status.Conditions[:index], instance.Status.Conditions[index+1:]...)
-			return true
-		}
-	}
-
-	return false
-}
-
-func (r *ReconcileMeterDefinition) queryForPrometheusService(
-	ctx context.Context,
-	cc ClientCommandRunner,
-	req reconcile.Request,
-) (*corev1.Service, error) {
-	service := &corev1.Service{}
-
-	name := types.NamespacedName{
-		Name:      utils.PROMETHEUS_METERBASE_NAME,
-		Namespace: req.Namespace,
-	}
-
-	if result, _ := cc.Do(ctx, GetAction(name, service)); !result.Is(Continue) {
-		return nil, errors.Wrap(result, "failed to get prometheus service")
-	}
-
-	log.Info("retrieved prometheus service")
-	return service, nil
-}
-
-func (r *ReconcileMeterDefinition) getCertConfigMap(ctx context.Context, cc ClientCommandRunner, req reconcile.Request) (*corev1.ConfigMap, error) {
-	certConfigMap := &corev1.ConfigMap{}
-
-	name := types.NamespacedName{
-		Name:      utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
-		Namespace: req.Namespace,
-	}
-
-	if result, _ := cc.Do(context.TODO(), GetAction(name, certConfigMap)); !result.Is(Continue) {
-		return nil, errors.Wrap(result.GetError(), "Failed to retrieve operator-certs-ca-bundle.")
-	}
-
-	log.Info("retrieved configmap")
-	return certConfigMap, nil
-}
-
-func (r *ReconcileMeterDefinition) parseCertificateFromConfigMap(certConfigMap corev1.ConfigMap) (cert []byte, returnErr error) {
-	log.Info("extracting cert from config map")
-
-	out, ok := certConfigMap.Data["service-ca.crt"]
-
-	if !ok {
-		returnErr = errors.New("Error retrieving cert from config map")
-		return nil, returnErr
-	}
-
-	cert = []byte(out)
-	return cert, nil
-}
-
-func (r *ReconcileMeterDefinition) generateQueryPreview(instance *v1alpha1.MeterDefinition, reqLogger logr.Logger, promAPI v1.API) (queryPreviewResultArray []v1alpha1.Result, returnErr error) {
-	loc, _ := time.LoadLocation("UTC")
-	var queryPreviewResult *v1alpha1.Result
-
-	for _, workload := range instance.Spec.Workloads {
-		var val model.Value
-		var metric v1alpha1.MeterLabelQuery
-		var query *prometheus.PromQuery
-
-		for _, metric = range workload.MetricLabels {
-			reqLogger.Info("meterdef preview query ", "metric", metric)
-			query = prometheus.NewPromQuery(&prometheus.PromQueryArgs{
-				Metric: metric.Label,
-				Type:   workload.WorkloadType,
-				MeterDef: types.NamespacedName{
-					Name:      instance.Name,
-					Namespace: instance.Namespace,
-				},
-				Query:         metric.Query,
-				Time:          "60m",
-				Start:         time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour()-1, time.Now().Minute(), 0, 0, loc),
-				End:           time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), time.Now().Hour(), time.Now().Minute(), 0, 0, loc),
-				Step:          time.Hour,
-				AggregateFunc: metric.Aggregation,
-			})
-
-			reqLogger.Info("meterdef preview query", "query", query.String())
-
-			var warnings v1.Warnings
-			err := utils.Retry(func() error {
-				var err error
-				val, warnings, err = prometheus.ReportQuery(query, promAPI)
-				if err != nil {
-					return errors.Wrap(err, "error with query")
-				}
-
-				return nil
-			}, *ptr.Int(2))
-
-			if warnings != nil {
-				reqLogger.Info("warnings %v", warnings)
-			}
-
-			if err != nil {
-				reqLogger.Error(err, "prometheus.QueryRange()")
-				returnErr = errors.Wrap(err, "error with query")
-				return nil, returnErr
-			}
-
-			matrix := val.(model.Matrix)
-			for _, m := range matrix {
-				for _, pair := range m.Values {
-					queryPreviewResult = &v1alpha1.Result{
-						MetricName: workload.Name,
-						Query:    	query.String(),
-						StartTime:    fmt.Sprintf("%s", query.Start),
-						EndTime:      fmt.Sprintf("%s", query.End),
-						Value:        int32(pair.Value),
-					}
-				}
-			}
-
-			reqLogger.Info("output", "query preview result", queryPreviewResult)
-
-			if queryPreviewResult != nil {
-				queryPreviewResultArray = append(queryPreviewResultArray, *queryPreviewResult)
-			}
-		}
-	}
-
-	return queryPreviewResultArray, nil
-}
-
-func (r *ReconcileMeterDefinition) handleUpdateConflictForStatusOnly(instance *v1alpha1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
-	reqLogger.Info("conflict err")
-
-	latestMeterdef := v1alpha1.MeterDefinition{}
-	r.client.Get(context.TODO(), request.NamespacedName, &latestMeterdef)
-
-	latestMeterdef.Status = instance.Status
-	err := r.client.Status().Update(context.TODO(), &latestMeterdef)
-	if err != nil {
-		reqLogger.Error(err, "error updating with resource version port")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-
-	return &ExecResult{
-		ReconcileResult: reconcile.Result{Requeue: true},
-		Err:             err,
-	}
 }
 
 func (r *ReconcileMeterDefinition) finalizeMeterDefinition(req *v1alpha1.MeterDefinition) (reconcile.Result, error) {

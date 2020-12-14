@@ -47,7 +47,6 @@ func (s *ServiceAccountClient) NewServiceAccountToken(targetServiceAccountName s
 	opts := metav1.CreateOptions{}
 	tr := s.newTokenRequest(audience,expireSecs)
 
-	// utils.PrettyPrintWithLog("token request",tr)
 	if s.Token == nil {
 		reqLogger.Info("auth token from service account found")
 
@@ -63,11 +62,6 @@ func (s *ServiceAccountClient) NewServiceAccountToken(targetServiceAccountName s
 
 	return s.getToken(targetServiceAccountName,s.Client,tr,opts)
 }
-
-/*
- saClient := prometheus.NewServiceAccountClient(kubernetesInterface kubernetes.Interface)
- token, err := saClient.GetNewSAToken(instance, audience, expireSecs)
-*/
 
 func NewServiceAccountClient(namespace string, kubernetesInterface kubernetes.Interface) *ServiceAccountClient {
 	return &ServiceAccountClient{

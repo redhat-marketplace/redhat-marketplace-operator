@@ -6,6 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/gomega/gstruct"
 
@@ -73,10 +74,6 @@ var _ = Describe("MeterDefController reconcile", func() {
 			// update the requeue rate of the meterdef controller
 			Eventually(func() bool {
 				assertion := updateOperatorDeploymentRequeueRate()
-				if assertion {
-					fmt.Println("rhm deployment updated")
-				}
-
 				return assertion
 			}, 120).Should(BeTrue())
 
@@ -106,7 +103,7 @@ var _ = Describe("MeterDefController reconcile", func() {
 		}, 180)
 
 		It("Should query prometheus and append metric data to meterdef status", func(done Done) {
-			fmt.Println("metric data test")
+			fmt.Println("meterdef query preview")
 			Eventually(func() bool {
 				assertion := Expect(testHarness.Get(context.TODO(), types.NamespacedName{Name: "meterdef-controller-test", Namespace: Namespace}, meterdef)).Should(Succeed(), "find meterdef with metric data")
 				assertion = runAssertionOnMeterDef(meterdef)
@@ -124,19 +121,19 @@ func runAssertionOnMeterDef(meterdef *v1alpha1.MeterDefinition) (assertion bool)
 			endTime := meterdef.Status.Results[0].EndTime
 
 			result := map[string]interface{}{
-				"value":        meterdef.Status.Results[0].Value,
-				"endTime":      meterdef.Status.Results[0].EndTime,
-				"startTime":    meterdef.Status.Results[0].StartTime,
-				"query":    meterdef.Status.Results[0].Query,
+				"value":      meterdef.Status.Results[0].Value,
+				"endTime":    meterdef.Status.Results[0].EndTime,
+				"startTime":  meterdef.Status.Results[0].StartTime,
+				"query":      meterdef.Status.Results[0].Query,
 				"metricName": meterdef.Status.Results[0].MetricName,
 			}
 
 			assertion = Expect(result).Should(MatchAllKeys(Keys{
 				"metricName": Equal("test"),
-				"query":    Equal(`sum by (pod,namespace) (avg(meterdef_pod_info{meter_def_name="meterdef-controller-test",meter_def_namespace="openshift-redhat-marketplace"}) without (pod_uid, instance, container, endpoint, job, service) * on(pod,namespace) group_right kube_pod_info)`),
-				"startTime":    Equal(startTime),
-				"endTime":      Equal(endTime),
-				"value":        Not(BeZero()),
+				"query":      Equal(`sum by (pod,namespace) (avg(meterdef_pod_info{meter_def_name="meterdef-controller-test",meter_def_namespace="openshift-redhat-marketplace"}) without (pod_uid, instance, container, endpoint, job, service) * on(pod,namespace) group_right kube_pod_info)`),
+				"startTime":  Equal(startTime),
+				"endTime":    Equal(endTime),
+				"value":      Not(BeZero()),
 			}))
 		}
 	}
@@ -158,12 +155,18 @@ func updateOperatorDeploymentRequeueRate() bool {
 
 	rhmContainer := rhmDeployment.Spec.Template.Spec.Containers[containerIndex]
 
-	for _,env := range rhmContainer.Env {
+	var envIndex int
+	for index, env := range rhmContainer.Env {
 		if env.Name == "METER_DEF_CONTROLLER_REQUEUE_RATE" {
-			env.Value = "25s"
+			envIndex = index
 		}
 	}
-	
-	assertion = Expect(testHarness.Update(context.TODO(), rhmDeployment)).Should(Succeed(), "update deployment")
+
+	patch := client.MergeFrom(rhmDeployment.DeepCopy())
+
+	rhmContainer.Env[envIndex].Value = "25s"
+	assertion = Expect(testHarness.Patch(context.TODO(), rhmDeployment, patch)).Should(Succeed())
+
+	// assertion = Expect(testHarness.Update(context.TODO(), rhmDeployment)).Should(Succeed(), "update deployment")
 	return assertion
 }
