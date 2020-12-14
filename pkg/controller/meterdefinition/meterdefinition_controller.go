@@ -362,7 +362,7 @@ func generateQueryPreview(instance *v1alpha1.MeterDefinition, prometheusAPI *Pro
 			var warnings v1.Warnings
 			err := utils.Retry(func() error {
 				var err error
-				val, warnings, err = prometheusAPI.ReportQueryWithApi(query)
+				val, warnings, err = prometheusAPI.ReportQuery(query)
 				if err != nil {
 					return errors.Wrap(err, "error with query")
 				}

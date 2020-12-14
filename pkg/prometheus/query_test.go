@@ -52,7 +52,7 @@ var _ = Describe("Pometheus Query", func() {
 	})
 
 	It("should query a range", func() {
-		result, warnings, err := ReportQuery(testQuery,promAPI)
+		result, warnings, err := ReportQueryFromAPI(testQuery,promAPI)
 
 		Expect(err).To(Succeed())
 		Expect(warnings).To(BeEmpty(), "warnings should be empty")

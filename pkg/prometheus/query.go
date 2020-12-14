@@ -199,7 +199,7 @@ func (q *PromQuery) String() string {
 	)
 }
 
-func (p *PrometheusAPI)ReportQueryWithApi(query *PromQuery) (model.Value, v1.Warnings, error) {
+func (p *PrometheusAPI)ReportQuery(query *PromQuery) (model.Value, v1.Warnings, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -224,7 +224,7 @@ func (p *PrometheusAPI)ReportQueryWithApi(query *PromQuery) (model.Value, v1.War
 }
 
 //TODO: being used in the reporter
-func ReportQuery(query *PromQuery, promApi v1.API) (model.Value, v1.Warnings, error) {
+func ReportQueryFromAPI(query *PromQuery, promApi v1.API) (model.Value, v1.Warnings, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

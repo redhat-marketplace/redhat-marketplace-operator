@@ -314,7 +314,7 @@ func (r *MarketplaceReporter) query(
 
 		err := utils.Retry(func() error {
 			var err error
-			val, warnings, err = prometheus.ReportQuery(query,r.api)
+			val, warnings, err = prometheus.ReportQueryFromAPI(query,r.api)
 
 			if err != nil {
 				return errors.Wrap(err, "error with query")
