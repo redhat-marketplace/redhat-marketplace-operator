@@ -209,7 +209,6 @@ func (p *PrometheusAPI)ReportQuery(query *PromQuery) (model.Value, v1.Warnings, 
 		Step:  query.Step,
 	}
 
-	// result, warnings, err := promApi.QueryRange(ctx, query.String(), timeRange)
 	result, warnings, err := p.QueryRange(ctx, query.String(), timeRange)
 
 	if err != nil {
