@@ -746,37 +746,38 @@ spec:
     ### Installation
 
     1. Create or get your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).
+
     2. Install the Red Hat Marketplace Operator in the openshift-redhat-marketplace namespace.
 
     3. Create a Kubernetes secret in the openshift-redhat-marketplace namespace with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET` with the value of the Red hat Marketplace Pull Secret.
 
-    ```sh
-    # Replace ${PULL_SECRET} with your secret from Red Hat Marketplace
-    oc create secret generic redhat-marketplace-pull-secret -n  openshift-redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}
-    ```
+       ```sh
+       # Replace ${PULL_SECRET} with your secret from Red Hat Marketplace
+       oc create secret generic redhat-marketplace-pull-secret -n  openshift-redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}
+       ```
 
     4. Install the Red Hat Marketplace pull secret as a global pull secret on the cluster.
 
-    **Warning:** This step will make your cluster perform a rolling restart.
+       **Warning:** This step will make your cluster perform a rolling restart.
 
-    These steps require `oc`, `jq`, and `base64` to be available on your machine.
+       These steps require `oc`, `jq`, and `base64` to be available on your machine.
 
-    ```sh
-    # Create the docker pull secret file using your PULL_SECRET from Red Hat Marketplace.
-    # Store it in a file called entitledregistryconfigjson.
-    oc create secret docker-registry entitled-registry --docker-server=registry.marketplace.redhat.com --docker-username "cp" --docker-password "${PULL_SECRET}" --dry-run=true --output="jsonpath={.data.\.dockerconfigjson}" | base64 --decode > entitledregistryconfigjson
+       ```sh
+       # Create the docker pull secret file using your PULL_SECRET from Red Hat Marketplace.
+       # Store it in a file called entitledregistryconfigjson.
+       oc create secret docker-registry entitled-registry --docker-server=registry.marketplace.redhat.com --docker-username "cp" --docker-password "${PULL_SECRET}" --dry-run=true --output="jsonpath={.data.\.dockerconfigjson}" | base64 --decode > entitledregistryconfigjson
 
-    # Get the current global secrets on the cluster and store it as a file named dockerconfigjson
-    oc get secret pull-secret -n openshift-config --output="jsonpath={.data.\.dockerconfigjson}" | base64 --decode > dockerconfigjson
+       # Get the current global secrets on the cluster and store it as a file named dockerconfigjson
+       oc get secret pull-secret -n openshift-config --output="jsonpath={.data.\.dockerconfigjson}" | base64 --decode > dockerconfigjson
 
-    # Merge the two dockerconfigs together into a file called dockerconfigjson-merged.
-    jq -s '.[0] * .[1]' dockerconfigjson entitledregistryconfigjson > dockerconfigjson-merged
+       # Merge the two dockerconfigs together into a file called dockerconfigjson-merged.
+       jq -s '.[0] * .[1]' dockerconfigjson entitledregistryconfigjson > dockerconfigjson-merged
 
-    # Set the cluster's dockerconfig file to the new merged version.
-    oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=dockerconfigjson-merged
+       # Set the cluster's dockerconfig file to the new merged version.
+       oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=dockerconfigjson-merged
 
-    ## Cluster will now restart.
-    ```
+       # Cluster will now restart.
+       ```
 
     ### Why is a global pull secret required?
 
