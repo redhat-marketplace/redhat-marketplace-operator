@@ -22,6 +22,7 @@ import (
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	opsrcApi "github.com/operator-framework/operator-marketplace/pkg/apis"
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
@@ -59,8 +60,13 @@ var (
 	opts = []StepOption{
 		WithRequest(req),
 	}
+
+	features = &common.Features{
+		Deployment: ptr.Bool(true),
+	}
+
 	marketplaceconfig = utils.BuildMarketplaceConfigCR(namespace, customerID)
-	razeedeployment   = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName)
+	razeedeployment   = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
 	meterbase         = utils.BuildMeterBaseCr(namespace)
 )
 
@@ -88,9 +94,7 @@ func testCleanInstall(t GinkgoTInterface) {
 	marketplaceconfig.Spec.InstallIBMCatalogSource = ptr.Bool(true)
 	reconcilerTest := NewReconcilerTest(setup, marketplaceconfig)
 	reconcilerTest.TestAll(t,
-		ReconcileStep(opts, ReconcileWithExpectedResults(
-			append(RangeReconcileResults(RequeueResult, 5), DoneResult)...,
-		)),
+		ReconcileStep(opts, ReconcileWithUntilDone(true)),
 		GetStep(opts,
 			GetWithNamespacedName(razeeName, namespace),
 			GetWithObj(&marketplacev1alpha1.RazeeDeployment{}),

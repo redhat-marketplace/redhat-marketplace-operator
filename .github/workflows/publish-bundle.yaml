@@ -3,3 +3,92 @@ name: Publish Production Bundle
 on:
   pull_request:
     types: [closed]
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push'
+      && (startsWith(github.ref,'refs/heads/release/')
+          || startsWith(github.ref,'refs/heads/hotfix/'))
+    needs: [build, tag]
+    env:
+      TAG: ${{ needs.build.outputs.dockertag }}
+      OS_PIDS: 'ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4 ospid-ffed416e-c18d-4b88-8660-f586a4792785'
+      REPOS: 'quay.io/rh-marketplace/redhat-marketplace-operator quay.io/rh-marketplace/redhat-marketplace-reporter quay.io/rh-marketplace/redhat-marketplace-metric-state quay.io/rh-marketplace/redhat-marketplace-authcheck'
+      RH_CONNECT_TOKEN: ${{ secrets.redhat_api_key }}
+    steps:
+      - name: 'Cancel if publish flag (!publish) is not on last commit'
+        uses: actions/github-script@v2
+        id: check
+        if: |
+          github.event_name == 'push'
+          && (startsWith(github.ref,'refs/heads/release/')
+              || startsWith(github.ref,'refs/heads/hotfix/'))
+          && !contains(github.event.head_commit.message, '!publish')
+        with:
+          script: |
+            const { owner, repo } = context.repo
+            console.log('Cancelling ...');
+            const run_id = "${{ github.run_id }}";
+            await github.actions.cancelWorkflowRun({ owner, repo, run_id });
+            return 'stop'
+          result-encoding: string
+      - name: Waiting for cancellation
+        run: sleep 60
+        if: steps.check.outputs.result == 'stop'
+      - name: Should build?
+        run: test "${{ steps.check.outputs.result }}" != "stop"
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.15
+        id: go
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+      - name: Login Docker
+        run: make docker-login
+        env:
+          DOCKER_USER: ${{ secrets.REDHAT_IO_USER }}
+          DOCKER_PASSWORD: ${{ secrets.REDHAT_IO_PASSWORD }}
+          REGISTRY: registry.connect.redhat.com
+      - name: Publish
+        continue-on-error: true
+        run: |
+          make wait-and-publish
+
+  tag-bundle:
+    name: Push bundle tag
+    runs-on: ubuntu-latest
+    needs: [build, deploy, opm, cover, publish]
+    if: |
+      github.event_name == 'push'
+      && (startsWith(github.ref,'refs/heads/release/')
+          || startsWith(github.ref,'refs/heads/hotfix/'))
+    strategy:
+      matrix:
+        image:
+          - redhat-marketplace-operator-manifest
+        include:
+          - image: redhat-marketplace-operator-manifest
+            registry: scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1
+            fromRegistry: quay.io/rh-marketplace
+            name: PC
+            key: pcUser
+            value: pcPasswordOperatorManifest
+    env:
+      FROM_OPERATOR_IMAGE: ${{ matrix.fromRegistry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}-${{ needs.build.outputs.now }}
+      TO_OPERATOR_IMAGE: ${{ matrix.registry }}/${{ matrix.image }}:${{ needs.build.outputs.dockertag }}-${{ needs.build.outputs.now }}
+    steps:
+      - name: Check if tag exists in ${{ matrix.name }}
+        id: image
+        shell: bash {0}
+        run: |
+          skopeo inspect docker://${TO_OPERATOR_IMAGE} --creds ${{ secrets[matrix.key] }}:${{ secrets[matrix.value] }} > /dev/null
+          ([[ $? == 0 ]] && echo "exists=true" || echo "exists=false") >> $GITHUB_ENV
+
+      - name: Copy ${{ matrix.image }} to ${{ matrix.name }}
+        if: env.exists != 'true' && env.pushImage == 'true'
+        run: |
+          skopeo copy "docker://${FROM_OPERATOR_IMAGE}" "docker://${TO_OPERATOR_IMAGE}" --dest-creds ${{ secrets[matrix.key] }}:${{ secrets[matrix.value] }}

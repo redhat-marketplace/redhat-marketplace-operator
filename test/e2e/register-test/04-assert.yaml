@@ -1,0 +1,134 @@
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: MarketplaceConfig
+metadata:
+  name: marketplaceconfig
+spec:
+  installIBMCatalogSource: true
+status:
+  conditions:
+    - message: Finished Installing necessary components
+      reason: FinishedInstall
+      status: 'True'
+      type: Complete
+    - message: Finished Installing necessary components
+      reason: FinishedInstall
+      status: 'False'
+      type: Installing
+    - message: Cluster Registered Successfully
+      reason: ClusterRegistered
+      status: 'True'
+      type: Registered
+  meterBaseSubConditions:
+    - message: Meter Base install complete
+      reason: FinishedMeterBaseInstall
+      status: 'False'
+      type: Installing
+  razeeSubConditions:
+    - message: Razee install complete
+      reason: FinishedRazeeInstall
+      status: "True"
+      type: Complete
+    - message: RemoteResourceS3 deployment enabled
+      reason: EnabledRemoteResourceS3DeploymentInstall
+      status: "True"
+      type: DeploymentEnabled
+    - message: Razee install complete
+      reason: FinishedRazeeInstall
+      status: "False"
+      type: Installing
+    - message: Registration deployment enabled
+      reason: EnabledRegistrationWatchkeeperInstall
+      status: "True"
+      type: RegistrationEnabled
+---
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: rhm-marketplaceconfig-meterbase
+spec:
+  enableAdminAPI: true
+  image: registry.redhat.io/openshift4/ose-prometheus:v4.6
+  listenLocal: true
+  nodeSelector:
+    kubernetes.io/os: linux
+  priorityClassName: system-cluster-critical
+  replicas: 2
+  resources:
+    requests:
+      cpu: 70m
+      memory: 1Gi
+  retention: 30d
+  retentionSize: 18GB
+  serviceAccountName: redhat-marketplace-prometheus
+  serviceMonitorNamespaceSelector:
+    matchExpressions:
+      - key: openshift.io/cluster-monitoring
+        operator: DoesNotExist
+  serviceMonitorSelector:
+    matchLabels:
+      marketplace.redhat.com/metering: 'true'
+  storage:
+    volumeClaimTemplate:
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 20Gi
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: prometheus-rhm-marketplaceconfig-meterbase
+status:
+  currentReplicas: 2
+  readyReplicas: 2
+  replicas: 2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rhm-metric-state
+status:
+  availableReplicas: 1
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rhm-watch-keeper
+status:
+  availableReplicas: 1
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rhm-remoteresources3-controller
+status:
+  availableReplicas: 1
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: RemoteResourceS3
+metadata:
+  finalizers:
+    - children.downloads.deploy.razee.io
+  name: parent
+spec:
+  auth:
+    iam:
+      apiKeyRef:
+        valueFrom:
+          secretKeyRef:
+            key: accesskey
+            name: rhm-cos-reader-key
+      grantType: urn:ibm:params:oauth:grant-type:apikey
+      responseType: cloud_iam
+      url: https://iam.cloud.ibm.com/identity/token
+status:
+  touched: true

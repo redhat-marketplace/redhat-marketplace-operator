@@ -131,16 +131,16 @@ metadata:
       ]
     capabilities: Full Lifecycle
     categories: Developer Tools
-    certified: "true"
-    containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:1.0.5-31c2ff8f
-    createdAt: 2020-10-29T09:58:58Z
+    certified: 'true'
+    containerImage: quay.io/zach_source/redhat-marketplace-operator:latest
+    createdAt: 2020-12-14T15:29:13Z
     description: The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
-    olm.skipRange: '>=1.0.0 <1.0.5'
+    olm.skipRange: '>=1.0.0 <1.0.6'
     operatorframework.io/suggested-namespace: openshift-redhat-marketplace
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
-  name: redhat-marketplace-operator.v1.0.5
+  name: redhat-marketplace-operator.v1.0.6
   namespace: redhat-marketplace-operator
 spec:
   apiservicedefinitions: {}
@@ -161,6 +161,9 @@ spec:
             name: redhat-marketplace-operator
             version: v1alpha1
         specDescriptors:
+          - description: ClusterName is the name that will be assigned to your cluster in the Red Hat Marketplace UI. If you have set the name in the UI first, this name will be ignored.
+            displayName: Marketplace Cluster Name
+            path: clusterName
           - description: ClusterUUID is the Red Hat Marketplace cluster identifier
             displayName: Cluster UUID
             path: clusterUUID
@@ -172,8 +175,23 @@ spec:
             x-descriptors:
               - Secret
           - description: EnableMetering enables the Marketplace Metering components
-            displayName: Enable Metering?
+            displayName: Enable Metering
             path: enableMetering
+            x-descriptors:
+              - hidden
+          - description: The features that can be enabled or disabled
+            displayName: Disabled Features
+            path: features
+            x-descriptors:
+              - hidden
+          - description: Deployment represents the enablement of the razee deployment, defaults to true when not set
+            displayName: Enable Razee deployment?
+            path: features.deployment
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: Registration represents the enablement of the registration watchkeeper deployment, defaults to true when not set
+            displayName: Enable Watchkeeper deployment?
+            path: features.registration
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
           - description: InstallIBMCatalogSource is the flag that indicates if the IBM Catalog Source is installed
@@ -582,6 +600,21 @@ spec:
           - description: Enabled is the flag that controls if the controller does work. Setting enabled to true will create a Razee namespace and deploy it's componenets. Set to false to bypass Razee installation
             displayName: Enabled
             path: enabled
+          - description: The features that can be enabled or disabled
+            displayName: Features
+            path: features
+            x-descriptors:
+              - hidden
+          - description: Deployment represents the enablement of the razee deployment, defaults to true when not set
+            displayName: Enable Razee deployment?
+            path: features.deployment
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: Registration represents the enablement of the registration watchkeeper deployment, defaults to true when not set
+            displayName: Enable Watchkeeper deployment?
+            path: features.registration
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
           - description: Flag used by the RazeeDeployment Controller to decide whether to run legacy uninstall job Used internally by the Operator
             displayName: Legacy Uninstall Has Run
             path: legacyUninstallHasRun
@@ -589,7 +622,7 @@ spec:
             displayName: Target Namespace
             path: targetNamespace
         statusDescriptors:
-          - description: 'JobConditions DEPRECATED: represent the latest available observations of an object''s stateonfig'
+          - description: "JobConditions DEPRECATED: represent the latest available observations of an object's stateonfig"
             displayName: Job Conditions
             path: conditions
             x-descriptors:
@@ -706,20 +739,51 @@ spec:
 
     ### **Important Note**
 
-    All installations for the Marketplace operator should start at [marketplace.redhat.com](marketplace.redhat.com). Please visit us to onboard.
+    A set of instructions for onboarding is provided here. For more detailed onboarding instructions or information about what is installed please visit [marketplace.redhat.com](marketplace.redhat.com).
 
-    ### Changes to your Cluster:
-
-    **Note**: The Red Hat Marketplace Operator uses an open-source project called [Razee](https://razee.io/) for management between the cluster and marketplace.
-    View the [code on Github.](https://github.com/razee-io/Razee/blob/master/README.md)
-
-    **RazeeDeployment Controller**: The RazeeDeployment Controller creates the `razee-deploy-job` which runs in the `openshift-redhat-marketplace` namespace. This job is deleted after successful completion. View [`razee-deploy-job` on Github.](https://github.com/razee-io/razeedeploy-delta)
-
-    **Razee agent**: The `razee-deploy-job` creates the `razee` namespace and installs the Razee agent and its associated resources. The Razee agent must be running to communicate with the Red Hat Marketplace.
+    To access images from Red Hat Marketplace and the Marketplace container catalog you will need to make the pull secret attained in installation available to the workloads running on the cluster.
 
     ### Installation
 
-    View the [automated installation instructions](https://marketplace.redhat.com/en-us/documentation/clusters) in our documentation.
+    1. Create or get your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).
+
+    2. Install the Red Hat Marketplace Operator in the openshift-redhat-marketplace namespace.
+
+    3. Create a Kubernetes secret in the openshift-redhat-marketplace namespace with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET` with the value of the Red hat Marketplace Pull Secret.
+
+       ```sh
+       # Replace ${PULL_SECRET} with your secret from Red Hat Marketplace
+       oc create secret generic redhat-marketplace-pull-secret -n  openshift-redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}
+       ```
+
+    4. Install the Red Hat Marketplace pull secret as a global pull secret on the cluster.
+
+       **Warning:** This step will make your cluster perform a rolling restart.
+
+       These steps require `oc`, `jq`, and `base64` to be available on your machine.
+
+       ```sh
+       # Create the docker pull secret file using your PULL_SECRET from Red Hat Marketplace.
+       # Store it in a file called entitledregistryconfigjson.
+       oc create secret docker-registry entitled-registry --docker-server=registry.marketplace.redhat.com --docker-username "cp" --docker-password "${PULL_SECRET}" --dry-run=true --output="jsonpath={.data.\.dockerconfigjson}" | base64 --decode > entitledregistryconfigjson
+
+       # Get the current global secrets on the cluster and store it as a file named dockerconfigjson
+       oc get secret pull-secret -n openshift-config --output="jsonpath={.data.\.dockerconfigjson}" | base64 --decode > dockerconfigjson
+
+       # Merge the two dockerconfigs together into a file called dockerconfigjson-merged.
+       jq -s '.[0] * .[1]' dockerconfigjson entitledregistryconfigjson > dockerconfigjson-merged
+
+       # Set the cluster's dockerconfig file to the new merged version.
+       oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=dockerconfigjson-merged
+
+       # Cluster will now restart.
+       ```
+
+    ### Why is a global pull secret required?
+
+    In order to successfully install the Red Hat Marketplace products, you will need to make the pull secret available across the cluster. This can be achieved by applying the Red Hat Marketplace Pull Secret as a [global pull secret](https://docs.openshift.com/container-platform/4.6/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets).
+
+    For alternative approachs, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/4.6/openshift_images/managing_images/using-image-pull-secrets.html).
 
     ### Documentation
 
@@ -766,7 +830,7 @@ spec:
                 - list
                 - delete
             - apiGroups:
-                - ""
+                - ''
               resources:
                 - pods
                 - services
@@ -783,7 +847,7 @@ spec:
                 - list
                 - watch
             - apiGroups:
-                - ""
+                - ''
               resources:
                 - nodes
               verbs:
@@ -938,7 +1002,7 @@ spec:
               verbs:
                 - '*'
             - apiGroups:
-                - ""
+                - ''
               resourceNames:
                 - rhm-cos-reader-key
                 - watch-keeper-secret
@@ -953,7 +1017,7 @@ spec:
                 - update
                 - watch
             - apiGroups:
-                - ""
+                - ''
               resourceNames:
                 - watch-keeper-config
                 - watch-keeper-limit-poll
@@ -1018,19 +1082,19 @@ spec:
                           fieldRef:
                             fieldPath: metadata.name
                       - name: RELATED_IMAGE_REPORTER
-                        value: quay.io/rh-marketplace/redhat-marketplace-reporter:1.0.5-31c2ff8f
-                      - name: RELATED_IMAGE_KUBE_RBAC_PROXY
-                        value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
+                        value: quay.io/zach_source/redhat-marketplace-reporter:latest
                       - name: RELATED_IMAGE_METRIC_STATE
-                        value: quay.io/rh-marketplace/redhat-marketplace-metric-state:1.0.5-31c2ff8f
+                        value: quay.io/zach_source/redhat-marketplace-metric-state:latest
                       - name: RELATED_IMAGE_AUTHCHECK
-                        value: quay.io/rh-marketplace/redhat-marketplace-authcheck:1.0.5-31c2ff8f
+                        value: quay.io/zach_source/redhat-marketplace-authcheck:latest
+                      - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
+                        value: quay.io/razee/remoteresources3:0.6.2
                       - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
                         value: quay.io/razee/remoteresources3:0.6.2
                       - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
                         value: quay.io/razee/watch-keeper:0.6.6
                       - name: RELATED_IMAGE_PROMETHEUS
-                        value: registry.redhat.io/openshift4/ose-prometheus:v4.5
+                        value: registry.redhat.io/openshift4/ose-prometheus:v4.6
                       - name: RELATED_IMAGE_OAUTH_PROXY
                         value: registry.redhat.io/openshift4/ose-oauth-proxy:v4.5
                       - name: RELATED_IMAGE_PROMETHEUS_OPERATOR
@@ -1042,9 +1106,9 @@ spec:
                       - name: RELATED_IMAGE_KUBE_RBAC
                         value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
                       - name: IBMCATALOGSOURCE
-                        value: "true"
-                    image: quay.io/rh-marketplace/redhat-marketplace-operator:1.0.5-31c2ff8f
-                    imagePullPolicy: Always
+                        value: 'true'
+                    image: quay.io/zach_source/redhat-marketplace-operator:latest
+                    imagePullPolicy: IfNotPresent
                     name: redhat-marketplace-operator
                     resources: {}
                     securityContext: {}
@@ -1052,7 +1116,7 @@ spec:
       permissions:
         - rules:
             - apiGroups:
-                - ""
+                - ''
               resourceNames:
                 - pull-secret
               resources:
@@ -1076,7 +1140,7 @@ spec:
                 - patch
                 - watch
             - apiGroups:
-                - ""
+                - ''
               resources:
                 - pods
                 - services
@@ -1156,7 +1220,7 @@ spec:
                 - update
                 - watch
             - apiGroups:
-                - ""
+                - ''
               resourceNames:
                 - razeedeploy-sa
                 - watch-keeper-sa
@@ -1198,5 +1262,5 @@ spec:
   maturity: stable
   provider:
     name: Red Hat Marketplace
-  replaces: redhat-marketplace-operator.v1.0.4
-  version: 1.0.5
+  replaces: redhat-marketplace-operator.v1.0.5
+  version: 1.0.6

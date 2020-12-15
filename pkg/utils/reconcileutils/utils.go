@@ -29,3 +29,12 @@ func Contains(s []string, e string) bool {
 
 	return false
 }
+
+func Remove(s []string, e string) []string {
+	for i, a := range s {
+		if a == e {
+			return append(s[:i], s[i+1:]...)
+		}
+	}
+	return s
+}

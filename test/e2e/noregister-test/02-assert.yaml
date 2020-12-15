@@ -1,0 +1,20 @@
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: MarketplaceConfig
+metadata:
+  name: marketplaceconfig
+spec:
+  installIBMCatalogSource: true
+status:
+  conditions:
+    - message: Finished Installing necessary components
+      reason: FinishedInstall
+      status: 'True'
+      type: Complete
+    - message: Finished Installing necessary components
+      reason: FinishedInstall
+      status: 'False'
+      type: Installing
+    - message: Cluster Registered Successfully
+      reason: ClusterRegistered
+      status: "True"
+      type: Registered

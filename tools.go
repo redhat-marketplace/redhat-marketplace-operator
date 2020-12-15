@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tcnksm/ghr"
 	"github.com/Shyp/bump_version"
-	"github.com/go-bindata/go-bindata"
+	"github.com/kevinburke/go-bindata"
 	"github.com/golang/mock/mockgen"
 	"github.com/golangci/golangci-lint/cmd/golangci-lint"
 	"github.com/google/wire"

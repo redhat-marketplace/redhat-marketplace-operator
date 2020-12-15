@@ -1,18 +1,39 @@
+dist: focal
+arch: ppc64le
+
 language: go
 
 services:
   - docker
 
+before_install:
+  - go get github.com/onsi/ginkgo/ginkgo
+  - docker pull docker.io/docker/dockerfile:experimental
+  - docker pull docker.io/docker/dockerfile-copy:v0.1.9
+  - VERSION=`go run scripts/version/main.go`
+
 go:
-  - "1.13.x"
+  - "1.15.x"
 
 env:
-  - IMAGE_REGISTRY=quay.io/rh-marketplace
+  - IMAGE_REGISTRY=quay.io/rh-marketplace DOCKER_CLI_EXPERIMENTAL=enabled DOCKER_BUILDKIT=1
 
-jobs:
-  include:
-    - stage: test
-      script: make test && make test-cover
-    - stage: deploy
-      if: branch = master OR branch = /^release\/.*/
-      script: OPERATOR_IMAGE_TAG="${TRAVIS_TAG:-latest}" make docker-login build
+script:
+  - docker --version
+  - if [ "x$VERSION" = "x" ]; then VERSION=${TRAVIS_COMMIT}; fi
+  - echo  ${VERSION}
+  - echo "Login to Quay.io docker account..."
+  - docker login -u="${ROBOT_USER_NAME}" -p="${ROBOT_PASS_PHRASE}" quay.io
+  - echo "Building the Redhat marketplace operator images..."
+  - docker build --build-arg ARCH=ppc64le -t "quay.io/rh-marketplace/golang-base:1.15" -f build/base.Dockerfile .
+  - docker build -t "quay.io/kandarpamalipeddi/redhat-marketplace-operator:${VERSION}-ppc64le" -f build/Dockerfile .
+  - docker build -t "quay.io/kandarpamalipeddi/redhat-marketplace-metric-state:${VERSION}-ppc64le" -f build/metricState.Dockerfile .
+  - docker build -t "quay.io/kandarpamalipeddi/redhat-marketplace-reporter:${VERSION}-ppc64le" -f build/reporter.Dockerfile .
+  - docker build -t "quay.io/kandarpamalipeddi/redhat-marketplace-authcheck:${VERSION}-ppc64le" -f build/authcheck.Dockerfile .
+  - echo "Pushing images ..."
+  - docker push "quay.io/kandarpamalipeddi/redhat-marketplace-operator:${VERSION}-ppc64le"
+  - docker push "quay.io/kandarpamalipeddi/redhat-marketplace-metric-state:${VERSION}-ppc64le"
+  - docker push "quay.io/kandarpamalipeddi/redhat-marketplace-reporter:${VERSION}-ppc64le"
+  - docker push "quay.io/kandarpamalipeddi/redhat-marketplace-authcheck:${VERSION}-ppc64le"
+  - echo "Docker Image push to quay.io is done !"
+  - make test-ci-unit

@@ -276,6 +276,11 @@ func (in *MarketplaceConfigSpec) DeepCopyInto(out *MarketplaceConfigSpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.Features != nil {
+		in, out := &in.Features, &out.Features
+		*out = new(common.Features)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
@@ -706,6 +711,11 @@ func (in *MeterReportSpec) DeepCopyInto(out *MeterReportSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.ExtraArgs != nil {
+		in, out := &in.ExtraArgs, &out.ExtraArgs
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
@@ -948,6 +958,11 @@ func (in *RazeeDeploymentSpec) DeepCopyInto(out *RazeeDeploymentSpec) {
 		in, out := &in.LegacyUninstallHasRun, &out.LegacyUninstallHasRun
 		*out = new(bool)
 		**out = **in
+	}
+	if in.Features != nil {
+		in, out := &in.Features, &out.Features
+		*out = new(common.Features)
+		(*in).DeepCopyInto(*out)
 	}
 	return
 }

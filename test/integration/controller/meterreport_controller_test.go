@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+package controller_test
 
 import (
 	"context"
@@ -31,6 +31,13 @@ import (
 )
 
 var _ = Describe("MeterReportController", func() {
+	BeforeEach(func() {
+		Expect(testHarness.BeforeAll()).To(Succeed())
+	})
+
+	AfterEach(func() {
+		Expect(testHarness.AfterAll()).To(Succeed())
+	})
 
 	Context("MeterReport reconcile", func() {
 		var (
@@ -98,23 +105,22 @@ var _ = Describe("MeterReportController", func() {
 				},
 			}
 
-			Expect(K8sClient.Create(context.TODO(), meterdef)).Should(SucceedOrAlreadyExist)
+			testHarness.Delete(context.TODO(), meterreport)
+			Expect(testHarness.Create(context.TODO(), meterdef)).Should(SucceedOrAlreadyExist)
 			close(done)
 		}, 120)
 
 		AfterEach(func(done Done) {
-			K8sClient.Delete(context.TODO(), meterreport)
-
-			Expect(K8sClient.Delete(context.TODO(), meterdef)).Should(Succeed())
+			Expect(testHarness.Delete(context.TODO(), meterdef)).Should(Succeed())
 			close(done)
 		}, 120)
 
 		It("should create a job if the report is due", func(done Done) {
-			Expect(K8sClient.Create(context.TODO(), meterreport)).Should(Succeed())
+			Expect(testHarness.Create(context.TODO(), meterreport)).Should(Succeed())
 			job := &batchv1.Job{}
 
 			Eventually(func() bool {
-				result, _ := CC.Do(
+				result, _ := testHarness.Do(
 					context.TODO(),
 					GetAction(types.NamespacedName{Name: meterreport.Name, Namespace: Namespace}, job),
 				)
@@ -122,7 +128,7 @@ var _ = Describe("MeterReportController", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			Eventually(func() map[string]interface{} {
-				result, _ := CC.Do(
+				result, _ := testHarness.Do(
 					context.TODO(),
 					GetAction(types.NamespacedName{Name: meterreport.Name, Namespace: Namespace}, meterreport),
 				)
@@ -149,7 +155,7 @@ var _ = Describe("MeterReportController", func() {
 				}))
 
 			Eventually(func() map[string]interface{} {
-				result, _ := CC.Do(
+				result, _ := testHarness.Do(
 					context.TODO(),
 					GetAction(types.NamespacedName{Name: meterreport.Name, Namespace: Namespace}, meterreport),
 				)

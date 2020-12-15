@@ -30,6 +30,7 @@ var _ = Describe("Builder", func() {
 		key           MetricKey
 		metricBase    *MetricBase
 		sliceID       = uuid.New()
+		metadata      *ReportMetadata
 	)
 
 	BeforeEach(func() {
@@ -45,17 +46,26 @@ var _ = Describe("Builder", func() {
 			MeterDomain:       "test",
 			MeterKind:         "foo",
 			MeterVersion:      "v1",
+			ResourceName:      "foo",
+			Namespace:         "bar",
+			Label:             "awesome",
 		}
 		metricBase = &MetricBase{
 			Key: key,
 		}
+		metadata = NewReportMetadata(uuid.New(), ReportSourceMetadata{
+			RhmClusterID:   "testCluster",
+			RhmEnvironment: ReportSandboxEnv,
+			RhmAccountID:   "testAccount",
+		})
+
 	})
 
 	It("should serialize source metadata to json", func() {
 		metadata := NewReportMetadata(uuid.New(), ReportSourceMetadata{
-			RhmClusterID: "testCluster",
+			RhmClusterID:   "testCluster",
 			RhmEnvironment: ReportSandboxEnv,
-			RhmAccountID: "testAccount",
+			RhmAccountID:   "testAccount",
 		})
 
 		metadata.AddMetricsReport(metricsReport)
@@ -69,6 +79,9 @@ var _ = Describe("Builder", func() {
 	})
 
 	It("should add metrics to a base", func() {
+
+		metricsReport.AddMetadata(metadata.ToFlat())
+
 		Expect(metricBase.AddMetrics("foo", 1, "bar", 2)).To(Succeed())
 		Expect(metricBase.AddAdditionalLabels("extra", "g")).To(Succeed())
 		Expect(metricsReport.AddMetrics(metricBase)).To(Succeed())
@@ -80,6 +93,7 @@ var _ = Describe("Builder", func() {
 
 		Expect(metricsReport).To(PointTo(MatchAllFields(Fields{
 			"ReportSliceID": Equal(ReportSliceKey(sliceID)),
+			"Metadata":      PointTo(Equal(*metadata.ToFlat())),
 			"Metrics": MatchAllElements(id, Elements{
 				"0": MatchAllKeys(Keys{
 					"metric_id":           Equal("id"),
@@ -90,6 +104,9 @@ var _ = Describe("Builder", func() {
 					"domain":              Equal("test"),
 					"version":             Equal("v1"),
 					"kind":                Equal("foo"),
+					"resource_name":       Equal("foo"),
+					"namespace":           Equal("bar"),
+					"workload":            Equal("awesome"),
 					"additionalLabels": MatchAllKeys(Keys{
 						"extra": Equal("g"),
 					}),

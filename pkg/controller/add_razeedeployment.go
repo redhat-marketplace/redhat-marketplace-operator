@@ -15,17 +15,21 @@
 package controller
 
 import (
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller/razeedeployment"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 type RazeeDeployController struct {
 	*baseDefinition
 }
 
-func ProvideRazeeDeployController() *RazeeDeployController {
+func ProvideRazeeDeployController(cfg config.OperatorConfig) *RazeeDeployController {
 	return &RazeeDeployController{
 		baseDefinition: &baseDefinition{
-			AddFunc:     razeedeployment.Add,
+			AddFunc: func(mgr manager.Manager) error {
+				return razeedeployment.Add(mgr, cfg)
+			},
 			FlagSetFunc: razeedeployment.FlagSet,
 		},
 	}

@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	"github.com/operator-framework/operator-sdk/pkg/status"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -33,6 +34,12 @@ type MarketplaceConfigSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
 	ClusterUUID string `json:"clusterUUID"`
 
+	// ClusterName is the name that will be assigned to your cluster in the Red Hat Marketplace UI.
+	// If you have set the name in the UI first, this name will be ignored.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Marketplace Cluster Name"
+	ClusterName string `json:"clusterName,omitempty"`
+
 	// DeploySecretName is the secret name that contains the deployment information
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Marketplace Secret Name"
@@ -41,8 +48,7 @@ type MarketplaceConfigSpec struct {
 
 	// EnableMetering enables the Marketplace Metering components
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable Metering?"
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
 	EnableMetering *bool `json:"enableMetering,omitempty"`
 
 	// InstallIBMCatalogSource is the flag that indicates if the IBM Catalog Source is installed
@@ -50,6 +56,12 @@ type MarketplaceConfigSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Install IBM Catalog Source?"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
 	InstallIBMCatalogSource *bool `json:"installIBMCatalogSource,omitempty"`
+
+	// The features that can be enabled or disabled
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Disabled Features"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
+	Features *common.Features `json:"features,omitempty"`
 }
 
 // MarketplaceConfigStatus defines the observed state of MarketplaceConfig
@@ -80,6 +92,8 @@ type MarketplaceConfigStatus struct {
 // +kubebuilder:resource:path=marketplaceconfigs,scope=Namespaced
 // +kubebuilder:printcolumn:name="INSTALLING",type=string,JSONPath=`.status.conditions[?(@.type == "Installing")].status`
 // +kubebuilder:printcolumn:name="STEP",type=string,JSONPath=`.status.conditions[?(@.type == "Installing")].reason`
+// +kubebuilder:printcolumn:name="REGISTERED",type=string,JSONPath=`.status.conditions[?(@.type == "Registered")].status`
+// +kubebuilder:printcolumn:name="REGISTERED_MSG",type=string,JSONPath=`.status.conditions[?(@.type == "Registered")].message`
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="Marketplace"
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`RazeeDeployment,v1alpha1,"redhat-marketplace-operator"`
 // +operator-sdk:gen-csv:customresourcedefinitions.resources=`OperatorSource,v1,"redhat-marketplace-operator"`
@@ -100,6 +114,10 @@ const (
 	ConditionComplete status.ConditionType = "Complete"
 	// ConditionError means the installation has failed.
 	ConditionError status.ConditionType = "Error"
+	// ConditionRegistered means the cluster registered.
+	ConditionRegistered status.ConditionType = "Registered"
+	// ConditionRegistered means the cluster registered.
+	ConditionRegistrationError status.ConditionType = "RegistationError"
 
 	// Reasons for install
 	ReasonStartInstall          status.ConditionReason = "StartInstall"
@@ -109,6 +127,20 @@ const (
 	ReasonCatalogSourceInstall  status.ConditionReason = "CatalogSourceInstalled"
 	ReasonCatalogSourceDelete   status.ConditionReason = "CatalogSourceDeleted"
 	ReasonInstallFinished       status.ConditionReason = "FinishedInstall"
+	ReasonRegistrationSuccess   status.ConditionReason = "ClusterRegistered"
+	ReasonRegistrationFailure   status.ConditionReason = "ClusterNotRegistered"
+	ReasonServiceUnavailable    status.ConditionReason = "ServiceUnavailable"
+	ReasonInternetDisconnected  status.ConditionReason = "InterntNotAvailable"
+	ReasonClientError           status.ConditionReason = "ClientError"
+	ReasonRegistrationError     status.ConditionReason = "HttpError"
+	ReasonOperatingNormally     status.ConditionReason = "OperatingNormally"
+	ReasonNoError               status.ConditionReason = ReasonOperatingNormally
+
+	// Enablement/Disablement of features conditions
+	// ConditionDeploymentEnabled means the particular option is enabled
+	ConditionDeploymentEnabled status.ConditionType = "DeploymentEnabled"
+	// ConditionRegistrationEnabled means the particular option is enabled
+	ConditionRegistrationEnabled status.ConditionType = "RegistrationEnabled"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

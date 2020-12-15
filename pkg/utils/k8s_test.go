@@ -19,7 +19,9 @@ import (
 
 	"emperror.dev/errors"
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/gotidy/ptr"
 	. "github.com/onsi/ginkgo"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -32,6 +34,7 @@ import (
 )
 
 var _ = Describe("Testing with Ginkgo", func() {
+
 	It("persistent volume claim", func() {
 
 		// setup returns a fakeClient for testing purposes
@@ -214,9 +217,12 @@ var (
 	testNamespace1        = "testing-namespace-1"
 	testNamespace2        = "testing-namespace-2"
 	testNamespace3        = "testing-namespace-3"
+	features              = &common.Features{
+		Deployment: ptr.Bool(true),
+	}
 
 	marketplaceconfig = BuildMarketplaceConfigCR(testNamespace1, customerID)
-	razeedeployment   = BuildRazeeCr(testNamespace1, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName)
+	razeedeployment   = BuildRazeeCr(testNamespace1, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
 	meterbase         = BuildMeterBaseCr(testNamespace1)
 
 	testNs1 = &corev1.Namespace{}

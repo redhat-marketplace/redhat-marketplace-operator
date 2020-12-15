@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/patch"
@@ -40,10 +40,12 @@ import (
 	"github.com/spf13/pflag"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -303,6 +305,8 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 		Do(r.installMetricStateDeployment(instance, factory)...),
 		Do(r.reconcileAdditionalConfigSecret(cc, instance, prometheus, factory, cfg)...),
 		Do(r.reconcilePrometheus(instance, prometheus, factory, cfg)...),
+		Do(r.verifyPVCSize(reqLogger, instance, factory, prometheus)...),
+		Do(r.recyclePrometheusPods(reqLogger, instance, factory, prometheus)...),
 	); !result.Is(Continue) {
 		if result.Is(Error) {
 			reqLogger.Error(result, "error in reconcile")
@@ -912,7 +916,7 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 		),
 		HandleResult(
 			GetAction(
-				types.NamespacedName{Namespace: "openshift-config-managed", Name: "kubelet-serving-ca"},
+				types.NamespacedName{Namespace: instance.Namespace, Name: "serving-certs-ca-bundle"},
 				kubeletCertsCM,
 			),
 			OnNotFound(Call(func() (ClientAction, error) {
@@ -921,7 +925,7 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 			OnContinue(manifests.CreateOrUpdateFactoryItemAction(
 				&corev1.ConfigMap{},
 				func() (runtime.Object, error) {
-					return factory.PrometheusKubeletServingCABundle(kubeletCertsCM.Data)
+					return factory.PrometheusKubeletServingCABundle(kubeletCertsCM.Data["service-ca.crt"])
 				},
 				args,
 			))),
@@ -938,61 +942,185 @@ func (r *ReconcileMeterBase) reconcilePrometheus(
 				prometheus,
 			),
 			OnNotFound(Call(r.createPrometheus(instance, factory, configSecret))),
-			OnContinue(Call(func() (ClientAction, error) {
-				updatedPrometheus := prometheus.DeepCopy()
-				expectedPrometheus, err := r.newPrometheusOperator(instance, factory, configSecret)
+			OnContinue(
+				Call(func() (ClientAction, error) {
+					expectedPrometheus, err := r.newPrometheusOperator(instance, factory, configSecret)
 
-				if err != nil {
-					return nil, merrors.Wrap(err, "error updating prometheus")
+					if orig, _ := r.patcher.GetOriginalConfiguration(prometheus); orig == nil {
+						data, _ := r.patcher.GetModifiedConfiguration(prometheus, false)
+						r.patcher.SetOriginalConfiguration(prometheus, data)
+					}
+
+					patch, err := r.patcher.Calculate(prometheus, expectedPrometheus)
+					if err != nil {
+						return nil, merrors.Wrap(err, "error creating patch")
+					}
+
+					if patch.IsEmpty() {
+						return nil, nil
+					}
+
+					err = r.patcher.SetLastAppliedAnnotation(expectedPrometheus)
+					if err != nil {
+						return nil, merrors.Wrap(err, "error creating patch")
+					}
+
+					patch, err = r.patcher.Calculate(prometheus, expectedPrometheus)
+					if err != nil {
+						return nil, merrors.Wrap(err, "error creating patch")
+					}
+
+					if patch.IsEmpty() {
+						return nil, nil
+					}
+
+					jsonPatch, err := jsonmergepatch.CreateThreeWayJSONMergePatch(patch.Original, patch.Modified, patch.Current)
+					if err != nil {
+						return nil, merrors.Wrap(err, "Failed to generate merge patch")
+					}
+
+					updateResult := &ExecResult{}
+
+					return HandleResult(
+						StoreResult(
+							updateResult,
+							UpdateWithPatchAction(prometheus, types.MergePatchType, jsonPatch),
+						),
+						OnError(
+							Call(func() (ClientAction, error) {
+								return UpdateStatusCondition(
+									instance, instance.Status.Conditions, status.Condition{
+										Type:    marketplacev1alpha1.ConditionError,
+										Status:  corev1.ConditionFalse,
+										Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
+										Message: updateResult.Error(),
+									}), nil
+							})),
+					), nil
+				},
+				))),
+	}
+}
+
+func (r *ReconcileMeterBase) recyclePrometheusPods(
+	log logr.Logger,
+	instance *marketplacev1alpha1.MeterBase,
+	factory *manifests.Factory,
+	prometheusDeployment *monitoringv1.Prometheus,
+) []ClientAction {
+	pvcs := &corev1.PersistentVolumeClaimList{}
+
+	return []ClientAction{
+		Call(func() (ClientAction, error) {
+			return ListAction(pvcs, client.MatchingLabels{"prometheus": prometheusDeployment.Name}), nil
+		}),
+		Call(func() (ClientAction, error) {
+			if len(pvcs.Items) == 0 {
+				log.Info("no pvcs found")
+				return nil, nil
+			}
+
+			for _, item := range pvcs.Items {
+				for _, cond := range item.Status.Conditions {
+					if cond.Type == corev1.PersistentVolumeClaimFileSystemResizePending {
+						name := strings.Replace(item.Name, "prometheus-rhm-marketplaceconfig-meterbase-db-", "", -1)
+						log.Info("volume pending resize, restarting pod", "name", name)
+						pod := &corev1.Pod{}
+
+						return HandleResult(
+							GetAction(types.NamespacedName{Name: name, Namespace: instance.Namespace}, pod),
+							OnContinue(
+								HandleResult(
+									DeleteAction(pod),
+									OnAny(RequeueAfterResponse(10*time.Second))),
+							),
+						), nil
+					}
 				}
+			}
 
-				updatedPrometheus.ObjectMeta.Name = expectedPrometheus.ObjectMeta.Name
-				updatedPrometheus.Spec.Secrets = expectedPrometheus.Spec.Secrets
-				updatedPrometheus.Spec.Volumes = expectedPrometheus.Spec.Volumes
-				updatedPrometheus.Spec.VolumeMounts = expectedPrometheus.Spec.VolumeMounts
-				updatedPrometheus.Spec.AdditionalScrapeConfigs = expectedPrometheus.Spec.AdditionalScrapeConfigs
-				updatedPrometheus.Spec.Containers = expectedPrometheus.Spec.Containers
+			return nil, nil
+		}),
+	}
+}
 
-				patch, err := r.patcher.Calculate(prometheus, updatedPrometheus)
-				if err != nil {
-					return nil, err
-				}
+func (r *ReconcileMeterBase) verifyPVCSize(
+	log logr.Logger,
+	instance *marketplacev1alpha1.MeterBase,
+	factory *manifests.Factory,
+	prometheusDeployment *monitoringv1.Prometheus,
+) []ClientAction {
+	storageClass := &storagev1.StorageClass{}
+	pvcs := &corev1.PersistentVolumeClaimList{}
 
-				if patch.IsEmpty() {
+	return []ClientAction{
+		Call(func() (ClientAction, error) {
+			return ListAction(pvcs, client.MatchingLabels{"prometheus": prometheusDeployment.Name}), nil
+		}),
+		HandleResult(
+			Call(func() (ClientAction, error) {
+				if len(pvcs.Items) == 0 {
+					log.Info("no pvcs found")
 					return nil, nil
 				}
 
-				patchBytes, err := jsonpatch.CreateMergePatch(patch.Original, patch.Modified)
+				for _, item := range pvcs.Items {
+					if item.Spec.StorageClassName == nil {
+						log.Info("storage class is nil, skipping")
+						continue
+					}
 
-				if err != nil {
-					return nil, err
+					log.Info("storage class lookup", "name", *item.Spec.StorageClassName)
+					return GetAction(types.NamespacedName{Name: *item.Spec.StorageClassName}, storageClass), nil
 				}
 
-				updateResult := &ExecResult{}
+				return nil, nil
+			}),
+			OnContinue(Call(func() (ClientAction, error) {
+				if len(pvcs.Items) == 0 {
+					return nil, nil
+				}
 
-				return HandleResult(
-					StoreResult(
-						updateResult,
-						UpdateWithPatchAction(prometheus, types.MergePatchType, patchBytes),
-					),
-					OnError(
-						Call(func() (ClientAction, error) {
-							return UpdateStatusCondition(
-								instance, instance.Status.Conditions, status.Condition{
-									Type:    marketplacev1alpha1.ConditionError,
-									Status:  corev1.ConditionFalse,
-									Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
-									Message: updateResult.Error(),
-								}), nil
-						})),
-					OnRequeue(
-						UpdateStatusCondition(instance, instance.Status.Conditions, status.Condition{
-							Type:    marketplacev1alpha1.ConditionInstalling,
-							Status:  corev1.ConditionTrue,
-							Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
-							Message: "updated prometheus",
-						}))), nil
-			}))),
+				if storageClass == nil {
+					return nil, nil
+				}
+
+				if storageClass.AllowVolumeExpansion == nil ||
+					(storageClass.AllowVolumeExpansion != nil && *storageClass.AllowVolumeExpansion != true) {
+					log.Info("storage class does not allow for expansion", "storageClass", storageClass.String())
+					return nil, nil
+				}
+
+				if prometheusDeployment.Spec.Storage == nil ||
+					prometheusDeployment.Spec.Storage.VolumeClaimTemplate.Spec.Resources.Requests.Storage() == nil {
+					log.Info("prometheusDeployment Storage not defined")
+					return nil, nil
+				}
+
+				actions := []ClientAction{}
+				promDefinedStorage := prometheusDeployment.Spec.Storage.VolumeClaimTemplate.Spec.Resources.Requests.Storage()
+
+				for _, item := range pvcs.Items {
+					switch item.Spec.Resources.Requests.Storage().Cmp(*promDefinedStorage) {
+					case 0:
+						fallthrough
+					case 1:
+						log.Info("pvc size is not different", "oldSize", item.Spec.Resources.Requests.Storage().String(), "newSize", promDefinedStorage.String())
+						continue
+					default:
+					}
+
+					localItem := item.DeepCopy()
+					log.Info("pvc size is different", "oldSize", localItem.Spec.Resources.Requests.Storage().String(), "newSize", promDefinedStorage.String())
+					localItem.Spec.Resources.Requests = corev1.ResourceList{
+						corev1.ResourceStorage: *promDefinedStorage,
+					}
+					actions = append(actions, UpdateAction(localItem))
+				}
+
+				return Do(actions...), nil
+			})),
+		),
 	}
 }
 
