@@ -314,6 +314,7 @@ func (meterdef *MeterDefinition) ToPrometheusLabels() []map[string]string {
 				"metric_query":         metricLabel.Query,
 				"meter_group":          meterGroup,
 				"meter_kind":           meterKind,
+				"metric_period":        "1h",
 			}
 
 			allMdefs = append(allMdefs, labels)

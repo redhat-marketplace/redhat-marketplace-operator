@@ -105,13 +105,12 @@ var _ = Describe("MeterReportController", func() {
 				},
 			}
 
+			testHarness.Delete(context.TODO(), meterreport)
 			Expect(testHarness.Create(context.TODO(), meterdef)).Should(SucceedOrAlreadyExist)
 			close(done)
 		}, 120)
 
 		AfterEach(func(done Done) {
-			testHarness.Delete(context.TODO(), meterreport)
-
 			Expect(testHarness.Delete(context.TODO(), meterdef)).Should(Succeed())
 			close(done)
 		}, 120)

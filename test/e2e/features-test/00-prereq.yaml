@@ -3,7 +3,7 @@ kind: TestStep
 commands:
   - timeout: 700
     script: |
-      cd ../../.. && make skaffold-run
+      if [ "$SKIP_DEPLOY" == "" ] ; then cd ../../.. && make skaffold-run ; else echo "skipping deploy" ; fi
 delete:
   - apiVersion: marketplace.redhat.com/v1alpha1
     kind: MarketplaceConfig

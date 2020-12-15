@@ -176,21 +176,21 @@ func (r *MarketplaceReporter) queryRange(query *PromQuery) (model.Value, v1.Warn
 	return result, warnings, nil
 }
 
-var ClientError = errors.New("clientError")
-var ClientErrorUnauthorized = errors.New("clientError: Unauthorized")
-var ServerError = errors.New("serverError")
+var ClientError = errors.Sentinel("clientError")
+var ClientErrorUnauthorized = errors.Sentinel("clientError: Unauthorized")
+var ServerError = errors.Sentinel("serverError")
 
 func toError(err error) error {
 	if v, ok := err.(*v1.Error); ok {
 		if v.Type == v1.ErrClient {
 			if strings.Contains(strings.ToLower(v.Msg), "unauthorized") {
-				return errors.Combine(ClientErrorUnauthorized, err)
+				return errors.Combine(errors.WithStack(ClientErrorUnauthorized), err)
 			}
 
-			return errors.Combine(ClientError, err)
+			return errors.Combine(errors.WithStack(ClientError), err)
 		}
 
-		return errors.Combine(ServerError, err)
+		return errors.Combine(errors.WithStack(ServerError), err)
 	}
 
 	return err

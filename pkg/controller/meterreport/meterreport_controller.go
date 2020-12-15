@@ -16,6 +16,7 @@ package meterreport
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"time"
 
@@ -226,6 +227,11 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 			reqLogger.Error(result.GetError(), "Failed to on resolving job.")
 		}
 		return result.Return()
+	}
+
+	if jr == nil {
+		reqLogger.Error(errors.New("failed to find a job reference"), "failed to find the job reference")
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	reqLogger.Info("reviewing job", "jr", jr,
