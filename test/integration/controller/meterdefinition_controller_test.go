@@ -73,7 +73,7 @@ var _ = Describe("MeterDefController reconcile", func() {
 
 			// update the requeue rate of the meterdef controller
 			Eventually(func() bool {
-				assertion := updateOperatorDeploymentRequeueRate()
+				assertion := patchRHMEnvVars()
 				return assertion
 			}, 120).Should(BeTrue())
 
@@ -141,32 +141,35 @@ func runAssertionOnMeterDef(meterdef *v1alpha1.MeterDefinition) (assertion bool)
 	return assertion
 }
 
-func updateOperatorDeploymentRequeueRate() bool {
+func patchRHMEnvVars() bool {
 	rhmDeployment := &appsv1.Deployment{}
 
 	assertion := Expect(testHarness.Get(context.TODO(), types.NamespacedName{Name: "redhat-marketplace-operator", Namespace: Namespace}, rhmDeployment)).Should(Succeed(), "Get rhm deployment")
 
-	var containerIndex int
-	for index, container := range rhmDeployment.Spec.Template.Spec.Containers {
-		if container.Name == "redhat-marketplace-operator" {
-			containerIndex = index
+	newEnv := []byte(`{
+		"spec": {
+			"template": {
+				"spec": {
+					"containers": [
+						{
+							"env": [
+								{
+									"name": "METER_DEF_CONTROLLER_REQUEUE_RATE",
+									"value": "20s"
+								}
+							],
+							"name": "redhat-marketplace-operator"
+						}
+					]
+				}
+			}
 		}
-	}
+	}`)
 
-	rhmContainer := rhmDeployment.Spec.Template.Spec.Containers[containerIndex]
+	patch := client.RawPatch(types.StrategicMergePatchType, newEnv)
+	assertion = Expect(testHarness.Patch(context.TODO(), rhmDeployment,patch)).Should(Succeed())
 
-	var envIndex int
-	for index, env := range rhmContainer.Env {
-		if env.Name == "METER_DEF_CONTROLLER_REQUEUE_RATE" {
-			envIndex = index
-		}
-	}
-
-	patch := client.MergeFrom(rhmDeployment.DeepCopy())
-
-	rhmContainer.Env[envIndex].Value = "30s"
-	assertion = Expect(testHarness.Patch(context.TODO(), rhmDeployment, patch)).Should(Succeed())
-
-	// assertion = Expect(testHarness.Update(context.TODO(), rhmDeployment)).Should(Succeed(), "update deployment")
 	return assertion
 }
+
+
