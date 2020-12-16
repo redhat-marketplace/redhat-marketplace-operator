@@ -9,6 +9,7 @@ import (
 	"context"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
@@ -93,11 +94,12 @@ func NewReporter(task *Task) (*MarketplaceReporter, error) {
 	if err != nil {
 		return nil, err
 	}
-	apiClient, err := provideApiClient(meterReport, service, reporterConfig)
+	prometheusAPISetup := providePrometheusSetup(reporterConfig, meterReport, service)
+	prometheusAPI, err := prometheus.NewPrometheusAPIForReporter(prometheusAPISetup)
 	if err != nil {
 		return nil, err
 	}
-	marketplaceReporter, err := NewMarketplaceReporter(reporterConfig, client, meterReport, marketplaceConfig, v, service, apiClient)
+	marketplaceReporter, err := NewMarketplaceReporter(reporterConfig, client, meterReport, marketplaceConfig, v, service, prometheusAPI)
 	if err != nil {
 		return nil, err
 	}

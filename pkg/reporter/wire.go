@@ -23,6 +23,7 @@ import (
 	"github.com/google/wire"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 )
 
@@ -50,13 +51,14 @@ func NewReporter(
 	panic(wire.Build(
 		wire.FieldsOf(new(*Task),
 			"ReportName", "K8SClient", "Ctx", "Config", "K8SScheme"),
-		provideApiClient,
 		reconcileutils.CommandRunnerProviderSet,
 		wire.InterfaceValue(new(logr.Logger), logger),
 		getMarketplaceReport,
 		getPrometheusService,
 		getMeterDefinitions,
 		getMarketplaceConfig,
+		providePrometheusSetup,
+		prometheus.NewPrometheusAPIForReporter,
 		ReporterSet,
 	))
 }

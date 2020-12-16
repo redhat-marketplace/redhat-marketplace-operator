@@ -26,6 +26,7 @@ import (
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/log"
+	v1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 
 	corev1 "k8s.io/api/core/v1"
@@ -46,6 +47,38 @@ type PrometheusSecureClientConfig struct {
 
 type UserAuth struct {
 	Username, Password string
+}
+
+type PrometheusAPISetup struct {
+	Report *v1alpha1.MeterReport
+	PromService *corev1.Service
+	CertFilePath string
+	TokenFilePath string
+	RunLocal bool
+}
+
+func NewPromAPI(
+	promService *corev1.Service,
+	caCert *[]byte,
+	token string,
+) (*PrometheusAPI,error) {
+	promAPI,err := providePrometheusAPI(promService,caCert,token)
+	if err != nil {
+		return nil,err
+	}
+	prometheusAPI := &PrometheusAPI{promAPI}
+	return prometheusAPI,nil
+}
+
+func NewPrometheusAPIForReporter(
+	setup *PrometheusAPISetup,
+) (*PrometheusAPI,error) {
+	promAPI,err := providePrometheusAPIForReporter(setup)
+	if err != nil {
+		return nil,err
+	}
+	prometheusAPI := &PrometheusAPI{promAPI}
+	return prometheusAPI,nil
 }
 
 func providePrometheusAPI (
@@ -93,6 +126,61 @@ func providePrometheusAPI (
 	promAPI := v1.NewAPI(conf)
 	// p.promAPI = promAPI
 	return promAPI,nil
+}
+
+func providePrometheusAPIForReporter(
+	setup *PrometheusAPISetup,
+) (v1.API, error) {
+
+	if setup.RunLocal {
+		client, err := api.NewClient(api.Config{
+			Address: "http://localhost:9090",
+		})
+
+		if err != nil {
+			return nil, err
+		}
+		localClient := v1.NewAPI(client)
+		return localClient, nil
+	}
+
+	var port int32
+	name := setup.PromService.Name
+	namespace := setup.PromService.Namespace
+	targetPort := setup.Report.Spec.PrometheusService.TargetPort
+
+	switch {
+	case targetPort.Type == intstr.Int:
+		port = targetPort.IntVal
+	default:
+		for _, p := range setup.PromService.Spec.Ports {
+			if p.Name == targetPort.StrVal {
+				port = p.Port
+			}
+		}
+	}
+
+	var auth = ""
+	if setup.TokenFilePath != "" {
+		content, err := ioutil.ReadFile(setup.TokenFilePath)
+		if err != nil {
+			return nil, err
+		}
+		auth = fmt.Sprintf(string(content))
+	}
+
+	conf, err := NewSecureClient(&PrometheusSecureClientConfig{
+		Address:        fmt.Sprintf("https://%s.%s.svc:%v", name, namespace, port),
+		ServerCertFile: setup.CertFilePath,
+		Token:          auth,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	promAPI := v1.NewAPI(conf)
+	return promAPI, nil
 }
 
 func GetAuthToken(apiTokenPath string) (token string, returnErr error) {

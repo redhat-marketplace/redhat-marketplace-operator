@@ -187,22 +187,22 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		reqLogger.Error(result.GetError(), "Failed to update status.")
 	}
 
-	reqLogger.Info("meterdef_preview","requeue rate",r.cfg.ControllerReconcileSettings.MeterDefControllerRequeueRate)
+	reqLogger.Info("meterdef_preview","requeue rate",r.cfg.ControllerValues.MeterDefControllerRequeueRate)
 
 	reqLogger.Info("finished reconciling")
-	return reconcile.Result{RequeueAfter: r.cfg.ControllerReconcileSettings.MeterDefControllerRequeueRate}, nil
+	return reconcile.Result{RequeueAfter: r.cfg.ControllerValues.MeterDefControllerRequeueRate}, nil
 }
 
 func (r *ReconcileMeterDefinition) QueryPreview(cc ClientCommandRunner, instance *v1alpha1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) (update bool) {
 	var queryPreviewResult []v1alpha1.Result
 
-	service, err := queryForPrometheusService(context.TODO(), cc, request)
+	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
 	update = updateOrClearErrorConditions(err, v1alpha1.PrometheusReconcileError, instance, request, reqLogger)
 	if update {
 		return update
 	}
 
-	certConfigMap, err := getCertConfigMap(context.TODO(), cc, request)
+	certConfigMap, err := r.getCertConfigMap(context.TODO(), cc, request)
 	update = updateOrClearErrorConditions(err, v1alpha1.GetCertConfigMapReconcileError, instance, request, reqLogger)
 	if update {
 		return update
@@ -281,7 +281,7 @@ func clearErrorCondition(conditionReason status.ConditionReason, instance *v1alp
 	return false
 }
 
-func queryForPrometheusService(
+func (r *ReconcileMeterDefinition) queryForPrometheusService(
 	ctx context.Context,
 	cc ClientCommandRunner,
 	req reconcile.Request,
@@ -290,7 +290,7 @@ func queryForPrometheusService(
 
 	name := types.NamespacedName{
 		Name:      utils.PROMETHEUS_METERBASE_NAME,
-		Namespace: req.Namespace,
+		Namespace: 	r.cfg.ControllerValues.DeploymentNamespace,
 	}
 
 	if result, _ := cc.Do(ctx, GetAction(name, service)); !result.Is(Continue) {
@@ -301,12 +301,12 @@ func queryForPrometheusService(
 	return service, nil
 }
 
-func getCertConfigMap(ctx context.Context, cc ClientCommandRunner, req reconcile.Request) (*corev1.ConfigMap, error) {
+func (r *ReconcileMeterDefinition) getCertConfigMap(ctx context.Context, cc ClientCommandRunner, req reconcile.Request) (*corev1.ConfigMap, error) {
 	certConfigMap := &corev1.ConfigMap{}
 
 	name := types.NamespacedName{
 		Name:      utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
-		Namespace: req.Namespace,
+		Namespace: 	r.cfg.ControllerValues.DeploymentNamespace,
 	}
 
 	if result, _ := cc.Do(context.TODO(), GetAction(name, certConfigMap)); !result.Is(Continue) {

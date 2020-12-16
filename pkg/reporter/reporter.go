@@ -27,12 +27,12 @@ import (
 	"emperror.dev/errors"
 	"github.com/google/uuid"
 	"github.com/meirf/gopart"
-	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/prometheus"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/version"
 	corev1 "k8s.io/api/core/v1"
@@ -61,7 +61,7 @@ var (
 // Update the CR status for each report and queue
 
 type MarketplaceReporter struct {
-	api               v1.API
+	PrometheusAPI
 	k8sclient         client.Client
 	mktconfig         *marketplacev1alpha1.MarketplaceConfig
 	report            *marketplacev1alpha1.MeterReport
@@ -79,10 +79,10 @@ func NewMarketplaceReporter(
 	mktconfig *marketplacev1alpha1.MarketplaceConfig,
 	meterDefinitions []marketplacev1alpha1.MeterDefinition,
 	prometheusService *corev1.Service,
-	apiClient api.Client,
+	api     *PrometheusAPI,
 ) (*MarketplaceReporter, error) {
 	return &MarketplaceReporter{
-		api:               v1.NewAPI(apiClient),
+		PrometheusAPI:     *api,
 		k8sclient:         k8sclient,
 		mktconfig:         mktconfig,
 		report:            report,
@@ -188,7 +188,7 @@ type meterDefPromModel struct {
 
 type meterDefPromQuery struct {
 	uid        string
-	query      *prometheus.PromQuery
+	query      *PromQuery
 	meterGroup string
 	meterKind  string
 	label      string
@@ -212,7 +212,7 @@ func (r *MarketplaceReporter) retrieveMeterDefinitions(
 	}()
 
 	err = utils.Retry(func() error {
-		query := &prometheus.MeterDefinitionQuery{
+		query := &MeterDefinitionQuery{
 			Start: r.report.Spec.StartTime.Time,
 			End:   r.report.Spec.EndTime.Time,
 			Step:  time.Hour,
@@ -221,7 +221,7 @@ func (r *MarketplaceReporter) retrieveMeterDefinitions(
 		q, _ := query.Print()
 		logger.Info("output", "query", q)
 
-		result, warnings, err = prometheus.QueryMeterDefinitions(query,r.api)
+		result, warnings, err = r.QueryMeterDefinitions(query)
 
 		if err != nil {
 			logger.Error(err, "querying prometheus", "warnings", warnings)
@@ -314,7 +314,7 @@ func (r *MarketplaceReporter) query(
 
 		err := utils.Retry(func() error {
 			var err error
-			val, warnings, err = prometheus.ReportQueryFromAPI(query,r.api)
+			val, warnings, err = r.ReportQuery(query)
 
 			if err != nil {
 				return errors.Wrap(err, "error with query")

@@ -26,7 +26,6 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -65,18 +64,18 @@ type PrometheusAPI struct {
 /* 
  instance *v1alpha1.MeterDefinition, promService *corev1.Service, caCert *[]byte, token string, reqLogger logr.Logger
 */
-func NewPromAPI(
-	promService *corev1.Service,
-	caCert *[]byte,
-	token string,
-) (*PrometheusAPI,error) {
-	promAPI,err := providePrometheusAPI(promService,caCert,token)
-	if err != nil {
-		return nil,err
-	}
-	prometheusAPI := &PrometheusAPI{promAPI}
-	return prometheusAPI,nil
-}
+// func NewPromAPI(
+// 	promService *corev1.Service,
+// 	caCert *[]byte,
+// 	token string,
+// ) (*PrometheusAPI,error) {
+// 	promAPI,err := providePrometheusAPI(promService,caCert,token)
+// 	if err != nil {
+// 		return nil,err
+// 	}
+// 	prometheusAPI := &PrometheusAPI{promAPI}
+// 	return prometheusAPI,nil
+// }
 
 //TODO: what's the difference between these ?
 // func (q *PromQuery) makeLeftSide() string {
@@ -321,7 +320,7 @@ func (q *MeterDefinitionQuery) Print() (string, error) {
 	return buf.String(), err
 }
 
-func QueryMeterDefinitions(query *MeterDefinitionQuery, api v1.API) (model.Value, v1.Warnings, error) {
+func(p *PrometheusAPI) QueryMeterDefinitions(query *MeterDefinitionQuery) (model.Value, v1.Warnings, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -339,7 +338,8 @@ func QueryMeterDefinitions(query *MeterDefinitionQuery, api v1.API) (model.Value
 	}
 
 	logger.Info("executing query", "query", q)
-	result, warnings, err := api.QueryRange(ctx, q, timeRange)
+	// result, warnings, err := api.QueryRange(ctx, q, timeRange)
+	result, warnings, err := p.QueryRange(ctx, q, timeRange)
 
 	if err != nil {
 		logger.Error(err, "querying prometheus", "warnings", warnings)

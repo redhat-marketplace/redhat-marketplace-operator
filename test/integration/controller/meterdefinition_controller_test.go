@@ -103,7 +103,7 @@ var _ = Describe("MeterDefController reconcile", func() {
 		}, 180)
 
 		It("Should query prometheus and append metric data to meterdef status", func(done Done) {
-			fmt.Println("meterdef query preview")
+			fmt.Println("meterdef query preview test")
 			Eventually(func() bool {
 				assertion := Expect(testHarness.Get(context.TODO(), types.NamespacedName{Name: "meterdef-controller-test", Namespace: Namespace}, meterdef)).Should(Succeed(), "find meterdef with metric data")
 				assertion = runAssertionOnMeterDef(meterdef)

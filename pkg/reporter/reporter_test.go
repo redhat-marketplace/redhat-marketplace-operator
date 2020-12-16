@@ -32,6 +32,7 @@ import (
 	"github.com/meirf/gopart"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/prometheus"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/test/mock/mock_query"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -113,8 +114,10 @@ var _ = Describe("Reporter", func() {
 			},
 		}))
 
+	
+
 		sut = &MarketplaceReporter{
-			api:       v1api,
+			PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
 			Config:    cfg,
 			mktconfig: config,
 			meterDefinitions: []marketplacev1alpha1.MeterDefinition{
