@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
-	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -77,7 +76,7 @@ var _ = Describe("Reporter", func() {
 			},
 		}
 
-		v1api := GetTestAPI(mockResponseRoundTripper(generatedFile, []marketplacev1alpha1.MeterDefinition{
+		v1api := GetTestAPI(MockResponseRoundTripper(generatedFile, []marketplacev1alpha1.MeterDefinition{
 			{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -113,8 +112,6 @@ var _ = Describe("Reporter", func() {
 				},
 			},
 		}))
-
-	
 
 		sut = &MarketplaceReporter{
 			PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
@@ -340,45 +337,6 @@ var _ = Describe("Reporter", func() {
 		close(done)
 	}, 20)
 })
-
-func mockResponseRoundTripper(file string, meterdefinitions []marketplacev1alpha1.MeterDefinition) RoundTripFunc {
-	return func(req *http.Request) *http.Response {
-		headers := make(http.Header)
-		headers.Add("content-type", "application/json")
-
-		Expect(req.URL.String()).To(Equal("http://localhost:9090/api/v1/query_range"), "url does not match expected")
-
-		fileBytes, err := ioutil.ReadFile(file)
-
-		Expect(err).To(Succeed(), "failed to load mock file for response")
-		defer req.Body.Close()
-		body, err := ioutil.ReadAll(req.Body)
-
-		Expect(err).To(Succeed())
-
-		query, _ := url.ParseQuery(string(body))
-
-		if strings.Contains(query["query"][0], "meterdef_metric_label_info{}") {
-			fmt.Println("using meter_label_info")
-			meterDefInfo := GenerateMeterInfoResponse(meterdefinitions)
-			return &http.Response{
-				StatusCode: 200,
-				// Send response to be tested
-				Body: ioutil.NopCloser(bytes.NewBuffer(meterDefInfo)),
-				// Must be set to non-nil value or it panics
-				Header: headers,
-			}
-		}
-
-		return &http.Response{
-			StatusCode: 200,
-			// Send response to be tested
-			Body: ioutil.NopCloser(bytes.NewBuffer(fileBytes)),
-			// Must be set to non-nil value or it panics
-			Header: headers,
-		}
-	}
-}
 
 func GenerateRandomData(start, end time.Time) string {
 	next := start

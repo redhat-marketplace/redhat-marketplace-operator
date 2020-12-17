@@ -80,7 +80,6 @@ var _ = Describe("Pometheus Query", func() {
 		expected := `sum by (persistentvolumeclaim,namespace) (avg(meterdef_persistentvolumeclaim_info{meter_def_name="foo",meter_def_namespace="foons",phase="Bound"}) without (instance, container, endpoint, job, service) * on(persistentvolumeclaim,namespace) group_right kube_persistentvolumeclaim_resource_requests_storage_bytes)`
 		q := q1.String()
 		utils.PrettyPrintWithLog("compiled query",q)
-		// Expect(err).To(Succeed())
 		Expect(q).To(Equal(expected), "failed to create query for pvc")
 	})
 })
