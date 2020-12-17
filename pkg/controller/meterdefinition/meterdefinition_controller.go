@@ -208,7 +208,7 @@ func (r *ReconcileMeterDefinition) QueryPreview(cc ClientCommandRunner, instance
 		return update
 	}
 
-	saClient := NewServiceAccountClient(instance.Namespace, r.kubernetesInterface)
+	saClient := NewServiceAccountClient(r.cfg.ControllerValues.DeploymentNamespace, r.kubernetesInterface)
 
 	authToken, err := saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.PrometheusAudience, 3600, reqLogger)
 	update = updateOrClearErrorConditions(err, v1alpha1.ProvideAuthTokenReconcileError, instance, request, reqLogger)
