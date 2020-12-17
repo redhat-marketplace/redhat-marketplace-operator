@@ -61,22 +61,6 @@ type PrometheusAPI struct {
 	v1.API
 }
 
-/* 
- instance *v1alpha1.MeterDefinition, promService *corev1.Service, caCert *[]byte, token string, reqLogger logr.Logger
-*/
-// func NewPromAPI(
-// 	promService *corev1.Service,
-// 	caCert *[]byte,
-// 	token string,
-// ) (*PrometheusAPI,error) {
-// 	promAPI,err := providePrometheusAPI(promService,caCert,token)
-// 	if err != nil {
-// 		return nil,err
-// 	}
-// 	prometheusAPI := &PrometheusAPI{promAPI}
-// 	return prometheusAPI,nil
-// }
-
 //TODO: what's the difference between these ?
 // func (q *PromQuery) makeLeftSide() string {
 // 	switch q.Type {

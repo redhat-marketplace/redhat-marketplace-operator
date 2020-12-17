@@ -252,11 +252,11 @@ type Result struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	Query string `json:"query,omitempty"`
 
-	// StartTime of the job
+	// StartTime is the start of the data collection interval
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	StartTime string `json:"startTime,omitempty"`
 
-	// EndTime of the job
+	// EndTime is the end of the data collection interval
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	EndTime string `json:"endTime,omitempty"`
 

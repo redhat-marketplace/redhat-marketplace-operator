@@ -344,6 +344,7 @@ spec:
                   as intended.
                 properties:
                   endTime:
+                    description: EndTime is the end of the data collection interval
                     type: string
                   metricName:
                     description: MetricName is the identifier that you will use to
@@ -353,8 +354,10 @@ spec:
                     description: Query is the compiled query that is given to Prometheus
                     type: string
                   startTime:
+                    description: StartTime is the start of the data collection interval
                     type: string
                   value:
+                    description: Value is the metric value returned from Prometheus
                     format: int32
                     type: integer
                 type: object
