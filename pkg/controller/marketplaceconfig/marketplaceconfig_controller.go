@@ -79,16 +79,18 @@ func FlagSet() *pflag.FlagSet {
 func Add(
 	mgr manager.Manager,
 	ccprovider ClientCommandRunnerProvider,
+	cfg config.OperatorConfig,
 ) error {
-	return add(mgr, newReconciler(mgr, ccprovider))
+	return add(mgr, newReconciler(mgr, ccprovider,cfg))
 }
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(
 	mgr manager.Manager,
 	ccprovider ClientCommandRunnerProvider,
+	operatorCfg config.OperatorConfig,
 ) reconcile.Reconciler {
-	return &ReconcileMarketplaceConfig{client: mgr.GetClient(), scheme: mgr.GetScheme(), ccprovider: ccprovider}
+	return &ReconcileMarketplaceConfig{client: mgr.GetClient(), scheme: mgr.GetScheme(), ccprovider: ccprovider,cfg: operatorCfg}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -150,6 +152,7 @@ var _ reconcile.Reconciler = &ReconcileMarketplaceConfig{}
 type ReconcileMarketplaceConfig struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
+	cfg 		config.OperatorConfig
 	client     client.Client
 	scheme     *runtime.Scheme
 	ccprovider ClientCommandRunnerProvider
@@ -161,7 +164,7 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MarketplaceConfig")
 
-	cfg, _ := config.GetConfig()
+	// cfg, _ := config.GetConfig()
 
 	cc := r.ccprovider.NewCommandRunner(r.client, r.scheme, reqLogger)
 
@@ -202,9 +205,8 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		}
 	}
 
-
 	deployedNamespace := &corev1.Namespace{}
-	err = r.client.Get(context.TODO(),types.NamespacedName{Name: cfg.ControllerValues.DeploymentNamespace},deployedNamespace)
+	err = r.client.Get(context.TODO(),types.NamespacedName{Name: r.cfg.ControllerValues.DeploymentNamespace},deployedNamespace)
 	if err != nil {
 		reqLogger.Error(err,"err getting deployed ns")
 	}
@@ -535,9 +537,9 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	if ok {
 		reqLogger.Info("attempting to update registration")
 		marketplaceClient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
-			Url:      cfg.Marketplace.URL,
+			Url:      r.cfg.Marketplace.URL,
 			Token:    string(pullSecret),
-			Insecure: cfg.Marketplace.InsecureClient,
+			Insecure: r.cfg.Marketplace.InsecureClient,
 		})
 
 		marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
@@ -584,7 +586,7 @@ func labelsForMarketplaceConfig(name string) map[string]string {
 // Begin installation or deletion of Catalog Source
 func (r *ReconcileMarketplaceConfig) createCatalogSource(request reconcile.Request, marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, catalogName string) (bool, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name, "CatalogSource.Name", catalogName)
-	cfg, _ := config.GetConfig()
+	// cfg, _ := config.GetConfig()
 
 	// Get installation setting for Catalog Source (checks MarketplaceConfig.Spec if it doesn't exist, use flag)
 	installCatalogSrcP := marketplaceConfig.Spec.InstallIBMCatalogSource
@@ -593,7 +595,7 @@ func (r *ReconcileMarketplaceConfig) createCatalogSource(request reconcile.Reque
 	if installCatalogSrcP == nil {
 
 		reqLogger.Info("MarketplaceConfig.Spec.InstallIBMCatalogSource not found. Using flag.")
-		installCatalogSrc = cfg.Features.IBMCatalog
+		installCatalogSrc = r.cfg.Features.IBMCatalog
 
 		marketplaceConfig.Spec.InstallIBMCatalogSource = &installCatalogSrc
 		r.client.Update(context.TODO(), marketplaceConfig)

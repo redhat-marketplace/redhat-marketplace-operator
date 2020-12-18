@@ -24,9 +24,12 @@ import (
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	"github.com/spf13/viper"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -65,6 +68,12 @@ var (
 		Deployment: ptr.Bool(true),
 	}
 
+	deployedNamespace = &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespace,
+		},
+	}
+	
 	marketplaceconfig = utils.BuildMarketplaceConfigCR(namespace, customerID)
 	razeedeployment   = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
 	meterbase         = utils.BuildMeterBaseCr(namespace)
@@ -84,6 +93,7 @@ func setup(r *ReconcilerTest) error {
 		client:     r.Client,
 		scheme:     s,
 		ccprovider: &reconcileutils.DefaultCommandRunnerProvider{},
+		cfg: config.OperatorConfig{ControllerValues: config.ControllerValues{DeploymentNamespace: namespace}},
 	}
 	return nil
 }
@@ -92,7 +102,8 @@ func testCleanInstall(t GinkgoTInterface) {
 	t.Parallel()
 	marketplaceconfig.Spec.EnableMetering = ptr.Bool(true)
 	marketplaceconfig.Spec.InstallIBMCatalogSource = ptr.Bool(true)
-	reconcilerTest := NewReconcilerTest(setup, marketplaceconfig)
+
+	reconcilerTest := NewReconcilerTest(setup,marketplaceconfig,deployedNamespace)
 	reconcilerTest.TestAll(t,
 		ReconcileStep(opts, ReconcileWithUntilDone(true)),
 		GetStep(opts,

@@ -35,13 +35,13 @@ func InitializeScheme(cfg *rest.Config) (*runtime.Scheme, error) {
 
 func InitializeMainCtrl(cfg *rest.Config) (*managers.ControllerMain, error) {
 	defaultCommandRunnerProvider := reconcileutils.ProvideDefaultCommandRunnerProvider()
-	marketplaceController := controller.ProvideMarketplaceController(defaultCommandRunnerProvider)
-	meterbaseController := controller.ProvideMeterbaseController(defaultCommandRunnerProvider)
-	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider)
 	operatorConfig, err := config.ProvideConfig()
 	if err != nil {
 		return nil, err
 	}
+	marketplaceController := controller.ProvideMarketplaceController(defaultCommandRunnerProvider, operatorConfig)
+	meterbaseController := controller.ProvideMeterbaseController(defaultCommandRunnerProvider)
+	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider)
 	razeeDeployController := controller.ProvideRazeeDeployController(operatorConfig)
 	olmSubscriptionController := controller.ProvideOlmSubscriptionController()
 	meterReportController := controller.ProvideMeterReportController(defaultCommandRunnerProvider, operatorConfig)
