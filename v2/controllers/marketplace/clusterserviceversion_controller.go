@@ -467,10 +467,7 @@ func (r *ClusterServiceVersionReconciler) SetupWithManager(mgr manager.Manager) 
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		Watches(
-			&source.Kind{Type: &olmv1alpha1.ClusterServiceVersion{}},
-			&handler.EnqueueRequestForObject{},
-			builder.WithPredicates(labelPreds)).
+		For(&olmv1alpha1.ClusterServiceVersion{}, builder.WithPredicates(labelPreds)).
 		Watches(
 			&source.Kind{Type: &marketplacev1alpha1.MeterDefinition{}}, &handler.EnqueueRequestForOwner{
 				IsController: false,

@@ -3,7 +3,7 @@
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: rhm-redhat-marketplace-operator-binding
+  name: operator-binding
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-operator
@@ -17,7 +17,7 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: rhm-redhat-marketplace-remoteresources3deployment-binding
+  name: remoteresources3deployment-binding
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-remoteresources3deployment
@@ -31,7 +31,7 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: rhm-redhat-marketplace-prometheus-operator-binding
+  name: prometheus-operator-binding
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-prometheus-operator
@@ -45,7 +45,7 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: rhm-redhat-marketplace-prometheus-binding
+  name: marketplace-prometheus-binding
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-prometheus
@@ -59,7 +59,7 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: rhm-redhat-marketplace-watch-keeper-binding
+  name: marketplace-watch-keeper-binding
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-watch-keeper
@@ -73,7 +73,7 @@ roleRef:
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: rhm-redhat-marketplace-remoteresources3deployment-binding
+  name: remoteresources3deployment-binding
   namespace: openshift-redhat-marketplace
 subjects:
 - kind: ServiceAccount
@@ -88,7 +88,7 @@ roleRef:
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: rhm-redhat-marketplace-prometheus-binding
+  name: prometheus-binding
   namespace: openshift-redhat-marketplace
 subjects:
 - kind: ServiceAccount
@@ -103,7 +103,7 @@ roleRef:
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: rhm-redhat-marketplace-reporter-binding
+  name: reporter-binding
   namespace: openshift-config
 subjects:
 - kind: ServiceAccount
@@ -118,7 +118,7 @@ roleRef:
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: rhm-redhat-marketplace-operator-binding
+  name: operator-binding
   namespace: openshift-redhat-marketplace
 subjects:
 - kind: ServiceAccount

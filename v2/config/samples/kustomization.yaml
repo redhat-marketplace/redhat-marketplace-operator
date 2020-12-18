@@ -1,4 +1,10 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
+- marketplace.redhat.com_v1alpha1_marketplaceconfig_cr.yaml
+- marketplace.redhat.com_v1alpha1_meterbase_cr.yaml
+- marketplace.redhat.com_v1alpha1_meterdefinition_cr.yaml
+- marketplace.redhat.com_v1alpha1_meterreport_cr.yaml
+- marketplace.redhat.com_v1alpha1_razeedeployment_cr.yaml
+- marketplace.redhat.com_v1alpha1_remoteresources3_cr.yaml
 - marketplace.redhat.com_v1beta1_meterdefinition.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

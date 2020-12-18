@@ -25,6 +25,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
@@ -586,8 +587,14 @@ func (r *MarketplaceConfigReconciler) createCatalogSource(request reconcile.Requ
 	return false, nil
 }
 
-func (r *MarketplaceConfigReconciler) InjectCommandRunner(ccp ClientCommandRunner) {
+func (r *MarketplaceConfigReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
+	injector.SetCustomFields(r)
+	return r
+}
+
+func (r *MarketplaceConfigReconciler) InjectCommandRunner(ccp ClientCommandRunner) error {
 	r.cc = ccp
+	return nil
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler

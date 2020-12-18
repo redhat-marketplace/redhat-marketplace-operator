@@ -23,6 +23,7 @@ import (
 	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	v1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
@@ -51,8 +52,23 @@ type MeterDefinitionReconciler struct {
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 
-	ccprovider ClientCommandRunnerProvider
-	patcher    patch.Patcher
+	cc      ClientCommandRunner
+	patcher patch.Patcher
+}
+
+func (r *MeterDefinitionReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
+	injector.SetCustomFields(r)
+	return r
+}
+
+func (r *MeterDefinitionReconciler) InjectCommandRunner(ccp ClientCommandRunner) error {
+	r.cc = ccp
+	return nil
+}
+
+func (r *MeterDefinitionReconciler) InjectPatch(p patch.Patcher) error {
+	r.patcher = p
+	return nil
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -70,7 +86,7 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterDefinition")
 
-	cc := r.ccprovider.NewCommandRunner(r.Client, r.Scheme, reqLogger)
+	cc := r.cc
 
 	// Fetch the MeterDefinition instance
 	instance := &v1alpha1.MeterDefinition{}

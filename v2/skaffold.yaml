@@ -1,10 +1,11 @@
-apiVersion: skaffold/v2beta7
+apiVersion: skaffold/v2beta10
 kind: Config
 metadata:
   name: redhat-marketplace-operator
 build:
   local:
     useBuildkit: true
+    concurrency: 4
   tagPolicy:
     gitCommit: {}
     # customTemplate:
@@ -19,34 +20,45 @@ build:
   artifacts:
     - image: redhat-marketplace-operator
       custom:
-        buildCommand: ./hack/skaffold_build.sh build operator
+        buildCommand: make docker-build
+        dependencies:
+          command: ./hack/go-dependencies.sh .
     - image: redhat-marketplace-reporter
       custom:
-        buildCommand: cd reporter && ../hack/skaffold_build.sh build reporter
+        buildCommand: cd ../reporter/v2 && make docker-build
+        dependencies:
+          command: ./hack/go-dependencies.sh ../reporter/v2
     - image: redhat-marketplace-metric-state
       custom:
-        buildCommand: cd reporter && ../hack/skaffold_build.sh build metric-state
+        buildCommand: cd ../metering/v2 && make docker-build
+        dependencies:
+          command: ./hack/go-dependencies.sh ../metering/v2
     - image: redhat-marketplace-authcheck
       custom:
-        buildCommand: cd reporter && ../hack/skaffold_build.sh build authcheck
+        buildCommand: cd ../authchecker/v2 && make docker-build
+        dependencies:
+          command: ./hack/go-dependencies.sh ../authchecker/v2
 deploy:
   helm:
     releases:
       - name: rhm-operator
+        namespace: openshift-redhat-marketplace
         artifactOverrides:
-          image: redhat-marketplace-operator
+          operatorImage: redhat-marketplace-operator
           reporterImage: redhat-marketplace-reporter
           metricStateImage: redhat-marketplace-metric-state
           authCheckImage: redhat-marketplace-authcheck
-        chartPath: deploy/chart
-        setValueTemplates:
-          devpostfix: '{{.DEVPOSTFIX}}'
-          namespace: '{{.NAMESPACE}}'
-          imagePullSecret: '{{.PULL_SECRET_NAME}}'
         wait: false
+        chartPath: ./config/helm-wrapper
         valuesFiles:
-          - deploy/chart/values.yaml
-
+          - ./config/helm-wrapper/values.yaml
+    flags:
+      install:
+        - --post-renderer
+        - config/helm-wrapper/kustomize
+      upgrade:
+        - --post-renderer
+        - config/helm-wrapper/kustomize
 portForward:
   - resourceType: StatefulSet
     resourceName: prometheus-rhm-marketplaceconfig-meterbase
@@ -54,164 +66,3 @@ portForward:
   - resourceType: Deployment
     resourceName: rhm-metric-state
     port: 8080
-
-profiles:
-  - name: dev
-    activation:
-      - command: dev
-  - name: with-examples
-    deploy:
-      kubectl:
-        manifests:
-          - deploy/crds/*cr.yaml
-        flags:
-          disableValidation: true
-          delete:
-            - '--wait'
-            - '--timeout=120s'
-  - name: 43
-    build:
-      tagPolicy:
-        envTemplate:
-          template: '{{.IMAGE_NAME}}'
-  - name: integration-test
-    build:
-      artifacts:
-        - image: rhm-operator-integration-tests
-          docker:
-            dockerfile: build/Dockerfile
-            buildArgs:
-              app_version: '{{.VERSION}}'
-            cacheFrom:
-              - registry.access.redhat.com/ubi8/ubi:latest
-              - quay.io/rh-marketplace/golang-base:1.15
-  - name: base
-    build:
-      artifacts:
-        - image: golang-base
-          docker:
-            dockerfile: build/base.Dockerfile
-            cacheFrom:
-              - registry.access.redhat.com/ubi8/ubi:latest
-  - name: amd
-    build:
-      local:
-        concurrency: 4
-        useBuildkit: true
-      artifacts:
-        - image: redhat-marketplace-operator-amd64
-          docker:
-            dockerfile: build/Dockerfile
-            buildArgs:
-              app_version: '{{.VERSION}}'
-            cacheFrom:
-              - registry.access.redhat.com/ubi8/ubi:latest
-              - quay.io/rh-marketplace/golang-base:1.15
-        - image: redhat-marketplace-reporter-amd64
-          docker:
-            dockerfile: build/reporter.Dockerfile
-            buildArgs:
-              app_version: '{{.VERSION}}'
-            cacheFrom:
-              - registry.access.redhat.com/ubi8/ubi:latest
-              - quay.io/rh-marketplace/golang-base:1.15
-        - image: redhat-marketplace-metric-state-amd64
-          docker:
-            dockerfile: build/metricState.Dockerfile
-            buildArgs:
-              app_version: '{{.VERSION}}'
-            cacheFrom:
-              - registry.access.redhat.com/ubi8/ubi:latest
-              - quay.io/rh-marketplace/golang-base:1.15
-        - image: redhat-marketplace-authcheck-amd64
-          docker:
-            dockerfile: build/authcheck.Dockerfile
-            buildArgs:
-              app_version: '{{.VERSION}}'
-            cacheFrom:
-              - registry.access.redhat.com/ubi8/ubi:latest
-              - quay.io/rh-marketplace/golang-base:1.15
-  - name: ppc
-    build:
-      local:
-        concurrency: 4
-        useBuildkit: true
-      artifacts:
-        - image: redhat-marketplace-operator-ppc64le
-          docker:
-            dockerfile: build/Dockerfile.multiarch
-            buildArgs:
-              app_version: '{{.VERSION}}'
-              UBI_IMAGE_SHA: '{{.UBI_IMAGE_SHA}}'
-              ARCH: '{{.ARCH}}'
-            cacheFrom:
-              - quay.io/rh-marketplace/golang-base:1.15
-        - image: redhat-marketplace-reporter-ppc64le
-          docker:
-            dockerfile: build/reporter.Dockerfile.multiarch
-            buildArgs:
-              app_version: '{{.VERSION}}'
-              UBI_IMAGE_SHA: '{{.UBI_IMAGE_SHA}}'
-              ARCH: '{{.ARCH}}'
-            cacheFrom:
-              - quay.io/rh-marketplace/golang-base:1.15
-        - image: redhat-marketplace-metric-state-ppc64le
-          docker:
-            dockerfile: build/metricState.Dockerfile.multiarch
-            buildArgs:
-              app_version: '{{.VERSION}}'
-              UBI_IMAGE_SHA: '{{.UBI_IMAGE_SHA}}'
-              ARCH: '{{.ARCH}}'
-            cacheFrom:
-              - quay.io/rh-marketplace/golang-base:1.15
-        - image: redhat-marketplace-authcheck-ppc64le
-          docker:
-            dockerfile: build/authcheck.Dockerfile.multiarch
-            buildArgs:
-              app_version: '{{.VERSION}}'
-              UBI_IMAGE_SHA: '{{.UBI_IMAGE_SHA}}'
-              ARCH: '{{.ARCH}}'
-            cacheFrom:
-              - quay.io/rh-marketplace/golang-base:1.15
-  - name: s390
-    build:
-      local:
-        concurrency: 4
-        useBuildkit: true
-      artifacts:
-        - image: redhat-marketplace-operator-s390x
-          docker:
-            dockerfile: build/Dockerfile.multiarch
-            buildArgs:
-              app_version: '{{.VERSION}}'
-              UBI_IMAGE_SHA: '{{.UBI_IMAGE_SHA}}'
-              ARCH: '{{.ARCH}}'
-            cacheFrom:
-              - quay.io/rh-marketplace/golang-base:1.15
-        - image: redhat-marketplace-reporter-s390x
-          docker:
-            dockerfile: build/reporter.Dockerfile.multiarch
-            buildArgs:
-              app_version: '{{.VERSION}}'
-              UBI_IMAGE_SHA: '{{.UBI_IMAGE_SHA}}'
-              ARCH: '{{.ARCH}}'
-            cacheFrom:
-              - quay.io/rh-marketplace/golang-base:1.15
-        - image: redhat-marketplace-metric-state-s390x
-          docker:
-            dockerfile: build/metricState.Dockerfile.multiarch
-            buildArgs:
-              app_version: '{{.VERSION}}'
-              UBI_IMAGE_SHA: '{{.UBI_IMAGE_SHA}}'
-              ARCH: '{{.ARCH}}'
-            cacheFrom:
-              - quay.io/rh-marketplace/golang-base:1.15
-        - image: redhat-marketplace-authcheck-s390x
-          docker:
-            dockerfile: build/authcheck.Dockerfile.multiarch
-            buildArgs:
-              app_version: '{{.VERSION}}'
-              UBI_IMAGE_SHA: '{{.UBI_IMAGE_SHA}}'
-              ARCH: '{{.ARCH}}'
-            cacheFrom:
-              - quay.io/rh-marketplace/golang-base:1.15

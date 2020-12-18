@@ -8,10 +8,8 @@ require (
 	github.com/Shyp/bump_version v0.0.0-20180222180749-d7594d2951e2
 	github.com/banzaicloud/k8s-objectmatcher v1.5.0
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/caarlos0/env v3.5.0+incompatible
 	github.com/caarlos0/env/v6 v6.4.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
-	github.com/go-bindata/go-bindata v3.1.2+incompatible
 	github.com/go-logr/logr v0.3.0
 	github.com/go-logr/zapr v0.3.0 // indirect
 	github.com/golang/mock v1.4.4
@@ -22,6 +20,7 @@ require (
 	github.com/gotidy/ptr v1.3.0
 	github.com/imdario/mergo v0.3.11
 	github.com/jpillora/backoff v1.0.0
+	github.com/kevinburke/go-bindata v3.22.0+incompatible
 	github.com/launchdarkly/go-options v1.0.1
 	github.com/mikefarah/yq/v3 v3.0.0-20201202084205-8846255d1c37
 	github.com/mitchellh/mapstructure v1.3.2 // indirect
@@ -30,9 +29,7 @@ require (
 	github.com/onsi/gomega v1.10.3
 	github.com/openshift/api v0.0.0-20200930075302-db52bc4ef99f
 	github.com/operator-framework/api v0.3.25
-	github.com/operator-framework/operator-marketplace v0.0.0-20201206020501-ca70ae8f43b9
 	github.com/pelletier/go-toml v1.8.0 // indirect
-	github.com/pkg/errors v0.9.1
 	github.com/prometheus-operator/prometheus-operator v0.44.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.44.0
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2/test v0.0.0-00010101000000-000000000000
@@ -58,10 +55,9 @@ require (
 
 replace (
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v1.8.2-0.20201015110737-0a7fdd3b7696
-	github.com/redhat-marketplace/redhat-marketplace-operator => ../
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ./
-	github.com/redhat-marketplace/redhat-marketplace-operator/v2/metering => ./metering
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2/test => ./test
+	github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2 => ../metering/v2
 	k8s.io/api => k8s.io/api v0.19.4
 	k8s.io/client-go => k8s.io/client-go v0.19.4
 )

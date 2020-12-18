@@ -25,6 +25,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
@@ -69,9 +70,25 @@ type MeterBaseReconciler struct {
 	Client client.Client
 	Scheme *runtime.Scheme
 	Log    logr.Logger
+	CC     ClientCommandRunner
 
-	ccprovider ClientCommandRunnerProvider
-	patcher    patch.Patcher
+	patcher patch.Patcher
+}
+
+func (r *MeterBaseReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
+	injector.SetCustomFields(r)
+	return r
+}
+
+func (r *MeterBaseReconciler) InjectCommandRunner(ccp ClientCommandRunner) error {
+	r.Log.Info("command runner")
+	r.CC = ccp
+	return nil
+}
+
+func (r *MeterBaseReconciler) InjectPatch(p patch.Patcher) error {
+	r.patcher = p
+	return nil
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -134,7 +151,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterBase")
 
-	cc := r.ccprovider.NewCommandRunner(r.Client, r.Scheme, reqLogger)
+	cc := r.CC
 
 	// Fetch the MeterBase instance
 	instance := &marketplacev1alpha1.MeterBase{}

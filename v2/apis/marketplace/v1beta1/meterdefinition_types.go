@@ -67,43 +67,6 @@ type MeterDefinitionSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +optional
 	InstalledBy *common.NamespacedNameReference `json:"installedBy,omitempty"`
-
-	// WorkloadVertexType is the top most object of a workload. It allows
-	// you to identify the upper bounds of your workloads.
-	// +kubebuilder:validation:Enum=Namespace;OperatorGroup
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:Namespace,urn:alm:descriptor:com.tectonic.ui:select:OperatorGroup"
-	WorkloadVertexType WorkloadVertex `json:"workloadVertexType,omitempty"`
-
-	// VertexFilters are used when Namespace is selected. Can be omitted
-	// if you select OperatorGroup
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:workloadVertexType:Namespace"
-	// +optional
-	VertexLabelSelector *metav1.LabelSelector `json:"workloadVertexLabelSelectors,omitempty"`
-
-	// Workloads identify the workloads to meter.
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +kubebuilder:validation:MinItems=1
-	Workloads []Workload `json:"workloads,omitempty"`
-
-	// Version defines the primary CRD version of the meter. This field is no longer used.
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// +optional
-	Version *string `json:"meterVersion,omitempty"`
-
-	// ServiceMeterLabels name of the meterics you want to track. Use workloads instead.
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// +optional
-	ServiceMeterLabels []string `json:"serviceMeterLabels,omitempty"`
-
-	// PodMeterLabels name of the prometheus metrics you want to track. User workloads instead.
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// +optional
-	PodMeterLabels []string `json:"podMeterLabels,omitempty"`
 }
 
 const (
@@ -206,9 +169,8 @@ type WorkloadStatus struct {
 	// Name of the workload, must be unique in a meter definition.
 	Name string `json:"name"`
 
-	CurrentMetricValue string `json:"currentValue"`
-
-	LastReadTime metav1.Time `json:"startTime"`
+	CurrentMetricValue string      `json:"currentValue"`
+	LastReadTime       metav1.Time `json:"startTime"`
 }
 
 // MeterLabelQuery helps define a meter label to build and search for
@@ -239,11 +201,6 @@ type MeterDefinitionStatus struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors.x-descriptors="urn:alm:descriptor:io.kubernetes.conditions"
 	// +optional
 	Conditions status.Conditions `json:"conditions,omitempty"`
-
-	// WorkloadResources is the list of resoruces discovered by
-	// this meter definition
-	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	WorkloadResources []WorkloadResource `json:"workloadResource,omitempty"`
 }
 
 // MeterDefinition defines the meter workloads used to enable pay for

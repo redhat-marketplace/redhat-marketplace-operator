@@ -86,7 +86,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	mgr, err = inject.ProvideInjectableManager(mgr, managers.DeployedNamespace(cfg.DeployedNamespace))
+	injector, err := inject.ProvideInjector(mgr, managers.DeployedNamespace(cfg.DeployedNamespace))
 	if err != nil {
 		setupLog.Error(err, "unable to inject manager")
 		os.Exit(1)
@@ -96,7 +96,7 @@ func main() {
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("ClusterRegistration"),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}).Inject(injector).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterRegistration")
 		os.Exit(1)
 	}
@@ -114,7 +114,7 @@ func main() {
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("MarketplaceConfig"),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}).Inject(injector).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MarketplaceConfig")
 		os.Exit(1)
 	}
@@ -123,7 +123,7 @@ func main() {
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("MeterBase"),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}).Inject(injector).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MeterBase")
 		os.Exit(1)
 	}
@@ -132,7 +132,7 @@ func main() {
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("MeterDefinition"),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}).Inject(injector).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MeterDefinition")
 		os.Exit(1)
 	}
@@ -141,7 +141,7 @@ func main() {
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("MeterReport"),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}).Inject(injector).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MeterReport")
 		os.Exit(1)
 	}

@@ -65,6 +65,7 @@ func (r *RemoteResourceS3Reconciler) SetupWithManager(mgr manager.Manager) error
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
+		For(&marketplacev1alpha1.RemoteResourceS3{}).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.RemoteResourceS3{}}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(labelPreds...)).
 		Complete(r)
 }

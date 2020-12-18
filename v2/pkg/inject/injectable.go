@@ -6,10 +6,18 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
-	ctrl "sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
+
+var injectLog = ctrl.Log.WithName("injector")
+
+type SetupWithManager interface {
+	SetupWithManager(mgr ctrl.Manager) error
+}
+
+type Inject interface {
+	Inject(injector *Injector) SetupWithManager
+}
 
 type Injectable interface {
 	SetCustomFields(i interface{}) error
@@ -26,16 +34,13 @@ func ProvideInjectables(
 	return []Injectable{i1, i2, i3, i4}
 }
 
-type InjectableManager struct {
-	ctrl.Manager
-	*builder.Builder
-	*builder.WebhookBuilder
-
+type Injector struct {
 	injectables Injectables
 	fields      *managers.ControllerFields
 }
 
-func (a *InjectableManager) SetCustomFields(i interface{}) error {
+func (a *Injector) SetCustomFields(i interface{}) error {
+	injectLog.Info("setting custom field")
 	for _, inj := range a.injectables {
 		if err := inj.SetCustomFields(i); err != nil {
 			return err
@@ -44,17 +49,10 @@ func (a *InjectableManager) SetCustomFields(i interface{}) error {
 	return nil
 }
 
-func (a *InjectableManager) Complete(r reconcile.Reconciler) error {
-	if err := a.SetCustomFields(a); err != nil {
-		return err
-	}
-	return a.Builder.Complete(r)
-}
-
-func ProvideInjectableManager(
+func ProvideInjector(
 	mgr ctrl.Manager,
 	deployed managers.DeployedNamespace,
-) (*InjectableManager, error) {
+) (*Injector, error) {
 	fields := &managers.ControllerFields{}
 	if err := mgr.SetFields(fields); err != nil {
 		return nil, err
@@ -79,10 +77,7 @@ func ProvideInjectableManager(
 		return nil, err
 	}
 
-	return &InjectableManager{
-		Manager:        mgr,
-		Builder:        builder.ControllerManagedBy(mgr),
-		WebhookBuilder: builder.WebhookManagedBy(mgr),
+	return &Injector{
 		fields:         fields,
 		injectables:    injs,
 	}, nil

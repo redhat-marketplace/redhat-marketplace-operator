@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  selector:
+    matchLabels:
+      redhat.marketplace.com/name: redhat-marketplace-operator
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        redhat.marketplace.com/name: redhat-marketplace-operator
+    spec:
+      containers:
+        - name: manager
+          args:
+            - --enable-leader-election
+          image: {{ .Values.operatorImage }}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
+          env:
+            - name: OPERATOR_NAME
+              value: redhat-marketplace-operator
+            - name: RELATED_IMAGE_REPORTER
+              value: {{ .Values.reporterImage }}
+            - name: RELATED_IMAGE_METRIC_STATE
+              value: {{ .Values.metricStateImage }}
+            - name: RELATED_IMAGE_AUTHCHECK
+              value: {{ .Values.authCheckImage }}
+            - name: WATCH_NAMESPACE
+              value: ""
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+      terminationGracePeriodSeconds: 10
+      serviceAccountName: operator

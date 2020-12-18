@@ -1,4 +1,5 @@
 resources:
+- classic/service_account.yaml
 - role.yaml
 - role_binding.yaml
 - leader_election_role.yaml
@@ -10,3 +11,5 @@ resources:
 - auth_proxy_role.yaml
 - auth_proxy_role_binding.yaml
 - auth_proxy_client_clusterrole.yaml
+- classic/role.yaml
+- classic/role_binding.yaml

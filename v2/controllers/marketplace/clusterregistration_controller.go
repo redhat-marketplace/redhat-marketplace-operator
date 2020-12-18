@@ -10,6 +10,7 @@ import (
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	v1 "k8s.io/api/core/v1"
@@ -22,10 +23,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // blank assignment to verify that ReconcileClusterRegistration implements reconcile.Reconciler
@@ -315,50 +314,51 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 	return reconcile.Result{}, nil
 }
 
+func (r *ClusterRegistrationReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
+	injector.SetCustomFields(r)
+	return r
+}
+
 func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		Watches(
-			&source.Kind{Type: &v1.Secret{}},
-			&handler.EnqueueRequestForObject{},
-			builder.WithPredicates(
-				predicate.Funcs{
-					CreateFunc: func(e event.CreateEvent) bool {
-						secret, ok := e.Object.(*v1.Secret)
-						if !ok {
-							return false
-						}
-						secretName := secret.ObjectMeta.Name
-						if _, ok := secret.Data[utils.RHMPullSecretKey]; ok && secretName == utils.RHMPullSecretName {
-							return true
-						}
+		For(&v1.Secret{}, builder.WithPredicates(
+			predicate.Funcs{
+				CreateFunc: func(e event.CreateEvent) bool {
+					secret, ok := e.Object.(*v1.Secret)
+					if !ok {
 						return false
-					},
-					UpdateFunc: func(e event.UpdateEvent) bool {
-						secret, ok := e.ObjectNew.(*v1.Secret)
-						if !ok {
-							return false
-						}
-						if _, ok := secret.Data[utils.RHMPullSecretKey]; !ok {
-							return false
-						}
-						return e.ObjectOld != e.ObjectNew
-					},
-					DeleteFunc: func(event.DeleteEvent) bool {
-						return false
-					},
-					GenericFunc: func(e event.GenericEvent) bool {
-						secret, ok := e.Object.(*v1.Secret)
-						if !ok {
-							return false
-						}
-						secretName := secret.ObjectMeta.Name
-						if _, ok := secret.Data[utils.RHMPullSecretKey]; ok && secretName == utils.RHMPullSecretName {
-							return true
-						}
-						return false
-					},
+					}
+					secretName := secret.ObjectMeta.Name
+					if _, ok := secret.Data[utils.RHMPullSecretKey]; ok && secretName == utils.RHMPullSecretName {
+						return true
+					}
+					return false
 				},
-			),
-		).
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					secret, ok := e.ObjectNew.(*v1.Secret)
+					if !ok {
+						return false
+					}
+					if _, ok := secret.Data[utils.RHMPullSecretKey]; !ok {
+						return false
+					}
+					return e.ObjectOld != e.ObjectNew
+				},
+				DeleteFunc: func(event.DeleteEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					secret, ok := e.Object.(*v1.Secret)
+					if !ok {
+						return false
+					}
+					secretName := secret.ObjectMeta.Name
+					if _, ok := secret.Data[utils.RHMPullSecretKey]; ok && secretName == utils.RHMPullSecretName {
+						return true
+					}
+					return false
+				},
+			},
+		)).
 		Complete(r)
 }

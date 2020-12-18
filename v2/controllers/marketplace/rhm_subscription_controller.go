@@ -27,11 +27,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // Name of the Red Hat Marketplace operator
@@ -75,7 +73,7 @@ func (r *RHMSubscriptionController) SetupWithManager(mgr manager.Manager) error 
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		Watches(&source.Kind{Type: &olmv1alpha1.Subscription{}}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(labelPreds...)).
+		For(&olmv1alpha1.Subscription{}, builder.WithPredicates(labelPreds...)).
 		Complete(r)
 }
 

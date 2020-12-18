@@ -12,13 +12,28 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 OPERATOR_IMAGE_NAME = redhat-marketplace-operator
 OPERATOR_IMAGE_TAG ?= $(VERSION)
+OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
+
+REPORTER_IMAGE_NAME ?= redhat-marketplace-reporter
+REPORTER_IMAGE_TAG ?= $(VERSION)
+REPORTER_IMAGE := $(IMAGE_REGISTRY)/$(REPORTER_IMAGE_NAME):$(REPORTER_IMAGE_TAG)
+
+METRIC_STATE_IMAGE_NAME ?= redhat-marketplace-metric-state
+METRIC_STATE_IMAGE_TAG ?= $(VERSION)
+METRIC_STATE_IMAGE := $(IMAGE_REGISTRY)/$(METRIC_STATE_IMAGE_NAME):$(METRIC_STATE_IMAGE_TAG)
+
+AUTHCHECK_IMAGE_NAME ?= redhat-marketplace-authcheck
+AUTHCHECK_IMAGE_TAG ?= $(VERSION)
+AUTHCHECK_IMAGE := $(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME):$(AUTHCHECK_IMAGE_TAG)
 
 BUNDLE_NAME ?= redhat-marketplace-operator-manifest
 BUNDLE_IMG ?= $(IMAGE_REGISTRY)/$(BUNDLE_NAME):$(VERSION)
-OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
+
+namespace ?= openshift-redhat-marketplace
 
 # Image URL to use all building/pushing image targets
 IMG ?= $(OPERATOR_IMAGE)
+IMAGE ?= $(OPERATOR_IMAGE)
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 # CRD_OPTIONS ?= "crd:trivialVersions=true"
 CRD_OPTIONS ?= "crd:crdVersions={v1beta1},trivialVersions=true,preserveUnknownFields=false"
@@ -55,9 +70,15 @@ uninstall: manifests kustomize
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests kustomize
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default | kubectl apply -f -
+deploy: manifests kustomize helm
+	#cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	#$(KUSTOMIZE) build config/default | kubectl apply -f -
+	cd config && $(HELM) template rhm-template ./helm-wrapper \
+	-f ./helm-wrapper/values.yaml \
+	--set operatorImage=$(OPERATOR_IMAGE) \
+	--set metricStateImage=$(METRIC_STATE_IMAGE) \
+	--set reporterImage=$(REPORTER_IMAGE) \
+	--set authCheckImage=$(AUTHCHECK_IMAGE) | ./default/kustomize | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
@@ -91,9 +112,28 @@ generate-api: code-generator
 	cp -r "$$API_TEMP_DIR/github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated" "apis/marketplace" ;\
 	}
 
+QUAY_EXPIRATION?=never
+IMAGE_PUSH ?= true
+
+ifeq ($(IMAGE_PUSH),true)
+ARGS=--push
+else
+ARGS=--load
+endif
+
 # Build the docker image
-docker-build: test
-	docker build . -t ${IMG}
+docker-build:
+	docker buildx build \
+	-f ./Dockerfile \
+	--tag $(IMAGE) \
+	--build-arg path=./v2/ \
+	--build-arg name=Operator \
+	--build-arg exec=./ \
+	--build-arg bin=redhat-marketplace-operator \
+	--build-arg app_version=\"$(VERSION)\" \
+	--build-arg quay_expiration=\"$(QUAY_EXPIRATION)\" \
+	$(ARGS) \
+	..
 
 # Push the docker image
 docker-push:
@@ -145,6 +185,7 @@ KUSTOMIZE=$(GOBIN)/kustomize
 else
 KUSTOMIZE=$(shell which kustomize)
 endif
+export KUSTOMIZE
 
 openapi-gen:
 ifeq (, $(shell which openapi-gen))
@@ -161,15 +202,60 @@ else
 OPENAPI_GEN=$(shell which openapi-gen)
 endif
 
+helm:
+ifeq (, $(shell which helm))
+	@{ \
+	set -e ;\
+  brew install helm ;\
+	}
+endif
+HELM=$(shell which helm)
+
+skaffold:
+ifeq (, $(shell which skaffold))
+	@{ \
+	set -e ;\
+  brew install skaffold ;\
+	}
+endif
+SKAFFOLD=$(shell which skaffold)
+
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
-bundle: manifests kustomize
+bundle: manifests kustomize helm
 	operator-sdk generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
+	--set operatorImage=$(OPERATOR_IMAGE) \
+	--set metricStateImage=$(METRIC_STATE_IMAGE) \
+	--set reporterImage=$(REPORTER_IMAGE) \
+	--set authCheckImage=$(AUTHCHECK_IMAGE) \
+	| ./config/manifests/kustomize | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	operator-sdk bundle validate ./bundle
 
 # Build the bundle image.
 .PHONY: bundle-build
 bundle-build:
 	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+
+bundle-deploy:
+	docker push $(BUNDLE_IMG)
+	operator-sdk run bundle $(BUNDLE_IMG)
+
+bundle-uninstall:
+	- kubectl delete catalogsources.operators.coreos.com redhat-marketplace-operator-catalog
+	- kubectl delete marketplaceconfigs.marketplace.redhat.com --all
+	- kubectl delete subscription -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
+	- kubectl delete csv -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
+
+skaffold-setup:
+	cd config && $(HELM) template rhm-operator ./helm-wrapper \
+	   --namespace $(namespace) \
+	   -f ./helm-wrapper/values.yaml \
+	   --set operatorImage=$(OPERATOR_IMAGE) \
+	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
+	   --set reporterImage=$(REPORTER_IMAGE) \
+	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
+     --post-renderer ./helm-wrapper/kustomize | kubectl apply -f -
+
+skaffold-dev:
+	skaffold dev --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)

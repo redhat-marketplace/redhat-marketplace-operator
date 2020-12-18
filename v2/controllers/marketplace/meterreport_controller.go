@@ -23,6 +23,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
@@ -55,6 +56,22 @@ type MeterReportReconciler struct {
 	CC      ClientCommandRunner
 	patcher patch.Patcher
 	cfg     config.OperatorConfig
+}
+
+func (r *MeterReportReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
+	injector.SetCustomFields(r)
+	return r
+}
+
+func (r *MeterReportReconciler) InjectCommandRunner(ccp ClientCommandRunner) error {
+	r.Log.Info("command runner")
+	r.CC = ccp
+	return nil
+}
+
+func (r *MeterReportReconciler) InjectPatch(p patch.Patcher) error {
+	r.patcher = p
+	return nil
 }
 
 func (r *MeterReportReconciler) SetupWithManager(mgr manager.Manager) error {

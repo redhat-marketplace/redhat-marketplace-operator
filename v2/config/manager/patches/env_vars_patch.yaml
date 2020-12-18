@@ -9,12 +9,6 @@ spec:
       containers:
         - name: manager
           env:
-            - name: RELATED_IMAGE_REPORTER
-              value:
-            - name: RELATED_IMAGE_METRIC_STATE
-              value:
-            - name: RELATED_IMAGE_AUTHCHECK
-              value:
             - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
               value: quay.io/razee/remoteresources3:0.6.2
             - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
