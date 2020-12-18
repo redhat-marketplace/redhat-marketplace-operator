@@ -525,6 +525,14 @@ roles:
           - update
           - watch
       - apiGroups:
+          - ''
+        resources:
+          - namespaces
+        verbs:
+          - get
+          - list
+          - update
+      - apiGroups:
           - operators.coreos.com
         resources:
           - subscriptions
