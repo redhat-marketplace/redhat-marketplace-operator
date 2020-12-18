@@ -234,7 +234,6 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		return result.Return()
 	}
 
-	// marketplaceConfigLabels := marketplaceConfig.GetLabels()
 	if marketplaceConfig.Labels == nil {
 		marketplaceConfig.Labels = make(map[string]string)
 	}
