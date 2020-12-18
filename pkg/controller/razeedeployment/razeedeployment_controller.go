@@ -256,7 +256,7 @@ func (r *ReconcileRazeeDeployment) Reconcile(request reconcile.Request) (reconci
 
 	c := manifests.NewDefaultConfig()
 	cc := NewClientCommand(r.client, r.scheme, reqLogger)
-	factory := manifests.NewFactory(instance.Namespace, c)
+	factory := manifests.NewFactory(instance.Namespace, c, &r.cfg)
 
 	// if not enabled then exit
 	if !instance.Spec.Enabled {

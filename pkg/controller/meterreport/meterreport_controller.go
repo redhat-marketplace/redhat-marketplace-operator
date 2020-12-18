@@ -152,7 +152,7 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 	job := &batchv1.Job{}
 
 	c := manifests.NewOperatorConfig(r.cfg)
-	factory := manifests.NewFactory(instance.Namespace, c)
+	factory := manifests.NewFactory(instance.Namespace, c, &r.cfg)
 
 	reqLogger.Info("config",
 		"config", r.cfg.RelatedImages,

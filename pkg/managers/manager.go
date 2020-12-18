@@ -48,6 +48,7 @@ import (
 	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
@@ -68,6 +69,7 @@ var (
 	ProvideManagerSet = wire.NewSet(
 		config.GetConfig,
 		kubernetes.NewForConfig,
+		discovery.NewDiscoveryClientForConfig,
 		ProvideManager,
 		ProvideScheme,
 		ProvideManagerClient,

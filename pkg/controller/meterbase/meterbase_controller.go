@@ -241,7 +241,7 @@ func (r *ReconcileMeterBase) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	c := manifests.NewDefaultConfig()
-	factory := manifests.NewFactory(instance.Namespace, c)
+	factory := manifests.NewFactory(instance.Namespace, c, nil)
 
 	// Execute the finalizer, will only run if we are in delete state
 	if result, _ = cc.Do(

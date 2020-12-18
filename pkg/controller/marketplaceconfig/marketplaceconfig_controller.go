@@ -88,7 +88,11 @@ func newReconciler(
 	mgr manager.Manager,
 	ccprovider ClientCommandRunnerProvider,
 ) reconcile.Reconciler {
-	return &ReconcileMarketplaceConfig{client: mgr.GetClient(), scheme: mgr.GetScheme(), ccprovider: ccprovider}
+	return &ReconcileMarketplaceConfig{
+		client:     mgr.GetClient(),
+		scheme:     mgr.GetScheme(),
+		ccprovider: ccprovider,
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
