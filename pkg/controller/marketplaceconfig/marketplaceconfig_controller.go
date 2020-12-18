@@ -202,6 +202,29 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 		}
 	}
 
+
+	deployedNamespace := &corev1.Namespace{}
+	err = r.client.Get(context.TODO(),types.NamespacedName{Name: cfg.ControllerValues.DeploymentNamespace},deployedNamespace)
+	if err != nil {
+		reqLogger.Error(err,"err getting deployed ns")
+	}
+
+	if deployedNamespace.Labels == nil {
+		deployedNamespace.Labels = make(map[string]string)
+	}
+
+	if v, ok := deployedNamespace.Labels[utils.LicenseServerTag]; !ok || v != "true" {
+		deployedNamespace.Labels[utils.LicenseServerTag] = "true"
+
+		err = r.client.Update(context.TODO(), deployedNamespace)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update deployed namespace with license server tag")
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
 	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
 	// Add finalizer and execute it if the resource is deleted
