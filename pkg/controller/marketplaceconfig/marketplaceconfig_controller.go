@@ -164,8 +164,6 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MarketplaceConfig")
 
-	// cfg, _ := config.GetConfig()
-
 	cc := r.ccprovider.NewCommandRunner(r.client, r.scheme, reqLogger)
 
 	// Fetch the MarketplaceConfig instance
@@ -586,7 +584,6 @@ func labelsForMarketplaceConfig(name string) map[string]string {
 // Begin installation or deletion of Catalog Source
 func (r *ReconcileMarketplaceConfig) createCatalogSource(request reconcile.Request, marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, catalogName string) (bool, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name, "CatalogSource.Name", catalogName)
-	// cfg, _ := config.GetConfig()
 
 	// Get installation setting for Catalog Source (checks MarketplaceConfig.Spec if it doesn't exist, use flag)
 	installCatalogSrcP := marketplaceConfig.Spec.InstallIBMCatalogSource
