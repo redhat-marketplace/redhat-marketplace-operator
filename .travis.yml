@@ -1,12 +1,11 @@
 dist: focal
-arch: ppc64le
 
 language: go
 
 services:
   - docker
 
-before_install:
+before_script:
   - go get github.com/onsi/ginkgo/ginkgo
   - docker pull docker.io/docker/dockerfile:experimental
   - docker pull docker.io/docker/dockerfile-copy:v0.1.9
@@ -16,24 +15,135 @@ go:
   - "1.15.x"
 
 env:
-  - IMAGE_REGISTRY=quay.io/rh-marketplace DOCKER_CLI_EXPERIMENTAL=enabled DOCKER_BUILDKIT=1
-
-script:
-  - docker --version
-  - if [ "x$VERSION" = "x" ]; then VERSION=${TRAVIS_COMMIT}; fi
-  - echo  ${VERSION}
-  - echo "Login to Quay.io docker account..."
-  - docker login -u="${ROBOT_USER_NAME}" -p="${ROBOT_PASS_PHRASE}" quay.io
-  - echo "Building the Redhat marketplace operator images..."
-  - docker build --build-arg ARCH=ppc64le -t "quay.io/rh-marketplace/golang-base:1.15" -f build/base.Dockerfile .
-  - docker build -t "quay.io/kandarpamalipeddi/redhat-marketplace-operator:${VERSION}-ppc64le" -f build/Dockerfile .
-  - docker build -t "quay.io/kandarpamalipeddi/redhat-marketplace-metric-state:${VERSION}-ppc64le" -f build/metricState.Dockerfile .
-  - docker build -t "quay.io/kandarpamalipeddi/redhat-marketplace-reporter:${VERSION}-ppc64le" -f build/reporter.Dockerfile .
-  - docker build -t "quay.io/kandarpamalipeddi/redhat-marketplace-authcheck:${VERSION}-ppc64le" -f build/authcheck.Dockerfile .
-  - echo "Pushing images ..."
-  - docker push "quay.io/kandarpamalipeddi/redhat-marketplace-operator:${VERSION}-ppc64le"
-  - docker push "quay.io/kandarpamalipeddi/redhat-marketplace-metric-state:${VERSION}-ppc64le"
-  - docker push "quay.io/kandarpamalipeddi/redhat-marketplace-reporter:${VERSION}-ppc64le"
-  - docker push "quay.io/kandarpamalipeddi/redhat-marketplace-authcheck:${VERSION}-ppc64le"
-  - echo "Docker Image push to quay.io is done !"
-  - make test-ci-unit
+  global:
+    - IMAGE_REGISTRY=quay.io/rh-marketplace DOCKER_CLI_EXPERIMENTAL=enabled DOCKER_BUILDKIT=1 QUAY_EXPIRATION=never
+  
+jobs:
+  include:
+    # Building ppc64le container images and pushing to quay.io
+    - arch: ppc64le
+      script:
+      - docker --version
+      - if [ "x$VERSION" = "x" ]; then VERSION=${TRAVIS_COMMIT}; fi
+      - echo  ${VERSION}
+      - echo "Login to Quay.io docker account..."
+      - docker login -u="${ROBOT_USER_NAME}" -p="${ROBOT_PASS_PHRASE}" quay.io
+      - echo "Building the Red Hat Marketplace operator images for ppc64l..."
+      - >
+        docker build -t "quay.io/rh-marketplace/golang-base:1.15" 
+        --build-arg ARCH=ppc64le 
+        --build-arg name="Operator"
+        --build-arg exec=./cmd/manager
+        --build-arg bin=redhat-marketplace-operator
+        --build-arg app_version=\"${VERSION}\"
+        --build-arg quay_expiration=\"${QUAY_EXPIRATION}\" 
+        -f build/base.Dockerfile .
+      - > 
+        docker build -t "quay.io/aosadchyy/redhat-marketplace-operator:${VERSION}-ppc64le" 
+        --build-arg ARCH=ppc64le 
+        --build-arg name="Operator"
+        --build-arg exec=./cmd/manager
+        --build-arg bin=redhat-marketplace-operator
+        --build-arg app_version=\"${VERSION}\"
+        --build-arg quay_expiration=\"${QUAY_EXPIRATION}\" 
+        -f build/Dockerfile .
+      - >
+        docker build -t "quay.io/aosadchyy/redhat-marketplace-metric-state:${VERSION}-ppc64le" 
+        --build-arg ARCH=ppc64le 
+        --build-arg name="Operator"
+        --build-arg exec=./cmd/manager
+        --build-arg bin=redhat-marketplace-operator
+        --build-arg app_version=\"${VERSION}\"
+        --build-arg quay_expiration=\"${QUAY_EXPIRATION}\" 
+        -f build/metricState.Dockerfile .
+      - >
+        docker build -t "quay.io/aosadchyy/redhat-marketplace-reporter:${VERSION}-ppc64le" 
+        --build-arg ARCH=ppc64le 
+        --build-arg name="Operator"
+        --build-arg exec=./cmd/manager
+        --build-arg bin=redhat-marketplace-operator
+        --build-arg app_version=\"${VERSION}\"
+        --build-arg quay_expiration=\"${QUAY_EXPIRATION}\" 
+        -f build/reporter.Dockerfile .
+      - >
+        docker build -t "quay.io/aosadchyy/redhat-marketplace-authcheck:${VERSION}-ppc64le" 
+        --build-arg ARCH=ppc64le 
+        --build-arg name="Operator"
+        --build-arg exec=./cmd/manager
+        --build-arg bin=redhat-marketplace-operator
+        --build-arg app_version=\"${VERSION}\"
+        --build-arg quay_expiration=\"${QUAY_EXPIRATION}\" 
+        -f build/authcheck.Dockerfile .
+      - echo "Pushing images ..."
+      - docker push "quay.io/kandarpamalipeddi/redhat-marketplace-operator:${VERSION}-ppc64le"
+      - docker push "quay.io/kandarpamalipeddi/redhat-marketplace-metric-state:${VERSION}-ppc64le"
+      - docker push "quay.io/kandarpamalipeddi/redhat-marketplace-reporter:${VERSION}-ppc64le"
+      - docker push "quay.io/kandarpamalipeddi/redhat-marketplace-authcheck:${VERSION}-ppc64le"
+      - echo "Docker Image push to quay.io is done !"
+      - make test-ci-unit
+    
+    # Building s390x container images and pushing to quay.io
+    - arch: s390x
+      env:
+      - secure: "J6YrwZKYTil/cYOGke4NHrIcDBN57p11ohyD7FGqpFJ8X245vlvTz5XB7vvNpib1OH+zM2Vkz2CzppHZmH5LA2yJSLc0svNq/CUjR/CC9B2jPXpSKaNgGXaxvQ5lVRnOoMjXB6am1181IegV/yzrYiChximSFfPiV61Ko/wOat2Godlb8GYg9o7Y3/IJSaaFdLZXXGwttjmuoqSDEck0SIY0742LC7NFHobAWA219jNBifhzUpQQ37wm43XtAa1SGtdgPxvDeEKER3jipl1i6iQ+hTZGZXMET2CNV+bfqk/oqPtvLOrH/+96l7lKKU/Y4tX72/6udDgHPTIrnUGoX0n5miMMVBcHE7/62bwqtAbiYeDP7ufUh9l6pKjsuzWiQlPd+93rtOndt9QUA0p35g+4IedkpTl6pNuWlm4op+iN0IZB0MGS7USVjp/7tlz0VGpXk1qhnc7qH0qRiKAVdfFOmMENfxVYQSbd7Br99T2GSWwqDSW9qfF6oNqiuWADlChDvfUS+eGgWc50uL+I26KOE4fF+TgWd6uWS7OXXtImdEh0MYBIW87jV3wo3yaMb+lA7HRMZxoILnuqylIvFG3KXV3fcUBxvg3N2AdA1XPbnr+mILl4HM0/5kAH3AjEFgXkXzaykWJ1yRbo2mrIOX42hw06pBN06rnPXaKZTCM="
+      - secure: "Ifpc2MvJPdsIiEWlKnu8zfpw8shPyb3lrTEpvzZnEx+itxUZvOSG5YmbZ17zEQlvx0L4RXbEI98mbUJ+1S3ZUR0CI+Cz8GqOPJdRwy6hbZGsXR+py1FHrEwseKgI0QRVs2wiFafqn23Kkel5064PChSXVOYeW6okK88vbdCLqKsM6eeA47Sg5hO/dY01tbyHZaxlWXEf64LR8psjvM1om6dIhCMxcqIQfQ3tpwTHIGqneXH8LX/HMDvE+2gtJj6sutFCOlAbIEsJxs+QF4BgFmwtgZoa70ifOUJc02BUSCWrWVms+7lgffXtrL/v1hYU0cXyq4jvoXnwAxGKURcIgZAlYuX3SR4NlSLxrGaOybIXKNgVyjkS3gg6bnXZXj8W8cA6NogZlX9/FstbQf7iuSGrbtnlp2fBadcoraOFsOh/t0l0X1EFTFl/NQE/vw1q97fkss7CKFkOMFHK0ElHS5xltHt3DvaUSQpujVEcNUNc4+VlthD9MiWi7PtwAxJW5NT4ynRGa3u3fz2ExCY/6uu8UNE7fYAWLZszBqt6Ic8Pf4O5McrYcBBhLAjPJBmxs3OITxNBEjW+mamJPJSBjQQHG1tsqq2qDoIOZf790Gex77J3+iH/eK7OOXqOubuqXa33Puax6GKS5KcRvn3H70Vyuh9gmQvn4yCOqW/EIY8="
+      script:
+      - docker --version
+      - if [ "x$VERSION" = "x" ]; then VERSION=${TRAVIS_COMMIT}; fi
+      - echo  ${VERSION}
+      - echo "Login to Quay.io docker account..."
+      - docker login -u="${ROBOT_USER_NAME_S390X}" -p="${ROBOT_PASS_PHRASE_S390X}" quay.io
+      - echo "Building the Red Hat Marketplace operator images for s390x..."
+      - >
+        docker build -t "quay.io/rh-marketplace/golang-base:1.15" 
+        --build-arg ARCH=s390x 
+        --build-arg name="Operator"
+        --build-arg exec=./cmd/manager
+        --build-arg bin=redhat-marketplace-operator
+        --build-arg app_version=\"${VERSION}\"
+        --build-arg quay_expiration=\"${QUAY_EXPIRATION}\" 
+        -f build/base.Dockerfile .
+      - > 
+        docker build -t "quay.io/aosadchyy/redhat-marketplace-operator:${VERSION}-s390x" 
+        --build-arg ARCH=s390x 
+        --build-arg name="Operator"
+        --build-arg exec=./cmd/manager
+        --build-arg bin=redhat-marketplace-operator
+        --build-arg app_version=\"${VERSION}\"
+        --build-arg quay_expiration=\"${QUAY_EXPIRATION}\" 
+        -f build/Dockerfile .
+      - >
+        docker build -t "quay.io/aosadchyy/redhat-marketplace-metric-state:${VERSION}-s390x" 
+        --build-arg ARCH=s390x 
+        --build-arg name="Operator"
+        --build-arg exec=./cmd/manager
+        --build-arg bin=redhat-marketplace-operator
+        --build-arg app_version=\"${VERSION}\"
+        --build-arg quay_expiration=\"${QUAY_EXPIRATION}\" 
+        -f build/metricState.Dockerfile .
+      - >
+        docker build -t "quay.io/aosadchyy/redhat-marketplace-reporter:${VERSION}-s390x" 
+        --build-arg ARCH=s390x 
+        --build-arg name="Operator"
+        --build-arg exec=./cmd/manager
+        --build-arg bin=redhat-marketplace-operator
+        --build-arg app_version=\"${VERSION}\"
+        --build-arg quay_expiration=\"${QUAY_EXPIRATION}\" 
+        -f build/reporter.Dockerfile .
+      - >
+        docker build -t "quay.io/aosadchyy/redhat-marketplace-authcheck:${VERSION}-s390x" 
+        --build-arg ARCH=s390x 
+        --build-arg name="Operator"
+        --build-arg exec=./cmd/manager
+        --build-arg bin=redhat-marketplace-operator
+        --build-arg app_version=\"${VERSION}\"
+        --build-arg quay_expiration=\"${QUAY_EXPIRATION}\" 
+        -f build/authcheck.Dockerfile .
+      - echo "Pushing images ..."
+      - docker push "quay.io/aosadchyy/redhat-marketplace-operator:${VERSION}-s390x"
+      - docker push "quay.io/aosadchyy/redhat-marketplace-metric-state:${VERSION}-s390x"
+      - docker push "quay.io/aosadchyy/redhat-marketplace-reporter:${VERSION}-s390x"
+      - docker push "quay.io/aosadchyy/redhat-marketplace-authcheck:${VERSION}-s390x"
+      - echo "Docker Image push to quay.io is done !"
+      - make test-ci-unit-no-race
+    

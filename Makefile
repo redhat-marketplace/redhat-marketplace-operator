@@ -374,6 +374,11 @@ test-ci-unit: ## test-ci-unit runs all tests for CI builds
 	ginkgo -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
 	cat cover-unit.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-unit.out
 
+.PHONY: test-ci-unit-no-race
+test-ci-unit-no-race: ## test-ci-unit-no-race runs all tests for CI builds, except race condition checks for non-supporting architectures.
+	ginkgo -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --progress --trace ./pkg ./cmd ./internal
+	cat cover-unit.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-unit.out
+
 .PHONY: test-ci-int
 test-ci-int:  ## test-ci-int runs all tests for CI builds
 	kubectl kuttl test --namespace openshift-redhat-marketplace --kind-context test --config ./kuttl-test-kind.yaml ./test/e2e --test "(^register-test$$|^features-test$$)"
