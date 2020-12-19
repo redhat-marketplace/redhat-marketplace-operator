@@ -84,9 +84,6 @@ jobs:
     
     # Building s390x container images and pushing to quay.io
     - arch: s390x
-      env:
-      - secure: "J6YrwZKYTil/cYOGke4NHrIcDBN57p11ohyD7FGqpFJ8X245vlvTz5XB7vvNpib1OH+zM2Vkz2CzppHZmH5LA2yJSLc0svNq/CUjR/CC9B2jPXpSKaNgGXaxvQ5lVRnOoMjXB6am1181IegV/yzrYiChximSFfPiV61Ko/wOat2Godlb8GYg9o7Y3/IJSaaFdLZXXGwttjmuoqSDEck0SIY0742LC7NFHobAWA219jNBifhzUpQQ37wm43XtAa1SGtdgPxvDeEKER3jipl1i6iQ+hTZGZXMET2CNV+bfqk/oqPtvLOrH/+96l7lKKU/Y4tX72/6udDgHPTIrnUGoX0n5miMMVBcHE7/62bwqtAbiYeDP7ufUh9l6pKjsuzWiQlPd+93rtOndt9QUA0p35g+4IedkpTl6pNuWlm4op+iN0IZB0MGS7USVjp/7tlz0VGpXk1qhnc7qH0qRiKAVdfFOmMENfxVYQSbd7Br99T2GSWwqDSW9qfF6oNqiuWADlChDvfUS+eGgWc50uL+I26KOE4fF+TgWd6uWS7OXXtImdEh0MYBIW87jV3wo3yaMb+lA7HRMZxoILnuqylIvFG3KXV3fcUBxvg3N2AdA1XPbnr+mILl4HM0/5kAH3AjEFgXkXzaykWJ1yRbo2mrIOX42hw06pBN06rnPXaKZTCM="
-      - secure: "Ifpc2MvJPdsIiEWlKnu8zfpw8shPyb3lrTEpvzZnEx+itxUZvOSG5YmbZ17zEQlvx0L4RXbEI98mbUJ+1S3ZUR0CI+Cz8GqOPJdRwy6hbZGsXR+py1FHrEwseKgI0QRVs2wiFafqn23Kkel5064PChSXVOYeW6okK88vbdCLqKsM6eeA47Sg5hO/dY01tbyHZaxlWXEf64LR8psjvM1om6dIhCMxcqIQfQ3tpwTHIGqneXH8LX/HMDvE+2gtJj6sutFCOlAbIEsJxs+QF4BgFmwtgZoa70ifOUJc02BUSCWrWVms+7lgffXtrL/v1hYU0cXyq4jvoXnwAxGKURcIgZAlYuX3SR4NlSLxrGaOybIXKNgVyjkS3gg6bnXZXj8W8cA6NogZlX9/FstbQf7iuSGrbtnlp2fBadcoraOFsOh/t0l0X1EFTFl/NQE/vw1q97fkss7CKFkOMFHK0ElHS5xltHt3DvaUSQpujVEcNUNc4+VlthD9MiWi7PtwAxJW5NT4ynRGa3u3fz2ExCY/6uu8UNE7fYAWLZszBqt6Ic8Pf4O5McrYcBBhLAjPJBmxs3OITxNBEjW+mamJPJSBjQQHG1tsqq2qDoIOZf790Gex77J3+iH/eK7OOXqOubuqXa33Puax6GKS5KcRvn3H70Vyuh9gmQvn4yCOqW/EIY8="
       script:
       - docker --version
       - if [ "x$VERSION" = "x" ]; then VERSION=${TRAVIS_COMMIT}; fi
