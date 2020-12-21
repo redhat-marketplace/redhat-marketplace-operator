@@ -15,6 +15,7 @@
 package marketplace
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -27,6 +28,7 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
@@ -65,6 +67,7 @@ type MarketplaceClient struct {
 }
 
 type RegisteredAccount struct {
+	Id string `json:"_id"`
 	AccountId string
 	Uuid      string
 	Status    string
@@ -231,6 +234,110 @@ func (m *MarketplaceClient) RegistrationStatus(account *MarketplaceClientAccount
 		StatusCode:         resp.StatusCode,
 		RegistrationStatus: "UNREGISTERED",
 	}, nil
+}
+
+func(m *MarketplaceClient) getClusterObjID(account *MarketplaceClientAccount)(string,error){
+	u, err := buildQuery(m.endpoint, registrationEndpoint,
+		"accountId", account.AccountId,
+		"uuid", account.ClusterUuid)
+
+	if err != nil {
+		return "",err
+	}
+
+	logger.Info("get cluster objId query", "query", u.String())
+	resp, err := m.httpClient.Get(u.String())
+	clusterDef, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+
+	if err != nil {
+		return  "",err
+	}
+
+	utils.PrettyPrint(string(clusterDef))
+	registrations, err := getRegistrations(string(clusterDef))
+	
+	var objId string
+	for _, registration := range registrations {
+		if registration.Uuid == account.ClusterUuid {
+			objId = registration.Id
+		}
+	}
+	return objId,nil
+}
+
+func (m *MarketplaceClient) UnRegister(account *MarketplaceClientAccount) (RegistrationStatusOutput, error) {
+	if account == nil {
+		err := errors.New("account info missing")
+		return RegistrationStatusOutput{Err: err}, err
+	}
+
+	objID, err := m.getClusterObjID(account)
+	if err != nil {
+		return RegistrationStatusOutput{Err: err}, err
+	}
+
+	if err != nil {
+		return RegistrationStatusOutput{Err: err}, err
+	}
+
+	url := m.endpoint.String() + "/" + registrationEndpoint + "/" + objID
+
+	logger.Info("status query", "query", url)
+
+	requestBody, err := json.Marshal(map[string]string{
+		"accountId": account.AccountId, 
+		"status": "TO_BE_UNREGISTERED",
+	})
+
+	if err != nil {
+			return RegistrationStatusOutput{Err: err}, err
+	}
+
+	patchReq,err := http.NewRequest("PATCH",url,bytes.NewBuffer(requestBody))
+	if err != nil {
+		return RegistrationStatusOutput{Err: err}, err
+	}
+
+	patchReq.Header.Set("Content-Type", "application/json")
+	resp, err := m.httpClient.Do(patchReq)
+	if err != nil {
+		return RegistrationStatusOutput{
+			RegistrationStatus: "HttpError",
+			Err:                err,
+			StatusCode:         http.StatusInternalServerError,
+		}, err
+	}
+	if resp.StatusCode != 200 {
+		return RegistrationStatusOutput{
+			RegistrationStatus: "HttpError",
+			Err:                err,
+			StatusCode:         resp.StatusCode,
+		}, err
+	}
+
+	logger.Info("Un-register call status code", "httpstatus", resp.StatusCode)
+	clusterDef, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+
+	if err != nil {
+		return RegistrationStatusOutput{Err: err}, err
+	}
+
+	registrations, err := getRegistrations(string(clusterDef))
+	if err != nil {
+		return RegistrationStatusOutput{Err: err}, err
+	}
+
+	var unregistered RegistrationStatusOutput
+	if len(registrations) == 0 {
+		unregistered = RegistrationStatusOutput{
+			StatusCode:         resp.StatusCode,
+			RegistrationStatus: "UNREGISTERED",
+		}
+	}
+
+	return unregistered,nil
 }
 
 func getRegistrations(jsonString string) ([]RegisteredAccount, error) {

@@ -19,6 +19,8 @@ import (
 	"reflect"
 	"time"
 
+	emperrors "emperror.dev/errors"
+	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	opsrcv1 "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
@@ -33,6 +35,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -201,10 +204,24 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 			marketplaceConfig.Spec.Features.Registration = ptr.Bool(true)
 		}
 	}
+	
 
+	willBeDeleted,_ := r.isMarkedForDeletion(marketplaceConfig)
+	if willBeDeleted {
+		pullSecret, result := r.getPullSecret(request,reqLogger)
+		if !result.Is(Continue){
+			return result.Return()
+		}
+
+		result = r.unregister(marketplaceConfig,cfg,pullSecret,request,reqLogger)
+		if !result.Is(Continue){
+			return result.Return()
+		}
+	}
+
+	// Add finalizer and execute it if the resource is deleted
 	newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
 	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
-	// Add finalizer and execute it if the resource is deleted
 	if result, _ := cc.Do(
 		context.TODO(),
 		Call(SetFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER)),
@@ -491,52 +508,38 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 
 	reqLogger.Info("Finding Cluster registration status")
 	//Fetch the Secret with name redhat-marketplace-pull-secret
-	secret := v1.Secret{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: utils.RHMPullSecretName, Namespace: request.Namespace}, &secret)
+	pullSecret, result := r.getPullSecret(request,reqLogger)
+	if !result.Is(Continue){
+		return result.Return()
+	}
+
+	reqLogger.Info("attempting to update registration")
+	marketplaceClient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
+		Url:      cfg.Marketplace.URL,
+		Token:    pullSecret,
+		Insecure: cfg.Marketplace.InsecureClient,
+	})
+
+	marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
+		AccountId:   marketplaceConfig.Spec.RhmAccountID,
+		ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
+	}
+
+	registrationStatusOutput, err := marketplaceClient.RegistrationStatus(marketplaceClientAccount)
+
 	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Error(err, "error finding", "name", utils.RHMPullSecretName)
-			return reconcile.Result{}, nil
-		}
-
-		reqLogger.Error(err, "error fetching secret")
-		return reconcile.Result{}, err
-	}
-	//Setting MarketplaceClientAccount
-	pullSecret, ok := secret.Data[utils.RHMPullSecretKey]
-
-	if !ok {
-		reqLogger.Error(err, "secret is missing appropriate field and can't check status")
+		reqLogger.Error(err, "registration status failed")
+		return reconcile.Result{Requeue: true}, nil
 	}
 
-	if ok {
-		reqLogger.Info("attempting to update registration")
-		marketplaceClient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
-			Url:      cfg.Marketplace.URL,
-			Token:    string(pullSecret),
-			Insecure: cfg.Marketplace.InsecureClient,
-		})
+	reqLogger.Info("attempting to update registration", "status", registrationStatusOutput.RegistrationStatus)
 
-		marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
-			AccountId:   marketplaceConfig.Spec.RhmAccountID,
-			ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
-		}
+	statusConditions := registrationStatusOutput.TransformConfigStatus()
 
-		registrationStatusOutput, err := marketplaceClient.RegistrationStatus(marketplaceClientAccount)
-
-		if err != nil {
-			reqLogger.Error(err, "registration status failed")
-			return reconcile.Result{Requeue: true}, nil
-		}
-
-		reqLogger.Info("attempting to update registration", "status", registrationStatusOutput.RegistrationStatus)
-
-		statusConditions := registrationStatusOutput.TransformConfigStatus()
-
-		for _, cond := range statusConditions {
-			updated = updated || marketplaceConfig.Status.Conditions.SetCondition(cond)
-		}
+	for _, cond := range statusConditions {
+		updated = updated || marketplaceConfig.Status.Conditions.SetCondition(cond)
 	}
+	
 
 	if updated {
 		//Updating Marketplace Config with Cluster Registration status
@@ -556,6 +559,85 @@ func (r *ReconcileMarketplaceConfig) Reconcile(request reconcile.Request) (recon
 // belonging to the given marketplaceConfig custom resource name
 func labelsForMarketplaceConfig(name string) map[string]string {
 	return map[string]string{"app": "marketplaceconfig", "marketplaceconfig_cr": name}
+}
+
+func(r *ReconcileMarketplaceConfig) getPullSecret(request reconcile.Request,reqLogger logr.Logger)(string,*ExecResult){
+	secret := v1.Secret{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: utils.RHMPullSecretName, Namespace: request.Namespace}, &secret)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			reqLogger.Error(err, "error finding", "name", utils.RHMPullSecretName)
+			return "", &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err: nil,
+			}
+		}
+
+		reqLogger.Error(err, "error fetching secret")
+		return "", &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err: err,
+		}
+	}
+
+	pullSecret, ok := secret.Data[utils.RHMPullSecretKey]
+	if !ok{
+		return "", &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err: emperrors.New("secret is missing appropriate fields"),
+		}
+	}
+
+	return string(pullSecret), &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+}
+
+func(r *ReconcileMarketplaceConfig) isMarkedForDeletion (instance *marketplacev1alpha1.MarketplaceConfig)(bool,error){
+	accessor, err := meta.Accessor(instance)
+	if err != nil {
+		return false, err
+	}
+
+	isMarkedForDeletion := accessor.GetDeletionTimestamp() != nil
+
+	if !isMarkedForDeletion {
+		return false, nil
+	}
+
+	return true, nil
+
+}
+
+func(r *ReconcileMarketplaceConfig) unregister(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig,cfg config.OperatorConfig,pullSecret string,request reconcile.Request,reqLogger logr.Logger)*ExecResult{
+	reqLogger.Info("attempting to un-register")
+	marketplaceClient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
+		Url:      cfg.Marketplace.URL,
+		Token:    pullSecret,
+		Insecure: cfg.Marketplace.InsecureClient,
+	})
+
+	marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
+		AccountId:   marketplaceConfig.Spec.RhmAccountID,
+		ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
+	}
+
+	reqLogger.Info("unregister","marketplace client account",marketplaceClientAccount)
+
+	registrationStatusOutput, err := marketplaceClient.UnRegister(marketplaceClientAccount)
+	if err != nil {
+		reqLogger.Error(err, "unregister failed")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{Requeue: true},
+			Err: nil,
+		}
+	}
+
+	reqLogger.Info("unregister", "RegistrationStatus", registrationStatusOutput.RegistrationStatus)
+
+	return &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
 }
 
 // Begin installation or deletion of Catalog Source
