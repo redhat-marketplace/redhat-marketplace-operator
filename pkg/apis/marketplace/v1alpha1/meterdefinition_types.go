@@ -31,13 +31,7 @@ const (
 	MeterDefConditionReasonNoResultsInStatus status.ConditionReason = "No results in status"
 	MeterDefConditionReasonResultsInStatus   status.ConditionReason = "Results in status"
 
-	PrometheusReconcileError            status.ConditionReason = "Prometheus Reconcile Error"
-	GetCertConfigMapReconcileError      status.ConditionReason = "Cert Config Map Reconcile Error"
-	ProvideAuthTokenReconcileError      status.ConditionReason = "Auth Token Reconcile Error"
-	ProvidePrometheusClientError        status.ConditionReason = "Prometheus Client Error"
-	ParseCertFromConfigMapError         status.ConditionReason = "Cert Config Map Data Error"
-	NewPromAPIError                     status.ConditionReason = "New Prometheus API Error"
-	QueryPreviewGenerationError         status.ConditionReason = "Query Preview Generation Error"
+	MeterDefQueryPreviewSetupError           status.ConditionType   = "QueryPreviewSetupError"
 )
 
 var (

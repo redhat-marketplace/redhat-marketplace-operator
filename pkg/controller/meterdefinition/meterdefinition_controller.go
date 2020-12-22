@@ -171,7 +171,21 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 		update = instance.Status.Conditions.SetCondition(v1alpha1.MeterDefConditionHasResults)
 	}
 
-	update = r.QueryPreview(cc,instance,request,reqLogger)
+	queryPreviewResult,err := r.queryPreview(cc,instance,request,reqLogger)
+	if err != nil {
+		update = instance.Status.Conditions.SetCondition(status.Condition{
+			Type: v1alpha1.MeterDefQueryPreviewSetupError,
+			Message: err.Error(),
+		})
+	}else if err == nil {
+		update = instance.Status.Conditions.RemoveCondition(v1alpha1.MeterDefQueryPreviewSetupError)
+	}
+
+	if !reflect.DeepEqual(queryPreviewResult, instance.Status.Results) {
+		instance.Status.Results = queryPreviewResult
+		reqLogger.Info("output", "Status.Results", instance.Status.Results)
+		update = true
+	}
 
 	result, _ = cc.Do(
 		context.TODO(),
@@ -193,92 +207,45 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 	return reconcile.Result{RequeueAfter: r.cfg.ControllerValues.MeterDefControllerRequeueRate}, nil
 }
 
-func (r *ReconcileMeterDefinition) QueryPreview(cc ClientCommandRunner, instance *v1alpha1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) (update bool) {
+func (r *ReconcileMeterDefinition) queryPreview(cc ClientCommandRunner, instance *v1alpha1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) ([]v1alpha1.Result,error) {
 	var queryPreviewResult []v1alpha1.Result
 
 	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
-	update = updateOrClearErrorConditions(err, v1alpha1.PrometheusReconcileError, instance, request, reqLogger)
-	if update {
-		return update
+	if err != nil {
+		return nil,err
 	}
 
 	certConfigMap, err := r.getCertConfigMap(context.TODO(), cc, request)
-	update = updateOrClearErrorConditions(err, v1alpha1.GetCertConfigMapReconcileError, instance, request, reqLogger)
-	if update {
-		return update
+	if err != nil {
+		return nil,err
 	}
 
 	saClient := NewServiceAccountClient(r.cfg.ControllerValues.DeploymentNamespace, r.kubernetesInterface)
 
 	authToken, err := saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.PrometheusAudience, 3600, reqLogger)
-	update = updateOrClearErrorConditions(err, v1alpha1.ProvideAuthTokenReconcileError, instance, request, reqLogger)
-	if update {
-		return update
+	if err != nil {
+		return nil,err
 	}
 
 	if certConfigMap != nil && authToken != "" && service != nil {
 		cert, err := parseCertificateFromConfigMap(*certConfigMap)
-		update = updateOrClearErrorConditions(err, v1alpha1.ParseCertFromConfigMapError, instance, request, reqLogger)
-		if update {
-			return update
+		if err != nil {
+			return nil,err
 		}
 
 		prometheusAPI,err := NewPromAPI(service,&cert,authToken)
-		update = updateOrClearErrorConditions(err, v1alpha1.NewPromAPIError, instance, request, reqLogger)
-		if update {
-			return update
+		if err != nil {
+			return nil,err
 		}
 
 		reqLogger.Info("generatring meterdef preview")
 		queryPreviewResult, err = generateQueryPreview(instance,prometheusAPI ,reqLogger)
-		update = updateOrClearErrorConditions(err, v1alpha1.QueryPreviewGenerationError, instance, request, reqLogger)
-		if update {
-			return update
+		if err != nil {
+			return nil,err
 		}
 	}
 
-	if !reflect.DeepEqual(queryPreviewResult, instance.Status.Results) {
-		instance.Status.Results = queryPreviewResult
-		reqLogger.Info("output", "Status.Results", instance.Status.Results)
-		return true
-	}
-
-	return false
-}
-
-func updateOrClearErrorConditions(err error, conditionReason status.ConditionReason, instance *v1alpha1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) bool {
-
-	if err != nil {
-		reqLogger.Info("Updating status with error")
-
-		update := instance.Status.Conditions.SetCondition(status.Condition{
-			Message: err.Error(),
-			Reason:  status.ConditionReason(conditionReason),
-		})
-
-		return update
-	}
-
-	update := clearErrorCondition(conditionReason, instance, reqLogger, request)
-	if update {
-		return update
-	}
-
-	return false
-}
-/*
-	had to write a one-off here. Conditions.RemoveCondition() takes a ConditionType which we're not setting
-*/
-func clearErrorCondition(conditionReason status.ConditionReason, instance *v1alpha1.MeterDefinition, reqLogger logr.Logger, request reconcile.Request) (update bool) {
-	for index, condition := range instance.Status.Conditions {
-		if condition.Reason == conditionReason {
-			reqLogger.Info("clearing condition", "condition", conditionReason)
-			instance.Status.Conditions = append(instance.Status.Conditions[:index], instance.Status.Conditions[index+1:]...)
-			return true
-		}
-	}
-
-	return false
+	return queryPreviewResult,nil
 }
 
 func (r *ReconcileMeterDefinition) queryForPrometheusService(
