@@ -177,7 +177,7 @@ func (r *ReconcileMeterDefinition) Reconcile(request reconcile.Request) (reconci
 			Type: v1alpha1.MeterDefQueryPreviewSetupError,
 			Message: err.Error(),
 		})
-	}else if err == nil {
+	} else if err == nil {
 		update = instance.Status.Conditions.RemoveCondition(v1alpha1.MeterDefQueryPreviewSetupError)
 	}
 

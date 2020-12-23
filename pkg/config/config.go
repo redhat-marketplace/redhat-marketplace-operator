@@ -29,7 +29,7 @@ type OperatorConfig struct {
 	RelatedImages               RelatedImages
 	Features                    Features
 	Marketplace                 Marketplace
-	ControllerValues ControllerValues
+	ControllerValues            ControllerValues
 }
 
 // RelatedImages stores relatedimages for the operator
