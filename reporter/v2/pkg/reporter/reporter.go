@@ -206,7 +206,7 @@ func (r *MarketplaceReporter) retrieveMeterDefinitions(
 	var warnings v1.Warnings
 	var err error
 
-	defer func(){
+	defer func() {
 		meterDefsDone <- true
 	}()
 

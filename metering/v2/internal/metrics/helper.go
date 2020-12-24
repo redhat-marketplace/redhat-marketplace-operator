@@ -18,8 +18,8 @@ import (
 	"context"
 	"strings"
 
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meter_definition"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
@@ -87,7 +87,7 @@ func MapMeterDefinitions(metrics []*kbsm.Metric, mdefs []*marketplacev1alpha1.Me
 	return newMeters
 }
 
-type emptyMeterDefFetcher struct {}
+type emptyMeterDefFetcher struct{}
 
 var emptyFetcher MeterDefinitionFetcher = &emptyMeterDefFetcher{}
 

@@ -29,10 +29,10 @@ import (
 // StatusProcessor will update the meter definition
 // status with the objects that matched it.
 type StatusProcessor struct {
-	log           logr.Logger
-	cc            ClientCommandRunner
-	mutex         sync.Mutex
-	locks         map[types.NamespacedName]sync.Mutex
+	log   logr.Logger
+	cc    ClientCommandRunner
+	mutex sync.Mutex
+	locks map[types.NamespacedName]sync.Mutex
 }
 
 // NewStatusProcessor is the provider that creates
@@ -42,9 +42,9 @@ func NewStatusProcessor(
 	cc ClientCommandRunner,
 ) *StatusProcessor {
 	return &StatusProcessor{
-		log:           log,
-		cc:            cc,
-		locks:         make(map[types.NamespacedName]sync.Mutex),
+		log:   log,
+		cc:    cc,
+		locks: make(map[types.NamespacedName]sync.Mutex),
 	}
 }
 

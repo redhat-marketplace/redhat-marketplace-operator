@@ -56,7 +56,7 @@ func (c *Config) SetDefaults() {
 		c.Retry = ptr.Int(5)
 	}
 
-	if c.UploaderTarget == nil  {
+	if c.UploaderTarget == nil {
 		c.UploaderTarget = UploaderTargetRedHatInsights
 	}
 }

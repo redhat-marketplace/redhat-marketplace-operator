@@ -20,8 +20,8 @@ package main
 import (
 	"github.com/go-logr/logr"
 	"github.com/google/wire"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/authchecker/v2/pkg/authchecker"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 )
 

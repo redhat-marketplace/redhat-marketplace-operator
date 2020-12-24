@@ -19,8 +19,8 @@ import (
 	"reflect"
 	"strings"
 
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meter_definition"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	v1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
@@ -103,10 +103,10 @@ var availableStores = map[string]func(f *Builder) *MetricsStore{
 }
 
 var (
-	serviceType reflect.Type = reflect.TypeOf(&v1.Service{})
-	podType = reflect.TypeOf(&v1.Pod{})
-	persistentVolType = reflect.TypeOf(&v1.PersistentVolumeClaim{})
-	meterDefinitionType = reflect.TypeOf(&marketplacev1alpha1.MeterDefinition{})
+	serviceType         reflect.Type = reflect.TypeOf(&v1.Service{})
+	podType                          = reflect.TypeOf(&v1.Pod{})
+	persistentVolType                = reflect.TypeOf(&v1.PersistentVolumeClaim{})
+	meterDefinitionType              = reflect.TypeOf(&marketplacev1alpha1.MeterDefinition{})
 )
 
 func (b *Builder) buildServiceStore() *MetricsStore {

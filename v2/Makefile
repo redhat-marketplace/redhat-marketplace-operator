@@ -1,5 +1,6 @@
 # Current Operator version
 VERSION ?= 1.0.5
+
 # Options for 'bundle-build'
 ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
@@ -47,11 +48,22 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+.DEFAULT_GOAL := all
+
 all: manager
 
 # Run tests
-test: generate fmt vet manifests
-	go test ./... -coverprofile cover.out
+test: fmt vet manifests
+	ginkgo -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
+
+.PHONY: test-ci-unit
+test-ci-unit: ## test-ci-unit runs all tests for CI builds
+	ginkgo -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
+	cat cover-unit.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-unit.out
+
+.PHONY: test-ci-int
+test-ci-int:  ## test-ci-int runs all tests for CI builds
+	kubectl kuttl test --namespace openshift-redhat-marketplace --kind-context test --config ./kuttl-test.yaml ./test/e2e --test "(^register-test$$|^features-test$$)"
 
 # Build manager binary
 manager: generate fmt vet
@@ -71,8 +83,6 @@ uninstall: manifests kustomize
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests kustomize helm
-	#cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	#$(KUSTOMIZE) build config/default | kubectl apply -f -
 	cd config && $(HELM) template rhm-template ./helm-wrapper \
 	-f ./helm-wrapper/values.yaml \
 	--set operatorImage=$(OPERATOR_IMAGE) \
@@ -96,6 +106,7 @@ vet:
 # Generate code
 generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	go generate ./...
 
 # Generate API
 generate-api: code-generator
@@ -247,6 +258,9 @@ bundle-uninstall:
 	- kubectl delete subscription -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
 	- kubectl delete csv -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
 
+skaffold-build:
+	skaffold build --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
+
 skaffold-setup:
 	cd config && $(HELM) template rhm-operator ./helm-wrapper \
 	   --namespace $(namespace) \
@@ -259,3 +273,6 @@ skaffold-setup:
 
 skaffold-dev:
 	skaffold dev --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
+
+skaffold-run:
+	skaffold run --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)

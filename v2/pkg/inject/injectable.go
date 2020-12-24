@@ -78,8 +78,8 @@ func ProvideInjector(
 	}
 
 	return &Injector{
-		fields:         fields,
-		injectables:    injs,
+		fields:      fields,
+		injectables: injs,
 	}, nil
 }
 
