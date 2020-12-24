@@ -36,9 +36,4 @@ authchecker/%:
 	cd ./authchecker/v2 && $(MAKE) $(@F)
 
 %:
-	echo $@
-ifeq ($@,)
-	$(MAKE) operator/all
-else
 	$(MAKE) operator/$@
-endif
