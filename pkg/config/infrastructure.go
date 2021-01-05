@@ -19,8 +19,6 @@ import (
 	"time"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -63,13 +61,16 @@ func openshiftInfrastructure(c client.Client) (*OpenshiftInfra, error) {
 	err := c.Get(ctx, versionNamespacedName, clusterVersionObj)
 	if err != nil {
 		log.Error(err, "Unable to get Openshift info")
+		return nil, err
 	}
 	marshaledStatus, err := json.Marshal(clusterVersionObj.Object["status"])
 	if err != nil {
 		log.Error(err, "Error marshaling openshift api response")
+		return nil, err
 	}
 	if err := json.Unmarshal(marshaledStatus, &clusterVersion); err != nil {
 		log.Error(err, "Error unmarshaling openshift api response")
+		return nil, err
 	}
 
 	return &OpenshiftInfra{
@@ -91,12 +92,8 @@ func kubernetesInfrastructure(discoveryClient *discovery.DiscoveryClient) (kInf 
 func LoadInfrastructure(c client.Client, dc *discovery.DiscoveryClient) (*Infrastructure, error) {
 	openshift, err := openshiftInfrastructure(c)
 	if err != nil {
-		// check if api exists on the cluster
-		if !errors.IsNotFound(err) && !meta.IsNoMatchError(err) {
-			log.Error(err, "unable to get Openshift version")
-		} else {
-			return nil, err
-		}
+		// Openshift is not mandatory
+		log.Error(err, "unable to get Openshift version")
 	}
 	kuberentes, err := kubernetesInfrastructure(dc)
 	if err != nil {
