@@ -19,6 +19,7 @@ import (
 
 	monitoringv1client "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
 	marketplacev1alpha1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1alpha1"
+	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -70,7 +71,18 @@ func CreateServiceListWatch(kubeClient clientset.Interface, ns string) cache.Lis
 	}
 }
 
-func CreateMeterDefinitionWatch(c *marketplacev1alpha1client.MarketplaceV1alpha1Client, ns string) cache.ListerWatcher {
+func CreateMeterDefinitionV1Alpha1Watch(c *marketplacev1alpha1client.MarketplaceV1alpha1Client, ns string) cache.ListerWatcher {
+	return &cache.ListWatch{
+		ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+			return c.MeterDefinitions(ns).List(context.TODO(), opts)
+		},
+		WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+			return c.MeterDefinitions(ns).Watch(context.TODO(), opts)
+		},
+	}
+}
+
+func CreateMeterDefinitionV1Beta1Watch(c *marketplacev1beta1client.MarketplaceV1beta1Client, ns string) cache.ListerWatcher {
 	return &cache.ListWatch{
 		ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
 			return c.MeterDefinitions(ns).List(context.TODO(), opts)

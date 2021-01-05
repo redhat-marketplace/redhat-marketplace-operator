@@ -66,7 +66,7 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "..", "config", "webhook")},
+			DirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "webhook")},
 		},
 	}
 
@@ -105,7 +105,7 @@ var _ = BeforeSuite(func() {
 	// +kubebuilder:scaffold:webhook
 
 	go func() {
-		err = mgr.Start(ctx)
+		err = mgr.Start(ctx.Done())
 		if err != nil {
 			Expect(err).NotTo(HaveOccurred())
 		}

@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meter_definition"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -31,7 +30,7 @@ import (
 var log = logf.Log.WithName("meteric")
 
 type FamilyGenerator struct {
-	GenerateMeterFunc func(interface{}, []*marketplacev1alpha1.MeterDefinition) *kbsm.Family
+	GenerateMeterFunc func(interface{}, []*marketplacev1beta1.MeterDefinition) *kbsm.Family
 	kbsm.FamilyGenerator
 }
 
@@ -51,7 +50,7 @@ func (g *FamilyGenerator) generateHeader() string {
 }
 
 func GetMeterDefLabelsKeys(mdef *marketplacev1beta1.MeterDefinition) ([]string, []string) {
-	return []string{"meter_def_name", "meter_def_namespace", "meter_def_domain", "meter_def_kind"},
+	return []string{"meter_def_name", "meter_def_namespace", "meter_def_group", "meter_def_kind"},
 		[]string{mdef.Name, mdef.Namespace, mdef.Spec.Group, mdef.Spec.Kind}
 }
 
@@ -92,8 +91,8 @@ type emptyMeterDefFetcher struct{}
 
 var emptyFetcher MeterDefinitionFetcher = &emptyMeterDefFetcher{}
 
-func (p *emptyMeterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplacev1alpha1.MeterDefinition, error) {
-	return []*marketplacev1alpha1.MeterDefinition{}, nil
+func (p *emptyMeterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplacev1beta1.MeterDefinition, error) {
+	return []*marketplacev1beta1.MeterDefinition{}, nil
 }
 
 type meterDefFetcher struct {
@@ -103,8 +102,8 @@ type meterDefFetcher struct {
 
 var _ MeterDefinitionFetcher = &meterDefFetcher{}
 
-func (p *meterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplacev1alpha1.MeterDefinition, error) {
-	results := []*marketplacev1alpha1.MeterDefinition{}
+func (p *meterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplacev1beta1.MeterDefinition, error) {
+	results := []*marketplacev1beta1.MeterDefinition{}
 	metaobj, err := meta.Accessor(obj)
 
 	if err != nil {
@@ -116,12 +115,12 @@ func (p *meterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplacev1
 
 func (p *meterDefFetcher) getMeterDefs(
 	uid types.UID,
-) ([]*marketplacev1alpha1.MeterDefinition, error) {
-	results := []*marketplacev1alpha1.MeterDefinition{}
+) ([]*marketplacev1beta1.MeterDefinition, error) {
+	results := []*marketplacev1beta1.MeterDefinition{}
 	refs := p.meterDefinitionStore.GetMeterDefinitionRefs(uid)
 
 	for _, ref := range refs {
-		meterDefinition := &marketplacev1alpha1.MeterDefinition{}
+		meterDefinition := &marketplacev1beta1.MeterDefinition{}
 		err := p.getMeterDef(ref.MeterDef, meterDefinition)
 
 		if err != nil {
@@ -137,7 +136,7 @@ func (p *meterDefFetcher) getMeterDefs(
 
 func (p *meterDefFetcher) getMeterDef(
 	name types.NamespacedName,
-	mdef *marketplacev1alpha1.MeterDefinition,
+	mdef *marketplacev1beta1.MeterDefinition,
 ) error {
 	result, _ := p.cc.Do(
 		context.TODO(),

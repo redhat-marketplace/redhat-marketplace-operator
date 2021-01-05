@@ -21,7 +21,7 @@ import (
 	"reflect"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meter_definition"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/sasha-s/go-deadlock"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,7 +32,7 @@ type FamilyByteSlicer interface {
 }
 
 type MeterDefinitionFetcher interface {
-	GetMeterDefinitions(interface{}) ([]*marketplacev1alpha1.MeterDefinition, error)
+	GetMeterDefinitions(interface{}) ([]*marketplacev1beta1.MeterDefinition, error)
 }
 
 // MetricsStore implements the k8s.io/client-go/tools/cache.Store
@@ -53,7 +53,7 @@ type MetricsStore struct {
 
 	// generateMetricsFunc generates metrics based on a given Kubernetes object
 	// and returns them grouped by metric family.
-	generateMetricsFunc func(interface{}, []*marketplacev1alpha1.MeterDefinition) []FamilyByteSlicer
+	generateMetricsFunc func(interface{}, []*marketplacev1beta1.MeterDefinition) []FamilyByteSlicer
 
 	meterDefStore *meter_definition.MeterDefinitionStore
 
@@ -65,7 +65,7 @@ type MetricsStore struct {
 // NewMetricsStore returns a new MetricsStore
 func NewMetricsStore(
 	headers []string,
-	generateFunc func(interface{}, []*marketplacev1alpha1.MeterDefinition) []FamilyByteSlicer,
+	generateFunc func(interface{}, []*marketplacev1beta1.MeterDefinition) []FamilyByteSlicer,
 	meterDefStore *meter_definition.MeterDefinitionStore,
 	meterDefFetcher MeterDefinitionFetcher,
 	expectedType reflect.Type,

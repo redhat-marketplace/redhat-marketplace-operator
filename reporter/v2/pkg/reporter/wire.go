@@ -54,7 +54,6 @@ func NewReporter(
 		wire.InterfaceValue(new(logr.Logger), logger),
 		getMarketplaceReport,
 		getPrometheusService,
-		getMeterDefinitions,
 		getMarketplaceConfig,
 		ReporterSet,
 	))

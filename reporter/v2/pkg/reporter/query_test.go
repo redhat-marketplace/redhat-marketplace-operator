@@ -22,7 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 )
 
 var _ = Describe("Query", func() {
@@ -39,13 +39,13 @@ var _ = Describe("Query", func() {
 		rpcDurationSecondsQuery = NewPromQuery(&PromQueryArgs{
 			Metric: "rpc_durations_seconds_count",
 			Query:  `foo{bar="true"}`,
-			Type:   v1alpha1.WorkloadTypePod,
+			Type:   v1beta1.WorkloadTypePod,
 			Start:  start,
 			End:    end,
 			Step:   time.Minute * 60,
 		})
 
-		v1api := getTestAPI(mockResponseRoundTripper("../../test/mockresponses/prometheus-query-range.json", []v1alpha1.MeterDefinition{}))
+		v1api := getTestAPI(mockResponseRoundTripper("../../test/mockresponses/prometheus-query-range.json", []v1beta1.MeterDefinition{}))
 		sut = &MarketplaceReporter{
 			api: v1api,
 		}
@@ -73,7 +73,7 @@ var _ = Describe("Query", func() {
 				Namespace: "foons",
 			},
 			AggregateFunc: "sum",
-			Type:          v1alpha1.WorkloadTypePVC,
+			Type:          v1beta1.WorkloadTypePVC,
 		})
 
 		expected := `sum by (persistentvolumeclaim,namespace) (avg(meterdef_persistentvolumeclaim_info{meter_def_name="foo",meter_def_namespace="foons",phase="Bound"}) without (instance, container, endpoint, job, service) * on(persistentvolumeclaim,namespace) group_right kube_persistentvolumeclaim_resource_requests_storage_bytes) * on(persistentvolumeclaim,namespace) group_right group without(instance) (kube_persistentvolumeclaim_resource_requests_storage_bytes)`

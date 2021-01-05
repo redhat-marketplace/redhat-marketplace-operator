@@ -19,12 +19,17 @@ limitations under the License.
 package fake
 
 import (
+	v1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )
 
 type FakeMarketplaceV1beta1 struct {
 	*testing.Fake
+}
+
+func (c *FakeMarketplaceV1beta1) MeterDefinitions(namespace string) v1beta1.MeterDefinitionInterface {
+	return &FakeMeterDefinitions{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

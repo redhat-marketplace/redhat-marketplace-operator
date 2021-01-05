@@ -11,13 +11,13 @@ import (
 
 type MeterDefPrometheusLabels struct {
 	UID               string `json:"meter_definition_uid"`
-	MeterDefName      string `json:"name"`
-	MeterDefNamespace string `json:"namespace"`
+	MeterDefName      string `json:"meter_def_name"`
+	MeterDefNamespace string `json:"meter_def_namespace"`
 
 	WorkloadName           string           `json:"workload_name"`
 	WorkloadType           string           `json:"workload_type"`
-	MeterGroup             string           `json:"meter_group"`
-	MeterKind              string           `json:"meter_kind"`
+	MeterGroup             string           `json:"meter_def_group"`
+	MeterKind              string           `json:"meter_def_kind"`
 	Metric                 string           `json:"metric_label"`
 	MetricAggregation      string           `json:"metric_aggregation,omitempty"`
 	MetricPeriod           *metav1.Duration `json:"metric_period,omitempty"`

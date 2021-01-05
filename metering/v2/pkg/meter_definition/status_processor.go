@@ -21,7 +21,8 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -58,7 +59,7 @@ func (u *StatusProcessor) New(store *MeterDefinitionStore) Processor {
 // resources and checks it against the status.
 func (u *StatusProcessor) Process(ctx context.Context, inObj *ObjectResourceMessage) error {
 	log := u.log.WithValues("process", "statusProcessor")
-	mdef := &marketplacev1alpha1.MeterDefinition{}
+	mdef := &marketplacev1beta1.MeterDefinition{}
 
 	if inObj == nil {
 		return nil
@@ -88,9 +89,8 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj *ObjectResourceMess
 			OnContinue(Call(func() (ClientAction, error) {
 				log.Info("found objs", "mdef", inObj.MeterDef)
 
-				resources := []marketplacev1alpha1.WorkloadResource{}
-
-				set := map[types.UID]marketplacev1alpha1.WorkloadResource{}
+				resources := []common.WorkloadResource{}
+				set := map[types.UID]common.WorkloadResource{}
 
 				for _, obj := range mdef.Status.WorkloadResources {
 					set[obj.UID] = obj
@@ -107,7 +107,7 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj *ObjectResourceMess
 					resources = append(resources, obj)
 				}
 
-				sort.Sort(marketplacev1alpha1.ByAlphabetical(resources))
+				sort.Sort(common.ByAlphabetical(resources))
 				mdef.Status.WorkloadResources = resources
 
 				log.Info("updating meter def", "mdef", inObj.MeterDef, "uid", mdef.UID, "len", len(mdef.Status.WorkloadResources))

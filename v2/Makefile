@@ -114,10 +114,10 @@ generate-api: code-generator
 	set -e ;\
 	API_TEMP_DIR=$$(mktemp -d) ;\
 	$(CODEGEN_PKG)/generate-groups.sh \
-		"defaulter,client,informer,lister" \
+		"defaulter,client,lister" \
     github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated \
     github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis \
-    marketplace:v1alpha1,v1beta1 \
+    "marketplace:v1alpha1,v1beta1" \
     --output-base $$API_TEMP_DIR \
     --go-header-file hack/boilerplate.go.txt ; \
 	cp -r "$$API_TEMP_DIR/github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated" "apis/marketplace" ;\

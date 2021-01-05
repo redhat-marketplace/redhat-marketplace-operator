@@ -23,8 +23,11 @@ import (
 	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringv1client "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1alpha1"
+	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/sasha-s/go-deadlock"
@@ -61,10 +64,11 @@ type MeterDefinitionStore struct {
 	namespaces []string
 
 	// kubeClient to query kube
-	kubeClient        clientset.Interface
-	findOwner         *rhmclient.FindOwnerHelper
-	monitoringClient  *monitoringv1client.MonitoringV1Client
-	marketplaceClient *marketplacev1alpha1client.MarketplaceV1alpha1Client
+	kubeClient                clientset.Interface
+	findOwner                 *rhmclient.FindOwnerHelper
+	monitoringClient          *monitoringv1client.MonitoringV1Client
+	marketplaceClientV1alpha1 *marketplacev1alpha1client.MarketplaceV1alpha1Client
+	marketplaceClientV1beta1  *marketplacev1beta1client.MarketplaceV1beta1Client
 
 	// listeners are used for downstream
 	listenerMutex deadlock.Mutex
@@ -86,10 +90,11 @@ type MeterDefinitionStoreBuilder struct {
 	namespaces []string
 
 	// kubeClient to query kube
-	kubeClient        clientset.Interface
-	findOwner         *rhmclient.FindOwnerHelper
-	monitoringClient  *monitoringv1client.MonitoringV1Client
-	marketplaceClient *marketplacev1alpha1client.MarketplaceV1alpha1Client
+	kubeClient                clientset.Interface
+	findOwner                 *rhmclient.FindOwnerHelper
+	monitoringClient          *monitoringv1client.MonitoringV1Client
+	marketplaceClientV1alpha1 *marketplacev1alpha1client.MarketplaceV1alpha1Client
+	marketplaceClientV1beta1  *marketplacev1beta1client.MarketplaceV1beta1Client
 }
 
 func NewMeterDefinitionStoreBuilder(
@@ -99,39 +104,42 @@ func NewMeterDefinitionStoreBuilder(
 	kubeClient clientset.Interface,
 	findOwner *rhmclient.FindOwnerHelper,
 	monitoringClient *monitoringv1client.MonitoringV1Client,
-	marketplaceclient *marketplacev1alpha1client.MarketplaceV1alpha1Client,
+	marketplaceclientV1alpha1 *marketplacev1alpha1client.MarketplaceV1alpha1Client,
+	marketplaceclientV1beta1 *marketplacev1beta1client.MarketplaceV1beta1Client,
 	scheme *runtime.Scheme,
 ) *MeterDefinitionStoreBuilder {
 	return &MeterDefinitionStoreBuilder{
-		ctx:               ctx,
-		log:               log,
-		cc:                cc,
-		kubeClient:        kubeClient,
-		monitoringClient:  monitoringClient,
-		marketplaceClient: marketplaceclient,
-		findOwner:         findOwner,
-		scheme:            scheme,
+		ctx:                       ctx,
+		log:                       log,
+		cc:                        cc,
+		kubeClient:                kubeClient,
+		monitoringClient:          monitoringClient,
+		marketplaceClientV1alpha1: marketplaceclientV1alpha1,
+		marketplaceClientV1beta1:  marketplaceclientV1beta1,
+		findOwner:                 findOwner,
+		scheme:                    scheme,
 	}
 }
 
 func (s *MeterDefinitionStoreBuilder) NewInstance() *MeterDefinitionStore {
 	return &MeterDefinitionStore{
-		ctx:                    s.ctx,
-		log:                    s.log,
-		cc:                     s.cc,
-		scheme:                 s.scheme,
-		kubeClient:             s.kubeClient,
-		monitoringClient:       s.monitoringClient,
-		marketplaceClient:      s.marketplaceClient,
-		findOwner:              s.findOwner,
-		namespaces:             s.namespaces,
-		mutex:                  deadlock.Mutex{},
-		listenerMutex:          deadlock.Mutex{},
-		resyncObjChan:          make(chan interface{}),
-		objectsSeen:            make(map[ObjectUID]interface{}),
-		listeners:              []chan *ObjectResourceMessage{},
-		meterDefinitionFilters: make(map[MeterDefUID]*MeterDefinitionLookupFilter),
-		objectResourceSet:      make(map[ObjectResourceKey]*ObjectResourceValue),
+		ctx:                       s.ctx,
+		log:                       s.log,
+		cc:                        s.cc,
+		scheme:                    s.scheme,
+		kubeClient:                s.kubeClient,
+		monitoringClient:          s.monitoringClient,
+		marketplaceClientV1alpha1: s.marketplaceClientV1alpha1,
+		marketplaceClientV1beta1:  s.marketplaceClientV1beta1,
+		findOwner:                 s.findOwner,
+		namespaces:                s.namespaces,
+		mutex:                     deadlock.Mutex{},
+		listenerMutex:             deadlock.Mutex{},
+		resyncObjChan:             make(chan interface{}),
+		objectsSeen:               make(map[ObjectUID]interface{}),
+		listeners:                 []chan *ObjectResourceMessage{},
+		meterDefinitionFilters:    make(map[MeterDefUID]*MeterDefinitionLookupFilter),
+		objectResourceSet:         make(map[ObjectResourceKey]*ObjectResourceValue),
 	}
 }
 
@@ -277,7 +285,7 @@ func (s *MeterDefinitionStore) Add(obj interface{}) error {
 	logger.Info("return matched results", len(matchedResults))
 
 	for _, result := range matchedResults {
-		resource, err := v1alpha1.NewWorkloadResource(*result.workload, obj, s.scheme)
+		resource, err := common.NewWorkloadResource(result.workload.Name, obj, s.scheme)
 		if err != nil {
 			logger.Error(err, "failed to init a new workload resource")
 			return err
@@ -591,7 +599,7 @@ func serviceMonitorLister(s *MeterDefinitionStoreBuilder, ns string) reflectorCo
 
 func meterDefLister(s *MeterDefinitionStoreBuilder, ns string) reflectorConfig {
 	return reflectorConfig{
-		expectedType: &v1alpha1.MeterDefinition{},
-		lister:       CreateMeterDefinitionWatch(s.marketplaceClient, ns),
+		expectedType: &v1beta1.MeterDefinition{},
+		lister:       CreateMeterDefinitionV1Beta1Watch(s.marketplaceClientV1beta1, ns),
 	}
 }

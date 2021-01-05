@@ -70,7 +70,7 @@ func (src *MeterDefinition) ConvertTo(dstRaw conversion.Hub) error {
 				ResourceFilters: filters,
 				Metric:          metricLabel.Label,
 				Name:            workload.Name,
-				Period:          metaHRDuration,
+				Period:          &metaHRDuration,
 				Query:           metricLabel.Query,
 			})
 		}
@@ -80,6 +80,8 @@ func (src *MeterDefinition) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Kind = string(src.Spec.Kind)
 	dst.Spec.InstalledBy = src.Spec.InstalledBy
 	dst.Spec.Meters = meters
+	dst.Status.Conditions = src.Status.Conditions
+	dst.Status.WorkloadResources = src.Status.WorkloadResources
 	return nil
 }
 
@@ -126,6 +128,9 @@ func (dst *MeterDefinition) ConvertFrom(srcRaw conversion.Hub) error {
 
 		workloads = append(workloads, workload)
 	}
+
+	dst.Status.Conditions = src.Status.Conditions
+	dst.Status.WorkloadResources = src.Status.WorkloadResources
 
 	return nil
 }

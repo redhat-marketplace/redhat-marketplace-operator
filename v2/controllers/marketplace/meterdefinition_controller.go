@@ -77,7 +77,6 @@ func (r *MeterDefinitionReconciler) InjectPatch(p patch.Patcher) error {
 func (r *MeterDefinitionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Create a new controller
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.MeterDefinition{}).
 		For(&v1beta1.MeterDefinition{}).
 		Watches(&source.Kind{Type: &v1alpha1.MeterDefinition{}}, &handler.EnqueueRequestForObject{}).
 		Complete(r)
@@ -93,20 +92,8 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 
 	// Fetch the MeterDefinition instance
 	instance := &v1beta1.MeterDefinition{}
-	alphaInstance := &v1alpha1.MeterDefinition{}
 	result, _ := cc.Do(context.TODO(),
-		HandleResult(
-			GetAction(request.NamespacedName, instance),
-			OnNotFound(
-				HandleResult(
-					GetAction(request.NamespacedName, alphaInstance),
-					OnContinue(Call(func() (ClientAction, error) {
-						alphaInstance.ConvertTo(instance)
-						return nil, nil
-					})),
-				),
-			),
-		),
+		GetAction(request.NamespacedName, instance),
 	)
 
 	if !result.Is(Continue) {

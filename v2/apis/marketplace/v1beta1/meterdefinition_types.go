@@ -241,7 +241,7 @@ func (meterdef *MeterDefinition) ToPrometheusLabels() ([]map[string]string, erro
 			MetricGroupBy:     common.JSONArray(meter.GroupBy),
 			MeterGroup:        meterdef.Spec.Group,
 			MetricQuery:       meter.Query,
-			MetricPeriod:      &meter.Period,
+			MetricPeriod:      meter.Period,
 			WorkloadName:      meter.Name,
 			WorkloadType:      string(meter.ResourceFilters.WorkloadType),
 			MetricAggregation: meter.Aggregation,

@@ -17,7 +17,7 @@ package meter_definition
 import (
 	"encoding/json"
 
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -25,7 +25,7 @@ import (
 
 type ObjectUID types.UID
 type MeterDefUID types.UID
-type ResourceSet map[MeterDefUID]*v1alpha1.WorkloadResource
+type ResourceSet map[MeterDefUID]*common.WorkloadResource
 type ObjectResourceMessageAction string
 
 const (
@@ -67,12 +67,12 @@ type ObjectResourceValue struct {
 	Generation   int64
 	Matched      bool
 	Object       interface{}
-	*v1alpha1.WorkloadResource
+	*common.WorkloadResource
 }
 
 func NewObjectResourceValue(
 	lookup *MeterDefinitionLookupFilter,
-	resource *v1alpha1.WorkloadResource,
+	resource *common.WorkloadResource,
 	obj interface{},
 	matched bool,
 ) (*ObjectResourceValue, error) {

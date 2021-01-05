@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meter_definition"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
@@ -65,7 +66,11 @@ func NewServer(opts *Options) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	meterDefinitionStoreBuilder := meter_definition.NewMeterDefinitionStoreBuilder(context, logger, clientCommandRunner, clientset, findOwnerHelper, monitoringV1Client, marketplaceV1alpha1Client, scheme)
+	marketplaceV1beta1Client, err := v1beta1.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+	meterDefinitionStoreBuilder := meter_definition.NewMeterDefinitionStoreBuilder(context, logger, clientCommandRunner, clientset, findOwnerHelper, monitoringV1Client, marketplaceV1alpha1Client, marketplaceV1beta1Client, scheme)
 	statusProcessor := meter_definition.NewStatusProcessor(logger, clientCommandRunner)
 	serviceProcessor := meter_definition.NewServiceProcessor(logger, clientCommandRunner)
 	cacheIsIndexed, err := addIndex(context, cache)

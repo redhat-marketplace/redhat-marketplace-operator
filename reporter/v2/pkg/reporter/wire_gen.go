@@ -75,10 +75,6 @@ func NewReporter(task *Task) (*MarketplaceReporter, error) {
 	if err != nil {
 		return nil, err
 	}
-	v, err := getMeterDefinitions(contextContext, meterReport, clientCommandRunner)
-	if err != nil {
-		return nil, err
-	}
 	service, err := getPrometheusService(contextContext, meterReport, clientCommandRunner)
 	if err != nil {
 		return nil, err
@@ -87,7 +83,7 @@ func NewReporter(task *Task) (*MarketplaceReporter, error) {
 	if err != nil {
 		return nil, err
 	}
-	marketplaceReporter, err := NewMarketplaceReporter(reporterConfig, client, meterReport, marketplaceConfig, v, service, apiClient)
+	marketplaceReporter, err := NewMarketplaceReporter(reporterConfig, client, meterReport, marketplaceConfig, service, apiClient)
 	if err != nil {
 		return nil, err
 	}

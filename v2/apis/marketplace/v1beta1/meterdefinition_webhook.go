@@ -36,9 +36,7 @@ func (r *MeterDefinition) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-
-// +kubebuilder:webhook:webhookVersions={v1beta1},path=/mutate-marketplace-redhat-com-v1beta1-meterdefinition,mutating=true,failurePolicy=fail,sideEffects=None,groups=marketplace.redhat.com,resources=meterdefinitions,verbs=create;update,versions=v1beta1,name=mmeterdefinition.kb.io,admissionReviewVersions={v1,v1beta1}
+// +kubebuilder:webhook:path=/mutate-marketplace-redhat-com-v1beta1-meterdefinition,mutating=true,failurePolicy=fail,sideEffects=None,groups=marketplace.redhat.com,resources=meterdefinitions,verbs=create;update,versions=v1beta1,name=mmeterdefinition.kb.io
 
 var _ webhook.Defaulter = &MeterDefinition{}
 
@@ -58,12 +56,10 @@ func (r *MeterDefinition) Default() {
 				UseOperatorGroup: true,
 			}
 		}
-
 	}
 }
 
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:webhook:webhookVersions={v1beta1},path=/validate-marketplace-redhat-com-v1beta1-meterdefinition,mutating=false,failurePolicy=fail,sideEffects=None,groups=marketplace.redhat.com,resources=meterdefinitions,verbs=create;update,versions=v1beta1,name=vmeterdefinition.kb.io,admissionReviewVersions={v1,v1beta1}
+// +kubebuilder:webhook:path=/validate-marketplace-redhat-com-v1beta1-meterdefinition,mutating=false,failurePolicy=fail,sideEffects=None,groups=marketplace.redhat.com,resources=meterdefinitions,verbs=create;update,versions=v1beta1,name=vmeterdefinition.kb.io
 
 var _ webhook.Validator = &MeterDefinition{}
 

@@ -15,7 +15,7 @@
 package metrics
 
 import (
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	kbsm "k8s.io/kube-state-metrics/pkg/metric"
@@ -32,7 +32,7 @@ var podMetricsFamilies = []FamilyGenerator{
 			Type: kbsm.Gauge,
 			Help: "Metering info for pod",
 		},
-		GenerateMeterFunc: wrapPodFunc(func(pod *corev1.Pod, meterDefinitions []*marketplacev1alpha1.MeterDefinition) *kbsm.Family {
+		GenerateMeterFunc: wrapPodFunc(func(pod *corev1.Pod, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
 			metrics := []*kbsm.Metric{}
 
 			podUID := string(pod.UID)
@@ -52,8 +52,8 @@ var podMetricsFamilies = []FamilyGenerator{
 }
 
 // wrapPodFunc is a helper function for generating pod-based metrics
-func wrapPodFunc(f func(*v1.Pod, []*marketplacev1alpha1.MeterDefinition) *kbsm.Family) func(obj interface{}, meterDefinitions []*marketplacev1alpha1.MeterDefinition) *kbsm.Family {
-	return func(obj interface{}, meterDefinitions []*marketplacev1alpha1.MeterDefinition) *kbsm.Family {
+func wrapPodFunc(f func(*v1.Pod, []*marketplacev1beta1.MeterDefinition) *kbsm.Family) func(obj interface{}, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
+	return func(obj interface{}, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
 		pod := obj.(*v1.Pod)
 
 		metricFamily := f(pod, meterDefinitions)

@@ -30,6 +30,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 
 	"github.com/google/uuid"
 	"github.com/meirf/gopart"
@@ -37,12 +38,9 @@ import (
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/gstruct"
 )
 
 var _ = Describe("Reporter", func() {
@@ -80,37 +78,46 @@ var _ = Describe("Reporter", func() {
 			},
 		}
 
-		v1api := getTestAPI(mockResponseRoundTripper(generatedFile, []marketplacev1alpha1.MeterDefinition{
+		v1api := getTestAPI(mockResponseRoundTripper(generatedFile, []v1beta1.MeterDefinition{
 			{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "bar",
 					UID:       types.UID("a"),
 				},
-				Spec: marketplacev1alpha1.MeterDefinitionSpec{
-					Group:              "apps.partner.metering.com",
-					Kind:               "App",
-					WorkloadVertexType: marketplacev1alpha1.WorkloadVertexOperatorGroup,
-					Workloads: []marketplacev1alpha1.Workload{
+				Spec: v1beta1.MeterDefinitionSpec{
+					Group: "apps.partner.metering.com",
+					Kind:  "App",
+					Meters: []v1beta1.MeterWorkload{
 						{
-							Name:         "foo",
-							WorkloadType: marketplacev1alpha1.WorkloadTypePod,
-							MetricLabels: []marketplacev1alpha1.MeterLabelQuery{
-								{
-									Label:       "rpc_durations_seconds_sum",
-									Query:       "rpc_durations_seconds_sum",
-									Aggregation: "sum",
+							ResourceFilters: v1beta1.ResourceFilter{
+								Namespace: &v1beta1.NamespaceFilter{UseOperatorGroup: true},
+								OwnerCRD: &v1beta1.OwnerCRDFilter{
+									GroupVersionKind: common.GroupVersionKind{
+										APIVersion: "apps.partner.metering.com/v1",
+										Kind:       "App",
+									},
 								},
-								{
-									Label:       "rpc_durations_seconds_count",
-									Query:       "my_query",
-									Aggregation: "sum",
+								WorkloadType: v1beta1.WorkloadTypePod,
+							},
+							Aggregation: "sum",
+							Query:       "rpc_durations_seconds_sum",
+							Metric:      "rpc_durations_seconds_sum",
+						},
+						{
+							ResourceFilters: v1beta1.ResourceFilter{
+								Namespace: &v1beta1.NamespaceFilter{UseOperatorGroup: true},
+								OwnerCRD: &v1beta1.OwnerCRDFilter{
+									GroupVersionKind: common.GroupVersionKind{
+										APIVersion: "apps.partner.metering.com/v1",
+										Kind:       "App",
+									},
 								},
+								WorkloadType: v1beta1.WorkloadTypePod,
 							},
-							OwnerCRD: &common.GroupVersionKind{
-								APIVersion: "apps.partner.metering.com/v1",
-								Kind:       "App",
-							},
+							Aggregation: "sum",
+							Query:       "my_query",
+							Metric:      "rpc_durations_seconds_count",
 						},
 					},
 				},
@@ -121,73 +128,6 @@ var _ = Describe("Reporter", func() {
 			api:       v1api,
 			Config:    cfg,
 			mktconfig: config,
-			meterDefinitions: []marketplacev1alpha1.MeterDefinition{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "foo",
-						Namespace: "bar",
-						UID:       types.UID("a"),
-					},
-					Spec: marketplacev1alpha1.MeterDefinitionSpec{
-						Group: "apps.partner.metering.com",
-						Kind:  "App",
-						Workloads: []marketplacev1alpha1.Workload{
-							{
-								WorkloadType: marketplacev1alpha1.WorkloadTypePod,
-								Name:         "foo",
-								MetricLabels: []marketplacev1alpha1.MeterLabelQuery{
-									{
-										Label:       "rpc_durations_seconds_sum",
-										Query:       "rpc_durations_seconds_sum",
-										Aggregation: "sum",
-									},
-									{
-										Label:       "rpc_durations_seconds_count",
-										Query:       "my_query",
-										Aggregation: "sum",
-									},
-								},
-								OwnerCRD: &common.GroupVersionKind{
-									APIVersion: "apps.partner.metering.com/v1",
-									Kind:       "App",
-								},
-							},
-						},
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "foo2",
-						Namespace: "bar",
-					},
-					Spec: marketplacev1alpha1.MeterDefinitionSpec{
-						Group: "apps.partner.metering.com",
-						Kind:  "App2",
-						Workloads: []marketplacev1alpha1.Workload{
-							{
-								WorkloadType: marketplacev1alpha1.WorkloadTypePod,
-								Name:         "foo2",
-								MetricLabels: []marketplacev1alpha1.MeterLabelQuery{
-									{
-										Label:       "rpc_durations_seconds_sum",
-										Query:       "rpc_durations_seconds_sum",
-										Aggregation: "sum",
-									},
-									{
-										Label:       "rpc_durations_seconds_count",
-										Query:       "my_query",
-										Aggregation: "sum",
-									},
-								},
-								OwnerCRD: &common.GroupVersionKind{
-									APIVersion: "apps.partner.metering.com/v1",
-									Kind:       "App",
-								},
-							},
-						},
-					},
-				},
-			},
 			report: &marketplacev1alpha1.MeterReport{
 				Spec: marketplacev1alpha1.MeterReportSpec{
 					StartTime: metav1.Time{Time: start},
@@ -363,7 +303,7 @@ func getTestAPI(trip RoundTripFunc) v1.API {
 	return v1api
 }
 
-func mockResponseRoundTripper(file string, meterdefinitions []marketplacev1alpha1.MeterDefinition) RoundTripFunc {
+func mockResponseRoundTripper(file string, meterdefinitions []v1beta1.MeterDefinition) RoundTripFunc {
 	return func(req *http.Request) *http.Response {
 		headers := make(http.Header)
 		headers.Add("content-type", "application/json")
@@ -425,10 +365,10 @@ type fakeMetrics struct {
 	Data   fakeData
 }
 
-func GenerateMeterInfoResponse(meterdefinitions []marketplacev1alpha1.MeterDefinition) []byte {
+func GenerateMeterInfoResponse(meterdefinitions []v1beta1.MeterDefinition) []byte {
 	results := []map[string]interface{}{}
 	for _, mdef := range meterdefinitions {
-		labels := mdef.ToPrometheusLabels()
+		labels, _ := mdef.ToPrometheusLabels()
 
 		for _, labelMap := range labels {
 			labelMap["name"] = mdef.Name
