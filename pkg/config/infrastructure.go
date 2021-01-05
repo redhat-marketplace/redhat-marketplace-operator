@@ -24,15 +24,15 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/go-logr/logr"
 )
 
+// KubernetesInfra stores Kubernetes information
 type KubernetesInfra struct {
 	version,
 	platform string
 }
 
+// OpenshiftInfra stores Openshift information (if Openshift is present)
 type OpenshiftInfra struct {
 	version string
 }
@@ -44,10 +44,6 @@ type Infrastructure struct {
 }
 
 func openshiftInfrastructure(c client.Client) (*OpenshiftInfra, error) {
-	ch := make(chan struct {
-		version *openshiftconfigv1.ClusterVersionStatus
-		error
-	})
 	ctx, cancel := context.WithTimeout(context.Background(), 3200*time.Millisecond)
 	defer cancel()
 	clusterVersionObj := &unstructured.Unstructured{
@@ -63,51 +59,21 @@ func openshiftInfrastructure(c client.Client) (*OpenshiftInfra, error) {
 	versionNamespacedName := client.ObjectKey{
 		Name: "version",
 	}
-
-	go func(log logr.Logger, ch chan struct {
-		version *openshiftconfigv1.ClusterVersionStatus
-		error
-	}) {
-		clusterVersion := openshiftconfigv1.ClusterVersionStatus{}
-		err := c.Get(ctx, versionNamespacedName, clusterVersionObj)
-		if err != nil {
-			log.Error(err, "Unable to get Openshift info")
-			ch <- struct {
-				version *openshiftconfigv1.ClusterVersionStatus
-				error
-			}{nil, err}
-			return
-		}
-		marshaledStatus, err := json.Marshal(clusterVersionObj.Object["status"])
-		if err != nil {
-			log.Error(err, "Error marshaling openshift api response")
-			ch <- struct {
-				version *openshiftconfigv1.ClusterVersionStatus
-				error
-			}{nil, err}
-			return
-		}
-		if err := json.Unmarshal(marshaledStatus, &clusterVersion); err != nil {
-			log.Error(err, "Error unmarshaling openshift api response")
-			ch <- struct {
-				version *openshiftconfigv1.ClusterVersionStatus
-				error
-			}{nil, err}
-			return
-		}
-		ch <- struct {
-			version *openshiftconfigv1.ClusterVersionStatus
-			error
-		}{&clusterVersion, err}
-	}(log, ch)
-
-	cv := <-ch
-	if cv.error != nil {
-		return nil, nil
+	clusterVersion := openshiftconfigv1.ClusterVersionStatus{}
+	err := c.Get(ctx, versionNamespacedName, clusterVersionObj)
+	if err != nil {
+		log.Error(err, "Unable to get Openshift info")
+	}
+	marshaledStatus, err := json.Marshal(clusterVersionObj.Object["status"])
+	if err != nil {
+		log.Error(err, "Error marshaling openshift api response")
+	}
+	if err := json.Unmarshal(marshaledStatus, &clusterVersion); err != nil {
+		log.Error(err, "Error unmarshaling openshift api response")
 	}
 
 	return &OpenshiftInfra{
-		version: cv.version.Desired.Version,
+		version: clusterVersion.Desired.Version,
 	}, nil
 }
 func kubernetesInfrastructure(discoveryClient *discovery.DiscoveryClient) (kInf *KubernetesInfra, err error) {
@@ -121,6 +87,7 @@ func kubernetesInfrastructure(discoveryClient *discovery.DiscoveryClient) (kInf 
 	return
 }
 
+// LoadInfrastructure loads Kubernetes and Openshift information
 func LoadInfrastructure(c client.Client, dc *discovery.DiscoveryClient) (*Infrastructure, error) {
 	openshift, err := openshiftInfrastructure(c)
 	if err != nil {
@@ -142,18 +109,22 @@ func LoadInfrastructure(c client.Client, dc *discovery.DiscoveryClient) (*Infras
 	}, nil
 }
 
+// Version gets Kubernetes Git version
 func (k KubernetesInfra) Version() string {
 	return k.version
 }
 
+// Platform returns platform information
 func (k KubernetesInfra) Platform() string {
 	return k.platform
 }
 
+// Version gets Openshift version√
 func (o OpenshiftInfra) Version() string {
 	return o.version
 }
 
+// HasOpenshift checks if Openshift is available
 func (inf Infrastructure) HasOpenshift() bool {
 	return inf.Openshift != nil
 }

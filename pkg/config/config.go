@@ -85,6 +85,7 @@ func ProvideConfig() (OperatorConfig, error) {
 	return *global, nil
 }
 
+// ProvideInfrastructureAwareConfig loads Operator Config with Infrastructure information
 func ProvideInfrastructureAwareConfig(c client.Client, dc *discovery.DiscoveryClient) (OperatorConfig, error) {
 	cfg := OperatorConfig{}
 	inf, err := LoadInfrastructure(c, dc)
