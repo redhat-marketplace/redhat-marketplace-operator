@@ -22,7 +22,9 @@ import (
 
 	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	v1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
@@ -76,6 +78,7 @@ func (r *MeterDefinitionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Create a new controller
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.MeterDefinition{}).
+		For(&v1beta1.MeterDefinition{}).
 		Watches(&source.Kind{Type: &v1alpha1.MeterDefinition{}}, &handler.EnqueueRequestForObject{}).
 		Complete(r)
 }
@@ -89,8 +92,22 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 	cc := r.cc
 
 	// Fetch the MeterDefinition instance
-	instance := &v1alpha1.MeterDefinition{}
-	result, _ := cc.Do(context.TODO(), GetAction(request.NamespacedName, instance))
+	instance := &v1beta1.MeterDefinition{}
+	alphaInstance := &v1alpha1.MeterDefinition{}
+	result, _ := cc.Do(context.TODO(),
+		HandleResult(
+			GetAction(request.NamespacedName, instance),
+			OnNotFound(
+				HandleResult(
+					GetAction(request.NamespacedName, alphaInstance),
+					OnContinue(Call(func() (ClientAction, error) {
+						alphaInstance.ConvertTo(instance)
+						return nil, nil
+					})),
+				),
+			),
+		),
+	)
 
 	if !result.Is(Continue) {
 		if result.Is(NotFound) {
@@ -109,20 +126,13 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 
 	var queue bool
 
-	if instance.Spec.ServiceMeterLabels != nil {
-		instance.Spec.ServiceMeterLabels = nil
-	}
-	if instance.Spec.PodMeterLabels != nil {
-		instance.Spec.PodMeterLabels = nil
-	}
-
 	switch {
-	case instance.Status.Conditions.IsUnknownFor(v1alpha1.MeterDefConditionTypeHasResult):
+	case instance.Status.Conditions.IsUnknownFor(common.MeterDefConditionTypeHasResult):
 		fallthrough
 	case len(instance.Status.WorkloadResources) == 0:
-		queue = instance.Status.Conditions.SetCondition(v1alpha1.MeterDefConditionNoResults)
+		queue = instance.Status.Conditions.SetCondition(common.MeterDefConditionNoResults)
 	case len(instance.Status.WorkloadResources) > 0:
-		queue = instance.Status.Conditions.SetCondition(v1alpha1.MeterDefConditionHasResults)
+		queue = instance.Status.Conditions.SetCondition(common.MeterDefConditionHasResults)
 	}
 
 	result, _ = cc.Do(

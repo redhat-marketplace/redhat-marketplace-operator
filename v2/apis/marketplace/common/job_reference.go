@@ -21,6 +21,7 @@ import (
 )
 
 // JobStatus represents the current job for the report and it's status.
+// +kubebuilder:object:generate:=true
 type JobReference struct {
 
 	// Namespace of the job

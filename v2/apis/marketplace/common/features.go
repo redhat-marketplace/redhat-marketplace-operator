@@ -15,6 +15,7 @@
 package common
 
 // Feature represents a list of features that can be enabled or disabled.
+// +kubebuilder:object:generate:=true
 type Features struct {
 
 	// Deployment represents the enablement of the razee deployment, defaults to true when not set

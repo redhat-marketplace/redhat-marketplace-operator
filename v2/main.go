@@ -32,7 +32,9 @@ import (
 	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+
 	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	controllers "github.com/redhat-marketplace/redhat-marketplace-operator/v2/controllers/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
@@ -191,10 +193,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// if err = (&marketplaceredhatcomv1beta1.MeterDefinition{}).SetupWebhookWithManager(mgr); err != nil {
-	// 	setupLog.Error(err, "unable to create webhook", "webhook", "MeterDefinition")
-	// 	os.Exit(1)
-	// }
+	if err = (&marketplacev1beta1.MeterDefinition{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "MeterDefinition")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")

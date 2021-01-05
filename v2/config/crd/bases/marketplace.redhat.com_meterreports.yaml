@@ -392,6 +392,8 @@ spec:
                         description: WorkloadResources is the list of resoruces discovered
                           by this meter definition
                         items:
+                          description: WorkloadResource represents the resources associated
+                            to a workload
                           properties:
                             groupVersionKind:
                               description: GroupVersionKind of the resource
@@ -413,6 +415,8 @@ spec:
                               description: Namespace of the resource Required
                               type: string
                             referencedWorkloadName:
+                              description: ReferencedWorkloadName is the name of the
+                                workload
                               type: string
                             uid:
                               description: Namespace of the resource

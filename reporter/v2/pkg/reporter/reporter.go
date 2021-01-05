@@ -29,9 +29,11 @@ import (
 	"github.com/meirf/gopart"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/model"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	corev1 "k8s.io/api/core/v1"
@@ -64,7 +66,6 @@ type MarketplaceReporter struct {
 	k8sclient         client.Client
 	mktconfig         *marketplacev1alpha1.MarketplaceConfig
 	report            *marketplacev1alpha1.MeterReport
-	meterDefinitions  []marketplacev1alpha1.MeterDefinition
 	prometheusService *corev1.Service
 	*Config
 }
@@ -76,7 +77,6 @@ func NewMarketplaceReporter(
 	k8sclient client.Client,
 	report *marketplacev1alpha1.MeterReport,
 	mktconfig *marketplacev1alpha1.MarketplaceConfig,
-	meterDefinitions []marketplacev1alpha1.MeterDefinition,
 	prometheusService *corev1.Service,
 	apiClient api.Client,
 ) (*MarketplaceReporter, error) {
@@ -85,7 +85,6 @@ func NewMarketplaceReporter(
 		k8sclient:         k8sclient,
 		mktconfig:         mktconfig,
 		report:            report,
-		meterDefinitions:  meterDefinitions,
 		Config:            config,
 		prometheusService: prometheusService,
 	}, nil
@@ -182,7 +181,7 @@ type meterDefPromModel struct {
 	mdef *meterDefPromQuery
 	model.Value
 	MetricName string
-	Type       v1alpha1.WorkloadType
+	Type       marketplacev1beta1.WorkloadType
 }
 
 type meterDefPromQuery struct {
@@ -238,18 +237,6 @@ func (r *MarketplaceReporter) retrieveMeterDefinitions(
 		logger.Error(err, "error encountered")
 		errorChan <- err
 		return
-	}
-
-	// Use defined on the report queries for fallback for a while
-	definedPromQueries := []*meterDefPromQuery{}
-
-	for _, mdef := range r.meterDefinitions {
-		labels := mdef.ToPrometheusLabels()
-		for _, label := range labels {
-			promQuery := buildPromQuery(label, r.report.Spec.StartTime.Time, r.report.Spec.EndTime.Time)
-			logger.Info("found prom queries on the report", "uidQuery", promQuery)
-			definedPromQueries = append(definedPromQueries, promQuery)
-		}
 	}
 
 	switch result.Type() {
@@ -378,13 +365,11 @@ func (r *MarketplaceReporter) process(
 						namespace, _ := getMatrixValue(matrix.Metric, "namespace")
 
 						switch pmodel.Type {
-						case v1alpha1.WorkloadTypePVC:
+						case marketplacev1beta1.WorkloadTypePVC:
 							objName, _ = getMatrixValue(matrix.Metric, "persistentvolumeclaim")
-						case v1alpha1.WorkloadTypePod:
+						case marketplacev1beta1.WorkloadTypePod:
 							objName, _ = getMatrixValue(matrix.Metric, "pod")
-						case v1alpha1.WorkloadTypeServiceMonitor:
-							fallthrough
-						case v1alpha1.WorkloadTypeService:
+						case marketplacev1beta1.WorkloadTypeService:
 							objName, _ = getMatrixValue(matrix.Metric, "service")
 						}
 
@@ -573,7 +558,6 @@ func getMatrixValue(m interface{}, labelName string) (string, bool) {
 		}
 		return "", false
 	case map[string]string:
-
 		if v, ok := iMap[labelName]; ok {
 			return string(v), true
 		}
@@ -584,35 +568,49 @@ func getMatrixValue(m interface{}, labelName string) (string, bool) {
 }
 
 func buildPromQuery(labels interface{}, start, end time.Time) *meterDefPromQuery {
-	meter_definition_uid, _ := getMatrixValue(labels, "meter_definition_uid")
-	metricLabel, _ := getMatrixValue(labels, "metric_label")
-	workloadType, _ := getMatrixValue(labels, "workload_type")
-	name, _ := getMatrixValue(labels, "name")
-	namespace, _ := getMatrixValue(labels, "namespace")
-	metricAggregation, _ := getMatrixValue(labels, "metric_aggregation")
-	metricQuery, _ := getMatrixValue(labels, "metric_query")
-	meterGroup, _ := getMatrixValue(labels, "meter_group")
-	meterKind, _ := getMatrixValue(labels, "meter_kind")
+	meterDefLabels := &common.MeterDefPrometheusLabels{}
+	err := meterDefLabels.FromLabels(labels)
 
-	if metricAggregation == "" {
-		metricAggregation = "sum"
+	if err != nil {
+		log.Error(err, "failed to unmarshal labels")
+		panic(err)
+	}
+
+	workloadType, err := marketplacev1alpha1.ConvertWorkloadType(meterDefLabels.WorkloadType)
+
+	if err != nil {
+		log.Error(err, "failed to convert workloadType")
+		panic(err)
+	}
+
+	duration := time.Hour
+	if meterDefLabels.MetricPeriod != nil {
+		duration = meterDefLabels.MetricPeriod.Duration
 	}
 
 	query := NewPromQuery(&PromQueryArgs{
-		Metric: metricLabel,
-		Type:   marketplacev1alpha1.WorkloadType(workloadType),
+		Metric: meterDefLabels.Metric,
+		Type:   workloadType,
 		MeterDef: types.NamespacedName{
-			Name:      name,
-			Namespace: namespace,
+			Name:      meterDefLabels.MeterDefName,
+			Namespace: meterDefLabels.MeterDefNamespace,
 		},
-		Query:         metricQuery,
+		Query:         meterDefLabels.MetricQuery,
 		Start:         start,
 		End:           end,
-		Step:          time.Hour,
-		AggregateFunc: metricAggregation,
+		Step:          duration,
+		GroupBy:       []string(meterDefLabels.MetricGroupBy),
+		Without:       []string(meterDefLabels.MetricWithout),
+		AggregateFunc: meterDefLabels.MetricAggregation,
 	})
 
-	return &meterDefPromQuery{uid: meter_definition_uid, query: query, meterGroup: meterGroup, meterKind: meterKind, label: metricLabel}
+	return &meterDefPromQuery{
+		uid:        meterDefLabels.UID,
+		query:      query,
+		meterGroup: meterDefLabels.MeterGroup,
+		meterKind:  meterDefLabels.MeterKind,
+		label:      meterDefLabels.Metric,
+	}
 }
 
 func wgWait(ctx context.Context, processName string, maxRoutines int, done chan bool, waitFunc func()) {

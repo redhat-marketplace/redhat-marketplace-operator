@@ -1396,7 +1396,7 @@ func (r *RazeeDeploymentReconciler) makeParentRemoteResourceS3(instance *marketp
 			},
 			Requests: []marketplacev1alpha1.Request{
 				{
-					Options: marketplacev1alpha1.Options{
+					Options: marketplacev1alpha1.S3Options{
 						URL: *instance.Spec.ChildUrl,
 					},
 				},

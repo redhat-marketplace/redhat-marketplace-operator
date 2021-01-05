@@ -23,25 +23,32 @@ import (
 )
 
 // JobStatus represents the current job for the report and it's status.
+// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+// +kubebuilder:object:generate:=true
 type NamespacedNameReference struct {
 
 	// Namespace of the resource
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	UID types.UID `json:"uid,omitempty"`
 
 	// Namespace of the resource
 	// Required
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Namespace string `json:"namespace"`
 
 	// Name of the resource
 	// Required
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	Name string `json:"name"`
 
 	// GroupVersionKind of the resource
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	*GroupVersionKind `json:"groupVersionKind,omitempty"`
 }
 
+// +kubebuilder:object:generate:=true
 type GroupVersionKind struct {
 	// APIVersion of the CRD
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true

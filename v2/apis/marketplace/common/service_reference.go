@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+// +kubebuilder:object:generate:=true
 type ServiceReference struct {
 	// Namespace of the job
 	// Required

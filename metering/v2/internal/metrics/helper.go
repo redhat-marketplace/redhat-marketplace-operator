@@ -20,6 +20,7 @@ import (
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meter_definition"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
@@ -49,12 +50,12 @@ func (g *FamilyGenerator) generateHeader() string {
 	return header.String()
 }
 
-func GetMeterDefLabelsKeys(mdef *marketplacev1alpha1.MeterDefinition) ([]string, []string) {
+func GetMeterDefLabelsKeys(mdef *marketplacev1beta1.MeterDefinition) ([]string, []string) {
 	return []string{"meter_def_name", "meter_def_namespace", "meter_def_domain", "meter_def_kind"},
 		[]string{mdef.Name, mdef.Namespace, mdef.Spec.Group, mdef.Spec.Kind}
 }
 
-func GetAllMeterLabelsKeys(mdefs []*marketplacev1alpha1.MeterDefinition) ([]string, []string) {
+func GetAllMeterLabelsKeys(mdefs []*marketplacev1beta1.MeterDefinition) ([]string, []string) {
 	allMdefLabelKeys, allMdefLabelValues := []string{}, []string{}
 	for _, meterDef := range mdefs {
 		mdefLabelKeys, mdefLabelValues := GetMeterDefLabelsKeys(meterDef)
@@ -65,7 +66,7 @@ func GetAllMeterLabelsKeys(mdefs []*marketplacev1alpha1.MeterDefinition) ([]stri
 	return allMdefLabelKeys, allMdefLabelValues
 }
 
-func MapMeterDefinitions(metrics []*kbsm.Metric, mdefs []*marketplacev1alpha1.MeterDefinition) []*kbsm.Metric {
+func MapMeterDefinitions(metrics []*kbsm.Metric, mdefs []*marketplacev1beta1.MeterDefinition) []*kbsm.Metric {
 	if len(mdefs) == 0 {
 		return metrics
 	}

@@ -15,7 +15,7 @@
 package metrics
 
 import (
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	kbsm "k8s.io/kube-state-metrics/pkg/metric"
 )
 
@@ -30,10 +30,10 @@ var meterDefinitionMetricsFamilies = []FamilyGenerator{
 			Type: kbsm.Gauge,
 			Help: "Metering info for meterDefinition",
 		},
-		GenerateMeterFunc: wrapMeterDefinitionFunc(func(meterDefinition *marketplacev1alpha1.MeterDefinition, meterDefinitions []*marketplacev1alpha1.MeterDefinition) *kbsm.Family {
+		GenerateMeterFunc: wrapMeterDefinitionFunc(func(meterDefinition *marketplacev1beta1.MeterDefinition, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
 			metrics := []*kbsm.Metric{}
+			allLabels, _ := meterDefinition.ToPrometheusLabels()
 
-			allLabels := meterDefinition.ToPrometheusLabels()
 			for _, labels := range allLabels {
 				keys := []string{}
 				values := []string{}
@@ -58,11 +58,11 @@ var meterDefinitionMetricsFamilies = []FamilyGenerator{
 }
 
 // wrapMeterDefinitionFunc is a helper function for generating meterDefinition-based metrics
-func wrapMeterDefinitionFunc(f func(*marketplacev1alpha1.MeterDefinition, []*marketplacev1alpha1.MeterDefinition) *kbsm.Family) func(obj interface{}, mdefs []*marketplacev1alpha1.MeterDefinition) *kbsm.Family {
-	return func(obj interface{}, meterDefinitions []*marketplacev1alpha1.MeterDefinition) *kbsm.Family {
-		meterDefinition := obj.(*marketplacev1alpha1.MeterDefinition)
+func wrapMeterDefinitionFunc(f func(*marketplacev1beta1.MeterDefinition, []*marketplacev1beta1.MeterDefinition) *kbsm.Family) func(obj interface{}, mdefs []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
+	return func(obj interface{}, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
+		meterDefinition := obj.(*marketplacev1beta1.MeterDefinition)
 
-		metricFamily := f(meterDefinition, []*marketplacev1alpha1.MeterDefinition{})
+		metricFamily := f(meterDefinition, []*marketplacev1beta1.MeterDefinition{})
 
 		for _, m := range metricFamily.Metrics {
 			m.LabelKeys = append(descMeterDefinitionLabelsDefaultLabels, m.LabelKeys...)

@@ -25,13 +25,13 @@ import (
 	"emperror.dev/errors"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 type PromQueryArgs struct {
-	Type          v1alpha1.WorkloadType
+	Type          v1beta1.WorkloadType
 	MeterDef      types.NamespacedName
 	Metric        string
 	Query         string
@@ -64,14 +64,11 @@ func (q *PromQuery) typeNotSupportedError() error {
 
 func (q *PromQuery) makeLeftSide() string {
 	switch q.Type {
-	case v1alpha1.WorkloadTypePVC:
+	case v1beta1.WorkloadTypePVC:
 		return fmt.Sprintf(`avg(meterdef_persistentvolumeclaim_info{meter_def_name="%v",meter_def_namespace="%v",phase="Bound"}) without (instance, container, endpoint, job, service)`, q.MeterDef.Name, q.MeterDef.Namespace)
-	case v1alpha1.WorkloadTypePod:
+	case v1beta1.WorkloadTypePod:
 		return fmt.Sprintf(`avg(meterdef_pod_info{meter_def_name="%v",meter_def_namespace="%v"}) without (pod_uid, instance, container, endpoint, job, service)`, q.MeterDef.Name, q.MeterDef.Namespace)
-	case v1alpha1.WorkloadTypeService:
-		// Service and service monitor are handled the same
-		fallthrough
-	case v1alpha1.WorkloadTypeServiceMonitor:
+	case v1beta1.WorkloadTypeService:
 		return fmt.Sprintf(`avg(meterdef_service_info{meter_def_name="%v",meter_def_namespace="%v"}) without (pod_uid, instance, container, endpoint, job, pod)`, q.MeterDef.Name, q.MeterDef.Namespace)
 	default:
 		panic(q.typeNotSupportedError())
@@ -86,13 +83,11 @@ func (q *PromQuery) defaulter() {
 func (q *PromQuery) defaultWithout() {
 	// we want to make sure
 	switch q.Type {
-	case v1alpha1.WorkloadTypePVC:
+	case v1beta1.WorkloadTypePVC:
 		q.Without = append(q.Without, "instance")
-	case v1alpha1.WorkloadTypePod:
+	case v1beta1.WorkloadTypePod:
 		q.Without = append(q.Without, "pod_ip", "instance", "image_id", "host_ip", "node")
-	case v1alpha1.WorkloadTypeService:
-		fallthrough
-	case v1alpha1.WorkloadTypeServiceMonitor:
+	case v1beta1.WorkloadTypeService:
 		q.Without = append(q.Without, "instance", "cluster_ip")
 	default:
 		panic(q.typeNotSupportedError())
@@ -105,13 +100,11 @@ func (q *PromQuery) defaultGroupBy() {
 	}
 
 	switch q.Type {
-	case v1alpha1.WorkloadTypePVC:
+	case v1beta1.WorkloadTypePVC:
 		q.GroupBy = []string{"persistentvolumeclaim", "namespace"}
-	case v1alpha1.WorkloadTypePod:
+	case v1beta1.WorkloadTypePod:
 		q.GroupBy = []string{"pod", "namespace"}
-	case v1alpha1.WorkloadTypeService:
-		fallthrough
-	case v1alpha1.WorkloadTypeServiceMonitor:
+	case v1beta1.WorkloadTypeService:
 		q.GroupBy = []string{"service", "namespace"}
 	default:
 		panic(q.typeNotSupportedError())

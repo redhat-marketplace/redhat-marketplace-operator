@@ -107,7 +107,7 @@ type Request struct {
 	// Options is the configurable options for the request
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +kubebuilder:validation:Required
-	Options Options `json:"options,omitempty"`
+	Options S3Options `json:"options,omitempty"`
 	// Optional if downloading or applying a child resource fails, RemoteResource will stop execution and report error to .status. You can allow execution to continue by marking a reference as optional.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
@@ -115,7 +115,7 @@ type Request struct {
 }
 
 //Options holds the options object which will be passed as-is to the http request. Allows you to specify things like headers for authentication.
-type Options struct {
+type S3Options struct {
 	// URL of the request
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional

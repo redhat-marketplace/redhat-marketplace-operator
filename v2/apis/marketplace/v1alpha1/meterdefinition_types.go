@@ -16,35 +16,10 @@ package v1alpha1
 
 import (
 	"encoding/json"
-	"strings"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
-)
-
-const (
-	MeterDefConditionTypeHasResult           status.ConditionType   = "FoundMatches"
-	MeterDefConditionReasonNoResultsInStatus status.ConditionReason = "No results in status"
-	MeterDefConditionReasonResultsInStatus   status.ConditionReason = "Results in status"
-)
-
-var (
-	MeterDefConditionNoResults = status.Condition{
-		Type:    MeterDefConditionTypeHasResult,
-		Status:  corev1.ConditionFalse,
-		Reason:  MeterDefConditionReasonNoResultsInStatus,
-		Message: "Meter definition has no results yet.",
-	}
-	MeterDefConditionHasResults = status.Condition{
-		Type:    MeterDefConditionTypeHasResult,
-		Status:  corev1.ConditionTrue,
-		Reason:  MeterDefConditionReasonResultsInStatus,
-		Message: "Meter definition has results.",
-	}
 )
 
 // MeterDefinitionSpec defines the desired metering spec
@@ -161,44 +136,6 @@ type Workload struct {
 	MetricLabels []MeterLabelQuery `json:"metricLabels,omitempty"`
 }
 
-type WorkloadResource struct {
-	ReferencedWorkloadName string `json:"referencedWorkloadName"`
-
-	common.NamespacedNameReference `json:",inline"`
-}
-
-type ByAlphabetical []WorkloadResource
-
-func (a ByAlphabetical) Len() int      { return len(a) }
-func (a ByAlphabetical) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a ByAlphabetical) Less(i, j int) bool {
-	return strings.Compare(a[i].ReferencedWorkloadName, a[j].ReferencedWorkloadName) > 0 &&
-		strings.Compare(a[i].NamespacedNameReference.Namespace, a[j].NamespacedNameReference.Namespace) > 0 &&
-		strings.Compare(a[i].NamespacedNameReference.Name, a[j].NamespacedNameReference.Name) > 0
-}
-
-func NewWorkloadResource(workload Workload, obj interface{}, scheme *runtime.Scheme) (*WorkloadResource, error) {
-	accessor, err := meta.Accessor(obj)
-
-	if err != nil {
-		return nil, err
-	}
-	gvk, err := common.NewGroupVersionKind(obj, scheme)
-	if err != nil {
-		return nil, err
-	}
-
-	return &WorkloadResource{
-		ReferencedWorkloadName: workload.Name,
-		NamespacedNameReference: common.NamespacedNameReference{
-			Name:             accessor.GetName(),
-			Namespace:        accessor.GetNamespace(),
-			UID:              accessor.GetUID(),
-			GroupVersionKind: &gvk,
-		},
-	}, nil
-}
-
 // WorkloadStatus provides quick status to check if
 // workloads are working correctly
 type WorkloadStatus struct {
@@ -242,7 +179,7 @@ type MeterDefinitionStatus struct {
 	// WorkloadResources is the list of resoruces discovered by
 	// this meter definition
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	WorkloadResources []WorkloadResource `json:"workloadResource,omitempty"`
+	WorkloadResources []common.WorkloadResource `json:"workloadResource,omitempty"`
 }
 
 // MeterDefinition defines the meter workloads used to enable pay for

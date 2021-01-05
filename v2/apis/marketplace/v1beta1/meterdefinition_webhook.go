@@ -17,6 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	"time"
+
+	"emperror.dev/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -34,7 +38,7 @@ func (r *MeterDefinition) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-// +kubebuilder:webhook:path=/mutate-marketplace-redhat-com-v1beta1-meterdefinition,mutating=true,failurePolicy=fail,groups=marketplace.redhat.com,resources=meterdefinitions,verbs=create;update,versions=v1beta1,name=mmeterdefinition.kb.io
+// +kubebuilder:webhook:webhookVersions={v1beta1},path=/mutate-marketplace-redhat-com-v1beta1-meterdefinition,mutating=true,failurePolicy=fail,sideEffects=None,groups=marketplace.redhat.com,resources=meterdefinitions,verbs=create;update,versions=v1beta1,name=mmeterdefinition.kb.io,admissionReviewVersions={v1,v1beta1}
 
 var _ webhook.Defaulter = &MeterDefinition{}
 
@@ -42,11 +46,24 @@ var _ webhook.Defaulter = &MeterDefinition{}
 func (r *MeterDefinition) Default() {
 	meterdefinitionlog.Info("default", "name", r.Name)
 
-	// TODO(user): fill in your defaulting logic.
+	for _, meter := range r.Spec.Meters {
+		if meter.Aggregation == "" {
+			meter.Aggregation = "sum"
+		}
+		if meter.Period == nil {
+			meter.Period = &metav1.Duration{Duration: time.Hour}
+		}
+		if meter.ResourceFilters.Namespace == nil {
+			meter.ResourceFilters.Namespace = &NamespaceFilter{
+				UseOperatorGroup: true,
+			}
+		}
+
+	}
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:webhook:verbs=create;update,path=/validate-marketplace-redhat-com-v1beta1-meterdefinition,mutating=false,failurePolicy=fail,groups=marketplace.redhat.com,resources=meterdefinitions,versions=v1beta1,name=vmeterdefinition.kb.io
+// +kubebuilder:webhook:webhookVersions={v1beta1},path=/validate-marketplace-redhat-com-v1beta1-meterdefinition,mutating=false,failurePolicy=fail,sideEffects=None,groups=marketplace.redhat.com,resources=meterdefinitions,verbs=create;update,versions=v1beta1,name=vmeterdefinition.kb.io,admissionReviewVersions={v1,v1beta1}
 
 var _ webhook.Validator = &MeterDefinition{}
 
@@ -54,7 +71,15 @@ var _ webhook.Validator = &MeterDefinition{}
 func (r *MeterDefinition) ValidateCreate() error {
 	meterdefinitionlog.Info("validate create", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object creation.
+	for _, meter := range r.Spec.Meters {
+		if meter.ResourceFilters.OwnerCRD == nil &&
+			meter.ResourceFilters.Annotation == nil &&
+			meter.ResourceFilters.Label == nil {
+
+			return errors.New("one of resource filter owner crd, annotation, or label must be provided")
+		}
+	}
+
 	return nil
 }
 
@@ -62,7 +87,15 @@ func (r *MeterDefinition) ValidateCreate() error {
 func (r *MeterDefinition) ValidateUpdate(old runtime.Object) error {
 	meterdefinitionlog.Info("validate update", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object update.
+	for _, meter := range r.Spec.Meters {
+		if meter.ResourceFilters.OwnerCRD == nil &&
+			meter.ResourceFilters.Annotation == nil &&
+			meter.ResourceFilters.Label == nil {
+
+			return errors.New("one of resource filter owner crd, annotation, or label must be provided")
+		}
+	}
+
 	return nil
 }
 
@@ -70,6 +103,5 @@ func (r *MeterDefinition) ValidateUpdate(old runtime.Object) error {
 func (r *MeterDefinition) ValidateDelete() error {
 	meterdefinitionlog.Info("validate delete", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object deletion.
 	return nil
 }
