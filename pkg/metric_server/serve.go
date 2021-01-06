@@ -63,7 +63,7 @@ type Service struct {
 	meterDefStore    *meter_definition.MeterDefinitionStoreBuilder
 	statusProcessor  *meter_definition.StatusProcessor
 	serviceProcessor *meter_definition.ServiceProcessor
-	isCacheStarted   managers.CacheIsStarted
+	isCacheStarted   *managers.CacheIsStarted
 
 	mutex deadlock.Mutex `wire:"-"`
 }

@@ -46,7 +46,10 @@ func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task
 	logrLogger := _wireLoggerValue
 	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logrLogger)
 	cacheIsIndexed := managers.CacheIsIndexed{}
-	cacheIsStarted := managers.StartCache(ctx, cache, logrLogger, cacheIsIndexed)
+	cacheIsStarted, err := managers.StartCache(ctx, cache, logrLogger, cacheIsIndexed)
+	if err != nil {
+		return nil, err
+	}
 	uploaderTarget := config2.UploaderTarget
 	uploader, err := ProvideUploader(ctx, clientCommandRunner, logrLogger, cacheIsStarted, uploaderTarget)
 	if err != nil {

@@ -82,7 +82,10 @@ func NewServer(opts *Options) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	cacheIsStarted := managers.StartCache(context, cache, logger, cacheIsIndexed)
+	cacheIsStarted, err := managers.StartCache(context, cache, logger, cacheIsIndexed)
+	if err != nil {
+		return nil, err
+	}
 	service := &Service{
 		k8sclient:        clientClient,
 		k8sRestClient:    clientset,

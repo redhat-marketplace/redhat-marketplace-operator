@@ -304,12 +304,42 @@ func StartCache(
 	cache cache.Cache,
 	log logr.Logger,
 	isIndexed CacheIsIndexed,
-) CacheIsStarted {
-	go func() {
+) (*CacheIsStarted,error) {
+	errChan := make(chan error)
+	stopCh := make(chan struct{})
+	doneChan := make(chan bool)
+	defer close(doneChan)
+	defer close(stopCh)
+	defer close(errChan)
+
+	go func(){
+		log.Info("starting cache")
 		err := cache.Start(ctx.Done())
-		log.Error(err, "error starting cache")
+		if err != nil {
+			errChan <- err
+			log.Error(err, "error starting cache")
+			return
+		}
 	}()
-	return CacheIsStarted{}
+
+	log.Info("cache started")
+
+	go func() {
+		log.Info("checking if cache is started")
+		for !cache.WaitForCacheSync(stopCh) {}
+		doneChan <- true 
+	}()
+
+	select {
+		case err := <- errChan:
+		return nil, err
+		case <- doneChan:
+		log.Info("Cache has synced")
+		return &CacheIsStarted{},nil
+		case <- time.After(time.Duration(1 * time.Minute)):
+		return nil, errors.New("Timed out while starting cache")
+	}
+
 }
 
 func ProvideClient(

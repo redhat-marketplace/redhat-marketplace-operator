@@ -275,7 +275,7 @@ func ProvideUploader(
 	ctx context.Context,
 	cc ClientCommandRunner,
 	log logr.Logger,
-	isCacheStarted managers.CacheIsStarted,
+	isCacheStarted *managers.CacheIsStarted,
 	uploaderTarget UploaderTarget,
 ) (Uploader, error) {
 	switch uploaderTarget.(type) {
