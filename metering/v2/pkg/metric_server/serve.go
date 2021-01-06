@@ -29,6 +29,7 @@ import (
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
@@ -44,7 +45,7 @@ import (
 
 	"github.com/openshift/origin/pkg/util/proc"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meter_definition"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kube-state-metrics/pkg/options"
@@ -160,7 +161,7 @@ func addIndex(
 			&corev1.Pod{},
 			&corev1.Service{},
 			&corev1.PersistentVolumeClaim{},
-			&marketplacev1alpha1.MeterDefinition{},
+			&marketplacev1beta1.MeterDefinition{},
 			&monitoringv1.ServiceMonitor{},
 		})
 
@@ -299,5 +300,6 @@ func provideScheme() *runtime.Scheme {
 	utilruntime.Must(opsrcv1.AddToScheme(scheme))
 	utilruntime.Must(olmv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
+	utilruntime.Must(marketplaceredhatcomv1beta1.AddToScheme(scheme))
 	return scheme
 }

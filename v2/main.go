@@ -25,6 +25,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
@@ -33,7 +34,7 @@ import (
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
-	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	controllers "github.com/redhat-marketplace/redhat-marketplace-operator/v2/controllers/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
@@ -49,20 +50,22 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(marketplaceredhatcomv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(marketplacev1alpha1.AddToScheme(scheme))
 	utilruntime.Must(openshiftconfigv1.AddToScheme(scheme))
 	utilruntime.Must(olmv1.AddToScheme(scheme))
 	utilruntime.Must(opsrcv1.AddToScheme(scheme))
 	utilruntime.Must(olmv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
-	// utilruntime.Must(marketplaceredhatcomv1beta1.AddToScheme(scheme))
+	utilruntime.Must(marketplacev1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
+	var probeAddr string
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -71,12 +74,14 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: metricsAddr,
-		Port:               9443,
-		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   "8fbe3a23.marketplace.redhat.com",
+		Scheme:                 scheme,
+		MetricsBindAddress:     metricsAddr,
+		Port:                   9443,
+		HealthProbeBindAddress: probeAddr,
+		LeaderElection:         enableLeaderElection,
+		LeaderElectionID:       "8fbe3a23.marketplace.redhat.com",
 	})
+
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -198,6 +203,15 @@ func main() {
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
+
+	if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to set up health check")
+		os.Exit(1)
+	}
+	if err := mgr.AddReadyzCheck("check", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to set up ready check")
+		os.Exit(1)
+	}
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

@@ -36,6 +36,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -313,6 +314,12 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 	// Check if operator source exists, or create a new one
 	foundOpSrc := &unstructured.Unstructured{}
+	foundOpSrc.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "operators.coreos.com",
+		Kind:    "OperatorSource",
+		Version: "v1",
+	})
+
 	err = r.Client.Get(context.TODO(), types.NamespacedName{
 		Name:      utils.OPSRC_NAME,
 		Namespace: utils.OPERATOR_MKTPLACE_NS},
@@ -346,7 +353,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
 		// Could not get Operator Source
-		reqLogger.Error(err, "Failed to get OperatorSource")
+		reqLogger.Info("Failed to find OperatorSource")
 	}
 
 	reqLogger.Info("Found opsource")

@@ -37,7 +37,7 @@ IMG ?= $(OPERATOR_IMAGE)
 IMAGE ?= $(OPERATOR_IMAGE)
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 # CRD_OPTIONS ?= "crd:trivialVersions=true"
-CRD_OPTIONS ?= "crd:crdVersions={v1beta1},trivialVersions=true,preserveUnknownFields=false"
+CRD_OPTIONS ?= "crd:crdVersions={v1beta1},trivialVersions=false,preserveUnknownFields=false"
 
 GOPATH=$(shell go env GOPATH)
 
@@ -93,7 +93,6 @@ deploy: manifests kustomize helm
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-	$(CONTROLLER_GEN) crd:trivialVersions=true rbac:roleName=manager-role webhook paths="./apis/marketplace/v1alpha1/remoteresources3_types.go" output:crd:artifacts:config=config/crd/bases
 
 # Run go fmt against code
 fmt:

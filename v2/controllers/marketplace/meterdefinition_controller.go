@@ -111,20 +111,20 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 
 	reqLogger.Info("Found instance", "instance", instance.Name)
 
-	var queue bool
-
-	switch {
-	case instance.Status.Conditions.IsUnknownFor(common.MeterDefConditionTypeHasResult):
-		fallthrough
-	case len(instance.Status.WorkloadResources) == 0:
-		queue = instance.Status.Conditions.SetCondition(common.MeterDefConditionNoResults)
-	case len(instance.Status.WorkloadResources) > 0:
-		queue = instance.Status.Conditions.SetCondition(common.MeterDefConditionHasResults)
-	}
-
 	result, _ = cc.Do(
 		context.TODO(),
 		Call(func() (ClientAction, error) {
+			var queue bool
+
+			switch {
+			case instance.Status.Conditions.IsUnknownFor(common.MeterDefConditionTypeHasResult):
+				fallthrough
+			case len(instance.Status.WorkloadResources) == 0:
+				queue = instance.Status.Conditions.SetCondition(common.MeterDefConditionNoResults)
+			case len(instance.Status.WorkloadResources) > 0:
+				queue = instance.Status.Conditions.SetCondition(common.MeterDefConditionHasResults)
+			}
+
 			if !queue {
 				return nil, nil
 			}

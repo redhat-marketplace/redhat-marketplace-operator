@@ -120,17 +120,13 @@ func (a *PatchInjector) SetCustomFields(i interface{}) error {
 	return nil
 }
 
-type OperatorConfigInjector struct{}
+type OperatorConfigInjector struct {
+	Config config.OperatorConfig
+}
 
 func (a *OperatorConfigInjector) SetCustomFields(i interface{}) error {
 	if ii, ok := i.(OperatorConfig); ok {
-		cfg, err := config.GetConfig()
-
-		if err != nil {
-			return err
-		}
-
-		return ii.InjectOperatorConfig(cfg)
+		return ii.InjectOperatorConfig(a.Config)
 	}
 	return nil
 }

@@ -9,7 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
-// ConvertTo converts this CronJob to the Hub version (v1).
+// ConvertTo converts this MeterDefinition to the Hub version (v1beta1).
 func (src *MeterDefinition) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v1beta1.MeterDefinition)
 
@@ -76,6 +76,7 @@ func (src *MeterDefinition) ConvertTo(dstRaw conversion.Hub) error {
 		}
 	}
 
+	dst.ObjectMeta = src.ObjectMeta
 	dst.Spec.Group = string(src.Spec.Group)
 	dst.Spec.Kind = string(src.Spec.Kind)
 	dst.Spec.InstalledBy = src.Spec.InstalledBy
@@ -87,14 +88,9 @@ func (src *MeterDefinition) ConvertTo(dstRaw conversion.Hub) error {
 
 var _ conversion.Convertible = &MeterDefinition{}
 
-// ConvertFrom converts from the Hub version (v1) to this version.
+// ConvertFrom converts from the Hub version (v1beta1) to this version.
 func (dst *MeterDefinition) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v1beta1.MeterDefinition)
-
-	dst.Spec.Group = src.Spec.Group
-	dst.Spec.Kind = src.Spec.Kind
-	dst.Spec.InstalledBy = src.Spec.InstalledBy
-
 	workloads := []Workload{}
 
 	for _, meter := range src.Spec.Meters {
@@ -129,6 +125,11 @@ func (dst *MeterDefinition) ConvertFrom(srcRaw conversion.Hub) error {
 		workloads = append(workloads, workload)
 	}
 
+	dst.ObjectMeta = src.ObjectMeta
+	dst.Spec.Group = src.Spec.Group
+	dst.Spec.Kind = src.Spec.Kind
+	dst.Spec.Workloads = workloads
+	dst.Spec.InstalledBy = src.Spec.InstalledBy
 	dst.Status.Conditions = src.Status.Conditions
 	dst.Status.WorkloadResources = src.Status.WorkloadResources
 

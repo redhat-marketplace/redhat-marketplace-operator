@@ -160,7 +160,7 @@ func BuildNewOpSrc() *unstructured.Unstructured {
 				"namespace": OPSRC_NAME,
 				"name":      OPERATOR_MKTPLACE_NS,
 			},
-			"spec": map[string]string{
+			"spec": map[string]interface{}{
 				"DisplayName":       "Red Hat Marketplace",
 				"Endpoint":          "https://quay.io/cnr",
 				"Publisher":         "Red Hat Marketplace",

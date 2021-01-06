@@ -20,7 +20,7 @@ spec:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: $(SERVICE_NAME)-cert
+          secretName: $(SERVICE_NAME)
 ---
 apiVersion: v1
 kind: Service
@@ -28,4 +28,4 @@ metadata:
   name: webhook-service
   namespace: system
   annotations:
-    service.beta.openshift.io/serving-cert-secret-name: $(SERVICE_NAME)-cert
+    service.beta.openshift.io/serving-cert-secret-name: $(SERVICE_NAME)

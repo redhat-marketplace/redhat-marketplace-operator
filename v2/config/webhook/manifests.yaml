@@ -13,7 +13,7 @@ webhooks:
       namespace: system
       path: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
   failurePolicy: Fail
-  name: mmeterdefinition.kb.io
+  name: mmeterdefinition.marketplace.redhat.com
   rules:
   - apiGroups:
     - marketplace.redhat.com
@@ -40,7 +40,7 @@ webhooks:
       namespace: system
       path: /validate-marketplace-redhat-com-v1beta1-meterdefinition
   failurePolicy: Fail
-  name: vmeterdefinition.kb.io
+  name: vmeterdefinition.marketplace.redhat.com
   rules:
   - apiGroups:
     - marketplace.redhat.com

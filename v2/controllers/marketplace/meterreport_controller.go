@@ -56,6 +56,7 @@ type MeterReportReconciler struct {
 	CC      ClientCommandRunner
 	patcher patch.Patcher
 	cfg     config.OperatorConfig
+	factory manifests.Factory
 }
 
 func (r *MeterReportReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
@@ -71,6 +72,11 @@ func (r *MeterReportReconciler) InjectCommandRunner(ccp ClientCommandRunner) err
 
 func (r *MeterReportReconciler) InjectPatch(p patch.Patcher) error {
 	r.patcher = p
+	return nil
+}
+
+func (r *MeterReportReconciler) InjectFactory(f manifests.Factory) error {
+	r.factory = f
 	return nil
 }
 
@@ -123,9 +129,6 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 
 	job := &batchv1.Job{}
 
-	c := manifests.NewOperatorConfig(r.cfg)
-	factory := manifests.NewFactory(instance.Namespace, c)
-
 	reqLogger.Info("config",
 		"config", r.cfg.RelatedImages,
 		"envvar", utils.Getenv("RELATED_IMAGE_REPORTER", ""))
@@ -154,32 +157,35 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 		return result.Return()
 	}
 
-	jr := instance.Status.AssociatedJob
+	// Create associated job
+	if instance.Status.AssociatedJob == nil {
+		result, _ := cc.Do(context.TODO(),
+			HandleResult(
+				manifests.CreateIfNotExistsFactoryItem(
+					job,
+					func() (runtime.Object, error) {
+						return r.factory.ReporterJob(instance)
+					}, CreateWithAddOwner(instance),
+				),
+				OnRequeue(UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobSubmitted)),
+			),
+		)
 
-	// Create associated job if it's nil
+		if !result.Is(Continue) {
+			if result.Is(Error) {
+				reqLogger.Error(result.GetError(), "Failed to on resolving job.")
+			}
+			return result.Return()
+		}
+	}
+
+	// Update associated job
 	result, _ := cc.Do(
 		context.TODO(),
 		HandleResult(
 			GetAction(types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job),
-			OnNotFound(
-				Call(func() (ClientAction, error) {
-					if jr != nil {
-						return nil, nil
-					}
-
-					return HandleResult(
-						manifests.CreateIfNotExistsFactoryItem(
-							job,
-							func() (runtime.Object, error) {
-								return factory.ReporterJob(instance)
-							}, CreateWithAddOwner(instance),
-						),
-						OnRequeue(UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobSubmitted)),
-					), nil
-				}),
-			),
 			OnContinue(Call(func() (ClientAction, error) {
-				jr = &common.JobReference{}
+				jr := &common.JobReference{}
 				jr.SetFromJob(job)
 				instance.Status.AssociatedJob = jr
 
@@ -201,6 +207,7 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 		return result.Return()
 	}
 
+	jr := instance.Status.AssociatedJob
 	reqLogger.Info("reviewing job", "jr", jr,
 		"active", jr.Active,
 		"failed", jr.Failed,

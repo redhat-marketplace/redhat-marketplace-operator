@@ -40,12 +40,14 @@ func initializeInjectables(fields *managers.ControllerFields, namespace managers
 		Fields:        fields,
 		CommandRunner: clientCommandRunner,
 	}
-	operatorConfigInjector := &OperatorConfigInjector{}
-	patchInjector := &PatchInjector{}
 	operatorConfig, err := config.ProvideConfig()
 	if err != nil {
 		return nil, err
 	}
+	operatorConfigInjector := &OperatorConfigInjector{
+		Config: operatorConfig,
+	}
+	patchInjector := &PatchInjector{}
 	factoryInjector := &FactoryInjector{
 		Fields:    fields,
 		Config:    operatorConfig,
