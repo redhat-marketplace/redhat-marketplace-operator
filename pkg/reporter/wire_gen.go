@@ -35,30 +35,20 @@ func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task
 		return nil, err
 	}
 	clientOptions := getClientOptions()
-	cache, err := managers.ProvideNewCache(restConfig, restMapper, scheme, clientOptions)
-	if err != nil {
-		return nil, err
-	}
-	client, err := managers.ProvideClient(restConfig, restMapper, scheme, cache, clientOptions)
+	client, err := managers.ProvideSimpleClient(restConfig, restMapper, scheme, clientOptions)
 	if err != nil {
 		return nil, err
 	}
 	logrLogger := _wireLoggerValue
 	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logrLogger)
-	cacheIsIndexed := managers.CacheIsIndexed{}
-	cacheIsStarted, err := managers.StartCache(ctx, cache, logrLogger, cacheIsIndexed)
-	if err != nil {
-		return nil, err
-	}
 	uploaderTarget := config2.UploaderTarget
-	uploader, err := ProvideUploader(ctx, clientCommandRunner, logrLogger, cacheIsStarted, uploaderTarget)
+	uploader, err := ProvideUploader(ctx, clientCommandRunner, logrLogger, uploaderTarget)
 	if err != nil {
 		return nil, err
 	}
 	task := &Task{
 		ReportName: reportName,
 		CC:         clientCommandRunner,
-		Cache:      cache,
 		K8SClient:  client,
 		Ctx:        ctx,
 		Config:     config2,

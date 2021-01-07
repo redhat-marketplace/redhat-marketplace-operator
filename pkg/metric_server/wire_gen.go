@@ -48,7 +48,7 @@ func NewServer(opts *Options) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	clientClient, err := managers.ProvideClient(restConfig, restMapper, scheme, cache, clientOptions)
+	clientClient, err := managers.ProvideCachedClient(restConfig, restMapper, scheme, cache, clientOptions)
 	if err != nil {
 		return nil, err
 	}

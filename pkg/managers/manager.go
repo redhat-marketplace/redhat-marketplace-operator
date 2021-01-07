@@ -84,14 +84,24 @@ var (
 		dynamic.NewForConfig,
 		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
 	)
-	// ProvideCacheClientSet is to be used by
+	// ProvideCachedClientSet is to be used by
 	// wire files to get a cached client
 	ProvideCachedClientSet = wire.NewSet(
 		config.GetConfig,
 		kubernetes.NewForConfig,
-		ProvideClient,
+		ProvideCachedClient,
 		ProvideNewCache,
 		StartCache,
+		ProvideScheme,
+		NewDynamicRESTMapper,
+		dynamic.NewForConfig,
+		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
+	)
+
+	ProvideSimpleClientSet = wire.NewSet(
+		config.GetConfig,
+		kubernetes.NewForConfig,
+		ProvideSimpleClient,
 		ProvideScheme,
 		NewDynamicRESTMapper,
 		dynamic.NewForConfig,
@@ -342,14 +352,32 @@ func StartCache(
 
 }
 
-func ProvideClient(
+func ProvideCachedClient(
 	c *rest.Config,
 	mapper meta.RESTMapper,
 	scheme *k8sruntime.Scheme,
 	inCache cache.Cache,
 	options ClientOptions,
 ) (client.Client, error) {
-	writeObj, err := defaultNewClient(inCache, c, client.Options{Scheme: scheme, Mapper: mapper})
+	writeObj, err := newCachedClient(inCache, c, client.Options{Scheme: scheme, Mapper: mapper})
+	if err != nil {
+		return nil, err
+	}
+
+	if options.DryRunClient {
+		writeObj = client.NewDryRunClient(writeObj)
+	}
+
+	return writeObj, nil
+}
+
+func ProvideSimpleClient(
+	c *rest.Config,
+	mapper meta.RESTMapper,
+	scheme *k8sruntime.Scheme,
+	options ClientOptions,
+) (client.Client, error) {
+	writeObj, err := newSimpleClient(c, client.Options{Scheme: scheme, Mapper: mapper})
 	if err != nil {
 		return nil, err
 	}
@@ -411,8 +439,8 @@ func NewDynamicRESTMapper(cfg *rest.Config) (meta.RESTMapper, error) {
 	return apiutil.NewDynamicRESTMapper(cfg)
 }
 
-// defaultNewClient creates the default caching client
-func defaultNewClient(ca cache.Cache, config *rest.Config, options client.Options) (client.Client, error) {
+// newCachedClient creates the default caching client
+func newCachedClient(ca cache.Cache, config *rest.Config, options client.Options) (client.Client, error) {
 	// Create the Client for Write operations.
 	c, err := client.New(config, options)
 	if err != nil {
@@ -427,4 +455,14 @@ func defaultNewClient(ca cache.Cache, config *rest.Config, options client.Option
 		Writer:       c,
 		StatusClient: c,
 	}, nil
+}
+
+// newSimpleClient creates a new client
+func newSimpleClient(config *rest.Config, options client.Options) (client.Client, error) {
+	c, err := client.New(config, options)
+	if err != nil {
+		return nil, err
+	}
+
+	return c,nil
 }
