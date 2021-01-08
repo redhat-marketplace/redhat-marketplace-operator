@@ -74,7 +74,7 @@ spec:
                     defaults to true when not set
                   type: boolean
                 registration:
-                  description: Deployment represents the enablement of the registration
+                  description: Registration represents the enablement of the registration
                     watchkeeper deployment, defaults to true when not set
                   type: boolean
               type: object

@@ -1,5 +1,6 @@
 # Current Operator version
 VERSION ?= 1.0.5
+UNAME_S := $(shell uname -s)
 
 # Options for 'bundle-build'
 ifneq ($(origin CHANNELS), undefined)
@@ -223,12 +224,17 @@ HELM=$(shell which helm)
 
 skaffold:
 ifeq (, $(shell which skaffold))
-	@{ \
-	set -e ;\
-  brew install skaffold ;\
-	}
+ifeq ($(UNAME_S),Linux)
+	curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-darwin-amd64 && \
+	sudo install skaffold /usr/local/bin/
+endif
+ifeq ($(UNAME_S),Darwin)
+	brew install skaffold
 endif
 SKAFFOLD=$(shell which skaffold)
+else
+SKAFFOLD=$(shell which skaffold)
+endif
 
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
