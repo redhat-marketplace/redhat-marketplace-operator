@@ -10,6 +10,7 @@ export
 
 .DEFAULT_GOAL := all
 
+.PHONY: all
 all: fmt vet generate build
 
 skaffold-dev:
@@ -18,16 +19,30 @@ skaffold-dev:
 skaffold-run:
 	make operator/skaffold-run
 
-build: vet fmt
+skaffold-build: vet fmt
 	make operator/skaffold-build
 
-vet: $(addsuffix /vet,$(PROJECTS))
+.PHONY: build
+build:
+	$(MAKE) docker-build
 
-fmt: $(addsuffix /fmt,$(PROJECTS))
+.PHONY: vet
+vet:
+	$(MAKE) $(addsuffix /vet,$(PROJECTS))
 
-test: $(addsuffix /test,$(PROJECTS))
+.PHONY: fmt
+fmt:
+	$(MAKE) $(addsuffix /fmt,$(PROJECTS))
 
-generate: $(addsuffix /generate,$(PROJECTS))
+.PHONY: test
+test:
+	$(MAKE) $(addsuffix /test,$(PROJECTS))
+
+generate:
+	$(MAKE) $(addsuffix /generate,$(PROJECTS))
+
+docker-build:
+	$(MAKE) $(addsuffix /docker-build,$(PROJECTS))
 
 operator/%:
 	cd ./v2 && $(MAKE) $(@F)
@@ -47,7 +62,6 @@ check-licenses: install-tools ## Check if all files have licenses
 
 add-licenses:
 	 find . -type f -name "*.go" | xargs $(LICENSE)
-
 
 install-tools:
 ifeq (, $(shell which addlicense))

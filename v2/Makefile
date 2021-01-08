@@ -54,6 +54,7 @@ endif
 all: manager
 
 # Run tests
+.PHONY: test
 test: fmt vet manifests ginkgo
 	$(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
 
@@ -125,16 +126,22 @@ generate-api: code-generator
 
 QUAY_EXPIRATION?=never
 IMAGE_PUSH ?= true
+BUILDX ?= true
 
+ifeq ($(BUILDX),true)
+DOCKERCMD=docker buildx
 ifeq ($(IMAGE_PUSH),true)
-ARGS=--push
+ARGS="--push"
 else
-ARGS=--load
+ARGS="--load"
+endif
+else
+DOCKERCMD=docker
 endif
 
 # Build the docker image
 docker-build:
-	docker buildx build \
+	$(DOCKERCMD) build \
 	-f ./Dockerfile \
 	--tag $(IMAGE) \
 	--build-arg path=./v2/ \

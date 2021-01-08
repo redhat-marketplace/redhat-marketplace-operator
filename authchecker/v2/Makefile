@@ -14,16 +14,22 @@ export IMAGE
 all: generate vet fmt
 
 IMAGE_PUSH ?= true
+BUILDX ?= true
 
+ifeq ($(BUILDX),true)
+DOCKERCMD=docker buildx
 ifeq ($(IMAGE_PUSH),true)
 ARGS="--push"
 else
 ARGS="--load"
 endif
+else
+DOCKERCMD=docker
+endif
 
 # Build the docker image
 docker-build:
-	docker buildx build \
+	$(DOCKERCMD) build \
 	-f ./Dockerfile \
 	--tag $(IMAGE) \
 	--build-arg path=./authchecker/v2/ \
@@ -52,5 +58,21 @@ generate:
 	go generate ./...
 
 # Run the test
-test:
-	go test ./...
+.PHONY: test
+test: ginkgo
+	- $(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./...
+
+ginkgo:
+ifeq (, $(shell which ginkgo))
+	@{ \
+	set -e ;\
+	GINKGO_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$GINKGO_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get -u github.com/onsi/ginkgo/ginkgo ;\
+	rm -rf $$GINKGO_GEN_TMP_DIR ;\
+	}
+GINKGO=$(GOBIN)/ginkgo
+else
+GINKGO=$(shell which ginkgo)
+endif
