@@ -88,36 +88,31 @@ var _ = Describe("Reporter", func() {
 				Spec: v1beta1.MeterDefinitionSpec{
 					Group: "apps.partner.metering.com",
 					Kind:  "App",
+					ResourceFilters: []v1beta1.ResourceFilter{
+						{
+							Namespace: &v1beta1.NamespaceFilter{UseOperatorGroup: true},
+							OwnerCRD: &v1beta1.OwnerCRDFilter{
+								GroupVersionKind: common.GroupVersionKind{
+									APIVersion: "apps.partner.metering.com/v1",
+									Kind:       "App",
+								},
+							},
+							WorkloadType: v1beta1.WorkloadTypePod,
+						},
+					},
 					Meters: []v1beta1.MeterWorkload{
 						{
-							ResourceFilters: v1beta1.ResourceFilter{
-								Namespace: &v1beta1.NamespaceFilter{UseOperatorGroup: true},
-								OwnerCRD: &v1beta1.OwnerCRDFilter{
-									GroupVersionKind: common.GroupVersionKind{
-										APIVersion: "apps.partner.metering.com/v1",
-										Kind:       "App",
-									},
-								},
-								WorkloadType: v1beta1.WorkloadTypePod,
-							},
-							Aggregation: "sum",
-							Query:       "rpc_durations_seconds_sum",
-							Metric:      "rpc_durations_seconds_sum",
+							Aggregation:  "sum",
+							Query:        "rpc_durations_seconds_sum",
+							Metric:       "rpc_durations_seconds_sum",
+							WorkloadType: v1beta1.WorkloadTypePod,
 						},
 						{
-							ResourceFilters: v1beta1.ResourceFilter{
-								Namespace: &v1beta1.NamespaceFilter{UseOperatorGroup: true},
-								OwnerCRD: &v1beta1.OwnerCRDFilter{
-									GroupVersionKind: common.GroupVersionKind{
-										APIVersion: "apps.partner.metering.com/v1",
-										Kind:       "App",
-									},
-								},
-								WorkloadType: v1beta1.WorkloadTypePod,
-							},
-							Aggregation: "sum",
-							Query:       "my_query",
-							Metric:      "rpc_durations_seconds_count",
+
+							Aggregation:  "sum",
+							Query:        "my_query",
+							Metric:       "rpc_durations_seconds_count",
+							WorkloadType: v1beta1.WorkloadTypePod,
 						},
 					},
 				},
@@ -190,28 +185,6 @@ var _ = Describe("Reporter", func() {
 			results)
 
 		Expect(err).To(Succeed())
-
-		// map[
-		//   additionalLabels:map[
-		//     meter_domain:apps.partner.metering.com
-		//     meter_kind:App
-		//     meter_version:v1
-		//     namespace:metering-example-operator
-		//     pod:example-app-pod
-		//     service:example-app-pod
-		//   ]
-		//   domain:apps.partner.metering.com
-		//   interval_end:2020-05-06T01:00:00-04:00
-		//   interval_start:2020-05-06T00:00:00-04:00
-		//   kind:App
-		//   metric_id:58ad150151d9b785
-		//   namespace:metering-example-operator
-		//   report_period_end:2020-07-19T00:00:00Z
-		//   report_period_start:2020-04-19T00:00:00Z
-		//   resource_name:example-app-pod
-		//   rhmUsageMetrics:map[foo:8.721652873135618]
-		//   workload:foo
-		// ],
 		Expect(files).ToNot(BeEmpty())
 		Expect(len(files)).To(Equal(4))
 		for _, file := range files {
@@ -260,8 +233,6 @@ var _ = Describe("Reporter", func() {
 						}),
 					}),
 				}))
-
-				fmt.Println(file)
 			}
 		}
 
@@ -368,11 +339,16 @@ type fakeMetrics struct {
 func GenerateMeterInfoResponse(meterdefinitions []v1beta1.MeterDefinition) []byte {
 	results := []map[string]interface{}{}
 	for _, mdef := range meterdefinitions {
-		labels, _ := mdef.ToPrometheusLabels()
+		labels := mdef.ToPrometheusLabels()
 
-		for _, labelMap := range labels {
-			labelMap["name"] = mdef.Name
-			labelMap["namespace"] = mdef.Namespace
+		for _, mylabels := range labels {
+			fmt.Printf("%+v\n", mylabels)
+			labelMap, err := mylabels.ToLabels()
+			if err != nil {
+				fmt.Printf("%v\n", err)
+				panic(err)
+			}
+			fmt.Printf("%+v\n", labelMap)
 			results = append(results, map[string]interface{}{
 				"metric": labelMap,
 				"values": [][]interface{}{

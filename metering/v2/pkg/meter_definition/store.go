@@ -24,9 +24,7 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringv1client "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
-	marketplacev1alpha1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1alpha1"
 	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
@@ -64,11 +62,10 @@ type MeterDefinitionStore struct {
 	namespaces []string
 
 	// kubeClient to query kube
-	kubeClient                clientset.Interface
-	findOwner                 *rhmclient.FindOwnerHelper
-	monitoringClient          *monitoringv1client.MonitoringV1Client
-	marketplaceClientV1alpha1 *marketplacev1alpha1client.MarketplaceV1alpha1Client
-	marketplaceClientV1beta1  *marketplacev1beta1client.MarketplaceV1beta1Client
+	kubeClient               clientset.Interface
+	findOwner                *rhmclient.FindOwnerHelper
+	monitoringClient         *monitoringv1client.MonitoringV1Client
+	marketplaceClientV1beta1 *marketplacev1beta1client.MarketplaceV1beta1Client
 
 	// listeners are used for downstream
 	listenerMutex deadlock.Mutex
@@ -90,11 +87,10 @@ type MeterDefinitionStoreBuilder struct {
 	namespaces []string
 
 	// kubeClient to query kube
-	kubeClient                clientset.Interface
-	findOwner                 *rhmclient.FindOwnerHelper
-	monitoringClient          *monitoringv1client.MonitoringV1Client
-	marketplaceClientV1alpha1 *marketplacev1alpha1client.MarketplaceV1alpha1Client
-	marketplaceClientV1beta1  *marketplacev1beta1client.MarketplaceV1beta1Client
+	kubeClient               clientset.Interface
+	findOwner                *rhmclient.FindOwnerHelper
+	monitoringClient         *monitoringv1client.MonitoringV1Client
+	marketplaceClientV1beta1 *marketplacev1beta1client.MarketplaceV1beta1Client
 }
 
 func NewMeterDefinitionStoreBuilder(
@@ -104,42 +100,39 @@ func NewMeterDefinitionStoreBuilder(
 	kubeClient clientset.Interface,
 	findOwner *rhmclient.FindOwnerHelper,
 	monitoringClient *monitoringv1client.MonitoringV1Client,
-	marketplaceclientV1alpha1 *marketplacev1alpha1client.MarketplaceV1alpha1Client,
 	marketplaceclientV1beta1 *marketplacev1beta1client.MarketplaceV1beta1Client,
 	scheme *runtime.Scheme,
 ) *MeterDefinitionStoreBuilder {
 	return &MeterDefinitionStoreBuilder{
-		ctx:                       ctx,
-		log:                       log,
-		cc:                        cc,
-		kubeClient:                kubeClient,
-		monitoringClient:          monitoringClient,
-		marketplaceClientV1alpha1: marketplaceclientV1alpha1,
-		marketplaceClientV1beta1:  marketplaceclientV1beta1,
-		findOwner:                 findOwner,
-		scheme:                    scheme,
+		ctx:                      ctx,
+		log:                      log,
+		cc:                       cc,
+		kubeClient:               kubeClient,
+		monitoringClient:         monitoringClient,
+		marketplaceClientV1beta1: marketplaceclientV1beta1,
+		findOwner:                findOwner,
+		scheme:                   scheme,
 	}
 }
 
 func (s *MeterDefinitionStoreBuilder) NewInstance() *MeterDefinitionStore {
 	return &MeterDefinitionStore{
-		ctx:                       s.ctx,
-		log:                       s.log,
-		cc:                        s.cc,
-		scheme:                    s.scheme,
-		kubeClient:                s.kubeClient,
-		monitoringClient:          s.monitoringClient,
-		marketplaceClientV1alpha1: s.marketplaceClientV1alpha1,
-		marketplaceClientV1beta1:  s.marketplaceClientV1beta1,
-		findOwner:                 s.findOwner,
-		namespaces:                s.namespaces,
-		mutex:                     deadlock.Mutex{},
-		listenerMutex:             deadlock.Mutex{},
-		resyncObjChan:             make(chan interface{}),
-		objectsSeen:               make(map[ObjectUID]interface{}),
-		listeners:                 []chan *ObjectResourceMessage{},
-		meterDefinitionFilters:    make(map[MeterDefUID]*MeterDefinitionLookupFilter),
-		objectResourceSet:         make(map[ObjectResourceKey]*ObjectResourceValue),
+		ctx:                      s.ctx,
+		log:                      s.log,
+		cc:                       s.cc,
+		scheme:                   s.scheme,
+		kubeClient:               s.kubeClient,
+		monitoringClient:         s.monitoringClient,
+		marketplaceClientV1beta1: s.marketplaceClientV1beta1,
+		findOwner:                s.findOwner,
+		namespaces:               s.namespaces,
+		mutex:                    deadlock.Mutex{},
+		listenerMutex:            deadlock.Mutex{},
+		resyncObjChan:            make(chan interface{}),
+		objectsSeen:              make(map[ObjectUID]interface{}),
+		listeners:                []chan *ObjectResourceMessage{},
+		meterDefinitionFilters:   make(map[MeterDefUID]*MeterDefinitionLookupFilter),
+		objectResourceSet:        make(map[ObjectResourceKey]*ObjectResourceValue),
 	}
 }
 
@@ -150,11 +143,11 @@ func (s *MeterDefinitionStore) RegisterListener(name string, ch chan *ObjectReso
 	s.listeners = append(s.listeners, ch)
 }
 
-func (s *MeterDefinitionStore) addMeterDefinition(meterdef *v1alpha1.MeterDefinition, lookup *MeterDefinitionLookupFilter) {
+func (s *MeterDefinitionStore) addMeterDefinition(meterdef *v1beta1.MeterDefinition, lookup *MeterDefinitionLookupFilter) {
 	s.meterDefinitionFilters[MeterDefUID(meterdef.UID)] = lookup
 }
 
-func (s *MeterDefinitionStore) removeMeterDefinition(meterdef *v1alpha1.MeterDefinition) {
+func (s *MeterDefinitionStore) removeMeterDefinition(meterdef *v1beta1.MeterDefinition) {
 	delete(s.meterDefinitionFilters, MeterDefUID(meterdef.UID))
 	toDelete := []ObjectResourceKey{}
 
@@ -216,7 +209,6 @@ func (s *MeterDefinitionStore) GetMeterDefObjects(meterDefUID types.UID) []*Obje
 
 type result struct {
 	meterDefUID MeterDefUID
-	workload    *v1alpha1.Workload
 	ok          bool
 	lookup      *MeterDefinitionLookupFilter
 	key         ObjectResourceKey
@@ -239,7 +231,7 @@ func (s *MeterDefinitionStore) Add(obj interface{}) error {
 	logger := s.log.WithValues("func", "add", "name/namespace", key)
 	logger.V(2).Info("adding obj")
 
-	if meterdef, ok := obj.(*v1alpha1.MeterDefinition); ok {
+	if meterdef, ok := obj.(*v1beta1.MeterDefinition); ok {
 		return s.handleMeterDefinition(meterdef)
 	}
 
@@ -282,10 +274,10 @@ func (s *MeterDefinitionStore) Add(obj interface{}) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	logger.Info("return matched results", len(matchedResults))
+	logger.Info("return matched results", "matched results", len(matchedResults))
 
 	for _, result := range matchedResults {
-		resource, err := common.NewWorkloadResource(result.workload.Name, obj, s.scheme)
+		resource, err := common.NewWorkloadResource(obj, s.scheme)
 		if err != nil {
 			logger.Error(err, "failed to init a new workload resource")
 			return err
@@ -315,7 +307,7 @@ func (s *MeterDefinitionStore) Add(obj interface{}) error {
 	return nil
 }
 
-func (s *MeterDefinitionStore) handleMeterDefinition(meterdef *v1alpha1.MeterDefinition) error {
+func (s *MeterDefinitionStore) handleMeterDefinition(meterdef *v1beta1.MeterDefinition) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -367,7 +359,7 @@ func (s *MeterDefinitionStore) findObjectMatches(obj interface{}, results *[]res
 
 	for meterDefUID, lookup := range s.meterDefinitionFilters {
 		key := NewObjectResourceKey(o, meterDefUID)
-		workload, ok, err := lookup.FindMatchingWorkloads(obj)
+		ok, err := lookup.Matches(obj)
 
 		if err != nil {
 			s.log.Error(err, "error matching")
@@ -376,7 +368,6 @@ func (s *MeterDefinitionStore) findObjectMatches(obj interface{}, results *[]res
 
 		*results = append(*results, result{
 			meterDefUID: meterDefUID,
-			workload:    workload,
 			ok:          ok,
 			lookup:      lookup,
 			key:         key,
@@ -403,12 +394,12 @@ func (s *MeterDefinitionStore) Delete(obj interface{}) error {
 
 	delete(s.objectsSeen, ObjectUID(o.GetUID()))
 
-	if meterdef, ok := obj.(*v1alpha1.MeterDefinition); ok {
+	if meterdef, ok := obj.(*v1beta1.MeterDefinition); ok {
 		s.removeMeterDefinition(meterdef)
 		return nil
 	}
 
-	for key, _ := range s.objectResourceSet {
+	for key := range s.objectResourceSet {
 		if key.ObjectUID == ObjectUID(o.GetUID()) {
 			delete(s.objectResourceSet, key)
 		}

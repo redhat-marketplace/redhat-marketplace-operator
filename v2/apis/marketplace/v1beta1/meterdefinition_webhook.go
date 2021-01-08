@@ -17,10 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	"time"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -42,23 +39,9 @@ func (r *MeterDefinition) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 var _ webhook.Defaulter = &MeterDefinition{}
 
-// Default implements webhook.Defaulter so a webhook will be registered for the type
+// // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *MeterDefinition) Default() {
 	meterdefinitionlog.Info("default", "name", r.Name)
-
-	for _, meter := range r.Spec.Meters {
-		if meter.Aggregation == "" {
-			meter.Aggregation = "sum"
-		}
-		if meter.Period == nil {
-			meter.Period = &metav1.Duration{Duration: time.Hour}
-		}
-		if meter.ResourceFilters.Namespace == nil {
-			meter.ResourceFilters.Namespace = &NamespaceFilter{
-				UseOperatorGroup: true,
-			}
-		}
-	}
 }
 
 // +kubebuilder:webhook:path=/validate-marketplace-redhat-com-v1beta1-meterdefinition,mutating=false,failurePolicy=fail,sideEffects=None,groups=marketplace.redhat.com,resources=meterdefinitions,verbs=create;update,versions=v1beta1,name=vmeterdefinition.marketplace.redhat.com
@@ -70,10 +53,10 @@ func (r *MeterDefinition) ValidateCreate() error {
 	var allErrs field.ErrorList
 	meterdefinitionlog.Info("validate create", "name", r.Name)
 
-	for _, meter := range r.Spec.Meters {
-		if meter.ResourceFilters.OwnerCRD == nil &&
-			meter.ResourceFilters.Annotation == nil &&
-			meter.ResourceFilters.Label == nil {
+	for _, resource := range r.Spec.ResourceFilters {
+		if resource.OwnerCRD == nil &&
+			resource.Annotation == nil &&
+			resource.Label == nil {
 
 			allErrs = append(allErrs, field.Required(
 				field.NewPath("spec").Child("meters").Child("resourceFilters"),
@@ -96,10 +79,10 @@ func (r *MeterDefinition) ValidateUpdate(old runtime.Object) error {
 	var allErrs field.ErrorList
 	meterdefinitionlog.Info("validate create", "name", r.Name)
 
-	for _, meter := range r.Spec.Meters {
-		if meter.ResourceFilters.OwnerCRD == nil &&
-			meter.ResourceFilters.Annotation == nil &&
-			meter.ResourceFilters.Label == nil {
+	for _, resource := range r.Spec.ResourceFilters {
+		if resource.OwnerCRD == nil &&
+			resource.Annotation == nil &&
+			resource.Label == nil {
 
 			allErrs = append(allErrs, field.Required(
 				field.NewPath("spec").Child("meters").Child("resourceFilters"),

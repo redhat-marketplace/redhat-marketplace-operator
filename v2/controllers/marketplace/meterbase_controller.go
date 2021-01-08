@@ -72,6 +72,7 @@ type MeterBaseReconciler struct {
 	Log    logr.Logger
 	CC     ClientCommandRunner
 
+	factory manifests.Factory
 	patcher patch.Patcher
 }
 
@@ -88,6 +89,11 @@ func (r *MeterBaseReconciler) InjectCommandRunner(ccp ClientCommandRunner) error
 
 func (r *MeterBaseReconciler) InjectPatch(p patch.Patcher) error {
 	r.patcher = p
+	return nil
+}
+
+func (r *MeterBaseReconciler) InjectFactory(f manifests.Factory) error {
+	r.factory = f
 	return nil
 }
 
@@ -151,6 +157,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterBase")
 
+	factory := &r.factory
 	cc := r.CC
 
 	// Fetch the MeterBase instance
@@ -177,9 +184,6 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 
 		return result.Return()
 	}
-
-	c := manifests.NewDefaultConfig()
-	factory := manifests.NewFactory(instance.Namespace, c)
 
 	// Execute the finalizer, will only run if we are in delete state
 	if result, _ = cc.Do(
@@ -550,7 +554,7 @@ func (r *MeterBaseReconciler) reconcilePrometheusSubscription(
 			), OnNotFound(
 				CreateAction(
 					newSub,
-					CreateWithAddOwner(instance),
+					CreateWithAddController(instance),
 				),
 			)),
 	}
@@ -780,7 +784,7 @@ func (r *MeterBaseReconciler) reconcileAdditionalConfigSecret(
 
 			return HandleResult(
 				GetAction(key, additionalConfigSecret),
-				OnNotFound(CreateAction(sec, CreateWithAddOwner(instance))),
+				OnNotFound(CreateAction(sec, CreateWithAddController(instance))),
 				OnContinue(Call(func() (ClientAction, error) {
 
 					if reflect.DeepEqual(additionalConfigSecret.Data, sec.Data) {
@@ -1134,7 +1138,7 @@ func (r *MeterBaseReconciler) reconcilePrometheusService(
 				types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace},
 				service,
 			),
-			OnNotFound(CreateAction(newService, CreateWithAddOwner(instance)))),
+			OnNotFound(CreateAction(newService, CreateWithAddController(instance)))),
 	}
 }
 
@@ -1155,7 +1159,7 @@ func (r *MeterBaseReconciler) createPrometheus(
 			StoreResult(
 				createResult, CreateAction(
 					newProm,
-					CreateWithAddOwner(instance),
+					CreateWithAddController(instance),
 					CreateWithPatch(r.patcher),
 				)),
 			OnError(
@@ -1184,6 +1188,8 @@ func (r *MeterBaseReconciler) newPrometheusOperator(
 	cfg *corev1.Secret,
 ) (*monitoringv1.Prometheus, error) {
 	prom, err := factory.NewPrometheusDeployment(cr, cfg)
+
+	factory.SetOwnerReference(prom, cr)
 
 	if cr.Spec.Prometheus.Storage.Class == nil {
 		defaultClass, err := utils.GetDefaultStorageClass(r.Client)

@@ -78,7 +78,7 @@ var _ = Describe("CreateAction", func() {
 
 			sut = CreateAction(pod,
 				CreateWithPatch(utils.RhmAnnotator),
-				CreateWithAddOwner(meterbase),
+				CreateWithAddController(meterbase),
 			)
 		})
 
@@ -103,7 +103,7 @@ var _ = Describe("CreateAction", func() {
 			expectedErr = errors.NewPlain("mock fail")
 			sut = CreateAction(pod,
 				CreateWithPatch(utils.RhmAnnotator),
-				CreateWithAddOwner(meterbase),
+				CreateWithAddController(meterbase),
 			)
 		})
 
@@ -138,7 +138,7 @@ var _ = Describe("CreateAction", func() {
 			expectedErr = errors.NewPlain("mock fail")
 			sut = CreateAction(pod,
 				CreateWithPatch(patcher),
-				CreateWithAddOwner(meterbase),
+				CreateWithAddController(meterbase),
 			)
 		})
 

@@ -35,7 +35,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -70,12 +73,14 @@ func MustAssetReader(asset string) io.Reader {
 type Factory struct {
 	namespace string
 	config    *Config
+	scheme    *runtime.Scheme
 }
 
-func NewFactory(namespace string, c *Config) *Factory {
+func NewFactory(namespace string, c *Config, s *runtime.Scheme) *Factory {
 	return &Factory{
 		namespace: namespace,
 		config:    c,
+		scheme:    s,
 	}
 }
 
@@ -103,6 +108,17 @@ func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) 
 
 	if d.GetNamespace() == "" {
 		d.SetNamespace(f.namespace)
+	}
+
+	maxSurge := intstr.FromString("25%")
+	maxUnavailable := intstr.FromString("25%")
+
+	d.Spec.Strategy = appsv1.DeploymentStrategy{
+		Type: appsv1.RollingUpdateDeploymentStrategyType,
+		RollingUpdate: &appsv1.RollingUpdateDeployment{
+			MaxSurge:       &maxSurge,
+			MaxUnavailable: &maxUnavailable,
+		},
 	}
 
 	return d, nil
@@ -712,8 +728,20 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 	}
 }
 
+type Owner metav1.Object
+
+func (f *Factory) SetOwnerReference(obj metav1.Object, owner Owner) {
+	controllerutil.SetOwnerReference(owner, obj, f.scheme)
+}
+
+func (f *Factory) SetControllerReference(obj metav1.Object, owner Owner) {
+	controllerutil.SetControllerReference(obj, owner, f.scheme)
+}
+
 func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.RazeeDeployment) *appsv1.Deployment {
 	rep := ptr.Int32(1)
+	maxSurge := intstr.FromString("25%")
+	maxUnavailable := intstr.FromString("25%")
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -733,6 +761,10 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 			},
 			Strategy: appsv1.DeploymentStrategy{
 				Type: "RollingUpdate",
+				RollingUpdate: &appsv1.RollingUpdateDeployment{
+					MaxSurge:       &maxSurge,
+					MaxUnavailable: &maxUnavailable,
+				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{

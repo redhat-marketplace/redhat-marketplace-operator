@@ -381,7 +381,6 @@ spec:
                   required:
                   - name
                   - namespace
-                  - referencedWorkloadName
                   type: object
                 type: array
             type: object
@@ -486,210 +485,220 @@ spec:
                     query:
                       description: Query to use for prometheus to find the metrics
                       type: string
-                    resourceFilters:
-                      description: ResourceFilters provide filters that will be used
-                        to find the workload objects. This is to find the exact resources
-                        the query is interested in. At least one must be provided.
-                      properties:
-                        annotation:
-                          description: Annotation uses the resource annotations to
-                            find resources to monitor.
-                          properties:
-                            annotationSelector:
-                              description: AnnotationSelector are used to filter to
-                                the correct workload.
-                              properties:
-                                matchExpressions:
-                                  description: matchExpressions is a list of label
-                                    selector requirements. The requirements are ANDed.
-                                  items:
-                                    description: A label selector requirement is a
-                                      selector that contains values, a key, and an
-                                      operator that relates the key and values.
-                                    properties:
-                                      key:
-                                        description: key is the label key that the
-                                          selector applies to.
-                                        type: string
-                                      operator:
-                                        description: operator represents a key's relationship
-                                          to a set of values. Valid operators are
-                                          In, NotIn, Exists and DoesNotExist.
-                                        type: string
-                                      values:
-                                        description: values is an array of string
-                                          values. If the operator is In or NotIn,
-                                          the values array must be non-empty. If the
-                                          operator is Exists or DoesNotExist, the
-                                          values array must be empty. This array is
-                                          replaced during a strategic merge patch.
-                                        items:
-                                          type: string
-                                        type: array
-                                    required:
-                                    - key
-                                    - operator
-                                    type: object
-                                  type: array
-                                matchLabels:
-                                  additionalProperties:
-                                    type: string
-                                  description: matchLabels is a map of {key,value}
-                                    pairs. A single {key,value} in the matchLabels
-                                    map is equivalent to an element of matchExpressions,
-                                    whose key field is "key", the operator is "In",
-                                    and the values array contains only "value". The
-                                    requirements are ANDed.
-                                  type: object
-                              type: object
-                          type: object
-                        label:
-                          description: Label uses the resource annotations to find
-                            resources to monitor.
-                          properties:
-                            labelSelector:
-                              description: LabelSelector are used to filter to the
-                                correct workload.
-                              properties:
-                                matchExpressions:
-                                  description: matchExpressions is a list of label
-                                    selector requirements. The requirements are ANDed.
-                                  items:
-                                    description: A label selector requirement is a
-                                      selector that contains values, a key, and an
-                                      operator that relates the key and values.
-                                    properties:
-                                      key:
-                                        description: key is the label key that the
-                                          selector applies to.
-                                        type: string
-                                      operator:
-                                        description: operator represents a key's relationship
-                                          to a set of values. Valid operators are
-                                          In, NotIn, Exists and DoesNotExist.
-                                        type: string
-                                      values:
-                                        description: values is an array of string
-                                          values. If the operator is In or NotIn,
-                                          the values array must be non-empty. If the
-                                          operator is Exists or DoesNotExist, the
-                                          values array must be empty. This array is
-                                          replaced during a strategic merge patch.
-                                        items:
-                                          type: string
-                                        type: array
-                                    required:
-                                    - key
-                                    - operator
-                                    type: object
-                                  type: array
-                                matchLabels:
-                                  additionalProperties:
-                                    type: string
-                                  description: matchLabels is a map of {key,value}
-                                    pairs. A single {key,value} in the matchLabels
-                                    map is equivalent to an element of matchExpressions,
-                                    whose key field is "key", the operator is "In",
-                                    and the values array contains only "value". The
-                                    requirements are ANDed.
-                                  type: object
-                              type: object
-                          type: object
-                        namespace:
-                          description: Namespace is the filter to control which namespaces
-                            to look for your resources. Default is always Operator
-                            Group (supported by OLM)
-                          properties:
-                            labelSelector:
-                              description: LabelSelector are used to filter to the
-                                correct workload.
-                              properties:
-                                matchExpressions:
-                                  description: matchExpressions is a list of label
-                                    selector requirements. The requirements are ANDed.
-                                  items:
-                                    description: A label selector requirement is a
-                                      selector that contains values, a key, and an
-                                      operator that relates the key and values.
-                                    properties:
-                                      key:
-                                        description: key is the label key that the
-                                          selector applies to.
-                                        type: string
-                                      operator:
-                                        description: operator represents a key's relationship
-                                          to a set of values. Valid operators are
-                                          In, NotIn, Exists and DoesNotExist.
-                                        type: string
-                                      values:
-                                        description: values is an array of string
-                                          values. If the operator is In or NotIn,
-                                          the values array must be non-empty. If the
-                                          operator is Exists or DoesNotExist, the
-                                          values array must be empty. This array is
-                                          replaced during a strategic merge patch.
-                                        items:
-                                          type: string
-                                        type: array
-                                    required:
-                                    - key
-                                    - operator
-                                    type: object
-                                  type: array
-                                matchLabels:
-                                  additionalProperties:
-                                    type: string
-                                  description: matchLabels is a map of {key,value}
-                                    pairs. A single {key,value} in the matchLabels
-                                    map is equivalent to an element of matchExpressions,
-                                    whose key field is "key", the operator is "In",
-                                    and the values array contains only "value". The
-                                    requirements are ANDed.
-                                  type: object
-                              type: object
-                            useOperatorGroup:
-                              description: UseOperatorGroup use your operator group
-                                for namespace filtering
-                              type: boolean
-                          required:
-                          - useOperatorGroup
-                          type: object
-                        ownerCRD:
-                          description: OwnerCRD uses the owning CRD to filter resources.
-                          properties:
-                            apiVersion:
-                              description: APIVersion of the CRD
-                              type: string
-                            kind:
-                              description: Kind of the CRD
-                              type: string
-                          required:
-                          - apiVersion
-                          - kind
-                          type: object
-                        workloadType:
-                          description: WorkloadType identifies the type of workload
-                            to look for. This can be pod or service right now.
-                          type: string
-                      required:
-                      - workloadType
-                      type: object
                     valueLabelOverride:
                       description: ValueLabelOverride provides a means of overriding
                         the value returned for the metric using a label. This is to
                         handle cases where the metric is a constant that is calculated.
                       type: string
+                    without:
+                      description: Labels to filter out automatically.
+                      items:
+                        type: string
+                      type: array
+                    workloadType:
+                      description: WorkloadType identifies the type of workload to
+                        look for. This can be pod or service right now.
+                      type: string
                   required:
                   - aggregation
                   - metric
                   - query
-                  - resourceFilters
+                  - workloadType
                   type: object
+                type: array
+              resourceFilters:
+                description: ResourceFilters provide filters that will be used to
+                  find the workload objects. This is to find the exact resources the
+                  query is interested in. At least one must be provided.
+                items:
+                  properties:
+                    annotation:
+                      description: Annotation uses the resource annotations to find
+                        resources to monitor.
+                      properties:
+                        annotationSelector:
+                          description: AnnotationSelector are used to filter to the
+                            correct workload.
+                          properties:
+                            matchExpressions:
+                              description: matchExpressions is a list of label selector
+                                requirements. The requirements are ANDed.
+                              items:
+                                description: A label selector requirement is a selector
+                                  that contains values, a key, and an operator that
+                                  relates the key and values.
+                                properties:
+                                  key:
+                                    description: key is the label key that the selector
+                                      applies to.
+                                    type: string
+                                  operator:
+                                    description: operator represents a key's relationship
+                                      to a set of values. Valid operators are In,
+                                      NotIn, Exists and DoesNotExist.
+                                    type: string
+                                  values:
+                                    description: values is an array of string values.
+                                      If the operator is In or NotIn, the values array
+                                      must be non-empty. If the operator is Exists
+                                      or DoesNotExist, the values array must be empty.
+                                      This array is replaced during a strategic merge
+                                      patch.
+                                    items:
+                                      type: string
+                                    type: array
+                                required:
+                                - key
+                                - operator
+                                type: object
+                              type: array
+                            matchLabels:
+                              additionalProperties:
+                                type: string
+                              description: matchLabels is a map of {key,value} pairs.
+                                A single {key,value} in the matchLabels map is equivalent
+                                to an element of matchExpressions, whose key field
+                                is "key", the operator is "In", and the values array
+                                contains only "value". The requirements are ANDed.
+                              type: object
+                          type: object
+                      type: object
+                    label:
+                      description: Label uses the resource annotations to find resources
+                        to monitor.
+                      properties:
+                        labelSelector:
+                          description: LabelSelector are used to filter to the correct
+                            workload.
+                          properties:
+                            matchExpressions:
+                              description: matchExpressions is a list of label selector
+                                requirements. The requirements are ANDed.
+                              items:
+                                description: A label selector requirement is a selector
+                                  that contains values, a key, and an operator that
+                                  relates the key and values.
+                                properties:
+                                  key:
+                                    description: key is the label key that the selector
+                                      applies to.
+                                    type: string
+                                  operator:
+                                    description: operator represents a key's relationship
+                                      to a set of values. Valid operators are In,
+                                      NotIn, Exists and DoesNotExist.
+                                    type: string
+                                  values:
+                                    description: values is an array of string values.
+                                      If the operator is In or NotIn, the values array
+                                      must be non-empty. If the operator is Exists
+                                      or DoesNotExist, the values array must be empty.
+                                      This array is replaced during a strategic merge
+                                      patch.
+                                    items:
+                                      type: string
+                                    type: array
+                                required:
+                                - key
+                                - operator
+                                type: object
+                              type: array
+                            matchLabels:
+                              additionalProperties:
+                                type: string
+                              description: matchLabels is a map of {key,value} pairs.
+                                A single {key,value} in the matchLabels map is equivalent
+                                to an element of matchExpressions, whose key field
+                                is "key", the operator is "In", and the values array
+                                contains only "value". The requirements are ANDed.
+                              type: object
+                          type: object
+                      type: object
+                    namespace:
+                      description: Namespace is the filter to control which namespaces
+                        to look for your resources. Default is always Operator Group
+                        (supported by OLM)
+                      properties:
+                        labelSelector:
+                          description: LabelSelector are used to filter to the correct
+                            workload.
+                          properties:
+                            matchExpressions:
+                              description: matchExpressions is a list of label selector
+                                requirements. The requirements are ANDed.
+                              items:
+                                description: A label selector requirement is a selector
+                                  that contains values, a key, and an operator that
+                                  relates the key and values.
+                                properties:
+                                  key:
+                                    description: key is the label key that the selector
+                                      applies to.
+                                    type: string
+                                  operator:
+                                    description: operator represents a key's relationship
+                                      to a set of values. Valid operators are In,
+                                      NotIn, Exists and DoesNotExist.
+                                    type: string
+                                  values:
+                                    description: values is an array of string values.
+                                      If the operator is In or NotIn, the values array
+                                      must be non-empty. If the operator is Exists
+                                      or DoesNotExist, the values array must be empty.
+                                      This array is replaced during a strategic merge
+                                      patch.
+                                    items:
+                                      type: string
+                                    type: array
+                                required:
+                                - key
+                                - operator
+                                type: object
+                              type: array
+                            matchLabels:
+                              additionalProperties:
+                                type: string
+                              description: matchLabels is a map of {key,value} pairs.
+                                A single {key,value} in the matchLabels map is equivalent
+                                to an element of matchExpressions, whose key field
+                                is "key", the operator is "In", and the values array
+                                contains only "value". The requirements are ANDed.
+                              type: object
+                          type: object
+                        useOperatorGroup:
+                          description: UseOperatorGroup use your operator group for
+                            namespace filtering
+                          type: boolean
+                      required:
+                      - useOperatorGroup
+                      type: object
+                    ownerCRD:
+                      description: OwnerCRD uses the owning CRD to filter resources.
+                      properties:
+                        apiVersion:
+                          description: APIVersion of the CRD
+                          type: string
+                        kind:
+                          description: Kind of the CRD
+                          type: string
+                      required:
+                      - apiVersion
+                      - kind
+                      type: object
+                    workloadType:
+                      description: WorkloadType identifies the type of workload to
+                        look for. This can be pod or service right now.
+                      type: string
+                  required:
+                  - workloadType
+                  type: object
+                minItems: 1
                 type: array
             required:
             - group
             - kind
             - meters
+            - resourceFilters
             type: object
           status:
             description: MeterDefinitionStatus defines the observed state of MeterDefinition
@@ -770,7 +779,6 @@ spec:
                   required:
                   - name
                   - namespace
-                  - referencedWorkloadName
                   type: object
                 type: array
             type: object

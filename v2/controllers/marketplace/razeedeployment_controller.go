@@ -25,6 +25,7 @@ import (
 	"github.com/gotidy/ptr"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
@@ -70,8 +71,32 @@ type RazeeDeploymentReconciler struct {
 	// that reads objects from the cache and writes to the apiserver
 	Client client.Client
 	Scheme *runtime.Scheme
-	cfg    config.OperatorConfig
 	Log    logr.Logger
+	CC     ClientCommandRunner
+
+	patcher patch.Patcher
+	cfg     config.OperatorConfig
+	factory manifests.Factory
+}
+
+func (r *RazeeDeploymentReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
+	injector.SetCustomFields(r)
+	return r
+}
+
+func (r *RazeeDeploymentReconciler) InjectCommandRunner(ccp ClientCommandRunner) error {
+	r.CC = ccp
+	return nil
+}
+
+func (r *RazeeDeploymentReconciler) InjectPatch(p patch.Patcher) error {
+	r.patcher = p
+	return nil
+}
+
+func (r *RazeeDeploymentReconciler) InjectFactory(f manifests.Factory) error {
+	r.factory = f
+	return nil
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -196,9 +221,8 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 		return reconcile.Result{}, err
 	}
 
-	c := manifests.NewDefaultConfig()
-	cc := NewClientCommand(r.Client, r.Scheme, reqLogger)
-	factory := manifests.NewFactory(instance.Namespace, c)
+	cc := r.CC
+	factory := r.factory
 
 	// if not enabled then exit
 	if !instance.Spec.Enabled {
@@ -885,6 +909,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 			return reconcile.Result{}, err
 		}
 	}
+
 	if err == nil {
 		reqLogger.V(0).Info("Resource already exists", "resource: ", utils.COS_READER_KEY_NAME)
 
@@ -936,11 +961,13 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 				manifests.CreateOrUpdateFactoryItemAction(
 					rrs3Deployment,
 					func() (runtime.Object, error) {
-						return factory.NewRemoteResourceS3Deployment(instance), nil
+						dep := factory.NewRemoteResourceS3Deployment(instance)
+						factory.SetOwnerReference(dep, instance)
+						return dep, nil
 					},
 					args,
 				),
-				OnError(ReturnWithError(emperrors.New("failed to great remote resources3"))),
+				OnError(ReturnWithError(emperrors.New("failed to create remote resources3"))),
 				OnContinue(UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 					Type:    marketplacev1alpha1.ConditionDeploymentEnabled,
 					Status:  corev1.ConditionTrue,
@@ -963,7 +990,9 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 				manifests.CreateOrUpdateFactoryItemAction(
 					watchKeeperDeployment,
 					func() (runtime.Object, error) {
-						return factory.NewWatchKeeperDeployment(instance), nil
+						dep := factory.NewWatchKeeperDeployment(instance)
+						factory.SetOwnerReference(dep, instance)
+						return dep, nil
 					},
 					args,
 				),
@@ -979,6 +1008,8 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 			reqLogger.Info("returing result", "result", *result)
 			return result.Return()
 		}
+	} else {
+		reqLogger.V(0).Info("watch-keeper deployment not enabled")
 	}
 
 	depList := &appsv1.DeploymentList{}
@@ -1271,7 +1302,7 @@ func (r *RazeeDeploymentReconciler) addFinalizer(razee *marketplacev1alpha1.Raze
 
 // Creates the razee-cluster-metadata config map and applies the TargetNamespace and the ClusterUUID stored on the Razeedeployment cr
 func (r *RazeeDeploymentReconciler) makeRazeeClusterMetaData(instance *marketplacev1alpha1.RazeeDeployment) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
+	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.RAZEE_CLUSTER_METADATA_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
@@ -1282,42 +1313,50 @@ func (r *RazeeDeploymentReconciler) makeRazeeClusterMetaData(instance *marketpla
 		},
 		Data: map[string]string{"name": instance.Spec.ClusterUUID},
 	}
+	r.factory.SetOwnerReference(cm, instance)
+	return cm
 }
 
 //watch-keeper-non-namespace
 func (r *RazeeDeploymentReconciler) makeWatchKeeperNonNamespace(
 	instance *marketplacev1alpha1.RazeeDeployment,
 ) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
+	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.WATCH_KEEPER_NON_NAMESPACED_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
 		},
 		Data: map[string]string{"v1_namespace": "true"},
 	}
+	r.factory.SetOwnerReference(cm, instance)
+	return cm
 }
 
 //watch-keeper-non-namespace
 func (r *RazeeDeploymentReconciler) makeWatchKeeperLimitPoll(
 	instance *marketplacev1alpha1.RazeeDeployment,
 ) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
+	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.WATCH_KEEPER_LIMITPOLL_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
 		},
 	}
+	r.factory.SetOwnerReference(cm, instance)
+	return cm
 }
 
 // Creates watchkeeper config and applies the razee-dash-url stored on the Razeedeployment cr
 func (r *RazeeDeploymentReconciler) makeWatchKeeperConfig(instance *marketplacev1alpha1.RazeeDeployment) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
+	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.WATCH_KEEPER_CONFIG_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
 		},
 		Data: map[string]string{"RAZEEDASH_URL": instance.Spec.DeployConfig.RazeeDashUrl, "START_DELAY_MAX": "0"},
 	}
+	r.factory.SetOwnerReference(cm, instance)
+	return cm
 }
 
 // GetDataFromRhmSecret Uses the SecretKeySelector struct to to retrieve byte data from a specified key
@@ -1346,13 +1385,15 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperSecret(instance *marketplacev
 	selector := instance.Spec.DeployConfig.RazeeDashOrgKey
 	key, err := r.GetDataFromRhmSecret(request, *selector)
 
-	return corev1.Secret{
+	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.WATCH_KEEPER_SECRET_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
 		},
 		Data: map[string][]byte{"RAZEEDASH_ORG_KEY": key},
-	}, err
+	}
+	r.factory.SetOwnerReference(&secret, instance)
+	return secret, err
 }
 
 // Creates the rhm-cos-reader-key and applies the ibm-cos-reader-key from rhm-operator-secret using the selector stored on the Razeedeployment cr
@@ -1360,13 +1401,16 @@ func (r *RazeeDeploymentReconciler) makeCOSReaderSecret(instance *marketplacev1a
 	selector := instance.Spec.DeployConfig.IbmCosReaderKey
 	key, err := r.GetDataFromRhmSecret(request, *selector)
 
-	return corev1.Secret{
+	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.COS_READER_KEY_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
 		},
 		Data: map[string][]byte{"accesskey": []byte(key)},
-	}, err
+	}
+
+	r.factory.SetOwnerReference(&secret, instance)
+	return secret, err
 }
 
 // Creates the "parent" RemoteResourceS3 and applies the name of the cos-reader-key and ChildUrl constructed during reconciliation of the rhm-operator-secret

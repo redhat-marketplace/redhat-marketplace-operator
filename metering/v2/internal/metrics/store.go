@@ -20,6 +20,7 @@ import (
 	"io"
 	"reflect"
 
+	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meter_definition"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/sasha-s/go-deadlock"
@@ -51,6 +52,8 @@ type MetricsStore struct {
 	// MetricStore.WriteAll().
 	headers []string
 
+	log logr.Logger
+
 	// generateMetricsFunc generates metrics based on a given Kubernetes object
 	// and returns them grouped by metric family.
 	generateMetricsFunc func(interface{}, []*marketplacev1beta1.MeterDefinition) []FamilyByteSlicer
@@ -70,12 +73,14 @@ func NewMetricsStore(
 	meterDefFetcher MeterDefinitionFetcher,
 	expectedType reflect.Type,
 ) *MetricsStore {
+	log := log.WithValues("metricStore", fmt.Sprintf("metricStore-%v", expectedType))
 	return &MetricsStore{
 		generateMetricsFunc: generateFunc,
 		headers:             headers,
 		meterDefFetcher:     meterDefFetcher,
 		meterDefStore:       meterDefStore,
 		expectedType:        expectedType,
+		log:                 log,
 		metrics:             map[types.UID][][]byte{},
 	}
 }
@@ -83,6 +88,7 @@ func NewMetricsStore(
 func (s *MetricsStore) Start(
 	ctx context.Context,
 ) {
+	log := s.log
 	log.Info("starting metric store", "name", fmt.Sprintf("metricStore-%v", s.expectedType))
 
 	ch := make(chan *meter_definition.ObjectResourceMessage, 10)
@@ -100,10 +106,10 @@ func (s *MetricsStore) Start(
 				}
 				switch msg.Action {
 				case meter_definition.AddMessageAction:
-					log.Info("addMessageAction", "message", msg, "expectedType", s.expectedType)
+					log.Info("addMessageAction", "expectedType", s.expectedType)
 					_ = s.Add(msg.Object)
 				case meter_definition.DeleteMessageAction:
-					log.Info("deleteMessageAction", "message", msg, "expectedType", s.expectedType)
+					log.Info("deleteMessageAction", "expectedType", s.expectedType)
 					_ = s.Delete(msg.Object)
 				}
 			case <-ctx.Done():

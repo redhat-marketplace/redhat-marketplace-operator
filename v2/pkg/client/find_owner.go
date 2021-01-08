@@ -36,7 +36,7 @@ func NewFindOwnerHelper(
 	}
 }
 
-func (f *FindOwnerHelper) FindOwner(name, namespace string, lookupOwner *metav1.OwnerReference) (owner *metav1.OwnerReference, err error) {
+func (f *FindOwnerHelper) FindOwner(name, namespace string, lookupOwner *metav1.OwnerReference) (ownerRefs []metav1.OwnerReference, err error) {
 	apiVersionSplit := strings.Split(lookupOwner.APIVersion, "/")
 	var group, version string
 
@@ -67,6 +67,5 @@ func (f *FindOwnerHelper) FindOwner(name, namespace string, lookupOwner *metav1.
 		return
 	}
 
-	owner = metav1.GetControllerOf(o)
-	return owner, nil
+	return o.GetOwnerReferences(), nil
 }

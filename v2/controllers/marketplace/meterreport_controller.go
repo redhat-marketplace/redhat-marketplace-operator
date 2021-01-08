@@ -165,7 +165,7 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 					job,
 					func() (runtime.Object, error) {
 						return r.factory.ReporterJob(instance)
-					}, CreateWithAddOwner(instance),
+					}, CreateWithAddController(instance),
 				),
 				OnRequeue(UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobSubmitted)),
 			),

@@ -32,6 +32,8 @@ func (src *MeterDefinition) ConvertTo(dstRaw conversion.Hub) error {
 		}
 	}
 
+	resourceFilters := []v1beta1.ResourceFilter{}
+
 	for _, workload := range src.Spec.Workloads {
 		filters := v1beta1.ResourceFilter{}
 
@@ -49,7 +51,7 @@ func (src *MeterDefinition) ConvertTo(dstRaw conversion.Hub) error {
 
 		filters.Namespace = namespaceFilters
 
-		workloadType, err := ConvertWorkloadType(workload.WorkloadType)
+		workloadType, err := ConvertWorkloadTypeBeta(workload.WorkloadType)
 
 		if err != nil {
 			return err
@@ -63,15 +65,17 @@ func (src *MeterDefinition) ConvertTo(dstRaw conversion.Hub) error {
 			}
 		}
 
+		resourceFilters = append(resourceFilters, filters)
+
 		for _, metricLabel := range workload.MetricLabels {
 			meters = append(meters, v1beta1.MeterWorkload{
-				Aggregation:     metricLabel.Aggregation,
-				GroupBy:         []string{},
-				ResourceFilters: filters,
-				Metric:          metricLabel.Label,
-				Name:            workload.Name,
-				Period:          &metaHRDuration,
-				Query:           metricLabel.Query,
+				Aggregation:  metricLabel.Aggregation,
+				GroupBy:      []string{},
+				WorkloadType: workloadType,
+				Metric:       metricLabel.Label,
+				Name:         workload.Name,
+				Period:       &metaHRDuration,
+				Query:        metricLabel.Query,
 			})
 		}
 	}
@@ -81,6 +85,7 @@ func (src *MeterDefinition) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Kind = string(src.Spec.Kind)
 	dst.Spec.InstalledBy = src.Spec.InstalledBy
 	dst.Spec.Meters = meters
+	dst.Spec.ResourceFilters = resourceFilters
 	dst.Status.Conditions = src.Status.Conditions
 	dst.Status.WorkloadResources = src.Status.WorkloadResources
 	return nil
@@ -93,7 +98,34 @@ func (dst *MeterDefinition) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v1beta1.MeterDefinition)
 	workloads := []Workload{}
 
+	if len(src.Spec.ResourceFilters) == 0 {
+		return errors.NewWithDetails("failed to convert to v1alpha1", "no resource filters available")
+	}
+
+	filter := src.Spec.ResourceFilters[0]
+
+	if filter.Namespace != nil && filter.Namespace.UseOperatorGroup == true {
+		dst.Spec.WorkloadVertexType = WorkloadVertexOperatorGroup
+	}
+
+	if filter.Namespace != nil && filter.Namespace.UseOperatorGroup == false {
+		dst.Spec.WorkloadVertexType = WorkloadVertexNamespace
+		dst.Spec.VertexLabelSelector = filter.Namespace.LabelSelector
+	}
+
+	resourceMap := map[WorkloadType]v1beta1.ResourceFilter{}
+
+	for _, filter := range src.Spec.ResourceFilters {
+		workloadType, _ := ConvertWorkloadTypeAlpha(filter.WorkloadType)
+
+		if _, ok := resourceMap[workloadType]; !ok {
+			resourceMap[workloadType] = filter
+		}
+	}
+
 	for _, meter := range src.Spec.Meters {
+		workloadType, _ := ConvertWorkloadTypeAlpha(meter.WorkloadType)
+
 		workload := Workload{
 			Name: meter.Name,
 			MetricLabels: []MeterLabelQuery{
@@ -103,23 +135,21 @@ func (dst *MeterDefinition) ConvertFrom(srcRaw conversion.Hub) error {
 					Query:       meter.Query,
 				},
 			},
+			WorkloadType: workloadType,
 		}
 
-		if meter.ResourceFilters.Annotation != nil {
-			workload.AnnotationSelector = meter.ResourceFilters.Annotation.AnnotationSelector
+		filter := resourceMap[workloadType]
+
+		if filter.Annotation != nil {
+			workload.AnnotationSelector = filter.Annotation.AnnotationSelector
 		}
 
-		if meter.ResourceFilters.Label != nil {
-			workload.LabelSelector = meter.ResourceFilters.Label.LabelSelector
+		if filter.Label != nil {
+			workload.LabelSelector = filter.Label.LabelSelector
 		}
 
-		if meter.ResourceFilters.Namespace != nil && meter.ResourceFilters.Namespace.UseOperatorGroup == true {
-			dst.Spec.WorkloadVertexType = WorkloadVertexOperatorGroup
-		}
-
-		if meter.ResourceFilters.Namespace != nil && meter.ResourceFilters.Namespace.UseOperatorGroup == false {
-			dst.Spec.WorkloadVertexType = WorkloadVertexNamespace
-			dst.Spec.VertexLabelSelector = meter.ResourceFilters.Namespace.LabelSelector
+		if filter.OwnerCRD != nil {
+			workload.OwnerCRD = &filter.OwnerCRD.GroupVersionKind
 		}
 
 		workloads = append(workloads, workload)
@@ -136,7 +166,31 @@ func (dst *MeterDefinition) ConvertFrom(srcRaw conversion.Hub) error {
 	return nil
 }
 
-func ConvertWorkloadType(typeIn interface{}) (v1beta1.WorkloadType, error) {
+func ConvertWorkloadTypeAlpha(typeIn interface{}) (WorkloadType, error) {
+	workloadType := v1beta1.WorkloadTypePod
+
+	switch v := typeIn.(type) {
+	case WorkloadType:
+		return v, nil
+	case v1beta1.WorkloadType:
+		workloadType = v
+	case string:
+		workloadType = v1beta1.WorkloadType(v)
+	}
+
+	switch workloadType {
+	case v1beta1.WorkloadTypePod:
+		return WorkloadTypePod, nil
+	case v1beta1.WorkloadTypePVC:
+		return WorkloadTypePVC, nil
+	case v1beta1.WorkloadTypeService:
+		return WorkloadTypeService, nil
+	default:
+		return WorkloadTypePod, errors.NewWithDetails("workload type cannot be generated from workload type", "type", typeIn)
+	}
+}
+
+func ConvertWorkloadTypeBeta(typeIn interface{}) (v1beta1.WorkloadType, error) {
 	workloadType := WorkloadTypePod
 
 	switch v := typeIn.(type) {

@@ -424,7 +424,6 @@ spec:
                           required:
                           - name
                           - namespace
-                          - referencedWorkloadName
                           type: object
                         type: array
                     type: object

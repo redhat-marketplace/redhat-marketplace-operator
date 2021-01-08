@@ -8,15 +8,6 @@ build:
     concurrency: 4
   tagPolicy:
     gitCommit: {}
-    # customTemplate:
-    #   template: '{{.VER}}_{{.COMMIT}}'
-    #   components:
-    #     - name: VER
-    #       envTemplate:
-    #         template: '{{.VERSION}}'
-    #     - name: COMMIT
-    #       gitCommit:
-    #         variant: AbbrevCommitSha
   artifacts:
     - image: redhat-marketplace-operator
       custom:

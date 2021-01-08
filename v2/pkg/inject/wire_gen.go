@@ -52,6 +52,7 @@ func initializeInjectables(fields *managers.ControllerFields, namespace managers
 		Fields:    fields,
 		Config:    operatorConfig,
 		Namespace: namespace,
+		Scheme:    scheme,
 	}
 	injectables := ProvideInjectables(clientCommandInjector, operatorConfigInjector, patchInjector, factoryInjector)
 	return injectables, nil

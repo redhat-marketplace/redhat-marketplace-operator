@@ -6,6 +6,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -135,11 +136,12 @@ type FactoryInjector struct {
 	Fields    *managers.ControllerFields
 	Config    config.OperatorConfig
 	Namespace managers.DeployedNamespace
+	Scheme    *runtime.Scheme
 }
 
 func (a *FactoryInjector) SetCustomFields(i interface{}) error {
 	if ii, ok := i.(Factory); ok {
-		f := manifests.NewFactory(string(a.Namespace), manifests.NewOperatorConfig(a.Config))
+		f := manifests.NewFactory(string(a.Namespace), manifests.NewOperatorConfig(a.Config), a.Scheme)
 
 		return ii.InjectFactory(*f)
 	}

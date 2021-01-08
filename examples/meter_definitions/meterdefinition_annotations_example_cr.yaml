@@ -8,9 +8,9 @@ spec:
   resourceFilters:
     - namespace:
         useOperatorGroup: true
-      label:
-        labelSelector:
-          matchLabels:
+      annotation:
+        annotationSelector:
+          matchAnnotations:
             app.kubernetes.io/name: rhm-metric-state
       workloadType: Pod
   meters:

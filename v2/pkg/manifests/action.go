@@ -25,7 +25,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type createOrUpdateFactoryItemAction struct {
@@ -77,10 +79,18 @@ func (a *createOrUpdateFactoryItemAction) Exec(ctx context.Context, c *ClientCom
 
 	cmd := HandleResult(
 		GetAction(key, a.object),
-		OnNotFound(CreateAction(result,
-			CreateWithAddOwner(a.owner),
-			CreateWithPatch(a.patcher))),
+		OnNotFound(CreateAction(result, CreateWithPatch(a.patcher))),
 		OnContinue(Call(func() (ClientAction, error) {
+			if a.owner != nil {
+				if meta, ok := a.owner.(metav1.Object); ok {
+					if err := controllerutil.SetControllerReference(
+						a.owner.(metav1.Object),
+						meta,
+						c.GetScheme()); err != nil {
+					}
+				}
+			}
+
 			// handle case if original config is missing
 			if orig, _ := a.patcher.GetOriginalConfiguration(a.object); orig == nil {
 				data, _ := a.patcher.GetModifiedConfiguration(a.object, false)

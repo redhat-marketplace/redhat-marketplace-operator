@@ -38,6 +38,13 @@ type MeterDefinitionSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	Kind string `json:"kind"`
 
+	// ResourceFilters provide filters that will be used to find the workload objects.
+	// This is to find the exact resources the query is interested in. At least one must
+	// be provided.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +kubebuilder:validation:MinItems:=1
+	ResourceFilters []ResourceFilter `json:"resourceFilters"`
+
 	// Meters are the definitions related to the metrics that you would like to monitor.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:text"
@@ -124,11 +131,6 @@ type AnnotationFilter struct {
 }
 
 type MeterWorkload struct {
-	// ResourceFilters provide filters that will be used to find the workload objects.
-	// This is to find the exact resources the query is interested in. At least one must
-	// be provided.
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	ResourceFilters ResourceFilter `json:"resourceFilters"`
 
 	// Name of the metric for humans to read.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
@@ -140,6 +142,12 @@ type MeterWorkload struct {
 	// +optional
 	Description string `json:"description,omitempty"`
 
+	// WorkloadType identifies the type of workload to look for. This can be
+	// pod or service right now.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:Pod,urn:alm:descriptor:com.tectonic.ui:select:Service,urn:alm:descriptor:com.tectonic.ui:select:PersistentVolumeClaim"
+	WorkloadType WorkloadType `json:"workloadType"`
+
 	// Metric is the name of the meter
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:text"
@@ -149,6 +157,11 @@ type MeterWorkload struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	GroupBy []string `json:"groupBy,omitempty"`
+
+	// Labels to filter out automatically.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +optional
+	Without []string `json:"without,omitempty"`
 
 	// Aggregation to use with the query
 	// +kubebuilder:validation:Enum:=sum;min;max;avg
@@ -229,50 +242,58 @@ func init() {
 	SchemeBuilder.Register(&MeterDefinition{}, &MeterDefinitionList{})
 }
 
-func (meterdef *MeterDefinition) ToPrometheusLabels() ([]map[string]string, error) {
-	allMdefs := []map[string]string{}
+func (meterdef *MeterDefinition) ToPrometheusLabels() []*common.MeterDefPrometheusLabels {
+	allMdefs := []*common.MeterDefPrometheusLabels{}
 
 	for _, meter := range meterdef.Spec.Meters {
+		var period *common.MetricPeriod
 
-		obj := common.MeterDefPrometheusLabels{
-			UID:               string(meterdef.UID),
-			MeterKind:         meterdef.Spec.Kind,
-			Metric:            meter.Metric,
-			MetricGroupBy:     common.JSONArray(meter.GroupBy),
-			MeterGroup:        meterdef.Spec.Group,
-			MetricQuery:       meter.Query,
-			MetricPeriod:      meter.Period,
-			WorkloadName:      meter.Name,
-			WorkloadType:      string(meter.ResourceFilters.WorkloadType),
-			MetricAggregation: meter.Aggregation,
-			MetricAdditionalLabels: common.AdditionalLabels{
-				DateLabelOverride:  meter.DateLabelOverride,
-				ValueLabelOverride: meter.ValueLabelOverride,
-			},
+		if meter.Period != nil {
+			period = &common.MetricPeriod{Duration: meter.Period.Duration}
 		}
 
-		labelsJSON, err := json.Marshal(obj)
-		if err != nil {
-			return nil, err
+		obj := &common.MeterDefPrometheusLabels{
+			UID:                string(meterdef.UID),
+			MeterDefName:       string(meterdef.Name),
+			MeterDefNamespace:  string(meterdef.Namespace),
+			MeterKind:          meterdef.Spec.Kind,
+			Metric:             meter.Metric,
+			MetricGroupBy:      common.JSONArray(meter.GroupBy),
+			MeterGroup:         meterdef.Spec.Group,
+			MetricQuery:        meter.Query,
+			MetricPeriod:       period,
+			WorkloadName:       meter.Name,
+			MetricWithout:      common.JSONArray(meter.Without),
+			WorkloadType:       string(meter.WorkloadType),
+			MetricAggregation:  meter.Aggregation,
+			MeterDescription:   meter.Description,
+			DateLabelOverride:  meter.DateLabelOverride,
+			ValueLabelOverride: meter.ValueLabelOverride,
 		}
 
-		labelsMap := map[string]interface{}{}
-		err = json.Unmarshal(labelsJSON, &labelsMap)
-
-		if err != nil {
-			return nil, err
-		}
-
-		labels := map[string]string{}
-
-		for k, v := range labelsMap {
-			if strv, ok := v.(string); ok {
-				labels[k] = strv
-			}
-		}
-
-		allMdefs = append(allMdefs, labels)
+		allMdefs = append(allMdefs, obj)
 	}
 
-	return allMdefs, nil
+	return allMdefs
+}
+
+func (meterdef *MeterDefinition) BuildMeterDefinitionFromString(meterdefString, name, namespace, nameLabel, namespaceLabel string) (*MeterDefinition, error) {
+	data := []byte(meterdefString)
+	err := json.Unmarshal(data, meterdef)
+	if err != nil {
+		return meterdef, err
+	}
+
+	csvInfo := make(map[string]string)
+	csvInfo[nameLabel] = name
+	csvInfo[namespaceLabel] = namespace
+	meterdef.SetAnnotations(csvInfo)
+
+	meterdef.Namespace = namespace
+	meterdef.Spec.InstalledBy = &common.NamespacedNameReference{
+		Name:      name,
+		Namespace: namespace,
+	}
+
+	return meterdef, nil
 }

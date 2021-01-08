@@ -2,8 +2,8 @@ package v1alpha1
 
 import (
 	"fmt"
+	"sync"
 
-	"github.com/imdario/mergo"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -13,6 +13,25 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
+
+type counter struct {
+	sync.Mutex
+	count int
+}
+
+func (c *counter) Next() int {
+	c.Lock()
+	defer c.Unlock()
+
+	next := c.count
+	c.count = c.count + 1
+	fmt.Println(next)
+	return next
+}
+
+func (c *counter) Identity(element interface{}) string {
+	return fmt.Sprintf("%v", c.Next())
+}
 
 var _ = Describe("MeterDefinition", func() {
 
@@ -65,39 +84,42 @@ var _ = Describe("MeterDefinition", func() {
 			return element.(v1beta1.MeterWorkload).Metric
 		}
 
-		k := Fields{
-			"ResourceFilters": MatchAllFields(Fields{
-				"Namespace":  PointTo(Equal(v1beta1.NamespaceFilter{UseOperatorGroup: true})),
-				"Annotation": BeNil(),
-				"Label":      BeNil(),
-				"OwnerCRD": PointTo(Equal(v1beta1.OwnerCRDFilter{GroupVersionKind: common.GroupVersionKind{
-					APIVersion: "apps.partner.metering.com/v1",
-					Kind:       "App",
-				}})),
-				"WorkloadType": Equal(v1beta1.WorkloadTypePod),
-			}),
-		}
+		resourceFilter := MatchAllFields(Fields{
+			"Namespace":  PointTo(Equal(v1beta1.NamespaceFilter{UseOperatorGroup: true})),
+			"Annotation": BeNil(),
+			"Label":      BeNil(),
+			"OwnerCRD": PointTo(Equal(v1beta1.OwnerCRDFilter{GroupVersionKind: common.GroupVersionKind{
+				APIVersion: "apps.partner.metering.com/v1",
+				Kind:       "App",
+			}})),
+			"WorkloadType": Equal(v1beta1.WorkloadTypePod),
+		})
 
 		k1 := Fields{
-			"Metric":      Equal("rpc_durations_seconds_sum"),
-			"Query":       Equal("rpc_durations_seconds_sum"),
-			"Aggregation": Equal("sum"),
+			"Metric":       Equal("rpc_durations_seconds_sum"),
+			"Query":        Equal("rpc_durations_seconds_sum"),
+			"Aggregation":  Equal("sum"),
+			"WorkloadType": Equal(v1beta1.WorkloadTypePod),
 		}
 
 		k2 := Fields{
-			"Metric":      Equal("rpc_durations_seconds_count"),
-			"Query":       Equal("my_query"),
-			"Aggregation": Equal("min"),
+			"Metric":       Equal("rpc_durations_seconds_count"),
+			"Query":        Equal("my_query"),
+			"Aggregation":  Equal("min"),
+			"WorkloadType": Equal(v1beta1.WorkloadTypePod),
 		}
 
-		mergo.Merge(&k1, k)
-		mergo.Merge(&k2, k)
-
 		fmt.Println(v1beta1ID(mdefBeta.Spec.Meters[0]))
+		c := &counter{}
 
 		Expect(mdefBeta.Spec).To(MatchAllFields(Fields{
 			"Group": Equal("apps.partner.metering.com"),
 			"Kind":  Equal("App"),
+			"ResourceFilters": MatchAllElements(c.Identity,
+				Elements{
+					"0": resourceFilter,
+				},
+			),
 			"Meters": MatchAllElements(v1beta1ID,
 				Elements{
 					"rpc_durations_seconds_sum":   MatchFields(IgnoreExtras, k1),
@@ -110,6 +132,5 @@ var _ = Describe("MeterDefinition", func() {
 		newSource := &MeterDefinition{}
 		err = newSource.ConvertFrom(mdefBeta)
 		Expect(err).To(Succeed())
-
 	})
 })

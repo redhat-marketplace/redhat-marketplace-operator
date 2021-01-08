@@ -364,6 +364,10 @@ func (c *ClientCommand) Exec(
 	return action.Exec(ctx, c)
 }
 
+func (c *ClientCommand) GetScheme() *runtime.Scheme {
+	return c.scheme
+}
+
 func (c *ClientCommand) Log() logr.Logger {
 	return c.log
 }

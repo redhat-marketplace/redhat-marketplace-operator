@@ -32,13 +32,20 @@ var meterDefinitionMetricsFamilies = []FamilyGenerator{
 		},
 		GenerateMeterFunc: wrapMeterDefinitionFunc(func(meterDefinition *marketplacev1beta1.MeterDefinition, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
 			metrics := []*kbsm.Metric{}
-			allLabels, _ := meterDefinition.ToPrometheusLabels()
+			allLabels := meterDefinition.ToPrometheusLabels()
 
 			for _, labels := range allLabels {
 				keys := []string{}
 				values := []string{}
 
-				for key, value := range labels {
+				labelMap, err := labels.ToLabels()
+
+				if err != nil {
+					log.Error(err, "label map conversion failed")
+					continue
+				}
+
+				for key, value := range labelMap {
 					keys = append(keys, key)
 					values = append(values, value)
 				}

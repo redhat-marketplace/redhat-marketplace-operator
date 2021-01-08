@@ -36,8 +36,9 @@ type createAction struct {
 
 //go:generate go-options -option CreateActionOption -imports=k8s.io/apimachinery/pkg/runtime,github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch -prefix Create createActionOptions
 type createActionOptions struct {
-	WithPatch    patch.PatchAnnotator
-	WithAddOwner runtime.Object `options:",nil"`
+	WithPatch         patch.PatchAnnotator
+	WithAddOwner      runtime.Object `options:",nil"`
+	WithAddController runtime.Object `options:",nil"`
 }
 
 func CreateAction(
@@ -70,14 +71,26 @@ func (a *createAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 	key, _ := client.ObjectKeyFromObject(a.newObject)
 	reqLogger = reqLogger.WithValues("requestType", fmt.Sprintf("%T", a.newObject), "key", key)
 
-	if a.WithAddOwner != nil {
+	if a.WithAddController != nil {
 		if meta, ok := a.newObject.(metav1.Object); ok {
 			if err := controllerutil.SetControllerReference(
-				a.WithAddOwner.(metav1.Object),
+				a.WithAddController.(metav1.Object),
 				meta,
 				c.scheme); err != nil {
 				c.log.Error(err, "Failed to create.", "obj", a.newObject)
 				return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error adding owner")
+			}
+		}
+	} else {
+		if a.WithAddOwner != nil {
+			if meta, ok := a.newObject.(metav1.Object); ok {
+				if err := controllerutil.SetOwnerReference(
+					a.WithAddOwner.(metav1.Object),
+					meta,
+					c.scheme); err != nil {
+					c.log.Error(err, "Failed to create.", "obj", a.newObject)
+					return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error adding owner")
+				}
 			}
 		}
 	}

@@ -243,8 +243,8 @@ func (r *MarketplaceReporter) retrieveMeterDefinitions(
 	case model.ValMatrix:
 		matrixVals := result.(model.Matrix)
 		for _, matrix := range matrixVals {
-			meterGroup, _ := getMatrixValue(matrix.Metric, "meter_group")
-			meterKind, _ := getMatrixValue(matrix.Metric, "meter_kind")
+			meterGroup, _ := getMatrixValue(matrix.Metric, "meter_def_group")
+			meterKind, _ := getMatrixValue(matrix.Metric, "meter_def_kind")
 
 			// skip 0 data groups
 			if meterGroup == "" && meterKind == "" {
@@ -576,12 +576,7 @@ func buildPromQuery(labels interface{}, start, end time.Time) *meterDefPromQuery
 		panic(err)
 	}
 
-	workloadType, err := marketplacev1alpha1.ConvertWorkloadType(meterDefLabels.WorkloadType)
-
-	if err != nil {
-		log.Error(err, "failed to convert workloadType")
-		panic(err)
-	}
+	workloadType := marketplacev1beta1.WorkloadType(meterDefLabels.WorkloadType)
 
 	duration := time.Hour
 	if meterDefLabels.MetricPeriod != nil {

@@ -22,13 +22,13 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
 	"github.com/go-logr/logr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,6 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 )
 
 //var log = logf.Log.WithName("controller_olm_clusterserviceversion_watcher")
@@ -170,9 +171,13 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 
 		if !reflect.DeepEqual(annotations, clusterOriginalAnnotations) {
 			CSV.SetAnnotations(annotations)
-			if err := r.Client.Update(context.TODO(), CSV); err != nil {
-				reqLogger.Error(err, "Failed to patch clusterserviceversion ignore tag")
-				return reconcile.Result{Requeue: true}, err
+			retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				return r.Client.Update(context.TODO(), CSV)
+			})
+
+			if retryErr != nil {
+				reqLogger.Error(retryErr, "Failed to patch clusterserviceversion ignore tag")
+				return reconcile.Result{Requeue: true}, retryErr
 			}
 			reqLogger.Info("Patched clusterserviceversion with ignore tag")
 		} else {
@@ -216,7 +221,7 @@ func (r *ClusterServiceVersionReconciler) deleteExternalResources(CSV *olmv1alph
 		return nil
 	}
 
-	meterDefinition := &marketplacev1alpha1.MeterDefinition{}
+	meterDefinition := &marketplacev1beta1.MeterDefinition{}
 	_, err = meterDefinition.BuildMeterDefinitionFromString(meterDefinitionString, CSV.GetName(), CSV.GetNamespace(), utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
 	if err != nil {
 		reqLogger.Error(err, "Could not build a local copy of the MeterDefinition")
@@ -251,7 +256,7 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 
 	// builds a meterdefinition from our string (from the annotation)
 	reqLogger.Info("retrieval successful")
-	meterDefinition := &marketplacev1alpha1.MeterDefinition{}
+	meterDefinition := &marketplacev1beta1.MeterDefinition{}
 	_, err = meterDefinition.BuildMeterDefinitionFromString(
 		meterDefinitionString,
 		CSV.GetName(),
@@ -272,17 +277,17 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 		reqLogger.Info("Patched clusterserviceversion with MeterDefinition status")
 		return reconcile.Result{}, true, err
 	}
-	reqLogger.Info("marketplacev1alpha1.MeterDefinitionList >>>> ")
+	reqLogger.Info("marketplacev1beta1.MeterDefinitionList >>>> ")
 	// Case 1: The CSV is old: compare vs. expected MeterDefinition
-	list := &marketplacev1alpha1.MeterDefinitionList{}
+	list := &marketplacev1beta1.MeterDefinitionList{}
 	err = r.Client.List(context.TODO(), list, client.InNamespace(meterDefinition.GetNamespace()))
 
 	if err != nil {
 		reqLogger.Error(err, "Could not retrieve the existing MeterDefinition")
 		return reconcile.Result{}, true, err
 	}
-	reqLogger.Info("marketplacev1alpha1.MeterDefinitionList End --- ")
-	var actualMeterDefinition *marketplacev1alpha1.MeterDefinition
+	reqLogger.Info("marketplacev1beta1.MeterDefinitionList End --- ")
+	var actualMeterDefinition *marketplacev1beta1.MeterDefinition
 
 	// Find the meterdef, we're use the InstalledBy field
 	for _, meterDef := range list.Items {
@@ -469,7 +474,7 @@ func (r *ClusterServiceVersionReconciler) SetupWithManager(mgr manager.Manager) 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&olmv1alpha1.ClusterServiceVersion{}, builder.WithPredicates(labelPreds)).
 		Watches(
-			&source.Kind{Type: &marketplacev1alpha1.MeterDefinition{}}, &handler.EnqueueRequestForOwner{
+			&source.Kind{Type: &marketplacev1beta1.MeterDefinition{}}, &handler.EnqueueRequestForOwner{
 				IsController: false,
 				OwnerType:    &olmv1alpha1.ClusterServiceVersion{},
 			}).

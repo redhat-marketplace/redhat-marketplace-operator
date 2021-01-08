@@ -16,6 +16,7 @@ package meter_definition
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -40,8 +41,7 @@ type ObjectResourceMessage struct {
 }
 
 func (o *ObjectResourceMessage) String() string {
-	jsonOut, _ := json.Marshal(o)
-	return string(jsonOut)
+	return fmt.Sprintf("action=%v, objectResourceValue=%v+, object=%v+", o.Action, o.ObjectResourceValue, o.Object)
 }
 
 type ObjectResourceKey struct {

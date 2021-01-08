@@ -21,6 +21,7 @@ func newCreateActionOptions(options ...CreateActionOption) (createActionOptions,
 
 func applyCreateActionOptionsOptions(c *createActionOptions, options ...CreateActionOption) error {
 	c.WithAddOwner = nil
+	c.WithAddController = nil
 	for _, o := range options {
 		if err := o.apply(c); err != nil {
 			return err
@@ -43,6 +44,13 @@ func CreateWithPatch(o patch.PatchAnnotator) ApplyCreateActionOptionFunc {
 func CreateWithAddOwner(o runtime.Object) ApplyCreateActionOptionFunc {
 	return func(c *createActionOptions) error {
 		c.WithAddOwner = o
+		return nil
+	}
+}
+
+func CreateWithAddController(o runtime.Object) ApplyCreateActionOptionFunc {
+	return func(c *createActionOptions) error {
+		c.WithAddController = o
 		return nil
 	}
 }

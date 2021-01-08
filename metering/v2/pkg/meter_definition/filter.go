@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"emperror.dev/errors"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -92,13 +92,13 @@ func (f *WorkloadTypeFilter) Filter(obj interface{}) (bool, error) {
 
 	for _, gvk := range f.gvks {
 		if gvk == objType {
-			filterLogs.Info("matching gvk",
+			filterLogs.V(4).Info("matching gvk",
 				"matched", "true",
 				"gvk", gvk,
 				"obj", fmt.Sprintf("%T", obj))
 			return true, nil
 		} else {
-			filterLogs.Info("not matching",
+			filterLogs.V(4).Info("not matching",
 				"matched", "false",
 				"gvk", gvk,
 				"obj", fmt.Sprintf("%T", obj))
@@ -109,12 +109,65 @@ func (f *WorkloadTypeFilter) Filter(obj interface{}) (bool, error) {
 }
 
 type WorkloadFilterForOwner struct {
-	workload  v1alpha1.Workload
-	findOwner *rhmclient.FindOwnerHelper
+	ownerFilter v1beta1.OwnerCRDFilter
+	findOwner   *rhmclient.FindOwnerHelper
+	maxDepth    int
+}
+
+func NewWorkloadFilterForOwner(ownerFilter v1beta1.OwnerCRDFilter, findOwner *rhmclient.FindOwnerHelper) *WorkloadFilterForOwner {
+	return &WorkloadFilterForOwner{
+		ownerFilter: ownerFilter,
+		findOwner:   findOwner,
+		maxDepth:    5,
+	}
+}
+
+func (f *WorkloadFilterForOwner) getOwners(
+	name, namespace string,
+	owner *metav1.OwnerReference,
+	inRefs []metav1.OwnerReference,
+	i, maxDepth int,
+) (bool, error) {
+
+	var refs []metav1.OwnerReference
+	var err error
+
+	if owner != nil {
+		refs, err = f.findOwner.FindOwner(name, namespace, owner)
+		if err != nil {
+			return false, err
+		}
+	} else {
+		refs = inRefs
+	}
+
+	for _, ref := range refs {
+		if ref.APIVersion == f.ownerFilter.APIVersion && ref.Kind == f.ownerFilter.Kind {
+			return true, nil
+		}
+	}
+
+	if !(i < maxDepth) {
+		return false, nil
+	}
+
+	for _, ref := range refs {
+		found, err := f.getOwners(ref.Name, namespace, &ref, []metav1.OwnerReference{}, i+1, maxDepth)
+
+		if err != nil {
+			return false, err
+		}
+
+		if found {
+			return true, err
+		}
+	}
+
+	return false, nil
 }
 
 func (f *WorkloadFilterForOwner) String() string {
-	return fmt.Sprintf("WorkloadFilterForOwner{workload=%v}", f.workload)
+	return fmt.Sprintf("WorkloadFilterForOwner{workload=%v}", f.ownerFilter)
 }
 
 func (f *WorkloadFilterForOwner) Filter(obj interface{}) (bool, error) {
@@ -124,36 +177,13 @@ func (f *WorkloadFilterForOwner) Filter(obj interface{}) (bool, error) {
 		return false, errors.New("type was not a metav1.Object")
 	}
 
-	owner := metav1.GetControllerOf(meta)
-
-	if owner == nil {
-		return false, nil
-	}
-
-	if owner.APIVersion == f.workload.OwnerCRD.APIVersion && owner.Kind == f.workload.OwnerCRD.Kind {
-		return true, nil
-	}
-
-	namespace := meta.GetNamespace()
-	var err error
-
-	for i := 0; i < 5; i++ {
-		owner, err = f.findOwner.FindOwner(owner.Name, namespace, owner)
-
-		if err != nil {
-			return false, err
-		}
-
-		if owner == nil {
-			return false, nil
-		}
-
-		if owner.APIVersion == f.workload.OwnerCRD.APIVersion && owner.Kind == f.workload.OwnerCRD.Kind {
-			return true, nil
-		}
-	}
-
-	return false, nil
+	return f.getOwners(
+		meta.GetName(),
+		meta.GetNamespace(), nil,
+		meta.GetOwnerReferences(),
+		0,
+		f.maxDepth,
+	)
 }
 
 type WorkloadLabelFilter struct {

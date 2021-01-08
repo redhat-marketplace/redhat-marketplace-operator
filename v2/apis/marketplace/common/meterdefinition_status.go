@@ -15,8 +15,9 @@ import (
 type WorkloadResource struct {
 	// ReferencedWorkloadName is the name of the workload
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	ReferencedWorkloadName string `json:"referencedWorkloadName"`
+	ReferencedWorkloadName string `json:"referencedWorkloadName,omitempty"`
 
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	NamespacedNameReference `json:",inline"`
 }
 
@@ -30,7 +31,7 @@ func (a ByAlphabetical) Less(i, j int) bool {
 		strings.Compare(a[i].NamespacedNameReference.Name, a[j].NamespacedNameReference.Name) > 0
 }
 
-func NewWorkloadResource(name string, obj interface{}, scheme *runtime.Scheme) (*WorkloadResource, error) {
+func NewWorkloadResource(obj interface{}, scheme *runtime.Scheme) (*WorkloadResource, error) {
 	accessor, err := meta.Accessor(obj)
 
 	if err != nil {
@@ -42,7 +43,6 @@ func NewWorkloadResource(name string, obj interface{}, scheme *runtime.Scheme) (
 	}
 
 	return &WorkloadResource{
-		ReferencedWorkloadName: name,
 		NamespacedNameReference: NamespacedNameReference{
 			Name:             accessor.GetName(),
 			Namespace:        accessor.GetNamespace(),
