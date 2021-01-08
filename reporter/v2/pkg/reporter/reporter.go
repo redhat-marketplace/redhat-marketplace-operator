@@ -243,8 +243,21 @@ func (r *MarketplaceReporter) retrieveMeterDefinitions(
 	case model.ValMatrix:
 		matrixVals := result.(model.Matrix)
 		for _, matrix := range matrixVals {
-			meterGroup, _ := getMatrixValue(matrix.Metric, "meter_def_group")
-			meterKind, _ := getMatrixValue(matrix.Metric, "meter_def_kind")
+			meterGroup, _ := getMatrixValue(matrix.Metric, "meter_group")
+			meterKind, _ := getMatrixValue(matrix.Metric, "meter_kind")
+			metricPeriod, _ := getMatrixValue(matrix.Metric, "metric_period")
+
+			if metricPeriod == "" {
+				metricPeriod = "1h"
+			}
+
+			period, err := time.ParseDuration(metricPeriod)
+
+			if err != nil {
+				logger.Error(err, "error encountered")
+				errorChan <- err
+				return
+			}
 
 			// skip 0 data groups
 			if meterGroup == "" && meterKind == "" {
@@ -255,7 +268,7 @@ func (r *MarketplaceReporter) retrieveMeterDefinitions(
 			for i, v := range matrix.Values {
 				if i == 0 {
 					min = v.Timestamp.Time()
-					max = v.Timestamp.Time()
+					max = v.Timestamp.Time().Add(period)
 				}
 
 				if v.Timestamp.Time().Before(min) {
@@ -269,7 +282,7 @@ func (r *MarketplaceReporter) retrieveMeterDefinitions(
 			max = max.Add(-time.Second)
 			promQuery := buildPromQuery(matrix.Metric, min, max)
 
-			logger.Info("getting query", "query", promQuery.String())
+			logger.Info("getting query", "query", promQuery.String(), "start", min, "end", max)
 			meterDefsChan <- promQuery
 		}
 	case model.ValString:
@@ -382,7 +395,7 @@ func (r *MarketplaceReporter) process(
 							ReportPeriodStart: r.report.Spec.StartTime.Format(time.RFC3339),
 							ReportPeriodEnd:   r.report.Spec.EndTime.Format(time.RFC3339),
 							IntervalStart:     pair.Timestamp.Time().Format(time.RFC3339),
-							IntervalEnd:       pair.Timestamp.Add(time.Hour).Time().Format(time.RFC3339),
+							IntervalEnd:       pair.Timestamp.Add(pmodel.mdef.query.Step).Time().Format(time.RFC3339),
 							MeterDomain:       pmodel.mdef.meterGroup,
 							MeterKind:         pmodel.mdef.meterKind,
 							Namespace:         namespace,

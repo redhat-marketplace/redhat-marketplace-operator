@@ -16,6 +16,7 @@ package marketplace
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"time"
 
@@ -208,6 +209,12 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	jr := instance.Status.AssociatedJob
+
+	if jr == nil {
+		reqLogger.Error(errors.New("failed to find a job reference"), "failed to find the job reference")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	reqLogger.Info("reviewing job", "jr", jr,
 		"active", jr.Active,
 		"failed", jr.Failed,
