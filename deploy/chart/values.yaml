@@ -10,7 +10,6 @@ metricStateImage: quay.io/rh-marketplace/redhat-marketplace-metric-state:latest
 authCheckImage: quay.io/rh-marketplace/redhat-marketplace-authcheck:latest
 pullPolicy: IfNotPresent
 watchNamespace: '' # watch all namespaces
-serviceAccountName: redhat-marketplace-operator
 devpostfix: ''
 imagePullSecret: ''
 env:
@@ -32,7 +31,7 @@ env:
     value: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5
   - name: RELATED_IMAGE_KUBE_RBAC
     value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
-  - name: IBMCATALOGSOURCE
+  - name: IBMCATALOGSOURC E
     value: 'true'
 roles:
   - name: redhat-marketplace-operator

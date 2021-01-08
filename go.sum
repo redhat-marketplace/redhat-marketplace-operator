@@ -1003,6 +1003,8 @@ github.com/operator-framework/api v0.3.8 h1:tJykTCmwGKZBsPVTCfxbwz6nTF6dzmKydWJt
 github.com/operator-framework/api v0.3.8/go.mod h1:Xbje9x0SHmh0nihE21kpesB38vk3cyxnE6JdDS8Jo1Q=
 github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b h1:L7RscPvm2piRIL88QBaGnebeRo2ClDsHt8OJ+9Tb2TU=
 github.com/operator-framework/operator-marketplace v0.0.0-20200303235415-12497b0b9a6b/go.mod h1:msZSL8pXwzQjB+hU+awVrZQw94IwJi3sNZVD3NoESIs=
+github.com/operator-framework/operator-marketplace v0.0.0-20201125223936-13d3a27470e1 h1:s2gt++yzSkFZgkmpDuMndx/Rh4TM/gn3y3ke1TeNi5s=
+github.com/operator-framework/operator-marketplace v0.0.0-20201125223936-13d3a27470e1/go.mod h1:msZSL8pXwzQjB+hU+awVrZQw94IwJi3sNZVD3NoESIs=
 github.com/operator-framework/operator-registry v1.13.4/go.mod h1:YhnIzOVjRU2ZwZtzt+fjcjW8ujJaSFynBEu7QVKaSdU=
 github.com/operator-framework/operator-sdk v0.19.2 h1:Rs5uSxOABT2Czr9mTnfuNQzKA/S39iup+vy4QI++kL0=
 github.com/operator-framework/operator-sdk v0.19.2/go.mod h1:PYifrohZkSUnO/+J4w9BSrJWNJkrXB+DQTogOwuU+qM=

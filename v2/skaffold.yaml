@@ -1,0 +1,59 @@
+apiVersion: skaffold/v2beta10
+kind: Config
+metadata:
+  name: redhat-marketplace-operator
+build:
+  local:
+    useBuildkit: true
+    concurrency: 4
+  tagPolicy:
+    gitCommit: {}
+  artifacts:
+    - image: redhat-marketplace-operator
+      custom:
+        buildCommand: make docker-build
+        dependencies:
+          command: ./hack/go-dependencies.sh .
+    - image: redhat-marketplace-reporter
+      custom:
+        buildCommand: cd ../reporter/v2 && make docker-build
+        dependencies:
+          command: ./hack/go-dependencies.sh ../reporter/v2
+    - image: redhat-marketplace-metric-state
+      custom:
+        buildCommand: cd ../metering/v2 && make docker-build
+        dependencies:
+          command: ./hack/go-dependencies.sh ../metering/v2
+    - image: redhat-marketplace-authcheck
+      custom:
+        buildCommand: cd ../authchecker/v2 && make docker-build
+        dependencies:
+          command: ./hack/go-dependencies.sh ../authchecker/v2
+deploy:
+  helm:
+    releases:
+      - name: rhm-operator
+        namespace: openshift-redhat-marketplace
+        artifactOverrides:
+          operatorImage: redhat-marketplace-operator
+          reporterImage: redhat-marketplace-reporter
+          metricStateImage: redhat-marketplace-metric-state
+          authCheckImage: redhat-marketplace-authcheck
+        wait: false
+        chartPath: ./config/helm-wrapper
+        valuesFiles:
+          - ./config/helm-wrapper/values.yaml
+    flags:
+      install:
+        - --post-renderer
+        - config/helm-wrapper/kustomize
+      upgrade:
+        - --post-renderer
+        - config/helm-wrapper/kustomize
+portForward:
+  - resourceType: StatefulSet
+    resourceName: prometheus-rhm-marketplaceconfig-meterbase
+    port: 9090
+  - resourceType: Deployment
+    resourceName: rhm-metric-state
+    port: 8080

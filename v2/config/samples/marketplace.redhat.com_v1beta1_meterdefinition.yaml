@@ -1,0 +1,5 @@
+apiVersion: marketplace.redhat.com/v1beta1
+kind: MeterDefinition
+metadata:
+  name: meterdefinition-sample
+spec:
