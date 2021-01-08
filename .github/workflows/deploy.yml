@@ -203,12 +203,6 @@ jobs:
           skopeo inspect docker://${TAG} --creds ${{ secrets['quayUser'] }}:${{ secrets['quayPassword'] }} > /dev/null
           ([[ $? == 0 ]] && echo "exists=true" || echo "exists=false") >> $GITHUB_ENV
 
-      - name: Install tools
-        run: |
-          make install-tools
-        env:
-          SKAFFOLD_VERSION: v1.14.0
-
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v1

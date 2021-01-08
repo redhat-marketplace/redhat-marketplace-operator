@@ -54,12 +54,12 @@ endif
 all: manager
 
 # Run tests
-test: fmt vet manifests
-	ginkgo -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
+test: fmt vet manifests ginkgo
+	$(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
 
 .PHONY: test-ci-unit
-test-ci-unit: ## test-ci-unit runs all tests for CI builds
-	ginkgo -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
+test-ci-unit: ginkgo ## test-ci-unit runs all tests for CI builds
+	$(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
 	cat cover-unit.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-unit.out
 
 .PHONY: test-ci-int
@@ -215,10 +215,13 @@ endif
 
 helm:
 ifeq (, $(shell which helm))
-	@{ \
-	set -e ;\
-  brew install helm ;\
-	}
+ifeq ($(UNAME_S),Linux)
+	curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+endif
+ifeq ($(UNAME_S),Darwin)
+	brew install skaffold
+	brew install helm
+endif
 endif
 HELM=$(shell which helm)
 
@@ -234,6 +237,21 @@ endif
 SKAFFOLD=$(shell which skaffold)
 else
 SKAFFOLD=$(shell which skaffold)
+endif
+
+ginkgo:
+ifeq (, $(shell which ginkgo))
+	@{ \
+	set -e ;\
+	GINKGO_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$GINKGO_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get -u github.com/onsi/ginkgo/ginkgo ;\
+	rm -rf $$GINKGO_GEN_TMP_DIR ;\
+	}
+GINKGO=$(GOBIN)/ginkgo
+else
+GINKGO=$(shell which ginkgo)
 endif
 
 # Generate bundle manifests and metadata, then validate generated files.
