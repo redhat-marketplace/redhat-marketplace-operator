@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          env:
+            - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
+              value: quay.io/razee/remoteresources3:0.6.2
+            - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
+              value: quay.io/razee/remoteresources3:0.6.2
+            - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
+              value: quay.io/razee/watch-keeper:0.6.6
+            - name: RELATED_IMAGE_PROMETHEUS
+              value: registry.redhat.io/openshift4/ose-prometheus:v4.5
+            - name: RELATED_IMAGE_OAUTH_PROXY
+              value: registry.redhat.io/openshift4/ose-oauth-proxy:v4.5
+            - name: RELATED_IMAGE_PROMETHEUS_OPERATOR
+              value: registry.redhat.io/openshift4/ose-prometheus-operator:v4.5
+            - name: RELATED_IMAGE_CONFIGMAP_RELOADER
+              value: registry.redhat.io/openshift4/ose-configmap-reloader:v4.5
+            - name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
+              value: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5
+            - name: RELATED_IMAGE_KUBE_RBAC_PROXY
+              value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
+            - name: IBMCATALOGSOURCE
+              value: 'true'
