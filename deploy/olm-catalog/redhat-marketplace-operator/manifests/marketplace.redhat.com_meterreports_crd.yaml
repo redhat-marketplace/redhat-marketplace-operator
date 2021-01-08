@@ -3,6 +3,16 @@ kind: CustomResourceDefinition
 metadata:
   name: meterreports.marketplace.redhat.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.conditions[?(@.type == "JobRunning")].status
+    name: RUNNING
+    type: string
+  - JSONPath: .status.conditions[?(@.type == "JobRunning")].reason
+    name: REASON
+    type: string
+  - JSONPath: .status.metricUploadCount
+    name: METRICS
+    type: string
   group: marketplace.redhat.com
   names:
     kind: MeterReport

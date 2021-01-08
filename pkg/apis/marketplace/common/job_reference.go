@@ -88,7 +88,7 @@ func (j *JobReference) IsSuccessful() bool {
 }
 
 func (j *JobReference) IsFailed() bool {
-	return j.Failed == j.BackoffLimit+1 && !j.IsSuccessful()
+	return j.Failed >= j.BackoffLimit && !j.IsSuccessful()
 }
 
 func (j *JobReference) IsActive() bool {

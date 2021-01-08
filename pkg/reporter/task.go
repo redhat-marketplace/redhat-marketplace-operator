@@ -209,7 +209,7 @@ func getMarketplaceConfig(
 		returnErr = errors.Wrap(result, "failed to get mkplc config")
 	}
 
-	logger.Info("retrieved meter report")
+	logger.Info("retrieved mkplc config")
 	return
 }
 
@@ -224,7 +224,7 @@ func getMarketplaceReport(
 		returnErr = errors.Wrap(result, "failed to get report")
 	}
 
-	logger.Info("retrieved meter report")
+	logger.Info("retrieved meter report", "name", reportName)
 	return
 }
 

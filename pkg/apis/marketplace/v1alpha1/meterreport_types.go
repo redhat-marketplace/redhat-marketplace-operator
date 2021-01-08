@@ -108,7 +108,7 @@ var (
 	}
 	ReportConditionJobFinished = status.Condition{
 		Type:    ReportConditionTypeJobRunning,
-		Status:  corev1.ConditionFalse,
+		Status:  corev1.ConditionTrue,
 		Reason:  ReportConditionReasonJobFinished,
 		Message: "Job has finished",
 	}
@@ -124,6 +124,10 @@ var (
 
 // MeterReport is the Schema for the meterreports API
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:path=marketplaceconfigs,scope=Namespaced
+// +kubebuilder:printcolumn:name="RUNNING",type=string,JSONPath=`.status.conditions[?(@.type == "JobRunning")].status`
+// +kubebuilder:printcolumn:name="REASON",type=string,JSONPath=`.status.conditions[?(@.type == "JobRunning")].reason`
+// +kubebuilder:printcolumn:name="METRICS",type=string,JSONPath=`.status.metricUploadCount`
 // +operator-sdk:gen-csv:customresourcedefinitions.displayName="Reports"
 // +kubebuilder:resource:path=meterreports,scope=Namespaced
 type MeterReport struct {

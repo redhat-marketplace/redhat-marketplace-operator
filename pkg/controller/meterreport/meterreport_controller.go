@@ -161,13 +161,13 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 	endTime := instance.Spec.EndTime.UTC()
 	now := metav1.Now().UTC()
 
-	reqLogger.Info("time", "now", now, "endTime", endTime)
+	reqLogger.Info("time", "now", now.String(), "endTime", endTime.String())
 
 	if now.UTC().Before(endTime.UTC()) {
 		waitTime := now.Add(endTime.Sub(now))
 		waitTime.Add(time.Minute * 5)
 		timeToWait := waitTime.Sub(now)
-		reqLogger.Info("report was schedule before it was ready to run", "add", timeToWait)
+		reqLogger.Info("report was scheduled before it was ready to run", "add", timeToWait.String())
 		result, _ := cc.Do(
 			context.TODO(),
 			HandleResult(
@@ -176,7 +176,7 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 			),
 		)
 		if result.Is(Error) {
-			reqLogger.Error(result.GetError(), "Failed to get create job.")
+			reqLogger.Error(result.GetError(), "Failed to update waiting job.")
 		}
 
 		return result.Return()
@@ -224,7 +224,7 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 
 	if !result.Is(Continue) {
 		if result.Is(Error) {
-			reqLogger.Error(result.GetError(), "Failed to on resolving job.")
+			reqLogger.Error(result.GetError(), "Failed on resolving job.")
 		}
 		return result.Return()
 	}
@@ -254,7 +254,7 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 		switch {
 		case instance.Status.AssociatedJob.IsFailed() &&
 			completionTimeDiffHours >= 4:
-			reqLogger.Info("job failed, deleteing and requeuing for an hour")
+			reqLogger.Info("job failed, deleting and requeuing for an hour")
 			instance.Status.AssociatedJob = nil
 			result, _ = cc.Do(context.TODO(),
 				HandleResult(
@@ -265,7 +265,7 @@ func (r *ReconcileMeterReport) Reconcile(request reconcile.Request) (reconcile.R
 		case instance.Status.AssociatedJob.IsFailed() &&
 			completionTimeDiffHours < 4:
 			requeueTime := (time.Hour * 4) - now.Sub(completionTime)
-			reqLogger.Info("job failed, deleteing and requeuing for in 4 hour", "requeueTime", requeueTime)
+			reqLogger.Info("job failed, deleting and requeuing for in 4 hours", "requeueTime", requeueTime)
 			result, _ = cc.Do(context.TODO(),
 				UpdateStatusCondition(
 					instance,
