@@ -50,7 +50,7 @@ func (g *FamilyGenerator) generateHeader() string {
 }
 
 func GetMeterDefLabelsKeys(mdef *marketplacev1beta1.MeterDefinition) ([]string, []string) {
-	return []string{"meter_def_name", "meter_def_namespace", "meter_def_group", "meter_def_kind"},
+	return []string{"meter_def_name", "meter_def_namespace", "meter_def_group", "meter_kind"},
 		[]string{mdef.Name, mdef.Namespace, mdef.Spec.Group, mdef.Spec.Kind}
 }
 

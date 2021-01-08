@@ -17,8 +17,8 @@ type MeterDefPrometheusLabels struct {
 
 	WorkloadName      string        `json:"workload_name" mapstructure:"workload_name"`
 	WorkloadType      string        `json:"workload_type" mapstructure:"workload_type"`
-	MeterGroup        string        `json:"meter_def_group" mapstructure:"meter_def_group"`
-	MeterKind         string        `json:"meter_def_kind" mapstructure:"meter_def_kind"`
+	MeterGroup        string        `json:"meter_group" mapstructure:"meter_group"`
+	MeterKind         string        `json:"meter_kind" mapstructure:"meter_kind"`
 	Metric            string        `json:"metric_label" mapstructure:"metric_label"`
 	MetricAggregation string        `json:"metric_aggregation,omitempty" mapstructure:"metric_aggregation"`
 	MetricPeriod      *MetricPeriod `json:"metric_period,omitempty" mapstructure:"metric_period"`
