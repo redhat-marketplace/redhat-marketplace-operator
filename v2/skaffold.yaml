@@ -41,6 +41,7 @@ deploy:
           authCheckImage: redhat-marketplace-authcheck
         wait: false
         chartPath: ./config/helm-wrapper
+        upgradeOnChange: false
         valuesFiles:
           - ./config/helm-wrapper/values.yaml
     flags:
