@@ -157,6 +157,64 @@ docker-build:
 docker-push:
 	docker push ${IMG}
 
+# Generate bundle manifests and metadata, then validate generated files.
+.PHONY: bundle
+bundle: manifests kustomize helm
+	operator-sdk generate kustomize manifests -q
+	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
+	--set operatorImage=$(OPERATOR_IMAGE) \
+	--set metricStateImage=$(METRIC_STATE_IMAGE) \
+	--set reporterImage=$(REPORTER_IMAGE) \
+	--set authCheckImage=$(AUTHCHECK_IMAGE) \
+	| ./config/manifests/kustomize | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	operator-sdk bundle validate ./bundle
+
+# Build the bundle image.
+.PHONY: bundle-build
+bundle-build:
+	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+
+bundle-deploy:
+	docker push $(BUNDLE_IMG)
+	operator-sdk run bundle $(BUNDLE_IMG)
+
+bundle-uninstall:
+	- kubectl delete catalogsources.operators.coreos.com redhat-marketplace-operator-catalog
+	- kubectl delete marketplaceconfigs.marketplace.redhat.com --all
+	- kubectl delete subscription -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
+	- kubectl delete csv -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
+
+skaffold-build:
+	skaffold build --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
+
+install:
+	cd config && $(HELM) template rhm-operator ./helm-wrapper \
+	   --namespace $(namespace) \
+	   -f ./helm-wrapper/values.yaml \
+	   --set operatorImage=$(OPERATOR_IMAGE) \
+	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
+	   --set reporterImage=$(REPORTER_IMAGE) \
+	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
+     --post-renderer ./helm-wrapper/kustomize | kubectl apply -f -
+
+uninstall:
+	cd config && $(HELM) template rhm-operator ./helm-wrapper \
+	   --namespace $(namespace) \
+	   -f ./helm-wrapper/values.yaml \
+	   --set operatorImage=$(OPERATOR_IMAGE) \
+	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
+	   --set reporterImage=$(REPORTER_IMAGE) \
+	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
+     --post-renderer ./helm-wrapper/kustomize | kubectl delete -f -
+
+skaffold-dev: install skaffold-setup
+	skaffold dev --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
+
+skaffold-run:
+	skaffold run --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
+
+# --TOOLS--
+#
 # find or download controller-gen
 # download controller-gen if necessary
 controller-gen:
@@ -277,58 +335,17 @@ else
 GOBINDATA=$(shell which go-bindata)
 endif
 
-# Generate bundle manifests and metadata, then validate generated files.
-.PHONY: bundle
-bundle: manifests kustomize helm
-	operator-sdk generate kustomize manifests -q
-	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
-	--set operatorImage=$(OPERATOR_IMAGE) \
-	--set metricStateImage=$(METRIC_STATE_IMAGE) \
-	--set reporterImage=$(REPORTER_IMAGE) \
-	--set authCheckImage=$(AUTHCHECK_IMAGE) \
-	| ./config/manifests/kustomize | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
-	operator-sdk bundle validate ./bundle
-
-# Build the bundle image.
-.PHONY: bundle-build
-bundle-build:
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
-
-bundle-deploy:
-	docker push $(BUNDLE_IMG)
-	operator-sdk run bundle $(BUNDLE_IMG)
-
-bundle-uninstall:
-	- kubectl delete catalogsources.operators.coreos.com redhat-marketplace-operator-catalog
-	- kubectl delete marketplaceconfigs.marketplace.redhat.com --all
-	- kubectl delete subscription -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
-	- kubectl delete csv -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
-
-skaffold-build:
-	skaffold build --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
-
-install:
-	cd config && $(HELM) template rhm-operator ./helm-wrapper \
-	   --namespace $(namespace) \
-	   -f ./helm-wrapper/values.yaml \
-	   --set operatorImage=$(OPERATOR_IMAGE) \
-	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
-	   --set reporterImage=$(REPORTER_IMAGE) \
-	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
-     --post-renderer ./helm-wrapper/kustomize | kubectl apply -f -
-
-uninstall:
-	cd config && $(HELM) template rhm-operator ./helm-wrapper \
-	   --namespace $(namespace) \
-	   -f ./helm-wrapper/values.yaml \
-	   --set operatorImage=$(OPERATOR_IMAGE) \
-	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
-	   --set reporterImage=$(REPORTER_IMAGE) \
-	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
-     --post-renderer ./helm-wrapper/kustomize | kubectl delete -f -
-
-skaffold-dev: install skaffold-setup
-	skaffold dev --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
-
-skaffold-run:
-	skaffold run --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
+addlicense:
+ifeq (, $(shell which addlicense))
+	@{ \
+	set -e ;\
+	GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get -u github.com/google/addlicense ;\
+	rm -rf $$GEN_TMP_DIR ;\
+	}
+LICENSE=$(GOBIN)/addlicense
+else
+LICENSE=$(GOBIN)/addlicense
+endif
