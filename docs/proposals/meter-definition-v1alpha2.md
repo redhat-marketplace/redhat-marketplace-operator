@@ -100,25 +100,25 @@ metadata:
   name: example-meterdefinition-2
   namespace: metering-example-operator
 spec:
-  resourceFilter:
-    - type: operatorGroup # operatorGroup or namespace required
-      useOperatorGroup: true
-    - type: resourceKind # optional, would default to our default ones to look for
-      kind: Service
-    - type: ownerCRD
-      apiVersion: partner.metering.com/v1alpha1
-      kind: App
-  aggregation: max
-  period: 1h
-  group: ${product_id}.partner.metering.com
-  kind: ${kind}
-  label: ${metric_id}
-  name: ${metric} # optional
-  metric: ${product_metric} # VIRTUAL_PROCESS_CORE or w/e other things we monitor here
-  description: ${description} #optional
-  groupBy: metric, product_id
-  query: >-
-    product_license_usage{}
+  meters:
+  - resourceFilter:
+      - type: operatorGroup # operatorGroup or namespace required
+        useOperatorGroup: true
+      - type: resourceKind # optional, would default to our default ones to look for
+        kind: Service
+      - type: ownerCRD
+        apiVersion: partner.metering.com/v1alpha1
+        kind: App
+    aggregation: max
+    period: 1h
+    group: ${product_id}.partner.metering.com
+    kind: ${kind}
+    name: ${metric} # optional
+    metric: ${product_metric} # VIRTUAL_PROCESS_CORE or w/e other things we monitor here
+    description: ${description} #optional
+    groupBy: metric, product_id
+    query: >-
+      product_license_usage{}
 ---
 # more meter definitions
 ```
@@ -147,7 +147,6 @@ spec:
   period: 1h
   group: ${product_id}.partner.metering.com
   kind: ${kind}
-  label: ${metric_id}
   name: ${metric} # optional
   metric: ${product_metric} # VIRTUAL_PROCESS_CORE or w/e other things we monitor here
   description: ${description} #optional

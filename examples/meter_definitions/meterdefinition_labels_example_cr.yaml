@@ -1,28 +1,21 @@
-apiVersion: marketplace.redhat.com/v1alpha1
+apiVersion: marketplace.redhat.com/v1beta1
 kind: MeterDefinition
 metadata:
   name: example-meterdefinition-3
 spec:
-  # Add fields here
-  meterGroup: partner.metering.com
-  meterKind: App
-  workloadVertexType: OperatorGroup
-  workloads:
-    - name: app-pods
-      type: Pod
-      labelSelector:
-        matchLabels:
-          marketplace.redhat.com/product.id: abas342341321-12341451
-      metricLabels:
-        - label: container_spec_cpu_shares
-          aggregation: sum
-    - name: app-pvc
-      type: PersistentVolumeClaim
-      labelSelector:
-        matchLabels:
-          app.kubernetes.io/name: foo
-      metricLabels:
-        - label: kube_persistentvolumeclaim_resource_requests_storage_bytes
-          query: kube_persistentvolumeclaim_resource_requests_storage_bytes
-          aggregation: sum
-
+  group: partner.metering.com
+  kind: App
+  resourceFilters:
+    - namespace:
+        useOperatorGroup: true
+      label:
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: rhm-metric-state
+      workloadType: Pod
+  meters:
+    - aggregation: sum
+      period: 1h
+      metric: container_cpu_usage_core_avg
+      query: rate(container_cpu_usage_seconds_total{cpu="total",container="db"}[5m])*100
+      workloadType: Pod

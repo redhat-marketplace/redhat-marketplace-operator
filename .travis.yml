@@ -26,14 +26,14 @@ script:
   - docker login -u="${ROBOT_USER_NAME}" -p="${ROBOT_PASS_PHRASE}" quay.io
   - echo "Building the Redhat marketplace operator images..."
   - docker build --build-arg ARCH=ppc64le -t "quay.io/rh-marketplace/golang-base:1.15" -f build/base.Dockerfile .
-  - docker build -t "quay.io/kandarpamalipeddi/redhat-marketplace-operator:${VERSION}-ppc64le" -f build/Dockerfile .
-  - docker build -t "quay.io/kandarpamalipeddi/redhat-marketplace-metric-state:${VERSION}-ppc64le" -f build/metricState.Dockerfile .
-  - docker build -t "quay.io/kandarpamalipeddi/redhat-marketplace-reporter:${VERSION}-ppc64le" -f build/reporter.Dockerfile .
-  - docker build -t "quay.io/kandarpamalipeddi/redhat-marketplace-authcheck:${VERSION}-ppc64le" -f build/authcheck.Dockerfile .
+  - docker build -t "quay.io/rh-marketplace/redhat-marketplace-operator:${VERSION}-ppc64le" -f build/Dockerfile .
+  - docker build -t "quay.io/rh-marketplace/redhat-marketplace-metric-state:${VERSION}-ppc64le" -f build/metricState.Dockerfile .
+  - docker build -t "quay.io/rh-marketplace/redhat-marketplace-reporter:${VERSION}-ppc64le" -f build/reporter.Dockerfile .
+  - docker build -t "quay.io/rh-marketplace/redhat-marketplace-authcheck:${VERSION}-ppc64le" -f build/authcheck.Dockerfile .
   - echo "Pushing images ..."
-  - docker push "quay.io/kandarpamalipeddi/redhat-marketplace-operator:${VERSION}-ppc64le"
-  - docker push "quay.io/kandarpamalipeddi/redhat-marketplace-metric-state:${VERSION}-ppc64le"
-  - docker push "quay.io/kandarpamalipeddi/redhat-marketplace-reporter:${VERSION}-ppc64le"
-  - docker push "quay.io/kandarpamalipeddi/redhat-marketplace-authcheck:${VERSION}-ppc64le"
+  - docker push "quay.io/rh-marketplace/redhat-marketplace-operator:${VERSION}-ppc64le"
+  - docker push "quay.io/rh-marketplace/redhat-marketplace-metric-state:${VERSION}-ppc64le"
+  - docker push "quay.io/rh-marketplace/redhat-marketplace-reporter:${VERSION}-ppc64le"
+  - docker push "quay.io/rh-marketplace/redhat-marketplace-authcheck:${VERSION}-ppc64le"
   - echo "Docker Image push to quay.io is done !"
   - make test-ci-unit
