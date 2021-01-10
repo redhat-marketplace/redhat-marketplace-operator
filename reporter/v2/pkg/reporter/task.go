@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
@@ -50,7 +49,6 @@ type Task struct {
 	ReportName ReportName
 
 	CC        ClientCommandRunner
-	Cache     cache.Cache
 	K8SClient client.Client
 	Ctx       context.Context
 	Config    *Config
@@ -60,11 +58,6 @@ type Task struct {
 
 func (r *Task) Run() error {
 	logger.Info("task run start")
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-
-	r.Cache.WaitForCacheSync(stopCh)
-
 	logger.Info("creating reporter job")
 	reporter, err := NewReporter(r)
 

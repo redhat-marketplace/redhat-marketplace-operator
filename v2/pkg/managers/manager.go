@@ -31,6 +31,7 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc
 
+	"emperror.dev/errors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/kubernetes"
@@ -72,7 +73,7 @@ var (
 	ProvideCachedClientSet = wire.NewSet(
 		config.GetConfig,
 		kubernetes.NewForConfig,
-		ProvideClient,
+		ProvideCachedClient,
 		ProvideNewCache,
 		StartCache,
 		NewDynamicRESTMapper,
@@ -142,22 +143,76 @@ func StartCache(
 	cache cache.Cache,
 	log logr.Logger,
 	isIndexed CacheIsIndexed,
-) CacheIsStarted {
-	go func() {
-		err := cache.Start(ctx.Done())
-		log.Error(err, "error starting cache")
+) (*CacheIsStarted, error) {
+	errChan := make(chan error)
+	stopCh := make(chan struct{})
+	doneChan := make(chan bool)
+	timer := time.NewTimer(time.Minute)
+	defer func() {
+		if !timer.Stop() {
+			<-timer.C
+		}
 	}()
-	return CacheIsStarted{}
+	defer close(doneChan)
+	defer close(stopCh)
+	defer close(errChan)
+
+	go func() {
+		log.Info("starting cache")
+		err := cache.Start(ctx.Done())
+		if err != nil {
+			errChan <- err
+			log.Error(err, "error starting cache")
+			return
+		}
+	}()
+
+	log.Info("cache started")
+
+	go func() {
+		log.Info("checking if cache is started")
+		for !cache.WaitForCacheSync(stopCh) {
+		}
+		doneChan <- true
+	}()
+
+	select {
+	case err := <-errChan:
+		return nil, err
+	case <-doneChan:
+		log.Info("Cache has synced")
+		return &CacheIsStarted{}, nil
+	case <-timer.C:
+		return nil, errors.New("Timed out while starting cache")
+	}
 }
 
-func ProvideClient(
+func ProvideCachedClient(
 	c *rest.Config,
 	mapper meta.RESTMapper,
 	scheme *k8sruntime.Scheme,
 	inCache cache.Cache,
 	options ClientOptions,
 ) (client.Client, error) {
-	writeObj, err := defaultNewClient(inCache, c, client.Options{Scheme: scheme, Mapper: mapper})
+	writeObj, err := newCachedClient(inCache, c, client.Options{Scheme: scheme, Mapper: mapper})
+	if err != nil {
+		return nil, err
+	}
+
+	if options.DryRunClient {
+		writeObj = client.NewDryRunClient(writeObj)
+	}
+
+	return writeObj, nil
+}
+
+func ProvideSimpleClient(
+	c *rest.Config,
+	mapper meta.RESTMapper,
+	scheme *k8sruntime.Scheme,
+	options ClientOptions,
+) (client.Client, error) {
+	writeObj, err := newSimpleClient(c, client.Options{Scheme: scheme, Mapper: mapper})
 	if err != nil {
 		return nil, err
 	}
@@ -192,8 +247,8 @@ func NewDynamicRESTMapper(cfg *rest.Config) (meta.RESTMapper, error) {
 	return apiutil.NewDynamicRESTMapper(cfg)
 }
 
-// defaultNewClient creates the default caching client
-func defaultNewClient(ca cache.Cache, config *rest.Config, options client.Options) (client.Client, error) {
+// newCachedClient creates the default caching client
+func newCachedClient(ca cache.Cache, config *rest.Config, options client.Options) (client.Client, error) {
 	// Create the Client for Write operations.
 	c, err := client.New(config, options)
 	if err != nil {
@@ -208,4 +263,14 @@ func defaultNewClient(ca cache.Cache, config *rest.Config, options client.Option
 		Writer:       c,
 		StatusClient: c,
 	}, nil
+}
+
+// newSimpleClient creates a new client
+func newSimpleClient(config *rest.Config, options client.Options) (client.Client, error) {
+	c, err := client.New(config, options)
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
 }

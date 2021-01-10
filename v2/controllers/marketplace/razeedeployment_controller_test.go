@@ -21,7 +21,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/test/rectest"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"

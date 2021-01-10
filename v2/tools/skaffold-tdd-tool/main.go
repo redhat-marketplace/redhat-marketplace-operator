@@ -33,7 +33,7 @@ import (
 	env "github.com/caarlos0/env/v6"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/test/harness"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/harness"
 	"github.com/rivo/tview"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"

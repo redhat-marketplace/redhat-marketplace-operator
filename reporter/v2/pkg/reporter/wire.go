@@ -32,7 +32,7 @@ func NewTask(
 ) (*Task, error) {
 	panic(wire.Build(
 		reconcileutils.CommandRunnerProviderSet,
-		managers.ProvideCachedClientSet,
+		managers.ProvideSimpleClientSet,
 		wire.FieldsOf(new(*Config), "UploaderTarget"),
 		wire.Struct(new(Task), "*"),
 		wire.InterfaceValue(new(logr.Logger), logger),

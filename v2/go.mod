@@ -30,10 +30,9 @@ require (
 	github.com/openshift/api v0.0.0-20200930075302-db52bc4ef99f
 	github.com/operator-framework/api v0.3.25
 	github.com/pelletier/go-toml v1.8.0 // indirect
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus-operator/prometheus-operator v0.44.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.44.0
-	github.com/prometheus/common v0.14.0
-	github.com/redhat-marketplace/redhat-marketplace-operator/v2/test v0.0.0-00010101000000-000000000000
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/pflag v1.0.5
@@ -58,7 +57,6 @@ replace (
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v1.8.2-0.20201015110737-0a7fdd3b7696
 	github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2 => ../metering/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ./
-	github.com/redhat-marketplace/redhat-marketplace-operator/v2/test => ./test
 	k8s.io/api => k8s.io/api v0.19.4
 	k8s.io/client-go => k8s.io/client-go v0.19.4
 )

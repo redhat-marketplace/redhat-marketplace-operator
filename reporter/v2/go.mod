@@ -20,11 +20,13 @@ require (
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.44.0
 	github.com/prometheus/client_golang v1.8.0
 	github.com/prometheus/common v0.15.0
-	github.com/redhat-marketplace/redhat-marketplace-operator v0.0.0-20201211175424-6b3ce5b64e99 // indirect
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 v2.0.0-00010101000000-000000000000
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.1
+	golang.org/x/lint v0.0.0-20201208152925-83fdc39ff7b5 // indirect
+	golang.org/x/mod v0.4.0 // indirect
 	golang.org/x/net v0.0.0-20201202161906-c7110b5ffcbb
+	golang.org/x/tools v0.0.0-20201208211828-de58e7c01d49 // indirect
 	k8s.io/api v0.19.4
 	k8s.io/apimachinery v0.19.4
 	k8s.io/client-go v12.0.0+incompatible
@@ -34,8 +36,8 @@ require (
 replace (
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v1.8.2-0.20201015110737-0a7fdd3b7696
 	github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2 => ../../metering/v2
+	github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2 => ../../tests/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../../v2
-	github.com/redhat-marketplace/redhat-marketplace-operator/v2/test => ../../v2/test
 	k8s.io/api => k8s.io/api v0.19.4
 	k8s.io/client-go => k8s.io/client-go v0.19.4
 )

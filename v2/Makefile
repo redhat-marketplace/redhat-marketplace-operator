@@ -65,7 +65,7 @@ test-ci-unit: ginkgo ## test-ci-unit runs all tests for CI builds
 
 .PHONY: test-ci-int
 test-ci-int:  ## test-ci-int runs all tests for CI builds
-	kubectl kuttl test --namespace openshift-redhat-marketplace --kind-context test --config ./kuttl-test.yaml ./test/e2e --test "(^register-test$$|^features-test$$)"
+	kubectl kuttl test --namespace openshift-redhat-marketplace --kind-context test --config ./kuttl-test.yaml ../tests/v2/e2e --suppress-log "INFO" --test "(^register-test$$|^features-test$$)"
 
 # Build manager binary
 manager: generate fmt vet
@@ -84,7 +84,7 @@ uninstall: manifests kustomize
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests kustomize helm
+deploy: manifests kustomize helm install
 	cd config && $(HELM) template rhm-template ./helm-wrapper \
 	-f ./helm-wrapper/values.yaml \
 	--set operatorImage=$(OPERATOR_IMAGE) \
@@ -105,7 +105,7 @@ vet:
 	go vet ./...
 
 # Generate code
-generate: controller-gen manifests
+generate: controller-gen manifests go-bindata
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 	go generate ./...
 
@@ -157,6 +157,64 @@ docker-build:
 docker-push:
 	docker push ${IMG}
 
+# Generate bundle manifests and metadata, then validate generated files.
+.PHONY: bundle
+bundle: manifests kustomize helm
+	operator-sdk generate kustomize manifests -q
+	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
+	--set operatorImage=$(OPERATOR_IMAGE) \
+	--set metricStateImage=$(METRIC_STATE_IMAGE) \
+	--set reporterImage=$(REPORTER_IMAGE) \
+	--set authCheckImage=$(AUTHCHECK_IMAGE) \
+	| ./config/manifests/kustomize | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	operator-sdk bundle validate ./bundle
+
+# Build the bundle image.
+.PHONY: bundle-build
+bundle-build:
+	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+
+bundle-deploy:
+	docker push $(BUNDLE_IMG)
+	operator-sdk run bundle $(BUNDLE_IMG)
+
+bundle-uninstall:
+	- kubectl delete catalogsources.operators.coreos.com redhat-marketplace-operator-catalog
+	- kubectl delete marketplaceconfigs.marketplace.redhat.com --all
+	- kubectl delete subscription -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
+	- kubectl delete csv -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
+
+skaffold-build:
+	skaffold build --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
+
+install:
+	cd config && $(HELM) template rhm-operator ./helm-wrapper \
+	   --namespace $(namespace) \
+	   -f ./helm-wrapper/values.yaml \
+	   --set operatorImage=$(OPERATOR_IMAGE) \
+	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
+	   --set reporterImage=$(REPORTER_IMAGE) \
+	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
+     --post-renderer ./helm-wrapper/kustomize | kubectl apply -f -
+
+uninstall:
+	cd config && $(HELM) template rhm-operator ./helm-wrapper \
+	   --namespace $(namespace) \
+	   -f ./helm-wrapper/values.yaml \
+	   --set operatorImage=$(OPERATOR_IMAGE) \
+	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
+	   --set reporterImage=$(REPORTER_IMAGE) \
+	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
+     --post-renderer ./helm-wrapper/kustomize | kubectl delete -f -
+
+skaffold-dev: install skaffold-setup
+	skaffold dev --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
+
+skaffold-run:
+	skaffold run --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
+
+# --TOOLS--
+#
 # find or download controller-gen
 # download controller-gen if necessary
 controller-gen:
@@ -261,48 +319,33 @@ else
 GINKGO=$(shell which ginkgo)
 endif
 
-# Generate bundle manifests and metadata, then validate generated files.
-.PHONY: bundle
-bundle: manifests kustomize helm
-	operator-sdk generate kustomize manifests -q
-	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
-	--set operatorImage=$(OPERATOR_IMAGE) \
-	--set metricStateImage=$(METRIC_STATE_IMAGE) \
-	--set reporterImage=$(REPORTER_IMAGE) \
-	--set authCheckImage=$(AUTHCHECK_IMAGE) \
-	| ./config/manifests/kustomize | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
-	operator-sdk bundle validate ./bundle
 
-# Build the bundle image.
-.PHONY: bundle-build
-bundle-build:
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+go-bindata:
+ifeq (, $(shell which go-bindata))
+	@{ \
+	set -e ;\
+	GOBINDATA_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$GOBINDATA_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get -u github.com/kevinburke/go-bindata/... ;\
+	rm -rf $$GO-BINDATA_GEN_TMP_DIR ;\
+	}
+GOBINDATA=$(GOBIN)/go-bindata
+else
+GOBINDATA=$(shell which go-bindata)
+endif
 
-bundle-deploy:
-	docker push $(BUNDLE_IMG)
-	operator-sdk run bundle $(BUNDLE_IMG)
-
-bundle-uninstall:
-	- kubectl delete catalogsources.operators.coreos.com redhat-marketplace-operator-catalog
-	- kubectl delete marketplaceconfigs.marketplace.redhat.com --all
-	- kubectl delete subscription -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
-	- kubectl delete csv -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
-
-skaffold-build:
-	skaffold build --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
-
-skaffold-setup:
-	cd config && $(HELM) template rhm-operator ./helm-wrapper \
-	   --namespace $(namespace) \
-	   -f ./helm-wrapper/values.yaml \
-	   --set operatorImage=$(OPERATOR_IMAGE) \
-	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
-	   --set reporterImage=$(REPORTER_IMAGE) \
-	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
-     --post-renderer ./helm-wrapper/kustomize | kubectl apply -f -
-
-skaffold-dev:
-	skaffold dev --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
-
-skaffold-run:
-	skaffold run --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
+addlicense:
+ifeq (, $(shell which addlicense))
+	@{ \
+	set -e ;\
+	GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get -u github.com/google/addlicense ;\
+	rm -rf $$GEN_TMP_DIR ;\
+	}
+LICENSE=$(GOBIN)/addlicense
+else
+LICENSE=$(GOBIN)/addlicense
+endif

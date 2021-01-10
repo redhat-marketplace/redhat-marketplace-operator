@@ -44,7 +44,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"github.com/openshift/origin/pkg/util/proc"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meter_definition"
+	md "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meter_definition"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
@@ -69,10 +69,10 @@ type Service struct {
 	cache            cache.Cache
 	metricsRegistry  *prometheus.Registry
 	cc               reconcileutils.ClientCommandRunner
-	meterDefStore    *meter_definition.MeterDefinitionStoreBuilder
-	statusProcessor  *meter_definition.StatusProcessor
-	serviceProcessor *meter_definition.ServiceProcessor
-	isCacheStarted   managers.CacheIsStarted
+	meterDefStore    *md.MeterDefinitionStoreBuilder
+	statusProcessor  *md.StatusProcessor
+	serviceProcessor *md.ServiceProcessor
+	isCacheStarted   *managers.CacheIsStarted
 
 	mutex deadlock.Mutex `wire:"-"`
 }
@@ -106,7 +106,7 @@ func (s *Service) Serve(done <-chan struct{}) error {
 		}()
 	}
 
-	store := stores[meter_definition.ServiceStore]
+	store := stores[md.ServiceStore]
 	log.Info("service stores", "store", store)
 	p := s.serviceProcessor.New(store)
 

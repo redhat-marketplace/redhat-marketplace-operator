@@ -15,3 +15,6 @@ namespace:
 
 varReference:
 - path: metadata/annotations
+
+namePrefix:
+- path: spec/conversion/webhookClientConfig/service/name

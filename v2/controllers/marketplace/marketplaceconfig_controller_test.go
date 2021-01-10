@@ -16,7 +16,7 @@ package marketplace
 
 import (
 	"github.com/gotidy/ptr"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/test/rectest"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
 
 	. "github.com/onsi/ginkgo"
 	opsrcApi "github.com/operator-framework/api/pkg/operators/v1"

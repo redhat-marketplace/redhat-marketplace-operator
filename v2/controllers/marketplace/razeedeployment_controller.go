@@ -444,7 +444,15 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 		}
 	}
 
-	registrationEnabled := instance.Spec.Features == nil || instance.Spec.Features.Registration == nil || *instance.Spec.Features.Registration
+	registrationEnabled := true
+
+	if instance.Spec.Features != nil &&
+		instance.Spec.Features.Registration != nil &&
+		!*instance.Spec.Features.Registration {
+			reqLogger.Info("registration is disabled")
+			registrationEnabled = false
+	}
+
 	if !registrationEnabled {
 		//registration disabled - if watchkeeper is found, delete its deployment
 		res, err := r.removeWatchkeeperDeployment(instance)
@@ -951,7 +959,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 	reqLogger.V(0).Info("Finding Rhm RemoteResourceS3 deployment")
 
 	args := manifests.CreateOrUpdateFactoryItemArgs{
-		Owner:   instance,
 		Patcher: patch.RHMDefaultPatcher,
 	}
 
