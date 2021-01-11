@@ -1,0 +1,8 @@
+namespace: openshift-redhat-marketplace
+namePrefix: redhat-marketplace-
+
+resources:
+  - ../crd
+
+configurations:
+- kustomizeconfig.yaml

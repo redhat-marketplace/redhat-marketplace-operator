@@ -6,6 +6,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+
 export
 
 .DEFAULT_GOAL := all
@@ -44,26 +45,14 @@ generate:
 docker-build:
 	$(MAKE) $(addsuffix /docker-build,$(PROJECTS))
 
-operator/%:
-	cd ./v2 && $(MAKE) $(@F)
-
-reporter/%:
-	cd ./reporter/v2 && $(MAKE) $(@F)
-
-metering/%:
-	cd ./metering/v2 && $(MAKE) $(@F)
-
-authchecker/%:
-	cd ./authchecker/v2 && $(MAKE) $(@F)
-
 .PHONY: check-licenses
-check-licenses: install-tools ## Check if all files have licenses
-	 find . -type f -name "*.go" | xargs $(LICENSE) -check -v
+check-licenses: addlicense ## Check if all files have licenses
+	 find . -type f -name "*.go" | xargs $(LICENSE) -check -c "IBM Corp." -v
 
-add-licenses:
-	 find . -type f -name "*.go" | xargs $(LICENSE)
+add-licenses: addlicense
+	 find . -type f -name "*.go" | xargs $(LICENSE) -c "IBM Corp."
 
-install-tools:
+addlicense:
 ifeq (, $(shell which addlicense))
 	@{ \
 	set -e ;\
@@ -78,5 +67,14 @@ else
 LICENSE=$(GOBIN)/addlicense
 endif
 
-%:
-	$(MAKE) operator/$@
+operator/%:
+	cd ./v2 && $(MAKE) $(@F)
+
+reporter/%:
+	cd ./reporter/v2 && $(MAKE) $(@F)
+
+metering/%:
+	cd ./metering/v2 && $(MAKE) $(@F)
+
+authchecker/%:
+	cd ./authchecker/v2 && $(MAKE) $(@F)

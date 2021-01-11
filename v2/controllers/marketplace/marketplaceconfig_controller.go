@@ -68,6 +68,7 @@ type MarketplaceConfigReconciler struct {
 	Scheme *runtime.Scheme
 	Log    logr.Logger
 	cc     ClientCommandRunner
+	cfg    config.OperatorConfig
 }
 
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
@@ -75,8 +76,6 @@ type MarketplaceConfigReconciler struct {
 func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MarketplaceConfig")
-
-	cfg, _ := config.GetConfig()
 	cc := r.cc
 
 	// Fetch the MarketplaceConfig instance
@@ -114,6 +113,28 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		if marketplaceConfig.Spec.Features.Registration == nil {
 			marketplaceConfig.Spec.Features.Registration = ptr.Bool(true)
 		}
+	}
+
+	deployedNamespace := &corev1.Namespace{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: r.cfg.DeployedNamespace}, deployedNamespace)
+	if err != nil {
+		reqLogger.Error(err, "err getting deployed ns")
+	}
+
+	if deployedNamespace.Labels == nil {
+		deployedNamespace.Labels = make(map[string]string)
+	}
+
+	if v, ok := deployedNamespace.Labels[utils.LicenseServerTag]; !ok || v != "true" {
+		deployedNamespace.Labels[utils.LicenseServerTag] = "true"
+
+		err = r.Client.Update(context.TODO(), deployedNamespace)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update deployed namespace with license server tag")
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
@@ -430,9 +451,9 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	if ok {
 		reqLogger.Info("attempting to update registration")
 		marketplaceClient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
-			Url:      cfg.Marketplace.URL,
+			Url:      r.cfg.Marketplace.URL,
 			Token:    string(pullSecret),
-			Insecure: cfg.Marketplace.InsecureClient,
+			Insecure: r.cfg.Marketplace.InsecureClient,
 		})
 
 		marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
@@ -479,7 +500,6 @@ func labelsForMarketplaceConfig(name string) map[string]string {
 // Begin installation or deletion of Catalog Source
 func (r *MarketplaceConfigReconciler) createCatalogSource(request reconcile.Request, marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, catalogName string) (bool, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name, "CatalogSource.Name", catalogName)
-	cfg, _ := config.GetConfig()
 
 	// Get installation setting for Catalog Source (checks MarketplaceConfig.Spec if it doesn't exist, use flag)
 	installCatalogSrcP := marketplaceConfig.Spec.InstallIBMCatalogSource
@@ -488,7 +508,7 @@ func (r *MarketplaceConfigReconciler) createCatalogSource(request reconcile.Requ
 	if installCatalogSrcP == nil {
 
 		reqLogger.Info("MarketplaceConfig.Spec.InstallIBMCatalogSource not found. Using flag.")
-		installCatalogSrc = cfg.Features.IBMCatalog
+		installCatalogSrc = r.cfg.Features.IBMCatalog
 
 		marketplaceConfig.Spec.InstallIBMCatalogSource = &installCatalogSrc
 		r.Client.Update(context.TODO(), marketplaceConfig)
@@ -604,6 +624,11 @@ func (r *MarketplaceConfigReconciler) InjectCommandRunner(ccp ClientCommandRunne
 	return nil
 }
 
+func (m *MarketplaceConfigReconciler) InjectOperatorConfig(cfg config.OperatorConfig) error {
+	m.cfg = cfg
+	return nil
+}
+
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func (r *MarketplaceConfigReconciler) SetupWithManager(mgr manager.Manager) error {
 	// Create a new controller
@@ -614,7 +639,6 @@ func (r *MarketplaceConfigReconciler) SetupWithManager(mgr manager.Manager) erro
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplacev1alpha1.MarketplaceConfig{}).
-		Watches(&source.Kind{Type: &marketplacev1alpha1.MarketplaceConfig{}}, &handler.EnqueueRequestForObject{}).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, ownerHandler).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.MeterBase{}}, ownerHandler).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, &handler.EnqueueRequestForOwner{

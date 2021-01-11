@@ -592,6 +592,9 @@ func NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMonitor, error)
 
 func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDeployment) *appsv1.Deployment {
 	rep := ptr.Int32(1)
+	maxSurge := intstr.FromString("25%")
+	maxUnavailable := intstr.FromString("25%")
+
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
@@ -610,6 +613,10 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 			},
 			Strategy: appsv1.DeploymentStrategy{
 				Type: "RollingUpdate",
+				RollingUpdate: &appsv1.RollingUpdateDeployment{
+					MaxSurge:       &maxSurge,
+					MaxUnavailable: &maxUnavailable,
+				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{

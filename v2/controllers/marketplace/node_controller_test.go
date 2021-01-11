@@ -15,7 +15,7 @@
 package marketplace
 
 import (
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/test/rectest"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"

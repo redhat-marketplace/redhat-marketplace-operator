@@ -32,7 +32,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	"golang.org/x/net/http2"
@@ -275,7 +274,6 @@ func ProvideUploader(
 	ctx context.Context,
 	cc ClientCommandRunner,
 	log logr.Logger,
-	isCacheStarted managers.CacheIsStarted,
 	uploaderTarget UploaderTarget,
 ) (Uploader, error) {
 	switch uploaderTarget.(type) {

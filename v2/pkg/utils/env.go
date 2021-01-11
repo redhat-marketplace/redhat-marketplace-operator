@@ -81,6 +81,8 @@ const (
 	RazeeWatchLevelLite   = "lite"
 	RazeeWatchLevelDetail = "detail"
 
+	LicenseServerTag = "marketplace.redhat.com/operator"
+
 	/* Time and Date */
 	DATE_FORMAT         = "2006-01-02"
 	METER_REPORT_PREFIX = "meter-report-"

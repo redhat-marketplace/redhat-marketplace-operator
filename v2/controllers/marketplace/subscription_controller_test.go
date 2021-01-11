@@ -17,7 +17,7 @@ package marketplace
 import (
 	"context"
 
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/test/rectest"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
 
 	. "github.com/onsi/ginkgo"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
