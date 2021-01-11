@@ -12,6 +12,7 @@ endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
+
 OPERATOR_IMAGE_NAME = redhat-marketplace-operator
 OPERATOR_IMAGE_TAG ?= $(VERSION)
 OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
@@ -74,14 +75,6 @@ manager: generate fmt vet
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
 	go run ./main.go
-
-# Install CRDs into a cluster
-install: manifests kustomize
-	$(KUSTOMIZE) build config/crd | kubectl apply -f -
-
-# Uninstall CRDs from a cluster
-uninstall: manifests kustomize
-	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests kustomize helm install
@@ -187,6 +180,8 @@ bundle-uninstall:
 skaffold-build:
 	skaffold build --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
 
+INSTALL_DEBUG ?= false
+
 install:
 	cd config && $(HELM) template rhm-operator ./helm-wrapper \
 	   --namespace $(namespace) \
@@ -195,7 +190,7 @@ install:
 	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
 	   --set reporterImage=$(REPORTER_IMAGE) \
 	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
-     --post-renderer ./helm-wrapper/kustomize | kubectl apply -f -
+     --post-renderer ./helm-wrapper/kustomize --debug=$(INSTALL_DEBUG) | kubectl apply -f -
 
 uninstall:
 	cd config && $(HELM) template rhm-operator ./helm-wrapper \
@@ -207,7 +202,7 @@ uninstall:
 	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
      --post-renderer ./helm-wrapper/kustomize | kubectl delete -f -
 
-skaffold-dev: install skaffold-setup
+skaffold-dev: install
 	skaffold dev --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
 
 skaffold-run:

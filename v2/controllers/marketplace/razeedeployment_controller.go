@@ -449,8 +449,8 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 	if instance.Spec.Features != nil &&
 		instance.Spec.Features.Registration != nil &&
 		!*instance.Spec.Features.Registration {
-			reqLogger.Info("registration is disabled")
-			registrationEnabled = false
+		reqLogger.Info("registration is disabled")
+		registrationEnabled = false
 	}
 
 	if !registrationEnabled {

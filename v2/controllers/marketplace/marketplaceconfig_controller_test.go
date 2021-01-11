@@ -23,9 +23,12 @@ import (
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/spf13/viper"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -56,6 +59,12 @@ var _ = Describe("Testing with Ginkgo", func() {
 			Deployment: ptr.Bool(true),
 		}
 
+		deployedNamespace = &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+			},
+		}
+
 		marketplaceconfig = utils.BuildMarketplaceConfigCR(namespace, customerID)
 		razeedeployment   = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
 		meterbase         = utils.BuildMeterBaseCr(namespace)
@@ -74,6 +83,9 @@ var _ = Describe("Testing with Ginkgo", func() {
 			Client: r.Client,
 			Scheme: s,
 			cc:     reconcileutils.NewLoglessClientCommand(r.Client, s),
+			cfg: config.OperatorConfig{
+				DeployedNamespace: namespace,
+			},
 		}
 		return nil
 	}
@@ -82,7 +94,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 		t.Parallel()
 		marketplaceconfig.Spec.EnableMetering = ptr.Bool(true)
 		marketplaceconfig.Spec.InstallIBMCatalogSource = ptr.Bool(true)
-		reconcilerTest := NewReconcilerTest(setup, marketplaceconfig)
+		reconcilerTest := NewReconcilerTest(setup, marketplaceconfig, deployedNamespace)
 		reconcilerTest.TestAll(t,
 			ReconcileStep(opts, ReconcileWithUntilDone(true)),
 			GetStep(opts,

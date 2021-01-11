@@ -14,17 +14,12 @@ metadata:
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v2
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
-  name: redhat-marketplace-operator.vX.Y.Z
+  name: redhat-marketplace-operator.v0.0.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: MeterDefinition defines the meter workloads used to enable pay for use billing.
-      displayName: Meter Definition
-      kind: MeterDefinition
-      name: meterdefinitions.marketplace.redhat.com
-      version: v1beta1
     - description: MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers
       displayName: Marketplace Config
       kind: MarketplaceConfig
@@ -35,6 +30,16 @@ spec:
       kind: MeterBase
       name: meterbases.marketplace.redhat.com
       version: v1alpha1
+    - description: MeterDefinition defines the meter workloads used to enable pay for use billing.
+      displayName: Meter Definition
+      kind: MeterDefinition
+      name: meterdefinitions.marketplace.redhat.com
+      version: v1alpha1
+    - description: MeterDefinition defines the meter workloads used to enable pay for use billing.
+      displayName: Meter Definition
+      kind: MeterDefinition
+      name: meterdefinitions.marketplace.redhat.com
+      version: v1beta1
     - description: RazeeDeployment is the resources that deploys Razee for the Red Hat Marketplace. This is an internal resource not meant to be modified directly.
       displayName: Razee Deployment
       kind: RazeeDeployment
@@ -44,11 +49,6 @@ spec:
       displayName: Remote Resource S3
       kind: RemoteResourceS3
       name: remoteresources3s.marketplace.redhat.com
-      version: v1alpha1
-    - description: MeterDefinition defines the meter workloads used to enable pay for use billing.
-      displayName: Meter Definition
-      kind: MeterDefinition
-      name: meterdefinitions.marketplace.redhat.com
       version: v1alpha1
   description: |
     The Red Hat Marketplace Operator provides cluster management, metering and

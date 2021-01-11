@@ -514,6 +514,7 @@ roles:
           - events
           - configmaps
           - secrets
+          - namespaces
         verbs:
           - create
           - delete
@@ -522,6 +523,14 @@ roles:
           - patch
           - update
           - watch
+      - apiGroups:
+          - ''
+        resources:
+          - namespaces
+        verbs:
+          - get
+          - list
+          - update
       - apiGroups:
           - operators.coreos.com
         resources:
