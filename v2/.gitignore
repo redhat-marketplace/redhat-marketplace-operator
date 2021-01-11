@@ -144,3 +144,4 @@ test/certs/**
 
 redhat-marketplace-pull-secret.env
 bin/
+v2/kubeconfig
