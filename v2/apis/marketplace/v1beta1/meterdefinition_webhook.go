@@ -17,7 +17,12 @@ limitations under the License.
 package v1beta1
 
 import (
+	"time"
+
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/signer"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -42,6 +47,27 @@ var _ webhook.Defaulter = &MeterDefinition{}
 // // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *MeterDefinition) Default() {
 	meterdefinitionlog.Info("default", "name", r.Name)
+
+	// Do not mutate Spec of a signed MeterDefinition, determined if annotations are present
+	// If required Spec fields are missing on a signed MeterDefinition, allow it to be rejected by Validate
+
+	if !r.IsSigned() {
+		for _, resourceFilter := range r.Spec.ResourceFilters {
+			if resourceFilter.Namespace == nil {
+				resourceFilter.Namespace = &NamespaceFilter{
+					UseOperatorGroup: true,
+				}
+			}
+		}
+		for _, meter := range r.Spec.Meters {
+			if meter.Aggregation == "" {
+				meter.Aggregation = "sum"
+			}
+			if meter.Period == nil {
+				meter.Period = &metav1.Duration{Duration: time.Hour}
+			}
+		}
+	}
 }
 
 // +kubebuilder:webhook:path=/validate-marketplace-redhat-com-v1beta1-meterdefinition,mutating=false,failurePolicy=fail,sideEffects=None,groups=marketplace.redhat.com,resources=meterdefinitions,verbs=create;update,versions=v1beta1,name=vmeterdefinition.marketplace.redhat.com
@@ -61,6 +87,40 @@ func (r *MeterDefinition) ValidateCreate() error {
 			allErrs = append(allErrs, field.Required(
 				field.NewPath("spec").Child("meters").Child("resourceFilters"),
 				"one of resource filter owner crd, annotation, or label must be provided",
+			))
+		}
+	}
+
+	if !r.IsSigned() {
+		// Check required fields which may not be mutated on signed MeterDefinitions
+		for _, resourceFilter := range r.Spec.ResourceFilters {
+			if resourceFilter.Namespace == nil {
+				allErrs = append(allErrs, field.Required(
+					field.NewPath("spec").Child("resourceFilters"),
+					"namespace must be provided",
+				))
+			}
+		}
+		for _, meter := range r.Spec.Meters {
+			if len(meter.Aggregation) == 0 {
+				allErrs = append(allErrs, field.Required(
+					field.NewPath("spec").Child("meters"),
+					"aggregation must be provided",
+				))
+			}
+			if meter.Period == nil {
+				allErrs = append(allErrs, field.Required(
+					field.NewPath("spec").Child("meters"),
+					"period must be provided",
+				))
+			}
+		}
+
+		err := r.ValidateSignature()
+		if err != nil {
+			allErrs = append(allErrs, field.InternalError(
+				field.NewPath("metadata").Child("annotations"),
+				err,
 			))
 		}
 	}
@@ -91,6 +151,40 @@ func (r *MeterDefinition) ValidateUpdate(old runtime.Object) error {
 		}
 	}
 
+	if !r.IsSigned() {
+		// Check required fields which may not be mutated on signed MeterDefinitions
+		for _, resourceFilter := range r.Spec.ResourceFilters {
+			if resourceFilter.Namespace == nil {
+				allErrs = append(allErrs, field.Required(
+					field.NewPath("spec").Child("resourceFilters"),
+					"namespace must be provided",
+				))
+			}
+		}
+		for _, meter := range r.Spec.Meters {
+			if len(meter.Aggregation) == 0 {
+				allErrs = append(allErrs, field.Required(
+					field.NewPath("spec").Child("meters"),
+					"aggregation must be provided",
+				))
+			}
+			if meter.Period == nil {
+				allErrs = append(allErrs, field.Required(
+					field.NewPath("spec").Child("meters"),
+					"period must be provided",
+				))
+			}
+		}
+
+		err := r.ValidateSignature()
+		if err != nil {
+			allErrs = append(allErrs, field.InternalError(
+				field.NewPath("metadata").Child("annotations"),
+				err,
+			))
+		}
+	}
+
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -105,4 +199,23 @@ func (r *MeterDefinition) ValidateDelete() error {
 	meterdefinitionlog.Info("validate delete", "name", r.Name)
 
 	return nil
+}
+
+func (r *MeterDefinition) ValidateSignature() error {
+
+	uMeterDef := unstructured.Unstructured{}
+
+	uContent, err := runtime.DefaultUnstructuredConverter.ToUnstructured(r)
+	if err != nil {
+		return err
+	}
+
+	uMeterDef.SetUnstructuredContent(uContent)
+
+	caCert, err := signer.CertificateFromPemFile(signer.DefaultCaCert)
+	if err != nil {
+		return err
+	}
+
+	return signer.VerifySignature(uMeterDef, caCert)
 }

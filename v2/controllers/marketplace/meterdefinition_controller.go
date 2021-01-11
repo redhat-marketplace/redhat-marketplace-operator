@@ -116,13 +116,29 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 		Call(func() (ClientAction, error) {
 			var queue bool
 
+			// Set the Status Condition of signature signing
+			if instance.IsSigned() {
+				// Check the signature again, even though the admission webhook should have
+				err := instance.ValidateSignature()
+				if err != nil {
+					// The webhook should have rejected the MeterDefinition in the first place
+					queue = queue || instance.Status.Conditions.SetCondition(common.MeterDefConditionSignatureVerificationFailed)
+				} else {
+					queue = queue || instance.Status.Conditions.SetCondition(common.MeterDefConditionSignatureVerified)
+				}
+
+			} else {
+				// Unsigned, Unverified
+				queue = queue || instance.Status.Conditions.SetCondition(common.MeterDefConditionSignatureUnverified)
+			}
+
 			switch {
 			case instance.Status.Conditions.IsUnknownFor(common.MeterDefConditionTypeHasResult):
 				fallthrough
 			case len(instance.Status.WorkloadResources) == 0:
-				queue = instance.Status.Conditions.SetCondition(common.MeterDefConditionNoResults)
+				queue = queue || instance.Status.Conditions.SetCondition(common.MeterDefConditionNoResults)
 			case len(instance.Status.WorkloadResources) > 0:
-				queue = instance.Status.Conditions.SetCondition(common.MeterDefConditionHasResults)
+				queue = queue || instance.Status.Conditions.SetCondition(common.MeterDefConditionHasResults)
 			}
 
 			if !queue {

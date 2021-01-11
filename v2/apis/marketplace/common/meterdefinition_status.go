@@ -70,6 +70,11 @@ const (
 	MeterDefConditionTypeHasResult           status.ConditionType   = "FoundMatches"
 	MeterDefConditionReasonNoResultsInStatus status.ConditionReason = "No results in status"
 	MeterDefConditionReasonResultsInStatus   status.ConditionReason = "Results in status"
+
+	MeterDefConditionTypeSignatureVerified             status.ConditionType   = "SignatureVerified"
+	MeterDefConditionReasonSignatureUnverified         status.ConditionReason = "Signature unverified"
+	MeterDefConditionReasonSignatureVerified           status.ConditionReason = "Signature verified"
+	MeterDefConditionReasonSignatureVerificationFailed status.ConditionReason = "Signature verification failed"
 )
 
 var (
@@ -84,5 +89,27 @@ var (
 		Status:  corev1.ConditionTrue,
 		Reason:  MeterDefConditionReasonResultsInStatus,
 		Message: "Meter definition has results.",
+	}
+
+	// MeterDefinition was not signed. No signing annotations
+	MeterDefConditionSignatureUnverified = status.Condition{
+		Type:    MeterDefConditionTypeSignatureVerified,
+		Status:  corev1.ConditionFalse,
+		Reason:  MeterDefConditionReasonSignatureUnverified,
+		Message: "Meter definition unsigned and unverified",
+	}
+	// MeterDefinition was signed and signature verified
+	MeterDefConditionSignatureVerified = status.Condition{
+		Type:    MeterDefConditionTypeSignatureVerified,
+		Status:  corev1.ConditionTrue,
+		Reason:  MeterDefConditionReasonSignatureVerified,
+		Message: "Meter definition signature verified.",
+	}
+	// MeterDefinition was signed and signature verification failed
+	MeterDefConditionSignatureVerificationFailed = status.Condition{
+		Type:    MeterDefConditionTypeSignatureVerified,
+		Status:  corev1.ConditionFalse,
+		Reason:  MeterDefConditionReasonSignatureVerificationFailed,
+		Message: "Meter definition signature verification failed.",
 	}
 )
