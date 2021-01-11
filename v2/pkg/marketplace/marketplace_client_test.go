@@ -69,7 +69,7 @@ var _ = Describe("Marketplace Config Status", func() {
 		BeforeEach(func() {
 			statusCode = 200
 			path = "/" + pullSecretEndpoint
-			body, err := ioutil.ReadFile("../../test/mockresponses/marketplace-pull-secret.yaml")
+			body, err := ioutil.ReadFile("../../tests/mockresponses/marketplace-pull-secret.yaml")
 			if err != nil {
 				panic(err)
 			}
@@ -92,7 +92,7 @@ var _ = Describe("Marketplace Config Status", func() {
 			statusCode = 200
 			path = "/" + registrationEndpoint
 
-			body, _ = ioutil.ReadFile("../../test/mockresponses/registration-response.json")
+			body, _ = ioutil.ReadFile("../../tests/mockresponses/registration-response.json")
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", path, "accountId=accountid&uuid=test"),
@@ -205,7 +205,7 @@ var _ = Describe("Marketplace Config Status", func() {
 				BeforeEach(func() {
 					statusCode = 200
 					path = "/provisioning/v1/rhm-operator/rhm-operator-secret"
-					body, err := ioutil.ReadFile("../../test/mockresponses/marketplace-pull-secret.yaml")
+					body, err := ioutil.ReadFile("../../tests/mockresponses/marketplace-pull-secret.yaml")
 					if err != nil {
 						panic(err)
 					}
