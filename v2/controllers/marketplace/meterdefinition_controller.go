@@ -121,7 +121,8 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 				// Check the signature again, even though the admission webhook should have
 				err := instance.ValidateSignature()
 				if err != nil {
-					// The webhook should have rejected the MeterDefinition in the first place
+					// This could occur after the admission webhook if a signed v1alpha1 is converted to v1beta1.
+					// However, signing not introduced until v1beta1, so this is unlikely.
 					queue = queue || instance.Status.Conditions.SetCondition(common.MeterDefConditionSignatureVerificationFailed)
 				} else {
 					queue = queue || instance.Status.Conditions.SetCondition(common.MeterDefConditionSignatureVerified)

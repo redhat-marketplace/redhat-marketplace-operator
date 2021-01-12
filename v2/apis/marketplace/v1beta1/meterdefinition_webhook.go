@@ -91,7 +91,7 @@ func (r *MeterDefinition) ValidateCreate() error {
 		}
 	}
 
-	if !r.IsSigned() {
+	if r.IsSigned() {
 		// Check required fields which may not be mutated on signed MeterDefinitions
 		for _, resourceFilter := range r.Spec.ResourceFilters {
 			if resourceFilter.Namespace == nil {
@@ -151,7 +151,7 @@ func (r *MeterDefinition) ValidateUpdate(old runtime.Object) error {
 		}
 	}
 
-	if !r.IsSigned() {
+	if r.IsSigned() {
 		// Check required fields which may not be mutated on signed MeterDefinitions
 		for _, resourceFilter := range r.Spec.ResourceFilters {
 			if resourceFilter.Namespace == nil {
@@ -202,7 +202,6 @@ func (r *MeterDefinition) ValidateDelete() error {
 }
 
 func (r *MeterDefinition) ValidateSignature() error {
-
 	uMeterDef := unstructured.Unstructured{}
 
 	uContent, err := runtime.DefaultUnstructuredConverter.ToUnstructured(r)
@@ -212,7 +211,7 @@ func (r *MeterDefinition) ValidateSignature() error {
 
 	uMeterDef.SetUnstructuredContent(uContent)
 
-	caCert, err := signer.CertificateFromPemFile(signer.DefaultCaCert)
+	caCert, err := signer.CertificateFromAssets()
 	if err != nil {
 		return err
 	}
