@@ -4,6 +4,7 @@ commands:
   - timeout: 700
     script: |
       if [ "$SKIP_DEPLOY" == "" ] ; then cd ../../../.. && make skaffold-run ; else echo "skipping deploy" ; fi
+  - script: kubectl patch deployment redhat-marketplace-controller-manager -n $NAMESPACE --patch "$(cat reportenvpatch.yaml)"
 delete:
   - apiVersion: marketplace.redhat.com/v1alpha1
     kind: MarketplaceConfig

@@ -81,6 +81,11 @@ func (r *MeterReportReconciler) InjectFactory(f manifests.Factory) error {
 	return nil
 }
 
+func (m *MeterReportReconciler) InjectOperatorConfig(cfg config.OperatorConfig) error {
+	m.cfg = cfg
+	return nil
+}
+
 func (r *MeterReportReconciler) SetupWithManager(mgr manager.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplacev1alpha1.MeterReport{}).
@@ -165,7 +170,7 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 				manifests.CreateIfNotExistsFactoryItem(
 					job,
 					func() (runtime.Object, error) {
-						return r.factory.ReporterJob(instance)
+						return r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit)
 					}, CreateWithAddController(instance),
 				),
 				OnRequeue(UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobSubmitted)),
@@ -185,20 +190,18 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 		context.TODO(),
 		HandleResult(
 			GetAction(types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job),
-			OnContinue(Call(func() (ClientAction, error) {
-				jr := &common.JobReference{}
-				jr.SetFromJob(job)
-				instance.Status.AssociatedJob = jr
+			OnNotFound(Call(func() (ClientAction, error) {
+				reqLogger.Info("job not found")
 
-				if !reflect.DeepEqual(instance.Status.AssociatedJob, jr) {
-					instance.Status.AssociatedJob = jr
-
-					reqLogger.Info("Updating MeterReport status associatedJob")
+				if instance.Status.AssociatedJob != nil {
+					instance.Status.AssociatedJob = nil
+					reqLogger.Info("Updating MeterReport status associatedJob to nil")
 					return UpdateAction(instance, UpdateStatusOnly(true)), nil
 				}
 
 				return nil, nil
-			}))),
+			})),
+		),
 	)
 
 	if !result.Is(Continue) {
@@ -208,34 +211,33 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 		return result.Return()
 	}
 
-	jr := instance.Status.AssociatedJob
-
-	if jr == nil {
-		reqLogger.Error(errors.New("failed to find a job reference"), "failed to find the job reference")
-		return reconcile.Result{Requeue: true}, nil
+	if job == nil {
+		err := errors.New("job cannot be nil")
+		reqLogger.Error(err, "Failed to on resolving job.")
+		return reconcile.Result{}, err
 	}
 
-	reqLogger.Info("reviewing job", "jr", jr,
-		"active", jr.Active,
-		"failed", jr.Failed,
-		"backoff", jr.BackoffLimit,
-		"success", jr.Succeeded,
+	jr := &common.JobReference{}
+	jr.SetFromJob(job)
+
+	reqLogger.Info(
+		"reviewing job",
+		"jr", jr,
+		"done", jr.IsDone(),
+		"failed", jr.IsFailed(),
+		"success", jr.IsSuccessful(),
 	)
 
 	// if report failed
 	switch {
-	case !instance.Status.AssociatedJob.IsDone():
-		reqLogger.Info("requeueing job not done", "jr", jr)
-		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
-	case instance.Status.AssociatedJob.CompletionTime != nil &&
-		!instance.Status.AssociatedJob.IsSuccessful():
-		completionTime := instance.Status.AssociatedJob.CompletionTime.UTC()
-		completionTimeDiffHours := now.Sub(completionTime).Hours()
+	case jr.IsFailed():
+		completionTimeDiff := now.UTC().Sub(jr.StartTime.Time.UTC())
 
 		switch {
-		case instance.Status.AssociatedJob.IsFailed() &&
-			completionTimeDiffHours >= 4:
-			reqLogger.Info("job failed, deleteing and requeuing for an hour")
+		case completionTimeDiff >= r.cfg.ReportController.RetryTime:
+			reqLogger.Info("job failed, deleteing and requeuing", "retryTime",
+				r.cfg.ReportController.RetryTime,
+				"diff", completionTimeDiff)
 			instance.Status.AssociatedJob = nil
 			result, _ = cc.Do(context.TODO(),
 				HandleResult(
@@ -243,26 +245,38 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 					OnContinue(DeleteAction(job, DeleteWithDeleteOptions(client.PropagationPolicy(metav1.DeletePropagationBackground))))),
 				UpdateAction(instance),
 			)
-		case instance.Status.AssociatedJob.IsFailed() &&
-			completionTimeDiffHours < 4:
-			requeueTime := (time.Hour * 4) - now.Sub(completionTime)
-			reqLogger.Info("job failed, deleteing and requeuing for in 4 hour", "requeueTime", requeueTime)
+		default:
+			reqLogger.Info("job failed, requeuing in an hour", "time", completionTimeDiff)
+			instance.Status.AssociatedJob = jr
 			result, _ = cc.Do(context.TODO(),
 				UpdateStatusCondition(
 					instance,
 					&instance.Status.Conditions,
 					marketplacev1alpha1.ReportConditionJobErrored),
-				RequeueAfterResponse(requeueTime),
+				UpdateAction(instance),
+				RequeueAfterResponse(time.Hour),
 			)
 		}
-	case instance.Status.AssociatedJob.IsSuccessful():
+	case jr.IsSuccessful():
 		reqLogger.Info("job is complete")
+		instance.Status.AssociatedJob = jr
 		result, _ = cc.Do(context.TODO(),
 			HandleResult(
 				GetAction(types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job),
 				OnContinue(DeleteAction(job, DeleteWithDeleteOptions(client.PropagationPolicy(metav1.DeletePropagationBackground))))),
 			UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobFinished),
 		)
+	default:
+		reqLogger.Info("job not done", "jr", jr)
+		if instance.Status.AssociatedJob == nil ||
+			!reflect.DeepEqual(instance.Status.AssociatedJob, jr) {
+			instance.Status.AssociatedJob = jr
+
+			reqLogger.Info("Updating MeterReport status associatedJob")
+			result, _ = cc.Do(context.TODO(),
+				UpdateAction(instance, UpdateStatusOnly(true)),
+			)
+		}
 	}
 
 	if result != nil && !result.Is(Continue) {

@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"github.com/caarlos0/env/v6"
+	"time"
 )
 
 var global *OperatorConfig
@@ -29,6 +30,7 @@ type OperatorConfig struct {
 	RelatedImages     RelatedImages
 	Features          Features
 	Marketplace       Marketplace
+	ReportController  ReportControllerConfig
 }
 
 // RelatedImages stores relatedimages for the operator
@@ -55,6 +57,12 @@ type Features struct {
 type Marketplace struct {
 	URL            string `env:"MARKETPLACE_URL" envDefault:"https://marketplace.redhat.com"`
 	InsecureClient bool   `env:"MARKETPLACE_HTTP_INSECURE_MODE" envDefault:"false"`
+}
+
+// ReportConfig stores some changeable information for creating a report
+type ReportControllerConfig struct {
+	RetryTime  time.Duration `env:"REPORT_RETRY_TIME_DURATION" envDefault:"6h"`
+	RetryLimit *int32        `env:"REPORT_RETRY_LIMIT"`
 }
 
 func reset() {

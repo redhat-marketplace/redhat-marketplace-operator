@@ -193,7 +193,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 			}
 
 			meterStr, _ := json.Marshal(ogMeter)
-			_, err := meter.BuildMeterDefinitionFromString(string(meterStr), csvName, namespace, utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
+			err := meter.BuildMeterDefinitionFromString(string(meterStr), csvName, namespace, utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
 			if err != nil {
 				t.Errorf("Failed to build MeterDefinition CR: %v", err)
 			}

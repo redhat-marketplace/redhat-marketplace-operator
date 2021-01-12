@@ -124,9 +124,9 @@ BUILDX ?= true
 ifeq ($(BUILDX),true)
 DOCKERCMD=docker buildx
 ifeq ($(IMAGE_PUSH),true)
-ARGS="--push"
+ARGS=--push
 else
-ARGS="--load"
+ARGS=--load
 endif
 else
 DOCKERCMD=docker
@@ -159,7 +159,7 @@ bundle: manifests kustomize helm
 	--set metricStateImage=$(METRIC_STATE_IMAGE) \
 	--set reporterImage=$(REPORTER_IMAGE) \
 	--set authCheckImage=$(AUTHCHECK_IMAGE) \
-	| ./config/manifests/kustomize | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	--post-renderer ./config/manifests/kustomize | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	operator-sdk bundle validate ./bundle
 
 # Build the bundle image.
@@ -182,6 +182,16 @@ skaffold-build:
 
 INSTALL_DEBUG ?= false
 
+helm:
+	cd config && $(HELM) template rhm-operator ./helm-wrapper \
+	   --namespace $(namespace) \
+	   -f ./helm-wrapper/values.yaml \
+	   --set operatorImage=$(OPERATOR_IMAGE) \
+	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
+	   --set reporterImage=$(REPORTER_IMAGE) \
+	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
+     --post-renderer ./helm-wrapper/kustomize
+
 install:
 	cd config && $(HELM) template rhm-operator ./helm-wrapper \
 	   --namespace $(namespace) \
@@ -203,7 +213,7 @@ uninstall:
      --post-renderer ./helm-wrapper/kustomize | kubectl delete -f -
 
 skaffold-dev: install
-	skaffold dev --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
+	skaffold dev --default-repo $(IMAGE_REGISTRY) --cleanup=false
 
 skaffold-run:
 	skaffold run --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)

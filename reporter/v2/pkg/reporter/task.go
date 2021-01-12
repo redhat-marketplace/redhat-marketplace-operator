@@ -98,7 +98,7 @@ func (r *Task) Run() error {
 			return errors.Wrap(err, "error uploading file")
 		}
 
-		logger.Info("uploaded metrics", "metrics", len(metrics))
+		logger.Info("uploaded metrics", "metricsLength", len(metrics))
 	}
 
 	report := &marketplacev1alpha1.MeterReport{}
@@ -116,7 +116,7 @@ func (r *Task) Run() error {
 						report.Status.QueryErrorList = append(report.Status.QueryErrorList, err.Error())
 					}
 
-					return UpdateAction(report), nil
+					return UpdateAction(report, UpdateStatusOnly(true)), nil
 				})),
 			),
 		)
@@ -129,7 +129,7 @@ func (r *Task) Run() error {
 	}, 3)
 
 	if err != nil {
-		log.Error(err, "failed to update report")
+		log.Error(err, "failed to update report status")
 	}
 
 	return nil

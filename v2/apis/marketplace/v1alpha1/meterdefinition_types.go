@@ -15,11 +15,12 @@
 package v1alpha1
 
 import (
-	"encoding/json"
+	"bytes"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 // MeterDefinitionSpec defines the desired metering spec
@@ -212,11 +213,11 @@ func init() {
 	SchemeBuilder.Register(&MeterDefinition{}, &MeterDefinitionList{})
 }
 
-func (meterdef *MeterDefinition) BuildMeterDefinitionFromString(meterdefString, name, namespace, nameLabel, namespaceLabel string) (*MeterDefinition, error) {
+func (meterdef *MeterDefinition) BuildMeterDefinitionFromString(meterdefString, name, namespace, nameLabel, namespaceLabel string) error {
 	data := []byte(meterdefString)
-	err := json.Unmarshal(data, meterdef)
+	err := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(data), 100).Decode(meterdef)
 	if err != nil {
-		return meterdef, err
+		return err
 	}
 
 	csvInfo := make(map[string]string)
@@ -230,7 +231,7 @@ func (meterdef *MeterDefinition) BuildMeterDefinitionFromString(meterdefString, 
 		Namespace: namespace,
 	}
 
-	return meterdef, nil
+	return nil
 }
 
 func (meterdef *MeterDefinition) ToPrometheusLabels() []map[string]string {
