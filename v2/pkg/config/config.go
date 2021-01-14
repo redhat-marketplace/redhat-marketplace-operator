@@ -31,6 +31,7 @@ type OperatorConfig struct {
 	Features          Features
 	Marketplace       Marketplace
 	ControllerValues  ControllerValues
+	ReportController  ReportControllerConfig
 }
 
 // RelatedImages stores relatedimages for the operator
@@ -62,6 +63,11 @@ type Marketplace struct {
 type ControllerValues struct {
 	DeploymentNamespace string `env:"POD_NAMESPACE" envDefault:"openshift-redhat-marketplace"`
 	MeterDefControllerRequeueRate time.Duration `env:"METER_DEF_CONTROLLER_REQUEUE_RATE" envDefault:"3600s"`
+}
+// ReportConfig stores some changeable information for creating a report
+type ReportControllerConfig struct {
+	RetryTime  time.Duration `env:"REPORT_RETRY_TIME_DURATION" envDefault:"6h"`
+	RetryLimit *int32        `env:"REPORT_RETRY_LIMIT"`
 }
 
 func reset() {

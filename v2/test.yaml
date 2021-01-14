@@ -1,0 +1,34 @@
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: MeterReport
+metadata:
+  name: test
+  namespace: openshift-redhat-marketplace
+spec:
+  endTime: "2021-01-12T03:46:41Z"
+  extraJobArgs:
+  - --uploadTarget
+  - noop
+  meterDefinitions:
+  - metadata: {}
+    spec:
+      meterGroup: testgroup
+      meterKind: testkind
+      workloadVertexType: OperatorGroup
+      workloads:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: rhm-metric-state
+        metricLabels:
+        - aggregation: sum
+          label: test
+          query: kube_pod_info
+        name: test
+        type: Pod
+    status: {}
+  prometheusService:
+    bearerTokenSecret:
+      key: ""
+    name: rhm-prometheus-meterbase
+    namespace: openshift-redhat-marketplace
+    targetPort: rbac
+  startTime: "2021-01-12T03:46:41Z"

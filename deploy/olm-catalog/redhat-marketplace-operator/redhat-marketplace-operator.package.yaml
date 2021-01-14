@@ -1,7 +1,0 @@
-channels:
-- currentCSV: redhat-marketplace-operator.v1.0.0
-  name: beta
-- currentCSV: redhat-marketplace-operator.v1.0.3
-  name: stable
-defaultChannel: stable
-packageName: redhat-marketplace-operator

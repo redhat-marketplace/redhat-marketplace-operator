@@ -1,9 +1,0 @@
-apiVersion: operators.coreos.com/v1alpha1
-kind: CatalogSource
-metadata:
-  name: rhm-test
-  namespace: openshift-marketplace
-spec:
-  sourceType: grpc
-  displayName: RHM Test
-  image: quay.io/rh-marketplace/operator-manifest-bundle:latest

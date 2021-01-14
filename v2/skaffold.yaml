@@ -13,26 +13,33 @@ build:
       custom:
         buildCommand: make docker-build
         dependencies:
-          #command: ./hack/go-dependencies.sh .
-          paths: ["."]
+          paths:
+            - "*.go"
+            - ./apis/**
+            - ./controllers/**
+            - ./pkg/**
     - image: redhat-marketplace-reporter
       custom:
         buildCommand: cd ../reporter/v2 && make docker-build
         dependencies:
-          #command: ./hack/go-dependencies.sh ../reporter/v2
-          paths: ["../reporter"]
+          paths:
+            - ../reporter/v2/cmd/**
+            - ../reporter/v2/pkg/**
     - image: redhat-marketplace-metric-state
       custom:
         buildCommand: cd ../metering/v2 && make docker-build
         dependencies:
-          #command: ./hack/go-dependencies.sh ../metering/v2
-          paths: ["../metering"]
+          paths:
+            - ../metering/v2/cmd/**
+            - ../metering/v2/internal/**
+            - ../metering/v2/pkg/**
     - image: redhat-marketplace-authcheck
       custom:
         buildCommand: cd ../authchecker/v2 && make docker-build
         dependencies:
-          #command: ./hack/go-dependencies.sh ../authchecker/v2
-          paths: ["../authchecker"]
+          paths:
+            - ../authchecker/v2/cmd/**
+            - ../authchecker/v2/pkg/**
 deploy:
   helm:
     releases:
@@ -44,8 +51,8 @@ deploy:
           metricStateImage: redhat-marketplace-metric-state
           authCheckImage: redhat-marketplace-authcheck
         wait: false
+        upgradeOnChange: true
         chartPath: ./config/helm-wrapper
-        upgradeOnChange: false
         valuesFiles:
           - ./config/helm-wrapper/values.yaml
     flags:

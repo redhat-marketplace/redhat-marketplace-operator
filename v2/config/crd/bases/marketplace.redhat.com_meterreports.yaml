@@ -786,6 +786,12 @@ spec:
                   description: The number of pods which reached phase Failed.
                   format: int32
                   type: integer
+                jobFailed:
+                  description: JobFailed is the boolean value set if the job failed
+                  type: boolean
+                jobSuccess:
+                  description: JobSuccess is the boolean value set if the job succeeded
+                  type: boolean
                 name:
                   description: Name of the job Required
                   type: string

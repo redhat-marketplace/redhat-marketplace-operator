@@ -7,7 +7,6 @@ metadata:
 spec:
   completions: 1
   parallelism: 1
-  backoffLimit: 5
   template:
     spec:
       serviceAccount: redhat-marketplace-operator

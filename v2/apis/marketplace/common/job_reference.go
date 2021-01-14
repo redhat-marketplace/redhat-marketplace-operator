@@ -16,6 +16,7 @@ package common
 
 import (
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -46,20 +47,28 @@ type JobReference struct {
 
 	// The number of actively running pods.
 	// +optional
-	Active int32 `json:"active,omitempty" protobuf:"varint,4,opt,name=active"`
+	Active *int32 `json:"active,omitempty" protobuf:"varint,4,opt,name=active"`
 
 	// The number of pods which reached phase Succeeded.
 	// +optional
-	Succeeded int32 `json:"succeeded,omitempty" protobuf:"varint,5,opt,name=succeeded"`
+	Succeeded *int32 `json:"succeeded,omitempty" protobuf:"varint,5,opt,name=succeeded"`
 
 	// The number of pods which reached phase Failed.
 	// +optional
-	Failed int32 `json:"failed,omitempty" protobuf:"varint,6,opt,name=failed"`
+	Failed *int32 `json:"failed,omitempty" protobuf:"varint,6,opt,name=failed"`
 
 	// Specifies the number of retries before marking this job failed.
 	// Defaults to 6
 	// +optional
-	BackoffLimit int32 `json:"backoffLimit,omitempty" protobuf:"varint,7,opt,name=backoffLimit"`
+	BackoffLimit *int32 `json:"backoffLimit,omitempty" protobuf:"varint,7,opt,name=backoffLimit"`
+
+	// JobSuccess is the boolean value set if the job succeeded
+	// +optional
+	JobSuccess bool `json:"jobSuccess,omitempty"`
+
+	// JobFailed is the boolean value set if the job failed
+	// +optional
+	JobFailed bool `json:"jobFailed,omitempty"`
 }
 
 func (j *JobReference) NamespacedName() types.NamespacedName {
@@ -74,28 +83,36 @@ func (j *JobReference) SetFromJob(job *batchv1.Job) {
 	j.Namespace = job.Namespace
 	j.StartTime = job.Status.StartTime
 	j.CompletionTime = job.Status.CompletionTime
-	j.Succeeded = job.Status.Succeeded
-	j.Active = job.Status.Active
-	j.Failed = job.Status.Failed
-	j.BackoffLimit = 6
-	if job.Spec.BackoffLimit != nil {
-		j.BackoffLimit = *job.Spec.BackoffLimit
-	}
+	j.Succeeded = nil
+	j.Active = nil
+	j.Failed = nil
+	j.BackoffLimit = nil
+	j.JobFailed = false
+	j.JobSuccess = false
 
+	for _, c := range job.Status.Conditions {
+		switch c.Status {
+		case corev1.ConditionTrue:
+			if c.Type == batchv1.JobFailed {
+				j.JobFailed = true
+			}
+			if c.Type == batchv1.JobComplete {
+				j.JobSuccess = true
+			}
+		default:
+			continue
+		}
+	}
 }
 
 func (j *JobReference) IsSuccessful() bool {
-	return j.Succeeded >= 1
+	return j.JobSuccess
 }
 
 func (j *JobReference) IsFailed() bool {
-	return j.Failed == j.BackoffLimit+1 && !j.IsSuccessful()
-}
-
-func (j *JobReference) IsActive() bool {
-	return j.Active > 0
+	return j.JobFailed
 }
 
 func (j *JobReference) IsDone() bool {
-	return !j.IsActive() && (j.IsSuccessful() || j.IsFailed())
+	return j.JobFailed || j.JobSuccess
 }

@@ -430,13 +430,17 @@ func (f *Factory) PrometheusServingCertsCABundle() (*v1.ConfigMap, error) {
 	return c, nil
 }
 
-func (f *Factory) ReporterJob(report *marketplacev1alpha1.MeterReport) (*batchv1.Job, error) {
+func (f *Factory) ReporterJob(
+	report *marketplacev1alpha1.MeterReport,
+	backoffLimit *int32,
+) (*batchv1.Job, error) {
 	j, err := f.NewJob(MustAssetReader(ReporterJob))
 
 	if err != nil {
 		return nil, err
 	}
 
+	j.Spec.BackoffLimit = backoffLimit
 	container := j.Spec.Template.Spec.Containers[0]
 	container.Image = f.config.RelatedImages.Reporter
 

@@ -27,8 +27,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
+	emperrors "emperror.dev/errors"
 	"github.com/go-logr/logr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -207,7 +209,6 @@ func (r *ClusterServiceVersionReconciler) finalizeCSV(CSV *olmv1alpha1.ClusterSe
 func (r *ClusterServiceVersionReconciler) deleteExternalResources(CSV *olmv1alpha1.ClusterServiceVersion) error {
 	reqLogger := r.Log.WithValues("Request.Name", CSV.GetName(), "Request.Namespace", CSV.GetNamespace())
 	reqLogger.Info("deleting csv")
-	var err error
 
 	annotations := CSV.GetAnnotations()
 	if annotations == nil {
@@ -221,17 +222,33 @@ func (r *ClusterServiceVersionReconciler) deleteExternalResources(CSV *olmv1alph
 		return nil
 	}
 
-	meterDefinition := &marketplacev1beta1.MeterDefinition{}
-	_, err = meterDefinition.BuildMeterDefinitionFromString(meterDefinitionString, CSV.GetName(), CSV.GetNamespace(), utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
-	if err != nil {
+	var errAlpha, errBeta error
+	meterDefinitionBeta := &marketplacev1beta1.MeterDefinition{}
+	meterDefinitionAlpha := &marketplacev1alpha1.MeterDefinition{}
+
+	errBeta = meterDefinitionBeta.BuildMeterDefinitionFromString(meterDefinitionString, CSV.GetName(), CSV.GetNamespace(), utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
+
+	if errBeta != nil {
+		errAlpha = meterDefinitionAlpha.BuildMeterDefinitionFromString(meterDefinitionString, CSV.GetName(), CSV.GetNamespace(), utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
+	}
+
+	switch {
+	case errBeta == nil:
+		err := r.Client.Delete(context.TODO(), meterDefinitionBeta, client.PropagationPolicy(metav1.DeletePropagationForeground))
+		if err != nil && errors.IsNotFound(err) {
+			return err
+		}
+	case errAlpha == nil:
+		err := r.Client.Delete(context.TODO(), meterDefinitionAlpha, client.PropagationPolicy(metav1.DeletePropagationForeground))
+		if err != nil && errors.IsNotFound(err) {
+			return err
+		}
+	default:
+		err := emperrors.Combine(errBeta, errAlpha)
 		reqLogger.Error(err, "Could not build a local copy of the MeterDefinition")
 		return err
 	}
 
-	err = r.Client.Delete(context.TODO(), meterDefinition, client.PropagationPolicy(metav1.DeletePropagationForeground))
-	if err != nil && errors.IsNotFound(err) {
-		return err
-	}
 	reqLogger.Info("found and deleted MeterDefinition")
 	return nil
 
@@ -256,13 +273,28 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 
 	// builds a meterdefinition from our string (from the annotation)
 	reqLogger.Info("retrieval successful")
+
+	var errAlpha, errBeta error
+	meterDefinitionBeta := &marketplacev1beta1.MeterDefinition{}
+	meterDefinitionAlpha := &marketplacev1alpha1.MeterDefinition{}
+
+	errBeta = meterDefinitionBeta.BuildMeterDefinitionFromString(meterDefinitionString, CSV.GetName(), CSV.GetNamespace(), utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
+
+	if errBeta != nil {
+		errAlpha = meterDefinitionAlpha.BuildMeterDefinitionFromString(meterDefinitionString, CSV.GetName(), CSV.GetNamespace(), utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
+	}
+
 	meterDefinition := &marketplacev1beta1.MeterDefinition{}
-	_, err = meterDefinition.BuildMeterDefinitionFromString(
-		meterDefinitionString,
-		CSV.GetName(),
-		CSV.GetNamespace(),
-		utils.CSV_ANNOTATION_NAME,
-		utils.CSV_ANNOTATION_NAMESPACE)
+
+	switch {
+	case errBeta == nil:
+		meterDefinition = meterDefinitionBeta
+	case errAlpha == nil && meterDefinitionAlpha != nil:
+		meterDefinitionAlpha.ConvertTo(meterDefinition)
+	default:
+		err = emperrors.Combine(errBeta, errAlpha)
+		reqLogger.Error(err, "Failed to read the json annotation as a meterdefinition")
+	}
 
 	if err != nil {
 		reqLogger.Error(err, "Could not build a local copy of the MeterDefinition")
@@ -278,6 +310,7 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 		return reconcile.Result{}, true, err
 	}
 	reqLogger.Info("marketplacev1beta1.MeterDefinitionList >>>> ")
+
 	// Case 1: The CSV is old: compare vs. expected MeterDefinition
 	list := &marketplacev1beta1.MeterDefinitionList{}
 	err = r.Client.List(context.TODO(), list, client.InNamespace(meterDefinition.GetNamespace()))
@@ -314,7 +347,8 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 
 	// If not nil, we update
 	if actualMeterDefinition != nil {
-		if !reflect.DeepEqual(meterDefinition.Spec, actualMeterDefinition.Spec) && !reflect.DeepEqual(meterDefinition.ObjectMeta, actualMeterDefinition.ObjectMeta) {
+		if !reflect.DeepEqual(meterDefinition.Spec, actualMeterDefinition.Spec) &&
+			!reflect.DeepEqual(meterDefinition.ObjectMeta, actualMeterDefinition.ObjectMeta) {
 			reqLogger.Info("The actual meterdefinition is different from the expected meterdefinition")
 
 			patch, err := json.Marshal(meterDefinition)
