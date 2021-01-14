@@ -17,10 +17,12 @@ package marketplace
 import (
 	"context"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
+	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -35,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -93,6 +96,68 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		reqLogger.Error(err, "Failed to get MarketplaceConfig")
 		return reconcile.Result{}, err
 	}
+
+	// Update the OperatorGroup namespace list
+	// OperatorGroup to be updated should contain our olm.providedAPIs
+	// namespace list is from MarketPlaceConfig NamespaceLabelSelector or a default
+	var nsLabelSelector labels.Selector
+
+	if marketplaceConfig.Spec.NamespaceLabelSelector != nil {
+		nsLabelSelector, err = metav1.LabelSelectorAsSelector(marketplaceConfig.Spec.NamespaceLabelSelector)
+		if err != nil {
+			reqLogger.Error(err, "Failed to assign marketplaceConfig.Spec.NamespaceLabelSelector as LabelSelector")
+			return reconcile.Result{}, err
+		}
+	} else {
+		nsLabelSelector, _ = metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
+			MatchExpressions: []metav1.LabelSelectorRequirement{
+				{
+					Key:      "openshift.io/cluster-monitoring",
+					Operator: "DoesNotExist",
+				},
+			},
+		})
+	}
+
+	nsList := &corev1.NamespaceList{}
+	nsListOpts := &client.ListOptions{
+		LabelSelector: nsLabelSelector,
+	}
+
+	err = r.Client.List(context.TODO(), nsList, nsListOpts)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	var targetNamespaces []string
+	for _, namespace := range nsList.Items {
+		targetNamespaces = append(targetNamespaces, namespace.ObjectMeta.Name)
+	}
+
+	ogList := &olmv1.OperatorGroupList{}
+
+	err = r.Client.List(context.TODO(), ogList, client.InNamespace(marketplaceConfig.GetNamespace()))
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	for _, operatorGroup := range ogList.Items {
+		if val, ok := operatorGroup.GetAnnotations()["olm.providedAPIs"]; ok {
+			providedAPIs := strings.Split(val, ",")
+			for _, api := range providedAPIs {
+				if api == "MarketplaceConfig.v1alpha1.marketplace.redhat.com" {
+					operatorGroup.Spec.TargetNamespaces = targetNamespaces
+					err = r.Client.Update(context.TODO(), &operatorGroup)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+					break
+				}
+			}
+		}
+	}
+
+	// MarketplaceConfig.v1alpha1.marketplace.redhat.com
 
 	// Removing EnabledMetering field so setting them all to nil
 	// this will no longer do anything
