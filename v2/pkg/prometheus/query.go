@@ -12,23 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package reporter
+package prometheus
 
 import (
 	"context"
 	"fmt"
+	"html/template"
 	"strings"
 	"time"
-
-	"text/template"
 
 	"emperror.dev/errors"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
+
+	// "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"k8s.io/apimachinery/pkg/types"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var logger = logf.Log.WithName("reporter")
 
 type PromQueryArgs struct {
 	Type          v1beta1.WorkloadType
@@ -40,6 +44,7 @@ type PromQueryArgs struct {
 	AggregateFunc string
 	GroupBy       []string
 	Without       []string
+	// Time          string
 }
 
 type PromQuery struct {
@@ -52,6 +57,10 @@ func NewPromQuery(
 	pq := &PromQuery{PromQueryArgs: args}
 	pq.defaulter()
 	return pq
+}
+
+type PrometheusAPI struct {
+	v1.API
 }
 
 const TypeNotSupportedErr = errors.Sentinel("type is not supported")
@@ -138,7 +147,7 @@ func (q *PromQuery) Print() (string, error) {
 	return buf.String(), err
 }
 
-func (r *MarketplaceReporter) queryRange(query *PromQuery) (model.Value, v1.Warnings, error) {
+func (p *PrometheusAPI)ReportQuery(query *PromQuery) (model.Value, v1.Warnings, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -156,7 +165,36 @@ func (r *MarketplaceReporter) queryRange(query *PromQuery) (model.Value, v1.Warn
 
 	logger.Info("executing query", "query", q)
 
-	result, warnings, err := r.api.QueryRange(ctx, q, timeRange)
+	result, warnings, err := p.QueryRange(ctx, q, timeRange)
+
+	if err != nil {
+		logger.Error(err, "querying prometheus", "warnings", warnings)
+		return nil, warnings, toError(err)
+	}
+	if len(warnings) > 0 {
+		logger.Info("warnings", "warnings", warnings)
+	}
+
+	return result, warnings, nil
+}
+
+//TODO: is this being used ? 
+func ReportQueryFromAPI(query *PromQuery, promApi v1.API) (model.Value, v1.Warnings, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	timeRange := v1.Range{
+		Start: query.Start,
+		End:   query.End,
+		Step:  query.Step,
+	}
+
+	q, err := query.Print()
+	if err != nil {
+		return nil,nil,err
+	}
+
+	result, warnings, err := promApi.QueryRange(ctx, q, timeRange)
 
 	if err != nil {
 		logger.Error(err, "querying prometheus", "warnings", warnings)
@@ -209,7 +247,7 @@ func (q *MeterDefinitionQuery) Print() (string, error) {
 	return buf.String(), err
 }
 
-func (r *MarketplaceReporter) queryMeterDefinitions(query *MeterDefinitionQuery) (model.Value, v1.Warnings, error) {
+func(p *PrometheusAPI) QueryMeterDefinitions(query *MeterDefinitionQuery) (model.Value, v1.Warnings, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -227,7 +265,7 @@ func (r *MarketplaceReporter) queryMeterDefinitions(query *MeterDefinitionQuery)
 	}
 
 	logger.Info("executing query", "query", q)
-	result, warnings, err := r.api.QueryRange(ctx, q, timeRange)
+	result, warnings, err := p.QueryRange(ctx, q, timeRange)
 
 	if err != nil {
 		logger.Error(err, "querying prometheus", "warnings", warnings)

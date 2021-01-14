@@ -16,6 +16,7 @@ package config
 
 import (
 	"sync"
+	"time"
 
 	"github.com/caarlos0/env/v6"
 )
@@ -29,6 +30,7 @@ type OperatorConfig struct {
 	RelatedImages     RelatedImages
 	Features          Features
 	Marketplace       Marketplace
+	ControllerValues  ControllerValues
 }
 
 // RelatedImages stores relatedimages for the operator
@@ -55,6 +57,11 @@ type Features struct {
 type Marketplace struct {
 	URL            string `env:"MARKETPLACE_URL" envDefault:"https://marketplace.redhat.com"`
 	InsecureClient bool   `env:"MARKETPLACE_HTTP_INSECURE_MODE" envDefault:"false"`
+}
+
+type ControllerValues struct {
+	DeploymentNamespace string `env:"POD_NAMESPACE" envDefault:"openshift-redhat-marketplace"`
+	MeterDefControllerRequeueRate time.Duration `env:"METER_DEF_CONTROLLER_REQUEUE_RATE" envDefault:"3600s"`
 }
 
 func reset() {

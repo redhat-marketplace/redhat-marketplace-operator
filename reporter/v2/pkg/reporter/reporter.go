@@ -27,13 +27,13 @@ import (
 	"emperror.dev/errors"
 	"github.com/google/uuid"
 	"github.com/meirf/gopart"
-	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	corev1 "k8s.io/api/core/v1"
@@ -62,7 +62,8 @@ var (
 // Update the CR status for each report and queue
 
 type MarketplaceReporter struct {
-	api               v1.API
+	// api               v1.API
+	PrometheusAPI
 	k8sclient         client.Client
 	mktconfig         *marketplacev1alpha1.MarketplaceConfig
 	report            *marketplacev1alpha1.MeterReport
@@ -78,10 +79,10 @@ func NewMarketplaceReporter(
 	report *marketplacev1alpha1.MeterReport,
 	mktconfig *marketplacev1alpha1.MarketplaceConfig,
 	prometheusService *corev1.Service,
-	apiClient api.Client,
+	api     *PrometheusAPI,
 ) (*MarketplaceReporter, error) {
 	return &MarketplaceReporter{
-		api:               v1.NewAPI(apiClient),
+		PrometheusAPI:     *api,
 		k8sclient:         k8sclient,
 		mktconfig:         mktconfig,
 		report:            report,
@@ -219,7 +220,7 @@ func (r *MarketplaceReporter) retrieveMeterDefinitions(
 		q, _ := query.Print()
 		logger.Info("output", "query", q)
 
-		result, warnings, err = r.queryMeterDefinitions(query)
+		result, warnings, err = r.QueryMeterDefinitions(query)
 
 		if err != nil {
 			logger.Error(err, "querying prometheus", "warnings", warnings)
@@ -313,7 +314,7 @@ func (r *MarketplaceReporter) query(
 
 		err := utils.Retry(func() error {
 			var err error
-			val, warnings, err = r.queryRange(query)
+			val, warnings, err = r.ReportQuery(query)
 
 			if err != nil {
 				return errors.Wrap(err, "error with query")

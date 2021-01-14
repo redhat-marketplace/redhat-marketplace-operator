@@ -54,7 +54,8 @@ func initializeInjectables(fields *managers.ControllerFields, namespace managers
 		Namespace: namespace,
 		Scheme:    scheme,
 	}
-	injectables := ProvideInjectables(clientCommandInjector, operatorConfigInjector, patchInjector, factoryInjector)
+	kubeInterfaceInjector := &KubeInterfaceInjector{}
+	injectables := ProvideInjectables(clientCommandInjector, operatorConfigInjector, patchInjector, factoryInjector, kubeInterfaceInjector)
 	return injectables, nil
 }
 
