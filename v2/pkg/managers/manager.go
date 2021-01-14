@@ -80,6 +80,15 @@ var (
 		dynamic.NewForConfig,
 		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
 	)
+
+	ProvideSimpleClientSet = wire.NewSet(
+		config.GetConfig,
+		kubernetes.NewForConfig,
+		ProvideSimpleClient,
+		NewDynamicRESTMapper,
+		dynamic.NewForConfig,
+		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
+	)
 )
 
 type OperatorName string

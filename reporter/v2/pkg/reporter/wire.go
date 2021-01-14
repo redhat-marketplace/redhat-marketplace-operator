@@ -40,7 +40,6 @@ func NewTask(
 		getClientOptions,
 		ProvideUploader,
 		provideScheme,
-		wire.Struct(new(managers.CacheIsIndexed)),
 	))
 }
 
