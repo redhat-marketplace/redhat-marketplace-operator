@@ -152,8 +152,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		}
 	}
 
-	// MarketplaceConfig.v1alpha1.marketplace.redhat.com
-
 	// Removing EnabledMetering field so setting them all to nil
 	// this will no longer do anything
 	if marketplaceConfig.Spec.EnableMetering != nil {
