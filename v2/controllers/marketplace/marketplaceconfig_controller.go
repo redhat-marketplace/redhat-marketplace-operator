@@ -16,8 +16,9 @@ package marketplace
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -97,9 +98,11 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
-	// Update the OperatorGroup namespace list
-	// OperatorGroup to be updated should contain our olm.providedAPIs
+	// Update the OperatorGroup targetNamespace list
 	// namespace list is from MarketPlaceConfig NamespaceLabelSelector or a default
+	// In turn, OLM updates the olm.targetNamespaces annotation of
+	// the member operator's ClusterServiceVersion (CSV) instances and is projected into their deployments.
+	// The operatorGroupNamespace is guaranteed to be the same as the marketplaceConfig, unnecessary to use downwardAPI
 	var nsLabelSelector labels.Selector
 
 	if marketplaceConfig.Spec.NamespaceLabelSelector != nil {
@@ -134,25 +137,17 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		targetNamespaces = append(targetNamespaces, namespace.ObjectMeta.Name)
 	}
 
-	ogList := &olmv1.OperatorGroupList{}
-
-	err = r.Client.List(context.TODO(), ogList, client.InNamespace(marketplaceConfig.GetNamespace()))
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	for _, operatorGroup := range ogList.Items {
-		if val, ok := operatorGroup.GetAnnotations()["olm.providedAPIs"]; ok {
-			providedAPIs := strings.Split(val, ",")
-			for _, api := range providedAPIs {
-				if api == "MarketplaceConfig.v1alpha1.marketplace.redhat.com" {
-					operatorGroup.Spec.TargetNamespaces = targetNamespaces
-					err = r.Client.Update(context.TODO(), &operatorGroup)
-					if err != nil {
-						return reconcile.Result{}, err
-					}
-					break
-				}
+	operatorGroupName, _ := getOperatorGroup()
+	if len(operatorGroupName) != 0 {
+		operatorGroup := &olmv1.OperatorGroup{}
+		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: operatorGroupName, Namespace: marketplaceConfig.Namespace}, operatorGroup)
+		if err != nil && !errors.IsNotFound(err) {
+			return reconcile.Result{}, err
+		} else if err == nil {
+			operatorGroup.Spec.TargetNamespaces = targetNamespaces
+			err = r.Client.Update(context.TODO(), operatorGroup)
+			if err != nil {
+				return reconcile.Result{}, err
 			}
 		}
 	}
@@ -715,4 +710,17 @@ func (r *MarketplaceConfigReconciler) SetupWithManager(mgr manager.Manager) erro
 			OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
 		}).
 		Complete(r)
+}
+
+// getOperatorGroup returns the associated OLM OperatorGroup
+func getOperatorGroup() (string, error) {
+	// OperatorGroupEnvVar is the constant for env variable OPERATOR_GROUP
+	// which is annotated as olm.operatorGroup
+	var operatorGroupEnvVar = "OPERATOR_GROUP"
+
+	og, found := os.LookupEnv(operatorGroupEnvVar)
+	if !found {
+		return "", fmt.Errorf("%s must be set", operatorGroupEnvVar)
+	}
+	return og, nil
 }
