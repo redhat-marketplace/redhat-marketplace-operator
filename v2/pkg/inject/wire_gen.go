@@ -17,8 +17,8 @@ import (
 
 func initializeRunnables(fields *managers.ControllerFields, namespace managers.DeployedNamespace) (runnables.Runnables, error) {
 	logger := fields.Logger
-	config := fields.Config
-	clientset, err := kubernetes.NewForConfig(config)
+	restConfig := fields.Config
+	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +27,18 @@ func initializeRunnables(fields *managers.ControllerFields, namespace managers.D
 	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logger)
 	podMonitorConfig := managers.ProvidePodMonitorConfig(namespace)
 	podMonitor := runnables.NewPodMonitor(logger, clientset, clientCommandRunner, podMonitorConfig)
-	runnablesRunnables := runnables.ProvideRunnables(podMonitor)
+	operatorConfig, err := config.ProvideConfig()
+	if err != nil {
+		return nil, err
+	}
+	crdUpdater := &runnables.CRDUpdater{
+		Logger: logger,
+		CC:     clientCommandRunner,
+		Config: operatorConfig,
+		Rest:   restConfig,
+		Client: clientset,
+	}
+	runnablesRunnables := runnables.ProvideRunnables(podMonitor, crdUpdater)
 	return runnablesRunnables, nil
 }
 

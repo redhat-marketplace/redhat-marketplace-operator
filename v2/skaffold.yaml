@@ -7,14 +7,22 @@ build:
     useBuildkit: true
     concurrency: 4
   tagPolicy:
-    gitCommit: {}
+    customTemplate:
+      template: '{{ .VERS }}-{{ .GC }}'
+      components:
+        - name: VERS
+          envTemplate:
+            template: '{{.VERSION}}'
+        - name: GC
+          gitCommit:
+            variant: AbbrevCommitSha
   artifacts:
     - image: redhat-marketplace-operator
       custom:
         buildCommand: make docker-build
         dependencies:
           paths:
-            - "*.go"
+            - '*.go'
             - ./apis/**
             - ./controllers/**
             - ./pkg/**

@@ -31,6 +31,7 @@ type OperatorConfig struct {
 	Features          Features
 	Marketplace       Marketplace
 	ReportController  ReportControllerConfig
+	OLMInformation    OLMInformation
 }
 
 // RelatedImages stores relatedimages for the operator
@@ -63,6 +64,12 @@ type Marketplace struct {
 type ReportControllerConfig struct {
 	RetryTime  time.Duration `env:"REPORT_RETRY_TIME_DURATION" envDefault:"6h"`
 	RetryLimit *int32        `env:"REPORT_RETRY_LIMIT"`
+}
+
+type OLMInformation struct {
+	OwnerName      string `env:"OLM_OWNER_NAME"`
+	OwnerNamespace string `env:"OLM_OWNER_NAMESPACE"`
+	OwnerKind      string `env:"OLM_OWNER_KIND"`
 }
 
 func reset() {

@@ -24,12 +24,16 @@ type Runnables []manager.Runnable
 var RunnableSet = wire.NewSet(
 	NewPodMonitor,
 	ProvideRunnables,
+	NewBootstrapWebhook,
+	wire.Struct(new(CRDUpdater), "*"),
 )
 
 func ProvideRunnables(
 	podMonitor *PodMonitor,
+	crdUpdater *CRDUpdater,
 ) Runnables {
 	return []manager.Runnable{
 		podMonitor,
+		crdUpdater,
 	}
 }

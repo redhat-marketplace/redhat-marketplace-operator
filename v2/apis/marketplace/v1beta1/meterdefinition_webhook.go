@@ -26,13 +26,26 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
+const (
+	WebhookPort     = 9443
+	WebhookCertDir  = "/apiserver.local.config/certificates"
+	WebhookCertName = "apiserver.crt"
+	WebhookKeyName  = "apiserver.key"
+)
+
 // log is for logging in this package.
 var meterdefinitionlog = logf.Log.WithName("meterdefinition-resource")
 
 func (r *MeterDefinition) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
-		Complete()
+	bldr := ctrl.NewWebhookManagedBy(mgr).For(r)
+
+	srv := mgr.GetWebhookServer()
+	srv.CertDir = WebhookCertDir
+	srv.CertName = WebhookCertName
+	srv.KeyName = WebhookKeyName
+	srv.Port = WebhookPort
+
+	return bldr.Complete()
 }
 
 // +kubebuilder:webhook:path=/mutate-marketplace-redhat-com-v1beta1-meterdefinition,mutating=true,failurePolicy=fail,sideEffects=None,groups=marketplace.redhat.com,resources=meterdefinitions,verbs=create;update,versions=v1beta1,name=mmeterdefinition.marketplace.redhat.com
@@ -44,6 +57,7 @@ func (r *MeterDefinition) Default() {
 	meterdefinitionlog.Info("default", "name", r.Name)
 }
 
+// Disabled for now
 // +kubebuilder:webhook:path=/validate-marketplace-redhat-com-v1beta1-meterdefinition,mutating=false,failurePolicy=fail,sideEffects=None,groups=marketplace.redhat.com,resources=meterdefinitions,verbs=create;update,versions=v1beta1,name=vmeterdefinition.marketplace.redhat.com
 
 var _ webhook.Validator = &MeterDefinition{}

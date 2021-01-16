@@ -35,6 +35,7 @@ func initializeRunnables(
 		runnables.RunnableSet,
 		reconcileutils.NewClientCommand,
 		managers.ProvidePodMonitorConfig,
+		config.GetConfig,
 	))
 }
 

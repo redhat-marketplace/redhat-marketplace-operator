@@ -123,7 +123,7 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 	hasMarketplaceSub := false
 
 	if len(sub.Items) > 0 {
-		reqLogger.Info("found Subscription in namespaces", "count", len(sub.Items))
+		reqLogger.V(4).Info("found Subscription in namespaces", "count", len(sub.Items))
 		// add razee watch label to CSV if subscription has rhm/operator label
 		for _, s := range sub.Items {
 			if value, ok := s.GetLabels()[operatorTag]; ok {
@@ -181,9 +181,9 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 				reqLogger.Error(retryErr, "Failed to patch clusterserviceversion ignore tag")
 				return reconcile.Result{Requeue: true}, retryErr
 			}
-			reqLogger.Info("Patched clusterserviceversion with ignore tag")
+			reqLogger.V(4).Info("Patched clusterserviceversion with ignore tag")
 		} else {
-			reqLogger.Info("No patch needed on clusterserviceversion resource for ignore tag")
+			reqLogger.V(4).Info("No patch needed on clusterserviceversion resource for ignore tag")
 		}
 	}
 

@@ -43,6 +43,7 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.19.4
+	k8s.io/apiextensions-apiserver v0.19.3
 	k8s.io/apimachinery v0.19.4
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/code-generator v0.19.4

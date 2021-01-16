@@ -48,6 +48,12 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 )
 
+const (
+	WebhookCertDir  = "/apiserver.local.config/certificates"
+	WebhookCertName = "apiserver.crt"
+	WebhookKeyName  = "apiserver.key"
+)
+
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(marketplacev1alpha1.AddToScheme(scheme))
@@ -73,19 +79,30 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	opts := ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "8fbe3a23.marketplace.redhat.com",
-	})
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), opts)
 
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
+
+	// openshiftPath := filepath.Join(WebhookCertDir, WebhookKeyName)
+	// ctrl.Log.Info("looking up path", "path", openshiftPath)
+	// if _, err := os.Stat(openshiftPath); !os.IsNotExist(err) {
+	// 	ctrl.Log.Info("path exists using openshift path", "path", WebhookCertDir)
+	// 	mgr.GetWebhookServer().CertDir = WebhookCertDir
+	// 	mgr.GetWebhookServer().KeyName = WebhookKeyName
+	// 	mgr.GetWebhookServer().CertName = WebhookCertName
+	// }
 
 	cfg, err := config.GetConfig()
 	if err != nil {
