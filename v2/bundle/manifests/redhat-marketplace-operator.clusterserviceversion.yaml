@@ -172,7 +172,7 @@ metadata:
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
-  name: redhat-marketplace-operator.v1.0.6
+  name: redhat-marketplace-operator.v2.0.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -577,11 +577,11 @@ spec:
                 - name: OPERATOR_NAME
                   value: redhat-marketplace-operator
                 - name: RELATED_IMAGE_REPORTER
-                  value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-reporter:1.0.6
+                  value: quay.io/zach_source/redhat-marketplace-reporter:2.0.0-49
                 - name: RELATED_IMAGE_METRIC_STATE
-                  value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-metric-state:1.0.6
+                  value: quay.io/zach_source/redhat-marketplace-metric-state:2.0.0-49
                 - name: RELATED_IMAGE_AUTHCHECK
-                  value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-authcheck:1.0.6
+                  value: quay.io/zach_source/redhat-marketplace-authcheck:2.0.0-49
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -594,7 +594,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.name
-                image: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-operator:1.0.6
+                image: quay.io/zach_source/redhat-marketplace-operator:2.0.0-49
                 name: manager
                 ports:
                 - containerPort: 9443
@@ -803,7 +803,7 @@ spec:
   provider:
     name: Red Hat Marketplace
     url: https://marketplace.redhat.com
-  version: 1.0.6
+  version: 2.0.0
   webhookdefinitions:
   - admissionReviewVersions:
     - v1beta1
