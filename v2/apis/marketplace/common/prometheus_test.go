@@ -51,8 +51,8 @@ var _ = Describe("MeterDefPrometheusLabels", func() {
 
 		Expect(err).To(Succeed())
 		Expect(labelMap).To(MatchAllKeys(Keys{
-			"meter_def_name":       Equal("name"),
-			"meter_def_namespace":  Equal("namespace"),
+			"name":                 Equal("name"),
+			"namespace":            Equal("namespace"),
 			"metric_period":        Equal("1h0m0s"),
 			"meter_group":          Equal("group"),
 			"meter_kind":           Equal("kind"),
@@ -68,6 +68,18 @@ var _ = Describe("MeterDefPrometheusLabels", func() {
 			"metric_query":         Equal("query"),
 		}))
 
+		newPromLabels := &MeterDefPrometheusLabels{}
+		err = newPromLabels.FromLabels(labelMap)
+
+		Expect(err).To(Succeed())
+
+		Expect(*newPromLabels).To(MatchFields(IgnoreExtras, Fields{
+			"MeterDefName":      Equal("name"),
+			"MeterDefNamespace": Equal("namespace"),
+			"MetricWithout":     Equal(JSONArray{"a", "b"}),
+			"MetricPeriod" :	 	 PointTo(Equal(*newPromLabels.MetricPeriod)),
+		}))
+
 		promLabels.MetricGroupBy = nil
 		promLabels.MetricWithout = JSONArray([]string{})
 
@@ -75,8 +87,8 @@ var _ = Describe("MeterDefPrometheusLabels", func() {
 
 		Expect(err).To(Succeed())
 		Expect(labelMap).To(MatchAllKeys(Keys{
-			"meter_def_name":       Equal("name"),
-			"meter_def_namespace":  Equal("namespace"),
+			"name":                 Equal("name"),
+			"namespace":            Equal("namespace"),
 			"metric_period":        Equal("1h0m0s"),
 			"meter_group":          Equal("group"),
 			"meter_kind":           Equal("kind"),
@@ -89,6 +101,17 @@ var _ = Describe("MeterDefPrometheusLabels", func() {
 			"workload_type":        Equal("pod"),
 			"workload_name":        Equal("workloadname"),
 			"metric_query":         Equal("query"),
+		}))
+
+		newPromLabels = &MeterDefPrometheusLabels{}
+		err = newPromLabels.FromLabels(labelMap)
+
+		Expect(err).To(Succeed())
+
+		Expect(*newPromLabels).To(MatchFields(IgnoreExtras, Fields{
+			"MeterDefName":      Equal("name"),
+			"MeterDefNamespace": Equal("namespace"),
+			"MetricWithout":     Equal(JSONArray{}),
 		}))
 	})
 })

@@ -113,7 +113,10 @@ func (dst *MeterDefinition) ConvertFrom(srcRaw conversion.Hub) error {
 	workloads := []Workload{}
 
 	if len(src.Spec.ResourceFilters) == 0 {
-		return errors.NewWithDetails("failed to convert to v1alpha1", "no resource filters available")
+		return errors.NewWithDetails("failed to convert to v1alpha1",
+			"name", src.Name,
+			"namespace", src.Namespace,
+			"details", "no resource filters available")
 	}
 
 	filter := src.Spec.ResourceFilters[0]

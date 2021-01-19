@@ -590,7 +590,6 @@ func buildPromQuery(labels interface{}, start, end time.Time) *meterDefPromQuery
 	}
 
 	workloadType := marketplacev1beta1.WorkloadType(meterDefLabels.WorkloadType)
-
 	duration := time.Hour
 	if meterDefLabels.MetricPeriod != nil {
 		duration = meterDefLabels.MetricPeriod.Duration

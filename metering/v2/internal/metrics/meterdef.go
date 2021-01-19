@@ -39,7 +39,6 @@ var meterDefinitionMetricsFamilies = []FamilyGenerator{
 				values := []string{}
 
 				labelMap, err := labels.ToLabels()
-
 				if err != nil {
 					log.Error(err, "label map conversion failed")
 					continue

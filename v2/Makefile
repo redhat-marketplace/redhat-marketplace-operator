@@ -181,7 +181,7 @@ bundle-stable:
 
 bundle-uninstall:
 	- kubectl delete catalogsources.operators.coreos.com redhat-marketplace-operator-catalog
-	- kubectl delete marketplaceconfigs.marketplace.redhat.com --all
+	#- kubectl delete marketplaceconfigs.marketplace.redhat.com --all
 	- kubectl delete subscription -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
 	- kubectl delete csv -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
 

@@ -57,7 +57,6 @@ require (
 replace (
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v1.8.2-0.20201015110737-0a7fdd3b7696
 	github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2 => ../metering/v2
-	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ./
 	k8s.io/api => k8s.io/api v0.19.4
 	k8s.io/client-go => k8s.io/client-go v0.19.4
 )

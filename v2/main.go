@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"os"
+	"path/filepath"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -52,6 +53,7 @@ const (
 	WebhookCertDir  = "/apiserver.local.config/certificates"
 	WebhookCertName = "apiserver.crt"
 	WebhookKeyName  = "apiserver.key"
+	WebhookPort     = 9443
 )
 
 func init() {
@@ -95,14 +97,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	// openshiftPath := filepath.Join(WebhookCertDir, WebhookKeyName)
-	// ctrl.Log.Info("looking up path", "path", openshiftPath)
-	// if _, err := os.Stat(openshiftPath); !os.IsNotExist(err) {
-	// 	ctrl.Log.Info("path exists using openshift path", "path", WebhookCertDir)
-	// 	mgr.GetWebhookServer().CertDir = WebhookCertDir
-	// 	mgr.GetWebhookServer().KeyName = WebhookKeyName
-	// 	mgr.GetWebhookServer().CertName = WebhookCertName
-	// }
+	openshiftPath := filepath.Join(WebhookCertDir, WebhookKeyName)
+	ctrl.Log.Info("looking up path", "path", openshiftPath)
+	if _, err := os.Stat(openshiftPath); !os.IsNotExist(err) {
+		ctrl.Log.Info("path exists using openshift path", "path", WebhookCertDir)
+		server := mgr.GetWebhookServer()
+		server.CertDir = WebhookCertDir
+		server.KeyName = WebhookKeyName
+		server.CertName = WebhookCertName
+		server.Port = WebhookPort
+	}
 
 	cfg, err := config.GetConfig()
 	if err != nil {
