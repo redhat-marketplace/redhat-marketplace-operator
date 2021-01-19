@@ -9,7 +9,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers/runnables"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/reconcileutils"
 	"k8s.io/client-go/kubernetes"
 	config2 "sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -20,22 +20,21 @@ import (
 func InitializeMarketplaceController() (*managers.ControllerMain, error) {
 	controllerFlagSet := controller.ProvideControllerFlagSet()
 	defaultCommandRunnerProvider := reconcileutils.ProvideDefaultCommandRunnerProvider()
-	marketplaceController := controller.ProvideMarketplaceController(defaultCommandRunnerProvider)
-	meterbaseController := controller.ProvideMeterbaseController(defaultCommandRunnerProvider)
-	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider)
 	operatorConfig, err := config.ProvideConfig()
 	if err != nil {
 		return nil, err
 	}
+	marketplaceController := controller.ProvideMarketplaceController(defaultCommandRunnerProvider, operatorConfig)
+	meterbaseController := controller.ProvideMeterbaseController(defaultCommandRunnerProvider)
+	meterDefinitionController := controller.ProvideMeterDefinitionController(defaultCommandRunnerProvider)
 	razeeDeployController := controller.ProvideRazeeDeployController(operatorConfig)
 	olmSubscriptionController := controller.ProvideOlmSubscriptionController()
 	meterReportController := controller.ProvideMeterReportController(defaultCommandRunnerProvider, operatorConfig)
 	olmClusterServiceVersionController := controller.ProvideOlmClusterServiceVersionController()
 	remoteResourceS3Controller := controller.ProvideRemoteResourceS3Controller()
 	nodeController := controller.ProvideNodeController()
-	rhmSubscriptionController := controller.ProvideRhmSubscriptionController()
 	clusterRegistrationController := controller.ProvideClusterRegistrationController()
-	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, meterReportController, olmClusterServiceVersionController, remoteResourceS3Controller, nodeController, rhmSubscriptionController, clusterRegistrationController)
+	controllerList := controller.ProvideControllerList(marketplaceController, meterbaseController, meterDefinitionController, razeeDeployController, olmSubscriptionController, meterReportController, olmClusterServiceVersionController, remoteResourceS3Controller, nodeController, clusterRegistrationController)
 	restConfig, err := config2.GetConfig()
 	if err != nil {
 		return nil, err

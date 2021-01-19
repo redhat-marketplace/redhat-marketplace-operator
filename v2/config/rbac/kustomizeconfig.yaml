@@ -1,0 +1,5 @@
+varReference:
+  - path: rules/resourceNames
+    kind: Role
+  - path: rules/resourceNames
+    kind: ClusterRole
