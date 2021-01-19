@@ -66,13 +66,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Login Docker
-        run: make docker-login
-        env:
-          DOCKER_USER: ${{ secrets.REDHAT_IO_USER }}
-          DOCKER_PASSWORD: ${{ secrets.REDHAT_IO_PASSWORD }}
-          REGISTRY: registry.redhat.io
-
       - name: Cache tools
         id: tools
         uses: actions/cache@v2
@@ -81,142 +74,14 @@ jobs:
             testbin
           key: tools-${{ runner.os }}-${{ hashFiles('Makefile') }}
 
-      - name: Install tools
-        run: |
-          echo "127.0.0.1 localhost" | sudo tee -a /etc/hosts
-          make install-tools testbin
+      # - name: Install tools
+      #   run: |
+      #     echo "127.0.0.1 localhost" | sudo tee -a /etc/hosts
+      #     make install-tools testbin
 
       - name: Test Unit
         run: |
-          make test-ci-unit
-
-      - uses: actions/upload-artifact@v2
-        with:
-          name: cover-unit
-          path: cover-unit.out
-
-  test-integration:
-    name: Test Integration
-    runs-on: ubuntu-20.04
-    needs: [build]
-    if: false
-    strategy:
-      matrix:
-        registry:
-          - 'quay.io/rh-marketplace'
-        include:
-          - registry: quay.io/rh-marketplace
-            name: quay
-            key: quayUser
-            value: quayPassword
-    env:
-      IMAGE_REGISTRY: ${{ matrix.registry }}
-      OPERATOR_IMAGE: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
-      OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
-      TAG: ${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}
-    steps:
-      - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.4.1
-        with:
-          access_token: ${{ github.token }}
-
-      - name: Set up Go 1.x
-        uses: actions/setup-go@v2
-        with:
-          go-version: ^1.15
-        id: go
-
-      - name: Get if gittag is pushed
-        shell: bash {0}
-        id: tag
-        run: |
-          VERSION=$(make current-version)
-          RESULT=$(git tag --list | grep -E "$VERSION")
-          IS_TAGGED=false
-          if [ "$RESULT" != "" ] ; then
-            IS_TAGGED=true
-          fi
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
-
-      - name: Cache Go Mod
-        uses: actions/cache@v2
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: Login Docker
-        run: make docker-login
-        env:
-          DOCKER_USER: ${{ secrets.REDHAT_IO_USER }}
-          DOCKER_PASSWORD: ${{ secrets.REDHAT_IO_PASSWORD }}
-          REGISTRY: registry.redhat.io
-
-      - name: Login quay.io
-        run: make docker-login
-        env:
-          DOCKER_USER: ${{ secrets['quayUser'] }}
-          DOCKER_PASSWORD: ${{ secrets['quayPassword'] }}
-          REGISTRY: quay.io/rh-marketplace
-
-      - name: Install tools
-        run: |
-          echo "127.0.0.1 localhost" | sudo tee -a /etc/hosts
-          make install-tools testbin
-          (
-            set -x; cd "$(mktemp -d)" &&
-            curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/krew.tar.gz" &&
-            tar zxvf krew.tar.gz &&
-            KREW=./krew-"$(uname | tr '[:upper:]' '[:lower:]')_$(uname -m | sed -e 's/x86_64/amd64/' -e 's/arm.*$/arm/')" &&
-            "$KREW" install krew
-          )
-          echo "${KREW_ROOT:-$HOME/.krew}/bin" >> $GITHUB_PATH
-
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v1
-
-      - name: Setup kind
-        run: |
-          kubectl krew install kuttl
-          make setup-kind
-
-      - name: Test Integration
-        env:
-          USE_EXISTING_CLUSTER: true
-          KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT: true
-          TEST_PULL_SECRET: ${{ secrets.TEST_PULL_SECRET }}
-        run: |
-          export QUAY_EXPIRATION=1d
-          echo "PULL_SECRET=$TEST_PULL_SECRET" > redhat-marketplace-pull-secret.env
-          make test-ci-int-kind
-
-  cover:
-    name: Cover
-    runs-on: ubuntu-20.04
-    needs: [test-unit]
-    steps:
-      - name: Set up Go 1.x
-        uses: actions/setup-go@v2
-        with:
-          go-version: ^1.15
-        id: go
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
-      - uses: actions/download-artifact@v2
-      - name: Report cover
-        run: |
-          #cp cover-int/cover-int.out .
-          cp cover-unit/cover-unit.out ./cover.out
-          #make test-join test-cover-text
-          go tool cover -html=cover.out -o cover.html
-      - uses: actions/upload-artifact@v2
-        with:
-          name: cover
-          path: cover.html
+          make test
 
   build:
     name: Preset
@@ -338,25 +203,20 @@ jobs:
           skopeo inspect docker://${TAG} --creds ${{ secrets['quayUser'] }}:${{ secrets['quayPassword'] }} > /dev/null
           ([[ $? == 0 ]] && echo "exists=true" || echo "exists=false") >> $GITHUB_ENV
 
-      - name: Install tools
-        run: |
-          make install-tools
-        env:
-          SKAFFOLD_VERSION: v1.14.0
-
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v1
-
-      - name: Login ${{ matrix.name }}
-        run: make docker-login
-        env:
-          DOCKER_USER: ${{ secrets['quayUser'] }}
-          DOCKER_PASSWORD: ${{ secrets['quayPassword'] }}
+      -
+        name: Login to GitHub Packages Docker Registry
+        uses: docker/login-action@v1
+        with:
+          registry: quay.io/rh-marketplace
+          username: ${{ secrets['quayUser'] }}
+          password: ${{ secrets['quayPassword'] }}
 
       - name: Build & Push
         if: env.exists != 'true'
-        run: make build-image
+        run: make operator/skaffold-build
 
   deploy-done:
     needs: [deploy]
@@ -552,7 +412,7 @@ jobs:
   tag-bundle:
     name: Push bundle tag
     runs-on: ubuntu-20.04
-    needs: [build, deploy, opm, cover, publish]
+    needs: [build, deploy, opm, publish]
     if: |
       github.event_name == 'push'
       && (startsWith(github.ref,'refs/heads/release/')
