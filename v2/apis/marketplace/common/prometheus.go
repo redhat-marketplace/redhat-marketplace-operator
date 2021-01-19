@@ -158,7 +158,7 @@ func (a *MetricPeriod) UnmarshalJSON(b []byte) error {
 }
 
 func (a MetricPeriod) MarshalJSON() ([]byte, error) {
-  str := metav1.Duration(a).Duration.String()
+	str := metav1.Duration(a).Duration.String()
 	return []byte(str), nil
 }
 

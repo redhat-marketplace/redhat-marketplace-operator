@@ -2,6 +2,8 @@
 VERSION ?= $(shell go run ./tools/version/main.go)
 UNAME_S := $(shell uname -s)
 
+export VERSION
+
 # Options for 'bundle-build'
 ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
@@ -71,7 +73,7 @@ test-ci-unit: ginkgo ## test-ci-unit runs all tests for CI builds
 
 .PHONY: test-ci-int
 test-ci-int:  ## test-ci-int runs all tests for CI builds
-	kubectl kuttl test --namespace openshift-redhat-marketplace --kind-context test --config ./kuttl-test.yaml ../tests/v2/e2e --suppress-log "INFO" --test "(^register-test$$|^features-test$$)" --supress-logs "events"
+	kubectl kuttl test --namespace openshift-redhat-marketplace --kind-context test --config ./kuttl-test.yaml ../tests/v2/e2e --test "(^register-test$$|^features-test$$)" --suppress-log "events"
 
 # Build manager binary
 manager: generate fmt vet
