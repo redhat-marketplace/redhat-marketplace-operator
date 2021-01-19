@@ -169,12 +169,12 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		return result.Return()
 	}
 
-	if marketplaceConfig.Annotations == nil {
-		marketplaceConfig.Annotations = make(map[string]string)
+	if marketplaceConfig.Labels == nil {
+		marketplaceConfig.Labels = make(map[string]string)
 	}
 
-	if v, ok := marketplaceConfig.Annotations[utils.RazeeWatchResource]; !ok || v != utils.RazeeWatchLevelDetail {
-		marketplaceConfig.Annotations[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
+	if v, ok := marketplaceConfig.Labels[utils.RazeeWatchResource]; !ok || v != utils.RazeeWatchLevelDetail {
+		marketplaceConfig.Labels[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
 
 		err = r.Client.Update(context.TODO(), marketplaceConfig)
 
