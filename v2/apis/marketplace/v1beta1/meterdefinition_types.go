@@ -69,8 +69,8 @@ const (
 	WorkloadTypePVC                  = "PersistentVolumeClaim"
 )
 const (
-	ReconcileError status.ConditionType = "Reconcile Error"
-	MeterDefQueryPreviewSetupError   status.ConditionType   = "QueryPreviewSetupError"
+	ReconcileError                 status.ConditionType = "Reconcile Error"
+	MeterDefQueryPreviewSetupError status.ConditionType = "QueryPreviewSetupError"
 )
 
 type WorkloadVertex string

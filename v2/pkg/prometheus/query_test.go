@@ -30,7 +30,6 @@ import (
 var _ = Describe("Query", func() {
 
 	var (
-
 		promAPI  v1.API
 		start, _ = time.Parse(time.RFC3339, "2020-04-19T13:00:00Z")
 		end, _   = time.Parse(time.RFC3339, "2020-04-19T16:00:00Z")
@@ -48,12 +47,12 @@ var _ = Describe("Query", func() {
 			Step:   time.Minute * 60,
 		})
 
-		promAPI = GetTestAPI(MockResponseRoundTripper("../../test/mockresponses/prometheus-query-range.json", []v1beta1.MeterDefinition{}))
+		promAPI = GetTestAPI(MockResponseRoundTripper("../../../reporter/v2/test/mockresponses/prometheus-query-range.json", []v1beta1.MeterDefinition{}))
 
 	})
 
 	It("should query a range", func() {
-		result, warnings, err := ReportQueryFromAPI(testQuery,promAPI)
+		result, warnings, err := ReportQueryFromAPI(testQuery, promAPI)
 
 		Expect(err).To(Succeed())
 		Expect(warnings).To(BeEmpty(), "warnings should be empty")
@@ -77,8 +76,8 @@ var _ = Describe("Query", func() {
 			Type:          v1beta1.WorkloadTypePVC,
 		})
 
-		// expected := `sum by (persistentvolumeclaim,namespace) (avg(meterdef_persistentvolumeclaim_info{meter_def_name="foo",meter_def_namespace="foons",phase="Bound"}) without (instance, container, endpoint, job, service) * on(persistentvolumeclaim,namespace) group_right kube_persistentvolumeclaim_resource_requests_storage_bytes) * on(persistentvolumeclaim,namespace) group_right group without(instance) (kube_persistentvolumeclaim_resource_requests_storage_bytes)`
-		expected := `sum by (persistentvolumeclaim,namespace) (avg(meterdef_persistentvolumeclaim_info{meter_def_name="foo",meter_def_namespace="foons",phase="Bound"}) without (instance, container, endpoint, job, service) * on(persistentvolumeclaim,namespace) group_right kube_persistentvolumeclaim_resource_requests_storage_bytes)`
+		expected := `sum by (persistentvolumeclaim,namespace) (avg(meterdef_persistentvolumeclaim_info{meter_def_name="foo",meter_def_namespace="foons",phase="Bound"}) without (instance, container, endpoint, job, service) * on(persistentvolumeclaim,namespace) group_right kube_persistentvolumeclaim_resource_requests_storage_bytes) * on(persistentvolumeclaim,namespace) group_right group without(instance) (kube_persistentvolumeclaim_resource_requests_storage_bytes)`
+		// expected := `sum by (persistentvolumeclaim,namespace) (avg(meterdef_persistentvolumeclaim_info{meter_def_name="foo",meter_def_namespace="foons",phase="Bound"}) without (instance, container, endpoint, job, service) * on(persistentvolumeclaim,namespace) group_right kube_persistentvolumeclaim_resource_requests_storage_bytes)`
 		q, err := q1.Print()
 		Expect(err).To(Succeed())
 		Expect(q).To(Equal(expected), "failed to create query for pvc")

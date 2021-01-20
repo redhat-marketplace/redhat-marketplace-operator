@@ -48,7 +48,7 @@ func ProvideInjectables(
 	i4 *FactoryInjector,
 	i5 *KubeInterfaceInjector,
 ) Injectables {
-	return []Injectable{i1, i2, i3, i4,i5}
+	return []Injectable{i1, i2, i3, i4, i5}
 }
 
 type Injector struct {
@@ -172,7 +172,7 @@ type KubeInterfaceInjector struct {
 	KubeInterface kubernetes.Interface
 }
 
-func(a *KubeInterfaceInjector) SetCustomFields(i interface{}) error {
+func (a *KubeInterfaceInjector) SetCustomFields(i interface{}) error {
 	if ii, ok := i.(KubeInterface); ok {
 		return ii.InjectKubeInterface(a.KubeInterface)
 	}

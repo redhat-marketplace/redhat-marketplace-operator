@@ -49,46 +49,46 @@ type UserAuth struct {
 }
 
 type PrometheusAPISetup struct {
-	Report *v1alpha1.MeterReport
-	PromService *corev1.Service
-	CertFilePath string
+	Report        *v1alpha1.MeterReport
+	PromService   *corev1.Service
+	CertFilePath  string
 	TokenFilePath string
-	RunLocal bool
+	RunLocal      bool
 }
 
 func NewPromAPI(
 	promService *corev1.Service,
 	caCert *[]byte,
 	token string,
-) (*PrometheusAPI,error) {
-	promAPI,err := providePrometheusAPI(promService,caCert,token)
+) (*PrometheusAPI, error) {
+	promAPI, err := providePrometheusAPI(promService, caCert, token)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 	prometheusAPI := &PrometheusAPI{promAPI}
-	return prometheusAPI,nil
+	return prometheusAPI, nil
 }
 
 func NewPrometheusAPIForReporter(
 	setup *PrometheusAPISetup,
-) (*PrometheusAPI,error) {
-	promAPI,err := providePrometheusAPIForReporter(setup)
+) (*PrometheusAPI, error) {
+	promAPI, err := providePrometheusAPIForReporter(setup)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 	prometheusAPI := &PrometheusAPI{promAPI}
-	return prometheusAPI,nil
+	return prometheusAPI, nil
 }
 
-func providePrometheusAPI (
+func providePrometheusAPI(
 	promService *corev1.Service,
 	caCert *[]byte,
 	token string,
-)  (v1.API, error) {
+) (v1.API, error) {
 
 	var port int32
 	if promService == nil {
-		return nil,errors.New("Prometheus service not defined")
+		return nil, errors.New("Prometheus service not defined")
 	}
 
 	name := promService.Name
@@ -114,17 +114,17 @@ func providePrometheusAPI (
 
 	if err != nil {
 		log.Error(err, "failed to setup NewSecureClient")
-		return nil,err
+		return nil, err
 	}
 
 	if conf == nil {
 		log.Error(err, "failed to setup NewSecureClient")
-		return nil,errors.New("client configuration is nil")
+		return nil, errors.New("client configuration is nil")
 	}
 
 	promAPI := v1.NewAPI(conf)
 	// p.promAPI = promAPI
-	return promAPI,nil
+	return promAPI, nil
 }
 
 func providePrometheusAPIForReporter(

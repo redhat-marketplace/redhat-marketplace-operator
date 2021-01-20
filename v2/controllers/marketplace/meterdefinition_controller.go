@@ -64,12 +64,12 @@ var saClient *ServiceAccountClient
 type MeterDefinitionReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	Client client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
-	cfg 	config.OperatorConfig
-	cc      ClientCommandRunner
-	patcher patch.Patcher
+	Client        client.Client
+	Log           logr.Logger
+	Scheme        *runtime.Scheme
+	cfg           config.OperatorConfig
+	cc            ClientCommandRunner
+	patcher       patch.Patcher
 	kubeInterface kubernetes.Interface
 }
 
@@ -102,7 +102,7 @@ func (r *MeterDefinitionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func(r *MeterDefinitionReconciler) InjectKubeInterface(k kubernetes.Interface) error {
+func (r *MeterDefinitionReconciler) InjectKubeInterface(k kubernetes.Interface) error {
 	r.kubeInterface = k
 	return nil
 }
@@ -139,32 +139,32 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 	// result, _ = cc.Do(
 	// 	context.TODO(),
 	// 	Call(func() (ClientAction, error) {
-			var update bool
+	var update bool
 
-			switch {
-			case instance.Status.Conditions.IsUnknownFor(common.MeterDefConditionTypeHasResult):
-				fallthrough
-			case len(instance.Status.WorkloadResources) == 0:
-				update = instance.Status.Conditions.SetCondition(common.MeterDefConditionNoResults)
-			case len(instance.Status.WorkloadResources) > 0:
-				update = instance.Status.Conditions.SetCondition(common.MeterDefConditionHasResults)
-			}
+	switch {
+	case instance.Status.Conditions.IsUnknownFor(common.MeterDefConditionTypeHasResult):
+		fallthrough
+	case len(instance.Status.WorkloadResources) == 0:
+		update = instance.Status.Conditions.SetCondition(common.MeterDefConditionNoResults)
+	case len(instance.Status.WorkloadResources) > 0:
+		update = instance.Status.Conditions.SetCondition(common.MeterDefConditionHasResults)
+	}
 
-			// if !update {
-			// 	return nil, nil
-			// }
+	// if !update {
+	// 	return nil, nil
+	// }
 
-			// return UpdateAction(instance, UpdateStatusOnly(true)), nil
-		// }),
+	// return UpdateAction(instance, UpdateStatusOnly(true)), nil
+	// }),
 	// )
 	if result.Is(Error) {
 		reqLogger.Error(result.GetError(), "Failed to update status.")
 	}
 
-	queryPreviewResult,err := r.queryPreview(cc,instance,request,reqLogger)
+	queryPreviewResult, err := r.queryPreview(cc, instance, request, reqLogger)
 	if err != nil {
 		update = instance.Status.Conditions.SetCondition(status.Condition{
-			Type: v1beta1.MeterDefQueryPreviewSetupError,
+			Type:    v1beta1.MeterDefQueryPreviewSetupError,
 			Message: err.Error(),
 		})
 	} else if err == nil {
@@ -191,7 +191,7 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 		reqLogger.Error(result.GetError(), "Failed to update status.")
 	}
 
-	reqLogger.Info("meterdef_preview","requeue rate",r.cfg.ControllerValues.MeterDefControllerRequeueRate)
+	reqLogger.Info("meterdef_preview", "requeue rate", r.cfg.ControllerValues.MeterDefControllerRequeueRate)
 
 	reqLogger.Info("finished reconciling")
 
@@ -224,45 +224,45 @@ func (r *MeterDefinitionReconciler) addFinalizer(instance *v1alpha1.MeterDefinit
 	return nil
 }
 
-func (r *MeterDefinitionReconciler) queryPreview(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) ([]v1beta1.Result,error) {
+func (r *MeterDefinitionReconciler) queryPreview(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) ([]v1beta1.Result, error) {
 	var queryPreviewResult []v1beta1.Result
 
 	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 
 	certConfigMap, err := r.getCertConfigMap(context.TODO(), cc, request)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 
 	saClient := NewServiceAccountClient(r.cfg.ControllerValues.DeploymentNamespace, r.kubeInterface)
 
 	authToken, err := saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.PrometheusAudience, 3600, reqLogger)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 
 	if certConfigMap != nil && authToken != "" && service != nil {
 		cert, err := parseCertificateFromConfigMap(*certConfigMap)
 		if err != nil {
-			return nil,err
+			return nil, err
 		}
 
-		prometheusAPI,err := NewPromAPI(service,&cert,authToken)
+		prometheusAPI, err := NewPromAPI(service, &cert, authToken)
 		if err != nil {
-			return nil,err
+			return nil, err
 		}
 
 		reqLogger.Info("generatring meterdef preview")
-		queryPreviewResult, err = generateQueryPreview(instance,prometheusAPI ,reqLogger)
+		queryPreviewResult, err = generateQueryPreview(instance, prometheusAPI, reqLogger)
 		if err != nil {
-			return nil,err
+			return nil, err
 		}
 	}
 
-	return queryPreviewResult,nil
+	return queryPreviewResult, nil
 }
 
 func (r *MeterDefinitionReconciler) queryForPrometheusService(
@@ -274,7 +274,7 @@ func (r *MeterDefinitionReconciler) queryForPrometheusService(
 
 	name := types.NamespacedName{
 		Name:      utils.PROMETHEUS_METERBASE_NAME,
-		Namespace: 	r.cfg.ControllerValues.DeploymentNamespace,
+		Namespace: r.cfg.ControllerValues.DeploymentNamespace,
 	}
 
 	if result, _ := cc.Do(ctx, GetAction(name, service)); !result.Is(Continue) {
@@ -290,7 +290,7 @@ func (r *MeterDefinitionReconciler) getCertConfigMap(ctx context.Context, cc Cli
 
 	name := types.NamespacedName{
 		Name:      utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
-		Namespace: 	r.cfg.ControllerValues.DeploymentNamespace,
+		Namespace: r.cfg.ControllerValues.DeploymentNamespace,
 	}
 
 	if result, _ := cc.Do(context.TODO(), GetAction(name, certConfigMap)); !result.Is(Continue) {
@@ -315,12 +315,11 @@ func parseCertificateFromConfigMap(certConfigMap corev1.ConfigMap) (cert []byte,
 	return cert, nil
 }
 
-
-func returnQueryRange()(startTime time.Time, endTime time.Time){
+func returnQueryRange() (startTime time.Time, endTime time.Time) {
 	baseTime := time.Now().Truncate(time.Minute)
 	end := baseTime
 	start := end.Add(-time.Hour)
-	return start,end
+	return start, end
 }
 
 func generateQueryPreview(instance *v1beta1.MeterDefinition, prometheusAPI *PrometheusAPI, reqLogger logr.Logger) (queryPreviewResultArray []v1beta1.Result, returnErr error) {
@@ -348,10 +347,10 @@ func generateQueryPreview(instance *v1beta1.MeterDefinition, prometheusAPI *Prom
 
 		q, err := query.Print()
 		if err != nil {
-			return nil,err
+			return nil, err
 		}
 
-		reqLogger.Info("meterdef preview query", "query",q)
+		reqLogger.Info("meterdef preview query", "query", q)
 
 		var warnings v1.Warnings
 		err = utils.Retry(func() error {

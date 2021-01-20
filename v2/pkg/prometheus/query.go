@@ -145,7 +145,7 @@ func (q *PromQuery) Print() (string, error) {
 	return buf.String(), err
 }
 
-func (p *PrometheusAPI)ReportQuery(query *PromQuery) (model.Value, v1.Warnings, error) {
+func (p *PrometheusAPI) ReportQuery(query *PromQuery) (model.Value, v1.Warnings, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -176,7 +176,7 @@ func (p *PrometheusAPI)ReportQuery(query *PromQuery) (model.Value, v1.Warnings, 
 	return result, warnings, nil
 }
 
-//TODO: is this being used ? 
+//TODO: is this being used ?
 func ReportQueryFromAPI(query *PromQuery, promApi v1.API) (model.Value, v1.Warnings, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -189,7 +189,7 @@ func ReportQueryFromAPI(query *PromQuery, promApi v1.API) (model.Value, v1.Warni
 
 	q, err := query.Print()
 	if err != nil {
-		return nil,nil,err
+		return nil, nil, err
 	}
 
 	result, warnings, err := promApi.QueryRange(ctx, q, timeRange)
@@ -245,7 +245,7 @@ func (q *MeterDefinitionQuery) Print() (string, error) {
 	return buf.String(), err
 }
 
-func(p *PrometheusAPI) QueryMeterDefinitions(query *MeterDefinitionQuery) (model.Value, v1.Warnings, error) {
+func (p *PrometheusAPI) QueryMeterDefinitions(query *MeterDefinitionQuery) (model.Value, v1.Warnings, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

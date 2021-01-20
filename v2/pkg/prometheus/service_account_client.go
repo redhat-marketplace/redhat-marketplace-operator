@@ -39,28 +39,28 @@ type Token struct {
 	ExpirationTimestamp metav1.Time
 }
 
-func (s *ServiceAccountClient) NewServiceAccountToken(targetServiceAccountName string,audience string,expireSecs int64 ,reqLogger logr.Logger) (string, error) {
+func (s *ServiceAccountClient) NewServiceAccountToken(targetServiceAccountName string, audience string, expireSecs int64, reqLogger logr.Logger) (string, error) {
 	s.Lock()
 	defer s.Unlock()
 
 	now := metav1.Now().UTC()
 	opts := metav1.CreateOptions{}
-	tr := s.newTokenRequest(audience,expireSecs)
+	tr := s.newTokenRequest(audience, expireSecs)
 
 	if s.Token == nil {
 		reqLogger.Info("auth token from service account found")
 
-		return s.getToken(targetServiceAccountName,s.Client,tr,opts)
+		return s.getToken(targetServiceAccountName, s.Client, tr, opts)
 	}
 
 	if now.UTC().After(s.Token.ExpirationTimestamp.Time) {
 
 		reqLogger.Info("service account token is expired")
 
-		return s.getToken(targetServiceAccountName,s.Client,tr,opts)
+		return s.getToken(targetServiceAccountName, s.Client, tr, opts)
 	}
 
-	return s.getToken(targetServiceAccountName,s.Client,tr,opts)
+	return s.getToken(targetServiceAccountName, s.Client, tr, opts)
 }
 
 func NewServiceAccountClient(namespace string, kubernetesInterface kubernetes.Interface) *ServiceAccountClient {
@@ -69,7 +69,7 @@ func NewServiceAccountClient(namespace string, kubernetesInterface kubernetes.In
 	}
 }
 
-func (s *ServiceAccountClient) newTokenRequest (audience string, expireSeconds int64) *authv1.TokenRequest {
+func (s *ServiceAccountClient) newTokenRequest(audience string, expireSeconds int64) *authv1.TokenRequest {
 	return &authv1.TokenRequest{
 		Spec: authv1.TokenRequestSpec{
 			Audiences:         []string{audience},
@@ -78,7 +78,7 @@ func (s *ServiceAccountClient) newTokenRequest (audience string, expireSeconds i
 	}
 }
 
-func(s *ServiceAccountClient) getToken (targetServiceAccount string,client typedv1.ServiceAccountInterface,tr *authv1.TokenRequest,opts metav1.CreateOptions)(string,error){
+func (s *ServiceAccountClient) getToken(targetServiceAccount string, client typedv1.ServiceAccountInterface, tr *authv1.TokenRequest, opts metav1.CreateOptions) (string, error) {
 	tr, err := client.CreateToken(context.TODO(), targetServiceAccount, tr, opts)
 	if err != nil {
 		return "", err

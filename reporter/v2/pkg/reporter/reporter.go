@@ -62,7 +62,6 @@ var (
 // Update the CR status for each report and queue
 
 type MarketplaceReporter struct {
-	// api               v1.API
 	PrometheusAPI
 	k8sclient         client.Client
 	mktconfig         *marketplacev1alpha1.MarketplaceConfig
