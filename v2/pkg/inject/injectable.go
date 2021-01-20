@@ -155,7 +155,7 @@ type FactoryInjector struct {
 
 func (a *FactoryInjector) SetCustomFields(i interface{}) error {
 	if ii, ok := i.(Factory); ok {
-		f := manifests.NewFactory(string(a.Namespace), manifests.NewOperatorConfig(a.Config), a.Scheme)
+		f := manifests.NewFactory(string(a.Namespace), manifests.NewOperatorConfig(a.Config), &a.Config, a.Scheme)
 
 		return ii.InjectFactory(*f)
 	}

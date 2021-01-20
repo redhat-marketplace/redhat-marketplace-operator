@@ -9,7 +9,7 @@ webhooks:
 - clientConfig:
     caBundle: Cg==
     service:
-      name: controller-manager-service
+      name: webhook-service
       namespace: system
       path: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
   failurePolicy: Fail
@@ -36,7 +36,7 @@ webhooks:
 - clientConfig:
     caBundle: Cg==
     service:
-      name: controller-manager-service
+      name: webhook-service
       namespace: system
       path: /validate-marketplace-redhat-com-v1beta1-meterdefinition
   failurePolicy: Fail

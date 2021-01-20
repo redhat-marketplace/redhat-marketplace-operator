@@ -28,6 +28,7 @@ import (
 	"github.com/gotidy/ptr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -71,16 +72,18 @@ func MustAssetReader(asset string) io.Reader {
 }
 
 type Factory struct {
-	namespace string
-	config    *Config
-	scheme    *runtime.Scheme
+	namespace      string
+	config         *Config
+	operatorConfig *config.OperatorConfig
+	scheme         *runtime.Scheme
 }
 
-func NewFactory(namespace string, c *Config, s *runtime.Scheme) *Factory {
+func NewFactory(namespace string, c *Config, oc *config.OperatorConfig, s *runtime.Scheme) *Factory {
 	return &Factory{
-		namespace: namespace,
-		config:    c,
-		scheme:    s,
+		namespace:      namespace,
+		operatorConfig: oc,
+		config:         c,
+		scheme:         s,
 	}
 }
 
@@ -595,6 +598,12 @@ func NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMonitor, error)
 }
 
 func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDeployment) *appsv1.Deployment {
+	var securityContext *corev1.PodSecurityContext
+	if !f.operatorConfig.Infrastructure.HasOpenshift() {
+		securityContext = &corev1.PodSecurityContext{
+			FSGroup: ptr.Int64(1000),
+		}
+	}
 	rep := ptr.Int32(1)
 	maxSurge := intstr.FromString("25%")
 	maxUnavailable := intstr.FromString("25%")
@@ -733,6 +742,7 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 							},
 						},
 					},
+					SecurityContext: securityContext,
 				},
 			},
 		},
@@ -750,6 +760,12 @@ func (f *Factory) SetControllerReference(obj metav1.Object, owner Owner) {
 }
 
 func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.RazeeDeployment) *appsv1.Deployment {
+	var securityContext *corev1.PodSecurityContext
+	if !f.operatorConfig.Infrastructure.HasOpenshift() {
+		securityContext = &corev1.PodSecurityContext{
+			FSGroup: ptr.Int64(1000),
+		}
+	}
 	rep := ptr.Int32(1)
 	maxSurge := intstr.FromString("25%")
 	maxUnavailable := intstr.FromString("25%")
@@ -890,6 +906,7 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 							},
 						},
 					},
+					SecurityContext: securityContext,
 				},
 			},
 		},

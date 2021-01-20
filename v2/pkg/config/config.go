@@ -16,22 +16,27 @@ package config
 
 import (
 	"sync"
+	"time"
 
 	"github.com/caarlos0/env/v6"
-	"time"
+	"k8s.io/client-go/discovery"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var global *OperatorConfig
 var globalMutex = sync.RWMutex{}
+var log = logf.Log.WithName("operator_config")
 
 // OperatorConfig is the configuration for the operator
 type OperatorConfig struct {
 	DeployedNamespace string `env:"POD_NAMESPACE"`
-	RelatedImages     RelatedImages
-	Features          Features
-	Marketplace       Marketplace
 	ReportController  ReportControllerConfig
-	OLMInformation    OLMInformation
+	RelatedImages
+	Features
+	Marketplace
+	Infrastructure
+	OLMInformation
 }
 
 // RelatedImages stores relatedimages for the operator
@@ -90,10 +95,29 @@ func ProvideConfig() (OperatorConfig, error) {
 		if err != nil {
 			return cfg, err
 		}
+
+		cfg.Infrastructure = Infrastructure{}
 		global = &cfg
 	}
 
 	return *global, nil
+}
+
+// ProvideInfrastructureAwareConfig loads Operator Config with Infrastructure information
+func ProvideInfrastructureAwareConfig(c client.Client, dc *discovery.DiscoveryClient) (OperatorConfig, error) {
+	cfg := OperatorConfig{}
+	inf, err := LoadInfrastructure(c, dc)
+	if err != nil {
+		return cfg, err
+	}
+	cfg.Infrastructure = *inf
+
+	err = env.Parse(&cfg)
+	if err != nil {
+		return cfg, err
+	}
+
+	return cfg, nil
 }
 
 var GetConfig = ProvideConfig

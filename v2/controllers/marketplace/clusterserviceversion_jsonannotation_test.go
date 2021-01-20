@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/mock/mock_client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/utils/pointer"
 	k8client "sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = Describe("JsonMeterDefValidation", func() {
@@ -46,7 +48,7 @@ var _ = Describe("JsonMeterDefValidation", func() {
 	)
 
 	BeforeEach(func() {
-		//logger := logf.Log.WithName("JsonMeterDefValidation")
+		logger := logf.Log.WithName("JsonMeterDefValidation")
 		ctrl = gomock.NewController(GinkgoT())
 		//patcher = mock_patch.NewMockPatchMaker(ctrl)
 		client = mock_client.NewMockClient(ctrl)
@@ -56,17 +58,23 @@ var _ = Describe("JsonMeterDefValidation", func() {
 		//cc = reconcileutils.NewClientCommand(client, scheme.Scheme, logger)
 		ctx = context.TODO()
 
-		sut = &ClusterServiceVersionReconciler{Client: client, Scheme: scheme.Scheme}
+		sut = &ClusterServiceVersionReconciler{Client: client, Scheme: scheme.Scheme, Log: logger}
 
+		CSV = &olmv1alpha1.ClusterServiceVersion{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "n",
+				Namespace: "ns",
+			},
+		}
 	})
 
 	AfterEach(func() {
 		ctrl.Finish()
 	})
 
-	Context("MeterDefinition Json String is wrong", func() {
+	Context("MeterDefinition Json String", func() {
 		var (
-			meterDefJson = `{
+			meterDefJsonBad = `{
 			"apiVersion": "marketplace.redhat.com/v1alpha1",
 			"kind": "MeterDefinition",
 			"metadata": {
@@ -79,7 +87,7 @@ var _ = Describe("JsonMeterDefValidation", func() {
 			  "workloads": {
 				"name": "pod_node",
 				"type": "Pod",
-				"ownerCRD": {
+				ownerCRD": {
 					"apiVersion": "robin.io/v1alpha1",
 					"kind": "RobinCluster"
 				},
@@ -91,53 +99,40 @@ var _ = Describe("JsonMeterDefValidation", func() {
 			  }
 			}
 		  }`
-			ann = map[string]string{utils.CSV_METERDEFINITION_ANNOTATION: meterDefJson}
-		)
-
-		It("CSV should have annotation meterDefStatus with value 'error' and meterDefError", func() {
-			client.EXPECT().Update(ctx, CSV).Return(nil).Times(1)
-			sut.reconcileMeterDefAnnotation(CSV, ann)
-			Expect(CSV.GetAnnotations()[meterDefStatus]).To(Equal("error"))
-			Expect(CSV.GetAnnotations()[meterDefError]).Should(ContainSubstring("cannot unmarshal object"))
-		})
-	})
-
-	Context("MeterDefinition Json String is correct format", func() {
-		var (
+			annBad       = map[string]string{utils.CSV_METERDEFINITION_ANNOTATION: meterDefJsonBad}
 			meterDefJson = `{
-					"apiVersion": "marketplace.redhat.com/v1alpha1",
-					"kind": "MeterDefinition",
-					"metadata": {
-					  "name": "robinstorage-meterdef"
-					},
-					"spec": {
-					  "group": "robinclusters.robin.io",
-					  "kind": "RobinCluster",
-					  "workloadVertexType": "OperatorGroup",
-					  "workloads": [{
-						"name": "pod_node",
-						"type": "Pod",
-						"ownerCRD": {
-							"apiVersion": "robin.io/v1alpha1",
-							"kind": "RobinCluster"
-						},
-						"metricLabels": [{
-							"aggregation": "sum",
-							"label": "node_hour",
-							"query": "kube_pod_info{created_by_kind=\"DaemonSet\",created_by_name=\"robin\"}"
-						}]
-					  }]
-					}
-				  }`
+        "apiVersion": "marketplace.redhat.com/v1alpha1",
+        "kind": "MeterDefinition",
+        "metadata": {
+          "name": "robinstorage-meterdef"
+        },
+        "spec": {
+          "meterGroup": "robinclusters.robin.io",
+          "meterKind": "RobinCluster",
+          "workloadVertexType": "OperatorGroup",
+          "workloads": [{
+            "name": "pod_node",
+            "type": "Pod",
+            "ownerCRD": {
+                "apiVersion": "manage.robin.io/v1",
+                "kind": "RobinCluster"
+            },
+            "metricLabels": [{
+                "aggregation": "avg",
+                "label": "node_hour2",
+                "query": "min_over_time((kube_pod_info{created_by_kind=\"DaemonSet\",created_by_name=\"robin\",node=~\".*\"} or on() vector(0))[60m:60m])"
+            }]
+          }]
+        }
+      }`
 			ann             = map[string]string{utils.CSV_METERDEFINITION_ANNOTATION: meterDefJson}
-			list            *marketplacev1alpha1.MeterDefinitionList
 			meterDefinition *marketplacev1alpha1.MeterDefinition
 
 			//meterDefinitionNew   *marketplacev1alpha1.MeterDefinition
 			gvk *schema.GroupVersionKind
 		)
+
 		BeforeEach(func() {
-			list = &marketplacev1alpha1.MeterDefinitionList{}
 			meterDefinition = &marketplacev1alpha1.MeterDefinition{}
 
 			//meterDefinitionNew = nil
@@ -164,15 +159,31 @@ var _ = Describe("JsonMeterDefValidation", func() {
 
 			meterDefinition.ObjectMeta.OwnerReferences = append(meterDefinition.ObjectMeta.OwnerReferences, ref)
 		})
+
 		It("CSV should have annotation meterDefStatus with value 'error' and meterDefError", func() {
-			client.EXPECT().List(ctx, list, k8client.InNamespace(meterDefinition.GetNamespace())).Return(nil).Times(1)
-			client.EXPECT().Update(ctx, CSV).Return(nil).Times(1)
-			client.EXPECT().Create(ctx, meterDefinition).Return(nil).Times(1)
+			list := v1beta1.MeterDefinitionList{
+				Items: []v1beta1.MeterDefinition{},
+			}
+			client.EXPECT().Update(ctx, CSV).Return(nil).Times(2)
+			client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+				func(_ context.Context, l *v1beta1.MeterDefinitionList, _ k8client.ListOption) error {
+					*l = list
+					return nil
+				}).Times(1)
+			client.EXPECT().Create(ctx, gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1beta1.MeterDefinition) error {
+				return nil
+			}).Times(1)
+
+			By("testing for failure")
+			sut.reconcileMeterDefAnnotation(CSV, annBad)
+			Expect(CSV.GetAnnotations()[meterDefStatus]).To(Equal("error"))
+			Expect(CSV.GetAnnotations()[meterDefError]).Should(ContainSubstring("invalid character"))
+
+			//client.EXPECT().Update(ctx, CSV).Return(nil).Times(1)
+			By("testing for success")
 			sut.reconcileMeterDefAnnotation(CSV, ann)
 			Expect(CSV.GetAnnotations()[meterDefStatus]).To(Equal("success"))
 			Expect(CSV.GetAnnotations()[meterDefError]).Should(BeEmpty())
-
 		})
 	})
-
 })
