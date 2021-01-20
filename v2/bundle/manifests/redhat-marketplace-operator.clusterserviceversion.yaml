@@ -162,7 +162,31 @@ metadata:
             "name": "redhat-marketplace-meterdefinition-sample",
             "namespace": "openshift-redhat-marketplace"
           },
-          "spec": null
+          "spec": {
+            "group": "partner.metering.com",
+            "kind": "App",
+            "meters": [
+              {
+                "aggregation": "sum",
+                "metric": "container_cpu_usage_core_avg",
+                "period": "1h",
+                "query": "rate(container_cpu_usage_seconds_total{cpu=\"total\",container=\"db\"}[5m])*100",
+                "workloadType": "Pod"
+              }
+            ],
+            "resourceFilters": [
+              {
+                "namespace": {
+                  "useOperatorGroup": true
+                },
+                "ownerCRD": {
+                  "apiVersion": "marketplace.redhat.com/v1alpha1",
+                  "kind": "RazeeDeployment"
+                },
+                "workloadType": "Pod"
+              }
+            ]
+          }
         }
       ]
     capabilities: Full Lifecycle
