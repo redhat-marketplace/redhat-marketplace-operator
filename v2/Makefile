@@ -1,6 +1,8 @@
 # Current Operator version
-VERSION ?= 1.0.6
+VERSION ?= $(shell go run ./tools/version/main.go)
 UNAME_S := $(shell uname -s)
+
+export VERSION
 
 # Options for 'bundle-build'
 ifneq ($(origin CHANNELS), undefined)
@@ -13,20 +15,22 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 
+TAG ?= $(VERSION)
+
 OPERATOR_IMAGE_NAME = redhat-marketplace-operator
-OPERATOR_IMAGE_TAG ?= $(VERSION)
+OPERATOR_IMAGE_TAG ?= $(TAG)
 OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
 
 REPORTER_IMAGE_NAME ?= redhat-marketplace-reporter
-REPORTER_IMAGE_TAG ?= $(VERSION)
+REPORTER_IMAGE_TAG ?= $(TAG)
 REPORTER_IMAGE := $(IMAGE_REGISTRY)/$(REPORTER_IMAGE_NAME):$(REPORTER_IMAGE_TAG)
 
 METRIC_STATE_IMAGE_NAME ?= redhat-marketplace-metric-state
-METRIC_STATE_IMAGE_TAG ?= $(VERSION)
+METRIC_STATE_IMAGE_TAG ?= $(TAG)
 METRIC_STATE_IMAGE := $(IMAGE_REGISTRY)/$(METRIC_STATE_IMAGE_NAME):$(METRIC_STATE_IMAGE_TAG)
 
 AUTHCHECK_IMAGE_NAME ?= redhat-marketplace-authcheck
-AUTHCHECK_IMAGE_TAG ?= $(VERSION)
+AUTHCHECK_IMAGE_TAG ?= $(TAG)
 AUTHCHECK_IMAGE := $(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME):$(AUTHCHECK_IMAGE_TAG)
 
 BUNDLE_NAME ?= redhat-marketplace-operator-manifest
@@ -54,19 +58,22 @@ endif
 
 all: manager
 
+clean:
+	rm -f bundle/manifests/*.yaml bundle/metadata/*.yaml bundle/tests/*.yaml
+
 # Run tests
 .PHONY: test
 test: fmt vet manifests ginkgo
-	$(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
+	$(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal ./apis ./controllers
 
 .PHONY: test-ci-unit
 test-ci-unit: ginkgo ## test-ci-unit runs all tests for CI builds
-	$(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
+	$(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal ./apis ./controllers
 	cat cover-unit.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-unit.out
 
 .PHONY: test-ci-int
 test-ci-int:  ## test-ci-int runs all tests for CI builds
-	kubectl kuttl test --namespace openshift-redhat-marketplace --kind-context test --config ./kuttl-test.yaml ../tests/v2/e2e --suppress-log "INFO" --test "(^register-test$$|^features-test$$)"
+	kubectl kuttl test --namespace openshift-redhat-marketplace --kind-context test --config ./kuttl-test.yaml ../tests/v2/e2e --test "(^register-test$$|^features-test$$)" --suppress-log "events"
 
 # Build manager binary
 manager: generate fmt vet
@@ -152,7 +159,7 @@ docker-push:
 
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
-bundle: manifests kustomize helm
+bundle: clean manifests kustomize helm
 	operator-sdk generate kustomize manifests -q
 	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
 	--set operatorImage=$(OPERATOR_IMAGE) \
@@ -181,14 +188,17 @@ bundle-deploy:
 	docker push $(BUNDLE_IMG)
 	operator-sdk run bundle $(BUNDLE_IMG)
 
+bundle-stable:
+	$(MAKE) bundle CHANNELS=stable DEFAULT_CHANNEL=stable
+
 bundle-uninstall:
 	- kubectl delete catalogsources.operators.coreos.com redhat-marketplace-operator-catalog
-	- kubectl delete marketplaceconfigs.marketplace.redhat.com --all
+	#- kubectl delete marketplaceconfigs.marketplace.redhat.com --all
 	- kubectl delete subscription -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
 	- kubectl delete csv -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
 
 skaffold-build:
-	skaffold build --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
+	skaffold build --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
 
 INSTALL_DEBUG ?= false
 
@@ -226,7 +236,7 @@ skaffold-dev: install
 	skaffold dev --default-repo $(IMAGE_REGISTRY) --cleanup=false
 
 skaffold-run:
-	skaffold run --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
+	skaffold run --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
 
 # --TOOLS--
 #

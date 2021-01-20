@@ -71,7 +71,7 @@ func (src *MeterDefinition) ConvertTo(dstRaw conversion.Hub) error {
 			return err
 		}
 
-		filters.WorkloadType = workloadType
+		filters.WorkloadType.WorkloadType = workloadType
 
 		if workload.OwnerCRD != nil {
 			filters.OwnerCRD = &v1beta1.OwnerCRDFilter{
@@ -85,7 +85,7 @@ func (src *MeterDefinition) ConvertTo(dstRaw conversion.Hub) error {
 			meters = append(meters, v1beta1.MeterWorkload{
 				Aggregation:  metricLabel.Aggregation,
 				GroupBy:      []string{},
-				WorkloadType: workloadType,
+				WorkloadType: v1beta1.WorkloadTypeFilter{WorkloadType: workloadType},
 				Metric:       metricLabel.Label,
 				Name:         workload.Name,
 				Period:       &metaHRDuration,
@@ -113,7 +113,10 @@ func (dst *MeterDefinition) ConvertFrom(srcRaw conversion.Hub) error {
 	workloads := []Workload{}
 
 	if len(src.Spec.ResourceFilters) == 0 {
-		return errors.NewWithDetails("failed to convert to v1alpha1", "no resource filters available")
+		return errors.NewWithDetails("failed to convert to v1alpha1",
+			"name", src.Name,
+			"namespace", src.Namespace,
+			"details", "no resource filters available")
 	}
 
 	filter := src.Spec.ResourceFilters[0]

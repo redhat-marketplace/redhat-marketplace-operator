@@ -157,8 +157,8 @@ func BuildNewOpSrc() *unstructured.Unstructured {
 			"apiVersion": "operators.coreos.com/v1",
 			"kind":       "OperatorSource",
 			"metadata": map[string]interface{}{
-				"namespace": OPSRC_NAME,
-				"name":      OPERATOR_MKTPLACE_NS,
+				"namespace": OPERATOR_MKTPLACE_NS,
+				"name":      OPSRC_NAME,
 			},
 			"spec": map[string]interface{}{
 				"DisplayName":       "Red Hat Marketplace",

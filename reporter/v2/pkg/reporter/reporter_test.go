@@ -97,7 +97,9 @@ var _ = Describe("Reporter", func() {
 									Kind:       "App",
 								},
 							},
-							WorkloadType: v1beta1.WorkloadTypePod,
+							WorkloadType: v1beta1.WorkloadTypeFilter{
+								WorkloadType: v1beta1.WorkloadTypePod,
+							},
 						},
 					},
 					Meters: []v1beta1.MeterWorkload{
@@ -105,14 +107,18 @@ var _ = Describe("Reporter", func() {
 							Aggregation:  "sum",
 							Query:        "rpc_durations_seconds_sum",
 							Metric:       "rpc_durations_seconds_sum",
-							WorkloadType: v1beta1.WorkloadTypePod,
+							WorkloadType: v1beta1.WorkloadTypeFilter{
+								WorkloadType: v1beta1.WorkloadTypePod,
+							},
 						},
 						{
 
 							Aggregation:  "sum",
 							Query:        "my_query",
 							Metric:       "rpc_durations_seconds_count",
-							WorkloadType: v1beta1.WorkloadTypePod,
+							WorkloadType: v1beta1.WorkloadTypeFilter{
+								WorkloadType: v1beta1.WorkloadTypePod,
+							},
 						},
 					},
 				},

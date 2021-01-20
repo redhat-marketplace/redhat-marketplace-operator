@@ -67,19 +67,18 @@ func (a *PodMonitor) Start(stop <-chan struct{}) error {
 
 	go a.Run(ctx)
 
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-stop:
-			cancel()
-			return nil
-		}
+	select {
+	case <-ctx.Done():
+		return nil
+	case <-stop:
+		cancel()
+		return nil
 	}
 }
 
 func (a *PodMonitor) Run(ctx context.Context) error {
 	log := a.logger.WithValues("func", "podMonitor")
+	log.Info("starting podMonitor")
 
 	podClient := a.client.CoreV1().Pods(a.config.Namespace)
 	podWatcher, err := podClient.Watch(ctx, v1.ListOptions{})

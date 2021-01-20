@@ -22,6 +22,7 @@ import (
 	"github.com/google/wire"
 	"k8s.io/apimachinery/pkg/api/meta"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,6 +57,7 @@ var (
 		wire.FieldsOf(new(*ControllerFields), "Client", "Logger", "Scheme", "Config"),
 		kubernetes.NewForConfig,
 		dynamic.NewForConfig,
+		discovery.NewDiscoveryClientForConfig,
 		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
 	)
 
@@ -76,6 +78,15 @@ var (
 		ProvideCachedClient,
 		ProvideNewCache,
 		StartCache,
+		NewDynamicRESTMapper,
+		dynamic.NewForConfig,
+		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
+	)
+
+	ProvideSimpleClientSet = wire.NewSet(
+		config.GetConfig,
+		kubernetes.NewForConfig,
+		ProvideSimpleClient,
 		NewDynamicRESTMapper,
 		dynamic.NewForConfig,
 		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),

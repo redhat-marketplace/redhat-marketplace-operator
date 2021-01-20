@@ -145,3 +145,4 @@ test/certs/**
 redhat-marketplace-pull-secret.env
 .pull-secret.env
 v2/config/manager/manager.yaml
+kubeconfig

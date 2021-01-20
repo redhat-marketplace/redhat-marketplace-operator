@@ -15,7 +15,6 @@
 package manifests
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 
@@ -58,14 +57,6 @@ func (c *Config) LoadPlatform(load func() (*configv1.Infrastructure, error)) err
 	return nil
 }
 
-func NewConfigFromString(content string) (*Config, error) {
-	if content == "" {
-		return NewDefaultConfig(), nil
-	}
-
-	return NewConfig(bytes.NewBuffer([]byte(content)))
-}
-
 func NewConfig(content io.Reader) (*Config, error) {
 	c := Config{}
 	err := k8syaml.NewYAMLOrJSONDecoder(content, 4096).Decode(&c)
@@ -75,14 +66,6 @@ func NewConfig(content io.Reader) (*Config, error) {
 	res := &c
 	res.applyDefaults()
 	return res, nil
-}
-
-func NewDefaultConfig() *Config {
-	cfg, _ := config.ProvideConfig()
-	c := &Config{}
-	c.RelatedImages = cfg.RelatedImages
-	c.applyDefaults()
-	return c
 }
 
 func NewOperatorConfig(cfg config.OperatorConfig) *Config {

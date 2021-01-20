@@ -50,6 +50,9 @@ func (c *counter) Identity(element interface{}) string {
 var _ = Describe("MeterDefinition", func() {
 
 	var definition *MeterDefinition
+	var v1beta1ID = func(element interface{}) string {
+		return element.(v1beta1.MeterWorkload).Metric
+	}
 
 	BeforeEach(func() {
 		definition = &MeterDefinition{
@@ -94,10 +97,6 @@ var _ = Describe("MeterDefinition", func() {
 		Expect(err).To(Succeed())
 		Expect(len(mdefBeta.Spec.Meters)).To(Equal(2))
 
-		v1beta1ID := func(element interface{}) string {
-			return element.(v1beta1.MeterWorkload).Metric
-		}
-
 		resourceFilter := MatchAllFields(Fields{
 			"Namespace":  PointTo(Equal(v1beta1.NamespaceFilter{UseOperatorGroup: true})),
 			"Annotation": BeNil(),
@@ -106,21 +105,21 @@ var _ = Describe("MeterDefinition", func() {
 				APIVersion: "apps.partner.metering.com/v1",
 				Kind:       "App",
 			}})),
-			"WorkloadType": Equal(v1beta1.WorkloadTypePod),
+			"WorkloadType": Equal(v1beta1.WorkloadTypeFilter{WorkloadType: v1beta1.WorkloadTypePod}),
 		})
 
 		k1 := Fields{
 			"Metric":       Equal("rpc_durations_seconds_sum"),
 			"Query":        Equal("rpc_durations_seconds_sum"),
 			"Aggregation":  Equal("sum"),
-			"WorkloadType": Equal(v1beta1.WorkloadTypePod),
+			"WorkloadType": Equal(v1beta1.WorkloadTypeFilter{WorkloadType: v1beta1.WorkloadTypePod}),
 		}
 
 		k2 := Fields{
 			"Metric":       Equal("rpc_durations_seconds_count"),
 			"Query":        Equal("my_query"),
 			"Aggregation":  Equal("min"),
-			"WorkloadType": Equal(v1beta1.WorkloadTypePod),
+			"WorkloadType": Equal(v1beta1.WorkloadTypeFilter{WorkloadType: v1beta1.WorkloadTypePod}),
 		}
 
 		fmt.Println(v1beta1ID(mdefBeta.Spec.Meters[0]))
@@ -146,5 +145,86 @@ var _ = Describe("MeterDefinition", func() {
 		newSource := &MeterDefinition{}
 		err = newSource.ConvertFrom(mdefBeta)
 		Expect(err).To(Succeed())
+	})
+
+	It("should convert to/from v1alpha1 example", func() {
+		meterDefJson := `{
+        "apiVersion": "marketplace.redhat.com/v1alpha1",
+        "kind": "MeterDefinition",
+        "metadata": {
+          "name": "robinstorage-meterdef"
+        },
+        "spec": {
+          "meterGroup": "robinclusters.robin.io",
+          "meterKind": "RobinCluster",
+          "workloadVertexType": "OperatorGroup",
+          "workloads": [{
+            "name": "pod_node",
+            "type": "Pod",
+            "ownerCRD": {
+                "apiVersion": "manage.robin.io/v1",
+                "kind": "RobinCluster"
+            },
+            "metricLabels": [{
+                "aggregation": "avg",
+                "label": "node_hour2",
+                "query": "min_over_time((kube_pod_info{created_by_kind=\"DaemonSet\",created_by_name=\"robin\",node=~\".*\"} or on() vector(0))[60m:60m])"
+            }]
+          }]
+        }
+      }`
+
+		mdef := &MeterDefinition{}
+
+		err := mdef.BuildMeterDefinitionFromString(
+			meterDefJson,
+			"name",
+			"namespace",
+			"label",
+			"value",
+		)
+		Expect(err).To(Succeed())
+		mdef2 := &v1beta1.MeterDefinition{}
+		err = mdef.ConvertTo(mdef2)
+		Expect(err).To(Succeed())
+
+		resourceFilter := MatchFields(IgnoreExtras, Fields{
+			"Namespace":  PointTo(Equal(v1beta1.NamespaceFilter{UseOperatorGroup: true})),
+			"Annotation": BeNil(),
+			"OwnerCRD": PointTo(Equal(v1beta1.OwnerCRDFilter{GroupVersionKind: common.GroupVersionKind{
+				APIVersion: "manage.robin.io/v1",
+				Kind:       "RobinCluster",
+			}})),
+			"WorkloadType": Equal(v1beta1.WorkloadTypeFilter{WorkloadType: v1beta1.WorkloadTypePod}),
+		})
+
+		k1 := Fields{
+			"Metric":       Equal("node_hour2"),
+			"Query":        Equal("min_over_time((kube_pod_info{created_by_kind=\"DaemonSet\",created_by_name=\"robin\",node=~\".*\"} or on() vector(0))[60m:60m])"),
+			"Aggregation":  Equal("avg"),
+			"WorkloadType": Equal(v1beta1.WorkloadTypeFilter{WorkloadType: v1beta1.WorkloadTypePod}),
+		}
+
+		c := &counter{}
+
+		Expect(mdef2.Spec).To(MatchAllFields(Fields{
+			"Group": Equal("robinclusters.robin.io"),
+			"Kind":  Equal("RobinCluster"),
+			"ResourceFilters": MatchAllElements(c.Identity,
+				Elements{
+					"0": resourceFilter,
+				},
+			),
+			"Meters": MatchAllElements(v1beta1ID,
+				Elements{
+					"node_hour2": MatchFields(IgnoreExtras, k1),
+				},
+			),
+			"InstalledBy": PointTo(Equal(common.NamespacedNameReference{
+				Name:      "name",
+				Namespace: "namespace",
+			})),
+		}))
+
 	})
 })
