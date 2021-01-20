@@ -169,12 +169,12 @@ func (a *FactoryInjector) SetCustomFields(i interface{}) error {
 }
 
 type KubeInterfaceInjector struct {
-	kubeInterface kubernetes.Interface
+	KubeInterface kubernetes.Interface
 }
 
-func(a *KubeInterfaceInjector) SetCustomFields(i interface{})error{
+func(a *KubeInterfaceInjector) SetCustomFields(i interface{}) error {
 	if ii, ok := i.(KubeInterface); ok {
-		return ii.InjectKubeInterface(a.kubeInterface)
+		return ii.InjectKubeInterface(a.KubeInterface)
 	}
 	return nil
 }

@@ -54,7 +54,14 @@ func initializeInjectables(fields *managers.ControllerFields, namespace managers
 		Namespace: namespace,
 		Scheme:    scheme,
 	}
-	kubeInterfaceInjector := &KubeInterfaceInjector{}
+	restConfig := fields.Config
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+	kubeInterfaceInjector := &KubeInterfaceInjector{
+		KubeInterface: clientset,
+	}
 	injectables := ProvideInjectables(clientCommandInjector, operatorConfigInjector, patchInjector, factoryInjector, kubeInterfaceInjector)
 	return injectables, nil
 }

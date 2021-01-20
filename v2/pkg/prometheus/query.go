@@ -17,22 +17,21 @@ package prometheus
 import (
 	"context"
 	"fmt"
-	"html/template"
 	"strings"
+	"text/template"
 	"time"
 
 	"emperror.dev/errors"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
-	// "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var logger = logf.Log.WithName("reporter")
+var logger = logf.Log.WithName("prometheus")
 
 type PromQueryArgs struct {
 	Type          v1beta1.WorkloadType
@@ -44,7 +43,6 @@ type PromQueryArgs struct {
 	AggregateFunc string
 	GroupBy       []string
 	Without       []string
-	// Time          string
 }
 
 type PromQuery struct {

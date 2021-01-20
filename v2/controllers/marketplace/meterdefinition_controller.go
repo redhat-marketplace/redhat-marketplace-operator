@@ -330,72 +330,68 @@ func generateQueryPreview(instance *v1beta1.MeterDefinition, prometheusAPI *Prom
 
 	for _, meterWorkload := range instance.Spec.Meters {
 		var val model.Value
-		var metric v1beta1.MeterWorkload
 		var query *PromQuery
 
-		// for _, metric = range meterWorkload{
-			reqLogger.Info("meterdef preview query ", "metric", metric)
-			query = NewPromQuery(&PromQueryArgs{
-				Metric: meterWorkload.Name,
-				Type:   meterWorkload.WorkloadType,
-				MeterDef: types.NamespacedName{
-					Name:      instance.Name,
-					Namespace: instance.Namespace,
-				},
-				Query:         metric.Query,
-				Start:         startTime,
-				End:           endTime,
-				Step:          time.Hour,
-				AggregateFunc: metric.Aggregation,
-			})
+		query = NewPromQuery(&PromQueryArgs{
+			Metric: meterWorkload.Name,
+			Type:   meterWorkload.WorkloadType,
+			MeterDef: types.NamespacedName{
+				Name:      instance.Name,
+				Namespace: instance.Namespace,
+			},
+			Query:         meterWorkload.Query,
+			Start:         startTime,
+			End:           endTime,
+			Step:          time.Hour,
+			AggregateFunc: meterWorkload.Aggregation,
+		})
 
-			q, err := query.Print()
+		q, err := query.Print()
+		if err != nil {
+			return nil,err
+		}
+
+		reqLogger.Info("meterdef preview query", "query",q)
+
+		var warnings v1.Warnings
+		err = utils.Retry(func() error {
+			var err error
+			val, warnings, err = prometheusAPI.ReportQuery(query)
 			if err != nil {
-				return nil,err
+				return errors.Wrap(err, "error with query")
 			}
 
-			reqLogger.Info("meterdef preview query", "query",q)
+			return nil
+		}, *ptr.Int(2))
 
-			var warnings v1.Warnings
-			err = utils.Retry(func() error {
-				var err error
-				val, warnings, err = prometheusAPI.ReportQuery(query)
-				if err != nil {
-					return errors.Wrap(err, "error with query")
-				}
+		if warnings != nil {
+			reqLogger.Info("warnings %v", warnings)
+		}
 
-				return nil
-			}, *ptr.Int(2))
+		if err != nil {
+			reqLogger.Error(err, "prometheus.QueryRange()")
+			returnErr = errors.Wrap(err, "error with query")
+			return nil, returnErr
+		}
 
-			if warnings != nil {
-				reqLogger.Info("warnings %v", warnings)
-			}
-
-			if err != nil {
-				reqLogger.Error(err, "prometheus.QueryRange()")
-				returnErr = errors.Wrap(err, "error with query")
-				return nil, returnErr
-			}
-
-			matrix := val.(model.Matrix)
-			for _, m := range matrix {
-				for _, pair := range m.Values {
-					queryPreviewResult = &v1beta1.Result{
-						MetricName: meterWorkload.Name,
-						Query:      q,
-						StartTime:  fmt.Sprintf("%s", query.Start),
-						EndTime:    fmt.Sprintf("%s", query.End),
-						Value:      int32(pair.Value),
-					}
+		matrix := val.(model.Matrix)
+		for _, m := range matrix {
+			for _, pair := range m.Values {
+				queryPreviewResult = &v1beta1.Result{
+					MetricName: meterWorkload.Name,
+					Query:      q,
+					StartTime:  fmt.Sprintf("%s", query.Start),
+					EndTime:    fmt.Sprintf("%s", query.End),
+					Value:      int32(pair.Value),
 				}
 			}
+		}
 
-			reqLogger.Info("output", "query preview result", queryPreviewResult)
+		reqLogger.Info("output", "query preview result", queryPreviewResult)
 
-			if queryPreviewResult != nil {
-				queryPreviewResultArray = append(queryPreviewResultArray, *queryPreviewResult)
-			}
-		// }
+		if queryPreviewResult != nil {
+			queryPreviewResultArray = append(queryPreviewResultArray, *queryPreviewResult)
+		}
 	}
 
 	return queryPreviewResultArray, nil

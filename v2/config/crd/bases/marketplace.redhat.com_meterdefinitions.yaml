@@ -744,6 +744,34 @@ spec:
                   - type
                   type: object
                 type: array
+              results:
+                description: Results is a list of Results that get returned from a
+                  query to prometheus
+                items:
+                  description: Result is a result of a query defined on the meterdefinition.
+                    This will generate data for the previous hour on whichever workload
+                    you specify. This will allow you to check whether a query is working
+                    as intended.
+                  properties:
+                    endTime:
+                      description: EndTime is the end of the data collection interval
+                      type: string
+                    metricName:
+                      description: MetricName is the identifier that you will use
+                        to identify your query
+                      type: string
+                    query:
+                      description: Query is the compiled query that is given to Prometheus
+                      type: string
+                    startTime:
+                      description: StartTime is the start of the data collection interval
+                      type: string
+                    value:
+                      description: Value is the metric value returned from Prometheus
+                      format: int32
+                      type: integer
+                  type: object
+                type: array
               workloadResource:
                 description: WorkloadResources is the list of resources discovered
                   by this meter definition
