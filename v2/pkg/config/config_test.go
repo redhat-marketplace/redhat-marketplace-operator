@@ -74,8 +74,8 @@ var _ = Describe("Config", func() {
 			Expect(cfg).ToNot(BeNil())
 			Expect(cfg.Infrastructure).ToNot(BeNil())
 			Expect(cfg.Infrastructure.Kubernetes).ToNot(BeNil())
-			Expect(cfg.Infrastructure.Kubernetes.Version()).NotTo(BeEmpty())
-			Expect(cfg.Infrastructure.Kubernetes.Platform()).NotTo(BeEmpty())
+			Expect(cfg.Infrastructure.KubernetesVersion()).NotTo(BeEmpty())
+			Expect(cfg.Infrastructure.KubernetesPlatform()).NotTo(BeEmpty())
 			Expect(cfg.Infrastructure.Openshift).To(BeNil())
 		})
 		It("should load infrastructure information with Openshift", func() {
@@ -101,7 +101,7 @@ var _ = Describe("Config", func() {
 			cfg, err := ProvideInfrastructureAwareConfig(client, discoveryClient)
 
 			Expect(err).To(Succeed())
-			Expect(cfg.Infrastructure.Openshift.Version()).NotTo(BeEmpty())
+			Expect(cfg.Infrastructure.OpenshiftVersion()).NotTo(BeEmpty())
 		})
 	})
 })

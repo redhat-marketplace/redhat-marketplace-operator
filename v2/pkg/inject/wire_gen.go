@@ -10,6 +10,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -27,7 +28,11 @@ func initializeRunnables(fields *managers.ControllerFields, namespace managers.D
 	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logger)
 	podMonitorConfig := managers.ProvidePodMonitorConfig(namespace)
 	podMonitor := runnables.NewPodMonitor(logger, clientset, clientCommandRunner, podMonitorConfig)
-	operatorConfig, err := config.ProvideConfig()
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+	operatorConfig, err := config.ProvideInfrastructureAwareConfig(client, discoveryClient)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +56,12 @@ func initializeInjectables(fields *managers.ControllerFields, namespace managers
 		Fields:        fields,
 		CommandRunner: clientCommandRunner,
 	}
-	operatorConfig, err := config.ProvideConfig()
+	restConfig := fields.Config
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+	operatorConfig, err := config.ProvideInfrastructureAwareConfig(client, discoveryClient)
 	if err != nil {
 		return nil, err
 	}

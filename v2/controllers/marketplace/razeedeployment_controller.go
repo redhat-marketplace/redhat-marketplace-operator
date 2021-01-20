@@ -75,8 +75,8 @@ type RazeeDeploymentReconciler struct {
 	CC     ClientCommandRunner
 
 	patcher patch.Patcher
-	cfg     config.OperatorConfig
-	factory manifests.Factory
+	cfg     *config.OperatorConfig
+	factory *manifests.Factory
 }
 
 func (r *RazeeDeploymentReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
@@ -95,7 +95,12 @@ func (r *RazeeDeploymentReconciler) InjectPatch(p patch.Patcher) error {
 }
 
 func (r *RazeeDeploymentReconciler) InjectFactory(f manifests.Factory) error {
-	r.factory = f
+	r.factory = &f
+	return nil
+}
+
+func (r *RazeeDeploymentReconciler) InjectOperatorConfig(cfg config.OperatorConfig) error {
+	r.cfg = &cfg
 	return nil
 }
 
@@ -553,7 +558,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 		reqLogger.V(0).Info("Resource already exists", "resource: ", utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
 
 		updatedWatchKeeperNonNameSpace := r.makeWatchKeeperNonNamespace(instance)
-		patchResult, err := utils.RhmPatchMaker.Calculate(&watchKeeperNonNamespace, updatedWatchKeeperNonNameSpace)
+		patchResult, err := r.patcher.Calculate(&watchKeeperNonNamespace, updatedWatchKeeperNonNameSpace)
 		if err != nil {
 			reqLogger.Error(err, "Failed to compare patches")
 			return reconcile.Result{}, err
@@ -629,7 +634,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 	if err == nil {
 		reqLogger.Info("Resource already exists", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
 		updatedWatchKeeperLimitPoll := r.makeWatchKeeperLimitPoll(instance)
-		patchResult, err := utils.RhmPatchMaker.Calculate(&watchKeeperLimitPoll, updatedWatchKeeperLimitPoll)
+		patchResult, err := r.patcher.Calculate(&watchKeeperLimitPoll, updatedWatchKeeperLimitPoll)
 		if err != nil {
 			reqLogger.Error(err, "Failed to calculate patch diff")
 			return reconcile.Result{}, err
@@ -703,7 +708,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 		reqLogger.V(0).Info("Resource already exists", "resource: ", utils.RAZEE_CLUSTER_METADATA_NAME)
 
 		updatedRazeeClusterMetaData := *r.makeRazeeClusterMetaData(instance)
-		patchResult, err := utils.RhmPatchMaker.Calculate(&razeeClusterMetaData, &updatedRazeeClusterMetaData)
+		patchResult, err := r.patcher.Calculate(&razeeClusterMetaData, &updatedRazeeClusterMetaData)
 		if err != nil {
 			reqLogger.Error(err, "Failed to compare patches")
 			return reconcile.Result{}, err
@@ -776,10 +781,13 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 		}
 	}
 	if err == nil {
-		reqLogger.V(0).Info("Resource already exists", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
+		reqLogger.V(0).Info("Resource already exists",
+			"resource", utils.WATCH_KEEPER_CONFIG_NAME,
+			"uid", watchKeeperConfig.UID)
 
 		updatedWatchKeeperConfig := *r.makeWatchKeeperConfig(instance)
-		patchResult, err := utils.RhmPatchMaker.Calculate(&watchKeeperConfig, &updatedWatchKeeperConfig)
+		updatedWatchKeeperConfig.UID = watchKeeperConfig.UID
+		patchResult, err := r.patcher.Calculate(&watchKeeperConfig, &updatedWatchKeeperConfig)
 		if err != nil {
 			reqLogger.Error(err, "Failed to compare patches")
 		}
@@ -959,7 +967,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 	reqLogger.V(0).Info("Finding Rhm RemoteResourceS3 deployment")
 
 	args := manifests.CreateOrUpdateFactoryItemArgs{
-		Patcher: patch.RHMDefaultPatcher,
+		Patcher: r.patcher,
 	}
 
 	if rrs3DeploymentEnabled {

@@ -264,7 +264,7 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 	// checks if it is possible to build MeterDefinition from annotations of CSV
 	reqLogger.Info("retrieving MeterDefinition string from csv")
 	meterDefinitionString, ok := annotations[utils.CSV_METERDEFINITION_ANNOTATION]
-	if !ok {
+	if !ok || len(meterDefinitionString) == 0 {
 		reqLogger.Info("No value for ", "key: ", utils.CSV_METERDEFINITION_ANNOTATION)
 		delete(annotations, meterDefError)
 		delete(annotations, meterDefStatus)
@@ -272,13 +272,16 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 	}
 
 	// builds a meterdefinition from our string (from the annotation)
-	reqLogger.Info("retrieval successful")
+	reqLogger.Info("retrieval successful", "str", meterDefinitionString)
 
 	var errAlpha, errBeta error
 	meterDefinitionBeta := &marketplacev1beta1.MeterDefinition{}
 	meterDefinitionAlpha := &marketplacev1alpha1.MeterDefinition{}
 
-	errBeta = meterDefinitionBeta.BuildMeterDefinitionFromString(meterDefinitionString, CSV.GetName(), CSV.GetNamespace(), utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
+	errBeta = meterDefinitionBeta.BuildMeterDefinitionFromString(
+		meterDefinitionString,
+		CSV.GetName(), CSV.GetNamespace(),
+		utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
 
 	if errBeta != nil {
 		errAlpha = meterDefinitionAlpha.BuildMeterDefinitionFromString(meterDefinitionString, CSV.GetName(), CSV.GetNamespace(), utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
@@ -288,10 +291,17 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 
 	switch {
 	case errBeta == nil:
+		reqLogger.Info("mdef is a v1beta1", "value", meterDefinitionBeta)
 		meterDefinition = meterDefinitionBeta
 	case errAlpha == nil && meterDefinitionAlpha != nil:
-		meterDefinitionAlpha.ConvertTo(meterDefinition)
+		reqLogger.Info("mdef is an v1alpha1")
+		err = meterDefinitionAlpha.ConvertTo(meterDefinition)
+
+		if err != nil {
+			reqLogger.Error(err, "Failed to convert to v1beta1")
+		}
 	default:
+		reqLogger.Info("mdef is neither")
 		err = emperrors.Combine(errBeta, errAlpha)
 		reqLogger.Error(err, "Failed to read the json annotation as a meterdefinition")
 	}

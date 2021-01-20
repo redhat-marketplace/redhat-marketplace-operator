@@ -11,8 +11,6 @@ spec:
           env:
             - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
               value: quay.io/razee/remoteresources3:0.6.2
-            - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
-              value: quay.io/razee/remoteresources3:0.6.2
             - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
               value: quay.io/razee/watch-keeper:0.6.6
             - name: RELATED_IMAGE_PROMETHEUS

@@ -26,13 +26,13 @@ import (
 
 // KubernetesInfra stores Kubernetes information
 type KubernetesInfra struct {
-	version,
-	platform string
+	Version,
+	Platform string
 }
 
 // OpenshiftInfra stores Openshift information (if Openshift is present)
 type OpenshiftInfra struct {
-	version string
+	Version string
 }
 
 // Infrastructure stores Kubernetes/Openshift clients
@@ -74,15 +74,15 @@ func openshiftInfrastructure(c client.Client) (*OpenshiftInfra, error) {
 	}
 
 	return &OpenshiftInfra{
-		version: clusterVersion.Desired.Version,
+		Version: clusterVersion.Desired.Version,
 	}, nil
 }
 func kubernetesInfrastructure(discoveryClient *discovery.DiscoveryClient) (kInf *KubernetesInfra, err error) {
 	serverVersion, err := discoveryClient.ServerVersion()
 	if err == nil {
 		kInf = &KubernetesInfra{
-			version:  serverVersion.GitVersion,
-			platform: serverVersion.Platform,
+			Version:  serverVersion.GitVersion,
+			Platform: serverVersion.Platform,
 		}
 	}
 	return
@@ -107,21 +107,37 @@ func LoadInfrastructure(c client.Client, dc *discovery.DiscoveryClient) (*Infras
 }
 
 // Version gets Kubernetes Git version
-func (k KubernetesInfra) Version() string {
-	return k.version
+func (i *Infrastructure) KubernetesVersion() string {
+	if i.Kubernetes == nil {
+		return ""
+	}
+	return i.Kubernetes.Version
 }
 
 // Platform returns platform information
-func (k KubernetesInfra) Platform() string {
-	return k.platform
+func (i *Infrastructure) KubernetesPlatform() string {
+	if i.Kubernetes == nil {
+		return ""
+	}
+
+	return i.Kubernetes.Platform
 }
 
 // Version gets Openshift version√
-func (o OpenshiftInfra) Version() string {
-	return o.version
+func (i *Infrastructure) OpenshiftVersion() string {
+	if i.Openshift == nil {
+		return ""
+	}
+
+	return i.Openshift.Version
 }
 
 // HasOpenshift checks if Openshift is available
-func (inf Infrastructure) HasOpenshift() bool {
-	return inf.Openshift != nil
+func (i *Infrastructure) HasOpenshift() bool {
+	return i.Openshift != nil
+}
+
+// IsDefined tells you if the infrastructure has been created
+func (i *Infrastructure) IsDefined() bool {
+	return i.Openshift != nil || i.Kubernetes != nil
 }

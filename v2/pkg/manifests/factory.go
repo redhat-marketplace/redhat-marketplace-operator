@@ -81,8 +81,8 @@ type Factory struct {
 func NewFactory(namespace string, c *Config, oc *config.OperatorConfig, s *runtime.Scheme) *Factory {
 	return &Factory{
 		namespace:      namespace,
-		config:         c,
 		operatorConfig: oc,
+		config:         c,
 		scheme:         s,
 	}
 }
@@ -598,9 +598,9 @@ func NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMonitor, error)
 }
 
 func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDeployment) *appsv1.Deployment {
-	var securityContext corev1.PodSecurityContext
+	var securityContext *corev1.PodSecurityContext
 	if !f.operatorConfig.Infrastructure.HasOpenshift() {
-		securityContext = corev1.PodSecurityContext{
+		securityContext = &corev1.PodSecurityContext{
 			FSGroup: ptr.Int64(1000),
 		}
 	}
@@ -742,7 +742,7 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 							},
 						},
 					},
-					SecurityContext: &securityContext,
+					SecurityContext: securityContext,
 				},
 			},
 		},
@@ -760,9 +760,9 @@ func (f *Factory) SetControllerReference(obj metav1.Object, owner Owner) {
 }
 
 func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.RazeeDeployment) *appsv1.Deployment {
-	var securityContext corev1.PodSecurityContext
+	var securityContext *corev1.PodSecurityContext
 	if !f.operatorConfig.Infrastructure.HasOpenshift() {
-		securityContext = corev1.PodSecurityContext{
+		securityContext = &corev1.PodSecurityContext{
 			FSGroup: ptr.Int64(1000),
 		}
 	}
@@ -906,7 +906,7 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 							},
 						},
 					},
-					SecurityContext: &securityContext,
+					SecurityContext: securityContext,
 				},
 			},
 		},

@@ -34,7 +34,6 @@ build:
             - ../reporter/v2/cmd/**
             - ../reporter/v2/pkg/**
             - ./apis/**
-            - ./controllers/**
             - ./pkg/**
     - image: redhat-marketplace-metric-state
       custom:
@@ -45,7 +44,6 @@ build:
             - ../metering/v2/internal/**
             - ../metering/v2/pkg/**
             - ./apis/**
-            - ./controllers/**
             - ./pkg/**
     - image: redhat-marketplace-authcheck
       custom:
@@ -55,7 +53,6 @@ build:
             - ../authchecker/v2/cmd/**
             - ../authchecker/v2/pkg/**
             - ./apis/**
-            - ./controllers/**
             - ./pkg/**
 deploy:
   helm:
