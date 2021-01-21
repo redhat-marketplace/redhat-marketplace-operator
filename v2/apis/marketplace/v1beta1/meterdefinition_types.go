@@ -49,6 +49,8 @@ type MeterDefinitionSpec struct {
 	// Meters are the definitions related to the metrics that you would like to monitor.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:text"
+	// +patchMergeKey=metricId
+	// +patchStrategy=merge
 	Meters []MeterWorkload `json:"meters"`
 
 	// InstalledBy is a reference to the CSV that install the meter
@@ -93,9 +95,7 @@ type ResourceFilter struct {
 
 	// WorkloadType identifies the type of workload to look for. This can be
 	// pod or service right now.
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:Pod,urn:alm:descriptor:com.tectonic.ui:select:Service,urn:alm:descriptor:com.tectonic.ui:select:PersistentVolumeClaim"
-	WorkloadType WorkloadType `json:"workloadType"`
+	WorkloadType WorkloadTypeFilter `json:",inline"`
 }
 
 type NamespaceFilter struct {
@@ -113,7 +113,8 @@ type WorkloadTypeFilter struct {
 	// pod or service right now.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:Pod,urn:alm:descriptor:com.tectonic.ui:select:Service,urn:alm:descriptor:com.tectonic.ui:select:PersistentVolumeClaim"
-	WorkloadType WorkloadType `json:"type"`
+	// +kubebuilder:validation:Enum:=Pod;Service;PersistentVolumeClaim
+	WorkloadType WorkloadType `json:"workloadType"`
 }
 
 type OwnerCRDFilter struct {
@@ -163,6 +164,10 @@ type Result struct {
 }
 
 type MeterWorkload struct {
+	// Metric is the id of the meter
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:text"
+	Metric string `json:"metricId"`
 
 	// Name of the metric for humans to read.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
@@ -176,29 +181,24 @@ type MeterWorkload struct {
 
 	// WorkloadType identifies the type of workload to look for. This can be
 	// pod or service right now.
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:Pod,urn:alm:descriptor:com.tectonic.ui:select:Service,urn:alm:descriptor:com.tectonic.ui:select:PersistentVolumeClaim"
-	WorkloadType WorkloadType `json:"workloadType"`
-
-	// Metric is the name of the meter
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:text"
-	Metric string `json:"metric"`
+	WorkloadType WorkloadTypeFilter `json:",inline"`
 
 	// Group is the set of label fields returned by query to aggregate on.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
+	// +listType:=set
 	GroupBy []string `json:"groupBy,omitempty"`
 
 	// Labels to filter out automatically.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
+	// +listType:=set
 	Without []string `json:"without,omitempty"`
 
 	// Aggregation to use with the query
-	// +kubebuilder:validation:Enum:=sum;min;max;avg
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:sum,urn:alm:descriptor:com.tectonic.ui:select:min,urn:alm:descriptor:com.tectonic.ui:select:max,urn:alm:descriptor:com.tectonic.ui:select:avg"
+	// +kubebuilder:validation:Enum:=sum;min;max;avg
 	Aggregation string `json:"aggregation"`
 
 	// Period is the amount of time to segment the data into. Default is 1h.
@@ -301,7 +301,7 @@ func (meterdef *MeterDefinition) ToPrometheusLabels() []*common.MeterDefPromethe
 			MetricPeriod:       period,
 			WorkloadName:       meter.Name,
 			MetricWithout:      common.JSONArray(meter.Without),
-			WorkloadType:       string(meter.WorkloadType),
+			WorkloadType:       string(meter.WorkloadType.WorkloadType),
 			MetricAggregation:  meter.Aggregation,
 			MeterDescription:   meter.Description,
 			DateLabelOverride:  meter.DateLabelOverride,

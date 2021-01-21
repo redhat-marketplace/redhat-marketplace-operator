@@ -472,8 +472,9 @@ spec:
                       items:
                         type: string
                       type: array
-                    metric:
-                      description: Metric is the name of the meter
+                      x-kubernetes-list-type: set
+                    metricId:
+                      description: Metric is the id of the meter
                       type: string
                     name:
                       description: Name of the metric for humans to read.
@@ -495,13 +496,18 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     workloadType:
                       description: WorkloadType identifies the type of workload to
                         look for. This can be pod or service right now.
+                      enum:
+                      - Pod
+                      - Service
+                      - PersistentVolumeClaim
                       type: string
                   required:
                   - aggregation
-                  - metric
+                  - metricId
                   - query
                   - workloadType
                   type: object
@@ -688,6 +694,10 @@ spec:
                     workloadType:
                       description: WorkloadType identifies the type of workload to
                         look for. This can be pod or service right now.
+                      enum:
+                      - Pod
+                      - Service
+                      - PersistentVolumeClaim
                       type: string
                   required:
                   - workloadType

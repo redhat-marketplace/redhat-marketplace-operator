@@ -188,6 +188,6 @@ var _ = Describe("MeterReportController", func() {
 				}))
 
 			close(done)
-		}, 180)
+		}, 300)
 	})
 })

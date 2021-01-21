@@ -163,6 +163,18 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 		return result.Return()
 	}
 
+	result, _ := cc.Do(context.TODO(), GetAction(types.NamespacedName{
+		Name:      instance.Name,
+		Namespace: instance.Namespace,
+	}, job))
+
+	if instance.Status.AssociatedJob != nil &&
+		instance.Status.AssociatedJob.IsSuccessful() &&
+		!result.Is(NotFound) {
+		reqLogger.Info("reconcile finished, job successful")
+		return reconcile.Result{}, nil
+	}
+
 	// Create associated job
 	if instance.Status.AssociatedJob == nil {
 		result, _ := cc.Do(context.TODO(),
@@ -186,7 +198,7 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	// Update associated job
-	result, _ := cc.Do(
+	result, _ = cc.Do(
 		context.TODO(),
 		HandleResult(
 			GetAction(types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job),
@@ -261,9 +273,6 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 		reqLogger.Info("job is complete")
 		instance.Status.AssociatedJob = jr
 		result, _ = cc.Do(context.TODO(),
-			HandleResult(
-				GetAction(types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job),
-				OnContinue(DeleteAction(job, DeleteWithDeleteOptions(client.PropagationPolicy(metav1.DeletePropagationBackground))))),
 			UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobFinished),
 		)
 	default:

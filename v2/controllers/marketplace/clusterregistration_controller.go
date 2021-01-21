@@ -51,6 +51,8 @@ type ClusterRegistrationReconciler struct {
 	Client client.Client
 	Scheme *runtime.Scheme
 	Log    logr.Logger
+
+	cfg *config.OperatorConfig
 }
 
 // Reconcile reads that state of the cluster for a ClusterRegistration object and makes changes based on the state read
@@ -117,12 +119,10 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
-	cfg, _ := config.GetConfig()
-
 	mclient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
-		Url:      cfg.Marketplace.URL, // parameterize this for dev
+		Url:      r.cfg.Marketplace.URL, // parameterize this for dev
 		Token:    string(pullSecret),
-		Insecure: cfg.Marketplace.InsecureClient,
+		Insecure: r.cfg.Marketplace.InsecureClient,
 	})
 
 	if err != nil {
@@ -331,6 +331,11 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 func (r *ClusterRegistrationReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
 	injector.SetCustomFields(r)
 	return r
+}
+
+func (m *ClusterRegistrationReconciler) InjectOperatorConfig(cfg config.OperatorConfig) error {
+	m.cfg = &cfg
+	return nil
 }
 
 func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error {

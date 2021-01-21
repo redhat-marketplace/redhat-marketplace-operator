@@ -8,7 +8,11 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "MarketplaceConfig",
           "metadata": {
-            "name": "rhm-marketplaceconfig"
+            "labels": {
+              "redhat.marketplace.com/name": "redhat-marketplace-operator"
+            },
+            "name": "redhat-marketplace-rhm-marketplaceconfig",
+            "namespace": "openshift-redhat-marketplace"
           },
           "spec": {
             "clusterUUID": "example-clusterUUID",
@@ -21,7 +25,11 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "MeterBase",
           "metadata": {
-            "name": "meterbase"
+            "labels": {
+              "redhat.marketplace.com/name": "redhat-marketplace-operator"
+            },
+            "name": "redhat-marketplace-meterbase",
+            "namespace": "openshift-redhat-marketplace"
           },
           "spec": {
             "enabled": true,
@@ -46,7 +54,11 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "MeterDefinition",
           "metadata": {
-            "name": "example-meterdefinition-2"
+            "labels": {
+              "redhat.marketplace.com/name": "redhat-marketplace-operator"
+            },
+            "name": "redhat-marketplace-example-meterdefinition-2",
+            "namespace": "openshift-redhat-marketplace"
           },
           "spec": {
             "meterGroup": "partner.metering.com",
@@ -74,7 +86,11 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "MeterReport",
           "metadata": {
-            "name": "example-meterreport"
+            "labels": {
+              "redhat.marketplace.com/name": "redhat-marketplace-operator"
+            },
+            "name": "redhat-marketplace-example-meterreport",
+            "namespace": "openshift-redhat-marketplace"
           },
           "spec": {
             "endTime": "2020-08-05T00:00:00Z",
@@ -90,7 +106,11 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "RazeeDeployment",
           "metadata": {
-            "name": "razeedeployment-example"
+            "labels": {
+              "redhat.marketplace.com/name": "redhat-marketplace-operator"
+            },
+            "name": "redhat-marketplace-razeedeployment-example",
+            "namespace": "openshift-redhat-marketplace"
           },
           "spec": {
             "clusterUUID": "example-cluster-uuid",
@@ -101,7 +121,11 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "RemoteResourceS3",
           "metadata": {
-            "name": "example-remoteresources3"
+            "labels": {
+              "redhat.marketplace.com/name": "redhat-marketplace-operator"
+            },
+            "name": "redhat-marketplace-example-remoteresources3",
+            "namespace": "openshift-redhat-marketplace"
           },
           "spec": {
             "auth": {
@@ -132,23 +156,51 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1beta1",
           "kind": "MeterDefinition",
           "metadata": {
-            "name": "meterdefinition-sample"
+            "labels": {
+              "redhat.marketplace.com/name": "redhat-marketplace-operator"
+            },
+            "name": "redhat-marketplace-meterdefinition-sample",
+            "namespace": "openshift-redhat-marketplace"
           },
-          "spec": null
+          "spec": {
+            "group": "partner.metering.com",
+            "kind": "App",
+            "meters": [
+              {
+                "aggregation": "sum",
+                "metric": "container_cpu_usage_core_avg",
+                "period": "1h",
+                "query": "rate(container_cpu_usage_seconds_total{cpu=\"total\",container=\"db\"}[5m])*100",
+                "workloadType": "Pod"
+              }
+            ],
+            "resourceFilters": [
+              {
+                "namespace": {
+                  "useOperatorGroup": true
+                },
+                "ownerCRD": {
+                  "apiVersion": "marketplace.redhat.com/v1alpha1",
+                  "kind": "RazeeDeployment"
+                },
+                "workloadType": "Pod"
+              }
+            ]
+          }
         }
       ]
     capabilities: Full Lifecycle
     categories: Developer Tools
     certified: "true"
     description: The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
-    olm.skipRange: '>=1.0.0 <vX.Y.Z'
+    olm.skipRange: '>=1.0.0 <2.0.0'
     operatorframework.io/suggested-namespace: openshift-redhat-marketplace
     operators.operatorframework.io/builder: operator-sdk-v1.3.0
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
-  name: redhat-marketplace-operator.v1.0.5
+  name: redhat-marketplace-operator.v2.0.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -197,13 +249,16 @@ spec:
     1. Create or get your pull secret from [Red Hat Marketplace](https://marketplace.redhat.com/en-us/documentation/clusters#get-pull-secret).
     2. Install the Red Hat Marketplace Operator in the openshift-redhat-marketplace namespace.
     3. Create a Kubernetes secret in the openshift-redhat-marketplace namespace with the name `redhat-marketplace-pull-secret` and key `PULL_SECRET` with the value of the Red hat Marketplace Pull Secret.
+
        ```sh
        # Replace ${PULL_SECRET} with your secret from Red Hat Marketplace
        oc create secret generic redhat-marketplace-pull-secret -n  openshift-redhat-marketplace --from-literal=PULL_SECRET=${PULL_SECRET}
        ```
+
     4. Install the Red Hat Marketplace pull secret as a global pull secret on the cluster.
        **Warning:** This step will make your cluster perform a rolling restart.
        These steps require `oc`, `jq`, and `base64` to be available on your machine.
+
        ```sh
        # Create the docker pull secret file using your PULL_SECRET from Red Hat Marketplace.
        # Store it in a file called entitledregistryconfigjson.
@@ -216,6 +271,7 @@ spec:
        oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=dockerconfigjson-merged
        # Cluster will now restart.
        ```
+
     ### Why is a global pull secret required?
     In order to successfully install the Red Hat Marketplace products, you will need to make the pull secret available across the cluster. This can be achieved by applying the Red Hat Marketplace Pull Secret as a [global pull secret](https://docs.openshift.com/container-platform/4.6/openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets).
     For alternative approachs, please see the official OpenShift [documentation](https://docs.openshift.com/container-platform/4.6/openshift_images/managing_images/using-image-pull-secrets.html).
@@ -299,8 +355,6 @@ spec:
           - watch
         - apiGroups:
           - ""
-          resourceNames:
-          - openshift-redhat-marketplace
           resources:
           - namespaces
           verbs:
@@ -511,6 +565,22 @@ spec:
           verbs:
           - get
           - create
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - apiextensions.k8s.io
+          resourceNames:
+          - meterdefinitions.marketplace.redhat.com
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - update
         serviceAccountName: redhat-marketplace-operator
       deployments:
       - name: redhat-marketplace-controller-manager
@@ -553,11 +623,11 @@ spec:
                 - name: OPERATOR_NAME
                   value: redhat-marketplace-operator
                 - name: RELATED_IMAGE_REPORTER
-                  value: quay.io/zach_source/redhat-marketplace-reporter:1.0.5
+                  value: quay.io/zach_source/redhat-marketplace-reporter:2.0.0-49
                 - name: RELATED_IMAGE_METRIC_STATE
-                  value: quay.io/zach_source/redhat-marketplace-metric-state:1.0.5
+                  value: quay.io/zach_source/redhat-marketplace-metric-state:2.0.0-49
                 - name: RELATED_IMAGE_AUTHCHECK
-                  value: quay.io/zach_source/redhat-marketplace-authcheck:1.0.5
+                  value: quay.io/zach_source/redhat-marketplace-authcheck:2.0.0-49
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -570,7 +640,19 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.name
-                image: quay.io/zach_source/redhat-marketplace-operator:latest
+                - name: OLM_OWNER_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.labels['olm.owner']
+                - name: OLM_OWNER_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.labels['olm.owner.namespace']
+                - name: OLM_OWNER_KIND
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.labels['olm.owner.kind']
+                image: quay.io/zach_source/redhat-marketplace-operator:2.0.0-49
                 name: manager
                 ports:
                 - containerPort: 9443
@@ -580,10 +662,6 @@ spec:
                   requests:
                     cpu: 100m
                     memory: 100Mi
-                volumeMounts:
-                - mountPath: /tmp/k8s-webhook-server/serving-certs
-                  name: cert
-                  readOnly: true
               - args:
                 - --secure-listen-address=0.0.0.0:8443
                 - --upstream=http://127.0.0.1:8080/
@@ -597,11 +675,6 @@ spec:
                 resources: {}
               serviceAccountName: redhat-marketplace-operator
               terminationGracePeriodSeconds: 10
-              volumes:
-              - name: cert
-                secret:
-                  defaultMode: 420
-                  secretName: redhat-marketplace-webhook-service
       permissions:
       - rules:
         - apiGroups:
@@ -779,7 +852,7 @@ spec:
   provider:
     name: Red Hat Marketplace
     url: https://marketplace.redhat.com
-  version: 1.0.5
+  version: 2.0.0
   webhookdefinitions:
   - admissionReviewVersions:
     - v1beta1

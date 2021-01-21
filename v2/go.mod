@@ -45,6 +45,7 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.19.4
+	k8s.io/apiextensions-apiserver v0.19.3
 	k8s.io/apimachinery v0.19.4
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/code-generator v0.19.4
@@ -58,7 +59,6 @@ require (
 replace (
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v1.8.2-0.20201015110737-0a7fdd3b7696
 	github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2 => ../metering/v2
-	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ./
 	k8s.io/api => k8s.io/api v0.19.4
 	k8s.io/client-go => k8s.io/client-go v0.19.4
 )

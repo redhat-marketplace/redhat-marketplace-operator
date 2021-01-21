@@ -26,7 +26,7 @@ import (
 	"strings"
 
 	semver "github.com/Masterminds/semver/v3"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/version"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	"github.com/spf13/cobra"
 )
 

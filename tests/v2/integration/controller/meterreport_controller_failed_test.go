@@ -173,6 +173,6 @@ var _ = Describe("MeterReportController", func() {
 			Expect(job2.UID).To(Not(Equal(job.UID)))
 
 			close(done)
-		}, 180)
+		}, 300)
 	})
 })

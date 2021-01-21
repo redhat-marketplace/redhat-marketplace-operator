@@ -31,16 +31,26 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 var _ = Describe("Testing with Ginkgo", func() {
-
 	var (
 		name             = "new-subscription"
 		namespace        = "arbitrary-namespace"
 		uninstallSubName = "sub-uninstall"
 
+		req                      reconcile.Request
+		opts                     []StepOption
+		optsForDeletion          []StepOption
+		preExistingOperatorGroup *olmv1.OperatorGroup
+		subscription             *olmv1alpha1.Subscription
+		subForDeletion           *olmv1alpha1.Subscription
+		clusterServiceVersions   *olmv1alpha1.ClusterServiceVersion
+	)
+
+	BeforeEach(func() {
 		req = reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      name,
@@ -109,11 +119,12 @@ var _ = Describe("Testing with Ginkgo", func() {
 				Namespace: namespace,
 			},
 		}
-	)
+	})
 
 	var setup = func(r *ReconcilerTest) error {
+		var log = logf.Log.WithName("subscription_controller")
 		r.Client = fake.NewFakeClient(r.GetGetObjects()...)
-		r.Reconciler = &SubscriptionReconciler{Client: r.Client, Scheme: scheme.Scheme}
+		r.Reconciler = &SubscriptionReconciler{Client: r.Client, Scheme: scheme.Scheme, Log: log}
 		return nil
 	}
 
@@ -242,8 +253,8 @@ var _ = Describe("Testing with Ginkgo", func() {
 					}))...),
 		)
 	}
-	It("subscription controller", func() {
 
+	It("subscription controller", func() {
 		defaultFeatures := []string{"razee", "meterbase"}
 		viper.Set("features", defaultFeatures)
 		_ = opsrcApi.AddToScheme(scheme.Scheme)

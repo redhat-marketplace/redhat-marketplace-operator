@@ -7,14 +7,22 @@ build:
     useBuildkit: true
     concurrency: 4
   tagPolicy:
-    gitCommit: {}
+    customTemplate:
+      template: '{{ .VERS }}-{{ .GC }}'
+      components:
+        - name: VERS
+          envTemplate:
+            template: '{{.VERSION}}'
+        - name: GC
+          gitCommit:
+            variant: AbbrevCommitSha
   artifacts:
     - image: redhat-marketplace-operator
       custom:
         buildCommand: make docker-build
         dependencies:
           paths:
-            - "*.go"
+            - '*.go'
             - ./apis/**
             - ./controllers/**
             - ./pkg/**
@@ -25,6 +33,8 @@ build:
           paths:
             - ../reporter/v2/cmd/**
             - ../reporter/v2/pkg/**
+            - ./apis/**
+            - ./pkg/**
     - image: redhat-marketplace-metric-state
       custom:
         buildCommand: cd ../metering/v2 && make docker-build
@@ -33,6 +43,8 @@ build:
             - ../metering/v2/cmd/**
             - ../metering/v2/internal/**
             - ../metering/v2/pkg/**
+            - ./apis/**
+            - ./pkg/**
     - image: redhat-marketplace-authcheck
       custom:
         buildCommand: cd ../authchecker/v2 && make docker-build
@@ -40,6 +52,8 @@ build:
           paths:
             - ../authchecker/v2/cmd/**
             - ../authchecker/v2/pkg/**
+            - ./apis/**
+            - ./pkg/**
 deploy:
   helm:
     releases:

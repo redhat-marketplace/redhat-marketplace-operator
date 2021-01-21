@@ -35,6 +35,7 @@ func initializeRunnables(
 		runnables.RunnableSet,
 		reconcileutils.NewClientCommand,
 		managers.ProvidePodMonitorConfig,
+		config.ProvideInfrastructureAwareConfig,
 	))
 }
 
@@ -46,7 +47,7 @@ func initializeInjectables(
 		ProvideInjectables,
 		managers.ProvideManagerSet,
 		reconcileutils.NewClientCommand,
-		config.GetConfig,
+		config.ProvideInfrastructureAwareConfig,
 		wire.Struct(new(ClientCommandInjector), "*"),
 		wire.Struct(new(OperatorConfigInjector), "*"),
 		wire.Struct(new(PatchInjector), "*"),

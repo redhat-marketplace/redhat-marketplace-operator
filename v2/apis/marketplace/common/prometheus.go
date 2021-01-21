@@ -17,6 +17,8 @@ package common
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"strconv"
 	"time"
 
 	"emperror.dev/errors"
@@ -26,8 +28,8 @@ import (
 
 type MeterDefPrometheusLabels struct {
 	UID               string `json:"meter_definition_uid" mapstructure:"meter_definition_uid"`
-	MeterDefName      string `json:"meter_def_name" mapstructure:"meter_def_name"`
-	MeterDefNamespace string `json:"meter_def_namespace" mapstructure:"meter_def_namespace"`
+	MeterDefName      string `json:"name" mapstructure:"name"`
+	MeterDefNamespace string `json:"namespace" mapstructure:"namespace"`
 
 	WorkloadName      string        `json:"workload_name" mapstructure:"workload_name"`
 	WorkloadType      string        `json:"workload_type" mapstructure:"workload_type"`
@@ -72,6 +74,8 @@ func (m *MeterDefPrometheusLabels) ToLabels() (map[string]string, error) {
 		vstr := ""
 
 		switch v.(type) {
+		case nil:
+			vstr = ""
 		case map[string]interface{}:
 			strbytes, err := json.Marshal(v.(map[string]interface{}))
 			if err != nil {
@@ -79,6 +83,11 @@ func (m *MeterDefPrometheusLabels) ToLabels() (map[string]string, error) {
 			}
 			vstr = string(strbytes)
 		case json.Marshaler:
+			if reflect.ValueOf(v).Kind() == reflect.Ptr && reflect.ValueOf(v).IsNil() {
+				vstr = ""
+				continue
+			}
+
 			strbytes, err := v.(json.Marshaler).MarshalJSON()
 			if err != nil {
 				return nil, errors.Wrap(err, "value failed json")
@@ -88,8 +97,6 @@ func (m *MeterDefPrometheusLabels) ToLabels() (map[string]string, error) {
 			vstr = v.(fmt.Stringer).String()
 		case string:
 			vstr = v.(string)
-		case nil:
-			vstr = ""
 		default:
 			vb, err := json.Marshal(v)
 
@@ -141,16 +148,38 @@ func (p *MetricPeriod) String() string {
 	return p.Duration.String()
 }
 
+func (a *MetricPeriod) UnmarshalJSON(b []byte) error {
+	var j metav1.Duration
+	if err := json.Unmarshal(b, &j); err != nil {
+		return err
+	}
+	*a = MetricPeriod(j)
+	return nil
+}
+
+func (a MetricPeriod) MarshalJSON() ([]byte, error) {
+	str := metav1.Duration(a).Duration.String()
+	return []byte(str), nil
+}
+
 type JSONArray []string
 
 var _ json.Marshaler = &JSONArray{}
 var _ json.Unmarshaler = &JSONArray{}
 
 func (a *JSONArray) UnmarshalJSON(b []byte) error {
-	var j []string
-	if err := json.Unmarshal(b, &j); err != nil {
+	str, err := strconv.Unquote(string(b))
+
+	if err != nil {
 		return err
 	}
+
+	var j []string
+
+	if err := json.Unmarshal([]byte(str), &j); err != nil {
+		return err
+	}
+
 	*a = JSONArray(j)
 	return nil
 }

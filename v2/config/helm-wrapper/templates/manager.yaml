@@ -42,5 +42,17 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: OLM_OWNER_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['olm.owner']
+            - name: OLM_OWNER_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['olm.owner.namespace']
+            - name: OLM_OWNER_KIND
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['olm.owner.kind']
       terminationGracePeriodSeconds: 10
       serviceAccountName: operator
