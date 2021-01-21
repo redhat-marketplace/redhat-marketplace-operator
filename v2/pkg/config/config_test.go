@@ -21,7 +21,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	osconfigv1 "github.com/openshift/api/config/v1"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
 )
@@ -67,32 +66,23 @@ var _ = Describe("Config", func() {
 	Context("with infrastructure information", func() {
 		It("should load infrastructure information", func() {
 			discoveryClient, _ := discovery.NewDiscoveryClientForConfig(cfg)
-			cfg, err := ProvideInfrastructureAwareConfig(k8sClient, discoveryClient)
+			cfg, err := ProvideInfrastructureAwareConfig(k8scache, k8sClient, discoveryClient)
 
 			Expect(err).To(Succeed())
 			Expect(cfg).ToNot(BeNil())
-			Expect(cfg.Infrastructure).ToNot(BeNil())
-			Expect(cfg.Infrastructure.Kubernetes).ToNot(BeNil())
 			Expect(cfg.Infrastructure.KubernetesVersion()).NotTo(BeEmpty())
 			Expect(cfg.Infrastructure.KubernetesPlatform()).NotTo(BeEmpty())
-			Expect(cfg.Infrastructure.Openshift).To(BeNil())
+			Expect(cfg.Infrastructure.HasOpenshift()).To(BeFalse())
 		})
 	})
 
 	Context("with openshift information", func() {
 		var clusterVersionObj *osconfigv1.ClusterVersion
-		var ns *corev1.Namespace
 
 		BeforeEach(func() {
-			ns = &corev1.Namespace{
-				ObjectMeta: v1.ObjectMeta{
-					Name: "openshift-config",
-				},
-			}
 			clusterVersionObj = &osconfigv1.ClusterVersion{
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "version",
-					Namespace: "openshift-config",
 				},
 				Spec: osconfigv1.ClusterVersionSpec{
 					ClusterID: "foo",
@@ -110,9 +100,7 @@ var _ = Describe("Config", func() {
 				},
 			}
 
-			err := k8sClient.Create(context.TODO(), ns)
-			Expect(err).To(Succeed())
-			err = k8sClient.Create(context.TODO(), clusterVersionObj)
+			err := k8sClient.Create(context.TODO(), clusterVersionObj)
 			Expect(err).To(Succeed())
 		})
 
@@ -123,10 +111,9 @@ var _ = Describe("Config", func() {
 
 		It("should load infrastructure information with Openshift", func() {
 			discoveryClient, _ := discovery.NewDiscoveryClientForConfig(cfg)
-			i, err := ProvideInfrastructureAwareConfig(k8sClient, discoveryClient)
+			i, err := ProvideInfrastructureAwareConfig(k8scache, k8sClient, discoveryClient)
 
 			Expect(err).To(Succeed())
-			Expect(i.Infrastructure.Openshift).NotTo(BeNil())
 			Expect(i.Infrastructure.OpenshiftVersion()).NotTo(BeEmpty())
 			Expect(i.Infrastructure.OpenshiftVersion()).To(Equal("4.6.8"))
 		})

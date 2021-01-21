@@ -32,7 +32,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -51,6 +53,7 @@ var k8sClient client.Client
 var testEnv *envtest.Environment
 var ctx context.Context
 var cancel context.CancelFunc
+var k8scache cache.Cache
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
@@ -82,8 +85,24 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
+
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	mapper, err := apiutil.NewDiscoveryRESTMapper(cfg)
+	Expect(err).NotTo(HaveOccurred())
+	k8scache, err = cache.New(cfg,
+		cache.Options{
+			Scheme:    scheme,
+			Mapper:    mapper,
+			Resync:    nil,
+			Namespace: "",
+		})
+	Expect(err).NotTo(HaveOccurred())
+
+	go func() {
+		k8scache.Start(ctx.Done())
+	}()
 }, 60)
 
 var _ = AfterSuite(func() {
@@ -102,10 +121,11 @@ func buildOpenshiftConfig() *apiextv1beta1.CustomResourceDefinition {
 		"clusterversion",
 		"clusterversions",
 		[]string{},
+		apiextv1beta1.ClusterScoped,
 	)
 }
 
-func buildCRD(group, version, name, kind, singular, plural string, short []string) *apiextv1beta1.CustomResourceDefinition {
+func buildCRD(group, version, name, kind, singular, plural string, short []string, scope apiextv1beta1.ResourceScope) *apiextv1beta1.CustomResourceDefinition {
 	return &apiextv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -119,7 +139,7 @@ func buildCRD(group, version, name, kind, singular, plural string, short []strin
 				Kind:       kind,
 				Singular:   singular,
 			},
-			Scope:                 apiextv1beta1.NamespaceScoped,
+			Scope:                 scope,
 			PreserveUnknownFields: ptr.Bool(true),
 			Subresources: &apiextv1beta1.CustomResourceSubresources{
 				Status: &apiextv1beta1.CustomResourceSubresourceStatus{},

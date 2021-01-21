@@ -15,10 +15,15 @@ package config
 
 import (
 	"context"
+	"sync"
 	"time"
 
+	"emperror.dev/errors"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/discovery"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -35,22 +40,79 @@ type OpenshiftInfra struct {
 
 // Infrastructure stores Kubernetes/Openshift clients
 type Infrastructure struct {
-	Openshift  *OpenshiftInfra
-	Kubernetes *KubernetesInfra
+	sync.Mutex
+	openshift  *OpenshiftInfra
+	kubernetes *KubernetesInfra
+}
+
+func (inf *Infrastructure) AsyncLoad(
+	cache cache.Cache,
+	c client.Client,
+	dc *discovery.DiscoveryClient,
+) {
+	doneChan := make(chan bool)
+	ctx, cancel := context.WithTimeout(context.TODO(), 2*time.Minute)
+	go func() {
+		defer close(doneChan)
+		log.Info("checking if cache is started")
+		for !cache.WaitForCacheSync(ctx.Done()) {
+		}
+		doneChan <- true
+	}()
+
+	go func() {
+		inf.Lock()
+		defer cancel()
+		defer inf.Unlock()
+
+		select {
+		case <-ctx.Done():
+			err := errors.New("failed to load infrastructure")
+			log.Error(err, "unable to get Openshift version")
+			panic(err)
+		case <-doneChan:
+			log.Info("cache is started, loading infra")
+		}
+
+		openshift, err := openshiftInfrastructure(c)
+		if err != nil {
+			// Openshift is not mandatory
+			log.Error(err, "unable to get Openshift version")
+			panic(err)
+		}
+
+		kubernetes, err := kubernetesInfrastructure(dc)
+		if err != nil {
+			log.Error(err, "unable to get kubernetes version")
+			panic(err)
+		}
+
+		if openshift != nil {
+			log.Info("found openshift info")
+			obj := *openshift
+			inf.openshift = &obj
+		}
+
+		if kubernetes != nil {
+			log.Info("found kubernetes info")
+			obj := *kubernetes
+			inf.kubernetes = &obj
+		}
+	}()
 }
 
 func openshiftInfrastructure(c client.Client) (*OpenshiftInfra, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3200*time.Millisecond)
-	defer cancel()
-
 	clusterVersionObj := &openshiftconfigv1.ClusterVersion{}
 	versionNamespacedName := client.ObjectKey{
-		Name:      "version",
-		Namespace: "openshift-config",
+		Name: "version",
 	}
 
-	err := c.Get(ctx, versionNamespacedName, clusterVersionObj)
+	err := c.Get(context.TODO(), versionNamespacedName, clusterVersionObj)
 	if err != nil {
+		if k8serrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+			log.Error(err, "cluster is not an openshift cluster")
+			return nil, nil
+		}
 		log.Error(err, "Unable to get Openshift info")
 		return nil, err
 	}
@@ -60,67 +122,63 @@ func openshiftInfrastructure(c client.Client) (*OpenshiftInfra, error) {
 	}, nil
 }
 
-func kubernetesInfrastructure(discoveryClient *discovery.DiscoveryClient) (kInf *KubernetesInfra, err error) {
+func kubernetesInfrastructure(discoveryClient *discovery.DiscoveryClient) (*KubernetesInfra, error) {
 	serverVersion, err := discoveryClient.ServerVersion()
-	if err == nil {
-		kInf = &KubernetesInfra{
-			Version:  serverVersion.GitVersion,
-			Platform: serverVersion.Platform,
-		}
-	}
-	return
-}
-
-// LoadInfrastructure loads Kubernetes and Openshift information
-func LoadInfrastructure(c client.Client, dc *discovery.DiscoveryClient) (*Infrastructure, error) {
-	openshift, err := openshiftInfrastructure(c)
-	if err != nil {
-		// Openshift is not mandatory
-		log.Error(err, "unable to get Openshift version")
-	}
-	kuberentes, err := kubernetesInfrastructure(dc)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Infrastructure{
-		Openshift:  openshift,
-		Kubernetes: kuberentes,
+	return &KubernetesInfra{
+		Version:  serverVersion.GitVersion,
+		Platform: serverVersion.Platform,
 	}, nil
 }
 
 // Version gets Kubernetes Git version
 func (i *Infrastructure) KubernetesVersion() string {
-	if i.Kubernetes == nil {
+	i.Lock()
+	defer i.Unlock()
+
+	if i.kubernetes == nil {
 		return ""
 	}
-	return i.Kubernetes.Version
+	return i.kubernetes.Version
 }
 
 // Platform returns platform information
 func (i *Infrastructure) KubernetesPlatform() string {
-	if i.Kubernetes == nil {
+	i.Lock()
+	defer i.Unlock()
+
+	if i.kubernetes == nil {
 		return ""
 	}
 
-	return i.Kubernetes.Platform
+	return i.kubernetes.Platform
 }
 
 // Version gets Openshift version√
 func (i *Infrastructure) OpenshiftVersion() string {
-	if i.Openshift == nil {
+	i.Lock()
+	defer i.Unlock()
+
+	if i.openshift == nil {
 		return ""
 	}
 
-	return i.Openshift.Version
+	return i.openshift.Version
 }
 
 // HasOpenshift checks if Openshift is available
 func (i *Infrastructure) HasOpenshift() bool {
-	return i.Openshift != nil
+	i.Lock()
+	defer i.Unlock()
+	return i.openshift != nil
 }
 
 // IsDefined tells you if the infrastructure has been created
 func (i *Infrastructure) IsDefined() bool {
-	return i.Openshift != nil || i.Kubernetes != nil
+	i.Lock()
+	defer i.Unlock()
+	return i.openshift != nil || i.kubernetes != nil
 }

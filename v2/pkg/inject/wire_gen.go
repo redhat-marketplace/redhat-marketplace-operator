@@ -12,16 +12,17 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 )
 
 // Injectors from wire.go:
 
-func initializeRunnables(fields *managers.ControllerFields, namespace managers.DeployedNamespace) (runnables.Runnables, error) {
+func initializeInjectDependencies(cache2 cache.Cache, fields *managers.ControllerFields, namespace managers.DeployedNamespace) (injectorDependencies, error) {
 	logger := fields.Logger
 	restConfig := fields.Config
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
-		return nil, err
+		return injectorDependencies{}, err
 	}
 	client := fields.Client
 	scheme := fields.Scheme
@@ -30,11 +31,11 @@ func initializeRunnables(fields *managers.ControllerFields, namespace managers.D
 	podMonitor := runnables.NewPodMonitor(logger, clientset, clientCommandRunner, podMonitorConfig)
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
 	if err != nil {
-		return nil, err
+		return injectorDependencies{}, err
 	}
-	operatorConfig, err := config.ProvideInfrastructureAwareConfig(client, discoveryClient)
+	operatorConfig, err := config.ProvideInfrastructureAwareConfig(cache2, client, discoveryClient)
 	if err != nil {
-		return nil, err
+		return injectorDependencies{}, err
 	}
 	crdUpdater := &runnables.CRDUpdater{
 		Logger: logger,
@@ -44,26 +45,9 @@ func initializeRunnables(fields *managers.ControllerFields, namespace managers.D
 		Client: clientset,
 	}
 	runnablesRunnables := runnables.ProvideRunnables(podMonitor, crdUpdater)
-	return runnablesRunnables, nil
-}
-
-func initializeInjectables(fields *managers.ControllerFields, namespace managers.DeployedNamespace) (Injectables, error) {
-	client := fields.Client
-	scheme := fields.Scheme
-	logger := fields.Logger
-	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logger)
 	clientCommandInjector := &ClientCommandInjector{
 		Fields:        fields,
 		CommandRunner: clientCommandRunner,
-	}
-	restConfig := fields.Config
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
-	if err != nil {
-		return nil, err
-	}
-	operatorConfig, err := config.ProvideInfrastructureAwareConfig(client, discoveryClient)
-	if err != nil {
-		return nil, err
 	}
 	operatorConfigInjector := &OperatorConfigInjector{
 		Config: operatorConfig,
@@ -76,7 +60,11 @@ func initializeInjectables(fields *managers.ControllerFields, namespace managers
 		Scheme:    scheme,
 	}
 	injectables := ProvideInjectables(clientCommandInjector, operatorConfigInjector, patchInjector, factoryInjector)
-	return injectables, nil
+	injectInjectorDependencies := injectorDependencies{
+		Runnables:   runnablesRunnables,
+		Injectables: injectables,
+	}
+	return injectInjectorDependencies, nil
 }
 
 func initializeCommandRunner(fields *managers.ControllerFields) (reconcileutils.ClientCommandRunner, error) {
