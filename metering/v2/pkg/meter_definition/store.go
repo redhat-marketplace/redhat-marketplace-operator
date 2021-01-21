@@ -274,7 +274,7 @@ func (s *MeterDefinitionStore) Add(obj interface{}) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	logger.Info("return matched results", "matched results", len(matchedResults))
+	logger.Info("return matched results", "len", len(matchedResults))
 
 	for _, result := range matchedResults {
 		resource, err := common.NewWorkloadResource(obj, s.scheme)
