@@ -75,7 +75,6 @@ func initializeInjectables(fields *managers.ControllerFields, namespace managers
 		Namespace: namespace,
 		Scheme:    scheme,
 	}
-	restConfig := fields.Config
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return nil, err

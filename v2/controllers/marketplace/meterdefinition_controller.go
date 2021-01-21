@@ -331,9 +331,10 @@ func generateQueryPreview(instance *v1beta1.MeterDefinition, prometheusAPI *Prom
 		var val model.Value
 		var query *PromQuery
 
+		reqLogger.Info("query preview","Type",v1beta1.WorkloadType(meterWorkload.WorkloadType.WorkloadType))
 		query = NewPromQuery(&PromQueryArgs{
 			Metric: meterWorkload.Name,
-			Type:   meterWorkload.WorkloadType,
+			Type:  meterWorkload.WorkloadType.WorkloadType,
 			MeterDef: types.NamespacedName{
 				Name:      instance.Name,
 				Namespace: instance.Namespace,

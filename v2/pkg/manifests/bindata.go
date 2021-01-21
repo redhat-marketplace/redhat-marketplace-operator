@@ -1,29 +1,28 @@
 // Code generated for package manifests by go-bindata DO NOT EDIT. (@generated)
 // sources:
-// ../../assets/metric-state/deployment.yaml (4.191kB)
-// ../../assets/metric-state/service-monitor.yaml (965B)
-// ../../assets/metric-state/service.yaml (559B)
-// ../../assets/prometheus/additional-scrape-configs.yaml (95B)
-// ../../assets/prometheus/htpasswd-secret.yaml (150B)
-// ../../assets/prometheus/kube-rbac-proxy-secret.yaml (417B)
-// ../../assets/prometheus/kube-state-service-monitor.yaml (972B)
-// ../../assets/prometheus/kubelet-serving-ca-bundle.yaml (101B)
-// ../../assets/prometheus/prometheus-additional.yaml (3.217kB)
-// ../../assets/prometheus/prometheus-datasources-secret.yaml (91B)
-// ../../assets/prometheus/prometheus-rules.yaml (334B)
-// ../../assets/prometheus/prometheus.yaml (4.807kB)
-// ../../assets/prometheus/proxy-secret.yaml (147B)
-// ../../assets/prometheus/service.yaml (440B)
-// ../../assets/prometheus/serving-certs-ca-bundle.yaml (169B)
-// ../../assets/prometheus-operator/deployment.yaml (3.611kB)
-// ../../assets/prometheus-operator/operator-certs-ca-bundle.yaml (170B)
-// ../../assets/prometheus-operator/service.yaml (543B)
-// ../../assets/razee/razee-job.yaml (359B)
-// ../../assets/razee/razee-namespace.yaml (54B)
-// ../../assets/razee/remote-resource-s3.yaml (2.049kB)
-// ../../assets/razee/watch-keeper.yaml (2.267kB)
-// ../../assets/reporter/job.yaml (1.347kB)
-
+// ../../assets/metric-state/deployment.yaml
+// ../../assets/metric-state/service-monitor.yaml
+// ../../assets/metric-state/service.yaml
+// ../../assets/prometheus/additional-scrape-configs.yaml
+// ../../assets/prometheus/htpasswd-secret.yaml
+// ../../assets/prometheus/kube-rbac-proxy-secret.yaml
+// ../../assets/prometheus/kube-state-service-monitor.yaml
+// ../../assets/prometheus/kubelet-serving-ca-bundle.yaml
+// ../../assets/prometheus/prometheus-additional.yaml
+// ../../assets/prometheus/prometheus-datasources-secret.yaml
+// ../../assets/prometheus/prometheus-rules.yaml
+// ../../assets/prometheus/prometheus.yaml
+// ../../assets/prometheus/proxy-secret.yaml
+// ../../assets/prometheus/service.yaml
+// ../../assets/prometheus/serving-certs-ca-bundle.yaml
+// ../../assets/prometheus-operator/deployment.yaml
+// ../../assets/prometheus-operator/operator-certs-ca-bundle.yaml
+// ../../assets/prometheus-operator/service.yaml
+// ../../assets/razee/razee-job.yaml
+// ../../assets/razee/razee-namespace.yaml
+// ../../assets/razee/remote-resource-s3.yaml
+// ../../assets/razee/watch-keeper.yaml
+// ../../assets/reporter/job.yaml
 package manifests
 
 import (
@@ -115,8 +114,8 @@ func assetsMetricStateDeploymentYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/metric-state/deployment.yaml", size: 4191, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x41, 0xbd, 0x50, 0x1d, 0x86, 0x79, 0x87, 0x2e, 0xb6, 0xa8, 0xf4, 0xab, 0x6f, 0x1b, 0x44, 0x6, 0xa8, 0x86, 0x30, 0x1b, 0x48, 0x2a, 0xde, 0xab, 0xff, 0x7f, 0xd7, 0x1f, 0x85, 0x88, 0x79, 0xe3}}
+	info := bindataFileInfo{name: "assets/metric-state/deployment.yaml", size: 4191, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -135,8 +134,8 @@ func assetsMetricStateServiceMonitorYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/metric-state/service-monitor.yaml", size: 965, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x62, 0x96, 0xa0, 0x1b, 0x1d, 0xe6, 0x7f, 0xfe, 0xa9, 0xca, 0x1b, 0x9f, 0x4d, 0xe2, 0xc7, 0x33, 0x99, 0x5, 0x38, 0x3b, 0x2b, 0x94, 0x4c, 0xd, 0xff, 0xf8, 0x52, 0xfb, 0x86, 0xb1, 0xc7, 0x26}}
+	info := bindataFileInfo{name: "assets/metric-state/service-monitor.yaml", size: 965, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -155,8 +154,8 @@ func assetsMetricStateServiceYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/metric-state/service.yaml", size: 559, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xc, 0xf3, 0x41, 0xe1, 0xb, 0xf2, 0x42, 0x97, 0x1c, 0xad, 0xdc, 0xee, 0xa3, 0xc8, 0x30, 0x74, 0xa6, 0x4a, 0xf7, 0x8f, 0x11, 0x4b, 0x40, 0xdc, 0xb3, 0xac, 0x3e, 0x4c, 0x4c, 0xb5, 0x32, 0x29}}
+	info := bindataFileInfo{name: "assets/metric-state/service.yaml", size: 559, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -175,8 +174,8 @@ func assetsPrometheusAdditionalScrapeConfigsYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/additional-scrape-configs.yaml", size: 95, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x0, 0x63, 0x5, 0x23, 0x5a, 0x8d, 0x6d, 0x73, 0xc1, 0x2c, 0x3, 0x6e, 0x80, 0x55, 0xdf, 0x9, 0x8, 0x9e, 0x3a, 0x7b, 0x1, 0x64, 0x41, 0x76, 0xd0, 0x71, 0x11, 0x2b, 0x85, 0x26, 0xe6, 0x5e}}
+	info := bindataFileInfo{name: "assets/prometheus/additional-scrape-configs.yaml", size: 95, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -195,8 +194,8 @@ func assetsPrometheusHtpasswdSecretYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/htpasswd-secret.yaml", size: 150, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xc0, 0xff, 0x20, 0xc8, 0x4c, 0x89, 0x62, 0x43, 0x54, 0x98, 0x2b, 0xef, 0x84, 0x2d, 0x33, 0x8, 0xd9, 0x2e, 0x72, 0x58, 0x86, 0x7, 0xa6, 0x29, 0x80, 0x9f, 0xdb, 0xc3, 0x4d, 0xc3, 0x79, 0x31}}
+	info := bindataFileInfo{name: "assets/prometheus/htpasswd-secret.yaml", size: 150, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -215,8 +214,8 @@ func assetsPrometheusKubeRbacProxySecretYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/kube-rbac-proxy-secret.yaml", size: 417, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x69, 0x6d, 0x4, 0x4d, 0xdc, 0x7d, 0xd6, 0x82, 0x2b, 0xe1, 0x29, 0x56, 0xc3, 0xf3, 0x61, 0x74, 0xdc, 0x31, 0x75, 0x22, 0x24, 0xbb, 0xa4, 0x63, 0xc, 0x21, 0xe9, 0x99, 0xcc, 0x39, 0xbf, 0x6d}}
+	info := bindataFileInfo{name: "assets/prometheus/kube-rbac-proxy-secret.yaml", size: 417, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -235,8 +234,8 @@ func assetsPrometheusKubeStateServiceMonitorYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/kube-state-service-monitor.yaml", size: 972, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x5a, 0xfc, 0x45, 0x17, 0xce, 0xc2, 0xc3, 0x6a, 0x44, 0xec, 0x43, 0xc8, 0x48, 0xe, 0x3, 0xbd, 0x9b, 0x3e, 0xe2, 0x3, 0xd9, 0x95, 0x9c, 0x2, 0xdd, 0x5c, 0x3f, 0x99, 0x6f, 0xcf, 0xe7, 0x64}}
+	info := bindataFileInfo{name: "assets/prometheus/kube-state-service-monitor.yaml", size: 972, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -255,8 +254,8 @@ func assetsPrometheusKubeletServingCaBundleYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/kubelet-serving-ca-bundle.yaml", size: 101, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xe2, 0x5a, 0x8e, 0x4b, 0x57, 0xe4, 0x1b, 0x25, 0x7a, 0x40, 0x5d, 0x99, 0xe6, 0x4b, 0x36, 0x7c, 0x9e, 0x23, 0xd6, 0x91, 0x5a, 0xe0, 0xf2, 0xf4, 0x22, 0xf2, 0x34, 0x60, 0x7d, 0x9c, 0xfd, 0x4e}}
+	info := bindataFileInfo{name: "assets/prometheus/kubelet-serving-ca-bundle.yaml", size: 101, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -275,8 +274,8 @@ func assetsPrometheusPrometheusAdditionalYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/prometheus-additional.yaml", size: 3217, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xd7, 0x0, 0xb, 0x39, 0x31, 0xea, 0xc9, 0x64, 0xaa, 0x17, 0x3d, 0xfc, 0x8b, 0x85, 0xc4, 0x48, 0x5d, 0xb8, 0x7e, 0x9d, 0x48, 0x41, 0x63, 0xd9, 0x81, 0xac, 0xd5, 0x8e, 0x25, 0x56, 0xde, 0x7e}}
+	info := bindataFileInfo{name: "assets/prometheus/prometheus-additional.yaml", size: 3217, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -295,8 +294,8 @@ func assetsPrometheusPrometheusDatasourcesSecretYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/prometheus-datasources-secret.yaml", size: 91, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xaa, 0xac, 0xbe, 0x97, 0x80, 0xa0, 0x55, 0xa3, 0x7, 0xee, 0x1e, 0xb0, 0xe8, 0x18, 0x8e, 0xb9, 0xac, 0xa4, 0x10, 0xa0, 0xac, 0x7b, 0xa1, 0x71, 0x6f, 0xce, 0xf8, 0x1, 0xfd, 0xf2, 0x1a, 0xa0}}
+	info := bindataFileInfo{name: "assets/prometheus/prometheus-datasources-secret.yaml", size: 91, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -315,8 +314,8 @@ func assetsPrometheusPrometheusRulesYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/prometheus-rules.yaml", size: 334, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xe5, 0xc7, 0x2b, 0x5d, 0x31, 0x65, 0x71, 0xa8, 0x2f, 0xac, 0xbc, 0xec, 0xd2, 0x43, 0x25, 0x59, 0x93, 0xc9, 0x12, 0x4b, 0x16, 0x22, 0xc0, 0x46, 0x94, 0xed, 0xab, 0xfe, 0xf8, 0x6d, 0x57, 0x5b}}
+	info := bindataFileInfo{name: "assets/prometheus/prometheus-rules.yaml", size: 334, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -335,8 +334,8 @@ func assetsPrometheusPrometheusYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/prometheus.yaml", size: 4807, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xe3, 0xd2, 0xb6, 0xa7, 0x3b, 0x42, 0x16, 0xb1, 0x98, 0xb2, 0x9b, 0x7e, 0xf4, 0x5b, 0x23, 0x43, 0xe5, 0x34, 0xc5, 0x56, 0x9a, 0x1f, 0x2c, 0x78, 0xf, 0xf3, 0x95, 0xb8, 0xd4, 0x45, 0x35, 0x8a}}
+	info := bindataFileInfo{name: "assets/prometheus/prometheus.yaml", size: 4807, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -355,8 +354,8 @@ func assetsPrometheusProxySecretYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/proxy-secret.yaml", size: 147, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x30, 0x35, 0x99, 0xa6, 0x8f, 0x38, 0xff, 0x45, 0x63, 0xc6, 0x2d, 0xc5, 0x7d, 0xb2, 0x64, 0xd2, 0xc4, 0x64, 0x9c, 0x64, 0xa9, 0x71, 0x12, 0x90, 0xfa, 0x86, 0x53, 0xf2, 0xb8, 0x2c, 0x7c, 0x43}}
+	info := bindataFileInfo{name: "assets/prometheus/proxy-secret.yaml", size: 147, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -375,8 +374,8 @@ func assetsPrometheusServiceYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/service.yaml", size: 440, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x6b, 0x65, 0x47, 0xd9, 0xe8, 0x6a, 0x5a, 0xa0, 0x75, 0x87, 0xd1, 0xef, 0x28, 0xe2, 0x7f, 0x4b, 0x99, 0x87, 0x84, 0xa3, 0xb0, 0x67, 0x39, 0x3a, 0x35, 0x5, 0xa6, 0xa8, 0x69, 0xfd, 0xdc, 0x5d}}
+	info := bindataFileInfo{name: "assets/prometheus/service.yaml", size: 440, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -395,8 +394,8 @@ func assetsPrometheusServingCertsCaBundleYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/serving-certs-ca-bundle.yaml", size: 169, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x14, 0x6e, 0x93, 0x4e, 0x33, 0x7f, 0xb9, 0xe7, 0x45, 0x41, 0x85, 0x6, 0x2c, 0x36, 0x84, 0x49, 0xf5, 0xbb, 0x7e, 0xc6, 0x6a, 0x11, 0xd5, 0x47, 0x81, 0x2e, 0xfa, 0xce, 0x48, 0x64, 0xa9, 0x37}}
+	info := bindataFileInfo{name: "assets/prometheus/serving-certs-ca-bundle.yaml", size: 169, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -415,8 +414,8 @@ func assetsPrometheusOperatorDeploymentYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus-operator/deployment.yaml", size: 3611, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xd3, 0xa1, 0x77, 0x8c, 0xac, 0xc4, 0x77, 0x45, 0x5e, 0x40, 0x6a, 0x80, 0xb6, 0x5, 0xfa, 0x80, 0x2d, 0x92, 0x11, 0xdd, 0xc4, 0xd1, 0x84, 0x64, 0x4f, 0x69, 0x5b, 0xaf, 0xab, 0xd1, 0x26, 0x1a}}
+	info := bindataFileInfo{name: "assets/prometheus-operator/deployment.yaml", size: 3611, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -435,8 +434,8 @@ func assetsPrometheusOperatorOperatorCertsCaBundleYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus-operator/operator-certs-ca-bundle.yaml", size: 170, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xa1, 0xdf, 0x64, 0x34, 0x32, 0xdf, 0x88, 0x59, 0xb2, 0x9b, 0x78, 0x91, 0xbe, 0x4d, 0x79, 0x35, 0x9d, 0x14, 0x5e, 0xda, 0x7b, 0xdf, 0x6c, 0xe8, 0x60, 0xb8, 0xa1, 0x33, 0x51, 0xe9, 0x30, 0x6d}}
+	info := bindataFileInfo{name: "assets/prometheus-operator/operator-certs-ca-bundle.yaml", size: 170, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -455,8 +454,8 @@ func assetsPrometheusOperatorServiceYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus-operator/service.yaml", size: 543, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x67, 0xe1, 0xe5, 0x1, 0x98, 0xa3, 0x4e, 0x7, 0x9f, 0x3a, 0x6, 0x40, 0x8, 0xa0, 0x35, 0xcf, 0xb2, 0x6a, 0x55, 0x83, 0x11, 0x54, 0xa4, 0x81, 0xfd, 0xbb, 0x7, 0xc5, 0xfa, 0x98, 0x1f, 0x39}}
+	info := bindataFileInfo{name: "assets/prometheus-operator/service.yaml", size: 543, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -475,8 +474,8 @@ func assetsRazeeRazeeJobYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/razee/razee-job.yaml", size: 359, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xa0, 0xba, 0x89, 0x9d, 0x86, 0xdc, 0x14, 0xd1, 0xe1, 0x32, 0x9a, 0x88, 0x81, 0xb7, 0x68, 0x91, 0xfd, 0x32, 0x62, 0x3e, 0x5e, 0x1f, 0x7f, 0x5a, 0x62, 0x4e, 0x6e, 0x73, 0xe3, 0xc, 0x8d, 0x3a}}
+	info := bindataFileInfo{name: "assets/razee/razee-job.yaml", size: 359, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -495,8 +494,8 @@ func assetsRazeeRazeeNamespaceYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/razee/razee-namespace.yaml", size: 54, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x14, 0xab, 0x1e, 0xd8, 0x3a, 0x3e, 0x60, 0x88, 0x41, 0x4e, 0xab, 0xe2, 0x19, 0x9b, 0x62, 0x10, 0x7f, 0x1, 0xc1, 0x93, 0x68, 0x59, 0xb2, 0xe5, 0xb5, 0x67, 0xaa, 0x38, 0x8, 0x64, 0xcb, 0x66}}
+	info := bindataFileInfo{name: "assets/razee/razee-namespace.yaml", size: 54, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -515,8 +514,8 @@ func assetsRazeeRemoteResourceS3Yaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/razee/remote-resource-s3.yaml", size: 2049, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xf2, 0x62, 0xe3, 0x1a, 0x5d, 0x8c, 0xe5, 0xab, 0x24, 0x99, 0x93, 0x0, 0x42, 0x17, 0x2f, 0xb2, 0x53, 0x67, 0x48, 0x76, 0x1, 0x54, 0x7d, 0x2a, 0xd6, 0x1f, 0xd4, 0x1a, 0x83, 0x10, 0xe1, 0x85}}
+	info := bindataFileInfo{name: "assets/razee/remote-resource-s3.yaml", size: 2049, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -535,8 +534,8 @@ func assetsRazeeWatchKeeperYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/razee/watch-keeper.yaml", size: 2267, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xcb, 0xaf, 0x3d, 0x6a, 0x73, 0xa7, 0x17, 0xe5, 0x27, 0xe, 0x4d, 0x69, 0xf2, 0x7c, 0x55, 0xcd, 0xef, 0x74, 0xba, 0x8e, 0x2, 0xa4, 0x2d, 0x79, 0xaa, 0xd2, 0x91, 0x34, 0x2b, 0x5e, 0xc8, 0xd8}}
+	info := bindataFileInfo{name: "assets/razee/watch-keeper.yaml", size: 2267, mode: os.FileMode(420), modTime: time.Unix(1610395081, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
@@ -555,8 +554,8 @@ func assetsReporterJobYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/reporter/job.yaml", size: 1347, mode: os.FileMode(0644), modTime: time.Unix(1611084961, 0)}
-	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x4a, 0x47, 0x80, 0x7d, 0x34, 0x37, 0x4f, 0x98, 0x12, 0x20, 0x9e, 0x47, 0xb, 0xb8, 0x74, 0x66, 0x3f, 0x87, 0xf1, 0xa4, 0xa, 0x8d, 0x9b, 0x7, 0xd9, 0x47, 0xb3, 0x76, 0x94, 0xb1, 0x60, 0x49}}
+	info := bindataFileInfo{name: "assets/reporter/job.yaml", size: 1347, mode: os.FileMode(420), modTime: time.Unix(1610644557, 0)}
+	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 

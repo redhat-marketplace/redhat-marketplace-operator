@@ -46,7 +46,6 @@ var _ = Describe("MeterDefController reconcile", func() {
 
 					ResourceFilters: []v1beta1.ResourceFilter{
 						{
-							WorkloadType: "Pod",
 							OwnerCRD: &v1beta1.OwnerCRDFilter{
 								common.GroupVersionKind{
 									APIVersion: "apps/v1",
@@ -66,6 +65,9 @@ var _ = Describe("MeterDefController reconcile", func() {
 							},
 							Query: "kube_pod_info",
 							Metric: "meterdef_controller_test_query",
+							WorkloadType: v1beta1.WorkloadTypeFilter{
+								WorkloadType: v1beta1.WorkloadTypePod,
+							},
 						},
 					},
 				},
