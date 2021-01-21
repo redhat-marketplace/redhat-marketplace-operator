@@ -12,16 +12,118 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config_test
+package config
 
 import (
+	"context"
+	"path/filepath"
 	"testing"
 
+	"github.com/gotidy/ptr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+
+	// +kubebuilder:scaffold:imports
+	osconfigv1 "github.com/openshift/api/config/v1"
+	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func TestConfig(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Config Suite")
+	RunSpecsWithDefaultAndCustomReporters(t,
+		"Config Suite",
+		[]Reporter{printer.NewlineReporter{}})
+}
+
+var cfg *rest.Config
+var k8sClient client.Client
+var testEnv *envtest.Environment
+var ctx context.Context
+var cancel context.CancelFunc
+
+var _ = BeforeSuite(func() {
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
+	ctx, cancel = context.WithCancel(context.TODO())
+
+	By("bootstrapping test environment")
+	crds := []runtime.Object{
+		buildOpenshiftConfig(),
+	}
+	testEnv = &envtest.Environment{
+		CRDDirectoryPaths: []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		CRDs:              crds,
+	}
+
+	var err error
+	cfg, err = testEnv.Start()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(cfg).NotTo(BeNil())
+
+	scheme := runtime.NewScheme()
+	err = v1alpha1.AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = v1beta1.AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = osconfigv1.Install(scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = clientgoscheme.AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(k8sClient).NotTo(BeNil())
+}, 60)
+
+var _ = AfterSuite(func() {
+	cancel()
+	By("tearing down the test environment")
+	err := testEnv.Stop()
+	Expect(err).NotTo(HaveOccurred())
+})
+
+func buildOpenshiftConfig() *apiextv1beta1.CustomResourceDefinition {
+	return buildCRD(
+		"config.openshift.io",
+		"v1",
+		"clusterversions.config.openshift.io",
+		"ClusterVersion",
+		"clusterversion",
+		"clusterversions",
+		[]string{},
+	)
+}
+
+func buildCRD(group, version, name, kind, singular, plural string, short []string) *apiextv1beta1.CustomResourceDefinition {
+	return &apiextv1beta1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: apiextv1beta1.CustomResourceDefinitionSpec{
+			Group:   group,
+			Version: version,
+			Names: apiextv1beta1.CustomResourceDefinitionNames{
+				Plural:     plural,
+				ShortNames: short,
+				Kind:       kind,
+				Singular:   singular,
+			},
+			Scope:                 apiextv1beta1.NamespaceScoped,
+			PreserveUnknownFields: ptr.Bool(true),
+			Subresources: &apiextv1beta1.CustomResourceSubresources{
+				Status: &apiextv1beta1.CustomResourceSubresourceStatus{},
+			},
+		},
+	}
 }

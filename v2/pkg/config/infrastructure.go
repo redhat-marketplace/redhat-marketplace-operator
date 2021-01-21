@@ -15,11 +15,9 @@ package config
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -44,39 +42,24 @@ type Infrastructure struct {
 func openshiftInfrastructure(c client.Client) (*OpenshiftInfra, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3200*time.Millisecond)
 	defer cancel()
-	clusterVersionObj := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "config.openshift.io/v1",
-			"kind":       "ClusterVersion",
-			"metadata": map[string]interface{}{
-				"name": "version",
-			},
-			"spec": "console",
-		},
-	}
+
+	clusterVersionObj := &openshiftconfigv1.ClusterVersion{}
 	versionNamespacedName := client.ObjectKey{
-		Name: "version",
+		Name:      "version",
+		Namespace: "openshift-config",
 	}
-	clusterVersion := openshiftconfigv1.ClusterVersionStatus{}
+
 	err := c.Get(ctx, versionNamespacedName, clusterVersionObj)
 	if err != nil {
 		log.Error(err, "Unable to get Openshift info")
 		return nil, err
 	}
-	marshaledStatus, err := json.Marshal(clusterVersionObj.Object["status"])
-	if err != nil {
-		log.Error(err, "Error marshaling openshift api response")
-		return nil, err
-	}
-	if err := json.Unmarshal(marshaledStatus, &clusterVersion); err != nil {
-		log.Error(err, "Error unmarshaling openshift api response")
-		return nil, err
-	}
 
 	return &OpenshiftInfra{
-		Version: clusterVersion.Desired.Version,
+		Version: clusterVersionObj.Spec.DesiredUpdate.Version,
 	}, nil
 }
+
 func kubernetesInfrastructure(discoveryClient *discovery.DiscoveryClient) (kInf *KubernetesInfra, err error) {
 	serverVersion, err := discoveryClient.ServerVersion()
 	if err == nil {
