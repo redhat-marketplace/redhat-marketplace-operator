@@ -1,0 +1,35 @@
+domain: redhat.com
+projectName: redhat-marketplace-operator
+layout: go.kubebuilder.io/v3
+multigroup: true
+repo: github.com/redhat-marketplace/redhat-marketplace-operator/v2
+resources:
+- group: marketplace
+  kind: MarketplaceConfig
+  version: v1alpha1
+  crdVersion: v1beta1
+- group: marketplace
+  kind: MeterBase
+  version: v1alpha1
+  crdVersion: v1beta1
+- group: marketplace
+  kind: RazeeDeployment
+  version: v1alpha1
+  crdVersion: v1beta1
+- group: marketplace
+  kind: RemoteResourceS3
+  version: v1alpha1
+  crdVersion: v1beta1
+- group: marketplace
+  kind: MeterDefinition
+  version: v1alpha1
+  crdVersion: v1beta1
+- group: marketplace
+  kind: MeterDefinition
+  version: v1beta1
+  crdVersion: v1beta1
+  webhookVersion: v1beta1
+version: 3-alpha
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}

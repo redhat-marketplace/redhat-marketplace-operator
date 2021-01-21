@@ -2,8 +2,81 @@
 
 ## Prerequisites
 
+This onboarding doc has some work involved, if you intend to following along you'll at least need these two prereqs.
+
 - OpenShift CLI (oc) or kubectl
-- An OpenShift cluster with Red Hat Marketplace Metering enabled
+- An OpenShift cluster with Red Hat Marketplace operator installed
+
+## Meter Definition Description
+
+The Meter Definition is the core resource for defining metrics to bill by use. This section describes the field and the concepts so you better understand how to make use of the resource.
+
+### Root
+
+Available Fields
+
+| Field           | Required     | Valid Values              | Description                                                                                                                                       |
+| :-------------- | :----------- | :------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------ |
+| group           | yes          | string                    | Group is the domain of your organization. It should match the Group of the CRDs in use or be the domain of your organization.                     |
+| kind            | yes          | string                    | Kind describe the type of resource being metered. It should match the CRD Kind or be a descriptive work to organize the meters of the definition. |
+| resourceFilters | at least one | array of resource filters | Resource filters provide a means of selecting the resources to monitor on the cluster. Meters will only be to be run against selected resources.  |
+| meters          | at least one | array of meters           | Meters are the definition of metrics that are used to collect metric data and build a report.                                                     |
+
+### Resource Filters
+
+Resource filters each have the ability to select a namespace, and filter to a workload type. There are 3 additional filters that at least one must be selected: owner CRD, label, or annotation. These will further filter the workloads to only include the set of resources that should be metered.
+
+The owner CRD, label, and annotation filters can be combined on each resource filter definition to perform an AND. If you wish to have OR, you will need to define another resourceFilter.
+
+Available fields:
+
+| Field        | Required | Valid Values                        | Description                                                                                   |
+| :----------- | :------- | :---------------------------------- | :-------------------------------------------------------------------------------------------- |
+| namespace    | yes      | object                              | Filter namespace by using operator group                                                      |
+| workloadType | yes      | Pod, Service, PersistentVolumeClaim | Filter the resources by the type. Required, a resource filter can only be defined for a type. |
+| ownerCRD     | one of   | object                              | Find resources based on the Owner References on the Kubernetes Object metadata.               |
+| label        | one of   | object                              | Filter resources by the labels assigned.                                                      |
+| annotation   | one of   | object                              | Filter annotations by the annotations on the Kubernetes object metadata.                      |
+
+Example of all the available actions:
+
+```yaml
+resourceFilters:
+  - namespace:
+      useOperatorGroup: true
+      labelSelector:
+        matchLabels:
+          myApp: true
+    workloadType: Pod
+    ownerCRD:
+      apiVersion: marketplace.redhat.com/v1alpha1
+      kind: RazeeDeployment
+    label:
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: rhm-metric-state
+    annotation:
+      annotationSelector:
+        matchLabels:
+          anAnnotation: ['foo']
+```
+
+### Meters
+
+Meters are the definition of how to query and build a report to send for metering. It allows customizing of the collection of data to fit different scenarios.
+
+Available fields:
+
+| Field       | Required | Valid Values                 | Description                                                                                                                        |
+| :---------- | :------- | :--------------------------- | :--------------------------------------------------------------------------------------------------------------------------------- |
+| metric      | yes      | string                       | Metric identifier unique to that metric in the prometheus format (my_metric).                                                      |
+| name        | no       | string                       | Common name meant to be used in graph and charts.                                                                                  |
+| description | no       | string                       | Common description meant to be used by graphs and charts                                                                           |
+| query       | yes      | string                       | Prometheus query to gather the metric data.                                                                                        |
+| aggregation | no       | sum,min,max,avg              | Aggregation is the type of final agreggation to perform on the values for the period. Default is sum.                              |
+| period      | no       | 1h, 2h, 4h, 6h, 8h, 12h, 24h | Period is the amount of time to block the day's report into. Value must be divisable into 24. Default is 1 hour.                   |
+| groupBy     | no       | string slice                 | Prometheus labels to group by, default values for the workload type are used if not set.                                           |
+| without     | no       | string slice                 | Prometheus labels to leave out of the result set, all labels are included by default so this helps remove possibly sensitive data. |
 
 ## Preconfigured
 
@@ -18,30 +91,31 @@ Before you get started, look at some preconfigured options. These options are pr
 To take the max pod count, you'll need to replace the created_by fields in the query. Valid values for kind are `daemonset`, `deployment`, `replicaset`.
 
 ```yaml
-apiVersion: marketplace.redhat.com/v1alpha1
+apiVersion: marketplace.redhat.com/v1beta1
 kind: MeterDefinition
 metadata:
   name: my-operator-max-pod-count
 spec:
-  # Add fields here
-  meterGroup: partner.metering.com # replace this
-  meterKind: App # replace this
-  workloadVertexType: OperatorGroup
-  workloads:
-    - name: pod_count
-      type: Pod
+  group: partner.metering.com # replace with your Group
+  kind: App # replace with your Kind
+  resourceFilters:
+    - namespace:
+        useOperatorGroup: true
       ownerCRD:
         apiVersion: partner.metering.com/v1alpha1
         kind: App
-      metricLabels:
-        - label: pod_count
-          aggregation: sum
-          query: |
-            min_over_time(
-              (kube_pod_info{
-                created_by_kind="${KIND_OF_YOUR_DEPLOYMENT}",
-                created_by_name="${NAME_OF_YOUR_DEPLOYMENT}"
-                node=~".*"} or on() vector(0))[60m:60m])
+      workloadType: Pod
+  meters:
+    - aggregation: max
+      period: 1h
+      metricId: pod_count
+      workloadType: Pod
+      query: |
+        min_over_time(
+          (kube_pod_info{
+            created_by_kind="${KIND_OF_YOUR_DEPLOYMENT}",
+            created_by_name="${NAME_OF_YOUR_DEPLOYMENT}"
+            node=~".*"} or on() vector(0))[60m:60m])
 ```
 
 ### Sum of vCPU Used
@@ -49,49 +123,51 @@ spec:
 1. Container vCPU on a pod
 
    ```yaml
-   apiVersion: marketplace.redhat.com/v1alpha1
+   apiVersion: marketplace.redhat.com/v1beta1
    kind: MeterDefinition
    metadata:
-     name: my-operator-cpu-use
+     name: my-container-vcpu-use
    spec:
-     # Add fields here
-     meterGroup: partner.metering.com
-     meterKind: App
-     workloadVertexType: OperatorGroup
-     workloads:
-       - name: container_vcpu_use
-         type: Pod
+     group: partner.metering.com # replace with your Group
+     kind: App # replace with your Kind
+     resourceFilters:
+       - namespace:
+           useOperatorGroup: true
          ownerCRD:
            apiVersion: partner.metering.com/v1alpha1
            kind: App
-         metricLabels:
-           - label: container_vcpu_use
-             query: rate(container_cpu_usage_seconds_total{cpu="total", container="${YOURCONTAINER}"}[5m])*100
-             aggregation: sum
+         workloadType: Pod
+     meters:
+       - aggregation: sum
+         period: 1h
+         metricId: container_vcpu_use
+         workloadType: Pod
+         query: rate(container_cpu_usage_seconds_total{cpu="total", container="${YOURCONTAINER}"}[5m])*100
    ```
 
 1. Track vCPU for the entire workload pod
 
    ```yaml
-   apiVersion: marketplace.redhat.com/v1alpha1
+   apiVersion: marketplace.redhat.com/v1beta1
    kind: MeterDefinition
    metadata:
      name: my-operator-cpu-use
    spec:
-     # Add fields here
-     meterGroup: partner.metering.com
-     meterKind: App
-     workloadVertexType: OperatorGroup
-     workloads:
-       - name: pod_vcpu_sum
-         type: Pod
+     group: partner.metering.com # replace with your Group
+     kind: App # replace with your Kind
+     resourceFilters:
+       - namespace:
+           useOperatorGroup: true
          ownerCRD:
            apiVersion: partner.metering.com/v1alpha1
            kind: App
-         metricLabels:
-           - label: pod_vcpu_sum
-             query: sum by (pod, namespace) (rate(container_cpu_usage_seconds_total{container_name!="POD"}[1m])*100)
-             aggregation: sum
+         workloadType: Pod
+     meters:
+       - aggregation: sum
+         period: 1h
+         metricId: pod_vcpu_sum
+         workloadType: Pod
+         query: sum by (pod, namespace) (rate(container_cpu_usage_seconds_total{container_name!="POD"}[1m])*100)
    ```
 
 #### Query breakdown
@@ -146,32 +222,15 @@ The first two fields we'll create are meterGroup and meterKind. These fields ide
 Here is an example of our App operator for the domain partner.metering.com
 
 ```yaml
-apiVersion: marketplace.redhat.com/v1alpha1
+apiVersion: marketplace.redhat.com/v1beta1
 kind: MeterDefinition
 metadata:
   name: userCount
   namespace: partner-metering
 spec:
   # Add fields here
-  meterGroup: partner.metering.com
-  meterKind: App
-```
-
-### Choose your vertex type
-
-MeterDefinitions are anchored by the vertex. This is the place to start to look for your workloads. There are two options available: OperatorGroup or Namespace with a selector. Unless you have a very specific reason not to use OperatorGroup, you should always use OperatorGroup.
-
-```yaml
-apiVersion: marketplace.redhat.com/v1alpha1
-kind: MeterDefinition
-metadata:
-  name: userCount
-  namespace: partner-metering
-spec:
-  # Add fields here
-  meterGroup: partner.metering.com
-  meterKind: App
-  workloadVertexType: OperatorGroup
+  group: partner.metering.com
+  kind: App
 ```
 
 ### Identify what you would like to meter?
@@ -182,159 +241,88 @@ Default data sources are [kube-state](https://github.com/kubernetes/kube-state-m
 
 For our example we'll use Service, and a custom metric.
 
-### Create your workload
-
-The workload is the logical block of work
+### Create your meter
 
 ```yaml
-apiVersion: marketplace.redhat.com/v1alpha1
+apiVersion: marketplace.redhat.com/v1beta1
 kind: MeterDefinition
 metadata:
   name: userCount
   namespace: partner-metering
 spec:
   # Add fields here
-  meterGroup: partner.metering.com
-  meterKind: App
-  workloadVertexType: OperatorGroup
-  workloads:
-    - name: user-count
-      type: Service
-      ownerCRD:
-        apiVersion: partner.metering.com/v1alpha1
-        kind: App
-      metricLabels:
-        - label: container_spec_cpu_shares
-          aggregation: sum
+  group: partner.metering.com
+  kind: App
+  meters:
+    - aggregation: sum
+      period: 1h
+      metricId: app_customer-metric
+      query: custom_metric{}
+      workloadType: Service
 ```
 
-### Create your workload filters
+### Create your resfilters
 
-Your options for workload filters are as follows: Owner Custom Resource Definition (CRD) API Version, Annotation, or Labels. Any combination of the 3 are available. We'll use OperatorGroup for the rest of the example but
+Your options for workload filters are as follows: Owner Custom Resource Definition (CRD) API Version, Annotation, or Labels. Any combination of the 3 are available. We'll use OperatorGroup for the rest of the example.
 
 - Use Owner CRD API Version
 
   ```yaml
-  apiVersion: marketplace.redhat.com/v1alpha1
+  apiVersion: marketplace.redhat.com/v1beta1
   kind: MeterDefinition
   metadata:
     name: userCount
     namespace: partner-metering
   spec:
     # Add fields here
-    meterGroup: partner.metering.com
-    meterKind: App
-    workloadVertexType: OperatorGroup
-    workloads:
-      - name: user-count
-        type: Service
+    group: partner.metering.com
+    kind: App
+    resourceFilters:
+      - namespace:
+          useOperatorGroup: true
         ownerCRD:
           apiVersion: partner.metering.com/v1alpha1
           kind: App
+        workloadType: Service
+    meters:
+      - aggregation: sum
+        period: 1h
+        metricId: app_customer-metric
+        query: custom_metric{}
+        workloadType: Service
   ```
 
-- Use Annotations
+### Refine your meter
 
-  ```yaml
-  apiVersion: marketplace.redhat.com/v1alpha1
-  kind: MeterDefinition
-  metadata:
-    name: userCount
-    namespace: partner-metering
-  spec:
-    # Add fields here
-    meterGroup: partner.metering.com
-    meterKind: App
-    workloadVertexType: OperatorGroup
-    workloads:
-      - name: user-count
-        type: Service
-        annotationSelector: #
-          matchLabels:
-            parnet.metering.com/product.id: abas342341321-12341451
-  ```
-
-- Use Labels
-
-  ```yaml
-  apiVersion: marketplace.redhat.com/v1alpha1
-  kind: MeterDefinition
-  metadata:
-    name: userCount
-    namespace: partner-metering
-  spec:
-    # Add fields here
-    meterGroup: partner.metering.com
-    meterKind: App
-    workloadVertexType: OperatorGroup
-    workloads:
-      - name: user-count
-        type: Service
-        labelSelector:
-          matchLabels:
-            app-id: AppSimple
-  ```
-
-- Use any combination. At least one is required but you can use any combination to achieve your goal.
-
-  ```yaml
-  apiVersion: marketplace.redhat.com/v1alpha1
-  kind: MeterDefinition
-  metadata:
-    name: userCount
-    namespace: partner-metering
-  spec:
-    # Add fields here
-    meterGroup: partner.metering.com
-    meterKind: App
-    workloadVertexType: OperatorGroup
-    workloads:
-      - name: user-count
-        type: Service
-        ownerCRD:
-          apiVersion: partner.metering.com/v1alpha1
-          kind: App
-        annotationSelector: #
-          matchLabels:
-            parnet.metering.com/product.id: abas342341321-12341451
-        labelSelector:
-          matchLabels:
-            app-id: AppSimple
-  ```
-
-### Create your metric label queries for your workload.
-
-Metric Label queries are probably the most difficult part of creating a MeterDefinition. The process requires some trial and error and knowledge of Prometheus is a plus. If this is difficult for you, please reach out to our team.
-
-| Field       | Description                                                                                                                  |
-| :---------- | :--------------------------------------------------------------------------------------------------------------------------- |
-| label       | The name of the result, it's the human readable label for the customer.                                                      |
-| query       | The Prometheus query to use on your workload type (Service, Pod, PVC)                                                        |
-| aggregation | Each query is calculated for an hour, for a day, and data points are aggregated. Valid values are `sum`, `min`, `max`, `avg` |
+Meter queries are probably the most difficult part of creating a MeterDefinition. The process requires some trial and error and knowledge of Prometheus is a plus. If this is difficult for you, please reach out to our team.
 
 Here is an example to find an imaginary user count from a service, returning a sum of all the data points.
 
 ```yaml
-apiVersion: marketplace.redhat.com/v1alpha1
-kind: MeterDefinition
-metadata:
-  name: userCount
-  namespace: partner-metering
-spec:
-  # Add fields here
-  meterGroup: partner.metering.com
-  meterKind: App
-  workloadVertexType: OperatorGroup
-  workloads:
-    - name: user-count
-      type: Service
-      ownerCRD:
-        apiVersion: partner.metering.com/v1alpha1
-        kind: App
-      metricLabels:
-        - label: user_count
-          query: rate(container_cpu_usage_seconds_total{cpu="total", container="${YOURCONTAINER}"}[5m])*100
-          aggregation: max
+
+  apiVersion: marketplace.redhat.com/v1beta1
+  kind: MeterDefinition
+  metadata:
+    name: userCount
+    namespace: partner-metering
+  spec:
+    # Add fields here
+    group: partner.metering.com
+    kind: App
+    resourceFilters:
+      - namespace:
+          useOperatorGroup: true
+        ownerCRD:
+          apiVersion: partner.metering.com/v1alpha1
+          kind: App
+        workloadType: Service
+    meters:
+      - aggregation: max
+        period: 1h
+        metricId: app_customer-metric
+        query: custom_metric{}
+        query: rate(container_cpu_usage_seconds_total{cpu="total", container="${YOURCONTAINER}"}[5m])*100
+        workloadType: Service
 ```
 
 ### Debug your workload filters.
@@ -367,11 +355,12 @@ Apply your meterdefinition to the cluster. And you can then inspect these things
 All data collected by MeterDefinitions are stored in Prometheus. We'll create a fake meter report for the last hour, use a CLI tool and the prometheus port-forwarded locally to debug.
 
 1. Install the [Red Hat Marketplace Operator](https://marketplace.redhat.com/en-us/documentation/getting-started).
-2. Port forward to prometheus for your local host.
+1. Install your meter definition.
+1. Port forward to prometheus for your local host.
    ```sh
    kubectl port-forward -n openshift-redhat-marketplace prometheus-rhm-marketplaceconfig-meterbase-0 9090:9090
    ```
-3. Create your test meterreport. You'll want to change the start and end time to match the current date. Insert your MeterDefinition in the meter report under meterDefinitions field.
+1. Create your test meterreport. You'll want to change the start and end time to match the current date.
 
    ```yaml
    apiVersion: marketplace.redhat.com/v1alpha1
@@ -388,29 +377,15 @@ All data collected by MeterDefinitions are stored in Prometheus. We'll create a 
        name: rhm-prometheus-meterbase
        namespace: openshift-redhat-marketplace
        targetPort: rbac
-     meterDefinitions:
-       - meterGroup: partner.metering.com
-         meterKind: App
-         workloadVertexType: OperatorGroup
-         workloads:
-           - name: user-count
-             type: Service
-             ownerCRD:
-               apiVersion: partner.metering.com/v1alpha1
-               kind: App
-             metricLabels:
-               - label: user_count
-                 query: my_user_count{service_name="simple-service"}
-                 aggregation: max
    ```
 
-4. Run your meter report using the reporter helper tool.
+1. Run your meter report using the reporter helper tool.
 
    ```sh
    reporter report --name test-meter-report --namespace openshift-redhat-marketplace --upload=false --zap-devel
    ```
 
-5. Use the stdout to debug your MeterDefinition.
+1. Use the stdout to debug your MeterDefinition.
 
    - You'll see a line like this:
 
@@ -420,7 +395,7 @@ All data collected by MeterDefinitions are stored in Prometheus. We'll create a 
 
      Beside query will be a string containing the query for the MeterDefinition. You can directly access Prometheus and see what the results are. The query is long, but it's what is used to deliver the final result. If there is a prometheus syntax error, it's likely an issue with your query. Try to run it first by itself.
 
-6. Advanced Troubleshooting
+1. Advanced Troubleshooting
 
    - Query is working but returns no results
 
@@ -445,3 +420,20 @@ All data collected by MeterDefinitions are stored in Prometheus. We'll create a 
      The final result has pod and namespace, that is a good sign. Aggregations can strip fields and leave results blank. If that occurs, then you'll need to tune the query until it returns the right values.
 
      The final query can take a sum and accurately get a count of active pods being used by our Daemonset.
+
+## Deploying the Meter Definition
+
+### Adding to CSV
+
+The Red Hat Marketplace operator supports adding the meter definition to the Cluster Service Version (CSV) as an annotation. Export your meter definition as a json and add it to the CSV before your create your bundle before Red Hat certification. When your operator is installed, it will be applied from the CSV to the cluster and automatically installed.
+
+```yaml
+type: operators/ClusterServiceVersion
+metadata:
+  name: YourCSV
+  annotations:
+    marketplace.redhat.com/meterDefinition: |
+      // json of meter definition
+```
+
+Or you can create the meter definition on the cluster via APIs.
