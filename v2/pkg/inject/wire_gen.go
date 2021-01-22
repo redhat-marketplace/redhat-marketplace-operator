@@ -59,15 +59,10 @@ func initializeInjectDependencies(cache2 cache.Cache, fields *managers.Controlle
 		Namespace: namespace,
 		Scheme:    scheme,
 	}
-	clientset, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return nil, err
-	}
 	kubeInterfaceInjector := &KubeInterfaceInjector{
 		KubeInterface: clientset,
 	}
-
-	injectables := ProvideInjectables(clientCommandInjector, operatorConfigInjector, patchInjector, factoryInjector)
+	injectables := ProvideInjectables(clientCommandInjector, operatorConfigInjector, patchInjector, factoryInjector, kubeInterfaceInjector)
 	injectInjectorDependencies := injectorDependencies{
 		Runnables:   runnablesRunnables,
 		Injectables: injectables,
