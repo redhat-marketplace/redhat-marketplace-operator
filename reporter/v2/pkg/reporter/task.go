@@ -41,6 +41,7 @@ import (
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 )
@@ -49,7 +50,7 @@ type Task struct {
 	ReportName ReportName
 
 	CC        ClientCommandRunner
-	K8SClient client.Client
+	K8SClient rhmclient.SimpleClient
 	Ctx       context.Context
 	Config    *Config
 	K8SScheme *runtime.Scheme

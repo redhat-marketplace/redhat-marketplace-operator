@@ -52,38 +52,6 @@ metadata:
         },
         {
           "apiVersion": "marketplace.redhat.com/v1alpha1",
-          "kind": "MeterDefinition",
-          "metadata": {
-            "labels": {
-              "redhat.marketplace.com/name": "redhat-marketplace-operator"
-            },
-            "name": "redhat-marketplace-example-meterdefinition-2",
-            "namespace": "openshift-redhat-marketplace"
-          },
-          "spec": {
-            "meterGroup": "partner.metering.com",
-            "meterKind": "App",
-            "workloadVertexType": "OperatorGroup",
-            "workloads": [
-              {
-                "metricLabels": [
-                  {
-                    "aggregation": "sum",
-                    "label": "container_spec_cpu_shares"
-                  }
-                ],
-                "name": "app-pods",
-                "ownerCRD": {
-                  "apiVersion": "partner.metering.com/v1alpha1",
-                  "kind": "App"
-                },
-                "type": "Pod"
-              }
-            ]
-          }
-        },
-        {
-          "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "MeterReport",
           "metadata": {
             "labels": {
@@ -159,6 +127,42 @@ metadata:
             "labels": {
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
+            "name": "redhat-marketplace-example-meterdefinition-4",
+            "namespace": "openshift-redhat-marketplace"
+          },
+          "spec": {
+            "group": "partner.metering.com",
+            "kind": "App",
+            "meters": [
+              {
+                "aggregation": "sum",
+                "metricId": "container_cpu_usage_core_avg",
+                "period": "1h",
+                "query": "rate(container_cpu_usage_seconds_total{cpu=\"total\",container=\"db\"}[5m])*100",
+                "workloadType": "Pod"
+              }
+            ],
+            "resourceFilters": [
+              {
+                "namespace": {
+                  "useOperatorGroup": true
+                },
+                "ownerCRD": {
+                  "apiVersion": "marketplace.redhat.com/v1alpha1",
+                  "kind": "RazeeDeployment"
+                },
+                "workloadType": "Pod"
+              }
+            ]
+          }
+        },
+        {
+          "apiVersion": "marketplace.redhat.com/v1beta1",
+          "kind": "MeterDefinition",
+          "metadata": {
+            "labels": {
+              "redhat.marketplace.com/name": "redhat-marketplace-operator"
+            },
             "name": "redhat-marketplace-meterdefinition-sample",
             "namespace": "openshift-redhat-marketplace"
           },
@@ -200,7 +204,7 @@ metadata:
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
-  name: redhat-marketplace-operator.v2.0.0
+  name: redhat-marketplace-operator.v2.0.0-alpha.1
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -623,11 +627,11 @@ spec:
                 - name: OPERATOR_NAME
                   value: redhat-marketplace-operator
                 - name: RELATED_IMAGE_REPORTER
-                  value: quay.io/zach_source/redhat-marketplace-reporter:2.0.0-49
+                  value: quay.io/zach_source/redhat-marketplace-reporter:2.0.0-51
                 - name: RELATED_IMAGE_METRIC_STATE
-                  value: quay.io/zach_source/redhat-marketplace-metric-state:2.0.0-49
+                  value: quay.io/zach_source/redhat-marketplace-metric-state:2.0.0-51
                 - name: RELATED_IMAGE_AUTHCHECK
-                  value: quay.io/zach_source/redhat-marketplace-authcheck:2.0.0-49
+                  value: quay.io/zach_source/redhat-marketplace-authcheck:2.0.0-51
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -652,7 +656,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.labels['olm.owner.kind']
-                image: quay.io/zach_source/redhat-marketplace-operator:2.0.0-49
+                image: quay.io/zach_source/redhat-marketplace-operator:2.0.0-51
                 name: manager
                 ports:
                 - containerPort: 9443
@@ -852,7 +856,7 @@ spec:
   provider:
     name: Red Hat Marketplace
     url: https://marketplace.redhat.com
-  version: 2.0.0
+  version: 2.0.0-alpha.1
   webhookdefinitions:
   - admissionReviewVersions:
     - v1beta1

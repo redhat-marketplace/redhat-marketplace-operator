@@ -87,9 +87,9 @@ const (
 )
 const (
 	WorkloadTypePod            WorkloadType = "Pod"
-	WorkloadTypeService                     = "Service"
-	WorkloadTypeServiceMonitor              = "ServiceMonitor"
-	WorkloadTypePVC                         = "PersistentVolumeClaim"
+	WorkloadTypeService        WorkloadType = "Service"
+	WorkloadTypeServiceMonitor WorkloadType = "ServiceMonitor"
+	WorkloadTypePVC            WorkloadType = "PersistentVolumeClaim"
 )
 
 type WorkloadVertex string

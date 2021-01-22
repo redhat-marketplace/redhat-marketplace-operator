@@ -21,8 +21,10 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/google/wire"
+	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func NewTask(
@@ -36,9 +38,9 @@ func NewTask(
 		wire.FieldsOf(new(*Config), "UploaderTarget"),
 		wire.Struct(new(Task), "*"),
 		wire.InterfaceValue(new(logr.Logger), logger),
-		getClientOptions,
 		ProvideUploader,
 		provideScheme,
+		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
 	))
 }
 
@@ -55,5 +57,6 @@ func NewReporter(
 		getPrometheusService,
 		getMarketplaceConfig,
 		ReporterSet,
+		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
 	))
 }

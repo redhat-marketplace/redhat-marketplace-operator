@@ -55,7 +55,7 @@ func NewMeterDefinitionLookupFilter(
 	meterdef *v1beta1.MeterDefinition,
 	findOwner *rhmclient.FindOwnerHelper,
 ) (*MeterDefinitionLookupFilter, error) {
-	log.V(4).Info("building filters", "meterdef", meterdef)
+	log.V(0).Info("building filters", "meterdef", meterdef)
 
 	s := &MeterDefinitionLookupFilter{
 		MeterDefName: types.NamespacedName{Name: meterdef.Name, Namespace: meterdef.Namespace},
@@ -263,10 +263,8 @@ func (s *MeterDefinitionLookupFilter) createFilters(
 			gvk1 := reflect.TypeOf(&corev1.Service{})
 			typeFilter.gvks = []reflect.Type{gvk1}
 		default:
+			s.log.Error(err, "unknown type filter", "type", filter.WorkloadType)
 			err = errors.NewWithDetails("unknown type filter", "type", filter.WorkloadType)
-		}
-
-		if err != nil {
 			return nil, err
 		}
 

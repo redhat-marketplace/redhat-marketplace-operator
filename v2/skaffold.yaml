@@ -21,39 +21,22 @@ build:
       custom:
         buildCommand: make docker-build
         dependencies:
-          paths:
-            - '*.go'
-            - ./apis/**
-            - ./controllers/**
-            - ./pkg/**
+          command: ./hack/go-dependencies.sh . ..
     - image: redhat-marketplace-reporter
       custom:
         buildCommand: cd ../reporter/v2 && make docker-build
         dependencies:
-          paths:
-            - ../reporter/v2/cmd/**
-            - ../reporter/v2/pkg/**
-            - ./apis/**
-            - ./pkg/**
+          command: ./hack/go-dependencies.sh ../reporter/v2 ../..
     - image: redhat-marketplace-metric-state
       custom:
         buildCommand: cd ../metering/v2 && make docker-build
         dependencies:
-          paths:
-            - ../metering/v2/cmd/**
-            - ../metering/v2/internal/**
-            - ../metering/v2/pkg/**
-            - ./apis/**
-            - ./pkg/**
+          command: ./hack/go-dependencies.sh ../metering/v2 ../..
     - image: redhat-marketplace-authcheck
       custom:
         buildCommand: cd ../authchecker/v2 && make docker-build
         dependencies:
-          paths:
-            - ../authchecker/v2/cmd/**
-            - ../authchecker/v2/pkg/**
-            - ./apis/**
-            - ./pkg/**
+          command: ./hack/go-dependencies.sh ../authchecker/v2 ../..
 deploy:
   helm:
     releases:

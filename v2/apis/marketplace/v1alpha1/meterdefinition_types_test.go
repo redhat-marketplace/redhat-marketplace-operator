@@ -147,6 +147,16 @@ var _ = Describe("MeterDefinition", func() {
 		Expect(err).To(Succeed())
 	})
 
+	It("should convert the workload types back and forth", func() {
+		Expect(ConvertWorkloadTypeAlpha(v1beta1.WorkloadTypePod)).To(Equal(WorkloadTypePod))
+		Expect(ConvertWorkloadTypeAlpha(v1beta1.WorkloadTypeService)).To(Equal(WorkloadTypeService))
+		Expect(ConvertWorkloadTypeAlpha(v1beta1.WorkloadTypePVC)).To(Equal(WorkloadTypePVC))
+		Expect(ConvertWorkloadTypeBeta(WorkloadTypePod)).To(Equal(v1beta1.WorkloadTypePod))
+		Expect(ConvertWorkloadTypeBeta(WorkloadTypeService)).To(Equal(v1beta1.WorkloadTypeService))
+		Expect(ConvertWorkloadTypeBeta(WorkloadTypeServiceMonitor)).To(Equal(v1beta1.WorkloadTypeService))
+		Expect(ConvertWorkloadTypeBeta(WorkloadTypePVC)).To(Equal(v1beta1.WorkloadTypePVC))
+	})
+
 	It("should convert to/from v1alpha1 example", func() {
 		meterDefJson := `{
         "apiVersion": "marketplace.redhat.com/v1alpha1",

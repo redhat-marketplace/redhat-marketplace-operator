@@ -418,7 +418,12 @@ spec:
                       - Pod
                       - Service
                       - PersistentVolumeClaim
-                      type: string
+                      properties:
+                        workloadType:
+                          type: string
+                      required:
+                      - workloadType
+                      type: object
                   required:
                   - aggregation
                   - metricId
@@ -556,7 +561,12 @@ spec:
                       - Pod
                       - Service
                       - PersistentVolumeClaim
-                      type: string
+                      properties:
+                        workloadType:
+                          type: string
+                      required:
+                      - workloadType
+                      type: object
                   required:
                   - workloadType
                   type: object

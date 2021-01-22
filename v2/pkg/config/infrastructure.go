@@ -15,15 +15,13 @@ package config
 
 import (
 	"context"
+	"fmt"
 	"sync"
-	"time"
 
-	"emperror.dev/errors"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/discovery"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -45,60 +43,26 @@ type Infrastructure struct {
 	kubernetes *KubernetesInfra
 }
 
-func (inf *Infrastructure) AsyncLoad(
-	cache cache.Cache,
+func NewInfrastructure(
 	c client.Client,
 	dc *discovery.DiscoveryClient,
-) {
-	doneChan := make(chan bool)
-	ctx, cancel := context.WithTimeout(context.TODO(), 2*time.Minute)
-	go func() {
-		defer close(doneChan)
-		log.Info("checking if cache is started")
-		for !cache.WaitForCacheSync(ctx.Done()) {
-		}
-		doneChan <- true
-	}()
+) (*Infrastructure, error) {
+	openshift, err := openshiftInfrastructure(c)
+	if err != nil {
+		log.Error(err, "unable to get Openshift version")
+		return nil, err
+	}
 
-	go func() {
-		inf.Lock()
-		defer cancel()
-		defer inf.Unlock()
+	kubernetes, err := kubernetesInfrastructure(dc)
+	if err != nil {
+		log.Error(err, "unable to get kubernetes version")
+		return nil, err
+	}
 
-		select {
-		case <-ctx.Done():
-			err := errors.New("failed to load infrastructure")
-			log.Error(err, "unable to get Openshift version")
-			panic(err)
-		case <-doneChan:
-			log.Info("cache is started, loading infra")
-		}
-
-		openshift, err := openshiftInfrastructure(c)
-		if err != nil {
-			// Openshift is not mandatory
-			log.Error(err, "unable to get Openshift version")
-			panic(err)
-		}
-
-		kubernetes, err := kubernetesInfrastructure(dc)
-		if err != nil {
-			log.Error(err, "unable to get kubernetes version")
-			panic(err)
-		}
-
-		if openshift != nil {
-			log.Info("found openshift info")
-			obj := *openshift
-			inf.openshift = &obj
-		}
-
-		if kubernetes != nil {
-			log.Info("found kubernetes info")
-			obj := *kubernetes
-			inf.kubernetes = &obj
-		}
-	}()
+	return &Infrastructure{
+		openshift:  openshift,
+		kubernetes: kubernetes,
+	}, nil
 }
 
 func openshiftInfrastructure(c client.Client) (*OpenshiftInfra, error) {
@@ -117,8 +81,10 @@ func openshiftInfrastructure(c client.Client) (*OpenshiftInfra, error) {
 		return nil, err
 	}
 
+	fmt.Println(clusterVersionObj.Status)
+
 	return &OpenshiftInfra{
-		Version: clusterVersionObj.Spec.DesiredUpdate.Version,
+		Version: clusterVersionObj.Status.Desired.Version,
 	}, nil
 }
 
@@ -129,7 +95,7 @@ func kubernetesInfrastructure(discoveryClient *discovery.DiscoveryClient) (*Kube
 	}
 
 	return &KubernetesInfra{
-		Version:  serverVersion.GitVersion,
+		Version:  serverVersion.String(),
 		Platform: serverVersion.Platform,
 	}, nil
 }
