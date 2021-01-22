@@ -20,6 +20,7 @@ import (
 
 	"github.com/caarlos0/env/v6"
 	"k8s.io/client-go/discovery"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -36,7 +37,7 @@ type OperatorConfig struct {
 	RelatedImages
 	Features
 	Marketplace
-	Infrastructure
+	*Infrastructure
 	OLMInformation
 }
 
@@ -102,7 +103,7 @@ func ProvideConfig() (OperatorConfig, error) {
 			return cfg, err
 		}
 
-		cfg.Infrastructure = Infrastructure{}
+		cfg.Infrastructure = &Infrastructure{}
 		global = &cfg
 	}
 
@@ -110,15 +111,13 @@ func ProvideConfig() (OperatorConfig, error) {
 }
 
 // ProvideInfrastructureAwareConfig loads Operator Config with Infrastructure information
-func ProvideInfrastructureAwareConfig(c client.Client, dc *discovery.DiscoveryClient) (OperatorConfig, error) {
+func ProvideInfrastructureAwareConfig(cache cache.Cache, c client.Client, dc *discovery.DiscoveryClient) (OperatorConfig, error) {
 	cfg := OperatorConfig{}
-	inf, err := LoadInfrastructure(c, dc)
-	if err != nil {
-		return cfg, err
-	}
-	cfg.Infrastructure = *inf
+	inf := &Infrastructure{}
+	inf.AsyncLoad(cache, c, dc)
+	cfg.Infrastructure = inf
 
-	err = env.Parse(&cfg)
+	err := env.Parse(&cfg)
 	if err != nil {
 		return cfg, err
 	}

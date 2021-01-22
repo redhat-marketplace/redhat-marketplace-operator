@@ -18,6 +18,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -66,6 +67,11 @@ func (a *Injector) SetCustomFields(i interface{}) error {
 	return nil
 }
 
+type injectorDependencies struct {
+	runnables.Runnables
+	Injectables
+}
+
 func ProvideInjector(
 	mgr ctrl.Manager,
 	deployed managers.DeployedNamespace,
@@ -75,12 +81,12 @@ func ProvideInjector(
 		return nil, err
 	}
 
-	runnables, err := initializeRunnables(fields, deployed)
+	dependencies, err := initializeInjectDependencies(mgr.GetCache(), fields, deployed)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, runnable := range runnables {
+	for _, runnable := range dependencies.Runnables {
 		err := mgr.Add(runnable)
 
 		if err != nil {
@@ -88,15 +94,9 @@ func ProvideInjector(
 		}
 	}
 
-	injs, err := initializeInjectables(fields, deployed)
-
-	if err != nil {
-		return nil, err
-	}
-
 	return &Injector{
 		fields:      fields,
-		injectables: injs,
+		injectables: dependencies.Injectables,
 	}, nil
 }
 

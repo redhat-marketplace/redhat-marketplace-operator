@@ -112,7 +112,6 @@ cover-unit.out.tmp
 .envrc
 .crc
 .DS_Store
-bundle/
 
 .action-secrets.txt
 *.coverprofile
