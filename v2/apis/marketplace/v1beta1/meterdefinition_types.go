@@ -91,7 +91,6 @@ func (a WorkloadType) MarshalJSON() ([]byte, error) {
 	return []byte(strconv.Quote(string(a))), nil
 }
 
-
 type ResourceFilter struct {
 	// Namespace is the filter to control which namespaces to look for your resources.
 	// Default is always Operator Group (supported by OLM)
@@ -111,7 +110,7 @@ type ResourceFilter struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:Pod,urn:alm:descriptor:com.tectonic.ui:select:Service,urn:alm:descriptor:com.tectonic.ui:select:PersistentVolumeClaim"
 	// +kubebuilder:validation:Enum:=Pod;Service;PersistentVolumeClaim
-	WorkloadType WorkloadTypeFilter `json:"workloadType"`
+	WorkloadType WorkloadType `json:"workloadType"`
 }
 
 type NamespaceFilter struct {
@@ -122,25 +121,6 @@ type NamespaceFilter struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
-}
-
-type WorkloadTypeFilter struct {
-	WorkloadType WorkloadType `json:"workloadType"`
-}
-
-func (a *WorkloadTypeFilter) UnmarshalJSON(b []byte) error {
-	str, err := strconv.Unquote(string(b))
-
-	if err != nil {
-		return err
-	}
-
-	*a = WorkloadTypeFilter{ WorkloadType: WorkloadType(str) }
-	return nil
-}
-
-func (a WorkloadTypeFilter) MarshalJSON() ([]byte, error) {
-	return []byte(strconv.Quote(string(a.WorkloadType))), nil
 }
 
 type OwnerCRDFilter struct {
@@ -183,7 +163,7 @@ type MeterWorkload struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:Pod,urn:alm:descriptor:com.tectonic.ui:select:Service,urn:alm:descriptor:com.tectonic.ui:select:PersistentVolumeClaim"
 	// +kubebuilder:validation:Enum:=Pod;Service;PersistentVolumeClaim
-	WorkloadType WorkloadTypeFilter `json:"workloadType"`
+	WorkloadType WorkloadType `json:"workloadType"`
 
 	// Group is the set of label fields returned by query to aggregate on.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
@@ -298,7 +278,7 @@ func (meterdef *MeterDefinition) ToPrometheusLabels() []*common.MeterDefPromethe
 			MetricPeriod:       period,
 			WorkloadName:       meter.Name,
 			MetricWithout:      common.JSONArray(meter.Without),
-			WorkloadType:       string(meter.WorkloadType.WorkloadType),
+			WorkloadType:       string(meter.WorkloadType),
 			MetricAggregation:  meter.Aggregation,
 			MeterDescription:   meter.Description,
 			DateLabelOverride:  meter.DateLabelOverride,

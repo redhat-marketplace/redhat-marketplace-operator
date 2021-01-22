@@ -13,9 +13,11 @@ files=$(go list -f '{{$d := .Dir}}{{range $f := .GoFiles}}{{printf "%s/%s\n" $d 
 
 github_url="github.com/redhat-marketplace/redhat-marketplace-operator/"
 
-dependencies=$(go list -f '{{range $v := .Imports}}{{printf "%s \n" $v}}{{end}}'  ./... | grep "github.com/redhat-marketplace/redhat-marketplace-operator" \
-    | xargs \
-    | uniq \
-    | xargs jq --arg github "$github_url" --arg path "$path/$toroot" -Menc '[$ARGS.positional | .[] | gsub($github;$path + "/") + "/*.go"]' --args)
+# dependencies=$(go list -f '{{range $v := .Imports}}{{printf "%s \n" $v}}{{end}}'  ./... | grep "github.com/redhat-marketplace/redhat-marketplace-operator" \
+#     | xargs \
+#     | uniq \
+#     | xargs jq --arg github "$github_url" --arg path "$path/$toroot" -Menc '[$ARGS.positional | .[] | gsub($github;$path + "/") + "/*.go"]' --args)
+
+dependencies="[]"
 
 jq --argjson arr1 "$files" --argjson arr2 "$dependencies" -n -r -c '$arr1 + $arr2'

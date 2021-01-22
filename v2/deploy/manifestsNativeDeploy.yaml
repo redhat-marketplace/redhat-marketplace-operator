@@ -819,12 +819,7 @@ spec:
                       - Pod
                       - Service
                       - PersistentVolumeClaim
-                      properties:
-                        workloadType:
-                          type: string
-                      required:
-                      - workloadType
-                      type: object
+                      type: string
                   required:
                   - aggregation
                   - metricId
@@ -962,12 +957,7 @@ spec:
                       - Pod
                       - Service
                       - PersistentVolumeClaim
-                      properties:
-                        workloadType:
-                          type: string
-                      required:
-                      - workloadType
-                      type: object
+                      type: string
                   required:
                   - workloadType
                   type: object
@@ -3275,11 +3265,11 @@ spec:
         - name: OPERATOR_NAME
           value: redhat-marketplace-operator
         - name: RELATED_IMAGE_REPORTER
-          value: quay.io/zach_source/redhat-marketplace-reporter:2.0.0-51
+          value: quay.io/zach_source/redhat-marketplace-reporter:2.0.0-52
         - name: RELATED_IMAGE_METRIC_STATE
-          value: quay.io/zach_source/redhat-marketplace-metric-state:2.0.0-51
+          value: quay.io/zach_source/redhat-marketplace-metric-state:2.0.0-52
         - name: RELATED_IMAGE_AUTHCHECK
-          value: quay.io/zach_source/redhat-marketplace-authcheck:2.0.0-51
+          value: quay.io/zach_source/redhat-marketplace-authcheck:2.0.0-52
         - name: WATCH_NAMESPACE
           value: ""
         - name: POD_NAMESPACE
@@ -3302,7 +3292,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.labels['olm.owner.kind']
-        image: quay.io/zach_source/redhat-marketplace-operator:2.0.0-51
+        image: quay.io/zach_source/redhat-marketplace-operator:2.0.0-52
         name: manager
         ports:
         - containerPort: 9443
@@ -3362,7 +3352,7 @@ webhooks:
 - clientConfig:
     caBundle: Cg==
     service:
-      name: webhook-service
+      name: redhat-marketplace-controller-manager-service
       namespace: openshift-redhat-marketplace
       path: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
   failurePolicy: Fail
@@ -3391,7 +3381,7 @@ webhooks:
 - clientConfig:
     caBundle: Cg==
     service:
-      name: webhook-service
+      name: redhat-marketplace-controller-manager-service
       namespace: openshift-redhat-marketplace
       path: /validate-marketplace-redhat-com-v1beta1-meterdefinition
   failurePolicy: Fail

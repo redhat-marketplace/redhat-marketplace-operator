@@ -252,7 +252,7 @@ func (s *MeterDefinitionLookupFilter) createFilters(
 
 		var err error
 		typeFilter := &WorkloadTypeFilter{}
-		switch filter.WorkloadType.WorkloadType {
+		switch filter.WorkloadType {
 		case v1beta1.WorkloadTypePod:
 			gvk := reflect.TypeOf(&corev1.Pod{})
 			typeFilter.gvks = []reflect.Type{gvk}
