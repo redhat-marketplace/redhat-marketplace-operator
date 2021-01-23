@@ -5,7 +5,7 @@ metadata:
 build:
   local:
     useBuildkit: true
-    concurrency: 4
+    concurrency: 2
   tagPolicy:
     customTemplate:
       template: '{{ .VERS }}-{{ .GC }}'
@@ -18,42 +18,56 @@ build:
             variant: AbbrevCommitSha
   artifacts:
     - image: redhat-marketplace-operator
+      context: .
       custom:
-        buildCommand: make docker-build
+        buildCommand: make vet docker-build
         dependencies:
           paths:
-            - '*.go'
-            - ./apis/**
-            - ./controllers/**
-            - ./pkg/**
+            - go.mod
+            - go.sum
+            - "apis/**"
+            - "controllers/**"
+            - "pkg/**"
+          ignore:
+            - "*_test.go"
     - image: redhat-marketplace-reporter
+      context: ../reporter/v2
       custom:
-        buildCommand: cd ../reporter/v2 && make docker-build
+        buildCommand: make vet docker-build
         dependencies:
           paths:
-            - ../reporter/v2/cmd/**
-            - ../reporter/v2/pkg/**
-            - ./apis/**
-            - ./pkg/**
+            - go.mod
+            - go.sum
+            - cmd/**
+            - pkg/**
+          ignore:
+            - "./**/*_test.go"
     - image: redhat-marketplace-metric-state
+      context: ../metering/v2
       custom:
-        buildCommand: cd ../metering/v2 && make docker-build
+        buildCommand: make vet docker-build
         dependencies:
           paths:
-            - ../metering/v2/cmd/**
-            - ../metering/v2/internal/**
-            - ../metering/v2/pkg/**
-            - ./apis/**
-            - ./pkg/**
+            - go.mod
+            - go.sum
+            - cmd/**
+            - internal/**
+            - pkg/**
+            - "./**/*.go"
+          ignore:
+            - "./**/*_test.go"
     - image: redhat-marketplace-authcheck
+      context: ../authchecker/v2
       custom:
-        buildCommand: cd ../authchecker/v2 && make docker-build
+        buildCommand: make vet docker-build
         dependencies:
           paths:
-            - ../authchecker/v2/cmd/**
-            - ../authchecker/v2/pkg/**
-            - ./apis/**
-            - ./pkg/**
+            - go.mod
+            - go.sum
+            - cmd/**
+            - pkg/**
+          ignore:
+            - "**/*_test.go"
 deploy:
   helm:
     releases:

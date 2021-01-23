@@ -25,13 +25,12 @@ func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task
 		return nil, err
 	}
 	scheme := provideScheme()
-	clientOptions := getClientOptions()
-	client, err := managers.ProvideSimpleClient(restConfig, restMapper, scheme, clientOptions)
+	simpleClient, err := managers.ProvideSimpleClient(restConfig, restMapper, scheme)
 	if err != nil {
 		return nil, err
 	}
 	logrLogger := _wireLoggerValue
-	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logrLogger)
+	clientCommandRunner := reconcileutils.NewClientCommand(simpleClient, scheme, logrLogger)
 	uploaderTarget := config2.UploaderTarget
 	uploader, err := ProvideUploader(ctx, clientCommandRunner, logrLogger, uploaderTarget)
 	if err != nil {
@@ -40,7 +39,7 @@ func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task
 	task := &Task{
 		ReportName: reportName,
 		CC:         clientCommandRunner,
-		K8SClient:  client,
+		K8SClient:  simpleClient,
 		Ctx:        ctx,
 		Config:     config2,
 		K8SScheme:  scheme,
@@ -55,11 +54,11 @@ var (
 
 func NewReporter(task *Task) (*MarketplaceReporter, error) {
 	reporterConfig := task.Config
-	client := task.K8SClient
+	simpleClient := task.K8SClient
 	contextContext := task.Ctx
 	scheme := task.K8SScheme
 	logrLogger := _wireLogrLoggerValue
-	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logrLogger)
+	clientCommandRunner := reconcileutils.NewClientCommand(simpleClient, scheme, logrLogger)
 	reportName := task.ReportName
 	meterReport, err := getMarketplaceReport(contextContext, clientCommandRunner, reportName)
 	if err != nil {
@@ -79,6 +78,11 @@ func NewReporter(task *Task) (*MarketplaceReporter, error) {
 		return nil, err
 	}
 	marketplaceReporter, err := NewMarketplaceReporter(reporterConfig, client, meterReport, marketplaceConfig, service, prometheusAPI)
+	client, err := provideApiClient(meterReport, service, reporterConfig)
+	if err != nil {
+		return nil, err
+	}
+	marketplaceReporter, err := NewMarketplaceReporter(reporterConfig, simpleClient, meterReport, marketplaceConfig, service, client)
 	if err != nil {
 		return nil, err
 	}

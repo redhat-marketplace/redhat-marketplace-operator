@@ -29,11 +29,19 @@ func initializeInjectDependencies(cache2 cache.Cache, fields *managers.Controlle
 	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logger)
 	podMonitorConfig := managers.ProvidePodMonitorConfig(namespace)
 	podMonitor := runnables.NewPodMonitor(logger, clientset, clientCommandRunner, podMonitorConfig)
+	restMapper, err := managers.NewDynamicRESTMapper(restConfig)
+	if err != nil {
+		return injectorDependencies{}, err
+	}
+	simpleClient, err := managers.ProvideSimpleClient(restConfig, restMapper, scheme)
+	if err != nil {
+		return injectorDependencies{}, err
+	}
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
 	if err != nil {
 		return injectorDependencies{}, err
 	}
-	operatorConfig, err := config.ProvideInfrastructureAwareConfig(cache2, client, discoveryClient)
+	operatorConfig, err := config.ProvideInfrastructureAwareConfig(simpleClient, discoveryClient)
 	if err != nil {
 		return injectorDependencies{}, err
 	}

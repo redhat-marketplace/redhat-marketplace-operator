@@ -414,7 +414,7 @@ spec:
     webhookClientConfig:
       caBundle: Cg==
       service:
-        name: redhat-marketplace-webhook-service
+        name: redhat-marketplace-controller-manager-service
         namespace: openshift-redhat-marketplace
         path: /convert
         port: 443
@@ -791,8 +791,9 @@ spec:
                       items:
                         type: string
                       type: array
-                    metric:
-                      description: Metric is the name of the meter
+                      x-kubernetes-list-type: set
+                    metricId:
+                      description: Metric is the id of the meter
                       type: string
                     name:
                       description: Name of the metric for humans to read.
@@ -811,12 +812,17 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     workloadType:
                       description: WorkloadType identifies the type of workload to look for. This can be pod or service right now.
+                      enum:
+                      - Pod
+                      - Service
+                      - PersistentVolumeClaim
                       type: string
                   required:
                   - aggregation
-                  - metric
+                  - metricId
                   - query
                   - workloadType
                   type: object
@@ -947,6 +953,10 @@ spec:
                       type: object
                     workloadType:
                       description: WorkloadType identifies the type of workload to look for. This can be pod or service right now.
+                      enum:
+                      - Pod
+                      - Service
+                      - PersistentVolumeClaim
                       type: string
                   required:
                   - workloadType
@@ -1041,6 +1051,16 @@ metadata:
     redhat.marketplace.com/name: redhat-marketplace-operator
   name: meterreports.marketplace.redhat.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.conditions[?(@.type == "JobRunning")].status
+    name: RUNNING
+    type: string
+  - JSONPath: .status.conditions[?(@.type == "JobRunning")].reason
+    name: REASON
+    type: string
+  - JSONPath: .status.metricUploadCount
+    name: METRICS
+    type: string
   group: marketplace.redhat.com
   names:
     kind: MeterReport
@@ -2528,8 +2548,6 @@ rules:
   - watch
 - apiGroups:
   - ""
-  resourceNames:
-  - openshift-redhat-marketplace
   resources:
   - namespaces
   verbs:
@@ -2740,6 +2758,22 @@ rules:
   verbs:
   - get
   - create
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resourceNames:
+  - meterdefinitions.marketplace.redhat.com
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -3173,10 +3207,10 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    service.beta.openshift.io/serving-cert-secret-name: redhat-marketplace-webhook-service
+    service.beta.openshift.io/serving-cert-secret-name: redhat-marketplace-controller-manager-service
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
-  name: redhat-marketplace-webhook-service
+  name: redhat-marketplace-controller-manager-service
   namespace: openshift-redhat-marketplace
 spec:
   ports:
@@ -3231,11 +3265,11 @@ spec:
         - name: OPERATOR_NAME
           value: redhat-marketplace-operator
         - name: RELATED_IMAGE_REPORTER
-          value: quay.io/zach_source/redhat-marketplace-reporter:2.0.0-49
+          value: quay.io/zach_source/redhat-marketplace-reporter:2.0.0-52
         - name: RELATED_IMAGE_METRIC_STATE
-          value: quay.io/zach_source/redhat-marketplace-metric-state:2.0.0-49
+          value: quay.io/zach_source/redhat-marketplace-metric-state:2.0.0-52
         - name: RELATED_IMAGE_AUTHCHECK
-          value: quay.io/zach_source/redhat-marketplace-authcheck:2.0.0-49
+          value: quay.io/zach_source/redhat-marketplace-authcheck:2.0.0-52
         - name: WATCH_NAMESPACE
           value: ""
         - name: POD_NAMESPACE
@@ -3246,7 +3280,19 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        image: quay.io/zach_source/redhat-marketplace-operator:2.0.0-49
+        - name: OLM_OWNER_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['olm.owner']
+        - name: OLM_OWNER_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['olm.owner.namespace']
+        - name: OLM_OWNER_KIND
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['olm.owner.kind']
+        image: quay.io/zach_source/redhat-marketplace-operator:2.0.0-52
         name: manager
         ports:
         - containerPort: 9443
@@ -3276,7 +3322,7 @@ spec:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: redhat-marketplace-webhook-service
+          secretName: redhat-marketplace-controller-manager-service
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
@@ -3306,7 +3352,7 @@ webhooks:
 - clientConfig:
     caBundle: Cg==
     service:
-      name: redhat-marketplace-webhook-service
+      name: redhat-marketplace-controller-manager-service
       namespace: openshift-redhat-marketplace
       path: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
   failurePolicy: Fail
@@ -3335,7 +3381,7 @@ webhooks:
 - clientConfig:
     caBundle: Cg==
     service:
-      name: redhat-marketplace-webhook-service
+      name: redhat-marketplace-controller-manager-service
       namespace: openshift-redhat-marketplace
       path: /validate-marketplace-redhat-com-v1beta1-meterdefinition
   failurePolicy: Fail

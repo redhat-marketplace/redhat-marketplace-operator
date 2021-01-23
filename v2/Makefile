@@ -1,6 +1,7 @@
 # Current Operator version
 VERSION ?= $(shell go run ./tools/version/main.go)
 UNAME_S := $(shell uname -s)
+UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
 
 export VERSION
 
@@ -35,6 +36,9 @@ AUTHCHECK_IMAGE := $(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME):$(AUTHCHECK_IMAGE_T
 
 BUNDLE_NAME ?= redhat-marketplace-operator-manifest
 BUNDLE_IMG ?= $(IMAGE_REGISTRY)/$(BUNDLE_NAME):$(VERSION)
+
+DEV_INDEX_NAME ?= redhat-marketplace-operator-dev-index
+DEV_INDEX_IMG ?= $(IMAGE_REGISTRY)/$(DEV_INDEX_NAME)
 
 namespace ?= openshift-redhat-marketplace
 
@@ -186,10 +190,20 @@ bundle-build:
 
 bundle-deploy:
 	docker push $(BUNDLE_IMG)
+
+bundle-run:
 	operator-sdk run bundle $(BUNDLE_IMG)
 
 bundle-stable:
-	$(MAKE) bundle CHANNELS=stable DEFAULT_CHANNEL=stable
+	$(MAKE) bundle bundle-build CHANNELS=stable DEFAULT_CHANNEL=stable
+
+VERSIONS_LIST ?= $(BUNDLE_IMG)
+
+bundle-dev-index: opm
+	$(OPM) index add -u docker --bundles "$(VERSIONS_LIST)" --tag "$(DEV_INDEX_IMG):$(VERSION)"
+	docker tag $(DEV_INDEX_IMG):$(VERSION) $(DEV_INDEX_IMG):latest
+	docker push $(DEV_INDEX_IMG):$(VERSION)
+	docker push $(DEV_INDEX_IMG):latest
 
 bundle-uninstall:
 	- kubectl delete catalogsources.operators.coreos.com redhat-marketplace-operator-catalog
@@ -344,7 +358,6 @@ else
 GINKGO=$(shell which ginkgo)
 endif
 
-
 go-bindata:
 ifeq (, $(shell which go-bindata))
 	@{ \
@@ -373,4 +386,15 @@ ifeq (, $(shell which addlicense))
 LICENSE=$(GOBIN)/addlicense
 else
 LICENSE=$(GOBIN)/addlicense
+endif
+
+opm:
+ifeq (, $(shell which addlicense))
+	@{ \
+	curl -LO https://github.com/operator-framework/operator-registry/releases/download/$(opm_version)/$(UNAME)-amd64-opm ;\
+	chmod +x $(UNAME)-amd64-opm && mv $(UNAME)-amd64-opm /usr/local/bin/opm ;\
+	}
+OPM=/usr/local/bin/opm
+else
+OPM=$(shell which opm)
 endif

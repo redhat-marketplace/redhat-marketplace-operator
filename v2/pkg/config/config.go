@@ -19,9 +19,8 @@ import (
 	"time"
 
 	"github.com/caarlos0/env/v6"
+	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"k8s.io/client-go/discovery"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -111,13 +110,20 @@ func ProvideConfig() (OperatorConfig, error) {
 }
 
 // ProvideInfrastructureAwareConfig loads Operator Config with Infrastructure information
-func ProvideInfrastructureAwareConfig(cache cache.Cache, c client.Client, dc *discovery.DiscoveryClient) (OperatorConfig, error) {
+func ProvideInfrastructureAwareConfig(
+	c rhmclient.SimpleClient,
+	dc *discovery.DiscoveryClient,
+) (OperatorConfig, error) {
 	cfg := OperatorConfig{}
-	inf := &Infrastructure{}
-	inf.AsyncLoad(cache, c, dc)
+	inf, err := NewInfrastructure(c, dc)
+
+	if err != nil {
+		return cfg, err
+	}
+
 	cfg.Infrastructure = inf
 
-	err := env.Parse(&cfg)
+	err = env.Parse(&cfg)
 	if err != nil {
 		return cfg, err
 	}

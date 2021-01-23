@@ -40,7 +40,7 @@ var _ webhook.Defaulter = &MeterDefinition{}
 
 // // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *MeterDefinition) Default() {
-	meterdefinitionlog.Info("default", "name", r.Name)
+	meterdefinitionlog.Info("default", "name", r.Name, "mdef", r)
 }
 
 // Disabled for now
@@ -77,7 +77,7 @@ func (r *MeterDefinition) ValidateCreate() error {
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *MeterDefinition) ValidateUpdate(old runtime.Object) error {
 	var allErrs field.ErrorList
-	meterdefinitionlog.Info("validate create", "name", r.Name)
+	meterdefinitionlog.Info("validate update", "name", r.Name)
 
 	for _, resource := range r.Spec.ResourceFilters {
 		if resource.OwnerCRD == nil &&

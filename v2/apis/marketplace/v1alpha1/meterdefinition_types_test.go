@@ -105,21 +105,21 @@ var _ = Describe("MeterDefinition", func() {
 				APIVersion: "apps.partner.metering.com/v1",
 				Kind:       "App",
 			}})),
-			"WorkloadType": Equal(v1beta1.WorkloadTypeFilter{WorkloadType: v1beta1.WorkloadTypePod}),
+			"WorkloadType": Equal(v1beta1.WorkloadTypePod),
 		})
 
 		k1 := Fields{
 			"Metric":       Equal("rpc_durations_seconds_sum"),
 			"Query":        Equal("rpc_durations_seconds_sum"),
 			"Aggregation":  Equal("sum"),
-			"WorkloadType": Equal(v1beta1.WorkloadTypeFilter{WorkloadType: v1beta1.WorkloadTypePod}),
+			"WorkloadType": Equal(v1beta1.WorkloadTypePod),
 		}
 
 		k2 := Fields{
 			"Metric":       Equal("rpc_durations_seconds_count"),
 			"Query":        Equal("my_query"),
 			"Aggregation":  Equal("min"),
-			"WorkloadType": Equal(v1beta1.WorkloadTypeFilter{WorkloadType: v1beta1.WorkloadTypePod}),
+			"WorkloadType": Equal(v1beta1.WorkloadTypePod),
 		}
 
 		fmt.Println(v1beta1ID(mdefBeta.Spec.Meters[0]))
@@ -145,6 +145,16 @@ var _ = Describe("MeterDefinition", func() {
 		newSource := &MeterDefinition{}
 		err = newSource.ConvertFrom(mdefBeta)
 		Expect(err).To(Succeed())
+	})
+
+	It("should convert the workload types back and forth", func() {
+		Expect(ConvertWorkloadTypeAlpha(v1beta1.WorkloadTypePod)).To(Equal(WorkloadTypePod))
+		Expect(ConvertWorkloadTypeAlpha(v1beta1.WorkloadTypeService)).To(Equal(WorkloadTypeService))
+		Expect(ConvertWorkloadTypeAlpha(v1beta1.WorkloadTypePVC)).To(Equal(WorkloadTypePVC))
+		Expect(ConvertWorkloadTypeBeta(WorkloadTypePod)).To(Equal(v1beta1.WorkloadTypePod))
+		Expect(ConvertWorkloadTypeBeta(WorkloadTypeService)).To(Equal(v1beta1.WorkloadTypeService))
+		Expect(ConvertWorkloadTypeBeta(WorkloadTypeServiceMonitor)).To(Equal(v1beta1.WorkloadTypeService))
+		Expect(ConvertWorkloadTypeBeta(WorkloadTypePVC)).To(Equal(v1beta1.WorkloadTypePVC))
 	})
 
 	It("should convert to/from v1alpha1 example", func() {
@@ -195,14 +205,14 @@ var _ = Describe("MeterDefinition", func() {
 				APIVersion: "manage.robin.io/v1",
 				Kind:       "RobinCluster",
 			}})),
-			"WorkloadType": Equal(v1beta1.WorkloadTypeFilter{WorkloadType: v1beta1.WorkloadTypePod}),
+			"WorkloadType": Equal(v1beta1.WorkloadTypePod),
 		})
 
 		k1 := Fields{
 			"Metric":       Equal("node_hour2"),
 			"Query":        Equal("min_over_time((kube_pod_info{created_by_kind=\"DaemonSet\",created_by_name=\"robin\",node=~\".*\"} or on() vector(0))[60m:60m])"),
 			"Aggregation":  Equal("avg"),
-			"WorkloadType": Equal(v1beta1.WorkloadTypeFilter{WorkloadType: v1beta1.WorkloadTypePod}),
+			"WorkloadType": Equal(v1beta1.WorkloadTypePod),
 		}
 
 		c := &counter{}
