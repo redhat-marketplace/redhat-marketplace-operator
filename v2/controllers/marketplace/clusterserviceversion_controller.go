@@ -15,6 +15,7 @@
 package marketplace
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"reflect"
@@ -22,6 +23,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -34,6 +36,7 @@ import (
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -43,6 +46,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"k8s.io/client-go/kubernetes/scheme"
 )
 
 //var log = logf.Log.WithName("controller_olm_clusterserviceversion_watcher")
@@ -278,32 +282,42 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 	meterDefinitionBeta := &marketplacev1beta1.MeterDefinition{}
 	meterDefinitionAlpha := &marketplacev1alpha1.MeterDefinition{}
 
-	errBeta = meterDefinitionBeta.BuildMeterDefinitionFromString(
-		meterDefinitionString,
-		CSV.GetName(), CSV.GetNamespace(),
-		utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
-
-	if errBeta != nil {
-		errAlpha = meterDefinitionAlpha.BuildMeterDefinitionFromString(meterDefinitionString, CSV.GetName(), CSV.GetNamespace(), utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
-	}
-
+	unstructured := &unstructured.Unstructured{}
 	meterDefinition := &marketplacev1beta1.MeterDefinition{}
 
-	switch {
-	case errBeta == nil:
-		reqLogger.Info("mdef is a v1beta1", "value", meterDefinitionBeta)
-		meterDefinition = meterDefinitionBeta
-	case errAlpha == nil && meterDefinitionAlpha != nil:
-		reqLogger.Info("mdef is an v1alpha1")
-		err = meterDefinitionAlpha.ConvertTo(meterDefinition)
+	decode := scheme.Codecs.UniversalDeserializer().Decode
+	_, objectKind, err := decode([]byte(meterDefinitionString), nil, nil)
 
-		if err != nil {
-			reqLogger.Error(err, "Failed to convert to v1beta1")
+	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(meterDefinitionString)), 100).Decode(unstructured)
+	if err == nil {
+		switch {
+		case objectKind.Version == "v1beta1":
+			reqLogger.Info("mdef is a v1beta1", "value", meterDefinitionBeta)
+			errBeta = meterDefinitionBeta.BuildMeterDefinitionFromString(
+				meterDefinitionString,
+				CSV.GetName(), CSV.GetNamespace(),
+				utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
+
+			meterDefinition = meterDefinitionBeta
+		case objectKind.Version == "v1alpha1":
+			reqLogger.Info("mdef is an v1alpha1")
+			errAlpha = meterDefinitionAlpha.BuildMeterDefinitionFromString(
+				meterDefinitionString,
+				CSV.GetName(), CSV.GetNamespace(),
+				utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
+
+			if errAlpha == nil {
+				err = meterDefinitionAlpha.ConvertTo(meterDefinition)
+
+				if err != nil {
+					reqLogger.Error(err, "Failed to convert to v1beta1")
+				}
+			}
+		default:
+			reqLogger.Info("mdef is neither")
+			err = emperrors.Combine(err, errBeta, errAlpha)
+			reqLogger.Error(err, "Failed to read the json annotation as a meterdefinition")
 		}
-	default:
-		reqLogger.Info("mdef is neither")
-		err = emperrors.Combine(errBeta, errAlpha)
-		reqLogger.Error(err, "Failed to read the json annotation as a meterdefinition")
 	}
 
 	if err != nil {
@@ -398,9 +412,11 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 		return reconcile.Result{}, true, err
 	}
 
+	meterDefinition.ObjectMeta.Namespace = CSV.Namespace
+
 	err = r.Client.Create(context.TODO(), meterDefinition)
 	if err != nil {
-		reqLogger.Error(err, "Could not create MeterDefinition")
+		reqLogger.Error(err, "Could not create MeterDefinition", "mdef", meterDefinition)
 		reqLogger.Info("Adding failiure annotation in csv file ")
 		annotations[meterDefStatus] = "error"
 		annotations[meterDefError] = err.Error()

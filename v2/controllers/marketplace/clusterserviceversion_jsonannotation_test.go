@@ -170,7 +170,9 @@ var _ = Describe("JsonMeterDefValidation", func() {
 					*l = list
 					return nil
 				}).Times(1)
-			client.EXPECT().Create(ctx, gomock.Any()).DoAndReturn(func(_ context.Context, _ *v1beta1.MeterDefinition) error {
+			client.EXPECT().Create(ctx, gomock.Any()).DoAndReturn(func(_ context.Context, mdef *v1beta1.MeterDefinition) error {
+
+				Expect(mdef.Name).To(Equal("robinstorage-meterdef"))
 				return nil
 			}).Times(1)
 
@@ -184,6 +186,7 @@ var _ = Describe("JsonMeterDefValidation", func() {
 			sut.reconcileMeterDefAnnotation(CSV, ann)
 			Expect(CSV.GetAnnotations()[meterDefStatus]).To(Equal("success"))
 			Expect(CSV.GetAnnotations()[meterDefError]).Should(BeEmpty())
+
 		})
 	})
 })

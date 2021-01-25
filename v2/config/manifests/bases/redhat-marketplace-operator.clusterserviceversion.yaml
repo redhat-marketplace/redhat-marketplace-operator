@@ -34,12 +34,12 @@ spec:
       displayName: Meter Definition
       kind: MeterDefinition
       name: meterdefinitions.marketplace.redhat.com
-      version: v1beta1
+      version: v1alpha1
     - description: MeterDefinition defines the meter workloads used to enable pay for use billing.
       displayName: Meter Definition
       kind: MeterDefinition
       name: meterdefinitions.marketplace.redhat.com
-      version: v1alpha1
+      version: v1beta1
     - description: RazeeDeployment is the resources that deploys Razee for the Red Hat Marketplace. This is an internal resource not meant to be modified directly.
       displayName: Razee Deployment
       kind: RazeeDeployment
