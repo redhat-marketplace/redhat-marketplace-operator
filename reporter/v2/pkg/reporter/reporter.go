@@ -64,7 +64,6 @@ var (
 
 type MarketplaceReporter struct {
 	PrometheusAPI
-	// k8sclient         client.Client
 	api               v1.API
 	k8sclient         rhmclient.SimpleClient
 	mktconfig         *marketplacev1alpha1.MarketplaceConfig

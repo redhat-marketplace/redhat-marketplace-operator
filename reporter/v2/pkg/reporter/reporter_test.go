@@ -119,7 +119,6 @@ var _ = Describe("Reporter", func() {
 		}))
 
 		sut = &MarketplaceReporter{
-			// api:       v1api,
 			PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
 			Config:    cfg,
 			mktconfig: config,

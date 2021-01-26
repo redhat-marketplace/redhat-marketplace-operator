@@ -136,9 +136,6 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 
 	reqLogger.Info("Found instance", "instance", instance.Name)
 
-	// result, _ = cc.Do(
-	// 	context.TODO(),
-	// 	Call(func() (ClientAction, error) {
 	var update bool
 
 	switch {
@@ -150,13 +147,6 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 		update = instance.Status.Conditions.SetCondition(common.MeterDefConditionHasResults)
 	}
 
-	// if !update {
-	// 	return nil, nil
-	// }
-
-	// return UpdateAction(instance, UpdateStatusOnly(true)), nil
-	// }),
-	// )
 	if result.Is(Error) {
 		reqLogger.Error(result.GetError(), "Failed to update status.")
 	}

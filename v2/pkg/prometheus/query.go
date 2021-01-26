@@ -176,35 +176,6 @@ func (p *PrometheusAPI) ReportQuery(query *PromQuery) (model.Value, v1.Warnings,
 	return result, warnings, nil
 }
 
-//TODO: is this being used ?
-func ReportQueryFromAPI(query *PromQuery, promApi v1.API) (model.Value, v1.Warnings, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	timeRange := v1.Range{
-		Start: query.Start,
-		End:   query.End,
-		Step:  query.Step,
-	}
-
-	q, err := query.Print()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	result, warnings, err := promApi.QueryRange(ctx, q, timeRange)
-
-	if err != nil {
-		logger.Error(err, "querying prometheus", "warnings", warnings)
-		return nil, warnings, toError(err)
-	}
-	if len(warnings) > 0 {
-		logger.Info("warnings", "warnings", warnings)
-	}
-
-	return result, warnings, nil
-}
-
 var ClientError = errors.Sentinel("clientError")
 var ClientErrorUnauthorized = errors.Sentinel("clientError: Unauthorized")
 var ServerError = errors.Sentinel("serverError")
