@@ -333,7 +333,7 @@ func generateQueryPreview(instance *v1beta1.MeterDefinition, prometheusAPI *Prom
 
 		query = NewPromQuery(&PromQueryArgs{
 			Metric: meterWorkload.Name,
-			Type:  meterWorkload.WorkloadType,
+			Type:   meterWorkload.WorkloadType,
 			MeterDef: types.NamespacedName{
 				Name:      instance.Name,
 				Namespace: instance.Namespace,
@@ -360,7 +360,7 @@ func generateQueryPreview(instance *v1beta1.MeterDefinition, prometheusAPI *Prom
 				return errors.Wrap(err, "error with query")
 			}
 
-			reqLogger.Info("query preview","model value: ",val)
+			reqLogger.Info("query preview", "model value: ", val)
 
 			return nil
 		}, *ptr.Int(2))

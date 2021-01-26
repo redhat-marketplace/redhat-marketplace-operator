@@ -42,18 +42,26 @@ var _ = Describe("MeterDefController reconcile", func() {
 				},
 				Spec: v1beta1.MeterDefinitionSpec{
 					Group:              "marketplace.redhat.com",
-					Kind:               "MetricState",
+					Kind:               "Pod",
 
 					ResourceFilters: []v1beta1.ResourceFilter{
 						{
 							OwnerCRD: &v1beta1.OwnerCRDFilter{
 								common.GroupVersionKind{
 									APIVersion: "apps/v1",
-									Kind: "StatefulSet",
+									Kind: "Deployment",
 								},
 							},
 							Namespace: &v1beta1.NamespaceFilter{
 								UseOperatorGroup: true,
+							},
+							WorkloadType: v1beta1.WorkloadTypePod,
+							Label: &v1beta1.LabelFilter{
+								LabelSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{
+										"app.kubernetes.io/name": "rhm-metric-state",
+									},
+								},
 							},
 						},
 					},
@@ -64,8 +72,9 @@ var _ = Describe("MeterDefController reconcile", func() {
 								time.Duration(time.Hour * 1),
 							},
 							Query: "kube_pod_info",
-							Metric: "meterdef_controller_test_query",
+							Metric: "kube_pod_info",
 							WorkloadType: v1beta1.WorkloadTypePod,
+							Name: "meterdef_controller_test_query",
 						},
 					},
 				},
@@ -134,8 +143,7 @@ func runAssertionOnMeterDef(meterdef *v1beta1.MeterDefinition) (assertion bool) 
 
 			assertion = Expect(result).Should(MatchAllKeys(Keys{
 				"metricName": Equal("meterdef_controller_test_query"),
-				// "query":      Equal(`sum by (pod,namespace) (avg(meterdef_pod_info{meter_def_name="meterdef-controller-test",meter_def_namespace="openshift-redhat-marketplace"}) without (pod_uid, instance, container, endpoint, job, service) * on(pod,namespace) group_right kube_pod_info)`),
-				"query":      Not(BeEmpty()),
+				"query":      Equal(`sum by (pod,namespace) (avg(meterdef_pod_info{meter_def_name="meterdef-controller-test",meter_def_namespace="openshift-redhat-marketplace"}) without (pod_uid, instance, container, endpoint, job, service) * on(pod,namespace) group_right kube_pod_info) * on(pod,namespace) group_right group without(pod_ip,instance,image_id,host_ip,node) (kube_pod_info)`),
 				"startTime":  Equal(startTime),
 				"endTime":    Equal(endTime),
 				"value":      Not(BeZero()),
