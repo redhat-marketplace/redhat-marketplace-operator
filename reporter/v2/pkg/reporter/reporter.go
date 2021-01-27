@@ -93,11 +93,11 @@ func NewMarketplaceReporter(
 
 var ErrNoMeterDefinitionsFound = errors.New("no meterDefinitions found")
 
-func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricKey]*MetricBase, []error, error) {
+func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[string]*MetricBase, []error, error) {
 	ctx, cancel := context.WithCancel(ctxIn)
 	defer cancel()
 
-	resultsMap := make(map[MetricKey]*MetricBase)
+	resultsMap := make(map[string]*MetricBase)
 	var resultsMapMutex sync.Mutex
 
 	errorList := []error{}
@@ -186,11 +186,13 @@ type meterDefPromModel struct {
 }
 
 type meterDefPromQuery struct {
-	uid        string
-	query      *PromQuery
-	meterGroup string
-	meterKind  string
-	label      string
+	uid           string
+	query         *PromQuery
+	meterDefLabel *common.MeterDefPrometheusLabels
+	template      *ReportTemplater
+	meterGroup    string
+	meterKind     string
+	label         string
 }
 
 func (s *meterDefPromQuery) String() string {
@@ -281,7 +283,12 @@ func (r *MarketplaceReporter) retrieveMeterDefinitions(
 			}
 
 			max = max.Add(-time.Second)
-			promQuery := buildPromQuery(matrix.Metric, min, max)
+			promQuery, err := buildPromQuery(matrix.Metric, min, max)
+
+			if err != nil {
+				errorChan <- err
+				continue
+			}
 
 			logger.Info("getting query", "query", promQuery.String(), "start", min, "end", max)
 			meterDefsChan <- promQuery
@@ -352,7 +359,7 @@ func (r *MarketplaceReporter) query(
 func (r *MarketplaceReporter) process(
 	ctx context.Context,
 	inPromModels <-chan meterDefPromModel,
-	results map[MetricKey]*MetricBase,
+	results map[string]*MetricBase,
 	mutex sync.Locker,
 	done chan bool,
 	errorsch chan error,
@@ -373,68 +380,39 @@ func (r *MarketplaceReporter) process(
 				for _, pair := range matrix.Values {
 					func() {
 						labels := getAllKeysFromMetric(matrix.Metric)
-
-						var objName string
-
-						namespace, _ := getMatrixValue(matrix.Metric, "namespace")
-
-						switch pmodel.Type {
-						case marketplacev1beta1.WorkloadTypePVC:
-							objName, _ = getMatrixValue(matrix.Metric, "persistentvolumeclaim")
-						case marketplacev1beta1.WorkloadTypePod:
-							objName, _ = getMatrixValue(matrix.Metric, "pod")
-						case marketplacev1beta1.WorkloadTypeService:
-							objName, _ = getMatrixValue(matrix.Metric, "service")
-						}
-
-						if objName == "" {
-							errorsch <- errors.New("can't find objName")
-							return
-						}
-
-						key := MetricKey{
-							ReportPeriodStart: r.report.Spec.StartTime.Format(time.RFC3339),
-							ReportPeriodEnd:   r.report.Spec.EndTime.Format(time.RFC3339),
-							IntervalStart:     pair.Timestamp.Time().Format(time.RFC3339),
-							IntervalEnd:       pair.Timestamp.Add(pmodel.mdef.query.Step).Time().Format(time.RFC3339),
-							MeterDomain:       pmodel.mdef.meterGroup,
-							MeterKind:         pmodel.mdef.meterKind,
-							Namespace:         namespace,
-							ResourceName:      objName,
-							Label:             pmodel.mdef.label,
-						}
-
-						key.Init(r.mktconfig.Spec.ClusterUUID)
-
-						mutex.Lock()
-						defer mutex.Unlock()
-
-						base, ok := results[key]
-
-						if !ok {
-							base = &MetricBase{
-								Key: key,
-							}
-						}
-
-						logger.V(4).Info("adding pair", "metric", matrix.Metric, "pair", pair)
-						metricPairs := []interface{}{name, pair.Value.String()}
-
-						err := base.AddAdditionalLabels(labels...)
+						kvmap, err := kvToMap(labels)
 
 						if err != nil {
-							errorsch <- errors.Wrap(err, "failed adding additional labels")
+							logger.Error(err, "failed to get kvmap")
+							errorsch <- errors.Wrap(err, "failed to get kvmap")
 							return
 						}
 
-						err = base.AddMetrics(metricPairs...)
+						base, err := NewMetric(
+							pair,
+							matrix,
+							&r.report.Spec,
+							pmodel.mdef.meterDefLabel,
+							pmodel.mdef.template,
+							pmodel.mdef.query.Step,
+							pmodel.Type,
+							r.mktconfig.Spec.ClusterUUID,
+							kvmap,
+						)
 
 						if err != nil {
 							errorsch <- errors.Wrap(err, "failed adding metrics")
 							return
 						}
 
-						results[key] = base
+						mutex.Lock()
+						defer mutex.Unlock()
+
+						if _, ok := results[base.Key.MetricID]; ok {
+							return
+						}
+
+						results[base.Key.MetricID] = base
 					}()
 				}
 			}
@@ -455,7 +433,7 @@ func (r *MarketplaceReporter) process(
 
 func (r *MarketplaceReporter) WriteReport(
 	source uuid.UUID,
-	metrics map[MetricKey]*MetricBase) ([]string, error) {
+	metrics map[string]*MetricBase) ([]string, error) {
 
 	env := ReportProductionEnv
 	envAnnotation, ok := r.mktconfig.Annotations["marketplace.redhat.com/environment"]
@@ -581,13 +559,13 @@ func getMatrixValue(m interface{}, labelName string) (string, bool) {
 	}
 }
 
-func buildPromQuery(labels interface{}, start, end time.Time) *meterDefPromQuery {
+func buildPromQuery(labels interface{}, start, end time.Time) (*meterDefPromQuery, error) {
 	meterDefLabels := &common.MeterDefPrometheusLabels{}
 	err := meterDefLabels.FromLabels(labels)
 
 	if err != nil {
 		log.Error(err, "failed to unmarshal labels")
-		panic(err)
+		return nil, err
 	}
 
 	workloadType := marketplacev1beta1.WorkloadType(meterDefLabels.WorkloadType)
@@ -612,13 +590,22 @@ func buildPromQuery(labels interface{}, start, end time.Time) *meterDefPromQuery
 		AggregateFunc: meterDefLabels.MetricAggregation,
 	})
 
-	return &meterDefPromQuery{
-		uid:        meterDefLabels.UID,
-		query:      query,
-		meterGroup: meterDefLabels.MeterGroup,
-		meterKind:  meterDefLabels.MeterKind,
-		label:      meterDefLabels.Metric,
+	tmpl, err := NewTemplate(meterDefLabels)
+
+	if err != nil {
+		log.Error(err, "failed to create a template")
+		return nil, err
 	}
+
+	return &meterDefPromQuery{
+		uid:           meterDefLabels.UID,
+		query:         query,
+		meterDefLabel: meterDefLabels,
+		template:      tmpl,
+		meterGroup:    meterDefLabels.MeterGroup,
+		meterKind:     meterDefLabels.MeterKind,
+		label:         meterDefLabels.Metric,
+	}, nil
 }
 
 func wgWait(ctx context.Context, processName string, maxRoutines int, done chan bool, waitFunc func()) {

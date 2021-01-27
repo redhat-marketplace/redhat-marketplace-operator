@@ -33,18 +33,18 @@ type MeterDefPrometheusLabels struct {
 
 	WorkloadName      string        `json:"workload_name" mapstructure:"workload_name"`
 	WorkloadType      string        `json:"workload_type" mapstructure:"workload_type"`
-	MeterGroup        string        `json:"meter_group" mapstructure:"meter_group"`
-	MeterKind         string        `json:"meter_kind" mapstructure:"meter_kind"`
-	Metric            string        `json:"metric_label" mapstructure:"metric_label"`
+	MeterGroup        string        `json:"meter_group" mapstructure:"meter_group" template:""`
+	MeterKind         string        `json:"meter_kind" mapstructure:"meter_kind" template:""`
+	Metric            string        `json:"metric_label" mapstructure:"metric_label" template:""`
 	MetricAggregation string        `json:"metric_aggregation,omitempty" mapstructure:"metric_aggregation"`
 	MetricPeriod      *MetricPeriod `json:"metric_period,omitempty" mapstructure:"metric_period"`
 	MetricQuery       string        `json:"metric_query" mapstructure:"metric_query"`
 	MetricWithout     JSONArray     `json:"metric_without" mapstructure:"metric_without"`
 	MetricGroupBy     JSONArray     `json:"metric_group_by,omitempty" mapstructure:"metric_group_by"`
 
-	MeterDescription   string `json:"meter_description,omitempty" mapstructure:"meter_description,omitempty"`
-	ValueLabelOverride string `json:"value_label_override,omitempty" mapstructure:"value_label_override,omitempty"`
-	DateLabelOverride  string `json:"date_label_override,omitempty" mapstructure:"date_label_override,omitempty"`
+	MeterDescription   string `json:"meter_description,omitempty" mapstructure:"meter_description,omitempty" template:""`
+	ValueLabelOverride string `json:"value_label_override,omitempty" mapstructure:"value_label_override,omitempty" template:""`
+	DateLabelOverride  string `json:"date_label_override,omitempty" mapstructure:"date_label_override,omitempty" template:""`
 }
 
 func (m *MeterDefPrometheusLabels) Defaults() {
