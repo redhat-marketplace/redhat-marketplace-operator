@@ -16,7 +16,7 @@ spec:
         name: redhat-marketplace-controller-manager-service
         namespace: openshift-redhat-marketplace
         path: /convert
-        port: 443
+        port: 9443
   group: marketplace.redhat.com
   names:
     kind: MeterDefinition
