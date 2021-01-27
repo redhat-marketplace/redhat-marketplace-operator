@@ -33,6 +33,7 @@ type OperatorConfig struct {
 	DeployedNamespace string `env:"POD_NAMESPACE"`
 	ReportController  ReportControllerConfig
 	RelatedImages
+	ResourcesLimits
 	Features
 	Marketplace
 	*Infrastructure
@@ -52,6 +53,20 @@ type RelatedImages struct {
 	OAuthProxy                  string `env:"RELATED_IMAGE_OAUTH_PROXY" envDefault:"registry.redhat.io/openshift4/ose-oauth-proxy:latest"`
 	RemoteResourceS3            string `env:"RELATED_IMAGE_RHM_RRS3_DEPLOYMENT" envDefault:"quay.io/razee/remoteresources3:0.6.2"`
 	WatchKeeper                 string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"quay.io/razee/watch-keeper:0.6.6"`
+}
+
+// ResourcesLimits stores resources.limits overrides for operand containers
+type ResourcesLimits struct {
+	AuthcheckCPU                        string `env:"RESOURCE_LIMIT_CPU_AUTHCHECK" envDefault:"20m"`
+	AuthcheckMemory                     string `env:"RESOURCE_LIMIT_MEMORY_AUTHCHECK" envDefault:"40Mi"`
+	PrometheusConfigReloaderCPU         string `env:"RESOURCE_LIMIT_CPU_PROMETHEUS_CONFIG_RELOADER" envDefault:"100m"`
+	PrometheusConfigReloaderMemory      string `env:"RESOURCE_LIMIT_MEMORY_PROMETHEUS_CONFIG_RELOADER" envDefault:"25Mi"`
+	RulesConfigMapReloaderCPU           string `env:"RESOURCE_LIMIT_CPU_RULES_CONFIGMAP_RELOADER" envDefault:"100m"`
+	RulesConfigMapReloaderMemory        string `env:"RESOURCE_LIMIT_MEMORY_RULES_CONFIGMAP_RELOADER" envDefault:"25Mi"`
+	RHMRemoteResources3ControllerCPU    string `env:"RESOURCE_LIMIT_CPU_RHM_REMOTE_RESOURCES3_CONTROLLER" envDefault:"20m"`
+	RHMRemoteResources3ControllerMemory string `env:"RESOURCE_LIMIT_MEMORY_RHM_REMOTE_RESOURCES3_CONTROLLER" envDefault:"40Mi"`
+	WatchKeeperCPU                      string `env:"RESOURCE_LIMIT_CPU_WATCH_KEEPER" envDefault:"400m"`
+	WatchKeeperMemory                   string `env:"RESOURCE_LIMIT_MEMORY_WATCH_KEEPER" envDefault:"500Mi"`
 }
 
 // Features store feature flags

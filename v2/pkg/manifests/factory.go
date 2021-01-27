@@ -103,6 +103,103 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 	}
 }
 
+func (f *Factory) ReplaceResourcesRequests(container *corev1.Container) {
+	switch {
+	// common
+	case strings.HasPrefix(container.Name, "kube-rbac-proxy"):
+		container.Resources.Requests = corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("40m"),
+			corev1.ResourceMemory: resource.MustParse("75Mi"),
+		}
+	case container.Name == "authcheck":
+		container.Resources.Requests = corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("10m"),
+			corev1.ResourceMemory: resource.MustParse("20Mi"),
+		}
+	// prometheus-operator
+	case container.Name == "prometheus-operator":
+		container.Resources.Requests = corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("5m"),
+			corev1.ResourceMemory: resource.MustParse("60Mi"),
+		}
+	// prometheus/meterbase
+	case container.Name == "prometheus":
+		container.Resources.Requests = corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("70m"),
+			corev1.ResourceMemory: resource.MustParse("1Gi"),
+		}
+	case container.Name == "prometheus-proxy":
+		container.Resources.Requests = corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("10m"),
+			corev1.ResourceMemory: resource.MustParse("20Mi"),
+		}
+	case container.Name == "prometheus-config-reloader":
+		container.Resources.Requests = corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("100m"),
+			corev1.ResourceMemory: resource.MustParse("25Mi"),
+		}
+	case container.Name == "rules-configmap-reloader":
+		container.Resources.Requests = corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("100m"),
+			corev1.ResourceMemory: resource.MustParse("25Mi"),
+		}
+	// metric-state
+	case container.Name == "metric-state":
+		container.Resources.Requests = corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("100m"),
+			corev1.ResourceMemory: resource.MustParse("150Mi"),
+		}
+	// remoteresources3-controller
+	case container.Name == "rhm-remoteresources3-controller":
+		container.Resources.Requests = corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("40m"),
+			corev1.ResourceMemory: resource.MustParse("75Mi"),
+		}
+	// watch-keeper
+	case container.Name == "watch-keeper":
+		container.Resources.Requests = corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("50m"),
+			corev1.ResourceMemory: resource.MustParse("100Mi"),
+		}
+
+	}
+}
+
+func (f *Factory) ReplaceResourcesLimits(container *corev1.Container) {
+	switch {
+	// common
+	case container.Name == "authcheck":
+		container.Resources.Limits = corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse(f.operatorConfig.ResourcesLimits.AuthcheckCPU),
+			corev1.ResourceMemory: resource.MustParse(f.operatorConfig.ResourcesLimits.AuthcheckMemory),
+		}
+	// prometheus/meterbase
+	case container.Name == "prometheus-config-reloader":
+		container.Resources.Limits = corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse(f.operatorConfig.ResourcesLimits.PrometheusConfigReloaderCPU),
+			corev1.ResourceMemory: resource.MustParse(f.operatorConfig.ResourcesLimits.PrometheusConfigReloaderMemory),
+		}
+	case container.Name == "rules-configmap-reloader":
+		container.Resources.Limits = corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse(f.operatorConfig.ResourcesLimits.RulesConfigMapReloaderCPU),
+			corev1.ResourceMemory: resource.MustParse(f.operatorConfig.ResourcesLimits.RulesConfigMapReloaderMemory),
+		}
+	// remoteresources3-controller
+	case container.Name == "rhm-remoteresources3-controller":
+		container.Resources.Limits = corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse(f.operatorConfig.ResourcesLimits.RHMRemoteResources3ControllerCPU),
+			corev1.ResourceMemory: resource.MustParse(f.operatorConfig.ResourcesLimits.RHMRemoteResources3ControllerMemory),
+		}
+	// watch-keeper
+	case container.Name == "watch-keeper":
+		container.Resources.Limits = corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse(f.operatorConfig.ResourcesLimits.WatchKeeperCPU),
+			corev1.ResourceMemory: resource.MustParse(f.operatorConfig.ResourcesLimits.WatchKeeperMemory),
+		}
+
+	}
+}
+
 func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
 	d, err := NewDeployment(manifest)
 	if err != nil {
@@ -277,6 +374,8 @@ func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployme
 		newArgs := []string{}
 
 		f.ReplaceImages(container)
+		f.ReplaceResourcesRequests(container)
+		f.ReplaceResourcesLimits(container)
 
 		for _, arg := range container.Args {
 			newArg := replacer.Replace(arg)
@@ -353,6 +452,8 @@ func (f *Factory) NewPrometheusDeployment(
 
 	for i := range p.Spec.Containers {
 		f.ReplaceImages(&p.Spec.Containers[i])
+		f.ReplaceResourcesRequests(&p.Spec.Containers[i])
+		f.ReplaceResourcesLimits(&p.Spec.Containers[i])
 	}
 
 	return p, err
@@ -474,6 +575,8 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 
 	for i := range d.Spec.Template.Spec.Containers {
 		f.ReplaceImages(&d.Spec.Template.Spec.Containers[i])
+		f.ReplaceResourcesRequests(&d.Spec.Template.Spec.Containers[i])
+		f.ReplaceResourcesLimits(&d.Spec.Template.Spec.Containers[i])
 	}
 
 	d.Namespace = f.namespace
