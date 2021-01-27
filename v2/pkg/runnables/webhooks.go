@@ -98,6 +98,10 @@ const (
 	InjectCAAnnotation = "service.beta.openshift.io/inject-cabundle"
 )
 
+// +kubebuilder:rbac:groups="",resources=secret,verbs=get;list;watch
+// +kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=get;list;watch
+// +kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,resourceNames=meterdefinitions.marketplace.redhat.com,verbs=update
+
 func (a *BootstrapWebhook) Run(ctx context.Context, webhooks *WebhooksAvailable) error {
 	a.logger.Info("starting bootstrapWebhook")
 

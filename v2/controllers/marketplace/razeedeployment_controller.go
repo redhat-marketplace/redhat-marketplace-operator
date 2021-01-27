@@ -168,9 +168,26 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 		},
 	}
 
+	cfg, _ := config.GetConfig()
+	nspred := predicate.Funcs{
+		// Ensures MarketPlaceConfig reconciles only within namespace
+		GenericFunc: func(e event.GenericEvent) bool {
+			return e.Meta.GetNamespace() == cfg.DeployedNamespace
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return e.MetaOld.GetNamespace() == cfg.DeployedNamespace && e.MetaNew.GetNamespace() == cfg.DeployedNamespace
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return e.Meta.GetNamespace() == cfg.DeployedNamespace
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return e.Meta.GetNamespace() == cfg.DeployedNamespace
+		},
+	}
+
 	// Create a new controller
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&marketplacev1alpha1.RazeeDeployment{}).
+		For(&marketplacev1alpha1.RazeeDeployment{}, builder.WithPredicates(nspred)).
 		WithOptions(controller.Options{
 			Reconciler: r,
 			RateLimiter: workqueue.NewMaxOfRateLimiter(
@@ -199,6 +216,26 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 			builder.WithPredicates(pp)).
 		Complete(r)
 }
+
+// +kubebuilder:rbac:groups="",resources=configmaps;pods;secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get
+// +kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments,verbs=create;update;patch;delete
+// +kubebuilder:rbac:groups=batch;extensions,resources=jobs,verbs=get;list;watch
+// +kubebuilder:rbac:groups="config.openshift.io",resources=consoles;infrastructures;clusterversions,verbs=get;update;patch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=razeedeployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments;razeedeployments/finalizers;razeedeployments/status,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=remoteresources3s,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=get;list;watch;create;update;patch;delete
+
+// Legacy Uninstall
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,resourceNames=razeedeploy-sa;watch-keeper-sa,verbs=delete
+// +kubebuilder:rbac:groups=apps,resources=deployments,resourceNames=watch-keeper;clustersubscription;featureflagsetld-controller;managedset-controller;mustachetemplate-controller;remoteresource-controller;remoteresources3-controller;remoteresources3decrypt-controller,verbs=delete
+// +kubebuilder:rbac:groups=batch;extensions,resources=jobs,resourceNames=razeedeploy-job,verbs=delete
+// +kubebuilder:rbac:groups="deploy.razee.io",resources=*,verbs=get;list;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,resourceNames=razeedeploy-admin-cr;redhat-marketplace-razeedeploy,verbs=delete
 
 // Reconcile reads that state of the cluster for a RazeeDeployment object and makes changes based on the state read
 // and what is in the RazeeDeployment.Spec

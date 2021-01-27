@@ -39,10 +39,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -70,6 +73,21 @@ type MarketplaceConfigReconciler struct {
 	cc     ClientCommandRunner
 	cfg    config.OperatorConfig
 }
+
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups="",resources=secret,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=marketplaceconfigs;marketplaceconfigs/finalizers;marketplaceconfigs/status,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs;marketplaceconfigs/finalizers;marketplaceconfigs/status,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=razeedeployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterbases,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases,verbs=get;list;watch;create;update;patch;delete
+
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=operatorsources;catalogsources,verbs=get;list;watch
+
+// Could be namespace=openshift-marketplace but problematic for kustomize
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=operatorsources,resourceNames=redhat-marketplace,verbs=create
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=catalogsources,resourceNames=ibm-operator-catalog;opencloud-operators,verbs=create;delete
 
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
 // and what is in the MarketplaceConfig.Spec
@@ -637,8 +655,25 @@ func (r *MarketplaceConfigReconciler) SetupWithManager(mgr manager.Manager) erro
 		OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
 	}
 
+	cfg, _ := config.GetConfig()
+	nspred := predicate.Funcs{
+		// Ensures MarketPlaceConfig reconciles only within namespace
+		GenericFunc: func(e event.GenericEvent) bool {
+			return e.Meta.GetNamespace() == cfg.DeployedNamespace
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return e.MetaOld.GetNamespace() == cfg.DeployedNamespace && e.MetaNew.GetNamespace() == cfg.DeployedNamespace
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return e.Meta.GetNamespace() == cfg.DeployedNamespace
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return e.Meta.GetNamespace() == cfg.DeployedNamespace
+		},
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&marketplacev1alpha1.MarketplaceConfig{}).
+		For(&marketplacev1alpha1.MarketplaceConfig{}, builder.WithPredicates(nspred)).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, ownerHandler).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.MeterBase{}}, ownerHandler).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, &handler.EnqueueRequestForOwner{

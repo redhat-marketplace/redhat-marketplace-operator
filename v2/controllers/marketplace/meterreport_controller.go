@@ -36,15 +36,25 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // blank assignment to verify that ReconcileMeterReport implements reconcile.Reconciler
 var _ reconcile.Reconciler = &MeterReportReconciler{}
+
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups=batch;extensions,resources=jobs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=batch;extensions,namespace=system,resources=jobs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterreports;meterreports/status;meterreports/finalizers,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterreports;meterreports/status;meterreports/finalizers,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:urls=/api/v1/query;/api/v1/query_range,verbs=get;create
 
 // MeterReportReconciler reconciles a MeterReport object
 type MeterReportReconciler struct {
@@ -87,8 +97,25 @@ func (m *MeterReportReconciler) InjectOperatorConfig(cfg config.OperatorConfig) 
 }
 
 func (r *MeterReportReconciler) SetupWithManager(mgr manager.Manager) error {
+	cfg, _ := config.GetConfig()
+	nspred := predicate.Funcs{
+		// Ensures MarketPlaceConfig reconciles only within namespace
+		GenericFunc: func(e event.GenericEvent) bool {
+			return e.Meta.GetNamespace() == cfg.DeployedNamespace
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return e.MetaOld.GetNamespace() == cfg.DeployedNamespace && e.MetaNew.GetNamespace() == cfg.DeployedNamespace
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return e.Meta.GetNamespace() == cfg.DeployedNamespace
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return e.Meta.GetNamespace() == cfg.DeployedNamespace
+		},
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&marketplacev1alpha1.MeterReport{}).
+		For(&marketplacev1alpha1.MeterReport{}, builder.WithPredicates(nspred)).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.MeterReport{}}, &handler.EnqueueRequestForObject{}).
 		Watches(&source.Kind{Type: &batchv1.Job{}}, &handler.EnqueueRequestForOwner{
 			IsController: true,

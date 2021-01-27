@@ -151,6 +151,28 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			}).Complete(r)
 }
 
+// +kubebuilder:rbac:groups="",resources=configmaps;namespaces;secrets;services,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=create;delete
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",namespace=system,resources=persistentvolumeclaims,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",namespace=system,resources=pods,verbs=get;list;watch;delete
+// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="storage.k8s.io",resources=storageclasses,verbs=get;list;watch
+// +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterbases;meterbases/status;meterbases/finalizers,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases;meterbases/status;meterbases/finalizers,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterreports,verbs=get;list
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterreports,verbs=get;list;create;delete
+// +kubebuilder:rbac:groups="monitoring.coreos.com",resources=prometheuses;servicemonitors,verbs=get;list;watch
+// +kubebuilder:rbac:groups="monitoring.coreos.com",namespace=system,resources=prometheuses;servicemonitors,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=subscriptions,verbs=get;list;watch
+// +kubebuilder:rbac:groups="operators.coreos.com",namespace=system,resources=subscriptions,verbs=get;list;watch;create
+
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
 // and what is in the MeterBase.Spec
 func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {

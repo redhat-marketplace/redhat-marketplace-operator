@@ -82,6 +82,9 @@ func (r *MeterDefinitionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+// MeterDefinitions
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions,verbs=get;list;watch;update;patch
+
 // Reconcile reads that state of the cluster for a MeterDefinition object and makes changes based on the state read
 // and what is in the MeterDefinition.Spec
 func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
