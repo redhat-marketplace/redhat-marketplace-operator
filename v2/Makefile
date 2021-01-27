@@ -161,6 +161,8 @@ docker-build:
 docker-push:
 	docker push ${IMG}
 
+CSV_YAML_BUNDLE_FILE=bundle/manifests/redhat-marketplace-operator.clusterserviceversion.yaml
+
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
 bundle: clean manifests kustomize helm
@@ -171,6 +173,8 @@ bundle: clean manifests kustomize helm
 	--set reporterImage=$(REPORTER_IMAGE) \
 	--set authCheckImage=$(AUTHCHECK_IMAGE) \
 	--post-renderer ./config/manifests/kustomize | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	yq eval -i '.spec.webhookdefinitions[].targetPort = 9443' $(CSV_YAML_BUNDLE_FILE)
+	yq eval -i '.spec.webhookdefinitions[].containerPort = 9443' $(CSV_YAML_BUNDLE_FILE)
 	operator-sdk bundle validate ./bundle
 	#Generate a copy of the resultant yaml files to the deploy directory - this is only used for content certification linting
 	rm -rf ./deploy && mkdir -p ./deploy ./deploy/crds && \

@@ -3265,11 +3265,11 @@ spec:
         - name: OPERATOR_NAME
           value: redhat-marketplace-operator
         - name: RELATED_IMAGE_REPORTER
-          value: quay.io/zach_source/redhat-marketplace-reporter:2.0.0-54
+          value: quay.io/zach_source/redhat-marketplace-reporter:2.0.0-beta.1-2
         - name: RELATED_IMAGE_METRIC_STATE
-          value: quay.io/zach_source/redhat-marketplace-metric-state:2.0.0-54
+          value: quay.io/zach_source/redhat-marketplace-metric-state:2.0.0-beta.1-2
         - name: RELATED_IMAGE_AUTHCHECK
-          value: quay.io/zach_source/redhat-marketplace-authcheck:2.0.0-54
+          value: quay.io/zach_source/redhat-marketplace-authcheck:2.0.0-beta.1-2
         - name: WATCH_NAMESPACE
           value: ""
         - name: POD_NAMESPACE
@@ -3292,7 +3292,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.labels['olm.owner.kind']
-        image: quay.io/zach_source/redhat-marketplace-operator:2.0.0-54
+        image: quay.io/zach_source/redhat-marketplace-operator:2.0.0-beta.1-2
         name: manager
         ports:
         - containerPort: 9443

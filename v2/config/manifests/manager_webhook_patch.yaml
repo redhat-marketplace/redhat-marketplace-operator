@@ -1,3 +1,4 @@
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -30,4 +31,4 @@ spec:
         name: $(SERVICE_NAME)
         namespace: system
         path: /convert
-        port: 443
+        port: 9443
