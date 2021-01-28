@@ -752,8 +752,8 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 							Name:            "authcheck",
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("20m"),
-									corev1.ResourceMemory: resource.MustParse("40Mi"),
+									corev1.ResourceCPU:    resource.MustParse(f.operatorConfig.ResourcesLimits.AuthcheckCPU),
+									corev1.ResourceMemory: resource.MustParse(f.operatorConfig.ResourcesLimits.AuthcheckMemory),
 								},
 								Requests: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse("10m"),
@@ -771,8 +771,8 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("400m"),
-									corev1.ResourceMemory: resource.MustParse("500Mi"),
+									corev1.ResourceCPU:    resource.MustParse(f.operatorConfig.ResourcesLimits.WatchKeeperCPU),
+									corev1.ResourceMemory: resource.MustParse(f.operatorConfig.ResourcesLimits.WatchKeeperMemory),
 								},
 								Requests: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse("50m"),
@@ -914,8 +914,8 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 							Name:            "authcheck",
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("20m"),
-									corev1.ResourceMemory: resource.MustParse("40Mi"),
+									corev1.ResourceCPU:    resource.MustParse(f.operatorConfig.ResourcesLimits.AuthcheckCPU),
+									corev1.ResourceMemory: resource.MustParse(f.operatorConfig.ResourcesLimits.AuthcheckMemory),
 								},
 								Requests: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse("10m"),
@@ -933,8 +933,8 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("100m"),
-									corev1.ResourceMemory: resource.MustParse("200Mi"),
+									corev1.ResourceCPU:    resource.MustParse(f.operatorConfig.ResourcesLimits.RHMRemoteResources3ControllerCPU),
+									corev1.ResourceMemory: resource.MustParse(f.operatorConfig.ResourcesLimits.RHMRemoteResources3ControllerMemory),
 								},
 								Requests: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse("40m"),

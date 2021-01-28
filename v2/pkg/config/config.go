@@ -63,8 +63,8 @@ type ResourcesLimits struct {
 	PrometheusConfigReloaderMemory      string `env:"RESOURCE_LIMIT_MEMORY_PROMETHEUS_CONFIG_RELOADER" envDefault:"25Mi"`
 	RulesConfigMapReloaderCPU           string `env:"RESOURCE_LIMIT_CPU_RULES_CONFIGMAP_RELOADER" envDefault:"100m"`
 	RulesConfigMapReloaderMemory        string `env:"RESOURCE_LIMIT_MEMORY_RULES_CONFIGMAP_RELOADER" envDefault:"25Mi"`
-	RHMRemoteResources3ControllerCPU    string `env:"RESOURCE_LIMIT_CPU_RHM_REMOTE_RESOURCES3_CONTROLLER" envDefault:"20m"`
-	RHMRemoteResources3ControllerMemory string `env:"RESOURCE_LIMIT_MEMORY_RHM_REMOTE_RESOURCES3_CONTROLLER" envDefault:"40Mi"`
+	RHMRemoteResources3ControllerCPU    string `env:"RESOURCE_LIMIT_CPU_RHM_REMOTE_RESOURCES3_CONTROLLER" envDefault:"100m"`
+	RHMRemoteResources3ControllerMemory string `env:"RESOURCE_LIMIT_MEMORY_RHM_REMOTE_RESOURCES3_CONTROLLER" envDefault:"200Mi"`
 	WatchKeeperCPU                      string `env:"RESOURCE_LIMIT_CPU_WATCH_KEEPER" envDefault:"400m"`
 	WatchKeeperMemory                   string `env:"RESOURCE_LIMIT_MEMORY_WATCH_KEEPER" envDefault:"500Mi"`
 }
