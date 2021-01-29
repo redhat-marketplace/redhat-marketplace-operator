@@ -128,7 +128,7 @@ var _ = Describe("Reporter", func() {
 						UID:       types.UID("a"),
 					},
 					Spec: v1beta1.MeterDefinitionSpec{
-						Group: "{{ .Labels.meter_kind | lower }}.partner.metering.com",
+						Group: "{{ .Label.meter_kind | lower }}.partner.metering.com",
 						Kind:  "App",
 						ResourceFilters: []v1beta1.ResourceFilter{
 							{
@@ -148,15 +148,14 @@ var _ = Describe("Reporter", func() {
 								Query:        "rpc_durations_seconds_sum",
 								Metric:       "rpc_durations_seconds_sum",
 								WorkloadType: v1beta1.WorkloadTypePod,
-								Description:  "{{ .Labels.meter_kind | lower }} description",
+								Description:  "{{ .Label.meter_kind | lower }} description",
 							},
 							{
-
 								Aggregation:  "sum",
 								Query:        "my_query",
 								Metric:       "rpc_durations_seconds_count",
 								WorkloadType: v1beta1.WorkloadTypePod,
-								Description:  "{{ .Labels.meter_kind | lower }} description",
+								Description:  "{{ .Label.meter_kind | lower }} description",
 							},
 						},
 					},

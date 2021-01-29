@@ -293,6 +293,8 @@ func NewReportMetadata(
 	}
 }
 
+const justDateFormat = "2006-01-02"
+
 func NewMetric(
 	pair model.SamplePair,
 	matrix *model.SampleStream,
@@ -306,9 +308,11 @@ func NewMetric(
 ) (*MetricBase, error) {
 	namespace, _ := getMatrixValue(matrix.Metric, "namespace")
 
+	logger.Info("kvMap", "map", kvMap)
+
 	meterDef := meterDefLabel
 	err := templ.Execute(meterDef, &ReportLabels{
-		Labels: kvMap,
+		Label: kvMap,
 	})
 
 	if err != nil {
@@ -339,10 +343,16 @@ func NewMetric(
 	intervalEnd := pair.Timestamp.Add(step).Time().Format(time.RFC3339)
 
 	if meterDef.DateLabelOverride != "" {
-		t, err := time.Parse(meterDef.DateLabelOverride, time.RFC3339)
+		t, err := time.Parse(time.RFC3339, meterDef.DateLabelOverride)
 
 		if err != nil {
-			return nil, err
+			t2, err2 := time.Parse(justDateFormat, meterDef.DateLabelOverride)
+
+			if err2 != nil {
+				return nil, errors.Combine(err, err2)
+			}
+
+			t = t2
 		}
 
 		intervalStart = t.Format(time.RFC3339)

@@ -14,7 +14,7 @@ var _ = Describe("Template", func() {
 
 	It("should evaluate templates", func() {
 		values := &ReportLabels{
-			Labels: map[string]interface{}{
+			Label: map[string]interface{}{
 				"foo_bar_label":     "label",
 				"a_date_label":      "2020-02-11",
 				"a_timestamp_label": "2020-02-11",
@@ -23,12 +23,12 @@ var _ = Describe("Template", func() {
 		promLabels = &common.MeterDefPrometheusLabels{
 			MeterDefName:       "{{ foo_bar_label }}",
 			MeterDefNamespace:  "namespace",
-			MeterGroup:         "{{ .Labels.foo_bar_label }}.group",
-			MeterKind:          "{{ .Labels.foo_bar_label }}.kind",
-			Metric:             "{{ .Labels.foo_bar_label }}.metric",
-			DateLabelOverride:  "{{ .Labels.foo_bar_label }}.date",
-			ValueLabelOverride: "{{ .Labels.foo_bar_label }}.valueoverride",
-			MeterDescription:   "{{ .Labels.foo_bar_label }}.description",
+			MeterGroup:         "{{ .Label.foo_bar_label }}.group",
+			MeterKind:          "{{ .Label.foo_bar_label }}.kind",
+			Metric:             "{{ .Label.foo_bar_label }}.metric",
+			DateLabelOverride:  "{{ .Label.foo_bar_label }}.date",
+			ValueLabelOverride: "{{ .Label.foo_bar_label }}.valueoverride",
+			MeterDescription:   "{{ .Label.foo_bar_label }}.description",
 			MetricAggregation:  "sum",
 			MetricGroupBy:      common.JSONArray([]string{"c", "d"}),
 			MetricPeriod:       &common.MetricPeriod{Duration: time.Hour},

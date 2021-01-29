@@ -111,7 +111,7 @@ func (q *PromQuery) setDefaultGroupBy() {
 }
 
 const resultQueryTemplateStr = `
-{{- .AggregateFunc }} by ({{ concat .DefaultGroupBy .GroupBy | join "," }}) ({{ .LeftSide }} * on({{ .DefaultGroupBy | join "," }}) group_right {{ .Query }}) * on({{ .DefaultGroupBy | join "," }}) group_right group without({{ .Without | join "," }}) ({{ .Query }})`
+{{- .AggregateFunc }} by ({{ default .DefaultGroupBy .GroupBy | join "," }}) ({{ .LeftSide }} * on({{ .DefaultGroupBy | join "," }}) group_right {{ .Query }}) * on({{ default .DefaultGroupBy .GroupBy | join "," }}) group_right group without({{ .Without | join "," }}) ({{ .Query }})`
 
 var resultQueryTemplate *template.Template = utils.Must(func() (interface{}, error) {
 	return template.New("resultQuery").Funcs(sprig.GenericFuncMap()).Parse(resultQueryTemplateStr)

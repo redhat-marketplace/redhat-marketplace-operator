@@ -96,7 +96,7 @@ var _ = Describe("Query", func() {
 			Without: []string{"bar"},
 		})
 
-		expected := `sum by (persistentvolumeclaim,namespace,foo) (avg(meterdef_persistentvolumeclaim_info{meter_def_name="foo",meter_def_namespace="foons",phase="Bound"}) without (instance, container, endpoint, job, service) * on(persistentvolumeclaim,namespace) group_right kube_persistentvolumeclaim_resource_requests_storage_bytes) * on(persistentvolumeclaim,namespace) group_right group without(bar,instance) (kube_persistentvolumeclaim_resource_requests_storage_bytes)`
+		expected := `sum by (foo) (avg(meterdef_persistentvolumeclaim_info{meter_def_name="foo",meter_def_namespace="foons",phase="Bound"}) without (instance, container, endpoint, job, service) * on(persistentvolumeclaim,namespace) group_right kube_persistentvolumeclaim_resource_requests_storage_bytes) * on(foo) group_right group without(bar,instance) (kube_persistentvolumeclaim_resource_requests_storage_bytes)`
 		q, err := q1.Print()
 		Expect(err).To(Succeed())
 		Expect(q).To(Equal(expected), "failed to create query for pvc")
