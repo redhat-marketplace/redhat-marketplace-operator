@@ -333,8 +333,8 @@ func (r *ClusterRegistrationReconciler) Inject(injector *inject.Injector) inject
 	return r
 }
 
-func (m *ClusterRegistrationReconciler) InjectOperatorConfig(cfg config.OperatorConfig) error {
-	m.cfg = &cfg
+func (m *ClusterRegistrationReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
+	m.cfg = cfg
 	return nil
 }
 

@@ -72,7 +72,7 @@ type MeterBaseReconciler struct {
 	Log    logr.Logger
 	CC     ClientCommandRunner
 
-	factory manifests.Factory
+	factory *manifests.Factory
 	patcher patch.Patcher
 }
 
@@ -92,7 +92,7 @@ func (r *MeterBaseReconciler) InjectPatch(p patch.Patcher) error {
 	return nil
 }
 
-func (r *MeterBaseReconciler) InjectFactory(f manifests.Factory) error {
+func (r *MeterBaseReconciler) InjectFactory(f *manifests.Factory) error {
 	r.factory = f
 	return nil
 }
@@ -157,7 +157,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterBase")
 
-	factory := &r.factory
+	factory := r.factory
 	cc := r.CC
 
 	// Fetch the MeterBase instance

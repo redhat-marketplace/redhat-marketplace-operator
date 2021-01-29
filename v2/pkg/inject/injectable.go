@@ -15,6 +15,7 @@
 package inject
 
 import (
+	"github.com/pkg/errors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
@@ -70,25 +71,29 @@ type injectorDependencies struct {
 	Injectables
 }
 
+func ProvideNamespace(cfg *config.OperatorConfig) managers.DeployedNamespace {
+	return managers.DeployedNamespace(cfg.DeployedNamespace)
+}
+
+
 func ProvideInjector(
 	mgr ctrl.Manager,
-	deployed managers.DeployedNamespace,
 ) (*Injector, error) {
 	fields := &managers.ControllerFields{}
 	if err := mgr.SetFields(fields); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed set fields")
 	}
 
-	dependencies, err := initializeInjectDependencies(mgr.GetCache(), fields, deployed)
+	dependencies, err := initializeInjectDependencies(mgr.GetCache(), fields)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to init dependencies")
 	}
 
 	for _, runnable := range dependencies.Runnables {
 		err := mgr.Add(runnable)
 
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed add runnables")
 		}
 	}
 
@@ -103,7 +108,7 @@ type CommandRunner interface {
 }
 
 type OperatorConfig interface {
-	InjectOperatorConfig(config.OperatorConfig) error
+	InjectOperatorConfig(*config.OperatorConfig) error
 }
 
 type Patch interface {
@@ -111,7 +116,7 @@ type Patch interface {
 }
 
 type Factory interface {
-	InjectFactory(manifests.Factory) error
+	InjectFactory(*manifests.Factory) error
 }
 
 type ClientCommandInjector struct {
@@ -136,7 +141,7 @@ func (a *PatchInjector) SetCustomFields(i interface{}) error {
 }
 
 type OperatorConfigInjector struct {
-	Config config.OperatorConfig
+	Config *config.OperatorConfig
 }
 
 func (a *OperatorConfigInjector) SetCustomFields(i interface{}) error {
@@ -148,16 +153,15 @@ func (a *OperatorConfigInjector) SetCustomFields(i interface{}) error {
 
 type FactoryInjector struct {
 	Fields    *managers.ControllerFields
-	Config    config.OperatorConfig
+	Config    *config.OperatorConfig
 	Namespace managers.DeployedNamespace
 	Scheme    *runtime.Scheme
+	*manifests.Factory
 }
 
 func (a *FactoryInjector) SetCustomFields(i interface{}) error {
 	if ii, ok := i.(Factory); ok {
-		f := manifests.NewFactory(string(a.Namespace), manifests.NewOperatorConfig(a.Config), &a.Config, a.Scheme)
-
-		return ii.InjectFactory(*f)
+		return ii.InjectFactory(a.Factory)
 	}
 	return nil
 }
