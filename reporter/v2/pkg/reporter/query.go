@@ -23,6 +23,7 @@ import (
 	"text/template"
 
 	"emperror.dev/errors"
+	sprig "github.com/Masterminds/sprig/v3"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
@@ -40,6 +41,8 @@ type PromQueryArgs struct {
 	AggregateFunc string
 	GroupBy       []string
 	Without       []string
+
+	defaultGroupBy []string
 }
 
 type PromQuery struct {
@@ -76,11 +79,11 @@ func (q *PromQuery) makeLeftSide() string {
 }
 
 func (q *PromQuery) defaulter() {
-	q.defaultWithout()
-	q.defaultGroupBy()
+	q.setDefaultWithout()
+	q.setDefaultGroupBy()
 }
 
-func (q *PromQuery) defaultWithout() {
+func (q *PromQuery) setDefaultWithout() {
 	// we want to make sure
 	switch q.Type {
 	case v1beta1.WorkloadTypePVC:
@@ -94,41 +97,39 @@ func (q *PromQuery) defaultWithout() {
 	}
 }
 
-func (q *PromQuery) defaultGroupBy() {
-	if len(q.GroupBy) != 0 {
-		return
-	}
-
+func (q *PromQuery) setDefaultGroupBy() {
 	switch q.Type {
 	case v1beta1.WorkloadTypePVC:
-		q.GroupBy = []string{"persistentvolumeclaim", "namespace"}
+		q.defaultGroupBy = []string{"persistentvolumeclaim", "namespace"}
 	case v1beta1.WorkloadTypePod:
-		q.GroupBy = []string{"pod", "namespace"}
+		q.defaultGroupBy = []string{"pod", "namespace"}
 	case v1beta1.WorkloadTypeService:
-		q.GroupBy = []string{"service", "namespace"}
+		q.defaultGroupBy = []string{"service", "namespace"}
 	default:
 		panic(q.typeNotSupportedError())
 	}
 }
 
 const resultQueryTemplateStr = `
-{{- .AggregateFunc }} by ({{ .GroupBy }}) ({{ .LeftSide }} * on({{ .GroupBy }}) group_right {{ .Query }}) * on({{ .GroupBy }}) group_right group without({{ .Without }}) ({{ .Query }})`
+{{- .AggregateFunc }} by ({{ concat .DefaultGroupBy .GroupBy | join "," }}) ({{ .LeftSide }} * on({{ .DefaultGroupBy | join "," }}) group_right {{ .Query }}) * on({{ .DefaultGroupBy | join "," }}) group_right group without({{ .Without | join "," }}) ({{ .Query }})`
 
 var resultQueryTemplate *template.Template = utils.Must(func() (interface{}, error) {
-	return template.New("resultQuery").Parse(resultQueryTemplateStr)
+	return template.New("resultQuery").Funcs(sprig.GenericFuncMap()).Parse(resultQueryTemplateStr)
 }).(*template.Template)
 
 type ResultQueryArgs struct {
-	AggregateFunc, GroupBy, LeftSide, Without, Query string
+	Query, AggregateFunc, LeftSide string
+	GroupBy, Without, DefaultGroupBy []string
 }
 
 func (q *PromQuery) GetQueryArgs() ResultQueryArgs {
 	return ResultQueryArgs{
-		Query:         q.Query,
-		AggregateFunc: q.AggregateFunc,
-		GroupBy:       strings.Join(q.GroupBy, ","),
-		LeftSide:      q.makeLeftSide(),
-		Without:       strings.Join(q.Without, ","),
+		Query:          q.Query,
+		AggregateFunc:  q.AggregateFunc,
+		GroupBy:        q.GroupBy,
+		LeftSide:       q.makeLeftSide(),
+		Without:        q.Without,
+		DefaultGroupBy: q.defaultGroupBy,
 	}
 }
 
@@ -200,7 +201,7 @@ type MeterDefinitionQuery struct {
 const meterDefinitionQueryStr = `max_over_time(((meterdef_metric_label_info{} + ignoring(container, endpoint, instance, job, meter_definition_uid, pod, service) meterdef_metric_label_info{}) or on() vector(0))[{{ .Step }}:{{ .Step }}])`
 
 var meterDefinitionQueryTemplate *template.Template = utils.Must(func() (interface{}, error) {
-	return template.New("meterDefinitionQuery").Parse(meterDefinitionQueryStr)
+	return template.New("meterDefinitionQuery").Funcs(sprig.GenericFuncMap()).Parse(meterDefinitionQueryStr)
 }).(*template.Template)
 
 func (q *MeterDefinitionQuery) Print() (string, error) {
