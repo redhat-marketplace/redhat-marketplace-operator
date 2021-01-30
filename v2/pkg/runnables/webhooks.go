@@ -27,6 +27,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	typedapiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -172,6 +173,7 @@ type CRDToUpdate struct {
 	sync.Mutex
 }
 
+const operatorDeployment = "redhat-marketplace-controller-manager"
 const configMapName = "serving-certs-ca-bundle"
 const secretName = "redhat-marketplace-controller-manager-service-cert"
 const serviceName = "redhat-marketplace-controller-manager-service"
@@ -185,7 +187,65 @@ func (a *CRDUpdater) ensureConfigmapExists(
 	cfg.WarningHandler = rest.NoWarnings{}
 	extendedClient, _ := typedapiextensionsv1beta1.NewForConfig(cfg)
 
+	workComplete := false
+
 	work := func() {
+
+		// update service ownerrefs for < 4.5
+		deployment := &appsv1.Deployment{}
+		managerService := &corev1.Service{}
+		meteringService := &corev1.Service{}
+
+		result, _ := a.CC.Exec(ctx,
+			reconcileutils.HandleResult(
+				reconcileutils.Do(
+					reconcileutils.GetAction(types.NamespacedName{
+						Name:      serviceName,
+						Namespace: a.Config.DeployedNamespace,
+					}, managerService),
+					reconcileutils.GetAction(types.NamespacedName{
+						Name:      meteringServiceName,
+						Namespace: a.Config.DeployedNamespace,
+					}, meteringService),
+					reconcileutils.GetAction(types.NamespacedName{
+						Name:      operatorDeployment,
+						Namespace: a.Config.DeployedNamespace,
+					}, deployment),
+				),
+				reconcileutils.OnContinue(reconcileutils.Call(func() (reconcileutils.ClientAction, error) {
+					actions := []reconcileutils.ClientAction{}
+
+					if len(meteringService.OwnerReferences) == 0 {
+						meteringService.OwnerReferences = deployment.OwnerReferences
+						actions = append(actions,
+							reconcileutils.HandleResult(
+								reconcileutils.UpdateAction(meteringService),
+								reconcileutils.OnRequeue(reconcileutils.ContinueResponse())))
+					}
+
+					if len(managerService.OwnerReferences) == 0 {
+						managerService.OwnerReferences = deployment.OwnerReferences
+						actions = append(actions,
+							reconcileutils.HandleResult(
+								reconcileutils.UpdateAction(managerService),
+								reconcileutils.OnRequeue(reconcileutils.ContinueResponse())))
+					}
+
+					if len(actions) != 0 {
+						return reconcileutils.Do(actions...), nil
+					}
+
+					return nil, nil
+				})),
+			),
+		)
+
+		if result.Is(reconcileutils.Error) {
+			a.Logger.Error(result.Err, "failed to update service")
+		}
+
+		// create cm for ca cert
+		//
 		configmap := &corev1.ConfigMap{}
 		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			_, err := a.CC.Exec(ctx, manifests.CreateIfNotExistsFactoryItem(
@@ -203,8 +263,7 @@ func (a *CRDUpdater) ensureConfigmapExists(
 
 		cm := &corev1.ConfigMap{}
 		secret := &corev1.Secret{}
-		managerService := &corev1.Service{}
-		result, _ := a.CC.Exec(ctx,
+		result, _ = a.CC.Exec(ctx,
 			reconcileutils.Do(
 				reconcileutils.GetAction(types.NamespacedName{
 					Name:      serviceName,
@@ -218,6 +277,7 @@ func (a *CRDUpdater) ensureConfigmapExists(
 			a.caInfo.UpdatePort(port)
 		}
 
+		// get secret for ca
 		result, _ = a.CC.Exec(ctx, reconcileutils.Do(
 			reconcileutils.GetAction(types.NamespacedName{
 				Name:      secretName,
@@ -230,6 +290,7 @@ func (a *CRDUpdater) ensureConfigmapExists(
 			a.caInfo.UpdateSecret(secret)
 		}
 
+		// get cm for ca
 		result, _ = a.CC.Exec(ctx, reconcileutils.Do(
 			reconcileutils.GetAction(types.NamespacedName{
 				Name:      configMapName,
@@ -242,6 +303,7 @@ func (a *CRDUpdater) ensureConfigmapExists(
 			a.caInfo.UpdateConfigMap(cm)
 		}
 
+		// update if necessary
 		caInfo, ok := a.caInfo.GetCA()
 		port := a.caInfo.GetPort()
 
@@ -284,6 +346,8 @@ func (a *CRDUpdater) ensureConfigmapExists(
 					return nil
 				}
 
+				workComplete = true
+
 				crd.Spec.Conversion.WebhookClientConfig.CABundle = caInfo
 				crd.Spec.Conversion.WebhookClientConfig.Service.Port = port
 				_, err = extendedClient.CustomResourceDefinitions().Update(ctx, crd, metav1.UpdateOptions{})
@@ -298,13 +362,22 @@ func (a *CRDUpdater) ensureConfigmapExists(
 		}
 	}
 
-	time.Sleep(time.Second * 10)
+	// start with a 30 second ticker then drop down to 1 hour once it was successful
+	time.Sleep(30 * time.Second)
+	ticker := time.NewTicker(30 * time.Second)
+	tickerSetToHour := false
 
-	ticker := time.NewTicker(time.Hour)
 	defer ticker.Stop()
 	for {
 		a.Logger.Info("starting work")
 		work()
+
+		if workComplete && !tickerSetToHour {
+			a.Logger.Info("work complete setting to an hour requeue")
+			ticker.Stop()
+			ticker = time.NewTicker(1 * time.Hour)
+			tickerSetToHour = true
+		}
 
 		select {
 		case <-ctx.Done():

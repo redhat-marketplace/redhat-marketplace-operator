@@ -87,6 +87,16 @@ var _ = Describe("Marketplace Config Status", func() {
 		})
 	})
 
+	Context("token", func() {
+		It("should have env var", func() {
+			Skip("can't keep test due to secret")
+			token := ``
+			rhmAccount, err := GetAccountIdFromJWTToken(token)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(rhmAccount).To(Equal("5e2f551de3957e0013215b2d"))
+		})
+	})
+
 	Context("Cluster Registration Status is INSTALLED", func() {
 		BeforeEach(func() {
 			statusCode = 200
