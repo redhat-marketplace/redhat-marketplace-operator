@@ -15,6 +15,8 @@
 package config
 
 import (
+	"io/ioutil"
+	"os"
 	"sync"
 	"time"
 
@@ -22,6 +24,7 @@ import (
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"k8s.io/client-go/discovery"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/yaml"
 )
 
 var global *OperatorConfig
@@ -32,8 +35,8 @@ var log = logf.Log.WithName("operator_config")
 type OperatorConfig struct {
 	DeployedNamespace string `env:"POD_NAMESPACE"`
 	ReportController  ReportControllerConfig
-	RelatedImages
-	ResourcesLimits
+	RelatedImages     `json:"relatedImages,omitempty"`
+	ResourcesLimits   `json:"resourceLimits,omitempty"`
 	Features
 	Marketplace
 	*Infrastructure
@@ -42,31 +45,31 @@ type OperatorConfig struct {
 
 // RelatedImages stores relatedimages for the operator
 type RelatedImages struct {
-	Reporter                    string `env:"RELATED_IMAGE_REPORTER" envDefault:"reporter:latest"`
-	KubeRbacProxy               string `env:"RELATED_IMAGE_KUBE_RBAC_PROXY" envDefault:"registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5"`
-	MetricState                 string `env:"RELATED_IMAGE_METRIC_STATE" envDefault:"metric-state:latest"`
-	AuthChecker                 string `env:"RELATED_IMAGE_AUTHCHECK" envDefault:"authcheck:latest"`
-	Prometheus                  string `env:"RELATED_IMAGE_PROMETHEUS" envDefault:"registry.redhat.io/openshift4/ose-prometheus:latest"`
-	PrometheusOperator          string `env:"RELATED_IMAGE_PROMETHEUS_OPERATOR" envDefault:"registry.redhat.io/openshift4/ose-prometheus-operator:latest"`
-	ConfigMapReloader           string `env:"RELATED_IMAGE_CONFIGMAP_RELOADER" envDefault:"registry.redhat.io/openshift4/ose-configmap-reloader:latest"`
-	PrometheusConfigMapReloader string `env:"RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER" envDefault:"registry.redhat.io/openshift4/ose-prometheus-config-reloader:latest"`
-	OAuthProxy                  string `env:"RELATED_IMAGE_OAUTH_PROXY" envDefault:"registry.redhat.io/openshift4/ose-oauth-proxy:latest"`
-	RemoteResourceS3            string `env:"RELATED_IMAGE_RHM_RRS3_DEPLOYMENT" envDefault:"quay.io/razee/remoteresources3:0.6.2"`
-	WatchKeeper                 string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"quay.io/razee/watch-keeper:0.6.6"`
+	Reporter                    string `env:"RELATED_IMAGE_REPORTER" envDefault:"reporter:latest" json:"reporter,omitempty"`
+	KubeRbacProxy               string `env:"RELATED_IMAGE_KUBE_RBAC_PROXY" envDefault:"registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5" json:"kubeRbacProxy,omitempty"`
+	MetricState                 string `env:"RELATED_IMAGE_METRIC_STATE" envDefault:"metric-state:latest" json:"metricState,omitempty"`
+	AuthChecker                 string `env:"RELATED_IMAGE_AUTHCHECK" envDefault:"authcheck:latest" json:"authChecker,omitempty"`
+	Prometheus                  string `env:"RELATED_IMAGE_PROMETHEUS" envDefault:"registry.redhat.io/openshift4/ose-prometheus:latest" json:"prometheus,omitempty"`
+	PrometheusOperator          string `env:"RELATED_IMAGE_PROMETHEUS_OPERATOR" envDefault:"registry.redhat.io/openshift4/ose-prometheus-operator:latest" json:"prometheusOperator,omitempty"`
+	ConfigMapReloader           string `env:"RELATED_IMAGE_CONFIGMAP_RELOADER" envDefault:"registry.redhat.io/openshift4/ose-configmap-reloader:latest" json:"configMapReloader,omitempty"`
+	PrometheusConfigMapReloader string `env:"RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER" envDefault:"registry.redhat.io/openshift4/ose-prometheus-config-reloader:latest" json:"prometheusConfigMapReloader,omitempty"`
+	OAuthProxy                  string `env:"RELATED_IMAGE_OAUTH_PROXY" envDefault:"registry.redhat.io/openshift4/ose-oauth-proxy:latest" json:"oAuthProxy,omitempty"`
+	RemoteResourceS3            string `env:"RELATED_IMAGE_RHM_RRS3_DEPLOYMENT" envDefault:"quay.io/razee/remoteresources3:0.6.2" json:"remoteResourcesS3,omitempty"`
+	WatchKeeper                 string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"quay.io/razee/watch-keeper:0.6.6" json:"watchKeeper,omitempty"`
 }
 
 // ResourcesLimits stores resources.limits overrides for operand containers
 type ResourcesLimits struct {
-	AuthcheckCPU                        string `env:"RESOURCE_LIMIT_CPU_AUTHCHECK" envDefault:"20m"`
-	AuthcheckMemory                     string `env:"RESOURCE_LIMIT_MEMORY_AUTHCHECK" envDefault:"40Mi"`
-	PrometheusConfigReloaderCPU         string `env:"RESOURCE_LIMIT_CPU_PROMETHEUS_CONFIG_RELOADER" envDefault:"100m"`
-	PrometheusConfigReloaderMemory      string `env:"RESOURCE_LIMIT_MEMORY_PROMETHEUS_CONFIG_RELOADER" envDefault:"25Mi"`
-	RulesConfigMapReloaderCPU           string `env:"RESOURCE_LIMIT_CPU_RULES_CONFIGMAP_RELOADER" envDefault:"100m"`
-	RulesConfigMapReloaderMemory        string `env:"RESOURCE_LIMIT_MEMORY_RULES_CONFIGMAP_RELOADER" envDefault:"25Mi"`
-	RHMRemoteResources3ControllerCPU    string `env:"RESOURCE_LIMIT_CPU_RHM_REMOTE_RESOURCES3_CONTROLLER" envDefault:"100m"`
-	RHMRemoteResources3ControllerMemory string `env:"RESOURCE_LIMIT_MEMORY_RHM_REMOTE_RESOURCES3_CONTROLLER" envDefault:"200Mi"`
-	WatchKeeperCPU                      string `env:"RESOURCE_LIMIT_CPU_WATCH_KEEPER" envDefault:"400m"`
-	WatchKeeperMemory                   string `env:"RESOURCE_LIMIT_MEMORY_WATCH_KEEPER" envDefault:"500Mi"`
+	AuthcheckCPU                        string `env:"RESOURCE_LIMIT_CPU_AUTHCHECK" envDefault:"20m" json:"authcheckCPU,omitempty"`
+	AuthcheckMemory                     string `env:"RESOURCE_LIMIT_MEMORY_AUTHCHECK" envDefault:"40Mi" json:"authcheckMemory,omitempty"`
+	PrometheusConfigReloaderCPU         string `env:"RESOURCE_LIMIT_CPU_PROMETHEUS_CONFIG_RELOADER" envDefault:"100m" json:"prometheusConfigReloaderCPU,omitempty"`
+	PrometheusConfigReloaderMemory      string `env:"RESOURCE_LIMIT_MEMORY_PROMETHEUS_CONFIG_RELOADER" envDefault:"25Mi" json:"prometheusConfigReloaderMemory,omitempty"`
+	RulesConfigMapReloaderCPU           string `env:"RESOURCE_LIMIT_CPU_RULES_CONFIGMAP_RELOADER" envDefault:"100m" json:"rulesConfigMapReloaderCPU,omitempty"`
+	RulesConfigMapReloaderMemory        string `env:"RESOURCE_LIMIT_MEMORY_RULES_CONFIGMAP_RELOADER" envDefault:"25Mi" json:"rulesConfigMapReloaderMemory,omitempty"`
+	RHMRemoteResources3ControllerCPU    string `env:"RESOURCE_LIMIT_CPU_RHM_REMOTE_RESOURCES3_CONTROLLER" envDefault:"100m" json:"rhmRemoteResources3ControllerCPU,omitempty"`
+	RHMRemoteResources3ControllerMemory string `env:"RESOURCE_LIMIT_MEMORY_RHM_REMOTE_RESOURCES3_CONTROLLER" envDefault:"200Mi" json:"rhmRemoteResources3ControllerMemory,omitempty"`
+	WatchKeeperCPU                      string `env:"RESOURCE_LIMIT_CPU_WATCH_KEEPER" envDefault:"400m" json:"watchKeeperCPU,omitempty"`
+	WatchKeeperMemory                   string `env:"RESOURCE_LIMIT_MEMORY_WATCH_KEEPER" envDefault:"500Mi" json:"watchKeeperMemory,omitempty"`
 }
 
 // Features store feature flags
@@ -111,6 +114,12 @@ func ProvideConfig() (OperatorConfig, error) {
 			return cfg, err
 		}
 
+		// If the ConfigMap is mounted, use values with priority over the envVar
+		err = GetConfigFromConfigMap(&cfg)
+		if err != nil {
+			return cfg, err
+		}
+
 		cfg.Infrastructure = &Infrastructure{}
 		global = &cfg
 	}
@@ -137,7 +146,36 @@ func ProvideInfrastructureAwareConfig(
 		return cfg, err
 	}
 
+	// If the ConfigMap is mounted, use values with priority over the envVar
+	err = GetConfigFromConfigMap(&cfg)
+	if err != nil {
+		return cfg, err
+	}
+
 	return cfg, nil
 }
 
 var GetConfig = ProvideConfig
+
+// Get the Resource Limits from an optionally mounted ConfigMap
+func GetConfigFromConfigMap(cfg *OperatorConfig) error {
+	filename := "/config/config.yaml"
+
+	// Ignore if not mounted
+	_, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return nil
+	}
+
+	file, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+
+	err = yaml.Unmarshal(file, cfg)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

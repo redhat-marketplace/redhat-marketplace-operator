@@ -54,5 +54,14 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.labels['olm.owner.kind']
+          volumeMounts:
+          - name: redhat-marketplace-controller-manager-config
+            mountPath: "/config"
+            readOnly: true
       terminationGracePeriodSeconds: 10
       serviceAccountName: operator
+      volumes:
+      - name: redhat-marketplace-controller-manager-config
+        configMap:
+          name: redhat-marketplace-controller-manager-config
+          optional: true
