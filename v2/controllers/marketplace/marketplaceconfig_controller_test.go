@@ -88,7 +88,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 					Scheme: s,
 					Log:    log,
 					cc:     reconcileutils.NewLoglessClientCommand(r.Client, s),
-					cfg: config.OperatorConfig{
+					cfg: &config.OperatorConfig{
 						DeployedNamespace: namespace,
 					},
 				}

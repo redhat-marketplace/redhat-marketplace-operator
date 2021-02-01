@@ -38,9 +38,7 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	controllers "github.com/redhat-marketplace/redhat-marketplace-operator/v2/controllers/marketplace"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -108,13 +106,7 @@ func main() {
 		server.Port = WebhookPort
 	}
 
-	cfg, err := config.GetConfig()
-	if err != nil {
-		setupLog.Error(err, "unable to get config")
-		os.Exit(1)
-	}
-
-	injector, err := inject.ProvideInjector(mgr, managers.DeployedNamespace(cfg.DeployedNamespace))
+	injector, err := inject.ProvideInjector(mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to inject manager")
 		os.Exit(1)

@@ -56,8 +56,8 @@ type MeterReportReconciler struct {
 
 	CC      ClientCommandRunner
 	patcher patch.Patcher
-	cfg     config.OperatorConfig
-	factory manifests.Factory
+	cfg     *config.OperatorConfig
+	factory *manifests.Factory
 }
 
 func (r *MeterReportReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
@@ -76,12 +76,12 @@ func (r *MeterReportReconciler) InjectPatch(p patch.Patcher) error {
 	return nil
 }
 
-func (r *MeterReportReconciler) InjectFactory(f manifests.Factory) error {
+func (r *MeterReportReconciler) InjectFactory(f *manifests.Factory) error {
 	r.factory = f
 	return nil
 }
 
-func (m *MeterReportReconciler) InjectOperatorConfig(cfg config.OperatorConfig) error {
+func (m *MeterReportReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
 	return nil
 }

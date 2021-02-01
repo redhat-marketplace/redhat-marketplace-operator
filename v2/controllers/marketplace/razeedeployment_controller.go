@@ -94,13 +94,13 @@ func (r *RazeeDeploymentReconciler) InjectPatch(p patch.Patcher) error {
 	return nil
 }
 
-func (r *RazeeDeploymentReconciler) InjectFactory(f manifests.Factory) error {
-	r.factory = &f
+func (r *RazeeDeploymentReconciler) InjectFactory(f *manifests.Factory) error {
+	r.factory = f
 	return nil
 }
 
-func (r *RazeeDeploymentReconciler) InjectOperatorConfig(cfg config.OperatorConfig) error {
-	r.cfg = &cfg
+func (r *RazeeDeploymentReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
+	r.cfg = cfg
 	return nil
 }
 

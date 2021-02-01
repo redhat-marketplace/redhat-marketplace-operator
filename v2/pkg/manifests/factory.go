@@ -78,9 +78,13 @@ type Factory struct {
 	scheme         *runtime.Scheme
 }
 
-func NewFactory(namespace string, c *Config, oc *config.OperatorConfig, s *runtime.Scheme) *Factory {
+func NewFactory(
+	oc *config.OperatorConfig,
+	s *runtime.Scheme,
+) *Factory {
+	c := NewOperatorConfig(oc)
 	return &Factory{
-		namespace:      namespace,
+		namespace:      oc.DeployedNamespace,
 		operatorConfig: oc,
 		config:         c,
 		scheme:         s,
@@ -751,12 +755,12 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 
 type Owner metav1.Object
 
-func (f *Factory) SetOwnerReference(obj metav1.Object, owner Owner) {
-	controllerutil.SetOwnerReference(owner, obj, f.scheme)
+func (f *Factory) SetOwnerReference(obj metav1.Object, owner Owner) error {
+	return controllerutil.SetOwnerReference(owner, obj, f.scheme)
 }
 
-func (f *Factory) SetControllerReference(obj metav1.Object, owner Owner) {
-	controllerutil.SetControllerReference(obj, owner, f.scheme)
+func (f *Factory) SetControllerReference(obj metav1.Object, owner Owner) error {
+	return controllerutil.SetControllerReference(obj, owner, f.scheme)
 }
 
 func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.RazeeDeployment) *appsv1.Deployment {
