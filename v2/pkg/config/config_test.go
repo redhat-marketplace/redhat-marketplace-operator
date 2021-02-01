@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -64,6 +65,25 @@ var _ = Describe("Config", func() {
 			Expect(cfg).ToNot(BeNil())
 			Expect(cfg.Features.IBMCatalog).To(BeFalse())
 			Expect(cfg.RelatedImages.MetricState).To(Equal("foo"))
+		})
+	})
+
+	Context("with operator configmap", func() {
+		BeforeEach(func() {
+			os.Setenv("OPERATOR_CONFIGMAP", filepath.Join("..", "..", "tests", "operatorconfig", "operator_config.yaml"))
+			reset()
+		})
+
+		AfterEach(func() {
+			os.Unsetenv("OPERATOR_CONFIGMAP")
+		})
+
+		It("should set AuthcheckCPU", func() {
+			cfg, err := ProvideConfig()
+
+			Expect(err).To(Succeed())
+			Expect(cfg).ToNot(BeNil())
+			Expect(cfg.ResourcesLimits.AuthcheckCPU).To(Equal("100m"))
 		})
 	})
 

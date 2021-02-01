@@ -30,15 +30,16 @@ import (
 var global *OperatorConfig
 var globalMutex = sync.RWMutex{}
 var log = logf.Log.WithName("operator_config")
+var defaultOperatorConfigFile = "/config/config.yaml"
 
 // OperatorConfig is the configuration for the operator
 type OperatorConfig struct {
-	DeployedNamespace string `env:"POD_NAMESPACE"`
-	ReportController  ReportControllerConfig
+	DeployedNamespace string                 `env:"POD_NAMESPACE"`
+	ReportController  ReportControllerConfig `json:"reportController,omitempty"`
 	RelatedImages     `json:"relatedImages,omitempty"`
 	ResourcesLimits   `json:"resourceLimits,omitempty"`
 	Features
-	Marketplace
+	Marketplace `json:"marketplace,omitempty"`
 	*Infrastructure
 	OLMInformation
 }
@@ -79,14 +80,14 @@ type Features struct {
 
 // Marketplace configuration
 type Marketplace struct {
-	URL            string `env:"MARKETPLACE_URL" envDefault:"https://marketplace.redhat.com"`
-	InsecureClient bool   `env:"MARKETPLACE_HTTP_INSECURE_MODE" envDefault:"false"`
+	URL            string `env:"MARKETPLACE_URL" envDefault:"https://marketplace.redhat.com" json:"url,omitempty"`
+	InsecureClient bool   `env:"MARKETPLACE_HTTP_INSECURE_MODE" envDefault:"false" json:"insecureClient,omitempty"`
 }
 
 // ReportConfig stores some changeable information for creating a report
 type ReportControllerConfig struct {
-	RetryTime  time.Duration `env:"REPORT_RETRY_TIME_DURATION" envDefault:"6h"`
-	RetryLimit *int32        `env:"REPORT_RETRY_LIMIT"`
+	RetryTime  time.Duration `env:"REPORT_RETRY_TIME_DURATION" envDefault:"6h" json:"retryTime,omitempty"`
+	RetryLimit *int32        `env:"REPORT_RETRY_LIMIT" json:"retryLimit,omitempty"`
 }
 
 type OLMInformation struct {
@@ -115,7 +116,13 @@ func ProvideConfig() (OperatorConfig, error) {
 		}
 
 		// If the ConfigMap is mounted, use values with priority over the envVar
-		err = GetConfigFromConfigMap(&cfg)
+		filename := defaultOperatorConfigFile
+		ocm, ok := os.LookupEnv("OPERATOR_CONFIGMAP")
+		if ok {
+			filename = ocm
+		}
+
+		err = GetConfigFromConfigMap(&cfg, filename)
 		if err != nil {
 			return cfg, err
 		}
@@ -147,7 +154,13 @@ func ProvideInfrastructureAwareConfig(
 	}
 
 	// If the ConfigMap is mounted, use values with priority over the envVar
-	err = GetConfigFromConfigMap(&cfg)
+	filename := defaultOperatorConfigFile
+	ocm, ok := os.LookupEnv("OPERATOR_CONFIGMAP")
+	if ok {
+		filename = ocm
+	}
+
+	err = GetConfigFromConfigMap(&cfg, filename)
 	if err != nil {
 		return cfg, err
 	}
@@ -158,9 +171,7 @@ func ProvideInfrastructureAwareConfig(
 var GetConfig = ProvideConfig
 
 // Get the Resource Limits from an optionally mounted ConfigMap
-func GetConfigFromConfigMap(cfg *OperatorConfig) error {
-	filename := "/config/config.yaml"
-
+func GetConfigFromConfigMap(cfg *OperatorConfig, filename string) error {
 	// Ignore if not mounted
 	_, err := os.Stat(filename)
 	if os.IsNotExist(err) {

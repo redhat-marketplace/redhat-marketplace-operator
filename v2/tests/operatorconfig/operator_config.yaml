@@ -1,0 +1,3 @@
+resourceLimits:
+  authcheckCPU: 100m
+
