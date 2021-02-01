@@ -59,26 +59,27 @@ type CRDUpdater struct {
 
 type CAInformation struct {
 	sync.Mutex
+	logr.Logger
 	configMap *corev1.ConfigMap
 	secret    *corev1.Secret
 	port      *int32
 }
 
-func (c *CAInformation) UpdateSecret(s *corev1.Secret) {
+func (c *CAInformation) updateSecret(s *corev1.Secret) {
 	c.Lock()
 	defer c.Unlock()
 
 	c.secret = s
 }
 
-func (c *CAInformation) UpdateConfigMap(cm *corev1.ConfigMap) {
+func (c *CAInformation) updateConfigMap(cm *corev1.ConfigMap) {
 	c.Lock()
 	defer c.Unlock()
 
 	c.configMap = cm
 }
 
-func (c *CAInformation) UpdatePort(port int32) {
+func (c *CAInformation) updatePort(port int32) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -117,6 +118,56 @@ func (c *CAInformation) GetCA() ([]byte, bool) {
 	return []byte{}, false
 }
 
+func (c *CAInformation) Load(ctx context.Context, a *CRDUpdater) error {
+	c.Logger.Info("loading ca info")
+	cm := &corev1.ConfigMap{}
+	secret := &corev1.Secret{}
+	managerService := &corev1.Service{}
+
+	result, _ := a.CC.Exec(ctx,
+		reconcileutils.Do(
+			reconcileutils.GetAction(types.NamespacedName{
+				Name:      serviceName,
+				Namespace: a.Config.DeployedNamespace,
+			}, managerService),
+		))
+
+	if result.Is(reconcileutils.Continue) {
+		if len(managerService.Spec.Ports) != 0 {
+			a.Logger.Info("setting port")
+			port := managerService.Spec.Ports[0].TargetPort.IntVal
+			c.updatePort(port)
+		}
+	}
+
+	result, _ = a.CC.Exec(ctx, reconcileutils.Do(
+		reconcileutils.GetAction(types.NamespacedName{
+			Name:      secretName,
+			Namespace: a.Config.DeployedNamespace,
+		}, secret),
+	))
+
+	if result.Is(reconcileutils.Continue) {
+		c.Logger.Info("setting secret")
+		c.updateSecret(secret)
+	}
+
+	// get cm for ca
+	result, _ = a.CC.Exec(ctx, reconcileutils.Do(
+		reconcileutils.GetAction(types.NamespacedName{
+			Name:      configMapName,
+			Namespace: a.Config.DeployedNamespace,
+		}, cm),
+	))
+
+	if result.Is(reconcileutils.Continue) {
+		c.Logger.Info("setting configmap")
+		c.updateConfigMap(cm)
+	}
+
+	return nil
+}
+
 func (a *CRDUpdater) NeedLeaderElection() bool {
 	return true
 }
@@ -131,7 +182,9 @@ func (a *CRDUpdater) Start(stop <-chan struct{}) error {
 	defer cancel()
 
 	if a.caInfo == nil {
-		a.caInfo = &CAInformation{}
+		a.caInfo = &CAInformation{
+			Logger: a.Logger.WithValues("struct", "CAInformation"),
+		}
 	}
 
 	a.Logger = a.Logger.WithValues("function", "crdUpdater")
@@ -179,137 +232,123 @@ const secretName = "redhat-marketplace-controller-manager-service-cert"
 const serviceName = "redhat-marketplace-controller-manager-service"
 const meteringServiceName = "redhat-marketplace-controller-manager-metrics-service"
 
-func (a *CRDUpdater) ensureConfigmapExists(
+func (a *CRDUpdater) reviewAndUpdateOwnerReferences(
 	ctx context.Context,
-	crds *CRDToUpdate,
-) {
-	cfg := a.Rest
-	cfg.WarningHandler = rest.NoWarnings{}
-	extendedClient, _ := typedapiextensionsv1beta1.NewForConfig(cfg)
+) error {
+	deployment := &appsv1.Deployment{}
+	meteringService := &corev1.Service{}
+	managerService := &corev1.Service{}
 
-	workComplete := false
+	a.Logger.Info("reviewing owner references")
 
-	work := func() {
-
-		// update service ownerrefs for < 4.5
-		deployment := &appsv1.Deployment{}
-		managerService := &corev1.Service{}
-		meteringService := &corev1.Service{}
-
-		result, _ := a.CC.Exec(ctx,
-			reconcileutils.HandleResult(
-				reconcileutils.Do(
-					reconcileutils.GetAction(types.NamespacedName{
-						Name:      serviceName,
-						Namespace: a.Config.DeployedNamespace,
-					}, managerService),
-					reconcileutils.GetAction(types.NamespacedName{
-						Name:      meteringServiceName,
-						Namespace: a.Config.DeployedNamespace,
-					}, meteringService),
-					reconcileutils.GetAction(types.NamespacedName{
-						Name:      operatorDeployment,
-						Namespace: a.Config.DeployedNamespace,
-					}, deployment),
-				),
-				reconcileutils.OnContinue(reconcileutils.Call(func() (reconcileutils.ClientAction, error) {
-					actions := []reconcileutils.ClientAction{}
-
-					if len(meteringService.OwnerReferences) == 0 {
-						meteringService.OwnerReferences = deployment.OwnerReferences
-						actions = append(actions,
-							reconcileutils.HandleResult(
-								reconcileutils.UpdateAction(meteringService),
-								reconcileutils.OnRequeue(reconcileutils.ContinueResponse())))
-					}
-
-					if len(managerService.OwnerReferences) == 0 {
-						managerService.OwnerReferences = deployment.OwnerReferences
-						actions = append(actions,
-							reconcileutils.HandleResult(
-								reconcileutils.UpdateAction(managerService),
-								reconcileutils.OnRequeue(reconcileutils.ContinueResponse())))
-					}
-
-					if len(actions) != 0 {
-						return reconcileutils.Do(actions...), nil
-					}
-
-					return nil, nil
-				})),
-			),
-		)
-
-		if result.Is(reconcileutils.Error) {
-			a.Logger.Error(result.Err, "failed to update service")
-		}
-
-		// create cm for ca cert
-		//
-		configmap := &corev1.ConfigMap{}
-		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			_, err := a.CC.Exec(ctx, manifests.CreateIfNotExistsFactoryItem(
-				configmap,
-				func() (runtime.Object, error) {
-					return a.Factory.PrometheusServingCertsCABundle()
-				},
-			))
-			return err
-		})
-
-		if err != nil {
-			a.Logger.Error(err, "failed to create configmap")
-		}
-
-		cm := &corev1.ConfigMap{}
-		secret := &corev1.Secret{}
-		result, _ = a.CC.Exec(ctx,
+	result, _ := a.CC.Exec(ctx,
+		reconcileutils.HandleResult(
 			reconcileutils.Do(
 				reconcileutils.GetAction(types.NamespacedName{
 					Name:      serviceName,
 					Namespace: a.Config.DeployedNamespace,
 				}, managerService),
-			))
+				reconcileutils.GetAction(types.NamespacedName{
+					Name:      meteringServiceName,
+					Namespace: a.Config.DeployedNamespace,
+				}, meteringService),
+				reconcileutils.GetAction(types.NamespacedName{
+					Name:      operatorDeployment,
+					Namespace: a.Config.DeployedNamespace,
+				}, deployment),
+			),
+			reconcileutils.OnContinue(reconcileutils.Call(func() (reconcileutils.ClientAction, error) {
+				actions := []reconcileutils.ClientAction{}
 
-		if result.Is(reconcileutils.Continue) {
-			a.Logger.Info("setting port")
-			port := managerService.Spec.Ports[0].TargetPort.IntVal
-			a.caInfo.UpdatePort(port)
-		}
+				if len(meteringService.OwnerReferences) == 0 {
+					meteringService.OwnerReferences = deployment.OwnerReferences
+					actions = append(actions,
+						reconcileutils.HandleResult(
+							reconcileutils.UpdateAction(meteringService),
+							reconcileutils.OnRequeue(reconcileutils.ContinueResponse())))
+				}
 
-		// get secret for ca
-		result, _ = a.CC.Exec(ctx, reconcileutils.Do(
-			reconcileutils.GetAction(types.NamespacedName{
-				Name:      secretName,
-				Namespace: a.Config.DeployedNamespace,
-			}, secret),
+				if len(managerService.OwnerReferences) == 0 {
+					managerService.OwnerReferences = deployment.OwnerReferences
+					actions = append(actions,
+						reconcileutils.HandleResult(
+							reconcileutils.UpdateAction(managerService),
+							reconcileutils.OnRequeue(reconcileutils.ContinueResponse())))
+				}
+
+				if len(actions) != 0 {
+					return reconcileutils.Do(actions...), nil
+				}
+
+				return nil, nil
+			})),
+		),
+	)
+
+	if result.Is(reconcileutils.Error) {
+		a.Logger.Error(result.Err, "failed to update service")
+	}
+
+	a.Logger.Info("updated owner references")
+	return nil
+}
+
+func (a *CRDUpdater) createCMIfMissing(ctx context.Context) error {
+	configmap := &corev1.ConfigMap{}
+		result, err := a.CC.Exec(ctx, manifests.CreateIfNotExistsFactoryItem(
+			configmap,
+			func() (runtime.Object, error) {
+				return a.Factory.PrometheusServingCertsCABundle()
+			},
 		))
 
-		if result.Is(reconcileutils.Continue) {
-			a.Logger.Info("setting secret")
-			a.caInfo.UpdateSecret(secret)
+	if result.Is(Error) {
+		a.Logger.Error(err, "failed to create configmap")
+	}
+
+	return nil
+}
+
+func (a *CRDUpdater) ensureConfigmapExists(
+	ctx context.Context,
+	crds *CRDToUpdate,
+) error {
+	cfg := a.Rest
+	cfg.WarningHandler = rest.NoWarnings{}
+	extendedClient, err := typedapiextensionsv1beta1.NewForConfig(cfg)
+
+	if err != nil {
+		a.Logger.Error(err, "failed to get CRD client")
+		return err
+	}
+
+	workComplete := false
+
+	work := func() error {
+		// update service ownerrefs for < 4.5
+		err = a.reviewAndUpdateOwnerReferences(ctx)
+		if err != nil {
+			return err
 		}
 
-		// get cm for ca
-		result, _ = a.CC.Exec(ctx, reconcileutils.Do(
-			reconcileutils.GetAction(types.NamespacedName{
-				Name:      configMapName,
-				Namespace: a.Config.DeployedNamespace,
-			}, cm),
-		))
-
-		if result.Is(reconcileutils.Continue) {
-			a.Logger.Info("setting configmap")
-			a.caInfo.UpdateConfigMap(cm)
+		// create cm for ca cert
+		err = a.createCMIfMissing(ctx)
+		if err != nil {
+			return err
 		}
 
 		// update if necessary
+		err = a.caInfo.Load(ctx, a)
+		if err != nil {
+			return err
+		}
+
 		caInfo, ok := a.caInfo.GetCA()
 		port := a.caInfo.GetPort()
 
 		if !ok {
 			a.Logger.Info("caInfo isn't set")
-			return
+			return nil
 		}
 
 		for crdName := range crds.CRDs {
@@ -360,17 +399,23 @@ func (a *CRDUpdater) ensureConfigmapExists(
 				a.Logger.Info("updated crd", "name", crdName)
 			}
 		}
+
+		return nil
 	}
 
 	// start with a 30 second ticker then drop down to 1 hour once it was successful
-	time.Sleep(30 * time.Second)
 	ticker := time.NewTicker(30 * time.Second)
 	tickerSetToHour := false
-
 	defer ticker.Stop()
+
 	for {
 		a.Logger.Info("starting work")
-		work()
+		err := work()
+
+		if err != nil {
+			a.Logger.Error(err, "error doing work")
+			return err
+		}
 
 		if workComplete && !tickerSetToHour {
 			a.Logger.Info("work complete setting to an hour requeue")
@@ -381,7 +426,8 @@ func (a *CRDUpdater) ensureConfigmapExists(
 
 		select {
 		case <-ctx.Done():
-			return
+			a.Logger.Info("stopping")
+			return nil
 		case <-ticker.C:
 			continue
 		}
@@ -390,7 +436,12 @@ func (a *CRDUpdater) ensureConfigmapExists(
 
 func (a *CRDUpdater) Run(ctx context.Context, crds *CRDToUpdate) error {
 	a.Logger.Info("starting")
+	err := a.ensureConfigmapExists(ctx, crds)
 
-	a.ensureConfigmapExists(ctx, crds)
-	return nil
+	if err != nil {
+		a.Logger.Error(err, "error running")
+	}
+
+	a.Logger.Info("stopping")
+	return err
 }

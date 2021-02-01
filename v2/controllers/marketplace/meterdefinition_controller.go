@@ -23,10 +23,8 @@ import (
 	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
-	v1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -78,7 +76,7 @@ func (r *MeterDefinitionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Create a new controller
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta1.MeterDefinition{}).
-		Watches(&source.Kind{Type: &v1alpha1.MeterDefinition{}}, &handler.EnqueueRequestForObject{}).
+		Watches(&source.Kind{Type: &v1beta1.MeterDefinition{}}, &handler.EnqueueRequestForObject{}).
 		Complete(r)
 }
 
@@ -138,32 +136,6 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 
 	reqLogger.Info("finished reconciling")
 	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
-}
-
-func (r *MeterDefinitionReconciler) finalizeMeterDefinition(req *v1alpha1.MeterDefinition) (reconcile.Result, error) {
-	var err error
-
-	// TODO: add finalizers
-
-	req.SetFinalizers(utils.RemoveKey(req.GetFinalizers(), meterDefinitionFinalizer))
-	err = r.Client.Update(context.TODO(), req)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	return reconcile.Result{}, nil
-}
-
-// addFinalizer adds finalizers to the MeterDefinition CR
-func (r *MeterDefinitionReconciler) addFinalizer(instance *v1alpha1.MeterDefinition) error {
-	r.Log.Info("Adding Finalizer to %s/%s", instance.Name, instance.Namespace)
-	instance.SetFinalizers(append(instance.GetFinalizers(), meterDefinitionFinalizer))
-
-	err := r.Client.Update(context.TODO(), instance)
-	if err != nil {
-		r.Log.Error(err, "Failed to update RazeeDeployment with the Finalizer %s/%s", instance.Name, instance.Namespace)
-		return err
-	}
-	return nil
 }
 
 func labelsForServiceMonitor(name, namespace string) map[string]string {
