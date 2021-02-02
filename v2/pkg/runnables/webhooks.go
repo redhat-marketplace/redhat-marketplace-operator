@@ -19,6 +19,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"time"
 
@@ -104,6 +105,12 @@ func (c *CAInformation) GetCA() ([]byte, bool) {
 	if _, err := os.Stat(openshiftPath); !os.IsNotExist(err) {
 		if c.secret != nil {
 			olmCAKey, ok := c.secret.Data["olmCAKey"]
+
+			if !ok {
+				olmCAKey, ok = c.secret.Data["tls.crt"]
+				return olmCAKey, ok
+			}
+
 			return olmCAKey, ok
 		}
 
@@ -260,20 +267,43 @@ func (a *CRDUpdater) reviewAndUpdateOwnerReferences(
 			reconcileutils.OnContinue(reconcileutils.Call(func() (reconcileutils.ClientAction, error) {
 				actions := []reconcileutils.ClientAction{}
 
-				if len(meteringService.OwnerReferences) == 0 {
-					meteringService.OwnerReferences = deployment.OwnerReferences
-					actions = append(actions,
-						reconcileutils.HandleResult(
-							reconcileutils.UpdateAction(meteringService),
-							reconcileutils.OnRequeue(reconcileutils.ContinueResponse())))
-				}
+				if len(deployment.OwnerReferences) != 0 {
+					ref2 := deployment.OwnerReferences[0]
+					found := func() bool {
+						for _, ref := range meteringService.OwnerReferences {
+							if reflect.DeepEqual(ref, ref2) {
+								return true
+							}
+						}
 
-				if len(managerService.OwnerReferences) == 0 {
-					managerService.OwnerReferences = deployment.OwnerReferences
-					actions = append(actions,
-						reconcileutils.HandleResult(
-							reconcileutils.UpdateAction(managerService),
-							reconcileutils.OnRequeue(reconcileutils.ContinueResponse())))
+						return false
+					}()
+
+					if !found {
+						meteringService.OwnerReferences = append(meteringService.OwnerReferences, ref2)
+						actions = append(actions,
+							reconcileutils.HandleResult(
+								reconcileutils.UpdateAction(meteringService),
+								reconcileutils.OnRequeue(reconcileutils.ContinueResponse())))
+					}
+
+					found = func() bool {
+						for _, ref := range managerService.OwnerReferences {
+							if reflect.DeepEqual(ref, ref2) {
+								return true
+							}
+						}
+
+						return false
+					}()
+
+					if !found {
+						managerService.OwnerReferences = append(meteringService.OwnerReferences, ref2)
+						actions = append(actions,
+							reconcileutils.HandleResult(
+								reconcileutils.UpdateAction(managerService),
+								reconcileutils.OnRequeue(reconcileutils.ContinueResponse())))
+					}
 				}
 
 				if len(actions) != 0 {
@@ -295,12 +325,12 @@ func (a *CRDUpdater) reviewAndUpdateOwnerReferences(
 
 func (a *CRDUpdater) createCMIfMissing(ctx context.Context) error {
 	configmap := &corev1.ConfigMap{}
-		result, err := a.CC.Exec(ctx, manifests.CreateIfNotExistsFactoryItem(
-			configmap,
-			func() (runtime.Object, error) {
-				return a.Factory.PrometheusServingCertsCABundle()
-			},
-		))
+	result, err := a.CC.Exec(ctx, manifests.CreateIfNotExistsFactoryItem(
+		configmap,
+		func() (runtime.Object, error) {
+			return a.Factory.PrometheusServingCertsCABundle()
+		},
+	))
 
 	if result.Is(Error) {
 		a.Logger.Error(err, "failed to create configmap")
