@@ -15,41 +15,28 @@ workflows: [
 	},
 ]
 
-varPresetGitTag:         "${{ needs.preset.outputs.tag }}"
-varPresetVersion:        "${{ needs.preset.outputs.version }}"
-varPresetHash:           "${{ needs.preset.outputs.hash}}"
-varPresetDockertag:      "${{ needs.preset.outputs.dockertag}}"
-varPresetQuayExpiration: "${{ needs.preset.outputs.quayExpiration}}"
+varPresetGitTag:         "${{ steps.vars.outputs.tag }}"
+varPresetVersion:        "${{ steps.vars.outputs.version }}"
+varPresetHash:           "${{ steps.vars.outputs.hash}}"
+varPresetDockertag:      "${{ steps.vars.outputs.dockertag}}"
+varPresetQuayExpiration: "${{ steps.vars.outputs.quayExpiration}}"
 
-#preset: _#job & {
-	name:      "Preset"
-	"runs-on": _#linuxMachine
-	steps:     [
-			_#turnStyleStep,
-			_#checkoutCode,
-			_#installGo,
-			_#cacheGoModules] +
-		_#setBranchOutput + [
-			_#step & {
-				name: "Get Vars"
-				id:   "vars"
-				run: """
-					echo "::set-output name=version::$(make current-version)"
-					echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
-					echo "::set-output name=hash::$(make current-version)-$(git rev-parse --short HEAD)"
-					echo "::set-output name=dockertag::${TAGPREFIX}$(make current-version)-${GITHUB_SHA::8}"
-					echo "::set-output name=quayExpiration::${QUAY_EXPIRATION:-never}"
-					"""
-			},
-		]
-	outputs: {
-		version:        "${{ steps.vars.outputs.version }}"
-		tag:            "${{ steps.vars.outputs.tag }}"
-		hash:           "${{ steps.vars.outputs.hash }}"
-		dockertag:      "${{ steps.vars.outputs.dockertag }}"
-		quayExpiration: "${{ steps.vars.outputs.quayExpiration }}"
-	}
-}
+#varSteps: [
+	_#setBranchPrefixForDev,
+	_#setBranchPrefixForFix,
+	_#setBranchPrefixForFeature,
+	_#step & {
+		name: "Get Vars"
+		id:   "vars"
+		run: """
+			echo "::set-output name=version::$(make current-version)"
+			echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
+			echo "::set-output name=hash::$(make current-version)-$(git rev-parse --short HEAD)"
+			echo "::set-output name=dockertag::${TAGPREFIX}$(make current-version)-${GITHUB_SHA::8}"
+			echo "::set-output name=quayExpiration::${QUAY_EXPIRATION:-never}"
+			"""
+	},
+]
 
 unitTest: _#bashWorkflow & {
 	name: "Test"
@@ -69,11 +56,9 @@ unitTest: _#bashWorkflow & {
 		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
 	}
 	jobs: {
-		preset: #preset
 		"test-unit": _#job & {
 			name:      "Test"
 			"runs-on": _#linuxMachine
-			needs: [#preset.name]
 			env: {
 				"OPERATOR_IMAGE":     "${IMAGE_REGISTRY}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}"
 				"OPERATOR_IMAGE_TAG": "${{ needs.build.outputs.dockertag }}"
@@ -93,6 +78,10 @@ unitTest: _#bashWorkflow & {
 			]
 		}
 	}
+}
+
+deploy: _#bashWorkflow & {
+
 }
 
 test: _#bashWorkflow & {
@@ -445,7 +434,7 @@ _#setBranchPrefixForFeature: (_#vars._#setBranchPrefix & {
 }).res
 
 _#installKubeBuilder: _#step & {
-  name: "Install Kubebuilder"
+	name: "Install Kubebuilder"
 	run: """
 		os=$(go env GOOS)
 		arch=$(go env GOARCH)

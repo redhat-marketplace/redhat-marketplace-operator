@@ -13,70 +13,8 @@ on:
 env:
   IMAGE_REGISTRY: quay.io/rh-marketplace
 jobs:
-  preset:
-    name: Preset
-    runs-on: ubuntu-20.04
-    outputs:
-      version: ${{ steps.vars.outputs.version }}
-      tag: ${{ steps.vars.outputs.tag }}
-      hash: ${{ steps.vars.outputs.hash }}
-      dockertag: ${{ steps.vars.outputs.dockertag }}
-      quayExpiration: ${{ steps.vars.outputs.quayExpiration }}
-    defaults:
-      run:
-        shell: bash
-    steps:
-    - name: Turnstyle
-      uses: softprops/turnstyle@v1
-      with:
-        continue-after-seconds: 45
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - name: Checkout code
-      uses: actions/checkout@v2
-    - name: Install Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.15.6
-    - name: Cache Go modules
-      uses: actions/cache@v2
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: ${{ runner.os }}-1.15.6-go-
-    - if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-      name: Setting tags for dev
-      run: |-
-        echo "TAGPREFIX=dev-" >> $GITHUB_ENV
-        if [ "" != "" ]; then
-          echo "QUAY_EXPIRATION=" >> $GITHUB_ENV
-        fi
-    - if: github.event_name == 'push' && startsWith(github.ref,'refs/heads/bugfix/')
-      name: Setting tags for fix
-      run: |-
-        echo "TAGPREFIX=bugfix-${NAME}-" >> $GITHUB_ENV
-        if [ "1w" != "" ]; then
-          echo "QUAY_EXPIRATION=1w" >> $GITHUB_ENV
-        fi
-    - if: github.event_name == 'push' && startsWith(github.ref,'refs/heads/feature/')
-      name: Setting tags for feature
-      run: |-
-        echo "TAGPREFIX=feat-${NAME}-" >> $GITHUB_ENV
-        if [ "1w" != "" ]; then
-          echo "QUAY_EXPIRATION=1w" >> $GITHUB_ENV
-        fi
-    - id: vars
-      name: Get Vars
-      run: |-
-        echo "::set-output name=version::$(make current-version)"
-        echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
-        echo "::set-output name=hash::$(make current-version)-$(git rev-parse --short HEAD)"
-        echo "::set-output name=dockertag::${TAGPREFIX}$(make current-version)-${GITHUB_SHA::8}"
-        echo "::set-output name=quayExpiration::${QUAY_EXPIRATION:-never}"
   test-unit:
     name: Test
-    needs:
-    - Preset
     runs-on: ubuntu-20.04
     env:
       OPERATOR_IMAGE: ${IMAGE_REGISTRY}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag
