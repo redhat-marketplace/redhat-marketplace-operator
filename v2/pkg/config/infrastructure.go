@@ -15,7 +15,6 @@ package config
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
@@ -80,8 +79,6 @@ func openshiftInfrastructure(c client.Client) (*OpenshiftInfra, error) {
 		log.Error(err, "Unable to get Openshift info")
 		return nil, err
 	}
-
-	fmt.Println(clusterVersionObj.Status)
 
 	return &OpenshiftInfra{
 		Version: clusterVersionObj.Status.Desired.Version,

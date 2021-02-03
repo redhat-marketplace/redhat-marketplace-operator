@@ -12,27 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package runnables
+package cuemod
 
-import (
-	"github.com/google/wire"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-)
-
-type Runnables []manager.Runnable
-
-var RunnableSet = wire.NewSet(
-	NewPodMonitor,
-	ProvideRunnables,
-	wire.Struct(new(CRDUpdater), "*"),
-)
-
-func ProvideRunnables(
-	podMonitor *PodMonitor,
-	crdUpdater *CRDUpdater,
-) Runnables {
-	return []manager.Runnable{
-		podMonitor,
-		crdUpdater,
-	}
-}
+//go:generate gobin -run cuelang.org/go/cmd/cue@v0.3.0-beta.3 cmd vendorgithubschema github.com/redhat-marketplace/redhat-marketplace-operator/internal/ci

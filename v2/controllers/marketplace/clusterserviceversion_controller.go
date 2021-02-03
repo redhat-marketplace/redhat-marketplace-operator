@@ -151,9 +151,23 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 						labels[watchTag] = "lite"
 
 						if !reflect.DeepEqual(labels, clusterOriginalLabels) {
+							err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+								err := r.Client.Get(context.TODO(),
+									types.NamespacedName{
+										Name:      CSV.GetName(),
+										Namespace: CSV.GetNamespace(),
+									},
+									CSV)
 
-							CSV.SetLabels(labels)
-							if err := r.Client.Update(context.TODO(), CSV); err != nil {
+								if err != nil {
+									return err
+								}
+
+								CSV.SetLabels(labels)
+								return r.Client.Update(context.TODO(), CSV)
+							})
+
+							if err != nil {
 								reqLogger.Error(err, "Failed to patch clusterserviceversion with razee/watch-resource: lite label")
 								return reconcile.Result{}, err
 							}
@@ -178,6 +192,17 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 		if !reflect.DeepEqual(annotations, clusterOriginalAnnotations) {
 			CSV.SetAnnotations(annotations)
 			retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				err := r.Client.Get(context.TODO(),
+					types.NamespacedName{
+						Name:      CSV.GetName(),
+						Namespace: CSV.GetNamespace(),
+					},
+					CSV)
+
+				if err != nil {
+					return err
+				}
+
 				return r.Client.Update(context.TODO(), CSV)
 			})
 
