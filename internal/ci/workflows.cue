@@ -25,12 +25,11 @@ varPresetQuayExpiration: "${{ needs.preset.outputs.quayExpiration}}"
 	name:      "Preset"
 	"runs-on": _#linuxMachine
 	steps:     [
+			_#turnStyleStep,
 			_#checkoutCode,
 			_#installGo,
-			_#cacheGoModules,
-			_#loadGitTagPushed] +
+			_#cacheGoModules] +
 		_#setBranchOutput + [
-			_#turnStyleStep,
 			_#step & {
 				name: "Get Vars"
 				id:   "vars"

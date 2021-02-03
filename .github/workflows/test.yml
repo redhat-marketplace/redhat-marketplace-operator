@@ -26,6 +26,12 @@ jobs:
       run:
         shell: bash
     steps:
+    - name: Turnstyle
+      uses: softprops/turnstyle@v1
+      with:
+        continue-after-seconds: 45
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Checkout code
       uses: actions/checkout@v2
     - name: Install Go
@@ -38,14 +44,6 @@ jobs:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: ${{ runner.os }}-1.15.6-go-
-    - id: tag
-      name: Get if gittag is pushed
-      run: |-
-        VERSION=$(make current-version)
-        RESULT=$(git tag --list | grep -E "$VERSION")
-        IS_TAGGED=false
-        if [ "$RESULT" != "" ] ; then
-          IS_TAGGED=true
     - if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
       name: Setting tags for dev
       run: |-
@@ -67,12 +65,6 @@ jobs:
         if [ "1w" != "" ]; then
           echo "QUAY_EXPIRATION=1w" >> $GITHUB_ENV
         fi
-    - name: Turnstyle
-      uses: softprops/turnstyle@v1
-      with:
-        continue-after-seconds: 45
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - id: vars
       name: Get Vars
       run: |-
