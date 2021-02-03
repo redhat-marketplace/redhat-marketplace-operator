@@ -359,7 +359,7 @@ _#checkoutCode: _#step & {
 
 _#cacheGoModules: _#step & {
 	name: "Cache Go modules"
-	uses: "actions/cache@v@"
+	uses: "actions/cache@v2"
 	with: {
 		path:           "~/go/pkg/mod"
 		key:            "${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}"
