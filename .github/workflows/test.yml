@@ -87,24 +87,17 @@ jobs:
     - Preset
     runs-on: ubuntu-20.04
     env:
-      OPERATOR_IMAGE: ${{ env.IMAGE_REGISTRY }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag
+      OPERATOR_IMAGE: ${IMAGE_REGISTRY}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag
         }}
       OPERATOR_IMAGE_TAG: ${{ needs.build.outputs.dockertag }}
-      TAG: '{{ env.IMAGE_REGISTRY }}/redhat-marketplace-operator:${{ needs.preset.outputs.dockertag
-        }}'
+      TAG: ${IMAGE_REGISTRY}/redhat-marketplace-operator:${{ needs.preset.outputs.dockertag
+        }}
     defaults:
       run:
         shell: bash
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
-    - if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-      name: Setting tags for dev
-      run: |-
-        echo "TAGPREFIX=dev-" >> $GITHUB_ENV
-        if [ "" != "" ]; then
-          echo "QUAY_EXPIRATION=" >> $GITHUB_ENV
-        fi
     - name: Install Go
       uses: actions/setup-go@v2
       with:
@@ -115,7 +108,8 @@ jobs:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: ${{ runner.os }}-1.15.6-go-
-    - run: |-
+    - name: Install Kubebuilder
+      run: |-
         os=$(go env GOOS)
         arch=$(go env GOARCH)
 

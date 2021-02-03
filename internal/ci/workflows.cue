@@ -76,13 +76,12 @@ unitTest: _#bashWorkflow & {
 			"runs-on": _#linuxMachine
 			needs: [#preset.name]
 			env: {
-				"OPERATOR_IMAGE":     "${{ env.IMAGE_REGISTRY }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}"
+				"OPERATOR_IMAGE":     "${IMAGE_REGISTRY}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}"
 				"OPERATOR_IMAGE_TAG": "${{ needs.build.outputs.dockertag }}"
-				"TAG":                #"{{ env.IMAGE_REGISTRY }}/redhat-marketplace-operator:${{ needs.preset.outputs.dockertag }}"#
+				"TAG":                "${IMAGE_REGISTRY}/redhat-marketplace-operator:${{ needs.preset.outputs.dockertag }}"
 			}
 			steps: [
 				_#checkoutCode,
-				_#setBranchPrefixForDev,
 				_#installGo,
 				_#cacheGoModules,
 				_#installKubeBuilder,
