@@ -19,7 +19,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -27,7 +26,7 @@ import (
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/controller"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/pkg/managers/runnables"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	loggerf "github.com/redhat-marketplace/redhat-marketplace-operator/pkg/utils/logger"
 )
 
@@ -49,13 +48,6 @@ func provideOptions(kscheme *runtime.Scheme) (*manager.Options, error) {
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		Scheme:             kscheme,
 	}, nil
-}
-
-func providePodMonitorConfig() runnables.PodMonitorConfig {
-	return runnables.PodMonitorConfig{
-		Namespace: "openshift-redhat-marketplace",
-		RetryTime: 30 * time.Second,
-	}
 }
 
 func makeMarketplaceController(
