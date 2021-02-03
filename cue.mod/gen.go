@@ -14,4 +14,5 @@
 
 package cuemod
 
-//go:generate gobin -run cuelang.org/go/cmd/cue@v0.3.0-beta.3 cmd vendorgithubschema github.com/redhat-marketplace/redhat-marketplace-operator/internal/ci
+//go:generate go run cuelang.org/go/cmd/cue cmd vendorgithubschema github.com/redhat-marketplace/redhat-marketplace-operator/internal/bootstrap
+//go:generate go run cuelang.org/go/cmd/cue cmd vendortravisschema github.com/redhat-marketplace/redhat-marketplace-operator/internal/bootstrap

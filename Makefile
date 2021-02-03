@@ -6,7 +6,6 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-
 export
 
 .DEFAULT_GOAL := all
@@ -43,7 +42,16 @@ generate:
 	$(MAKE) $(addsuffix /generate,$(PROJECTS))
 
 docker-build:
+	$(MAKE) base/docker-build
 	$(MAKE) $(addsuffix /docker-build,$(PROJECTS))
+
+docker-push:
+	$(MAKE) base/docker-push
+	$(MAKE) $(addsuffix /docker-build,$(PROJECTS))
+
+docker-manifest:
+	$(MAKE) $(addsuffix /docker-manifest,$(PROJECTS))
+
 
 .PHONY: check-licenses
 check-licenses: addlicense ## Check if all files have licenses
@@ -78,3 +86,6 @@ metering/%:
 
 authchecker/%:
 	cd ./authchecker/v2 && $(MAKE) $(@F)
+
+base/%:
+	cd ./base && $(MAKE) $(@F)

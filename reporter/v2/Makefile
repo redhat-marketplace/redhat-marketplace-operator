@@ -15,6 +15,7 @@ all: generate vet fmt
 
 IMAGE_PUSH ?= true
 BUILDX ?= true
+ARCH ?= amd64
 
 ifeq ($(BUILDX),true)
 DOCKERCMD=docker buildx
@@ -32,6 +33,8 @@ docker-build:
 	$(DOCKERCMD) build \
 	-f ./Dockerfile \
 	--tag $(IMAGE) \
+  --build-arg ARCH=$(ARCH) \
+	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
 	--build-arg path=./reporter/v2/ \
 	--build-arg name=\"Reporter\" \
 	--build-arg exec=./cmd/reporter \
@@ -44,6 +47,11 @@ docker-build:
 # Push the docker image
 docker-push:
 	docker push ${IMG}
+
+ARCHS ?= amd64 ppc64le s390x
+
+docker-manifest:
+	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
 
 # Run go fmt against code
 fmt:

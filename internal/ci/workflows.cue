@@ -1,7 +1,7 @@
 package ci
 
 import (
-	"github.com/SchemaStore/schemastore/src/schemas/json"
+	json "github.com/SchemaStore/schemastore/src/schemas/json/github"
 	encjson "encoding/json"
 )
 
@@ -69,7 +69,7 @@ unitTest: _#bashWorkflow & {
 		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
 	}
 	jobs: {
-		preset: #preset
+		preset:      #preset
 		"test-unit": _#job & {
 			name:      "Test"
 			"runs-on": _#linuxMachine
@@ -445,7 +445,7 @@ _#setBranchPrefixForFeature: (_#vars._#setBranchPrefix & {
 }).res
 
 _#installKubeBuilder: _#step & {
-  name: "Install Kubebuilder"
+	name: "Install Kubebuilder"
 	run: """
 		os=$(go env GOOS)
 		arch=$(go env GOARCH)
