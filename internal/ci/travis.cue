@@ -53,6 +53,7 @@ travisSchema: {
 			},
 			{
 				stage:  "retag"
+        if: "type = pull_request && head_branch =~ /^(release|hotfix).*$/"
 				script: retagCommand
 			},
 		]
