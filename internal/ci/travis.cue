@@ -56,26 +56,22 @@ travisSchema: {
 	}
 	script: [
 		"docker --version",
-		"""
-			if [ "x$VERSION" = "x" ]; then VERSION=${TRAVIS_COMMIT}; fi
-			""",
+		"if [ \"x$VERSION\" = \"x\" ]; then VERSION=${TRAVIS_COMMIT}; fi",
 		"VERSION=${VERSION}-${ARCH}",
 		"echo  ${VERSION}",
-		"""
-			echo "Login to Quay.io docker account..."
-			""",
-		"""
-			docker login -u="${ROBOT_USER_NAME}" -p="${ROBOT_PASS_PHRASE}" quay.io
-			""",
-		"make operator/test-ci-unit",
-		"""
-			echo "Building the Red Hat Marketplace operator images for ppc64l..."
-			""",
+		"echo \"Login to Quay.io docker account...\"",
+		"docker login -u=\"${ROBOT_USER_NAME}\" -p=\"${ROBOT_PASS_PHRASE}\" quay.io",
+    """
+    if [ "$(go env GOARCH)" != "s390x" ]; then
+    \(_#installKubeBuilder.run)\n
+    export PATH=$PATH:/usr/local/kubebuilder/bin
+    make operator/test-ci-unit
+    fi
+    """,
+		"echo \"Building the Red Hat Marketplace operator images for ppc64l...\"",
 		"make docker-build",
 		"make docker-push",
-		"""
-			echo "Docker Image push to quay.io is done !"
-			""",
+		"echo \"Docker Image push to quay.io is done !\"",
 	]
 }
 
