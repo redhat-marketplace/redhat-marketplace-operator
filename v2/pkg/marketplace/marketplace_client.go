@@ -316,6 +316,7 @@ func (mhttp *MarketplaceClient) GetMarketplaceSecret() (*corev1.Secret, error) {
 
 type MarketplaceClaims struct {
 	AccountID string `json:"rhmAccountId"`
+	APIKey    string `json:"iam_apikey,omitempty"`
 	jwt.StandardClaims
 }
 

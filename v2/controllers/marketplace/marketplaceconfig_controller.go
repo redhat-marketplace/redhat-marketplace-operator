@@ -68,7 +68,7 @@ type MarketplaceConfigReconciler struct {
 	Scheme *runtime.Scheme
 	Log    logr.Logger
 	cc     ClientCommandRunner
-	cfg    config.OperatorConfig
+	cfg    *config.OperatorConfig
 }
 
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
@@ -624,7 +624,7 @@ func (r *MarketplaceConfigReconciler) InjectCommandRunner(ccp ClientCommandRunne
 	return nil
 }
 
-func (m *MarketplaceConfigReconciler) InjectOperatorConfig(cfg config.OperatorConfig) error {
+func (m *MarketplaceConfigReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
 	return nil
 }

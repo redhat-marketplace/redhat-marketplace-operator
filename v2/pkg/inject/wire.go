@@ -22,6 +22,7 @@ import (
 	"github.com/google/wire"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -30,7 +31,6 @@ import (
 func initializeInjectDependencies(
 	cache cache.Cache,
 	fields *managers.ControllerFields,
-	namespace managers.DeployedNamespace,
 ) (injectorDependencies, error) {
 	panic(wire.Build(
 		managers.ProvideManagerSet,
@@ -44,6 +44,8 @@ func initializeInjectDependencies(
 		wire.Struct(new(PatchInjector), "*"),
 		wire.Struct(new(FactoryInjector), "*"),
 		wire.Struct(new(injectorDependencies), "*"),
+		ProvideNamespace,
+		manifests.NewFactory,
 	))
 }
 

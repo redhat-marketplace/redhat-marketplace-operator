@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"emperror.dev/errors"
 	"github.com/caarlos0/env/v6"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"k8s.io/client-go/discovery"
@@ -31,6 +32,7 @@ var log = logf.Log.WithName("operator_config")
 // OperatorConfig is the configuration for the operator
 type OperatorConfig struct {
 	DeployedNamespace string `env:"POD_NAMESPACE"`
+	DeployedPodName   string `env:"POD_NAME"`
 	ReportController  ReportControllerConfig
 	RelatedImages
 	Features
@@ -85,7 +87,7 @@ func reset() {
 }
 
 // ProvideConfig gets the config from env vars
-func ProvideConfig() (OperatorConfig, error) {
+func ProvideConfig() (*OperatorConfig, error) {
 	globalMutex.Lock()
 	defer globalMutex.Unlock()
 
@@ -93,36 +95,43 @@ func ProvideConfig() (OperatorConfig, error) {
 		cfg := OperatorConfig{}
 		err := env.Parse(&cfg)
 		if err != nil {
-			return cfg, err
+			return nil, err
 		}
 
 		cfg.Infrastructure = &Infrastructure{}
 		global = &cfg
 	}
 
-	return *global, nil
+	return global, nil
 }
 
 // ProvideInfrastructureAwareConfig loads Operator Config with Infrastructure information
 func ProvideInfrastructureAwareConfig(
 	c rhmclient.SimpleClient,
 	dc *discovery.DiscoveryClient,
-) (OperatorConfig, error) {
-	cfg := OperatorConfig{}
-	inf, err := NewInfrastructure(c, dc)
+) (*OperatorConfig, error) {
+	globalMutex.Lock()
+	defer globalMutex.Unlock()
 
-	if err != nil {
-		return cfg, err
+	if global == nil {
+		cfg := &OperatorConfig{}
+		inf, err := NewInfrastructure(c, dc)
+
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.Infrastructure = inf
+
+		err = env.Parse(cfg)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse config")
+		}
+
+		global = cfg
 	}
 
-	cfg.Infrastructure = inf
-
-	err = env.Parse(&cfg)
-	if err != nil {
-		return cfg, err
-	}
-
-	return cfg, nil
+	return global, nil
 }
 
 var GetConfig = ProvideConfig

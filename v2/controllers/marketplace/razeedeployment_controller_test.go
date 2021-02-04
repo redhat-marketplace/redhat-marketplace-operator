@@ -210,9 +210,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 			Expect(err).To(Succeed())
 
 			factory := manifests.NewFactory(
-				"openshift-redhat-marketplace",
-				manifests.NewOperatorConfig(cfg),
-				&cfg,
+				cfg,
 				scheme.Scheme,
 			)
 
@@ -221,7 +219,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				Scheme:  scheme.Scheme,
 				Log:     log,
 				CC:      reconcileutils.NewClientCommand(r.GetClient(), scheme.Scheme, log),
-				cfg:     &cfg,
+				cfg:     cfg,
 				factory: factory,
 				patcher: patch.RHMDefaultPatcher,
 			})

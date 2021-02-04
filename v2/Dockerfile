@@ -1,5 +1,7 @@
 # syntax = docker/dockerfile:experimental
-FROM quay.io/rh-marketplace/golang-base:1.15 as base
+ARG ARCH=amd64
+ARG REGISTRY=quay.io/rh-marketplace
+FROM ${REGISTRY}/golang-base:1.15-${ARCH} as base
 ENV PATH=$PATH:/usr/local/go/bin CGO_ENABLED=0
 
 ARG path
@@ -18,9 +20,9 @@ ARG exec
 ARG bin
 ARG path
 ARG TARGETOS=linux
-ARG TARGETARCH=amd64
+ARG ARCH=amd64
 
-ENV PATH=$PATH:/usr/local/go/bin CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH}
+ENV PATH=$PATH:/usr/local/go/bin CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${ARCH}
 
 RUN --mount=target=. \
     --mount=type=cache,target=/root/.cache/go-build \

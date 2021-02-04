@@ -107,7 +107,8 @@ func GetDefaultStorageClass(client client.Client) (string, error) {
 	defaultStorageOptions := []string{}
 
 	for _, storageClass := range storageList.Items {
-		if storageClass.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
+		if storageClass.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" ||
+			storageClass.Annotations["storageclass.beta.kubernetes.io/is-default-class"] == "true" {
 			defaultStorageOptions = append(defaultStorageOptions, storageClass.Name)
 		}
 	}
