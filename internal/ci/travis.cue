@@ -19,15 +19,19 @@ _#archs: ["amd64", "ppc64le", "s390x"]
 _#registry: "quay.io/rh-marketplace"
 
 travisSchema: {
-	version:  "~> 1.0"
-	dist:     "focal"
+	version: "~> 1.0"
+	dist:    "focal"
+	if: """
+		branch = master || branch = develop
+		"""
 	language: "go"
 	services: ["docker"]
 	"before_script": [
 		"go get github.com/onsi/ginkgo/ginkgo",
 		"docker pull docker.io/docker/dockerfile:experimental",
 		"docker pull docker.io/docker/dockerfile-copy:v0.1.9",
-		"VERSION=`cd v2/tools && go run ./version/main.go`-${TRAVIS_COMMIT}",
+		"export VERSION=`cd v2/tools && go run ./version/main.go`-${TRAVIS_COMMIT}",
+		"docker login -u=\"${ROBOT_USER_NAME}\" -p=\"${ROBOT_PASS_PHRASE}\" quay.io",
 	]
 	go: _#goVersion
 	env: global: ["IMAGE_REGISTRY=\(_#registry) DOCKER_CLI_EXPERIMENTAL=enabled DOCKER_BUILDKIT=1 QUAY_EXPIRATION=never BUILDX=false"]
@@ -43,27 +47,21 @@ travisSchema: {
 			{
 				stage: "manifest"
 				script: """
-					if [ "x$VERSION" = "x" ]; then VERSION=${TRAVIS_COMMIT}; fi
-					export VERSION=$VERSION
 					echo "making manifest for $VERSION"
-					docker login -u=\"${ROBOT_USER_NAME}\" -p=\"${ROBOT_PASS_PHRASE}\" quay.io
 					make docker-manifest
 					"""
 			},
 			{
 				stage:  "retag"
-				if:     "branch = master OR branch = develop OR branch =~ /^(release|hotfix)\\/.*/"
 				script: retagCommand
 			},
 		]
 	}
 	script: [
 		"docker --version",
-		"if [ \"x$VERSION\" = \"x\" ]; then VERSION=${TRAVIS_COMMIT}; fi",
 		"export VERSION=${VERSION}-${ARCH}",
 		"echo  ${VERSION}",
 		"echo \"Login to Quay.io docker account...\"",
-		"docker login -u=\"${ROBOT_USER_NAME}\" -p=\"${ROBOT_PASS_PHRASE}\" quay.io",
 		"""
     echo "run tests if not s390x because kubebuilder has no binaries for it"
     if [ "$(go env GOARCH)" = "amd64" ]; then
