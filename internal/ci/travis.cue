@@ -2,7 +2,7 @@ package ci
 
 import (
 	json "github.com/SchemaStore/schemastore/src/schemas/json/travis"
-  "strings"
+	"strings"
 )
 
 travisDir: *"." | string @tag(travisDir)
@@ -20,7 +20,7 @@ _#registry: "quay.io/rh-marketplace"
 
 travisSchema: {
 	dist:     "focal"
-  if: "branch = master || branch = develop || branch =~ /^release/.*/ || branch =~ /^hotfix/.*/ "
+	if:       "type = push AND (branch = master OR branch = develop OR branch =~ /^(release|hotfix)\/.*/ )"
 	language: "go"
 	services: ["docker"]
 	"before_script": [
@@ -41,11 +41,11 @@ travisSchema: {
 				}
 			},
 			{
-				stage: "manifest"
+				stage:  "manifest"
 				script: """
-					  if [ "x$VERSION" = "x" ]; then VERSION=${TRAVIS_COMMIT}; fi
-					  echo "making manifest for $VERSION"
-					  make docker-manifest\n
+					if [ "x$VERSION" = "x" ]; then VERSION=${TRAVIS_COMMIT}; fi
+					echo "making manifest for $VERSION"
+					make docker-manifest\n
 					""" + retagCommand
 			},
 		]
@@ -75,35 +75,35 @@ travisSchema: {
 	]
 }
 
-_#operatorRepoName: "redhat-marketplace-operator"
-_#meteringRepoName: "redhat-marketplace-metric-state"
-_#reporterRepoName: "redhat-marketplace-reporter"
+_#operatorRepoName:    "redhat-marketplace-operator"
+_#meteringRepoName:    "redhat-marketplace-metric-state"
+_#reporterRepoName:    "redhat-marketplace-reporter"
 _#authcheckerRepoName: "redhat-marketplace-authchecker"
 
-_#operatorRedHatOSPID: "scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd"
-_#reporterRedHatOSPID: "scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e"
-_#meteringRedHatOSPID: "scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4"
+_#operatorRedHatOSPID:    "scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd"
+_#reporterRedHatOSPID:    "scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e"
+_#meteringRedHatOSPID:    "scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4"
 _#authcheckerRedHatOSPID: "scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785"
 
 _#ospids: [{
-  from: "\(_#registry)/\(_#operatorRepoName):$VERSION"
-  to: "\(_#operatorRedHatOSPID)/\(_#operatorRepoName):$VERSION",
+	from: "\(_#registry)/\(_#operatorRepoName):$VERSION"
+	to:   "\(_#operatorRedHatOSPID)/\(_#operatorRepoName):$VERSION"
 },
-{
-  from: "\(_#registry)/\(_#reporterRepoName):$VERSION"
-  to: "\(_#reporterRedHatOSPID)/\(_#reporterRepoName):$VERSION",
-},
-{
-  from: "\(_#registry)/\(_#meteringRepoName):$VERSION"
-  to: "\(_#meteringRedHatOSPID)/\(_#meteringRepoName):$VERSION",
-},
-{
-  from: "\(_#registry)/\(_#authcheckerRepoName):$VERSION"
-  to: "\(_#authcheckerRedHatOSPID)/\(_#authcheckerRepoName):$VERSION",
-}]
+	{
+		from: "\(_#registry)/\(_#reporterRepoName):$VERSION"
+		to:   "\(_#reporterRedHatOSPID)/\(_#reporterRepoName):$VERSION"
+	},
+	{
+		from: "\(_#registry)/\(_#meteringRepoName):$VERSION"
+		to:   "\(_#meteringRedHatOSPID)/\(_#meteringRepoName):$VERSION"
+	},
+	{
+		from: "\(_#registry)/\(_#authcheckerRepoName):$VERSION"
+		to:   "\(_#authcheckerRedHatOSPID)/\(_#authcheckerRepoName):$VERSION"
+	}]
 
-retagCommand: strings.Join([for k, v in _#ospids {
-"""
+retagCommand: strings.Join([ for k, v in _#ospids {
+	"""
 docker tag \(v.from) \(v.to)
 docker push \(v.to)
 """
