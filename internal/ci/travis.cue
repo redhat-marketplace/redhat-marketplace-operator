@@ -46,6 +46,7 @@ travisSchema: {
 					if [ "x$VERSION" = "x" ]; then VERSION=${TRAVIS_COMMIT}; fi
 					export VERSION=$VERSION
 					echo "making manifest for $VERSION"
+					docker login -u=\"${ROBOT_USER_NAME}\" -p=\"${ROBOT_PASS_PHRASE}\" quay.io
 					make docker-manifest
 					"""
 			},
