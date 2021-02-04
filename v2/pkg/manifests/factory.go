@@ -303,14 +303,6 @@ func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployme
 	c := f.config.PrometheusOperatorConfig
 	dep, err := f.NewDeployment(MustAssetReader(PrometheusOperatorDeployment))
 
-	if dep.GetLabels() == nil {
-		dep.Labels = make(map[string]string)
-	}
-
-	for k,v := range certLabels{
-		dep.Labels[k] = v
-	}	
-
 	if len(c.NodeSelector) > 0 {
 		dep.Spec.Template.Spec.NodeSelector = c.NodeSelector
 	}
