@@ -19,6 +19,7 @@ _#archs: ["amd64", "ppc64le", "s390x"]
 _#registry: "quay.io/rh-marketplace"
 
 travisSchema: {
+  version: "~> 1.0"
 	dist:     "focal"
 	language: "go"
 	services: ["docker"]
@@ -57,18 +58,19 @@ travisSchema: {
 	script: [
 		"docker --version",
 		"if [ \"x$VERSION\" = \"x\" ]; then VERSION=${TRAVIS_COMMIT}; fi",
-		"VERSION=${VERSION}-${ARCH}",
+		"export VERSION=${VERSION}-${ARCH}",
 		"echo  ${VERSION}",
 		"echo \"Login to Quay.io docker account...\"",
 		"docker login -u=\"${ROBOT_USER_NAME}\" -p=\"${ROBOT_PASS_PHRASE}\" quay.io",
     """
-    if [ "$(go env GOARCH)" != "s390x" ]; then
+    echo "run tests if not s390x because kubebuilder has no binaries for it"
+    if [ "$(go env GOARCH)" = "amd64" ]; then
     \(_#installKubeBuilder.run)\n
     export PATH=$PATH:/usr/local/kubebuilder/bin
     make operator/test-ci-unit
     fi
     """,
-		"echo \"Building the Red Hat Marketplace operator images for ppc64l...\"",
+		"echo \"Building the Red Hat Marketplace operator images for ${ARCH}...\"",
 		"make docker-build",
 		"make docker-push",
 		"echo \"Docker Image push to quay.io is done !\"",

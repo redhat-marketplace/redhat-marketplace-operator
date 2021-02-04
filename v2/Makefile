@@ -1,5 +1,5 @@
 # Current Operator version
-VERSION ?= $(shell go run ./tools/version/main.go)
+VERSION ?= $(shell cd ./tools && go run ./version/main.go)
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
 
