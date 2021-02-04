@@ -6,6 +6,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+
 export
 
 .DEFAULT_GOAL := all
