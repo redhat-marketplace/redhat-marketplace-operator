@@ -41,13 +41,17 @@ travisSchema: {
 			},
 			{
 				stage:  "manifest"
-        if: "type = push AND (branch = master OR branch = develop OR branch =~ /^(release|hotfix)\\/.*/)"
 				script: """
 					if [ "x$VERSION" = "x" ]; then VERSION=${TRAVIS_COMMIT}; fi
 					echo "making manifest for $VERSION"
-					make docker-manifest\n
-					""" + retagCommand
+					make docker-manifest
+					"""
 			},
+      {
+        stage: "retag"
+        if: "branch = master OR branch = develop OR branch =~ /^(release|hotfix)\\/.*/"
+        script: retagCommand
+      }
 		]
 	}
 	script: [
