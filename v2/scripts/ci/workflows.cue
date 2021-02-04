@@ -1,98 +1,56 @@
 package ci
 
 import (
-	json "github.com/SchemaStore/schemastore/src/schemas/json/github"
-	encjson "encoding/json"
+  "github.com/SchemaStore/schemastore/src/schemas/json"
+  encjson "encoding/json"
 )
 
 workflowsDir: *"./" | string @tag(workflowsDir)
 
 workflows: [...{file: string, schema: (json.#Workflow & {})}]
 workflows: [
-	{
-		file:   "test.yml"
-		schema: unitTest
-	},
+  {
+    file: "deploy_cue.yml"
+    schema: deploy
+  },
 ]
 
-varPresetGitTag:         "${{ needs.preset.outputs.tag }}"
-varPresetVersion:        "${{ needs.preset.outputs.version }}"
-varPresetHash:           "${{ needs.preset.outputs.hash}}"
-varPresetDockertag:      "${{ needs.preset.outputs.dockertag}}"
-varPresetQuayExpiration: "${{ needs.preset.outputs.quayExpiration}}"
-
-#preset: _#job & {
-	name:      "Preset"
-	"runs-on": _#linuxMachine
-	steps:     [
-			_#turnStyleStep,
-			_#checkoutCode,
-			_#installGo,
-			_#cacheGoModules] +
-		_#setBranchOutput + [
-			_#step & {
-				name: "Get Vars"
-				id:   "vars"
-				run: """
-					echo "::set-output name=version::$(make current-version)"
-					echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
-					echo "::set-output name=hash::$(make current-version)-$(git rev-parse --short HEAD)"
-					echo "::set-output name=dockertag::${TAGPREFIX}$(make current-version)-${GITHUB_SHA::8}"
-					echo "::set-output name=quayExpiration::${QUAY_EXPIRATION:-never}"
-					"""
-			},
-		]
-	outputs: {
-		version:        "${{ steps.vars.outputs.version }}"
-		tag:            "${{ steps.vars.outputs.tag }}"
-		hash:           "${{ steps.vars.outputs.hash }}"
-		dockertag:      "${{ steps.vars.outputs.dockertag }}"
-		quayExpiration: "${{ steps.vars.outputs.quayExpiration }}"
-	}
-}
-
-unitTest: _#bashWorkflow & {
-	name: "Test"
-	on: {
+deploy: _#bashWorkflow & {
+  name: "Test & Deploy Image"
+  on: {
 		push: {
 			branches: [
-				"master",
-				"release/**",
-				"hotfix/**",
-				"develop",
-				"feature/**",
-				"bugfix/**",
-			]
+        "master",
+        "release/**",
+        "hotfix/**",
+        "develop",
+        "feature/**",
+        "bugfix/**",
+      ]
 		}
 	}
-	env: {
-		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
-	}
-	jobs: {
-		preset:      #preset
-		"test-unit": _#job & {
-			name:      "Test"
-			"runs-on": _#linuxMachine
-			needs: [#preset.name]
-			env: {
-				"OPERATOR_IMAGE":     "${IMAGE_REGISTRY}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}"
-				"OPERATOR_IMAGE_TAG": "${{ needs.build.outputs.dockertag }}"
-				"TAG":                "${IMAGE_REGISTRY}/redhat-marketplace-operator:${{ needs.preset.outputs.dockertag }}"
-			}
-			steps: [
+
+  env: {
+    pushImage: true
+  }
+
+  jobs: {
+    "test-unit": {
+      name: ""
+      "runs-on": _#linuxMachine
+      needs: ["build"]
+      env: {
+        "IMAGE_REGISTRY": "${{ matrix.registry }}"
+        "OPERATOR_IMAGE": "${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}"
+        "OPERATOR_IMAGE_TAG": "${{ needs.build.outputs.dockertag }}"
+        "TAG": "${{ matrix.registry }}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag}}"
+      }
+      steps: [
 				_#checkoutCode,
-				_#installGo,
-				_#cacheGoModules,
-				_#installKubeBuilder,
-				_#step & {
-					name: "Test"
-					run: """
-						make test
-						"""
-				},
-			]
-		}
-	}
+        _#setBranchPrefixForDev,
+      ]
+    }
+  }
 }
 
 test: _#bashWorkflow & {
@@ -109,6 +67,7 @@ test: _#bashWorkflow & {
 			"runs-on": _#linuxMachine
 			if:        "${{ \(_#isCLCITestBranch) }}"
 			steps: [
+				_#writeCookiesFile,
 				_#startCLBuild,
 			]
 		}
@@ -116,6 +75,7 @@ test: _#bashWorkflow & {
 			strategy:  _#testStrategy
 			"runs-on": "${{ matrix.os }}"
 			steps: [
+				_#writeCookiesFile,
 				_#installGo,
 				_#checkoutCode,
 				_#cacheGoModules,
@@ -123,6 +83,7 @@ test: _#bashWorkflow & {
 				_#goTest,
 				_#goTestRace,
 				_#goReleaseCheck,
+				_#checkGitClean,
 				_#pullThroughProxy,
 				_#failCLBuild,
 			]
@@ -132,6 +93,7 @@ test: _#bashWorkflow & {
 			if:        "${{ \(_#isCLCITestBranch) }}"
 			needs:     "test"
 			steps: [
+				_#writeCookiesFile,
 				_#passCLBuild,
 			]
 		}
@@ -338,18 +300,16 @@ _#testStrategy: {
 }
 
 _#cancelPreviousRun: _#step & {
-	name: "Cancel Previous Run"
-	uses: "styfle/cancel-workflow-action@0.4.1"
-	with: "access_token": "${{ github.token }}"
+  name: "Cancel Previous Run"
+  uses: "styfle/cancel-workflow-action@0.4.1"
+  with: "access_token": "${{ github.token }}"
 }
 
 _#installGo: _#step & {
 	name: "Install Go"
 	uses: "actions/setup-go@v2"
-	with: "go-version": _#goVersion
+	with: "go-version": "${{ matrix.go-version }}"
 }
-
-_#goVersion: "1.15.6"
 
 _#checkoutCode: _#step & {
 	name: "Checkout code"
@@ -358,11 +318,13 @@ _#checkoutCode: _#step & {
 
 _#cacheGoModules: _#step & {
 	name: "Cache Go modules"
-	uses: "actions/cache@v2"
+	uses: "actions/cache@v1"
 	with: {
-		path:           "~/go/pkg/mod"
-		key:            "${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}"
-		"restore-keys": "${{ runner.os }}-\(_#goVersion)-go-"
+		path: "~/go/pkg/mod"
+		key:  "${{ runner.os }}-${{ matrix.go-version }}-go-${{ hashFiles('**/go.sum') }}"
+		"restore-keys": """
+			${{ runner.os }}-${{ matrix.go-version }}-go-
+			"""
 	}
 }
 
@@ -390,15 +352,15 @@ _#goReleaseCheck: _#step & {
 }
 
 _#loadGitTagPushed: _#step & {
-	name: "Get if gittag is pushed"
-	id:   "tag"
-	run: """
-		VERSION=$(make current-version)
-		RESULT=$(git tag --list | grep -E "$VERSION")
-		IS_TAGGED=false
-		if [ "$RESULT" != "" ] ; then
-		  IS_TAGGED=true
-		"""
+  name: "Get if gittag is pushed"
+  id: "tag"
+  run: """
+  VERSION=$(make current-version)
+  RESULT=$(git tag --list | grep -E "$VERSION")
+  IS_TAGGED=false
+  if [ "$RESULT" != "" ] ; then
+    IS_TAGGED=true
+  """
 }
 
 _#branchRefPrefix: "refs/heads/"
@@ -412,95 +374,52 @@ _#tempCueckooGitDir: """
 	git config http.https://github.com/.extraheader "AUTHORIZATION: basic $(echo -n cueckoo:${{ secrets.CUECKOO_GITHUB_PAT }} | base64)"
 	"""
 
-_#setBranchOutput: [
-	_#setBranchPrefixForDev,
-	_#setBranchPrefixForFix,
-	_#setBranchPrefixForFeature,
-]
-
 _#setBranchPrefixForDev: (_#vars._#setBranchPrefix & {
-	#args: {
-		name:      "dev"
-		if:        "github.event_name == 'push' && github.ref == 'refs/heads/develop'"
-		tagPrefix: "dev-"
-	}
+  #args: {
+    eventName: "push"
+    branch: "refs/heads/develop"
+    tagPrefix: "dev-"
+  }
 }).res
 
-_#setBranchPrefixForFix: (_#vars._#setBranchPrefix & {
-	#args: {
-		name:           "fix"
-		if:             "github.event_name == 'push' && startsWith(github.ref,'refs/heads/bugfix/')"
-		tagPrefix:      "bugfix-${NAME}-"
-		quayExpiration: "1w"
-	}
-}).res
-
-_#setBranchPrefixForFeature: (_#vars._#setBranchPrefix & {
-	#args: {
-		name:           "feature"
-		if:             "github.event_name == 'push' && startsWith(github.ref,'refs/heads/feature/')"
-		tagPrefix:      "feat-${NAME}-"
-		quayExpiration: "1w"
-	}
-}).res
-
-_#installKubeBuilder: _#step & {
-	name: "Install Kubebuilder"
-	run: """
-		os=$(go env GOOS)
-		arch=$(go env GOARCH)
-
-		# download kubebuilder and extract it to tmp
-		curl -L https://go.kubebuilder.io/dl/2.3.1/${os}/${arch} | tar -xz -C /tmp/
-
-		# move to a long-term location and put it on your path
-		# (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
-		sudo mv /tmp/kubebuilder_2.3.1_${os}_${arch} /usr/local/kubebuilder
-		echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
-		"""
-}
-
-_#installOperatorSDK: _#step & {
-	name: "Install operatorsdk"
-	run: """
-		export ARCH=$(case $(arch) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(arch) ;; esac)
-		export OS=$(uname | awk '{print tolower($0)}')
-		export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/latest/download
-		curl -LO ${OPERATOR_SDK_DL_URL}/operator-sdk_${OS}_${ARCH}
-		gpg --recv-keys 052996E2A20B5C7E
-		curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt
-		curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt.asc
-		gpg -u "Operator SDK (release) <cncf-operator-sdk@cncf.io>" --verify checksums.txt.asc
-		grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
-		chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
-		"""
-}
-
-_#vars: {
-	// _#setBranchPrefix will set the branch prefix vars
-	_#setBranchPrefix: {
-		#args: {
-			name:           string
-			if:             string
-			tagPrefix:      string
-			quayExpiration: string | *""
-		}
-		res: _#step & {
-			name: #"Setting tags for \#(#args.name)"#
-			if:   #"\#(#args["if"])"#
-			run:  #"""
-      echo "TAGPREFIX=\#(#args.tagPrefix)" >> $GITHUB_ENV
-      if [ "\#(#args.quayExpiration)" != "" ]; then
-        echo "QUAY_EXPIRATION=\#(#args.quayExpiration)" >> $GITHUB_ENV
-      fi
-      """#
+	_#vars: {
+		// _#setBranchPrefix will set the branch prefix vars
+		_#setBranchPrefix: {
+			#args: {
+				eventName: string
+        branch: string
+        tagPrefix: string
+				quayExpiration?: string
+			}
+      res: _#step & {
+        if: "github.event_name == '#args.eventName' && github.ref == '#(args.branch)'"
+        run: """
+        echo "TAGPREFIX=#(args.tagPrefix)" >> $GITHUB_ENV
+        if [ "#(args.quayExpiration)" != "" ]; then
+          echo "QUAY_EXPIRATION=$(args.quayExpiration)" >> $GITHUB_ENV
+        fi
+        """
+      }
 		}
 	}
 }
 
-_#turnStyleStep: _#step & {
-	name: "Turnstyle"
-	uses: "softprops/turnstyle@v1"
-	with: "continue-after-seconds": 45
-	env: "GITHUB_TOKEN":            "${{ secrets.GITHUB_TOKEN }}"
-}
+
+//       - name: Set branch prefix for dev
+//         if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+//         run: |
+
+
+//       - name: Set branch prefix for fix
+//         if: github.event_name == 'push' && startsWith(github.ref,'refs/heads/bugfix/')
+//         run: |
+//           NAME=$(echo "${{ github.ref }}" | sed 's/refs\/heads\/bugfix\///')
+//           echo "TAGPREFIX=bugfix-${NAME}-" >> $GITHUB_ENV
+//           echo "QUAY_EXPIRATION=1w" >> $GITHUB_ENV
+
+//       - name: Set branch prefix for feat
+//         if: github.event_name == 'push' && startsWith(github.ref,'refs/heads/feature/')
+//         run: |
+//           NAME=$(echo "${{ github.ref }}" | sed 's/refs\/heads\/feature\///')
+//           echo "TAGPREFIX=feat-${NAME}-" >> $GITHUB_ENV
+// echo "QUAY_EXPIRATION=1w" >> $GITHUB_ENV

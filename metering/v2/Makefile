@@ -15,6 +15,7 @@ all: generate vet fmt
 
 IMAGE_PUSH ?= true
 BUILDX ?= true
+ARCH ?= amd64
 
 ifeq ($(BUILDX),true)
 DOCKERCMD=docker buildx
@@ -27,11 +28,14 @@ else
 DOCKERCMD=docker
 endif
 
+
 # Build the docker image
 docker-build:
 	$(DOCKERCMD) build \
 	-f ./Dockerfile \
 	--tag $(IMAGE) \
+	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
+  --build-arg ARCH=$(ARCH) \
 	--build-arg path=./metering/v2/ \
 	--build-arg name=MetricState \
 	--build-arg exec=./cmd/ \
@@ -44,6 +48,11 @@ docker-build:
 # Push the docker image
 docker-push:
 	docker push ${IMG}
+
+ARCHS ?= amd64 ppc64le s390x
+
+docker-manifest:
+	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
 
 # Run go fmt against code
 fmt:

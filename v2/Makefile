@@ -131,6 +131,7 @@ generate-api: code-generator
 QUAY_EXPIRATION?=never
 IMAGE_PUSH ?= true
 BUILDX ?= true
+ARCH ?= amd64
 
 ifeq ($(BUILDX),true)
 DOCKERCMD=docker buildx
@@ -148,6 +149,8 @@ docker-build:
 	$(DOCKERCMD) build \
 	-f ./Dockerfile \
 	--tag $(IMAGE) \
+  --build-arg ARCH=$(ARCH) \
+	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
 	--build-arg path=./v2/ \
 	--build-arg name=Operator \
 	--build-arg exec=./ \
@@ -160,6 +163,11 @@ docker-build:
 # Push the docker image
 docker-push:
 	docker push ${IMG}
+
+ARCHS ?= amd64 ppc64le s390x
+
+docker-manifest:
+	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
 
 CSV_YAML_BUNDLE_FILE=bundle/manifests/redhat-marketplace-operator.clusterserviceversion.yaml
 
