@@ -20,7 +20,6 @@ _#registry: "quay.io/rh-marketplace"
 
 travisSchema: {
 	dist:     "focal"
-	if:       "type = push AND (branch = master OR branch = develop OR branch =~ /^(release|hotfix)\\/.*/ )"
 	language: "go"
 	services: ["docker"]
 	"before_script": [
@@ -42,6 +41,7 @@ travisSchema: {
 			},
 			{
 				stage:  "manifest"
+        if: "type = push AND (branch = master OR branch = develop OR branch =~ /^(release|hotfix)\\/.*/)"
 				script: """
 					if [ "x$VERSION" = "x" ]; then VERSION=${TRAVIS_COMMIT}; fi
 					echo "making manifest for $VERSION"
