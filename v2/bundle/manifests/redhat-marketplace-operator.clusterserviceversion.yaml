@@ -218,7 +218,7 @@ metadata:
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
-  name: redhat-marketplace-operator.v2.0.0-beta.42
+  name: redhat-marketplace-operator.v2.0.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -617,102 +617,96 @@ spec:
                 app.kubernetes.io/managed-by: OLM
                 control-plane: controller-manager
                 redhat.marketplace.com/name: redhat-marketplace-operator
-            strategy: {}
-            template:
-              metadata:
-                labels:
-                  control-plane: controller-manager
-                  redhat.marketplace.com/name: redhat-marketplace-operator
-              spec:
-                containers:
-                  - args:
-                      - --health-probe-bind-address=:8081
-                      - --metrics-addr=127.0.0.1:8080
-                      - --enable-leader-election
-                    env:
-                      - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
-                        value: quay.io/razee/remoteresources3:0.6.2
-                      - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
-                        value: quay.io/razee/watch-keeper:0.6.6
-                      - name: RELATED_IMAGE_PROMETHEUS
-                        value: registry.redhat.io/openshift4/ose-prometheus:v4.6
-                      - name: RELATED_IMAGE_OAUTH_PROXY
-                        value: registry.redhat.io/openshift4/ose-oauth-proxy:v4.5
-                      - name: RELATED_IMAGE_PROMETHEUS_OPERATOR
-                        value: registry.redhat.io/openshift4/ose-prometheus-operator:v4.5
-                      - name: RELATED_IMAGE_CONFIGMAP_RELOADER
-                        value: registry.redhat.io/openshift4/ose-configmap-reloader:v4.5
-                      - name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
-                        value: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5
-                      - name: RELATED_IMAGE_KUBE_RBAC_PROXY
-                        value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
-                      - name: IBMCATALOGSOURCE
-                        value: "true"
-                      - name: OPERATOR_NAME
-                        value: redhat-marketplace-operator
-                      - name: RELATED_IMAGE_REPORTER
-                        value: quay.io/zach_source/redhat-marketplace-reporter:2.0.0-beta.42
-                      - name: RELATED_IMAGE_METRIC_STATE
-                        value: quay.io/zach_source/redhat-marketplace-metric-state:2.0.0-beta.42
-                      - name: RELATED_IMAGE_AUTHCHECK
-                        value: quay.io/zach_source/redhat-marketplace-authcheck:2.0.0-beta.42
-                      - name: WATCH_NAMESPACE
-                        valueFrom:
-                          fieldRef:
-                            fieldPath: metadata.annotations['olm.targetNamespaces']
-                      - name: POD_NAMESPACE
-                        valueFrom:
-                          fieldRef:
-                            fieldPath: metadata.namespace
-                      - name: POD_NAME
-                        valueFrom:
-                          fieldRef:
-                            fieldPath: metadata.name
-                      - name: OLM_OWNER_NAME
-                        valueFrom:
-                          fieldRef:
-                            fieldPath: metadata.labels['olm.owner']
-                      - name: OLM_OWNER_NAMESPACE
-                        valueFrom:
-                          fieldRef:
-                            fieldPath: metadata.labels['olm.owner.namespace']
-                      - name: OLM_OWNER_KIND
-                        valueFrom:
-                          fieldRef:
-                            fieldPath: metadata.labels['olm.owner.kind']
-                    image: quay.io/zach_source/redhat-marketplace-operator:2.0.0-beta.42
-                    name: manager
-                    ports:
-                      - containerPort: 9443
-                        name: webhook-server
-                        protocol: TCP
-                    resources:
-                      requests:
-                        cpu: 100m
-                        memory: 100Mi
-                    volumeMounts:
-                      - mountPath: /tmp/k8s-webhook-server/serving-certs
-                        name: cert
-                        readOnly: true
-                  - args:
-                      - --secure-listen-address=0.0.0.0:8443
-                      - --upstream=http://127.0.0.1:8080/
-                      - --logtostderr=true
-                      - --v=10
-                    image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
-                    name: kube-rbac-proxy
-                    ports:
-                      - containerPort: 8443
-                        name: https
-                    resources: {}
-                serviceAccountName: redhat-marketplace-operator
-                terminationGracePeriodSeconds: 10
-                volumes:
-                  - name: cert
-                    secret:
-                      defaultMode: 420
-                      optional: true
-                      secretName: redhat-marketplace-controller-manager-service
+            spec:
+              containers:
+              - args:
+                - --health-probe-bind-address=:8081
+                - --metrics-addr=127.0.0.1:8080
+                - --enable-leader-election
+                env:
+                - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
+                  value: quay.io/razee/remoteresources3:0.6.2
+                - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
+                  value: quay.io/razee/watch-keeper:0.6.6
+                - name: RELATED_IMAGE_PROMETHEUS
+                  value: registry.redhat.io/openshift4/ose-prometheus:v4.6
+                - name: RELATED_IMAGE_OAUTH_PROXY
+                  value: registry.redhat.io/openshift4/ose-oauth-proxy:v4.5
+                - name: RELATED_IMAGE_PROMETHEUS_OPERATOR
+                  value: registry.redhat.io/openshift4/ose-prometheus-operator:v4.5
+                - name: RELATED_IMAGE_CONFIGMAP_RELOADER
+                  value: registry.redhat.io/openshift4/ose-configmap-reloader:v4.5
+                - name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
+                  value: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5
+                - name: RELATED_IMAGE_KUBE_RBAC_PROXY
+                  value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
+                - name: IBMCATALOGSOURCE
+                  value: "true"
+                - name: OPERATOR_NAME
+                  value: redhat-marketplace-operator
+                - name: RELATED_IMAGE_REPORTER
+                  value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-reporter:2.0.0
+                - name: RELATED_IMAGE_METRIC_STATE
+                  value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-metric-state:2.0.0
+                - name: RELATED_IMAGE_AUTHCHECK
+                  value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-authcheck:2.0.0
+                - name: WATCH_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['olm.targetNamespaces']
+                - name: POD_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                - name: POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                - name: OLM_OWNER_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.labels['olm.owner']
+                - name: OLM_OWNER_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.labels['olm.owner.namespace']
+                - name: OLM_OWNER_KIND
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.labels['olm.owner.kind']
+                image: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-operator:2.0.0
+                name: manager
+                ports:
+                - containerPort: 9443
+                  name: webhook-server
+                  protocol: TCP
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 100Mi
+                volumeMounts:
+                - mountPath: /tmp/k8s-webhook-server/serving-certs
+                  name: cert
+                  readOnly: true
+              - args:
+                - --secure-listen-address=0.0.0.0:8443
+                - --upstream=http://127.0.0.1:8080/
+                - --logtostderr=true
+                - --v=10
+                image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
+                name: kube-rbac-proxy
+                ports:
+                - containerPort: 8443
+                  name: https
+                resources: {}
+              serviceAccountName: redhat-marketplace-operator
+              terminationGracePeriodSeconds: 10
+              volumes:
+              - name: cert
+                secret:
+                  defaultMode: 420
+                  optional: true
+                  secretName: redhat-marketplace-controller-manager-service
       permissions:
       - rules:
         - apiGroups:
@@ -890,45 +884,41 @@ spec:
   provider:
     name: Red Hat Marketplace
     url: https://marketplace.redhat.com
-  version: 2.0.0-beta.42
+  version: 2.0.0
   webhookdefinitions:
-    - admissionReviewVersions:
-        - v1beta1
-      deploymentName: redhat-marketplace-controller-manager
-      failurePolicy: Fail
-      generateName: vmeterdefinition.marketplace.redhat.com
-      rules:
-        - apiGroups:
-            - marketplace.redhat.com
-          apiVersions:
-            - v1beta1
-          operations:
-            - CREATE
-            - UPDATE
-          resources:
-            - meterdefinitions
-      sideEffects: None
-      type: ValidatingAdmissionWebhook
-      webhookPath: /validate-marketplace-redhat-com-v1beta1-meterdefinition
-      targetPort: 9443
-      containerPort: 9443
-    - admissionReviewVersions:
-        - v1beta1
-      deploymentName: redhat-marketplace-controller-manager
-      failurePolicy: Fail
-      generateName: mmeterdefinition.marketplace.redhat.com
-      rules:
-        - apiGroups:
-            - marketplace.redhat.com
-          apiVersions:
-            - v1beta1
-          operations:
-            - CREATE
-            - UPDATE
-          resources:
-            - meterdefinitions
-      sideEffects: None
-      type: MutatingAdmissionWebhook
-      webhookPath: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
-      targetPort: 9443
-      containerPort: 9443
+  - admissionReviewVersions:
+    - v1beta1
+    deploymentName: redhat-marketplace-controller-manager
+    failurePolicy: Fail
+    generateName: vmeterdefinition.marketplace.redhat.com
+    rules:
+    - apiGroups:
+      - marketplace.redhat.com
+      apiVersions:
+      - v1beta1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - meterdefinitions
+    sideEffects: None
+    type: ValidatingAdmissionWebhook
+    webhookPath: /validate-marketplace-redhat-com-v1beta1-meterdefinition
+  - admissionReviewVersions:
+    - v1beta1
+    deploymentName: redhat-marketplace-controller-manager
+    failurePolicy: Fail
+    generateName: mmeterdefinition.marketplace.redhat.com
+    rules:
+    - apiGroups:
+      - marketplace.redhat.com
+      apiVersions:
+      - v1beta1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - meterdefinitions
+    sideEffects: None
+    type: MutatingAdmissionWebhook
+    webhookPath: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
