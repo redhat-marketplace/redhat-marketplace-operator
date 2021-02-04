@@ -67,7 +67,7 @@ travisSchema: {
 		"""
 			docker login -u="${ROBOT_USER_NAME}" -p="${ROBOT_PASS_PHRASE}" quay.io
 			""",
-		"make operator/test-ci-unit-no-race",
+		"make operator/test-ci-unit",
 		"""
 			echo "Building the Red Hat Marketplace operator images for ppc64l..."
 			""",
