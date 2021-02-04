@@ -29,7 +29,7 @@ travisSchema: {
 		"VERSION=`cd v2/tools && go run ./version/main.go`-${TRAVIS_BUILD_NUMBER}",
 	]
 	go: _#goVersion
-	env: global: ["IMAGE_REGISTRY=\(_#registry) DOCKER_CLI_EXPERIMENTAL=enabled DOCKER_BUILDKIT=1 QUAY_EXPIRATION=never"]
+	env: global: ["IMAGE_REGISTRY=\(_#registry) DOCKER_CLI_EXPERIMENTAL=enabled DOCKER_BUILDKIT=1 QUAY_EXPIRATION=never BUILDX=false"]
 	jobs: {
 		include: [
 			for k, v in _#archs {

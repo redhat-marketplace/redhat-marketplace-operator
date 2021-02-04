@@ -13,7 +13,7 @@ go: 1.15.6
 env:
   global:
   - IMAGE_REGISTRY=quay.io/rh-marketplace DOCKER_CLI_EXPERIMENTAL=enabled DOCKER_BUILDKIT=1
-    QUAY_EXPIRATION=never
+    QUAY_EXPIRATION=never BUILDX=false
 jobs:
   include:
   - stage: push
