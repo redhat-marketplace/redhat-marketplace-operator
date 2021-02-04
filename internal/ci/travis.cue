@@ -20,7 +20,7 @@ _#registry: "quay.io/rh-marketplace"
 
 travisSchema: {
 	dist:     "focal"
-	if:       "type = push AND (branch = master OR branch = develop OR branch =~ /^(release|hotfix)\/.*/ )"
+	if:       "type = push AND (branch = master OR branch = develop OR branch =~ /^(release|hotfix)\\/.*/ )"
 	language: "go"
 	services: ["docker"]
 	"before_script": [
