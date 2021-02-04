@@ -27,7 +27,7 @@ travisSchema: {
 		"go get github.com/onsi/ginkgo/ginkgo",
 		"docker pull docker.io/docker/dockerfile:experimental",
 		"docker pull docker.io/docker/dockerfile-copy:v0.1.9",
-		"VERSION=`cd v2/tools && go run ./version/main.go`-${TRAVIS_BUILD_NUMBER}",
+		"VERSION=`cd v2/tools && go run ./version/main.go`-${TRAVIS_COMMIT}",
 	]
 	go: _#goVersion
 	env: global: ["IMAGE_REGISTRY=\(_#registry) DOCKER_CLI_EXPERIMENTAL=enabled DOCKER_BUILDKIT=1 QUAY_EXPIRATION=never BUILDX=false"]
