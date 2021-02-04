@@ -19,7 +19,7 @@ _#archs: ["amd64", "ppc64le", "s390x"]
 _#registry: "quay.io/rh-marketplace"
 
 travisSchema: {
-  version: "~> 1.0"
+	version:  "~> 1.0"
 	dist:     "focal"
 	language: "go"
 	services: ["docker"]
@@ -41,18 +41,19 @@ travisSchema: {
 				}
 			},
 			{
-				stage:  "manifest"
+				stage: "manifest"
 				script: """
 					if [ "x$VERSION" = "x" ]; then VERSION=${TRAVIS_COMMIT}; fi
+					export VERSION=$VERSION
 					echo "making manifest for $VERSION"
 					make docker-manifest
 					"""
 			},
-      {
-        stage: "retag"
-        if: "branch = master OR branch = develop OR branch =~ /^(release|hotfix)\\/.*/"
-        script: retagCommand
-      }
+			{
+				stage:  "retag"
+				if:     "branch = master OR branch = develop OR branch =~ /^(release|hotfix)\\/.*/"
+				script: retagCommand
+			},
 		]
 	}
 	script: [
@@ -62,7 +63,7 @@ travisSchema: {
 		"echo  ${VERSION}",
 		"echo \"Login to Quay.io docker account...\"",
 		"docker login -u=\"${ROBOT_USER_NAME}\" -p=\"${ROBOT_PASS_PHRASE}\" quay.io",
-    """
+		"""
     echo "run tests if not s390x because kubebuilder has no binaries for it"
     if [ "$(go env GOARCH)" = "amd64" ]; then
     \(_#installKubeBuilder.run)\n
