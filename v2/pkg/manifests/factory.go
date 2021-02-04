@@ -103,11 +103,31 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 	}
 }
 
+func(f *Factory) addCertLabels(inLabels map[string]string)(map[string]string){
+	certLabels := map[string]string{
+		"redhat.marketplace.com/name" : "redhat-marketplace-operator",
+		"app.kubernetes.io/managed-by": "OLM",
+		"app.kubernetes.io/instance": "default",
+	}
+
+	for k,v := range certLabels{
+		inLabels[k] = v
+	}
+	
+	return inLabels
+}
+
 func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
 	d, err := NewDeployment(manifest)
 	if err != nil {
 		return nil, err
 	}
+
+	if d.GetLabels() == nil {
+		d.Labels = make(map[string]string)
+	}
+
+	d.Labels = f.addCertLabels(d.Labels)
 
 	if d.GetNamespace() == "" {
 		d.SetNamespace(f.namespace)
@@ -137,6 +157,12 @@ func (f *Factory) NewService(manifest io.Reader) (*corev1.Service, error) {
 		d.SetNamespace(f.namespace)
 	}
 
+	if d.GetLabels() == nil {
+		d.Labels = make(map[string]string)
+	}
+
+	d.Labels = f.addCertLabels(d.Labels)
+
 	return d, nil
 }
 
@@ -149,6 +175,12 @@ func (f *Factory) NewConfigMap(manifest io.Reader) (*corev1.ConfigMap, error) {
 	if d.GetNamespace() == "" {
 		d.SetNamespace(f.namespace)
 	}
+
+	if d.GetLabels() == nil {
+		d.Labels = make(map[string]string)
+	}
+
+	d.Labels = f.addCertLabels(d.Labels)
 
 	return d, nil
 }
@@ -163,6 +195,12 @@ func (f *Factory) NewSecret(manifest io.Reader) (*v1.Secret, error) {
 		s.SetNamespace(f.namespace)
 	}
 
+	if s.GetLabels() == nil {
+		s.Labels = make(map[string]string)
+	}
+
+	s.Labels = f.addCertLabels(s.Labels)
+
 	return s, nil
 }
 
@@ -175,6 +213,12 @@ func (f *Factory) NewJob(manifest io.Reader) (*batchv1.Job, error) {
 	if j.GetNamespace() == "" {
 		j.SetNamespace(f.namespace)
 	}
+
+	if j.GetLabels() == nil {
+		j.Labels = make(map[string]string)
+	}
+
+	j.Labels = f.addCertLabels(j.Labels)
 
 	return j, nil
 }
@@ -190,6 +234,12 @@ func (f *Factory) NewPrometheus(
 	if p.GetNamespace() == "" {
 		p.SetNamespace(f.namespace)
 	}
+
+	if p.GetLabels() == nil {
+		p.Labels = make(map[string]string)
+	}
+
+	p.Labels = f.addCertLabels(p.Labels)
 
 	return p, nil
 }
@@ -252,6 +302,14 @@ func (f *Factory) PrometheusAdditionalConfigSecret(data []byte) (*v1.Secret, err
 func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployment, error) {
 	c := f.config.PrometheusOperatorConfig
 	dep, err := f.NewDeployment(MustAssetReader(PrometheusOperatorDeployment))
+
+	if dep.GetLabels() == nil {
+		dep.Labels = make(map[string]string)
+	}
+
+	for k,v := range certLabels{
+		dep.Labels[k] = v
+	}	
 
 	if len(c.NodeSelector) > 0 {
 		dep.Spec.Template.Spec.NodeSelector = c.NodeSelector
