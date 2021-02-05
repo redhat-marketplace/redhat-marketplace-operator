@@ -1,4 +1,4 @@
-VERSION ?= 1.0.5
+VERSION ?= $(shell cd ../../v2/tools && go run version/main.go)
 export VERSION
 
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
@@ -52,6 +52,7 @@ ARCHS ?= amd64 ppc64le s390x
 
 docker-manifest:
 	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
+	docker manifest push $(IMAGE)
 
 # Run go fmt against code
 fmt:

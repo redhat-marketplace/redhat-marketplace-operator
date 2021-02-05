@@ -1,6 +1,7 @@
 # syntax = docker/dockerfile:experimental
 ARG ARCH=amd64
-FROM quay.io/rh-marketplace/golang-base:1.15-${ARCH} as base
+ARG REGISTRY=quay.io/rh-marketplace
+FROM ${REGISTRY}/golang-base:1.15-${ARCH} as base
 ENV PATH=$PATH:/usr/local/go/bin CGO_ENABLED=0
 
 ARG path
