@@ -14,8 +14,8 @@ workflows: [
 		schema: unit_test
 	},
 	{
-		file:   "deploy.yml"
-		schema: bundle
+		file:   "event.yml"
+		schema: check_suite
 	},
 ]
 
@@ -63,7 +63,29 @@ unit_test: _#bashWorkflow & {
 	}
 }
 
-_#checkrun:  (_#on.check_run & {x: _}).x
+check_suite: _#bashWorkflow & {
+  name: "Check Suite"
+  on: ["check_suite"]
+	env: {
+		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
+	}
+	jobs: {
+    print: _#job & {
+      name: "Print"
+			"runs-on": _#linuxMachine
+      steps: [
+        _#step & {
+					name: "Print event"
+					run: """
+					cat << EOF | echo
+					${{ toJSON(github.event) }}
+					EOF
+					"""
+        }
+      ]
+    }
+  }
+}
 
 bundle: _#bashWorkflow & {
 	name: "Deploy Bundle"
