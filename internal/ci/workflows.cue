@@ -353,7 +353,7 @@ _#repoFromTo: [ for k, v in _#images {
 	to:    "\(v.ospid)/\(v.name):$VERSION"
 }]
 
-_#skopeoCopyCommands: [ for k, v in _#repoFromTo {"skopeo copy docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets.matrix[\(_#pcUser)]}}:${{secrets.matrix[\(v.pword)]}}"}]
+_#skopeoCopyCommands: [ for k, v in _#repoFromTo {"skopeo copy docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets.matrix['\(_#pcUser)']}}:${{secrets.matrix['(v.pword)']}}"}]
 _#retagCommand: strings.Join(_#skopeoCopyCommands, "\n")
 
 #preset: _#job & {
