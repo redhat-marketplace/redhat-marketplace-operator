@@ -1,8 +1,8 @@
 package ci
 
 import (
+	"strings"
 	json "github.com/SchemaStore/schemastore/src/schemas/json/github"
-	encjson "encoding/json"
 )
 
 workflowsDir: *"./" | string @tag(workflowsDir)
@@ -11,7 +11,11 @@ workflows: [...{file: string, schema: (json.#Workflow & {})}]
 workflows: [
 	{
 		file:   "test.yml"
-		schema: unitTest
+		schema: unit_test
+	},
+	{
+		file:   "event.yml"
+		schema: check_suite
 	},
 ]
 
@@ -21,37 +25,7 @@ varPresetHash:           "${{ needs.preset.outputs.hash}}"
 varPresetDockertag:      "${{ needs.preset.outputs.dockertag}}"
 varPresetQuayExpiration: "${{ needs.preset.outputs.quayExpiration}}"
 
-#preset: _#job & {
-	name:      "Preset"
-	"runs-on": _#linuxMachine
-	steps:     [
-			_#turnStyleStep,
-			_#checkoutCode,
-			_#installGo,
-			_#cacheGoModules] +
-		_#setBranchOutput + [
-			_#step & {
-				name: "Get Vars"
-				id:   "vars"
-				run: """
-					echo "::set-output name=version::$(make current-version)"
-					echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
-					echo "::set-output name=hash::$(make current-version)-$(git rev-parse --short HEAD)"
-					echo "::set-output name=dockertag::${TAGPREFIX}$(make current-version)-${GITHUB_SHA::8}"
-					echo "::set-output name=quayExpiration::${QUAY_EXPIRATION:-never}"
-					"""
-			},
-		]
-	outputs: {
-		version:        "${{ steps.vars.outputs.version }}"
-		tag:            "${{ steps.vars.outputs.tag }}"
-		hash:           "${{ steps.vars.outputs.hash }}"
-		dockertag:      "${{ steps.vars.outputs.dockertag }}"
-		quayExpiration: "${{ steps.vars.outputs.quayExpiration }}"
-	}
-}
-
-unitTest: _#bashWorkflow & {
+unit_test: _#bashWorkflow & {
 	name: "Test"
 	on: {
 		push: {
@@ -69,16 +43,10 @@ unitTest: _#bashWorkflow & {
 		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
 	}
 	jobs: {
-		preset:      #preset
 		"test-unit": _#job & {
 			name:      "Test"
 			"runs-on": _#linuxMachine
-			needs: [#preset.name]
-			env: {
-				"OPERATOR_IMAGE":     "${IMAGE_REGISTRY}/redhat-marketplace-operator:${{ needs.build.outputs.dockertag }}"
-				"OPERATOR_IMAGE_TAG": "${{ needs.build.outputs.dockertag }}"
-				"TAG":                "${IMAGE_REGISTRY}/redhat-marketplace-operator:${{ needs.preset.outputs.dockertag }}"
-			}
+
 			steps: [
 				_#checkoutCode,
 				_#installGo,
@@ -95,220 +63,84 @@ unitTest: _#bashWorkflow & {
 	}
 }
 
-test: _#bashWorkflow & {
-	name: "Test"
-	on: {
-		push: {
-			branches: ["**"] // any branch (including '/' namespaced branches)
-			"tags-ignore": ["v*"]
-		}
+check_suite: _#bashWorkflow & {
+  name: "Check Suite"
+  on: ["check_suite"]
+	env: {
+		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
 	}
-
 	jobs: {
-		start: {
+    print: _#job & {
+      name: "Print"
 			"runs-on": _#linuxMachine
-			if:        "${{ \(_#isCLCITestBranch) }}"
-			steps: [
-				_#startCLBuild,
-			]
-		}
-		test: {
-			strategy:  _#testStrategy
-			"runs-on": "${{ matrix.os }}"
-			steps: [
-				_#installGo,
-				_#checkoutCode,
-				_#cacheGoModules,
-				_#goGenerate,
-				_#goTest,
-				_#goTestRace,
-				_#goReleaseCheck,
-				_#pullThroughProxy,
-				_#failCLBuild,
-			]
-		}
-		mark_ci_success: {
-			"runs-on": _#linuxMachine
-			if:        "${{ \(_#isCLCITestBranch) }}"
-			needs:     "test"
-			steps: [
-				_#passCLBuild,
-			]
-		}
-		delete_build_branch: {
-			"runs-on": _#linuxMachine
-			if:        "${{ \(_#isCLCITestBranch) && always() }}"
-			needs:     "test"
-			steps: [
-				_#step & {
+      steps: [
+        _#step & {
+					name: "Print event"
 					run: """
-						\(_#tempCueckooGitDir)
-						git push https://github.com/cuelang/cue :${GITHUB_REF#\(_#branchRefPrefix)}
-						"""
-				},
-			]
-		}
-	}
-
-	// _#isCLCITestBranch is an expression that evaluates to true
-	// if the job is running as a result of a CL triggered CI build
-	_#isCLCITestBranch: "startsWith(github.ref, '\(_#branchRefPrefix)ci/')"
-
-	// _#isMaster is an expression that evaluates to true if the
-	// job is running as a result of a master commit push
-	_#isMaster: "github.ref == '\(_#branchRefPrefix)master'"
-
-	_#pullThroughProxy: _#step & {
-		name: "Pull this commit through the proxy on master"
-		run: """
-			v=$(git rev-parse HEAD)
-			cd $(mktemp -d)
-			go mod init mod.com
-			GOPROXY=https://proxy.golang.org go get -d cuelang.org/go@$v
-			"""
-		if: "${{ \(_#isMaster) }}"
-	}
-
-	_#startCLBuild: _#step & {
-		name: "Update Gerrit CL message with starting message"
-		run:  (_#gerrit._#setCodeReview & {
-			#args: message: "Started the build... see progress at ${{ github.event.repository.html_url }}/actions/runs/${{ github.run_id }}"
-		}).res
-	}
-
-	_#failCLBuild: _#step & {
-		if:   "${{ \(_#isCLCITestBranch) && failure() }}"
-		name: "Post any failures for this matrix entry"
-		run:  (_#gerrit._#setCodeReview & {
-			#args: {
-				message: "Build failed for ${{ runner.os }}-${{ matrix.go-version }}; see ${{ github.event.repository.html_url }}/actions/runs/${{ github.run_id }} for more details"
-				labels: {
-					"Code-Review": -1
-				}
-			}
-		}).res
-	}
-
-	_#passCLBuild: _#step & {
-		name: "Update Gerrit CL message with success message"
-		run:  (_#gerrit._#setCodeReview & {
-			#args: {
-				message: "Build succeeded for ${{ github.event.repository.html_url }}/actions/runs/${{ github.run_id }}"
-				labels: {
-					"Code-Review": 1
-				}
-			}
-		}).res
-	}
-
-	_#gerrit: {
-		// _#setCodeReview assumes that it is invoked from a job where
-		// _#isCLCITestBranch is true
-		_#setCodeReview: {
-			#args: {
-				message: string
-				labels?: {
-					"Code-Review": int
-				}
-			}
-			res: #"""
-			curl -f -s -H "Content-Type: application/json" --request POST --data '\#(encjson.Marshal(#args))' -b ~/.gitcookies https://cue-review.googlesource.com/a/changes/$(basename $(dirname $GITHUB_REF))/revisions/$(basename $GITHUB_REF)/review
-			"""#
-		}
-	}
-}
-
-test_dispatch: _#bashWorkflow & {
-
-	name: "Test Dispatch"
-	on: ["repository_dispatch"]
-	jobs: {
-		start: {
-			if:        "${{ startsWith(github.event.action, 'Build for refs/changes/') }}"
-			"runs-on": _#linuxMachine
-			steps: [
-				_#step & {
-					name: "Checkout ref"
-					run:  """
-						\(_#tempCueckooGitDir)
-						git fetch https://cue-review.googlesource.com/cue ${{ github.event.client_payload.ref }}
-						git checkout -b ci/${{ github.event.client_payload.changeID }}/${{ github.event.client_payload.commit }} FETCH_HEAD
-						git push https://github.com/cuelang/cue ci/${{ github.event.client_payload.changeID }}/${{ github.event.client_payload.commit }}
-						"""
-				},
-			]
-		}
-	}
-}
-
-release: _#bashWorkflow & {
-
-	name: "Release"
-	on: push: tags: ["v*"]
-	jobs: {
-		goreleaser: {
-			"runs-on": _#linuxMachine
-			steps: [{
-				name: "Checkout code"
-				uses: "actions/checkout@v2"
-			}, {
-				name: "Unshallow" // required for the changelog to work correctly.
-				run:  "git fetch --prune --unshallow"
-			}, {
-				name: "Run GoReleaser"
-				env: GITHUB_TOKEN: "${{ secrets.ACTIONS_GITHUB_TOKEN }}"
-				uses: "docker://goreleaser/goreleaser:latest"
-				with: args: "release --rm-dist"
-			}]
-		}
-		docker: {
-			name:      "docker"
-			"runs-on": _#linuxMachine
-			steps: [{
-				name: "Check out the repo"
-				uses: "actions/checkout@v2"
-			}, {
-				name: "Set version environment"
-				run: """
-					CUE_VERSION=$(echo ${GITHUB_REF##refs/tags/v})
-					echo \"CUE_VERSION=$CUE_VERSION\"
-					echo \"CUE_VERSION=$(echo $CUE_VERSION)\" >> $GITHUB_ENV
+					cat << EOF | echo
+					${{ toJSON(github.event) }}
+					EOF
 					"""
-			}, {
-				name: "Push to Docker Hub"
-				env: {
-					DOCKER_BUILDKIT: 1
-					GOLANG_VERSION:  1.14
-					CUE_VERSION:     "${{ env.CUE_VERSION }}"
-				}
-				uses: "docker/build-push-action@v1"
-				with: {
-					tags:           "${{ env.CUE_VERSION }},latest"
-					repository:     "cuelang/cue"
-					username:       "${{ secrets.DOCKER_USERNAME }}"
-					password:       "${{ secrets.DOCKER_PASSWORD }}"
-					tag_with_ref:   false
-					tag_with_sha:   false
-					target:         "cue"
-					always_pull:    true
-					build_args:     "GOLANG_VERSION=${{ env.GOLANG_VERSION }},CUE_VERSION=v${{ env.CUE_VERSION }}"
-					add_git_labels: true
-				}
-			}]
-		}
-	}
+        }
+      ]
+    }
+  }
 }
 
-rebuild_tip_cuelang_org: _#bashWorkflow & {
-
-	name: "Push to tip"
-	on: push: branches: ["master"]
-	jobs: push: {
-		"runs-on": _#linuxMachine
-		steps: [{
-			name: "Rebuild tip.cuelang.org"
-			run:  "curl -f -X POST -d {} https://api.netlify.com/build_hooks/${{ secrets.CuelangOrgTipRebuildHook }}"
-		}]
+bundle: _#bashWorkflow & {
+	name: "Deploy Bundle"
+  on: ["check_run"]
+	env: {
+		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
+	}
+	jobs: {
+    print: _#job & {
+      name: "Print"
+			"runs-on": _#linuxMachine
+      steps: [
+        _#step & {
+          name: "Print event"
+          run: "echo ${{ toJSON(github.event) }}"
+        }
+      ]
+    }
+		deploy: _#job & {
+			name:      "Deploy Bundle"
+      needs: ["print"]
+			"runs-on": _#linuxMachine
+			if:        "contains(${{ github.event.name }}: \"Travis CI\")"
+			steps: [
+				_#checkoutCode,
+				_#installGo,
+				_#cacheGoModules,
+				_#installOperatorSDK,
+				_#step & {
+					name: "Build bundle"
+					run: """
+						VERSION=$(make current-version)-${GITHUB_SHA}
+						TAG=$(make current-version)-${GITHUB_SHA}
+						cd v2
+						make bundle bundle-stable bundle-deploy bundle-dev-index
+						"""
+				},
+			]
+		}
+		publish: _#job & {
+			name:      "Publish Images"
+			"runs-on": _#linuxMachine
+			needs: ["deploy"]
+			if: "(startsWith(github.ref,'refs/heads/release/') || startsWith(github.ref,'refs/heads/hotfix/'))"
+			steps: [
+				_#checkoutCode,
+				_#installGo,
+				_#cacheGoModules,
+				_#installOperatorSDK,
+				_#step & {
+					name: "Mirror images"
+					run:  _#retagCommand
+				},
+			]
+		}
 	}
 }
 
@@ -318,6 +150,7 @@ _#bashWorkflow: json.#Workflow & {
 
 // TODO: drop when cuelang.org/issue/390 is fixed.
 // Declare definitions for sub-schemas
+_#on:  ((json.#Workflow & {}).on & {x: _}).x
 _#job:  ((json.#Workflow & {}).jobs & {x: _}).x
 _#step: ((_#job & {steps:                 _}).steps & [_])[0]
 
@@ -348,8 +181,6 @@ _#installGo: _#step & {
 	uses: "actions/setup-go@v2"
 	with: "go-version": _#goVersion
 }
-
-_#goVersion: "1.15.6"
 
 _#checkoutCode: _#step & {
 	name: "Checkout code"
@@ -402,15 +233,6 @@ _#loadGitTagPushed: _#step & {
 }
 
 _#branchRefPrefix: "refs/heads/"
-
-_#tempCueckooGitDir: """
-	mkdir tmpgit
-	cd tmpgit
-	git init
-	git config user.name cueckoo
-	git config user.email cueckoo@gmail.com
-	git config http.https://github.com/.extraheader "AUTHORIZATION: basic $(echo -n cueckoo:${{ secrets.CUECKOO_GITHUB_PAT }} | base64)"
-	"""
 
 _#setBranchOutput: [
 	_#setBranchPrefixForDev,
@@ -503,4 +325,85 @@ _#turnStyleStep: _#step & {
 	uses: "softprops/turnstyle@v1"
 	with: "continue-after-seconds": 45
 	env: "GITHUB_TOKEN":            "${{ secrets.GITHUB_TOKEN }}"
+}
+
+_#goVersion: "1.15.6"
+_#pcUser:    "pcUser"
+
+_#operator: {
+	name:  "redhat-marketplace-operator"
+	ospid: "scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd"
+	pword: "pcPassword"
+}
+
+_#metering: {
+	name:  "redhat-marketplace-metric-state"
+	ospid: "scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4"
+	pword: "pcPasswordMetricState"
+}
+
+_#reporter: {
+	name:  "redhat-marketplace-reporter"
+	ospid: "scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e"
+	pword: "pcPasswordReporter"
+}
+
+_#authchecker: {
+	name:  "redhat-marketplace-authchecker"
+	ospid: "scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785"
+	pword: "pcPasswordAuthCheck"
+}
+
+_#images: [
+	_#operator,
+	_#metering,
+	_#reporter,
+	_#authchecker,
+]
+
+_#registry: "quay.io/rh-marketplace"
+
+_#manifest: {
+	name:  "redhat-marketplace-operator-manifest"
+	ospid: "scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1"
+	pword: "pcPasswordOperatorManifest"
+}
+
+_#repoFromTo: [ for k, v in _#images {
+	pword: "\(v.pword)"
+	from:  "\(_#registry)/\(v.name):$VERSION"
+	to:    "\(v.ospid)/\(v.name):$VERSION"
+}]
+
+_#skopeoCopyCommands: [ for k, v in _#repoFromTo {"skopeo copy docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets.matrix['\(_#pcUser)']}}:${{secrets.matrix['(v.pword)']}}"}]
+_#retagCommand: strings.Join(_#skopeoCopyCommands, "\n")
+
+#preset: _#job & {
+	name:      "Preset"
+	"runs-on": _#linuxMachine
+	steps:     [
+			_#turnStyleStep,
+			_#checkoutCode,
+			_#installGo,
+			_#cacheGoModules] +
+		_#setBranchOutput + [
+			_#step & {
+				name: "Get Vars"
+				id:   "vars"
+				run: """
+					echo "::set-output name=version::$(make current-version)"
+					echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
+					echo "::set-output name=hash::$(make current-version)-$(git rev-parse --short HEAD)"
+					echo "::set-output name=dockertag::${TAGPREFIX}$(make current-version)-${GITHUB_SHA::8}"
+					echo "::set-output name=quayExpiration::${QUAY_EXPIRATION:-never}"
+					"""
+			},
+		]
+	outputs: {
+		version:        "${{ steps.vars.outputs.version }}"
+		tag:            "${{ steps.vars.outputs.tag }}"
+		hash:           "${{ steps.vars.outputs.hash }}"
+		dockertag:      "${{ steps.vars.outputs.dockertag }}"
+		quayExpiration: "${{ steps.vars.outputs.quayExpiration }}"
+	}
 }

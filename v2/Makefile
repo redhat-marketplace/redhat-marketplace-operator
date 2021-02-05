@@ -1,5 +1,5 @@
 # Current Operator version
-VERSION ?= $(shell go run ./tools/version/main.go)
+VERSION ?= $(shell cd ./tools && go run ./version/main.go)
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
 
@@ -168,6 +168,7 @@ ARCHS ?= amd64 ppc64le s390x
 
 docker-manifest:
 	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
+	docker manifest push $(IMAGE)
 
 CSV_YAML_BUNDLE_FILE=bundle/manifests/redhat-marketplace-operator.clusterserviceversion.yaml
 
@@ -213,9 +214,7 @@ VERSIONS_LIST ?= $(BUNDLE_IMG)
 
 bundle-dev-index: opm
 	$(OPM) index add -u docker --bundles "$(VERSIONS_LIST)" --tag "$(DEV_INDEX_IMG):$(VERSION)"
-	docker tag $(DEV_INDEX_IMG):$(VERSION) $(DEV_INDEX_IMG):latest
 	docker push $(DEV_INDEX_IMG):$(VERSION)
-	docker push $(DEV_INDEX_IMG):latest
 
 bundle-uninstall:
 	- kubectl delete catalogsources.operators.coreos.com redhat-marketplace-operator-catalog

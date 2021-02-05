@@ -48,7 +48,7 @@ docker-build:
 
 docker-push:
 	$(MAKE) base/docker-push
-	$(MAKE) $(addsuffix /docker-build,$(PROJECTS))
+	$(MAKE) $(addsuffix /docker-push,$(PROJECTS))
 
 docker-manifest:
 	$(MAKE) $(addsuffix /docker-manifest,$(PROJECTS))
