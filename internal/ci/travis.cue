@@ -2,7 +2,6 @@ package ci
 
 import (
 	json "github.com/SchemaStore/schemastore/src/schemas/json/travis"
-	"strings"
 )
 
 travisDir: *"." | string @tag(travisDir)
@@ -16,7 +15,8 @@ travis: [
 ]
 
 _#archs: ["amd64", "ppc64le", "s390x"]
-_#registry: "quay.io/rh-marketplace"
+_#registry:  "quay.io/rh-marketplace"
+_#goVersion: "1.15.6"
 
 travisSchema: {
 	version: "~> 1.0"
@@ -51,11 +51,6 @@ travisSchema: {
 					make docker-manifest
 					"""
 			},
-			{
-				stage:  "retag"
-        if: "type = pull_request && head_branch =~ /^(release|hotfix).*$/"
-				script: retagCommand
-			},
 		]
 	}
 	script: [
@@ -77,37 +72,3 @@ travisSchema: {
 		"echo \"Docker Image push to quay.io is done !\"",
 	]
 }
-
-_#operatorRepoName:    "redhat-marketplace-operator"
-_#meteringRepoName:    "redhat-marketplace-metric-state"
-_#reporterRepoName:    "redhat-marketplace-reporter"
-_#authcheckerRepoName: "redhat-marketplace-authchecker"
-
-_#operatorRedHatOSPID:    "scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd"
-_#reporterRedHatOSPID:    "scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e"
-_#meteringRedHatOSPID:    "scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4"
-_#authcheckerRedHatOSPID: "scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785"
-
-_#ospids: [{
-	from: "\(_#registry)/\(_#operatorRepoName):$VERSION"
-	to:   "\(_#operatorRedHatOSPID)/\(_#operatorRepoName):$VERSION"
-},
-	{
-		from: "\(_#registry)/\(_#reporterRepoName):$VERSION"
-		to:   "\(_#reporterRedHatOSPID)/\(_#reporterRepoName):$VERSION"
-	},
-	{
-		from: "\(_#registry)/\(_#meteringRepoName):$VERSION"
-		to:   "\(_#meteringRedHatOSPID)/\(_#meteringRepoName):$VERSION"
-	},
-	{
-		from: "\(_#registry)/\(_#authcheckerRepoName):$VERSION"
-		to:   "\(_#authcheckerRedHatOSPID)/\(_#authcheckerRepoName):$VERSION"
-	}]
-
-retagCommand: strings.Join([ for k, v in _#ospids {
-	"""
-docker tag \(v.from) \(v.to)
-docker push \(v.to)
-"""
-}], "\n")

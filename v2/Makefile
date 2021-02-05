@@ -214,9 +214,7 @@ VERSIONS_LIST ?= $(BUNDLE_IMG)
 
 bundle-dev-index: opm
 	$(OPM) index add -u docker --bundles "$(VERSIONS_LIST)" --tag "$(DEV_INDEX_IMG):$(VERSION)"
-	docker tag $(DEV_INDEX_IMG):$(VERSION) $(DEV_INDEX_IMG):latest
 	docker push $(DEV_INDEX_IMG):$(VERSION)
-	docker push $(DEV_INDEX_IMG):latest
 
 bundle-uninstall:
 	- kubectl delete catalogsources.operators.coreos.com redhat-marketplace-operator-catalog

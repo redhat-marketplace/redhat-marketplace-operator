@@ -14,4 +14,4 @@
 
 package main
 
-//go:generate gobin -run cuelang.org/go/cmd/cue@v0.3.0-beta.3 cmd gentravis github.com/redhat-marketplace/redhat-marketplace-operator/internal/ci
+//go:generate gobin -run cuelang.org/go/cmd/cue@master cmd gentravis github.com/redhat-marketplace/redhat-marketplace-operator/internal/ci
