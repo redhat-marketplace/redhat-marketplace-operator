@@ -2,6 +2,7 @@ package ci
 
 import (
 	json "github.com/SchemaStore/schemastore/src/schemas/json/travis"
+	encjson "encoding/json"
 )
 
 travisDir: *"." | string @tag(travisDir)
@@ -49,6 +50,18 @@ travisSchema: {
 				script: """
 					echo "making manifest for $VERSION"
 					make docker-manifest
+					"""
+			},
+			{
+				#args: {
+					event_type: "deploy"
+					ref:        "$TRAVIS_COMMIT"
+					sha:        "$TRAVIS_PULL_REQUEST_SHA"
+				}
+				stage:  "bundle"
+				if:     "type = pull_request && head_branch =~ /^(master|develop|release.*|hotfix.*)$/"
+				script: """
+					curl -X POST -H "Authorization: token ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/rh-marketplace/redhat-marketplace-operator/dispatches -d "\(encjson.Marshal(#args))"
 					"""
 			},
 		]

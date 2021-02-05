@@ -32,17 +32,11 @@ jobs:
     script: |-
       echo "making manifest for $VERSION"
       make docker-manifest
-  - stage: retag
-    if: type = pull_request && head_branch =~ /^(release|hotfix).*$/
-    script: |-
-      docker tag quay.io/rh-marketplace/redhat-marketplace-operator:$VERSION scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$VERSION
-      docker push scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$VERSION
-      docker tag quay.io/rh-marketplace/redhat-marketplace-reporter:$VERSION scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$VERSION
-      docker push scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$VERSION
-      docker tag quay.io/rh-marketplace/redhat-marketplace-metric-state:$VERSION scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$VERSION
-      docker push scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$VERSION
-      docker tag quay.io/rh-marketplace/redhat-marketplace-authchecker:$VERSION scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authchecker:$VERSION
-      docker push scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authchecker:$VERSION
+  - stage: bundle
+    if: type = pull_request && head_branch =~ /^(master|develop|release.*|hotfix.*)$/
+    script: 'curl -X POST -H "Authorization: token ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.v3+json"
+      https://api.github.com/repos/rh-marketplace/redhat-marketplace-operator/dispatches
+      -d "{"event_type":"deploy","ref":"$TRAVIS_COMMIT","sha":"$TRAVIS_PULL_REQUEST_SHA"}"'
 script:
 - docker --version
 - export VERSION=${VERSION}-${ARCH}

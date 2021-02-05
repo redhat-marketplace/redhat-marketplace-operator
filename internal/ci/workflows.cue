@@ -14,8 +14,8 @@ workflows: [
 		schema: unit_test
 	},
 	{
-		file:   "event.yml"
-		schema: check_suite
+		file:   "bundle.yml"
+		schema: bundle
 	},
 ]
 
@@ -55,7 +55,7 @@ unit_test: _#bashWorkflow & {
 				_#step & {
 					name: "Test"
 					run: """
-						make test
+							make test
 						"""
 				},
 			]
@@ -63,52 +63,17 @@ unit_test: _#bashWorkflow & {
 	}
 }
 
-check_suite: _#bashWorkflow & {
-  name: "Check Suite"
-  on: ["check_suite"]
-	env: {
-		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
-	}
-	jobs: {
-    print: _#job & {
-      name: "Print"
-			"runs-on": _#linuxMachine
-      steps: [
-        _#step & {
-					name: "Print event"
-					run: """
-					cat << EOF | echo
-					${{ toJSON(github.event) }}
-					EOF
-					"""
-        }
-      ]
-    }
-  }
-}
-
 bundle: _#bashWorkflow & {
 	name: "Deploy Bundle"
-  on: ["check_run"]
+	on: ["repository_dispatch"]
 	env: {
 		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
 	}
 	jobs: {
-    print: _#job & {
-      name: "Print"
-			"runs-on": _#linuxMachine
-      steps: [
-        _#step & {
-          name: "Print event"
-          run: "echo ${{ toJSON(github.event) }}"
-        }
-      ]
-    }
 		deploy: _#job & {
 			name:      "Deploy Bundle"
-      needs: ["print"]
 			"runs-on": _#linuxMachine
-			if:        "contains(${{ github.event.name }}: \"Travis CI\")"
+			if:        "contains(${{ github.event.action }}: 'bundle')"
 			steps: [
 				_#checkoutCode,
 				_#installGo,
@@ -150,7 +115,7 @@ _#bashWorkflow: json.#Workflow & {
 
 // TODO: drop when cuelang.org/issue/390 is fixed.
 // Declare definitions for sub-schemas
-_#on:  ((json.#Workflow & {}).on & {x: _}).x
+_#on:   ((json.#Workflow & {}).on & {x:   _}).x
 _#job:  ((json.#Workflow & {}).jobs & {x: _}).x
 _#step: ((_#job & {steps:                 _}).steps & [_])[0]
 
