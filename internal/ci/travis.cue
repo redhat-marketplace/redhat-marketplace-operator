@@ -57,13 +57,12 @@ travisSchema: {
 			{
 				#args: {
 					event_type: "deploy"
-					ref:        "$TRAVIS_COMMIT"
-					sha:        "$TRAVIS_PULL_REQUEST_SHA"
+          client_payload: sha:"$TRAVIS_COMMIT"
 				}
 				stage:  "bundle"
 				if:     "(type = pull_request && head_branch =~ \(_#branchTarget)) || (type = push && branch =~ \(_#branchTarget))"
 				script: """
-					curl -X POST -H "Authorization: token ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/redhat-marketplace/redhat-marketplace-operator/dispatches -d "\(strconv.Quote(encjson.Marshal(#args)))"
+					curl -X POST -H "Authorization: token ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/redhat-marketplace/redhat-marketplace-operator/dispatches -d \(strconv.Quote(encjson.Marshal(#args)))
 					"""
 			},
 		]

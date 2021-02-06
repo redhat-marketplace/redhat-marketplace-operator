@@ -97,7 +97,9 @@ bundle: _#bashWorkflow & {
 			needs: ["deploy"]
 			if: "(startsWith(github.ref,'refs/heads/release/') || startsWith(github.ref,'refs/heads/hotfix/'))"
 			steps: [
-				_#checkoutCode,
+				_#checkoutCode & {
+          with: ref: "${{github.event.client_payload.sha}}"
+        },
 				_#installGo,
 				_#cacheGoModules,
 				_#installOperatorSDK,
