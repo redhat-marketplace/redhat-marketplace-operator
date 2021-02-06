@@ -72,7 +72,6 @@ bundle: _#bashWorkflow & {
 		deploy: _#job & {
 			name:      "Deploy Bundle"
 			"runs-on": _#linuxMachine
-			if:        "contains(${{ github.event.action }}: 'bundle')"
 			steps: [
 				_#checkoutCode & {
           with: ref: "${{github.event.client_payload.sha}}"
