@@ -56,7 +56,7 @@ travisSchema: {
 			},
 			{
 				#args: {
-					event_type: "deploy"
+					event_type: "bundle"
           client_payload: sha:"$TRAVIS_COMMIT"
 				}
 				stage:  "bundle"
