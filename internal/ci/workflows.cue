@@ -75,7 +75,9 @@ bundle: _#bashWorkflow & {
 			"runs-on": _#linuxMachine
 			if:        "contains(${{ github.event.action }}: 'bundle')"
 			steps: [
-				_#checkoutCode,
+				_#checkoutCode & {
+          with: ref: "${{github.event.client_payload.ref}}"
+        },
 				_#installGo,
 				_#cacheGoModules,
 				_#installOperatorSDK,

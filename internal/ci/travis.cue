@@ -18,6 +18,7 @@ travis: [
 _#archs: ["amd64", "ppc64le", "s390x"]
 _#registry:  "quay.io/rh-marketplace"
 _#goVersion: "1.15.6"
+_#branchTarget: "/^(master|develop|release.*|hotfix.*)$/"
 
 travisSchema: {
 	version: "~> 1.0"
@@ -59,7 +60,7 @@ travisSchema: {
 					sha:        "$TRAVIS_PULL_REQUEST_SHA"
 				}
 				stage:  "bundle"
-				if:     "type = pull_request && head_branch =~ /^(master|develop|release.*|hotfix.*)$/"
+				if:     "(type = pull_request && head_branch =~ \(_#branchTarget)) || (type = push && branch =~ \(_#branchTarget))"
 				script: """
 					curl -X POST -H "Authorization: token ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/rh-marketplace/redhat-marketplace-operator/dispatches -d "\(encjson.Marshal(#args))"
 					"""
