@@ -62,10 +62,9 @@ unit_test: _#bashWorkflow & {
 		}
 	}
 }
-
 bundle: _#bashWorkflow & {
 	name: "Deploy Bundle"
-	on: ["repository_dispatch"]
+	on: repository_dispatch: types: ["bundle"]
 	env: {
 		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
 	}
@@ -76,7 +75,7 @@ bundle: _#bashWorkflow & {
 			if:        "contains(${{ github.event.action }}: 'bundle')"
 			steps: [
 				_#checkoutCode & {
-          with: ref: "${{github.event.client_payload.ref}}"
+          with: ref: "${{github.event.client_payload.sha}}"
         },
 				_#installGo,
 				_#cacheGoModules,

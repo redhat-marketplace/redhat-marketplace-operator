@@ -2,7 +2,9 @@
 
 name: Deploy Bundle
 on:
-- repository_dispatch
+  repository_dispatch:
+    types:
+    - bundle
 env:
   IMAGE_REGISTRY: quay.io/rh-marketplace
 jobs:
@@ -17,7 +19,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
       with:
-        ref: ${{github.event.client_payload.ref}}
+        ref: ${{github.event.client_payload.sha}}
     - name: Install Go
       uses: actions/setup-go@v2
       with:

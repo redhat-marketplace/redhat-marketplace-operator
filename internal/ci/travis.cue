@@ -3,6 +3,7 @@ package ci
 import (
 	json "github.com/SchemaStore/schemastore/src/schemas/json/travis"
 	encjson "encoding/json"
+  "strconv"
 )
 
 travisDir: *"." | string @tag(travisDir)
@@ -62,7 +63,7 @@ travisSchema: {
 				stage:  "bundle"
 				if:     "(type = pull_request && head_branch =~ \(_#branchTarget)) || (type = push && branch =~ \(_#branchTarget))"
 				script: """
-					curl -X POST -H "Authorization: token ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/rh-marketplace/redhat-marketplace-operator/dispatches -d "\(encjson.Marshal(#args))"
+					curl -X POST -H "Authorization: token ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/redhat-marketplace/redhat-marketplace-operator/dispatches -d "\(strconv.Quote(encjson.Marshal(#args)))"
 					"""
 			},
 		]
