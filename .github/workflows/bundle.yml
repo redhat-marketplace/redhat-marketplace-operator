@@ -40,7 +40,7 @@ jobs:
         grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
         chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
     - name: Install YQ
-      run: snap install yq
+      run: sudo snap install yq
     - id: create-action
       uses: actions/github-script@v3
       with:
@@ -61,7 +61,7 @@ jobs:
         TAG=$(make operator/current-version)-${GITHUB_SHA}
         cd v2
         make bundle bundle-stable bundle-deploy bundle-dev-index
-    - if: ${{ always() }}
+    - if: ${{ always() && steps.create-action.outputs.result.id != "" }}
       uses: actions/github-script@v3
       with:
         github-token: ${{secrets.GITHUB_TOKEN}}
@@ -73,9 +73,11 @@ jobs:
           head_sha: '${{github.event.client_payload.sha}}',
           status: 'completed',
           conclusion: '${{steps.bundle.conclusion}}',
-          check_run_id: '${{steps.create-action.outputs.id}}'
+          check_run_id: '${{steps.create-action.outputs.result.id}}'
           }
           return await github.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', obj)
+      env:
+        OUTPUTS: ${{steps.create-action.outputs.result}}
   publish:
     name: Publish Images
     needs:

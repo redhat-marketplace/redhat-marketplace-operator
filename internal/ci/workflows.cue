@@ -105,10 +105,13 @@ bundle: _#bashWorkflow & {
 						head_sha:     "${{github.event.client_payload.sha}}"
 						status:       "completed"
 						conclusion:   "${{steps.bundle.conclusion}}"
-						check_run_id: "${{steps.create-action.outputs.id}}"
+						check_run_id: "${{steps.create-action.outputs.result.id}}"
 					}
 				}).res & {
-					if: "${{ always() }}"
+          env: {
+            "OUTPUTS": "${{steps.create-action.outputs.result}}"
+          }
+					if: "${{ always() && steps.create-action.outputs.result.id != \"\" }}"
 				},
 			]
 		}
@@ -452,5 +455,5 @@ _#githubUpdateActionStep: {
 
 _#installYQ: _#step & {
   name: "Install YQ"
-  run: "snap install yq"
+  run: "sudo snap install yq"
 }
