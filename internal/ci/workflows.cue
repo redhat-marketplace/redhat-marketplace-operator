@@ -93,6 +93,7 @@ bundle: _#bashWorkflow & {
 				_#step & {
 					id:   "bundle"
 					name: "Build bundle"
+          env: "GITHUB_SHA": "${{github.event.client_payload.sha}}"
 					run: """
 						VERSION=$(make operator/current-version)-${GITHUB_SHA}
 						TAG=$(make operator/current-version)-${GITHUB_SHA}
@@ -286,6 +287,8 @@ _#installOperatorSDK: _#step & {
 		curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt.asc
 		grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
 		chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
+		curl -LO https://github.com/operator-framework/operator-registry/releases/download/$(opm_version)/$(UNAME)-amd64-opm
+		chmod +x ${OS}-${ARCH}-opm && mv ${OS}-${ARCH}-opm /usr/local/bin/opm
 		"""
 }
 
