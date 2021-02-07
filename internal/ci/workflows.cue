@@ -79,16 +79,17 @@ bundle: _#bashWorkflow & {
 				_#installGo,
 				_#cacheGoModules,
 				_#installOperatorSDK,
-        _#installYQ,
-				(_#githubCreateActionStep & {
-					_#args: {
-						name:     "Operator: Deploy Bundle"
-						head_sha: "${{github.event.client_payload.sha}}"
-						status:   "in_progress"
-					}
-				}).res & {
-					id: "create-action"
-				},
+				_#installYQ,
+				// (_#githubCreateActionStep & {
+				//  _#args: {
+				//   name:     "Operator: Deploy Bundle"
+				//   head_sha: "${{github.event.client_payload.sha}}"
+				//   status:   "in_progress"
+				//  }
+				// }).res & {
+				//  id: "create-action"
+				// },
+				_#quayLogin,
 				_#step & {
 					id:   "bundle"
 					name: "Build bundle"
@@ -98,21 +99,21 @@ bundle: _#bashWorkflow & {
 						cd v2
 						make bundle bundle-stable bundle-deploy bundle-dev-index
 						"""
-				},
-				(_#githubUpdateActionStep & {
-					_#args: {
-						name:         "Operator: Deploy Bundle"
-						head_sha:     "${{github.event.client_payload.sha}}"
-						status:       "completed"
-						conclusion:   "${{steps.bundle.conclusion}}"
-						check_run_id: "${{steps.create-action.outputs.result.id}}"
-					}
-				}).res & {
-          env: {
-            "OUTPUTS": "${{steps.create-action.outputs.result}}"
-          }
-					if: "${{ always() && steps.create-action.outputs.result.id != '' }}"
-				},
+				}
+				// (_#githubUpdateActionStep & {
+				//  _#args: {
+				//   name:         "Operator: Deploy Bundle"
+				//   head_sha:     "${{github.event.client_payload.sha}}"
+				//   status:       "completed"
+				//   conclusion:   "${{steps.bundle.conclusion}}"
+				//   check_run_id: "${{steps.create-action.outputs.result.id}}"
+				//  }
+				// }).res & {
+				//   env: {
+				//     "OUTPUTS": "${{steps.create-action.outputs.result}}"
+				//   }
+				//  if: "${{ always() && steps.create-action.outputs.result.id != '' }}"
+				// },,
 			]
 		}
 		publish: _#job & {
@@ -365,8 +366,30 @@ _#repoFromTo: [ for k, v in _#images {
 	to:    "\(v.ospid)/\(v.name):$VERSION"
 }]
 
-_#skopeoCopyCommands: [ for k, v in _#repoFromTo {"skopeo copy docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets.matrix['\(_#pcUser)']}}:${{secrets.matrix['(v.pword)']}}"}]
+_#skopeoCopyCommands: [ for k, v in _#repoFromTo {"skopeo copy docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets.matrix['\(_#pcUser)']}}:${{secrets.matrix['\(v.pword)']}}"}]
 _#retagCommand: strings.Join(_#skopeoCopyCommands, "\n")
+
+_#registryLoginStep: {
+	#args: {
+		user: string
+		pass: string
+	}
+	res: _#step & {
+		name: "Login to Docker Hub"
+		uses: "docker/login-action@v1"
+		with: {
+			username: "\(#args.user)"
+			password: "\(#args.pass)"
+		}
+	}
+}
+
+_#quayLogin: (_#registryLoginStep & {
+	#args: {
+		user: "${{secrets.matrix['quayUser']}}"
+		pass: "${{secrets.matrix['quayPassword']}}"
+	}
+}).res
 
 #preset: _#job & {
 	name:      "Preset"
@@ -422,7 +445,7 @@ _#githubActionBuildScript: {
 	#args:       _#checkRunObject
 	#scriptArgs: strings.Join([ for k, v in #args if k != "output" && v != null {"\(k): '\(v)'"}], ",\n")
 	res:
-  """
+		"""
 	var obj = {
 	owner: context.repo.owner,
 	repo: context.repo.repo,
@@ -454,6 +477,6 @@ _#githubUpdateActionStep: {
 }
 
 _#installYQ: _#step & {
-  name: "Install YQ"
-  run: "sudo snap install yq"
+	name: "Install YQ"
+	run:  "sudo snap install yq"
 }
