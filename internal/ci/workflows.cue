@@ -79,6 +79,7 @@ bundle: _#bashWorkflow & {
 				_#installGo,
 				_#cacheGoModules,
 				_#installOperatorSDK,
+        _#installYQ,
 				(_#githubCreateActionStep & {
 					_#args: {
 						name:     "Operator: Deploy Bundle"
@@ -447,4 +448,9 @@ _#githubUpdateActionStep: {
 			return await github.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', obj)
 			"""
 	}
+}
+
+_#installYQ: _#step & {
+  name: "Install YQ"
+  run: "snap install yq"
 }
