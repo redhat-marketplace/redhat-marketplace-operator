@@ -111,7 +111,7 @@ bundle: _#bashWorkflow & {
           env: {
             "OUTPUTS": "${{steps.create-action.outputs.result}}"
           }
-					if: "${{ always() && steps.create-action.outputs.result.id != \"\" }}"
+					if: "${{ always() && steps.create-action.outputs.result.id != '' }}"
 				},
 			]
 		}

@@ -61,7 +61,7 @@ jobs:
         TAG=$(make operator/current-version)-${GITHUB_SHA}
         cd v2
         make bundle bundle-stable bundle-deploy bundle-dev-index
-    - if: ${{ always() && steps.create-action.outputs.result.id != "" }}
+    - if: ${{ always() && steps.create-action.outputs.result.id != '' }}
       uses: actions/github-script@v3
       with:
         github-token: ${{secrets.GITHUB_TOKEN}}
