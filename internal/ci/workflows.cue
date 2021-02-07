@@ -113,7 +113,7 @@ bundle: _#bashWorkflow & {
 				//     "OUTPUTS": "${{steps.create-action.outputs.result}}"
 				//   }
 				//  if: "${{ always() && steps.create-action.outputs.result.id != '' }}"
-				// },,
+				// },,,
 			]
 		}
 		publish: _#job & {
@@ -371,13 +371,15 @@ _#retagCommand: strings.Join(_#skopeoCopyCommands, "\n")
 
 _#registryLoginStep: {
 	#args: {
-		user: string
-		pass: string
+		user:     string
+		pass:     string
+		registry: string
 	}
 	res: _#step & {
 		name: "Login to Docker Hub"
 		uses: "docker/login-action@v1"
 		with: {
+			registry: "\(#args.registry)"
 			username: "\(#args.user)"
 			password: "\(#args.pass)"
 		}
@@ -386,8 +388,9 @@ _#registryLoginStep: {
 
 _#quayLogin: (_#registryLoginStep & {
 	#args: {
-		user: "${{secrets.matrix['quayUser']}}"
-		pass: "${{secrets.matrix['quayPassword']}}"
+		registry: "quay.io/rh-marketplace"
+		user:     "${{secrets.matrix['quayUser']}}"
+		pass:     "${{secrets.matrix['quayPassword']}}"
 	}
 }).res
 
