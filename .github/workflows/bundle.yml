@@ -51,7 +51,7 @@ jobs:
           head_sha: '${{github.event.client_payload.sha}}',
           status: 'in_progress'
           }
-          return await octokit.request('POST /repos/{owner}/{repo}/check-runs', obj)
+          return await github.request('POST /repos/{owner}/{repo}/check-runs', obj)
     - id: bundle
       name: Build bundle
       run: |-
@@ -73,7 +73,7 @@ jobs:
           conclusion: '${{steps.bundle.conclusion}}',
           check_run_id: '${{steps.create-action.outputs.id}}'
           }
-          return await octokit.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', obj)
+          return await github.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', obj)
   publish:
     name: Publish Images
     needs:

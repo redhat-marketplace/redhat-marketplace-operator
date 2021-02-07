@@ -433,7 +433,7 @@ _#githubCreateActionStep: {
 		with: script:
 			"""
 			\((_#githubActionBuildScript & {#args: _#args}).res)
-			return await octokit.request('POST /repos/{owner}/{repo}/check-runs', obj)
+			return await github.request('POST /repos/{owner}/{repo}/check-runs', obj)
 			"""
 	}
 }
@@ -444,7 +444,7 @@ _#githubUpdateActionStep: {
 		with: script:
 			"""
 			\((_#githubActionBuildScript & {#args: _#args}).res)
-			return await octokit.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', obj)
+			return await github.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', obj)
 			"""
 	}
 }
