@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package connect
+package pkg
 
 import (
 	"context"
@@ -111,6 +111,6 @@ func handleErr(err error) {
 func init() {
 	WaitAndPublishCmd.Flags().Int64Var(&timeout, "timeout", 15, "timeout in minutes")
 	WaitAndPublishCmd.Flags().StringVar(&tag, "tag", "", "tag of the container")
-	WaitAndPublishCmd.Flags().BoolVar(&publishImage, "publish", false, "publish")
+	WaitAndPublishCmd.Flags().BoolVar(&publishImage, "publish", true, "publish")
 	WaitAndPublishCmd.Flags().StringToStringVar(&pidsToDigest, "pid", nil, "opsid to digest mapping")
 }

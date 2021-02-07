@@ -279,79 +279,37 @@ wait-and-publish:
 	for i in "$${!array[@]}"; do \
 			PID="$${array[$$i]}" ; \
 			REPO="$${repos[$$i]}" ; \
-			RESULT=`skopeo inspect docker://$$REPO:$$TAG` ; \
+			DIGEST=`skopeo inspect --override-os=linux --format "{{.Digest}}" docker://$$REPO:$$TAG` ; \
 			if [ $$? -ne 0 ]; then echo "failed to get skopeo" && exit 1 ; fi ; \
-			DIGEST=`echo $$RESULT | $(jq) -r '.Digest'` ; \
 			RESULTS="--pid $$PID=$$DIGEST $$RESULTS" ; \
 	done ; \
 	echo $$RESULTS ; \
-	cd scripts ; \
+	cd tools/connect ; \
 	go run main.go wait-and-publish --timeout $(TIMEOUT) --tag $(TAG) $$RESULTS
 
 # --TOOLS--
 #
 # find or download controller-gen
 # download controller-gen if necessary
+CONTROLLER_GEN=$(shell pwd)/bin/controller-gen
 controller-gen:
-ifeq (, $(shell which controller-gen))
-	@{ \
-	set -e ;\
-	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$CONTROLLER_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.3.0 ;\
-	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
-	}
-CONTROLLER_GEN=$(GOBIN)/controller-gen
-else
-CONTROLLER_GEN=$(shell which controller-gen)
-endif
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.3.0)
 
+CODEGEN_PKG=$(GOPATH)/src/k8s.io/code-generator
 code-generator:
-ifeq (, $(shell ls $(GOPATH)/src/k8s.io/code-generator))
-	@{ \
-	set -e ;\
-	K8S_CODEGEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$K8S_CODEGEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/k8s.io/code-generator@v0.19.4 ;\
-	rm -rf $$K8S_CODEGEN_TMP_DIR ;\
+	@[ -d $(CODEGEN_PKG) ] || { \
+	GO111MODULE=off go get k8s.io/code-generator ;\
 	}
-CODEGEN_PKG=$(GOPATH)/src/k8s.io/code-generator
-else
-CODEGEN_PKG=$(GOPATH)/src/k8s.io/code-generator
-endif
 
+KUSTOMIZE=$(shell pwd)/bin/kustomize
 kustomize:
-ifeq (, $(shell which kustomize))
-	@{ \
-	set -e ;\
-	KUSTOMIZE_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$KUSTOMIZE_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/kustomize/kustomize/v3@v3.5.4 ;\
-	rm -rf $$KUSTOMIZE_GEN_TMP_DIR ;\
-	}
-KUSTOMIZE=$(GOBIN)/kustomize
-else
-KUSTOMIZE=$(shell which kustomize)
-endif
+	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v3.5.4)
+
 export KUSTOMIZE
 
+OPENAPI_GEN=$(shell pwd)/bin/openapi-gen
 openapi-gen:
-ifeq (, $(shell which openapi-gen))
-	@{ \
-	set -e ;\
-	OPENAPI_GEN_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$OPENAPI_GEN_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get github.com/kubernetes/kube-openapi/cmd/openapi-gen@690f563a49b523b7e87ea117b6bf448aead23b09 ;\
-	rm -rf $$OPENAPI_GEN_GEN_TMP_DIR ;\
-	}
-OPENAPI_GEN=$(GOBIN)/openapi-gen
-else
-OPENAPI_GEN=$(shell which openapi-gen)
-endif
+	$(call go-get-tool,$(OPENAPI_GEN),github.com/kubernetes/kube-openapi/cmd/openapi-gen@690f563a49b523b7e87ea117b6bf448aead23b09)
 
 helm:
 ifeq (, $(shell which helm))
@@ -359,7 +317,6 @@ ifeq ($(UNAME_S),Linux)
 	curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
 endif
 ifeq ($(UNAME_S),Darwin)
-	brew install skaffold
 	brew install helm
 endif
 endif
@@ -368,7 +325,7 @@ HELM=$(shell which helm)
 skaffold:
 ifeq (, $(shell which skaffold))
 ifeq ($(UNAME_S),Linux)
-	curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-darwin-amd64 && \
+	curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64 && \
 	sudo install skaffold /usr/local/bin/
 endif
 ifeq ($(UNAME_S),Darwin)
@@ -379,58 +336,39 @@ else
 SKAFFOLD=$(shell which skaffold)
 endif
 
+GINKGO=$(shell pwd)/bin/ginkgo
 ginkgo:
-ifeq (, $(shell which ginkgo))
-	@{ \
-	set -e ;\
-	GINKGO_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$GINKGO_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get -u github.com/onsi/ginkgo/ginkgo ;\
-	rm -rf $$GINKGO_GEN_TMP_DIR ;\
-	}
-GINKGO=$(GOBIN)/ginkgo
-else
-GINKGO=$(shell which ginkgo)
-endif
+	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/ginkgo)
 
+GOBINDATA=$(shell pwd)/bin/go-bindata
 go-bindata:
-ifeq (, $(shell which go-bindata))
-	@{ \
-	set -e ;\
-	GOBINDATA_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$GOBINDATA_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get -u github.com/kevinburke/go-bindata/... ;\
-	rm -rf $$GO-BINDATA_GEN_TMP_DIR ;\
-	}
-GOBINDATA=$(GOBIN)/go-bindata
-else
-GOBINDATA=$(shell which go-bindata)
-endif
+	$(call go-get-tool,$(GOBINDATA),github.com/kevinburke/go-bindata/...)
 
+LICENSE=$(shell pwd)/bin/addlicense
 addlicense:
-ifeq (, $(shell which addlicense))
-	@{ \
-	set -e ;\
-	GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get -u github.com/google/addlicense ;\
-	rm -rf $$GEN_TMP_DIR ;\
-	}
-LICENSE=$(GOBIN)/addlicense
-else
-LICENSE=$(GOBIN)/addlicense
-endif
+	$(call go-get-tool,$(LICENSE),github.com/google/addlicense)
 
+OPM=$(shell pwd)/bin/opm
 opm:
-ifeq (, $(shell which opm))
-	@{ \
-	curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.13.7/$(UNAME)-amd64-opm ;\
-	chmod +x $(UNAME)-amd64-opm && mv $(UNAME)-amd64-opm /usr/local/bin/opm ;\
+	@[ -f $(OPM) ] || { \
+	set -e ;\
+	TMP_DIR=$$(mktemp -d) ;\
+	cd $$TMP_DIR ;\
+	curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.13.7/$(UNAME)-$(ARCH)-opm ;\
+	chmod +x $(UNAME)-$(ARCH)-opm && mv $(UNAME)-$(ARCH)-opm $(OPM) ;\
+	rm -rf $$TMP_DIR ;\
 	}
-OPM=/usr/local/bin/opm
-else
-OPM=$(shell which opm)
-endif
+
+# go-get-tool will 'go get' any package $2 and install it to $1.
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+define go-get-tool
+@[ -f $(1) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+go mod init tmp ;\
+echo "Downloading $(2)" ;\
+GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
+rm -rf $$TMP_DIR ;\
+}
+endef

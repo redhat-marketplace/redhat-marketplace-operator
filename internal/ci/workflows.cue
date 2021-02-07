@@ -99,7 +99,7 @@ bundle: _#bashWorkflow & {
 						export VERSION=$(cd ./tools && go run ./version/main.go)-${GITHUB_SHA}
 						export TAG=${VERSION}
 						\((_#makeLogGroup & { #args: {name: "Make Bundle", cmd: "make bundle" }}).res)
-						\((_#makeLogGroup & { #args: {name: "Make Stable", cmd: "make stable" }}).res)
+						\((_#makeLogGroup & { #args: {name: "Make Stable", cmd: "make bundle-stable" }}).res)
 						\((_#makeLogGroup & { #args: {name: "Make Deploy", cmd: "make bundle-deploy" }}).res)
 						\((_#makeLogGroup & { #args: {name: "Make Dev Index", cmd: "make bundle-dev-index" }}).res)
 						"""
@@ -378,7 +378,7 @@ _#reporter: {
 }
 
 _#authchecker: {
-	name:  "redhat-marketplace-authchecker"
+	name:  "redhat-marketplace-authcheck"
 	ospid: "scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785"
 	pword: "pcPasswordAuthCheck"
 }
@@ -456,8 +456,8 @@ _#waitForPublish: _#step & {
 	name: "Wait for RH publish"
 	env: {
 		TAG:              "\(#args.tag)"
-		OS_PIDS:          strings.Join([ for k, v in _#images {"\(v.ospid)"}], " ")
-		REPOS:            strings.Join([ for k, v in _#images {"\(_#registry)/\(v.name)"}], " ")
+		OS_PIDS:          strings.Replace(strings.Join([ for k, v in _#images {"\(v.ospid)"}], " "), "\n", "", -1)
+		REPOS:            strings.Replace(strings.Join([ for k, v in _#images {"\(_#registry)/\(v.name)"}], " "), "\n", "", -1)
 		RH_CONNECT_TOKEN: "${{ secrets.redhat_api_key }}"
 	}
 	"continue-on-error": true
