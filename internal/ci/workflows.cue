@@ -74,19 +74,40 @@ bundle: _#bashWorkflow & {
 			"runs-on": _#linuxMachine
 			steps: [
 				_#checkoutCode & {
-          with: ref: "${{github.event.client_payload.sha}}"
-        },
+					with: ref: "${{github.event.client_payload.sha}}"
+				},
 				_#installGo,
 				_#cacheGoModules,
 				_#installOperatorSDK,
+				(_#githubCreateActionStep & {
+					_#args: {
+						name:     "Operator: Deploy Bundle"
+						head_sha: "${{github.event.client_payload.sha}}"
+						status:   "in_progress"
+					}
+				}).res & {
+					id: "create-action"
+				},
 				_#step & {
+					id:   "bundle"
 					name: "Build bundle"
 					run: """
-						VERSION=$(make current-version)-${GITHUB_SHA}
-						TAG=$(make current-version)-${GITHUB_SHA}
+						VERSION=$(make operator/current-version)-${GITHUB_SHA}
+						TAG=$(make operator/current-version)-${GITHUB_SHA}
 						cd v2
 						make bundle bundle-stable bundle-deploy bundle-dev-index
 						"""
+				},
+				(_#githubUpdateActionStep & {
+					_#args: {
+						name:         "Operator: Deploy Bundle"
+						head_sha:     "${{github.event.client_payload.sha}}"
+						status:       "completed"
+						conclusion:   "${{steps.bundle.conclusion}}"
+						check_run_id: "${{steps.create-action.outputs.id}}"
+					}
+				}).res & {
+					if: "${{ always() }}"
 				},
 			]
 		}
@@ -97,8 +118,8 @@ bundle: _#bashWorkflow & {
 			if: "(startsWith(github.ref,'refs/heads/release/') || startsWith(github.ref,'refs/heads/hotfix/'))"
 			steps: [
 				_#checkoutCode & {
-          with: ref: "${{github.event.client_payload.sha}}"
-        },
+					with: ref: "${{github.event.client_payload.sha}}"
+				},
 				_#installGo,
 				_#cacheGoModules,
 				_#installOperatorSDK,
@@ -191,7 +212,7 @@ _#loadGitTagPushed: _#step & {
 	name: "Get if gittag is pushed"
 	id:   "tag"
 	run: """
-		VERSION=$(make current-version)
+		VERSION=$(make operator/current-version)
 		RESULT=$(git tag --list | grep -E "$VERSION")
 		IS_TAGGED=false
 		if [ "$RESULT" != "" ] ; then
@@ -356,10 +377,10 @@ _#retagCommand: strings.Join(_#skopeoCopyCommands, "\n")
 				name: "Get Vars"
 				id:   "vars"
 				run: """
-					echo "::set-output name=version::$(make current-version)"
+					echo "::set-output name=version::$(make operator/current-version)"
 					echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
-					echo "::set-output name=hash::$(make current-version)-$(git rev-parse --short HEAD)"
-					echo "::set-output name=dockertag::${TAGPREFIX}$(make current-version)-${GITHUB_SHA::8}"
+					echo "::set-output name=hash::$(make operator/current-version)-$(git rev-parse --short HEAD)"
+					echo "::set-output name=dockertag::${TAGPREFIX}$(make operator/current-version)-${GITHUB_SHA::8}"
 					echo "::set-output name=quayExpiration::${QUAY_EXPIRATION:-never}"
 					"""
 			},
@@ -370,5 +391,60 @@ _#retagCommand: strings.Join(_#skopeoCopyCommands, "\n")
 		hash:           "${{ steps.vars.outputs.hash }}"
 		dockertag:      "${{ steps.vars.outputs.dockertag }}"
 		quayExpiration: "${{ steps.vars.outputs.quayExpiration }}"
+	}
+}
+
+_#checkRunObject: {
+	name:          string
+	head_sha:      string
+	check_run_id?: string
+	status?:       "queued" | "in_progress" | "completed" | string
+	conclusion?:   "action_required" | "cancelled" | "failure" | "neutral" | "success" | "skipped" | "stale" | "timed_out" | string
+	output?: {
+		title:   string
+		summary: string
+		text?:   string
+	}
+}
+
+_#githubScriptBaseStep: _#step & {
+	uses: "actions/github-script@v3"
+	with: {
+		"github-token": "${{secrets.GITHUB_TOKEN}}"
+	}
+}
+
+_#githubActionBuildScript: {
+	#args:       _#checkRunObject
+	#scriptArgs: strings.Join([ for k, v in #args if k != "output" && v != null {"\(k): '\(v)'"}], ",\n")
+	res:
+  """
+	var obj = {
+	owner: context.repo.owner,
+	repo: context.repo.repo,
+	\(#scriptArgs)
+	}
+	"""
+}
+
+_#githubCreateActionStep: {
+	_#args: _#checkRunObject
+	res:    _#githubScriptBaseStep & {
+		with: script:
+			"""
+			\((_#githubActionBuildScript & {#args: _#args}).res)
+			return await octokit.request('POST /repos/{owner}/{repo}/check-runs', obj)
+			"""
+	}
+}
+
+_#githubUpdateActionStep: {
+	_#args: _#checkRunObject
+	res:    _#githubScriptBaseStep & {
+		with: script:
+			"""
+			\((_#githubActionBuildScript & {#args: _#args}).res)
+			return await octokit.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', obj)
+			"""
 	}
 }

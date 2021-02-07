@@ -263,6 +263,9 @@ skaffold-dev: install
 skaffold-run:
 	skaffold run --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
 
+current-version:
+	@echo $(VERSION)
+
 # --TOOLS--
 #
 # find or download controller-gen

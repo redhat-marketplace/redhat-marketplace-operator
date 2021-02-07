@@ -3,7 +3,7 @@ package ci
 import (
 	json "github.com/SchemaStore/schemastore/src/schemas/json/travis"
 	encjson "encoding/json"
-  "strconv"
+	"strconv"
 )
 
 travisDir: *"." | string @tag(travisDir)
@@ -17,8 +17,8 @@ travis: [
 ]
 
 _#archs: ["amd64", "ppc64le", "s390x"]
-_#registry:  "quay.io/rh-marketplace"
-_#goVersion: "1.15.6"
+_#registry:     "quay.io/rh-marketplace"
+_#goVersion:    "1.15.6"
 _#branchTarget: "/^(master|develop|release.*|hotfix.*)$/"
 
 travisSchema: {
@@ -57,7 +57,7 @@ travisSchema: {
 			{
 				#args: {
 					event_type: "bundle"
-          client_payload: sha:"$TRAVIS_COMMIT"
+					client_payload: sha: "$TRAVIS_COMMIT"
 				}
 				stage:  "bundle"
 				if:     "(type = pull_request && head_branch =~ \(_#branchTarget)) || (type = push && branch =~ \(_#branchTarget))"
