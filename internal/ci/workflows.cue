@@ -288,7 +288,7 @@ _#installOperatorSDK: _#step & {
 		grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
 		chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
 		curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.15.3/${OS}-${ARCH}-opm
-		chmod +x ${OS}-${ARCH}-opm && mv ${OS}-${ARCH}-opm /usr/local/bin/opm
+		chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
 		"""
 }
 

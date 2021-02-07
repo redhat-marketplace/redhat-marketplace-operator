@@ -40,7 +40,7 @@ jobs:
         grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
         chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
         curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.15.3/${OS}-${ARCH}-opm
-        chmod +x ${OS}-${ARCH}-opm && mv ${OS}-${ARCH}-opm /usr/local/bin/opm
+        chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
     - name: Install YQ
       run: sudo snap install yq
     - name: Login to Docker Hub
@@ -93,7 +93,7 @@ jobs:
         grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
         chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
         curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.15.3/${OS}-${ARCH}-opm
-        chmod +x ${OS}-${ARCH}-opm && mv ${OS}-${ARCH}-opm /usr/local/bin/opm
+        chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
     - name: Mirror images
       run: |-
         skopeo copy docker://quay.io/rh-marketplace/redhat-marketplace-operator:$VERSION docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$VERSION --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}}
