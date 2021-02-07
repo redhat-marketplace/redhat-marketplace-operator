@@ -403,7 +403,7 @@ LICENSE=$(GOBIN)/addlicense
 endif
 
 opm:
-ifeq (, $(shell which addlicense))
+ifeq (, $(shell which opm))
 	@{ \
 	curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.13.7/$(UNAME)-amd64-opm ;\
 	chmod +x $(UNAME)-amd64-opm && mv $(UNAME)-amd64-opm /usr/local/bin/opm ;\
