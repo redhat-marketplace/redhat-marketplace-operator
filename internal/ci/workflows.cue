@@ -361,25 +361,25 @@ _#pcUser:    "pcUser"
 
 _#operator: {
 	name:  "redhat-marketplace-operator"
-	ospid: "scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd"
+	ospid: "ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd"
 	pword: "pcPassword"
 }
 
 _#metering: {
 	name:  "redhat-marketplace-metric-state"
-	ospid: "scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4"
+	ospid: "ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4"
 	pword: "pcPasswordMetricState"
 }
 
 _#reporter: {
 	name:  "redhat-marketplace-reporter"
-	ospid: "scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e"
+	ospid: "ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e"
 	pword: "pcPasswordReporter"
 }
 
 _#authchecker: {
 	name:  "redhat-marketplace-authcheck"
-	ospid: "scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785"
+	ospid: "ospid-ffed416e-c18d-4b88-8660-f586a4792785"
 	pword: "pcPasswordAuthCheck"
 }
 
@@ -391,26 +391,27 @@ _#images: [
 ]
 
 _#registry: "quay.io/rh-marketplace"
+_#registryRHScan: "scan.connect.redhat.com"
 
 _#manifest: {
 	name:  "redhat-marketplace-operator-manifest"
-	ospid: "scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1"
+	ospid: "ospid-64f06656-d9d4-43ef-a227-3b9c198800a1"
 	pword: "pcPasswordOperatorManifest"
 }
 
 _#repoFromTo: [ for k, v in _#images {
 	pword: "\(v.pword)"
 	from:  "\(_#registry)/\(v.name):$VERSION"
-	to:    "\(v.ospid)/\(v.name):$VERSION"
+	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$VERSION"
 }]
 
 _#manifestFromTo: [ for k, v in [_#manifest] {
 	pword: "\(v.pword)"
 	from:  "\(_#registry)/\(v.name):$VERSION"
-	to:    "\(v.ospid)/\(v.name):$VERSION"
+	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$VERSION"
 }]
 
-_#retagCommandList: [ for k, v in _#repoFromTo {"skopeo copy docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(v.pword)']}}"}]
+_#retagCommandList: [ for k, v in _#repoFromTo {"skopeo copy --all docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(v.pword)']}}"}]
 _#retagCommand: strings.Join(_#retagCommandList, "\n")
 
 _#manifestCopyCommandList: [ for k, v in _#manifestFromTo {"skopeo copy docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(v.pword)']}}"}]
@@ -456,14 +457,13 @@ _#waitForPublish: _#step & {
 	name: "Wait for RH publish"
 	env: {
 		TAG:              "\(#args.tag)"
-		OS_PIDS:          strings.Replace(strings.Join([ for k, v in _#images {"\(v.ospid)"}], " "), "\n", "", -1)
-		REPOS:            strings.Replace(strings.Join([ for k, v in _#images {"\(_#registry)/\(v.name)"}], " "), "\n", "", -1)
 		RH_CONNECT_TOKEN: "${{ secrets.redhat_api_key }}"
 	}
 	"continue-on-error": true
 	run:
 		"""
-			make wait-and-publish
+			cd v2
+			make wait-and-publish PIDS="\(strings.Join([ for k, v in _#images { "--pid \(v.ospid)=$(skopeo inspect --override-os=linux --format \"{{.Digest}}\" docker://\(_#registry)/\(v.name):$TAG)" }], " "))"
 			"""
 }
 

@@ -266,26 +266,14 @@ skaffold-run:
 current-version:
 	@echo $(VERSION)
 
-OS_PIDS ?= ""
-REPOS ?= ""
 TAG ?= ""
 CREDS ?= ""
 TIMEOUT ?= 15
+PIDs ?=
 
 wait-and-publish:
-	RESULTS=""; \
-	array=($(OS_PIDS)) ; \
-	repos=($(REPOS)) ; \
-	for i in "$${!array[@]}"; do \
-			PID="$${array[$$i]}" ; \
-			REPO="$${repos[$$i]}" ; \
-			DIGEST=`skopeo inspect --override-os=linux --format "{{.Digest}}" docker://$$REPO:$$TAG` ; \
-			if [ $$? -ne 0 ]; then echo "failed to get skopeo" && exit 1 ; fi ; \
-			RESULTS="--pid $$PID=$$DIGEST $$RESULTS" ; \
-	done ; \
-	echo $$RESULTS ; \
 	cd tools/connect ; \
-	go run main.go wait-and-publish --timeout $(TIMEOUT) --tag $(TAG) $$RESULTS
+	go run main.go wait-and-publish --timeout $(TIMEOUT) --tag $(TAG) $(PIDS)
 
 # --TOOLS--
 #
