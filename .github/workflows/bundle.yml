@@ -45,8 +45,8 @@ jobs:
       uses: docker/login-action@v1
       with:
         registry: quay.io/rh-marketplace
-        username: ${{secrets.matrix['quayUser']}}
-        password: ${{secrets.matrix['quayPassword']}}
+        username: ${{secrets['quayUser']}}
+        password: ${{secrets['quayPassword']}}
     - id: bundle
       name: Build bundle
       run: |-

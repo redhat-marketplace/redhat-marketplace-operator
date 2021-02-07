@@ -366,7 +366,7 @@ _#repoFromTo: [ for k, v in _#images {
 	to:    "\(v.ospid)/\(v.name):$VERSION"
 }]
 
-_#skopeoCopyCommands: [ for k, v in _#repoFromTo {"skopeo copy docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets.matrix['\(_#pcUser)']}}:${{secrets.matrix['\(v.pword)']}}"}]
+_#skopeoCopyCommands: [ for k, v in _#repoFromTo {"skopeo copy docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(v.pword)']}}"}]
 _#retagCommand: strings.Join(_#skopeoCopyCommands, "\n")
 
 _#registryLoginStep: {
@@ -389,8 +389,8 @@ _#registryLoginStep: {
 _#quayLogin: (_#registryLoginStep & {
 	#args: {
 		registry: "quay.io/rh-marketplace"
-		user:     "${{secrets.matrix['quayUser']}}"
-		pass:     "${{secrets.matrix['quayPassword']}}"
+		user:     "${{secrets['quayUser']}}"
+		pass:     "${{secrets['quayPassword']}}"
 	}
 }).res
 
