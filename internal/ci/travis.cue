@@ -57,7 +57,12 @@ travisSchema: {
 			{
 				#args: {
 					event_type: "bundle"
-					client_payload: sha: "$TRAVIS_COMMIT"
+					client_payload: {
+						sha:                 "$TRAVIS_COMMIT"
+						branch:              "$TRAVIS_BRANCH"
+						pull_request_branch: "$TRAVIS_PULL_REQUEST_BRANCH"
+						pull_request:        "$TRAVIS_PULL_REQUEST"
+					}
 				}
 				stage:  "bundle"
 				if:     "(type = pull_request && head_branch =~ \(_#branchTarget)) || (type = push && branch =~ \(_#branchTarget))"

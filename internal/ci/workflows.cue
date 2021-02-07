@@ -93,12 +93,15 @@ bundle: _#bashWorkflow & {
 				_#step & {
 					id:   "bundle"
 					name: "Build bundle"
-          env: "GITHUB_SHA": "${{github.event.client_payload.sha}}"
+					env: "GITHUB_SHA": "${{github.event.client_payload.sha}}"
 					run: """
 						cd v2
 						export VERSION=$(cd ./tools && go run ./version/main.go)-${GITHUB_SHA}
 						export TAG=${VERSION}
-						make bundle bundle-stable bundle-deploy bundle-dev-index
+						\((_#makeLogGroup & { #args: {name: "Make Bundle", cmd: "make bundle" }}).res)
+						\((_#makeLogGroup & { #args: {name: "Make Stable", cmd: "make stable" }}).res)
+						\((_#makeLogGroup & { #args: {name: "Make Deploy", cmd: "make bundle-deploy" }}).res)
+						\((_#makeLogGroup & { #args: {name: "Make Dev Index", cmd: "make bundle-dev-index" }}).res)
 						"""
 				}
 				// (_#githubUpdateActionStep & {
@@ -114,14 +117,14 @@ bundle: _#bashWorkflow & {
 				//     "OUTPUTS": "${{steps.create-action.outputs.result}}"
 				//   }
 				//  if: "${{ always() && steps.create-action.outputs.result.id != '' }}"
-				// },,,
+				// },,,,,,,,,,,,,
 			]
 		}
 		publish: _#job & {
 			name:      "Publish Images"
 			"runs-on": _#linuxMachine
 			needs: ["deploy"]
-			if: "(startsWith(github.ref,'refs/heads/release/') || startsWith(github.ref,'refs/heads/hotfix/'))"
+			//if: "(startsWith(github.event.client_payload.pull_request_branch, 'release/') || startsWith(github.event.client_payload.pull_request_branch,'hotfix/'))"
 			steps: [
 				_#checkoutCode & {
 					with: ref: "${{github.event.client_payload.sha}}"
@@ -130,8 +133,27 @@ bundle: _#bashWorkflow & {
 				_#cacheGoModules,
 				_#installOperatorSDK,
 				_#step & {
+					id:   "mirror"
 					name: "Mirror images"
-					run:  _#retagCommand
+					run:
+						"""
+						cd v2
+						export VERSION=$(cd ./tools && go run ./version/main.go)-${GITHUB_SHA}
+						export TAG=${VERSION}
+						echo "::set-output name=tag::$TAG"
+						\(_#retagCommand)
+						"""
+				},
+				_#redhatConnectLogin,
+				_#waitForPublish & {
+					#args: {
+						tag: "${{ steps.mirror.outputs.tag }}"
+					}
+				},
+				_#step & {
+          env: VERSION: "${{ steps.mirror.outputs.tag }}"
+					name: "Copy Manifest"
+					run:  _#manifestCopyCommand
 				},
 			]
 		}
@@ -162,6 +184,19 @@ _#testStrategy: {
 		"go-version": ["1.13.x", _#codeGenGo, "1.15.x"]
 		os: [_#linuxMachine, _#macosMachine, _#windowsMachine]
 	}
+}
+
+_#makeLogGroup: {
+	#args: {
+		name: string
+		cmd:  string
+	}
+	res:
+		"""
+		echo "::group::\(#args.name)"
+		\(#args.cmd)
+		echo "::endgroup::"
+		"""
 }
 
 _#cancelPreviousRun: _#step & {
@@ -369,8 +404,17 @@ _#repoFromTo: [ for k, v in _#images {
 	to:    "\(v.ospid)/\(v.name):$VERSION"
 }]
 
-_#skopeoCopyCommands: [ for k, v in _#repoFromTo {"skopeo copy docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(v.pword)']}}"}]
-_#retagCommand: strings.Join(_#skopeoCopyCommands, "\n")
+_#manifestFromTo: [ for k, v in [_#manifest] {
+	pword: "\(v.pword)"
+	from:  "\(_#registry)/\(v.name):$VERSION"
+	to:    "\(v.ospid)/\(v.name):$VERSION"
+}]
+
+_#retagCommandList: [ for k, v in _#repoFromTo {"skopeo copy docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(v.pword)']}}"}]
+_#retagCommand: strings.Join(_#retagCommandList, "\n")
+
+_#manifestCopyCommandList: [ for k, v in _#manifestFromTo {"skopeo copy docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(v.pword)']}}"}]
+_#manifestCopyCommand: strings.Join(_#manifestCopyCommandList, "\n")
 
 _#registryLoginStep: {
 	#args: {
@@ -396,6 +440,32 @@ _#quayLogin: (_#registryLoginStep & {
 		pass:     "${{secrets['quayPassword']}}"
 	}
 }).res
+
+_#redhatConnectLogin: (_#registryLoginStep & {
+	#args: {
+		registry: "registry.connect.redhat.com"
+		user:     "${{secrets['REDHAT_IO_USER']}}"
+		pass:     "${{secrets['REDHAT_IO_PASSWORD']}}"
+	}
+}).res
+
+_#waitForPublish: _#step & {
+	#args: {
+		tag: string
+	}
+	name: "Wait for RH publish"
+	env: {
+		TAG:              "\(#args.tag)"
+		OS_PIDS:          strings.Join([ for k, v in _#images {"\(v.ospid)"}], " ")
+		REPOS:            strings.Join([ for k, v in _#images {"\(_#registry)/\(v.name)"}], " ")
+		RH_CONNECT_TOKEN: "${{ secrets.redhat_api_key }}"
+	}
+	"continue-on-error": true
+	run:
+		"""
+			make wait-and-publish
+			"""
+}
 
 #preset: _#job & {
 	name:      "Preset"

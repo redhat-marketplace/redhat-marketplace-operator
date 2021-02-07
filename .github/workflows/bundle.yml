@@ -55,7 +55,18 @@ jobs:
         cd v2
         export VERSION=$(cd ./tools && go run ./version/main.go)-${GITHUB_SHA}
         export TAG=${VERSION}
-        make bundle bundle-stable bundle-deploy bundle-dev-index
+        echo "::group::Make Bundle"
+        make bundle
+        echo "::endgroup::"
+        echo "::group::Make Stable"
+        make stable
+        echo "::endgroup::"
+        echo "::group::Make Deploy"
+        make bundle-deploy
+        echo "::endgroup::"
+        echo "::group::Make Dev Index"
+        make bundle-dev-index
+        echo "::endgroup::"
       env:
         GITHUB_SHA: ${{github.event.client_payload.sha}}
   publish:
@@ -66,7 +77,6 @@ jobs:
     defaults:
       run:
         shell: bash
-    if: (startsWith(github.ref,'refs/heads/release/') || startsWith(github.ref,'refs/heads/hotfix/'))
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
@@ -94,9 +104,37 @@ jobs:
         chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
         curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.15.3/${OS}-${ARCH}-opm
         chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
-    - name: Mirror images
+    - id: mirror
+      name: Mirror images
       run: |-
+        cd v2
+        export VERSION=$(cd ./tools && go run ./version/main.go)-${GITHUB_SHA}
+        export TAG=${VERSION}
+        echo "::set-output name=tag::$TAG"
         skopeo copy docker://quay.io/rh-marketplace/redhat-marketplace-operator:$VERSION docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$VERSION --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}}
         skopeo copy docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$VERSION docker://scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$VERSION --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordMetricState']}}
         skopeo copy docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$VERSION docker://scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$VERSION --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordReporter']}}
         skopeo copy docker://quay.io/rh-marketplace/redhat-marketplace-authchecker:$VERSION docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authchecker:$VERSION --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}}
+    - name: Login to Docker Hub
+      uses: docker/login-action@v1
+      with:
+        registry: registry.connect.redhat.com
+        username: ${{secrets['REDHAT_IO_USER']}}
+        password: ${{secrets['REDHAT_IO_PASSWORD']}}
+    - name: Wait for RH publish
+      run: make wait-and-publish
+      env:
+        TAG: ${{ steps.mirror.outputs.tag }}
+        OS_PIDS: scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd
+          scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4 scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e
+          scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785
+        REPOS: quay.io/rh-marketplace/redhat-marketplace-operator quay.io/rh-marketplace/redhat-marketplace-metric-state
+          quay.io/rh-marketplace/redhat-marketplace-reporter quay.io/rh-marketplace/redhat-marketplace-authchecker
+        RH_CONNECT_TOKEN: ${{ secrets.redhat_api_key }}
+      continue-on-error: true
+    - name: Copy Manifest
+      run: skopeo copy docker://quay.io/rh-marketplace/redhat-marketplace-operator-manifest:$VERSION
+        docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$VERSION
+        --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}}
+      env:
+        VERSION: ${{ steps.mirror.outputs.tag }}

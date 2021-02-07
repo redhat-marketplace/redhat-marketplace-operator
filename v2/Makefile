@@ -266,6 +266,28 @@ skaffold-run:
 current-version:
 	@echo $(VERSION)
 
+OS_PIDS ?= ""
+REPOS ?= ""
+TAG ?= ""
+CREDS ?= ""
+TIMEOUT ?= 15
+
+wait-and-publish:
+	RESULTS=""; \
+	array=($(OS_PIDS)) ; \
+	repos=($(REPOS)) ; \
+	for i in "$${!array[@]}"; do \
+			PID="$${array[$$i]}" ; \
+			REPO="$${repos[$$i]}" ; \
+			RESULT=`skopeo inspect docker://$$REPO:$$TAG` ; \
+			if [ $$? -ne 0 ]; then echo "failed to get skopeo" && exit 1 ; fi ; \
+			DIGEST=`echo $$RESULT | $(jq) -r '.Digest'` ; \
+			RESULTS="--pid $$PID=$$DIGEST $$RESULTS" ; \
+	done ; \
+	echo $$RESULTS ; \
+	cd scripts ; \
+	go run main.go wait-and-publish --timeout $(TIMEOUT) --tag $(TAG) $$RESULTS
+
 # --TOOLS--
 #
 # find or download controller-gen
