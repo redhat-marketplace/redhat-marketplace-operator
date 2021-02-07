@@ -95,8 +95,8 @@ bundle: _#bashWorkflow & {
 					name: "Build bundle"
           env: "GITHUB_SHA": "${{github.event.client_payload.sha}}"
 					run: """
-						VERSION=$(make operator/current-version)-${GITHUB_SHA}
-						TAG=$(make operator/current-version)-${GITHUB_SHA}
+						export VERSION=$(make operator/current-version)-${GITHUB_SHA}
+						export TAG=${VERSION}
 						cd v2
 						make bundle bundle-stable bundle-deploy bundle-dev-index
 						"""
