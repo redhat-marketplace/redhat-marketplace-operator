@@ -67,6 +67,8 @@ bundle: _#bashWorkflow & {
 	on: repository_dispatch: types: ["bundle"]
 	env: {
 		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
+    "DEPLOY_SHA": "${{github.event.client_payload.sha}}"
+    "IS_PR" : "${{github.event.client_payload.pull_request}}"
 	}
 	jobs: {
 		deploy: _#job & {
@@ -93,10 +95,9 @@ bundle: _#bashWorkflow & {
 				_#step & {
 					id:   "bundle"
 					name: "Build bundle"
-					env: "GITHUB_SHA": "${{github.event.client_payload.sha}}"
 					run: """
 						cd v2
-						export VERSION=$(cd ./tools && go run ./version/main.go)-${GITHUB_SHA}
+						export VERSION=$(cd ./tools && go run ./version/main.go)-${DEPLOY_SHA}
 						export TAG=${VERSION}-amd64
 						\((_#makeLogGroup & { #args: {name: "Make Bundle", cmd: "make bundle" }}).res)
 						\((_#makeLogGroup & { #args: {name: "Make Stable", cmd: "make bundle-stable" }}).res)
@@ -117,7 +118,7 @@ bundle: _#bashWorkflow & {
 				//     "OUTPUTS": "${{steps.create-action.outputs.result}}"
 				//   }
 				//  if: "${{ always() && steps.create-action.outputs.result.id != '' }}"
-				// },,,,,,,,,,,,,
+				// },
 			]
 		}
 		publish: _#job & {
@@ -138,7 +139,7 @@ bundle: _#bashWorkflow & {
 					run:
 						"""
 						cd v2
-						export VERSION=$(cd ./tools && go run ./version/main.go)-${GITHUB_SHA}
+						export VERSION=$(cd ./tools && go run ./version/main.go)-${DEPLOY_SHA}
 						export TAG=${VERSION}-amd64
 						echo "::set-output name=version::$VERSION"
 						echo "::set-output name=tag::$TAG"

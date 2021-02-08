@@ -7,6 +7,8 @@ on:
     - bundle
 env:
   IMAGE_REGISTRY: quay.io/rh-marketplace
+  DEPLOY_SHA: ${{github.event.client_payload.sha}}
+  IS_PR: ${{github.event.client_payload.pull_request}}
 jobs:
   deploy:
     name: Deploy Bundle
@@ -53,7 +55,7 @@ jobs:
       name: Build bundle
       run: |-
         cd v2
-        export VERSION=$(cd ./tools && go run ./version/main.go)-${GITHUB_SHA}
+        export VERSION=$(cd ./tools && go run ./version/main.go)-${DEPLOY_SHA}
         export TAG=${VERSION}-amd64
         echo "::group::Make Bundle"
         make bundle
@@ -67,8 +69,6 @@ jobs:
         echo "::group::Make Dev Index"
         make bundle-dev-index
         echo "::endgroup::"
-      env:
-        GITHUB_SHA: ${{github.event.client_payload.sha}}
   publish:
     name: Publish Images
     needs:
@@ -108,7 +108,7 @@ jobs:
       name: Mirror images
       run: |-
         cd v2
-        export VERSION=$(cd ./tools && go run ./version/main.go)-${GITHUB_SHA}
+        export VERSION=$(cd ./tools && go run ./version/main.go)-${DEPLOY_SHA}
         export TAG=${VERSION}-amd64
         echo "::set-output name=version::$VERSION"
         echo "::set-output name=tag::$TAG"

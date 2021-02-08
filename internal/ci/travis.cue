@@ -2,6 +2,7 @@ package ci
 
 import (
 	json "github.com/SchemaStore/schemastore/src/schemas/json/travis"
+	"strings"
 	encjson "encoding/json"
 	"strconv"
 )
@@ -50,7 +51,8 @@ travisSchema: {
 			},
 			{
 				stage: "manifest"
-        if: false
+        if: len(_#archs) > 1
+        env: #"ARCHS="\#(strings.Join(_#archs, " "))""#
 				script: """
 					echo "making manifest for $VERSION"
 					make docker-manifest
