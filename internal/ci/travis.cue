@@ -16,7 +16,8 @@ travis: [
 	},
 ]
 
-_#archs: ["amd64", "ppc64le", "s390x"]
+_#archs_old: ["amd64", "ppc64le", "s390x"]
+_#archs: ["amd64"] // disabling others for now
 _#registry:     "quay.io/rh-marketplace"
 _#goVersion:    "1.15.6"
 _#branchTarget: "/^(master|develop|release.*|hotfix.*)$/"
@@ -25,7 +26,7 @@ travisSchema: {
 	version: "~> 1.0"
 	dist:    "focal"
 	if: """
-		branch = master || branch = develop
+		(type = push && (branch = master || branch = develop)) || (type = pull_request && (branch = master))
 		"""
 	language: "go"
 	services: ["docker"]

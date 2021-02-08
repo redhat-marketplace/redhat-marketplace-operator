@@ -2,7 +2,8 @@
 
 version: ~> 1.0
 dist: focal
-if: branch = master || branch = develop
+if: (type = push && (branch = master || branch = develop)) || (type = pull_request
+  && (branch = master))
 language: go
 services:
 - docker
@@ -22,12 +23,6 @@ jobs:
   - stage: push
     arch: amd64
     env: ARCH=amd64
-  - stage: push
-    arch: ppc64le
-    env: ARCH=ppc64le
-  - stage: push
-    arch: s390x
-    env: ARCH=s390x
   - stage: manifest
     script: |-
       echo "making manifest for $VERSION"

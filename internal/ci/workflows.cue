@@ -97,7 +97,7 @@ bundle: _#bashWorkflow & {
 					run: """
 						cd v2
 						export VERSION=$(cd ./tools && go run ./version/main.go)-${GITHUB_SHA}
-						export TAG=${VERSION}
+						export TAG=${VERSION}-amd64
 						\((_#makeLogGroup & { #args: {name: "Make Bundle", cmd: "make bundle" }}).res)
 						\((_#makeLogGroup & { #args: {name: "Make Stable", cmd: "make bundle-stable" }}).res)
 						\((_#makeLogGroup & { #args: {name: "Make Deploy", cmd: "make bundle-deploy" }}).res)
@@ -139,7 +139,8 @@ bundle: _#bashWorkflow & {
 						"""
 						cd v2
 						export VERSION=$(cd ./tools && go run ./version/main.go)-${GITHUB_SHA}
-						export TAG=${VERSION}
+						export TAG=${VERSION}-amd64
+						echo "::set-output name=version::$VERSION"
 						echo "::set-output name=tag::$TAG"
 						\(_#retagCommand)
 						"""
@@ -151,7 +152,7 @@ bundle: _#bashWorkflow & {
 					}
 				},
 				_#step & {
-          env: VERSION: "${{ steps.mirror.outputs.tag }}"
+          env: VERSION: "${{ steps.mirror.outputs.version }}"
 					name: "Copy Manifest"
 					run:  _#manifestCopyCommand
 				},
@@ -402,13 +403,13 @@ _#manifest: {
 _#repoFromTo: [ for k, v in _#images {
 	pword: "\(v.pword)"
 	from:  "\(_#registry)/\(v.name):$VERSION"
-	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$VERSION"
+	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TAG"
 }]
 
 _#manifestFromTo: [ for k, v in [_#manifest] {
 	pword: "\(v.pword)"
 	from:  "\(_#registry)/\(v.name):$VERSION"
-	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$VERSION"
+	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TAG"
 }]
 
 _#retagCommandList: [ for k, v in _#repoFromTo {"skopeo copy --all docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(v.pword)']}}"}]
