@@ -50,6 +50,7 @@ travisSchema: {
 			},
 			{
 				stage: "manifest"
+        if: false
 				script: """
 					echo "making manifest for $VERSION"
 					make docker-manifest
