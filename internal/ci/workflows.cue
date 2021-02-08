@@ -152,7 +152,7 @@ bundle: _#bashWorkflow & {
 					}
 				},
 				_#step & {
-          env: VERSION: "${{ steps.mirror.outputs.version }}"
+          env: TAG: "${{ steps.mirror.outputs.version }}"
 					name: "Copy Manifest"
 					run:  _#manifestCopyCommand
 				},

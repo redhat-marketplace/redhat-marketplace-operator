@@ -135,4 +135,4 @@ jobs:
         docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$TAG
         --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}}
       env:
-        VERSION: ${{ steps.mirror.outputs.version }}
+        TAG: ${{ steps.mirror.outputs.version }}
