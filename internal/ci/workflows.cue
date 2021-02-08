@@ -402,13 +402,13 @@ _#manifest: {
 
 _#repoFromTo: [ for k, v in _#images {
 	pword: "\(v.pword)"
-	from:  "\(_#registry)/\(v.name):$VERSION"
+	from:  "\(_#registry)/\(v.name):$TAG"
 	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TAG"
 }]
 
 _#manifestFromTo: [ for k, v in [_#manifest] {
 	pword: "\(v.pword)"
-	from:  "\(_#registry)/\(v.name):$VERSION"
+	from:  "\(_#registry)/\(v.name):$TAG"
 	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TAG"
 }]
 
