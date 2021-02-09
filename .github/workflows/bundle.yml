@@ -109,9 +109,6 @@ jobs:
         echo "::group::Make Dev Index"
         make bundle-dev-index
         echo "::endgroup::"
-        echo "::group::Create operator test source"
-        yq eval "spec.image=\"${OLM_BUNDLE_REPO}:${TAG}\"" ./hack/testsource.yaml  > ../rhmtest-source-${TAG}.yaml
-        echo "::endgroup::"
     - if: always() && env.checkrun_id != 'null'
       name: Update checkRun with id${{env.checkrun_id}}
       run: |-

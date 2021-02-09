@@ -132,7 +132,6 @@ bundle: _#bashWorkflow & {
 						\((_#makeLogGroup & {#args: {name: "Make Stable", cmd: "make bundle-stable"}}).res)
 						\((_#makeLogGroup & {#args: {name: "Make Deploy", cmd: "make bundle-deploy"}}).res)
 						\((_#makeLogGroup & {#args: {name: "Make Dev Index", cmd: "make bundle-dev-index"}}).res)
-						\((_#makeLogGroup & {#args: {name: "Create operator test source", cmd: #"yq eval "spec.image=\"${OLM_BUNDLE_REPO}:${TAG}\"" ./hack/testsource.yaml  > ../rhmtest-source-${TAG}.yaml"#}}).res)
 						"""
 				},
 				(_#githubUpdateActionStep & {
