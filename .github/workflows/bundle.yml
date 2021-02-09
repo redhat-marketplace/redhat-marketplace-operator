@@ -7,12 +7,16 @@ on:
     - bundle
 env:
   IMAGE_REGISTRY: quay.io/rh-marketplace
+  BRANCH: ${{github.event.client_payload.branch}}
   DEPLOY_SHA: ${{github.event.client_payload.sha}}
   IS_PR: ${{github.event.client_payload.pull_request}}
 jobs:
   deploy:
     name: Deploy Bundle
     runs-on: ubuntu-20.04
+    outputs:
+      version: ${{ steps.bundle.outputs.version }}
+      tag: ${{ steps.bundle.outputs.tag }}
     defaults:
       run:
         shell: bash
@@ -45,6 +49,39 @@ jobs:
         chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
     - name: Install YQ
       run: sudo snap install yq
+    - name: 'Find checkRun with name Operator: Deploy Bundle'
+      run: |-
+        set -e
+        RESULT=$(curl \
+        -X POST \
+        -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+        -H "Accept: application/vnd.github.v3+json" \
+        https://api.github.com/repos/$GITHUB_REPOSITORY/refs/${{github.event.client_payload.sha}}/check-runs)
+        ID=$(echo $RESULT | jq '.check_runs[] | select(.name == "Operator: Deploy Bundle") | .id')
+        CHECKSUITE_ID=$(echo $RESULT | jq '.check_runs[] | select(.name == "Operator: Deploy Bundle") | .check_suite.id')
+        echo checkrun_id=$ID >> $GITHUB_ENV
+        echo checksuite_id=$CHECKSUITE_ID >> $GITHUB_ENV
+    - if: env.checkrun_id == ''
+      name: 'Create checkRun with name Operator: Deploy Bundle'
+      run: |-
+        set -e
+        RESULT=$(curl -X POST \
+        -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+        -H "Accept: application/vnd.github.v3+json" \
+        https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs \
+        -d "{"name":"Operator: Deploy Bundle","head_sha":"${{github.event.client_payload.sha}}","status":"in_progress"}")
+        ID=$(echo $RESULT | jq '.id')
+        CHECKSUITE_ID=$(echo $RESULT | jq '.check_suite.id')
+        echo checkrun_id=$ID >> $GITHUB_ENV
+        echo checksuite_id=$CHECKSUITE_ID >> $GITHUB_ENV
+    - name: Update checkRun with id${{env.checkrun_id}}
+      run: |-
+        set -e
+        curl -X PATCH \
+        	-H "Authorization: Bearer ${GITHUB_TOKEN}" \
+        	-H "Accept: application/vnd.github.v3+json" \
+        	https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs/${{env.checkrun_id}} \
+        	-d "{"status":"in_progress"}"
     - name: Login to Docker Hub
       uses: docker/login-action@v1
       with:
@@ -57,6 +94,11 @@ jobs:
         cd v2
         export VERSION=$(cd ./tools && go run ./version/main.go)-${DEPLOY_SHA}
         export TAG=${VERSION}-amd64
+        if [ "$IS_PR" == "false" && "$BRANCH" != "" ] ; then
+        export VERSION=${VERSION}-$BRANCH
+        fi
+        echo "::set-output name=version::$VERSION"
+        echo "::set-output name=tag::$TAG"
         echo "::group::Make Bundle"
         make bundle
         echo "::endgroup::"
@@ -69,14 +111,30 @@ jobs:
         echo "::group::Make Dev Index"
         make bundle-dev-index
         echo "::endgroup::"
+        echo "::group::Create operator test source"
+        yq w ./hack/testsource.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ../rhmtest-source-${TAG}.yaml
+        echo "::endgroup::"
+    - if: always()
+      name: Update checkRun with id${{env.checkrun_id}}
+      run: |-
+        set -e
+        curl -X PATCH \
+        	-H "Authorization: Bearer ${GITHUB_TOKEN}" \
+        	-H "Accept: application/vnd.github.v3+json" \
+        	https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs/${{env.checkrun_id}} \
+        	-d "{"status":"completed","conclusion":"${{steps.bundle.conclusion}}","output":{"title":"Deploy Bundle","summary":"To test the new operator changes, install this test resource:\n```yaml\napiVersion: operators.coreos.com/v1alpha1\nkind: CatalogSource\nmetadata:\n\tname: rhm-test\n\tnamespace: openshift-marketplace\nspec:\n\tsourceType: grpc\n\tdisplayName: RHM Test\n\timage: quay.io/zach_source/redhat-marketplace-operator-dev-index:$VERSION\n```"}}"
   publish:
     name: Publish Images
     needs:
     - deploy
     runs-on: ubuntu-20.04
+    env:
+      VERSION: ${{ needs.deploy.outputs.version }}
+      TAG: ${{ needs.deploy.outputs.tag }}
     defaults:
       run:
         shell: bash
+    if: github.event.client_payload.pull_request != 'false'
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
@@ -104,14 +162,43 @@ jobs:
         chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
         curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.15.3/${OS}-${ARCH}-opm
         chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
+    - name: 'Find checkRun with name Operator: Publish Bundle'
+      run: |-
+        set -e
+        RESULT=$(curl \
+        -X POST \
+        -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+        -H "Accept: application/vnd.github.v3+json" \
+        https://api.github.com/repos/$GITHUB_REPOSITORY/refs/${{github.event.client_payload.sha}}/check-runs)
+        ID=$(echo $RESULT | jq '.check_runs[] | select(.name == "Operator: Publish Bundle") | .id')
+        CHECKSUITE_ID=$(echo $RESULT | jq '.check_runs[] | select(.name == "Operator: Publish Bundle") | .check_suite.id')
+        echo checkrun_id=$ID >> $GITHUB_ENV
+        echo checksuite_id=$CHECKSUITE_ID >> $GITHUB_ENV
+    - if: env.checkrun_id == ''
+      name: 'Create checkRun with name Operator: Publish Bundle'
+      run: |-
+        set -e
+        RESULT=$(curl -X POST \
+        -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+        -H "Accept: application/vnd.github.v3+json" \
+        https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs \
+        -d "{"name":"Operator: Publish Bundle","head_sha":"${{github.event.client_payload.sha}}","status":"in_progress"}")
+        ID=$(echo $RESULT | jq '.id')
+        CHECKSUITE_ID=$(echo $RESULT | jq '.check_suite.id')
+        echo checkrun_id=$ID >> $GITHUB_ENV
+        echo checksuite_id=$CHECKSUITE_ID >> $GITHUB_ENV
+    - name: Update checkRun with id${{env.checkrun_id}}
+      run: |-
+        set -e
+        curl -X PATCH \
+        	-H "Authorization: Bearer ${GITHUB_TOKEN}" \
+        	-H "Accept: application/vnd.github.v3+json" \
+        	https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs/${{env.checkrun_id}} \
+        	-d "{"status":"in_progress"}"
     - id: mirror
       name: Mirror images
       run: |-
         cd v2
-        export VERSION=$(cd ./tools && go run ./version/main.go)-${DEPLOY_SHA}
-        export TAG=${VERSION}-amd64
-        echo "::set-output name=version::$VERSION"
-        echo "::set-output name=tag::$TAG"
         skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}}
         skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG docker://scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordMetricState']}}
         skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG docker://scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordReporter']}}
@@ -127,7 +214,7 @@ jobs:
         cd v2
         make wait-and-publish PIDS="--pid ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd=$(skopeo inspect --override-os=linux --format "{{.Digest}}" docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG) --pid ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4=$(skopeo inspect --override-os=linux --format "{{.Digest}}" docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG) --pid ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e=$(skopeo inspect --override-os=linux --format "{{.Digest}}" docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG) --pid ospid-ffed416e-c18d-4b88-8660-f586a4792785=$(skopeo inspect --override-os=linux --format "{{.Digest}}" docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG)"
       env:
-        TAG: ${{ steps.mirror.outputs.tag }}
+        TAG: ${{ steps.deploy.outputs.tag }}
         RH_CONNECT_TOKEN: ${{ secrets.redhat_api_key }}
       continue-on-error: true
     - name: Copy Manifest
@@ -135,4 +222,13 @@ jobs:
         docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$TAG
         --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}}
       env:
-        TAG: ${{ steps.mirror.outputs.version }}
+        TAG: ${{ steps.deploy.outputs.version }}
+    - if: always()
+      name: Update checkRun with id${{env.checkrun_id}}
+      run: |-
+        set -e
+        curl -X PATCH \
+        	-H "Authorization: Bearer ${GITHUB_TOKEN}" \
+        	-H "Accept: application/vnd.github.v3+json" \
+        	https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs/${{env.checkrun_id}} \
+        	-d "{"status":"completed","conclusion":"${{steps.mirror.conclusion}}","output":{"title":"Publish Bundle","summary":"Bundle is now ready to be published."}}"

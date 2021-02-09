@@ -199,7 +199,11 @@ bundle: clean manifests kustomize helm
 # Build the bundle image.
 .PHONY: bundle-build
 bundle-build:
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
+	--label com.redhat.openshift.versions="v4.5,v4.6" \
+  --label com.redhat.delivery.operator.bundle=true \
+	--label com.redhat.delivery.backport=true \
+	.
 
 bundle-deploy:
 	docker push $(BUNDLE_IMG)

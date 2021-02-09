@@ -3,6 +3,7 @@ package ci
 import (
 	"strings"
 	json "github.com/SchemaStore/schemastore/src/schemas/json/github"
+	encjson "encoding/json"
 )
 
 workflowsDir: *"./" | string @tag(workflowsDir)
@@ -67,13 +68,18 @@ bundle: _#bashWorkflow & {
 	on: repository_dispatch: types: ["bundle"]
 	env: {
 		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
-    "DEPLOY_SHA": "${{github.event.client_payload.sha}}"
-    "IS_PR" : "${{github.event.client_payload.pull_request}}"
+		"BRANCH":         "${{github.event.client_payload.branch}}"
+		"DEPLOY_SHA":     "${{github.event.client_payload.sha}}"
+		"IS_PR":          "${{github.event.client_payload.pull_request}}"
 	}
 	jobs: {
 		deploy: _#job & {
 			name:      "Deploy Bundle"
 			"runs-on": _#linuxMachine
+			outputs: {
+				version: "${{ steps.bundle.outputs.version }}"
+				tag:     "${{ steps.bundle.outputs.tag }}"
+			}
 			steps: [
 				_#checkoutCode & {
 					with: ref: "${{github.event.client_payload.sha}}"
@@ -82,50 +88,89 @@ bundle: _#bashWorkflow & {
 				_#cacheGoModules,
 				_#installOperatorSDK,
 				_#installYQ,
-				// (_#githubCreateActionStep & {
-				//  _#args: {
-				//   name:     "Operator: Deploy Bundle"
-				//   head_sha: "${{github.event.client_payload.sha}}"
-				//   status:   "in_progress"
-				//  }
-				// }).res & {
-				//  id: "create-action"
-				// },
+				(_#findCheckRun & {
+					_#args: {
+						name:     "Operator: Deploy Bundle"
+						head_sha: "${{github.event.client_payload.sha}}"
+					}
+				}).res & {
+				},
+				(_#githubCreateActionStep & {
+					_#args: {
+						name:     "Operator: Deploy Bundle"
+						head_sha: "${{github.event.client_payload.sha}}"
+						status:   "in_progress"
+					}
+				}).res & {
+					if: "env.checkrun_id == ''"
+				},
+				(_#githubUpdateActionStep & {
+					_#args: {
+						check_run_id: "${{env.checkrun_id}}"
+						patch: {
+							status: "in_progress"
+						}
+					}
+				}).res,
 				_#quayLogin,
 				_#step & {
 					id:   "bundle"
 					name: "Build bundle"
-					run: """
+					run:  """
 						cd v2
 						export VERSION=$(cd ./tools && go run ./version/main.go)-${DEPLOY_SHA}
 						export TAG=${VERSION}-amd64
-						\((_#makeLogGroup & { #args: {name: "Make Bundle", cmd: "make bundle" }}).res)
-						\((_#makeLogGroup & { #args: {name: "Make Stable", cmd: "make bundle-stable" }}).res)
-						\((_#makeLogGroup & { #args: {name: "Make Deploy", cmd: "make bundle-deploy" }}).res)
-						\((_#makeLogGroup & { #args: {name: "Make Dev Index", cmd: "make bundle-dev-index" }}).res)
+						if [ "$IS_PR" == "false" && "$BRANCH" != "" ] ; then
+						export VERSION=${VERSION}-$BRANCH
+						fi
+						echo "::set-output name=version::$VERSION"
+						echo "::set-output name=tag::$TAG"
+						\((_#makeLogGroup & {#args: {name: "Make Bundle", cmd: "make bundle"}}).res)
+						\((_#makeLogGroup & {#args: {name: "Make Stable", cmd: "make bundle-stable"}}).res)
+						\((_#makeLogGroup & {#args: {name: "Make Deploy", cmd: "make bundle-deploy"}}).res)
+						\((_#makeLogGroup & {#args: {name: "Make Dev Index", cmd: "make bundle-dev-index"}}).res)
+						\((_#makeLogGroup & {#args: {name: "Create operator test source", cmd: #"yq w ./hack/testsource.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ../rhmtest-source-${TAG}.yaml"#}}).res)
 						"""
-				}
-				// (_#githubUpdateActionStep & {
-				//  _#args: {
-				//   name:         "Operator: Deploy Bundle"
-				//   head_sha:     "${{github.event.client_payload.sha}}"
-				//   status:       "completed"
-				//   conclusion:   "${{steps.bundle.conclusion}}"
-				//   check_run_id: "${{steps.create-action.outputs.result.id}}"
-				//  }
-				// }).res & {
-				//   env: {
-				//     "OUTPUTS": "${{steps.create-action.outputs.result}}"
-				//   }
-				//  if: "${{ always() && steps.create-action.outputs.result.id != '' }}"
-				// },
+				},
+				(_#githubUpdateActionStep & {
+					_#args: {
+						check_run_id: "${{env.checkrun_id}}"
+						patch: {
+							status:     "completed"
+							conclusion: "${{steps.bundle.conclusion}}"
+							output: {
+								title: "Deploy Bundle"
+								summary: """
+												To test the new operator changes, install this test resource:
+												```yaml
+												apiVersion: operators.coreos.com/v1alpha1
+												kind: CatalogSource
+												metadata:
+													name: rhm-test
+													namespace: openshift-marketplace
+												spec:
+													sourceType: grpc
+													displayName: RHM Test
+													image: quay.io/zach_source/redhat-marketplace-operator-dev-index:$VERSION
+												```
+												"""
+							}
+						}
+					}
+				}).res & {
+					if: "always()"
+				},
 			]
 		}
 		publish: _#job & {
 			name:      "Publish Images"
 			"runs-on": _#linuxMachine
 			needs: ["deploy"]
-			//if: "(startsWith(github.event.client_payload.pull_request_branch, 'release/') || startsWith(github.event.client_payload.pull_request_branch,'hotfix/'))"
+			env: {
+				VERSION: "${{ needs.deploy.outputs.version }}"
+				TAG:     "${{ needs.deploy.outputs.tag }}"
+			}
+			if: "github.event.client_payload.pull_request != 'false'"
 			steps: [
 				_#checkoutCode & {
 					with: ref: "${{github.event.client_payload.sha}}"
@@ -133,29 +178,66 @@ bundle: _#bashWorkflow & {
 				_#installGo,
 				_#cacheGoModules,
 				_#installOperatorSDK,
+				(_#findCheckRun & {
+					_#args: {
+						name:     "Operator: Publish Bundle"
+						head_sha: "${{github.event.client_payload.sha}}"
+					}
+				}).res & {
+				},
+				(_#githubCreateActionStep & {
+					_#args: {
+						name:     "Operator: Publish Bundle"
+						head_sha: "${{github.event.client_payload.sha}}"
+						status:   "in_progress"
+					}
+				}).res & {
+					if: "env.checkrun_id == ''"
+				},
+				(_#githubUpdateActionStep & {
+					_#args: {
+						check_run_id: "${{env.checkrun_id}}"
+						patch: {
+							status: "in_progress"
+						}
+					}
+				}).res,
 				_#step & {
 					id:   "mirror"
 					name: "Mirror images"
 					run:
 						"""
 						cd v2
-						export VERSION=$(cd ./tools && go run ./version/main.go)-${DEPLOY_SHA}
-						export TAG=${VERSION}-amd64
-						echo "::set-output name=version::$VERSION"
-						echo "::set-output name=tag::$TAG"
 						\(_#retagCommand)
 						"""
 				},
 				_#redhatConnectLogin,
 				_#waitForPublish & {
 					#args: {
-						tag: "${{ steps.mirror.outputs.tag }}"
+						tag: "${{ steps.deploy.outputs.tag }}"
 					}
 				},
 				_#step & {
-          env: TAG: "${{ steps.mirror.outputs.version }}"
+					env: TAG: "${{ steps.deploy.outputs.version }}"
 					name: "Copy Manifest"
 					run:  _#manifestCopyCommand
+				},
+        (_#githubUpdateActionStep & {
+					_#args: {
+						check_run_id: "${{env.checkrun_id}}"
+						patch: {
+							status:     "completed"
+							conclusion: "${{steps.mirror.conclusion}}"
+							output: {
+								title: "Publish Bundle"
+								summary: """
+												Bundle is now ready to be published.
+												"""
+							}
+						}
+					}
+				}).res & {
+					if: "always()"
 				},
 			]
 		}
@@ -392,7 +474,7 @@ _#images: [
 	_#authchecker,
 ]
 
-_#registry: "quay.io/rh-marketplace"
+_#registry:       "quay.io/rh-marketplace"
 _#registryRHScan: "scan.connect.redhat.com"
 
 _#manifest: {
@@ -465,7 +547,7 @@ _#waitForPublish: _#step & {
 	run:
 		"""
 			cd v2
-			make wait-and-publish PIDS="\(strings.Join([ for k, v in _#images { "--pid \(v.ospid)=$(skopeo inspect --override-os=linux --format \"{{.Digest}}\" docker://\(_#registry)/\(v.name):$TAG)" }], " "))"
+			make wait-and-publish PIDS="\(strings.Join([ for k, v in _#images {"--pid \(v.ospid)=$(skopeo inspect --override-os=linux --format \"{{.Digest}}\" docker://\(_#registry)/\(v.name):$TAG)"}], " "))"
 			"""
 }
 
@@ -512,44 +594,89 @@ _#checkRunObject: {
 	}
 }
 
-_#githubScriptBaseStep: _#step & {
-	uses: "actions/github-script@v3"
-	with: {
-		"github-token": "${{secrets.GITHUB_TOKEN}}"
+_#checkRunPatch: {
+	status?:     "queued" | "in_progress" | "completed" | string
+	conclusion?: "action_required" | "cancelled" | "failure" | "neutral" | "success" | "skipped" | "stale" | "timed_out" | string
+	output?: {
+		title:   string
+		summary: string
+		text?:   string
 	}
 }
 
-_#githubActionBuildScript: {
-	#args:       _#checkRunObject
-	#scriptArgs: strings.Join([ for k, v in #args if k != "output" && v != null {"\(k): '\(v)'"}], ",\n")
-	res:
-		"""
-	var obj = {
-	owner: context.repo.owner,
-	repo: context.repo.repo,
-	\(#scriptArgs)
+_#setOutput: {
+	#args: {
+		name:  string
+		value: string
 	}
-	"""
+	res: #"echo "::set-output name=\#(#args.name):\#(#args.value)"#
+}
+
+_#setEnv: {
+  #args: {
+		name:  string
+		value: string
+  }
+	res: #"echo \#(#args.name)=\#(#args.value) >> $GITHUB_ENV"#
+}
+
+_#findCheckRun: {
+	_#args: {
+		name:     string
+		head_sha: string
+	}
+	res: _#step & {
+		name: "Find checkRun with name \(_#args.name)"
+		run:  """
+			set -e
+			RESULT=$(curl \\
+			-X POST \\
+			-H "Authorization: Bearer ${GITHUB_TOKEN}" \\
+			-H "Accept: application/vnd.github.v3+json" \\
+			https://api.github.com/repos/$GITHUB_REPOSITORY/refs/\(_#args.head_sha)/check-runs)
+			ID=$(echo $RESULT | jq '.check_runs[] | select(.name == "\(_#args.name)") | .id')
+			CHECKSUITE_ID=$(echo $RESULT | jq '.check_runs[] | select(.name == "\(_#args.name)") | .check_suite.id')
+			\((_#setEnv & {#args: {name: "checkrun_id", value: "$ID"}}).res)
+			\((_#setEnv & {#args: {name: "checksuite_id", value: "$CHECKSUITE_ID"}}).res)
+			"""
+	}
 }
 
 _#githubCreateActionStep: {
 	_#args: _#checkRunObject
-	res:    _#githubScriptBaseStep & {
-		with: script:
+	res:    _#step & {
+		name: "Create checkRun with name \(_#args.name)"
+		run:
 			"""
-			\((_#githubActionBuildScript & {#args: _#args}).res)
-			return await github.request('POST /repos/{owner}/{repo}/check-runs', obj)
+			set -e
+			RESULT=$(curl -X POST \\
+			-H "Authorization: Bearer ${GITHUB_TOKEN}" \\
+			-H "Accept: application/vnd.github.v3+json" \\
+			https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs \\
+			-d "\(encjson.Marshal(_#args))")
+			ID=$(echo $RESULT | jq '.id')
+			CHECKSUITE_ID=$(echo $RESULT | jq '.check_suite.id')
+			\((_#setEnv & {#args: {name: "checkrun_id", value: "$ID"}}).res)
+			\((_#setEnv & {#args: {name: "checksuite_id", value: "$CHECKSUITE_ID"}}).res)
 			"""
 	}
 }
 
 _#githubUpdateActionStep: {
-	_#args: _#checkRunObject
-	res:    _#githubScriptBaseStep & {
-		with: script:
+	_#args: {
+		check_run_id: string
+		patch:        _#checkRunPatch
+	}
+	res: _#step & {
+		name: "Update checkRun with id\(_#args.check_run_id)"
+		run:
 			"""
-			\((_#githubActionBuildScript & {#args: _#args}).res)
-			return await github.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', obj)
+			set -e
+			curl -X PATCH \\
+				-H "Authorization: Bearer ${GITHUB_TOKEN}" \\
+				-H "Accept: application/vnd.github.v3+json" \\
+				https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs/\(_#args.check_run_id) \\
+				-d "\(encjson.Marshal(_#args.patch))"
 			"""
 	}
 }
