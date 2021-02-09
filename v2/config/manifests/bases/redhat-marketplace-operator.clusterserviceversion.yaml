@@ -128,5 +128,4 @@ spec:
   maturity: stable
   provider:
     name: Red Hat Marketplace
-    url: https://marketplace.redhat.com
   version: 0.0.0
