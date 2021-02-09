@@ -628,14 +628,13 @@ _#findCheckRun: {
 	res: _#step & {
 		name: "Find checkRun with name \(_#args.name)"
 		run:  """
-			set -e
 			RESULT=$(curl \\
 			-X POST \\
 			-H "Authorization: Bearer ${GITHUB_TOKEN}" \\
 			-H "Accept: application/vnd.github.v3+json" \\
 			https://api.github.com/repos/$GITHUB_REPOSITORY/refs/\(_#args.head_sha)/check-runs)
-			ID=$(echo $RESULT | jq '.check_runs[] | select(.name == "\(_#args.name)") | .id')
-			CHECKSUITE_ID=$(echo $RESULT | jq '.check_runs[] | select(.name == "\(_#args.name)") | .check_suite.id')
+			ID=$(echo $RESULT | jq '.check_runs[]? | select(.name == "\(_#args.name)") | .id')
+			CHECKSUITE_ID=$(echo $RESULT | jq '.check_runs[]? | select(.name == "\(_#args.name)") | .check_suite.id')
 			\((_#setEnv & {#args: {name: "checkrun_id", value: "$ID"}}).res)
 			\((_#setEnv & {#args: {name: "checksuite_id", value: "$CHECKSUITE_ID"}}).res)
 			"""
@@ -648,7 +647,6 @@ _#githubCreateActionStep: {
 		name: "Create checkRun with name \(_#args.name)"
 		run:
 			"""
-			set -e
 			RESULT=$(curl -X POST \\
 			-H "Authorization: Bearer ${GITHUB_TOKEN}" \\
 			-H "Accept: application/vnd.github.v3+json" \\
@@ -671,7 +669,6 @@ _#githubUpdateActionStep: {
 		name: "Update checkRun with id\(_#args.check_run_id)"
 		run:
 			"""
-			set -e
 			curl -X PATCH \\
 				-H "Authorization: Bearer ${GITHUB_TOKEN}" \\
 				-H "Accept: application/vnd.github.v3+json" \\

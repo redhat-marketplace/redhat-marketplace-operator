@@ -51,20 +51,18 @@ jobs:
       run: sudo snap install yq
     - name: 'Find checkRun with name Operator: Deploy Bundle'
       run: |-
-        set -e
         RESULT=$(curl \
         -X POST \
         -H "Authorization: Bearer ${GITHUB_TOKEN}" \
         -H "Accept: application/vnd.github.v3+json" \
         https://api.github.com/repos/$GITHUB_REPOSITORY/refs/${{github.event.client_payload.sha}}/check-runs)
-        ID=$(echo $RESULT | jq '.check_runs[] | select(.name == "Operator: Deploy Bundle") | .id')
-        CHECKSUITE_ID=$(echo $RESULT | jq '.check_runs[] | select(.name == "Operator: Deploy Bundle") | .check_suite.id')
+        ID=$(echo $RESULT | jq '.check_runs[]? | select(.name == "Operator: Deploy Bundle") | .id')
+        CHECKSUITE_ID=$(echo $RESULT | jq '.check_runs[]? | select(.name == "Operator: Deploy Bundle") | .check_suite.id')
         echo checkrun_id=$ID >> $GITHUB_ENV
         echo checksuite_id=$CHECKSUITE_ID >> $GITHUB_ENV
     - if: env.checkrun_id == ''
       name: 'Create checkRun with name Operator: Deploy Bundle'
       run: |-
-        set -e
         RESULT=$(curl -X POST \
         -H "Authorization: Bearer ${GITHUB_TOKEN}" \
         -H "Accept: application/vnd.github.v3+json" \
@@ -76,7 +74,6 @@ jobs:
         echo checksuite_id=$CHECKSUITE_ID >> $GITHUB_ENV
     - name: Update checkRun with id${{env.checkrun_id}}
       run: |-
-        set -e
         curl -X PATCH \
         	-H "Authorization: Bearer ${GITHUB_TOKEN}" \
         	-H "Accept: application/vnd.github.v3+json" \
@@ -117,7 +114,6 @@ jobs:
     - if: always()
       name: Update checkRun with id${{env.checkrun_id}}
       run: |-
-        set -e
         curl -X PATCH \
         	-H "Authorization: Bearer ${GITHUB_TOKEN}" \
         	-H "Accept: application/vnd.github.v3+json" \
@@ -164,20 +160,18 @@ jobs:
         chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
     - name: 'Find checkRun with name Operator: Publish Bundle'
       run: |-
-        set -e
         RESULT=$(curl \
         -X POST \
         -H "Authorization: Bearer ${GITHUB_TOKEN}" \
         -H "Accept: application/vnd.github.v3+json" \
         https://api.github.com/repos/$GITHUB_REPOSITORY/refs/${{github.event.client_payload.sha}}/check-runs)
-        ID=$(echo $RESULT | jq '.check_runs[] | select(.name == "Operator: Publish Bundle") | .id')
-        CHECKSUITE_ID=$(echo $RESULT | jq '.check_runs[] | select(.name == "Operator: Publish Bundle") | .check_suite.id')
+        ID=$(echo $RESULT | jq '.check_runs[]? | select(.name == "Operator: Publish Bundle") | .id')
+        CHECKSUITE_ID=$(echo $RESULT | jq '.check_runs[]? | select(.name == "Operator: Publish Bundle") | .check_suite.id')
         echo checkrun_id=$ID >> $GITHUB_ENV
         echo checksuite_id=$CHECKSUITE_ID >> $GITHUB_ENV
     - if: env.checkrun_id == ''
       name: 'Create checkRun with name Operator: Publish Bundle'
       run: |-
-        set -e
         RESULT=$(curl -X POST \
         -H "Authorization: Bearer ${GITHUB_TOKEN}" \
         -H "Accept: application/vnd.github.v3+json" \
@@ -189,7 +183,6 @@ jobs:
         echo checksuite_id=$CHECKSUITE_ID >> $GITHUB_ENV
     - name: Update checkRun with id${{env.checkrun_id}}
       run: |-
-        set -e
         curl -X PATCH \
         	-H "Authorization: Bearer ${GITHUB_TOKEN}" \
         	-H "Accept: application/vnd.github.v3+json" \
@@ -226,7 +219,6 @@ jobs:
     - if: always()
       name: Update checkRun with id${{env.checkrun_id}}
       run: |-
-        set -e
         curl -X PATCH \
         	-H "Authorization: Bearer ${GITHUB_TOKEN}" \
         	-H "Accept: application/vnd.github.v3+json" \
