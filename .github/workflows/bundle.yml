@@ -49,37 +49,6 @@ jobs:
         chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
     - name: Install YQ
       run: sudo snap install yq
-    - name: 'Find checkRun with name Operator: Deploy Bundle'
-      run: |-
-        RESULT=$(curl \
-        -X POST \
-        -H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \
-        -H "Accept: application/vnd.github.v3+json" \
-        https://api.github.com/repos/$GITHUB_REPOSITORY/refs/${{github.event.client_payload.sha}}/check-runs)
-        ID=$(echo $RESULT | jq '.check_runs[]? | select(.name == "Operator: Deploy Bundle") | .id')
-        CHECKSUITE_ID=$(echo $RESULT | jq '.check_runs[]? | select(.name == "Operator: Deploy Bundle") | .check_suite.id')
-        echo checkrun_id=$ID >> $GITHUB_ENV
-        echo checksuite_id=$CHECKSUITE_ID >> $GITHUB_ENV
-    - if: env.checkrun_id != 'null'
-      name: 'Create checkRun with name Operator: Deploy Bundle'
-      run: |-
-        RESULT=$(curl -X POST \
-        -H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \
-        -H "Accept: application/vnd.github.v3+json" \
-        https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs \
-        -d "{\"name\":\"Operator: Deploy Bundle\",\"head_sha\":\"${{github.event.client_payload.sha}}\",\"status\":\"in_progress\"}" )
-        ID=$(echo $RESULT | jq '.id')
-        CHECKSUITE_ID=$(echo $RESULT | jq '.check_suite.id')
-        echo checkrun_id=$ID >> $GITHUB_ENV
-        echo checksuite_id=$CHECKSUITE_ID >> $GITHUB_ENV
-    - if: env.checkrun_id != 'null'
-      name: Update checkRun with id${{env.checkrun_id}}
-      run: |-
-        curl -X PATCH \
-        	-H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \
-        	-H "Accept: application/vnd.github.v3+json" \
-        	https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs/${{env.checkrun_id}} \
-        	-d "{\"status\":\"in_progress\"}"
     - name: Login to Docker Hub
       uses: docker/login-action@v1
       with:
@@ -90,10 +59,10 @@ jobs:
       name: Build bundle
       run: |-
         cd v2
-        export VERSION=$(cd ./tools && go run ./version/main.go)-${DEPLOY_SHA}
-        export TAG=${VERSION}-amd64
+        export VERSION=$(cd ./tools && go run ./version/main.go)
+        export TAG=${VERSION}-${DEPLOY_SHA}-amd64
         if [ "$IS_PR" == "false" && "$BRANCH" != "" ] ; then
-        export VERSION=${VERSION}-$BRANCH
+        export VERSION=${VERSION}-${BRANCH}.${GITHUB_RUN_NUMBER}
         fi
         echo "::set-output name=version::$VERSION"
         echo "::set-output name=tag::$TAG"
@@ -110,14 +79,6 @@ jobs:
         echo "::group::Make Dev Index"
         make bundle-dev-index
         echo "::endgroup::"
-    - if: always() && env.checkrun_id != 'null'
-      name: Update checkRun with id${{env.checkrun_id}}
-      run: |-
-        curl -X PATCH \
-        	-H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \
-        	-H "Accept: application/vnd.github.v3+json" \
-        	https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs/${{env.checkrun_id}} \
-        	-d "{\"status\":\"completed\",\"conclusion\":\"${{steps.bundle.conclusion}}\",\"output\":{\"title\":\"Deploy Bundle\",\"summary\":\"To test the new operator changes, install this test resource:\\n```yaml\\napiVersion: operators.coreos.com/v1alpha1\\nkind: CatalogSource\\nmetadata:\\n\\tname: rhm-test\\n\\tnamespace: openshift-marketplace\\nspec:\\n\\tsourceType: grpc\\n\\tdisplayName: RHM Test\\n\\timage: quay.io/zach_source/redhat-marketplace-operator-dev-index:$VERSION\\n```\"}}"
   publish:
     name: Publish Images
     needs:
@@ -157,36 +118,6 @@ jobs:
         chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
         curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.15.3/${OS}-${ARCH}-opm
         chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
-    - name: 'Find checkRun with name Operator: Publish Bundle'
-      run: |-
-        RESULT=$(curl \
-        -X POST \
-        -H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \
-        -H "Accept: application/vnd.github.v3+json" \
-        https://api.github.com/repos/$GITHUB_REPOSITORY/refs/${{github.event.client_payload.sha}}/check-runs)
-        ID=$(echo $RESULT | jq '.check_runs[]? | select(.name == "Operator: Publish Bundle") | .id')
-        CHECKSUITE_ID=$(echo $RESULT | jq '.check_runs[]? | select(.name == "Operator: Publish Bundle") | .check_suite.id')
-        echo checkrun_id=$ID >> $GITHUB_ENV
-        echo checksuite_id=$CHECKSUITE_ID >> $GITHUB_ENV
-    - if: env.checkrun_id == ''
-      name: 'Create checkRun with name Operator: Publish Bundle'
-      run: |-
-        RESULT=$(curl -X POST \
-        -H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \
-        -H "Accept: application/vnd.github.v3+json" \
-        https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs \
-        -d "{\"name\":\"Operator: Publish Bundle\",\"head_sha\":\"${{github.event.client_payload.sha}}\",\"status\":\"in_progress\"}" )
-        ID=$(echo $RESULT | jq '.id')
-        CHECKSUITE_ID=$(echo $RESULT | jq '.check_suite.id')
-        echo checkrun_id=$ID >> $GITHUB_ENV
-        echo checksuite_id=$CHECKSUITE_ID >> $GITHUB_ENV
-    - name: Update checkRun with id${{env.checkrun_id}}
-      run: |-
-        curl -X PATCH \
-        	-H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \
-        	-H "Accept: application/vnd.github.v3+json" \
-        	https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs/${{env.checkrun_id}} \
-        	-d "{\"status\":\"in_progress\"}"
     - id: mirror
       name: Mirror images
       run: |-
@@ -214,11 +145,3 @@ jobs:
         --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}}
       env:
         TAG: ${{ steps.deploy.outputs.version }}
-    - if: always()
-      name: Update checkRun with id${{env.checkrun_id}}
-      run: |-
-        curl -X PATCH \
-        	-H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \
-        	-H "Accept: application/vnd.github.v3+json" \
-        	https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs/${{env.checkrun_id}} \
-        	-d "{\"status\":\"completed\",\"conclusion\":\"${{steps.mirror.conclusion}}\",\"output\":{\"title\":\"Publish Bundle\",\"summary\":\"Bundle is now ready to be published.\"}}"

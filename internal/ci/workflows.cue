@@ -89,42 +89,16 @@ bundle: _#bashWorkflow & {
 				_#cacheGoModules,
 				_#installOperatorSDK,
 				_#installYQ,
-				(_#findCheckRun & {
-					_#args: {
-						name:     "Operator: Deploy Bundle"
-						head_sha: "${{github.event.client_payload.sha}}"
-					}
-				}).res & {
-				},
-				(_#githubCreateActionStep & {
-					_#args: {
-						name:     "Operator: Deploy Bundle"
-						head_sha: "${{github.event.client_payload.sha}}"
-						status:   "in_progress"
-					}
-				}).res & {
-					if: "env.checkrun_id != 'null'"
-				},
-				(_#githubUpdateActionStep & {
-					_#args: {
-						check_run_id: "${{env.checkrun_id}}"
-						patch: {
-							status: "in_progress"
-						}
-					}
-				}).res & {
-					if: "env.checkrun_id != 'null'"
-        },
 				_#quayLogin,
 				_#step & {
 					id:   "bundle"
 					name: "Build bundle"
 					run:  """
 						cd v2
-						export VERSION=$(cd ./tools && go run ./version/main.go)-${DEPLOY_SHA}
-						export TAG=${VERSION}-amd64
+						export VERSION=$(cd ./tools && go run ./version/main.go)
+						export TAG=${VERSION}-${DEPLOY_SHA}-amd64
 						if [ "$IS_PR" == "false" && "$BRANCH" != "" ] ; then
-						export VERSION=${VERSION}-$BRANCH
+						export VERSION=${VERSION}-${BRANCH}.${GITHUB_RUN_NUMBER}
 						fi
 						echo "::set-output name=version::$VERSION"
 						echo "::set-output name=tag::$TAG"
@@ -134,34 +108,6 @@ bundle: _#bashWorkflow & {
 						\((_#makeLogGroup & {#args: {name: "Make Deploy", cmd: "make bundle-deploy"}}).res)
 						\((_#makeLogGroup & {#args: {name: "Make Dev Index", cmd: "make bundle-dev-index"}}).res)
 						"""
-				},
-				(_#githubUpdateActionStep & {
-					_#args: {
-						check_run_id: "${{env.checkrun_id}}"
-						patch: {
-							status:     "completed"
-							conclusion: "${{steps.bundle.conclusion}}"
-							output: {
-								title: "Deploy Bundle"
-								summary: """
-												To test the new operator changes, install this test resource:
-												```yaml
-												apiVersion: operators.coreos.com/v1alpha1
-												kind: CatalogSource
-												metadata:
-													name: rhm-test
-													namespace: openshift-marketplace
-												spec:
-													sourceType: grpc
-													displayName: RHM Test
-													image: quay.io/zach_source/redhat-marketplace-operator-dev-index:$VERSION
-												```
-												"""
-							}
-						}
-					}
-				}).res & {
-					if: "always() && env.checkrun_id != 'null'"
 				},
 			]
 		}
@@ -181,30 +127,6 @@ bundle: _#bashWorkflow & {
 				_#installGo,
 				_#cacheGoModules,
 				_#installOperatorSDK,
-				(_#findCheckRun & {
-					_#args: {
-						name:     "Operator: Publish Bundle"
-						head_sha: "${{github.event.client_payload.sha}}"
-					}
-				}).res & {
-				},
-				(_#githubCreateActionStep & {
-					_#args: {
-						name:     "Operator: Publish Bundle"
-						head_sha: "${{github.event.client_payload.sha}}"
-						status:   "in_progress"
-					}
-				}).res & {
-					if: "env.checkrun_id == ''"
-				},
-				(_#githubUpdateActionStep & {
-					_#args: {
-						check_run_id: "${{env.checkrun_id}}"
-						patch: {
-							status: "in_progress"
-						}
-					}
-				}).res,
 				_#step & {
 					id:   "mirror"
 					name: "Mirror images"
@@ -220,23 +142,6 @@ bundle: _#bashWorkflow & {
 					env: TAG: "${{ steps.deploy.outputs.version }}"
 					name: "Copy Manifest"
 					run:  _#manifestCopyCommand
-				},
-        (_#githubUpdateActionStep & {
-					_#args: {
-						check_run_id: "${{env.checkrun_id}}"
-						patch: {
-							status:     "completed"
-							conclusion: "${{steps.mirror.conclusion}}"
-							output: {
-								title: "Publish Bundle"
-								summary: """
-												Bundle is now ready to be published.
-												"""
-							}
-						}
-					}
-				}).res & {
-					if: "always()"
 				},
 			]
 		}
