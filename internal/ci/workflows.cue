@@ -128,6 +128,7 @@ bundle: _#bashWorkflow & {
 						fi
 						echo "::set-output name=version::$VERSION"
 						echo "::set-output name=tag::$TAG"
+
 						\((_#makeLogGroup & {#args: {name: "Make Bundle", cmd: "make bundle"}}).res)
 						\((_#makeLogGroup & {#args: {name: "Make Stable", cmd: "make bundle-stable"}}).res)
 						\((_#makeLogGroup & {#args: {name: "Make Deploy", cmd: "make bundle-deploy"}}).res)
@@ -214,11 +215,7 @@ bundle: _#bashWorkflow & {
 						"""
 				},
 				_#redhatConnectLogin,
-				_#waitForPublish & {
-					#args: {
-						tag: "${{ steps.deploy.outputs.tag }}"
-					}
-				},
+				_#waitForPublish,
 				_#step & {
 					env: TAG: "${{ steps.deploy.outputs.version }}"
 					name: "Copy Manifest"
@@ -493,8 +490,8 @@ _#repoFromTo: [ for k, v in _#images {
 
 _#manifestFromTo: [ for k, v in [_#manifest] {
 	pword: "\(v.pword)"
-	from:  "\(_#registry)/\(v.name):$TAG"
-	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TAG"
+	from:  "\(_#registry)/\(v.name):$VERSION"
+	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$VERSION"
 }]
 
 _#retagCommandList: [ for k, v in _#repoFromTo {"skopeo copy --all docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(v.pword)']}}"}]
@@ -537,12 +534,8 @@ _#redhatConnectLogin: (_#registryLoginStep & {
 }).res
 
 _#waitForPublish: _#step & {
-	#args: {
-		tag: string
-	}
 	name: "Wait for RH publish"
 	env: {
-		TAG:              "\(#args.tag)"
 		RH_CONNECT_TOKEN: "${{ secrets.redhat_api_key }}"
 	}
 	"continue-on-error": true

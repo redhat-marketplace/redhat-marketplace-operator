@@ -97,6 +97,7 @@ jobs:
         fi
         echo "::set-output name=version::$VERSION"
         echo "::set-output name=tag::$TAG"
+
         echo "::group::Make Bundle"
         make bundle
         echo "::endgroup::"
@@ -205,12 +206,11 @@ jobs:
         cd v2
         make wait-and-publish PIDS="--pid ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd=$(skopeo inspect --override-os=linux --format "{{.Digest}}" docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG) --pid ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4=$(skopeo inspect --override-os=linux --format "{{.Digest}}" docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG) --pid ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e=$(skopeo inspect --override-os=linux --format "{{.Digest}}" docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG) --pid ospid-ffed416e-c18d-4b88-8660-f586a4792785=$(skopeo inspect --override-os=linux --format "{{.Digest}}" docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG)"
       env:
-        TAG: ${{ steps.deploy.outputs.tag }}
         RH_CONNECT_TOKEN: ${{ secrets.redhat_api_key }}
       continue-on-error: true
     - name: Copy Manifest
-      run: skopeo copy docker://quay.io/rh-marketplace/redhat-marketplace-operator-manifest:$TAG
-        docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$TAG
+      run: skopeo copy docker://quay.io/rh-marketplace/redhat-marketplace-operator-manifest:$VERSION
+        docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$VERSION
         --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}}
       env:
         TAG: ${{ steps.deploy.outputs.version }}
