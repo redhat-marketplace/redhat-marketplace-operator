@@ -135,11 +135,7 @@ bundle: _#bashWorkflow & {
 				_#retagCommand,
 				_#redhatConnectLogin,
 				_#waitForPublish,
-				_#step & {
-					env: TAG: "${{ steps.deploy.outputs.version }}"
-					name: "Copy Manifest"
-					run:  _#manifestCopyCommand
-				},
+				_#retagManifestCommand,
 			]
 		}
 	}
@@ -416,15 +412,17 @@ _#retagCommand: _#step & {
 	id:    "mirror"
 	name:  "Mirror images"
 	shell: "bash {0}"
-	run:
-		"""
-						cd v2
-						\(strings.Join(_#retagCommandList, "\n"))
-						"""
+	run:   strings.Join(_#retagCommandList, "\n")
 }
 
 _#manifestCopyCommandList: [ for k, v in _#manifestFromTo {(_#copyImage & {#args: v}).res}]
-_#manifestCopyCommand: strings.Join(_#manifestCopyCommandList, "\n")
+
+_#retagManifestCommand: _#step & {
+	env: TAG: "${{ steps.deploy.outputs.version }}"
+	name:  "Copy Manifest"
+	shell: "bash {0}"
+	run:   strings.Join(_#manifestCopyCommandList, "\n")
+}
 
 _#registryLoginStep: {
 	#args: {

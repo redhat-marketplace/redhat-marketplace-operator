@@ -126,7 +126,6 @@ jobs:
     - id: mirror
       name: Mirror images
       run: |-
-        cd v2
         echo "::group::Push scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG"
         skopeo inspect docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}} > /dev/null
         ([[ $? == 0 ]] && echo "exists=true" || skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}})
@@ -163,5 +162,6 @@ jobs:
         skopeo inspect docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$VERSION --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}} > /dev/null
         ([[ $? == 0 ]] && echo "exists=true" || skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-operator-manifest:$VERSION docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$VERSION --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}})
         echo "::endgroup::"
+      shell: bash {0}
       env:
         TAG: ${{ steps.deploy.outputs.version }}
