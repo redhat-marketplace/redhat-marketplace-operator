@@ -2,6 +2,7 @@ package ci
 
 import (
 	"strings"
+	"strconv"
 	json "github.com/SchemaStore/schemastore/src/schemas/json/github"
 	encjson "encoding/json"
 )
@@ -651,7 +652,7 @@ _#githubCreateActionStep: {
 			-H "Authorization: Bearer ${GITHUB_TOKEN}" \\
 			-H "Accept: application/vnd.github.v3+json" \\
 			https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs \\
-			-d "\(encjson.Marshal(_#args))")
+			-d \(strconv.Quote(encjson.Marshal(_#args))) )
 			ID=$(echo $RESULT | jq '.id')
 			CHECKSUITE_ID=$(echo $RESULT | jq '.check_suite.id')
 			\((_#setEnv & {#args: {name: "checkrun_id", value: "$ID"}}).res)
@@ -673,7 +674,7 @@ _#githubUpdateActionStep: {
 				-H "Authorization: Bearer ${GITHUB_TOKEN}" \\
 				-H "Accept: application/vnd.github.v3+json" \\
 				https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs/\(_#args.check_run_id) \\
-				-d "\(encjson.Marshal(_#args.patch))"
+				-d \(strconv.Quote(encjson.Marshal(_#args.patch)))
 			"""
 	}
 }

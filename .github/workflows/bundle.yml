@@ -67,7 +67,7 @@ jobs:
         -H "Authorization: Bearer ${GITHUB_TOKEN}" \
         -H "Accept: application/vnd.github.v3+json" \
         https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs \
-        -d "{"name":"Operator: Deploy Bundle","head_sha":"${{github.event.client_payload.sha}}","status":"in_progress"}")
+        -d "{\"name\":\"Operator: Deploy Bundle\",\"head_sha\":\"${{github.event.client_payload.sha}}\",\"status\":\"in_progress\"}" )
         ID=$(echo $RESULT | jq '.id')
         CHECKSUITE_ID=$(echo $RESULT | jq '.check_suite.id')
         echo checkrun_id=$ID >> $GITHUB_ENV
@@ -78,7 +78,7 @@ jobs:
         	-H "Authorization: Bearer ${GITHUB_TOKEN}" \
         	-H "Accept: application/vnd.github.v3+json" \
         	https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs/${{env.checkrun_id}} \
-        	-d "{"status":"in_progress"}"
+        	-d "{\"status\":\"in_progress\"}"
     - name: Login to Docker Hub
       uses: docker/login-action@v1
       with:
@@ -118,7 +118,7 @@ jobs:
         	-H "Authorization: Bearer ${GITHUB_TOKEN}" \
         	-H "Accept: application/vnd.github.v3+json" \
         	https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs/${{env.checkrun_id}} \
-        	-d "{"status":"completed","conclusion":"${{steps.bundle.conclusion}}","output":{"title":"Deploy Bundle","summary":"To test the new operator changes, install this test resource:\n```yaml\napiVersion: operators.coreos.com/v1alpha1\nkind: CatalogSource\nmetadata:\n\tname: rhm-test\n\tnamespace: openshift-marketplace\nspec:\n\tsourceType: grpc\n\tdisplayName: RHM Test\n\timage: quay.io/zach_source/redhat-marketplace-operator-dev-index:$VERSION\n```"}}"
+        	-d "{\"status\":\"completed\",\"conclusion\":\"${{steps.bundle.conclusion}}\",\"output\":{\"title\":\"Deploy Bundle\",\"summary\":\"To test the new operator changes, install this test resource:\\n```yaml\\napiVersion: operators.coreos.com/v1alpha1\\nkind: CatalogSource\\nmetadata:\\n\\tname: rhm-test\\n\\tnamespace: openshift-marketplace\\nspec:\\n\\tsourceType: grpc\\n\\tdisplayName: RHM Test\\n\\timage: quay.io/zach_source/redhat-marketplace-operator-dev-index:$VERSION\\n```\"}}"
   publish:
     name: Publish Images
     needs:
@@ -176,7 +176,7 @@ jobs:
         -H "Authorization: Bearer ${GITHUB_TOKEN}" \
         -H "Accept: application/vnd.github.v3+json" \
         https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs \
-        -d "{"name":"Operator: Publish Bundle","head_sha":"${{github.event.client_payload.sha}}","status":"in_progress"}")
+        -d "{\"name\":\"Operator: Publish Bundle\",\"head_sha\":\"${{github.event.client_payload.sha}}\",\"status\":\"in_progress\"}" )
         ID=$(echo $RESULT | jq '.id')
         CHECKSUITE_ID=$(echo $RESULT | jq '.check_suite.id')
         echo checkrun_id=$ID >> $GITHUB_ENV
@@ -187,7 +187,7 @@ jobs:
         	-H "Authorization: Bearer ${GITHUB_TOKEN}" \
         	-H "Accept: application/vnd.github.v3+json" \
         	https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs/${{env.checkrun_id}} \
-        	-d "{"status":"in_progress"}"
+        	-d "{\"status\":\"in_progress\"}"
     - id: mirror
       name: Mirror images
       run: |-
@@ -223,4 +223,4 @@ jobs:
         	-H "Authorization: Bearer ${GITHUB_TOKEN}" \
         	-H "Accept: application/vnd.github.v3+json" \
         	https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs/${{env.checkrun_id}} \
-        	-d "{"status":"completed","conclusion":"${{steps.mirror.conclusion}}","output":{"title":"Publish Bundle","summary":"Bundle is now ready to be published."}}"
+        	-d "{\"status\":\"completed\",\"conclusion\":\"${{steps.mirror.conclusion}}\",\"output\":{\"title\":\"Publish Bundle\",\"summary\":\"Bundle is now ready to be published.\"}}"
