@@ -103,7 +103,7 @@ bundle: _#bashWorkflow & {
 						status:   "in_progress"
 					}
 				}).res & {
-					if: "env.checkrun_id == ''"
+					if: "env.checkrun_id != 'null'"
 				},
 				(_#githubUpdateActionStep & {
 					_#args: {
@@ -112,7 +112,9 @@ bundle: _#bashWorkflow & {
 							status: "in_progress"
 						}
 					}
-				}).res,
+				}).res & {
+					if: "env.checkrun_id != 'null'"
+        },
 				_#quayLogin,
 				_#step & {
 					id:   "bundle"
@@ -130,7 +132,7 @@ bundle: _#bashWorkflow & {
 						\((_#makeLogGroup & {#args: {name: "Make Stable", cmd: "make bundle-stable"}}).res)
 						\((_#makeLogGroup & {#args: {name: "Make Deploy", cmd: "make bundle-deploy"}}).res)
 						\((_#makeLogGroup & {#args: {name: "Make Dev Index", cmd: "make bundle-dev-index"}}).res)
-						\((_#makeLogGroup & {#args: {name: "Create operator test source", cmd: #"yq w ./hack/testsource.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ../rhmtest-source-${TAG}.yaml"#}}).res)
+						\((_#makeLogGroup & {#args: {name: "Create operator test source", cmd: #"yq eval "spec.image=\"${OLM_BUNDLE_REPO}:${TAG}\"" ./hack/testsource.yaml  > ../rhmtest-source-${TAG}.yaml"#}}).res)
 						"""
 				},
 				(_#githubUpdateActionStep & {
@@ -159,7 +161,7 @@ bundle: _#bashWorkflow & {
 						}
 					}
 				}).res & {
-					if: "always()"
+					if: "always() && env.checkrun_id != 'null'"
 				},
 			]
 		}
@@ -631,7 +633,7 @@ _#findCheckRun: {
 		run:  """
 			RESULT=$(curl \\
 			-X POST \\
-			-H "Authorization: Bearer ${GITHUB_TOKEN}" \\
+			-H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \\
 			-H "Accept: application/vnd.github.v3+json" \\
 			https://api.github.com/repos/$GITHUB_REPOSITORY/refs/\(_#args.head_sha)/check-runs)
 			ID=$(echo $RESULT | jq '.check_runs[]? | select(.name == "\(_#args.name)") | .id')
@@ -649,7 +651,7 @@ _#githubCreateActionStep: {
 		run:
 			"""
 			RESULT=$(curl -X POST \\
-			-H "Authorization: Bearer ${GITHUB_TOKEN}" \\
+			-H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \\
 			-H "Accept: application/vnd.github.v3+json" \\
 			https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs \\
 			-d \(strconv.Quote(encjson.Marshal(_#args))) )
@@ -671,7 +673,7 @@ _#githubUpdateActionStep: {
 		run:
 			"""
 			curl -X PATCH \\
-				-H "Authorization: Bearer ${GITHUB_TOKEN}" \\
+				-H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \\
 				-H "Accept: application/vnd.github.v3+json" \\
 				https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs/\(_#args.check_run_id) \\
 				-d \(strconv.Quote(encjson.Marshal(_#args.patch)))
