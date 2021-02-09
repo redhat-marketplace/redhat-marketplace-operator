@@ -212,7 +212,7 @@ bundle-run:
 	operator-sdk run bundle $(BUNDLE_IMG)
 
 bundle-stable:
-	$(MAKE) bundle bundle-build CHANNELS=stable DEFAULT_CHANNEL=stable
+	$(MAKE) bundle CHANNELS=stable DEFAULT_CHANNEL=stable
 
 VERSIONS_LIST ?= $(BUNDLE_IMG)
 

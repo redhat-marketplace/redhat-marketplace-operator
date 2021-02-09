@@ -98,15 +98,15 @@ bundle: _#bashWorkflow & {
 						export VERSION=$(cd ./tools && go run ./version/main.go)
 						export TAG=${VERSION}-${DEPLOY_SHA}-amd64
 
-						\((_#makeLogGroup & {#args: {name: "Make Bundle", cmd: "make bundle"}}).res)
+						\((_#makeLogGroup & {#args: {name: "Make Stable Bundle", cmd: "make bundle-stable"}}).res)
 
-						if [ "$IS_PR" == "false" && "$BRANCH" != "" ] ; then
-						export VERSION=${VERSION}-${BRANCH}.${GITHUB_RUN_NUMBER}
+						if [ "$IS_PR" == "false" ] && [ "$BRANCH" != "" ] ; then
+						export VERSION="${VERSION}-${BRANCH}+${GITHUB_RUN_NUMBER}"
 						else
-						export VERSION=${VERSION}.${GITHUB_RUN_NUMBER}
+						export VERSION="${VERSION}+${GITHUB_RUN_NUMBER}"
 						fi
 
-						\((_#makeLogGroup & {#args: {name: "Make Stable", cmd: "make bundle-stable"}}).res)
+						\((_#makeLogGroup & {#args: {name: "Make Bundle Build", cmd: "make bundle-build"}}).res)
 						\((_#makeLogGroup & {#args: {name: "Make Deploy", cmd: "make bundle-deploy"}}).res)
 						\((_#makeLogGroup & {#args: {name: "Make Dev Index", cmd: "make bundle-dev-index"}}).res)
 

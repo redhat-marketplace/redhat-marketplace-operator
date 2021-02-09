@@ -62,18 +62,18 @@ jobs:
         export VERSION=$(cd ./tools && go run ./version/main.go)
         export TAG=${VERSION}-${DEPLOY_SHA}-amd64
 
-        echo "::group::Make Bundle"
-        make bundle
+        echo "::group::Make Stable Bundle"
+        make bundle-stable
         echo "::endgroup::"
 
-        if [ "$IS_PR" == "false" && "$BRANCH" != "" ] ; then
-        export VERSION=${VERSION}-${BRANCH}.${GITHUB_RUN_NUMBER}
+        if [ "$IS_PR" == "false" ] && [ "$BRANCH" != "" ] ; then
+        export VERSION="${VERSION}-${BRANCH}+${GITHUB_RUN_NUMBER}"
         else
-        export VERSION=${VERSION}.${GITHUB_RUN_NUMBER}
+        export VERSION="${VERSION}+${GITHUB_RUN_NUMBER}"
         fi
 
-        echo "::group::Make Stable"
-        make bundle-stable
+        echo "::group::Make Bundle Build"
+        make bundle-build
         echo "::endgroup::"
         echo "::group::Make Deploy"
         make bundle-deploy
