@@ -75,7 +75,6 @@ func ProvideNamespace(cfg *config.OperatorConfig) managers.DeployedNamespace {
 	return managers.DeployedNamespace(cfg.DeployedNamespace)
 }
 
-
 func ProvideInjector(
 	mgr ctrl.Manager,
 ) (*Injector, error) {

@@ -27,6 +27,7 @@ import (
 	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/operrors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -110,10 +111,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		})
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&marketplacev1alpha1.MeterDefinition{}).
-		Watches(
-			&source.Kind{Type: &marketplacev1alpha1.MeterBase{}},
-			&handler.EnqueueRequestForObject{}).
+		For(&marketplacev1alpha1.MeterBase{}).
 		Watches(
 			&source.Kind{Type: &corev1.ConfigMap{}},
 			&handler.EnqueueRequestForOwner{
@@ -1152,6 +1150,15 @@ func (r *MeterBaseReconciler) createPrometheus(
 		createResult := &ExecResult{}
 
 		if err != nil {
+			if merrors.Is(err, operrors.DefaultStorageClassNotFound) {
+				return UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
+					Type:    marketplacev1alpha1.ConditionError,
+					Status:  corev1.ConditionFalse,
+					Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
+					Message: err.Error(),
+				}), nil
+			}
+
 			return nil, merrors.Wrap(err, "error creating prometheus")
 		}
 

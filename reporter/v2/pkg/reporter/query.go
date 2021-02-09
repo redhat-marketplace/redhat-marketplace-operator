@@ -198,7 +198,7 @@ type MeterDefinitionQuery struct {
 // Returns a set of elements without duplicates
 // Ignore labels such that a pod restart, meterdefinition recreate, or other labels do not generate a new unique element
 // Use max over time to get the meter definition most prevalent for the hour
-const meterDefinitionQueryStr = `max_over_time(((meterdef_metric_label_info{} + ignoring(container, endpoint, instance, job, meter_definition_uid, pod, service) meterdef_metric_label_info{}) or on() vector(0))[{{ .Step }}:{{ .Step }}])`
+const meterDefinitionQueryStr = `max_over_time(((max without (container, endpoint, instance, job, meter_definition_uid, pod, service) (meterdef_metric_label_info{})) or on() vector(0))[{{ .Step }}:{{ .Step }}])`
 
 var meterDefinitionQueryTemplate *template.Template = utils.Must(func() (interface{}, error) {
 	return template.New("meterDefinitionQuery").Funcs(sprig.GenericFuncMap()).Parse(meterDefinitionQueryStr)

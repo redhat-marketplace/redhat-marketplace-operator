@@ -1,0 +1,18 @@
+spec:
+  install:
+    spec:
+      deployments:
+        - name: redhat-marketplace-controller-manager
+          spec:
+            selector:
+              matchLabels:
+                redhat.marketplace.com/name: redhat-marketplace-operator
+            template:
+              spec:
+                containers:
+                  - name: manager
+                    env:
+                      - name: REPORT_RETRY_LIMIT
+                        value: '2'
+                      - name: REPORT_RETRY_TIME_DURATION
+                        value: '2m'
