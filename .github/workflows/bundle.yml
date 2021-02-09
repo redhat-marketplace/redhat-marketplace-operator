@@ -67,9 +67,9 @@ jobs:
         echo "::endgroup::"
 
         if [ "$IS_PR" == "false" ] && [ "$BRANCH" != "" ] ; then
-        export VERSION="${VERSION}-${BRANCH}+${GITHUB_RUN_NUMBER}"
+        export VERSION="${VERSION}-${BRANCH}-${GITHUB_RUN_NUMBER}"
         else
-        export VERSION="${VERSION}+${GITHUB_RUN_NUMBER}"
+        export VERSION="${VERSION}-{GITHUB_RUN_NUMBER}"
         fi
 
         echo "::group::Make Bundle Build"
