@@ -2,6 +2,7 @@ package ci
 
 import (
 	"strings"
+	"strconv"
 	json "github.com/SchemaStore/schemastore/src/schemas/json/github"
 	encjson "encoding/json"
 )
@@ -88,77 +89,30 @@ bundle: _#bashWorkflow & {
 				_#cacheGoModules,
 				_#installOperatorSDK,
 				_#installYQ,
-				(_#findCheckRun & {
-					_#args: {
-						name:     "Operator: Deploy Bundle"
-						head_sha: "${{github.event.client_payload.sha}}"
-					}
-				}).res & {
-				},
-				(_#githubCreateActionStep & {
-					_#args: {
-						name:     "Operator: Deploy Bundle"
-						head_sha: "${{github.event.client_payload.sha}}"
-						status:   "in_progress"
-					}
-				}).res & {
-					if: "env.checkrun_id == ''"
-				},
-				(_#githubUpdateActionStep & {
-					_#args: {
-						check_run_id: "${{env.checkrun_id}}"
-						patch: {
-							status: "in_progress"
-						}
-					}
-				}).res,
 				_#quayLogin,
 				_#step & {
 					id:   "bundle"
 					name: "Build bundle"
 					run:  """
 						cd v2
-						export VERSION=$(cd ./tools && go run ./version/main.go)-${DEPLOY_SHA}
-						export TAG=${VERSION}-amd64
-						if [ "$IS_PR" == "false" && "$BRANCH" != "" ] ; then
-						export VERSION=${VERSION}-$BRANCH
+						export VERSION=$(cd ./tools && go run ./version/main.go)
+						export TAG=${VERSION}-${DEPLOY_SHA}-amd64
+
+						\((_#makeLogGroup & {#args: {name: "Make Stable Bundle", cmd: "make bundle-stable"}}).res)
+
+						if [ "$IS_PR" == "false" ] && [ "$BRANCH" != "" ] ; then
+						export VERSION="${VERSION}-${BRANCH}+${GITHUB_RUN_NUMBER}"
+						else
+						export VERSION="${VERSION}+${GITHUB_RUN_NUMBER}"
 						fi
-						echo "::set-output name=version::$VERSION"
-						echo "::set-output name=tag::$TAG"
-						\((_#makeLogGroup & {#args: {name: "Make Bundle", cmd: "make bundle"}}).res)
-						\((_#makeLogGroup & {#args: {name: "Make Stable", cmd: "make bundle-stable"}}).res)
+
+						\((_#makeLogGroup & {#args: {name: "Make Bundle Build", cmd: "make bundle-build"}}).res)
 						\((_#makeLogGroup & {#args: {name: "Make Deploy", cmd: "make bundle-deploy"}}).res)
 						\((_#makeLogGroup & {#args: {name: "Make Dev Index", cmd: "make bundle-dev-index"}}).res)
-						\((_#makeLogGroup & {#args: {name: "Create operator test source", cmd: #"yq w ./hack/testsource.yaml spec.image "${OLM_BUNDLE_REPO}:${TAG}" > ../rhmtest-source-${TAG}.yaml"#}}).res)
+
+						echo "::set-output name=version::$VERSION"
+						echo "::set-output name=tag::$TAG"
 						"""
-				},
-				(_#githubUpdateActionStep & {
-					_#args: {
-						check_run_id: "${{env.checkrun_id}}"
-						patch: {
-							status:     "completed"
-							conclusion: "${{steps.bundle.conclusion}}"
-							output: {
-								title: "Deploy Bundle"
-								summary: """
-												To test the new operator changes, install this test resource:
-												```yaml
-												apiVersion: operators.coreos.com/v1alpha1
-												kind: CatalogSource
-												metadata:
-													name: rhm-test
-													namespace: openshift-marketplace
-												spec:
-													sourceType: grpc
-													displayName: RHM Test
-													image: quay.io/zach_source/redhat-marketplace-operator-dev-index:$VERSION
-												```
-												"""
-							}
-						}
-					}
-				}).res & {
-					if: "always()"
 				},
 			]
 		}
@@ -178,30 +132,6 @@ bundle: _#bashWorkflow & {
 				_#installGo,
 				_#cacheGoModules,
 				_#installOperatorSDK,
-				(_#findCheckRun & {
-					_#args: {
-						name:     "Operator: Publish Bundle"
-						head_sha: "${{github.event.client_payload.sha}}"
-					}
-				}).res & {
-				},
-				(_#githubCreateActionStep & {
-					_#args: {
-						name:     "Operator: Publish Bundle"
-						head_sha: "${{github.event.client_payload.sha}}"
-						status:   "in_progress"
-					}
-				}).res & {
-					if: "env.checkrun_id == ''"
-				},
-				(_#githubUpdateActionStep & {
-					_#args: {
-						check_run_id: "${{env.checkrun_id}}"
-						patch: {
-							status: "in_progress"
-						}
-					}
-				}).res,
 				_#step & {
 					id:   "mirror"
 					name: "Mirror images"
@@ -212,32 +142,11 @@ bundle: _#bashWorkflow & {
 						"""
 				},
 				_#redhatConnectLogin,
-				_#waitForPublish & {
-					#args: {
-						tag: "${{ steps.deploy.outputs.tag }}"
-					}
-				},
+				_#waitForPublish,
 				_#step & {
 					env: TAG: "${{ steps.deploy.outputs.version }}"
 					name: "Copy Manifest"
 					run:  _#manifestCopyCommand
-				},
-        (_#githubUpdateActionStep & {
-					_#args: {
-						check_run_id: "${{env.checkrun_id}}"
-						patch: {
-							status:     "completed"
-							conclusion: "${{steps.mirror.conclusion}}"
-							output: {
-								title: "Publish Bundle"
-								summary: """
-												Bundle is now ready to be published.
-												"""
-							}
-						}
-					}
-				}).res & {
-					if: "always()"
 				},
 			]
 		}
@@ -491,14 +400,28 @@ _#repoFromTo: [ for k, v in _#images {
 
 _#manifestFromTo: [ for k, v in [_#manifest] {
 	pword: "\(v.pword)"
-	from:  "\(_#registry)/\(v.name):$TAG"
-	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TAG"
+	from:  "\(_#registry)/\(v.name):$VERSION"
+	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$VERSION"
 }]
 
-_#retagCommandList: [ for k, v in _#repoFromTo {"skopeo copy --all docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(v.pword)']}}"}]
+_#copyImage: {
+	#args: {
+		to:    string
+		from:  string
+		pword: string
+	}
+	res: """
+				echo "::group::Push \(#args.to)"
+				skopeo inspect docker://\(#args.to) --creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}} > /dev/null
+				([[ $? == 0 ]] && echo "exists=true" || skopeo copy --all docker://\(#args.from) docker://\(#args.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}})
+				echo "::endgroup::"
+				"""
+}
+
+_#retagCommandList: [ for k, v in _#repoFromTo {(_#copyImage & {#args: v}).res}]
 _#retagCommand: strings.Join(_#retagCommandList, "\n")
 
-_#manifestCopyCommandList: [ for k, v in _#manifestFromTo {"skopeo copy docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(v.pword)']}}"}]
+_#manifestCopyCommandList: [ for k, v in _#manifestFromTo { (_#copyImage & {#args: v}).res }]
 _#manifestCopyCommand: strings.Join(_#manifestCopyCommandList, "\n")
 
 _#registryLoginStep: {
@@ -535,12 +458,8 @@ _#redhatConnectLogin: (_#registryLoginStep & {
 }).res
 
 _#waitForPublish: _#step & {
-	#args: {
-		tag: string
-	}
 	name: "Wait for RH publish"
 	env: {
-		TAG:              "\(#args.tag)"
 		RH_CONNECT_TOKEN: "${{ secrets.redhat_api_key }}"
 	}
 	"continue-on-error": true
@@ -613,10 +532,10 @@ _#setOutput: {
 }
 
 _#setEnv: {
-  #args: {
+	#args: {
 		name:  string
 		value: string
-  }
+	}
 	res: #"echo \#(#args.name)=\#(#args.value) >> $GITHUB_ENV"#
 }
 
@@ -628,14 +547,13 @@ _#findCheckRun: {
 	res: _#step & {
 		name: "Find checkRun with name \(_#args.name)"
 		run:  """
-			set -e
 			RESULT=$(curl \\
 			-X POST \\
-			-H "Authorization: Bearer ${GITHUB_TOKEN}" \\
+			-H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \\
 			-H "Accept: application/vnd.github.v3+json" \\
 			https://api.github.com/repos/$GITHUB_REPOSITORY/refs/\(_#args.head_sha)/check-runs)
-			ID=$(echo $RESULT | jq '.check_runs[] | select(.name == "\(_#args.name)") | .id')
-			CHECKSUITE_ID=$(echo $RESULT | jq '.check_runs[] | select(.name == "\(_#args.name)") | .check_suite.id')
+			ID=$(echo $RESULT | jq '.check_runs[]? | select(.name == "\(_#args.name)") | .id')
+			CHECKSUITE_ID=$(echo $RESULT | jq '.check_runs[]? | select(.name == "\(_#args.name)") | .check_suite.id')
 			\((_#setEnv & {#args: {name: "checkrun_id", value: "$ID"}}).res)
 			\((_#setEnv & {#args: {name: "checksuite_id", value: "$CHECKSUITE_ID"}}).res)
 			"""
@@ -648,12 +566,11 @@ _#githubCreateActionStep: {
 		name: "Create checkRun with name \(_#args.name)"
 		run:
 			"""
-			set -e
 			RESULT=$(curl -X POST \\
-			-H "Authorization: Bearer ${GITHUB_TOKEN}" \\
+			-H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \\
 			-H "Accept: application/vnd.github.v3+json" \\
 			https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs \\
-			-d "\(encjson.Marshal(_#args))")
+			-d \(strconv.Quote(encjson.Marshal(_#args))) )
 			ID=$(echo $RESULT | jq '.id')
 			CHECKSUITE_ID=$(echo $RESULT | jq '.check_suite.id')
 			\((_#setEnv & {#args: {name: "checkrun_id", value: "$ID"}}).res)
@@ -671,12 +588,11 @@ _#githubUpdateActionStep: {
 		name: "Update checkRun with id\(_#args.check_run_id)"
 		run:
 			"""
-			set -e
 			curl -X PATCH \\
-				-H "Authorization: Bearer ${GITHUB_TOKEN}" \\
+				-H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \\
 				-H "Accept: application/vnd.github.v3+json" \\
 				https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs/\(_#args.check_run_id) \\
-				-d "\(encjson.Marshal(_#args.patch))"
+				-d \(strconv.Quote(encjson.Marshal(_#args.patch)))
 			"""
 	}
 }
