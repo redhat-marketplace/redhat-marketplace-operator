@@ -97,16 +97,21 @@ bundle: _#bashWorkflow & {
 						cd v2
 						export VERSION=$(cd ./tools && go run ./version/main.go)
 						export TAG=${VERSION}-${DEPLOY_SHA}-amd64
-						if [ "$IS_PR" == "false" && "$BRANCH" != "" ] ; then
-						export VERSION=${VERSION}-${BRANCH}.${GITHUB_RUN_NUMBER}
-						fi
-						echo "::set-output name=version::$VERSION"
-						echo "::set-output name=tag::$TAG"
 
 						\((_#makeLogGroup & {#args: {name: "Make Bundle", cmd: "make bundle"}}).res)
+
+						if [ "$IS_PR" == "false" && "$BRANCH" != "" ] ; then
+						export VERSION=${VERSION}-${BRANCH}.${GITHUB_RUN_NUMBER}
+						else
+						export VERSION=${VERSION}.${GITHUB_RUN_NUMBER}
+						fi
+
 						\((_#makeLogGroup & {#args: {name: "Make Stable", cmd: "make bundle-stable"}}).res)
 						\((_#makeLogGroup & {#args: {name: "Make Deploy", cmd: "make bundle-deploy"}}).res)
 						\((_#makeLogGroup & {#args: {name: "Make Dev Index", cmd: "make bundle-dev-index"}}).res)
+
+						echo "::set-output name=version::$VERSION"
+						echo "::set-output name=tag::$TAG"
 						"""
 				},
 			]
@@ -399,10 +404,24 @@ _#manifestFromTo: [ for k, v in [_#manifest] {
 	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$VERSION"
 }]
 
-_#retagCommandList: [ for k, v in _#repoFromTo {"skopeo copy --all docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(v.pword)']}}"}]
+_#copyImage: {
+	#args: {
+		to:    string
+		from:  string
+		pword: string
+	}
+	res: """
+				echo "::group::Push \(#args.to)"
+				skopeo inspect docker://\(#args.to) --creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}} > /dev/null
+				([[ $? == 0 ]] && echo "exists=true" || skopeo copy --all docker://\(#args.from) docker://\(#args.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}})
+				echo "::endgroup::"
+				"""
+}
+
+_#retagCommandList: [ for k, v in _#repoFromTo {(_#copyImage & {#args: v}).res}]
 _#retagCommand: strings.Join(_#retagCommandList, "\n")
 
-_#manifestCopyCommandList: [ for k, v in _#manifestFromTo {"skopeo copy docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(v.pword)']}}"}]
+_#manifestCopyCommandList: [ for k, v in _#manifestFromTo { (_#copyImage & {#args: v}).res }]
 _#manifestCopyCommand: strings.Join(_#manifestCopyCommandList, "\n")
 
 _#registryLoginStep: {
@@ -513,10 +532,10 @@ _#setOutput: {
 }
 
 _#setEnv: {
-  #args: {
+	#args: {
 		name:  string
 		value: string
-  }
+	}
 	res: #"echo \#(#args.name)=\#(#args.value) >> $GITHUB_ENV"#
 }
 
