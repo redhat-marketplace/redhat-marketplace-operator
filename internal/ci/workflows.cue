@@ -132,15 +132,7 @@ bundle: _#bashWorkflow & {
 				_#installGo,
 				_#cacheGoModules,
 				_#installOperatorSDK,
-				_#step & {
-					id:   "mirror"
-					name: "Mirror images"
-					run:
-						"""
-						cd v2
-						\(_#retagCommand)
-						"""
-				},
+				_#retagCommand,
 				_#redhatConnectLogin,
 				_#waitForPublish,
 				_#step & {
@@ -419,9 +411,19 @@ _#copyImage: {
 }
 
 _#retagCommandList: [ for k, v in _#repoFromTo {(_#copyImage & {#args: v}).res}]
-_#retagCommand: strings.Join(_#retagCommandList, "\n")
 
-_#manifestCopyCommandList: [ for k, v in _#manifestFromTo { (_#copyImage & {#args: v}).res }]
+_#retagCommand: _#step & {
+	id:    "mirror"
+	name:  "Mirror images"
+	shell: "bash {0}"
+	run:
+		"""
+						cd v2
+						\(strings.Join(_#retagCommandList, "\n"))
+						"""
+}
+
+_#manifestCopyCommandList: [ for k, v in _#manifestFromTo {(_#copyImage & {#args: v}).res}]
 _#manifestCopyCommand: strings.Join(_#manifestCopyCommandList, "\n")
 
 _#registryLoginStep: {
