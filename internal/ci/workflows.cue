@@ -97,7 +97,7 @@ bundle: _#bashWorkflow & {
 						cd v2
 						export VERSION=$(cd ./tools && go run ./version/main.go)
 						export TAG=${VERSION}-${DEPLOY_SHA}-amd64
-
+						export IMAGE_REGISTRY=registry.connect.redhat.com/rh-marketplace
 						\((_#makeLogGroup & {#args: {name: "Make Stable Bundle", cmd: "make bundle-stable"}}).res)
 
 						if [ "$IS_PR" == "false" ] && [ "$BRANCH" != "" ] ; then
@@ -105,6 +105,8 @@ bundle: _#bashWorkflow & {
 						else
 						export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
 						fi
+
+						export IMAGE_REGISTRY=quay.io/rh-marketplace
 
 						\((_#makeLogGroup & {#args: {name: "Make Bundle Build", cmd: "make bundle-build"}}).res)
 						\((_#makeLogGroup & {#args: {name: "Make Deploy", cmd: "make bundle-deploy"}}).res)
