@@ -97,13 +97,14 @@ bundle: _#bashWorkflow & {
 						cd v2
 						export VERSION=$(cd ./tools && go run ./version/main.go)
 						export TAG=${VERSION}-${DEPLOY_SHA}-amd64
-
+						export IMAGE_REGISTRY=registry.connect.redhat.com/rh-marketplace
 						\((_#makeLogGroup & {#args: {name: "Make Stable Bundle", cmd: "make bundle-stable"}}).res)
 
 						if [ "$IS_PR" == "false" ] && [ "$BRANCH" != "" ] ; then
-						export VERSION="${VERSION}-${BRANCH}+${GITHUB_RUN_NUMBER}"
+						export VERSION="${VERSION}-${BRANCH}-${GITHUB_RUN_NUMBER}"
 						else
-						export VERSION="${VERSION}+${GITHUB_RUN_NUMBER}"
+						export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
+						export IMAGE_REGISTRY=quay.io/rh-marketplace
 						fi
 
 						\((_#makeLogGroup & {#args: {name: "Make Bundle Build", cmd: "make bundle-build"}}).res)
@@ -132,22 +133,10 @@ bundle: _#bashWorkflow & {
 				_#installGo,
 				_#cacheGoModules,
 				_#installOperatorSDK,
-				_#step & {
-					id:   "mirror"
-					name: "Mirror images"
-					run:
-						"""
-						cd v2
-						\(_#retagCommand)
-						"""
-				},
+				_#retagCommand,
 				_#redhatConnectLogin,
 				_#waitForPublish,
-				_#step & {
-					env: TAG: "${{ steps.deploy.outputs.version }}"
-					name: "Copy Manifest"
-					run:  _#manifestCopyCommand
-				},
+				_#retagManifestCommand,
 			]
 		}
 	}
@@ -419,10 +408,22 @@ _#copyImage: {
 }
 
 _#retagCommandList: [ for k, v in _#repoFromTo {(_#copyImage & {#args: v}).res}]
-_#retagCommand: strings.Join(_#retagCommandList, "\n")
 
-_#manifestCopyCommandList: [ for k, v in _#manifestFromTo { (_#copyImage & {#args: v}).res }]
-_#manifestCopyCommand: strings.Join(_#manifestCopyCommandList, "\n")
+_#retagCommand: _#step & {
+	id:    "mirror"
+	name:  "Mirror images"
+	shell: "bash {0}"
+	run:   strings.Join(_#retagCommandList, "\n")
+}
+
+_#manifestCopyCommandList: [ for k, v in _#manifestFromTo {(_#copyImage & {#args: v}).res}]
+
+_#retagManifestCommand: _#step & {
+	env: TAG: "${{ steps.deploy.outputs.version }}"
+	name:  "Copy Manifest"
+	shell: "bash {0}"
+	run:   strings.Join(_#manifestCopyCommandList, "\n")
+}
 
 _#registryLoginStep: {
 	#args: {

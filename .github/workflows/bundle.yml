@@ -61,15 +61,16 @@ jobs:
         cd v2
         export VERSION=$(cd ./tools && go run ./version/main.go)
         export TAG=${VERSION}-${DEPLOY_SHA}-amd64
-
+        export IMAGE_REGISTRY=registry.connect.redhat.com/rh-marketplace
         echo "::group::Make Stable Bundle"
         make bundle-stable
         echo "::endgroup::"
 
         if [ "$IS_PR" == "false" ] && [ "$BRANCH" != "" ] ; then
-        export VERSION="${VERSION}-${BRANCH}+${GITHUB_RUN_NUMBER}"
+        export VERSION="${VERSION}-${BRANCH}-${GITHUB_RUN_NUMBER}"
         else
-        export VERSION="${VERSION}+${GITHUB_RUN_NUMBER}"
+        export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
+        export IMAGE_REGISTRY=quay.io/rh-marketplace
         fi
 
         echo "::group::Make Bundle Build"
@@ -126,7 +127,6 @@ jobs:
     - id: mirror
       name: Mirror images
       run: |-
-        cd v2
         echo "::group::Push scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG"
         skopeo inspect docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}} > /dev/null
         ([[ $? == 0 ]] && echo "exists=true" || skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}})
@@ -143,6 +143,7 @@ jobs:
         skopeo inspect docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}} > /dev/null
         ([[ $? == 0 ]] && echo "exists=true" || skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}})
         echo "::endgroup::"
+      shell: bash {0}
     - name: Login to Docker Hub
       uses: docker/login-action@v1
       with:
@@ -162,5 +163,6 @@ jobs:
         skopeo inspect docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$VERSION --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}} > /dev/null
         ([[ $? == 0 ]] && echo "exists=true" || skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-operator-manifest:$VERSION docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$VERSION --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}})
         echo "::endgroup::"
+      shell: bash {0}
       env:
         TAG: ${{ steps.deploy.outputs.version }}

@@ -63,7 +63,7 @@ type Features struct {
 
 // Marketplace configuration
 type Marketplace struct {
-	URL            string `env:"MARKETPLACE_URL" envDefault:"https://marketplace.redhat.com"`
+	URL            string `env:"MARKETPLACE_URL" envDefault:""`
 	InsecureClient bool   `env:"MARKETPLACE_HTTP_INSECURE_MODE" envDefault:"false"`
 }
 
