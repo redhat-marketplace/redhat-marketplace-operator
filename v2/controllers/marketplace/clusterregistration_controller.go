@@ -268,12 +268,18 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 		Name:      "marketplaceconfig",
 	}, newMarketplaceConfig)
 
+	annotations = map[string]string{
+		"marketplace.redhat.com/environment": tokenClaims.Env,
+	}
+
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			newMarketplaceConfig.ObjectMeta.Name = "marketplaceconfig"
 			newMarketplaceConfig.ObjectMeta.Namespace = request.Namespace
 			newMarketplaceConfig.Spec.ClusterUUID = string(clusterID)
 			newMarketplaceConfig.Spec.RhmAccountID = tokenClaims.AccountID
+			newMarketplaceConfig.Annotations = annotations
+
 			// Create Marketplace Config object with ClusterID
 			reqLogger.Info("Marketplace Config creating")
 			err = r.Client.Create(context.TODO(), newMarketplaceConfig)
@@ -293,10 +299,12 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 
 	if newMarketplaceConfig.Spec.ClusterUUID != string(clusterID) ||
 		newMarketplaceConfig.Spec.RhmAccountID != tokenClaims.AccountID ||
-		!reflect.DeepEqual(newMarketplaceConfig.GetOwnerReferences(), owners) {
+		!reflect.DeepEqual(newMarketplaceConfig.GetOwnerReferences(), owners) ||
+		!reflect.DeepEqual(newMarketplaceConfig.Annotations, annotations) {
 
 		newMarketplaceConfig.Spec.ClusterUUID = string(clusterID)
 		newMarketplaceConfig.Spec.RhmAccountID = tokenClaims.AccountID
+		newMarketplaceConfig.Annotations = annotations
 
 		err = r.Client.Update(context.TODO(), newMarketplaceConfig)
 		if err != nil {
