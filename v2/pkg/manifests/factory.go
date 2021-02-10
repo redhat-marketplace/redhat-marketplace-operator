@@ -107,6 +107,20 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 	}
 }
 
+func(f *Factory) addCertAnnotations(inAnnotations map[string]string)(map[string]string){
+	certAnnotations := map[string]string{
+		"productID": "068a62892a1e4db39641342e592daa25",
+		"productMetric": "FREE",
+		"productName": "IBM Cloud Platform Common Services",
+	}
+
+	for k,v := range certAnnotations{
+		inAnnotations[k] = v
+	}
+
+	return inAnnotations
+}
+
 func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
 	d, err := NewDeployment(manifest)
 	if err != nil {
@@ -116,6 +130,17 @@ func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) 
 	if d.GetNamespace() == "" {
 		d.SetNamespace(f.namespace)
 	}
+
+	if d.GetAnnotations() == nil {
+		d.Annotations = make(map[string]string)
+	}
+
+	if d.Spec.Template.GetAnnotations() == nil {
+		d.Spec.Template.Annotations = make(map[string]string)
+	}
+	
+	d.Spec.Template.Annotations = f.addCertAnnotations(d.Spec.Template.Annotations)
+	d.Annotations = f.addCertAnnotations(d.Annotations)
 
 	maxSurge := intstr.FromString("25%")
 	maxUnavailable := intstr.FromString("25%")
@@ -141,6 +166,12 @@ func (f *Factory) NewService(manifest io.Reader) (*corev1.Service, error) {
 		d.SetNamespace(f.namespace)
 	}
 
+	if d.GetAnnotations() == nil {
+		d.Annotations = make(map[string]string)
+	}
+
+	d.Annotations = f.addCertAnnotations(d.Annotations)
+
 	return d, nil
 }
 
@@ -153,6 +184,12 @@ func (f *Factory) NewConfigMap(manifest io.Reader) (*corev1.ConfigMap, error) {
 	if d.GetNamespace() == "" {
 		d.SetNamespace(f.namespace)
 	}
+
+	if d.GetAnnotations() == nil {
+		d.Annotations = make(map[string]string)
+	}
+
+	d.Annotations = f.addCertAnnotations(d.Annotations)
 
 	return d, nil
 }
@@ -167,6 +204,12 @@ func (f *Factory) NewSecret(manifest io.Reader) (*v1.Secret, error) {
 		s.SetNamespace(f.namespace)
 	}
 
+	if s.GetAnnotations() == nil {
+		s.Annotations = make(map[string]string)
+	}
+
+	s.Annotations = f.addCertAnnotations(s.Annotations)
+
 	return s, nil
 }
 
@@ -179,6 +222,12 @@ func (f *Factory) NewJob(manifest io.Reader) (*batchv1.Job, error) {
 	if j.GetNamespace() == "" {
 		j.SetNamespace(f.namespace)
 	}
+
+	if j.GetAnnotations() == nil {
+		j.Annotations = make(map[string]string)
+	}
+
+	j.Annotations = f.addCertAnnotations(j.Annotations)
 
 	return j, nil
 }
@@ -194,6 +243,12 @@ func (f *Factory) NewPrometheus(
 	if p.GetNamespace() == "" {
 		p.SetNamespace(f.namespace)
 	}
+
+	if p.GetAnnotations() == nil {
+		p.Annotations = make(map[string]string)
+	}
+
+	p.Annotations = f.addCertAnnotations(p.Annotations)
 
 	return p, nil
 }
