@@ -70,9 +70,8 @@ jobs:
         export VERSION="${VERSION}-${BRANCH}-${GITHUB_RUN_NUMBER}"
         else
         export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
-        fi
-
         export IMAGE_REGISTRY=quay.io/rh-marketplace
+        fi
 
         echo "::group::Make Bundle Build"
         make bundle-build
