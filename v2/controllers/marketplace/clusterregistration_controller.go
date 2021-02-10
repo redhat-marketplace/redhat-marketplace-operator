@@ -97,8 +97,8 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 	}
 
 	//Get Account Id from Pull Secret Token
-	rhmAccountId, err := marketplace.GetAccountIdFromJWTToken(string(rhmPullSecret.Data[utils.RHMPullSecretKey]))
-	if rhmAccountId == "" || err != nil {
+	tokenClaims, err := marketplace.GetJWTTokenClaim(string(rhmPullSecret.Data[utils.RHMPullSecretKey]))
+	if err != nil {
 		reqLogger.Error(err, "Token is missing account id")
 		annotations[utils.RHMPullSecretStatus] = "error"
 		annotations[utils.RHMPullSecretMessage] = "Account id is not available in provided token, please generate token from RH Marketplace again"
@@ -123,6 +123,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 		Url:      r.cfg.Marketplace.URL, // parameterize this for dev
 		Token:    string(pullSecret),
 		Insecure: r.cfg.Marketplace.InsecureClient,
+		Claims:   tokenClaims,
 	})
 
 	if err != nil {
@@ -272,7 +273,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 			newMarketplaceConfig.ObjectMeta.Name = "marketplaceconfig"
 			newMarketplaceConfig.ObjectMeta.Namespace = request.Namespace
 			newMarketplaceConfig.Spec.ClusterUUID = string(clusterID)
-			newMarketplaceConfig.Spec.RhmAccountID = rhmAccountId
+			newMarketplaceConfig.Spec.RhmAccountID = tokenClaims.AccountID
 			// Create Marketplace Config object with ClusterID
 			reqLogger.Info("Marketplace Config creating")
 			err = r.Client.Create(context.TODO(), newMarketplaceConfig)
@@ -291,11 +292,11 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 	owners := newMarketplaceConfig.GetOwnerReferences()
 
 	if newMarketplaceConfig.Spec.ClusterUUID != string(clusterID) ||
-		newMarketplaceConfig.Spec.RhmAccountID != rhmAccountId ||
+		newMarketplaceConfig.Spec.RhmAccountID != tokenClaims.AccountID ||
 		!reflect.DeepEqual(newMarketplaceConfig.GetOwnerReferences(), owners) {
 
 		newMarketplaceConfig.Spec.ClusterUUID = string(clusterID)
-		newMarketplaceConfig.Spec.RhmAccountID = rhmAccountId
+		newMarketplaceConfig.Spec.RhmAccountID = tokenClaims.AccountID
 
 		err = r.Client.Update(context.TODO(), newMarketplaceConfig)
 		if err != nil {
