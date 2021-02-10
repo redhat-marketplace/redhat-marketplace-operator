@@ -47,6 +47,62 @@ type MeterDefPrometheusLabels struct {
 	DateLabelOverride  string `json:"date_label_override,omitempty" mapstructure:"date_label_override,omitempty" template:""`
 }
 
+func convertToString(v interface{}) (string, error) {
+	val := reflect.ValueOf(v)
+
+	if val.Kind() == reflect.Interface {
+		if val.IsNil() {
+			return "", errors.New("value is nil")
+		}
+
+		elm := val.Elem()
+
+		if elm.IsNil() {
+			return "", errors.New("interface value is nil")
+		}
+
+		if elm.Kind() == reflect.Ptr && elm.Elem().Kind() == reflect.Ptr {
+			val = elm
+		}
+	}
+
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+
+	switch val.Kind() {
+	case reflect.String:
+		return val.String(), nil
+	case reflect.Slice:
+		fallthrough
+	case reflect.Struct:
+		fallthrough
+	case reflect.Map:
+		fallthrough
+	case reflect.Interface:
+		switch v.(type) {
+		case fmt.Stringer:
+			return v.(fmt.Stringer).String(), nil
+		case map[string]interface{}:
+			strbytes, err := json.Marshal(v)
+			if err != nil {
+				return "", errors.Wrap(err, "value failed json")
+			}
+			return string(strbytes), nil
+		case json.Marshaler:
+			strbytes, err := v.(json.Marshaler).MarshalJSON()
+			if err != nil {
+				return "", errors.Wrap(err, "value failed json")
+			}
+			return string(strbytes), nil
+		default:
+			return "", errors.NewWithDetails("not stringable", "type", reflect.TypeOf(v).String())
+		}
+	default:
+		return "", errors.NewWithDetails("struct not defined for conversion", "kind", val.Kind().String())
+	}
+}
+
 func (m *MeterDefPrometheusLabels) Defaults() {
 	if m.MetricPeriod == nil {
 		m.MetricPeriod = &MetricPeriod{Duration: time.Hour}
@@ -65,46 +121,15 @@ func (m *MeterDefPrometheusLabels) ToLabels() (map[string]string, error) {
 	}
 
 	labels := map[string]string{}
-
 	for k, v := range labelsMap {
 		if v == nil {
 			continue
 		}
 
-		vstr := ""
+		vstr, err := convertToString(v)
 
-		switch v.(type) {
-		case nil:
-			vstr = ""
-		case map[string]interface{}:
-			strbytes, err := json.Marshal(v.(map[string]interface{}))
-			if err != nil {
-				return nil, errors.Wrap(err, "value failed json")
-			}
-			vstr = string(strbytes)
-		case json.Marshaler:
-			if reflect.ValueOf(v).Kind() == reflect.Ptr && reflect.ValueOf(v).IsNil() {
-				vstr = ""
-				continue
-			}
-
-			strbytes, err := v.(json.Marshaler).MarshalJSON()
-			if err != nil {
-				return nil, errors.Wrap(err, "value failed json")
-			}
-			vstr = string(strbytes)
-		case fmt.Stringer:
-			vstr = v.(fmt.Stringer).String()
-		case string:
-			vstr = v.(string)
-		default:
-			vb, err := json.Marshal(v)
-
-			if err != nil {
-				return nil, err
-			}
-
-			vstr = string(vb)
+		if err != nil {
+			return labels, err
 		}
 
 		if vstr != "" {
@@ -139,27 +164,23 @@ func (m *MeterDefPrometheusLabels) FromLabels(labels interface{}) error {
 type MetricPeriod metav1.Duration
 
 var _ fmt.Stringer = &MetricPeriod{}
-
-func (p *MetricPeriod) String() string {
-	if p == nil {
-		return ""
-	}
-
-	return p.Duration.String()
-}
+var _ json.Marshaler = &MetricPeriod{}
+var _ json.Unmarshaler = &MetricPeriod{}
 
 func (a *MetricPeriod) UnmarshalJSON(b []byte) error {
-	var j metav1.Duration
-	if err := json.Unmarshal(b, &j); err != nil {
+	dur, err := time.ParseDuration(string(b))
+
+	if err != nil {
 		return err
 	}
-	*a = MetricPeriod(j)
+
+	a.Duration = dur
 	return nil
 }
 
 func (a MetricPeriod) MarshalJSON() ([]byte, error) {
-	str := metav1.Duration(a).Duration.String()
-	return []byte(str), nil
+	str := a.Duration.String()
+	return json.Marshal(str)
 }
 
 type JSONArray []string

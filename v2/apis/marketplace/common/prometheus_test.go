@@ -29,6 +29,28 @@ var _ = Describe("MeterDefPrometheusLabels", func() {
 
 	})
 
+	FIt("should convert to string", func() {
+		vstr, err := convertToString("foo")
+		Expect(err).To(Succeed())
+		Expect(vstr).To(Equal("foo"))
+
+		vstr, err = convertToString(JSONArray([]string{"c", "d"}))
+		Expect(err).To(Succeed())
+		Expect(vstr).To(Equal(`["c","d"]`))
+
+		vstr, err = convertToString(&MetricPeriod{Duration: time.Hour})
+		Expect(err).To(Succeed())
+		Expect(vstr).To(Equal(`1h0m0s`))
+
+		vstr, err = convertToString(MetricPeriod{Duration: time.Hour})
+		Expect(err).To(Succeed())
+		Expect(vstr).To(Equal(`1h0m0s`))
+
+		vstr, err = convertToString(nil)
+		Expect(err).To(HaveOccurred())
+		Expect(vstr).To(Equal(``))
+	})
+
 	It("should turn into a label map", func() {
 		promLabels = &MeterDefPrometheusLabels{
 			MeterDefName:       "name",

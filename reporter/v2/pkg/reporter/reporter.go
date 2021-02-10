@@ -242,57 +242,11 @@ func (r *MarketplaceReporter) retrieveMeterDefinitions(
 		return
 	}
 
+	log.Info("result", "result", result)
+
 	switch result.Type() {
 	case model.ValMatrix:
-		matrixVals := result.(model.Matrix)
-		for _, matrix := range matrixVals {
-			meterGroup, _ := getMatrixValue(matrix.Metric, "meter_group")
-			meterKind, _ := getMatrixValue(matrix.Metric, "meter_kind")
-			metricPeriod, _ := getMatrixValue(matrix.Metric, "metric_period")
 
-			if metricPeriod == "" {
-				metricPeriod = "1h"
-			}
-
-			period, err := time.ParseDuration(metricPeriod)
-
-			if err != nil {
-				logger.Error(err, "error encountered")
-				errorChan <- err
-				return
-			}
-
-			// skip 0 data groups
-			if meterGroup == "" && meterKind == "" {
-				continue
-			}
-
-			var min, max time.Time
-			for i, v := range matrix.Values {
-				if i == 0 {
-					min = v.Timestamp.Time()
-					max = v.Timestamp.Time().Add(period)
-				}
-
-				if v.Timestamp.Time().Before(min) {
-					min = v.Timestamp.Time()
-				}
-				if v.Timestamp.Time().After(max) {
-					max = v.Timestamp.Time()
-				}
-			}
-
-			max = max.Add(-time.Second)
-			promQuery, err := buildPromQuery(matrix.Metric, min, max)
-
-			if err != nil {
-				errorChan <- err
-				continue
-			}
-
-			logger.Info("getting query", "query", promQuery.String(), "start", min, "end", max)
-			meterDefsChan <- promQuery
-		}
 	case model.ValString:
 	case model.ValVector:
 	case model.ValScalar:
@@ -411,6 +365,8 @@ func (r *MarketplaceReporter) process(
 						if _, ok := results[base.Key.MetricID]; ok {
 							return
 						}
+
+						log.Info("data", "base", base)
 
 						results[base.Key.MetricID] = base
 					}()
