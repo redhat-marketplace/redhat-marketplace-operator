@@ -448,12 +448,15 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		reqLogger.Error(err, "secret is missing appropriate field and can't check status")
 	}
 
+	tokenClaims, _ := marketplace.GetJWTTokenClaim(string(pullSecret))
+
 	if ok {
 		reqLogger.Info("attempting to update registration")
 		marketplaceClient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
 			Url:      r.cfg.Marketplace.URL,
 			Token:    string(pullSecret),
 			Insecure: r.cfg.Marketplace.InsecureClient,
+			Claims:   tokenClaims,
 		})
 
 		marketplaceClientAccount := &marketplace.MarketplaceClientAccount{

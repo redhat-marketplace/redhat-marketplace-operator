@@ -18,10 +18,11 @@ travis: [
 ]
 
 _#archs_old: ["amd64", "ppc64le", "s390x"]
+
 _#archs: ["amd64"] // disabling others for now
-_#registry:     "quay.io/rh-marketplace"
-_#goVersion:    "1.15.6"
-_#branchTarget: "/^(master|develop|release.*|hotfix.*)$/"
+_#registry:        "quay.io/rh-marketplace"
+_#goVersion:       "1.15.6"
+_#branchTarget:    "/^(master|develop|release.*|hotfix.*)$/"
 
 travisSchema: {
 	version: "~> 1.0"
@@ -51,8 +52,8 @@ travisSchema: {
 			},
 			{
 				stage: "manifest"
-        if: len(_#archs) > 1
-        env: #"ARCHS="\#(strings.Join(_#archs, " "))""#
+				if:    len(_#archs) > 1
+				env:   #"ARCHS="\#(strings.Join(_#archs, " "))""#
 				script: """
 					echo "making manifest for $VERSION"
 					make docker-manifest
