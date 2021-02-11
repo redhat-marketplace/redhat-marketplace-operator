@@ -35,7 +35,7 @@ type ReportEnvironment string
 
 const (
 	ReportProductionEnv ReportEnvironment = "production"
-	ReportSandboxEnv    ReportEnvironment = "sandbox"
+	ReportSandboxEnv    ReportEnvironment = "stage"
 )
 
 func (m ReportEnvironment) MarshalText() ([]byte, error) {

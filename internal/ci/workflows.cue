@@ -104,9 +104,8 @@ bundle: _#bashWorkflow & {
 						export VERSION="${VERSION}-${BRANCH}-${GITHUB_RUN_NUMBER}"
 						else
 						export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
-						fi
-
 						export IMAGE_REGISTRY=quay.io/rh-marketplace
+						fi
 
 						\((_#makeLogGroup & {#args: {name: "Make Bundle Build", cmd: "make bundle-build"}}).res)
 						\((_#makeLogGroup & {#args: {name: "Make Deploy", cmd: "make bundle-deploy"}}).res)
