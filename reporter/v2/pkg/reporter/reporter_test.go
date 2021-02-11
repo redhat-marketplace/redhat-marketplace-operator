@@ -101,17 +101,17 @@ var _ = Describe("Reporter", func() {
 					},
 					Meters: []v1beta1.MeterWorkload{
 						{
-							Aggregation: "sum",
-							Query:       "rpc_durations_seconds_sum",
-							Metric:      "rpc_durations_seconds_sum",
+							Aggregation:  "sum",
+							Query:        "rpc_durations_seconds_sum",
+							Metric:       "rpc_durations_seconds_sum",
 							WorkloadType: v1beta1.WorkloadTypePod,
 						},
 						{
 
-							Aggregation: "sum",
-							Query:       "my_query",
-							Metric:      "rpc_durations_seconds_count",
-							WorkloadType:  v1beta1.WorkloadTypePod,
+							Aggregation:  "sum",
+							Query:        "my_query",
+							Metric:       "rpc_durations_seconds_count",
+							WorkloadType: v1beta1.WorkloadTypePod,
 						},
 					},
 				},

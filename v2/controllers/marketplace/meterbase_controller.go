@@ -27,6 +27,7 @@ import (
 	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/operrors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -72,7 +73,7 @@ type MeterBaseReconciler struct {
 	Log    logr.Logger
 	CC     ClientCommandRunner
 
-	factory manifests.Factory
+	factory *manifests.Factory
 	patcher patch.Patcher
 }
 
@@ -92,7 +93,7 @@ func (r *MeterBaseReconciler) InjectPatch(p patch.Patcher) error {
 	return nil
 }
 
-func (r *MeterBaseReconciler) InjectFactory(f manifests.Factory) error {
+func (r *MeterBaseReconciler) InjectFactory(f *manifests.Factory) error {
 	r.factory = f
 	return nil
 }
@@ -110,10 +111,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		})
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&marketplacev1alpha1.MeterDefinition{}).
-		Watches(
-			&source.Kind{Type: &marketplacev1alpha1.MeterBase{}},
-			&handler.EnqueueRequestForObject{}).
+		For(&marketplacev1alpha1.MeterBase{}).
 		Watches(
 			&source.Kind{Type: &corev1.ConfigMap{}},
 			&handler.EnqueueRequestForOwner{
@@ -157,7 +155,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterBase")
 
-	factory := &r.factory
+	factory := r.factory
 	cc := r.CC
 
 	// Fetch the MeterBase instance
@@ -1152,6 +1150,15 @@ func (r *MeterBaseReconciler) createPrometheus(
 		createResult := &ExecResult{}
 
 		if err != nil {
+			if merrors.Is(err, operrors.DefaultStorageClassNotFound) {
+				return UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
+					Type:    marketplacev1alpha1.ConditionError,
+					Status:  corev1.ConditionFalse,
+					Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
+					Message: err.Error(),
+				}), nil
+			}
+
 			return nil, merrors.Wrap(err, "error creating prometheus")
 		}
 

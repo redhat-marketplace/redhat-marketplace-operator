@@ -8,6 +8,7 @@ package inject
 import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/client-go/discovery"
@@ -17,7 +18,7 @@ import (
 
 // Injectors from wire.go:
 
-func initializeInjectDependencies(cache2 cache.Cache, fields *managers.ControllerFields, namespace managers.DeployedNamespace) (injectorDependencies, error) {
+func initializeInjectDependencies(cache2 cache.Cache, fields *managers.ControllerFields) (injectorDependencies, error) {
 	logger := fields.Logger
 	restConfig := fields.Config
 	clientset, err := kubernetes.NewForConfig(restConfig)
@@ -27,8 +28,6 @@ func initializeInjectDependencies(cache2 cache.Cache, fields *managers.Controlle
 	client := fields.Client
 	scheme := fields.Scheme
 	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logger)
-	podMonitorConfig := managers.ProvidePodMonitorConfig(namespace)
-	podMonitor := runnables.NewPodMonitor(logger, clientset, clientCommandRunner, podMonitorConfig)
 	restMapper, err := managers.NewDynamicRESTMapper(restConfig)
 	if err != nil {
 		return injectorDependencies{}, err
@@ -45,12 +44,17 @@ func initializeInjectDependencies(cache2 cache.Cache, fields *managers.Controlle
 	if err != nil {
 		return injectorDependencies{}, err
 	}
+	deployedNamespace := ProvideNamespace(operatorConfig)
+	podMonitorConfig := managers.ProvidePodMonitorConfig(deployedNamespace)
+	podMonitor := runnables.NewPodMonitor(logger, clientset, clientCommandRunner, podMonitorConfig)
+	factory := manifests.NewFactory(operatorConfig, scheme)
 	crdUpdater := &runnables.CRDUpdater{
-		Logger: logger,
-		CC:     clientCommandRunner,
-		Config: operatorConfig,
-		Rest:   restConfig,
-		Client: clientset,
+		Logger:  logger,
+		CC:      clientCommandRunner,
+		Config:  operatorConfig,
+		Rest:    restConfig,
+		Client:  clientset,
+		Factory: factory,
 	}
 	runnablesRunnables := runnables.ProvideRunnables(podMonitor, crdUpdater)
 	clientCommandInjector := &ClientCommandInjector{
@@ -64,8 +68,9 @@ func initializeInjectDependencies(cache2 cache.Cache, fields *managers.Controlle
 	factoryInjector := &FactoryInjector{
 		Fields:    fields,
 		Config:    operatorConfig,
-		Namespace: namespace,
+		Namespace: deployedNamespace,
 		Scheme:    scheme,
+		Factory:   factory,
 	}
 	kubeInterfaceInjector := &KubeInterfaceInjector{
 		KubeInterface: clientset,

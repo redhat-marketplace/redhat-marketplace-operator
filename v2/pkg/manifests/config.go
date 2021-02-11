@@ -68,7 +68,7 @@ func NewConfig(content io.Reader) (*Config, error) {
 	return res, nil
 }
 
-func NewOperatorConfig(cfg config.OperatorConfig) *Config {
+func NewOperatorConfig(cfg *config.OperatorConfig) *Config {
 	c := &Config{}
 	c.RelatedImages = cfg.RelatedImages
 	c.applyDefaults()

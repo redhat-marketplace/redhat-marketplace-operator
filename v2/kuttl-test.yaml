@@ -4,4 +4,4 @@ startKIND: false
 parallel: 1
 testDirs:
   - test/e2e/
-timeout: 90
+timeout: 300

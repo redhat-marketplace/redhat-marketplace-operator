@@ -68,7 +68,7 @@ type MarketplaceConfigReconciler struct {
 	Scheme *runtime.Scheme
 	Log    logr.Logger
 	cc     ClientCommandRunner
-	cfg    config.OperatorConfig
+	cfg    *config.OperatorConfig
 }
 
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
@@ -448,12 +448,15 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		reqLogger.Error(err, "secret is missing appropriate field and can't check status")
 	}
 
+	tokenClaims, _ := marketplace.GetJWTTokenClaim(string(pullSecret))
+
 	if ok {
 		reqLogger.Info("attempting to update registration")
 		marketplaceClient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
 			Url:      r.cfg.Marketplace.URL,
 			Token:    string(pullSecret),
 			Insecure: r.cfg.Marketplace.InsecureClient,
+			Claims:   tokenClaims,
 		})
 
 		marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
@@ -624,7 +627,7 @@ func (r *MarketplaceConfigReconciler) InjectCommandRunner(ccp ClientCommandRunne
 	return nil
 }
 
-func (m *MarketplaceConfigReconciler) InjectOperatorConfig(cfg config.OperatorConfig) error {
+func (m *MarketplaceConfigReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
 	return nil
 }

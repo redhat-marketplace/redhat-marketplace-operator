@@ -38,6 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -46,7 +47,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"k8s.io/client-go/kubernetes/scheme"
 )
 
 //var log = logf.Log.WithName("controller_olm_clusterserviceversion_watcher")
@@ -151,9 +151,23 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 						labels[watchTag] = "lite"
 
 						if !reflect.DeepEqual(labels, clusterOriginalLabels) {
+							err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+								err := r.Client.Get(context.TODO(),
+									types.NamespacedName{
+										Name:      CSV.GetName(),
+										Namespace: CSV.GetNamespace(),
+									},
+									CSV)
 
-							CSV.SetLabels(labels)
-							if err := r.Client.Update(context.TODO(), CSV); err != nil {
+								if err != nil {
+									return err
+								}
+
+								CSV.SetLabels(labels)
+								return r.Client.Update(context.TODO(), CSV)
+							})
+
+							if err != nil {
 								reqLogger.Error(err, "Failed to patch clusterserviceversion with razee/watch-resource: lite label")
 								return reconcile.Result{}, err
 							}
@@ -178,6 +192,17 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 		if !reflect.DeepEqual(annotations, clusterOriginalAnnotations) {
 			CSV.SetAnnotations(annotations)
 			retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				err := r.Client.Get(context.TODO(),
+					types.NamespacedName{
+						Name:      CSV.GetName(),
+						Namespace: CSV.GetNamespace(),
+					},
+					CSV)
+
+				if err != nil {
+					return err
+				}
+
 				return r.Client.Update(context.TODO(), CSV)
 			})
 

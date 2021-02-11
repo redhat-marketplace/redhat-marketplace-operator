@@ -43,7 +43,16 @@ generate:
 	$(MAKE) $(addsuffix /generate,$(PROJECTS))
 
 docker-build:
+	$(MAKE) base/docker-build
 	$(MAKE) $(addsuffix /docker-build,$(PROJECTS))
+
+docker-push:
+	$(MAKE) base/docker-push
+	$(MAKE) $(addsuffix /docker-push,$(PROJECTS))
+
+docker-manifest:
+	$(MAKE) $(addsuffix /docker-manifest,$(PROJECTS))
+
 
 .PHONY: check-licenses
 check-licenses: addlicense ## Check if all files have licenses
@@ -68,13 +77,16 @@ LICENSE=$(GOBIN)/addlicense
 endif
 
 operator/%:
-	cd ./v2 && $(MAKE) $(@F)
+	@cd ./v2 && $(MAKE) $(@F)
 
 reporter/%:
-	cd ./reporter/v2 && $(MAKE) $(@F)
+	@cd ./reporter/v2 && $(MAKE) $(@F)
 
 metering/%:
-	cd ./metering/v2 && $(MAKE) $(@F)
+	@cd ./metering/v2 && $(MAKE) $(@F)
 
 authchecker/%:
-	cd ./authchecker/v2 && $(MAKE) $(@F)
+	@cd ./authchecker/v2 && $(MAKE) $(@F)
+
+base/%:
+	cd ./base && $(MAKE) $(@F)
