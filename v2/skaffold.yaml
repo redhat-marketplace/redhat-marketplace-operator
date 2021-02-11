@@ -1,0 +1,99 @@
+apiVersion: skaffold/v2beta10
+kind: Config
+metadata:
+  name: redhat-marketplace-operator
+build:
+  local:
+    useBuildkit: true
+    concurrency: 2
+  tagPolicy:
+    customTemplate:
+      template: '{{ .VERS }}-{{ .GC }}'
+      components:
+        - name: VERS
+          envTemplate:
+            template: '{{.VERSION}}'
+        - name: GC
+          gitCommit:
+            variant: AbbrevCommitSha
+  artifacts:
+    - image: redhat-marketplace-operator
+      context: .
+      custom:
+        buildCommand: make vet docker-build
+        dependencies:
+          paths:
+            - go.mod
+            - go.sum
+            - "apis/**"
+            - "controllers/**"
+            - "pkg/**"
+          ignore:
+            - "*_test.go"
+    - image: redhat-marketplace-reporter
+      context: ../reporter/v2
+      custom:
+        buildCommand: make vet docker-build
+        dependencies:
+          paths:
+            - go.mod
+            - go.sum
+            - cmd/**
+            - pkg/**
+          ignore:
+            - "./**/*_test.go"
+    - image: redhat-marketplace-metric-state
+      context: ../metering/v2
+      custom:
+        buildCommand: make vet docker-build
+        dependencies:
+          paths:
+            - go.mod
+            - go.sum
+            - cmd/**
+            - internal/**
+            - pkg/**
+            - "./**/*.go"
+          ignore:
+            - "./**/*_test.go"
+    - image: redhat-marketplace-authcheck
+      context: ../authchecker/v2
+      custom:
+        buildCommand: make vet docker-build
+        dependencies:
+          paths:
+            - go.mod
+            - go.sum
+            - cmd/**
+            - pkg/**
+          ignore:
+            - "**/*_test.go"
+deploy:
+  helm:
+    releases:
+      - name: rhm-operator
+        namespace: openshift-redhat-marketplace
+        artifactOverrides:
+          operatorImage: redhat-marketplace-operator
+          reporterImage: redhat-marketplace-reporter
+          metricStateImage: redhat-marketplace-metric-state
+          authCheckImage: redhat-marketplace-authcheck
+        wait: false
+        upgradeOnChange: true
+        chartPath: ./config/helm-wrapper
+        valuesFiles:
+          - ./config/helm-wrapper/values.yaml
+    flags:
+      install:
+        - --post-renderer
+        - config/helm-wrapper/kustomize
+      upgrade:
+        - --post-renderer
+        - config/helm-wrapper/kustomize
+portForward:
+  - resourceType: StatefulSet
+    resourceName: prometheus-rhm-marketplaceconfig-meterbase
+    port: 9090
+  - resourceType: Deployment
+    resourceName: rhm-metric-state
+    port: 8080

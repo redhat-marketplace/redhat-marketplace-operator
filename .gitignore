@@ -112,7 +112,6 @@ cover-unit.out.tmp
 .envrc
 .crc
 .DS_Store
-bundle/
 
 .action-secrets.txt
 *.coverprofile
@@ -143,3 +142,6 @@ test/certs/**
 !test/certs/server-csr.json
 
 redhat-marketplace-pull-secret.env
+.pull-secret.env
+v2/config/manager/manager.yaml
+kubeconfig

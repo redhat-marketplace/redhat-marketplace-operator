@@ -1,0 +1,9 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: rhm-test
+  namespace: openshift-marketplace
+spec:
+  sourceType: grpc
+  displayName: RHM Test
+  image: quay.io/zach_source/redhat-marketplace-operator-dev-index:2.0.0-beta.42

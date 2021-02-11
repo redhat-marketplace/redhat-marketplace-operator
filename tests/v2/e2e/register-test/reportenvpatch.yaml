@@ -1,0 +1,10 @@
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          env:
+            - name: REPORT_RETRY_TIME_DURATION
+              value: "2m"
+            - name: REPORT_RETRY_LIMIT
+              value: "2"
