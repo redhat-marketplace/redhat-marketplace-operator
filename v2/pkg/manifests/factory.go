@@ -131,6 +131,11 @@ func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) 
 		d.Labels = make(map[string]string)
 	}
 
+	if d.Spec.Template.GetLabels() == nil {
+		d.Spec.Template.Labels = make(map[string]string)
+	}
+
+	d.Spec.Template.Labels = f.addCertLabels(d.Spec.Template.Labels)
 	d.Labels = f.addCertLabels(d.Labels)
 
 	if d.GetNamespace() == "" {
