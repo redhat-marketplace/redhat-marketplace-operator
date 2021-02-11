@@ -25,6 +25,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/blang/semver"
 	"github.com/gotidy/ptr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -461,6 +462,39 @@ func (f *Factory) ReporterJob(
 
 	if len(report.Spec.ExtraArgs) > 0 {
 		container.Args = append(container.Args, report.Spec.ExtraArgs...)
+	}
+
+	// If kubeVersion < 1.20 TokenRequest and TokenRequestProjection are beta and not assumed available, use basicAuth. Logical default if unknown kubeVersion parse failure
+	// If kubeVersion >= 1.20  TokenRequest and TokenRequestProjection are GA and assumed available, use token
+	v1200, _ := semver.Make("1.20.0")
+	kubeVersion := f.operatorConfig.Infrastructure.KubernetesVersion()
+
+	parsedKubeVersion, _ := semver.ParseTolerant(kubeVersion)
+
+	if parsedKubeVersion.LT(v1200) {
+		secretVolumeSource := corev1.SecretVolumeSource{SecretName: "rhm-meterbase-datasources"}
+		volumeSource := corev1.VolumeSource{Secret: &secretVolumeSource}
+		j.Spec.Template.Spec.Volumes = append(j.Spec.Template.Spec.Volumes, corev1.Volume{Name: "password-vol", VolumeSource: volumeSource})
+
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: "password-vol", ReadOnly: true, MountPath: "/etc/auth-basic"})
+
+		container.Args = append(container.Args,
+			"--passwordfile",
+			"/etc/auth-basic/basicAuthSecret",
+		)
+	} else {
+		var expirationSeconds int64 = 3600
+		serviceAccountTokenProjection := corev1.ServiceAccountTokenProjection{Audience: "rhm-prometheus-meterbase.openshift-redhat-marketplace.svc", ExpirationSeconds: &expirationSeconds, Path: "token"}
+		projectedVolumeSource := corev1.ProjectedVolumeSource{Sources: []corev1.VolumeProjection{{ServiceAccountToken: &serviceAccountTokenProjection}}}
+		volumeSource := corev1.VolumeSource{Projected: &projectedVolumeSource}
+		j.Spec.Template.Spec.Volumes = append(j.Spec.Template.Spec.Volumes, corev1.Volume{Name: "token-vol", VolumeSource: volumeSource})
+
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: "token-vol", ReadOnly: true, MountPath: "/etc/auth-service-account"})
+
+		container.Args = append(container.Args,
+			"--tokenfile",
+			"/etc/auth-service-account/token",
+		)
 	}
 
 	// Keep last 3 days of data

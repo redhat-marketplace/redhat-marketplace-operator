@@ -179,10 +179,21 @@ func provideApiClient(
 		auth = fmt.Sprintf(string(content))
 	}
 
+	var userAuth *UserAuth
+	if config.PasswordFile != "" {
+		content, err := ioutil.ReadFile(config.PasswordFile)
+		if err != nil {
+			return nil, err
+		}
+		userAuth = &UserAuth{"internal", fmt.Sprintf(string(content))}
+
+	}
+
 	conf, err := NewSecureClient(&PrometheusSecureClientConfig{
 		Address:        fmt.Sprintf("https://%s.%s.svc:%v", name, namespace, port),
 		ServerCertFile: config.CaFile,
 		Token:          auth,
+		UserAuth:       userAuth,
 	})
 
 	if err != nil {
