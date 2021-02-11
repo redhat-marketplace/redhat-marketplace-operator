@@ -29,7 +29,6 @@ import (
 	"github.com/meirf/gopart"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
-	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -214,8 +213,8 @@ func (r *MarketplaceReporter) retrieveMeterDefinitions(
 
 	err = utils.Retry(func() error {
 		query := &MeterDefinitionQuery{
-			Start: r.report.Spec.StartTime.Time,
-			End:   r.report.Spec.EndTime.Time,
+			Start: r.report.Spec.StartTime.Time.UTC(),
+			End:   r.report.Spec.EndTime.Time.Add(-1*time.Second).UTC(),
 			Step:  time.Hour,
 		}
 
@@ -242,15 +241,24 @@ func (r *MarketplaceReporter) retrieveMeterDefinitions(
 		return
 	}
 
-	log.Info("result", "result", result)
+	logger.V(4).Info("result", "result", result)
 
 	switch result.Type() {
 	case model.ValMatrix:
+		results, errs := getQueries(result.(model.Matrix))
 
-	case model.ValString:
-	case model.ValVector:
-	case model.ValScalar:
-	case model.ValNone:
+		for _, err := range errs {
+			logger.Error(err, "error encountered")
+			errorChan <- errors.WithStack(err)
+		}
+
+		for _, result := range results {
+			meterDefsChan <- result
+		}
+	default:
+		err := errors.NewWithDetails("result type is unprocessable", "type", result.Type().String())
+		logger.Error(err, "error encountered")
+		errorChan <- err
 	}
 
 	return
@@ -354,6 +362,8 @@ func (r *MarketplaceReporter) process(
 							kvmap,
 						)
 
+						logger.V(4).Info("data", "base", base)
+
 						if err != nil {
 							errorsch <- errors.Wrap(err, "failed adding metrics")
 							return
@@ -365,8 +375,6 @@ func (r *MarketplaceReporter) process(
 						if _, ok := results[base.Key.MetricID]; ok {
 							return
 						}
-
-						log.Info("data", "base", base)
 
 						results[base.Key.MetricID] = base
 					}()
@@ -520,7 +528,7 @@ func buildPromQuery(labels interface{}, start, end time.Time) (*meterDefPromQuer
 	err := meterDefLabels.FromLabels(labels)
 
 	if err != nil {
-		log.Error(err, "failed to unmarshal labels")
+		logger.Error(err, "failed to unmarshal labels")
 		return nil, err
 	}
 
@@ -549,7 +557,7 @@ func buildPromQuery(labels interface{}, start, end time.Time) (*meterDefPromQuer
 	tmpl, err := NewTemplate(meterDefLabels)
 
 	if err != nil {
-		log.Error(err, "failed to create a template")
+		logger.Error(err, "failed to create a template")
 		return nil, err
 	}
 

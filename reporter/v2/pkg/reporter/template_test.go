@@ -28,6 +28,7 @@ var _ = Describe("Template", func() {
 			Metric:             "{{ .Label.foo_bar_label }}.metric",
 			DateLabelOverride:  "{{ .Label.foo_bar_label }}.date",
 			ValueLabelOverride: "{{ .Label.foo_bar_label }}.valueoverride",
+			DisplayName:        "{{ .Label.foo_bar_label }}.name",
 			MeterDescription:   "{{ .Label.foo_bar_label }}.description",
 			MetricAggregation:  "sum",
 			MetricGroupBy:      common.JSONArray([]string{"c", "d"}),
@@ -50,6 +51,7 @@ var _ = Describe("Template", func() {
 			"MeterKind":          Equal("label.kind"),
 			"Metric":             Equal("label.metric"),
 			"DateLabelOverride":  Equal("label.date"),
+			"DisplayName":        Equal("label.name"),
 			"ValueLabelOverride": Equal("label.valueoverride"),
 			"WorkloadType":       Equal("pod"),
 		})))

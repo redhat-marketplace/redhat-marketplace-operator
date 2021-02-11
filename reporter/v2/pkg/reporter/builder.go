@@ -308,7 +308,7 @@ func NewMetric(
 ) (*MetricBase, error) {
 	namespace, _ := getMatrixValue(matrix.Metric, "namespace")
 
-	logger.Info("kvMap", "map", kvMap)
+	logger.V(4).Info("kvMap", "map", kvMap)
 
 	meterDef := meterDefLabel
 	err := templ.Execute(meterDef, &ReportLabels{
@@ -320,8 +320,12 @@ func NewMetric(
 		return nil, err
 	}
 
+	if meterDef.DisplayName != "" {
+		kvMap["display_name"] = meterDef.DisplayName
+	}
+
 	if meterDef.MeterDescription != "" {
-		kvMap["meter_description"] = meterDef.MeterDescription
+		kvMap["display_description"] = meterDef.MeterDescription
 	}
 
 	var objName string
@@ -360,8 +364,8 @@ func NewMetric(
 	}
 
 	key := MetricKey{
-		ReportPeriodStart: meterReport.StartTime.Format(time.RFC3339),
-		ReportPeriodEnd:   meterReport.EndTime.Format(time.RFC3339),
+		ReportPeriodStart: meterReport.StartTime.UTC().Format(time.RFC3339),
+		ReportPeriodEnd:   meterReport.EndTime.UTC().Format(time.RFC3339),
 		IntervalStart:     intervalStart,
 		IntervalEnd:       intervalEnd,
 		MeterDomain:       meterDef.MeterGroup,
@@ -370,6 +374,8 @@ func NewMetric(
 		ResourceName:      objName,
 		Label:             meterDef.Metric,
 	}
+
+	logger.V(4).Info("metric", "metric val", meterDef.Metric)
 
 	key.Init(clusterUUID)
 
@@ -387,7 +393,6 @@ func NewMetric(
 	metricPairs := []interface{}{meterDef.Metric, value}
 
 	err = base.AddAdditionalLabelsFromMap(kvMap)
-
 	if err != nil {
 		return nil, err
 	}

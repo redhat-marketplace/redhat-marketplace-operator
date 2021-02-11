@@ -162,7 +162,7 @@ var _ = Describe("Reporter", func() {
 				},
 			}
 
-			v1api := getTestAPI(mockResponseRoundTripper(generatedFile, meterDefs))
+			v1api := getTestAPI(mockResponseRoundTripper(generatedFile, meterDefs, start, end))
 
 			sut = &MarketplaceReporter{
 				api:       v1api,
@@ -215,13 +215,13 @@ var _ = Describe("Reporter", func() {
 						"metrics": MatchElements(id, AllowDuplicates, Elements{
 							"row": MatchAllKeys(Keys{
 								"additionalLabels": MatchAllKeys(Keys{
-									"namespace":         Equal("metering-example-operator"),
-									"pod":               Equal("example-app-pod"),
-									"meter_kind":        Or(Equal("App"), Equal("App2"), Equal("App3")),
-									"meter_domain":      Equal("apps.partner.metering.com"),
-									"meter_version":     Equal("v1"),
-									"service":           Equal("example-app-pod"),
-									"meter_description": Or(Equal("app description"), Equal("app2 description"), Equal("app3 description")),
+									"namespace":           Equal("metering-example-operator"),
+									"pod":                 Equal("example-app-pod"),
+									"meter_kind":          Or(Equal("App"), Equal("App2"), Equal("App3")),
+									"meter_domain":        Equal("apps.partner.metering.com"),
+									"meter_version":       Equal("v1"),
+									"service":             Equal("example-app-pod"),
+									"display_description": Or(Equal("app description"), Equal("app2 description"), Equal("app3 description")),
 								}),
 								"domain":              Or(Equal("app.partner.metering.com"), Equal("app2.partner.metering.com"), Equal("app3.partner.metering.com")),
 								"interval_start":      HavePrefix("2020-"),
@@ -305,7 +305,7 @@ var _ = Describe("Reporter", func() {
 				},
 			}
 
-			v1api := getTestAPI(mockResponseRoundTripper(generatedFile, meterDefs))
+			v1api := getTestAPI(mockResponseRoundTripper(generatedFile, meterDefs, start, end))
 
 			sut = &MarketplaceReporter{
 				api:       v1api,
@@ -358,12 +358,12 @@ var _ = Describe("Reporter", func() {
 						"metrics": MatchElements(id, AllowDuplicates, Elements{
 							"row": MatchAllKeys(Keys{
 								"additionalLabels": MatchAllKeys(Keys{
-									"namespace":     Equal("metering-example-operator"),
-									"pod":           Equal("example-app-pod"),
-									"meter_kind":    Or(Equal("App"), Equal("App2"), Equal("App3")),
-									"meter_domain":  Equal("apps.partner.metering.com"),
-									"meter_version": Equal("v1"),
-									"service":       Equal("example-app-pod"),
+									"namespace":           Equal("metering-example-operator"),
+									"pod":                 Equal("example-app-pod"),
+									"meter_kind":          Or(Equal("App"), Equal("App2"), Equal("App3")),
+									"meter_domain":        Equal("apps.partner.metering.com"),
+									"meter_version":       Equal("v1"),
+									"service":             Equal("example-app-pod"),
 								}),
 								"domain":              Or(Equal("apps.partner.metering.com")),
 								"interval_start":      HavePrefix("2020-"),
@@ -426,7 +426,7 @@ func getTestAPI(trip RoundTripFunc) v1.API {
 	return v1api
 }
 
-func mockResponseRoundTripper(file string, meterdefinitions []v1beta1.MeterDefinition) RoundTripFunc {
+func mockResponseRoundTripper(file string, meterdefinitions []v1beta1.MeterDefinition, start, end time.Time) RoundTripFunc {
 	return func(req *http.Request) *http.Response {
 		headers := make(http.Header)
 		headers.Add("content-type", "application/json")
@@ -444,8 +444,7 @@ func mockResponseRoundTripper(file string, meterdefinitions []v1beta1.MeterDefin
 		query, _ := url.ParseQuery(string(body))
 
 		if strings.Contains(query["query"][0], "meterdef_metric_label_info{}") {
-			fmt.Println("using meter_label_info")
-			meterDefInfo := GenerateMeterInfoResponse(meterdefinitions)
+			meterDefInfo := GenerateMeterInfoResponse(meterdefinitions, start, end)
 			return &http.Response{
 				StatusCode: 200,
 				// Send response to be tested
@@ -488,25 +487,38 @@ type fakeMetrics struct {
 	Data   fakeData
 }
 
-func GenerateMeterInfoResponse(meterdefinitions []v1beta1.MeterDefinition) []byte {
+func GenerateSeries(start, end time.Time) []int64 {
+	series := []int64{}
+	for start := start; start.Before(end); start = start.Add(time.Hour) {
+		series = append(series, start.Unix())
+	}
+	return series
+}
+
+func GenerateMeterInfoResponse(meterdefinitions []v1beta1.MeterDefinition, start, end time.Time) []byte {
 	results := []map[string]interface{}{}
+	series := GenerateSeries(start, end)
+
 	for _, mdef := range meterdefinitions {
 		labels := mdef.ToPrometheusLabels()
 
 		for _, mylabels := range labels {
-			fmt.Printf("%+v\n", mylabels)
 			labelMap, err := mylabels.ToLabels()
 			if err != nil {
-				fmt.Printf("%v\n", err)
 				panic(err)
 			}
-			fmt.Printf("%+v\n", labelMap)
+
+			fmt.Println(labelMap)
+
+			values := make([][]interface{}, len(series), len(series))
+
+			for i, ms := range series {
+				values[i] = []interface{}{ms, "1"}
+			}
+
 			results = append(results, map[string]interface{}{
 				"metric": labelMap,
-				"values": [][]interface{}{
-					{1, "1"},
-					{2, "1"},
-				},
+				"values": values,
 			})
 		}
 	}
@@ -520,8 +532,6 @@ func GenerateMeterInfoResponse(meterdefinitions []v1beta1.MeterDefinition) []byt
 	}
 
 	bytes, _ := json.Marshal(&data)
-
-	fmt.Println(string(bytes))
 
 	return bytes
 }

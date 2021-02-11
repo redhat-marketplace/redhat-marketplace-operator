@@ -221,6 +221,7 @@ func (r *MarketplaceReporter) queryMeterDefinitions(query *MeterDefinitionQuery)
 	}
 
 	q, err := query.Print()
+	logger.Info("query params", "query", q, "start", query.Start.Unix(), "end", query.End.Unix(), "step", query.Step.String())
 
 	if err != nil {
 		logger.Error(err, "error with query")

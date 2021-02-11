@@ -45,7 +45,7 @@ var _ = Describe("Query", func() {
 			Step:   time.Minute * 60,
 		})
 
-		v1api := getTestAPI(mockResponseRoundTripper("../../test/mockresponses/prometheus-query-range.json", []v1beta1.MeterDefinition{}))
+		v1api := getTestAPI(mockResponseRoundTripper("../../test/mockresponses/prometheus-query-range.json", []v1beta1.MeterDefinition{}, start, end))
 		sut = &MarketplaceReporter{
 			api: v1api,
 		}

@@ -17,12 +17,9 @@ package common
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
-	"strconv"
 	"time"
 
 	"emperror.dev/errors"
-	"github.com/mitchellh/mapstructure"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -31,6 +28,7 @@ type MeterDefPrometheusLabels struct {
 	MeterDefName      string `json:"name" mapstructure:"name"`
 	MeterDefNamespace string `json:"namespace" mapstructure:"namespace"`
 
+	// Deprecated: metric is now the primary name
 	WorkloadName      string        `json:"workload_name" mapstructure:"workload_name"`
 	WorkloadType      string        `json:"workload_type" mapstructure:"workload_type"`
 	MeterGroup        string        `json:"meter_group" mapstructure:"meter_group" template:""`
@@ -42,65 +40,10 @@ type MeterDefPrometheusLabels struct {
 	MetricWithout     JSONArray     `json:"metric_without" mapstructure:"metric_without"`
 	MetricGroupBy     JSONArray     `json:"metric_group_by,omitempty" mapstructure:"metric_group_by"`
 
+	DisplayName        string `json:"display_name,omitempty" mapstructure:"display_name,omitempty" template:""`
 	MeterDescription   string `json:"meter_description,omitempty" mapstructure:"meter_description,omitempty" template:""`
 	ValueLabelOverride string `json:"value_label_override,omitempty" mapstructure:"value_label_override,omitempty" template:""`
 	DateLabelOverride  string `json:"date_label_override,omitempty" mapstructure:"date_label_override,omitempty" template:""`
-}
-
-func convertToString(v interface{}) (string, error) {
-	val := reflect.ValueOf(v)
-
-	if val.Kind() == reflect.Interface {
-		if val.IsNil() {
-			return "", errors.New("value is nil")
-		}
-
-		elm := val.Elem()
-
-		if elm.IsNil() {
-			return "", errors.New("interface value is nil")
-		}
-
-		if elm.Kind() == reflect.Ptr && elm.Elem().Kind() == reflect.Ptr {
-			val = elm
-		}
-	}
-
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem()
-	}
-
-	switch val.Kind() {
-	case reflect.String:
-		return val.String(), nil
-	case reflect.Slice:
-		fallthrough
-	case reflect.Struct:
-		fallthrough
-	case reflect.Map:
-		fallthrough
-	case reflect.Interface:
-		switch v.(type) {
-		case fmt.Stringer:
-			return v.(fmt.Stringer).String(), nil
-		case map[string]interface{}:
-			strbytes, err := json.Marshal(v)
-			if err != nil {
-				return "", errors.Wrap(err, "value failed json")
-			}
-			return string(strbytes), nil
-		case json.Marshaler:
-			strbytes, err := v.(json.Marshaler).MarshalJSON()
-			if err != nil {
-				return "", errors.Wrap(err, "value failed json")
-			}
-			return string(strbytes), nil
-		default:
-			return "", errors.NewWithDetails("not stringable", "type", reflect.TypeOf(v).String())
-		}
-	default:
-		return "", errors.NewWithDetails("struct not defined for conversion", "kind", val.Kind().String())
-	}
 }
 
 func (m *MeterDefPrometheusLabels) Defaults() {
@@ -114,30 +57,20 @@ func (m *MeterDefPrometheusLabels) Defaults() {
 }
 
 func (m *MeterDefPrometheusLabels) ToLabels() (map[string]string, error) {
-	labelsMap := map[string]interface{}{}
-	err := mapstructure.Decode(m, &labelsMap)
+	bytes, err := json.Marshal(m)
+
 	if err != nil {
 		return nil, err
 	}
 
-	labels := map[string]string{}
-	for k, v := range labelsMap {
-		if v == nil {
-			continue
-		}
+	labelsMap := map[string]string{}
+	err = json.Unmarshal(bytes, &labelsMap)
 
-		vstr, err := convertToString(v)
-
-		if err != nil {
-			return labels, err
-		}
-
-		if vstr != "" {
-			labels[k] = vstr
-		}
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
 
-	return labels, nil
+	return labelsMap, nil
 }
 
 func (m *MeterDefPrometheusLabels) FromLabels(labels interface{}) error {
@@ -151,7 +84,7 @@ func (m *MeterDefPrometheusLabels) FromLabels(labels interface{}) error {
 	err = json.Unmarshal(data, &newObj)
 
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 
 	newObj.Defaults()
@@ -168,10 +101,16 @@ var _ json.Marshaler = &MetricPeriod{}
 var _ json.Unmarshaler = &MetricPeriod{}
 
 func (a *MetricPeriod) UnmarshalJSON(b []byte) error {
-	dur, err := time.ParseDuration(string(b))
-
+	var val string
+	err := json.Unmarshal(b, &val)
 	if err != nil {
 		return err
+	}
+
+	dur, err := time.ParseDuration(val)
+
+	if err != nil {
+		return errors.WithStack(err)
 	}
 
 	a.Duration = dur
@@ -185,34 +124,32 @@ func (a MetricPeriod) MarshalJSON() ([]byte, error) {
 
 type JSONArray []string
 
-var _ json.Marshaler = &JSONArray{}
-var _ json.Unmarshaler = &JSONArray{}
+func (a *JSONArray) UnmarshalText(b []byte) error {
+	str := string(b)
 
-func (a *JSONArray) UnmarshalJSON(b []byte) error {
-	str, err := strconv.Unquote(string(b))
-
-	if err != nil {
-		return err
+	if len(str) == 0 {
+		*a = JSONArray{}
+		return nil
 	}
 
 	var j []string
 
 	if err := json.Unmarshal([]byte(str), &j); err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 
 	*a = JSONArray(j)
 	return nil
 }
 
-func (a JSONArray) MarshalJSON() ([]byte, error) {
+func (a JSONArray) MarshalText() ([]byte, error) {
 	if a == nil {
 		return []byte{}, nil
 	}
 
 	b, err := json.Marshal([]string(a))
 	if err != nil {
-		return b, err
+		return b, errors.WithStack(err)
 	}
 
 	return b, nil

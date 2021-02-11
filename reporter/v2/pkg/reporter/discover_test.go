@@ -12,10 +12,6 @@ import (
 var _ = Describe("discover", func() {
 	var data model.Matrix
 	BeforeEach(func() {
-		mp := common.MetricPeriod{Duration: time.Hour}
-		Expect(mp.String()).To(Equal("1h0m0s"))
-		Expect((&mp).String()).To(Equal("1h0m0s"))
-
 		promLabels := &common.MeterDefPrometheusLabels{
 			MeterDefName:       "name",
 			MeterDefNamespace:  "namespace",
@@ -31,7 +27,7 @@ var _ = Describe("discover", func() {
 			MetricWithout:      common.JSONArray([]string{"a", "b"}),
 			UID:                "uid",
 			WorkloadName:       "workloadname",
-			WorkloadType:       "pod",
+			WorkloadType:       "Pod",
 		}
 		labelMap, err := promLabels.ToLabels()
 		Expect(err).To(Succeed())
@@ -143,18 +139,20 @@ var _ = Describe("discover", func() {
 						Timestamp: model.TimeFromUnix(1612911600),
 						Value:     model.SampleValue(1),
 					},
-					{
-						Timestamp: model.TimeFromUnix(1612915200),
-						Value:     model.SampleValue(1),
-					},
 				},
 			},
 		}
 	})
 
-	FIt("should parse the date correctly", func() {
-		results, err := getQueries(data)
-		Expect(err).To(Succeed())
+	It("should parse the date correctly", func() {
+		results, errs := getQueries(data)
+		Expect(len(errs)).To(Equal(0))
 		Expect(len(results)).To(Equal(1))
+
+		query := results[0].query
+
+		endTime := model.TimeFromUnix(1612911600).Add(time.Hour).Time().UTC()
+
+		Expect(query.End).To(Equal(endTime), "times should match")
 	})
 })
