@@ -66,7 +66,7 @@ type MeterDefinitionReconciler struct {
 	Client        client.Client
 	Log           logr.Logger
 	Scheme        *runtime.Scheme
-	cfg           config.OperatorConfig
+	cfg           *config.OperatorConfig
 	cc            ClientCommandRunner
 	patcher       patch.Patcher
 	kubeInterface kubernetes.Interface
@@ -87,7 +87,7 @@ func (r *MeterDefinitionReconciler) InjectPatch(p patch.Patcher) error {
 	return nil
 }
 
-func (m *MeterDefinitionReconciler) InjectOperatorConfig(cfg config.OperatorConfig) error {
+func (m *MeterDefinitionReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
 	return nil
 }
@@ -135,15 +135,15 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 
 	reqLogger.Info("Found instance", "instance", instance.Name)
 
-	var update bool
+	var update, requeue bool
 
 	switch {
 	case instance.Status.Conditions.IsUnknownFor(common.MeterDefConditionTypeHasResult):
 		fallthrough
 	case len(instance.Status.WorkloadResources) == 0:
-		update = instance.Status.Conditions.SetCondition(common.MeterDefConditionNoResults)
+		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionNoResults)
 	case len(instance.Status.WorkloadResources) > 0:
-		update = instance.Status.Conditions.SetCondition(common.MeterDefConditionHasResults)
+		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionHasResults)
 	}
 
 	if result.Is(Error) {
@@ -152,42 +152,43 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 
 	queryPreviewResult, err := r.queryPreview(cc, instance, request, reqLogger)
 	if err != nil {
-		update = instance.Status.Conditions.SetCondition(status.Condition{
+		update = update || instance.Status.Conditions.SetCondition(status.Condition{
 			Type:    v1beta1.MeterDefQueryPreviewSetupError,
+			Reason:  "PreviewError",
+			Status:  corev1.ConditionTrue,
 			Message: err.Error(),
 		})
+		requeue = true
 	} else if err == nil {
-		update = instance.Status.Conditions.RemoveCondition(v1beta1.MeterDefQueryPreviewSetupError)
+		update = update || instance.Status.Conditions.RemoveCondition(v1beta1.MeterDefQueryPreviewSetupError)
 	}
 
 	if !reflect.DeepEqual(queryPreviewResult, instance.Status.Results) {
 		instance.Status.Results = queryPreviewResult
 		reqLogger.Info("output", "Status.Results", instance.Status.Results)
-		update = true
+		update = update || true
 	}
 
-	result, _ = cc.Do(
-		context.TODO(),
-		Call(func() (ClientAction, error) {
-			if !update {
-				return nil, nil
-			}
+	if update {
+		result, _ = cc.Do(context.TODO(), UpdateAction(instance, UpdateStatusOnly(true)))
+		if result.Is(Error) {
+			reqLogger.Error(result.GetError(), "Failed to update status.")
+			return result.Return()
+		}
+	}
 
-			return UpdateAction(instance, UpdateStatusOnly(true)), nil
-		}),
-	)
-	if result.Is(Error) {
-		reqLogger.Error(result.GetError(), "Failed to update status.")
+	if requeue {
+		reqLogger.Info("error happened while trying to generate preview, requeue faster")
+		return reconcile.Result{RequeueAfter: 30*time.Second}, nil
 	}
 
 	reqLogger.Info("meterdef_preview", "requeue rate", r.cfg.ControllerValues.MeterDefControllerRequeueRate)
-
 	reqLogger.Info("finished reconciling")
 
 	return reconcile.Result{RequeueAfter: r.cfg.ControllerValues.MeterDefControllerRequeueRate}, nil
 }
 
-func (r *MeterDefinitionReconciler) finalizeMeterDefinition(req *v1alpha1.MeterDefinition) (reconcile.Result, error) {
+func (r *MeterDefinitionReconciler) finalizeMeterDefinition(req *v1beta1.MeterDefinition) (reconcile.Result, error) {
 	var err error
 
 	// TODO: add finalizers
@@ -201,7 +202,7 @@ func (r *MeterDefinitionReconciler) finalizeMeterDefinition(req *v1alpha1.MeterD
 }
 
 // addFinalizer adds finalizers to the MeterDefinition CR
-func (r *MeterDefinitionReconciler) addFinalizer(instance *v1alpha1.MeterDefinition) error {
+func (r *MeterDefinitionReconciler) addFinalizer(instance *v1beta1.MeterDefinition) error {
 	r.Log.Info("Adding Finalizer to %s/%s", instance.Name, instance.Namespace)
 	instance.SetFinalizers(append(instance.GetFinalizers(), meterDefinitionFinalizer))
 
@@ -263,7 +264,7 @@ func (r *MeterDefinitionReconciler) queryForPrometheusService(
 
 	name := types.NamespacedName{
 		Name:      utils.PROMETHEUS_METERBASE_NAME,
-		Namespace: r.cfg.ControllerValues.DeploymentNamespace,
+		Namespace: r.cfg.DeployedNamespace,
 	}
 
 	if result, _ := cc.Do(ctx, GetAction(name, service)); !result.Is(Continue) {
@@ -312,7 +313,6 @@ func returnQueryRange() (startTime time.Time, endTime time.Time) {
 }
 
 func generateQueryPreview(instance *v1beta1.MeterDefinition, prometheusAPI *PrometheusAPI, reqLogger logr.Logger) (queryPreviewResultArray []v1beta1.Result, returnErr error) {
-
 	startTime, endTime := returnQueryRange()
 	var queryPreviewResult *v1beta1.Result
 
