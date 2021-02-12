@@ -248,7 +248,18 @@ func (f *Factory) NewPrometheus(
 		p.Labels = make(map[string]string)
 	}
 
+	if p.Spec.PodMetadata == nil {
+		p.Spec.PodMetadata = &monitoringv1.EmbeddedObjectMetadata{
+			Labels: map[string]string{
+				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
+				"app.kubernetes.io/managed-by": "OLM",
+				"app.kubernetes.io/instance": "default",
+			},
+		}
+	}
+
 	p.Labels = f.addCertLabels(p.Labels)
+	p.Spec.PodMetadata.Labels = f.addCertLabels(p.Spec.PodMetadata.Labels)
 
 	return p, nil
 }
@@ -696,6 +707,9 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 						"app":                  utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
 						"razee/watch-resource": "lite",
 						"owned-by":             "marketplace.redhat.com-razee",
+						"redhat.marketplace.com/name" : "redhat-marketplace-operator",
+						"app.kubernetes.io/managed-by": "OLM",
+						"app.kubernetes.io/instance": "default",
 					},
 					Name: utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
 				},
@@ -835,6 +849,9 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 			Namespace: f.namespace,
 			Labels: map[string]string{
 				"razee/watch-resource": "lite",
+				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
+				"app.kubernetes.io/managed-by": "OLM",
+				"app.kubernetes.io/instance": "default",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
