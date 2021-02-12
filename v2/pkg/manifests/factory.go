@@ -684,6 +684,9 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 			Namespace: f.namespace,
 			Labels: map[string]string{
 				"razee/watch-resource": "lite",
+				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
+				"app.kubernetes.io/managed-by": "OLM",
+				"app.kubernetes.io/instance": "default",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
