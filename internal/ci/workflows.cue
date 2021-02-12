@@ -2,7 +2,9 @@ package ci
 
 import (
 	"strings"
+	"strconv"
 	json "github.com/SchemaStore/schemastore/src/schemas/json/github"
+	encjson "encoding/json"
 )
 
 workflowsDir: *"./" | string @tag(workflowsDir)
@@ -67,11 +69,18 @@ bundle: _#bashWorkflow & {
 	on: repository_dispatch: types: ["bundle"]
 	env: {
 		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
+		"BRANCH":         "${{github.event.client_payload.branch}}"
+		"DEPLOY_SHA":     "${{github.event.client_payload.sha}}"
+		"IS_PR":          "${{github.event.client_payload.pull_request}}"
 	}
 	jobs: {
 		deploy: _#job & {
 			name:      "Deploy Bundle"
 			"runs-on": _#linuxMachine
+			outputs: {
+				version: "${{ steps.bundle.outputs.version }}"
+				tag:     "${{ steps.bundle.outputs.tag }}"
+			}
 			steps: [
 				_#checkoutCode & {
 					with: ref: "${{github.event.client_payload.sha}}"
@@ -80,51 +89,43 @@ bundle: _#bashWorkflow & {
 				_#cacheGoModules,
 				_#installOperatorSDK,
 				_#installYQ,
-				// (_#githubCreateActionStep & {
-				//  _#args: {
-				//   name:     "Operator: Deploy Bundle"
-				//   head_sha: "${{github.event.client_payload.sha}}"
-				//   status:   "in_progress"
-				//  }
-				// }).res & {
-				//  id: "create-action"
-				// },
 				_#quayLogin,
 				_#step & {
 					id:   "bundle"
 					name: "Build bundle"
-					env: "GITHUB_SHA": "${{github.event.client_payload.sha}}"
-					run: """
+					run:  """
 						cd v2
-						export VERSION=$(cd ./tools && go run ./version/main.go)-${GITHUB_SHA}
-						export TAG=${VERSION}-amd64
-						\((_#makeLogGroup & { #args: {name: "Make Bundle", cmd: "make bundle" }}).res)
-						\((_#makeLogGroup & { #args: {name: "Make Stable", cmd: "make bundle-stable" }}).res)
-						\((_#makeLogGroup & { #args: {name: "Make Deploy", cmd: "make bundle-deploy" }}).res)
-						\((_#makeLogGroup & { #args: {name: "Make Dev Index", cmd: "make bundle-dev-index" }}).res)
+						export VERSION=$(cd ./tools && go run ./version/main.go)
+						export TAG=${VERSION}-${DEPLOY_SHA}-amd64
+						export IMAGE_REGISTRY=registry.connect.redhat.com/rh-marketplace
+						\((_#makeLogGroup & {#args: {name: "Make Stable Bundle", cmd: "make bundle-stable"}}).res)
+
+						if [ "$IS_PR" == "false" ] && [ "$BRANCH" != "" ] ; then
+						export VERSION="${VERSION}-${BRANCH}-${GITHUB_RUN_NUMBER}"
+						else
+						export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
+						export IMAGE_REGISTRY=quay.io/rh-marketplace
+						fi
+
+						\((_#makeLogGroup & {#args: {name: "Make Bundle Build", cmd: "make bundle-build"}}).res)
+						\((_#makeLogGroup & {#args: {name: "Make Deploy", cmd: "make bundle-deploy"}}).res)
+						\((_#makeLogGroup & {#args: {name: "Make Dev Index", cmd: "make bundle-dev-index"}}).res)
+
+						echo "::set-output name=version::$VERSION"
+						echo "::set-output name=tag::$TAG"
 						"""
-				}
-				// (_#githubUpdateActionStep & {
-				//  _#args: {
-				//   name:         "Operator: Deploy Bundle"
-				//   head_sha:     "${{github.event.client_payload.sha}}"
-				//   status:       "completed"
-				//   conclusion:   "${{steps.bundle.conclusion}}"
-				//   check_run_id: "${{steps.create-action.outputs.result.id}}"
-				//  }
-				// }).res & {
-				//   env: {
-				//     "OUTPUTS": "${{steps.create-action.outputs.result}}"
-				//   }
-				//  if: "${{ always() && steps.create-action.outputs.result.id != '' }}"
-				// },,,,,,,,,,,,,
+				},
 			]
 		}
 		publish: _#job & {
 			name:      "Publish Images"
 			"runs-on": _#linuxMachine
 			needs: ["deploy"]
-			//if: "(startsWith(github.event.client_payload.pull_request_branch, 'release/') || startsWith(github.event.client_payload.pull_request_branch,'hotfix/'))"
+			env: {
+				VERSION: "${{ needs.deploy.outputs.version }}"
+				TAG:     "${{ needs.deploy.outputs.tag }}"
+			}
+			if: "github.event.client_payload.pull_request != 'false'"
 			steps: [
 				_#checkoutCode & {
 					with: ref: "${{github.event.client_payload.sha}}"
@@ -132,30 +133,10 @@ bundle: _#bashWorkflow & {
 				_#installGo,
 				_#cacheGoModules,
 				_#installOperatorSDK,
-				_#step & {
-					id:   "mirror"
-					name: "Mirror images"
-					run:
-						"""
-						cd v2
-						export VERSION=$(cd ./tools && go run ./version/main.go)-${GITHUB_SHA}
-						export TAG=${VERSION}-amd64
-						echo "::set-output name=version::$VERSION"
-						echo "::set-output name=tag::$TAG"
-						\(_#retagCommand)
-						"""
-				},
+				_#retagCommand,
 				_#redhatConnectLogin,
-				_#waitForPublish & {
-					#args: {
-						tag: "${{ steps.mirror.outputs.tag }}"
-					}
-				},
-				_#step & {
-          env: TAG: "${{ steps.mirror.outputs.version }}"
-					name: "Copy Manifest"
-					run:  _#manifestCopyCommand
-				},
+				_#waitForPublish,
+				_#retagManifestCommand,
 			]
 		}
 	}
@@ -391,7 +372,7 @@ _#images: [
 	_#authchecker,
 ]
 
-_#registry: "quay.io/rh-marketplace"
+_#registry:       "quay.io/rh-marketplace"
 _#registryRHScan: "scan.connect.redhat.com"
 
 _#manifest: {
@@ -408,15 +389,41 @@ _#repoFromTo: [ for k, v in _#images {
 
 _#manifestFromTo: [ for k, v in [_#manifest] {
 	pword: "\(v.pword)"
-	from:  "\(_#registry)/\(v.name):$TAG"
-	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TAG"
+	from:  "\(_#registry)/\(v.name):$VERSION"
+	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$VERSION"
 }]
 
-_#retagCommandList: [ for k, v in _#repoFromTo {"skopeo copy --all docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(v.pword)']}}"}]
-_#retagCommand: strings.Join(_#retagCommandList, "\n")
+_#copyImage: {
+	#args: {
+		to:    string
+		from:  string
+		pword: string
+	}
+	res: """
+				echo "::group::Push \(#args.to)"
+				skopeo inspect docker://\(#args.to) --creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}} > /dev/null
+				([[ $? == 0 ]] && echo "exists=true" || skopeo copy --all docker://\(#args.from) docker://\(#args.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}})
+				echo "::endgroup::"
+				"""
+}
 
-_#manifestCopyCommandList: [ for k, v in _#manifestFromTo {"skopeo copy docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(v.pword)']}}"}]
-_#manifestCopyCommand: strings.Join(_#manifestCopyCommandList, "\n")
+_#retagCommandList: [ for k, v in _#repoFromTo {(_#copyImage & {#args: v}).res}]
+
+_#retagCommand: _#step & {
+	id:    "mirror"
+	name:  "Mirror images"
+	shell: "bash {0}"
+	run:   strings.Join(_#retagCommandList, "\n")
+}
+
+_#manifestCopyCommandList: [ for k, v in _#manifestFromTo {(_#copyImage & {#args: v}).res}]
+
+_#retagManifestCommand: _#step & {
+	env: TAG: "${{ steps.deploy.outputs.version }}"
+	name:  "Copy Manifest"
+	shell: "bash {0}"
+	run:   strings.Join(_#manifestCopyCommandList, "\n")
+}
 
 _#registryLoginStep: {
 	#args: {
@@ -452,19 +459,15 @@ _#redhatConnectLogin: (_#registryLoginStep & {
 }).res
 
 _#waitForPublish: _#step & {
-	#args: {
-		tag: string
-	}
 	name: "Wait for RH publish"
 	env: {
-		TAG:              "\(#args.tag)"
 		RH_CONNECT_TOKEN: "${{ secrets.redhat_api_key }}"
 	}
 	"continue-on-error": true
 	run:
 		"""
 			cd v2
-			make wait-and-publish PIDS="\(strings.Join([ for k, v in _#images { "--pid \(v.ospid)=$(skopeo inspect --override-os=linux --format \"{{.Digest}}\" docker://\(_#registry)/\(v.name):$TAG)" }], " "))"
+			make wait-and-publish PIDS="\(strings.Join([ for k, v in _#images {"--pid \(v.ospid)=$(skopeo inspect --override-os=linux --format \"{{.Digest}}\" docker://\(_#registry)/\(v.name):$TAG)"}], " "))"
 			"""
 }
 
@@ -511,44 +514,86 @@ _#checkRunObject: {
 	}
 }
 
-_#githubScriptBaseStep: _#step & {
-	uses: "actions/github-script@v3"
-	with: {
-		"github-token": "${{secrets.GITHUB_TOKEN}}"
+_#checkRunPatch: {
+	status?:     "queued" | "in_progress" | "completed" | string
+	conclusion?: "action_required" | "cancelled" | "failure" | "neutral" | "success" | "skipped" | "stale" | "timed_out" | string
+	output?: {
+		title:   string
+		summary: string
+		text?:   string
 	}
 }
 
-_#githubActionBuildScript: {
-	#args:       _#checkRunObject
-	#scriptArgs: strings.Join([ for k, v in #args if k != "output" && v != null {"\(k): '\(v)'"}], ",\n")
-	res:
-		"""
-	var obj = {
-	owner: context.repo.owner,
-	repo: context.repo.repo,
-	\(#scriptArgs)
+_#setOutput: {
+	#args: {
+		name:  string
+		value: string
 	}
-	"""
+	res: #"echo "::set-output name=\#(#args.name):\#(#args.value)"#
+}
+
+_#setEnv: {
+	#args: {
+		name:  string
+		value: string
+	}
+	res: #"echo \#(#args.name)=\#(#args.value) >> $GITHUB_ENV"#
+}
+
+_#findCheckRun: {
+	_#args: {
+		name:     string
+		head_sha: string
+	}
+	res: _#step & {
+		name: "Find checkRun with name \(_#args.name)"
+		run:  """
+			RESULT=$(curl \\
+			-X POST \\
+			-H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \\
+			-H "Accept: application/vnd.github.v3+json" \\
+			https://api.github.com/repos/$GITHUB_REPOSITORY/refs/\(_#args.head_sha)/check-runs)
+			ID=$(echo $RESULT | jq '.check_runs[]? | select(.name == "\(_#args.name)") | .id')
+			CHECKSUITE_ID=$(echo $RESULT | jq '.check_runs[]? | select(.name == "\(_#args.name)") | .check_suite.id')
+			\((_#setEnv & {#args: {name: "checkrun_id", value: "$ID"}}).res)
+			\((_#setEnv & {#args: {name: "checksuite_id", value: "$CHECKSUITE_ID"}}).res)
+			"""
+	}
 }
 
 _#githubCreateActionStep: {
 	_#args: _#checkRunObject
-	res:    _#githubScriptBaseStep & {
-		with: script:
+	res:    _#step & {
+		name: "Create checkRun with name \(_#args.name)"
+		run:
 			"""
-			\((_#githubActionBuildScript & {#args: _#args}).res)
-			return await github.request('POST /repos/{owner}/{repo}/check-runs', obj)
+			RESULT=$(curl -X POST \\
+			-H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \\
+			-H "Accept: application/vnd.github.v3+json" \\
+			https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs \\
+			-d \(strconv.Quote(encjson.Marshal(_#args))) )
+			ID=$(echo $RESULT | jq '.id')
+			CHECKSUITE_ID=$(echo $RESULT | jq '.check_suite.id')
+			\((_#setEnv & {#args: {name: "checkrun_id", value: "$ID"}}).res)
+			\((_#setEnv & {#args: {name: "checksuite_id", value: "$CHECKSUITE_ID"}}).res)
 			"""
 	}
 }
 
 _#githubUpdateActionStep: {
-	_#args: _#checkRunObject
-	res:    _#githubScriptBaseStep & {
-		with: script:
+	_#args: {
+		check_run_id: string
+		patch:        _#checkRunPatch
+	}
+	res: _#step & {
+		name: "Update checkRun with id\(_#args.check_run_id)"
+		run:
 			"""
-			\((_#githubActionBuildScript & {#args: _#args}).res)
-			return await github.request('PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}', obj)
+			curl -X PATCH \\
+				-H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \\
+				-H "Accept: application/vnd.github.v3+json" \\
+				https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs/\(_#args.check_run_id) \\
+				-d \(strconv.Quote(encjson.Marshal(_#args.patch)))
 			"""
 	}
 }

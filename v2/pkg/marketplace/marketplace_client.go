@@ -22,6 +22,7 @@ import (
 	ioutil "io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"emperror.dev/errors"
 	jwt "github.com/dgrijalva/jwt-go"
@@ -36,6 +37,7 @@ var logger = logf.Log.WithName("marketplace")
 
 const (
 	ProductionURL = "https://marketplace.redhat.com"
+	StageURL      = "https://sandbox.marketplace.redhat.com"
 )
 
 // endpoints
@@ -52,6 +54,7 @@ type MarketplaceClientConfig struct {
 	Url      string
 	Token    string
 	Insecure bool
+	Claims   *MarketplaceClaims
 }
 
 type MarketplaceClientAccount struct {
@@ -72,6 +75,20 @@ type RegisteredAccount struct {
 
 func NewMarketplaceClient(clientConfig *MarketplaceClientConfig) (*MarketplaceClient, error) {
 	var tlsConfig *tls.Config
+
+	marketplaceURL := ProductionURL
+
+	if clientConfig.Claims != nil &&
+		strings.ToLower(clientConfig.Claims.Env) == strings.ToLower(EnvStage) {
+		marketplaceURL = StageURL
+		logger.V(2).Info("using stage for marketplace url", "url", marketplaceURL)
+	}
+
+	if clientConfig.Url != "" {
+		marketplaceURL = clientConfig.Url
+		logger.V(2).Info("using env override for marketplace url", "url", marketplaceURL)
+	}
+	logger.Info("marketplace url set to", "url", marketplaceURL)
 
 	if clientConfig.Insecure {
 		tlsConfig = &tls.Config{InsecureSkipVerify: true}
@@ -94,7 +111,7 @@ func NewMarketplaceClient(clientConfig *MarketplaceClientConfig) (*MarketplaceCl
 		transport = WithBearerAuth(transport, clientConfig.Token)
 	}
 
-	u, err := url.Parse(clientConfig.Url)
+	u, err := url.Parse(marketplaceURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse url")
 	}
@@ -317,24 +334,27 @@ func (mhttp *MarketplaceClient) GetMarketplaceSecret() (*corev1.Secret, error) {
 type MarketplaceClaims struct {
 	AccountID string `json:"rhmAccountId"`
 	APIKey    string `json:"iam_apikey,omitempty"`
+	Env       string `json:"env,omitempty"`
 	jwt.StandardClaims
 }
 
-// GetAccountIdFromJWTToken will parse JWT token and fetch the rhmAccountId
-func GetAccountIdFromJWTToken(jwtToken string) (string, error) {
+const EnvStage = "stage"
+
+// GetJWTTokenClaims will parse JWT token and fetch the rhmAccountId
+func GetJWTTokenClaim(jwtToken string) (*MarketplaceClaims, error) {
 	// TODO: add verification of public key
 	//token, err := jwt.Parse(jwtToken, nil)
 	token, _, err := new(jwt.Parser).ParseUnverified(jwtToken, &MarketplaceClaims{})
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	claims, ok := token.Claims.(*MarketplaceClaims)
 
 	if !ok {
-		return "", errors.New("token claims is not *MarketplaceClaims")
+		return nil, errors.New("token claims is not *MarketplaceClaims")
 	}
 
-	return claims.AccountID, nil
+	return claims, nil
 }

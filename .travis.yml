@@ -25,6 +25,7 @@ jobs:
     env: ARCH=amd64
   - stage: manifest
     if: false
+    env: ARCHS="amd64"
     script: |-
       echo "making manifest for $VERSION"
       make docker-manifest

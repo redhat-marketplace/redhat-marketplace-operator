@@ -7,10 +7,16 @@ on:
     - bundle
 env:
   IMAGE_REGISTRY: quay.io/rh-marketplace
+  BRANCH: ${{github.event.client_payload.branch}}
+  DEPLOY_SHA: ${{github.event.client_payload.sha}}
+  IS_PR: ${{github.event.client_payload.pull_request}}
 jobs:
   deploy:
     name: Deploy Bundle
     runs-on: ubuntu-20.04
+    outputs:
+      version: ${{ steps.bundle.outputs.version }}
+      tag: ${{ steps.bundle.outputs.tag }}
     defaults:
       run:
         shell: bash
@@ -53,13 +59,22 @@ jobs:
       name: Build bundle
       run: |-
         cd v2
-        export VERSION=$(cd ./tools && go run ./version/main.go)-${GITHUB_SHA}
-        export TAG=${VERSION}-amd64
-        echo "::group::Make Bundle"
-        make bundle
-        echo "::endgroup::"
-        echo "::group::Make Stable"
+        export VERSION=$(cd ./tools && go run ./version/main.go)
+        export TAG=${VERSION}-${DEPLOY_SHA}-amd64
+        export IMAGE_REGISTRY=registry.connect.redhat.com/rh-marketplace
+        echo "::group::Make Stable Bundle"
         make bundle-stable
+        echo "::endgroup::"
+
+        if [ "$IS_PR" == "false" ] && [ "$BRANCH" != "" ] ; then
+        export VERSION="${VERSION}-${BRANCH}-${GITHUB_RUN_NUMBER}"
+        else
+        export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
+        export IMAGE_REGISTRY=quay.io/rh-marketplace
+        fi
+
+        echo "::group::Make Bundle Build"
+        make bundle-build
         echo "::endgroup::"
         echo "::group::Make Deploy"
         make bundle-deploy
@@ -67,16 +82,21 @@ jobs:
         echo "::group::Make Dev Index"
         make bundle-dev-index
         echo "::endgroup::"
-      env:
-        GITHUB_SHA: ${{github.event.client_payload.sha}}
+
+        echo "::set-output name=version::$VERSION"
+        echo "::set-output name=tag::$TAG"
   publish:
     name: Publish Images
     needs:
     - deploy
     runs-on: ubuntu-20.04
+    env:
+      VERSION: ${{ needs.deploy.outputs.version }}
+      TAG: ${{ needs.deploy.outputs.tag }}
     defaults:
       run:
         shell: bash
+    if: github.event.client_payload.pull_request != 'false'
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
@@ -107,15 +127,23 @@ jobs:
     - id: mirror
       name: Mirror images
       run: |-
-        cd v2
-        export VERSION=$(cd ./tools && go run ./version/main.go)-${GITHUB_SHA}
-        export TAG=${VERSION}-amd64
-        echo "::set-output name=version::$VERSION"
-        echo "::set-output name=tag::$TAG"
-        skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}}
-        skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG docker://scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordMetricState']}}
-        skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG docker://scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordReporter']}}
-        skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}}
+        echo "::group::Push scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG"
+        skopeo inspect docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}} > /dev/null
+        ([[ $? == 0 ]] && echo "exists=true" || skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}})
+        echo "::endgroup::"
+        echo "::group::Push scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG"
+        skopeo inspect docker://scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordMetricState']}} > /dev/null
+        ([[ $? == 0 ]] && echo "exists=true" || skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG docker://scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordMetricState']}})
+        echo "::endgroup::"
+        echo "::group::Push scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG"
+        skopeo inspect docker://scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordReporter']}} > /dev/null
+        ([[ $? == 0 ]] && echo "exists=true" || skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG docker://scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordReporter']}})
+        echo "::endgroup::"
+        echo "::group::Push scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG"
+        skopeo inspect docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}} > /dev/null
+        ([[ $? == 0 ]] && echo "exists=true" || skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}})
+        echo "::endgroup::"
+      shell: bash {0}
     - name: Login to Docker Hub
       uses: docker/login-action@v1
       with:
@@ -127,12 +155,14 @@ jobs:
         cd v2
         make wait-and-publish PIDS="--pid ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd=$(skopeo inspect --override-os=linux --format "{{.Digest}}" docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG) --pid ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4=$(skopeo inspect --override-os=linux --format "{{.Digest}}" docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG) --pid ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e=$(skopeo inspect --override-os=linux --format "{{.Digest}}" docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG) --pid ospid-ffed416e-c18d-4b88-8660-f586a4792785=$(skopeo inspect --override-os=linux --format "{{.Digest}}" docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG)"
       env:
-        TAG: ${{ steps.mirror.outputs.tag }}
         RH_CONNECT_TOKEN: ${{ secrets.redhat_api_key }}
       continue-on-error: true
     - name: Copy Manifest
-      run: skopeo copy docker://quay.io/rh-marketplace/redhat-marketplace-operator-manifest:$TAG
-        docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$TAG
-        --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}}
+      run: |-
+        echo "::group::Push scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$VERSION"
+        skopeo inspect docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$VERSION --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}} > /dev/null
+        ([[ $? == 0 ]] && echo "exists=true" || skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-operator-manifest:$VERSION docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$VERSION --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}})
+        echo "::endgroup::"
+      shell: bash {0}
       env:
-        TAG: ${{ steps.mirror.outputs.version }}
+        TAG: ${{ steps.deploy.outputs.version }}
