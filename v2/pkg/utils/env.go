@@ -94,7 +94,6 @@ var (
 
 	/* Labels*/
 	LABEL_RHM_OPERATOR_WATCH = []string{"marketplace.redhat.com/watch", "true"}
-	IMB_CERT_LABELS = []string{"app.kubernetes.io/managed-by","OLM","app.kubernetes.io/instance", "default","redhat.marketplace.com/name","redhat-marketplace-operator"}
 )
 
 // Getenv will return the value for the passed key (which is typically an environment variable)
