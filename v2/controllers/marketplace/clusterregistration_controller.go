@@ -162,7 +162,6 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 				annotations[utils.RHMPullSecretStatus] = "success"
 				annotations[utils.RHMPullSecretMessage] = "rhm-operator-secret generated successfully"
 				rhmPullSecret.SetAnnotations(annotations)
-				
 				if err := r.Client.Update(context.TODO(), &rhmPullSecret); err != nil {
 					reqLogger.Error(err, "Failed to patch secret with Endpoint status")
 					return reconcile.Result{}, err
