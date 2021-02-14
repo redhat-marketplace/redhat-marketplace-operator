@@ -248,7 +248,12 @@ func (f *Factory) NewPrometheus(
 		p.Annotations = make(map[string]string)
 	}
 
+	if p.Spec.PodMetadata.Annotations == nil {
+		p.Spec.PodMetadata.Annotations = make(map[string]string)
+	}
+
 	p.Annotations = f.addCertAnnotations(p.Annotations)
+	p.Spec.PodMetadata.Annotations = f.addCertAnnotations(p.Spec.PodMetadata.Annotations)
 
 	return p, nil
 }
@@ -674,6 +679,11 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 			Labels: map[string]string{
 				"razee/watch-resource": "lite",
 			},
+			Annotations: map[string]string{
+				"productID": "068a62892a1e4db39641342e592daa25",
+				"productMetric": "FREE",
+				"productName": "IBM Cloud Platform Common Services",
+			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: rep,
@@ -696,6 +706,11 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 						"app":                  utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
 						"razee/watch-resource": "lite",
 						"owned-by":             "marketplace.redhat.com-razee",
+					},
+					Annotations: map[string]string{
+						"productID": "068a62892a1e4db39641342e592daa25",
+						"productMetric": "FREE",
+						"productName": "IBM Cloud Platform Common Services",
 					},
 					Name: utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
 				},
@@ -836,6 +851,11 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 			Labels: map[string]string{
 				"razee/watch-resource": "lite",
 			},
+			Annotations: map[string]string{
+				"productID": "068a62892a1e4db39641342e592daa25",
+				"productMetric": "FREE",
+				"productName": "IBM Cloud Platform Common Services",
+			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: rep,
@@ -858,6 +878,11 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 						"app":                  utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 						"razee/watch-resource": "lite",
 						"owned-by":             "marketplace.redhat.com-razee",
+					},
+					Annotations: map[string]string{
+						"productID": "068a62892a1e4db39641342e592daa25",
+						"productMetric": "FREE",
+						"productName": "IBM Cloud Platform Common Services",
 					},
 					Name: utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 				},
