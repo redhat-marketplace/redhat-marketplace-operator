@@ -121,11 +121,36 @@ func(f *Factory) addCertAnnotations(inAnnotations map[string]string)(map[string]
 	return inAnnotations
 }
 
+func(f *Factory) addCertLabels(inLabels map[string]string)(map[string]string){
+	certLabels := map[string]string{
+		"redhat.marketplace.com/name" : "redhat-marketplace-operator",
+		"app.kubernetes.io/managed-by": "OLM",
+		"app.kubernetes.io/instance": "default",
+	}
+
+	for k,v := range certLabels{
+		inLabels[k] = v
+	}
+	
+	return inLabels
+}
+
 func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
 	d, err := NewDeployment(manifest)
 	if err != nil {
 		return nil, err
 	}
+
+	if d.GetLabels() == nil {
+		d.Labels = make(map[string]string)
+	}
+
+	if d.Spec.Template.GetLabels() == nil {
+		d.Spec.Template.Labels = make(map[string]string)
+	}
+
+	d.Spec.Template.Labels = f.addCertLabels(d.Spec.Template.Labels)
+	d.Labels = f.addCertLabels(d.Labels)
 
 	if d.GetNamespace() == "" {
 		d.SetNamespace(f.namespace)
@@ -171,6 +196,12 @@ func (f *Factory) NewService(manifest io.Reader) (*corev1.Service, error) {
 	}
 
 	d.Annotations = f.addCertAnnotations(d.Annotations)
+	
+	if d.GetLabels() == nil {
+		d.Labels = make(map[string]string)
+	}
+
+	d.Labels = f.addCertLabels(d.Labels)
 
 	return d, nil
 }
@@ -190,6 +221,12 @@ func (f *Factory) NewConfigMap(manifest io.Reader) (*corev1.ConfigMap, error) {
 	}
 
 	d.Annotations = f.addCertAnnotations(d.Annotations)
+	
+	if d.GetLabels() == nil {
+		d.Labels = make(map[string]string)
+	}
+
+	d.Labels = f.addCertLabels(d.Labels)
 
 	return d, nil
 }
@@ -209,6 +246,12 @@ func (f *Factory) NewSecret(manifest io.Reader) (*v1.Secret, error) {
 	}
 
 	s.Annotations = f.addCertAnnotations(s.Annotations)
+	
+	if s.GetLabels() == nil {
+		s.Labels = make(map[string]string)
+	}
+
+	s.Labels = f.addCertLabels(s.Labels)
 
 	return s, nil
 }
@@ -228,6 +271,12 @@ func (f *Factory) NewJob(manifest io.Reader) (*batchv1.Job, error) {
 	}
 
 	j.Annotations = f.addCertAnnotations(j.Annotations)
+	
+	if j.GetLabels() == nil {
+		j.Labels = make(map[string]string)
+	}
+
+	j.Labels = f.addCertLabels(j.Labels)
 
 	return j, nil
 }
@@ -254,6 +303,23 @@ func (f *Factory) NewPrometheus(
 
 	p.Annotations = f.addCertAnnotations(p.Annotations)
 	p.Spec.PodMetadata.Annotations = f.addCertAnnotations(p.Spec.PodMetadata.Annotations)
+	
+	if p.GetLabels() == nil {
+		p.Labels = make(map[string]string)
+	}
+
+	if p.Spec.PodMetadata == nil {
+		p.Spec.PodMetadata = &monitoringv1.EmbeddedObjectMetadata{
+			Labels: map[string]string{
+				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
+				"app.kubernetes.io/managed-by": "OLM",
+				"app.kubernetes.io/instance": "default",
+			},
+		}
+	}
+
+	p.Labels = f.addCertLabels(p.Labels)
+	p.Spec.PodMetadata.Labels = f.addCertLabels(p.Spec.PodMetadata.Labels)
 
 	return p, nil
 }
@@ -678,6 +744,9 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 			Namespace: f.namespace,
 			Labels: map[string]string{
 				"razee/watch-resource": "lite",
+				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
+				"app.kubernetes.io/managed-by": "OLM",
+				"app.kubernetes.io/instance": "default",
 			},
 			Annotations: map[string]string{
 				"productID": "068a62892a1e4db39641342e592daa25",
@@ -706,6 +775,9 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 						"app":                  utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
 						"razee/watch-resource": "lite",
 						"owned-by":             "marketplace.redhat.com-razee",
+						"redhat.marketplace.com/name" : "redhat-marketplace-operator",
+						"app.kubernetes.io/managed-by": "OLM",
+						"app.kubernetes.io/instance": "default",
 					},
 					Annotations: map[string]string{
 						"productID": "068a62892a1e4db39641342e592daa25",
@@ -850,6 +922,9 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 			Namespace: f.namespace,
 			Labels: map[string]string{
 				"razee/watch-resource": "lite",
+				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
+				"app.kubernetes.io/managed-by": "OLM",
+				"app.kubernetes.io/instance": "default",
 			},
 			Annotations: map[string]string{
 				"productID": "068a62892a1e4db39641342e592daa25",
@@ -878,6 +953,9 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 						"app":                  utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 						"razee/watch-resource": "lite",
 						"owned-by":             "marketplace.redhat.com-razee",
+						"redhat.marketplace.com/name" : "redhat-marketplace-operator",
+						"app.kubernetes.io/managed-by": "OLM",
+						"app.kubernetes.io/instance": "default",
 					},
 					Annotations: map[string]string{
 						"productID": "068a62892a1e4db39641342e592daa25",

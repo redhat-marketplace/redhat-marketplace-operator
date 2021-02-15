@@ -171,6 +171,7 @@ docker-manifest:
 	docker manifest push $(IMAGE)
 
 CSV_YAML_BUNDLE_FILE=bundle/manifests/redhat-marketplace-operator.clusterserviceversion.yaml
+CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
@@ -184,6 +185,8 @@ bundle: clean manifests kustomize helm
 	--post-renderer ./config/manifests/kustomize | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	yq eval -i '.spec.webhookdefinitions[].targetPort = 9443' $(CSV_YAML_BUNDLE_FILE)
 	yq eval -i '.spec.webhookdefinitions[].containerPort = 9443' $(CSV_YAML_BUNDLE_FILE)
+	yq eval -i ".spec.metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
+	yq eval -i ".spec.metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
 	operator-sdk bundle validate ./bundle
 	#Generate a copy of the resultant yaml files to the deploy directory - this is only used for content certification linting
 	rm -rf ./deploy && mkdir -p ./deploy ./deploy/crds && \
@@ -211,8 +214,10 @@ bundle-deploy:
 bundle-run:
 	operator-sdk run bundle $(BUNDLE_IMG)
 
+BUNDLE_IMAGE_REGISTRY ?= $(IMAGE_REGISTRY)
+
 bundle-stable:
-	$(MAKE) bundle CHANNELS=stable DEFAULT_CHANNEL=stable
+	$(MAKE) bundle CHANNELS=stable DEFAULT_CHANNEL=stable IMAGE_REGISTRY=$(BUNDLE_IMAGE_REGISTRY)
 
 VERSIONS_LIST ?= $(BUNDLE_IMG)
 

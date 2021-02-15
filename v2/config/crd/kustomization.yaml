@@ -10,6 +10,11 @@ resources:
 - bases/marketplace.redhat.com_remoteresources3s.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
+commonLabels:
+  redhat.marketplace.com/name: redhat-marketplace-operator
+  app.kubernetes.io/managed-by: OLM
+  app.kubernetes.io/instance: default
+  
 patchesStrategicMerge:
 - patches/remotes3_disable_preserve_unknown_fields.yaml
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
