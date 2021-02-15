@@ -2,6 +2,9 @@ package ci
 
 import (
 	json "github.com/SchemaStore/schemastore/src/schemas/json/travis"
+	"strings"
+	encjson "encoding/json"
+	"strconv"
 )
 
 travisDir: *"." | string @tag(travisDir)
@@ -14,15 +17,18 @@ travis: [
 	},
 ]
 
-_#archs: ["amd64", "ppc64le", "s390x"]
-_#registry:  "quay.io/rh-marketplace"
-_#goVersion: "1.15.6"
+_#archs_old: ["amd64", "ppc64le", "s390x"]
+
+_#archs: ["amd64"] // disabling others for now
+_#registry:        "quay.io/rh-marketplace"
+_#goVersion:       "1.15.6"
+_#branchTarget:    "/^(master|develop|release.*|hotfix.*)$/"
 
 travisSchema: {
 	version: "~> 1.0"
 	dist:    "focal"
 	if: """
-		branch = master || branch = develop
+		(type = push && (branch = master || branch = develop)) || (type = pull_request && (branch = master))
 		"""
 	language: "go"
 	services: ["docker"]
@@ -46,9 +52,27 @@ travisSchema: {
 			},
 			{
 				stage: "manifest"
+				if:    len(_#archs) > 1
+				env:   #"ARCHS="\#(strings.Join(_#archs, " "))""#
 				script: """
 					echo "making manifest for $VERSION"
 					make docker-manifest
+					"""
+			},
+			{
+				#args: {
+					event_type: "bundle"
+					client_payload: {
+						sha:                 "$TRAVIS_COMMIT"
+						branch:              "$TRAVIS_BRANCH"
+						pull_request_branch: "$TRAVIS_PULL_REQUEST_BRANCH"
+						pull_request:        "$TRAVIS_PULL_REQUEST"
+					}
+				}
+				stage:  "bundle"
+				if:     "(type = pull_request && head_branch =~ \(_#branchTarget)) || (type = push && branch =~ \(_#branchTarget))"
+				script: """
+					curl -X POST -H "Authorization: token ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/redhat-marketplace/redhat-marketplace-operator/dispatches -d \(strconv.Quote(encjson.Marshal(#args)))
 					"""
 			},
 		]

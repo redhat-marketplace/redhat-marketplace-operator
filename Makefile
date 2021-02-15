@@ -77,16 +77,16 @@ LICENSE=$(GOBIN)/addlicense
 endif
 
 operator/%:
-	cd ./v2 && $(MAKE) $(@F)
+	@cd ./v2 && $(MAKE) $(@F)
 
 reporter/%:
-	cd ./reporter/v2 && $(MAKE) $(@F)
+	@cd ./reporter/v2 && $(MAKE) $(@F)
 
 metering/%:
-	cd ./metering/v2 && $(MAKE) $(@F)
+	@cd ./metering/v2 && $(MAKE) $(@F)
 
 authchecker/%:
-	cd ./authchecker/v2 && $(MAKE) $(@F)
+	@cd ./authchecker/v2 && $(MAKE) $(@F)
 
 base/%:
 	cd ./base && $(MAKE) $(@F)

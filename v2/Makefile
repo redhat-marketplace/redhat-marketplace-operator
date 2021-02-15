@@ -171,6 +171,7 @@ docker-manifest:
 	docker manifest push $(IMAGE)
 
 CSV_YAML_BUNDLE_FILE=bundle/manifests/redhat-marketplace-operator.clusterserviceversion.yaml
+CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
@@ -184,6 +185,8 @@ bundle: clean manifests kustomize helm
 	--post-renderer ./config/manifests/kustomize | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	yq eval -i '.spec.webhookdefinitions[].targetPort = 9443' $(CSV_YAML_BUNDLE_FILE)
 	yq eval -i '.spec.webhookdefinitions[].containerPort = 9443' $(CSV_YAML_BUNDLE_FILE)
+	yq eval -i ".spec.metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
+	yq eval -i ".spec.metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
 	operator-sdk bundle validate ./bundle
 	#Generate a copy of the resultant yaml files to the deploy directory - this is only used for content certification linting
 	rm -rf ./deploy && mkdir -p ./deploy ./deploy/crds && \
@@ -199,7 +202,11 @@ bundle: clean manifests kustomize helm
 # Build the bundle image.
 .PHONY: bundle-build
 bundle-build:
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
+	--label com.redhat.openshift.versions="v4.5,v4.6" \
+  --label com.redhat.delivery.operator.bundle=true \
+	--label com.redhat.delivery.backport=true \
+	.
 
 bundle-deploy:
 	docker push $(BUNDLE_IMG)
@@ -208,7 +215,7 @@ bundle-run:
 	operator-sdk run bundle $(BUNDLE_IMG)
 
 bundle-stable:
-	$(MAKE) bundle bundle-build CHANNELS=stable DEFAULT_CHANNEL=stable
+	$(MAKE) bundle CHANNELS=stable DEFAULT_CHANNEL=stable
 
 VERSIONS_LIST ?= $(BUNDLE_IMG)
 
@@ -237,7 +244,7 @@ helm:
 	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
      --post-renderer ./helm-wrapper/kustomize
 
-install:
+install: kustomize helm
 	cd config && $(HELM) template rhm-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
@@ -263,70 +270,41 @@ skaffold-dev: install
 skaffold-run:
 	skaffold run --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
 
+current-version:
+	@echo $(VERSION)
+
+TAG ?= ""
+CREDS ?= ""
+TIMEOUT ?= 15
+PIDs ?=
+
+wait-and-publish:
+	cd tools/connect ; \
+	go run main.go wait-and-publish --timeout $(TIMEOUT) --tag $(TAG) $(PIDS)
+
 # --TOOLS--
 #
 # find or download controller-gen
 # download controller-gen if necessary
+CONTROLLER_GEN=$(shell pwd)/bin/controller-gen
 controller-gen:
-ifeq (, $(shell which controller-gen))
-	@{ \
-	set -e ;\
-	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$CONTROLLER_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.3.0 ;\
-	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
-	}
-CONTROLLER_GEN=$(GOBIN)/controller-gen
-else
-CONTROLLER_GEN=$(shell which controller-gen)
-endif
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.3.0)
 
+CODEGEN_PKG=$(GOPATH)/src/k8s.io/code-generator
 code-generator:
-ifeq (, $(shell ls $(GOPATH)/src/k8s.io/code-generator))
-	@{ \
-	set -e ;\
-	K8S_CODEGEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$K8S_CODEGEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/k8s.io/code-generator@v0.19.4 ;\
-	rm -rf $$K8S_CODEGEN_TMP_DIR ;\
+	@[ -d $(CODEGEN_PKG) ] || { \
+	GO111MODULE=off go get k8s.io/code-generator ;\
 	}
-CODEGEN_PKG=$(GOPATH)/src/k8s.io/code-generator
-else
-CODEGEN_PKG=$(GOPATH)/src/k8s.io/code-generator
-endif
 
+KUSTOMIZE=$(shell pwd)/bin/kustomize
 kustomize:
-ifeq (, $(shell which kustomize))
-	@{ \
-	set -e ;\
-	KUSTOMIZE_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$KUSTOMIZE_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/kustomize/kustomize/v3@v3.5.4 ;\
-	rm -rf $$KUSTOMIZE_GEN_TMP_DIR ;\
-	}
-KUSTOMIZE=$(GOBIN)/kustomize
-else
-KUSTOMIZE=$(shell which kustomize)
-endif
+	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v3.5.4)
+
 export KUSTOMIZE
 
+OPENAPI_GEN=$(shell pwd)/bin/openapi-gen
 openapi-gen:
-ifeq (, $(shell which openapi-gen))
-	@{ \
-	set -e ;\
-	OPENAPI_GEN_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$OPENAPI_GEN_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get github.com/kubernetes/kube-openapi/cmd/openapi-gen@690f563a49b523b7e87ea117b6bf448aead23b09 ;\
-	rm -rf $$OPENAPI_GEN_GEN_TMP_DIR ;\
-	}
-OPENAPI_GEN=$(GOBIN)/openapi-gen
-else
-OPENAPI_GEN=$(shell which openapi-gen)
-endif
+	$(call go-get-tool,$(OPENAPI_GEN),github.com/kubernetes/kube-openapi/cmd/openapi-gen@690f563a49b523b7e87ea117b6bf448aead23b09)
 
 helm:
 ifeq (, $(shell which helm))
@@ -334,7 +312,6 @@ ifeq ($(UNAME_S),Linux)
 	curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
 endif
 ifeq ($(UNAME_S),Darwin)
-	brew install skaffold
 	brew install helm
 endif
 endif
@@ -343,7 +320,7 @@ HELM=$(shell which helm)
 skaffold:
 ifeq (, $(shell which skaffold))
 ifeq ($(UNAME_S),Linux)
-	curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-darwin-amd64 && \
+	curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64 && \
 	sudo install skaffold /usr/local/bin/
 endif
 ifeq ($(UNAME_S),Darwin)
@@ -354,58 +331,39 @@ else
 SKAFFOLD=$(shell which skaffold)
 endif
 
+GINKGO=$(shell pwd)/bin/ginkgo
 ginkgo:
-ifeq (, $(shell which ginkgo))
-	@{ \
-	set -e ;\
-	GINKGO_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$GINKGO_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get -u github.com/onsi/ginkgo/ginkgo ;\
-	rm -rf $$GINKGO_GEN_TMP_DIR ;\
-	}
-GINKGO=$(GOBIN)/ginkgo
-else
-GINKGO=$(shell which ginkgo)
-endif
+	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/ginkgo)
 
+GOBINDATA=$(shell pwd)/bin/go-bindata
 go-bindata:
-ifeq (, $(shell which go-bindata))
-	@{ \
-	set -e ;\
-	GOBINDATA_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$GOBINDATA_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get -u github.com/kevinburke/go-bindata/... ;\
-	rm -rf $$GO-BINDATA_GEN_TMP_DIR ;\
-	}
-GOBINDATA=$(GOBIN)/go-bindata
-else
-GOBINDATA=$(shell which go-bindata)
-endif
+	$(call go-get-tool,$(GOBINDATA),github.com/kevinburke/go-bindata/...)
 
+LICENSE=$(shell pwd)/bin/addlicense
 addlicense:
-ifeq (, $(shell which addlicense))
-	@{ \
-	set -e ;\
-	GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get -u github.com/google/addlicense ;\
-	rm -rf $$GEN_TMP_DIR ;\
-	}
-LICENSE=$(GOBIN)/addlicense
-else
-LICENSE=$(GOBIN)/addlicense
-endif
+	$(call go-get-tool,$(LICENSE),github.com/google/addlicense)
 
+OPM=$(shell pwd)/bin/opm
 opm:
-ifeq (, $(shell which addlicense))
-	@{ \
-	curl -LO https://github.com/operator-framework/operator-registry/releases/download/$(opm_version)/$(UNAME)-amd64-opm ;\
-	chmod +x $(UNAME)-amd64-opm && mv $(UNAME)-amd64-opm /usr/local/bin/opm ;\
+	@[ -f $(OPM) ] || { \
+	set -e ;\
+	TMP_DIR=$$(mktemp -d) ;\
+	cd $$TMP_DIR ;\
+	curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.13.7/$(UNAME)-$(ARCH)-opm ;\
+	chmod +x $(UNAME)-$(ARCH)-opm && mv $(UNAME)-$(ARCH)-opm $(OPM) ;\
+	rm -rf $$TMP_DIR ;\
 	}
-OPM=/usr/local/bin/opm
-else
-OPM=$(shell which opm)
-endif
+
+# go-get-tool will 'go get' any package $2 and install it to $1.
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+define go-get-tool
+@[ -f $(1) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+go mod init tmp ;\
+echo "Downloading $(2)" ;\
+GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
+rm -rf $$TMP_DIR ;\
+}
+endef

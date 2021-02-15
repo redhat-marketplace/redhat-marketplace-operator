@@ -45,4 +45,4 @@ jobs:
         sudo mv /tmp/kubebuilder_2.3.1_${os}_${arch} /usr/local/kubebuilder
         echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
     - name: Test
-      run: make test
+      run: "\tmake test"

@@ -2,7 +2,9 @@ package ci
 
 import (
 	"strings"
+	"strconv"
 	json "github.com/SchemaStore/schemastore/src/schemas/json/github"
+	encjson "encoding/json"
 )
 
 workflowsDir: *"./" | string @tag(workflowsDir)
@@ -14,8 +16,8 @@ workflows: [
 		schema: unit_test
 	},
 	{
-		file:   "event.yml"
-		schema: check_suite
+		file:   "bundle.yml"
+		schema: bundle
 	},
 ]
 
@@ -55,72 +57,62 @@ unit_test: _#bashWorkflow & {
 				_#step & {
 					name: "Test"
 					run: """
-						make test
+							make test
 						"""
 				},
 			]
 		}
 	}
 }
-
-check_suite: _#bashWorkflow & {
-  name: "Check Suite"
-  on: ["check_suite"]
-	env: {
-		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
-	}
-	jobs: {
-    print: _#job & {
-      name: "Print"
-			"runs-on": _#linuxMachine
-      steps: [
-        _#step & {
-					name: "Print event"
-					run: """
-					cat << EOF | echo
-					${{ toJSON(github.event) }}
-					EOF
-					"""
-        }
-      ]
-    }
-  }
-}
-
 bundle: _#bashWorkflow & {
 	name: "Deploy Bundle"
-  on: ["check_run"]
+	on: repository_dispatch: types: ["bundle"]
 	env: {
 		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
+		"BRANCH":         "${{github.event.client_payload.branch}}"
+		"DEPLOY_SHA":     "${{github.event.client_payload.sha}}"
+		"IS_PR":          "${{github.event.client_payload.pull_request}}"
 	}
 	jobs: {
-    print: _#job & {
-      name: "Print"
-			"runs-on": _#linuxMachine
-      steps: [
-        _#step & {
-          name: "Print event"
-          run: "echo ${{ toJSON(github.event) }}"
-        }
-      ]
-    }
 		deploy: _#job & {
 			name:      "Deploy Bundle"
-      needs: ["print"]
 			"runs-on": _#linuxMachine
-			if:        "contains(${{ github.event.name }}: \"Travis CI\")"
+			outputs: {
+				version: "${{ steps.bundle.outputs.version }}"
+				tag:     "${{ steps.bundle.outputs.tag }}"
+			}
 			steps: [
-				_#checkoutCode,
+				_#checkoutCode & {
+					with: ref: "${{github.event.client_payload.sha}}"
+				},
 				_#installGo,
 				_#cacheGoModules,
 				_#installOperatorSDK,
+				_#installYQ,
+				_#quayLogin,
 				_#step & {
+					id:   "bundle"
 					name: "Build bundle"
-					run: """
-						VERSION=$(make current-version)-${GITHUB_SHA}
-						TAG=$(make current-version)-${GITHUB_SHA}
+					run:  """
 						cd v2
-						make bundle bundle-stable bundle-deploy bundle-dev-index
+						export VERSION=$(cd ./tools && go run ./version/main.go)
+						export TAG=${VERSION}-${DEPLOY_SHA}-amd64
+						export IMAGE_REGISTRY=registry.connect.redhat.com/rh-marketplace
+						\((_#makeLogGroup & {#args: {name: "Make Stable Bundle", cmd: "make bundle-stable"}}).res)
+
+						if [ "$IS_PR" == "false" ] && [ "$BRANCH" != "" ] ; then
+						export VERSION="${VERSION}-${BRANCH}-${GITHUB_RUN_NUMBER}"
+						else
+						export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
+						export IMAGE_REGISTRY=quay.io/rh-marketplace
+						fi
+
+						\((_#makeLogGroup & {#args: {name: "Make Bundle Build", cmd: "make bundle-build"}}).res)
+						\((_#makeLogGroup & {#args: {name: "Make Deploy", cmd: "make bundle-deploy"}}).res)
+						\((_#makeLogGroup & {#args: {name: "Make Dev Index", cmd: "make bundle-dev-index"}}).res)
+
+						echo "::set-output name=version::$VERSION"
+						echo "::set-output name=tag::$TAG"
 						"""
 				},
 			]
@@ -129,16 +121,22 @@ bundle: _#bashWorkflow & {
 			name:      "Publish Images"
 			"runs-on": _#linuxMachine
 			needs: ["deploy"]
-			if: "(startsWith(github.ref,'refs/heads/release/') || startsWith(github.ref,'refs/heads/hotfix/'))"
+			env: {
+				VERSION: "${{ needs.deploy.outputs.version }}"
+				TAG:     "${{ needs.deploy.outputs.tag }}"
+			}
+			if: "github.event.client_payload.pull_request != 'false'"
 			steps: [
-				_#checkoutCode,
+				_#checkoutCode & {
+					with: ref: "${{github.event.client_payload.sha}}"
+				},
 				_#installGo,
 				_#cacheGoModules,
 				_#installOperatorSDK,
-				_#step & {
-					name: "Mirror images"
-					run:  _#retagCommand
-				},
+				_#retagCommand,
+				_#redhatConnectLogin,
+				_#waitForPublish,
+				_#retagManifestCommand,
 			]
 		}
 	}
@@ -150,7 +148,7 @@ _#bashWorkflow: json.#Workflow & {
 
 // TODO: drop when cuelang.org/issue/390 is fixed.
 // Declare definitions for sub-schemas
-_#on:  ((json.#Workflow & {}).on & {x: _}).x
+_#on:   ((json.#Workflow & {}).on & {x:   _}).x
 _#job:  ((json.#Workflow & {}).jobs & {x: _}).x
 _#step: ((_#job & {steps:                 _}).steps & [_])[0]
 
@@ -168,6 +166,19 @@ _#testStrategy: {
 		"go-version": ["1.13.x", _#codeGenGo, "1.15.x"]
 		os: [_#linuxMachine, _#macosMachine, _#windowsMachine]
 	}
+}
+
+_#makeLogGroup: {
+	#args: {
+		name: string
+		cmd:  string
+	}
+	res:
+		"""
+		echo "::group::\(#args.name)"
+		\(#args.cmd)
+		echo "::endgroup::"
+		"""
 }
 
 _#cancelPreviousRun: _#step & {
@@ -224,7 +235,7 @@ _#loadGitTagPushed: _#step & {
 	name: "Get if gittag is pushed"
 	id:   "tag"
 	run: """
-		VERSION=$(make current-version)
+		VERSION=$(make operator/current-version)
 		RESULT=$(git tag --list | grep -E "$VERSION")
 		IS_TAGGED=false
 		if [ "$RESULT" != "" ] ; then
@@ -289,12 +300,12 @@ _#installOperatorSDK: _#step & {
 		export OS=$(uname | awk '{print tolower($0)}')
 		export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/latest/download
 		curl -LO ${OPERATOR_SDK_DL_URL}/operator-sdk_${OS}_${ARCH}
-		gpg --recv-keys 052996E2A20B5C7E
 		curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt
 		curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt.asc
-		gpg -u "Operator SDK (release) <cncf-operator-sdk@cncf.io>" --verify checksums.txt.asc
 		grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
 		chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
+		curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.15.3/${OS}-${ARCH}-opm
+		chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
 		"""
 }
 
@@ -332,25 +343,25 @@ _#pcUser:    "pcUser"
 
 _#operator: {
 	name:  "redhat-marketplace-operator"
-	ospid: "scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd"
+	ospid: "ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd"
 	pword: "pcPassword"
 }
 
 _#metering: {
 	name:  "redhat-marketplace-metric-state"
-	ospid: "scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4"
+	ospid: "ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4"
 	pword: "pcPasswordMetricState"
 }
 
 _#reporter: {
 	name:  "redhat-marketplace-reporter"
-	ospid: "scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e"
+	ospid: "ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e"
 	pword: "pcPasswordReporter"
 }
 
 _#authchecker: {
-	name:  "redhat-marketplace-authchecker"
-	ospid: "scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785"
+	name:  "redhat-marketplace-authcheck"
+	ospid: "ospid-ffed416e-c18d-4b88-8660-f586a4792785"
 	pword: "pcPasswordAuthCheck"
 }
 
@@ -361,22 +372,104 @@ _#images: [
 	_#authchecker,
 ]
 
-_#registry: "quay.io/rh-marketplace"
+_#registry:       "quay.io/rh-marketplace"
+_#registryRHScan: "scan.connect.redhat.com"
 
 _#manifest: {
 	name:  "redhat-marketplace-operator-manifest"
-	ospid: "scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1"
+	ospid: "ospid-64f06656-d9d4-43ef-a227-3b9c198800a1"
 	pword: "pcPasswordOperatorManifest"
 }
 
 _#repoFromTo: [ for k, v in _#images {
 	pword: "\(v.pword)"
-	from:  "\(_#registry)/\(v.name):$VERSION"
-	to:    "\(v.ospid)/\(v.name):$VERSION"
+	from:  "\(_#registry)/\(v.name):$TAG"
+	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TAG"
 }]
 
-_#skopeoCopyCommands: [ for k, v in _#repoFromTo {"skopeo copy docker://\(v.from) docker://\(v.to) --dest-creds ${{secrets.matrix['\(_#pcUser)']}}:${{secrets.matrix['(v.pword)']}}"}]
-_#retagCommand: strings.Join(_#skopeoCopyCommands, "\n")
+_#manifestFromTo: [ for k, v in [_#manifest] {
+	pword: "\(v.pword)"
+	from:  "\(_#registry)/\(v.name):$VERSION"
+	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$VERSION"
+}]
+
+_#copyImage: {
+	#args: {
+		to:    string
+		from:  string
+		pword: string
+	}
+	res: """
+				echo "::group::Push \(#args.to)"
+				skopeo inspect docker://\(#args.to) --creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}} > /dev/null
+				([[ $? == 0 ]] && echo "exists=true" || skopeo copy --all docker://\(#args.from) docker://\(#args.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}})
+				echo "::endgroup::"
+				"""
+}
+
+_#retagCommandList: [ for k, v in _#repoFromTo {(_#copyImage & {#args: v}).res}]
+
+_#retagCommand: _#step & {
+	id:    "mirror"
+	name:  "Mirror images"
+	shell: "bash {0}"
+	run:   strings.Join(_#retagCommandList, "\n")
+}
+
+_#manifestCopyCommandList: [ for k, v in _#manifestFromTo {(_#copyImage & {#args: v}).res}]
+
+_#retagManifestCommand: _#step & {
+	env: TAG: "${{ steps.deploy.outputs.version }}"
+	name:  "Copy Manifest"
+	shell: "bash {0}"
+	run:   strings.Join(_#manifestCopyCommandList, "\n")
+}
+
+_#registryLoginStep: {
+	#args: {
+		user:     string
+		pass:     string
+		registry: string
+	}
+	res: _#step & {
+		name: "Login to Docker Hub"
+		uses: "docker/login-action@v1"
+		with: {
+			registry: "\(#args.registry)"
+			username: "\(#args.user)"
+			password: "\(#args.pass)"
+		}
+	}
+}
+
+_#quayLogin: (_#registryLoginStep & {
+	#args: {
+		registry: "quay.io/rh-marketplace"
+		user:     "${{secrets['quayUser']}}"
+		pass:     "${{secrets['quayPassword']}}"
+	}
+}).res
+
+_#redhatConnectLogin: (_#registryLoginStep & {
+	#args: {
+		registry: "registry.connect.redhat.com"
+		user:     "${{secrets['REDHAT_IO_USER']}}"
+		pass:     "${{secrets['REDHAT_IO_PASSWORD']}}"
+	}
+}).res
+
+_#waitForPublish: _#step & {
+	name: "Wait for RH publish"
+	env: {
+		RH_CONNECT_TOKEN: "${{ secrets.redhat_api_key }}"
+	}
+	"continue-on-error": true
+	run:
+		"""
+			cd v2
+			make wait-and-publish PIDS="\(strings.Join([ for k, v in _#images {"--pid \(v.ospid)=$(skopeo inspect --override-os=linux --format \"{{.Digest}}\" docker://\(_#registry)/\(v.name):$TAG)"}], " "))"
+			"""
+}
 
 #preset: _#job & {
 	name:      "Preset"
@@ -391,10 +484,10 @@ _#retagCommand: strings.Join(_#skopeoCopyCommands, "\n")
 				name: "Get Vars"
 				id:   "vars"
 				run: """
-					echo "::set-output name=version::$(make current-version)"
+					echo "::set-output name=version::$(make operator/current-version)"
 					echo "::set-output name=tag::sha-$(git rev-parse --short HEAD)"
-					echo "::set-output name=hash::$(make current-version)-$(git rev-parse --short HEAD)"
-					echo "::set-output name=dockertag::${TAGPREFIX}$(make current-version)-${GITHUB_SHA::8}"
+					echo "::set-output name=hash::$(make operator/current-version)-$(git rev-parse --short HEAD)"
+					echo "::set-output name=dockertag::${TAGPREFIX}$(make operator/current-version)-${GITHUB_SHA::8}"
 					echo "::set-output name=quayExpiration::${QUAY_EXPIRATION:-never}"
 					"""
 			},
@@ -406,4 +499,106 @@ _#retagCommand: strings.Join(_#skopeoCopyCommands, "\n")
 		dockertag:      "${{ steps.vars.outputs.dockertag }}"
 		quayExpiration: "${{ steps.vars.outputs.quayExpiration }}"
 	}
+}
+
+_#checkRunObject: {
+	name:          string
+	head_sha:      string
+	check_run_id?: string
+	status?:       "queued" | "in_progress" | "completed" | string
+	conclusion?:   "action_required" | "cancelled" | "failure" | "neutral" | "success" | "skipped" | "stale" | "timed_out" | string
+	output?: {
+		title:   string
+		summary: string
+		text?:   string
+	}
+}
+
+_#checkRunPatch: {
+	status?:     "queued" | "in_progress" | "completed" | string
+	conclusion?: "action_required" | "cancelled" | "failure" | "neutral" | "success" | "skipped" | "stale" | "timed_out" | string
+	output?: {
+		title:   string
+		summary: string
+		text?:   string
+	}
+}
+
+_#setOutput: {
+	#args: {
+		name:  string
+		value: string
+	}
+	res: #"echo "::set-output name=\#(#args.name):\#(#args.value)"#
+}
+
+_#setEnv: {
+	#args: {
+		name:  string
+		value: string
+	}
+	res: #"echo \#(#args.name)=\#(#args.value) >> $GITHUB_ENV"#
+}
+
+_#findCheckRun: {
+	_#args: {
+		name:     string
+		head_sha: string
+	}
+	res: _#step & {
+		name: "Find checkRun with name \(_#args.name)"
+		run:  """
+			RESULT=$(curl \\
+			-X POST \\
+			-H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \\
+			-H "Accept: application/vnd.github.v3+json" \\
+			https://api.github.com/repos/$GITHUB_REPOSITORY/refs/\(_#args.head_sha)/check-runs)
+			ID=$(echo $RESULT | jq '.check_runs[]? | select(.name == "\(_#args.name)") | .id')
+			CHECKSUITE_ID=$(echo $RESULT | jq '.check_runs[]? | select(.name == "\(_#args.name)") | .check_suite.id')
+			\((_#setEnv & {#args: {name: "checkrun_id", value: "$ID"}}).res)
+			\((_#setEnv & {#args: {name: "checksuite_id", value: "$CHECKSUITE_ID"}}).res)
+			"""
+	}
+}
+
+_#githubCreateActionStep: {
+	_#args: _#checkRunObject
+	res:    _#step & {
+		name: "Create checkRun with name \(_#args.name)"
+		run:
+			"""
+			RESULT=$(curl -X POST \\
+			-H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \\
+			-H "Accept: application/vnd.github.v3+json" \\
+			https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs \\
+			-d \(strconv.Quote(encjson.Marshal(_#args))) )
+			ID=$(echo $RESULT | jq '.id')
+			CHECKSUITE_ID=$(echo $RESULT | jq '.check_suite.id')
+			\((_#setEnv & {#args: {name: "checkrun_id", value: "$ID"}}).res)
+			\((_#setEnv & {#args: {name: "checksuite_id", value: "$CHECKSUITE_ID"}}).res)
+			"""
+	}
+}
+
+_#githubUpdateActionStep: {
+	_#args: {
+		check_run_id: string
+		patch:        _#checkRunPatch
+	}
+	res: _#step & {
+		name: "Update checkRun with id\(_#args.check_run_id)"
+		run:
+			"""
+			curl -X PATCH \\
+				-H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \\
+				-H "Accept: application/vnd.github.v3+json" \\
+				https://api.github.com/repos/$GITHUB_REPOSITORY/check-runs/\(_#args.check_run_id) \\
+				-d \(strconv.Quote(encjson.Marshal(_#args.patch)))
+			"""
+	}
+}
+
+_#installYQ: _#step & {
+	name: "Install YQ"
+	run:  "sudo snap install yq"
 }
