@@ -8,6 +8,11 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "MarketplaceConfig",
           "metadata": {
+            "annotations": {
+              "productID": "068a62892a1e4db39641342e592daa25",
+              "productMetric": "FREE",
+              "productName": "IBM Cloud Platform Common Services"
+            },
             "labels": {
               "app.kubernetes.io/instance": "default",
               "app.kubernetes.io/managed-by": "OLM",
@@ -27,6 +32,11 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "MeterBase",
           "metadata": {
+            "annotations": {
+              "productID": "068a62892a1e4db39641342e592daa25",
+              "productMetric": "FREE",
+              "productName": "IBM Cloud Platform Common Services"
+            },
             "labels": {
               "app.kubernetes.io/instance": "default",
               "app.kubernetes.io/managed-by": "OLM",
@@ -58,6 +68,11 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "MeterReport",
           "metadata": {
+            "annotations": {
+              "productID": "068a62892a1e4db39641342e592daa25",
+              "productMetric": "FREE",
+              "productName": "IBM Cloud Platform Common Services"
+            },
             "labels": {
               "app.kubernetes.io/instance": "default",
               "app.kubernetes.io/managed-by": "OLM",
@@ -80,6 +95,11 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "RazeeDeployment",
           "metadata": {
+            "annotations": {
+              "productID": "068a62892a1e4db39641342e592daa25",
+              "productMetric": "FREE",
+              "productName": "IBM Cloud Platform Common Services"
+            },
             "labels": {
               "app.kubernetes.io/instance": "default",
               "app.kubernetes.io/managed-by": "OLM",
@@ -97,6 +117,11 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "RemoteResourceS3",
           "metadata": {
+            "annotations": {
+              "productID": "068a62892a1e4db39641342e592daa25",
+              "productMetric": "FREE",
+              "productName": "IBM Cloud Platform Common Services"
+            },
             "labels": {
               "app.kubernetes.io/instance": "default",
               "app.kubernetes.io/managed-by": "OLM",
@@ -134,6 +159,11 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1beta1",
           "kind": "MeterDefinition",
           "metadata": {
+            "annotations": {
+              "productID": "068a62892a1e4db39641342e592daa25",
+              "productMetric": "FREE",
+              "productName": "IBM Cloud Platform Common Services"
+            },
             "labels": {
               "app.kubernetes.io/instance": "default",
               "app.kubernetes.io/managed-by": "OLM",
@@ -172,6 +202,11 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1beta1",
           "kind": "MeterDefinition",
           "metadata": {
+            "annotations": {
+              "productID": "068a62892a1e4db39641342e592daa25",
+              "productMetric": "FREE",
+              "productName": "IBM Cloud Platform Common Services"
+            },
             "labels": {
               "app.kubernetes.io/instance": "default",
               "app.kubernetes.io/managed-by": "OLM",
@@ -616,6 +651,10 @@ spec:
           strategy: {}
           template:
             metadata:
+              annotations:
+                productID: 068a62892a1e4db39641342e592daa25
+                productMetric: FREE
+                productName: IBM Cloud Platform Common Services
               labels:
                 app.kubernetes.io/instance: default
                 app.kubernetes.io/managed-by: OLM

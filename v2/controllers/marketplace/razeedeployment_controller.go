@@ -1328,6 +1328,11 @@ func (r *RazeeDeploymentReconciler) makeRazeeClusterMetaData(instance *marketpla
 				"app.kubernetes.io/managed-by": "OLM",
 				"app.kubernetes.io/instance": "default",
 			},
+			Annotations: map[string]string{
+				"productID": "068a62892a1e4db39641342e592daa25",
+				"productMetric": "FREE",
+				"productName": "IBM Cloud Platform Common Services",
+			},
 		},
 		Data: map[string]string{"name": instance.Spec.ClusterUUID},
 	}
@@ -1343,6 +1348,11 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperNonNamespace(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.WATCH_KEEPER_NON_NAMESPACED_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
+			Annotations: map[string]string{
+				"productID": "068a62892a1e4db39641342e592daa25",
+				"productMetric": "FREE",
+				"productName": "IBM Cloud Platform Common Services",
+			},
 			Labels: map[string]string{
 				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
 				"app.kubernetes.io/managed-by": "OLM",
@@ -1363,6 +1373,11 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperLimitPoll(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.WATCH_KEEPER_LIMITPOLL_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
+			Annotations: map[string]string{
+				"productID": "068a62892a1e4db39641342e592daa25",
+				"productMetric": "FREE",
+				"productName": "IBM Cloud Platform Common Services",
+			},
 			Labels: map[string]string{
 				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
 				"app.kubernetes.io/managed-by": "OLM",
@@ -1380,6 +1395,11 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperConfig(instance *marketplacev
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.WATCH_KEEPER_CONFIG_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
+			Annotations: map[string]string{
+				"productID": "068a62892a1e4db39641342e592daa25",
+				"productMetric": "FREE",
+				"productName": "IBM Cloud Platform Common Services",
+			},
 			Labels: map[string]string{
 				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
 				"app.kubernetes.io/managed-by": "OLM",
@@ -1422,6 +1442,11 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperSecret(instance *marketplacev
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.WATCH_KEEPER_SECRET_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
+			Annotations: map[string]string{
+				"productID": "068a62892a1e4db39641342e592daa25",
+				"productMetric": "FREE",
+				"productName": "IBM Cloud Platform Common Services",
+			},
 			Labels: map[string]string{
 				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
 				"app.kubernetes.io/managed-by": "OLM",
@@ -1443,6 +1468,11 @@ func (r *RazeeDeploymentReconciler) makeCOSReaderSecret(instance *marketplacev1a
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.COS_READER_KEY_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
+			Annotations: map[string]string{
+				"productID": "068a62892a1e4db39641342e592daa25",
+				"productMetric": "FREE",
+				"productName": "IBM Cloud Platform Common Services",
+			},
 			Labels: map[string]string{
 				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
 				"app.kubernetes.io/managed-by": "OLM",
@@ -1462,6 +1492,11 @@ func (r *RazeeDeploymentReconciler) makeParentRemoteResourceS3(instance *marketp
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.PARENT_RRS3_RESOURCE_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
+			Annotations: map[string]string{
+				"productID": "068a62892a1e4db39641342e592daa25",
+				"productMetric": "FREE",
+				"productName": "IBM Cloud Platform Common Services",
+			},
 			Labels: map[string]string{
 				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
 				"app.kubernetes.io/managed-by": "OLM",
