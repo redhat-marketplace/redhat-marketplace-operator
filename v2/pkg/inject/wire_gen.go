@@ -10,6 +10,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/certificates"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
@@ -73,7 +74,14 @@ func initializeInjectDependencies(cache2 cache.Cache, fields *managers.Controlle
 	kubeInterfaceInjector := &KubeInterfaceInjector{
 		KubeInterface: clientset,
 	}
-	injectables := ProvideInjectables(clientCommandInjector, operatorConfigInjector, patchInjector, factoryInjector, kubeInterfaceInjector)
+	certIssuer, err := utils.NewCertIssuer(clientset, logger)
+	if err != nil {
+		return injectorDependencies{}, err
+	}
+	certIssuerInjector := &CertIssuerInjector{
+		certIssuer: certIssuer,
+	}
+	injectables := ProvideInjectables(clientCommandInjector, operatorConfigInjector, patchInjector, factoryInjector, kubeInterfaceInjector, certIssuerInjector)
 	injectInjectorDependencies := injectorDependencies{
 		Runnables:   runnablesRunnables,
 		Injectables: injectables,

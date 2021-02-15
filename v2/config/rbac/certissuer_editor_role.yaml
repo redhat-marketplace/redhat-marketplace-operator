@@ -1,10 +1,8 @@
-
----
+# permissions for end users to edit certissuers.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
-  name: manager-role
+  name: certissuer-editor-role
 rules:
 - apiGroups:
   - marketplace.redhat.com
@@ -21,14 +19,6 @@ rules:
 - apiGroups:
   - marketplace.redhat.com
   resources:
-  - certissuers/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
   - certissuers/status
   verbs:
   - get
-  - patch
-  - update

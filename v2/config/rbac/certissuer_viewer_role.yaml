@@ -1,34 +1,20 @@
-
----
+# permissions for end users to view certissuers.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
-  name: manager-role
+  name: certissuer-viewer-role
 rules:
 - apiGroups:
   - marketplace.redhat.com
   resources:
   - certissuers
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - certissuers/finalizers
-  verbs:
-  - update
 - apiGroups:
   - marketplace.redhat.com
   resources:
   - certissuers/status
   verbs:
   - get
-  - patch
-  - update

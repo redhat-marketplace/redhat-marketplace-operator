@@ -21,6 +21,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
+	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/certificates"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,8 +39,9 @@ func ProvideInjectables(
 	i3 *PatchInjector,
 	i4 *FactoryInjector,
 	i5 *KubeInterfaceInjector,
+	i6 *CertIssuerInjector,
 ) Injectables {
-	return []types.Injectable{i1, i2, i3, i4, i5}
+	return []types.Injectable{i1, i2, i3, i4, i5, i6}
 }
 
 type Injector struct {
@@ -113,9 +115,24 @@ type KubeInterface interface {
 	InjectKubeInterface(kubernetes.Interface) error
 }
 
+type CertIssuer interface {
+	InjectCertIssuer(*utils.CertIssuer) error
+}
+
 type ClientCommandInjector struct {
 	Fields        *managers.ControllerFields
 	CommandRunner reconcileutils.ClientCommandRunner
+}
+
+type CertIssuerInjector struct {
+	certIssuer *utils.CertIssuer
+}
+
+func (a *CertIssuerInjector) SetCustomFields(i interface{}) error {
+	if ii, ok := i.(CertIssuer); ok {
+		return ii.InjectCertIssuer(a.certIssuer)
+	}
+	return nil
 }
 
 func (a *ClientCommandInjector) SetCustomFields(i interface{}) error {

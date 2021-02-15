@@ -1,0 +1,7 @@
+apiVersion: marketplace.redhat.com/v1beta1
+kind: CertIssuer
+metadata:
+  name: certissuer-sample
+spec:
+  # Add fields here
+  foo: bar
