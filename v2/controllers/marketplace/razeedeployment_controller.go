@@ -1352,6 +1352,7 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperNonNamespace(
 				"productID": "068a62892a1e4db39641342e592daa25",
 				"productMetric": "FREE",
 				"productName": "IBM Cloud Platform Common Services",
+			},
 			Labels: map[string]string{
 				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
 				"app.kubernetes.io/managed-by": "OLM",
@@ -1376,6 +1377,7 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperLimitPoll(
 				"productID": "068a62892a1e4db39641342e592daa25",
 				"productMetric": "FREE",
 				"productName": "IBM Cloud Platform Common Services",
+			},
 			Labels: map[string]string{
 				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
 				"app.kubernetes.io/managed-by": "OLM",
@@ -1397,6 +1399,7 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperConfig(instance *marketplacev
 				"productID": "068a62892a1e4db39641342e592daa25",
 				"productMetric": "FREE",
 				"productName": "IBM Cloud Platform Common Services",
+			},
 			Labels: map[string]string{
 				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
 				"app.kubernetes.io/managed-by": "OLM",
@@ -1443,6 +1446,7 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperSecret(instance *marketplacev
 				"productID": "068a62892a1e4db39641342e592daa25",
 				"productMetric": "FREE",
 				"productName": "IBM Cloud Platform Common Services",
+			},
 			Labels: map[string]string{
 				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
 				"app.kubernetes.io/managed-by": "OLM",
@@ -1468,6 +1472,7 @@ func (r *RazeeDeploymentReconciler) makeCOSReaderSecret(instance *marketplacev1a
 				"productID": "068a62892a1e4db39641342e592daa25",
 				"productMetric": "FREE",
 				"productName": "IBM Cloud Platform Common Services",
+			},
 			Labels: map[string]string{
 				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
 				"app.kubernetes.io/managed-by": "OLM",
@@ -1491,6 +1496,7 @@ func (r *RazeeDeploymentReconciler) makeParentRemoteResourceS3(instance *marketp
 				"productID": "068a62892a1e4db39641342e592daa25",
 				"productMetric": "FREE",
 				"productName": "IBM Cloud Platform Common Services",
+			},
 			Labels: map[string]string{
 				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
 				"app.kubernetes.io/managed-by": "OLM",
