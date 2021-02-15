@@ -371,7 +371,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 		}
 
 		utils.SetMapKeyValue(rhmOperatorSecret.ObjectMeta.Labels, utils.LABEL_RHM_OPERATOR_WATCH)
-		utils.SetMapKeyValue(rhmOperatorSecret.ObjectMeta.Labels,utils.IMB_CERT_LABELS)
 
 		err := r.Client.Update(context.TODO(), rhmOperatorSecret)
 		if err != nil {
