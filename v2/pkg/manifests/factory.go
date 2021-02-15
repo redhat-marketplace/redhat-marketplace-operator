@@ -297,16 +297,13 @@ func (f *Factory) NewPrometheus(
 		p.Annotations = make(map[string]string)
 	}
 
-	if p.Spec.PodMetadata.Annotations == nil {
-		p.Spec.PodMetadata.Annotations = make(map[string]string)
-	}
-
 	p.Annotations = f.addCertAnnotations(p.Annotations)
-	p.Spec.PodMetadata.Annotations = f.addCertAnnotations(p.Spec.PodMetadata.Annotations)
 	
 	if p.GetLabels() == nil {
 		p.Labels = make(map[string]string)
 	}
+
+	p.Labels = f.addCertLabels(p.Labels)
 
 	if p.Spec.PodMetadata == nil {
 		p.Spec.PodMetadata = &monitoringv1.EmbeddedObjectMetadata{
@@ -315,11 +312,13 @@ func (f *Factory) NewPrometheus(
 				"app.kubernetes.io/managed-by": "OLM",
 				"app.kubernetes.io/instance": "default",
 			},
+			Annotations: map[string]string{
+				"productID": "068a62892a1e4db39641342e592daa25",
+				"productMetric": "FREE",
+				"productName": "IBM Cloud Platform Common Services",
+			},
 		}
 	}
-
-	p.Labels = f.addCertLabels(p.Labels)
-	p.Spec.PodMetadata.Labels = f.addCertLabels(p.Spec.PodMetadata.Labels)
 
 	return p, nil
 }
