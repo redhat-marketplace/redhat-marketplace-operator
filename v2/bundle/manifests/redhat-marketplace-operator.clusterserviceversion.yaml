@@ -9,6 +9,8 @@ metadata:
           "kind": "MarketplaceConfig",
           "metadata": {
             "labels": {
+              "app.kubernetes.io/instance": "default",
+              "app.kubernetes.io/managed-by": "OLM",
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
             "name": "redhat-marketplace-rhm-marketplaceconfig",
@@ -26,6 +28,8 @@ metadata:
           "kind": "MeterBase",
           "metadata": {
             "labels": {
+              "app.kubernetes.io/instance": "default",
+              "app.kubernetes.io/managed-by": "OLM",
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
             "name": "redhat-marketplace-meterbase",
@@ -55,6 +59,8 @@ metadata:
           "kind": "MeterReport",
           "metadata": {
             "labels": {
+              "app.kubernetes.io/instance": "default",
+              "app.kubernetes.io/managed-by": "OLM",
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
             "name": "redhat-marketplace-example-meterreport",
@@ -75,6 +81,8 @@ metadata:
           "kind": "RazeeDeployment",
           "metadata": {
             "labels": {
+              "app.kubernetes.io/instance": "default",
+              "app.kubernetes.io/managed-by": "OLM",
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
             "name": "redhat-marketplace-razeedeployment-example",
@@ -90,6 +98,8 @@ metadata:
           "kind": "RemoteResourceS3",
           "metadata": {
             "labels": {
+              "app.kubernetes.io/instance": "default",
+              "app.kubernetes.io/managed-by": "OLM",
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
             "name": "redhat-marketplace-example-remoteresources3",
@@ -125,6 +135,8 @@ metadata:
           "kind": "MeterDefinition",
           "metadata": {
             "labels": {
+              "app.kubernetes.io/instance": "default",
+              "app.kubernetes.io/managed-by": "OLM",
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
             "name": "redhat-marketplace-example-meterdefinition-4",
@@ -161,6 +173,8 @@ metadata:
           "kind": "MeterDefinition",
           "metadata": {
             "labels": {
+              "app.kubernetes.io/instance": "default",
+              "app.kubernetes.io/managed-by": "OLM",
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
             "name": "redhat-marketplace-meterdefinition-sample",
@@ -596,11 +610,15 @@ spec:
           replicas: 1
           selector:
             matchLabels:
+              app.kubernetes.io/instance: default
+              app.kubernetes.io/managed-by: OLM
               redhat.marketplace.com/name: redhat-marketplace-operator
           strategy: {}
           template:
             metadata:
               labels:
+                app.kubernetes.io/instance: default
+                app.kubernetes.io/managed-by: OLM
                 control-plane: controller-manager
                 redhat.marketplace.com/name: redhat-marketplace-operator
             spec:

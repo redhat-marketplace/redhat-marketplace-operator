@@ -9,7 +9,8 @@ namePrefix: redhat-marketplace-
 # Labels to add to all resources and selectors.
 commonLabels:
   redhat.marketplace.com/name: redhat-marketplace-operator
-
+  app.kubernetes.io/managed-by: OLM
+  app.kubernetes.io/instance: default
 configurations:
   - kustomizeconfig.yaml
 resources:
