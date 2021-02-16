@@ -12,24 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package reporter
+package prometheus
 
 import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
-
 	"text/template"
+	"time"
 
 	"emperror.dev/errors"
 	sprig "github.com/Masterminds/sprig/v3"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
+
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"k8s.io/apimachinery/pkg/types"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var logger = logf.Log.WithName("prometheus")
 
 type PromQueryArgs struct {
 	Type          v1beta1.WorkloadType
@@ -55,6 +59,38 @@ func NewPromQuery(
 	pq := &PromQuery{PromQueryArgs: args}
 	pq.defaulter()
 	return pq
+}
+
+func PromQueryFromLabels(
+	meterDefLabels *common.MeterDefPrometheusLabels,
+	start, end time.Time,
+) *PromQuery {
+
+	workloadType := v1beta1.WorkloadType(meterDefLabels.WorkloadType)
+	duration := time.Hour
+	if meterDefLabels.MetricPeriod != nil {
+		duration = meterDefLabels.MetricPeriod.Duration
+	}
+
+	return NewPromQuery(&PromQueryArgs{
+		Metric: meterDefLabels.Metric,
+		Type:   workloadType,
+		MeterDef: types.NamespacedName{
+			Name:      meterDefLabels.MeterDefName,
+			Namespace: meterDefLabels.MeterDefNamespace,
+		},
+		Query:         meterDefLabels.MetricQuery,
+		Start:         start,
+		End:           end,
+		Step:          duration,
+		GroupBy:       []string(meterDefLabels.MetricGroupBy),
+		Without:       []string(meterDefLabels.MetricWithout),
+		AggregateFunc: meterDefLabels.MetricAggregation,
+	})
+}
+
+type PrometheusAPI struct {
+	v1.API
 }
 
 const TypeNotSupportedErr = errors.Sentinel("type is not supported")
@@ -139,7 +175,7 @@ func (q *PromQuery) Print() (string, error) {
 	return buf.String(), err
 }
 
-func (r *MarketplaceReporter) queryRange(query *PromQuery) (model.Value, v1.Warnings, error) {
+func (p *PrometheusAPI) ReportQuery(query *PromQuery) (model.Value, v1.Warnings, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -157,7 +193,7 @@ func (r *MarketplaceReporter) queryRange(query *PromQuery) (model.Value, v1.Warn
 
 	logger.Info("executing query", "query", q)
 
-	result, warnings, err := r.api.QueryRange(ctx, q, timeRange)
+	result, warnings, err := p.QueryRange(ctx, q, timeRange)
 
 	if err != nil {
 		logger.Error(err, "querying prometheus", "warnings", warnings)
@@ -210,7 +246,7 @@ func (q *MeterDefinitionQuery) Print() (string, error) {
 	return buf.String(), err
 }
 
-func (r *MarketplaceReporter) queryMeterDefinitions(query *MeterDefinitionQuery) (model.Value, v1.Warnings, error) {
+func (p *PrometheusAPI) QueryMeterDefinitions(query *MeterDefinitionQuery) (model.Value, v1.Warnings, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -229,7 +265,7 @@ func (r *MarketplaceReporter) queryMeterDefinitions(query *MeterDefinitionQuery)
 	}
 
 	logger.Info("executing query", "query", q)
-	result, warnings, err := r.api.QueryRange(ctx, q, timeRange)
+	result, warnings, err := p.QueryRange(ctx, q, timeRange)
 
 	if err != nil {
 		logger.Error(err, "querying prometheus", "warnings", warnings)

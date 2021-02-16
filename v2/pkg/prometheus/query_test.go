@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package reporter
+package prometheus
 
 import (
 	"time"
@@ -22,21 +22,24 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/mock/mock_query"
 )
 
 var _ = Describe("Query", func() {
 
 	var (
-		sut      *MarketplaceReporter
-		start, _ = time.Parse(time.RFC3339, "2020-04-19T13:00:00Z")
-		end, _   = time.Parse(time.RFC3339, "2020-04-19T16:00:00Z")
+		v1api         v1.API
+		prometheusAPI PrometheusAPI
+		start, _      = time.Parse(time.RFC3339, "2020-04-19T13:00:00Z")
+		end, _        = time.Parse(time.RFC3339, "2020-04-19T16:00:00Z")
 
-		rpcDurationSecondsQuery *PromQuery
+		testQuery *PromQuery
 	)
 
 	BeforeEach(func() {
-		rpcDurationSecondsQuery = NewPromQuery(&PromQueryArgs{
+		testQuery = NewPromQuery(&PromQueryArgs{
 			Metric: "rpc_durations_seconds_count",
 			Query:  `foo{bar="true"}`,
 			Type:   v1beta1.WorkloadTypePod,
@@ -45,14 +48,14 @@ var _ = Describe("Query", func() {
 			Step:   time.Minute * 60,
 		})
 
-		v1api := getTestAPI(mockResponseRoundTripper("../../test/mockresponses/prometheus-query-range.json", []v1beta1.MeterDefinition{}, start, end))
-		sut = &MarketplaceReporter{
-			api: v1api,
+		v1api = GetTestAPI(MockResponseRoundTripper("../../../reporter/v2/test/mockresponses/prometheus-query-range.json", []v1beta1.MeterDefinition{}))
+		prometheusAPI = PrometheusAPI{
+			v1api,
 		}
 	})
 
 	It("should query a range", func() {
-		result, warnings, err := sut.queryRange(rpcDurationSecondsQuery)
+		result, warnings, err := prometheusAPI.ReportQuery(testQuery)
 
 		Expect(err).To(Succeed())
 		Expect(warnings).To(BeEmpty(), "warnings should be empty")

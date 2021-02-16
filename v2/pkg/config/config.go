@@ -33,6 +33,7 @@ var log = logf.Log.WithName("operator_config")
 type OperatorConfig struct {
 	DeployedNamespace string `env:"POD_NAMESPACE"`
 	DeployedPodName   string `env:"POD_NAME"`
+	ControllerValues  ControllerValues
 	ReportController  ReportControllerConfig
 	RelatedImages
 	Features
@@ -65,6 +66,11 @@ type Features struct {
 type Marketplace struct {
 	URL            string `env:"MARKETPLACE_URL" envDefault:""`
 	InsecureClient bool   `env:"MARKETPLACE_HTTP_INSECURE_MODE" envDefault:"false"`
+}
+
+type ControllerValues struct {
+	DeploymentNamespace           string        `env:"POD_NAMESPACE" envDefault:"openshift-redhat-marketplace"`
+	MeterDefControllerRequeueRate time.Duration `env:"METER_DEF_CONTROLLER_REQUEUE_RATE" envDefault:"1h"`
 }
 
 // ReportConfig stores some changeable information for creating a report

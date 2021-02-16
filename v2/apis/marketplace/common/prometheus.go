@@ -158,3 +158,31 @@ func (a JSONArray) MarshalText() ([]byte, error) {
 type ToPrometheusLabels interface {
 	ToPrometheusLabels() ([]map[string]string, error)
 }
+
+// Result is a result of a query defined on the meterdefinition.
+// This will generate data for the previous hour on whichever workload you specify.
+// This will allow you to check whether a query is working as intended.
+// +k8s:openapi-gen=true
+// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+// +kubebuilder:object:generate:=true
+type Result struct {
+	// MetricName is the identifier that you will use to identify your query
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	MetricName string `json:"metricName,omitempty"`
+
+	// Query is the compiled query that is given to Prometheus
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	Query string `json:"query,omitempty"`
+
+	// Values are the results of the query
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	Values []ResultValues `json:"values,omitempty"`
+}
+
+// ResultValues will hold the results of the prometheus query
+// +k8s:openapi-gen=true
+// +kubebuilder:object:generate:=true
+type ResultValues struct {
+	Timestamp int64  `json:"timestamp"`
+	Value     string `json:"value"`
+}

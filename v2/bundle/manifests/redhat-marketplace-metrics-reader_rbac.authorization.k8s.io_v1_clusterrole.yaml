@@ -10,18 +10,9 @@ metadata:
     app.kubernetes.io/instance: default
     app.kubernetes.io/managed-by: OLM
     redhat.marketplace.com/name: redhat-marketplace-operator
-  name: redhat-marketplace-remoteresources3deployment
+  name: redhat-marketplace-metrics-reader
 rules:
-- apiGroups:
-  - operators.coreos.com
-  - marketplace.redhat.com
-  resources:
-  - '*'
-  verbs:
-  - '*'
 - nonResourceURLs:
-  - '*'
+  - /metrics
   verbs:
   - get
-  - list
-  - watch

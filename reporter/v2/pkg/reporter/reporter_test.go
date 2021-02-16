@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
-	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -34,11 +33,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/meirf/gopart"
-	"github.com/prometheus/client_golang/api"
-	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/mock/mock_query"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -60,6 +59,77 @@ var _ = Describe("Reporter", func() {
 	)
 
 	BeforeEach(func() {
+		dir, err = ioutil.TempDir("", "report")
+		dir2, err = ioutil.TempDir("", "targz")
+
+		Expect(err).To(Succeed())
+
+		cfg := &Config{
+			OutputDirectory: dir,
+		}
+
+		cfg.SetDefaults()
+
+		config = &marketplacev1alpha1.MarketplaceConfig{
+			Spec: marketplacev1alpha1.MarketplaceConfigSpec{
+				RhmAccountID: "foo",
+				ClusterUUID:  "foo-id",
+			},
+		}
+
+		v1api := GetTestAPI(MockResponseRoundTripper(generatedFile, []v1beta1.MeterDefinition{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "bar",
+					UID:       types.UID("a"),
+				},
+				Spec: v1beta1.MeterDefinitionSpec{
+					Group: "apps.partner.metering.com",
+					Kind:  "App",
+					ResourceFilters: []v1beta1.ResourceFilter{
+						{
+							Namespace: &v1beta1.NamespaceFilter{UseOperatorGroup: true},
+							OwnerCRD: &v1beta1.OwnerCRDFilter{
+								GroupVersionKind: common.GroupVersionKind{
+									APIVersion: "apps.partner.metering.com/v1",
+									Kind:       "App",
+								},
+							},
+							WorkloadType: v1beta1.WorkloadTypePod,
+						},
+					},
+					Meters: []v1beta1.MeterWorkload{
+						{
+							Aggregation:  "sum",
+							Query:        "rpc_durations_seconds_sum",
+							Metric:       "rpc_durations_seconds_sum",
+							WorkloadType: v1beta1.WorkloadTypePod,
+						},
+						{
+
+							Aggregation:  "sum",
+							Query:        "my_query",
+							Metric:       "rpc_durations_seconds_count",
+							WorkloadType: v1beta1.WorkloadTypePod,
+						},
+					},
+				},
+			},
+		}))
+
+		sut = &MarketplaceReporter{
+			PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
+			Config:    cfg,
+			mktconfig: config,
+			report: &marketplacev1alpha1.MeterReport{
+				Spec: marketplacev1alpha1.MeterReportSpec{
+					StartTime: metav1.Time{Time: start},
+					EndTime:   metav1.Time{Time: end},
+				},
+			},
+		}
+
 		uploader, err = NewRedHatInsightsUploader(&RedHatInsightsUploaderConfig{
 			URL:             "https://cloud.redhat.com",
 			ClusterID:       "2858312a-ff6a-41ae-b108-3ed7b12111ef",
@@ -67,9 +137,8 @@ var _ = Describe("Reporter", func() {
 			Token:           "token",
 		})
 		Expect(err).To(Succeed())
-
-		uploader.(*RedHatInsightsUploader).client.Transport = &stubRoundTripper{
-			roundTrip: func(req *http.Request) *http.Response {
+		uploader.(*RedHatInsightsUploader).client.Transport = &StubRoundTripper{
+			StubRoundTrip: func(req *http.Request) *http.Response {
 				headers := make(http.Header)
 				headers.Add("content-type", "text")
 
@@ -405,137 +474,6 @@ var _ = Describe("Reporter", func() {
 	})
 })
 
-// RoundTripFunc is a type that represents a round trip function call for std http lib
-type RoundTripFunc func(req *http.Request) *http.Response
-
-// RoundTrip is a wrapper function that calls an external function for mocking
-func (f RoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
-	return f(req), nil
-}
-
-func getTestAPI(trip RoundTripFunc) v1.API {
-	conf := api.Config{
-		Address:      "http://localhost:9090",
-		RoundTripper: trip,
-	}
-	client, err := api.NewClient(conf)
-
-	Expect(err).To(Succeed())
-
-	v1api := v1.NewAPI(client)
-	return v1api
-}
-
-func mockResponseRoundTripper(file string, meterdefinitions []v1beta1.MeterDefinition, start, end time.Time) RoundTripFunc {
-	return func(req *http.Request) *http.Response {
-		headers := make(http.Header)
-		headers.Add("content-type", "application/json")
-
-		Expect(req.URL.String()).To(Equal("http://localhost:9090/api/v1/query_range"), "url does not match expected")
-
-		fileBytes, err := ioutil.ReadFile(file)
-
-		Expect(err).To(Succeed(), "failed to load mock file for response")
-		defer req.Body.Close()
-		body, err := ioutil.ReadAll(req.Body)
-
-		Expect(err).To(Succeed())
-
-		query, _ := url.ParseQuery(string(body))
-
-		if strings.Contains(query["query"][0], "meterdef_metric_label_info{}") {
-			meterDefInfo := GenerateMeterInfoResponse(meterdefinitions, start, end)
-			return &http.Response{
-				StatusCode: 200,
-				// Send response to be tested
-				Body: ioutil.NopCloser(bytes.NewBuffer(meterDefInfo)),
-				// Must be set to non-nil value or it panics
-				Header: headers,
-			}
-		}
-
-		return &http.Response{
-			StatusCode: 200,
-			// Send response to be tested
-			Body: ioutil.NopCloser(bytes.NewBuffer(fileBytes)),
-			// Must be set to non-nil value or it panics
-			Header: headers,
-		}
-	}
-}
-
-type stubRoundTripper struct {
-	roundTrip RoundTripFunc
-}
-
-func (s *stubRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	return s.roundTrip(req), nil
-}
-
-type fakeResult struct {
-	Metric map[string]string
-	Values []interface{}
-}
-
-type fakeData struct {
-	ResultType string
-	Result     []*fakeResult
-}
-
-type fakeMetrics struct {
-	Status string
-	Data   fakeData
-}
-
-func GenerateSeries(start, end time.Time) []int64 {
-	series := []int64{}
-	for start := start; start.Before(end); start = start.Add(time.Hour) {
-		series = append(series, start.Unix())
-	}
-	return series
-}
-
-func GenerateMeterInfoResponse(meterdefinitions []v1beta1.MeterDefinition, start, end time.Time) []byte {
-	results := []map[string]interface{}{}
-	series := GenerateSeries(start, end)
-
-	for _, mdef := range meterdefinitions {
-		labels := mdef.ToPrometheusLabels()
-
-		for _, mylabels := range labels {
-			labelMap, err := mylabels.ToLabels()
-			if err != nil {
-				panic(err)
-			}
-
-			fmt.Println(labelMap)
-
-			values := make([][]interface{}, len(series), len(series))
-
-			for i, ms := range series {
-				values[i] = []interface{}{ms, "1"}
-			}
-
-			results = append(results, map[string]interface{}{
-				"metric": labelMap,
-				"values": values,
-			})
-		}
-	}
-
-	data := map[string]interface{}{
-		"status": "success",
-		"data": map[string]interface{}{
-			"resultType": "matrix",
-			"result":     results,
-		},
-	}
-
-	bytes, _ := json.Marshal(&data)
-
-	return bytes
-}
-
 func GenerateRandomData(start, end time.Time) string {
 	next := start
 	kinds := []string{"App", "App2"}
@@ -573,21 +511,21 @@ func GenerateRandomData(start, end time.Time) string {
 		}
 	}
 
-	results := []*fakeResult{}
+	results := []*FakeResult{}
 
 	for _, kind := range kinds {
 		for idxRange := range gopart.Partition(len(data[kind]), 24) {
 			array := data[kind][idxRange.Low:idxRange.High]
-			results = append(results, &fakeResult{
+			results = append(results, &FakeResult{
 				Metric: makeData(kind),
 				Values: array,
 			})
 		}
 	}
 
-	fakem := &fakeMetrics{
+	fakem := &FakeMetrics{
 		Status: "success",
-		Data: fakeData{
+		Data: FakeData{
 			ResultType: "matrix",
 			Result:     results,
 		},

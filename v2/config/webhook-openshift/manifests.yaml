@@ -12,6 +12,7 @@ webhooks:
       name: controller-manager-service
       namespace: system
       path: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
+      port: 9443
   failurePolicy: Fail
   name: mmeterdefinition.marketplace.redhat.com
   rules:
@@ -39,6 +40,7 @@ webhooks:
       name: controller-manager-service
       namespace: system
       path: /validate-marketplace-redhat-com-v1beta1-meterdefinition
+      port: 9443
   failurePolicy: Fail
   name: vmeterdefinition.marketplace.redhat.com
   rules:
