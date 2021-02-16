@@ -60,7 +60,7 @@ func NewPromQuery(
 
 func PromQueryFromLabels(
 	meterDefLabels *common.MeterDefPrometheusLabels,
-  start, end time.Time,
+	start, end time.Time,
 ) *PromQuery {
 
 	workloadType := v1beta1.WorkloadType(meterDefLabels.WorkloadType)

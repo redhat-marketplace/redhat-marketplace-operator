@@ -146,7 +146,6 @@ type AnnotationFilter struct {
 	AnnotationSelector *metav1.LabelSelector `json:"annotationSelector,omitempty"`
 }
 
-
 type MeterWorkload struct {
 	// Metric is the id of the meter
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
