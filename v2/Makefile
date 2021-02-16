@@ -214,8 +214,10 @@ bundle-deploy:
 bundle-run: operator-sdk
 	$(OPERATOR_SDK) run bundle $(BUNDLE_IMG)
 
+BUNDLE_IMAGE_REGISTRY ?= $(IMAGE_REGISTRY)
+
 bundle-stable:
-	$(MAKE) bundle CHANNELS=stable DEFAULT_CHANNEL=stable
+	$(MAKE) bundle CHANNELS=stable DEFAULT_CHANNEL=stable IMAGE_REGISTRY=$(BUNDLE_IMAGE_REGISTRY)
 
 VERSIONS_LIST ?= $(BUNDLE_IMG)
 
