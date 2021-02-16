@@ -24,6 +24,7 @@ import (
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -73,7 +74,9 @@ func (a *updateAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 	var err error
 
 	if a.StatusOnly {
-		err = c.client.Status().Update(ctx, updatedObject)
+		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			return c.client.Status().Update(ctx, updatedObject)
+		})
 	} else {
 		if a.WithPatch != nil {
 			if err := a.WithPatch.SetLastAppliedAnnotation(updatedObject); err != nil {
@@ -82,7 +85,9 @@ func (a *updateAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 			}
 		}
 
-		err = c.client.Update(ctx, updatedObject)
+		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			return c.client.Update(ctx, updatedObject)
+		})
 	}
 
 	if err != nil {

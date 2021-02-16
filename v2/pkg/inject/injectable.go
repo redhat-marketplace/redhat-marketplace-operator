@@ -23,6 +23,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -47,8 +48,9 @@ func ProvideInjectables(
 	i2 *OperatorConfigInjector,
 	i3 *PatchInjector,
 	i4 *FactoryInjector,
+	i5 *KubeInterfaceInjector,
 ) Injectables {
-	return []Injectable{i1, i2, i3, i4}
+	return []Injectable{i1, i2, i3, i4, i5}
 }
 
 type Injector struct {
@@ -118,6 +120,10 @@ type Factory interface {
 	InjectFactory(*manifests.Factory) error
 }
 
+type KubeInterface interface {
+	InjectKubeInterface(kubernetes.Interface) error
+}
+
 type ClientCommandInjector struct {
 	Fields        *managers.ControllerFields
 	CommandRunner reconcileutils.ClientCommandRunner
@@ -161,6 +167,17 @@ type FactoryInjector struct {
 func (a *FactoryInjector) SetCustomFields(i interface{}) error {
 	if ii, ok := i.(Factory); ok {
 		return ii.InjectFactory(a.Factory)
+	}
+	return nil
+}
+
+type KubeInterfaceInjector struct {
+	KubeInterface kubernetes.Interface
+}
+
+func (a *KubeInterfaceInjector) SetCustomFields(i interface{}) error {
+	if ii, ok := i.(KubeInterface); ok {
+		return ii.InjectKubeInterface(a.KubeInterface)
 	}
 	return nil
 }
