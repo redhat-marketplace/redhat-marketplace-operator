@@ -146,32 +146,6 @@ type AnnotationFilter struct {
 	AnnotationSelector *metav1.LabelSelector `json:"annotationSelector,omitempty"`
 }
 
-// Result is a result of a query defined on the meterdefinition.
-// This will generate data for the previous hour on whichever workload you specify.
-// This will allow you to check whether a query is working as intended.
-// +k8s:openapi-gen=true
-// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-type Result struct {
-	// MetricName is the identifier that you will use to identify your query
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	MetricName string `json:"metricName,omitempty"`
-
-	// Query is the compiled query that is given to Prometheus
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	Query string `json:"query,omitempty"`
-
-	// StartTime is the start of the data collection interval
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	StartTime string `json:"startTime,omitempty"`
-
-	// EndTime is the end of the data collection interval
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	EndTime string `json:"endTime,omitempty"`
-
-	// Value is the metric value returned from Prometheus
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	Value int32 `json:"value,omitempty"`
-}
 
 type MeterWorkload struct {
 	// Metric is the id of the meter
@@ -251,9 +225,8 @@ type MeterDefinitionStatus struct {
 	WorkloadResources []common.WorkloadResource `json:"workloadResource,omitempty"`
 
 	// Results is a list of Results that get returned from a query to prometheus
-	// +k8s:openapi-gen=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
-	Results []Result `json:"results,omitempty"`
+	Results []common.Result `json:"results,omitempty"`
 }
 
 // MeterDefinition defines the meter workloads used to enable pay for

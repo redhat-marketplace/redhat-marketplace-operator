@@ -102,6 +102,7 @@ func (src *MeterDefinition) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.ResourceFilters = resourceFilters
 	dst.Status.Conditions = src.Status.Conditions
 	dst.Status.WorkloadResources = src.Status.WorkloadResources
+	dst.Status.Results = src.Status.Results
 	return nil
 }
 
@@ -179,6 +180,7 @@ func (dst *MeterDefinition) ConvertFrom(srcRaw conversion.Hub) error {
 	dst.Spec.InstalledBy = src.Spec.InstalledBy
 	dst.Status.Conditions = src.Status.Conditions
 	dst.Status.WorkloadResources = src.Status.WorkloadResources
+	dst.Status.Results = src.Status.Results
 
 	return nil
 }

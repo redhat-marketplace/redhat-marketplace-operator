@@ -70,7 +70,7 @@ type Marketplace struct {
 
 type ControllerValues struct {
 	DeploymentNamespace           string        `env:"POD_NAMESPACE" envDefault:"openshift-redhat-marketplace"`
-	MeterDefControllerRequeueRate time.Duration `env:"METER_DEF_CONTROLLER_REQUEUE_RATE" envDefault:"3600s"`
+	MeterDefControllerRequeueRate time.Duration `env:"METER_DEF_CONTROLLER_REQUEUE_RATE" envDefault:"1h"`
 }
 
 // ReportConfig stores some changeable information for creating a report

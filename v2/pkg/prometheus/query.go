@@ -25,6 +25,7 @@ import (
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"k8s.io/apimachinery/pkg/types"
@@ -55,6 +56,34 @@ func NewPromQuery(
 	pq := &PromQuery{PromQueryArgs: args}
 	pq.defaulter()
 	return pq
+}
+
+func PromQueryFromLabels(
+	meterDefLabels *common.MeterDefPrometheusLabels,
+  start, end time.Time,
+) *PromQuery {
+
+	workloadType := v1beta1.WorkloadType(meterDefLabels.WorkloadType)
+	duration := time.Hour
+	if meterDefLabels.MetricPeriod != nil {
+		duration = meterDefLabels.MetricPeriod.Duration
+	}
+
+	return NewPromQuery(&PromQueryArgs{
+		Metric: meterDefLabels.Metric,
+		Type:   workloadType,
+		MeterDef: types.NamespacedName{
+			Name:      meterDefLabels.MeterDefName,
+			Namespace: meterDefLabels.MeterDefNamespace,
+		},
+		Query:         meterDefLabels.MetricQuery,
+		Start:         start,
+		End:           end,
+		Step:          duration,
+		GroupBy:       []string(meterDefLabels.MetricGroupBy),
+		Without:       []string(meterDefLabels.MetricWithout),
+		AggregateFunc: meterDefLabels.MetricAggregation,
+	})
 }
 
 type PrometheusAPI struct {

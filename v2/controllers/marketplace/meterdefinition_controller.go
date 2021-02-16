@@ -32,7 +32,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
+	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
@@ -41,8 +41,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -57,7 +59,7 @@ const (
 // blank assignment to verify that ReconcileMeterDefinition implements reconcile.Reconciler
 var _ reconcile.Reconciler = &MeterDefinitionReconciler{}
 
-var saClient *ServiceAccountClient
+var saClient *prom.ServiceAccountClient
 
 // MeterDefinitionReconciler reconciles a MeterDefinition object
 type MeterDefinitionReconciler struct {
@@ -98,6 +100,12 @@ func (r *MeterDefinitionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta1.MeterDefinition{}).
 		Watches(&source.Kind{Type: &v1beta1.MeterDefinition{}}, &handler.EnqueueRequestForObject{}).
+		WithOptions(controller.Options{
+			RateLimiter: workqueue.NewMaxOfRateLimiter(
+				workqueue.DefaultControllerRateLimiter(),
+				workqueue.NewItemExponentialFailureRateLimiter(time.Second, 15*time.Minute),
+			),
+		}).
 		Complete(r)
 }
 
@@ -159,17 +167,20 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 			Message: err.Error(),
 		})
 		requeue = true
-	} else if err == nil {
-		update = update || instance.Status.Conditions.RemoveCondition(v1beta1.MeterDefQueryPreviewSetupError)
 	}
 
-	if !reflect.DeepEqual(queryPreviewResult, instance.Status.Results) {
-		instance.Status.Results = queryPreviewResult
-		reqLogger.Info("output", "Status.Results", instance.Status.Results)
-		update = update || true
+	if err == nil && len(queryPreviewResult) != 0 {
+		update = update || instance.Status.Conditions.RemoveCondition(v1beta1.MeterDefQueryPreviewSetupError)
+
+		if !reflect.DeepEqual(queryPreviewResult, instance.Status.Results) {
+			instance.Status.Results = queryPreviewResult
+			reqLogger.Info("output", "Status.Results", instance.Status.Results)
+			update = update || true
+		}
 	}
 
 	if update {
+		reqLogger.Info("update required")
 		result, _ = cc.Do(context.TODO(), UpdateAction(instance, UpdateStatusOnly(true)))
 		if result.Is(Error) {
 			reqLogger.Error(result.GetError(), "Failed to update status.")
@@ -179,7 +190,7 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 
 	if requeue {
 		reqLogger.Info("error happened while trying to generate preview, requeue faster")
-		return reconcile.Result{RequeueAfter: 30*time.Second}, nil
+		return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 	}
 
 	reqLogger.Info("meterdef_preview", "requeue rate", r.cfg.ControllerValues.MeterDefControllerRequeueRate)
@@ -214,8 +225,8 @@ func (r *MeterDefinitionReconciler) addFinalizer(instance *v1beta1.MeterDefiniti
 	return nil
 }
 
-func (r *MeterDefinitionReconciler) queryPreview(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) ([]v1beta1.Result, error) {
-	var queryPreviewResult []v1beta1.Result
+func (r *MeterDefinitionReconciler) queryPreview(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) ([]common.Result, error) {
+	var queryPreviewResult []common.Result
 
 	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
 	if err != nil {
@@ -227,7 +238,7 @@ func (r *MeterDefinitionReconciler) queryPreview(cc ClientCommandRunner, instanc
 		return nil, err
 	}
 
-	saClient := NewServiceAccountClient(r.cfg.ControllerValues.DeploymentNamespace, r.kubeInterface)
+	saClient := prom.NewServiceAccountClient(r.cfg.ControllerValues.DeploymentNamespace, r.kubeInterface)
 
 	authToken, err := saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.PrometheusAudience, 3600, reqLogger)
 	if err != nil {
@@ -240,16 +251,13 @@ func (r *MeterDefinitionReconciler) queryPreview(cc ClientCommandRunner, instanc
 			return nil, err
 		}
 
-		prometheusAPI, err := NewPromAPI(service, &cert, authToken)
+		prometheusAPI, err := prom.NewPromAPI(service, &cert, authToken)
 		if err != nil {
 			return nil, err
 		}
 
 		reqLogger.Info("generatring meterdef preview")
-		queryPreviewResult, err = generateQueryPreview(instance, prometheusAPI, reqLogger)
-		if err != nil {
-			return nil, err
-		}
+		return generateQueryPreview(instance, prometheusAPI, reqLogger)
 	}
 
 	return queryPreviewResult, nil
@@ -305,34 +313,20 @@ func parseCertificateFromConfigMap(certConfigMap corev1.ConfigMap) (cert []byte,
 	return cert, nil
 }
 
-func returnQueryRange() (startTime time.Time, endTime time.Time) {
-	baseTime := time.Now().Truncate(time.Minute)
-	end := baseTime
-	start := end.Add(-time.Hour)
-	return start, end
+func returnQueryRange(duration time.Duration) (startTime time.Time, endTime time.Time) {
+	endTime = time.Now().UTC().Truncate(time.Hour)
+	startTime = endTime.Add(-duration)
+	return
 }
 
-func generateQueryPreview(instance *v1beta1.MeterDefinition, prometheusAPI *PrometheusAPI, reqLogger logr.Logger) (queryPreviewResultArray []v1beta1.Result, returnErr error) {
-	startTime, endTime := returnQueryRange()
-	var queryPreviewResult *v1beta1.Result
+func generateQueryPreview(instance *v1beta1.MeterDefinition, prometheusAPI *prom.PrometheusAPI, reqLogger logr.Logger) (queryPreviewResultArray []common.Result, returnErr error) {
+	var queryPreviewResult *common.Result
+	labels := instance.ToPrometheusLabels()
 
-	for _, meterWorkload := range instance.Spec.Meters {
+	for _, meterWorkload := range labels {
 		var val model.Value
-		var query *PromQuery
-
-		query = NewPromQuery(&PromQueryArgs{
-			Metric: meterWorkload.Name,
-			Type:   meterWorkload.WorkloadType,
-			MeterDef: types.NamespacedName{
-				Name:      instance.Name,
-				Namespace: instance.Namespace,
-			},
-			Query:         meterWorkload.Query,
-			Start:         startTime,
-			End:           endTime,
-			Step:          time.Hour,
-			AggregateFunc: meterWorkload.Aggregation,
-		})
+		startTime, endTime := returnQueryRange(meterWorkload.MetricPeriod.Duration)
+		query := prom.PromQueryFromLabels(meterWorkload, startTime, endTime)
 
 		q, err := query.Print()
 		if err != nil {
@@ -364,24 +358,25 @@ func generateQueryPreview(instance *v1beta1.MeterDefinition, prometheusAPI *Prom
 			return nil, returnErr
 		}
 
-		matrix := val.(model.Matrix)
-		for _, m := range matrix {
-			for _, pair := range m.Values {
-				queryPreviewResult = &v1beta1.Result{
-					MetricName: meterWorkload.Name,
-					Query:      q,
-					StartTime:  fmt.Sprintf("%s", query.Start),
-					EndTime:    fmt.Sprintf("%s", query.End),
-					Value:      int32(pair.Value),
+		queryPreviewResult = &common.Result{
+			MetricName: meterWorkload.WorkloadName,
+			Query:      q,
+			Values:     []common.ResultValues{},
+		}
+
+		if val.Type() == model.ValMatrix {
+			matrix := val.(model.Matrix)
+			for _, m := range matrix {
+				for _, pair := range m.Values {
+					queryPreviewResult.Values = append(queryPreviewResult.Values, common.ResultValues{
+						Timestamp: pair.Timestamp.Unix(),
+						Value:     pair.Value.String(),
+					})
 				}
 			}
 		}
 
-		reqLogger.Info("output", "query preview result", queryPreviewResult)
-
-		if queryPreviewResult != nil {
-			queryPreviewResultArray = append(queryPreviewResultArray, *queryPreviewResult)
-		}
+		queryPreviewResultArray = append(queryPreviewResultArray, *queryPreviewResult)
 	}
 
 	return queryPreviewResultArray, nil
