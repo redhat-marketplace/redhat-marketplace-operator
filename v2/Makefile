@@ -69,6 +69,13 @@ clean:
 .PHONY: test
 test: fmt vet manifests ginkgo
 	$(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal ./apis ./controllers
+	cd ../tests/v2 && $(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./...
+
+test-data-extract:
+	$(shell tests/data/prometheus-meterdef-query-error-202002121300/extract.sh)
+
+test-data: ginkgo test-data-extract
+	$(GINKGO) --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./tests/integration/...
 
 .PHONY: test-ci-unit
 test-ci-unit: ginkgo ## test-ci-unit runs all tests for CI builds

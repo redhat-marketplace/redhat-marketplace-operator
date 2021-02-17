@@ -154,7 +154,7 @@ var resultQueryTemplate *template.Template = utils.Must(func() (interface{}, err
 }).(*template.Template)
 
 type ResultQueryArgs struct {
-	Query, AggregateFunc, LeftSide string
+	Query, AggregateFunc, LeftSide   string
 	GroupBy, Without, DefaultGroupBy []string
 }
 

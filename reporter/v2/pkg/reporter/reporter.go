@@ -122,14 +122,14 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[string]
 
 	logger.Info("starting build queries")
 
-	go r.retrieveMeterDefinitions(
+	go r.RetrieveMeterDefinitions(
 		meterDefsChan,
 		errorsChan,
 		meterDefsDone)
 
 	logger.Info("starting query")
 
-	go r.query(
+	go r.Query(
 		ctx,
 		r.report.Spec.StartTime.Time,
 		r.report.Spec.EndTime.Time,
@@ -140,7 +140,7 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[string]
 
 	logger.Info("starting processing")
 
-	go r.process(
+	go r.Process(
 		ctx,
 		promModelsChan,
 		resultsMap,
@@ -199,7 +199,7 @@ func (s *meterDefPromQuery) String() string {
 	return "[" + s.uid + " " + s.meterGroup + " " + s.meterKind + " " + s.label + "]"
 }
 
-func (r *MarketplaceReporter) retrieveMeterDefinitions(
+func (r *MarketplaceReporter) RetrieveMeterDefinitions(
 	meterDefsChan chan *meterDefPromQuery,
 	errorChan chan error,
 	meterDefsDone chan bool,
@@ -265,7 +265,7 @@ func (r *MarketplaceReporter) retrieveMeterDefinitions(
 	return
 }
 
-func (r *MarketplaceReporter) query(
+func (r *MarketplaceReporter) Query(
 	ctx context.Context,
 	startTime, endTime time.Time,
 	inMeterDefs <-chan *meterDefPromQuery,
@@ -319,7 +319,7 @@ func (r *MarketplaceReporter) query(
 	})
 }
 
-func (r *MarketplaceReporter) process(
+func (r *MarketplaceReporter) Process(
 	ctx context.Context,
 	inPromModels <-chan meterDefPromModel,
 	results map[string]*MetricBase,

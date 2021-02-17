@@ -4,6 +4,7 @@ go 1.15
 
 require (
 	emperror.dev/errors v0.8.0
+	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/Masterminds/sprig/v3 v3.2.0
 	github.com/cespare/xxhash v1.1.0
 	github.com/go-logr/logr v0.3.0

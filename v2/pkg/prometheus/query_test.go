@@ -95,8 +95,8 @@ var _ = Describe("Query", func() {
 			},
 			AggregateFunc: "sum",
 			Type:          v1beta1.WorkloadTypePVC,
-			GroupBy: []string{"foo"},
-			Without: []string{"bar"},
+			GroupBy:       []string{"foo"},
+			Without:       []string{"bar"},
 		})
 
 		expected := `sum by (foo) (avg(meterdef_persistentvolumeclaim_info{meter_def_name="foo",meter_def_namespace="foons",phase="Bound"}) without (instance, container, endpoint, job, service) * on(persistentvolumeclaim,namespace) group_right kube_persistentvolumeclaim_resource_requests_storage_bytes) * on(foo) group_right group without(bar,instance) (kube_persistentvolumeclaim_resource_requests_storage_bytes)`
