@@ -1,6 +1,21 @@
+// Copyright 2021 IBM Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package prometheus_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,15 +26,14 @@ import (
 
 	"github.com/Masterminds/sprig"
 	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	"github.com/prometheus/client_golang/api"
-	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	"github.com/prometheus/client_golang/api/prometheus/v1"
 )
 
 type DockerRun struct {
@@ -71,10 +85,10 @@ func NewPrometheusDockerRun(args DockerRunArgs) (*DockerRun, error) {
 	}, nil
 }
 
-type DockerTest struct {
-	DataPath   string
-	Start, End time.Time
-	Validate   func(model.Value, v1.Warnings, error)
+type PrometheusDockerTest struct {
+	DataPath string
+
+	session *gexec.Session
 }
 
 func MustTime(str string) time.Time {
@@ -83,65 +97,124 @@ func MustTime(str string) time.Time {
 	}).(time.Time)
 }
 
-var _ = Describe("MeterefQuery", func() {
-	var papi PrometheusAPI
-
-	BeforeEach(func() {
-		client, err := api.NewClient(api.Config{
-			Address: "http://localhost:9090",
-		})
-
-		Expect(err).To(Succeed())
-
-		papi = PrometheusAPI{
-			API: v1.NewAPI(client),
-		}
+func (c *PrometheusDockerTest) Start() error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(cwd, "..", "..", c.DataPath)
+	cmd, err := NewPrometheusDockerRun(DockerRunArgs{
+		Path:       path,
+		LocalPort:  9090,
+		RemotePort: 9090,
 	})
 
-	DescribeTable("query meter definitions",
-		func(c DockerTest) {
-			cwd, err := os.Getwd()
-			if err != nil {
-				panic(err)
+	if err != nil {
+		return err
+	}
+
+	session, err := gexec.Start(cmd.Cmd, GinkgoWriter, GinkgoWriter)
+
+	if err != nil {
+		return err
+	}
+
+	c.session = session
+
+	defer session.Err.CancelDetects()
+	select {
+	case <-session.Err.Detect(`msg="Server is ready to receive web requests."`):
+		return nil
+	case <-time.NewTimer(10 * time.Second).C:
+		return errors.New("failed to start server")
+	}
+}
+
+func (c *PrometheusDockerTest) Stop() {
+	if c.session != nil {
+		c.session.Terminate().Wait(5 * time.Second)
+	}
+}
+
+var _ = Describe("MeterefQuery", func() {
+	var papi PrometheusAPI
+	var server *PrometheusDockerTest
+	var start, end time.Time
+
+	Context("data from 202002121300", func() {
+		BeforeEach(func() {
+			server = &PrometheusDockerTest{
+				DataPath: filepath.Join("data", "prometheus-meterdef-query-error-202002121300"),
 			}
-			path := filepath.Join(cwd, "..", "..", c.DataPath)
-			cmd, err := NewPrometheusDockerRun(DockerRunArgs{
-				Path:       path,
-				LocalPort:  9090,
-				RemotePort: 9090,
+
+			err := server.Start()
+			Expect(err).To(Succeed())
+
+			start = MustTime("2021-02-12T00:00:00Z")
+			end = MustTime("2021-02-13T00:00:00Z")
+
+			client, err := api.NewClient(api.Config{
+				Address: "http://localhost:9090",
 			})
-			Expect(err).To(Succeed())
 
-			session, err := gexec.Start(cmd.Cmd, GinkgoWriter, GinkgoWriter)
-			defer func() {
-				session.Terminate().Wait(10 * time.Second)
-			}()
-			Expect(err).To(Succeed())
+			papi = PrometheusAPI{
+				API: v1.NewAPI(client),
+			}
+		})
 
-			Eventually(session.Err, 10*time.Second).Should(gbytes.Say(`msg="Server is ready to receive web requests."`))
-
-			model, warns, err := papi.QueryMeterDefinitions(&MeterDefinitionQuery{
-				Start: c.Start,
-				End:   c.End,
+		// Ensuring we can query for the meterdefs for this time frame
+		It("should query for meter defs and return", func() {
+			values, warns, err := papi.QueryMeterDefinitions(&MeterDefinitionQuery{
+				Start: start,
+				End:   end,
 				Step:  time.Hour,
 			})
 
-			c.Validate(model, warns, err)
-		},
-		Entry("with many to many results should pass", DockerTest{
-			DataPath: filepath.Join("data", "prometheus-meterdef-query-error-202002121300"),
-			Start:    MustTime("2021-02-12T00:00:00Z"),
-			End:      MustTime("2021-02-13T00:00:00Z"),
-			Validate: func(values model.Value, warns v1.Warnings, err error) {
-				Expect(err).To(Succeed())
-				Expect(warns).To(BeEmpty())
-				Expect(values.Type()).To(Equal(model.ValMatrix))
-				mat, ok := values.(model.Matrix)
-				Expect(ok).To(BeTrue())
-				Expect(mat).To(HaveLen(3))
-			},
-		}),
-	)
+			Expect(err).To(Succeed())
+			Expect(warns).To(BeEmpty())
+			Expect(values.Type()).To(Equal(model.ValMatrix))
+			mat, ok := values.(model.Matrix)
+			Expect(ok).To(BeTrue())
+			Expect(mat).To(HaveLen(3))
+		})
+
+		// With this data, this query used to error. Fixes were made to resolve this.
+		It("should query for a duplicate data set and return", func() {
+			labels := map[string]string{
+				"date_label_override":  "{{ .Label.date}}",
+				"meter_group":          "{{ .Label.productId}}.licensing.ibm.com",
+				"meter_kind":           "IBMLicensing",
+				"metric_aggregation":   "max",
+				"metric_group_by":      "[\"metricId\",\"productId\"]",
+				"metric_label":         "{{ .Label.metricId}}",
+				"metric_period":        "24h0m0s",
+				"metric_query":         "product_license_usage_details{}",
+				"name":                 "ibm-licensing-service-bundleproduct-instance",
+				"namespace":            "ibm-common-services",
+				"value_label_override": "{{ .Label.value}}",
+				"workload_name":        "{{ .Label.productId}}.licensing.ibm.com",
+				"workload_type":        "Service",
+			}
+
+			meterDefLabels := &common.MeterDefPrometheusLabels{}
+			err := meterDefLabels.FromLabels(labels)
+			Expect(err).To(Succeed())
+			promQuery := NewPromQueryFromLabels(meterDefLabels, start, end)
+
+			values, warns, err := papi.ReportQuery(promQuery)
+
+			Expect(err).To(Succeed())
+			Expect(warns).To(BeEmpty())
+			Expect(values.Type()).To(Equal(model.ValMatrix))
+			mat, ok := values.(model.Matrix)
+			Expect(ok).To(BeTrue())
+			Expect(mat).To(HaveLen(0))
+		})
+
+		AfterEach(func() {
+			server.Stop()
+		})
+	})
 })
 
 var _ = AfterSuite(func() {

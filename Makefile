@@ -53,7 +53,6 @@ docker-push:
 docker-manifest:
 	$(MAKE) $(addsuffix /docker-manifest,$(PROJECTS))
 
-
 .PHONY: check-licenses
 check-licenses: addlicense ## Check if all files have licenses
 	 find . -type f -name "*.go" | xargs $(LICENSE) -check -c "IBM Corp." -v

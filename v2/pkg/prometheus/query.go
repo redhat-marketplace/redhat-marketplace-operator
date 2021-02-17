@@ -25,6 +25,7 @@ import (
 	sprig "github.com/Masterminds/sprig/v3"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
@@ -51,6 +52,34 @@ type PromQueryArgs struct {
 
 type PromQuery struct {
 	*PromQueryArgs
+}
+
+func NewPromQueryFromLabels(
+	meterDefLabels *common.MeterDefPrometheusLabels,
+	start, end time.Time,
+) *PromQuery {
+	workloadType := marketplacev1beta1.WorkloadType(meterDefLabels.WorkloadType)
+	duration := time.Hour
+	if meterDefLabels.MetricPeriod != nil {
+		duration = meterDefLabels.MetricPeriod.Duration
+	}
+
+	return NewPromQuery(&PromQueryArgs{
+		Metric: meterDefLabels.Metric,
+		Type:   workloadType,
+		MeterDef: types.NamespacedName{
+			Name:      meterDefLabels.MeterDefName,
+			Namespace: meterDefLabels.MeterDefNamespace,
+		},
+		Query:         meterDefLabels.MetricQuery,
+		Start:         start,
+		End:           end,
+		Step:          duration,
+		GroupBy:       []string(meterDefLabels.MetricGroupBy),
+		Without:       []string(meterDefLabels.MetricWithout),
+		AggregateFunc: meterDefLabels.MetricAggregation,
+	})
+
 }
 
 func NewPromQuery(
@@ -101,22 +130,23 @@ func (q *PromQuery) typeNotSupportedError() error {
 	return err
 }
 
-func (q *PromQuery) makeLeftSide() string {
-	switch q.Type {
-	case v1beta1.WorkloadTypePVC:
-		return fmt.Sprintf(`avg(meterdef_persistentvolumeclaim_info{meter_def_name="%v",meter_def_namespace="%v",phase="Bound"}) without (instance, container, endpoint, job, service)`, q.MeterDef.Name, q.MeterDef.Namespace)
-	case v1beta1.WorkloadTypePod:
-		return fmt.Sprintf(`avg(meterdef_pod_info{meter_def_name="%v",meter_def_namespace="%v"}) without (pod_uid, instance, container, endpoint, job, service)`, q.MeterDef.Name, q.MeterDef.Namespace)
-	case v1beta1.WorkloadTypeService:
-		return fmt.Sprintf(`avg(meterdef_service_info{meter_def_name="%v",meter_def_namespace="%v"}) without (pod_uid, instance, container, endpoint, job, pod)`, q.MeterDef.Name, q.MeterDef.Namespace)
-	default:
-		panic(q.typeNotSupportedError())
-	}
-}
-
 func (q *PromQuery) defaulter() {
 	q.setDefaultWithout()
 	q.setDefaultGroupBy()
+}
+
+func dedupeStringSlice(stringSlice []string) []string {
+    keys := make(map[string]bool)
+    list := []string{}
+
+    for _, entry := range stringSlice{
+        if _, value := keys[entry]; !value {
+            keys[entry] = true
+            list = append(list, entry)
+        }
+    }
+
+    return list
 }
 
 func (q *PromQuery) setDefaultWithout() {
@@ -131,6 +161,9 @@ func (q *PromQuery) setDefaultWithout() {
 	default:
 		panic(q.typeNotSupportedError())
 	}
+
+	q.Without = append(q.Without, "instance","container","endpoint","job","service","cluster_ip" )
+	q.Without = dedupeStringSlice(q.Without)
 }
 
 func (q *PromQuery) setDefaultGroupBy() {
@@ -144,26 +177,51 @@ func (q *PromQuery) setDefaultGroupBy() {
 	default:
 		panic(q.typeNotSupportedError())
 	}
+
+	q.defaultGroupBy= dedupeStringSlice(q.defaultGroupBy)
 }
 
 const resultQueryTemplateStr = `
-{{- .AggregateFunc }} by ({{ default .DefaultGroupBy .GroupBy | join "," }}) ({{ .LeftSide }} * on({{ .DefaultGroupBy | join "," }}) group_right {{ .Query }}) * on({{ default .DefaultGroupBy .GroupBy | join "," }}) group_right group without({{ .Without | join "," }}) ({{ .Query }})`
+{{- .AggregateFunc }} by ({{ default .DefaultGroupBy .GroupBy | join "," }}) (avg({{ .MeterName }}{ {{- .QueryFilters | join "," -}} }) without ({{ .Without | join "," }}) * on({{ .DefaultGroupBy | join "," }}) group_right {{ .Query }}) * on({{ default .DefaultGroupBy .GroupBy | join "," }}) group_right group without({{ .Without | join "," }}) ({{ .Query }})`
 
 var resultQueryTemplate *template.Template = utils.Must(func() (interface{}, error) {
 	return template.New("resultQuery").Funcs(sprig.GenericFuncMap()).Parse(resultQueryTemplateStr)
 }).(*template.Template)
 
 type ResultQueryArgs struct {
-	Query, AggregateFunc, LeftSide   string
-	GroupBy, Without, DefaultGroupBy []string
+	MeterName, Query, AggregateFunc string
+	QueryFilters, GroupBy, Without, DefaultGroupBy []string
+}
+
+func makeLabel(key, value string) string {
+	return fmt.Sprintf(`%s="%s"`, key, value)
 }
 
 func (q *PromQuery) GetQueryArgs() ResultQueryArgs {
+	var meterName string
+	queryFilters := []string{
+		makeLabel("meter_def_name", q.MeterDef.Name),
+		makeLabel("meter_def_namespace", q.MeterDef.Namespace),
+	}
+
+	switch q.Type {
+	case v1beta1.WorkloadTypePVC:
+		meterName = "meterdef_persistentvolumeclaim_info"
+		queryFilters = append(queryFilters, makeLabel("phase", "Bound"))
+	case v1beta1.WorkloadTypePod:
+		meterName = "meterdef_pod_info"
+	case v1beta1.WorkloadTypeService:
+		meterName = "meterdef_service_info"
+	default:
+		panic(q.typeNotSupportedError())
+	}
+
 	return ResultQueryArgs{
+		MeterName:      meterName,
 		Query:          q.Query,
 		AggregateFunc:  q.AggregateFunc,
 		GroupBy:        q.GroupBy,
-		LeftSide:       q.makeLeftSide(),
+		QueryFilters:   queryFilters,
 		Without:        q.Without,
 		DefaultGroupBy: q.defaultGroupBy,
 	}

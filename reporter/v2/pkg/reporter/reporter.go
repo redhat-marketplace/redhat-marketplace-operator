@@ -33,6 +33,7 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
@@ -533,28 +534,7 @@ func buildPromQuery(labels interface{}, start, end time.Time) (*meterDefPromQuer
 		return nil, err
 	}
 
-	workloadType := marketplacev1beta1.WorkloadType(meterDefLabels.WorkloadType)
-	duration := time.Hour
-	if meterDefLabels.MetricPeriod != nil {
-		duration = meterDefLabels.MetricPeriod.Duration
-	}
-
-	query := NewPromQuery(&PromQueryArgs{
-		Metric: meterDefLabels.Metric,
-		Type:   workloadType,
-		MeterDef: types.NamespacedName{
-			Name:      meterDefLabels.MeterDefName,
-			Namespace: meterDefLabels.MeterDefNamespace,
-		},
-		Query:         meterDefLabels.MetricQuery,
-		Start:         start,
-		End:           end,
-		Step:          duration,
-		GroupBy:       []string(meterDefLabels.MetricGroupBy),
-		Without:       []string(meterDefLabels.MetricWithout),
-		AggregateFunc: meterDefLabels.MetricAggregation,
-	})
-
+	query := NewPromQueryFromLabels(meterDefLabels, start, end)
 	tmpl, err := NewTemplate(meterDefLabels)
 
 	if err != nil {
