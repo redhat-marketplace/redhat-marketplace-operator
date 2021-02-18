@@ -24,11 +24,11 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 )
 
 var _ = Describe("MeterReportController", func() {
@@ -152,7 +152,7 @@ var _ = Describe("MeterReportController", func() {
 			}, timeout, interval).Should(
 				MatchAllKeys(Keys{
 					"result": Equal(Continue),
-					"reason" : Equal(v1alpha1.ReportConditionReasonJobErrored),
+					"reason": Equal(v1alpha1.ReportConditionReasonJobErrored),
 				}))
 
 			job2 := &batchv1.Job{}

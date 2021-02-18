@@ -284,7 +284,7 @@ func (meterdef *MeterDefinition) ToPrometheusLabels() []*common.MeterDefPromethe
 			MeterGroup:         meterdef.Spec.Group,
 			MetricQuery:        meter.Query,
 			MetricPeriod:       period,
-			WorkloadName:       meter.Name,
+			DisplayName:        meter.Name,
 			MetricWithout:      common.JSONArray(meter.Without),
 			WorkloadType:       string(meter.WorkloadType),
 			MetricAggregation:  meter.Aggregation,

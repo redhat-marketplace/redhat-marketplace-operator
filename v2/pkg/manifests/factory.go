@@ -107,31 +107,31 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 	}
 }
 
-func(f *Factory) addCertAnnotations(inAnnotations map[string]string)(map[string]string){
+func (f *Factory) addCertAnnotations(inAnnotations map[string]string) map[string]string {
 	certAnnotations := map[string]string{
-		"productID": "068a62892a1e4db39641342e592daa25",
+		"productID":     "068a62892a1e4db39641342e592daa25",
 		"productMetric": "FREE",
-		"productName": "IBM Cloud Platform Common Services",
+		"productName":   "IBM Cloud Platform Common Services",
 	}
 
-	for k,v := range certAnnotations{
+	for k, v := range certAnnotations {
 		inAnnotations[k] = v
 	}
 
 	return inAnnotations
 }
 
-func(f *Factory) addCertLabels(inLabels map[string]string)(map[string]string){
+func (f *Factory) addCertLabels(inLabels map[string]string) map[string]string {
 	certLabels := map[string]string{
-		"redhat.marketplace.com/name" : "redhat-marketplace-operator",
+		"redhat.marketplace.com/name":  "redhat-marketplace-operator",
 		"app.kubernetes.io/managed-by": "OLM",
-		"app.kubernetes.io/instance": "default",
+		"app.kubernetes.io/instance":   "default",
 	}
 
-	for k,v := range certLabels{
+	for k, v := range certLabels {
 		inLabels[k] = v
 	}
-	
+
 	return inLabels
 }
 
@@ -163,7 +163,7 @@ func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) 
 	if d.Spec.Template.GetAnnotations() == nil {
 		d.Spec.Template.Annotations = make(map[string]string)
 	}
-	
+
 	d.Spec.Template.Annotations = f.addCertAnnotations(d.Spec.Template.Annotations)
 	d.Annotations = f.addCertAnnotations(d.Annotations)
 
@@ -196,7 +196,7 @@ func (f *Factory) NewService(manifest io.Reader) (*corev1.Service, error) {
 	}
 
 	d.Annotations = f.addCertAnnotations(d.Annotations)
-	
+
 	if d.GetLabels() == nil {
 		d.Labels = make(map[string]string)
 	}
@@ -221,7 +221,7 @@ func (f *Factory) NewConfigMap(manifest io.Reader) (*corev1.ConfigMap, error) {
 	}
 
 	d.Annotations = f.addCertAnnotations(d.Annotations)
-	
+
 	if d.GetLabels() == nil {
 		d.Labels = make(map[string]string)
 	}
@@ -246,7 +246,7 @@ func (f *Factory) NewSecret(manifest io.Reader) (*v1.Secret, error) {
 	}
 
 	s.Annotations = f.addCertAnnotations(s.Annotations)
-	
+
 	if s.GetLabels() == nil {
 		s.Labels = make(map[string]string)
 	}
@@ -271,7 +271,7 @@ func (f *Factory) NewJob(manifest io.Reader) (*batchv1.Job, error) {
 	}
 
 	j.Annotations = f.addCertAnnotations(j.Annotations)
-	
+
 	if j.GetLabels() == nil {
 		j.Labels = make(map[string]string)
 	}
@@ -298,7 +298,7 @@ func (f *Factory) NewPrometheus(
 	}
 
 	p.Annotations = f.addCertAnnotations(p.Annotations)
-	
+
 	if p.GetLabels() == nil {
 		p.Labels = make(map[string]string)
 	}
@@ -308,14 +308,14 @@ func (f *Factory) NewPrometheus(
 	if p.Spec.PodMetadata == nil {
 		p.Spec.PodMetadata = &monitoringv1.EmbeddedObjectMetadata{
 			Labels: map[string]string{
-				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
+				"redhat.marketplace.com/name":  "redhat-marketplace-operator",
 				"app.kubernetes.io/managed-by": "OLM",
-				"app.kubernetes.io/instance": "default",
+				"app.kubernetes.io/instance":   "default",
 			},
 			Annotations: map[string]string{
-				"productID": "068a62892a1e4db39641342e592daa25",
+				"productID":     "068a62892a1e4db39641342e592daa25",
 				"productMetric": "FREE",
-				"productName": "IBM Cloud Platform Common Services",
+				"productName":   "IBM Cloud Platform Common Services",
 			},
 		}
 	}
@@ -742,15 +742,15 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 			Name:      utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
 			Namespace: f.namespace,
 			Labels: map[string]string{
-				"razee/watch-resource": "lite",
-				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
+				"razee/watch-resource":         "lite",
+				"redhat.marketplace.com/name":  "redhat-marketplace-operator",
 				"app.kubernetes.io/managed-by": "OLM",
-				"app.kubernetes.io/instance": "default",
+				"app.kubernetes.io/instance":   "default",
 			},
 			Annotations: map[string]string{
-				"productID": "068a62892a1e4db39641342e592daa25",
+				"productID":     "068a62892a1e4db39641342e592daa25",
 				"productMetric": "FREE",
-				"productName": "IBM Cloud Platform Common Services",
+				"productName":   "IBM Cloud Platform Common Services",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -771,17 +771,17 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app":                  utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
-						"razee/watch-resource": "lite",
-						"owned-by":             "marketplace.redhat.com-razee",
-						"redhat.marketplace.com/name" : "redhat-marketplace-operator",
+						"app":                          utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
+						"razee/watch-resource":         "lite",
+						"owned-by":                     "marketplace.redhat.com-razee",
+						"redhat.marketplace.com/name":  "redhat-marketplace-operator",
 						"app.kubernetes.io/managed-by": "OLM",
-						"app.kubernetes.io/instance": "default",
+						"app.kubernetes.io/instance":   "default",
 					},
 					Annotations: map[string]string{
-						"productID": "068a62892a1e4db39641342e592daa25",
+						"productID":     "068a62892a1e4db39641342e592daa25",
 						"productMetric": "FREE",
-						"productName": "IBM Cloud Platform Common Services",
+						"productName":   "IBM Cloud Platform Common Services",
 					},
 					Name: utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
 				},
@@ -920,15 +920,15 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 			Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 			Namespace: f.namespace,
 			Labels: map[string]string{
-				"razee/watch-resource": "lite",
-				"redhat.marketplace.com/name" : "redhat-marketplace-operator",
+				"razee/watch-resource":         "lite",
+				"redhat.marketplace.com/name":  "redhat-marketplace-operator",
 				"app.kubernetes.io/managed-by": "OLM",
-				"app.kubernetes.io/instance": "default",
+				"app.kubernetes.io/instance":   "default",
 			},
 			Annotations: map[string]string{
-				"productID": "068a62892a1e4db39641342e592daa25",
+				"productID":     "068a62892a1e4db39641342e592daa25",
 				"productMetric": "FREE",
-				"productName": "IBM Cloud Platform Common Services",
+				"productName":   "IBM Cloud Platform Common Services",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -949,17 +949,17 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app":                  utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-						"razee/watch-resource": "lite",
-						"owned-by":             "marketplace.redhat.com-razee",
-						"redhat.marketplace.com/name" : "redhat-marketplace-operator",
+						"app":                          utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+						"razee/watch-resource":         "lite",
+						"owned-by":                     "marketplace.redhat.com-razee",
+						"redhat.marketplace.com/name":  "redhat-marketplace-operator",
 						"app.kubernetes.io/managed-by": "OLM",
-						"app.kubernetes.io/instance": "default",
+						"app.kubernetes.io/instance":   "default",
 					},
 					Annotations: map[string]string{
-						"productID": "068a62892a1e4db39641342e592daa25",
+						"productID":     "068a62892a1e4db39641342e592daa25",
 						"productMetric": "FREE",
-						"productName": "IBM Cloud Platform Common Services",
+						"productName":   "IBM Cloud Platform Common Services",
 					},
 					Name: utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 				},
