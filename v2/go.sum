@@ -1077,6 +1077,7 @@ github.com/openzipkin/zipkin-go v0.2.1/go.mod h1:NaW6tEwdmWMaCDZzg8sh+IBNOxHMPnh
 github.com/openzipkin/zipkin-go v0.2.2/go.mod h1:NaW6tEwdmWMaCDZzg8sh+IBNOxHMPnhQw8ySjnjRyN4=
 github.com/operator-framework/api v0.3.25 h1:d6WgHCshCffT37okVZeL+IbGlhrsHy57xdfMnopC8rI=
 github.com/operator-framework/api v0.3.25/go.mod h1:GVNiB6AQucwdZz3ZFXNv9HtcLOzcFnr6O/QldzKG93g=
+github.com/operator-framework/operator-sdk v1.4.2 h1:qZF6lxxdiJys7FgyiHEQjffBJaa5hijK5Oi52BkuwyE=
 github.com/pact-foundation/pact-go v1.0.4/go.mod h1:uExwJY4kCzNPcHRj+hCR/HBbOOIwwtUjcrb0b5/5kLM=
 github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 github.com/pascaldekloe/goe v0.1.0/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
@@ -1186,6 +1187,7 @@ github.com/rafaeljusto/redigomock v0.0.0-20190202135759-257e089e14a1/go.mod h1:J
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/redhat-marketplace/redhat-marketplace-operator v0.0.0-20210120224729-3ee1b9f46cf5 h1:8pzmAxuNvXTGd1tRJTHJbNZ0QhhTn3dLhqzTYekdrOE=
 github.com/redhat-marketplace/redhat-marketplace-operator v0.0.0-20210127205718-2f71fa52f07b h1:reTs5zQWJSlcHRVWxjvYBlyXA5YtEP8CfOrmp9SYz8Y=
+github.com/redhat-marketplace/redhat-marketplace-operator v0.0.0-20210217144052-c1f70a4b301a h1:0meVmwjmKs1/+xIarM8wJz4zYq5QG0WDiRflMJlzQDc=
 github.com/retailnext/hllpp v1.0.1-0.20180308014038-101a6d2f8b52/go.mod h1:RDpi1RftBQPUCDRw6SmxeaREsAaRKnOclghuzp/WRzc=
 github.com/rogpeppe/fastuuid v0.0.0-20150106093220-6724a57986af/go.mod h1:XWv6SoW27p1b0cqNHllgS5HIMJraePCO15w5zCzIWYg=
 github.com/rogpeppe/fastuuid v1.2.0/go.mod h1:jVj6XXZzXRy/MSR5jhDC/2q6DgLz+nrA6LYCDYWNEvQ=
