@@ -6,4 +6,6 @@ pushd $DIR &> /dev/null
 rm -rf etc prometheus
 tar -xzf data.tar.gz
 
+chmod -R 777 ./etc ./prometheus
+
 popd &> /dev/null

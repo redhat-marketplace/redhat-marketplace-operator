@@ -29,11 +29,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	"github.com/prometheus/client_golang/api"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	"github.com/prometheus/client_golang/api/prometheus/v1"
 )
 
 type DockerRun struct {
@@ -188,8 +188,8 @@ var _ = Describe("MeterefQuery", func() {
 				"metric_group_by":      "[\"metricId\",\"productId\"]",
 				"metric_label":         "{{ .Label.metricId}}",
 				"metric_period":        "24h0m0s",
-				"metric_query":         "product_license_usage_details{}",
-				"name":                 "ibm-licensing-service-bundleproduct-instance",
+				"metric_query":         "product_license_usage{}",
+				"name":                 "ibm-licensing-service-product-instance",
 				"namespace":            "ibm-common-services",
 				"value_label_override": "{{ .Label.value}}",
 				"workload_name":        "{{ .Label.productId}}.licensing.ibm.com",
@@ -208,7 +208,7 @@ var _ = Describe("MeterefQuery", func() {
 			Expect(values.Type()).To(Equal(model.ValMatrix))
 			mat, ok := values.(model.Matrix)
 			Expect(ok).To(BeTrue())
-			Expect(mat).To(HaveLen(0))
+			Expect(mat).To(HaveLen(2))
 		})
 
 		AfterEach(func() {

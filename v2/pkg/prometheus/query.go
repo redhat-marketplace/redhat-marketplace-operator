@@ -153,16 +153,16 @@ func (q *PromQuery) setDefaultWithout() {
 	// we want to make sure
 	switch q.Type {
 	case v1beta1.WorkloadTypePVC:
-		q.Without = append(q.Without, "instance")
+		q.Without = append(q.Without, "instance", "container", "endpoint", "job", "service", "pod", "pod_uid", "pod_ip")
 	case v1beta1.WorkloadTypePod:
-		q.Without = append(q.Without, "pod_ip", "instance", "image_id", "host_ip", "node")
+		q.Without = append(q.Without, "pod_uid", "pod_ip", "instance", "image_id", "host_ip", "node", "container", "job", "service")
 	case v1beta1.WorkloadTypeService:
-		q.Without = append(q.Without, "instance", "cluster_ip")
+		q.Without = append(q.Without, "pod_uid", "instance", "container", "endpoint", "job", "pod", "cluster_ip")
 	default:
 		panic(q.typeNotSupportedError())
 	}
 
-	q.Without = append(q.Without, "instance","container","endpoint","job","service","cluster_ip" )
+	q.Without = append(q.Without, "instance","container","endpoint","job","cluster_ip" )
 	q.Without = dedupeStringSlice(q.Without)
 }
 
