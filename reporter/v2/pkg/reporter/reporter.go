@@ -33,7 +33,6 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
@@ -64,7 +63,6 @@ var (
 
 type MarketplaceReporter struct {
 	PrometheusAPI
-	api               v1.API
 	k8sclient         rhmclient.SimpleClient
 	mktconfig         *marketplacev1alpha1.MarketplaceConfig
 	report            *marketplacev1alpha1.MeterReport
@@ -80,7 +78,7 @@ func NewMarketplaceReporter(
 	report *marketplacev1alpha1.MeterReport,
 	mktconfig *marketplacev1alpha1.MarketplaceConfig,
 	prometheusService *corev1.Service,
-	api     *PrometheusAPI,
+	api *PrometheusAPI,
 ) (*MarketplaceReporter, error) {
 	return &MarketplaceReporter{
 		PrometheusAPI:     *api,
@@ -216,7 +214,7 @@ func (r *MarketplaceReporter) RetrieveMeterDefinitions(
 	err = utils.Retry(func() error {
 		query := &MeterDefinitionQuery{
 			Start: r.report.Spec.StartTime.Time.UTC(),
-			End:   r.report.Spec.EndTime.Time.Add(-1*time.Second).UTC(),
+			End:   r.report.Spec.EndTime.Time.Add(-1 * time.Second).UTC(),
 			Step:  time.Hour,
 		}
 
