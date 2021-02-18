@@ -289,12 +289,15 @@ rules:
       - '*'
     verbs:
       - '*'
-  - nonResourceURLs:
-      - '*'
+  - apiGroups:
+      - ''
+    resources:
+      - namespaces
     verbs:
       - get
       - list
-      - watch
+      - update
+      - patch
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
