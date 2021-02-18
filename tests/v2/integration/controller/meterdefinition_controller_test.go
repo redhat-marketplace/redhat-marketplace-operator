@@ -55,15 +55,15 @@ var _ = Describe("MeterDefController reconcile", func() {
 					Namespace: Namespace,
 				},
 				Spec: v1beta1.MeterDefinitionSpec{
-					Group:              "marketplace.redhat.com",
-					Kind:               "Pod",
+					Group: "marketplace.redhat.com",
+					Kind:  "Pod",
 
 					ResourceFilters: []v1beta1.ResourceFilter{
 						{
 							OwnerCRD: &v1beta1.OwnerCRDFilter{
 								common.GroupVersionKind{
 									APIVersion: "apps/v1",
-									Kind: "Deployment",
+									Kind:       "Deployment",
 								},
 							},
 							Namespace: &v1beta1.NamespaceFilter{
@@ -85,10 +85,10 @@ var _ = Describe("MeterDefController reconcile", func() {
 							Period: &metav1.Duration{
 								time.Duration(time.Hour * 1),
 							},
-							Query: "kube_pod_info",
-							Metric: "kube_pod_info",
+							Query:        "kube_pod_info",
+							Metric:       "kube_pod_info",
 							WorkloadType: v1beta1.WorkloadTypePod,
-							Name: "meterdef_controller_test_query",
+							Name:         "meterdef_controller_test_query",
 						},
 					},
 				},
@@ -194,8 +194,7 @@ func patchRHMEnvVars() bool {
 	}`)
 
 	patch := client.RawPatch(types.StrategicMergePatchType, newEnv)
-	assertion = Expect(testHarness.Patch(context.TODO(), rhmDeployment,patch)).Should(Succeed())
+	assertion = Expect(testHarness.Patch(context.TODO(), rhmDeployment, patch)).Should(Succeed())
 
 	return assertion
 }
-
