@@ -19,11 +19,14 @@ import (
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
 
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
-	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 
+	. "github.com/onsi/ginkgo/extensions/table"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -31,11 +34,61 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-var _ = Describe("Testing with Ginkgo", func() {
+var _ = Describe("ClusterServiceVersion controller", func() {
+	var empty map[string]string
+
+	DescribeTable("filter events",
+		func(annotations map[string]string, labels map[string]string, expected int) {
+			obj := &metav1.ObjectMeta{}
+			obj.SetAnnotations(annotations)
+			obj.SetLabels(labels)
+			Expect(csvFilter(obj)).To(Equal(expected))
+		},
+		Entry("allow unignored csv", empty, empty, 2),
+		Entry("deny ignored", map[string]string{
+			ignoreTag: ignoreTagValue,
+		}, empty, 0),
+		Entry("deny mdef with copied from", map[string]string{
+			olmCopiedFromTag:                     "foo",
+			utils.CSV_METERDEFINITION_ANNOTATION: "some meterdef",
+		}, empty, 0),
+		Entry("accept mdef without copied from", map[string]string{
+			utils.CSV_METERDEFINITION_ANNOTATION: "some meterdef",
+		}, empty, 1),
+	)
+
+	Context("predicates", func() {
+		It("should allow delete events", func() {
+			evt := event.DeleteEvent{}
+			Expect(clusterServiceVersionPredictates.Delete(evt)).To(BeTrue())
+		})
+		It("should deny generic events", func() {
+			evt := event.GenericEvent{}
+			Expect(clusterServiceVersionPredictates.GenericFunc(evt)).To(BeFalse())
+		})
+		It("should check for change in mdef", func(){
+			evt := event.UpdateEvent{}
+			evt.MetaNew = &metav1.ObjectMeta{
+				Annotations: map[string]string{
+					utils.CSV_METERDEFINITION_ANNOTATION: "newmdef",
+				},
+			}
+			evt.MetaOld = &metav1.ObjectMeta{
+				Annotations: map[string]string{
+					utils.CSV_METERDEFINITION_ANNOTATION: "oldmdef",
+				},
+			}
+			Expect(clusterServiceVersionPredictates.Update(evt)).To(BeTrue())
+			evt.MetaOld.GetAnnotations()[utils.CSV_METERDEFINITION_ANNOTATION] = "newmdef"
+			Expect(clusterServiceVersionPredictates.Update(evt)).To(BeFalse())
+		})
+	})
+
 	It("cluster service version controller", func() {
 		var (
 			csvName   = "new-clusterserviceversion"
