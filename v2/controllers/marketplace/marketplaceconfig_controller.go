@@ -33,7 +33,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -157,7 +156,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		reqLogger.Error(err, "secret is missing appropriate field and can't check status")
 	}
 
-	willBeDeleted,_ := r.isMarkedForDeletion(marketplaceConfig)
+	willBeDeleted := marketplaceConfig.GetDeletionTimestamp() != nil
 	if willBeDeleted {
 		result := r.unregister(marketplaceConfig,*r.cfg,string(pullSecret),request,reqLogger)
 		if !result.Is(Continue){
@@ -663,22 +662,6 @@ func (r *MarketplaceConfigReconciler) SetupWithManager(mgr manager.Manager) erro
 			OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
 		}).
 		Complete(r)
-}
-
-func(r *MarketplaceConfigReconciler) isMarkedForDeletion (instance *marketplacev1alpha1.MarketplaceConfig)(bool,error){
-	accessor, err := meta.Accessor(instance)
-	if err != nil {
-		return false, err
-	}
-
-	isMarkedForDeletion := accessor.GetDeletionTimestamp() != nil
-
-	if !isMarkedForDeletion {
-		return false, nil
-	}
-
-	return true, nil
-
 }
 
 func(r *MarketplaceConfigReconciler) unregister(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig,cfg config.OperatorConfig,pullSecret string,request reconcile.Request,reqLogger logr.Logger)*ExecResult{
