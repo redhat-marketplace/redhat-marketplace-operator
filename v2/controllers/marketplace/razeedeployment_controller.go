@@ -56,10 +56,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var (
-	razeeWatchTag            = "razee/watch-resource"
-	razeeWatchTagValueLite   = "lite"
-	razeeWatchTagValueDetail = "detail"
+const (
+	razeeWatchTag            string = "razee/watch-resource"
+	razeeWatchTagValueLite   string = "lite"
+	razeeWatchTagValueDetail string = "detail"
 )
 
 // blank assignment to verify that ReconcileRazeeDeployment implements reconcile.Reconciler
