@@ -74,7 +74,7 @@ func initializeInjectDependencies(cache2 cache.Cache, fields *managers.Controlle
 	kubeInterfaceInjector := &KubeInterfaceInjector{
 		KubeInterface: clientset,
 	}
-	certIssuer, err := utils.NewCertIssuer(clientset, logger)
+	certIssuer, err := utils.NewCertIssuer(logger)
 	if err != nil {
 		return injectorDependencies{}, err
 	}

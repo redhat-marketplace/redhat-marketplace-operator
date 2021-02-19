@@ -11,12 +11,10 @@ import (
 	"github.com/cloudflare/cfssl/signer/local"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 )
 
 type CertIssuer struct {
 	ca     CertificateAuthority
-	client kubernetes.Interface
 	logger logr.Logger
 }
 
@@ -31,7 +29,6 @@ type CertificateAuthority struct {
 }
 
 func NewCertIssuer(
-	c kubernetes.Interface,
 	l logr.Logger,
 ) (*CertIssuer, error) {
 	cert, key, err := createCertificateAuthority()
@@ -45,7 +42,6 @@ func NewCertIssuer(
 			PublicKey:  cert,
 			PrivateKey: key,
 		},
-		client: c,
 		logger: l,
 	}, nil
 }
