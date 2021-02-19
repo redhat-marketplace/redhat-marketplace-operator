@@ -70,7 +70,7 @@ type MarketplaceClient struct {
 }
 
 type RegisteredAccount struct {
-	Id string `json:"_id"`
+	Id        string `json:"_id"`
 	AccountId string
 	Uuid      string
 	Status    string
@@ -253,13 +253,13 @@ func (m *MarketplaceClient) RegistrationStatus(account *MarketplaceClientAccount
 	}, nil
 }
 
-func(m *MarketplaceClient) getClusterObjID(account *MarketplaceClientAccount)(string,error){
+func (m *MarketplaceClient) getClusterObjID(account *MarketplaceClientAccount) (string, error) {
 	u, err := buildQuery(m.endpoint, registrationEndpoint,
 		"accountId", account.AccountId,
 		"uuid", account.ClusterUuid)
 
 	if err != nil {
-		return "",err
+		return "", err
 	}
 
 	logger.Info("get cluster objId query", "query", u.String())
@@ -268,19 +268,19 @@ func(m *MarketplaceClient) getClusterObjID(account *MarketplaceClientAccount)(st
 	defer resp.Body.Close()
 
 	if err != nil {
-		return  "",err
+		return "", err
 	}
 
 	utils.PrettyPrint(string(clusterDef))
 	registrations, err := getRegistrations(string(clusterDef))
-	
+
 	var objId string
 	for _, registration := range registrations {
 		if registration.Uuid == account.ClusterUuid {
 			objId = registration.Id
 		}
 	}
-	return objId,nil
+	return objId, nil
 }
 
 func (m *MarketplaceClient) UnRegister(account *MarketplaceClientAccount) (RegistrationStatusOutput, error) {
@@ -303,15 +303,15 @@ func (m *MarketplaceClient) UnRegister(account *MarketplaceClientAccount) (Regis
 	logger.Info("status query", "query", url)
 
 	requestBody, err := json.Marshal(map[string]string{
-		"accountId": account.AccountId, 
-		"status": "TO_BE_UNREGISTERED",
+		"accountId": account.AccountId,
+		"status":    "TO_BE_UNREGISTERED",
 	})
 
 	if err != nil {
-			return RegistrationStatusOutput{Err: err}, err
+		return RegistrationStatusOutput{Err: err}, err
 	}
 
-	patchReq,err := http.NewRequest("PATCH",url,bytes.NewBuffer(requestBody))
+	patchReq, err := http.NewRequest("PATCH", url, bytes.NewBuffer(requestBody))
 	if err != nil {
 		return RegistrationStatusOutput{Err: err}, err
 	}
@@ -354,7 +354,7 @@ func (m *MarketplaceClient) UnRegister(account *MarketplaceClientAccount) (Regis
 		}
 	}
 
-	return unregistered,nil
+	return unregistered, nil
 }
 
 func getRegistrations(jsonString string) ([]RegisteredAccount, error) {

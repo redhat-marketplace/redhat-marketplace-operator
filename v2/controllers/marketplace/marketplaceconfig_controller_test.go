@@ -68,6 +68,16 @@ var _ = Describe("Testing with Ginkgo", func() {
 					},
 				}
 
+				secret = corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      utils.RHMPullSecretName,
+						Namespace: namespace,
+					},
+					Data: map[string][]byte{
+						utils.RHMPullSecretKey: []byte("rhm-pull-secret"),
+					},
+				}
+
 				marketplaceconfig = utils.BuildMarketplaceConfigCR(namespace, customerID)
 				razeedeployment   = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
 				meterbase         = utils.BuildMeterBaseCr(namespace)
@@ -103,9 +113,13 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 			marketplaceconfig.Spec.EnableMetering = ptr.Bool(true)
 			marketplaceconfig.Spec.InstallIBMCatalogSource = ptr.Bool(true)
-			reconcilerTest := NewReconcilerTest(setup, marketplaceconfig, deployedNamespace)
+			reconcilerTest := NewReconcilerTest(setup, marketplaceconfig, deployedNamespace, &secret)
 			reconcilerTest.TestAll(t,
 				ReconcileStep(opts, ReconcileWithUntilDone(true)),
+				GetStep(opts,
+					GetWithNamespacedName(utils.RHMPullSecretName, namespace),
+					GetWithObj(&corev1.Secret{}),
+				),
 				GetStep(opts,
 					GetWithNamespacedName(razeeName, namespace),
 					GetWithObj(&marketplacev1alpha1.RazeeDeployment{}),

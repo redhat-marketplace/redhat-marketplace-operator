@@ -158,8 +158,8 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 	willBeDeleted := marketplaceConfig.GetDeletionTimestamp() != nil
 	if willBeDeleted {
-		result := r.unregister(marketplaceConfig,*r.cfg,string(pullSecret),request,reqLogger)
-		if !result.Is(Continue){
+		result := r.unregister(marketplaceConfig, *r.cfg, string(pullSecret), request, reqLogger)
+		if !result.Is(Continue) {
 			return result.Return()
 		}
 	}
@@ -664,7 +664,7 @@ func (r *MarketplaceConfigReconciler) SetupWithManager(mgr manager.Manager) erro
 		Complete(r)
 }
 
-func(r *MarketplaceConfigReconciler) unregister(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig,cfg config.OperatorConfig,pullSecret string,request reconcile.Request,reqLogger logr.Logger)*ExecResult{
+func (r *MarketplaceConfigReconciler) unregister(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, cfg config.OperatorConfig, pullSecret string, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
 	reqLogger.Info("attempting to un-register")
 	marketplaceClient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
 		Url:      cfg.Marketplace.URL,
@@ -677,14 +677,14 @@ func(r *MarketplaceConfigReconciler) unregister(marketplaceConfig *marketplacev1
 		ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
 	}
 
-	reqLogger.Info("unregister","marketplace client account",marketplaceClientAccount)
+	reqLogger.Info("unregister", "marketplace client account", marketplaceClientAccount)
 
 	registrationStatusOutput, err := marketplaceClient.UnRegister(marketplaceClientAccount)
 	if err != nil {
 		reqLogger.Error(err, "unregister failed")
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{Requeue: true},
-			Err: nil,
+			Err:             nil,
 		}
 	}
 
