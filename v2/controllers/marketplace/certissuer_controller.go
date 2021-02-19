@@ -18,7 +18,6 @@ package marketplace
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/go-logr/logr"
@@ -30,7 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 var _ reconcile.Reconciler = &CertIssuerReconciler{}
@@ -55,17 +56,11 @@ func (r *CertIssuerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 
 	// Fetch configmaps
 	configMapList := &corev1.ConfigMapList{}
-	// ObjectMeta: metav1.ObjectMeta{
-	// 	Annotations: map[string]string{
-	// 		"service.beta.openshift.io/inject-cabundle": "true",
-	// 	},
-	// },
-	// }
-
-	selector := client.MatchingFields{"metadata.annotations.service.beta.openshift.io/inject-cabundle": "true"}
-	err := r.Client.List(context.TODO(), configMapList, selector)
+	opts := []client.ListOption{
+		client.InNamespace(req.NamespacedName.Namespace),
+	}
+	err := r.Client.List(context.TODO(), configMapList, opts...)
 	if err != nil {
-		fmt.Printf("\n\n\n\n\nERROR %+v\n\n\n\n", err)
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
@@ -75,12 +70,13 @@ func (r *CertIssuerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, err
 	}
-	fmt.Printf("\n\n\n\n\n%+v\n\n\n\n", configMapList)
 	for _, cm := range configMapList.Items {
-		if len(cm.Data["service-ca.crt"]) == 0 {
-			err := r.InjectCACertIntoConfigMap(&cm)
-			if err != nil {
-				log.Error(err, "failed to inject CA certificate")
+		if _, ok := cm.Annotations["service.beta.openshift.io/inject-cabundle"]; ok {
+			if _, ok := cm.Data["service-ca.crt"]; ok {
+				err := r.InjectCACertIntoConfigMap(&cm)
+				if err != nil {
+					log.Error(err, "failed to inject CA certificate")
+				}
 			}
 		}
 	}
@@ -93,7 +89,7 @@ func (r *CertIssuerReconciler) Inject(injector *inject.Injector) inject.SetupWit
 	return r
 }
 
-func (r *CertIssuerReconciler) InjectOperatorConfig(ci *utils.CertIssuer) error {
+func (r *CertIssuerReconciler) InjectCertIssuer(ci *utils.CertIssuer) error {
 	r.certIssuer = ci
 	return nil
 }
@@ -101,14 +97,19 @@ func (r *CertIssuerReconciler) InjectOperatorConfig(ci *utils.CertIssuer) error 
 // InjectCACertIntoConfigMap injects certificate data into
 func (r *CertIssuerReconciler) InjectCACertIntoConfigMap(configmap *corev1.ConfigMap) error {
 	cm := configmap
-	cm.Data["service-ca.crt"] = string(r.certIssuer.CertificateAuthority.PublicKey)
-
-	return r.Client.Patch(context.Background(), cm, nil)
+	patch := client.MergeFrom(cm.DeepCopy())
+	cm.Data["service-ca.crt"] = string(r.certIssuer.PublicKey())
+	return r.Client.Patch(context.Background(), cm, patch)
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CertIssuerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplaceredhatcomv1beta1.CertIssuer{}).
+		Watches(
+			&source.Kind{Type: &corev1.ConfigMap{}},
+			&handler.EnqueueRequestForOwner{
+				IsController: true,
+				OwnerType:    &marketplaceredhatcomv1beta1.CertIssuer{}}).
 		Complete(r)
 }

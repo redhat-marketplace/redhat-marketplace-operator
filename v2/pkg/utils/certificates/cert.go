@@ -15,7 +15,7 @@ import (
 )
 
 type CertIssuer struct {
-	CertificateAuthority
+	ca     CertificateAuthority
 	client kubernetes.Interface
 	logger logr.Logger
 }
@@ -36,11 +36,12 @@ func NewCertIssuer(
 ) (*CertIssuer, error) {
 	cert, key, err := createCertificateAuthority()
 	if err != nil {
+		l.Error(err, "Unable to create Certificate Authority")
 		return nil, err
 	}
 
 	return &CertIssuer{
-		CertificateAuthority: CertificateAuthority{
+		ca: CertificateAuthority{
 			PublicKey:  cert,
 			PrivateKey: key,
 		},
@@ -77,11 +78,11 @@ func createCertificateAuthority() ([]byte, []byte, error) {
 func (ci *CertIssuer) CreateCertFromCA(
 	namespacedName types.NamespacedName,
 ) ([]byte, []byte, error) {
-	parsedCaCert, err := helpers.ParseCertificatePEM(ci.CertificateAuthority.PublicKey)
+	parsedCaCert, err := helpers.ParseCertificatePEM(ci.ca.PublicKey)
 	if err != nil {
 		return nil, nil, err
 	}
-	parsedCaKey, err := helpers.ParsePrivateKeyPEM(ci.CertificateAuthority.PrivateKey)
+	parsedCaKey, err := helpers.ParsePrivateKeyPEM(ci.ca.PrivateKey)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -124,4 +125,8 @@ func (ci *CertIssuer) CreateCertFromCA(
 	}
 
 	return signedCert, key, nil
+}
+
+func (ci *CertIssuer) PublicKey() []byte {
+	return ci.ca.PublicKey
 }
