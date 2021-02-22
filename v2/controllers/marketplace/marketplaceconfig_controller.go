@@ -16,6 +16,7 @@ package marketplace
 
 import (
 	"context"
+	errpkg "errors"
 	"reflect"
 	"sync"
 	"time"
@@ -157,7 +158,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	pullSecret, ok := secret.Data[utils.RHMPullSecretKey]
 
 	if !ok {
-		reqLogger.Error(err, "secret is missing appropriate field and can't check status")
+		return reconcile.Result{}, errpkg.New("secret is missing appropriate field")
 	}
 
 	tokenClaims, _ := marketplace.GetJWTTokenClaim(string(pullSecret))
@@ -490,22 +491,18 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 	reqLogger.Info("Finding Cluster registration status")
 
-	if ok {
-		reqLogger.Info("attempting to update registration")
+	registrationStatusOutput, err := r.MarketplaceClient.RegistrationStatus(r.MarketplaceClientAccount)
+	if err != nil {
+		reqLogger.Error(err, "registration status failed")
+		return reconcile.Result{Requeue: true}, nil
+	}
 
-		registrationStatusOutput, err := r.MarketplaceClient.RegistrationStatus(r.MarketplaceClientAccount)
-		if err != nil {
-			reqLogger.Error(err, "registration status failed")
-			return reconcile.Result{Requeue: true}, nil
-		}
+	reqLogger.Info("attempting to update registration", "status", registrationStatusOutput.RegistrationStatus)
 
-		reqLogger.Info("attempting to update registration", "status", registrationStatusOutput.RegistrationStatus)
+	statusConditions := registrationStatusOutput.TransformConfigStatus()
 
-		statusConditions := registrationStatusOutput.TransformConfigStatus()
-
-		for _, cond := range statusConditions {
-			updated = updated || marketplaceConfig.Status.Conditions.SetCondition(cond)
-		}
+	for _, cond := range statusConditions {
+		updated = updated || marketplaceConfig.Status.Conditions.SetCondition(cond)
 	}
 
 	if updated {
