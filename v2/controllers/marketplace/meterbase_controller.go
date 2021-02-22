@@ -1196,7 +1196,7 @@ func (r *MeterBaseReconciler) newPrometheusOperator(
 ) (*monitoringv1.Prometheus, error) {
 	prom, err := factory.NewPrometheusDeployment(cr, cfg)
 
-	factory.SetOwnerReference(prom, cr)
+	factory.SetOwnerReference(cr, prom)
 
 	if cr.Spec.Prometheus.Storage.Class == nil {
 		defaultClass, err := utils.GetDefaultStorageClass(r.Client)
