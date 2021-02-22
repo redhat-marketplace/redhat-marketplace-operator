@@ -164,7 +164,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 	if r.MarketplaceClient == nil {
 		r.Lock()
-		defer r.Unlock()
 		marketplaceClient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
 			Url:      r.cfg.Marketplace.URL,
 			Token:    string(pullSecret),
@@ -174,6 +173,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 		if err != nil {
 			reqLogger.Error(err, "error constructing marketplace client")
+			r.Unlock() // use defer r.Unlock() here ? 
 			return reconcile.Result{Requeue: true}, nil
 		}
 
