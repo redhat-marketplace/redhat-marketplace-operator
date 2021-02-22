@@ -18,15 +18,19 @@ package marketplace
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/go-logr/logr"
 	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/certificates"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -43,6 +47,7 @@ type CertIssuerReconciler struct {
 	Scheme *runtime.Scheme
 
 	certIssuer *utils.CertIssuer
+	cfg        *config.OperatorConfig
 }
 
 // +kubebuilder:rbac:groups=marketplace.redhat.com.redhat.com,resources=certissuers,verbs=get;list;watch;create;update;patch;delete
@@ -81,6 +86,18 @@ func (r *CertIssuerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		}
 	}
 
+	// Create missing TLS secrets
+	tlsSecrets := []string{
+		"prometheus-operator",
+		"rhm-metric-state",
+		"rhm-prometheus-meterbase",
+	}
+
+	err = r.CreateTLSSecrets(req.NamespacedName.Namespace, tlsSecrets...)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -94,16 +111,61 @@ func (r *CertIssuerReconciler) InjectCertIssuer(ci *utils.CertIssuer) error {
 	return nil
 }
 
+func (r *CertIssuerReconciler) InjectOperatorConfig(oc *config.OperatorConfig) error {
+	r.cfg = oc
+	return nil
+}
+
 // InjectCACertIntoConfigMap injects certificate data into
 func (r *CertIssuerReconciler) InjectCACertIntoConfigMap(configmap *corev1.ConfigMap) error {
 	cm := configmap
 	patch := client.MergeFrom(cm.DeepCopy())
-	cm.Data["service-ca.crt"] = string(r.certIssuer.PublicKey())
+	cm.Data["service-ca.crt"] = string(r.certIssuer.CAPublicKey())
 	return r.Client.Patch(context.Background(), cm, patch)
+}
+
+// CreateTLSSecrets creates tls secrets signed by recociler's CA
+func (r *CertIssuerReconciler) CreateTLSSecrets(namespace string, secretNames ...string) error {
+	cert, key, err := r.certIssuer.CreateCertFromCA(types.NamespacedName{
+		Name:      secretNames[0],
+		Namespace: namespace,
+	})
+	if err != nil {
+		return err
+	}
+	secretName := fmt.Sprintf("%s-tls", secretNames[0])
+	secretMeta := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      secretName,
+		},
+		Type: corev1.SecretTypeTLS,
+		Data: map[string][]byte{
+			"tls.crt": cert,
+			"tls.key": key,
+		},
+	}
+
+	err = r.Client.Create(context.Background(), secretMeta)
+	if err != nil {
+		r.Log.Error(err, "cannot create tls secret")
+	}
+
+	r.Log.Info("created tls secret", "secretName", secretName)
+
+	if len(secretNames) == 1 {
+		return nil
+	}
+
+	return r.CreateTLSSecrets(namespace, secretNames[1:]...)
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CertIssuerReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.cfg.Infrastructure.HasOpenshift() {
+		return nil
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplaceredhatcomv1beta1.CertIssuer{}).
 		Watches(

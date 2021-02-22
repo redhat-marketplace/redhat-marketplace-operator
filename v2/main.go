@@ -42,6 +42,7 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	controllers "github.com/redhat-marketplace/redhat-marketplace-operator/v2/controllers/marketplace"
+	marketplacecontrollers "github.com/redhat-marketplace/redhat-marketplace-operator/v2/controllers/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	// +kubebuilder:scaffold:imports
@@ -226,6 +227,15 @@ func main() {
 
 	if err = (&marketplacev1beta1.MeterDefinition{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "MeterDefinition")
+		os.Exit(1)
+	}
+
+	if err = (&marketplacecontrollers.CertIssuerReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("marketplace").WithName("CertIssuer"),
+		Scheme: mgr.GetScheme(),
+	}).Inject(injector).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CertIssuer")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

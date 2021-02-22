@@ -123,6 +123,6 @@ func (ci *CertIssuer) CreateCertFromCA(
 	return signedCert, key, nil
 }
 
-func (ci *CertIssuer) PublicKey() []byte {
+func (ci *CertIssuer) CAPublicKey() []byte {
 	return ci.ca.PublicKey
 }

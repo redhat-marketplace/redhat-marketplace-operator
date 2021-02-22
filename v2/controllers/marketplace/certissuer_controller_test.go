@@ -22,7 +22,7 @@ import (
 )
 
 var _ = Describe("CertIssuerController", func() {
-	Describe("check certificate issuer", func() {
+	Describe("check certificate issuer CA", func() {
 		var (
 			ctrl *CertIssuerReconciler
 		)
@@ -40,7 +40,7 @@ var _ = Describe("CertIssuerController", func() {
 		})
 
 		It("should have CA generated", func() {
-			pk := ctrl.certIssuer.PublicKey()
+			pk := ctrl.certIssuer.CAPublicKey()
 			Expect(pk).ToNot(BeNil())
 		})
 	})
