@@ -17,6 +17,7 @@ package marketplace
 import (
 	"context"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -69,6 +70,9 @@ type MarketplaceConfigReconciler struct {
 	Log    logr.Logger
 	cc     ClientCommandRunner
 	cfg    *config.OperatorConfig
+	MarketplaceClient *marketplace.MarketplaceClient
+	MarketplaceClientAccount *marketplace.MarketplaceClientAccount
+	sync.Mutex
 }
 
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
@@ -154,6 +158,35 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 	if !ok {
 		reqLogger.Error(err, "secret is missing appropriate field and can't check status")
+	}
+
+	tokenClaims, _ := marketplace.GetJWTTokenClaim(string(pullSecret))
+
+	if r.MarketplaceClient == nil {
+		r.Lock()
+		defer r.Unlock()
+		marketplaceClient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
+			Url:      r.cfg.Marketplace.URL,
+			Token:    string(pullSecret),
+			Insecure: r.cfg.Marketplace.InsecureClient,
+			Claims:   tokenClaims,
+		})
+
+		if err != nil {
+			reqLogger.Error(err, "error constructing marketplace client")
+			return reconcile.Result{Requeue: true}, nil
+		}
+
+		r.MarketplaceClient = marketplaceClient
+
+		marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
+			AccountId:   marketplaceConfig.Spec.RhmAccountID,
+			ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
+		}
+
+		r.MarketplaceClientAccount = marketplaceClientAccount
+
+		r.Unlock()
 	}
 
 	willBeDeleted := marketplaceConfig.GetDeletionTimestamp() != nil
@@ -457,24 +490,10 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 	reqLogger.Info("Finding Cluster registration status")
 
-	tokenClaims, _ := marketplace.GetJWTTokenClaim(string(pullSecret))
-
 	if ok {
 		reqLogger.Info("attempting to update registration")
-		marketplaceClient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
-			Url:      r.cfg.Marketplace.URL,
-			Token:    string(pullSecret),
-			Insecure: r.cfg.Marketplace.InsecureClient,
-			Claims:   tokenClaims,
-		})
 
-		marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
-			AccountId:   marketplaceConfig.Spec.RhmAccountID,
-			ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
-		}
-
-		registrationStatusOutput, err := marketplaceClient.RegistrationStatus(marketplaceClientAccount)
-
+		registrationStatusOutput, err := r.MarketplaceClient.RegistrationStatus(r.MarketplaceClientAccount)
 		if err != nil {
 			reqLogger.Error(err, "registration status failed")
 			return reconcile.Result{Requeue: true}, nil

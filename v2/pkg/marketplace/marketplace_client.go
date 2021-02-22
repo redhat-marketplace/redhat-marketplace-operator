@@ -44,8 +44,8 @@ const (
 
 // endpoints
 const (
-	pullSecretEndpoint   = "provisioning/v1/rhm-operator/rhm-operator-secret"
-	registrationEndpoint = "provisioning/v1/registered-clusters"
+	PullSecretEndpoint   = "provisioning/v1/rhm-operator/rhm-operator-secret"
+	RegistrationEndpoint = "provisioning/v1/registered-clusters"
 )
 
 const (
@@ -66,7 +66,7 @@ type MarketplaceClientAccount struct {
 
 type MarketplaceClient struct {
 	endpoint   *url.URL
-	httpClient http.Client
+	HttpClient http.Client
 }
 
 type RegisteredAccount struct {
@@ -121,15 +121,15 @@ func NewMarketplaceClient(clientConfig *MarketplaceClientConfig) (*MarketplaceCl
 
 	return &MarketplaceClient{
 		endpoint: u,
-		httpClient: http.Client{
+		HttpClient: http.Client{
 			Transport: transport,
 		},
 	}, nil
 }
 
-type withHeader struct {
+type WithHeaderType struct {
 	http.Header
-	rt http.RoundTripper
+	Rt http.RoundTripper
 }
 
 func WithBearerAuth(rt http.RoundTripper, token string) http.RoundTripper {
@@ -157,20 +157,20 @@ func buildQuery(u *url.URL, path string, args ...string) (*url.URL, error) {
 	return &buildU, nil
 }
 
-func WithHeader(rt http.RoundTripper) withHeader {
+func WithHeader(rt http.RoundTripper) WithHeaderType {
 	if rt == nil {
 		rt = http.DefaultTransport
 	}
 
-	return withHeader{Header: make(http.Header), rt: rt}
+	return WithHeaderType{Header: make(http.Header), Rt: rt}
 }
 
-func (h withHeader) RoundTrip(req *http.Request) (*http.Response, error) {
+func (h WithHeaderType) RoundTrip(req *http.Request) (*http.Response, error) {
 	for k, v := range h.Header {
 		req.Header[k] = v
 	}
 
-	return h.rt.RoundTrip(req)
+	return h.Rt.RoundTrip(req)
 }
 
 type RegistrationStatusInput struct {
@@ -190,7 +190,7 @@ func (m *MarketplaceClient) RegistrationStatus(account *MarketplaceClientAccount
 		return RegistrationStatusOutput{Err: err}, err
 	}
 
-	u, err := buildQuery(m.endpoint, registrationEndpoint,
+	u, err := buildQuery(m.endpoint, RegistrationEndpoint,
 		"accountId", account.AccountId,
 		"uuid", account.ClusterUuid)
 
@@ -199,7 +199,7 @@ func (m *MarketplaceClient) RegistrationStatus(account *MarketplaceClientAccount
 	}
 
 	logger.Info("status query", "query", u.String())
-	resp, err := m.httpClient.Get(u.String())
+	resp, err := m.HttpClient.Get(u.String())
 
 	if err != nil {
 		return RegistrationStatusOutput{
@@ -254,7 +254,7 @@ func (m *MarketplaceClient) RegistrationStatus(account *MarketplaceClientAccount
 }
 
 func (m *MarketplaceClient) getClusterObjID(account *MarketplaceClientAccount) (string, error) {
-	u, err := buildQuery(m.endpoint, registrationEndpoint,
+	u, err := buildQuery(m.endpoint, RegistrationEndpoint,
 		"accountId", account.AccountId,
 		"uuid", account.ClusterUuid)
 
@@ -263,7 +263,7 @@ func (m *MarketplaceClient) getClusterObjID(account *MarketplaceClientAccount) (
 	}
 
 	logger.Info("get cluster objId query", "query", u.String())
-	resp, err := m.httpClient.Get(u.String())
+	resp, err := m.HttpClient.Get(u.String())
 	clusterDef, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
 
@@ -298,7 +298,7 @@ func (m *MarketplaceClient) UnRegister(account *MarketplaceClientAccount) (Regis
 		return RegistrationStatusOutput{Err: err}, err
 	}
 
-	url := m.endpoint.String() + "/" + registrationEndpoint + "/" + objID
+	url := m.endpoint.String() + "/" + RegistrationEndpoint + "/" + objID
 
 	logger.Info("status query", "query", url)
 
@@ -317,7 +317,7 @@ func (m *MarketplaceClient) UnRegister(account *MarketplaceClientAccount) (Regis
 	}
 
 	patchReq.Header.Set("Content-Type", "application/json")
-	resp, err := m.httpClient.Do(patchReq)
+	resp, err := m.HttpClient.Do(patchReq)
 	if err != nil {
 		return RegistrationStatusOutput{
 			RegistrationStatus: "HttpError",
@@ -408,13 +408,13 @@ func (resp RegistrationStatusOutput) TransformConfigStatus() status.Conditions {
 }
 
 func (mhttp *MarketplaceClient) GetMarketplaceSecret() (*corev1.Secret, error) {
-	u, err := buildQuery(mhttp.endpoint, pullSecretEndpoint)
+	u, err := buildQuery(mhttp.endpoint, PullSecretEndpoint)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to build query")
 	}
 
-	resp, err := mhttp.httpClient.Get(u.String())
+	resp, err := mhttp.HttpClient.Get(u.String())
 	if err != nil {
 		return nil, errors.Wrap(err, "")
 	}

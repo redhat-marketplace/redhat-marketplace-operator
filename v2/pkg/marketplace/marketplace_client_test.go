@@ -52,7 +52,7 @@ var _ = Describe("Marketplace Config Status", func() {
 		}
 		mclient, err = NewMarketplaceClient(marketplaceClientConfig)
 		Expect(err).To(Succeed())
-		mclient.httpClient.Transport.(withHeader).rt.(*http.Transport).TLSClientConfig = &tls.Config{
+		mclient.HttpClient.Transport.(WithHeaderType).Rt.(*http.Transport).TLSClientConfig = &tls.Config{
 			RootCAs:            server.HTTPTestServer.TLS.RootCAs,
 			InsecureSkipVerify: true,
 		}
@@ -73,7 +73,7 @@ var _ = Describe("Marketplace Config Status", func() {
 	Context("Marketplace Pull Secret without any error", func() {
 		BeforeEach(func() {
 			statusCode = 200
-			path = "/" + pullSecretEndpoint
+			path = "/" + PullSecretEndpoint
 			body, err := ioutil.ReadFile("../../tests/mockresponses/marketplace-pull-secret.yaml")
 			if err != nil {
 				panic(err)
@@ -105,7 +105,7 @@ var _ = Describe("Marketplace Config Status", func() {
 	Context("Cluster Registration Status is INSTALLED", func() {
 		BeforeEach(func() {
 			statusCode = 200
-			path = "/" + registrationEndpoint
+			path = "/" + RegistrationEndpoint
 
 			body, _ = ioutil.ReadFile("../../tests/mockresponses/registration-response.json")
 			server.AppendHandlers(
@@ -124,7 +124,7 @@ var _ = Describe("Marketplace Config Status", func() {
 	Context("Cluster Registration Status is blank", func() {
 		BeforeEach(func() {
 			statusCode = 200
-			path = "/" + registrationEndpoint
+			path = "/" + RegistrationEndpoint
 			body = []byte("[]")
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
