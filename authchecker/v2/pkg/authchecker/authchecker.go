@@ -106,5 +106,6 @@ func (a *AuthChecker) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		}
+		time.Sleep(1*time.Second)
 	}
 }

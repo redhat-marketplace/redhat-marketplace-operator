@@ -28,6 +28,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	batchv1 "k8s.io/api/batch/v1"
@@ -87,7 +88,10 @@ func (m *MeterReportReconciler) InjectOperatorConfig(cfg *config.OperatorConfig)
 }
 
 func (r *MeterReportReconciler) SetupWithManager(mgr manager.Manager) error {
+	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
+
 	return ctrl.NewControllerManagedBy(mgr).
+		WithEventFilter(namespacePredicate).
 		For(&marketplacev1alpha1.MeterReport{}).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.MeterReport{}}, &handler.EnqueueRequestForObject{}).
 		Watches(&source.Kind{Type: &batchv1.Job{}}, &handler.EnqueueRequestForOwner{

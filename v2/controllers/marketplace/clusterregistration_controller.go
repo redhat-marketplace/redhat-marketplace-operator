@@ -27,6 +27,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -348,7 +349,9 @@ func (m *ClusterRegistrationReconciler) InjectOperatorConfig(cfg *config.Operato
 }
 
 func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
 	return ctrl.NewControllerManagedBy(mgr).
+		WithEventFilter(namespacePredicate).
 		For(&v1.Secret{}, builder.WithPredicates(
 			predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {

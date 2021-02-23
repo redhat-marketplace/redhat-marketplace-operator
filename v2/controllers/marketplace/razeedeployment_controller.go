@@ -29,6 +29,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	"golang.org/x/time/rate"
@@ -175,6 +176,7 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 
 	// Create a new controller
 	return ctrl.NewControllerManagedBy(mgr).
+		WithEventFilter(predicates.NamespacePredicate(r.cfg.DeployedNamespace)).
 		For(&marketplacev1alpha1.RazeeDeployment{}).
 		WithOptions(controller.Options{
 			Reconciler: r,

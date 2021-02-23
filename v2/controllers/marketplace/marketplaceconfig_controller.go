@@ -28,6 +28,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
@@ -640,8 +641,11 @@ func (r *MarketplaceConfigReconciler) SetupWithManager(mgr manager.Manager) erro
 		OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
 	}
 
+	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplacev1alpha1.MarketplaceConfig{}).
+		WithEventFilter(namespacePredicate).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, ownerHandler).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.MeterBase{}}, ownerHandler).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, &handler.EnqueueRequestForOwner{

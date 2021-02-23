@@ -25,6 +25,7 @@ build:
           paths:
             - go.mod
             - go.sum
+            - "main.go"
             - "apis/**"
             - "controllers/**"
             - "pkg/**"
