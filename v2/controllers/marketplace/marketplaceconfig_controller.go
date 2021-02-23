@@ -18,7 +18,8 @@ import (
 	"context"
 	errpkg "errors"
 	"reflect"
-	"sync"
+
+	// "sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -71,9 +72,7 @@ type MarketplaceConfigReconciler struct {
 	Log    logr.Logger
 	cc     ClientCommandRunner
 	cfg    *config.OperatorConfig
-	MarketplaceClient *marketplace.MarketplaceClient
-	MarketplaceClientAccount *marketplace.MarketplaceClientAccount
-	sync.Mutex
+	mclientBuilder marketplace.MarketplaceClientBuilder
 }
 
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
@@ -161,34 +160,31 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		return reconcile.Result{}, errpkg.New("secret is missing appropriate field")
 	}
 
-	tokenClaims, _ := marketplace.GetJWTTokenClaim(string(pullSecret))
+	// tokenClaims, _ := marketplaceClient.GetJWTTokenClaim(string(pullSecret))
 
-	if r.MarketplaceClient == nil {
-		r.Lock()
-		marketplaceClient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
-			Url:      r.cfg.Marketplace.URL,
-			Token:    string(pullSecret),
-			Insecure: r.cfg.Marketplace.InsecureClient,
-			Claims:   tokenClaims,
-		})
+	marketplace.
+		// builder, err := marketplace(&marketplace.MarketplaceClientConfig{
+		// 	Url:      r.cfg.Marketplace.URL,
+		// 	Token:    string(pullSecret),
+		// 	Insecure: r.cfg.Marketplace.InsecureClient,
+		// 	Claims:   tokenClaims,
+		// })
 
-		if err != nil {
-			reqLogger.Error(err, "error constructing marketplace client")
-			r.Unlock() // use defer r.Unlock() here ? 
-			return reconcile.Result{Requeue: true}, nil
-		}
+		// if err != nil {
+		// 	reqLogger.Error(err, "error constructing marketplace client")
+		// 	return reconcile.Result{Requeue: true}, nil
+		// }
 
-		r.MarketplaceClient = marketplaceClient
+		// r.MarketplaceClient = marketplaceClient
 
-		marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
-			AccountId:   marketplaceConfig.Spec.RhmAccountID,
-			ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
-		}
+		// marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
+		// 	AccountId:   marketplaceConfig.Spec.RhmAccountID,
+		// 	ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
+		// }
 
-		r.MarketplaceClientAccount = marketplaceClientAccount
+		// r.MarketplaceClientAccount = marketplaceClientAccount
 
-		r.Unlock()
-	}
+	
 
 	willBeDeleted := marketplaceConfig.GetDeletionTimestamp() != nil
 	if willBeDeleted {
@@ -491,29 +487,29 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 	reqLogger.Info("Finding Cluster registration status")
 
-	registrationStatusOutput, err := r.MarketplaceClient.RegistrationStatus(r.MarketplaceClientAccount)
-	if err != nil {
-		reqLogger.Error(err, "registration status failed")
-		return reconcile.Result{Requeue: true}, nil
-	}
+	// registrationStatusOutput, err := r.MarketplaceClient.RegistrationStatus(r.MarketplaceClientAccount)
+	// if err != nil {
+	// 	reqLogger.Error(err, "registration status failed")
+	// 	return reconcile.Result{Requeue: true}, nil
+	// }
 
-	reqLogger.Info("attempting to update registration", "status", registrationStatusOutput.RegistrationStatus)
+	// reqLogger.Info("attempting to update registration", "status", registrationStatusOutput.RegistrationStatus)
 
-	statusConditions := registrationStatusOutput.TransformConfigStatus()
+	// statusConditions := registrationStatusOutput.TransformConfigStatus()
 
-	for _, cond := range statusConditions {
-		updated = updated || marketplaceConfig.Status.Conditions.SetCondition(cond)
-	}
+	// for _, cond := range statusConditions {
+	// 	updated = updated || marketplaceConfig.Status.Conditions.SetCondition(cond)
+	// }
 
-	if updated {
-		//Updating Marketplace Config with Cluster Registration status
-		err = r.Client.Status().Update(context.TODO(), marketplaceConfig)
-		if err != nil {
-			reqLogger.Error(err, "Failed to update status")
-			return reconcile.Result{}, err
-		}
-		return reconcile.Result{Requeue: true}, nil
-	}
+	// if updated {
+	// 	//Updating Marketplace Config with Cluster Registration status
+	// 	err = r.Client.Status().Update(context.TODO(), marketplaceConfig)
+	// 	if err != nil {
+	// 		reqLogger.Error(err, "Failed to update status")
+	// 		return reconcile.Result{}, err
+	// 	}
+	// 	return reconcile.Result{Requeue: true}, nil
+	// }
 
 	reqLogger.Info("reconciling finished")
 	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
@@ -653,6 +649,11 @@ func (r *MarketplaceConfigReconciler) InjectCommandRunner(ccp ClientCommandRunne
 }
 
 func (m *MarketplaceConfigReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
+	m.cfg = cfg
+	return nil
+}
+
+func (m *MarketplaceConfigReconciler) InjectMarketplaceClientBuilder(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
 	return nil
 }

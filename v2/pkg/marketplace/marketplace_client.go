@@ -76,10 +76,29 @@ type RegisteredAccount struct {
 	Status    string
 }
 
+type MarketplaceClientBuilder struct {
+	MarketplaceClient
+	Url      string
+	Insecure bool
+}
+
+func(b *MarketplaceClientBuilder) NewMarketplaceClientBuilder(clientConfig *MarketplaceClientConfig) (*MarketplaceClientBuilder,error){
+	
+	if clientConfig.Url == "" {
+		b.Url = ProductionURL
+	}else {
+		b.Url = clientConfig.Url
+	}
+
+	b.Insecure = clientConfig.Insecure
+
+	return b,nil
+}
+
 func NewMarketplaceClient(clientConfig *MarketplaceClientConfig) (*MarketplaceClient, error) {
 	var tlsConfig *tls.Config
 
-	marketplaceURL := ProductionURL
+	marketplaceURL := b.Url
 
 	if clientConfig.Claims != nil &&
 		strings.ToLower(clientConfig.Claims.Env) == strings.ToLower(EnvStage) {
@@ -93,7 +112,7 @@ func NewMarketplaceClient(clientConfig *MarketplaceClientConfig) (*MarketplaceCl
 	}
 	logger.Info("marketplace url set to", "url", marketplaceURL)
 
-	if clientConfig.Insecure {
+	if b.Insecure {
 		tlsConfig = &tls.Config{InsecureSkipVerify: true}
 	} else {
 		caCertPool, err := x509.SystemCertPool()
