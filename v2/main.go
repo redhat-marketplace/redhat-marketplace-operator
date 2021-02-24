@@ -43,6 +43,7 @@ import (
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	controllers "github.com/redhat-marketplace/redhat-marketplace-operator/v2/controllers/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -212,6 +213,14 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SubscriptionReconciler")
+		os.Exit(1)
+	}
+
+	if err = (&runnables.PodMonitor{
+		Logger: ctrl.Log.WithName("controllers").WithName("PodMonitor"),
+		Client: mgr.GetClient(),
+	}).Inject(injector).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "PodMonitor")
 		os.Exit(1)
 	}
 

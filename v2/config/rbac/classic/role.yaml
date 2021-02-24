@@ -486,6 +486,12 @@ rules:
       - delete
       - watch
       - list
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
+      - list
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -500,6 +506,12 @@ rules:
       - configmaps
     verbs:
       - get
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
+      - list
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1

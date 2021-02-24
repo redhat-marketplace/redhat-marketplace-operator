@@ -20,14 +20,10 @@ import (
 
 func initializeInjectDependencies(cache2 cache.Cache, fields *managers.ControllerFields) (injectorDependencies, error) {
 	logger := fields.Logger
-	restConfig := fields.Config
-	clientset, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return injectorDependencies{}, err
-	}
 	client := fields.Client
 	scheme := fields.Scheme
 	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logger)
+	restConfig := fields.Config
 	restMapper, err := managers.NewDynamicRESTMapper(restConfig)
 	if err != nil {
 		return injectorDependencies{}, err
@@ -44,9 +40,10 @@ func initializeInjectDependencies(cache2 cache.Cache, fields *managers.Controlle
 	if err != nil {
 		return injectorDependencies{}, err
 	}
-	deployedNamespace := ProvideNamespace(operatorConfig)
-	podMonitorConfig := managers.ProvidePodMonitorConfig(deployedNamespace)
-	podMonitor := runnables.NewPodMonitor(logger, clientset, clientCommandRunner, podMonitorConfig)
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return injectorDependencies{}, err
+	}
 	factory := manifests.NewFactory(operatorConfig, scheme)
 	crdUpdater := &runnables.CRDUpdater{
 		Logger:  logger,
@@ -56,7 +53,7 @@ func initializeInjectDependencies(cache2 cache.Cache, fields *managers.Controlle
 		Client:  clientset,
 		Factory: factory,
 	}
-	runnablesRunnables := runnables.ProvideRunnables(podMonitor, crdUpdater)
+	runnablesRunnables := runnables.ProvideRunnables(crdUpdater)
 	clientCommandInjector := &ClientCommandInjector{
 		Fields:        fields,
 		CommandRunner: clientCommandRunner,
@@ -65,6 +62,7 @@ func initializeInjectDependencies(cache2 cache.Cache, fields *managers.Controlle
 		Config: operatorConfig,
 	}
 	patchInjector := &PatchInjector{}
+	deployedNamespace := ProvideNamespace(operatorConfig)
 	factoryInjector := &FactoryInjector{
 		Fields:    fields,
 		Config:    operatorConfig,
