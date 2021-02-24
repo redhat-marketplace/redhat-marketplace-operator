@@ -158,16 +158,16 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 		reqLogger.Error(result.GetError(), "Failed to update status.")
 	}
 
-	isCollecting, err := r.verifyPromDataCollection(cc, instance, request, reqLogger)
-	if isCollecting {
-		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionHasData)
+	isReporting, err := r.verifyReporting(cc, instance, request, reqLogger)
+	if isReporting {
+		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionReporting)
 	} else {
-		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionNoData)
+		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionNotReporting)
 	}
 	if err != nil {
 		update = update || instance.Status.Conditions.SetCondition(status.Condition{
-			Type:    v1beta1.MeterDefVerifyPromDataColSetupError,
-			Reason:  "VerifyError",
+			Type:    v1beta1.MeterDefVerifyReportingSetupError,
+			Reason:  "VerifyReportingError",
 			Status:  corev1.ConditionTrue,
 			Message: err.Error(),
 		})
@@ -448,8 +448,9 @@ func labelsToRegex(labels []string) string {
 	return fmt.Sprintf("(%s)", strings.Join(labels, "|"))
 }
 
-// Is the MeterDefinition present in api/v1/label/meter_def_name/values
-func (r *MeterDefinitionReconciler) verifyPromDataCollection(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) (bool, error) {
+// Is Prometheus reporting on the MeterDefinition
+// Check MeterDefinition presense in api/v1/label/meter_def_name/values
+func (r *MeterDefinitionReconciler) verifyReporting(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) (bool, error) {
 
 	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
 	if err != nil {

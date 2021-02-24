@@ -71,9 +71,9 @@ const (
 	MeterDefConditionReasonNoResultsInStatus status.ConditionReason = "No results in status"
 	MeterDefConditionReasonResultsInStatus   status.ConditionReason = "Results in status"
 
-	MeterDefConditionTypeHasData   status.ConditionType   = "FoundData"
-	MeterDefConditionReasonNoData  status.ConditionReason = "No Data"
-	MeterDefConditionReasonHasData status.ConditionReason = "Has Data"
+	MeterDefConditionTypeReporting      status.ConditionType   = "Reporting"
+	MeterDefConditionReasonNotReporting status.ConditionReason = "Not Reporting"
+	MeterDefConditionReasonIsReporting  status.ConditionReason = "Is Reporting"
 )
 
 var (
@@ -90,16 +90,16 @@ var (
 		Message: "Meter definition has results.",
 	}
 
-	MeterDefConditionNoData = status.Condition{
-		Type:    MeterDefConditionTypeHasData,
+	MeterDefConditionNotReporting = status.Condition{
+		Type:    MeterDefConditionTypeReporting,
 		Status:  corev1.ConditionFalse,
-		Reason:  MeterDefConditionReasonNoData,
-		Message: "Meter definition label name not found in meterbase prometheus.",
+		Reason:  MeterDefConditionReasonNotReporting,
+		Message: "Prometheus is not reporting on MeterDefinition. Label name is not present.",
 	}
-	MeterDefConditionHasData = status.Condition{
-		Type:    MeterDefConditionTypeHasData,
+	MeterDefConditionReporting = status.Condition{
+		Type:    MeterDefConditionTypeReporting,
 		Status:  corev1.ConditionTrue,
-		Reason:  MeterDefConditionReasonHasData,
-		Message: "Meter definition label name found in meterbase prometheus.",
+		Reason:  MeterDefConditionReasonIsReporting,
+		Message: "Prometheus is reporting on MeterDefinition. Label name is present.",
 	}
 )
