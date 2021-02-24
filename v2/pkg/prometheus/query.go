@@ -136,17 +136,17 @@ func (q *PromQuery) defaulter() {
 }
 
 func dedupeStringSlice(stringSlice []string) []string {
-    keys := make(map[string]bool)
-    list := []string{}
+	keys := make(map[string]bool)
+	list := []string{}
 
-    for _, entry := range stringSlice{
-        if _, value := keys[entry]; !value {
-            keys[entry] = true
-            list = append(list, entry)
-        }
-    }
+	for _, entry := range stringSlice {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
 
-    return list
+	return list
 }
 
 func (q *PromQuery) setDefaultWithout() {
@@ -162,7 +162,7 @@ func (q *PromQuery) setDefaultWithout() {
 		panic(q.typeNotSupportedError())
 	}
 
-	q.Without = append(q.Without, "instance","container","endpoint","job","cluster_ip" )
+	q.Without = append(q.Without, "instance", "container", "endpoint", "job", "cluster_ip")
 	q.Without = dedupeStringSlice(q.Without)
 }
 
@@ -178,7 +178,7 @@ func (q *PromQuery) setDefaultGroupBy() {
 		panic(q.typeNotSupportedError())
 	}
 
-	q.defaultGroupBy= dedupeStringSlice(q.defaultGroupBy)
+	q.defaultGroupBy = dedupeStringSlice(q.defaultGroupBy)
 }
 
 const resultQueryTemplateStr = `
@@ -189,7 +189,7 @@ var resultQueryTemplate *template.Template = utils.Must(func() (interface{}, err
 }).(*template.Template)
 
 type ResultQueryArgs struct {
-	MeterName, Query, AggregateFunc string
+	MeterName, Query, AggregateFunc                string
 	QueryFilters, GroupBy, Without, DefaultGroupBy []string
 }
 
@@ -334,4 +334,22 @@ func (p *PrometheusAPI) QueryMeterDefinitions(query *MeterDefinitionQuery) (mode
 	}
 
 	return result, warnings, nil
+}
+
+// return LabelValues/MeterDefinition names seen in the last hour
+func (p *PrometheusAPI) MeterDefLabelValues() (model.LabelValues, v1.Warnings, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	labelValues, warnings, err := p.LabelValues(ctx, "meter_def_name", time.Now().Add(-time.Hour), time.Now())
+
+	if err != nil {
+		logger.Error(err, "querying prometheus", "warnings", warnings)
+		return nil, warnings, toError(err)
+	}
+	if len(warnings) > 0 {
+		logger.Info("warnings", "warnings", warnings)
+	}
+
+	return labelValues, warnings, nil
 }

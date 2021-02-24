@@ -70,6 +70,10 @@ const (
 	MeterDefConditionTypeHasResult           status.ConditionType   = "FoundMatches"
 	MeterDefConditionReasonNoResultsInStatus status.ConditionReason = "No results in status"
 	MeterDefConditionReasonResultsInStatus   status.ConditionReason = "Results in status"
+
+	MeterDefConditionTypeHasData   status.ConditionType   = "FoundData"
+	MeterDefConditionReasonNoData  status.ConditionReason = "No Data"
+	MeterDefConditionReasonHasData status.ConditionReason = "Has Data"
 )
 
 var (
@@ -84,5 +88,18 @@ var (
 		Status:  corev1.ConditionTrue,
 		Reason:  MeterDefConditionReasonResultsInStatus,
 		Message: "Meter definition has results.",
+	}
+
+	MeterDefConditionNoData = status.Condition{
+		Type:    MeterDefConditionTypeHasData,
+		Status:  corev1.ConditionFalse,
+		Reason:  MeterDefConditionReasonNoData,
+		Message: "Meter definition label name not found in meterbase prometheus.",
+	}
+	MeterDefConditionHasData = status.Condition{
+		Type:    MeterDefConditionTypeHasData,
+		Status:  corev1.ConditionTrue,
+		Reason:  MeterDefConditionReasonHasData,
+		Message: "Meter definition label name found in meterbase prometheus.",
 	}
 )

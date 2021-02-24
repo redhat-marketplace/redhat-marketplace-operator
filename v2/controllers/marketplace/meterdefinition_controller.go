@@ -158,6 +158,22 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 		reqLogger.Error(result.GetError(), "Failed to update status.")
 	}
 
+	isCollecting, err := r.verifyPromDataCollection(cc, instance, request, reqLogger)
+	if isCollecting {
+		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionHasData)
+	} else {
+		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionNoData)
+	}
+	if err != nil {
+		update = update || instance.Status.Conditions.SetCondition(status.Condition{
+			Type:    v1beta1.MeterDefVerifyPromDataColSetupError,
+			Reason:  "VerifyError",
+			Status:  corev1.ConditionTrue,
+			Message: err.Error(),
+		})
+		requeue = true
+	}
+
 	queryPreviewResult, err := r.queryPreview(cc, instance, request, reqLogger)
 	if err != nil {
 		update = update || instance.Status.Conditions.SetCondition(status.Condition{
@@ -430,4 +446,60 @@ func makeRelabelKeepConfig(source []string, regex string) *monitoringv1.RelabelC
 }
 func labelsToRegex(labels []string) string {
 	return fmt.Sprintf("(%s)", strings.Join(labels, "|"))
+}
+
+// Is the MeterDefinition present in api/v1/label/meter_def_name/values
+func (r *MeterDefinitionReconciler) verifyPromDataCollection(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) (bool, error) {
+
+	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
+	if err != nil {
+		return false, err
+	}
+
+	certConfigMap, err := r.getCertConfigMap(context.TODO(), cc, request)
+	if err != nil {
+		return false, err
+	}
+
+	saClient := prom.NewServiceAccountClient(r.cfg.ControllerValues.DeploymentNamespace, r.kubeInterface)
+
+	authToken, err := saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.PrometheusAudience, 3600, reqLogger)
+	if err != nil {
+		return false, err
+	}
+
+	if certConfigMap != nil && authToken != "" && service != nil {
+		cert, err := parseCertificateFromConfigMap(*certConfigMap)
+		if err != nil {
+			return false, err
+		}
+
+		prometheusAPI, err := prom.NewPromAPI(service, &cert, authToken)
+		if err != nil {
+			return false, err
+		}
+
+		reqLogger.Info("getting meter_def_name labelvalues from prometheus")
+
+		labelValues, warnings, err := prometheusAPI.MeterDefLabelValues()
+
+		if warnings != nil {
+			reqLogger.Info("warnings %v", warnings)
+		}
+
+		if err != nil {
+			reqLogger.Error(err, "prometheus.LabelValues()")
+			returnErr := errors.Wrap(err, "error with query")
+			return false, returnErr
+		}
+
+		mdefLabelValue := model.LabelValue(instance.Name)
+		for _, labelValue := range labelValues {
+			if labelValue == mdefLabelValue {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
 }
