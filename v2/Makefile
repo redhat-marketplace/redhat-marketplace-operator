@@ -69,6 +69,13 @@ clean:
 .PHONY: test
 test: fmt vet manifests ginkgo
 	$(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal ./apis ./controllers
+	$(MAKE) test-data
+
+test-data-extract:
+	$(shell tests/data/prometheus-meterdef-query-error-202002121300/extract.sh)
+
+test-data: ginkgo test-data-extract
+	$(GINKGO) --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./tests/integration/...
 
 .PHONY: test-ci-unit
 test-ci-unit: ginkgo ## test-ci-unit runs all tests for CI builds
@@ -175,19 +182,19 @@ CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
-bundle: clean manifests kustomize helm
-	operator-sdk generate kustomize manifests -q
+bundle: clean manifests kustomize helm operator-sdk
+	$(OPERATOR_SDK) generate kustomize manifests -q
 	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
 	--set operatorImage=$(OPERATOR_IMAGE) \
 	--set metricStateImage=$(METRIC_STATE_IMAGE) \
 	--set reporterImage=$(REPORTER_IMAGE) \
 	--set authCheckImage=$(AUTHCHECK_IMAGE) \
-	--post-renderer ./config/manifests/kustomize | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	--post-renderer ./config/manifests/kustomize | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	yq eval -i '.spec.webhookdefinitions[].targetPort = 9443' $(CSV_YAML_BUNDLE_FILE)
 	yq eval -i '.spec.webhookdefinitions[].containerPort = 9443' $(CSV_YAML_BUNDLE_FILE)
 	yq eval -i ".spec.metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
 	yq eval -i ".spec.metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
-	operator-sdk bundle validate ./bundle
+	$(OPERATOR_SDK) bundle validate ./bundle
 	#Generate a copy of the resultant yaml files to the deploy directory - this is only used for content certification linting
 	rm -rf ./deploy && mkdir -p ./deploy ./deploy/crds && \
 	cp -p ./config/samples/*v1alpha1*.yaml ./config/samples/*v1beta1*.yaml ./deploy/crds
@@ -211,11 +218,13 @@ bundle-build:
 bundle-deploy:
 	docker push $(BUNDLE_IMG)
 
-bundle-run:
-	operator-sdk run bundle $(BUNDLE_IMG)
+bundle-run: operator-sdk
+	$(OPERATOR_SDK) run bundle $(BUNDLE_IMG)
+
+BUNDLE_IMAGE_REGISTRY ?= $(IMAGE_REGISTRY)
 
 bundle-stable:
-	$(MAKE) bundle CHANNELS=stable DEFAULT_CHANNEL=stable
+	$(MAKE) bundle CHANNELS=stable DEFAULT_CHANNEL=stable IMAGE_REGISTRY=$(BUNDLE_IMAGE_REGISTRY)
 
 VERSIONS_LIST ?= $(BUNDLE_IMG)
 
@@ -343,16 +352,13 @@ LICENSE=$(shell pwd)/bin/addlicense
 addlicense:
 	$(call go-get-tool,$(LICENSE),github.com/google/addlicense)
 
+OPERATOR_SDK=$(shell pwd)/bin/operator-sdk
+operator-sdk:
+	$(call install-binary,https://github.com/operator-framework/operator-sdk/releases/download/v1.3.2,operator-sdk_$(UNAME)_$(ARCH),$(OPERATOR_SDK))
+
 OPM=$(shell pwd)/bin/opm
 opm:
-	@[ -f $(OPM) ] || { \
-	set -e ;\
-	TMP_DIR=$$(mktemp -d) ;\
-	cd $$TMP_DIR ;\
-	curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.13.7/$(UNAME)-$(ARCH)-opm ;\
-	chmod +x $(UNAME)-$(ARCH)-opm && mv $(UNAME)-$(ARCH)-opm $(OPM) ;\
-	rm -rf $$TMP_DIR ;\
-	}
+	$(call install-binary,https://github.com/operator-framework/operator-registry/releases/download/v1.13.7,$(UNAME)-$(ARCH)-opm,$(OPM))
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -364,6 +370,20 @@ cd $$TMP_DIR ;\
 go mod init tmp ;\
 echo "Downloading $(2)" ;\
 GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
+rm -rf $$TMP_DIR ;\
+}
+endef
+
+# install-binary will 'curl' any package url $1 with file $2 and install it to $3
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+define install-binary
+@[ -f $(3) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+echo "Downloading $(1)" ;\
+curl -LO $(1)/$(2) ;\
+chmod +x $(2) && mv $(2) $(3) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef

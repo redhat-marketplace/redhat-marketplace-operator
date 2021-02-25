@@ -9,7 +9,12 @@ namePrefix: redhat-marketplace-
 # Labels to add to all resources and selectors.
 commonLabels:
   redhat.marketplace.com/name: redhat-marketplace-operator
-
+  app.kubernetes.io/managed-by: OLM
+  app.kubernetes.io/instance: default
+commonAnnotations:
+  productID: 068a62892a1e4db39641342e592daa25
+  productMetric: FREE
+  productName: IBM Cloud Platform Common Services
 resources:
   - ../crd
   - ../rbac

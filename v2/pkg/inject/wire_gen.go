@@ -72,7 +72,10 @@ func initializeInjectDependencies(cache2 cache.Cache, fields *managers.Controlle
 		Scheme:    scheme,
 		Factory:   factory,
 	}
-	injectables := ProvideInjectables(clientCommandInjector, operatorConfigInjector, patchInjector, factoryInjector)
+	kubeInterfaceInjector := &KubeInterfaceInjector{
+		KubeInterface: clientset,
+	}
+	injectables := ProvideInjectables(clientCommandInjector, operatorConfigInjector, patchInjector, factoryInjector, kubeInterfaceInjector)
 	injectInjectorDependencies := injectorDependencies{
 		Runnables:   runnablesRunnables,
 		Injectables: injectables,

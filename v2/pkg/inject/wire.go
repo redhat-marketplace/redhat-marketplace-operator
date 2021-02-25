@@ -43,6 +43,7 @@ func initializeInjectDependencies(
 		wire.Struct(new(OperatorConfigInjector), "*"),
 		wire.Struct(new(PatchInjector), "*"),
 		wire.Struct(new(FactoryInjector), "*"),
+		wire.Struct(new(KubeInterfaceInjector), "*"),
 		wire.Struct(new(injectorDependencies), "*"),
 		ProvideNamespace,
 		manifests.NewFactory,
