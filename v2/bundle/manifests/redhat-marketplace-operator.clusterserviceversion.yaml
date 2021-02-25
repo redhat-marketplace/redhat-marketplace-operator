@@ -197,14 +197,14 @@ metadata:
     categories: Developer Tools
     certified: "true"
     description: The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
-    olm.skipRange: '>=1.0.0 <2.0.0'
+    olm.skipRange: '>=1.0.0 <2.0.1'
     operatorframework.io/suggested-namespace: openshift-redhat-marketplace
     operators.operatorframework.io/builder: operator-sdk-v1.3.0
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
-  name: redhat-marketplace-operator.v2.0.0-beta.42
+  name: redhat-marketplace-operator.v2.0.1
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -627,11 +627,11 @@ spec:
                       - name: OPERATOR_NAME
                         value: redhat-marketplace-operator
                       - name: RELATED_IMAGE_REPORTER
-                        value: quay.io/zach_source/redhat-marketplace-reporter:2.0.0-beta.42
+                        value: quay.io/rh-marketplace/redhat-marketplace-reporter:2.0.0-6849abb0c74c41c65abf00ebb592b655c60344bb-amd64
                       - name: RELATED_IMAGE_METRIC_STATE
-                        value: quay.io/zach_source/redhat-marketplace-metric-state:2.0.0-beta.42
+                        value: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.0.0-6849abb0c74c41c65abf00ebb592b655c60344bb-amd64
                       - name: RELATED_IMAGE_AUTHCHECK
-                        value: quay.io/zach_source/redhat-marketplace-authcheck:2.0.0-beta.42
+                        value: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.0.0-6849abb0c74c41c65abf00ebb592b655c60344bb-amd64
                       - name: WATCH_NAMESPACE
                         valueFrom:
                           fieldRef:
@@ -656,7 +656,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.labels['olm.owner.kind']
-                    image: quay.io/zach_source/redhat-marketplace-operator:2.0.0-beta.42
+                    image: quay.io/rh-marketplace/redhat-marketplace-operator:2.0.0-6849abb0c74c41c65abf00ebb592b655c60344bb-amd64
                     name: manager
                     ports:
                       - containerPort: 9443
@@ -865,8 +865,7 @@ spec:
   maturity: stable
   provider:
     name: Red Hat Marketplace
-    url: https://marketplace.redhat.com
-  version: 2.0.0-beta.42
+  version: 2.0.1
   webhookdefinitions:
     - admissionReviewVersions:
         - v1beta1
@@ -908,3 +907,7 @@ spec:
       webhookPath: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
       targetPort: 9443
       containerPort: 9443
+  metadata:
+    annotations:
+      containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:2.0.0-6849abb0c74c41c65abf00ebb592b655c60344bb-amd64
+      createdAt: "2021-02-24T14:25:14Z"

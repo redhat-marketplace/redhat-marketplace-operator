@@ -61,7 +61,6 @@ jobs:
         cd v2
         export VERSION=$(cd ./tools && go run ./version/main.go)
         export TAG=${VERSION}-${DEPLOY_SHA}-amd64
-        export IMAGE_REGISTRY=registry.connect.redhat.com/rh-marketplace
         echo "::group::Make Stable Bundle"
         make bundle-stable
         echo "::endgroup::"
@@ -70,7 +69,6 @@ jobs:
         export VERSION="${VERSION}-${BRANCH}-${GITHUB_RUN_NUMBER}"
         else
         export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
-        export IMAGE_REGISTRY=quay.io/rh-marketplace
         fi
 
         echo "::group::Make Bundle Build"
