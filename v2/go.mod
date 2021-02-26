@@ -24,6 +24,7 @@ require (
 	github.com/jpillora/backoff v1.0.0
 	github.com/kevinburke/go-bindata v3.22.0+incompatible
 	github.com/launchdarkly/go-options v1.0.1
+	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mikefarah/yq/v3 v3.0.0-20201202084205-8846255d1c37
 	github.com/mitchellh/mapstructure v1.3.2
 	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852

@@ -35,7 +35,9 @@ spec:
             - --prometheus-config-reloader={{PROM_CONFIGMAP_RELOADER_IMAGE}}
             - --namespaces={{NAMESPACES}}
             - --prometheus-instance-namespaces={{NAMESPACE}}
-            - --alertmanager-instance-namespaces={{NAMESPACE}}
+            - --alertmanager-instance-namespaces=''
+            - --thanos-ruler-instance-namespaces=''
+            - --prometheus-instance-selector=marketplace.redhat.com/metering=true
             - --manage-crds=false
           image: registry.redhat.io/openshift4/ose-prometheus-operator:latest
           imagePullPolicy: IfNotPresent

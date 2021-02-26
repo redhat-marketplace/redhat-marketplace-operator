@@ -36,7 +36,6 @@ func initializeInjectDependencies(
 		managers.ProvideManagerSet,
 		runnables.RunnableSet,
 		reconcileutils.NewClientCommand,
-		managers.ProvidePodMonitorConfig,
 		config.ProvideInfrastructureAwareConfig,
 		ProvideInjectables,
 		wire.Struct(new(ClientCommandInjector), "*"),

@@ -48,6 +48,7 @@ LABEL name="Red Hat Marketplace ${name}" \
   quay.expires-after=${quay_expiration}
 
 RUN microdnf update --setopt=tsflags=nodocs -y \
+  && microdnf install procps-ng \
   && microdnf clean all \
   && rm -rf /var/cache/yum
 

@@ -20,6 +20,8 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/pprof"
+	"os"
 	"strconv"
 	"strings"
 
@@ -188,6 +190,15 @@ func telemetryServer(registry prometheus.Gatherer, host string, port int) {
 	log.Info("Starting kube-state-metrics self metrics server", "listenAddress", listenAddress)
 
 	mux := http.NewServeMux()
+
+	// if debug enabled
+	if debug := os.Getenv("PPROF_DEBUG"); debug == "true" {
+		mux.HandleFunc("/debug/pprof/", pprof.Index)
+		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	}
 
 	// Add metricsPath
 	mux.Handle(metricsPath, promhttp.HandlerFor(registry, promhttp.HandlerOpts{ErrorLog: promLogger{}}))

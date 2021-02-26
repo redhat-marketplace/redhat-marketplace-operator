@@ -32,14 +32,6 @@ import (
 )
 
 var _ = Describe("MeterReportController", func() {
-	BeforeEach(func() {
-		Expect(testHarness.BeforeAll()).To(Succeed())
-	})
-
-	AfterEach(func() {
-		Expect(testHarness.AfterAll()).To(Succeed())
-	})
-
 	Context("MeterReport reconcile", func() {
 		var (
 			meterreport *v1alpha1.MeterReport
@@ -48,7 +40,7 @@ var _ = Describe("MeterReportController", func() {
 			end         time.Time
 		)
 
-		BeforeEach(func(done Done) {
+		BeforeEach(func() {
 			start, end = time.Now(), time.Now()
 			start.Add(-5 * time.Minute)
 
@@ -104,16 +96,14 @@ var _ = Describe("MeterReportController", func() {
 
 			testHarness.Delete(context.TODO(), meterreport)
 			Expect(testHarness.Create(context.TODO(), meterdef)).Should(SucceedOrAlreadyExist)
-			close(done)
-		}, 120)
+		})
 
-		AfterEach(func(done Done) {
+		AfterEach(func() {
 			Expect(testHarness.Delete(context.TODO(), meterdef)).Should(Succeed())
 			Expect(testHarness.Delete(context.TODO(), meterreport)).Should(Succeed())
-			close(done)
-		}, 120)
+		})
 
-		It("should retry a job", func(done Done) {
+		It("should retry a job", func() {
 			Expect(testHarness.Create(context.TODO(), meterreport)).Should(Succeed())
 			job := &batchv1.Job{}
 
@@ -168,11 +158,9 @@ var _ = Describe("MeterReportController", func() {
 					return job.UID != job2.UID
 				}
 				return false
-			}, timeout, interval).Should(BeTrue())
+			}, time.Second*300, interval).Should(BeTrue())
 
 			Expect(job2.UID).To(Not(Equal(job.UID)))
-
-			close(done)
-		}, 300)
+		})
 	})
 })

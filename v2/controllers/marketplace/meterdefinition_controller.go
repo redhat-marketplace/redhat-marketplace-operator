@@ -31,8 +31,8 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
+	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
@@ -74,7 +74,7 @@ type MeterDefinitionReconciler struct {
 	kubeInterface kubernetes.Interface
 }
 
-func (r *MeterDefinitionReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
+func (r *MeterDefinitionReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
 	injector.SetCustomFields(r)
 	return r
 }

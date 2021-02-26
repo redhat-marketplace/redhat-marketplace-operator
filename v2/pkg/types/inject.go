@@ -12,24 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package runnables
+package types
 
 import (
-	"github.com/google/wire"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-type Runnables []manager.Runnable
+type SetupWithManager interface {
+	SetupWithManager(mgr ctrl.Manager) error
+}
 
-var RunnableSet = wire.NewSet(
-	ProvideRunnables,
-	wire.Struct(new(CRDUpdater), "*"),
-)
-
-func ProvideRunnables(
-	crdUpdater *CRDUpdater,
-) Runnables {
-	return []manager.Runnable{
-		crdUpdater,
-	}
+type Injectable interface {
+	SetCustomFields(i interface{}) error
 }

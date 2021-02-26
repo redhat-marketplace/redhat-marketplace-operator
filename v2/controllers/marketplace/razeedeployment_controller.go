@@ -25,10 +25,11 @@ import (
 	"github.com/gotidy/ptr"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	"golang.org/x/time/rate"
@@ -79,7 +80,7 @@ type RazeeDeploymentReconciler struct {
 	factory *manifests.Factory
 }
 
-func (r *RazeeDeploymentReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
+func (r *RazeeDeploymentReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
 	injector.SetCustomFields(r)
 	return r
 }
@@ -175,6 +176,7 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 
 	// Create a new controller
 	return ctrl.NewControllerManagedBy(mgr).
+		WithEventFilter(predicates.NamespacePredicate(r.cfg.DeployedNamespace)).
 		For(&marketplacev1alpha1.RazeeDeployment{}).
 		WithOptions(controller.Options{
 			Reconciler: r,
