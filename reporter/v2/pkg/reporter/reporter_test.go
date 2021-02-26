@@ -166,9 +166,9 @@ var _ = Describe("Reporter", func() {
 			v1api := getTestAPI(mockResponseRoundTripper(generatedFile, meterDefs, start, end))
 
 			sut = &MarketplaceReporter{
-				PrometheusAPI: prometheus.PrometheusAPI{ API: v1api },
-				Config:    cfg,
-				mktconfig: config,
+				PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
+				Config:        cfg,
+				mktconfig:     config,
 				report: &marketplacev1alpha1.MeterReport{
 					Spec: marketplacev1alpha1.MeterReportSpec{
 						StartTime: metav1.Time{Time: start},
@@ -309,9 +309,9 @@ var _ = Describe("Reporter", func() {
 			v1api := getTestAPI(mockResponseRoundTripper(generatedFile, meterDefs, start, end))
 
 			sut = &MarketplaceReporter{
-				PrometheusAPI: prometheus.PrometheusAPI{ API: v1api },
-				Config:    cfg,
-				mktconfig: config,
+				PrometheusAPI: prometheus.PrometheusAPI{API: v1api},
+				Config:        cfg,
+				mktconfig:     config,
 				report: &marketplacev1alpha1.MeterReport{
 					Spec: marketplacev1alpha1.MeterReportSpec{
 						StartTime: metav1.Time{Time: start},
@@ -359,12 +359,12 @@ var _ = Describe("Reporter", func() {
 						"metrics": MatchElements(id, AllowDuplicates, Elements{
 							"row": MatchAllKeys(Keys{
 								"additionalLabels": MatchAllKeys(Keys{
-									"namespace":           Equal("metering-example-operator"),
-									"pod":                 Equal("example-app-pod"),
-									"meter_kind":          Or(Equal("App"), Equal("App2"), Equal("App3")),
-									"meter_domain":        Equal("apps.partner.metering.com"),
-									"meter_version":       Equal("v1"),
-									"service":             Equal("example-app-pod"),
+									"namespace":     Equal("metering-example-operator"),
+									"pod":           Equal("example-app-pod"),
+									"meter_kind":    Or(Equal("App"), Equal("App2"), Equal("App3")),
+									"meter_domain":  Equal("apps.partner.metering.com"),
+									"meter_version": Equal("v1"),
+									"service":       Equal("example-app-pod"),
 								}),
 								"domain":              Or(Equal("apps.partner.metering.com")),
 								"interval_start":      HavePrefix("2020-"),
