@@ -1,5 +1,5 @@
 # Current Operator version
-VERSION ?= $(shell cd ./tools && go run ./version/main.go)
+VERSION ?= $(shell cd ./tools/version && go run ./main.go)
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
 
@@ -229,7 +229,7 @@ bundle-stable:
 VERSIONS_LIST ?= $(BUNDLE_IMG)
 
 bundle-dev-index: opm
-	$(OPM) index add -u docker --bundles "$(VERSIONS_LIST)" --tag "$(DEV_INDEX_IMG):$(VERSION)"
+	$(OPM) index add -u docker --bundles "$(VERSIONS_LIST)" --tag "$(DEV_INDEX_IMG):$(VERSION)" --permissive
 	docker push $(DEV_INDEX_IMG):$(VERSION)
 
 bundle-uninstall:
@@ -239,6 +239,7 @@ bundle-uninstall:
 	- kubectl delete csv -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
 
 skaffold-build:
+	cd .. && $(MAKE) save-licenses
 	skaffold build --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
 
 INSTALL_DEBUG ?= false

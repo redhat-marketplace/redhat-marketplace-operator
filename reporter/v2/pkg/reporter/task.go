@@ -134,13 +134,13 @@ func (r *Task) Run() error {
 	return nil
 }
 
-func providePrometheusSetup(config *Config,report *marketplacev1alpha1.MeterReport,promService *corev1.Service)*PrometheusAPISetup{
+func providePrometheusSetup(config *Config, report *marketplacev1alpha1.MeterReport, promService *corev1.Service) *PrometheusAPISetup {
 	return &PrometheusAPISetup{
-		Report: report,
-		PromService: promService,
-		CertFilePath: config.CaFile,
-		TokenFilePath:  config.TokenFile,
-		RunLocal: config.Local,
+		Report:        report,
+		PromService:   promService,
+		CertFilePath:  config.CaFile,
+		TokenFilePath: config.TokenFile,
+		RunLocal:      config.Local,
 	}
 }
 
