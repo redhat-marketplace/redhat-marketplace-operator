@@ -63,9 +63,7 @@ add-licenses: addlicense
 
 save-licenses: golicense
 	for folder in $(addsuffix /v2,$(PROJECT_FOLDERS)) ; do \
-		pushd $$folder &> /dev/null ; \
-		[ ! -d "licenses" ] && $(GO_LICENSES) save --save_path licenses ./... ; \
-		popd &> /dev/null ; \
+		[ ! -d "licenses" ] && sh -c "cd $$folder && $(GO_LICENSES) save --save_path licenses --force ./..." ; \
 	done
 
 cicd:
@@ -95,6 +93,9 @@ GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
+
+clean-vendor:
+	rm -rf $(addsuffix /v2/vendor,$(PROJECT_FOLDERS))
 
 wicked:
 	mkdir -p .wicked-report
