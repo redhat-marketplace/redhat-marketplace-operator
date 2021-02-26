@@ -56,6 +56,7 @@ var lookupCache = utils.Must(func() (interface{}, error) {
 type MeterDefWorkload = types.NamespacedName
 
 type MeterDefinitionLookupFilter struct {
+	MeterDefUID     string
 	MeterDefName    MeterDefWorkload
 	ResourceVersion string
 	workloads       []v1beta1.ResourceFilter
@@ -75,7 +76,7 @@ type resultCache struct {
 }
 
 func (r *resultCache) cacheKey(filter *MeterDefinitionLookupFilter, obj metav1.Object) string {
-	return fmt.Sprintf("ns:%s::nm:%s::uid:%s", filter.MeterDefName.Namespace, filter.MeterDefName.Name, string(obj.GetUID()))
+	return fmt.Sprintf("mdefuid:%s::uid:%s", filter.MeterDefUID, string(obj.GetUID()))
 }
 
 func (r *resultCache) Get(filter *MeterDefinitionLookupFilter, obj metav1.Object) *bool {
@@ -111,11 +112,12 @@ func NewMeterDefinitionLookupFilter(
 	log.Info("building filters", "name", meterdef.Name, "namespace", meterdef.Namespace)
 
 	s := &MeterDefinitionLookupFilter{
-		MeterDefName: types.NamespacedName{Name: meterdef.Name, Namespace: meterdef.Namespace},
+		MeterDefUID:     string(meterdef.UID),
+		MeterDefName:    types.NamespacedName{Name: meterdef.Name, Namespace: meterdef.Namespace},
 		ResourceVersion: meterdef.ResourceVersion,
-		findOwner:    findOwner,
-		cc:           cc,
-		log:          log.WithValues("meterdefName", meterdef.Name, "meterdefNamespace", meterdef.Namespace),
+		findOwner:       findOwner,
+		cc:              cc,
+		log:             log.WithValues("meterdefName", meterdef.Name, "meterdefNamespace", meterdef.Namespace),
 	}
 
 	ns, err := s.findNamespaces(meterdef)
@@ -138,7 +140,7 @@ func NewMeterDefinitionLookupFilter(
 func (s *MeterDefinitionLookupFilter) Hash() string {
 	h := xxhash.New()
 
-	h.Write([]byte(fmt.Sprintf("%v", s.MeterDefName)))
+	h.Write([]byte(s.MeterDefUID))
 	for k, v := range s.workloads {
 		h.Write([]byte(fmt.Sprintf("%v", k)))
 		h.Write([]byte(fmt.Sprintf("%v", v)))
@@ -160,11 +162,12 @@ func (s *MeterDefinitionLookupFilter) Matches(obj interface{}) (bool, error) {
 		return false, err
 	}
 
-	if v := lookupCache.Get(s, o); v != nil {
-		return *v, nil
-	}
+	// Use lookup cache
+	// if v := lookupCache.Get(s, o); v != nil {
+	// 	return *v, nil
+	// }
 
-	filterLogger := s.log.V(4).WithValues("obj", o.GetName()+"/"+o.GetNamespace(), "type", fmt.Sprintf("%T", obj), "filterLen", len(s.filters))
+	filterLogger := s.log.V(0).WithValues("obj", o.GetName()+"/"+o.GetNamespace(), "type", fmt.Sprintf("%T", obj), "filterLen", len(s.filters))
 	debugFilterLogger := filterLogger
 
 	ans, err := func() (bool, error) {

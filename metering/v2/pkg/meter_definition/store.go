@@ -312,14 +312,34 @@ func (s *MeterDefinitionStore) handleMeterDefinition(meterdef *v1beta1.MeterDefi
 	defer s.mutex.Unlock()
 
 	// Check if lookup is found and resoureVersion is the same
-	if lookup, ok := s.meterDefinitionFilters[MeterDefUID(meterdef.UID)]; ok && lookup.ResourceVersion == meterdef.ResourceVersion {
+	oldLookup, ok := s.meterDefinitionFilters[MeterDefUID(meterdef.UID)]
+
+	if !ok {
+		// report a new meter def if it's the first time we're seeing it
+		msg := &ObjectResourceMessage{
+			Action: NewMeterDefAction,
+			Object: interface{}(meterdef),
+			ObjectResourceValue: &ObjectResourceValue{
+				MeterDef: types.NamespacedName{
+					Name:      meterdef.Name,
+					Namespace: meterdef.Namespace,
+				},
+			},
+		}
+
+		s.broadcast(msg)
+	}
+
+	lookup, err := NewMeterDefinitionLookupFilter(s.cc, meterdef, s.findOwner)
+
+	// check if the hash is the same
+	if ok && oldLookup.Hash() == lookup.Hash() {
 		s.log.Info("found lookup", "lookup", lookup)
 		return nil
 	}
 
 	// remove meterdefs that don't fit the type
 	s.log.Info("adding meterdef", "name", meterdef.Name, "namespace", meterdef.Namespace)
-	lookup, err := NewMeterDefinitionLookupFilter(s.cc, meterdef, s.findOwner)
 
 	if err != nil {
 		s.log.Error(err, "error building lookup")

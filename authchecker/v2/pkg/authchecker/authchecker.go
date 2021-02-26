@@ -126,7 +126,7 @@ volume:
 
 		for _, secret := range secrets.Items {
 			if vol.Secret.SecretName == secret.Name {
-				a.Logger.Info("found secret", "secret", secret.Name)
+				a.Logger.V(4).Info("found secret", "secret", secret.Name)
 				continue volume
 			}
 		}
