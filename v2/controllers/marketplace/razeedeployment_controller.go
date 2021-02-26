@@ -979,7 +979,10 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 					rrs3Deployment,
 					func() (runtime.Object, error) {
 						dep := factory.NewRemoteResourceS3Deployment(instance)
-						factory.SetOwnerReference(dep, instance)
+						// Do not set an OwnerRef on the rrs3Dep
+						// A delete --cascade='foreground' will cause orphaned RRS3
+						// rrs3Dep will end up deleted before RRS3 child/parent finalizer cleanup
+						//factory.SetOwnerReference(instance, dep)
 						return dep, nil
 					},
 					args,
@@ -1008,7 +1011,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 					watchKeeperDeployment,
 					func() (runtime.Object, error) {
 						dep := factory.NewWatchKeeperDeployment(instance)
-						factory.SetOwnerReference(dep, instance)
+						factory.SetOwnerReference(instance, dep)
 						return dep, nil
 					},
 					args,
@@ -1338,7 +1341,7 @@ func (r *RazeeDeploymentReconciler) makeRazeeClusterMetaData(instance *marketpla
 		},
 		Data: map[string]string{"name": instance.Spec.ClusterUUID},
 	}
-	r.factory.SetOwnerReference(cm, instance)
+	r.factory.SetOwnerReference(instance, cm)
 	return cm
 }
 
@@ -1363,7 +1366,7 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperNonNamespace(
 		},
 		Data: map[string]string{"v1_namespace": "true"},
 	}
-	r.factory.SetOwnerReference(cm, instance)
+	r.factory.SetOwnerReference(instance, cm)
 	return cm
 }
 
@@ -1387,7 +1390,7 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperLimitPoll(
 			},
 		},
 	}
-	r.factory.SetOwnerReference(cm, instance)
+	r.factory.SetOwnerReference(instance, cm)
 	return cm
 }
 
@@ -1410,7 +1413,7 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperConfig(instance *marketplacev
 		},
 		Data: map[string]string{"RAZEEDASH_URL": instance.Spec.DeployConfig.RazeeDashUrl, "START_DELAY_MAX": "0"},
 	}
-	r.factory.SetOwnerReference(cm, instance)
+	r.factory.SetOwnerReference(instance, cm)
 	return cm
 }
 
@@ -1457,7 +1460,7 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperSecret(instance *marketplacev
 		},
 		Data: map[string][]byte{"RAZEEDASH_ORG_KEY": key},
 	}
-	r.factory.SetOwnerReference(&secret, instance)
+	r.factory.SetOwnerReference(instance, &secret)
 	return secret, err
 }
 
@@ -1484,7 +1487,7 @@ func (r *RazeeDeploymentReconciler) makeCOSReaderSecret(instance *marketplacev1a
 		Data: map[string][]byte{"accesskey": []byte(key)},
 	}
 
-	r.factory.SetOwnerReference(&secret, instance)
+	r.factory.SetOwnerReference(instance, &secret)
 	return secret, err
 }
 

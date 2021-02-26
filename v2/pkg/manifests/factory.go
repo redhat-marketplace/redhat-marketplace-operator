@@ -973,12 +973,12 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 
 type Owner metav1.Object
 
-func (f *Factory) SetOwnerReference(obj metav1.Object, owner Owner) error {
+func (f *Factory) SetOwnerReference(owner Owner, obj metav1.Object) error {
 	return controllerutil.SetOwnerReference(owner, obj, f.scheme)
 }
 
-func (f *Factory) SetControllerReference(obj metav1.Object, owner Owner) error {
-	return controllerutil.SetControllerReference(obj, owner, f.scheme)
+func (f *Factory) SetControllerReference(owner Owner, obj metav1.Object) error {
+	return controllerutil.SetControllerReference(owner, obj, f.scheme)
 }
 
 func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.RazeeDeployment) *appsv1.Deployment {
