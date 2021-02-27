@@ -23,11 +23,12 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 )
 
 var _ = Describe("Marketplace Config Status", func() {
 	var (
-		marketplaceClientConfig  *MarketplaceClientConfig
+		// marketplaceClientConfig  *MarketplaceClientConfig
 		marketplaceClientAccount *MarketplaceClientAccount
 		mclient                  *MarketplaceClient
 		registrationStatus       *RegistrationStatusOutput
@@ -36,6 +37,7 @@ var _ = Describe("Marketplace Config Status", func() {
 		body                     []byte
 		path                     string
 		err                      error
+		mbuilder *MarketplaceClientBuilder
 	)
 
 	BeforeEach(func() {
@@ -43,14 +45,27 @@ var _ = Describe("Marketplace Config Status", func() {
 		server = ghttp.NewTLSServer()
 
 		addr := "https://" + server.Addr() + path
-		marketplaceClientConfig = &MarketplaceClientConfig{
-			Url:   addr,
-			Token: "Bearer token",
-			Claims: &MarketplaceClaims{
-				Env: "",
+		// marketplaceClientConfig = &MarketplaceClientConfig{
+		// 	Url:   addr,
+		// 	Token: "Bearer token",
+		// 	Claims: &MarketplaceClaims{
+		// 		Env: "",
+		// 	},
+		// }
+		cfg := &config.OperatorConfig{
+			Marketplace: config.Marketplace{
+				URL: addr,
+				InsecureClient: true,
 			},
 		}
-		mclient, err = NewMarketplaceClient(marketplaceClientConfig)
+
+		mbuilder = &MarketplaceClientBuilder{}
+		token := "Bearer token"
+		tokenClaims := &MarketplaceClaims{
+			Env: "",
+		}
+		builder := mbuilder.NewMarketplaceClientBuilder(cfg)
+		mclient, err = builder.NewMarketplaceClient(token,tokenClaims)
 		Expect(err).To(Succeed())
 		mclient.HttpClient.Transport.(WithHeaderType).Rt.(*http.Transport).TLSClientConfig = &tls.Config{
 			RootCAs:            server.HTTPTestServer.TLS.RootCAs,

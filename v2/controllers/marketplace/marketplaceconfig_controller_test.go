@@ -46,8 +46,8 @@ import (
 
 var _ = Describe("Testing with Ginkgo", func() {
 	var (
-		marketplaceClientConfig  *marketplace.MarketplaceClientConfig
-		marketplaceClientAccount *marketplace.MarketplaceClientAccount
+		// marketplaceClientConfig  *marketplace.MarketplaceClientConfig
+		// marketplaceClientAccount *marketplace.MarketplaceClientAccount
 		mclient                  *marketplace.MarketplaceClient
 		// registrationStatus       *RegistrationStatusOutput
 		server        *ghttp.Server
@@ -94,6 +94,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 		marketplaceconfig = utils.BuildMarketplaceConfigCR(namespace, customerID)
 		razeedeployment   = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
 		meterbase         = utils.BuildMeterBaseCr(namespace)
+		mbuilder *marketplace.MarketplaceClientBuilder
 	)
 
 	BeforeEach(func() {
@@ -104,24 +105,39 @@ var _ = Describe("Testing with Ginkgo", func() {
 		server = ghttp.NewTLSServer()
 		server.SetAllowUnhandledRequests(true)
 		addr := "https://" + server.Addr() + path
-		marketplaceClientConfig = &marketplace.MarketplaceClientConfig{
-			Url:   addr,
-			Token: "Bearer token",
-			Claims: &marketplace.MarketplaceClaims{
-				Env: "",
+		// marketplaceClientConfig = &marketplace.MarketplaceClientConfig{
+		// 	Url:   addr,
+		// 	Token: "Bearer token",
+		// 	Claims: &marketplace.MarketplaceClaims{
+		// 		Env: "",
+		// 	},
+		// }
+		// mclient, err = marketplace.NewMarketplaceClient(marketplaceClientConfig)
+		cfg := &config.OperatorConfig{
+			DeployedNamespace: namespace,
+			Marketplace: config.Marketplace{
+				URL: addr,
+				InsecureClient: true,
 			},
 		}
-		mclient, err = marketplace.NewMarketplaceClient(marketplaceClientConfig)
+
+		mbuilder = &marketplace.MarketplaceClientBuilder{}
+		token := "Bearer token"
+		tokenClaims :=  &marketplace.MarketplaceClaims{
+			Env: "",
+		}
+		builder := mbuilder.NewMarketplaceClientBuilder(cfg)
+		mclient, err = builder.NewMarketplaceClient(token,tokenClaims)
 
 		mclient.HttpClient.Transport.(marketplace.WithHeaderType).Rt.(*http.Transport).TLSClientConfig = &tls.Config{
 			RootCAs:            server.HTTPTestServer.TLS.RootCAs,
 			InsecureSkipVerify: true,
 		}
 
-		marketplaceClientAccount = &marketplace.MarketplaceClientAccount{
-			AccountId:   "accountid",
-			ClusterUuid: "test",
-		}
+		// marketplaceClientAccount = &marketplace.MarketplaceClientAccount{
+		// 	AccountId:   "accountid",
+		// 	ClusterUuid: "test",
+		// }
 
 		statusCode = 200
 		path = "/" + marketplace.RegistrationEndpoint
@@ -161,8 +177,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 					cfg: &config.OperatorConfig{
 						DeployedNamespace: namespace,
 					},
-					MarketplaceClient:        mclient,
-					MarketplaceClientAccount: marketplaceClientAccount,
+					mclientBuilder: mbuilder,
 				}
 				return nil
 			}

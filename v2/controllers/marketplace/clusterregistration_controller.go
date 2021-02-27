@@ -53,6 +53,7 @@ type ClusterRegistrationReconciler struct {
 	Log    logr.Logger
 
 	cfg *config.OperatorConfig
+	mclientBuilder *marketplace.MarketplaceClientBuilder
 }
 
 // Reconcile reads that state of the cluster for a ClusterRegistration object and makes changes based on the state read
@@ -119,12 +120,9 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
-	mclient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
-		Url:      r.cfg.Marketplace.URL, // parameterize this for dev
-		Token:    string(pullSecret),
-		Insecure: r.cfg.Marketplace.InsecureClient,
-		Claims:   tokenClaims,
-	})
+	token := string(pullSecret)
+	builder := r.mclientBuilder.NewMarketplaceClientBuilder(r.cfg)
+	mclient, err := builder.NewMarketplaceClient(token,tokenClaims)
 
 	if err != nil {
 		reqLogger.Error(err, "failed to build marketplaceclient")
@@ -344,6 +342,11 @@ func (r *ClusterRegistrationReconciler) Inject(injector *inject.Injector) inject
 
 func (m *ClusterRegistrationReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
+	return nil
+}
+
+func (m *ClusterRegistrationReconciler) InjectMarketplaceClientBuilder(mbuilder *marketplace.MarketplaceClientBuilder) error {
+	m.mclientBuilder = mbuilder
 	return nil
 }
 

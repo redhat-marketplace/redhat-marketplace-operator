@@ -28,6 +28,7 @@ import (
 	"emperror.dev/errors"
 	jwt "github.com/dgrijalva/jwt-go"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
@@ -82,35 +83,37 @@ type MarketplaceClientBuilder struct {
 	Insecure bool
 }
 
-func(b *MarketplaceClientBuilder) NewMarketplaceClientBuilder(clientConfig *MarketplaceClientConfig) (*MarketplaceClientBuilder,error){
-	
-	if clientConfig.Url == "" {
-		b.Url = ProductionURL
+func (b *MarketplaceClientBuilder)NewMarketplaceClientBuilder(cfg *config.OperatorConfig) *MarketplaceClientBuilder{
+	builder := &MarketplaceClientBuilder{}
+
+	/* 
+		if b.Url != "" {
+		marketplaceURL = clientConfig.Url
+		logger.V(2).Info("using env override for marketplace url", "url", marketplaceURL)
+		}
+		logger.Info("marketplace url set to", "url", marketplaceURL)
+	*/
+	if cfg.URL == "" {
+		builder.Url = ProductionURL
 	}else {
-		b.Url = clientConfig.Url
+		builder.Url = cfg.URL
 	}
 
-	b.Insecure = clientConfig.Insecure
+	builder.Insecure = cfg.InsecureClient
 
-	return b,nil
+	return builder
 }
 
-func NewMarketplaceClient(clientConfig *MarketplaceClientConfig) (*MarketplaceClient, error) {
+func (b *MarketplaceClientBuilder) NewMarketplaceClient(token string, tokenClaims *MarketplaceClaims) (*MarketplaceClient, error) {
 	var tlsConfig *tls.Config
 
 	marketplaceURL := b.Url
 
-	if clientConfig.Claims != nil &&
-		strings.ToLower(clientConfig.Claims.Env) == strings.ToLower(EnvStage) {
+	if tokenClaims != nil &&
+		strings.ToLower(tokenClaims.Env) == strings.ToLower(EnvStage) {
 		marketplaceURL = StageURL
 		logger.V(2).Info("using stage for marketplace url", "url", marketplaceURL)
 	}
-
-	if clientConfig.Url != "" {
-		marketplaceURL = clientConfig.Url
-		logger.V(2).Info("using env override for marketplace url", "url", marketplaceURL)
-	}
-	logger.Info("marketplace url set to", "url", marketplaceURL)
 
 	if b.Insecure {
 		tlsConfig = &tls.Config{InsecureSkipVerify: true}
@@ -129,8 +132,8 @@ func NewMarketplaceClient(clientConfig *MarketplaceClientConfig) (*MarketplaceCl
 		TLSClientConfig: tlsConfig,
 	}
 
-	if clientConfig.Token != "" {
-		transport = WithBearerAuth(transport, clientConfig.Token)
+	if token != "" {
+		transport = WithBearerAuth(transport, token)
 	}
 
 	u, err := url.Parse(marketplaceURL)
@@ -145,6 +148,57 @@ func NewMarketplaceClient(clientConfig *MarketplaceClientConfig) (*MarketplaceCl
 		},
 	}, nil
 }
+
+// func (b *MarketplaceClientBuilder) NewMarketplaceClient(clientConfig *MarketplaceClientConfig) (*MarketplaceClient, error) {
+// 	var tlsConfig *tls.Config
+
+// 	marketplaceURL := b.Url
+
+// 	if clientConfig.Claims != nil &&
+// 		strings.ToLower(clientConfig.Claims.Env) == strings.ToLower(EnvStage) {
+// 		marketplaceURL = StageURL
+// 		logger.V(2).Info("using stage for marketplace url", "url", marketplaceURL)
+// 	}
+
+// 	if clientConfig.Url != "" {
+// 		marketplaceURL = clientConfig.Url
+// 		logger.V(2).Info("using env override for marketplace url", "url", marketplaceURL)
+// 	}
+// 	logger.Info("marketplace url set to", "url", marketplaceURL)
+
+// 	if b.Insecure {
+// 		tlsConfig = &tls.Config{InsecureSkipVerify: true}
+// 	} else {
+// 		caCertPool, err := x509.SystemCertPool()
+// 		if err != nil {
+// 			return nil, errors.Wrap(err, "failed to get cert pool")
+// 		}
+
+// 		tlsConfig = &tls.Config{
+// 			RootCAs: caCertPool,
+// 		}
+// 	}
+
+// 	var transport http.RoundTripper = &http.Transport{
+// 		TLSClientConfig: tlsConfig,
+// 	}
+
+// 	if clientConfig.Token != "" {
+// 		transport = WithBearerAuth(transport, clientConfig.Token)
+// 	}
+
+// 	u, err := url.Parse(marketplaceURL)
+// 	if err != nil {
+// 		return nil, errors.Wrap(err, "failed to parse url")
+// 	}
+
+// 	return &MarketplaceClient{
+// 		endpoint: u,
+// 		HttpClient: http.Client{
+// 			Transport: transport,
+// 		},
+// 	}, nil
+// }
 
 type WithHeaderType struct {
 	http.Header
