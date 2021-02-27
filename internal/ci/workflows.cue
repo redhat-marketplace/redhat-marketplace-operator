@@ -100,7 +100,6 @@ bundle: _#bashWorkflow & {
 						else
 						echo "is a release request"
 						export IS_DEV="false"
-						export BUNDLE_IMAGE_REGISTRY=registry.connect.redhat.com/rh-marketplace
 						fi
 
 						cd v2
