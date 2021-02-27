@@ -14,8 +14,6 @@ metadata:
               "productName": "IBM Cloud Platform Common Services"
             },
             "labels": {
-              "app.kubernetes.io/instance": "default",
-              "app.kubernetes.io/managed-by": "OLM",
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
             "name": "redhat-marketplace-rhm-marketplaceconfig",
@@ -38,8 +36,6 @@ metadata:
               "productName": "IBM Cloud Platform Common Services"
             },
             "labels": {
-              "app.kubernetes.io/instance": "default",
-              "app.kubernetes.io/managed-by": "OLM",
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
             "name": "redhat-marketplace-meterbase",
@@ -74,8 +70,6 @@ metadata:
               "productName": "IBM Cloud Platform Common Services"
             },
             "labels": {
-              "app.kubernetes.io/instance": "default",
-              "app.kubernetes.io/managed-by": "OLM",
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
             "name": "redhat-marketplace-example-meterreport",
@@ -101,8 +95,6 @@ metadata:
               "productName": "IBM Cloud Platform Common Services"
             },
             "labels": {
-              "app.kubernetes.io/instance": "default",
-              "app.kubernetes.io/managed-by": "OLM",
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
             "name": "redhat-marketplace-razeedeployment-example",
@@ -123,8 +115,6 @@ metadata:
               "productName": "IBM Cloud Platform Common Services"
             },
             "labels": {
-              "app.kubernetes.io/instance": "default",
-              "app.kubernetes.io/managed-by": "OLM",
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
             "name": "redhat-marketplace-example-remoteresources3",
@@ -165,8 +155,6 @@ metadata:
               "productName": "IBM Cloud Platform Common Services"
             },
             "labels": {
-              "app.kubernetes.io/instance": "default",
-              "app.kubernetes.io/managed-by": "OLM",
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
             "name": "redhat-marketplace-example-meterdefinition-4",
@@ -208,8 +196,6 @@ metadata:
               "productName": "IBM Cloud Platform Common Services"
             },
             "labels": {
-              "app.kubernetes.io/instance": "default",
-              "app.kubernetes.io/managed-by": "OLM",
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
             "name": "redhat-marketplace-meterdefinition-sample",
@@ -645,8 +631,6 @@ spec:
           replicas: 1
           selector:
             matchLabels:
-              app.kubernetes.io/instance: default
-              app.kubernetes.io/managed-by: OLM
               redhat.marketplace.com/name: redhat-marketplace-operator
           strategy: {}
           template:
@@ -656,8 +640,6 @@ spec:
                 productMetric: FREE
                 productName: IBM Cloud Platform Common Services
               labels:
-                app.kubernetes.io/instance: default
-                app.kubernetes.io/managed-by: OLM
                 control-plane: controller-manager
                 redhat.marketplace.com/name: redhat-marketplace-operator
             strategy: {}
