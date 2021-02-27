@@ -1327,16 +1327,8 @@ func (r *RazeeDeploymentReconciler) makeRazeeClusterMetaData(instance *marketpla
 			Name:      utils.RAZEE_CLUSTER_METADATA_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
 			Labels: map[string]string{
-				"razee/cluster-metadata":       "true",
-				"razee/watch-resource":         "lite",
-				"redhat.marketplace.com/name":  "redhat-marketplace-operator",
-				"app.kubernetes.io/managed-by": "OLM",
-				"app.kubernetes.io/instance":   "default",
-			},
-			Annotations: map[string]string{
-				"productID":     "068a62892a1e4db39641342e592daa25",
-				"productMetric": "FREE",
-				"productName":   "IBM Cloud Platform Common Services",
+				"razee/cluster-metadata": "true",
+				"razee/watch-resource":   "lite",
 			},
 		},
 		Data: map[string]string{"name": instance.Spec.ClusterUUID},
@@ -1353,16 +1345,6 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperNonNamespace(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.WATCH_KEEPER_NON_NAMESPACED_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
-			Annotations: map[string]string{
-				"productID":     "068a62892a1e4db39641342e592daa25",
-				"productMetric": "FREE",
-				"productName":   "IBM Cloud Platform Common Services",
-			},
-			Labels: map[string]string{
-				"redhat.marketplace.com/name":  "redhat-marketplace-operator",
-				"app.kubernetes.io/managed-by": "OLM",
-				"app.kubernetes.io/instance":   "default",
-			},
 		},
 		Data: map[string]string{"v1_namespace": "true"},
 	}
@@ -1378,16 +1360,6 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperLimitPoll(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.WATCH_KEEPER_LIMITPOLL_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
-			Annotations: map[string]string{
-				"productID":     "068a62892a1e4db39641342e592daa25",
-				"productMetric": "FREE",
-				"productName":   "IBM Cloud Platform Common Services",
-			},
-			Labels: map[string]string{
-				"redhat.marketplace.com/name":  "redhat-marketplace-operator",
-				"app.kubernetes.io/managed-by": "OLM",
-				"app.kubernetes.io/instance":   "default",
-			},
 		},
 	}
 	r.factory.SetOwnerReference(instance, cm)
@@ -1400,16 +1372,6 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperConfig(instance *marketplacev
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.WATCH_KEEPER_CONFIG_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
-			Annotations: map[string]string{
-				"productID":     "068a62892a1e4db39641342e592daa25",
-				"productMetric": "FREE",
-				"productName":   "IBM Cloud Platform Common Services",
-			},
-			Labels: map[string]string{
-				"redhat.marketplace.com/name":  "redhat-marketplace-operator",
-				"app.kubernetes.io/managed-by": "OLM",
-				"app.kubernetes.io/instance":   "default",
-			},
 		},
 		Data: map[string]string{"RAZEEDASH_URL": instance.Spec.DeployConfig.RazeeDashUrl, "START_DELAY_MAX": "0"},
 	}
@@ -1447,16 +1409,6 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperSecret(instance *marketplacev
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.WATCH_KEEPER_SECRET_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
-			Annotations: map[string]string{
-				"productID":     "068a62892a1e4db39641342e592daa25",
-				"productMetric": "FREE",
-				"productName":   "IBM Cloud Platform Common Services",
-			},
-			Labels: map[string]string{
-				"redhat.marketplace.com/name":  "redhat-marketplace-operator",
-				"app.kubernetes.io/managed-by": "OLM",
-				"app.kubernetes.io/instance":   "default",
-			},
 		},
 		Data: map[string][]byte{"RAZEEDASH_ORG_KEY": key},
 	}
@@ -1473,16 +1425,6 @@ func (r *RazeeDeploymentReconciler) makeCOSReaderSecret(instance *marketplacev1a
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.COS_READER_KEY_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
-			Annotations: map[string]string{
-				"productID":     "068a62892a1e4db39641342e592daa25",
-				"productMetric": "FREE",
-				"productName":   "IBM Cloud Platform Common Services",
-			},
-			Labels: map[string]string{
-				"redhat.marketplace.com/name":  "redhat-marketplace-operator",
-				"app.kubernetes.io/managed-by": "OLM",
-				"app.kubernetes.io/instance":   "default",
-			},
 		},
 		Data: map[string][]byte{"accesskey": []byte(key)},
 	}
@@ -1497,16 +1439,6 @@ func (r *RazeeDeploymentReconciler) makeParentRemoteResourceS3(instance *marketp
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.PARENT_RRS3_RESOURCE_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
-			Annotations: map[string]string{
-				"productID":     "068a62892a1e4db39641342e592daa25",
-				"productMetric": "FREE",
-				"productName":   "IBM Cloud Platform Common Services",
-			},
-			Labels: map[string]string{
-				"redhat.marketplace.com/name":  "redhat-marketplace-operator",
-				"app.kubernetes.io/managed-by": "OLM",
-				"app.kubernetes.io/instance":   "default",
-			},
 		},
 		Spec: marketplacev1alpha1.RemoteResourceS3Spec{
 			Auth: marketplacev1alpha1.Auth{

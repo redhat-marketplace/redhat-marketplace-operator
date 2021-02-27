@@ -6,8 +6,6 @@ metadata:
     productMetric: FREE
     productName: IBM Cloud Platform Common Services
   labels:
-    app.kubernetes.io/instance: default
-    app.kubernetes.io/managed-by: OLM
     control-plane: controller-manager
     redhat.marketplace.com/name: redhat-marketplace-operator
   name: redhat-marketplace-controller-manager-metrics-monitor
