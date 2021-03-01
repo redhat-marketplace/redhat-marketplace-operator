@@ -15,15 +15,21 @@
 package marketplace
 
 import (
+	"crypto/tls"
+	"io/ioutil"
+	"net/http"
+
 	"github.com/gotidy/ptr"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/gomega/ghttp"
 	opsrcApi "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/spf13/viper"
@@ -39,40 +45,106 @@ import (
 )
 
 var _ = Describe("Testing with Ginkgo", func() {
-	It("marketplace config controller", func() {
+	var (
+		mclient                  *marketplace.MarketplaceClient
+		server        *ghttp.Server
+		statusCode    int
+		body          []byte
+		path          string
+		err           error
+		name                 = utils.MARKETPLACECONFIG_NAME
+		namespace            = "redhat-marketplace-operator"
+		customerID    string = "example-userid"
+		razeeName            = "rhm-marketplaceconfig-razeedeployment"
+		meterBaseName        = "rhm-marketplaceconfig-meterbase"
+		req                  = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      name,
+				Namespace: namespace,
+			},
+		}
+
+		opts = []StepOption{
+			WithRequest(req),
+		}
+
+		features = &common.Features{
+			Deployment: ptr.Bool(true),
+		}
+
+		deployedNamespace = &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+			},
+		}
+
+		secret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      utils.RHMPullSecretName,
+				Namespace: namespace,
+			},
+			Data: map[string][]byte{
+				utils.RHMPullSecretKey: []byte("rhm-pull-secret"),
+			},
+		}
+
+		marketplaceconfig = utils.BuildMarketplaceConfigCR(namespace, customerID)
+		razeedeployment   = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
+		meterbase         = utils.BuildMeterBaseCr(namespace)
+		mbuilder *marketplace.MarketplaceClientBuilder
+		cfg *config.OperatorConfig
+	)
+
+	BeforeEach(func() {
+		if server != nil {
+			server.Close()
+		}
+		// start a test http server
+		server = ghttp.NewTLSServer()
+		server.SetAllowUnhandledRequests(true)
+		addr := "https://" + server.Addr() + path
+
+		cfg = &config.OperatorConfig{
+			DeployedNamespace: namespace,
+			Marketplace: config.Marketplace{
+				URL: addr,
+				InsecureClient: true,
+			},
+		}
+
+		token := "Bearer token"
+		tokenClaims :=  &marketplace.MarketplaceClaims{
+			Env: "",
+		}
+		
+		mbuilder = marketplace.NewMarketplaceClientBuilder(cfg)
+		mclient, err = mbuilder.NewMarketplaceClient(token,tokenClaims)
+
+		mclient.HttpClient.Transport.(marketplace.WithHeaderType).Rt.(*http.Transport).TLSClientConfig = &tls.Config{
+			RootCAs:            server.HTTPTestServer.TLS.RootCAs,
+			InsecureSkipVerify: true,
+		}
+
+		statusCode = 200
+		path = "/" + marketplace.RegistrationEndpoint
+		body, err = ioutil.ReadFile("../../tests/mockresponses/registration-response.json")
+		if err != nil {
+			panic(err)
+		}
+
+		server.AppendHandlers(
+			ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", path),
+				ghttp.RespondWithPtr(&statusCode, &body),
+			))
+	})
+
+	AfterEach(func() {
+		server.Close()
+	})
+
+	It("marketplace config controller should run", func() {
 		var testCleanInstall = func(t GinkgoTInterface) {
-			var (
-				name                 = utils.MARKETPLACECONFIG_NAME
-				namespace            = "redhat-marketplace-operator"
-				customerID    string = "example-userid"
-				razeeName            = "rhm-marketplaceconfig-razeedeployment"
-				meterBaseName        = "rhm-marketplaceconfig-meterbase"
-				req                  = reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Name:      name,
-						Namespace: namespace,
-					},
-				}
-
-				opts = []StepOption{
-					WithRequest(req),
-				}
-
-				features = &common.Features{
-					Deployment: ptr.Bool(true),
-				}
-
-				deployedNamespace = &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: namespace,
-					},
-				}
-
-				marketplaceconfig = utils.BuildMarketplaceConfigCR(namespace, customerID)
-				razeedeployment   = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
-				meterbase         = utils.BuildMeterBaseCr(namespace)
-			)
-
 			var setup = func(r *ReconcilerTest) error {
 				var log = logf.Log.WithName("mockcontroller")
 				s := scheme.Scheme
@@ -88,9 +160,8 @@ var _ = Describe("Testing with Ginkgo", func() {
 					Scheme: s,
 					Log:    log,
 					cc:     reconcileutils.NewLoglessClientCommand(r.Client, s),
-					cfg: &config.OperatorConfig{
-						DeployedNamespace: namespace,
-					},
+					cfg: cfg,
+					mclientBuilder: mbuilder,
 				}
 				return nil
 			}
@@ -103,7 +174,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 			marketplaceconfig.Spec.EnableMetering = ptr.Bool(true)
 			marketplaceconfig.Spec.InstallIBMCatalogSource = ptr.Bool(true)
-			reconcilerTest := NewReconcilerTest(setup, marketplaceconfig, deployedNamespace)
+			reconcilerTest := NewReconcilerTest(setup, marketplaceconfig, deployedNamespace, secret)
 			reconcilerTest.TestAll(t,
 				ReconcileStep(opts, ReconcileWithUntilDone(true)),
 				GetStep(opts,
@@ -133,5 +204,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 		viper.Set("features", defaultFeatures)
 		viper.Set("IBMCatalogSource", true)
 		testCleanInstall(GinkgoT())
+
 	})
 })

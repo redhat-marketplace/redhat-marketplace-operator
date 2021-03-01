@@ -23,11 +23,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 )
 
 var _ = Describe("Marketplace Config Status", func() {
 	var (
-		marketplaceClientConfig  *MarketplaceClientConfig
 		marketplaceClientAccount *MarketplaceClientAccount
 		mclient                  *MarketplaceClient
 		registrationStatus       *RegistrationStatusOutput
@@ -36,23 +36,31 @@ var _ = Describe("Marketplace Config Status", func() {
 		body                     []byte
 		path                     string
 		err                      error
+		mbuilder *MarketplaceClientBuilder
 	)
 
 	BeforeEach(func() {
 		// start a test http server
 		server = ghttp.NewTLSServer()
-
+		server.SetAllowUnhandledRequests(true)
 		addr := "https://" + server.Addr() + path
-		marketplaceClientConfig = &MarketplaceClientConfig{
-			Url:   addr,
-			Token: "Bearer token",
-			Claims: &MarketplaceClaims{
-				Env: "",
+	
+		cfg := &config.OperatorConfig{
+			Marketplace: config.Marketplace{
+				URL: addr,
+				InsecureClient: false,
 			},
 		}
-		mclient, err = NewMarketplaceClient(marketplaceClientConfig)
+
+		token := "Bearer token"
+		tokenClaims := &MarketplaceClaims{
+			Env: "",
+		}
+
+		mbuilder = NewMarketplaceClientBuilder(cfg)
+		mclient, err = mbuilder.NewMarketplaceClient(token,tokenClaims)
 		Expect(err).To(Succeed())
-		mclient.httpClient.Transport.(withHeader).rt.(*http.Transport).TLSClientConfig = &tls.Config{
+		mclient.HttpClient.Transport.(WithHeaderType).Rt.(*http.Transport).TLSClientConfig = &tls.Config{
 			RootCAs:            server.HTTPTestServer.TLS.RootCAs,
 			InsecureSkipVerify: true,
 		}
@@ -73,7 +81,7 @@ var _ = Describe("Marketplace Config Status", func() {
 	Context("Marketplace Pull Secret without any error", func() {
 		BeforeEach(func() {
 			statusCode = 200
-			path = "/" + pullSecretEndpoint
+			path = "/" + PullSecretEndpoint
 			body, err := ioutil.ReadFile("../../tests/mockresponses/marketplace-pull-secret.yaml")
 			if err != nil {
 				panic(err)
@@ -105,7 +113,7 @@ var _ = Describe("Marketplace Config Status", func() {
 	Context("Cluster Registration Status is INSTALLED", func() {
 		BeforeEach(func() {
 			statusCode = 200
-			path = "/" + registrationEndpoint
+			path = "/" + RegistrationEndpoint
 
 			body, _ = ioutil.ReadFile("../../tests/mockresponses/registration-response.json")
 			server.AppendHandlers(
@@ -124,7 +132,7 @@ var _ = Describe("Marketplace Config Status", func() {
 	Context("Cluster Registration Status is blank", func() {
 		BeforeEach(func() {
 			statusCode = 200
-			path = "/" + registrationEndpoint
+			path = "/" + RegistrationEndpoint
 			body = []byte("[]")
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
