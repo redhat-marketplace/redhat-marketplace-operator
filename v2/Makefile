@@ -210,7 +210,7 @@ bundle: clean manifests kustomize helm operator-sdk yq
 .PHONY: bundle-build
 bundle-build:
 	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
-	--label com.redhat.openshift.versions="v4.5,v4.6" \
+	--label com.redhat.openshift.versions="v4.5,v4.6,v4.7" \
   --label com.redhat.delivery.operator.bundle=true \
 	--label com.redhat.delivery.backport=true \
 	.
