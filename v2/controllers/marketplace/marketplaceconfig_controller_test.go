@@ -17,7 +17,6 @@ package marketplace
 import (
 	"crypto/tls"
 	"io/ioutil"
-	"net/http"
 
 	"github.com/gotidy/ptr"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
@@ -46,7 +45,7 @@ import (
 
 var _ = Describe("Testing with Ginkgo", func() {
 	var (
-		mclient                  *marketplace.MarketplaceClient
+		// mclient                  *marketplace.MarketplaceClient
 		server        *ghttp.Server
 		statusCode    int
 		body          []byte
@@ -96,9 +95,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 	)
 
 	BeforeEach(func() {
-		if server != nil {
-			server.Close()
-		}
 		// start a test http server
 		server = ghttp.NewTLSServer()
 		server.SetAllowUnhandledRequests(true)
@@ -118,12 +114,17 @@ var _ = Describe("Testing with Ginkgo", func() {
 		}
 		
 		mbuilder = marketplace.NewMarketplaceClientBuilder(cfg)
-		mclient, err = mbuilder.NewMarketplaceClient(token,tokenClaims)
-
-		mclient.HttpClient.Transport.(marketplace.WithHeaderType).Rt.(*http.Transport).TLSClientConfig = &tls.Config{
+		mbuilder.SetTLSConfig(&tls.Config{
 			RootCAs:            server.HTTPTestServer.TLS.RootCAs,
 			InsecureSkipVerify: true,
-		}
+		},token,tokenClaims)
+		
+		// mclient, err = mbuilder.NewMarketplaceClient(token,tokenClaims)
+
+		// mclient.HttpClient.Transport.(marketplace.WithHeaderType).Rt.(*http.Transport).TLSClientConfig = &tls.Config{
+		// 	RootCAs:            server.HTTPTestServer.TLS.RootCAs,
+		// 	InsecureSkipVerify: true,
+		// }
 
 		statusCode = 200
 		path = "/" + marketplace.RegistrationEndpoint

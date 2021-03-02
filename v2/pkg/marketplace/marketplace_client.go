@@ -82,6 +82,9 @@ type MarketplaceClientBuilder struct {
 	MarketplaceClient
 	Url      string
 	Insecure bool
+	TlsOveride *tls.Config
+	Token string
+	TokenClaims *MarketplaceClaims
 }
 
 func NewMarketplaceClientBuilder(cfg *config.OperatorConfig) *MarketplaceClientBuilder{
@@ -101,10 +104,55 @@ func NewMarketplaceClientBuilder(cfg *config.OperatorConfig) *MarketplaceClientB
 	return builder
 }
 
+func (b *MarketplaceClientBuilder) SetTLSConfig(tlsConfig *tls.Config,token string, tokenClaims *MarketplaceClaims) *MarketplaceClientBuilder{
+	b.TlsOveride = tlsConfig
+	b.Token = token
+	b.TokenClaims = tokenClaims
+	logger.Info("tls config set in SetTLSConfig")
+	return b
+}
+
 func (b *MarketplaceClientBuilder) NewMarketplaceClient(token string, tokenClaims *MarketplaceClaims) (*MarketplaceClient, error) {
 	var tlsConfig *tls.Config
-
 	marketplaceURL := ProductionURL
+	
+	if b.TlsOveride == nil {
+		logger.Info("tls override is nil")
+	}
+
+	if b.TlsOveride != nil {
+		logger.Info("using tls override")
+		logger.Info("marketplace url NewMaketplaceClient","url",b.Url)
+		marketplaceURL = b.Url
+		tlsConfig = b.TlsOveride
+		tokenClaims = b.TokenClaims
+		token = b.Token
+
+		if tokenClaims != nil &&
+		strings.ToLower(tokenClaims.Env) == strings.ToLower(EnvStage) {
+			marketplaceURL = StageURL
+			logger.V(2).Info("using stage for marketplace url", "url", marketplaceURL)
+		}
+		
+		var transport http.RoundTripper = &http.Transport{
+			TLSClientConfig: tlsConfig,
+		}
+
+		if token != "" {
+			transport = WithBearerAuth(transport, token)
+		}
+		u, err := url.Parse(marketplaceURL)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse url")
+		}
+
+		return &MarketplaceClient{
+			endpoint: u,
+			HttpClient: http.Client{
+				Transport: transport,
+			},
+		}, nil
+	}
 
 	if tokenClaims != nil &&
 		strings.ToLower(tokenClaims.Env) == strings.ToLower(EnvStage) {
@@ -114,7 +162,9 @@ func (b *MarketplaceClientBuilder) NewMarketplaceClient(token string, tokenClaim
 
 	if b.Insecure {
 		tlsConfig = &tls.Config{InsecureSkipVerify: true}
+		logger.Info("using insecure client")
 	} else {
+		logger.Info("TlS Config using system certpool")
 		caCertPool, err := x509.SystemCertPool()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get cert pool")

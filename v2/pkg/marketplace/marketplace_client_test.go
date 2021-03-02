@@ -17,7 +17,7 @@ package marketplace
 import (
 	"crypto/tls"
 	ioutil "io/ioutil"
-	"net/http"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -25,7 +25,8 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 )
-
+const timeout = time.Second * 100
+const interval = time.Second * 3
 var _ = Describe("Marketplace Config Status", func() {
 	var (
 		marketplaceClientAccount *MarketplaceClientAccount
@@ -43,6 +44,7 @@ var _ = Describe("Marketplace Config Status", func() {
 		// start a test http server
 		server = ghttp.NewTLSServer()
 		server.SetAllowUnhandledRequests(true)
+		
 		addr := "https://" + server.Addr() + path
 	
 		cfg := &config.OperatorConfig{
@@ -58,14 +60,18 @@ var _ = Describe("Marketplace Config Status", func() {
 		}
 
 		mbuilder = NewMarketplaceClientBuilder(cfg)
-		mclient, err = mbuilder.NewMarketplaceClient(token,tokenClaims)
-		Expect(err).To(Succeed())
-		mclient.HttpClient.Transport.(WithHeaderType).Rt.(*http.Transport).TLSClientConfig = &tls.Config{
+		mbuilder.SetTLSConfig(&tls.Config{
 			RootCAs:            server.HTTPTestServer.TLS.RootCAs,
 			InsecureSkipVerify: true,
-		}
-
+		},token,tokenClaims)
+		
+		mclient, err = mbuilder.NewMarketplaceClient(token,tokenClaims)
 		Expect(err).To(Succeed())
+		// mclient.HttpClient.Transport.(WithHeaderType).Rt.(*http.Transport).TLSClientConfig = &tls.Config{
+		// 	RootCAs:            server.HTTPTestServer.TLS.RootCAs,
+		// 	InsecureSkipVerify: true,
+		// }
+
 		Expect(mclient.endpoint).ToNot(BeNil())
 
 		marketplaceClientAccount = &MarketplaceClientAccount{
