@@ -31,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -58,7 +59,6 @@ type CertIssuerReconciler struct {
 func (r *CertIssuerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("certissuer", req.NamespacedName)
 	reqLogger.Info("Reconciling Certificates")
-
 	// Fetch configmaps
 	configMapList := &corev1.ConfigMapList{}
 	opts := []client.ListOption{
@@ -82,6 +82,8 @@ func (r *CertIssuerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 				if err != nil {
 					log.Error(err, "failed to inject CA certificate")
 				}
+			} else {
+				klog.V(1).Info("service-ca.crt field was not found in a configmap labeled with inject-cabundle")
 			}
 		}
 	}

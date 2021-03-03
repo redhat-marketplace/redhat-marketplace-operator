@@ -18,6 +18,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"reflect"
 
 	"github.com/cloudflare/cfssl/helpers"
 	. "github.com/onsi/ginkgo"
@@ -55,6 +56,10 @@ var _ = Describe("CertIssuer", func() {
 	})
 
 	It("validates signed certificate", func() {
+		var (
+			basicDNS string = fmt.Sprintf("%s.%s.svc", namespacedName.Name, namespacedName.Namespace)
+		)
+
 		pub, key, err := certIssuer.CreateCertFromCA(namespacedName)
 		Expect(err).To(Succeed(), "failed to generate certificate")
 
@@ -73,9 +78,15 @@ var _ = Describe("CertIssuer", func() {
 
 		cert, err := x509.ParseCertificate(block.Bytes)
 		Expect(err).To(Succeed(), "failed to parse certificate")
+		targetDNSNames := []string{
+			basicDNS,
+			basicDNS + ".cluster",
+			basicDNS + ".cluster.local",
+		}
+		Expect(reflect.DeepEqual(targetDNSNames, cert.DNSNames)).To(BeTrue())
 
 		opts := x509.VerifyOptions{
-			DNSName: fmt.Sprintf("%s.%s.svc", namespacedName.Name, namespacedName.Namespace),
+			DNSName: basicDNS,
 			Roots:   roots,
 		}
 		_, err = cert.Verify(opts)
