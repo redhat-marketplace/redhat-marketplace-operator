@@ -126,11 +126,6 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 	mclient, err := r.mclientBuilder.NewMarketplaceClient(token,tokenClaims)
 
 	if err != nil {
-		reqLogger.Error(err, "error constructing marketplace client")
-		return reconcile.Result{Requeue: true}, nil
-	}
-
-	if err != nil {
 		reqLogger.Error(err, "failed to build marketplaceclient")
 		return reconcile.Result{}, nil
 	}

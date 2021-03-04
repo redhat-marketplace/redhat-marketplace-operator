@@ -17,12 +17,15 @@ package marketplace
 import (
 	"crypto/tls"
 	"io/ioutil"
+	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gotidy/ptr"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
-
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+
+	// . "github.com/onsi/gomega/gstruct"
 	opsrcApi "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
@@ -31,6 +34,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,9 +47,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+const timeout = time.Second * 100
+const interval = time.Second * 3
+
 var _ = Describe("Testing with Ginkgo", func() {
 	var (
-		// mclient                  *marketplace.MarketplaceClient
 		server        *ghttp.Server
 		statusCode    int
 		body          []byte
@@ -77,16 +83,9 @@ var _ = Describe("Testing with Ginkgo", func() {
 			},
 		}
 
-		secret = &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      utils.RHMPullSecretName,
-				Namespace: namespace,
-			},
-			Data: map[string][]byte{
-				utils.RHMPullSecretKey: []byte("rhm-pull-secret"),
-			},
-		}
-
+		secret *corev1.Secret
+		tokenString string
+		
 		marketplaceconfig = utils.BuildMarketplaceConfigCR(namespace, customerID)
 		razeedeployment   = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
 		meterbase         = utils.BuildMeterBaseCr(namespace)
@@ -95,11 +94,29 @@ var _ = Describe("Testing with Ginkgo", func() {
 	)
 
 	BeforeEach(func() {
+		Eventually(func()string{
+			// Create the token
+			jwtToken := jwt.New(jwt.SigningMethodHS256)
+			tokenString,err = jwtToken.SignedString([]byte("test"))
+			if err != nil {
+				panic(err)
+			}
+
+			return tokenString
+		},timeout,interval).ShouldNot(BeEmpty())
 		// start a test http server
 		server = ghttp.NewTLSServer()
 		server.SetAllowUnhandledRequests(true)
 		addr := "https://" + server.Addr() + path
-
+		secret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      utils.RHMPullSecretName,
+				Namespace: namespace,
+			},
+			Data: map[string][]byte{
+				utils.RHMPullSecretKey: []byte("eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJPbmxpbmUgSldUIEJ1aWxkZXIiLCJpYXQiOjE2MTQ4MDkxMzQsImV4cCI6MTY0NjM0NTEzNCwiYXVkIjoid3d3LmV4YW1wbGUuY29tIiwic3ViIjoianJvY2tldEBleGFtcGxlLmNvbSIsIkdpdmVuTmFtZSI6IkpvaG5ueSIsIlN1cm5hbWUiOiJSb2NrZXQiLCJFbWFpbCI6Impyb2NrZXRAZXhhbXBsZS5jb20iLCJSb2xlIjpbIk1hbmFnZXIiLCJQcm9qZWN0IEFkbWluaXN0cmF0b3IiXX0.SEMH9lP1GrspOaMvqbxqkFHFHuvm0Imu1R0NUSIivfs"),
+			},
+		}
 		cfg = &config.OperatorConfig{
 			DeployedNamespace: namespace,
 			Marketplace: config.Marketplace{
@@ -107,25 +124,12 @@ var _ = Describe("Testing with Ginkgo", func() {
 				InsecureClient: true,
 			},
 		}
-
-		token := "Bearer token"
-		tokenClaims :=  &marketplace.MarketplaceClaims{
-			Env: "",
-		}
 		
-		mbuilder = marketplace.NewMarketplaceClientBuilder(cfg)
-		mbuilder.SetTLSConfig(&tls.Config{
+		mbuilder = marketplace.NewMarketplaceClientBuilder(cfg).SetTLSConfig(&tls.Config{
 			RootCAs:            server.HTTPTestServer.TLS.RootCAs,
 			InsecureSkipVerify: true,
-		},token,tokenClaims)
+		})
 		
-		// mclient, err = mbuilder.NewMarketplaceClient(token,tokenClaims)
-
-		// mclient.HttpClient.Transport.(marketplace.WithHeaderType).Rt.(*http.Transport).TLSClientConfig = &tls.Config{
-		// 	RootCAs:            server.HTTPTestServer.TLS.RootCAs,
-		// 	InsecureSkipVerify: true,
-		// }
-
 		statusCode = 200
 		path = "/" + marketplace.RegistrationEndpoint
 		body, err = ioutil.ReadFile("../../tests/mockresponses/registration-response.json")
@@ -144,7 +148,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 		server.Close()
 	})
 
-	It("marketplace config controller should run", func() {
+	It("marketplace config controller", func() {
 		var testCleanInstall = func(t GinkgoTInterface) {
 			var setup = func(r *ReconcilerTest) error {
 				var log = logf.Log.WithName("mockcontroller")

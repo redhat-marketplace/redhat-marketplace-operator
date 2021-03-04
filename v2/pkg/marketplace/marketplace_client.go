@@ -83,8 +83,6 @@ type MarketplaceClientBuilder struct {
 	Url      string
 	Insecure bool
 	TlsOveride *tls.Config
-	Token string
-	TokenClaims *MarketplaceClaims
 }
 
 func NewMarketplaceClientBuilder(cfg *config.OperatorConfig) *MarketplaceClientBuilder{
@@ -97,18 +95,17 @@ func NewMarketplaceClientBuilder(cfg *config.OperatorConfig) *MarketplaceClientB
 		logger.V(2).Info("using env override for marketplace url", "url", builder.Url)
 	}
 
-	logger.Info("marketplace url set to", "url", builder.Url)
+	logger.V(2).Info("marketplace url set to", "url", builder.Url)
 
 	builder.Insecure = cfg.InsecureClient
 
 	return builder
 }
 
-func (b *MarketplaceClientBuilder) SetTLSConfig(tlsConfig *tls.Config,token string, tokenClaims *MarketplaceClaims) *MarketplaceClientBuilder{
-	b.TlsOveride = tlsConfig
-	b.Token = token
-	b.TokenClaims = tokenClaims
-	logger.Info("tls config set in SetTLSConfig")
+func (b *MarketplaceClientBuilder) SetTLSConfig(tlsConfig *tls.Config) *MarketplaceClientBuilder{
+	if tlsConfig != nil {
+		b.TlsOveride = tlsConfig
+	}
 	return b
 }
 
@@ -121,19 +118,11 @@ func (b *MarketplaceClientBuilder) NewMarketplaceClient(token string, tokenClaim
 	}
 
 	if b.TlsOveride != nil {
-		logger.Info("using tls override")
+		logger.V(2).Info("using tls override")
 		logger.Info("marketplace url NewMaketplaceClient","url",b.Url)
 		marketplaceURL = b.Url
 		tlsConfig = b.TlsOveride
-		tokenClaims = b.TokenClaims
-		token = b.Token
-
-		if tokenClaims != nil &&
-		strings.ToLower(tokenClaims.Env) == strings.ToLower(EnvStage) {
-			marketplaceURL = StageURL
-			logger.V(2).Info("using stage for marketplace url", "url", marketplaceURL)
-		}
-		
+				
 		var transport http.RoundTripper = &http.Transport{
 			TLSClientConfig: tlsConfig,
 		}
@@ -415,7 +404,6 @@ const EnvStage = "stage"
 // GetJWTTokenClaims will parse JWT token and fetch the rhmAccountId
 func GetJWTTokenClaim(jwtToken string) (*MarketplaceClaims, error) {
 	// TODO: add verification of public key
-	//token, err := jwt.Parse(jwtToken, nil)
 	token, _, err := new(jwt.Parser).ParseUnverified(jwtToken, &MarketplaceClaims{})
 
 	if err != nil {

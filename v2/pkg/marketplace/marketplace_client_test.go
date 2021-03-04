@@ -59,18 +59,13 @@ var _ = Describe("Marketplace Config Status", func() {
 			Env: "",
 		}
 
-		mbuilder = NewMarketplaceClientBuilder(cfg)
-		mbuilder.SetTLSConfig(&tls.Config{
+		mbuilder = NewMarketplaceClientBuilder(cfg).SetTLSConfig(&tls.Config{
 			RootCAs:            server.HTTPTestServer.TLS.RootCAs,
 			InsecureSkipVerify: true,
-		},token,tokenClaims)
+		})
 		
 		mclient, err = mbuilder.NewMarketplaceClient(token,tokenClaims)
 		Expect(err).To(Succeed())
-		// mclient.HttpClient.Transport.(WithHeaderType).Rt.(*http.Transport).TLSClientConfig = &tls.Config{
-		// 	RootCAs:            server.HTTPTestServer.TLS.RootCAs,
-		// 	InsecureSkipVerify: true,
-		// }
 
 		Expect(mclient.endpoint).ToNot(BeNil())
 
