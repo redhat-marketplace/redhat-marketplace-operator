@@ -110,7 +110,7 @@ func (b *MarketplaceClientBuilder) SetTLSConfig(tlsConfig *tls.Config) *Marketpl
 
 func (b *MarketplaceClientBuilder) NewMarketplaceClient(token string, tokenClaims *MarketplaceClaims) (*MarketplaceClient, error) {
 	var tlsConfig *tls.Config
-	marketplaceURL := ProductionURL
+	marketplaceURL := b.Url
 
 	if b.TlsOveride != nil {	
 		logger.V(2).Info("using tls override")
@@ -147,7 +147,6 @@ func (b *MarketplaceClientBuilder) NewMarketplaceClient(token string, tokenClaim
 		tlsConfig = &tls.Config{InsecureSkipVerify: true}
 		logger.Info("using insecure client")
 	} else {
-		logger.Info("TlS Config using system certpool")
 		caCertPool, err := x509.SystemCertPool()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get cert pool")
