@@ -359,7 +359,7 @@ func generateQueryPreview(instance *v1beta1.MeterDefinition, prometheusAPI *prom
 		}
 
 		queryPreviewResult = &common.Result{
-			MetricName: meterWorkload.WorkloadName,
+			MetricName: meterWorkload.Metric,
 			Query:      q,
 			Values:     []common.ResultValues{},
 		}

@@ -279,6 +279,7 @@ func (meterdef *MeterDefinition) ToPrometheusLabels() []*common.MeterDefPromethe
 			MeterDefName:       string(meterdef.Name),
 			MeterDefNamespace:  string(meterdef.Namespace),
 			MeterKind:          meterdef.Spec.Kind,
+			WorkloadName:       meter.Metric,
 			Metric:             meter.Metric,
 			MetricGroupBy:      common.JSONArray(meter.GroupBy),
 			MeterGroup:         meterdef.Spec.Group,

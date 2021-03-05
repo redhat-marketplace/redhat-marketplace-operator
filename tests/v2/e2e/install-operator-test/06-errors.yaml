@@ -1,0 +1,5 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  name: robin-storage-express.v5.3.4-156
+  namespace: test-operator

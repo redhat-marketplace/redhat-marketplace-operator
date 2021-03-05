@@ -1,0 +1,16 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      BEARER_TOKEN=$(curl -s -H 'Accept: application/json' -H 'Content-Type: application/x-www-form-urlencoded' -X POST --data-urlencode 'grant_type=urn:ibm:params:oauth:grant-type:om-apikey' --data-urlencode "apikey=$RHM_API_KEY" "https://marketplace.redhat.com/api-security/om-auth/token" 2>&1 | jq -r '.access_token')
+      ACCOUNT_ID=$(kubectl -n $NAMESPACE get marketplaceconfig marketplaceconfig -o jsonpath="{.spec.rhmAccountID}")
+      CLUSTER_ID=$(kubectl -n $NAMESPACE get marketplaceconfig marketplaceconfig -o jsonpath="{.spec.clusterUUID}")
+      kubectl create ns test-operator
+      patch_body='{
+          "metadata": {
+            "labels":  {
+              "marketplace.redhat.com/uninstall": "true"
+            }
+          }
+        }'
+      curl -s --compressed -H "Authorization: Bearer $BEARER_TOKEN" -H 'Content-Type: application/json' -X PATCH -d "$patch_body" https://marketplace.redhat.com/provisioning/v1/cos-operator-subscriptions/"$operatorSubscriptionId"
