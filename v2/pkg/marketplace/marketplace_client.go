@@ -68,7 +68,7 @@ type MarketplaceClientAccount struct {
 
 type MarketplaceClient struct {
 	endpoint   *url.URL
-	HttpClient http.Client
+	httpClient http.Client
 }
 
 type RegisteredAccount struct {
@@ -136,7 +136,7 @@ func (b *MarketplaceClientBuilder) NewMarketplaceClient(token string, tokenClaim
 
 		return &MarketplaceClient{
 			endpoint: u,
-			HttpClient: http.Client{
+			httpClient: http.Client{
 				Transport: transport,
 			},
 		}, nil
@@ -178,15 +178,15 @@ func (b *MarketplaceClientBuilder) NewMarketplaceClient(token string, tokenClaim
 
 	return &MarketplaceClient{
 		endpoint: u,
-		HttpClient: http.Client{
+		httpClient: http.Client{
 			Transport: transport,
 		},
 	}, nil
 }
 
-type WithHeaderType struct {
+type withHeader struct {
 	http.Header
-	Rt http.RoundTripper
+	rt http.RoundTripper
 }
 
 func WithBearerAuth(rt http.RoundTripper, token string) http.RoundTripper {
@@ -214,20 +214,20 @@ func buildQuery(u *url.URL, path string, args ...string) (*url.URL, error) {
 	return &buildU, nil
 }
 
-func WithHeader(rt http.RoundTripper) WithHeaderType {
+func WithHeader(rt http.RoundTripper) withHeader {
 	if rt == nil {
 		rt = http.DefaultTransport
 	}
 
-	return WithHeaderType{Header: make(http.Header), Rt: rt}
+	return withHeader{Header: make(http.Header), rt: rt}
 }
 
-func (h WithHeaderType) RoundTrip(req *http.Request) (*http.Response, error) {
+func (h withHeader) RoundTrip(req *http.Request) (*http.Response, error) {
 	for k, v := range h.Header {
 		req.Header[k] = v
 	}
 
-	return h.Rt.RoundTrip(req)
+	return h.rt.RoundTrip(req)
 }
 
 type RegistrationStatusInput struct {
@@ -256,7 +256,7 @@ func (m *MarketplaceClient) RegistrationStatus(account *MarketplaceClientAccount
 	}
 
 	logger.Info("status query", "query", u.String())
-	resp, err := m.HttpClient.Get(u.String())
+	resp, err := m.httpClient.Get(u.String())
 
 	if err != nil {
 		return RegistrationStatusOutput{
@@ -367,7 +367,7 @@ func (mhttp *MarketplaceClient) GetMarketplaceSecret() (*corev1.Secret, error) {
 		return nil, errors.Wrap(err, "failed to build query")
 	}
 
-	resp, err := mhttp.HttpClient.Get(u.String())
+	resp, err := mhttp.httpClient.Get(u.String())
 	if err != nil {
 		return nil, errors.Wrap(err, "")
 	}
@@ -428,7 +428,7 @@ func (m *MarketplaceClient) getClusterObjID(account *MarketplaceClientAccount) (
 	}
 
 	logger.Info("get cluster objId query", "query", u.String())
-	resp, err := m.HttpClient.Get(u.String())
+	resp, err := m.httpClient.Get(u.String())
 	clusterDef, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
 
@@ -482,7 +482,7 @@ func (m *MarketplaceClient) UnRegister(account *MarketplaceClientAccount) (Regis
 	}
 
 	patchReq.Header.Set("Content-Type", "application/json")
-	resp, err := m.HttpClient.Do(patchReq)
+	resp, err := m.httpClient.Do(patchReq)
 	if err != nil {
 		return RegistrationStatusOutput{
 			RegistrationStatus: "HttpError",

@@ -25,7 +25,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 
-	// . "github.com/onsi/gomega/gstruct"
 	opsrcApi "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
@@ -133,7 +132,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 			RootCAs:            server.HTTPTestServer.TLS.RootCAs,
 			InsecureSkipVerify: true,
 		})
-		
+
 		statusCode = 200
 		path = "/" + marketplace.RegistrationEndpoint
 		body, err = ioutil.ReadFile("../../tests/mockresponses/registration-response.json")
