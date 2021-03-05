@@ -79,7 +79,6 @@ type RegisteredAccount struct {
 }
 
 type MarketplaceClientBuilder struct {
-	MarketplaceClient
 	Url      string
 	Insecure bool
 	TlsOveride *tls.Config

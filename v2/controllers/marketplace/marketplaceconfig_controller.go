@@ -488,8 +488,8 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		marketplaceClient, err := r.mclientBuilder.NewMarketplaceClient(token,tokenClaims)
 
 		if err != nil {
-		reqLogger.Error(err, "error constructing marketplace client")
-		return reconcile.Result{Requeue: true}, nil
+			reqLogger.Error(err, "error constructing marketplace client")
+			return reconcile.Result{Requeue: true}, nil
 		}
 
 		marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
