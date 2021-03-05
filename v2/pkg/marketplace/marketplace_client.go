@@ -111,14 +111,9 @@ func (b *MarketplaceClientBuilder) SetTLSConfig(tlsConfig *tls.Config) *Marketpl
 func (b *MarketplaceClientBuilder) NewMarketplaceClient(token string, tokenClaims *MarketplaceClaims) (*MarketplaceClient, error) {
 	var tlsConfig *tls.Config
 	marketplaceURL := ProductionURL
-	
-	if b.TlsOveride == nil {
-		logger.Info("tls override is nil")
-	}
 
-	if b.TlsOveride != nil {
+	if b.TlsOveride != nil {	
 		logger.V(2).Info("using tls override")
-		logger.Info("marketplace url NewMaketplaceClient","url",b.Url)
 		marketplaceURL = b.Url
 		tlsConfig = b.TlsOveride
 				
