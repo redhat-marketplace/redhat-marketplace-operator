@@ -59,7 +59,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 		err           error
 		name                 = utils.MARKETPLACECONFIG_NAME
 		namespace            = "redhat-marketplace-operator"
-		customerID    string = "example-userid"
+		customerID    string = "accountid"
 		razeeName            = "rhm-marketplaceconfig-razeedeployment"
 		meterBaseName        = "rhm-marketplaceconfig-meterbase"
 		req                  = reconcile.Request{
@@ -86,14 +86,18 @@ var _ = Describe("Testing with Ginkgo", func() {
 		secret *corev1.Secret
 		tokenString string
 		
-		marketplaceconfig = utils.BuildMarketplaceConfigCR(namespace, customerID)
-		razeedeployment   = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
-		meterbase         = utils.BuildMeterBaseCr(namespace)
+		marketplaceconfig *marketplacev1alpha1.MarketplaceConfig
+		razeedeployment   *marketplacev1alpha1.RazeeDeployment
+		meterbase         *marketplacev1alpha1.MeterBase
 		mbuilder *marketplace.MarketplaceClientBuilder
 		cfg *config.OperatorConfig
 	)
 
 	BeforeEach(func() {
+		marketplaceconfig = utils.BuildMarketplaceConfigCR(namespace, customerID)
+		marketplaceconfig.Spec.ClusterUUID = "test"
+		razeedeployment   = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
+		meterbase         = utils.BuildMeterBaseCr(namespace)
 		Eventually(func()string{
 			// Create the token
 			jwtToken := jwt.New(jwt.SigningMethodHS256)
@@ -114,7 +118,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 				Namespace: namespace,
 			},
 			Data: map[string][]byte{
-				utils.RHMPullSecretKey: []byte("eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJPbmxpbmUgSldUIEJ1aWxkZXIiLCJpYXQiOjE2MTQ4MDkxMzQsImV4cCI6MTY0NjM0NTEzNCwiYXVkIjoid3d3LmV4YW1wbGUuY29tIiwic3ViIjoianJvY2tldEBleGFtcGxlLmNvbSIsIkdpdmVuTmFtZSI6IkpvaG5ueSIsIlN1cm5hbWUiOiJSb2NrZXQiLCJFbWFpbCI6Impyb2NrZXRAZXhhbXBsZS5jb20iLCJSb2xlIjpbIk1hbmFnZXIiLCJQcm9qZWN0IEFkbWluaXN0cmF0b3IiXX0.SEMH9lP1GrspOaMvqbxqkFHFHuvm0Imu1R0NUSIivfs"),
+				utils.RHMPullSecretKey: []byte(tokenString),
 			},
 		}
 		cfg = &config.OperatorConfig{
@@ -137,11 +141,12 @@ var _ = Describe("Testing with Ginkgo", func() {
 			panic(err)
 		}
 
-		server.AppendHandlers(
-			ghttp.CombineHandlers(
-				ghttp.VerifyRequest("GET", path),
-				ghttp.RespondWithPtr(&statusCode, &body),
-			))
+		server.RouteToHandler(
+			"GET", path, ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET",path,"accountId=accountid&uuid=test"),
+				ghttp.RespondWithPtr(&statusCode,&body,
+			),
+		))
 	})
 
 	AfterEach(func() {
