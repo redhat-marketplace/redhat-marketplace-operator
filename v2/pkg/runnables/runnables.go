@@ -22,17 +22,14 @@ import (
 type Runnables []manager.Runnable
 
 var RunnableSet = wire.NewSet(
-	NewPodMonitor,
 	ProvideRunnables,
 	wire.Struct(new(CRDUpdater), "*"),
 )
 
 func ProvideRunnables(
-	podMonitor *PodMonitor,
 	crdUpdater *CRDUpdater,
 ) Runnables {
 	return []manager.Runnable{
-		podMonitor,
 		crdUpdater,
 	}
 }

@@ -63,8 +63,9 @@ func RunFinalizer(
 		accessor.SetFinalizers(utils.RemoveKey(accessor.GetFinalizers(), finalizer))
 
 		return Do(
-			Do(actions...),
-			UpdateAction(instance),
+			HandleResult(
+				Do(actions...),
+				OnNotFound(UpdateAction(instance))),
 		), nil
 	}
 }

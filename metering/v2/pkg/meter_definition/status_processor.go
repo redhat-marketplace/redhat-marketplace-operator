@@ -90,6 +90,13 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj *ObjectResourceMess
 				log.Info("found objs", "mdef", inObj.MeterDef)
 
 				resources := []common.WorkloadResource{}
+
+				if inObj.Action == NewMeterDefAction {
+					mdef.Status.WorkloadResources = resources
+					log.Info("clearing meter def", "mdef", inObj.MeterDef, "uid", mdef.UID, "len", len(mdef.Status.WorkloadResources))
+					return UpdateAction(mdef, UpdateStatusOnly(true)), nil
+				}
+
 				set := map[types.UID]common.WorkloadResource{}
 
 				for _, obj := range mdef.Status.WorkloadResources {

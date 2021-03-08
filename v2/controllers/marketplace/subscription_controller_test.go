@@ -133,18 +133,8 @@ var _ = Describe("Testing with Ginkgo", func() {
 		reconcilerTest := NewReconcilerTest(setup, subForDeletion, clusterServiceVersions)
 		reconcilerTest.TestAll(t,
 			ReconcileStep(optsForDeletion,
-				ReconcileWithExpectedResults(DoneResult)),
+				ReconcileWithExpectedResults(RequeueResult)),
 			// List and check results
-			ListStep(opts,
-				ListWithObj(&olmv1alpha1.SubscriptionList{}),
-				ListWithFilter(
-					client.InNamespace(namespace)),
-				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
-					list, ok := i.(*olmv1alpha1.SubscriptionList)
-
-					assert.Truef(t, ok, "expected subscription list got type %T", i)
-					assert.Equal(t, 0, len(list.Items))
-				})),
 			ListStep(opts,
 				ListWithObj(&olmv1alpha1.ClusterServiceVersionList{}),
 				ListWithFilter(
@@ -153,6 +143,18 @@ var _ = Describe("Testing with Ginkgo", func() {
 					list, ok := i.(*olmv1alpha1.ClusterServiceVersionList)
 
 					assert.Truef(t, ok, "expected csv list got type %T", i)
+					assert.Equal(t, 0, len(list.Items))
+				})),
+			ReconcileStep(optsForDeletion,
+				ReconcileWithExpectedResults(DoneResult)),
+			ListStep(opts,
+				ListWithObj(&olmv1alpha1.SubscriptionList{}),
+				ListWithFilter(
+					client.InNamespace(namespace)),
+				ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+					list, ok := i.(*olmv1alpha1.SubscriptionList)
+
+					assert.Truef(t, ok, "expected subscription list got type %T", i)
 					assert.Equal(t, 0, len(list.Items))
 				})),
 			ListStep(opts,

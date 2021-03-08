@@ -27,3 +27,15 @@ spec:
               value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
             - name: IBMCATALOGSOURCE
               value: 'true'
+            - name: OS_IMAGE_KUBE_RBAC_PROXY
+              value: quay.io/coreos/kube-rbac-proxy:v0.5.0
+            - name: OS_IMAGE_PROMETHEUS
+              value: quay.io/prometheus/prometheus:v2.24.0
+            - name: OS_IMAGE_PROMETHEUS_OPERATOR
+              value: quay.io/coreos/prometheus-operator:v0.42.1
+            - name: OS_IMAGE_CONFIGMAP_RELOADER
+              value: quay.io/coreos/configmap-reload:v0.0.1
+            - name: OS_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
+              value: quay.io/coreos/prometheus-config-reloader:v0.42.1
+            - name: OS_IMAGE_OAUTH_PROXY
+              value: quay.io/oauth2-proxy/oauth2-proxy:v6.1.1

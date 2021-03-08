@@ -32,6 +32,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	"golang.org/x/net/http2"
@@ -98,7 +99,7 @@ var _ Uploader = &RedHatInsightsUploader{}
 func NewRedHatInsightsUploader(
 	config *RedHatInsightsUploaderConfig,
 ) (Uploader, error) {
-	tlsConfig, err := generateCACertPool(config.AdditionalCertFiles...)
+	tlsConfig, err := prometheus.GenerateCACertPool(config.AdditionalCertFiles...)
 
 	if err != nil {
 		return nil, err

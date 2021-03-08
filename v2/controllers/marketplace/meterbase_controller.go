@@ -25,10 +25,12 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/operrors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -48,6 +50,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -73,13 +76,19 @@ type MeterBaseReconciler struct {
 	Log    logr.Logger
 	CC     ClientCommandRunner
 
+	cfg     *config.OperatorConfig
 	factory *manifests.Factory
 	patcher patch.Patcher
 }
 
-func (r *MeterBaseReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
+func (r *MeterBaseReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
 	injector.SetCustomFields(r)
 	return r
+}
+
+func (r *MeterBaseReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
+	r.cfg = cfg
+	return nil
 }
 
 func (r *MeterBaseReconciler) InjectCommandRunner(ccp ClientCommandRunner) error {
@@ -110,38 +119,46 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			}
 		})
 
+	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplacev1alpha1.MeterBase{}).
 		Watches(
 			&source.Kind{Type: &corev1.ConfigMap{}},
 			&handler.EnqueueRequestForOwner{
 				IsController: true,
-				OwnerType:    &marketplacev1alpha1.MeterBase{}}).
+				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(namespacePredicate)).
 		Watches(
 			&source.Kind{Type: &monitoringv1.Prometheus{}},
 			&handler.EnqueueRequestForOwner{
 				IsController: true,
-				OwnerType:    &marketplacev1alpha1.MeterBase{}}).
+				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(namespacePredicate)).
 		Watches(
 			&source.Kind{Type: &corev1.Service{}},
 			&handler.EnqueueRequestForOwner{
 				IsController: true,
-				OwnerType:    &marketplacev1alpha1.MeterBase{}}).
+				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(namespacePredicate)).
 		Watches(
 			&source.Kind{Type: &monitoringv1.ServiceMonitor{}},
 			&handler.EnqueueRequestForOwner{
 				IsController: true,
-				OwnerType:    &marketplacev1alpha1.MeterBase{}}).
+				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(namespacePredicate)).
 		Watches(
 			&source.Kind{Type: &corev1.Secret{}},
 			&handler.EnqueueRequestForOwner{
 				IsController: true,
-				OwnerType:    &marketplacev1alpha1.MeterBase{}}).
+				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(namespacePredicate)).
 		Watches(
 			&source.Kind{Type: &appsv1.StatefulSet{}},
 			&handler.EnqueueRequestForOwner{
 				IsController: true,
-				OwnerType:    &marketplacev1alpha1.MeterBase{}}).
+				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(namespacePredicate)).
 		Watches(
 			&source.Kind{Type: &corev1.Namespace{}},
 			&handler.EnqueueRequestsFromMapFunc{
@@ -847,7 +864,7 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 		),
 		HandleResult(
 			GetAction(
-				types.NamespacedName{Namespace: instance.Namespace, Name: "serving-certs-ca-bundle"},
+				types.NamespacedName{Namespace: "openshift-monitoring", Name: "kubelet-serving-ca-bundle"},
 				kubeletCertsCM,
 			),
 			OnNotFound(Call(func() (ClientAction, error) {
@@ -856,7 +873,7 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 			OnContinue(manifests.CreateOrUpdateFactoryItemAction(
 				&corev1.ConfigMap{},
 				func() (runtime.Object, error) {
-					return factory.PrometheusKubeletServingCABundle(kubeletCertsCM.Data["service-ca.crt"])
+					return factory.PrometheusKubeletServingCABundle(kubeletCertsCM.Data["ca-bundle.crt"])
 				},
 				args,
 			))),
@@ -1196,7 +1213,7 @@ func (r *MeterBaseReconciler) newPrometheusOperator(
 ) (*monitoringv1.Prometheus, error) {
 	prom, err := factory.NewPrometheusDeployment(cr, cfg)
 
-	factory.SetOwnerReference(prom, cr)
+	factory.SetOwnerReference(cr, prom)
 
 	if cr.Spec.Prometheus.Storage.Class == nil {
 		defaultClass, err := utils.GetDefaultStorageClass(r.Client)

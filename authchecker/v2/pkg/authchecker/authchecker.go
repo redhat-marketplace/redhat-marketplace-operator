@@ -16,95 +16,128 @@ package authchecker
 
 import (
 	"context"
+	"net/http"
+	"sync"
 	"time"
 
-	emperrors "emperror.dev/errors"
+	"emperror.dev/errors"
 	"github.com/go-logr/logr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/dynamic"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type AuthChecker struct {
-	resourceClient dynamic.NamespaceableResourceInterface
-	retryTime      time.Duration
-	namespace      string
-	logger         logr.Logger
+	Logger    logr.Logger
+	RetryTime time.Duration
+	Namespace string
+	Podname   string
+	Client    client.Client
+	Checker   *AuthCheckChecker
 }
 
-type AuthCheckerConfig struct {
-	Group, Kind, Version string
-	RetryTime            time.Duration
-	Namespace            string
+type AuthCheckChecker struct {
+	Err   error
+	mutex sync.Mutex
 }
 
-func NewAuthChecker(
-	logger logr.Logger,
-	dynamicClient *client.DynamicClient,
-	config AuthCheckerConfig,
-) (*AuthChecker, error) {
-	resourceClient, err := dynamicClient.ClientForKind(schema.GroupKind{
-		Group: config.Group,
-		Kind:  config.Kind,
-	}, config.Version)
+var a *AuthCheckChecker = &AuthCheckChecker{}
+var _ healthz.Checker = a.Check
 
-	if err != nil {
-		return nil, err
+func (c *AuthCheckChecker) SetErr(err error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.Err = err
+}
+
+func (c *AuthCheckChecker) Clear() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.Err = nil
+}
+
+func (c *AuthCheckChecker) Check(_ *http.Request) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if c.Err != nil {
+		return c.Err
 	}
 
-	checker := &AuthChecker{
-		resourceClient: resourceClient,
-		retryTime:      config.RetryTime,
-		namespace:      config.Namespace,
-		logger:         logger,
-	}
-
-	return checker, nil
+	return nil
 }
 
-func (a *AuthChecker) Run(ctx context.Context) error {
-	ticker := time.NewTicker(a.retryTime)
-	defer ticker.Stop()
-	log := a.logger
+func (a *AuthChecker) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&v1.Pod{}, builder.WithPredicates(
+			predicate.Funcs{
+				CreateFunc: func(e event.CreateEvent) bool {
+					return e.Meta.GetName() == a.Podname
+				},
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return e.MetaNew.GetName() == a.Podname
+				},
+				DeleteFunc: func(event.DeleteEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			})).
+		Complete(a)
+}
 
-	log.Info("starting to monitor", "namespace", a.namespace)
-
-	resourceWatch, err := a.resourceClient.Namespace(a.namespace).Watch(ctx, metav1.ListOptions{})
+func (a *AuthChecker) Reconcile(req reconcile.Request) (reconcile.Result, error) {
+	pod := &v1.Pod{}
+	secrets := &v1.SecretList{}
+	err := a.Client.Get(context.TODO(), types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, pod)
 
 	if err != nil {
-		if errors.IsUnauthorized(err) {
-			log.Error(err, "list call is unauthorized")
-			return err
+		a.Logger.Error(err, "failed to get pod")
+		a.Checker.SetErr(err)
+		return reconcile.Result{}, err
+	}
+
+	err = a.Client.List(context.TODO(), secrets)
+
+	if err != nil {
+		a.Logger.Error(err, "failed to get pod")
+		a.Checker.SetErr(err)
+		return reconcile.Result{}, err
+	}
+
+volume:
+	for _, vol := range pod.Spec.Volumes {
+		if vol.Secret == nil {
+			continue
 		}
-		log.Error(err, "list call errored")
-		return err
-	}
 
-	defer resourceWatch.Stop()
+		if vol.Secret.Optional != nil && *vol.Secret.Optional {
+			continue
+		}
 
-	for {
-		select {
-		case evt := <-resourceWatch.ResultChan():
-			if evt.Type == watch.Error {
-				obj, ok := evt.Object.(*metav1.Status)
-				if !ok {
-					err := emperrors.NewWithDetails("watch returned an error", "evt.Object", evt.Object)
-					log.Error(err, "unknown error")
-				}
-
-				if obj.Status == metav1.StatusFailure && obj.Reason == metav1.StatusReasonUnauthorized {
-					err := emperrors.NewWithDetails("watch returned an unauthorized error", "status", obj)
-					log.Error(err, "list call is unauthorized")
-					return err
-				}
-			} else {
-				log.V(5).Info("see an event", "type", evt.Type)
+		for _, secret := range secrets.Items {
+			if vol.Secret.SecretName == secret.Name {
+				a.Logger.V(4).Info("found secret", "secret", secret.Name)
+				continue volume
 			}
-		case <-ctx.Done():
-			return nil
 		}
+
+		err := errors.NewWithDetails("secret missing", "pod", pod.Name, "secret", vol.Secret.SecretName)
+		a.Logger.Error(err, "failed to get secret")
+		a.Checker.SetErr(err)
+		return reconcile.Result{RequeueAfter: a.RetryTime}, nil
 	}
+
+	// ensure the checker is clear
+	a.Checker.Clear()
+	return reconcile.Result{RequeueAfter: a.RetryTime}, nil
 }

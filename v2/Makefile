@@ -1,5 +1,5 @@
 # Current Operator version
-VERSION ?= $(shell cd ./tools && go run ./version/main.go)
+VERSION ?= $(shell cd ./tools/version && go run ./main.go)
 UNAME_S := $(shell uname -s)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
 
@@ -69,15 +69,24 @@ clean:
 .PHONY: test
 test: fmt vet manifests ginkgo
 	$(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal ./apis ./controllers
+	$(MAKE) test-data
+
+test-data-extract:
+	$(shell tests/data/prometheus-meterdef-query-error-202002121300/extract.sh)
+
+test-data: ginkgo test-data-extract
+	$(GINKGO) --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./tests/integration/...
 
 .PHONY: test-ci-unit
 test-ci-unit: ginkgo ## test-ci-unit runs all tests for CI builds
 	$(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal ./apis ./controllers
 	cat cover-unit.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-unit.out
 
+KUTTL_INT_TESTS ?= "(^register-test$$|^features-test$$)"
+
 .PHONY: test-ci-int
 test-ci-int:  ## test-ci-int runs all tests for CI builds
-	kubectl kuttl test --namespace openshift-redhat-marketplace --kind-context test --config ./kuttl-test.yaml ../tests/v2/e2e --test "(^register-test$$|^features-test$$)" --suppress-log "events"
+	SKIP_DEPLOY=true kubectl kuttl test --namespace openshift-redhat-marketplace --kind-context test --config ./kuttl-test.yaml ../tests/v2/e2e --test $(KUTTL_INT_TESTS) --suppress-log "events"
 
 # Build manager binary
 manager: generate fmt vet
@@ -175,19 +184,19 @@ CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
-bundle: clean manifests kustomize helm
-	operator-sdk generate kustomize manifests -q
+bundle: clean manifests kustomize helm operator-sdk yq
+	$(OPERATOR_SDK) generate kustomize manifests -q
 	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
 	--set operatorImage=$(OPERATOR_IMAGE) \
 	--set metricStateImage=$(METRIC_STATE_IMAGE) \
 	--set reporterImage=$(REPORTER_IMAGE) \
 	--set authCheckImage=$(AUTHCHECK_IMAGE) \
-	--post-renderer ./config/manifests/kustomize | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
-	yq eval -i '.spec.webhookdefinitions[].targetPort = 9443' $(CSV_YAML_BUNDLE_FILE)
-	yq eval -i '.spec.webhookdefinitions[].containerPort = 9443' $(CSV_YAML_BUNDLE_FILE)
-	yq eval -i ".spec.metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
-	yq eval -i ".spec.metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
-	operator-sdk bundle validate ./bundle
+	--post-renderer ./config/manifests/kustomize | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	$(YQ) eval -i '.spec.webhookdefinitions[].targetPort = 9443' $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i '.spec.webhookdefinitions[].containerPort = 9443' $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i ".spec.metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i ".spec.metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
+	$(OPERATOR_SDK) bundle validate ./bundle
 	#Generate a copy of the resultant yaml files to the deploy directory - this is only used for content certification linting
 	rm -rf ./deploy && mkdir -p ./deploy ./deploy/crds && \
 	cp -p ./config/samples/*v1alpha1*.yaml ./config/samples/*v1beta1*.yaml ./deploy/crds
@@ -203,7 +212,7 @@ bundle: clean manifests kustomize helm
 .PHONY: bundle-build
 bundle-build:
 	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
-	--label com.redhat.openshift.versions="v4.5,v4.6" \
+	--label com.redhat.openshift.versions="v4.5,v4.6,v4.7" \
   --label com.redhat.delivery.operator.bundle=true \
 	--label com.redhat.delivery.backport=true \
 	.
@@ -211,16 +220,18 @@ bundle-build:
 bundle-deploy:
 	docker push $(BUNDLE_IMG)
 
-bundle-run:
-	operator-sdk run bundle $(BUNDLE_IMG)
+bundle-run: operator-sdk
+	$(OPERATOR_SDK) run bundle $(BUNDLE_IMG)
+
+BUNDLE_IMAGE_REGISTRY ?= $(IMAGE_REGISTRY)
 
 bundle-stable:
-	$(MAKE) bundle CHANNELS=stable DEFAULT_CHANNEL=stable
+	$(MAKE) bundle CHANNELS=stable DEFAULT_CHANNEL=stable IMAGE_REGISTRY=$(BUNDLE_IMAGE_REGISTRY)
 
 VERSIONS_LIST ?= $(BUNDLE_IMG)
 
 bundle-dev-index: opm
-	$(OPM) index add -u docker --bundles "$(VERSIONS_LIST)" --tag "$(DEV_INDEX_IMG):$(VERSION)"
+	$(OPM) index add -u docker --bundles "$(VERSIONS_LIST)" --tag "$(DEV_INDEX_IMG):$(VERSION)" --permissive
 	docker push $(DEV_INDEX_IMG):$(VERSION)
 
 bundle-uninstall:
@@ -230,6 +241,7 @@ bundle-uninstall:
 	- kubectl delete csv -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
 
 skaffold-build:
+	cd .. && $(MAKE) save-licenses
 	skaffold build --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
 
 INSTALL_DEBUG ?= false
@@ -254,15 +266,15 @@ install: kustomize helm
 	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
      --post-renderer ./helm-wrapper/kustomize --debug=$(INSTALL_DEBUG) | kubectl apply -f -
 
-uninstall:
-	cd config && $(HELM) template rhm-operator ./helm-wrapper \
+uninstall: helm yq
+	@cd config && $(HELM) template rhm-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \
 	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
 	   --set reporterImage=$(REPORTER_IMAGE) \
 	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
-     --post-renderer ./helm-wrapper/kustomize | kubectl delete -f -
+     --post-renderer ./helm-wrapper/kustomize | $(YQ) eval-all 'select(.kind != "Namespace") | select(.kind != "CustomResourceDefinition")' -  | kubectl delete -f -
 
 skaffold-dev: install
 	skaffold dev --default-repo $(IMAGE_REGISTRY) --cleanup=false
@@ -343,16 +355,17 @@ LICENSE=$(shell pwd)/bin/addlicense
 addlicense:
 	$(call go-get-tool,$(LICENSE),github.com/google/addlicense)
 
+YQ=$(shell pwd)/bin/yq
+yq:
+	$(call go-get-tool,$(YQ),github.com/mikefarah/yq/v4@v4.6.1)
+
+OPERATOR_SDK=$(shell pwd)/bin/operator-sdk
+operator-sdk:
+	$(call install-binary,https://github.com/operator-framework/operator-sdk/releases/download/v1.3.2,operator-sdk_$(UNAME)_$(ARCH),$(OPERATOR_SDK))
+
 OPM=$(shell pwd)/bin/opm
 opm:
-	@[ -f $(OPM) ] || { \
-	set -e ;\
-	TMP_DIR=$$(mktemp -d) ;\
-	cd $$TMP_DIR ;\
-	curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.13.7/$(UNAME)-$(ARCH)-opm ;\
-	chmod +x $(UNAME)-$(ARCH)-opm && mv $(UNAME)-$(ARCH)-opm $(OPM) ;\
-	rm -rf $$TMP_DIR ;\
-	}
+	$(call install-binary,https://github.com/operator-framework/operator-registry/releases/download/v1.13.7,$(UNAME)-$(ARCH)-opm,$(OPM))
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -364,6 +377,20 @@ cd $$TMP_DIR ;\
 go mod init tmp ;\
 echo "Downloading $(2)" ;\
 GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
+rm -rf $$TMP_DIR ;\
+}
+endef
+
+# install-binary will 'curl' any package url $1 with file $2 and install it to $3
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+define install-binary
+@[ -f $(3) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+echo "Downloading $(1)" ;\
+curl -LO $(1)/$(2) ;\
+chmod +x $(2) && mv $(2) $(3) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef

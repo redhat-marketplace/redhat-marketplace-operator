@@ -83,7 +83,8 @@ var _ = Describe("Marketplace Config Status", func() {
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", path),
 					ghttp.RespondWithPtr(&statusCode, &body),
-				))
+				),
+			)
 		})
 		It("should retrieve rhm-operator-secret ", func() {
 			data, err := mclient.GetMarketplaceSecret()

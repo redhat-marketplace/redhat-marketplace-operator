@@ -100,6 +100,44 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 	case container.Name == "authcheck":
 		container.Image = f.config.RelatedImages.AuthChecker
 		container.Args = append(container.Args, "--namespace", f.namespace)
+		container.LivenessProbe = &corev1.Probe{
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/healthz",
+					Port: intstr.FromInt(8089),
+				},
+			},
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       20,
+		}
+		container.ReadinessProbe = &corev1.Probe{
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/readyz",
+					Port: intstr.FromInt(8089),
+				},
+			},
+			InitialDelaySeconds: 5,
+			PeriodSeconds:       10,
+		}
+		container.Env = []v1.EnvVar{
+			{
+				Name: "POD_NAMESPACE",
+				ValueFrom: &v1.EnvVarSource{
+					FieldRef: &v1.ObjectFieldSelector{
+						FieldPath: "metadata.namespace",
+					},
+				},
+			},
+			{
+				Name: "POD_NAME",
+				ValueFrom: &v1.EnvVarSource{
+					FieldRef: &v1.ObjectFieldSelector{
+						FieldPath: "metadata.name",
+					},
+				},
+			},
+		}
 	case container.Name == "prometheus-operator":
 		container.Image = f.config.RelatedImages.PrometheusOperator
 	case container.Name == "prometheus-proxy":
@@ -115,6 +153,14 @@ func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) 
 
 	if d.GetNamespace() == "" {
 		d.SetNamespace(f.namespace)
+	}
+
+	if d.GetAnnotations() == nil {
+		d.Annotations = make(map[string]string)
+	}
+
+	if d.Spec.Template.GetAnnotations() == nil {
+		d.Spec.Template.Annotations = make(map[string]string)
 	}
 
 	maxSurge := intstr.FromString("25%")
@@ -651,6 +697,44 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 							Image:           f.config.RelatedImages.AuthChecker,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Name:            "authcheck",
+							Env: []v1.EnvVar{
+								{
+									Name: "POD_NAMESPACE",
+									ValueFrom: &v1.EnvVarSource{
+										FieldRef: &v1.ObjectFieldSelector{
+											FieldPath: "metadata.namespace",
+										},
+									},
+								},
+								{
+									Name: "POD_NAME",
+									ValueFrom: &v1.EnvVarSource{
+										FieldRef: &v1.ObjectFieldSelector{
+											FieldPath: "metadata.name",
+										},
+									},
+								},
+							},
+							LivenessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/healthz",
+										Port: intstr.FromInt(8089),
+									},
+								},
+								InitialDelaySeconds: 15,
+								PeriodSeconds:       20,
+							},
+							ReadinessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/readyz",
+										Port: intstr.FromInt(8089),
+									},
+								},
+								InitialDelaySeconds: 5,
+								PeriodSeconds:       10,
+							},
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse("20m"),
@@ -680,6 +764,7 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 									corev1.ResourceMemory: resource.MustParse("100Mi"),
 								},
 							},
+
 							Env: []corev1.EnvVar{
 								{
 									Name: "NAMESPACE",
@@ -755,12 +840,12 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 
 type Owner metav1.Object
 
-func (f *Factory) SetOwnerReference(obj metav1.Object, owner Owner) error {
+func (f *Factory) SetOwnerReference(owner Owner, obj metav1.Object) error {
 	return controllerutil.SetOwnerReference(owner, obj, f.scheme)
 }
 
-func (f *Factory) SetControllerReference(obj metav1.Object, owner Owner) error {
-	return controllerutil.SetControllerReference(obj, owner, f.scheme)
+func (f *Factory) SetControllerReference(owner Owner, obj metav1.Object) error {
+	return controllerutil.SetControllerReference(owner, obj, f.scheme)
 }
 
 func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.RazeeDeployment) *appsv1.Deployment {
@@ -813,6 +898,24 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 							Image:           f.config.RelatedImages.AuthChecker,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Name:            "authcheck",
+							Env: []v1.EnvVar{
+								{
+									Name: "POD_NAMESPACE",
+									ValueFrom: &v1.EnvVarSource{
+										FieldRef: &v1.ObjectFieldSelector{
+											FieldPath: "metadata.namespace",
+										},
+									},
+								},
+								{
+									Name: "POD_NAME",
+									ValueFrom: &v1.EnvVarSource{
+										FieldRef: &v1.ObjectFieldSelector{
+											FieldPath: "metadata.name",
+										},
+									},
+								},
+							},
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse("20m"),
@@ -822,6 +925,26 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 									corev1.ResourceCPU:    resource.MustParse("10m"),
 									corev1.ResourceMemory: resource.MustParse("20Mi"),
 								},
+							},
+							LivenessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/healthz",
+										Port: intstr.FromInt(8089),
+									},
+								},
+								InitialDelaySeconds: 15,
+								PeriodSeconds:       20,
+							},
+							ReadinessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/readyz",
+										Port: intstr.FromInt(8089),
+									},
+								},
+								InitialDelaySeconds: 5,
+								PeriodSeconds:       10,
 							},
 							Args: []string{
 								"--namespace", f.namespace,

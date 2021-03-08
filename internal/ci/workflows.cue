@@ -94,14 +94,25 @@ bundle: _#bashWorkflow & {
 					id:   "bundle"
 					name: "Build bundle"
 					run:  """
+						if [ "$IS_PR" == "false" ] && [ "$BRANCH" != "" ] ; then
+						echo "is a dev request"
+						export IS_DEV="true"
+						else
+						echo "is a release request"
+						export IS_DEV="false"
+						fi
+
 						cd v2
-						export VERSION=$(cd ./tools && go run ./version/main.go)
+						export VERSION=$(cd ./tools/version && go run ./main.go)
 						export TAG=${VERSION}-${DEPLOY_SHA}-amd64
+
 						\((_#makeLogGroup & {#args: {name: "Make Stable Bundle", cmd: "make bundle-stable"}}).res)
 
-						if [ "$IS_PR" == "false" ] && [ "$BRANCH" != "" ] ; then
+						if [ "$IS_DEV" == "true" ] ; then
+						echo "using branch in version"
 						export VERSION="${VERSION}-${BRANCH}-${GITHUB_RUN_NUMBER}"
 						else
+						echo "using release version and githb_run_number"
 						export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
 						fi
 

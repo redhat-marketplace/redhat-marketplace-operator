@@ -101,15 +101,15 @@ func (s *MetricsStore) Start(
 			select {
 			case msg := <-ch:
 				if msg == nil || reflect.TypeOf(msg.Object) != s.expectedType {
-					log.Info("received unexpected type", "received", reflect.TypeOf(msg.Object), "expectedType", s.expectedType)
+					log.V(2).Info("received unexpected type", "received", reflect.TypeOf(msg.Object), "expectedType", s.expectedType)
 					continue
 				}
 				switch msg.Action {
 				case meter_definition.AddMessageAction:
-					log.Info("addMessageAction", "expectedType", s.expectedType)
+					log.V(2).Info("addMessageAction", "expectedType", s.expectedType)
 					_ = s.Add(msg.Object)
 				case meter_definition.DeleteMessageAction:
-					log.Info("deleteMessageAction", "expectedType", s.expectedType)
+					log.V(2).Info("deleteMessageAction", "expectedType", s.expectedType)
 					_ = s.Delete(msg.Object)
 				}
 			case <-ctx.Done():
