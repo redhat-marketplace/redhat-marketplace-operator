@@ -9,7 +9,7 @@ rules:
 - apiGroups:
   - marketplace.redhat.com
   resources:
-  - certissuers
+  - meterdefinitions
   verbs:
   - create
   - delete
@@ -21,13 +21,7 @@ rules:
 - apiGroups:
   - marketplace.redhat.com
   resources:
-  - certissuers/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - certissuers/status
+  - meterdefinitions/status
   verbs:
   - get
   - patch

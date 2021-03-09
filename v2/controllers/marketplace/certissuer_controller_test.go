@@ -15,6 +15,8 @@
 package marketplace
 
 import (
+	"reflect"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
@@ -107,7 +109,36 @@ var _ = Describe("CertIssuerController", func() {
 					),
 				)
 			}
+
+			testSecretCreation = func(t GinkgoTInterface) {
+				t.Parallel()
+				reconcilerTest := NewReconcilerTest(setup, configmap)
+				reconcilerTest.TestAll(t,
+					ReconcileStep(opts,
+						ReconcileWithUntilDone(true)),
+					ListStep(opts,
+						ListWithObj(&corev1.SecretList{}),
+						ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+							list, ok := i.(*corev1.SecretList)
+							Expect(ok).To(BeTrue())
+							tlsSecrets := []string{
+								"prometheus-operator-tls",
+								"rhm-metric-state-tls",
+								"rhm-prometheus-meterbase-tls",
+							}
+							names := []string{}
+							for _, s := range list.Items {
+								names = append(names, s.GetName())
+								Expect(len(s.Data)).Should(BeNumerically(">", 0))
+							}
+							Expect(reflect.DeepEqual(tlsSecrets, names)).To(BeTrue())
+						}),
+					),
+				)
+			}
 		)
+
 		testConfigMapDataInsertion(GinkgoT())
+		testSecretCreation(GinkgoT())
 	})
 })

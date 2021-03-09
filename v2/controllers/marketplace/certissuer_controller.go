@@ -22,24 +22,26 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/go-logr/logr"
-	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
+	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/certificates"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 var _ reconcile.Reconciler = &CertIssuerReconciler{}
+
+const InjectCAAnnotation = "service.beta.openshift.io/inject-cabundle"
 
 // CertIssuerReconciler reconciles a CertIssuer object
 type CertIssuerReconciler struct {
@@ -60,11 +62,8 @@ func (r *CertIssuerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 	reqLogger := r.Log.WithValues("certissuer", req.NamespacedName)
 	reqLogger.Info("Reconciling Certificates")
 	// Fetch configmaps
-	configMapList := &corev1.ConfigMapList{}
-	opts := []client.ListOption{
-		client.InNamespace(req.NamespacedName.Namespace),
-	}
-	err := r.Client.List(context.TODO(), configMapList, opts...)
+	cm := &corev1.ConfigMap{}
+	err := r.Client.Get(context.TODO(), req.NamespacedName, cm)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -75,16 +74,15 @@ func (r *CertIssuerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, err
 	}
-	for _, cm := range configMapList.Items {
-		if _, ok := cm.Annotations["service.beta.openshift.io/inject-cabundle"]; ok {
-			if _, ok := cm.Data["service-ca.crt"]; ok {
-				err := r.InjectCACertIntoConfigMap(&cm)
-				if err != nil {
-					log.Error(err, "failed to inject CA certificate")
-				}
-			} else {
-				klog.V(1).Info("service-ca.crt field was not found in a configmap labeled with inject-cabundle")
+
+	if _, ok := cm.Annotations[InjectCAAnnotation]; ok {
+		if _, ok := cm.Data["service-ca.crt"]; ok {
+			err := r.InjectCACertIntoConfigMap(cm)
+			if err != nil {
+				log.Error(err, "failed to inject CA certificate")
 			}
+		} else {
+			reqLogger.V(1).Info("service-ca.crt field was not found in a configmap labeled with inject-cabundle")
 		}
 	}
 
@@ -103,7 +101,7 @@ func (r *CertIssuerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 	return ctrl.Result{}, nil
 }
 
-func (r *CertIssuerReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
+func (r *CertIssuerReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
 	injector.SetCustomFields(r)
 	return r
 }
@@ -168,12 +166,26 @@ func (r *CertIssuerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return nil
 	}
 
+	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
+	configmapPreds := []predicate.Predicate{
+		predicate.Funcs{
+			UpdateFunc: func(evt event.UpdateEvent) bool {
+				_, ok := evt.MetaOld.GetAnnotations()[InjectCAAnnotation]
+				return ok
+			},
+			CreateFunc: func(evt event.CreateEvent) bool {
+				_, ok := evt.Meta.GetAnnotations()[InjectCAAnnotation]
+				return ok
+			},
+			GenericFunc: func(evt event.GenericEvent) bool {
+				_, ok := evt.Meta.GetAnnotations()[InjectCAAnnotation]
+				return ok
+			},
+		},
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&marketplaceredhatcomv1beta1.CertIssuer{}).
-		Watches(
-			&source.Kind{Type: &corev1.ConfigMap{}},
-			&handler.EnqueueRequestForOwner{
-				IsController: true,
-				OwnerType:    &marketplaceredhatcomv1beta1.CertIssuer{}}).
+		WithEventFilter(namespacePredicate).
+		For(&corev1.ConfigMap{}, builder.WithPredicates(configmapPreds...)).
 		Complete(r)
 }
