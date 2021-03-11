@@ -48,8 +48,8 @@ func NewBuilder() *Builder {
 }
 
 // WithNamespaces sets the namespaces property of a Builder.
-func (b *Builder) WithNamespaces(n options.NamespaceList) {
-	b.namespaces = n
+func (b *Builder) WithNamespaces(ns options.NamespaceList) {
+	b.namespaces = ns
 }
 
 // WithSharding sets the shard and totalShards property of a Builder.

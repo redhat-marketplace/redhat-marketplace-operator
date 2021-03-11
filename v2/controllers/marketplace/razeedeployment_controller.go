@@ -25,10 +25,11 @@ import (
 	"github.com/gotidy/ptr"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	"golang.org/x/time/rate"
@@ -56,10 +57,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var (
-	razeeWatchTag            = "razee/watch-resource"
-	razeeWatchTagValueLite   = "lite"
-	razeeWatchTagValueDetail = "detail"
+const (
+	razeeWatchTag            string = "razee/watch-resource"
+	razeeWatchTagValueLite   string = "lite"
+	razeeWatchTagValueDetail string = "detail"
 )
 
 // blank assignment to verify that ReconcileRazeeDeployment implements reconcile.Reconciler
@@ -75,11 +76,11 @@ type RazeeDeploymentReconciler struct {
 	CC     ClientCommandRunner
 
 	patcher patch.Patcher
-	cfg     config.OperatorConfig
-	factory manifests.Factory
+	cfg     *config.OperatorConfig
+	factory *manifests.Factory
 }
 
-func (r *RazeeDeploymentReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
+func (r *RazeeDeploymentReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
 	injector.SetCustomFields(r)
 	return r
 }
@@ -94,8 +95,13 @@ func (r *RazeeDeploymentReconciler) InjectPatch(p patch.Patcher) error {
 	return nil
 }
 
-func (r *RazeeDeploymentReconciler) InjectFactory(f manifests.Factory) error {
+func (r *RazeeDeploymentReconciler) InjectFactory(f *manifests.Factory) error {
 	r.factory = f
+	return nil
+}
+
+func (r *RazeeDeploymentReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
+	r.cfg = cfg
 	return nil
 }
 
@@ -170,6 +176,7 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 
 	// Create a new controller
 	return ctrl.NewControllerManagedBy(mgr).
+		WithEventFilter(predicates.NamespacePredicate(r.cfg.DeployedNamespace)).
 		For(&marketplacev1alpha1.RazeeDeployment{}).
 		WithOptions(controller.Options{
 			Reconciler: r,
@@ -553,7 +560,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 		reqLogger.V(0).Info("Resource already exists", "resource: ", utils.WATCH_KEEPER_NON_NAMESPACED_NAME)
 
 		updatedWatchKeeperNonNameSpace := r.makeWatchKeeperNonNamespace(instance)
-		patchResult, err := utils.RhmPatchMaker.Calculate(&watchKeeperNonNamespace, updatedWatchKeeperNonNameSpace)
+		patchResult, err := r.patcher.Calculate(&watchKeeperNonNamespace, updatedWatchKeeperNonNameSpace)
 		if err != nil {
 			reqLogger.Error(err, "Failed to compare patches")
 			return reconcile.Result{}, err
@@ -629,7 +636,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 	if err == nil {
 		reqLogger.Info("Resource already exists", "resource: ", utils.WATCH_KEEPER_LIMITPOLL_NAME)
 		updatedWatchKeeperLimitPoll := r.makeWatchKeeperLimitPoll(instance)
-		patchResult, err := utils.RhmPatchMaker.Calculate(&watchKeeperLimitPoll, updatedWatchKeeperLimitPoll)
+		patchResult, err := r.patcher.Calculate(&watchKeeperLimitPoll, updatedWatchKeeperLimitPoll)
 		if err != nil {
 			reqLogger.Error(err, "Failed to calculate patch diff")
 			return reconcile.Result{}, err
@@ -703,7 +710,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 		reqLogger.V(0).Info("Resource already exists", "resource: ", utils.RAZEE_CLUSTER_METADATA_NAME)
 
 		updatedRazeeClusterMetaData := *r.makeRazeeClusterMetaData(instance)
-		patchResult, err := utils.RhmPatchMaker.Calculate(&razeeClusterMetaData, &updatedRazeeClusterMetaData)
+		patchResult, err := r.patcher.Calculate(&razeeClusterMetaData, &updatedRazeeClusterMetaData)
 		if err != nil {
 			reqLogger.Error(err, "Failed to compare patches")
 			return reconcile.Result{}, err
@@ -776,10 +783,13 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 		}
 	}
 	if err == nil {
-		reqLogger.V(0).Info("Resource already exists", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
+		reqLogger.V(0).Info("Resource already exists",
+			"resource", utils.WATCH_KEEPER_CONFIG_NAME,
+			"uid", watchKeeperConfig.UID)
 
 		updatedWatchKeeperConfig := *r.makeWatchKeeperConfig(instance)
-		patchResult, err := utils.RhmPatchMaker.Calculate(&watchKeeperConfig, &updatedWatchKeeperConfig)
+		updatedWatchKeeperConfig.UID = watchKeeperConfig.UID
+		patchResult, err := r.patcher.Calculate(&watchKeeperConfig, &updatedWatchKeeperConfig)
 		if err != nil {
 			reqLogger.Error(err, "Failed to compare patches")
 		}
@@ -959,7 +969,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 	reqLogger.V(0).Info("Finding Rhm RemoteResourceS3 deployment")
 
 	args := manifests.CreateOrUpdateFactoryItemArgs{
-		Patcher: patch.RHMDefaultPatcher,
+		Patcher: r.patcher,
 	}
 
 	if rrs3DeploymentEnabled {
@@ -969,7 +979,10 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 					rrs3Deployment,
 					func() (runtime.Object, error) {
 						dep := factory.NewRemoteResourceS3Deployment(instance)
-						factory.SetOwnerReference(dep, instance)
+						// Do not set an OwnerRef on the rrs3Dep
+						// A delete --cascade='foreground' will cause orphaned RRS3
+						// rrs3Dep will end up deleted before RRS3 child/parent finalizer cleanup
+						//factory.SetOwnerReference(instance, dep)
 						return dep, nil
 					},
 					args,
@@ -998,7 +1011,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 					watchKeeperDeployment,
 					func() (runtime.Object, error) {
 						dep := factory.NewWatchKeeperDeployment(instance)
-						factory.SetOwnerReference(dep, instance)
+						factory.SetOwnerReference(instance, dep)
 						return dep, nil
 					},
 					args,
@@ -1320,7 +1333,7 @@ func (r *RazeeDeploymentReconciler) makeRazeeClusterMetaData(instance *marketpla
 		},
 		Data: map[string]string{"name": instance.Spec.ClusterUUID},
 	}
-	r.factory.SetOwnerReference(cm, instance)
+	r.factory.SetOwnerReference(instance, cm)
 	return cm
 }
 
@@ -1335,7 +1348,7 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperNonNamespace(
 		},
 		Data: map[string]string{"v1_namespace": "true"},
 	}
-	r.factory.SetOwnerReference(cm, instance)
+	r.factory.SetOwnerReference(instance, cm)
 	return cm
 }
 
@@ -1349,7 +1362,7 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperLimitPoll(
 			Namespace: *instance.Spec.TargetNamespace,
 		},
 	}
-	r.factory.SetOwnerReference(cm, instance)
+	r.factory.SetOwnerReference(instance, cm)
 	return cm
 }
 
@@ -1362,7 +1375,7 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperConfig(instance *marketplacev
 		},
 		Data: map[string]string{"RAZEEDASH_URL": instance.Spec.DeployConfig.RazeeDashUrl, "START_DELAY_MAX": "0"},
 	}
-	r.factory.SetOwnerReference(cm, instance)
+	r.factory.SetOwnerReference(instance, cm)
 	return cm
 }
 
@@ -1399,7 +1412,7 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperSecret(instance *marketplacev
 		},
 		Data: map[string][]byte{"RAZEEDASH_ORG_KEY": key},
 	}
-	r.factory.SetOwnerReference(&secret, instance)
+	r.factory.SetOwnerReference(instance, &secret)
 	return secret, err
 }
 
@@ -1416,7 +1429,7 @@ func (r *RazeeDeploymentReconciler) makeCOSReaderSecret(instance *marketplacev1a
 		Data: map[string][]byte{"accesskey": []byte(key)},
 	}
 
-	r.factory.SetOwnerReference(&secret, instance)
+	r.factory.SetOwnerReference(instance, &secret)
 	return secret, err
 }
 

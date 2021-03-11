@@ -63,7 +63,7 @@ var _ = BeforeSuite(func() {
 		EnabledFeatures: []string{},
 		Namespace:       "openshift-redhat-marketplace",
 		WatchNamespace:  "",
-		ProvideScheme:   func(cfg *rest.Config) (*runtime.Scheme, error) {
+		ProvideScheme: func(cfg *rest.Config) (*runtime.Scheme, error) {
 			return testutils.GetScheme(), nil
 		},
 	})

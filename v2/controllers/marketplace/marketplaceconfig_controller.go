@@ -25,9 +25,10 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
+	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
@@ -68,7 +69,7 @@ type MarketplaceConfigReconciler struct {
 	Scheme *runtime.Scheme
 	Log    logr.Logger
 	cc     ClientCommandRunner
-	cfg    config.OperatorConfig
+	cfg    *config.OperatorConfig
 }
 
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
@@ -169,12 +170,12 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		return result.Return()
 	}
 
-	if marketplaceConfig.Annotations == nil {
-		marketplaceConfig.Annotations = make(map[string]string)
+	if marketplaceConfig.Labels == nil {
+		marketplaceConfig.Labels = make(map[string]string)
 	}
 
-	if v, ok := marketplaceConfig.Annotations[utils.RazeeWatchResource]; !ok || v != utils.RazeeWatchLevelDetail {
-		marketplaceConfig.Annotations[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
+	if v, ok := marketplaceConfig.Labels[utils.RazeeWatchResource]; !ok || v != utils.RazeeWatchLevelDetail {
+		marketplaceConfig.Labels[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
 
 		err = r.Client.Update(context.TODO(), marketplaceConfig)
 
@@ -448,12 +449,15 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		reqLogger.Error(err, "secret is missing appropriate field and can't check status")
 	}
 
+	tokenClaims, _ := marketplace.GetJWTTokenClaim(string(pullSecret))
+
 	if ok {
 		reqLogger.Info("attempting to update registration")
 		marketplaceClient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
 			Url:      r.cfg.Marketplace.URL,
 			Token:    string(pullSecret),
 			Insecure: r.cfg.Marketplace.InsecureClient,
+			Claims:   tokenClaims,
 		})
 
 		marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
@@ -614,7 +618,7 @@ func (r *MarketplaceConfigReconciler) createCatalogSource(request reconcile.Requ
 	return false, nil
 }
 
-func (r *MarketplaceConfigReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
+func (r *MarketplaceConfigReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
 	injector.SetCustomFields(r)
 	return r
 }
@@ -624,7 +628,7 @@ func (r *MarketplaceConfigReconciler) InjectCommandRunner(ccp ClientCommandRunne
 	return nil
 }
 
-func (m *MarketplaceConfigReconciler) InjectOperatorConfig(cfg config.OperatorConfig) error {
+func (m *MarketplaceConfigReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
 	return nil
 }
@@ -637,8 +641,11 @@ func (r *MarketplaceConfigReconciler) SetupWithManager(mgr manager.Manager) erro
 		OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
 	}
 
+	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplacev1alpha1.MarketplaceConfig{}).
+		WithEventFilter(namespacePredicate).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, ownerHandler).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.MeterBase{}}, ownerHandler).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, &handler.EnqueueRequestForOwner{

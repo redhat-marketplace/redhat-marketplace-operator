@@ -23,6 +23,18 @@ spec:
             requests:
               cpu: 100m
               memory: 100Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
           env:
             - name: OPERATOR_NAME
               value: redhat-marketplace-operator
@@ -42,5 +54,17 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: OLM_OWNER_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['olm.owner']
+            - name: OLM_OWNER_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['olm.owner.namespace']
+            - name: OLM_OWNER_KIND
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['olm.owner.kind']
       terminationGracePeriodSeconds: 10
       serviceAccountName: operator

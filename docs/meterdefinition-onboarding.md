@@ -108,7 +108,7 @@ spec:
   meters:
     - aggregation: max
       period: 1h
-      metric: pod_count
+      metricId: pod_count
       workloadType: Pod
       query: |
         min_over_time(
@@ -140,7 +140,7 @@ spec:
      meters:
        - aggregation: sum
          period: 1h
-         metric: container_vcpu_use
+         metricId: container_vcpu_use
          workloadType: Pod
          query: rate(container_cpu_usage_seconds_total{cpu="total", container="${YOURCONTAINER}"}[5m])*100
    ```
@@ -165,7 +165,7 @@ spec:
      meters:
        - aggregation: sum
          period: 1h
-         metric: pod_vcpu_sum
+         metricId: pod_vcpu_sum
          workloadType: Pod
          query: sum by (pod, namespace) (rate(container_cpu_usage_seconds_total{container_name!="POD"}[1m])*100)
    ```
@@ -256,7 +256,7 @@ spec:
   meters:
     - aggregation: sum
       period: 1h
-      metric: app_customer-metric
+      metricId: app_customer-metric
       query: custom_metric{}
       workloadType: Service
 ```
@@ -287,7 +287,7 @@ Your options for workload filters are as follows: Owner Custom Resource Definiti
     meters:
       - aggregation: sum
         period: 1h
-        metric: app_customer-metric
+        metricId: app_customer-metric
         query: custom_metric{}
         workloadType: Service
   ```
@@ -319,7 +319,7 @@ Here is an example to find an imaginary user count from a service, returning a s
     meters:
       - aggregation: max
         period: 1h
-        metric: app_customer-metric
+        metricId: app_customer-metric
         query: custom_metric{}
         query: rate(container_cpu_usage_seconds_total{cpu="total", container="${YOURCONTAINER}"}[5m])*100
         workloadType: Service

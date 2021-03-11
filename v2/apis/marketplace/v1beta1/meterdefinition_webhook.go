@@ -17,11 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
-	"time"
-
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/signer"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -35,9 +32,8 @@ import (
 var meterdefinitionlog = logf.Log.WithName("meterdefinition-resource")
 
 func (r *MeterDefinition) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
-		Complete()
+	bldr := ctrl.NewWebhookManagedBy(mgr).For(r)
+	return bldr.Complete()
 }
 
 // +kubebuilder:webhook:path=/mutate-marketplace-redhat-com-v1beta1-meterdefinition,mutating=true,failurePolicy=fail,sideEffects=None,groups=marketplace.redhat.com,resources=meterdefinitions,verbs=create;update,versions=v1beta1,name=mmeterdefinition.marketplace.redhat.com
@@ -46,30 +42,10 @@ var _ webhook.Defaulter = &MeterDefinition{}
 
 // // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *MeterDefinition) Default() {
-	meterdefinitionlog.Info("default", "name", r.Name)
-
-	// Do not mutate Spec of a signed MeterDefinition, determined if annotations are present
-	// If required Spec fields are missing on a signed MeterDefinition, allow it to be rejected by Validate
-
-	if !r.IsSigned() {
-		for _, resourceFilter := range r.Spec.ResourceFilters {
-			if resourceFilter.Namespace == nil {
-				resourceFilter.Namespace = &NamespaceFilter{
-					UseOperatorGroup: true,
-				}
-			}
-		}
-		for _, meter := range r.Spec.Meters {
-			if meter.Aggregation == "" {
-				meter.Aggregation = "sum"
-			}
-			if meter.Period == nil {
-				meter.Period = &metav1.Duration{Duration: time.Hour}
-			}
-		}
-	}
+	meterdefinitionlog.Info("default", "name", r.Name, "mdef", r)
 }
 
+// Disabled for now
 // +kubebuilder:webhook:path=/validate-marketplace-redhat-com-v1beta1-meterdefinition,mutating=false,failurePolicy=fail,sideEffects=None,groups=marketplace.redhat.com,resources=meterdefinitions,verbs=create;update,versions=v1beta1,name=vmeterdefinition.marketplace.redhat.com
 
 var _ webhook.Validator = &MeterDefinition{}
@@ -137,7 +113,7 @@ func (r *MeterDefinition) ValidateCreate() error {
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *MeterDefinition) ValidateUpdate(old runtime.Object) error {
 	var allErrs field.ErrorList
-	meterdefinitionlog.Info("validate create", "name", r.Name)
+	meterdefinitionlog.Info("validate update", "name", r.Name)
 
 	for _, resource := range r.Spec.ResourceFilters {
 		if resource.OwnerCRD == nil &&

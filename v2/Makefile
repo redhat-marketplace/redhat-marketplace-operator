@@ -1,6 +1,9 @@
 # Current Operator version
-VERSION ?= 1.0.5
+VERSION ?= $(shell cd ./tools/version && go run ./main.go)
 UNAME_S := $(shell uname -s)
+UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
+
+export VERSION
 
 # Options for 'bundle-build'
 ifneq ($(origin CHANNELS), undefined)
@@ -13,24 +16,29 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 
+TAG ?= $(VERSION)
+
 OPERATOR_IMAGE_NAME = redhat-marketplace-operator
-OPERATOR_IMAGE_TAG ?= $(VERSION)
+OPERATOR_IMAGE_TAG ?= $(TAG)
 OPERATOR_IMAGE ?= $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE_NAME):$(OPERATOR_IMAGE_TAG)
 
 REPORTER_IMAGE_NAME ?= redhat-marketplace-reporter
-REPORTER_IMAGE_TAG ?= $(VERSION)
+REPORTER_IMAGE_TAG ?= $(TAG)
 REPORTER_IMAGE := $(IMAGE_REGISTRY)/$(REPORTER_IMAGE_NAME):$(REPORTER_IMAGE_TAG)
 
 METRIC_STATE_IMAGE_NAME ?= redhat-marketplace-metric-state
-METRIC_STATE_IMAGE_TAG ?= $(VERSION)
+METRIC_STATE_IMAGE_TAG ?= $(TAG)
 METRIC_STATE_IMAGE := $(IMAGE_REGISTRY)/$(METRIC_STATE_IMAGE_NAME):$(METRIC_STATE_IMAGE_TAG)
 
 AUTHCHECK_IMAGE_NAME ?= redhat-marketplace-authcheck
-AUTHCHECK_IMAGE_TAG ?= $(VERSION)
+AUTHCHECK_IMAGE_TAG ?= $(TAG)
 AUTHCHECK_IMAGE := $(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME):$(AUTHCHECK_IMAGE_TAG)
 
 BUNDLE_NAME ?= redhat-marketplace-operator-manifest
 BUNDLE_IMG ?= $(IMAGE_REGISTRY)/$(BUNDLE_NAME):$(VERSION)
+
+DEV_INDEX_NAME ?= redhat-marketplace-operator-dev-index
+DEV_INDEX_IMG ?= $(IMAGE_REGISTRY)/$(DEV_INDEX_NAME)
 
 namespace ?= openshift-redhat-marketplace
 
@@ -54,19 +62,31 @@ endif
 
 all: manager
 
+clean:
+	rm -f bundle/manifests/*.yaml bundle/metadata/*.yaml bundle/tests/*.yaml
+
 # Run tests
 .PHONY: test
 test: fmt vet manifests ginkgo
-	$(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
+	$(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal ./apis ./controllers
+	$(MAKE) test-data
+
+test-data-extract:
+	$(shell tests/data/prometheus-meterdef-query-error-202002121300/extract.sh)
+
+test-data: ginkgo test-data-extract
+	$(GINKGO) --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./tests/integration/...
 
 .PHONY: test-ci-unit
 test-ci-unit: ginkgo ## test-ci-unit runs all tests for CI builds
-	$(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal
+	$(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal ./apis ./controllers
 	cat cover-unit.out.tmp | grep -v "_generated.go|zz_generated|testbin.go|wire_gen.go" > cover-unit.out
+
+KUTTL_INT_TESTS ?= "(^register-test$$|^features-test$$)"
 
 .PHONY: test-ci-int
 test-ci-int:  ## test-ci-int runs all tests for CI builds
-	kubectl kuttl test --namespace openshift-redhat-marketplace --kind-context test --config ./kuttl-test.yaml ../tests/v2/e2e --suppress-log "INFO" --test "(^register-test$$|^features-test$$)"
+	SKIP_DEPLOY=true kubectl kuttl test --namespace openshift-redhat-marketplace --kind-context test --config ./kuttl-test.yaml ../tests/v2/e2e --test $(KUTTL_INT_TESTS) --suppress-log "events"
 
 # Build manager binary
 manager: generate fmt vet
@@ -120,13 +140,14 @@ generate-api: code-generator
 QUAY_EXPIRATION?=never
 IMAGE_PUSH ?= true
 BUILDX ?= true
+ARCH ?= amd64
 
 ifeq ($(BUILDX),true)
 DOCKERCMD=docker buildx
 ifeq ($(IMAGE_PUSH),true)
-ARGS="--push"
+ARGS=--push
 else
-ARGS="--load"
+ARGS=--load
 endif
 else
 DOCKERCMD=docker
@@ -137,6 +158,8 @@ docker-build:
 	$(DOCKERCMD) build \
 	-f ./Dockerfile \
 	--tag $(IMAGE) \
+  --build-arg ARCH=$(ARCH) \
+	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
 	--build-arg path=./v2/ \
 	--build-arg name=Operator \
 	--build-arg exec=./ \
@@ -150,39 +173,90 @@ docker-build:
 docker-push:
 	docker push ${IMG}
 
+ARCHS ?= amd64 ppc64le s390x
+
+docker-manifest:
+	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
+	docker manifest push $(IMAGE)
+
+CSV_YAML_BUNDLE_FILE=bundle/manifests/redhat-marketplace-operator.clusterserviceversion.yaml
+CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
+
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
-bundle: manifests kustomize helm
-	operator-sdk generate kustomize manifests -q
+bundle: clean manifests kustomize helm operator-sdk yq
+	$(OPERATOR_SDK) generate kustomize manifests -q
 	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
 	--set operatorImage=$(OPERATOR_IMAGE) \
 	--set metricStateImage=$(METRIC_STATE_IMAGE) \
 	--set reporterImage=$(REPORTER_IMAGE) \
 	--set authCheckImage=$(AUTHCHECK_IMAGE) \
-	| ./config/manifests/kustomize | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
-	operator-sdk bundle validate ./bundle
+	--post-renderer ./config/manifests/kustomize | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	$(YQ) eval -i '.spec.webhookdefinitions[].targetPort = 9443' $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i '.spec.webhookdefinitions[].containerPort = 9443' $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i ".spec.metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i ".spec.metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
+	$(OPERATOR_SDK) bundle validate ./bundle
+	#Generate a copy of the resultant yaml files to the deploy directory - this is only used for content certification linting
+	rm -rf ./deploy && mkdir -p ./deploy ./deploy/crds && \
+	cp -p ./config/samples/*v1alpha1*.yaml ./config/samples/*v1beta1*.yaml ./deploy/crds
+	#generate all yaml for the deploy directory to be used in the bundle
+	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
+	--set operatorImage=$(OPERATOR_IMAGE) \
+	--set metricStateImage=$(METRIC_STATE_IMAGE) \
+	--set reporterImage=$(REPORTER_IMAGE) \
+	--set authCheckImage=$(AUTHCHECK_IMAGE) \
+	--post-renderer ./config/default/kustomize > ./deploy/manifestsNativeDeploy.yaml
 
 # Build the bundle image.
 .PHONY: bundle-build
 bundle-build:
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
+	--label com.redhat.openshift.versions="v4.5,v4.6,v4.7" \
+  --label com.redhat.delivery.operator.bundle=true \
+	--label com.redhat.delivery.backport=true \
+	.
 
 bundle-deploy:
 	docker push $(BUNDLE_IMG)
-	operator-sdk run bundle $(BUNDLE_IMG)
+
+bundle-run: operator-sdk
+	$(OPERATOR_SDK) run bundle $(BUNDLE_IMG)
+
+BUNDLE_IMAGE_REGISTRY ?= $(IMAGE_REGISTRY)
+
+bundle-stable:
+	$(MAKE) bundle CHANNELS=stable DEFAULT_CHANNEL=stable IMAGE_REGISTRY=$(BUNDLE_IMAGE_REGISTRY)
+
+VERSIONS_LIST ?= $(BUNDLE_IMG)
+
+bundle-dev-index: opm
+	$(OPM) index add -u docker --bundles "$(VERSIONS_LIST)" --tag "$(DEV_INDEX_IMG):$(VERSION)" --permissive
+	docker push $(DEV_INDEX_IMG):$(VERSION)
 
 bundle-uninstall:
 	- kubectl delete catalogsources.operators.coreos.com redhat-marketplace-operator-catalog
-	- kubectl delete marketplaceconfigs.marketplace.redhat.com --all
+	#- kubectl delete marketplaceconfigs.marketplace.redhat.com --all
 	- kubectl delete subscription -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
 	- kubectl delete csv -l operators.coreos.com/redhat-marketplace-operator.openshift-redhat-marketplace
 
 skaffold-build:
-	skaffold build --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
+	cd .. && $(MAKE) save-licenses
+	skaffold build --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
 
 INSTALL_DEBUG ?= false
 
-install:
+helm:
+	cd config && $(HELM) template rhm-operator ./helm-wrapper \
+	   --namespace $(namespace) \
+	   -f ./helm-wrapper/values.yaml \
+	   --set operatorImage=$(OPERATOR_IMAGE) \
+	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
+	   --set reporterImage=$(REPORTER_IMAGE) \
+	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
+     --post-renderer ./helm-wrapper/kustomize
+
+install: kustomize helm
 	cd config && $(HELM) template rhm-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
@@ -192,86 +266,57 @@ install:
 	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
      --post-renderer ./helm-wrapper/kustomize --debug=$(INSTALL_DEBUG) | kubectl apply -f -
 
-uninstall:
-	cd config && $(HELM) template rhm-operator ./helm-wrapper \
+uninstall: helm yq
+	@cd config && $(HELM) template rhm-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
 	   --set operatorImage=$(OPERATOR_IMAGE) \
 	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
 	   --set reporterImage=$(REPORTER_IMAGE) \
 	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
-     --post-renderer ./helm-wrapper/kustomize | kubectl delete -f -
+     --post-renderer ./helm-wrapper/kustomize | $(YQ) eval-all 'select(.kind != "Namespace") | select(.kind != "CustomResourceDefinition")' -  | kubectl delete -f -
 
 skaffold-dev: install
-	skaffold dev --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
+	skaffold dev --default-repo $(IMAGE_REGISTRY) --cleanup=false
 
 skaffold-run:
-	skaffold run --default-repo $(IMAGE_REGISTRY) --tag $(VERSION)
+	skaffold run --default-repo $(IMAGE_REGISTRY) --tag $(TAG)
+
+current-version:
+	@echo $(VERSION)
+
+TAG ?= ""
+CREDS ?= ""
+TIMEOUT ?= 15
+PIDs ?=
+
+wait-and-publish:
+	cd tools/connect ; \
+	go run main.go wait-and-publish --timeout $(TIMEOUT) --tag $(TAG) $(PIDS)
 
 # --TOOLS--
 #
 # find or download controller-gen
 # download controller-gen if necessary
+CONTROLLER_GEN=$(shell pwd)/bin/controller-gen
 controller-gen:
-ifeq (, $(shell which controller-gen))
-	@{ \
-	set -e ;\
-	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$CONTROLLER_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.3.0 ;\
-	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
-	}
-CONTROLLER_GEN=$(GOBIN)/controller-gen
-else
-CONTROLLER_GEN=$(shell which controller-gen)
-endif
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.3.0)
 
+CODEGEN_PKG=$(GOPATH)/src/k8s.io/code-generator
 code-generator:
-ifeq (, $(shell ls $(GOPATH)/src/k8s.io/code-generator))
-	@{ \
-	set -e ;\
-	K8S_CODEGEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$K8S_CODEGEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/k8s.io/code-generator@v0.19.4 ;\
-	rm -rf $$K8S_CODEGEN_TMP_DIR ;\
+	@[ -d $(CODEGEN_PKG) ] || { \
+	GO111MODULE=off go get k8s.io/code-generator ;\
 	}
-CODEGEN_PKG=$(GOPATH)/src/k8s.io/code-generator
-else
-CODEGEN_PKG=$(GOPATH)/src/k8s.io/code-generator
-endif
 
+KUSTOMIZE=$(shell pwd)/bin/kustomize
 kustomize:
-ifeq (, $(shell which kustomize))
-	@{ \
-	set -e ;\
-	KUSTOMIZE_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$KUSTOMIZE_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/kustomize/kustomize/v3@v3.5.4 ;\
-	rm -rf $$KUSTOMIZE_GEN_TMP_DIR ;\
-	}
-KUSTOMIZE=$(GOBIN)/kustomize
-else
-KUSTOMIZE=$(shell which kustomize)
-endif
+	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v3.5.4)
+
 export KUSTOMIZE
 
+OPENAPI_GEN=$(shell pwd)/bin/openapi-gen
 openapi-gen:
-ifeq (, $(shell which openapi-gen))
-	@{ \
-	set -e ;\
-	OPENAPI_GEN_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$OPENAPI_GEN_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get github.com/kubernetes/kube-openapi/cmd/openapi-gen@690f563a49b523b7e87ea117b6bf448aead23b09 ;\
-	rm -rf $$OPENAPI_GEN_GEN_TMP_DIR ;\
-	}
-OPENAPI_GEN=$(GOBIN)/openapi-gen
-else
-OPENAPI_GEN=$(shell which openapi-gen)
-endif
+	$(call go-get-tool,$(OPENAPI_GEN),github.com/kubernetes/kube-openapi/cmd/openapi-gen@690f563a49b523b7e87ea117b6bf448aead23b09)
 
 helm:
 ifeq (, $(shell which helm))
@@ -279,7 +324,6 @@ ifeq ($(UNAME_S),Linux)
 	curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
 endif
 ifeq ($(UNAME_S),Darwin)
-	brew install skaffold
 	brew install helm
 endif
 endif
@@ -288,7 +332,7 @@ HELM=$(shell which helm)
 skaffold:
 ifeq (, $(shell which skaffold))
 ifeq ($(UNAME_S),Linux)
-	curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-darwin-amd64 && \
+	curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64 && \
 	sudo install skaffold /usr/local/bin/
 endif
 ifeq ($(UNAME_S),Darwin)
@@ -299,48 +343,54 @@ else
 SKAFFOLD=$(shell which skaffold)
 endif
 
+GINKGO=$(shell pwd)/bin/ginkgo
 ginkgo:
-ifeq (, $(shell which ginkgo))
-	@{ \
-	set -e ;\
-	GINKGO_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$GINKGO_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get -u github.com/onsi/ginkgo/ginkgo ;\
-	rm -rf $$GINKGO_GEN_TMP_DIR ;\
-	}
-GINKGO=$(GOBIN)/ginkgo
-else
-GINKGO=$(shell which ginkgo)
-endif
+	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/ginkgo)
 
-
+GOBINDATA=$(shell pwd)/bin/go-bindata
 go-bindata:
-ifeq (, $(shell which go-bindata))
-	@{ \
-	set -e ;\
-	GOBINDATA_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$GOBINDATA_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get -u github.com/kevinburke/go-bindata/... ;\
-	rm -rf $$GO-BINDATA_GEN_TMP_DIR ;\
-	}
-GOBINDATA=$(GOBIN)/go-bindata
-else
-GOBINDATA=$(shell which go-bindata)
-endif
+	$(call go-get-tool,$(GOBINDATA),github.com/kevinburke/go-bindata/...)
 
+LICENSE=$(shell pwd)/bin/addlicense
 addlicense:
-ifeq (, $(shell which addlicense))
-	@{ \
-	set -e ;\
-	GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get -u github.com/google/addlicense ;\
-	rm -rf $$GEN_TMP_DIR ;\
-	}
-LICENSE=$(GOBIN)/addlicense
-else
-LICENSE=$(GOBIN)/addlicense
-endif
+	$(call go-get-tool,$(LICENSE),github.com/google/addlicense)
+
+YQ=$(shell pwd)/bin/yq
+yq:
+	$(call go-get-tool,$(YQ),github.com/mikefarah/yq/v4@v4.6.1)
+
+OPERATOR_SDK=$(shell pwd)/bin/operator-sdk
+operator-sdk:
+	$(call install-binary,https://github.com/operator-framework/operator-sdk/releases/download/v1.3.2,operator-sdk_$(UNAME)_$(ARCH),$(OPERATOR_SDK))
+
+OPM=$(shell pwd)/bin/opm
+opm:
+	$(call install-binary,https://github.com/operator-framework/operator-registry/releases/download/v1.13.7,$(UNAME)-$(ARCH)-opm,$(OPM))
+
+# go-get-tool will 'go get' any package $2 and install it to $1.
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+define go-get-tool
+@[ -f $(1) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+go mod init tmp ;\
+echo "Downloading $(2)" ;\
+GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
+rm -rf $$TMP_DIR ;\
+}
+endef
+
+# install-binary will 'curl' any package url $1 with file $2 and install it to $3
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+define install-binary
+@[ -f $(3) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+echo "Downloading $(1)" ;\
+curl -LO $(1)/$(2) ;\
+chmod +x $(2) && mv $(2) $(3) ;\
+rm -rf $$TMP_DIR ;\
+}
+endef

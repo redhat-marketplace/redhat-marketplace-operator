@@ -23,13 +23,12 @@ The reporter tool can be ran locally for testing and quick debugging.
 5. Run the report tool targeting the created meter definition.
 
    ```sh
-   redhat-marketplace-reporter report --name meter-report-2020-08-17 --namespace openshift-redhat-marketplace --local --zap-devel --upload=false
+   redhat-marketplace-reporter report --name meter-report-2020-08-17 --namespace openshift-redhat-marketplace --local --uploadTarget=local-path
 
    # --name // name of the the report to run created in step 3
    # --namespace // namespace of the report to run created in step 3
    # --local // set to target a local prometheus instance on port 9090
-   # --zap-devel // nice logs
-   # --upload=false // do not try to upload the data, just writes to disk
+   # --uploadTarget=local-path // do not try to upload the data, just writes to disk
    ```
 
-6. The files are written to a tmp dir, the directory is printed in the logs.
+6. The files are written to the working directory you're currently in as a tar.gz file.

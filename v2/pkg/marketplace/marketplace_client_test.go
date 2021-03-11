@@ -46,8 +46,12 @@ var _ = Describe("Marketplace Config Status", func() {
 		marketplaceClientConfig = &MarketplaceClientConfig{
 			Url:   addr,
 			Token: "Bearer token",
+			Claims: &MarketplaceClaims{
+				Env: "",
+			},
 		}
 		mclient, err = NewMarketplaceClient(marketplaceClientConfig)
+		Expect(err).To(Succeed())
 		mclient.httpClient.Transport.(withHeader).rt.(*http.Transport).TLSClientConfig = &tls.Config{
 			RootCAs:            server.HTTPTestServer.TLS.RootCAs,
 			InsecureSkipVerify: true,
@@ -61,6 +65,7 @@ var _ = Describe("Marketplace Config Status", func() {
 			ClusterUuid: "test",
 		}
 	})
+
 	AfterEach(func() {
 		server.Close()
 	})
@@ -78,12 +83,23 @@ var _ = Describe("Marketplace Config Status", func() {
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", path),
 					ghttp.RespondWithPtr(&statusCode, &body),
-				))
+				),
+			)
 		})
 		It("should retrieve rhm-operator-secret ", func() {
 			data, err := mclient.GetMarketplaceSecret()
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(data).Should(ContainSubstring("rhm-operator-secret"))
+		})
+	})
+
+	Context("token", func() {
+		It("should have env var", func() {
+			Skip("can't keep test due to secret")
+			token := ``
+			rhmAccount, err := GetJWTTokenClaim(token)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(rhmAccount.AccountID).To(Equal("5e2f551de3957e0013215b2d"))
 		})
 	})
 
