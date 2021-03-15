@@ -322,3 +322,13 @@ func (meterdef *MeterDefinition) BuildMeterDefinitionFromString(
 
 	return nil
 }
+
+func (meterdef *MeterDefinition) IsSigned() bool {
+	annotations := meterdef.GetAnnotations()
+	publicKey := annotations["marketplace.redhat.com/publickey"]
+	signature := annotations["marketplace.redhat.com/signature"]
+	if (len(publicKey) != 0) && (len(signature) != 0) {
+		return true
+	}
+	return false
+}
