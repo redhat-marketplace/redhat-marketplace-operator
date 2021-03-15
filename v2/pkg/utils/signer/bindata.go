@@ -92,7 +92,7 @@ func signerCaPem() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "signer/ca.pem", size: 1237, mode: os.FileMode(436), modTime: time.Unix(1610399737, 0)}
+	info := bindataFileInfo{name: "signer/ca.pem", size: 1237, mode: os.FileMode(420), modTime: time.Unix(1615477317, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
