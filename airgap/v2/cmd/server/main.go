@@ -42,6 +42,7 @@ Complete documentation is available at https://github.com/canonical/go-dqlite`,
 				}
 				log.Printf(fmt.Sprintf("%s: %s: %s\n", api, l.String(), format), a...)
 			}
+
 			app, err := app.New(dir, app.WithAddress(db), app.WithCluster(*join), app.WithLogFunc(logFunc))
 			if err != nil {
 				return err
@@ -60,6 +61,7 @@ Complete documentation is available at https://github.com/canonical/go-dqlite`,
 				return err
 			}
 
+			// setup grpc server here
 			http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 				key := strings.TrimLeft(r.URL.Path, "/")
 				result := ""

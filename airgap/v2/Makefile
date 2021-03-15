@@ -4,6 +4,12 @@ UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
 
 ARCH ?= amd64
 
+build:
+	docker buildx build --load -t airgap:test .
+
+demo: build
+	docker-compose up
+
 generate: protoc
 	@{ TMP_DIR=$$(mktemp -d) ;\
 		PATH=$(PATH):$(PROTOC_GEN_GO) $(PROTOC) -I=$(SRC_DIR) --go_out=$$TMP_DIR $(SRC_DIR)/apis/model/v1/modelv1.proto $(SRC_DIR)/apis/fileserver/fileserver.proto ;\
