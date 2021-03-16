@@ -1,0 +1,26 @@
+[
+  {
+    "op": "add",
+    "path": "/spec/install/spec/deployments/0/spec/template/spec/containers/0/env/-",
+    "value": {
+      "name": "REPORT_RETRY_LIMIT",
+      "value": "2"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/spec/install/spec/deployments/0/spec/template/spec/containers/0/env/-",
+    "value": {
+      "name": "REPORT_RETRY_TIME_DURATION",
+      "value": "2m"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/spec/install/spec/deployments/0/spec/template/spec/containers/0/env/-",
+    "value": {
+      "name": "METER_DEF_CONTROLLER_REQUEUE_RATE",
+      "value": "20s"
+    }
+  }
+]

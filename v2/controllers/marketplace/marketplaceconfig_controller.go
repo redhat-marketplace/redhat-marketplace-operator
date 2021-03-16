@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"errors"
 	"reflect"
 	"time"
 
@@ -28,14 +29,16 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
+	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -72,7 +75,8 @@ type MarketplaceConfigReconciler struct {
 	Scheme *runtime.Scheme
 	Log    logr.Logger
 	cc     ClientCommandRunner
-	cfg    config.OperatorConfig
+	cfg    *config.OperatorConfig
+	mclientBuilder *marketplace.MarketplaceClientBuilder
 }
 
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
@@ -82,11 +86,15 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	reqLogger.Info("Reconciling MarketplaceConfig")
 	cc := r.cc
 
+	if r.mclientBuilder == nil {
+		r.mclientBuilder = marketplace.NewMarketplaceClientBuilder(r.cfg)
+	}
+
 	// Fetch the MarketplaceConfig instance
 	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
 	err := r.Client.Get(context.TODO(), request.NamespacedName, marketplaceConfig)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
@@ -195,6 +203,51 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	//Fetch the Secret with name redhat-marketplace-pull-secret
+	secret := v1.Secret{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RHMPullSecretName, Namespace: request.Namespace}, &secret)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			reqLogger.Error(err, "error finding", "name", utils.RHMPullSecretName)
+			return reconcile.Result{}, nil
+		}
+
+		reqLogger.Error(err, "error fetching secret")
+		return reconcile.Result{}, err
+	}
+
+	pullSecret, tokenIsValid := secret.Data[utils.RHMPullSecretKey]
+	if !tokenIsValid {
+		err := errors.New("rhm pull secret not found")
+		reqLogger.Error(err, "couldn't find pull secret")
+	}
+
+	token := string(pullSecret)
+	tokenClaims,err := marketplace.GetJWTTokenClaim(token)
+	if err != nil {
+		tokenIsValid = false
+		reqLogger.Error(err,"error parsing token")
+		
+	}
+
+	if tokenIsValid {
+		marketplaceClient, err := r.mclientBuilder.NewMarketplaceClient(token,tokenClaims)
+	
+		if err != nil {
+			reqLogger.Error(err, "error constructing marketplace client")
+			return reconcile.Result{Requeue: true}, nil
+		}
+
+		willBeDeleted := marketplaceConfig.GetDeletionTimestamp() != nil
+		if willBeDeleted {
+			result := r.unregister(marketplaceConfig, marketplaceClient,request, reqLogger)
+			if !result.Is(Continue) {
+				return result.Return() 
+			}
+		}
+	}
+
+
 	newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
 	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
 	// Add finalizer and execute it if the resource is deleted
@@ -227,12 +280,12 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		return result.Return()
 	}
 
-	if marketplaceConfig.Annotations == nil {
-		marketplaceConfig.Annotations = make(map[string]string)
+	if marketplaceConfig.Labels == nil {
+		marketplaceConfig.Labels = make(map[string]string)
 	}
 
-	if v, ok := marketplaceConfig.Annotations[utils.RazeeWatchResource]; !ok || v != utils.RazeeWatchLevelDetail {
-		marketplaceConfig.Annotations[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
+	if v, ok := marketplaceConfig.Labels[utils.RazeeWatchResource]; !ok || v != utils.RazeeWatchLevelDetail {
+		marketplaceConfig.Labels[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
 
 		err = r.Client.Update(context.TODO(), marketplaceConfig)
 
@@ -269,7 +322,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	//Check if RazeeDeployment exists, if not create one
 	foundRazee = &marketplacev1alpha1.RazeeDeployment{}
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: marketplaceConfig.Namespace}, foundRazee)
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && k8serrors.IsNotFound(err) {
 		newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
 
 		// Sets the owner for foundRazee
@@ -403,7 +456,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		Name:      utils.OPSRC_NAME,
 		Namespace: utils.OPERATOR_MKTPLACE_NS},
 		foundOpSrc)
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && k8serrors.IsNotFound(err) {
 		// Define a new operator source
 		newOpSrc := utils.BuildNewOpSrc()
 		reqLogger.Info("Creating a new opsource")
@@ -487,32 +540,15 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	reqLogger.Info("Finding Cluster registration status")
-	//Fetch the Secret with name redhat-marketplace-pull-secret
-	secret := v1.Secret{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RHMPullSecretName, Namespace: request.Namespace}, &secret)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Error(err, "error finding", "name", utils.RHMPullSecretName)
-			return reconcile.Result{}, nil
-		}
 
-		reqLogger.Error(err, "error fetching secret")
-		return reconcile.Result{}, err
-	}
-	//Setting MarketplaceClientAccount
-	pullSecret, ok := secret.Data[utils.RHMPullSecretKey]
-
-	if !ok {
-		reqLogger.Error(err, "secret is missing appropriate field and can't check status")
-	}
-
-	if ok {
+	if tokenIsValid {
 		reqLogger.Info("attempting to update registration")
-		marketplaceClient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
-			Url:      r.cfg.Marketplace.URL,
-			Token:    string(pullSecret),
-			Insecure: r.cfg.Marketplace.InsecureClient,
-		})
+		marketplaceClient, err := r.mclientBuilder.NewMarketplaceClient(token,tokenClaims)
+
+		if err != nil {
+			reqLogger.Error(err, "error constructing marketplace client")
+			return reconcile.Result{Requeue: true}, nil
+		}
 
 		marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
 			AccountId:   marketplaceConfig.Spec.RhmAccountID,
@@ -520,7 +556,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		}
 
 		registrationStatusOutput, err := marketplaceClient.RegistrationStatus(marketplaceClientAccount)
-
 		if err != nil {
 			reqLogger.Error(err, "registration status failed")
 			return reconcile.Result{Requeue: true}, nil
@@ -588,7 +623,7 @@ func (r *MarketplaceConfigReconciler) createCatalogSource(request reconcile.Requ
 	reqLogger.Info("Checking Install Catalog Src", "InstallCatalogSource: ", installCatalogSrc)
 	if installCatalogSrc {
 		// If the Catalog Source does not exist, create one
-		if err != nil && errors.IsNotFound(err) {
+		if err != nil && k8serrors.IsNotFound(err) {
 			// Create catalog source
 			var newCatalogSrc *operatorsv1alpha1.CatalogSource
 			if utils.IBM_CATALOGSRC_NAME == catalogName {
@@ -660,7 +695,7 @@ func (r *MarketplaceConfigReconciler) createCatalogSource(request reconcile.Requ
 
 			// catalog source deleted successfully - return and requeue
 			return true, nil
-		} else if err != nil && !errors.IsNotFound(err) {
+		} else if err != nil && !k8serrors.IsNotFound(err) {
 			// Could not get catalog source
 			reqLogger.Error(err, "Failed to get CatalogSource", "CatalogSource.Namespace ", catalogSrcNamespacedName.Namespace, "CatalogSource.Name", catalogSrcNamespacedName.Name)
 			return false, err
@@ -672,7 +707,33 @@ func (r *MarketplaceConfigReconciler) createCatalogSource(request reconcile.Requ
 	return false, nil
 }
 
-func (r *MarketplaceConfigReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
+func (r *MarketplaceConfigReconciler) unregister(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig,marketplaceClient *marketplace.MarketplaceClient, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
+	reqLogger.Info("attempting to un-register")
+
+	marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
+		AccountId:   marketplaceConfig.Spec.RhmAccountID,
+		ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
+	}
+
+	reqLogger.Info("unregister", "marketplace client account", marketplaceClientAccount)
+
+	registrationStatusOutput, err := marketplaceClient.UnRegister(marketplaceClientAccount)
+	if err != nil {
+		reqLogger.Error(err, "unregister failed")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{Requeue: true},
+			Err:             nil,
+		}
+	}
+
+	reqLogger.Info("unregister", "RegistrationStatus", registrationStatusOutput.RegistrationStatus)
+
+	return &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+}
+
+func (r *MarketplaceConfigReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
 	injector.SetCustomFields(r)
 	return r
 }
@@ -682,8 +743,13 @@ func (r *MarketplaceConfigReconciler) InjectCommandRunner(ccp ClientCommandRunne
 	return nil
 }
 
-func (m *MarketplaceConfigReconciler) InjectOperatorConfig(cfg config.OperatorConfig) error {
+func (m *MarketplaceConfigReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
+	return nil
+}
+
+func (m *MarketplaceConfigReconciler) InjectMarketplaceClientBuilder(mbuilder *marketplace.MarketplaceClientBuilder) error {
+	m.mclientBuilder = mbuilder
 	return nil
 }
 
@@ -695,8 +761,11 @@ func (r *MarketplaceConfigReconciler) SetupWithManager(mgr manager.Manager) erro
 		OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
 	}
 
+	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplacev1alpha1.MarketplaceConfig{}).
+		WithEventFilter(namespacePredicate).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, ownerHandler).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.MeterBase{}}, ownerHandler).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.RazeeDeployment{}}, &handler.EnqueueRequestForOwner{

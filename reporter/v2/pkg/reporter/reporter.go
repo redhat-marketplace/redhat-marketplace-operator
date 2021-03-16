@@ -27,13 +27,13 @@ import (
 	"emperror.dev/errors"
 	"github.com/google/uuid"
 	"github.com/meirf/gopart"
-	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
-	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	corev1 "k8s.io/api/core/v1"
@@ -62,8 +62,8 @@ var (
 // Update the CR status for each report and queue
 
 type MarketplaceReporter struct {
-	api               v1.API
-	k8sclient         client.Client
+	PrometheusAPI
+	k8sclient         rhmclient.SimpleClient
 	mktconfig         *marketplacev1alpha1.MarketplaceConfig
 	report            *marketplacev1alpha1.MeterReport
 	prometheusService *corev1.Service
@@ -78,10 +78,10 @@ func NewMarketplaceReporter(
 	report *marketplacev1alpha1.MeterReport,
 	mktconfig *marketplacev1alpha1.MarketplaceConfig,
 	prometheusService *corev1.Service,
-	apiClient api.Client,
+	api *PrometheusAPI,
 ) (*MarketplaceReporter, error) {
 	return &MarketplaceReporter{
-		api:               v1.NewAPI(apiClient),
+		PrometheusAPI:     *api,
 		k8sclient:         k8sclient,
 		mktconfig:         mktconfig,
 		report:            report,
@@ -92,11 +92,11 @@ func NewMarketplaceReporter(
 
 var ErrNoMeterDefinitionsFound = errors.New("no meterDefinitions found")
 
-func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricKey]*MetricBase, []error, error) {
+func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[string]*MetricBase, []error, error) {
 	ctx, cancel := context.WithCancel(ctxIn)
 	defer cancel()
 
-	resultsMap := make(map[MetricKey]*MetricBase)
+	resultsMap := make(map[string]*MetricBase)
 	var resultsMapMutex sync.Mutex
 
 	errorList := []error{}
@@ -121,14 +121,14 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 
 	logger.Info("starting build queries")
 
-	go r.retrieveMeterDefinitions(
+	go r.RetrieveMeterDefinitions(
 		meterDefsChan,
 		errorsChan,
 		meterDefsDone)
 
 	logger.Info("starting query")
 
-	go r.query(
+	go r.Query(
 		ctx,
 		r.report.Spec.StartTime.Time,
 		r.report.Spec.EndTime.Time,
@@ -139,7 +139,7 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[MetricK
 
 	logger.Info("starting processing")
 
-	go r.process(
+	go r.Process(
 		ctx,
 		promModelsChan,
 		resultsMap,
@@ -185,18 +185,20 @@ type meterDefPromModel struct {
 }
 
 type meterDefPromQuery struct {
-	uid        string
-	query      *PromQuery
-	meterGroup string
-	meterKind  string
-	label      string
+	uid           string
+	query         *PromQuery
+	meterDefLabel *common.MeterDefPrometheusLabels
+	template      *ReportTemplater
+	meterGroup    string
+	meterKind     string
+	label         string
 }
 
 func (s *meterDefPromQuery) String() string {
 	return "[" + s.uid + " " + s.meterGroup + " " + s.meterKind + " " + s.label + "]"
 }
 
-func (r *MarketplaceReporter) retrieveMeterDefinitions(
+func (r *MarketplaceReporter) RetrieveMeterDefinitions(
 	meterDefsChan chan *meterDefPromQuery,
 	errorChan chan error,
 	meterDefsDone chan bool,
@@ -211,15 +213,15 @@ func (r *MarketplaceReporter) retrieveMeterDefinitions(
 
 	err = utils.Retry(func() error {
 		query := &MeterDefinitionQuery{
-			Start: r.report.Spec.StartTime.Time,
-			End:   r.report.Spec.EndTime.Time,
+			Start: r.report.Spec.StartTime.Time.UTC(),
+			End:   r.report.Spec.EndTime.Time.Add(-1 * time.Second).UTC(),
 			Step:  time.Hour,
 		}
 
 		q, _ := query.Print()
 		logger.Info("output", "query", q)
 
-		result, warnings, err = r.queryMeterDefinitions(query)
+		result, warnings, err = r.QueryMeterDefinitions(query)
 
 		if err != nil {
 			logger.Error(err, "querying prometheus", "warnings", warnings)
@@ -239,62 +241,30 @@ func (r *MarketplaceReporter) retrieveMeterDefinitions(
 		return
 	}
 
+	logger.V(4).Info("result", "result", result)
+
 	switch result.Type() {
 	case model.ValMatrix:
-		matrixVals := result.(model.Matrix)
-		for _, matrix := range matrixVals {
-			meterGroup, _ := getMatrixValue(matrix.Metric, "meter_group")
-			meterKind, _ := getMatrixValue(matrix.Metric, "meter_kind")
-			metricPeriod, _ := getMatrixValue(matrix.Metric, "metric_period")
+		results, errs := getQueries(result.(model.Matrix))
 
-			if metricPeriod == "" {
-				metricPeriod = "1h"
-			}
-
-			period, err := time.ParseDuration(metricPeriod)
-
-			if err != nil {
-				logger.Error(err, "error encountered")
-				errorChan <- err
-				return
-			}
-
-			// skip 0 data groups
-			if meterGroup == "" && meterKind == "" {
-				continue
-			}
-
-			var min, max time.Time
-			for i, v := range matrix.Values {
-				if i == 0 {
-					min = v.Timestamp.Time()
-					max = v.Timestamp.Time().Add(period)
-				}
-
-				if v.Timestamp.Time().Before(min) {
-					min = v.Timestamp.Time()
-				}
-				if v.Timestamp.Time().After(max) {
-					max = v.Timestamp.Time()
-				}
-			}
-
-			max = max.Add(-time.Second)
-			promQuery := buildPromQuery(matrix.Metric, min, max)
-
-			logger.Info("getting query", "query", promQuery.String(), "start", min, "end", max)
-			meterDefsChan <- promQuery
+		for _, err := range errs {
+			logger.Error(err, "error encountered")
+			errorChan <- errors.WithStack(err)
 		}
-	case model.ValString:
-	case model.ValVector:
-	case model.ValScalar:
-	case model.ValNone:
+
+		for _, result := range results {
+			meterDefsChan <- result
+		}
+	default:
+		err := errors.NewWithDetails("result type is unprocessable", "type", result.Type().String())
+		logger.Error(err, "error encountered")
+		errorChan <- err
 	}
 
 	return
 }
 
-func (r *MarketplaceReporter) query(
+func (r *MarketplaceReporter) Query(
 	ctx context.Context,
 	startTime, endTime time.Time,
 	inMeterDefs <-chan *meterDefPromQuery,
@@ -313,7 +283,7 @@ func (r *MarketplaceReporter) query(
 
 		err := utils.Retry(func() error {
 			var err error
-			val, warnings, err = r.queryRange(query)
+			val, warnings, err = r.ReportQuery(query)
 
 			if err != nil {
 				return errors.Wrap(err, "error with query")
@@ -348,10 +318,10 @@ func (r *MarketplaceReporter) query(
 	})
 }
 
-func (r *MarketplaceReporter) process(
+func (r *MarketplaceReporter) Process(
 	ctx context.Context,
 	inPromModels <-chan meterDefPromModel,
-	results map[MetricKey]*MetricBase,
+	results map[string]*MetricBase,
 	mutex sync.Locker,
 	done chan bool,
 	errorsch chan error,
@@ -372,68 +342,41 @@ func (r *MarketplaceReporter) process(
 				for _, pair := range matrix.Values {
 					func() {
 						labels := getAllKeysFromMetric(matrix.Metric)
-
-						var objName string
-
-						namespace, _ := getMatrixValue(matrix.Metric, "namespace")
-
-						switch pmodel.Type {
-						case marketplacev1beta1.WorkloadTypePVC:
-							objName, _ = getMatrixValue(matrix.Metric, "persistentvolumeclaim")
-						case marketplacev1beta1.WorkloadTypePod:
-							objName, _ = getMatrixValue(matrix.Metric, "pod")
-						case marketplacev1beta1.WorkloadTypeService:
-							objName, _ = getMatrixValue(matrix.Metric, "service")
-						}
-
-						if objName == "" {
-							errorsch <- errors.New("can't find objName")
-							return
-						}
-
-						key := MetricKey{
-							ReportPeriodStart: r.report.Spec.StartTime.Format(time.RFC3339),
-							ReportPeriodEnd:   r.report.Spec.EndTime.Format(time.RFC3339),
-							IntervalStart:     pair.Timestamp.Time().Format(time.RFC3339),
-							IntervalEnd:       pair.Timestamp.Add(pmodel.mdef.query.Step).Time().Format(time.RFC3339),
-							MeterDomain:       pmodel.mdef.meterGroup,
-							MeterKind:         pmodel.mdef.meterKind,
-							Namespace:         namespace,
-							ResourceName:      objName,
-							Label:             pmodel.mdef.label,
-						}
-
-						key.Init(r.mktconfig.Spec.ClusterUUID)
-
-						mutex.Lock()
-						defer mutex.Unlock()
-
-						base, ok := results[key]
-
-						if !ok {
-							base = &MetricBase{
-								Key: key,
-							}
-						}
-
-						logger.V(4).Info("adding pair", "metric", matrix.Metric, "pair", pair)
-						metricPairs := []interface{}{name, pair.Value.String()}
-
-						err := base.AddAdditionalLabels(labels...)
+						kvmap, err := kvToMap(labels)
 
 						if err != nil {
-							errorsch <- errors.Wrap(err, "failed adding additional labels")
+							logger.Error(err, "failed to get kvmap")
+							errorsch <- errors.Wrap(err, "failed to get kvmap")
 							return
 						}
 
-						err = base.AddMetrics(metricPairs...)
+						base, err := NewMetric(
+							pair,
+							matrix,
+							&r.report.Spec,
+							pmodel.mdef.meterDefLabel,
+							pmodel.mdef.template,
+							pmodel.mdef.query.Step,
+							pmodel.Type,
+							r.mktconfig.Spec.ClusterUUID,
+							kvmap,
+						)
+
+						logger.V(4).Info("data", "base", base)
 
 						if err != nil {
 							errorsch <- errors.Wrap(err, "failed adding metrics")
 							return
 						}
 
-						results[key] = base
+						mutex.Lock()
+						defer mutex.Unlock()
+
+						if _, ok := results[base.Key.MetricID]; ok {
+							return
+						}
+
+						results[base.Key.MetricID] = base
 					}()
 				}
 			}
@@ -454,7 +397,7 @@ func (r *MarketplaceReporter) process(
 
 func (r *MarketplaceReporter) WriteReport(
 	source uuid.UUID,
-	metrics map[MetricKey]*MetricBase) ([]string, error) {
+	metrics map[string]*MetricBase) ([]string, error) {
 
 	env := ReportProductionEnv
 	envAnnotation, ok := r.mktconfig.Annotations["marketplace.redhat.com/environment"]
@@ -580,45 +523,32 @@ func getMatrixValue(m interface{}, labelName string) (string, bool) {
 	}
 }
 
-func buildPromQuery(labels interface{}, start, end time.Time) *meterDefPromQuery {
+func buildPromQuery(labels interface{}, start, end time.Time) (*meterDefPromQuery, error) {
 	meterDefLabels := &common.MeterDefPrometheusLabels{}
 	err := meterDefLabels.FromLabels(labels)
 
 	if err != nil {
-		log.Error(err, "failed to unmarshal labels")
-		panic(err)
+		logger.Error(err, "failed to unmarshal labels")
+		return nil, err
 	}
 
-	workloadType := marketplacev1beta1.WorkloadType(meterDefLabels.WorkloadType)
+	query := NewPromQueryFromLabels(meterDefLabels, start, end)
+	tmpl, err := NewTemplate(meterDefLabels)
 
-	duration := time.Hour
-	if meterDefLabels.MetricPeriod != nil {
-		duration = meterDefLabels.MetricPeriod.Duration
+	if err != nil {
+		logger.Error(err, "failed to create a template")
+		return nil, err
 	}
-
-	query := NewPromQuery(&PromQueryArgs{
-		Metric: meterDefLabels.Metric,
-		Type:   workloadType,
-		MeterDef: types.NamespacedName{
-			Name:      meterDefLabels.MeterDefName,
-			Namespace: meterDefLabels.MeterDefNamespace,
-		},
-		Query:         meterDefLabels.MetricQuery,
-		Start:         start,
-		End:           end,
-		Step:          duration,
-		GroupBy:       []string(meterDefLabels.MetricGroupBy),
-		Without:       []string(meterDefLabels.MetricWithout),
-		AggregateFunc: meterDefLabels.MetricAggregation,
-	})
 
 	return &meterDefPromQuery{
-		uid:        meterDefLabels.UID,
-		query:      query,
-		meterGroup: meterDefLabels.MeterGroup,
-		meterKind:  meterDefLabels.MeterKind,
-		label:      meterDefLabels.Metric,
-	}
+		uid:           meterDefLabels.UID,
+		query:         query,
+		meterDefLabel: meterDefLabels,
+		template:      tmpl,
+		meterGroup:    meterDefLabels.MeterGroup,
+		meterKind:     meterDefLabels.MeterKind,
+		label:         meterDefLabels.Metric,
+	}, nil
 }
 
 func wgWait(ctx context.Context, processName string, maxRoutines int, done chan bool, waitFunc func()) {

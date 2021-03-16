@@ -107,7 +107,8 @@ func GetDefaultStorageClass(client client.Client) (string, error) {
 	defaultStorageOptions := []string{}
 
 	for _, storageClass := range storageList.Items {
-		if storageClass.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
+		if storageClass.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" ||
+			storageClass.Annotations["storageclass.beta.kubernetes.io/is-default-class"] == "true" {
 			defaultStorageOptions = append(defaultStorageOptions, storageClass.Name)
 		}
 	}
@@ -157,8 +158,8 @@ func BuildNewOpSrc() *unstructured.Unstructured {
 			"apiVersion": "operators.coreos.com/v1",
 			"kind":       "OperatorSource",
 			"metadata": map[string]interface{}{
-				"namespace": OPSRC_NAME,
-				"name":      OPERATOR_MKTPLACE_NS,
+				"namespace": OPERATOR_MKTPLACE_NS,
+				"name":      OPSRC_NAME,
 			},
 			"spec": map[string]interface{}{
 				"DisplayName":       "Red Hat Marketplace",

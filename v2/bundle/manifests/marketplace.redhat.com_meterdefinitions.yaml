@@ -3,7 +3,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.0
-    service.beta.openshift.io/inject-cabundle: "true"
+    productID: 068a62892a1e4db39641342e592daa25
+    productMetric: FREE
+    productName: IBM Cloud Platform Common Services
   creationTimestamp: null
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
@@ -14,10 +16,10 @@ spec:
     webhookClientConfig:
       caBundle: Cg==
       service:
-        name: redhat-marketplace-webhook-service
+        name: redhat-marketplace-controller-manager-service
         namespace: openshift-redhat-marketplace
         path: /convert
-        port: 443
+        port: 9443
   group: marketplace.redhat.com
   names:
     kind: MeterDefinition
@@ -391,8 +393,9 @@ spec:
                       items:
                         type: string
                       type: array
-                    metric:
-                      description: Metric is the name of the meter
+                      x-kubernetes-list-type: set
+                    metricId:
+                      description: Metric is the id of the meter
                       type: string
                     name:
                       description: Name of the metric for humans to read.
@@ -411,12 +414,17 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: set
                     workloadType:
                       description: WorkloadType identifies the type of workload to look for. This can be pod or service right now.
+                      enum:
+                      - Pod
+                      - Service
+                      - PersistentVolumeClaim
                       type: string
                   required:
                   - aggregation
-                  - metric
+                  - metricId
                   - query
                   - workloadType
                   type: object
@@ -547,6 +555,10 @@ spec:
                       type: object
                     workloadType:
                       description: WorkloadType identifies the type of workload to look for. This can be pod or service right now.
+                      enum:
+                      - Pod
+                      - Service
+                      - PersistentVolumeClaim
                       type: string
                   required:
                   - workloadType

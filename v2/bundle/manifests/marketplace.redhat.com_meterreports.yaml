@@ -3,11 +3,24 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.0
+    productID: 068a62892a1e4db39641342e592daa25
+    productMetric: FREE
+    productName: IBM Cloud Platform Common Services
   creationTimestamp: null
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
   name: meterreports.marketplace.redhat.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.conditions[?(@.type == "JobRunning")].status
+    name: RUNNING
+    type: string
+  - JSONPath: .status.conditions[?(@.type == "JobRunning")].reason
+    name: REASON
+    type: string
+  - JSONPath: .status.metricUploadCount
+    name: METRICS
+    type: string
   group: marketplace.redhat.com
   names:
     kind: MeterReport
@@ -624,6 +637,12 @@ spec:
                   description: The number of pods which reached phase Failed.
                   format: int32
                   type: integer
+                jobFailed:
+                  description: JobFailed is the boolean value set if the job failed
+                  type: boolean
+                jobSuccess:
+                  description: JobSuccess is the boolean value set if the job succeeded
+                  type: boolean
                 name:
                   description: Name of the job Required
                   type: string

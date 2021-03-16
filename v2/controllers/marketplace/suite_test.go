@@ -17,6 +17,7 @@ limitations under the License.
 package marketplace
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -51,10 +52,12 @@ func TestAPIs(t *testing.T) {
 
 var _ = BeforeSuite(func(done Done) {
 	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
+	os.Setenv("KUBEBUILDER_CONTROLPLANE_START_TIMEOUT", "2m")
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "config", "crd", "bases")},
+		CRDDirectoryPaths:  []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		KubeAPIServerFlags: append(envtest.DefaultKubeAPIServerFlags, "--bind-address=127.0.0.1"),
 	}
 
 	var err error

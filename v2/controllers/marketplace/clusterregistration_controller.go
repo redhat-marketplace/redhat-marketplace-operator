@@ -24,9 +24,10 @@ import (
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
+	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -51,6 +52,9 @@ type ClusterRegistrationReconciler struct {
 	Client client.Client
 	Scheme *runtime.Scheme
 	Log    logr.Logger
+
+	cfg *config.OperatorConfig
+	mclientBuilder *marketplace.MarketplaceClientBuilder
 }
 
 // Reconcile reads that state of the cluster for a ClusterRegistration object and makes changes based on the state read
@@ -95,8 +99,8 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 	}
 
 	//Get Account Id from Pull Secret Token
-	rhmAccountId, err := marketplace.GetAccountIdFromJWTToken(string(rhmPullSecret.Data[utils.RHMPullSecretKey]))
-	if rhmAccountId == "" || err != nil {
+	tokenClaims, err := marketplace.GetJWTTokenClaim(string(rhmPullSecret.Data[utils.RHMPullSecretKey]))
+	if err != nil {
 		reqLogger.Error(err, "Token is missing account id")
 		annotations[utils.RHMPullSecretStatus] = "error"
 		annotations[utils.RHMPullSecretMessage] = "Account id is not available in provided token, please generate token from RH Marketplace again"
@@ -117,13 +121,9 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
-	cfg, _ := config.GetConfig()
-
-	mclient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
-		Url:      cfg.Marketplace.URL, // parameterize this for dev
-		Token:    string(pullSecret),
-		Insecure: cfg.Marketplace.InsecureClient,
-	})
+	token := string(pullSecret)
+	r.mclientBuilder = marketplace.NewMarketplaceClientBuilder(r.cfg)
+	mclient, err := r.mclientBuilder.NewMarketplaceClient(token,tokenClaims)
 
 	if err != nil {
 		reqLogger.Error(err, "failed to build marketplaceclient")
@@ -267,12 +267,18 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 		Name:      "marketplaceconfig",
 	}, newMarketplaceConfig)
 
+	annotations = map[string]string{
+		"marketplace.redhat.com/environment": tokenClaims.Env,
+	}
+
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			newMarketplaceConfig.ObjectMeta.Name = "marketplaceconfig"
 			newMarketplaceConfig.ObjectMeta.Namespace = request.Namespace
 			newMarketplaceConfig.Spec.ClusterUUID = string(clusterID)
-			newMarketplaceConfig.Spec.RhmAccountID = rhmAccountId
+			newMarketplaceConfig.Spec.RhmAccountID = tokenClaims.AccountID
+			newMarketplaceConfig.Annotations = annotations
+
 			// Create Marketplace Config object with ClusterID
 			reqLogger.Info("Marketplace Config creating")
 			err = r.Client.Create(context.TODO(), newMarketplaceConfig)
@@ -291,11 +297,13 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 	owners := newMarketplaceConfig.GetOwnerReferences()
 
 	if newMarketplaceConfig.Spec.ClusterUUID != string(clusterID) ||
-		newMarketplaceConfig.Spec.RhmAccountID != rhmAccountId ||
-		!reflect.DeepEqual(newMarketplaceConfig.GetOwnerReferences(), owners) {
+		newMarketplaceConfig.Spec.RhmAccountID != tokenClaims.AccountID ||
+		!reflect.DeepEqual(newMarketplaceConfig.GetOwnerReferences(), owners) ||
+		!reflect.DeepEqual(newMarketplaceConfig.Annotations, annotations) {
 
 		newMarketplaceConfig.Spec.ClusterUUID = string(clusterID)
-		newMarketplaceConfig.Spec.RhmAccountID = rhmAccountId
+		newMarketplaceConfig.Spec.RhmAccountID = tokenClaims.AccountID
+		newMarketplaceConfig.Annotations = annotations
 
 		err = r.Client.Update(context.TODO(), newMarketplaceConfig)
 		if err != nil {
@@ -328,13 +336,25 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 	return reconcile.Result{}, nil
 }
 
-func (r *ClusterRegistrationReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
+func (r *ClusterRegistrationReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
 	injector.SetCustomFields(r)
 	return r
 }
 
+func (m *ClusterRegistrationReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
+	m.cfg = cfg
+	return nil
+}
+
+func (m *ClusterRegistrationReconciler) InjectMarketplaceClientBuilder(mbuilder *marketplace.MarketplaceClientBuilder) error {
+	m.mclientBuilder = mbuilder
+	return nil
+}
+
 func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
 	return ctrl.NewControllerManagedBy(mgr).
+		WithEventFilter(namespacePredicate).
 		For(&v1.Secret{}, builder.WithPredicates(
 			predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {

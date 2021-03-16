@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	descMeterDefinitionLabelsDefaultLabels = []string{"namespace", "name"}
+	descMeterDefinitionLabelsDefaultLabels = []string{}
 )
 
 var meterDefinitionMetricsFamilies = []FamilyGenerator{
@@ -39,7 +39,6 @@ var meterDefinitionMetricsFamilies = []FamilyGenerator{
 				values := []string{}
 
 				labelMap, err := labels.ToLabels()
-
 				if err != nil {
 					log.Error(err, "label map conversion failed")
 					continue
@@ -70,12 +69,6 @@ func wrapMeterDefinitionFunc(f func(*marketplacev1beta1.MeterDefinition, []*mark
 		meterDefinition := obj.(*marketplacev1beta1.MeterDefinition)
 
 		metricFamily := f(meterDefinition, []*marketplacev1beta1.MeterDefinition{})
-
-		for _, m := range metricFamily.Metrics {
-			m.LabelKeys = append(descMeterDefinitionLabelsDefaultLabels, m.LabelKeys...)
-			m.LabelValues = append([]string{meterDefinition.Namespace, meterDefinition.Name}, m.LabelValues...)
-		}
-
 		metricFamily.Metrics = MapMeterDefinitions(metricFamily.Metrics, meterDefinitions)
 
 		return metricFamily

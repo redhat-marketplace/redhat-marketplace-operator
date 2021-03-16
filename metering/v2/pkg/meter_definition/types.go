@@ -32,6 +32,7 @@ type ObjectResourceMessageAction string
 const (
 	AddMessageAction    ObjectResourceMessageAction = "Add"
 	DeleteMessageAction                             = "Delete"
+	NewMeterDefAction                               = "NewMeterDef"
 )
 
 type ObjectResourceMessage struct {

@@ -3,14 +3,12 @@ module github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2
 go 1.15
 
 require (
-	emperror.dev/errors v0.8.0
-	github.com/caarlos0/env v3.5.0+incompatible
-	github.com/caarlos0/env/v6 v6.4.0
 	github.com/go-logr/logr v0.3.0
+	github.com/google/go-cmp v0.5.5 // indirect
 	github.com/google/wire v0.4.0
 	github.com/gotidy/ptr v1.3.0
-	github.com/onsi/ginkgo v1.14.2
-	github.com/onsi/gomega v1.10.3
+	github.com/onsi/ginkgo v1.15.0
+	github.com/onsi/gomega v1.10.5
 	github.com/openshift/api v0.0.0-20200930075302-db52bc4ef99f
 	github.com/operator-framework/api v0.3.25
 	github.com/pkg/errors v0.9.1

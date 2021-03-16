@@ -24,10 +24,11 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	batchv1 "k8s.io/api/batch/v1"
@@ -56,11 +57,11 @@ type MeterReportReconciler struct {
 
 	CC      ClientCommandRunner
 	patcher patch.Patcher
-	cfg     config.OperatorConfig
-	factory manifests.Factory
+	cfg     *config.OperatorConfig
+	factory *manifests.Factory
 }
 
-func (r *MeterReportReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
+func (r *MeterReportReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
 	injector.SetCustomFields(r)
 	return r
 }
@@ -76,18 +77,21 @@ func (r *MeterReportReconciler) InjectPatch(p patch.Patcher) error {
 	return nil
 }
 
-func (r *MeterReportReconciler) InjectFactory(f manifests.Factory) error {
+func (r *MeterReportReconciler) InjectFactory(f *manifests.Factory) error {
 	r.factory = f
 	return nil
 }
 
-func (m *MeterReportReconciler) InjectOperatorConfig(cfg config.OperatorConfig) error {
+func (m *MeterReportReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
 	return nil
 }
 
 func (r *MeterReportReconciler) SetupWithManager(mgr manager.Manager) error {
+	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
+
 	return ctrl.NewControllerManagedBy(mgr).
+		WithEventFilter(namespacePredicate).
 		For(&marketplacev1alpha1.MeterReport{}).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.MeterReport{}}, &handler.EnqueueRequestForObject{}).
 		Watches(&source.Kind{Type: &batchv1.Job{}}, &handler.EnqueueRequestForOwner{
@@ -163,6 +167,18 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 		return result.Return()
 	}
 
+	result, _ := cc.Do(context.TODO(), GetAction(types.NamespacedName{
+		Name:      instance.Name,
+		Namespace: instance.Namespace,
+	}, job))
+
+	if instance.Status.AssociatedJob != nil &&
+		instance.Status.AssociatedJob.IsSuccessful() &&
+		!result.Is(NotFound) {
+		reqLogger.Info("reconcile finished, job successful")
+		return reconcile.Result{}, nil
+	}
+
 	// Create associated job
 	if instance.Status.AssociatedJob == nil {
 		result, _ := cc.Do(context.TODO(),
@@ -186,7 +202,7 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	// Update associated job
-	result, _ := cc.Do(
+	result, _ = cc.Do(
 		context.TODO(),
 		HandleResult(
 			GetAction(types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job),
@@ -261,9 +277,6 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 		reqLogger.Info("job is complete")
 		instance.Status.AssociatedJob = jr
 		result, _ = cc.Do(context.TODO(),
-			HandleResult(
-				GetAction(types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job),
-				OnContinue(DeleteAction(job, DeleteWithDeleteOptions(client.PropagationPolicy(metav1.DeletePropagationBackground))))),
 			UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobFinished),
 		)
 	default:

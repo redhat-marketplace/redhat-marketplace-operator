@@ -17,13 +17,11 @@ package reporter
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"path/filepath"
 
 	"emperror.dev/errors"
 	"github.com/google/uuid"
 	"github.com/gotidy/ptr"
-	"github.com/prometheus/client_golang/api"
 	"github.com/prometheus/common/log"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
@@ -32,7 +30,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
@@ -41,6 +38,8 @@ import (
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 )
@@ -49,7 +48,7 @@ type Task struct {
 	ReportName ReportName
 
 	CC        ClientCommandRunner
-	K8SClient client.Client
+	K8SClient rhmclient.SimpleClient
 	Ctx       context.Context
 	Config    *Config
 	K8SScheme *runtime.Scheme
@@ -135,60 +134,14 @@ func (r *Task) Run() error {
 	return nil
 }
 
-func provideApiClient(
-	report *marketplacev1alpha1.MeterReport,
-	promService *corev1.Service,
-	config *Config,
-) (api.Client, error) {
-
-	if config.Local {
-		client, err := api.NewClient(api.Config{
-			Address: "http://localhost:9090",
-		})
-
-		if err != nil {
-			return nil, err
-		}
-
-		return client, nil
+func providePrometheusSetup(config *Config, report *marketplacev1alpha1.MeterReport, promService *corev1.Service) *PrometheusAPISetup {
+	return &PrometheusAPISetup{
+		Report:        report,
+		PromService:   promService,
+		CertFilePath:  config.CaFile,
+		TokenFilePath: config.TokenFile,
+		RunLocal:      config.Local,
 	}
-
-	var port int32
-	name := promService.Name
-	namespace := promService.Namespace
-	targetPort := report.Spec.PrometheusService.TargetPort
-
-	switch {
-	case targetPort.Type == intstr.Int:
-		port = targetPort.IntVal
-	default:
-		for _, p := range promService.Spec.Ports {
-			if p.Name == targetPort.StrVal {
-				port = p.Port
-			}
-		}
-	}
-
-	var auth = ""
-	if config.TokenFile != "" {
-		content, err := ioutil.ReadFile(config.TokenFile)
-		if err != nil {
-			return nil, err
-		}
-		auth = fmt.Sprintf(string(content))
-	}
-
-	conf, err := NewSecureClient(&PrometheusSecureClientConfig{
-		Address:        fmt.Sprintf("https://%s.%s.svc:%v", name, namespace, port),
-		ServerCertFile: config.CaFile,
-		Token:          auth,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return conf, nil
 }
 
 func getClientOptions() managers.ClientOptions {
@@ -211,7 +164,7 @@ func getMarketplaceConfig(
 		returnErr = errors.Wrap(result, "failed to get mkplc config")
 	}
 
-	logger.Info("retrieved meter report")
+	logger.Info("retrieved mkplc config")
 	return
 }
 
@@ -226,7 +179,7 @@ func getMarketplaceReport(
 		returnErr = errors.Wrap(result, "failed to get report")
 	}
 
-	logger.Info("retrieved meter report")
+	logger.Info("retrieved meter report", "name", reportName)
 	return
 }
 

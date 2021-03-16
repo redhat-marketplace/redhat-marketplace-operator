@@ -22,6 +22,7 @@ import (
 	"github.com/google/wire"
 	"k8s.io/apimachinery/pkg/api/meta"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,7 +33,7 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc
 
 	"emperror.dev/errors"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
+	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -56,6 +57,9 @@ var (
 		wire.FieldsOf(new(*ControllerFields), "Client", "Logger", "Scheme", "Config"),
 		kubernetes.NewForConfig,
 		dynamic.NewForConfig,
+		NewDynamicRESTMapper,
+		discovery.NewDiscoveryClientForConfig,
+		ProvideSimpleClient,
 		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
 	)
 
@@ -64,6 +68,7 @@ var (
 	ProvideConfiglessManagerSet = wire.NewSet(
 		wire.FieldsOf(new(*ControllerFields), "Client", "Logger", "Scheme", "Config"),
 		kubernetes.NewForConfig,
+		NewDynamicRESTMapper,
 		dynamic.NewForConfig,
 		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
 	)
@@ -76,6 +81,15 @@ var (
 		ProvideCachedClient,
 		ProvideNewCache,
 		StartCache,
+		NewDynamicRESTMapper,
+		dynamic.NewForConfig,
+		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
+	)
+
+	ProvideSimpleClientSet = wire.NewSet(
+		config.GetConfig,
+		kubernetes.NewForConfig,
+		ProvideSimpleClient,
 		NewDynamicRESTMapper,
 		dynamic.NewForConfig,
 		wire.Bind(new(kubernetes.Interface), new(*kubernetes.Clientset)),
@@ -120,13 +134,6 @@ func (m *ControllerFields) InjectClient(client client.Client) error {
 func (m *ControllerFields) InjectConfig(cfg *rest.Config) error {
 	m.Config = cfg
 	return nil
-}
-
-func ProvidePodMonitorConfig(namespace DeployedNamespace) runnables.PodMonitorConfig {
-	return runnables.PodMonitorConfig{
-		Namespace: string(namespace),
-		RetryTime: 30 * time.Second,
-	}
 }
 
 type ClientOptions struct {
@@ -210,18 +217,13 @@ func ProvideSimpleClient(
 	c *rest.Config,
 	mapper meta.RESTMapper,
 	scheme *k8sruntime.Scheme,
-	options ClientOptions,
-) (client.Client, error) {
+) (rhmclient.SimpleClient, error) {
 	writeObj, err := newSimpleClient(c, client.Options{Scheme: scheme, Mapper: mapper})
 	if err != nil {
 		return nil, err
 	}
 
-	if options.DryRunClient {
-		writeObj = client.NewDryRunClient(writeObj)
-	}
-
-	return writeObj, nil
+	return rhmclient.SimpleClient(writeObj), nil
 }
 
 func ProvideNewCache(

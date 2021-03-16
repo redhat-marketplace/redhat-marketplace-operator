@@ -31,9 +31,9 @@ import (
 
 func InitializeMarketplaceController(mgr ctrl.Manager) (*InjectableManager, error) {
 	panic(wire.Build(
+		config.ProvideInfrastructureAwareConfig,
 		builder.ControllerManagedBy,
 		wire.InterfaceValue(new(logr.Logger), ctrl.Log),
-		config.ProvideConfig,
 		reconcileutils.CommandRunnerProviderSet,
 		managers.ProvideManagerSet,
 		runnables.NewPodMonitor,

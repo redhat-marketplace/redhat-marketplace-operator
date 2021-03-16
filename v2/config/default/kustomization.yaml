@@ -9,6 +9,7 @@ namePrefix: redhat-marketplace-
 # Labels to add to all resources and selectors.
 commonLabels:
   redhat.marketplace.com/name: redhat-marketplace-operator
+
 configurations:
   - kustomizeconfig.yaml
 resources:
@@ -17,7 +18,7 @@ resources:
   - ../manager
   # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
   # crd/kustomization.yaml
-  - ../webhook
+  - ../webhook-openshift
   # [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER'. 'WEBHOOK' components are required.
   # - ../certmanager
   # [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
@@ -56,19 +57,19 @@ vars:
   #   objref:
   #     kind: Service
   #     version: v1
-  #     name: webhook-service
+  #     name: controller-manager-service
   #   fieldref:
   #     fieldpath: metadata.namespace
   - name: SERVICE_NAME
     objref:
       kind: Service
       version: v1
-      name: webhook-service
+      name: controller-manager-service
 
   - name: NAMESPACE
     objref:
       kind: Service
       version: v1
-      name: webhook-service
+      name: controller-manager-service
     fieldref:
       fieldpath: metadata.namespace

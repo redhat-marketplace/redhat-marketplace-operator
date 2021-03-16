@@ -15,6 +15,7 @@
 package marketplace
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"reflect"
@@ -22,6 +23,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -34,7 +36,9 @@ import (
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -48,13 +52,12 @@ import (
 //var log = logf.Log.WithName("controller_olm_clusterserviceversion_watcher")
 
 const (
-	//operatorTag     = "marketplace.redhat.com/operator"
-	watchTag        = "razee/watch-resource"
-	allnamespaceTag = "olm.copiedFrom"
-	ignoreTag       = "marketplace.redhat.com/ignore"
-	ignoreTagValue  = "2"
-	meterDefStatus  = "marketplace.redhat.com/meterDefinitionStatus"
-	meterDefError   = "marketplace.redhat.com/meterDefinitionError"
+	watchTag         string = "razee/watch-resource"
+	olmCopiedFromTag string = "olm.copiedFrom"
+	ignoreTag        string = "marketplace.redhat.com/ignore"
+	ignoreTagValue   string = "2"
+	meterDefStatus   string = "marketplace.redhat.com/meterDefinitionStatus"
+	meterDefError    string = "marketplace.redhat.com/meterDefinitionError"
 )
 
 // blank assignment to verify that ReconcileClusterServiceVersion implements reconcile.Reconciler
@@ -121,9 +124,8 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 	}
 
 	hasMarketplaceSub := false
-
 	if len(sub.Items) > 0 {
-		reqLogger.Info("found Subscription in namespaces", "count", len(sub.Items))
+		reqLogger.V(4).Info("found Subscription in namespaces", "count", len(sub.Items))
 		// add razee watch label to CSV if subscription has rhm/operator label
 		for _, s := range sub.Items {
 			if value, ok := s.GetLabels()[operatorTag]; ok {
@@ -135,21 +137,34 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 
 					if s.Status.InstalledCSV == request.NamespacedName.Name {
 						reqLogger.Info("found Subscription with installed CSV")
-
 						hasMarketplaceSub = true
 
-						labels := CSV.GetLabels()
-						clusterOriginalLabels := CSV.DeepCopy().GetLabels()
-						if labels == nil {
-							labels = make(map[string]string)
-						}
+						if v, ok := CSV.GetLabels()[watchTag]; !ok || v != "lite" {
+							err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+								err := r.Client.Get(context.TODO(),
+									types.NamespacedName{
+										Name:      CSV.GetName(),
+										Namespace: CSV.GetNamespace(),
+									},
+									CSV)
 
-						labels[watchTag] = "lite"
+								if err != nil {
+									return err
+								}
 
-						if !reflect.DeepEqual(labels, clusterOriginalLabels) {
+								labels := CSV.GetLabels()
 
-							CSV.SetLabels(labels)
-							if err := r.Client.Update(context.TODO(), CSV); err != nil {
+								if labels == nil {
+									labels = make(map[string]string)
+								}
+
+								labels[watchTag] = "lite"
+								CSV.SetLabels(labels)
+
+								return r.Client.Update(context.TODO(), CSV)
+							})
+
+							if err != nil {
 								reqLogger.Error(err, "Failed to patch clusterserviceversion with razee/watch-resource: lite label")
 								return reconcile.Result{}, err
 							}
@@ -167,13 +182,29 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 	}
 
 	if !hasMarketplaceSub {
-		clusterOriginalAnnotations := CSV.DeepCopy().GetAnnotations()
-
-		annotations[ignoreTag] = ignoreTagValue
-
-		if !reflect.DeepEqual(annotations, clusterOriginalAnnotations) {
-			CSV.SetAnnotations(annotations)
+		reqLogger.Info("Does not have marketplace sub, ignoring CSV for future")
+		if v, ok := CSV.GetAnnotations()[ignoreTag]; !ok || v != ignoreTagValue {
 			retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				err := r.Client.Get(context.TODO(),
+					types.NamespacedName{
+						Name:      CSV.GetName(),
+						Namespace: CSV.GetNamespace(),
+					},
+					CSV)
+
+				if err != nil {
+					return err
+				}
+
+				annotations := CSV.GetAnnotations()
+
+				if annotations == nil {
+					annotations = make(map[string]string)
+				}
+
+				annotations[ignoreTag] = ignoreTagValue
+				CSV.SetAnnotations(annotations)
+
 				return r.Client.Update(context.TODO(), CSV)
 			})
 
@@ -181,9 +212,9 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 				reqLogger.Error(retryErr, "Failed to patch clusterserviceversion ignore tag")
 				return reconcile.Result{Requeue: true}, retryErr
 			}
-			reqLogger.Info("Patched clusterserviceversion with ignore tag")
+			reqLogger.V(4).Info("Patched clusterserviceversion with ignore tag")
 		} else {
-			reqLogger.Info("No patch needed on clusterserviceversion resource for ignore tag")
+			reqLogger.V(4).Info("No patch needed on clusterserviceversion resource for ignore tag")
 		}
 	}
 
@@ -264,7 +295,7 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 	// checks if it is possible to build MeterDefinition from annotations of CSV
 	reqLogger.Info("retrieving MeterDefinition string from csv")
 	meterDefinitionString, ok := annotations[utils.CSV_METERDEFINITION_ANNOTATION]
-	if !ok {
+	if !ok || len(meterDefinitionString) == 0 {
 		reqLogger.Info("No value for ", "key: ", utils.CSV_METERDEFINITION_ANNOTATION)
 		delete(annotations, meterDefError)
 		delete(annotations, meterDefStatus)
@@ -272,28 +303,48 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 	}
 
 	// builds a meterdefinition from our string (from the annotation)
-	reqLogger.Info("retrieval successful")
+	reqLogger.Info("retrieval successful", "str", meterDefinitionString)
 
 	var errAlpha, errBeta error
 	meterDefinitionBeta := &marketplacev1beta1.MeterDefinition{}
 	meterDefinitionAlpha := &marketplacev1alpha1.MeterDefinition{}
 
-	errBeta = meterDefinitionBeta.BuildMeterDefinitionFromString(meterDefinitionString, CSV.GetName(), CSV.GetNamespace(), utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
-
-	if errBeta != nil {
-		errAlpha = meterDefinitionAlpha.BuildMeterDefinitionFromString(meterDefinitionString, CSV.GetName(), CSV.GetNamespace(), utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
-	}
-
+	unstructured := &unstructured.Unstructured{}
 	meterDefinition := &marketplacev1beta1.MeterDefinition{}
 
-	switch {
-	case errBeta == nil:
-		meterDefinition = meterDefinitionBeta
-	case errAlpha == nil && meterDefinitionAlpha != nil:
-		meterDefinitionAlpha.ConvertTo(meterDefinition)
-	default:
-		err = emperrors.Combine(errBeta, errAlpha)
-		reqLogger.Error(err, "Failed to read the json annotation as a meterdefinition")
+	decode := scheme.Codecs.UniversalDeserializer().Decode
+	_, objectKind, err := decode([]byte(meterDefinitionString), nil, nil)
+
+	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(meterDefinitionString)), 100).Decode(unstructured)
+	if err == nil {
+		switch {
+		case objectKind.Version == "v1beta1":
+			reqLogger.Info("mdef is a v1beta1", "value", meterDefinitionBeta)
+			errBeta = meterDefinitionBeta.BuildMeterDefinitionFromString(
+				meterDefinitionString,
+				CSV.GetName(), CSV.GetNamespace(),
+				utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
+
+			meterDefinition = meterDefinitionBeta
+		case objectKind.Version == "v1alpha1":
+			reqLogger.Info("mdef is an v1alpha1")
+			errAlpha = meterDefinitionAlpha.BuildMeterDefinitionFromString(
+				meterDefinitionString,
+				CSV.GetName(), CSV.GetNamespace(),
+				utils.CSV_ANNOTATION_NAME, utils.CSV_ANNOTATION_NAMESPACE)
+
+			if errAlpha == nil {
+				err = meterDefinitionAlpha.ConvertTo(meterDefinition)
+
+				if err != nil {
+					reqLogger.Error(err, "Failed to convert to v1beta1")
+				}
+			}
+		default:
+			reqLogger.Info("mdef is neither")
+			err = emperrors.Combine(err, errBeta, errAlpha)
+			reqLogger.Error(err, "Failed to read the json annotation as a meterdefinition")
+		}
 	}
 
 	if err != nil {
@@ -388,9 +439,11 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 		return reconcile.Result{}, true, err
 	}
 
+	meterDefinition.ObjectMeta.Namespace = CSV.Namespace
+
 	err = r.Client.Create(context.TODO(), meterDefinition)
 	if err != nil {
-		reqLogger.Error(err, "Could not create MeterDefinition")
+		reqLogger.Error(err, "Could not create MeterDefinition", "mdef", meterDefinition)
 		reqLogger.Info("Adding failiure annotation in csv file ")
 		annotations[meterDefStatus] = "error"
 		annotations[meterDefError] = err.Error()
@@ -417,96 +470,49 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 
 }
 
-func (r *ClusterServiceVersionReconciler) SetupWithManager(mgr manager.Manager) error {
-	labelPreds := predicate.Funcs{
-		UpdateFunc: func(evt event.UpdateEvent) bool {
-			_, okAllNamespace := evt.MetaNew.GetLabels()[allnamespaceTag]
-			watchLabel, watchOk := evt.MetaNew.GetLabels()[watchTag]
-			ignoreVal, ignoreOk := evt.MetaNew.GetAnnotations()[ignoreTag]
+func csvFilter(metaNew metav1.Object) int {
+	ann := metaNew.GetAnnotations()
 
-			ann := evt.MetaNew.GetAnnotations()
-			if ann == nil {
-				ann = make(map[string]string)
-			}
+	//annotation values
+	ignoreVal, hasIgnoreTag := ann[ignoreTag]
+	_, hasCopiedFrom := ann[olmCopiedFromTag]
+	_, hasMeterDefinition := ann[utils.CSV_METERDEFINITION_ANNOTATION]
 
-			_, olmOk := ann["olm.copiedFrom"]
-			_, annOk := ann[utils.CSV_METERDEFINITION_ANNOTATION]
-
-			if annOk && !olmOk {
-				return true
-			}
-
-			if ignoreOk && ignoreVal == ignoreTagValue {
-				return false
-			}
-
-			if okAllNamespace {
-				return false
-			}
-
-			return !(watchOk && watchLabel == "lite")
-		},
-		DeleteFunc: func(evt event.DeleteEvent) bool {
-			_, okAllNamespace := evt.Meta.GetLabels()[allnamespaceTag]
-			watchLabel, watchOk := evt.Meta.GetLabels()[watchTag]
-			_, ignoreOk := evt.Meta.GetAnnotations()[ignoreTag]
-			ann := evt.Meta.GetAnnotations()
-			if ann == nil {
-				ann = make(map[string]string)
-			}
-
-			_, olmOk := ann["olm.copiedFrom"]
-			_, annOk := ann[utils.CSV_METERDEFINITION_ANNOTATION]
-
-			if annOk && !olmOk {
-				return true
-			}
-
-			if ignoreOk {
-				return false
-			}
-
-			if okAllNamespace {
-				return false
-			}
-
-			return !(watchOk && watchLabel == "lite")
-		},
-		CreateFunc: func(evt event.CreateEvent) bool {
-			_, okAllNamespace := evt.Meta.GetLabels()[allnamespaceTag]
-			ann := evt.Meta.GetAnnotations()
-			if ann == nil {
-				ann = make(map[string]string)
-			}
-
-			_, olmOk := ann["olm.copiedFrom"]
-			_, annOk := ann[utils.CSV_METERDEFINITION_ANNOTATION]
-
-			if annOk && !olmOk {
-				return true
-			}
-
-			return !okAllNamespace
-		},
-		GenericFunc: func(evt event.GenericEvent) bool {
-			ann := evt.Meta.GetAnnotations()
-			if ann == nil {
-				ann = make(map[string]string)
-			}
-
-			_, olmOk := ann["olm.copiedFrom"]
-			_, annOk := ann[utils.CSV_METERDEFINITION_ANNOTATION]
-
-			if annOk && !olmOk {
-				return true
-			}
-
-			return false
-		},
+	switch {
+	case hasMeterDefinition && !hasCopiedFrom:
+		return 1
+	case !hasMeterDefinition && (!hasIgnoreTag || ignoreVal != ignoreTagValue):
+		return 2
+	default:
 	}
 
+	return 0
+}
+
+func checkForUpdateToMdef(evt event.UpdateEvent) bool {
+	oldMeterDefVal, oldOk := evt.MetaOld.GetAnnotations()[utils.CSV_METERDEFINITION_ANNOTATION]
+	newMeterDefVal, newOk := evt.MetaNew.GetAnnotations()[utils.CSV_METERDEFINITION_ANNOTATION]
+	return oldOk && newOk && oldMeterDefVal != newMeterDefVal
+}
+
+var clusterServiceVersionPredictates predicate.Funcs = predicate.Funcs{
+	UpdateFunc: func(evt event.UpdateEvent) bool {
+		return csvFilter(evt.MetaNew) > 0 && checkForUpdateToMdef(evt)
+	},
+	DeleteFunc: func(evt event.DeleteEvent) bool {
+		return true
+	},
+	CreateFunc: func(evt event.CreateEvent) bool {
+		return csvFilter(evt.Meta) > 0
+	},
+	GenericFunc: func(evt event.GenericEvent) bool {
+		return false
+	},
+}
+
+func (r *ClusterServiceVersionReconciler) SetupWithManager(mgr manager.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&olmv1alpha1.ClusterServiceVersion{}, builder.WithPredicates(labelPreds)).
+		For(&olmv1alpha1.ClusterServiceVersion{}, builder.WithPredicates(clusterServiceVersionPredictates)).
 		Watches(
 			&source.Kind{Type: &marketplacev1beta1.MeterDefinition{}}, &handler.EnqueueRequestForOwner{
 				IsController: false,

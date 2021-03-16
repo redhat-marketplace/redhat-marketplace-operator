@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/tools/connect"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/tools/connect/pkg"
 	"github.com/spf13/cobra"
 )
 
@@ -29,7 +29,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(connect.WaitAndPublishCmd)
+	rootCmd.AddCommand(pkg.WaitAndPublishCmd)
 }
 
 func main() {

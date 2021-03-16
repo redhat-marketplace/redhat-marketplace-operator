@@ -54,8 +54,6 @@ rules:
     verbs:
       - update
       - patch
-    resourceNames:
-      - $(NAMESPACE)
   - apiGroups:
       - ''
     resources:
@@ -261,6 +259,22 @@ rules:
     verbs:
       - get
       - create
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - update
+    resourceNames:
+      - meterdefinitions.marketplace.redhat.com
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -275,12 +289,16 @@ rules:
       - '*'
     verbs:
       - '*'
-  - nonResourceURLs:
-      - '*'
+  - apiGroups:
+      - ''
+    resources:
+      - namespaces
     verbs:
       - get
       - list
       - watch
+      - update
+      - patch
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -472,6 +490,13 @@ rules:
       - delete
       - watch
       - list
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
+      - list
+      - watch
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -486,6 +511,13 @@ rules:
       - configmaps
     verbs:
       - get
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
+      - list
+      - watch
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -537,6 +569,7 @@ rules:
       - events
       - configmaps
       - secrets
+      - serviceaccounts/token
     verbs:
       - create
       - delete
@@ -545,6 +578,7 @@ rules:
       - patch
       - update
       - watch
+
   - apiGroups:
       - operators.coreos.com
     resources:

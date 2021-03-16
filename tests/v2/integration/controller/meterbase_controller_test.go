@@ -27,18 +27,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-const timeout = time.Second * 180
+const timeout = time.Second * 100
 const interval = time.Second * 3
 
 var _ = Describe("MeterbaseController", func() {
-	BeforeEach(func() {
-		Expect(testHarness.BeforeAll()).To(Succeed())
-	})
-
-	AfterEach(func() {
-		Expect(testHarness.AfterAll()).To(Succeed())
-	})
-
 	Context("MeterBase reconcile", func() {
 		Context("creating a meterbase", func() {
 			It("should create all assets", func(done Done) {

@@ -20,29 +20,30 @@ import (
 	"time"
 
 	"emperror.dev/errors"
-	"github.com/mitchellh/mapstructure"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type MeterDefPrometheusLabels struct {
 	UID               string `json:"meter_definition_uid" mapstructure:"meter_definition_uid"`
-	MeterDefName      string `json:"meter_def_name" mapstructure:"meter_def_name"`
-	MeterDefNamespace string `json:"meter_def_namespace" mapstructure:"meter_def_namespace"`
+	MeterDefName      string `json:"name" mapstructure:"name"`
+	MeterDefNamespace string `json:"namespace" mapstructure:"namespace"`
 
+	// Deprecated: metric is now the primary name
 	WorkloadName      string        `json:"workload_name" mapstructure:"workload_name"`
 	WorkloadType      string        `json:"workload_type" mapstructure:"workload_type"`
-	MeterGroup        string        `json:"meter_group" mapstructure:"meter_group"`
-	MeterKind         string        `json:"meter_kind" mapstructure:"meter_kind"`
-	Metric            string        `json:"metric_label" mapstructure:"metric_label"`
+	MeterGroup        string        `json:"meter_group" mapstructure:"meter_group" template:""`
+	MeterKind         string        `json:"meter_kind" mapstructure:"meter_kind" template:""`
+	Metric            string        `json:"metric_label" mapstructure:"metric_label" template:""`
 	MetricAggregation string        `json:"metric_aggregation,omitempty" mapstructure:"metric_aggregation"`
 	MetricPeriod      *MetricPeriod `json:"metric_period,omitempty" mapstructure:"metric_period"`
 	MetricQuery       string        `json:"metric_query" mapstructure:"metric_query"`
 	MetricWithout     JSONArray     `json:"metric_without" mapstructure:"metric_without"`
 	MetricGroupBy     JSONArray     `json:"metric_group_by,omitempty" mapstructure:"metric_group_by"`
 
-	MeterDescription   string `json:"meter_description,omitempty" mapstructure:"meter_description,omitempty"`
-	ValueLabelOverride string `json:"value_label_override,omitempty" mapstructure:"value_label_override,omitempty"`
-	DateLabelOverride  string `json:"date_label_override,omitempty" mapstructure:"date_label_override,omitempty"`
+	DisplayName        string `json:"display_name,omitempty" mapstructure:"display_name,omitempty" template:""`
+	MeterDescription   string `json:"meter_description,omitempty" mapstructure:"meter_description,omitempty" template:""`
+	ValueLabelOverride string `json:"value_label_override,omitempty" mapstructure:"value_label_override,omitempty" template:""`
+	DateLabelOverride  string `json:"date_label_override,omitempty" mapstructure:"date_label_override,omitempty" template:""`
 }
 
 func (m *MeterDefPrometheusLabels) Defaults() {
@@ -56,56 +57,20 @@ func (m *MeterDefPrometheusLabels) Defaults() {
 }
 
 func (m *MeterDefPrometheusLabels) ToLabels() (map[string]string, error) {
-	labelsMap := map[string]interface{}{}
-	err := mapstructure.Decode(m, &labelsMap)
+	bytes, err := json.Marshal(m)
+
 	if err != nil {
 		return nil, err
 	}
 
-	labels := map[string]string{}
+	labelsMap := map[string]string{}
+	err = json.Unmarshal(bytes, &labelsMap)
 
-	for k, v := range labelsMap {
-		if v == nil {
-			continue
-		}
-
-		vstr := ""
-
-		switch v.(type) {
-		case map[string]interface{}:
-			strbytes, err := json.Marshal(v.(map[string]interface{}))
-			if err != nil {
-				return nil, errors.Wrap(err, "value failed json")
-			}
-			vstr = string(strbytes)
-		case json.Marshaler:
-			strbytes, err := v.(json.Marshaler).MarshalJSON()
-			if err != nil {
-				return nil, errors.Wrap(err, "value failed json")
-			}
-			vstr = string(strbytes)
-		case fmt.Stringer:
-			vstr = v.(fmt.Stringer).String()
-		case string:
-			vstr = v.(string)
-		case nil:
-			vstr = ""
-		default:
-			vb, err := json.Marshal(v)
-
-			if err != nil {
-				return nil, err
-			}
-
-			vstr = string(vb)
-		}
-
-		if vstr != "" {
-			labels[k] = vstr
-		}
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
 
-	return labels, nil
+	return labelsMap, nil
 }
 
 func (m *MeterDefPrometheusLabels) FromLabels(labels interface{}) error {
@@ -119,7 +84,7 @@ func (m *MeterDefPrometheusLabels) FromLabels(labels interface{}) error {
 	err = json.Unmarshal(data, &newObj)
 
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 
 	newObj.Defaults()
@@ -132,37 +97,59 @@ func (m *MeterDefPrometheusLabels) FromLabels(labels interface{}) error {
 type MetricPeriod metav1.Duration
 
 var _ fmt.Stringer = &MetricPeriod{}
+var _ json.Marshaler = &MetricPeriod{}
+var _ json.Unmarshaler = &MetricPeriod{}
 
-func (p *MetricPeriod) String() string {
-	if p == nil {
-		return ""
+func (a *MetricPeriod) UnmarshalJSON(b []byte) error {
+	var val string
+	err := json.Unmarshal(b, &val)
+	if err != nil {
+		return err
 	}
 
-	return p.Duration.String()
+	dur, err := time.ParseDuration(val)
+
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	a.Duration = dur
+	return nil
+}
+
+func (a MetricPeriod) MarshalJSON() ([]byte, error) {
+	str := a.Duration.String()
+	return json.Marshal(str)
 }
 
 type JSONArray []string
 
-var _ json.Marshaler = &JSONArray{}
-var _ json.Unmarshaler = &JSONArray{}
+func (a *JSONArray) UnmarshalText(b []byte) error {
+	str := string(b)
 
-func (a *JSONArray) UnmarshalJSON(b []byte) error {
-	var j []string
-	if err := json.Unmarshal(b, &j); err != nil {
-		return err
+	if len(str) == 0 {
+		*a = JSONArray{}
+		return nil
 	}
+
+	var j []string
+
+	if err := json.Unmarshal([]byte(str), &j); err != nil {
+		return errors.WithStack(err)
+	}
+
 	*a = JSONArray(j)
 	return nil
 }
 
-func (a JSONArray) MarshalJSON() ([]byte, error) {
+func (a JSONArray) MarshalText() ([]byte, error) {
 	if a == nil {
 		return []byte{}, nil
 	}
 
 	b, err := json.Marshal([]string(a))
 	if err != nil {
-		return b, err
+		return b, errors.WithStack(err)
 	}
 
 	return b, nil
@@ -170,4 +157,32 @@ func (a JSONArray) MarshalJSON() ([]byte, error) {
 
 type ToPrometheusLabels interface {
 	ToPrometheusLabels() ([]map[string]string, error)
+}
+
+// Result is a result of a query defined on the meterdefinition.
+// This will generate data for the previous hour on whichever workload you specify.
+// This will allow you to check whether a query is working as intended.
+// +k8s:openapi-gen=true
+// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+// +kubebuilder:object:generate:=true
+type Result struct {
+	// MetricName is the identifier that you will use to identify your query
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	MetricName string `json:"metricName,omitempty"`
+
+	// Query is the compiled query that is given to Prometheus
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	Query string `json:"query,omitempty"`
+
+	// Values are the results of the query
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	Values []ResultValues `json:"values,omitempty"`
+}
+
+// ResultValues will hold the results of the prometheus query
+// +k8s:openapi-gen=true
+// +kubebuilder:object:generate:=true
+type ResultValues struct {
+	Timestamp int64  `json:"timestamp"`
+	Value     string `json:"value"`
 }
