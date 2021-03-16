@@ -7,8 +7,6 @@ metadata:
     productName: IBM Cloud Platform Common Services
   creationTimestamp: null
   labels:
-    app.kubernetes.io/instance: default
-    app.kubernetes.io/managed-by: OLM
     redhat.marketplace.com/name: redhat-marketplace-operator
   name: redhat-marketplace-prometheus-operator
 rules:

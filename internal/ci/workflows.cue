@@ -100,11 +100,10 @@ bundle: _#bashWorkflow & {
 						else
 						echo "is a release request"
 						export IS_DEV="false"
-						export BUNDLE_IMAGE_REGISTRY=registry.connect.redhat.com/rh-marketplace
 						fi
 
 						cd v2
-						export VERSION=$(cd ./tools && go run ./version/main.go)
+						export VERSION=$(cd ./tools/version && go run ./main.go)
 						export TAG=${VERSION}-${DEPLOY_SHA}-amd64
 
 						\((_#makeLogGroup & {#args: {name: "Make Stable Bundle", cmd: "make bundle-stable"}}).res)

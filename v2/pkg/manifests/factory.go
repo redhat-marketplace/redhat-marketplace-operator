@@ -100,6 +100,44 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 	case container.Name == "authcheck":
 		container.Image = f.config.RelatedImages.AuthChecker
 		container.Args = append(container.Args, "--namespace", f.namespace)
+		container.LivenessProbe = &corev1.Probe{
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/healthz",
+					Port: intstr.FromInt(8089),
+				},
+			},
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       20,
+		}
+		container.ReadinessProbe = &corev1.Probe{
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/readyz",
+					Port: intstr.FromInt(8089),
+				},
+			},
+			InitialDelaySeconds: 5,
+			PeriodSeconds:       10,
+		}
+		container.Env = []v1.EnvVar{
+			{
+				Name: "POD_NAMESPACE",
+				ValueFrom: &v1.EnvVarSource{
+					FieldRef: &v1.ObjectFieldSelector{
+						FieldPath: "metadata.namespace",
+					},
+				},
+			},
+			{
+				Name: "POD_NAME",
+				ValueFrom: &v1.EnvVarSource{
+					FieldRef: &v1.ObjectFieldSelector{
+						FieldPath: "metadata.name",
+					},
+				},
+			},
+		}
 	case container.Name == "prometheus-operator":
 		container.Image = f.config.RelatedImages.PrometheusOperator
 	case container.Name == "prometheus-proxy":
@@ -107,50 +145,11 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 	}
 }
 
-func (f *Factory) addCertAnnotations(inAnnotations map[string]string) map[string]string {
-	certAnnotations := map[string]string{
-		"productID":     "068a62892a1e4db39641342e592daa25",
-		"productMetric": "FREE",
-		"productName":   "IBM Cloud Platform Common Services",
-	}
-
-	for k, v := range certAnnotations {
-		inAnnotations[k] = v
-	}
-
-	return inAnnotations
-}
-
-func (f *Factory) addCertLabels(inLabels map[string]string) map[string]string {
-	certLabels := map[string]string{
-		"redhat.marketplace.com/name":  "redhat-marketplace-operator",
-		"app.kubernetes.io/managed-by": "OLM",
-		"app.kubernetes.io/instance":   "default",
-	}
-
-	for k, v := range certLabels {
-		inLabels[k] = v
-	}
-
-	return inLabels
-}
-
 func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
 	d, err := NewDeployment(manifest)
 	if err != nil {
 		return nil, err
 	}
-
-	if d.GetLabels() == nil {
-		d.Labels = make(map[string]string)
-	}
-
-	if d.Spec.Template.GetLabels() == nil {
-		d.Spec.Template.Labels = make(map[string]string)
-	}
-
-	d.Spec.Template.Labels = f.addCertLabels(d.Spec.Template.Labels)
-	d.Labels = f.addCertLabels(d.Labels)
 
 	if d.GetNamespace() == "" {
 		d.SetNamespace(f.namespace)
@@ -163,9 +162,6 @@ func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) 
 	if d.Spec.Template.GetAnnotations() == nil {
 		d.Spec.Template.Annotations = make(map[string]string)
 	}
-
-	d.Spec.Template.Annotations = f.addCertAnnotations(d.Spec.Template.Annotations)
-	d.Annotations = f.addCertAnnotations(d.Annotations)
 
 	maxSurge := intstr.FromString("25%")
 	maxUnavailable := intstr.FromString("25%")
@@ -191,18 +187,6 @@ func (f *Factory) NewService(manifest io.Reader) (*corev1.Service, error) {
 		d.SetNamespace(f.namespace)
 	}
 
-	if d.GetAnnotations() == nil {
-		d.Annotations = make(map[string]string)
-	}
-
-	d.Annotations = f.addCertAnnotations(d.Annotations)
-
-	if d.GetLabels() == nil {
-		d.Labels = make(map[string]string)
-	}
-
-	d.Labels = f.addCertLabels(d.Labels)
-
 	return d, nil
 }
 
@@ -215,18 +199,6 @@ func (f *Factory) NewConfigMap(manifest io.Reader) (*corev1.ConfigMap, error) {
 	if d.GetNamespace() == "" {
 		d.SetNamespace(f.namespace)
 	}
-
-	if d.GetAnnotations() == nil {
-		d.Annotations = make(map[string]string)
-	}
-
-	d.Annotations = f.addCertAnnotations(d.Annotations)
-
-	if d.GetLabels() == nil {
-		d.Labels = make(map[string]string)
-	}
-
-	d.Labels = f.addCertLabels(d.Labels)
 
 	return d, nil
 }
@@ -241,18 +213,6 @@ func (f *Factory) NewSecret(manifest io.Reader) (*v1.Secret, error) {
 		s.SetNamespace(f.namespace)
 	}
 
-	if s.GetAnnotations() == nil {
-		s.Annotations = make(map[string]string)
-	}
-
-	s.Annotations = f.addCertAnnotations(s.Annotations)
-
-	if s.GetLabels() == nil {
-		s.Labels = make(map[string]string)
-	}
-
-	s.Labels = f.addCertLabels(s.Labels)
-
 	return s, nil
 }
 
@@ -265,18 +225,6 @@ func (f *Factory) NewJob(manifest io.Reader) (*batchv1.Job, error) {
 	if j.GetNamespace() == "" {
 		j.SetNamespace(f.namespace)
 	}
-
-	if j.GetAnnotations() == nil {
-		j.Annotations = make(map[string]string)
-	}
-
-	j.Annotations = f.addCertAnnotations(j.Annotations)
-
-	if j.GetLabels() == nil {
-		j.Labels = make(map[string]string)
-	}
-
-	j.Labels = f.addCertLabels(j.Labels)
 
 	return j, nil
 }
@@ -291,33 +239,6 @@ func (f *Factory) NewPrometheus(
 
 	if p.GetNamespace() == "" {
 		p.SetNamespace(f.namespace)
-	}
-
-	if p.GetAnnotations() == nil {
-		p.Annotations = make(map[string]string)
-	}
-
-	p.Annotations = f.addCertAnnotations(p.Annotations)
-
-	if p.GetLabels() == nil {
-		p.Labels = make(map[string]string)
-	}
-
-	p.Labels = f.addCertLabels(p.Labels)
-
-	if p.Spec.PodMetadata == nil {
-		p.Spec.PodMetadata = &monitoringv1.EmbeddedObjectMetadata{
-			Labels: map[string]string{
-				"redhat.marketplace.com/name":  "redhat-marketplace-operator",
-				"app.kubernetes.io/managed-by": "OLM",
-				"app.kubernetes.io/instance":   "default",
-			},
-			Annotations: map[string]string{
-				"productID":     "068a62892a1e4db39641342e592daa25",
-				"productMetric": "FREE",
-				"productName":   "IBM Cloud Platform Common Services",
-			},
-		}
 	}
 
 	return p, nil
@@ -742,15 +663,7 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 			Name:      utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
 			Namespace: f.namespace,
 			Labels: map[string]string{
-				"razee/watch-resource":         "lite",
-				"redhat.marketplace.com/name":  "redhat-marketplace-operator",
-				"app.kubernetes.io/managed-by": "OLM",
-				"app.kubernetes.io/instance":   "default",
-			},
-			Annotations: map[string]string{
-				"productID":     "068a62892a1e4db39641342e592daa25",
-				"productMetric": "FREE",
-				"productName":   "IBM Cloud Platform Common Services",
+				"razee/watch-resource": "lite",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -771,17 +684,9 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app":                          utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
-						"razee/watch-resource":         "lite",
-						"owned-by":                     "marketplace.redhat.com-razee",
-						"redhat.marketplace.com/name":  "redhat-marketplace-operator",
-						"app.kubernetes.io/managed-by": "OLM",
-						"app.kubernetes.io/instance":   "default",
-					},
-					Annotations: map[string]string{
-						"productID":     "068a62892a1e4db39641342e592daa25",
-						"productMetric": "FREE",
-						"productName":   "IBM Cloud Platform Common Services",
+						"app":                  utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
+						"razee/watch-resource": "lite",
+						"owned-by":             "marketplace.redhat.com-razee",
 					},
 					Name: utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
 				},
@@ -792,6 +697,44 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 							Image:           f.config.RelatedImages.AuthChecker,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Name:            "authcheck",
+							Env: []v1.EnvVar{
+								{
+									Name: "POD_NAMESPACE",
+									ValueFrom: &v1.EnvVarSource{
+										FieldRef: &v1.ObjectFieldSelector{
+											FieldPath: "metadata.namespace",
+										},
+									},
+								},
+								{
+									Name: "POD_NAME",
+									ValueFrom: &v1.EnvVarSource{
+										FieldRef: &v1.ObjectFieldSelector{
+											FieldPath: "metadata.name",
+										},
+									},
+								},
+							},
+							LivenessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/healthz",
+										Port: intstr.FromInt(8089),
+									},
+								},
+								InitialDelaySeconds: 15,
+								PeriodSeconds:       20,
+							},
+							ReadinessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/readyz",
+										Port: intstr.FromInt(8089),
+									},
+								},
+								InitialDelaySeconds: 5,
+								PeriodSeconds:       10,
+							},
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse("20m"),
@@ -821,6 +764,7 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 									corev1.ResourceMemory: resource.MustParse("100Mi"),
 								},
 							},
+
 							Env: []corev1.EnvVar{
 								{
 									Name: "NAMESPACE",
@@ -896,12 +840,12 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 
 type Owner metav1.Object
 
-func (f *Factory) SetOwnerReference(obj metav1.Object, owner Owner) error {
+func (f *Factory) SetOwnerReference(owner Owner, obj metav1.Object) error {
 	return controllerutil.SetOwnerReference(owner, obj, f.scheme)
 }
 
-func (f *Factory) SetControllerReference(obj metav1.Object, owner Owner) error {
-	return controllerutil.SetControllerReference(obj, owner, f.scheme)
+func (f *Factory) SetControllerReference(owner Owner, obj metav1.Object) error {
+	return controllerutil.SetControllerReference(owner, obj, f.scheme)
 }
 
 func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.RazeeDeployment) *appsv1.Deployment {
@@ -920,15 +864,7 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 			Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 			Namespace: f.namespace,
 			Labels: map[string]string{
-				"razee/watch-resource":         "lite",
-				"redhat.marketplace.com/name":  "redhat-marketplace-operator",
-				"app.kubernetes.io/managed-by": "OLM",
-				"app.kubernetes.io/instance":   "default",
-			},
-			Annotations: map[string]string{
-				"productID":     "068a62892a1e4db39641342e592daa25",
-				"productMetric": "FREE",
-				"productName":   "IBM Cloud Platform Common Services",
+				"razee/watch-resource": "lite",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -949,17 +885,9 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app":                          utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-						"razee/watch-resource":         "lite",
-						"owned-by":                     "marketplace.redhat.com-razee",
-						"redhat.marketplace.com/name":  "redhat-marketplace-operator",
-						"app.kubernetes.io/managed-by": "OLM",
-						"app.kubernetes.io/instance":   "default",
-					},
-					Annotations: map[string]string{
-						"productID":     "068a62892a1e4db39641342e592daa25",
-						"productMetric": "FREE",
-						"productName":   "IBM Cloud Platform Common Services",
+						"app":                  utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
+						"razee/watch-resource": "lite",
+						"owned-by":             "marketplace.redhat.com-razee",
 					},
 					Name: utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 				},
@@ -970,6 +898,24 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 							Image:           f.config.RelatedImages.AuthChecker,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Name:            "authcheck",
+							Env: []v1.EnvVar{
+								{
+									Name: "POD_NAMESPACE",
+									ValueFrom: &v1.EnvVarSource{
+										FieldRef: &v1.ObjectFieldSelector{
+											FieldPath: "metadata.namespace",
+										},
+									},
+								},
+								{
+									Name: "POD_NAME",
+									ValueFrom: &v1.EnvVarSource{
+										FieldRef: &v1.ObjectFieldSelector{
+											FieldPath: "metadata.name",
+										},
+									},
+								},
+							},
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse("20m"),
@@ -979,6 +925,26 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 									corev1.ResourceCPU:    resource.MustParse("10m"),
 									corev1.ResourceMemory: resource.MustParse("20Mi"),
 								},
+							},
+							LivenessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/healthz",
+										Port: intstr.FromInt(8089),
+									},
+								},
+								InitialDelaySeconds: 15,
+								PeriodSeconds:       20,
+							},
+							ReadinessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/readyz",
+										Port: intstr.FromInt(8089),
+									},
+								},
+								InitialDelaySeconds: 5,
+								PeriodSeconds:       10,
 							},
 							Args: []string{
 								"--namespace", f.namespace,

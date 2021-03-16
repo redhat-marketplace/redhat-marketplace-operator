@@ -279,6 +279,7 @@ func (meterdef *MeterDefinition) ToPrometheusLabels() []*common.MeterDefPromethe
 			MeterDefName:       string(meterdef.Name),
 			MeterDefNamespace:  string(meterdef.Namespace),
 			MeterKind:          meterdef.Spec.Kind,
+			WorkloadName:       meter.Metric,
 			Metric:             meter.Metric,
 			MetricGroupBy:      common.JSONArray(meter.GroupBy),
 			MeterGroup:         meterdef.Spec.Group,
@@ -320,4 +321,14 @@ func (meterdef *MeterDefinition) BuildMeterDefinitionFromString(
 	}
 
 	return nil
+}
+
+func (meterdef *MeterDefinition) IsSigned() bool {
+	annotations := meterdef.GetAnnotations()
+	publicKey := annotations["marketplace.redhat.com/publickey"]
+	signature := annotations["marketplace.redhat.com/signature"]
+	if (len(publicKey) != 0) && (len(signature) != 0) {
+		return true
+	}
+	return false
 }
