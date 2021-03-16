@@ -18,10 +18,15 @@ package marketplace
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/cloudflare/cfssl/helpers"
 	"github.com/cloudflare/cfssl/log"
 	"github.com/go-logr/logr"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/certificates"
@@ -31,12 +36,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 var _ reconcile.Reconciler = &CertIssuerReconciler{}
@@ -80,6 +88,7 @@ func (r *CertIssuerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 			err := r.InjectCACertIntoConfigMap(cm)
 			if err != nil {
 				log.Error(err, "failed to inject CA certificate")
+				return ctrl.Result{}, err
 			}
 		} else {
 			reqLogger.V(1).Info("service-ca.crt field was not found in a configmap labeled with inject-cabundle")
@@ -98,7 +107,7 @@ func (r *CertIssuerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: time.Hour * 24}, nil
 }
 
 func (r *CertIssuerReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
@@ -118,14 +127,87 @@ func (r *CertIssuerReconciler) InjectOperatorConfig(oc *config.OperatorConfig) e
 
 // InjectCACertIntoConfigMap injects certificate data into
 func (r *CertIssuerReconciler) InjectCACertIntoConfigMap(configmap *corev1.ConfigMap) error {
+	if configmap.Data["service-ca.crt"] == string(r.certIssuer.CAPublicKey()) {
+		return nil
+	}
 	cm := configmap
 	patch := client.MergeFrom(cm.DeepCopy())
 	cm.Data["service-ca.crt"] = string(r.certIssuer.CAPublicKey())
 	return r.Client.Patch(context.Background(), cm, patch)
 }
 
+func (r *CertIssuerReconciler) CreateCASecret(namespace string) error {
+	sec := &corev1.Secret{}
+	err := r.Client.Get(context.Background(), types.NamespacedName{
+		Name:      "rhmp-ca-tls",
+		Namespace: namespace,
+	}, sec)
+
+	parsedCACert, err := x509.ParseCertificate(r.certIssuer.CAPublicKey())
+	if err != nil {
+		return err
+	}
+
+	ownerService := &corev1.Service{}
+	err := r.Client.Get(context.Background(), types.NamespacedName{
+		Name:      "redhat-marketplace-controller-manager-service",
+		Namespace: namespace,
+	}, ownerService)
+	if err != nil {
+		return err
+	}
+
+	expiresOn := helpers.ExpiryTime([]*x509.Certificate{parsedCACert})
+	secretMeta := &corev1.Secret{
+		Annotations: map[string]string{
+			"certificate/ExpiresOn": expiresOn.Unix(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      "rhmp-ca-tls",
+			OwnerReferences: []metav1.OwnerReference{
+				metav1.OwnerReference{
+					APIVersion:         ownerService.APIVersion,
+					Kind:               ownerService.Kind,
+					Name:               ownerService.Name,
+					UID:                ownerService.UID,
+					BlockOwnerDeletion: pointer.BoolPtr(false),
+				},
+			},
+		},
+		Type: corev1.SecretTypeTLS,
+		Data: map[string][]byte{
+			"tls.crt": r.certIssuer.CAPublicKey(),
+			"tls.key": r.certIssuer.CAPrivateKey(),
+		},
+	}
+
+	return r.Client.Create(context.Background(), secretMeta)
+}
+
 // CreateTLSSecrets creates tls secrets signed by recociler's CA
 func (r *CertIssuerReconciler) CreateTLSSecrets(namespace string, secretNames ...string) error {
+	sec := &corev1.Secret{}
+	err := r.Client.Get(context.Background(), types.NamespacedName{
+		Name:      secretNames[0],
+		Namespace: namespace,
+	}, sec)
+
+	secretDoesntExists := err != nil && errors.IsNotFound(err)
+	if !secretDoesntExists {
+		if _, ok := sec.Annotations["service-ca.crt"]; ok {
+			parsedUnixTime, err := strconv.ParseInt(sec.Annotations["certificate/ExpiresOn"], 10, 64)
+			if err == nil {
+				return err
+			}
+			expiresIn := time.Unix(parsedUnixTime).Sub(time.Now()).Hours()
+			if expiresIn < 24 {
+				// Update
+			}
+		}
+		return r.CreateTLSSecrets(namespace, secretNames[1:]...)
+	}
+
 	cert, key, err := r.certIssuer.CreateCertFromCA(types.NamespacedName{
 		Name:      secretNames[0],
 		Namespace: namespace,
@@ -134,7 +216,15 @@ func (r *CertIssuerReconciler) CreateTLSSecrets(namespace string, secretNames ..
 		return err
 	}
 	secretName := fmt.Sprintf("%s-tls", secretNames[0])
+	parsedCert, err := x509.ParseCertificate(cert)
+	if err != nil {
+		return err
+	}
+	expiresOn := helpers.ExpiryTime([]*x509.Certificate{parsedCert})
 	secretMeta := &corev1.Secret{
+		Annotations: map[string]string{
+			"certificate/ExpiresOn": expiresOn.Unix(),
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      secretName,
@@ -148,7 +238,7 @@ func (r *CertIssuerReconciler) CreateTLSSecrets(namespace string, secretNames ..
 
 	err = r.Client.Create(context.Background(), secretMeta)
 	if err != nil {
-		r.Log.Error(err, "cannot create tls secret")
+		return err
 	}
 
 	r.Log.Info("created tls secret", "secretName", secretName)
@@ -177,6 +267,10 @@ func (r *CertIssuerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				_, ok := evt.Meta.GetAnnotations()[InjectCAAnnotation]
 				return ok
 			},
+			DeleteFunc: func(evt event.DeleteEvent) bool {
+				_, ok := evt.Meta.GetAnnotations()[InjectCAAnnotation]
+				return ok
+			},
 			GenericFunc: func(evt event.GenericEvent) bool {
 				_, ok := evt.Meta.GetAnnotations()[InjectCAAnnotation]
 				return ok
@@ -187,5 +281,13 @@ func (r *CertIssuerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(namespacePredicate).
 		For(&corev1.ConfigMap{}, builder.WithPredicates(configmapPreds...)).
+		Watches(&source.Kind{Type: &corev1.Secret{
+			TypeMeta: metav1.TypeMeta{
+				Kind: "Secret",
+			},
+		}}, &handler.EnqueueRequestForOwner{
+			IsController: false,
+			OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
+		}).
 		Complete(r)
 }

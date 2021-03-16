@@ -18,7 +18,9 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"math"
 	"reflect"
+	"time"
 
 	"github.com/cloudflare/cfssl/helpers"
 	. "github.com/onsi/ginkgo"
@@ -78,6 +80,12 @@ var _ = Describe("CertIssuer", func() {
 
 		cert, err := x509.ParseCertificate(block.Bytes)
 		Expect(err).To(Succeed(), "failed to parse certificate")
+
+		// Certificate should be valid for 30 days only
+		expiresOn := helpers.ExpiryTime([]*x509.Certificate{cert})
+		daysFromNow := math.Round(expiresOn.Sub(time.Now()).Hours() / 24)
+		Expect(daysFromNow).To(Equal(float64(30)))
+
 		targetDNSNames := []string{
 			basicDNS,
 			basicDNS + ".cluster",

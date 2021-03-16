@@ -130,7 +130,8 @@ func (ci *CertIssuer) CreateCertFromCA(
 		Subject: &signer.Subject{
 			CN: svcFullname,
 		},
-		Profile: svcFullname,
+		Profile:  svcFullname,
+		NotAfter: time.Now().AddDate(0, 0, 30),
 	})
 	if err != nil {
 		return nil, nil, err
@@ -141,4 +142,8 @@ func (ci *CertIssuer) CreateCertFromCA(
 
 func (ci *CertIssuer) CAPublicKey() []byte {
 	return ci.ca.PublicKey
+}
+
+func (ci *CertIssuer) CAPrivateKey() []byte {
+	return ci.ca.PrivateKey
 }
