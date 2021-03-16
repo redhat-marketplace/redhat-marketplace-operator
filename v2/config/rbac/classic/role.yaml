@@ -289,17 +289,14 @@ rules:
       - '*'
     verbs:
       - '*'
-  - nonResourceURLs:
-      - '*'
-    verbs:
-      - get
-      - list
-      - watch
   - apiGroups:
       - ''
     resources:
       - namespaces
     verbs:
+      - get
+      - list
+      - watch
       - update
       - patch
 ---

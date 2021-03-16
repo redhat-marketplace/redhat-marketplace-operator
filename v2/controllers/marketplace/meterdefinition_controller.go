@@ -144,7 +144,23 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 	reqLogger.Info("Found instance", "instance", instance.Name)
 
 	var update, requeue bool
+	// Set the Status Condition of signature signing
+	if instance.IsSigned() {
+		// Check the signature again, even though the admission webhook should have
+		err := instance.ValidateSignature()
+		if err != nil {
+			// This could occur after the admission webhook if a signed v1alpha1 is converted to v1beta1.
+			// However, signing not introduced until v1beta1, so this is unlikely.
+			update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionSignatureVerificationFailed)
+		} else {
+			update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionSignatureVerified)
+		}
 
+	} else {
+		// Unsigned, Unverified
+		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionSignatureUnverified)
+	}
+	
 	switch {
 	case instance.Status.Conditions.IsUnknownFor(common.MeterDefConditionTypeHasResult):
 		fallthrough
@@ -359,7 +375,7 @@ func generateQueryPreview(instance *v1beta1.MeterDefinition, prometheusAPI *prom
 		}
 
 		queryPreviewResult = &common.Result{
-			MetricName: meterWorkload.WorkloadName,
+			MetricName: meterWorkload.Metric,
 			Query:      q,
 			Values:     []common.ResultValues{},
 		}

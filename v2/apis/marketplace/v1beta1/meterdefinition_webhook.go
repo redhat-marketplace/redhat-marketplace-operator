@@ -17,7 +17,9 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/signer"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -65,6 +67,40 @@ func (r *MeterDefinition) ValidateCreate() error {
 		}
 	}
 
+	if r.IsSigned() {
+		// Check required fields which may not be mutated on signed MeterDefinitions
+		for _, resourceFilter := range r.Spec.ResourceFilters {
+			if resourceFilter.Namespace == nil {
+				allErrs = append(allErrs, field.Required(
+					field.NewPath("spec").Child("resourceFilters"),
+					"namespace must be provided",
+				))
+			}
+		}
+		for _, meter := range r.Spec.Meters {
+			if len(meter.Aggregation) == 0 {
+				allErrs = append(allErrs, field.Required(
+					field.NewPath("spec").Child("meters"),
+					"aggregation must be provided",
+				))
+			}
+			if meter.Period == nil {
+				allErrs = append(allErrs, field.Required(
+					field.NewPath("spec").Child("meters"),
+					"period must be provided",
+				))
+			}
+		}
+
+		err := r.ValidateSignature()
+		if err != nil {
+			allErrs = append(allErrs, field.InternalError(
+				field.NewPath("metadata").Child("annotations"),
+				err,
+			))
+		}
+	}
+
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -91,6 +127,40 @@ func (r *MeterDefinition) ValidateUpdate(old runtime.Object) error {
 		}
 	}
 
+	if r.IsSigned() {
+		// Check required fields which may not be mutated on signed MeterDefinitions
+		for _, resourceFilter := range r.Spec.ResourceFilters {
+			if resourceFilter.Namespace == nil {
+				allErrs = append(allErrs, field.Required(
+					field.NewPath("spec").Child("resourceFilters"),
+					"namespace must be provided",
+				))
+			}
+		}
+		for _, meter := range r.Spec.Meters {
+			if len(meter.Aggregation) == 0 {
+				allErrs = append(allErrs, field.Required(
+					field.NewPath("spec").Child("meters"),
+					"aggregation must be provided",
+				))
+			}
+			if meter.Period == nil {
+				allErrs = append(allErrs, field.Required(
+					field.NewPath("spec").Child("meters"),
+					"period must be provided",
+				))
+			}
+		}
+
+		err := r.ValidateSignature()
+		if err != nil {
+			allErrs = append(allErrs, field.InternalError(
+				field.NewPath("metadata").Child("annotations"),
+				err,
+			))
+		}
+	}
+
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -105,4 +175,22 @@ func (r *MeterDefinition) ValidateDelete() error {
 	meterdefinitionlog.Info("validate delete", "name", r.Name)
 
 	return nil
+}
+
+func (r *MeterDefinition) ValidateSignature() error {
+	uMeterDef := unstructured.Unstructured{}
+
+	uContent, err := runtime.DefaultUnstructuredConverter.ToUnstructured(r)
+	if err != nil {
+		return err
+	}
+
+	uMeterDef.SetUnstructuredContent(uContent)
+
+	caCert, err := signer.CertificateFromAssets()
+	if err != nil {
+		return err
+	}
+
+	return signer.VerifySignature(uMeterDef, caCert)
 }
