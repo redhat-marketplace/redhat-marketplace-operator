@@ -175,13 +175,12 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 			if count <= 256 {
 				marketplaceConfig.Spec.ClusterName = clusterName
 				updateInstanceSpec = true
-				reqLogger.Info("using CLUSTER_DISPLAY_NAME override","name", clusterName)
+				reqLogger.Info("setting ClusterName","name", clusterName)
 			} else {
 				err := errors.New("CLUSTER_DISPLAY_NAME exceeds 256 chars")
 				reqLogger.Error(err, "name",clusterDisplayName)
 			}
 		}
-		
 	} 
 
 	token := string(pullSecret)
