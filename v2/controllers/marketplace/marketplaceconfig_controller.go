@@ -169,15 +169,19 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	var updateInstanceSpec bool 
 	if clusterDisplayName,ok := secret.Data[utils.ClusterDisplayName]; ok {
 		count := utf8.RuneCountInString(string(clusterDisplayName))
-		if count <= 256 {
-			clusterName := strings.Trim(string(clusterDisplayName),"\n")
-			marketplaceConfig.Spec.ClusterName = clusterName
-			updateInstanceSpec = true
-			reqLogger.Info("using CLUSTER_DISPLAY_NAME override","name", clusterName)
-		} else {
-			err := errors.New("CLUSTER_DISPLAY_NAME exceeds 256 chars")
-			reqLogger.Error(err, "error with CLUSTER_DISPLAY_NAME")
+		clusterName := strings.Trim(string(clusterDisplayName),"\n")
+
+		if !reflect.DeepEqual(marketplaceConfig.Spec.ClusterName,clusterName){
+			if count <= 256 {
+				marketplaceConfig.Spec.ClusterName = clusterName
+				updateInstanceSpec = true
+				reqLogger.Info("using CLUSTER_DISPLAY_NAME override","name", clusterName)
+			} else {
+				err := errors.New("CLUSTER_DISPLAY_NAME exceeds 256 chars")
+				reqLogger.Error(err, "name",clusterDisplayName)
+			}
 		}
+		
 	} 
 
 	token := string(pullSecret)
@@ -246,7 +250,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		updateInstanceSpec = true
 		marketplaceConfig.Labels[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
 	}
-
+	
 	if updateInstanceSpec {
 		err = r.Client.Update(context.TODO(), marketplaceConfig)
 
@@ -257,7 +261,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	
 		return reconcile.Result{Requeue: true}, nil
 	}
-
 
 	if marketplaceConfig.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionInstalling) {
 		ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
