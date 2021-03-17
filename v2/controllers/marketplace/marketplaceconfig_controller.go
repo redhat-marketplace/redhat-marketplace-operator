@@ -167,7 +167,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	var updateInstanceSpec bool 
-	if clusterDisplayName,ok := secret.Data[utils.ClusterDisplayName]; ok {
+	if clusterDisplayName,ok := secret.Data[utils.ClusterDisplayNameKey]; ok {
 		count := utf8.RuneCountInString(string(clusterDisplayName))
 		clusterName := strings.Trim(string(clusterDisplayName),"\n")
 
