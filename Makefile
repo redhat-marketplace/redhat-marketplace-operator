@@ -63,7 +63,7 @@ add-licenses: addlicense
 
 save-licenses: golicense
 	for folder in $(addsuffix /v2,$(PROJECT_FOLDERS)) ; do \
-		[ ! -d "licenses" ] && sh -c "cd $$folder && $(GO_LICENSES) save --save_path licenses --force ./..." ; \
+		[ ! -d "licenses" ] && sh -c "cd $$folder && $(GO_LICENSES) save --save_path licenses --force ./... && chmod -R +w licenses" ; \
 	done
 
 cicd:
@@ -96,6 +96,12 @@ endef
 
 clean-vendor:
 	rm -rf $(addsuffix /v2/vendor,$(PROJECT_FOLDERS))
+
+clean-licenses:
+	-chmod -R +w $(addsuffix /v2/licenses,$(PROJECT_FOLDERS))
+	-rm -rf $(addsuffix /v2/licenses,$(PROJECT_FOLDERS))
+	-mkdir -p $(addsuffix /v2/licenses,$(PROJECT_FOLDERS))
+	touch $(addsuffix /v2/licenses/.gitkeep,$(PROJECT_FOLDERS))
 
 wicked:
 	mkdir -p .wicked-report

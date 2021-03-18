@@ -8,11 +8,6 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "MarketplaceConfig",
           "metadata": {
-            "annotations": {
-              "productID": "068a62892a1e4db39641342e592daa25",
-              "productMetric": "FREE",
-              "productName": "IBM Cloud Platform Common Services"
-            },
             "labels": {
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
@@ -30,11 +25,6 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "MeterBase",
           "metadata": {
-            "annotations": {
-              "productID": "068a62892a1e4db39641342e592daa25",
-              "productMetric": "FREE",
-              "productName": "IBM Cloud Platform Common Services"
-            },
             "labels": {
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
@@ -64,11 +54,6 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "MeterReport",
           "metadata": {
-            "annotations": {
-              "productID": "068a62892a1e4db39641342e592daa25",
-              "productMetric": "FREE",
-              "productName": "IBM Cloud Platform Common Services"
-            },
             "labels": {
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
@@ -89,11 +74,6 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "RazeeDeployment",
           "metadata": {
-            "annotations": {
-              "productID": "068a62892a1e4db39641342e592daa25",
-              "productMetric": "FREE",
-              "productName": "IBM Cloud Platform Common Services"
-            },
             "labels": {
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
@@ -109,11 +89,6 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1alpha1",
           "kind": "RemoteResourceS3",
           "metadata": {
-            "annotations": {
-              "productID": "068a62892a1e4db39641342e592daa25",
-              "productMetric": "FREE",
-              "productName": "IBM Cloud Platform Common Services"
-            },
             "labels": {
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
@@ -149,11 +124,6 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1beta1",
           "kind": "MeterDefinition",
           "metadata": {
-            "annotations": {
-              "productID": "068a62892a1e4db39641342e592daa25",
-              "productMetric": "FREE",
-              "productName": "IBM Cloud Platform Common Services"
-            },
             "labels": {
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
@@ -190,11 +160,6 @@ metadata:
           "apiVersion": "marketplace.redhat.com/v1beta1",
           "kind": "MeterDefinition",
           "metadata": {
-            "annotations": {
-              "productID": "068a62892a1e4db39641342e592daa25",
-              "productMetric": "FREE",
-              "productName": "IBM Cloud Platform Common Services"
-            },
             "labels": {
               "redhat.marketplace.com/name": "redhat-marketplace-operator"
             },
@@ -232,52 +197,52 @@ metadata:
     categories: Developer Tools
     certified: "true"
     description: The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
-    olm.skipRange: '>=1.0.0 <2.0.1'
+    olm.skipRange: '>=1.0.0 <2.1.0'
     operatorframework.io/suggested-namespace: openshift-redhat-marketplace
-    operators.operatorframework.io/builder: operator-sdk-v1.3.0+git
+    operators.operatorframework.io/builder: operator-sdk-v1.3.2
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
-  name: redhat-marketplace-operator.v2.0.1
+  name: redhat-marketplace-operator.v2.1.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers
-      displayName: Marketplace Config
-      kind: MarketplaceConfig
-      name: marketplaceconfigs.marketplace.redhat.com
-      version: v1alpha1
-    - description: MeterBase is the resource that sets up Metering for Red Hat Marketplace. This is an internal resource not meant to be modified directly.
-      displayName: Meter Base
-      kind: MeterBase
-      name: meterbases.marketplace.redhat.com
-      version: v1alpha1
-    - description: MeterDefinition defines the meter workloads used to enable pay for use billing.
-      displayName: Meter Definition
-      kind: MeterDefinition
-      name: meterdefinitions.marketplace.redhat.com
-      version: v1alpha1
-    - description: MeterDefinition defines the meter workloads used to enable pay for use billing.
-      displayName: Meter Definition
-      kind: MeterDefinition
-      name: meterdefinitions.marketplace.redhat.com
-      version: v1beta1
-    - kind: MeterReport
-      name: meterreports.marketplace.redhat.com
-      version: v1alpha1
-    - description: RazeeDeployment is the resources that deploys Razee for the Red Hat Marketplace. This is an internal resource not meant to be modified directly.
-      displayName: Razee Deployment
-      kind: RazeeDeployment
-      name: razeedeployments.marketplace.redhat.com
-      version: v1alpha1
-    - description: RemoteResourceS3 is the Schema for the remoteresources3s API
-      displayName: Remote Resource S3
-      kind: RemoteResourceS3
-      name: remoteresources3s.marketplace.redhat.com
-      version: v1alpha1
+      - description: MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers
+        displayName: Marketplace Config
+        kind: MarketplaceConfig
+        name: marketplaceconfigs.marketplace.redhat.com
+        version: v1alpha1
+      - description: MeterBase is the resource that sets up Metering for Red Hat Marketplace. This is an internal resource not meant to be modified directly.
+        displayName: Meter Base
+        kind: MeterBase
+        name: meterbases.marketplace.redhat.com
+        version: v1alpha1
+      - description: MeterDefinition defines the meter workloads used to enable pay for use billing.
+        displayName: Meter Definition
+        kind: MeterDefinition
+        name: meterdefinitions.marketplace.redhat.com
+        version: v1alpha1
+      - description: MeterDefinition defines the meter workloads used to enable pay for use billing.
+        displayName: Meter Definition
+        kind: MeterDefinition
+        name: meterdefinitions.marketplace.redhat.com
+        version: v1beta1
+      - kind: MeterReport
+        name: meterreports.marketplace.redhat.com
+        version: v1alpha1
+      - description: RazeeDeployment is the resources that deploys Razee for the Red Hat Marketplace. This is an internal resource not meant to be modified directly.
+        displayName: Razee Deployment
+        kind: RazeeDeployment
+        name: razeedeployments.marketplace.redhat.com
+        version: v1alpha1
+      - description: RemoteResourceS3 is the Schema for the remoteresources3s API
+        displayName: Remote Resource S3
+        kind: RemoteResourceS3
+        name: remoteresources3s.marketplace.redhat.com
+        version: v1alpha1
   description: |
     The Red Hat Marketplace Operator provides cluster management, metering and
     operator installation for Red Hat Marketplace customers.
@@ -328,319 +293,309 @@ spec:
     You can find our license information [here.](https://github.com/redhat-marketplace/redhat-marketplace-operator/blob/develop/LICENSE)
   displayName: Red Hat Marketplace
   icon:
-  - base64data: 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
-    mediatype: image/png
+    - base64data: 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
+      mediatype: image/png
   install:
     spec:
       clusterPermissions:
-      - rules:
-        - apiGroups:
-          - marketplace.redhat.com
-          resources:
-          - meterdefinitions
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - marketplace.redhat.com
-          resources:
-          - meterdefinitions/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - '*'
-          resources:
-          - '*'
-          verbs:
-          - get
-          - list
-          - watch
-        - nonResourceURLs:
-          - '*'
-          verbs:
-          - get
-          - list
-          - watch
-        - apiGroups:
-          - rbac.authorization.k8s.io
-          resourceNames:
-          - razeedeploy-admin-cr
-          - redhat-marketplace-razeedeploy
-          resources:
-          - clusterroles
-          verbs:
-          - get
-          - list
-          - delete
-        - apiGroups:
-          - ""
-          resources:
-          - pods
-          - services
-          - services/finalizers
-          - endpoints
-          - persistentvolumeclaims
-          - persistentvolumes
-          - events
-          - configmaps
-          - secrets
-          - namespaces
-          verbs:
-          - get
-          - list
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - namespaces
-          verbs:
-          - update
-          - patch
-        - apiGroups:
-          - ""
-          resources:
-          - nodes
-          verbs:
-          - get
-          - list
-          - watch
-          - patch
-          - update
-        - apiGroups:
-          - batch
-          - extensions
-          resources:
-          - jobs
-          verbs:
-          - get
-          - list
-          - watch
-        - apiGroups:
-          - apps
-          resources:
-          - deployments
-          - statefulsets
-          - replicasets
-          - daemonsets
-          verbs:
-          - get
-          - list
-          - watch
-        - apiGroups:
-          - apps
-          resourceNames:
-          - redhat-marketplace-operator
-          resources:
-          - deployments/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - storage.k8s.io
-          resources:
-          - storageclasses
-          verbs:
-          - get
-          - list
-          - watch
-        - apiGroups:
-          - monitoring.coreos.com
-          resources:
-          - servicemonitors
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - monitoring.coreos.com
-          resources:
-          - prometheuses
-          verbs:
-          - get
-          - list
-          - watch
-        - apiGroups:
-          - operators.coreos.com
-          resources:
-          - subscriptions
-          - clusterserviceversions
-          verbs:
-          - get
-          - list
-          - update
-          - watch
-          - delete
-        - apiGroups:
-          - operators.coreos.com
-          resources:
-          - operatorsources
-          - catalogsources
-          verbs:
-          - get
-          - list
-          - watch
-          - create
-        - apiGroups:
-          - operators.coreos.com
-          resourceNames:
-          - redhat-marketplace
-          resources:
-          - operatorsources
-          verbs:
-          - get
-          - delete
-          - patch
-          - update
-        - apiGroups:
-          - operators.coreos.com
-          resourceNames:
-          - ibm-operator-catalog
-          - opencloud-operators
-          resources:
-          - catalogsources
-          verbs:
-          - get
-          - delete
-          - patch
-          - update
-        - apiGroups:
-          - operators.coreos.com
-          resources:
-          - operatorgroups
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - deploy.razee.io
-          resources:
-          - remoteresourcess3
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-        - apiGroups:
-          - config.openshift.io
-          resources:
-          - consoles
-          - infrastructures
-          - clusterversions
-          verbs:
-          - get
-          - list
-          - patch
-          - update
-        - apiGroups:
-          - marketplace.redhat.com
-          resources:
-          - '*'
-          - meterdefinitions
-          - razeedeployments
-          - meterbases
-          - marketplaceconfigs
-          - remoteresources3s
-          verbs:
-          - '*'
-        - apiGroups:
-          - ""
-          resourceNames:
-          - rhm-cos-reader-key
-          - watch-keeper-secret
-          resources:
-          - secrets
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resourceNames:
-          - watch-keeper-config
-          - watch-keeper-limit-poll
-          - watch-keeper-non-namespaced
-          - razee-cluster-metadata
-          resources:
-          - configmaps
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - authentication.k8s.io
-          resources:
-          - tokenreviews
-          verbs:
-          - create
-        - apiGroups:
-          - authorization.k8s.io
-          resources:
-          - subjectaccessreviews
-          verbs:
-          - create
-        - nonResourceURLs:
-          - /api/v1/query
-          - /api/v1/query_range
-          verbs:
-          - get
-          - create
-        - apiGroups:
-          - apiextensions.k8s.io
-          resources:
-          - customresourcedefinitions
-          verbs:
-          - get
-          - list
-          - watch
-        - apiGroups:
-          - apiextensions.k8s.io
-          resourceNames:
-          - meterdefinitions.marketplace.redhat.com
-          resources:
-          - customresourcedefinitions
-          verbs:
-          - update
-        serviceAccountName: redhat-marketplace-operator
+        - rules:
+            - apiGroups:
+                - marketplace.redhat.com
+              resources:
+                - meterdefinitions
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - marketplace.redhat.com
+              resources:
+                - meterdefinitions/status
+              verbs:
+                - get
+                - patch
+                - update
+            - apiGroups:
+                - '*'
+              resources:
+                - '*'
+              verbs:
+                - get
+                - list
+                - watch
+            - nonResourceURLs:
+                - '*'
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - rbac.authorization.k8s.io
+              resourceNames:
+                - razeedeploy-admin-cr
+                - redhat-marketplace-razeedeploy
+              resources:
+                - clusterroles
+              verbs:
+                - get
+                - list
+                - delete
+            - apiGroups:
+                - ""
+              resources:
+                - pods
+                - services
+                - services/finalizers
+                - endpoints
+                - persistentvolumeclaims
+                - persistentvolumes
+                - events
+                - configmaps
+                - secrets
+                - namespaces
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - ""
+              resources:
+                - namespaces
+              verbs:
+                - update
+                - patch
+            - apiGroups:
+                - ""
+              resources:
+                - nodes
+              verbs:
+                - get
+                - list
+                - watch
+                - patch
+                - update
+            - apiGroups:
+                - batch
+                - extensions
+              resources:
+                - jobs
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - apps
+              resources:
+                - deployments
+                - statefulsets
+                - replicasets
+                - daemonsets
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - apps
+              resourceNames:
+                - redhat-marketplace-operator
+              resources:
+                - deployments/finalizers
+              verbs:
+                - update
+            - apiGroups:
+                - storage.k8s.io
+              resources:
+                - storageclasses
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - monitoring.coreos.com
+              resources:
+                - servicemonitors
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - monitoring.coreos.com
+              resources:
+                - prometheuses
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - operators.coreos.com
+              resources:
+                - subscriptions
+                - clusterserviceversions
+              verbs:
+                - get
+                - list
+                - update
+                - watch
+                - delete
+            - apiGroups:
+                - operators.coreos.com
+              resources:
+                - operatorsources
+                - catalogsources
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+            - apiGroups:
+                - operators.coreos.com
+              resourceNames:
+                - redhat-marketplace
+              resources:
+                - operatorsources
+              verbs:
+                - get
+                - delete
+                - patch
+                - update
+            - apiGroups:
+                - operators.coreos.com
+              resourceNames:
+                - ibm-operator-catalog
+                - opencloud-operators
+              resources:
+                - catalogsources
+              verbs:
+                - get
+                - delete
+                - patch
+                - update
+            - apiGroups:
+                - operators.coreos.com
+              resources:
+                - operatorgroups
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - deploy.razee.io
+              resources:
+                - remoteresourcess3
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+            - apiGroups:
+                - config.openshift.io
+              resources:
+                - consoles
+                - infrastructures
+                - clusterversions
+              verbs:
+                - get
+                - list
+                - patch
+                - update
+            - apiGroups:
+                - marketplace.redhat.com
+              resources:
+                - '*'
+                - meterdefinitions
+                - razeedeployments
+                - meterbases
+                - marketplaceconfigs
+                - remoteresources3s
+              verbs:
+                - '*'
+            - apiGroups:
+                - ""
+              resourceNames:
+                - rhm-cos-reader-key
+                - watch-keeper-secret
+              resources:
+                - secrets
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - ""
+              resourceNames:
+                - watch-keeper-config
+                - watch-keeper-limit-poll
+                - watch-keeper-non-namespaced
+                - razee-cluster-metadata
+              resources:
+                - configmaps
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - authentication.k8s.io
+              resources:
+                - tokenreviews
+              verbs:
+                - create
+            - apiGroups:
+                - authorization.k8s.io
+              resources:
+                - subjectaccessreviews
+              verbs:
+                - create
+            - nonResourceURLs:
+                - /api/v1/query
+                - /api/v1/query_range
+              verbs:
+                - get
+                - create
+            - apiGroups:
+                - apiextensions.k8s.io
+              resources:
+                - customresourcedefinitions
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - apiextensions.k8s.io
+              resourceNames:
+                - meterdefinitions.marketplace.redhat.com
+              resources:
+                - customresourcedefinitions
+              verbs:
+                - update
+          serviceAccountName: redhat-marketplace-operator
       deployments:
-      - name: redhat-marketplace-controller-manager
-        spec:
-          replicas: 1
-          selector:
-            matchLabels:
-              redhat.marketplace.com/name: redhat-marketplace-operator
-          strategy: {}
-          template:
-            metadata:
-              annotations:
-                productID: 068a62892a1e4db39641342e592daa25
-                productMetric: FREE
-                productName: IBM Cloud Platform Common Services
-              labels:
-                control-plane: controller-manager
+        - name: redhat-marketplace-controller-manager
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
                 redhat.marketplace.com/name: redhat-marketplace-operator
             strategy: {}
             template:
@@ -673,14 +628,26 @@ spec:
                         value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
                       - name: IBMCATALOGSOURCE
                         value: "true"
+                      - name: OS_IMAGE_KUBE_RBAC_PROXY
+                        value: quay.io/coreos/kube-rbac-proxy:v0.5.0
+                      - name: OS_IMAGE_PROMETHEUS
+                        value: quay.io/prometheus/prometheus:v2.24.0
+                      - name: OS_IMAGE_PROMETHEUS_OPERATOR
+                        value: quay.io/coreos/prometheus-operator:v0.42.1
+                      - name: OS_IMAGE_CONFIGMAP_RELOADER
+                        value: quay.io/coreos/configmap-reload:v0.0.1
+                      - name: OS_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
+                        value: quay.io/coreos/prometheus-config-reloader:v0.42.1
+                      - name: OS_IMAGE_OAUTH_PROXY
+                        value: quay.io/oauth2-proxy/oauth2-proxy:v6.1.1
                       - name: OPERATOR_NAME
                         value: redhat-marketplace-operator
                       - name: RELATED_IMAGE_REPORTER
-                        value: quay.io/rh-marketplace/redhat-marketplace-reporter:2.0.0-6849abb0c74c41c65abf00ebb592b655c60344bb-amd64
+                        value: quay.io/zach_source/redhat-marketplace-reporter:2.1.0_2
                       - name: RELATED_IMAGE_METRIC_STATE
-                        value: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.0.0-6849abb0c74c41c65abf00ebb592b655c60344bb-amd64
+                        value: quay.io/zach_source/redhat-marketplace-metric-state:2.1.0_2
                       - name: RELATED_IMAGE_AUTHCHECK
-                        value: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.0.0-6849abb0c74c41c65abf00ebb592b655c60344bb-amd64
+                        value: quay.io/zach_source/redhat-marketplace-authcheck:2.1.0_2
                       - name: WATCH_NAMESPACE
                         valueFrom:
                           fieldRef:
@@ -705,12 +672,28 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.labels['olm.owner.kind']
-                    image: quay.io/rh-marketplace/redhat-marketplace-operator:2.0.0-6849abb0c74c41c65abf00ebb592b655c60344bb-amd64
+                      - name: OPERATOR_GROUP
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.annotations['olm.operatorGroup']
+                    image: quay.io/zach_source/redhat-marketplace-operator:2.1.0_2
+                    livenessProbe:
+                      httpGet:
+                        path: /healthz
+                        port: 8081
+                      initialDelaySeconds: 15
+                      periodSeconds: 20
                     name: manager
                     ports:
                       - containerPort: 9443
                         name: webhook-server
                         protocol: TCP
+                    readinessProbe:
+                      httpGet:
+                        path: /readyz
+                        port: 8081
+                      initialDelaySeconds: 5
+                      periodSeconds: 10
                     resources:
                       requests:
                         cpu: 100m
@@ -738,3 +721,226 @@ spec:
                       defaultMode: 420
                       optional: true
                       secretName: redhat-marketplace-controller-manager-service
+      permissions:
+        - rules:
+            - apiGroups:
+                - ""
+              resources:
+                - configmaps
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - ""
+              resources:
+                - configmaps/status
+              verbs:
+                - get
+                - update
+                - patch
+            - apiGroups:
+                - ""
+              resources:
+                - events
+              verbs:
+                - create
+                - patch
+            - apiGroups:
+                - deploy.razee.io
+              resources:
+                - '*'
+                - remoteresourcess3
+                - remoteresources
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - update
+                - patch
+                - watch
+            - apiGroups:
+                - ""
+              resources:
+                - pods
+                - services
+                - services/finalizers
+                - endpoints
+                - persistentvolumeclaims
+                - events
+                - configmaps
+                - secrets
+                - serviceaccounts/token
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - operators.coreos.com
+              resources:
+                - subscriptions
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - delete
+                - patch
+                - watch
+                - update
+            - apiGroups:
+                - batch
+                - extensions
+              resources:
+                - jobs
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - apps
+              resources:
+                - deployments
+                - daemonsets
+                - replicasets
+                - statefulsets
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - apps
+              resourceNames:
+                - redhat-marketplace-operator
+              resources:
+                - deployments/finalizers
+              verbs:
+                - update
+            - apiGroups:
+                - monitoring.coreos.com
+              resources:
+                - '*'
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - patch
+                - update
+                - watch
+            - apiGroups:
+                - ""
+              resourceNames:
+                - razeedeploy-sa
+                - watch-keeper-sa
+              resources:
+                - serviceaccounts
+              verbs:
+                - create
+                - delete
+                - get
+                - list
+                - update
+                - patch
+                - watch
+            - apiGroups:
+                - ""
+              resourceNames:
+                - pull-secret
+              resources:
+                - secrets
+              verbs:
+                - get
+                - watch
+                - list
+          serviceAccountName: redhat-marketplace-operator
+    strategy: deployment
+  installModes:
+    - supported: true
+      type: OwnNamespace
+    - supported: true
+      type: SingleNamespace
+    - supported: true
+      type: MultiNamespace
+    - supported: false
+      type: AllNamespaces
+  keywords:
+    - red hat marketplace
+    - operators
+    - buy
+  links:
+    - name: Visit the marketplace!
+      url: https://marketplace.redhat.com
+    - name: About
+      url: https://marketplace.redhat.com/en-us/about
+    - name: Support
+      url: https://marketplace.redhat.com/en-us/support
+  maintainers:
+    - email: rhmoper@us.ibm.com
+      name: RHM Operator Team
+  maturity: stable
+  provider:
+    name: Red Hat Marketplace
+  version: 2.1.0
+  webhookdefinitions:
+    - admissionReviewVersions:
+        - v1beta1
+      containerPort: 9443
+      deploymentName: redhat-marketplace-controller-manager
+      failurePolicy: Fail
+      generateName: vmeterdefinition.marketplace.redhat.com
+      rules:
+        - apiGroups:
+            - marketplace.redhat.com
+          apiVersions:
+            - v1beta1
+          operations:
+            - CREATE
+            - UPDATE
+          resources:
+            - meterdefinitions
+      sideEffects: None
+      targetPort: 9443
+      type: ValidatingAdmissionWebhook
+      webhookPath: /validate-marketplace-redhat-com-v1beta1-meterdefinition
+    - admissionReviewVersions:
+        - v1beta1
+      containerPort: 9443
+      deploymentName: redhat-marketplace-controller-manager
+      failurePolicy: Fail
+      generateName: mmeterdefinition.marketplace.redhat.com
+      rules:
+        - apiGroups:
+            - marketplace.redhat.com
+          apiVersions:
+            - v1beta1
+          operations:
+            - CREATE
+            - UPDATE
+          resources:
+            - meterdefinitions
+      sideEffects: None
+      targetPort: 9443
+      type: MutatingAdmissionWebhook
+      webhookPath: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
+  metadata:
+    annotations:
+      containerImage: quay.io/zach_source/redhat-marketplace-operator:2.1.0_2
+      createdAt: "2021-03-17T17:20:08Z"

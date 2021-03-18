@@ -3,9 +3,6 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.0
-    productID: 068a62892a1e4db39641342e592daa25
-    productMetric: FREE
-    productName: IBM Cloud Platform Common Services
   creationTimestamp: null
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
@@ -301,6 +298,34 @@ spec:
                           required:
                           - status
                           - type
+                          type: object
+                        type: array
+                      results:
+                        description: Results is a list of Results that get returned from a query to prometheus
+                        items:
+                          description: Result is a result of a query defined on the meterdefinition. This will generate data for the previous hour on whichever workload you specify. This will allow you to check whether a query is working as intended.
+                          properties:
+                            metricName:
+                              description: MetricName is the identifier that you will use to identify your query
+                              type: string
+                            query:
+                              description: Query is the compiled query that is given to Prometheus
+                              type: string
+                            values:
+                              description: Values are the results of the query
+                              items:
+                                description: ResultValues will hold the results of the prometheus query
+                                properties:
+                                  timestamp:
+                                    format: int64
+                                    type: integer
+                                  value:
+                                    type: string
+                                required:
+                                - timestamp
+                                - value
+                                type: object
+                              type: array
                           type: object
                         type: array
                       workloadResource:

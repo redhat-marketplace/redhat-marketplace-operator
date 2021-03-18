@@ -221,7 +221,16 @@ bundle-deploy:
 	docker push $(BUNDLE_IMG)
 
 bundle-run: operator-sdk
-	$(OPERATOR_SDK) run bundle $(BUNDLE_IMG)
+	$(OPERATOR_SDK) run bundle $(BUNDLE_IMG) --namespace openshift-redhat-marketplace
+
+bundle-run-install:
+	$(MAKE) skaffold-build bundle bundle-build bundle-deploy bundle-run
+
+bundle-run-uninstall:
+	for NAME in marketplaceconfigs.marketplace.redhat.com subscriptions.operators.coreos.com csv operatorgroup catalogsources.operators.coreos.com ; do \
+		kubectl delete $$NAME --all -n openshift-redhat-marketplace ; \
+	done
+
 
 BUNDLE_IMAGE_REGISTRY ?= $(IMAGE_REGISTRY)
 

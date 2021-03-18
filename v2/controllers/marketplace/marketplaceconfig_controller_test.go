@@ -82,31 +82,31 @@ var _ = Describe("Testing with Ginkgo", func() {
 			},
 		}
 
-		secret *corev1.Secret
+		secret      *corev1.Secret
 		tokenString string
-		
+
 		marketplaceconfig *marketplacev1alpha1.MarketplaceConfig
 		razeedeployment   *marketplacev1alpha1.RazeeDeployment
 		meterbase         *marketplacev1alpha1.MeterBase
-		mbuilder *marketplace.MarketplaceClientBuilder
-		cfg *config.OperatorConfig
+		mbuilder          *marketplace.MarketplaceClientBuilder
+		cfg               *config.OperatorConfig
 	)
 
 	BeforeEach(func() {
 		marketplaceconfig = utils.BuildMarketplaceConfigCR(namespace, customerID)
 		marketplaceconfig.Spec.ClusterUUID = "test"
-		razeedeployment   = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
-		meterbase         = utils.BuildMeterBaseCr(namespace)
-		Eventually(func()string{
+		razeedeployment = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
+		meterbase = utils.BuildMeterBaseCr(namespace)
+		Eventually(func() string {
 			// Create the token
 			jwtToken := jwt.New(jwt.SigningMethodHS256)
-			tokenString,err = jwtToken.SignedString([]byte("test"))
+			tokenString, err = jwtToken.SignedString([]byte("test"))
 			if err != nil {
 				panic(err)
 			}
 
 			return tokenString
-		},timeout,interval).ShouldNot(BeEmpty())
+		}, timeout, interval).ShouldNot(BeEmpty())
 		// start a test http server
 		server = ghttp.NewTLSServer()
 		server.SetAllowUnhandledRequests(true)
@@ -123,11 +123,11 @@ var _ = Describe("Testing with Ginkgo", func() {
 		cfg = &config.OperatorConfig{
 			DeployedNamespace: namespace,
 			Marketplace: config.Marketplace{
-				URL: addr,
+				URL:            addr,
 				InsecureClient: true,
 			},
 		}
-		
+
 		mbuilder = marketplace.NewMarketplaceClientBuilder(cfg).SetTLSConfig(&tls.Config{
 			RootCAs:            server.HTTPTestServer.TLS.RootCAs,
 			InsecureSkipVerify: true,
@@ -142,10 +142,9 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 		server.RouteToHandler(
 			"GET", path, ghttp.CombineHandlers(
-				ghttp.VerifyRequest("GET",path,"accountId=accountid&uuid=test"),
-				ghttp.RespondWithPtr(&statusCode,&body,
-			),
-		))
+				ghttp.VerifyRequest("GET", path, "accountId=accountid&uuid=test"),
+				ghttp.RespondWithPtr(&statusCode, &body),
+			))
 	})
 
 	AfterEach(func() {
@@ -165,11 +164,11 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 				r.Client = fake.NewFakeClient(r.GetGetObjects()...)
 				r.Reconciler = &MarketplaceConfigReconciler{
-					Client: r.Client,
-					Scheme: s,
-					Log:    log,
-					cc:     reconcileutils.NewLoglessClientCommand(r.Client, s),
-					cfg: cfg,
+					Client:         r.Client,
+					Scheme:         s,
+					Log:            log,
+					cc:             reconcileutils.NewLoglessClientCommand(r.Client, s),
+					cfg:            cfg,
 					mclientBuilder: mbuilder,
 				}
 				return nil
