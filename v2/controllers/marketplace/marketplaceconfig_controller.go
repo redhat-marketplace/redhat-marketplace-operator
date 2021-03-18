@@ -20,7 +20,9 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
@@ -211,6 +213,23 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		reqLogger.Error(err, "couldn't find pull secret")
 	}
 
+	var updateInstanceSpec bool 
+	if clusterDisplayName,ok := secret.Data[utils.ClusterDisplayNameKey]; ok {
+		count := utf8.RuneCountInString(string(clusterDisplayName))
+		clusterName := strings.Trim(string(clusterDisplayName),"\n")
+
+		if !reflect.DeepEqual(marketplaceConfig.Spec.ClusterName,clusterName){
+			if count <= 256 {
+				marketplaceConfig.Spec.ClusterName = clusterName
+				updateInstanceSpec = true
+				reqLogger.Info("setting ClusterName","name", clusterName)
+			} else {
+				err := errors.New("CLUSTER_DISPLAY_NAME exceeds 256 chars")
+				reqLogger.Error(err, "name",clusterDisplayName)
+			}
+		}
+	} 
+
 	token := string(pullSecret)
 	tokenClaims, err := marketplace.GetJWTTokenClaim(token)
 	if err != nil {
@@ -273,15 +292,18 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	if v, ok := marketplaceConfig.Labels[utils.RazeeWatchResource]; !ok || v != utils.RazeeWatchLevelDetail {
+		updateInstanceSpec = true
 		marketplaceConfig.Labels[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
-
+	}
+	
+	if updateInstanceSpec {
 		err = r.Client.Update(context.TODO(), marketplaceConfig)
 
 		if err != nil {
-			reqLogger.Error(err, "Failed to create to updatee the marketplace config")
+			reqLogger.Error(err, "Failed to update the marketplace config")
 			return reconcile.Result{}, err
 		}
-
+	
 		return reconcile.Result{Requeue: true}, nil
 	}
 
