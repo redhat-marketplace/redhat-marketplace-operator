@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"bytes"
+	"strconv"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
@@ -67,13 +68,32 @@ const (
 )
 const (
 	WorkloadTypePod     WorkloadType = "Pod"
-	WorkloadTypeService              = "Service"
-	WorkloadTypePVC                  = "PersistentVolumeClaim"
+	WorkloadTypeService WorkloadType = "Service"
+	WorkloadTypePVC     WorkloadType = "PersistentVolumeClaim"
+)
+const (
+	ReconcileError                 status.ConditionType = "Reconcile Error"
+	MeterDefQueryPreviewSetupError status.ConditionType = "QueryPreviewSetupError"
 )
 
 type WorkloadVertex string
 type WorkloadType string
 type CSVNamespacedName common.NamespacedNameReference
+
+func (a *WorkloadType) UnmarshalJSON(b []byte) error {
+	str, err := strconv.Unquote(string(b))
+
+	if err != nil {
+		return err
+	}
+
+	*a = WorkloadType(str)
+	return nil
+}
+
+func (a WorkloadType) MarshalJSON() ([]byte, error) {
+	return []byte(strconv.Quote(string(a))), nil
+}
 
 type ResourceFilter struct {
 	// Namespace is the filter to control which namespaces to look for your resources.
@@ -91,7 +111,10 @@ type ResourceFilter struct {
 
 	// WorkloadType identifies the type of workload to look for. This can be
 	// pod or service right now.
-	WorkloadType WorkloadTypeFilter `json:",inline"`
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:Pod,urn:alm:descriptor:com.tectonic.ui:select:Service,urn:alm:descriptor:com.tectonic.ui:select:PersistentVolumeClaim"
+	// +kubebuilder:validation:Enum:=Pod;Service;PersistentVolumeClaim
+	WorkloadType WorkloadType `json:"workloadType"`
 }
 
 type NamespaceFilter struct {
@@ -102,15 +125,6 @@ type NamespaceFilter struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
-}
-
-type WorkloadTypeFilter struct {
-	// WorkloadType identifies the type of workload to look for. This can be
-	// pod or service right now.
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:Pod,urn:alm:descriptor:com.tectonic.ui:select:Service,urn:alm:descriptor:com.tectonic.ui:select:PersistentVolumeClaim"
-	// +kubebuilder:validation:Enum:=Pod;Service;PersistentVolumeClaim
-	WorkloadType WorkloadType `json:"workloadType"`
 }
 
 type OwnerCRDFilter struct {
@@ -150,7 +164,10 @@ type MeterWorkload struct {
 
 	// WorkloadType identifies the type of workload to look for. This can be
 	// pod or service right now.
-	WorkloadType WorkloadTypeFilter `json:",inline"`
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:select:Pod,urn:alm:descriptor:com.tectonic.ui:select:Service,urn:alm:descriptor:com.tectonic.ui:select:PersistentVolumeClaim"
+	// +kubebuilder:validation:Enum:=Pod;Service;PersistentVolumeClaim
+	WorkloadType WorkloadType `json:"workloadType"`
 
 	// Group is the set of label fields returned by query to aggregate on.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
@@ -205,6 +222,10 @@ type MeterDefinitionStatus struct {
 	// this meter definition
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	WorkloadResources []common.WorkloadResource `json:"workloadResource,omitempty"`
+
+	// Results is a list of Results that get returned from a query to prometheus
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	Results []common.Result `json:"results,omitempty"`
 }
 
 // MeterDefinition defines the meter workloads used to enable pay for
@@ -258,14 +279,15 @@ func (meterdef *MeterDefinition) ToPrometheusLabels() []*common.MeterDefPromethe
 			MeterDefName:       string(meterdef.Name),
 			MeterDefNamespace:  string(meterdef.Namespace),
 			MeterKind:          meterdef.Spec.Kind,
+			WorkloadName:       meter.Metric,
 			Metric:             meter.Metric,
 			MetricGroupBy:      common.JSONArray(meter.GroupBy),
 			MeterGroup:         meterdef.Spec.Group,
 			MetricQuery:        meter.Query,
 			MetricPeriod:       period,
-			WorkloadName:       meter.Name,
+			DisplayName:        meter.Name,
 			MetricWithout:      common.JSONArray(meter.Without),
-			WorkloadType:       string(meter.WorkloadType.WorkloadType),
+			WorkloadType:       string(meter.WorkloadType),
 			MetricAggregation:  meter.Aggregation,
 			MeterDescription:   meter.Description,
 			DateLabelOverride:  meter.DateLabelOverride,
@@ -299,4 +321,14 @@ func (meterdef *MeterDefinition) BuildMeterDefinitionFromString(
 	}
 
 	return nil
+}
+
+func (meterdef *MeterDefinition) IsSigned() bool {
+	annotations := meterdef.GetAnnotations()
+	publicKey := annotations["marketplace.redhat.com/publickey"]
+	signature := annotations["marketplace.redhat.com/signature"]
+	if (len(publicKey) != 0) && (len(signature) != 0) {
+		return true
+	}
+	return false
 }

@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -25,9 +26,12 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/operrors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -47,6 +51,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -72,13 +77,19 @@ type MeterBaseReconciler struct {
 	Log    logr.Logger
 	CC     ClientCommandRunner
 
-	factory manifests.Factory
+	cfg     *config.OperatorConfig
+	factory *manifests.Factory
 	patcher patch.Patcher
 }
 
-func (r *MeterBaseReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
+func (r *MeterBaseReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
 	injector.SetCustomFields(r)
 	return r
+}
+
+func (r *MeterBaseReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
+	r.cfg = cfg
+	return nil
 }
 
 func (r *MeterBaseReconciler) InjectCommandRunner(ccp ClientCommandRunner) error {
@@ -92,7 +103,7 @@ func (r *MeterBaseReconciler) InjectPatch(p patch.Patcher) error {
 	return nil
 }
 
-func (r *MeterBaseReconciler) InjectFactory(f manifests.Factory) error {
+func (r *MeterBaseReconciler) InjectFactory(f *manifests.Factory) error {
 	r.factory = f
 	return nil
 }
@@ -109,41 +120,46 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			}
 		})
 
+	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
+
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&marketplacev1alpha1.MeterDefinition{}).
-		Watches(
-			&source.Kind{Type: &marketplacev1alpha1.MeterBase{}},
-			&handler.EnqueueRequestForObject{}).
+		For(&marketplacev1alpha1.MeterBase{}).
 		Watches(
 			&source.Kind{Type: &corev1.ConfigMap{}},
 			&handler.EnqueueRequestForOwner{
 				IsController: true,
-				OwnerType:    &marketplacev1alpha1.MeterBase{}}).
+				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(namespacePredicate)).
 		Watches(
 			&source.Kind{Type: &monitoringv1.Prometheus{}},
 			&handler.EnqueueRequestForOwner{
 				IsController: true,
-				OwnerType:    &marketplacev1alpha1.MeterBase{}}).
+				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(namespacePredicate)).
 		Watches(
 			&source.Kind{Type: &corev1.Service{}},
 			&handler.EnqueueRequestForOwner{
 				IsController: true,
-				OwnerType:    &marketplacev1alpha1.MeterBase{}}).
+				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(namespacePredicate)).
 		Watches(
 			&source.Kind{Type: &monitoringv1.ServiceMonitor{}},
 			&handler.EnqueueRequestForOwner{
 				IsController: true,
-				OwnerType:    &marketplacev1alpha1.MeterBase{}}).
+				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(namespacePredicate)).
 		Watches(
 			&source.Kind{Type: &corev1.Secret{}},
 			&handler.EnqueueRequestForOwner{
 				IsController: true,
-				OwnerType:    &marketplacev1alpha1.MeterBase{}}).
+				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(namespacePredicate)).
 		Watches(
 			&source.Kind{Type: &appsv1.StatefulSet{}},
 			&handler.EnqueueRequestForOwner{
 				IsController: true,
-				OwnerType:    &marketplacev1alpha1.MeterBase{}}).
+				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(namespacePredicate)).
 		Watches(
 			&source.Kind{Type: &corev1.Namespace{}},
 			&handler.EnqueueRequestsFromMapFunc{
@@ -179,7 +195,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterBase")
 
-	factory := &r.factory
+	factory := r.factory
 	cc := r.CC
 
 	// Fetch the MeterBase instance
@@ -587,7 +603,6 @@ func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 	factory *manifests.Factory,
 ) []ClientAction {
 	reqLogger := r.Log.WithValues("Request.Namespace", instance.Namespace, "Request.Name", instance.Name)
-	nsList := &corev1.NamespaceList{}
 	cm := &corev1.ConfigMap{}
 	deployment := &appsv1.Deployment{}
 	service := &corev1.Service{}
@@ -597,19 +612,9 @@ func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 		Patcher: r.patcher,
 	}
 
-	nsLabelSelector, _ := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
-		MatchExpressions: []metav1.LabelSelectorRequirement{
-			{
-				Key:      "openshift.io/cluster-monitoring",
-				Operator: "DoesNotExist",
-			},
-		},
-	})
+	watchNamespace, _ := getWatchNamespace()
 
 	return []ClientAction{
-		ListAction(nsList, client.MatchingLabelsSelector{
-			Selector: nsLabelSelector,
-		}),
 		manifests.CreateIfNotExistsFactoryItem(
 			cm,
 			func() (runtime.Object, error) {
@@ -626,10 +631,7 @@ func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 		manifests.CreateOrUpdateFactoryItemAction(
 			deployment,
 			func() (runtime.Object, error) {
-				nsValues := []string{instance.Namespace}
-				for _, ns := range nsList.Items {
-					nsValues = append(nsValues, ns.Name)
-				}
+				nsValues := strings.Split(watchNamespace, ",")
 				sort.Strings(nsValues)
 				reqLogger.Info("found namespaces", "ns", nsValues)
 				return factory.NewPrometheusOperatorDeployment(nsValues)
@@ -871,7 +873,7 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 		),
 		HandleResult(
 			GetAction(
-				types.NamespacedName{Namespace: instance.Namespace, Name: "serving-certs-ca-bundle"},
+				types.NamespacedName{Namespace: "openshift-monitoring", Name: "kubelet-serving-ca-bundle"},
 				kubeletCertsCM,
 			),
 			OnNotFound(Call(func() (ClientAction, error) {
@@ -880,7 +882,7 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 			OnContinue(manifests.CreateOrUpdateFactoryItemAction(
 				&corev1.ConfigMap{},
 				func() (runtime.Object, error) {
-					return factory.PrometheusKubeletServingCABundle(kubeletCertsCM.Data["service-ca.crt"])
+					return factory.PrometheusKubeletServingCABundle(kubeletCertsCM.Data["ca-bundle.crt"])
 				},
 				args,
 			))),
@@ -1174,6 +1176,15 @@ func (r *MeterBaseReconciler) createPrometheus(
 		createResult := &ExecResult{}
 
 		if err != nil {
+			if merrors.Is(err, operrors.DefaultStorageClassNotFound) {
+				return UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
+					Type:    marketplacev1alpha1.ConditionError,
+					Status:  corev1.ConditionFalse,
+					Reason:  marketplacev1alpha1.ReasonMeterBasePrometheusInstall,
+					Message: err.Error(),
+				}), nil
+			}
+
 			return nil, merrors.Wrap(err, "error creating prometheus")
 		}
 
@@ -1211,7 +1222,7 @@ func (r *MeterBaseReconciler) newPrometheusOperator(
 ) (*monitoringv1.Prometheus, error) {
 	prom, err := factory.NewPrometheusDeployment(cr, cfg)
 
-	factory.SetOwnerReference(prom, cr)
+	factory.SetOwnerReference(cr, prom)
 
 	if cr.Spec.Prometheus.Storage.Class == nil {
 		defaultClass, err := utils.GetDefaultStorageClass(r.Client)
@@ -1269,4 +1280,18 @@ func (r *MeterBaseReconciler) newBaseConfigMap(filename string, cr *marketplacev
 // belonging to the given prometheus CR name.
 func labelsForPrometheusOperator(name string) map[string]string {
 	return map[string]string{"prometheus": name}
+}
+
+// getWatchNamespace returns the Namespace the operator should be watching for changes
+func getWatchNamespace() (string, error) {
+	// WatchNamespaceEnvVar is the constant for env variable WATCH_NAMESPACE
+	// which specifies the Namespace to watch.
+	// An empty value means the operator is running with cluster scope.
+	var watchNamespaceEnvVar = "WATCH_NAMESPACE"
+
+	ns, found := os.LookupEnv(watchNamespaceEnvVar)
+	if !found {
+		return "", fmt.Errorf("%s must be set", watchNamespaceEnvVar)
+	}
+	return ns, nil
 }

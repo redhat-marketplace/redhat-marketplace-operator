@@ -14,3 +14,10 @@ rules:
   - delete
   - watch
   - list
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - list
+  - watch

@@ -4,9 +4,11 @@ go 1.15
 
 require (
 	emperror.dev/errors v0.8.0
+	github.com/allegro/bigcache v1.2.1
 	github.com/cespare/xxhash v1.1.0
 	github.com/go-logr/logr v0.3.0
 	github.com/google/wire v0.4.0
+	github.com/gotidy/ptr v1.3.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/openshift/api v0.0.0-20200930075302-db52bc4ef99f
 	github.com/openshift/origin v4.1.0+incompatible

@@ -22,36 +22,30 @@ import (
 	"github.com/google/wire"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 )
 
-func initializeRunnables(
+func initializeInjectDependencies(
+	cache cache.Cache,
 	fields *managers.ControllerFields,
-	namespace managers.DeployedNamespace,
-) (runnables.Runnables, error) {
+) (injectorDependencies, error) {
 	panic(wire.Build(
 		managers.ProvideManagerSet,
 		runnables.RunnableSet,
 		reconcileutils.NewClientCommand,
-		managers.ProvidePodMonitorConfig,
-		config.GetConfig,
-	))
-}
-
-func initializeInjectables(
-	fields *managers.ControllerFields,
-	namespace managers.DeployedNamespace,
-) (Injectables, error) {
-	panic(wire.Build(
+		config.ProvideInfrastructureAwareConfig,
 		ProvideInjectables,
-		managers.ProvideManagerSet,
-		reconcileutils.NewClientCommand,
-		config.GetConfig,
 		wire.Struct(new(ClientCommandInjector), "*"),
 		wire.Struct(new(OperatorConfigInjector), "*"),
 		wire.Struct(new(PatchInjector), "*"),
 		wire.Struct(new(FactoryInjector), "*"),
+		wire.Struct(new(KubeInterfaceInjector), "*"),
+		wire.Struct(new(injectorDependencies), "*"),
+		ProvideNamespace,
+		manifests.NewFactory,
 	))
 }
 

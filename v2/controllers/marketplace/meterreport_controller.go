@@ -24,10 +24,11 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	batchv1 "k8s.io/api/batch/v1"
@@ -66,11 +67,11 @@ type MeterReportReconciler struct {
 
 	CC      ClientCommandRunner
 	patcher patch.Patcher
-	cfg     config.OperatorConfig
-	factory manifests.Factory
+	cfg     *config.OperatorConfig
+	factory *manifests.Factory
 }
 
-func (r *MeterReportReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
+func (r *MeterReportReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
 	injector.SetCustomFields(r)
 	return r
 }
@@ -86,36 +87,22 @@ func (r *MeterReportReconciler) InjectPatch(p patch.Patcher) error {
 	return nil
 }
 
-func (r *MeterReportReconciler) InjectFactory(f manifests.Factory) error {
+func (r *MeterReportReconciler) InjectFactory(f *manifests.Factory) error {
 	r.factory = f
 	return nil
 }
 
-func (m *MeterReportReconciler) InjectOperatorConfig(cfg config.OperatorConfig) error {
+func (m *MeterReportReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
 	return nil
 }
 
 func (r *MeterReportReconciler) SetupWithManager(mgr manager.Manager) error {
-	cfg, _ := config.GetConfig()
-	nspred := predicate.Funcs{
-		// Ensures MarketPlaceConfig reconciles only within namespace
-		GenericFunc: func(e event.GenericEvent) bool {
-			return e.Meta.GetNamespace() == cfg.DeployedNamespace
-		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			return e.MetaOld.GetNamespace() == cfg.DeployedNamespace && e.MetaNew.GetNamespace() == cfg.DeployedNamespace
-		},
-		CreateFunc: func(e event.CreateEvent) bool {
-			return e.Meta.GetNamespace() == cfg.DeployedNamespace
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Meta.GetNamespace() == cfg.DeployedNamespace
-		},
-	}
+	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&marketplacev1alpha1.MeterReport{}, builder.WithPredicates(nspred)).
+		WithEventFilter(namespacePredicate).
+		For(&marketplacev1alpha1.MeterReport{}).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.MeterReport{}}, &handler.EnqueueRequestForObject{}).
 		Watches(&source.Kind{Type: &batchv1.Job{}}, &handler.EnqueueRequestForOwner{
 			IsController: true,

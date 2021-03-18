@@ -71,7 +71,7 @@ func (src *MeterDefinition) ConvertTo(dstRaw conversion.Hub) error {
 			return err
 		}
 
-		filters.WorkloadType.WorkloadType = workloadType
+		filters.WorkloadType = workloadType
 
 		if workload.OwnerCRD != nil {
 			filters.OwnerCRD = &v1beta1.OwnerCRDFilter{
@@ -85,7 +85,7 @@ func (src *MeterDefinition) ConvertTo(dstRaw conversion.Hub) error {
 			meters = append(meters, v1beta1.MeterWorkload{
 				Aggregation:  metricLabel.Aggregation,
 				GroupBy:      []string{},
-				WorkloadType: v1beta1.WorkloadTypeFilter{WorkloadType: workloadType},
+				WorkloadType: workloadType,
 				Metric:       metricLabel.Label,
 				Name:         workload.Name,
 				Period:       &metaHRDuration,
@@ -102,6 +102,7 @@ func (src *MeterDefinition) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.ResourceFilters = resourceFilters
 	dst.Status.Conditions = src.Status.Conditions
 	dst.Status.WorkloadResources = src.Status.WorkloadResources
+	dst.Status.Results = src.Status.Results
 	return nil
 }
 
@@ -179,6 +180,7 @@ func (dst *MeterDefinition) ConvertFrom(srcRaw conversion.Hub) error {
 	dst.Spec.InstalledBy = src.Spec.InstalledBy
 	dst.Status.Conditions = src.Status.Conditions
 	dst.Status.WorkloadResources = src.Status.WorkloadResources
+	dst.Status.Results = src.Status.Results
 
 	return nil
 }

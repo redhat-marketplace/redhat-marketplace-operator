@@ -19,13 +19,18 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
+	"time"
 
 	"emperror.dev/errors"
+	"github.com/allegro/bigcache"
 	"github.com/cespare/xxhash"
 	"github.com/go-logr/logr"
+	"github.com/gotidy/ptr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,33 +40,84 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+var lookupCache = utils.Must(func() (interface{}, error) {
+	cache, err := bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &resultCache{
+		cache: cache,
+		mutex: sync.RWMutex{},
+	}, nil
+}).(*resultCache)
+
 type MeterDefWorkload = types.NamespacedName
 
 type MeterDefinitionLookupFilter struct {
-	MeterDefName MeterDefWorkload
-	workloads    []v1beta1.ResourceFilter
-	filters      [][]FilterRuntimeObject
-	cc           ClientCommandRunner
-	log          logr.Logger
-	findOwner    *rhmclient.FindOwnerHelper
+	MeterDefUID     string
+	MeterDefName    MeterDefWorkload
+	ResourceVersion string
+	workloads       []v1beta1.ResourceFilter
+	filters         [][]FilterRuntimeObject
+	cc              ClientCommandRunner
+	log             logr.Logger
+	findOwner       *rhmclient.FindOwnerHelper
 }
 
 var (
 	log = logf.Log.WithName("meterDefLookupFilter")
 )
 
+type resultCache struct {
+	cache *bigcache.BigCache
+	mutex sync.RWMutex
+}
+
+func (r *resultCache) cacheKey(filter *MeterDefinitionLookupFilter, obj metav1.Object) string {
+	return fmt.Sprintf("mdefuid:%s::uid:%s", filter.MeterDefUID, string(obj.GetUID()))
+}
+
+func (r *resultCache) Get(filter *MeterDefinitionLookupFilter, obj metav1.Object) *bool {
+	r.mutex.RLock()
+	key := r.cacheKey(filter, obj)
+	entry, err := r.cache.Get(key)
+	r.mutex.RUnlock()
+
+	if errors.Is(err, bigcache.ErrEntryNotFound) {
+		return ptr.Bool(false)
+	}
+
+	return ptr.Bool(entry[0] == 1)
+}
+
+func (r *resultCache) Set(filter *MeterDefinitionLookupFilter, obj metav1.Object, result bool) error {
+	r.mutex.Lock()
+	key := r.cacheKey(filter, obj)
+	val := []byte{0}
+	if result {
+		val[0] = 1
+	}
+	err := r.cache.Set(key, val)
+	r.mutex.Unlock()
+	return err
+}
+
 func NewMeterDefinitionLookupFilter(
 	cc ClientCommandRunner,
 	meterdef *v1beta1.MeterDefinition,
 	findOwner *rhmclient.FindOwnerHelper,
 ) (*MeterDefinitionLookupFilter, error) {
-	log.V(4).Info("building filters", "meterdef", meterdef)
+	log.Info("building filters", "name", meterdef.Name, "namespace", meterdef.Namespace)
 
 	s := &MeterDefinitionLookupFilter{
-		MeterDefName: types.NamespacedName{Name: meterdef.Name, Namespace: meterdef.Namespace},
-		findOwner:    findOwner,
-		cc:           cc,
-		log:          log.WithValues("meterdefName", meterdef.Name, "meterdefNamespace", meterdef.Namespace),
+		MeterDefUID:     string(meterdef.UID),
+		MeterDefName:    types.NamespacedName{Name: meterdef.Name, Namespace: meterdef.Namespace},
+		ResourceVersion: meterdef.ResourceVersion,
+		findOwner:       findOwner,
+		cc:              cc,
+		log:             log.WithValues("meterdefName", meterdef.Name, "meterdefNamespace", meterdef.Namespace),
 	}
 
 	ns, err := s.findNamespaces(meterdef)
@@ -84,7 +140,7 @@ func NewMeterDefinitionLookupFilter(
 func (s *MeterDefinitionLookupFilter) Hash() string {
 	h := xxhash.New()
 
-	h.Write([]byte(fmt.Sprintf("%v", s.MeterDefName)))
+	h.Write([]byte(s.MeterDefUID))
 	for k, v := range s.workloads {
 		h.Write([]byte(fmt.Sprintf("%v", k)))
 		h.Write([]byte(fmt.Sprintf("%v", v)))
@@ -106,37 +162,55 @@ func (s *MeterDefinitionLookupFilter) Matches(obj interface{}) (bool, error) {
 		return false, err
 	}
 
-	filterLogger := s.log.WithValues("obj", o.GetName()+"/"+o.GetNamespace(), "type", fmt.Sprintf("%T", obj), "filterLen", len(s.filters))
+	// Use lookup cache
+	// if v := lookupCache.Get(s, o); v != nil {
+	// 	return *v, nil
+	// }
+
+	filterLogger := s.log.V(0).WithValues("obj", o.GetName()+"/"+o.GetNamespace(), "type", fmt.Sprintf("%T", obj), "filterLen", len(s.filters))
 	debugFilterLogger := filterLogger
 
-	for key, workloadFilters := range s.filters {
-		debugFilterLogger.Info("testing", "key", key, "filters", printFilterList(workloadFilters))
-		results := []bool{}
-		for i, filter := range workloadFilters {
-			ans, err := filter.Filter(obj)
+	ans, err := func() (bool, error) {
+		for key, workloadFilters := range s.filters {
+			debugFilterLogger.Info("testing", "key", key, "filters", printFilterList(workloadFilters))
+			results := []bool{}
+			for i, filter := range workloadFilters {
+				ans, err := filter.Filter(obj)
 
-			if err != nil {
-				filterLogger.Error(err, "workload failed due to error", "workloadStatus", "fail", "filters", printFilterList(workloadFilters), "i", i, "filter", filter)
-				return false, err
+				if err != nil {
+					filterLogger.Error(err, "workload failed due to error", "workloadStatus", "fail", "filters", printFilterList(workloadFilters), "i", i, "filter", filter)
+					return false, err
+				}
+
+				if !ans {
+					break
+				}
+
+				results = append(results, ans)
 			}
 
-			if !ans {
-				break
+			if len(results) == 0 || len(results) != len(workloadFilters) {
+				debugFilterLogger.Info("workload did not pass all filters", "workloadStatus", "fail", "filters", printFilterList(workloadFilters))
+				continue
 			}
 
-			results = append(results, ans)
+			debugFilterLogger.Info("workload passed all filters", "workloadStatus", "pass", "filters", printFilterList(workloadFilters))
+			return true, nil
 		}
+		return false, nil
+	}()
 
-		if len(results) == 0 || len(results) != len(workloadFilters) {
-			debugFilterLogger.Info("workload did not pass all filters", "workloadStatus", "fail", "filters", printFilterList(workloadFilters))
-			continue
-		}
-
-		debugFilterLogger.Info("workload passed all filters", "workloadStatus", "pass", "filters", printFilterList(workloadFilters))
-		return true, nil
+	if err != nil {
+		return false, err
 	}
 
-	return false, nil
+	err = lookupCache.Set(s, o, ans)
+
+	if err != nil {
+		return false, err
+	}
+
+	return ans, nil
 }
 
 func (s *MeterDefinitionLookupFilter) findNamespaces(
@@ -252,7 +326,7 @@ func (s *MeterDefinitionLookupFilter) createFilters(
 
 		var err error
 		typeFilter := &WorkloadTypeFilter{}
-		switch filter.WorkloadType.WorkloadType {
+		switch filter.WorkloadType {
 		case v1beta1.WorkloadTypePod:
 			gvk := reflect.TypeOf(&corev1.Pod{})
 			typeFilter.gvks = []reflect.Type{gvk}
@@ -263,10 +337,8 @@ func (s *MeterDefinitionLookupFilter) createFilters(
 			gvk1 := reflect.TypeOf(&corev1.Service{})
 			typeFilter.gvks = []reflect.Type{gvk1}
 		default:
+			s.log.Error(err, "unknown type filter", "type", filter.WorkloadType)
 			err = errors.NewWithDetails("unknown type filter", "type", filter.WorkloadType)
-		}
-
-		if err != nil {
 			return nil, err
 		}
 

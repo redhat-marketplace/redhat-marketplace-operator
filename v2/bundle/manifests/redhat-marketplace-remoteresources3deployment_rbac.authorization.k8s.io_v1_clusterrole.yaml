@@ -13,9 +13,13 @@ rules:
   - '*'
   verbs:
   - '*'
-- nonResourceURLs:
-  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
   verbs:
   - get
   - list
   - watch
+  - update
+  - patch

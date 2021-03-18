@@ -1,10 +1,24 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - timeout: 700
+  - timeout: 30
     script: |
       if [ "$SKIP_DEPLOY" == "" ] ; then cd ../../../.. && make skaffold-run ; else echo "skipping deploy" ; fi
-  - script: kubectl patch deployment redhat-marketplace-controller-manager -n $NAMESPACE --patch "$(cat reportenvpatch.yaml)"
+  - script: |
+      CSVNAME=`kubectl get csv -o json | jq -r '.items[] | select(.metadata.name | contains("redhat-marketplace")) | .metadata.name'`
+      echo "csv name is $CSVNAME"
+
+      if [ "$CSVNAME" != "" ] ; then
+        ALREADY_SET=`kubectl get csv $CSVNAME -o $NAMESPACE jsonpath="{.spec.install.spec.deployments[0].spec.template.spec.containers[0].env[?(@.name=='REPORT_RETRY_LIMIT')]}"`
+
+        if [ "$ALREADY_SET" == "" ] ; then
+          kubectl patch csv $CSVNAME -n $NAMESPACE --type='json' --patch "$(cat csv-reportenvpatch.json)"
+        else
+        echo "already applied patch"
+        fi
+      else
+        kubectl patch deployment redhat-marketplace-controller-manager -n $NAMESPACE --patch "$(cat reportenvpatch.yaml)"
+      fi
 delete:
   - apiVersion: marketplace.redhat.com/v1alpha1
     kind: MarketplaceConfig

@@ -1,4 +1,4 @@
-VERSION ?= 1.0.5
+VERSION ?= $(shell cd ../../v2/tools/version && go run main.go)
 export VERSION
 
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
@@ -15,6 +15,7 @@ all: generate vet fmt
 
 IMAGE_PUSH ?= true
 BUILDX ?= true
+ARCH ?= amd64
 
 ifeq ($(BUILDX),true)
 DOCKERCMD=docker buildx
@@ -32,6 +33,8 @@ docker-build:
 	$(DOCKERCMD) build \
 	-f ./Dockerfile \
 	--tag $(IMAGE) \
+  --build-arg ARCH=$(ARCH) \
+	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
 	--build-arg path=./reporter/v2/ \
 	--build-arg name=\"Reporter\" \
 	--build-arg exec=./cmd/reporter \
@@ -44,6 +47,12 @@ docker-build:
 # Push the docker image
 docker-push:
 	docker push ${IMG}
+
+ARCHS ?= amd64 ppc64le s390x
+
+docker-manifest:
+	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
+	docker manifest push $(IMAGE)
 
 # Run go fmt against code
 fmt:

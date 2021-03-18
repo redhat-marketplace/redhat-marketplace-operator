@@ -77,7 +77,7 @@ var _ = Describe("MeterDefPrometheusLabels", func() {
 			"MeterDefName":      Equal("name"),
 			"MeterDefNamespace": Equal("namespace"),
 			"MetricWithout":     Equal(JSONArray{"a", "b"}),
-			"MetricPeriod" :	 	 PointTo(Equal(*newPromLabels.MetricPeriod)),
+			"MetricPeriod":      PointTo(Equal(*newPromLabels.MetricPeriod)),
 		}))
 
 		promLabels.MetricGroupBy = nil

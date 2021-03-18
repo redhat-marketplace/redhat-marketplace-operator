@@ -13,3 +13,10 @@ metadata:
   name: validating-webhook-configuration
   annotations:
     service.beta.openshift.io/inject-cabundle: "true"
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    service.beta.openshift.io/inject-cabundle: "true"
+  name: meterdefinitions.marketplace.redhat.com

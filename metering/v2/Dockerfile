@@ -1,5 +1,7 @@
 # syntax = docker/dockerfile:experimental
-FROM quay.io/rh-marketplace/golang-base:1.15 as base
+ARG ARCH=amd64
+ARG REGISTRY=quay.io/rh-marketplace
+FROM ${REGISTRY}/golang-base:1.15-${ARCH} as base
 ENV PATH=$PATH:/usr/local/go/bin CGO_ENABLED=0
 
 ARG path
@@ -18,9 +20,9 @@ ARG exec
 ARG bin
 ARG path
 ARG TARGETOS=linux
-ARG TARGETARCH=amd64
+ARG ARCH=amd64
 
-ENV PATH=$PATH:/usr/local/go/bin CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH}
+ENV PATH=$PATH:/usr/local/go/bin CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${ARCH}
 
 RUN --mount=target=. \
     --mount=type=cache,target=/root/.cache/go-build \
@@ -46,6 +48,7 @@ LABEL name="Red Hat Marketplace ${name}" \
   quay.expires-after=${quay_expiration}
 
 RUN microdnf update --setopt=tsflags=nodocs -y \
+  && microdnf install procps-ng \
   && microdnf clean all \
   && rm -rf /var/cache/yum
 
@@ -57,7 +60,7 @@ ENV USER_UID=1001 \
 COPY --from=builder /app/bin /usr/local/bin
 COPY v2/hack/docker/bin/entrypoint /usr/local/bin/entrypoint
 COPY v2/hack/docker/bin/user_setup /usr/local/bin/user_setup
-COPY LICENSE  /licenses/
+COPY v2/LICENSE v2/licenses/* /licenses/
 RUN  /usr/local/bin/user_setup
 
 WORKDIR /usr/local/bin
