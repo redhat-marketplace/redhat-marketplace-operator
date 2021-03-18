@@ -254,7 +254,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		err = r.Client.Update(context.TODO(), marketplaceConfig)
 
 		if err != nil {
-			reqLogger.Error(err, "Failed to create to update the marketplace config")
+			reqLogger.Error(err, "Failed to update the marketplace config")
 			return reconcile.Result{}, err
 		}
 	
