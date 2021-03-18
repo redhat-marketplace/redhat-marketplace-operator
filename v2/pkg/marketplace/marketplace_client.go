@@ -79,12 +79,12 @@ type RegisteredAccount struct {
 }
 
 type MarketplaceClientBuilder struct {
-	Url      string
-	Insecure bool
+	Url        string
+	Insecure   bool
 	TlsOveride *tls.Config
 }
 
-func NewMarketplaceClientBuilder(cfg *config.OperatorConfig) *MarketplaceClientBuilder{
+func NewMarketplaceClientBuilder(cfg *config.OperatorConfig) *MarketplaceClientBuilder {
 	builder := &MarketplaceClientBuilder{}
 
 	builder.Url = ProductionURL
@@ -101,7 +101,7 @@ func NewMarketplaceClientBuilder(cfg *config.OperatorConfig) *MarketplaceClientB
 	return builder
 }
 
-func (b *MarketplaceClientBuilder) SetTLSConfig(tlsConfig *tls.Config) *MarketplaceClientBuilder{
+func (b *MarketplaceClientBuilder) SetTLSConfig(tlsConfig *tls.Config) *MarketplaceClientBuilder {
 	if tlsConfig != nil {
 		b.TlsOveride = tlsConfig
 	}
@@ -112,11 +112,11 @@ func (b *MarketplaceClientBuilder) NewMarketplaceClient(token string, tokenClaim
 	var tlsConfig *tls.Config
 	marketplaceURL := b.Url
 
-	if b.TlsOveride != nil {	
+	if b.TlsOveride != nil {
 		logger.V(2).Info("using tls override")
 		marketplaceURL = b.Url
 		tlsConfig = b.TlsOveride
-				
+
 		var transport http.RoundTripper = &http.Transport{
 			TLSClientConfig: tlsConfig,
 		}

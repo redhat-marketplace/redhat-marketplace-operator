@@ -53,7 +53,7 @@ type ClusterRegistrationReconciler struct {
 	Scheme *runtime.Scheme
 	Log    logr.Logger
 
-	cfg *config.OperatorConfig
+	cfg            *config.OperatorConfig
 	mclientBuilder *marketplace.MarketplaceClientBuilder
 }
 
@@ -123,7 +123,7 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 
 	token := string(pullSecret)
 	r.mclientBuilder = marketplace.NewMarketplaceClientBuilder(r.cfg)
-	mclient, err := r.mclientBuilder.NewMarketplaceClient(token,tokenClaims)
+	mclient, err := r.mclientBuilder.NewMarketplaceClient(token, tokenClaims)
 
 	if err != nil {
 		reqLogger.Error(err, "failed to build marketplaceclient")

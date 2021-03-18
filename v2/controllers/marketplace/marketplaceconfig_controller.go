@@ -16,9 +16,9 @@ package marketplace
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
-	"errors"
 	"reflect"
 	"time"
 
@@ -41,7 +41,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -71,11 +70,11 @@ var _ reconcile.Reconciler = &MarketplaceConfigReconciler{}
 type MarketplaceConfigReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	Client client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
-	cc     ClientCommandRunner
-	cfg    *config.OperatorConfig
+	Client         client.Client
+	Scheme         *runtime.Scheme
+	Log            logr.Logger
+	cc             ClientCommandRunner
+	cfg            *config.OperatorConfig
 	mclientBuilder *marketplace.MarketplaceClientBuilder
 }
 
@@ -106,53 +105,43 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
-	// Update the OperatorGroup targetNamespace list
-	// namespace list is from MarketPlaceConfig NamespaceLabelSelector or a default
-	// In turn, OLM updates the olm.targetNamespaces annotation of
-	// the member operator's ClusterServiceVersion (CSV) instances and is projected into their deployments.
-	// The operatorGroupNamespace is guaranteed to be the same as the marketplaceConfig, unnecessary to use downwardAPI
-	var nsLabelSelector labels.Selector
-
-	if marketplaceConfig.Spec.NamespaceLabelSelector != nil {
-		nsLabelSelector, err = metav1.LabelSelectorAsSelector(marketplaceConfig.Spec.NamespaceLabelSelector)
-		if err != nil {
-			reqLogger.Error(err, "Failed to assign marketplaceConfig.Spec.NamespaceLabelSelector as LabelSelector")
-			return reconcile.Result{}, err
-		}
-	} else {
-		nsLabelSelector, _ = metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
+	// Set default namespaces for workload monitoring
+	if marketplaceConfig.Spec.NamespaceLabelSelector == nil {
+		marketplaceConfig.Spec.NamespaceLabelSelector = &metav1.LabelSelector{
 			MatchExpressions: []metav1.LabelSelectorRequirement{
 				{
 					Key:      "openshift.io/cluster-monitoring",
 					Operator: "DoesNotExist",
 				},
 			},
-		})
+		}
+
+		err = r.Client.Update(context.TODO(), marketplaceConfig)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{Requeue: true}, nil
 	}
 
-	nsList := &corev1.NamespaceList{}
-	nsListOpts := &client.ListOptions{
-		LabelSelector: nsLabelSelector,
-	}
-
-	err = r.Client.List(context.TODO(), nsList, nsListOpts)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	var targetNamespaces []string
-	for _, namespace := range nsList.Items {
-		targetNamespaces = append(targetNamespaces, namespace.ObjectMeta.Name)
-	}
+	// Update the OperatorGroup targetNamespace list
+	// namespace list is from MarketPlaceConfig NamespaceLabelSelector or a default
+	// In turn, OLM updates the olm.targetNamespaces annotation of
+	// the member operator's ClusterServiceVersion (CSV) instances and is projected into their deployments.
+	// The operatorGroupNamespace is guaranteed to be the same as the marketplaceConfig, unnecessary to use downwardAPI
 
 	operatorGroupName, _ := getOperatorGroup()
 	if len(operatorGroupName) != 0 {
 		operatorGroup := &olmv1.OperatorGroup{}
+
 		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: operatorGroupName, Namespace: marketplaceConfig.Namespace}, operatorGroup)
-		if err != nil && !errors.IsNotFound(err) {
+
+		if err != nil && !k8serrors.IsNotFound(err) {
 			return reconcile.Result{}, err
 		} else if err == nil {
-			operatorGroup.Spec.TargetNamespaces = targetNamespaces
+			operatorGroup.Spec.TargetNamespaces = []string{}
+			operatorGroup.Spec.Selector = marketplaceConfig.Spec.NamespaceLabelSelector
+
 			err = r.Client.Update(context.TODO(), operatorGroup)
 			if err != nil {
 				return reconcile.Result{}, err
@@ -223,16 +212,16 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	token := string(pullSecret)
-	tokenClaims,err := marketplace.GetJWTTokenClaim(token)
+	tokenClaims, err := marketplace.GetJWTTokenClaim(token)
 	if err != nil {
 		tokenIsValid = false
-		reqLogger.Error(err,"error parsing token")
-		
+		reqLogger.Error(err, "error parsing token")
+
 	}
 
 	if tokenIsValid {
-		marketplaceClient, err := r.mclientBuilder.NewMarketplaceClient(token,tokenClaims)
-	
+		marketplaceClient, err := r.mclientBuilder.NewMarketplaceClient(token, tokenClaims)
+
 		if err != nil {
 			reqLogger.Error(err, "error constructing marketplace client")
 			return reconcile.Result{Requeue: true}, nil
@@ -240,13 +229,12 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 		willBeDeleted := marketplaceConfig.GetDeletionTimestamp() != nil
 		if willBeDeleted {
-			result := r.unregister(marketplaceConfig, marketplaceClient,request, reqLogger)
+			result := r.unregister(marketplaceConfig, marketplaceClient, request, reqLogger)
 			if !result.Is(Continue) {
-				return result.Return() 
+				return result.Return()
 			}
 		}
 	}
-
 
 	newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
 	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
@@ -543,7 +531,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 	if tokenIsValid {
 		reqLogger.Info("attempting to update registration")
-		marketplaceClient, err := r.mclientBuilder.NewMarketplaceClient(token,tokenClaims)
+		marketplaceClient, err := r.mclientBuilder.NewMarketplaceClient(token, tokenClaims)
 
 		if err != nil {
 			reqLogger.Error(err, "error constructing marketplace client")
@@ -707,7 +695,7 @@ func (r *MarketplaceConfigReconciler) createCatalogSource(request reconcile.Requ
 	return false, nil
 }
 
-func (r *MarketplaceConfigReconciler) unregister(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig,marketplaceClient *marketplace.MarketplaceClient, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
+func (r *MarketplaceConfigReconciler) unregister(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, marketplaceClient *marketplace.MarketplaceClient, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
 	reqLogger.Info("attempting to un-register")
 
 	marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
