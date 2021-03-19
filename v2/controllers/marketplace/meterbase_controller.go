@@ -25,7 +25,6 @@ import (
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
-	"github.com/prometheus/common/log"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
@@ -1304,7 +1303,7 @@ func (r *MeterBaseReconciler) healthBadActiveTargets(cc ClientCommandRunner, req
 
 	prometheusAPI,err := prom.ProvidePrometheusAPI(context.TODO(),cc,r.kubeInterface,r.cfg.ControllerValues.DeploymentNamespace,reqLogger,request)
 	if err != nil {
-		return targets,err
+		return []common.Target{},err
 	}
 
 	reqLogger.Info("getting target discovery from prometheus")
@@ -1336,38 +1335,4 @@ func (r *MeterBaseReconciler) healthBadActiveTargets(cc ClientCommandRunner, req
 	return targets, nil
 }
 
-func (r *MeterBaseReconciler) queryForPrometheusService(
-	ctx context.Context,
-	cc ClientCommandRunner,
-	req reconcile.Request,
-) (*corev1.Service, error) {
-	service := &corev1.Service{}
 
-	name := types.NamespacedName{
-		Name:      utils.PROMETHEUS_METERBASE_NAME,
-		Namespace: r.cfg.DeployedNamespace,
-	}
-
-	if result, _ := cc.Do(ctx, GetAction(name, service)); !result.Is(Continue) {
-		return nil, errors.Wrap(result, "failed to get prometheus service")
-	}
-
-	log.Info("retrieved prometheus service")
-	return service, nil
-}
-
-func (r *MeterBaseReconciler) getCertConfigMap(ctx context.Context, cc ClientCommandRunner, req reconcile.Request) (*corev1.ConfigMap, error) {
-	certConfigMap := &corev1.ConfigMap{}
-
-	name := types.NamespacedName{
-		Name:      utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
-		Namespace: r.cfg.ControllerValues.DeploymentNamespace,
-	}
-
-	if result, _ := cc.Do(context.TODO(), GetAction(name, certConfigMap)); !result.Is(Continue) {
-		return nil, errors.Wrap(result.GetError(), "Failed to retrieve operator-certs-ca-bundle.")
-	}
-
-	log.Info("retrieved configmap")
-	return certConfigMap, nil
-}
