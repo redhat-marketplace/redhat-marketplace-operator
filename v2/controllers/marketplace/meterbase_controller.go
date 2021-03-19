@@ -1302,58 +1302,34 @@ func labelsForPrometheusOperator(name string) map[string]string {
 func (r *MeterBaseReconciler) healthBadActiveTargets(cc ClientCommandRunner, request reconcile.Request, reqLogger logr.Logger) ([]common.Target, error) {
 	targets := []common.Target{}
 
-	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
+	prometheusAPI,err := prom.ProvidePrometheusAPI(context.TODO(),cc,r.kubeInterface,r.cfg.ControllerValues.DeploymentNamespace,reqLogger,request)
 	if err != nil {
-		return targets, err
+		return targets,err
 	}
 
-	certConfigMap, err := r.getCertConfigMap(context.TODO(), cc, request)
+	reqLogger.Info("getting target discovery from prometheus")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	targetsResult, err := prometheusAPI.Targets(ctx)
+
 	if err != nil {
-		return targets, err
+		reqLogger.Error(err, "prometheus.Targets()")
+		returnErr := errors.Wrap(err, "error with targets query")
+		return targets, returnErr
 	}
 
-	saClient := prom.NewServiceAccountClient(r.cfg.ControllerValues.DeploymentNamespace, r.kubeInterface)
-
-	authToken, err := saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.PrometheusAudience, 3600, reqLogger)
-	if err != nil {
-		return targets, err
-	}
-
-	if certConfigMap != nil && authToken != "" && service != nil {
-		cert, err := parseCertificateFromConfigMap(*certConfigMap)
-		if err != nil {
-			return targets, err
-		}
-
-		prometheusAPI, err := prom.NewPromAPI(service, &cert, authToken)
-		if err != nil {
-			return targets, err
-		}
-
-		reqLogger.Info("getting target discovery from prometheus")
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		targetsResult, err := prometheusAPI.Targets(ctx)
-
-		if err != nil {
-			reqLogger.Error(err, "prometheus.Targets()")
-			returnErr := errors.Wrap(err, "error with targets query")
-			return targets, returnErr
-		}
-
-		for _, activeTarget := range targetsResult.Active {
-			if activeTarget.Health != prometheusv1.HealthGood {
-				targets = append(targets,
-					common.Target{
-						Labels:     activeTarget.Labels,
-						ScrapeURL:  activeTarget.ScrapeURL,
-						LastError:  activeTarget.LastError,
-						LastScrape: activeTarget.LastScrape.String(),
-						Health:     activeTarget.Health,
-					},
-				)
-			}
+	for _, activeTarget := range targetsResult.Active {
+		if activeTarget.Health != prometheusv1.HealthGood {
+			targets = append(targets,
+				common.Target{
+					Labels:     activeTarget.Labels,
+					ScrapeURL:  activeTarget.ScrapeURL,
+					LastError:  activeTarget.LastError,
+					LastScrape: activeTarget.LastScrape.String(),
+					Health:     activeTarget.Health,
+				},
+			)
 		}
 	}
 
