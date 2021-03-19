@@ -218,17 +218,22 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		count := utf8.RuneCountInString(string(clusterDisplayName))
 		clusterName := strings.Trim(string(clusterDisplayName),"\n")
 
-		if !reflect.DeepEqual(marketplaceConfig.Spec.ClusterName,clusterName){
+		if !reflect.DeepEqual(marketplaceConfig.Spec.ClusterName,clusterName) {
 			if count <= 256 {
 				marketplaceConfig.Spec.ClusterName = clusterName
 				updateInstanceSpec = true
 				reqLogger.Info("setting ClusterName","name", clusterName)
+
+				result := r.updateWatchKeeperConfig(clusterName,request,reqLogger) 
+				if !result.Is(Continue) {
+					return result.Return()
+				}
 			} else {
 				err := errors.New("CLUSTER_DISPLAY_NAME exceeds 256 chars")
 				reqLogger.Error(err, "name",clusterDisplayName)
 			}
 		}
-	} 
+	} 	
 
 	token := string(pullSecret)
 	tokenClaims, err := marketplace.GetJWTTokenClaim(token)
@@ -800,4 +805,38 @@ func getOperatorGroup() (string, error) {
 		return "", fmt.Errorf("%s must be set", operatorGroupEnvVar)
 	}
 	return og, nil
+}
+
+func(r *MarketplaceConfigReconciler) updateWatchKeeperConfig(nameOverride string,request reconcile.Request,reqLogger logr.Logger)*ExecResult{
+		reqLogger.Info("setting cluster name on watch-keeper-config")
+
+		watchKeeperConfig := &corev1.ConfigMap{}
+		err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.WATCH_KEEPER_CONFIG_NAME, Namespace: request.Namespace}, watchKeeperConfig)
+		if err != nil {
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{Requeue: true},
+				Err:             nil,
+			}
+		}
+
+		if watchKeeperConfig.Labels == nil {
+			watchKeeperConfig.Labels = make(map[string]string)
+		}
+
+		utils.SetMapKeyValue(watchKeeperConfig.Labels,[]string{"razee/cluster-metadata","true"})
+		watchKeeperConfig.Data["name"] = nameOverride
+
+		err = r.Client.Update(context.TODO(),watchKeeperConfig)
+		if err != nil {
+			if err != nil {
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{Requeue: true},
+					Err:             nil,
+				}
+			}
+		}
+
+		return &ExecResult{
+			Status: ActionResultStatus(Continue),
+		}
 }
