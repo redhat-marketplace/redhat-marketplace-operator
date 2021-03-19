@@ -248,70 +248,81 @@ func (a *CRDUpdater) reviewAndUpdateOwnerReferences(
 
 	a.Logger.Info("reviewing owner references")
 
-	result, _ := a.CC.Exec(ctx,
+	result, _ := a.CC.Do(ctx,
+		reconcileutils.GetAction(types.NamespacedName{
+			Name:      operatorDeployment,
+			Namespace: a.Config.DeployedNamespace,
+		}, deployment),
+		reconcileutils.HandleResult(
+			reconcileutils.Do(
+				reconcileutils.GetAction(types.NamespacedName{
+					Name:      meteringServiceName,
+					Namespace: a.Config.DeployedNamespace,
+				}, meteringService),
+			),
+			reconcileutils.OnContinue(reconcileutils.Call(func() (reconcileutils.ClientAction, error) {
+				if len(deployment.OwnerReferences) == 0 {
+					return nil, nil
+				}
+
+				actions := []reconcileutils.ClientAction{}
+				owner := deployment.OwnerReferences[0]
+				found := func() bool {
+					for _, ref := range meteringService.OwnerReferences {
+						if reflect.DeepEqual(ref, owner) {
+							return true
+						}
+					}
+
+					return false
+				}()
+
+				if !found {
+					meteringService.OwnerReferences = append(meteringService.OwnerReferences, owner)
+					actions = append(actions,
+						reconcileutils.HandleResult(
+							reconcileutils.UpdateAction(meteringService),
+							reconcileutils.OnRequeue(reconcileutils.ContinueResponse())))
+				}
+
+				return reconcileutils.Do(actions...), nil
+			})),
+		),
 		reconcileutils.HandleResult(
 			reconcileutils.Do(
 				reconcileutils.GetAction(types.NamespacedName{
 					Name:      serviceName,
 					Namespace: a.Config.DeployedNamespace,
 				}, managerService),
-				reconcileutils.GetAction(types.NamespacedName{
-					Name:      meteringServiceName,
-					Namespace: a.Config.DeployedNamespace,
-				}, meteringService),
-				reconcileutils.GetAction(types.NamespacedName{
-					Name:      operatorDeployment,
-					Namespace: a.Config.DeployedNamespace,
-				}, deployment),
 			),
 			reconcileutils.OnContinue(reconcileutils.Call(func() (reconcileutils.ClientAction, error) {
+				if len(deployment.OwnerReferences) == 0 {
+					return nil, nil
+				}
+
 				actions := []reconcileutils.ClientAction{}
-
-				if len(deployment.OwnerReferences) != 0 {
-					ref2 := deployment.OwnerReferences[0]
-					found := func() bool {
-						for _, ref := range meteringService.OwnerReferences {
-							if reflect.DeepEqual(ref, ref2) {
-								return true
-							}
+				owner := deployment.OwnerReferences[0]
+				found := func() bool {
+					for _, ref := range managerService.OwnerReferences {
+						if reflect.DeepEqual(ref, owner) {
+							return true
 						}
-
-						return false
-					}()
-
-					if !found {
-						meteringService.OwnerReferences = append(meteringService.OwnerReferences, ref2)
-						actions = append(actions,
-							reconcileutils.HandleResult(
-								reconcileutils.UpdateAction(meteringService),
-								reconcileutils.OnRequeue(reconcileutils.ContinueResponse())))
 					}
 
-					found = func() bool {
-						for _, ref := range managerService.OwnerReferences {
-							if reflect.DeepEqual(ref, ref2) {
-								return true
-							}
-						}
+					return false
+				}()
 
-						return false
-					}()
-
-					if !found {
-						managerService.OwnerReferences = append(meteringService.OwnerReferences, ref2)
-						actions = append(actions,
-							reconcileutils.HandleResult(
-								reconcileutils.UpdateAction(managerService),
-								reconcileutils.OnRequeue(reconcileutils.ContinueResponse())))
-					}
+				if !found {
+					managerService.OwnerReferences = append(managerService.OwnerReferences, owner)
+					actions = append(actions,
+						reconcileutils.HandleResult(
+							reconcileutils.UpdateAction(managerService),
+							reconcileutils.OnRequeue(reconcileutils.ContinueResponse())))
 				}
 
-				if len(actions) != 0 {
-					return reconcileutils.Do(actions...), nil
-				}
-
-				return nil, nil
-			})),
+				return reconcileutils.Do(actions...), nil
+			}),
+			),
 		),
 	)
 

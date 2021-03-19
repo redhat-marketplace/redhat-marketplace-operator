@@ -19,7 +19,9 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,19 +31,7 @@ import (
 
 var injectLog = ctrl.Log.WithName("injector")
 
-type SetupWithManager interface {
-	SetupWithManager(mgr ctrl.Manager) error
-}
-
-type Inject interface {
-	Inject(injector *Injector) SetupWithManager
-}
-
-type Injectable interface {
-	SetCustomFields(i interface{}) error
-}
-
-type Injectables []Injectable
+type Injectables []types.Injectable
 
 func ProvideInjectables(
 	i1 *ClientCommandInjector,
@@ -50,7 +40,7 @@ func ProvideInjectables(
 	i4 *FactoryInjector,
 	i5 *KubeInterfaceInjector,
 ) Injectables {
-	return []Injectable{i1, i2, i3, i4, i5}
+	return []types.Injectable{i1, i2, i3, i4, i5}
 }
 
 type Injector struct {
@@ -124,6 +114,10 @@ type KubeInterface interface {
 	InjectKubeInterface(kubernetes.Interface) error
 }
 
+type MarketplaceClientBuilder interface {
+	InjectMarketplaceClientBuilder(marketplace.MarketplaceClientBuilder) error
+}
+
 type ClientCommandInjector struct {
 	Fields        *managers.ControllerFields
 	CommandRunner reconcileutils.ClientCommandRunner
@@ -178,6 +172,17 @@ type KubeInterfaceInjector struct {
 func (a *KubeInterfaceInjector) SetCustomFields(i interface{}) error {
 	if ii, ok := i.(KubeInterface); ok {
 		return ii.InjectKubeInterface(a.KubeInterface)
+	}
+	return nil
+}
+
+type MarketplaceClientBuilderInjector struct {
+	MarketplaceClientBuilder marketplace.MarketplaceClientBuilder
+}
+
+func (a *MarketplaceClientBuilderInjector) SetCustomFields(i interface{}) error {
+	if ii, ok := i.(MarketplaceClientBuilder); ok {
+		return ii.InjectMarketplaceClientBuilder(a.MarketplaceClientBuilder)
 	}
 	return nil
 }

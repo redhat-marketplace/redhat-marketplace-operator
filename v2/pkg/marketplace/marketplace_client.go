@@ -15,6 +15,7 @@
 package marketplace
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -26,7 +27,10 @@ import (
 
 	"emperror.dev/errors"
 	jwt "github.com/dgrijalva/jwt-go"
+
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -42,8 +46,8 @@ const (
 
 // endpoints
 const (
-	pullSecretEndpoint   = "provisioning/v1/rhm-operator/rhm-operator-secret"
-	registrationEndpoint = "provisioning/v1/registered-clusters"
+	PullSecretEndpoint   = "provisioning/v1/rhm-operator/rhm-operator-secret"
+	RegistrationEndpoint = "provisioning/v1/registered-clusters"
 )
 
 const (
@@ -68,30 +72,80 @@ type MarketplaceClient struct {
 }
 
 type RegisteredAccount struct {
+	Id        string `json:"_id"`
 	AccountId string
 	Uuid      string
 	Status    string
 }
 
-func NewMarketplaceClient(clientConfig *MarketplaceClientConfig) (*MarketplaceClient, error) {
+type MarketplaceClientBuilder struct {
+	Url        string
+	Insecure   bool
+	TlsOveride *tls.Config
+}
+
+func NewMarketplaceClientBuilder(cfg *config.OperatorConfig) *MarketplaceClientBuilder {
+	builder := &MarketplaceClientBuilder{}
+
+	builder.Url = ProductionURL
+
+	if cfg.URL != "" {
+		builder.Url = cfg.URL
+		logger.V(2).Info("using env override for marketplace url", "url", builder.Url)
+	}
+
+	logger.V(2).Info("marketplace url set to", "url", builder.Url)
+
+	builder.Insecure = cfg.InsecureClient
+
+	return builder
+}
+
+func (b *MarketplaceClientBuilder) SetTLSConfig(tlsConfig *tls.Config) *MarketplaceClientBuilder {
+	if tlsConfig != nil {
+		b.TlsOveride = tlsConfig
+	}
+	return b
+}
+
+func (b *MarketplaceClientBuilder) NewMarketplaceClient(token string, tokenClaims *MarketplaceClaims) (*MarketplaceClient, error) {
 	var tlsConfig *tls.Config
+	marketplaceURL := b.Url
 
-	marketplaceURL := ProductionURL
+	if b.TlsOveride != nil {
+		logger.V(2).Info("using tls override")
+		marketplaceURL = b.Url
+		tlsConfig = b.TlsOveride
 
-	if clientConfig.Claims != nil &&
-		strings.ToLower(clientConfig.Claims.Env) == strings.ToLower(EnvStage) {
+		var transport http.RoundTripper = &http.Transport{
+			TLSClientConfig: tlsConfig,
+		}
+
+		if token != "" {
+			transport = WithBearerAuth(transport, token)
+		}
+		u, err := url.Parse(marketplaceURL)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse url")
+		}
+
+		return &MarketplaceClient{
+			endpoint: u,
+			httpClient: http.Client{
+				Transport: transport,
+			},
+		}, nil
+	}
+
+	if tokenClaims != nil &&
+		strings.ToLower(tokenClaims.Env) == strings.ToLower(EnvStage) {
 		marketplaceURL = StageURL
 		logger.V(2).Info("using stage for marketplace url", "url", marketplaceURL)
 	}
 
-	if clientConfig.Url != "" {
-		marketplaceURL = clientConfig.Url
-		logger.V(2).Info("using env override for marketplace url", "url", marketplaceURL)
-	}
-	logger.Info("marketplace url set to", "url", marketplaceURL)
-
-	if clientConfig.Insecure {
+	if b.Insecure {
 		tlsConfig = &tls.Config{InsecureSkipVerify: true}
+		logger.Info("using insecure client")
 	} else {
 		caCertPool, err := x509.SystemCertPool()
 		if err != nil {
@@ -107,8 +161,8 @@ func NewMarketplaceClient(clientConfig *MarketplaceClientConfig) (*MarketplaceCl
 		TLSClientConfig: tlsConfig,
 	}
 
-	if clientConfig.Token != "" {
-		transport = WithBearerAuth(transport, clientConfig.Token)
+	if token != "" {
+		transport = WithBearerAuth(transport, token)
 	}
 
 	u, err := url.Parse(marketplaceURL)
@@ -187,7 +241,7 @@ func (m *MarketplaceClient) RegistrationStatus(account *MarketplaceClientAccount
 		return RegistrationStatusOutput{Err: err}, err
 	}
 
-	u, err := buildQuery(m.endpoint, registrationEndpoint,
+	u, err := buildQuery(m.endpoint, RegistrationEndpoint,
 		"accountId", account.AccountId,
 		"uuid", account.ClusterUuid)
 
@@ -301,7 +355,7 @@ func (resp RegistrationStatusOutput) TransformConfigStatus() status.Conditions {
 }
 
 func (mhttp *MarketplaceClient) GetMarketplaceSecret() (*corev1.Secret, error) {
-	u, err := buildQuery(mhttp.endpoint, pullSecretEndpoint)
+	u, err := buildQuery(mhttp.endpoint, PullSecretEndpoint)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to build query")
@@ -343,7 +397,6 @@ const EnvStage = "stage"
 // GetJWTTokenClaims will parse JWT token and fetch the rhmAccountId
 func GetJWTTokenClaim(jwtToken string) (*MarketplaceClaims, error) {
 	// TODO: add verification of public key
-	//token, err := jwt.Parse(jwtToken, nil)
 	token, _, err := new(jwt.Parser).ParseUnverified(jwtToken, &MarketplaceClaims{})
 
 	if err != nil {
@@ -357,4 +410,108 @@ func GetJWTTokenClaim(jwtToken string) (*MarketplaceClaims, error) {
 	}
 
 	return claims, nil
+}
+
+func (m *MarketplaceClient) getClusterObjID(account *MarketplaceClientAccount) (string, error) {
+	u, err := buildQuery(m.endpoint, RegistrationEndpoint,
+		"accountId", account.AccountId,
+		"uuid", account.ClusterUuid)
+
+	if err != nil {
+		return "", err
+	}
+
+	logger.Info("get cluster objId query", "query", u.String())
+	resp, err := m.httpClient.Get(u.String())
+	clusterDef, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+
+	if err != nil {
+		return "", err
+	}
+
+	utils.PrettyPrint(string(clusterDef))
+	registrations, err := getRegistrations(string(clusterDef))
+
+	var objId string
+	for _, registration := range registrations {
+		if registration.Uuid == account.ClusterUuid {
+			objId = registration.Id
+		}
+	}
+	return objId, nil
+}
+
+func (m *MarketplaceClient) UnRegister(account *MarketplaceClientAccount) (RegistrationStatusOutput, error) {
+	if account == nil {
+		err := errors.New("account info missing")
+		return RegistrationStatusOutput{Err: err}, err
+	}
+
+	objID, err := m.getClusterObjID(account)
+	if err != nil {
+		return RegistrationStatusOutput{Err: err}, err
+	}
+
+	if err != nil {
+		return RegistrationStatusOutput{Err: err}, err
+	}
+
+	url := m.endpoint.String() + "/" + RegistrationEndpoint + "/" + objID
+
+	logger.Info("status query", "query", url)
+
+	requestBody, err := json.Marshal(map[string]string{
+		"accountId": account.AccountId,
+		"status":    "TO_BE_UNREGISTERED",
+	})
+
+	if err != nil {
+		return RegistrationStatusOutput{Err: err}, err
+	}
+
+	patchReq, err := http.NewRequest("PATCH", url, bytes.NewBuffer(requestBody))
+	if err != nil {
+		return RegistrationStatusOutput{Err: err}, err
+	}
+
+	patchReq.Header.Set("Content-Type", "application/json")
+	resp, err := m.httpClient.Do(patchReq)
+	if err != nil {
+		return RegistrationStatusOutput{
+			RegistrationStatus: "HttpError",
+			Err:                err,
+			StatusCode:         http.StatusInternalServerError,
+		}, err
+	}
+	if resp.StatusCode != 200 {
+		return RegistrationStatusOutput{
+			RegistrationStatus: "HttpError",
+			Err:                err,
+			StatusCode:         resp.StatusCode,
+		}, err
+	}
+
+	logger.Info("Un-register call status code", "httpstatus", resp.StatusCode)
+	clusterDef, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+
+	if err != nil {
+		return RegistrationStatusOutput{Err: err}, err
+	}
+
+	registrations, err := getRegistrations(string(clusterDef))
+	if err != nil {
+		return RegistrationStatusOutput{Err: err}, err
+	}
+
+	var unregistered RegistrationStatusOutput
+	if len(registrations) == 0 {
+		unregistered = RegistrationStatusOutput{
+			StatusCode:         resp.StatusCode,
+			RegistrationStatus: "UNREGISTERED",
+		}
+	}
+
+	return unregistered, nil
 }

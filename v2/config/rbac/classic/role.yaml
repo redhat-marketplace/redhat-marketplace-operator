@@ -289,12 +289,16 @@ rules:
       - '*'
     verbs:
       - '*'
-  - nonResourceURLs:
-      - '*'
+  - apiGroups:
+      - ''
+    resources:
+      - namespaces
     verbs:
       - get
       - list
       - watch
+      - update
+      - patch
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -486,6 +490,13 @@ rules:
       - delete
       - watch
       - list
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
+      - list
+      - watch
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -500,6 +511,13 @@ rules:
       - configmaps
     verbs:
       - get
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
+      - list
+      - watch
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1

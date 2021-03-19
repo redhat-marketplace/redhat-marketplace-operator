@@ -71,7 +71,7 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 			evt := event.GenericEvent{}
 			Expect(clusterServiceVersionPredictates.GenericFunc(evt)).To(BeFalse())
 		})
-		It("should check for change in mdef", func(){
+		It("should check for change in mdef", func() {
 			evt := event.UpdateEvent{}
 			evt.MetaNew = &metav1.ObjectMeta{
 				Annotations: map[string]string{

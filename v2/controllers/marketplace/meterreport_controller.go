@@ -24,10 +24,11 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	batchv1 "k8s.io/api/batch/v1"
@@ -60,7 +61,7 @@ type MeterReportReconciler struct {
 	factory *manifests.Factory
 }
 
-func (r *MeterReportReconciler) Inject(injector *inject.Injector) inject.SetupWithManager {
+func (r *MeterReportReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
 	injector.SetCustomFields(r)
 	return r
 }
@@ -87,7 +88,10 @@ func (m *MeterReportReconciler) InjectOperatorConfig(cfg *config.OperatorConfig)
 }
 
 func (r *MeterReportReconciler) SetupWithManager(mgr manager.Manager) error {
+	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
+
 	return ctrl.NewControllerManagedBy(mgr).
+		WithEventFilter(namespacePredicate).
 		For(&marketplacev1alpha1.MeterReport{}).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.MeterReport{}}, &handler.EnqueueRequestForObject{}).
 		Watches(&source.Kind{Type: &batchv1.Job{}}, &handler.EnqueueRequestForOwner{

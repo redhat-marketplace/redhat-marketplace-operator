@@ -23,6 +23,18 @@ spec:
             requests:
               cpu: 100m
               memory: 100Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
           env:
             - name: OPERATOR_NAME
               value: redhat-marketplace-operator
@@ -33,7 +45,9 @@ spec:
             - name: RELATED_IMAGE_AUTHCHECK
               value: {{ .Values.authCheckImage }}
             - name: WATCH_NAMESPACE
-              value: ""
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.annotations['olm.targetNamespaces']
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:
@@ -54,5 +68,9 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.labels['olm.owner.kind']
+            - name: OPERATOR_GROUP
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.annotations['olm.operatorGroup']
       terminationGracePeriodSeconds: 10
       serviceAccountName: operator

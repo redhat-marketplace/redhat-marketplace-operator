@@ -4,6 +4,7 @@ metadata:
   name: prometheus-meterbase
   labels:
     prometheus: redhat-marketplace
+    marketplace.redhat.com/metering: true
 spec:
   affinity:
     podAntiAffinity:

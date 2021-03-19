@@ -21,6 +21,11 @@ import (
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/authchecker/v2/pkg/authchecker"
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -32,46 +37,78 @@ var (
 		Run:   run,
 	}
 
-	group, kind, version, namespace string
-	retry                           int64
+	podname, namespace string
+	retry              int64
 
 	log = logf.Log.WithName("authvalid_cmd")
+
+	scheme   = runtime.NewScheme()
+	setupLog = log.WithName("setup")
+
+	metricsAddr, probeAddr string
 )
 
 func init() {
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+
 	logf.SetLogger(zap.New(zap.UseDevMode(true)))
-	rootCmd.Flags().StringVar(&group, "group", "", "kube group to list")
-	rootCmd.Flags().StringVar(&kind, "kind", "Pod", "kube kind to list")
-	rootCmd.Flags().StringVar(&version, "version", "v1", "kube version to list")
-	rootCmd.Flags().StringVar(&namespace, "namespace", "", "namespace to list")
+	rootCmd.Flags().StringVar(&probeAddr, "health-probe-bind-address", ":8089", "The address the probe endpoint binds to.")
+	rootCmd.Flags().StringVar(&namespace, "namespace", os.Getenv("POD_NAMESPACE"), "namespace to list")
+	rootCmd.Flags().StringVar(&podname, "podname", os.Getenv("POD_NAME"), "podname")
 	rootCmd.Flags().Int64Var(&retry, "retry", 30, "retry count")
 }
 
 func run(cmd *cobra.Command, args []string) {
 	log.Info("starting up with vars",
-		"group", group,
-		"kind", kind,
+		"podname", podname,
 		"namespace", namespace,
 		"retry", retry,
 	)
 
-	authChecker, err := InitializeAuthChecker(authchecker.AuthCheckerConfig{
-		Namespace: namespace,
-		RetryTime: time.Duration(retry) * time.Second,
-		Kind:      kind,
-		Group:     group,
-		Version:   version,
-	})
+	opts := ctrl.Options{
+		Scheme:                 scheme,
+		Port:                   9443,
+		HealthProbeBindAddress: probeAddr,
+		LeaderElection:         false,
+		Namespace:              namespace,
+		MetricsBindAddress:     "0",
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), opts)
 	if err != nil {
 		log.Error(err, "error starting auth checker")
 		er(err)
 	}
 
-	err = authChecker.Run(cmd.Context())
+	ac := &authchecker.AuthChecker{
+		RetryTime: time.Duration(retry) * time.Second,
+		Podname:   podname,
+		Namespace: namespace,
+		Logger:    log,
+		Client:    mgr.GetClient(),
+		Checker:   &authchecker.AuthCheckChecker{},
+	}
+	err = (ac).SetupWithManager(mgr)
 
 	if err != nil {
-		log.Error(err, "error checking auth")
+		setupLog.Error(err, "error starting auth checker")
 		er(err)
+	}
+
+	if err := mgr.AddHealthzCheck("health", ac.Checker.Check); err != nil {
+		setupLog.Error(err, "unable to set up health check")
+		os.Exit(1)
+	}
+
+	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to set up ready check")
+		os.Exit(1)
+	}
+
+	setupLog.Info("starting manager")
+	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+		setupLog.Error(err, "problem running manager")
+		os.Exit(1)
 	}
 }
 

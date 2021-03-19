@@ -36,7 +36,7 @@ travisSchema: {
 		"go get github.com/onsi/ginkgo/ginkgo",
 		"docker pull docker.io/docker/dockerfile:experimental",
 		"docker pull docker.io/docker/dockerfile-copy:v0.1.9",
-		"export VERSION=`cd v2/tools && go run ./version/main.go`-${TRAVIS_COMMIT}",
+		"export VERSION=`cd v2/tools/version && go run ./main.go`-${TRAVIS_COMMIT}",
 		"docker login -u=\"${ROBOT_USER_NAME}\" -p=\"${ROBOT_PASS_PHRASE}\" quay.io",
 	]
 	go: _#goVersion
@@ -91,6 +91,7 @@ travisSchema: {
     fi
     """,
 		"echo \"Building the Red Hat Marketplace operator images for ${ARCH}...\"",
+		"make save-licenses",
 		"make docker-build",
 		"make docker-push",
 		"echo \"Docker Image push to quay.io is done !\"",
