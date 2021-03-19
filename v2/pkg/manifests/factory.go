@@ -60,9 +60,12 @@ const (
 
 	ReporterJob = "assets/reporter/job.yaml"
 
-	MetricStateDeployment     = "assets/metric-state/deployment.yaml"
-	MetricStateServiceMonitor = "assets/metric-state/service-monitor.yaml"
-	MetricStateService        = "assets/metric-state/service.yaml"
+	MetricStateDeployment          = "assets/metric-state/deployment.yaml"
+	MetricStateServiceMonitor      = "assets/metric-state/service-monitor.yaml"
+	MetricStateService             = "assets/metric-state/service.yaml"
+	MetricStateRHMOperatorSecret   = "assets/metric-state/secret.yaml"
+	KubeStateMetricsServiceMonitor = "assets/metric-state/kube-state-metrics-service-monitor.yaml"
+	KubeletServiceMonitor          = "assets/metric-state/kubelet-service-monitor.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")
@@ -542,6 +545,39 @@ func (f *Factory) MetricStateServiceMonitor() (*monitoringv1.ServiceMonitor, err
 	sm.Namespace = f.namespace
 
 	return sm, nil
+}
+
+func (f *Factory) KubeStateMetricsServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
+	sm, err := f.NewServiceMonitor(MustAssetReader(KubeStateMetricsServiceMonitor))
+	if err != nil {
+		return nil, err
+	}
+
+	sm.Namespace = f.namespace
+
+	return sm, nil
+}
+
+func (f *Factory) KubeletServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
+	sm, err := f.NewServiceMonitor(MustAssetReader(KubeletServiceMonitor))
+	if err != nil {
+		return nil, err
+	}
+
+	sm.Namespace = f.namespace
+
+	return sm, nil
+}
+
+func (f *Factory) MetricStateRHMOperatorSecret() (*v1.Secret, error) {
+	s, err := f.NewSecret(MustAssetReader(MetricStateRHMOperatorSecret))
+	if err != nil {
+		return nil, err
+	}
+
+	s.Namespace = f.namespace
+
+	return s, nil
 }
 
 func (f *Factory) MetricStateService() (*v1.Service, error) {

@@ -158,7 +158,12 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 		reqLogger.Error(result.GetError(), "Failed to update status.")
 	}
 
-	queryPreviewResult, err := r.queryPreview(cc, instance, request, reqLogger)
+	userWorkloadMonitoringEnabled, result := isUserWorkloadMonitoringEnabled(cc, r.cfg.Infrastructure, reqLogger)
+	if !result.Is(Continue) {
+		return result.Return()
+	}
+
+	queryPreviewResult, err := r.queryPreview(cc, instance, request, reqLogger, userWorkloadMonitoringEnabled)
 	if err != nil {
 		update = update || instance.Status.Conditions.SetCondition(status.Condition{
 			Type:    v1beta1.MeterDefQueryPreviewSetupError,
@@ -225,24 +230,32 @@ func (r *MeterDefinitionReconciler) addFinalizer(instance *v1beta1.MeterDefiniti
 	return nil
 }
 
-func (r *MeterDefinitionReconciler) queryPreview(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) ([]common.Result, error) {
+func (r *MeterDefinitionReconciler) queryPreview(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger, userWorkloadMonitoringEnabled bool) ([]common.Result, error) {
 	var queryPreviewResult []common.Result
 
-	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
+	service, err := r.queryForPrometheusService(context.TODO(), cc, request, userWorkloadMonitoringEnabled)
 	if err != nil {
 		return nil, err
 	}
 
-	certConfigMap, err := r.getCertConfigMap(context.TODO(), cc, request)
+	certConfigMap, err := r.getCertConfigMap(context.TODO(), cc, request, userWorkloadMonitoringEnabled)
 	if err != nil {
 		return nil, err
 	}
 
-	saClient := prom.NewServiceAccountClient(r.cfg.ControllerValues.DeploymentNamespace, r.kubeInterface)
-
-	authToken, err := saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.PrometheusAudience, 3600, reqLogger)
-	if err != nil {
-		return nil, err
+	var saClient *prom.ServiceAccountClient
+	var authToken string
+	saClient = prom.NewServiceAccountClient(r.cfg.ControllerValues.DeploymentNamespace, r.kubeInterface)
+	if userWorkloadMonitoringEnabled {
+		authToken, err = saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, "", 3600, reqLogger)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		authToken, err = saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.PrometheusAudience, 3600, reqLogger)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if certConfigMap != nil && authToken != "" && service != nil {
@@ -267,12 +280,21 @@ func (r *MeterDefinitionReconciler) queryForPrometheusService(
 	ctx context.Context,
 	cc ClientCommandRunner,
 	req reconcile.Request,
+	userWorkloadMonitoringEnabled bool,
 ) (*corev1.Service, error) {
 	service := &corev1.Service{}
 
-	name := types.NamespacedName{
-		Name:      utils.PROMETHEUS_METERBASE_NAME,
-		Namespace: r.cfg.DeployedNamespace,
+	var name types.NamespacedName
+	if userWorkloadMonitoringEnabled {
+		name = types.NamespacedName{
+			Name:      utils.OPENSHIFT_USER_WORKLOAD_MONITORING_SERVICE_NAME,
+			Namespace: utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
+		}
+	} else {
+		name = types.NamespacedName{
+			Name:      utils.METERBASE_PROMETHEUS_SERVICE_NAME,
+			Namespace: r.cfg.DeployedNamespace,
+		}
 	}
 
 	if result, _ := cc.Do(ctx, GetAction(name, service)); !result.Is(Continue) {
@@ -283,12 +305,20 @@ func (r *MeterDefinitionReconciler) queryForPrometheusService(
 	return service, nil
 }
 
-func (r *MeterDefinitionReconciler) getCertConfigMap(ctx context.Context, cc ClientCommandRunner, req reconcile.Request) (*corev1.ConfigMap, error) {
+func (r *MeterDefinitionReconciler) getCertConfigMap(ctx context.Context, cc ClientCommandRunner, req reconcile.Request, userWorkloadMonitoringEnabled bool) (*corev1.ConfigMap, error) {
 	certConfigMap := &corev1.ConfigMap{}
 
-	name := types.NamespacedName{
-		Name:      utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
-		Namespace: r.cfg.ControllerValues.DeploymentNamespace,
+	name := types.NamespacedName{}
+	if userWorkloadMonitoringEnabled {
+		name = types.NamespacedName{
+			Name:      utils.SERVING_CERTS_CA_BUNDLE_NAME,
+			Namespace: utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
+		}
+	} else {
+		name = types.NamespacedName{
+			Name:      utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
+			Namespace: r.cfg.ControllerValues.DeploymentNamespace,
+		}
 	}
 
 	if result, _ := cc.Do(context.TODO(), GetAction(name, certConfigMap)); !result.Is(Continue) {

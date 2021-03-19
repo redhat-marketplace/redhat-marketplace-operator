@@ -52,9 +52,16 @@ import (
 	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	"github.com/blang/semver"
+	cmomanifests "github.com/openshift/cluster-monitoring-operator/pkg/manifests"
+
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -121,6 +128,27 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
 
+	monitoringPred := predicate.Funcs{
+		GenericFunc: func(e event.GenericEvent) bool {
+			return false
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return (e.MetaNew.GetName() == utils.OPENSHIFT_CLUSTER_MONITORING_CONFIGMAP_NAME && e.MetaNew.GetNamespace() == utils.OPENSHIFT_MONITORING_NAMESPACE) ||
+				(e.MetaNew.GetName() == utils.OPENSHIFT_USER_WORKLOAD_MONITORING_CONFIGMAP_NAME && e.MetaNew.GetNamespace() == utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE) ||
+				(e.MetaNew.GetName() == utils.KUBELET_SERVING_CA_BUNDLE_NAME && e.MetaNew.GetNamespace() == utils.OPENSHIFT_MONITORING_NAMESPACE)
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return (e.Meta.GetName() == utils.OPENSHIFT_CLUSTER_MONITORING_CONFIGMAP_NAME && e.Meta.GetNamespace() == utils.OPENSHIFT_MONITORING_NAMESPACE) ||
+				(e.Meta.GetName() == utils.OPENSHIFT_USER_WORKLOAD_MONITORING_CONFIGMAP_NAME && e.Meta.GetNamespace() == utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE) ||
+				(e.Meta.GetName() == utils.KUBELET_SERVING_CA_BUNDLE_NAME && e.Meta.GetNamespace() == utils.OPENSHIFT_MONITORING_NAMESPACE)
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return (e.Meta.GetName() == utils.OPENSHIFT_CLUSTER_MONITORING_CONFIGMAP_NAME && e.Meta.GetNamespace() == utils.OPENSHIFT_MONITORING_NAMESPACE) ||
+				(e.Meta.GetName() == utils.OPENSHIFT_USER_WORKLOAD_MONITORING_CONFIGMAP_NAME && e.Meta.GetNamespace() == utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE) ||
+				(e.Meta.GetName() == utils.KUBELET_SERVING_CA_BUNDLE_NAME && e.Meta.GetNamespace() == utils.OPENSHIFT_MONITORING_NAMESPACE)
+		},
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplacev1alpha1.MeterBase{}).
 		Watches(
@@ -130,11 +158,11 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				OwnerType:    &marketplacev1alpha1.MeterBase{}},
 			builder.WithPredicates(namespacePredicate)).
 		Watches(
-			&source.Kind{Type: &monitoringv1.Prometheus{}},
-			&handler.EnqueueRequestForOwner{
-				IsController: true,
-				OwnerType:    &marketplacev1alpha1.MeterBase{}},
-			builder.WithPredicates(namespacePredicate)).
+			&source.Kind{Type: &corev1.ConfigMap{}},
+			&handler.EnqueueRequestsFromMapFunc{
+				ToRequests: mapFn,
+			},
+			builder.WithPredicates(monitoringPred)).
 		Watches(
 			&source.Kind{Type: &corev1.Service{}},
 			&handler.EnqueueRequestForOwner{
@@ -209,6 +237,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 				Do(r.uninstallPrometheusOperator(instance, factory)...),
 				Do(r.uninstallPrometheus(instance, factory)...),
 				Do(r.uninstallMetricState(instance, factory)...),
+				Do(r.uninstallPrometheusServingCertsCABundle(factory)...),
 			)),
 	); !result.Is(Continue) {
 
@@ -228,6 +257,11 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	if !instance.Spec.Enabled {
 		reqLogger.Info("MeterBase resource found but ignoring since metering is not enabled.")
 		return reconcile.Result{}, nil
+	}
+
+	userWorkloadMonitoringEnabled, result := isUserWorkloadMonitoringEnabled(cc, r.cfg.Infrastructure, reqLogger)
+	if !result.Is(Continue) {
+		return result.Return()
 	}
 
 	message := "Meter Base install starting"
@@ -254,24 +288,52 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	// ---
 	// Install Objects
 	// ---
+	promStsNamespacedName := types.NamespacedName{}
+	if userWorkloadMonitoringEnabled {
+		// Openshift provides Prometheus
+		if result, _ := cc.Do(context.TODO(),
+			Do(r.uninstallPrometheusOperator(instance, factory)...),
+			Do(r.uninstallPrometheus(instance, factory)...),
+			Do(r.installPrometheusServingCertsCABundle(factory)...),
+			Do(r.installMetricStateDeployment(instance, factory)...),
+		); !result.Is(Continue) {
+			if result.Is(Error) {
+				reqLogger.Error(result, "error in reconcile")
+				return result.ReturnWithError(merrors.Wrap(result, "error creating metric-state"))
+			}
 
-	cfg := &corev1.Secret{}
-	prometheus := &monitoringv1.Prometheus{}
-	if result, _ := cc.Do(context.TODO(),
-		Do(r.reconcilePrometheusOperator(instance, factory)...),
-		Do(r.installMetricStateDeployment(instance, factory)...),
-		Do(r.reconcileAdditionalConfigSecret(cc, instance, prometheus, factory, cfg)...),
-		Do(r.reconcilePrometheus(instance, prometheus, factory, cfg)...),
-		Do(r.verifyPVCSize(reqLogger, instance, factory, prometheus)...),
-		Do(r.recyclePrometheusPods(reqLogger, instance, factory, prometheus)...),
-	); !result.Is(Continue) {
-		if result.Is(Error) {
-			reqLogger.Error(result, "error in reconcile")
-			return result.ReturnWithError(merrors.Wrap(result, "error creating prometheus"))
+			reqLogger.Info("returing result", "result", *result)
+			return result.Return()
 		}
 
-		reqLogger.Info("returing result", "result", *result)
-		return result.Return()
+		promStsNamespacedName = types.NamespacedName{
+			Namespace: utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
+			Name:      utils.OPENSHIFT_USER_WORKLOAD_MONITORING_STATEFULSET_NAME,
+		}
+	} else {
+		// RHM provides Prometheus
+		prometheus := &monitoringv1.Prometheus{}
+		if result, _ := cc.Do(context.TODO(),
+			Do(r.installPrometheusServingCertsCABundle(factory)...),
+			Do(r.reconcilePrometheusOperator(instance, factory)...),
+			Do(r.installMetricStateDeployment(instance, factory)...),
+			Do(r.reconcilePrometheus(instance, prometheus, factory, nil)...),
+			Do(r.verifyPVCSize(reqLogger, instance, factory, prometheus)...),
+			Do(r.recyclePrometheusPods(reqLogger, instance, factory, prometheus)...),
+		); !result.Is(Continue) {
+			if result.Is(Error) {
+				reqLogger.Error(result, "error in reconcile")
+				return result.ReturnWithError(merrors.Wrap(result, "error creating prometheus"))
+			}
+
+			reqLogger.Info("returing result", "result", *result)
+			return result.Return()
+		}
+
+		promStsNamespacedName = types.NamespacedName{
+			Namespace: prometheus.Namespace,
+			Name:      fmt.Sprintf("prometheus-%s", prometheus.Name),
+		}
 	}
 
 	// ----
@@ -279,7 +341,6 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	// ----
 
 	// Set status for prometheus
-
 	prometheusStatefulset := &appsv1.StatefulSet{}
 	if result, err := cc.Do(
 		context.TODO(),
@@ -288,10 +349,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 			Name:      instance.Name,
 		}, instance),
 		HandleResult(
-			GetAction(types.NamespacedName{
-				Namespace: prometheus.Namespace,
-				Name:      fmt.Sprintf("prometheus-%s", prometheus.Name),
-			}, prometheusStatefulset),
+			GetAction(promStsNamespacedName, prometheusStatefulset),
 			OnContinue(Call(func() (ClientAction, error) {
 				updatedInstance := instance.DeepCopy()
 				updatedInstance.Status.Replicas = &prometheusStatefulset.Status.Replicas
@@ -332,7 +390,6 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	}
 
 	// Update final condition
-
 	message = "Meter Base install complete"
 	if result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 		Type:    marketplacev1alpha1.ConditionInstalling,
@@ -379,8 +436,8 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 				}
 
 				reqLogger.Info("report dates", "expected", expectedCreatedDates, "found", foundCreatedDates, "min", minDate)
-				err = r.createReportIfNotFound(expectedCreatedDates, foundCreatedDates, request, instance)
 
+				err = r.createReportIfNotFound(expectedCreatedDates, foundCreatedDates, request, instance, userWorkloadMonitoringEnabled)
 				if err != nil {
 					return nil, err
 				}
@@ -404,9 +461,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	return reconcile.Result{RequeueAfter: time.Hour * 1}, nil
 }
 
-const promServiceName = "rhm-prometheus-meterbase"
-
-func (r *MeterBaseReconciler) createReportIfNotFound(expectedCreatedDates []string, foundCreatedDates []string, request reconcile.Request, instance *marketplacev1alpha1.MeterBase) error {
+func (r *MeterBaseReconciler) createReportIfNotFound(expectedCreatedDates []string, foundCreatedDates []string, request reconcile.Request, instance *marketplacev1alpha1.MeterBase, userWorkloadMonitoringEnabled bool) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
 	// find the diff between the dates we expect and the dates found on the cluster and create any missing reports
@@ -416,7 +471,7 @@ func (r *MeterBaseReconciler) createReportIfNotFound(expectedCreatedDates []stri
 		missingReportStartDate, _ := time.Parse(utils.DATE_FORMAT, missingReportDateString)
 		missingReportEndDate := missingReportStartDate.AddDate(0, 0, 1)
 
-		missingMeterReport := r.newMeterReport(request.Namespace, missingReportStartDate, missingReportEndDate, missingReportName, instance, promServiceName)
+		missingMeterReport := r.newMeterReport(request.Namespace, missingReportStartDate, missingReportEndDate, missingReportName, instance, userWorkloadMonitoringEnabled)
 		err := r.Client.Create(context.TODO(), missingMeterReport)
 		if err != nil {
 			return err
@@ -525,20 +580,31 @@ func (r *MeterBaseReconciler) generateExpectedDates(endTime time.Time, loc *time
 	return expectedCreatedDates
 }
 
-func (r *MeterBaseReconciler) newMeterReport(namespace string, startTime time.Time, endTime time.Time, meterReportName string, instance *marketplacev1alpha1.MeterBase, prometheusServiceName string) *marketplacev1alpha1.MeterReport {
+func (r *MeterBaseReconciler) newMeterReport(namespace string, startTime time.Time, endTime time.Time, meterReportName string, instance *marketplacev1alpha1.MeterBase, userWorkloadMonitoringEnabled bool) *marketplacev1alpha1.MeterReport {
+	promService := &common.ServiceReference{}
+	if userWorkloadMonitoringEnabled {
+		promService = &common.ServiceReference{
+			Name:       utils.OPENSHIFT_USER_WORKLOAD_MONITORING_SERVICE_NAME,
+			Namespace:  utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
+			TargetPort: intstr.FromString("metrics"),
+		}
+	} else {
+		promService = &common.ServiceReference{
+			Name:       utils.METERBASE_PROMETHEUS_SERVICE_NAME,
+			Namespace:  instance.Namespace,
+			TargetPort: intstr.FromString("rbac"),
+		}
+	}
+
 	return &marketplacev1alpha1.MeterReport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      meterReportName,
 			Namespace: namespace,
 		},
 		Spec: marketplacev1alpha1.MeterReportSpec{
-			StartTime: metav1.NewTime(startTime),
-			EndTime:   metav1.NewTime(endTime),
-			PrometheusService: &common.ServiceReference{
-				Name:       prometheusServiceName,
-				Namespace:  instance.Namespace,
-				TargetPort: intstr.FromString("rbac"),
-			},
+			StartTime:         metav1.NewTime(startTime),
+			EndTime:           metav1.NewTime(endTime),
+			PrometheusService: promService,
 		},
 	}
 }
@@ -563,8 +629,9 @@ func (r *MeterBaseReconciler) reconcilePrometheusSubscription(
 
 	return []ClientAction{
 		HandleResult(
-			GetAction(
-				types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace},
+			GetAction(types.NamespacedName{
+				Name:      instance.Name,
+				Namespace: instance.Namespace},
 				subscription,
 			), OnNotFound(
 				CreateAction(
@@ -594,7 +661,8 @@ func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
 				Key:      "openshift.io/cluster-monitoring",
-				Operator: "DoesNotExist",
+				Operator: "In",
+				Values:   []string{"true"},
 			},
 		},
 	})
@@ -619,7 +687,7 @@ func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 		manifests.CreateOrUpdateFactoryItemAction(
 			deployment,
 			func() (runtime.Object, error) {
-				nsValues := []string{instance.Namespace}
+				nsValues := []string{}
 				for _, ns := range nsList.Items {
 					nsValues = append(nsValues, ns.Name)
 				}
@@ -638,7 +706,10 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 ) []ClientAction {
 	deployment := &appsv1.Deployment{}
 	service := &corev1.Service{}
-	serviceMonitor := &monitoringv1.ServiceMonitor{}
+	serviceMonitor0 := &monitoringv1.ServiceMonitor{}
+	serviceMonitor1 := &monitoringv1.ServiceMonitor{}
+	serviceMonitor2 := &monitoringv1.ServiceMonitor{}
+	secret := &corev1.Secret{}
 
 	args := manifests.CreateOrUpdateFactoryItemArgs{
 		Owner:   instance,
@@ -661,7 +732,28 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
-			serviceMonitor,
+			secret,
+			func() (runtime.Object, error) {
+				return factory.MetricStateRHMOperatorSecret()
+			},
+			args,
+		),
+		manifests.CreateOrUpdateFactoryItemAction(
+			serviceMonitor0,
+			func() (runtime.Object, error) {
+				return factory.KubeStateMetricsServiceMonitor()
+			},
+			args,
+		),
+		manifests.CreateOrUpdateFactoryItemAction(
+			serviceMonitor1,
+			func() (runtime.Object, error) {
+				return factory.KubeletServiceMonitor()
+			},
+			args,
+		),
+		manifests.CreateOrUpdateFactoryItemAction(
+			serviceMonitor2,
 			func() (runtime.Object, error) {
 				return factory.MetricStateServiceMonitor()
 			},
@@ -864,7 +956,7 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 		),
 		HandleResult(
 			GetAction(
-				types.NamespacedName{Namespace: "openshift-monitoring", Name: "kubelet-serving-ca-bundle"},
+				types.NamespacedName{Namespace: utils.OPENSHIFT_MONITORING_NAMESPACE, Name: utils.KUBELET_SERVING_CA_BUNDLE_NAME},
 				kubeletCertsCM,
 			),
 			OnNotFound(Call(func() (ClientAction, error) {
@@ -1078,12 +1170,24 @@ func (r *MeterBaseReconciler) uninstallMetricState(
 ) []ClientAction {
 	deployment, _ := factory.MetricStateDeployment()
 	service, _ := factory.MetricStateService()
-	sm, _ := factory.MetricStateServiceMonitor()
+	sm0, _ := factory.MetricStateServiceMonitor()
+	sm1, _ := factory.KubeStateMetricsServiceMonitor()
+	sm2, _ := factory.KubeletServiceMonitor()
+	secret, _ := factory.MetricStateRHMOperatorSecret()
 
 	return []ClientAction{
 		HandleResult(
-			GetAction(types.NamespacedName{Namespace: sm.Namespace, Name: sm.Name}, sm),
-			OnContinue(DeleteAction(sm))),
+			GetAction(types.NamespacedName{Namespace: sm0.Namespace, Name: sm0.Name}, sm0),
+			OnContinue(DeleteAction(sm0))),
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: sm1.Namespace, Name: sm1.Name}, sm1),
+			OnContinue(DeleteAction(sm1))),
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: sm2.Namespace, Name: sm2.Name}, sm2),
+			OnContinue(DeleteAction(sm2))),
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}, secret),
+			OnContinue(DeleteAction(secret))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service),
 			OnContinue(DeleteAction(service))),
@@ -1097,7 +1201,6 @@ func (r *MeterBaseReconciler) uninstallPrometheus(
 	instance *marketplacev1alpha1.MeterBase,
 	factory *manifests.Factory,
 ) []ClientAction {
-	cm0, _ := factory.PrometheusServingCertsCABundle()
 	secret0, _ := factory.PrometheusDatasources()
 	secret1, _ := factory.PrometheusProxySecret()
 	secret2, _ := factory.PrometheusHtpasswdSecret("foo")
@@ -1105,16 +1208,8 @@ func (r *MeterBaseReconciler) uninstallPrometheus(
 	secrets := []*corev1.Secret{secret0, secret1, secret2, secret3}
 	prom, _ := r.newPrometheusOperator(instance, factory, nil)
 	service, _ := factory.PrometheusService(instance.Name)
-	deployment, _ := factory.MetricStateDeployment()
-	service2, _ := factory.MetricStateService()
-	sm, _ := factory.MetricStateServiceMonitor()
 
-	actions := []ClientAction{
-		HandleResult(
-			GetAction(
-				types.NamespacedName{Namespace: cm0.Namespace, Name: cm0.Name}, cm0),
-			OnContinue(DeleteAction(cm0))),
-	}
+	actions := []ClientAction{}
 	for _, sec := range secrets {
 		actions = append(actions,
 			HandleResult(
@@ -1125,21 +1220,39 @@ func (r *MeterBaseReconciler) uninstallPrometheus(
 
 	return append(actions,
 		HandleResult(
-			GetAction(types.NamespacedName{Namespace: sm.Namespace, Name: sm.Name}, sm),
-			OnContinue(DeleteAction(sm))),
-		HandleResult(
-			GetAction(types.NamespacedName{Namespace: service2.Namespace, Name: service2.Name}, deployment),
-			OnContinue(DeleteAction(service2))),
-		HandleResult(
 			GetAction(types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service),
 			OnContinue(DeleteAction(service))),
-		HandleResult(
-			GetAction(types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}, deployment),
-			OnContinue(DeleteAction(deployment))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: prom.Namespace, Name: prom.Name}, prom),
 			OnContinue(DeleteAction(prom))),
 	)
+}
+
+func (r *MeterBaseReconciler) installPrometheusServingCertsCABundle(
+	factory *manifests.Factory,
+) []ClientAction {
+
+	return []ClientAction{
+		manifests.CreateIfNotExistsFactoryItem(
+			&corev1.ConfigMap{},
+			func() (runtime.Object, error) {
+				return factory.PrometheusServingCertsCABundle()
+			},
+		),
+	}
+}
+
+func (r *MeterBaseReconciler) uninstallPrometheusServingCertsCABundle(
+	factory *manifests.Factory,
+) []ClientAction {
+	cm0, _ := factory.PrometheusServingCertsCABundle()
+
+	return []ClientAction{
+		HandleResult(
+			GetAction(
+				types.NamespacedName{Namespace: cm0.Namespace, Name: cm0.Name}, cm0),
+			OnContinue(DeleteAction(cm0))),
+	}
 }
 
 func (r *MeterBaseReconciler) reconcilePrometheusService(
@@ -1271,4 +1384,73 @@ func (r *MeterBaseReconciler) newBaseConfigMap(filename string, cr *marketplacev
 // belonging to the given prometheus CR name.
 func labelsForPrometheusOperator(name string) map[string]string {
 	return map[string]string{"prometheus": name}
+}
+
+func isEnableUserWorkloadConfigMap(clusterMonitorConfigMap *corev1.ConfigMap) (bool, error) {
+	cmc := cmomanifests.ClusterMonitoringConfiguration{}
+	config, ok := clusterMonitorConfigMap.Data["config.yaml"]
+	if ok {
+		err := yaml.Unmarshal([]byte(config), &cmc)
+		if err != nil {
+			return false, err
+		} else if cmc.UserWorkloadEnabled != nil {
+			return *cmc.UserWorkloadEnabled, nil
+		}
+	}
+	return false, nil
+}
+
+// If this is Openshift 4.6+ check if Monitoring for User Defined Projects is enabled
+// https://docs.openshift.com/container-platform/4.6/monitoring/enabling-monitoring-for-user-defined-projects.html
+func isUserWorkloadMonitoringEnabled(cc ClientCommandRunner, infrastructure *config.Infrastructure, reqLogger logr.Logger) (bool, *ExecResult) {
+	userWorkloadMonitoringEnabled := false
+	if infrastructure.HasOpenshift() {
+		v460, _ := semver.Make("4.6.0")
+		osVersion := infrastructure.OpenshiftVersion()
+		parsedOsVersion, _ := semver.ParseTolerant(osVersion)
+		if parsedOsVersion.GTE(v460) {
+
+			enableUserWorkload := false
+			userWorkloadMonitoringConfig := false
+
+			// Check if enableUserWorkload: true in cluster-monitoring-config
+			clusterMonitorConfigMap := &corev1.ConfigMap{}
+			result, err := cc.Do(
+				context.TODO(),
+				GetAction(types.NamespacedName{
+					Namespace: utils.OPENSHIFT_MONITORING_NAMESPACE,
+					Name:      utils.OPENSHIFT_CLUSTER_MONITORING_CONFIGMAP_NAME,
+				}, clusterMonitorConfigMap),
+			)
+			if result.Is(Error) {
+				reqLogger.Error(result.GetError(), "Failed to get cluster-monitoring-config.")
+				return userWorkloadMonitoringEnabled, result
+			} else if result.Is(Continue) {
+				enableUserWorkload, err = isEnableUserWorkloadConfigMap(clusterMonitorConfigMap)
+				if err != nil {
+					reqLogger.Error(result.GetError(), "Failed to parse cluster-monitoring-config.")
+				}
+			}
+
+			// Check if user-workload-monitoring-config is created
+			userWorkloadMonitoringConfigMap := &corev1.ConfigMap{}
+			result, err = cc.Do(
+				context.TODO(),
+				GetAction(types.NamespacedName{
+					Namespace: utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
+					Name:      utils.OPENSHIFT_USER_WORKLOAD_MONITORING_CONFIGMAP_NAME,
+				}, userWorkloadMonitoringConfigMap),
+			)
+			if result.Is(Error) {
+				reqLogger.Error(result.GetError(), "Failed to get user-workload-monitoring-config.")
+				return userWorkloadMonitoringEnabled, result
+			} else if result.Is(Continue) {
+				userWorkloadMonitoringConfig = true
+			}
+
+			userWorkloadMonitoringEnabled = enableUserWorkload && userWorkloadMonitoringConfig
+			return userWorkloadMonitoringEnabled, result
+		}
+	}
+	return userWorkloadMonitoringEnabled, NewExecResult(Continue, reconcile.Result{}, nil)
 }

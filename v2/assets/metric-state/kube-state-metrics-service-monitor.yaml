@@ -3,40 +3,43 @@ kind: ServiceMonitor
 metadata:
   labels:
     app.kubernetes.io/component: controller
-    app.kubernetes.io/name: rhm-metric-state
+    app.kubernetes.io/name: redhat-marketplace-kube-state-metrics
     marketplace.redhat.com/metering: "true"
-  name: rhm-metric-state
+  name: redhat-marketplace-kube-state-metrics
+  namespace: openshift-redhat-marketplace
 spec:
   endpoints:
   - bearerTokenSecret:
       key: token
       name: redhat-marketplace-operator-token
     honorLabels: true
-    interval: 2m
-    port: https
+    interval: 1m
+    port: https-main
     scheme: https
-    scrapeTimeout: 2m
+    scrapeTimeout: 1m
     tlsConfig:
       ca:
         configMap:
           key: service-ca.crt
           name: serving-certs-ca-bundle
-      serverName: server-name-replaced-at-runtime
+      serverName: kube-state-metrics.openshift-monitoring.svc
   - bearerTokenSecret:
       key: token
       name: redhat-marketplace-operator-token
-    interval: 2m
-    port: https-metrics
+    interval: 1m
+    port: https-self
     scheme: https
-    scrapeTimeout: 2m
+    scrapeTimeout: 1m
     tlsConfig:
       ca:
         configMap:
           key: service-ca.crt
           name: serving-certs-ca-bundle
-      serverName: server-name-replaced-at-runtime
-  jobLabel: k8s-app
+      serverName: kube-state-metrics.openshift-monitoring.svc
+  jobLabel: app.kubernetes.io/name
+  namespaceSelector:
+    matchNames:
+      - openshift-monitoring
   selector:
     matchLabels:
-      app.kubernetes.io/component: controller
-      app.kubernetes.io/name: rhm-metric-state
+      app.kubernetes.io/name: kube-state-metrics

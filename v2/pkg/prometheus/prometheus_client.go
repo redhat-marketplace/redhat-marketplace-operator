@@ -27,6 +27,7 @@ import (
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/log"
 	v1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -93,7 +94,13 @@ func providePrometheusAPI(
 
 	name := promService.Name
 	namespace := promService.Namespace
-	targetPort := intstr.FromString("rbac")
+	var targetPort intstr.IntOrString
+
+	if namespace == utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE && name == utils.OPENSHIFT_USER_WORKLOAD_MONITORING_SERVICE_NAME {
+		targetPort = intstr.FromString("metrics")
+	} else {
+		targetPort = intstr.FromString("rbac")
+	}
 
 	switch {
 	case targetPort.Type == intstr.Int:

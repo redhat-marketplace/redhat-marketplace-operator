@@ -242,6 +242,12 @@ rules:
       - update
       - watch
   - apiGroups:
+      - ''
+    resources:
+      - serviceaccounts/token
+    verbs:
+      - create
+  - apiGroups:
       - authentication.k8s.io
     resources:
       - tokenreviews
