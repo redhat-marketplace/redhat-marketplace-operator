@@ -15,22 +15,16 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"io/ioutil"
-	"log"
 	"net"
-	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"strings"
 
-	"github.com/canonical/go-dqlite/app"
-	"github.com/canonical/go-dqlite/client"
-	"github.com/pkg/errors"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileserver"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/server"
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/unix"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -41,70 +35,27 @@ func main() {
 	var verbose bool
 
 	cmd := &cobra.Command{
-		Use:   "dqlite-demo",
-		Short: "Demo application using dqlite",
-		Long: `This demo shows how to integrate a Go application with dqlite.
-Complete documentation is available at https://github.com/canonical/go-dqlite`,
+		Use:   "grpc-api",
+		Short: "Command to start up grpc server and database",
+		Long:  `Command to start up grpc server and establish a database connection`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dir := filepath.Join(dir, db)
-			if err := os.MkdirAll(dir, 0755); err != nil {
-				return errors.Wrapf(err, "can't create %s", dir)
+			d, err := database.InitDB(dir, db, join, verbose)
+			if err != nil {
+				return err
 			}
-			logFunc := func(l client.LogLevel, format string, a ...interface{}) {
-				if !verbose {
-					return
+
+			lis, err := net.Listen("tcp", api)
+			if err != nil {
+				return err
+			}
+
+			s := grpc.NewServer()
+			fileserver.RegisterFileServerServer(s, &server.Server{})
+			go func() {
+				if err := s.Serve(lis); err != nil {
+					panic(err)
 				}
-				log.Printf(fmt.Sprintf("%s: %s: %s\n", api, l.String(), format), a...)
-			}
-
-			app, err := app.New(dir, app.WithAddress(db), app.WithCluster(*join), app.WithLogFunc(logFunc))
-			if err != nil {
-				return err
-			}
-
-			if err := app.Ready(context.Background()); err != nil {
-				return err
-			}
-
-			db, err := app.Open(context.Background(), "demo")
-			if err != nil {
-				return err
-			}
-
-			if _, err := db.Exec(schema); err != nil {
-				return err
-			}
-
-			// setup grpc server here
-			http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-				key := strings.TrimLeft(r.URL.Path, "/")
-				result := ""
-				switch r.Method {
-				case "GET":
-					row := db.QueryRow(query, key)
-					if err := row.Scan(&result); err != nil {
-						result = fmt.Sprintf("Error: %s", err.Error())
-					}
-					break
-				case "PUT":
-					result = "done"
-					value, _ := ioutil.ReadAll(r.Body)
-					if _, err := db.Exec(update, key, value); err != nil {
-						result = fmt.Sprintf("Error: %s", err.Error())
-					}
-				default:
-					result = fmt.Sprintf("Error: unsupported method %q", r.Method)
-
-				}
-				fmt.Fprintf(w, "%s\n", result)
-			})
-
-			listener, err := net.Listen("tcp", api)
-			if err != nil {
-				return err
-			}
-
-			go http.Serve(listener, nil)
+			}()
 
 			ch := make(chan os.Signal)
 			signal.Notify(ch, unix.SIGINT)
@@ -113,11 +64,8 @@ Complete documentation is available at https://github.com/canonical/go-dqlite`,
 
 			<-ch
 
-			listener.Close()
-			db.Close()
-
-			app.Handover(context.Background())
-			app.Close()
+			lis.Close()
+			d.Close()
 
 			return nil
 		},
@@ -137,9 +85,3 @@ Complete documentation is available at https://github.com/canonical/go-dqlite`,
 		os.Exit(1)
 	}
 }
-
-const (
-	schema = "CREATE TABLE IF NOT EXISTS model (key TEXT, value TEXT, UNIQUE(key))"
-	query  = "SELECT value FROM model WHERE key = ?"
-	update = "INSERT OR REPLACE INTO model(key, value) VALUES(?, ?)"
-)
