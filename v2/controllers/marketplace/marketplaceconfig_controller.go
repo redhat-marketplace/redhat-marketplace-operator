@@ -214,10 +214,9 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	var updateInstanceSpec bool 
-	var clusterName string;
 	if clusterDisplayName,ok := secret.Data[utils.ClusterDisplayNameKey]; ok {
 		count := utf8.RuneCountInString(string(clusterDisplayName))
-		clusterName = strings.Trim(string(clusterDisplayName),"\n")
+		clusterName := strings.Trim(string(clusterDisplayName),"\n")
 
 		if !reflect.DeepEqual(marketplaceConfig.Spec.ClusterName,clusterName) {
 			if count <= 256 {
@@ -383,6 +382,12 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	updatedRazee.Spec.ClusterUUID = marketplaceConfig.Spec.ClusterUUID
 	updatedRazee.Spec.DeploySecretName = marketplaceConfig.Spec.DeploySecretName
 	updatedRazee.Spec.Features = marketplaceConfig.Spec.Features.DeepCopy()
+
+	if marketplaceConfig.Spec.ClusterName != "" {
+		if !reflect.DeepEqual(marketplaceConfig.Spec.ClusterName,foundRazee.Spec.ClusterDisplayName){
+			updatedRazee.Spec.ClusterDisplayName = marketplaceConfig.Spec.ClusterName
+		}
+	}
 
 	if !reflect.DeepEqual(foundRazee, updatedRazee) {
 		reqLogger.Info("updating razee cr")

@@ -798,6 +798,15 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 
 		updatedWatchKeeperConfig := *r.makeWatchKeeperConfig(instance)
 		updatedWatchKeeperConfig.UID = watchKeeperConfig.UID
+		if instance.Spec.ClusterDisplayName != "" {
+			if updatedWatchKeeperConfig.Labels == nil {
+				updatedWatchKeeperConfig.Labels = make(map[string]string)
+			}
+
+			utils.SetMapKeyValue(updatedWatchKeeperConfig.Labels,[]string{"razee/cluster-metadata","true"})
+			updatedWatchKeeperConfig.Data["name"] = instance.Spec.ClusterDisplayName
+		}
+
 		patchResult, err := r.patcher.Calculate(&watchKeeperConfig, &updatedWatchKeeperConfig)
 		if err != nil {
 			reqLogger.Error(err, "Failed to compare patches")
