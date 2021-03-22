@@ -759,6 +759,15 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 				return reconcile.Result{}, err
 			}
 
+			if instance.Spec.ClusterDisplayName != "" {
+				if watchKeeperConfig.Labels == nil {
+					watchKeeperConfig.Labels = make(map[string]string)
+				}
+		
+				utils.SetMapKeyValue(watchKeeperConfig.Labels,[]string{"razee/cluster-metadata","true"})
+				watchKeeperConfig.Data["name"] = instance.Spec.ClusterDisplayName
+			}
+
 			err = r.Client.Create(context.TODO(), &watchKeeperConfig)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create resource", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
