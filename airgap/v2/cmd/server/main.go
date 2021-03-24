@@ -45,7 +45,7 @@ func main() {
 		Short: "Command to start up grpc server and database",
 		Long:  `Command to start up grpc server and establish a database connection`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			d, err := database.InitDB(dir, db, join, verbose)
+			d, err := database.InitDB("airgap", dir, db, join, verbose)
 			if err != nil {
 				return err
 			}
@@ -56,7 +56,7 @@ func main() {
 			}
 
 			s := grpc.NewServer()
-			fileserver.RegisterFileServerServer(s, &server.Server{Log: log})
+			fileserver.RegisterFileServerServer(s, &server.Server{Log: log, DB: d})
 			go func() {
 				if err := s.Serve(lis); err != nil {
 					panic(err)
