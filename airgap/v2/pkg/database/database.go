@@ -24,15 +24,37 @@ import (
 
 	"github.com/canonical/go-dqlite/app"
 	"github.com/canonical/go-dqlite/client"
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/driver/dqlite"
+	"gorm.io/gorm"
 )
 
 type Database struct {
-	db  *sql.DB
-	app *app.App
+	DB       *gorm.DB
+	dqliteDB *sql.DB
+	app      *app.App
+	Log      logr.Logger
 }
 
-func InitDB(dir string, url string, join *[]string, verbose bool) (*Database, error) {
+// Initialize the GORM connection and return connected struct
+func InitDB(name string, dir string, url string, join *[]string, verbose bool) (*Database, error) {
+	database, err := initDqlite(name, dir, url, join, verbose)
+	if err != nil {
+		return nil, err
+	}
+
+	dqliteDialector := dqlite.Open(database.dqliteDB)
+	database.DB, err = gorm.Open(dqliteDialector, &gorm.Config{})
+	if err != nil {
+		return nil, err
+	}
+
+	return database, err
+}
+
+// Initialize the underlying dqlite database and populate a *Database object with the dqlite connection and app
+func initDqlite(name string, dir string, url string, join *[]string, verbose bool) (*Database, error) {
 	dir = filepath.Join(dir, url)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, errors.Wrapf(err, "can't create %s", dir)
@@ -53,17 +75,19 @@ func InitDB(dir string, url string, join *[]string, verbose bool) (*Database, er
 		return nil, err
 	}
 
-	db, err := app.Open(context.Background(), "database")
+	conn, err := app.Open(context.Background(), name)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Database{db: db, app: app}, db.Ping()
+	return &Database{dqliteDB: conn, app: app}, conn.Ping()
 }
 
+// Close connection to the database and perform context handover
 func (d *Database) Close() {
 	if d != nil {
-		d.db.Close()
+		d.Log.Info("Attempting graceful shutdown and handover")
+		d.dqliteDB.Close()
 		d.app.Handover(context.Background())
 		d.app.Close()
 	}

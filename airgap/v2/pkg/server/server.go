@@ -22,6 +22,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileserver"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -29,6 +30,7 @@ import (
 type Server struct {
 	fileserver.UnimplementedFileServerServer
 	Log logr.Logger
+	DB  *database.Database
 }
 
 func (s *Server) UploadFile(stream fileserver.FileServer_UploadFileServer) error {
