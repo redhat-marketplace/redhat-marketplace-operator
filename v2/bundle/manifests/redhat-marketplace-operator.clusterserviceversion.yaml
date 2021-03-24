@@ -662,15 +662,15 @@ spec:
                       - name: RELATED_IMAGE_PROMETHEUS
                         value: registry.redhat.io/openshift4/ose-prometheus:v4.6
                       - name: RELATED_IMAGE_OAUTH_PROXY
-                        value: registry.redhat.io/openshift4/ose-oauth-proxy:v4.6
+                        value: registry.redhat.io/openshift4/ose-oauth-proxy:v4.5
                       - name: RELATED_IMAGE_PROMETHEUS_OPERATOR
-                        value: registry.redhat.io/openshift4/ose-prometheus-operator:v4.6
+                        value: registry.redhat.io/openshift4/ose-prometheus-operator:v4.5
                       - name: RELATED_IMAGE_CONFIGMAP_RELOADER
-                        value: registry.redhat.io/openshift4/ose-configmap-reloader:v4.6
+                        value: registry.redhat.io/openshift4/ose-configmap-reloader:v4.5
                       - name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
-                        value: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.6
+                        value: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5
                       - name: RELATED_IMAGE_KUBE_RBAC_PROXY
-                        value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.6
+                        value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
                       - name: IBMCATALOGSOURCE
                         value: "true"
                       - name: OPERATOR_NAME

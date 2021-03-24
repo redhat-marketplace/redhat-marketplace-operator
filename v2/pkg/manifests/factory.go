@@ -25,6 +25,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/blang/semver"
 	"github.com/gotidy/ptr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -44,14 +45,17 @@ import (
 )
 
 const (
-	PrometheusOperatorDeployment    = "assets/prometheus-operator/deployment.yaml"
-	PrometheusOperatorService       = "assets/prometheus-operator/service.yaml"
+	PrometheusOperatorDeploymentV45 = "assets/prometheus-operator/deployment-v4.5.yaml"
+	PrometheusOperatorDeploymentV46 = "assets/prometheus-operator/deployment-v4.6.yaml"
+	PrometheusOperatorServiceV45    = "assets/prometheus-operator/service-v4.5.yaml"
+	PrometheusOperatorServiceV46    = "assets/prometheus-operator/service-v4.6.yaml"
 	PrometheusOperatorCertsCABundle = "assets/prometheus-operator/operator-certs-ca-bundle.yaml"
 
 	PrometheusAdditionalScrapeConfig = "assets/prometheus/additional-scrape-configs.yaml"
 	PrometheusHtpasswd               = "assets/prometheus/htpasswd-secret.yaml"
 	PrometheusRBACProxySecret        = "assets/prometheus/kube-rbac-proxy-secret.yaml"
-	PrometheusDeployment             = "assets/prometheus/prometheus.yaml"
+	PrometheusDeploymentV45          = "assets/prometheus/prometheus-v4.5.yaml"
+	PrometheusDeploymentV46          = "assets/prometheus/prometheus-v4.6.yaml"
 	PrometheusProxySecret            = "assets/prometheus/proxy-secret.yaml"
 	PrometheusService                = "assets/prometheus/service.yaml"
 	PrometheusDatasourcesSecret      = "assets/prometheus/prometheus-datasources-secret.yaml"
@@ -60,9 +64,12 @@ const (
 
 	ReporterJob = "assets/reporter/job.yaml"
 
-	MetricStateDeployment          = "assets/metric-state/deployment.yaml"
-	MetricStateServiceMonitor      = "assets/metric-state/service-monitor.yaml"
-	MetricStateService             = "assets/metric-state/service.yaml"
+	MetricStateDeployment        = "assets/metric-state/deployment.yaml"
+	MetricStateServiceMonitorV45 = "assets/metric-state/service-monitor-v4.5.yaml"
+	MetricStateServiceMonitorV46 = "assets/metric-state/service-monitor-v4.6.yaml"
+	MetricStateService           = "assets/metric-state/service.yaml"
+
+	// ose-prometheus v4.6
 	MetricStateRHMOperatorSecret   = "assets/metric-state/secret.yaml"
 	KubeStateMetricsServiceMonitor = "assets/metric-state/kube-state-metrics-service-monitor.yaml"
 	KubeletServiceMonitor          = "assets/metric-state/kubelet-service-monitor.yaml"
@@ -302,9 +309,18 @@ func (f *Factory) PrometheusAdditionalConfigSecret(data []byte) (*v1.Secret, err
 	return s, nil
 }
 
+func (f *Factory) prometheusOperatorDeployment() string {
+	v460, _ := semver.Make("4.6.0")
+	parsedOsVersion, _ := semver.ParseTolerant(f.operatorConfig.Infrastructure.OpenshiftVersion())
+	if parsedOsVersion.GTE(v460) {
+		return PrometheusOperatorDeploymentV46
+	}
+	return PrometheusOperatorDeploymentV45
+}
+
 func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployment, error) {
 	c := f.config.PrometheusOperatorConfig
-	dep, err := f.NewDeployment(MustAssetReader(PrometheusOperatorDeployment))
+	dep, err := f.NewDeployment(MustAssetReader(f.prometheusOperatorDeployment()))
 
 	if len(c.NodeSelector) > 0 {
 		dep.Spec.Template.Spec.NodeSelector = c.NodeSelector
@@ -342,12 +358,21 @@ func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployme
 	return dep, err
 }
 
+func (f *Factory) prometheusDeployment() string {
+	v460, _ := semver.Make("4.6.0")
+	parsedOsVersion, _ := semver.ParseTolerant(f.operatorConfig.Infrastructure.OpenshiftVersion())
+	if parsedOsVersion.GTE(v460) {
+		return PrometheusDeploymentV46
+	}
+	return PrometheusDeploymentV45
+}
+
 func (f *Factory) NewPrometheusDeployment(
 	cr *marketplacev1alpha1.MeterBase,
 	cfg *corev1.Secret,
 ) (*monitoringv1.Prometheus, error) {
 	logger := log.WithValues("func", "NewPrometheusDeployment")
-	p, err := f.NewPrometheus(MustAssetReader(PrometheusDeployment))
+	p, err := f.NewPrometheus(MustAssetReader(f.prometheusDeployment()))
 
 	if err != nil {
 		logger.Error(err, "failed to read the file")
@@ -411,8 +436,17 @@ func (f *Factory) NewPrometheusDeployment(
 	return p, err
 }
 
+func (f *Factory) prometheusOperatorService() string {
+	v460, _ := semver.Make("4.6.0")
+	parsedOsVersion, _ := semver.ParseTolerant(f.operatorConfig.Infrastructure.OpenshiftVersion())
+	if parsedOsVersion.GTE(v460) {
+		return PrometheusOperatorServiceV46
+	}
+	return PrometheusOperatorServiceV45
+}
+
 func (f *Factory) NewPrometheusOperatorService() (*corev1.Service, error) {
-	service, err := f.NewService(MustAssetReader(PrometheusOperatorService))
+	service, err := f.NewService(MustAssetReader(f.prometheusOperatorService()))
 
 	return service, err
 }
@@ -534,8 +568,17 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 	return d, nil
 }
 
+func (f *Factory) metricStateServiceMonitor() string {
+	v460, _ := semver.Make("4.6.0")
+	parsedOsVersion, _ := semver.ParseTolerant(f.operatorConfig.Infrastructure.OpenshiftVersion())
+	if parsedOsVersion.GTE(v460) {
+		return MetricStateServiceMonitorV46
+	}
+	return MetricStateServiceMonitorV45
+}
+
 func (f *Factory) MetricStateServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
-	sm, err := f.NewServiceMonitor(MustAssetReader(MetricStateServiceMonitor))
+	sm, err := f.NewServiceMonitor(MustAssetReader(f.metricStateServiceMonitor()))
 	if err != nil {
 		return nil, err
 	}

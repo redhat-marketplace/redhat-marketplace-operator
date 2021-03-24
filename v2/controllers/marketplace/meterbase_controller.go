@@ -312,12 +312,22 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		}
 	} else {
 		// RHM provides Prometheus
+
+		// Leave additionalConfigSecret nil if v4.6+
+		var cfg *corev1.Secret
+		v460, _ := semver.Make("4.6.0")
+		parsedOsVersion, _ := semver.ParseTolerant(r.cfg.Infrastructure.OpenshiftVersion())
+		if !parsedOsVersion.GTE(v460) {
+			cfg = &corev1.Secret{}
+		}
+
 		prometheus := &monitoringv1.Prometheus{}
 		if result, _ := cc.Do(context.TODO(),
 			Do(r.installPrometheusServingCertsCABundle(factory)...),
 			Do(r.reconcilePrometheusOperator(instance, factory)...),
 			Do(r.installMetricStateDeployment(instance, factory)...),
-			Do(r.reconcilePrometheus(instance, prometheus, factory, nil)...),
+			Do(r.reconcileAdditionalConfigSecret(cc, instance, prometheus, factory, cfg)...),
+			Do(r.reconcilePrometheus(instance, prometheus, factory, cfg)...),
 			Do(r.verifyPVCSize(reqLogger, instance, factory, prometheus)...),
 			Do(r.recyclePrometheusPods(reqLogger, instance, factory, prometheus)...),
 		); !result.Is(Continue) {
@@ -716,7 +726,7 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 		Patcher: r.patcher,
 	}
 
-	return []ClientAction{
+	actions := []ClientAction{
 		manifests.CreateOrUpdateFactoryItemAction(
 			deployment,
 			func() (runtime.Object, error) {
@@ -732,27 +742,6 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
-			secret,
-			func() (runtime.Object, error) {
-				return factory.MetricStateRHMOperatorSecret()
-			},
-			args,
-		),
-		manifests.CreateOrUpdateFactoryItemAction(
-			serviceMonitor0,
-			func() (runtime.Object, error) {
-				return factory.KubeStateMetricsServiceMonitor()
-			},
-			args,
-		),
-		manifests.CreateOrUpdateFactoryItemAction(
-			serviceMonitor1,
-			func() (runtime.Object, error) {
-				return factory.KubeletServiceMonitor()
-			},
-			args,
-		),
-		manifests.CreateOrUpdateFactoryItemAction(
 			serviceMonitor2,
 			func() (runtime.Object, error) {
 				return factory.MetricStateServiceMonitor()
@@ -760,6 +749,35 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 			args,
 		),
 	}
+
+	v460, _ := semver.Make("4.6.0")
+	parsedOsVersion, _ := semver.ParseTolerant(r.cfg.Infrastructure.OpenshiftVersion())
+	if parsedOsVersion.GTE(v460) {
+		actions = append(actions,
+			manifests.CreateOrUpdateFactoryItemAction(
+				secret,
+				func() (runtime.Object, error) {
+					return factory.MetricStateRHMOperatorSecret()
+				},
+				args,
+			),
+			manifests.CreateOrUpdateFactoryItemAction(
+				serviceMonitor0,
+				func() (runtime.Object, error) {
+					return factory.KubeStateMetricsServiceMonitor()
+				},
+				args,
+			),
+			manifests.CreateOrUpdateFactoryItemAction(
+				serviceMonitor1,
+				func() (runtime.Object, error) {
+					return factory.KubeletServiceMonitor()
+				},
+				args,
+			),
+		)
+	}
+	return actions
 }
 
 func (r *MeterBaseReconciler) uninstallPrometheusOperator(
@@ -803,6 +821,14 @@ func (r *MeterBaseReconciler) reconcileAdditionalConfigSecret(
 	factory *manifests.Factory,
 	additionalConfigSecret *corev1.Secret,
 ) []ClientAction {
+
+	// Additional config secret not required on ose-prometheus-operator v4.6, handled by ServiceMonitors
+	v460, _ := semver.Make("4.6.0")
+	parsedOsVersion, _ := semver.ParseTolerant(r.cfg.Infrastructure.OpenshiftVersion())
+	if parsedOsVersion.GTE(v460) {
+		return []ClientAction{}
+	}
+
 	reqLogger := r.Log.WithValues("func", "reconcileAdditionalConfigSecret", "Request.Namespace", instance.Namespace, "Request.Name", instance.Name)
 	openshiftKubeletMonitor := &monitoringv1.ServiceMonitor{}
 	openshiftKubeStateMonitor := &monitoringv1.ServiceMonitor{}
@@ -1406,8 +1432,7 @@ func isUserWorkloadMonitoringEnabled(cc ClientCommandRunner, infrastructure *con
 	userWorkloadMonitoringEnabled := false
 	if infrastructure.HasOpenshift() {
 		v460, _ := semver.Make("4.6.0")
-		osVersion := infrastructure.OpenshiftVersion()
-		parsedOsVersion, _ := semver.ParseTolerant(osVersion)
+		parsedOsVersion, _ := semver.ParseTolerant(infrastructure.OpenshiftVersion())
 		if parsedOsVersion.GTE(v460) {
 
 			enableUserWorkload := false
