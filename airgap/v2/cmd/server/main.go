@@ -15,17 +15,23 @@
 package main
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileserver"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/server"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
 )
+
+var log logr.Logger
 
 func main() {
 	var api string
@@ -50,7 +56,7 @@ func main() {
 			}
 
 			s := grpc.NewServer()
-			fileserver.RegisterFileServerServer(s, &server.Server{})
+			fileserver.RegisterFileServerServer(s, &server.Server{Log: log})
 			go func() {
 				if err := s.Serve(lis); err != nil {
 					panic(err)
@@ -84,4 +90,12 @@ func main() {
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
 	}
+}
+
+func init() {
+	zapLog, err := zap.NewDevelopment()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to initialize zapr, due to error: %v", err))
+	}
+	log = zapr.NewLogger(zapLog)
 }
