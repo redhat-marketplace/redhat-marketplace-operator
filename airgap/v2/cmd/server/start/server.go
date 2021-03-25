@@ -29,8 +29,8 @@ import (
 
 type Server struct {
 	fileserver.UnimplementedFileServerServer
-	Log logr.Logger
-	DB  *database.Database
+	Log  logr.Logger
+	File database.File
 }
 
 func (s *Server) UploadFile(stream fileserver.FileServer_UploadFileServer) error {
@@ -44,7 +44,7 @@ func (s *Server) UploadFile(stream fileserver.FileServer_UploadFileServer) error
 		if err == io.EOF {
 			s.Log.Info(fmt.Sprintf("Stream end, total bytes received: %v", len(bs)))
 			// Attempt to save file in database
-			err := s.DB.SaveFile(finfo, bs)
+			err := s.File.SaveFile(finfo, bs)
 			if err != nil {
 				return status.Errorf(
 					codes.Unknown,

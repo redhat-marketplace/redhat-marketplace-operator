@@ -15,86 +15,23 @@
 package database
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
-	"log"
-	"os"
-	"path/filepath"
 
-	"github.com/canonical/go-dqlite/app"
-	"github.com/canonical/go-dqlite/client"
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/driver/dqlite"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/models"
 	"gorm.io/gorm"
 )
 
+type File interface {
+	SaveFile(finfo *v1.FileInfo, bs []byte) error
+}
+
 type Database struct {
-	DB       *gorm.DB
-	dqliteDB *sql.DB
-	app      *app.App
-	Log      logr.Logger
-}
-
-type DatabaseConfig struct {
-	Name    string
-	Dir     string
-	Url     string
-	Join    *[]string
-	Verbose bool
-	Log     logr.Logger
-}
-
-// Initialize the GORM connection and return connected struct
-func (dc *DatabaseConfig) InitDB() (*Database, error) {
-	database, err := dc.initDqlite()
-	if err != nil {
-		return nil, err
-	}
-
-	dqliteDialector := dqlite.Open(database.dqliteDB)
-	database.DB, err = gorm.Open(dqliteDialector, &gorm.Config{})
-	if err != nil {
-		return nil, err
-	}
-
-	// Auto migrate models
-	database.DB.AutoMigrate(&models.File{}, &models.FileMetadata{}, &models.Metadata{})
-	database.Log = dc.Log
-	return database, err
-}
-
-// Initialize the underlying dqlite database and populate a *Database object with the dqlite connection and app
-func (dc *DatabaseConfig) initDqlite() (*Database, error) {
-	dc.Dir = filepath.Join(dc.Dir, dc.Url)
-	if err := os.MkdirAll(dc.Dir, 0755); err != nil {
-		return nil, errors.Wrapf(err, "can't create %s", dc.Dir)
-	}
-	logFunc := func(l client.LogLevel, format string, a ...interface{}) {
-		if !dc.Verbose {
-			return
-		}
-		log.Printf(fmt.Sprintf("%s: %s\n", l.String(), format), a...)
-	}
-
-	app, err := app.New(dc.Dir, app.WithAddress(dc.Url), app.WithCluster(*dc.Join), app.WithLogFunc(logFunc))
-	if err != nil {
-		return nil, err
-	}
-
-	if err := app.Ready(context.Background()); err != nil {
-		return nil, err
-	}
-
-	conn, err := app.Open(context.Background(), dc.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Database{dqliteDB: conn, app: app}, conn.Ping()
+	DB    *gorm.DB
+	SqlDB *sql.DB
+	Log   logr.Logger
 }
 
 func (d *Database) SaveFile(finfo *v1.FileInfo, bs []byte) error {
@@ -129,14 +66,4 @@ func (d *Database) SaveFile(finfo *v1.FileInfo, bs []byte) error {
 
 	d.Log.Info(fmt.Sprintf("File of size: %v saved with id: %v", metadata.Size, metadata.FileID))
 	return nil
-}
-
-// Close connection to the database and perform context handover
-func (d *Database) Close() {
-	if d != nil {
-		d.Log.Info("Attempting graceful shutdown and handover")
-		d.dqliteDB.Close()
-		d.app.Handover(context.Background())
-		d.app.Close()
-	}
 }
