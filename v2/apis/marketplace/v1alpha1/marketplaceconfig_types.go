@@ -62,6 +62,12 @@ type MarketplaceConfigSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Disabled Features"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
 	Features *common.Features `json:"features,omitempty"`
+
+	// NamespaceLabelSelector is a LabelSelector that overrides the default LabelSelector used to build the OperatorGroup Namespace list
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Namespace LabelSelector"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
+	NamespaceLabelSelector *metav1.LabelSelector `json:"namespaceLabelSelector,omitempty"`
 }
 
 // MarketplaceConfigStatus defines the observed state of MarketplaceConfig

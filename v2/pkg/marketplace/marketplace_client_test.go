@@ -25,8 +25,10 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 )
+
 const timeout = time.Second * 100
 const interval = time.Second * 3
+
 var _ = Describe("Marketplace Config Status", func() {
 	var (
 		marketplaceClientAccount *MarketplaceClientAccount
@@ -37,19 +39,19 @@ var _ = Describe("Marketplace Config Status", func() {
 		body                     []byte
 		path                     string
 		err                      error
-		mbuilder *MarketplaceClientBuilder
+		mbuilder                 *MarketplaceClientBuilder
 	)
 
 	BeforeEach(func() {
 		// start a test http server
 		server = ghttp.NewTLSServer()
 		server.SetAllowUnhandledRequests(true)
-		
+
 		addr := "https://" + server.Addr() + path
-	
+
 		cfg := &config.OperatorConfig{
 			Marketplace: config.Marketplace{
-				URL: addr,
+				URL:            addr,
 				InsecureClient: false,
 			},
 		}
@@ -63,8 +65,8 @@ var _ = Describe("Marketplace Config Status", func() {
 			RootCAs:            server.HTTPTestServer.TLS.RootCAs,
 			InsecureSkipVerify: true,
 		})
-		
-		mclient, err = mbuilder.NewMarketplaceClient(token,tokenClaims)
+
+		mclient, err = mbuilder.NewMarketplaceClient(token, tokenClaims)
 		Expect(err).To(Succeed())
 
 		Expect(mclient.endpoint).ToNot(BeNil())

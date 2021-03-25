@@ -160,7 +160,7 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 		// Unsigned, Unverified
 		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionSignatureUnverified)
 	}
-	
+
 	switch {
 	case instance.Status.Conditions.IsUnknownFor(common.MeterDefConditionTypeHasResult):
 		fallthrough

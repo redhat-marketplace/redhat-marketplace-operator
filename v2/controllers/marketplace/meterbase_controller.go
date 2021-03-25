@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -580,7 +581,6 @@ func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 	factory *manifests.Factory,
 ) []ClientAction {
 	reqLogger := r.Log.WithValues("Request.Namespace", instance.Namespace, "Request.Name", instance.Name)
-	nsList := &corev1.NamespaceList{}
 	cm := &corev1.ConfigMap{}
 	deployment := &appsv1.Deployment{}
 	service := &corev1.Service{}
@@ -590,19 +590,9 @@ func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 		Patcher: r.patcher,
 	}
 
-	nsLabelSelector, _ := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
-		MatchExpressions: []metav1.LabelSelectorRequirement{
-			{
-				Key:      "openshift.io/cluster-monitoring",
-				Operator: "DoesNotExist",
-			},
-		},
-	})
+	watchNamespace, _ := getWatchNamespace()
 
 	return []ClientAction{
-		ListAction(nsList, client.MatchingLabelsSelector{
-			Selector: nsLabelSelector,
-		}),
 		manifests.CreateIfNotExistsFactoryItem(
 			cm,
 			func() (runtime.Object, error) {
@@ -619,10 +609,7 @@ func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 		manifests.CreateOrUpdateFactoryItemAction(
 			deployment,
 			func() (runtime.Object, error) {
-				nsValues := []string{instance.Namespace}
-				for _, ns := range nsList.Items {
-					nsValues = append(nsValues, ns.Name)
-				}
+				nsValues := strings.Split(watchNamespace, ",")
 				sort.Strings(nsValues)
 				reqLogger.Info("found namespaces", "ns", nsValues)
 				return factory.NewPrometheusOperatorDeployment(nsValues)
@@ -1271,4 +1258,18 @@ func (r *MeterBaseReconciler) newBaseConfigMap(filename string, cr *marketplacev
 // belonging to the given prometheus CR name.
 func labelsForPrometheusOperator(name string) map[string]string {
 	return map[string]string{"prometheus": name}
+}
+
+// getWatchNamespace returns the Namespace the operator should be watching for changes
+func getWatchNamespace() (string, error) {
+	// WatchNamespaceEnvVar is the constant for env variable WATCH_NAMESPACE
+	// which specifies the Namespace to watch.
+	// An empty value means the operator is running with cluster scope.
+	var watchNamespaceEnvVar = "WATCH_NAMESPACE"
+
+	ns, found := os.LookupEnv(watchNamespaceEnvVar)
+	if !found {
+		return "", fmt.Errorf("%s must be set", watchNamespaceEnvVar)
+	}
+	return ns, nil
 }

@@ -90,6 +90,51 @@ spec:
               description: InstallIBMCatalogSource is the flag that indicates if the
                 IBM Catalog Source is installed
               type: boolean
+            namespaceLabelSelector:
+              description: NamespaceLabelSelector is a LabelSelector that overrides
+                the default LabelSelector used to build the OperatorGroup Namespace
+                list
+              properties:
+                matchExpressions:
+                  description: matchExpressions is a list of label selector requirements.
+                    The requirements are ANDed.
+                  items:
+                    description: A label selector requirement is a selector that contains
+                      values, a key, and an operator that relates the key and values.
+                    properties:
+                      key:
+                        description: key is the label key that the selector applies
+                          to.
+                        type: string
+                      operator:
+                        description: operator represents a key's relationship to a
+                          set of values. Valid operators are In, NotIn, Exists and
+                          DoesNotExist.
+                        type: string
+                      values:
+                        description: values is an array of string values. If the operator
+                          is In or NotIn, the values array must be non-empty. If the
+                          operator is Exists or DoesNotExist, the values array must
+                          be empty. This array is replaced during a strategic merge
+                          patch.
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - key
+                    - operator
+                    type: object
+                  type: array
+                matchLabels:
+                  additionalProperties:
+                    type: string
+                  description: matchLabels is a map of {key,value} pairs. A single
+                    {key,value} in the matchLabels map is equivalent to an element
+                    of matchExpressions, whose key field is "key", the operator is
+                    "In", and the values array contains only "value". The requirements
+                    are ANDed.
+                  type: object
+              type: object
             rhmAccountID:
               description: RhmAccountID is the Red Hat Marketplace Account identifier
               type: string
@@ -881,6 +926,40 @@ spec:
                   - type
                   type: object
                 type: array
+              results:
+                description: Results is a list of Results that get returned from a
+                  query to prometheus
+                items:
+                  description: Result is a result of a query defined on the meterdefinition.
+                    This will generate data for the previous hour on whichever workload
+                    you specify. This will allow you to check whether a query is working
+                    as intended.
+                  properties:
+                    metricName:
+                      description: MetricName is the identifier that you will use
+                        to identify your query
+                      type: string
+                    query:
+                      description: Query is the compiled query that is given to Prometheus
+                      type: string
+                    values:
+                      description: Values are the results of the query
+                      items:
+                        description: ResultValues will hold the results of the prometheus
+                          query
+                        properties:
+                          timestamp:
+                            format: int64
+                            type: integer
+                          value:
+                            type: string
+                        required:
+                        - timestamp
+                        - value
+                        type: object
+                      type: array
+                  type: object
+                type: array
               workloadResource:
                 description: WorkloadResources is the list of resoruces discovered
                   by this meter definition
@@ -1287,6 +1366,40 @@ spec:
                   required:
                   - status
                   - type
+                  type: object
+                type: array
+              results:
+                description: Results is a list of Results that get returned from a
+                  query to prometheus
+                items:
+                  description: Result is a result of a query defined on the meterdefinition.
+                    This will generate data for the previous hour on whichever workload
+                    you specify. This will allow you to check whether a query is working
+                    as intended.
+                  properties:
+                    metricName:
+                      description: MetricName is the identifier that you will use
+                        to identify your query
+                      type: string
+                    query:
+                      description: Query is the compiled query that is given to Prometheus
+                      type: string
+                    values:
+                      description: Values are the results of the query
+                      items:
+                        description: ResultValues will hold the results of the prometheus
+                          query
+                        properties:
+                          timestamp:
+                            format: int64
+                            type: integer
+                          value:
+                            type: string
+                        required:
+                        - timestamp
+                        - value
+                        type: object
+                      type: array
                   type: object
                 type: array
               workloadResource:
@@ -1735,6 +1848,41 @@ spec:
                           required:
                           - status
                           - type
+                          type: object
+                        type: array
+                      results:
+                        description: Results is a list of Results that get returned
+                          from a query to prometheus
+                        items:
+                          description: Result is a result of a query defined on the
+                            meterdefinition. This will generate data for the previous
+                            hour on whichever workload you specify. This will allow
+                            you to check whether a query is working as intended.
+                          properties:
+                            metricName:
+                              description: MetricName is the identifier that you will
+                                use to identify your query
+                              type: string
+                            query:
+                              description: Query is the compiled query that is given
+                                to Prometheus
+                              type: string
+                            values:
+                              description: Values are the results of the query
+                              items:
+                                description: ResultValues will hold the results of
+                                  the prometheus query
+                                properties:
+                                  timestamp:
+                                    format: int64
+                                    type: integer
+                                  value:
+                                    type: string
+                                required:
+                                - timestamp
+                                - value
+                                type: object
+                              type: array
                           type: object
                         type: array
                       workloadResource:
@@ -2780,6 +2928,7 @@ webhooks:
       name: redhat-marketplace-controller-manager-service
       namespace: openshift-redhat-marketplace
       path: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
+      port: 9443
   failurePolicy: Fail
   name: mmeterdefinition.marketplace.redhat.com
   rules:
@@ -2903,6 +3052,7 @@ rules:
   - events
   - configmaps
   - secrets
+  - serviceaccounts/token
   verbs:
   - create
   - delete
@@ -3002,6 +3152,13 @@ rules:
   - configmaps
   verbs:
   - get
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -3019,6 +3176,13 @@ rules:
   - delete
   - watch
   - list
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -3089,6 +3253,18 @@ rules:
   - get
   - patch
   - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    redhat.marketplace.com/name: redhat-marketplace-operator
+  name: redhat-marketplace-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -3537,12 +3713,16 @@ rules:
   - '*'
   verbs:
   - '*'
-- nonResourceURLs:
-  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
   verbs:
   - get
   - list
   - watch
+  - update
+  - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -3565,18 +3745,6 @@ rules:
   - get
   - list
   - watch
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  labels:
-    redhat.marketplace.com/name: redhat-marketplace-operator
-  name: redhat-marketplace-metrics-reader
-rules:
-- nonResourceURLs:
-  - /metrics
-  verbs:
-  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -3853,6 +4021,8 @@ spec:
           value: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5
         - name: RELATED_IMAGE_KUBE_RBAC_PROXY
           value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
+        - name: IBMCATALOGSOURCE
+          value: "true"
         - name: OS_IMAGE_KUBE_RBAC_PROXY
           value: quay.io/coreos/kube-rbac-proxy:v0.5.0
         - name: OS_IMAGE_PROMETHEUS
@@ -3865,18 +4035,18 @@ spec:
           value: quay.io/coreos/prometheus-config-reloader:v0.42.1
         - name: OS_IMAGE_OAUTH_PROXY
           value: quay.io/oauth2-proxy/oauth2-proxy:v6.1.1
-        - name: IBMCATALOGSOURCE
-          value: "true"
         - name: OPERATOR_NAME
           value: redhat-marketplace-operator
         - name: RELATED_IMAGE_REPORTER
-          value: quay.io/rh-marketplace/redhat-marketplace-reporter:2.0.0-6849abb0c74c41c65abf00ebb592b655c60344bb-amd64
+          value: quay.io/zach_source/redhat-marketplace-reporter:2.1.0_2
         - name: RELATED_IMAGE_METRIC_STATE
-          value: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.0.0-6849abb0c74c41c65abf00ebb592b655c60344bb-amd64
+          value: quay.io/zach_source/redhat-marketplace-metric-state:2.1.0_2
         - name: RELATED_IMAGE_AUTHCHECK
-          value: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.0.0-6849abb0c74c41c65abf00ebb592b655c60344bb-amd64
+          value: quay.io/zach_source/redhat-marketplace-authcheck:2.1.0_2
         - name: WATCH_NAMESPACE
-          value: ""
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.annotations['olm.targetNamespaces']
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
@@ -3897,12 +4067,28 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.labels['olm.owner.kind']
-        image: quay.io/rh-marketplace/redhat-marketplace-operator:2.0.0-6849abb0c74c41c65abf00ebb592b655c60344bb-amd64
+        - name: OPERATOR_GROUP
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.annotations['olm.operatorGroup']
+        image: quay.io/zach_source/redhat-marketplace-operator:2.1.0_2
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
         name: manager
         ports:
         - containerPort: 9443
           name: webhook-server
           protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
         resources:
           requests:
             cpu: 100m
@@ -3961,6 +4147,7 @@ webhooks:
       name: redhat-marketplace-controller-manager-service
       namespace: openshift-redhat-marketplace
       path: /validate-marketplace-redhat-com-v1beta1-meterdefinition
+      port: 9443
   failurePolicy: Fail
   name: vmeterdefinition.marketplace.redhat.com
   rules:
