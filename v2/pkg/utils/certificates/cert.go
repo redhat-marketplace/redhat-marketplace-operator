@@ -15,7 +15,10 @@
 package utils
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/cloudflare/cfssl/csr"
@@ -146,4 +149,30 @@ func (ci *CertIssuer) CAPublicKey() []byte {
 
 func (ci *CertIssuer) CAPrivateKey() []byte {
 	return ci.ca.PrivateKey
+}
+
+func (ci *CertIssuer) RotateCA() error {
+	cert, key, err := createCertificateAuthority()
+	if err != nil {
+		return err
+	}
+
+	ci.ca = CertificateAuthority{
+		PublicKey:  cert,
+		PrivateKey: key,
+	}
+
+	return nil
+}
+
+func (ci *CertIssuer) CAExpiresInHours() (float64, error) {
+	block, _ := pem.Decode(ci.CAPublicKey())
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return 0, err
+	}
+
+	expiresOn := helpers.ExpiryTime([]*x509.Certificate{cert})
+
+	return math.Round(expiresOn.Sub(time.Now()).Hours() / 24), nil
 }

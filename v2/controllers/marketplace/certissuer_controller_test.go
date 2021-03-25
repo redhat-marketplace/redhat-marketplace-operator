@@ -15,11 +15,12 @@
 package marketplace
 
 import (
+	"fmt"
 	"reflect"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/certificates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
 	corev1 "k8s.io/api/core/v1"
@@ -27,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -61,6 +61,17 @@ var _ = Describe("CertIssuerController", func() {
 				WithRequest(req),
 			}
 
+			rhmpService = &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespacedName.Namespace,
+					Name:      "redhat-marketplace-controller-manager-service",
+					UID:       types.UID("123"),
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind: "Service",
+				},
+			}
+
 			configmap = &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: namespacedName.Namespace,
@@ -74,29 +85,41 @@ var _ = Describe("CertIssuerController", func() {
 				},
 			}
 
+			outdatedSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespacedName.Namespace,
+					Name:      "prometheus-operator-tls",
+					Annotations: map[string]string{
+						"service.beta.openshift.io/inject-cabundle": "true",
+						"certificate/ExpiresOn":                     fmt.Sprintf("%v", time.Now().Unix()),
+					},
+				},
+				Data: map[string][]byte{
+					"tls.crt": []byte("abcdefgh"),
+				},
+			}
+
 			setup = func(r *ReconcilerTest) error {
 				var log = logf.Log.WithName("certissuer_controller")
-				discoveryClient, _ := discovery.NewDiscoveryClientForConfig(cfg)
 				r.Client = fake.NewFakeClient(r.GetGetObjects()...)
-				inf, _ := config.NewInfrastructure(r.Client, discoveryClient)
 				r.Reconciler = &CertIssuerReconciler{
 					Client:     r.Client,
 					Scheme:     scheme.Scheme,
 					Log:        log,
 					certIssuer: ci,
-					cfg: &config.OperatorConfig{
-						Infrastructure: inf,
-					},
 				}
 				return nil
 			}
 
 			testConfigMapDataInsertion = func(t GinkgoTInterface) {
 				t.Parallel()
-				reconcilerTest := NewReconcilerTest(setup, configmap)
+				reconcilerTest := NewReconcilerTest(setup, rhmpService, configmap)
 				reconcilerTest.TestAll(t,
 					ReconcileStep(opts,
-						ReconcileWithUntilDone(true)),
+						ReconcileWithExpectedResults(
+							RequeueAfterResult(time.Hour*24),
+						),
+					),
 					ListStep(opts,
 						ListWithObj(&corev1.ConfigMapList{}),
 						ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
@@ -112,10 +135,13 @@ var _ = Describe("CertIssuerController", func() {
 
 			testSecretCreation = func(t GinkgoTInterface) {
 				t.Parallel()
-				reconcilerTest := NewReconcilerTest(setup, configmap)
+				reconcilerTest := NewReconcilerTest(setup, rhmpService, configmap)
 				reconcilerTest.TestAll(t,
 					ReconcileStep(opts,
-						ReconcileWithUntilDone(true)),
+						ReconcileWithExpectedResults(
+							RequeueAfterResult(time.Hour*24),
+						),
+					),
 					ListStep(opts,
 						ListWithObj(&corev1.SecretList{}),
 						ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
@@ -125,13 +151,42 @@ var _ = Describe("CertIssuerController", func() {
 								"prometheus-operator-tls",
 								"rhm-metric-state-tls",
 								"rhm-prometheus-meterbase-tls",
+								"rhmp-ca-tls",
 							}
 							names := []string{}
 							for _, s := range list.Items {
 								names = append(names, s.GetName())
 								Expect(len(s.Data)).Should(BeNumerically(">", 0))
+								Expect(len(s.Annotations["certificate/ExpiresOn"])).Should(BeNumerically(">", 0))
 							}
 							Expect(reflect.DeepEqual(tlsSecrets, names)).To(BeTrue())
+						}),
+					),
+				)
+			}
+
+			testRotatingSecret = func(t GinkgoTInterface) {
+				t.Parallel()
+				reconcilerTest := NewReconcilerTest(setup, rhmpService, configmap, outdatedSecret)
+				reconcilerTest.TestAll(t,
+					ReconcileStep(opts,
+						ReconcileWithExpectedResults(
+							RequeueAfterResult(time.Hour*24),
+						),
+					),
+					ListStep(opts,
+						ListWithObj(&corev1.SecretList{}),
+						ListWithCheckResult(func(r *ReconcilerTest, t ReconcileTester, i runtime.Object) {
+							list, ok := i.(*corev1.SecretList)
+							Expect(ok).To(BeTrue())
+
+							for _, s := range list.Items {
+								Expect(len(s.Annotations["certificate/ExpiresOn"])).Should(BeNumerically(">", 0))
+								if s.GetName() == "prometheus-operator-tls" {
+									Expect(s.Data["tls.crt"]).ToNot(Equal([]byte("abcdefgh")))
+									Expect(len(s.Data["tls.key"])).Should(BeNumerically(">", 0))
+								}
+							}
 						}),
 					),
 				)
@@ -140,5 +195,6 @@ var _ = Describe("CertIssuerController", func() {
 
 		testConfigMapDataInsertion(GinkgoT())
 		testSecretCreation(GinkgoT())
+		testRotatingSecret(GinkgoT())
 	})
 })
