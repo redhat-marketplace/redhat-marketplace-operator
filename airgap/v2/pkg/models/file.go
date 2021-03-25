@@ -14,7 +14,17 @@
 
 package models
 
+import (
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+)
+
 type File struct {
 	ID      string `gorm:"primaryKey"`
 	Content []byte
+}
+
+func (f *File) BeforeCreate(tx *gorm.DB) (err error) {
+	f.ID = uuid.NewString()
+	return
 }
