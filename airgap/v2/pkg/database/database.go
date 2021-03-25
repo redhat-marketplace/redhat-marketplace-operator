@@ -26,7 +26,9 @@ import (
 	"github.com/canonical/go-dqlite/client"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/driver/dqlite"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/models"
 	"gorm.io/gorm"
 )
 
@@ -37,9 +39,18 @@ type Database struct {
 	Log      logr.Logger
 }
 
+type DatabaseConfig struct {
+	Name    string
+	Dir     string
+	Url     string
+	Join    *[]string
+	Verbose bool
+	Log     logr.Logger
+}
+
 // Initialize the GORM connection and return connected struct
-func InitDB(name string, dir string, url string, join *[]string, verbose bool) (*Database, error) {
-	database, err := initDqlite(name, dir, url, join, verbose)
+func (dc *DatabaseConfig) InitDB() (*Database, error) {
+	database, err := dc.initDqlite()
 	if err != nil {
 		return nil, err
 	}
@@ -50,23 +61,26 @@ func InitDB(name string, dir string, url string, join *[]string, verbose bool) (
 		return nil, err
 	}
 
+	// Auto migrate models
+	database.DB.AutoMigrate(&models.File{}, &models.FileMetadata{}, &models.Metadata{})
+	database.Log = dc.Log
 	return database, err
 }
 
 // Initialize the underlying dqlite database and populate a *Database object with the dqlite connection and app
-func initDqlite(name string, dir string, url string, join *[]string, verbose bool) (*Database, error) {
-	dir = filepath.Join(dir, url)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, errors.Wrapf(err, "can't create %s", dir)
+func (dc *DatabaseConfig) initDqlite() (*Database, error) {
+	dc.Dir = filepath.Join(dc.Dir, dc.Url)
+	if err := os.MkdirAll(dc.Dir, 0755); err != nil {
+		return nil, errors.Wrapf(err, "can't create %s", dc.Dir)
 	}
 	logFunc := func(l client.LogLevel, format string, a ...interface{}) {
-		if !verbose {
+		if !dc.Verbose {
 			return
 		}
 		log.Printf(fmt.Sprintf("%s: %s\n", l.String(), format), a...)
 	}
 
-	app, err := app.New(dir, app.WithAddress(url), app.WithCluster(*join), app.WithLogFunc(logFunc))
+	app, err := app.New(dc.Dir, app.WithAddress(dc.Url), app.WithCluster(*dc.Join), app.WithLogFunc(logFunc))
 	if err != nil {
 		return nil, err
 	}
@@ -75,12 +89,46 @@ func initDqlite(name string, dir string, url string, join *[]string, verbose boo
 		return nil, err
 	}
 
-	conn, err := app.Open(context.Background(), name)
+	conn, err := app.Open(context.Background(), dc.Name)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Database{dqliteDB: conn, app: app}, conn.Ping()
+}
+
+func (d *Database) SaveFile(finfo *v1.FileInfo, bs []byte) error {
+	// Create a slice of file metadata models
+	var fms []models.FileMetadata
+	m := finfo.GetMetadata()
+	for k, v := range m {
+		fm := models.FileMetadata{
+			Key:   k,
+			Value: v,
+		}
+		fms = append(fms, fm)
+	}
+
+	// Create metadata along with associations
+	metadata := models.Metadata{
+		ProvidedId:      finfo.GetFileId().GetId(),
+		ProvidedName:    finfo.GetFileId().GetName(),
+		Size:            finfo.GetSize(),
+		Compression:     finfo.GetCompression(),
+		CompressionType: finfo.GetCompressionType(),
+		File: models.File{
+			Content: bs,
+		},
+		FileMetadata: fms,
+	}
+	err := d.DB.Create(&metadata).Error
+	if err != nil {
+		d.Log.Error(err, "Failed to save model")
+		return err
+	}
+
+	d.Log.Info(fmt.Sprintf("File of size: %v saved with id: %v", metadata.Size, metadata.FileID))
+	return nil
 }
 
 // Close connection to the database and perform context handover

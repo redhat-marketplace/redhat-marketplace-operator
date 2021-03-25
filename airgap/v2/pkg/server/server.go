@@ -35,6 +35,7 @@ type Server struct {
 
 func (s *Server) UploadFile(stream fileserver.FileServer_UploadFileServer) error {
 	var bs []byte
+	var finfo *v1.FileInfo
 	var fid *v1.FileID
 	var size uint32
 
@@ -42,11 +43,20 @@ func (s *Server) UploadFile(stream fileserver.FileServer_UploadFileServer) error
 		req, err := stream.Recv()
 		if err == io.EOF {
 			s.Log.Info(fmt.Sprintf("Stream end, total bytes received: %v", len(bs)))
+			// Attempt to save file in database
+			err := s.DB.SaveFile(finfo, bs)
+			if err != nil {
+				return status.Errorf(
+					codes.Unknown,
+					fmt.Sprintf("Failed to save file in database: %v", err),
+				)
+			}
+
+			// Prepare response on save and close stream
 			res := &fileserver.UploadFileResponse{
 				FileId: fid,
 				Size:   size,
 			}
-			//TODO: Add database save here
 			return stream.SendAndClose(res)
 		} else if err != nil {
 			s.Log.Error(err, "Oops, something went wrong!")
@@ -62,8 +72,9 @@ func (s *Server) UploadFile(stream fileserver.FileServer_UploadFileServer) error
 		} else if b != nil {
 			bs = append(bs, b...)
 		} else if req.GetInfo() != nil {
-			fid = req.GetInfo().GetFileId()
-			size = req.GetInfo().GetSize()
+			finfo = req.GetInfo()
+			fid = finfo.GetFileId()
+			size = finfo.GetSize()
 		}
 	}
 }
