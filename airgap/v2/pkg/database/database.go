@@ -17,6 +17,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
@@ -35,6 +36,15 @@ type Database struct {
 }
 
 func (d *Database) SaveFile(finfo *v1.FileInfo, bs []byte) error {
+	// Validating input data
+	if finfo == nil || bs == nil {
+		return fmt.Errorf("nil arguments received: finfo: %v bs: %v", finfo, bs)
+	} else if finfo.GetFileId() == nil {
+		return fmt.Errorf("file id struct is nil")
+	} else if len(strings.TrimSpace(finfo.GetFileId().GetId())) == 0 && len(strings.TrimSpace(finfo.GetFileId().GetName())) == 0 {
+		return fmt.Errorf("file id/name is blank")
+	}
+
 	// Create a slice of file metadata models
 	var fms []models.FileMetadata
 	m := finfo.GetMetadata()
