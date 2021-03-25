@@ -73,7 +73,7 @@ func (dc *DatabaseConfig) initDqlite() (*database.Database, error) {
 		if !dc.Verbose {
 			return
 		}
-		s := fmt.Sprintf(fmt.Sprintf("%s: %s", l.String(), format), a...)
+		s := fmt.Sprintf(fmt.Sprintf("%s", format), a...)
 		dc.Log.Info(strings.TrimRight(s, "\n"))
 	}
 

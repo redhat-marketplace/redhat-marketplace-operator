@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package test
+package database_test
 
 import (
 	"os"
@@ -86,6 +86,57 @@ func TestSaveFile(t *testing.T) {
 
 	if len(m.FileMetadata) != 2 {
 		t.Fatalf("File metadata count is incorrect: %v", len(m.FileMetadata))
+	}
+
+}
+
+func TestSaveFileInputValidation(t *testing.T) {
+	database := &database.Database{}
+
+	// file info is nil
+	dbErr := database.SaveFile(nil, make([]byte, 1))
+	if dbErr == nil {
+		t.Fatalf("Save method allows nil file info")
+	}
+
+	// byte slice is nil
+	finfo := &v1.FileInfo{
+		FileId: &v1.FileID{
+			Data: &v1.FileID_Name{
+				Name: "test-file",
+			},
+		},
+		Size:            1024,
+		Compression:     true,
+		CompressionType: "gzip",
+		Metadata: map[string]string{
+			"Key1": "Value1",
+			"Key2": "Value2",
+		},
+	}
+	dbErr = database.SaveFile(finfo, nil)
+	if dbErr == nil {
+		t.Fatalf("Save method allows nil byte slice")
+	}
+
+	// white space in name
+	finfo = &v1.FileInfo{
+		FileId: &v1.FileID{
+			Data: &v1.FileID_Name{
+				Name: " ",
+			},
+		},
+		Size:            1024,
+		Compression:     true,
+		CompressionType: "gzip",
+		Metadata: map[string]string{
+			"Key1": "Value1",
+			"Key2": "Value2",
+		},
+	}
+	dbErr = database.SaveFile(finfo, make([]byte, 1))
+	if dbErr == nil {
+		t.Fatalf("Save method allows names with only whitespace")
 	}
 
 }
