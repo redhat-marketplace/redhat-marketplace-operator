@@ -107,7 +107,7 @@ deploy: manifests kustomize helm install
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) object:headerFile="hack/boilerplate.go.txt" rbac:roleName=manager-role webhook paths="./pkg/runnables/..." paths="./apis/..." paths="./controllers/..." output:crd:artifacts:config=config/crd/bases
 
 # Run go fmt against code
 fmt:
@@ -119,7 +119,6 @@ vet:
 
 # Generate code
 generate: controller-gen manifests go-bindata
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 	go generate ./...
 
 # Generate API

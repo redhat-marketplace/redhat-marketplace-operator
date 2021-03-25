@@ -917,7 +917,7 @@ func (in *RazeeDeploymentStatus) DeepCopyInto(out *RazeeDeploymentStatus) {
 	if in.JobConditions != nil {
 		in, out := &in.JobConditions, &out.JobConditions
 		*out = new(batchv1.JobCondition)
-		(*in).DeepCopyInto(*out)
+		**out = **in
 	}
 	if in.JobState != nil {
 		in, out := &in.JobState, &out.JobState

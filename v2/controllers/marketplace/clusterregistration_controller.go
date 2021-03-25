@@ -370,8 +370,7 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 						return false
 					}
 					secretName := secret.ObjectMeta.Name
-					secretNamespace := secret.ObjectMeta.Namespace
-					if _, ok := secret.Data[utils.RHMPullSecretKey]; ok && secretName == utils.RHMPullSecretName && secretNamespace == cfg.DeployedNamespace {
+					if _, ok := secret.Data[utils.RHMPullSecretKey]; ok && secretName == utils.RHMPullSecretName {
 						return true
 					}
 					return false
@@ -379,14 +378,13 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					secret, ok := e.ObjectNew.(*v1.Secret)
 					secretName := secret.ObjectMeta.Name
-					secretNamespace := secret.ObjectMeta.Namespace
 					if !ok {
 						return false
 					}
 					if _, ok := secret.Data[utils.RHMPullSecretKey]; !ok {
 						return false
 					}
-					if secretName != utils.RHMPullSecretName || secretNamespace != cfg.DeployedNamespace {
+					if secretName != utils.RHMPullSecretName {
 						return false
 					}
 					return e.ObjectOld != e.ObjectNew
@@ -400,8 +398,7 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 						return false
 					}
 					secretName := secret.ObjectMeta.Name
-					secretNamespace := secret.ObjectMeta.Namespace
-					if _, ok := secret.Data[utils.RHMPullSecretKey]; ok && secretName == utils.RHMPullSecretName && secretNamespace == cfg.DeployedNamespace {
+					if _, ok := secret.Data[utils.RHMPullSecretKey]; ok && secretName == utils.RHMPullSecretName {
 						return true
 					}
 					return false

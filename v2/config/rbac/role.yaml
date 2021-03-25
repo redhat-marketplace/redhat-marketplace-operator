@@ -101,6 +101,7 @@ rules:
   resources:
   - customresourcedefinitions
   verbs:
+  - patch
   - update
 - apiGroups:
   - apps
@@ -224,8 +225,6 @@ rules:
   verbs:
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - marketplace.redhat.com
@@ -233,8 +232,12 @@ rules:
   - meterdefinitions
   - meterdefinitions/status
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - marketplace.redhat.com
@@ -372,6 +375,15 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmap
+  - secret
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - configmaps
   verbs:
   - create
@@ -423,6 +435,16 @@ rules:
   verbs:
   - create
   - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - service
+  verbs:
   - get
   - list
   - patch
@@ -504,19 +526,6 @@ rules:
   - meterbases/finalizers
   - meterbases/status
   verbs:
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - marketplace.redhat.com
-  resources:
-  - meterdefinitions
-  - meterdefinitions/status
-  verbs:
-  - create
-  - delete
   - get
   - list
   - patch

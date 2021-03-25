@@ -174,23 +174,6 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 		},
 	}
 
-	cfg, _ := config.GetConfig()
-	nspred := predicate.Funcs{
-		// Ensures MarketPlaceConfig reconciles only within namespace
-		GenericFunc: func(e event.GenericEvent) bool {
-			return e.Meta.GetNamespace() == cfg.DeployedNamespace
-		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			return e.MetaOld.GetNamespace() == cfg.DeployedNamespace && e.MetaNew.GetNamespace() == cfg.DeployedNamespace
-		},
-		CreateFunc: func(e event.CreateEvent) bool {
-			return e.Meta.GetNamespace() == cfg.DeployedNamespace
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Meta.GetNamespace() == cfg.DeployedNamespace
-		},
-	}
-
 	// Create a new controller
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(predicates.NamespacePredicate(r.cfg.DeployedNamespace)).

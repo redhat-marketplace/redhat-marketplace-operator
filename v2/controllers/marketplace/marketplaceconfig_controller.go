@@ -45,13 +45,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -121,6 +118,39 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		// Error reading the object - requeue the request.
 		reqLogger.Error(err, "Failed to get MarketplaceConfig")
 		return reconcile.Result{}, err
+	}
+
+	// run the finalizers
+	newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
+	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
+	// Add finalizer and execute it if the resource is deleted
+	if result, _ := cc.Do(
+		context.TODO(),
+		Call(SetFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER)),
+		Call(
+			RunFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER,
+				HandleResult(
+					GetAction(
+						types.NamespacedName{
+							Namespace: newRazeeCrd.Namespace, Name: newRazeeCrd.Name}, newRazeeCrd),
+					OnContinue(DeleteAction(newRazeeCrd))),
+				HandleResult(
+					GetAction(
+						types.NamespacedName{
+							Namespace: newMeterBaseCr.Namespace, Name: newMeterBaseCr.Name}, newMeterBaseCr),
+					OnContinue(DeleteAction(newMeterBaseCr))),
+			)),
+	); !result.Is(Continue) {
+
+		if result.Is(Error) {
+			reqLogger.Error(result.GetError(), "Failed to get MeterBase.")
+		}
+
+		if result.Is(Return) {
+			reqLogger.Info("Delete is complete.")
+		}
+
+		return result.Return()
 	}
 
 	// Set default namespaces for workload monitoring
@@ -252,38 +282,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 				return result.Return()
 			}
 		}
-	}
-
-	newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
-	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
-	// Add finalizer and execute it if the resource is deleted
-	if result, _ := cc.Do(
-		context.TODO(),
-		Call(SetFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER)),
-		Call(
-			RunFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER,
-				HandleResult(
-					GetAction(
-						types.NamespacedName{
-							Namespace: newRazeeCrd.Namespace, Name: newRazeeCrd.Name}, newRazeeCrd),
-					OnContinue(DeleteAction(newRazeeCrd))),
-				HandleResult(
-					GetAction(
-						types.NamespacedName{
-							Namespace: newMeterBaseCr.Namespace, Name: newMeterBaseCr.Name}, newMeterBaseCr),
-					OnContinue(DeleteAction(newMeterBaseCr))),
-			)),
-	); !result.Is(Continue) {
-
-		if result.Is(Error) {
-			reqLogger.Error(result.GetError(), "Failed to get MeterBase.")
-		}
-
-		if result.Is(Return) {
-			reqLogger.Info("Delete is complete.")
-		}
-
-		return result.Return()
 	}
 
 	if marketplaceConfig.Labels == nil {

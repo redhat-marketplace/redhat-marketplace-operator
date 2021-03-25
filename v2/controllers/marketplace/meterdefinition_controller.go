@@ -115,7 +115,8 @@ func (r *MeterDefinitionReconciler) InjectKubeInterface(k kubernetes.Interface) 
 }
 
 // MeterDefinitions
-// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions/status,verbs=get;list;update;patch
 //
 // Reconcile reads that state of the cluster for a MeterDefinition object and makes changes based on the state read
 // and what is in the MeterDefinition.Spec

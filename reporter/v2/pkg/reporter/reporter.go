@@ -302,6 +302,8 @@ func (r *MarketplaceReporter) Query(
 			return
 		}
 
+		logger.Info("val", "val", val)
+
 		outPromModels <- meterDefPromModel{
 			mdef:       mdef,
 			Value:      val,
