@@ -78,10 +78,6 @@ var _ = Describe("MeterDefController reconcile", func() {
 			Expect(testHarness.Create(context.TODO(), meterdef)).Should(SucceedOrAlreadyExist, "create the meterdef")
 		})
 
-		AfterEach(func() {
-			testHarness.Delete(context.TODO(), meterdef)
-		})
-
 		It("Should query prometheus and append metric data to meterdef status", func() {
 			Expect(testHarness.Get(context.TODO(), types.NamespacedName{Name: "meterdef-controller-test", Namespace: Namespace}, meterdef)).Should(Succeed(), "find a meterdef")
 
@@ -113,7 +109,6 @@ func (c *counter) Next() int {
 
 	next := c.count
 	c.count = c.count + 1
-	fmt.Println(next)
 	return next
 }
 

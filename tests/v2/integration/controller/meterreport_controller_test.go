@@ -90,18 +90,13 @@ var _ = Describe("MeterReportController", func() {
 					ExtraArgs: []string{
 						"--uploadTarget", "noop",
 					},
-					MeterDefinitions: []v1alpha1.MeterDefinition{
-						*meterdef,
-					},
+					MeterDefinitions: []v1alpha1.MeterDefinition{},
 				},
 			}
 
-			Expect(testHarness.Create(context.TODO(), meterdef)).Should(SucceedOrAlreadyExist)
-		})
-
-		AfterEach(func() {
 			testHarness.Delete(context.TODO(), meterdef)
 			testHarness.Delete(context.TODO(), meterreport)
+			Expect(testHarness.Create(context.TODO(), meterdef)).Should(SucceedOrAlreadyExist)
 		})
 
 		It("should create a job if the report is due", func() {

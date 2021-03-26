@@ -28,6 +28,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/meirf/gopart"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -367,7 +368,7 @@ func (r *MarketplaceReporter) Process(
 						logger.V(4).Info("data", "base", base)
 
 						if err != nil {
-							errorsch <- errors.Wrap(err, "failed adding metrics")
+							log.Error(err, "error creating metric")
 							return
 						}
 

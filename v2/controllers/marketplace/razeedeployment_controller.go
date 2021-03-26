@@ -221,6 +221,7 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 // +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=get;list;watch;create;update;patch;delete
 
 // Legacy Uninstall
+
 // +kubebuilder:rbac:groups="",resources=serviceaccounts,resourceNames=razeedeploy-sa;watch-keeper-sa,verbs=delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,resourceNames=watch-keeper;clustersubscription;featureflagsetld-controller;managedset-controller;mustachetemplate-controller;remoteresource-controller;remoteresources3-controller;remoteresources3decrypt-controller,verbs=delete
 // +kubebuilder:rbac:groups=batch;extensions,resources=jobs,resourceNames=razeedeploy-job,verbs=delete
@@ -403,7 +404,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 
 	razeeConfigurationValues := marketplacev1alpha1.RazeeConfigurationValues{}
 	razeeConfigurationValues, missingItems, err := utils.AddSecretFieldsToStruct(rhmOperatorSecret.Data, *instance)
-	if !utils.Equal(instance.Status.MissingDeploySecretValues, missingItems) ||
+	if !utils.StringSliceEqual(instance.Status.MissingDeploySecretValues, missingItems) ||
 		!reflect.DeepEqual(instance.Spec.DeployConfig, &razeeConfigurationValues) {
 		instance.Status.MissingDeploySecretValues = missingItems
 		instance.Spec.DeployConfig = &razeeConfigurationValues

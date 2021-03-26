@@ -223,8 +223,12 @@ rules:
   resources:
   - meterdefinitions
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - marketplace.redhat.com
@@ -239,6 +243,15 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterdefinitions/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
 - apiGroups:
   - marketplace.redhat.com
   resources:
@@ -450,6 +463,15 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts/token
+  verbs:
+  - create
+  - get
+  - list
+  - update
 - apiGroups:
   - ""
   resources:
