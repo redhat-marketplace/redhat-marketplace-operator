@@ -71,6 +71,8 @@ func (r *NodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch;update;patch
+
 // Reconcile reads that state of the cluster for a Node object and makes changes based on the state read
 // and what is in the Node.Spec
 func (r *NodeReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {

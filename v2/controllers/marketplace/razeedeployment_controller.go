@@ -207,6 +207,27 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 		Complete(r)
 }
 
+// +kubebuilder:rbac:groups="",resources=configmaps;pods;secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get
+// +kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments,verbs=create;update;patch;delete
+// +kubebuilder:rbac:groups=batch;extensions,resources=jobs,verbs=get;list;watch
+// +kubebuilder:rbac:groups="config.openshift.io",resources=consoles;infrastructures;clusterversions,verbs=get;update;patch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=razeedeployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments;razeedeployments/finalizers;razeedeployments/status,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=remoteresources3s,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=get;list;watch;create;update;patch;delete
+
+// Legacy Uninstall
+
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,resourceNames=razeedeploy-sa;watch-keeper-sa,verbs=delete
+// +kubebuilder:rbac:groups=apps,resources=deployments,resourceNames=watch-keeper;clustersubscription;featureflagsetld-controller;managedset-controller;mustachetemplate-controller;remoteresource-controller;remoteresources3-controller;remoteresources3decrypt-controller,verbs=delete
+// +kubebuilder:rbac:groups=batch;extensions,resources=jobs,resourceNames=razeedeploy-job,verbs=delete
+// +kubebuilder:rbac:groups="deploy.razee.io",resources=*,verbs=get;list;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,resourceNames=razeedeploy-admin-cr;redhat-marketplace-razeedeploy,verbs=delete
+
 // Reconcile reads that state of the cluster for a RazeeDeployment object and makes changes based on the state read
 // and what is in the RazeeDeployment.Spec
 func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
@@ -383,7 +404,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 
 	razeeConfigurationValues := marketplacev1alpha1.RazeeConfigurationValues{}
 	razeeConfigurationValues, missingItems, err := utils.AddSecretFieldsToStruct(rhmOperatorSecret.Data, *instance)
-	if !utils.Equal(instance.Status.MissingDeploySecretValues, missingItems) ||
+	if !utils.StringSliceEqual(instance.Status.MissingDeploySecretValues, missingItems) ||
 		!reflect.DeepEqual(instance.Spec.DeployConfig, &razeeConfigurationValues) {
 		instance.Status.MissingDeploySecretValues = missingItems
 		instance.Spec.DeployConfig = &razeeConfigurationValues

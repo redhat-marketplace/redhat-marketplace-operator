@@ -47,6 +47,12 @@ const (
 	InjectCAAnnotation = "service.beta.openshift.io/inject-cabundle"
 )
 
+// +kubebuilder:rbac:groups="",namespace=system,resources=secret;configmap,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",namespace=system,resources=service,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=get;list;watch
+// +kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,resourceNames=meterdefinitions.marketplace.redhat.com,verbs=update;patch
+
+// CRDUpdate looks to update crd values to fix OLM issuses
 type CRDUpdater struct {
 	Logger  logr.Logger
 	CC      ClientCommandRunner
@@ -475,6 +481,7 @@ func (a *CRDUpdater) ensureConfigmapExists(
 	}
 }
 
+// Run starts the CRDUpdater
 func (a *CRDUpdater) Run(ctx context.Context, crds *CRDToUpdate) error {
 	a.Logger.Info("starting")
 	err := a.ensureConfigmapExists(ctx, crds)

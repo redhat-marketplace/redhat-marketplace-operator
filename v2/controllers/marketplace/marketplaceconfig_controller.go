@@ -80,6 +80,18 @@ type MarketplaceConfigReconciler struct {
 	mclientBuilder *marketplace.MarketplaceClientBuilder
 }
 
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups="",resources=secret,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=marketplaceconfigs;marketplaceconfigs/finalizers;marketplaceconfigs/status,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs;marketplaceconfigs/finalizers;marketplaceconfigs/status,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=razeedeployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterbases,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=operatorsources;catalogsources,verbs=get;list;watch
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=operatorsources,resourceNames=redhat-marketplace,verbs=create
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=catalogsources,resourceNames=ibm-operator-catalog;opencloud-operators,verbs=create;delete
+
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
 // and what is in the MarketplaceConfig.Spec
 func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
@@ -105,6 +117,39 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		// Error reading the object - requeue the request.
 		reqLogger.Error(err, "Failed to get MarketplaceConfig")
 		return reconcile.Result{}, err
+	}
+
+	// run the finalizers
+	newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
+	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
+	// Add finalizer and execute it if the resource is deleted
+	if result, _ := cc.Do(
+		context.TODO(),
+		Call(SetFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER)),
+		Call(
+			RunFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER,
+				HandleResult(
+					GetAction(
+						types.NamespacedName{
+							Namespace: newRazeeCrd.Namespace, Name: newRazeeCrd.Name}, newRazeeCrd),
+					OnContinue(DeleteAction(newRazeeCrd))),
+				HandleResult(
+					GetAction(
+						types.NamespacedName{
+							Namespace: newMeterBaseCr.Namespace, Name: newMeterBaseCr.Name}, newMeterBaseCr),
+					OnContinue(DeleteAction(newMeterBaseCr))),
+			)),
+	); !result.Is(Continue) {
+
+		if result.Is(Error) {
+			reqLogger.Error(result.GetError(), "Failed to get MeterBase.")
+		}
+
+		if result.Is(Return) {
+			reqLogger.Info("Delete is complete.")
+		}
+
+		return result.Return()
 	}
 
 	// Set default namespaces for workload monitoring
@@ -253,38 +298,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 				return result.Return()
 			}
 		}
-	}
-
-	newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
-	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
-	// Add finalizer and execute it if the resource is deleted
-	if result, _ := cc.Do(
-		context.TODO(),
-		Call(SetFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER)),
-		Call(
-			RunFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER,
-				HandleResult(
-					GetAction(
-						types.NamespacedName{
-							Namespace: newRazeeCrd.Namespace, Name: newRazeeCrd.Name}, newRazeeCrd),
-					OnContinue(DeleteAction(newRazeeCrd))),
-				HandleResult(
-					GetAction(
-						types.NamespacedName{
-							Namespace: newMeterBaseCr.Namespace, Name: newMeterBaseCr.Name}, newMeterBaseCr),
-					OnContinue(DeleteAction(newMeterBaseCr))),
-			)),
-	); !result.Is(Continue) {
-
-		if result.Is(Error) {
-			reqLogger.Error(result.GetError(), "Failed to get MeterBase.")
-		}
-
-		if result.Is(Return) {
-			reqLogger.Info("Delete is complete.")
-		}
-
-		return result.Return()
 	}
 
 	if marketplaceConfig.Labels == nil {
