@@ -47,12 +47,13 @@ type DatabaseConfig struct {
 
 // Initialize the GORM connection and return connected struct
 func (dc *DatabaseConfig) InitDB() (*database.Database, error) {
-	database, err := dc.initDqlite()
+	database := &database.Database{}
+	err := dc.initDqlite()
 	if err != nil {
 		return nil, err
 	}
 
-	dqliteDialector := dqlite.Open(database.SqlDB)
+	dqliteDialector := dqlite.Open(dc.dqliteDB)
 	database.DB, err = gorm.Open(dqliteDialector, &gorm.Config{})
 	if err != nil {
 		return nil, err
@@ -64,10 +65,10 @@ func (dc *DatabaseConfig) InitDB() (*database.Database, error) {
 }
 
 // Initialize the underlying dqlite database and populate a *Database object with the dqlite connection and app
-func (dc *DatabaseConfig) initDqlite() (*database.Database, error) {
+func (dc *DatabaseConfig) initDqlite() error {
 	dc.Dir = filepath.Join(dc.Dir, dc.Url)
 	if err := os.MkdirAll(dc.Dir, 0755); err != nil {
-		return nil, errors.Wrapf(err, "can't create %s", dc.Dir)
+		return errors.Wrapf(err, "can't create %s", dc.Dir)
 	}
 	logFunc := func(l client.LogLevel, format string, a ...interface{}) {
 		if !dc.Verbose {
@@ -79,21 +80,21 @@ func (dc *DatabaseConfig) initDqlite() (*database.Database, error) {
 
 	app, err := app.New(dc.Dir, app.WithAddress(dc.Url), app.WithCluster(*dc.Join), app.WithLogFunc(logFunc))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := app.Ready(context.Background()); err != nil {
-		return nil, err
+		return err
 	}
 
 	conn, err := app.Open(context.Background(), dc.Name)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	dc.app = app
 	dc.dqliteDB = conn
-	return &database.Database{SqlDB: conn}, conn.Ping()
+	return conn.Ping()
 }
 
 func (dc *DatabaseConfig) TryMigrate(ctx context.Context) error {

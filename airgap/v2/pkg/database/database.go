@@ -15,7 +15,6 @@
 package database
 
 import (
-	"database/sql"
 	"fmt"
 	"strings"
 
@@ -30,9 +29,8 @@ type File interface {
 }
 
 type Database struct {
-	DB    *gorm.DB
-	SqlDB *sql.DB
-	Log   logr.Logger
+	DB  *gorm.DB
+	Log logr.Logger
 }
 
 func (d *Database) SaveFile(finfo *v1.FileInfo, bs []byte) error {
