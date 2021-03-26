@@ -91,10 +91,10 @@ func main() {
 	}
 
 	flags := cmd.Flags()
-	flags.StringVarP(&api, "api", "a", "", "address used to expose the demo API")
+	flags.StringVarP(&api, "api", "a", "", "address used to expose the grpc API")
 	flags.StringVarP(&db, "db", "d", "", "address used for internal database replication")
 	join = flags.StringSliceP("join", "j", nil, "database addresses of existing nodes")
-	flags.StringVarP(&dir, "dir", "D", "/tmp/dqlite-demo", "data directory")
+	flags.StringVarP(&dir, "dir", "D", "/tmp/dqlite", "data directory")
 	flags.BoolVarP(&verbose, "verbose", "v", false, "verbose logging")
 
 	cmd.MarkFlagRequired("api")
