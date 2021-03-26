@@ -111,9 +111,7 @@ func TestEmptyStream(t *testing.T) {
 			log.Fatalf("Error: Couldn't close Database: %v", err)
 		}
 		sqlDB.Close()
-
 		conn.Close()
-
 		lis.Close() //Closing This shuts down server too.
 	}()
 
@@ -198,9 +196,7 @@ func TestUploadFile(t *testing.T) {
 			log.Fatalf("Error: Couldn't close Database: %v", err)
 		}
 		sqlDB.Close()
-
 		conn.Close()
-
 		lis.Close() //Closing This shuts down server too.
 	}()
 
