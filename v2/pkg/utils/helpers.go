@@ -66,7 +66,7 @@ func ChunkBy(items []interface{}, chunkSize int) (chunks [][]interface{}) {
 
 	for i := 0; i < len(items); i = i + chunkSize {
 		lowBound := i
-		upperBound := lowBound+chunkSize
+		upperBound := lowBound + chunkSize
 
 		if upperBound == len(items) {
 			chunk = items[lowBound:]

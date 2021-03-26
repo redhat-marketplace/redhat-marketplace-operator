@@ -148,4 +148,4 @@ kubeconfig
 .wicked-report/
 wicked_cli.log
 vendor/
-licenses/
+_licenses/
