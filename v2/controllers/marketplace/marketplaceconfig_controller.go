@@ -258,22 +258,22 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		reqLogger.Error(err, "couldn't find pull secret")
 	}
 
-	var updateInstanceSpec bool 
-	if clusterDisplayName,ok := secret.Data[utils.ClusterDisplayNameKey]; ok {
+	var updateInstanceSpec bool
+	if clusterDisplayName, ok := secret.Data[utils.ClusterDisplayNameKey]; ok {
 		count := utf8.RuneCountInString(string(clusterDisplayName))
-		clusterName := strings.Trim(string(clusterDisplayName),"\n")
+		clusterName := strings.Trim(string(clusterDisplayName), "\n")
 
-		if !reflect.DeepEqual(marketplaceConfig.Spec.ClusterName,clusterName){
+		if !reflect.DeepEqual(marketplaceConfig.Spec.ClusterName, clusterName) {
 			if count <= 256 {
 				marketplaceConfig.Spec.ClusterName = clusterName
 				updateInstanceSpec = true
-				reqLogger.Info("setting ClusterName","name", clusterName)
+				reqLogger.Info("setting ClusterName", "name", clusterName)
 			} else {
 				err := errors.New("CLUSTER_DISPLAY_NAME exceeds 256 chars")
-				reqLogger.Error(err, "name",clusterDisplayName)
+				reqLogger.Error(err, "name", clusterDisplayName)
 			}
 		}
-	} 
+	}
 
 	token := string(pullSecret)
 	tokenClaims, err := marketplace.GetJWTTokenClaim(token)
@@ -308,7 +308,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		updateInstanceSpec = true
 		marketplaceConfig.Labels[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
 	}
-	
+
 	if updateInstanceSpec {
 		err = r.Client.Update(context.TODO(), marketplaceConfig)
 
@@ -316,7 +316,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 			reqLogger.Error(err, "Failed to update the marketplace config")
 			return reconcile.Result{}, err
 		}
-	
+
 		return reconcile.Result{Requeue: true}, nil
 	}
 

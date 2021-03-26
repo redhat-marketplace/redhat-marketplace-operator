@@ -74,7 +74,7 @@ const (
 	MeterDefConditionTypeReporting      status.ConditionType   = "Reporting"
 	MeterDefConditionReasonNotReporting status.ConditionReason = "Not Reporting"
 	MeterDefConditionReasonIsReporting  status.ConditionReason = "Is Reporting"
-	
+
 	MeterDefConditionTypeSignatureVerified             status.ConditionType   = "SignatureVerified"
 	MeterDefConditionReasonSignatureUnverified         status.ConditionReason = "Signature unverified"
 	MeterDefConditionReasonSignatureVerified           status.ConditionReason = "Signature verified"
@@ -124,7 +124,7 @@ var (
 		Reason:  MeterDefConditionReasonSignatureVerified,
 		Message: "Meter definition signature verified.",
 	}
-	
+
 	// MeterDefinition was signed and signature verification failed
 	MeterDefConditionSignatureVerificationFailed = status.Condition{
 		Type:    MeterDefConditionTypeSignatureVerified,

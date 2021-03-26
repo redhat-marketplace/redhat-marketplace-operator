@@ -1320,9 +1320,9 @@ func labelsForPrometheusOperator(name string) map[string]string {
 func (r *MeterBaseReconciler) healthBadActiveTargets(cc ClientCommandRunner, request reconcile.Request, reqLogger logr.Logger) ([]common.Target, error) {
 	targets := []common.Target{}
 
-	prometheusAPI,err := prom.ProvidePrometheusAPI(context.TODO(),cc,r.kubeInterface,r.cfg.ControllerValues.DeploymentNamespace,reqLogger,request)
+	prometheusAPI, err := prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, request)
 	if err != nil {
-		return []common.Target{},err
+		return []common.Target{}, err
 	}
 
 	reqLogger.Info("getting target discovery from prometheus")

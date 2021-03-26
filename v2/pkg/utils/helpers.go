@@ -58,7 +58,7 @@ func ChunkBy(items []interface{}, chunkSize int) (chunks [][]interface{}) {
 		return
 	}
 
-	if len(items) % chunkSize != 0 {
+	if len(items)%chunkSize != 0 {
 		panic("items length is not chunkable by the size")
 	}
 

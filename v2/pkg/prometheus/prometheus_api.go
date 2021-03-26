@@ -49,9 +49,9 @@ func queryForPrometheusService(
 	return service, nil
 }
 
-func getCertConfigMap(ctx context.Context, 
+func getCertConfigMap(ctx context.Context,
 	cc ClientCommandRunner,
-	deployedNamespace string, 
+	deployedNamespace string,
 	req reconcile.Request) (*corev1.ConfigMap, error) {
 	certConfigMap := &corev1.ConfigMap{}
 
@@ -88,12 +88,12 @@ func ProvidePrometheusAPI(
 	kubeInterface kubernetes.Interface,
 	deployedNamespace string,
 	reqLogger logr.Logger,
-	request reconcile.Request)(*PrometheusAPI,error){
-	service, err := queryForPrometheusService(context,cc,deployedNamespace,request)
+	request reconcile.Request) (*PrometheusAPI, error) {
+	service, err := queryForPrometheusService(context, cc, deployedNamespace, request)
 	if err != nil {
 		return nil, err
 	}
-	certConfigMap, err := getCertConfigMap(context,cc,deployedNamespace,request)
+	certConfigMap, err := getCertConfigMap(context, cc, deployedNamespace, request)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func ProvidePrometheusAPI(
 		if err != nil {
 			return nil, err
 		}
-		return prometheusAPI,nil
+		return prometheusAPI, nil
 	}
-	return nil,nil
+	return nil, nil
 }

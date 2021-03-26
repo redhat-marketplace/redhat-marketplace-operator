@@ -147,13 +147,14 @@ var _ = Describe("MeterefQuery", func() {
 				DataPath: filepath.Join("data", "prometheus-meterdef-query-error-202002121300"),
 			}
 
-			err := server.Start()
-			Expect(err).To(Succeed())
+			Eventually(func() error {
+				return server.Start()
+			}, time.Second*60, time.Second*5).Should(Succeed())
 
 			start = MustTime("2021-02-12T00:00:00Z")
 			end = MustTime("2021-02-13T00:00:00Z")
 
-			client, err := api.NewClient(api.Config{
+			client, _ := api.NewClient(api.Config{
 				Address: "http://localhost:9090",
 			})
 

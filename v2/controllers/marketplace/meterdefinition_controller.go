@@ -261,20 +261,19 @@ func (r *MeterDefinitionReconciler) addFinalizer(instance *v1beta1.MeterDefiniti
 
 func (r *MeterDefinitionReconciler) queryPreview(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) ([]common.Result, error) {
 
-	prometheusAPI, err := prom.ProvidePrometheusAPI(context.TODO(),cc,r.kubeInterface,r.cfg.ControllerValues.DeploymentNamespace,reqLogger,request)
+	prometheusAPI, err := prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, request)
 	if err != nil {
 		return nil, err
 	}
 
 	reqLogger.Info("generatring meterdef preview")
-	queryPreviewResult,err := generateQueryPreview(instance, prometheusAPI, reqLogger)
+	queryPreviewResult, err := generateQueryPreview(instance, prometheusAPI, reqLogger)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	
+
 	return queryPreviewResult, nil
 }
-
 
 func returnQueryRange(duration time.Duration) (startTime time.Time, endTime time.Time) {
 	endTime = time.Now().UTC().Truncate(time.Hour)
@@ -399,7 +398,7 @@ func labelsToRegex(labels []string) string {
 // Check MeterDefinition presense in api/v1/label/meter_def_name/values
 func (r *MeterDefinitionReconciler) verifyReporting(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) (bool, error) {
 
-	prometheusAPI,err := prom.ProvidePrometheusAPI(context.TODO(),cc,r.kubeInterface,r.cfg.ControllerValues.DeploymentNamespace,reqLogger,request)
+	prometheusAPI, err := prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, request)
 	if err != nil {
 		return false, err
 	}
@@ -426,4 +425,3 @@ func (r *MeterDefinitionReconciler) verifyReporting(cc ClientCommandRunner, inst
 
 	return false, nil
 }
-
