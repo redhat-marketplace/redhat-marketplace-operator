@@ -47,6 +47,12 @@ const (
 	InjectCAAnnotation = "service.beta.openshift.io/inject-cabundle"
 )
 
+// +kubebuilder:rbac:groups="",namespace=system,resources=secret;configmap,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",namespace=system,resources=service,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=get;list;watch
+// +kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,resourceNames=meterdefinitions.marketplace.redhat.com,verbs=update;patch
+
+// CRDUpdate looks to update crd values to fix OLM issuses
 type CRDUpdater struct {
 	Logger  logr.Logger
 	CC      ClientCommandRunner
@@ -248,70 +254,81 @@ func (a *CRDUpdater) reviewAndUpdateOwnerReferences(
 
 	a.Logger.Info("reviewing owner references")
 
-	result, _ := a.CC.Exec(ctx,
+	result, _ := a.CC.Do(ctx,
+		reconcileutils.GetAction(types.NamespacedName{
+			Name:      operatorDeployment,
+			Namespace: a.Config.DeployedNamespace,
+		}, deployment),
+		reconcileutils.HandleResult(
+			reconcileutils.Do(
+				reconcileutils.GetAction(types.NamespacedName{
+					Name:      meteringServiceName,
+					Namespace: a.Config.DeployedNamespace,
+				}, meteringService),
+			),
+			reconcileutils.OnContinue(reconcileutils.Call(func() (reconcileutils.ClientAction, error) {
+				if len(deployment.OwnerReferences) == 0 {
+					return nil, nil
+				}
+
+				actions := []reconcileutils.ClientAction{}
+				owner := deployment.OwnerReferences[0]
+				found := func() bool {
+					for _, ref := range meteringService.OwnerReferences {
+						if reflect.DeepEqual(ref, owner) {
+							return true
+						}
+					}
+
+					return false
+				}()
+
+				if !found {
+					meteringService.OwnerReferences = append(meteringService.OwnerReferences, owner)
+					actions = append(actions,
+						reconcileutils.HandleResult(
+							reconcileutils.UpdateAction(meteringService),
+							reconcileutils.OnRequeue(reconcileutils.ContinueResponse())))
+				}
+
+				return reconcileutils.Do(actions...), nil
+			})),
+		),
 		reconcileutils.HandleResult(
 			reconcileutils.Do(
 				reconcileutils.GetAction(types.NamespacedName{
 					Name:      serviceName,
 					Namespace: a.Config.DeployedNamespace,
 				}, managerService),
-				reconcileutils.GetAction(types.NamespacedName{
-					Name:      meteringServiceName,
-					Namespace: a.Config.DeployedNamespace,
-				}, meteringService),
-				reconcileutils.GetAction(types.NamespacedName{
-					Name:      operatorDeployment,
-					Namespace: a.Config.DeployedNamespace,
-				}, deployment),
 			),
 			reconcileutils.OnContinue(reconcileutils.Call(func() (reconcileutils.ClientAction, error) {
+				if len(deployment.OwnerReferences) == 0 {
+					return nil, nil
+				}
+
 				actions := []reconcileutils.ClientAction{}
-
-				if len(deployment.OwnerReferences) != 0 {
-					ref2 := deployment.OwnerReferences[0]
-					found := func() bool {
-						for _, ref := range meteringService.OwnerReferences {
-							if reflect.DeepEqual(ref, ref2) {
-								return true
-							}
+				owner := deployment.OwnerReferences[0]
+				found := func() bool {
+					for _, ref := range managerService.OwnerReferences {
+						if reflect.DeepEqual(ref, owner) {
+							return true
 						}
-
-						return false
-					}()
-
-					if !found {
-						meteringService.OwnerReferences = append(meteringService.OwnerReferences, ref2)
-						actions = append(actions,
-							reconcileutils.HandleResult(
-								reconcileutils.UpdateAction(meteringService),
-								reconcileutils.OnRequeue(reconcileutils.ContinueResponse())))
 					}
 
-					found = func() bool {
-						for _, ref := range managerService.OwnerReferences {
-							if reflect.DeepEqual(ref, ref2) {
-								return true
-							}
-						}
+					return false
+				}()
 
-						return false
-					}()
-
-					if !found {
-						managerService.OwnerReferences = append(meteringService.OwnerReferences, ref2)
-						actions = append(actions,
-							reconcileutils.HandleResult(
-								reconcileutils.UpdateAction(managerService),
-								reconcileutils.OnRequeue(reconcileutils.ContinueResponse())))
-					}
+				if !found {
+					managerService.OwnerReferences = append(managerService.OwnerReferences, owner)
+					actions = append(actions,
+						reconcileutils.HandleResult(
+							reconcileutils.UpdateAction(managerService),
+							reconcileutils.OnRequeue(reconcileutils.ContinueResponse())))
 				}
 
-				if len(actions) != 0 {
-					return reconcileutils.Do(actions...), nil
-				}
-
-				return nil, nil
-			})),
+				return reconcileutils.Do(actions...), nil
+			}),
+			),
 		),
 	)
 
@@ -464,6 +481,7 @@ func (a *CRDUpdater) ensureConfigmapExists(
 	}
 }
 
+// Run starts the CRDUpdater
 func (a *CRDUpdater) Run(ctx context.Context, crds *CRDToUpdate) error {
 	a.Logger.Info("starting")
 	err := a.ensureConfigmapExists(ctx, crds)

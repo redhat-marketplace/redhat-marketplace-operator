@@ -34,7 +34,6 @@ import (
 
 	"emperror.dev/errors"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -135,13 +134,6 @@ func (m *ControllerFields) InjectClient(client client.Client) error {
 func (m *ControllerFields) InjectConfig(cfg *rest.Config) error {
 	m.Config = cfg
 	return nil
-}
-
-func ProvidePodMonitorConfig(namespace DeployedNamespace) runnables.PodMonitorConfig {
-	return runnables.PodMonitorConfig{
-		Namespace: string(namespace),
-		RetryTime: 30 * time.Second,
-	}
 }
 
 type ClientOptions struct {

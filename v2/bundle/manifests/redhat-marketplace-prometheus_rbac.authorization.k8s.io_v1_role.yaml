@@ -12,3 +12,10 @@ rules:
   - configmaps
   verbs:
   - get
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - list
+  - watch

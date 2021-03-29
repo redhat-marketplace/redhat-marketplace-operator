@@ -24,6 +24,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -47,13 +48,14 @@ type RemoteResourceS3Reconciler struct {
 }
 
 func (r *RemoteResourceS3Reconciler) SetupWithManager(mgr manager.Manager) error {
+	cfg, _ := config.GetConfig()
 	labelPreds := []predicate.Predicate{
 		predicate.Funcs{
 			UpdateFunc: func(evt event.UpdateEvent) bool {
-				return true
+				return evt.MetaOld.GetNamespace() == cfg.DeployedNamespace && evt.MetaNew.GetNamespace() == cfg.DeployedNamespace
 			},
 			CreateFunc: func(evt event.CreateEvent) bool {
-				return true
+				return evt.Meta.GetNamespace() == cfg.DeployedNamespace
 			},
 			GenericFunc: func(evt event.GenericEvent) bool {
 				return false
@@ -69,6 +71,9 @@ func (r *RemoteResourceS3Reconciler) SetupWithManager(mgr manager.Manager) error
 		Watches(&source.Kind{Type: &marketplacev1alpha1.RemoteResourceS3{}}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(labelPreds...)).
 		Complete(r)
 }
+
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=remoteresources3s,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s;remoteresources3s/status,verbs=get;list;watch;update;patch
 
 // Reconcile reads that state of the cluster for a Node object and makes changes based on the state read
 // and what is in the Node.Spec

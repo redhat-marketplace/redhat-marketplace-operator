@@ -81,6 +81,11 @@ func (r *SubscriptionReconciler) SetupWithManager(mgr manager.Manager) error {
 		Complete(r)
 }
 
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=subscriptions,verbs=get;list;watch
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions,verbs=create;delete
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=operatorgroups,verbs=get;list;delete;create
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=subscriptions,verbs=delete
+
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
 // and what is in the Subscription.Spec
 func (r *SubscriptionReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
@@ -202,12 +207,6 @@ func (r *SubscriptionReconciler) uninstall(sub *olmv1alpha1.Subscription) (recon
 
 	csvName := sub.Status.InstalledCSV
 
-	// delete sub
-	err := r.Client.Delete(context.TODO(), sub)
-	if err != nil && !errors.IsNotFound((err)) {
-		reqLogger.Error(err, "could not delete sub")
-	}
-
 	// delete CSV
 	if len(csvName) > 0 {
 		csvObj := &olmv1alpha1.ClusterServiceVersion{}
@@ -215,7 +214,7 @@ func (r *SubscriptionReconciler) uninstall(sub *olmv1alpha1.Subscription) (recon
 			Name:      csvName,
 			Namespace: sub.Namespace,
 		}
-		err = r.Client.Get(context.TODO(), csvNamespacedName, csvObj)
+		err := r.Client.Get(context.TODO(), csvNamespacedName, csvObj)
 		if err != nil && !errors.IsNotFound((err)) {
 			reqLogger.Error(err, "could not delete csv", "csv name", csvName)
 		}
@@ -224,8 +223,16 @@ func (r *SubscriptionReconciler) uninstall(sub *olmv1alpha1.Subscription) (recon
 			if err != nil && !errors.IsNotFound((err)) {
 				reqLogger.Error(err, "could not delete csv", "csv name", csvName)
 			}
+			return reconcile.Result{Requeue: true}, nil
 		}
 	}
+
+	// delete sub
+	err := r.Client.Delete(context.TODO(), sub)
+	if err != nil && !errors.IsNotFound((err)) {
+		reqLogger.Error(err, "could not delete sub")
+	}
+
 	reqLogger.Info("uninstalling operator complete")
 	return reconcile.Result{}, nil
 }

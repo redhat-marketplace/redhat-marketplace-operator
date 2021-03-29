@@ -181,6 +181,10 @@ type MeterDefinitionStatus struct {
 	// this meter definition
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	WorkloadResources []common.WorkloadResource `json:"workloadResource,omitempty"`
+
+	// Results is a list of Results that get returned from a query to prometheus
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	Results []common.Result `json:"results,omitempty"`
 }
 
 // MeterDefinition defines the meter workloads used to enable pay for

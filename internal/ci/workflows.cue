@@ -94,19 +94,27 @@ bundle: _#bashWorkflow & {
 					id:   "bundle"
 					name: "Build bundle"
 					run:  """
-						cd v2
-						export VERSION=$(cd ./tools && go run ./version/main.go)
-						export TAG=${VERSION}-${DEPLOY_SHA}-amd64
-						export IMAGE_REGISTRY=registry.connect.redhat.com/rh-marketplace
-						\((_#makeLogGroup & {#args: {name: "Make Stable Bundle", cmd: "make bundle-stable"}}).res)
-
 						if [ "$IS_PR" == "false" ] && [ "$BRANCH" != "" ] ; then
-						export VERSION="${VERSION}-${BRANCH}-${GITHUB_RUN_NUMBER}"
+						echo "is a dev request"
+						export IS_DEV="true"
 						else
-						export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
+						echo "is a release request"
+						export IS_DEV="false"
 						fi
 
-						export IMAGE_REGISTRY=quay.io/rh-marketplace
+						cd v2
+						export VERSION=$(cd ./tools/version && go run ./main.go)
+						export TAG=${VERSION}-${DEPLOY_SHA}-amd64
+
+						\((_#makeLogGroup & {#args: {name: "Make Stable Bundle", cmd: "make bundle-stable"}}).res)
+
+						if [ "$IS_DEV" == "true" ] ; then
+						echo "using branch in version"
+						export VERSION="${VERSION}-${BRANCH}-${GITHUB_RUN_NUMBER}"
+						else
+						echo "using release version and githb_run_number"
+						export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
+						fi
 
 						\((_#makeLogGroup & {#args: {name: "Make Bundle Build", cmd: "make bundle-build"}}).res)
 						\((_#makeLogGroup & {#args: {name: "Make Deploy", cmd: "make bundle-deploy"}}).res)

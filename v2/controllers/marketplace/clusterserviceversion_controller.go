@@ -52,13 +52,12 @@ import (
 //var log = logf.Log.WithName("controller_olm_clusterserviceversion_watcher")
 
 const (
-	//operatorTag     = "marketplace.redhat.com/operator"
-	watchTag        = "razee/watch-resource"
-	allnamespaceTag = "olm.copiedFrom"
-	ignoreTag       = "marketplace.redhat.com/ignore"
-	ignoreTagValue  = "2"
-	meterDefStatus  = "marketplace.redhat.com/meterDefinitionStatus"
-	meterDefError   = "marketplace.redhat.com/meterDefinitionError"
+	watchTag         string = "razee/watch-resource"
+	olmCopiedFromTag string = "olm.copiedFrom"
+	ignoreTag        string = "marketplace.redhat.com/ignore"
+	ignoreTagValue   string = "2"
+	meterDefStatus   string = "marketplace.redhat.com/meterDefinitionStatus"
+	meterDefError    string = "marketplace.redhat.com/meterDefinitionError"
 )
 
 // blank assignment to verify that ReconcileClusterServiceVersion implements reconcile.Reconciler
@@ -72,6 +71,11 @@ type ClusterServiceVersionReconciler struct {
 	Scheme *runtime.Scheme
 	Log    logr.Logger
 }
+
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions;subscriptions,verbs=get;list;watch
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions,verbs=update;patch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions;meterdefinitions/status,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions;meterdefinitions/status,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile reads that state of the cluster for a ClusterServiceVersion object and makes changes based on the state read
 // and what is in the ClusterServiceVersion.Spec
@@ -125,7 +129,6 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 	}
 
 	hasMarketplaceSub := false
-
 	if len(sub.Items) > 0 {
 		reqLogger.V(4).Info("found Subscription in namespaces", "count", len(sub.Items))
 		// add razee watch label to CSV if subscription has rhm/operator label
@@ -139,18 +142,9 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 
 					if s.Status.InstalledCSV == request.NamespacedName.Name {
 						reqLogger.Info("found Subscription with installed CSV")
-
 						hasMarketplaceSub = true
 
-						labels := CSV.GetLabels()
-						clusterOriginalLabels := CSV.DeepCopy().GetLabels()
-						if labels == nil {
-							labels = make(map[string]string)
-						}
-
-						labels[watchTag] = "lite"
-
-						if !reflect.DeepEqual(labels, clusterOriginalLabels) {
+						if v, ok := CSV.GetLabels()[watchTag]; !ok || v != "lite" {
 							err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 								err := r.Client.Get(context.TODO(),
 									types.NamespacedName{
@@ -163,7 +157,15 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 									return err
 								}
 
+								labels := CSV.GetLabels()
+
+								if labels == nil {
+									labels = make(map[string]string)
+								}
+
+								labels[watchTag] = "lite"
 								CSV.SetLabels(labels)
+
 								return r.Client.Update(context.TODO(), CSV)
 							})
 
@@ -185,12 +187,8 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 	}
 
 	if !hasMarketplaceSub {
-		clusterOriginalAnnotations := CSV.DeepCopy().GetAnnotations()
-
-		annotations[ignoreTag] = ignoreTagValue
-
-		if !reflect.DeepEqual(annotations, clusterOriginalAnnotations) {
-			CSV.SetAnnotations(annotations)
+		reqLogger.Info("Does not have marketplace sub, ignoring CSV for future")
+		if v, ok := CSV.GetAnnotations()[ignoreTag]; !ok || v != ignoreTagValue {
 			retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 				err := r.Client.Get(context.TODO(),
 					types.NamespacedName{
@@ -202,6 +200,15 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 				if err != nil {
 					return err
 				}
+
+				annotations := CSV.GetAnnotations()
+
+				if annotations == nil {
+					annotations = make(map[string]string)
+				}
+
+				annotations[ignoreTag] = ignoreTagValue
+				CSV.SetAnnotations(annotations)
 
 				return r.Client.Update(context.TODO(), CSV)
 			})
@@ -468,96 +475,49 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 
 }
 
-func (r *ClusterServiceVersionReconciler) SetupWithManager(mgr manager.Manager) error {
-	labelPreds := predicate.Funcs{
-		UpdateFunc: func(evt event.UpdateEvent) bool {
-			_, okAllNamespace := evt.MetaNew.GetLabels()[allnamespaceTag]
-			watchLabel, watchOk := evt.MetaNew.GetLabels()[watchTag]
-			ignoreVal, ignoreOk := evt.MetaNew.GetAnnotations()[ignoreTag]
+func csvFilter(metaNew metav1.Object) int {
+	ann := metaNew.GetAnnotations()
 
-			ann := evt.MetaNew.GetAnnotations()
-			if ann == nil {
-				ann = make(map[string]string)
-			}
+	//annotation values
+	ignoreVal, hasIgnoreTag := ann[ignoreTag]
+	_, hasCopiedFrom := ann[olmCopiedFromTag]
+	_, hasMeterDefinition := ann[utils.CSV_METERDEFINITION_ANNOTATION]
 
-			_, olmOk := ann["olm.copiedFrom"]
-			_, annOk := ann[utils.CSV_METERDEFINITION_ANNOTATION]
-
-			if annOk && !olmOk {
-				return true
-			}
-
-			if ignoreOk && ignoreVal == ignoreTagValue {
-				return false
-			}
-
-			if okAllNamespace {
-				return false
-			}
-
-			return !(watchOk && watchLabel == "lite")
-		},
-		DeleteFunc: func(evt event.DeleteEvent) bool {
-			_, okAllNamespace := evt.Meta.GetLabels()[allnamespaceTag]
-			watchLabel, watchOk := evt.Meta.GetLabels()[watchTag]
-			_, ignoreOk := evt.Meta.GetAnnotations()[ignoreTag]
-			ann := evt.Meta.GetAnnotations()
-			if ann == nil {
-				ann = make(map[string]string)
-			}
-
-			_, olmOk := ann["olm.copiedFrom"]
-			_, annOk := ann[utils.CSV_METERDEFINITION_ANNOTATION]
-
-			if annOk && !olmOk {
-				return true
-			}
-
-			if ignoreOk {
-				return false
-			}
-
-			if okAllNamespace {
-				return false
-			}
-
-			return !(watchOk && watchLabel == "lite")
-		},
-		CreateFunc: func(evt event.CreateEvent) bool {
-			_, okAllNamespace := evt.Meta.GetLabels()[allnamespaceTag]
-			ann := evt.Meta.GetAnnotations()
-			if ann == nil {
-				ann = make(map[string]string)
-			}
-
-			_, olmOk := ann["olm.copiedFrom"]
-			_, annOk := ann[utils.CSV_METERDEFINITION_ANNOTATION]
-
-			if annOk && !olmOk {
-				return true
-			}
-
-			return !okAllNamespace
-		},
-		GenericFunc: func(evt event.GenericEvent) bool {
-			ann := evt.Meta.GetAnnotations()
-			if ann == nil {
-				ann = make(map[string]string)
-			}
-
-			_, olmOk := ann["olm.copiedFrom"]
-			_, annOk := ann[utils.CSV_METERDEFINITION_ANNOTATION]
-
-			if annOk && !olmOk {
-				return true
-			}
-
-			return false
-		},
+	switch {
+	case hasMeterDefinition && !hasCopiedFrom:
+		return 1
+	case !hasMeterDefinition && (!hasIgnoreTag || ignoreVal != ignoreTagValue):
+		return 2
+	default:
 	}
 
+	return 0
+}
+
+func checkForUpdateToMdef(evt event.UpdateEvent) bool {
+	oldMeterDefVal, oldOk := evt.MetaOld.GetAnnotations()[utils.CSV_METERDEFINITION_ANNOTATION]
+	newMeterDefVal, newOk := evt.MetaNew.GetAnnotations()[utils.CSV_METERDEFINITION_ANNOTATION]
+	return oldOk && newOk && oldMeterDefVal != newMeterDefVal
+}
+
+var clusterServiceVersionPredictates predicate.Funcs = predicate.Funcs{
+	UpdateFunc: func(evt event.UpdateEvent) bool {
+		return csvFilter(evt.MetaNew) > 0 && checkForUpdateToMdef(evt)
+	},
+	DeleteFunc: func(evt event.DeleteEvent) bool {
+		return true
+	},
+	CreateFunc: func(evt event.CreateEvent) bool {
+		return csvFilter(evt.Meta) > 0
+	},
+	GenericFunc: func(evt event.GenericEvent) bool {
+		return false
+	},
+}
+
+func (r *ClusterServiceVersionReconciler) SetupWithManager(mgr manager.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&olmv1alpha1.ClusterServiceVersion{}, builder.WithPredicates(labelPreds)).
+		For(&olmv1alpha1.ClusterServiceVersion{}, builder.WithPredicates(clusterServiceVersionPredictates)).
 		Watches(
 			&source.Kind{Type: &marketplacev1beta1.MeterDefinition{}}, &handler.EnqueueRequestForOwner{
 				IsController: false,

@@ -3,283 +3,6 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: operator
-rules:
-  - apiGroups:
-      - '*'
-    resources:
-      - '*'
-    verbs:
-      - get
-      - list
-      - watch
-  - nonResourceURLs:
-      - '*'
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - rbac.authorization.k8s.io
-    resourceNames:
-      - razeedeploy-admin-cr
-      - redhat-marketplace-razeedeploy
-    resources:
-      - clusterroles
-    verbs:
-      - get
-      - list
-      - delete
-  - apiGroups:
-      - ''
-    resources:
-      - pods
-      - services
-      - services/finalizers
-      - endpoints
-      - persistentvolumeclaims
-      - persistentvolumes
-      - events
-      - configmaps
-      - secrets
-      - namespaces
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ''
-    resources:
-      - namespaces
-    verbs:
-      - update
-      - patch
-  - apiGroups:
-      - ''
-    resources:
-      - nodes
-    verbs:
-      - get
-      - list
-      - watch
-      - patch
-      - update
-  - apiGroups:
-      - batch
-      - extensions
-    resources:
-      - jobs
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - apps
-    resources:
-      - deployments
-      - statefulsets
-      - replicasets
-      - daemonsets
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - apps
-    resourceNames:
-      - redhat-marketplace-operator
-    resources:
-      - deployments/finalizers
-    verbs:
-      - update
-  - apiGroups:
-      - storage.k8s.io
-    resources:
-      - storageclasses
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - monitoring.coreos.com
-    resources:
-      - servicemonitors
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - monitoring.coreos.com
-    resources:
-      - prometheuses
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - operators.coreos.com
-    resources:
-      - subscriptions
-      - clusterserviceversions
-    verbs:
-      - get
-      - list
-      - update
-      - watch
-      - delete
-  - apiGroups:
-      - operators.coreos.com
-    resources:
-      - operatorsources
-      - catalogsources
-    verbs:
-      - get
-      - list
-      - watch
-      - create
-  - apiGroups:
-      - operators.coreos.com
-    resourceNames:
-      - redhat-marketplace
-    resources:
-      - operatorsources
-    verbs:
-      - get
-      - delete
-      - patch
-      - update
-  - apiGroups:
-      - operators.coreos.com
-    resourceNames:
-      - ibm-operator-catalog
-      - opencloud-operators
-    resources:
-      - catalogsources
-    verbs:
-      - get
-      - delete
-      - patch
-      - update
-  - apiGroups:
-      - operators.coreos.com
-    resources:
-      - operatorgroups
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - deploy.razee.io
-    resources:
-      - remoteresourcess3
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-  - apiGroups:
-      - config.openshift.io
-    resources:
-      - consoles
-      - infrastructures
-      - clusterversions
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-  - apiGroups:
-      - marketplace.redhat.com
-    resources:
-      - '*'
-      - meterdefinitions
-      - razeedeployments
-      - meterbases
-      - marketplaceconfigs
-      - remoteresources3s
-    verbs:
-      - '*'
-  - apiGroups:
-      - ''
-    resourceNames:
-      - rhm-cos-reader-key
-      - watch-keeper-secret
-    resources:
-      - secrets
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - ''
-    resourceNames:
-      - watch-keeper-config
-      - watch-keeper-limit-poll
-      - watch-keeper-non-namespaced
-      - razee-cluster-metadata
-    resources:
-      - configmaps
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - authentication.k8s.io
-    resources:
-      - tokenreviews
-    verbs:
-      - create
-  - apiGroups:
-      - authorization.k8s.io
-    resources:
-      - subjectaccessreviews
-    verbs:
-      - create
-  - nonResourceURLs:
-      - /api/v1/query
-      - /api/v1/query_range
-    verbs:
-      - get
-      - create
-  - apiGroups:
-      - apiextensions.k8s.io
-    resources:
-      - customresourcedefinitions
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - apiextensions.k8s.io
-    resources:
-      - customresourcedefinitions
-    verbs:
-      - update
-    resourceNames:
-      - meterdefinitions.marketplace.redhat.com
----
-# Source: redhat-marketplace-operator-template-chart/templates/role.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
   name: remoteresources3deployment
 rules:
   - apiGroups:
@@ -289,12 +12,16 @@ rules:
       - '*'
     verbs:
       - '*'
-  - nonResourceURLs:
-      - '*'
+  - apiGroups:
+      - ''
+    resources:
+      - namespaces
     verbs:
       - get
       - list
       - watch
+      - update
+      - patch
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -486,6 +213,13 @@ rules:
       - delete
       - watch
       - list
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
+      - list
+      - watch
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -500,6 +234,13 @@ rules:
       - configmaps
     verbs:
       - get
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
+      - list
+      - watch
 ---
 # Source: redhat-marketplace-operator-template-chart/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -523,116 +264,40 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: operator
+  name: metric-state
   namespace: system
 rules:
   - apiGroups:
-      - deploy.razee.io
-    resources:
-      - '*'
-      - remoteresourcess3
-      - remoteresources
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - update
-      - patch
-      - watch
-  - apiGroups:
       - ''
     resources:
-      - pods
-      - services
-      - services/finalizers
-      - endpoints
-      - persistentvolumeclaims
-      - events
-      - configmaps
       - secrets
     verbs:
-      - create
-      - delete
       - get
+      - watch
       - list
-      - patch
-      - update
-      - watch
-
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: metric-state
+rules:
   - apiGroups:
-      - operators.coreos.com
-    resources:
-      - subscriptions
-    verbs:
-      - get
-      - list
-      - watch
-      - create
-      - delete
-      - patch
-      - watch
-      - update
-  - apiGroups:
-      - batch
-      - extensions
-    resources:
-      - jobs
-    verbs:
-      - get
-      - list
-      - watch
-      - create
-      - update
-      - patch
-      - delete
-  - apiGroups:
-      - apps
-    resources:
-      - deployments
-      - daemonsets
-      - replicasets
-      - statefulsets
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - apps
-    resourceNames:
-      - redhat-marketplace-operator
-    resources:
-      - deployments/finalizers
-    verbs:
-      - update
-  - apiGroups:
-      - monitoring.coreos.com
+      - '*'
     resources:
       - '*'
     verbs:
-      - create
-      - delete
       - get
       - list
-      - patch
-      - update
       - watch
   - apiGroups:
-      - ''
-    resourceNames:
-      - razeedeploy-sa
-      - watch-keeper-sa
+      - authentication.k8s.io
     resources:
-      - serviceaccounts
+      - tokenreviews
     verbs:
       - create
-      - delete
-      - get
-      - list
-      - update
-      - patch
-      - watch
+  - apiGroups:
+      - authorization.k8s.io
+    resources:
+      - subjectaccessreviews
+    verbs:
+      - create

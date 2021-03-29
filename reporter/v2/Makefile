@@ -1,4 +1,4 @@
-VERSION ?= $(shell cd ../../v2/tools && go run version/main.go)
+VERSION ?= $(shell cd ../../v2/tools/version && go run main.go)
 export VERSION
 
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium

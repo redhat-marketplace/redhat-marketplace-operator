@@ -20,12 +20,14 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -35,10 +37,15 @@ import (
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
+	"net/http"
+	"net/http/pprof"
+	_ "net/http/pprof"
+
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	controllers "github.com/redhat-marketplace/redhat-marketplace-operator/v2/controllers/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -86,6 +93,14 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "8fbe3a23.marketplace.redhat.com",
+	}
+
+	watchNamespaces := os.Getenv("WATCH_NAMESPACE")
+
+	if watchNamespaces != "" {
+		watchNamespacesSlice := strings.Split(watchNamespaces, ",")
+		watchNamespacesSlice = append(watchNamespacesSlice, "openshift-monitoring")
+		opts.NewCache = cache.MultiNamespacedCacheBuilder(watchNamespacesSlice)
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), opts)
@@ -211,6 +226,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&runnables.PodMonitor{
+		Logger: ctrl.Log.WithName("controllers").WithName("PodMonitor"),
+		Client: mgr.GetClient(),
+	}).Inject(injector).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "PodMonitor")
+		os.Exit(1)
+	}
+
 	if err = (&marketplacev1beta1.MeterDefinition{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "MeterDefinition")
 		os.Exit(1)
@@ -221,9 +244,25 @@ func main() {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
 	}
+
 	if err := mgr.AddReadyzCheck("check", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
+	}
+
+	// if debug enabled
+	if debug := os.Getenv("PPROF_DEBUG"); debug == "true" {
+		r := http.NewServeMux()
+		r.HandleFunc("/debug/pprof/", pprof.Index)
+		r.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		r.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		r.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		r.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
+		if err := mgr.AddMetricsExtraHandler("/", r); err != nil {
+			setupLog.Error(err, "unable to set up pprof")
+			os.Exit(1)
+		}
 	}
 
 	setupLog.Info("starting manager")

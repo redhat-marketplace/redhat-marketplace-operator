@@ -70,6 +70,15 @@ const (
 	MeterDefConditionTypeHasResult           status.ConditionType   = "FoundMatches"
 	MeterDefConditionReasonNoResultsInStatus status.ConditionReason = "No results in status"
 	MeterDefConditionReasonResultsInStatus   status.ConditionReason = "Results in status"
+
+	MeterDefConditionTypeReporting      status.ConditionType   = "Reporting"
+	MeterDefConditionReasonNotReporting status.ConditionReason = "Not Reporting"
+	MeterDefConditionReasonIsReporting  status.ConditionReason = "Is Reporting"
+
+	MeterDefConditionTypeSignatureVerified             status.ConditionType   = "SignatureVerified"
+	MeterDefConditionReasonSignatureUnverified         status.ConditionReason = "Signature unverified"
+	MeterDefConditionReasonSignatureVerified           status.ConditionReason = "Signature verified"
+	MeterDefConditionReasonSignatureVerificationFailed status.ConditionReason = "Signature verification failed"
 )
 
 var (
@@ -84,5 +93,43 @@ var (
 		Status:  corev1.ConditionTrue,
 		Reason:  MeterDefConditionReasonResultsInStatus,
 		Message: "Meter definition has results.",
+	}
+
+	MeterDefConditionNotReporting = status.Condition{
+		Type:    MeterDefConditionTypeReporting,
+		Status:  corev1.ConditionFalse,
+		Reason:  MeterDefConditionReasonNotReporting,
+		Message: "Prometheus is not reporting on MeterDefinition. Label name is not present.",
+	}
+
+	MeterDefConditionReporting = status.Condition{
+		Type:    MeterDefConditionTypeReporting,
+		Status:  corev1.ConditionTrue,
+		Reason:  MeterDefConditionReasonIsReporting,
+		Message: "Prometheus is reporting on MeterDefinition. Label name is present.",
+	}
+
+	// MeterDefinition was not signed. No signing annotations
+	MeterDefConditionSignatureUnverified = status.Condition{
+		Type:    MeterDefConditionTypeSignatureVerified,
+		Status:  corev1.ConditionFalse,
+		Reason:  MeterDefConditionReasonSignatureUnverified,
+		Message: "Meter definition unsigned and unverified",
+	}
+
+	// MeterDefinition was signed and signature verified
+	MeterDefConditionSignatureVerified = status.Condition{
+		Type:    MeterDefConditionTypeSignatureVerified,
+		Status:  corev1.ConditionTrue,
+		Reason:  MeterDefConditionReasonSignatureVerified,
+		Message: "Meter definition signature verified.",
+	}
+
+	// MeterDefinition was signed and signature verification failed
+	MeterDefConditionSignatureVerificationFailed = status.Condition{
+		Type:    MeterDefConditionTypeSignatureVerified,
+		Status:  corev1.ConditionFalse,
+		Reason:  MeterDefConditionReasonSignatureVerificationFailed,
+		Message: "Meter definition signature verification failed.",
 	}
 )

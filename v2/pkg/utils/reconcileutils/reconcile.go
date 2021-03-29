@@ -21,7 +21,10 @@ import (
 	emperrors "emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/codelocation"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -128,6 +131,65 @@ func (i *do) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 		logger.V(4).Info("action returned result", "result", *result)
 	}
 	return result, nil
+}
+
+func RetryConflict(actions ...ClientAction) ClientAction {
+	return &retryAction{
+		BaseAction: BaseAction{
+			codelocation: codelocation.New(1),
+		},
+		Actions:    actions,
+		Backoff:    retry.DefaultRetry,
+		RetryError: errors.IsConflict,
+	}
+}
+
+func Retry(
+	backoff wait.Backoff,
+	retryError func(error) bool,
+	actions ...ClientAction) ClientAction {
+	return &retryAction{
+		BaseAction: BaseAction{
+			codelocation: codelocation.New(1),
+		},
+		Actions:    actions,
+		Backoff:    backoff,
+		RetryError: retryError,
+	}
+}
+
+type retryAction struct {
+	BaseAction
+	Actions    []ClientAction
+	RetryError func(err error) bool
+	Backoff    wait.Backoff
+}
+
+func (i *retryAction) Bind(result *ExecResult) {
+	i.lastResult = result
+}
+
+func (i *retryAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
+	var result *ExecResult
+	var err error
+	err = retry.OnError(
+		retry.DefaultBackoff,
+		i.RetryError,
+		func() error {
+			var err error
+			result, err = internalDo(i.Actions...).Exec(ctx, c)
+			if result.Is(Error) && err != nil {
+				return err
+			}
+			return nil
+		},
+	)
+
+	if err != nil {
+		return result, nil
+	}
+
+	return NewExecResult(Error, reconcile.Result{}, err), err
 }
 
 type storeResult struct {
