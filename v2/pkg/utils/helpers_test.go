@@ -20,6 +20,7 @@ import (
 
 	"github.com/gotidy/ptr"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -158,6 +159,20 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 		ApplyAnnotation(cm)
 		assert.Contains(GinkgoT(), cm.ObjectMeta.Annotations, RhmAnnotationKey, "Annotations does not contain key")
+	})
+
+	It("should chunk by", func() {
+		Expect(ChunkBy([]interface{}{}, 2)).To(HaveLen(0))
+		Expect(ChunkBy([]interface{}{"a", "b"}, 2)).To(HaveLen(1))
+		Expect(ChunkBy([]interface{}{"a", "b", nil, nil}, 2)).To(HaveLen(2))
+		chunks := ChunkBy([]interface{}{"a", "b", "c", "d", "e", "f"}, 2)
+		Expect(chunks).To(HaveLen(3))
+		Expect(chunks[0]).To(Equal([]interface{}{"a", "b"}))
+		Expect(chunks[1]).To(Equal([]interface{}{"c", "d"}))
+		Expect(chunks[2]).To(Equal([]interface{}{"e", "f"}))
+		Expect(func() {
+			ChunkBy([]interface{}{"a", "b", nil}, 2)
+		}).To(PanicWith("items length is not chunkable by the size"))
 	})
 })
 

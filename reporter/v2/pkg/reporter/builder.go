@@ -187,6 +187,9 @@ func kvToMap(keysAndValues []interface{}) (map[string]interface{}, error) {
 	chunks := utils.ChunkBy(keysAndValues, 2)
 
 	for _, chunk := range chunks {
+		if len(chunk) == 0 {
+			continue
+		}
 		key := chunk[0]
 		value := chunk[1]
 

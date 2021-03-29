@@ -20,6 +20,8 @@ import (
 	"time"
 
 	"emperror.dev/errors"
+	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/model"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -185,4 +187,15 @@ type Result struct {
 type ResultValues struct {
 	Timestamp int64  `json:"timestamp"`
 	Value     string `json:"value"`
+}
+
+// Target is used by meterbase as a list of prometheus activeTargets with failed health, without DiscoveredLabels
+// +k8s:openapi-gen=true
+// +kubebuilder:object:generate:=true
+type Target struct {
+	Labels     model.LabelSet            `json:"labels"`
+	ScrapeURL  string                    `json:"scrapeUrl"`
+	LastError  string                    `json:"lastError"`
+	LastScrape string                    `json:"lastScrape"`
+	Health     prometheusv1.HealthStatus `json:"health"`
 }

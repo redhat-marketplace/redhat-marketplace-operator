@@ -26,7 +26,6 @@ import (
 	"github.com/gotidy/ptr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
-	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
@@ -39,7 +38,6 @@ import (
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -114,6 +112,10 @@ func (r *MeterDefinitionReconciler) InjectKubeInterface(k kubernetes.Interface) 
 	return nil
 }
 
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions/status,verbs=get;list;update;patch
+// +kubebuilder:rbac:groups="",namespace=system,resources=serviceaccounts/token,verbs=get;list;create;update
+
 // Reconcile reads that state of the cluster for a MeterDefinition object and makes changes based on the state read
 // and what is in the MeterDefinition.Spec
 func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
@@ -172,6 +174,22 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 
 	if result.Is(Error) {
 		reqLogger.Error(result.GetError(), "Failed to update status.")
+	}
+
+	isReporting, err := r.verifyReporting(cc, instance, request, reqLogger)
+	if isReporting {
+		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionReporting)
+	} else {
+		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionNotReporting)
+	}
+	if err != nil {
+		update = update || instance.Status.Conditions.SetCondition(status.Condition{
+			Type:    v1beta1.MeterDefVerifyReportingSetupError,
+			Reason:  "VerifyReportingError",
+			Status:  corev1.ConditionTrue,
+			Message: err.Error(),
+		})
+		requeue = true
 	}
 
 	queryPreviewResult, err := r.queryPreview(cc, instance, request, reqLogger)
@@ -242,91 +260,19 @@ func (r *MeterDefinitionReconciler) addFinalizer(instance *v1beta1.MeterDefiniti
 }
 
 func (r *MeterDefinitionReconciler) queryPreview(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) ([]common.Result, error) {
-	var queryPreviewResult []common.Result
 
-	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
+	prometheusAPI, err := prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, request)
 	if err != nil {
 		return nil, err
 	}
 
-	certConfigMap, err := r.getCertConfigMap(context.TODO(), cc, request)
+	reqLogger.Info("generatring meterdef preview")
+	queryPreviewResult, err := generateQueryPreview(instance, prometheusAPI, reqLogger)
 	if err != nil {
 		return nil, err
-	}
-
-	saClient := prom.NewServiceAccountClient(r.cfg.ControllerValues.DeploymentNamespace, r.kubeInterface)
-
-	authToken, err := saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.PrometheusAudience, 3600, reqLogger)
-	if err != nil {
-		return nil, err
-	}
-
-	if certConfigMap != nil && authToken != "" && service != nil {
-		cert, err := parseCertificateFromConfigMap(*certConfigMap)
-		if err != nil {
-			return nil, err
-		}
-
-		prometheusAPI, err := prom.NewPromAPI(service, &cert, authToken)
-		if err != nil {
-			return nil, err
-		}
-
-		reqLogger.Info("generatring meterdef preview")
-		return generateQueryPreview(instance, prometheusAPI, reqLogger)
 	}
 
 	return queryPreviewResult, nil
-}
-
-func (r *MeterDefinitionReconciler) queryForPrometheusService(
-	ctx context.Context,
-	cc ClientCommandRunner,
-	req reconcile.Request,
-) (*corev1.Service, error) {
-	service := &corev1.Service{}
-
-	name := types.NamespacedName{
-		Name:      utils.PROMETHEUS_METERBASE_NAME,
-		Namespace: r.cfg.DeployedNamespace,
-	}
-
-	if result, _ := cc.Do(ctx, GetAction(name, service)); !result.Is(Continue) {
-		return nil, errors.Wrap(result, "failed to get prometheus service")
-	}
-
-	log.Info("retrieved prometheus service")
-	return service, nil
-}
-
-func (r *MeterDefinitionReconciler) getCertConfigMap(ctx context.Context, cc ClientCommandRunner, req reconcile.Request) (*corev1.ConfigMap, error) {
-	certConfigMap := &corev1.ConfigMap{}
-
-	name := types.NamespacedName{
-		Name:      utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
-		Namespace: r.cfg.ControllerValues.DeploymentNamespace,
-	}
-
-	if result, _ := cc.Do(context.TODO(), GetAction(name, certConfigMap)); !result.Is(Continue) {
-		return nil, errors.Wrap(result.GetError(), "Failed to retrieve operator-certs-ca-bundle.")
-	}
-
-	log.Info("retrieved configmap")
-	return certConfigMap, nil
-}
-
-func parseCertificateFromConfigMap(certConfigMap corev1.ConfigMap) (cert []byte, returnErr error) {
-	log.Info("extracting cert from config map")
-
-	out, ok := certConfigMap.Data["service-ca.crt"]
-
-	if !ok {
-		returnErr = errors.New("Error retrieving cert from config map")
-		return nil, returnErr
-	}
-
-	cert = []byte(out)
-	return cert, nil
 }
 
 func returnQueryRange(duration time.Duration) (startTime time.Time, endTime time.Time) {
@@ -446,4 +392,36 @@ func makeRelabelKeepConfig(source []string, regex string) *monitoringv1.RelabelC
 }
 func labelsToRegex(labels []string) string {
 	return fmt.Sprintf("(%s)", strings.Join(labels, "|"))
+}
+
+// Is Prometheus reporting on the MeterDefinition
+// Check MeterDefinition presense in api/v1/label/meter_def_name/values
+func (r *MeterDefinitionReconciler) verifyReporting(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) (bool, error) {
+
+	prometheusAPI, err := prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, request)
+	if err != nil {
+		return false, err
+	}
+	reqLogger.Info("getting meter_def_name labelvalues from prometheus")
+
+	labelValues, warnings, err := prometheusAPI.MeterDefLabelValues()
+
+	if warnings != nil {
+		reqLogger.Info("warnings %v", warnings)
+	}
+
+	if err != nil {
+		reqLogger.Error(err, "prometheus.LabelValues()")
+		returnErr := errors.Wrap(err, "error with query")
+		return false, returnErr
+	}
+
+	mdefLabelValue := model.LabelValue(instance.Name)
+	for _, labelValue := range labelValues {
+		if labelValue == mdefLabelValue {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
