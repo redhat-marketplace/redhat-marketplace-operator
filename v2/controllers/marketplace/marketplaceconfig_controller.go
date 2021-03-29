@@ -354,6 +354,12 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 			return reconcile.Result{}, err
 		}
 
+		// include a display name if set 
+		if marketplaceConfig.Spec.ClusterName != "" {
+			reqLogger.Info("setting cluster name override on razee cr")
+			newRazeeCrd.Spec.ClusterDisplayName = marketplaceConfig.Spec.ClusterName
+		}
+
 		reqLogger.Info("creating razee cr")
 		err = r.Client.Create(context.TODO(), newRazeeCrd)
 
@@ -388,6 +394,12 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	updatedRazee.Spec.ClusterUUID = marketplaceConfig.Spec.ClusterUUID
 	updatedRazee.Spec.DeploySecretName = marketplaceConfig.Spec.DeploySecretName
 	updatedRazee.Spec.Features = marketplaceConfig.Spec.Features.DeepCopy()
+
+	if marketplaceConfig.Spec.ClusterName != "" {
+		if !reflect.DeepEqual(marketplaceConfig.Spec.ClusterName,foundRazee.Spec.ClusterDisplayName){
+			updatedRazee.Spec.ClusterDisplayName = marketplaceConfig.Spec.ClusterName
+		}
+	}
 
 	if !reflect.DeepEqual(foundRazee, updatedRazee) {
 		reqLogger.Info("updating razee cr")
