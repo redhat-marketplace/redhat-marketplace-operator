@@ -98,10 +98,10 @@ clean-vendor:
 	rm -rf $(addsuffix /v2/vendor,$(PROJECT_FOLDERS))
 
 clean-licenses:
-	-chmod -R +w $(addsuffix /v2/licenses,$(PROJECT_FOLDERS))
-	-rm -rf $(addsuffix /v2/licenses,$(PROJECT_FOLDERS))
-	-mkdir -p $(addsuffix /v2/licenses,$(PROJECT_FOLDERS))
-	touch $(addsuffix /v2/licenses/.gitkeep,$(PROJECT_FOLDERS))
+	-chmod -R +w $(addsuffix /v2/_licenses,$(PROJECT_FOLDERS))
+	-rm -rf $(addsuffix /v2/_licenses,$(PROJECT_FOLDERS))
+	-mkdir -p $(addsuffix /v2/_licenses,$(PROJECT_FOLDERS))
+	touch $(addsuffix /v2/_licenses/.gitkeep,$(PROJECT_FOLDERS))
 
 wicked:
 	mkdir -p .wicked-report
