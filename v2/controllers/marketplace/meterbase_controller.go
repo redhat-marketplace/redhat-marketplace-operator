@@ -58,7 +58,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/blang/semver"
 	cmomanifests "github.com/openshift/cluster-monitoring-operator/pkg/manifests"
 
 	"sigs.k8s.io/yaml"
@@ -259,14 +258,62 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		return reconcile.Result{}, nil
 	}
 
-	userWorkloadMonitoringEnabled, result := isUserWorkloadMonitoringEnabled(cc, r.cfg.Infrastructure, reqLogger)
-	if !result.Is(Continue) {
-		return result.Return()
-	}
-
 	message := "Meter Base install starting"
 	if instance.Status.Conditions == nil {
 		instance.Status.Conditions = status.Conditions{}
+	}
+
+	// userWorkloadMonitoringEnabled is considered enabled if both the Spec and cluster configuration are satisfied
+	userWorkloadMonitoringEnabledSpec := instance.Spec.UserWorkloadMonitoringEnabled
+	userWorkloadMonitoringEnabledOnCluster, result := isUserWorkloadMonitoringEnabledOnCluster(cc, r.cfg.Infrastructure, reqLogger)
+	if !result.Is(Continue) {
+		return result.Return()
+	}
+	userWorkloadMonitoringEnabled := userWorkloadMonitoringEnabledOnCluster && userWorkloadMonitoringEnabledSpec
+
+	// Update initial UWD status
+	if instance.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled) {
+		if result, err := updateUserWorkloadMonitoringEnabledStatus(cc,
+			instance,
+			userWorkloadMonitoringEnabledSpec,
+			userWorkloadMonitoringEnabledOnCluster,
+		); result.Is(Error) || result.Is(Requeue) {
+			if err != nil {
+				return result.ReturnWithError(merrors.Wrap(err, "error updating status"))
+			}
+			return result.Return()
+		}
+	}
+
+	// If UWM setting has changed vs. current status condition, mark as transitioning
+	if userWorkloadMonitoringEnabled != instance.Status.Conditions.IsTrueFor(marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled) {
+		if condition := instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled); condition != nil {
+			if condition.Reason != marketplacev1alpha1.ReasonUserWorkloadMonitoringTransitioning {
+				if result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
+					Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
+					Status:  condition.Status,
+					Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringTransitioning,
+					Message: marketplacev1alpha1.MessageUserWorkloadMonitoringTransitioning,
+				})); result.Is(Error) || result.Is(Requeue) {
+					if err != nil {
+						return result.ReturnWithError(merrors.Wrap(err, "error updating status"))
+					}
+					return result.Return()
+				}
+			}
+		}
+	}
+
+	// Determine state of UWM transition
+	//transitioning := false
+	transitionTimeExpired := false
+	if condition := instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled); condition != nil {
+		if condition.Reason == marketplacev1alpha1.ReasonUserWorkloadMonitoringTransitioning {
+			afterOneDay := condition.LastTransitionTime.Add(time.Hour * 24)
+			if time.Now().UTC().After(afterOneDay) {
+				transitionTimeExpired = true
+			}
+		}
 	}
 
 	message = "Meter Base install started"
@@ -288,12 +335,27 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	// ---
 	// Install Objects
 	// ---
+
+	if userWorkloadMonitoringEnabled && transitionTimeExpired {
+		// Remove RHM Prom, transitionTime has expired
+		if result, _ := cc.Do(context.TODO(),
+			Do(r.uninstallPrometheusOperator(instance, factory)...),
+			Do(r.uninstallPrometheus(instance, factory)...),
+		); !result.Is(Continue) {
+			if result.Is(Error) {
+				reqLogger.Error(result, "error in reconcile")
+				return result.ReturnWithError(merrors.Wrap(result, "error uninstalling prometheus"))
+			}
+
+			reqLogger.Info("returing result", "result", *result)
+			return result.Return()
+		}
+	}
+
 	promStsNamespacedName := types.NamespacedName{}
 	if userWorkloadMonitoringEnabled {
 		// Openshift provides Prometheus
 		if result, _ := cc.Do(context.TODO(),
-			Do(r.uninstallPrometheusOperator(instance, factory)...),
-			Do(r.uninstallPrometheus(instance, factory)...),
 			Do(r.installPrometheusServingCertsCABundle(factory)...),
 			Do(r.installMetricStateDeployment(instance, factory)...),
 		); !result.Is(Continue) {
@@ -315,9 +377,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 
 		// Leave additionalConfigSecret nil if v4.6+
 		var cfg *corev1.Secret
-		v460, _ := semver.Make("4.6.0")
-		parsedOsVersion, _ := semver.ParseTolerant(r.cfg.Infrastructure.OpenshiftVersion())
-		if !parsedOsVersion.GTE(v460) {
+		if !r.cfg.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 			cfg = &corev1.Secret{}
 		}
 
@@ -414,6 +474,20 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		return result.Return()
 	}
 
+	// Update uwm status
+	if transitionTimeExpired {
+		if result, err := updateUserWorkloadMonitoringEnabledStatus(cc,
+			instance,
+			userWorkloadMonitoringEnabledSpec,
+			userWorkloadMonitoringEnabledOnCluster,
+		); result.Is(Error) || result.Is(Requeue) {
+			if err != nil {
+				return result.ReturnWithError(merrors.Wrap(err, "error updating status"))
+			}
+			return result.Return()
+		}
+	}
+
 	meterReportList := &marketplacev1alpha1.MeterReportList{}
 	if result, err := cc.Do(
 		context.TODO(),
@@ -447,6 +521,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 
 				reqLogger.Info("report dates", "expected", expectedCreatedDates, "found", foundCreatedDates, "min", minDate)
 
+				// Create the report with the active/to-be userWorkloadMonitoringEnabled state, regardless of transition state
 				err = r.createReportIfNotFound(expectedCreatedDates, foundCreatedDates, request, instance, userWorkloadMonitoringEnabled)
 				if err != nil {
 					return nil, err
@@ -750,9 +825,7 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 		),
 	}
 
-	v460, _ := semver.Make("4.6.0")
-	parsedOsVersion, _ := semver.ParseTolerant(r.cfg.Infrastructure.OpenshiftVersion())
-	if parsedOsVersion.GTE(v460) {
+	if r.cfg.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 		actions = append(actions,
 			manifests.CreateOrUpdateFactoryItemAction(
 				secret,
@@ -823,9 +896,7 @@ func (r *MeterBaseReconciler) reconcileAdditionalConfigSecret(
 ) []ClientAction {
 
 	// Additional config secret not required on ose-prometheus-operator v4.6, handled by ServiceMonitors
-	v460, _ := semver.Make("4.6.0")
-	parsedOsVersion, _ := semver.ParseTolerant(r.cfg.Infrastructure.OpenshiftVersion())
-	if parsedOsVersion.GTE(v460) {
+	if r.cfg.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 		return []ClientAction{}
 	}
 
@@ -1428,12 +1499,10 @@ func isEnableUserWorkloadConfigMap(clusterMonitorConfigMap *corev1.ConfigMap) (b
 
 // If this is Openshift 4.6+ check if Monitoring for User Defined Projects is enabled
 // https://docs.openshift.com/container-platform/4.6/monitoring/enabling-monitoring-for-user-defined-projects.html
-func isUserWorkloadMonitoringEnabled(cc ClientCommandRunner, infrastructure *config.Infrastructure, reqLogger logr.Logger) (bool, *ExecResult) {
+func isUserWorkloadMonitoringEnabledOnCluster(cc ClientCommandRunner, infrastructure *config.Infrastructure, reqLogger logr.Logger) (bool, *ExecResult) {
 	userWorkloadMonitoringEnabled := false
 	if infrastructure.HasOpenshift() {
-		v460, _ := semver.Make("4.6.0")
-		parsedOsVersion, _ := semver.ParseTolerant(infrastructure.OpenshiftVersion())
-		if parsedOsVersion.GTE(v460) {
+		if infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 
 			enableUserWorkload := false
 			userWorkloadMonitoringConfig := false
@@ -1478,4 +1547,38 @@ func isUserWorkloadMonitoringEnabled(cc ClientCommandRunner, infrastructure *con
 		}
 	}
 	return userWorkloadMonitoringEnabled, NewExecResult(Continue, reconcile.Result{}, nil)
+}
+
+func updateUserWorkloadMonitoringEnabledStatus(
+	cc ClientCommandRunner,
+	instance *marketplacev1alpha1.MeterBase,
+	userWorkloadMonitoringEnabledSpec bool,
+	userWorkloadMonitoringEnabledOnCluster bool,
+) (*ExecResult, error) {
+
+	if userWorkloadMonitoringEnabledSpec && userWorkloadMonitoringEnabledOnCluster {
+		result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
+			Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringEnabled,
+			Message: marketplacev1alpha1.MessageUserWorkloadMonitoringEnabled,
+		}))
+		return result, err
+	} else if !userWorkloadMonitoringEnabledSpec {
+		result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
+			Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
+			Status:  corev1.ConditionFalse,
+			Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringSpecDisabled,
+			Message: marketplacev1alpha1.MessageUserWorkloadMonitoringSpecDisabled,
+		}))
+		return result, err
+	} else {
+		result, err := cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
+			Type:    marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled,
+			Status:  corev1.ConditionFalse,
+			Reason:  marketplacev1alpha1.ReasonUserWorkloadMonitoringClusterDisabled,
+			Message: marketplacev1alpha1.MessageUserWorkloadMonitoringClusterDisabled,
+		}))
+		return result, err
+	}
 }

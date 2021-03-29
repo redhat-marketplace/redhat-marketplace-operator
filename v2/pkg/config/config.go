@@ -19,9 +19,9 @@ import (
 	"time"
 
 	"emperror.dev/errors"
-	"github.com/blang/semver"
 	"github.com/caarlos0/env/v6"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"k8s.io/client-go/discovery"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -153,9 +153,7 @@ func ProvideInfrastructureAwareConfig(
 
 		// Use v4.6 images on Openshift 4.6 instead of default v4.5 images
 		// But otherwise respect an override
-		v460, _ := semver.Make("4.6.0")
-		parsedOsVersion, _ := semver.ParseTolerant(inf.OpenshiftVersion())
-		if parsedOsVersion.GTE(v460) {
+		if inf.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 			if cfg.RelatedImages.Prometheus == "registry.redhat.io/openshift4/ose-prometheus:v4.5" {
 				cfg.RelatedImages.Prometheus = "registry.redhat.io/openshift4/ose-prometheus:v4.6"
 			}

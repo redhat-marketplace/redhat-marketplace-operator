@@ -96,6 +96,13 @@ type MeterBaseSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	AdditionalScrapeConfigs *corev1.SecretKeySelector `json:"additionalScrapeConfigs,omitempty"`
+
+	// UserWorkloadMonitoringEnabled controls whether to attempt to use
+	// Openshift user-defined workload monitoring as the Prometheus provider
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	UserWorkloadMonitoringEnabled bool `json:"userWorkloadMonitoringEnabled,omitempty"`
 }
 
 // MeterBaseStatus defines the observed state of MeterBase.
@@ -170,4 +177,18 @@ const (
 	ReasonMeterBasePrometheusInstall        status.ConditionReason = "StartMeterBasePrometheusInstall"
 	ReasonMeterBasePrometheusServiceInstall status.ConditionReason = "StartMeterBasePrometheusServiceInstall"
 	ReasonMeterBaseFinishInstall            status.ConditionReason = "FinishedMeterBaseInstall"
+
+	// User Workload Monitoring
+	// ConditionUserWorkloadMonitoringEnabled means UWM is actively used as the prometheus provider
+	ConditionUserWorkloadMonitoringEnabled status.ConditionType = "UserWorkloadMonitoringEnabled"
+
+	ReasonUserWorkloadMonitoringEnabled         status.ConditionReason = "UserWorkloadMonitoringEnabled"
+	ReasonUserWorkloadMonitoringSpecDisabled    status.ConditionReason = "UserWorkloadMonitoringSpecDisabled"
+	ReasonUserWorkloadMonitoringClusterDisabled status.ConditionReason = "UserWorkloadMonitoringClusterDisabled"
+	ReasonUserWorkloadMonitoringTransitioning   status.ConditionReason = "UserWorkloadMonitoringTransitioning"
+
+	MessageUserWorkloadMonitoringEnabled         string = "UserWorkloadMonitoring is enabled in the Meterbase Spec and on the Cluster"
+	MessageUserWorkloadMonitoringSpecDisabled    string = "UserWorkloadMonitoring is disabled in the Meterbase Spec"
+	MessageUserWorkloadMonitoringClusterDisabled string = "UserWorkloadMonitoring is unavailable or disabled on the Cluster"
+	MessageUserWorkloadMonitoringTransitioning   string = "Transitioning between UserWorkloadMonitoring and RHM prometheus provider"
 )

@@ -167,6 +167,11 @@ spec:
               required:
               - storage
               type: object
+            userWorkloadMonitoringEnabled:
+              description: UserWorkloadMonitoringEnabled controls whether to attempt
+                to use Openshift user-defined workload monitoring as the Prometheus
+                provider
+              type: boolean
           required:
           - enabled
           type: object

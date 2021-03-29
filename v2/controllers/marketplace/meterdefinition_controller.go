@@ -29,6 +29,7 @@ import (
 	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
@@ -158,10 +159,36 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 		reqLogger.Error(result.GetError(), "Failed to update status.")
 	}
 
-	userWorkloadMonitoringEnabled, result := isUserWorkloadMonitoringEnabled(cc, r.cfg.Infrastructure, reqLogger)
+	// Fetch the MeterBase instance
+	meterbase := &v1alpha1.MeterBase{}
+	result, _ = cc.Do(context.TODO(),
+		GetAction(types.NamespacedName{
+			Name:      utils.METERBASE_NAME,
+			Namespace: "openshift-redhat-marketplace",
+		}, meterbase),
+	)
+
 	if !result.Is(Continue) {
+		if result.Is(NotFound) {
+			reqLogger.Info("MeterBase resource not found. Ignoring since object may be deleted.")
+			return reconcile.Result{}, nil
+		}
+
+		if result.Is(Error) {
+			reqLogger.Error(result.GetError(), "Failed to get MeterBase.")
+		}
+
 		return result.Return()
 	}
+
+	reqLogger.Info("Found MeterBase instance", "instance", meterbase.Name)
+
+	// Use the userWorkloadMonitoring or RHM prometheus provider, based on which is marked active in the MeterBase condition status
+	if meterbase.Status.Conditions.IsUnknownFor(v1alpha1.ConditionUserWorkloadMonitoringEnabled) {
+		reqLogger.Info("MeterBase ConditionUserWorkloadMonitoringEnabled not set. Unable to determine which prometheus provider to use at this time.")
+		return reconcile.Result{}, nil
+	}
+	userWorkloadMonitoringEnabled := meterbase.Status.Conditions.IsTrueFor(v1alpha1.ConditionUserWorkloadMonitoringEnabled)
 
 	queryPreviewResult, err := r.queryPreview(cc, instance, request, reqLogger, userWorkloadMonitoringEnabled)
 	if err != nil {

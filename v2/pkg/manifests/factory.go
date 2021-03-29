@@ -25,7 +25,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/blang/semver"
 	"github.com/gotidy/ptr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -310,9 +309,7 @@ func (f *Factory) PrometheusAdditionalConfigSecret(data []byte) (*v1.Secret, err
 }
 
 func (f *Factory) prometheusOperatorDeployment() string {
-	v460, _ := semver.Make("4.6.0")
-	parsedOsVersion, _ := semver.ParseTolerant(f.operatorConfig.Infrastructure.OpenshiftVersion())
-	if parsedOsVersion.GTE(v460) {
+	if f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 		return PrometheusOperatorDeploymentV46
 	}
 	return PrometheusOperatorDeploymentV45
@@ -359,9 +356,7 @@ func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployme
 }
 
 func (f *Factory) prometheusDeployment() string {
-	v460, _ := semver.Make("4.6.0")
-	parsedOsVersion, _ := semver.ParseTolerant(f.operatorConfig.Infrastructure.OpenshiftVersion())
-	if parsedOsVersion.GTE(v460) {
+	if f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 		return PrometheusDeploymentV46
 	}
 	return PrometheusDeploymentV45
@@ -437,9 +432,7 @@ func (f *Factory) NewPrometheusDeployment(
 }
 
 func (f *Factory) prometheusOperatorService() string {
-	v460, _ := semver.Make("4.6.0")
-	parsedOsVersion, _ := semver.ParseTolerant(f.operatorConfig.Infrastructure.OpenshiftVersion())
-	if parsedOsVersion.GTE(v460) {
+	if f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 		return PrometheusOperatorServiceV46
 	}
 	return PrometheusOperatorServiceV45
@@ -569,9 +562,7 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 }
 
 func (f *Factory) metricStateServiceMonitor() string {
-	v460, _ := semver.Make("4.6.0")
-	parsedOsVersion, _ := semver.ParseTolerant(f.operatorConfig.Infrastructure.OpenshiftVersion())
-	if parsedOsVersion.GTE(v460) {
+	if f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 		return MetricStateServiceMonitorV46
 	}
 	return MetricStateServiceMonitorV45
