@@ -23,9 +23,15 @@ jobs:
   - stage: push
     arch: amd64
     env: ARCH=amd64
+  - stage: push
+    arch: ppc64le
+    env: ARCH=ppc64le
+  - stage: push
+    arch: s390x
+    env: ARCH=s390x
   - stage: manifest
-    if: false
-    env: ARCHS="amd64"
+    if: true
+    env: ARCHS="amd64 ppc64le s390x"
     script: |-
       echo "making manifest for $VERSION"
       make docker-manifest

@@ -17,9 +17,7 @@ travis: [
 	},
 ]
 
-_#archs_old: ["amd64", "ppc64le", "s390x"]
-
-_#archs: ["amd64"] // disabling others for now
+_#archs: ["amd64", "ppc64le", "s390x"]
 _#registry:        "quay.io/rh-marketplace"
 _#goVersion:       "1.15.6"
 _#branchTarget:    "/^(master|develop|release.*|hotfix.*)$/"

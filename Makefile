@@ -67,8 +67,8 @@ save-licenses: golicense
 	done
 
 cicd:
-	go generate .
-	cd .github/workflows && go generate .
+	go generate ./gen.go
+	cd .github/workflows && go generate ./gen.go
 
 LICENSE=$(shell pwd)/v2/bin/addlicense
 addlicense:

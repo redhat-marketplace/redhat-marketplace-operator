@@ -68,7 +68,7 @@ jobs:
 
         cd v2
         export VERSION=$(cd ./tools/version && go run ./main.go)
-        export TAG=${VERSION}-${DEPLOY_SHA}-amd64
+        export TAG=${VERSION}-${DEPLOY_SHA}
 
         echo "::group::Make Stable Bundle"
         make bundle-stable
