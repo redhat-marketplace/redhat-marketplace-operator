@@ -1,16 +1,15 @@
 syntax = "proto3";
 
-option go_package = "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filereceiver";
+option go_package = "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver";
 option java_multiple_files = true;
-option java_package = "com.redhat.marketplace.airgap.filereceiver";
-option java_outer_classname = "FileReceiver";
+option java_package = "com.redhat.marketplace.airgap.fileretreiver";
+option java_outer_classname = "FileRetreiver";
 
-package filereceiver.v1;
+package fileretreiver.v1;
 
 import "apis/model/v1/modelv1.proto";
-import "google/protobuf/timestamp.proto";
 
-service FileReceiver {
+service FileRetreiver {
   rpc ListFileMetadata(ListFileMetadataRequest) returns (stream ListFileMetadataResponse) {};
   rpc GetFileMetadata(GetFileMetadataRequest) returns (GetFileMetadataResponse) {};
   rpc DownloadFile(DownloadFileRequest) returns (stream DownloadFileResponse) {};

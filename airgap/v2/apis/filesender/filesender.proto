@@ -8,7 +8,6 @@ option java_outer_classname = "FileSender";
 package filesender.v1;
 
 import "apis/model/v1/modelv1.proto";
-import "google/protobuf/timestamp.proto";
 
 service FileSender {
   rpc UploadFile(stream UploadFileRequest) returns (UploadFileResponse) {};
