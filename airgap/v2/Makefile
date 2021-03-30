@@ -12,7 +12,7 @@ demo: build
 
 generate: protoc
 	@{ TMP_DIR=$$(mktemp -d) ;\
-		PATH=$(PATH):$(PROTOC_GEN_GO) $(PROTOC) -I=$(SRC_DIR) --go_out=$$TMP_DIR $(SRC_DIR)/apis/model/v1/modelv1.proto $(SRC_DIR)/apis/fileserver/fileserver.proto ;\
+		PATH=$(PATH):$(PROTOC_GEN_GO) $(PROTOC) -I=$(SRC_DIR) --go_out=$$TMP_DIR $(SRC_DIR)/apis/model/v1/modelv1.proto $(SRC_DIR)/apis/filesender/filesender.proto $(SRC_DIR)/apis/filereceiver/filereceiver.proto $(SRC_DIR)/apis/adminserver/adminserver.proto ;\
 		cp -r $$TMP_DIR/github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis ./ ;\
 		rm -rf $$TMP_DIR ; \
 	}
