@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package test
+package server_test
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -24,7 +25,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileserver"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
 	server "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/server/start"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
@@ -51,8 +53,37 @@ func runSetup() {
 	//Initialize the mock connection and server
 	lis = bufconn.Listen(bufSize)
 	s := grpc.NewServer()
-	mockServer := server.Server{}
-	fileserver.RegisterFileServerServer(s, &mockServer)
+	bs := server.BaseServer{}
+	mockSenderServer := server.FileSenderServer{}
+	mockRetreiverServer := server.FileRetreiverServer{}
+
+	//Initialize logger
+	zapLog, err := zap.NewDevelopment()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to initialize zapr, due to error: %v", err))
+	}
+	bs.Log = zapr.NewLogger(zapLog)
+
+	//Create Sqlite Database
+	gormDb, err := gorm.Open(sqlite.Open("gorm.db"), &gorm.Config{})
+	if err != nil {
+		log.Fatalf("Error during creation of Database")
+	}
+	db.DB = gormDb
+	db.Log = bs.Log
+
+	//Create tables
+	err = db.DB.AutoMigrate(&models.FileMetadata{}, &models.File{}, &models.Metadata{})
+	if err != nil {
+		log.Fatalf("Error during creation of Models: %v", err)
+	}
+
+	bs.FileStore = &db
+	mockSenderServer.B = bs
+	mockRetreiverServer.B = bs
+	filesender.RegisterFileSenderServer(s, &mockSenderServer)
+	fileretreiver.RegisterFileRetreiverServer(s, &mockRetreiverServer)
+
 	go func() {
 		if err := s.Serve(lis); err != nil {
 			if err.Error() != "closed" { //When lis of type (*bufconn.Listener) is closed, server doesn't have to panic.
@@ -62,29 +93,6 @@ func runSetup() {
 			log.Printf("Mock server started")
 		}
 	}()
-
-	//Initialize logger
-	zapLog, err := zap.NewDevelopment()
-	if err != nil {
-		panic(fmt.Sprintf("Failed to initialize zapr, due to error: %v", err))
-	}
-	mockServer.Log = zapr.NewLogger(zapLog)
-
-	//Create Sqlite Database
-	gormDb, err := gorm.Open(sqlite.Open("gorm.db"), &gorm.Config{})
-	if err != nil {
-		log.Fatalf("Error during creation of Database")
-	}
-	db.DB = gormDb
-	db.Log = mockServer.Log
-
-	//Create tables
-	err = db.DB.AutoMigrate(&models.FileMetadata{}, &models.File{}, &models.Metadata{})
-	if err != nil {
-		log.Fatalf("Error during creation of Models: %v", err)
-	}
-
-	mockServer.File = &db
 }
 
 func createClient() *grpc.ClientConn {
@@ -98,11 +106,11 @@ func createClient() *grpc.ClientConn {
 }
 
 //A negative test for uploading nil values
-func TestEmptyStream(t *testing.T) {
+func TestUploadFileEmptyStream(t *testing.T) {
 	t.Log("Setting up test environment")
 	runSetup()
 	conn := createClient()
-	client := fileserver.NewFileServerClient(conn)
+	client := filesender.NewFileSenderClient(conn)
 
 	//Shutting down environment
 	defer func() {
@@ -138,8 +146,8 @@ func TestEmptyStream(t *testing.T) {
 	}
 
 	//Upload initial message & metadata
-	err = uploadClient.Send(&fileserver.UploadFileRequest{
-		Data: &fileserver.UploadFileRequest_Info{
+	err = uploadClient.Send(&filesender.UploadFileRequest{
+		Data: &filesender.UploadFileRequest_Info{
 			Info: nil,
 		},
 	})
@@ -163,8 +171,8 @@ func TestEmptyStream(t *testing.T) {
 			break
 		}
 		//Sending request
-		request := fileserver.UploadFileRequest{
-			Data: &fileserver.UploadFileRequest_ChunkData{
+		request := filesender.UploadFileRequest{
+			Data: &filesender.UploadFileRequest_ChunkData{
 				ChunkData: nil, //Request includes empty contents
 			},
 		}
@@ -187,7 +195,7 @@ func TestUploadFile(t *testing.T) {
 	t.Log("Setting up test environment")
 	runSetup()
 	conn := createClient()
-	client := fileserver.NewFileServerClient(conn)
+	client := filesender.NewFileSenderClient(conn)
 
 	//Shutting down environment
 	defer func() {
@@ -225,8 +233,8 @@ func TestUploadFile(t *testing.T) {
 	}
 
 	//Upload initial message & metadata
-	err = uploadClient.Send(&fileserver.UploadFileRequest{
-		Data: &fileserver.UploadFileRequest_Info{
+	err = uploadClient.Send(&filesender.UploadFileRequest{
+		Data: &filesender.UploadFileRequest_Info{
 			Info: &v1.FileInfo{
 				FileId: &v1.FileID{
 					Data: &v1.FileID_Name{
@@ -262,8 +270,8 @@ func TestUploadFile(t *testing.T) {
 			break
 		}
 		//Sending request
-		request := fileserver.UploadFileRequest{
-			Data: &fileserver.UploadFileRequest_ChunkData{
+		request := filesender.UploadFileRequest{
+			Data: &filesender.UploadFileRequest_ChunkData{
 				ChunkData: buffer[0:n],
 			},
 		}
@@ -292,4 +300,201 @@ func TestUploadFile(t *testing.T) {
 		t.Log(fmt.Sprintf("verified sent and received file names successfully: %v == %v", metadata.Name(), res.FileId.GetName()))
 	}
 
+}
+
+//A positive test for Downloading File
+func TestDownloadFile(t *testing.T) {
+	t.Log("Setting up test environment")
+	runSetup()
+	conn := createClient()
+	senderClient := filesender.NewFileSenderClient(conn)
+	retreiverClient := fileretreiver.NewFileRetreiverClient(conn)
+
+	//Shutting down environment
+	defer func() {
+		sqlDB, err := db.DB.DB()
+		if err != nil {
+			log.Fatalf("Error: Couldn't close Database: %v", err)
+		}
+		sqlDB.Close()
+		conn.Close()
+		lis.Close() //Closing This shuts down server too.
+	}()
+
+	//Opening file
+	filename := "file.gz"
+	file, err := os.Open(filename)
+	if err != nil {
+		t.Fatalf("file couldn't be opened: %v", err)
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Fatalf("error: couldn't close file after read: %v", err)
+		}
+	}()
+
+	//client-stream to upload the file
+	uploadClient, err := senderClient.UploadFile(context.Background())
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	//Getting file metadata
+	metadata, err := file.Stat()
+	if err != nil {
+		t.Fatalf("error: file Stats couldn't be obtained %v", err)
+	}
+
+	//Upload initial message & metadata
+	err = uploadClient.Send(&filesender.UploadFileRequest{
+		Data: &filesender.UploadFileRequest_Info{
+			Info: &v1.FileInfo{
+				FileId: &v1.FileID{
+					Data: &v1.FileID_Name{
+						Name: metadata.Name(),
+					},
+				},
+				Size: uint32(metadata.Size()),
+				Metadata: map[string]string{
+					"key1": "value1",
+				},
+			},
+		},
+	})
+
+	if err != nil && err != io.EOF {
+		t.Fatalf("error: during sending of metadata: %v", err)
+	}
+
+	t.Log("finished uploading metadata")
+
+	//Chunking
+	chunkSize := 32
+	buffReader := bufio.NewReader(file)
+	buffer := make([]byte, chunkSize)
+	for {
+		n, err := buffReader.Read(buffer)
+		if err != nil {
+			if err != io.EOF {
+				t.Fatalf("Error: During sending of chunked data: %v", err)
+			}
+			break
+		}
+		//Sending request
+		request := filesender.UploadFileRequest{
+			Data: &filesender.UploadFileRequest_ChunkData{
+				ChunkData: buffer[0:n],
+			},
+		}
+		uploadClient.Send(&request)
+	}
+
+	t.Log("finished uploading file contents")
+
+	//Closes stream
+	_, err = uploadClient.CloseAndRecv()
+	if err != nil {
+		t.Fatalf("error: during stream close and receive: %v", err)
+	}
+
+	// Download file client request
+	f_name := "file.gz"
+	d_req := &fileretreiver.DownloadFileRequest{
+		FileId: &v1.FileID{
+			Data: &v1.FileID_Name{
+				Name: f_name},
+		},
+	}
+	downloadClient, err := retreiverClient.DownloadFile(context.Background(), d_req)
+	if err != nil {
+		log.Fatalf("failed to download: %v", err)
+	}
+	var bs bytes.Buffer
+	for {
+		res, err := downloadClient.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err == nil {
+			t.Log("File Chunk Received Successfully")
+		} else {
+			t.Errorf("Error receiving response: %v ", err)
+			break
+		}
+		bs.Write(res.GetChunkData())
+	}
+
+	if metadata.Size() == int64(bs.Len()) {
+		t.Log(fmt.Sprintf("Verified size of downloaded and existing files successfully:  %v Bytes == %v Bytes", uint32(metadata.Size()), uint32(metadata.Size())))
+	} else {
+		t.Errorf("Expected: %v, instead received: %v", metadata.Size(), bs.Len())
+	}
+}
+
+//A negative test for Downloading File
+func TestDownloadFileEmptyName(t *testing.T) {
+	t.Log("Setting up test environment")
+	runSetup()
+	conn := createClient()
+	client := fileretreiver.NewFileRetreiverClient(conn)
+
+	//Shutting down environment
+	defer func() {
+		sqlDB, err := db.DB.DB()
+		if err != nil {
+			t.Fatalf("Error: Couldn't close Database: %v", err)
+		}
+		sqlDB.Close()
+		conn.Close()
+		lis.Close() //Closing This shuts down server too.
+	}()
+
+	// Download request with empty filename
+	t.Log("Attempting to download file with whitespaces as name")
+	d_req := &fileretreiver.DownloadFileRequest{
+		FileId: &v1.FileID{
+			Data: &v1.FileID_Name{
+				Name: ""}, // Empty file name
+		},
+	}
+
+	downloadClient, err := client.DownloadFile(context.Background(), d_req)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	_, err = downloadClient.Recv()
+	if err == io.EOF {
+		t.Fatalf("Attempt has not been revoked successfully")
+	} else if err != nil {
+		t.Logf("Attempt has been revoked successfully: %v", err)
+	} else {
+		t.Error("Error: Cannot download file without name/id")
+	}
+
+	// Download non-existent file client request
+	t.Log("Attempting to download non-existing file")
+	d_req = &fileretreiver.DownloadFileRequest{
+		FileId: &v1.FileID{
+			Data: &v1.FileID_Name{
+				Name: "file.zip",
+			},
+		},
+	}
+
+	downloadClient, err = client.DownloadFile(context.Background(), d_req)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	_, err = downloadClient.Recv()
+	if err == io.EOF {
+		t.Fatalf("Attempt has not been revoked successfully")
+	} else if err != nil {
+		t.Logf("Attempt has been revoked successfully: %v", err)
+	} else {
+		t.Error("Error: Cannot download file without name/id")
+	}
+
+	t.Logf("Recieved server response and closed stream")
 }

@@ -23,7 +23,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileserver"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
 	server "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/server/start"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/dqlite"
 	"github.com/spf13/cobra"
@@ -56,7 +57,7 @@ func main() {
 				Log:     log,
 			}
 
-			d, err := cfg.InitDB()
+			fs, err := cfg.InitDB()
 			if err != nil {
 				return err
 			}
@@ -69,7 +70,12 @@ func main() {
 			}
 
 			s := grpc.NewServer()
-			fileserver.RegisterFileServerServer(s, &server.Server{Log: log, File: d})
+			bs := server.BaseServer{Log: log, FileStore: fs}
+
+			//Register servers
+			filesender.RegisterFileSenderServer(s, &server.FileSenderServer{B: bs})
+			fileretreiver.RegisterFileRetreiverServer(s, &server.FileRetreiverServer{B: bs})
+
 			go func() {
 				if err := s.Serve(lis); err != nil {
 					panic(err)

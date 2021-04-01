@@ -16,16 +16,19 @@ package database
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/go-logr/logr"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/models"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
-type File interface {
+type FileStore interface {
 	SaveFile(finfo *v1.FileInfo, bs []byte) error
+	DownloadFile(finfo *v1.FileID) (*models.Metadata, error)
 }
 
 type Database struct {
@@ -74,4 +77,27 @@ func (d *Database) SaveFile(finfo *v1.FileInfo, bs []byte) error {
 
 	d.Log.Info(fmt.Sprintf("File of size: %v saved with id: %v", metadata.Size, metadata.FileID))
 	return nil
+}
+
+func (d *Database) DownloadFile(finfo *v1.FileID) (*models.Metadata, error) {
+
+	var meta models.Metadata
+
+	fileid := strings.TrimSpace(finfo.GetId())
+	filename := strings.TrimSpace(finfo.GetName())
+
+	// Perform validations and query
+	if len(fileid) != 0 {
+		d.DB.Where("provided_id = ?", fileid).Order("created_at desc").Preload(clause.Associations).First(&meta)
+	} else if len(filename) != 0 {
+		d.DB.Where("provided_name = ?", filename).Order("created_at desc").Preload(clause.Associations).First(&meta)
+	} else {
+		return nil, fmt.Errorf("file id/name is blank")
+	}
+
+	if reflect.DeepEqual(meta, models.Metadata{}) {
+		return nil, fmt.Errorf("no file found for provided_name: %v / provided_id: %v", filename, fileid)
+	}
+	d.Log.Info(fmt.Sprintf("Sending File of size: %v | Id: %v", meta.Size, meta.FileID))
+	return &meta, nil
 }
