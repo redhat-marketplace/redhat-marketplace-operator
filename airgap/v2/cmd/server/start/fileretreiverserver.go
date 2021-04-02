@@ -59,7 +59,7 @@ func (frs *FileRetreiverServer) DownloadFile(dfr *fileretreiver.DownloadFileRequ
 		},
 	}
 	frs.B.Log.Info(fmt.Sprintf(" File Info Response: %v ", res))
-	// Send File Information
+	// Send file information
 	err = stream.Send(res)
 	if err != nil {
 		return status.Errorf(
@@ -84,7 +84,7 @@ func (frs *FileRetreiverServer) DownloadFile(dfr *fileretreiver.DownloadFileRequ
 				ChunkData: chunk,
 			},
 		}
-		// Send File chunks
+		// Send file chunks
 		err = stream.Send(res)
 		if err != nil {
 			return status.Errorf(

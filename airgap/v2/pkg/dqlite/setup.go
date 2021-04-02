@@ -64,7 +64,7 @@ func (dc *DatabaseConfig) InitDB() (*database.Database, error) {
 	return database, err
 }
 
-// Initialize the underlying dqlite database and populate a *Database object with the dqlite connection and app
+// Initialize the underlying dqlite database
 func (dc *DatabaseConfig) initDqlite() error {
 	dc.Dir = filepath.Join(dc.Dir, dc.Url)
 	if err := os.MkdirAll(dc.Dir, 0755); err != nil {

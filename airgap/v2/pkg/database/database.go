@@ -98,6 +98,6 @@ func (d *Database) DownloadFile(finfo *v1.FileID) (*models.Metadata, error) {
 	if reflect.DeepEqual(meta, models.Metadata{}) {
 		return nil, fmt.Errorf("no file found for provided_name: %v / provided_id: %v", filename, fileid)
 	}
-	d.Log.Info(fmt.Sprintf("Sending File of size: %v | Id: %v", meta.Size, meta.FileID))
+	d.Log.Info(fmt.Sprintf("Retreived file of size: %v with id: %v", meta.Size, meta.FileID))
 	return &meta, nil
 }
