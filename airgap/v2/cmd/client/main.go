@@ -12,3 +12,68 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package main
+
+import (
+	"fmt"
+	"os"
+
+	homedir "github.com/mitchellh/go-homedir"
+	cmd "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/client/download"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+)
+
+var cfgFile string
+
+// rootCmd represents the base command when called without any subcommands
+var rootCmd = &cobra.Command{
+	Use:   "client",
+	Short: "Command line interface to access airgap services",
+}
+
+func init() {
+	cobra.OnInitialize(initConfig)
+	rootCmd.AddCommand(cmd.DownloadCmd)
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "config.yaml", "Path to the configuration file")
+}
+
+func er(msg interface{}) {
+	fmt.Println("Error:", msg)
+	os.Exit(1)
+}
+
+func initConfig() {
+	if cfgFile != "" {
+		// Use config file from the flag.
+		viper.SetConfigFile(cfgFile)
+	} else {
+		// Find home directory.
+		home, err := homedir.Dir()
+		if err != nil {
+			er(err)
+		}
+
+		// Search config in home directory with name ".cobra" (without extension).
+		viper.AddConfigPath(home)
+		viper.SetConfigName(".cobra")
+	}
+
+	viper.AutomaticEnv()
+
+	if err := viper.ReadInConfig(); err == nil {
+		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	}
+}
+
+func main() {
+	err := rootCmd.Execute()
+
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	os.Exit(0)
+}
+
