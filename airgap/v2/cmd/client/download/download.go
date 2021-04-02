@@ -33,9 +33,11 @@ import (
 )
 
 type DownloadConfig struct {
-	fileName        string
-	fileId          string
-	outputDirectory string
+	FileName        string
+	FileId          string
+	OutputDirectory string
+	Conn            *grpc.ClientConn
+	Client          fileretreiver.FileRetreiverClient
 }
 
 var (
@@ -49,15 +51,23 @@ var DownloadCmd = &cobra.Command{
 	Short: "Download files from the airgap service",
 	Long:  `An external configuration file containing connection details are expected`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return dc.createDownloadClient()
+		// Initialize client
+		err := dc.InitializeDownloadClient()
+		if err != nil {
+			return err
+		}
+		defer dc.CloseConnection()
+
+		// Download file and return error if any
+		return dc.DownloadFile()
 	},
 }
 
 func init() {
 	initLog()
-	DownloadCmd.Flags().StringVarP(&dc.fileName, "file-name", "n", "", "Name of the file to be downloaded")
-	DownloadCmd.Flags().StringVarP(&dc.fileId, "file-id", "i", "", "Id of the file to be downloaded")
-	DownloadCmd.Flags().StringVarP(&dc.outputDirectory, "output-directory", "o", "", "Path to download the file ")
+	DownloadCmd.Flags().StringVarP(&dc.FileName, "file-name", "n", "", "Name of the file to be downloaded")
+	DownloadCmd.Flags().StringVarP(&dc.FileId, "file-id", "i", "", "Id of the file to be downloaded")
+	DownloadCmd.Flags().StringVarP(&dc.OutputDirectory, "output-directory", "o", "", "Path to download the file ")
 	DownloadCmd.MarkFlagRequired("output-directory")
 }
 
@@ -69,35 +79,8 @@ func initLog() {
 	log = zapr.NewLogger(zapLog)
 }
 
-func (dc *DownloadConfig) createDownloadClient() error {
-	log.Info("Attempting to download file")
-
-	fn := strings.TrimSpace(dc.fileName)
-	fid := strings.TrimSpace(dc.fileId)
-	var req *fileretreiver.DownloadFileRequest
-	var name string
-
-	// Validate input and prepare request
-	if len(fn) == 0 && len(fid) == 0 {
-		return fmt.Errorf("file id/name is blank")
-	} else if len(fn) != 0 {
-		name = fn
-		req = &fileretreiver.DownloadFileRequest{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: fn},
-			},
-		}
-	} else {
-		name = fid
-		req = &fileretreiver.DownloadFileRequest{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Id{
-					Id: fid},
-			},
-		}
-	}
-
+func (dc *DownloadConfig) InitializeDownloadClient() error {
+	// Fetch target address
 	address := viper.GetString("address")
 	if len(strings.TrimSpace(address)) == 0 {
 		return fmt.Errorf("target address is blank/empty")
@@ -125,10 +108,48 @@ func (dc *DownloadConfig) createDownloadClient() error {
 	if err != nil {
 		return fmt.Errorf("connection error: %v", err)
 	}
-	defer conn.Close()
 
-	client := fileretreiver.NewFileRetreiverClient(conn)
-	resultStream, err := client.DownloadFile(context.Background(), req)
+	dc.Client = fileretreiver.NewFileRetreiverClient(conn)
+	dc.Conn = conn
+	return nil
+}
+
+func (dc *DownloadConfig) CloseConnection() {
+	if dc != nil && dc.Conn != nil {
+		dc.Conn.Close()
+	}
+}
+
+func (dc *DownloadConfig) DownloadFile() error {
+	log.Info("Attempting to download file")
+
+	fn := strings.TrimSpace(dc.FileName)
+	fid := strings.TrimSpace(dc.FileId)
+	var req *fileretreiver.DownloadFileRequest
+	var name string
+
+	// Validate input and prepare request
+	if len(fn) == 0 && len(fid) == 0 {
+		return fmt.Errorf("file id/name is blank")
+	} else if len(fn) != 0 {
+		name = fn
+		req = &fileretreiver.DownloadFileRequest{
+			FileId: &v1.FileID{
+				Data: &v1.FileID_Name{
+					Name: fn},
+			},
+		}
+	} else {
+		name = fid
+		req = &fileretreiver.DownloadFileRequest{
+			FileId: &v1.FileID{
+				Data: &v1.FileID_Id{
+					Id: fid},
+			},
+		}
+	}
+
+	resultStream, err := dc.Client.DownloadFile(context.Background(), req)
 	if err != nil {
 		return fmt.Errorf("failed to attempt download due to: %v", err)
 	}
@@ -151,7 +172,7 @@ func (dc *DownloadConfig) createDownloadClient() error {
 		}
 	}
 
-	outFile, err := os.Create(dc.outputDirectory + string(os.PathSeparator) + name)
+	outFile, err := os.Create(dc.OutputDirectory + string(os.PathSeparator) + name)
 	if err != nil {
 		return fmt.Errorf("error while creating output file: %v", err)
 	}

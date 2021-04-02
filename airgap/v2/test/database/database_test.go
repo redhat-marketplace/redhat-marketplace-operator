@@ -15,6 +15,7 @@
 package database_test
 
 import (
+	"log"
 	"os"
 	"testing"
 
@@ -29,20 +30,40 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func TestSaveFile(t *testing.T) {
-	var log logr.Logger
+var logger logr.Logger
+var dbName = "test.db"
+
+func initLog() error {
 	zapLog, err := zap.NewDevelopment()
 	if err != nil {
-		t.Fatalf("Failed to initialize zapr, due to error: %v", err)
+		return err
 	}
-	log = zapr.NewLogger(zapLog)
+	logger = zapr.NewLogger(zapLog)
+	return nil
+}
 
-	defer os.Remove("test.db")
+func closeDBConnection(db *gorm.DB) {
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("Error: Couldn't close Database: %v", err)
+	}
 
-	db, err := gorm.Open(sqlite.Open("test.db"), &gorm.Config{})
+	sqlDB.Close()
+	os.Remove(dbName)
+}
+
+func TestSaveFile(t *testing.T) {
+
+	err := initLog()
+	if err != nil {
+		t.Fatalf("Couldn't initialize logger: %v", err)
+	}
+
+	db, err := gorm.Open(sqlite.Open(dbName), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("Couldn't create sqlite connection")
 	}
+	defer closeDBConnection(db)
 
 	//Perform migrations
 	db.AutoMigrate(&models.FileMetadata{}, &models.File{}, &models.Metadata{})
@@ -65,7 +86,7 @@ func TestSaveFile(t *testing.T) {
 
 	database := &database.Database{
 		DB:  db,
-		Log: log,
+		Log: logger,
 	}
 
 	dbErr := database.SaveFile(finfo, bs)
@@ -143,26 +164,23 @@ func TestSaveFileInputValidation(t *testing.T) {
 
 func TestDownloadFile(t *testing.T) {
 
-	var log logr.Logger
-	zapLog, err := zap.NewDevelopment()
+	err := initLog()
 	if err != nil {
-		t.Fatalf("Failed to initialize zapr, due to error: %v", err)
+		t.Fatalf("Couldn't initialize logger: %v", err)
 	}
-	log = zapr.NewLogger(zapLog)
 
-	defer os.Remove("test.db")
-
-	db, err := gorm.Open(sqlite.Open("test.db"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(dbName), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("Couldn't create sqlite connection")
 	}
+	defer closeDBConnection(db)
 
 	//Perform migrations
 	db.AutoMigrate(&models.FileMetadata{}, &models.File{}, &models.Metadata{})
 
 	database := &database.Database{
 		DB:  db,
-		Log: log,
+		Log: logger,
 	}
 	bs := make([]byte, 1024)
 	finfo := &v1.FileInfo{
@@ -224,26 +242,24 @@ func TestDownloadFile(t *testing.T) {
 
 // Negative test for Downloading File
 func TestDownloadFileInputValidation(t *testing.T) {
-	var log logr.Logger
-	zapLog, err := zap.NewDevelopment()
+
+	err := initLog()
 	if err != nil {
-		t.Fatalf("Failed to initialize zapr, due to error: %v", err)
+		t.Fatalf("Couldn't initialize logger: %v", err)
 	}
-	log = zapr.NewLogger(zapLog)
 
-	defer os.Remove("test.db")
-
-	db, err := gorm.Open(sqlite.Open("test.db"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(dbName), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("Couldn't create sqlite connection")
 	}
+	defer closeDBConnection(db)
 
 	//Perform migrations
 	db.AutoMigrate(&models.FileMetadata{}, &models.File{}, &models.Metadata{})
 
 	database := &database.Database{
 		DB:  db,
-		Log: log,
+		Log: logger,
 	}
 
 	// Empty name

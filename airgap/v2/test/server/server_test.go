@@ -44,6 +44,7 @@ const bufSize = 1024 * 1024
 
 var lis *bufconn.Listener
 var db database.Database
+var dbName = "server.db"
 
 func bufDialer(context.Context, string) (net.Conn, error) {
 	return lis.Dial()
@@ -65,7 +66,7 @@ func runSetup() {
 	bs.Log = zapr.NewLogger(zapLog)
 
 	//Create Sqlite Database
-	gormDb, err := gorm.Open(sqlite.Open("gorm.db"), &gorm.Config{})
+	gormDb, err := gorm.Open(sqlite.Open(dbName), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("Error during creation of Database")
 	}
@@ -105,6 +106,17 @@ func createClient() *grpc.ClientConn {
 	return conn
 }
 
+func shutdown(conn *grpc.ClientConn) {
+	sqlDB, err := db.DB.DB()
+	if err != nil {
+		log.Fatalf("Error: Couldn't close Database: %v", err)
+	}
+	sqlDB.Close()
+	conn.Close()
+	os.Remove(dbName)
+	lis.Close() //Closing This shuts down server too.
+}
+
 //A negative test for uploading nil values
 func TestUploadFileEmptyStream(t *testing.T) {
 	t.Log("Setting up test environment")
@@ -113,15 +125,7 @@ func TestUploadFileEmptyStream(t *testing.T) {
 	client := filesender.NewFileSenderClient(conn)
 
 	//Shutting down environment
-	defer func() {
-		sqlDB, err := db.DB.DB()
-		if err != nil {
-			log.Fatalf("Error: Couldn't close Database: %v", err)
-		}
-		sqlDB.Close()
-		conn.Close()
-		lis.Close() //Closing This shuts down server too.
-	}()
+	defer shutdown(conn)
 
 	//client-stream to upload the file
 	uploadClient, err := client.UploadFile(context.Background())
@@ -198,15 +202,7 @@ func TestUploadFile(t *testing.T) {
 	client := filesender.NewFileSenderClient(conn)
 
 	//Shutting down environment
-	defer func() {
-		sqlDB, err := db.DB.DB()
-		if err != nil {
-			log.Fatalf("Error: Couldn't close Database: %v", err)
-		}
-		sqlDB.Close()
-		conn.Close()
-		lis.Close() //Closing This shuts down server too.
-	}()
+	defer shutdown(conn)
 
 	//client-stream to upload the file
 	uploadClient, err := client.UploadFile(context.Background())
@@ -311,15 +307,7 @@ func TestDownloadFile(t *testing.T) {
 	retreiverClient := fileretreiver.NewFileRetreiverClient(conn)
 
 	//Shutting down environment
-	defer func() {
-		sqlDB, err := db.DB.DB()
-		if err != nil {
-			log.Fatalf("Error: Couldn't close Database: %v", err)
-		}
-		sqlDB.Close()
-		conn.Close()
-		lis.Close() //Closing This shuts down server too.
-	}()
+	defer shutdown(conn)
 
 	//Opening file
 	filename := "file.gz"
@@ -439,15 +427,7 @@ func TestDownloadFileEmptyName(t *testing.T) {
 	client := fileretreiver.NewFileRetreiverClient(conn)
 
 	//Shutting down environment
-	defer func() {
-		sqlDB, err := db.DB.DB()
-		if err != nil {
-			t.Fatalf("Error: Couldn't close Database: %v", err)
-		}
-		sqlDB.Close()
-		conn.Close()
-		lis.Close() //Closing This shuts down server too.
-	}()
+	defer shutdown(conn)
 
 	// Download request with empty filename
 	t.Log("Attempting to download file with whitespaces as name")
