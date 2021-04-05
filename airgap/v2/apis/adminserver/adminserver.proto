@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+option go_package = "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/adminserver";
+option java_multiple_files = true;
+option java_package = "com.redhat.marketplace.airgap.adminserver";
+option java_outer_classname = "AdminServer";
+
+package adminserver.v1;
+
+import "apis/model/v1/modelv1.proto";
+import "google/protobuf/timestamp.proto";
+
+service AdminServer {
+    rpc DeleteFile(DeleteFileRequest) returns (DeleteFileResponse) {};
+    rpc CleanTombstones(CleanTombstonesRequest) returns (CleanTombstonesResponse) {};
+}
+
+// sets the files tombstone with the current timestamp
+message DeleteFileRequest {
+    model.v1.FileID file_id = 1;
+  }
+  
+  message DeleteFileResponse {
+    model.v1.FileID file_id = 1;
+  }
+  
+  message CleanTombstonesRequest {
+    google.protobuf.Timestamp before = 1;
+  }
+  
+  message CleanTombstonesResponse {
+    int32 tombstones_cleaned = 1;
+    repeated model.v1.FileID files = 2;
+  }
