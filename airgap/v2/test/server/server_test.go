@@ -15,7 +15,6 @@
 package server_test
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -35,6 +34,8 @@ import (
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -114,130 +115,137 @@ func shutdown(conn *grpc.ClientConn) {
 	sqlDB.Close()
 	conn.Close()
 	os.Remove(dbName)
-	lis.Close() //Closing This shuts down server too.
+	lis.Close()
 }
 
-//A negative test for uploading nil values
-func TestUploadFileEmptyStream(t *testing.T) {
-	t.Log("Setting up test environment")
+func TestFileSenderServer_UploadFile(t *testing.T) {
+	//Initialize server
 	runSetup()
+	//Initialize client
 	conn := createClient()
 	client := filesender.NewFileSenderClient(conn)
 
-	//Shutting down environment
+	//Shutdown resources
 	defer shutdown(conn)
 
-	//client-stream to upload the file
-	uploadClient, err := client.UploadFile(context.Background())
-	if err != nil {
-		t.Fatalf("error: During call of client.UploadFile: %v", err)
-	}
-
-	//Opening file
-	filename := "file.gz"
-	file, err := os.Open(filename)
-	if err != nil {
-		t.Fatalf("file couldn't be opened: %v", err)
-	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			t.Fatalf("error: couldn't close file after read: %v", err)
-		}
-	}()
-
-	if err != nil {
-		t.Fatalf("error: file Stats couldn't be obtained %v", err)
-	}
-
-	//Upload initial message & metadata
-	err = uploadClient.Send(&filesender.UploadFileRequest{
-		Data: &filesender.UploadFileRequest_Info{
-			Info: nil,
-		},
-	})
-
-	if err != nil && err != io.EOF {
-		t.Fatalf("error: during sending of metadata: %v", err)
-	}
-
-	t.Log("finished uploading metadata")
-
-	//Chunking and uploading empty stream
-	chunkSize := 32
-	buffReader := bufio.NewReader(file)
-	buffer := make([]byte, chunkSize)
-	for {
-		_, err := buffReader.Read(buffer)
-		if err != nil {
-			if err != io.EOF {
-				t.Fatalf("Error: During sending of chunked data: %v", err)
-			}
-			break
-		}
-		//Sending request
-		request := filesender.UploadFileRequest{
-			Data: &filesender.UploadFileRequest_ChunkData{
-				ChunkData: nil, //Request includes empty contents
+	sampleData := make([]byte, 1024)
+	tests := []struct {
+		name    string
+		info    *filesender.UploadFileRequest_Info
+		data    *filesender.UploadFileRequest_ChunkData
+		res     *filesender.UploadFileResponse
+		errCode codes.Code
+	}{
+		{
+			name: "invalid file upload request with nil file info/data",
+			info: &filesender.UploadFileRequest_Info{
+				Info: nil,
 			},
-		}
-		uploadClient.Send(&request)
+			data: &filesender.UploadFileRequest_ChunkData{
+				ChunkData: nil,
+			},
+			res:     &filesender.UploadFileResponse{},
+			errCode: codes.Unknown,
+		},
+		{
+			name: "valid file upload",
+			info: &filesender.UploadFileRequest_Info{
+				Info: &v1.FileInfo{
+					FileId: &v1.FileID{
+						Data: &v1.FileID_Name{
+							Name: "test-file.zip",
+						},
+					},
+					Size: 1024,
+					Metadata: map[string]string{
+						"key1": "value1",
+						"key2": "value2",
+						"key3": "value3",
+					},
+				},
+			},
+			data: &filesender.UploadFileRequest_ChunkData{
+				ChunkData: sampleData,
+			},
+			res: &filesender.UploadFileResponse{
+				Size: 1024,
+				FileId: &v1.FileID{
+					Data: &v1.FileID_Name{
+						Name: "test-file.zip",
+					},
+				},
+			},
+		},
 	}
 
-	t.Log("finished uploading file contents")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uploadClient, err := client.UploadFile(context.Background())
+			if err != nil {
+				t.Errorf("error while invoking grpc method upload file for test:%v with err: %v", tt.name, err)
+			}
 
-	//Closes stream
-	_, err = uploadClient.CloseAndRecv()
-	if err == nil {
-		t.Error("error: uploading nil content is prohitbited", err)
-	} else {
-		t.Log("Attempt has been revoked successfully")
+			err = uploadClient.Send(&filesender.UploadFileRequest{
+				Data: tt.info,
+			})
+			if err != nil {
+				t.Errorf("error while sending metadata for test:%v with err: %v", tt.name, err)
+			}
+
+			err = uploadClient.Send(&filesender.UploadFileRequest{
+				Data: tt.data,
+			})
+			if err != nil {
+				t.Errorf("error while uploading byte stream for test:%v with err: %v", tt.name, err)
+			}
+
+			res, err := uploadClient.CloseAndRecv()
+
+			if err != nil {
+				if er, ok := status.FromError(err); ok {
+					if er.Code() != tt.errCode {
+						t.Errorf("mismatched error codes: expected %v, received: %v for test: %v", tt.errCode, er.Code(), tt.name)
+					}
+				}
+			}
+
+			if res != nil {
+				if res.Size != tt.res.Size {
+					t.Errorf("sent:%v and recieved:%v size doesn't match for test: %v", tt.res.Size, res.Size, tt.name)
+				}
+				if res.FileId.GetName() != tt.info.Info.FileId.GetName() {
+					t.Errorf("name of uploaded file and downloaded file name does not match: %v != %v for test: %v", res.FileId.GetName(), tt.info.Info.FileId.GetName(), tt.name)
+				}
+			}
+		})
 	}
 }
 
-//A positive test for uploading file
-func TestUploadFile(t *testing.T) {
-	t.Log("Setting up test environment")
+func TestFileRetreiverServer_DownloadFile(t *testing.T) {
+	//Initialize server
 	runSetup()
+	//Initialize client
 	conn := createClient()
-	client := filesender.NewFileSenderClient(conn)
 
-	//Shutting down environment
+	//Shutdown resources
 	defer shutdown(conn)
 
-	//client-stream to upload the file
-	uploadClient, err := client.UploadFile(context.Background())
+	//Upload a sample file
+	sampleData := make([]byte, 1024)
+	client := filesender.NewFileSenderClient(conn)
+	stream, err := client.UploadFile(context.Background())
 	if err != nil {
-		t.Fatalf("error: During call of client.UploadFile: %v", err)
+		t.Fatalf("Unexpected error: %v", err)
 	}
-
-	//Opening file
-	filename := "file.gz"
-	file, err := os.Open(filename)
-	if err != nil {
-		t.Fatalf("file couldn't be opened: %v", err)
-	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			t.Fatalf("error: couldn't close file after read: %v", err)
-		}
-	}()
-
-	//Getting file metadata
-	metadata, err := file.Stat()
-	if err != nil {
-		t.Fatalf("error: file Stats couldn't be obtained %v", err)
-	}
-
-	//Upload initial message & metadata
-	err = uploadClient.Send(&filesender.UploadFileRequest{
+	err = stream.Send(&filesender.UploadFileRequest{
 		Data: &filesender.UploadFileRequest_Info{
 			Info: &v1.FileInfo{
 				FileId: &v1.FileID{
 					Data: &v1.FileID_Name{
-						Name: metadata.Name(),
+						Name: "test-file.zip",
 					},
 				},
-				Size: uint32(metadata.Size()),
+				Size: 1024,
 				Metadata: map[string]string{
 					"key1": "value1",
 					"key2": "value2",
@@ -246,235 +254,96 @@ func TestUploadFile(t *testing.T) {
 			},
 		},
 	})
-
-	if err != nil && err != io.EOF {
-		t.Fatalf("error: during sending of metadata: %v", err)
-	}
-
-	t.Log("finished uploading metadata")
-
-	//Chunking
-	chunkSize := 32
-	buffReader := bufio.NewReader(file)
-	buffer := make([]byte, chunkSize)
-	for {
-		n, err := buffReader.Read(buffer)
-		if err != nil {
-			if err != io.EOF {
-				t.Fatalf("Error: During sending of chunked data: %v", err)
-			}
-			break
-		}
-		//Sending request
-		request := filesender.UploadFileRequest{
-			Data: &filesender.UploadFileRequest_ChunkData{
-				ChunkData: buffer[0:n],
-			},
-		}
-		uploadClient.Send(&request)
-	}
-
-	t.Log("finished uploading file contents")
-
-	//Closes stream
-	res, err := uploadClient.CloseAndRecv()
 	if err != nil {
-		t.Fatalf("error: during stream close and recieve: %v", err)
+		t.Fatalf("Failed to upload file info: %v", err)
 	}
 
-	t.Logf("recieved server response and closed stream")
-
-	if res.Size != uint32(metadata.Size()) {
-		t.Error(fmt.Sprintf("sent and recieved data size doesn't match: %v Bytes != %v Bytes", uint32(metadata.Size()), res.Size))
-	} else {
-		t.Log(fmt.Sprintf("verified size of sent and received files successfully:  %v Bytes == %v Bytes", uint32(metadata.Size()), res.Size))
-	}
-
-	if res.FileId.GetName() != metadata.Name() {
-		t.Error(fmt.Sprintf("Name of sent file and recieved name does not match: %v != %v", metadata.Name(), res.FileId.GetName()))
-	} else {
-		t.Log(fmt.Sprintf("verified sent and received file names successfully: %v == %v", metadata.Name(), res.FileId.GetName()))
-	}
-
-}
-
-//A positive test for Downloading File
-func TestDownloadFile(t *testing.T) {
-	t.Log("Setting up test environment")
-	runSetup()
-	conn := createClient()
-	senderClient := filesender.NewFileSenderClient(conn)
-	retreiverClient := fileretreiver.NewFileRetreiverClient(conn)
-
-	//Shutting down environment
-	defer shutdown(conn)
-
-	//Opening file
-	filename := "file.gz"
-	file, err := os.Open(filename)
-	if err != nil {
-		t.Fatalf("file couldn't be opened: %v", err)
-	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			t.Fatalf("error: couldn't close file after read: %v", err)
-		}
-	}()
-
-	//client-stream to upload the file
-	uploadClient, err := senderClient.UploadFile(context.Background())
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-
-	//Getting file metadata
-	metadata, err := file.Stat()
-	if err != nil {
-		t.Fatalf("error: file Stats couldn't be obtained %v", err)
-	}
-
-	//Upload initial message & metadata
-	err = uploadClient.Send(&filesender.UploadFileRequest{
-		Data: &filesender.UploadFileRequest_Info{
-			Info: &v1.FileInfo{
-				FileId: &v1.FileID{
-					Data: &v1.FileID_Name{
-						Name: metadata.Name(),
-					},
-				},
-				Size: uint32(metadata.Size()),
-				Metadata: map[string]string{
-					"key1": "value1",
-				},
-			},
+	err = stream.Send(&filesender.UploadFileRequest{
+		Data: &filesender.UploadFileRequest_ChunkData{
+			ChunkData: sampleData,
 		},
 	})
-
-	if err != nil && err != io.EOF {
-		t.Fatalf("error: during sending of metadata: %v", err)
+	if err != nil {
+		t.Fatalf("Failed to upload file data: %v", err)
 	}
 
-	t.Log("finished uploading metadata")
+	_, err = stream.CloseAndRecv()
+	if err != nil {
+		t.Fatalf("Failed while closing stream: %v", err)
+	}
 
-	//Chunking
-	chunkSize := 32
-	buffReader := bufio.NewReader(file)
-	buffer := make([]byte, chunkSize)
-	for {
-		n, err := buffReader.Read(buffer)
-		if err != nil {
-			if err != io.EOF {
-				t.Fatalf("Error: During sending of chunked data: %v", err)
+	//Create a client for download
+	downloadClient := fileretreiver.NewFileRetreiverClient(conn)
+
+	tests := []struct {
+		name    string
+		dfr     *fileretreiver.DownloadFileRequest
+		size    uint32
+		errCode codes.Code
+	}{
+		{
+			name: "download an existing file on the server",
+			dfr: &fileretreiver.DownloadFileRequest{
+				FileId: &v1.FileID{
+					Data: &v1.FileID_Name{
+						Name: "test-file.zip"},
+				},
+			},
+			size:    1024,
+			errCode: codes.OK,
+		},
+		{
+			name: "invalid download request for file that doesn't exist on the server",
+			dfr: &fileretreiver.DownloadFileRequest{
+				FileId: &v1.FileID{
+					Data: &v1.FileID_Name{
+						Name: "dontexist.zip"},
+				},
+			},
+			size:    0,
+			errCode: codes.InvalidArgument,
+		},
+		{
+			name: "invalid download request for file with only whitespaces for the name",
+			dfr: &fileretreiver.DownloadFileRequest{
+				FileId: &v1.FileID{
+					Data: &v1.FileID_Name{
+						Name: "   "},
+				},
+			},
+			size:    0,
+			errCode: codes.InvalidArgument,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stream, err := downloadClient.DownloadFile(context.Background(), tt.dfr)
+
+			if err != nil {
+				t.Errorf("error while invoking grpc method download file for test:%v with err: %v", tt.name, err)
 			}
-			break
-		}
-		//Sending request
-		request := filesender.UploadFileRequest{
-			Data: &filesender.UploadFileRequest_ChunkData{
-				ChunkData: buffer[0:n],
-			},
-		}
-		uploadClient.Send(&request)
+
+			var bs bytes.Buffer
+			for {
+				data, err := stream.Recv()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					if er, ok := status.FromError(err); ok {
+						if er.Code() != tt.errCode {
+							t.Errorf("mismatched error codes: expected %v, received: %v for test: %v", tt.errCode, er.Code(), tt.name)
+						}
+					}
+					break
+				}
+				bs.Write(data.GetChunkData())
+			}
+
+			if bs.Len() != int(tt.size) {
+				t.Errorf("sent:%v and recieved:%v size doesn't match for test: %v", bs.Len(), int(tt.size), tt.name)
+			}
+		})
 	}
-
-	t.Log("finished uploading file contents")
-
-	//Closes stream
-	_, err = uploadClient.CloseAndRecv()
-	if err != nil {
-		t.Fatalf("error: during stream close and receive: %v", err)
-	}
-
-	// Download file client request
-	f_name := "file.gz"
-	d_req := &fileretreiver.DownloadFileRequest{
-		FileId: &v1.FileID{
-			Data: &v1.FileID_Name{
-				Name: f_name},
-		},
-	}
-	downloadClient, err := retreiverClient.DownloadFile(context.Background(), d_req)
-	if err != nil {
-		log.Fatalf("failed to download: %v", err)
-	}
-	var bs bytes.Buffer
-	for {
-		res, err := downloadClient.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err == nil {
-			t.Log("File Chunk Received Successfully")
-		} else {
-			t.Errorf("Error receiving response: %v ", err)
-			break
-		}
-		bs.Write(res.GetChunkData())
-	}
-
-	if metadata.Size() == int64(bs.Len()) {
-		t.Log(fmt.Sprintf("Verified size of downloaded and existing files successfully:  %v Bytes == %v Bytes", uint32(metadata.Size()), uint32(metadata.Size())))
-	} else {
-		t.Errorf("Expected: %v, instead received: %v", metadata.Size(), bs.Len())
-	}
-}
-
-//A negative test for Downloading File
-func TestDownloadFileEmptyName(t *testing.T) {
-	t.Log("Setting up test environment")
-	runSetup()
-	conn := createClient()
-	client := fileretreiver.NewFileRetreiverClient(conn)
-
-	//Shutting down environment
-	defer shutdown(conn)
-
-	// Download request with empty filename
-	t.Log("Attempting to download file with whitespaces as name")
-	d_req := &fileretreiver.DownloadFileRequest{
-		FileId: &v1.FileID{
-			Data: &v1.FileID_Name{
-				Name: ""}, // Empty file name
-		},
-	}
-
-	downloadClient, err := client.DownloadFile(context.Background(), d_req)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-
-	_, err = downloadClient.Recv()
-	if err == io.EOF {
-		t.Fatalf("Attempt has not been revoked successfully")
-	} else if err != nil {
-		t.Logf("Attempt has been revoked successfully: %v", err)
-	} else {
-		t.Error("Error: Cannot download file without name/id")
-	}
-
-	// Download non-existent file client request
-	t.Log("Attempting to download non-existing file")
-	d_req = &fileretreiver.DownloadFileRequest{
-		FileId: &v1.FileID{
-			Data: &v1.FileID_Name{
-				Name: "file.zip",
-			},
-		},
-	}
-
-	downloadClient, err = client.DownloadFile(context.Background(), d_req)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-
-	_, err = downloadClient.Recv()
-	if err == io.EOF {
-		t.Fatalf("Attempt has not been revoked successfully")
-	} else if err != nil {
-		t.Logf("Attempt has been revoked successfully: %v", err)
-	} else {
-		t.Error("Error: Cannot download file without name/id")
-	}
-
-	t.Logf("Recieved server response and closed stream")
 }

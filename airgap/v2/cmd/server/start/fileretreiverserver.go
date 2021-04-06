@@ -23,7 +23,10 @@ func (frs *FileRetreiverServer) DownloadFile(dfr *fileretreiver.DownloadFileRequ
 	//Fetch file info from DB
 	metadata, err := frs.B.FileStore.DownloadFile(dfr.GetFileId())
 	if err != nil {
-		return err
+		return status.Errorf(
+			codes.InvalidArgument,
+			fmt.Sprintf("Failed to fetch file from database due to: %v", err),
+		)
 	}
 
 	var fid v1.FileID
@@ -58,7 +61,7 @@ func (frs *FileRetreiverServer) DownloadFile(dfr *fileretreiver.DownloadFileRequ
 			},
 		},
 	}
-	frs.B.Log.Info(fmt.Sprintf(" File Info Response: %v ", res))
+	frs.B.Log.Info(fmt.Sprintf("File Info Response: %v ", res))
 	// Send file information
 	err = stream.Send(res)
 	if err != nil {

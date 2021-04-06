@@ -33,11 +33,11 @@ import (
 )
 
 type DownloadConfig struct {
-	FileName        string
-	FileId          string
-	OutputDirectory string
-	Conn            *grpc.ClientConn
-	Client          fileretreiver.FileRetreiverClient
+	fileName        string
+	fileId          string
+	outputDirectory string
+	conn            *grpc.ClientConn
+	client          fileretreiver.FileRetreiverClient
 }
 
 var (
@@ -52,22 +52,22 @@ var DownloadCmd = &cobra.Command{
 	Long:  `An external configuration file containing connection details are expected`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Initialize client
-		err := dc.InitializeDownloadClient()
+		err := dc.initializeDownloadClient()
 		if err != nil {
 			return err
 		}
-		defer dc.CloseConnection()
+		defer dc.closeConnection()
 
 		// Download file and return error if any
-		return dc.DownloadFile()
+		return dc.downloadFile()
 	},
 }
 
 func init() {
 	initLog()
-	DownloadCmd.Flags().StringVarP(&dc.FileName, "file-name", "n", "", "Name of the file to be downloaded")
-	DownloadCmd.Flags().StringVarP(&dc.FileId, "file-id", "i", "", "Id of the file to be downloaded")
-	DownloadCmd.Flags().StringVarP(&dc.OutputDirectory, "output-directory", "o", "", "Path to download the file ")
+	DownloadCmd.Flags().StringVarP(&dc.fileName, "file-name", "n", "", "Name of the file to be downloaded")
+	DownloadCmd.Flags().StringVarP(&dc.fileId, "file-id", "i", "", "Id of the file to be downloaded")
+	DownloadCmd.Flags().StringVarP(&dc.outputDirectory, "output-directory", "o", "", "Path to download the file ")
 	DownloadCmd.MarkFlagRequired("output-directory")
 }
 
@@ -79,7 +79,7 @@ func initLog() {
 	log = zapr.NewLogger(zapLog)
 }
 
-func (dc *DownloadConfig) InitializeDownloadClient() error {
+func (dc *DownloadConfig) initializeDownloadClient() error {
 	// Fetch target address
 	address := viper.GetString("address")
 	if len(strings.TrimSpace(address)) == 0 {
@@ -109,22 +109,22 @@ func (dc *DownloadConfig) InitializeDownloadClient() error {
 		return fmt.Errorf("connection error: %v", err)
 	}
 
-	dc.Client = fileretreiver.NewFileRetreiverClient(conn)
-	dc.Conn = conn
+	dc.client = fileretreiver.NewFileRetreiverClient(conn)
+	dc.conn = conn
 	return nil
 }
 
-func (dc *DownloadConfig) CloseConnection() {
-	if dc != nil && dc.Conn != nil {
-		dc.Conn.Close()
+func (dc *DownloadConfig) closeConnection() {
+	if dc != nil && dc.conn != nil {
+		dc.conn.Close()
 	}
 }
 
-func (dc *DownloadConfig) DownloadFile() error {
+func (dc *DownloadConfig) downloadFile() error {
 	log.Info("Attempting to download file")
 
-	fn := strings.TrimSpace(dc.FileName)
-	fid := strings.TrimSpace(dc.FileId)
+	fn := strings.TrimSpace(dc.fileName)
+	fid := strings.TrimSpace(dc.fileId)
 	var req *fileretreiver.DownloadFileRequest
 	var name string
 
@@ -149,7 +149,7 @@ func (dc *DownloadConfig) DownloadFile() error {
 		}
 	}
 
-	resultStream, err := dc.Client.DownloadFile(context.Background(), req)
+	resultStream, err := dc.client.DownloadFile(context.Background(), req)
 	if err != nil {
 		return fmt.Errorf("failed to attempt download due to: %v", err)
 	}
@@ -172,7 +172,7 @@ func (dc *DownloadConfig) DownloadFile() error {
 		}
 	}
 
-	outFile, err := os.Create(dc.OutputDirectory + string(os.PathSeparator) + name)
+	outFile, err := os.Create(dc.outputDirectory + string(os.PathSeparator) + name)
 	if err != nil {
 		return fmt.Errorf("error while creating output file: %v", err)
 	}

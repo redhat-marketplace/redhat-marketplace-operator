@@ -12,22 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package client_test
+package download
 
 import (
 	"context"
 	"fmt"
-	"io"
-	"log"
+	logger "log"
 	"net"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/go-logr/zapr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/client/download"
 	server "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/server/start"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/models"
@@ -48,12 +47,13 @@ func bufDialer(context.Context, string) (net.Conn, error) {
 	return lis.Dial()
 }
 
-func setupFileRetreiverServer() {
+func runSetup() {
+	//Initialize the mock connection and server
 	lis = bufconn.Listen(bufSize)
 	s := grpc.NewServer()
 	bs := server.BaseServer{}
-	mockRetreiverServer := server.FileRetreiverServer{}
 	mockSenderServer := server.FileSenderServer{}
+	mockRetreiverServer := server.FileRetreiverServer{}
 
 	//Initialize logger
 	zapLog, err := zap.NewDevelopment()
@@ -65,7 +65,7 @@ func setupFileRetreiverServer() {
 	//Create Sqlite Database
 	gormDb, err := gorm.Open(sqlite.Open(dbName), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("Error during creation of Database")
+		logger.Fatalf("Error during creation of Database")
 	}
 	db.DB = gormDb
 	db.Log = bs.Log
@@ -73,30 +73,40 @@ func setupFileRetreiverServer() {
 	//Create tables
 	err = db.DB.AutoMigrate(&models.FileMetadata{}, &models.File{}, &models.Metadata{})
 	if err != nil {
-		log.Fatalf("Error during creation of Models: %v", err)
+		logger.Fatalf("Error during creation of Models: %v", err)
 	}
 
 	bs.FileStore = &db
-	mockRetreiverServer.B = bs
 	mockSenderServer.B = bs
+	mockRetreiverServer.B = bs
 	filesender.RegisterFileSenderServer(s, &mockSenderServer)
 	fileretreiver.RegisterFileRetreiverServer(s, &mockRetreiverServer)
 
 	go func() {
 		if err := s.Serve(lis); err != nil {
-			if err.Error() != "closed" {
+			if err.Error() != "closed" { //When lis of type (*bufconn.Listener) is closed, server doesn't have to panic.
 				panic(err)
 			}
 		} else {
-			log.Printf("Mock server started")
+			logger.Printf("Mock server started")
 		}
 	}()
+}
+
+func createClient() *grpc.ClientConn {
+	ctx := context.Background()
+	conn, err := grpc.DialContext(ctx, "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithInsecure())
+	if err != nil {
+		logger.Fatalf("failed to dial bufnet: %v", err)
+	}
+
+	return conn
 }
 
 func shutdown(conn *grpc.ClientConn) {
 	sqlDB, err := db.DB.DB()
 	if err != nil {
-		log.Fatalf("Error: Couldn't close Database: %v", err)
+		logger.Fatalf("Error: Couldn't close Database: %v", err)
 	}
 	sqlDB.Close()
 	conn.Close()
@@ -104,26 +114,18 @@ func shutdown(conn *grpc.ClientConn) {
 	lis.Close()
 }
 
-func createFileRetreiverClient() (*grpc.ClientConn, fileretreiver.FileRetreiverClient) {
-	ctx := context.Background()
-	conn, err := grpc.DialContext(ctx, "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithInsecure())
-	if err != nil {
-		log.Fatalf("failed to dial bufnet: %v", err)
-	}
-	return conn, fileretreiver.NewFileRetreiverClient(conn)
-}
-
 func TestDownloadFile(t *testing.T) {
-	setupFileRetreiverServer()
-	// Upload a file
-	conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithInsecure())
-	if err != nil {
-		t.Fatalf("Failed to create upload client: %v", err)
-	}
-	defer conn.Close()
+	//Initialize the server
+	runSetup()
 
+	//Initialize connection
+	conn := createClient()
+
+	//Shutdown resources
+	defer shutdown(conn)
+
+	//Upload a sample file
 	uploadClient := filesender.NewFileSenderClient(conn)
-
 	clientStream, err := uploadClient.UploadFile(context.Background())
 	if err != nil {
 		t.Fatalf("error: During call of client.UploadFile: %v", err)
@@ -142,12 +144,11 @@ func TestDownloadFile(t *testing.T) {
 			},
 		},
 	})
-
-	if err != nil && err != io.EOF {
+	if err != nil {
 		t.Fatalf("error: during sending of metadata: %v", err)
 	}
 
-	// Upload contents
+	//Upload contents
 	bs := make([]byte, 1024)
 	request := filesender.UploadFileRequest{
 		Data: &filesender.UploadFileRequest_ChunkData{
@@ -160,52 +161,61 @@ func TestDownloadFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error: during stream close and recieve: %v", err)
 	}
-
 	t.Log(fmt.Sprintf("Received response: %v", res))
 
-	// Download a file through client
-	conn, client := createFileRetreiverClient()
+	downloadClient := fileretreiver.NewFileRetreiverClient(conn)
 	od, _ := os.Getwd()
-	dc := &download.DownloadConfig{
-		OutputDirectory: od,
-		FileName:        "test.zip",
-		Conn:            conn,
-		Client:          client,
-	}
-	defer shutdown(conn)
-
-	err = dc.DownloadFile()
-	if err != nil {
-		t.Fatalf("Failed to download file: %v", err)
-	}
-
-	file, err := os.Open("test.zip")
-	if err != nil {
-		t.Fatalf("File was not downloaded correctly!")
-	}
-
-	if file.Name() != "test.zip" {
-		t.Fatalf("File saved with incorrect name!")
-	}
-
-	finfo, err := file.Stat()
-	if err != nil {
-		t.Fatalf("path error: %v", err)
+	tests := []struct {
+		name   string
+		dc     *DownloadConfig
+		size   uint32
+		errMsg string
+	}{
+		{
+			name: "downloading a file that exists on the server",
+			dc: &DownloadConfig{
+				outputDirectory: od,
+				fileName:        "test.zip",
+				conn:            conn,
+				client:          downloadClient,
+			},
+			size:   1024,
+			errMsg: "",
+		},
+		{
+			name:   "invalid download request with no file name/id provided",
+			dc:     &DownloadConfig{},
+			errMsg: "file id/name is blank",
+		},
 	}
 
-	if finfo.Size() != 1024 {
-		t.Fatalf("File sizes don't match!")
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.dc.downloadFile()
+			if err != nil {
+				if !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("Expected error message: %v, instead got: %v", tt.errMsg, err.Error())
+				}
+			} else if len(tt.errMsg) > 0 {
+				t.Errorf("Expected error: %v was never received!", tt.errMsg)
+			} else {
+				file, err := os.Open(tt.dc.fileName)
+				if err != nil {
+					t.Errorf("file was not downloaded correctly for test: %v, error: %v", tt.name, err)
+				}
 
-	file.Close()
-	os.Remove("test.zip")
-}
+				finfo, err := file.Stat()
+				if err != nil {
+					t.Errorf("path error for test: %v, error: %v", tt.name, err)
+				}
 
-func TestDownloadFileInputValidation(t *testing.T) {
-	// nil name and id
-	dc := &download.DownloadConfig{}
-	err := dc.DownloadFile()
-	if err == nil {
-		t.Fatal("Download allows nil values for id/name!")
+				if finfo.Size() != int64(tt.size) {
+					t.Errorf("file size doesn't match: expected %v, received: %v", tt.size, finfo.Size())
+				}
+
+				file.Close()
+				os.Remove(tt.dc.fileName)
+			}
+		})
 	}
 }
