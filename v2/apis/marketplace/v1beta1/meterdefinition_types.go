@@ -18,11 +18,13 @@ package v1beta1
 
 import (
 	"bytes"
+	"errors"
 	"strconv"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
@@ -60,6 +62,37 @@ type MeterDefinitionSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +optional
 	InstalledBy *common.NamespacedNameReference `json:"installedBy,omitempty"`
+}
+
+// MeterDefinitionReference is a more friendly form to set on the MeterReport providing
+// the default meter definitions to use for the day.
+type MeterDefinitionReference struct {
+	// Name is the name of the MeterDefinition
+	Name string `json:"name"`
+
+	// Namespace is the namespace of the MeterDefinition
+	Namespace string `json:"namespace"`
+
+	// UID is the UID of the MeterDefinition
+	UID types.UID `json:"uid,omitempty"`
+
+	// ResourceVersion
+	ResourceVersion string `json:"resourceVersion,omitempty"`
+
+	// Spec is a copy of the meter definition spec, this can be left empty and later filled in by
+	// the report tool.
+	//
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +optional
+	Spec *MeterDefinitionSpec `json:"spec,omitempty"`
+}
+
+func (meterdef *MeterDefinitionReference) ToPrometheusLabels() ([]*common.MeterDefPrometheusLabels, error) {
+	if meterdef.Spec == nil {
+		return []*common.MeterDefPrometheusLabels{}, errors.New("meter definition spec cannot be nil")
+	}
+
+	return meterdef.Spec.ToPrometheusLabels(string(meterdef.UID), meterdef.Name, meterdef.Namespace), nil
 }
 
 const (
@@ -266,9 +299,13 @@ func init() {
 }
 
 func (meterdef *MeterDefinition) ToPrometheusLabels() []*common.MeterDefPrometheusLabels {
+	return meterdef.Spec.ToPrometheusLabels(string(meterdef.UID), meterdef.Name, meterdef.Namespace)
+}
+
+func (meterdefspec *MeterDefinitionSpec) ToPrometheusLabels(uid, name, namespace string) []*common.MeterDefPrometheusLabels {
 	allMdefs := []*common.MeterDefPrometheusLabels{}
 
-	for _, meter := range meterdef.Spec.Meters {
+	for _, meter := range meterdefspec.Meters {
 		var period *common.MetricPeriod
 
 		if meter.Period != nil {
@@ -276,14 +313,14 @@ func (meterdef *MeterDefinition) ToPrometheusLabels() []*common.MeterDefPromethe
 		}
 
 		obj := &common.MeterDefPrometheusLabels{
-			UID:                string(meterdef.UID),
-			MeterDefName:       string(meterdef.Name),
-			MeterDefNamespace:  string(meterdef.Namespace),
-			MeterKind:          meterdef.Spec.Kind,
+			UID:                string(uid),
+			MeterDefName:       string(name),
+			MeterDefNamespace:  string(namespace),
+			MeterKind:          meterdefspec.Kind,
 			WorkloadName:       meter.Metric,
 			Metric:             meter.Metric,
 			MetricGroupBy:      common.JSONArray(meter.GroupBy),
-			MeterGroup:         meterdef.Spec.Group,
+			MeterGroup:         meterdefspec.Group,
 			MetricQuery:        meter.Query,
 			MetricPeriod:       period,
 			DisplayName:        meter.Name,

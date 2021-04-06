@@ -138,17 +138,18 @@ type MetricsReport struct {
 }
 
 type MetricKey struct {
-	MetricID          string `mapstructure:"metric_id"`
-	ReportPeriodStart string `mapstructure:"report_period_start"`
-	ReportPeriodEnd   string `mapstructure:"report_period_end"`
-	IntervalStart     string `mapstructure:"interval_start"`
-	IntervalEnd       string `mapstructure:"interval_end"`
-	MeterDomain       string `mapstructure:"domain"`
-	MeterKind         string `mapstructure:"kind" template:""`
-	MeterVersion      string `mapstructure:"version,omitempty"`
-	Label             string `mapstructure:"workload,omitempty"`
-	Namespace         string `mapstructure:"namespace,omitempty"`
-	ResourceName      string `mapstructure:"resource_name,omitempty"`
+	MetricID          string            `mapstructure:"metric_id"`
+	ReportPeriodStart string            `mapstructure:"report_period_start"`
+	ReportPeriodEnd   string            `mapstructure:"report_period_end"`
+	IntervalStart     string            `mapstructure:"interval_start"`
+	IntervalEnd       string            `mapstructure:"interval_end"`
+	MeterDomain       string            `mapstructure:"domain"`
+	MeterKind         string            `mapstructure:"kind" template:""`
+	MeterVersion      string            `mapstructure:"version,omitempty"`
+	Label             string            `mapstructure:"workload,omitempty"`
+	Namespace         string            `mapstructure:"namespace,omitempty"`
+	ResourceName      string            `mapstructure:"resource_name,omitempty"`
+	GroupBy           map[string]string `mapstructure:"group_by,omitempty"`
 }
 
 func (k *MetricKey) Init(
@@ -164,6 +165,10 @@ func (k *MetricKey) Init(
 	hash.Write([]byte(k.Label))
 	hash.Write([]byte(k.Namespace))
 	hash.Write([]byte(k.ResourceName))
+
+	for key, val := range k.GroupBy {
+		hash.Write([]byte(fmt.Sprintf("%s=%s", key, val)))
+	}
 
 	k.MetricID = fmt.Sprintf("%x", hash.Sum64())
 }

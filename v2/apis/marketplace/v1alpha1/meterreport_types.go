@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,9 +39,18 @@ type MeterReportSpec struct {
 	PrometheusService *common.ServiceReference `json:"prometheusService"`
 
 	// MeterDefinitions is the list of meterDefinitions included in the report
+	// DEPRECATED
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
-	MeterDefinitions []MeterDefinition `json:"meterDefinitions,omitempty"`
+	MeterDefinitions []MeterDefinitionSpec `json:"meterDefinitions,omitempty"`
+
+	// MeterDefinitionReferences are used as the first meter definition source. Prometheus data is used to supplement.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +listType:=map
+	// +listMapKey:=name
+	// +listMapKey:=namespace
+	// +optional
+	MeterDefinitionReferences []v1beta1.MeterDefinitionReference `json:"meterDefinitionReferences,omitempty"`
 
 	// ExtraArgs is a set of arguments to pass to the job
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true

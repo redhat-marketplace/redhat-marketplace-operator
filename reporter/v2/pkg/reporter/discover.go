@@ -19,10 +19,11 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/prometheus/common/model"
+	"k8s.io/apimachinery/pkg/types"
 )
 
-func getQueries(matrixVals model.Matrix) ([]*meterDefPromQuery, []error) {
-	results := []*meterDefPromQuery{}
+func getQueries(matrixVals model.Matrix) (map[types.NamespacedName][]*meterDefPromQuery, []error) {
+	results := make(map[types.NamespacedName][]*meterDefPromQuery)
 	errs := []error{}
 
 	for _, matrix := range matrixVals {
@@ -62,7 +63,12 @@ func getQueries(matrixVals model.Matrix) ([]*meterDefPromQuery, []error) {
 		}
 
 		logger.Info("getting query", "query", promQuery.String(), "start", min, "end", max)
-		results = append(results, promQuery)
+
+		if v, ok := results[promQuery.query.MeterDef]; ok {
+			v = append(v, promQuery)
+		} else {
+			results[promQuery.query.MeterDef] = []*meterDefPromQuery{promQuery}
+		}
 	}
 
 	return results, errs

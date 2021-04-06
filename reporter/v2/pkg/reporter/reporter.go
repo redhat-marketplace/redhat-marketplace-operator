@@ -32,6 +32,7 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
@@ -68,6 +69,7 @@ type MarketplaceReporter struct {
 	mktconfig         *marketplacev1alpha1.MarketplaceConfig
 	report            *marketplacev1alpha1.MeterReport
 	prometheusService *corev1.Service
+	meterDefinitions  MeterDefinitionReferences
 	*Config
 }
 
@@ -80,6 +82,7 @@ func NewMarketplaceReporter(
 	mktconfig *marketplacev1alpha1.MarketplaceConfig,
 	prometheusService *corev1.Service,
 	api *PrometheusAPI,
+	meterDefinitions MeterDefinitionReferences,
 ) (*MarketplaceReporter, error) {
 	return &MarketplaceReporter{
 		PrometheusAPI:     *api,
@@ -88,6 +91,7 @@ func NewMarketplaceReporter(
 		report:            report,
 		Config:            config,
 		prometheusService: prometheusService,
+		meterDefinitions:  meterDefinitions,
 	}, nil
 }
 
@@ -110,22 +114,13 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[string]
 	errorsChan := make(chan error)
 
 	// done channels
-	meterDefsDone := make(chan bool)
 	queryDone := make(chan bool)
 	processDone := make(chan bool)
 	errorDone := make(chan bool)
 
-	defer close(meterDefsDone)
 	defer close(queryDone)
 	defer close(processDone)
 	defer close(errorDone)
-
-	logger.Info("starting build queries")
-
-	go r.RetrieveMeterDefinitions(
-		meterDefsChan,
-		errorsChan,
-		meterDefsDone)
 
 	logger.Info("starting query")
 
@@ -161,8 +156,13 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[string]
 		}
 	}()
 
-	<-meterDefsDone
-	logger.Info("build queries done")
+	logger.Info("sending queries")
+
+	r.ProduceMeterDefinitions(
+		r.meterDefinitions,
+		meterDefsChan)
+
+	logger.Info("sending queries done")
 	close(meterDefsChan)
 
 	<-queryDone
@@ -199,18 +199,92 @@ func (s *meterDefPromQuery) String() string {
 	return "[" + s.uid + " " + s.meterGroup + " " + s.meterKind + " " + s.label + "]"
 }
 
-func (r *MarketplaceReporter) RetrieveMeterDefinitions(
+func transformMeterDefinitionReference(
+	ref v1beta1.MeterDefinitionReference,
+	start, end time.Time,
+) ([]*meterDefPromQuery, error) {
+	slice := make([]*meterDefPromQuery, 0, 1)
+	labels, err := ref.ToPrometheusLabels()
+
+	if err != nil {
+		logger.Error(err, "error encountered")
+		return slice, err
+	}
+
+	for _, labelStruct := range labels {
+		labelMap, err := labelStruct.ToLabels()
+
+		if err != nil {
+			logger.Error(err, "error encountered")
+			return slice, err
+		}
+
+		promQuery, err := buildPromQuery(labelMap, start, end)
+
+		if err != nil {
+			logger.Error(err, "error encountered")
+			return slice, err
+		}
+
+		slice = append(slice, promQuery)
+	}
+
+	return slice, nil
+}
+
+type MeterDefKey struct {
+	Name, Namespace string
+}
+
+func (r *MarketplaceReporter) ProduceMeterDefinitions(
+	meterDefinitions MeterDefinitionReferences,
 	meterDefsChan chan *meterDefPromQuery,
-	errorChan chan error,
-	meterDefsDone chan bool,
-) {
+) error {
+	definitionSet := make(map[types.NamespacedName][]*meterDefPromQuery)
+	start, end := r.report.Spec.StartTime.Time.UTC(), r.report.Spec.EndTime.Time.Add(-1*time.Second).UTC()
+
+	for _, ref := range meterDefinitions {
+		queries, err := transformMeterDefinitionReference(ref, start, end)
+
+		if err != nil {
+			logger.Error(err, "error transforming meter definition references", "name", ref.Name, "namespace", ref.Namespace)
+			return err
+		}
+
+		key := types.NamespacedName{Name: ref.Name, Namespace: ref.Namespace}
+		if _, ok := definitionSet[key]; !ok {
+			definitionSet[key] = queries
+		}
+	}
+
+	savedSet, err := r.getBackedUpMeterDefinitions()
+
+	if err != nil {
+		logger.Error(err, "error retrieving saved meter defs")
+		return err
+	}
+
+	for key, val := range savedSet {
+		if _, ok := definitionSet[key]; !ok {
+			logger.Info("could not find meter def in set so adding", "name", key.Name, "namespace", key.Namespace)
+			localKey, localVal := key, val
+			definitionSet[localKey] = localVal
+		}
+	}
+
+	for _, val := range definitionSet {
+		for _, query := range val {
+			meterDefsChan <- query
+		}
+	}
+
+	return nil
+}
+
+func (r *MarketplaceReporter) getBackedUpMeterDefinitions() (map[types.NamespacedName][]*meterDefPromQuery, error) {
 	var result model.Value
 	var warnings v1.Warnings
 	var err error
-
-	defer func() {
-		meterDefsDone <- true
-	}()
 
 	err = utils.Retry(func() error {
 		query := &MeterDefinitionQuery{
@@ -238,8 +312,7 @@ func (r *MarketplaceReporter) RetrieveMeterDefinitions(
 
 	if err != nil {
 		logger.Error(err, "error encountered")
-		errorChan <- err
-		return
+		return nil, err
 	}
 
 	logger.V(4).Info("result", "result", result)
@@ -248,21 +321,18 @@ func (r *MarketplaceReporter) RetrieveMeterDefinitions(
 	case model.ValMatrix:
 		results, errs := getQueries(result.(model.Matrix))
 
-		for _, err := range errs {
-			logger.Error(err, "error encountered")
-			errorChan <- errors.WithStack(err)
+		if len(errs) != 0 {
+			err := errors.Combine(errs...)
+			logger.Error(err, "errors encountered")
+			return nil, err
 		}
 
-		for _, result := range results {
-			meterDefsChan <- result
-		}
+		return results, nil
 	default:
 		err := errors.NewWithDetails("result type is unprocessable", "type", result.Type().String())
 		logger.Error(err, "error encountered")
-		errorChan <- err
+		return nil, err
 	}
-
-	return
 }
 
 func (r *MarketplaceReporter) Query(

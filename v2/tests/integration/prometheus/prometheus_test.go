@@ -15,6 +15,7 @@
 package prometheus_test
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
@@ -32,8 +33,10 @@ import (
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 type DockerRun struct {
@@ -199,6 +202,92 @@ var _ = Describe("MeterefQuery", func() {
 
 			meterDefLabels := &common.MeterDefPrometheusLabels{}
 			err := meterDefLabels.FromLabels(labels)
+			Expect(err).To(Succeed())
+			promQuery := NewPromQueryFromLabels(meterDefLabels, start, end)
+
+			values, warns, err := papi.ReportQuery(promQuery)
+
+			Expect(err).To(Succeed())
+			Expect(warns).To(BeEmpty())
+			Expect(values.Type()).To(Equal(model.ValMatrix))
+			mat, ok := values.(model.Matrix)
+			Expect(ok).To(BeTrue())
+			Expect(mat).To(HaveLen(2))
+		})
+
+		AfterEach(func() {
+			server.Stop()
+		})
+	})
+
+	Context("license service queries", func() {
+		BeforeEach(func() {
+			server = &PrometheusDockerTest{
+				DataPath: filepath.Join("data", "prometheus-license-multiple-meterdefs-20210331000000"),
+			}
+
+			Eventually(func() error {
+				return server.Start()
+			}, time.Second*60, time.Second*5).Should(Succeed())
+
+			start = MustTime("2021-03-25T00:00:00Z")
+			end = MustTime("2021-03-26T00:00:00Z")
+
+			client, _ := api.NewClient(api.Config{
+				Address: "http://localhost:9090",
+			})
+
+			papi = PrometheusAPI{
+				API: v1.NewAPI(client),
+			}
+		})
+
+		// With this data, this query used to error. Fixes were made to resolve this.
+		It("should query for a duplicate data set and return", func() {
+			meterDefSpec := `spec:
+  group: '{{ .Label.productId}}.licensing.ibm.com'
+  kind: IBMLicensing
+  meters:
+    - period: 24h0m0s
+      aggregation: max
+      query: 'avg_over_time(product_license_usage_chargeback{}[1d])'
+      name: '{{ .Label.productId}}.licensing.ibm.com'
+      metricId: '{{ .Label.metricId}}'
+      valueLabelOverride: '{{ .Label.value}}'
+      workloadType: Service
+      dateLabelOverride: '{{ .Label.date}}'
+      groupBy:
+        - metricId
+        - productId
+  resourceFilters:
+    - namespace:
+        useOperatorGroup: true
+      ownerCRD:
+        apiVersion: operator.ibm.com/v1alpha1
+        kind: IBMLicensing
+      workloadType: Service`
+			labels := map[string]string{
+				"date_label_override":  "{{ .Label.date}}",
+				"meter_group":          "{{ .Label.productId}}.licensing.ibm.com",
+				"meter_kind":           "IBMLicensing",
+				"metric_aggregation":   "max",
+				"metric_group_by":      "[\"metricId\",\"productId\"]",
+				"metric_label":         "{{ .Label.metricId}}",
+				"metric_period":        "24h0m0s",
+				"metric_query":         "product_license_usage{}",
+				"name":                 "ibm-licensing-service-product-instance",
+				"namespace":            "ibm-common-services",
+				"value_label_override": "{{ .Label.value}}",
+				"workload_name":        "{{ .Label.productId}}.licensing.ibm.com",
+				"workload_type":        "Service",
+			}
+
+			report := v1alpha1.MeterReport{}
+			err := yaml.NewYAMLOrJSONDecoder(bytes.NewBufferString(meterDefSpec), 100).Decode(&report)
+			Expect(err).To(Succeed())
+
+			meterDefLabels := &common.MeterDefPrometheusLabels{}
+			err = meterDefLabels.FromLabels(labels)
 			Expect(err).To(Succeed())
 			promQuery := NewPromQueryFromLabels(meterDefLabels, start, end)
 

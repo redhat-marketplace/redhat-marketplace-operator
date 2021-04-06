@@ -23,6 +23,7 @@ package v1alpha1
 import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -684,7 +685,14 @@ func (in *MeterReportSpec) DeepCopyInto(out *MeterReportSpec) {
 	}
 	if in.MeterDefinitions != nil {
 		in, out := &in.MeterDefinitions, &out.MeterDefinitions
-		*out = make([]MeterDefinition, len(*in))
+		*out = make([]MeterDefinitionSpec, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if in.MeterDefinitionReferences != nil {
+		in, out := &in.MeterDefinitionReferences, &out.MeterDefinitionReferences
+		*out = make([]v1beta1.MeterDefinitionReference, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

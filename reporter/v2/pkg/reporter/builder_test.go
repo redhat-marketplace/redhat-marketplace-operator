@@ -49,6 +49,9 @@ var _ = Describe("Builder", func() {
 			ResourceName:      "foo",
 			Namespace:         "bar",
 			Label:             "awesome",
+			GroupBy: map[string]string{
+				"foo": "bar",
+			},
 		}
 		metricBase = &MetricBase{
 			Key: key,
