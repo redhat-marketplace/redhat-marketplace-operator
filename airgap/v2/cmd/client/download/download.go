@@ -79,6 +79,7 @@ func initLog() {
 	log = zapr.NewLogger(zapLog)
 }
 
+// initializeDownloadClient initializes the file retriever client based on provided configuration parameters
 func (dc *DownloadConfig) initializeDownloadClient() error {
 	// Fetch target address
 	address := viper.GetString("address")
@@ -114,12 +115,14 @@ func (dc *DownloadConfig) initializeDownloadClient() error {
 	return nil
 }
 
+// closeConnection closes the grpc client connection
 func (dc *DownloadConfig) closeConnection() {
 	if dc != nil && dc.conn != nil {
 		dc.conn.Close()
 	}
 }
 
+// downloadFile downloads the file received from the grpc server to a specified directory
 func (dc *DownloadConfig) downloadFile() error {
 	log.Info("Attempting to download file")
 

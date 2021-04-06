@@ -45,7 +45,7 @@ type DatabaseConfig struct {
 	gormDB   *gorm.DB
 }
 
-// Initialize the GORM connection and return connected struct
+// InitDB initializes the GORM connection and returns a connected struct
 func (dc *DatabaseConfig) InitDB() (*database.Database, error) {
 	database := &database.Database{}
 	err := dc.initDqlite()
@@ -64,7 +64,7 @@ func (dc *DatabaseConfig) InitDB() (*database.Database, error) {
 	return database, err
 }
 
-// Initialize the underlying dqlite database
+// initDqlite initializes the underlying dqlite database
 func (dc *DatabaseConfig) initDqlite() error {
 	dc.Dir = filepath.Join(dc.Dir, dc.Url)
 	if err := os.MkdirAll(dc.Dir, 0755); err != nil {
@@ -97,6 +97,7 @@ func (dc *DatabaseConfig) initDqlite() error {
 	return conn.Ping()
 }
 
+// TryMigrate ensures that only the leader performs database migration
 func (dc *DatabaseConfig) TryMigrate(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
@@ -127,6 +128,7 @@ func (dc *DatabaseConfig) TryMigrate(ctx context.Context) error {
 	}
 }
 
+// Close ensures all responsibilites for the node are handled gracefully on exit
 func (dc *DatabaseConfig) Close() {
 	if dc != nil {
 		dc.dqliteDB.Close()

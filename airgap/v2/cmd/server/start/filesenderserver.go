@@ -29,6 +29,7 @@ type FileSenderServer struct {
 	B BaseServer
 }
 
+// UploadFile allows a file to be uploaded and saved in the database
 func (fss *FileSenderServer) UploadFile(stream filesender.FileSender_UploadFileServer) error {
 	var bs []byte
 	var finfo *v1.FileInfo

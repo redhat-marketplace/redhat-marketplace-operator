@@ -36,6 +36,7 @@ type Database struct {
 	Log logr.Logger
 }
 
+// SaveFile allows us to save a file along with it's metadata to the database
 func (d *Database) SaveFile(finfo *v1.FileInfo, bs []byte) error {
 	// Validating input data
 	if finfo == nil || bs == nil {
@@ -79,6 +80,7 @@ func (d *Database) SaveFile(finfo *v1.FileInfo, bs []byte) error {
 	return nil
 }
 
+// DownloadFile allows us to extract a file and it's metadata from the database provided it exists
 func (d *Database) DownloadFile(finfo *v1.FileID) (*models.Metadata, error) {
 
 	var meta models.Metadata
