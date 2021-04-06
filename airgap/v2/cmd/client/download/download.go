@@ -177,8 +177,14 @@ func (dc *DownloadConfig) downloadFile() error {
 		return fmt.Errorf("error while creating output file: %v", err)
 	}
 
-	outFile.Write(bs)
-	outFile.Close()
+	if _, err := outFile.Write(bs); err != nil {
+		return fmt.Errorf("error while writing data to the output file: %v", err)
+	}
+
+	if err := outFile.Close(); err != nil {
+		return fmt.Errorf("failed to close the output file: %v", err)
+	}
+
 	log.Info("File downloaded successfully!")
 	return nil
 }
