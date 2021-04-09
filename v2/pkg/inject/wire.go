@@ -24,6 +24,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
+	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/certificates"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 )
@@ -43,9 +44,11 @@ func initializeInjectDependencies(
 		wire.Struct(new(PatchInjector), "*"),
 		wire.Struct(new(FactoryInjector), "*"),
 		wire.Struct(new(KubeInterfaceInjector), "*"),
+		wire.Struct(new(CertIssuerInjector), "*"),
 		wire.Struct(new(injectorDependencies), "*"),
 		ProvideNamespace,
 		manifests.NewFactory,
+		utils.NewCertIssuer,
 	))
 }
 

@@ -10,6 +10,7 @@ require (
 	github.com/banzaicloud/k8s-objectmatcher v1.5.0
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/caarlos0/env/v6 v6.4.0
+	github.com/cloudflare/cfssl v1.5.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-logr/logr v0.3.0
 	github.com/go-logr/zapr v0.3.0 // indirect
