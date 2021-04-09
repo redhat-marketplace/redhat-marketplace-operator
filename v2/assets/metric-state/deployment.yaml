@@ -98,7 +98,7 @@ spec:
         node-role.kubernetes.io/master: ''
       priorityClassName: system-cluster-critical
       securityContext: {}
-      serviceAccountName: redhat-marketplace-operator
+      serviceAccountName: redhat-marketplace-metric-state
       tolerations:
         - effect: NoSchedule
           key: node-role.kubernetes.io/master

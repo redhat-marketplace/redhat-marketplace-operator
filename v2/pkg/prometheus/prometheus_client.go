@@ -140,7 +140,7 @@ func providePrometheusAPIForReporter(
 
 	if setup.RunLocal {
 		client, err := api.NewClient(api.Config{
-			Address: "http://localhost:9090",
+			Address: "http://127.0.0.1:9090",
 		})
 
 		if err != nil {

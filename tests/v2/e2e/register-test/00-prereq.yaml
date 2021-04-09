@@ -5,7 +5,7 @@ commands:
     script: |
       if [ "$SKIP_DEPLOY" == "" ] ; then cd ../../../.. && make skaffold-run ; else echo "skipping deploy" ; fi
   - script: |
-      CSVNAME=`kubectl get -n $NAMESPACE csv -o jsonpath="{.items[*].metadata.name}" | grep redhat-marketplace-operator`
+      CSVNAME=`kubectl get csv -o json | jq -r '.items[] | select(.metadata.name | contains("redhat-marketplace")) | .metadata.name'`
       echo "csv name is $CSVNAME"
 
       if [ "$CSVNAME" != "" ] ; then

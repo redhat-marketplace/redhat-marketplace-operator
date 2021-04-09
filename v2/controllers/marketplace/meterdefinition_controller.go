@@ -26,7 +26,6 @@ import (
 	"github.com/gotidy/ptr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
-	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -115,6 +114,10 @@ func (r *MeterDefinitionReconciler) InjectKubeInterface(k kubernetes.Interface) 
 	return nil
 }
 
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions/status,verbs=get;list;update;patch
+// +kubebuilder:rbac:groups="",namespace=system,resources=serviceaccounts/token,verbs=get;list;create;update
+
 // Reconcile reads that state of the cluster for a MeterDefinition object and makes changes based on the state read
 // and what is in the MeterDefinition.Spec
 func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
@@ -145,6 +148,22 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 	reqLogger.Info("Found instance", "instance", instance.Name)
 
 	var update, requeue bool
+	// Set the Status Condition of signature signing
+	if instance.IsSigned() {
+		// Check the signature again, even though the admission webhook should have
+		err := instance.ValidateSignature()
+		if err != nil {
+			// This could occur after the admission webhook if a signed v1alpha1 is converted to v1beta1.
+			// However, signing not introduced until v1beta1, so this is unlikely.
+			update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionSignatureVerificationFailed)
+		} else {
+			update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionSignatureVerified)
+		}
+
+	} else {
+		// Unsigned, Unverified
+		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionSignatureUnverified)
+	}
 
 	switch {
 	case instance.Status.Conditions.IsUnknownFor(common.MeterDefConditionTypeHasResult):
@@ -183,14 +202,39 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 
 	reqLogger.Info("Found MeterBase instance", "instance", meterbase.Name)
 
+	// Do not proceed if MeterBase is being deleted, or reconciler will requeue indefinitely on querypreview failure
+	meterbaseWillBeDeleted := meterbase.GetDeletionTimestamp() != nil
+	if meterbaseWillBeDeleted {
+		return reconcile.Result{}, nil
+	}
+
 	// Use the userWorkloadMonitoring or RHM prometheus provider, based on which is marked active in the MeterBase condition status
 	if meterbase.Status.Conditions.IsUnknownFor(v1alpha1.ConditionUserWorkloadMonitoringEnabled) {
-		reqLogger.Info("MeterBase ConditionUserWorkloadMonitoringEnabled not set. Unable to determine which prometheus provider to use at this time.")
+		reqLogger.Info("f not set. Unable to determine which prometheus provider to use at this time.")
 		return reconcile.Result{}, nil
 	}
 	userWorkloadMonitoringEnabled := meterbase.Status.Conditions.IsTrueFor(v1alpha1.ConditionUserWorkloadMonitoringEnabled)
 
+	isReporting, err := r.verifyReporting(cc, instance, userWorkloadMonitoringEnabled, reqLogger)
+	if isReporting {
+		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionReporting)
+	} else {
+		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionNotReporting)
+	}
+	if err != nil {
+		update = update || instance.Status.Conditions.SetCondition(status.Condition{
+			Type:    v1beta1.MeterDefVerifyReportingSetupError,
+			Reason:  "VerifyReportingError",
+			Status:  corev1.ConditionTrue,
+			Message: err.Error(),
+		})
+		requeue = true
+	} else {
+		update = update || instance.Status.Conditions.RemoveCondition(v1beta1.MeterDefVerifyReportingSetupError)
+	}
+
 	queryPreviewResult, err := r.queryPreview(cc, instance, request, reqLogger, userWorkloadMonitoringEnabled)
+
 	if err != nil {
 		update = update || instance.Status.Conditions.SetCondition(status.Condition{
 			Type:    v1beta1.MeterDefQueryPreviewSetupError,
@@ -260,6 +304,19 @@ func (r *MeterDefinitionReconciler) addFinalizer(instance *v1beta1.MeterDefiniti
 func (r *MeterDefinitionReconciler) queryPreview(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger, userWorkloadMonitoringEnabled bool) ([]common.Result, error) {
 	var queryPreviewResult []common.Result
 
+	prometheusAPI, err := prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, userWorkloadMonitoringEnabled)
+	if err != nil {
+		return queryPreviewResult, err
+	}
+
+	reqLogger.Info("generatring meterdef preview")
+	return generateQueryPreview(instance, prometheusAPI, reqLogger)
+}
+
+/*
+func (r *MeterDefinitionReconciler) queryPreviewOLD(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger, userWorkloadMonitoringEnabled bool) ([]common.Result, error) {
+	var queryPreviewResult []common.Result
+
 	service, err := r.queryForPrometheusService(context.TODO(), cc, request, userWorkloadMonitoringEnabled)
 	if err != nil {
 		return nil, err
@@ -286,7 +343,7 @@ func (r *MeterDefinitionReconciler) queryPreview(cc ClientCommandRunner, instanc
 	}
 
 	if certConfigMap != nil && authToken != "" && service != nil {
-		cert, err := parseCertificateFromConfigMap(*certConfigMap)
+		cert, err := r.parseCertificateFromConfigMap(*certConfigMap)
 		if err != nil {
 			return nil, err
 		}
@@ -328,7 +385,7 @@ func (r *MeterDefinitionReconciler) queryForPrometheusService(
 		return nil, errors.Wrap(result, "failed to get prometheus service")
 	}
 
-	log.Info("retrieved prometheus service")
+	r.Log.Info("retrieved prometheus service")
 	return service, nil
 }
 
@@ -352,12 +409,12 @@ func (r *MeterDefinitionReconciler) getCertConfigMap(ctx context.Context, cc Cli
 		return nil, errors.Wrap(result.GetError(), "Failed to retrieve operator-certs-ca-bundle.")
 	}
 
-	log.Info("retrieved configmap")
+	r.Log.Info("retrieved configmap")
 	return certConfigMap, nil
 }
 
-func parseCertificateFromConfigMap(certConfigMap corev1.ConfigMap) (cert []byte, returnErr error) {
-	log.Info("extracting cert from config map")
+func (r *MeterDefinitionReconciler) parseCertificateFromConfigMap(certConfigMap corev1.ConfigMap) (cert []byte, returnErr error) {
+	r.Log.Info("extracting cert from config map")
 
 	out, ok := certConfigMap.Data["service-ca.crt"]
 
@@ -369,6 +426,7 @@ func parseCertificateFromConfigMap(certConfigMap corev1.ConfigMap) (cert []byte,
 	cert = []byte(out)
 	return cert, nil
 }
+*/
 
 func returnQueryRange(duration time.Duration) (startTime time.Time, endTime time.Time) {
 	endTime = time.Now().UTC().Truncate(time.Hour)
@@ -416,7 +474,7 @@ func generateQueryPreview(instance *v1beta1.MeterDefinition, prometheusAPI *prom
 		}
 
 		queryPreviewResult = &common.Result{
-			MetricName: meterWorkload.WorkloadName,
+			MetricName: meterWorkload.Metric,
 			Query:      q,
 			Values:     []common.ResultValues{},
 		}
@@ -487,4 +545,36 @@ func makeRelabelKeepConfig(source []string, regex string) *monitoringv1.RelabelC
 }
 func labelsToRegex(labels []string) string {
 	return fmt.Sprintf("(%s)", strings.Join(labels, "|"))
+}
+
+// Is Prometheus reporting on the MeterDefinition
+// Check MeterDefinition presense in api/v1/label/meter_def_name/values
+func (r *MeterDefinitionReconciler) verifyReporting(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, userWorkloadMonitoringEnabled bool, reqLogger logr.Logger) (bool, error) {
+
+	prometheusAPI, err := prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, userWorkloadMonitoringEnabled)
+	if err != nil {
+		return false, err
+	}
+	reqLogger.Info("getting meter_def_name labelvalues from prometheus")
+
+	labelValues, warnings, err := prometheusAPI.MeterDefLabelValues()
+
+	if warnings != nil {
+		reqLogger.Info("warnings %v", warnings)
+	}
+
+	if err != nil {
+		reqLogger.Error(err, "prometheus.LabelValues()")
+		returnErr := errors.Wrap(err, "error with query")
+		return false, returnErr
+	}
+
+	mdefLabelValue := model.LabelValue(instance.Name)
+	for _, labelValue := range labelValues {
+		if labelValue == mdefLabelValue {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

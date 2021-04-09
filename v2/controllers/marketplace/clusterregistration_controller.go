@@ -53,8 +53,16 @@ type ClusterRegistrationReconciler struct {
 	Scheme *runtime.Scheme
 	Log    logr.Logger
 
-	cfg *config.OperatorConfig
+	cfg            *config.OperatorConfig
+	mclientBuilder *marketplace.MarketplaceClientBuilder
 }
+
+// +kubebuilder:rbac:groups="",resources=secret,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",namespace=system,resources=secret,verbs=create
+// +kubebuilder:rbac:groups="",namespace=system,resources=secret,resourceNames=redhat-marketplace-pull-secret,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=marketplaceconfigs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups="config.openshift.io",resources=clusterversions,verbs=get;list;watch
 
 // Reconcile reads that state of the cluster for a ClusterRegistration object and makes changes based on the state read
 // and what is in the ClusterRegistration.Spec
@@ -120,12 +128,9 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
-	mclient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
-		Url:      r.cfg.Marketplace.URL, // parameterize this for dev
-		Token:    string(pullSecret),
-		Insecure: r.cfg.Marketplace.InsecureClient,
-		Claims:   tokenClaims,
-	})
+	token := string(pullSecret)
+	r.mclientBuilder = marketplace.NewMarketplaceClientBuilder(r.cfg)
+	mclient, err := r.mclientBuilder.NewMarketplaceClient(token, tokenClaims)
 
 	if err != nil {
 		reqLogger.Error(err, "failed to build marketplaceclient")
@@ -348,6 +353,11 @@ func (m *ClusterRegistrationReconciler) InjectOperatorConfig(cfg *config.Operato
 	return nil
 }
 
+func (m *ClusterRegistrationReconciler) InjectMarketplaceClientBuilder(mbuilder *marketplace.MarketplaceClientBuilder) error {
+	m.mclientBuilder = mbuilder
+	return nil
+}
+
 func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
 	return ctrl.NewControllerManagedBy(mgr).
@@ -367,10 +377,14 @@ func (r *ClusterRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error
 				},
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					secret, ok := e.ObjectNew.(*v1.Secret)
+					secretName := secret.ObjectMeta.Name
 					if !ok {
 						return false
 					}
 					if _, ok := secret.Data[utils.RHMPullSecretKey]; !ok {
+						return false
+					}
+					if secretName != utils.RHMPullSecretName {
 						return false
 					}
 					return e.ObjectOld != e.ObjectNew

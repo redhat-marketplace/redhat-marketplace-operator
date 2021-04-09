@@ -64,10 +64,10 @@ var _ = Describe("MeterDefController reconcile", func() {
 						{
 							Aggregation: "sum",
 							Period: &metav1.Duration{
-								Duration: time.Duration(time.Hour * 1),
+								Duration: time.Duration(time.Minute*15),
 							},
-							Query:        "kube_pod_info",
-							Metric:       "kube_pod_info",
+							Query:        "kube_pod_info{} or on() vector(0)",
+							Metric:       "meterdef_controller_test_query",
 							WorkloadType: v1beta1.WorkloadTypePod,
 							Name:         "meterdef_controller_test_query",
 						},
@@ -76,10 +76,6 @@ var _ = Describe("MeterDefController reconcile", func() {
 			}
 
 			Expect(testHarness.Create(context.TODO(), meterdef)).Should(SucceedOrAlreadyExist, "create the meterdef")
-		})
-
-		AfterEach(func() {
-			testHarness.Delete(context.TODO(), meterdef)
 		})
 
 		It("Should query prometheus and append metric data to meterdef status", func() {
@@ -113,7 +109,6 @@ func (c *counter) Next() int {
 
 	next := c.count
 	c.count = c.count + 1
-	fmt.Println(next)
 	return next
 }
 
@@ -130,14 +125,14 @@ func runAssertionOnMeterDef(c *counter) GomegaMatcher {
 				result := i.(common.Result)
 				return result.MetricName
 			}, Elements{
-				"meterdef_controller_test_query": MatchAllFields(Fields{
+				"meterdef_controller_test_query": MatchFields(IgnoreExtras, Fields{
 					"MetricName": Equal("meterdef_controller_test_query"),
-					"Query":      Equal(`sum by (pod,namespace) (avg(meterdef_pod_info{meter_def_name="meterdef-controller-test",meter_def_namespace="openshift-redhat-marketplace"}) without (pod_uid, instance, container, endpoint, job, service) * on(pod,namespace) group_right kube_pod_info) * on(pod,namespace) group_right group without(pod_ip,instance,image_id,host_ip,node) (kube_pod_info)`),
-					"Values": MatchAllElements(c.Identity,
+					"Query":      Equal(`sum by (pod,namespace) (avg(meterdef_pod_info{meter_def_name="meterdef-controller-test",meter_def_namespace="openshift-redhat-marketplace"}) without (pod_uid,pod_ip,instance,image_id,host_ip,node,container,job,service,endpoint,cluster_ip) * on(pod,namespace) group_right kube_pod_info{} or on() vector(0)) * on(pod,namespace) group_right group without(pod_uid,pod_ip,instance,image_id,host_ip,node,container,job,service,endpoint,cluster_ip) (kube_pod_info{} or on() vector(0))`),
+					"Values": MatchElements(c.Identity, IgnoreExtras,
 						Elements{
 							"0": MatchFields(IgnoreExtras, Fields{
 								"Timestamp": Not(BeZero()),
-								"Value":     Not(BeZero()),
+								"Value":     Equal("1"),
 							}),
 						},
 					),

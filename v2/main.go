@@ -20,12 +20,14 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -91,6 +93,14 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "8fbe3a23.marketplace.redhat.com",
+	}
+
+	watchNamespaces := os.Getenv("WATCH_NAMESPACE")
+
+	if watchNamespaces != "" {
+		watchNamespacesSlice := strings.Split(watchNamespaces, ",")
+		watchNamespacesSlice = append(watchNamespacesSlice, "openshift-monitoring")
+		opts.NewCache = cache.MultiNamespacedCacheBuilder(watchNamespacesSlice)
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), opts)

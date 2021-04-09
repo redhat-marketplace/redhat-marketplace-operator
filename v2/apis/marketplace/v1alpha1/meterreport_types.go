@@ -108,7 +108,7 @@ var (
 	}
 	ReportConditionJobFinished = status.Condition{
 		Type:    ReportConditionTypeJobRunning,
-		Status:  corev1.ConditionTrue,
+		Status:  corev1.ConditionFalse,
 		Reason:  ReportConditionReasonJobFinished,
 		Message: "Job has finished",
 	}

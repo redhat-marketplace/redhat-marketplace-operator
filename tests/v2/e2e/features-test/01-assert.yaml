@@ -19,10 +19,15 @@ status:
       status: 'True'
       type: Registered
   meterBaseSubConditions:
+    - type: Health
     - message: Meter Base install complete
       reason: FinishedMeterBaseInstall
       status: 'False'
       type: Installing
+    - message: UserWorkloadMonitoring is disabled in the Meterbase Spec
+      reason: UserWorkloadMonitoringSpecDisabled
+      status: "False"
+      type: UserWorkloadMonitoringEnabled
   razeeSubConditions:
     - message: Razee install complete
       reason: FinishedRazeeInstall
