@@ -144,6 +144,11 @@ spec:
                                 type: string
                               type: array
                               x-kubernetes-list-type: set
+                            label:
+                              description: Label is the usage metrics key field on
+                                the report. Defaults to the metricId field if not
+                                provided
+                              type: string
                             metricId:
                               description: Metric is the id of the meter
                               type: string
@@ -157,6 +162,10 @@ spec:
                             query:
                               description: Query to use for prometheus to find the
                                 metrics
+                              type: string
+                            unit:
+                              description: Unit is the unit of the metrics. Defaults
+                                to the metricId field if not provided
                               type: string
                             valueLabelOverride:
                               description: ValueLabelOverride provides a means of
@@ -1018,6 +1027,23 @@ spec:
                 - type
                 type: object
               type: array
+            errors:
+              description: QueryErrorList shows if there were any errors from queries
+                for the report.
+              items:
+                description: ErrorDetails provides details about errors that happen
+                  in the job
+                properties:
+                  details:
+                    additionalProperties:
+                      type: string
+                    description: Details of the error
+                    type: object
+                  reason:
+                    description: Reason the error occurred
+                    type: string
+                type: object
+              type: array
             jobReference:
               description: A list of pointers to currently running jobs.
               properties:
@@ -1070,15 +1096,25 @@ spec:
             metricUploadCount:
               description: MetricUploadCount is the number of metrics in the report
               type: integer
-            queryErrorList:
-              description: QueryErrorList shows if there were any errors from queries
-                for the report.
-              items:
-                type: string
-              type: array
             uploadUID:
               description: UploadID is the ID associated with the upload
               type: string
+            warnings:
+              description: Warnings from the job
+              items:
+                description: ErrorDetails provides details about errors that happen
+                  in the job
+                properties:
+                  details:
+                    additionalProperties:
+                      type: string
+                    description: Details of the error
+                    type: object
+                  reason:
+                    description: Reason the error occurred
+                    type: string
+                type: object
+              type: array
           type: object
       type: object
   version: v1alpha1

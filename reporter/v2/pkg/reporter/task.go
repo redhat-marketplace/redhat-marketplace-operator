@@ -64,11 +64,13 @@ func (r *Task) Run() error {
 	}
 
 	logger.Info("starting collection")
-	metrics, errorList, err := reporter.CollectMetrics(r.Ctx)
+	metrics, errorList, warningList, _ := reporter.CollectMetrics(r.Ctx)
 
-	if err != nil {
-		logger.Error(err, "error collecting metrics")
-		return err
+	for _, err := range warningList {
+		details := append(
+			[]interface{}{"cause", errors.Cause(err)},
+			errors.GetDetails(err)...)
+		logger.Info(fmt.Sprintf("warning: %v", errors.Cause(err)), details...)
 	}
 
 	reportID := uuid.New()
@@ -107,11 +109,19 @@ func (r *Task) Run() error {
 				GetAction(types.NamespacedName(r.ReportName), report),
 				OnContinue(Call(func() (ClientAction, error) {
 					report.Status.MetricUploadCount = ptr.Int(len(metrics))
-
-					report.Status.QueryErrorList = []string{}
+					report.Status.Errors = make([]marketplacev1alpha1.ErrorDetails, 0, len(errorList))
+					report.Status.Warnings = make([]marketplacev1alpha1.ErrorDetails, 0, len(warningList))
 
 					for _, err := range errorList {
-						report.Status.QueryErrorList = append(report.Status.QueryErrorList, err.Error())
+						report.Status.Errors = append(report.Status.Errors,
+							(marketplacev1alpha1.ErrorDetails{}).FromError(err),
+						)
+					}
+
+					for _, err := range warningList {
+						report.Status.Warnings = append(report.Status.Warnings,
+							(marketplacev1alpha1.ErrorDetails{}).FromError(err),
+						)
 					}
 
 					return UpdateAction(report, UpdateStatusOnly(true)), nil
@@ -121,6 +131,10 @@ func (r *Task) Run() error {
 
 		if result.Is(Error) {
 			return result
+		}
+
+		if len(errorList) != 0 {
+			return errors.Combine(errorList...)
 		}
 
 		return nil

@@ -27,7 +27,6 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 )
 
@@ -138,39 +137,18 @@ type MetricsReport struct {
 }
 
 type MetricKey struct {
-	MetricID          string            `mapstructure:"metric_id"`
-	ReportPeriodStart string            `mapstructure:"report_period_start"`
-	ReportPeriodEnd   string            `mapstructure:"report_period_end"`
-	IntervalStart     string            `mapstructure:"interval_start"`
-	IntervalEnd       string            `mapstructure:"interval_end"`
-	MeterDomain       string            `mapstructure:"domain"`
-	MeterKind         string            `mapstructure:"kind" template:""`
-	MeterVersion      string            `mapstructure:"version,omitempty"`
-	Label             string            `mapstructure:"workload,omitempty"`
-	Namespace         string            `mapstructure:"namespace,omitempty"`
-	ResourceName      string            `mapstructure:"resource_name,omitempty"`
-	GroupBy           map[string]string `mapstructure:"group_by,omitempty"`
-}
-
-func (k *MetricKey) Init(
-	clusterID string,
-) {
-	hash := xxhash.New()
-
-	hash.Write([]byte(clusterID))
-	hash.Write([]byte(k.IntervalStart))
-	hash.Write([]byte(k.IntervalEnd))
-	hash.Write([]byte(k.MeterDomain))
-	hash.Write([]byte(k.MeterKind))
-	hash.Write([]byte(k.Label))
-	hash.Write([]byte(k.Namespace))
-	hash.Write([]byte(k.ResourceName))
-
-	for key, val := range k.GroupBy {
-		hash.Write([]byte(fmt.Sprintf("%s=%s", key, val)))
-	}
-
-	k.MetricID = fmt.Sprintf("%x", hash.Sum64())
+	MetricID          string `mapstructure:"metric_id"`
+	ReportPeriodStart string `mapstructure:"report_period_start"`
+	ReportPeriodEnd   string `mapstructure:"report_period_end"`
+	IntervalStart     string `mapstructure:"interval_start"`
+	IntervalEnd       string `mapstructure:"interval_end"`
+	MeterDomain       string `mapstructure:"domain"`
+	MeterKind         string `mapstructure:"kind" template:""`
+	MeterVersion      string `mapstructure:"version,omitempty"`
+	Label             string `mapstructure:"workload,omitempty"`
+	Namespace         string `mapstructure:"namespace,omitempty"`
+	ResourceName      string `mapstructure:"resource_name,omitempty"`
+	Unit              string `mapstructure:"unit,omitempty"`
 }
 
 type MetricBase struct {
@@ -301,58 +279,43 @@ func NewReportMetadata(
 	}
 }
 
-const justDateFormat = "2006-01-02"
-
-func NewMetric(
-	pair model.SamplePair,
-	matrix *model.SampleStream,
-	meterReport *v1alpha1.MeterReportSpec,
-	meterDefLabel *common.MeterDefPrometheusLabels,
+func ExecuteTemplate(
+	meterDef *common.MeterDefPrometheusLabels,
 	templ *ReportTemplater,
-	step time.Duration,
-	meterType v1beta1.WorkloadType,
-	clusterUUID string,
 	kvMap map[string]interface{},
-) (*MetricBase, error) {
-	namespace, _ := getMatrixValue(matrix.Metric, "namespace")
-
-	logger.V(4).Info("kvMap", "map", kvMap)
-
-	meterDef := meterDefLabel
+) error {
+	// Parse Template
 	err := templ.Execute(meterDef, &ReportLabels{
 		Label: kvMap,
 	})
 
 	if err != nil {
 		logger.Error(err, "failed to run template")
-		return nil, err
+		return err
 	}
 
+	// MeterDef Display Name
 	if meterDef.DisplayName != "" {
 		kvMap["display_name"] = meterDef.DisplayName
 	}
 
+	// MeterDef Display Description
 	if meterDef.MeterDescription != "" {
 		kvMap["display_description"] = meterDef.MeterDescription
 	}
 
-	var objName string
+	return nil
+}
 
-	switch meterType {
-	case v1beta1.WorkloadTypePVC:
-		objName, _ = getMatrixValue(matrix.Metric, "persistentvolumeclaim")
-	case v1beta1.WorkloadTypePod:
-		objName, _ = getMatrixValue(matrix.Metric, "pod")
-	case v1beta1.WorkloadTypeService:
-		objName, _ = getMatrixValue(matrix.Metric, "service")
-	}
+const justDateFormat = "2006-01-02"
 
-	if objName == "" {
-		return nil, errors.NewWithDetails("can't find objName", "type", meterType)
-	}
-
-	intervalStart := pair.Timestamp.Time().Format(time.RFC3339)
-	intervalEnd := pair.Timestamp.Add(step).Time().Format(time.RFC3339)
+func ParseInterval(
+	pair model.SamplePair,
+	meterDef *common.MeterDefPrometheusLabels,
+	step time.Duration,
+) (time.Time, time.Time, error) {
+	intervalStart := pair.Timestamp.Time().UTC()
+	intervalEnd := pair.Timestamp.Add(step).Time().UTC()
 
 	if meterDef.DateLabelOverride != "" {
 		t, err := time.Parse(time.RFC3339, meterDef.DateLabelOverride)
@@ -361,34 +324,58 @@ func NewMetric(
 			t2, err2 := time.Parse(justDateFormat, meterDef.DateLabelOverride)
 
 			if err2 != nil {
-				return nil, errors.Combine(err, err2)
+				return intervalStart, intervalEnd, errors.Combine(err, err2)
 			}
 
 			t = t2
 		}
 
-		intervalStart = t.Format(time.RFC3339)
-		intervalEnd = t.Add(step).Format(time.RFC3339)
+		intervalStart = t
+		intervalEnd = t.Add(step)
 	}
 
+	return intervalStart, intervalEnd, nil
+}
+
+func NewMetric(
+	pair model.SamplePair,
+	resourceName, resourceNamespace string,
+	intervalStart, intervalEnd time.Time,
+	meterReport *v1alpha1.MeterReportSpec,
+	meterDef *common.MeterDefPrometheusLabels,
+	clusterUUID string,
+	kvMap map[string]interface{},
+) (*MetricBase, error) {
+	// Get custom interval if necessary
+
 	key := MetricKey{
-		ReportPeriodStart: meterReport.StartTime.UTC().Format(time.RFC3339),
-		ReportPeriodEnd:   meterReport.EndTime.UTC().Format(time.RFC3339),
-		IntervalStart:     intervalStart,
-		IntervalEnd:       intervalEnd,
 		MeterDomain:       meterDef.MeterGroup,
 		MeterKind:         meterDef.MeterKind,
-		Namespace:         namespace,
-		ResourceName:      objName,
-		Label:             meterDef.Metric,
+		ReportPeriodStart: meterReport.StartTime.UTC().Format(time.RFC3339),
+		ReportPeriodEnd:   meterReport.EndTime.UTC().Format(time.RFC3339),
+		IntervalStart:     intervalStart.UTC().Format(time.RFC3339),
+		IntervalEnd:       intervalEnd.UTC().Format(time.RFC3339),
+		Namespace:         resourceNamespace,
+		ResourceName:      resourceName,
+		Label:             meterDef.WorkloadName,
+		Unit:              meterDef.Unit,
 	}
 
 	logger.V(4).Info("metric", "metric val", meterDef.Metric)
 
-	key.Init(clusterUUID)
+	//key.Init(clusterUUID)
 
-	base := &MetricBase{
-		Key: key,
+	hash := xxhash.New()
+	hash.Write([]byte(clusterUUID))
+	hash.Write([]byte(key.IntervalStart))
+	hash.Write([]byte(key.IntervalEnd))
+	hash.Write([]byte(fmt.Sprintf("%+v", kvMap)))
+	key.MetricID = fmt.Sprintf("%x", hash.Sum64())
+
+	mKey := meterDef.Metric
+
+	if meterDef.Label != "" {
+		mKey = meterDef.Label
 	}
 
 	// override value if valueLabelOverride is set
@@ -397,18 +384,12 @@ func NewMetric(
 		value = meterDef.ValueLabelOverride
 	}
 
-	logger.V(4).Info("adding pair", "metric", matrix.Metric, "pair", pair)
-	metricPairs := []interface{}{meterDef.Metric, value}
-
-	err = base.AddAdditionalLabelsFromMap(kvMap)
-	if err != nil {
-		return nil, err
-	}
-
-	err = base.AddMetrics(metricPairs...)
-
-	if err != nil {
-		return nil, err
+	base := &MetricBase{
+		Key: key,
+		Metrics: map[string]interface{}{
+			mKey: value,
+		},
+		AdditionalLabels: kvMap,
 	}
 
 	return base, nil

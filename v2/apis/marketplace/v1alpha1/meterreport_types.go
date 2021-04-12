@@ -15,6 +15,9 @@
 package v1alpha1
 
 import (
+	"fmt"
+
+	"emperror.dev/errors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
@@ -85,7 +88,40 @@ type MeterReportStatus struct {
 	// for the report.
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
-	QueryErrorList []string `json:"queryErrorList,omitempty"`
+	Errors []ErrorDetails `json:"errors,omitempty"`
+
+	// Warnings from the job
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	Warnings []ErrorDetails `json:"warnings,omitempty"`
+}
+
+// ErrorDetails provides details about errors that happen in the job
+type ErrorDetails struct {
+	// Reason the error occurred
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	Reason string `json:"reason"`
+	// Details of the error
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	Details map[string]string `json:"details,omitempty"`
+}
+
+func (e ErrorDetails) FromError(err error) ErrorDetails {
+	detailsMap := map[string]string{}
+	details := errors.GetDetails(err)
+
+	for i := 0; i < len(details); i = i + 2 {
+		key := fmt.Sprintf("%v", details[i])
+		value := fmt.Sprintf("%+v", details[i+1])
+		detailsMap[key] = value
+	}
+
+	e.Details = detailsMap
+	e.Reason = errors.Cause(err).Error()
+
+	return e
 }
 
 const (

@@ -42,6 +42,9 @@ type MeterDefPrometheusLabels struct {
 	MetricWithout     JSONArray     `json:"metric_without" mapstructure:"metric_without"`
 	MetricGroupBy     JSONArray     `json:"metric_group_by,omitempty" mapstructure:"metric_group_by"`
 
+	Label string `json:"label,omitempty" mapstructure:"label,omitempty"  template:""`
+	Unit  string `json:"unit,omitempty" mapstructure:"unit,omitempty"  template:""`
+
 	DisplayName        string `json:"display_name,omitempty" mapstructure:"display_name,omitempty" template:""`
 	MeterDescription   string `json:"meter_description,omitempty" mapstructure:"meter_description,omitempty" template:""`
 	ValueLabelOverride string `json:"value_label_override,omitempty" mapstructure:"value_label_override,omitempty" template:""`
@@ -94,6 +97,88 @@ func (m *MeterDefPrometheusLabels) FromLabels(labels interface{}) error {
 	*m = newObj
 
 	return nil
+}
+
+func (m *MeterDefPrometheusLabels) PrintTemplate(
+	values *ReportLabels,
+	samplePair model.SamplePair,
+) (*MeterDefPrometheusLabelsTemplate, error) {
+	tpl, err := NewTemplate(m)
+
+	if err != nil {
+		return nil, err
+	}
+
+	localM := *m
+	result := &MeterDefPrometheusLabelsTemplated{MeterDefPrometheusLabels: &localM}
+	err := tpl.Execute(result, values)
+
+	if err != nil {
+		return nil, err
+	}
+
+	result.LabelMap = values
+
+	mKey := result.Metric
+
+	if result.Label != "" {
+		mKey = result.Label
+	}
+
+	result.Label = mkey
+
+	value := samplePair.Value.String()
+	if result.ValueLabelOverride != "" {
+		value = result.ValueLabelOverride
+	}
+
+	result.Value = value
+
+	intervalStart := pair.Timestamp.Time().UTC()
+	intervalEnd := pair.Timestamp.Add(step).Time().UTC()
+
+	if meterDef.DateLabelOverride != "" {
+		t, err := time.Parse(time.RFC3339, meterDef.DateLabelOverride)
+
+		if err != nil {
+			t2, err2 := time.Parse(justDateFormat, meterDef.DateLabelOverride)
+
+			if err2 != nil {
+				return intervalStart, intervalEnd, errors.Combine(err, err2)
+			}
+
+			t = t2
+		}
+
+		intervalStart = t
+		intervalEnd = t.Add(step)
+	}
+
+	return intervalStart, intervalEnd, nil
+	return resp, nil
+}
+
+// MeterDefPrometheusLabelsTemplated is the values of a meter definition
+// templated and with values set ready to be added.
+type MeterDefPrometheusLabelsTemplated struct {
+	*MeterDefPrometheusLabels
+
+	IntervalStart, IntervalEnd time.Time
+	Value    string
+	LabelMap map[string]interface{}
+}
+
+func (m *MeterDefPrometheusLabelsTemplated) Hash() string {
+	hash := xxhash.New()
+	hash.Write([]byte(m.IntervalStart))
+	hash.Write([]byte(m.IntervalEnd))
+	hash.Write([]byte(m.WorkloadName))
+	hash.Write([]byte(m.WorkloadType))
+	hash.Write([]byte(m.MeterGroup))
+	hash.Write([]byte(m.MeterKind))
+	hash.Write([]byte(m.Metric))
+	hash.Write([]byte(m.Unit))
+	return fmt.Sprintf("%x", hash.Sum64())
 }
 
 type MetricPeriod metav1.Duration

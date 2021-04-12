@@ -118,8 +118,8 @@ var _ = Describe("Reporter", func() {
 	})
 
 	Context("with templates", func() {
-		const count = 2976
-		const fileCount = 7
+		const count = 1488
+		const fileCount = 4
 		BeforeEach(func() {
 			meterDefs := []v1beta1.MeterDefinition{
 				{
@@ -180,7 +180,7 @@ var _ = Describe("Reporter", func() {
 
 		It("query, build and submit a report", func(done Done) {
 			By("collecting metrics")
-			results, errs, err := sut.CollectMetrics(context.TODO())
+			results, errs, _, err := sut.CollectMetrics(context.TODO())
 
 			Expect(err).To(Succeed())
 			Expect(errs).To(BeEmpty())
@@ -323,7 +323,7 @@ var _ = Describe("Reporter", func() {
 
 		It("query, build and submit a report", func(done Done) {
 			By("collecting metrics")
-			results, errs, err := sut.CollectMetrics(context.TODO())
+			results, errs, _, err := sut.CollectMetrics(context.TODO())
 
 			Expect(err).To(Succeed())
 			Expect(errs).To(BeEmpty())

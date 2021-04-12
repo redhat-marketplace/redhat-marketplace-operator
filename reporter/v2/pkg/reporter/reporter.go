@@ -28,9 +28,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/meirf/gopart"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
-	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/model"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	schemav1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter/schema/v1alpha1"
+	marketplacecommon "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
@@ -49,6 +49,15 @@ var (
 	logger           = logf.Log.WithName("reporter")
 	mdefLabels       = []model.LabelName{"meter_group", "meter_kind", "metric_aggregation", "metric_label", "metric_query", "name", "namespace", "workload_type"}
 )
+
+const (
+	ErrNoMeterDefinitionsFound = errors.Sentinel("no meterDefinitions found")
+	WarningDuplicateData       = errors.Sentinel("duplicate data")
+)
+
+var warningsFilter = map[error]interface{}{
+	WarningDuplicateData: nil,
+}
 
 // Goals of the reporter:
 // Get current meters to query
@@ -95,9 +104,7 @@ func NewMarketplaceReporter(
 	}, nil
 }
 
-var ErrNoMeterDefinitionsFound = errors.New("no meterDefinitions found")
-
-func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[string]*MetricBase, []error, error) {
+func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[string]*MetricBase, []error, []error, error) {
 	ctx, cancel := context.WithCancel(ctxIn)
 	defer cancel()
 
@@ -105,6 +112,7 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[string]
 	var resultsMapMutex sync.Mutex
 
 	errorList := []error{}
+	warningsList := []error{}
 
 	// data channels ; closed by this func
 	meterDefsChan := make(chan *meterDefPromQuery)
@@ -147,8 +155,12 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[string]
 	go func() {
 		for {
 			if err, more := <-errorsChan; more {
-				logger.Error(err, "error occurred processing")
-				errorList = append(errorList, err)
+				if _, ok := warningsFilter[errors.Cause(err)]; ok {
+					warningsList = append(warningsList, err)
+				} else {
+					logger.Error(err, "error occurred processing")
+					errorList = append(errorList, err)
+				}
 			} else {
 				errorDone <- true
 				return
@@ -175,7 +187,7 @@ func (r *MarketplaceReporter) CollectMetrics(ctxIn context.Context) (map[string]
 
 	<-errorDone
 
-	return resultsMap, errorList, errors.Combine(errorList...)
+	return resultsMap, errorList, warningsList, errors.Combine(errorList...)
 }
 
 type meterDefPromModel struct {
@@ -404,10 +416,19 @@ func (r *MarketplaceReporter) Process(
 		name string,
 		m model.Value,
 	) {
+		dataBuilder := (&schemav1alpha1.MarketplaceReportDataBuilder{}).
+			SetClusterID(r.mktconfig.Spec.ClusterUUID).
+			SetReportInterval(
+				common.Time(r.report.Spec.StartTime),
+				common.Time(r.reort.Spec.EndTime))
+
+
 		//# do the work
 		switch m.Type() {
 		case model.ValMatrix:
 			matrixVals := m.(model.Matrix)
+
+			logger.V(4).Info("data", "data", matrixVals)
 
 			for _, matrix := range matrixVals {
 				logger.V(4).Info("adding metric", "metric", matrix.Metric)
@@ -415,7 +436,7 @@ func (r *MarketplaceReporter) Process(
 				for _, pair := range matrix.Values {
 					func() {
 						labels := getAllKeysFromMetric(matrix.Metric)
-						kvmap, err := kvToMap(labels)
+						kvMap, err := kvToMap(labels)
 
 						if err != nil {
 							logger.Error(err, "failed to get kvmap")
@@ -423,22 +444,56 @@ func (r *MarketplaceReporter) Process(
 							return
 						}
 
+						namespace, _ := getMatrixValue(matrix.Metric, "namespace")
+
+						var objName string
+
+						switch pmodel.Type {
+						case v1beta1.WorkloadTypePVC:
+							objName, _ = getMatrixValue(matrix.Metric, "persistentvolumeclaim")
+						case v1beta1.WorkloadTypePod:
+							objName, _ = getMatrixValue(matrix.Metric, "pod")
+						case v1beta1.WorkloadTypeService:
+							objName, _ = getMatrixValue(matrix.Metric, "service")
+						}
+
+						if objName == "" {
+							errorsch <- errors.NewWithDetails("can't find objName", "type", pmodel.Type)
+							return
+						}
+
+						logger.V(4).Info("kvMap", "map", kvMap)
+
+						meterDef := pmodel.mdef.meterDefLabel
+						err = ExecuteTemplate(meterDef, pmodel.mdef.template, kvMap)
+
+						if err != nil {
+							errorsch <- err
+							return
+						}
+
+						intervalStart, intervalEnd, err := ParseInterval(pair, meterDef, pmodel.mdef.query.Step)
+
+						if err != nil {
+							errorsch <- err
+							return
+						}
+
 						base, err := NewMetric(
 							pair,
-							matrix,
+							pmodel.mdef.query.MeterDef.Name, pmodel.mdef.query.MeterDef.Namespace,
+							objName, namespace,
+							intervalStart, intervalEnd,
 							&r.report.Spec,
-							pmodel.mdef.meterDefLabel,
-							pmodel.mdef.template,
-							pmodel.mdef.query.Step,
-							pmodel.Type,
+							meterDef,
 							r.mktconfig.Spec.ClusterUUID,
-							kvmap,
+							kvMap,
 						)
 
 						logger.V(4).Info("data", "base", base)
 
 						if err != nil {
-							log.Error(err, "error creating metric")
+							logger.Error(err, "error creating metric")
 							return
 						}
 
@@ -446,6 +501,7 @@ func (r *MarketplaceReporter) Process(
 						defer mutex.Unlock()
 
 						if _, ok := results[base.Key.MetricID]; ok {
+							errorsch <- errors.WithDetails(WarningDuplicateData, "obj", base)
 							return
 						}
 
@@ -597,7 +653,7 @@ func getMatrixValue(m interface{}, labelName string) (string, bool) {
 }
 
 func buildPromQuery(labels interface{}, start, end time.Time) (*meterDefPromQuery, error) {
-	meterDefLabels := &common.MeterDefPrometheusLabels{}
+	meterDefLabels := &marketplacecommon.MeterDefPrometheusLabels{}
 	err := meterDefLabels.FromLabels(labels)
 
 	if err != nil {

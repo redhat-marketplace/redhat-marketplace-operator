@@ -227,8 +227,19 @@ type MeterWorkload struct {
 
 	// Query to use for prometheus to find the metrics
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	Query string `json:"query"`
+
+	// Label is the usage metrics key field on the report.
+	// Defaults to the metricId field if not provided
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +optional
+	Label string `json:"label,omitempty"`
+
+	// Unit is the unit of the metrics.
+	// Defaults to the metricId field if not provided
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +optional
+	Unit string `json:"unit,omitempty"`
 
 	// DateLabelOverride provides a means of overriding the date returned for the metric using a label.
 	// This is to handle cases where the metric is a constant that is calculated.

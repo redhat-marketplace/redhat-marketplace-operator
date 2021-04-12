@@ -16,8 +16,10 @@ package reporter
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/common/model"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -49,9 +51,7 @@ var _ = Describe("Builder", func() {
 			ResourceName:      "foo",
 			Namespace:         "bar",
 			Label:             "awesome",
-			GroupBy: map[string]string{
-				"foo": "bar",
-			},
+			Unit:              "unit",
 		}
 		metricBase = &MetricBase{
 			Key: key,
@@ -127,5 +127,14 @@ var _ = Describe("Builder", func() {
 		u := MetricsReport{}
 		Expect(json.Unmarshal(data, &u)).To(Succeed())
 		Expect(u.ReportSliceID).To(Equal(ReportSliceKey(sliceID)))
+	})
+
+	It("should create a new metric from values", func() {
+		metric := NewMetric(
+			model.SamplePair{
+				Timestamp: model.Now(),
+				Value:     model.SampleValue(0.01),
+			},
+		)
 	})
 })
