@@ -76,7 +76,7 @@ func (d *Database) SaveFile(finfo *v1.FileInfo, bs []byte) error {
 		return err
 	}
 
-	d.Log.Info(fmt.Sprintf("File of size: %v saved with id: %v", metadata.Size, metadata.FileID))
+	d.Log.Info("Saved file", "size", metadata.Size, "id", metadata.FileID)
 	return nil
 }
 
@@ -90,9 +90,15 @@ func (d *Database) DownloadFile(finfo *v1.FileID) (*models.Metadata, error) {
 
 	// Perform validations and query
 	if len(fileid) != 0 {
-		d.DB.Where("provided_id = ?", fileid).Order("created_at desc").Preload(clause.Associations).First(&meta)
+		d.DB.Where("provided_id = ?", fileid).
+			Order("created_at desc").
+			Preload(clause.Associations).
+			First(&meta)
 	} else if len(filename) != 0 {
-		d.DB.Where("provided_name = ?", filename).Order("created_at desc").Preload(clause.Associations).First(&meta)
+		d.DB.Where("provided_name = ?", filename).
+			Order("created_at desc").
+			Preload(clause.Associations).
+			First(&meta)
 	} else {
 		return nil, fmt.Errorf("file id/name is blank")
 	}
@@ -100,6 +106,6 @@ func (d *Database) DownloadFile(finfo *v1.FileID) (*models.Metadata, error) {
 	if reflect.DeepEqual(meta, models.Metadata{}) {
 		return nil, fmt.Errorf("no file found for provided_name: %v / provided_id: %v", filename, fileid)
 	}
-	d.Log.Info(fmt.Sprintf("Retreived file of size: %v with id: %v", meta.Size, meta.FileID))
+	d.Log.Info("Retreived file", "size", meta.Size, "id", meta.FileID)
 	return &meta, nil
 }

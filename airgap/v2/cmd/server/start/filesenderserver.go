@@ -39,7 +39,7 @@ func (fss *FileSenderServer) UploadFile(stream filesender.FileSender_UploadFileS
 	for {
 		req, err := stream.Recv()
 		if err == io.EOF {
-			fss.B.Log.Info(fmt.Sprintf("Stream end, total bytes received: %v", len(bs)))
+			fss.B.Log.Info("Stream end", "total bytes received", len(bs))
 			// Attempt to save file in database
 			err := fss.B.FileStore.SaveFile(finfo, bs)
 			if err != nil {

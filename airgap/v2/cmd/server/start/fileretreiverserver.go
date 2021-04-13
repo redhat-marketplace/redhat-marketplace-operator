@@ -76,13 +76,13 @@ func (frs *FileRetreiverServer) DownloadFile(dfr *fileretreiver.DownloadFileRequ
 			},
 		},
 	}
-	frs.B.Log.Info(fmt.Sprintf("File Info Response: %v ", res))
+	frs.B.Log.Info("Response:", "file information", res)
 	// Send file information
 	err = stream.Send(res)
 	if err != nil {
 		return status.Errorf(
 			codes.Unknown,
-			fmt.Sprintf("Error sending Response: %v", err),
+			fmt.Sprintf("Error while sending response: %v", err),
 		)
 	}
 
@@ -107,7 +107,7 @@ func (frs *FileRetreiverServer) DownloadFile(dfr *fileretreiver.DownloadFileRequ
 		if err != nil {
 			return status.Errorf(
 				codes.Unknown,
-				fmt.Sprintf(" Error sending Response %v ", err),
+				fmt.Sprintf("Error while sending response %v ", err),
 			)
 		}
 	}
