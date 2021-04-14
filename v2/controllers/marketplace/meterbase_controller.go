@@ -165,6 +165,11 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				OwnerType:    &marketplacev1alpha1.MeterBase{}},
 			builder.WithPredicates(namespacePredicate)).
 		Watches(
+			&source.Kind{Type: &monitoringv1.Prometheus{}},
+			&handler.EnqueueRequestForOwner{
+				OwnerType: &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(namespacePredicate)).
+		Watches(
 			&source.Kind{Type: &corev1.ConfigMap{}},
 			&handler.EnqueueRequestsFromMapFunc{
 				ToRequests: mapFn,

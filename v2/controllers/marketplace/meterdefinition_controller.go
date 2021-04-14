@@ -183,7 +183,7 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 	result, _ = cc.Do(context.TODO(),
 		GetAction(types.NamespacedName{
 			Name:      utils.METERBASE_NAME,
-			Namespace: "openshift-redhat-marketplace",
+			Namespace: r.cfg.DeployedNamespace,
 		}, meterbase),
 	)
 
@@ -312,121 +312,6 @@ func (r *MeterDefinitionReconciler) queryPreview(cc ClientCommandRunner, instanc
 	reqLogger.Info("generatring meterdef preview")
 	return generateQueryPreview(instance, prometheusAPI, reqLogger)
 }
-
-/*
-func (r *MeterDefinitionReconciler) queryPreviewOLD(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger, userWorkloadMonitoringEnabled bool) ([]common.Result, error) {
-	var queryPreviewResult []common.Result
-
-	service, err := r.queryForPrometheusService(context.TODO(), cc, request, userWorkloadMonitoringEnabled)
-	if err != nil {
-		return nil, err
-	}
-
-	certConfigMap, err := r.getCertConfigMap(context.TODO(), cc, request, userWorkloadMonitoringEnabled)
-	if err != nil {
-		return nil, err
-	}
-
-	var saClient *prom.ServiceAccountClient
-	var authToken string
-	saClient = prom.NewServiceAccountClient(r.cfg.ControllerValues.DeploymentNamespace, r.kubeInterface)
-	if userWorkloadMonitoringEnabled {
-		authToken, err = saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, "", 3600, reqLogger)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		authToken, err = saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.PrometheusAudience, 3600, reqLogger)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if certConfigMap != nil && authToken != "" && service != nil {
-		cert, err := r.parseCertificateFromConfigMap(*certConfigMap)
-		if err != nil {
-			return nil, err
-		}
-
-		prometheusAPI, err := prom.NewPromAPI(service, &cert, authToken)
-		if err != nil {
-			return nil, err
-		}
-
-		reqLogger.Info("generatring meterdef preview")
-		return generateQueryPreview(instance, prometheusAPI, reqLogger)
-	}
-
-	return queryPreviewResult, nil
-}
-
-func (r *MeterDefinitionReconciler) queryForPrometheusService(
-	ctx context.Context,
-	cc ClientCommandRunner,
-	req reconcile.Request,
-	userWorkloadMonitoringEnabled bool,
-) (*corev1.Service, error) {
-	service := &corev1.Service{}
-
-	var name types.NamespacedName
-	if userWorkloadMonitoringEnabled {
-		name = types.NamespacedName{
-			Name:      utils.OPENSHIFT_USER_WORKLOAD_MONITORING_SERVICE_NAME,
-			Namespace: utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
-		}
-	} else {
-		name = types.NamespacedName{
-			Name:      utils.METERBASE_PROMETHEUS_SERVICE_NAME,
-			Namespace: r.cfg.DeployedNamespace,
-		}
-	}
-
-	if result, _ := cc.Do(ctx, GetAction(name, service)); !result.Is(Continue) {
-		return nil, errors.Wrap(result, "failed to get prometheus service")
-	}
-
-	r.Log.Info("retrieved prometheus service")
-	return service, nil
-}
-
-func (r *MeterDefinitionReconciler) getCertConfigMap(ctx context.Context, cc ClientCommandRunner, req reconcile.Request, userWorkloadMonitoringEnabled bool) (*corev1.ConfigMap, error) {
-	certConfigMap := &corev1.ConfigMap{}
-
-	name := types.NamespacedName{}
-	if userWorkloadMonitoringEnabled {
-		name = types.NamespacedName{
-			Name:      utils.SERVING_CERTS_CA_BUNDLE_NAME,
-			Namespace: utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
-		}
-	} else {
-		name = types.NamespacedName{
-			Name:      utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
-			Namespace: r.cfg.ControllerValues.DeploymentNamespace,
-		}
-	}
-
-	if result, _ := cc.Do(context.TODO(), GetAction(name, certConfigMap)); !result.Is(Continue) {
-		return nil, errors.Wrap(result.GetError(), "Failed to retrieve operator-certs-ca-bundle.")
-	}
-
-	r.Log.Info("retrieved configmap")
-	return certConfigMap, nil
-}
-
-func (r *MeterDefinitionReconciler) parseCertificateFromConfigMap(certConfigMap corev1.ConfigMap) (cert []byte, returnErr error) {
-	r.Log.Info("extracting cert from config map")
-
-	out, ok := certConfigMap.Data["service-ca.crt"]
-
-	if !ok {
-		returnErr = errors.New("Error retrieving cert from config map")
-		return nil, returnErr
-	}
-
-	cert = []byte(out)
-	return cert, nil
-}
-*/
 
 func returnQueryRange(duration time.Duration) (startTime time.Time, endTime time.Time) {
 	endTime = time.Now().UTC().Truncate(time.Hour)
