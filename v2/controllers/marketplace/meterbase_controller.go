@@ -135,24 +135,24 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
 
+	isOpenshiftMonitoringObj := func(name string, namespace string) bool {
+		return (name == utils.OPENSHIFT_CLUSTER_MONITORING_CONFIGMAP_NAME && namespace == utils.OPENSHIFT_MONITORING_NAMESPACE) ||
+			(name == utils.OPENSHIFT_USER_WORKLOAD_MONITORING_CONFIGMAP_NAME && namespace == utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE) ||
+			(name == utils.KUBELET_SERVING_CA_BUNDLE_NAME && namespace == utils.OPENSHIFT_MONITORING_NAMESPACE)
+	}
+
 	monitoringPred := predicate.Funcs{
 		GenericFunc: func(e event.GenericEvent) bool {
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return (e.MetaNew.GetName() == utils.OPENSHIFT_CLUSTER_MONITORING_CONFIGMAP_NAME && e.MetaNew.GetNamespace() == utils.OPENSHIFT_MONITORING_NAMESPACE) ||
-				(e.MetaNew.GetName() == utils.OPENSHIFT_USER_WORKLOAD_MONITORING_CONFIGMAP_NAME && e.MetaNew.GetNamespace() == utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE) ||
-				(e.MetaNew.GetName() == utils.KUBELET_SERVING_CA_BUNDLE_NAME && e.MetaNew.GetNamespace() == utils.OPENSHIFT_MONITORING_NAMESPACE)
+			return isOpenshiftMonitoringObj(e.MetaNew.GetName(), e.MetaNew.GetNamespace())
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
-			return (e.Meta.GetName() == utils.OPENSHIFT_CLUSTER_MONITORING_CONFIGMAP_NAME && e.Meta.GetNamespace() == utils.OPENSHIFT_MONITORING_NAMESPACE) ||
-				(e.Meta.GetName() == utils.OPENSHIFT_USER_WORKLOAD_MONITORING_CONFIGMAP_NAME && e.Meta.GetNamespace() == utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE) ||
-				(e.Meta.GetName() == utils.KUBELET_SERVING_CA_BUNDLE_NAME && e.Meta.GetNamespace() == utils.OPENSHIFT_MONITORING_NAMESPACE)
+			return isOpenshiftMonitoringObj(e.Meta.GetName(), e.Meta.GetNamespace())
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return (e.Meta.GetName() == utils.OPENSHIFT_CLUSTER_MONITORING_CONFIGMAP_NAME && e.Meta.GetNamespace() == utils.OPENSHIFT_MONITORING_NAMESPACE) ||
-				(e.Meta.GetName() == utils.OPENSHIFT_USER_WORKLOAD_MONITORING_CONFIGMAP_NAME && e.Meta.GetNamespace() == utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE) ||
-				(e.Meta.GetName() == utils.KUBELET_SERVING_CA_BUNDLE_NAME && e.Meta.GetNamespace() == utils.OPENSHIFT_MONITORING_NAMESPACE)
+			return isOpenshiftMonitoringObj(e.Meta.GetName(), e.Meta.GetNamespace())
 		},
 	}
 
@@ -862,9 +862,6 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 	deployment := &appsv1.Deployment{}
 	service := &corev1.Service{}
 	serviceMonitor0 := &monitoringv1.ServiceMonitor{}
-	serviceMonitor1 := &monitoringv1.ServiceMonitor{}
-	serviceMonitor2 := &monitoringv1.ServiceMonitor{}
-	secret := &corev1.Secret{}
 
 	args := manifests.CreateOrUpdateFactoryItemArgs{
 		Owner:   instance,
@@ -887,7 +884,7 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
-			serviceMonitor2,
+			serviceMonitor0,
 			func() (runtime.Object, error) {
 				return factory.MetricStateServiceMonitor()
 			},
@@ -896,6 +893,10 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 	}
 
 	if r.cfg.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
+		secret := &corev1.Secret{}
+		serviceMonitor1 := &monitoringv1.ServiceMonitor{}
+		serviceMonitor2 := &monitoringv1.ServiceMonitor{}
+
 		actions = append(actions,
 			manifests.CreateOrUpdateFactoryItemAction(
 				secret,
@@ -905,14 +906,14 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 				args,
 			),
 			manifests.CreateOrUpdateFactoryItemAction(
-				serviceMonitor0,
+				serviceMonitor1,
 				func() (runtime.Object, error) {
 					return factory.KubeStateMetricsServiceMonitor()
 				},
 				args,
 			),
 			manifests.CreateOrUpdateFactoryItemAction(
-				serviceMonitor1,
+				serviceMonitor2,
 				func() (runtime.Object, error) {
 					return factory.KubeletServiceMonitor()
 				},
