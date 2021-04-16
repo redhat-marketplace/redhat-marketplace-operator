@@ -415,7 +415,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 			Namespace: utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
 			Name:      utils.OPENSHIFT_USER_WORKLOAD_MONITORING_STATEFULSET_NAME,
 		}
-	} else {
+	} else { // if userWorkload is not enabled
 		// RHM provides Prometheus
 
 		// Leave additionalConfigSecret nil if v4.6+
@@ -859,9 +859,9 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 	instance *marketplacev1alpha1.MeterBase,
 	factory *manifests.Factory,
 ) []ClientAction {
-	deployment := &appsv1.Deployment{}
-	service := &corev1.Service{}
-	serviceMonitor0 := &monitoringv1.ServiceMonitor{}
+	metricStateDeployment := &appsv1.Deployment{}
+	metricStateService := &corev1.Service{}
+	metricStateServiceMonitor := &monitoringv1.ServiceMonitor{}
 
 	args := manifests.CreateOrUpdateFactoryItemArgs{
 		Owner:   instance,
@@ -870,21 +870,21 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 
 	actions := []ClientAction{
 		manifests.CreateOrUpdateFactoryItemAction(
-			deployment,
+			metricStateDeployment,
 			func() (runtime.Object, error) {
 				return factory.MetricStateDeployment()
 			},
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
-			service,
+			metricStateService,
 			func() (runtime.Object, error) {
 				return factory.MetricStateService()
 			},
 			args,
 		),
 		manifests.CreateOrUpdateFactoryItemAction(
-			serviceMonitor0,
+			metricStateServiceMonitor,
 			func() (runtime.Object, error) {
 				return factory.MetricStateServiceMonitor()
 			},
@@ -893,27 +893,27 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 	}
 
 	if r.cfg.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
-		secret := &corev1.Secret{}
-		serviceMonitor1 := &monitoringv1.ServiceMonitor{}
-		serviceMonitor2 := &monitoringv1.ServiceMonitor{}
+		metricStateRHMOperatorSecret := &corev1.Secret{}
+		kubeStateMetricsServiceMonitor := &monitoringv1.ServiceMonitor{}
+		kubeletServiceMonitor := &monitoringv1.ServiceMonitor{}
 
 		actions = append(actions,
 			manifests.CreateOrUpdateFactoryItemAction(
-				secret,
+				metricStateRHMOperatorSecret,
 				func() (runtime.Object, error) {
 					return factory.MetricStateRHMOperatorSecret()
 				},
 				args,
 			),
 			manifests.CreateOrUpdateFactoryItemAction(
-				serviceMonitor1,
+				kubeStateMetricsServiceMonitor,
 				func() (runtime.Object, error) {
 					return factory.KubeStateMetricsServiceMonitor()
 				},
 				args,
 			),
 			manifests.CreateOrUpdateFactoryItemAction(
-				serviceMonitor2,
+				kubeletServiceMonitor,
 				func() (runtime.Object, error) {
 					return factory.KubeletServiceMonitor()
 				},
