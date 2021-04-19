@@ -191,7 +191,7 @@ func TestDownloadFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.dc.downloadFile()
+			err := tt.dc.downloadFile(tt.dc.fileName, tt.dc.fileId)
 			if err != nil {
 				if !strings.Contains(err.Error(), tt.errMsg) {
 					t.Errorf("Expected error message: %v, instead got: %v", tt.errMsg, err.Error())
