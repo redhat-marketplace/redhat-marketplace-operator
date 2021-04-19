@@ -49,7 +49,7 @@ type Condition struct {
 	Value    string
 }
 
-type MetaDataQuery struct {
+type metaDataQuery struct {
 	MetaString string
 	MetaValue  []interface{}
 }
@@ -163,7 +163,7 @@ func (d *Database) ListFileMetadata(conditionList []*Condition, sortOrderList []
 	//Create conditionString list
 	conditionStringList := []string{}
 	conditionValueList := []interface{}{}
-	metaList := []MetaDataQuery{}
+	metaList := []metaDataQuery{}
 	for _, condition := range conditionList {
 		if modelColumnSet[condition.Key] {
 			// if the key is a field in a model
@@ -173,7 +173,7 @@ func (d *Database) ListFileMetadata(conditionList []*Condition, sortOrderList []
 			} else if condition.Operator == "=" || condition.Operator == "<" || condition.Operator == ">" {
 				conditionValueList = append(conditionValueList, condition.Value)
 			} else {
-				return nil, fmt.Errorf("Invalid Operator provided: %v ", condition.Operator)
+				return nil, fmt.Errorf("invalid operator provided: %v ", condition.Operator)
 			}
 		} else {
 			//if it is not a field in a model, then it must be present as key in fileMetadata
@@ -185,9 +185,9 @@ func (d *Database) ListFileMetadata(conditionList []*Condition, sortOrderList []
 			} else if condition.Operator == "=" {
 				metaValue = append(metaValue, condition.Key, condition.Value)
 			} else {
-				return nil, fmt.Errorf("Invalid Operator provided: %v ", condition.Operator)
+				return nil, fmt.Errorf("invalid operator provided: %v ", condition.Operator)
 			}
-			metaList = append(metaList, MetaDataQuery{MetaString: metaString, MetaValue: metaValue})
+			metaList = append(metaList, metaDataQuery{MetaString: metaString, MetaValue: metaValue})
 		}
 	}
 
