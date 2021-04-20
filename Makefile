@@ -38,7 +38,7 @@ fmt:
 
 .PHONY: test
 test:
-	$(MAKE) $(addsuffix /test,$(PROJECTS))
+	$(MAKE) $(addsuffix /test,$(PROJECTS) tests)
 
 generate:
 	$(MAKE) $(addsuffix /generate,$(PROJECTS))
@@ -121,6 +121,9 @@ metering/%:
 
 authchecker/%:
 	@cd ./authchecker/v2 && $(MAKE) $(@F)
+
+tests/%:
+	@cd ./tests/v2 && $(MAKE) $(@F)
 
 base/%:
 	cd ./base && $(MAKE) $(@F)

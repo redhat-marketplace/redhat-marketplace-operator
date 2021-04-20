@@ -784,8 +784,8 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 				if watchKeeperConfig.Labels == nil {
 					watchKeeperConfig.Labels = make(map[string]string)
 				}
-		
-				utils.SetMapKeyValue(watchKeeperConfig.Labels,[]string{"razee/cluster-metadata","true"})
+
+				utils.SetMapKeyValue(watchKeeperConfig.Labels, []string{"razee/cluster-metadata", "true"})
 				watchKeeperConfig.Data["name"] = instance.Spec.ClusterDisplayName
 			}
 
@@ -824,7 +824,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 				updatedWatchKeeperConfig.Labels = make(map[string]string)
 			}
 
-			utils.SetMapKeyValue(updatedWatchKeeperConfig.Labels,[]string{"razee/cluster-metadata","true"})
+			utils.SetMapKeyValue(updatedWatchKeeperConfig.Labels, []string{"razee/cluster-metadata", "true"})
 			updatedWatchKeeperConfig.Data["name"] = instance.Spec.ClusterDisplayName
 		}
 

@@ -46,6 +46,8 @@ var _ = Describe("MeterDefPrometheusLabels", func() {
 			UID:                "uid",
 			WorkloadName:       "workloadname",
 			WorkloadType:       "pod",
+			Label:              "label",
+			Unit:               "unit",
 		}
 		labelMap, err := promLabels.ToLabels()
 
@@ -66,6 +68,8 @@ var _ = Describe("MeterDefPrometheusLabels", func() {
 			"workload_type":        Equal("pod"),
 			"workload_name":        Equal("workloadname"),
 			"metric_query":         Equal("query"),
+			"label":                Equal("label"),
+			"unit":                 Equal("unit"),
 		}))
 
 		newPromLabels := &MeterDefPrometheusLabels{}
@@ -101,6 +105,8 @@ var _ = Describe("MeterDefPrometheusLabels", func() {
 			"workload_type":        Equal("pod"),
 			"workload_name":        Equal("workloadname"),
 			"metric_query":         Equal("query"),
+			"label":                Equal("label"),
+			"unit":                 Equal("unit"),
 		}))
 
 		newPromLabels = &MeterDefPrometheusLabels{}
