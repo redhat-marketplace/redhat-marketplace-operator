@@ -96,6 +96,10 @@ keys or custom key and sort flag used for sorting list based on sort key and sor
     # Save list to csv file
     client list  --output-dir=/path/to/dir`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// enable/disable logging
+		if !viper.GetBool("verbose") {
+			log = logr.Discard()
+		}
 		// Initialize client
 		err := lc.initializeListClient()
 		if err != nil {

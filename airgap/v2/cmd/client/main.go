@@ -26,6 +26,7 @@ import (
 )
 
 var cfgFile string
+var verbose bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -37,6 +38,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.AddCommand(cmd.DownloadCmd, lfm.ListCmd)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "config.yaml", "Path to the configuration file")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose logging")
 }
 
 func er(msg interface{}) {
@@ -65,6 +67,8 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
+	// bind verbose
+	viper.BindPFlag("verbose", rootCmd.Flags().Lookup("verbose"))
 }
 
 func main() {
