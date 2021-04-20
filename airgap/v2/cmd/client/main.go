@@ -20,6 +20,7 @@ import (
 
 	homedir "github.com/mitchellh/go-homedir"
 	cmd "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/client/download"
+	lfm "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/client/list"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -34,7 +35,7 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	rootCmd.AddCommand(cmd.DownloadCmd)
+	rootCmd.AddCommand(cmd.DownloadCmd, lfm.ListCmd)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "config.yaml", "Path to the configuration file")
 }
 
