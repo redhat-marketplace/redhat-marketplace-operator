@@ -73,13 +73,11 @@ func (r *Task) Run() error {
 		logger.Info(fmt.Sprintf("warning: %v", errors.Cause(err)), details...)
 	}
 
-	reportID := uuid.New()
+	reportID := uuid.MustParse(reporter.report.Spec.ReportUUID)
 
-	logger.Info("writing report", "reportID", reportID)
+	logger.Info("writing report", "reportID", r.ReportName)
 
-	files, err := reporter.WriteReport(
-		reportID,
-		metrics)
+	files, err := reporter.WriteReport(reportID, metrics)
 
 	if err != nil {
 		return errors.Wrap(err, "error writing report")
@@ -190,6 +188,14 @@ func getMarketplaceReport(
 
 	if result, _ := cc.Do(ctx, GetAction(types.NamespacedName(reportName), report)); !result.Is(Continue) {
 		returnErr = errors.Wrap(result, "failed to get report")
+	}
+
+	if report.Spec.ReportUUID == "" {
+		report.Spec.ReportUUID = uuid.New().String()
+
+		if result, _ := cc.Exec(ctx, UpdateAction(report)); !result.Is(Continue) {
+			returnErr = errors.Wrap(result, "failed to get update report")
+		}
 	}
 
 	logger.Info("retrieved meter report", "name", reportName)

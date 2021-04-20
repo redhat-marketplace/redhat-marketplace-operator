@@ -65,7 +65,7 @@ func getQueries(matrixVals model.Matrix) (map[types.NamespacedName][]*meterDefPr
 		logger.Info("getting query", "query", promQuery.String(), "start", min, "end", max)
 
 		if v, ok := results[promQuery.query.MeterDef]; ok {
-			v = append(v, promQuery)
+			results[promQuery.query.MeterDef] = append(v, promQuery)
 		} else {
 			results[promQuery.query.MeterDef] = []*meterDefPromQuery{promQuery}
 		}

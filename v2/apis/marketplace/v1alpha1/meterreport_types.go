@@ -29,6 +29,10 @@ import (
 // MeterReportSpec defines the desired state of MeterReport
 // +k8s:openapi-gen=true
 type MeterReportSpec struct {
+	// ReportUUID is the generated ID for the report.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	ReportUUID string `json:"reportUUID,omitempty"`
+
 	// StartTime of the job
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	StartTime metav1.Time `json:"startTime"`

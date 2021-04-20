@@ -67,7 +67,7 @@ vet:
 generate:
 	go generate ./...
 
-# Run the test
+#... Run the test
 .PHONY: test
 test: ginkgo
 	- $(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./...

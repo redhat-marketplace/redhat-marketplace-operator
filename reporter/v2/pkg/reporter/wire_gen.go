@@ -54,8 +54,8 @@ var (
 
 func NewReporter(task *Task) (*MarketplaceReporter, error) {
 	reporterConfig := task.Config
-	simpleClient := task.K8SClient
 	contextContext := task.Ctx
+	simpleClient := task.K8SClient
 	scheme := task.K8SScheme
 	logrLogger := _wireLogrLoggerValue
 	clientCommandRunner := reconcileutils.NewClientCommand(simpleClient, scheme, logrLogger)
@@ -81,7 +81,7 @@ func NewReporter(task *Task) (*MarketplaceReporter, error) {
 	if err != nil {
 		return nil, err
 	}
-	marketplaceReporter, err := NewMarketplaceReporter(reporterConfig, simpleClient, meterReport, marketplaceConfig, service, prometheusAPI, v)
+	marketplaceReporter, err := NewMarketplaceReporter(reporterConfig, meterReport, marketplaceConfig, prometheusAPI, v)
 	if err != nil {
 		return nil, err
 	}

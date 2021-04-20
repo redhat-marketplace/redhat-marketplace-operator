@@ -334,6 +334,8 @@ func (meterdefspec *MeterDefinitionSpec) ToPrometheusLabels(uid, name, namespace
 			MeterGroup:         meterdefspec.Group,
 			MetricQuery:        meter.Query,
 			MetricPeriod:       period,
+			Label:              meter.Label,
+			Unit:               meter.Unit,
 			DisplayName:        meter.Name,
 			MetricWithout:      common.JSONArray(meter.Without),
 			WorkloadType:       string(meter.WorkloadType),

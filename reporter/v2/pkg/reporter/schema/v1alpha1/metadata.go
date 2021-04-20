@@ -6,9 +6,9 @@ import (
 )
 
 type ReportMetadata struct {
-	ReportID       uuid.UUID                            `json:"report_id"`
-	Source         uuid.UUID                            `json:"source"`
-	SourceMetadata SourceMetadata                       `json:"source_metadata"`
+	ReportID       uuid.UUID                                   `json:"report_id"`
+	Source         uuid.UUID                                   `json:"source"`
+	SourceMetadata SourceMetadata                              `json:"source_metadata"`
 	ReportSlices   map[common.ReportSliceKey]ReportSlicesValue `json:"report_slices"`
 }
 
@@ -17,6 +17,7 @@ type SourceMetadata struct {
 	RhmAccountID   string                   `json:"rhmAccountId" mapstructure:"rhmAccountId"`
 	RhmEnvironment common.ReportEnvironment `json:"rhmEnvironment,omitempty" mapstructure:"rhmEnvironment,omitempty"`
 	Version        string                   `json:"version,omitempty" mapstructure:"version,omitempty"`
+	ReportVersion  string                   `json:"reportVersion,omitempty"`
 }
 
 type ReportSlicesValue struct {

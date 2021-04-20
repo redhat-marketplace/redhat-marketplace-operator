@@ -1,6 +1,5 @@
 package common
 
-
 import (
 	"bytes"
 	"reflect"
@@ -9,7 +8,6 @@ import (
 
 	"emperror.dev/errors"
 	sprig "github.com/Masterminds/sprig/v3"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 )
 
 type ReportTemplater struct {
@@ -20,7 +18,7 @@ type ReportLabels struct {
 	Label map[string]interface{}
 }
 
-func NewTemplate(promLabels *common.MeterDefPrometheusLabels) (*ReportTemplater, error) {
+func NewTemplate(promLabels *MeterDefPrometheusLabels) (*ReportTemplater, error) {
 	if promLabels == nil {
 		return nil, errors.New("metric is nil")
 	}
@@ -60,7 +58,7 @@ func NewTemplate(promLabels *common.MeterDefPrometheusLabels) (*ReportTemplater,
 }
 
 func (r *ReportTemplater) Execute(
-	promLabels *common.MeterDefPrometheusLabelsTemplated,
+	promLabels *MeterDefPrometheusLabels,
 	values *ReportLabels) error {
 	if promLabels == nil {
 		return errors.New("metric is nil")

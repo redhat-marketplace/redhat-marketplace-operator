@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package reporter
+package common
 
 import (
 	"time"
@@ -20,11 +20,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	"github.com/prometheus/common/model"
 )
 
 var _ = Describe("Template", func() {
-	var promLabels *common.MeterDefPrometheusLabels
+	var promLabels *MeterDefPrometheusLabels
 
 	It("should evaluate templates", func() {
 		values := &ReportLabels{
@@ -32,42 +32,48 @@ var _ = Describe("Template", func() {
 				"foo_bar_label":     "label",
 				"a_date_label":      "2020-02-11",
 				"a_timestamp_label": "2020-02-11",
+				"value":             "1",
 			},
 		}
-		promLabels = &common.MeterDefPrometheusLabels{
+		promLabels = &MeterDefPrometheusLabels{
 			MeterDefName:       "{{ foo_bar_label }}",
 			MeterDefNamespace:  "namespace",
 			MeterGroup:         "{{ .Label.foo_bar_label }}.group",
 			MeterKind:          "{{ .Label.foo_bar_label }}.kind",
 			Metric:             "{{ .Label.foo_bar_label }}.metric",
-			DateLabelOverride:  "{{ .Label.foo_bar_label }}.date",
-			ValueLabelOverride: "{{ .Label.foo_bar_label }}.valueoverride",
+			DateLabelOverride:  "{{ .Label.a_date_label }}",
+			ValueLabelOverride: "{{ .Label.value  }}",
 			DisplayName:        "{{ .Label.foo_bar_label }}.name",
 			MeterDescription:   "{{ .Label.foo_bar_label }}.description",
 			MetricAggregation:  "sum",
-			MetricGroupBy:      common.JSONArray([]string{"c", "d"}),
-			MetricPeriod:       &common.MetricPeriod{Duration: time.Hour},
+			MetricGroupBy:      JSONArray([]string{"c", "d"}),
+			MetricPeriod:       &MetricPeriod{Duration: time.Hour},
 			MetricQuery:        "query",
-			MetricWithout:      common.JSONArray([]string{"a", "b"}),
+			MetricWithout:      JSONArray([]string{"a", "b"}),
 			UID:                "uid",
 			WorkloadName:       "workloadname",
 			WorkloadType:       "pod",
 		}
 
-		templ, err := NewTemplate(promLabels)
+		pair := model.SamplePair{
+			Timestamp: model.Now(),
+			Value:     model.SampleValue(1.0),
+		}
+		results, err := promLabels.PrintTemplate(values, pair)
 		Expect(err).To(Succeed())
-		Expect(len(templ.templFieldMap)).ToNot(BeZero())
-		templ.Execute(promLabels, values)
 
-		Expect(promLabels).To(PointTo(MatchFields(IgnoreExtras, Fields{
-			"MeterDefName":       Equal("{{ foo_bar_label }}"), //shouldn't change, this isn't a template field
-			"MeterGroup":         Equal("label.group"),
-			"MeterKind":          Equal("label.kind"),
-			"Metric":             Equal("label.metric"),
-			"DateLabelOverride":  Equal("label.date"),
-			"DisplayName":        Equal("label.name"),
-			"ValueLabelOverride": Equal("label.valueoverride"),
-			"WorkloadType":       Equal("pod"),
+		Expect(results.MeterDefPrometheusLabels).To(PointTo(MatchFields(IgnoreExtras, Fields{
+			"MeterDefName": Equal("{{ foo_bar_label }}"), //shouldn't change, this isn't a template field
+			"MeterGroup":   Equal("label.group"),
+			"MeterKind":    Equal("label.kind"),
+			"Metric":       Equal("label.metric"),
+			"DisplayName":  Equal("label.name"),
+			"WorkloadType": Equal("pod"),
 		})))
+
+		parsedDate, _ := time.Parse(justDateFormat, "2020-02-11")
+		Expect(results.IntervalStart).To(Equal(parsedDate))
+		Expect(results.IntervalEnd).To(Equal(parsedDate.Add(time.Hour)))
+		Expect(results.Value).To(Equal("1"))
 	})
 })

@@ -974,6 +974,9 @@ spec:
               - namespace
               - targetPort
               type: object
+            reportUUID:
+              description: ReportUUID is the generated ID for the report.
+              type: string
             startTime:
               description: StartTime of the job
               format: date-time
