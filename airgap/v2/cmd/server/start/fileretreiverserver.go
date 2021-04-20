@@ -16,13 +16,16 @@ package server
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const chunkSize = 1024
@@ -111,5 +114,110 @@ func (frs *FileRetreiverServer) DownloadFile(dfr *fileretreiver.DownloadFileRequ
 			)
 		}
 	}
+	return nil
+}
+
+// Fetch list of files from database based on filters and sort conditions provided
+func (frs *FileRetreiverServer) ListFileMetadata(lis *fileretreiver.ListFileMetadataRequest, stream fileretreiver.FileRetreiver_ListFileMetadataServer) error {
+
+	sortOrders := lis.GetSortBy()
+	filters := lis.GetFilterBy()
+	sortOrderList := []*database.SortOrder{}
+	conditionList := []*database.Condition{}
+
+	for _, sortOrder := range sortOrders {
+		key := strings.TrimSpace(sortOrder.GetKey())
+		order := strings.TrimSpace(sortOrder.GetSortOrder().String())
+		if len(key) == 0 {
+			return status.Errorf(
+				codes.InvalidArgument,
+				"Cannot pass empty key for sort operation",
+			)
+		}
+		sortOrderList = append(sortOrderList, &database.SortOrder{Key: key, Order: order})
+	}
+	//parse and convert raw filter operators to database friendly operators
+	for _, filter := range filters {
+		key := strings.TrimSpace(filter.GetKey())
+		val := strings.TrimSpace(filter.GetValue())
+		rawOperator := strings.TrimSpace(filter.GetOperator().String())
+
+		if len(key) == 0 || len(val) == 0 {
+			return status.Errorf(
+				codes.InvalidArgument,
+				"Cannot pass empty key/value for filter operation",
+			)
+		}
+
+		var operator string
+		switch rawOperator {
+		case "EQUAL":
+			operator = "="
+		case "LESS_THAN":
+			operator = "<"
+		case "GREATER_THAN":
+			operator = ">"
+		case "CONTAINS":
+			operator = "LIKE"
+		default:
+			return status.Errorf(
+				codes.InvalidArgument,
+				fmt.Sprintf("Invalid operator used for filter operation: %v ", rawOperator),
+			)
+		}
+		conditionList = append(conditionList, &database.Condition{Key: key, Value: val, Operator: operator})
+	}
+
+	//Fetching metadata
+	metadataList, err := frs.B.FileStore.ListFileMetadata(conditionList, sortOrderList)
+	if err != nil {
+		return status.Errorf(
+			codes.Unknown,
+			fmt.Sprintf("Error Fetching File List %v ", err),
+		)
+	}
+
+	//Preparing and sending responses
+	for _, metadata := range metadataList {
+
+		//Preparing file metadata
+		fileMetadata := map[string]string{}
+		for _, fmd := range metadata.FileMetadata {
+			fileMetadata[fmd.Key] = fmd.Value
+		}
+
+		//Either use FileID_Id or FileID_Name
+		var fileId v1.FileID
+		if metadata.ProvidedId != "" {
+			fileId = v1.FileID{
+				Data: &v1.FileID_Id{
+					Id: metadata.ProvidedId,
+				},
+			}
+		} else {
+			fileId = v1.FileID{
+				Data: &v1.FileID_Name{
+					Name: metadata.ProvidedName,
+				},
+			}
+		}
+
+		//Build response
+		response := &fileretreiver.ListFileMetadataResponse{
+			Results: &v1.FileInfo{
+				FileId:           &fileId,
+				Size:             metadata.Size,
+				Metadata:         fileMetadata,
+				CreatedAt:        &timestamppb.Timestamp{Seconds: metadata.CreatedAt},
+				UpdatedAt:        &timestamppb.Timestamp{Seconds: metadata.CreatedAt},
+				DeletedTombstone: &timestamppb.Timestamp{Seconds: metadata.DeletedAt},
+				Compression:      metadata.Compression,
+				CompressionType:  metadata.CompressionType,
+			},
+		}
+		//Send response
+		stream.Send(response)
+	}
+
 	return nil
 }
