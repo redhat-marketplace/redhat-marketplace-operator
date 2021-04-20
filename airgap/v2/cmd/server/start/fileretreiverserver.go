@@ -131,7 +131,7 @@ func (frs *FileRetreiverServer) ListFileMetadata(lis *fileretreiver.ListFileMeta
 		if len(key) == 0 {
 			return status.Errorf(
 				codes.InvalidArgument,
-				fmt.Sprintln("Cannot pass empty key for sort operation."),
+				"Cannot pass empty key for sort operation",
 			)
 		}
 		sortOrderList = append(sortOrderList, &database.SortOrder{Key: key, Order: order})
@@ -145,7 +145,7 @@ func (frs *FileRetreiverServer) ListFileMetadata(lis *fileretreiver.ListFileMeta
 		if len(key) == 0 || len(val) == 0 {
 			return status.Errorf(
 				codes.InvalidArgument,
-				fmt.Sprintln("Cannot pass empty key/value for filter operation."),
+				"Cannot pass empty key/value for filter operation",
 			)
 		}
 
@@ -173,7 +173,7 @@ func (frs *FileRetreiverServer) ListFileMetadata(lis *fileretreiver.ListFileMeta
 	if err != nil {
 		return status.Errorf(
 			codes.Unknown,
-			fmt.Sprintf(" Error Fetching File List %v ", err),
+			fmt.Sprintf("Error Fetching File List %v ", err),
 		)
 	}
 
