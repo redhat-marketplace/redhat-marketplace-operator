@@ -46,7 +46,7 @@ spec:
             - --upstream=http://127.0.0.1:8080/
             - --tls-cert-file=/etc/tls/private/tls.crt
             - --tls-private-key-file=/etc/tls/private/tls.key
-            - --upstream-ca-file=/etc/configmaps/serving-cert-ca-bundle/service-ca.crt
+            - --upstream-ca-file=/etc/tls/private/ca.crt
           image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
           imagePullPolicy: IfNotPresent
           name: kube-rbac-proxy-1
@@ -63,9 +63,9 @@ spec:
             - mountPath: /etc/tls/private
               name: rhm-metric-state-tls
               readOnly: false
-            - mountPath: /etc/configmaps/serving-cert-ca-bundle
-              name: serving-certs-ca-bundle
-              readOnly: false
+            # - mountPath: /etc/configmaps/serving-cert-ca-bundle
+            #   name: serving-certs-ca-bundle
+            #   readOnly: false
         - args:
             - --logtostderr
             - --secure-listen-address=:9093
@@ -73,7 +73,7 @@ spec:
             - --upstream=http://127.0.0.1:8081/
             - --tls-cert-file=/etc/tls/private/tls.crt
             - --tls-private-key-file=/etc/tls/private/tls.key
-            - --upstream-ca-file=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt
+            - --upstream-ca-file=/etc/tls/private/ca.crt
           image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
           imagePullPolicy: IfNotPresent
           name: kube-rbac-proxy-2
@@ -90,12 +90,12 @@ spec:
             - mountPath: /etc/tls/private
               name: rhm-metric-state-tls
               readOnly: false
-            - mountPath: /etc/configmaps/serving-certs-ca-bundle
-              name: serving-certs-ca-bundle
-              readOnly: false
+            # - mountPath: /etc/configmaps/serving-certs-ca-bundle
+            #   name: serving-certs-ca-bundle
+            #   readOnly: false
       nodeSelector:
         beta.kubernetes.io/os: linux
-        node-role.kubernetes.io/master: ''
+        # node-role.kubernetes.io/master: ''
       priorityClassName: system-cluster-critical
       securityContext: {}
       serviceAccountName: redhat-marketplace-metric-state
@@ -107,6 +107,6 @@ spec:
         - name: rhm-metric-state-tls
           secret:
             secretName: rhm-metric-state-tls
-        - configMap:
-            name: serving-certs-ca-bundle
-          name: serving-certs-ca-bundle
+        # - configMap:
+        #     name: serving-certs-ca-bundle
+        #   name: serving-certs-ca-bundle
