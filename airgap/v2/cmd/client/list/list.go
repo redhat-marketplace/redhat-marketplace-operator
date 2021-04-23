@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -67,15 +66,15 @@ keys or custom key and sort flag used for sorting list based on sort key and sor
     [provided_id] refers to the file identifier
     [provided_name] refers to the name of the file
     [size] refers to the size of file
-    [created_at] refers to file creation date (expected format yyyy-mm-dd)
-    [deleted_at] refers to the file deletion date  (expected format yyyy-mm-dd)
+    [created_at] refers to file creation date (expected format yyyy-mm-dd or RFC3339)
+    [deleted_at] refers to the file deletion date  (expected format yyyy-mm-dd or RFC3339)
     -----------------------------------------------------------------------
     Pre-defined sort keys: 
     [provided_id] refers to the file identifier
     [provided_name] refers to the name of the file
     [size] refers to the size of file
-    [created_at] refers to file creation date (expected format yyyy-mm-dd)
-    [deleted_at] refers to the file deletion date  (expected format yyyy-mm-dd)
+    [created_at] refers to file creation date (expected format yyyy-mm-dd or RFC3339)
+    [deleted_at] refers to the file deletion date  (expected format yyyy-mm-dd or RFC3339)
 	`,
 	Example: `
     # List all latest files.
@@ -386,34 +385,32 @@ func parseSortOperator(op string) (*fileretreiver.ListFileMetadataRequest_ListFi
 
 // parseDateToEpoch parses date argument
 // It returns unix epoch of date entered and error if occured
-// Date format should be in RFC3339 ie yyyy-mm-dd
-// for any valid date in RFC3339 format time selected will be midnight in UTC
+// Date can be in RFC3339 format or yyyy-mm-dd format
+// for any valid date in yyyy-mm-dd format time selected will be midnight in UTC
 // Eg: Input date: 2021-04-13
 //     Complete date-time in RFC3339 :  2021-04-13 00:00:00 +0000 UTC
 //     Unix Epoch: 1618272000
 func parseDateToEpoch(date string) (string, error) {
-	var (
-		year  int
-		month int
-		day   int
-	)
-	dateMatch_1, _ := regexp.Compile("^[0-9]{4}-(1[0-2]|0[1-9])-(3[01]|[12][0-9]|0[1-9])$")
-	INV_DATE := "invalid date format. \n Valid formats: \n yyyy-mm-dd"
 
-	if dateMatch_1.MatchString(date) {
-
-		const layout = "yyyy-mm-dd"
-		dt, _ := time.Parse(layout, date)
-
-		year = dt.Year()
-		month = int(dt.Month())
-		day = dt.Day()
-
-	} else {
-		return "", fmt.Errorf(INV_DATE)
+	const layout = "2006-01-02"
+	dt, er1 := time.Parse(time.RFC3339, date)
+	if er1 != nil {
+		dt1, er2 := time.Parse(layout, date)
+		if er2 != nil {
+			return "", fmt.Errorf(er1.Error() + er2.Error())
+		}
+		dt = dt1
 	}
 
-	time_ := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+	time_ := time.Date(
+		dt.Year(),
+		time.Month(dt.Month()),
+		dt.Day(),
+		dt.Hour(),
+		dt.Minute(),
+		dt.Second(),
+		dt.Nanosecond(),
+		time.UTC)
 	return strconv.FormatInt(time_.Unix(), 10), nil
 }
 
