@@ -49,7 +49,7 @@ type MeterReportSpec struct {
 	// DEPRECATED
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
-	MeterDefinitions []MeterDefinitionSpec `json:"meterDefinitions,omitempty"`
+	MeterDefinitions []MeterDefinition `json:"meterDefinitions,omitempty"`
 
 	// MeterDefinitionReferences are used as the first meter definition source. Prometheus data is used to supplement.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true

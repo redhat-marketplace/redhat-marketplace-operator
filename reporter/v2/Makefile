@@ -1,6 +1,8 @@
 VERSION ?= $(shell cd ../../v2/tools/version && go run main.go)
 export VERSION
 
+include ../../hack/utils.Makefile
+
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 IMAGE_NAME = redhat-marketplace-reporter
 IMAGE_TAG ?= $(VERSION)
@@ -13,36 +15,12 @@ export IMAGE
 
 all: generate vet fmt
 
-IMAGE_PUSH ?= true
-BUILDX ?= true
-ARCH ?= amd64
-
-ifeq ($(BUILDX),true)
-DOCKERCMD=docker buildx
-ifeq ($(IMAGE_PUSH),true)
-ARGS="--push"
-else
-ARGS="--load"
-endif
-else
-DOCKERCMD=docker
-endif
+build:
+	$(call multiarch-build,redhat-marketplace-reporter,./cmd/reporter)
 
 # Build the docker image
 docker-build:
-	$(DOCKERCMD) build \
-	-f ./Dockerfile \
-	--tag $(IMAGE) \
-  --build-arg ARCH=$(ARCH) \
-	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
-	--build-arg path=./reporter/v2/ \
-	--build-arg name=\"Reporter\" \
-	--build-arg exec=./cmd/reporter \
-	--build-arg bin=redhat-marketplace-reporter \
-	--build-arg app_version=\"$(VERSION)\" \
-	--build-arg quay_expiration=\"$(QUAY_EXPIRATION)\" \
-	$(ARGS) \
-	../..
+	$(call docker-templated-build,$(IMAGE),Reporter,./reporter/v2/,./cmd/reporter,redhat-marketplace-reporter,../..)
 
 # Push the docker image
 docker-push:
@@ -70,18 +48,3 @@ generate:
 .PHONY: test
 test: ginkgo
 	$(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./...
-
-ginkgo:
-ifeq (, $(shell which ginkgo))
-	@{ \
-	set -e ;\
-	GINKGO_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$GINKGO_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get -u github.com/onsi/ginkgo/ginkgo ;\
-	rm -rf $$GINKGO_GEN_TMP_DIR ;\
-	}
-GINKGO=$(GOBIN)/ginkgo
-else
-GINKGO=$(shell which ginkgo)
-endif

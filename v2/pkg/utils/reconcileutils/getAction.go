@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	emperrors "emperror.dev/errors"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/codelocation"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -27,7 +26,7 @@ import (
 )
 
 type getAction struct {
-	BaseAction
+	*BaseAction
 	NamespacedName types.NamespacedName
 	Object         runtime.Object
 	getActionOptions
@@ -47,23 +46,21 @@ func GetAction(
 		NamespacedName:   namespacedName,
 		Object:           object,
 		getActionOptions: opts,
-		BaseAction: BaseAction{
-			codelocation: codelocation.New(1),
-		},
+		BaseAction: NewBaseAction("Get"),
 	}
 }
 
 func (g *getAction) Bind(r *ExecResult) {
-	g.lastResult = r
+	g.LastResult = r
 }
 
 func (g *getAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
-	reqLogger := c.log.WithValues("file", g.codelocation, "action", "GetAction")
+	reqLogger := g.GetReqLogger(c)
 
 	if isNil(g.Object) {
 		err := emperrors.New("object to get is nil")
 		reqLogger.Error(err, "updatedObject is nil")
-		return NewExecResult(Error, reconcile.Result{Requeue: true}, err), err
+		return NewExecResult(Error, reconcile.Result{Requeue: true}, g.BaseAction, err), err
 	}
 
 	reqLogger = reqLogger.WithValues("requestType", fmt.Sprintf("%T", g.Object), "key", g.NamespacedName)
@@ -72,14 +69,14 @@ func (g *getAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, er
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.Info("not found")
-			return NewExecResult(NotFound, reconcile.Result{}, err), nil
+			return NewExecResult(NotFound, reconcile.Result{}, g.BaseAction, err), nil
 		}
 		if err != nil {
 			reqLogger.Error(err, "error getting")
-			return NewExecResult(Error, reconcile.Result{Requeue: true}, err), emperrors.Wrap(err, "error during get")
+			return NewExecResult(Error, reconcile.Result{Requeue: true}, g.BaseAction, err), emperrors.Wrap(err, "error during get")
 		}
 	}
 
 	reqLogger.V(2).Info("found")
-	return NewExecResult(Continue, reconcile.Result{}, err), nil
+	return NewExecResult(Continue, reconcile.Result{}, g.BaseAction, err), nil
 }

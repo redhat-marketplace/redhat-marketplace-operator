@@ -7,7 +7,6 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-
 export
 
 .DEFAULT_GOAL := all
@@ -35,6 +34,10 @@ vet:
 .PHONY: fmt
 fmt:
 	$(MAKE) $(addsuffix /fmt,$(PROJECTS))
+
+.PHONY: tidy
+tidy:
+	$(MAKE) $(addsuffix /tidy,$(PROJECTS))
 
 .PHONY: test
 test:

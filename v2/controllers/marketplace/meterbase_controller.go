@@ -300,7 +300,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 			return result.ReturnWithError(merrors.Wrap(result, "error creating prometheus"))
 		}
 
-		reqLogger.Info("returing result", "result", *result)
+		reqLogger.Info("returning result", "result", *result)
 		return result.Return()
 	}
 
@@ -640,15 +640,46 @@ func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 	cm := &corev1.ConfigMap{}
 	deployment := &appsv1.Deployment{}
 	service := &corev1.Service{}
+	nsList := &corev1.NamespaceList{}
 
 	args := manifests.CreateOrUpdateFactoryItemArgs{
 		Owner:   instance,
 		Patcher: r.patcher,
 	}
 
+	nsValues := []string{}
 	watchNamespace, _ := getWatchNamespace()
 
 	return []ClientAction{
+		Call(func() (ClientAction, error) {
+			if watchNamespace == "" {
+				nsLabelSelector, _ := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{
+							Key:      "openshift.io/cluster-monitoring",
+							Operator: "DoesNotExist",
+						},
+					},
+				})
+
+				return Do(
+					ListAction(nsList, client.MatchingLabelsSelector{
+						Selector: nsLabelSelector,
+					}),
+					Call(func() (ClientAction, error) {
+
+						for _, ns := range nsList.Items {
+							nsValues = append(nsValues, ns.Name)
+						}
+
+						return nil, nil
+					}),
+				), nil
+			}
+
+			nsValues = append(nsValues, strings.Split(watchNamespace, ",")...)
+			return nil, nil
+		}),
 		manifests.CreateIfNotExistsFactoryItem(
 			cm,
 			func() (runtime.Object, error) {
@@ -665,7 +696,6 @@ func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 		manifests.CreateOrUpdateFactoryItemAction(
 			deployment,
 			func() (runtime.Object, error) {
-				nsValues := strings.Split(watchNamespace, ",")
 				sort.Strings(nsValues)
 				reqLogger.Info("found namespaces", "ns", nsValues)
 				return factory.NewPrometheusOperatorDeployment(nsValues)
@@ -977,6 +1007,7 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 							updateResult,
 							UpdateWithPatchAction(prometheus, types.MergePatchType, jsonPatch),
 						),
+						OnRequeue(ContinueResponse()),
 						OnError(
 							Call(func() (ClientAction, error) {
 								return UpdateStatusCondition(

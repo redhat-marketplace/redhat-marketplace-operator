@@ -10,12 +10,7 @@ import (
 travisDir: *"." | string @tag(travisDir)
 
 travis: [...{file: string, schema: (json.#Travis & {})}]
-travis: [
-	{
-		file:   ".travis.yml"
-		schema: travisSchema
-	},
-]
+travis: []
 
 _#archs: ["amd64", "ppc64le", "s390x"]
 _#registry:        "quay.io/rh-marketplace"

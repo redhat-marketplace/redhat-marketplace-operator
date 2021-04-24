@@ -1,9 +1,12 @@
 FROM registry.access.redhat.com/ubi8/ubi:latest as golang
+ARG TARGETPLATFORM
+ARG TARGETARCH
+ARG TARGETOS
+ARG ARCH=${TARGETARCH}
+ARG OS=${TARGETOS:-linux}
+ENV VERSION=1.15.11 OS=${OS} ARCH=${ARCH}
 
-ARG ARCH=amd64
-ENV VERSION=1.15.5 OS=linux ARCH=${ARCH}
-
-RUN dnf -y install git
+RUN dnf -y install git make
 
 RUN curl -o go$VERSION.$OS-$ARCH.tar.gz https://dl.google.com/go/go$VERSION.$OS-$ARCH.tar.gz && \
   tar -C /usr/local -xzf go$VERSION.$OS-$ARCH.tar.gz && \

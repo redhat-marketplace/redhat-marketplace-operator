@@ -20,7 +20,6 @@ import (
 
 	emperrors "emperror.dev/errors"
 	"github.com/go-logr/logr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/codelocation"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -31,38 +30,36 @@ import (
 )
 
 type call struct {
-	BaseAction
+	*BaseAction
 	call func() (ClientAction, error)
 }
 
 func Call(callAction func() (ClientAction, error)) ClientAction {
 	return &call{
 		call: callAction,
-		BaseAction: BaseAction{
-			codelocation: codelocation.New(1),
-		},
+		BaseAction: NewBaseAction("Call"),
 	}
 }
 
 func (i *call) Bind(result *ExecResult) {
-	i.lastResult = result
+	i.LastResult = result
 }
 
 func (i *call) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
-	logger := c.log.WithValues("file", i.codelocation, "action", "Call")
+	logger := c.log.WithValues("file", i.CodeLocation, "action", "Call")
 	action, err := i.call()
 
 	if err != nil {
 		logger.Error(err, "call action had an error")
-		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error on call")
+		return NewExecResult(Error, reconcile.Result{}, i.BaseAction, err), emperrors.Wrap(err, "error on call")
 	}
 
 	if isNil(action) {
 		logger.V(2).Info("call had no action to perform")
-		return NewExecResult(Continue, reconcile.Result{}, nil), nil
+		return NewExecResult(Continue, reconcile.Result{}, i.BaseAction, nil), nil
 	}
 
-	action.Bind(i.lastResult)
+	action.Bind(i.LastResult)
 	logger.V(4).Info("executing action")
 	return action.Exec(ctx, c)
 }
@@ -70,51 +67,47 @@ func (i *call) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) 
 func Do(actions ...ClientAction) ClientAction {
 	return &do{
 		Actions: actions,
-		BaseAction: BaseAction{
-			codelocation: codelocation.New(1),
-		},
+		BaseAction: NewBaseAction("Do") ,
 	}
 }
 
 func internalDo(actions ...ClientAction) ClientAction {
 	return &do{
 		Actions: actions,
-		BaseAction: BaseAction{
-			codelocation: codelocation.New(2),
-		},
+		BaseAction: NewBaseAction("Do") ,
 	}
 }
 
 type do struct {
-	BaseAction
+	*BaseAction
 	Actions []ClientAction
 }
 
 func (i *do) Bind(result *ExecResult) {
-	i.lastResult = result
+	i.LastResult = result
 }
 
 func (i *do) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
-	logger := c.log.WithValues("file", i.codelocation, "action", "Do")
+	logger := c.log.WithValues("file", i.CodeLocation, "action", "Do")
 
 	if len(i.Actions) == 0 {
-		return NewExecResult(Continue, reconcile.Result{}, nil), nil
+		return NewExecResult(Continue, reconcile.Result{}, i.BaseAction, nil), nil
 	}
 
 	var err error
-	result := i.lastResult
+	result := i.LastResult
 	for _, action := range i.Actions {
 		action.Bind(result)
 		result, err = action.Exec(ctx, c)
 
 		if err != nil {
 			logger.Error(err, "error from action")
-			return NewExecResult(Error, reconcile.Result{}, err), err
+			return NewExecResult(Error, reconcile.Result{}, i.BaseAction, err), err
 		}
 
 		if result == nil {
 			err = emperrors.New("result should not be nil")
-			return NewExecResult(Error, reconcile.Result{}, err), err
+			return NewExecResult(Error, reconcile.Result{}, i.BaseAction, err), err
 		}
 
 		switch result.Status {
@@ -135,9 +128,7 @@ func (i *do) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 
 func RetryConflict(actions ...ClientAction) ClientAction {
 	return &retryAction{
-		BaseAction: BaseAction{
-			codelocation: codelocation.New(1),
-		},
+		BaseAction: NewBaseAction("RetryConflict"),
 		Actions:    actions,
 		Backoff:    retry.DefaultRetry,
 		RetryError: errors.IsConflict,
@@ -149,9 +140,7 @@ func Retry(
 	retryError func(error) bool,
 	actions ...ClientAction) ClientAction {
 	return &retryAction{
-		BaseAction: BaseAction{
-			codelocation: codelocation.New(1),
-		},
+		BaseAction: NewBaseAction("Retry"),
 		Actions:    actions,
 		Backoff:    backoff,
 		RetryError: retryError,
@@ -159,14 +148,14 @@ func Retry(
 }
 
 type retryAction struct {
-	BaseAction
+	*BaseAction
 	Actions    []ClientAction
 	RetryError func(err error) bool
 	Backoff    wait.Backoff
 }
 
 func (i *retryAction) Bind(result *ExecResult) {
-	i.lastResult = result
+	i.LastResult = result
 }
 
 func (i *retryAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
@@ -189,7 +178,7 @@ func (i *retryAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, 
 		return result, nil
 	}
 
-	return NewExecResult(Error, reconcile.Result{}, err), err
+	return NewExecResult(Error, reconcile.Result{}, nil, err), err
 }
 
 type storeResult struct {
@@ -207,15 +196,15 @@ func StoreResult(result *ExecResult, action ClientAction) ClientAction {
 }
 
 func (r *storeResult) Bind(result *ExecResult) {
-	r.lastResult = result
+	r.LastResult = result
 }
 
 func (r *storeResult) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
-	r.Action.Bind(r.lastResult)
+	r.Action.Bind(r.LastResult)
 	myVar, err := r.Action.Exec(ctx, c)
 
 	if r.Var == nil || myVar == nil {
-		return NewExecResult(Error, reconcile.Result{}, nil), emperrors.New("vars are nil")
+		return NewExecResult(Error, reconcile.Result{}, nil, nil), emperrors.New("vars are nil")
 	}
 
 	*r.Var = *myVar
@@ -229,50 +218,56 @@ type ReturnResponse struct {
 }
 
 func (r *ReturnResponse) Bind(result *ExecResult) {
-	r.lastResult = result
+	r.LastResult = result
 }
 
 func (r *ReturnResponse) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
+	r.ExecResult.Action = r.BaseAction
 	return r.ExecResult, nil
 }
 
 func ReturnFinishedResult() *ReturnResponse {
+	action := NewBaseAction("returnFinishedResult")
 	return &ReturnResponse{
-		BaseAction: NewBaseAction("returnFinishedResult"),
-		ExecResult: NewExecResult(Return, reconcile.Result{}, nil),
+		BaseAction: action,
+		ExecResult: NewExecResult(Return, reconcile.Result{}, action, nil),
 	}
 }
 
 func RequeueResponse() *ReturnResponse {
+	action := NewBaseAction("requeueReponse")
 	return &ReturnResponse{
 		BaseAction: NewBaseAction("requeueReponse"),
-		ExecResult: NewExecResult(Requeue, reconcile.Result{Requeue: true}, nil),
+		ExecResult: NewExecResult(Requeue, reconcile.Result{Requeue: true}, action, nil),
 	}
 }
 
 func RequeueAfterResponse(d time.Duration) *ReturnResponse {
+	action := NewBaseAction("requeueReponse")
 	return &ReturnResponse{
-		BaseAction: NewBaseAction("requeueReponse"),
-		ExecResult: NewExecResult(Requeue, reconcile.Result{RequeueAfter: d}, nil),
+		BaseAction: action,
+		ExecResult: NewExecResult(Requeue, reconcile.Result{RequeueAfter: d}, nil, nil),
 	}
 }
 
 func ReturnWithError(err error) *ReturnResponse {
+	action := NewBaseAction("errorReponse")
 	return &ReturnResponse{
-		BaseAction: NewBaseAction("errorReponse"),
-		ExecResult: NewExecResult(Error, reconcile.Result{}, err),
+		BaseAction: action,
+		ExecResult: NewExecResult(Error, reconcile.Result{}, nil, err),
 	}
 }
 
 func ContinueResponse() *ReturnResponse {
+	action := NewBaseAction("continueReponse")
 	return &ReturnResponse{
-		BaseAction: NewBaseAction("continueReponse"),
-		ExecResult: NewExecResult(Continue, reconcile.Result{}, nil),
+		BaseAction: action,
+		ExecResult: NewExecResult(Continue, reconcile.Result{}, nil, nil),
 	}
 }
 
 type handleResult struct {
-	BaseAction
+	*BaseAction
 	Action   ClientAction
 	Branches []ClientActionBranch
 }
@@ -287,9 +282,7 @@ func HandleResult(
 	return &handleResult{
 		Action:   action,
 		Branches: branches,
-		BaseAction: BaseAction{
-			codelocation: codelocation.New(1),
-		},
+		BaseAction: NewBaseAction("HandleResult"),
 	}
 }
 
@@ -329,12 +322,12 @@ func OnAny(action ClientAction) ClientActionBranch {
 }
 
 func (r *handleResult) Bind(result *ExecResult) {
-	r.lastResult = result
+	r.LastResult = result
 }
 
 func (r *handleResult) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
-	logger := c.log.WithValues("file", r.codelocation, "action", "HandleResult")
-	r.Action.Bind(r.lastResult)
+	logger := r.GetReqLogger(c)
+	r.Action.Bind(r.LastResult)
 	myVar, err := r.Action.Exec(ctx, c)
 
 	for _, branch := range r.Branches {

@@ -16,8 +16,8 @@ workflows: [
 		schema: unit_test
 	},
 	{
-		file:   "bundle.yml"
-		schema: bundle
+		file:   "branch_build.yml"
+		schema: branch_build
 	},
 ]
 
@@ -64,6 +64,113 @@ unit_test: _#bashWorkflow & {
 		}
 	}
 }
+branch_build: _#bashWorkflow & {
+  name: "Branch Build"
+	on: {
+		push: {
+			branches: [
+        "master",
+				"release/**",
+				"hotfix/**",
+				"develop",
+				"feature/**",
+				"bugfix/**",
+			]
+		}
+	}
+	env: {
+		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
+		"BRANCH":         "${{github.event.client_payload.branch}}"
+		"IS_PR":          "${{github.event.client_payload.pull_request}}"
+	}
+	jobs: {
+		"deploy": _#job & {
+			name:      "Deploy"
+			"runs-on": _#linuxMachine
+			steps: [
+				_#checkoutCode,
+				_#installGo,
+        _#setupQemu,
+        _#setupBuildX,
+				_#cacheGoModules,
+				_#installKubeBuilder,
+        _#installOperatorSDK,
+				_#installYQ,
+				_#quayLogin,
+        _#step & {
+					id: "set_env"
+					name: "Set env"
+					run: """
+						REF=`echo ${GITHUB_REF} | sed 's/refs\/head\///g' | sed 's/\//-/g'`
+						echo "IS_DEV=true" >> $GITHUB_ENV
+						echo "BRANCH=$REF" >> $GITHUB_ENV
+
+						if [[ "$GITHUB_REF" == *"refs/head/release"* ||  "$GITHUB_REF" == *"refs/head/hotfix"* ]] ; then
+							echo "IS_DEV=false" >> $GITHUB_ENV
+						fi
+					"""
+				},
+				_#step & {
+					id: "build"
+					name: "Build images"
+					run: "make docker-build"
+				},
+				_#step & {
+					id:   "bundle"
+					name: "Build bundle"
+					run:  """
+						go get github.com/caarlos0/svu
+						echo "building $BRANCH with dev=$IS_DEV"
+
+						cd v2
+						export VERSION=$(svu minor)
+						export TAG=${VERSION}-${DEPLOY_SHA}
+
+						\((_#makeLogGroup & {#args: {name: "Make Stable Bundle", cmd: "make bundle-stable"}}).res)
+
+						if [ "$IS_DEV" == "true" ] ; then
+						echo "using branch in version"
+						export VERSION="${VERSION}-${BRANCH}-${GITHUB_RUN_NUMBER}"
+						else
+						echo "using release version and githb_run_number"
+						export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
+						fi
+
+						\((_#makeLogGroup & {#args: {name: "Make Bundle Build", cmd: "make bundle-build"}}).res)
+						\((_#makeLogGroup & {#args: {name: "Make Deploy", cmd: "make bundle-deploy"}}).res)
+						\((_#makeLogGroup & {#args: {name: "Make Dev Index", cmd: "make bundle-dev-index-multiarch"}}).res)
+
+						echo "::set-output name=isDev::$IS_DEV"
+						echo "::set-output name=version::$VERSION"
+						echo "::set-output name=tag::$TAG"
+						"""
+				},
+			]
+		}
+    publish: _#job & {
+			name:      "Publish Images"
+			"runs-on": _#linuxMachine
+			needs: ["deploy"]
+			env: {
+				VERSION: "${{ needs.deploy.outputs.version }}"
+				TAG:     "${{ needs.deploy.outputs.tag }}"
+			}
+			if: "needs.deploy.outputs.isDev == 'false'"
+			steps: [
+				_#checkoutCode & {
+					with: ref: "${{github.event.client_payload.sha}}"
+				},
+				_#installGo,
+				_#cacheGoModules,
+				_#installOperatorSDK,
+				_#retagCommand,
+				_#redhatConnectLogin,
+				_#waitForPublish,
+				_#retagManifestCommand,
+			]
+		}
+	}
+}
 bundle: _#bashWorkflow & {
 	name: "Deploy Bundle"
 	on: repository_dispatch: types: ["bundle"]
@@ -86,6 +193,8 @@ bundle: _#bashWorkflow & {
 					with: ref: "${{github.event.client_payload.sha}}"
 				},
 				_#installGo,
+        _#setupQemu,
+        _#setupBuildX,
 				_#cacheGoModules,
 				_#installOperatorSDK,
 				_#installYQ,
@@ -118,7 +227,7 @@ bundle: _#bashWorkflow & {
 
 						\((_#makeLogGroup & {#args: {name: "Make Bundle Build", cmd: "make bundle-build"}}).res)
 						\((_#makeLogGroup & {#args: {name: "Make Deploy", cmd: "make bundle-deploy"}}).res)
-						\((_#makeLogGroup & {#args: {name: "Make Dev Index", cmd: "make bundle-dev-index"}}).res)
+						\((_#makeLogGroup & {#args: {name: "Make Dev Index", cmd: "make bundle-dev-index-multiarch"}}).res)
 
 						echo "::set-output name=version::$VERSION"
 						echo "::set-output name=tag::$TAG"
@@ -200,6 +309,17 @@ _#installGo: _#step & {
 	name: "Install Go"
 	uses: "actions/setup-go@v2"
 	with: "go-version": _#goVersion
+}
+
+_#setupBuildX: _#step & {
+	name: "Set up docker buildx"
+	uses: "docker/setup-buildx-action@v1"
+  id: "buildx"
+}
+
+_#setupQemu: _#step & {
+  name: "Set up QEMU"
+  uses: "docker/setup-qemu-action@v1"
 }
 
 _#checkoutCode: _#step & {

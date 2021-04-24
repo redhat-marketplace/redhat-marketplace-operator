@@ -5,6 +5,8 @@ UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
 
 export VERSION
 
+include ../hack/utils.Makefile
+
 # Options for 'bundle-build'
 ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
@@ -145,21 +147,12 @@ else
 DOCKERCMD=docker
 endif
 
+build:
+	$(call multiarch-build,redhat-marketplace-operator)
+
 # Build the docker image
 docker-build:
-	$(DOCKERCMD) build \
-	-f ./Dockerfile \
-	--tag $(IMAGE) \
-  --build-arg ARCH=$(ARCH) \
-	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
-	--build-arg path=./v2/ \
-	--build-arg name=Operator \
-	--build-arg exec=./ \
-	--build-arg bin=redhat-marketplace-operator \
-	--build-arg app_version=\"$(VERSION)\" \
-	--build-arg quay_expiration=\"$(QUAY_EXPIRATION)\" \
-	$(ARGS) \
-	..
+	$(call docker-templated-build,$(IMAGE),Operator,./v2/,./,redhat-marketplace-operator,..)
 
 # Push the docker image
 docker-push:
@@ -200,6 +193,18 @@ bundle: clean manifests kustomize helm operator-sdk yq
 	--set authCheckImage=$(AUTHCHECK_IMAGE) \
 	--post-renderer ./config/default/kustomize > ./deploy/manifestsNativeDeploy.yaml
 
+BUILD_ARCHS = $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS)))
+
+# Build the bundle image for all architectures.
+.PHONY: bundle-build-multiarch
+bundle-build-multiarch:
+	docker buildx build --push -f bundle.Dockerfile -t $(BUNDLE_IMG) \
+	--platform $(call build-targets,$(ARCHS),linux) \
+	--label com.redhat.openshift.versions="v4.5,v4.6,v4.7" \
+  --label com.redhat.delivery.operator.bundle=true \
+	--label com.redhat.delivery.backport=true \
+	.
+
 # Build the bundle image.
 .PHONY: bundle-build
 bundle-build:
@@ -231,6 +236,16 @@ bundle-stable:
 
 VERSIONS_LIST ?= $(BUNDLE_IMG)
 
+.PHONY: bundle-build-index-multiarch
+bundle-dev-index-multiarch:
+	$(OPM) index add -u docker --generate --bundles "$(VERSIONS_LIST)" -d dev-index.Dockerfile
+	docker buildx build --push -f dev-index.Dockerfile -t "$(DEV_INDEX_IMG):$(VERSION)" \
+	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS))) \
+	--label com.redhat.openshift.versions="v4.5,v4.6,v4.7" \
+  --label com.redhat.delivery.operator.bundle=true \
+	--label com.redhat.delivery.backport=true \
+	.
+
 bundle-dev-index: opm
 	$(OPM) index add -u docker --bundles "$(VERSIONS_LIST)" --tag "$(DEV_INDEX_IMG):$(VERSION)" --permissive
 	docker push $(DEV_INDEX_IMG):$(VERSION)
@@ -247,7 +262,7 @@ skaffold-build:
 
 INSTALL_DEBUG ?= false
 
-helm:
+compile-helm: helm
 	cd config && $(HELM) template rhm-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
@@ -257,7 +272,7 @@ helm:
 	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
      --post-renderer ./helm-wrapper/kustomize
 
-install: kustomize helm
+install: kustomize compile-helm
 	cd config && $(HELM) template rhm-operator ./helm-wrapper \
 	   --namespace $(namespace) \
 	   -f ./helm-wrapper/values.yaml \
@@ -294,104 +309,3 @@ PIDs ?=
 wait-and-publish:
 	cd tools/connect ; \
 	go run main.go wait-and-publish --timeout $(TIMEOUT) --tag $(TAG) $(PIDS)
-
-# --TOOLS--
-#
-# find or download controller-gen
-# download controller-gen if necessary
-CONTROLLER_GEN=$(shell pwd)/bin/controller-gen
-controller-gen:
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.3.0)
-
-CODEGEN_PKG=$(GOPATH)/src/k8s.io/code-generator
-code-generator:
-	@[ -d $(CODEGEN_PKG) ] || { \
-	GO111MODULE=off go get k8s.io/code-generator ;\
-	}
-
-KUSTOMIZE=$(shell pwd)/bin/kustomize
-kustomize:
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v3.5.4)
-
-export KUSTOMIZE
-
-OPENAPI_GEN=$(shell pwd)/bin/openapi-gen
-openapi-gen:
-	$(call go-get-tool,$(OPENAPI_GEN),github.com/kubernetes/kube-openapi/cmd/openapi-gen@690f563a49b523b7e87ea117b6bf448aead23b09)
-
-helm:
-ifeq (, $(shell which helm))
-ifeq ($(UNAME_S),Linux)
-	curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
-endif
-ifeq ($(UNAME_S),Darwin)
-	brew install helm
-endif
-endif
-HELM=$(shell which helm)
-
-skaffold:
-ifeq (, $(shell which skaffold))
-ifeq ($(UNAME_S),Linux)
-	curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64 && \
-	sudo install skaffold /usr/local/bin/
-endif
-ifeq ($(UNAME_S),Darwin)
-	brew install skaffold
-endif
-SKAFFOLD=$(shell which skaffold)
-else
-SKAFFOLD=$(shell which skaffold)
-endif
-
-GINKGO=$(shell pwd)/bin/ginkgo
-ginkgo:
-	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/ginkgo)
-
-GOBINDATA=$(shell pwd)/bin/go-bindata
-go-bindata:
-	$(call go-get-tool,$(GOBINDATA),github.com/kevinburke/go-bindata/...)
-
-LICENSE=$(shell pwd)/bin/addlicense
-addlicense:
-	$(call go-get-tool,$(LICENSE),github.com/google/addlicense)
-
-YQ=$(shell pwd)/bin/yq
-yq:
-	$(call go-get-tool,$(YQ),github.com/mikefarah/yq/v4@v4.6.1)
-
-OPERATOR_SDK=$(shell pwd)/bin/operator-sdk
-operator-sdk:
-	$(call install-binary,https://github.com/operator-framework/operator-sdk/releases/download/v1.3.2,operator-sdk_$(UNAME)_$(ARCH),$(OPERATOR_SDK))
-
-OPM=$(shell pwd)/bin/opm
-opm:
-	$(call install-binary,https://github.com/operator-framework/operator-registry/releases/download/v1.13.7,$(UNAME)-$(ARCH)-opm,$(OPM))
-
-# go-get-tool will 'go get' any package $2 and install it to $1.
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
-define go-get-tool
-@[ -f $(1) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
-rm -rf $$TMP_DIR ;\
-}
-endef
-
-# install-binary will 'curl' any package url $1 with file $2 and install it to $3
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
-define install-binary
-@[ -f $(3) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-echo "Downloading $(1)" ;\
-curl -LO $(1)/$(2) ;\
-chmod +x $(2) && mv $(2) $(3) ;\
-rm -rf $$TMP_DIR ;\
-}
-endef

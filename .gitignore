@@ -149,3 +149,5 @@ kubeconfig
 wicked_cli.log
 vendor/
 _licenses/
+
+**/*/bin/
