@@ -237,7 +237,7 @@ bundle-stable:
 VERSIONS_LIST ?= $(BUNDLE_IMG)
 
 .PHONY: bundle-build-index-multiarch
-bundle-dev-index-multiarch:
+bundle-dev-index-multiarch: opm
 	$(OPM) index add -u docker --generate --bundles "$(VERSIONS_LIST)" -d dev-index.Dockerfile
 	docker buildx build --push -f dev-index.Dockerfile -t "$(DEV_INDEX_IMG):$(VERSION)" \
 	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS))) \
