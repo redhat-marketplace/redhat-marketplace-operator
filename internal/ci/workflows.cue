@@ -110,7 +110,7 @@ branch_build: _#bashWorkflow & {
 					id: "set_env"
 					name: "Set env"
 					run: """
-					REF=`echo ${GITHUB_REF} | sed 's/refs\/head\///g' | sed 's/\//-/g'`
+					REF=`echo ${GITHUB_REF} | sed 's/refs\\/head\\///g' | sed 's/\\//-/g'`
 					echo "IS_DEV=true" >> $GITHUB_ENV
 					echo "BRANCH=$REF" >> $GITHUB_ENV
 
