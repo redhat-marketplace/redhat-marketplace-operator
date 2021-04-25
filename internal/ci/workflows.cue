@@ -92,12 +92,38 @@ branch_build: _#bashWorkflow & {
 				},
 			]
 		}
+    "images" : _#job & {
+      name:      "Build Images"
+			"runs-on": _#linuxMachine
+			needs: ["test"]
+      strategy: matrix: {
+        project: ["base", "operator", "authchecker", "metering", "reporter"]
+      }
+			steps: [
+				_#checkoutCode,
+				_#installGo,
+        _#setupQemu,
+        _#setupBuildX,
+				_#cacheGoModules,
+				_#installKubeBuilder,
+        _#installOperatorSDK,
+				_#installYQ,
+				_#quayLogin,
+				_#step & {
+					id: "build"
+					name: "Build images"
+					run: "make clean-licenses save-licenses ${{ matrix.project }}/docker-build"
+				},
+      ]
+    }
 		"deploy": _#job & {
 			name:      "Deploy"
 			"runs-on": _#linuxMachine
 			needs: ["test"]
 			steps: [
-				_#checkoutCode,
+				_#checkoutCode & {
+					with: "fetch-depth": 0
+				},
 				_#installGo,
         _#setupQemu,
         _#setupBuildX,
@@ -117,22 +143,23 @@ branch_build: _#bashWorkflow & {
 					if [[ "$GITHUB_REF" == *"refs/head/release"* ||  "$GITHUB_REF" == *"refs/head/hotfix"* ]] ; then
 					echo "IS_DEV=false" >> $GITHUB_ENV
 					fi
+
+					go get github.com/caarlos0/svu
+					echo "VERSION=$(svu minor)" >> $GITHUB_ENV
+
+					if [[ "$VERSION" == "" ]]; then
+					echo "failed to find version"
+					exit 1
+					fi
 					"""
-				},
-				_#step & {
-					id: "build"
-					name: "Build images"
-					run: "make clean-licenses save-licenses docker-build"
 				},
 				_#step & {
 					id:   "bundle"
 					name: "Build bundle"
 					run:  """
-						go get github.com/caarlos0/svu
-						echo "building $BRANCH with dev=$IS_DEV"
+						echo "building $BRANCH with dev=$IS_DEV and version=$VERSION"
 
 						cd v2
-						export VERSION=$(svu minor)
 						export TAG=${VERSION}-${DEPLOY_SHA}
 
 						\((_#makeLogGroup & {#args: {name: "Make Stable Bundle", cmd: "make bundle-stable"}}).res)
