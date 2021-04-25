@@ -5,7 +5,10 @@ UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
 
 export VERSION
 
-include ../hack/utils.Makefile
+include ../utils.Makefile
+
+echo:
+	echo $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 
 # Options for 'bundle-build'
 ifneq ($(origin CHANNELS), undefined)

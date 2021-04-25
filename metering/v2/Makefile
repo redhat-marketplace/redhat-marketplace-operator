@@ -1,7 +1,7 @@
 VERSION ?= $(shell cd ../../v2/tools/version && go run main.go)
 export VERSION
 
-include ../../hack/utils.Makefile
+include ../../utils.Makefile
 
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 IMAGE_NAME = redhat-marketplace-metric-state

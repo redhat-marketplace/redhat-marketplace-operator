@@ -36,7 +36,7 @@ type call struct {
 
 func Call(callAction func() (ClientAction, error)) ClientAction {
 	return &call{
-		call: callAction,
+		call:       callAction,
 		BaseAction: NewBaseAction("Call"),
 	}
 }
@@ -66,15 +66,15 @@ func (i *call) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) 
 
 func Do(actions ...ClientAction) ClientAction {
 	return &do{
-		Actions: actions,
-		BaseAction: NewBaseAction("Do") ,
+		Actions:    actions,
+		BaseAction: NewBaseAction("Do"),
 	}
 }
 
 func internalDo(actions ...ClientAction) ClientAction {
 	return &do{
-		Actions: actions,
-		BaseAction: NewBaseAction("Do") ,
+		Actions:    actions,
+		BaseAction: NewBaseAction("Do"),
 	}
 }
 
@@ -280,8 +280,8 @@ func HandleResult(
 	branches ...ClientActionBranch,
 ) ClientAction {
 	return &handleResult{
-		Action:   action,
-		Branches: branches,
+		Action:     action,
+		Branches:   branches,
 		BaseAction: NewBaseAction("HandleResult"),
 	}
 }

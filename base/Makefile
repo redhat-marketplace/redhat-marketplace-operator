@@ -5,7 +5,7 @@ BUILDX ?= true
 ARCH ?= amd64
 BASE_TAG ?= $(GO_VERSION)
 
-include ../hack/utils.Makefile
+include ../utils.Makefile
 
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 IMG ?= $(IMAGE_REGISTRY)/golang-base:$(BASE_TAG)

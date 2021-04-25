@@ -46,7 +46,7 @@ func GetAction(
 		NamespacedName:   namespacedName,
 		Object:           object,
 		getActionOptions: opts,
-		BaseAction: NewBaseAction("Get"),
+		BaseAction:       NewBaseAction("Get"),
 	}
 }
 

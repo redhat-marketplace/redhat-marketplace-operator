@@ -11,7 +11,7 @@ export IMG
 IMAGE ?= $(IMG)
 export IMAGE
 
-include ../../hack/utils.Makefile
+include ../../utils.Makefile
 
 all: generate vet fmt
 
