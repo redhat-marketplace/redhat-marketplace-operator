@@ -122,7 +122,7 @@ branch_build: _#bashWorkflow & {
 				_#step & {
 					id: "build"
 					name: "Build images"
-					run: "make docker-build"
+					run: "make clean-licenses save-licenses docker-build"
 				},
 				_#step & {
 					id:   "bundle"

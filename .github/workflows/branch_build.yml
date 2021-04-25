@@ -116,7 +116,7 @@ jobs:
         fi
     - id: build
       name: Build images
-      run: make docker-build
+      run: make clean-licenses save-licenses docker-build
     - id: bundle
       name: Build bundle
       run: |-
