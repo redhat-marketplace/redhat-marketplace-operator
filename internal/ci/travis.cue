@@ -14,7 +14,7 @@ travis: []
 
 _#archs: ["amd64", "ppc64le", "s390x"]
 _#registry:        "quay.io/rh-marketplace"
-_#goVersion:       "1.15.6"
+_#goVersion:       "1.15.11"
 _#branchTarget:    "/^(master|develop|release.*|hotfix.*)$/"
 
 travisSchema: {

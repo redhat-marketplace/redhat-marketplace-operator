@@ -12,10 +12,6 @@ workflowsDir: *"./" | string @tag(workflowsDir)
 workflows: [...{file: string, schema: (json.#Workflow & {})}]
 workflows: [
 	{
-		file:   "test.yml"
-		schema: unit_test
-	},
-	{
 		file:   "branch_build.yml"
 		schema: branch_build
 	},
@@ -80,13 +76,26 @@ branch_build: _#bashWorkflow & {
 	}
 	env: {
 		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
-		"BRANCH":         "${{github.event.client_payload.branch}}"
-		"IS_PR":          "${{github.event.client_payload.pull_request}}"
 	}
 	jobs: {
+    "test": _#job & {
+			name:      "Test"
+			"runs-on": _#linuxMachine
+			steps: [
+				_#checkoutCode,
+				_#installGo,
+				_#cacheGoModules,
+				_#installKubeBuilder,
+				_#step & {
+					name: "Test"
+					run: "make test"
+				},
+			]
+		}
 		"deploy": _#job & {
 			name:      "Deploy"
 			"runs-on": _#linuxMachine
+			needs: ["test"]
 			steps: [
 				_#checkoutCode,
 				_#installGo,
@@ -467,7 +476,7 @@ _#turnStyleStep: _#step & {
 	env: "GITHUB_TOKEN":            "${{ secrets.GITHUB_TOKEN }}"
 }
 
-_#goVersion: "1.15.6"
+_#goVersion: "1.15.11"
 _#pcUser:    "pcUser"
 
 _#operator: {
