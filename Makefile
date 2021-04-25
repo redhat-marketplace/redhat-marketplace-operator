@@ -77,7 +77,7 @@ LICENSE=$(PROJECT_DIR)/bin/addlicense
 addlicense:
 	$(call go-get-tool,$(LICENSE),github.com/google/addlicense)
 
-GO_LICENSES=$(PROJECT_DIR)/v2/bin/go-licenses
+GO_LICENSES=$(PROJECT_DIR)/bin/go-licenses
 golicense:
 	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses)
 
