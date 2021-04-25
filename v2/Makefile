@@ -7,9 +7,6 @@ export VERSION
 
 include ../utils.Makefile
 
-echo:
-	echo $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
-
 # Options for 'bundle-build'
 ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
