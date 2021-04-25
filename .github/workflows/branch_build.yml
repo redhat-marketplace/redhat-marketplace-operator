@@ -22,6 +22,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
     - name: Install Go
       uses: actions/setup-go@v2
       with:
@@ -46,6 +48,17 @@ jobs:
         echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
     - name: Test
       run: make test
+    - name: Get Version
+      run: |-
+        go get github.com/caarlos0/svu
+        export VERSION="$(svu minor)"
+
+        if [[ "$VERSION" == "" ]]; then
+        echo "failed to find version"
+        exit 1
+        fi
+
+        echo "::set-output name=version::$VERSION"
   images:
     name: Build Images
     needs:
@@ -106,7 +119,8 @@ jobs:
         password: ${{secrets['quayPassword']}}
     - id: build
       name: Build images
-      run: make clean-licenses save-licenses ${{ matrix.project }}/docker-build
+      run: TAG=${{ needs.test.output.version }}-$GITHUB_SHA make clean-licenses save-licenses
+        ${{ matrix.project }}/docker-build
     strategy:
       matrix:
         project:
@@ -120,14 +134,14 @@ jobs:
     needs:
     - test
     runs-on: ubuntu-20.04
+    env:
+      VERSION: ${{ needs.test.output.version }}
     defaults:
       run:
         shell: bash
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
     - name: Install Go
       uses: actions/setup-go@v2
       with:
@@ -185,22 +199,13 @@ jobs:
         if [[ "$GITHUB_REF" == *"refs/head/release"* ||  "$GITHUB_REF" == *"refs/head/hotfix"* ]] ; then
         echo "IS_DEV=false" >> $GITHUB_ENV
         fi
-
-        go get github.com/caarlos0/svu
-        echo "VERSION=$(svu minor)" >> $GITHUB_ENV
-
-        if [[ "$VERSION" == "" ]]; then
-        echo "failed to find version"
-        exit 1
-        fi
     - id: bundle
       name: Build bundle
       run: |-
         echo "building $BRANCH with dev=$IS_DEV and version=$VERSION"
 
         cd v2
-        export TAG=${VERSION}-${DEPLOY_SHA}
-
+        export TAG=${VERSION}-${GITHUB_SHA}
         echo "::group::Make Stable Bundle"
         make bundle-stable
         echo "::endgroup::"
@@ -230,6 +235,7 @@ jobs:
     name: Publish Images
     needs:
     - deploy
+    - images
     runs-on: ubuntu-20.04
     env:
       VERSION: ${{ needs.deploy.outputs.version }}

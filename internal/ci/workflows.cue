@@ -82,7 +82,9 @@ branch_build: _#bashWorkflow & {
 			name:      "Test"
 			"runs-on": _#linuxMachine
 			steps: [
-				_#checkoutCode,
+				_#checkoutCode & {
+					with: "fetch-depth": 0
+				},
 				_#installGo,
 				_#cacheGoModules,
 				_#installKubeBuilder,
@@ -90,6 +92,20 @@ branch_build: _#bashWorkflow & {
 					name: "Test"
 					run: "make test"
 				},
+        _#step & {
+          name: "Get Version"
+          run: """
+					go get github.com/caarlos0/svu
+					export VERSION="$(svu minor)"
+
+					if [[ "$VERSION" == "" ]]; then
+					echo "failed to find version"
+					exit 1
+					fi
+
+					echo "::set-output name=version::$VERSION"
+					"""
+        }
 			]
 		}
     "images" : _#job & {
@@ -112,7 +128,7 @@ branch_build: _#bashWorkflow & {
 				_#step & {
 					id: "build"
 					name: "Build images"
-					run: "make clean-licenses save-licenses ${{ matrix.project }}/docker-build"
+					run: "TAG=${{ needs.test.output.version }}-$GITHUB_SHA make clean-licenses save-licenses ${{ matrix.project }}/docker-build"
 				},
       ]
     }
@@ -120,10 +136,11 @@ branch_build: _#bashWorkflow & {
 			name:      "Deploy"
 			"runs-on": _#linuxMachine
 			needs: ["test"]
+      env: {
+        VERSION: "${{ needs.test.output.version }}"
+      }
 			steps: [
-				_#checkoutCode & {
-					with: "fetch-depth": 0
-				},
+				_#checkoutCode,
 				_#installGo,
         _#setupQemu,
         _#setupBuildX,
@@ -143,14 +160,6 @@ branch_build: _#bashWorkflow & {
 					if [[ "$GITHUB_REF" == *"refs/head/release"* ||  "$GITHUB_REF" == *"refs/head/hotfix"* ]] ; then
 					echo "IS_DEV=false" >> $GITHUB_ENV
 					fi
-
-					go get github.com/caarlos0/svu
-					echo "VERSION=$(svu minor)" >> $GITHUB_ENV
-
-					if [[ "$VERSION" == "" ]]; then
-					echo "failed to find version"
-					exit 1
-					fi
 					"""
 				},
 				_#step & {
@@ -160,8 +169,7 @@ branch_build: _#bashWorkflow & {
 						echo "building $BRANCH with dev=$IS_DEV and version=$VERSION"
 
 						cd v2
-						export TAG=${VERSION}-${DEPLOY_SHA}
-
+						export TAG=${VERSION}-${GITHUB_SHA}
 						\((_#makeLogGroup & {#args: {name: "Make Stable Bundle", cmd: "make bundle-stable"}}).res)
 
 						if [ "$IS_DEV" == "true" ] ; then
@@ -186,7 +194,7 @@ branch_build: _#bashWorkflow & {
     publish: _#job & {
 			name:      "Publish Images"
 			"runs-on": _#linuxMachine
-			needs: ["deploy"]
+			needs: ["deploy", "images"]
 			env: {
 				VERSION: "${{ needs.deploy.outputs.version }}"
 				TAG:     "${{ needs.deploy.outputs.tag }}"
