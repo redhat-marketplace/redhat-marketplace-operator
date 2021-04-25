@@ -17,7 +17,7 @@ jobs:
     name: Test
     runs-on: ubuntu-20.04
     outputs:
-      version: ${{ steps.bundle.version.version }}
+      version: ${{ steps.version.outputs.version }}
     defaults:
       run:
         shell: bash
@@ -61,6 +61,7 @@ jobs:
         exit 1
         fi
 
+        echo "Found version $VERSION"
         echo "::set-output name=version::$VERSION"
   images:
     name: Build Images

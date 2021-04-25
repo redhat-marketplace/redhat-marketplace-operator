@@ -82,7 +82,7 @@ branch_build: _#bashWorkflow & {
 			name:      "Test"
 			"runs-on": _#linuxMachine
 			outputs: {
-				version: "${{ steps.bundle.version.version }}"
+				version: "${{ steps.version.outputs.version }}"
 			}
 			steps: [
 				_#checkoutCode & {
@@ -107,6 +107,7 @@ branch_build: _#bashWorkflow & {
 					exit 1
 					fi
 
+					echo "Found version $VERSION"
 					echo "::set-output name=version::$VERSION"
 					"""
         }
