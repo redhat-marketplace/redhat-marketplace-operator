@@ -81,6 +81,9 @@ branch_build: _#bashWorkflow & {
     "test": _#job & {
 			name:      "Test"
 			"runs-on": _#linuxMachine
+			outputs: {
+				version: "${{ steps.bundle.version.version }}"
+			}
 			steps: [
 				_#checkoutCode & {
 					with: "fetch-depth": 0
@@ -93,6 +96,7 @@ branch_build: _#bashWorkflow & {
 					run: "make test"
 				},
         _#step & {
+          id: "version"
           name: "Get Version"
           run: """
 					go get github.com/caarlos0/svu
@@ -128,7 +132,7 @@ branch_build: _#bashWorkflow & {
 				_#step & {
 					id: "build"
 					name: "Build images"
-					run: "TAG=${{ needs.test.output.version }}-$GITHUB_SHA make clean-licenses save-licenses ${{ matrix.project }}/docker-build"
+					run: "TAG=${{ needs.test.outputs.version }}-$GITHUB_SHA make clean-licenses save-licenses ${{ matrix.project }}/docker-build"
 				},
       ]
     }
@@ -137,8 +141,13 @@ branch_build: _#bashWorkflow & {
 			"runs-on": _#linuxMachine
 			needs: ["test"]
       env: {
-        VERSION: "${{ needs.test.output.version }}"
+        VERSION: "${{ needs.test.outputs.version }}"
       }
+			outputs: {
+				isDev:   "${{ steps.bundle.outputs.isDev}}"
+				version: "${{ steps.bundle.outputs.version }}"
+				tag:     "${{ steps.bundle.outputs.tag }}"
+			}
 			steps: [
 				_#checkoutCode,
 				_#installGo,

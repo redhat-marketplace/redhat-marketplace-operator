@@ -16,6 +16,8 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-20.04
+    outputs:
+      version: ${{ steps.bundle.version.version }}
     defaults:
       run:
         shell: bash
@@ -48,7 +50,8 @@ jobs:
         echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
     - name: Test
       run: make test
-    - name: Get Version
+    - id: version
+      name: Get Version
       run: |-
         go get github.com/caarlos0/svu
         export VERSION="$(svu minor)"
@@ -119,7 +122,7 @@ jobs:
         password: ${{secrets['quayPassword']}}
     - id: build
       name: Build images
-      run: TAG=${{ needs.test.output.version }}-$GITHUB_SHA make clean-licenses save-licenses
+      run: TAG=${{ needs.test.outputs.version }}-$GITHUB_SHA make clean-licenses save-licenses
         ${{ matrix.project }}/docker-build
     strategy:
       matrix:
@@ -134,8 +137,12 @@ jobs:
     needs:
     - test
     runs-on: ubuntu-20.04
+    outputs:
+      isDev: ${{ steps.bundle.outputs.isDev}}
+      version: ${{ steps.bundle.outputs.version }}
+      tag: ${{ steps.bundle.outputs.tag }}
     env:
-      VERSION: ${{ needs.test.output.version }}
+      VERSION: ${{ needs.test.outputs.version }}
     defaults:
       run:
         shell: bash
