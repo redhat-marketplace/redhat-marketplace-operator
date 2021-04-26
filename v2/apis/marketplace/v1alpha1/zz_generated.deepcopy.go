@@ -707,7 +707,7 @@ func (in *MeterReportSpec) DeepCopyInto(out *MeterReportSpec) {
 	}
 	if in.MeterDefinitions != nil {
 		in, out := &in.MeterDefinitions, &out.MeterDefinitions
-		*out = make([]MeterDefinitionSpec, len(*in))
+		*out = make([]MeterDefinition, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

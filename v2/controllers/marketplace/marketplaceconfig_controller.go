@@ -181,7 +181,10 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	if len(operatorGroupName) != 0 {
 		operatorGroup := &olmv1.OperatorGroup{}
 
-		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: operatorGroupName, Namespace: marketplaceConfig.Namespace}, operatorGroup)
+		err = r.Client.Get(context.TODO(),
+			types.NamespacedName{Name: operatorGroupName, Namespace: marketplaceConfig.Namespace},
+			operatorGroup,
+		)
 
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return reconcile.Result{}, err

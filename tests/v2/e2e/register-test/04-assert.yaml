@@ -23,6 +23,10 @@ status:
     #  status: 'True'
     #  type: Registered
   meterBaseSubConditions:
+    - message: Prometheus activeTargets contains targets with HealthBad or HealthUnknown.
+      reason: "HealthBad Targets in Status"
+      status: "False"
+      type: Health
     - message: Meter Base install complete
       reason: FinishedMeterBaseInstall
       status: 'False'

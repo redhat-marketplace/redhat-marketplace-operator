@@ -72,9 +72,9 @@ var warningsFilter = map[error]interface{}{
 
 type MarketplaceReporter struct {
 	PrometheusAPI
-	mktconfig         *marketplacev1alpha1.MarketplaceConfig
-	report            *marketplacev1alpha1.MeterReport
-	meterDefinitions  MeterDefinitionReferences
+	mktconfig        *marketplacev1alpha1.MarketplaceConfig
+	report           *marketplacev1alpha1.MeterReport
+	meterDefinitions MeterDefinitionReferences
 	*Config
 }
 
@@ -88,11 +88,11 @@ func NewMarketplaceReporter(
 	meterDefinitions MeterDefinitionReferences,
 ) (*MarketplaceReporter, error) {
 	return &MarketplaceReporter{
-		PrometheusAPI:     *api,
-		mktconfig:         mktconfig,
-		report:            report,
-		Config:            config,
-		meterDefinitions:  meterDefinitions,
+		PrometheusAPI:    *api,
+		mktconfig:        mktconfig,
+		report:           report,
+		Config:           config,
+		meterDefinitions: meterDefinitions,
 	}, nil
 }
 
@@ -501,7 +501,7 @@ func (r *MarketplaceReporter) WriteReport(
 		RhmClusterID:   r.mktconfig.Spec.ClusterUUID,
 		RhmEnvironment: env,
 		Version:        version.Version,
-		ReportVersion: schemav1alpha1.Version,
+		ReportVersion:  schemav1alpha1.Version,
 	}
 
 	reportMetadata := schemav1alpha1.ReportMetadata{

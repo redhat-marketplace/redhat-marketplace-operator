@@ -54,7 +54,7 @@ func (t Time) MarshalText() ([]byte, error) {
 	return []byte(t.String()), nil
 }
 
-func (t *Time) UnmarshalText(data []byte) (error) {
+func (t *Time) UnmarshalText(data []byte) error {
 	t1, err := time.Parse(time.RFC3339, string(data))
 
 	if err != nil {

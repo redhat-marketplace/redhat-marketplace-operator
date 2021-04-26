@@ -282,6 +282,23 @@ metadata:
   name: metric-state
 rules:
   - apiGroups:
+      - 'marketplace.redhat.com'
+    resources:
+      - "meterreports"
+    verbs:
+      - get
+      - list
+      - update
+  - apiGroups:
+      - 'marketplace.redhat.com'
+    resources:
+      - "meterdefinitions"
+      - "meterdefinitions/status"
+    verbs:
+      - get
+      - list
+      - update
+  - apiGroups:
       - '*'
     resources:
       - '*'

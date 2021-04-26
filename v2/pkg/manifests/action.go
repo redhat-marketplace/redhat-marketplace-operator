@@ -67,14 +67,14 @@ func (a *createOrUpdateFactoryItemAction) Exec(ctx context.Context, c *ClientCom
 
 	if err != nil {
 		reqLogger.Error(err, "failure creating factory obj")
-		return NewExecResult(Error, reconcile.Result{Requeue: true}, err), emperrors.Wrap(err, "error with patch")
+		return NewExecResult(Error, reconcile.Result{Requeue: true}, a.BaseAction, err), emperrors.Wrap(err, "error with patch")
 	}
 
 	key, err := client.ObjectKeyFromObject(result)
 
 	if err != nil {
 		reqLogger.Error(err, "failure getting factory obj name")
-		return NewExecResult(Error, reconcile.Result{Requeue: true}, err), emperrors.Wrap(err, "error with patch")
+		return NewExecResult(Error, reconcile.Result{Requeue: true}, a.BaseAction, err), emperrors.Wrap(err, "error with patch")
 	}
 
 	cmd := HandleResult(
@@ -166,7 +166,7 @@ func (a *createIfNotExistsAction) Exec(ctx context.Context, c *ClientCommand) (*
 
 	if err != nil {
 		reqLogger.Error(err, "failure creating factory obj")
-		return NewExecResult(Error, reconcile.Result{Requeue: true}, err), emperrors.Wrap(err, "error with create")
+		return NewExecResult(Error, reconcile.Result{Requeue: true}, a.BaseAction, err), emperrors.Wrap(err, "error with create")
 	}
 
 	key, _ := client.ObjectKeyFromObject(result)

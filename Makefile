@@ -7,7 +7,6 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-
 export
 
 .DEFAULT_GOAL := all
@@ -35,6 +34,10 @@ vet:
 .PHONY: fmt
 fmt:
 	$(MAKE) $(addsuffix /fmt,$(PROJECTS))
+
+.PHONY: tidy
+tidy:
+	$(MAKE) $(addsuffix /tidy,$(PROJECTS))
 
 .PHONY: test
 test:
@@ -70,11 +73,11 @@ cicd:
 	go generate ./gen.go
 	cd .github/workflows && go generate ./gen.go
 
-LICENSE=$(shell pwd)/v2/bin/addlicense
+LICENSE=$(PROJECT_DIR)/bin/addlicense
 addlicense:
 	$(call go-get-tool,$(LICENSE),github.com/google/addlicense)
 
-GO_LICENSES=$(shell pwd)/v2/bin/go-licenses
+GO_LICENSES=$(PROJECT_DIR)/bin/go-licenses
 golicense:
 	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses)
 

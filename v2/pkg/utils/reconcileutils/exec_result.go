@@ -31,6 +31,7 @@ var (
 type ExecResult struct {
 	Status          ActionResultStatus
 	ReconcileResult reconcile.Result
+	Action          *BaseAction
 	Err             error
 }
 
@@ -68,10 +69,12 @@ func (e *ExecResult) Error() string {
 func NewExecResult(
 	status ActionResultStatus,
 	reconcileResult reconcile.Result,
+	action *BaseAction,
 	err error) *ExecResult {
 	return &ExecResult{
 		Status:          status,
 		ReconcileResult: reconcileResult,
+		Action:          action,
 		Err:             err,
 	}
 }
