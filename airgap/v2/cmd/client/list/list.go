@@ -44,9 +44,9 @@ type Listconfig struct {
 }
 
 var (
-	lc        Listconfig
-	log       logr.Logger
-	file_name = "files.csv"
+	lc       Listconfig
+	log      logr.Logger
+	fileName = "files.csv"
 )
 
 var ListCmd = &cobra.Command{
@@ -94,13 +94,9 @@ keys or custom key and sort flag used for sorting list based on sort key and sor
     client list  --output-dir=/path/to/dir`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		l, err := util.InitLog()
-		if err != nil {
-			return err
-		}
-		log = l
+		initLog()
 		// Initialize client
-		err = lc.initializeListClient()
+		err := lc.initializeListClient()
 		if err != nil {
 			return err
 		}
@@ -113,11 +109,22 @@ keys or custom key and sort flag used for sorting list based on sort key and sor
 }
 
 func init() {
+	initLog()
 	ListCmd.Flags().StringSliceVarP(&lc.filter, "filter", "f", []string{}, "filter file list based on pre-defined or custom keys")
 	ListCmd.Flags().StringSliceVarP(&lc.sort, "sort", "s", []string{}, "sort file list based key and sort operation used")
 	ListCmd.Flags().StringVarP(&lc.outputDir, "output-dir", "o", "", "path to save list")
 }
 
+//initLog initializes logger
+func initLog() {
+	var err error
+	log, err = util.InitLog()
+	if err != nil {
+		panic(err)
+	}
+}
+
+//initializeListClient initializes the file retriever client based on provided configuration parameters
 func (lc *Listconfig) initializeListClient() error {
 	conn, err := util.InitClient()
 	if err != nil {
@@ -138,24 +145,24 @@ func (lc *Listconfig) closeConnection() {
 // listFileMetadata fetch list of files and its metadata from the grpc server to a specified directory
 func (lc *Listconfig) listFileMetadata() error {
 
-	var filter_list []*fileretreiver.ListFileMetadataRequest_ListFileFilter
-	var sort_list []*fileretreiver.ListFileMetadataRequest_ListFileSort
+	var filterList []*fileretreiver.ListFileMetadataRequest_ListFileFilter
+	var sortList []*fileretreiver.ListFileMetadataRequest_ListFileSort
 	var file *os.File
 	var w *csv.Writer
 
-	filter_list, err := parseFilter(lc.filter)
+	filterList, err := parseFilter(lc.filter)
 	if err != nil {
 		return err
 	}
 
-	sort_list, err = parseSort(lc.sort)
+	sortList, err = parseSort(lc.sort)
 	if err != nil {
 		return err
 	}
 
 	req := &fileretreiver.ListFileMetadataRequest{
-		FilterBy: filter_list,
-		SortBy:   sort_list,
+		FilterBy: filterList,
+		SortBy:   sortList,
 	}
 
 	resultStream, err := lc.client.ListFileMetadata(context.Background(), req)
@@ -163,7 +170,7 @@ func (lc *Listconfig) listFileMetadata() error {
 		return fmt.Errorf("failed to retrieve list due to: %v", err)
 	}
 
-	fp := lc.outputDir + string(os.PathSeparator) + file_name
+	fp := lc.outputDir + string(os.PathSeparator) + fileName
 	if lc.outputCSV {
 		file, err = os.Create(fp)
 		if err != nil {
@@ -177,7 +184,7 @@ func (lc *Listconfig) listFileMetadata() error {
 			return err
 		}
 	} else {
-		printList(getHeaders())
+		printToConsole(getHeaders())
 	}
 	for {
 		response, err := resultStream.Recv()
@@ -195,7 +202,7 @@ func (lc *Listconfig) listFileMetadata() error {
 
 		data := response.GetResults()
 		if lc.outputCSV {
-			row, err := parseFinfo(data)
+			row, err := parseFileInfo(data)
 			if err != nil {
 				defer os.Remove(fp)
 				return err
@@ -206,11 +213,11 @@ func (lc *Listconfig) listFileMetadata() error {
 				return err
 			}
 		} else {
-			row, err := parseFinfo(data)
+			row, err := parseFileInfo(data)
 			if err != nil {
 				return err
 			}
-			err = printList(row)
+			err = printToConsole(row)
 			if err != nil {
 				return err
 			}
@@ -232,40 +239,40 @@ func parseFilter(filter []string) ([]*fileretreiver.ListFileMetadataRequest_List
 		"deleted_at":    true,
 	}
 
-	var list_filter []*fileretreiver.ListFileMetadataRequest_ListFileFilter
-	for _, filter_string := range filter {
+	var listFilter []*fileretreiver.ListFileMetadataRequest_ListFileFilter
+	for _, filterString := range filter {
 
-		filter_args := parseArgs(filter_string)
+		filterArgs := parseArgs(filterString)
 
-		if len(filter_args) != 3 {
+		if len(filterArgs) != 3 {
 			return nil,
 				fmt.Errorf("'%v' : invalid number of arguments provided for filter operation, Required 3 | Provided %v ",
-					filter_string, len(filter_args))
+					filterString, len(filterArgs))
 		}
 
-		operator, err := parseFilterOperator(filter_args[1], modelColumnSet[filter_args[0]])
+		operator, err := parseFilterOperator(filterArgs[1], modelColumnSet[filterArgs[0]])
 		if err != nil {
 			return nil, err
 		}
 
 		var value string
-		if filter_args[0] == "created_at" || filter_args[0] == "deleted_at" {
-			value, err = parseDateToEpoch(filter_args[2])
+		if filterArgs[0] == "created_at" || filterArgs[0] == "deleted_at" {
+			value, err = parseDateToEpoch(filterArgs[2])
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			value = filter_args[2]
+			value = filterArgs[2]
 		}
 
 		req := &fileretreiver.ListFileMetadataRequest_ListFileFilter{
-			Key:      filter_args[0],
+			Key:      filterArgs[0],
 			Operator: *operator,
 			Value:    value,
 		}
-		list_filter = append(list_filter, req)
+		listFilter = append(listFilter, req)
 	}
-	return list_filter, nil
+	return listFilter, nil
 }
 
 // parseFilterOperator parses filter operator and returns respective operator defined by fileretreiver.proto
@@ -300,7 +307,7 @@ func parseFilterOperator(op string, isColumn bool) (*fileretreiver.ListFileMetad
 
 // parseSort parses arguments for sort operation
 // It returns list of struct ListFileMetadataRequest_ListFileSort and error id occured
-func parseSort(sort_list []string) ([]*fileretreiver.ListFileMetadataRequest_ListFileSort, error) {
+func parseSort(sortList []string) ([]*fileretreiver.ListFileMetadataRequest_ListFileSort, error) {
 	modelColumnSet := map[string]bool{
 		"provided_name": true,
 		"provided_id":   true,
@@ -308,29 +315,29 @@ func parseSort(sort_list []string) ([]*fileretreiver.ListFileMetadataRequest_Lis
 		"created_at":    true,
 		"deleted_at":    true,
 	}
-	var list_sort []*fileretreiver.ListFileMetadataRequest_ListFileSort
+	var listSort []*fileretreiver.ListFileMetadataRequest_ListFileSort
 
-	for _, sort_string := range sort_list {
+	for _, sortString := range sortList {
 
-		sort_args := parseArgs(sort_string)
+		sortArgs := parseArgs(sortString)
 
-		if len(sort_args) != 2 {
-			return nil, fmt.Errorf("'%v' : invalid number of arguments provided for sort operation, Required 2 | Provided %v ", sort_string, len(sort_args))
+		if len(sortArgs) != 2 {
+			return nil, fmt.Errorf("'%v' : invalid number of arguments provided for sort operation, Required 2 | Provided %v ", sortString, len(sortArgs))
 		}
-		if !modelColumnSet[sort_args[0]] {
-			return nil, fmt.Errorf("invalid operand passed for sort operation: %v ", sort_args[0])
+		if !modelColumnSet[sortArgs[0]] {
+			return nil, fmt.Errorf("invalid operand passed for sort operation: %v ", sortArgs[0])
 		}
-		operator, err := parseSortOperator(sort_args[1])
+		operator, err := parseSortOperator(sortArgs[1])
 		if err != nil {
 			return nil, err
 		}
 		req := &fileretreiver.ListFileMetadataRequest_ListFileSort{
-			Key:       sort_args[0],
+			Key:       sortArgs[0],
 			SortOrder: *operator,
 		}
-		list_sort = append(list_sort, req)
+		listSort = append(listSort, req)
 	}
-	return list_sort, nil
+	return listSort, nil
 }
 
 // parseSortOperator parses sort operator and returns respective operator defined by fileretreiver.proto
@@ -368,8 +375,7 @@ func parseDateToEpoch(date string) (string, error) {
 		dt = dt1
 	}
 
-	time_ := time.Date(
-		dt.Year(),
+	time_ := time.Date(dt.Year(),
 		time.Month(dt.Month()),
 		dt.Day(),
 		dt.Hour(),
@@ -383,11 +389,11 @@ func parseDateToEpoch(date string) (string, error) {
 // parseArgs takes double quoted string as input and return slice of string
 // group of characters between two consecutive spaces will be considered as string
 // any characters between single quotation marks will be grouped as string
-func parseArgs(arg_string string) []string {
+func parseArgs(argString string) []string {
 	var args []string
 	var bstr []byte
 	isQuoted := false
-	for i, c := range arg_string {
+	for i, c := range argString {
 		if string(c) == "'" {
 			isQuoted = !isQuoted
 			st := strings.TrimSpace(string(bstr))
@@ -399,7 +405,7 @@ func parseArgs(arg_string string) []string {
 		}
 		if isQuoted {
 			bstr = append(bstr, byte(c))
-			if i == (len(arg_string) - 1) {
+			if i == (len(argString) - 1) {
 				st := strings.TrimSpace(string(bstr))
 				if len(st) != 0 {
 					args = append(args, st)
@@ -415,7 +421,7 @@ func parseArgs(arg_string string) []string {
 				continue
 			}
 			bstr = append(bstr, byte(c))
-			if i == (len(arg_string) - 1) {
+			if i == (len(argString) - 1) {
 				st := strings.TrimSpace(string(bstr))
 				if len(st) != 0 {
 					args = append(args, st)
@@ -426,8 +432,8 @@ func parseArgs(arg_string string) []string {
 	return args
 }
 
-//parses v1.Finfo and return slice of string
-func parseFinfo(finfo *v1.FileInfo) ([]string, error) {
+//parseFileInfo parses v1.Finfo and return slice of string
+func parseFileInfo(finfo *v1.FileInfo) ([]string, error) {
 	mdata, err := json.Marshal(finfo.Metadata)
 	if err != nil {
 		return nil, err
@@ -444,7 +450,7 @@ func parseFinfo(finfo *v1.FileInfo) ([]string, error) {
 	}, nil
 }
 
-// write stream output to csv
+//writeToCSV writes stream output to csv
 func writeToCSV(row []string, writer *csv.Writer) error {
 	err := writer.Write(row)
 	if err != nil {
@@ -453,7 +459,7 @@ func writeToCSV(row []string, writer *csv.Writer) error {
 	return nil
 }
 
-// returns headers for csv
+//getHeaders returns headers for csv/table
 func getHeaders() []string {
 	return []string{
 		"File ID",
@@ -466,14 +472,18 @@ func getHeaders() []string {
 	}
 }
 
-// printList prints list of files on console
-func printList(r []string) error {
+// printToConsole prints list of files on console
+func printToConsole(r []string) error {
 	w := tabwriter.NewWriter(os.Stdout, 10, 0, 2, ' ', tabwriter.Debug)
 	var row string
 	for _, s := range r {
 		row = row + s + "\t"
 	}
-	fmt.Fprintln(w, row)
+	_, err := fmt.Fprintln(w, row)
+	if err != nil {
+		w.Flush()
+		return nil
+	}
 	w.Flush()
 	return nil
 }

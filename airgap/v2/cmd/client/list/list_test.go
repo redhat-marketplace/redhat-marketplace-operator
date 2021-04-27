@@ -353,7 +353,7 @@ func TestList(t *testing.T) {
 				conn:   conn,
 				client: listFilMetaDataCLient,
 			},
-			errMsg: "invalid date format. \n Valid formats: \n yyyy-mm-dd",
+			errMsg: "cannot parse",
 		},
 		{
 			name: "invalid sort arguments",

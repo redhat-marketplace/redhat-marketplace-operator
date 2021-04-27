@@ -51,13 +51,9 @@ var DownloadCmd = &cobra.Command{
 	Long:  `An external configuration file containing connection details are expected`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		l, err := util.InitLog()
-		if err != nil {
-			return err
-		}
-		log = l
+		initLog()
 		// Initialize client
-		err = dc.initializeDownloadClient()
+		err := dc.initializeDownloadClient()
 		if err != nil {
 			return err
 		}
@@ -74,11 +70,21 @@ var DownloadCmd = &cobra.Command{
 }
 
 func init() {
+	initLog()
 	DownloadCmd.Flags().StringVarP(&dc.fileName, "file-name", "n", "", "Name of the file to be downloaded")
 	DownloadCmd.Flags().StringVarP(&dc.fileId, "file-id", "i", "", "Id of the file to be downloaded")
 	DownloadCmd.Flags().StringVarP(&dc.outputDirectory, "output-directory", "o", "", "Path to download the file")
 	DownloadCmd.Flags().StringVarP(&dc.fileListPath, "file-list-path", "f", "", "Fully qualified path to file containing list of names/identifiers")
 	DownloadCmd.MarkFlagRequired("output-directory")
+}
+
+//initLog initializes logger
+func initLog() {
+	var err error
+	log, err = util.InitLog()
+	if err != nil {
+		panic(err)
+	}
 }
 
 // initializeDownloadClient initializes the file retriever client based on provided configuration parameters
@@ -232,8 +238,13 @@ func parseCSV(fp string) (fns []string, fids []string, err error) {
 // getExpectedCSVHeaders returns the minimum headers required to parse the csv file
 func getExpectedCSVHeaders() []string {
 	return []string{
-		"file_identifier",
-		"file_name",
+		"File ID",
+		"File Name",
+		"Size",
+		"Created At",
+		"Compression",
+		"Compression Type",
+		"Metadata",
 	}
 }
 
