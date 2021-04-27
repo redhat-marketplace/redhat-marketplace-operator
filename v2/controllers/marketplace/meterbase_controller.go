@@ -867,7 +867,7 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 	}
 
 	dataSecret := &corev1.Secret{}
-	kubeletCertsCM := &corev1.ConfigMap{}
+	// kubeletCertsCM := &corev1.ConfigMap{}
 
 	return []ClientAction{
 		manifests.CreateIfNotExistsFactoryItem(
@@ -905,21 +905,21 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 			}),
 			OnError(RequeueResponse()),
 		),
-		HandleResult(
-			GetAction(
-				types.NamespacedName{Namespace: "openshift-monitoring", Name: "kubelet-serving-ca-bundle"},
-				kubeletCertsCM,
-			),
-			OnNotFound(Call(func() (ClientAction, error) {
-				return nil, merrors.New("require kubelet-serving configmap is not found")
-			})),
-			OnContinue(manifests.CreateOrUpdateFactoryItemAction(
-				&corev1.ConfigMap{},
-				func() (runtime.Object, error) {
-					return factory.PrometheusKubeletServingCABundle(kubeletCertsCM.Data["ca-bundle.crt"])
-				},
-				args,
-			))),
+		// HandleResult(
+		// 	GetAction(
+		// 		types.NamespacedName{Namespace: "openshift-monitoring", Name: "kubelet-serving-ca-bundle"},
+		// 		kubeletCertsCM,
+		// 	),
+		// 	OnNotFound(Call(func() (ClientAction, error) {
+		// 		return nil, merrors.New("require kubelet-serving configmap is not found")
+		// 	})),
+		// 	OnContinue(manifests.CreateOrUpdateFactoryItemAction(
+		// 		&corev1.ConfigMap{},
+		// 		func() (runtime.Object, error) {
+		// 			return factory.PrometheusKubeletServingCABundle(kubeletCertsCM.Data["ca-bundle.crt"])
+		// 		},
+		// 		args,
+		// 	))),
 
 		manifests.CreateOrUpdateFactoryItemAction(
 			&corev1.Service{},

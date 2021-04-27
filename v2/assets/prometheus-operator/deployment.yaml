@@ -38,7 +38,7 @@ spec:
             - --alertmanager-instance-namespaces=''
             - --thanos-ruler-instance-namespaces=''
             - --prometheus-instance-selector=marketplace.redhat.com/metering=true
-            - --manage-crds=false
+            # - --manage-crds=false
           image: registry.redhat.io/openshift4/ose-prometheus-operator:latest
           imagePullPolicy: IfNotPresent
           name: prometheus-operator
