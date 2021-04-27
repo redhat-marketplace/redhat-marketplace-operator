@@ -27,14 +27,11 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/go-logr/zapr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/client/util"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 type Listconfig struct {
@@ -47,8 +44,9 @@ type Listconfig struct {
 }
 
 var (
-	lc  Listconfig
-	log logr.Logger
+	lc        Listconfig
+	log       logr.Logger
+	file_name = "files.csv"
 )
 
 var ListCmd = &cobra.Command{
@@ -95,12 +93,14 @@ keys or custom key and sort flag used for sorting list based on sort key and sor
     # Save list to csv file
     client list  --output-dir=/path/to/dir`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// enable/disable logging
-		if !viper.GetBool("verbose") {
-			log = logr.Discard()
+
+		l, err := util.InitLog()
+		if err != nil {
+			return err
 		}
+		log = l
 		// Initialize client
-		err := lc.initializeListClient()
+		err = lc.initializeListClient()
 		if err != nil {
 			return err
 		}
@@ -113,50 +113,16 @@ keys or custom key and sort flag used for sorting list based on sort key and sor
 }
 
 func init() {
-	initLog()
 	ListCmd.Flags().StringSliceVarP(&lc.filter, "filter", "f", []string{}, "filter file list based on pre-defined or custom keys")
 	ListCmd.Flags().StringSliceVarP(&lc.sort, "sort", "s", []string{}, "sort file list based key and sort operation used")
 	ListCmd.Flags().StringVarP(&lc.outputDir, "output-dir", "o", "", "path to save list")
 }
 
-func initLog() {
-	zapLog, err := zap.NewDevelopment()
-	if err != nil {
-		panic(fmt.Sprintf("Failed to initialize zapr, due to error: %v", err))
-	}
-	log = zapr.NewLogger(zapLog)
-}
-
 func (lc *Listconfig) initializeListClient() error {
-	// Fetch target address
-	address := viper.GetString("address")
-	if len(strings.TrimSpace(address)) == 0 {
-		return fmt.Errorf("target address is blank/empty")
-	}
-	log.Info("Connection credentials:", "address", address)
-
-	// Create connection
-	insecure := viper.GetBool("insecure")
-	var conn *grpc.ClientConn
-	var err error
-
-	if insecure {
-		conn, err = grpc.Dial(address, grpc.WithInsecure())
-	} else {
-		cert := viper.GetString("certificate-path")
-		creds, sslErr := credentials.NewClientTLSFromFile(cert, "")
-		if sslErr != nil {
-			return fmt.Errorf("ssl error: %v", sslErr)
-		}
-		opts := grpc.WithTransportCredentials(creds)
-		conn, err = grpc.Dial(address, opts)
-	}
-
-	// Handle any connection errors
+	conn, err := util.InitClient()
 	if err != nil {
-		return fmt.Errorf("connection error: %v", err)
+		return err
 	}
-
 	lc.client = fileretreiver.NewFileRetreiverClient(conn)
 	lc.conn = conn
 	return nil
@@ -197,7 +163,7 @@ func (lc *Listconfig) listFileMetadata() error {
 		return fmt.Errorf("failed to retrieve list due to: %v", err)
 	}
 
-	fp := lc.outputDir + string(os.PathSeparator) + "files.csv"
+	fp := lc.outputDir + string(os.PathSeparator) + file_name
 	if lc.outputCSV {
 		file, err = os.Create(fp)
 		if err != nil {

@@ -23,14 +23,11 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/go-logr/zapr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/client/util"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 type DownloadConfig struct {
@@ -53,8 +50,14 @@ var DownloadCmd = &cobra.Command{
 	Short: "Download files from the airgap service",
 	Long:  `An external configuration file containing connection details are expected`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+
+		l, err := util.InitLog()
+		if err != nil {
+			return err
+		}
+		log = l
 		// Initialize client
-		err := dc.initializeDownloadClient()
+		err = dc.initializeDownloadClient()
 		if err != nil {
 			return err
 		}
@@ -71,7 +74,6 @@ var DownloadCmd = &cobra.Command{
 }
 
 func init() {
-	initLog()
 	DownloadCmd.Flags().StringVarP(&dc.fileName, "file-name", "n", "", "Name of the file to be downloaded")
 	DownloadCmd.Flags().StringVarP(&dc.fileId, "file-id", "i", "", "Id of the file to be downloaded")
 	DownloadCmd.Flags().StringVarP(&dc.outputDirectory, "output-directory", "o", "", "Path to download the file")
@@ -79,45 +81,12 @@ func init() {
 	DownloadCmd.MarkFlagRequired("output-directory")
 }
 
-func initLog() {
-	zapLog, err := zap.NewDevelopment()
-	if err != nil {
-		panic(fmt.Sprintf("Failed to initialize zapr, due to error: %v", err))
-	}
-	log = zapr.NewLogger(zapLog)
-}
-
 // initializeDownloadClient initializes the file retriever client based on provided configuration parameters
 func (dc *DownloadConfig) initializeDownloadClient() error {
-	// Fetch target address
-	address := viper.GetString("address")
-	if len(strings.TrimSpace(address)) == 0 {
-		return fmt.Errorf("target address is blank/empty")
-	}
-	log.Info("Connection credentials:", "address", address)
-
-	// Create connection
-	insecure := viper.GetBool("insecure")
-	var conn *grpc.ClientConn
-	var err error
-
-	if insecure {
-		conn, err = grpc.Dial(address, grpc.WithInsecure())
-	} else {
-		cert := viper.GetString("certificate-path")
-		creds, sslErr := credentials.NewClientTLSFromFile(cert, "")
-		if sslErr != nil {
-			return fmt.Errorf("ssl error: %v", sslErr)
-		}
-		opts := grpc.WithTransportCredentials(creds)
-		conn, err = grpc.Dial(address, opts)
-	}
-
-	// Handle any connection errors
+	conn, err := util.InitClient()
 	if err != nil {
-		return fmt.Errorf("connection error: %v", err)
+		return err
 	}
-
 	dc.client = fileretreiver.NewFileRetreiverClient(conn)
 	dc.conn = conn
 	return nil
