@@ -230,6 +230,7 @@ func (lc *Listconfig) listFileMetadata() error {
 // parseFilter parses arguments for filter operation
 // It returns list of struct ListFileMetadataRequest_ListFileFilter and error if occured
 func parseFilter(filter []string) ([]*fileretreiver.ListFileMetadataRequest_ListFileFilter, error) {
+	var listFilter []*fileretreiver.ListFileMetadataRequest_ListFileFilter
 
 	modelColumnSet := map[string]bool{
 		"provided_name": true,
@@ -239,7 +240,6 @@ func parseFilter(filter []string) ([]*fileretreiver.ListFileMetadataRequest_List
 		"deleted_at":    true,
 	}
 
-	var listFilter []*fileretreiver.ListFileMetadataRequest_ListFileFilter
 	for _, filterString := range filter {
 
 		filterArgs := parseArgs(filterString)
@@ -308,6 +308,8 @@ func parseFilterOperator(op string, isColumn bool) (*fileretreiver.ListFileMetad
 // parseSort parses arguments for sort operation
 // It returns list of struct ListFileMetadataRequest_ListFileSort and error id occured
 func parseSort(sortList []string) ([]*fileretreiver.ListFileMetadataRequest_ListFileSort, error) {
+	var listSort []*fileretreiver.ListFileMetadataRequest_ListFileSort
+
 	modelColumnSet := map[string]bool{
 		"provided_name": true,
 		"provided_id":   true,
@@ -315,7 +317,6 @@ func parseSort(sortList []string) ([]*fileretreiver.ListFileMetadataRequest_List
 		"created_at":    true,
 		"deleted_at":    true,
 	}
-	var listSort []*fileretreiver.ListFileMetadataRequest_ListFileSort
 
 	for _, sortString := range sortList {
 
@@ -474,8 +475,8 @@ func getHeaders() []string {
 
 // printToConsole prints list of files on console
 func printToConsole(r []string) error {
-	w := tabwriter.NewWriter(os.Stdout, 10, 0, 2, ' ', tabwriter.Debug)
 	var row string
+	w := tabwriter.NewWriter(os.Stdout, 10, 0, 2, ' ', tabwriter.Debug)
 	for _, s := range r {
 		row = row + s + "\t"
 	}
