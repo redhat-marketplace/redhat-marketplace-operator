@@ -528,6 +528,105 @@ func TestDatabase_ListFileMetadata(t *testing.T) {
 	}
 }
 
+func TestDatabase_GetFileMetadata(t *testing.T) {
+	err := initLog()
+	if err != nil {
+		t.Fatalf("Couldn't initialize logger: %v", err)
+	}
+
+	db, err := gorm.Open(sqlite.Open(dbName), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("Couldn't create sqlite connection")
+	}
+	defer closeDBConnection(db)
+
+	//Perform migrations
+	db.AutoMigrate(&models.FileMetadata{}, &models.File{}, &models.Metadata{})
+
+	database := &database.Database{
+		DB:  db,
+		Log: logger,
+	}
+
+	populateDataset(database)
+
+	tests := []struct {
+		name   string
+		fid    *v1.FileID
+		m      *models.Metadata
+		errMsg string
+	}{
+		{
+			name: "Get metadata for a file that exists in the database",
+			fid: &v1.FileID{
+				Data: &v1.FileID_Name{
+					Name: "reports.zip",
+				},
+			},
+			m: &models.Metadata{
+				Size:         2000,
+				ProvidedName: "reports.zip",
+				FileMetadata: []models.FileMetadata{
+					{Key: "version", Value: "2"},
+					{Key: "type", Value: "report"},
+				},
+			},
+			errMsg: "",
+		},
+		{
+			name: "invalid request to get metadata of a file that doesn't exist",
+			fid: &v1.FileID{
+				Data: &v1.FileID_Name{
+					Name: "dontexist.zip",
+				},
+			},
+			m:      nil,
+			errMsg: fmt.Sprintf("no file found for provided_name: %v / provided_id: %v", "dontexist.zip", ""),
+		},
+		{
+			name: "invalid request to get metadata of a file with whitespaces as the name",
+			fid: &v1.FileID{
+				Data: &v1.FileID_Name{
+					Name: "   ",
+				},
+			},
+			m:      nil,
+			errMsg: "file id/name is blank",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := database.GetFileMetadata(tt.fid)
+			if err != nil {
+				if !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("Expected error message: %v, instead got: %v", tt.errMsg, err.Error())
+				}
+			} else if len(tt.errMsg) > 0 {
+				t.Errorf("Expected error: %v was never received!", tt.errMsg)
+			}
+
+			if tt.m != nil {
+				if m.CleanTombstoneSetAt != 0 {
+					t.Errorf("File marked for deletion was retrieved")
+				}
+
+				if tt.m.ProvidedName != m.ProvidedName {
+					t.Errorf("Expected file name: %v, instead got: %v", tt.m.ProvidedName, m.ProvidedName)
+				}
+
+				if tt.m.Size != m.Size {
+					t.Errorf("Expected file size: %v, instead got: %v", tt.m.Size, m.Size)
+				}
+
+				if len(tt.m.FileMetadata) != len(m.FileMetadata) {
+					t.Errorf("Expected metadata keys: %v, instead got: %v", tt.m.Size, m.Size)
+				}
+			}
+		})
+	}
+}
+
 // Populate Database for testing
 func populateDataset(database *database.Database) {
 	var t *testing.T

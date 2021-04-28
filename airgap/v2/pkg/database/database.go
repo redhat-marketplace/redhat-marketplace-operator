@@ -31,6 +31,7 @@ type FileStore interface {
 	SaveFile(finfo *v1.FileInfo, bs []byte) error
 	DownloadFile(finfo *v1.FileID) (*models.Metadata, error)
 	ListFileMetadata([]*Condition, []*SortOrder) ([]models.Metadata, error)
+	GetFileMetadata(finfo *v1.FileID) (*models.Metadata, error)
 }
 
 type Database struct {
@@ -215,4 +216,37 @@ func (d *Database) ListFileMetadata(conditionList []*Condition, sortOrderList []
 		Find(&metadataList)
 
 	return metadataList, nil
+}
+
+// GetFileMetadata allow us to fetch metadata of files from database
+func (d *Database) GetFileMetadata(finfo *v1.FileID) (*models.Metadata, error) {
+
+	var meta models.Metadata
+
+	fileid := strings.TrimSpace(finfo.GetId())
+	filename := strings.TrimSpace(finfo.GetName())
+
+	// Perform validations and query
+	if len(fileid) != 0 {
+		d.DB.Where("provided_id = ?", fileid).
+			Where("clean_tombstone_set_at = ?", 0).
+			Order("created_at desc").
+			Preload("FileMetadata").
+			First(&meta)
+	} else if len(filename) != 0 {
+		d.DB.Where("provided_name = ?", filename).
+			Where("clean_tombstone_set_at = ?", 0).
+			Order("created_at desc").
+			Preload("FileMetadata").
+			First(&meta)
+	} else {
+		return nil, fmt.Errorf("file id/name is blank")
+	}
+
+	if reflect.DeepEqual(meta, models.Metadata{}) {
+		return nil, fmt.Errorf("no file found for provided_name: %v / provided_id: %v", filename, fileid)
+	}
+
+	d.Log.Info("Retreived metadata of file", "id", meta.FileID)
+	return &meta, nil
 }

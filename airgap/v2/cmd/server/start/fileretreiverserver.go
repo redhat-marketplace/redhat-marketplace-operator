@@ -15,6 +15,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -220,4 +221,45 @@ func (frs *FileRetreiverServer) ListFileMetadata(lis *fileretreiver.ListFileMeta
 	}
 
 	return nil
+}
+
+// GetFileMetadata fetches the file metadata from database, provided the file specified in the request exists
+func (frs *FileRetreiverServer) GetFileMetadata(ctx context.Context, in *fileretreiver.GetFileMetadataRequest) (*fileretreiver.GetFileMetadataResponse, error) {
+	//Fetch file info from DB
+	metadata, err := frs.B.FileStore.GetFileMetadata(in.GetFileId())
+	if err != nil {
+		return nil, status.Errorf(
+			codes.InvalidArgument,
+			fmt.Sprintf("Failed to fetch file metadata from database due to: %v", err),
+		)
+	}
+
+	var fid v1.FileID
+	if len(metadata.ProvidedId) != 0 {
+		fid = v1.FileID{Data: &v1.FileID_Id{Id: metadata.ProvidedId}}
+	} else if len(metadata.ProvidedName) != 0 {
+		fid = v1.FileID{Data: &v1.FileID_Name{Name: metadata.ProvidedName}}
+	}
+
+	fms := make(map[string]string)
+	for _, fm := range metadata.FileMetadata {
+		fms[fm.Key] = fm.Value
+	}
+
+	// File information response
+	res := &fileretreiver.GetFileMetadataResponse{
+		Info: &v1.FileInfo{
+			FileId:           &fid,
+			Size:             metadata.Size,
+			CreatedAt:        &timestamppb.Timestamp{Seconds: metadata.CreatedAt},
+			DeletedTombstone: &timestamppb.Timestamp{Seconds: metadata.DeletedAt},
+			UpdatedAt:        &timestamppb.Timestamp{Seconds: metadata.CreatedAt},
+			Compression:      metadata.Compression,
+			CompressionType:  metadata.CompressionType,
+			Metadata:         fms,
+		},
+	}
+	frs.B.Log.Info("File Info Response", "res", res)
+	// Send file information
+	return res, nil
 }

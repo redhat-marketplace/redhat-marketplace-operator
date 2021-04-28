@@ -474,6 +474,88 @@ func TestFileRetreiverServer_ListFileMetadata(t *testing.T) {
 	}
 }
 
+func TestFileRetreiverServer_GetFileMetadata(t *testing.T) {
+	//Initialize server
+	runSetup()
+	//Initialize client
+	conn := createClient()
+
+	//Shutdown resources
+	defer shutdown(conn)
+
+	populateDataset()
+
+	//Create a client for download
+	getFileMetadaClient := fileretreiver.NewFileRetreiverClient(conn)
+
+	tests := []struct {
+		name    string
+		dfr     *fileretreiver.GetFileMetadataRequest
+		size    uint32
+		errCode codes.Code
+	}{
+		{
+			name: "get file metadata of an existing file on the server",
+			dfr: &fileretreiver.GetFileMetadataRequest{
+				FileId: &v1.FileID{
+					Data: &v1.FileID_Name{
+						Name: "reports.zip"},
+				},
+			},
+			size:    2000,
+			errCode: codes.OK,
+		},
+		{
+			name: "invalid get file metadata request for file that doesn't exist on the server",
+			dfr: &fileretreiver.GetFileMetadataRequest{
+				FileId: &v1.FileID{
+					Data: &v1.FileID_Name{
+						Name: "dontexist.zip"},
+				},
+			},
+			size:    0,
+			errCode: codes.InvalidArgument,
+		},
+		{
+			name: "invalid get file metadata request for file with only whitespaces for the name",
+			dfr: &fileretreiver.GetFileMetadataRequest{
+				FileId: &v1.FileID{
+					Data: &v1.FileID_Name{
+						Name: "   "},
+				},
+			},
+			size:    0,
+			errCode: codes.InvalidArgument,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stream, err := getFileMetadaClient.GetFileMetadata(context.Background(), tt.dfr)
+
+			if err != nil {
+				if er, ok := status.FromError(err); ok {
+					if er.Code() != tt.errCode {
+						t.Errorf("mismatched error codes: expected %v, received: %v for test: %v", tt.errCode, er.Code(), tt.name)
+					}
+				}
+			}
+
+			md := stream.GetInfo()
+
+			if md != nil {
+				if md.DeletedTombstone.Seconds != 0 {
+					t.Errorf("File marked for deletion was retrieved")
+				}
+
+				if int(md.GetSize()) != int(tt.size) {
+					t.Errorf("sent:%v and recieved:%v size doesn't match for test: %v", int(tt.size), md.GetSize(), tt.name)
+				}
+			}
+		})
+	}
+}
+
 // Populate Database for testing
 func populateDataset() {
 	var t *testing.T
