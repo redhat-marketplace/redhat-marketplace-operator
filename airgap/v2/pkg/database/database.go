@@ -15,6 +15,8 @@
 package database
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"reflect"
 	"strings"
@@ -65,6 +67,9 @@ func (d *Database) SaveFile(finfo *v1.FileInfo, bs []byte) error {
 		return fmt.Errorf("file id/name is blank")
 	}
 
+	cb := sha256.Sum256(bs)
+	c := hex.EncodeToString(cb[:])
+
 	// Create a slice of file metadata models
 	var fms []models.FileMetadata
 	m := finfo.GetMetadata()
@@ -83,6 +88,7 @@ func (d *Database) SaveFile(finfo *v1.FileInfo, bs []byte) error {
 		Size:            finfo.GetSize(),
 		Compression:     finfo.GetCompression(),
 		CompressionType: finfo.GetCompressionType(),
+		Checksum:        c,
 		File: models.File{
 			Content: bs,
 		},
@@ -94,7 +100,7 @@ func (d *Database) SaveFile(finfo *v1.FileInfo, bs []byte) error {
 		return err
 	}
 
-	d.Log.Info("Saved file", "size", metadata.Size, "id", metadata.FileID)
+	d.Log.Info("Saved file", "size", metadata.Size, "id", metadata.FileID, "checksun", c)
 	return nil
 }
 

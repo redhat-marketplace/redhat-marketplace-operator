@@ -32,6 +32,7 @@ type Metadata struct {
 	FileID              string
 	File                File
 	FileMetadata        []FileMetadata
+	Checksum            string
 }
 
 func (m *Metadata) BeforeCreate(tx *gorm.DB) (err error) {

@@ -110,6 +110,7 @@ func (dc *DownloadConfig) downloadFile(fn string, fid string) error {
 	fid = strings.TrimSpace(fid)
 	var req *fileretreiver.DownloadFileRequest
 	var name string
+	var cs string
 
 	// Validate input and prepare request
 	if len(fn) == 0 && len(fid) == 0 {
@@ -147,6 +148,9 @@ func (dc *DownloadConfig) downloadFile(fn string, fid string) error {
 			return fmt.Errorf("error while reading stream: %v", err)
 		}
 
+		if len(strings.TrimSpace(file.GetInfo().GetChecksum())) != 0 {
+			cs = file.GetInfo().GetChecksum()
+		}
 		data := file.GetChunkData()
 		if bs == nil {
 			bs = data
@@ -166,6 +170,7 @@ func (dc *DownloadConfig) downloadFile(fn string, fid string) error {
 	}
 
 	dc.log.Info("File downloaded successfully!", "name/id", name)
+	dc.log.Info("Checksum", "checksum", cs)
 	return nil
 }
 

@@ -75,6 +75,7 @@ func (frs *FileRetreiverServer) DownloadFile(dfr *fileretreiver.DownloadFileRequ
 				UpdatedAt:        created_at,
 				Compression:      metadata.Compression,
 				CompressionType:  metadata.CompressionType,
+				Checksum:         metadata.Checksum,
 				Metadata:         fms,
 			},
 		},
@@ -213,6 +214,7 @@ func (frs *FileRetreiverServer) ListFileMetadata(lis *fileretreiver.ListFileMeta
 				DeletedTombstone: &timestamppb.Timestamp{Seconds: metadata.DeletedAt},
 				Compression:      metadata.Compression,
 				CompressionType:  metadata.CompressionType,
+				Checksum:         metadata.Checksum,
 			},
 		}
 		//Send response

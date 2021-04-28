@@ -448,6 +448,7 @@ func parseFileInfo(finfo *v1.FileInfo) ([]string, error) {
 		strconv.FormatBool(finfo.Compression),
 		finfo.CompressionType,
 		metadata,
+		finfo.Checksum,
 	}, nil
 }
 
@@ -470,6 +471,7 @@ func getHeaders() []string {
 		"Compression",
 		"Compression Type",
 		"Metadata",
+		"Checksum",
 	}
 }
 
