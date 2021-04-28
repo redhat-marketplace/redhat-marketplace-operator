@@ -608,7 +608,7 @@ func TestDatabase_GetFileMetadata(t *testing.T) {
 
 			if tt.m != nil {
 				if m.CleanTombstoneSetAt != 0 {
-					t.Errorf("could not fetch metadata, file is selected for deletion")
+					t.Errorf("File marked for deletion was retrieved")
 				}
 
 				if tt.m.ProvidedName != m.ProvidedName {

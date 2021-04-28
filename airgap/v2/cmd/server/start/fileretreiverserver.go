@@ -259,7 +259,7 @@ func (frs *FileRetreiverServer) GetFileMetadata(ctx context.Context, in *fileret
 			Metadata:         fms,
 		},
 	}
-	frs.B.Log.Info(fmt.Sprintf("File Info Response: %v ", res))
+	frs.B.Log.Info("File Info Response", "res", res)
 	// Send file information
 	return res, nil
 }
