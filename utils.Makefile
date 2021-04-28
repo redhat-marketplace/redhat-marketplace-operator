@@ -8,6 +8,7 @@ BUILDX ?= true
 ARCH ?= amd64
 IMAGE_PUSH ?= true
 DOCKER_BUILD := docker build
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 
 # --TOOLS--
 #
@@ -86,6 +87,7 @@ OPM=$(PROJECT_DIR)/bin/opm
 opm:
 	$(call install-binary,https://github.com/operator-framework/operator-registry/releases/download/v1.13.7,$(UNAME)-$(ARCH)-opm,$(OPM))
 
+.SILENT: svu
 SVU=$(PROJECT_DIR)/bin/svu
 svu:
 	$(call go-get-tool,$(SVU),github.com/caarlos0/svu@v1.3.2)
@@ -151,21 +153,18 @@ $(6)
 endef
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 define go-get-tool
 @[ -f $(1) ] || { \
 set -e ;\
 TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
+go mod init tmp &> /dev/null ;\
+GOBIN=$(PROJECT_DIR)/bin go get $(2) &> /dev/null ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
 
 # install-binary will 'curl' any package url $1 with file $2 and install it to $3
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 define install-binary
 @[ -f $(3) ] || { \
 set -e ;\
