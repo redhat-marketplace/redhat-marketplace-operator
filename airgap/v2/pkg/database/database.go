@@ -79,10 +79,9 @@ func (d *Database) SaveFile(finfo *v1.FileInfo, bs []byte) error {
 
 	// Create metadata along with associations
 	metadata := models.Metadata{
-		ProvidedId:   finfo.GetFileId().GetId(),
-		ProvidedName: finfo.GetFileId().GetName(),
-		Size:         finfo.GetSize(),
-		CleanTombstoneSetAt: finfo.DeletedTombstone.Seconds,
+		ProvidedId:      finfo.GetFileId().GetId(),
+		ProvidedName:    finfo.GetFileId().GetName(),
+		Size:            finfo.GetSize(),
 		Compression:     finfo.GetCompression(),
 		CompressionType: finfo.GetCompressionType(),
 		File: models.File{

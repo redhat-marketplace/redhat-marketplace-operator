@@ -38,7 +38,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -507,17 +506,6 @@ func TestFileRetreiverServer_GetFileMetadata(t *testing.T) {
 			errCode: codes.OK,
 		},
 		{
-			name: "get file metadata of an file selected for deletion",
-			dfr: &fileretreiver.GetFileMetadataRequest{
-				FileId: &v1.FileID{
-					Data: &v1.FileID_Name{
-						Name: "test1.zip"},
-				},
-			},
-			size:    0,
-			errCode: codes.InvalidArgument,
-		},
-		{
 			name: "invalid get file metadata request for file that doesn't exist on the server",
 			dfr: &fileretreiver.GetFileMetadataRequest{
 				FileId: &v1.FileID{
@@ -555,8 +543,14 @@ func TestFileRetreiverServer_GetFileMetadata(t *testing.T) {
 
 			md := stream.GetInfo()
 
-			if int(md.GetSize()) != int(tt.size) {
-				t.Errorf("sent:%v and recieved:%v size doesn't match for test: %v", int(tt.size), md.GetSize(), tt.name)
+			if md != nil {
+				if md.DeletedTombstone.Seconds != 0 {
+					t.Errorf("could not fetch metadata, file is selected for deletion")
+				}
+
+				if int(md.GetSize()) != int(tt.size) {
+					t.Errorf("sent:%v and recieved:%v size doesn't match for test: %v", int(tt.size), md.GetSize(), tt.name)
+				}
 			}
 		})
 	}
@@ -572,10 +566,9 @@ func populateDataset() {
 					Name: "reports.zip",
 				},
 			},
-			Size:             1000,
-			DeletedTombstone: &timestamppb.Timestamp{Seconds: 0},
-			Compression:      true,
-			CompressionType:  "gzip",
+			Size:            1000,
+			Compression:     true,
+			CompressionType: "gzip",
 			Metadata: map[string]string{
 				"version": "1",
 				"type":    "report",
@@ -587,10 +580,9 @@ func populateDataset() {
 					Name: "reports.zip",
 				},
 			},
-			Size:             2000,
-			DeletedTombstone: &timestamppb.Timestamp{Seconds: 0},
-			Compression:      true,
-			CompressionType:  "gzip",
+			Size:            2000,
+			Compression:     true,
+			CompressionType: "gzip",
 			Metadata: map[string]string{
 				"version": "2",
 				"type":    "report",
@@ -602,10 +594,9 @@ func populateDataset() {
 					Name: "marketplace_report.zip",
 				},
 			},
-			Size:             300,
-			DeletedTombstone: &timestamppb.Timestamp{Seconds: 0},
-			Compression:      true,
-			CompressionType:  "gzip",
+			Size:            300,
+			Compression:     true,
+			CompressionType: "gzip",
 			Metadata: map[string]string{
 				"version": "1",
 				"type":    "marketplace_report",
@@ -617,10 +608,9 @@ func populateDataset() {
 					Name: "marketplace_report.zip",
 				},
 			},
-			Size:             200,
-			DeletedTombstone: &timestamppb.Timestamp{Seconds: 0},
-			Compression:      true,
-			CompressionType:  "gzip",
+			Size:            200,
+			Compression:     true,
+			CompressionType: "gzip",
 			Metadata: map[string]string{
 				"version": "2",
 				"type":    "marketplace_report",
@@ -632,10 +622,9 @@ func populateDataset() {
 					Name: "airgap-deploy.zip",
 				},
 			},
-			Size:             1000,
-			DeletedTombstone: &timestamppb.Timestamp{Seconds: 0},
-			Compression:      true,
-			CompressionType:  "gzip",
+			Size:            1000,
+			Compression:     true,
+			CompressionType: "gzip",
 			Metadata: map[string]string{
 				"version": "1",
 				"name":    "airgap",
@@ -648,10 +637,9 @@ func populateDataset() {
 					Name: "airgap-deploy.zip",
 				},
 			},
-			Size:             1000,
-			DeletedTombstone: &timestamppb.Timestamp{Seconds: 0},
-			Compression:      true,
-			CompressionType:  "gzip",
+			Size:            1000,
+			Compression:     true,
+			CompressionType: "gzip",
 			Metadata: map[string]string{
 				"version":     "latest",
 				"name":        "airgap",
@@ -665,10 +653,9 @@ func populateDataset() {
 					Name: "Kube.sh",
 				},
 			},
-			Size:             200,
-			DeletedTombstone: &timestamppb.Timestamp{Seconds: 0},
-			Compression:      false,
-			CompressionType:  "",
+			Size:            200,
+			Compression:     false,
+			CompressionType: "",
 			Metadata: map[string]string{
 				"version":     "latest",
 				"description": "kube cluster executable file",
@@ -681,10 +668,9 @@ func populateDataset() {
 					Name: "dosfstools",
 				},
 			},
-			Size:             2000,
-			DeletedTombstone: &timestamppb.Timestamp{Seconds: 0},
-			Compression:      true,
-			CompressionType:  "gzip",
+			Size:            2000,
+			Compression:     true,
+			CompressionType: "gzip",
 			Metadata: map[string]string{
 				"version":     "latest",
 				"description": "DOS filesystem utilities",
@@ -696,28 +682,12 @@ func populateDataset() {
 					Name: "dosbox",
 				},
 			},
-			Size:             1500,
-			DeletedTombstone: &timestamppb.Timestamp{Seconds: 0},
-			Compression:      true,
-			CompressionType:  "gzip",
+			Size:            1500,
+			Compression:     true,
+			CompressionType: "gzip",
 			Metadata: map[string]string{
 				"version":     "4.3",
 				"description": "Emulator with builtin DOS for running DOS Games",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "test1.zip",
-				},
-			},
-			Size:             200,
-			DeletedTombstone: &timestamppb.Timestamp{Seconds: 1618851065},
-			Compression:      false,
-			CompressionType:  "",
-			Metadata: map[string]string{
-				"key1": "value1",
-				"key2": "value2",
 			},
 		},
 	}

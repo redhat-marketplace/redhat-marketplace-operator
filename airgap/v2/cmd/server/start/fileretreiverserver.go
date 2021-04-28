@@ -223,6 +223,7 @@ func (frs *FileRetreiverServer) ListFileMetadata(lis *fileretreiver.ListFileMeta
 	return nil
 }
 
+// GetFileMetadata fetches the file metadata from database, provided the file specified in the request exists
 func (frs *FileRetreiverServer) GetFileMetadata(ctx context.Context, in *fileretreiver.GetFileMetadataRequest) (*fileretreiver.GetFileMetadataResponse, error) {
 	//Fetch file info from DB
 	metadata, err := frs.B.FileStore.GetFileMetadata(in.GetFileId())
