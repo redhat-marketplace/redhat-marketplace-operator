@@ -41,17 +41,17 @@ type Listconfig struct {
 	outputCSV bool
 	conn      *grpc.ClientConn
 	client    fileretreiver.FileRetreiverClient
+	log       logr.Logger
 }
 
 var (
 	lc       Listconfig
-	log      logr.Logger
 	fileName = "files.csv"
 )
 
 var ListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "Fetch list of file ",
+	Short: "Fetch list of files",
 	Long: `Fetch list of files
 
 Filter flags used for filtering list to be fetched using pre-defined 
@@ -109,7 +109,6 @@ keys or custom key and sort flag used for sorting list based on sort key and sor
 }
 
 func init() {
-	initLog()
 	ListCmd.Flags().StringSliceVarP(&lc.filter, "filter", "f", []string{}, "filter file list based on pre-defined or custom keys")
 	ListCmd.Flags().StringSliceVarP(&lc.sort, "sort", "s", []string{}, "sort file list based key and sort operation used")
 	ListCmd.Flags().StringVarP(&lc.outputDir, "output-dir", "o", "", "path to save list")
@@ -118,7 +117,7 @@ func init() {
 //initLog initializes logger
 func initLog() {
 	var err error
-	log, err = util.InitLog()
+	lc.log, err = util.InitLog()
 	if err != nil {
 		panic(err)
 	}
@@ -186,11 +185,12 @@ func (lc *Listconfig) listFileMetadata() error {
 	} else {
 		printToConsole(getHeaders())
 	}
+
 	for {
 		response, err := resultStream.Recv()
 		if err == io.EOF {
 			if lc.outputCSV {
-				log.Info("List stored", "location:", fp)
+				lc.log.Info("List stored", "location:", fp)
 			}
 			break
 		} else if err != nil {

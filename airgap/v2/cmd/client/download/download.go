@@ -37,11 +37,11 @@ type DownloadConfig struct {
 	fileListPath    string
 	conn            *grpc.ClientConn
 	client          fileretreiver.FileRetreiverClient
+	log             logr.Logger
 }
 
 var (
-	dc  DownloadConfig
-	log logr.Logger
+	dc DownloadConfig
 )
 
 // DownloadCmd represents the download command
@@ -70,7 +70,6 @@ var DownloadCmd = &cobra.Command{
 }
 
 func init() {
-	initLog()
 	DownloadCmd.Flags().StringVarP(&dc.fileName, "file-name", "n", "", "Name of the file to be downloaded")
 	DownloadCmd.Flags().StringVarP(&dc.fileId, "file-id", "i", "", "Id of the file to be downloaded")
 	DownloadCmd.Flags().StringVarP(&dc.outputDirectory, "output-directory", "o", "", "Path to download the file")
@@ -81,7 +80,7 @@ func init() {
 //initLog initializes logger
 func initLog() {
 	var err error
-	log, err = util.InitLog()
+	dc.log, err = util.InitLog()
 	if err != nil {
 		panic(err)
 	}
@@ -132,7 +131,7 @@ func (dc *DownloadConfig) downloadFile(fn string, fid string) error {
 			},
 		}
 	}
-	log.Info("Attempting to download file", "name/id", name)
+	dc.log.Info("Attempting to download file", "name/id", name)
 
 	resultStream, err := dc.client.DownloadFile(context.Background(), req)
 	if err != nil {
@@ -166,7 +165,7 @@ func (dc *DownloadConfig) downloadFile(fn string, fid string) error {
 		return fmt.Errorf("error while writing data to the output file: %v", err)
 	}
 
-	log.Info("File downloaded successfully!", "name/id", name)
+	dc.log.Info("File downloaded successfully!", "name/id", name)
 	return nil
 }
 
@@ -180,14 +179,14 @@ func (dc *DownloadConfig) batchDownload() error {
 	for _, n := range fns {
 		err = dc.downloadFile(n, "")
 		if err != nil {
-			log.Error(err, "Error during download", "name", n)
+			dc.log.Error(err, "Error during download", "name", n)
 		}
 	}
 
 	for _, id := range fids {
 		err = dc.downloadFile("", id)
 		if err != nil {
-			log.Error(err, "Error during download", "identifier", id)
+			dc.log.Error(err, "Error during download", "identifier", id)
 		}
 	}
 
@@ -240,11 +239,6 @@ func getExpectedCSVHeaders() []string {
 	return []string{
 		"File ID",
 		"File Name",
-		"Size",
-		"Created At",
-		"Compression",
-		"Compression Type",
-		"Metadata",
 	}
 }
 
