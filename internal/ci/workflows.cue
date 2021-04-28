@@ -60,6 +60,42 @@ unit_test: _#bashWorkflow & {
 		}
 	}
 }
+
+auto_tag: _#bashWorkflow & {
+  name: "Tag Latest Release"
+  on: push: branches: ["master"]
+  jobs: {
+    tag: _#job & {
+    "runs-on": "ubuntu-latest"
+    steps: [
+			_#checkoutCode & {
+				with: "fetch-depth": 0
+			},
+      _#step & {
+        name: "Bump version and push tag"
+        id: "tag_version"
+        uses: "mathieudutour/github-tag-action@v5.5"
+        with: {
+          "release_branches" : "release.*,hotfix.*,master"
+          "github_token": "${{ secrets.GITHUB_TOKEN }}"
+          "tag_prefix" : ""
+        }
+      },
+      _#step & {
+        name: "Create a GitHub release"
+        uses: "actions/create-release@v1"
+        env: "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
+        with: {
+          "tag_name": "${{ steps.tag_version.outputs.new_tag }}"
+          "release_name": "Release ${{ steps.tag_version.outputs.new_tag }}"
+          body: "${{ steps.tag_version.outputs.changelog }}"
+        }
+      },
+    ]
+    }
+  }
+}
+
 branch_build: _#bashWorkflow & {
   name: "Branch Build"
 	on: {
@@ -98,13 +134,17 @@ branch_build: _#bashWorkflow & {
         _#step & {
           id: "version"
           name: "Get Version"
-          run: """
-					go get github.com/caarlos0/svu
-					export VERSION="$(svu minor)"
+					run: """
+					if [[ "$GITHUB_REF" == *"refs/head/release"* ||  "$GITHUB_REF" == *"refs/head/hotfix"* ]] ; then
+						export VERSION=$(echo ${GITHUB_REF} | gsed -e 's/refs\\/head\/\\(release\\|hotfix\\)\\///g')
+						echo "Found version from branch"
+					else
+						export VERSION="$(make get-next-version)"
+					fi
 
 					if [[ "$VERSION" == "" ]]; then
-					echo "failed to find version"
-					exit 1
+						echo "failed to find version"
+						exit 1
 					fi
 
 					echo "Found version $VERSION"
@@ -184,7 +224,7 @@ branch_build: _#bashWorkflow & {
 
 						if [ "$IS_DEV" == "true" ] ; then
 						echo "using branch in version"
-						export VERSION="${VERSION}-${BRANCH}-${GITHUB_RUN_NUMBER}"
+						export VERSION="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
 						else
 						echo "using release version and githb_run_number"
 						export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"

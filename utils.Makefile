@@ -70,6 +70,10 @@ LICENSE=$(PROJECT_DIR)/bin/addlicense
 addlicense:
 	$(call go-get-tool,$(LICENSE),github.com/google/addlicense)
 
+GO_LICENSES=$(PROJECT_DIR)/bin/go-licenses
+golicense:
+	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses)
+
 YQ=$(PROJECT_DIR)/bin/yq
 yq:
 	$(call go-get-tool,$(YQ),github.com/mikefarah/yq/v4@v4.6.1)
@@ -81,6 +85,16 @@ operator-sdk:
 OPM=$(PROJECT_DIR)/bin/opm
 opm:
 	$(call install-binary,https://github.com/operator-framework/operator-registry/releases/download/v1.13.7,$(UNAME)-$(ARCH)-opm,$(OPM))
+
+SVU=$(PROJECT_DIR)/bin/svu
+svu:
+	$(call go-get-tool,$(SVU),github.com/caarlos0/svu@v1.3.2)
+
+VERSION_TOOL=$(PROJECT_DIR)/bin/version-tool
+version-tool:
+	@[ -f $(VERSION_TOOL) ] || { \
+	cd v2/tools/version && go build -o $(VERSION_TOOl) ./main.go ; \
+	}
 
 # --COMMON--
 

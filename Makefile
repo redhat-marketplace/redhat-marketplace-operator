@@ -9,6 +9,8 @@ endif
 
 export
 
+include utils.Makefile
+
 .DEFAULT_GOAL := all
 
 .PHONY: all
@@ -35,8 +37,8 @@ vet:
 fmt:
 	$(MAKE) $(addsuffix /fmt,$(PROJECTS))
 
-.PHONY: tidy
-tidy:
+.PHONY: tidy-all
+tidy-all:
 	$(MAKE) $(addsuffix /tidy,$(PROJECTS))
 
 .PHONY: test
@@ -73,14 +75,6 @@ cicd:
 	go generate ./gen.go
 	cd .github/workflows && go generate ./gen.go
 
-LICENSE=$(PROJECT_DIR)/bin/addlicense
-addlicense:
-	$(call go-get-tool,$(LICENSE),github.com/google/addlicense)
-
-GO_LICENSES=$(PROJECT_DIR)/bin/go-licenses
-golicense:
-	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses)
-
 export GO_LICENSES
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
@@ -112,6 +106,23 @@ wicked:
 	@cd ./reporter/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p redhat-marketplace-reporter -s ./vendor -o ../../.wicked-report
 	@cd ./metering/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p redhat-marketplace-metering -s ./vendor -o ../../.wicked-report
 	@cd ./authchecker/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p redhat-marketplace-authchecker -s ./vendor -o ../../.wicked-report
+
+# -- Release
+
+get-next-version: svu
+	@echo $(shell $(SVU) minor)
+
+create-next-release: svu
+	git checkout develop
+	git pull
+	git checkout -b release/$(shell $(SVU) next)
+
+create-next-hotfix: svu
+	git checkout master
+	git pull
+	git checkout -b release/$(shell $(SVU) next)
+
+# --
 
 operator/%:
 	@cd ./v2 && $(MAKE) $(@F)

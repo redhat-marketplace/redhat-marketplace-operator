@@ -42,6 +42,9 @@ BUNDLE_IMG ?= $(IMAGE_REGISTRY)/$(BUNDLE_NAME):$(VERSION)
 DEV_INDEX_NAME ?= redhat-marketplace-operator-dev-index
 DEV_INDEX_IMG ?= $(IMAGE_REGISTRY)/$(DEV_INDEX_NAME)
 
+OPM_BASE_NAME ?= opm-base
+OPM_BASE_IMG ?= $(IMAGE_REGISTRY)/$(OPM_BASE_NAME)
+
 namespace ?= openshift-redhat-marketplace
 
 # Image URL to use all building/pushing image targets
@@ -228,22 +231,31 @@ bundle-run-uninstall:
 		kubectl delete $$NAME --all -n openshift-redhat-marketplace ; \
 	done
 
-
 BUNDLE_IMAGE_REGISTRY ?= $(IMAGE_REGISTRY)
 
 bundle-stable:
 	$(MAKE) bundle CHANNELS=stable DEFAULT_CHANNEL=stable IMAGE_REGISTRY=$(BUNDLE_IMAGE_REGISTRY)
 
 VERSIONS_LIST ?= $(BUNDLE_IMG)
+OPM_VERSION=v1.17.0
+
+opm-builder-base: opm
+	docker buildx build --push \
+	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
+	--build-arg OPM_VERSION=$(OPM_VERSION) \
+	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS)))	 \
+	-f hack/opm-builder.Dockerfile -t "$(OPM_BASE_IMG):$(OPM_VERSION)" .
 
 .PHONY: bundle-build-index-multiarch
 bundle-dev-index-multiarch: opm
 	$(OPM) index add -u docker --generate --bundles "$(VERSIONS_LIST)" -d dev-index.Dockerfile
-	docker buildx build --push -f dev-index.Dockerfile -t "$(DEV_INDEX_IMG):$(VERSION)" \
+	docker buildx build --push -f custom-index.Dockerfile -t "$(DEV_INDEX_IMG):$(VERSION)" \
 	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS))) \
 	--label com.redhat.openshift.versions="v4.5,v4.6,v4.7" \
   --label com.redhat.delivery.operator.bundle=true \
 	--label com.redhat.delivery.backport=true \
+	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
+	--build-arg OPM_VERSION=$(OPM_VERSION) \
 	.
 
 bundle-dev-index: opm

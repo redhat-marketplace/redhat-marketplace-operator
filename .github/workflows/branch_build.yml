@@ -53,12 +53,16 @@ jobs:
     - id: version
       name: Get Version
       run: |-
-        go get github.com/caarlos0/svu
-        export VERSION="$(svu minor)"
+        if [[ "$GITHUB_REF" == *"refs/head/release"* ||  "$GITHUB_REF" == *"refs/head/hotfix"* ]] ; then
+        	export VERSION=$(echo ${GITHUB_REF} | gsed -e 's/refs\/head/\(release\|hotfix\)\///g')
+        	echo "Found version from branch"
+        else
+        	export VERSION="$(make get-next-version)"
+        fi
 
         if [[ "$VERSION" == "" ]]; then
-        echo "failed to find version"
-        exit 1
+        	echo "failed to find version"
+        	exit 1
         fi
 
         echo "Found version $VERSION"
@@ -220,7 +224,7 @@ jobs:
 
         if [ "$IS_DEV" == "true" ] ; then
         echo "using branch in version"
-        export VERSION="${VERSION}-${BRANCH}-${GITHUB_RUN_NUMBER}"
+        export VERSION="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
         else
         echo "using release version and githb_run_number"
         export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
