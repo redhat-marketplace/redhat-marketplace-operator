@@ -54,6 +54,10 @@ var _ = Describe("Remote resource S3 controller", func() {
 		Message:    "No error found",
 	}
 
+	defaultRequest := &marketplacev1alpha1.Request{
+		StatusCode: 0,
+	}
+
 	BeforeEach(func() {
 		// Add any setup steps that needs to be executed before each test
 		created = &marketplacev1alpha1.RemoteResourceS3{
@@ -79,6 +83,20 @@ var _ = Describe("Remote resource S3 controller", func() {
 			return *f.Status.Touched
 		}, timeout, interval).Should(BeTrue())
 		By("Expecting status conditionFalse for no requests")
+		Eventually(func() *status.Condition {
+			f := &marketplacev1alpha1.RemoteResourceS3{}
+			k8sClient.Get(context.TODO(), key, f)
+			return f.Status.Conditions.GetCondition(marketplacev1alpha1.ResourceInstallError)
+		}, timeout, interval).Should(PointTo(MatchFields(IgnoreExtras, Fields{
+			"Status":  Equal(corev1.ConditionFalse),
+			"Message": Equal(correctRequest.Message),
+			"Reason":  Equal(marketplacev1alpha1.NoBadRequest),
+		})))
+
+		k8sClient.Get(context.TODO(), key, created)
+		created.Spec.Requests = []marketplacev1alpha1.Request{*defaultRequest}
+		Expect(k8sClient.Update(context.TODO(), created)).Should(Succeed())
+		By("Expecting status conditionFalse for default request")
 		Eventually(func() *status.Condition {
 			f := &marketplacev1alpha1.RemoteResourceS3{}
 			k8sClient.Get(context.TODO(), key, f)

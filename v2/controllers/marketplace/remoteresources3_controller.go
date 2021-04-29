@@ -16,6 +16,7 @@ package marketplace
 
 import (
 	"context"
+	"fmt"
 
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -113,7 +114,9 @@ func (r *RemoteResourceS3Reconciler) Reconcile(request reconcile.Request) (recon
 	requests := instance.Spec.Requests
 	var rs3Request *marketplacev1alpha1.Request
 	for i := 0; i < len(requests); i++ {
-		if !(requests[i].StatusCode >= 200 && requests[i].StatusCode < 300) {
+		reqLogger.Info(fmt.Sprint("Status code: ", requests[i].StatusCode))
+		if !(requests[i].StatusCode >= 200 && requests[i].StatusCode < 300 || requests[i].StatusCode == 0) {
+			reqLogger.Info(fmt.Sprint("setup request failure for code: ", requests[i].StatusCode))
 			rs3Request = &requests[i]
 			break
 		}
