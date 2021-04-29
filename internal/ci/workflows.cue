@@ -139,6 +139,7 @@ branch_build: _#bashWorkflow & {
 						export VERSION=$(echo ${GITHUB_REF} | gsed -e 's/refs\\/head\/\\(release\\|hotfix\\)\\///g')
 						echo "Found version from branch"
 					else
+						make svu
 						export VERSION="$(./bin/svu next)"
 					fi
 
