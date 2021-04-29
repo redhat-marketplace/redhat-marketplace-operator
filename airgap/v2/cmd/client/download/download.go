@@ -31,13 +31,14 @@ import (
 )
 
 type DownloadConfig struct {
-	fileName        string
-	fileId          string
-	outputDirectory string
-	fileListPath    string
-	conn            *grpc.ClientConn
-	client          fileretreiver.FileRetreiverClient
-	log             logr.Logger
+	fileName         string
+	fileId           string
+	outputDirectory  string
+	fileListPath     string
+	deleteOnDownload bool
+	conn             *grpc.ClientConn
+	client           fileretreiver.FileRetreiverClient
+	log              logr.Logger
 }
 
 var (
@@ -74,6 +75,7 @@ func init() {
 	DownloadCmd.Flags().StringVarP(&dc.fileId, "file-id", "i", "", "Id of the file to be downloaded")
 	DownloadCmd.Flags().StringVarP(&dc.outputDirectory, "output-directory", "o", "", "Path to download the file")
 	DownloadCmd.Flags().StringVarP(&dc.fileListPath, "file-list-path", "f", "", "Fully qualified path to file containing list of names/identifiers")
+	DownloadCmd.Flags().BoolVarP(&dc.deleteOnDownload, "delete-on-download", "D", false, "Mark file for deletion")
 	DownloadCmd.MarkFlagRequired("output-directory")
 }
 
@@ -122,6 +124,7 @@ func (dc *DownloadConfig) downloadFile(fn string, fid string) error {
 				Data: &v1.FileID_Name{
 					Name: fn},
 			},
+			MarkDelete: dc.deleteOnDownload,
 		}
 	} else {
 		name = fid
@@ -130,6 +133,7 @@ func (dc *DownloadConfig) downloadFile(fn string, fid string) error {
 				Data: &v1.FileID_Id{
 					Id: fid},
 			},
+			MarkDelete: dc.deleteOnDownload,
 		}
 	}
 	dc.log.Info("Attempting to download file", "name/id", name)

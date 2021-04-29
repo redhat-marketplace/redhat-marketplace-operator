@@ -58,6 +58,7 @@ message GetFileMetadataResponse {
 
 message DownloadFileRequest {
   model.v1.FileID file_id = 1;
+  bool mark_delete = 2;
 }
 
 message DownloadFileResponse {

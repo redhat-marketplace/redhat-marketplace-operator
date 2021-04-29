@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/go-logr/logr"
@@ -32,6 +33,7 @@ import (
 type FileStore interface {
 	SaveFile(finfo *v1.FileInfo, bs []byte) error
 	DownloadFile(finfo *v1.FileID) (*models.Metadata, error)
+	SoftDelete(finfo *v1.FileID, d bool) error
 	ListFileMetadata([]*Condition, []*SortOrder) ([]models.Metadata, error)
 }
 
@@ -100,7 +102,7 @@ func (d *Database) SaveFile(finfo *v1.FileInfo, bs []byte) error {
 		return err
 	}
 
-	d.Log.Info("Saved file", "size", metadata.Size, "id", metadata.FileID, "checksun", c)
+	d.Log.Info("Saved file", "size", metadata.Size, "id", metadata.FileID, "checksum", c)
 	return nil
 }
 
@@ -132,6 +134,32 @@ func (d *Database) DownloadFile(finfo *v1.FileID) (*models.Metadata, error) {
 	}
 	d.Log.Info("Retreived file", "size", meta.Size, "id", meta.FileID)
 	return &meta, nil
+}
+
+//SoftDelete marks file and its previous versions for deletion
+func (d *Database) SoftDelete(finfo *v1.FileID, del bool) error {
+	if !del {
+		return nil
+	}
+
+	var meta models.Metadata
+	now := time.Now()
+	fileid := strings.TrimSpace(finfo.GetId())
+	filename := strings.TrimSpace(finfo.GetName())
+
+	if len(fileid) != 0 {
+		d.DB.Model(&meta).
+			Where("provided_id = ?", fileid).
+			Update("clean_tombstone_set_at", now.Unix())
+	} else if len(filename) != 0 {
+		d.DB.Model(&meta).
+			Where("provided_name = ?", filename).
+			Update("clean_tombstone_set_at", now.Unix())
+	} else {
+		return fmt.Errorf("file id/name is blank")
+	}
+	d.Log.Info("File marked for delete", "id/name", fileid+" "+filename)
+	return nil
 }
 
 // ListFileMetadata allow us to fetch list of files and its metadata from database

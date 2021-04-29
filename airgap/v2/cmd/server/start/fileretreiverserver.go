@@ -115,6 +115,15 @@ func (frs *FileRetreiverServer) DownloadFile(dfr *fileretreiver.DownloadFileRequ
 			)
 		}
 	}
+	if dfr.MarkDelete {
+		err = frs.B.FileStore.SoftDelete(dfr.GetFileId(), dfr.GetMarkDelete())
+		if err != nil {
+			return status.Errorf(
+				codes.InvalidArgument,
+				fmt.Sprintf("Failed to mark file for deletion due to: %v", err),
+			)
+		}
+	}
 	return nil
 }
 
