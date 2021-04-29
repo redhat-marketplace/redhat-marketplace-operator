@@ -158,8 +158,8 @@ define go-get-tool
 set -e ;\
 TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
-go mod init tmp &> /dev/null ;\
-GOBIN=$(PROJECT_DIR)/bin go get $(2) &> /dev/null ;\
+go mod init tmp ;\
+GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef

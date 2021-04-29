@@ -72,7 +72,7 @@ clean:
 
 # Run tests
 .PHONY: test
-test: fmt vet manifests ginkgo
+test: fmt vet ginkgo
 	$(GINKGO) -r -coverprofile=cover-unit.out.tmp -outputdir=. --randomizeAllSpecs --randomizeSuites --cover --race --progress --trace ./pkg ./cmd ./internal ./apis ./controllers
 
 .PHONY: test-ci-unit

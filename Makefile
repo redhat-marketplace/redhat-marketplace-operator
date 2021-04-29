@@ -95,9 +95,6 @@ wicked:
 
 # -- Release
 
-get-next-version: svu
-	@echo $(shell $(SVU) minor)
-
 create-next-release: svu
 	git checkout develop
 	git pull
