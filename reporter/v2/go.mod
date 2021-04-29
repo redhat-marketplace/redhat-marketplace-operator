@@ -11,8 +11,8 @@ require (
 	github.com/gotidy/ptr v1.3.0
 	github.com/meirf/gopart v0.0.0-20180520194036-37e9492a85a8
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/mitchellh/mapstructure v1.4.0 // indirect
-	github.com/onsi/ginkgo v1.14.2
+	github.com/mitchellh/mapstructure v1.4.0
+	github.com/onsi/ginkgo v1.16.1
 	github.com/onsi/gomega v1.10.4
 	github.com/openshift/api v0.0.0-20200930075302-db52bc4ef99f
 	github.com/operator-framework/api v0.3.25

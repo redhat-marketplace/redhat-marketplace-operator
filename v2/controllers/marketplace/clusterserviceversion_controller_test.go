@@ -27,7 +27,6 @@ import (
 	. "github.com/onsi/ginkgo/extensions/table"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -106,13 +105,13 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 			}
 
 			clusterserviceversion = &olmv1alpha1.ClusterServiceVersion{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      csvName,
 					Namespace: namespace,
 				},
 			}
 			subscription = &olmv1alpha1.Subscription{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      subName,
 					Namespace: namespace,
 					Labels: map[string]string{
@@ -125,7 +124,7 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 			}
 
 			subscriptionWithoutLabels = &olmv1alpha1.Subscription{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      subName,
 					Namespace: namespace,
 				},
@@ -135,7 +134,7 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 			}
 
 			subscriptionDifferentCSV = &olmv1alpha1.Subscription{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      subName,
 					Namespace: namespace,
 					Labels: map[string]string{
@@ -235,7 +234,7 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 				}
 
 				ogMeter := &marketplacev1alpha1.MeterDefinition{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:        name,
 						Namespace:   namespace,
 						Annotations: ann,

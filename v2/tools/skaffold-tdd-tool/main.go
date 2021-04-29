@@ -501,7 +501,7 @@ func (ev *skaffoldEventMonitor) handleEvents(ctx context.Context, in *pb.LogEntr
 			ev.setState(TestState)
 			ev.DisableAutobuild(ctx)
 			ev.RunTest(ctx)
-		} else if evt.GetStatus() ==  "Failed" {
+		} else if evt.GetStatus() == "Failed" {
 			logger.Println("received failed status, press a button to retry")
 			ev.setState(WaitingState)
 		} else {
