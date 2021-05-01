@@ -244,10 +244,12 @@ opm-builder-base: opm
 	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
 	--build-arg OPM_VERSION=$(OPM_VERSION) \
 	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS)))	 \
-	-f hack/opm-builder.Dockerfile -t "$(OPM_BASE_IMG):$(OPM_VERSION)" .
+	-f hack/opm-builder.Dockerfile -t "$(OPM_BASE_IMG):$(OPM_VERSION)" \
+	--progress plain \
+	.
 
-.PHONY: bundle-build-index-multiarch
-bundle-dev-index-multiarch: opm
+.PHONY:  bundle-dev-index-multiarch
+ bundle-dev-index-multiarch: opm
 	$(OPM) index add -u docker --generate --bundles "$(VERSIONS_LIST)" -d dev-index.Dockerfile
 	docker buildx build --push -f custom-index.Dockerfile -t "$(DEV_INDEX_IMG):$(VERSION)" \
 	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS))) \

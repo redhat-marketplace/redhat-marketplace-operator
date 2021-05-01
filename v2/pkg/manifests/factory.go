@@ -30,6 +30,7 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	"golang.org/x/net/http/httpproxy"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -142,6 +143,33 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 		container.Image = f.config.RelatedImages.PrometheusOperator
 	case container.Name == "prometheus-proxy":
 		container.Image = f.config.RelatedImages.OAuthProxy
+	}
+
+	if container.Env == nil {
+		container.Env = []corev1.EnvVar{}
+	}
+
+	proxyInfo := httpproxy.FromEnvironment()
+
+	if proxyInfo.HTTPProxy != "" {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  "HTTP_PROXY",
+			Value: proxyInfo.HTTPProxy,
+		})
+	}
+
+	if proxyInfo.HTTPSProxy != "" {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  "HTTPS_PROXY",
+			Value: proxyInfo.HTTPSProxy,
+		})
+	}
+
+	if proxyInfo.NoProxy != "" {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  "NO_PROXY",
+			Value: proxyInfo.NoProxy,
+		})
 	}
 }
 
@@ -497,6 +525,33 @@ func (f *Factory) ReporterJob(
 	container := j.Spec.Template.Spec.Containers[0]
 	container.Image = f.config.RelatedImages.Reporter
 
+	proxyInfo := httpproxy.FromEnvironment()
+
+	if container.Env == nil {
+		container.Env = []corev1.EnvVar{}
+	}
+
+	if proxyInfo.HTTPProxy != "" {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  "HTTP_PROXY",
+			Value: proxyInfo.HTTPProxy,
+		})
+	}
+
+	if proxyInfo.HTTPSProxy != "" {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  "HTTPS_PROXY",
+			Value: proxyInfo.HTTPSProxy,
+		})
+	}
+
+	if proxyInfo.NoProxy != "" {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  "NO_PROXY",
+			Value: proxyInfo.NoProxy,
+		})
+	}
+
 	j.Name = report.GetName()
 	container.Args = append(container.Args,
 		"--name",
@@ -658,7 +713,7 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 	maxSurge := intstr.FromString("25%")
 	maxUnavailable := intstr.FromString("25%")
 
-	return &appsv1.Deployment{
+	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
 			Namespace: f.namespace,
@@ -836,6 +891,39 @@ func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDe
 			},
 		},
 	}
+
+	for _, containerObj := range dep.Spec.Template.Spec.Containers {
+		container := &containerObj
+
+		if container.Env == nil {
+			container.Env = []corev1.EnvVar{}
+		}
+
+		proxyInfo := httpproxy.FromEnvironment()
+
+		if proxyInfo.HTTPProxy != "" {
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  "HTTP_PROXY",
+				Value: proxyInfo.HTTPProxy,
+			})
+		}
+
+		if proxyInfo.HTTPSProxy != "" {
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  "HTTPS_PROXY",
+				Value: proxyInfo.HTTPSProxy,
+			})
+		}
+
+		if proxyInfo.NoProxy != "" {
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  "NO_PROXY",
+				Value: proxyInfo.NoProxy,
+			})
+		}
+	}
+
+	return dep
 }
 
 type Owner metav1.Object
@@ -859,7 +947,7 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 	maxSurge := intstr.FromString("25%")
 	maxUnavailable := intstr.FromString("25%")
 
-	return &appsv1.Deployment{
+	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
 			Namespace: f.namespace,
@@ -1038,4 +1126,37 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 			},
 		},
 	}
+
+	for _, containerObj := range dep.Spec.Template.Spec.Containers {
+		container := &containerObj
+
+		if container.Env == nil {
+			container.Env = []corev1.EnvVar{}
+		}
+
+		proxyInfo := httpproxy.FromEnvironment()
+
+		if proxyInfo.HTTPProxy != "" {
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  "HTTP_PROXY",
+				Value: proxyInfo.HTTPProxy,
+			})
+		}
+
+		if proxyInfo.HTTPSProxy != "" {
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  "HTTPS_PROXY",
+				Value: proxyInfo.HTTPSProxy,
+			})
+		}
+
+		if proxyInfo.NoProxy != "" {
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  "NO_PROXY",
+				Value: proxyInfo.NoProxy,
+			})
+		}
+	}
+
+	return dep
 }

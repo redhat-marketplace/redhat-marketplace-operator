@@ -35,6 +35,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
+	"golang.org/x/net/http/httpproxy"
 	"golang.org/x/net/http2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -106,10 +107,16 @@ func NewRedHatInsightsUploader(
 	}
 
 	client := &http.Client{}
+	config.httpVersion = ptr.Int(1)
 
 	// default to 2 unless otherwise overridden
 	if config.httpVersion == nil {
 		config.httpVersion = ptr.Int(2)
+	}
+
+	proxyCfg := httpproxy.FromEnvironment()
+	if proxyCfg.HTTPProxy != "" || proxyCfg.HTTPSProxy != "" {
+		config.httpVersion = ptr.Int(1)
 	}
 
 	// Use the proper transport in the client
@@ -117,6 +124,7 @@ func NewRedHatInsightsUploader(
 	case 1:
 		client.Transport = &http.Transport{
 			TLSClientConfig: tlsConfig,
+			Proxy: http.ProxyFromEnvironment,
 		}
 	case 2:
 		client.Transport = &http2.Transport{
