@@ -117,149 +117,6 @@ func shutdown(conn *grpc.ClientConn) {
 	lis.Close()
 }
 
-// Populate Database for testing
-func populateDataset() {
-	var t *testing.T
-	files := []v1.FileInfo{
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "reports.zip",
-				},
-			},
-			Size:            1000,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"version": "1",
-				"type":    "report",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "reports.zip",
-				},
-			},
-			Size:            2000,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"version": "2",
-				"type":    "report",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "marketplace_report.zip",
-				},
-			},
-			Size:            300,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"version": "1",
-				"type":    "marketplace_report",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "marketplace_report.zip",
-				},
-			},
-			Size:            200,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"version": "2",
-				"type":    "marketplace_report",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "airgap-deploy.zip",
-				},
-			},
-			Size:            1000,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"version": "1",
-				"name":    "airgap",
-				"type":    "deployment-package",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "airgap-deploy.zip",
-				},
-			},
-			Size:            1000,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"version": "latest",
-				"name":    "airgap",
-				"type":    "deployment-package",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "Kube.sh",
-				},
-			},
-			Size:            200,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"type": "kube-executable",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "dosfstools",
-				},
-			},
-			Size:            2000,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"version":     "latest",
-				"description": "DOS filesystem utilities",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "dosbox",
-				},
-			},
-			Size:            1500,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"version":     "4.3",
-				"description": "Emulator with builtin DOS for running DOS Games",
-			},
-		},
-	}
-
-	for i := range files {
-		bs := make([]byte, 100)
-		dbErr := db.SaveFile(&files[i], bs)
-		if dbErr != nil {
-			t.Fatalf("Couldn't save file due to:%v", dbErr)
-		}
-		time.Sleep(1 * time.Second)
-	}
-}
-
 func TestList(t *testing.T) {
 	//Initialize the server
 	runSetup()
@@ -269,9 +126,9 @@ func TestList(t *testing.T) {
 	defer shutdown(conn)
 
 	//Populate dataset for testing
-	populateDataset()
+	populateDataset(conn, t)
 	listFilMetaDataCLient := fileretreiver.NewFileRetreiverClient(conn)
-
+	od, _ := os.Getwd()
 	tests := []struct {
 		name   string
 		lc     *Listconfig
@@ -283,7 +140,7 @@ func TestList(t *testing.T) {
 			lc: &Listconfig{
 				filter:    []string{"size GREATER_THAN 100", "type CONTAINS report"},
 				sort:      []string{},
-				outputDir: ".",
+				outputDir: od,
 				outputCSV: true,
 				conn:      conn,
 				client:    listFilMetaDataCLient,
@@ -324,6 +181,16 @@ func TestList(t *testing.T) {
 				sort:   []string{},
 				conn:   conn,
 				client: listFilMetaDataCLient,
+			},
+		},
+		{
+			name: "fetch file marked for deletion",
+			lc: &Listconfig{
+				filter:              []string{"provided_name CONTAINS 'delete'"},
+				sort:                []string{},
+				includeDeletedFiles: true,
+				conn:                conn,
+				client:              listFilMetaDataCLient,
 			},
 		},
 		{
@@ -432,7 +299,7 @@ func TestList(t *testing.T) {
 			}
 
 			if tt.lc.outputCSV {
-				fp := tt.lc.outputDir + string(os.PathSeparator) + "files.csv"
+				fp := tt.lc.outputDir + string(os.PathSeparator) + fileName
 				f, err := os.Open(fp)
 				if err != nil {
 					t.Errorf("Error opening file: %v", err)
@@ -462,4 +329,127 @@ func TestList(t *testing.T) {
 			}
 		})
 	}
+}
+
+// populateDataset uploads files to the mock server
+func populateDataset(conn *grpc.ClientConn, t *testing.T) {
+	deleteFID := &v1.FileID{
+		Data: &v1.FileID_Name{
+			Name: "delete.txt",
+		}}
+	files := []v1.FileInfo{
+		{
+			FileId: &v1.FileID{
+				Data: &v1.FileID_Name{
+					Name: "reports.zip",
+				},
+			},
+			Size:            1000,
+			Compression:     true,
+			CompressionType: "gzip",
+			Metadata: map[string]string{
+				"version": "1",
+				"type":    "report",
+			},
+		},
+		{
+			FileId: &v1.FileID{
+				Data: &v1.FileID_Name{
+					Name: "reports.zip",
+				},
+			},
+			Size:            2000,
+			Compression:     true,
+			CompressionType: "gzip",
+			Metadata: map[string]string{
+				"version": "2",
+				"type":    "report",
+			},
+		},
+		{
+			FileId: &v1.FileID{
+				Data: &v1.FileID_Name{
+					Name: "marketplace_report.zip",
+				},
+			},
+			Size:            200,
+			Compression:     true,
+			CompressionType: "gzip",
+			Metadata: map[string]string{
+				"version": "2",
+				"type":    "marketplace_report",
+			},
+		},
+		{
+			FileId: &v1.FileID{
+				Data: &v1.FileID_Name{
+					Name: "dosbox",
+				},
+			},
+			Size:            1500,
+			Compression:     true,
+			CompressionType: "gzip",
+			Metadata: map[string]string{
+				"version":     "4.3",
+				"description": "Emulator with builtin DOS for running DOS Games",
+			},
+		},
+		{
+			FileId:      deleteFID,
+			Size:        1500,
+			Compression: false,
+			Metadata: map[string]string{
+				"description": "file marked for deletion",
+			},
+		},
+	}
+
+	uploadClient := filesender.NewFileSenderClient(conn)
+
+	// Upload files to mock server
+	for i := range files {
+		clientStream, err := uploadClient.UploadFile(context.Background())
+		if err != nil {
+			t.Fatalf("Error: During call of client.UploadFile: %v", err)
+		}
+
+		//Upload metadata
+		err = clientStream.Send(&filesender.UploadFileRequest{
+			Data: &filesender.UploadFileRequest_Info{
+				Info: &files[i],
+			},
+		})
+
+		if err != nil {
+			t.Fatalf("Error: during sending metadata: %v", err)
+		}
+
+		//Upload chunk data
+		bs := make([]byte, files[i].GetSize())
+		request := filesender.UploadFileRequest{
+			Data: &filesender.UploadFileRequest_ChunkData{
+				ChunkData: bs,
+			},
+		}
+		clientStream.Send(&request)
+
+		res, err := clientStream.CloseAndRecv()
+		if err != nil {
+			t.Fatalf("Error: during stream close and recieve: %v", err)
+		}
+		t.Logf("Received response: %v", res)
+		time.Sleep(1 * time.Second)
+	}
+
+	// Mark File for deletion
+	req := &fileretreiver.DownloadFileRequest{
+		FileId:           deleteFID,
+		DeleteOnDownload: true,
+	}
+	dc := fileretreiver.NewFileRetreiverClient(conn)
+	_, err := dc.DownloadFile(context.Background(), req)
+	if err != nil {
+		t.Fatalf("Error: during delete on download request : %v", err)
+	}
+	time.Sleep(1 * time.Second)
 }

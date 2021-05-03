@@ -41,17 +41,27 @@ type DownloadConfig struct {
 	log              logr.Logger
 }
 
-var (
-	dc DownloadConfig
-)
+var dc DownloadConfig
 
 // DownloadCmd represents the download command
 var DownloadCmd = &cobra.Command{
 	Use:   "download",
 	Short: "Download files from the airgap service",
 	Long:  `An external configuration file containing connection details are expected`,
+	Example: `
+    # Download file based using file name 
+    client download --file-name file_name --output-directory /path/to/output/dir --config /path/to/config.yaml
+    
+    # Download file based using file id 
+    client download --file-id file_id --output-directory /path/to/output/dir --config /path/to/config.yaml
+    
+    # Download files in batch using csv file 
+    client download --file-list-path file_name --output-directory /path/to/output/dir --config /path/to/config.yaml
+    
+    # Mark file for deletion on download 
+    client download -D --file-name file_name --output-directory /path/to/output/dir --config /path/to/config.yaml`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-
+		//Initialize logger
 		initLog()
 		// Initialize client
 		err := dc.initializeDownloadClient()
@@ -124,7 +134,7 @@ func (dc *DownloadConfig) downloadFile(fn string, fid string) error {
 				Data: &v1.FileID_Name{
 					Name: fn},
 			},
-			MarkDelete: dc.deleteOnDownload,
+			DeleteOnDownload: dc.deleteOnDownload,
 		}
 	} else {
 		name = fid
@@ -133,7 +143,7 @@ func (dc *DownloadConfig) downloadFile(fn string, fid string) error {
 				Data: &v1.FileID_Id{
 					Id: fid},
 			},
-			MarkDelete: dc.deleteOnDownload,
+			DeleteOnDownload: dc.deleteOnDownload,
 		}
 	}
 	dc.log.Info("Attempting to download file", "name/id", name)

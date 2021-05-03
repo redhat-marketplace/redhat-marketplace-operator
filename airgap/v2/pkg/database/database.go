@@ -33,8 +33,8 @@ import (
 type FileStore interface {
 	SaveFile(finfo *v1.FileInfo, bs []byte) error
 	DownloadFile(finfo *v1.FileID) (*models.Metadata, error)
-	SoftDelete(finfo *v1.FileID, d bool) error
-	ListFileMetadata([]*Condition, []*SortOrder) ([]models.Metadata, error)
+	TombstoneFile(finfo *v1.FileID) error
+	ListFileMetadata([]*Condition, []*SortOrder, bool) ([]models.Metadata, error)
 }
 
 type Database struct {
@@ -136,16 +136,12 @@ func (d *Database) DownloadFile(finfo *v1.FileID) (*models.Metadata, error) {
 	return &meta, nil
 }
 
-//SoftDelete marks file and its previous versions for deletion
-func (d *Database) SoftDelete(finfo *v1.FileID, del bool) error {
-	if !del {
-		return nil
-	}
-
+//TombstoneFile marks file and its previous versions for deletion
+func (d *Database) TombstoneFile(fid *v1.FileID) error {
 	var meta models.Metadata
 	now := time.Now()
-	fileid := strings.TrimSpace(finfo.GetId())
-	filename := strings.TrimSpace(finfo.GetName())
+	fileid := strings.TrimSpace(fid.GetId())
+	filename := strings.TrimSpace(fid.GetName())
 
 	if len(fileid) != 0 {
 		d.DB.Model(&meta).
@@ -158,12 +154,12 @@ func (d *Database) SoftDelete(finfo *v1.FileID, del bool) error {
 	} else {
 		return fmt.Errorf("file id/name is blank")
 	}
-	d.Log.Info("File marked for delete", "id/name", fileid+" "+filename)
+	d.Log.Info("File marked for delete", "id", fileid, "name", filename)
 	return nil
 }
 
 // ListFileMetadata allow us to fetch list of files and its metadata from database
-func (d *Database) ListFileMetadata(conditionList []*Condition, sortOrderList []*SortOrder) ([]models.Metadata, error) {
+func (d *Database) ListFileMetadata(conditionList []*Condition, sortOrderList []*SortOrder, incDel bool) ([]models.Metadata, error) {
 	//Converts the keys from golang notation to the database notation i.e., HelloWorldGlobe -> hello_world_globe
 	cleanKey := func(s string) string {
 		output := []byte{}
@@ -227,8 +223,7 @@ func (d *Database) ListFileMetadata(conditionList []*Condition, sortOrderList []
 
 	//Fetch file metadata
 	metadataList := []models.Metadata{}
-	queryChain := d.DB.Joins("LEFT JOIN file_metadata ON file_metadata.metadata_id = metadata.id").
-		Where("clean_tombstone_set_at =  ?", 0)
+	queryChain := d.DB.Joins("LEFT JOIN file_metadata ON file_metadata.metadata_id = metadata.id")
 
 	if len(conditionStringList) != 0 {
 		queryChain = queryChain.Where(strings.Join(conditionStringList, " AND "), conditionValueList...)
@@ -242,11 +237,19 @@ func (d *Database) ListFileMetadata(conditionList []*Condition, sortOrderList []
 	if len(sortOrderStringList) != 0 {
 		queryChain = queryChain.Order(strings.Join(sortOrderStringList, ","))
 	}
-	queryChain.Distinct().
-		Group("provided_name, provided_id").
-		Having("created_at = max(created_at)").
-		Preload("FileMetadata").
-		Find(&metadataList)
-
+	if incDel {
+		queryChain.Distinct().
+			Group("provided_name, provided_id").
+			Having("created_at = max(created_at)").
+			Preload("FileMetadata").
+			Find(&metadataList)
+	} else {
+		queryChain.Where("clean_tombstone_set_at =  ?", 0).
+			Distinct().
+			Group("provided_name, provided_id").
+			Having("created_at = max(created_at)").
+			Preload("FileMetadata").
+			Find(&metadataList)
+	}
 	return metadataList, nil
 }

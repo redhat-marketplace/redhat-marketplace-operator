@@ -115,8 +115,8 @@ func (frs *FileRetreiverServer) DownloadFile(dfr *fileretreiver.DownloadFileRequ
 			)
 		}
 	}
-	if dfr.MarkDelete {
-		err = frs.B.FileStore.SoftDelete(dfr.GetFileId(), dfr.GetMarkDelete())
+	if dfr.GetDeleteOnDownload() {
+		err = frs.B.FileStore.TombstoneFile(dfr.GetFileId())
 		if err != nil {
 			return status.Errorf(
 				codes.InvalidArgument,
@@ -179,7 +179,7 @@ func (frs *FileRetreiverServer) ListFileMetadata(lis *fileretreiver.ListFileMeta
 	}
 
 	//Fetching metadata
-	metadataList, err := frs.B.FileStore.ListFileMetadata(conditionList, sortOrderList)
+	metadataList, err := frs.B.FileStore.ListFileMetadata(conditionList, sortOrderList, lis.IncludeDeletedFiles)
 	if err != nil {
 		return status.Errorf(
 			codes.Unknown,

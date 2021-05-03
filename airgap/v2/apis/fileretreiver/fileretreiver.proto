@@ -41,6 +41,7 @@ message ListFileMetadataRequest {
 
   repeated ListFileFilter filter_by = 1;
   repeated ListFileSort sort_by = 2;
+  bool include_deleted_files = 3;
 }
 
 
@@ -58,7 +59,7 @@ message GetFileMetadataResponse {
 
 message DownloadFileRequest {
   model.v1.FileID file_id = 1;
-  bool mark_delete = 2;
+  bool delete_on_download = 2;
 }
 
 message DownloadFileResponse {

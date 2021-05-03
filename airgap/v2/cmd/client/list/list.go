@@ -23,10 +23,10 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/olekukonko/tablewriter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/client/util"
@@ -35,13 +35,14 @@ import (
 )
 
 type Listconfig struct {
-	filter    []string
-	sort      []string
-	outputDir string
-	outputCSV bool
-	conn      *grpc.ClientConn
-	client    fileretreiver.FileRetreiverClient
-	log       logr.Logger
+	filter              []string
+	sort                []string
+	outputDir           string
+	outputCSV           bool
+	includeDeletedFiles bool
+	conn                *grpc.ClientConn
+	client              fileretreiver.FileRetreiverClient
+	log                 logr.Logger
 }
 
 var (
@@ -76,24 +77,27 @@ keys or custom key and sort flag used for sorting list based on sort key and sor
 	`,
 	Example: `
     # List all latest files.
-    client list 
+    client list --config /path/to/config.yaml
 	
     # List all files between specific dates.
-    client list --filter="created_at GREATER_THAN 2020-12-25" --filter="created_at LESS_THAN 2021-03-30"
+    client list --filter "created_at GREATER_THAN 2020-12-25" --filter "created_at LESS_THAN 2021-03-30" --config /path/to/config.yaml
 	
     # List files having specific metadata
-    client list --filter="description CONTAINS 'operator file'"
+    client list --filter "description CONTAINS 'operator file'" --config /path/to/config.yaml
 	
     # List files uploaded after specific dates and sort it by file name in ascending order
-    client list --filter="created_at GREATER_THAN 2021-03-20" --sort="provided_name ASC"
+    client list --filter "created_at GREATER_THAN 2021-03-20" --sort "provided_name ASC" --config /path/to/config.yaml
 	
     # Sort list by size in ascending order
-    client list -sort="size ASC"
+    client list -sort "size ASC" --config /path/to/config.yaml
+    
+    # List files marked for deleteion
+    client list --include-deleted-files --config /path/to/config.yaml
 	
     # Save list to csv file
-    client list  --output-dir=/path/to/dir`,
+    client list  --output-dir=/path/to/dir --config /path/to/config.yaml`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-
+		//Initialize logger
 		initLog()
 		// Initialize client
 		err := lc.initializeListClient()
@@ -109,9 +113,10 @@ keys or custom key and sort flag used for sorting list based on sort key and sor
 }
 
 func init() {
-	ListCmd.Flags().StringSliceVarP(&lc.filter, "filter", "f", []string{}, "filter file list based on pre-defined or custom keys")
-	ListCmd.Flags().StringSliceVarP(&lc.sort, "sort", "s", []string{}, "sort file list based key and sort operation used")
-	ListCmd.Flags().StringVarP(&lc.outputDir, "output-dir", "o", "", "path to save list")
+	ListCmd.Flags().StringSliceVarP(&lc.filter, "filter", "f", []string{}, "Filter file list based on pre-defined or custom keys")
+	ListCmd.Flags().StringSliceVarP(&lc.sort, "sort", "s", []string{}, "Sort file list based key and sort operation used")
+	ListCmd.Flags().StringVarP(&lc.outputDir, "output-dir", "o", "", "Path to save list")
+	ListCmd.Flags().BoolVarP(&lc.includeDeletedFiles, "include-deleted-files", "d", false, "List all files along with files marked for deleteion")
 }
 
 //initLog initializes logger
@@ -143,32 +148,29 @@ func (lc *Listconfig) closeConnection() {
 
 // listFileMetadata fetch list of files and its metadata from the grpc server to a specified directory
 func (lc *Listconfig) listFileMetadata() error {
-
 	var filterList []*fileretreiver.ListFileMetadataRequest_ListFileFilter
 	var sortList []*fileretreiver.ListFileMetadataRequest_ListFileSort
 	var file *os.File
 	var w *csv.Writer
-
+	var noOfRow int
 	filterList, err := parseFilter(lc.filter)
 	if err != nil {
 		return err
 	}
-
 	sortList, err = parseSort(lc.sort)
 	if err != nil {
 		return err
 	}
-
 	req := &fileretreiver.ListFileMetadataRequest{
-		FilterBy: filterList,
-		SortBy:   sortList,
+		FilterBy:            filterList,
+		SortBy:              sortList,
+		IncludeDeletedFiles: lc.includeDeletedFiles,
 	}
-
 	resultStream, err := lc.client.ListFileMetadata(context.Background(), req)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve list due to: %v", err)
 	}
-
+	var table *tablewriter.Table
 	fp := lc.outputDir + string(os.PathSeparator) + fileName
 	if lc.outputCSV {
 		file, err = os.Create(fp)
@@ -183,9 +185,10 @@ func (lc *Listconfig) listFileMetadata() error {
 			return err
 		}
 	} else {
-		printToConsole(getHeaders())
+		table = tablewriter.NewWriter(os.Stdout)
+		table.SetHeader(getHeaders())
+		table.SetRowLine(true)
 	}
-
 	for {
 		response, err := resultStream.Recv()
 		if err == io.EOF {
@@ -199,11 +202,11 @@ func (lc *Listconfig) listFileMetadata() error {
 			}
 			return fmt.Errorf("error while reading stream: %v", err)
 		}
-
 		data := response.GetResults()
+		lc.log.Info("Received response:", "info", data)
+		row, parseErr := parseFileInfo(data)
 		if lc.outputCSV {
-			row, err := parseFileInfo(data)
-			if err != nil {
+			if parseErr != nil {
 				defer os.Remove(fp)
 				return err
 			}
@@ -213,17 +216,18 @@ func (lc *Listconfig) listFileMetadata() error {
 				return err
 			}
 		} else {
-			row, err := parseFileInfo(data)
-			if err != nil {
+			if parseErr != nil {
 				return err
 			}
-			err = printToConsole(row)
-			if err != nil {
-				return err
-			}
+			table.Append(row)
+			noOfRow = noOfRow + 1
 		}
 	}
-
+	// Output to console
+	if table != nil {
+		table.SetCaption(true, "Files found: "+strconv.FormatInt(int64(noOfRow), 10))
+		table.Render()
+	}
 	return nil
 }
 
@@ -473,20 +477,4 @@ func getHeaders() []string {
 		"Metadata",
 		"Checksum",
 	}
-}
-
-// printToConsole prints list of files on console
-func printToConsole(r []string) error {
-	var row string
-	w := tabwriter.NewWriter(os.Stdout, 10, 0, 2, ' ', tabwriter.Debug)
-	for _, s := range r {
-		row = row + s + "\t"
-	}
-	_, err := fmt.Fprintln(w, row)
-	if err != nil {
-		w.Flush()
-		return nil
-	}
-	w.Flush()
-	return nil
 }

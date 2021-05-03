@@ -16,6 +16,7 @@ package download
 
 import (
 	"context"
+	"encoding/csv"
 	"fmt"
 	logger "log"
 	"net"
@@ -125,44 +126,8 @@ func TestDownloadFile(t *testing.T) {
 	//Shutdown resources
 	defer shutdown(conn)
 
-	//Upload a sample file
-	uploadClient := filesender.NewFileSenderClient(conn)
-	clientStream, err := uploadClient.UploadFile(context.Background())
-	if err != nil {
-		t.Fatalf("error: During call of client.UploadFile: %v", err)
-	}
-
-	// Upload metadata
-	err = clientStream.Send(&filesender.UploadFileRequest{
-		Data: &filesender.UploadFileRequest_Info{
-			Info: &v1.FileInfo{
-				FileId: &v1.FileID{
-					Data: &v1.FileID_Name{
-						Name: "test.zip",
-					},
-				},
-				Size: 1024,
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("error: during sending of metadata: %v", err)
-	}
-
-	//Upload contents
-	bs := make([]byte, 1024)
-	request := filesender.UploadFileRequest{
-		Data: &filesender.UploadFileRequest_ChunkData{
-			ChunkData: bs,
-		},
-	}
-	clientStream.Send(&request)
-
-	res, err := clientStream.CloseAndRecv()
-	if err != nil {
-		t.Fatalf("error: during stream close and recieve: %v", err)
-	}
-	t.Log(fmt.Sprintf("Received response: %v", res))
+	//Populate data on the mock server
+	populateDataset(conn, t)
 
 	downloadClient := fileretreiver.NewFileRetreiverClient(conn)
 	od, _ := os.Getwd()
@@ -176,11 +141,11 @@ func TestDownloadFile(t *testing.T) {
 			name: "downloading a file that exists on the server",
 			dc: &DownloadConfig{
 				outputDirectory: od,
-				fileName:        "test.zip",
+				fileName:        "reports.zip",
 				conn:            conn,
 				client:          downloadClient,
 			},
-			size:   1024,
+			size:   1000,
 			errMsg: "",
 		},
 		{
@@ -220,4 +185,229 @@ func TestDownloadFile(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBatchDownload(t *testing.T) {
+	//Initialize the server
+	runSetup()
+
+	//Initialize connection
+	conn := createClient()
+
+	//Shutdown resources
+	defer shutdown(conn)
+
+	//Populate data on the mock server
+	fns := populateDataset(conn, t)
+
+	//Create csv files required for batch download
+	fps := createCSVFiles(fns, t)
+
+	//Delete csv files
+	defer deleteFiles(fps)
+
+	downloadClient := fileretreiver.NewFileRetreiverClient(conn)
+	od, _ := os.Getwd()
+	tests := []struct {
+		name   string
+		dc     *DownloadConfig
+		errMsg string
+	}{
+		{
+			name: "valid batch download request",
+			dc: &DownloadConfig{
+				outputDirectory: od,
+				fileListPath:    fps[0],
+				conn:            conn,
+				client:          downloadClient,
+			},
+		},
+		{
+			name: "invalid request with csv having insufficient headers",
+			dc: &DownloadConfig{
+				outputDirectory: od,
+				fileListPath:    fps[1],
+				conn:            conn,
+				client:          downloadClient,
+			},
+			errMsg: "column count mismatch",
+		},
+		{
+			name: "invalid request with csv having headers in the wrong order",
+			dc: &DownloadConfig{
+				outputDirectory: od,
+				fileListPath:    fps[2],
+				conn:            conn,
+				client:          downloadClient,
+			},
+			errMsg: "column order mismatch",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.dc.log, _ = util.InitLog()
+			err := tt.dc.batchDownload()
+			if err != nil {
+				if !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("Expected error message: %v, instead got: %v", tt.errMsg, err.Error())
+				}
+			} else if len(tt.errMsg) > 0 {
+				t.Errorf("Expected error: %v was never received!", tt.errMsg)
+			} else {
+				fns, _, _ = parseCSV(tt.dc.fileListPath)
+				defer deleteFiles(fns)
+
+				for _, fn := range fns {
+					finfo, fErr := os.Stat(fn)
+					if os.IsNotExist(fErr) {
+						t.Fatalf("File from csv wasn't downloaded: %v", fn)
+					}
+					t.Logf("File downloaded successfully: %v", finfo.Name())
+				}
+			}
+		})
+	}
+}
+
+// createCSVFiles creates csv files required for the batch download, returns fully qualified paths of created files
+func createCSVFiles(fns []string, t *testing.T) (fps []string) {
+	od, _ := os.Getwd()
+	od = od + string(os.PathSeparator)
+
+	files := []struct {
+		headers []string
+		fns     []string
+		ofn     string
+	}{
+		{
+			headers: getExpectedCSVHeaders(),
+			fns:     fns,
+			ofn:     "valid_file.csv",
+		},
+		{
+			headers: getExpectedCSVHeaders()[:1],
+			fns:     nil,
+			ofn:     "invalid_header_count.csv",
+		},
+		{
+			headers: reverseSlice(getExpectedCSVHeaders()),
+			fns:     nil,
+			ofn:     "invalid_header_order.csv",
+		},
+	}
+
+	for _, f := range files {
+		fps = append(fps, od+f.ofn)
+		file, err := os.Create(od + f.ofn)
+		if err != nil {
+			t.Fatalf("Failed to create csv file due to %v", err)
+		}
+		w := csv.NewWriter(file)
+		//Write headers
+		err = w.Write(f.headers)
+		if err != nil {
+			t.Fatalf("Failed to write to csv file due to %v", err)
+		}
+
+		for _, fn := range f.fns {
+			w.Write([]string{"", fn})
+		}
+		w.Flush()
+		file.Close()
+	}
+
+	return fps
+}
+
+// reverseSlice will reverse a given slice
+func reverseSlice(s []string) []string {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+	return s
+}
+
+// deleteFiles deletes files at specified file paths
+func deleteFiles(fps []string) error {
+	for _, fp := range fps {
+		err := os.Remove(fp)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// populateDataset uploads files to the mock server and returns the file names if upload is successful
+func populateDataset(conn *grpc.ClientConn, t *testing.T) []string {
+	fns := []string{"reports.zip", "marketplace_report.zip"}
+	files := []v1.FileInfo{
+		{
+			FileId: &v1.FileID{
+				Data: &v1.FileID_Name{
+					Name: fns[0],
+				},
+			},
+			Size:            1000,
+			Compression:     true,
+			CompressionType: "gzip",
+			Metadata: map[string]string{
+				"version": "1",
+				"type":    "report",
+			},
+		},
+		{
+			FileId: &v1.FileID{
+				Data: &v1.FileID_Name{
+					Name: fns[1],
+				},
+			},
+			Size:            300,
+			Compression:     true,
+			CompressionType: "gzip",
+			Metadata: map[string]string{
+				"version": "1",
+				"type":    "marketplace_report",
+			},
+		},
+	}
+
+	uploadClient := filesender.NewFileSenderClient(conn)
+
+	// Upload files to mock server
+	for i := range files {
+		clientStream, err := uploadClient.UploadFile(context.Background())
+		if err != nil {
+			t.Fatalf("Error: During call of client.UploadFile: %v", err)
+		}
+
+		//Upload metadata
+		err = clientStream.Send(&filesender.UploadFileRequest{
+			Data: &filesender.UploadFileRequest_Info{
+				Info: &files[i],
+			},
+		})
+
+		if err != nil {
+			t.Fatalf("Error: during sending metadata: %v", err)
+		}
+
+		//Upload chunk data
+		bs := make([]byte, files[i].GetSize())
+		request := filesender.UploadFileRequest{
+			Data: &filesender.UploadFileRequest_ChunkData{
+				ChunkData: bs,
+			},
+		}
+		clientStream.Send(&request)
+
+		res, err := clientStream.CloseAndRecv()
+		if err != nil {
+			t.Fatalf("Error: during stream close and recieve: %v", err)
+		}
+		t.Logf("Received response: %v", res)
+	}
+
+	return fns
 }
