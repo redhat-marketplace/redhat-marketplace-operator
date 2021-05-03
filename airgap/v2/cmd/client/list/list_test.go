@@ -136,7 +136,7 @@ func TestList(t *testing.T) {
 		errMsg string
 	}{
 		{
-			name: "fetch one of the files just based on metadata and store to csv",
+			name: "fetch one of the files based on metadata and store to csv",
 			lc: &Listconfig{
 				filter:    []string{"size GREATER_THAN 100", "type CONTAINS report"},
 				sort:      []string{},
