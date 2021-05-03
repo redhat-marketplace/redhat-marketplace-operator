@@ -234,43 +234,65 @@ func TestFileRetreiverServer_DownloadFile(t *testing.T) {
 	//Upload a sample file
 	sampleData := make([]byte, 1024)
 	client := filesender.NewFileSenderClient(conn)
-	stream, err := client.UploadFile(context.Background())
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	err = stream.Send(&filesender.UploadFileRequest{
-		Data: &filesender.UploadFileRequest_Info{
-			Info: &v1.FileInfo{
-				FileId: &v1.FileID{
-					Data: &v1.FileID_Name{
-						Name: "test-file.zip",
+
+	ufr := []*filesender.UploadFileRequest{
+		{
+			Data: &filesender.UploadFileRequest_Info{
+				Info: &v1.FileInfo{
+					FileId: &v1.FileID{
+						Data: &v1.FileID_Name{
+							Name: "test-file.zip",
+						},
 					},
-				},
-				Size: 1024,
-				Metadata: map[string]string{
-					"key1": "value1",
-					"key2": "value2",
-					"key3": "value3",
+					Size: 1024,
+					Metadata: map[string]string{
+						"key1": "value1",
+						"key2": "value2",
+						"key3": "value3",
+					},
 				},
 			},
 		},
-	})
-	if err != nil {
-		t.Fatalf("Failed to upload file info: %v", err)
-	}
-
-	err = stream.Send(&filesender.UploadFileRequest{
-		Data: &filesender.UploadFileRequest_ChunkData{
-			ChunkData: sampleData,
+		{
+			Data: &filesender.UploadFileRequest_Info{
+				Info: &v1.FileInfo{
+					FileId: &v1.FileID{
+						Data: &v1.FileID_Name{
+							Name: "delete.zip",
+						},
+					},
+					Size: 1024,
+					Metadata: map[string]string{
+						"key1": "value1",
+					},
+				},
+			},
 		},
-	})
-	if err != nil {
-		t.Fatalf("Failed to upload file data: %v", err)
 	}
 
-	_, err = stream.CloseAndRecv()
-	if err != nil {
-		t.Fatalf("Failed while closing stream: %v", err)
+	for i := range ufr {
+		stream, err := client.UploadFile(context.Background())
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		err = stream.Send(ufr[i])
+		if err != nil {
+			t.Fatalf("Failed to upload file info: %v", err)
+		}
+
+		err = stream.Send(&filesender.UploadFileRequest{
+			Data: &filesender.UploadFileRequest_ChunkData{
+				ChunkData: sampleData,
+			},
+		})
+		if err != nil {
+			t.Fatalf("Failed to upload file data: %v", err)
+		}
+
+		_, err = stream.CloseAndRecv()
+		if err != nil {
+			t.Fatalf("Failed while closing stream: %v", err)
+		}
 	}
 
 	//Create a client for download
@@ -289,6 +311,18 @@ func TestFileRetreiverServer_DownloadFile(t *testing.T) {
 					Data: &v1.FileID_Name{
 						Name: "test-file.zip"},
 				},
+			},
+			size:    1024,
+			errCode: codes.OK,
+		},
+		{
+			name: "download an existing file on the server and mark it for deletion",
+			dfr: &fileretreiver.DownloadFileRequest{
+				FileId: &v1.FileID{
+					Data: &v1.FileID_Name{
+						Name: "delete.zip"},
+				},
+				DeleteOnDownload: true,
 			},
 			size:    1024,
 			errCode: codes.OK,
@@ -315,6 +349,17 @@ func TestFileRetreiverServer_DownloadFile(t *testing.T) {
 			size:    0,
 			errCode: codes.InvalidArgument,
 		},
+	}
+	lfr := &fileretreiver.ListFileMetadataRequest{
+		FilterBy: []*fileretreiver.ListFileMetadataRequest_ListFileFilter{
+			{
+				Key:      "provided_name",
+				Operator: fileretreiver.ListFileMetadataRequest_ListFileFilter_CONTAINS,
+				Value:    "delete",
+			},
+		},
+		SortBy:              []*fileretreiver.ListFileMetadataRequest_ListFileSort{},
+		IncludeDeletedFiles: false,
 	}
 
 	for _, tt := range tests {
@@ -345,6 +390,30 @@ func TestFileRetreiverServer_DownloadFile(t *testing.T) {
 			if bs.Len() != int(tt.size) {
 				t.Errorf("sent:%v and recieved:%v size doesn't match for test: %v", bs.Len(), int(tt.size), tt.name)
 			}
+
+			if tt.dfr.GetDeleteOnDownload() {
+				listFileMetadataClient := fileretreiver.NewFileRetreiverClient(conn)
+				stream, err := listFileMetadataClient.ListFileMetadata(context.Background(), lfr)
+				var data []*v1.FileInfo
+				if err != nil {
+					t.Errorf("error while invoking grpc method list file metadata for test:%v with err: %v", tt.name, err)
+				}
+				for {
+					response, err := stream.Recv()
+					if err == io.EOF {
+						break
+					}
+					if err != nil {
+						t.Errorf("error while fetching list of file")
+						break
+					}
+					t.Logf("Received data: %v ", response.Results)
+					data = append(data, response.GetResults())
+				}
+				if len(data) != 0 {
+					t.Errorf("file marked for deletion should not be listed. expected: [] | got: %v ", data)
+				}
+			}
 		})
 	}
 }
@@ -357,7 +426,7 @@ func TestFileRetreiverServer_ListFileMetadata(t *testing.T) {
 	//Shutdown resources
 	defer shutdown(conn)
 
-	populateDataset()
+	populateDataset(conn, t)
 	listFileMetadataClient := fileretreiver.NewFileRetreiverClient(conn)
 
 	tests := []struct {
@@ -372,11 +441,11 @@ func TestFileRetreiverServer_ListFileMetadata(t *testing.T) {
 				FilterBy: []*fileretreiver.ListFileMetadataRequest_ListFileFilter{},
 				SortBy:   []*fileretreiver.ListFileMetadataRequest_ListFileSort{},
 			},
-			res_len: 6,
+			res_len: 4,
 			errCode: codes.OK,
 		},
 		{
-			name: "fetch file list",
+			name: "fetch file list based on filter operation",
 			lfr: &fileretreiver.ListFileMetadataRequest{
 				FilterBy: []*fileretreiver.ListFileMetadataRequest_ListFileFilter{
 					{
@@ -386,6 +455,22 @@ func TestFileRetreiverServer_ListFileMetadata(t *testing.T) {
 					},
 				},
 				SortBy: []*fileretreiver.ListFileMetadataRequest_ListFileSort{},
+			},
+			res_len: 1,
+			errCode: codes.OK,
+		},
+		{
+			name: "fetch file marked for deletion",
+			lfr: &fileretreiver.ListFileMetadataRequest{
+				FilterBy: []*fileretreiver.ListFileMetadataRequest_ListFileFilter{
+					{
+						Key:      "provided_name",
+						Operator: fileretreiver.ListFileMetadataRequest_ListFileFilter_CONTAINS,
+						Value:    "delete",
+					},
+				},
+				SortBy:              []*fileretreiver.ListFileMetadataRequest_ListFileSort{},
+				IncludeDeletedFiles: true,
 			},
 			res_len: 1,
 			errCode: codes.OK,
@@ -483,7 +568,7 @@ func TestFileRetreiverServer_GetFileMetadata(t *testing.T) {
 	//Shutdown resources
 	defer shutdown(conn)
 
-	populateDataset()
+	populateDataset(conn, t)
 
 	//Create a client for download
 	getFileMetadaClient := fileretreiver.NewFileRetreiverClient(conn)
@@ -557,23 +642,12 @@ func TestFileRetreiverServer_GetFileMetadata(t *testing.T) {
 }
 
 // Populate Database for testing
-func populateDataset() {
-	var t *testing.T
+func populateDataset(conn *grpc.ClientConn, t *testing.T) {
+	deleteFID := &v1.FileID{
+		Data: &v1.FileID_Name{
+			Name: "delete.txt",
+		}}
 	files := []v1.FileInfo{
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "reports.zip",
-				},
-			},
-			Size:            1000,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"version": "1",
-				"type":    "report",
-			},
-		},
 		{
 			FileId: &v1.FileID{
 				Data: &v1.FileID_Name{
@@ -594,72 +668,12 @@ func populateDataset() {
 					Name: "marketplace_report.zip",
 				},
 			},
-			Size:            300,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"version": "1",
-				"type":    "marketplace_report",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "marketplace_report.zip",
-				},
-			},
 			Size:            200,
 			Compression:     true,
 			CompressionType: "gzip",
 			Metadata: map[string]string{
 				"version": "2",
 				"type":    "marketplace_report",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "airgap-deploy.zip",
-				},
-			},
-			Size:            1000,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"version": "1",
-				"name":    "airgap",
-				"type":    "deployment-package",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "airgap-deploy.zip",
-				},
-			},
-			Size:            1000,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"version":     "latest",
-				"name":        "airgap",
-				"type":        "deployment-package",
-				"description": "airgap deployment code ",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "Kube.sh",
-				},
-			},
-			Size:            200,
-			Compression:     false,
-			CompressionType: "",
-			Metadata: map[string]string{
-				"version":     "latest",
-				"description": "kube cluster executable file",
-				"type":        "kube-executable",
 			},
 		},
 		{
@@ -690,14 +704,60 @@ func populateDataset() {
 				"description": "Emulator with builtin DOS for running DOS Games",
 			},
 		},
+		{
+			FileId:      deleteFID,
+			Size:        1500,
+			Compression: false,
+			Metadata: map[string]string{
+				"description": "file marked for deletion",
+			},
+		},
 	}
+	uploadClient := filesender.NewFileSenderClient(conn)
 
 	for i := range files {
-		bs := make([]byte, files[i].Size)
-		dbErr := db.SaveFile(&files[i], bs)
-		if dbErr != nil {
-			t.Fatalf("Couldn't save file due to:%v", dbErr)
+		clientStream, err := uploadClient.UploadFile(context.Background())
+		if err != nil {
+			t.Fatalf("Error: During call of client.UploadFile: %v", err)
 		}
+
+		//Upload metadata
+		err = clientStream.Send(&filesender.UploadFileRequest{
+			Data: &filesender.UploadFileRequest_Info{
+				Info: &files[i],
+			},
+		})
+
+		if err != nil {
+			t.Fatalf("Error: during sending metadata: %v", err)
+		}
+
+		//Upload chunk data
+		bs := make([]byte, files[i].GetSize())
+		request := filesender.UploadFileRequest{
+			Data: &filesender.UploadFileRequest_ChunkData{
+				ChunkData: bs,
+			},
+		}
+		clientStream.Send(&request)
+
+		res, err := clientStream.CloseAndRecv()
+		if err != nil {
+			t.Fatalf("Error: during stream close and recieve: %v", err)
+		}
+		t.Logf("Received response: %v", res)
 		time.Sleep(1 * time.Second)
 	}
+
+	// Mark File for deletion
+	req := &fileretreiver.DownloadFileRequest{
+		FileId:           deleteFID,
+		DeleteOnDownload: true,
+	}
+	dc := fileretreiver.NewFileRetreiverClient(conn)
+	_, err := dc.DownloadFile(context.Background(), req)
+	if err != nil {
+		t.Fatalf("Error: during delete on download request : %v", err)
+	}
+	time.Sleep(1 * time.Second)
 }
