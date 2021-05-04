@@ -23,7 +23,7 @@ import (
 	"go.uber.org/zap"
 )
 
-//InitLog initializes logger and returns instance of logger and error if any
+// InitLog initializes logger and returns instance of logger and error if any
 func InitLog() (logr.Logger, error) {
 	var log logr.Logger
 	zapLog, err := zap.NewDevelopment()

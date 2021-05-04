@@ -128,7 +128,7 @@ func (frs *FileRetreiverServer) DownloadFile(dfr *fileretreiver.DownloadFileRequ
 	return nil
 }
 
-// Fetch list of files from database based on filters and sort conditions provided
+// ListFileMetadata fetches list of files from database based on filters and sort conditions provided
 func (frs *FileRetreiverServer) ListFileMetadata(lis *fileretreiver.ListFileMetadataRequest, stream fileretreiver.FileRetreiver_ListFileMetadataServer) error {
 
 	sortOrders := lis.GetSortBy()

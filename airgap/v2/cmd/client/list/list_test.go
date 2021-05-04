@@ -148,7 +148,7 @@ func TestList(t *testing.T) {
 			res: []string{"marketplace_report.zip", "reports.zip"},
 		},
 		{
-			name: "fetch one of the files just based on metadata",
+			name: "fetch one of the files based on metadata",
 			lc: &Listconfig{
 				filter: []string{"size GREATER_THAN 100", "type CONTAINS report"},
 				sort:   []string{},

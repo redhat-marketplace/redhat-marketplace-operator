@@ -171,6 +171,7 @@ func (lc *Listconfig) listFileMetadata() error {
 	if err != nil {
 		return fmt.Errorf("failed to retrieve list due to: %v", err)
 	}
+
 	var table *tablewriter.Table
 	fp := lc.outputDir + string(os.PathSeparator) + fileName
 	if lc.outputCSV {
@@ -190,6 +191,7 @@ func (lc *Listconfig) listFileMetadata() error {
 		table.SetHeader(getHeaders())
 		table.SetRowLine(true)
 	}
+
 	for {
 		response, err := resultStream.Recv()
 		if err == io.EOF {

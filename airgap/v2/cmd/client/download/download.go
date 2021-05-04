@@ -89,7 +89,7 @@ func init() {
 	DownloadCmd.MarkFlagRequired("output-directory")
 }
 
-//initLog initializes logger
+// initLog initializes logger
 func initLog() {
 	var err error
 	dc.log, err = util.InitLog()

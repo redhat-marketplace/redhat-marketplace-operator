@@ -36,8 +36,8 @@ import (
 
 var logger logr.Logger
 var dbName = "test.db"
-var before = 1577836800 // 1st jan 2020
-var after = 1577923200  // 2nd jan 2020
+var before = 1577836800 // Epoch time which equates to 1st Jan 2020
+var after = 1577923200  // Epoch time which equates to 2nd Jan 2020
 
 func initLog() error {
 	zapLog, err := zap.NewDevelopment()
@@ -720,7 +720,7 @@ func TestDatabase_GetFileMetadata(t *testing.T) {
 	}
 }
 
-// Populate Database for testing
+// populateDataset populates database with the files needed for testing
 func populateDataset(database *database.Database, t *testing.T) {
 	deleteFID := &v1.FileID{
 		Data: &v1.FileID_Name{
@@ -807,13 +807,14 @@ func populateDataset(database *database.Database, t *testing.T) {
 
 	database.TombstoneFile(deleteFID)
 
-	// update created_at
-	SetCreatedAt(reportsFID.GetName(), before, database)
-	SetCreatedAt(marketplaceFID.GetName(), after, database)
+	// update created_at for files
+	setCreatedAt(reportsFID.GetName(), before, database)
+	setCreatedAt(marketplaceFID.GetName(), after, database)
 	time.Sleep(1 * time.Second)
 }
 
-func SetCreatedAt(fname string, cat int, d *database.Database) {
+// setCreatedAt modifies the created date for provided file
+func setCreatedAt(fname string, cat int, d *database.Database) {
 	m := &models.Metadata{}
 	d.DB.Model(&m).
 		Where("provided_name = ?", fname).

@@ -137,7 +137,7 @@ func (d *Database) DownloadFile(finfo *v1.FileID) (*models.Metadata, error) {
 	return &meta, nil
 }
 
-//TombstoneFile marks file and its previous versions for deletion
+// TombstoneFile marks file and its previous versions for deletion
 func (d *Database) TombstoneFile(fid *v1.FileID) error {
 	var meta models.Metadata
 	now := time.Now()

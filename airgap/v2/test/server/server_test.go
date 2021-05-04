@@ -574,7 +574,7 @@ func TestFileRetreiverServer_GetFileMetadata(t *testing.T) {
 	}
 }
 
-// Populate Database for testing
+// populateDataset populates database with the files needed for testing
 func populateDataset(conn *grpc.ClientConn, t *testing.T) {
 	deleteFID := &v1.FileID{
 		Data: &v1.FileID_Name{

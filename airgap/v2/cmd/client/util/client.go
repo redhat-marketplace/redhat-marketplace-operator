@@ -23,7 +23,7 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-//InitClient Initializes gRPC client connection
+// InitClient Initializes gRPC client connection
 func InitClient() (*grpc.ClientConn, error) {
 	// Create connection
 	insecure := viper.GetBool("insecure")
