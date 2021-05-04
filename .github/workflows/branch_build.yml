@@ -129,14 +129,14 @@ jobs:
     - id: build
       name: Build images
       run: |-
-        						if [[ "$GITHUB_REF" == *"refs/heads/release"* ||  "$GITHUB_REF" == *"refs/heads/hotfix"* ]] ; then
-        						echo "using release version and githb_run_number"
-        						export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
-        						else
-        						echo "using branch in version"
-        						export VERSION="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
-        						fi
-        						make clean-licenses save-licenses ${{ matrix.project }}/docker-build
+        if [[ "$GITHUB_REF" == *"refs/heads/release"* ||  "$GITHUB_REF" == *"refs/heads/hotfix"* ]] ; then
+        echo "using release version and githb_run_number"
+        export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
+        else
+        echo "using branch in version"
+        export VERSION="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
+        fi
+        make clean-licenses save-licenses ${{ matrix.project }}/docker-build
     strategy:
       matrix:
         project:
