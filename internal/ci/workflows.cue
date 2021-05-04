@@ -119,6 +119,8 @@ branch_build: _#bashWorkflow & {
 			"runs-on": _#linuxMachine
 			outputs: {
 				version: "${{ steps.version.outputs.version }}"
+				isDev: "${{ steps.version.outputs.isDev }}"
+				tag: "${{ steps.version.outputs.tag }}"
 			}
 			steps: [
 				_#checkoutCode & {
@@ -148,8 +150,22 @@ branch_build: _#bashWorkflow & {
 						exit 1
 					fi
 
+					if [[ "$GITHUB_REF" == *"refs/heads/release"* ||  "$GITHUB_REF" == *"refs/heads/hotfix"* ]] ; then
+					echo "using release version and githb_run_number"
+					export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
+					export IS_DEV="false"
+					else
+					echo "using beta in version"
+					export TAG="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
+					export IS_DEV="true"
+					fi
+
 					echo "Found version $VERSION"
 					echo "::set-output name=version::$VERSION"
+					echo "Found tag $TAG"
+					echo "::set-output name=tag::$TAG"
+					echo "Found dev $IS_DEV"
+					echo "::set-output name=isDev::$IS_DEV"
 					"""
         }
 			]
@@ -158,6 +174,9 @@ branch_build: _#bashWorkflow & {
       name:      "Build Images"
 			"runs-on": _#linuxMachine
 			needs: ["test"]
+      env: {
+        VERSION: "${{ needs.test.outputs.tag }}"
+      }
       strategy: matrix: {
         project: ["base", "operator", "authchecker", "metering", "reporter"]
       }
@@ -175,13 +194,6 @@ branch_build: _#bashWorkflow & {
 					id: "build"
 					name: "Build images"
 					run: """
-					if [[ "$GITHUB_REF" == *"refs/heads/release"* ||  "$GITHUB_REF" == *"refs/heads/hotfix"* ]] ; then
-					echo "using release version and githb_run_number"
-					export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
-					else
-					echo "using branch in version"
-					export VERSION="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
-					fi
 					make clean-licenses save-licenses ${{ matrix.project }}/docker-build
 					"""
 				},
@@ -193,9 +205,11 @@ branch_build: _#bashWorkflow & {
 			needs: ["test"]
       env: {
         VERSION: "${{ needs.test.outputs.version }}"
+        IMAGE_TAG: "${{ needs.test.outputs.tag }}"
+        IS_DEV: "${{ needs.test.outputs.isDev }}"
       }
 			outputs: {
-				isDev:   "${{ steps.bundle.outputs.isDev}}"
+				isDev:   "${{ steps.bundle.outputs.isDev }}"
 				version: "${{ steps.bundle.outputs.version }}"
 				tag:     "${{ steps.bundle.outputs.tag }}"
 			}
@@ -209,38 +223,18 @@ branch_build: _#bashWorkflow & {
         _#installOperatorSDK,
 				_#installYQ,
 				_#quayLogin,
-        _#step & {
-					id: "set_env"
-					name: "Set env"
-					run: """
-					REF=`echo ${GITHUB_REF} | sed 's/refs\\/head\\///g' | sed 's/\\//-/g'`
-					echo "BRANCH=$REF" >> $GITHUB_ENV
-
-					if [[ "$GITHUB_REF" == *"refs/heads/release"* ||  "$GITHUB_REF" == *"refs/heads/hotfix"* ]] ; then
-					echo "IS_DEV=false" >> $GITHUB_ENV
-					else
-					echo "IS_DEV=true" >> $GITHUB_ENV
-					fi
-					"""
-				},
 				_#step & {
 					id:   "bundle"
 					name: "Build bundle"
 					run:  """
+						REF=`echo ${GITHUB_REF} | sed 's/refs\\/head\\///g' | sed 's/\\//-/g'`
 						echo "building $BRANCH with dev=$IS_DEV and version=$VERSION"
 
 						cd v2
 						export TAG=${VERSION}-${GITHUB_SHA}
 						\((_#makeLogGroup & {#args: {name: "Make Stable Bundle", cmd: "make bundle-stable"}}).res)
 
-						if [ "$IS_DEV" == "true" ] ; then
-						echo "using branch in version"
-						export VERSION="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
-						else
-						echo "using release version and githb_run_number"
-						export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
-						fi
-
+						export VERSION=$IMAGE_TAG
 						\((_#makeLogGroup & {#args: {name: "Make Bundle Build", cmd: "make bundle-build"}}).res)
 						\((_#makeLogGroup & {#args: {name: "Make Dev Index", cmd: "make bundle-dev-index-multiarch"}}).res)
 

@@ -18,6 +18,8 @@ jobs:
     runs-on: ubuntu-20.04
     outputs:
       version: ${{ steps.version.outputs.version }}
+      isDev: ${{ steps.version.outputs.isDev }}
+      tag: ${{ steps.version.outputs.tag }}
     defaults:
       run:
         shell: bash
@@ -66,13 +68,29 @@ jobs:
         	exit 1
         fi
 
+        if [[ "$GITHUB_REF" == *"refs/heads/release"* ||  "$GITHUB_REF" == *"refs/heads/hotfix"* ]] ; then
+        echo "using release version and githb_run_number"
+        export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
+        export IS_DEV="false"
+        else
+        echo "using beta in version"
+        export TAG="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
+        export IS_DEV="true"
+        fi
+
         echo "Found version $VERSION"
         echo "::set-output name=version::$VERSION"
+        echo "Found tag $TAG"
+        echo "::set-output name=tag::$TAG"
+        echo "Found dev $IS_DEV"
+        echo "::set-output name=isDev::$IS_DEV"
   images:
     name: Build Images
     needs:
     - test
     runs-on: ubuntu-20.04
+    env:
+      VERSION: ${{ needs.test.outputs.tag }}
     defaults:
       run:
         shell: bash
@@ -128,15 +146,7 @@ jobs:
         password: ${{secrets['quayPassword']}}
     - id: build
       name: Build images
-      run: |-
-        if [[ "$GITHUB_REF" == *"refs/heads/release"* ||  "$GITHUB_REF" == *"refs/heads/hotfix"* ]] ; then
-        echo "using release version and githb_run_number"
-        export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
-        else
-        echo "using branch in version"
-        export VERSION="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
-        fi
-        make clean-licenses save-licenses ${{ matrix.project }}/docker-build
+      run: make clean-licenses save-licenses ${{ matrix.project }}/docker-build
     strategy:
       matrix:
         project:
@@ -151,11 +161,13 @@ jobs:
     - test
     runs-on: ubuntu-20.04
     outputs:
-      isDev: ${{ steps.bundle.outputs.isDev}}
+      isDev: ${{ steps.bundle.outputs.isDev }}
       version: ${{ steps.bundle.outputs.version }}
       tag: ${{ steps.bundle.outputs.tag }}
     env:
       VERSION: ${{ needs.test.outputs.version }}
+      IMAGE_TAG: ${{ needs.test.outputs.tag }}
+      IS_DEV: ${{ needs.test.outputs.isDev }}
     defaults:
       run:
         shell: bash
@@ -209,20 +221,10 @@ jobs:
         registry: quay.io/rh-marketplace
         username: ${{secrets['quayUser']}}
         password: ${{secrets['quayPassword']}}
-    - id: set_env
-      name: Set env
-      run: |-
-        REF=`echo ${GITHUB_REF} | sed 's/refs\/head\///g' | sed 's/\//-/g'`
-        echo "BRANCH=$REF" >> $GITHUB_ENV
-
-        if [[ "$GITHUB_REF" == *"refs/heads/release"* ||  "$GITHUB_REF" == *"refs/heads/hotfix"* ]] ; then
-        echo "IS_DEV=false" >> $GITHUB_ENV
-        else
-        echo "IS_DEV=true" >> $GITHUB_ENV
-        fi
     - id: bundle
       name: Build bundle
       run: |-
+        REF=`echo ${GITHUB_REF} | sed 's/refs\/head\///g' | sed 's/\//-/g'`
         echo "building $BRANCH with dev=$IS_DEV and version=$VERSION"
 
         cd v2
@@ -231,14 +233,7 @@ jobs:
         make bundle-stable
         echo "::endgroup::"
 
-        if [ "$IS_DEV" == "true" ] ; then
-        echo "using branch in version"
-        export VERSION="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
-        else
-        echo "using release version and githb_run_number"
-        export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
-        fi
-
+        export VERSION=$IMAGE_TAG
         echo "::group::Make Bundle Build"
         make bundle-build
         echo "::endgroup::"
