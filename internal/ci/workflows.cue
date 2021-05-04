@@ -174,7 +174,16 @@ branch_build: _#bashWorkflow & {
 				_#step & {
 					id: "build"
 					name: "Build images"
-					run: "TAG=${{ needs.test.outputs.version }}-$GITHUB_SHA make clean-licenses save-licenses ${{ matrix.project }}/docker-build"
+					run: """
+						if [[ "$GITHUB_REF" == *"refs/heads/release"* ||  "$GITHUB_REF" == *"refs/heads/hotfix"* ]] ; then
+						echo "using release version and githb_run_number"
+						export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
+						else
+						echo "using branch in version"
+						export VERSION="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
+						fi
+						make clean-licenses save-licenses ${{ matrix.project }}/docker-build
+"""
 				},
       ]
     }
@@ -325,7 +334,7 @@ bundle: _#bashWorkflow & {
 						\((_#makeLogGroup & {#args: {name: "Make Dev Index", cmd: "make bundle-dev-index-multiarch"}}).res)
 
 						echo "::set-output name=version::$VERSION"
-						echo "::set-output name=tag::$TAG"
+						echo "::set-output name=tag::$VERSION"
 						"""
 				},
 			]
