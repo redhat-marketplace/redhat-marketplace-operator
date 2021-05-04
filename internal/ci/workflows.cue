@@ -128,10 +128,9 @@ branch_build: _#bashWorkflow & {
 				},
 				_#installGo,
 				_#cacheGoModules,
-				_#installKubeBuilder,
 				_#step & {
 					name: "Test"
-					run: "make test"
+					run: "make operator/test"
 				},
         _#step & {
           id: "version"
@@ -170,6 +169,22 @@ branch_build: _#bashWorkflow & {
         }
 			]
 		}
+    "matrix-test": _#job & {
+			name:      "Matrix Test"
+			"runs-on": _#linuxMachine
+      strategy: matrix: {
+        project: ["authchecker", "metering", "reporter", "tests"]
+      }
+			steps: [
+				_#checkoutCode,
+				_#installGo,
+				_#cacheGoModules,
+				_#step & {
+					name: "Test"
+					run: "make ${{ matrix.project }}/test"
+				}
+      ]
+    }
     "images" : _#job & {
       name:      "Build Images"
 			"runs-on": _#linuxMachine
@@ -202,7 +217,7 @@ branch_build: _#bashWorkflow & {
 		"deploy": _#job & {
 			name:      "Deploy"
 			"runs-on": _#linuxMachine
-			needs: ["test"]
+			needs: ["test", "matrix-test"]
       env: {
         VERSION: "${{ needs.test.outputs.version }}"
         IMAGE_TAG: "${{ needs.test.outputs.tag }}"
@@ -231,7 +246,7 @@ branch_build: _#bashWorkflow & {
 						echo "building $BRANCH with dev=$IS_DEV and version=$VERSION"
 
 						cd v2
-						export TAG=${VERSION}-${GITHUB_SHA}
+						export TAG=$IMAGE_TAG
 						\((_#makeLogGroup & {#args: {name: "Make Stable Bundle", cmd: "make bundle-stable"}}).res)
 
 						export VERSION=$IMAGE_TAG
@@ -690,7 +705,6 @@ _#waitForPublish: _#step & {
 	env: {
 		RH_CONNECT_TOKEN: "${{ secrets.redhat_api_key }}"
 	}
-	"continue-on-error": true
 	run:
 		"""
 			cd v2
