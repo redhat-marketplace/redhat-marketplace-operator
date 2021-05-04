@@ -36,6 +36,8 @@ import (
 
 var logger logr.Logger
 var dbName = "test.db"
+var before = 1577836800 // 1st jan 2020
+var after = 1577923200  // 2nd jan 2020
 
 func initLog() error {
 	zapLog, err := zap.NewDevelopment()
@@ -285,7 +287,6 @@ func TestDatabase_ListFileMetadata(t *testing.T) {
 		Log: logger,
 	}
 
-	current_time := time.Now().Unix()
 	populateDataset(db_, t)
 
 	tests := []struct {
@@ -305,12 +306,7 @@ func TestDatabase_ListFileMetadata(t *testing.T) {
 					Value:    "marketplace_report.zip",
 				},
 			},
-			sortList: []*database.SortOrder{
-				{
-					Key:   "size",
-					Order: "ASC",
-				},
-			},
+			sortList:            []*database.SortOrder{},
 			includeDeletedFiles: false,
 			m: []*models.Metadata{
 				{
@@ -419,18 +415,18 @@ func TestDatabase_ListFileMetadata(t *testing.T) {
 			m:        []*models.Metadata{},
 			errMsg:   "",
 		},
-		{ // this test might fail if more than one save file opeation take too long to execute
+		{
 			name: "fetch list of file created between provided time range",
 			conditionList: []*database.Condition{
 				{
 					Key:      "created_at",
 					Operator: ">",
-					Value:    strconv.FormatInt(current_time, 10),
+					Value:    strconv.FormatInt((int64(before) - 1), 10),
 				},
 				{
 					Key:      "created_at",
 					Operator: "<",
-					Value:    strconv.FormatInt(current_time+3, 10),
+					Value:    strconv.FormatInt((int64(after) + 1), 10),
 				},
 			},
 			sortList: []*database.SortOrder{
@@ -730,28 +726,20 @@ func populateDataset(database *database.Database, t *testing.T) {
 		Data: &v1.FileID_Name{
 			Name: "delete.txt",
 		}}
+	reportsFID := &v1.FileID{
+		Data: &v1.FileID_Name{
+			Name: "reports.zip",
+		},
+	}
+	marketplaceFID := &v1.FileID{
+		Data: &v1.FileID_Name{
+			Name: "marketplace_report.zip",
+		},
+	}
 
 	files := []v1.FileInfo{
 		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "reports.zip",
-				},
-			},
-			Size:            1000,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"version": "1",
-				"type":    "report",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "reports.zip",
-				},
-			},
+			FileId:          reportsFID,
 			Size:            2000,
 			Compression:     true,
 			CompressionType: "gzip",
@@ -761,11 +749,7 @@ func populateDataset(database *database.Database, t *testing.T) {
 			},
 		},
 		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "marketplace_report.zip",
-				},
-			},
+			FileId:          marketplaceFID,
 			Size:            200,
 			Compression:     true,
 			CompressionType: "gzip",
@@ -811,7 +795,7 @@ func populateDataset(database *database.Database, t *testing.T) {
 			},
 		},
 	}
-
+	// Upload files to mock server
 	for i := range files {
 		bs := make([]byte, files[i].Size)
 		dbErr := database.SaveFile(&files[i], bs)
@@ -822,4 +806,16 @@ func populateDataset(database *database.Database, t *testing.T) {
 	}
 
 	database.TombstoneFile(deleteFID)
+
+	// update created_at
+	SetCreatedAt(reportsFID.GetName(), before, database)
+	SetCreatedAt(marketplaceFID.GetName(), after, database)
+	time.Sleep(1 * time.Second)
+}
+
+func SetCreatedAt(fname string, cat int, d *database.Database) {
+	m := &models.Metadata{}
+	d.DB.Model(&m).
+		Where("provided_name = ?", fname).
+		Update("created_at", cat)
 }

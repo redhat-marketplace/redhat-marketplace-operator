@@ -565,7 +565,7 @@ func TestFileRetreiverServer_GetFileMetadata(t *testing.T) {
 
 			md := stream.GetInfo()
 
-			if md != nil {	
+			if md != nil {
 				if int(md.GetSize()) != int(tt.size) {
 					t.Errorf("sent:%v and recieved:%v size doesn't match for test: %v", int(tt.size), md.GetSize(), tt.name)
 				}
@@ -648,6 +648,7 @@ func populateDataset(conn *grpc.ClientConn, t *testing.T) {
 	}
 	uploadClient := filesender.NewFileSenderClient(conn)
 
+	// Upload files to mock server
 	for i := range files {
 		clientStream, err := uploadClient.UploadFile(context.Background())
 		if err != nil {
