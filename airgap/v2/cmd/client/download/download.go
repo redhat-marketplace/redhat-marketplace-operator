@@ -23,36 +23,46 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/go-logr/zapr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/client/util"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 type DownloadConfig struct {
-	fileName        string
-	fileId          string
-	outputDirectory string
-	fileListPath    string
-	conn            *grpc.ClientConn
-	client          fileretreiver.FileRetreiverClient
+	fileName         string
+	fileId           string
+	outputDirectory  string
+	fileListPath     string
+	deleteOnDownload bool
+	conn             *grpc.ClientConn
+	client           fileretreiver.FileRetreiverClient
+	log              logr.Logger
 }
 
-var (
-	dc  DownloadConfig
-	log logr.Logger
-)
+var dc DownloadConfig
 
 // DownloadCmd represents the download command
 var DownloadCmd = &cobra.Command{
 	Use:   "download",
 	Short: "Download files from the airgap service",
 	Long:  `An external configuration file containing connection details are expected`,
+	Example: `
+    # Download file based using file name 
+    client download --file-name file_name --output-directory /path/to/output/dir --config /path/to/config.yaml
+    
+    # Download file based using file id 
+    client download --file-id file_id --output-directory /path/to/output/dir --config /path/to/config.yaml
+    
+    # Download files in batch using csv file 
+    client download --file-list-path file_name --output-directory /path/to/output/dir --config /path/to/config.yaml
+    
+    # Mark file for deletion on download 
+    client download -D --file-name file_name --output-directory /path/to/output/dir --config /path/to/config.yaml`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		//Initialize logger
+		initLog()
 		// Initialize client
 		err := dc.initializeDownloadClient()
 		if err != nil {
@@ -71,53 +81,29 @@ var DownloadCmd = &cobra.Command{
 }
 
 func init() {
-	initLog()
 	DownloadCmd.Flags().StringVarP(&dc.fileName, "file-name", "n", "", "Name of the file to be downloaded")
 	DownloadCmd.Flags().StringVarP(&dc.fileId, "file-id", "i", "", "Id of the file to be downloaded")
 	DownloadCmd.Flags().StringVarP(&dc.outputDirectory, "output-directory", "o", "", "Path to download the file")
 	DownloadCmd.Flags().StringVarP(&dc.fileListPath, "file-list-path", "f", "", "Fully qualified path to file containing list of names/identifiers")
+	DownloadCmd.Flags().BoolVarP(&dc.deleteOnDownload, "delete-on-download", "D", false, "Mark file for deletion")
 	DownloadCmd.MarkFlagRequired("output-directory")
 }
 
+//initLog initializes logger
 func initLog() {
-	zapLog, err := zap.NewDevelopment()
+	var err error
+	dc.log, err = util.InitLog()
 	if err != nil {
-		panic(fmt.Sprintf("Failed to initialize zapr, due to error: %v", err))
+		panic(err)
 	}
-	log = zapr.NewLogger(zapLog)
 }
 
 // initializeDownloadClient initializes the file retriever client based on provided configuration parameters
 func (dc *DownloadConfig) initializeDownloadClient() error {
-	// Fetch target address
-	address := viper.GetString("address")
-	if len(strings.TrimSpace(address)) == 0 {
-		return fmt.Errorf("target address is blank/empty")
-	}
-	log.Info("Connection credentials:", "address", address)
-
-	// Create connection
-	insecure := viper.GetBool("insecure")
-	var conn *grpc.ClientConn
-	var err error
-
-	if insecure {
-		conn, err = grpc.Dial(address, grpc.WithInsecure())
-	} else {
-		cert := viper.GetString("certificate-path")
-		creds, sslErr := credentials.NewClientTLSFromFile(cert, "")
-		if sslErr != nil {
-			return fmt.Errorf("ssl error: %v", sslErr)
-		}
-		opts := grpc.WithTransportCredentials(creds)
-		conn, err = grpc.Dial(address, opts)
-	}
-
-	// Handle any connection errors
+	conn, err := util.InitClient()
 	if err != nil {
-		return fmt.Errorf("connection error: %v", err)
+		return err
 	}
-
 	dc.client = fileretreiver.NewFileRetreiverClient(conn)
 	dc.conn = conn
 	return nil
@@ -136,6 +122,7 @@ func (dc *DownloadConfig) downloadFile(fn string, fid string) error {
 	fid = strings.TrimSpace(fid)
 	var req *fileretreiver.DownloadFileRequest
 	var name string
+	var cs string
 
 	// Validate input and prepare request
 	if len(fn) == 0 && len(fid) == 0 {
@@ -147,6 +134,7 @@ func (dc *DownloadConfig) downloadFile(fn string, fid string) error {
 				Data: &v1.FileID_Name{
 					Name: fn},
 			},
+			DeleteOnDownload: dc.deleteOnDownload,
 		}
 	} else {
 		name = fid
@@ -155,9 +143,10 @@ func (dc *DownloadConfig) downloadFile(fn string, fid string) error {
 				Data: &v1.FileID_Id{
 					Id: fid},
 			},
+			DeleteOnDownload: dc.deleteOnDownload,
 		}
 	}
-	log.Info("Attempting to download file", "name/id", name)
+	dc.log.Info("Attempting to download file", "name/id", name)
 
 	resultStream, err := dc.client.DownloadFile(context.Background(), req)
 	if err != nil {
@@ -173,6 +162,9 @@ func (dc *DownloadConfig) downloadFile(fn string, fid string) error {
 			return fmt.Errorf("error while reading stream: %v", err)
 		}
 
+		if len(strings.TrimSpace(file.GetInfo().GetChecksum())) != 0 {
+			cs = file.GetInfo().GetChecksum()
+		}
 		data := file.GetChunkData()
 		if bs == nil {
 			bs = data
@@ -191,7 +183,7 @@ func (dc *DownloadConfig) downloadFile(fn string, fid string) error {
 		return fmt.Errorf("error while writing data to the output file: %v", err)
 	}
 
-	log.Info("File downloaded successfully!", "name/id", name)
+	dc.log.Info("File downloaded successfully!", "name/id", name, "checksum", cs)
 	return nil
 }
 
@@ -205,14 +197,14 @@ func (dc *DownloadConfig) batchDownload() error {
 	for _, n := range fns {
 		err = dc.downloadFile(n, "")
 		if err != nil {
-			log.Error(err, "Error during download", "name", n)
+			dc.log.Error(err, "Error during download", "name", n)
 		}
 	}
 
 	for _, id := range fids {
 		err = dc.downloadFile("", id)
 		if err != nil {
-			log.Error(err, "Error during download", "identifier", id)
+			dc.log.Error(err, "Error during download", "identifier", id)
 		}
 	}
 
@@ -263,8 +255,8 @@ func parseCSV(fp string) (fns []string, fids []string, err error) {
 // getExpectedCSVHeaders returns the minimum headers required to parse the csv file
 func getExpectedCSVHeaders() []string {
 	return []string{
-		"file_identifier",
-		"file_name",
+		"File ID",
+		"File Name",
 	}
 }
 

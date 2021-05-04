@@ -76,6 +76,7 @@ func (frs *FileRetreiverServer) DownloadFile(dfr *fileretreiver.DownloadFileRequ
 				UpdatedAt:        created_at,
 				Compression:      metadata.Compression,
 				CompressionType:  metadata.CompressionType,
+				Checksum:         metadata.Checksum,
 				Metadata:         fms,
 			},
 		},
@@ -112,6 +113,15 @@ func (frs *FileRetreiverServer) DownloadFile(dfr *fileretreiver.DownloadFileRequ
 			return status.Errorf(
 				codes.Unknown,
 				fmt.Sprintf("Error while sending response %v ", err),
+			)
+		}
+	}
+	if dfr.GetDeleteOnDownload() {
+		err = frs.B.FileStore.TombstoneFile(dfr.GetFileId())
+		if err != nil {
+			return status.Errorf(
+				codes.InvalidArgument,
+				fmt.Sprintf("Failed to mark file for deletion due to: %v", err),
 			)
 		}
 	}
@@ -170,7 +180,7 @@ func (frs *FileRetreiverServer) ListFileMetadata(lis *fileretreiver.ListFileMeta
 	}
 
 	//Fetching metadata
-	metadataList, err := frs.B.FileStore.ListFileMetadata(conditionList, sortOrderList)
+	metadataList, err := frs.B.FileStore.ListFileMetadata(conditionList, sortOrderList, lis.IncludeDeletedFiles)
 	if err != nil {
 		return status.Errorf(
 			codes.Unknown,
@@ -214,6 +224,7 @@ func (frs *FileRetreiverServer) ListFileMetadata(lis *fileretreiver.ListFileMeta
 				DeletedTombstone: &timestamppb.Timestamp{Seconds: metadata.DeletedAt},
 				Compression:      metadata.Compression,
 				CompressionType:  metadata.CompressionType,
+				Checksum:         metadata.Checksum,
 			},
 		}
 		//Send response

@@ -36,6 +36,8 @@ import (
 
 var logger logr.Logger
 var dbName = "test.db"
+var before = 1577836800 // 1st jan 2020
+var after = 1577923200  // 2nd jan 2020
 
 func initLog() error {
 	zapLog, err := zap.NewDevelopment()
@@ -187,32 +189,11 @@ func TestDatabase_DownloadFile(t *testing.T) {
 	//Perform migrations
 	db.AutoMigrate(&models.FileMetadata{}, &models.File{}, &models.Metadata{})
 
-	bs := make([]byte, 1024)
-	finfo := &v1.FileInfo{
-		FileId: &v1.FileID{
-			Data: &v1.FileID_Name{
-				Name: "test-file",
-			},
-		},
-		Size:            1024,
-		Compression:     true,
-		CompressionType: "gzip",
-		Metadata: map[string]string{
-			"Key1": "Value1",
-			"Key2": "Value2",
-		},
-	}
-
 	database := &database.Database{
 		DB:  db,
 		Log: logger,
 	}
-
-	//Save a file in database to retreive in tests later
-	err = database.SaveFile(finfo, bs)
-	if err != nil {
-		t.Fatalf("Failed to create seed data for tests due to error: %v", err)
-	}
+	populateDataset(database, t)
 
 	tests := []struct {
 		name   string
@@ -224,15 +205,15 @@ func TestDatabase_DownloadFile(t *testing.T) {
 			name: "download a file that exists in the database",
 			fid: &v1.FileID{
 				Data: &v1.FileID_Name{
-					Name: "test-file",
+					Name: "reports.zip",
 				},
 			},
 			m: &models.Metadata{
-				Size:         1024,
-				ProvidedName: "test-file",
+				Size:         2000,
+				ProvidedName: "reports.zip",
 				FileMetadata: []models.FileMetadata{
-					{Key: "Key1", Value: "Value1"},
-					{Key: "Key2", Value: "Value2"},
+					{Key: "version", Value: "2"},
+					{Key: "type", Value: "report"},
 				},
 			},
 			errMsg: "",
@@ -306,15 +287,15 @@ func TestDatabase_ListFileMetadata(t *testing.T) {
 		Log: logger,
 	}
 
-	current_time := time.Now().Unix()
-	populateDataset(db_)
+	populateDataset(db_, t)
 
 	tests := []struct {
-		name          string
-		conditionList []*database.Condition
-		sortList      []*database.SortOrder
-		m             []*models.Metadata
-		errMsg        string
+		name                string
+		conditionList       []*database.Condition
+		sortList            []*database.SortOrder
+		includeDeletedFiles bool
+		m                   []*models.Metadata
+		errMsg              string
 	}{
 		{
 			name: "fetch file metadata based on provided name",
@@ -325,12 +306,8 @@ func TestDatabase_ListFileMetadata(t *testing.T) {
 					Value:    "marketplace_report.zip",
 				},
 			},
-			sortList: []*database.SortOrder{
-				{
-					Key:   "size",
-					Order: "ASC",
-				},
-			},
+			sortList:            []*database.SortOrder{},
+			includeDeletedFiles: false,
 			m: []*models.Metadata{
 				{
 					ProvidedName: "marketplace_report.zip",
@@ -352,7 +329,8 @@ func TestDatabase_ListFileMetadata(t *testing.T) {
 					Value:    "DOS",
 				},
 			},
-			sortList: []*database.SortOrder{},
+			sortList:            []*database.SortOrder{},
+			includeDeletedFiles: false,
 			m: []*models.Metadata{
 				{
 					ProvidedName: "dosbox",
@@ -404,7 +382,8 @@ func TestDatabase_ListFileMetadata(t *testing.T) {
 					Value:    "4.3",
 				},
 			},
-			sortList: []*database.SortOrder{},
+			sortList:            []*database.SortOrder{},
+			includeDeletedFiles: false,
 			m: []*models.Metadata{
 				{
 					ProvidedName: "dosbox",
@@ -436,18 +415,18 @@ func TestDatabase_ListFileMetadata(t *testing.T) {
 			m:        []*models.Metadata{},
 			errMsg:   "",
 		},
-		{ // this test might fail if more than one save file opeation take too long to execute
+		{
 			name: "fetch list of file created between provided time range",
 			conditionList: []*database.Condition{
 				{
 					Key:      "created_at",
 					Operator: ">",
-					Value:    strconv.FormatInt(current_time+2, 10),
+					Value:    strconv.FormatInt((int64(before) - 1), 10),
 				},
 				{
 					Key:      "created_at",
 					Operator: "<",
-					Value:    strconv.FormatInt(current_time+6, 10),
+					Value:    strconv.FormatInt((int64(after) + 1), 10),
 				},
 			},
 			sortList: []*database.SortOrder{
@@ -456,14 +435,16 @@ func TestDatabase_ListFileMetadata(t *testing.T) {
 					Order: "ASC",
 				},
 			},
+			includeDeletedFiles: false,
 			m: []*models.Metadata{
+
 				{
 					ProvidedName: "marketplace_report.zip",
 					Size:         200,
 					FileMetadata: []models.FileMetadata{
 						{
 							Key:   "version",
-							Value: "2",
+							Value: "1",
 						},
 						{
 							Key:   "type",
@@ -472,24 +453,41 @@ func TestDatabase_ListFileMetadata(t *testing.T) {
 					},
 				},
 				{
-					ProvidedName: "airgap-deploy.zip",
-					Size:         1000,
+					ProvidedName: "reports.zip",
+					Size:         2000,
 					FileMetadata: []models.FileMetadata{
 						{
 							Key:   "version",
-							Value: "latest",
-						},
-						{
-							Key:   "name",
-							Value: "airgap",
+							Value: "1",
 						},
 						{
 							Key:   "type",
-							Value: "deployment-package",
+							Value: "report",
 						},
+					},
+				},
+			},
+			errMsg: "",
+		},
+		{
+			name: "fetch list of file marked for deletion",
+			conditionList: []*database.Condition{
+				{
+					Key:      "provided_name",
+					Operator: "LIKE",
+					Value:    "delete",
+				},
+			},
+			sortList:            []*database.SortOrder{},
+			includeDeletedFiles: true,
+			m: []*models.Metadata{
+				{
+					ProvidedName: "delete.txt",
+					Size:         1500,
+					FileMetadata: []models.FileMetadata{
 						{
 							Key:   "description",
-							Value: "airgap deployment code",
+							Value: "file marked for deletion",
 						},
 					},
 				},
@@ -500,7 +498,7 @@ func TestDatabase_ListFileMetadata(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m, err := db_.ListFileMetadata(tt.conditionList, tt.sortList)
+			m, err := db_.ListFileMetadata(tt.conditionList, tt.sortList, tt.includeDeletedFiles)
 			if err != nil {
 				if !strings.Contains(err.Error(), tt.errMsg) {
 					t.Errorf("Expected error message: %v, instead got: %v", tt.errMsg, err.Error())
@@ -528,6 +526,105 @@ func TestDatabase_ListFileMetadata(t *testing.T) {
 	}
 }
 
+func TestDatabase_TombstoneFile(t *testing.T) {
+	err := initLog()
+	if err != nil {
+		t.Fatalf("Couldn't initialize logger: %v", err)
+	}
+
+	db, err := gorm.Open(sqlite.Open(dbName), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("Couldn't create sqlite connection")
+	}
+	defer closeDBConnection(db)
+
+	//Perform migrations
+	db.AutoMigrate(&models.FileMetadata{}, &models.File{}, &models.Metadata{})
+
+	bs := make([]byte, 1024)
+	finfo := &v1.FileInfo{
+		FileId: &v1.FileID{
+			Data: &v1.FileID_Name{
+				Name: "test-file",
+			},
+		},
+		Size:            1024,
+		Compression:     true,
+		CompressionType: "gzip",
+		Metadata: map[string]string{
+			"Key1": "Value1",
+			"Key2": "Value2",
+		},
+	}
+
+	database := &database.Database{
+		DB:  db,
+		Log: logger,
+	}
+
+	//Save a file in database to retreive in tests later
+	err = database.SaveFile(finfo, bs)
+	if err != nil {
+		t.Fatalf("Failed to create seed data for tests due to error: %v", err)
+	}
+
+	tests := []struct {
+		name   string
+		fid    *v1.FileID
+		m      *models.Metadata
+		errMsg string
+	}{
+		{
+			name: "mark file for deletion on download",
+			fid: &v1.FileID{
+				Data: &v1.FileID_Name{
+					Name: "test-file",
+				},
+			},
+			m: &models.Metadata{
+				Size:         1024,
+				ProvidedName: "test-file",
+				FileMetadata: []models.FileMetadata{
+					{Key: "Key1", Value: "Value1"},
+					{Key: "Key2", Value: "Value2"},
+				},
+			},
+			errMsg: "",
+		},
+		{
+			name: "invalid method call to download a file with whitespaces as the name",
+			fid: &v1.FileID{
+				Data: &v1.FileID_Name{
+					Name: "   ",
+				},
+			},
+			m:      nil,
+			errMsg: "file id/name is blank",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := database.TombstoneFile(tt.fid)
+			if err != nil {
+				if !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("Expected error message: %v, instead got: %v", tt.errMsg, err.Error())
+				}
+			} else if len(tt.errMsg) > 0 {
+				t.Errorf("Expected error: %v was never received!", tt.errMsg)
+			}
+			if tt.m != nil {
+				m := &models.Metadata{}
+				db.Where("provided_name = ?", tt.m.ProvidedName).Order("created_at desc").Find(m)
+				t.Log(m)
+				if m.CleanTombstoneSetAt == 0 {
+					t.Errorf("Expected file is not marked for deletion, Expected tombestone: %v , got %v for file %v ", tt.m.CleanTombstoneSetAt, m.CleanTombstoneSetAt, tt.m.ProvidedName)
+				}
+			}
+		})
+	}
+}
+
 func TestDatabase_GetFileMetadata(t *testing.T) {
 	err := initLog()
 	if err != nil {
@@ -548,7 +645,7 @@ func TestDatabase_GetFileMetadata(t *testing.T) {
 		Log: logger,
 	}
 
-	populateDataset(database)
+	populateDataset(database, t)
 
 	tests := []struct {
 		name   string
@@ -607,10 +704,6 @@ func TestDatabase_GetFileMetadata(t *testing.T) {
 			}
 
 			if tt.m != nil {
-				if m.CleanTombstoneSetAt != 0 {
-					t.Errorf("File marked for deletion was retrieved")
-				}
-
 				if tt.m.ProvidedName != m.ProvidedName {
 					t.Errorf("Expected file name: %v, instead got: %v", tt.m.ProvidedName, m.ProvidedName)
 				}
@@ -628,29 +721,25 @@ func TestDatabase_GetFileMetadata(t *testing.T) {
 }
 
 // Populate Database for testing
-func populateDataset(database *database.Database) {
-	var t *testing.T
+func populateDataset(database *database.Database, t *testing.T) {
+	deleteFID := &v1.FileID{
+		Data: &v1.FileID_Name{
+			Name: "delete.txt",
+		}}
+	reportsFID := &v1.FileID{
+		Data: &v1.FileID_Name{
+			Name: "reports.zip",
+		},
+	}
+	marketplaceFID := &v1.FileID{
+		Data: &v1.FileID_Name{
+			Name: "marketplace_report.zip",
+		},
+	}
+
 	files := []v1.FileInfo{
 		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "reports.zip",
-				},
-			},
-			Size:            1000,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"version": "1",
-				"type":    "report",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "reports.zip",
-				},
-			},
+			FileId:          reportsFID,
 			Size:            2000,
 			Compression:     true,
 			CompressionType: "gzip",
@@ -660,77 +749,13 @@ func populateDataset(database *database.Database) {
 			},
 		},
 		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "marketplace_report.zip",
-				},
-			},
-			Size:            300,
+			FileId:          marketplaceFID,
+			Size:            200,
 			Compression:     true,
 			CompressionType: "gzip",
 			Metadata: map[string]string{
 				"version": "1",
 				"type":    "marketplace_report",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "marketplace_report.zip",
-				},
-			},
-			Size:            200,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"version": "2",
-				"type":    "marketplace_report",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "airgap-deploy.zip",
-				},
-			},
-			Size:            1000,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"version": "1",
-				"name":    "airgap",
-				"type":    "deployment-package",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "airgap-deploy.zip",
-				},
-			},
-			Size:            1000,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"version":     "latest",
-				"name":        "airgap",
-				"type":        "deployment-package",
-				"description": "airgap deployment code ",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "Kube.sh",
-				},
-			},
-			Size:            200,
-			Compression:     false,
-			CompressionType: "",
-			Metadata: map[string]string{
-				"version":     "latest",
-				"description": "kube cluster executable file",
-				"type":        "kube-executable",
 			},
 		},
 		{
@@ -761,8 +786,16 @@ func populateDataset(database *database.Database) {
 				"description": "Emulator with builtin DOS for running DOS Games",
 			},
 		},
+		{
+			FileId:      deleteFID,
+			Size:        1500,
+			Compression: false,
+			Metadata: map[string]string{
+				"description": "file marked for deletion",
+			},
+		},
 	}
-
+	// Upload files to mock server
 	for i := range files {
 		bs := make([]byte, files[i].Size)
 		dbErr := database.SaveFile(&files[i], bs)
@@ -771,4 +804,18 @@ func populateDataset(database *database.Database) {
 		}
 		time.Sleep(1 * time.Second)
 	}
+
+	database.TombstoneFile(deleteFID)
+
+	// update created_at
+	SetCreatedAt(reportsFID.GetName(), before, database)
+	SetCreatedAt(marketplaceFID.GetName(), after, database)
+	time.Sleep(1 * time.Second)
+}
+
+func SetCreatedAt(fname string, cat int, d *database.Database) {
+	m := &models.Metadata{}
+	d.DB.Model(&m).
+		Where("provided_name = ?", fname).
+		Update("created_at", cat)
 }

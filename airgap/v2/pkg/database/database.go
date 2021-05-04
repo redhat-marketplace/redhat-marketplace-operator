@@ -15,9 +15,12 @@
 package database
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/go-logr/logr"
@@ -30,7 +33,8 @@ import (
 type FileStore interface {
 	SaveFile(finfo *v1.FileInfo, bs []byte) error
 	DownloadFile(finfo *v1.FileID) (*models.Metadata, error)
-	ListFileMetadata([]*Condition, []*SortOrder) ([]models.Metadata, error)
+	TombstoneFile(finfo *v1.FileID) error
+	ListFileMetadata([]*Condition, []*SortOrder, bool) ([]models.Metadata, error)
 	GetFileMetadata(finfo *v1.FileID) (*models.Metadata, error)
 }
 
@@ -66,6 +70,9 @@ func (d *Database) SaveFile(finfo *v1.FileInfo, bs []byte) error {
 		return fmt.Errorf("file id/name is blank")
 	}
 
+	cb := sha256.Sum256(bs)
+	c := hex.EncodeToString(cb[:])
+
 	// Create a slice of file metadata models
 	var fms []models.FileMetadata
 	m := finfo.GetMetadata()
@@ -84,6 +91,7 @@ func (d *Database) SaveFile(finfo *v1.FileInfo, bs []byte) error {
 		Size:            finfo.GetSize(),
 		Compression:     finfo.GetCompression(),
 		CompressionType: finfo.GetCompressionType(),
+		Checksum:        c,
 		File: models.File{
 			Content: bs,
 		},
@@ -95,7 +103,7 @@ func (d *Database) SaveFile(finfo *v1.FileInfo, bs []byte) error {
 		return err
 	}
 
-	d.Log.Info("Saved file", "size", metadata.Size, "id", metadata.FileID)
+	d.Log.Info("Saved file", "size", metadata.Size, "id", metadata.FileID, "checksum", c)
 	return nil
 }
 
@@ -129,8 +137,30 @@ func (d *Database) DownloadFile(finfo *v1.FileID) (*models.Metadata, error) {
 	return &meta, nil
 }
 
+//TombstoneFile marks file and its previous versions for deletion
+func (d *Database) TombstoneFile(fid *v1.FileID) error {
+	var meta models.Metadata
+	now := time.Now()
+	fileid := strings.TrimSpace(fid.GetId())
+	filename := strings.TrimSpace(fid.GetName())
+
+	if len(fileid) != 0 {
+		d.DB.Model(&meta).
+			Where("provided_id = ?", fileid).
+			Update("clean_tombstone_set_at", now.Unix())
+	} else if len(filename) != 0 {
+		d.DB.Model(&meta).
+			Where("provided_name = ?", filename).
+			Update("clean_tombstone_set_at", now.Unix())
+	} else {
+		return fmt.Errorf("file id/name is blank")
+	}
+	d.Log.Info("File marked for delete", "id", fileid, "name", filename)
+	return nil
+}
+
 // ListFileMetadata allow us to fetch list of files and its metadata from database
-func (d *Database) ListFileMetadata(conditionList []*Condition, sortOrderList []*SortOrder) ([]models.Metadata, error) {
+func (d *Database) ListFileMetadata(conditionList []*Condition, sortOrderList []*SortOrder, incDel bool) ([]models.Metadata, error) {
 	//Converts the keys from golang notation to the database notation i.e., HelloWorldGlobe -> hello_world_globe
 	cleanKey := func(s string) string {
 		output := []byte{}
@@ -194,8 +224,7 @@ func (d *Database) ListFileMetadata(conditionList []*Condition, sortOrderList []
 
 	//Fetch file metadata
 	metadataList := []models.Metadata{}
-	queryChain := d.DB.Joins("LEFT JOIN file_metadata ON file_metadata.metadata_id = metadata.id").
-		Where("clean_tombstone_set_at =  ?", 0)
+	queryChain := d.DB.Joins("LEFT JOIN file_metadata ON file_metadata.metadata_id = metadata.id")
 
 	if len(conditionStringList) != 0 {
 		queryChain = queryChain.Where(strings.Join(conditionStringList, " AND "), conditionValueList...)
@@ -209,12 +238,20 @@ func (d *Database) ListFileMetadata(conditionList []*Condition, sortOrderList []
 	if len(sortOrderStringList) != 0 {
 		queryChain = queryChain.Order(strings.Join(sortOrderStringList, ","))
 	}
-	queryChain.Distinct().
-		Group("provided_name, provided_id").
-		Having("created_at = max(created_at)").
-		Preload("FileMetadata").
-		Find(&metadataList)
-
+	if incDel {
+		queryChain.Distinct().
+			Group("provided_name, provided_id").
+			Having("created_at = max(created_at)").
+			Preload("FileMetadata").
+			Find(&metadataList)
+	} else {
+		queryChain.Where("clean_tombstone_set_at =  ?", 0).
+			Distinct().
+			Group("provided_name, provided_id").
+			Having("created_at = max(created_at)").
+			Preload("FileMetadata").
+			Find(&metadataList)
+	}
 	return metadataList, nil
 }
 
@@ -229,13 +266,11 @@ func (d *Database) GetFileMetadata(finfo *v1.FileID) (*models.Metadata, error) {
 	// Perform validations and query
 	if len(fileid) != 0 {
 		d.DB.Where("provided_id = ?", fileid).
-			Where("clean_tombstone_set_at = ?", 0).
 			Order("created_at desc").
 			Preload("FileMetadata").
 			First(&meta)
 	} else if len(filename) != 0 {
 		d.DB.Where("provided_name = ?", filename).
-			Where("clean_tombstone_set_at = ?", 0).
 			Order("created_at desc").
 			Preload("FileMetadata").
 			First(&meta)
