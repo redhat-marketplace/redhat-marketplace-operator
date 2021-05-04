@@ -128,6 +128,7 @@ branch_build: _#bashWorkflow & {
 				},
 				_#installGo,
 				_#cacheGoModules,
+				_#installKubeBuilder,
 				_#step & {
 					name: "Test"
 					run: "make operator/test"
