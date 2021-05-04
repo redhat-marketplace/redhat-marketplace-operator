@@ -207,7 +207,7 @@ branch_build: _#bashWorkflow & {
 					REF=`echo ${GITHUB_REF} | sed 's/refs\\/head\\///g' | sed 's/\\//-/g'`
 					echo "BRANCH=$REF" >> $GITHUB_ENV
 
-					if [[ "$GITHUB_REF" == *"refs/head/release"* ||  "$GITHUB_REF" == *"refs/head/hotfix"* ]] ; then
+					if [[ "$GITHUB_REF" == *"refs/heads/release"* ||  "$GITHUB_REF" == *"refs/heads/hotfix"* ]] ; then
 					echo "IS_DEV=false" >> $GITHUB_ENV
 					else
 					echo "IS_DEV=true" >> $GITHUB_ENV
