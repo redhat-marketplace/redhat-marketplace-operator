@@ -182,8 +182,9 @@ bundle: clean manifests kustomize helm operator-sdk yq
 	--post-renderer ./config/manifests/kustomize | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	$(YQ) eval -i '.spec.webhookdefinitions[].targetPort = 9443' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.spec.webhookdefinitions[].containerPort = 9443' $(CSV_YAML_BUNDLE_FILE)
-	$(YQ) eval -i ".spec.metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
-	$(YQ) eval -i ".spec.metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i ".metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i ".metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i '.metadata.annotations."olm.skipRange" = ">=1.0.0 <$(VERSION)"' $(CSV_YAML_BUNDLE_FILE)
 	$(OPERATOR_SDK) bundle validate ./bundle
 	#Generate a copy of the resultant yaml files to the deploy directory - this is only used for content certification linting
 	rm -rf ./deploy && mkdir -p ./deploy ./deploy/crds && \
@@ -198,23 +199,14 @@ bundle: clean manifests kustomize helm operator-sdk yq
 
 BUILD_ARCHS = $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS)))
 
-# Build the bundle image for all architectures.
-.PHONY: bundle-build-multiarch
-bundle-build-multiarch:
-	docker buildx build --push -f bundle.Dockerfile -t $(BUNDLE_IMG) \
-	--platform $(call build-targets,$(ARCHS),linux) \
-	--label com.redhat.openshift.versions="v4.5,v4.6,v4.7" \
-  --label com.redhat.delivery.operator.bundle=true \
-	--label com.redhat.delivery.backport=true \
-	.
-
 # Build the bundle image.
 .PHONY: bundle-build
 bundle-build:
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
+	docker buildx build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
 	--label com.redhat.openshift.versions="v4.5,v4.6,v4.7" \
   --label com.redhat.delivery.operator.bundle=true \
 	--label com.redhat.delivery.backport=true \
+	--push \
 	.
 
 bundle-deploy:

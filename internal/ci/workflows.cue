@@ -205,11 +205,12 @@ branch_build: _#bashWorkflow & {
 					name: "Set env"
 					run: """
 					REF=`echo ${GITHUB_REF} | sed 's/refs\\/head\\///g' | sed 's/\\//-/g'`
-					echo "IS_DEV=true" >> $GITHUB_ENV
 					echo "BRANCH=$REF" >> $GITHUB_ENV
 
 					if [[ "$GITHUB_REF" == *"refs/head/release"* ||  "$GITHUB_REF" == *"refs/head/hotfix"* ]] ; then
 					echo "IS_DEV=false" >> $GITHUB_ENV
+					else
+					echo "IS_DEV=true" >> $GITHUB_ENV
 					fi
 					"""
 				},
@@ -232,7 +233,6 @@ branch_build: _#bashWorkflow & {
 						fi
 
 						\((_#makeLogGroup & {#args: {name: "Make Bundle Build", cmd: "make bundle-build"}}).res)
-						\((_#makeLogGroup & {#args: {name: "Make Deploy", cmd: "make bundle-deploy"}}).res)
 						\((_#makeLogGroup & {#args: {name: "Make Dev Index", cmd: "make bundle-dev-index-multiarch"}}).res)
 
 						echo "::set-output name=isDev::$IS_DEV"

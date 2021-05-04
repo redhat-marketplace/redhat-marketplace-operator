@@ -17,14 +17,21 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
+	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -34,6 +41,7 @@ import (
 	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"net/http"
 	"net/http/pprof"
@@ -42,6 +50,7 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	controllers "github.com/redhat-marketplace/redhat-marketplace-operator/v2/controllers/marketplace"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	// +kubebuilder:scaffold:imports
@@ -264,9 +273,98 @@ func main() {
 		}
 	}
 
+	customHandler := (&shutdownHandler{
+		client: mgr.GetClient(),
+	}).Inject(injector)
+
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(customHandler.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+var onlyOneSignalHandler = make(chan struct{})
+var shutdownSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
+
+type shutdownHandler struct {
+	client client.Client
+	cfg    *config.OperatorConfig
+}
+
+func (s *shutdownHandler) Inject(injector mktypes.Injectable) *shutdownHandler {
+	injector.SetCustomFields(s)
+	return s
+}
+
+func (s *shutdownHandler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
+	s.cfg = cfg
+	return nil
+}
+
+func (s *shutdownHandler) SetupSignalHandler() (stopCh <-chan struct{}) {
+	close(onlyOneSignalHandler) // panics when called twice
+
+	stop := make(chan struct{})
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, shutdownSignals...)
+	go func() {
+		<-c
+		setupLog.Info("shutdown signal received")
+		close(stop)
+		<-c
+		setupLog.Info("second shutdown signal received, killing")
+		os.Exit(1) // second signal. Exit directly.
+	}()
+
+	return stop
+}
+
+func (s *shutdownHandler) cleanupOperatorGroup() error {
+	var operatorGroupEnvVar = "OPERATOR_GROUP"
+
+	operatorGroupName, found := os.LookupEnv(operatorGroupEnvVar)
+
+	if found && len(operatorGroupName) != 0 {
+		setupLog.Info("operatorGroup found, attempting to update")
+		operatorGroup := &olmv1.OperatorGroup{}
+		subscription := &olmv1alpha1.Subscription{}
+
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				err := s.client.Get(context.TODO(),
+				types.NamespacedName{Name: "redhat-marketplace-operator", Namespace: s.cfg.DeployedNamespace},
+				subscription,
+			)
+
+			if !k8serrors.IsNotFound(err) {
+				setupLog.Info("subscription found, not cleaning operator group")
+				return nil
+			}
+
+			err = s.client.Get(context.TODO(),
+				types.NamespacedName{Name: operatorGroupName, Namespace: s.cfg.DeployedNamespace},
+				operatorGroup,
+			)
+
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return err
+			} else if err == nil {
+				operatorGroup.Spec.TargetNamespaces = []string{s.cfg.DeployedNamespace}
+				operatorGroup.Spec.Selector = nil
+
+				err = s.client.Update(context.TODO(), operatorGroup)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+
+		if err != nil {
+			setupLog.Error(err, "error updating operatorGroup")
+			return err
+		}
+	}
+
+	return nil
 }

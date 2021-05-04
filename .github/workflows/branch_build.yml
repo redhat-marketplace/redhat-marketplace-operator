@@ -206,11 +206,12 @@ jobs:
       name: Set env
       run: |-
         REF=`echo ${GITHUB_REF} | sed 's/refs\/head\///g' | sed 's/\//-/g'`
-        echo "IS_DEV=true" >> $GITHUB_ENV
         echo "BRANCH=$REF" >> $GITHUB_ENV
 
         if [[ "$GITHUB_REF" == *"refs/head/release"* ||  "$GITHUB_REF" == *"refs/head/hotfix"* ]] ; then
         echo "IS_DEV=false" >> $GITHUB_ENV
+        else
+        echo "IS_DEV=true" >> $GITHUB_ENV
         fi
     - id: bundle
       name: Build bundle
@@ -233,9 +234,6 @@ jobs:
 
         echo "::group::Make Bundle Build"
         make bundle-build
-        echo "::endgroup::"
-        echo "::group::Make Deploy"
-        make bundle-deploy
         echo "::endgroup::"
         echo "::group::Make Dev Index"
         make bundle-dev-index-multiarch

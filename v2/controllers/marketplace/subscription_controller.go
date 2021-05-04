@@ -83,7 +83,7 @@ func (r *SubscriptionReconciler) SetupWithManager(mgr manager.Manager) error {
 
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=subscriptions,verbs=get;list;watch
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions,verbs=create;delete
-// +kubebuilder:rbac:groups="operators.coreos.com",resources=operatorgroups,verbs=get;list;delete;create;watch
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=operatorgroups,verbs=get;list;delete;create;watch;update
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=subscriptions,verbs=delete
 
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read

@@ -648,37 +648,31 @@ func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 	}
 
 	nsValues := []string{}
-	watchNamespace, _ := getWatchNamespace()
 
 	return []ClientAction{
 		Call(func() (ClientAction, error) {
-			if watchNamespace == "" {
-				nsLabelSelector, _ := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
-					MatchExpressions: []metav1.LabelSelectorRequirement{
-						{
-							Key:      "openshift.io/cluster-monitoring",
-							Operator: "DoesNotExist",
-						},
+			nsLabelSelector, _ := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      "openshift.io/cluster-monitoring",
+						Operator: "DoesNotExist",
 					},
-				})
+				},
+			})
 
-				return Do(
-					ListAction(nsList, client.MatchingLabelsSelector{
-						Selector: nsLabelSelector,
-					}),
-					Call(func() (ClientAction, error) {
+			return Do(
+				ListAction(nsList, client.MatchingLabelsSelector{
+					Selector: nsLabelSelector,
+				}),
+				Call(func() (ClientAction, error) {
 
-						for _, ns := range nsList.Items {
-							nsValues = append(nsValues, ns.Name)
-						}
+					for _, ns := range nsList.Items {
+						nsValues = append(nsValues, ns.Name)
+					}
 
-						return nil, nil
-					}),
-				), nil
-			}
-
-			nsValues = append(nsValues, strings.Split(watchNamespace, ",")...)
-			return nil, nil
+					return nil, nil
+				}),
+			), nil
 		}),
 		manifests.CreateIfNotExistsFactoryItem(
 			cm,

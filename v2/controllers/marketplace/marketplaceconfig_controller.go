@@ -26,7 +26,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
-	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -177,27 +176,28 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	// the member operator's ClusterServiceVersion (CSV) instances and is projected into their deployments.
 	// The operatorGroupNamespace is guaranteed to be the same as the marketplaceConfig, unnecessary to use downwardAPI
 
-	operatorGroupName, _ := getOperatorGroup()
-	if len(operatorGroupName) != 0 {
-		operatorGroup := &olmv1.OperatorGroup{}
+	// Needs work; modifying og creates issue with reinstalls
+	// operatorGroupName, _ := getOperatorGroup()
+	// if len(operatorGroupName) != 0 {
+	// 	operatorGroup := &olmv1.OperatorGroup{}
 
-		err = r.Client.Get(context.TODO(),
-			types.NamespacedName{Name: operatorGroupName, Namespace: marketplaceConfig.Namespace},
-			operatorGroup,
-		)
+	// 	err = r.Client.Get(context.TODO(),
+	// 		types.NamespacedName{Name: operatorGroupName, Namespace: marketplaceConfig.Namespace},
+	// 		operatorGroup,
+	// 	)
 
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return reconcile.Result{}, err
-		} else if err == nil {
-			operatorGroup.Spec.TargetNamespaces = []string{}
-			operatorGroup.Spec.Selector = marketplaceConfig.Spec.NamespaceLabelSelector
+	// 	if err != nil && !k8serrors.IsNotFound(err) {
+	// 		return reconcile.Result{}, err
+	// 	} else if err == nil {
+	// 		operatorGroup.Spec.TargetNamespaces = []string{}
+	// 		operatorGroup.Spec.Selector = marketplaceConfig.Spec.NamespaceLabelSelector
 
-			err = r.Client.Update(context.TODO(), operatorGroup)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-		}
-	}
+	// 		err = r.Client.Update(context.TODO(), operatorGroup)
+	// 		if err != nil {
+	// 			return reconcile.Result{}, err
+	// 		}
+	// 	}
+	// }
 
 	// Removing EnabledMetering field so setting them all to nil
 	// this will no longer do anything
