@@ -266,13 +266,11 @@ func (d *Database) GetFileMetadata(finfo *v1.FileID) (*models.Metadata, error) {
 	// Perform validations and query
 	if len(fileid) != 0 {
 		d.DB.Where("provided_id = ?", fileid).
-			Where("clean_tombstone_set_at = ?", 0).
 			Order("created_at desc").
 			Preload("FileMetadata").
 			First(&meta)
 	} else if len(filename) != 0 {
 		d.DB.Where("provided_name = ?", filename).
-			Where("clean_tombstone_set_at = ?", 0).
 			Order("created_at desc").
 			Preload("FileMetadata").
 			First(&meta)

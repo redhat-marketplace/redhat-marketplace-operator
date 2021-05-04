@@ -183,8 +183,7 @@ func (dc *DownloadConfig) downloadFile(fn string, fid string) error {
 		return fmt.Errorf("error while writing data to the output file: %v", err)
 	}
 
-	dc.log.Info("File downloaded successfully!", "name/id", name)
-	dc.log.Info("Checksum", "checksum", cs)
+	dc.log.Info("File downloaded successfully!", "name/id", name, "checksum", cs)
 	return nil
 }
 

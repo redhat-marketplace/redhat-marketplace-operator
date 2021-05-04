@@ -451,5 +451,4 @@ func populateDataset(conn *grpc.ClientConn, t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error: during delete on download request : %v", err)
 	}
-	time.Sleep(1 * time.Second)
 }

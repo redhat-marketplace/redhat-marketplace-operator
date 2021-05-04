@@ -231,70 +231,7 @@ func TestFileRetreiverServer_DownloadFile(t *testing.T) {
 	//Shutdown resources
 	defer shutdown(conn)
 
-	//Upload a sample file
-	sampleData := make([]byte, 1024)
-	client := filesender.NewFileSenderClient(conn)
-
-	ufr := []*filesender.UploadFileRequest{
-		{
-			Data: &filesender.UploadFileRequest_Info{
-				Info: &v1.FileInfo{
-					FileId: &v1.FileID{
-						Data: &v1.FileID_Name{
-							Name: "test-file.zip",
-						},
-					},
-					Size: 1024,
-					Metadata: map[string]string{
-						"key1": "value1",
-						"key2": "value2",
-						"key3": "value3",
-					},
-				},
-			},
-		},
-		{
-			Data: &filesender.UploadFileRequest_Info{
-				Info: &v1.FileInfo{
-					FileId: &v1.FileID{
-						Data: &v1.FileID_Name{
-							Name: "delete.zip",
-						},
-					},
-					Size: 1024,
-					Metadata: map[string]string{
-						"key1": "value1",
-					},
-				},
-			},
-		},
-	}
-
-	for i := range ufr {
-		stream, err := client.UploadFile(context.Background())
-		if err != nil {
-			t.Fatalf("Unexpected error: %v", err)
-		}
-		err = stream.Send(ufr[i])
-		if err != nil {
-			t.Fatalf("Failed to upload file info: %v", err)
-		}
-
-		err = stream.Send(&filesender.UploadFileRequest{
-			Data: &filesender.UploadFileRequest_ChunkData{
-				ChunkData: sampleData,
-			},
-		})
-		if err != nil {
-			t.Fatalf("Failed to upload file data: %v", err)
-		}
-
-		_, err = stream.CloseAndRecv()
-		if err != nil {
-			t.Fatalf("Failed while closing stream: %v", err)
-		}
-	}
-
+	populateDataset(conn, t)
 	//Create a client for download
 	downloadClient := fileretreiver.NewFileRetreiverClient(conn)
 
@@ -309,10 +246,10 @@ func TestFileRetreiverServer_DownloadFile(t *testing.T) {
 			dfr: &fileretreiver.DownloadFileRequest{
 				FileId: &v1.FileID{
 					Data: &v1.FileID_Name{
-						Name: "test-file.zip"},
+						Name: "reports.zip"},
 				},
 			},
-			size:    1024,
+			size:    2000,
 			errCode: codes.OK,
 		},
 		{
@@ -320,11 +257,11 @@ func TestFileRetreiverServer_DownloadFile(t *testing.T) {
 			dfr: &fileretreiver.DownloadFileRequest{
 				FileId: &v1.FileID{
 					Data: &v1.FileID_Name{
-						Name: "delete.zip"},
+						Name: "dosfstools"},
 				},
 				DeleteOnDownload: true,
 			},
-			size:    1024,
+			size:    2000,
 			errCode: codes.OK,
 		},
 		{
@@ -349,17 +286,6 @@ func TestFileRetreiverServer_DownloadFile(t *testing.T) {
 			size:    0,
 			errCode: codes.InvalidArgument,
 		},
-	}
-	lfr := &fileretreiver.ListFileMetadataRequest{
-		FilterBy: []*fileretreiver.ListFileMetadataRequest_ListFileFilter{
-			{
-				Key:      "provided_name",
-				Operator: fileretreiver.ListFileMetadataRequest_ListFileFilter_CONTAINS,
-				Value:    "delete",
-			},
-		},
-		SortBy:              []*fileretreiver.ListFileMetadataRequest_ListFileSort{},
-		IncludeDeletedFiles: false,
 	}
 
 	for _, tt := range tests {
@@ -392,6 +318,17 @@ func TestFileRetreiverServer_DownloadFile(t *testing.T) {
 			}
 
 			if tt.dfr.GetDeleteOnDownload() {
+				lfr := &fileretreiver.ListFileMetadataRequest{
+					FilterBy: []*fileretreiver.ListFileMetadataRequest_ListFileFilter{
+						{
+							Key:      "provided_name",
+							Operator: fileretreiver.ListFileMetadataRequest_ListFileFilter_EQUAL,
+							Value:    tt.dfr.FileId.GetName(),
+						},
+					},
+					SortBy:              []*fileretreiver.ListFileMetadataRequest_ListFileSort{},
+					IncludeDeletedFiles: false,
+				}
 				listFileMetadataClient := fileretreiver.NewFileRetreiverClient(conn)
 				stream, err := listFileMetadataClient.ListFileMetadata(context.Background(), lfr)
 				var data []*v1.FileInfo
@@ -628,11 +565,7 @@ func TestFileRetreiverServer_GetFileMetadata(t *testing.T) {
 
 			md := stream.GetInfo()
 
-			if md != nil {
-				if md.DeletedTombstone.Seconds != 0 {
-					t.Errorf("File marked for deletion was retrieved")
-				}
-
+			if md != nil {	
 				if int(md.GetSize()) != int(tt.size) {
 					t.Errorf("sent:%v and recieved:%v size doesn't match for test: %v", int(tt.size), md.GetSize(), tt.name)
 				}

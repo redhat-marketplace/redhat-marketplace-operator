@@ -187,32 +187,11 @@ func TestDatabase_DownloadFile(t *testing.T) {
 	//Perform migrations
 	db.AutoMigrate(&models.FileMetadata{}, &models.File{}, &models.Metadata{})
 
-	bs := make([]byte, 1024)
-	finfo := &v1.FileInfo{
-		FileId: &v1.FileID{
-			Data: &v1.FileID_Name{
-				Name: "test-file",
-			},
-		},
-		Size:            1024,
-		Compression:     true,
-		CompressionType: "gzip",
-		Metadata: map[string]string{
-			"Key1": "Value1",
-			"Key2": "Value2",
-		},
-	}
-
 	database := &database.Database{
 		DB:  db,
 		Log: logger,
 	}
-
-	//Save a file in database to retreive in tests later
-	err = database.SaveFile(finfo, bs)
-	if err != nil {
-		t.Fatalf("Failed to create seed data for tests due to error: %v", err)
-	}
+	populateDataset(database, t)
 
 	tests := []struct {
 		name   string
@@ -224,15 +203,15 @@ func TestDatabase_DownloadFile(t *testing.T) {
 			name: "download a file that exists in the database",
 			fid: &v1.FileID{
 				Data: &v1.FileID_Name{
-					Name: "test-file",
+					Name: "reports.zip",
 				},
 			},
 			m: &models.Metadata{
-				Size:         1024,
-				ProvidedName: "test-file",
+				Size:         2000,
+				ProvidedName: "reports.zip",
 				FileMetadata: []models.FileMetadata{
-					{Key: "Key1", Value: "Value1"},
-					{Key: "Key2", Value: "Value2"},
+					{Key: "version", Value: "2"},
+					{Key: "type", Value: "report"},
 				},
 			},
 			errMsg: "",
@@ -465,7 +444,7 @@ func TestDatabase_ListFileMetadata(t *testing.T) {
 
 				{
 					ProvidedName: "marketplace_report.zip",
-					Size:         300,
+					Size:         200,
 					FileMetadata: []models.FileMetadata{
 						{
 							Key:   "version",
@@ -729,10 +708,6 @@ func TestDatabase_GetFileMetadata(t *testing.T) {
 			}
 
 			if tt.m != nil {
-				if m.CleanTombstoneSetAt != 0 {
-					t.Errorf("File marked for deletion was retrieved")
-				}
-
 				if tt.m.ProvidedName != m.ProvidedName {
 					t.Errorf("Expected file name: %v, instead got: %v", tt.m.ProvidedName, m.ProvidedName)
 				}
@@ -791,72 +766,12 @@ func populateDataset(database *database.Database, t *testing.T) {
 					Name: "marketplace_report.zip",
 				},
 			},
-			Size:            300,
+			Size:            200,
 			Compression:     true,
 			CompressionType: "gzip",
 			Metadata: map[string]string{
 				"version": "1",
 				"type":    "marketplace_report",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "marketplace_report.zip",
-				},
-			},
-			Size:            200,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"version": "2",
-				"type":    "marketplace_report",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "airgap-deploy.zip",
-				},
-			},
-			Size:            1000,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"version": "1",
-				"name":    "airgap",
-				"type":    "deployment-package",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "airgap-deploy.zip",
-				},
-			},
-			Size:            1000,
-			Compression:     true,
-			CompressionType: "gzip",
-			Metadata: map[string]string{
-				"version":     "latest",
-				"name":        "airgap",
-				"type":        "deployment-package",
-				"description": "airgap deployment code ",
-			},
-		},
-		{
-			FileId: &v1.FileID{
-				Data: &v1.FileID_Name{
-					Name: "Kube.sh",
-				},
-			},
-			Size:            200,
-			Compression:     false,
-			CompressionType: "",
-			Metadata: map[string]string{
-				"version":     "latest",
-				"description": "kube cluster executable file",
-				"type":        "kube-executable",
 			},
 		},
 		{

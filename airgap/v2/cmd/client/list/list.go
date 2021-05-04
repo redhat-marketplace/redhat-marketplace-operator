@@ -116,7 +116,7 @@ func init() {
 	ListCmd.Flags().StringSliceVarP(&lc.filter, "filter", "f", []string{}, "Filter file list based on pre-defined or custom keys")
 	ListCmd.Flags().StringSliceVarP(&lc.sort, "sort", "s", []string{}, "Sort file list based key and sort operation used")
 	ListCmd.Flags().StringVarP(&lc.outputDir, "output-dir", "o", "", "Path to save list")
-	ListCmd.Flags().BoolVarP(&lc.includeDeletedFiles, "include-deleted-files", "d", false, "List all files along with files marked for deleteion")
+	ListCmd.Flags().BoolVarP(&lc.includeDeletedFiles, "include-deleted-files", "a", false, "List all files along with files marked for deleteion")
 }
 
 //initLog initializes logger
@@ -153,6 +153,7 @@ func (lc *Listconfig) listFileMetadata() error {
 	var file *os.File
 	var w *csv.Writer
 	var noOfRow int
+
 	filterList, err := parseFilter(lc.filter)
 	if err != nil {
 		return err
@@ -202,8 +203,10 @@ func (lc *Listconfig) listFileMetadata() error {
 			}
 			return fmt.Errorf("error while reading stream: %v", err)
 		}
+
 		data := response.GetResults()
 		lc.log.Info("Received response:", "info", data)
+
 		row, parseErr := parseFileInfo(data)
 		if lc.outputCSV {
 			if parseErr != nil {
