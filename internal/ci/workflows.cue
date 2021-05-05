@@ -1,6 +1,7 @@
 package ci
 
 import (
+  "list"
 	"strings"
 	"strconv"
 	json "github.com/SchemaStore/schemastore/src/schemas/json/github"
@@ -608,6 +609,8 @@ _#authchecker: {
 	pword: "pcPasswordAuthCheck"
 }
 
+_#archs: ["amd64", "ppc64le", "s390x"]
+
 _#images: [
 	_#operator,
 	_#metering,
@@ -636,6 +639,21 @@ _#manifestFromTo: [ for k, v in [_#manifest] {
 	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$VERSION"
 }]
 
+_#copyImageArch: {
+	#args: {
+		to:    string
+		from:  string
+		pword: string
+    arch:  string
+	}
+	res: """
+				echo "::group::Push \(#args.to)-\(#args.arch)"
+				skopeo --override-arch=\(#args.arch) --override-os=linux inspect docker://\(#args.to) --creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}} > /dev/null
+				([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=\(#args.arch) --override-os=linux copy docker://\(#args.from) docker://\(#args.to)-\(#args.arch) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}})
+				echo "::endgroup::"
+				"""
+}
+
 _#copyImage: {
 	#args: {
 		to:    string
@@ -644,22 +662,22 @@ _#copyImage: {
 	}
 	res: """
 				echo "::group::Push \(#args.to)"
-				skopeo inspect docker://\(#args.to) --creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}} > /dev/null
-				([[ $? == 0 ]] && echo "exists=true" || skopeo copy --all docker://\(#args.from) docker://\(#args.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}})
+				skopeo --override-os=linux inspect docker://\(#args.to) --creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}} > /dev/null
+				([[ $? == 0 ]] && echo "exists=true" || skopeo copy docker://\(#args.from) docker://\(#args.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}})
 				echo "::endgroup::"
 				"""
 }
 
-_#retagCommandList: [ for k, v in _#repoFromTo {(_#copyImage & {#args: v}).res}]
+_#retagCommandList: [ for #arch in _#archs { [for k, v in _#repoFromTo {(_#copyImageArch & {#args: v & { arch: #arch }}).res}] } ]
 
 _#retagCommand: _#step & {
 	id:    "mirror"
 	name:  "Mirror images"
 	shell: "bash {0}"
-	run:   strings.Join(_#retagCommandList, "\n")
+	run:   strings.Join(list.FlattenN(_#retagCommandList, -1), "\n")
 }
 
-_#manifestCopyCommandList: [ for k, v in _#manifestFromTo {(_#copyImage & {#args: v}).res}]
+_#manifestCopyCommandList: [for k, v in _#manifestFromTo {(_#copyImage & {#args: v }).res} ]
 
 _#retagManifestCommand: _#step & {
 	env: TAG: "${{ steps.deploy.outputs.version }}"
@@ -701,6 +719,8 @@ _#redhatConnectLogin: (_#registryLoginStep & {
 	}
 }).res
 
+_#waitImages: strings.Join(list.FlattenN([ for #arch in _#archs { [for k, v in _#images {"--pid \(v.ospid)=$(skopeo inspect --override-os=linux --format '{{.Digest}}' docker://\(_#registry)/\(v.name):$TAG-\(#arch))"} ] } ], -1)," ")
+
 _#waitForPublish: _#step & {
 	name: "Wait for RH publish"
 	env: {
@@ -709,7 +729,7 @@ _#waitForPublish: _#step & {
 	run:
 		"""
 			cd v2
-			make wait-and-publish PIDS="\(strings.Join([ for k, v in _#images {"--pid \(v.ospid)=$(skopeo inspect --override-os=linux --format \"{{.Digest}}\" docker://\(_#registry)/\(v.name):$TAG)"}], " "))"
+			make wait-and-publish PIDS="\(_#waitImages)"
 			"""
 }
 

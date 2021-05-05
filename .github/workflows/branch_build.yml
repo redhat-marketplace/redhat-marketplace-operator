@@ -316,21 +316,53 @@ jobs:
     - id: mirror
       name: Mirror images
       run: |-
-        echo "::group::Push scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG"
-        skopeo inspect docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}} > /dev/null
-        ([[ $? == 0 ]] && echo "exists=true" || skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}})
+        echo "::group::Push scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG-amd64"
+        skopeo --override-arch=amd64 --override-os=linux inspect docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}} > /dev/null
+        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=amd64 --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG-amd64 --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}})
         echo "::endgroup::"
-        echo "::group::Push scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG"
-        skopeo inspect docker://scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordMetricState']}} > /dev/null
-        ([[ $? == 0 ]] && echo "exists=true" || skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG docker://scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordMetricState']}})
+        echo "::group::Push scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG-amd64"
+        skopeo --override-arch=amd64 --override-os=linux inspect docker://scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordMetricState']}} > /dev/null
+        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=amd64 --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG docker://scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG-amd64 --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordMetricState']}})
         echo "::endgroup::"
-        echo "::group::Push scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG"
-        skopeo inspect docker://scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordReporter']}} > /dev/null
-        ([[ $? == 0 ]] && echo "exists=true" || skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG docker://scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordReporter']}})
+        echo "::group::Push scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG-amd64"
+        skopeo --override-arch=amd64 --override-os=linux inspect docker://scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordReporter']}} > /dev/null
+        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=amd64 --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG docker://scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG-amd64 --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordReporter']}})
         echo "::endgroup::"
-        echo "::group::Push scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG"
-        skopeo inspect docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}} > /dev/null
-        ([[ $? == 0 ]] && echo "exists=true" || skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}})
+        echo "::group::Push scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG-amd64"
+        skopeo --override-arch=amd64 --override-os=linux inspect docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}} > /dev/null
+        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=amd64 --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG-amd64 --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}})
+        echo "::endgroup::"
+        echo "::group::Push scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG-ppc64le"
+        skopeo --override-arch=ppc64le --override-os=linux inspect docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}} > /dev/null
+        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=ppc64le --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG-ppc64le --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}})
+        echo "::endgroup::"
+        echo "::group::Push scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG-ppc64le"
+        skopeo --override-arch=ppc64le --override-os=linux inspect docker://scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordMetricState']}} > /dev/null
+        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=ppc64le --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG docker://scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG-ppc64le --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordMetricState']}})
+        echo "::endgroup::"
+        echo "::group::Push scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG-ppc64le"
+        skopeo --override-arch=ppc64le --override-os=linux inspect docker://scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordReporter']}} > /dev/null
+        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=ppc64le --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG docker://scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG-ppc64le --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordReporter']}})
+        echo "::endgroup::"
+        echo "::group::Push scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG-ppc64le"
+        skopeo --override-arch=ppc64le --override-os=linux inspect docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}} > /dev/null
+        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=ppc64le --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG-ppc64le --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}})
+        echo "::endgroup::"
+        echo "::group::Push scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG-s390x"
+        skopeo --override-arch=s390x --override-os=linux inspect docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}} > /dev/null
+        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=s390x --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG-s390x --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}})
+        echo "::endgroup::"
+        echo "::group::Push scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG-s390x"
+        skopeo --override-arch=s390x --override-os=linux inspect docker://scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordMetricState']}} > /dev/null
+        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=s390x --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG docker://scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG-s390x --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordMetricState']}})
+        echo "::endgroup::"
+        echo "::group::Push scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG-s390x"
+        skopeo --override-arch=s390x --override-os=linux inspect docker://scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordReporter']}} > /dev/null
+        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=s390x --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG docker://scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG-s390x --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordReporter']}})
+        echo "::endgroup::"
+        echo "::group::Push scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG-s390x"
+        skopeo --override-arch=s390x --override-os=linux inspect docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}} > /dev/null
+        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=s390x --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG-s390x --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}})
         echo "::endgroup::"
       shell: bash {0}
     - name: Login to Docker Hub
@@ -342,14 +374,14 @@ jobs:
     - name: Wait for RH publish
       run: |-
         cd v2
-        make wait-and-publish PIDS="--pid ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd=$(skopeo inspect --override-os=linux --format "{{.Digest}}" docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG) --pid ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4=$(skopeo inspect --override-os=linux --format "{{.Digest}}" docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG) --pid ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e=$(skopeo inspect --override-os=linux --format "{{.Digest}}" docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG) --pid ospid-ffed416e-c18d-4b88-8660-f586a4792785=$(skopeo inspect --override-os=linux --format "{{.Digest}}" docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG)"
+        make wait-and-publish PIDS="--pid ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd=$(skopeo inspect --override-os=linux --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG-amd64) --pid ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4=$(skopeo inspect --override-os=linux --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG-amd64) --pid ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e=$(skopeo inspect --override-os=linux --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG-amd64) --pid ospid-ffed416e-c18d-4b88-8660-f586a4792785=$(skopeo inspect --override-os=linux --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG-amd64) --pid ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd=$(skopeo inspect --override-os=linux --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG-ppc64le) --pid ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4=$(skopeo inspect --override-os=linux --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG-ppc64le) --pid ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e=$(skopeo inspect --override-os=linux --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG-ppc64le) --pid ospid-ffed416e-c18d-4b88-8660-f586a4792785=$(skopeo inspect --override-os=linux --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG-ppc64le) --pid ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd=$(skopeo inspect --override-os=linux --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG-s390x) --pid ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4=$(skopeo inspect --override-os=linux --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG-s390x) --pid ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e=$(skopeo inspect --override-os=linux --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG-s390x) --pid ospid-ffed416e-c18d-4b88-8660-f586a4792785=$(skopeo inspect --override-os=linux --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG-s390x)"
       env:
         RH_CONNECT_TOKEN: ${{ secrets.redhat_api_key }}
     - name: Copy Manifest
       run: |-
         echo "::group::Push scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$VERSION"
-        skopeo inspect docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$VERSION --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}} > /dev/null
-        ([[ $? == 0 ]] && echo "exists=true" || skopeo copy --all docker://quay.io/rh-marketplace/redhat-marketplace-operator-manifest:$VERSION docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$VERSION --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}})
+        skopeo --override-os=linux inspect docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$VERSION --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}} > /dev/null
+        ([[ $? == 0 ]] && echo "exists=true" || skopeo copy docker://quay.io/rh-marketplace/redhat-marketplace-operator-manifest:$VERSION docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$VERSION --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}})
         echo "::endgroup::"
       shell: bash {0}
       env:

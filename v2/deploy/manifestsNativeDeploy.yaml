@@ -4854,11 +4854,11 @@ spec:
         - name: OPERATOR_NAME
           value: redhat-marketplace-operator
         - name: RELATED_IMAGE_REPORTER
-          value: quay.io/zach_source/redhat-marketplace-reporter:2.2.0-6
+          value: quay.io/zach_source/redhat-marketplace-reporter:2.2.0-10
         - name: RELATED_IMAGE_METRIC_STATE
-          value: quay.io/zach_source/redhat-marketplace-metric-state:2.2.0-6
+          value: quay.io/zach_source/redhat-marketplace-metric-state:2.2.0-10
         - name: RELATED_IMAGE_AUTHCHECK
-          value: quay.io/zach_source/redhat-marketplace-authcheck:2.2.0-6
+          value: quay.io/zach_source/redhat-marketplace-authcheck:2.2.0-10
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
@@ -4887,7 +4887,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.annotations['olm.operatorGroup']
-        image: quay.io/zach_source/redhat-marketplace-operator:2.2.0-6
+        image: quay.io/zach_source/redhat-marketplace-operator:2.2.0-10
         livenessProbe:
           httpGet:
             path: /healthz

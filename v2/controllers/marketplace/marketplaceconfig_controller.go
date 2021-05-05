@@ -119,7 +119,12 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	// run the finalizers
-	newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
+	newRazeeCrd := utils.BuildRazeeCr(
+		marketplaceConfig.Namespace,
+		marketplaceConfig.Spec.ClusterUUID,
+		marketplaceConfig.Spec.DeploySecretName,
+		marketplaceConfig.Spec.Features,
+	)
 	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
 	// Add finalizer and execute it if the resource is deleted
 	if result, _ := cc.Do(
