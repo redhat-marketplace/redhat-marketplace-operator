@@ -830,12 +830,9 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 		}
 
 		updatedWatchKeeperConfig.UID = watchKeeperConfig.UID
-		patchResult, err := r.patcher.Calculate(&watchKeeperConfig, &updatedWatchKeeperConfig)
-		if err != nil {
-			reqLogger.Error(err, "Failed to compare patches")
-		}
+		updatedWatchKeeperConfig.ResourceVersion = watchKeeperConfig.ResourceVersion
 
-		if !patchResult.IsEmpty() {
+		if !reflect.DeepEqual(updatedWatchKeeperConfig.Data, watchKeeperConfig.Data) {
 			reqLogger.Info("Change detected on", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
 			if err := utils.ApplyAnnotation(&updatedWatchKeeperConfig); err != nil {
 				reqLogger.Error(err, "Failed to set annotation")

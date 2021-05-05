@@ -331,7 +331,7 @@ func (s *shutdownHandler) cleanupOperatorGroup() error {
 		subscription := &olmv1alpha1.Subscription{}
 
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				err := s.client.Get(context.TODO(),
+			err := s.client.Get(context.TODO(),
 				types.NamespacedName{Name: "redhat-marketplace-operator", Namespace: s.cfg.DeployedNamespace},
 				subscription,
 			)
