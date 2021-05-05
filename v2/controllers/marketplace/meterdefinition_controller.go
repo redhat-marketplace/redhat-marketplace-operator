@@ -303,8 +303,14 @@ func (r *MeterDefinitionReconciler) addFinalizer(instance *v1beta1.MeterDefiniti
 
 func (r *MeterDefinitionReconciler) queryPreview(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger, userWorkloadMonitoringEnabled bool) ([]common.Result, error) {
 	var queryPreviewResult []common.Result
+	var prometheusAPI *prom.PrometheusAPI
+	var err error
 
-	prometheusAPI, err := prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, userWorkloadMonitoringEnabled)
+	if userWorkloadMonitoringEnabled { // Use Thanos Querier Service for userWorkloadMonitoring queries
+		prometheusAPI, err = prom.ProvideThanosQuerierAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger)
+	} else { // Use Prometheus Service queries for RHM Prometheus queries
+		prometheusAPI, err = prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, userWorkloadMonitoringEnabled)
+	}
 	if err != nil {
 		return queryPreviewResult, err
 	}
@@ -436,10 +442,19 @@ func labelsToRegex(labels []string) string {
 // Check MeterDefinition presense in api/v1/label/meter_def_name/values
 func (r *MeterDefinitionReconciler) verifyReporting(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, userWorkloadMonitoringEnabled bool, reqLogger logr.Logger) (bool, error) {
 
-	prometheusAPI, err := prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, userWorkloadMonitoringEnabled)
+	var prometheusAPI *prom.PrometheusAPI
+	var err error
+
+	if userWorkloadMonitoringEnabled { // Use Thanos Querier Service for userWorkloadMonitoring queries
+		prometheusAPI, err = prom.ProvideThanosQuerierAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger)
+
+	} else { // Use Prometheus Service queries for RHM Prometheus queries
+		prometheusAPI, err = prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, userWorkloadMonitoringEnabled)
+	}
 	if err != nil {
 		return false, err
 	}
+
 	reqLogger.Info("getting meter_def_name labelvalues from prometheus")
 
 	labelValues, warnings, err := prometheusAPI.MeterDefLabelValues()

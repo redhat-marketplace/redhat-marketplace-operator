@@ -28,6 +28,7 @@ import (
 	"github.com/gotidy/ptr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
@@ -60,18 +61,27 @@ const (
 	PrometheusDatasourcesSecret      = "assets/prometheus/prometheus-datasources-secret.yaml"
 	PrometheusServingCertsCABundle   = "assets/prometheus/serving-certs-ca-bundle.yaml"
 	PrometheusKubeletServingCABundle = "assets/prometheus/kubelet-serving-ca-bundle.yaml"
+	PrometheusServiceMonitor         = "assets/prometheus/service-monitor.yaml"
+	PrometheusMeterDefinition        = "assets/prometheus/meterdefinition.yaml"
 
-	ReporterJob = "assets/reporter/job.yaml"
+	ReporterJob                       = "assets/reporter/job.yaml"
+	ReporterUserWorkloadMonitoringJob = "assets/reporter/user-workload-monitoring-job.yaml"
+	ReporterMeterDefinition           = "assets/reporter/meterdefinition.yaml"
 
 	MetricStateDeployment        = "assets/metric-state/deployment.yaml"
 	MetricStateServiceMonitorV45 = "assets/metric-state/service-monitor-v4.5.yaml"
 	MetricStateServiceMonitorV46 = "assets/metric-state/service-monitor-v4.6.yaml"
 	MetricStateService           = "assets/metric-state/service.yaml"
+	MetricStateMeterDefinition   = "assets/metric-state/meterdefinition.yaml"
 
 	// ose-prometheus v4.6
 	MetricStateRHMOperatorSecret   = "assets/metric-state/secret.yaml"
+	KubeStateMetricsService        = "assets/metric-state/kube-state-metrics-service.yaml"
 	KubeStateMetricsServiceMonitor = "assets/metric-state/kube-state-metrics-service-monitor.yaml"
 	KubeletServiceMonitor          = "assets/metric-state/kubelet-service-monitor.yaml"
+
+	UserWorkloadMonitoringServiceMonitor  = "assets/prometheus/user-workload-monitoring-service-monitor.yaml"
+	UserWorkloadMonitoringMeterDefinition = "assets/prometheus/user-workload-monitoring-meterdefinition.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")
@@ -251,6 +261,21 @@ func (f *Factory) NewPrometheus(
 	}
 
 	return p, nil
+}
+
+func (f *Factory) NewMeterDefinition(
+	manifest io.Reader,
+) (*marketplacev1beta1.MeterDefinition, error) {
+	m, err := NewMeterDefinition(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	if m.GetNamespace() == "" {
+		m.SetNamespace(f.namespace)
+	}
+
+	return m, nil
 }
 
 func (f *Factory) PrometheusService(instanceName string) (*v1.Service, error) {
@@ -513,6 +538,49 @@ func (f *Factory) PrometheusServingCertsCABundle() (*v1.ConfigMap, error) {
 	return c, nil
 }
 
+func (f *Factory) PrometheusMeterDefinition() (*marketplacev1beta1.MeterDefinition, error) {
+	m, err := f.NewMeterDefinition(MustAssetReader(PrometheusMeterDefinition))
+	if err != nil {
+		return nil, err
+	}
+
+	m.Namespace = f.namespace
+
+	return m, nil
+}
+
+func (f *Factory) PrometheusServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
+	sm, err := f.NewServiceMonitor(MustAssetReader(PrometheusServiceMonitor))
+	if err != nil {
+		return nil, err
+	}
+
+	sm.Spec.Endpoints[0].TLSConfig.ServerName = fmt.Sprintf("rhm-prometheus-meterbase.%s.svc", f.namespace)
+	sm.Namespace = f.namespace
+
+	return sm, nil
+}
+
+func (f *Factory) UserWorkloadMonitoringServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
+	sm, err := f.NewServiceMonitor(MustAssetReader(UserWorkloadMonitoringServiceMonitor))
+	if err != nil {
+		return nil, err
+	}
+
+	sm.Namespace = f.namespace
+
+	return sm, nil
+}
+
+func (f *Factory) UserWorkloadMonitoringMeterDefinition() (*marketplacev1beta1.MeterDefinition, error) {
+	m, err := f.NewMeterDefinition(MustAssetReader(UserWorkloadMonitoringMeterDefinition))
+	if err != nil {
+		return nil, err
+	}
+
+	return m, nil
+}
+
 func (f *Factory) ReporterJob(
 	report *marketplacev1alpha1.MeterReport,
 	backoffLimit *int32,
@@ -544,6 +612,50 @@ func (f *Factory) ReporterJob(
 	j.Spec.Template.Spec.Containers[0] = container
 
 	return j, nil
+}
+
+func (f *Factory) ReporterUserWorkloadMonitoringJob(
+	report *marketplacev1alpha1.MeterReport,
+	backoffLimit *int32,
+) (*batchv1.Job, error) {
+	j, err := f.NewJob(MustAssetReader(ReporterUserWorkloadMonitoringJob))
+
+	if err != nil {
+		return nil, err
+	}
+
+	j.Spec.BackoffLimit = backoffLimit
+	container := j.Spec.Template.Spec.Containers[0]
+	container.Image = f.config.RelatedImages.Reporter
+
+	j.Name = report.GetName()
+	container.Args = append(container.Args,
+		"--name",
+		report.Name,
+		"--namespace",
+		report.Namespace,
+	)
+
+	if len(report.Spec.ExtraArgs) > 0 {
+		container.Args = append(container.Args, report.Spec.ExtraArgs...)
+	}
+
+	// Keep last 3 days of data
+	j.Spec.TTLSecondsAfterFinished = ptr.Int32(86400 * 3)
+	j.Spec.Template.Spec.Containers[0] = container
+
+	return j, nil
+}
+
+func (f *Factory) ReporterMeterDefinition() (*marketplacev1beta1.MeterDefinition, error) {
+	m, err := f.NewMeterDefinition(MustAssetReader(ReporterMeterDefinition))
+	if err != nil {
+		return nil, err
+	}
+
+	m.Namespace = f.namespace
+
+	return m, nil
 }
 
 func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
@@ -579,6 +691,28 @@ func (f *Factory) MetricStateServiceMonitor() (*monitoringv1.ServiceMonitor, err
 	sm.Namespace = f.namespace
 
 	return sm, nil
+}
+
+func (f *Factory) MetricStateMeterDefinition() (*marketplacev1beta1.MeterDefinition, error) {
+	m, err := f.NewMeterDefinition(MustAssetReader(MetricStateMeterDefinition))
+	if err != nil {
+		return nil, err
+	}
+
+	m.Namespace = f.namespace
+
+	return m, nil
+}
+
+func (f *Factory) KubeStateMetricsService() (*corev1.Service, error) {
+	s, err := f.NewService(MustAssetReader(KubeStateMetricsService))
+	if err != nil {
+		return nil, err
+	}
+
+	s.Namespace = f.namespace
+
+	return s, nil
 }
 
 func (f *Factory) KubeStateMetricsServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
@@ -676,6 +810,16 @@ func NewPrometheus(manifest io.Reader) (*monitoringv1.Prometheus, error) {
 	}
 
 	return &s, nil
+}
+
+func NewMeterDefinition(manifest io.Reader) (*marketplacev1beta1.MeterDefinition, error) {
+	m := marketplacev1beta1.MeterDefinition{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&m)
+	if err != nil {
+		return nil, err
+	}
+
+	return &m, nil
 }
 
 func NewSecret(manifest io.Reader) (*v1.Secret, error) {

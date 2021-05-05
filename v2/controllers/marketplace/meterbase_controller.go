@@ -41,6 +41,7 @@ import (
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
@@ -271,6 +272,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 				Do(r.uninstallPrometheus(instance)...),
 				Do(r.uninstallMetricState(instance)...),
 				Do(r.uninstallPrometheusServingCertsCABundle()...),
+				Do(r.uninstallUserWorkloadMonitoring()...),
 			)),
 	); !result.Is(Continue) {
 		if result.Is(Error) {
@@ -400,6 +402,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		if result, _ := cc.Do(context.TODO(),
 			Do(r.installPrometheusServingCertsCABundle()...),
 			Do(r.installMetricStateDeployment(instance)...),
+			Do(r.installUserWorkloadMonitoring(instance)...),
 		); !result.Is(Continue) {
 			if result.Is(Error) {
 				reqLogger.Error(result, "error in reconcile")
@@ -432,6 +435,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 			Do(r.reconcilePrometheus(instance, prometheus, cfg)...),
 			Do(r.verifyPVCSize(reqLogger, instance, prometheus)...),
 			Do(r.recyclePrometheusPods(reqLogger, instance, prometheus)...),
+			Do(r.uninstallUserWorkloadMonitoring()...),
 		); !result.Is(Continue) {
 			if result.Is(Error) {
 				reqLogger.Error(result, "error in reconcile")
@@ -738,9 +742,9 @@ func (r *MeterBaseReconciler) newMeterReport(namespace string, startTime time.Ti
 	promService := &common.ServiceReference{}
 	if userWorkloadMonitoringEnabled {
 		promService = &common.ServiceReference{
-			Name:       utils.OPENSHIFT_USER_WORKLOAD_MONITORING_SERVICE_NAME,
-			Namespace:  utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
-			TargetPort: intstr.FromString("metrics"),
+			Name:       utils.OPENSHIFT_MONITORING_THANOS_QUERIER_SERVICE_NAME,
+			Namespace:  utils.OPENSHIFT_MONITORING_NAMESPACE,
+			TargetPort: intstr.FromString("web"),
 		}
 	} else {
 		promService = &common.ServiceReference{
@@ -859,6 +863,9 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 	metricStateDeployment := &appsv1.Deployment{}
 	metricStateService := &corev1.Service{}
 	metricStateServiceMonitor := &monitoringv1.ServiceMonitor{}
+	metricStateMeterDefinition := &marketplacev1beta1.MeterDefinition{}
+	kubeStateMetricsService := &corev1.Service{}
+	reporterMeterDefinition := &marketplacev1beta1.MeterDefinition{}
 
 	args := manifests.CreateOrUpdateFactoryItemArgs{
 		Owner:   instance,
@@ -884,6 +891,27 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 			metricStateServiceMonitor,
 			func() (runtime.Object, error) {
 				return r.factory.MetricStateServiceMonitor()
+			},
+			args,
+		),
+		manifests.CreateOrUpdateFactoryItemAction(
+			metricStateMeterDefinition,
+			func() (runtime.Object, error) {
+				return r.factory.MetricStateMeterDefinition()
+			},
+			args,
+		),
+		manifests.CreateOrUpdateFactoryItemAction(
+			kubeStateMetricsService,
+			func() (runtime.Object, error) {
+				return r.factory.KubeStateMetricsService()
+			},
+			args,
+		),
+		manifests.CreateOrUpdateFactoryItemAction(
+			reporterMeterDefinition,
+			func() (runtime.Object, error) {
+				return r.factory.ReporterMeterDefinition()
 			},
 			args,
 		),
@@ -917,6 +945,36 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 				args,
 			),
 		)
+	}
+	return actions
+}
+
+func (r *MeterBaseReconciler) installUserWorkloadMonitoring(
+	instance *marketplacev1alpha1.MeterBase,
+) []ClientAction {
+	serviceMonitor := &monitoringv1.ServiceMonitor{}
+	meterDefinition := &marketplacev1beta1.MeterDefinition{}
+
+	args := manifests.CreateOrUpdateFactoryItemArgs{
+		Owner:   instance,
+		Patcher: r.patcher,
+	}
+
+	actions := []ClientAction{
+		manifests.CreateOrUpdateFactoryItemAction(
+			serviceMonitor,
+			func() (runtime.Object, error) {
+				return r.factory.UserWorkloadMonitoringServiceMonitor()
+			},
+			args,
+		),
+		manifests.CreateOrUpdateFactoryItemAction(
+			meterDefinition,
+			func() (runtime.Object, error) {
+				return r.factory.UserWorkloadMonitoringMeterDefinition()
+			},
+			args,
+		),
 	}
 	return actions
 }
@@ -1101,6 +1159,18 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 			&corev1.Secret{},
 			func() (runtime.Object, error) {
 				return r.factory.PrometheusRBACProxySecret()
+			},
+		),
+		manifests.CreateIfNotExistsFactoryItem(
+			&monitoringv1.ServiceMonitor{},
+			func() (runtime.Object, error) {
+				return r.factory.PrometheusServiceMonitor()
+			},
+		),
+		manifests.CreateIfNotExistsFactoryItem(
+			&marketplacev1beta1.MeterDefinition{},
+			func() (runtime.Object, error) {
+				return r.factory.PrometheusMeterDefinition()
 			},
 		),
 		HandleResult(manifests.CreateIfNotExistsFactoryItem(
@@ -1332,9 +1402,18 @@ func (r *MeterBaseReconciler) uninstallMetricState(
 	sm0, _ := r.factory.MetricStateServiceMonitor()
 	sm1, _ := r.factory.KubeStateMetricsServiceMonitor()
 	sm2, _ := r.factory.KubeletServiceMonitor()
+	sm3, _ := r.factory.KubeStateMetricsService()
 	secret, _ := r.factory.MetricStateRHMOperatorSecret()
+	msmd, _ := r.factory.MetricStateMeterDefinition()
+	rmd, _ := r.factory.ReporterMeterDefinition()
 
 	return []ClientAction{
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: rmd.Namespace, Name: rmd.Name}, rmd),
+			OnContinue(DeleteAction(rmd))),
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: msmd.Namespace, Name: msmd.Name}, msmd),
+			OnContinue(DeleteAction(msmd))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: sm0.Namespace, Name: sm0.Name}, sm0),
 			OnContinue(DeleteAction(sm0))),
@@ -1344,6 +1423,9 @@ func (r *MeterBaseReconciler) uninstallMetricState(
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: sm2.Namespace, Name: sm2.Name}, sm2),
 			OnContinue(DeleteAction(sm2))),
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: sm3.Namespace, Name: sm3.Name}, sm3),
+			OnContinue(DeleteAction(sm3))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}, secret),
 			OnContinue(DeleteAction(secret))),
@@ -1366,6 +1448,8 @@ func (r *MeterBaseReconciler) uninstallPrometheus(
 	secrets := []*corev1.Secret{secret0, secret1, secret2, secret3}
 	prom, _ := r.newPrometheusOperator(instance, nil)
 	service, _ := r.factory.PrometheusService(instance.Name)
+	serviceMonitor, _ := r.factory.PrometheusServiceMonitor()
+	meterDefinition, _ := r.factory.PrometheusMeterDefinition()
 
 	actions := []ClientAction{}
 	for _, sec := range secrets {
@@ -1377,6 +1461,12 @@ func (r *MeterBaseReconciler) uninstallPrometheus(
 	}
 
 	return append(actions,
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: meterDefinition.Namespace, Name: meterDefinition.Name}, meterDefinition),
+			OnContinue(DeleteAction(meterDefinition))),
+		HandleResult(
+			GetAction(types.NamespacedName{Namespace: serviceMonitor.Namespace, Name: serviceMonitor.Name}, serviceMonitor),
+			OnContinue(DeleteAction(serviceMonitor))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service),
 			OnContinue(DeleteAction(service))),
@@ -1406,6 +1496,22 @@ func (r *MeterBaseReconciler) uninstallPrometheusServingCertsCABundle() []Client
 			GetAction(
 				types.NamespacedName{Namespace: cm0.Namespace, Name: cm0.Name}, cm0),
 			OnContinue(DeleteAction(cm0))),
+	}
+}
+
+func (r *MeterBaseReconciler) uninstallUserWorkloadMonitoring() []ClientAction {
+	sm, _ := r.factory.UserWorkloadMonitoringServiceMonitor()
+	md, _ := r.factory.UserWorkloadMonitoringMeterDefinition()
+
+	return []ClientAction{
+		HandleResult(
+			GetAction(
+				types.NamespacedName{Namespace: sm.Namespace, Name: sm.Name}, sm),
+			OnContinue(DeleteAction(sm))),
+		HandleResult(
+			GetAction(
+				types.NamespacedName{Namespace: md.Namespace, Name: md.Name}, md),
+			OnContinue(DeleteAction(md))),
 	}
 }
 
@@ -1646,6 +1752,9 @@ func updateUserWorkloadMonitoringEnabledStatus(
 func (r *MeterBaseReconciler) healthBadActiveTargets(cc ClientCommandRunner, userWorkloadMonitoringEnabled bool, reqLogger logr.Logger) ([]common.Target, error) {
 	targets := []common.Target{}
 
+	/* Must use Prometheus and not Thanos Querier for userWorkloadMonitoring case
+	   Thanos Querier does not provide Prometheus Targets()
+	   Thus we only get the user workload targets */
 	prometheusAPI, err := prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, userWorkloadMonitoringEnabled)
 	if err != nil {
 		return []common.Target{}, err

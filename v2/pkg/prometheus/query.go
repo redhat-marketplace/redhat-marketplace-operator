@@ -37,15 +37,17 @@ import (
 var logger = logf.Log.WithName("prometheus")
 
 type PromQueryArgs struct {
-	Type          v1beta1.WorkloadType
-	MeterDef      types.NamespacedName
-	Metric        string
-	Query         string
-	Start, End    time.Time
-	Step          time.Duration
-	AggregateFunc string
-	GroupBy       []string
-	Without       []string
+	Type               v1beta1.WorkloadType
+	MeterDef           types.NamespacedName
+	Metric             string
+	Query              string
+	Start, End         time.Time
+	Step               time.Duration
+	AggregateFunc      string
+	LabelReplacePrefix string
+	LabelReplaceSuffix string
+	GroupBy            []string
+	Without            []string
 
 	defaultGroupBy []string
 }
@@ -133,6 +135,8 @@ func (q *PromQuery) typeNotSupportedError() error {
 func (q *PromQuery) defaulter() {
 	q.setDefaultWithout()
 	q.setDefaultGroupBy()
+	q.setDefaultLabelReplacePrefix()
+	q.setDefaultLabelReplaceSuffix()
 }
 
 func dedupeStringSlice(stringSlice []string) []string {
@@ -153,16 +157,16 @@ func (q *PromQuery) setDefaultWithout() {
 	// we want to make sure
 	switch q.Type {
 	case v1beta1.WorkloadTypePVC:
-		q.Without = append(q.Without, "instance", "container", "endpoint", "job", "service", "pod", "pod_uid", "pod_ip")
+		q.Without = append(q.Without, "instance", "container", "endpoint", "job", "service", "pod", "pod_uid", "pod_ip", "exported_persistentvolumeclaim")
 	case v1beta1.WorkloadTypePod:
-		q.Without = append(q.Without, "pod_uid", "pod_ip", "instance", "image_id", "host_ip", "node", "container", "job", "service")
+		q.Without = append(q.Without, "pod_uid", "pod_ip", "instance", "image_id", "host_ip", "node", "container", "job", "service", "exported_pod")
 	case v1beta1.WorkloadTypeService:
-		q.Without = append(q.Without, "pod_uid", "instance", "container", "endpoint", "job", "pod", "cluster_ip")
+		q.Without = append(q.Without, "pod_uid", "instance", "container", "endpoint", "job", "pod", "cluster_ip", "exported_service")
 	default:
 		panic(q.typeNotSupportedError())
 	}
 
-	q.Without = append(q.Without, "instance", "container", "endpoint", "job", "cluster_ip")
+	q.Without = append(q.Without, "instance", "container", "endpoint", "job", "cluster_ip", "exported_namespace", "prometheus", "priority_class")
 	q.Without = dedupeStringSlice(q.Without)
 }
 
@@ -181,16 +185,35 @@ func (q *PromQuery) setDefaultGroupBy() {
 	q.defaultGroupBy = dedupeStringSlice(q.defaultGroupBy)
 }
 
+// Label replacement handles case of User Workload Monitoring relabeling metric-state labels
+// https://github.com/openshift/enhancements/blob/master/enhancements/monitoring/user-workload-monitoring.md#multitenancy
+func (q *PromQuery) setDefaultLabelReplacePrefix() {
+	q.LabelReplacePrefix = "label_replace(label_replace("
+}
+
+func (q *PromQuery) setDefaultLabelReplaceSuffix() {
+	switch q.Type {
+	case v1beta1.WorkloadTypePVC:
+		q.LabelReplaceSuffix = `,"namespace","$1","exported_namespace","(.+)"),"persistentvolumeclaim","$1","exported_persistentvolumeclaim","(.+)")`
+	case v1beta1.WorkloadTypePod:
+		q.LabelReplaceSuffix = `,"namespace","$1","exported_namespace","(.+)"),"pod","$1","exported_pod","(.+)")`
+	case v1beta1.WorkloadTypeService:
+		q.LabelReplaceSuffix = `,"namespace","$1","exported_namespace","(.+)"),"service","$1","exported_service","(.+)")`
+	default:
+		panic(q.typeNotSupportedError())
+	}
+}
+
 const resultQueryTemplateStr = `
-{{- .AggregateFunc }} by ({{ default .DefaultGroupBy .GroupBy | join "," }}) (avg({{ .MeterName }}{ {{- .QueryFilters | join "," -}} }) without ({{ .Without | join "," }}) * on({{ .DefaultGroupBy | join "," }}) group_right {{ .Query }}) * on({{ default .DefaultGroupBy .GroupBy | join "," }}) group_right group without({{ .Without | join "," }}) ({{ .Query }})`
+{{- .AggregateFunc }} by ({{ default .DefaultGroupBy .GroupBy | join "," }}) (avg({{ .LabelReplacePrefix }}{{ .MeterName }}{ {{- .QueryFilters | join "," -}} }{{ .LabelReplaceSuffix }}) without ({{ .Without | join "," }}) * on({{ .DefaultGroupBy | join "," }}) group_right {{ .Query }}) * on({{ default .DefaultGroupBy .GroupBy | join "," }}) group_right group without({{ .Without | join "," }}) ({{ .Query }})`
 
 var resultQueryTemplate *template.Template = utils.Must(func() (interface{}, error) {
 	return template.New("resultQuery").Funcs(sprig.GenericFuncMap()).Parse(resultQueryTemplateStr)
 }).(*template.Template)
 
 type ResultQueryArgs struct {
-	MeterName, Query, AggregateFunc                string
-	QueryFilters, GroupBy, Without, DefaultGroupBy []string
+	MeterName, Query, AggregateFunc, LabelReplacePrefix, LabelReplaceSuffix string
+	QueryFilters, GroupBy, Without, DefaultGroupBy                          []string
 }
 
 func makeLabel(key, value string) string {
@@ -217,13 +240,15 @@ func (q *PromQuery) GetQueryArgs() ResultQueryArgs {
 	}
 
 	return ResultQueryArgs{
-		MeterName:      meterName,
-		Query:          q.Query,
-		AggregateFunc:  q.AggregateFunc,
-		GroupBy:        q.GroupBy,
-		QueryFilters:   queryFilters,
-		Without:        q.Without,
-		DefaultGroupBy: q.defaultGroupBy,
+		MeterName:          meterName,
+		Query:              q.Query,
+		AggregateFunc:      q.AggregateFunc,
+		LabelReplacePrefix: q.LabelReplacePrefix,
+		LabelReplaceSuffix: q.LabelReplaceSuffix,
+		GroupBy:            q.GroupBy,
+		QueryFilters:       queryFilters,
+		Without:            q.Without,
+		DefaultGroupBy:     q.defaultGroupBy,
 	}
 }
 

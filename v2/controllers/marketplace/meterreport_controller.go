@@ -193,6 +193,10 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 				manifests.CreateIfNotExistsFactoryItem(
 					job,
 					func() (runtime.Object, error) {
+						if instance.Spec.PrometheusService.Name == utils.OPENSHIFT_MONITORING_THANOS_QUERIER_SERVICE_NAME &&
+							instance.Spec.PrometheusService.Namespace == utils.OPENSHIFT_MONITORING_NAMESPACE { // User Workload Monitoring
+							return r.factory.ReporterUserWorkloadMonitoringJob(instance, r.cfg.ReportController.RetryLimit)
+						}
 						return r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit)
 					}, CreateWithAddController(instance),
 				),

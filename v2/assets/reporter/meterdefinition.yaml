@@ -1,0 +1,20 @@
+apiVersion: marketplace.redhat.com/v1beta1
+kind: MeterDefinition
+metadata:
+  name: rhm-meter-report-job-failed
+spec:
+  group: marketplace.redhat.com
+  kind: Service
+  meters:
+  - aggregation: sum
+    metricId: rhm-meter-report-job-failed
+    name: rhm-meter-report-job-failed
+    period: 5m
+    query: 'sum(kube_job_failed{job_name=~"meter-report-.*"}) without (condition)'
+    workloadType: Service
+  resourceFilters:
+  - label:
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: kube-state-metrics
+    workloadType: Service
