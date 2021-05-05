@@ -5,18 +5,22 @@ kind: MutatingWebhookConfiguration
 metadata:
   name: mutating-webhook-configuration
   annotations:
-    service.beta.openshift.io/inject-cabundle: "true"
+    # service.beta.openshift.io/inject-cabundle: "true"
+    cert-manager.io/inject-ca-from: "openshift-redhat-marketplace/rhm-mutating-webhook-cert"
+    # cert-manager.io/inject-apiserver-ca: "true"
 ---
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: validating-webhook-configuration
   annotations:
-    service.beta.openshift.io/inject-cabundle: "true"
+    # service.beta.openshift.io/inject-cabundle: "true"
+    cert-manager.io/inject-ca-from: "openshift-redhat-marketplace/rhm-validating-webhook-cert"
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    service.beta.openshift.io/inject-cabundle: "true"
+    cert-manager.io/inject-ca-from: "openshift-redhat-marketplace/rhm-crd-webhook-cert"
+    # service.beta.openshift.io/inject-cabundle: "true"
   name: meterdefinitions.marketplace.redhat.com

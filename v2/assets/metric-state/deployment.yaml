@@ -47,6 +47,7 @@ spec:
             - --tls-cert-file=/etc/tls/private/tls.crt
             - --tls-private-key-file=/etc/tls/private/tls.key
             - --upstream-ca-file=/etc/tls/private/ca.crt
+            # - --upstream-ca-file=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt
           image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
           imagePullPolicy: IfNotPresent
           name: kube-rbac-proxy-1
@@ -74,6 +75,7 @@ spec:
             - --tls-cert-file=/etc/tls/private/tls.crt
             - --tls-private-key-file=/etc/tls/private/tls.key
             - --upstream-ca-file=/etc/tls/private/ca.crt
+            # - --upstream-ca-file=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt
           image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
           imagePullPolicy: IfNotPresent
           name: kube-rbac-proxy-2
