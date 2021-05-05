@@ -719,8 +719,15 @@ _#redhatConnectLogin: (_#registryLoginStep & {
 	}
 }).res
 
-_#waitImages: strings.Join(list.FlattenN([ for #arch in _#archs { [for k, v in _#images {"--pid \(v.ospid)=$(skopeo inspect --override-os=linux --format '{{.Digest}}' docker://\(_#registry)/\(v.name):$TAG-\(#arch))"} ] } ], -1)," ")
 
+_#defineImages: strings.Join(
+  list.FlattenN([ for #arch in _#archs {
+                  [for k, v in _#images {"export img_\(k)_\(#arch)=$(skopeo --override-os=linux --override-arch=\(#arch) inspect --format '{{.Digest}}' docker://\(_#registry)/\(v.name):$TAG)"} ]
+                }], -1), "\n")
+_#waitImages: strings.Join(
+  list.FlattenN([ for #arch in _#archs {
+                  [for k, v in _#images {"--pid \(v.ospid)=${img_\(k)_\(#arch)}"} ]
+                }], -1)," ")
 _#waitForPublish: _#step & {
 	name: "Wait for RH publish"
 	env: {
@@ -729,6 +736,7 @@ _#waitForPublish: _#step & {
 	run:
 		"""
 			cd v2
+			\(_#defineImages)
 			make wait-and-publish PIDS="\(_#waitImages)"
 			"""
 }
