@@ -819,7 +819,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 			"uid", watchKeeperConfig.UID)
 
 		var updatedWatchKeeperConfig v1.ConfigMap
-		version, _ := watchKeeperConfig.Data["marketplace.redhat.com/version"]
+		version, _ := watchKeeperConfig.GetAnnotations()["marketplace.redhat.com/version"]
 		switch version {
 		case "2":
 			updatedWatchKeeperConfig = *r.makeWatchKeeperConfigV2(instance)
