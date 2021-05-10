@@ -737,7 +737,7 @@ _#defineImages: strings.Join(
                 }], -1), "\n")
 _#waitImages: strings.Join(
   list.FlattenN([ for #arch in _#archs {
-                  [for k, v in _#images {"--image \"\(v.url),${img_\(k)_\(#arch)},\""} ]
+                  [for k, v in _#images {"--images \"\(v.url),${img_\(k)_\(#arch)},\""} ]
                 }], -1)," ")
 _#waitForPublish: _#step & {
 	name: "Wait for RH publish"
