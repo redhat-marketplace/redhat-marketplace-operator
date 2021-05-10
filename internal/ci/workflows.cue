@@ -585,28 +585,40 @@ _#turnStyleStep: _#step & {
 _#goVersion: "1.15.11"
 _#pcUser:    "pcUser"
 
+
+_#projectURLs: {
+  operator: "https://connect.redhat.com/projects/5e98b6fac77ce6fca8ac859c/images"
+  reporter: "https://connect.redhat.com/projects/5e98b6fc32116b90fd024d06/images"
+  metering: "https://connect.redhat.com/projects/5f36ea2f74cc50b8f01a838d/images"
+  authcheck: "https://connect.redhat.com/projects/5f62b71018e80cdc21edf22f/images"
+}
+
 _#operator: {
 	name:  "redhat-marketplace-operator"
 	ospid: "ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd"
 	pword: "pcPassword"
+  url: _#projectURLs["operator"]
 }
 
 _#metering: {
 	name:  "redhat-marketplace-metric-state"
 	ospid: "ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4"
 	pword: "pcPasswordMetricState"
+  url: _#projectURLs["metering"]
 }
 
 _#reporter: {
 	name:  "redhat-marketplace-reporter"
 	ospid: "ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e"
 	pword: "pcPasswordReporter"
+  url: _#projectURLs["reporter"]
 }
 
 _#authchecker: {
 	name:  "redhat-marketplace-authcheck"
 	ospid: "ospid-ffed416e-c18d-4b88-8660-f586a4792785"
 	pword: "pcPasswordAuthCheck"
+  url: _#projectURLs["authcheck"]
 }
 
 _#archs: ["amd64", "ppc64le", "s390x"]
@@ -719,25 +731,26 @@ _#redhatConnectLogin: (_#registryLoginStep & {
 	}
 }).res
 
-
 _#defineImages: strings.Join(
   list.FlattenN([ for #arch in _#archs {
                   [for k, v in _#images {"export img_\(k)_\(#arch)=$(skopeo --override-os=linux --override-arch=\(#arch) inspect --format '{{.Digest}}' docker://\(_#registry)/\(v.name):$TAG)"} ]
                 }], -1), "\n")
 _#waitImages: strings.Join(
   list.FlattenN([ for #arch in _#archs {
-                  [for k, v in _#images {"--pid \(v.ospid)=${img_\(k)_\(#arch)}"} ]
+                  [for k, v in _#images {"--image \"\(v.url),${img_\(k)_\(#arch)},\""} ]
                 }], -1)," ")
 _#waitForPublish: _#step & {
 	name: "Wait for RH publish"
 	env: {
+    RH_USER: "${{ secrets['REDHAT_IO_USER'] }}"
+    RH_PASSWORD: "${{ secrets['REDHAT_IO_PASSWORD'] }}"
 		RH_CONNECT_TOKEN: "${{ secrets.redhat_api_key }}"
 	}
 	run:
 		"""
-			cd v2
+			make pc-tool
 			\(_#defineImages)
-			make wait-and-publish PIDS="\(_#waitImages)"
+			./bin/partner-connect-tool \(_#waitImages)
 			"""
 }
 

@@ -373,7 +373,7 @@ jobs:
         password: ${{secrets['REDHAT_IO_PASSWORD']}}
     - name: Wait for RH publish
       run: |-
-        cd v2
+        make pc-tool
         export img_0_amd64=$(skopeo --override-os=linux --override-arch=amd64 inspect --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG)
         export img_1_amd64=$(skopeo --override-os=linux --override-arch=amd64 inspect --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG)
         export img_2_amd64=$(skopeo --override-os=linux --override-arch=amd64 inspect --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG)
@@ -386,8 +386,10 @@ jobs:
         export img_1_s390x=$(skopeo --override-os=linux --override-arch=s390x inspect --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG)
         export img_2_s390x=$(skopeo --override-os=linux --override-arch=s390x inspect --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG)
         export img_3_s390x=$(skopeo --override-os=linux --override-arch=s390x inspect --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG)
-        make wait-and-publish PIDS="--pid ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd=${img_0_amd64} --pid ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4=${img_1_amd64} --pid ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e=${img_2_amd64} --pid ospid-ffed416e-c18d-4b88-8660-f586a4792785=${img_3_amd64} --pid ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd=${img_0_ppc64le} --pid ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4=${img_1_ppc64le} --pid ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e=${img_2_ppc64le} --pid ospid-ffed416e-c18d-4b88-8660-f586a4792785=${img_3_ppc64le} --pid ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd=${img_0_s390x} --pid ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4=${img_1_s390x} --pid ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e=${img_2_s390x} --pid ospid-ffed416e-c18d-4b88-8660-f586a4792785=${img_3_s390x}"
+        ./bin/partner-connect-tool --image "https://connect.redhat.com/projects/5e98b6fac77ce6fca8ac859c/images,${img_0_amd64}," --image "https://connect.redhat.com/projects/5f36ea2f74cc50b8f01a838d/images,${img_1_amd64}," --image "https://connect.redhat.com/projects/5e98b6fc32116b90fd024d06/images,${img_2_amd64}," --image "https://connect.redhat.com/projects/5f62b71018e80cdc21edf22f/images,${img_3_amd64}," --image "https://connect.redhat.com/projects/5e98b6fac77ce6fca8ac859c/images,${img_0_ppc64le}," --image "https://connect.redhat.com/projects/5f36ea2f74cc50b8f01a838d/images,${img_1_ppc64le}," --image "https://connect.redhat.com/projects/5e98b6fc32116b90fd024d06/images,${img_2_ppc64le}," --image "https://connect.redhat.com/projects/5f62b71018e80cdc21edf22f/images,${img_3_ppc64le}," --image "https://connect.redhat.com/projects/5e98b6fac77ce6fca8ac859c/images,${img_0_s390x}," --image "https://connect.redhat.com/projects/5f36ea2f74cc50b8f01a838d/images,${img_1_s390x}," --image "https://connect.redhat.com/projects/5e98b6fc32116b90fd024d06/images,${img_2_s390x}," --image "https://connect.redhat.com/projects/5f62b71018e80cdc21edf22f/images,${img_3_s390x},"
       env:
+        RH_USER: ${{ secrets['REDHAT_IO_USER'] }}
+        RH_PASSWORD: ${{ secrets['REDHAT_IO_PASSWORD'] }}
         RH_CONNECT_TOKEN: ${{ secrets.redhat_api_key }}
     - name: Copy Manifest
       run: |-

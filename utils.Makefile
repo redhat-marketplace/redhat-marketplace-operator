@@ -95,7 +95,13 @@ svu:
 VERSION_TOOL=$(PROJECT_DIR)/bin/version-tool
 version-tool:
 	@[ -f $(VERSION_TOOL) ] || { \
-	cd v2/tools/version && go build -o $(VERSION_TOOl) ./main.go ; \
+	cd v2/tools/version && go build -o $(VERSION_TOOL) ./main.go ; \
+	}
+
+PC_TOOL=$(PROJECT_DIR)/bin/partner-connect-tool
+pc-tool:
+	@[ -f $(VERSION_TOOL) ] || { \
+	cd v2/tools/connect && go build -o $(PC_TOOL) ./main.go ; \
 	}
 
 # --COMMON--
