@@ -750,7 +750,7 @@ _#waitForPublish: _#step & {
 		"""
 			make pc-tool
 			\(_#defineImages)
-			./bin/partner-connect-tool \(_#waitImages)
+			./bin/partner-connect-tool publish \(_#waitImages)
 			"""
 }
 
