@@ -362,7 +362,7 @@ _#getBundleRunID: _#step & {
   name: "Get Latest Bundle Run"
 	run: """
 WORKFLOW_ID=8480641
-BRANCH=$(echo ${GITHUB_REF} | sed -e 's/refs\\/heads\\///g')
+BRANCH=$(echo ${REF} | sed -e 's/refs\\/heads\\///g')
 BRANCH_BUILD=$(curl \\
   -H "Accept: application/vnd.github.v3+json" \\
   "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/$WORKFLOW_ID/runs?branch=$BRANCH&event=push" \\
@@ -395,14 +395,22 @@ _#getVersion: _#step & {
 	run: """
 make svu
 export VERSION="$(./bin/svu next)"
+REF="$GITHUB_REF"
+
+if [[ "$GITHUB_HEAD_REF" != "" ]]; then
+  echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
+  REF="$GITHUB_HEAD_REF"
+fi
+
+echo "Found ref $REF"
 
 if [[ "$VERSION" == "" ]]; then
   echo "failed to find version"
   exit 1
 fi
 
-if [[ "$GITHUB_REF" == *"refs/heads/release"* ||  "$GITHUB_REF" == *"refs/heads/hotfix"* ]] ; then
-echo "using release version and githb_run_number"
+if [[ "$REF" == *"refs/heads/release"* ||  "$REF" == *"refs/heads/hotfix"* ]] ; then
+echo "using release version and github_run_number"
 export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
 export IS_DEV="false"
 else
@@ -419,6 +427,7 @@ echo "TAG=$TAG" >> $GITHUB_ENV
 echo "::set-output name=tag::$TAG"
 echo "IS_DEV=$IS_DEV" >> $GITHUB_ENV
 echo "::set-output name=isDev::$IS_DEV"
+echo "REF=$REF" >> $GITHUB_ENV
 """
 }
 

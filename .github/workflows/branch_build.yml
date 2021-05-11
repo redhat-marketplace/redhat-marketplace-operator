@@ -57,14 +57,22 @@ jobs:
       run: |-
         make svu
         export VERSION="$(./bin/svu next)"
+        REF="$GITHUB_REF"
+
+        if [[ "$GITHUB_HEAD_REF" != "" ]]; then
+          echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
+          REF="$GITHUB_HEAD_REF"
+        fi
+
+        echo "Found ref $REF"
 
         if [[ "$VERSION" == "" ]]; then
           echo "failed to find version"
           exit 1
         fi
 
-        if [[ "$GITHUB_REF" == *"refs/heads/release"* ||  "$GITHUB_REF" == *"refs/heads/hotfix"* ]] ; then
-        echo "using release version and githb_run_number"
+        if [[ "$REF" == *"refs/heads/release"* ||  "$REF" == *"refs/heads/hotfix"* ]] ; then
+        echo "using release version and github_run_number"
         export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
         export IS_DEV="false"
         else
@@ -81,6 +89,7 @@ jobs:
         echo "::set-output name=tag::$TAG"
         echo "IS_DEV=$IS_DEV" >> $GITHUB_ENV
         echo "::set-output name=isDev::$IS_DEV"
+        echo "REF=$REF" >> $GITHUB_ENV
   matrix-test:
     name: Matrix Test
     runs-on: ubuntu-20.04
@@ -330,14 +339,22 @@ jobs:
       run: |-
         make svu
         export VERSION="$(./bin/svu next)"
+        REF="$GITHUB_REF"
+
+        if [[ "$GITHUB_HEAD_REF" != "" ]]; then
+          echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
+          REF="$GITHUB_HEAD_REF"
+        fi
+
+        echo "Found ref $REF"
 
         if [[ "$VERSION" == "" ]]; then
           echo "failed to find version"
           exit 1
         fi
 
-        if [[ "$GITHUB_REF" == *"refs/heads/release"* ||  "$GITHUB_REF" == *"refs/heads/hotfix"* ]] ; then
-        echo "using release version and githb_run_number"
+        if [[ "$REF" == *"refs/heads/release"* ||  "$REF" == *"refs/heads/hotfix"* ]] ; then
+        echo "using release version and github_run_number"
         export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
         export IS_DEV="false"
         else
@@ -354,6 +371,7 @@ jobs:
         echo "::set-output name=tag::$TAG"
         echo "IS_DEV=$IS_DEV" >> $GITHUB_ENV
         echo "::set-output name=isDev::$IS_DEV"
+        echo "REF=$REF" >> $GITHUB_ENV
     - id: mirror
       name: Mirror images
       run: |-
