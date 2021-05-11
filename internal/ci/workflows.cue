@@ -113,7 +113,6 @@ publish: _#bashWorkflow & {
 				_#checkoutCode & {
 					with: "fetch-depth": 0
 				},
-				_#checkoutCode,
 				_#installGo,
 				_#cacheGoModules,
 				_#installKubeBuilder,
