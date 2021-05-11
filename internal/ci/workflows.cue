@@ -362,11 +362,10 @@ _#getBundleRunID: _#step & {
   name: "Get Latest Bundle Run"
 	run: """
 WORKFLOW_ID=8480641
-BRANCH=$(echo ${REF} | sed -e 's/refs\\/heads\\///g')
 BRANCH_BUILD=$(curl \\
   -H "Accept: application/vnd.github.v3+json" \\
-  "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/$WORKFLOW_ID/runs?branch=$BRANCH&event=push" \\
-   | jq --arg sha $GITHUB_SHA '.workflow_runs | map(select(.head_sha == sha)) | max_by(.run_number)')
+  "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/$WORKFLOW_ID/runs?branch=$REF&event=push" \\
+   | jq --arg sha $GITHUB_SHA '.workflow_runs | map(select(.head_sha == $sha)) | max_by(.run_number)')
 
 if [ "$BRANCH_BUILD" == "" ]; then
   echo "failed to get branch build"
@@ -409,7 +408,7 @@ if [[ "$VERSION" == "" ]]; then
   exit 1
 fi
 
-if [[ "$REF" == *"refs/heads/release"* ||  "$REF" == *"refs/heads/hotfix"* ]] ; then
+if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* ]] ; then
 echo "using release version and github_run_number"
 export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
 export IS_DEV="false"

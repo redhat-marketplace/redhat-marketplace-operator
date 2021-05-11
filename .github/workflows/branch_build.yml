@@ -71,7 +71,7 @@ jobs:
           exit 1
         fi
 
-        if [[ "$REF" == *"refs/heads/release"* ||  "$REF" == *"refs/heads/hotfix"* ]] ; then
+        if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* ]] ; then
         echo "using release version and github_run_number"
         export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
         export IS_DEV="false"
@@ -353,7 +353,7 @@ jobs:
           exit 1
         fi
 
-        if [[ "$REF" == *"refs/heads/release"* ||  "$REF" == *"refs/heads/hotfix"* ]] ; then
+        if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* ]] ; then
         echo "using release version and github_run_number"
         export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
         export IS_DEV="false"
