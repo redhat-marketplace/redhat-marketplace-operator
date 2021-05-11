@@ -54,6 +54,7 @@ var PublishCommand = &cobra.Command{
 			image := &imageStruct{}
 			image.FromCSV(row)
 			images = append(images, image)
+			log.Printf("image passed %+v\n", image)
 		}
 
 		web := &connectWebsite{
@@ -138,6 +139,9 @@ var PublishCommand = &cobra.Command{
 		doneChan := process()
 
 		select {
+		case <-web.Ctx.Done():
+			log.Println("context cancelled")
+			return errors.New("context cancelled")
 		case <-doneChan:
 			log.Println("done")
 		case <-ctx.Done():

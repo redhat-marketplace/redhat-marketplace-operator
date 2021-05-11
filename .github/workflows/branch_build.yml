@@ -55,17 +55,12 @@ jobs:
     - id: version
       name: Get Version
       run: |-
-        if [[ "$GITHUB_REF" == *"refs/head/release"* ||  "$GITHUB_REF" == *"refs/head/hotfix"* ]] ; then
-        	export VERSION=$(echo ${GITHUB_REF} | gsed -e 's/refs\/head/\(release\|hotfix\)\///g')
-        	echo "Found version from branch"
-        else
-        	make svu
-        	export VERSION="$(./bin/svu next)"
-        fi
+        make svu
+        export VERSION="$(./bin/svu next)"
 
         if [[ "$VERSION" == "" ]]; then
-        	echo "failed to find version"
-        	exit 1
+          echo "failed to find version"
+          exit 1
         fi
 
         if [[ "$GITHUB_REF" == *"refs/heads/release"* ||  "$GITHUB_REF" == *"refs/heads/hotfix"* ]] ; then
@@ -80,9 +75,11 @@ jobs:
 
         echo "Found version $VERSION"
         echo "::set-output name=version::$VERSION"
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
         echo "Found tag $TAG"
+        echo "TAG=$TAG" >> $GITHUB_ENV
         echo "::set-output name=tag::$TAG"
-        echo "Found dev $IS_DEV"
+        echo "IS_DEV=$IS_DEV" >> $GITHUB_ENV
         echo "::set-output name=isDev::$IS_DEV"
   matrix-test:
     name: Matrix Test
@@ -274,14 +271,11 @@ jobs:
         echo "::set-output name=version::$VERSION"
         echo "::set-output name=tag::$TAG"
   publish:
-    name: Publish Images
+    name: Push Images to PC
     needs:
     - deploy
     - images
     runs-on: ubuntu-20.04
-    env:
-      VERSION: ${{ needs.deploy.outputs.version }}
-      TAG: ${{ needs.deploy.outputs.tag }}
     defaults:
       run:
         shell: bash
@@ -290,7 +284,9 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
       with:
-        ref: ${{github.event.client_payload.sha}}
+        fetch-depth: 0
+    - name: Checkout code
+      uses: actions/checkout@v2
     - name: Install Go
       uses: actions/setup-go@v2
       with:
@@ -301,6 +297,18 @@ jobs:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: ${{ runner.os }}-1.15.11-go-
+    - name: Install Kubebuilder
+      run: |-
+        os=$(go env GOOS)
+        arch=$(go env GOARCH)
+
+        # download kubebuilder and extract it to tmp
+        curl -L https://go.kubebuilder.io/dl/2.3.1/${os}/${arch} | tar -xz -C /tmp/
+
+        # move to a long-term location and put it on your path
+        # (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
+        sudo mv /tmp/kubebuilder_2.3.1_${os}_${arch} /usr/local/kubebuilder
+        echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
     - name: Install operatorsdk
       run: |-
         export ARCH=$(case $(arch) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(arch) ;; esac)
@@ -313,6 +321,35 @@ jobs:
         chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
         curl -LO https://github.com/operator-framework/operator-registry/releases/download/v1.15.3/${OS}-${ARCH}-opm
         chmod +x ${OS}-${ARCH}-opm && sudo mv ${OS}-${ARCH}-opm /usr/local/bin/opm
+    - id: version
+      name: Get Version
+      run: |-
+        make svu
+        export VERSION="$(./bin/svu next)"
+
+        if [[ "$VERSION" == "" ]]; then
+          echo "failed to find version"
+          exit 1
+        fi
+
+        if [[ "$GITHUB_REF" == *"refs/heads/release"* ||  "$GITHUB_REF" == *"refs/heads/hotfix"* ]] ; then
+        echo "using release version and githb_run_number"
+        export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
+        export IS_DEV="false"
+        else
+        echo "using beta in version"
+        export TAG="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
+        export IS_DEV="true"
+        fi
+
+        echo "Found version $VERSION"
+        echo "::set-output name=version::$VERSION"
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "Found tag $TAG"
+        echo "TAG=$TAG" >> $GITHUB_ENV
+        echo "::set-output name=tag::$TAG"
+        echo "IS_DEV=$IS_DEV" >> $GITHUB_ENV
+        echo "::set-output name=isDev::$IS_DEV"
     - id: mirror
       name: Mirror images
       run: |-
@@ -365,38 +402,3 @@ jobs:
         ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=s390x --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG-s390x --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}})
         echo "::endgroup::"
       shell: bash {0}
-    - name: Login to Docker Hub
-      uses: docker/login-action@v1
-      with:
-        registry: registry.connect.redhat.com
-        username: ${{secrets['REDHAT_IO_USER']}}
-        password: ${{secrets['REDHAT_IO_PASSWORD']}}
-    - name: Wait for RH publish
-      run: |-
-        make pc-tool
-        export img_0_amd64=$(skopeo --override-os=linux --override-arch=amd64 inspect --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG)
-        export img_1_amd64=$(skopeo --override-os=linux --override-arch=amd64 inspect --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG)
-        export img_2_amd64=$(skopeo --override-os=linux --override-arch=amd64 inspect --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG)
-        export img_3_amd64=$(skopeo --override-os=linux --override-arch=amd64 inspect --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG)
-        export img_0_ppc64le=$(skopeo --override-os=linux --override-arch=ppc64le inspect --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG)
-        export img_1_ppc64le=$(skopeo --override-os=linux --override-arch=ppc64le inspect --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG)
-        export img_2_ppc64le=$(skopeo --override-os=linux --override-arch=ppc64le inspect --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG)
-        export img_3_ppc64le=$(skopeo --override-os=linux --override-arch=ppc64le inspect --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG)
-        export img_0_s390x=$(skopeo --override-os=linux --override-arch=s390x inspect --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG)
-        export img_1_s390x=$(skopeo --override-os=linux --override-arch=s390x inspect --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG)
-        export img_2_s390x=$(skopeo --override-os=linux --override-arch=s390x inspect --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG)
-        export img_3_s390x=$(skopeo --override-os=linux --override-arch=s390x inspect --format '{{.Digest}}' docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG)
-        ./bin/partner-connect-tool publish --images "https://connect.redhat.com/projects/5e98b6fac77ce6fca8ac859c/images,${img_0_amd64}," --images "https://connect.redhat.com/projects/5f36ea2f74cc50b8f01a838d/images,${img_1_amd64}," --images "https://connect.redhat.com/projects/5e98b6fc32116b90fd024d06/images,${img_2_amd64}," --images "https://connect.redhat.com/projects/5f62b71018e80cdc21edf22f/images,${img_3_amd64}," --images "https://connect.redhat.com/projects/5e98b6fac77ce6fca8ac859c/images,${img_0_ppc64le}," --images "https://connect.redhat.com/projects/5f36ea2f74cc50b8f01a838d/images,${img_1_ppc64le}," --images "https://connect.redhat.com/projects/5e98b6fc32116b90fd024d06/images,${img_2_ppc64le}," --images "https://connect.redhat.com/projects/5f62b71018e80cdc21edf22f/images,${img_3_ppc64le}," --images "https://connect.redhat.com/projects/5e98b6fac77ce6fca8ac859c/images,${img_0_s390x}," --images "https://connect.redhat.com/projects/5f36ea2f74cc50b8f01a838d/images,${img_1_s390x}," --images "https://connect.redhat.com/projects/5e98b6fc32116b90fd024d06/images,${img_2_s390x}," --images "https://connect.redhat.com/projects/5f62b71018e80cdc21edf22f/images,${img_3_s390x},"
-      env:
-        RH_USER: ${{ secrets['REDHAT_IO_USER'] }}
-        RH_PASSWORD: ${{ secrets['REDHAT_IO_PASSWORD'] }}
-        RH_CONNECT_TOKEN: ${{ secrets.redhat_api_key }}
-    - name: Copy Manifest
-      run: |-
-        echo "::group::Push scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$VERSION"
-        skopeo --override-os=linux inspect docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$VERSION --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}} > /dev/null
-        ([[ $? == 0 ]] && echo "exists=true" || skopeo copy docker://quay.io/rh-marketplace/redhat-marketplace-operator-manifest:$VERSION docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$VERSION --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}})
-        echo "::endgroup::"
-      shell: bash {0}
-      env:
-        TAG: ${{ steps.deploy.outputs.version }}

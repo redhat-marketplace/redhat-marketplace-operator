@@ -16,6 +16,10 @@ workflows: [
 		file:   "branch_build.yml"
 		schema: branch_build
 	},
+	{
+		file:   "publish.yml"
+		schema: publish
+	},
 ]
 
 varPresetGitTag:         "${{ needs.preset.outputs.tag }}"
@@ -97,6 +101,33 @@ auto_tag: _#bashWorkflow & {
   }
 }
 
+publish: _#bashWorkflow & {
+  name: "Publish"
+  on: pull_request: types: ["labeled"]
+  jobs: {
+    publish: _#job & {
+			name:      "Publish Images"
+			"runs-on": _#linuxMachine
+			if: "github.event.label.name == 'publish'"
+			steps: [
+				_#checkoutCode & {
+					with: "fetch-depth": 0
+				},
+				_#checkoutCode,
+				_#installGo,
+				_#cacheGoModules,
+				_#installKubeBuilder,
+				_#installOperatorSDK,
+        _#getVersion,
+        _#getBundleRunID,
+				_#redhatConnectLogin,
+				_#waitForPublish,
+				_#retagManifestCommand,
+			]
+		}
+	}
+  }
+
 branch_build: _#bashWorkflow & {
   name: "Branch Build"
 	on: {
@@ -134,41 +165,7 @@ branch_build: _#bashWorkflow & {
 					name: "Test"
 					run: "make operator/test"
 				},
-        _#step & {
-          id: "version"
-          name: "Get Version"
-					run: """
-					if [[ "$GITHUB_REF" == *"refs/head/release"* ||  "$GITHUB_REF" == *"refs/head/hotfix"* ]] ; then
-						export VERSION=$(echo ${GITHUB_REF} | gsed -e 's/refs\\/head\/\\(release\\|hotfix\\)\\///g')
-						echo "Found version from branch"
-					else
-						make svu
-						export VERSION="$(./bin/svu next)"
-					fi
-
-					if [[ "$VERSION" == "" ]]; then
-						echo "failed to find version"
-						exit 1
-					fi
-
-					if [[ "$GITHUB_REF" == *"refs/heads/release"* ||  "$GITHUB_REF" == *"refs/heads/hotfix"* ]] ; then
-					echo "using release version and githb_run_number"
-					export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
-					export IS_DEV="false"
-					else
-					echo "using beta in version"
-					export TAG="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
-					export IS_DEV="true"
-					fi
-
-					echo "Found version $VERSION"
-					echo "::set-output name=version::$VERSION"
-					echo "Found tag $TAG"
-					echo "::set-output name=tag::$TAG"
-					echo "Found dev $IS_DEV"
-					echo "::set-output name=isDev::$IS_DEV"
-					"""
-        }
+        _#getVersion,
 			]
 		}
     "matrix-test": _#job & {
@@ -263,113 +260,21 @@ branch_build: _#bashWorkflow & {
 			]
 		}
     publish: _#job & {
-			name:      "Publish Images"
+			name:      "Push Images to PC"
 			"runs-on": _#linuxMachine
 			needs: ["deploy", "images"]
-			env: {
-				VERSION: "${{ needs.deploy.outputs.version }}"
-				TAG:     "${{ needs.deploy.outputs.tag }}"
-			}
 			if: "needs.deploy.outputs.isDev == 'false'"
 			steps: [
 				_#checkoutCode & {
-					with: ref: "${{github.event.client_payload.sha}}"
+					with: "fetch-depth": 0
 				},
+				_#checkoutCode,
 				_#installGo,
 				_#cacheGoModules,
+				_#installKubeBuilder,
 				_#installOperatorSDK,
+        _#getVersion,
 				_#retagCommand,
-				_#redhatConnectLogin,
-				_#waitForPublish,
-				_#retagManifestCommand,
-			]
-		}
-	}
-}
-bundle: _#bashWorkflow & {
-	name: "Deploy Bundle"
-	on: repository_dispatch: types: ["bundle"]
-	env: {
-		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
-		"BRANCH":         "${{github.event.client_payload.branch}}"
-		"DEPLOY_SHA":     "${{github.event.client_payload.sha}}"
-		"IS_PR":          "${{github.event.client_payload.pull_request}}"
-	}
-	jobs: {
-		deploy: _#job & {
-			name:      "Deploy Bundle"
-			"runs-on": _#linuxMachine
-			outputs: {
-				version: "${{ steps.bundle.outputs.version }}"
-				tag:     "${{ steps.bundle.outputs.tag }}"
-			}
-			steps: [
-				_#checkoutCode & {
-					with: ref: "${{github.event.client_payload.sha}}"
-				},
-				_#installGo,
-        _#setupQemu,
-        _#setupBuildX,
-				_#cacheGoModules,
-				_#installOperatorSDK,
-				_#installYQ,
-				_#quayLogin,
-				_#step & {
-					id:   "bundle"
-					name: "Build bundle"
-					run:  """
-						if [ "$IS_PR" == "false" ] && [ "$BRANCH" != "" ] ; then
-						echo "is a dev request"
-						export IS_DEV="true"
-						else
-						echo "is a release request"
-						export IS_DEV="false"
-						fi
-
-						cd v2
-						export VERSION=$(cd ./tools/version && go run ./main.go)
-						export TAG=${VERSION}-${DEPLOY_SHA}
-
-						\((_#makeLogGroup & {#args: {name: "Make Stable Bundle", cmd: "make bundle-stable"}}).res)
-
-						if [ "$IS_DEV" == "true" ] ; then
-						echo "using branch in version"
-						export VERSION="${VERSION}-${BRANCH}-${GITHUB_RUN_NUMBER}"
-						else
-						echo "using release version and githb_run_number"
-						export VERSION="${VERSION}-${GITHUB_RUN_NUMBER}"
-						fi
-
-						\((_#makeLogGroup & {#args: {name: "Make Bundle Build", cmd: "make bundle-build"}}).res)
-						\((_#makeLogGroup & {#args: {name: "Make Deploy", cmd: "make bundle-deploy"}}).res)
-						\((_#makeLogGroup & {#args: {name: "Make Dev Index", cmd: "make bundle-dev-index-multiarch"}}).res)
-
-						echo "::set-output name=version::$VERSION"
-						echo "::set-output name=tag::$VERSION"
-						"""
-				},
-			]
-		}
-		publish: _#job & {
-			name:      "Publish Images"
-			"runs-on": _#linuxMachine
-			needs: ["deploy"]
-			env: {
-				VERSION: "${{ needs.deploy.outputs.version }}"
-				TAG:     "${{ needs.deploy.outputs.tag }}"
-			}
-			if: "github.event.client_payload.pull_request != 'false'"
-			steps: [
-				_#checkoutCode & {
-					with: ref: "${{github.event.client_payload.sha}}"
-				},
-				_#installGo,
-				_#cacheGoModules,
-				_#installOperatorSDK,
-				_#retagCommand,
-				_#redhatConnectLogin,
-				_#waitForPublish,
-				_#retagManifestCommand,
 			]
 		}
 	}
@@ -450,6 +355,70 @@ _#cacheGoModules: _#step & {
 		key:            "${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}"
 		"restore-keys": "${{ runner.os }}-\(_#goVersion)-go-"
 	}
+}
+
+_#getBundleRunID: _#step & {
+  name: "Get Latest Bundle Run"
+	run: """
+WORKFLOW_ID=8480641
+BRANCH=$(echo ${GITHUB_REF} | gsed -e 's/refs\\/heads\\///g')
+BRANCH_BUILD=$(curl \\
+  -H "Accept: application/vnd.github.v3+json" \\
+  "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/$WORKFLOW_ID/runs?branch=$BRANCH&event=push" \\
+   | jq --arg sha $GITHUB_SHA '.workflow_runs | map(select(.head_sha == sha)) | max_by(.run_number)')
+
+if [ "$BRANCH_BUILD" == "" ]; then
+  echo "failed to get branch build"
+  exit 1
+fi
+
+status=$(echo $BRANCH_BUILD | jq -r '.status')
+conclusion=$(echo $BRANCH_BUILD | jq -r '.conclusion')
+
+if [ "$status" != "completed" ] && [ "$conclusion" != "success" ]; then
+  echo "$status and $conclusion were not completed and successful"
+  exit 1
+fi
+
+RUN_NUMBER=$(echo $BRANCH_BUILD | jq -r '.run_number')
+
+export TAG="${VERSION}-${RUN_NUMBER}"
+echo "setting tag to $TAG"
+echo "TAG=$TAG" >> $GITHUB_ENV
+"""
+}
+
+_#getVersion: _#step & {
+  id: "version"
+  name: "Get Version"
+	run: """
+make svu
+export VERSION="$(./bin/svu next)"
+
+if [[ "$VERSION" == "" ]]; then
+  echo "failed to find version"
+  exit 1
+fi
+
+if [[ "$GITHUB_REF" == *"refs/heads/release"* ||  "$GITHUB_REF" == *"refs/heads/hotfix"* ]] ; then
+echo "using release version and githb_run_number"
+export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
+export IS_DEV="false"
+else
+echo "using beta in version"
+export TAG="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
+export IS_DEV="true"
+fi
+
+echo "Found version $VERSION"
+echo "::set-output name=version::$VERSION"
+echo "VERSION=$VERSION" >> $GITHUB_ENV
+echo "Found tag $TAG"
+echo "TAG=$TAG" >> $GITHUB_ENV
+echo "::set-output name=tag::$TAG"
+echo "IS_DEV=$IS_DEV" >> $GITHUB_ENV
+echo "::set-output name=isDev::$IS_DEV"
+"""
 }
 
 _#goGenerate: _#step & {
@@ -647,8 +616,8 @@ _#repoFromTo: [ for k, v in _#images {
 
 _#manifestFromTo: [ for k, v in [_#manifest] {
 	pword: "\(v.pword)"
-	from:  "\(_#registry)/\(v.name):$VERSION"
-	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$VERSION"
+	from:  "\(_#registry)/\(v.name):$TAG"
+	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TAG"
 }]
 
 _#copyImageArch: {
@@ -692,7 +661,6 @@ _#retagCommand: _#step & {
 _#manifestCopyCommandList: [for k, v in _#manifestFromTo {(_#copyImage & {#args: v }).res} ]
 
 _#retagManifestCommand: _#step & {
-	env: TAG: "${{ steps.deploy.outputs.version }}"
 	name:  "Copy Manifest"
 	shell: "bash {0}"
 	run:   strings.Join(_#manifestCopyCommandList, "\n")
@@ -731,14 +699,17 @@ _#redhatConnectLogin: (_#registryLoginStep & {
 	}
 }).res
 
-_#defineImages: strings.Join(
-  list.FlattenN([ for #arch in _#archs {
-                  [for k, v in _#images {"export img_\(k)_\(#arch)=$(skopeo --override-os=linux --override-arch=\(#arch) inspect --format '{{.Digest}}' docker://\(_#registry)/\(v.name):$TAG)"} ]
-                }], -1), "\n")
-_#waitImages: strings.Join(
-  list.FlattenN([ for #arch in _#archs {
-                  [for k, v in _#images {"--images \"\(v.url),${img_\(k)_\(#arch)},\""} ]
-                }], -1)," ")
+_#defineImages: strings.Join([for k, v in _#images {
+"""
+shas=($(docker manifest inspect \(_#registry)/\(v.name):$TAG | -r '.manifests[].digest' | xargs))
+len=${#shas[@]}
+for (( i=0; i<$len; i++ ))
+do
+  export IMAGES="--images \(v.url),${shas[$i]},$TAG $IMAGES"
+end
+"""
+                             }], "\n")
+
 _#waitForPublish: _#step & {
 	name: "Wait for RH publish"
 	env: {
@@ -746,11 +717,12 @@ _#waitForPublish: _#step & {
     RH_PASSWORD: "${{ secrets['REDHAT_IO_PASSWORD'] }}"
 		RH_CONNECT_TOKEN: "${{ secrets.redhat_api_key }}"
 	}
-	run:
-		"""
+	run: """
 			make pc-tool
+			export IMAGES=""
 			\(_#defineImages)
-			./bin/partner-connect-tool publish \(_#waitImages)
+			echo "publishing $IMAGES"
+			./bin/partner-connect-tool publish $IMAGES
 			"""
 }
 
