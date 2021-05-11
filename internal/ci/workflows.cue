@@ -110,6 +110,7 @@ publish: _#bashWorkflow & {
 			"runs-on": _#linuxMachine
 			if: "github.event.label.name == 'publish'"
 			steps: [
+        _#cancelPreviousRun,
 				_#checkoutCode & {
 					with: "fetch-depth": 0
 				},
@@ -227,6 +228,7 @@ branch_build: _#bashWorkflow & {
 				tag:     "${{ steps.bundle.outputs.tag }}"
 			}
 			steps: [
+        _#cancelPreviousRun,
 				_#checkoutCode,
 				_#installGo,
         _#setupQemu,

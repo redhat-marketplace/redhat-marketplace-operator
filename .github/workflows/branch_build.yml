@@ -198,6 +198,10 @@ jobs:
       run:
         shell: bash
     steps:
+    - name: Cancel Previous Run
+      uses: styfle/cancel-workflow-action@0.4.1
+      with:
+        access_token: ${{ github.token }}
     - name: Checkout code
       uses: actions/checkout@v2
     - name: Install Go
