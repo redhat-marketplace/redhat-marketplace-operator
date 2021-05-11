@@ -84,7 +84,7 @@ jobs:
     - name: Get Latest Bundle Run
       run: |-
         WORKFLOW_ID=8480641
-        BRANCH=$(echo ${GITHUB_REF} | gsed -e 's/refs\/heads\///g')
+        BRANCH=$(echo ${GITHUB_REF} | sed -e 's/refs\/heads\///g')
         BRANCH_BUILD=$(curl \
           -H "Accept: application/vnd.github.v3+json" \
           "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/$WORKFLOW_ID/runs?branch=$BRANCH&event=push" \
