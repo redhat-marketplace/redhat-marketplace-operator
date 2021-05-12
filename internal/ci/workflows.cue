@@ -709,7 +709,7 @@ _#redhatConnectLogin: (_#registryLoginStep & {
 
 _#defineImages: strings.Join([for k, v in _#images {
 """
-shas=($(docker manifest inspect \(_#registry)/\(v.name):$TAG | -r '.manifests[].digest' | xargs))
+shas=($(docker manifest inspect \(_#registry)/\(v.name):$TAG | jq -r '.manifests[].digest' | xargs))
 len=${#shas[@]}
 for (( i=0; i<$len; i++ ))
 do

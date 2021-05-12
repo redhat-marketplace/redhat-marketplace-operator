@@ -130,25 +130,25 @@ jobs:
       run: |-
         make pc-tool
         export IMAGES=""
-        shas=($(docker manifest inspect quay.io/rh-marketplace/redhat-marketplace-operator:$TAG | -r '.manifests[].digest' | xargs))
+        shas=($(docker manifest inspect quay.io/rh-marketplace/redhat-marketplace-operator:$TAG | jq -r '.manifests[].digest' | xargs))
         len=${#shas[@]}
         for (( i=0; i<$len; i++ ))
         do
           export IMAGES="--images https://connect.redhat.com/projects/5e98b6fac77ce6fca8ac859c/images,${shas[$i]},$TAG $IMAGES"
         end
-        shas=($(docker manifest inspect quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG | -r '.manifests[].digest' | xargs))
+        shas=($(docker manifest inspect quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG | jq -r '.manifests[].digest' | xargs))
         len=${#shas[@]}
         for (( i=0; i<$len; i++ ))
         do
           export IMAGES="--images https://connect.redhat.com/projects/5f36ea2f74cc50b8f01a838d/images,${shas[$i]},$TAG $IMAGES"
         end
-        shas=($(docker manifest inspect quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG | -r '.manifests[].digest' | xargs))
+        shas=($(docker manifest inspect quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG | jq -r '.manifests[].digest' | xargs))
         len=${#shas[@]}
         for (( i=0; i<$len; i++ ))
         do
           export IMAGES="--images https://connect.redhat.com/projects/5e98b6fc32116b90fd024d06/images,${shas[$i]},$TAG $IMAGES"
         end
-        shas=($(docker manifest inspect quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG | -r '.manifests[].digest' | xargs))
+        shas=($(docker manifest inspect quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG | jq -r '.manifests[].digest' | xargs))
         len=${#shas[@]}
         for (( i=0; i<$len; i++ ))
         do

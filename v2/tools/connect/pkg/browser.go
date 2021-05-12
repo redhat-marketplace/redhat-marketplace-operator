@@ -133,7 +133,7 @@ var PublishCommand = &cobra.Command{
 			return boolChan
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 
 		doneChan := process()
