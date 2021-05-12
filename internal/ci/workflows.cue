@@ -108,23 +108,29 @@ publish: _#bashWorkflow & {
 		publish: _#job & {
 			name:      "Publish Images"
 			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish') }}"
-      env: {
-        "REF": "${{ github.event.issue.pull_request[0].head.ref }}"
-      }
 			"runs-on": _#linuxMachine
 			steps: [
 				_#hasWriteAccess,
+				(_#findPRForComment & {
+					_#args: {
+						prNum: "${{ github.event.issue.number }}"
+					}
+				}).res,
 				_#checkoutCode & {
 					with: {
-            "fetch-depth": 0
-            sha: "${{ github.event.issue.pull_request[0].head.sha }}"
-          }
+						"fetch-depth": 0
+						sha:           "${{ steps.pr.outputs.prSha }}"
+					}
 				},
 				_#installGo,
 				_#cacheGoModules,
 				_#installKubeBuilder,
 				_#installOperatorSDK,
-				_#getVersion,
+				_#getVersion & {
+					env: {
+						"REF": "${{ steps.pr.outputs.prRef }}"
+					}
+				},
 				_#getBundleRunID,
 				_#redhatConnectLogin,
 				_#publishOperatorImages,
@@ -135,22 +141,31 @@ publish: _#bashWorkflow & {
 			name:      "Publish Operator"
 			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish-operator') }}"
 			"runs-on": _#linuxMachine
-      env: {
-        "REF": "${{ github.event.issue.pull_request[0].head.ref }}"
-      }
+			env: {
+				"REF": "${{ github.event.issue.pull_request[0].head.ref }}"
+			}
 			steps: [
 				_#hasWriteAccess,
+				(_#findPRForComment & {
+					_#args: {
+						prNum: "${{ github.event.issue.number }}"
+					}
+				}).res,
 				_#checkoutCode & {
 					with: {
-            "fetch-depth": 0
-            sha: "${{ github.event.issue.pull_request[0].head.sha }}"
-          }
+						"fetch-depth": 0
+						sha:           "${{ steps.pr.outputs.prSha }}"
+					}
 				},
 				_#installGo,
 				_#cacheGoModules,
 				_#installKubeBuilder,
 				_#installOperatorSDK,
-				_#getVersion,
+				_#getVersion & {
+					env: {
+						"REF": "${{ steps.pr.outputs.prRef }}"
+					}
+				},
 				_#getBundleRunID,
 				_#redhatConnectLogin,
 				_#publishOperator,
@@ -887,6 +902,22 @@ _#findCheckRun: {
 			\((_#setEnv & {#args: {name: "checkrun_id", value: "$ID"}}).res)
 			\((_#setEnv & {#args: {name: "checksuite_id", value: "$CHECKSUITE_ID"}}).res)
 			"""
+	}
+}
+
+_#findPRForComment: {
+	_#args: {
+		prNum: string
+	}
+	res: _#step & {
+		id:   "pr"
+		name: "Get PR for Comment"
+		run:  """
+PR=$(curl -H "Accept: application/vnd.github.v3+json" \\
+"${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/\( _#args.prNum )" )
+\((_#setOutput & {#args: {name: "prSha", value: "$(echo $PR | jq \".head.sha\")"}}).res)
+\((_#setOutput & {#args: {name: "prRef", value: "$(echo $PR | jq \".head.ref\")"}}).res)
+"""
 	}
 }
 

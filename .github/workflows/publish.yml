@@ -7,8 +7,6 @@ jobs:
   publish:
     name: Publish Images
     runs-on: ubuntu-20.04
-    env:
-      REF: ${{ github.event.issue.pull_request[0].head.ref }}
     defaults:
       run:
         shell: bash
@@ -21,11 +19,18 @@ jobs:
         permission: write
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - id: pr
+      name: Get PR for Comment
+      run: |-
+        PR=$(curl -H "Accept: application/vnd.github.v3+json" \
+        "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.issue.number }}" )
+        echo "::set-output name=prSha:$(echo $PR | jq ".head.sha")
+        echo "::set-output name=prRef:$(echo $PR | jq ".head.ref")
     - name: Checkout code
       uses: actions/checkout@v2
       with:
         fetch-depth: 0
-        sha: ${{ github.event.issue.pull_request[0].head.sha }}
+        sha: ${{ steps.pr.outputs.prSha }}
     - name: Install Go
       uses: actions/setup-go@v2
       with:
@@ -101,6 +106,8 @@ jobs:
         echo "IS_DEV=$IS_DEV" >> $GITHUB_ENV
         echo "::set-output name=isDev::$IS_DEV"
         echo "REF=$REF" >> $GITHUB_ENV
+      env:
+        REF: ${{ steps.pr.outputs.prRef }}
     - name: Get Latest Bundle Run
       run: |-
         WORKFLOW_ID=8480641
@@ -195,11 +202,18 @@ jobs:
         permission: write
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - id: pr
+      name: Get PR for Comment
+      run: |-
+        PR=$(curl -H "Accept: application/vnd.github.v3+json" \
+        "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.issue.number }}" )
+        echo "::set-output name=prSha:$(echo $PR | jq ".head.sha")
+        echo "::set-output name=prRef:$(echo $PR | jq ".head.ref")
     - name: Checkout code
       uses: actions/checkout@v2
       with:
         fetch-depth: 0
-        sha: ${{ github.event.issue.pull_request[0].head.sha }}
+        sha: ${{ steps.pr.outputs.prSha }}
     - name: Install Go
       uses: actions/setup-go@v2
       with:
@@ -275,6 +289,8 @@ jobs:
         echo "IS_DEV=$IS_DEV" >> $GITHUB_ENV
         echo "::set-output name=isDev::$IS_DEV"
         echo "REF=$REF" >> $GITHUB_ENV
+      env:
+        REF: ${{ steps.pr.outputs.prRef }}
     - name: Get Latest Bundle Run
       run: |-
         WORKFLOW_ID=8480641
