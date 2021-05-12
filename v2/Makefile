@@ -171,6 +171,7 @@ CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 .PHONY: bundle
 bundle: clean manifests kustomize helm operator-sdk yq
 	$(OPERATOR_SDK) generate kustomize manifests -q
+	 ./config/manifests/patch_csv.sh METRIC_STATE_IMAGE=$(METRIC_STATE_IMAGE) REPORTER_IMAGE=$(REPORTER_IMAGE) AUTHCHECK_IMAGE=$(AUTHCHECK_IMAGE)
 	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
 	--set operatorImage=$(OPERATOR_IMAGE) \
 	--set metricStateImage=$(METRIC_STATE_IMAGE) \
