@@ -914,9 +914,9 @@ _#findPRForComment: {
 		name: "Get PR for Comment"
 		run:  """
 PR=$(curl -H "Accept: application/vnd.github.v3+json" \\
-"${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/\( _#args.prNum )" )
-\((_#setOutput & {#args: {name: "prSha", value: "$(echo $PR | jq \".head.sha\")"}}).res)
-\((_#setOutput & {#args: {name: "prRef", value: "$(echo $PR | jq \".head.ref\")"}}).res)
+     "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/\( _#args.prNum )" )
+echo "::set-output name=prSha::$(echo $PR | jq \\".head.sha\\")"
+echo "::set-output name=prRef::$(echo $PR | jq \\".head.ref\\")"
 """
 	}
 }
