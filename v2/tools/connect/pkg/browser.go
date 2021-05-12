@@ -35,6 +35,7 @@ import (
 var (
 	images             []string
 	username, password string
+	isOperatorManifest bool
 )
 
 var PublishCommand = &cobra.Command{
@@ -157,6 +158,7 @@ func init() {
 	PublishCommand.Flags().StringArrayVar(&images, "images", []string{}, "list comma seperated image vars to publish")
 	PublishCommand.Flags().StringVar(&username, "username", os.Getenv("RH_USER"), "username for PC")
 	PublishCommand.Flags().StringVar(&password, "password", os.Getenv("RH_PASSWORD"), "password for PC")
+	PublishCommand.Flags().BoolVar(&isOperatorManifest, "is-operator-manifest", false, "if the images sent are operator bundles")
 }
 
 type imageStruct struct {
@@ -293,18 +295,19 @@ func (c *connectWebsite) Publish(ctx context.Context, image *imageStruct) (bool,
 	}
 
 	for _, node := range nodes {
-		var sha string
+		var sha, tag string
 		localNode := node
 		err := chromedp.Run(ctx,
-			chromedp.Text(`td[data-label="Image"] > span > span`, &sha, chromedp.ByQuery, chromedp.FromNode(localNode)))
+			chromedp.Text(`td[data-label="Image"] > span > span`, &sha, chromedp.ByQuery, chromedp.FromNode(localNode)),
+			chromedp.Text(`td[data-label="Tags"] > span > span`, &tag, chromedp.ByQuery, chromedp.FromNode(localNode)))
 
 		if err != nil {
 			return false, err
 		}
 
-		if sha == publishSha {
+		if sha != "" && sha == publishSha || isOperatorManifest && tag != "" && strings.HasPrefix(tag, image.Tag) {
 			publishStatus, err := func() (string, error) {
-				log.Println("checking if we need to publish", sha)
+				log.Println("checking if we need to publish", sha, tag)
 
 				visibilitySel := `td[data-label="Visibility"]`
 

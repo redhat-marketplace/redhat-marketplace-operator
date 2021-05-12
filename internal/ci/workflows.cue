@@ -1,7 +1,7 @@
 package ci
 
 import (
-  "list"
+	"list"
 	"strings"
 	"strconv"
 	json "github.com/SchemaStore/schemastore/src/schemas/json/github"
@@ -67,50 +67,51 @@ unit_test: _#bashWorkflow & {
 }
 
 auto_tag: _#bashWorkflow & {
-  name: "Tag Latest Release"
-  on: push: branches: ["master"]
-  jobs: {
-    tag: _#job & {
-    "runs-on": "ubuntu-latest"
-    steps: [
-			_#checkoutCode & {
-				with: "fetch-depth": 0
-			},
-      _#step & {
-        name: "Bump version and push tag"
-        id: "tag_version"
-        uses: "mathieudutour/github-tag-action@v5.5"
-        with: {
-          "release_branches" : "release.*,hotfix.*,master"
-          "github_token": "${{ secrets.GITHUB_TOKEN }}"
-          "tag_prefix" : ""
-        }
-      },
-      _#step & {
-        name: "Create a GitHub release"
-        uses: "actions/create-release@v1"
-        env: "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
-        with: {
-          "tag_name": "${{ steps.tag_version.outputs.new_tag }}"
-          "release_name": "Release ${{ steps.tag_version.outputs.new_tag }}"
-          body: "${{ steps.tag_version.outputs.changelog }}"
-        }
-      },
-    ]
-    }
-  }
+	name: "Tag Latest Release"
+	on: push: branches: ["master"]
+	jobs: {
+		tag: _#job & {
+			"runs-on": "ubuntu-latest"
+			steps: [
+				_#checkoutCode & {
+					with: "fetch-depth": 0
+				},
+				_#step & {
+					name: "Bump version and push tag"
+					id:   "tag_version"
+					uses: "mathieudutour/github-tag-action@v5.5"
+					with: {
+						"release_branches": "release.*,hotfix.*,master"
+						"github_token":     "${{ secrets.GITHUB_TOKEN }}"
+						"tag_prefix":       ""
+					}
+				},
+				_#step & {
+					name: "Create a GitHub release"
+					uses: "actions/create-release@v1"
+					env: "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
+					with: {
+						"tag_name":     "${{ steps.tag_version.outputs.new_tag }}"
+						"release_name": "Release ${{ steps.tag_version.outputs.new_tag }}"
+						body:           "${{ steps.tag_version.outputs.changelog }}"
+					}
+				},
+			]
+		}
+	}
 }
 
 publish: _#bashWorkflow & {
-  name: "Publish"
-  on: pull_request: types: ["labeled"]
-  jobs: {
-    publish: _#job & {
+	name: "Publish"
+	on: ["issue_comment"]
+	jobs: {
+		publish: _#job & {
 			name:      "Publish Images"
+			if:        "${{ startsWith(github.event.comment.body, '/publish') }}"
 			"runs-on": _#linuxMachine
-			if: "github.event.label.name == 'publish'"
 			steps: [
-        _#cancelPreviousRun,
+				_#hasWriteAccess,
+				_#cancelPreviousRun,
 				_#checkoutCode & {
 					with: "fetch-depth": 0
 				},
@@ -118,22 +119,42 @@ publish: _#bashWorkflow & {
 				_#cacheGoModules,
 				_#installKubeBuilder,
 				_#installOperatorSDK,
-        _#getVersion,
-        _#getBundleRunID,
+				_#getVersion,
+				_#getBundleRunID,
 				_#redhatConnectLogin,
-				_#waitForPublish,
+				_#publishOperatorImages,
 				_#retagManifestCommand,
 			]
 		}
+		"publish-operator": _#job & {
+			name:      "Publish Operator"
+			if:        "${{ startsWith(github.event.comment.body, '/publish-operator') }}"
+			"runs-on": _#linuxMachine
+			steps: [
+				_#hasWriteAccess,
+				_#cancelPreviousRun,
+				_#checkoutCode & {
+					with: "fetch-depth": 0
+				},
+				_#installGo,
+				_#cacheGoModules,
+				_#installKubeBuilder,
+				_#installOperatorSDK,
+				_#getVersion,
+				_#getBundleRunID,
+				_#redhatConnectLogin,
+				_#publishOperator,
+			]
+		}
 	}
-  }
+}
 
 branch_build: _#bashWorkflow & {
-  name: "Branch Build"
+	name: "Branch Build"
 	on: {
 		push: {
 			branches: [
-        "master",
+				"master",
 				"release/**",
 				"hotfix/**",
 				"develop",
@@ -146,13 +167,13 @@ branch_build: _#bashWorkflow & {
 		"IMAGE_REGISTRY": "quay.io/rh-marketplace"
 	}
 	jobs: {
-    "test": _#job & {
+		"test": _#job & {
 			name:      "Test"
 			"runs-on": _#linuxMachine
 			outputs: {
 				version: "${{ steps.version.outputs.version }}"
-				isDev: "${{ steps.version.outputs.isDev }}"
-				tag: "${{ steps.version.outputs.tag }}"
+				isDev:   "${{ steps.version.outputs.isDev }}"
+				tag:     "${{ steps.version.outputs.tag }}"
 			}
 			steps: [
 				_#checkoutCode & {
@@ -163,79 +184,79 @@ branch_build: _#bashWorkflow & {
 				_#installKubeBuilder,
 				_#step & {
 					name: "Test"
-					run: "make operator/test"
+					run:  "make operator/test"
 				},
-        _#getVersion,
+				_#getVersion,
 			]
 		}
-    "matrix-test": _#job & {
+		"matrix-test": _#job & {
 			name:      "Matrix Test"
 			"runs-on": _#linuxMachine
-      strategy: matrix: {
-        project: ["authchecker", "metering", "reporter", "tests"]
-      }
+			strategy: matrix: {
+				project: ["authchecker", "metering", "reporter", "tests"]
+			}
 			steps: [
 				_#checkoutCode,
 				_#installGo,
 				_#cacheGoModules,
 				_#step & {
 					name: "Test"
-					run: "make ${{ matrix.project }}/test"
-				}
-      ]
-    }
-    "images" : _#job & {
-      name:      "Build Images"
+					run:  "make ${{ matrix.project }}/test"
+				},
+			]
+		}
+		"images": _#job & {
+			name:      "Build Images"
 			"runs-on": _#linuxMachine
 			needs: ["test"]
-      env: {
-        VERSION: "${{ needs.test.outputs.tag }}"
-      }
-      strategy: matrix: {
-        project: ["base", "operator", "authchecker", "metering", "reporter"]
-      }
+			env: {
+				VERSION: "${{ needs.test.outputs.tag }}"
+			}
+			strategy: matrix: {
+				project: ["base", "operator", "authchecker", "metering", "reporter"]
+			}
 			steps: [
 				_#checkoutCode,
 				_#installGo,
-        _#setupQemu,
-        _#setupBuildX,
+				_#setupQemu,
+				_#setupBuildX,
 				_#cacheGoModules,
 				_#installKubeBuilder,
-        _#installOperatorSDK,
+				_#installOperatorSDK,
 				_#installYQ,
 				_#quayLogin,
 				_#step & {
-					id: "build"
+					id:   "build"
 					name: "Build images"
 					run: """
-					make clean-licenses save-licenses ${{ matrix.project }}/docker-build
-					"""
+						make clean-licenses save-licenses ${{ matrix.project }}/docker-build
+						"""
 				},
-      ]
-    }
+			]
+		}
 		"deploy": _#job & {
 			name:      "Deploy"
 			"runs-on": _#linuxMachine
 			needs: ["test", "matrix-test"]
-      env: {
-        VERSION: "${{ needs.test.outputs.version }}"
-        IMAGE_TAG: "${{ needs.test.outputs.tag }}"
-        IS_DEV: "${{ needs.test.outputs.isDev }}"
-      }
+			env: {
+				VERSION:   "${{ needs.test.outputs.version }}"
+				IMAGE_TAG: "${{ needs.test.outputs.tag }}"
+				IS_DEV:    "${{ needs.test.outputs.isDev }}"
+			}
 			outputs: {
 				isDev:   "${{ steps.bundle.outputs.isDev }}"
 				version: "${{ steps.bundle.outputs.version }}"
 				tag:     "${{ steps.bundle.outputs.tag }}"
 			}
 			steps: [
-        _#cancelPreviousRun,
+				_#cancelPreviousRun,
 				_#checkoutCode,
 				_#installGo,
-        _#setupQemu,
-        _#setupBuildX,
+				_#setupQemu,
+				_#setupBuildX,
 				_#cacheGoModules,
 				_#installKubeBuilder,
-        _#installOperatorSDK,
+				_#installOperatorSDK,
 				_#installYQ,
 				_#quayLogin,
 				_#step & {
@@ -260,7 +281,7 @@ branch_build: _#bashWorkflow & {
 				},
 			]
 		}
-    publish: _#job & {
+		publish: _#job & {
 			name:      "Push Images to PC"
 			"runs-on": _#linuxMachine
 			needs: ["deploy", "images"]
@@ -273,7 +294,7 @@ branch_build: _#bashWorkflow & {
 				_#cacheGoModules,
 				_#installKubeBuilder,
 				_#installOperatorSDK,
-        _#getVersion,
+				_#getVersion,
 				_#retagCommand,
 			]
 		}
@@ -334,12 +355,19 @@ _#installGo: _#step & {
 _#setupBuildX: _#step & {
 	name: "Set up docker buildx"
 	uses: "docker/setup-buildx-action@v1"
-  id: "buildx"
+	id:   "buildx"
+}
+
+_#hasWriteAccess: _#step & {
+	name: "Check if user has write access"
+	uses: "lannonbr/repo-permission-check-action@2.0.0"
+	with: permission:  "write"
+	env: GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 }
 
 _#setupQemu: _#step & {
-  name: "Set up QEMU"
-  uses: "docker/setup-qemu-action@v1"
+	name: "Set up QEMU"
+	uses: "docker/setup-qemu-action@v1"
 }
 
 _#checkoutCode: _#step & {
@@ -358,75 +386,75 @@ _#cacheGoModules: _#step & {
 }
 
 _#getBundleRunID: _#step & {
-  name: "Get Latest Bundle Run"
+	name: "Get Latest Bundle Run"
 	run: """
-WORKFLOW_ID=8480641
-BRANCH_BUILD=$(curl \\
-  -H "Accept: application/vnd.github.v3+json" \\
-  "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/$WORKFLOW_ID/runs?branch=$REF&event=push" \\
-   | jq '.workflow_runs | max_by(.run_number)')
-
-if [ "$BRANCH_BUILD" == "" ]; then
-  echo "failed to get branch build"
-  exit 1
-fi
-
-status=$(echo $BRANCH_BUILD | jq -r '.status')
-conclusion=$(echo $BRANCH_BUILD | jq -r '.conclusion')
-
-if [ "$status" != "completed" ] && [ "$conclusion" != "success" ]; then
-  echo "$status and $conclusion were not completed and successful"
-  exit 1
-fi
-
-RUN_NUMBER=$(echo $BRANCH_BUILD | jq -r '.run_number')
-
-export TAG="${VERSION}-${RUN_NUMBER}"
-echo "setting tag to $TAG"
-echo "TAG=$TAG" >> $GITHUB_ENV
-"""
+		WORKFLOW_ID=8480641
+		BRANCH_BUILD=$(curl \\
+		  -H "Accept: application/vnd.github.v3+json" \\
+		  "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/$WORKFLOW_ID/runs?branch=$REF&event=push" \\
+		   | jq '.workflow_runs | max_by(.run_number)')
+		
+		if [ "$BRANCH_BUILD" == "" ]; then
+		  echo "failed to get branch build"
+		  exit 1
+		fi
+		
+		status=$(echo $BRANCH_BUILD | jq -r '.status')
+		conclusion=$(echo $BRANCH_BUILD | jq -r '.conclusion')
+		
+		if [ "$status" != "completed" ] && [ "$conclusion" != "success" ]; then
+		  echo "$status and $conclusion were not completed and successful"
+		  exit 1
+		fi
+		
+		RUN_NUMBER=$(echo $BRANCH_BUILD | jq -r '.run_number')
+		
+		export TAG="${VERSION}-${RUN_NUMBER}"
+		echo "setting tag to $TAG"
+		echo "TAG=$TAG" >> $GITHUB_ENV
+		"""
 }
 
 _#getVersion: _#step & {
-  id: "version"
-  name: "Get Version"
+	id:   "version"
+	name: "Get Version"
 	run: """
-make svu
-export VERSION="$(./bin/svu next)"
-REF="$GITHUB_REF"
-
-if [[ "$GITHUB_HEAD_REF" != "" ]]; then
-  echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
-  REF="$GITHUB_HEAD_REF"
-fi
-
-echo "Found ref $REF"
-
-if [[ "$VERSION" == "" ]]; then
-  echo "failed to find version"
-  exit 1
-fi
-
-if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* ]] ; then
-echo "using release version and github_run_number"
-export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
-export IS_DEV="false"
-else
-echo "using beta in version"
-export TAG="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
-export IS_DEV="true"
-fi
-
-echo "Found version $VERSION"
-echo "::set-output name=version::$VERSION"
-echo "VERSION=$VERSION" >> $GITHUB_ENV
-echo "Found tag $TAG"
-echo "TAG=$TAG" >> $GITHUB_ENV
-echo "::set-output name=tag::$TAG"
-echo "IS_DEV=$IS_DEV" >> $GITHUB_ENV
-echo "::set-output name=isDev::$IS_DEV"
-echo "REF=$REF" >> $GITHUB_ENV
-"""
+		make svu
+		export VERSION="$(./bin/svu next)"
+		REF="$GITHUB_REF"
+		
+		if [[ "$GITHUB_HEAD_REF" != "" ]]; then
+		  echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
+		  REF="$GITHUB_HEAD_REF"
+		fi
+		
+		echo "Found ref $REF"
+		
+		if [[ "$VERSION" == "" ]]; then
+		  echo "failed to find version"
+		  exit 1
+		fi
+		
+		if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* ]] ; then
+		echo "using release version and github_run_number"
+		export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
+		export IS_DEV="false"
+		else
+		echo "using beta in version"
+		export TAG="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
+		export IS_DEV="true"
+		fi
+		
+		echo "Found version $VERSION"
+		echo "::set-output name=version::$VERSION"
+		echo "VERSION=$VERSION" >> $GITHUB_ENV
+		echo "Found tag $TAG"
+		echo "TAG=$TAG" >> $GITHUB_ENV
+		echo "::set-output name=tag::$TAG"
+		echo "IS_DEV=$IS_DEV" >> $GITHUB_ENV
+		echo "::set-output name=isDev::$IS_DEV"
+		echo "REF=$REF" >> $GITHUB_ENV
+		"""
 }
 
 _#goGenerate: _#step & {
@@ -562,40 +590,54 @@ _#turnStyleStep: _#step & {
 _#goVersion: "1.15.11"
 _#pcUser:    "pcUser"
 
-
-_#projectURLs: {
-  operator: "https://connect.redhat.com/projects/5e98b6fac77ce6fca8ac859c/images"
-  reporter: "https://connect.redhat.com/projects/5e98b6fc32116b90fd024d06/images"
-  metering: "https://connect.redhat.com/projects/5f36ea2f74cc50b8f01a838d/images"
-  authcheck: "https://connect.redhat.com/projects/5f62b71018e80cdc21edf22f/images"
+_#image: {
+	name:  string
+	ospid: string
+	pword: string
+	url:   string
 }
 
-_#operator: {
+_#projectURLs: {
+	operator:  "https://connect.redhat.com/projects/5e98b6fac77ce6fca8ac859c/images"
+	reporter:  "https://connect.redhat.com/projects/5e98b6fc32116b90fd024d06/images"
+	metering:  "https://connect.redhat.com/projects/5f36ea2f74cc50b8f01a838d/images"
+	authcheck: "https://connect.redhat.com/projects/5f62b71018e80cdc21edf22f/images"
+	bundle:    "https://connect.redhat.com/projects/5f68c9457115dbd1183ccab6/images"
+}
+
+_#operator: _#image & {
 	name:  "redhat-marketplace-operator"
 	ospid: "ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd"
 	pword: "pcPassword"
-  url: _#projectURLs["operator"]
+	url:   _#projectURLs["operator"]
 }
 
-_#metering: {
+_#metering: _#image & {
 	name:  "redhat-marketplace-metric-state"
 	ospid: "ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4"
 	pword: "pcPasswordMetricState"
-  url: _#projectURLs["metering"]
+	url:   _#projectURLs["metering"]
 }
 
-_#reporter: {
+_#reporter: _#image & {
 	name:  "redhat-marketplace-reporter"
 	ospid: "ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e"
 	pword: "pcPasswordReporter"
-  url: _#projectURLs["reporter"]
+	url:   _#projectURLs["reporter"]
 }
 
-_#authchecker: {
+_#authchecker: _#image & {
 	name:  "redhat-marketplace-authcheck"
 	ospid: "ospid-ffed416e-c18d-4b88-8660-f586a4792785"
 	pword: "pcPasswordAuthCheck"
-  url: _#projectURLs["authcheck"]
+	url:   _#projectURLs["authcheck"]
+}
+
+_#manifest: _#image & {
+	name:  "redhat-marketplace-operator-manifest"
+	ospid: "ospid-64f06656-d9d4-43ef-a227-3b9c198800a1"
+	pword: "pcPasswordOperatorManifest"
+	url:   _#projectURLs["bundle"]
 }
 
 _#archs: ["amd64", "ppc64le", "s390x"]
@@ -609,12 +651,6 @@ _#images: [
 
 _#registry:       "quay.io/rh-marketplace"
 _#registryRHScan: "scan.connect.redhat.com"
-
-_#manifest: {
-	name:  "redhat-marketplace-operator-manifest"
-	ospid: "ospid-64f06656-d9d4-43ef-a227-3b9c198800a1"
-	pword: "pcPasswordOperatorManifest"
-}
 
 _#repoFromTo: [ for k, v in _#images {
 	pword: "\(v.pword)"
@@ -633,14 +669,14 @@ _#copyImageArch: {
 		to:    string
 		from:  string
 		pword: string
-    arch:  string
+		arch:  string
 	}
 	res: """
-				echo "::group::Push \(#args.to)-\(#args.arch)"
-				skopeo --override-arch=\(#args.arch) --override-os=linux inspect docker://\(#args.to) --creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}} > /dev/null
-				([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=\(#args.arch) --override-os=linux copy docker://\(#args.from) docker://\(#args.to)-\(#args.arch) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}})
-				echo "::endgroup::"
-				"""
+echo "::group::Push \(#args.to)-\(#args.arch)"
+skopeo --override-arch=\(#args.arch) --override-os=linux inspect docker://\(#args.to) --creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}} > /dev/null
+([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=\(#args.arch) --override-os=linux copy docker://\(#args.from) docker://\(#args.to)-\(#args.arch) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}})
+echo "::endgroup::"
+"""
 }
 
 _#copyImage: {
@@ -650,14 +686,14 @@ _#copyImage: {
 		pword: string
 	}
 	res: """
-				echo "::group::Push \(#args.to)"
-				skopeo --override-os=linux inspect docker://\(#args.to) --creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}} > /dev/null
-				([[ $? == 0 ]] && echo "exists=true" || skopeo copy docker://\(#args.from) docker://\(#args.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}})
-				echo "::endgroup::"
-				"""
+echo "::group::Push \(#args.to)"
+skopeo --override-os=linux inspect docker://\(#args.to) --creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}} > /dev/null
+([[ $? == 0 ]] && echo "exists=true" || skopeo copy docker://\(#args.from) docker://\(#args.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}})
+echo "::endgroup::"
+"""
 }
 
-_#retagCommandList: [ for #arch in _#archs { [for k, v in _#repoFromTo {(_#copyImageArch & {#args: v & { arch: #arch }}).res}] } ]
+_#retagCommandList: [ for #arch in _#archs {[ for k, v in _#repoFromTo {(_#copyImageArch & {#args: v & {arch: #arch}}).res}]}]
 
 _#retagCommand: _#step & {
 	id:    "mirror"
@@ -666,7 +702,7 @@ _#retagCommand: _#step & {
 	run:   strings.Join(list.FlattenN(_#retagCommandList, -1), "\n")
 }
 
-_#manifestCopyCommandList: [for k, v in _#manifestFromTo {(_#copyImage & {#args: v }).res} ]
+_#manifestCopyCommandList: [ for k, v in _#manifestFromTo {(_#copyImage & {#args: v}).res}]
 
 _#retagManifestCommand: _#step & {
 	name:  "Copy Manifest"
@@ -707,31 +743,48 @@ _#redhatConnectLogin: (_#registryLoginStep & {
 	}
 }).res
 
-_#defineImages: strings.Join([for k, v in _#images {
-"""
-shas=($(docker manifest inspect \(_#registry)/\(v.name):$TAG | jq -r '.manifests[].digest' | xargs))
-len=${#shas[@]}
-for (( i=0; i<$len; i++ ))
+_#defineImage: {
+	#args: {
+		image: _#image
+	}
+	res: """
+## getting image shas \(#args.image.name)
+shas=($(docker manifest inspect \(_#registry)/\(#args.image.name):$TAG | jq -r '.manifests[].digest' | xargs))
+for sha in "${shas}"
 do
-  export IMAGES="--images \(v.url),${shas[$i]},$TAG $IMAGES"
-end
+export IMAGES="--images \(#args.image.url),${sha},$TAG $IMAGES"
+done
 """
-                             }], "\n")
+}
 
-_#waitForPublish: _#step & {
-	name: "Wait for RH publish"
+_#publishOperatorImages: _#step & {
+	name:                "Publish Operator Images"
+	"continue-on-error": true
 	env: {
-    RH_USER: "${{ secrets['REDHAT_IO_USER'] }}"
-    RH_PASSWORD: "${{ secrets['REDHAT_IO_PASSWORD'] }}"
+		RH_USER:          "${{ secrets['REDHAT_IO_USER'] }}"
+		RH_PASSWORD:      "${{ secrets['REDHAT_IO_PASSWORD'] }}"
 		RH_CONNECT_TOKEN: "${{ secrets.redhat_api_key }}"
 	}
 	run: """
-			make pc-tool
-			export IMAGES=""
-			\(_#defineImages)
-			echo "publishing $IMAGES"
-			./bin/partner-connect-tool publish $IMAGES
-			"""
+make pc-tool
+export IMAGES=""
+\(strings.Join([ for k, v in _#images {(_#defineImage & {#args: image: v}).res}], "\n\n"))
+echo "publishing $IMAGES"
+./bin/partner-connect-tool publish $IMAGES
+"""
+}
+
+_#publishOperator: _#step & {
+	name: "Publish Operator"
+	env: {
+		RH_USER:          "${{ secrets['REDHAT_IO_USER'] }}"
+		RH_PASSWORD:      "${{ secrets['REDHAT_IO_PASSWORD'] }}"
+		RH_CONNECT_TOKEN: "${{ secrets.redhat_api_key }}"
+	}
+	run: """
+make pc-tool
+./bin/partner-connect-tool publish --is-operator-manifest=true --images \(_#manifest.url),,$TAG-cert
+"""
 }
 
 #preset: _#job & {
