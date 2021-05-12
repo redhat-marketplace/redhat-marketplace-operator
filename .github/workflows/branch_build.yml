@@ -57,10 +57,13 @@ jobs:
       run: |-
         make svu
         export VERSION="$(./bin/svu next)"
-        REF="$GITHUB_REF"
+
+        if [ "$REF" == "" ]; then
+        	REF="$GITHUB_REF"
+        fi
 
         if [[ "$GITHUB_HEAD_REF" != "" ]]; then
-          echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
+        	echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
           REF="$GITHUB_HEAD_REF"
         fi
 
@@ -337,10 +340,13 @@ jobs:
       run: |-
         make svu
         export VERSION="$(./bin/svu next)"
-        REF="$GITHUB_REF"
+
+        if [ "$REF" == "" ]; then
+        	REF="$GITHUB_REF"
+        fi
 
         if [[ "$GITHUB_HEAD_REF" != "" ]]; then
-          echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
+        	echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
           REF="$GITHUB_HEAD_REF"
         fi
 

@@ -7,10 +7,13 @@ jobs:
   publish:
     name: Publish Images
     runs-on: ubuntu-20.04
+    env:
+      REF: ${{ github.event.issue.pull_request[0].head.ref }}
     defaults:
       run:
         shell: bash
-    if: ${{ startsWith(github.event.comment.body, '/publish') }}
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body,
+      '/publish') }}
     steps:
     - name: Check if user has write access
       uses: lannonbr/repo-permission-check-action@2.0.0
@@ -18,14 +21,11 @@ jobs:
         permission: write
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - name: Cancel Previous Run
-      uses: styfle/cancel-workflow-action@0.4.1
-      with:
-        access_token: ${{ github.token }}
     - name: Checkout code
       uses: actions/checkout@v2
       with:
         fetch-depth: 0
+        sha: ${{ github.event.issue.pull_request[0].head.sha }}
     - name: Install Go
       uses: actions/setup-go@v2
       with:
@@ -65,10 +65,13 @@ jobs:
       run: |-
         make svu
         export VERSION="$(./bin/svu next)"
-        REF="$GITHUB_REF"
+
+        if [ "$REF" == "" ]; then
+        	REF="$GITHUB_REF"
+        fi
 
         if [[ "$GITHUB_HEAD_REF" != "" ]]; then
-          echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
+        	echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
           REF="$GITHUB_HEAD_REF"
         fi
 
@@ -178,10 +181,13 @@ jobs:
   publish-operator:
     name: Publish Operator
     runs-on: ubuntu-20.04
+    env:
+      REF: ${{ github.event.issue.pull_request[0].head.ref }}
     defaults:
       run:
         shell: bash
-    if: ${{ startsWith(github.event.comment.body, '/publish-operator') }}
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body,
+      '/publish-operator') }}
     steps:
     - name: Check if user has write access
       uses: lannonbr/repo-permission-check-action@2.0.0
@@ -189,14 +195,11 @@ jobs:
         permission: write
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - name: Cancel Previous Run
-      uses: styfle/cancel-workflow-action@0.4.1
-      with:
-        access_token: ${{ github.token }}
     - name: Checkout code
       uses: actions/checkout@v2
       with:
         fetch-depth: 0
+        sha: ${{ github.event.issue.pull_request[0].head.sha }}
     - name: Install Go
       uses: actions/setup-go@v2
       with:
@@ -236,10 +239,13 @@ jobs:
       run: |-
         make svu
         export VERSION="$(./bin/svu next)"
-        REF="$GITHUB_REF"
+
+        if [ "$REF" == "" ]; then
+        	REF="$GITHUB_REF"
+        fi
 
         if [[ "$GITHUB_HEAD_REF" != "" ]]; then
-          echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
+        	echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
           REF="$GITHUB_HEAD_REF"
         fi
 
@@ -304,7 +310,7 @@ jobs:
     - name: Publish Operator
       run: |-
         make pc-tool
-        ./bin/partner-connect-tool publish --images https://connect.redhat.com/projects/5f68c9457115dbd1183ccab6/images,,$TAG-cert
+        ./bin/partner-connect-tool publish --is-operator-manifest=true --images https://connect.redhat.com/projects/5f68c9457115dbd1183ccab6/images,,$TAG-cert
       env:
         RH_USER: ${{ secrets['REDHAT_IO_USER'] }}
         RH_PASSWORD: ${{ secrets['REDHAT_IO_PASSWORD'] }}

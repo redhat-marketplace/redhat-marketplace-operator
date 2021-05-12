@@ -107,18 +107,27 @@ publish: _#bashWorkflow & {
 	jobs: {
 		publish: _#job & {
 			name:      "Publish Images"
+<<<<<<< Updated upstream
+			if:        "${{ startsWith(github.event.comment.body, '/publish') }}"
+=======
 			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish') }}"
       env: {
-        "REF": "${{ github.event.issue.pull_request[0].head.ref }}"
+        "GITHUB_REF": "refs/heads/${{ github.event.issue.pull_request[0].head.ref }}"
       }
+>>>>>>> Stashed changes
 			"runs-on": _#linuxMachine
 			steps: [
 				_#hasWriteAccess,
+				_#cancelPreviousRun,
 				_#checkoutCode & {
+<<<<<<< Updated upstream
+					with: "fetch-depth": 0
+=======
 					with: {
             "fetch-depth": 0
             sha: "${{ github.event.issue.pull_request[0].head.sha }}"
           }
+>>>>>>> Stashed changes
 				},
 				_#installGo,
 				_#cacheGoModules,
@@ -133,18 +142,28 @@ publish: _#bashWorkflow & {
 		}
 		"publish-operator": _#job & {
 			name:      "Publish Operator"
+<<<<<<< Updated upstream
+			if:        "${{ startsWith(github.event.comment.body, '/publish-operator') }}"
+			"runs-on": _#linuxMachine
+=======
 			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish-operator') }}"
 			"runs-on": _#linuxMachine
       env: {
-        "REF": "${{ github.event.issue.pull_request[0].head.ref }}"
+        "GITHUB_REF": "refs/heads/${{ github.event.issue.pull_request[0].head.ref }}"
       }
+>>>>>>> Stashed changes
 			steps: [
 				_#hasWriteAccess,
+				_#cancelPreviousRun,
 				_#checkoutCode & {
+<<<<<<< Updated upstream
+					with: "fetch-depth": 0
+=======
 					with: {
             "fetch-depth": 0
             sha: "${{ github.event.issue.pull_request[0].head.sha }}"
           }
+>>>>>>> Stashed changes
 				},
 				_#installGo,
 				_#cacheGoModules,
@@ -431,13 +450,10 @@ _#getVersion: _#step & {
 	run: """
 		make svu
 		export VERSION="$(./bin/svu next)"
-
-		if [ "$REF" == "" ]; then
-			REF="$GITHUB_REF"
-		fi
+		REF="$GITHUB_REF"
 		
 		if [[ "$GITHUB_HEAD_REF" != "" ]]; then
-			echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
+		  echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
 		  REF="$GITHUB_HEAD_REF"
 		fi
 		
