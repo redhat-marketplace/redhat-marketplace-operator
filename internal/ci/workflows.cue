@@ -107,13 +107,19 @@ publish: _#bashWorkflow & {
 	jobs: {
 		publish: _#job & {
 			name:      "Publish Images"
-			if:        "${{ startsWith(github.event.comment.body, '/publish') }}"
+			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish') }}"
+      env: {
+        "GITHUB_REF": "refs/heads/${{ github.event.issue.pull_request[0].head.ref }}"
+      }
 			"runs-on": _#linuxMachine
 			steps: [
 				_#hasWriteAccess,
 				_#cancelPreviousRun,
 				_#checkoutCode & {
-					with: "fetch-depth": 0
+					with: {
+            "fetch-depth": 0
+            sha: "${{ github.event.issue.pull_request[0].head.sha }}"
+          }
 				},
 				_#installGo,
 				_#cacheGoModules,
@@ -128,13 +134,19 @@ publish: _#bashWorkflow & {
 		}
 		"publish-operator": _#job & {
 			name:      "Publish Operator"
-			if:        "${{ startsWith(github.event.comment.body, '/publish-operator') }}"
+			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish-operator') }}"
 			"runs-on": _#linuxMachine
+      env: {
+        "GITHUB_REF": "refs/heads/${{ github.event.issue.pull_request[0].head.ref }}"
+      }
 			steps: [
 				_#hasWriteAccess,
 				_#cancelPreviousRun,
 				_#checkoutCode & {
-					with: "fetch-depth": 0
+					with: {
+            "fetch-depth": 0
+            sha: "${{ github.event.issue.pull_request[0].head.sha }}"
+          }
 				},
 				_#installGo,
 				_#cacheGoModules,
