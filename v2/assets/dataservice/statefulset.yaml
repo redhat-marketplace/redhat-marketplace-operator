@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rhm-dqlite
+spec:
+  selector:
+    matchLabels:
+      app: rhm-dqlite
+  serviceName: rhm-dqlite
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: rhm-dqlite
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - rhm-dqlite
+              namespaces:
+              - redhat-marketplace
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      containers:
+      - command: ['/bin/sh']
+        args: ['-c', 'if [ "$HOSTNAME" != "rhm-dqlite-0" ]; then DQLITE_JOIN="--join rhm-dqlite-0.rhm-dqlite:9001"; fi; exec /opt/main --api $PODIP:8001 --db $PODIP:9001 --dir /data -v $DQLITE_JOIN']
+        env:
+        - name: PODIP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        image: REPLACEME
+        imagePullPolicy: IfNotPresent
+        name: rhm-dqlite
+        ports:
+        - containerPort: 8001
+          name: api
+        - containerPort: 9001
+          name: db
+        resources:
+          requests:
+            cpu: 100m
+            memory: 25Mi
+        volumeMounts:
+        - name: rhm-dqlite
+          mountPath: /data
+  volumeClaimTemplates:
+  - metadata:
+      name: rhm-dqlite
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi

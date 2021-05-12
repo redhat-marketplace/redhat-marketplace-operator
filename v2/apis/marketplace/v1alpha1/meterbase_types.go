@@ -96,6 +96,13 @@ type MeterBaseSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	AdditionalScrapeConfigs *corev1.SecretKeySelector `json:"additionalScrapeConfigs,omitempty"`
+
+	// DataServiceEnabled is the flag that controls if the DataService will be created.
+	// Setting enabled to "true" will install DataService components.
+	// False will delete the DataServicecomponents.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	DataServiceEnabled bool `json:"dataServiceEnabled"`
 }
 
 // MeterBaseStatus defines the observed state of MeterBase.

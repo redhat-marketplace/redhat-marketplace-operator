@@ -75,6 +75,11 @@ spec:
               required:
               - key
               type: object
+            dataServiceEnabled:
+              description: DataServiceEnabled is the flag that controls if the DataService
+                will be created. Setting enabled to "true" will install DataService
+                components. False will delete the DataServicecomponents.
+              type: boolean
             enabled:
               description: Enabled is the flag that controls if the controller does
                 work. Setting enabled to "true" will install metering components.
@@ -168,6 +173,7 @@ spec:
               - storage
               type: object
           required:
+          - dataServiceEnabled
           - enabled
           type: object
         status:

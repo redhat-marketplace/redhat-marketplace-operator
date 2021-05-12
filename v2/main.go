@@ -153,6 +153,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&controllers.DataServiceReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("DataService"),
+		Scheme: mgr.GetScheme(),
+	}).Inject(injector).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DataService")
+		os.Exit(1)
+	}
+
 	if err = (&controllers.MeterDefinitionReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("MeterDefinition"),

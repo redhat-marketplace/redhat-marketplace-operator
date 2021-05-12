@@ -63,6 +63,9 @@ const (
 	MetricStateDeployment     = "assets/metric-state/deployment.yaml"
 	MetricStateServiceMonitor = "assets/metric-state/service-monitor.yaml"
 	MetricStateService        = "assets/metric-state/service.yaml"
+
+	DataServiceStatefulSet = "assets/dataservice/statefulset.yaml"
+	DataServiceService     = "assets/dataservice/service.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")
@@ -177,6 +180,36 @@ func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) 
 	return d, nil
 }
 
+func (f *Factory) NewStatefulSet(manifest io.Reader) (*appsv1.StatefulSet, error) {
+	d, err := NewStatefulSet(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	if d.GetNamespace() == "" {
+		d.SetNamespace(f.namespace)
+	}
+
+	if d.GetAnnotations() == nil {
+		d.Annotations = make(map[string]string)
+	}
+
+	if d.Spec.Template.GetAnnotations() == nil {
+		d.Spec.Template.Annotations = make(map[string]string)
+	}
+
+	return d, nil
+}
+
+func (f *Factory) UpdateStatefulSet(manifest io.Reader, d *appsv1.StatefulSet) error {
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(d)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (f *Factory) NewService(manifest io.Reader) (*corev1.Service, error) {
 	d, err := NewService(manifest)
 	if err != nil {
@@ -188,6 +221,15 @@ func (f *Factory) NewService(manifest io.Reader) (*corev1.Service, error) {
 	}
 
 	return d, nil
+}
+
+func (f *Factory) UpdateService(manifest io.Reader, s *v1.Service) error {
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(s)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (f *Factory) NewConfigMap(manifest io.Reader) (*corev1.ConfigMap, error) {
@@ -555,6 +597,22 @@ func (f *Factory) MetricStateService() (*v1.Service, error) {
 	return s, nil
 }
 
+func (f *Factory) NewDataServiceService() (*corev1.Service, error) {
+	return f.NewService(MustAssetReader(DataServiceService))
+}
+
+func (f *Factory) UpdateDataServiceService(s *corev1.Service) error {
+	return f.UpdateService(MustAssetReader(DataServiceService), s)
+}
+
+func (f *Factory) NewDataServiceStatefulSet() (*appsv1.StatefulSet, error) {
+	return f.NewStatefulSet(MustAssetReader(DataServiceStatefulSet))
+}
+
+func (f *Factory) UpdateDataServiceStatefulSet(sts *appsv1.StatefulSet) error {
+	return f.UpdateStatefulSet(MustAssetReader(DataServiceStatefulSet), sts)
+}
+
 func (f *Factory) NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMonitor, error) {
 	sm, err := NewServiceMonitor(manifest)
 	if err != nil {
@@ -570,6 +628,16 @@ func (f *Factory) NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMo
 
 func NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
 	d := appsv1.Deployment{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&d)
+	if err != nil {
+		return nil, err
+	}
+
+	return &d, nil
+}
+
+func NewStatefulSet(manifest io.Reader) (*appsv1.StatefulSet, error) {
+	d := appsv1.StatefulSet{}
 	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&d)
 	if err != nil {
 		return nil, err
