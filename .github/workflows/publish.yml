@@ -24,8 +24,8 @@ jobs:
       run: |-
         PR=$(curl -H "Accept: application/vnd.github.v3+json" \
              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.issue.number }}" )
-        echo "::set-output name=prSha::$(echo $PR | jq \".head.sha\")"
-        echo "::set-output name=prRef::$(echo $PR | jq \".head.ref\")"
+        echo "::set-output name=prSha::$(echo $PR | jq ".head.sha")"
+        echo "::set-output name=prRef::$(echo $PR | jq ".head.ref")"
     - name: Checkout code
       uses: actions/checkout@v2
       with:
@@ -207,8 +207,8 @@ jobs:
       run: |-
         PR=$(curl -H "Accept: application/vnd.github.v3+json" \
              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.issue.number }}" )
-        echo "::set-output name=prSha::$(echo $PR | jq \".head.sha\")"
-        echo "::set-output name=prRef::$(echo $PR | jq \".head.ref\")"
+        echo "::set-output name=prSha::$(echo $PR | jq ".head.sha")"
+        echo "::set-output name=prRef::$(echo $PR | jq ".head.ref")"
     - name: Checkout code
       uses: actions/checkout@v2
       with:
