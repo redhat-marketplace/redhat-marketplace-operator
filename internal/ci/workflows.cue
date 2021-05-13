@@ -104,6 +104,9 @@ auto_tag: _#bashWorkflow & {
 publish: _#bashWorkflow & {
 	name: "Publish"
 	on: ["issue_comment"]
+  env: {
+    "DOCKER_CLI_EXPERIMENTAL" : "enabled"
+  }
 	jobs: {
 		publish: _#job & {
 			name:      "Publish Images"

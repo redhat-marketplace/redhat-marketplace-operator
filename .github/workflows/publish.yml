@@ -3,6 +3,8 @@
 name: Publish
 on:
 - issue_comment
+env:
+  DOCKER_CLI_EXPERIMENTAL: enabled
 jobs:
   publish:
     name: Publish Images
