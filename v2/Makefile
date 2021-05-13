@@ -171,13 +171,13 @@ CREATED_TIME ?= $(shell date +"%FT%H:%M:%SZ")
 .PHONY: bundle
 bundle: clean manifests kustomize helm operator-sdk yq
 	$(OPERATOR_SDK) generate kustomize manifests -q
-	 ./config/manifests/patch_csv.sh METRIC_STATE_IMAGE=$(METRIC_STATE_IMAGE) REPORTER_IMAGE=$(REPORTER_IMAGE) AUTHCHECK_IMAGE=$(AUTHCHECK_IMAGE)
 	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
 	--set operatorImage=$(OPERATOR_IMAGE) \
 	--set metricStateImage=$(METRIC_STATE_IMAGE) \
 	--set reporterImage=$(REPORTER_IMAGE) \
 	--set authCheckImage=$(AUTHCHECK_IMAGE) \
 	--post-renderer ./config/manifests/kustomize | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	./config/manifests/patch_csv/patch_csv.sh VERSION=$(VERSION) METRIC_STATE_IMAGE=$(METRIC_STATE_IMAGE) REPORTER_IMAGE=$(REPORTER_IMAGE) AUTHCHECK_IMAGE=$(AUTHCHECK_IMAGE)
 	$(YQ) eval -i '.spec.webhookdefinitions[].targetPort = 9443' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.spec.webhookdefinitions[].containerPort = 9443' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i ".spec.metadata.annotations.containerImage = \"$(OPERATOR_IMAGE)\"" $(CSV_YAML_BUNDLE_FILE)
