@@ -269,7 +269,6 @@ func (c *connectWebsite) Login(inCtx context.Context, username, password string)
 func (c *connectWebsite) Publish(ctx context.Context, image *imageStruct) (bool, error) {
 	publishSha := image.SHA
 	url := image.ProjectURL
-	tag := image.Tag
 
 	nodes := []*cdp.Node{}
 
