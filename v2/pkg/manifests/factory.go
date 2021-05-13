@@ -145,6 +145,8 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 		container.Image = f.config.RelatedImages.PrometheusOperator
 	case container.Name == "prometheus-proxy":
 		container.Image = f.config.RelatedImages.OAuthProxy
+	case container.Name == "rhm-dqlite":
+		container.Image = f.config.RelatedImages.RHMDQLite
 	}
 }
 
@@ -606,11 +608,29 @@ func (f *Factory) UpdateDataServiceService(s *corev1.Service) error {
 }
 
 func (f *Factory) NewDataServiceStatefulSet() (*appsv1.StatefulSet, error) {
-	return f.NewStatefulSet(MustAssetReader(DataServiceStatefulSet))
+	sts, err := f.NewStatefulSet(MustAssetReader(DataServiceStatefulSet))
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range sts.Spec.Template.Spec.Containers {
+		f.ReplaceImages(&sts.Spec.Template.Spec.Containers[i])
+	}
+
+	return sts, nil
 }
 
 func (f *Factory) UpdateDataServiceStatefulSet(sts *appsv1.StatefulSet) error {
-	return f.UpdateStatefulSet(MustAssetReader(DataServiceStatefulSet), sts)
+	err := f.UpdateStatefulSet(MustAssetReader(DataServiceStatefulSet), sts)
+	if err != nil {
+		return err
+	}
+
+	for i := range sts.Spec.Template.Spec.Containers {
+		f.ReplaceImages(&sts.Spec.Template.Spec.Containers[i])
+	}
+
+	return nil
 }
 
 func (f *Factory) NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMonitor, error) {

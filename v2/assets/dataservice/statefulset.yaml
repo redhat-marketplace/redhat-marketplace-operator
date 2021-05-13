@@ -35,7 +35,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        image: REPLACEME
+        image: rhm-dqlite
         imagePullPolicy: IfNotPresent
         name: rhm-dqlite
         ports:
