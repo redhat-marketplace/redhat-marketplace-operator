@@ -776,6 +776,7 @@ _#defineImage: {
 	res: """
 ## getting image shas \(#args.image.name)
 shas=($(docker manifest inspect \(_#registry)/\(#args.image.name):$TAG | jq -r '.manifests[].digest' | xargs))
+echo "found $shas for \(#args.image.url)"
 for sha in ${shas}
 do
 export IMAGES="--images \(#args.image.url),${sha},$TAG $IMAGES"
