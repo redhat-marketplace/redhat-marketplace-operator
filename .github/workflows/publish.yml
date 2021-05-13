@@ -30,7 +30,6 @@ jobs:
       uses: actions/checkout@v2
       with:
         fetch-depth: 0
-        sha: ${{ steps.pr.outputs.prSha }}
     - name: Install Go
       uses: actions/setup-go@v2
       with:
@@ -188,8 +187,6 @@ jobs:
   publish-operator:
     name: Publish Operator
     runs-on: ubuntu-20.04
-    env:
-      REF: ${{ github.event.issue.pull_request[0].head.ref }}
     defaults:
       run:
         shell: bash
@@ -213,7 +210,6 @@ jobs:
       uses: actions/checkout@v2
       with:
         fetch-depth: 0
-        sha: ${{ steps.pr.outputs.prSha }}
     - name: Install Go
       uses: actions/setup-go@v2
       with:

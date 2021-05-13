@@ -119,7 +119,6 @@ publish: _#bashWorkflow & {
 				_#checkoutCode & {
 					with: {
 						"fetch-depth": 0
-						sha:           "${{ steps.pr.outputs.prSha }}"
 					}
 				},
 				_#installGo,
@@ -141,9 +140,6 @@ publish: _#bashWorkflow & {
 			name:      "Publish Operator"
 			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish-operator') }}"
 			"runs-on": _#linuxMachine
-			env: {
-				"REF": "${{ github.event.issue.pull_request[0].head.ref }}"
-			}
 			steps: [
 				_#hasWriteAccess,
 				(_#findPRForComment & {
@@ -154,7 +150,6 @@ publish: _#bashWorkflow & {
 				_#checkoutCode & {
 					with: {
 						"fetch-depth": 0
-						sha:           "${{ steps.pr.outputs.prSha }}"
 					}
 				},
 				_#installGo,
