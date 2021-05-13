@@ -775,10 +775,9 @@ _#defineImage: {
 	}
 	res: """
 ## getting image shas \(#args.image.name)
-shas=($(skopeo inspect docker://\(_#registry)/\(#args.image.name):$TAG --raw | jq -r '.manifests[].digest' | xargs))
+shas="$(skopeo inspect docker://\(_#registry)/\(#args.image.name):$TAG --raw | jq -r '.manifests[].digest' | xargs)"
 echo "found $shas for \(#args.image.url)"
-for sha in ${shas}
-do
+for sha in $shas; do
 export IMAGES="--images \(#args.image.url),${sha},$TAG $IMAGES"
 done
 """
