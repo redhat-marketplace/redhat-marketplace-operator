@@ -34,6 +34,10 @@ AUTHCHECK_IMAGE_NAME ?= redhat-marketplace-authcheck
 AUTHCHECK_IMAGE_TAG ?= $(TAG)
 AUTHCHECK_IMAGE := $(IMAGE_REGISTRY)/$(AUTHCHECK_IMAGE_NAME):$(AUTHCHECK_IMAGE_TAG)
 
+DQLITE_IMAGE_NAME ?= redhat-marketplace-dqlite
+DQLITE_IMAGE_TAG ?= $(TAG)
+DQLITE_IMAGE := $(IMAGE_REGISTRY)/$(DQLITE_IMAGE_NAME):$(DQLITE_IMAGE_TAG)
+
 BUNDLE_NAME ?= redhat-marketplace-operator-manifest
 BUNDLE_IMG ?= $(IMAGE_REGISTRY)/$(BUNDLE_NAME):$(VERSION)
 
@@ -103,7 +107,8 @@ deploy: manifests kustomize helm install
 	--set operatorImage=$(OPERATOR_IMAGE) \
 	--set metricStateImage=$(METRIC_STATE_IMAGE) \
 	--set reporterImage=$(REPORTER_IMAGE) \
-	--set authCheckImage=$(AUTHCHECK_IMAGE) | ./default/kustomize | kubectl apply -f -
+	--set authCheckImage=$(AUTHCHECK_IMAGE) 
+	--set dqLiteImage=$(DQLITE_IMAGE) | ./default/kustomize | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
@@ -191,6 +196,7 @@ bundle: clean manifests kustomize helm operator-sdk yq
 	--set metricStateImage=$(METRIC_STATE_IMAGE) \
 	--set reporterImage=$(REPORTER_IMAGE) \
 	--set authCheckImage=$(AUTHCHECK_IMAGE) \
+	--set dqLiteImage=$(DQLITE_IMAGE) \
 	--post-renderer ./config/manifests/kustomize | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	$(YQ) eval -i '.spec.webhookdefinitions[].targetPort = 9443' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.spec.webhookdefinitions[].containerPort = 9443' $(CSV_YAML_BUNDLE_FILE)
@@ -254,6 +260,7 @@ helm:
 	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
 	   --set reporterImage=$(REPORTER_IMAGE) \
 	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
+	   --set dqLiteImage=$(DQLITE_IMAGE) \
      --post-renderer ./helm-wrapper/kustomize
 
 install: kustomize helm
@@ -264,6 +271,7 @@ install: kustomize helm
 	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
 	   --set reporterImage=$(REPORTER_IMAGE) \
 	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
+	   --set dqLiteImage=$(DQLITE_IMAGE) \
      --post-renderer ./helm-wrapper/kustomize --debug=$(INSTALL_DEBUG) | kubectl apply -f -
 
 uninstall: helm yq
@@ -274,6 +282,7 @@ uninstall: helm yq
 	   --set metricStateImage=$(METRIC_STATE_IMAGE) \
 	   --set reporterImage=$(REPORTER_IMAGE) \
 	   --set authCheckImage=$(AUTHCHECK_IMAGE) \
+	   --set dqLiteImage=$(DQLITE_IMAGE) \
      --post-renderer ./helm-wrapper/kustomize | $(YQ) eval-all 'select(.kind != "Namespace") | select(.kind != "CustomResourceDefinition")' -  | kubectl delete -f -
 
 skaffold-dev: install

@@ -26,7 +26,7 @@ RUN autoreconf -i && ./configure && make && make install
 
 WORKDIR /opt/airgap
 
-COPY . .
+COPY airgap/v2 .
 
 RUN go get -d -v ./... && \
     go install -tags libsqlite3 ./cmd/server/main.go

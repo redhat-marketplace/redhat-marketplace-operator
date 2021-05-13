@@ -146,7 +146,7 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 	case container.Name == "prometheus-proxy":
 		container.Image = f.config.RelatedImages.OAuthProxy
 	case container.Name == "rhm-dqlite":
-		container.Image = f.config.RelatedImages.RHMDQLite
+		container.Image = f.config.RelatedImages.DQLite
 	}
 }
 
