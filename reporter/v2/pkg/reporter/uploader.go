@@ -128,10 +128,11 @@ func NewAirGapUploader (config *AirGapUploaderConfig )(Uploader, error){
 
 func (a *AirGapUploader) UploadFile(path string) error {
 	//Create socket connection
-	var address  = "test" //TODO: get address of the ingress for the data services
+	var address  = "rhm-dqlite.openshift-redhat-marketplace.svc.local" //TODO: get address of the ingress for the data services
 	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		// log.Fatalf("did not connect: %v", err)
+		logger.Error(err,"failed to establish connection")
 		return err
 	}
 
@@ -428,6 +429,8 @@ func ProvideUploader(
 		return uploaderTarget.(Uploader), nil
 	case *LocalFilePathUploader:
 		return uploaderTarget.(Uploader), nil
+	case *AirGapUploader:
+		return uploaderTarget.(Uploader),nil
 	}
 
 	return nil, errors.Errorf("uploader target not available %s", uploaderTarget.Name())

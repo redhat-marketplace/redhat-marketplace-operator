@@ -91,6 +91,9 @@ func (r *Task) Run() error {
 	logger.Info("tarring", "outputfile", fileName)
 
 	if r.Config.Upload {
+
+		logger.Info("starting file upload","file name",fileName)
+
 		err = r.Uploader.UploadFile(fileName)
 
 		if err != nil {

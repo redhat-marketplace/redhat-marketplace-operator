@@ -16,7 +16,6 @@ package report
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"time"
 
@@ -51,7 +50,7 @@ var ReportCmd = &cobra.Command{
 		tmpDir := os.TempDir()
 
 		uploadTarget := reporter.MustParseUploaderTarget(uploadTarget)
-		fmt.Println(uploadTarget.Name())
+		log.Info("upload target","target set to",uploadTarget.Name())
 
 		switch v := uploadTarget.(type) {
 		case *reporter.LocalFilePathUploader:
