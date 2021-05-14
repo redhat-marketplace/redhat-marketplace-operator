@@ -15,6 +15,7 @@
 package reporter
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -32,10 +33,13 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
+	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	"golang.org/x/net/http2"
+	"google.golang.org/grpc"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/jsonpath"
@@ -49,7 +53,12 @@ var (
 	UploaderTargetRedHatInsights UploaderTarget = &RedHatInsightsUploader{}
 	UploaderTargetNoOp           UploaderTarget = &NoOpUploader{}
 	UploaderTargetLocalPath      UploaderTarget = &LocalFilePathUploader{}
+	UploaderTargetAirGap  		 UploaderTarget = &AirGapUploader{}
 )
+
+func (u *AirGapUploader) Name() string {
+	return "air-gap"
+}
 
 func (u *RedHatInsightsUploader) Name() string {
 	return "redhat-insights"
@@ -71,6 +80,8 @@ func MustParseUploaderTarget(s string) UploaderTarget {
 		return UploaderTargetLocalPath
 	case UploaderTargetNoOp.Name():
 		return UploaderTargetNoOp
+	case UploaderTargetAirGap.Name():
+		return UploaderTargetAirGap
 	default:
 		panic(errors.Errorf("provided string is not a valid upload target %s", s))
 	}
@@ -78,6 +89,133 @@ func MustParseUploaderTarget(s string) UploaderTarget {
 
 type Uploader interface {
 	UploadFile(path string) error
+}
+
+type AirGapUploader struct {
+	AirGapUploaderConfig
+	// client filesender.FileSenderClient
+	client filesender.FileSender_UploadFileClient
+}
+
+type AirGapUploaderConfig struct {
+	URL    string `json:"url"`
+	FilePath string `json:"filePath"`
+}
+
+func NewAirGapUploader (config *AirGapUploaderConfig )(Uploader, error){
+	//Create socket connection
+	conn, err := grpc.Dial(config.URL, grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	//Create uplaod client
+	client := filesender.NewFileSenderClient(conn)
+
+	//client-stream upload the file
+	uploadClient, err := client.UploadFile(context.Background())
+	if err != nil {
+		// log.Fatalf("While calling uploadFile: %v", err)
+		return nil, err
+	}
+
+	return &AirGapUploader{
+		AirGapUploaderConfig: *config,
+		client: uploadClient,
+	}, nil
+}
+
+func (a *AirGapUploader) UploadFile(path string) error {
+	//Create socket connection
+	var address  = "test" //TODO: get address of the ingress for the data services
+	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		// log.Fatalf("did not connect: %v", err)
+		return err
+	}
+
+	defer conn.Close()
+
+	m := map[string]string{
+		"version":    "v1",
+		"reportType": "rhm-metering",
+	}
+
+	chunkAndUpload(a.client, path, m)
+
+	return nil
+	
+}
+
+func chunkAndUpload(uploadClient filesender.FileSender_UploadFileClient, path string, m map[string]string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+
+	defer func() error {
+		if err := file.Close(); err != nil {
+			return err
+		}
+
+		return nil
+	}()
+
+	//Getting file metadata
+	metaData, err := file.Stat()
+	if err != nil {
+		logger.Error(err,"Failed to get metadata")
+		return err
+		// log.Fatalf("Failed to get metadata: %v", err)
+	}
+
+	uploadClient.Send(&filesender.UploadFileRequest{
+		Data: &filesender.UploadFileRequest_Info{
+			Info: &v1.FileInfo{
+				FileId: &v1.FileID{
+					Data: &v1.FileID_Name{
+						Name: metaData.Name(),
+					},
+				},
+				Size:     uint32(metaData.Size()),
+				Metadata: m,
+			},
+		},
+	})
+
+	//Chunking
+	chunkSize := 3
+	buffReader := bufio.NewReader(file)
+	buffer := make([]byte, chunkSize)
+	for {
+		n, err := buffReader.Read(buffer)
+		if err != nil {
+			if err != io.EOF {
+				// fmt.Printf("Error reading file: %v", err)
+				logger.Error(err,"Error reading file")
+			}
+			break
+		}
+		//Sending request
+		request := filesender.UploadFileRequest{
+			Data: &filesender.UploadFileRequest_ChunkData{
+				ChunkData: buffer[0:n],
+			},
+		}
+		uploadClient.Send(&request)
+	}
+
+	res, err := uploadClient.CloseAndRecv()
+	if err != nil {
+		logger.Error(err,"Error getting response")
+	}
+
+	// fmt.Println(res)
+	logger.Info("airgap upload","response",res)
+
+	return nil
+
 }
 
 type RedHatInsightsUploaderConfig struct {
