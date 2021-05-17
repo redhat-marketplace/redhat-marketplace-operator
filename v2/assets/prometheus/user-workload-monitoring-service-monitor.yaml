@@ -1,0 +1,24 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: prometheus-user-workload
+  labels:
+    marketplace.redhat.com/metering: "true"
+spec:
+  endpoints:
+  - honorLabels: true
+    interval: 2m
+    port: metrics
+    scheme: https
+    scrapeTimeout: 2m
+    tlsConfig:
+      ca:
+        configMap:
+          key: service-ca.crt
+          name: serving-certs-ca-bundle
+      cert: {}
+      serverName: prometheus-user-workload.openshift-user-workload-monitoring.svc
+  jobLabel: k8s-app
+  selector:
+    matchLabels:
+      prometheus: user-workload
