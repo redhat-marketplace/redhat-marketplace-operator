@@ -3,6 +3,10 @@ kind: Deployment
 metadata:
   name: controller-manager
   namespace: system
+  annotations:
+    reporterImage: {{ .Values.reporterImage }}
+    metricStateImage: {{ .Values.metricStateImage }}
+    authcheckImage: {{ .Values.authCheckImage }}
 spec:
   selector:
     matchLabels:

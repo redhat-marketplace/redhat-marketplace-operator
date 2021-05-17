@@ -6,11 +6,11 @@ metadata:
 spec:
   relatedImages:
   - name: RELATED_IMAGE_METRIC_STATE
-    image: METRIC_STATE_IMAGE_MARKER
+    image: $(METRIC_STATE_IMAGE_MARKER)
   - name: RELATED_IMAGE_REPORTER
-    image: REPORTER_IMAGE_MARKER
+    image: $(REPORTER_IMAGE_MARKER)
   - name: RELATED_IMAGE_AUTHCHECK
-    image: AUTHCHECK_IMAGE_MARKER
+    image: $(AUTHCHECK_IMAGE_MARKER)
   - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
     image: quay.io/razee/remoteresources3:0.9.0
   - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT

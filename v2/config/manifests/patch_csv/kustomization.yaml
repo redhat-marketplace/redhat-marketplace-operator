@@ -1,5 +1,0 @@
-resources:
-  - redhat-marketplace-operator.clusterserviceversion.yaml
-
-patchesStrategicMerge:
-  - patch-related-images.yaml
