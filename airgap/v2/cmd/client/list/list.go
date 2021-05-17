@@ -34,20 +34,25 @@ import (
 	"google.golang.org/grpc"
 )
 
-type Listconfig struct {
-	filter              []string
-	sort                []string
-	outputDir           string
-	outputCSV           bool
-	includeDeletedFiles bool
+type ListConfig struct {
+	Filter              []string
+	Sort                []string
+	OutputDir           string
+	OutputCSV           bool
+	IncludeDeletedFiles bool
+	FileName            string
 	conn                *grpc.ClientConn
 	client              fileretreiver.FileRetreiverClient
 	log                 logr.Logger
 }
 
 var (
-	lc       Listconfig
-	fileName = "files.csv"
+	filter              []string
+	sort                []string
+	outputDir           string
+	outputCSV           bool
+	includeDeletedFiles bool
+	fileName            = "files.csv"
 )
 
 var ListCmd = &cobra.Command{
@@ -97,15 +102,13 @@ keys or custom key and sort flag used for sorting list based on sort key and sor
     # Save list to csv file
     client list  --output-dir=/path/to/dir --config /path/to/config.yaml`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		//Initialize logger
-		initLog()
-		// Initialize client
-		err := lc.initializeListClient()
+		// create a list client
+		lc, err := ProvideListConfig(filter, sort, outputDir, outputCSV, includeDeletedFiles, fileName)
 		if err != nil {
 			return err
 		}
 		if cmd.Flag("output-dir").Changed {
-			lc.outputCSV = true
+			lc.OutputCSV = true
 		}
 		defer lc.closeConnection()
 		return lc.listFileMetadata()
@@ -113,59 +116,64 @@ keys or custom key and sort flag used for sorting list based on sort key and sor
 }
 
 func init() {
-	ListCmd.Flags().StringSliceVarP(&lc.filter, "filter", "f", []string{}, "Filter file list based on pre-defined or custom keys")
-	ListCmd.Flags().StringSliceVarP(&lc.sort, "sort", "s", []string{}, "Sort file list based key and sort operation used")
-	ListCmd.Flags().StringVarP(&lc.outputDir, "output-dir", "o", "", "Path to save list")
-	ListCmd.Flags().BoolVarP(&lc.includeDeletedFiles, "include-deleted-files", "a", false, "List all files along with files marked for deleteion")
+	ListCmd.Flags().StringSliceVarP(&filter, "filter", "f", []string{}, "Filter file list based on pre-defined or custom keys")
+	ListCmd.Flags().StringSliceVarP(&sort, "sort", "s", []string{}, "Sort file list based key and sort operation used")
+	ListCmd.Flags().StringVarP(&outputDir, "output-dir", "o", "", "Path to save list")
+	ListCmd.Flags().BoolVarP(&includeDeletedFiles, "include-deleted-files", "a", false, "List all files along with files marked for deleteion")
 }
 
-//initLog initializes logger
-func initLog() {
-	var err error
-	lc.log, err = util.InitLog()
+func ProvideListConfig(filter []string, sort []string, outputDir string, outputCSV bool, includeDeletedFiles bool, fileName string) (*ListConfig, error) {
+	log, err := util.InitLog()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-}
-
-//initializeListClient initializes the file retriever client based on provided configuration parameters
-func (lc *Listconfig) initializeListClient() error {
 	conn, err := util.InitClient()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	lc.client = fileretreiver.NewFileRetreiverClient(conn)
-	lc.conn = conn
-	return nil
+	client := fileretreiver.NewFileRetreiverClient(conn)
+
+	return &ListConfig{
+		Filter:              filter,
+		Sort:                sort,
+		OutputDir:           outputDir,
+		OutputCSV:           outputCSV,
+		IncludeDeletedFiles: includeDeletedFiles,
+		FileName:            fileName,
+		conn:                conn,
+		client:              client,
+		log:                 log,
+	}, nil
+
 }
 
 // closeConnection closes the grpc client connection
-func (lc *Listconfig) closeConnection() {
+func (lc *ListConfig) closeConnection() {
 	if lc != nil && lc.conn != nil {
 		lc.conn.Close()
 	}
 }
 
 // listFileMetadata fetch list of files and its metadata from the grpc server to a specified directory
-func (lc *Listconfig) listFileMetadata() error {
+func (lc *ListConfig) listFileMetadata() error {
 	var filterList []*fileretreiver.ListFileMetadataRequest_ListFileFilter
 	var sortList []*fileretreiver.ListFileMetadataRequest_ListFileSort
 	var file *os.File
 	var w *csv.Writer
 	var noOfRow int
 
-	filterList, err := parseFilter(lc.filter)
+	filterList, err := parseFilter(lc.Filter)
 	if err != nil {
 		return err
 	}
-	sortList, err = parseSort(lc.sort)
+	sortList, err = parseSort(lc.Sort)
 	if err != nil {
 		return err
 	}
 	req := &fileretreiver.ListFileMetadataRequest{
 		FilterBy:            filterList,
 		SortBy:              sortList,
-		IncludeDeletedFiles: lc.includeDeletedFiles,
+		IncludeDeletedFiles: lc.IncludeDeletedFiles,
 	}
 	resultStream, err := lc.client.ListFileMetadata(context.Background(), req)
 	if err != nil {
@@ -173,8 +181,8 @@ func (lc *Listconfig) listFileMetadata() error {
 	}
 
 	var table *tablewriter.Table
-	fp := lc.outputDir + string(os.PathSeparator) + fileName
-	if lc.outputCSV {
+	fp := lc.OutputDir + string(os.PathSeparator) + lc.FileName
+	if lc.OutputCSV {
 		file, err = os.Create(fp)
 		if err != nil {
 			return err
@@ -195,12 +203,12 @@ func (lc *Listconfig) listFileMetadata() error {
 	for {
 		response, err := resultStream.Recv()
 		if err == io.EOF {
-			if lc.outputCSV {
+			if lc.OutputCSV {
 				lc.log.Info("List stored", "location:", fp)
 			}
 			break
 		} else if err != nil {
-			if lc.outputCSV {
+			if lc.OutputCSV {
 				defer os.Remove(fp)
 			}
 			return fmt.Errorf("error while reading stream: %v", err)
@@ -210,7 +218,7 @@ func (lc *Listconfig) listFileMetadata() error {
 		lc.log.Info("Received response:", "info", data)
 
 		row, parseErr := parseFileInfo(data)
-		if lc.outputCSV {
+		if lc.OutputCSV {
 			if parseErr != nil {
 				defer os.Remove(fp)
 				return err

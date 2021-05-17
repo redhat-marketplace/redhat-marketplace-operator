@@ -31,17 +31,23 @@ import (
 )
 
 type DownloadConfig struct {
-	fileName         string
-	fileId           string
-	outputDirectory  string
-	fileListPath     string
-	deleteOnDownload bool
+	FileName         string
+	FileId           string
+	OutputDirectory  string
+	FileListPath     string
+	DeleteOnDownload bool
 	conn             *grpc.ClientConn
 	client           fileretreiver.FileRetreiverClient
 	log              logr.Logger
 }
 
-var dc DownloadConfig
+var (
+	fileName         string
+	fileId           string
+	outputDirectory  string
+	fileListPath     string
+	deleteOnDownload bool
+)
 
 // DownloadCmd represents the download command
 var DownloadCmd = &cobra.Command{
@@ -61,52 +67,53 @@ var DownloadCmd = &cobra.Command{
     # Mark file for deletion on download 
     client download -D --file-name file_name --output-directory /path/to/output/dir --config /path/to/config.yaml`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		//Initialize logger
-		initLog()
-		// Initialize client
-		err := dc.initializeDownloadClient()
+		// create new download client
+		dc, err := ProvideDownloadConfig(fileName, fileId, outputDirectory, fileListPath, deleteOnDownload)
 		if err != nil {
 			return err
 		}
 		defer dc.closeConnection()
 
 		// If file list path is specified, perform batch download
-		if len(strings.TrimSpace(dc.fileListPath)) != 0 {
-			return dc.batchDownload()
+		if len(strings.TrimSpace(dc.FileListPath)) != 0 {
+			return dc.BatchDownload()
 		}
 
 		// If file name/identifier is specified, download the single file
-		return dc.downloadFile(dc.fileName, dc.fileId)
+		return dc.DownloadFile(dc.FileName, dc.FileId)
 	},
 }
 
 func init() {
-	DownloadCmd.Flags().StringVarP(&dc.fileName, "file-name", "n", "", "Name of the file to be downloaded")
-	DownloadCmd.Flags().StringVarP(&dc.fileId, "file-id", "i", "", "Id of the file to be downloaded")
-	DownloadCmd.Flags().StringVarP(&dc.outputDirectory, "output-directory", "o", "", "Path to download the file")
-	DownloadCmd.Flags().StringVarP(&dc.fileListPath, "file-list-path", "f", "", "Fully qualified path to file containing list of names/identifiers")
-	DownloadCmd.Flags().BoolVarP(&dc.deleteOnDownload, "delete-on-download", "D", false, "Mark file for deletion")
+	DownloadCmd.Flags().StringVarP(&fileName, "file-name", "n", "", "Name of the file to be downloaded")
+	DownloadCmd.Flags().StringVarP(&fileId, "file-id", "i", "", "Id of the file to be downloaded")
+	DownloadCmd.Flags().StringVarP(&outputDirectory, "output-directory", "o", "", "Path to download the file")
+	DownloadCmd.Flags().StringVarP(&fileListPath, "file-list-path", "f", "", "Fully qualified path to file containing list of names/identifiers")
+	DownloadCmd.Flags().BoolVarP(&deleteOnDownload, "delete-on-download", "D", false, "Mark file for deletion")
 	DownloadCmd.MarkFlagRequired("output-directory")
 }
 
-// initLog initializes logger
-func initLog() {
-	var err error
-	dc.log, err = util.InitLog()
+func ProvideDownloadConfig(fileName string, fileId string, outputDirectory string, fileListPath string, deleteOnDownload bool) (*DownloadConfig, error) {
+	log, err := util.InitLog()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-}
-
-// initializeDownloadClient initializes the file retriever client based on provided configuration parameters
-func (dc *DownloadConfig) initializeDownloadClient() error {
 	conn, err := util.InitClient()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	dc.client = fileretreiver.NewFileRetreiverClient(conn)
-	dc.conn = conn
-	return nil
+	client := fileretreiver.NewFileRetreiverClient(conn)
+
+	return &DownloadConfig{
+		FileName:         fileName,
+		FileId:           fileId,
+		OutputDirectory:  outputDirectory,
+		FileListPath:     fileListPath,
+		DeleteOnDownload: deleteOnDownload,
+		conn:             conn,
+		client:           client,
+		log:              log,
+	}, nil
 }
 
 // closeConnection closes the grpc client connection
@@ -117,7 +124,7 @@ func (dc *DownloadConfig) closeConnection() {
 }
 
 // downloadFile downloads the file received from the grpc server to a specified directory
-func (dc *DownloadConfig) downloadFile(fn string, fid string) error {
+func (dc *DownloadConfig) DownloadFile(fn string, fid string) error {
 	fn = strings.TrimSpace(fn)
 	fid = strings.TrimSpace(fid)
 	var req *fileretreiver.DownloadFileRequest
@@ -134,7 +141,7 @@ func (dc *DownloadConfig) downloadFile(fn string, fid string) error {
 				Data: &v1.FileID_Name{
 					Name: fn},
 			},
-			DeleteOnDownload: dc.deleteOnDownload,
+			DeleteOnDownload: dc.DeleteOnDownload,
 		}
 	} else {
 		name = fid
@@ -143,7 +150,7 @@ func (dc *DownloadConfig) downloadFile(fn string, fid string) error {
 				Data: &v1.FileID_Id{
 					Id: fid},
 			},
-			DeleteOnDownload: dc.deleteOnDownload,
+			DeleteOnDownload: dc.DeleteOnDownload,
 		}
 	}
 	dc.log.Info("Attempting to download file", "name/id", name)
@@ -173,7 +180,7 @@ func (dc *DownloadConfig) downloadFile(fn string, fid string) error {
 		}
 	}
 
-	outFile, err := os.Create(dc.outputDirectory + string(os.PathSeparator) + name)
+	outFile, err := os.Create(dc.OutputDirectory + string(os.PathSeparator) + name)
 	if err != nil {
 		return fmt.Errorf("error while creating output file: %v", err)
 	}
@@ -188,21 +195,21 @@ func (dc *DownloadConfig) downloadFile(fn string, fid string) error {
 }
 
 // batchDownload will download all the files specified in the csv file generated by the list command
-func (dc *DownloadConfig) batchDownload() error {
-	fns, fids, err := parseCSV(dc.fileListPath)
+func (dc *DownloadConfig) BatchDownload() error {
+	fns, fids, err := parseCSV(dc.FileListPath)
 	if err != nil {
 		return err
 	}
 
 	for _, n := range fns {
-		err = dc.downloadFile(n, "")
+		err = dc.DownloadFile(n, "")
 		if err != nil {
 			dc.log.Error(err, "Error during download", "name", n)
 		}
 	}
 
 	for _, id := range fids {
-		err = dc.downloadFile("", id)
+		err = dc.DownloadFile("", id)
 		if err != nil {
 			dc.log.Error(err, "Error during download", "identifier", id)
 		}

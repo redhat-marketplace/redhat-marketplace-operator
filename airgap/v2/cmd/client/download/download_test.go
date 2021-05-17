@@ -140,8 +140,8 @@ func TestDownloadFile(t *testing.T) {
 		{
 			name: "downloading a file that exists on the server",
 			dc: &DownloadConfig{
-				outputDirectory: od,
-				fileName:        "reports.zip",
+				OutputDirectory: od,
+				FileName:        "reports.zip",
 				conn:            conn,
 				client:          downloadClient,
 			},
@@ -158,7 +158,7 @@ func TestDownloadFile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.dc.log, _ = util.InitLog()
-			err := tt.dc.downloadFile(tt.dc.fileName, tt.dc.fileId)
+			err := tt.dc.DownloadFile(tt.dc.FileName, tt.dc.FileId)
 			if err != nil {
 				if !strings.Contains(err.Error(), tt.errMsg) {
 					t.Errorf("Expected error message: %v, instead got: %v", tt.errMsg, err.Error())
@@ -166,7 +166,7 @@ func TestDownloadFile(t *testing.T) {
 			} else if len(tt.errMsg) > 0 {
 				t.Errorf("Expected error: %v was never received!", tt.errMsg)
 			} else {
-				file, err := os.Open(tt.dc.fileName)
+				file, err := os.Open(tt.dc.FileName)
 				if err != nil {
 					t.Errorf("file was not downloaded correctly for test: %v, error: %v", tt.name, err)
 				}
@@ -181,7 +181,7 @@ func TestDownloadFile(t *testing.T) {
 				}
 
 				file.Close()
-				os.Remove(tt.dc.fileName)
+				os.Remove(tt.dc.FileName)
 			}
 		})
 	}
@@ -216,8 +216,8 @@ func TestBatchDownload(t *testing.T) {
 		{
 			name: "valid batch download request",
 			dc: &DownloadConfig{
-				outputDirectory: od,
-				fileListPath:    fps[0],
+				OutputDirectory: od,
+				FileListPath:    fps[0],
 				conn:            conn,
 				client:          downloadClient,
 			},
@@ -225,8 +225,8 @@ func TestBatchDownload(t *testing.T) {
 		{
 			name: "invalid request with csv having insufficient headers",
 			dc: &DownloadConfig{
-				outputDirectory: od,
-				fileListPath:    fps[1],
+				OutputDirectory: od,
+				FileListPath:    fps[1],
 				conn:            conn,
 				client:          downloadClient,
 			},
@@ -235,8 +235,8 @@ func TestBatchDownload(t *testing.T) {
 		{
 			name: "invalid request with csv having headers in the wrong order",
 			dc: &DownloadConfig{
-				outputDirectory: od,
-				fileListPath:    fps[2],
+				OutputDirectory: od,
+				FileListPath:    fps[2],
 				conn:            conn,
 				client:          downloadClient,
 			},
@@ -247,7 +247,7 @@ func TestBatchDownload(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.dc.log, _ = util.InitLog()
-			err := tt.dc.batchDownload()
+			err := tt.dc.BatchDownload()
 			if err != nil {
 				if !strings.Contains(err.Error(), tt.errMsg) {
 					t.Errorf("Expected error message: %v, instead got: %v", tt.errMsg, err.Error())
@@ -255,7 +255,7 @@ func TestBatchDownload(t *testing.T) {
 			} else if len(tt.errMsg) > 0 {
 				t.Errorf("Expected error: %v was never received!", tt.errMsg)
 			} else {
-				fns, _, _ = parseCSV(tt.dc.fileListPath)
+				fns, _, _ = parseCSV(tt.dc.FileListPath)
 				defer deleteFiles(fns)
 
 				for _, fn := range fns {
