@@ -131,13 +131,13 @@ func TestList(t *testing.T) {
 	od, _ := os.Getwd()
 	tests := []struct {
 		name   string
-		lc     *ListClient
+		lc     *ListConfig
 		res    []string
 		errMsg string
 	}{
 		{
 			name: "fetch one of the files based on metadata and store to csv",
-			lc: &ListClient{
+			lc: &ListConfig{
 				Filter:    []string{"size GREATER_THAN 100", "type CONTAINS report"},
 				Sort:      []string{},
 				OutputDir: od,
@@ -150,7 +150,7 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "fetch one of the files based on metadata",
-			lc: &ListClient{
+			lc: &ListConfig{
 				Filter: []string{"size GREATER_THAN 100", "type CONTAINS report"},
 				Sort:   []string{},
 				conn:   conn,
@@ -159,7 +159,7 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "all files are returned when no conditions are specified",
-			lc: &ListClient{
+			lc: &ListConfig{
 				Filter: []string{},
 				Sort:   []string{},
 				conn:   conn,
@@ -168,7 +168,7 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "fetch latest file based on name",
-			lc: &ListClient{
+			lc: &ListConfig{
 				Filter: []string{"provided_name EQUAL reports.zip", "size GREATER_THAN 100", "version EQUAL 1"},
 				Sort:   []string{"provided_name ASC"},
 				conn:   conn,
@@ -177,7 +177,7 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "fetch file for quoted metadata key value",
-			lc: &ListClient{
+			lc: &ListConfig{
 				Filter: []string{"'description    ' CONTAINS 'with builtin'"},
 				Sort:   []string{},
 				conn:   conn,
@@ -186,7 +186,7 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "fetch file marked for deletion",
-			lc: &ListClient{
+			lc: &ListConfig{
 				Filter:              []string{"provided_name CONTAINS 'delete'"},
 				Sort:                []string{},
 				IncludeDeletedFiles: true,
@@ -196,7 +196,7 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "invalid Filter arguments",
-			lc: &ListClient{
+			lc: &ListConfig{
 				Filter: []string{"size GREATER_THAN 10 0"},
 				Sort:   []string{},
 				conn:   conn,
@@ -206,7 +206,7 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "invalid filter operation",
-			lc: &ListClient{
+			lc: &ListConfig{
 				Filter: []string{"size GREATERTHAN 100"},
 				Sort:   []string{},
 				conn:   conn,
@@ -216,7 +216,7 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "invalid date format",
-			lc: &ListClient{
+			lc: &ListConfig{
 				Filter: []string{"created_at GREATER_THAN 21-4-13"},
 				Sort:   []string{},
 				conn:   conn,
@@ -226,7 +226,7 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "invalid sort arguments",
-			lc: &ListClient{
+			lc: &ListConfig{
 				Filter: []string{},
 				Sort:   []string{"asd"},
 				conn:   conn,
@@ -236,7 +236,7 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "invalid sort operation",
-			lc: &ListClient{
+			lc: &ListConfig{
 				Filter: []string{},
 				Sort:   []string{"size ASCENDING"},
 				conn:   conn,
@@ -246,7 +246,7 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "invalid filter operation using empty key/value",
-			lc: &ListClient{
+			lc: &ListConfig{
 				Filter: []string{"'    ' EQUAL '   ' "},
 				Sort:   []string{},
 				conn:   conn,
@@ -256,7 +256,7 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "invalid filter operation using empty filter arguments list",
-			lc: &ListClient{
+			lc: &ListConfig{
 				Filter: []string{" "},
 				Sort:   []string{},
 				conn:   conn,
@@ -266,7 +266,7 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "invalid sort operation using empty sort key/operation",
-			lc: &ListClient{
+			lc: &ListConfig{
 				Filter: []string{},
 				Sort:   []string{" ' ' ASC"},
 				conn:   conn,
@@ -276,7 +276,7 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "invalid sort operation using empty sort arguments list",
-			lc: &ListClient{
+			lc: &ListConfig{
 				Filter: []string{},
 				Sort:   []string{""},
 				conn:   conn,

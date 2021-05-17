@@ -34,7 +34,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-type ListClient struct {
+type ListConfig struct {
 	Filter              []string
 	Sort                []string
 	OutputDir           string
@@ -103,7 +103,7 @@ keys or custom key and sort flag used for sorting list based on sort key and sor
     client list  --output-dir=/path/to/dir --config /path/to/config.yaml`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// create a list client
-		lc, err := NewListConfig(filter, sort, outputDir, outputCSV, includeDeletedFiles, fileName)
+		lc, err := ProvideListConfig(filter, sort, outputDir, outputCSV, includeDeletedFiles, fileName)
 		if err != nil {
 			return err
 		}
@@ -122,7 +122,7 @@ func init() {
 	ListCmd.Flags().BoolVarP(&includeDeletedFiles, "include-deleted-files", "a", false, "List all files along with files marked for deleteion")
 }
 
-func NewListConfig(filter []string, sort []string, outputDir string, outputCSV bool, includeDeletedFiles bool, fileName string) (*ListClient, error) {
+func ProvideListConfig(filter []string, sort []string, outputDir string, outputCSV bool, includeDeletedFiles bool, fileName string) (*ListConfig, error) {
 	log, err := util.InitLog()
 	if err != nil {
 		return nil, err
@@ -133,7 +133,7 @@ func NewListConfig(filter []string, sort []string, outputDir string, outputCSV b
 	}
 	client := fileretreiver.NewFileRetreiverClient(conn)
 
-	return &ListClient{
+	return &ListConfig{
 		Filter:              filter,
 		Sort:                sort,
 		OutputDir:           outputDir,
@@ -148,14 +148,14 @@ func NewListConfig(filter []string, sort []string, outputDir string, outputCSV b
 }
 
 // closeConnection closes the grpc client connection
-func (lc *ListClient) closeConnection() {
+func (lc *ListConfig) closeConnection() {
 	if lc != nil && lc.conn != nil {
 		lc.conn.Close()
 	}
 }
 
 // listFileMetadata fetch list of files and its metadata from the grpc server to a specified directory
-func (lc *ListClient) listFileMetadata() error {
+func (lc *ListConfig) listFileMetadata() error {
 	var filterList []*fileretreiver.ListFileMetadataRequest_ListFileFilter
 	var sortList []*fileretreiver.ListFileMetadataRequest_ListFileSort
 	var file *os.File

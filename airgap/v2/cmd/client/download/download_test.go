@@ -133,13 +133,13 @@ func TestDownloadFile(t *testing.T) {
 	od, _ := os.Getwd()
 	tests := []struct {
 		name   string
-		dc     *DownloadClient
+		dc     *DownloadConfig
 		size   uint32
 		errMsg string
 	}{
 		{
 			name: "downloading a file that exists on the server",
-			dc: &DownloadClient{
+			dc: &DownloadConfig{
 				OutputDirectory: od,
 				FileName:        "reports.zip",
 				conn:            conn,
@@ -150,7 +150,7 @@ func TestDownloadFile(t *testing.T) {
 		},
 		{
 			name:   "invalid download request with no file name/id provided",
-			dc:     &DownloadClient{},
+			dc:     &DownloadConfig{},
 			errMsg: "file id/name is blank",
 		},
 	}
@@ -210,12 +210,12 @@ func TestBatchDownload(t *testing.T) {
 	od, _ := os.Getwd()
 	tests := []struct {
 		name   string
-		dc     *DownloadClient
+		dc     *DownloadConfig
 		errMsg string
 	}{
 		{
 			name: "valid batch download request",
-			dc: &DownloadClient{
+			dc: &DownloadConfig{
 				OutputDirectory: od,
 				FileListPath:    fps[0],
 				conn:            conn,
@@ -224,7 +224,7 @@ func TestBatchDownload(t *testing.T) {
 		},
 		{
 			name: "invalid request with csv having insufficient headers",
-			dc: &DownloadClient{
+			dc: &DownloadConfig{
 				OutputDirectory: od,
 				FileListPath:    fps[1],
 				conn:            conn,
@@ -234,7 +234,7 @@ func TestBatchDownload(t *testing.T) {
 		},
 		{
 			name: "invalid request with csv having headers in the wrong order",
-			dc: &DownloadClient{
+			dc: &DownloadConfig{
 				OutputDirectory: od,
 				FileListPath:    fps[2],
 				conn:            conn,
