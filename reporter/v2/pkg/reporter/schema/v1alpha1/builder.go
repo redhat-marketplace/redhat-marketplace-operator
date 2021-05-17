@@ -86,9 +86,9 @@ func (d *MarketplaceReportDataBuilder) Build() (*MarketplaceReportData, error) {
 		AdditionalLabels:  make(map[string]interface{}),
 		Metrics:           make(map[string]interface{}),
 		MetricsExtended:   make([]MarketplaceMetric, 0, len(d.values)),
-    RecordSummary: &MarketplaceReportRecordSummary{
-		TotalMetricCount: len(d.values),
-	},
+		RecordSummary: &MarketplaceReportRecordSummary{
+			TotalMetricCount: len(d.values),
+		},
 	}
 
 	if meterDef.MeterDescription != "" {
@@ -113,8 +113,8 @@ func (d *MarketplaceReportDataBuilder) Build() (*MarketplaceReportData, error) {
 
 		key.MetricsExtended = append(key.MetricsExtended,
 			MarketplaceMetric{
-				Label:   meterDef.Label,
-				Value:  meterDef.Value,
+				Label: meterDef.Label,
+				Value: meterDef.Value,
 			},
 		)
 

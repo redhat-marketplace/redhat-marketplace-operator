@@ -419,6 +419,9 @@ spec:
                         type: string
                       type: array
                       x-kubernetes-list-type: set
+                    label:
+                      description: Label is the usage metrics key field on the report. Defaults to the metricId field if not provided
+                      type: string
                     metricId:
                       description: Metric is the id of the meter
                       type: string
@@ -430,6 +433,9 @@ spec:
                       type: string
                     query:
                       description: Query to use for prometheus to find the metrics
+                      type: string
+                    unit:
+                      description: Unit is the unit of the metrics. Defaults to the metricId field if not provided
                       type: string
                     valueLabelOverride:
                       description: ValueLabelOverride provides a means of overriding the value returned for the metric using a label. This is to handle cases where the metric is a constant that is calculated.

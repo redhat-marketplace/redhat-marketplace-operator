@@ -4,42 +4,6 @@ metadata:
   name: marketplaceconfig
 spec:
   installIBMCatalogSource: true
-status:
-  conditions:
-    - message: Finished Installing necessary components
-      reason: FinishedInstall
-      status: 'True'
-      type: Complete
-    - message: Finished Installing necessary components
-      reason: FinishedInstall
-      status: 'False'
-      type: Installing
-    - message: Cluster Registered Successfully
-      reason: ClusterRegistered
-      status: 'True'
-      type: Registered
-  meterBaseSubConditions:
-    - message: Meter Base install complete
-      reason: FinishedMeterBaseInstall
-      status: 'False'
-      type: Installing
-  razeeSubConditions:
-    - message: Razee install complete
-      reason: FinishedRazeeInstall
-      status: "True"
-      type: Complete
-    - message: RemoteResourceS3 deployment enabled
-      reason: EnabledRemoteResourceS3DeploymentInstall
-      status: "True"
-      type: DeploymentEnabled
-    - message: Razee install complete
-      reason: FinishedRazeeInstall
-      status: "False"
-      type: Installing
-    - message: Registration deployment enabled
-      reason: EnabledRegistrationWatchkeeperInstall
-      status: "True"
-      type: RegistrationEnabled
 ---
 apiVersion: marketplace.redhat.com/v1alpha1
 kind: RazeeDeployment

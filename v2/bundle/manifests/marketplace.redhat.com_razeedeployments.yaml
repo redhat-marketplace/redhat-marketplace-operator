@@ -46,6 +46,9 @@ spec:
             childUrl:
               description: Location of your IBM Cloud Object Storage resources Used internally by the Operator
               type: string
+            clusterDisplayName:
+              description: The ClusterDisplayName is a unique name of for a cluster specified by the admin during registration
+              type: string
             clusterUUID:
               description: ClusterUUID is the cluster identifier, used for installing razee.
               type: string

@@ -340,6 +340,8 @@ rules:
   - delete
   - get
   - list
+  - update
+  - watch
 - apiGroups:
   - operators.coreos.com
   resourceNames:

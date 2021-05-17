@@ -7,8 +7,9 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-
 export
+
+include utils.Makefile
 
 .DEFAULT_GOAL := all
 
@@ -35,6 +36,10 @@ vet:
 .PHONY: fmt
 fmt:
 	$(MAKE) $(addsuffix /fmt,$(PROJECTS))
+
+.PHONY: tidy-all
+tidy-all:
+	$(MAKE) $(addsuffix /tidy,$(PROJECTS))
 
 .PHONY: test
 test:
@@ -70,29 +75,7 @@ cicd:
 	go generate ./gen.go
 	cd .github/workflows && go generate ./gen.go
 
-LICENSE=$(shell pwd)/v2/bin/addlicense
-addlicense:
-	$(call go-get-tool,$(LICENSE),github.com/google/addlicense)
-
-GO_LICENSES=$(shell pwd)/v2/bin/go-licenses
-golicense:
-	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses)
-
 export GO_LICENSES
-
-# go-get-tool will 'go get' any package $2 and install it to $1.
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))/v2
-define go-get-tool
-@[ -f $(1) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
-rm -rf $$TMP_DIR ;\
-}
-endef
 
 clean-vendor:
 	rm -rf $(addsuffix /v2/vendor,$(PROJECT_FOLDERS))
@@ -109,6 +92,20 @@ wicked:
 	@cd ./reporter/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p redhat-marketplace-reporter -s ./vendor -o ../../.wicked-report
 	@cd ./metering/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p redhat-marketplace-metering -s ./vendor -o ../../.wicked-report
 	@cd ./authchecker/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p redhat-marketplace-authchecker -s ./vendor -o ../../.wicked-report
+
+# -- Release
+
+create-next-release: svu
+	git checkout develop
+	git pull
+	git checkout -b release/$(shell $(SVU) next)
+
+create-next-hotfix: svu
+	git checkout master
+	git pull
+	git checkout -b release/$(shell $(SVU) next)
+
+# --
 
 operator/%:
 	@cd ./v2 && $(MAKE) $(@F)

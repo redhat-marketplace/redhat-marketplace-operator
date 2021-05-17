@@ -119,6 +119,7 @@ func (b *MarketplaceClientBuilder) NewMarketplaceClient(token string, tokenClaim
 
 		var transport http.RoundTripper = &http.Transport{
 			TLSClientConfig: tlsConfig,
+			Proxy:           http.ProxyFromEnvironment,
 		}
 
 		if token != "" {
@@ -159,6 +160,7 @@ func (b *MarketplaceClientBuilder) NewMarketplaceClient(token string, tokenClaim
 
 	var transport http.RoundTripper = &http.Transport{
 		TLSClientConfig: tlsConfig,
+		Proxy:           http.ProxyFromEnvironment,
 	}
 
 	if token != "" {

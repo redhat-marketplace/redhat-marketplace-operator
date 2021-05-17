@@ -26,7 +26,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
-	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -120,7 +119,12 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	// run the finalizers
-	newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
+	newRazeeCrd := utils.BuildRazeeCr(
+		marketplaceConfig.Namespace,
+		marketplaceConfig.Spec.ClusterUUID,
+		marketplaceConfig.Spec.DeploySecretName,
+		marketplaceConfig.Spec.Features,
+	)
 	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
 	// Add finalizer and execute it if the resource is deleted
 	if result, _ := cc.Do(
@@ -177,24 +181,28 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	// the member operator's ClusterServiceVersion (CSV) instances and is projected into their deployments.
 	// The operatorGroupNamespace is guaranteed to be the same as the marketplaceConfig, unnecessary to use downwardAPI
 
-	operatorGroupName, _ := getOperatorGroup()
-	if len(operatorGroupName) != 0 {
-		operatorGroup := &olmv1.OperatorGroup{}
+	// Needs work; modifying og creates issue with reinstalls
+	// operatorGroupName, _ := getOperatorGroup()
+	// if len(operatorGroupName) != 0 {
+	// 	operatorGroup := &olmv1.OperatorGroup{}
 
-		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: operatorGroupName, Namespace: marketplaceConfig.Namespace}, operatorGroup)
+	// 	err = r.Client.Get(context.TODO(),
+	// 		types.NamespacedName{Name: operatorGroupName, Namespace: marketplaceConfig.Namespace},
+	// 		operatorGroup,
+	// 	)
 
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return reconcile.Result{}, err
-		} else if err == nil {
-			operatorGroup.Spec.TargetNamespaces = []string{}
-			operatorGroup.Spec.Selector = marketplaceConfig.Spec.NamespaceLabelSelector
+	// 	if err != nil && !k8serrors.IsNotFound(err) {
+	// 		return reconcile.Result{}, err
+	// 	} else if err == nil {
+	// 		operatorGroup.Spec.TargetNamespaces = []string{}
+	// 		operatorGroup.Spec.Selector = marketplaceConfig.Spec.NamespaceLabelSelector
 
-			err = r.Client.Update(context.TODO(), operatorGroup)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-		}
-	}
+	// 		err = r.Client.Update(context.TODO(), operatorGroup)
+	// 		if err != nil {
+	// 			return reconcile.Result{}, err
+	// 		}
+	// 	}
+	// }
 
 	// Removing EnabledMetering field so setting them all to nil
 	// this will no longer do anything
@@ -240,84 +248,91 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	//Fetch the Secret with name redhat-marketplace-pull-secret
-	secret := v1.Secret{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RHMPullSecretName, Namespace: request.Namespace}, &secret)
+	secret := &v1.Secret{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RHMPullSecretName, Namespace: request.Namespace}, secret)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
+			secret = nil
 			reqLogger.Error(err, "error finding", "name", utils.RHMPullSecretName)
-			return reconcile.Result{}, nil
-		}
-
-		reqLogger.Error(err, "error fetching secret")
-		return reconcile.Result{}, err
-	}
-
-	pullSecret, tokenIsValid := secret.Data[utils.RHMPullSecretKey]
-	if !tokenIsValid {
-		err := errors.New("rhm pull secret not found")
-		reqLogger.Error(err, "couldn't find pull secret")
-	}
-
-	var updateInstanceSpec bool
-	if clusterDisplayName, ok := secret.Data[utils.ClusterDisplayNameKey]; ok {
-		count := utf8.RuneCountInString(string(clusterDisplayName))
-		clusterName := strings.Trim(string(clusterDisplayName), "\n")
-
-		if !reflect.DeepEqual(marketplaceConfig.Spec.ClusterName, clusterName) {
-			if count <= 256 {
-				marketplaceConfig.Spec.ClusterName = clusterName
-				updateInstanceSpec = true
-				reqLogger.Info("setting ClusterName", "name", clusterName)
-			} else {
-				err := errors.New("CLUSTER_DISPLAY_NAME exceeds 256 chars")
-				reqLogger.Error(err, "name", clusterDisplayName)
-			}
-		}
-	}
-
-	token := string(pullSecret)
-	tokenClaims, err := marketplace.GetJWTTokenClaim(token)
-	if err != nil {
-		tokenIsValid = false
-		reqLogger.Error(err, "error parsing token")
-
-	}
-
-	if tokenIsValid {
-		marketplaceClient, err := r.mclientBuilder.NewMarketplaceClient(token, tokenClaims)
-
-		if err != nil {
-			reqLogger.Error(err, "error constructing marketplace client")
-			return reconcile.Result{Requeue: true}, nil
-		}
-
-		willBeDeleted := marketplaceConfig.GetDeletionTimestamp() != nil
-		if willBeDeleted {
-			result := r.unregister(marketplaceConfig, marketplaceClient, request, reqLogger)
-			if !result.Is(Continue) {
-				return result.Return()
-			}
-		}
-	}
-
-	if marketplaceConfig.Labels == nil {
-		marketplaceConfig.Labels = make(map[string]string)
-	}
-
-	if v, ok := marketplaceConfig.Labels[utils.RazeeWatchResource]; !ok || v != utils.RazeeWatchLevelDetail {
-		updateInstanceSpec = true
-		marketplaceConfig.Labels[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
-	}
-
-	if updateInstanceSpec {
-		err = r.Client.Update(context.TODO(), marketplaceConfig)
-
-		if err != nil {
-			reqLogger.Error(err, "Failed to update the marketplace config")
+		} else {
+			reqLogger.Error(err, "error fetching secret")
 			return reconcile.Result{}, err
 		}
+	}
 
-		return reconcile.Result{Requeue: true}, nil
+	var token string
+	var tokenIsValid bool
+	var tokenClaims *marketplace.MarketplaceClaims
+
+	if secret != nil {
+		var pullSecret []byte
+		pullSecret, tokenIsValid = secret.Data[utils.RHMPullSecretKey]
+		if !tokenIsValid {
+			err := errors.New("rhm pull secret not found")
+			reqLogger.Error(err, "couldn't find pull secret")
+		}
+
+		var updateInstanceSpec bool
+		if clusterDisplayName, ok := secret.Data[utils.ClusterDisplayNameKey]; ok {
+			count := utf8.RuneCountInString(string(clusterDisplayName))
+			clusterName := strings.Trim(string(clusterDisplayName), "\n")
+
+			if !reflect.DeepEqual(marketplaceConfig.Spec.ClusterName, clusterName) {
+				if count <= 256 {
+					marketplaceConfig.Spec.ClusterName = clusterName
+					updateInstanceSpec = true
+					reqLogger.Info("setting ClusterName", "name", clusterName)
+				} else {
+					err := errors.New("CLUSTER_DISPLAY_NAME exceeds 256 chars")
+					reqLogger.Error(err, "name", clusterDisplayName)
+				}
+			}
+		}
+
+		token := string(pullSecret)
+		tokenClaims, err := marketplace.GetJWTTokenClaim(token)
+		if err != nil {
+			tokenIsValid = false
+			reqLogger.Error(err, "error parsing token")
+
+		}
+
+		if tokenIsValid {
+			marketplaceClient, err := r.mclientBuilder.NewMarketplaceClient(token, tokenClaims)
+
+			if err != nil {
+				reqLogger.Error(err, "error constructing marketplace client")
+				return reconcile.Result{Requeue: true}, nil
+			}
+
+			willBeDeleted := marketplaceConfig.GetDeletionTimestamp() != nil
+			if willBeDeleted {
+				result := r.unregister(marketplaceConfig, marketplaceClient, request, reqLogger)
+				if !result.Is(Continue) {
+					return result.Return()
+				}
+			}
+		}
+
+		if marketplaceConfig.Labels == nil {
+			marketplaceConfig.Labels = make(map[string]string)
+		}
+
+		if v, ok := marketplaceConfig.Labels[utils.RazeeWatchResource]; !ok || v != utils.RazeeWatchLevelDetail {
+			updateInstanceSpec = true
+			marketplaceConfig.Labels[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
+		}
+
+		if updateInstanceSpec {
+			err = r.Client.Update(context.TODO(), marketplaceConfig)
+
+			if err != nil {
+				reqLogger.Error(err, "Failed to update the marketplace config")
+				return reconcile.Result{}, err
+			}
+
+			return reconcile.Result{Requeue: true}, nil
+		}
 	}
 
 	if marketplaceConfig.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionInstalling) {
