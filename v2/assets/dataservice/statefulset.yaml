@@ -28,14 +28,22 @@ spec:
               topologyKey: kubernetes.io/hostname
             weight: 100
       containers:
+      - image: redhat-marketplace-authcheck
+        imagePullPolicy: IfNotPresent
+        name: authcheck
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        terminationMessagePolicy: FallbackToLogsOnError      
       - command: ['/bin/sh']
-        args: ['-c', 'if [ "$HOSTNAME" != "rhm-dqlite-0" ]; then DQLITE_JOIN="--join rhm-dqlite-0.rhm-dqlite:9001"; fi; exec /opt/main --api $PODIP:8001 --db $PODIP:9001 --dir /data -v $DQLITE_JOIN']
+        args: ['-c', 'if [ "$HOSTNAME" != "rhm-dqlite-0" ]; then DQLITE_JOIN="--join rhm-dqlite-0.rhm-dqlite:9001"; fi; exec /opt/main --api 127.0.0.1:8001 --db $PODIP:9001 --dir /data -v $DQLITE_JOIN']
         env:
         - name: PODIP
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        image: rhm-dqlite
+        image: redhat-marketplace-dqlite
         imagePullPolicy: IfNotPresent
         name: rhm-dqlite
         ports:
@@ -50,6 +58,41 @@ spec:
         volumeMounts:
         - name: rhm-dqlite
           mountPath: /data
+      - args:
+          - --logtostderr
+          - --secure-listen-address=:8002
+          - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+          - --upstream=http://127.0.0.1:8001/
+          - --tls-cert-file=/etc/tls/private/tls.crt
+          - --tls-private-key-file=/etc/tls/private/tls.key
+          - --upstream-ca-file=/etc/configmaps/serving-cert-ca-bundle/service-ca.crt
+        image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
+        imagePullPolicy: IfNotPresent
+        name: kube-rbac-proxy-1
+        ports:
+          - containerPort: 8002
+            name: https
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        securityContext: {}
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+          - mountPath: /etc/tls/private
+            name: rhm-dqlite-tls
+            readOnly: false
+          - mountPath: /etc/configmaps/serving-cert-ca-bundle
+            name: serving-certs-ca-bundle
+            readOnly: false        
+      volumes:
+        - name: rhm-dqlite-tls
+          secret:
+            secretName: rhm-dqlite-tls
+        - configMap:
+            name: serving-certs-ca-bundle
+          name: serving-certs-ca-bundle
+      serviceAccountName: redhat-marketplace-operator
   volumeClaimTemplates:
   - metadata:
       name: rhm-dqlite

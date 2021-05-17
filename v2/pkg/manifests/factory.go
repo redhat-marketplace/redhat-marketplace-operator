@@ -94,6 +94,15 @@ func NewFactory(
 	}
 }
 
+func find(slice []string, val string) (int, bool) {
+	for i, item := range slice {
+		if item == val {
+			return i, true
+		}
+	}
+	return -1, false
+}
+
 func (f *Factory) ReplaceImages(container *corev1.Container) {
 	switch {
 	case strings.HasPrefix(container.Name, "kube-rbac-proxy"):
@@ -102,7 +111,12 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 		container.Image = f.config.RelatedImages.MetricState
 	case container.Name == "authcheck":
 		container.Image = f.config.RelatedImages.AuthChecker
-		container.Args = append(container.Args, "--namespace", f.namespace)
+
+		_, argFound := find(container.Args, "--namespace")
+		if !argFound {
+			container.Args = append(container.Args, "--namespace", f.namespace)
+		}
+
 		container.LivenessProbe = &corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
