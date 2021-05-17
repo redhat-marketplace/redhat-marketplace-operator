@@ -131,17 +131,18 @@ func TestList(t *testing.T) {
 	od, _ := os.Getwd()
 	tests := []struct {
 		name   string
-		lc     *Listconfig
+		lc     *ListClient
 		res    []string
 		errMsg string
 	}{
 		{
 			name: "fetch one of the files based on metadata and store to csv",
-			lc: &Listconfig{
-				filter:    []string{"size GREATER_THAN 100", "type CONTAINS report"},
-				sort:      []string{},
-				outputDir: od,
-				outputCSV: true,
+			lc: &ListClient{
+				Filter:    []string{"size GREATER_THAN 100", "type CONTAINS report"},
+				Sort:      []string{},
+				OutputDir: od,
+				OutputCSV: true,
+				FileName:  "files.csv",
 				conn:      conn,
 				client:    listFilMetaDataCLient,
 			},
@@ -149,55 +150,55 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "fetch one of the files based on metadata",
-			lc: &Listconfig{
-				filter: []string{"size GREATER_THAN 100", "type CONTAINS report"},
-				sort:   []string{},
+			lc: &ListClient{
+				Filter: []string{"size GREATER_THAN 100", "type CONTAINS report"},
+				Sort:   []string{},
 				conn:   conn,
 				client: listFilMetaDataCLient,
 			},
 		},
 		{
 			name: "all files are returned when no conditions are specified",
-			lc: &Listconfig{
-				filter: []string{},
-				sort:   []string{},
+			lc: &ListClient{
+				Filter: []string{},
+				Sort:   []string{},
 				conn:   conn,
 				client: listFilMetaDataCLient,
 			},
 		},
 		{
 			name: "fetch latest file based on name",
-			lc: &Listconfig{
-				filter: []string{"provided_name EQUAL reports.zip", "size GREATER_THAN 100", "version EQUAL 1"},
-				sort:   []string{"provided_name ASC"},
+			lc: &ListClient{
+				Filter: []string{"provided_name EQUAL reports.zip", "size GREATER_THAN 100", "version EQUAL 1"},
+				Sort:   []string{"provided_name ASC"},
 				conn:   conn,
 				client: listFilMetaDataCLient,
 			},
 		},
 		{
 			name: "fetch file for quoted metadata key value",
-			lc: &Listconfig{
-				filter: []string{"'description    ' CONTAINS 'with builtin'"},
-				sort:   []string{},
+			lc: &ListClient{
+				Filter: []string{"'description    ' CONTAINS 'with builtin'"},
+				Sort:   []string{},
 				conn:   conn,
 				client: listFilMetaDataCLient,
 			},
 		},
 		{
 			name: "fetch file marked for deletion",
-			lc: &Listconfig{
-				filter:              []string{"provided_name CONTAINS 'delete'"},
-				sort:                []string{},
-				includeDeletedFiles: true,
+			lc: &ListClient{
+				Filter:              []string{"provided_name CONTAINS 'delete'"},
+				Sort:                []string{},
+				IncludeDeletedFiles: true,
 				conn:                conn,
 				client:              listFilMetaDataCLient,
 			},
 		},
 		{
-			name: "invalid filter arguments",
-			lc: &Listconfig{
-				filter: []string{"size GREATER_THAN 10 0"},
-				sort:   []string{},
+			name: "invalid Filter arguments",
+			lc: &ListClient{
+				Filter: []string{"size GREATER_THAN 10 0"},
+				Sort:   []string{},
 				conn:   conn,
 				client: listFilMetaDataCLient,
 			},
@@ -205,9 +206,9 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "invalid filter operation",
-			lc: &Listconfig{
-				filter: []string{"size GREATERTHAN 100"},
-				sort:   []string{},
+			lc: &ListClient{
+				Filter: []string{"size GREATERTHAN 100"},
+				Sort:   []string{},
 				conn:   conn,
 				client: listFilMetaDataCLient,
 			},
@@ -215,9 +216,9 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "invalid date format",
-			lc: &Listconfig{
-				filter: []string{"created_at GREATER_THAN 21-4-13"},
-				sort:   []string{},
+			lc: &ListClient{
+				Filter: []string{"created_at GREATER_THAN 21-4-13"},
+				Sort:   []string{},
 				conn:   conn,
 				client: listFilMetaDataCLient,
 			},
@@ -225,9 +226,9 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "invalid sort arguments",
-			lc: &Listconfig{
-				filter: []string{},
-				sort:   []string{"asd"},
+			lc: &ListClient{
+				Filter: []string{},
+				Sort:   []string{"asd"},
 				conn:   conn,
 				client: listFilMetaDataCLient,
 			},
@@ -235,9 +236,9 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "invalid sort operation",
-			lc: &Listconfig{
-				filter: []string{},
-				sort:   []string{"size ASCENDING"},
+			lc: &ListClient{
+				Filter: []string{},
+				Sort:   []string{"size ASCENDING"},
 				conn:   conn,
 				client: listFilMetaDataCLient,
 			},
@@ -245,9 +246,9 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "invalid filter operation using empty key/value",
-			lc: &Listconfig{
-				filter: []string{"'    ' EQUAL '   ' "},
-				sort:   []string{},
+			lc: &ListClient{
+				Filter: []string{"'    ' EQUAL '   ' "},
+				Sort:   []string{},
 				conn:   conn,
 				client: listFilMetaDataCLient,
 			},
@@ -255,9 +256,9 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "invalid filter operation using empty filter arguments list",
-			lc: &Listconfig{
-				filter: []string{" "},
-				sort:   []string{},
+			lc: &ListClient{
+				Filter: []string{" "},
+				Sort:   []string{},
 				conn:   conn,
 				client: listFilMetaDataCLient,
 			},
@@ -265,9 +266,9 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "invalid sort operation using empty sort key/operation",
-			lc: &Listconfig{
-				filter: []string{},
-				sort:   []string{" ' ' ASC"},
+			lc: &ListClient{
+				Filter: []string{},
+				Sort:   []string{" ' ' ASC"},
 				conn:   conn,
 				client: listFilMetaDataCLient,
 			},
@@ -275,9 +276,9 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "invalid sort operation using empty sort arguments list",
-			lc: &Listconfig{
-				filter: []string{},
-				sort:   []string{""},
+			lc: &ListClient{
+				Filter: []string{},
+				Sort:   []string{""},
 				conn:   conn,
 				client: listFilMetaDataCLient,
 			},
@@ -298,8 +299,8 @@ func TestList(t *testing.T) {
 				t.Errorf("Expected error: %v was never received!", tt.errMsg)
 			}
 
-			if tt.lc.outputCSV {
-				fp := tt.lc.outputDir + string(os.PathSeparator) + fileName
+			if tt.lc.OutputCSV {
+				fp := tt.lc.OutputDir + string(os.PathSeparator) + tt.lc.FileName
 				f, err := os.Open(fp)
 				if err != nil {
 					t.Errorf("Error opening file: %v", err)
@@ -310,6 +311,7 @@ func TestList(t *testing.T) {
 				if err != nil {
 					t.Errorf("Error reading file: %v", err)
 				}
+
 				i := 0
 				for {
 					record, err := r.Read()
@@ -321,6 +323,7 @@ func TestList(t *testing.T) {
 					}
 					i++
 				}
+
 				f.Close()
 				err = os.Remove(fp)
 				if err != nil {
