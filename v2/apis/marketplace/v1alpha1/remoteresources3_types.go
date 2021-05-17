@@ -163,7 +163,7 @@ type RemoteResourceS3Status struct {
 	Touched *bool `json:"touched,omitempty"`
 	// RazeeLogs is the logs from the controller
 	RazeeLogs RazeeLogs `json:"razee-logs,omitempty"`
-	// Conditions represent the latest available observations of an object's stateonfig
+	// Conditions represent the latest available observations of an object's state
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:io.kubernetes.conditions"
 	// +optional
