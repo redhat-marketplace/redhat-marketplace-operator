@@ -30,5 +30,7 @@ message FileInfo {
   bool compression = 6;
   string compressionType = 7;
 
+  string checksum = 8;
+
   map<string,string> metadata = 10;
 }
