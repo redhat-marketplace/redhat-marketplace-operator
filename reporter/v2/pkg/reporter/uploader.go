@@ -28,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
@@ -128,8 +129,9 @@ func NewAirGapUploader (config *AirGapUploaderConfig )(Uploader, error){
 
 func (a *AirGapUploader) UploadFile(path string) error {
 	//Create socket connection
-	var address  = "rhm-dqlite.openshift-redhat-marketplace.svc.local" //TODO: get address of the ingress for the data services
-	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())
+	logger.Info("starting upload to dqlite api")
+	var address  = "172.21.2.251:8001:8001" 
+	conn, err := grpc.Dial(address, grpc.WithInsecure(),grpc.WithBlock(),grpc.WithTimeout(time.Second * 20))
 	if err != nil {
 		// log.Fatalf("did not connect: %v", err)
 		logger.Error(err,"failed to establish connection")
@@ -150,6 +152,7 @@ func (a *AirGapUploader) UploadFile(path string) error {
 }
 
 func chunkAndUpload(uploadClient filesender.FileSender_UploadFileClient, path string, m map[string]string) error {
+	logger.Info("starting chunk and upload")
 	file, err := os.Open(path)
 	if err != nil {
 		return err
