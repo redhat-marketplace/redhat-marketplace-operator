@@ -4,12 +4,11 @@ go 1.15
 
 require (
 	emperror.dev/errors v0.8.0
-	github.com/Masterminds/semver v1.5.0 // indirect
-	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/banzaicloud/k8s-objectmatcher v1.5.0
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/caarlos0/env/v6 v6.4.0
+	github.com/cespare/xxhash v1.1.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-logr/logr v0.3.0
 	github.com/go-logr/zapr v0.3.0 // indirect
@@ -40,7 +39,7 @@ require (
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/mod v0.4.0 // indirect
-	golang.org/x/text v0.3.4 // indirect
+	golang.org/x/net v0.0.0-20201202161906-c7110b5ffcbb
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	golang.org/x/tools v0.1.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect

@@ -3,9 +3,6 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.0
-    productID: 068a62892a1e4db39641342e592daa25
-    productMetric: FREE
-    productName: IBM Cloud Platform Common Services
   creationTimestamp: null
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
@@ -206,6 +203,34 @@ spec:
               description: Total number of non-terminated pods targeted by this Prometheus deployment (their labels match the selector).
               format: int32
               type: integer
+            targets:
+              description: Targets is a list of prometheus activeTargets
+              items:
+                description: Target is used by meterbase as a list of prometheus activeTargets with failed health, without DiscoveredLabels
+                properties:
+                  health:
+                    description: HealthStatus models the health status of a scrape target.
+                    type: string
+                  labels:
+                    additionalProperties:
+                      description: A LabelValue is an associated value for a LabelName.
+                      type: string
+                    description: A LabelSet is a collection of LabelName and LabelValue pairs.  The LabelSet may be fully-qualified down to the point where it may resolve to a single Metric in the data store or not.  All operations that occur within the realm of a LabelSet can emit a vector of Metric entities to which the LabelSet may match.
+                    type: object
+                  lastError:
+                    type: string
+                  lastScrape:
+                    type: string
+                  scrapeUrl:
+                    type: string
+                required:
+                - health
+                - labels
+                - lastError
+                - lastScrape
+                - scrapeUrl
+                type: object
+              type: array
             unavailableReplicas:
               description: Total number of unavailable pods targeted by this Prometheus deployment.
               format: int32

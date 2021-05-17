@@ -46,20 +46,20 @@ func DeleteAction(
 }
 
 func (d *deleteAction) Bind(result *ExecResult) {
-	d.lastResult = result
+	d.LastResult = result
 }
 
 func (d *deleteAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 	if isNil(d.obj) {
 		err := emperrors.New("object to delete is nil")
-		return NewExecResult(Error, reconcile.Result{}, err), err
+		return NewExecResult(Error, reconcile.Result{}, &d.BaseAction, err), err
 	}
 
 	err := c.client.Delete(ctx, d.obj, d.WithDeleteOptions...)
 
 	if err != nil {
-		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error while deleting")
+		return NewExecResult(Error, reconcile.Result{}, &d.BaseAction, err), emperrors.Wrap(err, "error while deleting")
 	}
 
-	return NewExecResult(Continue, reconcile.Result{}, nil), nil
+	return NewExecResult(Continue, reconcile.Result{}, &d.BaseAction, nil), nil
 }

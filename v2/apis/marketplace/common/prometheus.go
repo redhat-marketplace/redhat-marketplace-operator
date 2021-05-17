@@ -20,7 +20,18 @@ import (
 	"time"
 
 	"emperror.dev/errors"
+	"github.com/cespare/xxhash"
+	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/model"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+type WorkloadType string
+
+const (
+	WorkloadTypePod     WorkloadType = "Pod"
+	WorkloadTypeService WorkloadType = "Service"
+	WorkloadTypePVC     WorkloadType = "PersistentVolumeClaim"
 )
 
 type MeterDefPrometheusLabels struct {
@@ -29,7 +40,7 @@ type MeterDefPrometheusLabels struct {
 	MeterDefNamespace string `json:"namespace" mapstructure:"namespace"`
 
 	// Deprecated: metric is now the primary name
-	WorkloadName      string        `json:"workload_name" mapstructure:"workload_name"`
+	WorkloadName      string        `json:"workload_name" mapstructure:"workload_name" template:""`
 	WorkloadType      string        `json:"workload_type" mapstructure:"workload_type"`
 	MeterGroup        string        `json:"meter_group" mapstructure:"meter_group" template:""`
 	MeterKind         string        `json:"meter_kind" mapstructure:"meter_kind" template:""`
@@ -39,6 +50,12 @@ type MeterDefPrometheusLabels struct {
 	MetricQuery       string        `json:"metric_query" mapstructure:"metric_query"`
 	MetricWithout     JSONArray     `json:"metric_without" mapstructure:"metric_without"`
 	MetricGroupBy     JSONArray     `json:"metric_group_by,omitempty" mapstructure:"metric_group_by"`
+
+	ResourceName      string `json:"resource_name,omitempty"`
+	ResourceNamespace string `json:"resource_namespace,omitempty"`
+
+	Label string `json:"label,omitempty" mapstructure:"label,omitempty"  template:""`
+	Unit  string `json:"unit,omitempty" mapstructure:"unit,omitempty"  template:""`
 
 	DisplayName        string `json:"display_name,omitempty" mapstructure:"display_name,omitempty" template:""`
 	MeterDescription   string `json:"meter_description,omitempty" mapstructure:"meter_description,omitempty" template:""`
@@ -92,6 +109,130 @@ func (m *MeterDefPrometheusLabels) FromLabels(labels interface{}) error {
 	*m = newObj
 
 	return nil
+}
+
+const justDateFormat = "2006-01-02"
+
+func (m *MeterDefPrometheusLabels) PrintTemplate(
+	values *ReportLabels,
+	pair model.SamplePair,
+) (*MeterDefPrometheusLabelsTemplated, error) {
+	tpl, err := NewTemplate(m)
+
+	if err != nil {
+		return nil, err
+	}
+
+	localM := *m
+	err = tpl.Execute(&localM, values)
+
+	//fmt.Println(localM)
+
+	if err != nil {
+		return nil, err
+	}
+
+	result := &MeterDefPrometheusLabelsTemplated{
+		MeterDefPrometheusLabels: &localM,
+	}
+
+	// set resourceNamespace
+	{
+		namespace, ok := values.Label["namespace"]
+
+		if ok {
+			result.ResourceNamespace = namespace.(string)
+		}
+	}
+
+	// set resourceName
+	{
+		var ok bool
+		var objName interface{}
+
+		switch {
+		case m.WorkloadType == string(WorkloadTypePVC):
+			objName, ok = values.Label["persistentvolumeclaim"]
+		case m.WorkloadType == string(WorkloadTypePod):
+			objName, ok = values.Label["pod"]
+		case m.WorkloadType == string(WorkloadTypeService):
+			objName, ok = values.Label["service"]
+		}
+
+		if ok {
+			result.ResourceName = objName.(string)
+		}
+	}
+
+	result.LabelMap = values.Label
+
+	// set result
+	if result.Label == "" {
+		result.Label = result.Metric
+	}
+
+	// set value
+	value := pair.Value.String()
+	if result.ValueLabelOverride != "" {
+		value = result.ValueLabelOverride
+	}
+
+	result.Value = value
+
+	// set intervals
+	intervalStart := pair.Timestamp.Time().UTC()
+	intervalEnd := pair.Timestamp.Add(result.MetricPeriod.Duration).Time().UTC()
+
+	if m.DateLabelOverride != "" {
+		t, err := time.Parse(time.RFC3339, result.DateLabelOverride)
+
+		if err != nil {
+			t2, err2 := time.Parse(justDateFormat, result.DateLabelOverride)
+
+			if err2 != nil {
+				return nil, errors.Combine(err, err2)
+			}
+
+			t = t2
+		}
+
+		intervalStart = t
+		intervalEnd = t.Add(result.MetricPeriod.Duration)
+	}
+
+	result.IntervalStart = intervalStart
+	result.IntervalEnd = intervalEnd
+
+	return result, nil
+}
+
+// MeterDefPrometheusLabelsTemplated is the values of a meter definition
+// templated and with values set ready to be added.
+type MeterDefPrometheusLabelsTemplated struct {
+	*MeterDefPrometheusLabels
+
+	IntervalStart, IntervalEnd time.Time
+	Value                      string
+	LabelMap                   map[string]interface{}
+
+	hash string
+}
+
+func (m *MeterDefPrometheusLabelsTemplated) Hash() string {
+	if m.hash == "" {
+		hash := xxhash.New()
+		hash.Write([]byte(m.IntervalStart.String()))
+		hash.Write([]byte(m.IntervalEnd.String()))
+		hash.Write([]byte(m.WorkloadName))
+		hash.Write([]byte(m.WorkloadType))
+		hash.Write([]byte(m.MeterGroup))
+		hash.Write([]byte(m.MeterKind))
+		hash.Write([]byte(m.Metric))
+		hash.Write([]byte(m.Unit))
+		m.hash = fmt.Sprintf("%x", hash.Sum64())
+	}
+
+	return m.hash
 }
 
 type MetricPeriod metav1.Duration
@@ -185,4 +326,15 @@ type Result struct {
 type ResultValues struct {
 	Timestamp int64  `json:"timestamp"`
 	Value     string `json:"value"`
+}
+
+// Target is used by meterbase as a list of prometheus activeTargets with failed health, without DiscoveredLabels
+// +k8s:openapi-gen=true
+// +kubebuilder:object:generate:=true
+type Target struct {
+	Labels     model.LabelSet            `json:"labels"`
+	ScrapeURL  string                    `json:"scrapeUrl"`
+	LastError  string                    `json:"lastError"`
+	LastScrape string                    `json:"lastScrape"`
+	Health     prometheusv1.HealthStatus `json:"health"`
 }

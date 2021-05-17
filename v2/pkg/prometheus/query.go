@@ -335,3 +335,21 @@ func (p *PrometheusAPI) QueryMeterDefinitions(query *MeterDefinitionQuery) (mode
 
 	return result, warnings, nil
 }
+
+// return LabelValues/MeterDefinition names seen in the last hour
+func (p *PrometheusAPI) MeterDefLabelValues() (model.LabelValues, v1.Warnings, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	labelValues, warnings, err := p.LabelValues(ctx, "meter_def_name", time.Now().Add(-time.Hour), time.Now())
+
+	if err != nil {
+		logger.Error(err, "querying prometheus", "warnings", warnings)
+		return nil, warnings, toError(err)
+	}
+	if len(warnings) > 0 {
+		logger.Info("warnings", "warnings", warnings)
+	}
+
+	return labelValues, warnings, nil
+}

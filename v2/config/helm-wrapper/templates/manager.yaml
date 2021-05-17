@@ -45,7 +45,9 @@ spec:
             - name: RELATED_IMAGE_AUTHCHECK
               value: {{ .Values.authCheckImage }}
             - name: WATCH_NAMESPACE
-              value: ""
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.annotations['olm.targetNamespaces']
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:
@@ -66,5 +68,9 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.labels['olm.owner.kind']
+            - name: OPERATOR_GROUP
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.annotations['olm.operatorGroup']
       terminationGracePeriodSeconds: 10
       serviceAccountName: operator

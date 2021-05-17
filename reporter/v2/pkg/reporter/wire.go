@@ -58,6 +58,7 @@ func NewReporter(
 		getMarketplaceReport,
 		getPrometheusService,
 		getMarketplaceConfig,
+		getMeterDefinitionReferences,
 		ReporterSet,
 		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
 	))

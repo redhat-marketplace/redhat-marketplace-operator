@@ -77,6 +77,8 @@ func (r *RHMSubscriptionController) SetupWithManager(mgr manager.Manager) error 
 		Complete(r)
 }
 
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=subscriptions,verbs=get;list;watch;update;patch
+
 // Reconcile reads the state of the cluster for a Subscription object
 // and makes changes based on the state read and what is in the Subscription.Spec
 func (r *RHMSubscriptionController) Reconcile(request reconcile.Request) (reconcile.Result, error) {

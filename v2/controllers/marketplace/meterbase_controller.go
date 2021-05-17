@@ -16,13 +16,14 @@ package marketplace
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
 	"time"
 
+	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
@@ -37,6 +38,7 @@ import (
 	merrors "emperror.dev/errors"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
@@ -50,6 +52,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -71,14 +74,14 @@ var _ reconcile.Reconciler = &MeterBaseReconciler{}
 type MeterBaseReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	Client client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
-	CC     ClientCommandRunner
-
-	cfg     *config.OperatorConfig
-	factory *manifests.Factory
-	patcher patch.Patcher
+	Client        client.Client
+	Scheme        *runtime.Scheme
+	Log           logr.Logger
+	CC            ClientCommandRunner
+	cfg           *config.OperatorConfig
+	factory       *manifests.Factory
+	patcher       patch.Patcher
+	kubeInterface kubernetes.Interface
 }
 
 func (r *MeterBaseReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
@@ -104,6 +107,11 @@ func (r *MeterBaseReconciler) InjectPatch(p patch.Patcher) error {
 
 func (r *MeterBaseReconciler) InjectFactory(f *manifests.Factory) error {
 	r.factory = f
+	return nil
+}
+
+func (r *MeterBaseReconciler) InjectKubeInterface(k kubernetes.Interface) error {
+	r.kubeInterface = k
 	return nil
 }
 
@@ -165,6 +173,28 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				ToRequests: mapFn,
 			}).Complete(r)
 }
+
+// +kubebuilder:rbac:groups="",resources=configmaps;namespaces;secrets;services,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=create;delete
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",namespace=system,resources=persistentvolumeclaims,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",namespace=system,resources=pods,verbs=get;list;watch;delete
+// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="storage.k8s.io",resources=storageclasses,verbs=get;list;watch
+// +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterbases;meterbases/status;meterbases/finalizers,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases;meterbases/status;meterbases/finalizers,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterreports,verbs=get;list
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterreports,verbs=get;list;create;delete
+// +kubebuilder:rbac:groups="monitoring.coreos.com",resources=prometheuses;servicemonitors,verbs=get;list;watch
+// +kubebuilder:rbac:groups="monitoring.coreos.com",namespace=system,resources=prometheuses;servicemonitors,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=subscriptions,verbs=get;list;watch
+// +kubebuilder:rbac:groups="operators.coreos.com",namespace=system,resources=subscriptions,verbs=get;list;watch;create
 
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
 // and what is in the MeterBase.Spec
@@ -270,7 +300,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 			return result.ReturnWithError(merrors.Wrap(result, "error creating prometheus"))
 		}
 
-		reqLogger.Info("returing result", "result", *result)
+		reqLogger.Info("returning result", "result", *result)
 		return result.Return()
 	}
 
@@ -397,6 +427,33 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 			return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
 		}
 
+		return result.Return()
+	}
+
+	// Provide Status on Prometheus ActiveTargets
+	targets, err := r.healthBadActiveTargets(cc, request, reqLogger)
+	if err != nil {
+		return reconcile.Result{RequeueAfter: time.Minute * 1}, err
+	}
+
+	instance.Status.Targets = targets
+
+	var condition status.Condition
+	if len(targets) == 0 {
+		condition = marketplacev1alpha1.MeterBasePrometheusTargetGoodHealth
+	} else {
+		condition = marketplacev1alpha1.MeterBasePrometheusTargetBadHealth
+	}
+
+	result, _ = cc.Do(context.TODO(), UpdateStatusCondition(instance, &instance.Status.Conditions, condition))
+	if result.Is(Error) {
+		reqLogger.Error(result.GetError(), "Failed to update status condition.")
+		return result.Return()
+	}
+
+	result, _ = cc.Do(context.TODO(), UpdateAction(instance, UpdateStatusOnly(true)))
+	if result.Is(Error) {
+		reqLogger.Error(result.GetError(), "Failed to update status targets.")
 		return result.Return()
 	}
 
@@ -580,28 +637,42 @@ func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 	factory *manifests.Factory,
 ) []ClientAction {
 	reqLogger := r.Log.WithValues("Request.Namespace", instance.Namespace, "Request.Name", instance.Name)
-	nsList := &corev1.NamespaceList{}
 	cm := &corev1.ConfigMap{}
 	deployment := &appsv1.Deployment{}
 	service := &corev1.Service{}
+	nsList := &corev1.NamespaceList{}
 
 	args := manifests.CreateOrUpdateFactoryItemArgs{
 		Owner:   instance,
 		Patcher: r.patcher,
 	}
 
-	nsLabelSelector, _ := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
-		MatchExpressions: []metav1.LabelSelectorRequirement{
-			{
-				Key:      "openshift.io/cluster-monitoring",
-				Operator: "DoesNotExist",
-			},
-		},
-	})
+	nsValues := []string{}
 
 	return []ClientAction{
-		ListAction(nsList, client.MatchingLabelsSelector{
-			Selector: nsLabelSelector,
+		Call(func() (ClientAction, error) {
+			nsLabelSelector, _ := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      "openshift.io/cluster-monitoring",
+						Operator: "DoesNotExist",
+					},
+				},
+			})
+
+			return Do(
+				ListAction(nsList, client.MatchingLabelsSelector{
+					Selector: nsLabelSelector,
+				}),
+				Call(func() (ClientAction, error) {
+
+					for _, ns := range nsList.Items {
+						nsValues = append(nsValues, ns.Name)
+					}
+
+					return nil, nil
+				}),
+			), nil
 		}),
 		manifests.CreateIfNotExistsFactoryItem(
 			cm,
@@ -619,10 +690,6 @@ func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 		manifests.CreateOrUpdateFactoryItemAction(
 			deployment,
 			func() (runtime.Object, error) {
-				nsValues := []string{instance.Namespace}
-				for _, ns := range nsList.Items {
-					nsValues = append(nsValues, ns.Name)
-				}
 				sort.Strings(nsValues)
 				reqLogger.Info("found namespaces", "ns", nsValues)
 				return factory.NewPrometheusOperatorDeployment(nsValues)
@@ -934,6 +1001,7 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 							updateResult,
 							UpdateWithPatchAction(prometheus, types.MergePatchType, jsonPatch),
 						),
+						OnRequeue(ContinueResponse()),
 						OnError(
 							Call(func() (ClientAction, error) {
 								return UpdateStatusCondition(
@@ -1271,4 +1339,56 @@ func (r *MeterBaseReconciler) newBaseConfigMap(filename string, cr *marketplacev
 // belonging to the given prometheus CR name.
 func labelsForPrometheusOperator(name string) map[string]string {
 	return map[string]string{"prometheus": name}
+}
+
+// Return Prometheus ActiveTargets with HealthBad or Unknown status
+func (r *MeterBaseReconciler) healthBadActiveTargets(cc ClientCommandRunner, request reconcile.Request, reqLogger logr.Logger) ([]common.Target, error) {
+	targets := []common.Target{}
+
+	prometheusAPI, err := prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, request)
+	if err != nil {
+		return []common.Target{}, err
+	}
+
+	reqLogger.Info("getting target discovery from prometheus")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	targetsResult, err := prometheusAPI.Targets(ctx)
+
+	if err != nil {
+		reqLogger.Error(err, "prometheus.Targets()")
+		returnErr := errors.Wrap(err, "error with targets query")
+		return targets, returnErr
+	}
+
+	for _, activeTarget := range targetsResult.Active {
+		if activeTarget.Health != prometheusv1.HealthGood {
+			targets = append(targets,
+				common.Target{
+					Labels:     activeTarget.Labels,
+					ScrapeURL:  activeTarget.ScrapeURL,
+					LastError:  activeTarget.LastError,
+					LastScrape: activeTarget.LastScrape.String(),
+					Health:     activeTarget.Health,
+				},
+			)
+		}
+	}
+
+	return targets, nil
+}
+
+// getWatchNamespace returns the Namespace the operator should be watching for changes
+func getWatchNamespace() (string, error) {
+	// WatchNamespaceEnvVar is the constant for env variable WATCH_NAMESPACE
+	// which specifies the Namespace to watch.
+	// An empty value means the operator is running with cluster scope.
+	var watchNamespaceEnvVar = "WATCH_NAMESPACE"
+
+	ns, found := os.LookupEnv(watchNamespaceEnvVar)
+	if !found {
+		return "", fmt.Errorf("%s must be set", watchNamespaceEnvVar)
+	}
+	return ns, nil
 }

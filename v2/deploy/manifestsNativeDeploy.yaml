@@ -90,6 +90,51 @@ spec:
               description: InstallIBMCatalogSource is the flag that indicates if the
                 IBM Catalog Source is installed
               type: boolean
+            namespaceLabelSelector:
+              description: NamespaceLabelSelector is a LabelSelector that overrides
+                the default LabelSelector used to build the OperatorGroup Namespace
+                list
+              properties:
+                matchExpressions:
+                  description: matchExpressions is a list of label selector requirements.
+                    The requirements are ANDed.
+                  items:
+                    description: A label selector requirement is a selector that contains
+                      values, a key, and an operator that relates the key and values.
+                    properties:
+                      key:
+                        description: key is the label key that the selector applies
+                          to.
+                        type: string
+                      operator:
+                        description: operator represents a key's relationship to a
+                          set of values. Valid operators are In, NotIn, Exists and
+                          DoesNotExist.
+                        type: string
+                      values:
+                        description: values is an array of string values. If the operator
+                          is In or NotIn, the values array must be non-empty. If the
+                          operator is Exists or DoesNotExist, the values array must
+                          be empty. This array is replaced during a strategic merge
+                          patch.
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - key
+                    - operator
+                    type: object
+                  type: array
+                matchLabels:
+                  additionalProperties:
+                    type: string
+                  description: matchLabels is a map of {key,value} pairs. A single
+                    {key,value} in the matchLabels map is equivalent to an element
+                    of matchExpressions, whose key field is "key", the operator is
+                    "In", and the values array contains only "value". The requirements
+                    are ANDed.
+                  type: object
+              type: object
             rhmAccountID:
               description: RhmAccountID is the Red Hat Marketplace Account identifier
               type: string
@@ -499,6 +544,41 @@ spec:
                 deployment (their labels match the selector).
               format: int32
               type: integer
+            targets:
+              description: Targets is a list of prometheus activeTargets
+              items:
+                description: Target is used by meterbase as a list of prometheus activeTargets
+                  with failed health, without DiscoveredLabels
+                properties:
+                  health:
+                    description: HealthStatus models the health status of a scrape
+                      target.
+                    type: string
+                  labels:
+                    additionalProperties:
+                      description: A LabelValue is an associated value for a LabelName.
+                      type: string
+                    description: A LabelSet is a collection of LabelName and LabelValue
+                      pairs.  The LabelSet may be fully-qualified down to the point
+                      where it may resolve to a single Metric in the data store or
+                      not.  All operations that occur within the realm of a LabelSet
+                      can emit a vector of Metric entities to which the LabelSet may
+                      match.
+                    type: object
+                  lastError:
+                    type: string
+                  lastScrape:
+                    type: string
+                  scrapeUrl:
+                    type: string
+                required:
+                - health
+                - labels
+                - lastError
+                - lastScrape
+                - scrapeUrl
+                type: object
+              type: array
             unavailableReplicas:
               description: Total number of unavailable pods targeted by this Prometheus
                 deployment.
@@ -881,6 +961,40 @@ spec:
                   - type
                   type: object
                 type: array
+              results:
+                description: Results is a list of Results that get returned from a
+                  query to prometheus
+                items:
+                  description: Result is a result of a query defined on the meterdefinition.
+                    This will generate data for the previous hour on whichever workload
+                    you specify. This will allow you to check whether a query is working
+                    as intended.
+                  properties:
+                    metricName:
+                      description: MetricName is the identifier that you will use
+                        to identify your query
+                      type: string
+                    query:
+                      description: Query is the compiled query that is given to Prometheus
+                      type: string
+                    values:
+                      description: Values are the results of the query
+                      items:
+                        description: ResultValues will hold the results of the prometheus
+                          query
+                        properties:
+                          timestamp:
+                            format: int64
+                            type: integer
+                          value:
+                            type: string
+                        required:
+                        - timestamp
+                        - value
+                        type: object
+                      type: array
+                  type: object
+                type: array
               workloadResource:
                 description: WorkloadResources is the list of resoruces discovered
                   by this meter definition
@@ -1008,6 +1122,10 @@ spec:
                         type: string
                       type: array
                       x-kubernetes-list-type: set
+                    label:
+                      description: Label is the usage metrics key field on the report.
+                        Defaults to the metricId field if not provided
+                      type: string
                     metricId:
                       description: Metric is the id of the meter
                       type: string
@@ -1020,6 +1138,10 @@ spec:
                       type: string
                     query:
                       description: Query to use for prometheus to find the metrics
+                      type: string
+                    unit:
+                      description: Unit is the unit of the metrics. Defaults to the
+                        metricId field if not provided
                       type: string
                     valueLabelOverride:
                       description: ValueLabelOverride provides a means of overriding
@@ -1289,6 +1411,40 @@ spec:
                   - type
                   type: object
                 type: array
+              results:
+                description: Results is a list of Results that get returned from a
+                  query to prometheus
+                items:
+                  description: Result is a result of a query defined on the meterdefinition.
+                    This will generate data for the previous hour on whichever workload
+                    you specify. This will allow you to check whether a query is working
+                    as intended.
+                  properties:
+                    metricName:
+                      description: MetricName is the identifier that you will use
+                        to identify your query
+                      type: string
+                    query:
+                      description: Query is the compiled query that is given to Prometheus
+                      type: string
+                    values:
+                      description: Values are the results of the query
+                      items:
+                        description: ResultValues will hold the results of the prometheus
+                          query
+                        properties:
+                          timestamp:
+                            format: int64
+                            type: integer
+                          value:
+                            type: string
+                        required:
+                        - timestamp
+                        - value
+                        type: object
+                      type: array
+                  type: object
+                type: array
               workloadResource:
                 description: WorkloadResources is the list of resources discovered
                   by this meter definition
@@ -1395,9 +1551,374 @@ spec:
               items:
                 type: string
               type: array
+            meterDefinitionReferences:
+              description: MeterDefinitionReferences are used as the first meter definition
+                source. Prometheus data is used to supplement.
+              items:
+                description: MeterDefinitionReference is a more friendly form to set
+                  on the MeterReport providing the default meter definitions to use
+                  for the day.
+                properties:
+                  name:
+                    description: Name is the name of the MeterDefinition
+                    type: string
+                  namespace:
+                    description: Namespace is the namespace of the MeterDefinition
+                    type: string
+                  resourceVersion:
+                    description: ResourceVersion
+                    type: string
+                  spec:
+                    description: Spec is a copy of the meter definition spec, this
+                      can be left empty and later filled in by the report tool.
+                    properties:
+                      group:
+                        description: Group defines the operator group of the meter
+                        type: string
+                      installedBy:
+                        description: InstalledBy is a reference to the CSV that install
+                          the meter definition. This is used to determine an operator
+                          group.
+                        properties:
+                          groupVersionKind:
+                            description: GroupVersionKind of the resource
+                            properties:
+                              apiVersion:
+                                description: APIVersion of the CRD
+                                type: string
+                              kind:
+                                description: Kind of the CRD
+                                type: string
+                            required:
+                            - apiVersion
+                            - kind
+                            type: object
+                          name:
+                            description: Name of the resource Required
+                            type: string
+                          namespace:
+                            description: Namespace of the resource Required
+                            type: string
+                          uid:
+                            description: Namespace of the resource
+                            type: string
+                        required:
+                        - name
+                        - namespace
+                        type: object
+                      kind:
+                        description: Kind defines the primary CRD kind of the meter
+                        type: string
+                      meters:
+                        description: Meters are the definitions related to the metrics
+                          that you would like to monitor.
+                        items:
+                          properties:
+                            aggregation:
+                              description: Aggregation to use with the query
+                              enum:
+                              - sum
+                              - min
+                              - max
+                              - avg
+                              type: string
+                            dateLabelOverride:
+                              description: DateLabelOverride provides a means of overriding
+                                the date returned for the metric using a label. This
+                                is to handle cases where the metric is a constant
+                                that is calculated.
+                              type: string
+                            description:
+                              description: Description is the overview of what the
+                                metric is providing for humans to read.
+                              type: string
+                            groupBy:
+                              description: Group is the set of label fields returned
+                                by query to aggregate on.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: set
+                            label:
+                              description: Label is the usage metrics key field on
+                                the report. Defaults to the metricId field if not
+                                provided
+                              type: string
+                            metricId:
+                              description: Metric is the id of the meter
+                              type: string
+                            name:
+                              description: Name of the metric for humans to read.
+                              type: string
+                            period:
+                              description: Period is the amount of time to segment
+                                the data into. Default is 1h.
+                              type: string
+                            query:
+                              description: Query to use for prometheus to find the
+                                metrics
+                              type: string
+                            unit:
+                              description: Unit is the unit of the metrics. Defaults
+                                to the metricId field if not provided
+                              type: string
+                            valueLabelOverride:
+                              description: ValueLabelOverride provides a means of
+                                overriding the value returned for the metric using
+                                a label. This is to handle cases where the metric
+                                is a constant that is calculated.
+                              type: string
+                            without:
+                              description: Labels to filter out automatically.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: set
+                            workloadType:
+                              description: WorkloadType identifies the type of workload
+                                to look for. This can be pod or service right now.
+                              enum:
+                              - Pod
+                              - Service
+                              - PersistentVolumeClaim
+                              type: string
+                          required:
+                          - aggregation
+                          - metricId
+                          - query
+                          - workloadType
+                          type: object
+                        type: array
+                      resourceFilters:
+                        description: ResourceFilters provide filters that will be
+                          used to find the workload objects. This is to find the exact
+                          resources the query is interested in. At least one must
+                          be provided.
+                        items:
+                          properties:
+                            annotation:
+                              description: Annotation uses the resource annotations
+                                to find resources to monitor.
+                              properties:
+                                annotationSelector:
+                                  description: AnnotationSelector are used to filter
+                                    to the correct workload.
+                                  properties:
+                                    matchExpressions:
+                                      description: matchExpressions is a list of label
+                                        selector requirements. The requirements are
+                                        ANDed.
+                                      items:
+                                        description: A label selector requirement
+                                          is a selector that contains values, a key,
+                                          and an operator that relates the key and
+                                          values.
+                                        properties:
+                                          key:
+                                            description: key is the label key that
+                                              the selector applies to.
+                                            type: string
+                                          operator:
+                                            description: operator represents a key's
+                                              relationship to a set of values. Valid
+                                              operators are In, NotIn, Exists and
+                                              DoesNotExist.
+                                            type: string
+                                          values:
+                                            description: values is an array of string
+                                              values. If the operator is In or NotIn,
+                                              the values array must be non-empty.
+                                              If the operator is Exists or DoesNotExist,
+                                              the values array must be empty. This
+                                              array is replaced during a strategic
+                                              merge patch.
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                    matchLabels:
+                                      additionalProperties:
+                                        type: string
+                                      description: matchLabels is a map of {key,value}
+                                        pairs. A single {key,value} in the matchLabels
+                                        map is equivalent to an element of matchExpressions,
+                                        whose key field is "key", the operator is
+                                        "In", and the values array contains only "value".
+                                        The requirements are ANDed.
+                                      type: object
+                                  type: object
+                              type: object
+                            label:
+                              description: Label uses the resource annotations to
+                                find resources to monitor.
+                              properties:
+                                labelSelector:
+                                  description: LabelSelector are used to filter to
+                                    the correct workload.
+                                  properties:
+                                    matchExpressions:
+                                      description: matchExpressions is a list of label
+                                        selector requirements. The requirements are
+                                        ANDed.
+                                      items:
+                                        description: A label selector requirement
+                                          is a selector that contains values, a key,
+                                          and an operator that relates the key and
+                                          values.
+                                        properties:
+                                          key:
+                                            description: key is the label key that
+                                              the selector applies to.
+                                            type: string
+                                          operator:
+                                            description: operator represents a key's
+                                              relationship to a set of values. Valid
+                                              operators are In, NotIn, Exists and
+                                              DoesNotExist.
+                                            type: string
+                                          values:
+                                            description: values is an array of string
+                                              values. If the operator is In or NotIn,
+                                              the values array must be non-empty.
+                                              If the operator is Exists or DoesNotExist,
+                                              the values array must be empty. This
+                                              array is replaced during a strategic
+                                              merge patch.
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                    matchLabels:
+                                      additionalProperties:
+                                        type: string
+                                      description: matchLabels is a map of {key,value}
+                                        pairs. A single {key,value} in the matchLabels
+                                        map is equivalent to an element of matchExpressions,
+                                        whose key field is "key", the operator is
+                                        "In", and the values array contains only "value".
+                                        The requirements are ANDed.
+                                      type: object
+                                  type: object
+                              type: object
+                            namespace:
+                              description: Namespace is the filter to control which
+                                namespaces to look for your resources. Default is
+                                always Operator Group (supported by OLM)
+                              properties:
+                                labelSelector:
+                                  description: LabelSelector are used to filter to
+                                    the correct workload.
+                                  properties:
+                                    matchExpressions:
+                                      description: matchExpressions is a list of label
+                                        selector requirements. The requirements are
+                                        ANDed.
+                                      items:
+                                        description: A label selector requirement
+                                          is a selector that contains values, a key,
+                                          and an operator that relates the key and
+                                          values.
+                                        properties:
+                                          key:
+                                            description: key is the label key that
+                                              the selector applies to.
+                                            type: string
+                                          operator:
+                                            description: operator represents a key's
+                                              relationship to a set of values. Valid
+                                              operators are In, NotIn, Exists and
+                                              DoesNotExist.
+                                            type: string
+                                          values:
+                                            description: values is an array of string
+                                              values. If the operator is In or NotIn,
+                                              the values array must be non-empty.
+                                              If the operator is Exists or DoesNotExist,
+                                              the values array must be empty. This
+                                              array is replaced during a strategic
+                                              merge patch.
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                    matchLabels:
+                                      additionalProperties:
+                                        type: string
+                                      description: matchLabels is a map of {key,value}
+                                        pairs. A single {key,value} in the matchLabels
+                                        map is equivalent to an element of matchExpressions,
+                                        whose key field is "key", the operator is
+                                        "In", and the values array contains only "value".
+                                        The requirements are ANDed.
+                                      type: object
+                                  type: object
+                                useOperatorGroup:
+                                  description: UseOperatorGroup use your operator
+                                    group for namespace filtering
+                                  type: boolean
+                              required:
+                              - useOperatorGroup
+                              type: object
+                            ownerCRD:
+                              description: OwnerCRD uses the owning CRD to filter
+                                resources.
+                              properties:
+                                apiVersion:
+                                  description: APIVersion of the CRD
+                                  type: string
+                                kind:
+                                  description: Kind of the CRD
+                                  type: string
+                              required:
+                              - apiVersion
+                              - kind
+                              type: object
+                            workloadType:
+                              description: WorkloadType identifies the type of workload
+                                to look for. This can be pod or service right now.
+                              enum:
+                              - Pod
+                              - Service
+                              - PersistentVolumeClaim
+                              type: string
+                          required:
+                          - workloadType
+                          type: object
+                        minItems: 1
+                        type: array
+                    required:
+                    - group
+                    - kind
+                    - meters
+                    - resourceFilters
+                    type: object
+                  uid:
+                    description: UID is the UID of the MeterDefinition
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
+              type: array
+              x-kubernetes-list-map-keys:
+              - name
+              - namespace
+              x-kubernetes-list-type: map
             meterDefinitions:
               description: MeterDefinitions is the list of meterDefinitions included
-                in the report
+                in the report DEPRECATED
               items:
                 description: MeterDefinition defines the meter workloads used to enable
                   pay for use billing.
@@ -1737,6 +2258,41 @@ spec:
                           - type
                           type: object
                         type: array
+                      results:
+                        description: Results is a list of Results that get returned
+                          from a query to prometheus
+                        items:
+                          description: Result is a result of a query defined on the
+                            meterdefinition. This will generate data for the previous
+                            hour on whichever workload you specify. This will allow
+                            you to check whether a query is working as intended.
+                          properties:
+                            metricName:
+                              description: MetricName is the identifier that you will
+                                use to identify your query
+                              type: string
+                            query:
+                              description: Query is the compiled query that is given
+                                to Prometheus
+                              type: string
+                            values:
+                              description: Values are the results of the query
+                              items:
+                                description: ResultValues will hold the results of
+                                  the prometheus query
+                                properties:
+                                  timestamp:
+                                    format: int64
+                                    type: integer
+                                  value:
+                                    type: string
+                                required:
+                                - timestamp
+                                - value
+                                type: object
+                              type: array
+                          type: object
+                        type: array
                       workloadResource:
                         description: WorkloadResources is the list of resoruces discovered
                           by this meter definition
@@ -2060,6 +2616,9 @@ spec:
               - namespace
               - targetPort
               type: object
+            reportUUID:
+              description: ReportUUID is the generated ID for the report.
+              type: string
             startTime:
               description: StartTime of the job
               format: date-time
@@ -2111,6 +2670,23 @@ spec:
                 required:
                 - status
                 - type
+                type: object
+              type: array
+            errors:
+              description: QueryErrorList shows if there were any errors from queries
+                for the report.
+              items:
+                description: ErrorDetails provides details about errors that happen
+                  in the job
+                properties:
+                  details:
+                    additionalProperties:
+                      type: string
+                    description: Details of the error
+                    type: object
+                  reason:
+                    description: Reason the error occurred
+                    type: string
                 type: object
               type: array
             jobReference:
@@ -2165,15 +2741,25 @@ spec:
             metricUploadCount:
               description: MetricUploadCount is the number of metrics in the report
               type: integer
-            queryErrorList:
-              description: QueryErrorList shows if there were any errors from queries
-                for the report.
-              items:
-                type: string
-              type: array
             uploadUID:
               description: UploadID is the ID associated with the upload
               type: string
+            warnings:
+              description: Warnings from the job
+              items:
+                description: ErrorDetails provides details about errors that happen
+                  in the job
+                properties:
+                  details:
+                    additionalProperties:
+                      type: string
+                    description: Details of the error
+                    type: object
+                  reason:
+                    description: Reason the error occurred
+                    type: string
+                type: object
+              type: array
           type: object
       type: object
   version: v1alpha1
@@ -2241,6 +2827,10 @@ spec:
             childUrl:
               description: Location of your IBM Cloud Object Storage resources Used
                 internally by the Operator
+              type: string
+            clusterDisplayName:
+              description: The ClusterDisplayName is a unique name of for a cluster
+                specified by the admin during registration
               type: string
             clusterUUID:
               description: ClusterUUID is the cluster identifier, used for installing
@@ -2780,6 +3370,7 @@ webhooks:
       name: redhat-marketplace-controller-manager-service
       namespace: openshift-redhat-marketplace
       path: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
+      port: 9443
   failurePolicy: Fail
   name: mmeterdefinition.marketplace.redhat.com
   rules:
@@ -2793,6 +3384,14 @@ webhooks:
     resources:
     - meterdefinitions
   sideEffects: None
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    redhat.marketplace.com/name: redhat-marketplace-operator
+  name: redhat-marketplace-metric-state
+  namespace: openshift-redhat-marketplace
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -2873,36 +3472,253 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
+  creationTimestamp: null
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
-  name: redhat-marketplace-operator
+  name: redhat-marketplace-manager-role
   namespace: openshift-redhat-marketplace
 rules:
 - apiGroups:
-  - deploy.razee.io
+  - ""
   resources:
-  - '*'
-  - remoteresourcess3
-  - remoteresources
+  - configmap
+  - secret
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
   verbs:
   - create
   - delete
   - get
-  - list
-  - update
   - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - get
+  - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - ""
   resources:
   - pods
-  - services
-  - services/finalizers
-  - endpoints
-  - persistentvolumeclaims
-  - events
-  - configmaps
+  verbs:
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secret
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resourceNames:
+  - redhat-marketplace-pull-secret
+  resources:
+  - secret
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - service
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts/token
+  verbs:
+  - create
+  - get
+  - list
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - batch
+  - extensions
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - marketplaceconfigs
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - marketplaceconfigs
+  - marketplaceconfigs/finalizers
+  - marketplaceconfigs/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterbases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterbases
+  - meterbases/finalizers
+  - meterbases/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterreports
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterreports
+  - meterreports/finalizers
+  - meterreports/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - razeedeployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - razeedeployments
+  - razeedeployments/finalizers
+  - razeedeployments/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - remoteresources3s
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - remoteresources3s
+  - remoteresources3s/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - prometheuses
+  - servicemonitors
   verbs:
   - create
   - delete
@@ -2916,77 +3732,27 @@ rules:
   resources:
   - subscriptions
   verbs:
+  - create
   - get
   - list
   - watch
-  - create
-  - delete
-  - patch
-  - watch
-  - update
-- apiGroups:
-  - batch
-  - extensions
-  resources:
-  - jobs
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  - daemonsets
-  - replicasets
-  - statefulsets
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - apps
-  resourceNames:
-  - redhat-marketplace-operator
-  resources:
-  - deployments/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - monitoring.coreos.com
-  resources:
-  - '*'
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    redhat.marketplace.com/name: redhat-marketplace-operator
+  name: redhat-marketplace-metric-state
+  namespace: openshift-redhat-marketplace
+rules:
 - apiGroups:
   - ""
-  resourceNames:
-  - razeedeploy-sa
-  - watch-keeper-sa
   resources:
-  - serviceaccounts
+  - secrets
   verbs:
-  - create
-  - delete
   - get
-  - list
-  - update
-  - patch
   - watch
+  - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -3002,6 +3768,13 @@ rules:
   - configmaps
   verbs:
   - get
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -3019,6 +3792,13 @@ rules:
   - delete
   - watch
   - list
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -3069,6 +3849,386 @@ metadata:
     redhat.marketplace.com/name: redhat-marketplace-operator
   name: redhat-marketplace-manager-role
 rules:
+- nonResourceURLs:
+  - /api/v1/query
+  - /api/v1/query_range
+  verbs:
+  - create
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - namespaces
+  - secrets
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - pods
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secret
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - razeedeploy-sa
+  - watch-keeper-sa
+  resources:
+  - serviceaccounts
+  verbs:
+  - delete
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resourceNames:
+  - meterdefinitions.marketplace.redhat.com
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - patch
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resourceNames:
+  - clustersubscription
+  - featureflagsetld-controller
+  - managedset-controller
+  - mustachetemplate-controller
+  - remoteresource-controller
+  - remoteresources3-controller
+  - remoteresources3decrypt-controller
+  - watch-keeper
+  resources:
+  - deployments
+  verbs:
+  - delete
+- apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  - extensions
+  resources:
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  - extensions
+  resourceNames:
+  - razeedeploy-job
+  resources:
+  - jobs
+  verbs:
+  - delete
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - clusterversions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - clusterversions
+  - consoles
+  - infrastructures
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - deploy.razee.io
+  resources:
+  - '*'
+  verbs:
+  - delete
+  - get
+  - list
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - marketplaceconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - marketplaceconfigs
+  - marketplaceconfigs/finalizers
+  - marketplaceconfigs/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterbases
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterbases
+  - meterbases/finalizers
+  - meterbases/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterdefinitions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterdefinitions
+  - meterdefinitions/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterdefinitions/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterreports
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterreports
+  - meterreports/finalizers
+  - meterreports/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - razeedeployments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - remoteresources3s
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - prometheuses
+  - servicemonitors
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resourceNames:
+  - ibm-operator-catalog
+  - opencloud-operators
+  resources:
+  - catalogsources
+  verbs:
+  - create
+  - delete
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - catalogsources
+  - operatorsources
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - clusterserviceversions
+  verbs:
+  - create
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - clusterserviceversions
+  - subscriptions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - operatorgroups
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resourceNames:
+  - redhat-marketplace
+  resources:
+  - operatorsources
+  verbs:
+  - create
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - subscriptions
+  verbs:
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resourceNames:
+  - razeedeploy-admin-cr
+  - redhat-marketplace-razeedeploy
+  resources:
+  - clusterroles
+  verbs:
+  - delete
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - storageclasses
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    redhat.marketplace.com/name: redhat-marketplace-operator
+  name: redhat-marketplace-meterdefinition-editor-role
+rules:
 - apiGroups:
   - marketplace.redhat.com
   resources:
@@ -3087,251 +4247,60 @@ rules:
   - meterdefinitions/status
   verbs:
   - get
-  - patch
-  - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
-  name: redhat-marketplace-operator
+  name: redhat-marketplace-meterdefinition-viewer-role
 rules:
 - apiGroups:
-  - '*'
+  - marketplace.redhat.com
   resources:
-  - '*'
-  verbs:
-  - get
-  - list
-  - watch
-- nonResourceURLs:
-  - '*'
+  - meterdefinitions
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - rbac.authorization.k8s.io
-  resourceNames:
-  - razeedeploy-admin-cr
-  - redhat-marketplace-razeedeploy
+  - marketplace.redhat.com
   resources:
-  - clusterroles
+  - meterdefinitions/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    redhat.marketplace.com/name: redhat-marketplace-operator
+  name: redhat-marketplace-metric-state
+rules:
+- apiGroups:
+  - marketplace.redhat.com
+  resources:
+  - meterreports
   verbs:
   - get
   - list
-  - delete
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  - services
-  - services/finalizers
-  - endpoints
-  - persistentvolumeclaims
-  - persistentvolumes
-  - events
-  - configmaps
-  - secrets
-  - namespaces
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - update
-  - patch
-- apiGroups:
-  - ""
-  resources:
-  - nodes
-  verbs:
-  - get
-  - list
-  - watch
-  - patch
-  - update
-- apiGroups:
-  - batch
-  - extensions
-  resources:
-  - jobs
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  - statefulsets
-  - replicasets
-  - daemonsets
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - apps
-  resourceNames:
-  - redhat-marketplace-operator
-  resources:
-  - deployments/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - storage.k8s.io
-  resources:
-  - storageclasses
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - monitoring.coreos.com
-  resources:
-  - servicemonitors
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - monitoring.coreos.com
-  resources:
-  - prometheuses
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - operators.coreos.com
-  resources:
-  - subscriptions
-  - clusterserviceversions
-  verbs:
-  - get
-  - list
-  - update
-  - watch
-  - delete
-- apiGroups:
-  - operators.coreos.com
-  resources:
-  - operatorsources
-  - catalogsources
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-- apiGroups:
-  - operators.coreos.com
-  resourceNames:
-  - redhat-marketplace
-  resources:
-  - operatorsources
-  verbs:
-  - get
-  - delete
-  - patch
-  - update
-- apiGroups:
-  - operators.coreos.com
-  resourceNames:
-  - ibm-operator-catalog
-  - opencloud-operators
-  resources:
-  - catalogsources
-  verbs:
-  - get
-  - delete
-  - patch
-  - update
-- apiGroups:
-  - operators.coreos.com
-  resources:
-  - operatorgroups
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - deploy.razee.io
-  resources:
-  - remoteresourcess3
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-- apiGroups:
-  - config.openshift.io
-  resources:
-  - consoles
-  - infrastructures
-  - clusterversions
-  verbs:
-  - get
-  - list
-  - patch
   - update
 - apiGroups:
   - marketplace.redhat.com
   resources:
-  - '*'
   - meterdefinitions
-  - razeedeployments
-  - meterbases
-  - marketplaceconfigs
-  - remoteresources3s
+  - meterdefinitions/status
   verbs:
+  - get
+  - list
+  - update
+- apiGroups:
   - '*'
-- apiGroups:
-  - ""
-  resourceNames:
-  - rhm-cos-reader-key
-  - watch-keeper-secret
   resources:
-  - secrets
+  - '*'
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resourceNames:
-  - watch-keeper-config
-  - watch-keeper-limit-poll
-  - watch-keeper-non-namespaced
-  - razee-cluster-metadata
-  resources:
-  - configmaps
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - authentication.k8s.io
@@ -3345,28 +4314,18 @@ rules:
   - subjectaccessreviews
   verbs:
   - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    redhat.marketplace.com/name: redhat-marketplace-operator
+  name: redhat-marketplace-metrics-reader
+rules:
 - nonResourceURLs:
-  - /api/v1/query
-  - /api/v1/query_range
+  - /metrics
   verbs:
   - get
-  - create
-- apiGroups:
-  - apiextensions.k8s.io
-  resources:
-  - customresourcedefinitions
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - apiextensions.k8s.io
-  resourceNames:
-  - meterdefinitions.marketplace.redhat.com
-  resources:
-  - customresourcedefinitions
-  verbs:
-  - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -3537,12 +4496,16 @@ rules:
   - '*'
   verbs:
   - '*'
-- nonResourceURLs:
-  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
   verbs:
   - get
   - list
   - watch
+  - update
+  - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -3566,18 +4529,6 @@ rules:
   - list
   - watch
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  labels:
-    redhat.marketplace.com/name: redhat-marketplace-operator
-  name: redhat-marketplace-metrics-reader
-rules:
-- nonResourceURLs:
-  - /metrics
-  verbs:
-  - get
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -3599,15 +4550,31 @@ kind: RoleBinding
 metadata:
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
-  name: redhat-marketplace-operator-binding
+  name: redhat-marketplace-manager-rolebinding
   namespace: openshift-redhat-marketplace
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: redhat-marketplace-operator
+  name: redhat-marketplace-manager-role
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-operator
+  namespace: openshift-redhat-marketplace
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    redhat.marketplace.com/name: redhat-marketplace-operator
+  name: redhat-marketplace-metric-state-binding
+  namespace: openshift-redhat-marketplace
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: redhat-marketplace-metric-state
+subjects:
+- kind: ServiceAccount
+  name: redhat-marketplace-metric-state
   namespace: openshift-redhat-marketplace
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -3679,14 +4646,15 @@ kind: ClusterRoleBinding
 metadata:
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
-  name: redhat-marketplace-manager-rolebinding
+  name: redhat-marketplace-metric-state-binding
+  namespace: openshift-config
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: redhat-marketplace-manager-role
+  name: redhat-marketplace-metric-state
 subjects:
 - kind: ServiceAccount
-  name: redhat-marketplace-operator
+  name: redhat-marketplace-metric-state
   namespace: openshift-redhat-marketplace
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -3694,11 +4662,27 @@ kind: ClusterRoleBinding
 metadata:
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
-  name: redhat-marketplace-operator-binding
+  name: redhat-marketplace-mteric-state-mdef-editor-binding
+  namespace: openshift-config
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: redhat-marketplace-operator
+  name: redhat-marketplace-meterdefinition-editor-role
+subjects:
+- kind: ServiceAccount
+  name: redhat-marketplace-metric-state
+  namespace: openshift-redhat-marketplace
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    redhat.marketplace.com/name: redhat-marketplace-operator
+  name: redhat-marketplace-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: redhat-marketplace-manager-role
 subjects:
 - kind: ServiceAccount
   name: redhat-marketplace-operator
@@ -3838,9 +4822,9 @@ spec:
         - --enable-leader-election
         env:
         - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
-          value: quay.io/razee/remoteresources3:0.6.2
+          value: quay.io/razee/remoteresources3:0.9.0
         - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
-          value: quay.io/razee/watch-keeper:0.6.6
+          value: quay.io/razee/watch-keeper:0.7.5
         - name: RELATED_IMAGE_PROMETHEUS
           value: registry.redhat.io/openshift4/ose-prometheus:v4.6
         - name: RELATED_IMAGE_OAUTH_PROXY
@@ -3853,6 +4837,8 @@ spec:
           value: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5
         - name: RELATED_IMAGE_KUBE_RBAC_PROXY
           value: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
+        - name: IBMCATALOGSOURCE
+          value: "true"
         - name: OS_IMAGE_KUBE_RBAC_PROXY
           value: quay.io/coreos/kube-rbac-proxy:v0.5.0
         - name: OS_IMAGE_PROMETHEUS
@@ -3865,18 +4851,18 @@ spec:
           value: quay.io/coreos/prometheus-config-reloader:v0.42.1
         - name: OS_IMAGE_OAUTH_PROXY
           value: quay.io/oauth2-proxy/oauth2-proxy:v6.1.1
-        - name: IBMCATALOGSOURCE
-          value: "true"
         - name: OPERATOR_NAME
           value: redhat-marketplace-operator
         - name: RELATED_IMAGE_REPORTER
-          value: quay.io/rh-marketplace/redhat-marketplace-reporter:2.0.0-6849abb0c74c41c65abf00ebb592b655c60344bb-amd64
+          value: quay.io/zach_source/redhat-marketplace-reporter:2.2.0-10
         - name: RELATED_IMAGE_METRIC_STATE
-          value: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.0.0-6849abb0c74c41c65abf00ebb592b655c60344bb-amd64
+          value: quay.io/zach_source/redhat-marketplace-metric-state:2.2.0-10
         - name: RELATED_IMAGE_AUTHCHECK
-          value: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.0.0-6849abb0c74c41c65abf00ebb592b655c60344bb-amd64
+          value: quay.io/zach_source/redhat-marketplace-authcheck:2.2.0-10
         - name: WATCH_NAMESPACE
-          value: ""
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.annotations['olm.targetNamespaces']
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
@@ -3897,12 +4883,28 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.labels['olm.owner.kind']
-        image: quay.io/rh-marketplace/redhat-marketplace-operator:2.0.0-6849abb0c74c41c65abf00ebb592b655c60344bb-amd64
+        - name: OPERATOR_GROUP
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.annotations['olm.operatorGroup']
+        image: quay.io/zach_source/redhat-marketplace-operator:2.2.0-10
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
         name: manager
         ports:
         - containerPort: 9443
           name: webhook-server
           protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
         resources:
           requests:
             cpu: 100m
@@ -3961,6 +4963,7 @@ webhooks:
       name: redhat-marketplace-controller-manager-service
       namespace: openshift-redhat-marketplace
       path: /validate-marketplace-redhat-com-v1beta1-meterdefinition
+      port: 9443
   failurePolicy: Fail
   name: vmeterdefinition.marketplace.redhat.com
   rules:

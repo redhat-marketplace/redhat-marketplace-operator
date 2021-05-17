@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	emperrors "emperror.dev/errors"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/codelocation"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,7 +28,7 @@ import (
 )
 
 type createAction struct {
-	BaseAction
+	*BaseAction
 	newObject runtime.Object
 	createActionOptions
 }
@@ -49,23 +48,21 @@ func CreateAction(
 	return &createAction{
 		newObject:           newObj,
 		createActionOptions: createOpts,
-		BaseAction: BaseAction{
-			codelocation: codelocation.New(1),
-		},
+		BaseAction:          NewBaseAction("Create"),
 	}
 }
 
 func (a *createAction) Bind(result *ExecResult) {
-	a.lastResult = result
+	a.LastResult = result
 }
 
 func (a *createAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
-	reqLogger := c.log.WithValues("file", a.codelocation, "action", "CreateAction")
+	reqLogger := a.GetReqLogger(c)
 
 	if isNil(a.newObject) {
 		err := emperrors.WithStack(ErrNilObject)
 		reqLogger.Error(err, "newObject is nil")
-		return NewExecResult(Error, reconcile.Result{}, err), err
+		return NewExecResult(Error, reconcile.Result{}, a.BaseAction, err), err
 	}
 
 	key, _ := client.ObjectKeyFromObject(a.newObject)
@@ -78,7 +75,7 @@ func (a *createAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 				meta,
 				c.scheme); err != nil {
 				c.log.Error(err, "Failed to create.", "obj", a.newObject)
-				return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error adding owner")
+				return NewExecResult(Error, reconcile.Result{}, a.BaseAction, err), emperrors.Wrap(err, "error adding owner")
 			}
 		}
 	} else {
@@ -89,7 +86,7 @@ func (a *createAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 					meta,
 					c.scheme); err != nil {
 					c.log.Error(err, "Failed to create.", "obj", a.newObject)
-					return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error adding owner")
+					return NewExecResult(Error, reconcile.Result{}, a.BaseAction, err), emperrors.Wrap(err, "error adding owner")
 				}
 			}
 		}
@@ -98,7 +95,7 @@ func (a *createAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 	if a.WithPatch != nil {
 		if err := a.WithPatch.SetLastAppliedAnnotation(a.newObject); err != nil {
 			reqLogger.Error(err, "failure creating patch")
-			return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error with patch")
+			return NewExecResult(Error, reconcile.Result{}, a.BaseAction, err), emperrors.Wrap(err, "error with patch")
 		}
 	}
 
@@ -106,8 +103,8 @@ func (a *createAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 	err := c.client.Create(ctx, a.newObject)
 	if err != nil {
 		c.log.Error(err, "Failed to create.", "obj", a.newObject)
-		return NewExecResult(Error, reconcile.Result{Requeue: true}, err), emperrors.Wrap(err, "error with create")
+		return NewExecResult(Error, reconcile.Result{Requeue: true}, a.BaseAction, err), emperrors.Wrap(err, "error with create")
 	}
 
-	return NewExecResult(Requeue, reconcile.Result{Requeue: true}, nil), nil
+	return NewExecResult(Requeue, reconcile.Result{Requeue: true}, a.BaseAction, nil), nil
 }

@@ -1,0 +1,9 @@
+name: "Operator CodeQL config"
+paths:
+  - v2
+  - airgap/v2
+  - authchecker/v2
+  - metering/v2
+  - reporter/v2
+paths-ignore:
+  - 'v2/tests/'

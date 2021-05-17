@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -126,6 +127,9 @@ type MeterBaseStatus struct {
 	// Total number of unavailable pods targeted by this Prometheus deployment.
 	// +optional
 	UnavailableReplicas *int32 `json:"unavailableReplicas,omitempty"`
+	// Targets is a list of prometheus activeTargets
+	// +optional
+	Targets []common.Target `json:"targets,omitempty"`
 }
 
 // MeterBase is the resource that sets up Metering for Red Hat Marketplace.
@@ -165,9 +169,30 @@ func init() {
 }
 
 const (
+	PrometheusTargetsHealth status.ConditionType = "Health"
+
 	// Reasons for install
 	ReasonMeterBaseStartInstall             status.ConditionReason = "StartMeterBaseInstall"
 	ReasonMeterBasePrometheusInstall        status.ConditionReason = "StartMeterBasePrometheusInstall"
 	ReasonMeterBasePrometheusServiceInstall status.ConditionReason = "StartMeterBasePrometheusServiceInstall"
 	ReasonMeterBaseFinishInstall            status.ConditionReason = "FinishedMeterBaseInstall"
+
+	// Reasons for health
+	ReasonMeterBasePrometheusTargetsHealthBad  status.ConditionReason = "HealthBad Targets in Status"
+	ReasonMeterBasePrometheusTargetsHealthGood status.ConditionReason = "HealthGood"
+)
+
+var (
+	MeterBasePrometheusTargetBadHealth = status.Condition{
+		Type:    PrometheusTargetsHealth,
+		Status:  corev1.ConditionFalse,
+		Reason:  ReasonMeterBasePrometheusTargetsHealthBad,
+		Message: "Prometheus activeTargets contains targets with HealthBad or HealthUnknown.",
+	}
+	MeterBasePrometheusTargetGoodHealth = status.Condition{
+		Type:    PrometheusTargetsHealth,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonMeterBasePrometheusTargetsHealthGood,
+		Message: "Prometheus activeTargets contains targets with HealthGood.",
+	}
 )

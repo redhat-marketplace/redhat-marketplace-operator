@@ -2,6 +2,8 @@ apiVersion: marketplace.redhat.com/v1alpha1
 kind: MarketplaceConfig
 metadata:
   name: marketplaceconfig
+  labels:
+    razee/watch-resource: detail
 spec:
   installIBMCatalogSource: true
 status:
@@ -14,11 +16,17 @@ status:
       reason: FinishedInstall
       status: 'False'
       type: Installing
-    - message: Cluster Registered Successfully
-      reason: ClusterRegistered
-      status: 'True'
+    - reason: ClusterRegistered
       type: Registered
+    #- message: Cluster Registered Successfully
+    #  reason: ClusterRegistered
+    #  status: 'True'
+    #  type: Registered
   meterBaseSubConditions:
+    - message: Prometheus activeTargets contains targets with HealthBad or HealthUnknown.
+      reason: "HealthBad Targets in Status"
+      status: "False"
+      type: Health
     - message: Meter Base install complete
       reason: FinishedMeterBaseInstall
       status: 'False'
@@ -26,19 +34,19 @@ status:
   razeeSubConditions:
     - message: Razee install complete
       reason: FinishedRazeeInstall
-      status: "True"
+      status: 'True'
       type: Complete
     - message: RemoteResourceS3 deployment enabled
       reason: EnabledRemoteResourceS3DeploymentInstall
-      status: "True"
+      status: 'True'
       type: DeploymentEnabled
     - message: Razee install complete
       reason: FinishedRazeeInstall
-      status: "False"
+      status: 'False'
       type: Installing
     - message: Registration deployment enabled
       reason: EnabledRegistrationWatchkeeperInstall
-      status: "True"
+      status: 'True'
       type: RegistrationEnabled
 ---
 apiVersion: monitoring.coreos.com/v1

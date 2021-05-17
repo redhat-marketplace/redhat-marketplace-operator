@@ -133,7 +133,7 @@ func providePrometheusAPIForReporter(
 
 	if setup.RunLocal {
 		client, err := api.NewClient(api.Config{
-			Address: "http://localhost:9090",
+			Address: "http://127.0.0.1:9090",
 		})
 
 		if err != nil {
@@ -211,6 +211,7 @@ func NewSecureClient(config *PrometheusSecureClientConfig) (api.Client, error) {
 
 	transport = &http.Transport{
 		TLSClientConfig: tlsConfig,
+		Proxy:           http.ProxyFromEnvironment,
 	}
 
 	if config.UserAuth != nil {
@@ -240,6 +241,7 @@ func NewSecureClientFromCert(config *PrometheusSecureClientConfig) (api.Client, 
 
 	transport = &http.Transport{
 		TLSClientConfig: tlsConfig,
+		Proxy:           http.ProxyFromEnvironment,
 	}
 
 	if config.UserAuth != nil {

@@ -146,3 +146,5 @@ bin/
 v2/kubeconfig
 database
 index.Dockerfile
+
+**/bin/

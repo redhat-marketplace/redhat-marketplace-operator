@@ -142,7 +142,7 @@ var _ = Describe("JsonMeterDefValidation", func() {
 			meterDefinition.SetNamespace("test-namespace")
 			CSV.SetNamespace("test-namespace")
 			CSV.SetName("mock-csv")
-			meterDefinition.BuildMeterDefinitionFromString(
+			_ = meterDefinition.BuildMeterDefinitionFromString(
 				meterDefJson,
 				CSV.GetName(),
 				CSV.GetNamespace(),

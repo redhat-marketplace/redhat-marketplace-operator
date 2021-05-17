@@ -19,6 +19,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
@@ -113,6 +114,10 @@ type KubeInterface interface {
 	InjectKubeInterface(kubernetes.Interface) error
 }
 
+type MarketplaceClientBuilder interface {
+	InjectMarketplaceClientBuilder(marketplace.MarketplaceClientBuilder) error
+}
+
 type ClientCommandInjector struct {
 	Fields        *managers.ControllerFields
 	CommandRunner reconcileutils.ClientCommandRunner
@@ -167,6 +172,17 @@ type KubeInterfaceInjector struct {
 func (a *KubeInterfaceInjector) SetCustomFields(i interface{}) error {
 	if ii, ok := i.(KubeInterface); ok {
 		return ii.InjectKubeInterface(a.KubeInterface)
+	}
+	return nil
+}
+
+type MarketplaceClientBuilderInjector struct {
+	MarketplaceClientBuilder marketplace.MarketplaceClientBuilder
+}
+
+func (a *MarketplaceClientBuilderInjector) SetCustomFields(i interface{}) error {
+	if ii, ok := i.(MarketplaceClientBuilder); ok {
+		return ii.InjectMarketplaceClientBuilder(a.MarketplaceClientBuilder)
 	}
 	return nil
 }

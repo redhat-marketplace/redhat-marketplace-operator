@@ -16,8 +16,13 @@ package marketplace
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"os"
 	"reflect"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
@@ -33,7 +38,8 @@ import (
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -65,12 +71,25 @@ var _ reconcile.Reconciler = &MarketplaceConfigReconciler{}
 type MarketplaceConfigReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	Client client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
-	cc     ClientCommandRunner
-	cfg    *config.OperatorConfig
+	Client         client.Client
+	Scheme         *runtime.Scheme
+	Log            logr.Logger
+	cc             ClientCommandRunner
+	cfg            *config.OperatorConfig
+	mclientBuilder *marketplace.MarketplaceClientBuilder
 }
+
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups="",resources=secret,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=marketplaceconfigs;marketplaceconfigs/finalizers;marketplaceconfigs/status,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=marketplaceconfigs;marketplaceconfigs/finalizers;marketplaceconfigs/status,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=razeedeployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterbases,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=meterbases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=operatorsources;catalogsources,verbs=get;list;watch
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=operatorsources,resourceNames=redhat-marketplace,verbs=create
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=catalogsources,resourceNames=ibm-operator-catalog;opencloud-operators,verbs=create;delete
 
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
 // and what is in the MarketplaceConfig.Spec
@@ -79,11 +98,15 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	reqLogger.Info("Reconciling MarketplaceConfig")
 	cc := r.cc
 
+	if r.mclientBuilder == nil {
+		r.mclientBuilder = marketplace.NewMarketplaceClientBuilder(r.cfg)
+	}
+
 	// Fetch the MarketplaceConfig instance
 	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
 	err := r.Client.Get(context.TODO(), request.NamespacedName, marketplaceConfig)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
@@ -94,6 +117,92 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		reqLogger.Error(err, "Failed to get MarketplaceConfig")
 		return reconcile.Result{}, err
 	}
+
+	// run the finalizers
+	newRazeeCrd := utils.BuildRazeeCr(
+		marketplaceConfig.Namespace,
+		marketplaceConfig.Spec.ClusterUUID,
+		marketplaceConfig.Spec.DeploySecretName,
+		marketplaceConfig.Spec.Features,
+	)
+	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
+	// Add finalizer and execute it if the resource is deleted
+	if result, _ := cc.Do(
+		context.TODO(),
+		Call(SetFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER)),
+		Call(
+			RunFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER,
+				HandleResult(
+					GetAction(
+						types.NamespacedName{
+							Namespace: newRazeeCrd.Namespace, Name: newRazeeCrd.Name}, newRazeeCrd),
+					OnContinue(DeleteAction(newRazeeCrd))),
+				HandleResult(
+					GetAction(
+						types.NamespacedName{
+							Namespace: newMeterBaseCr.Namespace, Name: newMeterBaseCr.Name}, newMeterBaseCr),
+					OnContinue(DeleteAction(newMeterBaseCr))),
+			)),
+	); !result.Is(Continue) {
+
+		if result.Is(Error) {
+			reqLogger.Error(result.GetError(), "Failed to get MeterBase.")
+		}
+
+		if result.Is(Return) {
+			reqLogger.Info("Delete is complete.")
+		}
+
+		return result.Return()
+	}
+
+	// Set default namespaces for workload monitoring
+	if marketplaceConfig.Spec.NamespaceLabelSelector == nil {
+		marketplaceConfig.Spec.NamespaceLabelSelector = &metav1.LabelSelector{
+			MatchExpressions: []metav1.LabelSelectorRequirement{
+				{
+					Key:      "openshift.io/cluster-monitoring",
+					Operator: "DoesNotExist",
+				},
+			},
+		}
+
+		err = r.Client.Update(context.TODO(), marketplaceConfig)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	// Update the OperatorGroup targetNamespace list
+	// namespace list is from MarketPlaceConfig NamespaceLabelSelector or a default
+	// In turn, OLM updates the olm.targetNamespaces annotation of
+	// the member operator's ClusterServiceVersion (CSV) instances and is projected into their deployments.
+	// The operatorGroupNamespace is guaranteed to be the same as the marketplaceConfig, unnecessary to use downwardAPI
+
+	// Needs work; modifying og creates issue with reinstalls
+	// operatorGroupName, _ := getOperatorGroup()
+	// if len(operatorGroupName) != 0 {
+	// 	operatorGroup := &olmv1.OperatorGroup{}
+
+	// 	err = r.Client.Get(context.TODO(),
+	// 		types.NamespacedName{Name: operatorGroupName, Namespace: marketplaceConfig.Namespace},
+	// 		operatorGroup,
+	// 	)
+
+	// 	if err != nil && !k8serrors.IsNotFound(err) {
+	// 		return reconcile.Result{}, err
+	// 	} else if err == nil {
+	// 		operatorGroup.Spec.TargetNamespaces = []string{}
+	// 		operatorGroup.Spec.Selector = marketplaceConfig.Spec.NamespaceLabelSelector
+
+	// 		err = r.Client.Update(context.TODO(), operatorGroup)
+	// 		if err != nil {
+	// 			return reconcile.Result{}, err
+	// 		}
+	// 	}
+	// }
 
 	// Removing EnabledMetering field so setting them all to nil
 	// this will no longer do anything
@@ -138,53 +247,92 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
-	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
-	// Add finalizer and execute it if the resource is deleted
-	if result, _ := cc.Do(
-		context.TODO(),
-		Call(SetFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER)),
-		Call(
-			RunFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER,
-				HandleResult(
-					GetAction(
-						types.NamespacedName{
-							Namespace: newRazeeCrd.Namespace, Name: newRazeeCrd.Name}, newRazeeCrd),
-					OnContinue(DeleteAction(newRazeeCrd))),
-				HandleResult(
-					GetAction(
-						types.NamespacedName{
-							Namespace: newMeterBaseCr.Namespace, Name: newMeterBaseCr.Name}, newMeterBaseCr),
-					OnContinue(DeleteAction(newMeterBaseCr))),
-			)),
-	); !result.Is(Continue) {
-
-		if result.Is(Error) {
-			reqLogger.Error(result.GetError(), "Failed to get MeterBase.")
-		}
-
-		if result.Is(Return) {
-			reqLogger.Info("Delete is complete.")
-		}
-
-		return result.Return()
-	}
-
-	if marketplaceConfig.Labels == nil {
-		marketplaceConfig.Labels = make(map[string]string)
-	}
-
-	if v, ok := marketplaceConfig.Labels[utils.RazeeWatchResource]; !ok || v != utils.RazeeWatchLevelDetail {
-		marketplaceConfig.Labels[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
-
-		err = r.Client.Update(context.TODO(), marketplaceConfig)
-
-		if err != nil {
-			reqLogger.Error(err, "Failed to create to updatee the marketplace config")
+	//Fetch the Secret with name redhat-marketplace-pull-secret
+	secret := &v1.Secret{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RHMPullSecretName, Namespace: request.Namespace}, secret)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			secret = nil
+			reqLogger.Error(err, "error finding", "name", utils.RHMPullSecretName)
+		} else {
+			reqLogger.Error(err, "error fetching secret")
 			return reconcile.Result{}, err
 		}
+	}
 
-		return reconcile.Result{Requeue: true}, nil
+	var token string
+	var tokenIsValid bool
+	var tokenClaims *marketplace.MarketplaceClaims
+
+	if secret != nil {
+		var pullSecret []byte
+		pullSecret, tokenIsValid = secret.Data[utils.RHMPullSecretKey]
+		if !tokenIsValid {
+			err := errors.New("rhm pull secret not found")
+			reqLogger.Error(err, "couldn't find pull secret")
+		}
+
+		var updateInstanceSpec bool
+		if clusterDisplayName, ok := secret.Data[utils.ClusterDisplayNameKey]; ok {
+			count := utf8.RuneCountInString(string(clusterDisplayName))
+			clusterName := strings.Trim(string(clusterDisplayName), "\n")
+
+			if !reflect.DeepEqual(marketplaceConfig.Spec.ClusterName, clusterName) {
+				if count <= 256 {
+					marketplaceConfig.Spec.ClusterName = clusterName
+					updateInstanceSpec = true
+					reqLogger.Info("setting ClusterName", "name", clusterName)
+				} else {
+					err := errors.New("CLUSTER_DISPLAY_NAME exceeds 256 chars")
+					reqLogger.Error(err, "name", clusterDisplayName)
+				}
+			}
+		}
+
+		token := string(pullSecret)
+		tokenClaims, err := marketplace.GetJWTTokenClaim(token)
+		if err != nil {
+			tokenIsValid = false
+			reqLogger.Error(err, "error parsing token")
+
+		}
+
+		if tokenIsValid {
+			marketplaceClient, err := r.mclientBuilder.NewMarketplaceClient(token, tokenClaims)
+
+			if err != nil {
+				reqLogger.Error(err, "error constructing marketplace client")
+				return reconcile.Result{Requeue: true}, nil
+			}
+
+			willBeDeleted := marketplaceConfig.GetDeletionTimestamp() != nil
+			if willBeDeleted {
+				result := r.unregister(marketplaceConfig, marketplaceClient, request, reqLogger)
+				if !result.Is(Continue) {
+					return result.Return()
+				}
+			}
+		}
+
+		if marketplaceConfig.Labels == nil {
+			marketplaceConfig.Labels = make(map[string]string)
+		}
+
+		if v, ok := marketplaceConfig.Labels[utils.RazeeWatchResource]; !ok || v != utils.RazeeWatchLevelDetail {
+			updateInstanceSpec = true
+			marketplaceConfig.Labels[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
+		}
+
+		if updateInstanceSpec {
+			err = r.Client.Update(context.TODO(), marketplaceConfig)
+
+			if err != nil {
+				reqLogger.Error(err, "Failed to update the marketplace config")
+				return reconcile.Result{}, err
+			}
+
+			return reconcile.Result{Requeue: true}, nil
+		}
 	}
 
 	if marketplaceConfig.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionInstalling) {
@@ -212,13 +360,19 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	//Check if RazeeDeployment exists, if not create one
 	foundRazee = &marketplacev1alpha1.RazeeDeployment{}
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: marketplaceConfig.Namespace}, foundRazee)
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && k8serrors.IsNotFound(err) {
 		newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
 
 		// Sets the owner for foundRazee
 		if err = controllerutil.SetControllerReference(marketplaceConfig, newRazeeCrd, r.Scheme); err != nil {
 			reqLogger.Error(err, "Failed to create a new RazeeDeployment CR.")
 			return reconcile.Result{}, err
+		}
+
+		// include a display name if set
+		if marketplaceConfig.Spec.ClusterName != "" {
+			reqLogger.Info("setting cluster name override on razee cr")
+			newRazeeCrd.Spec.ClusterDisplayName = marketplaceConfig.Spec.ClusterName
 		}
 
 		reqLogger.Info("creating razee cr")
@@ -255,6 +409,12 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	updatedRazee.Spec.ClusterUUID = marketplaceConfig.Spec.ClusterUUID
 	updatedRazee.Spec.DeploySecretName = marketplaceConfig.Spec.DeploySecretName
 	updatedRazee.Spec.Features = marketplaceConfig.Spec.Features.DeepCopy()
+
+	if marketplaceConfig.Spec.ClusterName != "" {
+		if !reflect.DeepEqual(marketplaceConfig.Spec.ClusterName, foundRazee.Spec.ClusterDisplayName) {
+			updatedRazee.Spec.ClusterDisplayName = marketplaceConfig.Spec.ClusterName
+		}
+	}
 
 	if !reflect.DeepEqual(foundRazee, updatedRazee) {
 		reqLogger.Info("updating razee cr")
@@ -346,7 +506,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		Name:      utils.OPSRC_NAME,
 		Namespace: utils.OPERATOR_MKTPLACE_NS},
 		foundOpSrc)
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && k8serrors.IsNotFound(err) {
 		// Define a new operator source
 		newOpSrc := utils.BuildNewOpSrc()
 		reqLogger.Info("Creating a new opsource")
@@ -430,35 +590,15 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	reqLogger.Info("Finding Cluster registration status")
-	//Fetch the Secret with name redhat-marketplace-pull-secret
-	secret := v1.Secret{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RHMPullSecretName, Namespace: request.Namespace}, &secret)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Error(err, "error finding", "name", utils.RHMPullSecretName)
-			return reconcile.Result{}, nil
-		}
 
-		reqLogger.Error(err, "error fetching secret")
-		return reconcile.Result{}, err
-	}
-	//Setting MarketplaceClientAccount
-	pullSecret, ok := secret.Data[utils.RHMPullSecretKey]
-
-	if !ok {
-		reqLogger.Error(err, "secret is missing appropriate field and can't check status")
-	}
-
-	tokenClaims, _ := marketplace.GetJWTTokenClaim(string(pullSecret))
-
-	if ok {
+	if tokenIsValid {
 		reqLogger.Info("attempting to update registration")
-		marketplaceClient, err := marketplace.NewMarketplaceClient(&marketplace.MarketplaceClientConfig{
-			Url:      r.cfg.Marketplace.URL,
-			Token:    string(pullSecret),
-			Insecure: r.cfg.Marketplace.InsecureClient,
-			Claims:   tokenClaims,
-		})
+		marketplaceClient, err := r.mclientBuilder.NewMarketplaceClient(token, tokenClaims)
+
+		if err != nil {
+			reqLogger.Error(err, "error constructing marketplace client")
+			return reconcile.Result{Requeue: true}, nil
+		}
 
 		marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
 			AccountId:   marketplaceConfig.Spec.RhmAccountID,
@@ -466,7 +606,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		}
 
 		registrationStatusOutput, err := marketplaceClient.RegistrationStatus(marketplaceClientAccount)
-
 		if err != nil {
 			reqLogger.Error(err, "registration status failed")
 			return reconcile.Result{Requeue: true}, nil
@@ -534,7 +673,7 @@ func (r *MarketplaceConfigReconciler) createCatalogSource(request reconcile.Requ
 	reqLogger.Info("Checking Install Catalog Src", "InstallCatalogSource: ", installCatalogSrc)
 	if installCatalogSrc {
 		// If the Catalog Source does not exist, create one
-		if err != nil && errors.IsNotFound(err) {
+		if err != nil && k8serrors.IsNotFound(err) {
 			// Create catalog source
 			var newCatalogSrc *operatorsv1alpha1.CatalogSource
 			if utils.IBM_CATALOGSRC_NAME == catalogName {
@@ -606,7 +745,7 @@ func (r *MarketplaceConfigReconciler) createCatalogSource(request reconcile.Requ
 
 			// catalog source deleted successfully - return and requeue
 			return true, nil
-		} else if err != nil && !errors.IsNotFound(err) {
+		} else if err != nil && !k8serrors.IsNotFound(err) {
 			// Could not get catalog source
 			reqLogger.Error(err, "Failed to get CatalogSource", "CatalogSource.Namespace ", catalogSrcNamespacedName.Namespace, "CatalogSource.Name", catalogSrcNamespacedName.Name)
 			return false, err
@@ -616,6 +755,32 @@ func (r *MarketplaceConfigReconciler) createCatalogSource(request reconcile.Requ
 
 	}
 	return false, nil
+}
+
+func (r *MarketplaceConfigReconciler) unregister(marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, marketplaceClient *marketplace.MarketplaceClient, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
+	reqLogger.Info("attempting to un-register")
+
+	marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
+		AccountId:   marketplaceConfig.Spec.RhmAccountID,
+		ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
+	}
+
+	reqLogger.Info("unregister", "marketplace client account", marketplaceClientAccount)
+
+	registrationStatusOutput, err := marketplaceClient.UnRegister(marketplaceClientAccount)
+	if err != nil {
+		reqLogger.Error(err, "unregister failed")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{Requeue: true},
+			Err:             nil,
+		}
+	}
+
+	reqLogger.Info("unregister", "RegistrationStatus", registrationStatusOutput.RegistrationStatus)
+
+	return &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
 }
 
 func (r *MarketplaceConfigReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
@@ -630,6 +795,11 @@ func (r *MarketplaceConfigReconciler) InjectCommandRunner(ccp ClientCommandRunne
 
 func (m *MarketplaceConfigReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
+	return nil
+}
+
+func (m *MarketplaceConfigReconciler) InjectMarketplaceClientBuilder(mbuilder *marketplace.MarketplaceClientBuilder) error {
+	m.mclientBuilder = mbuilder
 	return nil
 }
 
@@ -657,4 +827,17 @@ func (r *MarketplaceConfigReconciler) SetupWithManager(mgr manager.Manager) erro
 			OwnerType:    &marketplacev1alpha1.MarketplaceConfig{},
 		}).
 		Complete(r)
+}
+
+// getOperatorGroup returns the associated OLM OperatorGroup
+func getOperatorGroup() (string, error) {
+	// OperatorGroupEnvVar is the constant for env variable OPERATOR_GROUP
+	// which is annotated as olm.operatorGroup
+	var operatorGroupEnvVar = "OPERATOR_GROUP"
+
+	og, found := os.LookupEnv(operatorGroupEnvVar)
+	if !found {
+		return "", fmt.Errorf("%s must be set", operatorGroupEnvVar)
+	}
+	return og, nil
 }
