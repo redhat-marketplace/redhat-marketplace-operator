@@ -248,84 +248,91 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	//Fetch the Secret with name redhat-marketplace-pull-secret
-	secret := v1.Secret{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RHMPullSecretName, Namespace: request.Namespace}, &secret)
+	secret := &v1.Secret{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RHMPullSecretName, Namespace: request.Namespace}, secret)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
+			secret = nil
 			reqLogger.Error(err, "error finding", "name", utils.RHMPullSecretName)
-			return reconcile.Result{}, nil
-		}
-
-		reqLogger.Error(err, "error fetching secret")
-		return reconcile.Result{}, err
-	}
-
-	pullSecret, tokenIsValid := secret.Data[utils.RHMPullSecretKey]
-	if !tokenIsValid {
-		err := errors.New("rhm pull secret not found")
-		reqLogger.Error(err, "couldn't find pull secret")
-	}
-
-	var updateInstanceSpec bool
-	if clusterDisplayName, ok := secret.Data[utils.ClusterDisplayNameKey]; ok {
-		count := utf8.RuneCountInString(string(clusterDisplayName))
-		clusterName := strings.Trim(string(clusterDisplayName), "\n")
-
-		if !reflect.DeepEqual(marketplaceConfig.Spec.ClusterName, clusterName) {
-			if count <= 256 {
-				marketplaceConfig.Spec.ClusterName = clusterName
-				updateInstanceSpec = true
-				reqLogger.Info("setting ClusterName", "name", clusterName)
-			} else {
-				err := errors.New("CLUSTER_DISPLAY_NAME exceeds 256 chars")
-				reqLogger.Error(err, "name", clusterDisplayName)
-			}
-		}
-	}
-
-	token := string(pullSecret)
-	tokenClaims, err := marketplace.GetJWTTokenClaim(token)
-	if err != nil {
-		tokenIsValid = false
-		reqLogger.Error(err, "error parsing token")
-
-	}
-
-	if tokenIsValid {
-		marketplaceClient, err := r.mclientBuilder.NewMarketplaceClient(token, tokenClaims)
-
-		if err != nil {
-			reqLogger.Error(err, "error constructing marketplace client")
-			return reconcile.Result{Requeue: true}, nil
-		}
-
-		willBeDeleted := marketplaceConfig.GetDeletionTimestamp() != nil
-		if willBeDeleted {
-			result := r.unregister(marketplaceConfig, marketplaceClient, request, reqLogger)
-			if !result.Is(Continue) {
-				return result.Return()
-			}
-		}
-	}
-
-	if marketplaceConfig.Labels == nil {
-		marketplaceConfig.Labels = make(map[string]string)
-	}
-
-	if v, ok := marketplaceConfig.Labels[utils.RazeeWatchResource]; !ok || v != utils.RazeeWatchLevelDetail {
-		updateInstanceSpec = true
-		marketplaceConfig.Labels[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
-	}
-
-	if updateInstanceSpec {
-		err = r.Client.Update(context.TODO(), marketplaceConfig)
-
-		if err != nil {
-			reqLogger.Error(err, "Failed to update the marketplace config")
+		} else {
+			reqLogger.Error(err, "error fetching secret")
 			return reconcile.Result{}, err
 		}
+	}
 
-		return reconcile.Result{Requeue: true}, nil
+	var token string
+	var tokenIsValid bool
+	var tokenClaims *marketplace.MarketplaceClaims
+
+	if secret != nil {
+		var pullSecret []byte
+		pullSecret, tokenIsValid = secret.Data[utils.RHMPullSecretKey]
+		if !tokenIsValid {
+			err := errors.New("rhm pull secret not found")
+			reqLogger.Error(err, "couldn't find pull secret")
+		}
+
+		var updateInstanceSpec bool
+		if clusterDisplayName, ok := secret.Data[utils.ClusterDisplayNameKey]; ok {
+			count := utf8.RuneCountInString(string(clusterDisplayName))
+			clusterName := strings.Trim(string(clusterDisplayName), "\n")
+
+			if !reflect.DeepEqual(marketplaceConfig.Spec.ClusterName, clusterName) {
+				if count <= 256 {
+					marketplaceConfig.Spec.ClusterName = clusterName
+					updateInstanceSpec = true
+					reqLogger.Info("setting ClusterName", "name", clusterName)
+				} else {
+					err := errors.New("CLUSTER_DISPLAY_NAME exceeds 256 chars")
+					reqLogger.Error(err, "name", clusterDisplayName)
+				}
+			}
+		}
+
+		token := string(pullSecret)
+		tokenClaims, err := marketplace.GetJWTTokenClaim(token)
+		if err != nil {
+			tokenIsValid = false
+			reqLogger.Error(err, "error parsing token")
+
+		}
+
+		if tokenIsValid {
+			marketplaceClient, err := r.mclientBuilder.NewMarketplaceClient(token, tokenClaims)
+
+			if err != nil {
+				reqLogger.Error(err, "error constructing marketplace client")
+				return reconcile.Result{Requeue: true}, nil
+			}
+
+			willBeDeleted := marketplaceConfig.GetDeletionTimestamp() != nil
+			if willBeDeleted {
+				result := r.unregister(marketplaceConfig, marketplaceClient, request, reqLogger)
+				if !result.Is(Continue) {
+					return result.Return()
+				}
+			}
+		}
+
+		if marketplaceConfig.Labels == nil {
+			marketplaceConfig.Labels = make(map[string]string)
+		}
+
+		if v, ok := marketplaceConfig.Labels[utils.RazeeWatchResource]; !ok || v != utils.RazeeWatchLevelDetail {
+			updateInstanceSpec = true
+			marketplaceConfig.Labels[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
+		}
+
+		if updateInstanceSpec {
+			err = r.Client.Update(context.TODO(), marketplaceConfig)
+
+			if err != nil {
+				reqLogger.Error(err, "Failed to update the marketplace config")
+				return reconcile.Result{}, err
+			}
+
+			return reconcile.Result{Requeue: true}, nil
+		}
 	}
 
 	if marketplaceConfig.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionInstalling) {
