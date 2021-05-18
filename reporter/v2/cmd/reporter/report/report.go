@@ -28,7 +28,7 @@ import (
 
 var log = logf.Log.WithName("reporter_report_cmd")
 
-var name, namespace, cafile, tokenFile, uploadTarget, localFilePath string
+var name, namespace, cafile, tokenFile,uploadTarget,localFilePath,deployedNamespace string
 var local, upload bool
 var retry int
 
@@ -65,6 +65,7 @@ var ReportCmd = &cobra.Command{
 			Local:           local,
 			Upload:          upload,
 			UploaderTarget:  uploadTarget,
+			DeployedNamespace: deployedNamespace,
 		}
 		cfg.SetDefaults()
 
@@ -99,4 +100,5 @@ func init() {
 	ReportCmd.Flags().BoolVar(&local, "local", false, "run locally")
 	ReportCmd.Flags().BoolVar(&upload, "upload", true, "to upload the payload")
 	ReportCmd.Flags().IntVar(&retry, "retry", 3, "number of retries")
+	ReportCmd.Flags().StringVar(&deployedNamespace, "deployedNamespace", "openshift-redhat-marketplace", "namespace where the rhm operator is deployed")
 }

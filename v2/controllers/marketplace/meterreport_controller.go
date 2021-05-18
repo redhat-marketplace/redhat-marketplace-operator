@@ -186,6 +186,8 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 				manifests.CreateIfNotExistsFactoryItem(
 					job,
 					func() (runtime.Object, error) {
+						var deployedNamespace = r.cfg.DeployedNamespace
+						instance.Spec.ExtraArgs = append(instance.Spec.ExtraArgs,"--deployedNamespace",deployedNamespace) 
 						return r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit)
 					}, CreateWithAddController(instance),
 				),

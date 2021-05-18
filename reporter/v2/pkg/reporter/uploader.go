@@ -37,6 +37,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	"golang.org/x/net/http2"
@@ -94,7 +95,6 @@ type Uploader interface {
 
 type AirGapUploader struct {
 	AirGapUploaderConfig
-	// client filesender.FileSenderClient
 	client filesender.FileSender_UploadFileClient
 }
 
@@ -103,56 +103,58 @@ type AirGapUploaderConfig struct {
 	FilePath string `json:"filePath"`
 }
 
-func NewAirGapUploader (config *AirGapUploaderConfig )(Uploader, error){
-	//Create socket connection
-	conn, err := grpc.Dial(config.URL, grpc.WithInsecure(), grpc.WithBlock())
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
+func provideAirGapConfig(deployedNamespace string)*AirGapUploaderConfig{
 
-	//Create uplaod client
-	client := filesender.NewFileSenderClient(conn)
+	logger.Info("deployed namespace","namespace",deployedNamespace)
 
-	//client-stream upload the file
-	uploadClient, err := client.UploadFile(context.Background())
-	if err != nil {
-		// log.Fatalf("While calling uploadFile: %v", err)
-		return nil, err
+	var dataServiceDNS = fmt.Sprintf("%s.%s.svc.cluster.local:8001",utils.DATA_SERVICE_NAME,deployedNamespace)
+	return &AirGapUploaderConfig{
+		URL: dataServiceDNS,
 	}
+}
+
+func NewAirGapUploader (deployedNamespace string)(Uploader, error){
+	
+	config := provideAirGapConfig(deployedNamespace)
 
 	return &AirGapUploader{
 		AirGapUploaderConfig: *config,
-		client: uploadClient,
 	}, nil
 }
 
 func (a *AirGapUploader) UploadFile(path string) error {
-	//Create socket connection
-	logger.Info("starting upload to dqlite api")
-	var address  = "172.21.2.251:8001:8001" 
-	conn, err := grpc.Dial(address, grpc.WithInsecure(),grpc.WithBlock(),grpc.WithTimeout(time.Second * 20))
+
+	logger.Info("airgap upload url","url",a.AirGapUploaderConfig.URL)
+
+	conn, err := grpc.Dial(a.AirGapUploaderConfig.URL, grpc.WithInsecure(),grpc.WithBlock(),grpc.WithTimeout(time.Second * 20))
 	if err != nil {
-		// log.Fatalf("did not connect: %v", err)
 		logger.Error(err,"failed to establish connection")
 		return err
 	}
 
 	defer conn.Close()
 
+	client := filesender.NewFileSenderClient(conn)
+
+	uploadClient, err := client.UploadFile(context.Background())
+	if err != nil {
+		logger.Error(err,"could not setup uploadClient")
+		return err
+	}
+	
 	m := map[string]string{
 		"version":    "v1",
 		"reportType": "rhm-metering",
 	}
 
-	chunkAndUpload(a.client, path, m)
+	chunkAndUpload(uploadClient, path, m)
 
 	return nil
 	
 }
 
 func chunkAndUpload(uploadClient filesender.FileSender_UploadFileClient, path string, m map[string]string) error {
-	logger.Info("starting chunk and upload")
+	logger.Info("starting chunk and upload","file name",path)
 	file, err := os.Open(path)
 	if err != nil {
 		return err
@@ -215,8 +217,7 @@ func chunkAndUpload(uploadClient filesender.FileSender_UploadFileClient, path st
 		logger.Error(err,"Error getting response")
 	}
 
-	// fmt.Println(res)
-	logger.Info("airgap upload","response",res)
+	logger.Info("airgap upload response","response",res)
 
 	return nil
 
@@ -418,6 +419,7 @@ func ProvideUploader(
 	cc ClientCommandRunner,
 	log logr.Logger,
 	uploaderTarget UploaderTarget,
+	deployedNamespace string,
 ) (Uploader, error) {
 	switch uploaderTarget.(type) {
 	case *RedHatInsightsUploader:
@@ -433,7 +435,7 @@ func ProvideUploader(
 	case *LocalFilePathUploader:
 		return uploaderTarget.(Uploader), nil
 	case *AirGapUploader:
-		return uploaderTarget.(Uploader),nil
+		return NewAirGapUploader(deployedNamespace)
 	}
 
 	return nil, errors.Errorf("uploader target not available %s", uploaderTarget.Name())

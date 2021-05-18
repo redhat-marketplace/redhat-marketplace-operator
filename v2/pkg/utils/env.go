@@ -42,6 +42,7 @@ const (
 	WATCH_KEEPER_SECRET_NAME               = "watch-keeper-secret"
 	PROMETHEUS_METERBASE_NAME              = "rhm-prometheus-meterbase"
 	OPERATOR_CERTS_CA_BUNDLE_NAME          = "operator-certs-ca-bundle"
+	DATA_SERVICE_NAME                      = "rhm-dqlite"
 
 	/* All Controllers */
 	CONTROLLER_FINALIZER = "finalizer.marketplace.redhat.com"
