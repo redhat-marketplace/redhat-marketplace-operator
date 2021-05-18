@@ -17,3 +17,8 @@ resources:
   - classic/role_binding.yaml
 configurations:
   - kustomizeconfig.yaml
+
+commonLabels:
+  app.kubernetes.io/instance: redhat-marketplace-operator
+  app.kubernetes.io/managed-by: operator
+  app.kubernetes.io/name: redhat-marketplace-operator
