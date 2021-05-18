@@ -157,7 +157,6 @@ func (r *DataServiceReconciler) Reconcile(request reconcile.Request) (reconcile.
 		foundStatefulSet := &appsv1.StatefulSet{}
 		err = r.Client.Get(ctx, types.NamespacedName{Name: statefulSet.Name, Namespace: statefulSet.Namespace}, foundStatefulSet)
 		if err != nil && errors.IsNotFound(err) { // not found: create & requeue
-			reqLogger.Info("creating dataservice stateful set")
 			err = r.Client.Create(ctx, statefulSet)
 			if err != nil {
 				reqLogger.Error(err, "Create StatefulSet error: ")

@@ -173,7 +173,6 @@ func chunkAndUpload(uploadClient filesender.FileSender_UploadFileClient, path st
 	if err != nil {
 		logger.Error(err,"Failed to get metadata")
 		return err
-		// log.Fatalf("Failed to get metadata: %v", err)
 	}
 
 	uploadClient.Send(&filesender.UploadFileRequest{
@@ -198,7 +197,6 @@ func chunkAndUpload(uploadClient filesender.FileSender_UploadFileClient, path st
 		n, err := buffReader.Read(buffer)
 		if err != nil {
 			if err != io.EOF {
-				// fmt.Printf("Error reading file: %v", err)
 				logger.Error(err,"Error reading file")
 			}
 			break
