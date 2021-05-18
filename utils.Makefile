@@ -10,6 +10,9 @@ IMAGE_PUSH ?= true
 DOCKER_BUILD := docker build
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 
+clean-bin:
+	rm -rf $(PROJECT_DIR)/bin
+
 # --TOOLS--
 #
 # find or download controller-gen
@@ -61,7 +64,7 @@ endif
 
 GINKGO=$(PROJECT_DIR)/bin/ginkgo
 ginkgo:
-	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/ginkgo)
+	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/ginkgo@v1.16.2)
 
 GOBINDATA=$(PROJECT_DIR)/bin/go-bindata
 go-bindata:
@@ -77,11 +80,11 @@ golicense:
 
 YQ=$(PROJECT_DIR)/bin/yq
 yq:
-	$(call go-get-tool,$(YQ),github.com/mikefarah/yq/v4@v4.6.1)
+	$(call go-get-tool,$(YQ),github.com/mikefarah/yq/v4@v4.8.0)
 
 OPERATOR_SDK=$(PROJECT_DIR)/bin/operator-sdk
 operator-sdk:
-	$(call install-binary,https://github.com/operator-framework/operator-sdk/releases/download/v1.3.2,operator-sdk_$(UNAME)_$(ARCH),$(OPERATOR_SDK))
+	$(call install-binary,https://github.com/operator-framework/operator-sdk/releases/download/v1.7.2,operator-sdk_$(UNAME)_$(ARCH),$(OPERATOR_SDK))
 
 OPM=$(PROJECT_DIR)/bin/opm
 opm:
@@ -165,7 +168,8 @@ set -e ;\
 TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
 go mod init tmp ;\
-GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
+echo $(1) ;\
+GOBIN=$(PROJECT_DIR)/bin go get -u $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
