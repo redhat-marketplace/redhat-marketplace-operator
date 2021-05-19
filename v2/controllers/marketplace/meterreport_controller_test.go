@@ -22,7 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = FDescribe("report time", func() {
+var _ = Describe("report time", func() {
 
 	It("should execute at the right time", func() {
 		now := time.Now()
