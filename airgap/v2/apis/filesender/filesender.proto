@@ -29,6 +29,7 @@ message UploadFileResponse {
 
 message UpdateFileMetadataRequest {
   model.v1.FileID file_id = 1;
+  map<string,string> metadata = 2;
 }
 
 message UpdateFileMetadataResponse {

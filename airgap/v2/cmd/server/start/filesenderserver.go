@@ -15,6 +15,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -74,4 +75,20 @@ func (fss *FileSenderServer) UploadFile(stream filesender.FileSender_UploadFileS
 			size = finfo.GetSize()
 		}
 	}
+}
+
+func (fss *FileSenderServer) UpdateFileMetadata(ctx context.Context, in *filesender.UpdateFileMetadataRequest) (*filesender.UpdateFileMetadataResponse, error) {
+	err := fss.B.FileStore.UpdateFileMetadata(in.GetFileId(), in.GetMetadata())
+	if err != nil {
+		return nil, status.Errorf(
+			codes.Unknown,
+			fmt.Sprintf("Failed to update: %v", err),
+		)
+	}
+
+	response := filesender.UpdateFileMetadataResponse{
+		FileId: in.GetFileId(),
+	}
+
+	return &response, nil
 }
