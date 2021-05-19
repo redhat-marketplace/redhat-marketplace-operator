@@ -21,7 +21,6 @@ import (
 )
 
 // MeterDefinitionStore
-// +genclient
 type MeterdefinitionStore struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -30,11 +29,11 @@ type MeterdefinitionStore struct {
 }
 
 // MeterdefinitionStoreList contains a list of MeterdefinitionStores
-type MeterdefinitionStoreList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []MeterdefinitionStore `json:"items"`
-}
+// type MeterdefinitionStoreList struct {
+// 	metav1.TypeMeta `json:",inline"`
+// 	metav1.ListMeta `json:"metadata,omitempty"`
+// 	Items           []MeterdefinitionStore `json:"items"`
+// }
 
 type MeterdefinitionStoreSpec struct {
 	Entries []Entry `json:"Entries"`

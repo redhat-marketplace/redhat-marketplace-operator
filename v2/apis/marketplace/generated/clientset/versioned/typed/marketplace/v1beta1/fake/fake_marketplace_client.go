@@ -32,10 +32,6 @@ func (c *FakeMarketplaceV1beta1) MeterDefinitions(namespace string) v1beta1.Mete
 	return &FakeMeterDefinitions{c, namespace}
 }
 
-func (c *FakeMarketplaceV1beta1) MeterdefinitionStores(namespace string) v1beta1.MeterdefinitionStoreInterface {
-	return &FakeMeterdefinitionStores{c, namespace}
-}
-
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeMarketplaceV1beta1) RESTClient() rest.Interface {

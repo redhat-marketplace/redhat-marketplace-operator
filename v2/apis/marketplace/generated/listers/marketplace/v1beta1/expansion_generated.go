@@ -25,11 +25,3 @@ type MeterDefinitionListerExpansion interface{}
 // MeterDefinitionNamespaceListerExpansion allows custom methods to be added to
 // MeterDefinitionNamespaceLister.
 type MeterDefinitionNamespaceListerExpansion interface{}
-
-// MeterdefinitionStoreListerExpansion allows custom methods to be added to
-// MeterdefinitionStoreLister.
-type MeterdefinitionStoreListerExpansion interface{}
-
-// MeterdefinitionStoreNamespaceListerExpansion allows custom methods to be added to
-// MeterdefinitionStoreNamespaceLister.
-type MeterdefinitionStoreNamespaceListerExpansion interface{}

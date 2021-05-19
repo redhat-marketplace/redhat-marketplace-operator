@@ -27,7 +27,6 @@ import (
 type MarketplaceV1beta1Interface interface {
 	RESTClient() rest.Interface
 	MeterDefinitionsGetter
-	MeterdefinitionStoresGetter
 }
 
 // MarketplaceV1beta1Client is used to interact with features provided by the marketplace.redhat.com group.
@@ -37,10 +36,6 @@ type MarketplaceV1beta1Client struct {
 
 func (c *MarketplaceV1beta1Client) MeterDefinitions(namespace string) MeterDefinitionInterface {
 	return newMeterDefinitions(c, namespace)
-}
-
-func (c *MarketplaceV1beta1Client) MeterdefinitionStores(namespace string) MeterdefinitionStoreInterface {
-	return newMeterdefinitionStores(c, namespace)
 }
 
 // NewForConfig creates a new MarketplaceV1beta1Client for the given config.
