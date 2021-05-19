@@ -16,11 +16,11 @@ package marketplace
 
 import (
 	"context"
-
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
+	"encoding/json"
+	"time"
 
 	"github.com/go-logr/logr"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
@@ -29,7 +29,9 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -146,21 +148,98 @@ func (r *MeterdefConfigMapReconciler) Reconcile(request reconcile.Request) (reco
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MeterdefConfigmap")
 
-	// Fetch the mdefKVStore instance
-	mdefKVStore := &corev1.ConfigMap{}
-	err := r.Client.Get(context.TODO(), request.NamespacedName, mdefKVStore)
+	// install a dummy MeterdefStore
+	mdefStore := marketplacev1beta1.MeterdefinitionStore{
+		Spec: marketplacev1beta1.MeterdefinitionStoreSpec{
+			Entries: []marketplacev1beta1.Entry{
+				{
+					PackageName: "test",
+					AssociatedMeterdefinitions: []marketplacev1beta1.AssociatedMeterdefinitions{
+						{
+							VersionRange: "0.16",
+							MeterDefinitions: []marketplacev1beta1.MeterDefinition{
+								{
+									ObjectMeta: metav1.ObjectMeta{
+										Name:      "meterdef-controller-test",
+										Namespace: "openshift-redhat-marketplace",
+									},
+									Spec: marketplacev1beta1.MeterDefinitionSpec{
+										Group: "marketplace.redhat.com",
+										Kind:  "Pod",
+					
+										ResourceFilters: []marketplacev1beta1.ResourceFilter{
+											{
+												WorkloadType: marketplacev1beta1.WorkloadTypePod,
+												Label: &marketplacev1beta1.LabelFilter{
+													LabelSelector: &metav1.LabelSelector{
+														MatchLabels: map[string]string{
+															"app.kubernetes.io/name": "rhm-metric-state",
+														},
+													},
+												},
+											},
+										},
+										Meters: []marketplacev1beta1.MeterWorkload{
+											{
+												Aggregation: "sum",
+												Period: &metav1.Duration{
+													Duration: time.Duration(time.Minute*15),
+												},
+												Query:        "kube_pod_info{} or on() vector(0)",
+												Metric:       "meterdef_controller_test_query",
+												WorkloadType: marketplacev1beta1.WorkloadTypePod,
+												Name:         "meterdef_controller_test_query",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	mdefStoreString, err := json.Marshal(mdefStore)
+
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			reqLogger.Info("Resource not found. Ignoring since object must be deleted")
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
-		reqLogger.Error(err, "Failed to get MeterBase")
 		return reconcile.Result{}, err
 	}
+
+	mdefStoreCM := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mdef-cm",
+			Namespace: "openshift-redhat-marketplace",
+			// Labels: map[string]string{
+			// 	"razee/cluster-metadata": "true",
+			// 	"razee/watch-resource":   "lite",
+			// },
+		},
+		Data: map[string]string{
+			"store" : string(mdefStoreString),
+		},
+	}
+
+	err = r.Client.Create(context.TODO(),mdefStoreCM)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	// Fetch the mdefKVStore instance
+	// mdefKVStore := &corev1.ConfigMap{}
+	// err = r.Client.Get(context.TODO(), request.NamespacedName, mdefKVStore)
+	// if err != nil {
+	// 	if errors.IsNotFound(err) {
+	// 		// Request object not found, could have been deleted after reconcile request.
+	// 		// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+	// 		// Return and don't requeue
+	// 		reqLogger.Info("Resource not found. Ignoring since object must be deleted")
+	// 		return reconcile.Result{}, nil
+	// 	}
+	// 	// Error reading the object - requeue the request.
+	// 	reqLogger.Error(err, "Failed to get MeterBase")
+	// 	return reconcile.Result{}, err
+	// }
 
 	//TODO: ... add logic here
 
