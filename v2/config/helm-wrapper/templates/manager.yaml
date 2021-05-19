@@ -17,6 +17,10 @@ spec:
       labels:
         control-plane: controller-manager
         redhat.marketplace.com/name: redhat-marketplace-operator
+      annotations:
+        productName: "Red Hat Marketplace Operator"
+        productID: "36cdaba810c348c096b85800dd62bcf1"
+        productMetric: "FREE"
     spec:
       containers:
         - name: manager
