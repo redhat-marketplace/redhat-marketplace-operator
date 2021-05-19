@@ -234,6 +234,24 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&controllers.MeterdefConfigMapReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("MeterdefConfigMapReconciler"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "MeterdefConfigMapReconciler")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.RhmCSVReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("RhmCSVReconciler"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "RhmCSVReconciler")
+		os.Exit(1)
+	}
+
 	if err = (&runnables.PodMonitor{
 		Logger: ctrl.Log.WithName("controllers").WithName("PodMonitor"),
 		Client: mgr.GetClient(),
