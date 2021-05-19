@@ -44,13 +44,11 @@ type Entry struct {
 	// PackageName defines the package name of the CSV
 	PackageName string `json:"packageName"`
 	
-	// AssociatedMeterdefinitions contains a list of meterdefinitions for a particular version
+	// AssociatedMeterdefinitions contains a list of meterdefinitions associated with a particular csv 
 	AssociatedMeterdefinitions []AssociatedMeterdefinitions `json:"AssociatedMeterdefinitions,omitempty"`
 }
 
-type AssociatedMeterdefinitions map[string]AssociatedMeterdefinitionValue
-
-type AssociatedMeterdefinitionValue struct {
+type AssociatedMeterdefinitions struct {
 	VersionRange string `json:"versionRange"`
-	MeterDefinitions []MeterDefinitionSpec `json:"meterDefinitions,omitempty"`
+	MeterDefinitions []MeterDefinition `json:"meterDefinitions,omitempty"`
 }

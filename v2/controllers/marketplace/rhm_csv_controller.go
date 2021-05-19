@@ -19,8 +19,6 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 
 	"github.com/go-logr/logr"
@@ -103,63 +101,63 @@ func (r *RhmCSVReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
-	hasMarketplaceSub := false
-	if len(sub.Items) > 0 {
-		reqLogger.V(4).Info("found Subscription in namespaces", "count", len(sub.Items))
-		// add razee watch label to CSV if subscription has rhm/operator label
-		for _, s := range sub.Items {
-			if value, ok := s.GetLabels()[operatorTag]; ok {
-				if value == "true" {
-					if len(s.Status.InstalledCSV) == 0 {
-						reqLogger.Info("Requeue clusterserviceversion to wait for subscription getting installedCSV updated")
-						return reconcile.Result{RequeueAfter: time.Second * 5}, nil
-					}
+	// hasMarketplaceSub := false
+	// if len(sub.Items) > 0 {
+	// 	reqLogger.V(4).Info("found Subscription in namespaces", "count", len(sub.Items))
+	// 	// add razee watch label to CSV if subscription has rhm/operator label
+	// 	for _, s := range sub.Items {
+	// 		if value, ok := s.GetLabels()[operatorTag]; ok {
+	// 			if value == "true" {
+	// 				if len(s.Status.InstalledCSV) == 0 {
+	// 					reqLogger.Info("Requeue clusterserviceversion to wait for subscription getting installedCSV updated")
+	// 					return reconcile.Result{RequeueAfter: time.Second * 5}, nil
+	// 				}
 
-					if s.Status.InstalledCSV == request.NamespacedName.Name {
-						reqLogger.Info("found Subscription with installed CSV")
-						hasMarketplaceSub = true
+	// 				if s.Status.InstalledCSV == request.NamespacedName.Name {
+	// 					reqLogger.Info("found Subscription with installed CSV")
+	// 					hasMarketplaceSub = true
 
-						if v, ok := CSV.GetLabels()[watchTag]; !ok || v != "lite" {
-							err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-								err := r.Client.Get(context.TODO(),
-									types.NamespacedName{
-										Name:      CSV.GetName(),
-										Namespace: CSV.GetNamespace(),
-									},
-									CSV)
+	// 					if v, ok := CSV.GetLabels()[watchTag]; !ok || v != "lite" {
+	// 						err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+	// 							err := r.Client.Get(context.TODO(),
+	// 								types.NamespacedName{
+	// 									Name:      CSV.GetName(),
+	// 									Namespace: CSV.GetNamespace(),
+	// 								},
+	// 								CSV)
 
-								if err != nil {
-									return err
-								}
+	// 							if err != nil {
+	// 								return err
+	// 							}
 
-								labels := CSV.GetLabels()
+	// 							labels := CSV.GetLabels()
 
-								if labels == nil {
-									labels = make(map[string]string)
-								}
+	// 							if labels == nil {
+	// 								labels = make(map[string]string)
+	// 							}
 
-								labels[watchTag] = "lite"
-								CSV.SetLabels(labels)
+	// 							labels[watchTag] = "lite"
+	// 							CSV.SetLabels(labels)
 
-								return r.Client.Update(context.TODO(), CSV)
-							})
+	// 							return r.Client.Update(context.TODO(), CSV)
+	// 						})
 
-							if err != nil {
-								reqLogger.Error(err, "Failed to patch clusterserviceversion with razee/watch-resource: lite label")
-								return reconcile.Result{}, err
-							}
-							reqLogger.Info("Patched clusterserviceversion with razee/watch-resource: lite label")
-						} else {
+	// 						if err != nil {
+	// 							reqLogger.Error(err, "Failed to patch clusterserviceversion with razee/watch-resource: lite label")
+	// 							return reconcile.Result{}, err
+	// 						}
+	// 						reqLogger.Info("Patched clusterserviceversion with razee/watch-resource: lite label")
+	// 					} else {
 
-							reqLogger.Info("No patch needed on clusterserviceversion resource")
-						}
-					}
-				}
-			}
-		}
-	} else {
-		reqLogger.Info("Did not find Subscription in namespaces")
-	}
+	// 						reqLogger.Info("No patch needed on clusterserviceversion resource")
+	// 					}
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// } else {
+	// 	reqLogger.Info("Did not find Subscription in namespaces")
+	// }
 
 	// if !hasMarketplaceSub {
 	// 	reqLogger.Info("Does not have marketplace sub, ignoring CSV for future")

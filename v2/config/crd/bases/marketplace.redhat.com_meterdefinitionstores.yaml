@@ -1,0 +1,439 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.3.0
+  creationTimestamp: null
+  name: meterdefinitionstores.marketplace.redhat.com
+spec:
+  group: marketplace.redhat.com
+  names:
+    kind: MeterdefinitionStore
+    listKind: MeterdefinitionStoreList
+    plural: meterdefinitionstores
+    singular: meterdefinitionstore
+  preserveUnknownFields: false
+  scope: Namespaced
+  validation:
+    openAPIV3Schema:
+      description: MeterDefinitionStore
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            Entries:
+              items:
+                properties:
+                  AssociatedMeterdefinitions:
+                    description: AssociatedMeterdefinitions contains a list of meterdefinitions
+                      associated with a particular csv
+                    items:
+                      additionalProperties:
+                        properties:
+                          meterDefinitions:
+                            items:
+                              description: MeterDefinitionSpec defines the desired
+                                metering spec
+                              properties:
+                                group:
+                                  description: Group defines the operator group of
+                                    the meter
+                                  type: string
+                                installedBy:
+                                  description: InstalledBy is a reference to the CSV
+                                    that install the meter definition. This is used
+                                    to determine an operator group.
+                                  properties:
+                                    groupVersionKind:
+                                      description: GroupVersionKind of the resource
+                                      properties:
+                                        apiVersion:
+                                          description: APIVersion of the CRD
+                                          type: string
+                                        kind:
+                                          description: Kind of the CRD
+                                          type: string
+                                      required:
+                                      - apiVersion
+                                      - kind
+                                      type: object
+                                    name:
+                                      description: Name of the resource Required
+                                      type: string
+                                    namespace:
+                                      description: Namespace of the resource Required
+                                      type: string
+                                    uid:
+                                      description: Namespace of the resource
+                                      type: string
+                                  required:
+                                  - name
+                                  - namespace
+                                  type: object
+                                kind:
+                                  description: Kind defines the primary CRD kind of
+                                    the meter
+                                  type: string
+                                meters:
+                                  description: Meters are the definitions related
+                                    to the metrics that you would like to monitor.
+                                  items:
+                                    properties:
+                                      aggregation:
+                                        description: Aggregation to use with the query
+                                        enum:
+                                        - sum
+                                        - min
+                                        - max
+                                        - avg
+                                        type: string
+                                      dateLabelOverride:
+                                        description: DateLabelOverride provides a
+                                          means of overriding the date returned for
+                                          the metric using a label. This is to handle
+                                          cases where the metric is a constant that
+                                          is calculated.
+                                        type: string
+                                      description:
+                                        description: Description is the overview of
+                                          what the metric is providing for humans
+                                          to read.
+                                        type: string
+                                      groupBy:
+                                        description: Group is the set of label fields
+                                          returned by query to aggregate on.
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: set
+                                      label:
+                                        description: Label is the usage metrics key
+                                          field on the report. Defaults to the metricId
+                                          field if not provided
+                                        type: string
+                                      metricId:
+                                        description: Metric is the id of the meter
+                                        type: string
+                                      name:
+                                        description: Name of the metric for humans
+                                          to read.
+                                        type: string
+                                      period:
+                                        description: Period is the amount of time
+                                          to segment the data into. Default is 1h.
+                                        type: string
+                                      query:
+                                        description: Query to use for prometheus to
+                                          find the metrics
+                                        type: string
+                                      unit:
+                                        description: Unit is the unit of the metrics.
+                                          Defaults to the metricId field if not provided
+                                        type: string
+                                      valueLabelOverride:
+                                        description: ValueLabelOverride provides a
+                                          means of overriding the value returned for
+                                          the metric using a label. This is to handle
+                                          cases where the metric is a constant that
+                                          is calculated.
+                                        type: string
+                                      without:
+                                        description: Labels to filter out automatically.
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: set
+                                      workloadType:
+                                        description: WorkloadType identifies the type
+                                          of workload to look for. This can be pod
+                                          or service right now.
+                                        enum:
+                                        - Pod
+                                        - Service
+                                        - PersistentVolumeClaim
+                                        type: string
+                                    required:
+                                    - aggregation
+                                    - metricId
+                                    - query
+                                    - workloadType
+                                    type: object
+                                  type: array
+                                resourceFilters:
+                                  description: ResourceFilters provide filters that
+                                    will be used to find the workload objects. This
+                                    is to find the exact resources the query is interested
+                                    in. At least one must be provided.
+                                  items:
+                                    properties:
+                                      annotation:
+                                        description: Annotation uses the resource
+                                          annotations to find resources to monitor.
+                                        properties:
+                                          annotationSelector:
+                                            description: AnnotationSelector are used
+                                              to filter to the correct workload.
+                                            properties:
+                                              matchExpressions:
+                                                description: matchExpressions is a
+                                                  list of label selector requirements.
+                                                  The requirements are ANDed.
+                                                items:
+                                                  description: A label selector requirement
+                                                    is a selector that contains values,
+                                                    a key, and an operator that relates
+                                                    the key and values.
+                                                  properties:
+                                                    key:
+                                                      description: key is the label
+                                                        key that the selector applies
+                                                        to.
+                                                      type: string
+                                                    operator:
+                                                      description: operator represents
+                                                        a key's relationship to a
+                                                        set of values. Valid operators
+                                                        are In, NotIn, Exists and
+                                                        DoesNotExist.
+                                                      type: string
+                                                    values:
+                                                      description: values is an array
+                                                        of string values. If the operator
+                                                        is In or NotIn, the values
+                                                        array must be non-empty. If
+                                                        the operator is Exists or
+                                                        DoesNotExist, the values array
+                                                        must be empty. This array
+                                                        is replaced during a strategic
+                                                        merge patch.
+                                                      items:
+                                                        type: string
+                                                      type: array
+                                                  required:
+                                                  - key
+                                                  - operator
+                                                  type: object
+                                                type: array
+                                              matchLabels:
+                                                additionalProperties:
+                                                  type: string
+                                                description: matchLabels is a map
+                                                  of {key,value} pairs. A single {key,value}
+                                                  in the matchLabels map is equivalent
+                                                  to an element of matchExpressions,
+                                                  whose key field is "key", the operator
+                                                  is "In", and the values array contains
+                                                  only "value". The requirements are
+                                                  ANDed.
+                                                type: object
+                                            type: object
+                                        type: object
+                                      label:
+                                        description: Label uses the resource annotations
+                                          to find resources to monitor.
+                                        properties:
+                                          labelSelector:
+                                            description: LabelSelector are used to
+                                              filter to the correct workload.
+                                            properties:
+                                              matchExpressions:
+                                                description: matchExpressions is a
+                                                  list of label selector requirements.
+                                                  The requirements are ANDed.
+                                                items:
+                                                  description: A label selector requirement
+                                                    is a selector that contains values,
+                                                    a key, and an operator that relates
+                                                    the key and values.
+                                                  properties:
+                                                    key:
+                                                      description: key is the label
+                                                        key that the selector applies
+                                                        to.
+                                                      type: string
+                                                    operator:
+                                                      description: operator represents
+                                                        a key's relationship to a
+                                                        set of values. Valid operators
+                                                        are In, NotIn, Exists and
+                                                        DoesNotExist.
+                                                      type: string
+                                                    values:
+                                                      description: values is an array
+                                                        of string values. If the operator
+                                                        is In or NotIn, the values
+                                                        array must be non-empty. If
+                                                        the operator is Exists or
+                                                        DoesNotExist, the values array
+                                                        must be empty. This array
+                                                        is replaced during a strategic
+                                                        merge patch.
+                                                      items:
+                                                        type: string
+                                                      type: array
+                                                  required:
+                                                  - key
+                                                  - operator
+                                                  type: object
+                                                type: array
+                                              matchLabels:
+                                                additionalProperties:
+                                                  type: string
+                                                description: matchLabels is a map
+                                                  of {key,value} pairs. A single {key,value}
+                                                  in the matchLabels map is equivalent
+                                                  to an element of matchExpressions,
+                                                  whose key field is "key", the operator
+                                                  is "In", and the values array contains
+                                                  only "value". The requirements are
+                                                  ANDed.
+                                                type: object
+                                            type: object
+                                        type: object
+                                      namespace:
+                                        description: Namespace is the filter to control
+                                          which namespaces to look for your resources.
+                                          Default is always Operator Group (supported
+                                          by OLM)
+                                        properties:
+                                          labelSelector:
+                                            description: LabelSelector are used to
+                                              filter to the correct workload.
+                                            properties:
+                                              matchExpressions:
+                                                description: matchExpressions is a
+                                                  list of label selector requirements.
+                                                  The requirements are ANDed.
+                                                items:
+                                                  description: A label selector requirement
+                                                    is a selector that contains values,
+                                                    a key, and an operator that relates
+                                                    the key and values.
+                                                  properties:
+                                                    key:
+                                                      description: key is the label
+                                                        key that the selector applies
+                                                        to.
+                                                      type: string
+                                                    operator:
+                                                      description: operator represents
+                                                        a key's relationship to a
+                                                        set of values. Valid operators
+                                                        are In, NotIn, Exists and
+                                                        DoesNotExist.
+                                                      type: string
+                                                    values:
+                                                      description: values is an array
+                                                        of string values. If the operator
+                                                        is In or NotIn, the values
+                                                        array must be non-empty. If
+                                                        the operator is Exists or
+                                                        DoesNotExist, the values array
+                                                        must be empty. This array
+                                                        is replaced during a strategic
+                                                        merge patch.
+                                                      items:
+                                                        type: string
+                                                      type: array
+                                                  required:
+                                                  - key
+                                                  - operator
+                                                  type: object
+                                                type: array
+                                              matchLabels:
+                                                additionalProperties:
+                                                  type: string
+                                                description: matchLabels is a map
+                                                  of {key,value} pairs. A single {key,value}
+                                                  in the matchLabels map is equivalent
+                                                  to an element of matchExpressions,
+                                                  whose key field is "key", the operator
+                                                  is "In", and the values array contains
+                                                  only "value". The requirements are
+                                                  ANDed.
+                                                type: object
+                                            type: object
+                                          useOperatorGroup:
+                                            description: UseOperatorGroup use your
+                                              operator group for namespace filtering
+                                            type: boolean
+                                        required:
+                                        - useOperatorGroup
+                                        type: object
+                                      ownerCRD:
+                                        description: OwnerCRD uses the owning CRD
+                                          to filter resources.
+                                        properties:
+                                          apiVersion:
+                                            description: APIVersion of the CRD
+                                            type: string
+                                          kind:
+                                            description: Kind of the CRD
+                                            type: string
+                                        required:
+                                        - apiVersion
+                                        - kind
+                                        type: object
+                                      workloadType:
+                                        description: WorkloadType identifies the type
+                                          of workload to look for. This can be pod
+                                          or service right now.
+                                        enum:
+                                        - Pod
+                                        - Service
+                                        - PersistentVolumeClaim
+                                        type: string
+                                    required:
+                                    - workloadType
+                                    type: object
+                                  minItems: 1
+                                  type: array
+                              required:
+                              - group
+                              - kind
+                              - meters
+                              - resourceFilters
+                              type: object
+                            type: array
+                          versionRange:
+                            type: string
+                        required:
+                        - versionRange
+                        type: object
+                      type: object
+                    type: array
+                  packageName:
+                    description: PackageName defines the package name of the CSV
+                    type: string
+                required:
+                - packageName
+                type: object
+              type: array
+          required:
+          - Entries
+          type: object
+      type: object
+  version: v1beta1
+  versions:
+  - name: v1beta1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
