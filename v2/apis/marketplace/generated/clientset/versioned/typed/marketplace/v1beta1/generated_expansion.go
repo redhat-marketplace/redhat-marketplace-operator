@@ -19,3 +19,5 @@ limitations under the License.
 package v1beta1
 
 type MeterDefinitionExpansion interface{}
+
+type MeterdefinitionStoreExpansion interface{}

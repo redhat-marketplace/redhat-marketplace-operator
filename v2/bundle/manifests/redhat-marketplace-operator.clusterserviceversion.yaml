@@ -196,8 +196,8 @@ metadata:
     capabilities: Basic Install
     operators.operatorframework.io/builder: operator-sdk-v1.7.1+git
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-    containerImage: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-operator:2.1.0
-    createdAt: "2021-05-18T17:03:36Z"
+    containerImage: quay.io/mxpaspa/redhat-marketplace-operator:2.1.0
+    createdAt: "2021-05-19T09:37:41Z"
     olm.skipRange: '>=1.0.0 <2.1.0'
   name: redhat-marketplace-operator.v2.1.0
   namespace: placeholder
@@ -661,11 +661,11 @@ spec:
                       - name: OPERATOR_NAME
                         value: redhat-marketplace-operator
                       - name: RELATED_IMAGE_REPORTER
-                        value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-reporter:2.1.0
+                        value: quay.io/mxpaspa/redhat-marketplace-reporter:2.1.0
                       - name: RELATED_IMAGE_METRIC_STATE
-                        value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-metric-state:2.1.0
+                        value: quay.io/mxpaspa/redhat-marketplace-metric-state:2.1.0
                       - name: RELATED_IMAGE_AUTHCHECK
-                        value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-authcheck:2.1.0
+                        value: quay.io/mxpaspa/redhat-marketplace-authcheck:2.1.0
                       - name: WATCH_NAMESPACE
                         valueFrom:
                           fieldRef:
@@ -694,7 +694,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.operatorGroup']
-                    image: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-operator:2.1.0
+                    image: quay.io/mxpaspa/redhat-marketplace-operator:2.1.0
                     livenessProbe:
                       httpGet:
                         path: /healthz
