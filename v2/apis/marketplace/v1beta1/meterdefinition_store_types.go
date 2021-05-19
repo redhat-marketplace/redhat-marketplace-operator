@@ -37,22 +37,20 @@ type MeterdefinitionStoreList struct {
 }
 
 type MeterdefinitionStoreSpec struct {
-	
-	CSVEntrys []CSVEntry `json:"csvEntrys"`
-	
+	Entries []Entry `json:"Entries"`
 }
 
-type CSVEntry struct {
-	// PackageName defines the package name
+type Entry struct {
+	// PackageName defines the package name of the CSV
 	PackageName string `json:"packageName"`
 	
-	// Entry defines an entry to the meterdefinitionstore
-	Entry EntryMapping `json:"entry,omitempty"`
+	// AssociatedMeterdefinitions contains a list of meterdefinitions for a particular version
+	AssociatedMeterdefinitions []AssociatedMeterdefinitions `json:"AssociatedMeterdefinitions,omitempty"`
 }
 
-type EntryMapping map[string]EntryKey
+type AssociatedMeterdefinitions map[string]AssociatedMeterdefinitionValue
 
-type EntryKey struct {
-	VersionRange string `json:"version"`
-	MeterDefinitions []MeterDefinitionSpec `json:"meterdefinitions"`
+type AssociatedMeterdefinitionValue struct {
+	VersionRange string `json:"versionRange"`
+	MeterDefinitions []MeterDefinitionSpec `json:"meterDefinitions,omitempty"`
 }
