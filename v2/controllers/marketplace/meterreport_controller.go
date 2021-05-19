@@ -176,28 +176,47 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 		return result.Return()
 	}
 
+	// getting job
 	result, _ := cc.Do(context.TODO(), GetAction(types.NamespacedName{
 		Name:      instance.Name,
 		Namespace: instance.Namespace,
 	}, job))
 
 	// We'll rerun the jobs of the last 7 days in case we push a fix
-	lastVersion, noAnnotation := instance.GetAnnotations()["marketplace.redhat.com/version"]
+	lastVersion, hasAnnotation := instance.GetAnnotations()["marketplace.redhat.com/version"]
 	rerunDate := time.Now().Add(-rerunTime)
 
-	if (noAnnotation || lastVersion != version.Version) && instance.Spec.StartTime.Time.After(rerunDate) {
+	if !hasAnnotation || (hasAnnotation && lastVersion != version.Version) {
+		reqLogger.Info("new version detected, updating version annotation")
+
 		annotations := instance.GetAnnotations()
 		annotations["marketplace.redhat.com/version"] = version.Version
 		instance.SetAnnotations(annotations)
-
-		reqLogger.Info("new version detected, running older job")
 		instance.Status.AssociatedJob = nil
-		result, _ = cc.Do(context.TODO(),
-			HandleResult(
-				GetAction(types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job),
-				OnContinue(DeleteAction(job, DeleteWithDeleteOptions(client.PropagationPolicy(metav1.DeletePropagationBackground))))),
-			UpdateAction(instance),
-		)
+
+		if instance.Status.AssociatedJob != nil && instance.Spec.StartTime.After(rerunDate) {
+			reqLogger.Info("job is within requeue time, deleting old job")
+			result, _ = cc.Do(context.TODO(),
+				HandleResult(
+					GetAction(types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job),
+					OnContinue(DeleteAction(job, DeleteWithDeleteOptions(client.PropagationPolicy(metav1.DeletePropagationBackground))))),
+			)
+
+			if result.Is(Error) {
+				reqLogger.Error(result.Err, "error updating")
+				return reconcile.Result{}, result.Err
+			}
+		}
+
+		result, _ = cc.Do(context.TODO(), UpdateAction(instance))
+
+		if result.Is(Error) {
+			reqLogger.Error(result.Err, "error updating")
+			return reconcile.Result{Requeue: true}, nil
+		}
+
+		reqLogger.Info("new version detected, updating version annotation")
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	if instance.Status.AssociatedJob != nil &&
