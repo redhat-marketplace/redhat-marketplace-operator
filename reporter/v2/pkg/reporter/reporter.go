@@ -574,9 +574,9 @@ func (r *MarketplaceReporter) WriteReport(
 		filenames = append(filenames, filename)
 	}
 
-	marshallBytes, err := json.Marshal(metadata)
+	marshallBytes, err := json.Marshal(reportMetadata)
 	if err != nil {
-		logger.Error(err, "failed to marshal report metadata", "metadata", metadata)
+		logger.Error(err, "failed to marshal report metadata", "metadata", reportMetadata)
 		return nil, err
 	}
 

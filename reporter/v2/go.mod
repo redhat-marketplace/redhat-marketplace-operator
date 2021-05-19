@@ -12,8 +12,8 @@ require (
 	github.com/meirf/gopart v0.0.0-20180520194036-37e9492a85a8
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.4.0 // indirect
-	github.com/onsi/ginkgo v1.14.2
-	github.com/onsi/gomega v1.10.4
+	github.com/onsi/ginkgo v1.16.2
+	github.com/onsi/gomega v1.12.0
 	github.com/openshift/api v0.0.0-20200930075302-db52bc4ef99f
 	github.com/operator-framework/api v0.3.25
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.44.0
@@ -23,7 +23,7 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.1
 	golang.org/x/lint v0.0.0-20201208152925-83fdc39ff7b5 // indirect
-	golang.org/x/net v0.0.0-20201202161906-c7110b5ffcbb
+	golang.org/x/net v0.0.0-20210510120150-4163338589ed
 	k8s.io/api v0.19.4
 	k8s.io/apimachinery v0.19.4
 	k8s.io/client-go v12.0.0+incompatible
