@@ -190,6 +190,10 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 		reqLogger.Info("new version detected, updating version annotation")
 
 		annotations := instance.GetAnnotations()
+		if annotations == nil {
+			annotations = map[string]string{}
+		}
+
 		annotations["marketplace.redhat.com/version"] = version.Version
 		instance.SetAnnotations(annotations)
 		instance.Status.AssociatedJob = nil
