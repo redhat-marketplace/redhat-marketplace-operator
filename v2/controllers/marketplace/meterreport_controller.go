@@ -181,6 +181,25 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 		Namespace: instance.Namespace,
 	}, job))
 
+	// We'll rerun the jobs of the last 7 days in case we push a fix
+	lastVersion, noAnnotation := instance.GetAnnotations()["marketplace.redhat.com/version"]
+	rerunDate := time.Now().Add(-rerunTime)
+
+	if (noAnnotation || lastVersion != version.Version) && instance.Spec.StartTime.Time.After(rerunDate) {
+		annotations := instance.GetAnnotations()
+		annotations["marketplace.redhat.com/version"] = version.Version
+		instance.SetAnnotations(annotations)
+
+		reqLogger.Info("new version detected, running older job")
+		instance.Status.AssociatedJob = nil
+		result, _ = cc.Do(context.TODO(),
+			HandleResult(
+				GetAction(types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job),
+				OnContinue(DeleteAction(job, DeleteWithDeleteOptions(client.PropagationPolicy(metav1.DeletePropagationBackground))))),
+			UpdateAction(instance),
+		)
+	}
+
 	if instance.Status.AssociatedJob != nil &&
 		instance.Status.AssociatedJob.IsSuccessful() &&
 		!result.Is(NotFound) {
@@ -208,25 +227,6 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 			}
 			return result.Return()
 		}
-	}
-
-	lastVersion, noAnnotation := instance.GetAnnotations()["marketplace.redhat.com/version"]
-	rerunDate := time.Now().Add(-rerunTime)
-
-	// We'll rerun the jobs of the last 7 days in case we push a fix
-	if (noAnnotation || lastVersion != version.Version) && instance.Spec.StartTime.Time.After(rerunDate) {
-		annotations := instance.GetAnnotations()
-		annotations["marketplace.redhat.com/version"] = version.Version
-		instance.SetAnnotations(annotations)
-
-		reqLogger.Info("new version detected, running older job")
-		instance.Status.AssociatedJob = nil
-		result, _ = cc.Do(context.TODO(),
-			HandleResult(
-				GetAction(types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job),
-				OnContinue(DeleteAction(job, DeleteWithDeleteOptions(client.PropagationPolicy(metav1.DeletePropagationBackground))))),
-			UpdateAction(instance),
-		)
 	}
 
 	// Update associated job
