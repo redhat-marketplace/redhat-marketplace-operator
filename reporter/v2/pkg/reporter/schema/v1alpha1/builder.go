@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"time"
 
 	"emperror.dev/errors"
 	"github.com/cespare/xxhash"
@@ -149,8 +150,14 @@ func (d *MarketplaceReportDataBuilder) Build() (*MarketplaceReportData, error) {
 
 	hash := xxhash.New()
 	hash.Write([]byte(d.clusterID))
-	hash.Write([]byte(d.id))
+	hash.Write([]byte(meterDef.IntervalStart.UTC().Format(time.RFC3339)))
+	hash.Write([]byte(meterDef.IntervalEnd.UTC().Format(time.RFC3339)))
+	hash.Write([]byte(meterDef.MeterGroup))
+	hash.Write([]byte(meterDef.MeterKind))
+	hash.Write([]byte(meterDef.Metric))
+	hash.Write([]byte(meterDef.ResourceNamespace))
+	hash.Write([]byte(meterDef.ResourceName))
+	hash.Write([]byte(meterDef.Unit))
 	key.MetricID = fmt.Sprintf("%x", hash.Sum64())
-
 	return key, nil
 }

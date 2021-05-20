@@ -223,11 +223,11 @@ func (m *MeterDefPrometheusLabelsTemplated) Hash() string {
 		hash := xxhash.New()
 		hash.Write([]byte(m.IntervalStart.UTC().Format(time.RFC3339)))
 		hash.Write([]byte(m.IntervalEnd.UTC().Format(time.RFC3339)))
-		hash.Write([]byte(m.WorkloadName))
-		hash.Write([]byte(m.WorkloadType))
 		hash.Write([]byte(m.MeterGroup))
 		hash.Write([]byte(m.MeterKind))
 		hash.Write([]byte(m.Metric))
+		hash.Write([]byte(m.ResourceNamespace))
+		hash.Write([]byte(m.ResourceName))
 		hash.Write([]byte(m.Unit))
 		m.hash = fmt.Sprintf("%x", hash.Sum64())
 	}

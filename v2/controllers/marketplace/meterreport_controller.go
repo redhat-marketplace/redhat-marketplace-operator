@@ -198,6 +198,7 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 
 		if instance.Status.AssociatedJob != nil && instance.Spec.StartTime.After(rerunDate) {
 			reqLogger.Info("job is within requeue time, deleting old job")
+
 			result, _ = cc.Do(context.TODO(),
 				HandleResult(
 					GetAction(types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job),

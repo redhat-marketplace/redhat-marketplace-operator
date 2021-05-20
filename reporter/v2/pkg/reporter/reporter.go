@@ -518,7 +518,7 @@ func (r *MarketplaceReporter) WriteReport(
 	filedir := filepath.Join(r.Config.OutputDirectory, source.String())
 	err := os.Mkdir(filedir, 0755)
 
-	if err != nil {
+	if err != nil && ! errors.Is(err, os.ErrExist) {
 		return []string{}, errors.Wrap(err, "error creating directory")
 	}
 
