@@ -30,20 +30,22 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 )
 
 // blank assignment to verify that ReconcileMeterReport implements reconcile.Reconciler
@@ -194,10 +196,6 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 			annotations = map[string]string{}
 		}
 
-		annotations["marketplace.redhat.com/version"] = version.Version
-		instance.SetAnnotations(annotations)
-		instance.Status.AssociatedJob = nil
-
 		if instance.Status.AssociatedJob != nil && instance.Spec.StartTime.After(rerunDate) {
 			reqLogger.Info("job is within requeue time, deleting old job")
 			result, _ = cc.Do(context.TODO(),
@@ -212,9 +210,22 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 			}
 		}
 
-		result, _ = cc.Do(context.TODO(), UpdateAction(instance))
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			_, err := cc.Do(context.TODO(),
+				GetAction(request.NamespacedName, instance),
+				Call(func() (reconcileutils.ClientAction, error) {
+					annotations["marketplace.redhat.com/version"] = version.Version
+					instance.SetAnnotations(annotations)
+					instance.Status.AssociatedJob = nil
 
-		if result.Is(Error) {
+					return nil, nil
+				}),
+				UpdateAction(instance),
+			)
+			return err
+		})
+
+		if err != nil {
 			reqLogger.Error(result.Err, "error updating")
 			return reconcile.Result{Requeue: true}, nil
 		}
