@@ -64,6 +64,8 @@ const (
 	MetricStateDeployment     = "assets/metric-state/deployment.yaml"
 	MetricStateServiceMonitor = "assets/metric-state/service-monitor.yaml"
 	MetricStateService        = "assets/metric-state/service.yaml"
+
+	MeterdefinitionConfigMap = "assets/meterdef-store/meterdef-store-cm.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")
@@ -216,6 +218,10 @@ func (f *Factory) NewService(manifest io.Reader) (*corev1.Service, error) {
 	}
 
 	return d, nil
+}
+
+func (f *Factory) NewMeterdefinitionConfigMap() (*corev1.ConfigMap, error) {
+	return f.NewConfigMap(MustAssetReader(MeterdefinitionConfigMap))
 }
 
 func (f *Factory) NewConfigMap(manifest io.Reader) (*corev1.ConfigMap, error) {
