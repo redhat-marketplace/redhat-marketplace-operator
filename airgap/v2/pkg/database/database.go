@@ -296,9 +296,16 @@ func (d *Database) CleanTombstones(before *timestamppb.Timestamp, purgeAll bool)
 
 	metadataList := []models.Metadata{}
 	if len(before.String()) != 0 {
-		d.DB.Select("file_id", "id", "provided_id", "provided_name").
-			Where("clean_tombstone_set_at < (?) AND clean_tombstone_set_at > (?)", before.Seconds, 0).
-			Find(&metadataList)
+		if purgeAll {
+			d.DB.Select("file_id", "id", "provided_id", "provided_name").
+				Where("clean_tombstone_set_at < (?) AND clean_tombstone_set_at > (?)", before.Seconds, 0).
+				Find(&metadataList)
+		} else {
+			d.DB.Select("file_id", "id", "provided_id", "provided_name").
+				Where("clean_tombstone_set_at < (?) AND clean_tombstone_set_at > (?)", before.Seconds, 0).
+				Where("deleted_at = ?", 0).
+				Find(&metadataList)
+		}
 	}
 
 	var fileList []*v1.FileID

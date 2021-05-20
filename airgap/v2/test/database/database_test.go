@@ -875,14 +875,23 @@ func TestDatabase_CleanTombstones(t *testing.T) {
 			before:   timestamppb.Timestamp{Seconds: int64(before + 1)},
 			purgeAll: false,
 			fids: []*v1.FileID{
-				{Data: &v1.FileID_Name{Name: "delete1.txt"}},
+				{
+					Data: &v1.FileID_Name{
+						Name: "delete.txt",
+					},
+				},
 			},
 		},
 		{
-			name:     "clear file contents",
+			name:     "delete files",
 			before:   timestamppb.Timestamp{Seconds: int64(after + 1)},
-			purgeAll: false,
+			purgeAll: true,
 			fids: []*v1.FileID{
+				{
+					Data: &v1.FileID_Name{
+						Name: "delete.txt",
+					},
+				},
 				{
 					Data: &v1.FileID_Name{
 						Name: "delete1.txt",
@@ -1034,12 +1043,11 @@ func populateDataset(database *database.Database, t *testing.T) {
 		time.Sleep(1 * time.Second)
 	}
 
-	database.TombstoneFile(deleteFID)
-
 	// update created_at for files
 	setCreatedAt(reportsFID.GetName(), before, database)
 	setCreatedAt(marketplaceFID.GetName(), after, database)
 	setDeletedAt(deleteFID1.GetName(), before, database)
+	setTombstone(deleteFID.GetName(), before, database)
 	setTombstone(deleteFID1.GetName(), before, database)
 	setTombstone(deleteFID2.GetName(), after, database)
 	time.Sleep(1 * time.Second)
