@@ -37,12 +37,22 @@ spec:
             memory: 20Mi
         terminationMessagePolicy: FallbackToLogsOnError      
       - command: ['/bin/sh']
-        args: ['-c', 'if [ "$HOSTNAME" != "rhm-dqlite-0" ]; then DQLITE_JOIN="--join rhm-dqlite-0.rhm-dqlite:9001"; fi; exec /opt/main --api 127.0.0.1:8001 --db $PODIP:9001 --dir /data -v $DQLITE_JOIN']
+        args: ['-c', 'if [ "$POD_NAME" != "rhm-dqlite-0" ]; then DQLITE_JOIN="--join rhm-dqlite-0.rhm-dqlite.$POD_NAMESPACE.svc.cluster.local:9001"; fi; exec /opt/main --api 127.0.0.1:8001 --db $POD_NAME.rhm-dqlite.$POD_NAMESPACE.svc.cluster.local:9001 --dir /data -v $DQLITE_JOIN']
         env:
         - name: PODIP
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
         image: redhat-marketplace-dqlite
         imagePullPolicy: IfNotPresent
         name: rhm-dqlite
