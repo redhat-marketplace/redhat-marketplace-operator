@@ -49,7 +49,7 @@ import (
 // blank assignment to verify that MeterdefConfigMapReconciler implements reconcile.Reconciler
 var _ reconcile.Reconciler = &MeterdefConfigMapReconciler{}
 
-var meterdefStoreDB = &MeterdefStoreDB{}
+var GlobalMeterdefStoreDB = &MeterdefStoreDB{}
 // MeterdefConfigMapReconciler reconciles the DataService of a MeterBase object
 type MeterdefConfigMapReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
