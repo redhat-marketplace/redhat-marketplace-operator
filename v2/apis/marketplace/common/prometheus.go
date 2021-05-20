@@ -221,8 +221,8 @@ type MeterDefPrometheusLabelsTemplated struct {
 func (m *MeterDefPrometheusLabelsTemplated) Hash() string {
 	if m.hash == "" {
 		hash := xxhash.New()
-		hash.Write([]byte(m.IntervalStart.String()))
-		hash.Write([]byte(m.IntervalEnd.String()))
+		hash.Write([]byte(m.IntervalStart.UTC().Format(time.RFC3339)))
+		hash.Write([]byte(m.IntervalEnd.UTC().Format(time.RFC3339)))
 		hash.Write([]byte(m.WorkloadName))
 		hash.Write([]byte(m.WorkloadType))
 		hash.Write([]byte(m.MeterGroup))
