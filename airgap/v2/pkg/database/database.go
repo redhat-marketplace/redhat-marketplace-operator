@@ -295,7 +295,7 @@ func (d *Database) GetFileMetadata(finfo *v1.FileID) (*models.Metadata, error) {
 func (d *Database) CleanTombstones(before *timestamppb.Timestamp, purgeAll bool) ([]*v1.FileID, error) {
 
 	metadataList := []models.Metadata{}
-	if len(before.String()) != 0 {
+	if before.Seconds != 0 {
 		if purgeAll {
 			d.DB.Select("file_id", "id", "provided_id", "provided_name").
 				Where("clean_tombstone_set_at < (?) AND clean_tombstone_set_at > (?)", before.Seconds, 0).
@@ -429,9 +429,8 @@ func (d *Database) matchMetadata(old []models.FileMetadata, updateTo map[string]
 	for _, fm := range old {
 		oldFms[fm.Key] = fm.Value
 	}
-	eq := reflect.DeepEqual(oldFms, updateTo)
 
-	return eq
+	return reflect.DeepEqual(oldFms, updateTo)
 }
 
 // createMetadataModels returns metadata object required for updating file metadata

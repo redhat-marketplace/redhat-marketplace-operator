@@ -77,6 +77,7 @@ func (fss *FileSenderServer) UploadFile(stream filesender.FileSender_UploadFileS
 	}
 }
 
+// UpdateFileMetadata allows to update metadata of file saved in the databse
 func (fss *FileSenderServer) UpdateFileMetadata(ctx context.Context, in *filesender.UpdateFileMetadataRequest) (*filesender.UpdateFileMetadataResponse, error) {
 	err := fss.B.FileStore.UpdateFileMetadata(in.GetFileId(), in.GetMetadata())
 	if err != nil {

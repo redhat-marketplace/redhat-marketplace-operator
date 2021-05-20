@@ -28,6 +28,7 @@ type AdminServerServer struct {
 	B BaseServer
 }
 
+// CleanTombstones  allows to clean file content/ delete file record
 func (frs *AdminServerServer) CleanTombstones(ctx context.Context, in *adminserver.CleanTombstonesRequest) (*adminserver.CleanTombstonesResponse, error) {
 
 	fileList, err := frs.B.FileStore.CleanTombstones(in.GetBefore(), in.GetPurgeAll())
