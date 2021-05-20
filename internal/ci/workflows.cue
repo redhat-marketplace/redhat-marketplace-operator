@@ -108,6 +108,35 @@ publish: _#bashWorkflow & {
     "DOCKER_CLI_EXPERIMENTAL" : "enabled"
   }
 	jobs: {
+    push: _#job & {
+			name:  "Push Images to PC"
+			if: "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/push') }}"
+			"runs-on": _#linuxMachine
+			steps: [
+        _#hasWriteAccess,
+				(_#findPRForComment & {
+					_#args: {
+						prNum: "${{ github.event.issue.number }}"
+					}
+				}).res,
+				_#checkoutCode & {
+					with: {
+						"fetch-depth": 0
+					}
+				},
+				_#installGo,
+				_#cacheGoModules,
+				_#installKubeBuilder,
+				_#installOperatorSDK,
+				_#getVersion & {
+					env: {
+						"REF": "${{ steps.pr.outputs.prRef }}"
+					}
+				},
+				_#getBundleRunID,
+				_#retagCommand,
+			]
+		}
 		publish: _#job & {
 			name:      "Publish Images"
 			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish') }}"
@@ -141,7 +170,7 @@ publish: _#bashWorkflow & {
 		}
 		"publish-operator": _#job & {
 			name:      "Publish Operator"
-			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish-operator') }}"
+			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/operator') }}"
 			"runs-on": _#linuxMachine
 			steps: [
 				_#hasWriteAccess,
@@ -169,7 +198,7 @@ publish: _#bashWorkflow & {
 				_#publishOperator,
 			]
 		}
-	}
+  }
 }
 
 branch_build: _#bashWorkflow & {
@@ -237,6 +266,28 @@ branch_build: _#bashWorkflow & {
 			}
 			strategy: matrix: {
 				project: ["base", "operator", "authchecker", "metering", "reporter"]
+        include: [
+          {
+            project: "base"
+            continueOnError: true
+          },
+          {
+            project: "operator"
+            continueOnError: false
+          },
+          {
+            project: "authchecker"
+            continueOnError: false
+          },
+          {
+            project: "metering"
+            continueOnError: false
+          },
+          {
+            project: "reporter"
+            continueOnError: false
+          },
+        ]
 			}
 			steps: [
 				_#checkoutCode,
@@ -251,6 +302,7 @@ branch_build: _#bashWorkflow & {
 				_#step & {
 					id:   "build"
 					name: "Build images"
+	        "continue-on-error": "${{ matrix.continueOnError }}"
 					run: """
 						make clean-licenses save-licenses ${{ matrix.project }}/docker-build
 						"""
@@ -304,23 +356,7 @@ branch_build: _#bashWorkflow & {
 				},
 			]
 		}
-		publish: _#job & {
-			name:      "Push Images to PC"
-			"runs-on": _#linuxMachine
-			needs: ["deploy", "images"]
-			if: "needs.deploy.outputs.isDev == 'false'"
-			steps: [
-				_#checkoutCode & {
-					with: "fetch-depth": 0
-				},
-				_#installGo,
-				_#cacheGoModules,
-				_#installKubeBuilder,
-				_#installOperatorSDK,
-				_#getVersion,
-				_#retagCommand,
-			]
-		}
+		
 	}
 }
 
