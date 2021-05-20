@@ -141,7 +141,7 @@ func (r *MeterdefConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // and what is in the MeterdefConfigmap.Spec
 func (r *MeterdefConfigMapReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("RECONCILING METERDEF CONFIGMAP")
+	reqLogger.Info("reconciling meterdef configmap")
 
 	// Fetch the mdefKVStore instance
 	mdefKVStore := &corev1.ConfigMap{}
@@ -169,7 +169,7 @@ func (r *MeterdefConfigMapReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 
-	result := meterdefStoreDB.Populate(mdefKVStore,reqLogger)
+	result := GlobalMeterdefStoreDB.Populate(mdefKVStore,reqLogger)
 	if !result.Is(Continue) {
 				
 		if result.Is(Error) {
@@ -179,7 +179,7 @@ func (r *MeterdefConfigMapReconciler) Reconcile(request reconcile.Request) (reco
 		return result.Return()
 	}
 
-	utils.PrettyPrint(meterdefStoreDB)
+	utils.PrettyPrint(GlobalMeterdefStoreDB)
 
 	reqLogger.Info("finished reconciling")
 	return reconcile.Result{}, nil
@@ -213,19 +213,22 @@ func(m *MeterdefStoreDB) Populate(kvStore *corev1.ConfigMap, reqLogger logr.Logg
 	}
 }
 
-func(m *MeterdefStoreDB) GetMeterdefinition(packageName string) *marketplacev1beta1.MeterDefinition {
+func(m *MeterdefStoreDB) GetMeterdefinitionsForPackage(packageName string) []marketplacev1beta1.MeterDefinition {
 	m.Lock()
 	defer m.Unlock()
+
+	mdefList := []marketplacev1beta1.MeterDefinition{}
+
 	for _,mdef  := range m.Meterdefinitions {
 		if mdef.Annotations["packageName"] == packageName {
-			return &mdef
+			mdefList = append(mdefList, mdef)
 		}
 	}
 
-	return nil
+	return mdefList
 }
 
-func(m *MeterdefStoreDB) ListMeterdefinitions (packageName string) []marketplacev1beta1.MeterDefinition {
+func(m *MeterdefStoreDB) ListMeterdefinitions () []marketplacev1beta1.MeterDefinition {
 	m.Lock()
 	defer m.Unlock()
 	return m.Meterdefinitions
