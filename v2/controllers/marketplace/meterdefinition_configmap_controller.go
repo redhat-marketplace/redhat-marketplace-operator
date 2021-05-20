@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"sync"
 	"time"
 
@@ -114,8 +113,6 @@ func (r *MeterdefConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				if e.MetaNew.GetName() == utils.METERDEF_STORE_NAME {
-					fmt.Println("METERDEF STORE CM UPDATED-------------------------")
-					fmt.Println(e.MetaNew.GetLabels())
 					return e.MetaOld.GetResourceVersion() != e.MetaNew.GetResourceVersion()
 				}
 				
