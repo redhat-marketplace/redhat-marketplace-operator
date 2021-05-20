@@ -236,14 +236,41 @@ var _ = Describe("Reporter", func() {
 			for _, file := range files {
 				By(fmt.Sprintf("testing file %s", file))
 				Expect(file).To(BeAnExistingFile())
+				fileBytes, err := ioutil.ReadFile(file)
+				Expect(err).To(Succeed(), "file does not exist")
+				data := make(map[string]interface{})
+				err = json.Unmarshal(fileBytes, &data)
+				Expect(err).To(Succeed(), "file data did not parse to json")
+
+				if strings.Contains(file, "metadata") {
+					Expect(data).To(MatchAllKeys(Keys{
+						"report_id": BeAssignableToTypeOf(""),
+						"source":    BeAssignableToTypeOf(""),
+						"source_metadata": MatchAllKeys(Keys{
+							"rhmClusterId":   BeAssignableToTypeOf(""),
+							"rhmAccountId":   BeAssignableToTypeOf(""),
+							"rhmEnvironment": BeAssignableToTypeOf(""),
+							"version":        BeAssignableToTypeOf(""),
+							"reportVersion":  BeAssignableToTypeOf(""),
+						}),
+						"report_slices": WithTransform(func(obj interface{}) interface{} {
+							data := obj.(map[string]interface{})
+							slice := []interface{}{}
+
+							for _, v := range data {
+								slice = append(slice, v)
+							}
+
+							return slice
+						}, MatchElementsWithIndex(IndexIdentity, IgnoreExtras, Elements{
+							"0": MatchAllKeys(Keys{
+								"number_metrics": BeNumerically(">", 0),
+							}),
+						})),
+					}))
+				}
 
 				if !strings.Contains(file, "metadata") {
-					fileBytes, err := ioutil.ReadFile(file)
-					Expect(err).To(Succeed(), "file does not exist")
-					data := make(map[string]interface{})
-					err = json.Unmarshal(fileBytes, &data)
-					Expect(err).To(Succeed(), "file data did not parse to json")
-
 					id := func(element interface{}) string {
 						return "row"
 					}
@@ -450,13 +477,41 @@ var _ = Describe("Reporter", func() {
 			for _, file := range files {
 				By(fmt.Sprintf("testing file %s", file))
 				Expect(file).To(BeAnExistingFile())
+				fileBytes, err := ioutil.ReadFile(file)
+				Expect(err).To(Succeed(), "file does not exist")
+				data := make(map[string]interface{})
+				err = json.Unmarshal(fileBytes, &data)
+				Expect(err).To(Succeed(), "file data did not parse to json")
+
+				if strings.Contains(file, "metadata") {
+					Expect(data).To(MatchAllKeys(Keys{
+						"report_id": BeAssignableToTypeOf(""),
+						"source":    BeAssignableToTypeOf(""),
+						"source_metadata": MatchAllKeys(Keys{
+							"rhmClusterId":   BeAssignableToTypeOf(""),
+							"rhmAccountId":   BeAssignableToTypeOf(""),
+							"rhmEnvironment": BeAssignableToTypeOf(""),
+							"version":        BeAssignableToTypeOf(""),
+							"reportVersion":  BeAssignableToTypeOf(""),
+						}),
+						"report_slices": WithTransform(func(obj interface{}) interface{} {
+							data := obj.(map[string]interface{})
+							slice := []interface{}{}
+
+							for _, v := range data {
+								slice = append(slice, v)
+							}
+
+							return slice
+						}, MatchElementsWithIndex(IndexIdentity, IgnoreExtras, Elements{
+							"0": MatchAllKeys(Keys{
+								"number_metrics": BeNumerically(">", 0),
+							}),
+						})),
+					}))
+				}
 
 				if !strings.Contains(file, "metadata") {
-					fileBytes, err := ioutil.ReadFile(file)
-					Expect(err).To(Succeed(), "file does not exist")
-					data := make(map[string]interface{})
-					err = json.Unmarshal(fileBytes, &data)
-					Expect(err).To(Succeed(), "file data did not parse to json")
 
 					id := func(element interface{}) string {
 						return "row"

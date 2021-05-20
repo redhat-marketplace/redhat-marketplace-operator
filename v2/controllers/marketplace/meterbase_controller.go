@@ -44,6 +44,7 @@ import (
 	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -587,6 +588,9 @@ func (r *MeterBaseReconciler) newMeterReport(namespace string, startTime time.Ti
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      meterReportName,
 			Namespace: namespace,
+			Annotations: map[string]string{
+				"marketplace.redhat.com/version": version.Version,
+			},
 		},
 		Spec: marketplacev1alpha1.MeterReportSpec{
 			StartTime: metav1.NewTime(startTime),

@@ -41,6 +41,7 @@ import (
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/util/retry"
 )
 
 type Task struct {
@@ -186,16 +187,24 @@ func getMarketplaceReport(
 ) (report *marketplacev1alpha1.MeterReport, returnErr error) {
 	report = &marketplacev1alpha1.MeterReport{}
 
-	if result, _ := cc.Do(ctx, GetAction(types.NamespacedName(reportName), report)); !result.Is(Continue) {
-		returnErr = errors.Wrap(result, "failed to get report")
-	}
-
-	if report.Spec.ReportUUID == "" {
-		report.Spec.ReportUUID = uuid.New().String()
-
-		if result, _ := cc.Exec(ctx, UpdateAction(report)); !result.Is(Continue) {
-			returnErr = errors.Wrap(result, "failed to get update report")
+	returnErr = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if result, err := cc.Do(ctx, GetAction(types.NamespacedName(reportName), report)); !result.Is(Continue) {
+			return err
 		}
+
+		if report.Spec.ReportUUID == "" {
+			report.Spec.ReportUUID = uuid.New().String()
+
+			if result, err := cc.Exec(ctx, UpdateAction(report)); !result.Is(Continue) {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if returnErr != nil {
+		return
 	}
 
 	logger.Info("retrieved meter report", "name", reportName)
