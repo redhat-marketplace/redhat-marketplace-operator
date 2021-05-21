@@ -148,7 +148,7 @@ func (r *MeterdefConfigMapReconciler) Reconcile(request reconcile.Request) (reco
 
 			reqLogger.Info("meterdef store not found, creating")
 
-			result := r.createMeterdefStore(reqLogger)
+			result := createMeterdefStore(r.factory,r.Client,reqLogger)
 			if !result.Is(Continue) {
 				
 				if result.Is(Error) {
@@ -252,8 +252,8 @@ func(m *MeterdefStoreDB) GetVersionConstraints (packageName string) (constraint 
 	return constraint,nil
 }
 
-func (r *MeterdefConfigMapReconciler) createMeterdefStore(reqLogger logr.Logger)(*ExecResult){
-	mdefConfigMap,err := r.factory.NewMeterdefinitionConfigMap()
+func createMeterdefStore(factory *manifests.Factory,client client.Client,reqLogger logr.Logger)*ExecResult{
+	mdefConfigMap, err := factory.NewMeterdefinitionConfigMap()
 	if err != nil {
 	
 		reqLogger.Error(err, "Failed to build MeterdefinitoinConfigMap")
@@ -263,7 +263,7 @@ func (r *MeterdefConfigMapReconciler) createMeterdefStore(reqLogger logr.Logger)
 		}
 	}	
 
-	err = r.Client.Create(context.Background(),mdefConfigMap)
+	err = client.Create(context.Background(),mdefConfigMap)
 	if err != nil {
 		reqLogger.Error(err, "Failed to create MeterdefinitoinConfigMap")
 		return &ExecResult{

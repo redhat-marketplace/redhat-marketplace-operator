@@ -126,7 +126,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 			reqLogger.Info("meterdef store not found, creating")
 
-			result := r.createMeterdefStore(reqLogger)
+			result := createMeterdefStore(r.factory, r.Client,reqLogger)
 			if !result.Is(Continue) {
 				
 				if result.Is(Error) {
@@ -663,32 +663,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 // belonging to the given marketplaceConfig custom resource name
 func labelsForMarketplaceConfig(name string) map[string]string {
 	return map[string]string{"app": "marketplaceconfig", "marketplaceconfig_cr": name}
-}
-
-func (r *MarketplaceConfigReconciler) createMeterdefStore(reqLogger logr.Logger)(*ExecResult){
-	mdefConfigMap,err := r.factory.NewMeterdefinitionConfigMap()
-
-	if err != nil {
-
-		reqLogger.Error(err, "Failed to build MeterdefinitoinConfigMap")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err: err,
-		}
-	}	
-
-	err = r.Client.Create(context.Background(),mdefConfigMap)
-	if err != nil {
-		reqLogger.Error(err, "Failed to create MeterdefinitoinConfigMap")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err: err,
-		}
-	}
-
-	return &ExecResult{
-		Status: ActionResultStatus(Continue),
-	}
 }
 
 // Begin installation or deletion of Catalog Source
