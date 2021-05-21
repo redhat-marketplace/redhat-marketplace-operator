@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/gotidy/ptr"
+	routev1 "github.com/openshift/api/route/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
@@ -66,6 +67,7 @@ const (
 
 	DataServiceStatefulSet = "assets/dataservice/statefulset.yaml"
 	DataServiceService     = "assets/dataservice/service.yaml"
+	DataServiceRoute       = "assets/dataservice/route.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")
@@ -285,6 +287,28 @@ func (f *Factory) NewJob(manifest io.Reader) (*batchv1.Job, error) {
 	}
 
 	return j, nil
+}
+
+func (f *Factory) NewRoute(manifest io.Reader) (*routev1.Route, error) {
+	r, err := NewRoute(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	if r.GetNamespace() == "" {
+		r.SetNamespace(f.namespace)
+	}
+
+	return r, nil
+}
+
+func (f *Factory) UpdateRoute(manifest io.Reader, r *routev1.Route) error {
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(r)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (f *Factory) NewPrometheus(
@@ -647,6 +671,14 @@ func (f *Factory) UpdateDataServiceStatefulSet(sts *appsv1.StatefulSet) error {
 	return nil
 }
 
+func (f *Factory) NewDataServiceRoute() (*routev1.Route, error) {
+	return f.NewRoute(MustAssetReader(DataServiceRoute))
+}
+
+func (f *Factory) UpdateDataServiceRoute(r *routev1.Route) error {
+	return f.UpdateRoute(MustAssetReader(DataServiceRoute), r)
+}
+
 func (f *Factory) NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMonitor, error) {
 	sm, err := NewServiceMonitor(manifest)
 	if err != nil {
@@ -726,6 +758,15 @@ func NewJob(manifest io.Reader) (*batchv1.Job, error) {
 		return nil, err
 	}
 	return &j, nil
+}
+
+func NewRoute(manifest io.Reader) (*routev1.Route, error) {
+	r := routev1.Route{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&r)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
 }
 
 // GeneratePassword returns a base64 encoded securely random bytes.
