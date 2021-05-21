@@ -30,6 +30,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
@@ -38,7 +39,6 @@ import (
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -77,6 +77,7 @@ type MarketplaceConfigReconciler struct {
 	cc             ClientCommandRunner
 	cfg            *config.OperatorConfig
 	mclientBuilder *marketplace.MarketplaceClientBuilder
+	factory *manifests.Factory
 }
 
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;update;patch
@@ -115,6 +116,30 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		}
 		// Error reading the object - requeue the request.
 		reqLogger.Error(err, "Failed to get MarketplaceConfig")
+		return reconcile.Result{}, err
+	}
+
+	mdefKVStore := &corev1.ConfigMap{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_STORE_NAME,Namespace: request.Namespace}, mdefKVStore)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+
+			reqLogger.Info("meterdef store not found, creating")
+
+			result := r.createMeterdefStore(reqLogger)
+			if !result.Is(Continue) {
+				
+				if result.Is(Error) {
+					reqLogger.Error(result.GetError(), "Failed to create meterdef store.")
+				}
+		
+				return result.Return()
+			}
+
+			return reconcile.Result{Requeue: true}, nil
+		}
+
+		reqLogger.Error(err, "Failed to get MeterdefintionConfigMap")
 		return reconcile.Result{}, err
 	}
 
@@ -640,6 +665,32 @@ func labelsForMarketplaceConfig(name string) map[string]string {
 	return map[string]string{"app": "marketplaceconfig", "marketplaceconfig_cr": name}
 }
 
+func (r *MarketplaceConfigReconciler) createMeterdefStore(reqLogger logr.Logger)(*ExecResult){
+	mdefConfigMap,err := r.factory.NewMeterdefinitionConfigMap()
+
+	if err != nil {
+
+		reqLogger.Error(err, "Failed to build MeterdefinitoinConfigMap")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err: err,
+		}
+	}	
+
+	err = r.Client.Create(context.Background(),mdefConfigMap)
+	if err != nil {
+		reqLogger.Error(err, "Failed to create MeterdefinitoinConfigMap")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err: err,
+		}
+	}
+
+	return &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+}
+
 // Begin installation or deletion of Catalog Source
 func (r *MarketplaceConfigReconciler) createCatalogSource(request reconcile.Request, marketplaceConfig *marketplacev1alpha1.MarketplaceConfig, catalogName string) (bool, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name, "CatalogSource.Name", catalogName)
@@ -800,6 +851,11 @@ func (m *MarketplaceConfigReconciler) InjectOperatorConfig(cfg *config.OperatorC
 
 func (m *MarketplaceConfigReconciler) InjectMarketplaceClientBuilder(mbuilder *marketplace.MarketplaceClientBuilder) error {
 	m.mclientBuilder = mbuilder
+	return nil
+}
+
+func (r *MarketplaceConfigReconciler) InjectFactory(f *manifests.Factory) error {
+	r.factory = f
 	return nil
 }
 
