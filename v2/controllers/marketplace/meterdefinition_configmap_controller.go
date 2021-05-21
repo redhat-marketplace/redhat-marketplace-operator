@@ -17,7 +17,9 @@ package marketplace
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"sync"
+	"time"
 
 	emperror "emperror.dev/errors"
 	semver "github.com/Masterminds/semver/v3"
@@ -32,6 +34,7 @@ import (
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -148,7 +151,8 @@ func (r *MeterdefConfigMapReconciler) Reconcile(request reconcile.Request) (reco
 
 			reqLogger.Info("meterdef store not found, creating")
 
-			result := createMeterdefStore(r.factory,r.Client,reqLogger)
+			// result := createMeterdefStore(r.factory,r.Client,reqLogger)
+			result := createMeterdefStore(r.Client,reqLogger)
 			if !result.Is(Continue) {
 				
 				if result.Is(Error) {
@@ -252,104 +256,105 @@ func(m *MeterdefStoreDB) GetVersionConstraints (packageName string) (constraint 
 	return constraint,nil
 }
 
-func createMeterdefStore(factory *manifests.Factory,client client.Client,reqLogger logr.Logger)*ExecResult{
-	mdefConfigMap, err := factory.NewMeterdefinitionConfigMap()
-	if err != nil {
-	
-		reqLogger.Error(err, "Failed to build MeterdefinitoinConfigMap")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err: err,
-		}
-	}	
-
-	err = client.Create(context.Background(),mdefConfigMap)
-	if err != nil {
-		reqLogger.Error(err, "Failed to create MeterdefinitoinConfigMap")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err: err,
-		}
-	}
-	
-	return &ExecResult{
-		Status: ActionResultStatus(Continue),
-	}
-}
-
-// func (r *MeterdefConfigMapReconciler) createMeterdefStore(reqLogger logr.Logger)(*ExecResult){
-	
-// 	mdefList := []marketplacev1beta1.MeterDefinition{
-// 		{
-// 			ObjectMeta: metav1.ObjectMeta{
-// 				Name:      "robin-meterdef",
-// 				Namespace: "openshift-redhat-marketplace",
-// 				Annotations: map[string]string{
-// 					"versionRange": "<=0.16",
-// 					"packageName" : "robin-rhm",
-// 				},
-// 			},
-// 			Spec: marketplacev1beta1.MeterDefinitionSpec{
-// 				Group: "marketplace.redhat.com",
-// 				Kind:  "Pod",
-
-// 				ResourceFilters: []marketplacev1beta1.ResourceFilter{
-// 					{
-// 						WorkloadType: marketplacev1beta1.WorkloadTypePod,
-// 						Label: &marketplacev1beta1.LabelFilter{
-// 							LabelSelector: &metav1.LabelSelector{
-// 								MatchLabels: map[string]string{
-// 									"app.kubernetes.io/name": "rhm-metric-state",
-// 								},
-// 							},
-// 						},
-// 					},
-// 				},
-// 				Meters: []marketplacev1beta1.MeterWorkload{
-// 					{
-// 						Aggregation: "sum",
-// 						Period: &metav1.Duration{
-// 							Duration: time.Duration(time.Minute*15),
-// 						},
-// 						Query:        "kube_pod_info{} or on() vector(0)",
-// 						Metric:       "meterdef_controller_test_query",
-// 						WorkloadType: marketplacev1beta1.WorkloadTypePod,
-// 						Name:         "meterdef_controller_test_query",
-// 					},
-// 				},
-// 			},
-// 		},
-// 	}
-
-// 	mdefStoreString, err := json.Marshal(mdefList)
-
+// TODO: we can use this later
+// func createMeterdefStore(factory *manifests.Factory,client client.Client,reqLogger logr.Logger)*ExecResult{
+// 	mdefConfigMap, err := factory.NewMeterdefinitionConfigMap()
 // 	if err != nil {
+	
+// 		reqLogger.Error(err, "Failed to build MeterdefinitoinConfigMap")
+// 		return &ExecResult{
+// 			ReconcileResult: reconcile.Result{},
+// 			Err: err,
+// 		}
+// 	}	
+
+// 	err = client.Create(context.Background(),mdefConfigMap)
+// 	if err != nil {
+// 		reqLogger.Error(err, "Failed to create MeterdefinitoinConfigMap")
 // 		return &ExecResult{
 // 			ReconcileResult: reconcile.Result{},
 // 			Err: err,
 // 		}
 // 	}
-
-// 	mdefStoreCM := &corev1.ConfigMap{
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Name:      utils.METERDEF_STORE_NAME,
-// 			Namespace: "openshift-redhat-marketplace",
-
-// 		},
-// 		Data: map[string]string{
-// 			"meterdefinitions" : string(mdefStoreString),
-// 		},
-// 	}
-
-// 	err = r.Client.Create(context.TODO(),mdefStoreCM)
-// 	if err != nil {
-// 		return &ExecResult{
-// 			ReconcileResult: reconcile.Result{},
-// 			Err: err,
-// 		}
-// 	}
-
+	
 // 	return &ExecResult{
 // 		Status: ActionResultStatus(Continue),
 // 	}
 // }
+
+func createMeterdefStore(client client.Client,reqLogger logr.Logger)(*ExecResult){
+	
+	mdefList := []marketplacev1beta1.MeterDefinition{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "robin-meterdef",
+				Namespace: "openshift-redhat-marketplace",
+				Annotations: map[string]string{
+					"versionRange": "<=0.16",
+					"packageName" : "robin-rhm",
+				},
+			},
+			Spec: marketplacev1beta1.MeterDefinitionSpec{
+				Group: "marketplace.redhat.com",
+				Kind:  "Pod",
+
+				ResourceFilters: []marketplacev1beta1.ResourceFilter{
+					{
+						WorkloadType: marketplacev1beta1.WorkloadTypePod,
+						Label: &marketplacev1beta1.LabelFilter{
+							LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app.kubernetes.io/name": "rhm-metric-state",
+								},
+							},
+						},
+					},
+				},
+				Meters: []marketplacev1beta1.MeterWorkload{
+					{
+						Aggregation: "sum",
+						Period: &metav1.Duration{
+							Duration: time.Duration(time.Minute*15),
+						},
+						Query:        "kube_pod_info{} or on() vector(0)",
+						Metric:       "meterdef_controller_test_query",
+						WorkloadType: marketplacev1beta1.WorkloadTypePod,
+						Name:         "meterdef_controller_test_query",
+					},
+				},
+			},
+		},
+	}
+
+	mdefStoreString, err := json.Marshal(mdefList)
+
+	if err != nil {
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err: err,
+		}
+	}
+
+	mdefStoreCM := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.METERDEF_STORE_NAME,
+			Namespace: "openshift-redhat-marketplace",
+
+		},
+		Data: map[string]string{
+			"meterdefinitions" : string(mdefStoreString),
+		},
+	}
+
+	err = client.Create(context.TODO(),mdefStoreCM)
+	if err != nil {
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err: err,
+		}
+	}
+
+	return &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+}

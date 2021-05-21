@@ -126,7 +126,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 			reqLogger.Info("meterdef store not found, creating")
 
-			result := createMeterdefStore(r.factory, r.Client,reqLogger)
+			result := createMeterdefStore(r.Client, reqLogger)
 			if !result.Is(Continue) {
 				
 				if result.Is(Error) {
