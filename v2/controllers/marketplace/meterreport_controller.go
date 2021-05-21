@@ -17,6 +17,7 @@ package marketplace
 import (
 	"context"
 	"errors"
+	"math/rand"
 	"reflect"
 	"time"
 
@@ -29,13 +30,16 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -112,6 +116,8 @@ func (r *MeterReportReconciler) SetupWithManager(mgr manager.Manager) error {
 		Complete(r)
 }
 
+const rerunTime = 8 * 24 * time.Hour
+
 // Reconcile reads that state of the cluster for a MeterReport object and makes changes based on the state read
 // and what is in the MeterReport.Spec
 // Note:
@@ -150,21 +156,19 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 		"config", r.cfg.RelatedImages,
 		"envvar", utils.Getenv("RELATED_IMAGE_REPORTER", ""))
 
-	endTime := instance.Spec.EndTime.UTC()
-	now := metav1.Now().UTC()
+	endTime := instance.Spec.EndTime.Time
+	now := time.Now()
 
 	reqLogger.Info("time", "now", now, "endTime", endTime)
 
-	if now.UTC().Before(endTime.UTC()) {
-		waitTime := now.Add(endTime.Sub(now))
-		waitTime.Add(time.Minute * 5)
-		timeToWait := waitTime.Sub(now)
-		reqLogger.Info("report was schedule before it was ready to run", "add", timeToWait)
+	if now.Before(endTime) {
+		wait := waitTime(now, endTime, rand.Intn(59))
+		reqLogger.Info("report was schedule before it was ready to run", "add", wait)
 		result, _ := cc.Do(
 			context.TODO(),
 			HandleResult(
 				UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobWaiting),
-				OnAny(RequeueAfterResponse(timeToWait)),
+				OnAny(RequeueAfterResponse(wait)),
 			),
 		)
 		if result.Is(Error) {
@@ -174,10 +178,62 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 		return result.Return()
 	}
 
+	// getting job
 	result, _ := cc.Do(context.TODO(), GetAction(types.NamespacedName{
 		Name:      instance.Name,
 		Namespace: instance.Namespace,
 	}, job))
+
+	// We'll rerun the jobs of the last 7 days in case we push a fix
+	lastVersion, hasAnnotation := instance.GetAnnotations()["marketplace.redhat.com/version"]
+	rerunDate := time.Now().Add(-rerunTime)
+
+	if !hasAnnotation || (hasAnnotation && lastVersion != version.Version) {
+		reqLogger.Info("new version detected, updating version annotation")
+
+		annotations := instance.GetAnnotations()
+		if annotations == nil {
+			annotations = map[string]string{}
+		}
+
+		if instance.Status.AssociatedJob != nil && instance.Spec.StartTime.After(rerunDate) {
+			reqLogger.Info("job is within requeue time, deleting old job")
+
+			result, _ = cc.Do(context.TODO(),
+				HandleResult(
+					GetAction(types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, job),
+					OnContinue(DeleteAction(job, DeleteWithDeleteOptions(client.PropagationPolicy(metav1.DeletePropagationBackground))))),
+			)
+
+			if result.Is(Error) {
+				reqLogger.Error(result.Err, "error updating")
+				return reconcile.Result{}, result.Err
+			}
+		}
+
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			_, err := cc.Do(context.TODO(),
+				GetAction(request.NamespacedName, instance),
+				Call(func() (reconcileutils.ClientAction, error) {
+					annotations["marketplace.redhat.com/version"] = version.Version
+					instance.SetAnnotations(annotations)
+					instance.Status.AssociatedJob = nil
+
+					return nil, nil
+				}),
+				UpdateAction(instance),
+			)
+			return err
+		})
+
+		if err != nil {
+			reqLogger.Error(result.Err, "error updating")
+			return reconcile.Result{Requeue: true}, nil
+		}
+
+		reqLogger.Info("new version detected, updating version annotation")
+		return reconcile.Result{Requeue: true}, nil
+	}
 
 	if instance.Status.AssociatedJob != nil &&
 		instance.Status.AssociatedJob.IsSuccessful() &&
@@ -254,7 +310,7 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 	// if report failed
 	switch {
 	case jr.IsFailed():
-		completionTimeDiff := now.UTC().Sub(jr.StartTime.Time.UTC())
+		completionTimeDiff := now.Sub(jr.StartTime.Time)
 
 		switch {
 		case completionTimeDiff >= r.cfg.ReportController.RetryTime:
@@ -305,4 +361,15 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 
 	reqLogger.Info("reconcile finished")
 	return reconcile.Result{}, nil
+}
+
+func waitTime(now time.Time, timeToExecute time.Time, addRandom int) time.Duration {
+	waitTime := timeToExecute.Sub(now)
+	waitTime = waitTime + time.Minute*time.Duration(addRandom)
+
+	if waitTime < 0 {
+		return time.Duration(0)
+	}
+
+	return waitTime
 }

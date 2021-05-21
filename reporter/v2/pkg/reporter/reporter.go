@@ -518,7 +518,7 @@ func (r *MarketplaceReporter) WriteReport(
 	filedir := filepath.Join(r.Config.OutputDirectory, source.String())
 	err := os.Mkdir(filedir, 0755)
 
-	if err != nil {
+	if err != nil && ! errors.Is(err, os.ErrExist) {
 		return []string{}, errors.Wrap(err, "error creating directory")
 	}
 
@@ -574,9 +574,9 @@ func (r *MarketplaceReporter) WriteReport(
 		filenames = append(filenames, filename)
 	}
 
-	marshallBytes, err := json.Marshal(metadata)
+	marshallBytes, err := json.Marshal(reportMetadata)
 	if err != nil {
-		logger.Error(err, "failed to marshal report metadata", "metadata", metadata)
+		logger.Error(err, "failed to marshal report metadata", "metadata", reportMetadata)
 		return nil, err
 	}
 
