@@ -292,7 +292,6 @@ func createMeterdefStore(client client.Client,reqLogger logr.Logger)(*ExecResult
 				Annotations: map[string]string{
 					"versionRange": "0.0.1 - 1.4.5",
 					"packageName" : "joget-openshift-operator-rhmp",
-					"startVersion" : "0.0.1",
 				},
 			},
 			Spec: marketplacev1beta1.MeterDefinitionSpec{
