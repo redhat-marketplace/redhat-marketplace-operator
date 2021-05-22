@@ -17,7 +17,6 @@ package marketplace
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	semver "github.com/Masterminds/semver/v3"
@@ -29,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -48,10 +48,10 @@ const (
 )
 
 // blank assignment to verify that ReconcileClusterServiceVersion implements reconcile.Reconciler
-var _ reconcile.Reconciler = &RhmCSVReconciler{}
+var _ reconcile.Reconciler = &MeterdefinitionInstallReconciler{}
 
-// RhmCSVReconciler reconciles a ClusterServiceVersion object
-type RhmCSVReconciler struct {
+// MeterdefinitionInstallReconciler reconciles a ClusterServiceVersion object
+type MeterdefinitionInstallReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
 	Client client.Client
@@ -66,7 +66,7 @@ type RhmCSVReconciler struct {
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions;meterdefinitions/status,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile reads that state of the cluster for a ClusterServiceVersion object and creates corresponding meter definitions if found
-func (r *RhmCSVReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Name", request.Name, "Request.Namespace", request.Namespace)
 	reqLogger.Info("Reconciling ClusterServiceVersion")
 
@@ -151,12 +151,25 @@ func (r *RhmCSVReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 
 							meterDefItem.ObjectMeta.Namespace = CSV.Namespace
 
-							err = r.Client.Create(context.TODO(), &meterDefItem)
+							// Fetch the mdefKVStore instance
+							meterdef := &marketplacev1beta1.MeterDefinition{}
+							err = r.Client.Get(context.TODO(), types.NamespacedName{Name: meterDefItem.Name,Namespace: request.Namespace}, meterdef)
 							if err != nil {
-								reqLogger.Error(err, "Could not create MeterDefinition", "mdef", &meterDefItem.Name)
+								if errors.IsNotFound(err) {
+									err = r.Client.Create(context.TODO(), &meterDefItem)
+									if err != nil {
+										reqLogger.Error(err, "Could not create MeterDefinition", "mdef", &meterDefItem.Name)
+										return reconcile.Result{}, err
+									}
+									
+									return reconcile.Result{Requeue: true}, nil
+								}
+
+								reqLogger.Error(err, "Failed to get meterdefinition")
 								return reconcile.Result{}, err
 							}
-							reqLogger.V(4).Info("Created meter definition", "mdef", &meterDefItem.Name)
+
+							reqLogger.Info("Created meter definition", "mdef", &meterDefItem.Name)
 						}
 					}
 				}
@@ -184,7 +197,7 @@ func _csvFilter(metaNew metav1.Object) int {
 
 func checkMeterDefinition(csvPackageName string, version string, meterDefinition marketplacev1beta1.MeterDefinition, reqLogger logr.Logger) bool {
 	meterdefVersionRange := meterDefinition.GetAnnotations()[versionRange]
-	meterdefPackageName := meterDefinition.GetAnnotations()["packageName"]
+	meterdefPackageName := meterDefinition.GetAnnotations()[packageName]
 	
 	reqLogger.Info("version range from meterdef","range",meterdefVersionRange)
 	reqLogger.Info("version from CSV", "version", version)
@@ -192,12 +205,12 @@ func checkMeterDefinition(csvPackageName string, version string, meterDefinition
 	reqLogger.Info("package name from meterdef","name",meterdefPackageName)
 
 	if csvPackageName == meterdefPackageName {
-		fmt.Println("PACKAGE NAME MATCHES")
 		meterdefVersionConstraint, err := semver.NewConstraint(meterdefVersionRange)
 		if err != nil {
 			reqLogger.Error(err,"error setting up constraint")
 			return false
 		}
+
 		csvVersion, err := semver.NewVersion(version)
 		if err != nil {
 			reqLogger.Error(err,"error creating version","version",version)
@@ -244,17 +257,17 @@ var rhmCSVControllerPredicates predicate.Funcs = predicate.Funcs{
 	},
 }
 
-func (r *RhmCSVReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
+func (r *MeterdefinitionInstallReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
 	injector.SetCustomFields(r)
 	return r
 }
 
-func (m *RhmCSVReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
+func (m *MeterdefinitionInstallReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
 	return nil
 }
 
-func (r *RhmCSVReconciler) SetupWithManager(mgr manager.Manager) error {
+func (r *MeterdefinitionInstallReconciler) SetupWithManager(mgr manager.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&olmv1alpha1.ClusterServiceVersion{}, builder.WithPredicates(rhmCSVControllerPredicates)).
 		Complete(r)

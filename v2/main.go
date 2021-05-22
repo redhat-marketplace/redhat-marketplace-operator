@@ -225,12 +225,12 @@ func main() {
 			os.Exit(1)
 	}
 
-	if err = (&controllers.RhmCSVReconciler{
+	if err = (&controllers.MeterdefinitionInstallReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("RhmCSVReconciler"),
+		Log:    ctrl.Log.WithName("controllers").WithName("MeterdefinitionInstallReconciler"),
 		Scheme: mgr.GetScheme(),
 	}).Inject(injector).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "RhmCSVReconciler")
+			setupLog.Error(err, "unable to create controller", "controller", "MeterdefinitionInstallReconciler")
 			os.Exit(1)
 	}
 
