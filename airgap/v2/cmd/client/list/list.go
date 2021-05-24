@@ -457,16 +457,18 @@ func parseFileInfo(finfo *v1.FileInfo) ([]string, error) {
 		return nil, err
 	}
 	metadata := string(mdata)
-	var deleted string
+
+	var deletedAt string
 	if finfo.DeletedTombstone.Seconds != 0 {
-		deleted = time.Unix(finfo.DeletedTombstone.Seconds, 0).Format(time.RFC3339)
+		deletedAt = time.Unix(finfo.DeletedTombstone.Seconds, 0).Format(time.RFC3339)
 	}
+
 	return []string{
 		finfo.FileId.GetId(),
 		finfo.FileId.GetName(),
 		strconv.FormatUint(uint64(finfo.GetSize()), 10),
 		time.Unix(finfo.CreatedAt.Seconds, 0).Format(time.RFC3339),
-		deleted,
+		deletedAt,
 		strconv.FormatBool(finfo.Compression),
 		finfo.CompressionType,
 		metadata,
@@ -490,7 +492,7 @@ func getHeaders() []string {
 		"File Name",
 		"Size",
 		"Created At",
-		"Marked For Delete",
+		"Deleted At",
 		"Compression",
 		"Compression Type",
 		"Metadata",

@@ -1043,7 +1043,7 @@ func populateDataset(database *database.Database, t *testing.T) {
 		time.Sleep(1 * time.Second)
 	}
 
-	// update created_at for files
+	// update fields for seed data
 	setCreatedAt(reportsFID.GetName(), before, database)
 	setCreatedAt(marketplaceFID.GetName(), after, database)
 	setDeletedAt(deleteFID1.GetName(), before, database)
@@ -1075,7 +1075,7 @@ func setTombstone(fname string, tomb int, d *database.Database) {
 		Update("clean_tombstone_set_at", tomb)
 }
 
-//  matchMetadata return true if expected metadata and retrieved metadata is same else false
+// matchMetadata return true if expected metadata and retrieved metadata is same else false
 func matchMetadata(fms []models.FileMetadata, fmMap map[string]string) bool {
 
 	if len(fms) != len(fmMap) {
@@ -1086,7 +1086,5 @@ func matchMetadata(fms []models.FileMetadata, fmMap map[string]string) bool {
 	for _, fm := range fms {
 		oldFms[fm.Key] = fm.Value
 	}
-	eq := reflect.DeepEqual(oldFms, fmMap)
-
-	return eq
+	return reflect.DeepEqual(oldFms, fmMap)
 }
