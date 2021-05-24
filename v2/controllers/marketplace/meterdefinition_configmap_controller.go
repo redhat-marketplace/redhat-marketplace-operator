@@ -21,9 +21,12 @@ import (
 	"sync"
 	"time"
 
+	// "archive/tar"
+
 	emperror "emperror.dev/errors"
 	semver "github.com/Masterminds/semver/v3"
 	"github.com/go-logr/logr"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
@@ -32,6 +35,8 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+
+	// "golang.org/x/net/context"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -180,10 +185,39 @@ func (r *MeterdefConfigMapReconciler) Reconcile(request reconcile.Request) (reco
 		return result.Return()
 	}
 
-	utils.PrettyPrint(GlobalMeterdefStoreDB)
+	// utils.PrettyPrint(GlobalMeterdefStoreDB)
+
+	// mdef, result := pollQuay(reqLogger)
+	// if !result.Is(Continue) {
+				
+	// 	if result.Is(Error) {
+	// 		reqLogger.Error(result.GetError(), "Failed to create meterdef store.")
+	// 	}
+
+	// 	return result.Return()
+	// }
+
+	// utils.PrettyPrint(mdef)
+
+	// response, err := http.Get("http://meterdef-file-server.openshift-redhat-marketplace.svc.cluster.local:8100")
+    // if err != nil {
+    //     fmt.Printf("HTTP ERROR %s\n", err)
+    // } 
+
+
+	// mdef := &marketplacev1beta1.MeterDefinition{}
+	// data, _ := ioutil.ReadAll(response.Body)
+	// fmt.Printf("RESPONSE DATA %s",string(data))
+	// err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(string(data))), 100).Decode(&mdef)
+	// if err != nil {
+	// 	reqLogger.Error(err,"error decoding meterdefstore string")
+	// 	return reconcile.Result{},err
+	// }
+
+	// utils.PrettyPrint(mdef)
 
 	reqLogger.Info("finished reconciling")
-	return reconcile.Result{}, nil
+	return reconcile.Result{RequeueAfter: time.Second * 10}, nil
 }
 
 func(m *MeterdefStoreDB) Populate(kvStore *corev1.ConfigMap, reqLogger logr.Logger) *ExecResult{
@@ -291,7 +325,7 @@ func createMeterdefStore(client client.Client,reqLogger logr.Logger)(*ExecResult
 				Namespace: "openshift-redhat-marketplace",
 				Annotations: map[string]string{
 					"versionRange": "0.0.1 - 1.4.5",
-					"packageName" : "joget-openshift-operator-rhmp",
+					"packageName" : "joget-dx-operator-rhmp",
 				},
 			},
 			Spec: marketplacev1beta1.MeterDefinitionSpec{
@@ -320,6 +354,89 @@ func createMeterdefStore(client client.Client,reqLogger logr.Logger)(*ExecResult
 						Metric:       "meterdef_controller_test_query",
 						WorkloadType: marketplacev1beta1.WorkloadTypePod,
 						Name:         "meterdef_controller_test_query",
+					},
+				},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "couchbase-meterdef",
+				Namespace: "openshift-redhat-marketplace",
+				Annotations: map[string]string{
+					"versionRange": "0.0.1 - 1.4.5",
+					"packageName" : "joget-dx-operator-rhmp",
+				},
+			},
+			Spec: marketplacev1beta1.MeterDefinitionSpec{
+				Group: "marketplace.redhat.com",
+				Kind:  "Pod",
+
+				ResourceFilters: []marketplacev1beta1.ResourceFilter{
+					{
+						WorkloadType: marketplacev1beta1.WorkloadTypeService,
+						OwnerCRD:  &marketplacev1beta1.OwnerCRDFilter{
+							common.GroupVersionKind{
+								APIVersion: "couchbase.com/v2",
+								Kind: "CouchbaseCluster",
+							},
+						},
+						Namespace: &marketplacev1beta1.NamespaceFilter{
+							UseOperatorGroup: true,
+						},
+					},
+				},
+				Meters: []marketplacev1beta1.MeterWorkload{
+					{
+						Aggregation: "sum",
+						Period: &metav1.Duration{
+							Duration: time.Duration(time.Hour * 1),
+						},
+						Query:        "kube_service_labels{namespace='openshift-redhat-marketplace',label_couchbase_cluster=~'.+',service=~'.+-ui'}",
+						Metric:       "couchbase_cluster_count",
+						WorkloadType: marketplacev1beta1.WorkloadTypeService,
+						Name:         "couchbase_cluster_count",
+						Without: []string{"label_couchbase_cluster","label_app","label_operator_couchbase_com_version"},
+					},
+				},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "robin-meterdef",
+				Namespace: "openshift-redhat-marketplace",
+				Annotations: map[string]string{
+					"versionRange": "0.0.1 - 12",
+					"packageName" : "joget-dx-operator-rhmp",
+				},
+			},
+			Spec: marketplacev1beta1.MeterDefinitionSpec{
+				Group: "robinclusters.robin.io",
+				Kind:  "RobinCluster",
+
+				ResourceFilters: []marketplacev1beta1.ResourceFilter{
+					{
+						WorkloadType: marketplacev1beta1.WorkloadTypePod,
+						OwnerCRD:  &marketplacev1beta1.OwnerCRDFilter{
+							common.GroupVersionKind{
+								APIVersion: "manage.robin.io/v1",
+								Kind: "RobinCluster",
+							},
+						},
+						Namespace: &marketplacev1beta1.NamespaceFilter{
+							UseOperatorGroup: true,
+						},
+					},
+				},
+				Meters: []marketplacev1beta1.MeterWorkload{
+					{
+						Aggregation: "avg",
+						Period: &metav1.Duration{
+							Duration: time.Duration(time.Hour * 1),
+						},
+						Query:        "min_over_time((kube_pod_info{created_by_kind='DaemonSet',created_by_name='robin',node=~'.*'}or on() vector(0))[60m:60m])",
+						Metric:       "node_hour2",
+						WorkloadType: marketplacev1beta1.WorkloadTypePod,
+						Name:         "robin storage deamon set usage",
 					},
 				},
 			},
