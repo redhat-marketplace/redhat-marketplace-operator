@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/adminserver"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
 	server "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/server/start"
@@ -75,6 +76,7 @@ func main() {
 			//Register servers
 			filesender.RegisterFileSenderServer(s, &server.FileSenderServer{B: bs})
 			fileretreiver.RegisterFileRetreiverServer(s, &server.FileRetreiverServer{B: bs})
+			adminserver.RegisterAdminServerServer(s, &server.AdminServerServer{B: bs})
 
 			go func() {
 				if err := s.Serve(lis); err != nil {

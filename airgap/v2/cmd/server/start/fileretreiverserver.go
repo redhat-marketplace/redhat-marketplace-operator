@@ -221,7 +221,7 @@ func (frs *FileRetreiverServer) ListFileMetadata(lis *fileretreiver.ListFileMeta
 				Metadata:         fileMetadata,
 				CreatedAt:        &timestamppb.Timestamp{Seconds: metadata.CreatedAt},
 				UpdatedAt:        &timestamppb.Timestamp{Seconds: metadata.CreatedAt},
-				DeletedTombstone: &timestamppb.Timestamp{Seconds: metadata.DeletedAt},
+				DeletedTombstone: &timestamppb.Timestamp{Seconds: metadata.CleanTombstoneSetAt},
 				Compression:      metadata.Compression,
 				CompressionType:  metadata.CompressionType,
 				Checksum:         metadata.Checksum,
