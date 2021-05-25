@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: meterdef-file-server
+  namespace: openshift-redhat-marketplace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: meterdef-file-server
+  template:
+    metadata:
+      labels:
+        app: meterdef-file-server
+    spec:
+      containers:
+        - name: file-server
+          image: quay.io/mxpaspa/rhm-meterdefinition-file-server:latest
+          imagePullPolicy: Always
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8100
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8100
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          ports:
+            - containerPort: 8100

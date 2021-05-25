@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: meterdef-file-server
+  namespace: openshift-redhat-marketplace
+spec:
+  ports:
+    - port: 8100
+      protocol: TCP
+  selector:
+    app: meterdef-file-server

@@ -15,20 +15,28 @@
 package marketplace
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"net/http"
 	"time"
 
+	emperror "emperror.dev/errors"
 	semver "github.com/Masterminds/semver/v3"
 	"github.com/go-logr/logr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -118,11 +126,21 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 
 						// get all the meter definitions to be created
 						var selectedMeterDefinitions = []marketplacev1beta1.MeterDefinition{}
-						for _, meterDefinition := range GlobalMeterdefStoreDB.ListMeterdefinitions() {
+						// for _, meterDefinition := range GlobalMeterdefStoreDB.ListMeterdefinitions() {
 
-							if checkMeterDefinition(packageName.(string), version.(string), meterDefinition, reqLogger) {
-								selectedMeterDefinitions = append(selectedMeterDefinitions, meterDefinition)
+						// 	if checkMeterDefinition(packageName.(string), version.(string), meterDefinition, reqLogger) {
+						// 		selectedMeterDefinitions = append(selectedMeterDefinitions, meterDefinition)
+						// 	}
+						// }
+
+						selectedMeterDefinitions,result := getMeterdefsFromFileServer(packageName.(string),version.(string),reqLogger)
+						if !result.Is(Continue) {
+
+							if result.Is(Error) {
+								reqLogger.Error(result.GetError(), "Failed to create meterdef store.")
 							}
+
+							return result.Return()
 						}
 
 						// create meter definitions
@@ -195,7 +213,53 @@ func _csvFilter(metaNew metav1.Object) int {
 	return 0
 }
 
-func checkMeterDefinition(csvPackageName string, version string, meterDefinition marketplacev1beta1.MeterDefinition, reqLogger logr.Logger) bool {
+func getMeterdefsFromFileServer(packageName string,version string,reqLogger logr.Logger)([]marketplacev1beta1.MeterDefinition,*ExecResult){
+
+	var selectedMeterDefinitions []marketplacev1beta1.MeterDefinition 
+
+	url := fmt.Sprintf("http://meterdef-file-server.openshift-redhat-marketplace.svc.cluster.local:8100/get/%s",packageName)
+	response, err := http.Get(url)
+    if err != nil {
+		if err == io.EOF {
+			reqLogger.Error(err,"Meterdefintion not found")
+			return nil,&ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err: emperror.New("empty response"),
+			}
+		}
+
+		reqLogger.Error(err,"Error querying file server")
+		return nil,&ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err: err,
+		}
+    }
+	
+	mdef := &marketplacev1beta1.MeterDefinition{}
+	data, _ := ioutil.ReadAll(response.Body)
+	fmt.Printf("RESPONSE DATA %s",string(data))
+	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(string(data))), 100).Decode(&mdef)
+	if err != nil {
+		reqLogger.Error(err,"error decoding meterdefstore string")
+		return nil,&ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err: err,
+		}
+	}
+
+	if len(data) != 0 {
+		if checkMeterDefinition(packageName, version, mdef, reqLogger) {
+			// utils.PrettyPrint(mdef)
+			selectedMeterDefinitions = append(selectedMeterDefinitions, *mdef)
+		}
+	}
+
+	return selectedMeterDefinitions,&ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+}
+
+func checkMeterDefinition(csvPackageName string, version string, meterDefinition *marketplacev1beta1.MeterDefinition, reqLogger logr.Logger) bool {
 	meterdefVersionRange := meterDefinition.GetAnnotations()[versionRange]
 	meterdefPackageName := meterDefinition.GetAnnotations()[packageName]
 	
