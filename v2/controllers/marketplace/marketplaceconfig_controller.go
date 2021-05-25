@@ -37,6 +37,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -119,28 +120,15 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
-	mdefKVStore := &corev1.ConfigMap{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_STORE_NAME,Namespace: request.Namespace}, mdefKVStore)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-
-			reqLogger.Info("meterdef store not found, creating")
-
-			result := createMeterdefStore(r.Client, reqLogger)
-			if !result.Is(Continue) {
-				
-				if result.Is(Error) {
-					reqLogger.Error(result.GetError(), "Failed to create meterdef store.")
-				}
+	//create file server
+	result := r.createMeterdefFileServer(request,reqLogger)
+	if !result.Is(Continue) {
 		
-				return result.Return()
-			}
-
-			return reconcile.Result{Requeue: true}, nil
+		if result.Is(Error) {
+			reqLogger.Error(result.GetError(), "Failed to create meterdef file server")
 		}
 
-		reqLogger.Error(err, "Failed to get MeterdefintionConfigMap")
-		return reconcile.Result{}, err
+		return result.Return()
 	}
 
 	// run the finalizers
@@ -464,7 +452,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	foundMeterBase := &marketplacev1alpha1.MeterBase{}
-	result, _ := cc.Do(
+	result, _ = cc.Do(
 		context.TODO(),
 		GetAction(
 			types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: marketplaceConfig.Namespace},
@@ -657,6 +645,72 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 	reqLogger.Info("reconciling finished")
 	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+}
+
+func(r *MarketplaceConfigReconciler) createMeterdefFileServer (request reconcile.Request,reqLogger logr.Logger) (*ExecResult){
+	fileServerDep := &appsv1.Deployment{}
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: "meterdef-file-server",Namespace: request.Namespace}, fileServerDep)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+
+			reqLogger.Info("meterdef file server deployment not found, creating")
+
+			dep,err := r.factory.NewMeterdefintionFileServerDeployment()
+			if err != nil {
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{Requeue: true},
+					Err: err,
+				}
+			}
+			err = r.Client.Create(context.TODO(),dep)
+			if err != nil {
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{Requeue: true},
+					Err: err,
+				}
+			}
+		}
+
+		reqLogger.Error(err, "Failed to get Meterdef file server deployment")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err: err,
+		}
+	}
+
+	fileServerService := &corev1.Service{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: "meterdef-file-server",Namespace: request.Namespace}, fileServerService)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+
+			reqLogger.Info("meterdef file server service not found, creating")
+
+			service,err := r.factory.NewMeterdefintionFileServerService()
+			if err != nil {
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{Requeue: true},
+					Err: err,
+				}
+			}
+			err = r.Client.Create(context.TODO(),service)
+			if err != nil {
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{Requeue: true},
+					Err: err,
+				}
+			}
+		}
+
+		reqLogger.Error(err, "Failed to get Meterdef file server deployment")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err: err,
+		}
+	}
+
+	return &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
 }
 
 // labelsForMarketplaceConfig returs the labels for selecting the resources
