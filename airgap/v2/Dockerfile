@@ -50,3 +50,5 @@ COPY --from=dqlite-lib-builder \
     /lib/x86_64-linux-gnu/libsqlite3.so \
     /lib/x86_64-linux-gnu/libsqlite3.so.0 \
     /usr/lib/x86_64-linux-gnu/
+
+COPY --from=dqlite-lib-builder /opt/airgap/pkg/scheduler/jobs.yaml /opt

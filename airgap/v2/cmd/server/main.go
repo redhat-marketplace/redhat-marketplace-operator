@@ -28,7 +28,9 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
 	server "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/server/start"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/dqlite"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/scheduler"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
@@ -63,8 +65,19 @@ func main() {
 				return err
 			}
 
-			// Attempt migration
-			cfg.TryMigrate(context.Background())
+			sfg := &scheduler.SchedulerConfig{
+				Log: log,
+				Fs:  fs,
+				Job: readConfig(),
+			}
+
+			isLeader, _ := cfg.IsLeader()
+			if isLeader {
+				// Attempt migration
+				cfg.TryMigrate(context.Background())
+				sfg.Start()
+			}
+
 			lis, err := net.Listen("tcp", api)
 			if err != nil {
 				return err
@@ -119,4 +132,24 @@ func init() {
 		panic(fmt.Sprintf("Failed to initialize zapr, due to error: %v", err))
 	}
 	log = zapr.NewLogger(zapLog)
+}
+
+// readConfig reads jobs.yaml and returns scheduler.config struct
+// viper check for jobs.yaml file in /opt directory
+func readConfig() *scheduler.Config {
+	var job scheduler.Config
+	viper.SetConfigName("jobs")
+	viper.AddConfigPath("/opt")
+	viper.SetConfigType("yaml")
+	if err := viper.ReadInConfig(); err != nil {
+		fmt.Errorf("error reading config file", err)
+		return nil
+	}
+
+	err := viper.Unmarshal(&job)
+	if err != nil {
+		fmt.Errorf("unable to decode into struct", err)
+		return nil
+	}
+	return &job
 }
