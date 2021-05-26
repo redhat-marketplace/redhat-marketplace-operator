@@ -22,6 +22,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	emperror "emperror.dev/errors"
@@ -123,17 +124,30 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 
 						packageName := csvProperties["packageName"]
 						version := csvProperties["version"]
+						outversion,ok := version.(string)
+						if !ok {
+							reqLogger.Error(emperror.New("TYPE CONVERSION ERROR VERSION"),request.Name)
+							return reconcile.Result{}, err
+						}
 
 						// get all the meter definitions to be created
 						var selectedMeterDefinitions = []marketplacev1beta1.MeterDefinition{}
-						// for _, meterDefinition := range GlobalMeterdefStoreDB.ListMeterdefinitions() {
 
-						// 	if checkMeterDefinition(packageName.(string), version.(string), meterDefinition, reqLogger) {
-						// 		selectedMeterDefinitions = append(selectedMeterDefinitions, meterDefinition)
-						// 	}
-						// }
+						csvPackageName,ok := packageName.(string)
+						if !ok {
+							reqLogger.Error(emperror.New("TYPE CONVERSION ERROR PACKAGE NAME"),request.Name)
+							return reconcile.Result{}, err
+						}
 
-						selectedMeterDefinitions,result := getMeterdefsFromFileServer(packageName.(string),version.(string),reqLogger)
+						fmt.Println(csvPackageName)
+
+						if strings.Contains(csvPackageName,"robin"){
+							outversion = strings.Split(version.(string),"-")[0]
+						}
+
+						fmt.Println(version)
+
+						selectedMeterDefinitions,result := getMeterdefsFromFileServer(csvPackageName,outversion,reqLogger)
 						if !result.Is(Continue) {
 
 							if result.Is(Error) {
@@ -249,7 +263,6 @@ func getMeterdefsFromFileServer(packageName string,version string,reqLogger logr
 
 	if len(data) != 0 {
 		if checkMeterDefinition(packageName, version, mdef, reqLogger) {
-			// utils.PrettyPrint(mdef)
 			selectedMeterDefinitions = append(selectedMeterDefinitions, *mdef)
 		}
 	}
@@ -297,9 +310,10 @@ func fetchCSVInfo(csvProps string) map[string]interface{} {
 	json.Unmarshal([]byte(csvProps), &unmarshalledProps)
 
 	properties := unmarshalledProps["properties"].([]interface{})
-	reqProperty := properties[1]
+	reqProperty := properties[len(properties)-1]
 
 	csvProperty := reqProperty.(map[string]interface{})
+
 	return csvProperty["value"].(map[string]interface{})
 }
 

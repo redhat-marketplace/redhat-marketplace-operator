@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: file-server
-          image: quay.io/mxpaspa/rhm-meterdefinition-file-server:latest
+          image: quay.io/mxpaspa/rhm-meterdefinition-file-server:a5b3274fa4c81fd4ad57870034b58634e2643dd3
           imagePullPolicy: Always
           resources:
             limits:
