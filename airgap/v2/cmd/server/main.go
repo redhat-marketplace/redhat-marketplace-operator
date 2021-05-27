@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"os"
@@ -31,6 +32,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 var log logr.Logger
@@ -62,6 +64,19 @@ func main() {
 				return err
 			}
 
+			// Load certificate
+			serverCert, err := tls.LoadX509KeyPair("/etc/tls/private/tls.crt", "/etc/tls/private/tls.key")
+			if err != nil {
+				return err
+			}
+
+			config := &tls.Config{
+				Certificates: []tls.Certificate{serverCert},
+				ClientAuth:   tls.NoClientCert,
+			}
+
+			creds := credentials.NewTLS(config)
+
 			// Attempt migration
 			cfg.TryMigrate(context.Background())
 			lis, err := net.Listen("tcp", api)
@@ -69,7 +84,7 @@ func main() {
 				return err
 			}
 
-			s := grpc.NewServer()
+			s := grpc.NewServer(grpc.Creds(creds))
 			bs := server.BaseServer{Log: log, FileStore: fs}
 
 			//Register servers
