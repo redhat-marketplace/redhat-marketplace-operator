@@ -108,7 +108,7 @@ func (dc *DatabaseConfig) TryMigrate(ctx context.Context) error {
 	}
 }
 
-// IsLeader verify if container is leader or not
+// IsLeader returns true if running node is leader
 func (dc *DatabaseConfig) IsLeader() (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()

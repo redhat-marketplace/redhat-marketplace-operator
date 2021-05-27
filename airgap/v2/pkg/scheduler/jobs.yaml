@@ -1,6 +1,0 @@
-cleanAfter:
-  cron: "*/10 * * * * *"
-  days: 60 
-purgeAfter:
-  cron: "*/15 * * * * *"
-  days: 120

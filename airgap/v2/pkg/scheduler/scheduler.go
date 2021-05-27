@@ -19,59 +19,31 @@ import (
 
 	"github.com/go-co-op/gocron"
 	"github.com/go-logr/logr"
+	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+var cronExpression = "0 0 * * *" // Every day at 12:00 AM
+
 type SchedulerConfig struct {
-	Log logr.Logger
-	Fs  *database.Database
-	Job *Config
+	Log        logr.Logger
+	Fs         *database.Database
+	CleanAfter int
+	PurgeAfter int
 }
 
-type Config struct {
-	CleanAfter
-	PurgeAfter
-}
-type CleanAfter struct {
-	Cron string
-	Days int
-}
-
-type PurgeAfter struct {
-	Cron string
-	Days int
-}
-
-// Schedule creates and returns gocron.scheduler
-func (sfg *SchedulerConfig) schedule() *gocron.Scheduler {
-	if sfg.Job == nil {
-		return nil
-	}
-	sfg.Log.Info("creating scheduler with jobs", "clean after", sfg.Job.CleanAfter, "purge after", sfg.Job.PurgeAfter)
-
+// createScheduler return gocron.scheduler with job(s)
+func (sfg *SchedulerConfig) createScheduler() *gocron.Scheduler {
 	s := gocron.NewScheduler(time.UTC)
 	s.SetMaxConcurrentJobs(1, gocron.WaitMode)
 
-	if sfg.Job.CleanAfter.Cron != "" && sfg.Job.CleanAfter.Days != 0 {
-		_, err := s.CronWithSeconds(sfg.Job.CleanAfter.Cron).Do(func() {
-			sfg.handler(sfg.Job.CleanAfter.Days, false)
-		})
-
-		if err != nil {
-			sfg.Log.Error(err, "error creating job")
-			return nil
-		}
+	if sfg.CleanAfter > 0 {
+		sfg.createJob(s, sfg.CleanAfter, false, "cleanAfter")
 	}
 
-	if sfg.Job.PurgeAfter.Cron != "" && sfg.Job.PurgeAfter.Days != 0 {
-		_, err := s.CronWithSeconds(sfg.Job.PurgeAfter.Cron).Do(func() {
-			sfg.handler(sfg.Job.PurgeAfter.Days, true)
-		})
-		if err != nil {
-			sfg.Log.Error(err, "error creating job")
-			return nil
-		}
+	if sfg.PurgeAfter > 0 {
+		sfg.createJob(s, sfg.PurgeAfter, true, "purgeAfter")
 	}
 
 	if len(s.Jobs()) == 0 {
@@ -81,27 +53,37 @@ func (sfg *SchedulerConfig) schedule() *gocron.Scheduler {
 	return s
 }
 
-// handler is jobFuncthat that should be called every time the Job runs
-func (sfg *SchedulerConfig) handler(before int, purge bool) error {
+// createJob creates scheduler job
+func (sfg *SchedulerConfig) createJob(s *gocron.Scheduler, before int, purge bool, tag string) {
+	_, err := s.Cron(cronExpression).Tag(tag).Do(func() {
+		fileIds, _ := sfg.handler(before, purge)
+		sfg.Log.Info("result", "fileIds", fileIds)
+	})
+	if err != nil {
+		sfg.Log.Error(err, "error creating job")
+	}
+}
+
+// handler cleans/purges files based on given time duration and purge flag
+func (sfg *SchedulerConfig) handler(before int, purge bool) ([]*v1.FileID, error) {
 	sfg.Log.Info("Job", "time", time.Now().Unix(), "diff", before, "purge", purge)
 
 	now := time.Now()
-	t1 := now.AddDate(0, 0, -before).Unix()
+	t1 := now.Add(time.Duration(-before) * time.Hour).Unix()
 	t := &timestamppb.Timestamp{Seconds: t1}
-	sfg.Log.Info("cleaning before", "date", t1)
 
-	fileId, err := sfg.Fs.CleanTombstones(t, purge)
+	fileIds, err := sfg.Fs.CleanTombstones(t, purge)
 	if err != nil {
-		sfg.Log.Error(err, "")
+		sfg.Log.Error(err, "failed to clean tombstoned files from database")
+		return nil, err
 	}
-
-	sfg.Log.Info("FileId", "ids", fileId)
-	return nil
+	return fileIds, err
 }
 
-// Start starts all job for passed scheduler
-func (sfg *SchedulerConfig) Start() {
-	s := sfg.schedule()
+// StartScheduler starts all job(s) for created scheduler
+func (sfg *SchedulerConfig) StartScheduler() {
+	s := sfg.createScheduler()
+
 	if s != nil {
 		sfg.Log.Info("starting scheduler")
 		s.StartAsync()

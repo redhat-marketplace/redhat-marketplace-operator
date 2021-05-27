@@ -39,11 +39,16 @@ import (
 var log logr.Logger
 
 func main() {
-	var api string
-	var db string
-	var join *[]string
-	var dir string
-	var verbose bool
+	var (
+		api        string
+		db         string
+		join       []string
+		dir        string
+		verbose    bool
+		cleanAfter int
+		purgeAfter int
+		config     string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "grpc-api",
@@ -51,12 +56,19 @@ func main() {
 		Long:  `Command to start up grpc server and establish a database connection`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
+			// reads config file using viper
+			viper.SetConfigFile(config)
+			if err := viper.ReadInConfig(); err != nil {
+				log.Error(err, "Error reading config file")
+			}
+
+			j := viper.GetStringSlice("join")
 			cfg := &dqlite.DatabaseConfig{
 				Name:    "airgap",
-				Dir:     dir,
-				Url:     db,
-				Join:    join,
-				Verbose: verbose,
+				Dir:     viper.GetString("dir"),
+				Url:     viper.GetString("db"),
+				Join:    &j,
+				Verbose: viper.GetBool("verbose"),
 				Log:     log,
 			}
 
@@ -66,16 +78,17 @@ func main() {
 			}
 
 			sfg := &scheduler.SchedulerConfig{
-				Log: log,
-				Fs:  fs,
-				Job: readConfig(),
+				Log:        log,
+				Fs:         fs,
+				CleanAfter: viper.GetInt("cleanAfter"),
+				PurgeAfter: viper.GetInt("purgeAfter"),
 			}
 
+			// Attempt migration and start scheduler for leader node
 			isLeader, _ := cfg.IsLeader()
 			if isLeader {
-				// Attempt migration
 				cfg.TryMigrate(context.Background())
-				sfg.Start()
+				sfg.StartScheduler()
 			}
 
 			lis, err := net.Listen("tcp", api)
@@ -114,12 +127,18 @@ func main() {
 	flags := cmd.Flags()
 	flags.StringVarP(&api, "api", "a", "", "address used to expose the grpc API")
 	flags.StringVarP(&db, "db", "d", "", "address used for internal database replication")
-	join = flags.StringSliceP("join", "j", nil, "database addresses of existing nodes")
+	flags.StringSliceVarP(&join, "join", "j", nil, "database addresses of existing nodes")
 	flags.StringVarP(&dir, "dir", "D", "/tmp/dqlite", "data directory")
 	flags.BoolVarP(&verbose, "verbose", "v", false, "verbose logging")
+	flags.StringVar(&config, "config", "config.yaml", "path to config file")
+	flags.IntVar(&cleanAfter, "cleanAfter", 720, "clean files older than x da	ys")
+	flags.IntVar(&purgeAfter, "purgeAfter", 1440, "purge files older than x days")
 
 	cmd.MarkFlagRequired("api")
 	cmd.MarkFlagRequired("db")
+	cmd.MarkFlagRequired("config-path")
+
+	viper.BindPFlags(flags)
 
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
@@ -132,24 +151,4 @@ func init() {
 		panic(fmt.Sprintf("Failed to initialize zapr, due to error: %v", err))
 	}
 	log = zapr.NewLogger(zapLog)
-}
-
-// readConfig reads jobs.yaml and returns scheduler.config struct
-// viper check for jobs.yaml file in /opt directory
-func readConfig() *scheduler.Config {
-	var job scheduler.Config
-	viper.SetConfigName("jobs")
-	viper.AddConfigPath("/opt")
-	viper.SetConfigType("yaml")
-	if err := viper.ReadInConfig(); err != nil {
-		fmt.Errorf("error reading config file", err)
-		return nil
-	}
-
-	err := viper.Unmarshal(&job)
-	if err != nil {
-		fmt.Errorf("unable to decode into struct", err)
-		return nil
-	}
-	return &job
 }
