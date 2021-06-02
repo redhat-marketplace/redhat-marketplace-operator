@@ -6,6 +6,10 @@ metadata:
   creationTimestamp: null
   name: manager-role
 rules:
+- nonResourceURLs:
+  - '*'
+  verbs:
+  - create
 - apiGroups:
   - ""
   resources:
