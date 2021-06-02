@@ -81,36 +81,34 @@ func TestScheduler_handler(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		after  int
+		before string
 		purge  bool
 		fids   []*v1.FileID
 		errMsg string
 	}{
 		{
-			name:  "clean files marked for deletion",
-			after: 20,
-			purge: false,
+			name:   "clean files marked for deletion",
+			before: "-20h",
+			purge:  false,
 			fids: []*v1.FileID{
 				{Data: &v1.FileID_Name{Name: "delete.txt"}},
 				{Data: &v1.FileID_Name{Name: "delete1.txt"}},
 			},
-			errMsg: "",
 		},
 		{
-			name:  "clean files marked for deletion",
-			after: 10,
-			purge: true,
+			name:   "clean files marked for deletion",
+			before: "-10h",
+			purge:  true,
 			fids: []*v1.FileID{
 				{Data: &v1.FileID_Name{Name: "delete.txt"}},
 				{Data: &v1.FileID_Name{Name: "delete1.txt"}},
 				{Data: &v1.FileID_Name{Name: "delete2.txt"}},
 			},
-			errMsg: "",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fids, err := sfg.handler(tt.after, tt.purge)
+			fids, err := sfg.handler(tt.before, tt.purge)
 			if err != nil {
 				if !strings.Contains(err.Error(), tt.errMsg) {
 					t.Errorf("Expected error message: %v, instead got: %v", tt.errMsg, err.Error())
@@ -183,17 +181,18 @@ func populateDataset(database *database.Database, t *testing.T) {
 	}
 
 	// update fields for seed data
-	setTombstone(deleteFID.GetName(), 30, database)
-	setTombstone(deleteFID1.GetName(), 20, database)
-	setTombstone(deleteFID2.GetName(), 10, database)
+	setTombstone(deleteFID.GetName(), "-30h", database)
+	setTombstone(deleteFID1.GetName(), "-20h", database)
+	setTombstone(deleteFID2.GetName(), "-10h", database)
 	time.Sleep(1 * time.Second)
 }
 
 // setTombstone modifies clean_tombstone_set_at
-func setTombstone(fname string, before int, d *database.Database) {
+func setTombstone(fname string, before string, d *database.Database) {
 	m := &models.Metadata{}
 	now := time.Now()
-	t1 := now.Add(time.Duration(-before) * time.Hour).Unix()
+	bf, _ := time.ParseDuration(before)
+	t1 := now.Add(bf).Unix()
 
 	d.DB.Model(&m).
 		Where("provided_name = ?", fname).

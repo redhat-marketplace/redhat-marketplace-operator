@@ -2,7 +2,7 @@ version: "3.9"  # optional since v1.27.0
 services:
   node1:
     image: airgap:test
-    command: ["/opt/main", "--api", "172.30.0.2:8001", "--db", "172.30.0.2:9001", "-v", "--config", "/opt/config.yaml"]
+    command: ["/opt/main", "--api", "172.30.0.2:8001", "--db", "172.30.0.2:9001", "-v"]
     ports:
       - "8001:8001"
       - "9001:9001"
@@ -11,7 +11,7 @@ services:
         ipv4_address: 172.30.0.2
   node2:
     image: airgap:test
-    command: ["/opt/main", "--api", "172.30.0.3:8002", "--db", "172.30.0.3:9002", "--join", "172.30.0.2:9001", "-v", "--config", "/opt/config.yaml"]
+    command: ["/opt/main", "--api", "172.30.0.3:8002", "--db", "172.30.0.3:9002", "--join", "172.30.0.2:9001", "-v"]
     ports:
       - "8002:8002"
       - "9002:9002"
@@ -22,7 +22,7 @@ services:
         ipv4_address: 172.30.0.3
   node3:
     image: airgap:test
-    command: ["/opt/main", "--api", "172.30.0.4:8003", "--db", "172.30.0.4:9003", "--join", "172.30.0.2:9001", "-v", "--config", "/opt/config.yaml"]
+    command: ["/opt/main", "--api", "172.30.0.4:8003", "--db", "172.30.0.4:9003", "--join", "172.30.0.2:9001", "-v"]
     ports:
       - "8003:8003"
       - "9003:9003"

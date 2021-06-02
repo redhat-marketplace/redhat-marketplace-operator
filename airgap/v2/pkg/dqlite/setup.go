@@ -98,8 +98,10 @@ func (dc *DatabaseConfig) initDqlite() error {
 }
 
 // TryMigrate  performs database migration
-func (dc *DatabaseConfig) TryMigrate(ctx context.Context) error {
-	if dc.gormDB != nil {
+func (dc *DatabaseConfig) TryMigrate() error {
+	if isLeader, _ := dc.IsLeader(); !isLeader {
+		return nil
+	} else if dc.gormDB != nil {
 		dc.Log.Info("Leader elected for migration", "Id", dc.app.ID(), "Address", dc.app.Address())
 		dc.Log.Info("Performing migration")
 		return dc.gormDB.AutoMigrate(&models.FileMetadata{}, &models.File{}, &models.Metadata{})

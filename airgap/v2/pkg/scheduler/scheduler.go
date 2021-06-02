@@ -21,16 +21,17 @@ import (
 	"github.com/go-logr/logr"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/database"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/dqlite"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-var cronExpression = "0 0 * * *" // Every day at 12:00 AM
-
 type SchedulerConfig struct {
-	Log        logr.Logger
-	Fs         *database.Database
-	CleanAfter int
-	PurgeAfter int
+	Log            logr.Logger
+	Fs             *database.Database
+	DBConfig       dqlite.DatabaseConfig
+	CleanAfter     string
+	PurgeAfter     string
+	CronExpression string
 }
 
 // createScheduler return gocron.scheduler with job(s)
@@ -38,11 +39,11 @@ func (sfg *SchedulerConfig) createScheduler() *gocron.Scheduler {
 	s := gocron.NewScheduler(time.UTC)
 	s.SetMaxConcurrentJobs(1, gocron.WaitMode)
 
-	if sfg.CleanAfter > 0 {
+	if sfg.CleanAfter != "" {
 		sfg.createJob(s, sfg.CleanAfter, false, "cleanAfter")
 	}
 
-	if sfg.PurgeAfter > 0 {
+	if sfg.PurgeAfter != "" {
 		sfg.createJob(s, sfg.PurgeAfter, true, "purgeAfter")
 	}
 
@@ -54,23 +55,35 @@ func (sfg *SchedulerConfig) createScheduler() *gocron.Scheduler {
 }
 
 // createJob creates scheduler job
-func (sfg *SchedulerConfig) createJob(s *gocron.Scheduler, before int, purge bool, tag string) {
-	_, err := s.Cron(cronExpression).Tag(tag).Do(func() {
-		fileIds, _ := sfg.handler(before, purge)
-		sfg.Log.Info("result", "fileIds", fileIds)
-	})
+func (sfg *SchedulerConfig) createJob(s *gocron.Scheduler, before string, purge bool, tag string) {
+	sfg.Log.Info("creating new job", "tag", tag, "before", before, "purge", purge, "cron", sfg.CronExpression)
+
+	_, err := time.ParseDuration(before)
 	if err != nil {
-		sfg.Log.Error(err, "error creating job")
+		sfg.Log.Error(err, "error parsing time duration")
+	} else {
+		_, err = s.Cron(sfg.CronExpression).Tag(tag).Do(
+			func() {
+				// run handler only for leader node
+				if isLeader, _ := sfg.DBConfig.IsLeader(); isLeader {
+					fileIds, _ := sfg.handler(before, purge)
+					sfg.Log.Info("result", "fileIds", fileIds)
+				}
+			},
+		)
+		if err != nil {
+			sfg.Log.Error(err, "error creating job")
+		}
 	}
 }
 
 // handler cleans/purges files based on given time duration and purge flag
-func (sfg *SchedulerConfig) handler(before int, purge bool) ([]*v1.FileID, error) {
-	sfg.Log.Info("Job", "time", time.Now().Unix(), "diff", before, "purge", purge)
-
+func (sfg *SchedulerConfig) handler(before string, purge bool) ([]*v1.FileID, error) {
 	now := time.Now()
-	t1 := now.Add(time.Duration(-before) * time.Hour).Unix()
+	bf, _ := time.ParseDuration(before)
+	t1 := now.Add(bf).Unix()
 	t := &timestamppb.Timestamp{Seconds: t1}
+	sfg.Log.Info("Job", "time", time.Now().Unix(), "before", t, "purge", purge)
 
 	fileIds, err := sfg.Fs.CleanTombstones(t, purge)
 	if err != nil {
@@ -83,7 +96,6 @@ func (sfg *SchedulerConfig) handler(before int, purge bool) ([]*v1.FileID, error
 // StartScheduler starts all job(s) for created scheduler
 func (sfg *SchedulerConfig) StartScheduler() {
 	s := sfg.createScheduler()
-
 	if s != nil {
 		sfg.Log.Info("starting scheduler")
 		s.StartAsync()
