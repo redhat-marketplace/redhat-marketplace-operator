@@ -1,8 +1,0 @@
-apiVersion: v1
-data:
-  meterdefinitions: '[{"metadata":{"name":"robin-meterdef","namespace":"openshift-redhat-marketplace","creationTimestamp":null,"annotations":{"packageName":"robin-rhm","versionRange":"\u003c=0.16"}},"spec":{"group":"marketplace.redhat.com","kind":"Pod","resourceFilters":[{"label":{"labelSelector":{"matchLabels":{"app.kubernetes.io/name":"rhm-metric-state"}}},"workloadType":"Pod"}],"meters":[{"metricId":"meterdef_controller_test_query","name":"meterdef_controller_test_query","workloadType":"Pod","aggregation":"sum","period":"15m0s","query":"kube_pod_info{}
-    or on() vector(0)"}]},"status":{}}]'
-kind: ConfigMap
-metadata:
-  name: rhm-meterdef-store
-  namespace: openshift-redhat-marketplace

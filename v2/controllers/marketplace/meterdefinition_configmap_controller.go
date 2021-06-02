@@ -15,16 +15,25 @@
 package marketplace
 
 import (
+	// "bytes"
 	"bytes"
 	"context"
-	"sync"
-	"time"
+	"encoding/json"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"reflect"
+
+	// "time"
 
 	// "archive/tar"
+	// emperror "emperror.dev/errors"
+	// semver "github.com/Masterminds/semver/v3"
 
-	emperror "emperror.dev/errors"
-	semver "github.com/Masterminds/semver/v3"
 	"github.com/go-logr/logr"
+	osv1 "github.com/openshift/api/apps/v1"
+
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
@@ -36,8 +45,12 @@ import (
 
 	// "golang.org/x/net/context"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
+
+	// "k8s.io/apimachinery/pkg/util/yaml"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,7 +62,7 @@ import (
 // blank assignment to verify that MeterdefConfigMapReconciler implements reconcile.Reconciler
 var _ reconcile.Reconciler = &MeterdefConfigMapReconciler{}
 
-var GlobalMeterdefStoreDB = &MeterdefStoreDB{}
+// var GlobalMeterdefStoreDB = &MeterdefStoreDB{}
 // MeterdefConfigMapReconciler reconciles the DataService of a MeterBase object
 type MeterdefConfigMapReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
@@ -64,9 +77,20 @@ type MeterdefConfigMapReconciler struct {
 	patcher patch.Patcher
 }
 
-type MeterdefStoreDB struct {
-	sync.Mutex
-	Meterdefinitions []marketplacev1beta1.MeterDefinition
+// type MeterdefStoreDB struct {
+// 	sync.Mutex
+// 	Meterdefinitions []marketplacev1beta1.MeterDefinition
+// }
+type InstallMapping struct {
+	PackageName string `json:"packageName"`
+	Namespace string `json:"namespace"`
+	Version string `json:"version"` //TODO: not being used
+	VersionRange string `json:"versionRange"`
+	InstalledMeterdefinitions []string `json:"installedMeterdefinitions"`
+}
+  
+type MeterdefinitionStore struct {
+	InstallMappings []InstallMapping `json:"installMappings"`
 }
 
 func (r *MeterdefConfigMapReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
@@ -102,31 +126,47 @@ func (r *MeterdefConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 	WithEventFilter(nsPred).
-	For(&corev1.ConfigMap{}, builder.WithPredicates(
+	For(&osv1.DeploymentConfig{}, builder.WithPredicates(
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
 
-				if e.Meta.GetName() == utils.METERDEF_STORE_NAME {
+				if e.Meta.GetName() == utils.DEPLOYMENT_CONFIG_NAME {
 					return true
 				}
 				return false
 			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				if e.MetaNew.GetName() == utils.METERDEF_STORE_NAME {
-					return e.MetaOld.GetResourceVersion() != e.MetaNew.GetResourceVersion()
+				if e.MetaNew.GetName() == utils.DEPLOYMENT_CONFIG_NAME {
+					// return e.MetaOld.GetResourceVersion() != e.MetaNew.GetResourceVersion()
+					oldDeploymentConfig,ok := e.ObjectOld.(*osv1.DeploymentConfig)
+					if !ok {
+						fmt.Println("could not convert to DeploymentConfig")
+						return false
+					}
+
+					newDeploymentConfig,ok := e.ObjectNew.(*osv1.DeploymentConfig)
+					if !ok {
+						fmt.Println("could not convert to DeploymentConfig")
+						return false
+					}
+
+					if oldDeploymentConfig.Status.LatestVersion != newDeploymentConfig.Status.LatestVersion {
+						fmt.Println("NEW VERSION: ",newDeploymentConfig.Status.LatestVersion)
+						return true
+					}
 				}
 				
 				return false
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				if e.Meta.GetName() == utils.METERDEF_STORE_NAME {
+				if e.Meta.GetName() == utils.DEPLOYMENT_CONFIG_NAME {
 					return true
 				}
 				return false
 			},
 			GenericFunc: func(e event.GenericEvent) bool {
 
-				if e.Meta.GetName() == utils.METERDEF_STORE_NAME {
+				if e.Meta.GetName() == utils.DEPLOYMENT_CONFIG_NAME {
 					return true
 				}
 				return false
@@ -141,174 +181,296 @@ func (r *MeterdefConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // and what is in the MeterdefConfigmap.Spec
 func (r *MeterdefConfigMapReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("reconciling meterdef configmap")
+	
+	// Fetch the mdefKVStore instance
+	mdefKVStore := &corev1.ConfigMap{}
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_STORE_NAME,Namespace: request.Namespace}, mdefKVStore)
+	if err != nil {
+		if errors.IsNotFound(err) {
 
-	// // Fetch the mdefKVStore instance
-	// mdefKVStore := &corev1.ConfigMap{}
-	// err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_STORE_NAME,Namespace: request.Namespace}, mdefKVStore)
-	// if err != nil {
-	// 	if errors.IsNotFound(err) {
+			reqLogger.Info("meterdef store not found")
 
-	// 		reqLogger.Info("meterdef store not found, creating")
-
-	// 		result := createMeterdefStore(r.factory,r.Client,reqLogger)
-	// 		// result := createMeterdefStore(r.Client,reqLogger)
-	// 		if !result.Is(Continue) {
+			// result := createMeterdefStore(r.factory,r.Client,reqLogger)
+			// // result := createMeterdefStore(r.Client,reqLogger)
+			// if !result.Is(Continue) {
 				
-	// 			if result.Is(Error) {
-	// 				reqLogger.Error(result.GetError(), "Failed to create meterdef store.")
-	// 			}
+			// 	if result.Is(Error) {
+			// 		reqLogger.Error(result.GetError(), "Failed to create meterdef store.")
+			// 	}
 		
-	// 			return result.Return()
-	// 		}
+			// 	return result.Return()
+			// }
 
-	// 		return reconcile.Result{Requeue: true}, nil
-	// 	}
+			return reconcile.Result{Requeue: true}, nil
+		}
 
-	// 	reqLogger.Error(err, "Failed to get MeterdefintionConfigMap")
-	// 	return reconcile.Result{}, err
-	// }
+		reqLogger.Error(err, "Failed to get MeterdefintionConfigMap")
+		return reconcile.Result{}, err
+	}
 
-
-	// result := GlobalMeterdefStoreDB.Populate(mdefKVStore,reqLogger)
-	// if !result.Is(Continue) {
+	result := r.sync(reqLogger)
+	if !result.Is(Continue) {
 				
-	// 	if result.Is(Error) {
-	// 		reqLogger.Error(result.GetError(), "Failed to create meterdef store.")
-	// 	}
+		if result.Is(Error) {
+			reqLogger.Error(result.GetError(), "Failed to create meterdef store.")
+		}
 
-	// 	return result.Return()
-	// }
+		return result.Return()
+	}
 
-	// utils.PrettyPrint(GlobalMeterdefStoreDB)
-
-	// mdef, result := pollQuay(reqLogger)
-	// if !result.Is(Continue) {
-				
-	// 	if result.Is(Error) {
-	// 		reqLogger.Error(result.GetError(), "Failed to create meterdef store.")
-	// 	}
-
-	// 	return result.Return()
-	// }
-
-	// utils.PrettyPrint(mdef)
-
-	// response, err := http.Get("http://meterdef-file-server.openshift-redhat-marketplace.svc.cluster.local:8100/get/meterdef-1")
-    // if err != nil {
-    //     fmt.Printf("HTTP ERROR %s\n", err)
-    // } 
-
-	// mdef := &marketplacev1beta1.MeterDefinition{}
-	// data, _ := ioutil.ReadAll(response.Body)
-	// fmt.Printf("RESPONSE DATA %s",string(data))
-	// err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(string(data))), 100).Decode(&mdef)
-	// if err != nil {
-	// 	reqLogger.Error(err,"error decoding meterdefstore string")
-	// 	return reconcile.Result{},err
-	// }
-
-	// utils.PrettyPrint(mdef)
-
+	
 	reqLogger.Info("finished reconciling")
-	return reconcile.Result{RequeueAfter: time.Second * 10}, nil
+	return reconcile.Result{}, nil
 }
 
-func(m *MeterdefStoreDB) Populate(kvStore *corev1.ConfigMap, reqLogger logr.Logger) *ExecResult{
-	meterdefList := &[]marketplacev1beta1.MeterDefinition{}
-	meterdefStoreString := kvStore.Data["meterdefinitions"]
-	if len(meterdefStoreString) == 0 {
+func(r *MeterdefConfigMapReconciler) getMeterdefInstallMappings (reqLogger logr.Logger)([]InstallMapping,error){
+	// Fetch the mdefKVStore instance
+	cm := &corev1.ConfigMap{}
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_STORE_NAME,Namespace: r.cfg.DeployedNamespace}, cm)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil,err
+		}
+
+		reqLogger.Error(err, "Failed to get MeterdefintionConfigMap")
+		return nil,err
+	}
+
+	cmMdefStore := cm.Data["meterdefinitionStore"]
+
+	// if i := cmMdefStore["installMappings"] ; len(i) == 0 {
+
+	// }
+
+	meterdefStore := &MeterdefinitionStore{}
+	
+	err = json.Unmarshal([]byte(cmMdefStore), meterdefStore)
+	if err != nil {
+		reqLogger.Error(err,"error unmarshaling meterdefinition store")
+		return nil,err
+	}
+
+	return meterdefStore.InstallMappings,nil
+}
+
+func(r *MeterdefConfigMapReconciler) sync (reqLogger logr.Logger)(*ExecResult){
+
+	reqLogger.Info("syncing meterdefinitions")
+
+	installMappings, err := r.getMeterdefInstallMappings(reqLogger)
+	if err != nil {
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
-			Err: emperror.New("no meterdefinitions in meterdef store"),
+			Err: err,
 		}
 	}
-	err := yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(meterdefStoreString)), 100).Decode(&meterdefList)
+
+	utils.PrettyPrint(installMappings)
+
+	for _, installMap := range installMappings {
+		for _ ,installedMeterdefName := range installMap.InstalledMeterdefinitions {
+			// Check if the meterdef is on the cluster already
+			meterdefFromCluster := &marketplacev1beta1.MeterDefinition{}
+			err = r.Client.Get(context.TODO(), types.NamespacedName{Name: installedMeterdefName,Namespace: installMap.Namespace}, meterdefFromCluster)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					reqLogger.Info("meterdefinition not found","meterdef name",meterdefFromCluster.Name)
+					mdefFromFileServer, err := getMeterdefintionFromFileServer(installMap.PackageName,installMap.VersionRange,installedMeterdefName,reqLogger)
+					if err != nil {
+						return &ExecResult{
+							ReconcileResult: reconcile.Result{},
+							Err: err,
+						}
+					}
+
+					err = r.Client.Create(context.TODO(), mdefFromFileServer)
+					if err != nil {
+						reqLogger.Error(err, "Could not create MeterDefinition", "mdef", mdefFromFileServer.Name)
+						return &ExecResult{
+							ReconcileResult: reconcile.Result{},
+							Err: err,
+						}
+					}
+
+					reqLogger.Info("Created meterdefinition", "mdef", mdefFromFileServer.Name)
+					
+					return &ExecResult{
+						ReconcileResult: reconcile.Result{Requeue: true},
+						Err: nil,
+					}
+				}
+
+				reqLogger.Error(err, "Failed to get meterdefinition")
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{},
+					Err: err,
+				}
+			}
+
+			// check if the installed meterdefinitions on the cluster are different from the ones in the latest meterdefinition catalog
+			newMeterdefinition, err := getMeterdefintionFromFileServer(installMap.PackageName,installMap.Version,installedMeterdefName,reqLogger)
+			if err != nil {
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{},
+					Err: err,
+				}
+			}
+
+			updatedMeterdefinition := meterdefFromCluster.DeepCopy()
+			updatedMeterdefinition.Spec = newMeterdefinition.Spec
+			if !reflect.DeepEqual(meterdefFromCluster.Spec, updatedMeterdefinition.Spec){
+
+				err = r.Client.Update(context.TODO(), updatedMeterdefinition)
+				if err != nil {
+					reqLogger.Error(err, "Failed to update meterdefinition","name",updatedMeterdefinition.Name)
+					return &ExecResult{
+						ReconcileResult: reconcile.Result{Requeue: true},
+						Err: err,
+					}
+				}
+				reqLogger.Info("Updated file server deployment")
+			}
+			
+		}
+	}
+
+	return &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+}
+
+func getMeterdefintionFromFileServer(packageName string,versionRange string,mdefName string,reqLogger logr.Logger)(*marketplacev1beta1.MeterDefinition,error){
+
+	mdefFileName := fmt.Sprintf("%s.yaml",mdefName)
+	url := fmt.Sprintf("http://rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc.cluster.local:8100/get/%s/%s/%s",packageName,versionRange,mdefFileName)
+	response, err := http.Get(url)
+    if err != nil {
+		if err == io.EOF {
+			reqLogger.Error(err,"Meterdefintion not found")
+			return nil,err
+		}
+
+		reqLogger.Error(err,"Error querying file server")
+		return nil,err
+    }
+	
+	mdef := marketplacev1beta1.MeterDefinition{}
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil,err
+	}
+
+	if len(data) == 0 {
+		reqLogger.Error(err,"no data in response")
+		return nil,err
+	}
+	
+	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(string(data))), 100).Decode(&mdef)
 	if err != nil {
 		reqLogger.Error(err,"error decoding meterdefstore string")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err: err,
-		}
+		return nil,err
 	}
 
-	m.Lock()
-	defer m.Unlock()
+	reqLogger.Info("meterdefintions returned from file server", packageName,mdef)
 
-	m.Meterdefinitions = *meterdefList
-
-	return &ExecResult{
-		Status: ActionResultStatus(Continue),
-	}
+	return &mdef,nil
 }
 
-func(m *MeterdefStoreDB) GetMeterdefinitionsForPackage(packageName string) []marketplacev1beta1.MeterDefinition {
-	m.Lock()
-	defer m.Unlock()
+// func(m *MeterdefStoreDB) Populate(kvStore *corev1.ConfigMap, reqLogger logr.Logger) *ExecResult{
+// 	meterdefList := &[]marketplacev1beta1.MeterDefinition{}
+// 	meterdefStoreString := kvStore.Data["meterdefinitions"]
+// 	if len(meterdefStoreString) == 0 {
+// 		return &ExecResult{
+// 			ReconcileResult: reconcile.Result{},
+// 			Err: emperror.New("no meterdefinitions in meterdef store"),
+// 		}
+// 	}
+// 	err := yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(meterdefStoreString)), 100).Decode(&meterdefList)
+// 	if err != nil {
+// 		reqLogger.Error(err,"error decoding meterdefstore string")
+// 		return &ExecResult{
+// 			ReconcileResult: reconcile.Result{},
+// 			Err: err,
+// 		}
+// 	}
 
-	mdefList := []marketplacev1beta1.MeterDefinition{}
+// 	m.Lock()
+// 	defer m.Unlock()
 
-	for _,mdef  := range m.Meterdefinitions {
-		if mdef.Annotations["packageName"] == packageName {
-			mdefList = append(mdefList, mdef)
-		}
-	}
+// 	m.Meterdefinitions = *meterdefList
 
-	return mdefList
-}
+// 	return &ExecResult{
+// 		Status: ActionResultStatus(Continue),
+// 	}
+// }
 
-func(m *MeterdefStoreDB) ListMeterdefinitions () []marketplacev1beta1.MeterDefinition {
-	m.Lock()
-	defer m.Unlock()
-	return m.Meterdefinitions
-}
+// func(m *MeterdefStoreDB) GetMeterdefinitionsForPackage(packageName string) []marketplacev1beta1.MeterDefinition {
+// 	m.Lock()
+// 	defer m.Unlock()
 
-func(m *MeterdefStoreDB) AddMeterdefinition (newMeterdefinition marketplacev1beta1.MeterDefinition) {
-	m.Lock()
-	defer m.Unlock()
-	m.Meterdefinitions = append(m.Meterdefinitions, newMeterdefinition)
-}
+// 	mdefList := []marketplacev1beta1.MeterDefinition{}
 
-func(m *MeterdefStoreDB) GetVersionConstraints (packageName string) (constraint *semver.Constraints,returnErr error){
+// 	for _,mdef  := range m.Meterdefinitions {
+// 		if mdef.Annotations["packageName"] == packageName {
+// 			mdefList = append(mdefList, mdef)
+// 		}
+// 	}
+
+// 	return mdefList
+// }
+
+// func(m *MeterdefStoreDB) ListMeterdefinitions () []marketplacev1beta1.MeterDefinition {
+// 	m.Lock()
+// 	defer m.Unlock()
+// 	return m.Meterdefinitions
+// }
+
+// func(m *MeterdefStoreDB) AddMeterdefinition (newMeterdefinition marketplacev1beta1.MeterDefinition) {
+// 	m.Lock()
+// 	defer m.Unlock()
+// 	m.Meterdefinitions = append(m.Meterdefinitions, newMeterdefinition)
+// }
+
+// func(m *MeterdefStoreDB) GetVersionConstraints (packageName string) (constraint *semver.Constraints,returnErr error){
 	
-	for _,mdef  := range m.Meterdefinitions {
-		if mdef.Annotations["packageName"] == packageName {
-			versionRange := mdef.Annotations["versionRange"]
-			constraint, returnErr = semver.NewConstraint(versionRange)
-			if returnErr != nil {
-				return nil,returnErr
-			}
-		}
-	}
+// 	for _,mdef  := range m.Meterdefinitions {
+// 		if mdef.Annotations["packageName"] == packageName {
+// 			versionRange := mdef.Annotations["versionRange"]
+// 			constraint, returnErr = semver.NewConstraint(versionRange)
+// 			if returnErr != nil {
+// 				return nil,returnErr
+// 			}
+// 		}
+// 	}
 
-	return constraint,nil
-}
+// 	return constraint,nil
+// }
 
 // TODO: we can use thiss later
-func createMeterdefStore(factory *manifests.Factory,client client.Client,reqLogger logr.Logger)*ExecResult{
-	mdefConfigMap, err := factory.NewMeterdefinitionConfigMap()
-	if err != nil {
+// func createMeterdefInstallMap(factory *manifests.Factory,client client.Client,reqLogger logr.Logger)*ExecResult{
+// 	mdefConfigMap, err := factory.NewMeterdefinitionConfigMap()
+// 	if err != nil {
 	
-		reqLogger.Error(err, "Failed to build MeterdefinitoinConfigMap")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err: err,
-		}
-	}	
+// 		reqLogger.Error(err, "Failed to build MeterdefinitoinConfigMap")
+// 		return &ExecResult{
+// 			ReconcileResult: reconcile.Result{},
+// 			Err: err,
+// 		}
+// 	}	
 
-	err = client.Create(context.Background(),mdefConfigMap)
-	if err != nil {
-		reqLogger.Error(err, "Failed to create MeterdefinitoinConfigMap")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err: err,
-		}
-	}
+// 	err = client.Create(context.Background(),mdefConfigMap)
+// 	if err != nil {
+// 		reqLogger.Error(err, "Failed to create MeterdefinitoinConfigMap")
+// 		return &ExecResult{
+// 			ReconcileResult: reconcile.Result{},
+// 			Err: err,
+// 		}
+// 	}
 	
-	return &ExecResult{
-		Status: ActionResultStatus(Continue),
-	}
-}
+// 	return &ExecResult{
+// 		Status: ActionResultStatus(Continue),
+// 	}
+// }
 
 // func createMeterdefStore(client client.Client,reqLogger logr.Logger)(*ExecResult){
 	

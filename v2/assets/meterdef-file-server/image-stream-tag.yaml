@@ -1,0 +1,91 @@
+apiVersion: image.openshift.io/v1
+generation: 2
+image:
+  # dockerImageLayers:
+  # - mediaType: application/vnd.docker.image.rootfs.diff.tar.gzip
+  #   name: sha256:4061b52792df53fc4d7d64617ff1f873cad828a41e215888eeafa4fa2cf48945
+  #   size: 52411860
+  # - mediaType: application/vnd.docker.image.rootfs.diff.tar.gzip
+  #   name: sha256:6ed7f94c72eb0406231263e8c79ad48eb514fac0af4036e99623b79a3c617cf9
+  #   size: 8121990
+  # - mediaType: application/vnd.docker.image.rootfs.diff.tar.gzip
+  #   name: sha256:ab69f5e02f49779c5aaadf9a2478c2757869b436600218a9711e4f3e88ad5b77
+  #   size: 10209954
+  # - mediaType: application/vnd.docker.image.rootfs.diff.tar.gzip
+  #   name: sha256:548e5c746ad7bf320ec5ac0b0c4eb1f08d525455ce50a80fa44bf885499c8f02
+  #   size: 54068520
+  # - mediaType: application/vnd.docker.image.rootfs.diff.tar.gzip
+  #   name: sha256:5cb856982412e8aa683c6ec6c281a4d5477e4abd768c0a1d9119a2a9ed57fa9e
+  #   size: 71251219
+  # - mediaType: application/vnd.docker.image.rootfs.diff.tar.gzip
+  #   name: sha256:fb415f8d46270330a0d6b2fefc0f2788b5f60fb9cbc5d393fc26e4c7df47e422
+  #   size: 135702020
+  # - mediaType: application/vnd.docker.image.rootfs.diff.tar.gzip
+  #   name: sha256:598eb88eaa6a2b94cdf54b70b7c7780b61b3ea69fce7515425572aef577778cd
+  #   size: 167
+  # - mediaType: application/vnd.docker.image.rootfs.diff.tar.gzip
+  #   name: sha256:d13feb279d37562091401914f7086d3ceea16ef104b1db0db09a5d9c2c7f7e99
+  #   size: 128
+  # - mediaType: application/vnd.docker.image.rootfs.diff.tar.gzip
+  #   name: sha256:48993fa3ce52a8e0dc871ec7e80f4fbc4e51503831a5e5c5db91413f66e3a524
+  #   size: 3250910
+  # - mediaType: application/vnd.docker.image.rootfs.diff.tar.gzip
+  #   name: sha256:85a827c0faba19fea0ac9514d54a3cdea993a99aa8d7facc7cf99f15bef7c248
+  #   size: 3349193
+  # dockerImageManifestMediaType: application/vnd.docker.distribution.manifest.v2+json
+  # dockerImageMetadata:
+  #   Architecture: amd64
+  #   Config:
+  #     Cmd:
+  #     - ./rhm-meterdefinition-file-server
+  #     Env:
+  #     - PATH=/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+  #     - GOLANG_VERSION=1.16.4
+  #     - GOPATH=/go
+  #     ExposedPorts:
+  #       8100/tcp: {}
+  #     WorkingDir: /build
+  #   ContainerConfig: {}
+  #   Created: "2021-05-27T18:15:56Z"
+  #   Id: sha256:251961b98923547b456b39cc263cf3e4efba29a4b555cc0ecc190ad18b8150d0
+  #   Size: 338373029
+  #   apiVersion: image.openshift.io/1.0
+  #   kind: DockerImage
+  # dockerImageMetadataVersion: "1.0"
+  dockerImageReference: quay.io/mxpaspa/rhm-meterdefinition-file-server@sha256:d289efcef33ea176ef58cea26796880baddc2348ebde528824d430fdec52b913
+  metadata:
+    annotations:
+      # image.openshift.io/dockerLayersOrder: ascending
+    #   openshift.io/imported-from: quay.io/mxpaspa/rhm-meterdefinition-file-server:v1.0.0-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
+    # creationTimestamp: "2021-05-31T23:33:31Z"
+    # name: sha256:d289efcef33ea176ef58cea26796880baddc2348ebde528824d430fdec52b913
+    # resourceVersion: "31396198"
+    # uid: 0113f19f-2428-4e8f-a720-5575c471ee3d
+kind: ImageStreamTag
+lookupPolicy:
+  local: false
+metadata:
+  annotations:
+    openshift.io/imported-from: quay.io/mxpaspa/rhm-meterdefinition-file-server:v1.0.0-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
+  # creationTimestamp: "2021-05-31T23:33:31Z"
+  labels:
+    app: rhm-meterdefinition-file-server
+    # app.kubernetes.io/component: rhm-meterdefinition-file-server
+    # app.kubernetes.io/instance: rhm-meterdefinition-file-server
+  name: rhm-meterdefinition-file-server:v1.0.0-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
+  namespace: openshift-redhat-marketplace
+  resourceVersion: "31396199"
+  selfLink: /apis/image.openshift.io/v1/namespaces/openshift-redhat-marketplace/imagestreamtags/rhm-meterdefinition-file-server:v1.0.0-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
+  uid: 3ec9d462-1aa3-4686-b23f-b57b5d1b40be
+tag:
+  annotations:
+    openshift.io/imported-from: quay.io/mxpaspa/rhm-meterdefinition-file-server:v1.0.0-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
+  from:
+    kind: DockerImage
+    name: quay.io/mxpaspa/rhm-meterdefinition-file-server:v1.0.0-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
+  generation: 2
+  importPolicy:
+    insecure: true
+  name: v1.0.0-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
+  referencePolicy:
+    type: Source
