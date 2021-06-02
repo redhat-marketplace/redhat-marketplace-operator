@@ -41,7 +41,6 @@ func InitClient() (*grpc.ClientConn, error) {
 	if len(strings.TrimSpace(address)) == 0 {
 		return nil, fmt.Errorf("target address is blank/empty")
 	}
-	log.Info("Connection credentials:", "address", address)
 
 	options := []grpc.DialOption{}
 
@@ -54,7 +53,6 @@ func InitClient() (*grpc.ClientConn, error) {
 			return nil, fmt.Errorf("ssl error: %v", sslErr)
 		}
 		options = append(options, grpc.WithTransportCredentials(creds))
-		log.Info("Cert Set:", "cert", cert)
 
 		tokenString := viper.GetString("token")
 		if len(tokenString) != 0 {
@@ -63,7 +61,6 @@ func InitClient() (*grpc.ClientConn, error) {
 			}
 			perRPC := oauth.NewOauthAccess(oauth2Token)
 			options = append(options, grpc.WithPerRPCCredentials(perRPC))
-			log.Info("Token Set:", "token", tokenString)
 		}
 	}
 
@@ -74,10 +71,4 @@ func InitClient() (*grpc.ClientConn, error) {
 		return nil, fmt.Errorf("connection error: %v", err)
 	}
 	return conn, nil
-}
-
-func fetchToken() *oauth2.Token {
-	return &oauth2.Token{
-		AccessToken: "some-secret-token",
-	}
 }
