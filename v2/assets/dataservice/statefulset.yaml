@@ -39,7 +39,7 @@ spec:
       - command: ['/bin/sh']
         args: ['-c', 'if [ "$POD_NAME" != "rhm-dqlite-0" ]; then DQLITE_JOIN="--join rhm-dqlite-0.rhm-dqlite.$POD_NAMESPACE.svc.cluster.local:9001"; fi; exec /opt/main --api 127.0.0.1:8001 --db $POD_NAME.rhm-dqlite.$POD_NAMESPACE.svc.cluster.local:9001 --dir /data -v $DQLITE_JOIN']
         env:
-        - name: PODIP
+        - name: POD_IP
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
@@ -57,8 +57,6 @@ spec:
         imagePullPolicy: IfNotPresent
         name: rhm-dqlite
         ports:
-        - containerPort: 8001
-          name: api
         - containerPort: 9001
           name: db
         resources:
@@ -68,21 +66,19 @@ spec:
         volumeMounts:
         - name: rhm-dqlite
           mountPath: /data
-        - mountPath: /etc/tls/private
-          name: rhm-dqlite-mtls
-          readOnly: false
       - args:
           - --logtostderr
           - --secure-listen-address=:8002
+          # insecure-listen-address must be set in order to enable upstream-force-h2c logic
+          - --insecure-listen-address=127.0.0.1:8003
           - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
-          - --upstream=https://127.0.0.1:8001/
+          - --upstream=http://127.0.0.1:8001/
+          - --upstream-force-h2c
           - --tls-cert-file=/etc/tls/private/tls.crt
           - --tls-private-key-file=/etc/tls/private/tls.key
-          - --upstream-ca-file=/etc/tls/mtls/ca.crt
-#          - --upstream-ca-file=/etc/configmaps/serving-cert-ca-bundle/service-ca.crt
         image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
-        imagePullPolicy: IfNotPresent
-        name: kube-rbac-proxy-1
+        imagePullPolicy: Always
+        name: kube-rbac-proxy
         ports:
           - containerPort: 8002
             name: https
@@ -95,10 +91,7 @@ spec:
         volumeMounts:
           - mountPath: /etc/tls/private
             name: rhm-dqlite-tls
-            readOnly: false
-          - mountPath: /etc/tls/mtls
-            name: rhm-dqlite-mtls
-            readOnly: false      
+            readOnly: false  
           - mountPath: /etc/configmaps/serving-cert-ca-bundle
             name: serving-certs-ca-bundle
             readOnly: false        
@@ -106,9 +99,6 @@ spec:
         - name: rhm-dqlite-tls
           secret:
             secretName: rhm-dqlite-tls
-        - name: rhm-dqlite-mtls
-          secret:
-            secretName: rhm-dqlite-mtls
         - configMap:
             name: serving-certs-ca-bundle
           name: serving-certs-ca-bundle

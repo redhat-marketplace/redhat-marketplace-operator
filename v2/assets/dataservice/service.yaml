@@ -8,10 +8,6 @@ metadata:
     app: rhm-dqlite
 spec:
   ports:
-  - name: api
-    port: 8001
-    protocol: TCP
-    targetPort: 8001
   - name: https
     port: 8002
     protocol: TCP
