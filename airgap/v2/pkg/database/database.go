@@ -15,9 +15,13 @@
 package database
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
+	"unicode"
 
 	"github.com/go-logr/logr"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
@@ -29,11 +33,30 @@ import (
 type FileStore interface {
 	SaveFile(finfo *v1.FileInfo, bs []byte) error
 	DownloadFile(finfo *v1.FileID) (*models.Metadata, error)
+	TombstoneFile(finfo *v1.FileID) error
+	ListFileMetadata([]*Condition, []*SortOrder, bool) ([]models.Metadata, error)
+	GetFileMetadata(finfo *v1.FileID) (*models.Metadata, error)
 }
 
 type Database struct {
 	DB  *gorm.DB
 	Log logr.Logger
+}
+
+type SortOrder struct {
+	Key   string
+	Order string
+}
+
+type Condition struct {
+	Key      string
+	Operator string
+	Value    string
+}
+
+type metaDataQuery struct {
+	MetaString string
+	MetaValue  []interface{}
 }
 
 // SaveFile allows us to save a file along with it's metadata to the database
@@ -46,6 +69,9 @@ func (d *Database) SaveFile(finfo *v1.FileInfo, bs []byte) error {
 	} else if len(strings.TrimSpace(finfo.GetFileId().GetId())) == 0 && len(strings.TrimSpace(finfo.GetFileId().GetName())) == 0 {
 		return fmt.Errorf("file id/name is blank")
 	}
+
+	cb := sha256.Sum256(bs)
+	c := hex.EncodeToString(cb[:])
 
 	// Create a slice of file metadata models
 	var fms []models.FileMetadata
@@ -65,6 +91,7 @@ func (d *Database) SaveFile(finfo *v1.FileInfo, bs []byte) error {
 		Size:            finfo.GetSize(),
 		Compression:     finfo.GetCompression(),
 		CompressionType: finfo.GetCompressionType(),
+		Checksum:        c,
 		File: models.File{
 			Content: bs,
 		},
@@ -76,7 +103,7 @@ func (d *Database) SaveFile(finfo *v1.FileInfo, bs []byte) error {
 		return err
 	}
 
-	d.Log.Info("Saved file", "size", metadata.Size, "id", metadata.FileID)
+	d.Log.Info("Saved file", "size", metadata.Size, "id", metadata.FileID, "checksum", c)
 	return nil
 }
 
@@ -107,5 +134,154 @@ func (d *Database) DownloadFile(finfo *v1.FileID) (*models.Metadata, error) {
 		return nil, fmt.Errorf("no file found for provided_name: %v / provided_id: %v", filename, fileid)
 	}
 	d.Log.Info("Retreived file", "size", meta.Size, "id", meta.FileID)
+	return &meta, nil
+}
+
+// TombstoneFile marks file and its previous versions for deletion
+func (d *Database) TombstoneFile(fid *v1.FileID) error {
+	var meta models.Metadata
+	now := time.Now()
+	fileid := strings.TrimSpace(fid.GetId())
+	filename := strings.TrimSpace(fid.GetName())
+
+	if len(fileid) != 0 {
+		d.DB.Model(&meta).
+			Where("provided_id = ?", fileid).
+			Update("clean_tombstone_set_at", now.Unix())
+	} else if len(filename) != 0 {
+		d.DB.Model(&meta).
+			Where("provided_name = ?", filename).
+			Update("clean_tombstone_set_at", now.Unix())
+	} else {
+		return fmt.Errorf("file id/name is blank")
+	}
+	d.Log.Info("File marked for delete", "id", fileid, "name", filename)
+	return nil
+}
+
+// ListFileMetadata allow us to fetch list of files and its metadata from database
+func (d *Database) ListFileMetadata(conditionList []*Condition, sortOrderList []*SortOrder, incDel bool) ([]models.Metadata, error) {
+	//Converts the keys from golang notation to the database notation i.e., HelloWorldGlobe -> hello_world_globe
+	cleanKey := func(s string) string {
+		output := []byte{}
+		for id, c := range s {
+			if unicode.IsUpper(c) && id != 0 {
+				output = append(output, '_', byte(c))
+			} else {
+				output = append(output, byte(c))
+			}
+		}
+		return strings.ToLower(string(output))
+	}
+
+	//Making a set of all columns in the models used
+	modelColumnSet := map[string]bool{}
+	addModelColumn := func(model interface{}) {
+		m := reflect.TypeOf(model)
+		for i := 0; i < m.NumField(); i++ {
+			modelColumnSet[cleanKey(m.Field(i).Name)] = true
+		}
+	}
+	//Add database models here
+	addModelColumn(models.Metadata{})
+
+	//Create sortOrder list
+	sortOrderStringList := []string{}
+	for _, sortOrder := range sortOrderList {
+		sortOrderStringList = append(sortOrderStringList, sortOrder.Key+" "+sortOrder.Order)
+	}
+
+	//Create conditionString list
+	conditionStringList := []string{}
+	conditionValueList := []interface{}{}
+	metaList := []metaDataQuery{}
+	for _, condition := range conditionList {
+		if modelColumnSet[condition.Key] {
+			// if the key is a field in a model
+			conditionStringList = append(conditionStringList, " "+condition.Key+" "+condition.Operator+" ?")
+			if condition.Operator == "LIKE" {
+				conditionValueList = append(conditionValueList, "%%"+condition.Value+"%%")
+			} else if condition.Operator == "=" || condition.Operator == "<" || condition.Operator == ">" {
+				conditionValueList = append(conditionValueList, condition.Value)
+			} else {
+				return nil, fmt.Errorf("invalid operator provided: %v ", condition.Operator)
+			}
+		} else {
+			//if it is not a field in a model, then it must be present as key in fileMetadata
+			var metaValue []interface{}
+			metaString := "key = ? AND value " + condition.Operator + " ?"
+
+			if condition.Operator == "LIKE" {
+				metaValue = append(metaValue, condition.Key, "%%"+condition.Value+"%%")
+			} else if condition.Operator == "=" {
+				metaValue = append(metaValue, condition.Key, condition.Value)
+			} else {
+				return nil, fmt.Errorf("invalid operator provided: %v ", condition.Operator)
+			}
+			metaList = append(metaList, metaDataQuery{MetaString: metaString, MetaValue: metaValue})
+		}
+	}
+
+	//Fetch file metadata
+	metadataList := []models.Metadata{}
+	queryChain := d.DB.Joins("LEFT JOIN file_metadata ON file_metadata.metadata_id = metadata.id")
+
+	if len(conditionStringList) != 0 {
+		queryChain = queryChain.Where(strings.Join(conditionStringList, " AND "), conditionValueList...)
+	}
+	for _, meta := range metaList {
+		queryChain = queryChain.Where("(?) = metadata.id", d.DB.Select("metadata_id").
+			Where("metadata_id = metadata.id").
+			Where(meta.MetaString, meta.MetaValue...).
+			Table("file_metadata"))
+	}
+	if len(sortOrderStringList) != 0 {
+		queryChain = queryChain.Order(strings.Join(sortOrderStringList, ","))
+	}
+	if incDel {
+		queryChain.Distinct().
+			Group("provided_name, provided_id").
+			Having("created_at = max(created_at)").
+			Preload("FileMetadata").
+			Find(&metadataList)
+	} else {
+		queryChain.Where("clean_tombstone_set_at =  ?", 0).
+			Distinct().
+			Group("provided_name, provided_id").
+			Having("created_at = max(created_at)").
+			Preload("FileMetadata").
+			Find(&metadataList)
+	}
+	return metadataList, nil
+}
+
+// GetFileMetadata allow us to fetch metadata of files from database
+func (d *Database) GetFileMetadata(finfo *v1.FileID) (*models.Metadata, error) {
+
+	var meta models.Metadata
+
+	fileid := strings.TrimSpace(finfo.GetId())
+	filename := strings.TrimSpace(finfo.GetName())
+
+	// Perform validations and query
+	if len(fileid) != 0 {
+		d.DB.Where("provided_id = ?", fileid).
+			Order("created_at desc").
+			Preload("FileMetadata").
+			First(&meta)
+	} else if len(filename) != 0 {
+		d.DB.Where("provided_name = ?", filename).
+			Order("created_at desc").
+			Preload("FileMetadata").
+			First(&meta)
+	} else {
+		return nil, fmt.Errorf("file id/name is blank")
+	}
+
+	if reflect.DeepEqual(meta, models.Metadata{}) {
+		return nil, fmt.Errorf("no file found for provided_name: %v / provided_id: %v", filename, fileid)
+	}
+
+	d.Log.Info("Retreived metadata of file", "id", meta.FileID)
 	return &meta, nil
 }

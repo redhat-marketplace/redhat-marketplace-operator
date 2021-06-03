@@ -10,6 +10,6 @@ RUN curl -o go$VERSION.$OS-$ARCH.tar.gz https://dl.google.com/go/go$VERSION.$OS-
   echo 'PATH=$PATH:/usr/local/go/bin' >> /etc/profile && \
   echo 'PATH=$PATH:/usr/local/go/bin' >> $HOME/.profile
 
-RUN dnf update --setopt=tsflags=nodocs -y \
+RUN dnf update --allowerasing --nobest --setopt=tsflags=nodocs -y \
     && dnf clean all \
     && rm -rf /var/cache/yum

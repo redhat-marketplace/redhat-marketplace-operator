@@ -28,6 +28,7 @@ import (
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	routev1 "github.com/openshift/api/route/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -101,8 +102,22 @@ func (r *DataServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&handler.EnqueueRequestForOwner{
 				IsController: true,
 				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(namespacePredicate)).
+		Watches(
+			&source.Kind{Type: &routev1.Route{}},
+			&handler.EnqueueRequestForOwner{
+				IsController: true,
+				OwnerType:    &marketplacev1alpha1.MeterBase{}},
 			builder.WithPredicates(namespacePredicate)).Complete(r)
 }
+
+// +kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;update;patch;update;delete
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch
+// +kubebuilder:rbac:groups="apps",namespace=system,resources=statefulsets,verbs=get;list;watch;update;patch;update;delete
+// +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="route.openshift.io",namespace=system,resources=routes,verbs=get;list;watch;update;patch;update;delete
+// +kubebuilder:rbac:groups="route.openshift.io",resources=routes,verbs=get;list;watch
+// +kubebuilder:rbac:urls=*,verbs=create
 
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
 // and what is in the MeterBase.Spec
@@ -174,10 +189,40 @@ func (r *DataServiceReconciler) Reconcile(request reconcile.Request) (reconcile.
 				return reconcile.Result{}, err
 			}
 		}
+		/* DataService Route */
+		route, _ := r.factory.NewDataServiceRoute()
+		r.factory.SetControllerReference(meterBase, route)
+		foundRoute := &routev1.Route{}
+		err = r.Client.Get(ctx, types.NamespacedName{Name: route.Name, Namespace: route.Namespace}, foundRoute)
+		if err != nil && errors.IsNotFound(err) { // not found: create & requeue
+			err = r.Client.Create(ctx, route)
+			if err != nil {
+				reqLogger.Error(err, "Create Route error: ")
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{Requeue: true}, nil
+		} else if err != nil {
+			reqLogger.Error(err, "Get Route error: ")
+			return reconcile.Result{}, err
+		} else { // found: enforce spec
+			r.factory.UpdateDataServiceRoute(foundRoute)
+			err = r.Client.Update(ctx, foundRoute)
+			if err != nil {
+				reqLogger.Error(err, "Update Route error: ")
+				return reconcile.Result{}, err
+			}
+		}
 	} else { // Remove the DataService
+		/* DataService Route*/
+		route, _ := r.factory.NewDataServiceRoute()
+		err := r.Client.Delete(ctx, route)
+		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "Delete Route error: ")
+			return reconcile.Result{}, err
+		}
 		/* DataService StatefulSet*/
 		statefulSet, _ := r.factory.NewDataServiceStatefulSet()
-		err := r.Client.Delete(ctx, statefulSet)
+		err = r.Client.Delete(ctx, statefulSet)
 		if err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "Delete StatefulSet error: ")
 			return reconcile.Result{}, err

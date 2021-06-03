@@ -12,30 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package models
+package util
 
 import (
-	"github.com/google/uuid"
-	"gorm.io/gorm"
+	"fmt"
+
+	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
+	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
-type Metadata struct {
-	ID                  string `gorm:"primaryKey"`
-	ProvidedId          string
-	ProvidedName        string
-	Size                uint32
-	Compression         bool
-	CompressionType     string
-	CleanTombstoneSetAt int64
-	CreatedAt           int64
-	DeletedAt           int64
-	FileID              string
-	File                File
-	FileMetadata        []FileMetadata
-	Checksum            string
-}
-
-func (m *Metadata) BeforeCreate(tx *gorm.DB) (err error) {
-	m.ID = uuid.NewString()
-	return
+// InitLog initializes logger and returns instance of logger and error if any
+func InitLog() (logr.Logger, error) {
+	var log logr.Logger
+	zapLog, err := zap.NewDevelopment()
+	if err != nil {
+		return log, fmt.Errorf("failed to initialize zapr, due to error: %v", err)
+	}
+	log = zapr.NewLogger(zapLog)
+	// enable/disable logging
+	if !viper.GetBool("verbose") {
+		log = logr.Discard()
+	}
+	return log, nil
 }
