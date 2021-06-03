@@ -199,18 +199,7 @@ func (r *MeterdefConfigMapReconciler) Reconcile(request reconcile.Request) (reco
 	if err != nil {
 		if errors.IsNotFound(err) {
 
-			reqLogger.Info("meterdef store not found")
-
-			// result := createMeterdefStore(r.factory,r.Client,reqLogger)
-			// // result := createMeterdefStore(r.Client,reqLogger)
-			// if !result.Is(Continue) {
-				
-			// 	if result.Is(Error) {
-			// 		reqLogger.Error(result.GetError(), "Failed to create meterdef store.")
-			// 	}
-		
-			// 	return result.Return()
-			// }
+			reqLogger.Info("meterdef install map cm not found")
 
 			return reconcile.Result{Requeue: true}, nil
 		}
@@ -249,10 +238,6 @@ func(r *MeterdefConfigMapReconciler) getMeterdefInstallMappings (reqLogger logr.
 
 	cmMdefStore := cm.Data["meterdefinitionStore"]
 
-	// if i := cmMdefStore["installMappings"] ; len(i) == 0 {
-
-	// }
-
 	meterdefStore := &MeterdefinitionStore{}
 	
 	err = json.Unmarshal([]byte(cmMdefStore), meterdefStore)
@@ -280,7 +265,6 @@ func(r *MeterdefConfigMapReconciler) sync (reqLogger logr.Logger)(*ExecResult){
 
 	for _, installMap := range installMappings {
 		for _ ,installedMeterdefName := range installMap.InstalledMeterdefinitions {
-			// Check if the meterdef is on the cluster already
 			meterdefinitionFromCatalog, err := getMeterdefintionFromFileServer(installMap.PackageName,installMap.VersionRangeDir,installedMeterdefName,reqLogger)
 			if err != nil {
 				return &ExecResult{
@@ -292,6 +276,8 @@ func(r *MeterdefConfigMapReconciler) sync (reqLogger logr.Logger)(*ExecResult){
 			reqLogger.Info("meterdefintions returned from file server", packageName,meterdefinitionFromCatalog.Annotations)
 
 			meterdefFromCluster := &marketplacev1beta1.MeterDefinition{}
+			
+			// Check if the meterdef is on the cluster already
 			err = r.Client.Get(context.TODO(), types.NamespacedName{Name: installedMeterdefName,Namespace: installMap.Namespace}, meterdefFromCluster)
 			if err != nil {
 				if errors.IsNotFound(err) {
@@ -333,9 +319,6 @@ func(r *MeterdefConfigMapReconciler) sync (reqLogger logr.Logger)(*ExecResult){
 			updatedMeterdefinition := meterdefFromCluster.DeepCopy()
 			updatedMeterdefinition.Spec = meterdefinitionFromCatalog.Spec
 			updatedMeterdefinition.ObjectMeta.Annotations = meterdefinitionFromCatalog.ObjectMeta.Annotations
-
-			reqLogger.Info("update","CATALOG TYPE META",meterdefinitionFromCatalog.ObjectMeta)
-			reqLogger.Info("update","CLUSTER TYPE META",meterdefFromCluster.ObjectMeta)
 
 			if !reflect.DeepEqual(updatedMeterdefinition, meterdefFromCluster){
 				reqLogger.Info("meterdefintion is out of sync with latest meterdef catalog","name",meterdefFromCluster.Name)
