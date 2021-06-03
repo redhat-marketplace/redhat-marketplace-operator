@@ -25,15 +25,9 @@ import (
 	"net/http"
 	"reflect"
 
-	// "time"
-
-	// "archive/tar"
-	// emperror "emperror.dev/errors"
-	// semver "github.com/Masterminds/semver/v3"
-
 	"github.com/go-logr/logr"
 
-	osv1 "github.com/openshift/api/apps/v1"
+	osappsv1 "github.com/openshift/api/apps/v1"
 
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
@@ -44,14 +38,12 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 
-	// "golang.org/x/net/context"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	// "k8s.io/apimachinery/pkg/util/yaml"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -129,7 +121,7 @@ func (r *MeterdefConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 	WithEventFilter(nsPred).
-	For(&osv1.DeploymentConfig{}, builder.WithPredicates(
+	For(&osappsv1.DeploymentConfig{}, builder.WithPredicates(
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
 
@@ -141,26 +133,30 @@ func (r *MeterdefConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				if e.MetaNew.GetName() == utils.DEPLOYMENT_CONFIG_NAME {
 					// return e.MetaOld.GetResourceVersion() != e.MetaNew.GetResourceVersion()
-					oldDeploymentConfig,ok := e.ObjectOld.(*osv1.DeploymentConfig)
+					oldDeploymentConfig,ok := e.ObjectOld.(*osappsv1.DeploymentConfig)
 					if !ok {
 						fmt.Println("could not convert to DeploymentConfig")
 						return false
 					}
 
-					newDeploymentConfig,ok := e.ObjectNew.(*osv1.DeploymentConfig)
+					newDeploymentConfig,ok := e.ObjectNew.(*osappsv1.DeploymentConfig)
 					if !ok {
 						fmt.Println("could not convert to DeploymentConfig")
 						return false
 					}
 
-					if oldDeploymentConfig.Status.LatestVersion != newDeploymentConfig.Status.LatestVersion {
-						conditions := newDeploymentConfig.Status.Conditions 
-						for _, c := range conditions {
-							if c.Reason == "NewReplicationControllerAvailable" && c.Status == corev1.ConditionTrue {
+					if oldDeploymentConfig.Status.LatestVersion != newDeploymentConfig.Status.LatestVersion  {
+						newConditions := newDeploymentConfig.Status.Conditions
+						oldConditions := oldDeploymentConfig.Status.Conditions 
+						for i, c := range newConditions {
+							if c.Type == osappsv1.DeploymentProgressing{
+								if c.Reason == "NewReplicationControllerAvailable" && c.Status == corev1.ConditionTrue && oldConditions[i].Message != c.Message{
 									r.latestVersion = newDeploymentConfig.Status.LatestVersion
 									r.message = c.Message
 									return true
+								}
 							}
+
 						}
 					}
 				}
@@ -195,7 +191,7 @@ func (r *MeterdefConfigMapReconciler) Reconcile(request reconcile.Request) (reco
 	reqLogger.Info("deployment config status message","message",r.message)
 	// Fetch the mdefKVStore instance
 	mdefKVStore := &corev1.ConfigMap{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_STORE_NAME,Namespace: request.Namespace}, mdefKVStore)
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME,Namespace: request.Namespace}, mdefKVStore)
 	if err != nil {
 		if errors.IsNotFound(err) {
 
@@ -226,7 +222,7 @@ func (r *MeterdefConfigMapReconciler) Reconcile(request reconcile.Request) (reco
 func(r *MeterdefConfigMapReconciler) getMeterdefInstallMappings (reqLogger logr.Logger)([]InstallMapping,error){
 	// Fetch the mdefKVStore instance
 	cm := &corev1.ConfigMap{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_STORE_NAME,Namespace: r.cfg.DeployedNamespace}, cm)
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME,Namespace: r.cfg.DeployedNamespace}, cm)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil,err
@@ -273,7 +269,7 @@ func(r *MeterdefConfigMapReconciler) sync (reqLogger logr.Logger)(*ExecResult){
 				}
 			}
 
-			reqLogger.Info("meterdefintions returned from file server", packageName,meterdefinitionFromCatalog.Annotations)
+			reqLogger.Info("meterdefintions returned from file server", installMap.PackageName,meterdefinitionFromCatalog.Annotations)
 
 			meterdefFromCluster := &marketplacev1beta1.MeterDefinition{}
 			

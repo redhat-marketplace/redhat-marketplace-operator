@@ -1,8 +1,6 @@
 apiVersion: apps.openshift.io/v1
 kind: DeploymentConfig
 metadata:
-  annotations:
-    openshift.io/generated-by: OpenShiftNewApp
   creationTimestamp: "2021-05-31T23:33:31Z"
   generation: 2
   labels:
@@ -27,8 +25,6 @@ spec:
   template:
     metadata:
       annotations:
-        # openshift.io/generated-by: OpenShiftNewApp
-      # creationTimestamp: null
       labels:
         deploymentconfig: rhm-meterdefinition-file-server
     spec:
@@ -58,30 +54,4 @@ spec:
         kind: ImageStreamTag
         name: rhm-meterdefinition-file-server:v1.0.0-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
         namespace: openshift-redhat-marketplace
-      # lastTriggeredImage: quay.io/mxpaspa/rhm-meterdefinition-file-server@sha256:d289efcef33ea176ef58cea26796880baddc2348ebde528824d430fdec52b913
     type: ImageChange
-# status:
-#   availableReplicas: 1
-#   conditions:
-#   - lastTransitionTime: "2021-05-31T23:34:19Z"
-#     lastUpdateTime: "2021-05-31T23:34:19Z"
-#     message: Deployment config has minimum availability.
-#     status: "True"
-#     type: Available
-#   - lastTransitionTime: "2021-05-31T23:33:36Z"
-#     lastUpdateTime: "2021-05-31T23:34:20Z"
-#     message: replication controller "rhm-meterdefinition-file-server-1" successfully
-#       rolled out
-#     reason: NewReplicationControllerAvailable
-#     status: "True"
-#     type: Progressing
-#   details:
-#     causes:
-#     - type: ConfigChange
-#     message: config change
-#   latestVersion: 1
-#   observedGeneration: 2
-#   readyReplicas: 1
-#   replicas: 1
-#   unavailableReplicas: 0
-#   updatedReplicas: 1

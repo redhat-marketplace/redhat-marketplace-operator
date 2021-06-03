@@ -338,7 +338,7 @@ func (r *MeterdefinitionInstallReconciler) setInstalledMeterdefinition(packageNa
 
 	// Fetch the mdefKVStore instance
 	mdefKVStoreCM := &corev1.ConfigMap{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_STORE_NAME,Namespace: r.cfg.DeployedNamespace}, mdefKVStoreCM)
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME,Namespace: r.cfg.DeployedNamespace}, mdefKVStoreCM)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return &ExecResult{
@@ -444,39 +444,6 @@ func updateAndWrite(meterdefStore *MeterdefinitionStore){
 	}
 }
 
-// func checkMeterDefinition(csvPackageName string, version string, meterDefinition *marketplacev1beta1.MeterDefinition, reqLogger logr.Logger) bool {
-// 	meterdefVersionRange := meterDefinition.GetAnnotations()[versionRange]
-// 	meterdefPackageName := meterDefinition.GetAnnotations()[packageName]
-	
-// 	reqLogger.Info("version range from meterdef","range",meterdefVersionRange)
-// 	reqLogger.Info("version from CSV", "version", version)
-// 	reqLogger.Info("package name of CSV","package name",csvPackageName)
-// 	reqLogger.Info("package name from meterdef","name",meterdefPackageName)
-
-// 	if csvPackageName == meterdefPackageName {
-// 		meterdefVersionConstraint, err := semver.NewConstraint(meterdefVersionRange)
-// 		if err != nil {
-// 			reqLogger.Error(err,"error setting up constraint")
-// 			return false
-// 		}
-
-// 		csvVersion, err := semver.NewVersion(version)
-// 		if err != nil {
-// 			reqLogger.Error(err,"error creating version","version",version)
-// 		}
-
-// 		// Check if the version meets the constraints. The a variable will be true.
-// 		validVersion := meterdefVersionConstraint.Check(csvVersion)
-// 		if validVersion {
-// 			reqLogger.Info("version is valid")
-// 		}
-// 		return validVersion
-	
-// 	}
-	
-// 	return false
-// }
-
 func fetchCSVInfo(csvProps string) map[string]interface{} {
 	var unmarshalledProps map[string]interface{}
 	json.Unmarshal([]byte(csvProps), &unmarshalledProps)
@@ -491,10 +458,6 @@ func fetchCSVInfo(csvProps string) map[string]interface{} {
 
 var rhmCSVControllerPredicates predicate.Funcs = predicate.Funcs{
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		// if e.MetaNew.GetName() == "" {
-		// 	return e.MetaOld.GetResourceVersion() != e.MetaNew.GetResourceVersion()
-		// }
-		// return false
 
 		oldCSV,ok := e.ObjectOld.(*olmv1alpha1.ClusterServiceVersion)
 		if !ok {

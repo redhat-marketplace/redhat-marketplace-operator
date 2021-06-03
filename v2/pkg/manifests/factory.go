@@ -26,7 +26,7 @@ import (
 	"strings"
 
 	"github.com/gotidy/ptr"
-	osv1 "github.com/openshift/api/apps/v1"
+	osappsv1 "github.com/openshift/api/apps/v1"
 	osimagev1 "github.com/openshift/api/image/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -215,7 +215,7 @@ func (f *Factory) NewImageStreamTag (manifest io.Reader) (*osimagev1.ImageStream
 	return d, nil
 }
 
-func (f *Factory) NewDeploymentConfig(manifest io.Reader) (*osv1.DeploymentConfig, error) {
+func (f *Factory) NewDeploymentConfig(manifest io.Reader) (*osappsv1.DeploymentConfig, error) {
 	d, err := NewDeploymentConfig(manifest)
 	if err != nil {
 		return nil, err
@@ -232,17 +232,6 @@ func (f *Factory) NewDeploymentConfig(manifest io.Reader) (*osv1.DeploymentConfi
 	if d.Spec.Template.GetAnnotations() == nil {
 		d.Spec.Template.Annotations = make(map[string]string)
 	}
-
-	// maxSurge := intstr.FromString("25%")
-	// maxUnavailable := intstr.FromString("25%")
-
-	// d.Spec.Strategy = appsv1.DeploymentStrategy{
-	// 	Type: appsv1.RollingUpdateDeploymentStrategyType,
-	// 	RollingUpdate: &appsv1.RollingUpdateDeployment{
-	// 		MaxSurge:       &maxSurge,
-	// 		MaxUnavailable: &maxUnavailable,
-	// 	},
-	// }
 
 	return d, nil
 }
@@ -292,7 +281,7 @@ func (f *Factory) NewService(manifest io.Reader) (*corev1.Service, error) {
 	return d, nil
 }
 
-func (f *Factory) NewMeterdefintionFileServerDeploymentConfig()(*osv1.DeploymentConfig,error){
+func (f *Factory) NewMeterdefintionFileServerDeploymentConfig()(*osappsv1.DeploymentConfig,error){
 	return f.NewDeploymentConfig(MustAssetReader(MeterdefinitionFileServerDeploymentConfig))
 }
 
@@ -733,8 +722,8 @@ func NewImageStreamTag(manifest io.Reader) (*osimagev1.ImageStreamTag, error) {
 	return &it, nil
 }
 
-func NewDeploymentConfig(manifest io.Reader) (*osv1.DeploymentConfig, error) {
-	d := osv1.DeploymentConfig{}
+func NewDeploymentConfig(manifest io.Reader) (*osappsv1.DeploymentConfig, error) {
+	d := osappsv1.DeploymentConfig{}
 	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&d)
 	if err != nil {
 		return nil, err

@@ -15,19 +15,10 @@ spec:
     from:
       kind: DockerImage
       name: quay.io/mxpaspa/rhm-meterdefinition-file-server:v1.0.0-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
-    # generation: 2
     importPolicy:
       insecure: true
       scheduled: true
     name: v1.0.0-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
     referencePolicy:
       type: Source
-# status:
-#   dockerImageRepository: image-registry.openshift-image-registry.svc:5000/openshift-redhat-marketplace/rhm-meterdefinition-file-server
-#   tags:
-#   - items:
-#     - created: "2021-05-31T23:33:31Z"
-#       dockerImageReference: quay.io/mxpaspa/rhm-meterdefinition-file-server@sha256:d289efcef33ea176ef58cea26796880baddc2348ebde528824d430fdec52b913
-#       generation: 2
-#       image: sha256:d289efcef33ea176ef58cea26796880baddc2348ebde528824d430fdec52b913
-#     tag: v1.0.0-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
+
