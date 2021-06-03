@@ -184,7 +184,14 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 
 									reqLogger.Info("Created meterdefinition", "mdef", &meterDefItem.Name)
 
-									result = r.setInstalledMeterdefinition(meterDefItem.GetAnnotations()["packageName"],meterDefItem.GetAnnotations()["versionRange"],meterDefItem.Name,request,reqLogger)
+									t := meterDefItem.GetAnnotations()["versionRange"]
+									vr := strings.Split(t,"-")
+									begin := strings.TrimSpace(vr[0])
+									end := strings.TrimSpace(vr[1])
+									versionRangeDir := fmt.Sprintf("%s-%s",begin,end)
+									
+
+									result = r.setInstalledMeterdefinition(meterDefItem.GetAnnotations()["packageName"],versionRangeDir,meterDefItem.Name,request,reqLogger)
 									if !result.Is(Continue) {
 							
 										if result.Is(Error) {
@@ -301,18 +308,18 @@ func listMeterdefintionsFromFileServer(packageName string,version string,reqLogg
 			Err: err,
 		}
 	}
-	
-	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(string(data))), 100).Decode(&mdefSlice)
-	if err != nil {
-		reqLogger.Error(err,"error decoding meterdefstore string")
+
+	if len(data) == 0 {
+		reqLogger.Error(err,"no data in response")
 		return nil,&ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err: err,
 		}
 	}
-
-	if len(data) == 0 {
-		reqLogger.Error(err,"no data in response")
+	
+	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(string(data))), 100).Decode(&mdefSlice)
+	if err != nil {
+		reqLogger.Error(err,"error decoding meterdefstore string")
 		return nil,&ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err: err,
@@ -349,7 +356,7 @@ func (r *MeterdefinitionInstallReconciler) setInstalledMeterdefinition(packageNa
 	}
 
 	mdefStore := mdefKVStoreCM.Data["meterdefinitionStore"]
-	updatedStore,err := addOrUpdateInstallList(packageName,versionRange,installedMeterdef,mdefStore,reqLogger)
+	updatedStore,err := addOrUpdateInstallList(packageName,versionRange,installedMeterdef,mdefStore,request, reqLogger)
 	if err != nil {
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
@@ -375,7 +382,7 @@ func (r *MeterdefinitionInstallReconciler) setInstalledMeterdefinition(packageNa
 
 // string of meterdefinitions > add json to ./json-store
 // adds a new InstalledMeterdefinition to the json store
-func addOrUpdateInstallList(packageName string,versionRange string,installedMeterdef string,cmMdefStore string,reqLogger logr.Logger)(string,error){
+func addOrUpdateInstallList(packageName string,versionRange string,installedMeterdef string,cmMdefStore string,request reconcile.Request,reqLogger logr.Logger)(string,error){
   
 	meterdefStore := &MeterdefinitionStore{}
 	  
@@ -405,9 +412,12 @@ func addOrUpdateInstallList(packageName string,versionRange string,installedMete
 		reqLogger.Info("no meterdef mapping found, adding")
 		newInstallMapping := InstallMapping{
 			PackageName: packageName,
-			VersionRange: versionRange,
+			VersionRangeDir: versionRange,
+			Namespace: request.Namespace,
 			InstalledMeterdefinitions: []string{installedMeterdef},
-		  }
+		}
+
+		utils.PrettyPrint(newInstallMapping)
 		meterdefStore.InstallMappings = append(meterdefStore.InstallMappings, newInstallMapping)
 	}
 
