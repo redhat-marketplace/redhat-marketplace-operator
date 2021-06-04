@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package meter_definition
+package filter
 
 import (
 	"fmt"
@@ -97,12 +97,12 @@ func (f *WorkloadTypeFilter) Filter(obj interface{}) (bool, error) {
 				"gvk", gvk,
 				"obj", fmt.Sprintf("%T", obj))
 			return true, nil
-		} else {
-			filterLogs.V(4).Info("not matching",
-				"matched", "false",
-				"gvk", gvk,
-				"obj", fmt.Sprintf("%T", obj))
 		}
+
+		filterLogs.V(4).Info("not matching",
+			"matched", "false",
+			"gvk", gvk,
+			"obj", fmt.Sprintf("%T", obj))
 	}
 
 	return false, nil
@@ -128,7 +128,6 @@ func (f *WorkloadFilterForOwner) getOwners(
 	inRefs []metav1.OwnerReference,
 	i, maxDepth int,
 ) (bool, error) {
-
 	var refs []metav1.OwnerReference
 	var err error
 

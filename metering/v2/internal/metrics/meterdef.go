@@ -15,7 +15,10 @@
 package metrics
 
 import (
+	"reflect"
+
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	"k8s.io/apimachinery/pkg/types"
 	kbsm "k8s.io/kube-state-metrics/pkg/metric"
 )
 
@@ -72,5 +75,18 @@ func wrapMeterDefinitionFunc(f func(*marketplacev1beta1.MeterDefinition, []*mark
 		metricFamily.Metrics = MapMeterDefinitions(metricFamily.Metrics, meterDefinitions)
 
 		return metricFamily
+	}
+}
+
+func ProvideMeterDefPrometheusData() *PrometheusDataMap {
+	metricFamilies := meterDefinitionMetricsFamilies
+	composedMetricGenFuncs := ComposeMetricGenFuncs(metricFamilies)
+	familyHeaders := ExtractMetricFamilyHeaders(metricFamilies)
+
+	return &PrometheusDataMap{
+		expectedType:        reflect.TypeOf(&marketplacev1beta1.MeterDefinition{}),
+		headers:             familyHeaders,
+		metrics:             make(map[types.UID][][]byte),
+		generateMetricsFunc: composedMetricGenFuncs,
 	}
 }

@@ -71,12 +71,11 @@ var _ reconcile.Reconciler = &MarketplaceConfigReconciler{}
 type MarketplaceConfigReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	Client         client.Client
-	Scheme         *runtime.Scheme
-	Log            logr.Logger
-	cc             ClientCommandRunner
-	cfg            *config.OperatorConfig
-	mclientBuilder *marketplace.MarketplaceClientBuilder
+	Client client.Client
+	Scheme *runtime.Scheme
+	Log    logr.Logger
+	cc     ClientCommandRunner
+	cfg    *config.OperatorConfig
 }
 
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;update;patch
@@ -97,10 +96,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MarketplaceConfig")
 	cc := r.cc
-
-	if r.mclientBuilder == nil {
-		r.mclientBuilder = marketplace.NewMarketplaceClientBuilder(r.cfg)
-	}
 
 	// Fetch the MarketplaceConfig instance
 	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
@@ -298,7 +293,8 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		}
 
 		if tokenIsValid {
-			marketplaceClient, err := r.mclientBuilder.NewMarketplaceClient(token, tokenClaims)
+			marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
+				NewMarketplaceClient(token, tokenClaims)
 
 			if err != nil {
 				reqLogger.Error(err, "error constructing marketplace client")
@@ -593,7 +589,8 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 	if tokenIsValid {
 		reqLogger.Info("attempting to update registration")
-		marketplaceClient, err := r.mclientBuilder.NewMarketplaceClient(token, tokenClaims)
+		marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
+			NewMarketplaceClient(token, tokenClaims)
 
 		if err != nil {
 			reqLogger.Error(err, "error constructing marketplace client")
@@ -631,7 +628,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	reqLogger.Info("reconciling finished")
-	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+	return reconcile.Result{RequeueAfter: 5*time.Minute}, nil
 }
 
 // labelsForMarketplaceConfig returs the labels for selecting the resources
@@ -795,11 +792,6 @@ func (r *MarketplaceConfigReconciler) InjectCommandRunner(ccp ClientCommandRunne
 
 func (m *MarketplaceConfigReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
-	return nil
-}
-
-func (m *MarketplaceConfigReconciler) InjectMarketplaceClientBuilder(mbuilder *marketplace.MarketplaceClientBuilder) error {
-	m.mclientBuilder = mbuilder
 	return nil
 }
 

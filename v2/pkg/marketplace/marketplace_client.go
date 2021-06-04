@@ -97,13 +97,11 @@ func NewMarketplaceClientBuilder(cfg *config.OperatorConfig) *MarketplaceClientB
 	logger.V(2).Info("marketplace url set to", "url", builder.Url)
 
 	builder.Insecure = cfg.InsecureClient
-
 	return builder
 }
 
 func (b *MarketplaceClientBuilder) SetTLSConfig(tlsConfig *tls.Config) *MarketplaceClientBuilder {
 	if tlsConfig != nil {
-		b.TlsOveride = tlsConfig
 	}
 	return b
 }
@@ -165,6 +163,8 @@ func (b *MarketplaceClientBuilder) NewMarketplaceClient(token string, tokenClaim
 
 	if token != "" {
 		transport = WithBearerAuth(transport, token)
+	} else if marketplaceURL == ProductionURL {
+		return nil, errors.New("transport is empty for production")
 	}
 
 	u, err := url.Parse(marketplaceURL)

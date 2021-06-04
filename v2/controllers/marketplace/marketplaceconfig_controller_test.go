@@ -15,7 +15,6 @@
 package marketplace
 
 import (
-	"crypto/tls"
 	"io/ioutil"
 	"time"
 
@@ -88,7 +87,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 		marketplaceconfig *marketplacev1alpha1.MarketplaceConfig
 		razeedeployment   *marketplacev1alpha1.RazeeDeployment
 		meterbase         *marketplacev1alpha1.MeterBase
-		mbuilder          *marketplace.MarketplaceClientBuilder
 		cfg               *config.OperatorConfig
 	)
 
@@ -128,11 +126,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 			},
 		}
 
-		mbuilder = marketplace.NewMarketplaceClientBuilder(cfg).SetTLSConfig(&tls.Config{
-			RootCAs:            server.HTTPTestServer.TLS.RootCAs,
-			InsecureSkipVerify: true,
-		})
-
 		statusCode = 200
 		path = "/" + marketplace.RegistrationEndpoint
 		body, err = ioutil.ReadFile("../../tests/mockresponses/registration-response.json")
@@ -164,12 +157,11 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 				r.Client = fake.NewFakeClient(r.GetGetObjects()...)
 				r.Reconciler = &MarketplaceConfigReconciler{
-					Client:         r.Client,
-					Scheme:         s,
-					Log:            log,
-					cc:             reconcileutils.NewLoglessClientCommand(r.Client, s),
-					cfg:            cfg,
-					mclientBuilder: mbuilder,
+					Client: r.Client,
+					Scheme: s,
+					Log:    log,
+					cc:     reconcileutils.NewLoglessClientCommand(r.Client, s),
+					cfg:    cfg,
 				}
 				return nil
 			}

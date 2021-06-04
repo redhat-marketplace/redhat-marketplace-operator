@@ -54,7 +54,6 @@ type ClusterRegistrationReconciler struct {
 	Log    logr.Logger
 
 	cfg            *config.OperatorConfig
-	mclientBuilder *marketplace.MarketplaceClientBuilder
 }
 
 // +kubebuilder:rbac:groups="",resources=secret,verbs=get;list;watch
@@ -129,8 +128,9 @@ func (r *ClusterRegistrationReconciler) Reconcile(request reconcile.Request) (re
 	}
 
 	token := string(pullSecret)
-	r.mclientBuilder = marketplace.NewMarketplaceClientBuilder(r.cfg)
-	mclient, err := r.mclientBuilder.NewMarketplaceClient(token, tokenClaims)
+
+	mclient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
+		NewMarketplaceClient(token, tokenClaims)
 
 	if err != nil {
 		reqLogger.Error(err, "failed to build marketplaceclient")
@@ -350,11 +350,6 @@ func (r *ClusterRegistrationReconciler) Inject(injector mktypes.Injectable) mkty
 
 func (m *ClusterRegistrationReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
-	return nil
-}
-
-func (m *ClusterRegistrationReconciler) InjectMarketplaceClientBuilder(mbuilder *marketplace.MarketplaceClientBuilder) error {
-	m.mclientBuilder = mbuilder
 	return nil
 }
 

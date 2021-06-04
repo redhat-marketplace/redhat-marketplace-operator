@@ -80,8 +80,9 @@ type Features struct {
 
 // Marketplace configuration
 type Marketplace struct {
-	URL            string `env:"MARKETPLACE_URL" envDefault:""`
-	InsecureClient bool   `env:"MARKETPLACE_HTTP_INSECURE_MODE" envDefault:"false"`
+	URL            string   `env:"MARKETPLACE_URL" envDefault:""`
+	InsecureClient bool     `env:"MARKETPLACE_HTTP_INSECURE_MODE" envDefault:"false"`
+	RootCAs        []string `env:"-"`
 }
 
 type ControllerValues struct {

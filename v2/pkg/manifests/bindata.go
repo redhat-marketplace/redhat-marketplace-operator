@@ -107,7 +107,7 @@ func assetsMetricStateDeploymentYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/metric-state/deployment.yaml", size: 4195, mode: os.FileMode(0644), modTime: time.Unix(1618250056, 0)}
+	info := bindataFileInfo{name: "assets/metric-state/deployment.yaml", size: 4195, mode: os.FileMode(0644), modTime: time.Unix(1622138671, 0)}
 	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xb4, 0x5b, 0x8a, 0xa6, 0x41, 0x6d, 0xdf, 0x10, 0x37, 0x7c, 0x8b, 0xc9, 0xcd, 0x82, 0x32, 0x32, 0x7, 0x9a, 0x11, 0xf7, 0xfb, 0xe3, 0xbc, 0xd1, 0x6c, 0xab, 0x97, 0x25, 0xd5, 0x80, 0xc5, 0x9b}}
 	return a, nil
 }
@@ -567,7 +567,7 @@ func assetsSignerCaPem() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/signer/ca.pem", size: 1237, mode: os.FileMode(0644), modTime: time.Unix(1617027415, 0)}
+	info := bindataFileInfo{name: "assets/signer/ca.pem", size: 1237, mode: os.FileMode(0644), modTime: time.Unix(1622138671, 0)}
 	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xc7, 0x15, 0x9, 0xd4, 0xb3, 0xa2, 0x82, 0xd5, 0x88, 0x1c, 0xd6, 0x5, 0x93, 0x1, 0x43, 0xa0, 0xfc, 0xc1, 0xe2, 0x88, 0xf1, 0x9c, 0x9b, 0x86, 0x82, 0x7f, 0xf6, 0x81, 0x52, 0x8b, 0x89, 0x19}}
 	return a, nil
 }
@@ -735,34 +735,34 @@ type bintree struct {
 var _bintree = &bintree{nil, map[string]*bintree{
 	"assets": {nil, map[string]*bintree{
 		"metric-state": {nil, map[string]*bintree{
-			"deployment.yaml":      {assetsMetricStateDeploymentYaml, map[string]*bintree{}},
+			"deployment.yaml": {assetsMetricStateDeploymentYaml, map[string]*bintree{}},
 			"service-monitor.yaml": {assetsMetricStateServiceMonitorYaml, map[string]*bintree{}},
-			"service.yaml":         {assetsMetricStateServiceYaml, map[string]*bintree{}},
+			"service.yaml": {assetsMetricStateServiceYaml, map[string]*bintree{}},
 		}},
 		"prometheus": {nil, map[string]*bintree{
-			"additional-scrape-configs.yaml":     {assetsPrometheusAdditionalScrapeConfigsYaml, map[string]*bintree{}},
-			"htpasswd-secret.yaml":               {assetsPrometheusHtpasswdSecretYaml, map[string]*bintree{}},
-			"kube-rbac-proxy-secret.yaml":        {assetsPrometheusKubeRbacProxySecretYaml, map[string]*bintree{}},
-			"kube-state-service-monitor.yaml":    {assetsPrometheusKubeStateServiceMonitorYaml, map[string]*bintree{}},
-			"kubelet-serving-ca-bundle.yaml":     {assetsPrometheusKubeletServingCaBundleYaml, map[string]*bintree{}},
-			"prometheus-additional.yaml":         {assetsPrometheusPrometheusAdditionalYaml, map[string]*bintree{}},
+			"additional-scrape-configs.yaml": {assetsPrometheusAdditionalScrapeConfigsYaml, map[string]*bintree{}},
+			"htpasswd-secret.yaml": {assetsPrometheusHtpasswdSecretYaml, map[string]*bintree{}},
+			"kube-rbac-proxy-secret.yaml": {assetsPrometheusKubeRbacProxySecretYaml, map[string]*bintree{}},
+			"kube-state-service-monitor.yaml": {assetsPrometheusKubeStateServiceMonitorYaml, map[string]*bintree{}},
+			"kubelet-serving-ca-bundle.yaml": {assetsPrometheusKubeletServingCaBundleYaml, map[string]*bintree{}},
+			"prometheus-additional.yaml": {assetsPrometheusPrometheusAdditionalYaml, map[string]*bintree{}},
 			"prometheus-datasources-secret.yaml": {assetsPrometheusPrometheusDatasourcesSecretYaml, map[string]*bintree{}},
-			"prometheus-rules.yaml":              {assetsPrometheusPrometheusRulesYaml, map[string]*bintree{}},
-			"prometheus.yaml":                    {assetsPrometheusPrometheusYaml, map[string]*bintree{}},
-			"proxy-secret.yaml":                  {assetsPrometheusProxySecretYaml, map[string]*bintree{}},
-			"service.yaml":                       {assetsPrometheusServiceYaml, map[string]*bintree{}},
-			"serving-certs-ca-bundle.yaml":       {assetsPrometheusServingCertsCaBundleYaml, map[string]*bintree{}},
+			"prometheus-rules.yaml": {assetsPrometheusPrometheusRulesYaml, map[string]*bintree{}},
+			"prometheus.yaml": {assetsPrometheusPrometheusYaml, map[string]*bintree{}},
+			"proxy-secret.yaml": {assetsPrometheusProxySecretYaml, map[string]*bintree{}},
+			"service.yaml": {assetsPrometheusServiceYaml, map[string]*bintree{}},
+			"serving-certs-ca-bundle.yaml": {assetsPrometheusServingCertsCaBundleYaml, map[string]*bintree{}},
 		}},
 		"prometheus-operator": {nil, map[string]*bintree{
-			"deployment.yaml":               {assetsPrometheusOperatorDeploymentYaml, map[string]*bintree{}},
+			"deployment.yaml": {assetsPrometheusOperatorDeploymentYaml, map[string]*bintree{}},
 			"operator-certs-ca-bundle.yaml": {assetsPrometheusOperatorOperatorCertsCaBundleYaml, map[string]*bintree{}},
-			"service.yaml":                  {assetsPrometheusOperatorServiceYaml, map[string]*bintree{}},
+			"service.yaml": {assetsPrometheusOperatorServiceYaml, map[string]*bintree{}},
 		}},
 		"razee": {nil, map[string]*bintree{
-			"razee-job.yaml":          {assetsRazeeRazeeJobYaml, map[string]*bintree{}},
-			"razee-namespace.yaml":    {assetsRazeeRazeeNamespaceYaml, map[string]*bintree{}},
+			"razee-job.yaml": {assetsRazeeRazeeJobYaml, map[string]*bintree{}},
+			"razee-namespace.yaml": {assetsRazeeRazeeNamespaceYaml, map[string]*bintree{}},
 			"remote-resource-s3.yaml": {assetsRazeeRemoteResourceS3Yaml, map[string]*bintree{}},
-			"watch-keeper.yaml":       {assetsRazeeWatchKeeperYaml, map[string]*bintree{}},
+			"watch-keeper.yaml": {assetsRazeeWatchKeeperYaml, map[string]*bintree{}},
 		}},
 		"reporter": {nil, map[string]*bintree{
 			"job.yaml": {assetsReporterJobYaml, map[string]*bintree{}},

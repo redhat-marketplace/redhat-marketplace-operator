@@ -12,16 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package metrics
+package types
 
 import (
-	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
-type FamilyByteSlicer interface {
-	ByteSlice() []byte
+type MeterDefinitionEnhancedObject struct {
+	runtime.Object
+
+	MeterDefinitions []*v1beta1.MeterDefinition
 }
 
-type MeterDefinitionFetcher interface {
-	GetMeterDefinitions(interface{}) ([]*marketplacev1beta1.MeterDefinition, error)
-}
+type Namespaces []string

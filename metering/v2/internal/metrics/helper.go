@@ -15,14 +15,9 @@
 package metrics
 
 import (
-	"context"
 	"strings"
 
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meter_definition"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/types"
 	kbsm "k8s.io/kube-state-metrics/pkg/metric"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -85,71 +80,4 @@ func MapMeterDefinitions(metrics []*kbsm.Metric, mdefs []*marketplacev1beta1.Met
 	}
 
 	return newMeters
-}
-
-type emptyMeterDefFetcher struct{}
-
-var emptyFetcher MeterDefinitionFetcher = &emptyMeterDefFetcher{}
-
-func (p *emptyMeterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplacev1beta1.MeterDefinition, error) {
-	return []*marketplacev1beta1.MeterDefinition{}, nil
-}
-
-type meterDefFetcher struct {
-	cc                   reconcileutils.ClientCommandRunner
-	meterDefinitionStore *meter_definition.MeterDefinitionStore
-}
-
-var _ MeterDefinitionFetcher = &meterDefFetcher{}
-
-func (p *meterDefFetcher) GetMeterDefinitions(obj interface{}) ([]*marketplacev1beta1.MeterDefinition, error) {
-	results := []*marketplacev1beta1.MeterDefinition{}
-	metaobj, err := meta.Accessor(obj)
-
-	if err != nil {
-		return results, err
-	}
-
-	return p.getMeterDefs(metaobj.GetUID())
-}
-
-func (p *meterDefFetcher) getMeterDefs(
-	uid types.UID,
-) ([]*marketplacev1beta1.MeterDefinition, error) {
-	results := []*marketplacev1beta1.MeterDefinition{}
-	refs := p.meterDefinitionStore.GetMeterDefinitionRefs(uid)
-
-	for _, ref := range refs {
-		meterDefinition := &marketplacev1beta1.MeterDefinition{}
-		err := p.getMeterDef(ref.MeterDef, meterDefinition)
-
-		if err != nil {
-			return results, err
-		}
-
-		results = append(results, meterDefinition)
-	}
-
-	return results, nil
-
-}
-
-func (p *meterDefFetcher) getMeterDef(
-	name types.NamespacedName,
-	mdef *marketplacev1beta1.MeterDefinition,
-) error {
-	result, _ := p.cc.Do(
-		context.TODO(),
-		reconcileutils.GetAction(name, mdef),
-	)
-
-	if !result.Is(reconcileutils.Continue) {
-		if result.Is(reconcileutils.Error) {
-			log.Error(result, "failed to get owner")
-			return result
-		}
-		return result
-	}
-
-	return nil
 }

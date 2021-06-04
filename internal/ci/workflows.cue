@@ -101,12 +101,19 @@ auto_tag: _#bashWorkflow & {
 	}
 }
 
+publish_status: _#bashWorkflow & {
+	name: "Publish Status"
+	on: schedule: [{
+		cron: "*/15 * * * *"
+	}]
+}
+
 publish: _#bashWorkflow & {
 	name: "Publish"
 	on: ["issue_comment"]
-  env: {
-    "DOCKER_CLI_EXPERIMENTAL" : "enabled"
-  }
+	env: {
+		"DOCKER_CLI_EXPERIMENTAL": "enabled"
+	}
 	jobs: {
     push: _#job & {
 			name:  "Push Images to PC"
@@ -139,7 +146,7 @@ publish: _#bashWorkflow & {
 		}
 		publish: _#job & {
 			name:      "Publish Images"
-			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish') }}"
+			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish') && !startsWith(github.event.commenm) }}"
 			"runs-on": _#linuxMachine
 			steps: [
 				_#hasWriteAccess,

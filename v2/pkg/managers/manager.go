@@ -150,7 +150,7 @@ func StartCache(
 	cache cache.Cache,
 	log logr.Logger,
 	isIndexed CacheIsIndexed,
-) (*CacheIsStarted, error) {
+) (CacheIsStarted, error) {
 	errChan := make(chan error)
 	stopCh := make(chan struct{})
 	doneChan := make(chan bool)
@@ -185,12 +185,12 @@ func StartCache(
 
 	select {
 	case err := <-errChan:
-		return nil, err
+		return CacheIsStarted{}, err
 	case <-doneChan:
 		log.Info("Cache has synced")
-		return &CacheIsStarted{}, nil
+		return CacheIsStarted{}, nil
 	case <-timer.C:
-		return nil, errors.New("Timed out while starting cache")
+		return CacheIsStarted{}, errors.New("Timed out while starting cache")
 	}
 }
 
