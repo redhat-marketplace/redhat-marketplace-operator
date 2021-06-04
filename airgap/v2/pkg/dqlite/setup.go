@@ -99,7 +99,12 @@ func (dc *DatabaseConfig) initDqlite() error {
 
 // TryMigrate  performs database migration
 func (dc *DatabaseConfig) TryMigrate() error {
-	if isLeader, _ := dc.IsLeader(); !isLeader {
+	isLeader, err := dc.IsLeader()
+	if err != nil {
+		dc.Log.Error(err, "error while verifying leadership")
+		return err
+	}
+	if !isLeader {
 		return nil
 	} else if dc.gormDB != nil {
 		dc.Log.Info("Leader elected for migration", "Id", dc.app.ID(), "Address", dc.app.Address())
@@ -126,6 +131,7 @@ func (dc *DatabaseConfig) IsLeader() (bool, error) {
 			return false, err
 		}
 	}
+	dc.Log.Info("Leader Info", "address", leader.Address)
 	if leader.Address == dc.app.Address() {
 		return true, nil
 	}

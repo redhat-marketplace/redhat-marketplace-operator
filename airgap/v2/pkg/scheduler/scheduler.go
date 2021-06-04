@@ -58,39 +58,44 @@ func (sfg *SchedulerConfig) createScheduler() *gocron.Scheduler {
 func (sfg *SchedulerConfig) createJob(s *gocron.Scheduler, before string, purge bool, tag string) {
 	sfg.Log.Info("creating new job", "tag", tag, "before", before, "purge", purge, "cron", sfg.CronExpression)
 
-	_, err := time.ParseDuration(before)
-	if err != nil {
-		sfg.Log.Error(err, "error parsing time duration")
-	} else {
-		_, err = s.Cron(sfg.CronExpression).Tag(tag).Do(
-			func() {
-				// run handler only for leader node
-				if isLeader, _ := sfg.DBConfig.IsLeader(); isLeader {
-					fileIds, _ := sfg.handler(before, purge)
-					sfg.Log.Info("result", "fileIds", fileIds)
+	_, err := s.Cron(sfg.CronExpression).Tag(tag).Do(
+		func() {
+			// run handler only for leader node
+			isLeader, err := sfg.DBConfig.IsLeader()
+			if err != nil {
+				sfg.Log.Error(err, "error while verifying leader")
+			}
+			if isLeader {
+				fileIds, er := sfg.handler(before, purge)
+				if er != nil {
+					sfg.Log.Error(err, "error while executing handler")
 				}
-			},
-		)
-		if err != nil {
-			sfg.Log.Error(err, "error creating job")
-		}
+				sfg.Log.Info("result", "fileIds", fileIds)
+			}
+		},
+	)
+	if err != nil {
+		sfg.Log.Error(err, "error while creating job")
 	}
 }
 
 // handler cleans/purges files based on given time duration and purge flag
 func (sfg *SchedulerConfig) handler(before string, purge bool) ([]*v1.FileID, error) {
+	bf, err := time.ParseDuration(before)
+	if err != nil {
+		return nil, err
+	}
+
 	now := time.Now()
-	bf, _ := time.ParseDuration(before)
 	t1 := now.Add(bf).Unix()
 	t := &timestamppb.Timestamp{Seconds: t1}
 	sfg.Log.Info("Job", "time", time.Now().Unix(), "before", t, "purge", purge)
 
 	fileIds, err := sfg.Fs.CleanTombstones(t, purge)
 	if err != nil {
-		sfg.Log.Error(err, "failed to clean tombstoned files from database")
 		return nil, err
 	}
-	return fileIds, err
+	return fileIds, nil
 }
 
 // StartScheduler starts all job(s) for created scheduler

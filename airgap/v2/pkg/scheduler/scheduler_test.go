@@ -105,6 +105,13 @@ func TestScheduler_handler(t *testing.T) {
 				{Data: &v1.FileID_Name{Name: "delete2.txt"}},
 			},
 		},
+		{
+			name:   "clean files marked for deletion",
+			before: "-10d",
+			purge:  true,
+			fids:   nil,
+			errMsg: "time: unknown unit",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

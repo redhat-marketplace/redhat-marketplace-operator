@@ -90,7 +90,10 @@ func main() {
 			}
 
 			// Attempt migration and start scheduler
-			cfg.TryMigrate()
+			err = cfg.TryMigrate()
+			if err != nil {
+				return err
+			}
 			sfg.StartScheduler()
 
 			lis, err := net.Listen("tcp", api)
