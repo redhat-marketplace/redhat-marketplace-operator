@@ -526,7 +526,7 @@ func (r *MeterBaseReconciler) generateExpectedDates(endTime time.Time, loc *time
 }
 
 func (r *MeterBaseReconciler) newMeterReport(namespace string, startTime time.Time, endTime time.Time, meterReportName string, instance *marketplacev1alpha1.MeterBase, prometheusServiceName string) *marketplacev1alpha1.MeterReport {
-	var mreport = &marketplacev1alpha1.MeterReport{
+	return &marketplacev1alpha1.MeterReport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      meterReportName,
 			Namespace: namespace,
@@ -541,13 +541,6 @@ func (r *MeterBaseReconciler) newMeterReport(namespace string, startTime time.Ti
 			},
 		},
 	}
-
-	if instance.Spec.DataServiceEnabled {
-		mreport.Spec.ExtraArgs = []string{"--uploadTarget","air-gap","--deployedNamespace",r.cfg.DeployedNamespace}
-		return mreport
-	}
-
-	return mreport
 }
 
 func (r *MeterBaseReconciler) reconcilePrometheusSubscription(
