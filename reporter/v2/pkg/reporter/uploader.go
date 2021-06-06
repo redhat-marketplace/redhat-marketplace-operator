@@ -129,8 +129,9 @@ func provideDataServiceConfig(deployedNamespace string,dataServiceToken string,c
 
 	out, ok := certConfigMap.Data["service-ca.crt"]
 	if !ok {
-		logger.Error(errors.New("Failed to index cm"),"cert pool append error")
-		return nil,errors.New("could not index Data field on serving certs ca bundle")
+		err := errors.New("Failed to index cm")
+		logger.Error(err,"serving certs ca bundle")
+		return nil,err
 	}
 	
 	logger.Info("deployed namespace","namespace",deployedNamespace)
@@ -188,7 +189,7 @@ func createDataServiceUploadClient(dataServiceConfig *DataServiceConfig)(filesen
 
 	uploadClient, err := client.UploadFile(context.Background())
 	if err != nil {
-		logger.Error(err,"could not setup uploadClient")
+		logger.Error(err,"could not initialize uploadClient")
 		return nil,err
 	}
 
@@ -197,14 +198,13 @@ func createDataServiceUploadClient(dataServiceConfig *DataServiceConfig)(filesen
 
 func createTlsConfig(caCert []byte)(*tls.Config,error){
 	caCertPool, err := x509.SystemCertPool()
-
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get system cert pool")
 	}
 
 	ok := caCertPool.AppendCertsFromPEM(caCert)
 	if !ok {
-		err = errors.New("FAILED TO APPEND TO CERT POOL")
+		err = errors.New("failed to append cert to cert pool")
 		logger.Error(err,"cert pool error")
 		return nil,err
 	}
@@ -242,7 +242,6 @@ func chunkAndUpload(uploadClient filesender.FileSender_UploadFileClient, path st
 		return nil
 	}()
 
-	//Getting file metadata
 	metaData, err := file.Stat()
 	if err != nil {
 		logger.Error(err,"Failed to get metadata")
@@ -268,7 +267,6 @@ func chunkAndUpload(uploadClient filesender.FileSender_UploadFileClient, path st
 		return err
 	}
 
-	//Chunking
 	chunkSize := 3
 	buffReader := bufio.NewReader(file)
 	buffer := make([]byte, chunkSize)
@@ -280,7 +278,7 @@ func chunkAndUpload(uploadClient filesender.FileSender_UploadFileClient, path st
 			}
 			break
 		}
-		//Sending request
+
 		request := filesender.UploadFileRequest{
 			Data: &filesender.UploadFileRequest_ChunkData{
 				ChunkData: buffer[0:n],
