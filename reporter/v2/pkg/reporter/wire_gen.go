@@ -31,9 +31,7 @@ func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task
 	}
 	logrLogger := _wireLoggerValue
 	clientCommandRunner := reconcileutils.NewClientCommand(simpleClient, scheme, logrLogger)
-	uploaderTarget := config2.UploaderTarget
-	string2 := config2.DeployedNamespace
-	uploader, err := ProvideUploader(ctx, clientCommandRunner, logrLogger, uploaderTarget, string2)
+	uploader, err := ProvideUploader(ctx, clientCommandRunner, logrLogger, config2)
 	if err != nil {
 		return nil, err
 	}
