@@ -25,6 +25,7 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
+	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
@@ -36,6 +37,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -59,6 +61,7 @@ type MeterReportReconciler struct {
 	patcher patch.Patcher
 	cfg     *config.OperatorConfig
 	factory *manifests.Factory
+	kubeInterface kubernetes.Interface
 }
 
 func (r *MeterReportReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
@@ -84,6 +87,11 @@ func (r *MeterReportReconciler) InjectFactory(f *manifests.Factory) error {
 
 func (m *MeterReportReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
+	return nil
+}
+
+func (r *MeterReportReconciler) InjectKubeInterface(k kubernetes.Interface) error {
+	r.kubeInterface = k
 	return nil
 }
 
@@ -186,8 +194,17 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 				manifests.CreateIfNotExistsFactoryItem(
 					job,
 					func() (runtime.Object, error) {
-						var deployedNamespace = r.cfg.DeployedNamespace
-						instance.Spec.ExtraArgs = append(instance.Spec.ExtraArgs,"--deployedNamespace",deployedNamespace) 
+
+						saClient := prom.NewServiceAccountClient(r.cfg.ControllerValues.DeploymentNamespace, r.kubeInterface)
+
+						authToken, err := saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.DataServiceAudience, 3600, reqLogger)
+						if err != nil {
+							reqLogger.Error(err,"error geting service account token")
+							return nil, err
+						}
+						
+						instance.Spec.ExtraArgs = []string{"--uploadTarget","data-service","--deployedNamespace",r.cfg.DeployedNamespace,"--dataServiceToken",authToken}
+
 						return r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit)
 					}, CreateWithAddController(instance),
 				),

@@ -27,6 +27,7 @@ require (
 	github.com/spf13/viper v1.7.1
 	golang.org/x/lint v0.0.0-20201208152925-83fdc39ff7b5 // indirect
 	golang.org/x/net v0.0.0-20201202161906-c7110b5ffcbb
+	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
 	google.golang.org/grpc v1.32.0
 	k8s.io/api v0.19.4
 	k8s.io/apimachinery v0.19.4
@@ -35,6 +36,7 @@ require (
 )
 
 replace (
+	github.com/canonical/go-dqlite => github.com/dacleyra/go-dqlite v1.8.4
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v1.8.2-0.20201015110737-0a7fdd3b7696
 	github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2 => ../../airgap/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2 => ../../metering/v2

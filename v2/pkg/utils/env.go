@@ -92,6 +92,7 @@ const (
 
 	/* Auth */
 	PrometheusAudience = "rhm-prometheus-meterbase.openshift-redhat-marketplace.svc"
+	DataServiceAudience = "rhm-dqlite.openshift-redhat-marketplace.svc"
 )
 
 var (

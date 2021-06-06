@@ -76,6 +76,7 @@ spec:
           - --upstream-force-h2c
           - --tls-cert-file=/etc/tls/private/tls.crt
           - --tls-private-key-file=/etc/tls/private/tls.key
+          - --auth-token-audiences=rhm-dqlite.openshift-redhat-marketplace.svc
         image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
         imagePullPolicy: Always
         name: kube-rbac-proxy
@@ -94,7 +95,7 @@ spec:
             readOnly: false  
           - mountPath: /etc/configmaps/serving-cert-ca-bundle
             name: serving-certs-ca-bundle
-            readOnly: false        
+            readOnly: false
       volumes:
         - name: rhm-dqlite-tls
           secret:
