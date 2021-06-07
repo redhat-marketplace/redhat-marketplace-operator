@@ -107,7 +107,6 @@ func (dc *DatabaseConfig) TryMigrate() error {
 	if !isLeader {
 		return nil
 	} else if dc.gormDB != nil {
-		dc.Log.Info("Leader elected for migration", "Id", dc.app.ID(), "Address", dc.app.Address())
 		dc.Log.Info("Performing migration")
 		return dc.gormDB.AutoMigrate(&models.FileMetadata{}, &models.File{}, &models.Metadata{})
 	} else {
@@ -131,7 +130,6 @@ func (dc *DatabaseConfig) IsLeader() (bool, error) {
 			return false, err
 		}
 	}
-	dc.Log.Info("Leader Info", "address", leader.Address)
 	if leader.Address == dc.app.Address() {
 		return true, nil
 	}

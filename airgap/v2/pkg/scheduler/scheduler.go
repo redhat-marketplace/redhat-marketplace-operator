@@ -56,8 +56,6 @@ func (sfg *SchedulerConfig) createScheduler() *gocron.Scheduler {
 
 // createJob creates scheduler job
 func (sfg *SchedulerConfig) createJob(s *gocron.Scheduler, before string, purge bool, tag string) {
-	sfg.Log.Info("creating new job", "tag", tag, "before", before, "purge", purge, "cron", sfg.CronExpression)
-
 	_, err := s.Cron(sfg.CronExpression).Tag(tag).Do(
 		func() {
 			// run handler only for leader node
