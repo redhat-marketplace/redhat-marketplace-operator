@@ -68,6 +68,7 @@ const (
 	DataServiceStatefulSet = "assets/dataservice/statefulset.yaml"
 	DataServiceService     = "assets/dataservice/service.yaml"
 	DataServiceRoute       = "assets/dataservice/route.yaml"
+	DataServiceTLSSecret   = "assets/dataservice/secret.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")
@@ -1181,4 +1182,30 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 			},
 		},
 	}
+}
+
+func (f *Factory) DataServiceTLSSecret(commonNamePrefix string) (*v1.Secret, error) {
+	s, err := f.NewSecret(MustAssetReader(DataServiceTLSSecret))
+	if err != nil {
+		return nil, err
+	}
+
+	nameParts := []string{commonNamePrefix, f.namespace, "svc", "cluster", "local"}
+	commonName := strings.Join(nameParts, ".")
+
+	caCertPEM, caKeyPEM, serverKeyPEM, serverCertPEM, err := newCertificateBundleSecret(commonName)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.Data == nil {
+		s.Data = make(map[string][]byte)
+	}
+
+	s.Data["ca.crt"] = caCertPEM
+	s.Data["ca.key"] = caKeyPEM
+	s.Data["tls.crt"] = serverKeyPEM
+	s.Data["tls.key"] = serverCertPEM
+
+	return s, nil
 }
