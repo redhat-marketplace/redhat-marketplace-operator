@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/canonical/go-dqlite v1.8.0
+	github.com/go-co-op/gocron v1.5.0
 	github.com/go-logr/logr v0.4.0
 	github.com/go-logr/zapr v0.4.0
 	github.com/golang/protobuf v1.4.3

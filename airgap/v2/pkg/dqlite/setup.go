@@ -97,35 +97,45 @@ func (dc *DatabaseConfig) initDqlite() error {
 	return conn.Ping()
 }
 
-// TryMigrate ensures that only the leader performs database migration
-func (dc *DatabaseConfig) TryMigrate(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-	cli, err := dc.app.Leader(ctx)
+// TryMigrate  performs database migration
+func (dc *DatabaseConfig) TryMigrate() error {
+	isLeader, err := dc.IsLeader()
 	if err != nil {
-		dc.Log.Error(err, "Could not find leader for migration")
+		dc.Log.Error(err, "error while verifying leadership")
 		return err
 	}
-
-	dc.Log.Info("Verifying leadership before migration")
-	var leader *client.NodeInfo
-	for leader == nil {
-		leader, err = cli.Leader(ctx)
-		if err != nil {
-			dc.Log.Error(err, "Could not find leader for migration")
-			return err
-		}
-	}
-	dc.Log.Info("Leader elected")
-
-	if leader.Address != dc.app.Address() {
+	if !isLeader {
 		return nil
 	} else if dc.gormDB != nil {
+		dc.Log.Info("Leader elected for migration", "Id", dc.app.ID(), "Address", dc.app.Address())
 		dc.Log.Info("Performing migration")
 		return dc.gormDB.AutoMigrate(&models.FileMetadata{}, &models.File{}, &models.Metadata{})
 	} else {
 		return errors.New("GORM connection has not initialised: Connection of type *gorm.DB is nil")
 	}
+}
+
+// IsLeader returns true if running node is leader
+func (dc *DatabaseConfig) IsLeader() (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	cli, err := dc.app.Leader(ctx)
+	if err != nil {
+		return false, err
+	}
+	var leader *client.NodeInfo
+	for leader == nil {
+		leader, err = cli.Leader(ctx)
+		if err != nil {
+			return false, err
+		}
+	}
+	dc.Log.Info("Leader Info", "address", leader.Address)
+	if leader.Address == dc.app.Address() {
+		return true, nil
+	}
+	return false, nil
 }
 
 // Close ensures all responsibilites for the node are handled gracefully on exit
