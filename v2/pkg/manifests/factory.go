@@ -593,7 +593,7 @@ func (f *Factory) ReporterJob(
 	}
 
 	if uploadTarget == "data-service" {
-		dataServiceArgs := []string{"--dataServiceTokenPath=/etc/data-service-sa/data-service-token","--uploadTarget=data-service"}
+		dataServiceArgs := []string{"--dataServiceTokenFile=/etc/data-service-sa/data-service-token","--uploadTarget=data-service"}
 	
 		container.Args = append(container.Args, dataServiceArgs...)
 		
