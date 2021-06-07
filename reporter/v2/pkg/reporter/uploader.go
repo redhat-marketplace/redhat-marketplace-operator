@@ -112,16 +112,16 @@ type DataServiceConfig struct {
 	DataServiceCert  []byte `json:"dataServiceCert"`
 }
 
-func provideDataServiceConfig(deployedNamespace string, dataServiceTokenPath string, dataServiceCertPath string) (*DataServiceConfig, error) {
+func provideDataServiceConfig(deployedNamespace string, dataServiceTokenFile string, dataServiceCertFile string) (*DataServiceConfig, error) {
 
-	cert, err := ioutil.ReadFile(dataServiceCertPath)
+	cert, err := ioutil.ReadFile(dataServiceCertFile)
 	if err != nil {
 		return nil, err
 	}
 
 	var serviceAccountToken = ""
-	if dataServiceTokenPath != "" {
-		content, err := ioutil.ReadFile(dataServiceTokenPath)
+	if dataServiceTokenFile != "" {
+		content, err := ioutil.ReadFile(dataServiceTokenFile)
 		if err != nil {
 			return nil, err
 		}
@@ -508,7 +508,7 @@ func ProvideUploader(
 	case *LocalFilePathUploader:
 		return reporterConfig.UploaderTarget.(Uploader), nil
 	case *DataServiceUploader:
-		dataServiceConfig, err := provideDataServiceConfig(reporterConfig.DeployedNamespace, reporterConfig.DataServiceTokenFile, reporterConfig.CaFile)
+		dataServiceConfig, err := provideDataServiceConfig(reporterConfig.DeployedNamespace, reporterConfig.DataServiceTokenFile, reporterConfig.DataServiceCertFile)
 		if err != nil {
 			return nil, err
 		}
