@@ -23,6 +23,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
@@ -151,8 +152,7 @@ func (r *DataServiceReconciler) Reconcile(request reconcile.Request) (reconcile.
 	if meterBase.Spec.DataServiceEnabled == true { // Install the DataService
 
 		/* DataService mTLS certificate Secret */
-		commonNamePrefix := "*.rhm-dqlite" // wildcard.ServiceName
-		secret, err := r.factory.DataServiceTLSSecret(commonNamePrefix)
+		secret, err := r.factory.NewDataServiceTLSSecret(utils.DQLITE_COMMONNAME_PREFIX)
 		if err != nil {
 			reqLogger.Error(err, "Generate Secret error: ")
 			return reconcile.Result{}, err
@@ -264,7 +264,7 @@ func (r *DataServiceReconciler) Reconcile(request reconcile.Request) (reconcile.
 			return reconcile.Result{}, err
 		}
 		/* DataService Secret */
-		secret, _ := r.factory.NewDataServiceSecret()
+		secret, _ := r.factory.NewDataServiceTLSSecret(utils.DQLITE_COMMONNAME_PREFIX)
 		err = r.Client.Delete(ctx, secret)
 		if err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "Delete Secret error: ")

@@ -1184,7 +1184,7 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 	}
 }
 
-func (f *Factory) DataServiceTLSSecret(commonNamePrefix string) (*v1.Secret, error) {
+func (f *Factory) NewDataServiceTLSSecret(commonNamePrefix string) (*v1.Secret, error) {
 	s, err := f.NewSecret(MustAssetReader(DataServiceTLSSecret))
 	if err != nil {
 		return nil, err

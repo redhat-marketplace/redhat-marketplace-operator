@@ -91,6 +91,9 @@ const (
 
 	/* Auth */
 	PrometheusAudience = "rhm-prometheus-meterbase.openshift-redhat-marketplace.svc"
+
+	/* Certificate */
+	DQLITE_COMMONNAME_PREFIX = "*.rhm-dqlite" // wildcard.ServiceName
 )
 
 var (
