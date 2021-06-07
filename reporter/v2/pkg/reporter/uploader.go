@@ -33,6 +33,7 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
+
 	"github.com/gotidy/ptr"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
@@ -111,37 +112,30 @@ type DataServiceConfig struct {
 	DataServiceCert []byte `json:"dataServiceCert"`
 }
 
-func provideDataServiceConfig(deployedNamespace string,dataServiceToken string,ctx context.Context,cc ClientCommandRunner,log logr.Logger)(*DataServiceConfig,error){
+func provideDataServiceConfig(deployedNamespace string,dataServiceTokenPath string,dataServiceCertPath string)(*DataServiceConfig,error){
 
-	certConfigMap := &corev1.ConfigMap{}
-
-	name := types.NamespacedName{
-		Name:      utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
-		Namespace: "openshift-redhat-marketplace",
+	cert, err := ioutil.ReadFile(dataServiceCertPath)
+	if err != nil {
+		return nil, err
 	}
 
-	if result, _ := cc.Do(context.TODO(), GetAction(name, certConfigMap)); !result.Is(Continue) {
-		logger.Error(result.Err,"get serving certs ca bundle error")
-		return nil,result.Err
+	var serviceAccountToken = ""
+	if dataServiceTokenPath != "" {
+		content, err := ioutil.ReadFile(dataServiceTokenPath)
+		if err != nil {
+			return nil, err
+		}
+		serviceAccountToken = fmt.Sprintf(string(content))
 	}
 
-	log.Info("extracting cert from config map")
-
-	out, ok := certConfigMap.Data["service-ca.crt"]
-	if !ok {
-		err := errors.New("Failed to index cm")
-		logger.Error(err,"serving certs ca bundle")
-		return nil,err
-	}
-	
 	logger.Info("deployed namespace","namespace",deployedNamespace)
 
 	var dataServiceDNS = fmt.Sprintf("%s.%s.svc.cluster.local:8002",utils.DATA_SERVICE_NAME,deployedNamespace)
 
 	return &DataServiceConfig{
 		Address: dataServiceDNS,
-		DataServiceToken: dataServiceToken,
-		DataServiceCert: []byte(out),
+		DataServiceToken: serviceAccountToken,
+		DataServiceCert: cert,
 	},nil
 }
 
@@ -516,7 +510,7 @@ func ProvideUploader(
 	case *LocalFilePathUploader:
 		return reporterConfig.UploaderTarget.(Uploader), nil
 	case *DataServiceUploader:
-		dataServiceConfig,err := provideDataServiceConfig(reporterConfig.DeployedNamespace,reporterConfig.DataServiceToken,ctx,cc,log)
+		dataServiceConfig,err := provideDataServiceConfig(reporterConfig.DeployedNamespace,reporterConfig.DataServiceTokenFile,reporterConfig.CaFile)
 		if err != nil {
 			return nil, err
 		}

@@ -25,7 +25,6 @@ import (
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
-	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
@@ -194,18 +193,7 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 				manifests.CreateIfNotExistsFactoryItem(
 					job,
 					func() (runtime.Object, error) {
-
-						saClient := prom.NewServiceAccountClient(r.cfg.ControllerValues.DeploymentNamespace, r.kubeInterface)
-
-						authToken, err := saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.DataServiceAudience, 3600, reqLogger)
-						if err != nil {
-							reqLogger.Error(err,"error geting service account token")
-							return nil, err
-						}
-						
-						instance.Spec.ExtraArgs = []string{"--uploadTarget","data-service","--deployedNamespace",r.cfg.DeployedNamespace,"--dataServiceToken",authToken}
-
-						return r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit)
+						return r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit,"data-service")
 					}, CreateWithAddController(instance),
 				),
 				OnRequeue(UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobSubmitted)),

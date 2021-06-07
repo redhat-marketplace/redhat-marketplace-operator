@@ -28,7 +28,7 @@ import (
 
 var log = logf.Log.WithName("reporter_report_cmd")
 
-var name, namespace, cafile, tokenFile,uploadTarget,localFilePath,deployedNamespace,dataServiceToken string
+var name, namespace, cafile, tokenFile,uploadTarget,localFilePath,deployedNamespace,dataServiceTokenFile string
 var local, upload bool
 var retry int
 
@@ -62,8 +62,7 @@ var ReportCmd = &cobra.Command{
 			Retry:           ptr.Int(retry),
 			CaFile:          cafile,
 			TokenFile:       tokenFile,
-			DataServiceToken: dataServiceToken,
-			// DataServiceCert: dataServiceCert,
+			DataServiceTokenFile: dataServiceTokenFile,
 			Local:           local,
 			Upload:          upload,
 			UploaderTarget:  uploadTarget,
@@ -97,7 +96,7 @@ func init() {
 	ReportCmd.Flags().StringVar(&namespace, "namespace", "", "namespace of the report")
 	ReportCmd.Flags().StringVar(&cafile, "cafile", "", "cafile for prometheus")
 	ReportCmd.Flags().StringVar(&tokenFile, "tokenfile", "", "token file for prometheus")
-	ReportCmd.Flags().StringVar(&dataServiceToken, "dataServiceToken", "", "token for the data service")
+	ReportCmd.Flags().StringVar(&dataServiceTokenFile, "dataServiceTokenFile", "", "token file for the data service")
 	ReportCmd.Flags().StringVar(&uploadTarget, "uploadTarget", "redhat-insights", "target to upload to")
 	ReportCmd.Flags().StringVar(&localFilePath, "localFilePath", ".", "target to upload to")
 	ReportCmd.Flags().BoolVar(&local, "local", false, "run locally")
