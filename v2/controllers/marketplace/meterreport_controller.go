@@ -36,7 +36,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -55,12 +54,10 @@ type MeterReportReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
-
 	CC      ClientCommandRunner
 	patcher patch.Patcher
 	cfg     *config.OperatorConfig
 	factory *manifests.Factory
-	kubeInterface kubernetes.Interface
 }
 
 func (r *MeterReportReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
@@ -86,11 +83,6 @@ func (r *MeterReportReconciler) InjectFactory(f *manifests.Factory) error {
 
 func (m *MeterReportReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
-	return nil
-}
-
-func (r *MeterReportReconciler) InjectKubeInterface(k kubernetes.Interface) error {
-	r.kubeInterface = k
 	return nil
 }
 

@@ -612,7 +612,7 @@ func (f *Factory) ReporterJob(
 					Sources: []v1.VolumeProjection{
 						{
 							ServiceAccountToken:  &v1.ServiceAccountTokenProjection{
-								Audience: "rhm-dqlite.openshift-redhat-marketplace.svc",
+								Audience: utils.DataServiceAudience,
 								ExpirationSeconds: ptr.Int64(3600),
 								Path: "data-service-token", 
 							},

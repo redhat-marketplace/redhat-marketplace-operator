@@ -63,7 +63,7 @@ var (
 	UploaderTargetRedHatInsights UploaderTarget = &RedHatInsightsUploader{}
 	UploaderTargetNoOp           UploaderTarget = &NoOpUploader{}
 	UploaderTargetLocalPath      UploaderTarget = &LocalFilePathUploader{}
-	UploaderTargetDataService  		 UploaderTarget = &DataServiceUploader{}
+	UploaderTargetDataService    UploaderTarget = &DataServiceUploader{}
 )
 
 func (u *DataServiceUploader) Name() string {
@@ -107,12 +107,12 @@ type DataServiceUploader struct {
 }
 
 type DataServiceConfig struct {
-	Address    string `json:"address"`
+	Address          string `json:"address"`
 	DataServiceToken string `json:"dataServiceToken"`
-	DataServiceCert []byte `json:"dataServiceCert"`
+	DataServiceCert  []byte `json:"dataServiceCert"`
 }
 
-func provideDataServiceConfig(deployedNamespace string,dataServiceTokenPath string,dataServiceCertPath string)(*DataServiceConfig,error){
+func provideDataServiceConfig(deployedNamespace string, dataServiceTokenPath string, dataServiceCertPath string) (*DataServiceConfig, error) {
 
 	cert, err := ioutil.ReadFile(dataServiceCertPath)
 	if err != nil {
@@ -128,39 +128,39 @@ func provideDataServiceConfig(deployedNamespace string,dataServiceTokenPath stri
 		serviceAccountToken = fmt.Sprintf(string(content))
 	}
 
-	logger.Info("deployed namespace","namespace",deployedNamespace)
+	logger.Info("deployed namespace", "namespace", deployedNamespace)
 
-	var dataServiceDNS = fmt.Sprintf("%s.%s.svc.cluster.local:8002",utils.DATA_SERVICE_NAME,deployedNamespace)
+	var dataServiceDNS = fmt.Sprintf("%s.%s.svc.cluster.local:8002", utils.DATA_SERVICE_NAME, deployedNamespace)
 
 	return &DataServiceConfig{
-		Address: dataServiceDNS,
+		Address:          dataServiceDNS,
 		DataServiceToken: serviceAccountToken,
-		DataServiceCert: cert,
-	},nil
+		DataServiceCert:  cert,
+	}, nil
 }
 
-func NewDataServiceUploader (dataServiceConfig *DataServiceConfig)(Uploader, error){
+func NewDataServiceUploader(dataServiceConfig *DataServiceConfig) (Uploader, error) {
 	uploadClient, err := createDataServiceUploadClient(dataServiceConfig)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 
 	return &DataServiceUploader{
-		UploadClient: uploadClient,
+		UploadClient:      uploadClient,
 		DataServiceConfig: *dataServiceConfig,
 	}, nil
 }
 
-func createDataServiceUploadClient(dataServiceConfig *DataServiceConfig)(filesender.FileSender_UploadFileClient,error){
-	logger.Info("airgap url","url",dataServiceConfig.Address)
+func createDataServiceUploadClient(dataServiceConfig *DataServiceConfig) (filesender.FileSender_UploadFileClient, error) {
+	logger.Info("airgap url", "url", dataServiceConfig.Address)
 
 	options := []grpc.DialOption{}
 
 	/* creat tls */
 	tlsConf, err := createTlsConfig(dataServiceConfig.DataServiceCert)
 	if err != nil {
-		logger.Error(err,"failed to create creds")
-		return nil,err
+		logger.Error(err, "failed to create creds")
+		return nil, err
 	}
 
 	options = append(options, grpc.WithTransportCredentials(credentials.NewTLS(tlsConf)))
@@ -169,28 +169,28 @@ func createDataServiceUploadClient(dataServiceConfig *DataServiceConfig)(filesen
 	oauth2Token := &oauth2.Token{
 		AccessToken: dataServiceConfig.DataServiceToken,
 	}
-	
+
 	perRPC := oauth.NewOauthAccess(oauth2Token)
 	options = append(options, grpc.WithPerRPCCredentials(perRPC))
 
 	conn, err := grpc.Dial(dataServiceConfig.Address, options...)
 	if err != nil {
-		logger.Error(err,"failed to establish connection")
-		return nil,err
+		logger.Error(err, "failed to establish connection")
+		return nil, err
 	}
 
 	client := filesender.NewFileSenderClient(conn)
 
 	uploadClient, err := client.UploadFile(context.Background())
 	if err != nil {
-		logger.Error(err,"could not initialize uploadClient")
-		return nil,err
+		logger.Error(err, "could not initialize uploadClient")
+		return nil, err
 	}
 
-	return uploadClient,nil
+	return uploadClient, nil
 }
 
-func createTlsConfig(caCert []byte)(*tls.Config,error){
+func createTlsConfig(caCert []byte) (*tls.Config, error) {
 	caCertPool, err := x509.SystemCertPool()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get system cert pool")
@@ -199,10 +199,10 @@ func createTlsConfig(caCert []byte)(*tls.Config,error){
 	ok := caCertPool.AppendCertsFromPEM(caCert)
 	if !ok {
 		err = errors.New("failed to append cert to cert pool")
-		logger.Error(err,"cert pool error")
-		return nil,err
+		logger.Error(err, "cert pool error")
+		return nil, err
 	}
-	
+
 	return &tls.Config{
 		RootCAs: caCertPool,
 	}, nil
@@ -218,11 +218,11 @@ func (d *DataServiceUploader) UploadFile(path string) error {
 	chunkAndUpload(d.UploadClient, path, m)
 
 	return nil
-	
+
 }
 
 func chunkAndUpload(uploadClient filesender.FileSender_UploadFileClient, path string, m map[string]string) error {
-	logger.Info("starting chunk and upload","file name",path)
+	logger.Info("starting chunk and upload", "file name", path)
 	file, err := os.Open(path)
 	if err != nil {
 		return err
@@ -238,7 +238,7 @@ func chunkAndUpload(uploadClient filesender.FileSender_UploadFileClient, path st
 
 	metaData, err := file.Stat()
 	if err != nil {
-		logger.Error(err,"Failed to get metadata")
+		logger.Error(err, "Failed to get metadata")
 		return err
 	}
 
@@ -257,7 +257,7 @@ func chunkAndUpload(uploadClient filesender.FileSender_UploadFileClient, path st
 	})
 
 	if err != nil {
-		logger.Error(err,"Failed to create metadata UploadFile request")
+		logger.Error(err, "Failed to create metadata UploadFile request")
 		return err
 	}
 
@@ -268,7 +268,7 @@ func chunkAndUpload(uploadClient filesender.FileSender_UploadFileClient, path st
 		n, err := buffReader.Read(buffer)
 		if err != nil {
 			if err != io.EOF {
-				logger.Error(err,"Error reading file")
+				logger.Error(err, "Error reading file")
 			}
 			break
 		}
@@ -280,18 +280,18 @@ func chunkAndUpload(uploadClient filesender.FileSender_UploadFileClient, path st
 		}
 		err = uploadClient.Send(&request)
 		if err != nil {
-			logger.Error(err,"Failed to create UploadFile request")
+			logger.Error(err, "Failed to create UploadFile request")
 			return err
 		}
 	}
 
 	res, err := uploadClient.CloseAndRecv()
 	if err != nil {
-		logger.Error(err,"Error getting response")
+		logger.Error(err, "Error getting response")
 		return err
 	}
 
-	logger.Info("airgap upload response","response",res)
+	logger.Info("airgap upload response", "response", res)
 
 	return nil
 
@@ -488,8 +488,6 @@ func (r *LocalFilePathUploader) UploadFile(path string) error {
 	return nil
 }
 
-
-
 func ProvideUploader(
 	ctx context.Context,
 	cc ClientCommandRunner,
@@ -510,7 +508,7 @@ func ProvideUploader(
 	case *LocalFilePathUploader:
 		return reporterConfig.UploaderTarget.(Uploader), nil
 	case *DataServiceUploader:
-		dataServiceConfig,err := provideDataServiceConfig(reporterConfig.DeployedNamespace,reporterConfig.DataServiceTokenFile,reporterConfig.CaFile)
+		dataServiceConfig, err := provideDataServiceConfig(reporterConfig.DeployedNamespace, reporterConfig.DataServiceTokenFile, reporterConfig.CaFile)
 		if err != nil {
 			return nil, err
 		}
