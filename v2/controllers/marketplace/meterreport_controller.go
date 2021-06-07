@@ -185,7 +185,12 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 				manifests.CreateIfNotExistsFactoryItem(
 					job,
 					func() (runtime.Object, error) {
-						return r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit,"data-service")
+						if utils.Contains(instance.Spec.ExtraArgs,"--uploadTarget=data-service"){
+							return r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit,"data-service")
+						}
+						
+						return r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit,"")
+
 					}, CreateWithAddController(instance),
 				),
 				OnRequeue(UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobSubmitted)),

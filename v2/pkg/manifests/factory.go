@@ -593,7 +593,7 @@ func (f *Factory) ReporterJob(
 	}
 
 	if uploadTarget == "data-service" {
-		dataServiceArgs := []string{"--dataServiceCertFile=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt","--dataServiceTokenFile=/etc/data-service-sa/data-service-token","--uploadTarget=data-service"}
+		dataServiceArgs := []string{"--dataServiceCertFile=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt","--dataServiceTokenFile=/etc/data-service-sa/data-service-token"}
 	
 		container.Args = append(container.Args, dataServiceArgs...)
 		
