@@ -696,17 +696,17 @@ func TestAdminServer_CleanTombstones(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		req     adminserver.CleanTombstonesRequest
-		resp    adminserver.CleanTombstonesResponse
+		req     *adminserver.CleanTombstonesRequest
+		resp    *adminserver.CleanTombstonesResponse
 		errCode codes.Code
 	}{
 		{
 			name: "clean file content",
-			req: adminserver.CleanTombstonesRequest{
+			req: &adminserver.CleanTombstonesRequest{
 				Before:   timestamppb.Now(),
 				PurgeAll: false,
 			},
-			resp: adminserver.CleanTombstonesResponse{
+			resp: &adminserver.CleanTombstonesResponse{
 				TombstonesCleaned: 1,
 				Files: []*v1.FileID{
 					{
@@ -717,11 +717,11 @@ func TestAdminServer_CleanTombstones(t *testing.T) {
 		},
 		{
 			name: "delete file record",
-			req: adminserver.CleanTombstonesRequest{
+			req: &adminserver.CleanTombstonesRequest{
 				Before:   &timestamppb.Timestamp{Seconds: time.Now().Unix()},
 				PurgeAll: true,
 			},
-			resp: adminserver.CleanTombstonesResponse{
+			resp: &adminserver.CleanTombstonesResponse{
 				TombstonesCleaned: 1,
 				Files: []*v1.FileID{
 					{
@@ -733,7 +733,7 @@ func TestAdminServer_CleanTombstones(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := client.CleanTombstones(context.Background(), &tt.req)
+			resp, err := client.CleanTombstones(context.Background(), tt.req)
 			if err != nil {
 				if er, ok := status.FromError(err); ok {
 					if er.Code() != tt.errCode {

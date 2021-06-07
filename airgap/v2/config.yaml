@@ -1,0 +1,9 @@
+api: 172.30.0.3:8002
+db: 172.30.0.3:9002
+dir: /tmp/dqlite
+join:
+verbose: true
+
+cleanAfter: -720h
+purgeAfter: -1440h
+cronExpression: 0 0 * * *

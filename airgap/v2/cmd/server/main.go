@@ -15,11 +15,11 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
@@ -28,7 +28,9 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
 	server "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/cmd/server/start"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/dqlite"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/pkg/scheduler"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
@@ -37,11 +39,17 @@ import (
 var log logr.Logger
 
 func main() {
-	var api string
-	var db string
-	var join *[]string
-	var dir string
-	var verbose bool
+	var (
+		api            string
+		db             string
+		join           []string
+		dir            string
+		verbose        bool
+		cleanAfter     string
+		purgeAfter     string
+		config         string
+		cronExpression string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "grpc-api",
@@ -49,12 +57,21 @@ func main() {
 		Long:  `Command to start up grpc server and establish a database connection`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
+			// reads config file using viper
+			if len(strings.TrimSpace(config)) != 0 {
+				viper.SetConfigFile(config)
+				if err := viper.ReadInConfig(); err != nil {
+					log.Error(err, "Error reading config file")
+				}
+			}
+
+			j := viper.GetStringSlice("join")
 			cfg := &dqlite.DatabaseConfig{
 				Name:    "airgap",
-				Dir:     dir,
-				Url:     db,
-				Join:    join,
-				Verbose: verbose,
+				Dir:     viper.GetString("dir"),
+				Url:     viper.GetString("db"),
+				Join:    &j,
+				Verbose: viper.GetBool("verbose"),
 				Log:     log,
 			}
 
@@ -63,8 +80,22 @@ func main() {
 				return err
 			}
 
-			// Attempt migration
-			cfg.TryMigrate(context.Background())
+			sfg := &scheduler.SchedulerConfig{
+				Log:            log,
+				Fs:             fs,
+				DBConfig:       *cfg,
+				CleanAfter:     viper.GetString("cleanAfter"),
+				PurgeAfter:     viper.GetString("purgeAfter"),
+				CronExpression: viper.GetString("cronExpression"),
+			}
+
+			// Attempt migration and start scheduler
+			err = cfg.TryMigrate()
+			if err != nil {
+				return err
+			}
+			sfg.StartScheduler()
+
 			lis, err := net.Listen("tcp", api)
 			if err != nil {
 				return err
@@ -101,12 +132,18 @@ func main() {
 	flags := cmd.Flags()
 	flags.StringVarP(&api, "api", "a", "", "address used to expose the grpc API")
 	flags.StringVarP(&db, "db", "d", "", "address used for internal database replication")
-	join = flags.StringSliceP("join", "j", nil, "database addresses of existing nodes")
+	flags.StringSliceVarP(&join, "join", "j", nil, "database addresses of existing nodes")
 	flags.StringVarP(&dir, "dir", "D", "/tmp/dqlite", "data directory")
 	flags.BoolVarP(&verbose, "verbose", "v", false, "verbose logging")
+	flags.StringVar(&config, "config", "", "path to config file")
+	flags.StringVar(&cleanAfter, "cleanAfter", "-720h", "clean files older than x seconds/minutes/hours, default 720h i.e. 30 days")
+	flags.StringVar(&purgeAfter, "purgeAfter", "-1440h", "purge files older than x seconds/minutes/hours, default 1440h i.e. 60 days")
+	flags.StringVar(&cronExpression, "cronExpression", "0 0 * * *", "cron expression for scheduler, default cron will run every day 12:00 AM")
 
 	cmd.MarkFlagRequired("api")
 	cmd.MarkFlagRequired("db")
+
+	viper.BindPFlags(flags)
 
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
