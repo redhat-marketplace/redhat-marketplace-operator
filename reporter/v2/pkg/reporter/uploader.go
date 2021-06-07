@@ -215,13 +215,6 @@ func (d *DataServiceUploader) UploadFile(path string) error {
 		"reportType": "rhm-metering",
 	}
 
-	chunkAndUpload(d.UploadClient, path, m)
-
-	return nil
-
-}
-
-func chunkAndUpload(uploadClient filesender.FileSender_UploadFileClient, path string, m map[string]string) error {
 	logger.Info("starting chunk and upload", "file name", path)
 	file, err := os.Open(path)
 	if err != nil {
@@ -242,7 +235,7 @@ func chunkAndUpload(uploadClient filesender.FileSender_UploadFileClient, path st
 		return err
 	}
 
-	err = uploadClient.Send(&filesender.UploadFileRequest{
+	err = d.UploadClient.Send(&filesender.UploadFileRequest{
 		Data: &filesender.UploadFileRequest_Info{
 			Info: &v1.FileInfo{
 				FileId: &v1.FileID{
@@ -278,14 +271,14 @@ func chunkAndUpload(uploadClient filesender.FileSender_UploadFileClient, path st
 				ChunkData: buffer[0:n],
 			},
 		}
-		err = uploadClient.Send(&request)
+		err = d.UploadClient.Send(&request)
 		if err != nil {
 			logger.Error(err, "Failed to create UploadFile request")
 			return err
 		}
 	}
 
-	res, err := uploadClient.CloseAndRecv()
+	res, err := d.UploadClient.CloseAndRecv()
 	if err != nil {
 		logger.Error(err, "Error getting response")
 		return err
