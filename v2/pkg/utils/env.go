@@ -91,7 +91,7 @@ const (
 	METER_REPORT_PREFIX = "meter-report-"
 
 	/* Auth */
-	PrometheusAudience = "rhm-prometheus-meterbase.openshift-redhat-marketplace.svc"
+	PrometheusAudience  = "rhm-prometheus-meterbase.openshift-redhat-marketplace.svc"
 	DataServiceAudience = "rhm-dqlite.openshift-redhat-marketplace.svc"
 )
 

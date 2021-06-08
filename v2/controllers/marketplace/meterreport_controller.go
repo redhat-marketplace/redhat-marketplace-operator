@@ -52,8 +52,8 @@ type MeterReportReconciler struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log     logr.Logger
+	Scheme  *runtime.Scheme
 	CC      ClientCommandRunner
 	patcher patch.Patcher
 	cfg     *config.OperatorConfig
@@ -185,11 +185,11 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 				manifests.CreateIfNotExistsFactoryItem(
 					job,
 					func() (runtime.Object, error) {
-						if utils.Contains(instance.Spec.ExtraArgs,"--uploadTarget=data-service"){
-							return r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit,"data-service")
+						if utils.Contains(instance.Spec.ExtraArgs, "--uploadTarget=data-service") {
+							return r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit, "data-service")
 						}
-						
-						return r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit,"")
+
+						return r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit, "")
 
 					}, CreateWithAddController(instance),
 				),

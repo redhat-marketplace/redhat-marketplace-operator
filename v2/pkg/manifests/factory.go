@@ -593,24 +593,24 @@ func (f *Factory) ReporterJob(
 	}
 
 	if uploadTarget == "data-service" {
-		dataServiceArgs := []string{"--dataServiceCertFile=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt","--dataServiceTokenFile=/etc/data-service-sa/data-service-token"}
-	
+		dataServiceArgs := []string{"--dataServiceCertFile=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt", "--dataServiceTokenFile=/etc/data-service-sa/data-service-token"}
+
 		container.Args = append(container.Args, dataServiceArgs...)
-		
+
 		dataServiceVolumeMounts := []v1.VolumeMount{
 			{
-				Name: "data-service-token-vol",
-				ReadOnly: true,
+				Name:      "data-service-token-vol",
+				ReadOnly:  true,
 				MountPath: "/etc/data-service-sa",
 			},
 			{
-				Name: "serving-certs-ca-bundle",
+				Name:      "serving-certs-ca-bundle",
 				MountPath: "/etc/configmaps/serving-certs-ca-bundle",
-				ReadOnly: false,
+				ReadOnly:  false,
 			},
 		}
 
-		container.VolumeMounts = append(container.VolumeMounts,dataServiceVolumeMounts...)
+		container.VolumeMounts = append(container.VolumeMounts, dataServiceVolumeMounts...)
 
 		dataServiceTokenVols := []v1.Volume{
 			{
@@ -629,10 +629,10 @@ func (f *Factory) ReporterJob(
 					Projected: &v1.ProjectedVolumeSource{
 						Sources: []v1.VolumeProjection{
 							{
-								ServiceAccountToken:  &v1.ServiceAccountTokenProjection{
-									Audience: utils.DataServiceAudience,
+								ServiceAccountToken: &v1.ServiceAccountTokenProjection{
+									Audience:          utils.DataServiceAudience,
 									ExpirationSeconds: ptr.Int64(3600),
-									Path: "data-service-token", 
+									Path:              "data-service-token",
 								},
 							},
 						},
