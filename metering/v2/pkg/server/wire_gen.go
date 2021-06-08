@@ -83,20 +83,23 @@ func NewServer(opts *Options) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	meterDefinitionDictionary := dictionary.NewMeterDefinitionDictionary(context, clientset, findOwnerHelper, namespaces, logger, meterDefinitionList)
-	meterDefinitionStore := meterdefinition.NewMeterDefinitionStore(context, logger, clientset, findOwnerHelper, monitoringV1Client, marketplaceV1beta1Client, meterDefinitionDictionary, scheme)
-	pvcListerRunnable := engine.ProvidePVCLister(clientset, namespaces, meterDefinitionStore)
-	podListerRunnable := engine.ProvidePodListerRunnable(clientset, namespaces, meterDefinitionStore)
-	serviceListerRunnable := engine.ProvideServiceListerRunnable(clientset, namespaces, meterDefinitionStore)
-	meterDefinitionListerRunnable := engine.ProvideMeterDefinitionListerRunnable(namespaces, marketplaceV1beta1Client, meterDefinitionDictionary)
+	meterDefinitionsSeenStore := dictionary.NewMeterDefinitionsSeenStore()
+	meterDefinitionDictionary := dictionary.NewMeterDefinitionDictionary(context, clientset, findOwnerHelper, namespaces, logger, meterDefinitionList, meterDefinitionsSeenStore)
+	objectsSeenStore := meterdefinition.NewObjectsSeenStore()
+	meterDefinitionStore := meterdefinition.NewMeterDefinitionStore(context, logger, clientset, findOwnerHelper, monitoringV1Client, marketplaceV1beta1Client, meterDefinitionDictionary, scheme, objectsSeenStore)
+	objectsSeenStoreRunnable := engine.ProvideObjectsSeenStoreRunnable(clientset, namespaces, objectsSeenStore, monitoringV1Client)
+	meterDefinitionStoreRunnable := engine.ProvideMeterDefinitionStoreRunnable(clientset, namespaces, meterDefinitionStore, monitoringV1Client)
+	meterDefinitionDictionaryStoreRunnable := engine.ProvideMeterDefinitionDictionaryStoreRunnable(clientset, namespaces, marketplaceV1beta1Client, meterDefinitionDictionary)
+	meterDefinitionSeenStoreRunnable := engine.ProvideMeterDefinitionSeenStoreRunnable(clientset, namespaces, marketplaceV1beta1Client, meterDefinitionsSeenStore)
 	mailboxMailbox := mailbox.ProvideMailbox(logger)
 	statusProcessor := processors.ProvideStatusProcessor(logger, clientClient, mailboxMailbox, scheme)
 	serviceAnnotatorProcessor := processors.ProvideServiceAnnotatorProcessor(logger, clientClient, mailboxMailbox)
 	prometheusData := metrics.ProvidePrometheusData()
 	prometheusProcessor := processors.ProvidePrometheusProcessor(logger, clientClient, mailboxMailbox, scheme, prometheusData)
+	prometheusMdefProcessor := processors.ProvidePrometheusMdefProcessor(logger, clientClient, mailboxMailbox, scheme, prometheusData)
 	objectChannelProducer := mailbox.ProvideObjectChannelProducer(meterDefinitionStore, mailboxMailbox, logger)
 	meterDefinitionChannelProducer := mailbox.ProvideMeterDefinitionChannelProducer(meterDefinitionDictionary, mailboxMailbox, logger)
-	runnables := engine.ProvideRunnables(pvcListerRunnable, podListerRunnable, serviceListerRunnable, meterDefinitionListerRunnable, mailboxMailbox, statusProcessor, serviceAnnotatorProcessor, prometheusProcessor, objectChannelProducer, meterDefinitionChannelProducer)
+	runnables := engine.ProvideRunnables(objectsSeenStoreRunnable, meterDefinitionStoreRunnable, meterDefinitionDictionaryStoreRunnable, meterDefinitionSeenStoreRunnable, mailboxMailbox, statusProcessor, serviceAnnotatorProcessor, prometheusProcessor, prometheusMdefProcessor, objectChannelProducer, meterDefinitionChannelProducer, meterDefinitionDictionary)
 	engineEngine := engine.ProvideEngine(meterDefinitionStore, namespaces, logger, clientset, monitoringV1Client, meterDefinitionDictionary, marketplaceV1beta1Client, runnables)
 	service := &Service{
 		k8sclient:       clientClient,

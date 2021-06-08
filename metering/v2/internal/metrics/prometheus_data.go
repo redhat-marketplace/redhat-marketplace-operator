@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"sync"
 
 	"emperror.dev/errors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	"github.com/sasha-s/go-deadlock"
+	"k8s.io/client-go/tools/cache"
 )
 
 type PrometheusData []*PrometheusDataMap
@@ -50,8 +49,8 @@ func (p PrometheusData) Remove(obj interface{}) error {
 }
 
 type PrometheusDataMap struct {
-	sync.RWMutex
-	metrics map[types.UID][][]byte
+	deadlock.RWMutex
+	metrics map[string][][]byte
 
 	expectedType        reflect.Type
 	headers             []string
@@ -62,13 +61,13 @@ func (s *PrometheusDataMap) Remove(obj interface{}) error {
 	s.Lock()
 	defer s.Unlock()
 
-	metaObj, ok := obj.(metav1.Object)
+	key, err := cache.MetaNamespaceKeyFunc(obj)
 
-	if !ok {
-		return errors.New("object does not conform to metav1.Object")
+	if err != nil {
+		return err
 	}
 
-	delete(s.metrics, metaObj.GetUID())
+	delete(s.metrics, key)
 	return nil
 }
 
@@ -95,13 +94,13 @@ func (s *PrometheusDataMap) Add(obj interface{}, meterdefs []*v1beta1.MeterDefin
 		familyStrings[i] = f.ByteSlice()
 	}
 
-	metaObj, ok := obj.(metav1.Object)
+	key, err := cache.MetaNamespaceKeyFunc(obj)
 
-	if !ok {
-		return errors.New("object does not conform to metav1.Object")
+	if err != nil {
+		return err
 	}
 
-	s.metrics[metaObj.GetUID()] = familyStrings
+	s.metrics[key] = familyStrings
 	return nil
 }
 

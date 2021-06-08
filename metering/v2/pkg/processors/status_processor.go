@@ -16,14 +16,14 @@ package processors
 
 import (
 	"context"
-	"errors"
 	"sort"
-	"sync"
 
+	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	"github.com/sasha-s/go-deadlock"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -36,8 +36,8 @@ type StatusProcessor struct {
 	*Processor
 	log        logr.Logger
 	kubeClient client.Client
-	mutex      sync.Mutex
-	locks      map[types.NamespacedName]sync.Mutex
+	mutex      deadlock.Mutex
+	locks      map[types.NamespacedName]deadlock.Mutex
 	scheme     *runtime.Scheme
 }
 
@@ -59,7 +59,7 @@ func ProvideStatusProcessor(
 		},
 		log:        log.WithValues("process", "statusProcessor"),
 		kubeClient: kubeClient,
-		locks:      make(map[types.NamespacedName]sync.Mutex),
+		locks:      make(map[types.NamespacedName]deadlock.Mutex),
 		scheme:     scheme,
 	}
 
@@ -75,10 +75,10 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj cache.Delta) error 
 		return nil
 	}
 
-	enhancedObj, ok := inObj.Object.(pkgtypes.MeterDefinitionEnhancedObject)
+	enhancedObj, ok := inObj.Object.(*pkgtypes.MeterDefinitionEnhancedObject)
 
 	if !ok {
-		return errors.New("obj is unexpected type")
+		return errors.WithStack(errors.New("obj is unexpected type"))
 	}
 
 	for i := range enhancedObj.MeterDefinitions {
@@ -86,13 +86,13 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj cache.Delta) error 
 		key, _ := client.ObjectKeyFromObject(mdef)
 
 		var (
-			lock   sync.Mutex
+			lock   deadlock.Mutex
 			exists bool
 		)
 
 		u.mutex.Lock()
 		if lock, exists = u.locks[key]; !exists {
-			u.locks[key] = sync.Mutex{}
+			u.locks[key] = deadlock.Mutex{}
 			lock, _ = u.locks[key]
 		}
 		u.mutex.Unlock()
@@ -108,10 +108,10 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj cache.Delta) error 
 				set[obj.UID] = obj
 			}
 
-			workload, err := common.NewWorkloadResource(inObj.Object, u.scheme)
+			workload, err := common.NewWorkloadResource(enhancedObj.Object, u.scheme)
 
 			if err != nil {
-				return err
+				return errors.WithStack(err)
 			}
 
 			switch inObj.Type {
@@ -140,7 +140,7 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj cache.Delta) error 
 		}()
 
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 	}
 

@@ -11,6 +11,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/sasha-s/go-deadlock"
 )
 
 var initLookupCache sync.Once
@@ -27,7 +28,7 @@ func init() {
 
 			return &resultCache{
 				cache: cache,
-				mutex: sync.RWMutex{},
+				mutex: deadlock.RWMutex{},
 			}, nil
 		}).(*resultCache)
 	})
@@ -35,7 +36,7 @@ func init() {
 
 type resultCache struct {
 	cache *bigcache.BigCache
-	mutex sync.RWMutex
+	mutex deadlock.RWMutex
 }
 
 func (r *resultCache) cacheKey(filter *filter.MeterDefinitionLookupFilter, obj metav1.Object) string {

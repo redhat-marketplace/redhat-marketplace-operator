@@ -18,7 +18,6 @@ import (
 	"reflect"
 
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	"k8s.io/apimachinery/pkg/types"
 	kbsm "k8s.io/kube-state-metrics/pkg/metric"
 )
 
@@ -86,7 +85,7 @@ func ProvideMeterDefPrometheusData() *PrometheusDataMap {
 	return &PrometheusDataMap{
 		expectedType:        reflect.TypeOf(&marketplacev1beta1.MeterDefinition{}),
 		headers:             familyHeaders,
-		metrics:             make(map[types.UID][][]byte),
+		metrics:             make(map[string][][]byte),
 		generateMetricsFunc: composedMetricGenFuncs,
 	}
 }

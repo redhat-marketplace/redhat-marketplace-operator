@@ -16,17 +16,18 @@ package mailbox
 
 import (
 	"context"
-	"sync"
+	"fmt"
 	"time"
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
+	"github.com/sasha-s/go-deadlock"
 	"k8s.io/client-go/tools/cache"
 )
 
 type Mailbox struct {
 	// listeners are used for downstream
-	mutex     sync.RWMutex
+	mutex     deadlock.RWMutex
 	listeners map[ChannelName][]chan cache.Delta
 
 	log logr.Logger
@@ -60,7 +61,6 @@ func (s *Mailbox) Start(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				s.cleanup()
 			}
 		}
 	}()
@@ -86,39 +86,27 @@ func (s *Mailbox) RegisterListener(channelName ChannelName, ch chan cache.Delta)
 	s.listeners[channelName] = listeners
 }
 
-func (s *Mailbox) cleanup() {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	for _, name := range channels {
-		if listeners, ok := s.listeners[name]; ok && len(listeners) > 0 {
-			newListeners := []chan cache.Delta{}
-
-			for i := range listeners {
-				_, ok := <-listeners[i]
-
-				if ok {
-					newListeners = append(newListeners, listeners[i])
-				}
-			}
-
-			if len(listeners) != len(newListeners) {
-				s.listeners[name] = newListeners
-			}
-		}
-	}
-}
-
 func (s *Mailbox) Broadcast(channelName ChannelName, obj cache.Delta) error {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	if listeners, ok := s.listeners[channelName]; ok {
-		for _, listener := range listeners {
-			listener <- obj
-		}
-		return nil
+	listeners, ok := s.listeners[channelName]
+	if !ok {
+		return errors.NewWithDetails("channel name doesn't exist", "channel", channelName)
 	}
 
-	return errors.NewWithDetails("channel name doesn't exist", "channel", channelName)
+	s.log.WithName(fmt.Sprintf("ChannelName:%s", channelName)).
+		Info("sending message",
+			"obj", fmt.Sprintf("%+v", obj),
+			"listeners", len(listeners))
+
+	for _, listener := range listeners {
+		listener <- obj
+	}
+
+	s.log.WithName(fmt.Sprintf("ChannelName:%s", channelName)).
+		Info("done sending message",
+			"obj", fmt.Sprintf("%+v", obj))
+
+	return nil
 }

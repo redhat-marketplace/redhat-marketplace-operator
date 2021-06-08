@@ -60,9 +60,20 @@ func (w *MailboxChannelProducer) Start(ctx context.Context) error {
 	go func() {
 		select {
 		case <-ctx.Done():
-			return
-		default:
-			w.queue.Pop(w.handlePop)
+			w.queue.Close()
+		}
+	}()
+
+	go func() {
+		for {
+			obj, err := w.queue.Pop(cache.PopProcessFunc(w.handlePop))
+			if err != nil {
+				if err == cache.ErrFIFOClosed {
+					return
+				}
+
+				w.queue.AddIfNotPresent(obj)
+			}
 		}
 	}()
 
@@ -70,10 +81,16 @@ func (w *MailboxChannelProducer) Start(ctx context.Context) error {
 }
 
 func (w *MailboxChannelProducer) handlePop(i interface{}) error {
-	delt, ok := i.(cache.Delta)
+	deltas, ok := i.(cache.Deltas)
 	if !ok {
 		return errors.New("obj is not a delta")
 	}
-	w.mailbox.Broadcast(w.name, delt)
+
+	w.log.Info("handling deltas", "deltas", len(deltas))
+
+	for i := range deltas {
+		w.mailbox.Broadcast(w.name, deltas[i])
+	}
+
 	return nil
 }

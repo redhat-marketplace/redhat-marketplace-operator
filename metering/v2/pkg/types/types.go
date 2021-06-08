@@ -16,13 +16,15 @@ package types
 
 import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type MeterDefinitionEnhancedObject struct {
-	runtime.Object
+	metav1.Object
 
 	MeterDefinitions []*v1beta1.MeterDefinition
 }
+
+var _ metav1.Object = &MeterDefinitionEnhancedObject{}
 
 type Namespaces []string

@@ -16,6 +16,7 @@ package processors
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/go-logr/logr"
@@ -75,6 +76,7 @@ func (u *Processor) Start(ctx context.Context) error {
 	}
 
 	<-ctx.Done()
+	u.log.Info("processor is shutting down", "processor", fmt.Sprintf("%T", u.DeltaProcessor))
 	close(u.resourceChan)
 	wg.Wait()
 	return nil

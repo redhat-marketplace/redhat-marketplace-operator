@@ -19,7 +19,6 @@ import (
 
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	kbsm "k8s.io/kube-state-metrics/pkg/metric"
 )
 
@@ -78,7 +77,7 @@ func ProvidePersistentVolumeClaimPrometheusData() *PrometheusDataMap {
 	return &PrometheusDataMap{
 		expectedType:        reflect.TypeOf(&corev1.PersistentVolumeClaim{}),
 		headers:             familyHeaders,
-		metrics:             make(map[types.UID][][]byte),
+		metrics:             make(map[string][][]byte),
 		generateMetricsFunc: composedMetricGenFuncs,
 	}
 }

@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"time"
 
+	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
@@ -89,7 +90,7 @@ func (w *ServiceAnnotatorProcessor) Process(ctx context.Context, inObj cache.Del
 	if err != nil && k8serrors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 
 	for i := range list.Items {
@@ -101,7 +102,7 @@ func (w *ServiceAnnotatorProcessor) Process(ctx context.Context, inObj cache.Del
 			err := w.kubeClient.Get(ctx, key, &serviceMonitor)
 
 			if err != nil {
-				return err
+				return errors.WithStack(err)
 			}
 
 			if utils.HasMapKey(serviceMonitor.ObjectMeta.Labels, utils.MeteredAnnotation) {
