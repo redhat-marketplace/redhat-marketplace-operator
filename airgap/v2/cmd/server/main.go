@@ -41,6 +41,9 @@ func main() {
 	var join *[]string
 	var dir string
 	var verbose bool
+	var caCert string
+	var tlsCert string
+	var tlsKey string
 
 	cmd := &cobra.Command{
 		Use:   "grpc-api",
@@ -55,6 +58,9 @@ func main() {
 				Join:    join,
 				Verbose: verbose,
 				Log:     log,
+				CACert:  caCert,
+				TLSCert: tlsCert,
+				TLSKey:  tlsKey,
 			}
 
 			fs, err := cfg.InitDB()
@@ -102,6 +108,9 @@ func main() {
 	join = flags.StringSliceP("join", "j", nil, "database addresses of existing nodes")
 	flags.StringVarP(&dir, "dir", "D", "/tmp/dqlite", "data directory")
 	flags.BoolVarP(&verbose, "verbose", "v", false, "verbose logging")
+	flags.StringVarP(&caCert, "ca-cert", "", "", "CA certificate")
+	flags.StringVarP(&tlsCert, "tls-cert", "", "", "x509 certificate")
+	flags.StringVarP(&tlsKey, "tls-key", "", "", "x509 private key")
 
 	cmd.MarkFlagRequired("api")
 	cmd.MarkFlagRequired("db")

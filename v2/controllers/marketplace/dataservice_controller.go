@@ -23,6 +23,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
@@ -92,6 +93,12 @@ func (r *DataServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplacev1alpha1.MeterBase{}).
 		Watches(
+			&source.Kind{Type: &corev1.Secret{}},
+			&handler.EnqueueRequestForOwner{
+				IsController: true,
+				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(namespacePredicate)).
+		Watches(
 			&source.Kind{Type: &corev1.Service{}},
 			&handler.EnqueueRequestForOwner{
 				IsController: true,
@@ -143,6 +150,28 @@ func (r *DataServiceReconciler) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	if meterBase.Spec.DataServiceEnabled == true { // Install the DataService
+
+		/* DataService mTLS certificate Secret */
+		secret, err := r.factory.NewDataServiceTLSSecret(utils.DQLITE_COMMONNAME_PREFIX)
+		if err != nil {
+			reqLogger.Error(err, "Generate Secret error: ")
+			return reconcile.Result{}, err
+		}
+		r.factory.SetControllerReference(meterBase, secret)
+		foundSecret := &corev1.Secret{}
+		err = r.Client.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, foundSecret)
+		if err != nil && errors.IsNotFound(err) { // not found: create & requeue
+			err = r.Client.Create(ctx, secret)
+			if err != nil {
+				reqLogger.Error(err, "Create Secret error: ")
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{Requeue: true}, nil
+		} else if err != nil {
+			reqLogger.Error(err, "Get Secret error: ")
+			return reconcile.Result{}, err
+		}
+
 		/* DataService Service */
 		service, _ := r.factory.NewDataServiceService()
 		r.factory.SetControllerReference(meterBase, service)
@@ -231,7 +260,14 @@ func (r *DataServiceReconciler) Reconcile(request reconcile.Request) (reconcile.
 		service, _ := r.factory.NewDataServiceService()
 		err = r.Client.Delete(ctx, service)
 		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "Update Service error: ")
+			reqLogger.Error(err, "Delete Service error: ")
+			return reconcile.Result{}, err
+		}
+		/* DataService Secret */
+		secret, _ := r.factory.NewDataServiceTLSSecret(utils.DQLITE_COMMONNAME_PREFIX)
+		err = r.Client.Delete(ctx, secret)
+		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Error(err, "Delete Secret error: ")
 			return reconcile.Result{}, err
 		}
 	}

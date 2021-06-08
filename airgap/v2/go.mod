@@ -3,7 +3,7 @@ module github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2
 go 1.16
 
 require (
-	github.com/canonical/go-dqlite v0.0.0-00010101000000-000000000000
+	github.com/canonical/go-dqlite v1.8.0
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v0.4.0
 	github.com/go-logr/zapr v0.4.0
@@ -26,5 +26,3 @@ require (
 	gorm.io/driver/sqlite v1.1.4
 	gorm.io/gorm v1.21.5
 )
-
-replace github.com/canonical/go-dqlite => github.com/dacleyra/go-dqlite v1.8.4

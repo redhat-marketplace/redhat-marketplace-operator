@@ -37,7 +37,7 @@ spec:
             memory: 20Mi
         terminationMessagePolicy: FallbackToLogsOnError      
       - command: ['/bin/sh']
-        args: ['-c', 'if [ "$POD_NAME" != "rhm-dqlite-0" ]; then DQLITE_JOIN="--join rhm-dqlite-0.rhm-dqlite.$POD_NAMESPACE.svc.cluster.local:9001"; fi; exec /opt/main --api 127.0.0.1:8001 --db $POD_NAME.rhm-dqlite.$POD_NAMESPACE.svc.cluster.local:9001 --dir /data -v $DQLITE_JOIN']
+        args: ['-c', 'if [ "$POD_NAME" != "rhm-dqlite-0" ]; then DQLITE_JOIN="--join rhm-dqlite-0.rhm-dqlite.$POD_NAMESPACE.svc.cluster.local:9001"; fi; exec /opt/main --ca-cert /etc/tls/private/ca.crt --tls-cert /etc/tls/private/tls.crt --tls-key /etc/tls/private/tls.key --api 127.0.0.1:8001 --db $POD_NAME.rhm-dqlite.$POD_NAMESPACE.svc.cluster.local:9001 --dir /data -v $DQLITE_JOIN']
         env:
         - name: POD_IP
           valueFrom:
@@ -66,6 +66,9 @@ spec:
         volumeMounts:
         - name: rhm-dqlite
           mountPath: /data
+        - mountPath: /etc/tls/private
+          name: rhm-dqlite-mtls
+          readOnly: false  
       - args:
           - --logtostderr
           - --secure-listen-address=:8002
@@ -100,6 +103,9 @@ spec:
         - name: rhm-dqlite-tls
           secret:
             secretName: rhm-dqlite-tls
+        - name: rhm-dqlite-mtls
+          secret:
+            secretName: rhm-dqlite-mtls
         - configMap:
             name: serving-certs-ca-bundle
           name: serving-certs-ca-bundle
