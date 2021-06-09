@@ -6,18 +6,10 @@
 package server
 
 import (
-	"github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/engine"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meterdefinition"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/processors"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
@@ -43,7 +35,7 @@ func NewServer(opts *Options) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	clientClient, err := managers.ProvideCachedClient(restConfig, restMapper, scheme, cache, clientOptions)
+	client, err := managers.ProvideCachedClient(restConfig, restMapper, scheme, cache, clientOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -54,9 +46,9 @@ func NewServer(opts *Options) (*Service, error) {
 	options := ConvertOptions(opts)
 	registry := provideRegistry()
 	logger := _wireLoggerValue
-	clientCommandRunner := reconcileutils.NewClientCommand(clientClient, scheme, logger)
+	clientCommandRunner := reconcileutils.NewClientCommand(client, scheme, logger)
 	context := provideContext()
-	cacheIsIndexed, err := addIndex(context, cache)
+	cacheIsIndexed, err := managers.AddIndices(context, cache)
 	if err != nil {
 		return nil, err
 	}
@@ -64,45 +56,14 @@ func NewServer(opts *Options) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	dynamicInterface, err := dynamic.NewForConfig(restConfig)
-	if err != nil {
-		return nil, err
-	}
-	dynamicClient := client.NewDynamicClient(dynamicInterface, restMapper)
-	findOwnerHelper := client.NewFindOwnerHelper(dynamicClient)
-	monitoringV1Client, err := v1.NewForConfig(restConfig)
-	if err != nil {
-		return nil, err
-	}
-	marketplaceV1beta1Client, err := v1beta1.NewForConfig(restConfig)
-	if err != nil {
-		return nil, err
-	}
 	namespaces := ProvideNamespaces(opts)
-	meterDefinitionList, err := dictionary.ProvideMeterDefinitionList(cacheIsStarted, clientClient)
+	prometheusData := metrics.ProvidePrometheusData()
+	engineEngine, err := engine.NewEngine(context, namespaces, scheme, clientOptions, restConfig, logger, prometheusData)
 	if err != nil {
 		return nil, err
 	}
-	meterDefinitionsSeenStore := dictionary.NewMeterDefinitionsSeenStore()
-	meterDefinitionDictionary := dictionary.NewMeterDefinitionDictionary(context, clientset, findOwnerHelper, namespaces, logger, meterDefinitionList, meterDefinitionsSeenStore)
-	objectsSeenStore := meterdefinition.NewObjectsSeenStore()
-	meterDefinitionStore := meterdefinition.NewMeterDefinitionStore(context, logger, clientset, findOwnerHelper, monitoringV1Client, marketplaceV1beta1Client, meterDefinitionDictionary, scheme, objectsSeenStore)
-	objectsSeenStoreRunnable := engine.ProvideObjectsSeenStoreRunnable(clientset, namespaces, objectsSeenStore, monitoringV1Client)
-	meterDefinitionStoreRunnable := engine.ProvideMeterDefinitionStoreRunnable(clientset, namespaces, meterDefinitionStore, monitoringV1Client)
-	meterDefinitionDictionaryStoreRunnable := engine.ProvideMeterDefinitionDictionaryStoreRunnable(clientset, namespaces, marketplaceV1beta1Client, meterDefinitionDictionary)
-	meterDefinitionSeenStoreRunnable := engine.ProvideMeterDefinitionSeenStoreRunnable(clientset, namespaces, marketplaceV1beta1Client, meterDefinitionsSeenStore)
-	mailboxMailbox := mailbox.ProvideMailbox(logger)
-	statusProcessor := processors.ProvideStatusProcessor(logger, clientClient, mailboxMailbox, scheme)
-	serviceAnnotatorProcessor := processors.ProvideServiceAnnotatorProcessor(logger, clientClient, mailboxMailbox)
-	prometheusData := metrics.ProvidePrometheusData()
-	prometheusProcessor := processors.ProvidePrometheusProcessor(logger, clientClient, mailboxMailbox, scheme, prometheusData)
-	prometheusMdefProcessor := processors.ProvidePrometheusMdefProcessor(logger, clientClient, mailboxMailbox, scheme, prometheusData)
-	objectChannelProducer := mailbox.ProvideObjectChannelProducer(meterDefinitionStore, mailboxMailbox, logger)
-	meterDefinitionChannelProducer := mailbox.ProvideMeterDefinitionChannelProducer(meterDefinitionDictionary, mailboxMailbox, logger)
-	runnables := engine.ProvideRunnables(objectsSeenStoreRunnable, meterDefinitionStoreRunnable, meterDefinitionDictionaryStoreRunnable, meterDefinitionSeenStoreRunnable, mailboxMailbox, statusProcessor, serviceAnnotatorProcessor, prometheusProcessor, prometheusMdefProcessor, objectChannelProducer, meterDefinitionChannelProducer, meterDefinitionDictionary)
-	engineEngine := engine.ProvideEngine(meterDefinitionStore, namespaces, logger, clientset, monitoringV1Client, meterDefinitionDictionary, marketplaceV1beta1Client, runnables)
 	service := &Service{
-		k8sclient:       clientClient,
+		k8sclient:       client,
 		k8sRestClient:   clientset,
 		opts:            options,
 		cache:           cache,

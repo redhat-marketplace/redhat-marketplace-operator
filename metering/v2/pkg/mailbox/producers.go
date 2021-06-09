@@ -69,9 +69,11 @@ func (w *MailboxChannelProducer) Start(ctx context.Context) error {
 			obj, err := w.queue.Pop(cache.PopProcessFunc(w.handlePop))
 			if err != nil {
 				if err == cache.ErrFIFOClosed {
+					w.log.Error(err, "pop is closed")
 					return
 				}
 
+				w.log.Error(err, "error processing")
 				w.queue.AddIfNotPresent(obj)
 			}
 		}
@@ -89,7 +91,9 @@ func (w *MailboxChannelProducer) handlePop(i interface{}) error {
 	w.log.Info("handling deltas", "deltas", len(deltas))
 
 	for i := range deltas {
-		w.mailbox.Broadcast(w.name, deltas[i])
+		if err := w.mailbox.Broadcast(w.name, deltas[i]); err != nil {
+			return err
+		}
 	}
 
 	return nil

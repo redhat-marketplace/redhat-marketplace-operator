@@ -31,6 +31,7 @@ func ProvideRunnables(
 	serviceAnnotatorProcessor *processors.ServiceAnnotatorProcessor,
 	prometheusProcessor *processors.PrometheusProcessor,
 	prometheusMdefProcessor *processors.PrometheusMdefProcessor,
+	removalWatcher *processors.MeterDefinitionRemovalWatcher,
 	objectChannelProducer *mailbox.ObjectChannelProducer,
 	mdefChannelProducer *mailbox.MeterDefinitionChannelProducer,
 	dictionary *dictionary.MeterDefinitionDictionary,
@@ -44,7 +45,10 @@ func ProvideRunnables(
 		serviceAnnotatorProcessor,
 		prometheusProcessor,
 		prometheusMdefProcessor,
+		removalWatcher,
 		meterDefinitionDictionary,
+		objectsSeenStore,
+		mdefSeenStore,
 		meterDefinitionStore,
 		dictionary,
 	}

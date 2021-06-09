@@ -24,10 +24,13 @@ import (
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/sasha-s/go-deadlock"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 )
 
 // StatusProcessor will update the meter definition
@@ -37,7 +40,6 @@ type StatusProcessor struct {
 	log        logr.Logger
 	kubeClient client.Client
 	mutex      deadlock.Mutex
-	locks      map[types.NamespacedName]deadlock.Mutex
 	scheme     *runtime.Scheme
 }
 
@@ -59,7 +61,6 @@ func ProvideStatusProcessor(
 		},
 		log:        log.WithValues("process", "statusProcessor"),
 		kubeClient: kubeClient,
-		locks:      make(map[types.NamespacedName]deadlock.Mutex),
 		scheme:     scheme,
 	}
 
@@ -71,38 +72,36 @@ func ProvideStatusProcessor(
 // definition associated with the object. To prevent gaps, it bulk retrieves the
 // resources and checks it against the status.
 func (u *StatusProcessor) Process(ctx context.Context, inObj cache.Delta) error {
-	if inObj.Object == nil {
-		return nil
-	}
-
 	enhancedObj, ok := inObj.Object.(*pkgtypes.MeterDefinitionEnhancedObject)
 
 	if !ok {
 		return errors.WithStack(errors.New("obj is unexpected type"))
 	}
 
+	u.log.Info("updating status",
+		"obj", enhancedObj.GetName()+"/"+enhancedObj.GetNamespace(),
+		"mdefs", len(enhancedObj.MeterDefinitions),
+	)
+
 	for i := range enhancedObj.MeterDefinitions {
-		mdef := enhancedObj.MeterDefinitions[i]
-		key, _ := client.ObjectKeyFromObject(mdef)
+		key, err := client.ObjectKeyFromObject(&enhancedObj.MeterDefinitions[i])
 
-		var (
-			lock   deadlock.Mutex
-			exists bool
-		)
-
-		u.mutex.Lock()
-		if lock, exists = u.locks[key]; !exists {
-			u.locks[key] = deadlock.Mutex{}
-			lock, _ = u.locks[key]
+		if err != nil {
+			return errors.WithStack(err)
 		}
-		u.mutex.Unlock()
 
-		err := func() error {
-			lock.Lock()
-			defer lock.Unlock()
+		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			u.mutex.Lock()
+			defer u.mutex.Unlock()
 
 			resources := []common.WorkloadResource{}
 			set := map[types.UID]common.WorkloadResource{}
+
+			mdef := &marketplacev1beta1.MeterDefinition{}
+
+			if err := u.kubeClient.Get(ctx, key, mdef); err != nil {
+				return err
+			}
 
 			for _, obj := range mdef.Status.WorkloadResources {
 				set[obj.UID] = obj
@@ -129,17 +128,21 @@ func (u *StatusProcessor) Process(ctx context.Context, inObj cache.Delta) error 
 				return nil
 			}
 
-			for _, obj := range set {
-				resources = append(resources, obj)
+			for i := range set {
+				resources = append(resources, set[i])
 			}
 
 			sort.Sort(common.ByAlphabetical(resources))
 			mdef.Status.WorkloadResources = resources
 
 			return u.kubeClient.Status().Update(ctx, mdef)
-		}()
+		})
 
 		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return nil
+			}
+
 			return errors.WithStack(err)
 		}
 	}

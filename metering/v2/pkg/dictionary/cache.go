@@ -17,10 +17,12 @@ import (
 var initLookupCache sync.Once
 var lookupCache *resultCache
 
+const cacheTimeout = 30*time.Minute
+
 func init() {
 	initLookupCache.Do(func() {
 		lookupCache = utils.Must(func() (interface{}, error) {
-			cache, err := bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
+			cache, err := bigcache.NewBigCache(bigcache.DefaultConfig(cacheTimeout))
 
 			if err != nil {
 				return nil, err

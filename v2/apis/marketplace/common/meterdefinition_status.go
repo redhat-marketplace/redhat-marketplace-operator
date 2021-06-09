@@ -40,9 +40,18 @@ type ByAlphabetical []WorkloadResource
 func (a ByAlphabetical) Len() int      { return len(a) }
 func (a ByAlphabetical) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a ByAlphabetical) Less(i, j int) bool {
-	return strings.Compare(a[i].ReferencedWorkloadName, a[j].ReferencedWorkloadName) > 0 &&
-		strings.Compare(a[i].NamespacedNameReference.Namespace, a[j].NamespacedNameReference.Namespace) > 0 &&
-		strings.Compare(a[i].NamespacedNameReference.Name, a[j].NamespacedNameReference.Name) > 0
+	switch strings.Compare(a[i].ReferencedWorkloadName, a[j].ReferencedWorkloadName) {
+	case -1:
+		switch strings.Compare(a[i].NamespacedNameReference.Namespace, a[j].NamespacedNameReference.Namespace) {
+		case -1:
+			switch strings.Compare(a[i].NamespacedNameReference.Name, a[j].NamespacedNameReference.Name) {
+			case -1:
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func NewWorkloadResource(obj interface{}, scheme *runtime.Scheme) (*WorkloadResource, error) {

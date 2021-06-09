@@ -25,7 +25,7 @@ import (
 var log = logf.Log.WithName("meteric")
 
 type FamilyGenerator struct {
-	GenerateMeterFunc func(interface{}, []*marketplacev1beta1.MeterDefinition) *kbsm.Family
+	GenerateMeterFunc func(interface{}, []marketplacev1beta1.MeterDefinition) *kbsm.Family
 	kbsm.FamilyGenerator
 }
 
@@ -44,12 +44,12 @@ func (g *FamilyGenerator) generateHeader() string {
 	return header.String()
 }
 
-func GetMeterDefLabelsKeys(mdef *marketplacev1beta1.MeterDefinition) ([]string, []string) {
+func GetMeterDefLabelsKeys(mdef marketplacev1beta1.MeterDefinition) ([]string, []string) {
 	return []string{"meter_def_name", "meter_def_namespace", "meter_def_group", "meter_kind"},
 		[]string{mdef.Name, mdef.Namespace, mdef.Spec.Group, mdef.Spec.Kind}
 }
 
-func GetAllMeterLabelsKeys(mdefs []*marketplacev1beta1.MeterDefinition) ([]string, []string) {
+func GetAllMeterLabelsKeys(mdefs []marketplacev1beta1.MeterDefinition) ([]string, []string) {
 	allMdefLabelKeys, allMdefLabelValues := []string{}, []string{}
 	for _, meterDef := range mdefs {
 		mdefLabelKeys, mdefLabelValues := GetMeterDefLabelsKeys(meterDef)
@@ -60,7 +60,7 @@ func GetAllMeterLabelsKeys(mdefs []*marketplacev1beta1.MeterDefinition) ([]strin
 	return allMdefLabelKeys, allMdefLabelValues
 }
 
-func MapMeterDefinitions(metrics []*kbsm.Metric, mdefs []*marketplacev1beta1.MeterDefinition) []*kbsm.Metric {
+func MapMeterDefinitions(metrics []*kbsm.Metric, mdefs []marketplacev1beta1.MeterDefinition) []*kbsm.Metric {
 	if len(mdefs) == 0 {
 		return metrics
 	}

@@ -33,7 +33,7 @@ var serviceMetricsFamilies = []FamilyGenerator{
 			Type: kbsm.Gauge,
 			Help: "Info about the service for servicemonitor",
 		},
-		GenerateMeterFunc: wrapServiceFunc(func(s *v1.Service, mdefs []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
+		GenerateMeterFunc: wrapServiceFunc(func(s *v1.Service, mdefs []marketplacev1beta1.MeterDefinition) *kbsm.Family {
 			// kube-state-metric labels
 			clusterIP := s.Spec.ClusterIP
 			externalName := s.Spec.ExternalName
@@ -52,8 +52,8 @@ var serviceMetricsFamilies = []FamilyGenerator{
 }
 
 // wrapServiceFunc is a helper function for generating service-based metrics
-func wrapServiceFunc(f func(*v1.Service, []*marketplacev1beta1.MeterDefinition) *kbsm.Family) func(obj interface{}, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
-	return func(obj interface{}, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
+func wrapServiceFunc(f func(*v1.Service, []marketplacev1beta1.MeterDefinition) *kbsm.Family) func(obj interface{}, meterDefinitions []marketplacev1beta1.MeterDefinition) *kbsm.Family {
+	return func(obj interface{}, meterDefinitions []marketplacev1beta1.MeterDefinition) *kbsm.Family {
 		svc := obj.(*v1.Service)
 
 		metricFamily := f(svc, meterDefinitions)

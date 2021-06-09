@@ -22,7 +22,7 @@ import (
 type MeterDefinitionEnhancedObject struct {
 	metav1.Object
 
-	MeterDefinitions []*v1beta1.MeterDefinition
+	MeterDefinitions []v1beta1.MeterDefinition
 }
 
 var _ metav1.Object = &MeterDefinitionEnhancedObject{}

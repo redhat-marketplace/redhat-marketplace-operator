@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"sort"
 
 	"emperror.dev/errors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
@@ -12,12 +13,42 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type PrometheusData []*PrometheusDataMap
+type PrometheusData struct {
+	dataMap map[string]*PrometheusDataMap
 
-func (p PrometheusData) Add(obj interface{}, meterdefs []*v1beta1.MeterDefinition) error {
+	orderedLabels []string
+}
+
+func (p *PrometheusData) Get(name string) *PrometheusDataMap {
+	return p.dataMap[name]
+}
+
+func (p *PrometheusData) WriteAll(w io.Writer) {
+	if len(p.orderedLabels) != len(p.dataMap) {
+		keys := make([]string, len(p.dataMap))
+
+		i := 0
+		for k := range p.dataMap {
+			keys[i] = k
+			i++
+		}
+
+		sorted := sort.StringSlice(keys)
+		sorted.Sort()
+
+		p.orderedLabels = sorted
+	}
+
+	for k := range p.orderedLabels {
+		p.dataMap[p.orderedLabels[k]].WriteAll(w)
+	}
+}
+
+func (p *PrometheusData) Add(obj interface{}, meterdefs []v1beta1.MeterDefinition) error {
 	foundOne := false
 
-	for _, dm := range p {
+	for k := range p.dataMap {
+		dm := p.dataMap[k]
 		if dm.IsExpectedType(obj) {
 			foundOne = true
 			err := dm.Add(obj, meterdefs)
@@ -34,8 +65,9 @@ func (p PrometheusData) Add(obj interface{}, meterdefs []*v1beta1.MeterDefinitio
 	return nil
 }
 
-func (p PrometheusData) Remove(obj interface{}) error {
-	for _, dm := range p {
+func (p *PrometheusData) Remove(obj interface{}) error {
+	for k := range p.dataMap {
+		dm := p.dataMap[k]
 		if dm.IsExpectedType(obj) {
 			err := dm.Remove(obj)
 
@@ -54,7 +86,7 @@ type PrometheusDataMap struct {
 
 	expectedType        reflect.Type
 	headers             []string
-	generateMetricsFunc func(interface{}, []*marketplacev1beta1.MeterDefinition) []FamilyByteSlicer
+	generateMetricsFunc func(interface{}, []marketplacev1beta1.MeterDefinition) []FamilyByteSlicer
 }
 
 func (s *PrometheusDataMap) Remove(obj interface{}) error {
@@ -76,7 +108,7 @@ func (s *PrometheusDataMap) IsExpectedType(obj interface{}) bool {
 	return thisType == s.expectedType
 }
 
-func (s *PrometheusDataMap) Add(obj interface{}, meterdefs []*v1beta1.MeterDefinition) error {
+func (s *PrometheusDataMap) Add(obj interface{}, meterdefs []v1beta1.MeterDefinition) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -104,6 +136,20 @@ func (s *PrometheusDataMap) Add(obj interface{}, meterdefs []*v1beta1.MeterDefin
 	return nil
 }
 
+func (s *PrometheusDataMap) Get(obj interface{}) ([][]byte, bool, error) {
+	s.RLock()
+	defer s.RUnlock()
+
+	key, err := cache.MetaNamespaceKeyFunc(obj)
+
+	if err != nil {
+		return nil, false, err
+	}
+
+	val, ok := s.metrics[key]
+	return val, ok, nil
+}
+
 // WriteAll writes all metrics of the store into the given writer, zipped with the
 // help text of each metric family.
 func (s *PrometheusDataMap) WriteAll(w io.Writer) {
@@ -119,11 +165,13 @@ func (s *PrometheusDataMap) WriteAll(w io.Writer) {
 	}
 }
 
-func ProvidePrometheusData() PrometheusData {
-	return PrometheusData{
-		ProvidePodPrometheusData(),
-		ProvideServicePrometheusData(),
-		ProvidePersistentVolumeClaimPrometheusData(),
-		ProvideMeterDefPrometheusData(),
+func ProvidePrometheusData() *PrometheusData {
+	return &PrometheusData{
+		dataMap: map[string]*PrometheusDataMap{
+			"pod":      ProvidePodPrometheusData(),
+			"service":  ProvideServicePrometheusData(),
+			"pvc":      ProvidePersistentVolumeClaimPrometheusData(),
+			"meterdef": ProvideMeterDefPrometheusData(),
+		},
 	}
 }

@@ -23,5 +23,5 @@ type FamilyByteSlicer interface {
 }
 
 type MeterDefinitionFetcher interface {
-	GetMeterDefinitions(interface{}) ([]*marketplacev1beta1.MeterDefinition, error)
+	GetMeterDefinitions(interface{}) ([]marketplacev1beta1.MeterDefinition, error)
 }

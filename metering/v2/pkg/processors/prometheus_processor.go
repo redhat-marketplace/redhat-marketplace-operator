@@ -25,7 +25,7 @@ type PrometheusProcessor struct {
 	kubeClient     client.Client
 	mutex          deadlock.Mutex
 	scheme         *runtime.Scheme
-	prometheusData metrics.PrometheusData
+	prometheusData *metrics.PrometheusData
 }
 
 // NewPrometheusProcessor is the provider that creates
@@ -35,7 +35,7 @@ func ProvidePrometheusProcessor(
 	kubeClient client.Client,
 	mb *mailbox.Mailbox,
 	scheme *runtime.Scheme,
-	prometheusData metrics.PrometheusData,
+	prometheusData *metrics.PrometheusData,
 ) *PrometheusProcessor {
 	sp := &PrometheusProcessor{
 		Processor: &Processor{
@@ -109,7 +109,7 @@ type PrometheusMdefProcessor struct {
 	kubeClient     client.Client
 	mutex          deadlock.Mutex
 	scheme         *runtime.Scheme
-	prometheusData metrics.PrometheusData
+	prometheusData *metrics.PrometheusData
 }
 
 // NewPrometheusMdefProcessor is the provider that creates
@@ -119,7 +119,7 @@ func ProvidePrometheusMdefProcessor(
 	kubeClient client.Client,
 	mb *mailbox.Mailbox,
 	scheme *runtime.Scheme,
-	prometheusData metrics.PrometheusData,
+	prometheusData *metrics.PrometheusData,
 ) *PrometheusMdefProcessor {
 	sp := &PrometheusMdefProcessor{
 		Processor: &Processor{

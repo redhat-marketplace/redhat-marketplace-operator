@@ -71,11 +71,14 @@ func NewMeterDefinitionDictionary(
 	list *v1beta1.MeterDefinitionList,
 	meterDefinitionsSeen MeterDefinitionsSeenStore,
 ) *MeterDefinitionDictionary {
+
+	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
+
 	return &MeterDefinitionDictionary{
 		log:                  log.WithName("mdef_dictionary"),
 		keyFunc:              cache.MetaNamespaceKeyFunc,
-		cache:                cache.NewStore(cache.MetaNamespaceKeyFunc),
-		delta:                cache.NewDeltaFIFO(cache.MetaNamespaceKeyFunc, nil),
+		cache:                store,
+		delta:                cache.NewDeltaFIFO(cache.MetaNamespaceKeyFunc, store),
 		findOwner:            findOwner,
 		rateLimits:           map[types.UID]*rate.Limiter{},
 		starterList:          list,
@@ -148,12 +151,9 @@ func (def *MeterDefinitionDictionary) FindObjectMatches(
 }
 
 func (def *MeterDefinitionDictionary) ListFilters() ([]filter.MeterDefinitionLookupFilter, error) {
-	def.RLock()
-	defer def.RUnlock()
-
 	filters := []filter.MeterDefinitionLookupFilter{}
 
-	objs := def.cache.List()
+	objs := def.List()
 
 	for _, obj := range objs {
 		meterdef, ok := obj.(*MeterDefinitionExtended)
@@ -170,13 +170,10 @@ func (def *MeterDefinitionDictionary) ListFilters() ([]filter.MeterDefinitionLoo
 
 // Add adds the given object to the accumulator associated with the given object's key
 func (def *MeterDefinitionDictionary) Add(obj interface{}) error {
-	def.Lock()
-	defer def.Unlock()
-
 	addObj, err := def.newMeterDefinitionExtended(obj)
 
 	if err != nil {
-		def.log.Error(err, "error exending obj")
+		def.log.Error(err, "error extending obj")
 		return err
 	}
 
@@ -186,6 +183,9 @@ func (def *MeterDefinitionDictionary) Add(obj interface{}) error {
 	}
 
 	def.log.Info("recording obj", "obj", fmt.Sprintf("%+v", obj))
+
+	def.Lock()
+	defer def.Unlock()
 
 	if err := def.delta.Add(addObj); err != nil {
 		def.log.Error(err, "error adding obj to delta")
@@ -202,13 +202,10 @@ func (def *MeterDefinitionDictionary) Add(obj interface{}) error {
 
 // Update updates the given object in the accumulator associated with the given object's key
 func (def *MeterDefinitionDictionary) Update(obj interface{}) error {
-	def.Lock()
-	defer def.Unlock()
-
 	addObj, err := def.newMeterDefinitionExtended(obj)
 
 	if err != nil {
-		def.log.Error(err, "error exending obj")
+		def.log.Error(err, "error extending obj")
 		return err
 	}
 
@@ -218,6 +215,9 @@ func (def *MeterDefinitionDictionary) Update(obj interface{}) error {
 	}
 
 	def.log.Info("updating obj", "obj", fmt.Sprintf("%+v", obj))
+
+	def.Lock()
+	defer def.Unlock()
 
 	if err := def.delta.Update(addObj); err != nil {
 		def.log.Error(err, "error adding obj to delta")
@@ -255,15 +255,15 @@ func (def *MeterDefinitionDictionary) allow(addObj metav1.Object) bool {
 
 // Delete deletes the given object from the accumulator associated with the given object's key
 func (def *MeterDefinitionDictionary) Delete(obj interface{}) error {
-	def.Lock()
-	defer def.Unlock()
-
 	addObj, err := def.newMeterDefinitionExtended(obj)
 
 	if err != nil {
-		def.log.Error(err, "error exending obj")
+		def.log.Error(err, "error extending obj")
 		return err
 	}
+
+	def.Lock()
+	defer def.Unlock()
 
 	if err := def.delta.Delete(addObj); err != nil {
 		return err
@@ -284,17 +284,11 @@ func (def *MeterDefinitionDictionary) Delete(obj interface{}) error {
 
 // List returns a list of all the currently non-empty accumulators
 func (def *MeterDefinitionDictionary) List() []interface{} {
-	def.RLock()
-	defer def.RUnlock()
-
 	return def.cache.List()
 }
 
 // ListKeys returns a list of all the keys currently associated with non-empty accumulators
 func (def *MeterDefinitionDictionary) ListKeys() []string {
-	def.RLock()
-	defer def.RUnlock()
-
 	return def.cache.ListKeys()
 }
 
@@ -315,9 +309,6 @@ func (def *MeterDefinitionDictionary) GetByKey(key string) (item interface{}, ex
 }
 
 func (def *MeterDefinitionDictionary) AddIfNotPresent(obj interface{}) error {
-	def.Lock()
-	defer def.Unlock()
-
 	return def.delta.AddIfNotPresent(obj)
 }
 
@@ -370,30 +361,56 @@ func (def *MeterDefinitionDictionary) Resync() error {
 	list := def.meterDefinitionsSeen.List()
 	for i := range list {
 		obj := list[i]
-		_, exists, err := def.Get(obj)
+		key, err := cache.MetaNamespaceKeyFunc(obj)
+
+		if err != nil {
+			return err
+		}
+
+		_, exists, err := def.GetByKey(key)
 
 		if err != nil {
 			return err
 		}
 
 		if !exists {
+			def.log.Info("adding object from mdef seen list", "key", key)
 			if err := def.Add(obj); err != nil {
+				return err
+			}
+		} else {
+			def.log.Info("updating object from mdef seen list", "key", key)
+			if err := def.Update(obj); err != nil {
 				return err
 			}
 		}
 	}
 
+	if len(def.meterDefinitionsSeen.List()) == 0 {
+		return nil
+	}
+
 	objects := def.List()
+
+	def.log.Info("seen list", "size", len(def.meterDefinitionsSeen.List()))
 
 	for i := range objects {
 		enobj := objects[i].(*MeterDefinitionExtended)
-		_, exists, err := def.meterDefinitionsSeen.Get(&enobj.MeterDefinition)
+
+		key, err := def.keyFunc(enobj)
+
+		if err != nil {
+			return err
+		}
+
+		_, exists, err := def.meterDefinitionsSeen.GetByKey(key)
 
 		if err != nil {
 			return err
 		}
 
 		if !exists {
+			def.log.Info("deleting object from mdef seen list", "key", key)
 			err := def.Delete(&enobj.MeterDefinition)
 			if err != nil {
 				return err
@@ -401,7 +418,7 @@ func (def *MeterDefinitionDictionary) Resync() error {
 		}
 	}
 
-	return def.delta.Resync()
+	return nil
 }
 
 func (def *MeterDefinitionDictionary) newMeterDefinitionExtended(obj interface{}) (*MeterDefinitionExtended, error) {

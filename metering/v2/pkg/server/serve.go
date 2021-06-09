@@ -40,18 +40,16 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/engine"
-	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	goruntime "runtime"
+
 	"github.com/sasha-s/go-deadlock"
-	corev1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kube-state-metrics/pkg/options"
-	goruntime "runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -75,7 +73,7 @@ type Service struct {
 	indexed         managers.CacheIsIndexed
 	started         managers.CacheIsStarted
 	engine          *engine.Engine
-	prometheusData  metrics.PrometheusData
+	prometheusData  *metrics.PrometheusData
 
 	mutex deadlock.Mutex `wire:"-"`
 }
@@ -106,46 +104,6 @@ func getClientOptions() managers.ClientOptions {
 		Namespace:    "",
 		DryRunClient: false,
 	}
-}
-
-func addIndex(
-	ctx context.Context,
-	cache cache.Cache) (managers.CacheIsIndexed, error) {
-
-	err := rhmclient.AddOperatorSourceIndex(cache)
-	if err != nil {
-		log.Error(err, "")
-		return managers.CacheIsIndexed{}, err
-	}
-
-	err = rhmclient.AddOwningControllerIndex(cache,
-		[]runtime.Object{
-			&corev1.Pod{},
-			&corev1.Service{},
-			&corev1.PersistentVolumeClaim{},
-			&monitoringv1.ServiceMonitor{},
-		})
-
-	if err != nil {
-		log.Error(err, "")
-		return managers.CacheIsIndexed{}, err
-	}
-
-	err = rhmclient.AddUIDIndex(cache,
-		[]runtime.Object{
-			&corev1.Pod{},
-			&corev1.Service{},
-			&corev1.PersistentVolumeClaim{},
-			&marketplacev1beta1.MeterDefinition{},
-			&monitoringv1.ServiceMonitor{},
-		})
-
-	if err != nil {
-		log.Error(err, "")
-		return managers.CacheIsIndexed{}, err
-	}
-
-	return managers.CacheIsIndexed{}, nil
 }
 
 func provideRegistry() *prometheus.Registry {
@@ -233,7 +191,7 @@ func (s *Service) serveMetrics(ctx context.Context, opts *options.Options, host 
 }
 
 type metricHandler struct {
-	stores             metrics.PrometheusData
+	stores             *metrics.PrometheusData
 	enableGZIPEncoding bool
 }
 
@@ -259,9 +217,7 @@ func (m *metricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	for _, c := range m.stores {
-		c.WriteAll(w)
-	}
+	m.stores.WriteAll(w)
 
 	// In case we gzipped the response, we have to close the writer.
 	if closer, ok := writer.(io.Closer); ok {

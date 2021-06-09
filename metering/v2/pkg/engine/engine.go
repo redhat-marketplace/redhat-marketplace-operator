@@ -12,6 +12,7 @@ import (
 	"github.com/google/wire"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringv1client "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meterdefinition"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
@@ -30,6 +31,7 @@ type Engine struct {
 	monitoringClient *monitoringv1client.MonitoringV1Client
 	dictionary       *dictionary.MeterDefinitionDictionary
 	mktplaceClient   *marketplacev1beta1client.MarketplaceV1beta1Client
+	promtheusData    *metrics.PrometheusData
 	runnables        Runnables
 	log              logr.Logger
 	health           *health.Health
@@ -48,6 +50,7 @@ func ProvideEngine(
 	dictionary *dictionary.MeterDefinitionDictionary,
 	mktplaceClient *marketplacev1beta1client.MarketplaceV1beta1Client,
 	runnables Runnables,
+	promtheusData *metrics.PrometheusData,
 ) *Engine {
 	h := health.New()
 	return &Engine{
@@ -60,6 +63,7 @@ func ProvideEngine(
 		mktplaceClient:   mktplaceClient,
 		runnables:        runnables,
 		health:           h,
+		promtheusData:    promtheusData,
 	}
 }
 
@@ -75,7 +79,8 @@ func (e *Engine) Start(ctx context.Context) error {
 	e.localContext = &localCtx
 	e.cancelFunc = cancel
 
-	for _, runnable := range e.runnables {
+	for i := range e.runnables {
+		runnable := e.runnables[i]
 		e.log.Info("starting runnable", "runnable", fmt.Sprintf("%T", runnable))
 		wg := sync.WaitGroup{}
 
@@ -123,7 +128,7 @@ func (p *ListerRunnable) Start(ctx context.Context) error {
 	for _, ns := range p.namespaces {
 		localNS := ns
 		lister := p.lister(localNS)
-		reflector := cache.NewReflector(lister, p.expectedType, p.Store, 30*time.Second)
+		reflector := cache.NewReflector(lister, p.expectedType, p.Store, 0)
 		go reflector.Run(localCtx.Done())
 	}
 
@@ -133,6 +138,7 @@ func (p *ListerRunnable) Start(ctx context.Context) error {
 type StoreRunnable struct {
 	Store      cache.Store
 	Reflectors Runnables
+	ResyncTime time.Duration
 
 	startContext context.Context
 
@@ -155,20 +161,22 @@ func (p *StoreRunnable) Start(ctx context.Context) error {
 		}
 	}
 
-	ticker := time.NewTicker(30 * time.Second)
+	if p.ResyncTime != 0 {
+		ticker := time.NewTicker(p.ResyncTime)
 
-	go func() {
-		defer ticker.Stop()
+		go func() {
+			defer ticker.Stop()
 
-		for {
-			select {
-			case <-ticker.C:
-				p.Store.Resync()
-			case <-localCtx.Done():
-				return
+			for {
+				select {
+				case <-ticker.C:
+					p.Store.Resync()
+				case <-localCtx.Done():
+					return
+				}
 			}
-		}
-	}()
+		}()
+	}
 
 	return nil
 }
@@ -186,13 +194,13 @@ func ProvideMeterDefinitionDictionaryStoreRunnable(
 	return &MeterDefinitionDictionaryStoreRunnable{
 		StoreRunnable: StoreRunnable{
 			Store: store,
+			ResyncTime: 1*60*time.Second,
 			Reflectors: []Runnable{
 				provideMeterDefinitionListerRunnable(nses, c, store),
 			},
 		},
 	}
 }
-
 
 type MeterDefinitionSeenStoreRunnable struct {
 	StoreRunnable
@@ -207,6 +215,7 @@ func ProvideMeterDefinitionSeenStoreRunnable(
 	return &MeterDefinitionSeenStoreRunnable{
 		StoreRunnable: StoreRunnable{
 			Store: store,
+			ResyncTime: 0,
 			Reflectors: []Runnable{
 				provideMeterDefinitionListerRunnable(nses, c, store),
 			},
@@ -227,6 +236,7 @@ func ProvideMeterDefinitionStoreRunnable(
 	return &MeterDefinitionStoreRunnable{
 		StoreRunnable: StoreRunnable{
 			Store: store,
+			ResyncTime: 1*60*time.Second,
 			Reflectors: []Runnable{
 				providePVCLister(kubeClient, nses, store),
 				providePodListerRunnable(kubeClient, nses, store),
@@ -250,6 +260,7 @@ func ProvideObjectsSeenStoreRunnable(
 	return &ObjectsSeenStoreRunnable{
 		StoreRunnable: StoreRunnable{
 			Store: store,
+			ResyncTime: 0, //1*60*time.Second,
 			Reflectors: []Runnable{
 				providePVCLister(kubeClient, nses, store),
 				providePodListerRunnable(kubeClient, nses, store),

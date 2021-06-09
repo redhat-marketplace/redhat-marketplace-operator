@@ -19,12 +19,8 @@ package server
 import (
 	"github.com/go-logr/logr"
 	"github.com/google/wire"
-	monitoringv1client "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/engine"
-	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
-	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
@@ -34,24 +30,19 @@ func NewServer(
 	opts *Options,
 ) (*Service, error) {
 	panic(wire.Build(
+		engine.NewEngine,
 		ProvideNamespaces,
 		managers.ProvideCachedClientSet,
 		provideScheme,
 		getClientOptions,
 		reconcileutils.CommandRunnerProviderSet,
 		ConvertOptions,
-		dictionary.ProvideMeterDefinitionList,
 		wire.Struct(new(Service), "*"),
 		metrics.ProvidePrometheusData,
 		wire.InterfaceValue(new(logr.Logger), log),
 		provideRegistry,
-		engine.RunnablesSet,
-		engine.EngineSet,
-		marketplacev1beta1client.NewForConfig,
-		monitoringv1client.NewForConfig,
-		rhmclient.NewFindOwnerHelper,
-		client.NewDynamicClient,
-		addIndex,
+		managers.AddIndices,
 		provideContext,
+		config.GetConfig,
 	))
 }
