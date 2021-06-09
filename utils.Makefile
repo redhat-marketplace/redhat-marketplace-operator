@@ -29,7 +29,7 @@ code-generator:
 
 KUSTOMIZE=$(PROJECT_DIR)/bin/kustomize
 kustomize:
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.1.0)
+	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.1.3)
 
 export KUSTOMIZE
 
