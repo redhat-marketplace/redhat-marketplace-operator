@@ -71,14 +71,14 @@ func NewMeterDefinitionDictionary(
 	list *v1beta1.MeterDefinitionList,
 	meterDefinitionsSeen MeterDefinitionsSeenStore,
 ) *MeterDefinitionDictionary {
-
-	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
+	keyFunc := cache.MetaNamespaceKeyFunc
+	store := cache.NewStore(keyFunc)
 
 	return &MeterDefinitionDictionary{
 		log:                  log.WithName("mdef_dictionary"),
-		keyFunc:              cache.MetaNamespaceKeyFunc,
+		keyFunc:              keyFunc,
 		cache:                store,
-		delta:                cache.NewDeltaFIFO(cache.MetaNamespaceKeyFunc, store),
+		delta:                cache.NewDeltaFIFO(keyFunc, store),
 		findOwner:            findOwner,
 		rateLimits:           map[types.UID]*rate.Limiter{},
 		starterList:          list,
@@ -87,15 +87,6 @@ func NewMeterDefinitionDictionary(
 }
 
 func (w *MeterDefinitionDictionary) Start(ctx context.Context) error {
-	// for i := range w.starterList.Items {
-	// 	localMdef := w.starterList.Items[i]
-	// 	err := w.Add(&localMdef)
-
-	// 	if err != nil {
-	// 		return errors.WithStack(err)
-	// 	}
-	// }
-
 	return nil
 }
 
@@ -361,7 +352,7 @@ func (def *MeterDefinitionDictionary) Resync() error {
 	list := def.meterDefinitionsSeen.List()
 	for i := range list {
 		obj := list[i]
-		key, err := cache.MetaNamespaceKeyFunc(obj)
+		key, err := def.keyFunc(obj)
 
 		if err != nil {
 			return err

@@ -27,19 +27,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc
 
 	"emperror.dev/errors"
-	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 )
 
 const (
@@ -76,7 +75,6 @@ var (
 	// ProvideCacheClientSet is to be used by
 	// wire files to get a cached client
 	ProvideCachedClientSet = wire.NewSet(
-		config.GetConfig,
 		kubernetes.NewForConfig,
 		ProvideCachedClient,
 		ProvideNewCache,
@@ -87,7 +85,6 @@ var (
 	)
 
 	ProvideSimpleClientSet = wire.NewSet(
-		config.GetConfig,
 		kubernetes.NewForConfig,
 		ProvideSimpleClient,
 		NewDynamicRESTMapper,

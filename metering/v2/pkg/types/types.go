@@ -15,8 +15,15 @@
 package types
 
 import (
+	"fmt"
+
+	"emperror.dev/errors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
 type MeterDefinitionEnhancedObject struct {
@@ -28,3 +35,36 @@ type MeterDefinitionEnhancedObject struct {
 var _ metav1.Object = &MeterDefinitionEnhancedObject{}
 
 type Namespaces []string
+
+func GVKNamespaceKeyFunc(scheme *runtime.Scheme) func(obj interface{}) (string, error) {
+	return func(obj interface{}) (string, error) {
+		if key, ok := obj.(cache.ExplicitKey); ok {
+			return string(key), nil
+		}
+
+		v, ok := obj.(runtime.Object)
+		if !ok {
+			return "", errors.New("not a runtime object")
+		}
+
+		gvk, err := apiutil.GVKForObject(v, scheme)
+
+		if !ok {
+			return "", errors.Wrap(err, "can't get gvk")
+		}
+
+		apiVersion, kind := gvk.ToAPIVersionAndKind()
+		gvkString := apiVersion + "/" + kind + ":"
+
+		meta, err := meta.Accessor(obj)
+		if err != nil {
+			return "", fmt.Errorf("object has no meta: %v", err)
+		}
+
+		if len(meta.GetNamespace()) > 0 {
+			return gvkString + meta.GetNamespace() + "/" + meta.GetName(), nil
+		}
+
+		return gvkString + meta.GetName(), nil
+	}
+}

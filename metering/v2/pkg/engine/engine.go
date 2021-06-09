@@ -1,3 +1,17 @@
+// Copyright 2021 IBM Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package engine
 
 import (
@@ -125,8 +139,8 @@ func (p *ListerRunnable) Start(ctx context.Context) error {
 	var localCtx context.Context
 	localCtx, p.cancelFunc = context.WithCancel(p.startContext)
 
-	for _, ns := range p.namespaces {
-		localNS := ns
+	for i := range p.namespaces {
+		localNS := p.namespaces[i]
 		lister := p.lister(localNS)
 		reflector := cache.NewReflector(lister, p.expectedType, p.Store, 0)
 		go reflector.Run(localCtx.Done())
@@ -141,6 +155,7 @@ type StoreRunnable struct {
 	ResyncTime time.Duration
 
 	startContext context.Context
+	log          logr.Logger
 
 	cancelFunc context.CancelFunc
 }
@@ -154,6 +169,7 @@ func (p *StoreRunnable) Start(ctx context.Context) error {
 	localCtx, p.cancelFunc = context.WithCancel(p.startContext)
 
 	for i := range p.Reflectors {
+		p.log.Info(fmt.Sprintf("starting reflector %T\n", p.Reflectors[i]))
 		err := p.Reflectors[i].Start(localCtx)
 
 		if err != nil {
@@ -190,14 +206,16 @@ func ProvideMeterDefinitionDictionaryStoreRunnable(
 	nses pkgtypes.Namespaces,
 	c *marketplacev1beta1client.MarketplaceV1beta1Client,
 	store *dictionary.MeterDefinitionDictionary,
+	log logr.Logger,
 ) *MeterDefinitionDictionaryStoreRunnable {
 	return &MeterDefinitionDictionaryStoreRunnable{
 		StoreRunnable: StoreRunnable{
-			Store: store,
-			ResyncTime: 1*60*time.Second,
+			Store:      store,
+			ResyncTime: 5 * time.Minute,
 			Reflectors: []Runnable{
 				provideMeterDefinitionListerRunnable(nses, c, store),
 			},
+			log: log.WithName("dictionary"),
 		},
 	}
 }
@@ -211,14 +229,16 @@ func ProvideMeterDefinitionSeenStoreRunnable(
 	nses pkgtypes.Namespaces,
 	c *marketplacev1beta1client.MarketplaceV1beta1Client,
 	store dictionary.MeterDefinitionsSeenStore,
+	log logr.Logger,
 ) *MeterDefinitionSeenStoreRunnable {
 	return &MeterDefinitionSeenStoreRunnable{
 		StoreRunnable: StoreRunnable{
-			Store: store,
+			Store:      store,
 			ResyncTime: 0,
 			Reflectors: []Runnable{
 				provideMeterDefinitionListerRunnable(nses, c, store),
 			},
+			log: log.WithName("meterdefseenstore"),
 		},
 	}
 }
@@ -232,11 +252,13 @@ func ProvideMeterDefinitionStoreRunnable(
 	nses pkgtypes.Namespaces,
 	store *meterdefinition.MeterDefinitionStore,
 	c *monitoringv1client.MonitoringV1Client,
+	log logr.Logger,
 ) *MeterDefinitionStoreRunnable {
 	return &MeterDefinitionStoreRunnable{
 		StoreRunnable: StoreRunnable{
-			Store: store,
-			ResyncTime: 1*60*time.Second,
+			Store:      store,
+			ResyncTime: 5 * time.Minute,
+			log:        log.WithName("mdefstore"),
 			Reflectors: []Runnable{
 				providePVCLister(kubeClient, nses, store),
 				providePodListerRunnable(kubeClient, nses, store),
@@ -256,11 +278,13 @@ func ProvideObjectsSeenStoreRunnable(
 	nses pkgtypes.Namespaces,
 	store meterdefinition.ObjectsSeenStore,
 	c *monitoringv1client.MonitoringV1Client,
+	log logr.Logger,
 ) *ObjectsSeenStoreRunnable {
 	return &ObjectsSeenStoreRunnable{
 		StoreRunnable: StoreRunnable{
-			Store: store,
+			Store:      store,
 			ResyncTime: 0, //1*60*time.Second,
+			log:        log.WithName("objectsseen"),
 			Reflectors: []Runnable{
 				providePVCLister(kubeClient, nses, store),
 				providePodListerRunnable(kubeClient, nses, store),

@@ -40,15 +40,19 @@ type ByAlphabetical []WorkloadResource
 func (a ByAlphabetical) Len() int      { return len(a) }
 func (a ByAlphabetical) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a ByAlphabetical) Less(i, j int) bool {
-	switch strings.Compare(a[i].ReferencedWorkloadName, a[j].ReferencedWorkloadName) {
-	case -1:
-		switch strings.Compare(a[i].NamespacedNameReference.Namespace, a[j].NamespacedNameReference.Namespace) {
-		case -1:
-			switch strings.Compare(a[i].NamespacedNameReference.Name, a[j].NamespacedNameReference.Name) {
-			case -1:
-				return true
-			}
-		}
+	opt1 := strings.Compare(a[i].ReferencedWorkloadName, a[j].ReferencedWorkloadName)
+	if opt1 == -1 {
+		return true
+	}
+
+	opt2 := strings.Compare(a[i].NamespacedNameReference.Namespace, a[j].NamespacedNameReference.Namespace)
+	if opt2 == -1 {
+		return true
+	}
+
+	opt3 := strings.Compare(a[i].NamespacedNameReference.Name, a[j].NamespacedNameReference.Name)
+	if opt3 == -1 {
+		return true
 	}
 
 	return false
