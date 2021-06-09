@@ -296,9 +296,6 @@ rules:
   - watch
 - apiGroups:
   - operators.coreos.com
-  resourceNames:
-  - ibm-operator-catalog
-  - opencloud-operators
   resources:
   - catalogsources
   verbs:
@@ -344,8 +341,6 @@ rules:
   - watch
 - apiGroups:
   - operators.coreos.com
-  resourceNames:
-  - redhat-marketplace
   resources:
   - operatorsources
   verbs:

@@ -124,7 +124,7 @@ func NewRedHatInsightsUploader(
 	case 1:
 		client.Transport = &http.Transport{
 			TLSClientConfig: tlsConfig,
-			Proxy: http.ProxyFromEnvironment,
+			Proxy:           http.ProxyFromEnvironment,
 		}
 	case 2:
 		client.Transport = &http2.Transport{
