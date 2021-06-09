@@ -107,7 +107,7 @@ func assetsMetricStateDeploymentYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/metric-state/deployment.yaml", size: 4540, mode: os.FileMode(0644), modTime: time.Unix(1623061710, 0)}
+	info := bindataFileInfo{name: "assets/metric-state/deployment.yaml", size: 4540, mode: os.FileMode(0644), modTime: time.Unix(1623161756, 0)}
 	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xab, 0x4, 0x75, 0x34, 0xe8, 0x40, 0xa1, 0x98, 0xf3, 0x49, 0xd7, 0xea, 0xf0, 0x9b, 0xe2, 0x61, 0xa3, 0x48, 0xe9, 0x54, 0x40, 0x5c, 0x3d, 0x75, 0xad, 0x7a, 0x9e, 0x2c, 0xef, 0x68, 0x12, 0x54}}
 	return a, nil
 }
@@ -327,7 +327,7 @@ func assetsPrometheusPrometheusYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus/prometheus.yaml", size: 5041, mode: os.FileMode(0644), modTime: time.Unix(1623063649, 0)}
+	info := bindataFileInfo{name: "assets/prometheus/prometheus.yaml", size: 5041, mode: os.FileMode(0644), modTime: time.Unix(1623161756, 0)}
 	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0x4e, 0xfb, 0x19, 0x55, 0x9c, 0xd6, 0x2, 0x4f, 0x66, 0xd4, 0xd4, 0x99, 0x0, 0x78, 0xb9, 0x70, 0xae, 0x4, 0xd7, 0xe1, 0xbb, 0x84, 0x29, 0xba, 0x9d, 0xf9, 0x7b, 0x76, 0x56, 0x4c, 0x70, 0x19}}
 	return a, nil
 }
@@ -407,7 +407,7 @@ func assetsPrometheusOperatorDeploymentYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/prometheus-operator/deployment.yaml", size: 3982, mode: os.FileMode(0644), modTime: time.Unix(1623063437, 0)}
+	info := bindataFileInfo{name: "assets/prometheus-operator/deployment.yaml", size: 3982, mode: os.FileMode(0644), modTime: time.Unix(1623161756, 0)}
 	a := &asset{bytes: bytes, info: info, digest: [32]uint8{0xa9, 0x5d, 0xdd, 0xb0, 0xab, 0xb4, 0xa7, 0x49, 0xcf, 0xc5, 0xaf, 0xf9, 0xfa, 0xa8, 0xcf, 0xc6, 0x3f, 0x88, 0x34, 0xee, 0x9b, 0x13, 0x8a, 0x9d, 0x70, 0x4c, 0xf5, 0xbd, 0x28, 0x40, 0xc6, 0x19}}
 	return a, nil
 }
