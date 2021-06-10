@@ -264,10 +264,29 @@ branch_build: _#bashWorkflow & {
 				},
 			]
 		}
+    "base": _#job & {
+			name:      "Build Base"
+			"runs-on": _#linuxMachine
+			steps: [
+				_#checkoutCode,
+				_#installGo,
+				_#setupQemu,
+				_#setupBuildX,
+				_#quayLogin,
+				_#step & {
+					id:   "build"
+					name: "Build images"
+	        "continue-on-error": "${{ matrix.continueOnError }}"
+					run: """
+						make base/docker-build
+						"""
+				},
+			]
+		}
 		"images": _#job & {
 			name:      "Build Images"
 			"runs-on": _#linuxMachine
-			needs: ["test"]
+			needs: ["test", "base"]
 			env: {
 				VERSION: "${{ needs.test.outputs.tag }}"
 			}
