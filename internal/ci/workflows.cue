@@ -258,6 +258,7 @@ branch_build: _#bashWorkflow & {
 				_#checkoutCode,
 				_#installGo,
 				_#cacheGoModules,
+				_#installKubeBuilder,
 				_#step & {
 					name: "Test"
 					run:  "make ${{ matrix.project }}/test"
@@ -619,13 +620,14 @@ _#installKubeBuilder: _#step & {
 	run: """
 		os=$(go env GOOS)
 		arch=$(go env GOARCH)
+		version=\(_#kubeBuilderVersion)
 
 		# download kubebuilder and extract it to tmp
-		curl -L https://go.kubebuilder.io/dl/2.3.1/${os}/${arch} | tar -xz -C /tmp/
+		curl -L https://go.kubebuilder.io/dl/${version}/${os}/${arch} | tar -xz -C /tmp/
 
 		# move to a long-term location and put it on your path
 		# (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
-		sudo mv /tmp/kubebuilder_2.3.1_${os}_${arch} /usr/local/kubebuilder
+		sudo mv /tmp/kubebuilder_${version}_${os}_${arch} /usr/local/kubebuilder
 		echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
 		"""
 }
@@ -674,9 +676,12 @@ _#turnStyleStep: _#step & {
 	with: "continue-after-seconds": 45
 	env: "GITHUB_TOKEN":            "${{ secrets.GITHUB_TOKEN }}"
 }
-
-_#goVersion: "1.16.2"
+_#archs: ["amd64", "ppc64le", "s390x"]
+_#registry:     "quay.io/rh-marketplace"
+_#goVersion:    "1.16.2"
+_#branchTarget: "/^(master|develop|release.*|hotfix.*)$/"
 _#pcUser:    "pcUser"
+_#kubeBuilderVersion: "2.3.1"
 
 _#image: {
 	name:  string

@@ -25,6 +25,6 @@ spec:
         - "--v=10"
         ports:
         - containerPort: 8443
-          name: monitoring-https
+          name: mon-https
         - containerPort: 9443
           name: https
