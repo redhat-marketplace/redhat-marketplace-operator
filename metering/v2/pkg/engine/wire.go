@@ -33,7 +33,6 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-
 func NewEngine(
 	ctx context.Context,
 	namespaces types.Namespaces,

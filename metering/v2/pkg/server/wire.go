@@ -19,11 +19,11 @@ package server
 import (
 	"github.com/go-logr/logr"
 	"github.com/google/wire"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/engine"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 func NewServer(

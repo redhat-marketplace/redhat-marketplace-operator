@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-
 var (
 
 	//go:embed *
@@ -31,10 +30,10 @@ var (
 		FS: fs,
 	}
 
-	MdefChargeBack *unstructured.Unstructured = testCase1.MustGetUnstructured("mdef-chargeback.yaml")
-	CSVLicensing *unstructured.Unstructured = testCase1.MustGetUnstructured("csv-licensing-service.yaml")
-	ServiceInstance *unstructured.Unstructured = testCase1.MustGetUnstructured("service-ibm-licensing-service-instance.yaml")
+	MdefChargeBack    *unstructured.Unstructured = testCase1.MustGetUnstructured("mdef-chargeback.yaml")
+	CSVLicensing      *unstructured.Unstructured = testCase1.MustGetUnstructured("csv-licensing-service.yaml")
+	ServiceInstance   *unstructured.Unstructured = testCase1.MustGetUnstructured("service-ibm-licensing-service-instance.yaml")
 	ServicePrometheus *unstructured.Unstructured = testCase1.MustGetUnstructured("service-ibm-licensing-service-prometheus.yaml")
-	MDefExample *unstructured.Unstructured = testCase1.MustGetUnstructured("mdef-pod.yaml")
-	Pod *unstructured.Unstructured = testCase1.MustGetUnstructured("pod.yaml")
+	MDefExample       *unstructured.Unstructured = testCase1.MustGetUnstructured("mdef-pod.yaml")
+	Pod               *unstructured.Unstructured = testCase1.MustGetUnstructured("pod.yaml")
 )

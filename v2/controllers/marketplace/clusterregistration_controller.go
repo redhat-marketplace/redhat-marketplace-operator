@@ -53,7 +53,7 @@ type ClusterRegistrationReconciler struct {
 	Scheme *runtime.Scheme
 	Log    logr.Logger
 
-	cfg            *config.OperatorConfig
+	cfg *config.OperatorConfig
 }
 
 // +kubebuilder:rbac:groups="",resources=secret,verbs=get;list;watch

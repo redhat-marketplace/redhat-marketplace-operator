@@ -79,9 +79,8 @@ type RegisteredAccount struct {
 }
 
 type MarketplaceClientBuilder struct {
-	Url        string
-	Insecure   bool
-	TlsOveride *tls.Config
+	Url      string
+	Insecure bool
 }
 
 func NewMarketplaceClientBuilder(cfg *config.OperatorConfig) *MarketplaceClientBuilder {
@@ -95,65 +94,33 @@ func NewMarketplaceClientBuilder(cfg *config.OperatorConfig) *MarketplaceClientB
 	}
 
 	logger.V(2).Info("marketplace url set to", "url", builder.Url)
-
 	builder.Insecure = cfg.InsecureClient
+
 	return builder
 }
 
-func (b *MarketplaceClientBuilder) SetTLSConfig(tlsConfig *tls.Config) *MarketplaceClientBuilder {
-	if tlsConfig != nil {
-	}
-	return b
-}
-
-func (b *MarketplaceClientBuilder) NewMarketplaceClient(token string, tokenClaims *MarketplaceClaims) (*MarketplaceClient, error) {
+func (b *MarketplaceClientBuilder) NewMarketplaceClient(
+	token string,
+	tokenClaims *MarketplaceClaims,
+) (*MarketplaceClient, error) {
 	var tlsConfig *tls.Config
 	marketplaceURL := b.Url
 
-	if b.TlsOveride != nil {
-		logger.V(2).Info("using tls override")
-		marketplaceURL = b.Url
-		tlsConfig = b.TlsOveride
-
-		var transport http.RoundTripper = &http.Transport{
-			TLSClientConfig: tlsConfig,
-			Proxy:           http.ProxyFromEnvironment,
-		}
-
-		if token != "" {
-			transport = WithBearerAuth(transport, token)
-		}
-		u, err := url.Parse(marketplaceURL)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to parse url")
-		}
-
-		return &MarketplaceClient{
-			endpoint: u,
-			httpClient: http.Client{
-				Transport: transport,
-			},
-		}, nil
-	}
-
 	if tokenClaims != nil &&
+		b.Url == ProductionURL &&
 		strings.ToLower(tokenClaims.Env) == strings.ToLower(EnvStage) {
 		marketplaceURL = StageURL
 		logger.V(2).Info("using stage for marketplace url", "url", marketplaceURL)
 	}
 
-	if b.Insecure {
-		tlsConfig = &tls.Config{InsecureSkipVerify: true}
-		logger.Info("using insecure client")
-	} else {
-		caCertPool, err := x509.SystemCertPool()
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get cert pool")
-		}
+	caCertPool, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get cert pool")
+	}
 
-		tlsConfig = &tls.Config{
-			RootCAs: caCertPool,
-		}
+	tlsConfig = &tls.Config{
+		RootCAs:            caCertPool,
+		InsecureSkipVerify: b.Insecure,
 	}
 
 	var transport http.RoundTripper = &http.Transport{
@@ -161,11 +128,11 @@ func (b *MarketplaceClientBuilder) NewMarketplaceClient(token string, tokenClaim
 		Proxy:           http.ProxyFromEnvironment,
 	}
 
-	if token != "" {
-		transport = WithBearerAuth(transport, token)
-	} else if marketplaceURL == ProductionURL {
+	if token == "" {
 		return nil, errors.New("transport is empty for production")
 	}
+
+	transport = WithBearerAuth(transport, token)
 
 	u, err := url.Parse(marketplaceURL)
 	if err != nil {

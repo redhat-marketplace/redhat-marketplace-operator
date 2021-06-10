@@ -49,7 +49,7 @@ var _ = Describe("EngineTest", func() {
 		})).Should(Succeed())
 
 		Expect(k8sClient.Create(context.TODO(), testcase1.MDefExample)).Should(Succeed())
-		Expect(k8sClient.Create(context.TODO(), testcase1.Pod )).Should(Succeed())
+		Expect(k8sClient.Create(context.TODO(), testcase1.Pod)).Should(Succeed())
 
 		Expect(k8sClient.Create(context.TODO(), testcase1.MdefChargeBack.DeepCopy())).Should(Succeed())
 		Expect(k8sClient.Create(context.TODO(), testcase1.CSVLicensing.DeepCopy())).Should(Succeed())

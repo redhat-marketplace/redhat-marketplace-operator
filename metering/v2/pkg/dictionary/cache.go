@@ -24,14 +24,14 @@ import (
 	"github.com/gotidy/ptr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"github.com/sasha-s/go-deadlock"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var initLookupCache sync.Once
 var lookupCache *resultCache
 
-const cacheTimeout = 30*time.Minute
+const cacheTimeout = 30 * time.Minute
 
 func init() {
 	initLookupCache.Do(func() {

@@ -71,7 +71,7 @@ var _ = BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:  []string{
+		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "..", "v2", "config", "crd", "bases"),
 			filepath.Join("..", "..", "..", "..", "tests", "v2", "testdata"),
 		},
@@ -108,7 +108,6 @@ var _ = AfterSuite(func() {
 	err := testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())
 })
-
 
 func provideScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
