@@ -42,6 +42,8 @@ const (
 	WATCH_KEEPER_SECRET_NAME               = "watch-keeper-secret"
 	PROMETHEUS_METERBASE_NAME              = "rhm-prometheus-meterbase"
 	OPERATOR_CERTS_CA_BUNDLE_NAME          = "operator-certs-ca-bundle"
+	METERDEF_INSTALL_MAP_NAME			   = "rhm-meterdef-install-map"
+	DEPLOYMENT_CONFIG_NAME   			   = "rhm-meterdefinition-file-server"
 
 	/* All Controllers */
 	CONTROLLER_FINALIZER = "finalizer.marketplace.redhat.com"

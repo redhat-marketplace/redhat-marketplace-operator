@@ -255,6 +255,11 @@ func PrettyPrint(in interface{}) {
 	println(string(out))
 }
 
+func Format(in interface{})string {
+	out, _ := json.MarshalIndent(in, "", "    ")
+	return string(out)
+}
+
 func TruncateTime(t time.Time, loc *time.Location) time.Time {
 	if loc == nil {
 		loc = time.UTC

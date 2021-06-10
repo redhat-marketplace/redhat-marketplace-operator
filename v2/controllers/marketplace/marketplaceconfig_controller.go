@@ -26,10 +26,13 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
+	osappsv1 "github.com/openshift/api/apps/v1"
+	osimagev1 "github.com/openshift/api/image/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
@@ -37,8 +40,8 @@ import (
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 
+	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -77,6 +80,7 @@ type MarketplaceConfigReconciler struct {
 	cc             ClientCommandRunner
 	cfg            *config.OperatorConfig
 	mclientBuilder *marketplace.MarketplaceClientBuilder
+	factory *manifests.Factory
 }
 
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;update;patch
@@ -116,6 +120,42 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		// Error reading the object - requeue the request.
 		reqLogger.Error(err, "Failed to get MarketplaceConfig")
 		return reconcile.Result{}, err
+	}
+
+	// Fetch the meterDefInstallMap instance
+	meterDefInstallMap := &corev1.ConfigMap{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME,Namespace: request.Namespace}, meterDefInstallMap)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+
+			reqLogger.Info("meterdef store not found, creating")
+
+			result := createMeterdefInstallMap(r.factory,r.Client,reqLogger)
+			if !result.Is(Continue) {
+				
+				if result.Is(Error) {
+					reqLogger.Error(result.GetError(), "Failed to create meterdef store.")
+				}
+		
+				return result.Return()
+			}
+
+			return reconcile.Result{Requeue: true}, nil
+		}
+
+		reqLogger.Error(err, "Failed to get MeterdefintionConfigMap")
+		return reconcile.Result{}, err
+	}
+
+	//create file server deployment
+	result := r.createMeterdefFileServer(request,reqLogger)
+	if !result.Is(Continue) {
+		
+		if result.Is(Error) {
+			reqLogger.Error(result.GetError(), "Failed to create meterdef file server")
+		}
+
+		return result.Return()
 	}
 
 	// run the finalizers
@@ -439,7 +479,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	foundMeterBase := &marketplacev1alpha1.MeterBase{}
-	result, _ := cc.Do(
+	result, _ = cc.Do(
 		context.TODO(),
 		GetAction(
 			types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: marketplaceConfig.Namespace},
@@ -634,6 +674,186 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
 }
 
+func createMeterdefInstallMap(factory *manifests.Factory,client client.Client,reqLogger logr.Logger)*ExecResult{
+	mdefConfigMap, err := factory.NewMeterdefinitionConfigMap()
+	if err != nil {
+	
+		reqLogger.Error(err, "Failed to build MeterdefinitoinConfigMap")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err: err,
+		}
+	}	
+
+	err = client.Create(context.Background(),mdefConfigMap)
+	if err != nil {
+		reqLogger.Error(err, "Failed to create MeterdefinitoinConfigMap")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err: err,
+		}
+	}
+	
+	return &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+}
+
+func(r *MarketplaceConfigReconciler) createMeterdefFileServer (request reconcile.Request,reqLogger logr.Logger) (*ExecResult){
+	deploymentConfig := &osappsv1.DeploymentConfig{}
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME,Namespace: request.Namespace}, deploymentConfig)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+
+			reqLogger.Info("meterdef file server deployment config not found, creating")
+
+			depConfig,err := r.factory.NewMeterdefintionFileServerDeploymentConfig()
+			if err != nil {
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{Requeue: true},
+					Err: err,
+				}
+			}
+			
+			err = r.Client.Create(context.TODO(),depConfig)
+			if err != nil {
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{Requeue: true},
+					Err: err,
+				}
+			}
+
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{Requeue: true},
+				Err: nil,
+			}
+		}
+
+		reqLogger.Error(err, "Failed to get meterdef file server deploymentconfig")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err: err,
+		}
+	}
+
+
+	
+	newDeploymentConfigValues,err := r.factory.NewMeterdefintionFileServerDeploymentConfig()
+	if err != nil {
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{Requeue: true},
+			Err: err,
+		}
+	}
+
+	updatedDeploymentConfig := deploymentConfig.DeepCopy()
+	updatedDeploymentConfig.Spec = newDeploymentConfigValues.Spec
+
+	if !reflect.DeepEqual(deploymentConfig.Spec, updatedDeploymentConfig.Spec){
+
+		err = r.Client.Update(context.TODO(), updatedDeploymentConfig)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update file server deploymentconfig")
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{Requeue: true},
+				Err: err,
+			}
+		}
+		reqLogger.Info("Updated file server deploymentconfig")
+	}
+
+	fileServerService := &corev1.Service{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME,Namespace: request.Namespace}, fileServerService)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+
+			reqLogger.Info("meterdef file server service not found, creating")
+
+			service,err := r.factory.NewMeterdefintionFileServerService()
+			if err != nil {
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{Requeue: true},
+					Err: err,
+				}
+			}
+			err = r.Client.Create(context.TODO(),service)
+			if err != nil {
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{Requeue: true},
+					Err: err,
+				}
+			}
+		}
+
+		reqLogger.Error(err, "Failed to get Meterdef file server deployment")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err: err,
+		}
+	}
+
+	imageStream := &osimagev1.ImageStream{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME,Namespace: request.Namespace}, imageStream)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+
+			reqLogger.Info("image stream not found, creating")
+
+			is,err := r.factory.NewMeterdefintionFileServerImageStream()
+			if err != nil {
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{Requeue: true},
+					Err: err,
+				}
+			}
+			
+			err = r.Client.Create(context.TODO(),is)
+			if err != nil {
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{Requeue: true},
+					Err: err,
+				}
+			}
+		}
+
+		reqLogger.Error(err, "Failed to get image stream")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err: err,
+		}
+	}
+
+
+	
+	newImageStreamValues,err := r.factory.NewMeterdefintionFileServerImageStream()
+	if err != nil {
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{Requeue: true},
+			Err: err,
+		}
+	}
+
+	updatedImageStream := imageStream.DeepCopy()
+	updatedImageStream.Spec = newImageStreamValues.Spec
+
+	if !reflect.DeepEqual(imageStream.Spec, updatedImageStream.Spec){
+
+		err = r.Client.Update(context.TODO(), updatedImageStream)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update image stream")
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{Requeue: true},
+				Err: err,
+			}
+		}
+		reqLogger.Info("Updated image stream")
+	}
+
+	return &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+}
+
 // labelsForMarketplaceConfig returs the labels for selecting the resources
 // belonging to the given marketplaceConfig custom resource name
 func labelsForMarketplaceConfig(name string) map[string]string {
@@ -800,6 +1020,11 @@ func (m *MarketplaceConfigReconciler) InjectOperatorConfig(cfg *config.OperatorC
 
 func (m *MarketplaceConfigReconciler) InjectMarketplaceClientBuilder(mbuilder *marketplace.MarketplaceClientBuilder) error {
 	m.mclientBuilder = mbuilder
+	return nil
+}
+
+func (r *MarketplaceConfigReconciler) InjectFactory(f *manifests.Factory) error {
+	r.factory = f
 	return nil
 }
 
