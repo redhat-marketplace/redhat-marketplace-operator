@@ -12,14 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate go-bindata -o bindata.go -prefix "../../" -pkg manifests ../../assets/...
-
 package manifests
 
 import (
 	"bytes"
 	"crypto/rand"
 	"crypto/sha1"
+	"embed"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -68,8 +67,19 @@ const (
 
 var log = logf.Log.WithName("manifests_factory")
 
+//go:embed assets/*
+var assets embed.FS
+
+func MustReadFileAsset(filename string) []byte {
+	bts, err := assets.ReadFile(filename)
+	if err != nil {
+		panic(err)
+	}
+	return bts
+}
+
 func MustAssetReader(asset string) io.Reader {
-	return bytes.NewReader(MustAsset(asset))
+	return bytes.NewReader(MustReadFileAsset(asset))
 }
 
 type Factory struct {

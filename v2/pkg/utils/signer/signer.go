@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate go-bindata -o bindata.go -prefix "../../../assets/" -pkg signer ../../../assets/signer/...
-
 package signer
 
 import (
@@ -22,6 +20,7 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"embed"
 	"encoding/hex"
 	"encoding/pem"
 	"io"
@@ -29,15 +28,25 @@ import (
 	"os"
 
 	"emperror.dev/errors"
-	//"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-const SignerCaCertificate = "signer/ca.pem"
+const SignerCaCertificate = "ca.pem"
+
+//go:embed ca.pem
+var assets embed.FS
+
+func MustReadFileAsset(filename string) []byte {
+	bts, err := assets.ReadFile(filename)
+	if err != nil {
+		panic(err)
+	}
+	return bts
+}
 
 func MustAssetReader(asset string) io.Reader {
-	return bytes.NewReader(MustAsset(asset))
+	return bytes.NewReader(MustReadFileAsset(asset))
 }
 
 // github.com/manifestival/manifestival/internal/sources/yaml.go
