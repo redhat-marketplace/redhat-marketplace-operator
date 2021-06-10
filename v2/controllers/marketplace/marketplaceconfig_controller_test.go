@@ -95,10 +95,22 @@ var _ = Describe("Testing with Ginkgo", func() {
 		marketplaceconfig.Spec.ClusterUUID = "test"
 		razeedeployment = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
 		meterbase = utils.BuildMeterBaseCr(namespace)
+		tokenClaims := marketplace.MarketplaceClaims{
+			AccountID: "foo",
+			APIKey:    "test",
+			Env:       "test",
+			StandardClaims: jwt.StandardClaims{
+				ExpiresAt: 15000,
+				Issuer:    "test",
+			},
+		}
+
+		signingKey := []byte("AllYourBase")
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, tokenClaims)
+
 		Eventually(func() string {
 			// Create the token
-			jwtToken := jwt.New(jwt.SigningMethodHS256)
-			tokenString, err = jwtToken.SignedString([]byte("test"))
+			tokenString, err = token.SignedString(signingKey)
 			if err != nil {
 				panic(err)
 			}
@@ -174,6 +186,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 			marketplaceconfig.Spec.EnableMetering = ptr.Bool(true)
 			marketplaceconfig.Spec.InstallIBMCatalogSource = ptr.Bool(true)
+
 			reconcilerTest := NewReconcilerTest(setup, marketplaceconfig, deployedNamespace, secret)
 			reconcilerTest.TestAll(t,
 				ReconcileStep(opts, ReconcileWithUntilDone(true)),

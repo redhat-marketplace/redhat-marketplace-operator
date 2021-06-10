@@ -21,7 +21,6 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/go-logr/logr"
@@ -590,7 +589,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 	reqLogger.Info("Finding Cluster registration status")
 
-	requeueResult, requeue, err := func() (reconcile.Result, bool, error) {
+	requeueResult, requeue, err = func() (reconcile.Result, bool, error) {
 		if secret == nil {
 			return reconcile.Result{}, false, nil
 		}
@@ -654,7 +653,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	reqLogger.Info("reconciling finished")
-	return reconcile.Result{RequeueAfter: 10 * time.Minute}, nil
+	return reconcile.Result{}, nil
 }
 
 // labelsForMarketplaceConfig returs the labels for selecting the resources
