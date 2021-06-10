@@ -35,13 +35,13 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.15.11
+        go-version: 1.16.2
     - name: Cache Go modules
       uses: actions/cache@v2
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: ${{ runner.os }}-1.15.11-go-
+        restore-keys: ${{ runner.os }}-1.16.2-go-
     - name: Install Kubebuilder
       run: |-
         os=$(go env GOOS)
@@ -194,7 +194,7 @@ jobs:
       run:
         shell: bash
     if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body,
-      '/publish') }}
+      '/publish') && !startsWith(github.event.commenm) }}
     steps:
     - name: Check if user has write access
       uses: lannonbr/repo-permission-check-action@2.0.0
@@ -216,13 +216,13 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.15.11
+        go-version: 1.16.2
     - name: Cache Go modules
       uses: actions/cache@v2
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: ${{ runner.os }}-1.15.11-go-
+        restore-keys: ${{ runner.os }}-1.16.2-go-
     - name: Install Kubebuilder
       run: |-
         os=$(go env GOOS)
@@ -396,13 +396,13 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.15.11
+        go-version: 1.16.2
     - name: Cache Go modules
       uses: actions/cache@v2
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: ${{ runner.os }}-1.15.11-go-
+        restore-keys: ${{ runner.os }}-1.16.2-go-
     - name: Install Kubebuilder
       run: |-
         os=$(go env GOOS)

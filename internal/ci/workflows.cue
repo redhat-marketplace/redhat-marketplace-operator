@@ -656,7 +656,7 @@ _#turnStyleStep: _#step & {
 	env: "GITHUB_TOKEN":            "${{ secrets.GITHUB_TOKEN }}"
 }
 
-_#goVersion: "1.15.11"
+_#goVersion: "1.16.2"
 _#pcUser:    "pcUser"
 
 _#image: {
