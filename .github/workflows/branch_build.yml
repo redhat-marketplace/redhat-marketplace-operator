@@ -232,14 +232,11 @@ jobs:
     strategy:
       matrix:
         project:
-        - base
         - operator
         - authchecker
         - metering
         - reporter
         include:
-        - project: base
-          continueOnError: true
         - project: operator
           continueOnError: false
         - project: authchecker

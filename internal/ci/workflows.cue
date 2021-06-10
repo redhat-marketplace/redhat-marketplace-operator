@@ -292,12 +292,8 @@ branch_build: _#bashWorkflow & {
 				VERSION: "${{ needs.test.outputs.tag }}"
 			}
 			strategy: matrix: {
-				project: ["base", "operator", "authchecker", "metering", "reporter"]
+				project: ["operator", "authchecker", "metering", "reporter"]
         include: [
-          {
-            project: "base"
-            continueOnError: true
-          },
           {
             project: "operator"
             continueOnError: false
@@ -676,6 +672,7 @@ _#turnStyleStep: _#step & {
 	with: "continue-after-seconds": 45
 	env: "GITHUB_TOKEN":            "${{ secrets.GITHUB_TOKEN }}"
 }
+
 _#archs: ["amd64", "ppc64le", "s390x"]
 _#registry:     "quay.io/rh-marketplace"
 _#goVersion:    "1.16.2"
