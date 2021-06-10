@@ -15,12 +15,11 @@
 package signer
 
 import (
-	"bytes"
 	"crypto"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
-	"embed"
+	_ "embed"
 	"encoding/hex"
 	"encoding/pem"
 	"io"
@@ -32,22 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-const SignerCaCertificate = "ca.pem"
-
 //go:embed ca.pem
-var assets embed.FS
-
-func MustReadFileAsset(filename string) []byte {
-	bts, err := assets.ReadFile(filename)
-	if err != nil {
-		panic(err)
-	}
-	return bts
-}
-
-func MustAssetReader(asset string) io.Reader {
-	return bytes.NewReader(MustReadFileAsset(asset))
-}
+var signerCACertificate []byte
 
 // github.com/manifestival/manifestival/internal/sources/yaml.go
 func Decode(reader io.Reader) ([]unstructured.Unstructured, error) {
@@ -136,13 +121,7 @@ func CertificateFromPemBytes(pemData []byte) (*x509.Certificate, error) {
 }
 
 func CertificateFromAssets() (*x509.Certificate, error) {
-	caCertReader := MustAssetReader(SignerCaCertificate)
-	pemData, err := ioutil.ReadAll(caCertReader)
-	if err != nil {
-		return nil, errors.Wrap(err, "Unable to read pem file")
-	}
-
-	return CertificateFromPemBytes(pemData)
+	return CertificateFromPemBytes(signerCACertificate)
 }
 
 // This should be the bytes we sign, or verify signature on
