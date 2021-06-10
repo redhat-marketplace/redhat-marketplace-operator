@@ -23,8 +23,11 @@ spec:
           imagePullPolicy: IfNotPresent
           resources:
             requests:
-              cpu: 100m
+              cpu: 50m
               memory: 150Mi
+            limits:
+              cpu: 100m
+              memory: 450Mi                
           securityContext: {}
           terminationMessagePolicy: FallbackToLogsOnError
           ports:
@@ -38,6 +41,9 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
+            limits:
+              cpu: 20m
+              memory: 40Mi                
           terminationMessagePolicy: FallbackToLogsOnError
         - args:
             - --logtostderr
@@ -57,6 +63,9 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
+            limits:
+              cpu: 20m
+              memory: 25Mi                
           securityContext: {}
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
@@ -84,6 +93,9 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
+            limits:
+              cpu: 20m
+              memory: 25Mi                
           securityContext: {}
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
