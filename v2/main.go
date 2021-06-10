@@ -37,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	osimagev1 "github.com/openshift/api/image/v1"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -79,6 +80,7 @@ func init() {
 	utilruntime.Must(olmv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(marketplacev1beta1.AddToScheme(scheme))
+	utilruntime.Must(osimagev1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -223,8 +225,8 @@ func main() {
 		Log:    ctrl.Log.WithName("controllers").WithName("MeterdefinitionInstallMap"),
 		Scheme: mgr.GetScheme(),
 	}).Inject(injector).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "MeterdefinitionInstallMap")
-			os.Exit(1)
+		setupLog.Error(err, "unable to create controller", "controller", "MeterdefinitionInstallMap")
+		os.Exit(1)
 	}
 
 	if err = (&controllers.MeterdefinitionInstallReconciler{
@@ -232,8 +234,8 @@ func main() {
 		Log:    ctrl.Log.WithName("controllers").WithName("MeterdefinitionInstall"),
 		Scheme: mgr.GetScheme(),
 	}).Inject(injector).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "MeterdefinitionInstall")
-			os.Exit(1)
+		setupLog.Error(err, "unable to create controller", "controller", "MeterdefinitionInstall")
+		os.Exit(1)
 	}
 
 	if err = (&controllers.RemoteResourceS3Reconciler{

@@ -80,7 +80,7 @@ type MarketplaceConfigReconciler struct {
 	cc             ClientCommandRunner
 	cfg            *config.OperatorConfig
 	mclientBuilder *marketplace.MarketplaceClientBuilder
-	factory *manifests.Factory
+	factory        *manifests.Factory
 }
 
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;update;patch
@@ -124,19 +124,19 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 	// Fetch the meterDefInstallMap instance
 	meterDefInstallMap := &corev1.ConfigMap{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME,Namespace: request.Namespace}, meterDefInstallMap)
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME, Namespace: request.Namespace}, meterDefInstallMap)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 
 			reqLogger.Info("meterdef store not found, creating")
 
-			result := createMeterdefInstallMap(r.factory,r.Client,reqLogger)
+			result := createMeterdefInstallMap(r.factory, r.Client, reqLogger)
 			if !result.Is(Continue) {
-				
+
 				if result.Is(Error) {
 					reqLogger.Error(result.GetError(), "Failed to create meterdef store.")
 				}
-		
+
 				return result.Return()
 			}
 
@@ -148,9 +148,9 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	//create file server deployment
-	result := r.createMeterdefFileServer(request,reqLogger)
+	result := r.createMeterdefFileServer(request, reqLogger)
 	if !result.Is(Continue) {
-		
+
 		if result.Is(Error) {
 			reqLogger.Error(result.GetError(), "Failed to create meterdef file server")
 		}
@@ -674,113 +674,111 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
 }
 
-func createMeterdefInstallMap(factory *manifests.Factory,client client.Client,reqLogger logr.Logger)*ExecResult{
+func createMeterdefInstallMap(factory *manifests.Factory, client client.Client, reqLogger logr.Logger) *ExecResult {
 	mdefConfigMap, err := factory.NewMeterdefinitionConfigMap()
 	if err != nil {
-	
+
 		reqLogger.Error(err, "Failed to build MeterdefinitoinConfigMap")
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
-			Err: err,
+			Err:             err,
 		}
-	}	
+	}
 
-	err = client.Create(context.Background(),mdefConfigMap)
+	err = client.Create(context.Background(), mdefConfigMap)
 	if err != nil {
 		reqLogger.Error(err, "Failed to create MeterdefinitoinConfigMap")
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
-			Err: err,
+			Err:             err,
 		}
 	}
-	
+
 	return &ExecResult{
 		Status: ActionResultStatus(Continue),
 	}
 }
 
-func(r *MarketplaceConfigReconciler) createMeterdefFileServer (request reconcile.Request,reqLogger logr.Logger) (*ExecResult){
+func (r *MarketplaceConfigReconciler) createMeterdefFileServer(request reconcile.Request, reqLogger logr.Logger) *ExecResult {
 	deploymentConfig := &osappsv1.DeploymentConfig{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME,Namespace: request.Namespace}, deploymentConfig)
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: request.Namespace}, deploymentConfig)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 
 			reqLogger.Info("meterdef file server deployment config not found, creating")
 
-			depConfig,err := r.factory.NewMeterdefintionFileServerDeploymentConfig()
+			depConfig, err := r.factory.NewMeterdefintionFileServerDeploymentConfig()
 			if err != nil {
 				return &ExecResult{
 					ReconcileResult: reconcile.Result{Requeue: true},
-					Err: err,
+					Err:             err,
 				}
 			}
-			
-			err = r.Client.Create(context.TODO(),depConfig)
+
+			err = r.Client.Create(context.TODO(), depConfig)
 			if err != nil {
 				return &ExecResult{
 					ReconcileResult: reconcile.Result{Requeue: true},
-					Err: err,
+					Err:             err,
 				}
 			}
 
 			return &ExecResult{
 				ReconcileResult: reconcile.Result{Requeue: true},
-				Err: nil,
+				Err:             nil,
 			}
 		}
 
 		reqLogger.Error(err, "Failed to get meterdef file server deploymentconfig")
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
-			Err: err,
+			Err:             err,
 		}
 	}
 
-
-	
-	newDeploymentConfigValues,err := r.factory.NewMeterdefintionFileServerDeploymentConfig()
+	newDeploymentConfigValues, err := r.factory.NewMeterdefintionFileServerDeploymentConfig()
 	if err != nil {
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{Requeue: true},
-			Err: err,
+			Err:             err,
 		}
 	}
 
 	updatedDeploymentConfig := deploymentConfig.DeepCopy()
 	updatedDeploymentConfig.Spec = newDeploymentConfigValues.Spec
 
-	if !reflect.DeepEqual(deploymentConfig.Spec, updatedDeploymentConfig.Spec){
+	if !reflect.DeepEqual(deploymentConfig.Spec, updatedDeploymentConfig.Spec) {
 
 		err = r.Client.Update(context.TODO(), updatedDeploymentConfig)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update file server deploymentconfig")
 			return &ExecResult{
 				ReconcileResult: reconcile.Result{Requeue: true},
-				Err: err,
+				Err:             err,
 			}
 		}
 		reqLogger.Info("Updated file server deploymentconfig")
 	}
 
 	fileServerService := &corev1.Service{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME,Namespace: request.Namespace}, fileServerService)
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: request.Namespace}, fileServerService)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 
 			reqLogger.Info("meterdef file server service not found, creating")
 
-			service,err := r.factory.NewMeterdefintionFileServerService()
+			service, err := r.factory.NewMeterdefintionFileServerService()
 			if err != nil {
 				return &ExecResult{
 					ReconcileResult: reconcile.Result{Requeue: true},
-					Err: err,
+					Err:             err,
 				}
 			}
-			err = r.Client.Create(context.TODO(),service)
+			err = r.Client.Create(context.TODO(), service)
 			if err != nil {
 				return &ExecResult{
 					ReconcileResult: reconcile.Result{Requeue: true},
-					Err: err,
+					Err:             err,
 				}
 			}
 		}
@@ -788,30 +786,30 @@ func(r *MarketplaceConfigReconciler) createMeterdefFileServer (request reconcile
 		reqLogger.Error(err, "Failed to get Meterdef file server deployment")
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
-			Err: err,
+			Err:             err,
 		}
 	}
 
 	imageStream := &osimagev1.ImageStream{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME,Namespace: request.Namespace}, imageStream)
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: request.Namespace}, imageStream)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 
 			reqLogger.Info("image stream not found, creating")
 
-			is,err := r.factory.NewMeterdefintionFileServerImageStream()
+			is, err := r.factory.NewMeterdefintionFileServerImageStream()
 			if err != nil {
 				return &ExecResult{
 					ReconcileResult: reconcile.Result{Requeue: true},
-					Err: err,
+					Err:             err,
 				}
 			}
-			
-			err = r.Client.Create(context.TODO(),is)
+
+			err = r.Client.Create(context.TODO(), is)
 			if err != nil {
 				return &ExecResult{
 					ReconcileResult: reconcile.Result{Requeue: true},
-					Err: err,
+					Err:             err,
 				}
 			}
 		}
@@ -819,31 +817,29 @@ func(r *MarketplaceConfigReconciler) createMeterdefFileServer (request reconcile
 		reqLogger.Error(err, "Failed to get image stream")
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
-			Err: err,
+			Err:             err,
 		}
 	}
 
-
-	
-	newImageStreamValues,err := r.factory.NewMeterdefintionFileServerImageStream()
+	newImageStreamValues, err := r.factory.NewMeterdefintionFileServerImageStream()
 	if err != nil {
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{Requeue: true},
-			Err: err,
+			Err:             err,
 		}
 	}
 
 	updatedImageStream := imageStream.DeepCopy()
 	updatedImageStream.Spec = newImageStreamValues.Spec
 
-	if !reflect.DeepEqual(imageStream.Spec, updatedImageStream.Spec){
+	if !reflect.DeepEqual(imageStream.Spec, updatedImageStream.Spec) {
 
 		err = r.Client.Update(context.TODO(), updatedImageStream)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update image stream")
 			return &ExecResult{
 				ReconcileResult: reconcile.Result{Requeue: true},
-				Err: err,
+				Err:             err,
 			}
 		}
 		reqLogger.Info("Updated image stream")
