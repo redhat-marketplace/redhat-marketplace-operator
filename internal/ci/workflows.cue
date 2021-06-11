@@ -271,7 +271,9 @@ branch_build: _#bashWorkflow & {
 			steps: [
 				_#checkoutCode,
 				_#installGo,
-        _#cacheDockerBuildx,
+        (_#cacheDockerBuildx & {
+          #project: "base"
+        }).res,
 				_#setupQemu,
 				_#setupBuildX,
 				_#quayLogin,
@@ -335,7 +337,9 @@ branch_build: _#bashWorkflow & {
 				_#setupQemu,
 				_#setupBuildX,
 				_#cacheGoModules,
-        _#cacheDockerBuildx,
+        (_#cacheDockerBuildx & {
+          #project: "${{ matrix.project }}"
+        }).res,
 				_#installKubeBuilder,
 				_#installOperatorSDK,
 				_#installYQ,
@@ -501,13 +505,16 @@ _#cacheGoModules: _#step & {
 	}
 }
 
-_#cacheDockerBuildx: _#step & {
-	name: "Cache Docker Buildx"
-	uses: "actions/cache@v2"
-	with: {
-    path: "/tmp/.buildx-cache"
-    key: "${{ runner.os }}-buildx-${{ github.sha }}"
-    "restore-keys": "${{ runner.os }}-buildx-"
+_#cacheDockerBuildx: {
+  #project: string
+  res: _#step & {
+    name: "Cache Docker Buildx"
+    uses: "actions/cache@v2"
+    with: {
+      path: "/tmp/.buildx-cache"
+      key: "${{ runner.os }}-buildx-\(#project)-${{ github.sha }}"
+      "restore-keys": "${{ runner.os }}-buildx-\(#project)-"
+    }
   }
 }
 

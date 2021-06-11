@@ -152,8 +152,8 @@ jobs:
       uses: actions/cache@v2
       with:
         path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-buildx-${{ github.sha }}
-        restore-keys: ${{ runner.os }}-buildx-
+        key: ${{ runner.os }}-buildx-base-${{ github.sha }}
+        restore-keys: ${{ runner.os }}-buildx-base-
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v1
     - id: buildx
@@ -212,8 +212,8 @@ jobs:
       uses: actions/cache@v2
       with:
         path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-buildx-${{ github.sha }}
-        restore-keys: ${{ runner.os }}-buildx-
+        key: ${{ runner.os }}-buildx-${{ matrix.project }}-${{ github.sha }}
+        restore-keys: ${{ runner.os }}-buildx-${{ matrix.project }}-
     - name: Install Kubebuilder
       run: |-
         os=$(go env GOOS)
