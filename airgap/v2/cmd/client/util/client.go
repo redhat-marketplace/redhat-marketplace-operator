@@ -31,7 +31,7 @@ func InitClient() (*grpc.ClientConn, error) {
 	insecure := viper.GetBool("insecure")
 	var conn *grpc.ClientConn
 
-	log, err := InitLog()
+	_, err := InitLog()
 	if err != nil {
 		return nil, err
 	}
