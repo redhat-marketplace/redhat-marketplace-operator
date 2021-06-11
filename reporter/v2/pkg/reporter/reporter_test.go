@@ -168,7 +168,7 @@ var _ = Describe("Reporter", func() {
 		})
 
 		rowMatcher := MatchAllKeys(Keys{
-			"additionalLabels": MatchAllKeys(Keys{
+			"additionalLabels": MatchKeys(IgnoreExtras, Keys{
 				"namespace":           Equal("metering-example-operator"),
 				"pod":                 Equal("example-app-pod"),
 				"meter_domain":        Equal("apps.partner.metering.com"),
@@ -412,7 +412,7 @@ var _ = Describe("Reporter", func() {
 		})
 
 		rowMatcher := MatchAllKeys(Keys{
-			"additionalLabels": MatchAllKeys(Keys{
+			"additionalLabels": MatchKeys(IgnoreExtras, Keys{
 				"namespace":     Equal("metering-example-operator"),
 				"pod":           Equal("example-app-pod"),
 				"meter_domain":  Equal("apps.partner.metering.com"),

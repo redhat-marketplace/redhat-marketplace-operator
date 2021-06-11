@@ -9,6 +9,7 @@ ARCH ?= amd64
 IMAGE_PUSH ?= true
 DOCKER_BUILD := docker build
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+DOCKERBUILDXCACHE ?= ""
 
 # --TOOLS--
 #
@@ -138,6 +139,11 @@ endif
 # func(image,args)
 define docker-build
 $(DOCKER_BUILD) \
+ifneq ($(DOCKERBUILDXCACHE),)
+--cache-from "type=local,src=$(DOCKERBUILDXCACHE)"
+--cache-to "type=local,src=$(DOCKERBUILDXCACHE)"
+--output "type=image,push=$(IMAGE_PUSH)"
+endif
 -t "$(1)" \
 -f base.Dockerfile $(2) .
 endef
@@ -147,6 +153,11 @@ define docker-templated-build
 $(DOCKER_BUILD) \
 -f ./Dockerfile \
 --tag $(1) \
+ifneq ($(DOCKERBUILDXCACHE),)
+--cache-from "type=local,src=$(DOCKERBUILDXCACHE)"
+--cache-to "type=local,src=$(DOCKERBUILDXCACHE)"
+--output "type=image,push=$(IMAGE_PUSH)"
+endif
 --build-arg ARCHS='$(ARCHS)' \
 --build-arg REGISTRY=$(IMAGE_REGISTRY) \
 --build-arg name=$(2) \

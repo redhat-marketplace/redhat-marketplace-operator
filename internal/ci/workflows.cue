@@ -271,6 +271,7 @@ branch_build: _#bashWorkflow & {
 			steps: [
 				_#checkoutCode,
 				_#installGo,
+        _#cacheDockerBuildx,
 				_#setupQemu,
 				_#setupBuildX,
 				_#quayLogin,
@@ -278,6 +279,22 @@ branch_build: _#bashWorkflow & {
 					id:   "build"
 					name: "Build images"
 	        "continue-on-error": "${{ matrix.continueOnError }}"
+          env: {
+            "DOCKERBUILDXCACHE" : "/tmp/.buildx-cache",
+            "PUSH": "false",
+          }
+					run: """
+						make base/docker-build
+						"""
+				},
+        _#step & {
+					id:   "build"
+					name: "Build images"
+	        "continue-on-error": "${{ matrix.continueOnError }}"
+          env: {
+            "DOCKERBUILDXCACHE" : "/tmp/.buildx-cache",
+            "PUSH": "true",
+          }
 					run: """
 						make base/docker-build
 						"""
@@ -318,6 +335,7 @@ branch_build: _#bashWorkflow & {
 				_#setupQemu,
 				_#setupBuildX,
 				_#cacheGoModules,
+        _#cacheDockerBuildx,
 				_#installKubeBuilder,
 				_#installOperatorSDK,
 				_#installYQ,
@@ -326,8 +344,24 @@ branch_build: _#bashWorkflow & {
 					id:   "build"
 					name: "Build images"
 	        "continue-on-error": "${{ matrix.continueOnError }}"
+          env: {
+            "DOCKERBUILDXCACHE" : "/tmp/.buildx-cache",
+            "PUSH": "false",
+          }
 					run: """
 						make clean-licenses save-licenses ${{ matrix.project }}/docker-build
+						"""
+				},
+				_#step & {
+					id:   "build"
+					name: "Build images"
+	        "continue-on-error": "${{ matrix.continueOnError }}"
+          env: {
+            "DOCKERBUILDXCACHE" : "/tmp/.buildx-cache",
+            "PUSH": "true",
+          }
+					run: """
+						make ${{ matrix.project }}/docker-build
 						"""
 				},
 			]
@@ -465,6 +499,16 @@ _#cacheGoModules: _#step & {
 		key:            "${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}"
 		"restore-keys": "${{ runner.os }}-\(_#goVersion)-go-"
 	}
+}
+
+_#cacheDockerBuildx: _#step & {
+	name: "Cache Docker Buildx"
+	uses: "actions/cache@v2"
+	with: {
+    path: "/tmp/.buildx-cache"
+    key: "${{ runner.os }}-buildx-${{ github.sha }}"
+    "restore-keys": "${{ runner.os }}-buildx-"
+  }
 }
 
 _#getBundleRunID: _#step & {

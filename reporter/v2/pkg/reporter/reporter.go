@@ -435,6 +435,12 @@ func (r *MarketplaceReporter) Process(
 						labels := getAllKeysFromMetric(matrix.Metric)
 						kvMap, err := kvToMap(labels)
 
+						if pmodel.mdef.query.MeterDef.Name != "" &&
+							pmodel.mdef.query.MeterDef.Namespace != "" {
+							kvMap["meter_def_name"] = pmodel.mdef.query.MeterDef.Name
+							kvMap["meter_def_namespace"] = pmodel.mdef.query.MeterDef.Namespace
+						}
+
 						if err != nil {
 							logger.Error(err, "failed to get kvmap")
 							errorsch <- errors.Wrap(err, "failed to get kvmap")

@@ -148,6 +148,12 @@ jobs:
       uses: actions/setup-go@v2
       with:
         go-version: 1.16.2
+    - name: Cache Docker Buildx
+      uses: actions/cache@v2
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: ${{ runner.os }}-buildx-
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v1
     - id: buildx
@@ -162,6 +168,16 @@ jobs:
     - id: build
       name: Build images
       run: make base/docker-build
+      env:
+        DOCKERBUILDXCACHE: /tmp/.buildx-cache
+        PUSH: "false"
+      continue-on-error: ${{ matrix.continueOnError }}
+    - id: build
+      name: Build images
+      run: make base/docker-build
+      env:
+        DOCKERBUILDXCACHE: /tmp/.buildx-cache
+        PUSH: "true"
       continue-on-error: ${{ matrix.continueOnError }}
   images:
     name: Build Images
@@ -192,6 +208,12 @@ jobs:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: ${{ runner.os }}-1.16.2-go-
+    - name: Cache Docker Buildx
+      uses: actions/cache@v2
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: ${{ runner.os }}-buildx-
     - name: Install Kubebuilder
       run: |-
         os=$(go env GOOS)
@@ -228,6 +250,16 @@ jobs:
     - id: build
       name: Build images
       run: make clean-licenses save-licenses ${{ matrix.project }}/docker-build
+      env:
+        DOCKERBUILDXCACHE: /tmp/.buildx-cache
+        PUSH: "false"
+      continue-on-error: ${{ matrix.continueOnError }}
+    - id: build
+      name: Build images
+      run: make ${{ matrix.project }}/docker-build
+      env:
+        DOCKERBUILDXCACHE: /tmp/.buildx-cache
+        PUSH: "true"
       continue-on-error: ${{ matrix.continueOnError }}
     strategy:
       matrix:
