@@ -40,8 +40,8 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: ${{ runner.os }}-1.16.2-go-
+        key: ${{ runner.os }}-go-${{ github.sha }}
+        restore-keys: ${{ runner.os }}-go-
     - name: Install Kubebuilder
       run: |-
         os=$(go env GOOS)
@@ -222,8 +222,8 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: ${{ runner.os }}-1.16.2-go-
+        key: ${{ runner.os }}-go-${{ github.sha }}
+        restore-keys: ${{ runner.os }}-go-
     - name: Install Kubebuilder
       run: |-
         os=$(go env GOOS)
@@ -403,8 +403,8 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: ${{ runner.os }}-1.16.2-go-
+        key: ${{ runner.os }}-go-${{ github.sha }}
+        restore-keys: ${{ runner.os }}-go-
     - name: Install Kubebuilder
       run: |-
         os=$(go env GOOS)
