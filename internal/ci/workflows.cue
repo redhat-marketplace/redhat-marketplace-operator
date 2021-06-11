@@ -238,6 +238,7 @@ branch_build: _#bashWorkflow & {
 				_#checkoutCode & {
 					with: "fetch-depth": 0
 				},
+				_#cancelPreviousRun,
 				_#installGo,
 				_#cacheGoModules,
 				_#installKubeBuilder,
@@ -385,7 +386,6 @@ branch_build: _#bashWorkflow & {
 				tag:     "${{ steps.bundle.outputs.tag }}"
 			}
 			steps: [
-				_#cancelPreviousRun,
 				_#checkoutCode,
 				_#installGo,
 				_#setupQemu,
