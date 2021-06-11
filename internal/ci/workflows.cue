@@ -500,8 +500,8 @@ _#cacheGoModules: _#step & {
 	uses: "actions/cache@v2"
 	with: {
 		path:           "~/go/pkg/mod"
-		key:            "${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}"
-		"restore-keys": "${{ runner.os }}-\(_#goVersion)-go-"
+		key:            "${{ runner.os }}-go-${{ github.sha }}"
+		"restore-keys": "${{ runner.os }}-go-"
 	}
 }
 
