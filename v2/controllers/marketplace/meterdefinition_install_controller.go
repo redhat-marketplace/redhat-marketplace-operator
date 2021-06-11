@@ -120,12 +120,16 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 						return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 					}
 
-					// delete the meterdefinition
 					if CSV.Status.Phase == olmv1alpha1.CSVPhaseDeleting {
-
-						/*
-							clean up install list
-						*/
+						// deleting meterdefinitions will be automatically handled as we have set owner references during its creating
+						// clean up install list
+						result := deleteInstallMapping(csvPackageName, request, r.Client, reqLogger)
+						if !result.Is(Continue) {
+							if result.Is(Error) {
+								reqLogger.Error(result.GetError(), "Failed retrieving meterdefinitions from file server")
+							}
+							return result.Return()
+						}
 					}
 
 					// handle CSV updates: change in CSV version might change applicable meter definitions
@@ -197,7 +201,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 									end := strings.TrimSpace(vr[1])
 									versionRangeDir := fmt.Sprintf("%s-%s", begin, end)
 
-									result = r.setInstalledMeterdefinition(meterDefItem.GetAnnotations()["packageName"], versionRangeDir, meterDefItem.Name, request, reqLogger)
+									result = r.setInstalledMeterdefinition(meterDefItem.GetAnnotations()["packageName"], csvVersion, versionRangeDir, meterDefItem.Name, request, reqLogger)
 									if !result.Is(Continue) {
 
 										if result.Is(Error) {
@@ -288,7 +292,7 @@ func listMeterdefintionsFromFileServer(packageName string, version string, names
 	// var selectedMeterDefinitions []marketplacev1beta1.MeterDefinition
 
 	// returns all the meterdefinitions for associated with a particular CSV version
-	url := fmt.Sprintf("http://rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc.cluster.local:8100/list/%s/%s", packageName, version)
+	url := fmt.Sprintf("http://rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc.cluster.local:8100/list-for-version/%s/%s", packageName, version)
 	response, err := http.Get(url)
 	if err != nil {
 		if err == io.EOF {
@@ -340,7 +344,7 @@ func listMeterdefintionsFromFileServer(packageName string, version string, names
 	}
 }
 
-func (r *MeterdefinitionInstallReconciler) setInstalledMeterdefinition(packageName string, versionRange string, installedMeterdef string, request reconcile.Request, reqLogger logr.InfoLogger) *ExecResult {
+func (r *MeterdefinitionInstallReconciler) setInstalledMeterdefinition(packageName string, csvVersion string, versionRange string, installedMeterdef string, request reconcile.Request, reqLogger logr.InfoLogger) *ExecResult {
 
 	// Fetch the mdefKVStore instance
 	mdefKVStoreCM := &corev1.ConfigMap{}
@@ -362,7 +366,7 @@ func (r *MeterdefinitionInstallReconciler) setInstalledMeterdefinition(packageNa
 	}
 
 	mdefStore := mdefKVStoreCM.Data["meterdefinitionStore"]
-	updatedStore, err := addOrUpdateInstallList(packageName, versionRange, installedMeterdef, mdefStore, request, reqLogger)
+	updatedStore, err := addOrUpdateInstallList(packageName, csvVersion, versionRange, installedMeterdef, mdefStore, request, reqLogger)
 	if err != nil {
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
@@ -388,7 +392,7 @@ func (r *MeterdefinitionInstallReconciler) setInstalledMeterdefinition(packageNa
 
 // string of meterdefinitions > add json to ./json-store
 // adds a new InstalledMeterdefinition to the json store
-func addOrUpdateInstallList(packageName string, versionRange string, installedMeterdef string, cmMdefStore string, request reconcile.Request, reqLogger logr.Logger) (string, error) {
+func addOrUpdateInstallList(packageName string, csvVersion string, versionRange string, installedMeterdef string, cmMdefStore string, request reconcile.Request, reqLogger logr.Logger) (string, error) {
 
 	meterdefStore := &MeterdefinitionStore{}
 
@@ -402,7 +406,7 @@ func addOrUpdateInstallList(packageName string, versionRange string, installedMe
 	var installMappingFound bool
 	for i, item := range meterdefStore.InstallMappings {
 		// update a certain package's meterdefinition install list
-		if item.PackageName == packageName {
+		if item.PackageName == packageName && item.Namespace == request.Namespace {
 			installMappingFound = true
 			reqLogger.Info("found existing meterdefinition mapping", "mapping", item)
 			// if there are missing meterdefinitions from the list add them
@@ -418,8 +422,9 @@ func addOrUpdateInstallList(packageName string, versionRange string, installedMe
 		reqLogger.Info("no meterdef mapping found, adding")
 		newInstallMapping := InstallMapping{
 			PackageName:               packageName,
-			VersionRangeDir:           versionRange,
 			Namespace:                 request.Namespace,
+			CsvVersion:                csvVersion,
+			VersionRangeDir:           versionRange,
 			InstalledMeterdefinitions: []string{installedMeterdef},
 		}
 
@@ -434,6 +439,53 @@ func addOrUpdateInstallList(packageName string, versionRange string, installedMe
 
 	meterdefStoreJson := string(out)
 	return meterdefStoreJson, nil
+}
+
+// deletes install mapping for (packageName + namespace) combination
+func deleteInstallMapping(packageName string, request reconcile.Request, client client.Client, reqLogger logr.Logger) *ExecResult {
+
+	// Fetch the mdefKVStore instance
+	mdefKVStoreCM := &corev1.ConfigMap{}
+	err := client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME, Namespace: request.Namespace}, mdefKVStoreCM)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
+			}
+
+		}
+
+		reqLogger.Error(err, "Failed to get MeterdefintionConfigMap")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	mdefStore := mdefKVStoreCM.Data["meterdefinitionStore"]
+
+	meterdefStore := &MeterdefinitionStore{}
+
+	err = json.Unmarshal([]byte(mdefStore), meterdefStore)
+	if err != nil {
+		reqLogger.Error(err, "error unmarshaling meterdefinition store")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	for i, item := range meterdefStore.InstallMappings {
+		// update a certain package's meterdefinition install list
+		if item.PackageName == packageName && item.Namespace == request.Namespace {
+			meterdefStore.InstallMappings = append(meterdefStore.InstallMappings[:i], meterdefStore.InstallMappings[i+1:]...)
+			break
+		}
+	}
+	return &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
 }
 
 func updateAndWrite(meterdefStore *MeterdefinitionStore) {
@@ -483,7 +535,7 @@ var rhmCSVControllerPredicates predicate.Funcs = predicate.Funcs{
 		return false
 	},
 	DeleteFunc: func(evt event.DeleteEvent) bool {
-		return false
+		return true
 	},
 	CreateFunc: func(evt event.CreateEvent) bool {
 		return csvFilter(evt.Meta) > 0

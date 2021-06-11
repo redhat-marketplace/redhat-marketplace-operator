@@ -80,7 +80,7 @@ type MeterdefConfigMapReconciler struct {
 type InstallMapping struct {
 	PackageName               string   `json:"packageName"`
 	Namespace                 string   `json:"namespace"`
-	Version                   string   `json:"version"` //TODO: not being used
+	CsvVersion                string   `json:"version"`
 	VersionRangeDir           string   `json:"versionRange"`
 	InstalledMeterdefinitions []string `json:"installedMeterdefinitions"`
 }
@@ -115,7 +115,7 @@ func (r *MeterdefConfigMapReconciler) InjectFactory(f *manifests.Factory) error 
 	return nil
 }
 
-// add adds a new Controller to mgr with r as the reconcile.Reconciler
+// adds a new Controller to mgr with r as the reconcile.Reconciler
 func (r *MeterdefConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	nsPred := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
@@ -275,7 +275,7 @@ func (r *MeterdefConfigMapReconciler) sync(reqLogger logr.Logger) *ExecResult {
 	// with what we got from file server and update it if the meter def from file server has changed
 	for _, installMap := range installMappings {
 		for _, installedMeterdefName := range installMap.InstalledMeterdefinitions {
-			meterdefinitionFromCatalog, err := getMeterdefintionFromFileServer(installMap.PackageName, installMap.Namespace, installMap.VersionRangeDir, installedMeterdefName, reqLogger)
+			meterdefinitionFromCatalog, err := getMeterdefintionFromFileServer(installMap.PackageName, installMap.Namespace, installedMeterdefName, reqLogger)
 			if err != nil {
 				return &ExecResult{
 					ReconcileResult: reconcile.Result{},
@@ -292,13 +292,6 @@ func (r *MeterdefConfigMapReconciler) sync(reqLogger logr.Logger) *ExecResult {
 			if err != nil {
 				if errors.IsNotFound(err) {
 					reqLogger.Info("meterdefinition not found", "meterdef name", meterdefFromCluster.Name)
-					// meterdefinitionFromCatalog, err := getMeterdefintionFromFileServer(installMap.PackageName,installMap.VersionRangeDir,installedMeterdefName,reqLogger)
-					if err != nil {
-						return &ExecResult{
-							ReconcileResult: reconcile.Result{},
-							Err:             err,
-						}
-					}
 
 					err = r.Client.Create(context.TODO(), meterdefinitionFromCatalog)
 					if err != nil {
@@ -351,10 +344,10 @@ func (r *MeterdefConfigMapReconciler) sync(reqLogger logr.Logger) *ExecResult {
 	}
 }
 
-func getMeterdefintionFromFileServer(packageName string, namespace string, versionRange string, mdefName string, reqLogger logr.Logger) (*marketplacev1beta1.MeterDefinition, error) {
+func getMeterdefintionFromFileServer(packageName string, namespace string, mdefName string, reqLogger logr.Logger) (*marketplacev1beta1.MeterDefinition, error) {
 
 	mdefFileName := fmt.Sprintf("%s.yaml", mdefName)
-	url := fmt.Sprintf("http://rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc.cluster.local:8100/get/%s/%s/%s", packageName, versionRange, mdefFileName)
+	url := fmt.Sprintf("http://rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc.cluster.local:8100/get/%s/%s", packageName, mdefFileName)
 	response, err := http.Get(url)
 	if err != nil {
 		if err == io.EOF {
