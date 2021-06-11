@@ -116,7 +116,7 @@ vet:
 	go vet ./...
 
 # Generate code
-generate: controller-gen manifests go-bindata
+generate: controller-gen manifests
 	go generate ./...
 
 # Generate API

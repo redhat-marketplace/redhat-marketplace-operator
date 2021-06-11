@@ -7,7 +7,6 @@ require (
 	github.com/Masterminds/semver/v3 v3.1.0
 	github.com/Shyp/bump_version v0.0.0-20180222180749-d7594d2951e2
 	github.com/fatih/structtag v1.2.0 // indirect
-	github.com/go-bindata/go-bindata v3.1.2+incompatible
 	github.com/gofrs/flock v0.7.1 // indirect
 	github.com/golang/mock v1.4.0
 	github.com/golang/protobuf v1.4.0 // indirect
