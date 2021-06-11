@@ -28,27 +28,32 @@ jobs:
       uses: actions/checkout@v2
       with:
         fetch-depth: 0
+    - name: Cancel Previous Run
+      uses: styfle/cancel-workflow-action@0.4.1
+      with:
+        access_token: ${{ github.token }}
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.15.11
+        go-version: 1.16.2
     - name: Cache Go modules
       uses: actions/cache@v2
       with:
         path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: ${{ runner.os }}-1.15.11-go-
+        key: ${{ runner.os }}-go-${{ github.sha }}
+        restore-keys: ${{ runner.os }}-go-
     - name: Install Kubebuilder
       run: |-
         os=$(go env GOOS)
         arch=$(go env GOARCH)
+        version=2.3.1
 
         # download kubebuilder and extract it to tmp
-        curl -L https://go.kubebuilder.io/dl/2.3.1/${os}/${arch} | tar -xz -C /tmp/
+        curl -L https://go.kubebuilder.io/dl/${version}/${os}/${arch} | tar -xz -C /tmp/
 
         # move to a long-term location and put it on your path
         # (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
-        sudo mv /tmp/kubebuilder_2.3.1_${os}_${arch} /usr/local/kubebuilder
+        sudo mv /tmp/kubebuilder_${version}_${os}_${arch} /usr/local/kubebuilder
         echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
     - name: Test
       run: make operator/test
@@ -110,8 +115,21 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: ${{ runner.os }}-1.16.5-go-
+        key: ${{ runner.os }}-go-${{ github.sha }}
+        restore-keys: ${{ runner.os }}-go-
+    - name: Install Kubebuilder
+      run: |-
+        os=$(go env GOOS)
+        arch=$(go env GOARCH)
+        version=2.3.1
+
+        # download kubebuilder and extract it to tmp
+        curl -L https://go.kubebuilder.io/dl/${version}/${os}/${arch} | tar -xz -C /tmp/
+
+        # move to a long-term location and put it on your path
+        # (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
+        sudo mv /tmp/kubebuilder_${version}_${os}_${arch} /usr/local/kubebuilder
+        echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
     - name: Test
       run: make ${{ matrix.project }}/test
     strategy:
@@ -121,10 +139,55 @@ jobs:
         - metering
         - reporter
         - tests
+  base:
+    name: Build Base
+    runs-on: ubuntu-20.04
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: Install Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16.2
+    - name: Cache Docker Buildx
+      uses: actions/cache@v2
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-base-${{ github.sha }}
+        restore-keys: ${{ runner.os }}-buildx-base-
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v1
+    - id: buildx
+      name: Set up docker buildx
+      uses: docker/setup-buildx-action@v1
+    - name: Login to Docker Hub
+      uses: docker/login-action@v1
+      with:
+        registry: quay.io/rh-marketplace
+        username: ${{secrets['quayUser']}}
+        password: ${{secrets['quayPassword']}}
+    - id: build
+      name: Build images
+      run: make base/docker-build
+      env:
+        DOCKERBUILDXCACHE: /tmp/.buildx-cache
+        PUSH: "false"
+      continue-on-error: ${{ matrix.continueOnError }}
+    - id: push
+      name: Push images
+      run: make base/docker-build
+      env:
+        DOCKERBUILDXCACHE: /tmp/.buildx-cache
+        IMAGE_PUSH: "true"
+      continue-on-error: ${{ matrix.continueOnError }}
   images:
     name: Build Images
     needs:
     - test
+    - base
     runs-on: ubuntu-20.04
     env:
       VERSION: ${{ needs.test.outputs.tag }}
@@ -147,19 +210,26 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: ${{ runner.os }}-1.16.5-go-
+        key: ${{ runner.os }}-go-${{ github.sha }}
+        restore-keys: ${{ runner.os }}-go-
+    - name: Cache Docker Buildx
+      uses: actions/cache@v2
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ matrix.project }}-${{ github.sha }}
+        restore-keys: ${{ runner.os }}-buildx-${{ matrix.project }}-
     - name: Install Kubebuilder
       run: |-
         os=$(go env GOOS)
         arch=$(go env GOARCH)
+        version=2.3.1
 
         # download kubebuilder and extract it to tmp
-        curl -L https://go.kubebuilder.io/dl/2.3.1/${os}/${arch} | tar -xz -C /tmp/
+        curl -L https://go.kubebuilder.io/dl/${version}/${os}/${arch} | tar -xz -C /tmp/
 
         # move to a long-term location and put it on your path
         # (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
-        sudo mv /tmp/kubebuilder_2.3.1_${os}_${arch} /usr/local/kubebuilder
+        sudo mv /tmp/kubebuilder_${version}_${os}_${arch} /usr/local/kubebuilder
         echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
     - name: Install operatorsdk
       run: |-
@@ -184,18 +254,25 @@ jobs:
     - id: build
       name: Build images
       run: make clean-licenses save-licenses ${{ matrix.project }}/docker-build
+      env:
+        DOCKERBUILDXCACHE: /tmp/.buildx-cache
+        IMAGE_PUSH: "false"
+      continue-on-error: ${{ matrix.continueOnError }}
+    - id: push
+      name: Push images
+      run: make ${{ matrix.project }}/docker-build
+      env:
+        DOCKERBUILDXCACHE: /tmp/.buildx-cache
+        PUSH: "true"
       continue-on-error: ${{ matrix.continueOnError }}
     strategy:
       matrix:
         project:
-        - base
         - operator
         - authchecker
         - metering
         - reporter
         include:
-        - project: base
-          continueOnError: true
         - project: operator
           continueOnError: false
         - project: authchecker
@@ -222,10 +299,6 @@ jobs:
       run:
         shell: bash
     steps:
-    - name: Cancel Previous Run
-      uses: styfle/cancel-workflow-action@0.4.1
-      with:
-        access_token: ${{ github.token }}
     - name: Checkout code
       uses: actions/checkout@v2
     - name: Install Go
@@ -241,19 +314,20 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: ${{ runner.os }}-1.16.5-go-
+        key: ${{ runner.os }}-go-${{ github.sha }}
+        restore-keys: ${{ runner.os }}-go-
     - name: Install Kubebuilder
       run: |-
         os=$(go env GOOS)
         arch=$(go env GOARCH)
+        version=2.3.1
 
         # download kubebuilder and extract it to tmp
-        curl -L https://go.kubebuilder.io/dl/2.3.1/${os}/${arch} | tar -xz -C /tmp/
+        curl -L https://go.kubebuilder.io/dl/${version}/${os}/${arch} | tar -xz -C /tmp/
 
         # move to a long-term location and put it on your path
         # (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
-        sudo mv /tmp/kubebuilder_2.3.1_${os}_${arch} /usr/local/kubebuilder
+        sudo mv /tmp/kubebuilder_${version}_${os}_${arch} /usr/local/kubebuilder
         echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
     - name: Install operatorsdk
       run: |-

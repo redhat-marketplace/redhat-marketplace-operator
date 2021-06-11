@@ -12,117 +12,59 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package meter_definition
+package filter
 
 import (
 	"context"
 	"fmt"
 	"reflect"
 	"strings"
-	"sync"
-	"time"
 
 	"emperror.dev/errors"
-	"github.com/allegro/bigcache"
 	"github.com/cespare/xxhash"
 	"github.com/go-logr/logr"
-	"github.com/gotidy/ptr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-var lookupCache = utils.Must(func() (interface{}, error) {
-	cache, err := bigcache.NewBigCache(bigcache.DefaultConfig(10 * time.Minute))
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &resultCache{
-		cache: cache,
-		mutex: sync.RWMutex{},
-	}, nil
-}).(*resultCache)
 
 type MeterDefWorkload = types.NamespacedName
 
 type MeterDefinitionLookupFilter struct {
 	MeterDefUID     string
 	MeterDefName    MeterDefWorkload
+	MeterDefinition *v1beta1.MeterDefinition
 	ResourceVersion string
 	workloads       []v1beta1.ResourceFilter
 	filters         [][]FilterRuntimeObject
-	cc              ClientCommandRunner
+	client          client.Client
 	log             logr.Logger
 	findOwner       *rhmclient.FindOwnerHelper
 }
 
-var (
-	log = logf.Log.WithName("meterDefLookupFilter")
-)
-
-type resultCache struct {
-	cache *bigcache.BigCache
-	mutex sync.RWMutex
-}
-
-func (r *resultCache) cacheKey(filter *MeterDefinitionLookupFilter, obj metav1.Object) string {
-	return fmt.Sprintf("mdefuid:%s::uid:%s", filter.MeterDefUID, string(obj.GetUID()))
-}
-
-func (r *resultCache) Get(filter *MeterDefinitionLookupFilter, obj metav1.Object) *bool {
-	r.mutex.RLock()
-	key := r.cacheKey(filter, obj)
-	entry, err := r.cache.Get(key)
-	r.mutex.RUnlock()
-
-	if errors.Is(err, bigcache.ErrEntryNotFound) {
-		return ptr.Bool(false)
-	}
-
-	return ptr.Bool(entry[0] == 1)
-}
-
-func (r *resultCache) Set(filter *MeterDefinitionLookupFilter, obj metav1.Object, result bool) error {
-	r.mutex.Lock()
-	key := r.cacheKey(filter, obj)
-	val := []byte{0}
-	if result {
-		val[0] = 1
-	}
-	err := r.cache.Set(key, val)
-	r.mutex.Unlock()
-	return err
-}
-
 func NewMeterDefinitionLookupFilter(
-	cc ClientCommandRunner,
 	meterdef *v1beta1.MeterDefinition,
 	findOwner *rhmclient.FindOwnerHelper,
+	log logr.Logger,
 ) (*MeterDefinitionLookupFilter, error) {
-	log.Info("building filters", "name", meterdef.Name, "namespace", meterdef.Namespace)
-
 	s := &MeterDefinitionLookupFilter{
 		MeterDefUID:     string(meterdef.UID),
+		MeterDefinition: meterdef,
 		MeterDefName:    types.NamespacedName{Name: meterdef.Name, Namespace: meterdef.Namespace},
 		ResourceVersion: meterdef.ResourceVersion,
 		findOwner:       findOwner,
-		cc:              cc,
-		log:             log.WithValues("meterdefName", meterdef.Name, "meterdefNamespace", meterdef.Namespace),
+		log:             log.WithName("meterDefLookupFilter").WithValues("meterdefName", meterdef.Name, "meterdefNamespace", meterdef.Namespace).V(4),
 	}
 
 	ns, err := s.findNamespaces(meterdef)
 	if err != nil {
-		log.Error(err, "error creating find namespaces")
+		s.log.Error(err, "error creating find namespaces")
 		return nil, err
 	}
 	filters, err := s.createFilters(meterdef, ns)
@@ -162,13 +104,8 @@ func (s *MeterDefinitionLookupFilter) Matches(obj interface{}) (bool, error) {
 		return false, err
 	}
 
-	// Use lookup cache
-	// if v := lookupCache.Get(s, o); v != nil {
-	// 	return *v, nil
-	// }
-
-	filterLogger := s.log.V(0).WithValues("obj", o.GetName()+"/"+o.GetNamespace(), "type", fmt.Sprintf("%T", obj), "filterLen", len(s.filters))
-	debugFilterLogger := filterLogger
+	filterLogger := s.log.V(4).WithValues("obj", o.GetName()+"/"+o.GetNamespace(), "type", fmt.Sprintf("%T", obj), "filterLen", len(s.filters))
+	debugFilterLogger := filterLogger.V(6)
 
 	ans, err := func() (bool, error) {
 		for key, workloadFilters := range s.filters {
@@ -204,8 +141,6 @@ func (s *MeterDefinitionLookupFilter) Matches(obj interface{}) (bool, error) {
 		return false, err
 	}
 
-	err = lookupCache.Set(s, o, ans)
-
 	if err != nil {
 		return false, err
 	}
@@ -216,9 +151,8 @@ func (s *MeterDefinitionLookupFilter) Matches(obj interface{}) (bool, error) {
 func (s *MeterDefinitionLookupFilter) findNamespaces(
 	instance *v1beta1.MeterDefinition,
 ) (namespaces []string, err error) {
-	cc := s.cc
 	functionError := errors.NewWithDetails("error with findNamespaces", "meterdef", instance.Name+"/"+instance.Namespace)
-	reqLogger := s.log.WithValues("func", "findNamespaces", "meterdef", instance.Name+"/"+instance.Namespace)
+	reqLogger := s.log.WithValues("func", "findNamespaces", "meterdef", instance.Name+"/"+instance.Namespace).V(4)
 
 	for _, resourceFilter := range instance.Spec.ResourceFilters {
 		if resourceFilter.Namespace == nil {
@@ -239,17 +173,15 @@ func (s *MeterDefinitionLookupFilter) findNamespaces(
 
 			reqLogger.Info("installedBy provided, looking for operatorgroup")
 
-			result, _ := cc.Do(context.TODO(),
-				GetAction(instance.Spec.InstalledBy.ToTypes(), csv),
-			)
+			err = s.client.Get(context.TODO(), instance.Spec.InstalledBy.ToTypes(), csv)
 
-			if result.Is(NotFound) {
+			if err != nil && k8serrors.IsNotFound(err) {
 				reqLogger.Info("installedBy not found, falling back to namespace")
 
 				return []string{instance.GetNamespace()}, nil
 			}
 
-			if !result.Is(Continue) {
+			if err != nil {
 				err = errors.Wrap(functionError, "csv not found due to error")
 				reqLogger.Error(err, "installed by is not found")
 
@@ -292,12 +224,9 @@ func (s *MeterDefinitionLookupFilter) findNamespaces(
 				return
 			}
 
-			result, _ := cc.Do(
-				context.TODO(),
-				ListAction(namespaceList, client.MatchingLabelsSelector{Selector: selector}),
-			)
+			err = s.client.List(context.TODO(), namespaceList, client.MatchingLabelsSelector{Selector: selector})
 
-			if !result.Is(Continue) {
+			if err != nil {
 				err = errors.Wrap(functionError, "csv not found")
 				reqLogger.Info("csv not found", "csv", instance.Spec.InstalledBy)
 
@@ -305,7 +234,8 @@ func (s *MeterDefinitionLookupFilter) findNamespaces(
 			}
 
 			for _, ns := range namespaceList.Items {
-				namespaces = append(namespaces, ns.GetName())
+				localNs := ns.GetName()
+				namespaces = append(namespaces, localNs)
 			}
 		}
 	}
@@ -316,7 +246,6 @@ func (s *MeterDefinitionLookupFilter) createFilters(
 	instance *v1beta1.MeterDefinition,
 	namespaces []string,
 ) ([][]FilterRuntimeObject, error) {
-
 	// Bottom Up
 	// Start with pods, filter, go to owner. If owner not provided, stop.
 	filters := [][]FilterRuntimeObject{}
@@ -375,4 +304,9 @@ func (s *MeterDefinitionLookupFilter) createFilters(
 		filters = append(filters, runtimeFilters)
 	}
 	return filters, nil
+}
+
+type Result struct {
+	Ok     bool
+	Lookup *MeterDefinitionLookupFilter
 }

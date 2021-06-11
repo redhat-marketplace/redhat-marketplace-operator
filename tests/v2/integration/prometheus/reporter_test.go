@@ -174,7 +174,7 @@ var _ = Describe("Reporter", func() {
 					Expect(data).To(MatchKeys(IgnoreExtras, Keys{
 						"report_slice_id": Not(BeEmpty()),
 						"metrics": MatchElements(id, IgnoreExtras, Elements{
-							"cd6bea27dc4e5bee": MatchKeys(IgnoreExtras, Keys{
+							"8a422c1b08ccf647": MatchKeys(IgnoreExtras, Keys{
 								"additionalLabels": MatchKeys(IgnoreExtras, Keys{
 									"productId": Equal("eb9998dcc5d24e3eb5b6fb488f750fe2"),
 								}),

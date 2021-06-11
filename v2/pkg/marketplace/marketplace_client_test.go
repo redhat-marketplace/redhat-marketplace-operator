@@ -15,7 +15,6 @@
 package marketplace
 
 import (
-	"crypto/tls"
 	ioutil "io/ioutil"
 	"time"
 
@@ -39,7 +38,6 @@ var _ = Describe("Marketplace Config Status", func() {
 		body                     []byte
 		path                     string
 		err                      error
-		mbuilder                 *MarketplaceClientBuilder
 	)
 
 	BeforeEach(func() {
@@ -52,7 +50,7 @@ var _ = Describe("Marketplace Config Status", func() {
 		cfg := &config.OperatorConfig{
 			Marketplace: config.Marketplace{
 				URL:            addr,
-				InsecureClient: false,
+				InsecureClient: true,
 			},
 		}
 
@@ -61,12 +59,8 @@ var _ = Describe("Marketplace Config Status", func() {
 			Env: "",
 		}
 
-		mbuilder = NewMarketplaceClientBuilder(cfg).SetTLSConfig(&tls.Config{
-			RootCAs:            server.HTTPTestServer.TLS.RootCAs,
-			InsecureSkipVerify: true,
-		})
-
-		mclient, err = mbuilder.NewMarketplaceClient(token, tokenClaims)
+		mclient, err = NewMarketplaceClientBuilder(cfg).
+			NewMarketplaceClient(token, tokenClaims)
 		Expect(err).To(Succeed())
 
 		Expect(mclient.endpoint).ToNot(BeNil())

@@ -1,4 +1,5 @@
 PROJECTS = operator authchecker metering reporter
+PROJECTS_ALL = $(PROJECTS) tests
 PROJECT_FOLDERS = . authchecker metering reporter
 
 ifeq (,$(shell go env GOBIN))
@@ -31,15 +32,19 @@ build:
 
 .PHONY: vet
 vet:
-	$(MAKE) $(addsuffix /vet,$(PROJECTS))
+	$(MAKE) $(addsuffix /vet,$(PROJECTS_ALL))
 
 .PHONY: fmt
 fmt:
-	$(MAKE) $(addsuffix /fmt,$(PROJECTS))
+	$(MAKE) $(addsuffix /fmt,$(PROJECTS_ALL))
 
 .PHONY: tidy-all
 tidy-all:
-	$(MAKE) $(addsuffix /tidy,$(PROJECTS))
+	$(MAKE) $(addsuffix /tidy,$(PROJECTS_ALL))
+
+.PHONY: download-all
+download-all:
+	$(MAKE) $(addsuffix /download,$(PROJECTS_ALL))
 
 .PHONY: test
 test:
@@ -121,6 +126,8 @@ authchecker/%:
 
 tests/%:
 	@cd ./tests/v2 && $(MAKE) $(@F)
+
+
 
 base/%:
 	cd ./base && $(MAKE) $(@F)

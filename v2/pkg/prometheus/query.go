@@ -47,6 +47,7 @@ type PromQueryArgs struct {
 	GroupBy       []string
 	Without       []string
 
+	defaultWithout []string
 	defaultGroupBy []string
 }
 
@@ -149,21 +150,25 @@ func dedupeStringSlice(stringSlice []string) []string {
 	return list
 }
 
+var alwaysWithout []string = []string{
+	"instance", "container", "endpoint", "job", "cluster_ip",
+}
+
 func (q *PromQuery) setDefaultWithout() {
 	// we want to make sure
 	switch q.Type {
 	case v1beta1.WorkloadTypePVC:
-		q.Without = append(q.Without, "instance", "container", "endpoint", "job", "service", "pod", "pod_uid", "pod_ip")
+		q.defaultWithout = []string{"instance", "container", "endpoint", "job", "service", "pod", "pod_uid", "pod_ip"}
 	case v1beta1.WorkloadTypePod:
-		q.Without = append(q.Without, "pod_uid", "pod_ip", "instance", "image_id", "host_ip", "node", "container", "job", "service")
+		q.defaultWithout = []string{"pod_uid", "pod_ip", "instance", "image_id", "host_ip", "node", "container", "job", "service"}
 	case v1beta1.WorkloadTypeService:
-		q.Without = append(q.Without, "pod_uid", "instance", "container", "endpoint", "job", "pod", "cluster_ip")
+		q.defaultWithout = []string{"pod_uid", "instance", "container", "endpoint", "job", "pod", "cluster_ip"}
 	default:
 		panic(q.typeNotSupportedError())
 	}
 
-	q.Without = append(q.Without, "instance", "container", "endpoint", "job", "cluster_ip")
-	q.Without = dedupeStringSlice(q.Without)
+	q.defaultWithout = append(q.defaultWithout, alwaysWithout...)
+	q.defaultWithout = dedupeStringSlice(q.defaultWithout)
 }
 
 func (q *PromQuery) setDefaultGroupBy() {
@@ -182,15 +187,16 @@ func (q *PromQuery) setDefaultGroupBy() {
 }
 
 const resultQueryTemplateStr = `
-{{- .AggregateFunc }} by ({{ default .DefaultGroupBy .GroupBy | join "," }}) (avg({{ .MeterName }}{ {{- .QueryFilters | join "," -}} }) without ({{ .Without | join "," }}) * on({{ .DefaultGroupBy | join "," }}) group_right {{ .Query }}) * on({{ default .DefaultGroupBy .GroupBy | join "," }}) group_right group without({{ .Without | join "," }}) ({{ .Query }})`
+{{- .AggregateFunc }} by ({{ default .DefaultGroupBy .GroupBy | join "," }}) (avg({{ .MeterName }}{ {{- .QueryFilters | join "," -}} }) without ({{ .DefaultWithout | join "," }}) * on({{ .DefaultGroupBy | join "," }}) group_right {{ .Query }}) * on({{ default .DefaultGroupBy .GroupBy | join "," }}) group_right group{{ if .Without }} without({{ default .Without | join "," }}){{ end }} ({{ .Query }})`
 
 var resultQueryTemplate *template.Template = utils.Must(func() (interface{}, error) {
 	return template.New("resultQuery").Funcs(sprig.GenericFuncMap()).Parse(resultQueryTemplateStr)
 }).(*template.Template)
 
 type ResultQueryArgs struct {
-	MeterName, Query, AggregateFunc                string
-	QueryFilters, GroupBy, Without, DefaultGroupBy []string
+	MeterName, Query, AggregateFunc string
+	QueryFilters, GroupBy, Without  []string
+	DefaultWithout, DefaultGroupBy  []string
 }
 
 func makeLabel(key, value string) string {
@@ -216,6 +222,28 @@ func (q *PromQuery) GetQueryArgs() ResultQueryArgs {
 		panic(q.typeNotSupportedError())
 	}
 
+	q.defaultWithout = append(q.defaultWithout, alwaysWithout...)
+	q.defaultWithout = dedupeStringSlice(q.defaultWithout)
+
+	if len(q.Without) == 0 && len(q.GroupBy) > 0 {
+		q.Without = make([]string, len(q.defaultWithout))
+		copy(q.Without, q.defaultWithout)
+
+		for i := range q.defaultGroupBy {
+			in := false
+			for j := range q.GroupBy {
+				if q.defaultGroupBy[i] == q.GroupBy[j] {
+					in = true
+					break
+				}
+			}
+
+			if !in {
+				q.Without = append(q.Without, q.defaultGroupBy[i])
+			}
+		}
+	}
+
 	return ResultQueryArgs{
 		MeterName:      meterName,
 		Query:          q.Query,
@@ -224,6 +252,7 @@ func (q *PromQuery) GetQueryArgs() ResultQueryArgs {
 		QueryFilters:   queryFilters,
 		Without:        q.Without,
 		DefaultGroupBy: q.defaultGroupBy,
+		DefaultWithout: q.defaultWithout,
 	}
 }
 
