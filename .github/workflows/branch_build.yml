@@ -172,12 +172,12 @@ jobs:
         DOCKERBUILDXCACHE: /tmp/.buildx-cache
         PUSH: "false"
       continue-on-error: ${{ matrix.continueOnError }}
-    - id: build
-      name: Build images
+    - id: push
+      name: Push images
       run: make base/docker-build
       env:
         DOCKERBUILDXCACHE: /tmp/.buildx-cache
-        PUSH: "true"
+        IMAGE_PUSH: "true"
       continue-on-error: ${{ matrix.continueOnError }}
   images:
     name: Build Images
@@ -252,10 +252,10 @@ jobs:
       run: make clean-licenses save-licenses ${{ matrix.project }}/docker-build
       env:
         DOCKERBUILDXCACHE: /tmp/.buildx-cache
-        PUSH: "false"
+        IMAGE_PUSH: "false"
       continue-on-error: ${{ matrix.continueOnError }}
-    - id: build
-      name: Build images
+    - id: push
+      name: Push images
       run: make ${{ matrix.project }}/docker-build
       env:
         DOCKERBUILDXCACHE: /tmp/.buildx-cache

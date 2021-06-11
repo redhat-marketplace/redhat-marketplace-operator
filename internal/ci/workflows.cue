@@ -288,12 +288,12 @@ branch_build: _#bashWorkflow & {
 						"""
 				},
         _#step & {
-					id:   "build"
-					name: "Build images"
+					id:   "push"
+					name: "Push images"
 	        "continue-on-error": "${{ matrix.continueOnError }}"
           env: {
             "DOCKERBUILDXCACHE" : "/tmp/.buildx-cache",
-            "PUSH": "true",
+            "IMAGE_PUSH": "true",
           }
 					run: """
 						make base/docker-build
@@ -346,15 +346,15 @@ branch_build: _#bashWorkflow & {
 	        "continue-on-error": "${{ matrix.continueOnError }}"
           env: {
             "DOCKERBUILDXCACHE" : "/tmp/.buildx-cache",
-            "PUSH": "false",
+            "IMAGE_PUSH": "false",
           }
 					run: """
 						make clean-licenses save-licenses ${{ matrix.project }}/docker-build
 						"""
 				},
 				_#step & {
-					id:   "build"
-					name: "Build images"
+					id:   "push"
+					name: "Push images"
 	        "continue-on-error": "${{ matrix.continueOnError }}"
           env: {
             "DOCKERBUILDXCACHE" : "/tmp/.buildx-cache",
