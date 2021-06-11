@@ -128,17 +128,17 @@ endef
 
 ifeq ($(BUILDX),true)
 DOCKER_BUILD := docker buildx build --platform $(call build-targets,$(ARCHS),linux)
-ifeq ($(IMAGE_PUSH),true)
-DOCKER_BUILD += --push
-else
-DOCKER_BUILD += --load
-endif
 endif
 
 ifneq ($(DOCKERBUILDXCACHE),)
 DOCKER_EXTRA_ARGS = --cache-from "type=local,src=$(DOCKERBUILDXCACHE)" --cache-to "type=local,dest=$(DOCKERBUILDXCACHE)" --output "type=image,push=$(IMAGE_PUSH)"
 else
 DOCKER_EXTRA_ARGS =
+ifeq ($(IMAGE_PUSH),true)
+DOCKER_BUILD += --push
+else
+DOCKER_BUILD += --load
+endif
 endif
 
 # func(image,args)
