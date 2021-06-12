@@ -16,6 +16,7 @@ package controller_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -212,16 +213,23 @@ var _ = Describe("MeterReportController", func() {
 
 				return false
 			},dataServiceTimeout, interval).Should(BeTrue())
-
-			meterreport.Spec.ExtraArgs = []string{"--uploadTarget=data-service"}
-			Expect(testHarness.Create(context.TODO(), meterreport)).Should(Succeed())
 			job := &batchv1.Job{}
-
 			Eventually(func() bool {
-				result, _ := testHarness.Do(
+				meterreport.Spec.ExtraArgs = []string{"--uploadTarget=data-service"}
+				result, err := testHarness.Do(
+					context.TODO(),
+					CreateAction(meterreport),
+				)
+
+				if err !=nil {
+					fmt.Printf("error creating meterreport %s",err)
+				}
+
+				result, _ = testHarness.Do(
 					context.TODO(),
 					GetAction(types.NamespacedName{Name: meterreport.Name, Namespace: Namespace}, job),
 				)
+
 				return result.Is(Continue)
 			}, timeout, interval).Should(BeTrue())
 
@@ -276,7 +284,7 @@ var _ = Describe("MeterReportController", func() {
 					"conditionMessage": cond.Message,
 					"conditionStatus":  cond.Status,
 				}
-			}, timeout, interval).Should(
+			}, jobTimeout, interval).Should(
 				MatchAllKeys(Keys{
 					"resultStatus":     Equal(Continue),
 					"conditionType":    Equal(v1alpha1.ReportConditionJobFinished.Type),
