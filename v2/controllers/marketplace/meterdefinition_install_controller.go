@@ -481,9 +481,13 @@ func deleteInstallMapping(packageName string, request reconcile.Request, client 
 		}
 	}
 
-	/* 
-		TODO: need to update the cm here
-	*/
+	err = client.Update(context.TODO(), mdefStoreCM)
+	if err != nil {
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
 
 	return &ExecResult{
 		Status: ActionResultStatus(Continue),

@@ -143,8 +143,10 @@ rules:
   resources:
   - deploymentconfigs
   verbs:
+  - create
   - get
   - list
+  - update
   - watch
 - apiGroups:
   - batch
@@ -190,6 +192,15 @@ rules:
   - delete
   - get
   - list
+- apiGroups:
+  - image.openshift.io
+  resources:
+  - imagestreams
+  verbs:
+  - create
+  - get
+  - list
+  - update
 - apiGroups:
   - marketplace.redhat.com
   resources:
