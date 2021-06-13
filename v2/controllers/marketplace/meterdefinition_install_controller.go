@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -424,11 +423,9 @@ func addOrUpdateInstallList(packageName string, csvVersion string, versionRange 
 			PackageName:               packageName,
 			Namespace:                 request.Namespace,
 			CsvVersion:                csvVersion,
-			VersionRangeDir:           versionRange,
 			InstalledMeterdefinitions: []string{installedMeterdef},
 		}
 
-		utils.PrettyPrint(newInstallMapping)
 		meterdefStore.InstallMappings = append(meterdefStore.InstallMappings, newInstallMapping)
 	}
 
@@ -445,8 +442,8 @@ func addOrUpdateInstallList(packageName string, csvVersion string, versionRange 
 func deleteInstallMapping(packageName string, request reconcile.Request, client client.Client, reqLogger logr.Logger) *ExecResult {
 
 	// Fetch the mdefKVStore instance
-	mdefKVStoreCM := &corev1.ConfigMap{}
-	err := client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME, Namespace: request.Namespace}, mdefKVStoreCM)
+	mdefStoreCM := &corev1.ConfigMap{}
+	err := client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME, Namespace: request.Namespace}, mdefStoreCM)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return &ExecResult{
@@ -463,7 +460,7 @@ func deleteInstallMapping(packageName string, request reconcile.Request, client 
 		}
 	}
 
-	mdefStore := mdefKVStoreCM.Data["meterdefinitionStore"]
+	mdefStore := mdefStoreCM.Data["meterdefinitionStore"]
 
 	meterdefStore := &MeterdefinitionStore{}
 
@@ -477,30 +474,23 @@ func deleteInstallMapping(packageName string, request reconcile.Request, client 
 	}
 
 	for i, item := range meterdefStore.InstallMappings {
-		// update a certain package's meterdefinition install list
+		// remove the package's InstallMapping
 		if item.PackageName == packageName && item.Namespace == request.Namespace {
 			meterdefStore.InstallMappings = append(meterdefStore.InstallMappings[:i], meterdefStore.InstallMappings[i+1:]...)
 			break
 		}
 	}
+
+	/* 
+		TODO: need to update the cm here
+	*/
+
 	return &ExecResult{
 		Status: ActionResultStatus(Continue),
 	}
 }
 
-func updateAndWrite(meterdefStore *MeterdefinitionStore) {
-	update, err := json.Marshal(meterdefStore)
-	if err != nil {
-		log.Fatal(err)
-	}
 
-	utils.PrettyPrint(string(update))
-
-	err = ioutil.WriteFile("./json-store.json", update, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
 
 func fetchCSVInfo(csvProps string) map[string]interface{} {
 	var unmarshalledProps map[string]interface{}

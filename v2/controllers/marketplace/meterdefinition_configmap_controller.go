@@ -73,18 +73,14 @@ type MeterdefConfigMapReconciler struct {
 	message       string
 }
 
-// type MeterdefStoreDB struct {
-// 	sync.Mutex
-// 	Meterdefinitions []marketplacev1beta1.MeterDefinition
-// }
 type InstallMapping struct {
 	PackageName               string   `json:"packageName"`
 	Namespace                 string   `json:"namespace"`
 	CsvVersion                string   `json:"version"`
-	VersionRangeDir           string   `json:"versionRange"`
 	InstalledMeterdefinitions []string `json:"installedMeterdefinitions"`
 }
 
+//TODO: mutex needed here ? 
 type MeterdefinitionStore struct {
 	InstallMappings []InstallMapping `json:"installMappings"`
 }

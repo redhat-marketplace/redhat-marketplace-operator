@@ -215,6 +215,15 @@ func (f *Factory) NewImageStreamTag (manifest io.Reader) (*osimagev1.ImageStream
 	return d, nil
 }
 
+func (f *Factory) UpdateImageStream(manifest io.Reader,is *osimagev1.ImageStream) error {
+    err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(is)
+    if err != nil {
+        return err
+    }
+
+    return nil
+}
+
 func (f *Factory) NewDeploymentConfig(manifest io.Reader) (*osappsv1.DeploymentConfig, error) {
 	d, err := NewDeploymentConfig(manifest)
 	if err != nil {
@@ -234,6 +243,15 @@ func (f *Factory) NewDeploymentConfig(manifest io.Reader) (*osappsv1.DeploymentC
 	}
 
 	return d, nil
+}
+
+func (f *Factory) UpdateDeploymentConfig(manifest io.Reader, d *osappsv1.DeploymentConfig) error {
+    err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(d)
+    if err != nil {
+        return err
+    }
+
+    return nil
 }
 
 func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
@@ -281,16 +299,37 @@ func (f *Factory) NewService(manifest io.Reader) (*corev1.Service, error) {
 	return d, nil
 }
 
+func (f *Factory) UpdateService(manifest io.Reader, s *v1.Service) error {
+    err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(s)
+    if err != nil {
+        return err
+    }
+
+    return nil
+}
+
 func (f *Factory) NewMeterdefintionFileServerDeploymentConfig()(*osappsv1.DeploymentConfig,error){
 	return f.NewDeploymentConfig(MustAssetReader(MeterdefinitionFileServerDeploymentConfig))
+}
+
+func (f *Factory) UpdateMeterdefinitionFileServerDeploymentConfig(d *osappsv1.DeploymentConfig) error {
+    return f.UpdateDeploymentConfig(MustAssetReader(MeterdefinitionFileServerService), d)
 }
 
 func (f *Factory) NewMeterdefintionFileServerImageStream()(*osimagev1.ImageStream,error){
 	return f.NewImageStream(MustAssetReader(MeterdefinitionFileServerImageStream))
 }
 
+func (f *Factory) UpdateMeterdefinitionFileServerImageStream(is *osimagev1.ImageStream) error {
+    return f.UpdateImageStream(MustAssetReader(MeterdefinitionFileServerService), is)
+}
+
 func(f *Factory)NewMeterdefintionFileServerService()(*corev1.Service,error){
 	return f.NewService(MustAssetReader(MeterdefinitionFileServerService))
+}
+
+func (f *Factory) UpdateMeterdefinitionFileServerService(s *corev1.Service) error {
+    return f.UpdateService(MustAssetReader(MeterdefinitionFileServerService), s)
 }
 
 func (f *Factory) NewMeterdefinitionConfigMap() (*corev1.ConfigMap, error) {
