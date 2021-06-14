@@ -17,8 +17,10 @@ package marketplace
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -41,6 +43,7 @@ import (
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
@@ -378,6 +381,29 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		return result.Return()
 	}
 
+	meterDefinitionList := &marketplacev1beta1.MeterDefinitionList{}
+	var categoryList []string
+	if result, err := cc.Do(
+		context.TODO(),
+		HandleResult(
+			ListAction(meterDefinitionList),
+			OnContinue(Call(func() (ClientAction, error) {
+				categoryList = getCategoriesFromMeterDefinitions(meterDefinitionList.Items)
+				return nil, nil
+			})),
+			OnNotFound(Call(func() (ClientAction, error) {
+				reqLogger.Info("can't find meter definition list, requeuing")
+				return RequeueAfterResponse(30 * time.Second), nil
+			})),
+		),
+	); result.Is(Error) || result.Is(Requeue) {
+		if err != nil {
+			return result.ReturnWithError(merrors.Wrap(err, "error listing meter definitions"))
+		}
+
+		return result.Return()
+	}
+
 	meterReportList := &marketplacev1alpha1.MeterReportList{}
 	if result, err := cc.Do(
 		context.TODO(),
@@ -386,36 +412,37 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 			OnContinue(Call(func() (ClientAction, error) {
 				loc := time.UTC
 				dateRangeInDays := -30
-
 				meterReportNames := r.sortMeterReports(meterReportList)
-
 				// prune old reports
 				meterReportNames, err := r.removeOldReports(meterReportNames, loc, dateRangeInDays, request)
 				if err != nil {
 					reqLogger.Error(err, err.Error())
 				}
+				for _, category := range categoryList {
+					labels := make(map[string]string)
+					labels["marketplace.redhat.com/category"] = category
 
-				// fill in gaps of missing reports
-				// we want the min date to be install date - 1 day
-				endDate := time.Now().In(loc)
+					// fill in gaps of missing reports
+					// we want the min date to be install date - 1 day
+					endDate := time.Now().In(loc)
 
-				minDate := instance.ObjectMeta.CreationTimestamp.Time.In(loc)
-				minDate = utils.TruncateTime(minDate, loc)
+					minDate := instance.ObjectMeta.CreationTimestamp.Time.In(loc)
+					minDate = utils.TruncateTime(minDate, loc)
 
-				expectedCreatedDates := r.generateExpectedDates(endDate, loc, dateRangeInDays, minDate)
-				foundCreatedDates, err := r.generateFoundCreatedDates(meterReportNames)
+					expectedCreatedDates := r.generateExpectedDates(endDate, loc, dateRangeInDays, minDate)
+					foundCreatedDates, err := r.generateFoundCreatedDates(meterReportNames)
 
-				if err != nil {
-					return nil, err
+					if err != nil {
+						return nil, err
+					}
+					reqLogger.Info("report dates", "expected", expectedCreatedDates, "found", foundCreatedDates, "min", minDate)
+
+					missingReports := r.findMissingReportsForCategory(expectedCreatedDates, foundCreatedDates)
+					err = r.createMissingReports(missingReports, request, instance, metav1.LabelSelector{MatchLabels: labels}, category)
+					if err != nil {
+						return nil, err
+					}
 				}
-
-				reqLogger.Info("report dates", "expected", expectedCreatedDates, "found", foundCreatedDates, "min", minDate)
-				err = r.createReportIfNotFound(expectedCreatedDates, foundCreatedDates, request, instance)
-
-				if err != nil {
-					return nil, err
-				}
-
 				return nil, nil
 			})),
 			OnNotFound(Call(func() (ClientAction, error) {
@@ -462,19 +489,34 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	return reconcile.Result{RequeueAfter: time.Hour * 1}, nil
 }
 
+func getCategoriesFromMeterDefinitions(meterDefinitions []marketplacev1beta1.MeterDefinition) []string {
+	var categoryList []string
+	for _, meterDef := range meterDefinitions {
+		v := meterDef.GetLabels()["marketplace.redhat.com/category"]
+		if !containsString(categoryList, v) {
+			categoryList = append(categoryList, v)
+		}
+	}
+	return categoryList
+}
+
 const promServiceName = "rhm-prometheus-meterbase"
 
-func (r *MeterBaseReconciler) createReportIfNotFound(expectedCreatedDates []string, foundCreatedDates []string, request reconcile.Request, instance *marketplacev1alpha1.MeterBase) error {
-	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-
+func (r *MeterBaseReconciler) findMissingReportsForCategory(expectedCreatedDates []string, foundCreatedDates []string) []string {
 	// find the diff between the dates we expect and the dates found on the cluster and create any missing reports
 	missingReports := utils.FindDiff(expectedCreatedDates, foundCreatedDates)
+	return missingReports
+}
+
+func (r *MeterBaseReconciler) createMissingReports(missingReports []string, request reconcile.Request, instance *marketplacev1alpha1.MeterBase, labelSelector metav1.LabelSelector, category string) error {
+	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+
 	for _, missingReportDateString := range missingReports {
-		missingReportName := r.newMeterReportNameFromString(missingReportDateString)
+		missingReportName := r.newMeterReportNameFromString(category, missingReportDateString)
 		missingReportStartDate, _ := time.Parse(utils.DATE_FORMAT, missingReportDateString)
 		missingReportEndDate := missingReportStartDate.AddDate(0, 0, 1)
 
-		missingMeterReport := r.newMeterReport(request.Namespace, missingReportStartDate, missingReportEndDate, missingReportName, instance, promServiceName)
+		missingMeterReport := r.newMeterReport(request.Namespace, missingReportStartDate, missingReportEndDate, missingReportName, instance, promServiceName, labelSelector, category)
 		err := r.Client.Create(context.TODO(), missingMeterReport)
 		if err != nil {
 			return err
@@ -526,38 +568,52 @@ func (r *MeterBaseReconciler) sortMeterReports(meterReportList *marketplacev1alp
 }
 
 func (r *MeterBaseReconciler) retrieveCreatedDate(reportName string) (time.Time, error) {
-	splitStr := strings.SplitN(reportName, "-", 3)
-
-	if len(splitStr) != 3 {
-		return time.Now(), errors.New("failed to get date")
+	splitAll := strings.SplitN(reportName, "-", -1)
+	if len(splitAll) == 5 {
+		splitStr := strings.SplitN(reportName, "-", 3)
+		dateString := splitStr[2:]
+		return time.Parse(utils.DATE_FORMAT, strings.Join(dateString, ""))
+	} else if len(splitAll) == 6 {
+		splitStr := strings.SplitN(reportName, "-", 4)
+		dateString := splitStr[3:]
+		return time.Parse(utils.DATE_FORMAT, strings.Join(dateString, ""))
 	}
-
-	dateString := splitStr[2:]
-	return time.Parse(utils.DATE_FORMAT, strings.Join(dateString, ""))
+	return time.Now(), errors.New("failed to get date")
 }
 
-func (r *MeterBaseReconciler) newMeterReportNameFromDate(date time.Time) string {
+func processCategoryString(category string) string {
+	// Make a Regex to say we only want letters and numbers for category name
+	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
+	if err != nil {
+		log.Fatal(err)
+	}
+	processedCategoryString := reg.ReplaceAllString(category, "")
+	categoryInterfix := processedCategoryString + "-"
+	return categoryInterfix
+}
+
+func (r *MeterBaseReconciler) newMeterReportNameFromDate(category string, date time.Time) string {
 	dateSuffix := strings.Join(strings.Fields(date.String())[:1], "")
-	return fmt.Sprintf("%s%s", utils.METER_REPORT_PREFIX, dateSuffix)
+	return fmt.Sprintf("%s%s%s", utils.METER_REPORT_PREFIX, processCategoryString(category), dateSuffix)
 }
 
-func (r *MeterBaseReconciler) newMeterReportNameFromString(dateString string) string {
+func (r *MeterBaseReconciler) newMeterReportNameFromString(category string, dateString string) string {
 	dateSuffix := dateString
-	return fmt.Sprintf("%s%s", utils.METER_REPORT_PREFIX, dateSuffix)
+	return fmt.Sprintf("%s%s%s", utils.METER_REPORT_PREFIX, processCategoryString(category), dateSuffix)
 }
 
 func (r *MeterBaseReconciler) generateFoundCreatedDates(meterReportNames []string) ([]string, error) {
 	reqLogger := r.Log.WithValues("func", "generateFoundCreatedDates")
 	var foundCreatedDates []string
 	for _, reportName := range meterReportNames {
-		splitStr := strings.SplitN(reportName, "-", 3)
+		splitStr := strings.SplitN(reportName, "-", 4)
 
-		if len(splitStr) != 3 {
+		if len(splitStr) != 4 {
 			reqLogger.Info("meterreport name was irregular", "name", reportName)
 			continue
 		}
 
-		dateString := splitStr[2:]
+		dateString := splitStr[3:]
 		foundCreatedDates = append(foundCreatedDates, strings.Join(dateString, ""))
 	}
 	return foundCreatedDates, nil
@@ -583,7 +639,7 @@ func (r *MeterBaseReconciler) generateExpectedDates(endTime time.Time, loc *time
 	return expectedCreatedDates
 }
 
-func (r *MeterBaseReconciler) newMeterReport(namespace string, startTime time.Time, endTime time.Time, meterReportName string, instance *marketplacev1alpha1.MeterBase, prometheusServiceName string) *marketplacev1alpha1.MeterReport {
+func (r *MeterBaseReconciler) newMeterReport(namespace string, startTime time.Time, endTime time.Time, meterReportName string, instance *marketplacev1alpha1.MeterBase, prometheusServiceName string, labelSelector metav1.LabelSelector, category string) *marketplacev1alpha1.MeterReport {
 	return &marketplacev1alpha1.MeterReport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      meterReportName,
@@ -593,8 +649,10 @@ func (r *MeterBaseReconciler) newMeterReport(namespace string, startTime time.Ti
 			},
 		},
 		Spec: marketplacev1alpha1.MeterReportSpec{
-			StartTime: metav1.NewTime(startTime),
-			EndTime:   metav1.NewTime(endTime),
+			StartTime:     metav1.NewTime(startTime),
+			EndTime:       metav1.NewTime(endTime),
+			LabelSelector: labelSelector,
+			Category:      category,
 			PrometheusService: &common.ServiceReference{
 				Name:       prometheusServiceName,
 				Namespace:  instance.Namespace,
@@ -1395,4 +1453,13 @@ func getWatchNamespace() (string, error) {
 		return "", fmt.Errorf("%s must be set", watchNamespaceEnvVar)
 	}
 	return ns, nil
+}
+
+func containsString(slice []string, value string) bool {
+	for _, sv := range slice {
+		if sv == value {
+			return true
+		}
+	}
+	return false
 }
