@@ -42,8 +42,8 @@ const (
 	WATCH_KEEPER_SECRET_NAME               = "watch-keeper-secret"
 	PROMETHEUS_METERBASE_NAME              = "rhm-prometheus-meterbase"
 	OPERATOR_CERTS_CA_BUNDLE_NAME          = "operator-certs-ca-bundle"
-	METERDEF_INSTALL_MAP_NAME			   = "rhm-meterdef-install-map"
-	DEPLOYMENT_CONFIG_NAME   			   = "rhm-meterdefinition-file-server"
+	METERDEF_INSTALL_MAP_NAME              = "rhm-meterdef-install-map"
+	DEPLOYMENT_CONFIG_NAME                 = "rhm-meterdefinition-file-server"
 
 	/* All Controllers */
 	CONTROLLER_FINALIZER = "finalizer.marketplace.redhat.com"
@@ -128,4 +128,36 @@ func HasMapKey(inMap map[string]string, a []string) bool {
 	key, _ := GetMapKeyValue(a)
 	_, ok := inMap[key]
 	return ok
+}
+
+func SliceDifference(first []string, second []string) []string {
+	diff := []string{}
+	stringMapper := make(map[string]bool)
+
+	for _, item := range second {
+		stringMapper[item] = true
+	}
+
+	for _, item := range first {
+		if _, ok := stringMapper[item]; !ok {
+			diff = append(diff, item)
+		}
+	}
+	return diff
+}
+
+func SliceIntersection(first []string, second []string) []string {
+	intersection := []string{}
+	stringMapper := make(map[string]bool)
+
+	for _, item := range first {
+		stringMapper[item] = true
+	}
+
+	for _, item := range second {
+		if _, ok := stringMapper[item]; ok {
+			intersection = append(intersection, item)
+		}
+	}
+	return intersection
 }
