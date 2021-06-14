@@ -24,24 +24,24 @@ import (
 	"github.com/gotidy/ptr"
 	"github.com/prometheus/common/log"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/util/retry"
 )
 
 type Task struct {
@@ -65,20 +65,20 @@ func (r *Task) Run() error {
 	}
 
 	logger.Info("starting collection")
-	metrics, errorList, err := reporter.CollectMetrics(r.Ctx)
+	metrics, errorList, warningList, _ := reporter.CollectMetrics(r.Ctx)
 
-	if err != nil {
-		logger.Error(err, "error collecting metrics")
-		return err
+	for _, err := range warningList {
+		details := append(
+			[]interface{}{"cause", errors.Cause(err)},
+			errors.GetDetails(err)...)
+		logger.Info(fmt.Sprintf("warning: %v", errors.Cause(err)), details...)
 	}
 
-	reportID := uuid.New()
+	reportID := uuid.MustParse(reporter.report.Spec.ReportUUID)
 
-	logger.Info("writing report", "reportID", reportID)
+	logger.Info("writing report", "reportID", r.ReportName)
 
-	files, err := reporter.WriteReport(
-		reportID,
-		metrics)
+	files, err := reporter.WriteReport(reportID, metrics)
 
 	if err != nil {
 		return errors.Wrap(err, "error writing report")
@@ -108,11 +108,19 @@ func (r *Task) Run() error {
 				GetAction(types.NamespacedName(r.ReportName), report),
 				OnContinue(Call(func() (ClientAction, error) {
 					report.Status.MetricUploadCount = ptr.Int(len(metrics))
-
-					report.Status.QueryErrorList = []string{}
+					report.Status.Errors = make([]marketplacev1alpha1.ErrorDetails, 0, len(errorList))
+					report.Status.Warnings = make([]marketplacev1alpha1.ErrorDetails, 0, len(warningList))
 
 					for _, err := range errorList {
-						report.Status.QueryErrorList = append(report.Status.QueryErrorList, err.Error())
+						report.Status.Errors = append(report.Status.Errors,
+							(marketplacev1alpha1.ErrorDetails{}).FromError(err),
+						)
+					}
+
+					for _, err := range warningList {
+						report.Status.Warnings = append(report.Status.Warnings,
+							(marketplacev1alpha1.ErrorDetails{}).FromError(err),
+						)
 					}
 
 					return UpdateAction(report, UpdateStatusOnly(true)), nil
@@ -122,6 +130,10 @@ func (r *Task) Run() error {
 
 		if result.Is(Error) {
 			return result
+		}
+
+		if len(errorList) != 0 {
+			return errors.Combine(errorList...)
 		}
 
 		return nil
@@ -175,8 +187,24 @@ func getMarketplaceReport(
 ) (report *marketplacev1alpha1.MeterReport, returnErr error) {
 	report = &marketplacev1alpha1.MeterReport{}
 
-	if result, _ := cc.Do(ctx, GetAction(types.NamespacedName(reportName), report)); !result.Is(Continue) {
-		returnErr = errors.Wrap(result, "failed to get report")
+	returnErr = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if result, err := cc.Do(ctx, GetAction(types.NamespacedName(reportName), report)); !result.Is(Continue) {
+			return err
+		}
+
+		if report.Spec.ReportUUID == "" {
+			report.Spec.ReportUUID = uuid.New().String()
+
+			if result, err := cc.Exec(ctx, UpdateAction(report)); !result.Is(Continue) {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if returnErr != nil {
+		return
 	}
 
 	logger.Info("retrieved meter report", "name", reportName)
@@ -208,47 +236,59 @@ func getPrometheusService(
 	return
 }
 
-func getMeterDefinitions(
+type MeterDefinitionReferences = []marketplacev1beta1.MeterDefinitionReference
+
+func getMeterDefinitionReferences(
 	ctx context.Context,
 	report *marketplacev1alpha1.MeterReport,
 	cc ClientCommandRunner,
-) ([]marketplacev1alpha1.MeterDefinition, error) {
-	defs := &marketplacev1alpha1.MeterDefinitionList{}
+) (MeterDefinitionReferences, error) {
+	defs := []marketplacev1beta1.MeterDefinitionReference{}
 
-	if len(report.Spec.MeterDefinitions) > 0 {
-		return report.Spec.MeterDefinitions, nil
-	}
+	if len(report.Spec.MeterDefinitionReferences) > 0 {
+		update := false
 
-	result, _ := cc.Do(ctx,
-		HandleResult(
-			ListAction(defs, client.InNamespace("")),
-			OnContinue(Call(func() (ClientAction, error) {
-				for _, item := range defs.Items {
-					item.Status = marketplacev1alpha1.MeterDefinitionStatus{}
+		for _, ref := range report.Spec.MeterDefinitionReferences {
+			if ref.Spec == nil {
+				update = true
+
+				mdef := marketplacev1beta1.MeterDefinition{}
+				result, _ := cc.Exec(ctx, GetAction(types.NamespacedName{
+					Name: ref.Name, Namespace: ref.Namespace,
+				}, &mdef))
+
+				if result.Is(Error) {
+					return defs, result.Err
 				}
 
-				report.Spec.MeterDefinitions = defs.Items
+				if result.Is(Continue) {
+					update = true
+					ref.UID = mdef.UID
+					ref.Spec = &mdef.Spec
+				}
+			}
 
-				return UpdateAction(report), nil
-			})),
-		),
-	)
+			defs = append(defs, ref)
+		}
 
-	if result.Is(Error) {
-		return nil, errors.Wrap(result, "failed to get meterdefs")
+		if update {
+			result, _ := cc.Exec(ctx, UpdateAction(report))
+			if result.Is(Error) {
+				return defs, result.Err
+			}
+		}
+
+		return defs, nil
 	}
 
-	if result.Is(NotFound) {
-		return []marketplacev1alpha1.MeterDefinition{}, nil
-	}
-
-	return defs.Items, nil
+	return defs, nil
 }
 
 func provideScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(marketplaceredhatcomv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(marketplacev1alpha1.AddToScheme(scheme))
+	utilruntime.Must(marketplacev1beta1.AddToScheme(scheme))
 	utilruntime.Must(openshiftconfigv1.AddToScheme(scheme))
 	utilruntime.Must(olmv1.AddToScheme(scheme))
 	utilruntime.Must(opsrcv1.AddToScheme(scheme))

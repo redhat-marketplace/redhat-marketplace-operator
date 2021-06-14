@@ -32,7 +32,7 @@ type ClientAction interface {
 	Exec(context.Context, *ClientCommand) (*ExecResult, error)
 	// Bind binds a previous result to the action, this is to provide it to
 	// an action so it can chain commands together. Not all actions have to look
-	// at the lastResult.
+	// at the LastResult.
 	Bind(*ExecResult)
 }
 
@@ -51,15 +51,15 @@ type ClientCommandRunner interface {
 
 // BaseAction is the struct that has common variables for all actions
 type BaseAction struct {
-	name         string
-	lastResult   *ExecResult
-	codelocation codelocation.CodeLocation
+	Name         string                    `json:"name"`
+	LastResult   *ExecResult               `json:"-"`
+	CodeLocation codelocation.CodeLocation `json:"code_location"`
 }
 
 func NewBaseAction(name string) *BaseAction {
 	return &BaseAction{
-		name:         name,
-		codelocation: codelocation.New(2),
+		Name:         name,
+		CodeLocation: codelocation.New(2),
 	}
 }
 
@@ -68,15 +68,15 @@ func (b *BaseAction) Bind(result *ExecResult) {
 }
 
 func (b *BaseAction) GetReqLogger(c *ClientCommand) logr.Logger {
-	return c.Log().WithValues("file", b.codelocation, "action", b.name)
+	return c.Log().WithValues("file", b.CodeLocation, "action", b.Name)
 }
 
 func (b *BaseAction) SetLastResult(a *ExecResult) {
-	b.lastResult = a
+	b.LastResult = a
 }
 
 func (b *BaseAction) GetLastResult() *ExecResult {
-	return b.lastResult
+	return b.LastResult
 }
 
 type ClientActionBranch struct {

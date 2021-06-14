@@ -3,6 +3,10 @@ kind: Deployment
 metadata:
   name: controller-manager
   namespace: system
+  annotations:
+    reporterImage: {{ .Values.reporterImage }}
+    metricStateImage: {{ .Values.metricStateImage }}
+    authcheckImage: {{ .Values.authCheckImage }}
 spec:
   selector:
     matchLabels:
@@ -13,6 +17,10 @@ spec:
       labels:
         control-plane: controller-manager
         redhat.marketplace.com/name: redhat-marketplace-operator
+      annotations:
+        productName: "Red Hat Marketplace Operator"
+        productID: "36cdaba810c348c096b85800dd62bcf1"
+        productMetric: "FREE"
     spec:
       containers:
         - name: manager
@@ -23,6 +31,9 @@ spec:
             requests:
               cpu: 100m
               memory: 100Mi
+            limits:
+              cpu: 400m
+              memory: 500Mi
           livenessProbe:
             httpGet:
               path: /healthz

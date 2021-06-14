@@ -27,6 +27,9 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
+            limits:
+              cpu: 10m
+              memory: 25Mi              
           terminationMessagePolicy: FallbackToLogsOnError
         - args:
             - --kubelet-service=kube-system/kubelet
@@ -49,6 +52,9 @@ spec:
             requests:
               cpu: 5m
               memory: 60Mi
+            limits:
+              cpu: 10m
+              memory: 60Mi              
           securityContext: {}
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
@@ -72,6 +78,9 @@ spec:
             requests:
               cpu: 1m
               memory: 40Mi
+            limits:
+              cpu: 1m
+              memory: 40Mi           
           securityContext: {}
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:

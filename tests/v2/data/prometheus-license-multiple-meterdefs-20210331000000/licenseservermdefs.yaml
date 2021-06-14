@@ -1,0 +1,125 @@
+kind: List
+metadata:
+  resourceVersion: ""
+  selfLink: ""
+apiVersion: v1
+items:
+- apiVersion: marketplace.redhat.com/v1beta1
+  kind: MeterDefinition
+  metadata:
+    creationTimestamp: "2021-03-23T09:06:54Z"
+    generation: 3
+    name: ibm-licensing-service-bundleproduct-instance
+    namespace: ibm-common-services
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Service
+      name: ibm-licensing-service-prometheus
+      uid: 149c58fb-030f-439c-95b6-6205c62332c2
+    resourceVersion: "36604223"
+    selfLink: /apis/marketplace.redhat.com/v1beta1/namespaces/ibm-common-services/meterdefinitions/ibm-licensing-service-bundleproduct-instance
+    uid: 06d0e336-0471-4316-863c-b6fa0ffba866
+  spec:
+    group: '{{ .Label.productId}}.licensing.ibm.com'
+    kind: IBMLicensingDetails
+    meters:
+    - aggregation: max
+      dateLabelOverride: '{{ .Label.date}}'
+      groupBy:
+      - metricId
+      - productId
+      metricId: '{{ .Label.metricId}}'
+      name: '{{ .Label.productId}}.licensing.ibm.com'
+      period: 24h0m0s
+      query: avg_over_time(product_license_usage_details{}[1d])
+      valueLabelOverride: '{{ .Label.value}}'
+      label: '{{ .Label.productName }}'
+      workloadType: Service
+    resourceFilters:
+    - namespace:
+        useOperatorGroup: true
+      ownerCRD:
+        apiVersion: operator.ibm.com/v1alpha1
+        kind: IBMLicensing
+      workloadType: Service
+- apiVersion: marketplace.redhat.com/v1beta1
+  kind: MeterDefinition
+  metadata:
+    creationTimestamp: "2021-03-25T22:30:01Z"
+    generation: 1
+    name: ibm-licensing-service-chargeback-instance
+    namespace: ibm-common-services
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Service
+      name: ibm-licensing-service-prometheus
+      uid: 149c58fb-030f-439c-95b6-6205c62332c2
+    resourceVersion: "36604224"
+    selfLink: /apis/marketplace.redhat.com/v1beta1/namespaces/ibm-common-services/meterdefinitions/ibm-licensing-service-chargeback-instance
+    uid: a86cc28a-d0fd-4b08-ad1a-c3579c6da747
+  spec:
+    group: '{{ .Label.productId}}.licensing.ibm.com'
+    kind: IBMLicensingChargeback
+    meters:
+    - aggregation: max
+      dateLabelOverride: '{{ .Label.date}}'
+      groupBy:
+      - metricId
+      - productId
+      metricId: '{{ .Label.metricId}}'
+      name: '{{ .Label.productId}}.licensing.ibm.com'
+      period: 24h0m0s
+      query: avg_over_time(product_license_usage_chargeback{}[1d])
+      valueLabelOverride: '{{ .Label.value }}'
+      workloadType: Service
+      label: "{{ .Label.groupName }}"
+    resourceFilters:
+    - namespace:
+        useOperatorGroup: true
+      ownerCRD:
+        apiVersion: operator.ibm.com/v1alpha1
+        kind: IBMLicensing
+      workloadType: Service
+- apiVersion: marketplace.redhat.com/v1beta1
+  kind: MeterDefinition
+  metadata:
+    creationTimestamp: "2021-03-23T09:06:49Z"
+    generation: 2
+    name: ibm-licensing-service-product-instance
+    namespace: ibm-common-services
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Service
+      name: ibm-licensing-service-prometheus
+      uid: 149c58fb-030f-439c-95b6-6205c62332c2
+    resourceVersion: "36604225"
+    selfLink: /apis/marketplace.redhat.com/v1beta1/namespaces/ibm-common-services/meterdefinitions/ibm-licensing-service-product-instance
+    uid: 6a8f340b-4cbe-406c-ba5b-818ba64d6c93
+  spec:
+    group: '{{ .Label.productId}}.licensing.ibm.com'
+    kind: IBMLicensing
+    meters:
+    - aggregation: max
+      dateLabelOverride: '{{ .Label.date}}'
+      groupBy:
+      - metricId
+      - productId
+      metricId: '{{ .Label.metricId}}'
+      name: '{{ .Label.productId}}.licensing.ibm.com'
+      period: 24h0m0s
+      query: avg_over_time(product_license_usage{}[1d])
+      valueLabelOverride: '{{ .Label.value}}'
+      workloadType: Service
+    resourceFilters:
+    - namespace:
+        useOperatorGroup: true
+      ownerCRD:
+        apiVersion: operator.ibm.com/v1alpha1
+        kind: IBMLicensing
+      workloadType: Service

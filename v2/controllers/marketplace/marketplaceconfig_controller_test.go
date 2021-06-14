@@ -15,7 +15,6 @@
 package marketplace
 
 import (
-	"crypto/tls"
 	"io/ioutil"
 	"time"
 
@@ -88,7 +87,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 		marketplaceconfig *marketplacev1alpha1.MarketplaceConfig
 		razeedeployment   *marketplacev1alpha1.RazeeDeployment
 		meterbase         *marketplacev1alpha1.MeterBase
-		mbuilder          *marketplace.MarketplaceClientBuilder
 		cfg               *config.OperatorConfig
 	)
 
@@ -97,10 +95,22 @@ var _ = Describe("Testing with Ginkgo", func() {
 		marketplaceconfig.Spec.ClusterUUID = "test"
 		razeedeployment = utils.BuildRazeeCr(namespace, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
 		meterbase = utils.BuildMeterBaseCr(namespace)
+		tokenClaims := marketplace.MarketplaceClaims{
+			AccountID: "foo",
+			APIKey:    "test",
+			Env:       "test",
+			StandardClaims: jwt.StandardClaims{
+				ExpiresAt: 15000,
+				Issuer:    "test",
+			},
+		}
+
+		signingKey := []byte("AllYourBase")
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, tokenClaims)
+
 		Eventually(func() string {
 			// Create the token
-			jwtToken := jwt.New(jwt.SigningMethodHS256)
-			tokenString, err = jwtToken.SignedString([]byte("test"))
+			tokenString, err = token.SignedString(signingKey)
 			if err != nil {
 				panic(err)
 			}
@@ -127,11 +137,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 				InsecureClient: true,
 			},
 		}
-
-		mbuilder = marketplace.NewMarketplaceClientBuilder(cfg).SetTLSConfig(&tls.Config{
-			RootCAs:            server.HTTPTestServer.TLS.RootCAs,
-			InsecureSkipVerify: true,
-		})
 
 		statusCode = 200
 		path = "/" + marketplace.RegistrationEndpoint
@@ -164,12 +169,11 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 				r.Client = fake.NewFakeClient(r.GetGetObjects()...)
 				r.Reconciler = &MarketplaceConfigReconciler{
-					Client:         r.Client,
-					Scheme:         s,
-					Log:            log,
-					cc:             reconcileutils.NewLoglessClientCommand(r.Client, s),
-					cfg:            cfg,
-					mclientBuilder: mbuilder,
+					Client: r.Client,
+					Scheme: s,
+					Log:    log,
+					cc:     reconcileutils.NewLoglessClientCommand(r.Client, s),
+					cfg:    cfg,
 				}
 				return nil
 			}
@@ -182,6 +186,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 			marketplaceconfig.Spec.EnableMetering = ptr.Bool(true)
 			marketplaceconfig.Spec.InstallIBMCatalogSource = ptr.Bool(true)
+
 			reconcilerTest := NewReconcilerTest(setup, marketplaceconfig, deployedNamespace, secret)
 			reconcilerTest.TestAll(t,
 				ReconcileStep(opts, ReconcileWithUntilDone(true)),

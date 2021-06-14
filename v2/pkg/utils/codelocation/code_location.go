@@ -23,9 +23,9 @@ import (
 )
 
 type CodeLocation struct {
-	FileName       string
-	LineNumber     int
-	FullStackTrace string
+	FileName       string `json:"file_name"`
+	LineNumber     int    `json:"line_number"`
+	FullStackTrace string `json:"full_stack_trace"`
 }
 
 func (codeLocation CodeLocation) String() string {

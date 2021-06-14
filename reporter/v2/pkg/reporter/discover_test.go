@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var _ = Describe("discover", func() {
@@ -163,7 +164,7 @@ var _ = Describe("discover", func() {
 		Expect(len(errs)).To(Equal(0))
 		Expect(len(results)).To(Equal(1))
 
-		query := results[0].query
+		query := results[types.NamespacedName{Name: "name", Namespace: "namespace"}][0].query
 
 		endTime := model.TimeFromUnix(1612911600).Add(time.Hour).Time().UTC()
 

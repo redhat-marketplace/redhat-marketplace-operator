@@ -7,13 +7,18 @@ metadata:
     categories: Developer Tools
     certified: "true"
     description: The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
-    olm.skipRange: '>=1.0.0 <2.1.0'
+    olm.skipRange: '>=1.0.0 <2.2.0'
     operatorframework.io/suggested-namespace: openshift-redhat-marketplace
     operators.operatorframework.io/builder: operator-sdk-v1.2.0
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v2
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
+  labels:
+    operatorframework.io/arch.amd64: supported
+    operatorframework.io/arch.ppc64le: supported
+    operatorframework.io/arch.s390x: supported
+    operatorframework.io/os.linux: supported
   name: redhat-marketplace-operator.v0.0.0
   namespace: placeholder
 spec:

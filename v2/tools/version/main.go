@@ -57,26 +57,36 @@ var nextCmd = &cobra.Command{
 
 		next := true
 
-		if flag, _ := cmd.Flags().GetBool("major"); flag {
-			*nextVersion = nextVersion.IncMajor()
-			next = false
-		}
+		if version, _ := cmd.Flags().GetString("version"); version != "" {
+			var err error
+			nextVersion, err = semver.NewVersion(version)
 
-		if flag, _ := cmd.Flags().GetBool("minor"); next && flag {
-			*nextVersion = nextVersion.IncMinor()
-			next = false
-		}
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+		} else {
+			if flag, _ := cmd.Flags().GetBool("major"); flag {
+				*nextVersion = nextVersion.IncMajor()
+				next = false
+			}
 
-		if flag, _ := cmd.Flags().GetBool("patch"); next && flag {
-			*nextVersion = nextVersion.IncPatch()
-		}
+			if flag, _ := cmd.Flags().GetBool("minor"); next && flag {
+				*nextVersion = nextVersion.IncMinor()
+				next = false
+			}
 
-		if flag, _ := cmd.Flags().GetBool("prerelease"); flag {
-			prereleaseName, _ := cmd.Flags().GetString("prerelease-name")
-			build, _ := cmd.Flags().GetInt("build")
-			prerelease := fmt.Sprintf("%s.%v", prereleaseName, build)
+			if flag, _ := cmd.Flags().GetBool("patch"); next && flag {
+				*nextVersion = nextVersion.IncPatch()
+			}
 
-			*nextVersion, _ = nextVersion.SetPrerelease(prerelease)
+			if flag, _ := cmd.Flags().GetBool("prerelease"); flag {
+				prereleaseName, _ := cmd.Flags().GetString("prerelease-name")
+				build, _ := cmd.Flags().GetInt("build")
+				prerelease := fmt.Sprintf("%s.%v", prereleaseName, build)
+
+				*nextVersion, _ = nextVersion.SetPrerelease(prerelease)
+			}
 		}
 
 		fmt.Println(nextVersion)
@@ -99,6 +109,7 @@ func init() {
 	rootCmd.AddCommand(nextCmd)
 	rootCmd.AddCommand(lastCmd)
 	rootCmd.PersistentFlags().StringVar(&filename, "filename", "version/version.go", "file name of the version")
+	nextCmd.Flags().String("version", "", "version to use")
 	nextCmd.Flags().Bool("commit", false, "commit and tag in git")
 	nextCmd.Flags().Bool("dry-run", false, "dry run")
 	nextCmd.Flags().Bool("major", false, "major release")

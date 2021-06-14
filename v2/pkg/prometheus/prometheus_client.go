@@ -218,6 +218,7 @@ func NewSecureClient(config *PrometheusSecureClientConfig) (api.Client, error) {
 
 	transport = &http.Transport{
 		TLSClientConfig: tlsConfig,
+		Proxy:           http.ProxyFromEnvironment,
 	}
 
 	if config.UserAuth != nil {
@@ -247,6 +248,7 @@ func NewSecureClientFromCert(config *PrometheusSecureClientConfig) (api.Client, 
 
 	transport = &http.Transport{
 		TLSClientConfig: tlsConfig,
+		Proxy:           http.ProxyFromEnvironment,
 	}
 
 	if config.UserAuth != nil {

@@ -244,6 +244,7 @@ func (meterdef *MeterDefinition) ToPrometheusLabels() []map[string]string {
 	meterDefinitionUID := string(meterdef.UID)
 	meterGroup := string(meterdef.Spec.Group)
 	meterKind := string(meterdef.Spec.Kind)
+
 	for _, workload := range meterdef.Spec.Workloads {
 		for _, metricLabel := range workload.MetricLabels {
 			labels := map[string]string{

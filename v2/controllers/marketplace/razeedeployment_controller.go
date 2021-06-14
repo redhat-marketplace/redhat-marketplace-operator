@@ -36,6 +36,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -774,7 +775,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 		if errors.IsNotFound(err) {
 			reqLogger.V(0).Info("Resource does not exist", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
 
-			watchKeeperConfig = *r.makeWatchKeeperConfig(instance)
+			watchKeeperConfig = *r.makeWatchKeeperConfigV2(instance)
 			if err := utils.ApplyAnnotation(&watchKeeperConfig); err != nil {
 				reqLogger.Error(err, "Failed to set annotation")
 				return reconcile.Result{}, err
@@ -817,23 +818,21 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 			"resource", utils.WATCH_KEEPER_CONFIG_NAME,
 			"uid", watchKeeperConfig.UID)
 
-		updatedWatchKeeperConfig := *r.makeWatchKeeperConfig(instance)
+		var updatedWatchKeeperConfig v1.ConfigMap
+		version, _ := watchKeeperConfig.GetAnnotations()["marketplace.redhat.com/version"]
+		switch version {
+		case "2":
+			updatedWatchKeeperConfig = *r.makeWatchKeeperConfigV2(instance)
+		case "1":
+			fallthrough
+		default:
+			updatedWatchKeeperConfig = *r.makeWatchKeeperConfig(instance)
+		}
+
 		updatedWatchKeeperConfig.UID = watchKeeperConfig.UID
-		if instance.Spec.ClusterDisplayName != "" {
-			if updatedWatchKeeperConfig.Labels == nil {
-				updatedWatchKeeperConfig.Labels = make(map[string]string)
-			}
+		updatedWatchKeeperConfig.ResourceVersion = watchKeeperConfig.ResourceVersion
 
-			utils.SetMapKeyValue(updatedWatchKeeperConfig.Labels, []string{"razee/cluster-metadata", "true"})
-			updatedWatchKeeperConfig.Data["name"] = instance.Spec.ClusterDisplayName
-		}
-
-		patchResult, err := r.patcher.Calculate(&watchKeeperConfig, &updatedWatchKeeperConfig)
-		if err != nil {
-			reqLogger.Error(err, "Failed to compare patches")
-		}
-
-		if !patchResult.IsEmpty() {
+		if !reflect.DeepEqual(updatedWatchKeeperConfig.Data, watchKeeperConfig.Data) {
 			reqLogger.Info("Change detected on", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
 			if err := utils.ApplyAnnotation(&updatedWatchKeeperConfig); err != nil {
 				reqLogger.Error(err, "Failed to set annotation")
@@ -1411,8 +1410,43 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperConfig(instance *marketplacev
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.WATCH_KEEPER_CONFIG_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
+			Annotations: map[string]string{
+				"marketplace.redhat.com/version": "1",
+			},
 		},
-		Data: map[string]string{"RAZEEDASH_URL": instance.Spec.DeployConfig.RazeeDashUrl, "START_DELAY_MAX": "0"},
+		Data: map[string]string{
+			"RAZEEDASH_URL":   instance.Spec.DeployConfig.RazeeDashUrl,
+			"START_DELAY_MAX": "0",
+		},
+	}
+	r.factory.SetOwnerReference(instance, cm)
+	return cm
+}
+
+// Creates watchkeeper config and applies the razee-dash-url stored on the Razeedeployment cr
+func (r *RazeeDeploymentReconciler) makeWatchKeeperConfigV2(
+	instance *marketplacev1alpha1.RazeeDeployment,
+) *corev1.ConfigMap {
+	data := map[string]string{
+		"RAZEEDASH_URL":       instance.Spec.DeployConfig.RazeeDashUrl,
+		"START_DELAY_MAX":     "0",
+		"CLUSTER_ID_OVERRIDE": instance.Spec.ClusterUUID,
+	}
+
+	if instance.Spec.ClusterDisplayName != "" {
+		data["DEFAULT_CLUSTER_NAME"] = instance.Spec.ClusterDisplayName
+		data["name"] = instance.Spec.ClusterDisplayName
+	}
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.WATCH_KEEPER_CONFIG_NAME,
+			Namespace: *instance.Spec.TargetNamespace,
+			Annotations: map[string]string{
+				"marketplace.redhat.com/version": "2",
+			},
+		},
+		Data: data,
 	}
 	r.factory.SetOwnerReference(instance, cm)
 	return cm
