@@ -37,6 +37,7 @@ import (
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/util/retry"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -194,6 +195,28 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		}
 
 		return result.Return()
+	}
+
+	isMarkedForDeletion := marketplaceConfig.GetDeletionTimestamp() != nil
+	if isMarkedForDeletion {
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			key, _ := client.ObjectKeyFromObject(marketplaceConfig)
+			err := r.Client.Get(context.TODO(), key, marketplaceConfig)
+
+			if err != nil {
+				return err
+			}
+			marketplaceConfig.SetFinalizers(utils.RemoveKey(marketplaceConfig.GetFinalizers(), utils.CONTROLLER_FINALIZER))
+			return r.Client.Update(context.TODO(), marketplaceConfig)
+		})
+
+		if err != nil && k8serrors.IsNotFound(err) {
+			reqLogger.Error(err, "error executing finalizer")
+			return reconcile.Result{}, err
+		}
+
+		reqLogger.Info("Delete is complete.")
+		return reconcile.Result{}, nil
 	}
 
 	// Set default namespaces for workload monitoring
