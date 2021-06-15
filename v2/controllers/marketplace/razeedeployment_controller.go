@@ -1006,6 +1006,9 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 	if rrs3DeploymentEnabled {
 		result, err := r.createOrUpdateRemoteResourceS3Deployment(instance)
 		if err != nil {
+			reqLogger.Error(err, "Failed to createOrUpdateRemoteResourceS3Deployment")
+			return result, err
+		} else if result.Requeue || result.RequeueAfter != 0 {
 			return result, err
 		}
 	}
@@ -1013,6 +1016,9 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 	if registrationEnabled {
 		result, err := r.createOrUpdateWatchKeeperDeployment(instance)
 		if err != nil {
+			reqLogger.Error(err, "Failed to createOrUpdateWatchKeeperDeployment")
+			return result, err
+		} else if result.Requeue || result.RequeueAfter != 0 {
 			return result, err
 		}
 	} else {
