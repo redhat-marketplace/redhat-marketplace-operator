@@ -20,7 +20,6 @@ import (
 	"reflect"
 	"time"
 
-	emperrors "emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -56,6 +55,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -250,7 +251,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 		return reconcile.Result{}, err
 	}
 
-	cc := r.CC
 	factory := r.factory
 
 	// if not enabled then exit
@@ -1003,68 +1003,59 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 	/******************************************************************************
 	Create watch-keeper deployment,rrs3-controller deployment, apply parent rrs3
 	/******************************************************************************/
-	rrs3Deployment := &appsv1.Deployment{}
 	reqLogger.V(0).Info("Finding Rhm RemoteResourceS3 deployment")
 
-	args := manifests.CreateOrUpdateFactoryItemArgs{
-		Patcher: r.patcher,
-	}
-
 	if rrs3DeploymentEnabled {
-		if result, _ := cc.Do(context.TODO(),
-			HandleResult(
-				manifests.CreateOrUpdateFactoryItemAction(
-					rrs3Deployment,
-					func() (runtime.Object, error) {
-						dep := factory.NewRemoteResourceS3Deployment(instance)
-						// Do not set an OwnerRef on the rrs3Dep
-						// A delete --cascade='foreground' will cause orphaned RRS3
-						// rrs3Dep will end up deleted before RRS3 child/parent finalizer cleanup
-						//factory.SetOwnerReference(instance, dep)
-						return dep, nil
-					},
-					args,
-				),
-				OnError(ReturnWithError(emperrors.New("failed to create remote resources3"))),
-				OnContinue(UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
-					Type:    marketplacev1alpha1.ConditionDeploymentEnabled,
-					Status:  corev1.ConditionTrue,
-					Reason:  marketplacev1alpha1.ReasonRhmRemoteResourceS3DeploymentEnabled,
-					Message: "RemoteResourceS3 deployment enabled",
-				})),
-			),
-		); !result.Is(Continue) {
-			reqLogger.Info("returing result", "result", *result)
-			return result.Return()
+		rrs3Deployment := r.factory.NewRemoteResourceS3Deployment()
+		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, rrs3Deployment, func() error {
+			err := factory.UpdateRemoteResourceS3Deployment(rrs3Deployment)
+			if err != nil {
+				return err
+			}
+			factory.SetControllerReference(instance, rrs3Deployment)
+			return nil
+		})
+		if err != nil {
+			return reconcile.Result{}, err
+		} else {
+			if instance.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionDeploymentEnabled,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonRhmRemoteResourceS3DeploymentEnabled,
+				Message: "RemoteResourceS3 deployment enabled",
+			}) {
+				err = r.Client.Status().Update(context.TODO(), instance)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+			}
 		}
 	}
 
 	if registrationEnabled {
-		watchKeeperDeployment := &appsv1.Deployment{}
-		reqLogger.V(0).Info("Finding watch-keeper deployment")
-
-		if result, _ := cc.Do(context.TODO(),
-			HandleResult(
-				manifests.CreateOrUpdateFactoryItemAction(
-					watchKeeperDeployment,
-					func() (runtime.Object, error) {
-						dep := factory.NewWatchKeeperDeployment(instance)
-						factory.SetOwnerReference(instance, dep)
-						return dep, nil
-					},
-					args,
-				),
-				OnError(ReturnWithError(emperrors.New("failed to create watchkeeper"))),
-				OnContinue(UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
-					Type:    marketplacev1alpha1.ConditionRegistrationEnabled,
-					Status:  corev1.ConditionTrue,
-					Reason:  marketplacev1alpha1.ReasonRhmRegistrationWatchkeeperEnabled,
-					Message: "Registration deployment enabled",
-				})),
-			),
-		); !result.Is(Continue) {
-			reqLogger.Info("returing result", "result", *result)
-			return result.Return()
+		watchKeeperDeployment := r.factory.NewWatchKeeperDeployment()
+		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, watchKeeperDeployment, func() error {
+			err := factory.UpdateWatchKeeperDeployment(watchKeeperDeployment)
+			if err != nil {
+				return err
+			}
+			factory.SetControllerReference(instance, watchKeeperDeployment)
+			return nil
+		})
+		if err != nil {
+			return reconcile.Result{}, err
+		} else {
+			if instance.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionRegistrationEnabled,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonRhmRegistrationWatchkeeperEnabled,
+				Message: "Registration deployment enabled",
+			}) {
+				err = r.Client.Status().Update(context.TODO(), instance)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+			}
 		}
 	} else {
 		reqLogger.V(0).Info("watch-keeper deployment not enabled")
