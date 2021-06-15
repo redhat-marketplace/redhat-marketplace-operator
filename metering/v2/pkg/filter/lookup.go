@@ -41,14 +41,17 @@ type MeterDefinitionLookupFilter struct {
 	MeterDefName    MeterDefWorkload
 	MeterDefinition *v1beta1.MeterDefinition
 	ResourceVersion string
-	workloads       []v1beta1.ResourceFilter
-	filters         [][]FilterRuntimeObject
+
 	client          client.Client
 	log             logr.Logger
 	findOwner       *rhmclient.FindOwnerHelper
+
+	workloads       []v1beta1.ResourceFilter
+	filters         [][]FilterRuntimeObject
 }
 
 func NewMeterDefinitionLookupFilter(
+	client client.Client,
 	meterdef *v1beta1.MeterDefinition,
 	findOwner *rhmclient.FindOwnerHelper,
 	log logr.Logger,
@@ -58,6 +61,7 @@ func NewMeterDefinitionLookupFilter(
 		MeterDefinition: meterdef,
 		MeterDefName:    types.NamespacedName{Name: meterdef.Name, Namespace: meterdef.Namespace},
 		ResourceVersion: meterdef.ResourceVersion,
+		client:          client,
 		findOwner:       findOwner,
 		log:             log.WithName("meterDefLookupFilter").WithValues("meterdefName", meterdef.Name, "meterdefNamespace", meterdef.Namespace).V(4),
 	}
