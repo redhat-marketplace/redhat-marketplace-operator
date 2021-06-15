@@ -122,10 +122,13 @@ var PublishCommand = &cobra.Command{
 
 		log.Println("starting")
 
+
 		web.Start()
 		defer web.Stop()
 
-		err = web.Login(web.Ctx, username, password)
+		ctx, cancel := context.WithTimeout(web.Ctx, 2*time.Minute)
+		defer cancel()
+		err = web.Login(ctx, username, password)
 
 		if err != nil {
 			log.Fatal(err)
@@ -191,7 +194,7 @@ var PublishCommand = &cobra.Command{
 			return boolChan
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
 
 		doneChan := process()
@@ -359,9 +362,13 @@ func (c *ConnectWebsite) Login(inCtx context.Context, username, password string)
 		chromedp.WaitVisible(`#step2.show`, chromedp.ByQuery),
 		chromedp.Click(`input[name="password"]`, chromedp.ByQuery),
 		chromedp.SetValue(`input[name="password"]`, password, chromedp.ByQuery),
-		chromedp.Click(`#kc-login`, chromedp.ByQuery),
+		chromedp.Submit(`#kc-login`, chromedp.ByQuery),
 		logAction("submit"),
-		chromedp.WaitVisible(`body > header > pfe-navigation > pfe-navigation-main`, chromedp.ByQuery),
+	)
+
+	time.Sleep(5*time.Second)
+
+	err = chromedp.Run(inCtx,
 		chromedp.Location(&location),
 	)
 
