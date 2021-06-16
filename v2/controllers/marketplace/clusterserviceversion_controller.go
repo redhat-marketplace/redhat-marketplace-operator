@@ -54,6 +54,7 @@ import (
 const (
 	watchTag         string = "razee/watch-resource"
 	olmCopiedFromTag string = "olm.copiedFrom"
+	olmNamespace     string = "olm.operatorNamespace"
 	ignoreTag        string = "marketplace.redhat.com/ignore"
 	ignoreTagValue   string = "2"
 	meterDefStatus   string = "marketplace.redhat.com/meterDefinitionStatus"
@@ -483,8 +484,10 @@ func csvFilter(metaNew metav1.Object) int {
 	_, hasCopiedFrom := ann[olmCopiedFromTag]
 	_, hasMeterDefinition := ann[utils.CSV_METERDEFINITION_ANNOTATION]
 
+	sameNamespace := ann[olmNamespace] == metaNew.GetNamespace()
+
 	switch {
-	case hasMeterDefinition && !hasCopiedFrom:
+	case hasMeterDefinition && !hasCopiedFrom && sameNamespace:
 		return 1
 	case !hasMeterDefinition && (!hasIgnoreTag || ignoreVal != ignoreTagValue):
 		return 2

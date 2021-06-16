@@ -42,12 +42,12 @@ type MeterDefinitionLookupFilter struct {
 	MeterDefinition *v1beta1.MeterDefinition
 	ResourceVersion string
 
-	client          client.Client
-	log             logr.Logger
-	findOwner       *rhmclient.FindOwnerHelper
+	client    client.Client
+	log       logr.Logger
+	findOwner *rhmclient.FindOwnerHelper
 
-	workloads       []v1beta1.ResourceFilter
-	filters         [][]FilterRuntimeObject
+	workloads []v1beta1.ResourceFilter
+	filters   [][]FilterRuntimeObject
 }
 
 func NewMeterDefinitionLookupFilter(
@@ -71,14 +71,26 @@ func NewMeterDefinitionLookupFilter(
 		s.log.Error(err, "error creating find namespaces")
 		return nil, err
 	}
-	filters, err := s.createFilters(meterdef, ns)
-	if err != nil {
-		s.log.Error(err, "error creating filters")
-		return nil, err
+
+	if len(ns) != 0 {
+		filters, err := s.createFilters(meterdef, ns)
+		if err != nil {
+			s.log.Error(err, "error creating filters")
+			return nil, err
+		}
+
+		s.filters = filters
+	} else {
+		// no namespace covered, add no op filters
+		s.filters = [][]FilterRuntimeObject{
+			{
+				&FalseFilter{},
+			},
+		}
 	}
 
+
 	s.workloads = meterdef.Spec.ResourceFilters
-	s.filters = filters
 
 	return s, nil
 }
@@ -192,23 +204,34 @@ func (s *MeterDefinitionLookupFilter) findNamespaces(
 				return
 			}
 
-			olmNamespacesStr, ok := csv.GetAnnotations()["olm.targetNamespaces"]
+			olmNamespacesStr, ok := csv.GetAnnotations()["olm.operatorGroup"]
 
-			if !ok {
-				err = errors.Wrap(functionError, "olmNamspaces on CSV not found")
-				// set condition and requeue for later
-				reqLogger.Error(err, "")
-				return
-			}
-
-			if olmNamespacesStr == "" {
+			if ok && olmNamespacesStr == "" {
 				reqLogger.Info("operatorGroup is for all namespaces")
 				namespaces = []string{corev1.NamespaceAll}
 				return
 			}
 
-			namespaces = strings.Split(olmNamespacesStr, ",")
-			return
+			if ok && olmNamespacesStr != "" {
+				namespaces = strings.Split(olmNamespacesStr, ",")
+			}
+
+			olmGroup, ok := csv.GetAnnotations()["olm.operatorGroup"]
+
+			if ok && olmGroup == "global-operators" {
+				olmNamespace, nsOk := csv.GetAnnotations()["olm.operatorNamespace"]
+				if nsOk && olmNamespace == csv.Namespace {
+					reqLogger.Info("operatorGroup is for all namespaces")
+					namespaces = []string{corev1.NamespaceAll}
+				} else {
+					reqLogger.Info("operatorGroup is for all namespaces, but csv is a copy")
+					namespaces = []string{}
+				}
+				return
+			}
+
+			reqLogger.Info("installedBy not found, falling back to namespace")
+			return []string{instance.GetNamespace()}, nil
 		}
 
 		if resourceFilter.Namespace.LabelSelector != nil {

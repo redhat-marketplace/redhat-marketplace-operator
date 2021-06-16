@@ -46,7 +46,7 @@ var (
 
 func ProvideMailbox(log logr.Logger) *Mailbox {
 	return &Mailbox{
-		log:       log,
+		log:       log.WithName("mailbox").V(4),
 		listeners: make(map[ChannelName][]chan cache.Delta),
 	}
 }
@@ -90,23 +90,23 @@ func (s *Mailbox) Broadcast(channelName ChannelName, obj cache.Delta) error {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
+	logger := s.log.WithValues("ChannelName", channelName).V(4)
+
 	listeners, ok := s.listeners[channelName]
 	if !ok {
 		return errors.NewWithDetails("channel name doesn't exist", "channel", channelName)
 	}
 
-	s.log.WithName(fmt.Sprintf("ChannelName:%s", channelName)).
-		Info("sending message",
-			"obj", fmt.Sprintf("%+v", obj),
-			"listeners", len(listeners))
+	logger.Info("sending message",
+		"obj", fmt.Sprintf("%+v", obj),
+		"listeners", len(listeners))
 
 	for _, listener := range listeners {
 		listener <- obj
 	}
 
-	s.log.WithName(fmt.Sprintf("ChannelName:%s", channelName)).
-		Info("done sending message",
-			"obj", fmt.Sprintf("%+v", obj))
+	logger.Info("done sending message",
+		"obj", fmt.Sprintf("%+v", obj))
 
 	return nil
 }
