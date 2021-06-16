@@ -61,10 +61,10 @@ var GetPublishStatusCommand = &cobra.Command{
 			Password: password,
 		}
 
-		web.Start()
-		defer web.Stop()
+		webCtx, cancel := web.Start()
+		defer cancel()
 
-		ctx, cancel := context.WithTimeout(web.Ctx, 4*time.Minute)
+		ctx, cancel := context.WithTimeout(webCtx, 4*time.Minute)
 		defer cancel()
 
 		err := web.Login(ctx, username, password)
@@ -122,19 +122,25 @@ var PublishCommand = &cobra.Command{
 
 		log.Println("starting")
 
+		webCtx, cancel := web.Start()
+		defer cancel()
 
-		web.Start()
-		defer web.Stop()
-
-		ctx, cancel := context.WithTimeout(web.Ctx, 2*time.Minute)
-		err = web.Login(ctx, username, password)
+		overallContext, ocancel := context.WithTimeout(webCtx, 10*time.Minute)
+		defer ocancel()
 
 		if err != nil {
-			log.Fatal(err)
+			log.Println("failed to start web", err)
 			return err
 		}
 
-		cancel()
+		err = func() error {
+			return web.Login(overallContext, username, password)
+		}()
+
+		if err != nil {
+			log.Println("failed to login", err)
+			return err
+		}
 
 		start := make(chan bool, 1)
 		defer close(start)
@@ -145,72 +151,41 @@ var PublishCommand = &cobra.Command{
 
 		published := map[string]interface{}{}
 
-		process := func() chan bool {
-			boolChan := make(chan bool)
+		for _, image := range images {
 
-			go func() {
-				defer close(boolChan)
+			if _, ok := published[image.SHA]; ok {
+				log.Println(image.SHA, "is already published")
+				continue
+			}
 
-				for {
-					for _, image := range images {
+			func() {
+				ctx, lcancel := context.WithTimeout(overallContext, 1*time.Minute)
+				defer lcancel()
 
-						if _, ok := published[image.SHA]; ok {
-							log.Println(image.SHA, "is already published")
-							continue
-						}
+				isPublished, err := web.Publish(ctx, image)
 
-						func() {
-							localCtx, cancelTimer := context.WithTimeout(web.Ctx, 1*time.Minute)
-							defer cancelTimer()
+				if isPublished {
+					published[image.SHA] = nil
+				}
 
-							isPublished, err := web.Publish(localCtx, image)
-
-							if isPublished {
-								published[image.SHA] = nil
-							}
-
-							if err != nil {
-								log.Println("failed to publish", err)
-							}
-						}()
-					}
-
-					foundAll := true
-					for _, image := range images {
-						_, ok := published[image.SHA]
-						foundAll = foundAll && ok
-					}
-
-					if foundAll {
-						log.Println("finished publishing")
-						boolChan <- true
-						return
-					}
-
-					time.Sleep(30 * time.Second)
+				if err != nil {
+					log.Println("failed to publish", err)
 				}
 			}()
-
-			return boolChan
 		}
 
-		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Minute)
-		defer cancel()
-
-		doneChan := process()
-
-		select {
-		case <-web.Ctx.Done():
-			log.Println("context cancelled")
-			return errors.New("context cancelled")
-		case <-doneChan:
-			log.Println("done")
-		case <-ctx.Done():
-			err = errors.New("timed out")
-			return err
+		foundAll := true
+		for _, image := range images {
+			_, ok := published[image.SHA]
+			foundAll = foundAll && ok
 		}
 
-		return nil
+		if foundAll {
+			log.Println("finished publishing")
+			return nil
+		}
+
+		return errors.New("failed to publish all the images")
 	},
 }
 
@@ -278,19 +253,11 @@ func GetChromeContext(dir string) (context.Context, context.CancelFunc) {
 		chromedp.UserDataDir(dir),
 	)
 
-	allocCtx, cancel1 := chromedp.NewExecAllocator(context.Background(), opts...)
-
-	// also set up a custom logger
-	taskCtx, cancel2 := chromedp.NewContext(allocCtx, chromedp.WithLogf(log.Printf))
-
-	return taskCtx, func() {
-		defer cancel1()
-		defer cancel2()
-	}
+	allocCtx, _ := chromedp.NewExecAllocator(context.Background(), opts...)
+	return chromedp.NewContext(allocCtx, chromedp.WithLogf(log.Printf))
 }
 
 type ConnectWebsite struct {
-	Ctx                context.Context
 	stop               chan struct{}
 	Username, Password string
 
@@ -300,14 +267,14 @@ type ConnectWebsite struct {
 var onlyOneSignalHandler = make(chan struct{})
 var shutdownSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
 
-func (c *ConnectWebsite) Start() error {
+func (c *ConnectWebsite) Start() (context.Context, context.CancelFunc) {
 	close(onlyOneSignalHandler) // panics when called twice
 	// also set up a custom logger
 	if c.directory == "" {
 		c.directory = os.TempDir()
 	}
+
 	taskCtx, cancel := GetChromeContext(c.directory)
-	c.Ctx = taskCtx
 
 	c.stop = make(chan struct{})
 	ch := make(chan os.Signal, 2)
@@ -326,19 +293,10 @@ func (c *ConnectWebsite) Start() error {
 		cancel()
 	}()
 
-	return nil
-}
-
-func (c *ConnectWebsite) Stop() {
-	if c.stop == nil {
-		return
-	}
-	close(c.stop)
+	return taskCtx, cancel
 }
 
 func (c *ConnectWebsite) Login(inCtx context.Context, username, password string) error {
-	// create a timeout
-
 	var location string
 	err := chromedp.Run(inCtx,
 		chromedp.Navigate(`https://connect.redhat.com/saml_login`),
@@ -366,7 +324,7 @@ func (c *ConnectWebsite) Login(inCtx context.Context, username, password string)
 		logAction("submit"),
 	)
 
-	time.Sleep(5*time.Second)
+	time.Sleep(5 * time.Second)
 
 	err = chromedp.Run(inCtx,
 		chromedp.Location(&location),
