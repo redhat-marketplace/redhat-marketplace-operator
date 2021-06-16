@@ -127,13 +127,14 @@ var PublishCommand = &cobra.Command{
 		defer web.Stop()
 
 		ctx, cancel := context.WithTimeout(web.Ctx, 2*time.Minute)
-		defer cancel()
 		err = web.Login(ctx, username, password)
 
 		if err != nil {
 			log.Fatal(err)
 			return err
 		}
+
+		cancel()
 
 		start := make(chan bool, 1)
 		defer close(start)
@@ -188,7 +189,6 @@ var PublishCommand = &cobra.Command{
 
 					time.Sleep(30 * time.Second)
 				}
-				return
 			}()
 
 			return boolChan

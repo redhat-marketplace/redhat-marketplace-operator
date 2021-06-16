@@ -900,7 +900,6 @@ done
 
 _#publishOperatorImages: _#step & {
 	name:                "Publish Operator Images"
-	"continue-on-error": true
 	env: {
 		RH_USER:          "${{ secrets['REDHAT_IO_USER'] }}"
 		RH_PASSWORD:      "${{ secrets['REDHAT_IO_PASSWORD'] }}"
