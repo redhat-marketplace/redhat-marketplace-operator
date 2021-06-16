@@ -194,7 +194,7 @@ func (r *MeterdefConfigMapReconciler) Reconcile(request reconcile.Request) (reco
 	reqLogger.Info("deployment config latest version", "version", r.latestVersion)
 	reqLogger.Info("deployment config status message", "message", r.message)
 
-	// Fetch the mdefKVStore instance
+	// Fetch the mdefStore instance
 	cm := &corev1.ConfigMap{}
 	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME, Namespace: r.cfg.DeployedNamespace}, cm)
 	if err != nil {
@@ -263,16 +263,16 @@ func (r *MeterdefConfigMapReconciler) sync(installMappings []InstallMapping, req
 
 			return updatedInstallMappings, result
 		}
-		meterDefsList := []string{}
-		meterDefsMap := make(map[string]marketplacev1beta1.MeterDefinition)
+		meterDefNamesFromFileServer := []string{}
+		meterDefsMapFromFileServer := make(map[string]marketplacev1beta1.MeterDefinition)
 
 		for _, meterDefItem := range meterDefsFromFileServer {
-			meterDefsList = append(meterDefsList, meterDefItem.ObjectMeta.Name)
-			meterDefsMap[meterDefItem.ObjectMeta.Name] = meterDefItem
+			meterDefNamesFromFileServer = append(meterDefNamesFromFileServer, meterDefItem.ObjectMeta.Name)
+			meterDefsMapFromFileServer[meterDefItem.ObjectMeta.Name] = meterDefItem
 		}
 
 		// get the list of meter defs to be deleted and delete them
-		mdefDeleteList := utils.SliceDifference(installedMeterDefs, meterDefsList)
+		mdefDeleteList := utils.SliceDifference(installedMeterDefs, meterDefNamesFromFileServer)
 		if len(mdefDeleteList) > 0 {
 			err := deleteMeterDefintions(namespace, mdefDeleteList, r.Client, reqLogger)
 			if err != nil {
@@ -281,23 +281,25 @@ func (r *MeterdefConfigMapReconciler) sync(installMappings []InstallMapping, req
 					Err:             err,
 				}
 			}
+			reqLogger.Info("Successfully deleted meterdefintions", "Count", len(mdefDeleteList), "Namespace", namespace, "CSV", csvName)
 		}
 
 		// get the list of meter defs to be created and create them
-		mdefCreateList := utils.SliceDifference(meterDefsList, installedMeterDefs)
+		mdefCreateList := utils.SliceDifference(meterDefNamesFromFileServer, installedMeterDefs)
 		if len(mdefCreateList) > 0 {
-			err := r.createMeterDefintions(namespace, csvName, mdefCreateList, meterDefsMap, reqLogger)
+			err := r.createMeterDefintions(namespace, csvName, mdefCreateList, meterDefsMapFromFileServer, reqLogger)
 			if err != nil {
 				return updatedInstallMappings, &ExecResult{
 					ReconcileResult: reconcile.Result{},
 					Err:             err,
 				}
 			}
+			reqLogger.Info("Successfully created meterdefintions", "Count", len(mdefDeleteList), "Namespace", namespace, "CSV", csvName)
 		}
 		// get ths list of meter defs to be checked for changes and invoke update operation
-		mdefUpdateList := utils.SliceIntersection(installedMeterDefs, meterDefsList)
+		mdefUpdateList := utils.SliceIntersection(installedMeterDefs, meterDefNamesFromFileServer)
 		if len(mdefUpdateList) > 0 {
-			err := updateMeterDefintions(namespace, mdefUpdateList, meterDefsMap, r.Client, reqLogger)
+			err := updateMeterDefintions(namespace, mdefUpdateList, meterDefsMapFromFileServer, r.Client, reqLogger)
 			if err != nil {
 				return updatedInstallMappings, &ExecResult{
 					ReconcileResult: reconcile.Result{},
@@ -305,9 +307,11 @@ func (r *MeterdefConfigMapReconciler) sync(installMappings []InstallMapping, req
 				}
 			}
 		}
-		installMap.InstalledMeterdefinitions = meterDefsList
+		installMap.InstalledMeterdefinitions = meterDefNamesFromFileServer
 		updatedInstallMappings = append(updatedInstallMappings, installMap)
 	}
+	reqLogger.Info("Sync complete")
+	reqLogger.Info("Current list of install mappings", "Install mappings", updatedInstallMappings)
 
 	return updatedInstallMappings, &ExecResult{
 		Status: ActionResultStatus(Continue),
@@ -317,20 +321,29 @@ func (r *MeterdefConfigMapReconciler) sync(installMappings []InstallMapping, req
 func deleteMeterDefintions(namespace string, mdefNames []string, client client.Client, reqLogger logr.Logger) error {
 	for _, mdefName := range mdefNames {
 
-		meterDefn := marketplacev1beta1.MeterDefinition{}
-		err := client.Get(context.TODO(), types.NamespacedName{Name: mdefName, Namespace: namespace}, &meterDefn)
+		installedMeterDefn := &marketplacev1beta1.MeterDefinition{}
+		err := client.Get(context.TODO(), types.NamespacedName{Name: mdefName, Namespace: namespace}, installedMeterDefn)
 		if err != nil && !errors.IsNotFound((err)) {
 			reqLogger.Error(err, "could not get meter definition", "Name", mdefName)
 			return err
 		}
 
-		// should we actually remove owner ref before triggering this DELETE action?
+		// remove owner ref from meter definition before deleting
+		installedMeterDefn.ObjectMeta.OwnerReferences = []metav1.OwnerReference{}
+		err = client.Update(context.TODO(), installedMeterDefn)
+		if err != nil {
+			reqLogger.Error(err, "Failed updating meter definition", "Name", mdefName, "Namespace", namespace)
+			return err
+		}
+		reqLogger.Info("Removed owner reference from meterdefintion", "Name", mdefName, "Namespace", namespace)
+
 		reqLogger.Info("Deleteing MeterDefinition")
-		err = client.Delete(context.TODO(), &meterDefn)
+		err = client.Delete(context.TODO(), installedMeterDefn)
 		if err != nil && !errors.IsNotFound(err) {
 			reqLogger.Error(err, "could not delete MeterDefinition", "Name", mdefName)
 			return err
 		}
+		reqLogger.Info("Deleted meterdefintion", "Name", mdefName, "Namespace", namespace)
 	}
 	return nil
 }
@@ -370,6 +383,7 @@ func (r *MeterdefConfigMapReconciler) createMeterDefintions(namespace string, cs
 			reqLogger.Error(err, "Failed creating meter definition", "Name", mdefName, "Namespace", namespace)
 			return err
 		}
+		reqLogger.Info("Created meterdefintion", "Name", mdefName, "Namespace", namespace)
 	}
 	return nil
 }
@@ -390,7 +404,7 @@ func updateMeterDefintions(namespace string, mdefNames []string, meterDefsMap ma
 			reqLogger.Info("meterdefintion is out of sync with latest meterdef catalog", "Name", meterdefFromCluster.Name)
 			err = client.Update(context.TODO(), updatedMeterdefinition)
 			if err != nil {
-				reqLogger.Error(err, "Failed updating definition", "Name", mdefName, "Namespace", namespace)
+				reqLogger.Error(err, "Failed updating meter definition", "Name", mdefName, "Namespace", namespace)
 				return err
 			}
 			reqLogger.Info("Updated meterdefintion", "Name", mdefName, "Namespace", namespace)

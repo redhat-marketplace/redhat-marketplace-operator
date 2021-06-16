@@ -95,6 +95,35 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		return reconcile.Result{}, err
 	}
 
+	csvPackageName, csvVersion, result := getPackageNameAndVersion(CSV, request, reqLogger)
+	if !result.Is(Continue) {
+		result.Return()
+	}
+
+	if !CSV.ObjectMeta.DeletionTimestamp.IsZero() {
+		// deleting meterdefinitions will be automatically handled as we have set owner references during its creating
+		// clean up install mapping from store
+		result := deleteInstallMapping(csvPackageName, request, r.Client, reqLogger)
+		if !result.Is(Continue) {
+			if result.Is(Error) {
+				reqLogger.Error(result.GetError(), "Failed deleting isntall mapping from meter definition store")
+			}
+			return result.Return()
+		}
+		return reconcile.Result{}, nil
+	}
+
+	// handle CSV updates: change in CSV version might change applicable meter definitions
+	if CSV.Status.Phase == olmv1alpha1.CSVPhaseReplacing {
+		/*
+			Easy flow: Delete all existing meter definitions for the operator and
+			install fresh set set of meterdefinitions for the current version of the CSV
+		*/
+
+		// approach would be same as sync operation in meterdefinition_configmap_controller.go
+		return reconcile.Result{}, nil
+	}
+
 	sub := &olmv1alpha1.SubscriptionList{}
 	if err := r.Client.List(context.TODO(), sub, client.InNamespace(request.NamespacedName.Namespace)); err != nil {
 		return reconcile.Result{}, err
@@ -104,43 +133,15 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		reqLogger.Info("found Subscription in namespaces", "count", len(sub.Items))
 
 		// apply meter definition if subscription has rhm/operator label
-		for _, s := range sub.Items {
-			if value, ok := s.GetLabels()[operatorTag]; ok {
+		for _, subscription := range sub.Items {
+			if value, ok := subscription.GetLabels()[operatorTag]; ok {
 				if value == "true" {
-
-					csvPackageName, csvVersion, result := getPackageNameAndVersion(CSV, request, reqLogger)
-					if !result.Is(Continue) {
-						result.Return()
-					}
-
-					if len(s.Status.InstalledCSV) == 0 {
+					if len(subscription.Status.InstalledCSV) == 0 {
 						reqLogger.Info("Requeue clusterserviceversion to wait for subscription getting installedCSV updated")
 						return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 					}
 
-					if CSV.Status.Phase == olmv1alpha1.CSVPhaseDeleting {
-						// deleting meterdefinitions will be automatically handled as we have set owner references during its creating
-						// clean up install mapping from store
-						result := deleteInstallMapping(csvPackageName, request, r.Client, reqLogger)
-						if !result.Is(Continue) {
-							if result.Is(Error) {
-								reqLogger.Error(result.GetError(), "Failed deleting isntall mapping from meter definition store")
-							}
-							return result.Return()
-						}
-					}
-
-					// handle CSV updates: change in CSV version might change applicable meter definitions
-					if CSV.Status.Phase == olmv1alpha1.CSVPhaseReplacing {
-						/*
-							Easy flow: Delete all existing meter definitions for the operator and
-							install fresh set set of meterdefinitions for the current version of the CSV
-						*/
-
-						// approach would be same as sync operation in meterdefinition_configmap_controller.go
-					}
-
-					if s.Status.InstalledCSV == request.NamespacedName.Name {
+					if subscription.Status.InstalledCSV == request.NamespacedName.Name {
 						reqLogger.Info("found Subscription with installed CSV")
 
 						selectedMeterDefinitions, result := ListMeterdefintionsFromFileServer(csvPackageName, csvVersion, CSV.Namespace, reqLogger)
@@ -153,15 +154,15 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 							return result.Return()
 						}
 
-						// var installedMeterdefintions []string
+						gvk, err := apiutil.GVKForObject(CSV, r.Scheme)
+						if err != nil {
+							return reconcile.Result{}, err
+						}
 
 						// create meter definitions
 						for _, meterDefItem := range selectedMeterDefinitions {
-							gvk, err := apiutil.GVKForObject(CSV, r.Scheme)
-							if err != nil {
-								return reconcile.Result{}, err
-							}
 
+							// create owner ref object
 							ref := metav1.OwnerReference{
 								APIVersion:         gvk.GroupVersion().String(),
 								Kind:               gvk.Kind,
@@ -171,13 +172,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 								Controller:         pointer.BoolPtr(false),
 							}
 
-							ownerRef := meterDefItem.ObjectMeta.OwnerReferences
-							if ownerRef != nil {
-								meterDefItem.ObjectMeta.OwnerReferences = append(meterDefItem.ObjectMeta.OwnerReferences, ref)
-							} else {
-								meterDefItem.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
-							}
-
+							meterDefItem.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
 							meterDefItem.ObjectMeta.Namespace = CSV.Namespace
 
 							// Check if the meterdef is on the cluster already
@@ -193,23 +188,21 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 										return reconcile.Result{}, err
 									}
 
-									reqLogger.Info("Created meterdefinition", "mdef", &meterDefItem.Name)
+									reqLogger.Info("Created meterdefinition", "mdef", meterDefItem.Name)
 
 									result = r.setInstalledMeterdefinition(meterDefItem.GetAnnotations()["packageName"], CSV.Name, csvVersion, meterDefItem.Name, request, reqLogger)
 									if !result.Is(Continue) {
 
 										if result.Is(Error) {
-											reqLogger.Error(result.GetError(), "Failed to create meterdef store.")
+											reqLogger.Error(result.GetError(), "Failed to update meterdef store")
 										}
 
 										return result.Return()
 									}
-
-									return reconcile.Result{Requeue: true}, nil
 								}
 
 								reqLogger.Error(err, "Failed to get meterdefinition")
-								return reconcile.Result{}, err
+								return reconcile.Result{Requeue: true}, nil
 							}
 						}
 					}
@@ -217,11 +210,12 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 			}
 		}
 	} else {
-		reqLogger.Info("Did not find Subscription in namespaces")
+		reqLogger.Info("Subscriptions not found in the namespace")
+		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 	}
 
 	reqLogger.Info("reconcilation complete")
-	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
+	return reconcile.Result{}, nil
 }
 
 func _csvFilter(metaNew metav1.Object) int {
@@ -520,13 +514,19 @@ var rhmCSVControllerPredicates predicate.Funcs = predicate.Funcs{
 			return false
 		}
 
-		newCSV, ok := e.ObjectNew.(*olmv1alpha1.ClusterServiceVersion)
-		if !ok {
-			return false
-		}
+		// newCSV, ok := e.ObjectNew.(*olmv1alpha1.ClusterServiceVersion)
+		// if !ok {
+		// 	return false
+		// }
 
-		if oldCSV.Status.Phase != newCSV.Status.Phase {
-			fmt.Println("NEW CSV STATUS PHASE", newCSV.Name, newCSV.Status.Phase)
+		// if oldCSV.Status.Phase != newCSV.Status.Phase {
+		// 	fmt.Println("NEW CSV STATUS PHASE", newCSV.Name, newCSV.Status.Phase)
+		// 	return true
+		// }
+
+		// Limiting update operation to only handle this for now
+		if oldCSV.Status.Phase == olmv1alpha1.CSVPhaseReplacing {
+			fmt.Println("CSV is upgrading", oldCSV.Name, oldCSV.Status.Phase)
 			return true
 		}
 
