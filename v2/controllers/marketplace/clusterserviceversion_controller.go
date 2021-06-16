@@ -189,6 +189,7 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 
 	if !hasMarketplaceSub {
 		reqLogger.Info("Does not have marketplace sub, ignoring CSV for future")
+
 		if v, ok := CSV.GetAnnotations()[ignoreTag]; !ok || v != ignoreTagValue {
 			retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 				err := r.Client.Get(context.TODO(),
@@ -307,6 +308,12 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 		delete(annotations, meterDefStatus)
 		return reconcile.Result{}, false, nil
 	}
+
+	if ns, ok := CSV.GetAnnotations()[olmNamespace]; ok && ns != CSV.GetNamespace() {
+		reqLogger.Info("MeterDef is global and this CSV is not the head")
+		return reconcile.Result{}, false, nil
+	}
+
 
 	// builds a meterdefinition from our string (from the annotation)
 	reqLogger.Info("retrieval successful", "str", meterDefinitionString)
