@@ -8,7 +8,7 @@ ENV GOPATH=/go
 ENV PATH=$GOPATH/bin:$GOROOT/bin:$PATH
 ENV GO_VERSION=1.16 OS=linux ARCH=${ARCH}
 
-RUN apt-get update && apt-get install -y git build-essential dh-autoreconf pkg-config libuv1-dev libsqlite3-dev tcl8.6 wget
+RUN apt-get update && apt-get install -y git build-essential dh-autoreconf pkg-config libuv1-dev libsqlite3-dev tcl8.6 wget liblz4-1 liblz4-dev
 
 WORKDIR /opt
 
@@ -26,7 +26,7 @@ RUN autoreconf -i && ./configure && make && make install
 
 WORKDIR /opt/airgap
 
-COPY . .
+COPY airgap/v2 .
 
 RUN go get -d -v ./... && \
     go install -tags libsqlite3 ./cmd/server/main.go

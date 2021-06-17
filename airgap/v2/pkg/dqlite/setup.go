@@ -16,8 +16,11 @@ package dqlite
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -43,6 +46,9 @@ type DatabaseConfig struct {
 	dqliteDB *sql.DB
 	app      *app.App
 	gormDB   *gorm.DB
+	CACert   string
+	TLSCert  string
+	TLSKey   string
 }
 
 // InitDB initializes the GORM connection and returns a connected struct
@@ -78,7 +84,23 @@ func (dc *DatabaseConfig) initDqlite() error {
 		dc.Log.Info(strings.TrimRight(s, "\n"))
 	}
 
-	app, err := app.New(dc.Dir, app.WithAddress(dc.Url), app.WithCluster(*dc.Join), app.WithLogFunc(logFunc))
+	options := []app.Option{app.WithAddress(dc.Url), app.WithCluster(*dc.Join), app.WithLogFunc(logFunc)}
+
+	if len(dc.TLSCert) != 0 && len(dc.TLSKey) != 0 && len(dc.CACert) != 0 {
+		tlsCert, err := tls.LoadX509KeyPair(dc.TLSCert, dc.TLSKey)
+		if err != nil {
+			return err
+		}
+		caCert, err := ioutil.ReadFile(dc.CACert)
+		if err != nil {
+			return err
+		}
+		pool := x509.NewCertPool()
+		pool.AppendCertsFromPEM(caCert)
+		options = append(options, app.WithTLS(app.SimpleTLSConfig(tlsCert, pool)))
+	}
+
+	app, err := app.New(dc.Dir, options...)
 	if err != nil {
 		return err
 	}

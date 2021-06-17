@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/gotidy/ptr"
+	routev1 "github.com/openshift/api/route/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
@@ -63,6 +64,11 @@ const (
 	MetricStateDeployment     = "assets/metric-state/deployment.yaml"
 	MetricStateServiceMonitor = "assets/metric-state/service-monitor.yaml"
 	MetricStateService        = "assets/metric-state/service.yaml"
+
+	DataServiceStatefulSet = "assets/dataservice/statefulset.yaml"
+	DataServiceService     = "assets/dataservice/service.yaml"
+	DataServiceRoute       = "assets/dataservice/route.yaml"
+	DataServiceTLSSecret   = "assets/dataservice/secret.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")
@@ -91,6 +97,15 @@ func NewFactory(
 	}
 }
 
+func find(slice []string, val string) (int, bool) {
+	for i, item := range slice {
+		if item == val {
+			return i, true
+		}
+	}
+	return -1, false
+}
+
 func (f *Factory) ReplaceImages(container *corev1.Container) {
 	switch {
 	case strings.HasPrefix(container.Name, "kube-rbac-proxy"):
@@ -99,7 +114,12 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 		container.Image = f.config.RelatedImages.MetricState
 	case container.Name == "authcheck":
 		container.Image = f.config.RelatedImages.AuthChecker
-		container.Args = append(container.Args, "--namespace", f.namespace)
+
+		_, argFound := find(container.Args, "--namespace")
+		if !argFound {
+			container.Args = append(container.Args, "--namespace", f.namespace)
+		}
+
 		container.LivenessProbe = &corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
@@ -142,6 +162,8 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 		container.Image = f.config.RelatedImages.PrometheusOperator
 	case container.Name == "prometheus-proxy":
 		container.Image = f.config.RelatedImages.OAuthProxy
+	case container.Name == "rhm-dqlite":
+		container.Image = f.config.RelatedImages.DQLite
 	}
 }
 
@@ -177,6 +199,36 @@ func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) 
 	return d, nil
 }
 
+func (f *Factory) NewStatefulSet(manifest io.Reader) (*appsv1.StatefulSet, error) {
+	d, err := NewStatefulSet(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	if d.GetNamespace() == "" {
+		d.SetNamespace(f.namespace)
+	}
+
+	if d.GetAnnotations() == nil {
+		d.Annotations = make(map[string]string)
+	}
+
+	if d.Spec.Template.GetAnnotations() == nil {
+		d.Spec.Template.Annotations = make(map[string]string)
+	}
+
+	return d, nil
+}
+
+func (f *Factory) UpdateStatefulSet(manifest io.Reader, d *appsv1.StatefulSet) error {
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(d)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (f *Factory) NewService(manifest io.Reader) (*corev1.Service, error) {
 	d, err := NewService(manifest)
 	if err != nil {
@@ -188,6 +240,15 @@ func (f *Factory) NewService(manifest io.Reader) (*corev1.Service, error) {
 	}
 
 	return d, nil
+}
+
+func (f *Factory) UpdateService(manifest io.Reader, s *v1.Service) error {
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(s)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (f *Factory) NewConfigMap(manifest io.Reader) (*corev1.ConfigMap, error) {
@@ -227,6 +288,28 @@ func (f *Factory) NewJob(manifest io.Reader) (*batchv1.Job, error) {
 	}
 
 	return j, nil
+}
+
+func (f *Factory) NewRoute(manifest io.Reader) (*routev1.Route, error) {
+	r, err := NewRoute(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	if r.GetNamespace() == "" {
+		r.SetNamespace(f.namespace)
+	}
+
+	return r, nil
+}
+
+func (f *Factory) UpdateRoute(manifest io.Reader, r *routev1.Route) error {
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(r)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (f *Factory) NewPrometheus(
@@ -555,6 +638,48 @@ func (f *Factory) MetricStateService() (*v1.Service, error) {
 	return s, nil
 }
 
+func (f *Factory) NewDataServiceService() (*corev1.Service, error) {
+	return f.NewService(MustAssetReader(DataServiceService))
+}
+
+func (f *Factory) UpdateDataServiceService(s *corev1.Service) error {
+	return f.UpdateService(MustAssetReader(DataServiceService), s)
+}
+
+func (f *Factory) NewDataServiceStatefulSet() (*appsv1.StatefulSet, error) {
+	sts, err := f.NewStatefulSet(MustAssetReader(DataServiceStatefulSet))
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range sts.Spec.Template.Spec.Containers {
+		f.ReplaceImages(&sts.Spec.Template.Spec.Containers[i])
+	}
+
+	return sts, nil
+}
+
+func (f *Factory) UpdateDataServiceStatefulSet(sts *appsv1.StatefulSet) error {
+	err := f.UpdateStatefulSet(MustAssetReader(DataServiceStatefulSet), sts)
+	if err != nil {
+		return err
+	}
+
+	for i := range sts.Spec.Template.Spec.Containers {
+		f.ReplaceImages(&sts.Spec.Template.Spec.Containers[i])
+	}
+
+	return nil
+}
+
+func (f *Factory) NewDataServiceRoute() (*routev1.Route, error) {
+	return f.NewRoute(MustAssetReader(DataServiceRoute))
+}
+
+func (f *Factory) UpdateDataServiceRoute(r *routev1.Route) error {
+	return f.UpdateRoute(MustAssetReader(DataServiceRoute), r)
+}
+
 func (f *Factory) NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMonitor, error) {
 	sm, err := NewServiceMonitor(manifest)
 	if err != nil {
@@ -570,6 +695,16 @@ func (f *Factory) NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMo
 
 func NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
 	d := appsv1.Deployment{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&d)
+	if err != nil {
+		return nil, err
+	}
+
+	return &d, nil
+}
+
+func NewStatefulSet(manifest io.Reader) (*appsv1.StatefulSet, error) {
+	d := appsv1.StatefulSet{}
 	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&d)
 	if err != nil {
 		return nil, err
@@ -624,6 +759,15 @@ func NewJob(manifest io.Reader) (*batchv1.Job, error) {
 		return nil, err
 	}
 	return &j, nil
+}
+
+func NewRoute(manifest io.Reader) (*routev1.Route, error) {
+	r := routev1.Route{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&r)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
 }
 
 // GeneratePassword returns a base64 encoded securely random bytes.
@@ -1038,4 +1182,30 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 			},
 		},
 	}
+}
+
+func (f *Factory) NewDataServiceTLSSecret(commonNamePrefix string) (*v1.Secret, error) {
+	s, err := f.NewSecret(MustAssetReader(DataServiceTLSSecret))
+	if err != nil {
+		return nil, err
+	}
+
+	nameParts := []string{commonNamePrefix, f.namespace, "svc", "cluster", "local"}
+	commonName := strings.Join(nameParts, ".")
+
+	caCertPEM, caKeyPEM, serverKeyPEM, serverCertPEM, err := newCertificateBundleSecret(commonName)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.Data == nil {
+		s.Data = make(map[string][]byte)
+	}
+
+	s.Data["ca.crt"] = caCertPEM
+	s.Data["ca.key"] = caKeyPEM
+	s.Data["tls.crt"] = serverKeyPEM
+	s.Data["tls.key"] = serverCertPEM
+
+	return s, nil
 }

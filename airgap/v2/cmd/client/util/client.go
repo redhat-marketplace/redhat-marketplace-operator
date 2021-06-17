@@ -19,8 +19,10 @@ import (
 	"strings"
 
 	"github.com/spf13/viper"
+	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/oauth"
 )
 
 // InitClient Initializes gRPC client connection
@@ -29,29 +31,35 @@ func InitClient() (*grpc.ClientConn, error) {
 	insecure := viper.GetBool("insecure")
 	var conn *grpc.ClientConn
 
-	log, err := InitLog()
-	if err != nil {
-		return nil, err
-	}
-
 	// Fetch target address
 	address := viper.GetString("address")
 	if len(strings.TrimSpace(address)) == 0 {
 		return nil, fmt.Errorf("target address is blank/empty")
 	}
-	log.Info("Connection credentials:", "address", address)
+
+	options := []grpc.DialOption{}
 
 	if insecure {
-		conn, err = grpc.Dial(address, grpc.WithInsecure())
+		options = append(options, grpc.WithInsecure())
 	} else {
 		cert := viper.GetString("certificate-path")
 		creds, sslErr := credentials.NewClientTLSFromFile(cert, "")
 		if sslErr != nil {
 			return nil, fmt.Errorf("ssl error: %v", sslErr)
 		}
-		opts := grpc.WithTransportCredentials(creds)
-		conn, err = grpc.Dial(address, opts)
+		options = append(options, grpc.WithTransportCredentials(creds))
+
+		tokenString := viper.GetString("token")
+		if len(tokenString) != 0 {
+			oauth2Token := &oauth2.Token{
+				AccessToken: tokenString,
+			}
+			perRPC := oauth.NewOauthAccess(oauth2Token)
+			options = append(options, grpc.WithPerRPCCredentials(perRPC))
+		}
 	}
+
+	conn, err = grpc.Dial(address, options...)
 
 	// Handle any connection errors
 	if err != nil {

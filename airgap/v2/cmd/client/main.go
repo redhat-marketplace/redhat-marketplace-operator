@@ -26,6 +26,7 @@ import (
 )
 
 var cfgFile string
+var token string
 var verbose bool
 
 // rootCmd represents the base command when called without any subcommands
@@ -38,6 +39,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.AddCommand(cmd.DownloadCmd, lfm.ListCmd)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "config.yaml", "Path to the configuration file")
+	rootCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "Service Account token")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose logging")
 }
 

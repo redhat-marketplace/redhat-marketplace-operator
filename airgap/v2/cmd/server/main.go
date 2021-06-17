@@ -49,6 +49,9 @@ func main() {
 		purgeAfter     string
 		config         string
 		cronExpression string
+    caCert         string
+	  tlsCert        string
+	  tlsKey         string
 	)
 
 	cmd := &cobra.Command{
@@ -73,6 +76,9 @@ func main() {
 				Join:    &j,
 				Verbose: viper.GetBool("verbose"),
 				Log:     log,
+				CACert:  caCert,
+				TLSCert: tlsCert,
+				TLSKey:  tlsKey,
 			}
 
 			fs, err := cfg.InitDB()
@@ -135,6 +141,9 @@ func main() {
 	flags.StringSliceVarP(&join, "join", "j", nil, "database addresses of existing nodes")
 	flags.StringVarP(&dir, "dir", "D", "/tmp/dqlite", "data directory")
 	flags.BoolVarP(&verbose, "verbose", "v", false, "verbose logging")
+	flags.StringVarP(&caCert, "ca-cert", "", "", "CA certificate")
+	flags.StringVarP(&tlsCert, "tls-cert", "", "", "x509 certificate")
+	flags.StringVarP(&tlsKey, "tls-key", "", "", "x509 private key")
 	flags.StringVar(&config, "config", "", "path to config file")
 	flags.StringVar(&cleanAfter, "cleanAfter", "-720h", "clean files older than x seconds/minutes/hours, default 720h i.e. 30 days")
 	flags.StringVar(&purgeAfter, "purgeAfter", "-1440h", "purge files older than x seconds/minutes/hours, default 1440h i.e. 60 days")

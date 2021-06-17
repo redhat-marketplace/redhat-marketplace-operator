@@ -1,3 +1,73 @@
+VERSION ?= $(shell cd ../../v2/tools/version && go run main.go)
+export VERSION
+
+IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
+IMAGE_NAME = redhat-marketplace-dqlite
+IMAGE_TAG ?= $(VERSION)
+QUAY_EXPIRATION?=never
+
+IMG ?= $(IMAGE_REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
+export IMG
+IMAGE ?= $(IMG)
+export IMAGE
+
+all: generate vet fmt
+
+IMAGE_PUSH ?= true
+BUILDX ?= true
+ARCH ?= amd64
+
+ifeq ($(BUILDX),true)
+DOCKERCMD=docker buildx
+ifeq ($(IMAGE_PUSH),true)
+ARGS="--push"
+else
+ARGS="--load"
+endif
+else
+DOCKERCMD=docker
+endif
+
+# Build the docker image
+docker-build:
+	$(DOCKERCMD) build \
+	-f ./Dockerfile \
+	--tag $(IMAGE) \
+  --build-arg ARCH=$(ARCH) \
+	--build-arg REGISTRY=$(IMAGE_REGISTRY) \
+	--build-arg path=./airgap/v2/ \
+	--build-arg name=\"DataService\" \
+	--build-arg exec=./cmd/ \
+	--build-arg bin=redhat-marketplace-dqlite \
+	--build-arg app_version=\"$(VERSION)\" \
+	--build-arg quay_expiration=\"$(QUAY_EXPIRATION)\" \
+	$(ARGS) \
+	../..
+
+# Push the docker image
+docker-push:
+	docker push ${IMG}
+
+ARCHS ?= amd64 ppc64le s390x
+
+docker-manifest:
+	docker manifest create $(IMAGE) $(addprefix $(IMAGE)-,$(ARCHS))
+	docker manifest push $(IMAGE)
+
+# Run go fmt against code
+fmt:
+	go fmt ./...
+
+# Run go vet against code
+vet:
+	go vet ./...
+
+# Generate
+generate:
+	go generate ./...
+
+
+
 SRC_DIR=$(shell pwd)
 DST_DIR=$(SRC_DIR)
 UNAME := $(shell echo `uname` | tr '[:upper:]' '[:lower:]')
@@ -10,7 +80,7 @@ build:
 demo: build
 	docker-compose up
 
-generate: protoc
+generate-proto: protoc
 	@{ TMP_DIR=$$(mktemp -d) ;\
 		PATH=$(PATH):$(PROTOC_GEN_GO) $(PROTOC) -I=$(SRC_DIR) --go_out=$$TMP_DIR --go-grpc_out=$$TMP_DIR $(SRC_DIR)/apis/model/v1/modelv1.proto $(SRC_DIR)/apis/filesender/filesender.proto $(SRC_DIR)/apis/fileretreiver/fileretreiver.proto $(SRC_DIR)/apis/adminserver/adminserver.proto ;\
 		cp -r $$TMP_DIR/github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis ./ ;\
