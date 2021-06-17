@@ -26,6 +26,7 @@ message DeleteFileRequest {
   
   message CleanTombstonesRequest {
     google.protobuf.Timestamp before = 1;
+    bool purge_all = 2;
   }
   
   message CleanTombstonesResponse {
