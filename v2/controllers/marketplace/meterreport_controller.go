@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -185,7 +186,22 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 				manifests.CreateIfNotExistsFactoryItem(
 					job,
 					func() (runtime.Object, error) {
-						if utils.Contains(instance.Spec.ExtraArgs, "--uploadTarget=data-service") {
+						var buildForDataService bool  
+						/*
+							--uploadTargets=data-service,redhat-insights
+							--nextArg=value
+						 */
+						for _, arg := range instance.Spec.ExtraArgs {
+							kv := strings.Split(arg,"=") // --uploadTargets=data-service,redhat-insights
+							k := kv[0]
+							v := strings.Split(kv[1],",") //"data-service,redhat-insights"
+							if k == "--uploadTargets" && utils.Contains(v,"data-service"){
+								buildForDataService = true
+							}
+						}
+						
+						if buildForDataService {
+							reqLogger.Info("meterreport","data-service arg set",instance.Spec.ExtraArgs)
 							return r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit, "data-service")
 						}
 
