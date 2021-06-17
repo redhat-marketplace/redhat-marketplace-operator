@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package metric_server
+package server
 
 import (
 	"flag"
@@ -21,6 +21,7 @@ import (
 
 	"k8s.io/klog"
 
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	"github.com/spf13/pflag"
 	"k8s.io/kube-state-metrics/pkg/options"
 )
@@ -44,6 +45,14 @@ type Options struct {
 	EnableGZIPEncoding bool
 
 	flags *pflag.FlagSet
+}
+
+func ProvideNamespaces(opts *Options) types.Namespaces {
+	if opts.Namespaces == nil || len(opts.Namespaces) == 0 {
+		opts.Namespaces = DefaultNamespaces
+	}
+
+	return types.Namespaces(opts.Namespaces)
 }
 
 func ConvertOptions(optsIn *Options) *options.Options {

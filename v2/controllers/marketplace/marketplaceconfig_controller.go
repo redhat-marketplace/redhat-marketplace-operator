@@ -21,7 +21,6 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/go-logr/logr"
@@ -38,6 +37,7 @@ import (
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/util/retry"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,12 +71,11 @@ var _ reconcile.Reconciler = &MarketplaceConfigReconciler{}
 type MarketplaceConfigReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	Client         client.Client
-	Scheme         *runtime.Scheme
-	Log            logr.Logger
-	cc             ClientCommandRunner
-	cfg            *config.OperatorConfig
-	mclientBuilder *marketplace.MarketplaceClientBuilder
+	Client client.Client
+	Scheme *runtime.Scheme
+	Log    logr.Logger
+	cc     ClientCommandRunner
+	cfg    *config.OperatorConfig
 }
 
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;update;patch
@@ -97,10 +96,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MarketplaceConfig")
 	cc := r.cc
-
-	if r.mclientBuilder == nil {
-		r.mclientBuilder = marketplace.NewMarketplaceClientBuilder(r.cfg)
-	}
 
 	// Fetch the MarketplaceConfig instance
 	marketplaceConfig := &marketplacev1alpha1.MarketplaceConfig{}
@@ -142,6 +137,52 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 						types.NamespacedName{
 							Namespace: newMeterBaseCr.Namespace, Name: newMeterBaseCr.Name}, newMeterBaseCr),
 					OnContinue(DeleteAction(newMeterBaseCr))),
+				Call(func() (ClientAction, error) {
+					secret := &v1.Secret{}
+					err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RHMPullSecretName, Namespace: request.Namespace}, secret)
+					if err != nil {
+						if k8serrors.IsNotFound(err) {
+							secret = nil
+							reqLogger.Error(err, "error finding", "name", utils.RHMPullSecretName)
+						} else {
+							reqLogger.Error(err, "error fetching secret")
+							return nil, nil
+						}
+					}
+
+					if secret == nil {
+						return nil, nil
+					}
+
+					pullSecret, ok := secret.Data[utils.RHMPullSecretKey]
+
+					if !ok {
+						return nil, nil
+					}
+
+					token := string(pullSecret)
+					tokenClaims, err := marketplace.GetJWTTokenClaim(token)
+					if err != nil {
+						reqLogger.Error(err, "error parsing token")
+						return nil, nil
+					}
+
+					marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
+						NewMarketplaceClient(token, tokenClaims)
+
+					if err != nil {
+						reqLogger.Error(err, "error constructing marketplace client")
+						return nil, nil
+					}
+
+					result := r.unregister(marketplaceConfig, marketplaceClient, request, reqLogger)
+					if !result.Is(Continue) {
+						return nil, nil
+					}
+
+					return nil, nil
+
+				}),
 			)),
 	); !result.Is(Continue) {
 
@@ -154,6 +195,28 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		}
 
 		return result.Return()
+	}
+
+	isMarkedForDeletion := marketplaceConfig.GetDeletionTimestamp() != nil
+	if isMarkedForDeletion {
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			key, _ := client.ObjectKeyFromObject(marketplaceConfig)
+			err := r.Client.Get(context.TODO(), key, marketplaceConfig)
+
+			if err != nil {
+				return err
+			}
+			marketplaceConfig.SetFinalizers(utils.RemoveKey(marketplaceConfig.GetFinalizers(), utils.CONTROLLER_FINALIZER))
+			return r.Client.Update(context.TODO(), marketplaceConfig)
+		})
+
+		if err != nil && k8serrors.IsNotFound(err) {
+			reqLogger.Error(err, "error executing finalizer")
+			return reconcile.Result{}, err
+		}
+
+		reqLogger.Info("Delete is complete.")
+		return reconcile.Result{}, nil
 	}
 
 	// Set default namespaces for workload monitoring
@@ -260,24 +323,18 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		}
 	}
 
-	var token string
-	var tokenIsValid bool
-	var tokenClaims *marketplace.MarketplaceClaims
+	if marketplaceConfig.Labels == nil {
+		marketplaceConfig.Labels = make(map[string]string)
+	}
+
+	var updateInstanceSpec bool
 
 	if secret != nil {
-		var pullSecret []byte
-		pullSecret, tokenIsValid = secret.Data[utils.RHMPullSecretKey]
-		if !tokenIsValid {
-			err := errors.New("rhm pull secret not found")
-			reqLogger.Error(err, "couldn't find pull secret")
-		}
-
-		var updateInstanceSpec bool
 		if clusterDisplayName, ok := secret.Data[utils.ClusterDisplayNameKey]; ok {
 			count := utf8.RuneCountInString(string(clusterDisplayName))
 			clusterName := strings.Trim(string(clusterDisplayName), "\n")
 
-			if !reflect.DeepEqual(marketplaceConfig.Spec.ClusterName, clusterName) {
+			if marketplaceConfig.Spec.ClusterName != clusterName {
 				if count <= 256 {
 					marketplaceConfig.Spec.ClusterName = clusterName
 					updateInstanceSpec = true
@@ -288,51 +345,22 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 				}
 			}
 		}
+	}
 
-		token := string(pullSecret)
-		tokenClaims, err := marketplace.GetJWTTokenClaim(token)
+	if v, ok := marketplaceConfig.Labels[utils.RazeeWatchResource]; !ok || v != utils.RazeeWatchLevelDetail {
+		updateInstanceSpec = true
+		marketplaceConfig.Labels[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
+	}
+
+	if updateInstanceSpec {
+		err = r.Client.Update(context.TODO(), marketplaceConfig)
+
 		if err != nil {
-			tokenIsValid = false
-			reqLogger.Error(err, "error parsing token")
-
+			reqLogger.Error(err, "Failed to update the marketplace config")
+			return reconcile.Result{}, err
 		}
 
-		if tokenIsValid {
-			marketplaceClient, err := r.mclientBuilder.NewMarketplaceClient(token, tokenClaims)
-
-			if err != nil {
-				reqLogger.Error(err, "error constructing marketplace client")
-				return reconcile.Result{Requeue: true}, nil
-			}
-
-			willBeDeleted := marketplaceConfig.GetDeletionTimestamp() != nil
-			if willBeDeleted {
-				result := r.unregister(marketplaceConfig, marketplaceClient, request, reqLogger)
-				if !result.Is(Continue) {
-					return result.Return()
-				}
-			}
-		}
-
-		if marketplaceConfig.Labels == nil {
-			marketplaceConfig.Labels = make(map[string]string)
-		}
-
-		if v, ok := marketplaceConfig.Labels[utils.RazeeWatchResource]; !ok || v != utils.RazeeWatchLevelDetail {
-			updateInstanceSpec = true
-			marketplaceConfig.Labels[utils.RazeeWatchResource] = utils.RazeeWatchLevelDetail
-		}
-
-		if updateInstanceSpec {
-			err = r.Client.Update(context.TODO(), marketplaceConfig)
-
-			if err != nil {
-				reqLogger.Error(err, "Failed to update the marketplace config")
-				return reconcile.Result{}, err
-			}
-
-			return reconcile.Result{Requeue: true}, nil
-		}
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	if marketplaceConfig.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionInstalling) {
@@ -591,13 +619,31 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 	reqLogger.Info("Finding Cluster registration status")
 
-	if tokenIsValid {
+	requeueResult, requeue, err := func() (reconcile.Result, bool, error) {
+		if secret == nil {
+			return reconcile.Result{}, false, nil
+		}
+
+		pullSecret, ok := secret.Data[utils.RHMPullSecretKey]
+
+		if !ok {
+			return reconcile.Result{}, false, nil
+		}
+
+		token := string(pullSecret)
+		tokenClaims, err := marketplace.GetJWTTokenClaim(token)
+		if err != nil {
+			reqLogger.Error(err, "error parsing token")
+			return reconcile.Result{Requeue: true}, false, nil
+		}
+
 		reqLogger.Info("attempting to update registration")
-		marketplaceClient, err := r.mclientBuilder.NewMarketplaceClient(token, tokenClaims)
+		marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
+			NewMarketplaceClient(token, tokenClaims)
 
 		if err != nil {
 			reqLogger.Error(err, "error constructing marketplace client")
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, true, err
 		}
 
 		marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
@@ -608,7 +654,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		registrationStatusOutput, err := marketplaceClient.RegistrationStatus(marketplaceClientAccount)
 		if err != nil {
 			reqLogger.Error(err, "registration status failed")
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{Requeue: true}, true, err
 		}
 
 		reqLogger.Info("attempting to update registration", "status", registrationStatusOutput.RegistrationStatus)
@@ -618,6 +664,12 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		for _, cond := range statusConditions {
 			updated = updated || marketplaceConfig.Status.Conditions.SetCondition(cond)
 		}
+
+		return reconcile.Result{}, false, nil
+	}()
+
+	if requeue || err != nil {
+		return requeueResult, err
 	}
 
 	if updated {
@@ -631,7 +683,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	reqLogger.Info("reconciling finished")
-	return reconcile.Result{RequeueAfter: time.Second * 30}, nil
+	return reconcile.Result{}, nil
 }
 
 // labelsForMarketplaceConfig returs the labels for selecting the resources
@@ -795,11 +847,6 @@ func (r *MarketplaceConfigReconciler) InjectCommandRunner(ccp ClientCommandRunne
 
 func (m *MarketplaceConfigReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
-	return nil
-}
-
-func (m *MarketplaceConfigReconciler) InjectMarketplaceClientBuilder(mbuilder *marketplace.MarketplaceClientBuilder) error {
-	m.mclientBuilder = mbuilder
 	return nil
 }
 
