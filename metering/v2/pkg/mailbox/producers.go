@@ -44,7 +44,7 @@ func ProvideObjectChannelProducer(
 		MailboxChannelProducer: MailboxChannelProducer{
 			queue:   meterDefinitionStore,
 			mailbox: mb,
-			log:     log,
+			log:     log.WithName("objectChannel").V(4),
 			name:    ObjectChannel,
 		},
 	}
@@ -63,7 +63,7 @@ func ProvideMeterDefinitionChannelProducer(
 		MailboxChannelProducer: MailboxChannelProducer{
 			queue:   dictionary,
 			mailbox: mb,
-			log:     log,
+			log:     log.WithName("mdefChannel").V(4),
 			name:    MeterDefinitionChannel,
 		},
 	}
