@@ -220,21 +220,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.MeterdefConfigMapReconciler{
+	if err = (&controllers.DeploymentConfigReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("MeterdefinitionInstallMap"),
+		Log:    ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
 		Scheme: mgr.GetScheme(),
 	}).Inject(injector).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "MeterdefinitionInstallMap")
+		setupLog.Error(err, "unable to create controller", "controller", "DeploymentConfigReconciler")
 		os.Exit(1)
 	}
 
 	if err = (&controllers.MeterdefinitionInstallReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("MeterdefinitionInstall"),
+		Log:    ctrl.Log.WithName("controllers").WithName("MeterdefinitionInstallReconciler"),
 		Scheme: mgr.GetScheme(),
 	}).Inject(injector).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "MeterdefinitionInstall")
+		setupLog.Error(err, "unable to create controller", "controller", "MeterdefinitionInstallReconciler")
 		os.Exit(1)
 	}
 

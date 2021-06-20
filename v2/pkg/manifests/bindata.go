@@ -141,7 +141,7 @@ func assetsMeterdefFileServerDeploymentConfigYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/meterdef-file-server/deployment-config.yaml", size: 1669, mode: os.FileMode(420), modTime: time.Unix(1623510644, 0)}
+	info := bindataFileInfo{name: "assets/meterdef-file-server/deployment-config.yaml", size: 1669, mode: os.FileMode(420), modTime: time.Unix(1623965646, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -161,7 +161,7 @@ func assetsMeterdefFileServerImageStreamTagYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/meterdef-file-server/image-stream-tag.yaml", size: 4321, mode: os.FileMode(420), modTime: time.Unix(1623546807, 0)}
+	info := bindataFileInfo{name: "assets/meterdef-file-server/image-stream-tag.yaml", size: 4321, mode: os.FileMode(420), modTime: time.Unix(1623965646, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -181,7 +181,7 @@ func assetsMeterdefFileServerImageStreamYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/meterdef-file-server/image-stream.yaml", size: 706, mode: os.FileMode(420), modTime: time.Unix(1623510644, 0)}
+	info := bindataFileInfo{name: "assets/meterdef-file-server/image-stream.yaml", size: 706, mode: os.FileMode(420), modTime: time.Unix(1623965646, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -201,7 +201,7 @@ func assetsMeterdefFileServerServiceYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/meterdef-file-server/service.yaml", size: 369, mode: os.FileMode(420), modTime: time.Unix(1623510644, 0)}
+	info := bindataFileInfo{name: "assets/meterdef-file-server/service.yaml", size: 369, mode: os.FileMode(420), modTime: time.Unix(1623965646, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -221,7 +221,7 @@ func assetsMeterdefStoreRhmMeterdefInstallMapYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/meterdef-store/rhm-meterdef-install-map.yaml", size: 151, mode: os.FileMode(420), modTime: time.Unix(1623510644, 0)}
+	info := bindataFileInfo{name: "assets/meterdef-store/rhm-meterdef-install-map.yaml", size: 151, mode: os.FileMode(420), modTime: time.Unix(1623965646, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -241,7 +241,7 @@ func assetsMetricStateDeploymentYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/metric-state/deployment.yaml", size: 4195, mode: os.FileMode(420), modTime: time.Unix(1623510644, 0)}
+	info := bindataFileInfo{name: "assets/metric-state/deployment.yaml", size: 4195, mode: os.FileMode(420), modTime: time.Unix(1623965646, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -701,7 +701,7 @@ func assetsSignerCaPem() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/signer/ca.pem", size: 1237, mode: os.FileMode(420), modTime: time.Unix(1623510644, 0)}
+	info := bindataFileInfo{name: "assets/signer/ca.pem", size: 1237, mode: os.FileMode(420), modTime: time.Unix(1623965646, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }

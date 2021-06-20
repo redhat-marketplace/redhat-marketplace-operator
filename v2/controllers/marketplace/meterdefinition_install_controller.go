@@ -95,7 +95,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		return reconcile.Result{}, err
 	}
 
-	csvPackageName, csvVersion, result := getPackageNameAndVersion(CSV, request, reqLogger)
+	csvPackageName, csvVersion, result := parsePackageNameAndVersion(CSV, request, reqLogger)
 	if !result.Is(Continue) {
 		result.Return()
 	}
@@ -106,7 +106,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		result := deleteInstallMapping(csvPackageName, request, r.Client, reqLogger)
 		if !result.Is(Continue) {
 			if result.Is(Error) {
-				reqLogger.Error(result.GetError(), "Failed deleting isntall mapping from meter definition store")
+				reqLogger.Error(result.GetError(), "Failed deleting install mapping from meter definition store")
 			}
 			return result.Return()
 		}
@@ -120,10 +120,55 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 			install fresh set set of meterdefinitions for the current version of the CSV
 		*/
 
-		// approach would be same as sync operation in meterdefinition_configmap_controller.go
-		return reconcile.Result{}, nil
+		//TODO: pseudo code, needs testing in a real update scenario
+		mdefStore,result := getMeterdefStoreFromCM(r.Client,r.cfg.DeployedNamespace,reqLogger)
+		if !result.Is(Continue) {
+			if result.Is(Error) {
+				reqLogger.Error(result.GetError(), "Failed getting meterdefstore")
+			}
+			return result.Return()
+		}
+
+		// delete meterdefs for previous version
+		for _, installMap := range mdefStore.InstallMappings {
+			namespace := installMap.Namespace
+			installedMeterDefs := installMap.InstalledMeterdefinitions
+
+			if installMap.PackageName == csvPackageName {
+				err := deleteMeterDefintions(namespace, installedMeterDefs, r.Client, reqLogger)
+				if err != nil {
+					return reconcile.Result{},err
+				}
+				reqLogger.Info("Successfully deleted meterdefintions", "Count", len(installedMeterDefs), "Namespace", namespace, "CSV", csvPackageName)
+			}
+		}
+
+		// install appropriate meterdefs for new version
+		meterDefNamesFromFileServer,meterDefsFromFileServer, result := ListMeterdefintionsFromFileServer(csvPackageName, csvVersion, CSV.Namespace, reqLogger)
+		if !result.Is(Continue) {
+			if result.Is(Error) {
+				reqLogger.Error(result.GetError(), "Failed retrieving meterdefinitions from file server")
+			}
+			return result.Return()
+		}
+
+		meterDefsMapFromFileServer := make(map[string]marketplacev1beta1.MeterDefinition)
+
+		for _, meterDefItem := range meterDefsFromFileServer {
+			meterDefsMapFromFileServer[meterDefItem.ObjectMeta.Name] = meterDefItem
+		}
+
+		err := createMeterDefintions(r.Scheme,r.Client,CSV.Namespace, csvPackageName, meterDefNamesFromFileServer, meterDefsMapFromFileServer, reqLogger)
+		if err != nil {
+			return reconcile.Result{},err
+		}
+
+		reqLogger.Info("Successfully created meterdefintions", "Count", len(meterDefNamesFromFileServer), "Namespace", CSV.Namespace, "CSV", csvPackageName)
+		return reconcile.Result{Requeue: true},nil
+
 	}
 
+	/* New CSV install */
 	sub := &olmv1alpha1.SubscriptionList{}
 	if err := r.Client.List(context.TODO(), sub, client.InNamespace(request.NamespacedName.Namespace)); err != nil {
 		return reconcile.Result{}, err
@@ -144,7 +189,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 					if subscription.Status.InstalledCSV == request.NamespacedName.Name {
 						reqLogger.Info("found Subscription with installed CSV")
 
-						selectedMeterDefinitions, result := ListMeterdefintionsFromFileServer(csvPackageName, csvVersion, CSV.Namespace, reqLogger)
+						_,selectedMeterDefinitions, result := ListMeterdefintionsFromFileServer(csvPackageName, csvVersion, CSV.Namespace, reqLogger)
 						if !result.Is(Continue) {
 
 							if result.Is(Error) {
@@ -199,10 +244,12 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 
 										return result.Return()
 									}
+
+									return reconcile.Result{Requeue: true}, nil
 								}
 
 								reqLogger.Error(err, "Failed to get meterdefinition")
-								return reconcile.Result{Requeue: true}, nil
+								return reconcile.Result{}, err
 							}
 						}
 					}
@@ -218,19 +265,21 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	return reconcile.Result{}, nil
 }
 
-func _csvFilter(metaNew metav1.Object) int {
+func reconcileCSV(metaNew metav1.Object) bool {
 	ann := metaNew.GetAnnotations()
 
-	//annotation values
 	ignoreVal, hasIgnoreTag := ann[ignoreTag]
 
+	// we need to pick up the csv
 	if !hasIgnoreTag || ignoreVal != ignoreTagValue {
-		return 1
+		return true
 	}
-	return 0
+
+	//ignore
+	return false
 }
 
-func getPackageNameAndVersion(csv *olmv1alpha1.ClusterServiceVersion, request reconcile.Request, reqLogger logr.Logger) (packageName string, version string, result *ExecResult) {
+func parsePackageNameAndVersion(csv *olmv1alpha1.ClusterServiceVersion, request reconcile.Request, reqLogger logr.Logger) (packageName string, version string, result *ExecResult) {
 
 	v, ok := csv.GetAnnotations()[csvProp]
 	if !ok {
@@ -275,7 +324,7 @@ func getPackageNameAndVersion(csv *olmv1alpha1.ClusterServiceVersion, request re
 	}
 }
 
-func ListMeterdefintionsFromFileServer(packageName string, version string, namespace string, reqLogger logr.Logger) ([]marketplacev1beta1.MeterDefinition, *ExecResult) {
+func ListMeterdefintionsFromFileServer(packageName string, version string, namespace string, reqLogger logr.Logger) ([]string,[]marketplacev1beta1.MeterDefinition, *ExecResult) {
 
 	// returns all the meterdefinitions for associated with a particular CSV version
 	url := fmt.Sprintf("http://rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc.cluster.local:8100/list-for-version/%s/%s", packageName, version)
@@ -283,14 +332,14 @@ func ListMeterdefintionsFromFileServer(packageName string, version string, names
 	if err != nil {
 		if err == io.EOF {
 			reqLogger.Error(err, "Meterdefintion not found")
-			return nil, &ExecResult{
+			return nil,nil, &ExecResult{
 				ReconcileResult: reconcile.Result{},
 				Err:             emperror.New("empty response"),
 			}
 		}
 
 		reqLogger.Error(err, "Error querying file server")
-		return nil, &ExecResult{
+		return nil,nil, &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
 		}
@@ -299,7 +348,7 @@ func ListMeterdefintionsFromFileServer(packageName string, version string, names
 	mdefSlice := []marketplacev1beta1.MeterDefinition{}
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return nil, &ExecResult{
+		return nil,nil, &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
 		}
@@ -307,7 +356,7 @@ func ListMeterdefintionsFromFileServer(packageName string, version string, names
 
 	if len(data) == 0 {
 		reqLogger.Error(err, "no data in response")
-		return nil, &ExecResult{
+		return nil,nil, &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
 		}
@@ -317,15 +366,20 @@ func ListMeterdefintionsFromFileServer(packageName string, version string, names
 	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(meterDefsData)), 100).Decode(&mdefSlice)
 	if err != nil {
 		reqLogger.Error(err, "error decoding meterdefstore string")
-		return nil, &ExecResult{
+		return nil,nil, &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
 		}
 	}
 
-	reqLogger.Info("meterdefintions returned from file server", packageName, mdefSlice)
+	var meterDefNames []string
+	for _, meterDefItem := range mdefSlice {
+		meterDefNames = append(meterDefNames, meterDefItem.ObjectMeta.Name)
+	}
 
-	return mdefSlice, &ExecResult{
+	reqLogger.Info("meterdefintions returned from file server",packageName,meterDefNames)
+	
+	return meterDefNames,mdefSlice, &ExecResult{
 		Status: ActionResultStatus(Continue),
 	}
 }
@@ -508,6 +562,12 @@ func fetchCSVInfo(csvProps string) map[string]interface{} {
 
 var rhmCSVControllerPredicates predicate.Funcs = predicate.Funcs{
 	UpdateFunc: func(e event.UpdateEvent) bool {
+		// fmt.Println("UPDATE EVENT ON CSV METANEW: ",e.MetaNew.GetAnnotations())
+		if !reconcileCSV(e.MetaNew) || !reconcileCSV(e.MetaOld){
+			fmt.Println("skipping reconcile on csv",e.MetaNew)
+			fmt.Println("skipping reconcile on csv",e.MetaOld)
+			return false
+		}
 
 		oldCSV, ok := e.ObjectOld.(*olmv1alpha1.ClusterServiceVersion)
 		if !ok {
@@ -532,14 +592,15 @@ var rhmCSVControllerPredicates predicate.Funcs = predicate.Funcs{
 
 		return false
 	},
-	DeleteFunc: func(evt event.DeleteEvent) bool {
+	DeleteFunc: func(e event.DeleteEvent) bool {
 		return true
 	},
-	CreateFunc: func(evt event.CreateEvent) bool {
-		return csvFilter(evt.Meta) > 0
+	CreateFunc: func(e event.CreateEvent) bool {
+		return reconcileCSV(e.Meta) 
+
 	},
-	GenericFunc: func(evt event.GenericEvent) bool {
-		return false
+	GenericFunc: func(e event.GenericEvent) bool {
+		return reconcileCSV(e.Meta) 
 	},
 }
 
