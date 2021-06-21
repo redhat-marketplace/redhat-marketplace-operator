@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -137,41 +138,7 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 				},
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					if e.MetaNew.GetName() == utils.DEPLOYMENT_CONFIG_NAME {
-						// return e.MetaOld.GetResourceVersion() != e.MetaNew.GetResourceVersion()
-						// oldDeploymentConfig, ok := e.ObjectOld.(*osappsv1.DeploymentConfig)
-						// if !ok {
-						// 	fmt.Println("could not convert to DeploymentConfig")
-						// 	return false
-						// }
-
-						newDeploymentConfig, ok := e.ObjectNew.(*osappsv1.DeploymentConfig)
-						if !ok {
-							fmt.Println("could not convert to DeploymentConfig")
-							return false
-						}
-
-						newConditions := newDeploymentConfig.Status.Conditions
-							// if newDeploymentConfig.Status.UnavailableReplicas == 0 && newDeploymentConfig.Status.ReadyReplicas == 1 {
-								
-						for _, c := range newConditions {
-							if c.Type == osappsv1.DeploymentProgressing {
-								utils.PrettyPrintLog("STATUS-------------------------------------------------------------",newDeploymentConfig.Status)
-								if c.Reason == "NewReplicationControllerAvailable" && 
-								c.Status == corev1.ConditionTrue && 
-								newDeploymentConfig.Status.LatestVersion != newDeploymentConfig.Status.ObservedGeneration  {
-									utils.PrettyPrintLog("DC UPDATED-------------------------------------------------------------",newDeploymentConfig.Status)
-									return true
-								}
-							}
-						}
-
-						// if oldDeploymentConfig.Status.ObservedGeneration != newDeploymentConfig.Status.ObservedGeneration {
-						// 	return true
-						// }
-					}
-
-					return false
+					return e.MetaNew.GetName() == utils.DEPLOYMENT_CONFIG_NAME					
 				},
 				DeleteFunc: func(e event.DeleteEvent) bool {
 					return e.Meta.GetName() == utils.DEPLOYMENT_CONFIG_NAME
@@ -193,7 +160,32 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
-	result := r.pruneDeployPods(request, reqLogger)
+	dc := &osappsv1.DeploymentConfig{}
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: request.Namespace}, dc)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			reqLogger.Error(err, "deploymentconfig does not exist")
+			return reconcile.Result{}, nil
+		}
+
+		reqLogger.Error(err, "Failed to get deploymentconfig")
+		return reconcile.Result{}, err
+	}
+
+	// catch the deploymentconfig as it's rolling out a new deployment and requeue until finished
+	for _, c := range dc.Status.Conditions {
+		if c.Type == osappsv1.DeploymentProgressing {
+			if c.Reason != "NewReplicationControllerAvailable" || c.Status != corev1.ConditionTrue || dc.Status.LatestVersion == dc.Status.ObservedGeneration {
+				reqLogger.Info("deploymentconfig has not finished rollout, requeueing")
+				return reconcile.Result{RequeueAfter: time.Minute * 2},err
+			}
+		}
+	}
+
+	reqLogger.Info("deploymentconfig has in ready state")
+	latestVersion := dc.Status.LatestVersion
+
+	result := r.pruneDeployPods(latestVersion,request, reqLogger)
 	if !result.Is(Continue) {
 
 		if result.Is(Error) {
@@ -205,9 +197,13 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 
 	// Fetch the install-map-cm instance
 	cm := &corev1.ConfigMap{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME, Namespace: r.cfg.DeployedNamespace}, cm)
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME, Namespace: r.cfg.DeployedNamespace}, cm)
 	if err != nil {
-		reqLogger.Error(err, "Failed to get MeterdefintionConfigMap")
+		if errors.IsNotFound(err) {
+			reqLogger.Error(err, "meterdefinition install map cm does not exist")
+			return reconcile.Result{}, nil
+		}
+		reqLogger.Error(err, "Failed to get meterdefinition install map cm")
 		return reconcile.Result{}, err
 	}
 
@@ -454,19 +450,10 @@ func updateMeterDefintions(namespace string, mdefNames []string, meterDefsMap ma
 	return nil
 }
 
-func (r *DeploymentConfigReconciler) pruneDeployPods(request reconcile.Request, reqLogger logr.Logger) *ExecResult {
+func (r *DeploymentConfigReconciler) pruneDeployPods(latestVersion int64,request reconcile.Request, reqLogger logr.Logger) *ExecResult {
 	reqLogger.Info("pruning old deploy pods")
 
-	dc := &osappsv1.DeploymentConfig{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: request.Namespace}, dc)
-	if err != nil {
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
 
-	latestVersion := dc.Status.LatestVersion
 	latestPodName := fmt.Sprintf("rhm-meterdefinition-file-server-%d", latestVersion)
 	reqLogger.Info("Prune","latest version",latestVersion)
 	reqLogger.Info("Prune","latest pod name",latestPodName)
@@ -477,7 +464,7 @@ func (r *DeploymentConfigReconciler) pruneDeployPods(request reconcile.Request, 
 		client.HasLabels{"openshift.io/deployer-pod-for.name"},
 	}
 
-	err = r.Client.List(context.TODO(), dcPodList, listOpts...)
+	err := r.Client.List(context.TODO(), dcPodList, listOpts...)
 	if err != nil {
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
