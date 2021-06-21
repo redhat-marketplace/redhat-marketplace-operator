@@ -562,10 +562,7 @@ func fetchCSVInfo(csvProps string) map[string]interface{} {
 
 var rhmCSVControllerPredicates predicate.Funcs = predicate.Funcs{
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		// fmt.Println("UPDATE EVENT ON CSV METANEW: ",e.MetaNew.GetAnnotations())
 		if !reconcileCSV(e.MetaNew) || !reconcileCSV(e.MetaOld){
-			fmt.Println("skipping reconcile on csv",e.MetaNew)
-			fmt.Println("skipping reconcile on csv",e.MetaOld)
 			return false
 		}
 
@@ -586,7 +583,6 @@ var rhmCSVControllerPredicates predicate.Funcs = predicate.Funcs{
 
 		// Limiting update operation to only handle this for now
 		if oldCSV.Status.Phase == olmv1alpha1.CSVPhaseReplacing {
-			fmt.Println("CSV is upgrading", oldCSV.Name, oldCSV.Status.Phase)
 			return true
 		}
 

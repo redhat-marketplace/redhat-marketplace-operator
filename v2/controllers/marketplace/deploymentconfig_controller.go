@@ -82,6 +82,16 @@ type InstallMapping struct {
 	InstalledMeterdefinitions []string `json:"installedMeterdefinitions"`
 }
 
+// type DeploymentConfigTracker struct {
+// 	lock sync.Mutex
+// 	LatestVersion int64
+// 	Message string
+// }
+
+// func (dct *DeploymentConfigTracker) newDCT()*DeploymentConfigTracker {
+
+// }
+
 //TODO: mutex needed here ?
 type MeterdefinitionStore struct {
 	InstallMappings []InstallMapping `json:"installMappings"`
@@ -129,11 +139,11 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					if e.MetaNew.GetName() == utils.DEPLOYMENT_CONFIG_NAME {
 						// return e.MetaOld.GetResourceVersion() != e.MetaNew.GetResourceVersion()
-						oldDeploymentConfig, ok := e.ObjectOld.(*osappsv1.DeploymentConfig)
-						if !ok {
-							fmt.Println("could not convert to DeploymentConfig")
-							return false
-						}
+						// oldDeploymentConfig, ok := e.ObjectOld.(*osappsv1.DeploymentConfig)
+						// if !ok {
+						// 	fmt.Println("could not convert to DeploymentConfig")
+						// 	return false
+						// }
 
 						newDeploymentConfig, ok := e.ObjectNew.(*osappsv1.DeploymentConfig)
 						if !ok {
@@ -141,18 +151,24 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 							return false
 						}
 
-						if oldDeploymentConfig.Status.LatestVersion != newDeploymentConfig.Status.LatestVersion {
-							newConditions := newDeploymentConfig.Status.Conditions
-							oldConditions := oldDeploymentConfig.Status.Conditions
-							for i, c := range newConditions {
-								if c.Type == osappsv1.DeploymentProgressing {
-									if c.Reason == "NewReplicationControllerAvailable" && c.Status == corev1.ConditionTrue && oldConditions[i].Message != c.Message {
-										return true
-									}
+						newConditions := newDeploymentConfig.Status.Conditions
+							// if newDeploymentConfig.Status.UnavailableReplicas == 0 && newDeploymentConfig.Status.ReadyReplicas == 1 {
+								
+						for _, c := range newConditions {
+							if c.Type == osappsv1.DeploymentProgressing {
+								utils.PrettyPrintLog("STATUS-------------------------------------------------------------",newDeploymentConfig.Status)
+								if c.Reason == "NewReplicationControllerAvailable" && 
+								c.Status == corev1.ConditionTrue && 
+								newDeploymentConfig.Status.LatestVersion != newDeploymentConfig.Status.ObservedGeneration  {
+									utils.PrettyPrintLog("DC UPDATED-------------------------------------------------------------",newDeploymentConfig.Status)
+									return true
 								}
-
 							}
 						}
+
+						// if oldDeploymentConfig.Status.ObservedGeneration != newDeploymentConfig.Status.ObservedGeneration {
+						// 	return true
+						// }
 					}
 
 					return false
@@ -293,7 +309,7 @@ func (r *DeploymentConfigReconciler) sync(installMappings []InstallMapping, reqL
 		if len(mdefDeleteList) > 0 {
 			reqLogger.Info("Delete Sync", "meterdefintion names from file server", meterDefNamesFromFileServer)
 			reqLogger.Info("Delete Sync", "installed meterdefinitions", installedMeterDefs)
-			reqLogger.Info("Delete Sync", "meterdefintion creation list", mdefDeleteList)
+			reqLogger.Info("Delete Sync", "meterdefintion delete list", mdefDeleteList)
 			err := deleteMeterDefintions(namespace, mdefDeleteList, r.Client, reqLogger)
 			if err != nil {
 				return updatedInstallMappings, &ExecResult{
@@ -309,7 +325,7 @@ func (r *DeploymentConfigReconciler) sync(installMappings []InstallMapping, reqL
 		if len(mdefCreateList) > 0 {
 			reqLogger.Info("Create Sync", "meterdefintion names from file server", meterDefNamesFromFileServer)
 			reqLogger.Info("Create Sync", "installed meterdefinitions", installedMeterDefs)
-			reqLogger.Info("Create Sync", "meterdefintion creation list", mdefCreateList)
+			reqLogger.Info("Create Sync", "meterdefintion update list", mdefCreateList)
 			err := createMeterDefintions(r.Scheme, r.Client, namespace, csvName, mdefCreateList, meterDefsMapFromFileServer, reqLogger)
 			if err != nil {
 				return updatedInstallMappings, &ExecResult{
@@ -322,9 +338,6 @@ func (r *DeploymentConfigReconciler) sync(installMappings []InstallMapping, reqL
 		// get ths list of meter defs to be checked for changes and invoke update operation
 		mdefUpdateList := utils.SliceIntersection(installedMeterDefs, meterDefNamesFromFileServer)
 		if len(mdefUpdateList) > 0 {
-			reqLogger.Info("Update Sync", "meterdefintion names from file server", meterDefNamesFromFileServer)
-			reqLogger.Info("Update Sync", "installed meterdefinitions", installedMeterDefs)
-			reqLogger.Info("Update Sync", "meterdefintion creation list", mdefUpdateList)
 			err := updateMeterDefintions(namespace, mdefUpdateList, meterDefsMapFromFileServer, r.Client, reqLogger)
 			if err != nil {
 				return updatedInstallMappings, &ExecResult{
@@ -332,8 +345,6 @@ func (r *DeploymentConfigReconciler) sync(installMappings []InstallMapping, reqL
 					Err:             err,
 				}
 			}
-
-			reqLogger.Info("Successfully updated meterdefintions", "Count", len(mdefUpdateList), "Namespace", namespace, "CSV", csvName)
 		}
 		installMap.InstalledMeterdefinitions = meterDefNamesFromFileServer
 		updatedInstallMappings = append(updatedInstallMappings, installMap)
@@ -444,6 +455,8 @@ func updateMeterDefintions(namespace string, mdefNames []string, meterDefsMap ma
 }
 
 func (r *DeploymentConfigReconciler) pruneDeployPods(request reconcile.Request, reqLogger logr.Logger) *ExecResult {
+	reqLogger.Info("pruning old deploy pods")
+
 	dc := &osappsv1.DeploymentConfig{}
 	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: request.Namespace}, dc)
 	if err != nil {
@@ -455,6 +468,8 @@ func (r *DeploymentConfigReconciler) pruneDeployPods(request reconcile.Request, 
 
 	latestVersion := dc.Status.LatestVersion
 	latestPodName := fmt.Sprintf("rhm-meterdefinition-file-server-%d", latestVersion)
+	reqLogger.Info("Prune","latest version",latestVersion)
+	reqLogger.Info("Prune","latest pod name",latestPodName)
 
 	dcPodList := &corev1.PodList{}
 	listOpts := []client.ListOption{
@@ -471,6 +486,7 @@ func (r *DeploymentConfigReconciler) pruneDeployPods(request reconcile.Request, 
 	}
 
 	for _, pod := range dcPodList.Items {
+		reqLogger.Info("Prune","deploy pod", pod.Name)
 		podLabelValue := pod.GetLabels()["openshift.io/deployer-pod-for.name"]
 		if podLabelValue != latestPodName {
 			reqLogger.Info("Pruning deploy pod", "pod name", pod.Name)
