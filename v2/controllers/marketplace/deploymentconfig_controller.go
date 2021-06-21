@@ -83,16 +83,6 @@ type InstallMapping struct {
 	InstalledMeterdefinitions []string `json:"installedMeterdefinitions"`
 }
 
-// type DeploymentConfigTracker struct {
-// 	lock sync.Mutex
-// 	LatestVersion int64
-// 	Message string
-// }
-
-// func (dct *DeploymentConfigTracker) newDCT()*DeploymentConfigTracker {
-
-// }
-
 //TODO: mutex needed here ?
 type MeterdefinitionStore struct {
 	InstallMappings []InstallMapping `json:"installMappings"`
@@ -138,7 +128,7 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 				},
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					return e.MetaNew.GetName() == utils.DEPLOYMENT_CONFIG_NAME					
+					return e.MetaNew.GetName() == utils.DEPLOYMENT_CONFIG_NAME
 				},
 				DeleteFunc: func(e event.DeleteEvent) bool {
 					return e.Meta.GetName() == utils.DEPLOYMENT_CONFIG_NAME
@@ -177,7 +167,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 		if c.Type == osappsv1.DeploymentProgressing {
 			if c.Reason != "NewReplicationControllerAvailable" || c.Status != corev1.ConditionTrue || dc.Status.LatestVersion == dc.Status.ObservedGeneration {
 				reqLogger.Info("deploymentconfig has not finished rollout, requeueing")
-				return reconcile.Result{RequeueAfter: time.Minute * 2},err
+				return reconcile.Result{RequeueAfter: time.Minute * 2}, err
 			}
 		}
 	}
@@ -185,7 +175,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	reqLogger.Info("deploymentconfig has in ready state")
 	latestVersion := dc.Status.LatestVersion
 
-	result := r.pruneDeployPods(latestVersion,request, reqLogger)
+	result := r.pruneDeployPods(latestVersion, request, reqLogger)
 	if !result.Is(Continue) {
 
 		if result.Is(Error) {
@@ -450,13 +440,12 @@ func updateMeterDefintions(namespace string, mdefNames []string, meterDefsMap ma
 	return nil
 }
 
-func (r *DeploymentConfigReconciler) pruneDeployPods(latestVersion int64,request reconcile.Request, reqLogger logr.Logger) *ExecResult {
+func (r *DeploymentConfigReconciler) pruneDeployPods(latestVersion int64, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
 	reqLogger.Info("pruning old deploy pods")
 
-
 	latestPodName := fmt.Sprintf("rhm-meterdefinition-file-server-%d", latestVersion)
-	reqLogger.Info("Prune","latest version",latestVersion)
-	reqLogger.Info("Prune","latest pod name",latestPodName)
+	reqLogger.Info("Prune", "latest version", latestVersion)
+	reqLogger.Info("Prune", "latest pod name", latestPodName)
 
 	dcPodList := &corev1.PodList{}
 	listOpts := []client.ListOption{
@@ -473,7 +462,7 @@ func (r *DeploymentConfigReconciler) pruneDeployPods(latestVersion int64,request
 	}
 
 	for _, pod := range dcPodList.Items {
-		reqLogger.Info("Prune","deploy pod", pod.Name)
+		reqLogger.Info("Prune", "deploy pod", pod.Name)
 		podLabelValue := pod.GetLabels()["openshift.io/deployer-pod-for.name"]
 		if podLabelValue != latestPodName {
 			reqLogger.Info("Pruning deploy pod", "pod name", pod.Name)
