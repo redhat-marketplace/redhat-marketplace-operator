@@ -79,18 +79,26 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	reqLogger := r.Log.WithValues("Request.Name", request.Name, "Request.Namespace", request.Namespace)
 	reqLogger.Info("Reconciling ClusterServiceVersion")
 
+
 	// Fetch the ClusterServiceVersion instance
 	CSV := &olmv1alpha1.ClusterServiceVersion{}
 	err := r.Client.Get(context.TODO(), request.NamespacedName, CSV)
-
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			reqLogger.Error(err, "clusterserviceversion does not exist")
-			return reconcile.Result{}, nil
+			// Request object not found, check the meterdef store if there is an existing InstallMapping,delete, and return empty result
+			// If no install mapping found return empty result 
+			_csvName := request.Name
+			reqLogger.Info("clusterserviceversion does not exist,checking install map for package","name",_csvName)
+			result := deleteInstallMapping(_csvName,r.cfg.DeployedNamespace ,request, r.Client, reqLogger)
+			if !result.Is(Continue) {
+				if result.Is(Error) {
+					reqLogger.Error(result.GetError(), "Failed deleting install mapping from meter definition store")
+				}
+				return result.Return()
+			}
+
 		}
+
 		reqLogger.Error(err, "Failed to get clusterserviceversion")
 		return reconcile.Result{}, err
 	}
@@ -100,18 +108,19 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		result.Return()
 	}
 
-	if !CSV.ObjectMeta.DeletionTimestamp.IsZero() {
-		// deleting meterdefinitions will be automatically handled as we have set owner references during its creating
-		// clean up install mapping from store
-		result := deleteInstallMapping(csvPackageName, request, r.Client, reqLogger)
-		if !result.Is(Continue) {
-			if result.Is(Error) {
-				reqLogger.Error(result.GetError(), "Failed deleting install mapping from meter definition store")
-			}
-			return result.Return()
-		}
-		return reconcile.Result{}, nil
-	}
+	// TODO: not sure if this ever gets run, see deletion logic at liine92
+	// if !CSV.ObjectMeta.DeletionTimestamp.IsZero() {
+	// 	// deleting meterdefinitions will be automatically handled as we have set owner references during its creating
+	// 	// clean up install mapping from store
+	// 	result := deleteInstallMapping(csvPackageName, request, r.Client, reqLogger)
+	// 	if !result.Is(Continue) {
+	// 		if result.Is(Error) {
+	// 			reqLogger.Error(result.GetError(), "Failed deleting install mapping from meter definition store")
+	// 		}
+	// 		return result.Return()
+	// 	}
+	// 	return reconcile.Result{}, nil
+	// }
 
 	// handle CSV updates: change in CSV version might change applicable meter definitions
 	if CSV.Status.Phase == olmv1alpha1.CSVPhaseReplacing {
@@ -481,11 +490,11 @@ func addOrUpdateInstallList(packageName string, csvName string, csvVersion strin
 }
 
 // deletes install mapping for (packageName + namespace) combination
-func deleteInstallMapping(packageName string, request reconcile.Request, client client.Client, reqLogger logr.Logger) *ExecResult {
-
+func deleteInstallMapping(csvName string,deployedNamespace string ,request reconcile.Request, client client.Client, reqLogger logr.Logger) *ExecResult {
+	
 	// Fetch the mdefStoreCM instance
 	mdefStoreCM := &corev1.ConfigMap{}
-	err := client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME, Namespace: request.Namespace}, mdefStoreCM)
+	err := client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME, Namespace: deployedNamespace}, mdefStoreCM)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return &ExecResult{
@@ -515,11 +524,22 @@ func deleteInstallMapping(packageName string, request reconcile.Request, client 
 		}
 	}
 
+	var installMappingFound bool
 	for i, item := range meterdefStore.InstallMappings {
-		// remove the package's InstallMapping
-		if item.PackageName == packageName && item.Namespace == request.Namespace {
+		// remove the package's InstallMapping. Need to search by csvName here that's what is returned in the request
+		if item.CsvName == csvName && item.Namespace == request.Namespace {
+			reqLogger.Info("deletemeterdefinitions()","install map found",item)
+			installMappingFound = true
 			meterdefStore.InstallMappings = append(meterdefStore.InstallMappings[:i], meterdefStore.InstallMappings[i+1:]...)
 			break
+		}
+	}
+
+	if !installMappingFound {
+		reqLogger.Info("delete install mapping","no install mapping found for package, ignoring",csvName)
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             nil,
 		}
 	}
 
@@ -543,8 +563,10 @@ func deleteInstallMapping(packageName string, request reconcile.Request, client 
 		}
 	}
 
+	reqLogger.Info("deleted install mapping","successfully deleted install map for package, exiting reconcile",csvName)
 	return &ExecResult{
-		Status: ActionResultStatus(Continue),
+		ReconcileResult: reconcile.Result{},
+		Err:             nil,
 	}
 }
 
@@ -582,6 +604,7 @@ var rhmCSVControllerPredicates predicate.Funcs = predicate.Funcs{
 		// }
 
 		// Limiting update operation to only handle this for now
+		// TODO: does this need to use the new object ? 
 		if oldCSV.Status.Phase == olmv1alpha1.CSVPhaseReplacing {
 			return true
 		}
@@ -589,7 +612,7 @@ var rhmCSVControllerPredicates predicate.Funcs = predicate.Funcs{
 		return false
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
-		return true
+		return reconcileCSV(e.Meta)
 	},
 	CreateFunc: func(e event.CreateEvent) bool {
 		return reconcileCSV(e.Meta) 

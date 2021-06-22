@@ -172,7 +172,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 		}
 	}
 
-	reqLogger.Info("deploymentconfig has in ready state")
+	reqLogger.Info("deploymentconfig is in ready state")
 	latestVersion := dc.Status.LatestVersion
 
 	result := r.pruneDeployPods(latestVersion, request, reqLogger)
@@ -465,7 +465,7 @@ func (r *DeploymentConfigReconciler) pruneDeployPods(latestVersion int64, reques
 		reqLogger.Info("Prune", "deploy pod", pod.Name)
 		podLabelValue := pod.GetLabels()["openshift.io/deployer-pod-for.name"]
 		if podLabelValue != latestPodName {
-			reqLogger.Info("Pruning deploy pod", "pod name", pod.Name)
+			
 			err := r.Client.Delete(context.TODO(), &pod)
 			if err != nil {
 				return &ExecResult{
@@ -473,6 +473,8 @@ func (r *DeploymentConfigReconciler) pruneDeployPods(latestVersion int64, reques
 					Err:             err,
 				}
 			}
+
+			reqLogger.Info("Successfully pruned deploy pod", "pod name", pod.Name)
 		}
 	}
 
