@@ -22,9 +22,11 @@ import (
 	"log"
 	"net"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/adminserver"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/fileretreiver"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
 	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
@@ -38,6 +40,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -59,6 +62,7 @@ func runSetup() {
 	bs := server.BaseServer{}
 	mockSenderServer := server.FileSenderServer{}
 	mockRetreiverServer := server.FileRetreiverServer{}
+	mockAdminServer := server.AdminServerServer{}
 
 	//Initialize logger
 	zapLog, err := zap.NewDevelopment()
@@ -84,8 +88,10 @@ func runSetup() {
 	bs.FileStore = &db
 	mockSenderServer.B = bs
 	mockRetreiverServer.B = bs
+	mockAdminServer.B = bs
 	filesender.RegisterFileSenderServer(s, &mockSenderServer)
 	fileretreiver.RegisterFileRetreiverServer(s, &mockRetreiverServer)
+	adminserver.RegisterAdminServerServer(s, &mockAdminServer)
 
 	go func() {
 		if err := s.Serve(lis); err != nil {
@@ -219,6 +225,106 @@ func TestFileSenderServer_UploadFile(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestFileSenderServer_UpdateFileMetadata(t *testing.T) {
+	//Initialize server
+	runSetup()
+	//Initialize client
+	conn := createClient()
+
+	//Shutdown resources
+	defer shutdown(conn)
+
+	populateDataset(conn, t)
+	//Create a client for download
+	client := filesender.NewFileSenderClient(conn)
+	retClient := fileretreiver.NewFileRetreiverClient(conn)
+
+	//Shutdown resources
+	defer shutdown(conn)
+
+	tests := []struct {
+		name    string
+		req     *filesender.UpdateFileMetadataRequest
+		resp    *filesender.UpdateFileMetadataResponse
+		errCode codes.Code
+		errMsg  string
+	}{
+		{
+			name: "update metadata of file",
+			req: &filesender.UpdateFileMetadataRequest{
+				FileId: &v1.FileID{
+					Data: &v1.FileID_Name{
+						Name: "reports.zip",
+					},
+				},
+				Metadata: map[string]string{
+					"version": "2",
+					"type":    "report file",
+				},
+			},
+			resp: &filesender.UpdateFileMetadataResponse{
+				FileId: &v1.FileID{
+					Data: &v1.FileID_Name{
+						Name: "reports.zip",
+					},
+				},
+			},
+			errCode: codes.OK,
+		},
+		{
+			name: "update metadata of file with same metadata",
+			req: &filesender.UpdateFileMetadataRequest{
+				FileId: &v1.FileID{
+					Data: &v1.FileID_Name{
+						Name: "marketplace_report.zip",
+					},
+				},
+				Metadata: map[string]string{
+					"version": "2",
+					"type":    "marketplace_report",
+				},
+			},
+			resp:    nil,
+			errCode: codes.Unknown,
+			errMsg:  "connot update file metadata, as metadata of latest file and update request is same",
+		},
+		{
+			name: "update metadata of non existing file",
+			req: &filesender.UpdateFileMetadataRequest{
+				FileId: &v1.FileID{
+					Data: &v1.FileID_Name{
+						Name: "non exsiting",
+					},
+				},
+				Metadata: map[string]string{
+					"version": "2",
+					"type":    "file type",
+				},
+			},
+			resp:    nil,
+			errCode: codes.Unknown,
+			errMsg:  "connot update file metadata, as metadata of latest file and update request is same",
+		},
+	}
+
+	for _, tt := range tests {
+		_, err := client.UpdateFileMetadata(context.Background(), tt.req)
+		if err != nil {
+			if er, ok := status.FromError(err); ok {
+				if er.Code() != tt.errCode {
+					t.Errorf("mismatched error codes: expected %v, received: %v for test: %v", tt.errCode, er.Code(), tt.name)
+				}
+			}
+		}
+		if tt.resp != nil {
+			getResp, _ := retClient.GetFileMetadata(context.Background(), &fileretreiver.GetFileMetadataRequest{FileId: tt.resp.GetFileId()})
+			if !reflect.DeepEqual(tt.req.Metadata, getResp.GetInfo().GetMetadata()) {
+				t.Errorf("metadata of file and metadata is update request does no match , Expected: %v got %v", tt.req.Metadata, getResp.GetInfo().GetMetadata())
+			}
+		}
 	}
 }
 
@@ -572,6 +678,78 @@ func TestFileRetreiverServer_GetFileMetadata(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAdminServer_CleanTombstones(t *testing.T) {
+	//Initialize server
+	runSetup()
+	//Initialize client
+	conn := createClient()
+
+	//Shutdown resources
+	defer shutdown(conn)
+
+	populateDataset(conn, t)
+
+	//Create a client for download
+	client := adminserver.NewAdminServerClient(conn)
+
+	tests := []struct {
+		name    string
+		req     *adminserver.CleanTombstonesRequest
+		resp    *adminserver.CleanTombstonesResponse
+		errCode codes.Code
+	}{
+		{
+			name: "clean file content",
+			req: &adminserver.CleanTombstonesRequest{
+				Before:   timestamppb.Now(),
+				PurgeAll: false,
+			},
+			resp: &adminserver.CleanTombstonesResponse{
+				TombstonesCleaned: 1,
+				Files: []*v1.FileID{
+					{
+						Data: &v1.FileID_Name{Name: "delete.txt"},
+					},
+				},
+			},
+		},
+		{
+			name: "delete file record",
+			req: &adminserver.CleanTombstonesRequest{
+				Before:   &timestamppb.Timestamp{Seconds: time.Now().Unix()},
+				PurgeAll: true,
+			},
+			resp: &adminserver.CleanTombstonesResponse{
+				TombstonesCleaned: 1,
+				Files: []*v1.FileID{
+					{
+						Data: &v1.FileID_Name{Name: "delete.txt"},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, err := client.CleanTombstones(context.Background(), tt.req)
+			if err != nil {
+				if er, ok := status.FromError(err); ok {
+					if er.Code() != tt.errCode {
+						t.Errorf("mismatched error codes: expected %v, received: %v for test: %v", tt.errCode, er.Code(), tt.name)
+						t.Log(err)
+					}
+				}
+			}
+			if resp.GetTombstonesCleaned() != tt.resp.GetTombstonesCleaned() {
+				t.Errorf("mismatched files cleaned: expected %v, received: %v", tt.resp.Files, resp.GetFiles())
+			} else if !reflect.DeepEqual(resp.GetFiles(), tt.resp.GetFiles()) {
+				t.Errorf("mismatched files cleaned: expected %v, received: %v", tt.resp.Files, resp.GetFiles())
+			}
+		})
+	}
+
 }
 
 // populateDataset populates database with the files needed for testing

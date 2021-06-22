@@ -31,11 +31,6 @@ func InitClient() (*grpc.ClientConn, error) {
 	insecure := viper.GetBool("insecure")
 	var conn *grpc.ClientConn
 
-	_, err := InitLog()
-	if err != nil {
-		return nil, err
-	}
-
 	// Fetch target address
 	address := viper.GetString("address")
 	if len(strings.TrimSpace(address)) == 0 {

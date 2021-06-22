@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/canonical/go-dqlite v1.8.0
-	github.com/ghodss/yaml v1.0.0
+	github.com/go-co-op/gocron v1.5.0
 	github.com/go-logr/logr v0.4.0
 	github.com/go-logr/zapr v0.4.0
 	github.com/golang/protobuf v1.4.3
@@ -15,10 +15,8 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/viper v1.7.0
-	github.com/stretchr/testify v1.6.0
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0
-	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sys v0.0.0-20210320140829-1e4c9ba3b0c4
 	google.golang.org/grpc v1.32.0
