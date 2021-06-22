@@ -108,20 +108,6 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		result.Return()
 	}
 
-	// TODO: not sure if this ever gets run, see deletion logic at liine92
-	// if !CSV.ObjectMeta.DeletionTimestamp.IsZero() {
-	// 	// deleting meterdefinitions will be automatically handled as we have set owner references during its creating
-	// 	// clean up install mapping from store
-	// 	result := deleteInstallMapping(csvPackageName, request, r.Client, reqLogger)
-	// 	if !result.Is(Continue) {
-	// 		if result.Is(Error) {
-	// 			reqLogger.Error(result.GetError(), "Failed deleting install mapping from meter definition store")
-	// 		}
-	// 		return result.Return()
-	// 	}
-	// 	return reconcile.Result{}, nil
-	// }
-
 	// handle CSV updates: change in CSV version might change applicable meter definitions
 	if CSV.Status.Phase == olmv1alpha1.CSVPhaseReplacing {
 		/*
@@ -592,16 +578,6 @@ var rhmCSVControllerPredicates predicate.Funcs = predicate.Funcs{
 		if !ok {
 			return false
 		}
-
-		// newCSV, ok := e.ObjectNew.(*olmv1alpha1.ClusterServiceVersion)
-		// if !ok {
-		// 	return false
-		// }
-
-		// if oldCSV.Status.Phase != newCSV.Status.Phase {
-		// 	fmt.Println("NEW CSV STATUS PHASE", newCSV.Name, newCSV.Status.Phase)
-		// 	return true
-		// }
 
 		// Limiting update operation to only handle this for now
 		// TODO: does this need to use the new object ? 
