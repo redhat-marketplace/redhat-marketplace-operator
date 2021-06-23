@@ -196,8 +196,8 @@ metadata:
     capabilities: Seamless Upgrades
     operators.operatorframework.io/builder: operator-sdk-v1.7.1+git
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-    containerImage: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-operator:2.2.2-138
-    createdAt: "2021-06-10T17:07:38Z"
+    containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:2.2.2-178
+    createdAt: "2021-06-23T19:25:25Z"
     olm.skipRange: '>=1.0.0 <2.2.2'
   name: redhat-marketplace-operator.v2.2.2
   namespace: placeholder
@@ -660,11 +660,11 @@ spec:
                       - name: OPERATOR_NAME
                         value: redhat-marketplace-operator
                       - name: RELATED_IMAGE_REPORTER
-                        value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-reporter:2.2.2-138
+                        value: quay.io/rh-marketplace/redhat-marketplace-reporter:2.2.2-178
                       - name: RELATED_IMAGE_METRIC_STATE
-                        value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-metric-state:2.2.2-138
+                        value: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.2.2-178
                       - name: RELATED_IMAGE_AUTHCHECK
-                        value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-authcheck:2.2.2-138
+                        value: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.2.2-178
                       - name: WATCH_NAMESPACE
                         valueFrom:
                           fieldRef:
@@ -693,7 +693,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.operatorGroup']
-                    image: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-operator:2.2.2-138
+                    image: quay.io/rh-marketplace/redhat-marketplace-operator:2.2.2-178
                     livenessProbe:
                       httpGet:
                         path: /healthz
@@ -1104,11 +1104,11 @@ spec:
       type: MutatingAdmissionWebhook
       webhookPath: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
   relatedImages:
-    - image: METRIC_STATE_IMAGE
+    - image: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.2.2-178
       name: RELATED_IMAGE_METRIC_STATE
-    - image: REPORTER_IMAGE
+    - image: quay.io/rh-marketplace/redhat-marketplace-reporter:2.2.2-178
       name: RELATED_IMAGE_REPORTER
-    - image: AUTHCHECK_IMAGE
+    - image: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.2.2-178
       name: RELATED_IMAGE_AUTHCHECK
     - image: quay.io/razee/remoteresources3:0.9.0
       name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT

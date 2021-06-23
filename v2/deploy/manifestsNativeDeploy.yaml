@@ -4841,9 +4841,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    authcheckImage: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-authcheck:2.2.2-138
-    metricStateImage: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-metric-state:2.2.2-138
-    reporterImage: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-reporter:2.2.2-138
+    authcheckImage: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.2.2-178
+    metricStateImage: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.2.2-178
+    reporterImage: quay.io/rh-marketplace/redhat-marketplace-reporter:2.2.2-178
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
   name: redhat-marketplace-controller-manager
@@ -4902,11 +4902,11 @@ spec:
         - name: OPERATOR_NAME
           value: redhat-marketplace-operator
         - name: RELATED_IMAGE_REPORTER
-          value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-reporter:2.2.2-138
+          value: quay.io/rh-marketplace/redhat-marketplace-reporter:2.2.2-178
         - name: RELATED_IMAGE_METRIC_STATE
-          value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-metric-state:2.2.2-138
+          value: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.2.2-178
         - name: RELATED_IMAGE_AUTHCHECK
-          value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-authcheck:2.2.2-138
+          value: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.2.2-178
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
@@ -4935,7 +4935,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.annotations['olm.operatorGroup']
-        image: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-operator:2.2.2-138
+        image: quay.io/rh-marketplace/redhat-marketplace-operator:2.2.2-178
         livenessProbe:
           httpGet:
             path: /healthz
