@@ -1345,7 +1345,7 @@ func (r *MeterBaseReconciler) newPrometheusOperator(
 
 	factory.SetOwnerReference(cr, prom)
 
-	if cr.Spec.Prometheus.Storage.Class == nil {
+	if cr.Spec.Prometheus != nil && cr.Spec.Prometheus.Storage.Class == nil {
 		defaultClass, err := utils.GetDefaultStorageClass(r.Client)
 
 		if err != nil {

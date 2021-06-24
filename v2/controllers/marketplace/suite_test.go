@@ -96,6 +96,7 @@ var _ = BeforeSuite(func(done Done) {
 	utilruntime.Must(olmv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(marketplaceredhatcomv1beta1.AddToScheme(scheme))
+	cfg2.DeployedNamespace = "openshift-redhat-marketplace"
 
 	factory := manifests.NewFactory(
 		cfg2,
@@ -113,15 +114,15 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&RemoteResourceS3Reconciler{
-		Client: k8sManager.GetClient(),
+		Client: k8sClient,
 		Log:    ctrl.Log.WithName("controllers").WithName("RemoteResourceS3"),
-		Scheme: k8sManager.GetScheme(),
+		Scheme: scheme,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&MeterBaseReconciler{
-		Client:  k8sManager.GetClient(),
-		Scheme:  k8sManager.GetScheme(),
+		Client:  k8sClient,
+		Scheme:  scheme,
 		Log:     ctrl.Log.WithName("controllers").WithName("MeterBase"),
 		cfg:     cfg2,
 		factory: factory,

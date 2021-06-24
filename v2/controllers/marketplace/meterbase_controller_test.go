@@ -20,9 +20,11 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -103,10 +105,10 @@ var _ = Describe("MeterbaseController", func() {
 		})
 	})
 
-	Describe("check reconciller", func() {
+	FDescribe("check reconciller", func() {
 		var (
 			name      = "meterbase"
-			namespace = "default"
+			namespace = "openshift-redhat-marketplace"
 			created   *marketplacev1alpha1.MeterBase
 		)
 
@@ -118,7 +120,9 @@ var _ = Describe("MeterbaseController", func() {
 		BeforeEach(func() {
 			created = &marketplacev1alpha1.MeterBase{
 				ObjectMeta: metav1.ObjectMeta{Name: key.Name, Namespace: key.Namespace},
-				Spec:       marketplacev1alpha1.MeterBaseSpec{},
+				Spec: marketplacev1alpha1.MeterBaseSpec{
+					Enabled: true,
+				},
 			}
 		})
 
@@ -134,8 +138,11 @@ var _ = Describe("MeterbaseController", func() {
 			Eventually(func() *status.Condition {
 				f := &marketplacev1alpha1.MeterBase{}
 				k8sClient.Get(context.TODO(), key, f)
-				return f.Status.Conditions.GetCondition(marketplacev1alpha1.ResourceInstallError)
-			}, timeout, interval).Should(BeNil())
+				return f.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionInstalling)
+			}, timeout, interval).Should(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Status": Equal(corev1.ConditionFalse),
+				"Reason": Equal(marketplacev1alpha1.ReasonMeterBaseFinishInstall),
+			})))
 
 		})
 	})

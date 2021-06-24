@@ -385,7 +385,7 @@ func (f *Factory) NewPrometheusDeployment(
 
 	p.Spec.Image = &f.config.RelatedImages.Prometheus
 
-	if cr.Spec.Prometheus.Replicas != nil {
+	if cr.Spec.Prometheus != nil && cr.Spec.Prometheus.Replicas != nil {
 		p.Spec.Replicas = cr.Spec.Prometheus.Replicas
 	}
 
@@ -394,33 +394,34 @@ func (f *Factory) NewPrometheusDeployment(
 	}
 
 	//Set empty dir if present in the CR, will override a pvc specified (per prometheus docs)
-	if cr.Spec.Prometheus.Storage.EmptyDir != nil {
+	if cr.Spec.Prometheus != nil && cr.Spec.Prometheus.Storage.EmptyDir != nil {
 		p.Spec.Storage.EmptyDir = cr.Spec.Prometheus.Storage.EmptyDir
 	}
 
 	storageClass := ptr.String("")
-	if cr.Spec.Prometheus.Storage.Class != nil {
+	if cr.Spec.Prometheus != nil && cr.Spec.Prometheus.Storage.Class != nil {
 		storageClass = cr.Spec.Prometheus.Storage.Class
 	}
 
-	quanBytes := cr.Spec.Prometheus.Storage.Size.DeepCopy()
-	quanBytes.Sub(resource.MustParse("2Gi"))
-	replacer := strings.NewReplacer("Mi", "MB", "Gi", "GB", "Ti", "TB")
-	storageSize := replacer.Replace(quanBytes.String())
-	p.Spec.RetentionSize = storageSize
+	if cr.Spec.Prometheus != nil {
+		quanBytes := cr.Spec.Prometheus.Storage.Size.DeepCopy()
+		quanBytes.Sub(resource.MustParse("2Gi"))
+		replacer := strings.NewReplacer("Mi", "MB", "Gi", "GB", "Ti", "TB")
+		storageSize := replacer.Replace(quanBytes.String())
+		p.Spec.RetentionSize = storageSize
 
-	pvc, err := utils.NewPersistentVolumeClaim(utils.PersistentVolume{
-		ObjectMeta: &metav1.ObjectMeta{
-			Name: "storage-volume",
-		},
-		StorageClass: storageClass,
-		StorageSize:  &cr.Spec.Prometheus.Storage.Size,
-	})
+		pvc, _ := utils.NewPersistentVolumeClaim(utils.PersistentVolume{
+			ObjectMeta: &metav1.ObjectMeta{
+				Name: "storage-volume",
+			},
+			StorageClass: storageClass,
+			StorageSize:  &cr.Spec.Prometheus.Storage.Size,
+		})
 
-	p.Spec.Storage.VolumeClaimTemplate = monitoringv1.EmbeddedPersistentVolumeClaim{
-		Spec: pvc.Spec,
+		p.Spec.Storage.VolumeClaimTemplate = monitoringv1.EmbeddedPersistentVolumeClaim{
+			Spec: pvc.Spec,
+		}
 	}
-
 	if cfg != nil {
 		p.Spec.AdditionalScrapeConfigs = &corev1.SecretKeySelector{
 			LocalObjectReference: corev1.LocalObjectReference{
