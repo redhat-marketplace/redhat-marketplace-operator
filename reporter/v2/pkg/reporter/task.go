@@ -262,7 +262,7 @@ func getMeterDefinitionReferences(
 			update = true
 			ref.UID = mdef.UID
 			ref.Spec = &mdef.Spec
-			ref.Spec.LabelSelector = mdef.LabelFilter.LabelSelector
+			// ref.Spec.LabelSelector = mdef.LabelFilter.LabelSelector
 		}
 
 		defs = append(defs, ref)

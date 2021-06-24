@@ -15,11 +15,16 @@
 package marketplace
 
 import (
+	"context"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var _ = Describe("MeterbaseController", func() {
@@ -95,6 +100,43 @@ var _ = Describe("MeterbaseController", func() {
 			categoryList := getCategoriesFromMeterDefinitions(meterDefinitionList)
 			Expect(categoryList).To(HaveLen(2))
 			Expect(categoryList).To(ContainElements([]string{catNameA, catNameB}))
+		})
+	})
+
+	Describe("check reconciller", func() {
+		var (
+			name      = "meterbase"
+			namespace = "default"
+			created   *marketplacev1alpha1.MeterBase
+		)
+
+		key := types.NamespacedName{
+			Name:      name,
+			Namespace: namespace,
+		}
+
+		BeforeEach(func() {
+			created = &marketplacev1alpha1.MeterBase{
+				ObjectMeta: metav1.ObjectMeta{Name: key.Name, Namespace: key.Namespace},
+				Spec:       marketplacev1alpha1.MeterBaseSpec{},
+			}
+		})
+
+		AfterEach(func() {
+			// Add any teardown steps that needs to be executed after each test
+			Expect(k8sClient.Delete(context.TODO(), created)).Should(Succeed())
+		})
+
+		It("should run meterbase reconciler", func() {
+			Expect(k8sClient.Create(context.TODO(), created)).Should(Succeed())
+			k8sClient.Get(context.TODO(), key, created)
+			By("Expecting status c")
+			Eventually(func() *status.Condition {
+				f := &marketplacev1alpha1.MeterBase{}
+				k8sClient.Get(context.TODO(), key, f)
+				return f.Status.Conditions.GetCondition(marketplacev1alpha1.ResourceInstallError)
+			}, timeout, interval).Should(BeNil())
+
 		})
 	})
 })

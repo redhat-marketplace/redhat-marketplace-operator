@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
@@ -43,12 +44,12 @@ var _ = Describe("MeterDefinitionController", func() {
 		opts = []StepOption{
 			WithRequest(req),
 		}
-		meterdefinition = &marketplacev1alpha1.MeterDefinition{
+		meterdefinition = &marketplacev1beta1.MeterDefinition{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
 			},
-			Spec: marketplacev1alpha1.MeterDefinitionSpec{
+			Spec: marketplacev1beta1.MeterDefinitionSpec{
 				Group: "apps.partner.metering.com",
 				Kind:  "App",
 			},
@@ -68,6 +69,7 @@ var _ = Describe("MeterDefinitionController", func() {
 			Log:     log,
 			cc:      reconcileutils.NewClientCommand(r.Client, s, log),
 			patcher: patch.RHMDefaultPatcher,
+			cfg:     cfg2,
 		}
 		return nil
 	}
