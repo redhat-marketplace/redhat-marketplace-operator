@@ -45,7 +45,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const timeout = time.Second * 100
+const timeout = time.Second * 20
 const interval = time.Second * 3
 
 var _ = Describe("Testing with Ginkgo", func() {

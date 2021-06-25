@@ -17,10 +17,8 @@ package marketplace
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"reflect"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -47,7 +45,6 @@ import (
 	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -381,83 +378,6 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		return result.Return()
 	}
 
-	meterDefinitionList := &marketplacev1beta1.MeterDefinitionList{}
-	var categoryList []string
-	if result, err := cc.Do(
-		context.TODO(),
-		HandleResult(
-			ListAction(meterDefinitionList),
-			OnContinue(Call(func() (ClientAction, error) {
-				categoryList = getCategoriesFromMeterDefinitions(meterDefinitionList.Items)
-				return nil, nil
-			})),
-			OnNotFound(Call(func() (ClientAction, error) {
-				reqLogger.Info("can't find meter definition list, requeuing")
-				return RequeueAfterResponse(30 * time.Second), nil
-			})),
-		),
-	); result.Is(Error) || result.Is(Requeue) {
-		if err != nil {
-			return result.ReturnWithError(merrors.Wrap(err, "error listing meter definitions"))
-		}
-
-		return result.Return()
-	}
-
-	meterReportList := &marketplacev1alpha1.MeterReportList{}
-	if result, err := cc.Do(
-		context.TODO(),
-		HandleResult(
-			ListAction(meterReportList, client.InNamespace(request.Namespace)),
-			OnContinue(Call(func() (ClientAction, error) {
-				loc := time.UTC
-				dateRangeInDays := -30
-				meterReportNames := r.sortMeterReports(meterReportList)
-				// prune old reports
-				meterReportNames, err := r.removeOldReports(meterReportNames, loc, dateRangeInDays, request)
-				if err != nil {
-					reqLogger.Error(err, err.Error())
-				}
-				for _, category := range categoryList {
-					labels := make(map[string]string)
-					labels["marketplace.redhat.com/category"] = category
-
-					// fill in gaps of missing reports
-					// we want the min date to be install date - 1 day
-					endDate := time.Now().In(loc)
-
-					minDate := instance.ObjectMeta.CreationTimestamp.Time.In(loc)
-					minDate = utils.TruncateTime(minDate, loc)
-
-					expectedCreatedDates := r.generateExpectedDates(endDate, loc, dateRangeInDays, minDate)
-					foundCreatedDates, err := r.generateFoundCreatedDates(meterReportNames)
-
-					if err != nil {
-						return nil, err
-					}
-					reqLogger.Info("report dates", "expected", expectedCreatedDates, "found", foundCreatedDates, "min", minDate)
-
-					missingReports := r.findMissingReportsForCategory(expectedCreatedDates, foundCreatedDates)
-					err = r.createMissingReports(missingReports, request, instance, metav1.LabelSelector{MatchLabels: labels}, category)
-					if err != nil {
-						return nil, err
-					}
-				}
-				return nil, nil
-			})),
-			OnNotFound(Call(func() (ClientAction, error) {
-				reqLogger.Info("can't find meter report list, requeuing")
-				return RequeueAfterResponse(30 * time.Second), nil
-			})),
-		),
-	); result.Is(Error) || result.Is(Requeue) {
-		if err != nil {
-			return result.ReturnWithError(merrors.Wrap(err, "error creating service monitor"))
-		}
-
-		return result.Return()
-	}
-
 	// Provide Status on Prometheus ActiveTargets
 	targets, err := r.healthBadActiveTargets(cc, request, reqLogger)
 	if err != nil {
@@ -501,166 +421,6 @@ func getCategoriesFromMeterDefinitions(meterDefinitions []marketplacev1beta1.Met
 }
 
 const promServiceName = "rhm-prometheus-meterbase"
-
-func (r *MeterBaseReconciler) findMissingReportsForCategory(expectedCreatedDates []string, foundCreatedDates []string) []string {
-	// find the diff between the dates we expect and the dates found on the cluster and create any missing reports
-	missingReports := utils.FindDiff(expectedCreatedDates, foundCreatedDates)
-	return missingReports
-}
-
-func (r *MeterBaseReconciler) createMissingReports(missingReports []string, request reconcile.Request, instance *marketplacev1alpha1.MeterBase, labelSelector metav1.LabelSelector, category string) error {
-	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-
-	for _, missingReportDateString := range missingReports {
-		missingReportName := r.newMeterReportNameFromString(category, missingReportDateString)
-		missingReportStartDate, _ := time.Parse(utils.DATE_FORMAT, missingReportDateString)
-		missingReportEndDate := missingReportStartDate.AddDate(0, 0, 1)
-
-		missingMeterReport := r.newMeterReport(request.Namespace, missingReportStartDate, missingReportEndDate, missingReportName, instance, promServiceName, labelSelector, category)
-		err := r.Client.Create(context.TODO(), missingMeterReport)
-		if err != nil {
-			return err
-		}
-		reqLogger.Info("Created Missing Report", "Resource", missingReportName)
-	}
-
-	return nil
-}
-
-func (r *MeterBaseReconciler) removeOldReports(meterReportNames []string, loc *time.Location, dateRange int, request reconcile.Request) ([]string, error) {
-	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	limit := utils.TruncateTime(time.Now(), loc).AddDate(0, 0, dateRange)
-	for _, reportName := range meterReportNames {
-		dateCreated, err := r.retrieveCreatedDate(reportName)
-
-		if err != nil {
-			continue
-		}
-
-		if dateCreated.Before(limit) {
-			reqLogger.Info("Deleting Report", "Resource", reportName)
-			meterReportNames = utils.RemoveKey(meterReportNames, reportName)
-			deleteReport := &marketplacev1alpha1.MeterReport{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      reportName,
-					Namespace: request.Namespace,
-				},
-			}
-			err := r.Client.Delete(context.TODO(), deleteReport)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	return meterReportNames, nil
-}
-
-func (r *MeterBaseReconciler) sortMeterReports(meterReportList *marketplacev1alpha1.MeterReportList) []string {
-
-	var meterReportNames []string
-	for _, report := range meterReportList.Items {
-		meterReportNames = append(meterReportNames, report.Name)
-	}
-
-	sort.Strings(meterReportNames)
-	return meterReportNames
-}
-
-func (r *MeterBaseReconciler) retrieveCreatedDate(reportName string) (time.Time, error) {
-	splitAll := strings.SplitN(reportName, "-", -1)
-	if len(splitAll) == 5 {
-		splitStr := strings.SplitN(reportName, "-", 3)
-		dateString := splitStr[2:]
-		return time.Parse(utils.DATE_FORMAT, strings.Join(dateString, ""))
-	} else if len(splitAll) == 6 {
-		splitStr := strings.SplitN(reportName, "-", 4)
-		dateString := splitStr[3:]
-		return time.Parse(utils.DATE_FORMAT, strings.Join(dateString, ""))
-	}
-	return time.Now(), errors.New("failed to get date")
-}
-
-func processCategoryString(category string) string {
-	// Make a Regex to say we only want letters and numbers for category name
-	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
-	if err != nil {
-		log.Fatal(err)
-	}
-	processedCategoryString := reg.ReplaceAllString(category, "")
-	categoryInterfix := processedCategoryString + "-"
-	return categoryInterfix
-}
-
-func (r *MeterBaseReconciler) newMeterReportNameFromDate(category string, date time.Time) string {
-	dateSuffix := strings.Join(strings.Fields(date.String())[:1], "")
-	return fmt.Sprintf("%s%s%s", utils.METER_REPORT_PREFIX, processCategoryString(category), dateSuffix)
-}
-
-func (r *MeterBaseReconciler) newMeterReportNameFromString(category string, dateString string) string {
-	dateSuffix := dateString
-	return fmt.Sprintf("%s%s%s", utils.METER_REPORT_PREFIX, processCategoryString(category), dateSuffix)
-}
-
-func (r *MeterBaseReconciler) generateFoundCreatedDates(meterReportNames []string) ([]string, error) {
-	reqLogger := r.Log.WithValues("func", "generateFoundCreatedDates")
-	var foundCreatedDates []string
-	for _, reportName := range meterReportNames {
-		splitStr := strings.SplitN(reportName, "-", 4)
-
-		if len(splitStr) != 4 {
-			reqLogger.Info("meterreport name was irregular", "name", reportName)
-			continue
-		}
-
-		dateString := splitStr[3:]
-		foundCreatedDates = append(foundCreatedDates, strings.Join(dateString, ""))
-	}
-	return foundCreatedDates, nil
-}
-
-func (r *MeterBaseReconciler) generateExpectedDates(endTime time.Time, loc *time.Location, dateRange int, minDate time.Time) []string {
-	// set start date
-	startDate := utils.TruncateTime(endTime, loc).AddDate(0, 0, dateRange)
-
-	if minDate.After(startDate) {
-		startDate = utils.TruncateTime(minDate, loc)
-	}
-
-	// set end date
-	endDate := utils.TruncateTime(endTime, loc)
-
-	// loop through the range of dates we expect
-	var expectedCreatedDates []string
-	for d := startDate; d.After(endDate) == false; d = d.AddDate(0, 0, 1) {
-		expectedCreatedDates = append(expectedCreatedDates, d.Format(utils.DATE_FORMAT))
-	}
-
-	return expectedCreatedDates
-}
-
-func (r *MeterBaseReconciler) newMeterReport(namespace string, startTime time.Time, endTime time.Time, meterReportName string, instance *marketplacev1alpha1.MeterBase, prometheusServiceName string, labelSelector metav1.LabelSelector, category string) *marketplacev1alpha1.MeterReport {
-	return &marketplacev1alpha1.MeterReport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      meterReportName,
-			Namespace: namespace,
-			Annotations: map[string]string{
-				"marketplace.redhat.com/version": version.Version,
-			},
-		},
-		Spec: marketplacev1alpha1.MeterReportSpec{
-			StartTime:     metav1.NewTime(startTime),
-			EndTime:       metav1.NewTime(endTime),
-			LabelSelector: labelSelector,
-			Category:      category,
-			PrometheusService: &common.ServiceReference{
-				Name:       prometheusServiceName,
-				Namespace:  instance.Namespace,
-				TargetPort: intstr.FromString("rbac"),
-			},
-		},
-	}
-}
 
 func (r *MeterBaseReconciler) reconcilePrometheusSubscription(
 	instance *marketplacev1alpha1.MeterBase,

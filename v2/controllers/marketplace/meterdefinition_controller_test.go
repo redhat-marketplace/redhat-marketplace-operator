@@ -69,7 +69,7 @@ var _ = Describe("MeterDefinitionController", func() {
 			Log:     log,
 			cc:      reconcileutils.NewClientCommand(r.Client, s, log),
 			patcher: patch.RHMDefaultPatcher,
-			cfg:     cfg2,
+			cfg:     operatorCfg,
 		}
 		return nil
 	}

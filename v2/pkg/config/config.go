@@ -93,6 +93,7 @@ type ControllerValues struct {
 type ReportControllerConfig struct {
 	RetryTime  time.Duration `env:"REPORT_RETRY_TIME_DURATION" envDefault:"6h"`
 	RetryLimit *int32        `env:"REPORT_RETRY_LIMIT"`
+	PollTime   time.Duration `env:"REPORT_POLL_TIME_DURATION" envDefault:"1h"`
 }
 
 type OLMInformation struct {

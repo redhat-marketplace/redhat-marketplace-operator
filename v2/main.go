@@ -242,6 +242,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	doneChan := make(chan struct{})
+	reportCreatorReconciler := &controllers.MeterReportCreatorReconciler{
+		Log: ctrl.Log.WithName("controllers").WithName("MeterReportCreator"),
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}
+	reportCreatorReconciler.Inject(injector)
+	if err := reportCreatorReconciler.SetupWithManager(mgr, doneChan); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "PodMonitor")
+		os.Exit(1)
+	}
+
 	if err = (&marketplacev1beta1.MeterDefinition{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "MeterDefinition")
 		os.Exit(1)
@@ -282,6 +294,7 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+	close(doneChan)
 }
 
 var onlyOneSignalHandler = make(chan struct{})

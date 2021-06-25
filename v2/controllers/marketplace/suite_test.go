@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -40,8 +41,6 @@ import (
 	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -52,11 +51,13 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var cfg *rest.Config
-var operatorConfig, cfg2 *config.OperatorConfig
+var operatorCfg *config.OperatorConfig
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var k8sManager ctrl.Manager
+var k8sScheme *runtime.Scheme
 var factory *manifests.Factory
+var doneChan chan struct{}
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -66,10 +67,11 @@ func TestAPIs(t *testing.T) {
 		[]Reporter{printer.NewlineReporter{}})
 }
 
-var _ = BeforeSuite(func(done Done) {
+var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
 	os.Setenv("KUBEBUILDER_CONTROLPLANE_START_TIMEOUT", "2m")
 
+	doneChan = make(chan struct{})
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
@@ -83,8 +85,9 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
 
-	cfg2, err = config.GetConfig()
+	operatorCfg, err = config.GetConfig()
 	Expect(err).To(Succeed())
+	operatorCfg.ReportController.PollTime = 5 * time.Second
 
 	scheme := runtime.NewScheme()
 
@@ -96,12 +99,15 @@ var _ = BeforeSuite(func(done Done) {
 	utilruntime.Must(olmv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(marketplaceredhatcomv1beta1.AddToScheme(scheme))
-	cfg2.DeployedNamespace = "openshift-redhat-marketplace"
 
-	factory := manifests.NewFactory(
-		cfg2,
-		scheme,
-	)
+	k8sScheme = scheme
+
+	operatorCfg.DeployedNamespace = "openshift-redhat-marketplace"
+
+	// factory := manifests.NewFactory(
+	// 	operatorCfg,
+	// 	scheme,
+	// )
 
 	// +kubebuilder:scaffold:scheme
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
@@ -120,27 +126,26 @@ var _ = BeforeSuite(func(done Done) {
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&MeterBaseReconciler{
-		Client:  k8sClient,
-		Scheme:  scheme,
-		Log:     ctrl.Log.WithName("controllers").WithName("MeterBase"),
-		cfg:     cfg2,
-		factory: factory,
-		CC:      reconcileutils.NewClientCommand(k8sManager.GetClient(), scheme, ctrl.Log),
-		patcher: patch.RHMDefaultPatcher,
-	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
+	// err = (&MeterBaseReconciler{
+	// 	Client:  k8sClient,
+	// 	Scheme:  scheme,
+	// 	Log:     ctrl.Log.WithName("controllers").WithName("MeterBase"),
+	// 	cfg:     operatorCfg,
+	// 	factory: factory,
+	// 	CC:      reconcileutils.NewClientCommand(k8sManager.GetClient(), scheme, ctrl.Log),
+	// 	patcher: patch.RHMDefaultPatcher,
+	// }).SetupWithManager(k8sManager)
+	// Expect(err).ToNot(HaveOccurred())
 
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
 		// fmt.Println(err)
 		Expect(err).ToNot(HaveOccurred())
 	}()
-
-	close(done)
-}, 60)
+})
 
 var _ = AfterSuite(func() {
+	close(doneChan)
 	By("tearing down the test environment")
 	err := testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())
