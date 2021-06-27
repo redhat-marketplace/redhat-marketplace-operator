@@ -28,7 +28,6 @@ import (
 	"github.com/gotidy/ptr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
-	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"golang.org/x/net/http/httpproxy"
@@ -65,6 +64,9 @@ const (
 	MetricStateDeployment     = "assets/metric-state/deployment.yaml"
 	MetricStateServiceMonitor = "assets/metric-state/service-monitor.yaml"
 	MetricStateService        = "assets/metric-state/service.yaml"
+
+	RRS3ControllerDeployment = "assets/razee/rrs3-controller-deployment.yaml"
+	WatchKeeperDeployment    = "assets/razee/watch-keeper-deployment.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")
@@ -144,6 +146,10 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 		container.Image = f.config.RelatedImages.PrometheusOperator
 	case container.Name == "prometheus-proxy":
 		container.Image = f.config.RelatedImages.OAuthProxy
+	case container.Name == utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME:
+		container.Image = f.config.RelatedImages.RemoteResourceS3
+	case container.Name == "watch-keeper":
+		container.Image = f.config.RelatedImages.WatchKeeper
 	}
 
 	if container.Env == nil {
@@ -703,240 +709,6 @@ func NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMonitor, error)
 	return &sm, nil
 }
 
-func NewMeterDefinition(manifest io.Reader) (*marketplacev1beta1.MeterDefinition, error) {
-	sm := marketplacev1beta1.MeterDefinition{}
-	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&sm)
-	if err != nil {
-		return nil, err
-	}
-
-	return &sm, nil
-}
-
-func (f *Factory) NewWatchKeeperDeployment(instance *marketplacev1alpha1.RazeeDeployment) *appsv1.Deployment {
-	var securityContext *corev1.PodSecurityContext
-	if !f.operatorConfig.Infrastructure.HasOpenshift() {
-		securityContext = &corev1.PodSecurityContext{
-			FSGroup: ptr.Int64(1000),
-		}
-	}
-	rep := ptr.Int32(1)
-	maxSurge := intstr.FromString("25%")
-	maxUnavailable := intstr.FromString("25%")
-
-	dep := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
-			Namespace: f.namespace,
-			Labels: map[string]string{
-				"razee/watch-resource": "lite",
-			},
-		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: rep,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app":      utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
-					"owned-by": "marketplace.redhat.com-razee",
-				},
-			},
-			Strategy: appsv1.DeploymentStrategy{
-				Type: "RollingUpdate",
-				RollingUpdate: &appsv1.RollingUpdateDeployment{
-					MaxSurge:       &maxSurge,
-					MaxUnavailable: &maxUnavailable,
-				},
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"app":                  utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
-						"razee/watch-resource": "lite",
-						"owned-by":             "marketplace.redhat.com-razee",
-					},
-					Name: utils.RHM_WATCHKEEPER_DEPLOYMENT_NAME,
-				},
-				Spec: corev1.PodSpec{
-					ServiceAccountName: "redhat-marketplace-watch-keeper",
-					Containers: []corev1.Container{
-						{
-							Image:           f.config.RelatedImages.AuthChecker,
-							ImagePullPolicy: corev1.PullIfNotPresent,
-							Name:            "authcheck",
-							Env: []v1.EnvVar{
-								{
-									Name: "POD_NAMESPACE",
-									ValueFrom: &v1.EnvVarSource{
-										FieldRef: &v1.ObjectFieldSelector{
-											FieldPath: "metadata.namespace",
-										},
-									},
-								},
-								{
-									Name: "POD_NAME",
-									ValueFrom: &v1.EnvVarSource{
-										FieldRef: &v1.ObjectFieldSelector{
-											FieldPath: "metadata.name",
-										},
-									},
-								},
-							},
-							LivenessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path: "/healthz",
-										Port: intstr.FromInt(8089),
-									},
-								},
-								InitialDelaySeconds: 15,
-								PeriodSeconds:       20,
-							},
-							ReadinessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path: "/readyz",
-										Port: intstr.FromInt(8089),
-									},
-								},
-								InitialDelaySeconds: 5,
-								PeriodSeconds:       10,
-							},
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("20m"),
-									corev1.ResourceMemory: resource.MustParse("40Mi"),
-								},
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("10m"),
-									corev1.ResourceMemory: resource.MustParse("20Mi"),
-								},
-							},
-							Args: []string{
-								"--namespace", f.namespace,
-							},
-							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-						},
-						{
-							Image:                    f.config.RelatedImages.WatchKeeper,
-							ImagePullPolicy:          corev1.PullIfNotPresent,
-							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("400m"),
-									corev1.ResourceMemory: resource.MustParse("500Mi"),
-								},
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("50m"),
-									corev1.ResourceMemory: resource.MustParse("100Mi"),
-								},
-							},
-
-							Env: []corev1.EnvVar{
-								{
-									Name: "NAMESPACE",
-									ValueFrom: &corev1.EnvVarSource{
-										FieldRef: &corev1.ObjectFieldSelector{
-											FieldPath:  "metadata.namespace",
-											APIVersion: "v1",
-										},
-									},
-								},
-								{
-									Name:  "NODE_ENV",
-									Value: "production",
-								},
-							},
-							Name: "watch-keeper",
-							LivenessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
-									Exec: &corev1.ExecAction{
-										Command: []string{"sh/liveness.sh"},
-									},
-								},
-								InitialDelaySeconds: 600,
-								PeriodSeconds:       300,
-								TimeoutSeconds:      30,
-								SuccessThreshold:    1,
-								FailureThreshold:    1,
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      utils.WATCH_KEEPER_CONFIG_NAME,
-									MountPath: "/home/node/envs/watch-keeper-config",
-									ReadOnly:  true,
-								},
-								{
-									Name:      utils.WATCH_KEEPER_SECRET_NAME,
-									MountPath: "/home/node/envs/watch-keeper-secret",
-									ReadOnly:  true,
-								},
-							},
-						},
-					},
-					Volumes: []corev1.Volume{
-						{
-							Name: utils.WATCH_KEEPER_CONFIG_NAME,
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: utils.WATCH_KEEPER_CONFIG_NAME,
-									},
-									DefaultMode: ptr.Int32(0440),
-									Optional:    ptr.Bool(false),
-								},
-							},
-						},
-						{
-							Name: utils.WATCH_KEEPER_SECRET_NAME,
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName:  utils.WATCH_KEEPER_SECRET_NAME,
-									DefaultMode: ptr.Int32(0400),
-									Optional:    ptr.Bool(false),
-								},
-							},
-						},
-					},
-					SecurityContext: securityContext,
-				},
-			},
-		},
-	}
-
-	for _, containerObj := range dep.Spec.Template.Spec.Containers {
-		container := &containerObj
-
-		if container.Env == nil {
-			container.Env = []corev1.EnvVar{}
-		}
-
-		proxyInfo := httpproxy.FromEnvironment()
-
-		if proxyInfo.HTTPProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "HTTP_PROXY",
-				Value: proxyInfo.HTTPProxy,
-			})
-		}
-
-		if proxyInfo.HTTPSProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "HTTPS_PROXY",
-				Value: proxyInfo.HTTPSProxy,
-			})
-		}
-
-		if proxyInfo.NoProxy != "" {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "NO_PROXY",
-				Value: proxyInfo.NoProxy,
-			})
-		}
-	}
-
-	return dep
-}
-
 type Owner metav1.Object
 
 func (f *Factory) SetOwnerReference(owner Owner, obj metav1.Object) error {
@@ -947,199 +719,28 @@ func (f *Factory) SetControllerReference(owner Owner, obj metav1.Object) error {
 	return controllerutil.SetControllerReference(owner, obj, f.scheme)
 }
 
-func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.RazeeDeployment) *appsv1.Deployment {
+func (f *Factory) UpdateRemoteResourceS3Deployment(dep *appsv1.Deployment) error {
+	err := f.UpdateDeployment(MustAssetReader(RRS3ControllerDeployment), dep)
+	if err != nil {
+		return err
+	}
+
+	if dep.GetNamespace() == "" {
+		dep.SetNamespace(f.namespace)
+	}
+
 	var securityContext *corev1.PodSecurityContext
 	if !f.operatorConfig.Infrastructure.HasOpenshift() {
 		securityContext = &corev1.PodSecurityContext{
 			FSGroup: ptr.Int64(1000),
 		}
 	}
-	rep := ptr.Int32(1)
-	maxSurge := intstr.FromString("25%")
-	maxUnavailable := intstr.FromString("25%")
+	dep.Spec.Template.Spec.SecurityContext = securityContext
 
-	dep := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-			Namespace: f.namespace,
-			Labels: map[string]string{
-				"razee/watch-resource": "lite",
-			},
-		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: rep,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app":      utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-					"owned-by": "marketplace.redhat.com-razee",
-				},
-			},
-			Strategy: appsv1.DeploymentStrategy{
-				Type: "RollingUpdate",
-				RollingUpdate: &appsv1.RollingUpdateDeployment{
-					MaxSurge:       &maxSurge,
-					MaxUnavailable: &maxUnavailable,
-				},
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"app":                  utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-						"razee/watch-resource": "lite",
-						"owned-by":             "marketplace.redhat.com-razee",
-					},
-					Name: utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-				},
-				Spec: corev1.PodSpec{
-					ServiceAccountName: "redhat-marketplace-remoteresources3deployment",
-					Containers: []corev1.Container{
-						{
-							Image:           f.config.RelatedImages.AuthChecker,
-							ImagePullPolicy: corev1.PullIfNotPresent,
-							Name:            "authcheck",
-							Env: []v1.EnvVar{
-								{
-									Name: "POD_NAMESPACE",
-									ValueFrom: &v1.EnvVarSource{
-										FieldRef: &v1.ObjectFieldSelector{
-											FieldPath: "metadata.namespace",
-										},
-									},
-								},
-								{
-									Name: "POD_NAME",
-									ValueFrom: &v1.EnvVarSource{
-										FieldRef: &v1.ObjectFieldSelector{
-											FieldPath: "metadata.name",
-										},
-									},
-								},
-							},
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("20m"),
-									corev1.ResourceMemory: resource.MustParse("40Mi"),
-								},
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("10m"),
-									corev1.ResourceMemory: resource.MustParse("20Mi"),
-								},
-							},
-							LivenessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path: "/healthz",
-										Port: intstr.FromInt(8089),
-									},
-								},
-								InitialDelaySeconds: 15,
-								PeriodSeconds:       20,
-							},
-							ReadinessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path: "/readyz",
-										Port: intstr.FromInt(8089),
-									},
-								},
-								InitialDelaySeconds: 5,
-								PeriodSeconds:       10,
-							},
-							Args: []string{
-								"--namespace", f.namespace,
-							},
-							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-						},
-						{
-							Image:                    f.config.RelatedImages.RemoteResourceS3,
-							ImagePullPolicy:          corev1.PullIfNotPresent,
-							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("100m"),
-									corev1.ResourceMemory: resource.MustParse("200Mi"),
-								},
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("40m"),
-									corev1.ResourceMemory: resource.MustParse("75Mi"),
-								},
-							},
-							Env: []corev1.EnvVar{
-								{
-									Name: "CRD_WATCH_TIMEOUT_SECONDS",
-									ValueFrom: &corev1.EnvVarSource{
-										ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "razeedeploy-overrides",
-											},
-											Key:      "CRD_WATCH_TIMEOUT_SECONDS",
-											Optional: ptr.Bool(true),
-										},
-									},
-								},
-								{
-									Name:  "GROUP",
-									Value: "marketplace.redhat.com",
-								},
-								{
-									Name:  "VERSION",
-									Value: "v1alpha1",
-								},
-							},
-							Name: utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME,
-							LivenessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
-									Exec: &corev1.ExecAction{
-										Command: []string{"sh/liveness.sh"},
-									},
-								},
-								InitialDelaySeconds: 30,
-								PeriodSeconds:       150,
-								TimeoutSeconds:      30,
-								FailureThreshold:    1,
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									MountPath: "/usr/src/app/download-cache",
-									Name:      "cache-volume",
-								},
-								{
-									MountPath: "/usr/src/app/config",
-									Name:      "razeedeploy-config",
-								},
-							},
-						},
-					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "cache-volume",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{
-									Medium: corev1.StorageMediumDefault,
-								},
-							},
-						},
-						{
-							Name: "razeedeploy-config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "razeedeploy-config",
-									},
-									DefaultMode: ptr.Int32(440),
-									Optional:    ptr.Bool(true),
-								},
-							},
-						},
-					},
-					SecurityContext: securityContext,
-				},
-			},
-		},
-	}
+	for i := range dep.Spec.Template.Spec.Containers {
+		container := &dep.Spec.Template.Spec.Containers[i]
 
-	for _, containerObj := range dep.Spec.Template.Spec.Containers {
-		container := &containerObj
+		f.ReplaceImages(container)
 
 		if container.Env == nil {
 			container.Env = []corev1.EnvVar{}
@@ -1169,5 +770,80 @@ func (f *Factory) NewRemoteResourceS3Deployment(instance *marketplacev1alpha1.Ra
 		}
 	}
 
+	return nil
+}
+
+func (f *Factory) NewRemoteResourceS3Deployment() *appsv1.Deployment {
+	dep := &appsv1.Deployment{}
+	f.UpdateRemoteResourceS3Deployment(dep)
 	return dep
+}
+
+func (f *Factory) UpdateWatchKeeperDeployment(dep *appsv1.Deployment) error {
+	err := f.UpdateDeployment(MustAssetReader(WatchKeeperDeployment), dep)
+	if err != nil {
+		return err
+	}
+
+	if dep.GetNamespace() == "" {
+		dep.SetNamespace(f.namespace)
+	}
+
+	var securityContext *corev1.PodSecurityContext
+	if !f.operatorConfig.Infrastructure.HasOpenshift() {
+		securityContext = &corev1.PodSecurityContext{
+			FSGroup: ptr.Int64(1000),
+		}
+	}
+	dep.Spec.Template.Spec.SecurityContext = securityContext
+
+	for i := range dep.Spec.Template.Spec.Containers {
+		container := &dep.Spec.Template.Spec.Containers[i]
+
+		f.ReplaceImages(container)
+
+		if container.Env == nil {
+			container.Env = []corev1.EnvVar{}
+		}
+
+		proxyInfo := httpproxy.FromEnvironment()
+
+		if proxyInfo.HTTPProxy != "" {
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  "HTTP_PROXY",
+				Value: proxyInfo.HTTPProxy,
+			})
+		}
+
+		if proxyInfo.HTTPSProxy != "" {
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  "HTTPS_PROXY",
+				Value: proxyInfo.HTTPSProxy,
+			})
+		}
+
+		if proxyInfo.NoProxy != "" {
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  "NO_PROXY",
+				Value: proxyInfo.NoProxy,
+			})
+		}
+	}
+
+	return nil
+}
+
+func (f *Factory) NewWatchKeeperDeployment() *appsv1.Deployment {
+	dep := &appsv1.Deployment{}
+	f.UpdateWatchKeeperDeployment(dep)
+	return dep
+}
+
+func (f *Factory) UpdateDeployment(manifest io.Reader, d *appsv1.Deployment) error {
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(d)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
