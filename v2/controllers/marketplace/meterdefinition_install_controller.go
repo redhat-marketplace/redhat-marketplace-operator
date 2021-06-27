@@ -17,6 +17,7 @@ package marketplace
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,6 +31,7 @@ import (
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
@@ -39,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -67,6 +70,7 @@ type MeterdefinitionInstallReconciler struct {
 	Scheme *runtime.Scheme
 	Log    logr.Logger
 	cfg    *config.OperatorConfig
+	kubeInterface kubernetes.Interface
 }
 
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions;subscriptions,verbs=get;list;watch
@@ -556,6 +560,71 @@ func deleteInstallMapping(csvName string,deployedNamespace string ,request recon
 	}
 }
 
+func (r *MeterdefinitionInstallReconciler) getFileServerService (reqLogger logr.InfoLogger) (*corev1.Service,error){
+	service := &corev1.Service{}
+
+	err := r.Client.Get(context.TODO(),types.NamespacedName{Namespace: r.cfg.DeployedNamespace,Name: "rhm-meterdefinition-file-server"},service)
+	if err != nil {
+		return nil, err
+	}
+
+	return service,nil
+}
+
+func (r *MeterdefinitionInstallReconciler) getCertFromConfigMap(reqLogger logr.Logger)([]byte,error){
+	cm := &corev1.ConfigMap{}
+	err := r.Client.Get(context.TODO(),types.NamespacedName{Namespace: r.cfg.DeployedNamespace,Name: "serving-certs-ca-bundle"},cm)
+	if err != nil {
+		return nil, err
+	}
+
+	reqLogger.Info("extracting cert from config map")
+
+	out, ok := cm.Data["service-ca.crt"]
+
+	if !ok {
+		err = emperror.New("Error retrieving cert from config map")
+		return nil, err
+	}
+
+	cert := []byte(out)
+	return cert, nil
+	
+}
+
+func (r *MeterdefinitionInstallReconciler) createTlsConfig(reqLogger logr.Logger) (*tls.Config,*ExecResult) {
+	service, err := r.getFileServerService(reqLogger)
+	if err != nil {
+		return nil, &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	cert, err := r.getCertFromConfigMap(reqLogger)
+	if err != nil {
+		return nil, &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+	saClient := prom.NewServiceAccountClient(r.cfg.DeployedNamespace, r.kubeInterface)
+	authToken, err := saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.PrometheusAudience, 3600, reqLogger)
+	if err != nil {
+		return nil, &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	// prometheusAPI, err := NewPromAPI(service, &cert, authToken)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// return prometheusAPI, nil
+	
+}
+
 func fetchCSVInfo(csvProps string) map[string]interface{} {
 	var unmarshalledProps map[string]interface{}
 	json.Unmarshal([]byte(csvProps), &unmarshalledProps)
@@ -606,6 +675,11 @@ func (r *MeterdefinitionInstallReconciler) Inject(injector mktypes.Injectable) m
 
 func (m *MeterdefinitionInstallReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
+	return nil
+}
+
+func (r *MeterdefinitionInstallReconciler) InjectKubeInterface(k kubernetes.Interface) error {
+	r.kubeInterface = k
 	return nil
 }
 

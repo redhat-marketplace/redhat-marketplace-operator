@@ -3,15 +3,16 @@ kind: Service
 metadata:
   labels:
     app: rhm-meterdefinition-file-server
+    service.beta.openshift.io/serving-cert-secret-name: file-server-tls
   name: rhm-meterdefinition-file-server
   namespace: openshift-redhat-marketplace
 
 spec:
   ports:
-  - name: 8100-tcp
-    port: 8100
+  - name: https
+    port: 8200
     protocol: TCP
-    targetPort: 8100
+    targetPort: 8200
   selector:
     deploymentconfig: rhm-meterdefinition-file-server
   sessionAffinity: None
