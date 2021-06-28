@@ -75,6 +75,10 @@ type PrometheusSpec struct {
 	Replicas *int32 `json:"replicas,omitempty"`
 }
 
+type ExternalPrometheus struct {
+
+}
+
 // MeterBaseSpec defines the desired state of MeterBase
 // +k8s:openapi-gen=true
 type MeterBaseSpec struct {
@@ -104,6 +108,8 @@ type MeterBaseSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	UserWorkloadMonitoringEnabled bool `json:"userWorkloadMonitoringEnabled,omitempty"`
+
+	ExternalPrometheus `json:"externalPrometheus,omitempty"`
 }
 
 // MeterBaseStatus defines the observed state of MeterBase.
