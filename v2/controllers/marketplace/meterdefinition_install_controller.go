@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -616,6 +617,29 @@ func (r *MeterdefinitionInstallReconciler) createTlsConfig(reqLogger logr.Logger
 			Err:             err,
 		}
 	}
+
+
+	caCertPool, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get system cert pool")
+	}
+
+	ok := caCertPool.AppendCertsFromPEM(caCert)
+	if !ok {
+		err = emperror.New("failed to append cert to cert pool")
+		reqLogger.Error(err, "cert pool error")
+		return nil, &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	return &tls.Config{
+		RootCAs: caCertPool,
+	},  &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+
 
 	// prometheusAPI, err := NewPromAPI(service, &cert, authToken)
 	// if err != nil {
