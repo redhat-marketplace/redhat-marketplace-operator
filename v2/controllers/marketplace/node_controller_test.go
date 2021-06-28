@@ -23,7 +23,6 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -87,8 +86,8 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 		var setup = func(r *ReconcilerTest) error {
 			var log = logf.Log.WithName("node_controller")
-			r.Client = fake.NewFakeClient(r.GetGetObjects()...)
-			r.Reconciler = &NodeReconciler{Client: r.Client, Scheme: scheme.Scheme, Log: log}
+			r.Client = fake.NewFakeClientWithScheme(k8sScheme, r.GetGetObjects()...)
+			r.Reconciler = &NodeReconciler{Client: r.Client, Scheme: k8sScheme, Log: log}
 			return nil
 		}
 

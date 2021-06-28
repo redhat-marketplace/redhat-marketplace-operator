@@ -1,7 +1,7 @@
 # syntax = docker/dockerfile:experimental
 ARG REGISTRY=quay.io/rh-marketplace
 
-FROM --platform=${BUILDPLATFORM} ${REGISTRY}/golang-base:1.15 as base
+FROM --platform=${BUILDPLATFORM} ${REGISTRY}/golang-base:1.16 as base
 ARG path
 ARG ARCHS
 
