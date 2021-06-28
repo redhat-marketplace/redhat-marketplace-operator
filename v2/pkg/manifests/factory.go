@@ -15,10 +15,8 @@
 package manifests
 
 import (
-	"bytes"
 	"crypto/rand"
 	"crypto/sha1"
-	"embed"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -27,6 +25,7 @@ import (
 	"github.com/gotidy/ptr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/assets"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"golang.org/x/net/http/httpproxy"
@@ -44,43 +43,31 @@ import (
 )
 
 const (
-	PrometheusOperatorDeployment    = "assets/prometheus-operator/deployment.yaml"
-	PrometheusOperatorService       = "assets/prometheus-operator/service.yaml"
-	PrometheusOperatorCertsCABundle = "assets/prometheus-operator/operator-certs-ca-bundle.yaml"
+	PrometheusOperatorDeployment    = "prometheus-operator/deployment.yaml"
+	PrometheusOperatorService       = "prometheus-operator/service.yaml"
+	PrometheusOperatorCertsCABundle = "prometheus-operator/operator-certs-ca-bundle.yaml"
 
-	PrometheusAdditionalScrapeConfig = "assets/prometheus/additional-scrape-configs.yaml"
-	PrometheusHtpasswd               = "assets/prometheus/htpasswd-secret.yaml"
-	PrometheusRBACProxySecret        = "assets/prometheus/kube-rbac-proxy-secret.yaml"
-	PrometheusDeployment             = "assets/prometheus/prometheus.yaml"
-	PrometheusProxySecret            = "assets/prometheus/proxy-secret.yaml"
-	PrometheusService                = "assets/prometheus/service.yaml"
-	PrometheusDatasourcesSecret      = "assets/prometheus/prometheus-datasources-secret.yaml"
-	PrometheusServingCertsCABundle   = "assets/prometheus/serving-certs-ca-bundle.yaml"
-	PrometheusKubeletServingCABundle = "assets/prometheus/kubelet-serving-ca-bundle.yaml"
+	PrometheusAdditionalScrapeConfig = "prometheus/additional-scrape-configs.yaml"
+	PrometheusHtpasswd               = "prometheus/htpasswd-secret.yaml"
+	PrometheusRBACProxySecret        = "prometheus/kube-rbac-proxy-secret.yaml"
+	PrometheusDeployment             = "prometheus/prometheus.yaml"
+	PrometheusProxySecret            = "prometheus/proxy-secret.yaml"
+	PrometheusService                = "prometheus/service.yaml"
+	PrometheusDatasourcesSecret      = "prometheus/prometheus-datasources-secret.yaml"
+	PrometheusServingCertsCABundle   = "prometheus/serving-certs-ca-bundle.yaml"
+	PrometheusKubeletServingCABundle = "prometheus/kubelet-serving-ca-bundle.yaml"
 
-	ReporterJob = "assets/reporter/job.yaml"
+	ReporterJob = "reporter/job.yaml"
 
-	MetricStateDeployment     = "assets/metric-state/deployment.yaml"
-	MetricStateServiceMonitor = "assets/metric-state/service-monitor.yaml"
-	MetricStateService        = "assets/metric-state/service.yaml"
+	MetricStateDeployment     = "metric-state/deployment.yaml"
+	MetricStateServiceMonitor = "metric-state/service-monitor.yaml"
+	MetricStateService        = "metric-state/service.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")
 
-//go:embed assets/*
-var assets embed.FS
-
-func MustReadFileAsset(filename string) []byte {
-	bts, err := assets.ReadFile(filename)
-	if err != nil {
-		panic(err)
-	}
-	return bts
-}
-
-func MustAssetReader(asset string) io.Reader {
-	return bytes.NewReader(MustReadFileAsset(asset))
-}
+var MustReadFileAsset = assets.MustReadFileAsset
+var MustAssetReader = assets.MustAssetReader
 
 type Factory struct {
 	namespace      string

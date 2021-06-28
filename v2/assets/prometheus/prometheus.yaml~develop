@@ -65,6 +65,9 @@ spec:
         requests:
           cpu: 10m
           memory: 20Mi
+        limits:
+          cpu: 20m
+          memory: 25Mi          
       terminationMessagePolicy: FallbackToLogsOnError
       volumeMounts:
         - mountPath: /etc/tls/private
@@ -92,6 +95,9 @@ spec:
         requests:
           cpu: 10m
           memory: 20Mi
+        limits:
+          cpu: 20m
+          memory: 25Mi          
       securityContext: {}
       terminationMessagePolicy: FallbackToLogsOnError
       volumeMounts:
@@ -106,6 +112,9 @@ spec:
     requests:
       cpu: 70m
       memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2500Mi      
   serviceAccountName: redhat-marketplace-prometheus
   priorityClassName: system-cluster-critical
   listenLocal: true
