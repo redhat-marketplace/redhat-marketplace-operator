@@ -314,7 +314,6 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 		return reconcile.Result{}, false, nil
 	}
 
-
 	// builds a meterdefinition from our string (from the annotation)
 	reqLogger.Info("retrieval successful", "str", meterDefinitionString)
 
