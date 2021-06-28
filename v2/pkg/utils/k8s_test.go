@@ -250,7 +250,7 @@ func setup() client.Client {
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeedeployment)
 	s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
 
-	client := fake.NewFakeClient(objs...)
+	client := fake.NewFakeClientWithScheme(k8sScheme, objs...)
 	return client
 }
 

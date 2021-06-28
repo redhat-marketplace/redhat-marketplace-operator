@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
-	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -148,8 +147,8 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 
 			setup = func(r *ReconcilerTest) error {
 				var log = logf.Log.WithName("clusterserviceversion_controller")
-				r.Client = fake.NewFakeClient(r.GetGetObjects()...)
-				r.Reconciler = &ClusterServiceVersionReconciler{Client: r.Client, Scheme: scheme.Scheme, Log: log}
+				r.Client = fake.NewFakeClientWithScheme(k8sScheme, r.GetGetObjects()...)
+				r.Reconciler = &ClusterServiceVersionReconciler{Client: r.Client, Scheme: k8sScheme, Log: log}
 				return nil
 			}
 
@@ -254,7 +253,6 @@ var _ = Describe("ClusterServiceVersion controller", func() {
 			}
 		)
 
-		_ = olmv1alpha1.AddToScheme(scheme.Scheme)
 		testClusterServiceVersionWithInstalledCSV(GinkgoT())
 		testClusterServiceVersionWithoutInstalledCSV(GinkgoT())
 		testClusterServiceVersionWithSubscriptionWithoutLabels(GinkgoT())
