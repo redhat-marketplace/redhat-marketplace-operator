@@ -2,9 +2,10 @@ FROM registry.access.redhat.com/ubi8/ubi:latest as golang
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG TARGETOS
+ARG VERSION
 ARG ARCH=${TARGETARCH}
 ARG OS=${TARGETOS:-linux}
-ENV VERSION=1.16.5 OS=${OS} ARCH=${ARCH}
+ENV VERSION=${VERSION} OS=${OS} ARCH=${ARCH}
 
 RUN dnf -y install git make
 

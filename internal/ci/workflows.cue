@@ -101,12 +101,19 @@ auto_tag: _#bashWorkflow & {
 	}
 }
 
+publish_status: _#bashWorkflow & {
+	name: "Publish Status"
+	on: schedule: [{
+		cron: "*/15 * * * *"
+	}]
+}
+
 publish: _#bashWorkflow & {
 	name: "Publish"
 	on: ["issue_comment"]
-  env: {
-    "DOCKER_CLI_EXPERIMENTAL" : "enabled"
-  }
+	env: {
+		"DOCKER_CLI_EXPERIMENTAL": "enabled"
+	}
 	jobs: {
     push: _#job & {
 			name:  "Push Images to PC"
@@ -139,7 +146,7 @@ publish: _#bashWorkflow & {
 		}
 		publish: _#job & {
 			name:      "Publish Images"
-			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish') }}"
+			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish')}}"
 			"runs-on": _#linuxMachine
 			steps: [
 				_#hasWriteAccess,
@@ -231,6 +238,7 @@ branch_build: _#bashWorkflow & {
 				_#checkoutCode & {
 					with: "fetch-depth": 0
 				},
+				_#cancelPreviousRun,
 				_#installGo,
 				_#cacheGoModules,
 				_#installKubeBuilder,
@@ -251,26 +259,61 @@ branch_build: _#bashWorkflow & {
 				_#checkoutCode,
 				_#installGo,
 				_#cacheGoModules,
+				_#installKubeBuilder,
 				_#step & {
 					name: "Test"
 					run:  "make ${{ matrix.project }}/test"
 				},
 			]
 		}
+    "base": _#job & {
+			name:      "Build Base"
+			"runs-on": _#linuxMachine
+			steps: [
+				_#checkoutCode,
+				_#installGo,
+        (_#cacheDockerBuildx & {
+          #project: "base"
+        }).res,
+				_#setupQemu,
+				_#setupBuildX,
+				_#quayLogin,
+				_#step & {
+					id:   "build"
+					name: "Build images"
+	        "continue-on-error": "${{ matrix.continueOnError }}"
+          env: {
+            "DOCKERBUILDXCACHE" : "/tmp/.buildx-cache",
+            "PUSH": "false",
+          }
+					run: """
+						make base/docker-build
+						"""
+				},
+        _#step & {
+					id:   "push"
+					name: "Push images"
+	        "continue-on-error": "${{ matrix.continueOnError }}"
+          env: {
+            "DOCKERBUILDXCACHE" : "/tmp/.buildx-cache",
+            "IMAGE_PUSH": "true",
+          }
+					run: """
+						make base/docker-build
+						"""
+				},
+			]
+		}
 		"images": _#job & {
 			name:      "Build Images"
 			"runs-on": _#linuxMachine
-			needs: ["test"]
+			needs: ["test", "base"]
 			env: {
 				VERSION: "${{ needs.test.outputs.tag }}"
 			}
 			strategy: matrix: {
-				project: ["base", "operator", "authchecker", "metering", "reporter"]
+				project: ["operator", "authchecker", "metering", "reporter"]
         include: [
-          {
-            project: "base"
-            continueOnError: true
-          },
           {
             project: "operator"
             continueOnError: false
@@ -295,6 +338,9 @@ branch_build: _#bashWorkflow & {
 				_#setupQemu,
 				_#setupBuildX,
 				_#cacheGoModules,
+        (_#cacheDockerBuildx & {
+          #project: "${{ matrix.project }}"
+        }).res,
 				_#installKubeBuilder,
 				_#installOperatorSDK,
 				_#installYQ,
@@ -303,8 +349,24 @@ branch_build: _#bashWorkflow & {
 					id:   "build"
 					name: "Build images"
 	        "continue-on-error": "${{ matrix.continueOnError }}"
+          env: {
+            "DOCKERBUILDXCACHE" : "/tmp/.buildx-cache",
+            "IMAGE_PUSH": "false",
+          }
 					run: """
 						make clean-licenses save-licenses ${{ matrix.project }}/docker-build
+						"""
+				},
+				_#step & {
+					id:   "push"
+					name: "Push images"
+	        "continue-on-error": "${{ matrix.continueOnError }}"
+          env: {
+            "DOCKERBUILDXCACHE" : "/tmp/.buildx-cache",
+            "PUSH": "true",
+          }
+					run: """
+						make ${{ matrix.project }}/docker-build
 						"""
 				},
 			]
@@ -324,7 +386,6 @@ branch_build: _#bashWorkflow & {
 				tag:     "${{ steps.bundle.outputs.tag }}"
 			}
 			steps: [
-				_#cancelPreviousRun,
 				_#checkoutCode,
 				_#installGo,
 				_#setupQemu,
@@ -439,9 +500,22 @@ _#cacheGoModules: _#step & {
 	uses: "actions/cache@v2"
 	with: {
 		path:           "~/go/pkg/mod"
-		key:            "${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}"
-		"restore-keys": "${{ runner.os }}-\(_#goVersion)-go-"
+		key:            "${{ runner.os }}-go-${{ github.sha }}"
+		"restore-keys": "${{ runner.os }}-go-"
 	}
+}
+
+_#cacheDockerBuildx: {
+  #project: string
+  res: _#step & {
+    name: "Cache Docker Buildx"
+    uses: "actions/cache@v2"
+    with: {
+      path: "/tmp/.buildx-cache"
+      key: "${{ runner.os }}-buildx-\(#project)-${{ github.sha }}"
+      "restore-keys": "${{ runner.os }}-buildx-\(#project)-"
+    }
+  }
 }
 
 _#getBundleRunID: _#step & {
@@ -593,13 +667,14 @@ _#installKubeBuilder: _#step & {
 	run: """
 		os=$(go env GOOS)
 		arch=$(go env GOARCH)
+		version=\(_#kubeBuilderVersion)
 
 		# download kubebuilder and extract it to tmp
-		curl -L https://go.kubebuilder.io/dl/2.3.1/${os}/${arch} | tar -xz -C /tmp/
+		curl -L https://go.kubebuilder.io/dl/${version}/${os}/${arch} | tar -xz -C /tmp/
 
 		# move to a long-term location and put it on your path
 		# (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
-		sudo mv /tmp/kubebuilder_2.3.1_${os}_${arch} /usr/local/kubebuilder
+		sudo mv /tmp/kubebuilder_${version}_${os}_${arch} /usr/local/kubebuilder
 		echo "/usr/local/kubebuilder/bin" >> $GITHUB_PATH
 		"""
 }
@@ -649,8 +724,12 @@ _#turnStyleStep: _#step & {
 	env: "GITHUB_TOKEN":            "${{ secrets.GITHUB_TOKEN }}"
 }
 
-_#goVersion: "1.15.11"
+_#archs: ["amd64", "ppc64le", "s390x"]
+_#registry:     "quay.io/rh-marketplace"
+_#goVersion:    "1.16.2"
+_#branchTarget: "/^(master|develop|release.*|hotfix.*)$/"
 _#pcUser:    "pcUser"
+_#kubeBuilderVersion: "2.3.1"
 
 _#image: {
 	name:  string
@@ -821,7 +900,6 @@ done
 
 _#publishOperatorImages: _#step & {
 	name:                "Publish Operator Images"
-	"continue-on-error": true
 	env: {
 		RH_USER:          "${{ secrets['REDHAT_IO_USER'] }}"
 		RH_PASSWORD:      "${{ secrets['REDHAT_IO_PASSWORD'] }}"

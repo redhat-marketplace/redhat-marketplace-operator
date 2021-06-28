@@ -8,13 +8,19 @@ BASE_TAG ?= $(GO_VERSION)
 include ../utils.Makefile
 
 IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
-IMG ?= $(IMAGE_REGISTRY)/golang-base:$(BASE_TAG)
 
 # Push the docker image
 docker-push:
 	docker push $(IMG)
 
-IMG ?= $(IMAGE_REGISTRY)/golang-base:$(GO_VERSION)
+docker-build: docker-build-1-16 docker-build-1-15
 
-docker-build:
+16ARGS = --build-arg VERSION=1.16.2
+16IMG = $(IMAGE_REGISTRY)/golang-base:1.16
+docker-build-1-16:
+	$(call docker-build,$(16IMG),$(16ARGS))
+
+ARGS = --build-arg VERSION=1.15.11
+IMG = $(IMAGE_REGISTRY)/golang-base:1.15
+docker-build-1-15:
 	$(call docker-build,$(IMG),$(ARGS))

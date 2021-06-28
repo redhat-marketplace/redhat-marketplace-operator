@@ -168,7 +168,7 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 			context.TODO(),
 			HandleResult(
 				UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobWaiting),
-				OnAny(RequeueAfterResponse(wait)),
+				OnAny(RequeueAfterResponse(15*time.Minute)),
 			),
 		)
 		if result.Is(Error) {

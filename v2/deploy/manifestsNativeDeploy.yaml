@@ -3399,6 +3399,37 @@ status:
   conditions: []
   storedVersions: []
 ---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    service.beta.openshift.io/inject-cabundle: "true"
+  creationTimestamp: null
+  labels:
+    redhat.marketplace.com/name: redhat-marketplace-operator
+  name: redhat-marketplace-mutating-webhook-configuration
+webhooks:
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: redhat-marketplace-controller-manager-service
+      namespace: openshift-redhat-marketplace
+      path: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
+      port: 9443
+  failurePolicy: Fail
+  name: mmeterdefinition.marketplace.redhat.com
+  rules:
+  - apiGroups:
+    - marketplace.redhat.com
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - meterdefinitions
+  sideEffects: None
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -4153,9 +4184,6 @@ rules:
   - watch
 - apiGroups:
   - operators.coreos.com
-  resourceNames:
-  - ibm-operator-catalog
-  - opencloud-operators
   resources:
   - catalogsources
   verbs:
@@ -4201,8 +4229,6 @@ rules:
   - watch
 - apiGroups:
   - operators.coreos.com
-  resourceNames:
-  - redhat-marketplace
   resources:
   - operatorsources
   verbs:
@@ -4815,9 +4841,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    authcheckImage: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-authcheck:2.1.0
-    metricStateImage: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-metric-state:2.1.0
-    reporterImage: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-reporter:2.1.0
+    authcheckImage: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.2.2-178
+    metricStateImage: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.2.2-178
+    reporterImage: quay.io/rh-marketplace/redhat-marketplace-reporter:2.2.2-178
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
   name: redhat-marketplace-controller-manager
@@ -4829,6 +4855,10 @@ spec:
       redhat.marketplace.com/name: redhat-marketplace-operator
   template:
     metadata:
+      annotations:
+        productID: 36cdaba810c348c096b85800dd62bcf1
+        productMetric: FREE
+        productName: Red Hat Marketplace Operator
       labels:
         control-plane: controller-manager
         redhat.marketplace.com/name: redhat-marketplace-operator
@@ -4872,11 +4902,11 @@ spec:
         - name: OPERATOR_NAME
           value: redhat-marketplace-operator
         - name: RELATED_IMAGE_REPORTER
-          value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-reporter:2.1.0
+          value: quay.io/rh-marketplace/redhat-marketplace-reporter:2.2.2-178
         - name: RELATED_IMAGE_METRIC_STATE
-          value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-metric-state:2.1.0
+          value: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.2.2-178
         - name: RELATED_IMAGE_AUTHCHECK
-          value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-authcheck:2.1.0
+          value: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.2.2-178
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
@@ -4905,7 +4935,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.annotations['olm.operatorGroup']
-        image: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-operator:2.1.0
+        image: quay.io/rh-marketplace/redhat-marketplace-operator:2.2.2-178
         livenessProbe:
           httpGet:
             path: /healthz
@@ -4924,6 +4954,9 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 10
         resources:
+          limits:
+            cpu: 400m
+            memory: 500Mi
           requests:
             cpu: 100m
             memory: 100Mi
@@ -4964,36 +4997,6 @@ spec:
   selector:
     matchLabels:
       control-plane: controller-manager
----
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: MutatingWebhookConfiguration
-metadata:
-  annotations:
-    service.beta.openshift.io/inject-cabundle: "true"
-  labels:
-    redhat.marketplace.com/name: redhat-marketplace-operator
-  name: redhat-marketplace-mutating-webhook-configuration
-webhooks:
-- clientConfig:
-    caBundle: Cg==
-    service:
-      name: redhat-marketplace-controller-manager-service
-      namespace: openshift-redhat-marketplace
-      path: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
-      port: 9443
-  failurePolicy: Fail
-  name: mmeterdefinition.marketplace.redhat.com
-  rules:
-  - apiGroups:
-    - marketplace.redhat.com
-    apiVersions:
-    - v1beta1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - meterdefinitions
-  sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration

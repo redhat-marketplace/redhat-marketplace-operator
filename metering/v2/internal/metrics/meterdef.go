@@ -15,6 +15,8 @@
 package metrics
 
 import (
+	"reflect"
+
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	kbsm "k8s.io/kube-state-metrics/pkg/metric"
 )
@@ -30,7 +32,7 @@ var meterDefinitionMetricsFamilies = []FamilyGenerator{
 			Type: kbsm.Gauge,
 			Help: "Metering info for meterDefinition",
 		},
-		GenerateMeterFunc: wrapMeterDefinitionFunc(func(meterDefinition *marketplacev1beta1.MeterDefinition, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
+		GenerateMeterFunc: wrapMeterDefinitionFunc(func(meterDefinition *marketplacev1beta1.MeterDefinition, meterDefinitions []marketplacev1beta1.MeterDefinition) *kbsm.Family {
 			metrics := []*kbsm.Metric{}
 			allLabels := meterDefinition.ToPrometheusLabels()
 
@@ -64,13 +66,26 @@ var meterDefinitionMetricsFamilies = []FamilyGenerator{
 }
 
 // wrapMeterDefinitionFunc is a helper function for generating meterDefinition-based metrics
-func wrapMeterDefinitionFunc(f func(*marketplacev1beta1.MeterDefinition, []*marketplacev1beta1.MeterDefinition) *kbsm.Family) func(obj interface{}, mdefs []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
-	return func(obj interface{}, meterDefinitions []*marketplacev1beta1.MeterDefinition) *kbsm.Family {
+func wrapMeterDefinitionFunc(f func(*marketplacev1beta1.MeterDefinition, []marketplacev1beta1.MeterDefinition) *kbsm.Family) func(obj interface{}, mdefs []marketplacev1beta1.MeterDefinition) *kbsm.Family {
+	return func(obj interface{}, meterDefinitions []marketplacev1beta1.MeterDefinition) *kbsm.Family {
 		meterDefinition := obj.(*marketplacev1beta1.MeterDefinition)
 
-		metricFamily := f(meterDefinition, []*marketplacev1beta1.MeterDefinition{})
+		metricFamily := f(meterDefinition, []marketplacev1beta1.MeterDefinition{})
 		metricFamily.Metrics = MapMeterDefinitions(metricFamily.Metrics, meterDefinitions)
 
 		return metricFamily
+	}
+}
+
+func ProvideMeterDefPrometheusData() *PrometheusDataMap {
+	metricFamilies := meterDefinitionMetricsFamilies
+	composedMetricGenFuncs := ComposeMetricGenFuncs(metricFamilies)
+	familyHeaders := ExtractMetricFamilyHeaders(metricFamilies)
+
+	return &PrometheusDataMap{
+		expectedType:        reflect.TypeOf(&marketplacev1beta1.MeterDefinition{}),
+		headers:             familyHeaders,
+		metrics:             make(map[string][][]byte),
+		generateMetricsFunc: composedMetricGenFuncs,
 	}
 }

@@ -7,5 +7,6 @@ require (
 	github.com/chromedp/cdproto v0.0.0-20210429002609-5ec2b0624aec
 	github.com/chromedp/chromedp v0.7.1
 	github.com/spf13/cobra v1.1.1
+	github.com/thediveo/enumflag v0.10.1 // indirect
 	golang.org/x/sys v0.0.0-20210503173754-0981d6026fa6 // indirect
 )

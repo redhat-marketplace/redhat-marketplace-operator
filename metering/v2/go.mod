@@ -4,14 +4,16 @@ go 1.16
 
 require (
 	emperror.dev/errors v0.8.0
+	github.com/InVisionApp/go-health/v2 v2.1.2
 	github.com/allegro/bigcache v1.2.1
 	github.com/cespare/xxhash v1.1.0
 	github.com/go-logr/logr v0.3.0
 	github.com/google/wire v0.4.0
 	github.com/gotidy/ptr v1.3.0
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/onsi/ginkgo v1.16.2
+	github.com/onsi/gomega v1.13.0
 	github.com/openshift/api v0.0.0-20200930075302-db52bc4ef99f
-	github.com/openshift/origin v4.1.0+incompatible
 	github.com/operator-framework/api v0.3.25
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/prometheus-operator/prometheus-operator v0.44.0
@@ -22,7 +24,8 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
-	golang.org/x/net v0.0.0-20201202161906-c7110b5ffcbb
+	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
+	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 	k8s.io/api v0.19.4
 	k8s.io/apimachinery v0.19.4
 	k8s.io/client-go v12.0.0+incompatible

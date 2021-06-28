@@ -59,7 +59,18 @@ func (f *FindOwnerHelper) FindOwner(name, namespace string, lookupOwner *metav1.
 	result, err := resourceClient.Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get resource")
+		// Check if resource is cluster scoped
+		result, err = resourceClient.Get(context.TODO(), name, metav1.GetOptions{})
+
+		if err != nil {
+			return nil, errors.WrapWithDetails(err,
+				"failed to get resource",
+				"key", namespace+"/"+name,
+				"kind", lookupOwner.Kind,
+				"version", version,
+				"group", group,
+			)
+		}
 	}
 
 	o, err := meta.Accessor(result)

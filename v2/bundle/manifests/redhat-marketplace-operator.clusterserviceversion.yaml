@@ -193,13 +193,13 @@ metadata:
           }
         }
       ]
-    capabilities: Basic Install
+    capabilities: Seamless Upgrades
     operators.operatorframework.io/builder: operator-sdk-v1.7.1+git
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-    containerImage: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-operator:2.1.0
-    createdAt: "2021-05-18T17:03:36Z"
-    olm.skipRange: '>=1.0.0 <2.1.0'
-  name: redhat-marketplace-operator.v2.1.0
+    containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:2.2.2-178
+    createdAt: "2021-06-23T19:25:25Z"
+    olm.skipRange: '>=1.0.0 <2.2.2'
+  name: redhat-marketplace-operator.v2.2.2
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -525,9 +525,6 @@ spec:
                 - watch
             - apiGroups:
                 - operators.coreos.com
-              resourceNames:
-                - ibm-operator-catalog
-                - opencloud-operators
               resources:
                 - catalogsources
               verbs:
@@ -573,8 +570,6 @@ spec:
                 - watch
             - apiGroups:
                 - operators.coreos.com
-              resourceNames:
-                - redhat-marketplace
               resources:
                 - operatorsources
               verbs:
@@ -618,6 +613,10 @@ spec:
             strategy: {}
             template:
               metadata:
+                annotations:
+                  productID: 36cdaba810c348c096b85800dd62bcf1
+                  productMetric: FREE
+                  productName: Red Hat Marketplace Operator
                 labels:
                   control-plane: controller-manager
                   redhat.marketplace.com/name: redhat-marketplace-operator
@@ -661,11 +660,11 @@ spec:
                       - name: OPERATOR_NAME
                         value: redhat-marketplace-operator
                       - name: RELATED_IMAGE_REPORTER
-                        value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-reporter:2.1.0
+                        value: quay.io/rh-marketplace/redhat-marketplace-reporter:2.2.2-178
                       - name: RELATED_IMAGE_METRIC_STATE
-                        value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-metric-state:2.1.0
+                        value: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.2.2-178
                       - name: RELATED_IMAGE_AUTHCHECK
-                        value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-authcheck:2.1.0
+                        value: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.2.2-178
                       - name: WATCH_NAMESPACE
                         valueFrom:
                           fieldRef:
@@ -694,7 +693,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.operatorGroup']
-                    image: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-operator:2.1.0
+                    image: quay.io/rh-marketplace/redhat-marketplace-operator:2.2.2-178
                     livenessProbe:
                       httpGet:
                         path: /healthz
@@ -713,6 +712,9 @@ spec:
                       initialDelaySeconds: 5
                       periodSeconds: 10
                     resources:
+                      limits:
+                        cpu: 400m
+                        memory: 500Mi
                       requests:
                         cpu: 100m
                         memory: 100Mi
@@ -1059,7 +1061,7 @@ spec:
   provider:
     name: Provider Name
     url: https://your.domain
-  version: 2.1.0
+  version: 2.2.2
   webhookdefinitions:
     - admissionReviewVersions:
         - v1beta1
@@ -1102,11 +1104,11 @@ spec:
       type: MutatingAdmissionWebhook
       webhookPath: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
   relatedImages:
-    - image: METRIC_STATE_IMAGE
+    - image: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.2.2-178
       name: RELATED_IMAGE_METRIC_STATE
-    - image: REPORTER_IMAGE
+    - image: quay.io/rh-marketplace/redhat-marketplace-reporter:2.2.2-178
       name: RELATED_IMAGE_REPORTER
-    - image: AUTHCHECK_IMAGE
+    - image: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.2.2-178
       name: RELATED_IMAGE_AUTHCHECK
     - image: quay.io/razee/remoteresources3:0.9.0
       name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT

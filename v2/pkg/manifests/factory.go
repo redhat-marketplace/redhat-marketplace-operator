@@ -25,6 +25,7 @@ import (
 	"github.com/gotidy/ptr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/assets"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
@@ -691,6 +692,16 @@ func GeneratePassword(n int) (string, error) {
 
 func NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMonitor, error) {
 	sm := monitoringv1.ServiceMonitor{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&sm)
+	if err != nil {
+		return nil, err
+	}
+
+	return &sm, nil
+}
+
+func NewMeterDefinition(manifest io.Reader) (*marketplacev1beta1.MeterDefinition, error) {
+	sm := marketplacev1beta1.MeterDefinition{}
 	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&sm)
 	if err != nil {
 		return nil, err
