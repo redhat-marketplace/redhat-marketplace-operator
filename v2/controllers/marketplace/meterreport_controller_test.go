@@ -15,7 +15,6 @@
 package marketplace
 
 import (
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo"

@@ -12,27 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package assets
+package manifests_test
 
 import (
-	"bytes"
-	"embed"
-	"io"
+	"testing"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
-//go:embed *
-var assets embed.FS
-
-var ReadFile = assets.ReadFile
-
-func MustReadFileAsset(filename string) []byte {
-	bts, err := assets.ReadFile(filename)
-	if err != nil {
-		panic(err)
-	}
-	return bts
-}
-
-func MustAssetReader(asset string) io.Reader {
-	return bytes.NewReader(MustReadFileAsset(asset))
+func TestManifests(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Manifests Suite")
 }

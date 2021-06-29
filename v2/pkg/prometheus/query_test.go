@@ -15,7 +15,6 @@
 package prometheus
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/prometheus/common/model"
