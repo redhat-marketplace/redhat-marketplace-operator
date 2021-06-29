@@ -115,7 +115,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		return result.Return()
 	}
 
-	oldCSVVersion := csvVersion
+	var oldCSVVersion string
 	var installMapping InstallMapping
 	for _, installMap := range mdefStore.InstallMappings {
 		if installMap.PackageName == csvPackageName && installMap.Namespace == request.Namespace {
@@ -127,7 +127,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	// handle CSV updates: change in CSV version might change applicable meter definitions
 	/*
 		delete all existing meter definitions for the old version,
-		install fresh set of meter definitions for the current version and meterdef store/CM
+		install fresh set of meter definitions for the current version and update meterdef store/CM
 	*/
 	if oldCSVVersion != csvVersion {
 		// delete meterdefs for previous version and update meterDef CM
@@ -180,7 +180,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	/* New CSV install */
+	// New CSV install
 	sub := &olmv1alpha1.SubscriptionList{}
 	if err := r.Client.List(context.TODO(), sub, client.InNamespace(request.NamespacedName.Namespace)); err != nil {
 		return reconcile.Result{}, err
@@ -338,7 +338,7 @@ func parsePackageNameAndVersion(csv *olmv1alpha1.ClusterServiceVersion, request 
 
 func ListMeterdefintionsFromFileServer(packageName string, version string, namespace string, reqLogger logr.Logger) ([]string, []marketplacev1beta1.MeterDefinition, *ExecResult) {
 
-	// returns all the meterdefinitions for associated with a particular CSV version
+	// returns all the meterdefinitions associated with a particular CSV version
 	url := fmt.Sprintf("http://rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc.cluster.local:8100/list-for-version/%s/%s", packageName, version)
 	response, err := http.Get(url)
 	if err != nil {
