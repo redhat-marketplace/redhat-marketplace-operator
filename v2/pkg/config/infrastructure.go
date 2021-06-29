@@ -142,11 +142,15 @@ func (i *Infrastructure) OpenshiftVersion() string {
 }
 
 // Version gets Openshift parsed version
-func (i *Infrastructure) OpenshiftParsedVersion() semver.Version {
+func (i *Infrastructure) OpenshiftParsedVersion() *semver.Version {
 	i.Lock()
 	defer i.Unlock()
 
-	return i.openshift.ParsedVersion
+	if i.openshift == nil {
+		return nil
+	}
+
+	return &i.openshift.ParsedVersion
 }
 
 // HasOpenshift checks if Openshift is available

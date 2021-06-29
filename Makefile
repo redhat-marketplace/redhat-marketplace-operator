@@ -40,10 +40,14 @@ fmt:
 
 .PHONY: tidy-all
 tidy-all:
+	$(shell cd v2/tools/version && go mod tidy)
+	$(shell cd v2/tools/connect && go mod tidy)
 	$(MAKE) $(addsuffix /tidy,$(PROJECTS_ALL))
 
 .PHONY: download-all
 download-all:
+	$(shell cd v2/tools/version && go mod download)
+	$(shell cd v2/tools/connect && go mod download)
 	$(MAKE) $(addsuffix /download,$(PROJECTS_ALL))
 
 .PHONY: test

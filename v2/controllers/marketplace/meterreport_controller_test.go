@@ -45,7 +45,6 @@ var _ = Describe("report time", func() {
 	It("should execute at the right time", func() {
 		now := time.Now()
 		when := now.Add(-5 * time.Minute)
-		fmt.Println(when)
 		Expect(waitTime(now, when, 5)).To(BeNumerically("~", 0*time.Minute))
 	})
 })

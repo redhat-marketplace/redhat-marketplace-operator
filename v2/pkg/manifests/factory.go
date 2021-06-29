@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate go-bindata -o bindata.go -prefix "../../" -pkg manifests ../../assets/...
-
 package manifests
 
 import (
-	"bytes"
 	"crypto/rand"
 	"crypto/sha1"
 	"encoding/base64"
@@ -29,6 +26,7 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/assets"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"golang.org/x/net/http/httpproxy"
@@ -46,50 +44,49 @@ import (
 )
 
 const (
-	PrometheusOperatorDeploymentV45 = "assets/prometheus-operator/deployment-v4.5.yaml"
-	PrometheusOperatorDeploymentV46 = "assets/prometheus-operator/deployment-v4.6.yaml"
-	PrometheusOperatorServiceV45    = "assets/prometheus-operator/service-v4.5.yaml"
-	PrometheusOperatorServiceV46    = "assets/prometheus-operator/service-v4.6.yaml"
-	PrometheusOperatorCertsCABundle = "assets/prometheus-operator/operator-certs-ca-bundle.yaml"
+	PrometheusOperatorDeploymentV45 = "prometheus-operator/deployment-v4.5.yaml"
+	PrometheusOperatorDeploymentV46 = "prometheus-operator/deployment-v4.6.yaml"
+	PrometheusOperatorServiceV45    = "prometheus-operator/service-v4.5.yaml"
+	PrometheusOperatorServiceV46    = "prometheus-operator/service-v4.6.yaml"
+	PrometheusOperatorCertsCABundle = "prometheus-operator/operator-certs-ca-bundle.yaml"
 
-	PrometheusAdditionalScrapeConfig = "assets/prometheus/additional-scrape-configs.yaml"
-	PrometheusHtpasswd               = "assets/prometheus/htpasswd-secret.yaml"
-	PrometheusRBACProxySecret        = "assets/prometheus/kube-rbac-proxy-secret.yaml"
-	PrometheusDeploymentV45          = "assets/prometheus/prometheus-v4.5.yaml"
-	PrometheusDeploymentV46          = "assets/prometheus/prometheus-v4.6.yaml"
-	PrometheusProxySecret            = "assets/prometheus/proxy-secret.yaml"
-	PrometheusService                = "assets/prometheus/service.yaml"
-	PrometheusDatasourcesSecret      = "assets/prometheus/prometheus-datasources-secret.yaml"
-	PrometheusServingCertsCABundle   = "assets/prometheus/serving-certs-ca-bundle.yaml"
-	PrometheusKubeletServingCABundle = "assets/prometheus/kubelet-serving-ca-bundle.yaml"
-	PrometheusServiceMonitor         = "assets/prometheus/service-monitor.yaml"
-	PrometheusMeterDefinition        = "assets/prometheus/meterdefinition.yaml"
+	PrometheusAdditionalScrapeConfig = "prometheus/additional-scrape-configs.yaml"
+	PrometheusHtpasswd               = "prometheus/htpasswd-secret.yaml"
+	PrometheusRBACProxySecret        = "prometheus/kube-rbac-proxy-secret.yaml"
+	PrometheusDeploymentV45          = "prometheus/prometheus-v4.5.yaml"
+	PrometheusDeploymentV46          = "prometheus/prometheus-v4.6.yaml"
+	PrometheusProxySecret            = "prometheus/proxy-secret.yaml"
+	PrometheusService                = "prometheus/service.yaml"
+	PrometheusDatasourcesSecret      = "prometheus/prometheus-datasources-secret.yaml"
+	PrometheusServingCertsCABundle   = "prometheus/serving-certs-ca-bundle.yaml"
+	PrometheusKubeletServingCABundle = "prometheus/kubelet-serving-ca-bundle.yaml"
+	PrometheusServiceMonitor         = "prometheus/service-monitor.yaml"
+	PrometheusMeterDefinition        = "prometheus/meterdefinition.yaml"
 
-	ReporterJob                       = "assets/reporter/job.yaml"
-	ReporterUserWorkloadMonitoringJob = "assets/reporter/user-workload-monitoring-job.yaml"
-	ReporterMeterDefinition           = "assets/reporter/meterdefinition.yaml"
+	ReporterJob                       = "reporter/job.yaml"
+	ReporterUserWorkloadMonitoringJob = "reporter/user-workload-monitoring-job.yaml"
+	ReporterMeterDefinition           = "reporter/meterdefinition.yaml"
 
-	MetricStateDeployment        = "assets/metric-state/deployment.yaml"
-	MetricStateServiceMonitorV45 = "assets/metric-state/service-monitor-v4.5.yaml"
-	MetricStateServiceMonitorV46 = "assets/metric-state/service-monitor-v4.6.yaml"
-	MetricStateService           = "assets/metric-state/service.yaml"
-	MetricStateMeterDefinition   = "assets/metric-state/meterdefinition.yaml"
+	MetricStateDeployment        = "metric-state/deployment.yaml"
+	MetricStateServiceMonitorV45 = "metric-state/service-monitor-v4.5.yaml"
+	MetricStateServiceMonitorV46 = "metric-state/service-monitor-v4.6.yaml"
+	MetricStateService           = "metric-state/service.yaml"
+	MetricStateMeterDefinition   = "metric-state/meterdefinition.yaml"
 
 	// ose-prometheus v4.6
-	MetricStateRHMOperatorSecret   = "assets/metric-state/secret.yaml"
-	KubeStateMetricsService        = "assets/metric-state/kube-state-metrics-service.yaml"
-	KubeStateMetricsServiceMonitor = "assets/metric-state/kube-state-metrics-service-monitor.yaml"
-	KubeletServiceMonitor          = "assets/metric-state/kubelet-service-monitor.yaml"
+	MetricStateRHMOperatorSecret   = "metric-state/secret.yaml"
+	KubeStateMetricsService        = "metric-state/kube-state-metrics-service.yaml"
+	KubeStateMetricsServiceMonitor = "metric-state/kube-state-metrics-service-monitor.yaml"
+	KubeletServiceMonitor          = "metric-state/kubelet-service-monitor.yaml"
 
-	UserWorkloadMonitoringServiceMonitor  = "assets/prometheus/user-workload-monitoring-service-monitor.yaml"
-	UserWorkloadMonitoringMeterDefinition = "assets/prometheus/user-workload-monitoring-meterdefinition.yaml"
+	UserWorkloadMonitoringServiceMonitor  = "prometheus/user-workload-monitoring-service-monitor.yaml"
+	UserWorkloadMonitoringMeterDefinition = "prometheus/user-workload-monitoring-meterdefinition.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")
 
-func MustAssetReader(asset string) io.Reader {
-	return bytes.NewReader(MustAsset(asset))
-}
+var MustReadFileAsset = assets.MustReadFileAsset
+var MustAssetReader = assets.MustAssetReader
 
 type Factory struct {
 	namespace      string
@@ -362,7 +359,7 @@ func (f *Factory) PrometheusAdditionalConfigSecret(data []byte) (*v1.Secret, err
 }
 
 func (f *Factory) prometheusOperatorDeployment() string {
-	if f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
+	if f.operatorConfig.HasOpenshift() && f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 		return PrometheusOperatorDeploymentV46
 	}
 	return PrometheusOperatorDeploymentV45
@@ -409,7 +406,7 @@ func (f *Factory) NewPrometheusOperatorDeployment(ns []string) (*appsv1.Deployme
 }
 
 func (f *Factory) prometheusDeployment() string {
-	if f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
+	if f.operatorConfig.HasOpenshift() && f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 		return PrometheusDeploymentV46
 	}
 	return PrometheusDeploymentV45
@@ -485,7 +482,7 @@ func (f *Factory) NewPrometheusDeployment(
 }
 
 func (f *Factory) prometheusOperatorService() string {
-	if f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
+	if f.operatorConfig.HasOpenshift() && f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 		return PrometheusOperatorServiceV46
 	}
 	return PrometheusOperatorServiceV45
@@ -729,7 +726,7 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 }
 
 func (f *Factory) metricStateServiceMonitor() string {
-	if f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
+	if f.operatorConfig.HasOpenshift() && f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 		return MetricStateServiceMonitorV46
 	}
 	return MetricStateServiceMonitorV45

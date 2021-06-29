@@ -53,6 +53,10 @@ func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime
 	if err != nil {
 		return nil, err
 	}
+	clientClient, err := managers.ProvideCachedClient(k8sRestConfig, restMapper, scheme, cache, clientOptions)
+	if err != nil {
+		return nil, err
+	}
 	cacheIsIndexed, err := managers.AddIndices(ctx, cache)
 	if err != nil {
 		return nil, err
@@ -61,16 +65,12 @@ func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime
 	if err != nil {
 		return nil, err
 	}
-	clientClient, err := managers.ProvideCachedClient(k8sRestConfig, restMapper, scheme, cache, clientOptions)
-	if err != nil {
-		return nil, err
-	}
 	meterDefinitionList, err := dictionary.ProvideMeterDefinitionList(cacheIsStarted, clientClient)
 	if err != nil {
 		return nil, err
 	}
 	meterDefinitionsSeenStore := dictionary.NewMeterDefinitionsSeenStore()
-	meterDefinitionDictionary := dictionary.NewMeterDefinitionDictionary(ctx, clientset, findOwnerHelper, namespaces, log, meterDefinitionList, meterDefinitionsSeenStore)
+	meterDefinitionDictionary := dictionary.NewMeterDefinitionDictionary(ctx, clientset, clientClient, findOwnerHelper, namespaces, log, meterDefinitionList, meterDefinitionsSeenStore)
 	meterDefinitionStore := meterdefinition.NewMeterDefinitionStore(ctx, log, clientset, findOwnerHelper, monitoringV1Client, marketplaceV1beta1Client, meterDefinitionDictionary, scheme)
 	meterDefinitionStoreRunnable := ProvideMeterDefinitionStoreRunnable(clientset, namespaces, meterDefinitionStore, monitoringV1Client, log)
 	meterDefinitionDictionaryStoreRunnable := ProvideMeterDefinitionDictionaryStoreRunnable(clientset, namespaces, marketplaceV1beta1Client, meterDefinitionDictionary, log)

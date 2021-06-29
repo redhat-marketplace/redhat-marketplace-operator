@@ -126,7 +126,6 @@ func (m *MeterDefPrometheusLabels) PrintTemplate(
 	localM := *m
 	err = tpl.Execute(&localM, values)
 
-	//fmt.Println(localM)
 
 	if err != nil {
 		return nil, err

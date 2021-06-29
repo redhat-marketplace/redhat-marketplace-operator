@@ -146,7 +146,7 @@ publish: _#bashWorkflow & {
 		}
 		publish: _#job & {
 			name:      "Publish Images"
-			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish') && !startsWith(github.event.commenm) }}"
+			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/publish')}}"
 			"runs-on": _#linuxMachine
 			steps: [
 				_#hasWriteAccess,
@@ -900,7 +900,6 @@ done
 
 _#publishOperatorImages: _#step & {
 	name:                "Publish Operator Images"
-	"continue-on-error": true
 	env: {
 		RH_USER:          "${{ secrets['REDHAT_IO_USER'] }}"
 		RH_PASSWORD:      "${{ secrets['REDHAT_IO_PASSWORD'] }}"

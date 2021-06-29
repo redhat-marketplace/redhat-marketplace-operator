@@ -23,7 +23,10 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/kubernetes/scheme"
+	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
+	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,6 +34,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
 	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
@@ -44,6 +52,7 @@ var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var k8sManager ctrl.Manager
+var k8sScheme *runtime.Scheme
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -53,7 +62,7 @@ func TestAPIs(t *testing.T) {
 		[]Reporter{printer.NewlineReporter{}})
 }
 
-var _ = BeforeSuite(func(done Done) {
+var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
 	os.Setenv("KUBEBUILDER_CONTROLPLANE_START_TIMEOUT", "2m")
 
@@ -63,24 +72,26 @@ var _ = BeforeSuite(func(done Done) {
 		KubeAPIServerFlags: append(envtest.DefaultKubeAPIServerFlags, "--bind-address=127.0.0.1"),
 	}
 
+	k8sScheme = provideScheme()
+
 	var err error
 	cfg, err = testEnv.Start()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
 
-	err = marketplaceredhatcomv1alpha1.AddToScheme(scheme.Scheme)
+	err = marketplaceredhatcomv1alpha1.AddToScheme(k8sScheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = marketplaceredhatcomv1beta1.AddToScheme(scheme.Scheme)
+	err = marketplaceredhatcomv1beta1.AddToScheme(k8sScheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	k8sClient, err = client.New(cfg, client.Options{Scheme: k8sScheme})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(k8sClient).ToNot(BeNil())
 
 	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
+		Scheme: k8sScheme,
 	})
 	Expect(err).ToNot(HaveOccurred())
 
@@ -95,8 +106,6 @@ var _ = BeforeSuite(func(done Done) {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
 		Expect(err).ToNot(HaveOccurred())
 	}()
-
-	close(done)
 }, 60)
 
 var _ = AfterSuite(func() {
@@ -104,3 +113,16 @@ var _ = AfterSuite(func() {
 	err := testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())
 })
+
+func provideScheme() *runtime.Scheme {
+	scheme := runtime.NewScheme()
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(openshiftconfigv1.AddToScheme(scheme))
+	utilruntime.Must(olmv1.AddToScheme(scheme))
+	utilruntime.Must(opsrcv1.AddToScheme(scheme))
+	utilruntime.Must(olmv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(monitoringv1.AddToScheme(scheme))
+	utilruntime.Must(marketplaceredhatcomv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(marketplaceredhatcomv1beta1.AddToScheme(scheme))
+	return scheme
+}

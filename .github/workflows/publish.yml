@@ -195,7 +195,7 @@ jobs:
       run:
         shell: bash
     if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body,
-      '/publish') && !startsWith(github.event.commenm) }}
+      '/publish')}}
     steps:
     - name: Check if user has write access
       uses: lannonbr/repo-permission-check-action@2.0.0
@@ -361,7 +361,6 @@ jobs:
         RH_USER: ${{ secrets['REDHAT_IO_USER'] }}
         RH_PASSWORD: ${{ secrets['REDHAT_IO_PASSWORD'] }}
         RH_CONNECT_TOKEN: ${{ secrets.redhat_api_key }}
-      continue-on-error: true
     - name: Copy Manifest
       run: |-
         echo "::group::Push scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$TAG"

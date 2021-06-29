@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.15
+GO_VERSION ?= 1.16
 QUAY_EXPIRATION?=never
 IMAGE_PUSH ?= true
 BUILDX ?= true

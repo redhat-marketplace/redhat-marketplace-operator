@@ -76,7 +76,6 @@ type PrometheusSpec struct {
 }
 
 type ExternalPrometheus struct {
-
 }
 
 // MeterBaseSpec defines the desired state of MeterBase

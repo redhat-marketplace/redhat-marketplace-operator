@@ -12,33 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package assets
 
 import (
-	"fmt"
-	"os"
-
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/tools/connect/pkg"
-	"github.com/spf13/cobra"
+	"bytes"
+	"embed"
+	"io"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "redhat-marketplace-operator-tools",
-	Short: "Utility script for redhat products",
-	Run:   func(cmd *cobra.Command, args []string) {},
-}
+//go:embed *
+var assets embed.FS
 
-func init() {
-	rootCmd.AddCommand(pkg.WaitAndPublishCmd)
-	rootCmd.AddCommand(pkg.PublishCommand)
-	rootCmd.AddCommand(pkg.GetPublishStatusCommand)
-}
-
-func main() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+func MustReadFileAsset(filename string) []byte {
+	bts, err := assets.ReadFile(filename)
+	if err != nil {
+		panic(err)
 	}
+	return bts
+}
 
-	os.Exit(0)
+func MustAssetReader(asset string) io.Reader {
+	return bytes.NewReader(MustReadFileAsset(asset))
 }

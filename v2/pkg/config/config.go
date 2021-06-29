@@ -153,7 +153,7 @@ func ProvideInfrastructureAwareConfig(
 
 		// Use v4.6 images on Openshift 4.6 instead of default v4.5 images
 		// But otherwise respect an override
-		if inf.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
+		if inf.HasOpenshift() && inf.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 			if cfg.RelatedImages.Prometheus == "registry.redhat.io/openshift4/ose-prometheus:v4.5" {
 				cfg.RelatedImages.Prometheus = "registry.redhat.io/openshift4/ose-prometheus:v4.6"
 			}

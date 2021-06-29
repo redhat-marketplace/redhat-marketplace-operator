@@ -148,7 +148,6 @@ var _ = Describe("Query", func() {
 	(kube_persistentvolumeclaim_resource_requests_storage_bytes)`
 
 		q, err := q1.Print()
-		fmt.Println(q)
 		Expect(err).To(Succeed())
 		Expect(q).To(Equal(expected), "failed to create query for pvc")
 	})

@@ -113,7 +113,7 @@ func (s *MeterDefinitionStore) Add(obj interface{}) error {
 		s.log.Error(err, "cannot add object seen")
 	}
 
-	logger := s.log.WithValues("func", "add", "namespace/name", key)
+	logger := s.log.WithValues("func", "add", "namespace/name", key).V(4)
 	logger.Info("adding object", "type", fmt.Sprintf("%T", obj))
 
 	// look over all meterDefinitions, matching workloads are saved
@@ -473,7 +473,7 @@ func NewMeterDefinitionStore(
 	delta := cache.NewDeltaFIFO(keyFunc, store)
 	return &MeterDefinitionStore{
 		ctx:                      ctx,
-		log:                      log.WithName("obj_store"),
+		log:                      log.WithName("obj_store").V(4),
 		scheme:                   scheme,
 		kubeClient:               kubeClient,
 		monitoringClient:         monitoringClient,
