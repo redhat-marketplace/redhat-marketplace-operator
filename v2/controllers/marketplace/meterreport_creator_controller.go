@@ -222,7 +222,10 @@ func (r *MeterReportCreatorReconciler) createMissingReports(missingReports []str
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
 	for _, missingReportDateString := range missingReports {
-		missingReportName := r.newMeterReportNameFromString(category, missingReportDateString)
+		missingReportName, nameErr := r.newMeterReportNameFromString(category, missingReportDateString)
+		if nameErr != nil {
+			return nameErr
+		}
 		missingReportStartDate, _ := time.Parse(utils.DATE_FORMAT, missingReportDateString)
 		missingReportEndDate := missingReportStartDate.AddDate(0, 0, 1)
 
@@ -282,10 +285,10 @@ func (r *MeterReportCreatorReconciler) retrieveCreatedDate(reportName string) (t
 		splitStr := strings.SplitN(reportName, "-", 3)
 		dateString := splitStr[2:]
 		return time.Parse(utils.DATE_FORMAT, strings.Join(dateString, ""))
-	} else if len(splitAll) == 6 {
+	} else if len(splitAll) == 4 {
 		splitStr := strings.SplitN(reportName, "-", 4)
-		dateString := splitStr[3:]
-		return time.Parse(utils.DATE_FORMAT, strings.Join(dateString, ""))
+		dateString := splitStr[:3]
+		return time.Parse(utils.DATE_FORMAT, strings.Join(dateString, "-"))
 	}
 	return time.Now(), errors.New("failed to get date")
 }
@@ -296,19 +299,21 @@ func processCategoryString(category string) string {
 	if err != nil {
 		log.Fatal(err)
 	}
-	processedCategoryString := reg.ReplaceAllString(category, "")
-	categoryInterfix := processedCategoryString + "-"
-	return categoryInterfix
+	return reg.ReplaceAllString(category, "")
 }
 
 func (r *MeterReportCreatorReconciler) newMeterReportNameFromDate(category string, date time.Time) string {
 	dateSuffix := strings.Join(strings.Fields(date.String())[:1], "")
-	return fmt.Sprintf("%s%s%s", utils.METER_REPORT_PREFIX, processCategoryString(category), dateSuffix)
+	return fmt.Sprintf("%s-%s", dateSuffix, processCategoryString(category))
 }
 
-func (r *MeterReportCreatorReconciler) newMeterReportNameFromString(category string, dateString string) string {
+func (r *MeterReportCreatorReconciler) newMeterReportNameFromString(category string, dateString string) (string, error) {
 	dateSuffix := dateString
-	return fmt.Sprintf("%s%s%s", utils.METER_REPORT_PREFIX, processCategoryString(category), dateSuffix)
+	reportName := strings.ToLower(fmt.Sprintf("%s-%s", dateSuffix, processCategoryString(category)))
+	if len(reportName) > 64 {
+		return reportName, errors.New("report name must be no more than 63 characters")
+	}
+	return reportName, nil
 }
 
 func (r *MeterReportCreatorReconciler) generateFoundCreatedDates(meterReportNames []string) ([]string, error) {

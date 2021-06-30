@@ -71,22 +71,28 @@ var _ = Describe("MeterbaseController", func() {
 			endDate := time.Date(2021, time.June, 1, 0, 0, 0, 0, time.UTC)
 			minDate := endDate.AddDate(0, 0, 0)
 			exp := ctrl.generateExpectedDates(endDate, time.UTC, -30, minDate)
-			nameFromString := ctrl.newMeterReportNameFromString(catNameA, exp[0])
-			Expect(nameFromString).To(Equal("meter-report-labelA-2021-06-01"))
+			nameFromString, err := ctrl.newMeterReportNameFromString(catNameA, exp[0])
+			Expect(err).To(BeNil())
+			Expect(nameFromString).To(Equal("2021-06-01-labela"))
 		})
 
-		It("should retrieve date properly for names with and without category in report name", func() {
+		It("should return an error for report name longer than 63 characters", func() {
 			endDate := time.Date(2021, time.June, 1, 0, 0, 0, 0, time.UTC)
-			// old report name (without category)
+			minDate := endDate.AddDate(0, 0, 0)
+			exp := ctrl.generateExpectedDates(endDate, time.UTC, -30, minDate)
+			_, err := ctrl.newMeterReportNameFromString("veryveryverylongcategorynamethatdoesnotfitinthednslimit", exp[0])
+			Expect(err).NotTo(BeNil())
+		})
+
+		It("should retrieve date properly for old and new report name format", func() {
+			endDate := time.Date(2021, time.June, 1, 0, 0, 0, 0, time.UTC)
+			// old report name: meter-report-[date]
 			foundTime, _ := ctrl.retrieveCreatedDate("meter-report-2021-06-01")
 			Expect(foundTime).To(Equal(endDate))
-			// new report name (with category)
-			foundTime2, _ := ctrl.retrieveCreatedDate("meter-report-label-2021-06-01")
+			// new report name: [date]-[label]
+			foundTime2, err := ctrl.retrieveCreatedDate("2021-06-01-label")
 			Expect(foundTime2).To(Equal(endDate))
-			// if wrong format return actuall local time and error
-			foundTime3, err := ctrl.retrieveCreatedDate("meter-2021-06-01")
-			Expect(foundTime3.Unix()).To(Equal(time.Now().Unix()))
-			Expect(err).NotTo(BeNil())
+			Expect(err).To(BeNil())
 		})
 
 		It("should return only non-duplicated categories", func() {
@@ -96,11 +102,11 @@ var _ = Describe("MeterbaseController", func() {
 		})
 	})
 
-	FDescribe("check reconciller", func() {
+	Describe("check reconciller", func() {
 		var (
-			name      = utils.METERBASE_NAME
-			namespace = "openshift-redhat-marketplace"
-			created   *marketplacev1alpha1.MeterBase
+			name             = utils.METERBASE_NAME
+			namespace        = "openshift-redhat-marketplace"
+			createdMeterBase *marketplacev1alpha1.MeterBase
 		)
 
 		key := types.NamespacedName{
@@ -123,16 +129,16 @@ var _ = Describe("MeterbaseController", func() {
 				Name: "openshift-redhat-marketplace",
 			}})
 
-			created = &marketplacev1alpha1.MeterBase{
+			createdMeterBase = &marketplacev1alpha1.MeterBase{
 				ObjectMeta: metav1.ObjectMeta{Name: key.Name, Namespace: key.Namespace},
 				Spec: marketplacev1alpha1.MeterBaseSpec{
 					Enabled: true,
 				},
 			}
 
-			Expect(k8sClient.Create(context.TODO(), created)).Should(Succeed())
+			Expect(k8sClient.Create(context.TODO(), createdMeterBase)).Should(Succeed())
 
-			created.Status = marketplacev1alpha1.MeterBaseStatus{
+			createdMeterBase.Status = marketplacev1alpha1.MeterBaseStatus{
 				Conditions: status.Conditions{
 					status.Condition{
 						Type:               marketplacev1alpha1.ConditionInstalling,
@@ -144,7 +150,7 @@ var _ = Describe("MeterbaseController", func() {
 				},
 			}
 
-			Expect(k8sClient.Status().Update(context.TODO(), created)).Should(Succeed())
+			Expect(k8sClient.Status().Update(context.TODO(), createdMeterBase)).Should(Succeed())
 
 			spec := marketplacev1beta1.MeterDefinitionSpec{
 				Group: "app.partner.metering.com",
@@ -214,12 +220,12 @@ var _ = Describe("MeterbaseController", func() {
 
 		AfterEach(func() {
 			// Add any teardown steps that needs to be executed after each test
-			Expect(k8sClient.Delete(context.TODO(), created)).Should(Succeed())
+			Expect(k8sClient.Delete(context.TODO(), createdMeterBase)).Should(Succeed())
 		})
 
 		It("should run meterbase reconciler", func() {
-			k8sClient.Get(context.TODO(), key, created)
-			By("Expecting status c")
+			k8sClient.Get(context.TODO(), key, createdMeterBase)
+			By("Expecting status")
 			Eventually(func() *status.Condition {
 				f := &marketplacev1alpha1.MeterBase{}
 				k8sClient.Get(context.TODO(), key, f)
@@ -235,6 +241,17 @@ var _ = Describe("MeterbaseController", func() {
 				Expect(err).To(Not(HaveOccurred()))
 				return meterReportList.Items
 			}, timeout, interval).Should(Not(BeEmpty()))
+
+			Eventually(func() []string {
+				meterReportList := &marketplacev1alpha1.MeterReportList{}
+				err := k8sClient.List(context.TODO(), meterReportList, client.InNamespace("openshift-redhat-marketplace"))
+				Expect(err).To(Not(HaveOccurred()))
+				var meterReportNames []string
+				for _, report := range meterReportList.Items {
+					meterReportNames = append(meterReportNames, report.Name)
+				}
+				return meterReportNames
+			}, timeout, interval).Should(ContainElements([]string{time.Now().Format(utils.DATE_FORMAT) + "-labela", time.Now().Format(utils.DATE_FORMAT) + "-labelb"}))
 		})
 	})
 })
