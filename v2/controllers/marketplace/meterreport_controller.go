@@ -102,13 +102,13 @@ func (m *MeterReportReconciler) InjectOperatorConfig(cfg *config.OperatorConfig)
 func (r *MeterReportReconciler) SetupWithManager(mgr manager.Manager) error {
 	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
 
-	mgr.Add(func() {
-
-	})
+	scheduler := NewScheduleRunnable(r.Client, *r.cfg, r.Log)
+	mgr.Add(scheduler)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(namespacePredicate).
 		For(&marketplacev1alpha1.MeterReport{}).
+		Watches(scheduler.Source(), &handler.EnqueueRequestForObject{}).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.MeterReport{}}, &handler.EnqueueRequestForObject{}).
 		Watches(&source.Kind{Type: &batchv1.Job{}}, &handler.EnqueueRequestForOwner{
 			IsController: true,
@@ -381,7 +381,7 @@ func waitTime(now time.Time, timeToExecute time.Time, addRandom int) time.Durati
 
 type ScheduleRunnable struct {
 	client    client.Client
-	eventChan chan client.GenericEvent
+	eventChan chan event.GenericEvent
 	cfg       config.OperatorConfig
 	log       logr.Logger
 }
@@ -399,8 +399,14 @@ func NewScheduleRunnable(
 	}
 }
 
-func (s *ScheduleRunnable) Send(evt event.GenericEvent) {
+func (s *ScheduleRunnable) send(evt event.GenericEvent) {
 	s.eventChan <- evt
+}
+
+func (s *ScheduleRunnable) Source() *source.Channel {
+	return &source.Channel{
+		Source: s.eventChan,
+	}
 }
 
 func (s *ScheduleRunnable) Start(done <-chan struct{}) error {
@@ -426,18 +432,18 @@ func (s *ScheduleRunnable) Start(done <-chan struct{}) error {
 				}
 
 				s.log.Info("queueing job is not finished and can run now", "meterreport", report.Name)
-				s.Send(event.GenericEvent{
-					Meta: &report.ObjectMeta,
+				s.send(event.GenericEvent{
+					Meta:   &report.ObjectMeta,
 					Object: &report,
 				})
 			}
 		}()
 		select {
 		case <-done:
+			s.log.Info("closing")
+			close(s.eventChan)
 			return nil
 		case <-ticker.C:
 		}
 	}
-
-	close(s.eventChan)
 }
