@@ -352,11 +352,13 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 
 	// Determine state of UWM transition
 	transitionTimeExpired := false
+	var transitionTime time.Duration
 	if condition := instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled); condition != nil {
 		if condition.Reason == marketplacev1alpha1.ReasonUserWorkloadMonitoringTransitioning {
 			afterOneDay := condition.LastTransitionTime.Add(time.Hour * 24)
 			if time.Now().UTC().After(afterOneDay) {
 				transitionTimeExpired = true
+				transitionTime = time.Now().UTC().Sub(afterOneDay)
 			}
 		}
 	}
@@ -380,7 +382,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	// ---
 	// Install Objects
 	// ---
-
+	//
 	if userWorkloadMonitoringEnabled && transitionTimeExpired {
 		// Remove RHM Prom, transitionTime has expired
 		if result, _ := cc.Do(context.TODO(),
@@ -614,6 +616,11 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 	if result.Is(Error) {
 		reqLogger.Error(result.GetError(), "Failed to update status targets.")
 		return result.Return()
+	}
+
+	if userWorkloadMonitoringEnabled && !transitionTimeExpired {
+		reqLogger.Info("userWorkloadEnabled: waiting for transitition time",
+			"transitionTimeExpired", transitionTimeExpired, "transitionTime", transitionTime)
 	}
 
 	reqLogger.Info("finished reconciling")
@@ -1415,30 +1422,39 @@ func (r *MeterBaseReconciler) uninstallMetricState(
 	return []ClientAction{
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: rmd.Namespace, Name: rmd.Name}, rmd),
+			OnNotFound(ContinueResponse()),
 			OnContinue(DeleteAction(rmd))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: msmd.Namespace, Name: msmd.Name}, msmd),
+			OnNotFound(ContinueResponse()),
 			OnContinue(DeleteAction(msmd))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: sm0.Namespace, Name: sm0.Name}, sm0),
+			OnNotFound(ContinueResponse()),
 			OnContinue(DeleteAction(sm0))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: sm1.Namespace, Name: sm1.Name}, sm1),
+			OnNotFound(ContinueResponse()),
 			OnContinue(DeleteAction(sm1))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: sm2.Namespace, Name: sm2.Name}, sm2),
+			OnNotFound(ContinueResponse()),
 			OnContinue(DeleteAction(sm2))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: sm3.Namespace, Name: sm3.Name}, sm3),
+			OnNotFound(ContinueResponse()),
 			OnContinue(DeleteAction(sm3))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}, secret),
+			OnNotFound(ContinueResponse()),
 			OnContinue(DeleteAction(secret))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service),
+			OnNotFound(ContinueResponse()),
 			OnContinue(DeleteAction(service))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}, deployment),
+			OnNotFound(ContinueResponse()),
 			OnContinue(DeleteAction(deployment))),
 	}
 }
@@ -1512,10 +1528,12 @@ func (r *MeterBaseReconciler) uninstallUserWorkloadMonitoring() []ClientAction {
 		HandleResult(
 			GetAction(
 				types.NamespacedName{Namespace: sm.Namespace, Name: sm.Name}, sm),
+			OnNotFound(ContinueResponse()),
 			OnContinue(DeleteAction(sm))),
 		HandleResult(
 			GetAction(
 				types.NamespacedName{Namespace: md.Namespace, Name: md.Name}, md),
+			OnNotFound(ContinueResponse()),
 			OnContinue(DeleteAction(md))),
 	}
 }
@@ -1656,7 +1674,8 @@ func isEnableUserWorkloadConfigMap(clusterMonitorConfigMap *corev1.ConfigMap) (b
 		err := yaml.Unmarshal([]byte(config), &cmc)
 		if err != nil {
 			return false, err
-		} else if cmc.UserWorkloadEnabled != nil {
+		}
+		if cmc.UserWorkloadEnabled != nil {
 			return *cmc.UserWorkloadEnabled, nil
 		}
 	}
@@ -1666,58 +1685,38 @@ func isEnableUserWorkloadConfigMap(clusterMonitorConfigMap *corev1.ConfigMap) (b
 // If this is Openshift 4.6+ check if Monitoring for User Defined Projects is enabled
 // https://docs.openshift.com/container-platform/4.6/monitoring/enabling-monitoring-for-user-defined-projects.html
 func isUserWorkloadMonitoringEnabledOnCluster(cc ClientCommandRunner, infrastructure *config.Infrastructure, reqLogger logr.Logger) (bool, *ExecResult) {
-	userWorkloadMonitoringEnabled := false
-	if infrastructure.HasOpenshift() {
-		if infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
-
-			enableUserWorkload := false
-			userWorkloadMonitoringConfig := false
-
-			// Check if enableUserWorkload: true in cluster-monitoring-config
-			clusterMonitorConfigMap := &corev1.ConfigMap{}
-			result, err := cc.Do(
-				context.TODO(),
-				GetAction(types.NamespacedName{
-					Namespace: utils.OPENSHIFT_MONITORING_NAMESPACE,
-					Name:      utils.OPENSHIFT_CLUSTER_MONITORING_CONFIGMAP_NAME,
-				}, clusterMonitorConfigMap),
-			)
-			if result.Is(Error) {
-				reqLogger.Error(result.GetError(), "Failed to get cluster-monitoring-config.")
-				return userWorkloadMonitoringEnabled, result
-			} else if result.Is(NotFound) {
-				return userWorkloadMonitoringEnabled, NewExecResult(Continue, reconcile.Result{}, NewBaseAction("user-workload"), nil)
-			} else if result.Is(Continue) {
-				enableUserWorkload, err = isEnableUserWorkloadConfigMap(clusterMonitorConfigMap)
-				if err != nil {
-					reqLogger.Error(result.GetError(), "Failed to parse cluster-monitoring-config.")
-				}
-			}
-
-			// Check if user-workload-monitoring-config is created
-			userWorkloadMonitoringConfigMap := &corev1.ConfigMap{}
-			result, err = cc.Do(
-				context.TODO(),
-				GetAction(types.NamespacedName{
-					Namespace: utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
-					Name:      utils.OPENSHIFT_USER_WORKLOAD_MONITORING_CONFIGMAP_NAME,
-				}, userWorkloadMonitoringConfigMap),
-			)
-			if result.Is(Error) {
-				reqLogger.Error(result.GetError(), "Failed to get user-workload-monitoring-config.")
-				return userWorkloadMonitoringEnabled, result
-			} else if result.Is(NotFound) {
-				return userWorkloadMonitoringEnabled, NewExecResult(Continue, reconcile.Result{}, NewBaseAction("user-workload"), nil)
-			} else if result.Is(Continue) {
-				userWorkloadMonitoringConfig = true
-			}
-
-			userWorkloadMonitoringEnabled = enableUserWorkload && userWorkloadMonitoringConfig
-			return userWorkloadMonitoringEnabled, result
-		}
+	if !infrastructure.HasOpenshift() || infrastructure.HasOpenshift() && !infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
+		reqLogger.Info("openshift is not 46 or this isn't an openshift cluster",
+			"hasOpenshfit", infrastructure.HasOpenshift(), "version", infrastructure.OpenshiftVersion())
+		return false, NewExecResult(Continue, reconcile.Result{}, NewBaseAction("user-workload"), nil)
 	}
 
-	return userWorkloadMonitoringEnabled, NewExecResult(Continue, reconcile.Result{}, NewBaseAction("user-workload"), nil)
+	reqLogger.Info("attempting to get if userworkload monitoring is enabled")
+
+	// Check if enableUserWorkload: true in cluster-monitoring-config
+	clusterMonitorConfigMap := &corev1.ConfigMap{}
+	result, _ := cc.Do(
+		context.TODO(),
+		GetAction(types.NamespacedName{
+			Namespace: utils.OPENSHIFT_MONITORING_NAMESPACE,
+			Name:      utils.OPENSHIFT_CLUSTER_MONITORING_CONFIGMAP_NAME,
+		}, clusterMonitorConfigMap),
+	)
+	if result.Is(Error) {
+		reqLogger.Error(result.GetError(), "Failed to get cluster-monitoring-config.")
+		return false, result
+	} else if result.Is(NotFound) {
+		return false, NewExecResult(Continue, reconcile.Result{}, NewBaseAction("user-workload"), nil)
+	} else if result.Is(Continue) {
+		enableUserWorkload, err := isEnableUserWorkloadConfigMap(clusterMonitorConfigMap)
+		reqLogger.Info("found cluster-monitoring-config", "enabledUserWorkload", enableUserWorkload)
+		if err != nil {
+			reqLogger.Error(result.GetError(), "Failed to parse cluster-monitoring-config.")
+		}
+		return enableUserWorkload, result
+	}
+
+	return false, NewExecResult(Continue, reconcile.Result{}, NewBaseAction("user-workload"), nil)
 }
 
 func updateUserWorkloadMonitoringEnabledStatus(
