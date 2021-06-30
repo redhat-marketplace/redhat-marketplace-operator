@@ -129,6 +129,7 @@ publish: _#bashWorkflow & {
 				_#checkoutCode & {
 					with: {
 						"fetch-depth": 0
+						"ref": "${{ steps.pr.outputs.prSha }}"
 					}
 				},
 				_#installGo,
@@ -158,6 +159,7 @@ publish: _#bashWorkflow & {
 				_#checkoutCode & {
 					with: {
 						"fetch-depth": 0
+						"ref": "${{ steps.pr.outputs.prSha }}"
 					}
 				},
 				_#installGo,
@@ -189,6 +191,7 @@ publish: _#bashWorkflow & {
 				_#checkoutCode & {
 					with: {
 						"fetch-depth": 0
+						"ref": "${{ steps.pr.outputs.prSha }}"
 					}
 				},
 				_#installGo,
