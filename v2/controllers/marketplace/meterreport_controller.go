@@ -427,11 +427,11 @@ func (s *ScheduleRunnable) Start(done <-chan struct{}) error {
 				if report.Status.AssociatedJob != nil && report.Status.AssociatedJob.IsDone() {
 					continue
 				}
-				if !report.Spec.EndTime.Time.UTC().After(now) {
+				if !now.After(report.Spec.EndTime.Time.UTC()) {
 					continue
 				}
 
-				s.log.Info("queueing job is not finished and can run now", "meterreport", report.Name)
+				s.log.Info("queueing job is not finished and can run now", "meterreport", report.Name, "now", now, "report", report.Spec.EndTime.Time.UTC())
 				s.send(event.GenericEvent{
 					Meta:   &report.ObjectMeta,
 					Object: &report,
