@@ -144,7 +144,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		}
 
 		// install appropriate meterdefs for new version
-		meterDefNamesFromFileServer,meterDefsFromFileServer, result := ListMeterdefintionsFromFileServer(csvPackageName, csvVersion, CSV.Namespace, reqLogger)
+		meterDefNamesFromFileServer,meterDefsFromFileServer, result := ListMeterdefintionsFromFileServer(csvPackageName, csvVersion, CSV.Namespace,r.Client,r.kubeInterface,r.cfg.DeployedNamespace ,reqLogger)
 		if !result.Is(Continue) {
 			if result.Is(Error) {
 				reqLogger.Error(result.GetError(), "Failed retrieving meterdefinitions from file server")
@@ -182,14 +182,14 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 			if value, ok := subscription.GetLabels()[operatorTag]; ok {
 				if value == "true" {
 					if len(subscription.Status.InstalledCSV) == 0 {
-						reqLogger.Info("Requeue clusterserviceversion to wait for subscription getting installedCSV updated")
+						reqLogger.Info("Requeue clusterserviceversion to wait for subscription getting")
 						return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 					}
 
 					if subscription.Status.InstalledCSV == request.NamespacedName.Name {
 						reqLogger.Info("found Subscription with installed CSV")
 
-						_,selectedMeterDefinitions, result := ListMeterdefintionsFromFileServer(csvPackageName, csvVersion, CSV.Namespace, reqLogger)
+						_,selectedMeterDefinitions, result := ListMeterdefintionsFromFileServer(csvPackageName, csvVersion, CSV.Namespace,r.Client,r.kubeInterface,r.cfg.DeployedNamespace ,reqLogger)
 						if !result.Is(Continue) {
 
 							if result.Is(Error) {
@@ -286,8 +286,8 @@ func parsePackageNameAndVersion(csv *olmv1alpha1.ClusterServiceVersion, request 
 		err := emperror.New("could not find annotations for CSV properties")
 		reqLogger.Error(err, request.Name)
 		return "", "", &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
+			ReconcileResult: reconcile.Result{RequeueAfter: time.Minute * 1},
+			Err:             nil,
 		}
 	}
 
@@ -315,6 +315,7 @@ func parsePackageNameAndVersion(csv *olmv1alpha1.ClusterServiceVersion, request 
 		}
 	}
 
+	//TODO: don't need this
 	if strings.Contains(version, "-") {
 		version = strings.Split(version, "-")[0]
 	}
@@ -324,11 +325,19 @@ func parsePackageNameAndVersion(csv *olmv1alpha1.ClusterServiceVersion, request 
 	}
 }
 
-func ListMeterdefintionsFromFileServer(packageName string, version string, namespace string, reqLogger logr.Logger) ([]string,[]marketplacev1beta1.MeterDefinition, *ExecResult) {
-
+func ListMeterdefintionsFromFileServer(packageName string, version string, namespace string,client client.Client ,kubeInterface kubernetes.Interface,deployedNamespace string,reqLogger logr.Logger) ([]string,[]marketplacev1beta1.MeterDefinition, *ExecResult) {
+	reqLogger.Info("retrieving meterdefinitions")
 	// returns all the meterdefinitions for associated with a particular CSV version
 	url := fmt.Sprintf("http://rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc.cluster.local:8100/list-for-version/%s/%s", packageName, version)
-	response, err := http.Get(url)
+	_client, err := createCatalogServerClient(client,deployedNamespace,kubeInterface,reqLogger)
+	if err != nil {
+		return nil,nil, &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             emperror.New("empty response"),
+		}
+	}
+	// response, err := http.Get(url)
+	response,err := _client.Get(url)
 	if err != nil {
 		if err == io.EOF {
 			reqLogger.Error(err, "Meterdefintion not found")
@@ -572,9 +581,9 @@ func (r *MeterdefinitionInstallReconciler) getFileServerService (reqLogger logr.
 	return service,nil
 }
 
-func (r *MeterdefinitionInstallReconciler) getCertFromConfigMap(reqLogger logr.Logger)([]byte,error){
+func  getCertFromConfigMap(client client.Client,deployedNamespace string,reqLogger logr.Logger)([]byte,error){
 	cm := &corev1.ConfigMap{}
-	err := r.Client.Get(context.TODO(),types.NamespacedName{Namespace: r.cfg.DeployedNamespace,Name: "serving-certs-ca-bundle"},cm)
+	err := client.Get(context.TODO(),types.NamespacedName{Namespace: deployedNamespace,Name: "serving-certs-ca-bundle"},cm)
 	if err != nil {
 		return nil, err
 	}
@@ -593,53 +602,58 @@ func (r *MeterdefinitionInstallReconciler) getCertFromConfigMap(reqLogger logr.L
 	
 }
 
-func (r *MeterdefinitionInstallReconciler) createTlsConfig(reqLogger logr.Logger) (*tls.Config,*ExecResult) {
-	service, err := r.getFileServerService(reqLogger)
+func  createCatalogServerClient(client client.Client,deployedNamespace string,kubeInterface kubernetes.Interface,reqLogger logr.Logger) (*http.Client,error) {
+	// service, err := r.getFileServerService(reqLogger)
+	// if err != nil {
+	// 	return nil, &ExecResult{
+	// 		ReconcileResult: reconcile.Result{},
+	// 		Err:             err,
+	// 	}
+	// }
+
+	cert, err := getCertFromConfigMap(client,deployedNamespace,reqLogger)
 	if err != nil {
-		return nil, &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
+		return nil, err
 	}
 
-	cert, err := r.getCertFromConfigMap(reqLogger)
+	saClient := prom.NewServiceAccountClient(deployedNamespace, kubeInterface)
+	authToken, err := saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.FileServerAudience, 3600, reqLogger)
 	if err != nil {
-		return nil, &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-	saClient := prom.NewServiceAccountClient(r.cfg.DeployedNamespace, r.kubeInterface)
-	authToken, err := saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.PrometheusAudience, 3600, reqLogger)
-	if err != nil {
-		return nil, &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
+		return nil, err
 	}
 
 
 	caCertPool, err := x509.SystemCertPool()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get system cert pool")
+		// return nil, 
+		return nil,err
 	}
 
-	ok := caCertPool.AppendCertsFromPEM(caCert)
+	ok := caCertPool.AppendCertsFromPEM(cert)
 	if !ok {
 		err = emperror.New("failed to append cert to cert pool")
 		reqLogger.Error(err, "cert pool error")
-		return nil, &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
+		return nil, err
 	}
 
-	return &tls.Config{
+	tlsConfig := &tls.Config{
 		RootCAs: caCertPool,
-	},  &ExecResult{
-		Status: ActionResultStatus(Continue),
 	}
 
+	var transport http.RoundTripper = &http.Transport{
+		TLSClientConfig: tlsConfig,
+		Proxy:           http.ProxyFromEnvironment,
+	}
+
+	transport = WithBearerAuth(transport, authToken)
+
+	catalogServerClient := http.Client{
+		Transport: transport,
+		Timeout: 1 * time.Second,
+	}
+
+
+	return &catalogServerClient,nil
 
 	// prometheusAPI, err := NewPromAPI(service, &cert, authToken)
 	// if err != nil {
@@ -647,6 +661,33 @@ func (r *MeterdefinitionInstallReconciler) createTlsConfig(reqLogger logr.Logger
 	// }
 	// return prometheusAPI, nil
 	
+}
+
+func WithBearerAuth(rt http.RoundTripper, token string) http.RoundTripper {
+	addHead := WithHeader(rt)
+	addHead.Header.Set("Authorization", "Bearer "+token)
+	return addHead
+}
+
+type withHeader struct {
+	http.Header
+	rt http.RoundTripper
+}
+
+func WithHeader(rt http.RoundTripper) withHeader {
+	if rt == nil {
+		rt = http.DefaultTransport
+	}
+
+	return withHeader{Header: make(http.Header), rt: rt}
+}
+
+func (h withHeader) RoundTrip(req *http.Request) (*http.Response, error) {
+	for k, v := range h.Header {
+		req.Header[k] = v
+	}
+
+	return h.rt.RoundTrip(req)
 }
 
 func fetchCSVInfo(csvProps string) map[string]interface{} {

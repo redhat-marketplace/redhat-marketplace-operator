@@ -94,6 +94,7 @@ const (
 
 	/* Auth */
 	PrometheusAudience = "rhm-prometheus-meterbase.openshift-redhat-marketplace.svc"
+	FileServerAudience = "rhm-meterdefinition-file-server.svc"
 )
 
 var (

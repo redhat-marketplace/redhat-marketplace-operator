@@ -28,6 +28,7 @@ import (
 
 	"github.com/go-logr/logr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	"k8s.io/client-go/kubernetes"
 
 	osappsv1 "github.com/openshift/api/apps/v1"
 
@@ -73,6 +74,8 @@ type DeploymentConfigReconciler struct {
 	cfg     *config.OperatorConfig
 	factory *manifests.Factory
 	patcher patch.Patcher
+	kubeInterface kubernetes.Interface
+
 }
 
 type InstallMapping struct {
@@ -111,6 +114,11 @@ func (r *DeploymentConfigReconciler) InjectPatch(p patch.Patcher) error {
 
 func (r *DeploymentConfigReconciler) InjectFactory(f *manifests.Factory) error {
 	r.factory = f
+	return nil
+}
+
+func (r *DeploymentConfigReconciler) InjectKubeInterface(k kubernetes.Interface) error {
+	r.kubeInterface = k
 	return nil
 }
 
@@ -279,7 +287,7 @@ func (r *DeploymentConfigReconciler) sync(installMappings []InstallMapping, reqL
 		namespace := installMap.Namespace
 		installedMeterDefs := installMap.InstalledMeterdefinitions
 
-		meterDefNamesFromFileServer, meterDefsFromFileServer, result := ListMeterdefintionsFromFileServer(csvPackageName, csvVersion, namespace, reqLogger)
+		meterDefNamesFromFileServer, meterDefsFromFileServer, result := ListMeterdefintionsFromFileServer(csvPackageName, csvVersion, namespace, r.Client,r.kubeInterface,r.cfg.DeployedNamespace ,reqLogger)
 		if !result.Is(Continue) {
 			return nil, result
 		}
