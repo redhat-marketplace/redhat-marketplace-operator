@@ -15,6 +15,7 @@
 package config
 
 import (
+	"net"
 	"sync"
 	"time"
 
@@ -41,6 +42,7 @@ type OperatorConfig struct {
 	Marketplace
 	*Infrastructure
 	OLMInformation
+	IsAirGap bool `env:"IS_AIRGAP" envDefault:"false"`
 }
 
 // RelatedImages stores relatedimages for the operator
@@ -154,10 +156,30 @@ func ProvideInfrastructureAwareConfig(
 			cfg.RelatedImages = RelatedImages(cfg.OSRelatedImages)
 		}
 
+		err = setAirGapStatus(cfg)
+		if err != nil {
+			return nil, errors.Wrap(err,"Could not get IP for redhat marketplace")
+		}
 		global = cfg
 	}
 
 	return global, nil
+}
+
+func setAirGapStatus(cfg *OperatorConfig)(error){
+	_, err := net.LookupIP("https://marketplace.redhat.com")
+	if err != nil {
+		var dnsError *net.DNSError
+		if errors.As(err, &dnsError) && dnsError.IsNotFound {
+			cfg.IsAirGap = true
+		}
+
+		return err
+		// only care about "no such host found"
+	}
+
+	log.Info("found IP for redhat marketplace")
+	return nil
 }
 
 var GetConfig = ProvideConfig

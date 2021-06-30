@@ -389,7 +389,12 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	foundRazee = &marketplacev1alpha1.RazeeDeployment{}
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.RAZEE_NAME, Namespace: marketplaceConfig.Namespace}, foundRazee)
 	if err != nil && k8serrors.IsNotFound(err) {
+
 		newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
+
+		if r.cfg.IsAirGap {
+			newRazeeCrd.Spec.Features.Deployment = ptr.Bool(false)
+		}
 
 		// Sets the owner for foundRazee
 		if err = controllerutil.SetControllerReference(marketplaceConfig, newRazeeCrd, r.Scheme); err != nil {
