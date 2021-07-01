@@ -280,6 +280,11 @@ func (d *DataServiceUploader) UploadFile(path string) error {
 
 	res, err := d.UploadClient.CloseAndRecv()
 	if err != nil {
+		if err == io.EOF {
+            logger.Info("Stream EOF")
+            return nil
+        }
+
 		logger.Error(err, "Error getting response")
 		return err
 	}
