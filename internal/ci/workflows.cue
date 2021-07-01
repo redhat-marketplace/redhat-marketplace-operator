@@ -917,6 +917,7 @@ _#publishOperatorImages: _#step & {
 		RH_CONNECT_TOKEN: "${{ secrets.redhat_api_key }}"
 	}
 	run: """
+make pc-tool
 export IMAGES=""
 \(strings.Join([ for k, v in _#images {(_#defineImage & {#args: image: v}).res}], "\n\n"))
 echo "publishing $IMAGES"

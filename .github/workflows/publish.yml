@@ -330,6 +330,7 @@ jobs:
       uses: actions/checkout@v2
     - name: Publish Operator Images
       run: |-
+        make pc-tool
         export IMAGES=""
         ## getting image shas redhat-marketplace-operator
         shas="$(skopeo inspect docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG --raw | jq -r '.manifests[].digest' | xargs)"
