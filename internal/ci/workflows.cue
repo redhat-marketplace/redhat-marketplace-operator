@@ -106,6 +106,12 @@ publish_status: _#bashWorkflow & {
 	on: schedule: [{
 		cron: "*/15 * * * *"
 	}]
+  jobs: {
+    check: _#job & {
+      name: "Check publish status"
+
+    }
+  }
 }
 
 publish: _#bashWorkflow & {
@@ -173,6 +179,7 @@ publish: _#bashWorkflow & {
 				},
 				_#getBundleRunID,
 				_#redhatConnectLogin,
+        _#checkoutCode,
 				_#publishOperatorImages,
 				_#retagManifestCommand,
 			]
@@ -205,6 +212,7 @@ publish: _#bashWorkflow & {
 				},
 				_#getBundleRunID,
 				_#redhatConnectLogin,
+        _#checkoutCode,
 				_#publishOperator,
 			]
 		}
@@ -909,7 +917,6 @@ _#publishOperatorImages: _#step & {
 		RH_CONNECT_TOKEN: "${{ secrets.redhat_api_key }}"
 	}
 	run: """
-make pc-tool
 export IMAGES=""
 \(strings.Join([ for k, v in _#images {(_#defineImage & {#args: image: v}).res}], "\n\n"))
 echo "publishing $IMAGES"
@@ -1018,6 +1025,22 @@ _#findCheckRun: {
 			\((_#setEnv & {#args: {name: "checksuite_id", value: "$CHECKSUITE_ID"}}).res)
 			"""
 	}
+}
+
+_#githubGraphQLQuery: {
+  _#args: {
+    id: string
+    query: string
+  }
+  res: _#step & {
+    uses: "octokit/graphql-action@v2.x"
+    id: _#args.id
+    with: {
+      owner: " ${{ github.event.repository.owner.name }}"
+      repo: "${{ github.event.repository.name }}"
+      query: _#args.query
+    }
+  }
 }
 
 _#findPRForComment: {

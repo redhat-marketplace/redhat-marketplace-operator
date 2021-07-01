@@ -326,9 +326,10 @@ jobs:
         registry: registry.connect.redhat.com
         username: ${{secrets['REDHAT_IO_USER']}}
         password: ${{secrets['REDHAT_IO_PASSWORD']}}
+    - name: Checkout code
+      uses: actions/checkout@v2
     - name: Publish Operator Images
       run: |-
-        make pc-tool
         export IMAGES=""
         ## getting image shas redhat-marketplace-operator
         shas="$(skopeo inspect docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG --raw | jq -r '.manifests[].digest' | xargs)"
@@ -507,6 +508,8 @@ jobs:
         registry: registry.connect.redhat.com
         username: ${{secrets['REDHAT_IO_USER']}}
         password: ${{secrets['REDHAT_IO_PASSWORD']}}
+    - name: Checkout code
+      uses: actions/checkout@v2
     - name: Publish Operator
       run: |-
         make pc-tool
