@@ -409,6 +409,11 @@ func (s *ScheduleRunnable) Source() *source.Channel {
 	}
 }
 
+func (s *ScheduleRunnable) NeedLeaderElection() bool {
+	return true
+}
+
+
 func (s *ScheduleRunnable) Start(done <-chan struct{}) error {
 	ticker := time.NewTicker(time.Minute * 15)
 
@@ -424,9 +429,13 @@ func (s *ScheduleRunnable) Start(done <-chan struct{}) error {
 			now := time.Now().UTC()
 
 			for _, report := range meterReportList.Items {
-				if report.Status.AssociatedJob != nil && report.Status.AssociatedJob.IsDone() {
+				runningCondition := report.Status.Conditions.GetCondition(marketplacev1alpha1.ReportConditionTypeJobRunning)
+				if runningCondition != nil &&
+					runningCondition.IsFalse() &&
+					runningCondition.Reason == marketplacev1alpha1.ReportConditionReasonJobFinished {
 					continue
 				}
+
 				if !now.After(report.Spec.EndTime.Time.UTC()) {
 					continue
 				}
