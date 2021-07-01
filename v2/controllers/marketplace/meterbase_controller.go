@@ -543,7 +543,7 @@ func (r *MeterBaseReconciler) newMeterReport(namespace string, startTime time.Ti
 	}
 
 	if instance.Spec.DataServiceEnabled {
-		mreport.Spec.ExtraArgs = append(mreport.Spec.ExtraArgs, "--uploadTarget=data-service")
+		mreport.Spec.ExtraArgs = append(mreport.Spec.ExtraArgs, "--uploadTargets=data-service")
 		return mreport
 	}
 
