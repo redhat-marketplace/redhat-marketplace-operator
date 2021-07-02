@@ -42,18 +42,36 @@ var (
 	verbose            bool
 
 	pageSize ListSize = ListSize20
-	urls     []string
 )
 
 var GetPublishStatusCommand = &cobra.Command{
 	Use:   "status",
 	Short: "Retrieves the current status of publish",
 	RunE: func(cmd *cobra.Command, args []string) error {
-
 		if !verbose {
 			log.SetOutput(ioutil.Discard)
 		} else {
 			log.SetOutput(cmd.OutOrStderr())
+		}
+
+		csvStr := strings.Join(append([]string{"project_url,sha,tag"}, images...), "\n")
+		csvRows, err := csv.NewReader(strings.NewReader(csvStr)).ReadAll()
+
+		if err != nil {
+			return err
+		}
+
+		urlToShas := make(map[string]map[string]interface{})
+
+		for _, row := range csvRows[1:] {
+			image := &imageStruct{}
+			image.FromCSV(row)
+
+			if _, ok := urlToShas[image.ProjectURL]; !ok {
+				urlToShas[image.ProjectURL] = make(map[string]interface{})
+			}
+
+			urlToShas[image.ProjectURL][image.SHA] = nil
 		}
 
 		web := &ConnectWebsite{
@@ -61,26 +79,44 @@ var GetPublishStatusCommand = &cobra.Command{
 			Password: password,
 		}
 
-		webCtx, cancel := web.Start()
-		defer cancel()
+		webCtx, webCancel := web.Start()
+		defer webCancel()
 
-		ctx, cancel := context.WithTimeout(webCtx, 4*time.Minute)
+		overallCtx, cancel := context.WithTimeout(webCtx, 4*time.Minute)
 		defer cancel()
-
-		err := web.Login(ctx, username, password)
 
 		if err != nil {
+			log.Println("failed to start web", err)
+			return err
+		}
+
+		err = func() error {
+			return web.Login(overallCtx, username, password)
+		}()
+
+		if err != nil {
+			log.Println("failed to login", err)
 			return err
 		}
 
 		statuses := []*ImagePublishStatus{}
 
-		for _, url := range urls {
-			results, err := web.GetAllStatuses(ctx, url)
+		for url, shas := range urlToShas {
+			log.Println("looking for", url, shas)
+			err := func() error {
+				ctx, lcancel := context.WithTimeout(overallCtx, 1*time.Minute)
+				defer lcancel()
+				results, err := web.GetAllStatuses(ctx, url, shas)
+				if err != nil {
+					return err
+				}
+				statuses = append(statuses, results...)
+				return nil
+			}()
+
 			if err != nil {
 				return err
 			}
-			statuses = append(statuses, results...)
 		}
 
 		data, err := json.Marshal(statuses)
@@ -215,7 +251,7 @@ func init() {
 	PublishCommand.Flags().StringVar(&password, "password", os.Getenv("RH_PASSWORD"), "password for PC")
 	PublishCommand.Flags().BoolVar(&isOperatorManifest, "is-operator-manifest", false, "if the images sent are operator bundles")
 
-	GetPublishStatusCommand.Flags().StringSliceVar(&urls, "urls", []string{}, "comma separated list of urls")
+	GetPublishStatusCommand.Flags().StringArrayVar(&images, "images", []string{}, "list comma seperated image vars to publish")
 	GetPublishStatusCommand.Flags().StringVar(&username, "username", os.Getenv("RH_USER"), "username for PC")
 	GetPublishStatusCommand.Flags().StringVar(&password, "password", os.Getenv("RH_PASSWORD"), "password for PC")
 
@@ -297,6 +333,10 @@ func (c *ConnectWebsite) Start() (context.Context, context.CancelFunc) {
 }
 
 func (c *ConnectWebsite) Login(inCtx context.Context, username, password string) error {
+	if username == "" || password == "" {
+		return errors.New("no username or password passed")
+	}
+
 	var location string
 	err := chromedp.Run(inCtx,
 		chromedp.Navigate(`https://connect.redhat.com/saml_login`),
@@ -343,13 +383,16 @@ func (c *ConnectWebsite) Login(inCtx context.Context, username, password string)
 }
 
 type ImagePublishStatus struct {
-	Pid           string   `json:"pid"`
-	Sha           string   `json:"sha"`
-	Tags          []string `json:"tags"`
-	PublishStatus string   `json:"publish_status"`
+	Pid                 string   `json:"pid"`
+	Name                string   `json:"name"`
+	Url                 string   `json:"url"`
+	Sha                 string   `json:"sha"`
+	Tags                []string `json:"tags"`
+	PublishStatus       string   `json:"publish_status"`
+	CertificationStatus string   `json:"certification_status"`
 }
 
-func (c *ConnectWebsite) GetAllStatuses(ctx context.Context, url string) (results []*ImagePublishStatus, err error) {
+func (c *ConnectWebsite) GetAllStatuses(ctx context.Context, url string, shas map[string]interface{}) (results []*ImagePublishStatus, err error) {
 	nodes := []*cdp.Node{}
 
 	log.Println("navigating to", url)
@@ -363,13 +406,14 @@ func (c *ConnectWebsite) GetAllStatuses(ctx context.Context, url string) (result
 		return
 	}
 
-	var pid string
+	var pid, name string
 
 	err = chromedp.Run(ctx,
 		chromedp.Click(`button[aria-label="Items per page"]`, chromedp.ByQuery),
 		chromedp.Click(fmt.Sprintf(`button[data-action="per-page-%s"]`, pageSize.String()), chromedp.ByQuery),
 		chromedp.Nodes(`table[aria-label="Images List"] > tbody`, &nodes, chromedp.ByQueryAll),
-		chromedp.Text(`div.rhc-images__header-content__pid-details > small:nth-child(2)`, &pid, chromedp.ByQuery),
+		chromedp.Text(`.rhc-images__header-content__pid-details > small:nth-child(2)`, &pid, chromedp.ByQuery),
+		chromedp.Text(`.project-details-header__primary__info--name`, &name, chromedp.ByQuery),
 	)
 
 	if err != nil {
@@ -377,7 +421,7 @@ func (c *ConnectWebsite) GetAllStatuses(ctx context.Context, url string) (result
 	}
 
 	for _, node := range nodes {
-		var sha, publishStatus string
+		var sha, publishStatus, certStatus string
 		localNode := node
 
 		tagNodes := []*cdp.Node{}
@@ -385,7 +429,12 @@ func (c *ConnectWebsite) GetAllStatuses(ctx context.Context, url string) (result
 
 		err = chromedp.Run(ctx,
 			chromedp.Text(`td[data-label="Image"] > span > span`, &sha, chromedp.ByQuery, chromedp.FromNode(localNode)),
+			chromedp.Text(`.rhc-images__list-container__certification-test__scan-link`, &certStatus, chromedp.ByQuery, chromedp.FromNode(localNode)),
 			chromedp.Nodes(`span.rhc-images__list-container__image-tag`, &tagNodes, chromedp.ByQueryAll, chromedp.FromNode(localNode)))
+
+		if _, ok := shas[sha]; !ok {
+			continue
+		}
 
 		for _, tagNode := range tagNodes {
 			var tag string
@@ -407,10 +456,13 @@ func (c *ConnectWebsite) GetAllStatuses(ctx context.Context, url string) (result
 		}
 
 		results = append(results, &ImagePublishStatus{
-			Pid:           pid,
-			PublishStatus: publishStatus,
-			Sha:           sha,
-			Tags:          tags,
+			Pid:                 pid,
+			Name:                name,
+			Url:                 url,
+			PublishStatus:       publishStatus,
+			Sha:                 sha,
+			Tags:                tags,
+			CertificationStatus: certStatus,
 		})
 	}
 

@@ -515,7 +515,7 @@ import "strings"
 					// https://help.github.com/en/articles/contexts-and-expression-syntax-for-github-actions.
 					matrix: ({
 						...
-					} | #expressionSyntax) & {
+					} | #expressionSyntax) | {
 						{[=~"^(in|ex)clude$" & !~"^()$"]: [...{
 											[string]: #configuration
 						}] & [_, ...]}
