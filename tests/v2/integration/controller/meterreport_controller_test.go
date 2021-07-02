@@ -90,7 +90,7 @@ var _ = Describe("MeterReportController", func() {
 						TargetPort: intstr.FromString("rbac"),
 					},
 					ExtraArgs: []string{
-						"--uploadTarget", "noop",
+						"--uploadTargets", "noop",
 					},
 					MeterDefinitions: []v1alpha1.MeterDefinition{
 						*meterdef,
