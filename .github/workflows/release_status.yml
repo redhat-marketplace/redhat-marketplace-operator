@@ -17,18 +17,18 @@ jobs:
       uses: octokit/graphql-action@v2.x
       with:
         query: |-
-          	query pr($search: String!) {
-          		search(query: $search, type: ISSUE, last: 100) {
-          			edges {
-          				node {
-          					... on PullRequest {
-          						id
-          						number
-          						baseRefName
-          						headRefName
-          					}
+          query pr($search: String!) {
+          	search(query: $search, type: ISSUE, last: 100) {
+          		edges {
+          			node {
+          				... on PullRequest {
+          					id
+          					number
+          					baseRefName
+          					headRefName
           				}
           			}
+          		}
           	}
           }
         search: repo:${{ env.GITHUB_REPOSITORY }} is:pr is:open head:hotfix head:release

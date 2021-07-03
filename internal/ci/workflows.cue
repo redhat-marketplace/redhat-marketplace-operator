@@ -1175,18 +1175,18 @@ _#findAllReleasePRs: (_#githubGraphQLQuery & {
 		id: "findAllReleasePRs"
 		with: {
 			query: """
-					query pr($search: String!) {
-						search(query: $search, type: ISSUE, last: 100) {
-							edges {
-								node {
-									... on PullRequest {
-										id
-										number
-										baseRefName
-										headRefName
-									}
+				query pr($search: String!) {
+					search(query: $search, type: ISSUE, last: 100) {
+						edges {
+							node {
+								... on PullRequest {
+									id
+									number
+									baseRefName
+									headRefName
 								}
 							}
+						}
 					}
 				}
 				"""
