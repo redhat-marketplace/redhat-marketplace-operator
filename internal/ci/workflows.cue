@@ -510,28 +510,27 @@ branch_build: _#bashWorkflow & {
 					uses: "marocchino/sticky-pull-request-comment@v2"
 					with: {
 						header:   "devindex"
-						recreate: true
+						recreate: "true"
 						message: """
-Available to test on openshift using a catalogsource:
+              Available to test on openshift using a catalogsource:
 
-``` yaml
-apiVersion: operators.coreos.com/v1alpha1
-kind: CatalogSource
-metadata:
-  name: rhm-test
-  namespace: openshift-marketplace
-spec:
-  displayName: RHM Test
-  image: quay.io/rh-marketplace/redhat-marketplace-operator-dev-index:${{ env.TAG }}
-  publisher: ''
-  sourceType: grpc
-```
-"""
+              ``` yaml
+              apiVersion: operators.coreos.com/v1alpha1
+              kind: CatalogSource
+              metadata:
+                name: rhm-test
+                namespace: openshift-marketplace
+              spec:
+                displayName: RHM Test
+                image: quay.io/rh-marketplace/redhat-marketplace-operator-dev-index:${{ env.TAG }}
+                publisher: ''
+                sourceType: grpc
+              ```
+              """
 					}
 				},
 			]
 		}
-
 	}
 }
 
@@ -1144,16 +1143,13 @@ _#findCheckRun: {
 
 _#githubGraphQLQuery: {
 	_#args: {
-		id:    string
-		query: string
-		with: {args?: string, ...}
+		id: string
+		with: {_, ...}
 	}
 	res: _#step & {
 		uses: "octokit/graphql-action@v2.x"
 		id:   _#args.id
-		with: with & {
-			query: _#args.query
-		}
+		with: _#args.with
 		env: "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
 	}
 }
@@ -1174,26 +1170,26 @@ echo "::set-output name=prRef::$(echo $PR | jq -r \".head.ref\")"
 	}
 }
 
-_#findAllReleasePRs: _#step & (_#githubGraphQLQuery & {
+_#findAllReleasePRs: (_#githubGraphQLQuery & {
 	_#args: {
 		id: "findAllReleasePRs"
-		query: """
-			query pr($search: String!) {
-				search(query: $search, type: ISSUE, last: 100) {
-					edges {
-						node {
-							... on PullRequest {
-								id
-								number
-								baseRefName
-								headRefName
+		with: {
+			query: """
+					query pr($search: String!) {
+						search(query: $search, type: ISSUE, last: 100) {
+							edges {
+								node {
+									... on PullRequest {
+										id
+										number
+										baseRefName
+										headRefName
+									}
+								}
 							}
-						}
 					}
 				}
-			}
-			"""
-		with: {
+				"""
 			search: "repo:${{ env.GITHUB_REPOSITORY }} is:pr is:open head:hotfix head:release"
 		}
 	}

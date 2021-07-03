@@ -515,12 +515,12 @@ import "strings"
 					// https://help.github.com/en/articles/contexts-and-expression-syntax-for-github-actions.
 					matrix: ({
 						...
-					} | #expressionSyntax) | {
+					} | #expressionSyntax) & {
 						{[=~"^(in|ex)clude$" & !~"^()$"]: [...{
 											[string]: #configuration
 						}] & [_, ...]}
 						{[!~"^(in|ex)clude$" & !~"^()$"]: [...#configuration] & [_, ...]}
-					}
+					} | string
 
 					// When set to true, GitHub cancels all in-progress jobs if any
 					// matrix job fails. Default: true
