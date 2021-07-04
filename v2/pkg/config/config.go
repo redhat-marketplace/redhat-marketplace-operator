@@ -188,7 +188,6 @@ func setAirGapStatus(cfg *OperatorConfig)(error){
 		//TODO: do we need to return an error here if it's not "no such host found" ?
 	}
 
-	// fmt.Println("IP ------------- ",ip)
 	log.Info("found IP for redhat marketplace","ip",ip)
 	return nil
 }
