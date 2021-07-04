@@ -103,7 +103,7 @@ var _ = Describe("Config", func() {
 		})
 	})
 
-	Context("AirGap environment",func() {
+	Context("With AirGap environment information",func() {
 		BeforeEach(func(){
 			srv.Resolver().Zones[mockURL] = mockdns.Zone{A: []string{}}
 			srv.PatchNet(net.DefaultResolver)
