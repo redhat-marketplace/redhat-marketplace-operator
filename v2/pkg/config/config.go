@@ -15,7 +15,9 @@
 package config
 
 import (
+	"fmt"
 	"net"
+	"net/url"
 	"sync"
 	"time"
 
@@ -176,20 +178,55 @@ func setAirGapStatus(cfg *OperatorConfig)(error){
 		rhmURL = cfg.URL
 	}
 
+	var ipLookUpFailed bool
 	ip, err := net.LookupIP(rhmURL)
 	if err != nil {
-		var dnsError *net.DNSError
-		if errors.As(err, &dnsError) && dnsError.IsNotFound {
-			log.Info("detected an air gap environment","ip lookup response",dnsError)
+		ipLookUpFailed = checkError(err)
+	}
+
+	var dialTimeoutFailed bool
+	u,_ := url.Parse(utils.ProductionURL)
+	trimmedProdUrl := u.Host
+	timeoutURL := fmt.Sprintf("%s:https",trimmedProdUrl)
+	timeout := 1 * time.Second
+	_, err = net.DialTimeout("tcp",timeoutURL, timeout)
+	if err != nil {
+		dialTimeoutFailed = checkError(err)
+	}
+
+	if ipLookUpFailed && dialTimeoutFailed {
 			cfg.IsAirGap = true
 			return nil
-		}
-
-		//TODO: do we need to return an error here if it's not "no such host found" ?
 	}
 
 	log.Info("found IP for redhat marketplace","ip",ip)
 	return nil
+}
+
+func checkError(err error)bool{
+	if netError, ok := err.(net.Error); ok && netError.Timeout() {
+		log.Info("DialTimeout exceeds timeout","response",netError)
+		return true
+	}
+
+	switch t := err.(type) {	
+	case *net.OpError:
+		if t.Op == "dial" {
+			log.Info("DialTimeout could not find host","response",t)
+			return true
+			
+		} else if t.Op == "read" {
+			log.Info("DialTimeout connection refused","response",t)
+			return true
+		}
+	case *net.DNSError:
+		if t.IsNotFound{
+			log.Info("LookupIP could not find host","response",t)
+			return true
+		}
+	}
+	
+	return false
 }
 
 var GetConfig = ProvideConfig
