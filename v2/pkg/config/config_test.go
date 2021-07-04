@@ -31,21 +31,24 @@ import (
 
 var _ = Describe("Config", func() {
 	var discoveryClient *discovery.DiscoveryClient
-	// var server  *ghttp.Server
-	// var statusCode int
-	// var ipResponse []net.IP
-	// var noHostFoundResponse 
+	var srv *mockdns.Server
+	mockURL := "mock.marketplace.com."
 
 	BeforeEach(func() {
-		// server = ghttp.NewTLSServer()
-		// server.SetAllowUnhandledRequests(true)
+		srv, _ = mockdns.NewServer(map[string]mockdns.Zone{
+			mockURL: {},
+		}, false)
+	
+		os.Setenv("MARKETPLACE_URL","mock.marketplace.com")
 		discoveryClient, _ = discovery.NewDiscoveryClientForConfig(cfg)
 		reset()
 	})
 
-	// AfterEach(func(){
-	// 	server.Close()
-	// })
+	AfterEach(func(){
+		srv.Close()
+		mockdns.UnpatchNet(net.DefaultResolver)
+		os.Unsetenv("MARKETPLACE_URL")
+	})
 	
 	Context("with defaults", func() {
 		It("should set defaults", func() {
@@ -82,23 +85,10 @@ var _ = Describe("Config", func() {
 	})
 
 	Context("with infrastructure information", func() {
-		var srv *mockdns.Server
 
 		BeforeEach(func(){
-			srv, _ = mockdns.NewServer(map[string]mockdns.Zone{
-				"mock.marketplace.com.": {
-					A: []string{"1.2.3.4"},
-				},
-			}, false)
-
+			srv.Resolver().Zones[mockURL] = mockdns.Zone{A: []string{"1.2.3.4"}}
 			srv.PatchNet(net.DefaultResolver)
-		
-			os.Setenv("MARKETPLACE_URL","mock.marketplace.com")
-		})
-
-		AfterEach(func(){
-			srv.Close()
-			mockdns.UnpatchNet(net.DefaultResolver)
 		})
 
 		It("should load infrastructure information", func() {
@@ -114,23 +104,9 @@ var _ = Describe("Config", func() {
 	})
 
 	Context("AirGap environment",func() {
-		var srv *mockdns.Server
-
 		BeforeEach(func(){
-			srv, _ = mockdns.NewServer(map[string]mockdns.Zone{
-				"mock.marketplace.com.": {
-					A: []string{},
-				},
-			}, false)
-
+			srv.Resolver().Zones[mockURL] = mockdns.Zone{A: []string{}}
 			srv.PatchNet(net.DefaultResolver)
-		
-			os.Setenv("MARKETPLACE_URL","mock.marketplace.com")
-		})
-
-		AfterEach(func(){
-			srv.Close()
-			mockdns.UnpatchNet(net.DefaultResolver)
 		})
 
 		It("Should set the IsAirGap var on OperatorConfig", func(){
