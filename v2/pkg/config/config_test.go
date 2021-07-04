@@ -17,8 +17,11 @@ package config
 import (
 	"bytes"
 	"context"
+	"net"
+
 	"os"
 
+	"github.com/foxcpp/go-mockdns"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	osconfigv1 "github.com/openshift/api/config/v1"
@@ -28,11 +31,22 @@ import (
 
 var _ = Describe("Config", func() {
 	var discoveryClient *discovery.DiscoveryClient
+	// var server  *ghttp.Server
+	// var statusCode int
+	// var ipResponse []net.IP
+	// var noHostFoundResponse 
 
 	BeforeEach(func() {
+		// server = ghttp.NewTLSServer()
+		// server.SetAllowUnhandledRequests(true)
 		discoveryClient, _ = discovery.NewDiscoveryClientForConfig(cfg)
 		reset()
 	})
+
+	// AfterEach(func(){
+	// 	server.Close()
+	// })
+	
 	Context("with defaults", func() {
 		It("should set defaults", func() {
 
@@ -68,6 +82,25 @@ var _ = Describe("Config", func() {
 	})
 
 	Context("with infrastructure information", func() {
+		var srv *mockdns.Server
+
+		BeforeEach(func(){
+			srv, _ = mockdns.NewServer(map[string]mockdns.Zone{
+				"mock.marketplace.com.": {
+					A: []string{"1.2.3.4"},
+				},
+			}, false)
+
+			srv.PatchNet(net.DefaultResolver)
+		
+			os.Setenv("MARKETPLACE_URL","mock.marketplace.com")
+		})
+
+		AfterEach(func(){
+			srv.Close()
+			mockdns.UnpatchNet(net.DefaultResolver)
+		})
+
 		It("should load infrastructure information", func() {
 			cfg, err := ProvideInfrastructureAwareConfig(k8sClient, discoveryClient)
 
@@ -76,6 +109,36 @@ var _ = Describe("Config", func() {
 			Expect(cfg.Infrastructure.KubernetesVersion()).NotTo(BeEmpty())
 			Expect(cfg.Infrastructure.KubernetesPlatform()).NotTo(BeEmpty())
 			Expect(cfg.Infrastructure.HasOpenshift()).To(BeFalse())
+			Expect(cfg.IsAirGap).To(BeFalse(),"is airgap should be false")
+		})
+	})
+
+	Context("AirGap environment",func() {
+		var srv *mockdns.Server
+
+		BeforeEach(func(){
+			srv, _ = mockdns.NewServer(map[string]mockdns.Zone{
+				"mock.marketplace.com.": {
+					A: []string{},
+				},
+			}, false)
+
+			srv.PatchNet(net.DefaultResolver)
+		
+			os.Setenv("MARKETPLACE_URL","mock.marketplace.com")
+		})
+
+		AfterEach(func(){
+			srv.Close()
+			mockdns.UnpatchNet(net.DefaultResolver)
+		})
+
+		It("Should set the IsAirGap var on OperatorConfig", func(){
+			cfg, err := ProvideInfrastructureAwareConfig(k8sClient, discoveryClient)
+
+			Expect(err).To(Succeed())
+			Expect(cfg).ToNot(BeNil())
+			Expect(cfg.IsAirGap).To(BeTrue())
 		})
 	})
 

@@ -22,6 +22,7 @@ import (
 	"emperror.dev/errors"
 	"github.com/caarlos0/env/v6"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"k8s.io/client-go/discovery"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -167,18 +168,28 @@ func ProvideInfrastructureAwareConfig(
 }
 
 func setAirGapStatus(cfg *OperatorConfig)(error){
-	_, err := net.LookupIP("https://marketplace.redhat.com")
+	var rhmURL string
+	
+	rhmURL = utils.ProductionURL
+
+	if cfg.URL != "" {
+		rhmURL = cfg.URL
+	}
+
+	ip, err := net.LookupIP(rhmURL)
 	if err != nil {
 		var dnsError *net.DNSError
 		if errors.As(err, &dnsError) && dnsError.IsNotFound {
+			log.Info("detected an air gap environment","ip lookup response",dnsError)
 			cfg.IsAirGap = true
+			return nil
 		}
 
-		return err
-		// only care about "no such host found"
+		//TODO: do we need to return an error here if it's not "no such host found" ?
 	}
 
-	log.Info("found IP for redhat marketplace")
+	// fmt.Println("IP ------------- ",ip)
+	log.Info("found IP for redhat marketplace","ip",ip)
 	return nil
 }
 

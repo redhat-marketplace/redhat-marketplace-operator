@@ -92,6 +92,9 @@ const (
 
 	/* Auth */
 	PrometheusAudience = "rhm-prometheus-meterbase.openshift-redhat-marketplace.svc"
+
+	ProductionURL = "https://marketplace.redhat.com"
+	StageURL      = "https://sandbox.marketplace.redhat.com"
 )
 
 var (
