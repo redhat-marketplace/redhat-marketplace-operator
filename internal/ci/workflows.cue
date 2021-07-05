@@ -1175,8 +1175,8 @@ _#findAllReleasePRs: (_#githubGraphQLQuery & {
 		id: "findAllReleasePRs"
 		with: {
 			query: """
-				query pr($search: String!) {
-					search(query: $search, type: ISSUE, last: 100) {
+				query pr($varq: String!) {
+					search(query: $varq, type: ISSUE, last: 100) {
 						edges {
 							node {
 								... on PullRequest {
@@ -1190,7 +1190,7 @@ _#findAllReleasePRs: (_#githubGraphQLQuery & {
 					}
 				}
 				"""
-			search: "repo:${{ env.GITHUB_REPOSITORY }} is:pr is:open head:hotfix head:release"
+			varq: "repo:${{ env.GITHUB_REPOSITORY }} is:pr is:open head:hotfix head:release"
 		}
 	}
 }).res
