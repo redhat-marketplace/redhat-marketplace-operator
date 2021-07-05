@@ -39,11 +39,6 @@ import (
 
 var logger = logf.Log.WithName("marketplace")
 
-const (
-	// ProductionURL = "https://marketplace.redhat.com"
-	// StageURL      = "https://sandbox.marketplace.redhat.com"
-)
-
 // endpoints
 const (
 	PullSecretEndpoint   = "provisioning/v1/rhm-operator/rhm-operator-secret"

@@ -31,25 +31,14 @@ import (
 
 var _ = Describe("Config", func() {
 	var discoveryClient *discovery.DiscoveryClient
-	var srv *mockdns.Server
+
 	mockURL := "mock.marketplace.com."
 
 	BeforeEach(func() {
-		srv, _ = mockdns.NewServer(map[string]mockdns.Zone{
-			mockURL: {},
-		}, false)
-	
-		os.Setenv("MARKETPLACE_URL","mock.marketplace.com")
 		discoveryClient, _ = discovery.NewDiscoveryClientForConfig(cfg)
 		reset()
 	})
 
-	AfterEach(func(){
-		srv.Close()
-		mockdns.UnpatchNet(net.DefaultResolver)
-		os.Unsetenv("MARKETPLACE_URL")
-	})
-	
 	Context("with defaults", func() {
 		It("should set defaults", func() {
 
@@ -85,10 +74,24 @@ var _ = Describe("Config", func() {
 	})
 
 	Context("with infrastructure information", func() {
+		var srv *mockdns.Server
 
-		BeforeEach(func(){
-			srv.Resolver().Zones[mockURL] = mockdns.Zone{A: []string{"1.2.3.4"}}
+		BeforeEach(func() {
+			srv, _ = mockdns.NewServer(map[string]mockdns.Zone{
+				mockURL: {
+					A: []string{"1.2.3.4"},
+				},
+			}, false)
+
+			os.Setenv("MARKETPLACE_URL", "mock.marketplace.com")
+
 			srv.PatchNet(net.DefaultResolver)
+		})
+
+		AfterEach(func() {
+			srv.Close()
+			mockdns.UnpatchNet(net.DefaultResolver)
+			os.Unsetenv("MARKETPLACE_URL")
 		})
 
 		It("should load infrastructure information", func() {
@@ -99,17 +102,29 @@ var _ = Describe("Config", func() {
 			Expect(cfg.Infrastructure.KubernetesVersion()).NotTo(BeEmpty())
 			Expect(cfg.Infrastructure.KubernetesPlatform()).NotTo(BeEmpty())
 			Expect(cfg.Infrastructure.HasOpenshift()).To(BeFalse())
-			Expect(cfg.IsAirGap).To(BeFalse(),"is airgap should be false")
+			Expect(cfg.IsAirGap).To(BeFalse(), "is airgap should be false")
 		})
 	})
 
-	Context("With AirGap environment information",func() {
-		BeforeEach(func(){
-			srv.Resolver().Zones[mockURL] = mockdns.Zone{A: []string{}}
+	Context("With AirGap environment information", func() {
+		var srv *mockdns.Server
+
+		BeforeEach(func() {
+			srv, _ = mockdns.NewServer(map[string]mockdns.Zone{
+				mockURL: {},
+			}, false)
+
+			os.Setenv("MARKETPLACE_URL", "mock.marketplace.com")
 			srv.PatchNet(net.DefaultResolver)
 		})
 
-		It("Should set the IsAirGap var on OperatorConfig", func(){
+		AfterEach(func() {
+			srv.Close()
+			mockdns.UnpatchNet(net.DefaultResolver)
+			os.Unsetenv("MARKETPLACE_URL")
+		})
+
+		It("Should set the IsAirGap var on OperatorConfig", func() {
 			cfg, err := ProvideInfrastructureAwareConfig(k8sClient, discoveryClient)
 
 			Expect(err).To(Succeed())

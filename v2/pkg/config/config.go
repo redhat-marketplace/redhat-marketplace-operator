@@ -161,7 +161,7 @@ func ProvideInfrastructureAwareConfig(
 
 		err = setAirGapStatus(cfg)
 		if err != nil {
-			return nil, errors.Wrap(err,"Could not get IP for redhat marketplace")
+			return nil, errors.Wrap(err, "Could not get IP for redhat marketplace")
 		}
 		global = cfg
 	}
@@ -169,9 +169,9 @@ func ProvideInfrastructureAwareConfig(
 	return global, nil
 }
 
-func setAirGapStatus(cfg *OperatorConfig)(error){
+func setAirGapStatus(cfg *OperatorConfig) error {
 	var rhmURL string
-	
+
 	rhmURL = utils.ProductionURL
 
 	if cfg.URL != "" {
@@ -185,47 +185,47 @@ func setAirGapStatus(cfg *OperatorConfig)(error){
 	}
 
 	var dialTimeoutFailed bool
-	u,_ := url.Parse(utils.ProductionURL)
+	u, _ := url.Parse(utils.ProductionURL)
 	trimmedProdUrl := u.Host
-	timeoutURL := fmt.Sprintf("%s:https",trimmedProdUrl)
+	timeoutURL := fmt.Sprintf("%s:https", trimmedProdUrl)
 	timeout := 1 * time.Second
-	_, err = net.DialTimeout("tcp",timeoutURL, timeout)
+	_, err = net.DialTimeout("tcp", timeoutURL, timeout)
 	if err != nil {
 		dialTimeoutFailed = checkError(err)
 	}
 
 	if ipLookUpFailed && dialTimeoutFailed {
-			cfg.IsAirGap = true
-			return nil
+		cfg.IsAirGap = true
+		return nil
 	}
 
-	log.Info("found IP for redhat marketplace","ip",ip)
+	log.Info("found IP for redhat marketplace", "ip", ip)
 	return nil
 }
 
-func checkError(err error)bool{
+func checkError(err error) bool {
 	if netError, ok := err.(net.Error); ok && netError.Timeout() {
-		log.Info("DialTimeout exceeds timeout","response",netError)
+		log.Info("DialTimeout exceeded timeout", "response", netError)
 		return true
 	}
 
-	switch t := err.(type) {	
+	switch t := err.(type) {
 	case *net.OpError:
 		if t.Op == "dial" {
-			log.Info("DialTimeout could not find host","response",t)
+			log.Info("DialTimeout could not find host", "response", t)
 			return true
-			
+
 		} else if t.Op == "read" {
-			log.Info("DialTimeout connection refused","response",t)
+			log.Info("DialTimeout connection refused", "response", t)
 			return true
 		}
 	case *net.DNSError:
-		if t.IsNotFound{
-			log.Info("LookupIP could not find host","response",t)
+		if t.IsNotFound {
+			log.Info("LookupIP could not find host", "response", t)
 			return true
 		}
 	}
-	
+
 	return false
 }
 
