@@ -5,6 +5,7 @@ go 1.15
 require (
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible
+	github.com/foxcpp/go-mockdns v0.0.0-20201212160233-ede2f9158d15 // indirect
 	github.com/go-logr/logr v0.3.0
 	github.com/google/go-cmp v0.5.5 // indirect
 	github.com/google/uuid v1.1.2
