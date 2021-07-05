@@ -1174,6 +1174,9 @@ _#findAllReleasePRs: (_#githubGraphQLQuery & {
 	_#args: {
 		id: "findAllReleasePRs"
 		with: {
+			varq: """
+				repo:${{ github.event.repository.owner.name }}/${{ github.event.repository.name }} is:pr is:open head:hotfix head:release
+				"""
 			query: """
 				query pr($varq: String!) {
 					search(query: $varq, type: ISSUE, last: 100) {
@@ -1190,7 +1193,6 @@ _#findAllReleasePRs: (_#githubGraphQLQuery & {
 					}
 				}
 				"""
-			varq: "repo:${{ env.GITHUB_REPOSITORY }} is:pr is:open head:hotfix head:release"
 		}
 	}
 }).res
