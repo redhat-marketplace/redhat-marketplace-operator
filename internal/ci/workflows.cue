@@ -119,7 +119,7 @@ release_status: _#bashWorkflow & {
 					id: "set-matrix"
 					run: """
 						OUTPUT=$(echo ${{steps.findAllReleasePRS.outputs.data}} | jq -cr '[.data.search.edges[].node]' )
-						echo "::set-output name=matrix::{\"include\":$OUTPUT}"
+						echo "::set-output name=matrix::{\\"include\\":$OUTPUT}"
 						"""
 				},
 			]
