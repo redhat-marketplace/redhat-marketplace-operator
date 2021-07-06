@@ -12,9 +12,9 @@ spec:
   - name: RELATED_IMAGE_AUTHCHECK
     image: $(AUTHCHECK_IMAGE_MARKER)
   - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
-    image: quay.io/razee/remoteresources3:0.9.0
+    image: quay.io/razee/remoteresources3:0.9.3
   - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
-    image: quay.io/razee/watch-keeper:0.7.5
+    image: quay.io/razee/watch-keeper:0.7.7
   - name: RELATED_IMAGE_PROMETHEUS
     image: registry.redhat.io/openshift4/ose-prometheus:v4.6
   - name: RELATED_IMAGE_OAUTH_PROXY
