@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-20.04
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix}}
+      empty: ${{ steps.set-matrix.outputs.emptymatrix}}
     defaults:
       run:
         shell: bash
@@ -35,9 +36,17 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - id: set-matrix
-      run: |-
-        OUTPUT=$(echo '${{ steps.findAllReleasePRs.outputs.data }}' | jq -cr '[.data.search.edges[].node]' )
-        echo "::set-output name=matrix::{\"include\":$OUTPUT}"
+      run: |
+        OUTPUT=$(echo '${{ steps.findAllReleasePRs.outputs.data }}'
+
+        if [[ "$OUTPUT" == "" ]] ; then
+          echo "::set-output name=emptymatrix::true"
+          echo "::set-output name=matrix::{\"include\":[]}"
+        else
+        	OUTPUT=$(echo $OUTPUT | jq -cr '[.search.edges[].node]' 2> /dev/null) || echo '[]'
+          echo "::set-output name=emptymatrix::false"
+          echo "::set-output name=matrix::{\"include\":$OUTPUT}"
+        fi
   status:
     name: Check publish status
     needs:
@@ -46,6 +55,7 @@ jobs:
     defaults:
       run:
         shell: bash
+    if: ${{ needs.prs.outputs.emptymatrix == 'false' }}
     steps:
     - id: pr
       name: Get PR for Comment

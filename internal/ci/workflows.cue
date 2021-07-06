@@ -118,19 +118,30 @@ release_status: _#bashWorkflow & {
 				_#step & {
 					id: "set-matrix"
 					run: """
-						OUTPUT=$(echo '${{ steps.findAllReleasePRs.outputs.data }}' | jq -cr '[.data.search.edges[].node]' )
-						echo "::set-output name=matrix::{\\"include\\":$OUTPUT}"
+						OUTPUT=$(echo '${{ steps.findAllReleasePRs.outputs.data }}'
+
+						if [[ "$OUTPUT" == "" ]] ; then
+						  echo "::set-output name=emptymatrix::true"
+						  echo "::set-output name=matrix::{\\"include\\":[]}"
+						else
+							OUTPUT=$(echo $OUTPUT | jq -cr '[.search.edges[].node]' 2> /dev/null) || echo '[]'
+						  echo "::set-output name=emptymatrix::false"
+						  echo "::set-output name=matrix::{\\"include\\":$OUTPUT}"
+						fi
+
 						"""
 				},
 			]
 			outputs: {
 				matrix: "${{ steps.set-matrix.outputs.matrix}}"
+				empty: "${{ steps.set-matrix.outputs.emptymatrix}}"
 			}
 		}
 		status: _#job & {
 			name:      "Check publish status"
 			"runs-on": _#linuxMachine
 			needs: ["prs"]
+      if: "${{ needs.prs.outputs.emptymatrix == 'false' }}"
 			strategy: matrix: "${{fromJson(needs.prs.outputs.matrix)}}"
 			steps: [
 				(_#findPRForComment & {
