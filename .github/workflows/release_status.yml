@@ -150,7 +150,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
     - id: operatorImageStatuses
-      name: Publish Operator Images
+      name: Fetch Operator Image Statuses
       run: |-
         make pc-tool
         OUTPUT=$(./bin/partner-connect-tool status $(.github/workflows/scripts/get_images.sh $TAG))
@@ -160,9 +160,10 @@ jobs:
         RH_PASSWORD: ${{ secrets['REDHAT_IO_PASSWORD'] }}
         RH_CONNECT_TOKEN: ${{ secrets.redhat_api_key }}
     - id: pretty
+      name: Format output
       run: |-
         results='${{ steps.operatorImageStatuses.outputs.imageStatus }}'
-        pushed=$(echo $results | jq '[.[] | length == 12'))
+        pushed=$(echo $results | jq '[.[] | length == 12')
 
         table="|Image | Certification Status | Publish Status |
         "
@@ -176,7 +177,8 @@ jobs:
         echo "::set-output name=all_published:$all_published"
         echo "::set-output name=all_passed:$all_passed"
         echo "::set-output name=pushed:$pushed"
-    - uses: marocchino/sticky-pull-request-comment@v2
+    - name: Post comment
+      uses: marocchino/sticky-pull-request-comment@v2
       with:
         header: imagestatus
         recreate: "true"

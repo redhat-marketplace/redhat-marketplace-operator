@@ -167,9 +167,10 @@ release_status: _#bashWorkflow & {
 				_#operatorImageStatuses,
 				_#step & {
 					id: "pretty"
+	        name: "Format output"
 					run: """
 						results='${{ steps.operatorImageStatuses.outputs.imageStatus }}'
-						pushed=$(echo $results | jq '[.[] | length == 12'))
+						pushed=$(echo $results | jq '[.[] | length == 12')
 						
 						table="|Image | Certification Status | Publish Status |\n"
 						table+="|:--:|:--:|:--:|\n"
@@ -184,6 +185,7 @@ release_status: _#bashWorkflow & {
 				},
 				_#step & {
 					uses: "marocchino/sticky-pull-request-comment@v2"
+          name: "Post comment"
 					with: {
 						header:   "imagestatus"
 						recreate: "true"
@@ -1035,7 +1037,7 @@ _#publishOperatorImages: _#step & {
 
 _#operatorImageStatuses: _#step & {
 	id:   "operatorImageStatuses"
-	name: "Publish Operator Images"
+	name: "Fetch Operator Image Statuses"
 	env: {
 		RH_USER:          "${{ secrets['REDHAT_IO_USER'] }}"
 		RH_PASSWORD:      "${{ secrets['REDHAT_IO_PASSWORD'] }}"
