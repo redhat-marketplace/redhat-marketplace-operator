@@ -118,7 +118,7 @@ release_status: _#bashWorkflow & {
 				_#step & {
 					id: "set-matrix"
 					run: """
-						OUTPUT=$(echo ${{steps.findAllReleasePRS.outputs.data}} | jq -cr '[.data.search.edges[].node]' )
+						OUTPUT=$(echo '${{ steps.findAllReleasePRs.outputs.data }}' | jq -cr '[.data.search.edges[].node]' )
 						echo "::set-output name=matrix::{\\"include\\":$OUTPUT}"
 						"""
 				},
@@ -1175,11 +1175,11 @@ _#findAllReleasePRs: (_#githubGraphQLQuery & {
 		id: "findAllReleasePRs"
 		with: {
 			varq: """
-				repo:${{ github.event.repository.owner.name }}/${{ github.event.repository.name }} is:pr is:open head:hotfix head:release
+
 				"""
 			query: """
-				query pr($varq: String!) {
-					search(query: $varq, type: ISSUE, last: 100) {
+				query {
+					search(query: "repo:redhat-marketplace/redhat-marketplace-operator is:pr is:open head:hotfix head:release", type: ISSUE, last: 100) {
 						edges {
 							node {
 								... on PullRequest {

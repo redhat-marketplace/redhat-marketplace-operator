@@ -16,11 +16,10 @@ jobs:
     - id: findAllReleasePRs
       uses: octokit/graphql-action@v2.x
       with:
-        varq: repo:${{ github.event.repository.owner.name }}/${{ github.event.repository.name
-          }} is:pr is:open head:hotfix head:release
+        varq: ""
         query: |-
-          query pr($varq: String!) {
-          	search(query: $varq, type: ISSUE, last: 100) {
+          query {
+          	search(query: "repo:redhat-marketplace/redhat-marketplace-operator is:pr is:open head:hotfix head:release", type: ISSUE, last: 100) {
           		edges {
           			node {
           				... on PullRequest {
@@ -37,7 +36,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - id: set-matrix
       run: |-
-        OUTPUT=$(echo ${{steps.findAllReleasePRS.outputs.data}} | jq -cr '[.data.search.edges[].node]' )
+        OUTPUT=$(echo '${{ steps.findAllReleasePRs.outputs.data }}' | jq -cr '[.data.search.edges[].node]' )
         echo "::set-output name=matrix::{\"include\":$OUTPUT}"
   status:
     name: Check publish status
