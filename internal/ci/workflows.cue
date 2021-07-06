@@ -163,6 +163,7 @@ release_status: _#bashWorkflow & {
 						"REF": "${{ steps.pr.outputs.prRef }}"
 					}
 				},
+        _#getBundleRunID,
 				_#checkoutCode,
 				_#operatorImageStatuses,
 				_#step & {
@@ -172,6 +173,7 @@ release_status: _#bashWorkflow & {
 results='${{ steps.operatorImageStatuses.outputs.imageStatus }}'
 pushed=$($(echo $results | jq '[.[] | length == 12' 2> /dev/null) | echo "false")
 NL='%0A'
+table="No images pushed"
 
 if [[ "$pushed" == "true" ]] ; then
   table="| Image | Certification Status | Publish Status |$NL"

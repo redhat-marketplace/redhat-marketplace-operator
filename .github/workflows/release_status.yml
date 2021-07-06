@@ -147,6 +147,32 @@ jobs:
         echo "REF=$REF" >> $GITHUB_ENV
       env:
         REF: ${{ steps.pr.outputs.prRef }}
+    - name: Get Latest Bundle Run
+      run: |-
+        WORKFLOW_ID=8480641
+        BRANCH_BUILD=$(curl \
+          -H "Accept: application/vnd.github.v3+json" \
+          "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/$WORKFLOW_ID/runs?branch=$REF&event=push" \
+           | jq '.workflow_runs | max_by(.run_number)')
+
+        if [ "$BRANCH_BUILD" == "" ]; then
+          echo "failed to get branch build"
+          exit 1
+        fi
+
+        status=$(echo $BRANCH_BUILD | jq -r '.status')
+        conclusion=$(echo $BRANCH_BUILD | jq -r '.conclusion')
+
+        if [ "$status" != "completed" ] && [ "$conclusion" != "success" ]; then
+          echo "$status and $conclusion were not completed and successful"
+          exit 1
+        fi
+
+        RUN_NUMBER=$(echo $BRANCH_BUILD | jq -r '.run_number')
+
+        export TAG="${VERSION}-${RUN_NUMBER}"
+        echo "setting tag to $TAG"
+        echo "TAG=$TAG" >> $GITHUB_ENV
     - name: Checkout code
       uses: actions/checkout@v2
     - id: operatorImageStatuses
@@ -165,6 +191,7 @@ jobs:
         results='${{ steps.operatorImageStatuses.outputs.imageStatus }}'
         pushed=$($(echo $results | jq '[.[] | length == 12' 2> /dev/null) | echo "false")
         NL='%0A'
+        table="No images pushed"
 
         if [[ "$pushed" == "true" ]] ; then
           table="| Image | Certification Status | Publish Status |$NL"
