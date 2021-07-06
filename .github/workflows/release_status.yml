@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-20.04
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix}}
-      empty: ${{ steps.set-matrix.outputs.emptymatrix}}
+      emptymatrix: ${{ steps.set-matrix.outputs.emptymatrix}}
     defaults:
       run:
         shell: bash

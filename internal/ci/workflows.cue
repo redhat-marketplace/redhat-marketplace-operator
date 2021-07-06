@@ -133,7 +133,7 @@ release_status: _#bashWorkflow & {
 			]
 			outputs: {
 				matrix: "${{ steps.set-matrix.outputs.matrix}}"
-				empty: "${{ steps.set-matrix.outputs.emptymatrix}}"
+				emptymatrix: "${{ steps.set-matrix.outputs.emptymatrix}}"
 			}
 		}
 		status: _#job & {
