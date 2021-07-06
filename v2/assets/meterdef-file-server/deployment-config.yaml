@@ -30,7 +30,7 @@ spec:
     spec:
       containers:
       - name: authcheck
-        image: redhat-marketplace-authcheck:latest
+        image: redhat-marketplace-authcheck
         resources:
           requests:
             cpu: 10m
@@ -38,6 +38,18 @@ spec:
           terminationMessagePolicy: FallbackToLogsOnError
       - name: rhm-meterdefinition-file-server
         image: quay.io/mxpaspa/rhm-meterdefinition-file-server@sha256:d289efcef33ea176ef58cea26796880baddc2348ebde528824d430fdec52b913
+        livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8100
+            initialDelaySeconds: 15
+            periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8100
+          initialDelaySeconds: 5
+          periodSeconds: 10
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8100
