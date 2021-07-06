@@ -170,17 +170,16 @@ release_status: _#bashWorkflow & {
 	        name: "Format output"
 					run: """
 						results='${{ steps.operatorImageStatuses.outputs.imageStatus }}'
-						pushed=$(echo $results | jq '[.[] | length == 12')
-						
-						table="|Image | Certification Status | Publish Status |\n"
-						table+="|:--:|:--:|:--:|\n"
-						table+=$(echo $results | jq '[.[] | "|[" + .name + ":" + .tags[0] + "](" + .url + ")|" + .certification_status + "|" + .publish_status + "|"] | join("\n")')
-						all_published=$(echo $results | jq '[.[] | select(.publish_status != \"Published\")] | length == 0'))
-						all_passed=$(echo $results | jq '[.[] | select(.certification_status != \"Passed\")] | length == 0'))
+						pushed=$(echo $results | jq '[.[] | length == 12' 2> /dev/null)
+						table="| Image | Certification Status | Publish Status |\\\n"
+						table+="|:--:|:--:|:--:|\\\n"
+						table+=$(echo $results | jq -r '[.[] | "|[" + .name + ":" + .tags[0] + "](" + .url + ")|" + .certification_status + "|" + .publish_status + "|"] | join("\\\n")' 2> /dev/null)
+						all_published=$(echo $results | jq -r '[.[] | select(.publish_status != \"Published\")] | length == 0' 2> /dev/null)
+						all_passed=$(echo $results | jq -r '[.[] | select(.certification_status != \"Passed\")] | length == 0' 2> /dev/null)
 						echo "::set-output name=table:$table"
-						echo "::set-output name=all_published:$all_published"
-						echo "::set-output name=all_passed:$all_passed"
-						echo "::set-output name=pushed:$pushed"
+						echo "::set-output name=all_published:${all_published:-false}"
+						echo "::set-output name=all_passed:${all_passed:-false}"
+						echo "::set-output name=pushed:${pushed:-false}"
 						"""
 				},
 				_#step & {
