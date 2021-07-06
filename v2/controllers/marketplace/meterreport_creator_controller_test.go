@@ -29,6 +29,7 @@ var _ = Describe("MeterbaseController", func() {
 		meterDef1 := &marketplacev1beta1.MeterDefinition{}
 		meterDef2 := &marketplacev1beta1.MeterDefinition{}
 		meterDef3 := &marketplacev1beta1.MeterDefinition{}
+		materDefNoLabel := &marketplacev1beta1.MeterDefinition{}
 		catNameA := "labelA"
 		mA := make(map[string]string)
 		mA["marketplace.redhat.com/category"] = catNameA
@@ -39,7 +40,7 @@ var _ = Describe("MeterbaseController", func() {
 		meterDef1.SetLabels(mA)
 		meterDef2.SetLabels(mB)
 		meterDef3.SetLabels(mA)
-		meterDefinitionList := []marketplacev1beta1.MeterDefinition{*meterDef1, *meterDef2, *meterDef3}
+		meterDefinitionList := []marketplacev1beta1.MeterDefinition{*meterDef1, *meterDef2, *meterDef3, *materDefNoLabel}
 
 		endDate := time.Now().UTC()
 		endDate = endDate.AddDate(0, 0, 0)
@@ -61,10 +62,11 @@ var _ = Describe("MeterbaseController", func() {
 		})
 
 		It("should return category names, excluding duplicated", func() {
-			Expect(meterDefinitionList).To(HaveLen((3)))
+			Expect(meterDefinitionList).To(HaveLen((4)))
 			categoryList := getCategoriesFromMeterDefinitions(meterDefinitionList)
-			Expect(categoryList).To(HaveLen(2))
-			Expect(categoryList).To(ContainElements([]string{catNameA, catNameB}))
+			Expect(categoryList).To(HaveLen(3))
+			// if meter definition has not label set up, category name is saved as an empty string ("") into category list
+			Expect(categoryList).To(ContainElements([]string{catNameA, catNameB, ""}))
 		})
 
 		It("should put category name into newly created meter report name", func() {
@@ -84,12 +86,12 @@ var _ = Describe("MeterbaseController", func() {
 			Expect(err).NotTo(BeNil())
 		})
 
-		It("should retrieve date properly for old and new report name format", func() {
+		It("should retrieve date properly for report name for old and new format (with and without category)", func() {
 			endDate := time.Date(2021, time.June, 1, 0, 0, 0, 0, time.UTC)
 			// old report name: meter-report-[date]
 			foundTime, _ := ctrl.retrieveCreatedDate("meter-report-2021-06-01")
 			Expect(foundTime).To(Equal(endDate))
-			// new report name: [date]-[label]
+			// new report name: [date]-[category label]
 			foundTime2, err := ctrl.retrieveCreatedDate("2021-06-01-label")
 			Expect(foundTime2).To(Equal(endDate))
 			Expect(err).To(BeNil())
@@ -97,8 +99,8 @@ var _ = Describe("MeterbaseController", func() {
 
 		It("should return only non-duplicated categories", func() {
 			categoryList := getCategoriesFromMeterDefinitions(meterDefinitionList)
-			Expect(categoryList).To(HaveLen(2))
-			Expect(categoryList).To(ContainElements([]string{catNameA, catNameB}))
+			Expect(categoryList).To(HaveLen(3))
+			Expect(categoryList).To(ContainElements([]string{catNameA, catNameB, ""}))
 		})
 	})
 
@@ -200,6 +202,13 @@ var _ = Describe("MeterbaseController", func() {
 				},
 				Spec: spec,
 			}
+			meterDefNoLabel := &marketplacev1beta1.MeterDefinition{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mdefnolabel",
+					Namespace: "openshift-redhat-marketplace",
+				},
+				Spec: spec,
+			}
 
 			catNameA := "labelA"
 			mA := make(map[string]string)
@@ -211,7 +220,7 @@ var _ = Describe("MeterbaseController", func() {
 			meterDef1.SetLabels(mA)
 			meterDef2.SetLabels(mB)
 			meterDef3.SetLabels(mA)
-			meterDefinitionList := []marketplacev1beta1.MeterDefinition{*meterDef1, *meterDef2, *meterDef3}
+			meterDefinitionList := []marketplacev1beta1.MeterDefinition{*meterDef1, *meterDef2, *meterDef3, *meterDefNoLabel}
 
 			for i := range meterDefinitionList {
 				Expect(k8sClient.Create(context.TODO(), &meterDefinitionList[i])).Should(Succeed())
@@ -251,7 +260,18 @@ var _ = Describe("MeterbaseController", func() {
 					meterReportNames = append(meterReportNames, report.Name)
 				}
 				return meterReportNames
-			}, timeout, interval).Should(ContainElements([]string{time.Now().Format(utils.DATE_FORMAT) + "-labela", time.Now().Format(utils.DATE_FORMAT) + "-labelb"}))
+			}, timeout, interval).Should(ContainElements([]string{time.Now().Format(utils.DATE_FORMAT) + "-labela", time.Now().Format(utils.DATE_FORMAT) + "-labelb", "meter-report-" + time.Now().Format(utils.DATE_FORMAT)}))
+
+			Eventually(func() int {
+				meterReportList := &marketplacev1alpha1.MeterReportList{}
+				err := k8sClient.List(context.TODO(), meterReportList, client.InNamespace("openshift-redhat-marketplace"))
+				Expect(err).To(Not(HaveOccurred()))
+				var meterReportNames []string
+				for _, report := range meterReportList.Items {
+					meterReportNames = append(meterReportNames, report.Name)
+				}
+				return len(meterReportNames)
+			}, timeout, interval).Should(Equal(3))
 		})
 	})
 })

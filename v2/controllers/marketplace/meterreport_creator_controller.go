@@ -309,7 +309,14 @@ func (r *MeterReportCreatorReconciler) newMeterReportNameFromDate(category strin
 
 func (r *MeterReportCreatorReconciler) newMeterReportNameFromString(category string, dateString string) (string, error) {
 	dateSuffix := dateString
-	reportName := strings.ToLower(fmt.Sprintf("%s-%s", dateSuffix, processCategoryString(category)))
+	var reportName string
+	if category == "" {
+		// for meter definitions without category it creates report in old forma name (meter-report-[date])
+		reportName = strings.ToLower(fmt.Sprintf("%s%s", utils.METER_REPORT_PREFIX, dateSuffix))
+	} else {
+		// for meter definition with category meter report name contains category ([date]-[category label])
+		reportName = strings.ToLower(fmt.Sprintf("%s-%s", dateSuffix, processCategoryString(category)))
+	}
 	if len(reportName) > 64 {
 		return reportName, errors.New("report name must be no more than 63 characters")
 	}
