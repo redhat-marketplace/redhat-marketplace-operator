@@ -118,7 +118,7 @@ release_status: _#bashWorkflow & {
 				_#step & {
 					id: "set-matrix"
 					run: """
-						OUTPUT=$(echo '${{ steps.findAllReleasePRs.outputs.data }}'
+						OUTPUT='${{ steps.findAllReleasePRs.outputs.data }}'
 
 						if [[ "$OUTPUT" == "" ]] ; then
 						  echo "::set-output name=emptymatrix::true"
@@ -128,7 +128,6 @@ release_status: _#bashWorkflow & {
 						  echo "::set-output name=emptymatrix::false"
 						  echo "::set-output name=matrix::{\\"include\\":$OUTPUT}"
 						fi
-
 						"""
 				},
 			]

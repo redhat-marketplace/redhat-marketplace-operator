@@ -36,8 +36,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - id: set-matrix
-      run: |
-        OUTPUT=$(echo '${{ steps.findAllReleasePRs.outputs.data }}'
+      run: |-
+        OUTPUT='${{ steps.findAllReleasePRs.outputs.data }}'
 
         if [[ "$OUTPUT" == "" ]] ; then
           echo "::set-output name=emptymatrix::true"
