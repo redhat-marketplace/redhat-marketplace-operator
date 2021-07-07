@@ -106,7 +106,7 @@ var _ = Describe("Config", func() {
 		})
 	})
 
-	Context("With AirGap environment information", func() {
+	Context("With AirGap environment status", func() {
 		var srv *mockdns.Server
 
 		BeforeEach(func() {

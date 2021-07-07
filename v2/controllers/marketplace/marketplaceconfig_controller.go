@@ -329,6 +329,11 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 	var updateInstanceSpec bool
 
+	if r.cfg.IsAirGap {
+		marketplaceConfig.Spec.Features.Deployment = ptr.Bool(false)
+		marketplaceConfig.Spec.Features.Registration = ptr.Bool(false)
+	}
+
 	if secret != nil {
 		if clusterDisplayName, ok := secret.Data[utils.ClusterDisplayNameKey]; ok {
 			count := utf8.RuneCountInString(string(clusterDisplayName))
@@ -391,10 +396,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	if err != nil && k8serrors.IsNotFound(err) {
 
 		newRazeeCrd := utils.BuildRazeeCr(marketplaceConfig.Namespace, marketplaceConfig.Spec.ClusterUUID, marketplaceConfig.Spec.DeploySecretName, marketplaceConfig.Spec.Features)
-
-		if r.cfg.IsAirGap {
-			newRazeeCrd.Spec.Features.Deployment = ptr.Bool(false)
-		}
 
 		// Sets the owner for foundRazee
 		if err = controllerutil.SetControllerReference(marketplaceConfig, newRazeeCrd, r.Scheme); err != nil {

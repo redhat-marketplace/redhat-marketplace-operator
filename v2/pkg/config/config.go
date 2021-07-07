@@ -124,6 +124,8 @@ func ProvideConfig() (*OperatorConfig, error) {
 		if err != nil {
 			return nil, err
 		}
+		
+		cfg.IsAirGap = setAirGapStatus(&cfg)
 
 		cfg.Infrastructure = &Infrastructure{}
 		global = &cfg
@@ -159,17 +161,18 @@ func ProvideInfrastructureAwareConfig(
 			cfg.RelatedImages = RelatedImages(cfg.OSRelatedImages)
 		}
 
-		err = setAirGapStatus(cfg)
+		cfg.IsAirGap = setAirGapStatus(cfg)
 		if err != nil {
 			return nil, errors.Wrap(err, "Could not get IP for redhat marketplace")
 		}
+
 		global = cfg
 	}
 
 	return global, nil
 }
 
-func setAirGapStatus(cfg *OperatorConfig) error {
+func setAirGapStatus(cfg *OperatorConfig) (bool) {
 	var rhmURL string
 
 	rhmURL = utils.ProductionURL
@@ -195,12 +198,11 @@ func setAirGapStatus(cfg *OperatorConfig) error {
 	}
 
 	if ipLookUpFailed && dialTimeoutFailed {
-		cfg.IsAirGap = true
-		return nil
+		return true
 	}
 
 	log.Info("found IP for redhat marketplace", "ip", ip)
-	return nil
+	return false
 }
 
 func checkError(err error) bool {
