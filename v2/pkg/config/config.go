@@ -162,9 +162,6 @@ func ProvideInfrastructureAwareConfig(
 		}
 
 		cfg.IsAirGap = setAirGapStatus(cfg)
-		if err != nil {
-			return nil, errors.Wrap(err, "Could not get IP for redhat marketplace")
-		}
 
 		global = cfg
 	}
