@@ -190,6 +190,10 @@ jobs:
         ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=s390x --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG-s390x --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}})
         echo "::endgroup::"
       shell: bash {0}
+    - uses: peter-evans/create-or-update-comment@v1
+      with:
+        comment-id: ${{github.event.comment.id}}
+        reactions: rocket
   publish:
     name: Publish Images
     runs-on: ubuntu-20.04
@@ -344,6 +348,10 @@ jobs:
         ([[ $? == 0 ]] && echo "exists=true" || skopeo copy docker://quay.io/rh-marketplace/redhat-marketplace-operator-manifest:$TAG docker://scan.connect.redhat.com/ospid-64f06656-d9d4-43ef-a227-3b9c198800a1/redhat-marketplace-operator-manifest:$TAG --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordOperatorManifest']}})
         echo "::endgroup::"
       shell: bash {0}
+    - uses: peter-evans/create-or-update-comment@v1
+      with:
+        comment-id: ${{github.event.comment.id}}
+        reactions: rocket
   publish-operator:
     name: Publish Operator
     runs-on: ubuntu-20.04
@@ -491,3 +499,7 @@ jobs:
         RH_USER: ${{ secrets['REDHAT_IO_USER'] }}
         RH_PASSWORD: ${{ secrets['REDHAT_IO_PASSWORD'] }}
         RH_CONNECT_TOKEN: ${{ secrets.redhat_api_key }}
+    - uses: peter-evans/create-or-update-comment@v1
+      with:
+        comment-id: ${{github.event.comment.id}}
+        reactions: rocket

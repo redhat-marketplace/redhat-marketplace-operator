@@ -177,6 +177,7 @@ release_status: _#bashWorkflow & {
 					with: {
 						header:   "imagestatus"
 						recreate: "true"
+            number: "${{ matrix.number }}"
 						message: """
 ## RH PC Status for tag: ${{ env.TAG }}
 
@@ -229,6 +230,7 @@ publish: _#bashWorkflow & {
 				_#getBundleRunID,
 				_#checkoutCode,
 				_#retagCommand,
+        _#addRocketToComment,
 			]
 		}
 		publish: _#job & {
@@ -262,6 +264,7 @@ publish: _#bashWorkflow & {
 				_#checkoutCode,
 				_#publishOperatorImages,
 				_#retagManifestCommand,
+        _#addRocketToComment,
 			]
 		}
 		"publish-operator": _#job & {
@@ -294,6 +297,7 @@ publish: _#bashWorkflow & {
 				_#redhatConnectLogin,
 				_#checkoutCode,
 				_#publishOperator,
+        _#addRocketToComment,
 			]
 		}
 	}
@@ -1234,4 +1238,12 @@ _#githubUpdateActionStep: {
 _#installYQ: _#step & {
 	name: "Install YQ"
 	run:  "sudo snap install yq"
+}
+
+_#addRocketToComment: _#step & {
+  uses: "peter-evans/create-or-update-comment@v1"
+  with: {
+    "comment-id": "${{github.event.comment.id}}"
+    reactions: "rocket"
+  }
 }

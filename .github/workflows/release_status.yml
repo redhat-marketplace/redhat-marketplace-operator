@@ -193,6 +193,7 @@ jobs:
       with:
         header: imagestatus
         recreate: "true"
+        number: ${{ matrix.number }}
         message: |-
           ## RH PC Status for tag: ${{ env.TAG }}
 
