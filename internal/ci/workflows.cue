@@ -183,10 +183,13 @@ if [[ "$pushed" == "true" ]] ; then
   all_passed=$(echo $results | jq -r '[.[] | select(.certification_status != \"Passed\")] | length == 0' 2> /dev/null)
 fi
 
-echo "::set-output name=table:'$table'"
 echo "::set-output name=all_published:${all_published:-false}"
 echo "::set-output name=all_passed:${all_passed:-false}"
 echo "::set-output name=pushed:${pushed:-false}"
+
+echo "MD_TABLE<<EOF" >> $GITHUB_ENV
+echo "$table" >> $GITHUB_ENV
+echo "EOF" >> $GITHUB_ENV"
 """
 				},
 				_#step & {
@@ -202,7 +205,7 @@ echo "::set-output name=pushed:${pushed:-false}"
 * Ready to publish images? ${{ steps.pretty.outputs.all_passed }}
 * Ready to publish operator? ${{ steps.pretty.outputs.all_published }}
 
-${{steps.pretty.outputs.table}}
+${{env.MD_TABLE}}
 """
 					}
 				},
