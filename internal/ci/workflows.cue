@@ -169,28 +169,7 @@ release_status: _#bashWorkflow & {
 				_#step & {
 					id: "pretty"
 	        name: "Format output"
-					run: """
-results='${{ steps.operatorImageStatuses.outputs.imageStatus }}'
-pushed=$($(echo $results | jq '[.[] | length == 12' 2> /dev/null) | echo "false")
-NL='%0A'
-table="No images pushed"
-
-if [[ "$pushed" == "true" ]] ; then
-  table="| Image | Certification Status | Publish Status |$NL"
-  table+="|:--:|:--:|:--:|$NL"
-  table+=$(echo $results | jq -r '[.[] | "|[" + .name + ":" + .tags[0] + "](" + .url + ")|" + .certification_status + "|" + .publish_status + "|"] | join("%0A")' 2> /dev/null)
-  all_published=$(echo $results | jq -r '[.[] | select(.publish_status != \"Published\")] | length == 0' 2> /dev/null)
-  all_passed=$(echo $results | jq -r '[.[] | select(.certification_status != \"Passed\")] | length == 0' 2> /dev/null)
-fi
-
-echo "::set-output name=all_published:${all_published:-false}"
-echo "::set-output name=all_passed:${all_passed:-false}"
-echo "::set-output name=pushed:${pushed:-false}"
-
-echo "MD_TABLE<<EOF" >> $GITHUB_ENV
-echo "$table" >> $GITHUB_ENV
-echo "EOF" >> $GITHUB_ENV"
-"""
+					run: ".github/scripts/process_pc_status.sh '${{ steps.operatorImageStatuses.outputs.imageStatus }}'"
 				},
 				_#step & {
 					uses: "marocchino/sticky-pull-request-comment@v2"
