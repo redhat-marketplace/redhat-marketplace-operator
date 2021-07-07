@@ -17,7 +17,6 @@ jobs:
     - id: findAllReleasePRs
       uses: octokit/graphql-action@v2.x
       with:
-        varq: ""
         query: |-
           query {
           	search(query: "repo:redhat-marketplace/redhat-marketplace-operator is:pr is:open head:hotfix head:release", type: ISSUE, last: 100) {
@@ -187,7 +186,7 @@ jobs:
         RH_CONNECT_TOKEN: ${{ secrets.redhat_api_key }}
     - id: pretty
       name: Format output
-      run: .github/scripts/process_pc_status.sh '${{ steps.operatorImageStatuses.outputs.imageStatus
+      run: .github/workflows/scripts/process_pc_status.sh '${{ steps.operatorImageStatuses.outputs.imageStatus
         }}'
     - name: Post comment
       uses: marocchino/sticky-pull-request-comment@v2

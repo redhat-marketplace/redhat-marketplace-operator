@@ -169,7 +169,7 @@ release_status: _#bashWorkflow & {
 				_#step & {
 					id: "pretty"
 	        name: "Format output"
-					run: ".github/scripts/process_pc_status.sh '${{ steps.operatorImageStatuses.outputs.imageStatus }}'"
+					run: ".github/workflows/scripts/process_pc_status.sh '${{ steps.operatorImageStatuses.outputs.imageStatus }}'"
 				},
 				_#step & {
 					uses: "marocchino/sticky-pull-request-comment@v2"
@@ -1174,9 +1174,6 @@ _#findAllReleasePRs: (_#githubGraphQLQuery & {
 	_#args: {
 		id: "findAllReleasePRs"
 		with: {
-			varq: """
-
-				"""
 			query: """
 				query {
 					search(query: "repo:redhat-marketplace/redhat-marketplace-operator is:pr is:open head:hotfix head:release", type: ISSUE, last: 100) {
