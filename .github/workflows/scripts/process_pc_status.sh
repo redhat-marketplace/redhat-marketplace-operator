@@ -17,9 +17,9 @@ EOF
   all_passed=$(echo $results | jq -r '[.[] | select(.certification_status != "Passed")] | length == 0' 2> /dev/null)
 fi
 
-echo "::set-output name=all_published:${all_published:-false}"
-echo "::set-output name=all_passed:${all_passed:-false}"
-echo "::set-output name=pushed:${pushed:-false}"
+echo "::set-output name=all_published::${all_published:-false}"
+echo "::set-output name=all_passed::${all_passed:-false}"
+echo "::set-output name=pushed::${pushed:-false}"
 
 echo "MD_TABLE<<EOF" >> $GITHUB_ENV
 echo "$table" >> $GITHUB_ENV

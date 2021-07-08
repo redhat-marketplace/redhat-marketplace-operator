@@ -6,7 +6,8 @@ metadata:
     capabilities: Full Lifecycle
     categories: Developer Tools
     certified: "true"
-    description: The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
+    description: The Red Hat Marketplace Operator provides cluster management, metering
+      and operator installation for Red Hat Marketplace customers.
     olm.skipRange: '>=1.0.0 <2.2.0'
     operatorframework.io/suggested-namespace: openshift-redhat-marketplace
     operators.operatorframework.io/builder: operator-sdk-v1.2.0
@@ -25,27 +26,32 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers
+    - description: MarketplaceConfig is configuration manager for our Red Hat Marketplace
+        controllers
       displayName: Marketplace Config
       kind: MarketplaceConfig
       name: marketplaceconfigs.marketplace.redhat.com
       version: v1alpha1
-    - description: MeterBase is the resource that sets up Metering for Red Hat Marketplace. This is an internal resource not meant to be modified directly.
+    - description: MeterBase is the resource that sets up Metering for Red Hat Marketplace.
+        This is an internal resource not meant to be modified directly.
       displayName: Meter Base
       kind: MeterBase
       name: meterbases.marketplace.redhat.com
       version: v1alpha1
-    - description: MeterDefinition defines the meter workloads used to enable pay for use billing.
+    - description: MeterDefinition defines the meter workloads used to enable pay
+        for use billing.
       displayName: Meter Definition
       kind: MeterDefinition
       name: meterdefinitions.marketplace.redhat.com
       version: v1beta1
-    - description: MeterDefinition defines the meter workloads used to enable pay for use billing.
+    - description: MeterDefinition defines the meter workloads used to enable pay
+        for use billing.
       displayName: Meter Definition
       kind: MeterDefinition
       name: meterdefinitions.marketplace.redhat.com
       version: v1alpha1
-    - description: RazeeDeployment is the resources that deploys Razee for the Red Hat Marketplace. This is an internal resource not meant to be modified directly.
+    - description: RazeeDeployment is the resources that deploys Razee for the Red
+        Hat Marketplace. This is an internal resource not meant to be modified directly.
       displayName: Razee Deployment
       kind: RazeeDeployment
       name: razeedeployments.marketplace.redhat.com

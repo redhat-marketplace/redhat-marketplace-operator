@@ -81,7 +81,7 @@ yq:
 
 OPERATOR_SDK=$(PROJECT_DIR)/bin/operator-sdk
 operator-sdk:
-	$(call install-binary,https://github.com/operator-framework/operator-sdk/releases/download/v1.7.2,operator-sdk_$(UNAME)_$(ARCH),$(OPERATOR_SDK))
+	$(call install-binary,https://github.com/operator-framework/operator-sdk/releases/download/v1.8.0,operator-sdk_$(UNAME)_$(ARCH),$(OPERATOR_SDK))
 
 OPM=$(PROJECT_DIR)/bin/opm
 opm:
@@ -177,7 +177,7 @@ TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
 go mod init tmp ;\
 echo $(1) ;\
-GOBIN=$(PROJECT_DIR)/bin go get -u $(2) ;\
+GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef

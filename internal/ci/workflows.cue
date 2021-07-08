@@ -181,9 +181,9 @@ release_status: _#bashWorkflow & {
 						message: """
 ## RH PC Status for tag: ${{ env.TAG }}
 
-* Images are pushed? ${{ steps.pretty.outputs.pushed }}
-* Ready to publish images? ${{ steps.pretty.outputs.all_passed }}
-* Ready to publish operator? ${{ steps.pretty.outputs.all_published }}
+* Images are pushed? **${{ steps.pretty.outputs.pushed }}**
+* Ready to publish images? **${{ steps.pretty.outputs.all_passed }}**
+* Ready to publish operator? **${{ steps.pretty.outputs.all_published }}**
 
 ${{env.MD_TABLE}}
 """
