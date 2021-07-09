@@ -33,6 +33,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -59,7 +60,8 @@ const (
 	PrometheusServingCertsCABundle   = "assets/prometheus/serving-certs-ca-bundle.yaml"
 	PrometheusKubeletServingCABundle = "assets/prometheus/kubelet-serving-ca-bundle.yaml"
 
-	ReporterJob = "assets/reporter/job.yaml"
+	ReporterJob     = "assets/reporter/job.yaml"
+	ReporterCronJob = "assets/reporter/cronjob.yaml"
 
 	MetricStateDeployment     = "assets/metric-state/deployment.yaml"
 	MetricStateServiceMonitor = "assets/metric-state/service-monitor.yaml"
@@ -288,6 +290,28 @@ func (f *Factory) NewJob(manifest io.Reader) (*batchv1.Job, error) {
 	}
 
 	return j, nil
+}
+
+func (f *Factory) NewCronJob(manifest io.Reader) (*batchv1beta1.CronJob, error) {
+	j, err := NewCronJob(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	if j.GetNamespace() == "" {
+		j.SetNamespace(f.namespace)
+	}
+
+	return j, nil
+}
+
+func (f *Factory) UpdateCronJob(manifest io.Reader, j *batchv1beta1.CronJob) error {
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(j)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (f *Factory) NewRoute(manifest io.Reader) (*routev1.Route, error) {
@@ -652,6 +676,86 @@ func (f *Factory) ReporterJob(
 	return j, nil
 }
 
+func (f *Factory) UpdateReporterCronJob(
+	j *batchv1beta1.CronJob,
+	backoffLimit *int32,
+) error {
+	err := f.UpdateCronJob(MustAssetReader(ReporterCronJob), j)
+	if err != nil {
+		return err
+	}
+
+	if j.GetNamespace() == "" {
+		j.SetNamespace(f.namespace)
+	}
+
+	j.Spec.JobTemplate.Spec.BackoffLimit = backoffLimit
+	container := j.Spec.JobTemplate.Spec.Template.Spec.Containers[0]
+	container.Image = f.config.RelatedImages.Reporter
+
+	dataServiceArgs := []string{"--dataServiceCertFile=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt", "--dataServiceTokenFile=/etc/data-service-sa/data-service-token"}
+
+	container.Args = append(container.Args, dataServiceArgs...)
+
+	dataServiceVolumeMounts := []v1.VolumeMount{
+		{
+			Name:      "data-service-token-vol",
+			ReadOnly:  true,
+			MountPath: "/etc/data-service-sa",
+		},
+		{
+			Name:      "serving-certs-ca-bundle",
+			MountPath: "/etc/configmaps/serving-certs-ca-bundle",
+			ReadOnly:  false,
+		},
+	}
+
+	container.VolumeMounts = append(container.VolumeMounts, dataServiceVolumeMounts...)
+
+	dataServiceTokenVols := []v1.Volume{
+		{
+			Name: "serving-certs-ca-bundle",
+			VolumeSource: v1.VolumeSource{
+				ConfigMap: &v1.ConfigMapVolumeSource{
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: "serving-certs-ca-bundle",
+					},
+				},
+			},
+		},
+		{
+			Name: "data-service-token-vol",
+			VolumeSource: v1.VolumeSource{
+				Projected: &v1.ProjectedVolumeSource{
+					Sources: []v1.VolumeProjection{
+						{
+							ServiceAccountToken: &v1.ServiceAccountTokenProjection{
+								Audience:          utils.DataServiceAudience,
+								ExpirationSeconds: ptr.Int64(3600),
+								Path:              "data-service-token",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	j.Spec.JobTemplate.Spec.Template.Spec.Volumes = append(j.Spec.JobTemplate.Spec.Template.Spec.Volumes, dataServiceTokenVols...)
+
+	// Keep last 3 days of data
+	j.Spec.JobTemplate.Spec.TTLSecondsAfterFinished = ptr.Int32(86400 * 3)
+	j.Spec.JobTemplate.Spec.Template.Spec.Containers[0] = container
+
+	return nil
+}
+
+func (f *Factory) NewReporterCronJob(backoffLimit *int32) (*batchv1beta1.CronJob, error) {
+	j := &batchv1beta1.CronJob{}
+	err := f.UpdateReporterCronJob(j, backoffLimit)
+	return j, err
+}
+
 func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 	d, err := f.NewDeployment(MustAssetReader(MetricStateDeployment))
 	if err != nil {
@@ -807,6 +911,15 @@ func NewSecret(manifest io.Reader) (*v1.Secret, error) {
 
 func NewJob(manifest io.Reader) (*batchv1.Job, error) {
 	j := batchv1.Job{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&j)
+	if err != nil {
+		return nil, err
+	}
+	return &j, nil
+}
+
+func NewCronJob(manifest io.Reader) (*batchv1beta1.CronJob, error) {
+	j := batchv1beta1.CronJob{}
 	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&j)
 	if err != nil {
 		return nil, err
