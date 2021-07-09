@@ -61,3 +61,19 @@ func NewReporter(
 		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
 	))
 }
+
+func NewUploadTask(
+	ctx context.Context,
+	config *Config,
+) (*UploadTask, error) {
+	panic(wire.Build(
+		reconcileutils.CommandRunnerProviderSet,
+		managers.ProvideSimpleClientSet,
+		wire.Struct(new(UploadTask), "*"),
+		wire.InterfaceValue(new(logr.Logger), logger),
+		ProvideDownloader,
+		ProvideAdmin,
+		provideScheme,
+		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
+	))
+}

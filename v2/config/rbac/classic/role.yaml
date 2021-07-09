@@ -70,6 +70,7 @@ rules:
       - extensions
     resources:
       - jobs
+      - cronjobs
     verbs:
       - get
       - list
@@ -609,6 +610,7 @@ rules:
       - extensions
     resources:
       - jobs
+      - cronjobs
     verbs:
       - get
       - list

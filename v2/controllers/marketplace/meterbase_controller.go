@@ -23,35 +23,38 @@ import (
 	"strings"
 	"time"
 
+	merrors "emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
-	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/operrors"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-	ctrl "sigs.k8s.io/controller-runtime"
-
-	merrors "emperror.dev/errors"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
+	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/operrors"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
+	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
+	"k8s.io/client-go/util/retry"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -123,6 +126,12 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplacev1alpha1.MeterBase{}).
+		Watches(
+			&source.Kind{Type: &batchv1beta1.CronJob{}},
+			&handler.EnqueueRequestForOwner{
+				IsController: true,
+				OwnerType:    &marketplacev1alpha1.MeterBase{}},
+			builder.WithPredicates(namespacePredicate)).
 		Watches(
 			&source.Kind{Type: &corev1.ConfigMap{}},
 			&handler.EnqueueRequestForOwner{
@@ -398,6 +407,25 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		}
 
 		return result.Return()
+	}
+
+	// If DataService is enabled, create the CronJob that periodically uploads the Reports from the DataService
+	if instance.Spec.DataServiceEnabled {
+		result, err := r.createReporterCronJob(instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to createReporterCronJob")
+			return result, err
+		} else if result.Requeue || result.RequeueAfter != 0 {
+			return result, err
+		}
+	} else {
+		result, err := r.deleteReporterCronJob()
+		if err != nil {
+			reqLogger.Error(err, "Failed to deleteReporterCronJob")
+			return result, err
+		} else if result.Requeue || result.RequeueAfter != 0 {
+			return result, err
+		}
 	}
 
 	reqLogger.Info("finished reconciling")
@@ -1278,4 +1306,37 @@ func (r *MeterBaseReconciler) newBaseConfigMap(filename string, cr *marketplacev
 // belonging to the given prometheus CR name.
 func labelsForPrometheusOperator(name string) map[string]string {
 	return map[string]string{"prometheus": name}
+}
+
+func (r *MeterBaseReconciler) createReporterCronJob(instance *marketplacev1alpha1.MeterBase) (reconcile.Result, error) {
+	cronJob, err := r.factory.NewReporterCronJob(r.cfg.ReportController.RetryLimit)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, cronJob, func() error {
+			r.factory.SetControllerReference(instance, cronJob)
+			return r.factory.UpdateReporterCronJob(cronJob, r.cfg.ReportController.RetryLimit)
+		})
+		return err
+	})
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
+}
+
+func (r *MeterBaseReconciler) deleteReporterCronJob() (reconcile.Result, error) {
+	cronJob, err := r.factory.NewReporterCronJob(r.cfg.ReportController.RetryLimit)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	err = r.Client.Delete(context.TODO(), cronJob)
+	if err != nil && !kerrors.IsNotFound(err) {
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
 }
