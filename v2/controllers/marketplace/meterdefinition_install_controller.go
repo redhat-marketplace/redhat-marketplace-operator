@@ -129,7 +129,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		delete all existing meter definitions for the old version,
 		install fresh set of meter definitions for the current version and update meterdef store/CM
 	*/
-	if oldCSVVersion != csvVersion {
+	if len(oldCSVVersion) != 0 && oldCSVVersion != csvVersion {
 		// delete meterdefs for previous version and update meterDef CM
 		namespace := installMapping.Namespace
 		installedMeterDefs := installMapping.InstalledMeterdefinitions

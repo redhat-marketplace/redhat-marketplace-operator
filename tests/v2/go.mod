@@ -10,7 +10,7 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/google/wire v0.4.0
 	github.com/gotidy/ptr v1.3.0
-	github.com/onsi/ginkgo v1.15.0
+	github.com/onsi/ginkgo v1.16.1
 	github.com/onsi/gomega v1.11.0
 	github.com/openshift/api v0.0.0-20200930075302-db52bc4ef99f
 	github.com/operator-framework/api v0.3.25
