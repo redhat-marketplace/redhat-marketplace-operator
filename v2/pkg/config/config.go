@@ -169,7 +169,7 @@ func ProvideInfrastructureAwareConfig(
 	return global, nil
 }
 
-func setAirGapStatus(cfg *OperatorConfig) (bool) {
+func setAirGapStatus(cfg *OperatorConfig) bool {
 	var rhmURL string
 
 	rhmURL = utils.ProductionURL

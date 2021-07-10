@@ -332,7 +332,28 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	if r.cfg.IsAirGap {
 		marketplaceConfig.Spec.Features.Deployment = ptr.Bool(false)
 		marketplaceConfig.Spec.Features.Registration = ptr.Bool(false)
+
+		if marketplaceConfig.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionInstalling) {
+			ok := marketplaceConfig.Status.Conditions.SetCondition(status.Condition{
+				Type:    marketplacev1alpha1.ConditionIsAirGap,
+				Status:  corev1.ConditionTrue,
+				Reason:  marketplacev1alpha1.ReasonInternetDisconnected,
+				Message: "Detected AirGapped Environment, razee features are disabled",
+			})
+	
+			if ok {
+				err = r.Client.Status().Update(context.TODO(), marketplaceConfig)
+	
+				if err != nil {
+					reqLogger.Error(err, "Failed to update marketplaceconfig status.")
+					return reconcile.Result{}, err
+				}
+	
+				return reconcile.Result{Requeue: true}, nil
+			}
+		}
 	}
+	
 
 	if secret != nil {
 		if clusterDisplayName, ok := secret.Data[utils.ClusterDisplayNameKey]; ok {
@@ -624,60 +645,61 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	reqLogger.Info("Finding Cluster registration status")
-
-	requeueResult, requeue, err := func() (reconcile.Result, bool, error) {
-		if secret == nil {
+	if !r.cfg.IsAirGap {
+		requeueResult, requeue, err := func() (reconcile.Result, bool, error) {
+			if secret == nil {
+				return reconcile.Result{}, false, nil
+			}
+	
+			pullSecret, ok := secret.Data[utils.RHMPullSecretKey]
+	
+			if !ok {
+				return reconcile.Result{}, false, nil
+			}
+	
+			token := string(pullSecret)
+			tokenClaims, err := marketplace.GetJWTTokenClaim(token)
+			if err != nil {
+				reqLogger.Error(err, "error parsing token")
+				return reconcile.Result{Requeue: true}, false, nil
+			}
+	
+			reqLogger.Info("attempting to update registration")
+			marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
+				NewMarketplaceClient(token, tokenClaims)
+	
+			if err != nil {
+				reqLogger.Error(err, "error constructing marketplace client")
+				return reconcile.Result{Requeue: true}, true, err
+			}
+	
+			marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
+				AccountId:   marketplaceConfig.Spec.RhmAccountID,
+				ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
+			}
+	
+			registrationStatusOutput, err := marketplaceClient.RegistrationStatus(marketplaceClientAccount)
+			if err != nil {
+				reqLogger.Error(err, "registration status failed")
+				return reconcile.Result{Requeue: true}, true, err
+			}
+	
+			reqLogger.Info("attempting to update registration", "status", registrationStatusOutput.RegistrationStatus)
+	
+			statusConditions := registrationStatusOutput.TransformConfigStatus()
+	
+			for _, cond := range statusConditions {
+				updated = updated || marketplaceConfig.Status.Conditions.SetCondition(cond)
+			}
+	
 			return reconcile.Result{}, false, nil
+		}()
+	
+		if requeue || err != nil {
+			return requeueResult, err
 		}
-
-		pullSecret, ok := secret.Data[utils.RHMPullSecretKey]
-
-		if !ok {
-			return reconcile.Result{}, false, nil
-		}
-
-		token := string(pullSecret)
-		tokenClaims, err := marketplace.GetJWTTokenClaim(token)
-		if err != nil {
-			reqLogger.Error(err, "error parsing token")
-			return reconcile.Result{Requeue: true}, false, nil
-		}
-
-		reqLogger.Info("attempting to update registration")
-		marketplaceClient, err := marketplace.NewMarketplaceClientBuilder(r.cfg).
-			NewMarketplaceClient(token, tokenClaims)
-
-		if err != nil {
-			reqLogger.Error(err, "error constructing marketplace client")
-			return reconcile.Result{Requeue: true}, true, err
-		}
-
-		marketplaceClientAccount := &marketplace.MarketplaceClientAccount{
-			AccountId:   marketplaceConfig.Spec.RhmAccountID,
-			ClusterUuid: marketplaceConfig.Spec.ClusterUUID,
-		}
-
-		registrationStatusOutput, err := marketplaceClient.RegistrationStatus(marketplaceClientAccount)
-		if err != nil {
-			reqLogger.Error(err, "registration status failed")
-			return reconcile.Result{Requeue: true}, true, err
-		}
-
-		reqLogger.Info("attempting to update registration", "status", registrationStatusOutput.RegistrationStatus)
-
-		statusConditions := registrationStatusOutput.TransformConfigStatus()
-
-		for _, cond := range statusConditions {
-			updated = updated || marketplaceConfig.Status.Conditions.SetCondition(cond)
-		}
-
-		return reconcile.Result{}, false, nil
-	}()
-
-	if requeue || err != nil {
-		return requeueResult, err
 	}
-
+	
 	if updated {
 		//Updating Marketplace Config with Cluster Registration status
 		err = r.Client.Status().Update(context.TODO(), marketplaceConfig)
