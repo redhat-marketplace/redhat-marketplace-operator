@@ -70,11 +70,19 @@ func NewServiceAccountClient(namespace string, kubernetesInterface kubernetes.In
 }
 
 func (s *ServiceAccountClient) newTokenRequest(audience string, expireSeconds int64) *authv1.TokenRequest {
-	return &authv1.TokenRequest{
-		Spec: authv1.TokenRequestSpec{
-			Audiences:         []string{audience},
-			ExpirationSeconds: ptr.Int64(expireSeconds),
-		},
+	if len(audience) != 0 {
+		return &authv1.TokenRequest{
+			Spec: authv1.TokenRequestSpec{
+				Audiences:         []string{audience},
+				ExpirationSeconds: ptr.Int64(expireSeconds),
+			},
+		}
+	} else {
+		return &authv1.TokenRequest{
+			Spec: authv1.TokenRequestSpec{
+				ExpirationSeconds: ptr.Int64(expireSeconds),
+			},
+		}
 	}
 }
 

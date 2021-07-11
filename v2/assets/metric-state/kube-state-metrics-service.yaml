@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-state-metrics
+  labels:
+    app.kubernetes.io/name: kube-state-metrics
+spec:
+  type: ExternalName
+  externalName: kube-state-metrics.openshift-monitoring.svc.cluster.local

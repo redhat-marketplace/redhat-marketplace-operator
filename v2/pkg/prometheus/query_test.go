@@ -79,7 +79,16 @@ var _ = Describe("Query", func() {
 			Type:          v1beta1.WorkloadTypePVC,
 		})
 
-		expected := `sum by (persistentvolumeclaim,namespace) (avg(meterdef_persistentvolumeclaim_info{meter_def_name="foo",meter_def_namespace="foons",phase="Bound"}) without (instance,container,endpoint,job,service,pod,pod_uid,pod_ip,cluster_ip) * on(persistentvolumeclaim,namespace) group_right kube_persistentvolumeclaim_resource_requests_storage_bytes) * on(persistentvolumeclaim,namespace) group_right group (kube_persistentvolumeclaim_resource_requests_storage_bytes)`
+		expected := `sum by (persistentvolumeclaim,namespace)
+	(avg(label_replace(label_replace(meterdef_persistentvolumeclaim_info{meter_def_name="foo",meter_def_namespace="foons",phase="Bound"},"namespace","$1","exported_namespace","(.+)"),"persistentvolumeclaim","$1","exported_persistentvolumeclaim","(.+)"))
+		without (instance,container,endpoint,job,service,pod,pod_uid,pod_ip,exported_persistentvolumeclaim,cluster_ip,exported_namespace,prometheus,priority_class)
+		* on(persistentvolumeclaim,namespace)
+		group_right kube_persistentvolumeclaim_resource_requests_storage_bytes
+	)
+	* on(persistentvolumeclaim,namespace)
+	group_right group
+	(kube_persistentvolumeclaim_resource_requests_storage_bytes)`
+
 		q, err := q1.Print()
 		Expect(err).To(Succeed())
 		Expect(q).To(Equal(expected), "failed to create query for pvc")
@@ -99,7 +108,16 @@ var _ = Describe("Query", func() {
 			Without:       []string{"bar"},
 		})
 
-		expected := `sum by (foo) (avg(meterdef_persistentvolumeclaim_info{meter_def_name="foo",meter_def_namespace="foons",phase="Bound"}) without (instance,container,endpoint,job,service,pod,pod_uid,pod_ip,cluster_ip) * on(persistentvolumeclaim,namespace) group_right kube_persistentvolumeclaim_resource_requests_storage_bytes) * on(foo) group_right group without(bar) (kube_persistentvolumeclaim_resource_requests_storage_bytes)`
+		expected := `sum by (foo)
+	(avg(label_replace(label_replace(meterdef_persistentvolumeclaim_info{meter_def_name="foo",meter_def_namespace="foons",phase="Bound"},"namespace","$1","exported_namespace","(.+)"),"persistentvolumeclaim","$1","exported_persistentvolumeclaim","(.+)"))
+		without (instance,container,endpoint,job,service,pod,pod_uid,pod_ip,exported_persistentvolumeclaim,cluster_ip,exported_namespace,prometheus,priority_class)
+		* on(persistentvolumeclaim,namespace)
+		group_right kube_persistentvolumeclaim_resource_requests_storage_bytes
+	)
+	* on(foo)
+	group_right group without(bar)
+	(kube_persistentvolumeclaim_resource_requests_storage_bytes)`
+
 		q, err := q1.Print()
 		Expect(err).To(Succeed())
 		Expect(q).To(Equal(expected), "failed to create query for pvc")
@@ -118,7 +136,16 @@ var _ = Describe("Query", func() {
 			GroupBy:       []string{"persistentvolumeclaim"},
 		})
 
-		expected := `sum by (persistentvolumeclaim) (avg(meterdef_persistentvolumeclaim_info{meter_def_name="foo",meter_def_namespace="foons",phase="Bound"}) without (instance,container,endpoint,job,service,pod,pod_uid,pod_ip,cluster_ip) * on(persistentvolumeclaim,namespace) group_right kube_persistentvolumeclaim_resource_requests_storage_bytes) * on(persistentvolumeclaim) group_right group without(instance,container,endpoint,job,service,pod,pod_uid,pod_ip,cluster_ip,namespace) (kube_persistentvolumeclaim_resource_requests_storage_bytes)`
+		expected := `sum by (persistentvolumeclaim)
+	(avg(label_replace(label_replace(meterdef_persistentvolumeclaim_info{meter_def_name="foo",meter_def_namespace="foons",phase="Bound"},"namespace","$1","exported_namespace","(.+)"),"persistentvolumeclaim","$1","exported_persistentvolumeclaim","(.+)"))
+		without (instance,container,endpoint,job,service,pod,pod_uid,pod_ip,exported_persistentvolumeclaim,cluster_ip,exported_namespace,prometheus,priority_class)
+		* on(persistentvolumeclaim,namespace)
+		group_right kube_persistentvolumeclaim_resource_requests_storage_bytes
+	)
+	* on(persistentvolumeclaim)
+	group_right group without(namespace)
+	(kube_persistentvolumeclaim_resource_requests_storage_bytes)`
+
 		q, err := q1.Print()
 		Expect(err).To(Succeed())
 		Expect(q).To(Equal(expected), "failed to create query for pvc")

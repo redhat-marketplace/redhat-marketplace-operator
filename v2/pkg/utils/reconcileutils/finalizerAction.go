@@ -65,9 +65,19 @@ func RunFinalizer(
 		return Do(
 			HandleResult(
 				Do(actions...),
-				OnRequeue(RequeueResponse()),
-				OnNotFound(UpdateAction(instance)),
-				OnContinue(UpdateAction(instance))),
+				OnContinue(
+					HandleResult(
+						UpdateAction(instance),
+						OnContinue(ReturnFinishedResult()),
+					),
+				),
+				OnNotFound(
+					HandleResult(
+						UpdateAction(instance),
+						OnContinue(ReturnFinishedResult()),
+					),
+				),
+			),
 		), nil
 	}
 }

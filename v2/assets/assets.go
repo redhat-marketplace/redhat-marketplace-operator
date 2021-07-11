@@ -23,6 +23,8 @@ import (
 //go:embed *
 var assets embed.FS
 
+var ReadFile = assets.ReadFile
+
 func MustReadFileAsset(filename string) []byte {
 	bts, err := assets.ReadFile(filename)
 	if err != nil {
