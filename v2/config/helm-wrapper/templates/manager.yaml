@@ -83,5 +83,13 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.annotations['olm.operatorGroup']
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
       terminationGracePeriodSeconds: 10
       serviceAccountName: operator
