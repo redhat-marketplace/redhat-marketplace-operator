@@ -27,7 +27,8 @@ import (
 
 var log = logf.Log.WithName("reporter_upload_cmd")
 
-var cafile, tokenFile, deployedNamespace, dataServiceTokenFile, dataServiceCertFile string
+var deployedNamespace, dataServiceTokenFile, dataServiceCertFile string
+var uploadTargets []string
 var retry int
 
 var UploadCmd = &cobra.Command{
@@ -48,8 +49,6 @@ var UploadCmd = &cobra.Command{
 		cfg := &reporter.Config{
 			OutputDirectory:      tmpDir,
 			Retry:                ptr.Int(retry),
-			CaFile:               cafile,
-			TokenFile:            tokenFile,
 			DataServiceTokenFile: dataServiceTokenFile,
 			DataServiceCertFile:  dataServiceCertFile,
 			UploaderTarget:       uploadTarget,
@@ -78,10 +77,9 @@ var UploadCmd = &cobra.Command{
 }
 
 func init() {
-	UploadCmd.Flags().StringVar(&cafile, "cafile", "", "cafile for prometheus")
-	UploadCmd.Flags().StringVar(&tokenFile, "tokenfile", "", "token file for prometheus")
 	UploadCmd.Flags().StringVar(&dataServiceTokenFile, "dataServiceTokenFile", "", "token file for the data service")
 	UploadCmd.Flags().StringVar(&dataServiceCertFile, "dataServiceCertFile", "", "cert file for the data service")
+	UploadCmd.Flags().StringSliceVar(&uploadTargets, "uploadTargets", []string{"redhat-insights"}, "comma seperated list of targets to upload to")
 	UploadCmd.Flags().IntVar(&retry, "retry", 3, "number of retries")
 	UploadCmd.Flags().StringVar(&deployedNamespace, "deployedNamespace", "openshift-redhat-marketplace", "namespace where the rhm operator is deployed")
 }

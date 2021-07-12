@@ -72,6 +72,7 @@ func NewUploadTask(
 		wire.Struct(new(UploadTask), "*"),
 		wire.InterfaceValue(new(logr.Logger), logger),
 		ProvideDownloader,
+		ProvideUploader,
 		ProvideAdmin,
 		provideScheme,
 		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),

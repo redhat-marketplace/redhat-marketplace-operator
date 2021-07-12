@@ -107,6 +107,10 @@ func NewUploadTask(ctx context.Context, config2 *Config) (*UploadTask, error) {
 	if err != nil {
 		return nil, err
 	}
+	uploader, err := ProvideUploader(ctx, clientCommandRunner, logrLogger, config2)
+	if err != nil {
+		return nil, err
+	}
 	admin, err := ProvideAdmin(ctx, clientCommandRunner, logrLogger, config2)
 	if err != nil {
 		return nil, err
@@ -118,6 +122,7 @@ func NewUploadTask(ctx context.Context, config2 *Config) (*UploadTask, error) {
 		Config:     config2,
 		K8SScheme:  scheme,
 		Downloader: downloader,
+		Uploader:   uploader,
 		Admin:      admin,
 	}
 	return uploadTask, nil

@@ -23,7 +23,9 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	mathrand "math/rand"
 	"strings"
+	"time"
 
 	"github.com/gotidy/ptr"
 	routev1 "github.com/openshift/api/route/v1"
@@ -687,6 +689,12 @@ func (f *Factory) UpdateReporterCronJob(
 
 	if j.GetNamespace() == "" {
 		j.SetNamespace(f.namespace)
+	}
+
+	mathrand.Seed(time.Now().UnixNano())
+
+	if j.Spec.Schedule == "" {
+		j.Spec.Schedule = fmt.Sprintf("%v * * * *", mathrand.Intn(59))
 	}
 
 	j.Spec.JobTemplate.Spec.BackoffLimit = backoffLimit

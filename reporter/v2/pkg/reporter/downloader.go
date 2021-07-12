@@ -29,6 +29,9 @@ import (
 
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/oauth"
+
+	"os"
+	"path/filepath"
 )
 
 func (u *DataServiceDownloader) Name() string {
@@ -36,7 +39,7 @@ func (u *DataServiceDownloader) Name() string {
 }
 
 type Downloader interface {
-	DownloadFile(path string) ([]byte, error)
+	DownloadFile(path string) (string, error)
 	ListFiles() ([]string, error)
 }
 
@@ -63,7 +66,7 @@ func createDataServiceDownloadClient(dataServiceConfig *DataServiceConfig) (file
 
 	options := []grpc.DialOption{}
 
-	/* creat tls */
+	/* create tls */
 	tlsConf, err := createTlsConfig(dataServiceConfig.DataServiceCert)
 	if err != nil {
 		logger.Error(err, "failed to create creds")
@@ -94,8 +97,6 @@ func createDataServiceDownloadClient(dataServiceConfig *DataServiceConfig) (file
 func (d *DataServiceDownloader) ListFiles() ([]string, error) {
 	var req *fileretreiver.ListFileMetadataRequest
 
-	logger.Info("starting to list files")
-
 	fileList := []string{}
 
 	req = &fileretreiver.ListFileMetadataRequest{
@@ -118,19 +119,17 @@ func (d *DataServiceDownloader) ListFiles() ([]string, error) {
 		fileList = append(fileList, response.GetResults().FileId.GetName())
 	}
 
-	logger.Info("dac debug", "listFileMetadataResponse.Results", fileList)
-
 	return fileList, nil
 
 }
 
-func (d *DataServiceDownloader) DownloadFile(path string) ([]byte, error) {
+func (d *DataServiceDownloader) DownloadFile(path string) (string, error) {
 	fn := strings.TrimSpace(path)
 	var req *fileretreiver.DownloadFileRequest
 
 	// Validate input and prepare request
 	if len(fn) == 0 {
-		return nil, fmt.Errorf("file id/name is blank")
+		return "", fmt.Errorf("file id/name is blank")
 	} else {
 		req = &fileretreiver.DownloadFileRequest{
 			FileId: &v1.FileID{
@@ -143,27 +142,31 @@ func (d *DataServiceDownloader) DownloadFile(path string) ([]byte, error) {
 
 	resultStream, err := d.FileRetreiverClient.DownloadFile(context.Background(), req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to attempt download due to: %v", err)
+		return "", fmt.Errorf("failed to attempt download due to: %v", err)
 	}
 
-	var bs []byte
+	newFilePath := filepath.Join(os.TempDir(), path)
+	newFile, err := os.Create(newFilePath)
+	if err != nil {
+		panic(err)
+	}
+	defer newFile.Close()
+
 	for {
 		file, err := resultStream.Recv()
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			return nil, fmt.Errorf("error while reading stream: %v", err)
+			return "", fmt.Errorf("error while reading stream: %v", err)
 		}
 
-		data := file.GetChunkData()
-		if bs == nil {
-			bs = data
-		} else {
-			bs = append(bs, data...)
+		_, err = newFile.Write(file.GetChunkData())
+		if err != nil {
+			return "", fmt.Errorf("error while writing file: %v", err)
 		}
 	}
 
-	return bs, nil
+	return newFilePath, nil
 }
 
 func ProvideDownloader(

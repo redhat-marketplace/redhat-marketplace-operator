@@ -17,10 +17,13 @@ package reporter
 import (
 	"context"
 
+	"emperror.dev/errors"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/runtime"
 )
+
+// Task to upload the reports from dataservice to redhat-insights
 
 type UploadTask struct {
 	CC        ClientCommandRunner
@@ -29,6 +32,7 @@ type UploadTask struct {
 	Config    *Config
 	K8SScheme *runtime.Scheme
 	Downloader
+	Uploader
 	Admin
 }
 
@@ -36,33 +40,37 @@ func (r *UploadTask) Upload() error {
 	logger.Info("upload task run start")
 
 	// List the files from DataService
+	logger.Info("Listing files in data-service")
 	fileList, err := r.Downloader.ListFiles()
 	if err != nil {
 		return err
 	}
+	logger.Info("ListFiles", "Listed files in data-service", fileList)
 
 	for _, file := range fileList {
 		// Download the file from DataService
-		logger.Info("dac debug", "Download File", file)
-
-		fileBytes, err := r.Downloader.DownloadFile(file)
+		logger.Info("DownloadFile", "Downloading file from data-service", file)
+		localFileName, err := r.Downloader.DownloadFile(file)
 		if err != nil {
 			return err
 		}
-		logger.Info("dac debug", "Downloaded File", file)
+		logger.Info("DownloadFile", "Downloaded file from data-service", file)
 
 		// Upload the file to Insights
+		logger.Info("UploadFile", "Uploading file to redhat-insights", file)
+		err = r.Uploader.UploadFile(localFileName)
+		if err != nil {
+			return errors.Wrap(err, "error uploading file")
+		}
+		logger.Info("UploadFile", "Uploaded file to redhat-insights", file)
 
 		// Mark the file as deleted in DataService
-		logger.Info("dac debug", "Deleting File", file)
+		logger.Info("DeleteFile", "Deleting file from data-service", file)
 		err = r.Admin.DeleteFile(file)
 		if err != nil {
 			return err
 		}
-		logger.Info("dac debug", "Deleted File", file)
-
-		logger.Info("dac debug", "fileBytes", fileBytes)
-
+		logger.Info("DeleteFile", "Deleted file from data-service", file)
 	}
 
 	return nil

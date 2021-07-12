@@ -1,9 +1,8 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: rhm-meter-report
+  name: rhm-meter-report-upload
 spec:
-  schedule: "*/5 * * * *"
   jobTemplate:
     spec:
       template:
@@ -18,10 +17,6 @@ spec:
               args:
                 [
                   'upload',
-                  '--cafile',
-                  '/etc/configmaps/operator-cert-ca-bundle/service-ca.crt',
-                  '--tokenfile',
-                  '/etc/auth-service-account/token',
                 ]
               runAsUser:
               volumeMounts:

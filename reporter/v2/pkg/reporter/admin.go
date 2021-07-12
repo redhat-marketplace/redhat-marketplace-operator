@@ -49,8 +49,6 @@ func NewDataServiceAdmin(dataServiceConfig *DataServiceConfig) (Admin, error) {
 		return nil, err
 	}
 
-	logger.Info("dac debug", "adminServerClient", adminServerClient)
-
 	return &DataServiceAdmin{
 		AdminServerClient: adminServerClient,
 		DataServiceConfig: *dataServiceConfig,
@@ -63,7 +61,7 @@ func createDataServiceAdminClient(dataServiceConfig *DataServiceConfig) (adminse
 
 	options := []grpc.DialOption{}
 
-	/* creat tls */
+	/* create tls */
 	tlsConf, err := createTlsConfig(dataServiceConfig.DataServiceCert)
 	if err != nil {
 		logger.Error(err, "failed to create creds")
