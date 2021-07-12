@@ -26,6 +26,10 @@ Minimum system resources required:
 |           |             |             |           |       |
 | **Total** |          7  |     2       | 40        |       |
 
+### Storage
+
+The RedHat Marketplace Operator creates 2 dynamic persistent volumes to store monitoring data used for telemetry, both with _ReadWriteOnce_ access mode.
+
 ### Installing
 
 For installation and configuration see the [RedHat Marketplace documentation](https://marketplace.redhat.com/en-us/documentation/getting-started/).
