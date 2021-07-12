@@ -23,7 +23,6 @@ Minimum system resources required:
 
 | Software  | Memory (GB) | CPU (cores) | Disk (GB) | Nodes |
 | --------- | ----------- | ----------- | --------- | ----- |
-|           |             |             |           |       |
 | **Total** |          7  |     2       | 40        |       |
 
 ### Storage
@@ -34,7 +33,14 @@ The RedHat Marketplace Operator creates 2 dynamic persistent volumes to store mo
 
 For installation and configuration see the [RedHat Marketplace documentation](https://marketplace.redhat.com/en-us/documentation/getting-started/).
 
-## Documentation
+
+## Additional information
+
+### SecurityContextConstraints requirements
+
+The Redhat Marketplace Operator and its components support running under the OpenShift Container Platform default restricted security context constraints except for the Razee deployment controller which requires the anyuid security context constraint.
+
+### Documentation
 
 [RedHat Marketplace](https://marketplace.redhat.com/en-us/documentation)
 
