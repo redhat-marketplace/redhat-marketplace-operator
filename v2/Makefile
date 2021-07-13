@@ -186,6 +186,7 @@ bundle: clean manifests kustomize helm operator-sdk yq
 	$(YQ) eval -i ".metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations."olm.skipRange" = ">=1.0.0 <$(VERSION)"' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations.capabilities = "Seamless Upgrades"' $(CSV_YAML_BUNDLE_FILE)
+	$(YQ) eval -i '(.spec.installModes[].supported = true) | (.spec.installModes[3].supported = false)' $(CSV_YAML_BUNDLE_FILE)
 	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
 		--set operatorImage=OPERATOR_IMAGE \
 		--set metricStateImage=METRIC_STATE_IMAGE \
