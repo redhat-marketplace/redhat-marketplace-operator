@@ -4,35 +4,51 @@ on:
   push:
     branches:
     - release/2.3.0
+    - develop
 jobs:
+  develop:
+    name: Sync to next release
+    runs-on: ubuntu-20.04
+    defaults:
+      run:
+        shell: bash
+    if: ${{ github.ref == 'refs/heads/develop' }}
+    steps:
+    - name: pull-request-action
+      uses: vsoch/pull-request-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PULL_REQUEST_BRANCH: release/2.3.0
+        PULL_REQUEST_TITLE: Update next release branch ${{ env.GITHUB_REF }}
+        PULL_REQUEST_UPDATE: "true"
   sync:
     name: Sync next release
     runs-on: ubuntu-20.04
     defaults:
       run:
         shell: bash
+    if: ${{ github.ref == 'refs/heads/release/2.3.0' }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
-    - name: Get to branch
-      run: |-
-        FROM=`echo ${GITHUB_REF} | sed 's/refs\/head\///g' | sed 's/\//-/g'`
-        echo "PULL_REQUEST_FROM_BRANCH=$FROM" >> $GITHUB_ENV
     - name: pull-request-action
       uses: vsoch/pull-request-action@master
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         PULL_REQUEST_BRANCH: release/2.4.0
-        PULL_REQUEST_TITLE: 'chore: ${{ env.PULL_REQUEST_FROM_BRANCH }} to release/2.4.0'
+        PULL_REQUEST_TITLE: 'chore: ${{ env.GITHUB_REF }} to release/2.4.0'
+        PULL_REQUEST_UPDATE: "true"
     - name: pull-request-action
       uses: vsoch/pull-request-action@master
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         PULL_REQUEST_BRANCH: develop
-        PULL_REQUEST_TITLE: 'chore: ${{ env.PULL_REQUEST_FROM_BRANCH }} to develop'
+        PULL_REQUEST_TITLE: 'chore: ${{ env.GITHUB_REF }} to develop'
+        PULL_REQUEST_UPDATE: "true"
     - name: pull-request-action
       uses: vsoch/pull-request-action@master
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         PULL_REQUEST_BRANCH: master
-        PULL_REQUEST_TITLE: Release ${{ env.PULL_REQUEST_FROM_BRANCH }}
+        PULL_REQUEST_TITLE: Release ${{ env.GITHUB_REF }}
+        PULL_REQUEST_UPDATE: "true"
