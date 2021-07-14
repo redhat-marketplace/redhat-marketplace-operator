@@ -42,6 +42,7 @@ const (
 	WATCH_KEEPER_SECRET_NAME               = "watch-keeper-secret"
 	PROMETHEUS_METERBASE_NAME              = "rhm-prometheus-meterbase"
 	OPERATOR_CERTS_CA_BUNDLE_NAME          = "operator-certs-ca-bundle"
+	DATA_SERVICE_NAME                      = "rhm-dqlite"
 
 	/* All Controllers */
 	CONTROLLER_FINALIZER = "finalizer.marketplace.redhat.com"
@@ -90,7 +91,8 @@ const (
 	METER_REPORT_PREFIX = "meter-report-"
 
 	/* Auth */
-	PrometheusAudience = "rhm-prometheus-meterbase.openshift-redhat-marketplace.svc"
+	PrometheusAudience  = "rhm-prometheus-meterbase.openshift-redhat-marketplace.svc"
+	DataServiceAudience = "rhm-dqlite.openshift-redhat-marketplace.svc"
 
 	/* Certificate */
 	DQLITE_COMMONNAME_PREFIX = "*.rhm-dqlite" // wildcard.ServiceName

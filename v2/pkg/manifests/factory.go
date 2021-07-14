@@ -569,6 +569,7 @@ func (f *Factory) PrometheusServingCertsCABundle() (*v1.ConfigMap, error) {
 func (f *Factory) ReporterJob(
 	report *marketplacev1alpha1.MeterReport,
 	backoffLimit *int32,
+	uploadTarget string,
 ) (*batchv1.Job, error) {
 	j, err := f.NewJob(MustAssetReader(ReporterJob))
 
@@ -590,6 +591,58 @@ func (f *Factory) ReporterJob(
 
 	if len(report.Spec.ExtraArgs) > 0 {
 		container.Args = append(container.Args, report.Spec.ExtraArgs...)
+	}
+
+	if uploadTarget == "data-service" {
+		dataServiceArgs := []string{"--dataServiceCertFile=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt", "--dataServiceTokenFile=/etc/data-service-sa/data-service-token"}
+
+		container.Args = append(container.Args, dataServiceArgs...)
+
+		dataServiceVolumeMounts := []v1.VolumeMount{
+			{
+				Name:      "data-service-token-vol",
+				ReadOnly:  true,
+				MountPath: "/etc/data-service-sa",
+			},
+			{
+				Name:      "serving-certs-ca-bundle",
+				MountPath: "/etc/configmaps/serving-certs-ca-bundle",
+				ReadOnly:  false,
+			},
+		}
+
+		container.VolumeMounts = append(container.VolumeMounts, dataServiceVolumeMounts...)
+
+		dataServiceTokenVols := []v1.Volume{
+			{
+				Name: "serving-certs-ca-bundle",
+				VolumeSource: v1.VolumeSource{
+					ConfigMap: &v1.ConfigMapVolumeSource{
+						LocalObjectReference: v1.LocalObjectReference{
+							Name: "serving-certs-ca-bundle",
+						},
+					},
+				},
+			},
+			{
+				Name: "data-service-token-vol",
+				VolumeSource: v1.VolumeSource{
+					Projected: &v1.ProjectedVolumeSource{
+						Sources: []v1.VolumeProjection{
+							{
+								ServiceAccountToken: &v1.ServiceAccountTokenProjection{
+									Audience:          utils.DataServiceAudience,
+									ExpirationSeconds: ptr.Int64(3600),
+									Path:              "data-service-token",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		j.Spec.Template.Spec.Volumes = append(j.Spec.Template.Spec.Volumes, dataServiceTokenVols...)
 	}
 
 	// Keep last 3 days of data

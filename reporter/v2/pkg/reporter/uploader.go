@@ -15,8 +15,11 @@
 package reporter
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,15 +33,26 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
+
 	"github.com/gotidy/ptr"
+
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
+
+	"github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/filesender"
+	v1 "github.com/redhat-marketplace/redhat-marketplace-operator/airgap/v2/apis/model/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	"golang.org/x/net/http2"
+	"golang.org/x/oauth2"
+	"google.golang.org/grpc"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/jsonpath"
+
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/oauth"
 )
 
 type UploaderTarget interface {
@@ -49,7 +63,12 @@ var (
 	UploaderTargetRedHatInsights UploaderTarget = &RedHatInsightsUploader{}
 	UploaderTargetNoOp           UploaderTarget = &NoOpUploader{}
 	UploaderTargetLocalPath      UploaderTarget = &LocalFilePathUploader{}
+	UploaderTargetDataService    UploaderTarget = &DataServiceUploader{}
 )
+
+func (u *DataServiceUploader) Name() string {
+	return "data-service"
+}
 
 func (u *RedHatInsightsUploader) Name() string {
 	return "redhat-insights"
@@ -71,6 +90,8 @@ func MustParseUploaderTarget(s string) UploaderTarget {
 		return UploaderTargetLocalPath
 	case UploaderTargetNoOp.Name():
 		return UploaderTargetNoOp
+	case UploaderTargetDataService.Name():
+		return UploaderTargetDataService
 	default:
 		panic(errors.Errorf("provided string is not a valid upload target %s", s))
 	}
@@ -78,6 +99,200 @@ func MustParseUploaderTarget(s string) UploaderTarget {
 
 type Uploader interface {
 	UploadFile(path string) error
+}
+
+type DataServiceUploader struct {
+	DataServiceConfig
+	UploadClient filesender.FileSender_UploadFileClient
+}
+
+type DataServiceConfig struct {
+	Address          string `json:"address"`
+	DataServiceToken string `json:"dataServiceToken"`
+	DataServiceCert  []byte `json:"dataServiceCert"`
+}
+
+func provideDataServiceConfig(deployedNamespace string, dataServiceTokenFile string, dataServiceCertFile string) (*DataServiceConfig, error) {
+
+	cert, err := ioutil.ReadFile(dataServiceCertFile)
+	if err != nil {
+		return nil, err
+	}
+
+	var serviceAccountToken = ""
+	if dataServiceTokenFile != "" {
+		content, err := ioutil.ReadFile(dataServiceTokenFile)
+		if err != nil {
+			return nil, err
+		}
+		serviceAccountToken = fmt.Sprintf(string(content))
+	}
+
+	logger.Info("deployed namespace", "namespace", deployedNamespace)
+
+	var dataServiceDNS = fmt.Sprintf("%s.%s.svc.cluster.local:8002", utils.DATA_SERVICE_NAME, deployedNamespace)
+
+	return &DataServiceConfig{
+		Address:          dataServiceDNS,
+		DataServiceToken: serviceAccountToken,
+		DataServiceCert:  cert,
+	}, nil
+}
+
+func NewDataServiceUploader(dataServiceConfig *DataServiceConfig) (Uploader, error) {
+	uploadClient, err := createDataServiceUploadClient(dataServiceConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DataServiceUploader{
+		UploadClient:      uploadClient,
+		DataServiceConfig: *dataServiceConfig,
+	}, nil
+}
+
+func createDataServiceUploadClient(dataServiceConfig *DataServiceConfig) (filesender.FileSender_UploadFileClient, error) {
+	logger.Info("airgap url", "url", dataServiceConfig.Address)
+
+	options := []grpc.DialOption{}
+
+	/* creat tls */
+	tlsConf, err := createTlsConfig(dataServiceConfig.DataServiceCert)
+	if err != nil {
+		logger.Error(err, "failed to create creds")
+		return nil, err
+	}
+
+	options = append(options, grpc.WithTransportCredentials(credentials.NewTLS(tlsConf)))
+
+	/* create oauth2 token  */
+	oauth2Token := &oauth2.Token{
+		AccessToken: dataServiceConfig.DataServiceToken,
+	}
+
+	perRPC := oauth.NewOauthAccess(oauth2Token)
+	options = append(options, grpc.WithPerRPCCredentials(perRPC))
+
+	conn, err := grpc.Dial(dataServiceConfig.Address, options...)
+	if err != nil {
+		logger.Error(err, "failed to establish connection")
+		return nil, err
+	}
+
+	client := filesender.NewFileSenderClient(conn)
+
+	uploadClient, err := client.UploadFile(context.Background())
+	if err != nil {
+		logger.Error(err, "could not initialize uploadClient")
+		return nil, err
+	}
+
+	return uploadClient, nil
+}
+
+func createTlsConfig(caCert []byte) (*tls.Config, error) {
+	caCertPool, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get system cert pool")
+	}
+
+	ok := caCertPool.AppendCertsFromPEM(caCert)
+	if !ok {
+		err = errors.New("failed to append cert to cert pool")
+		logger.Error(err, "cert pool error")
+		return nil, err
+	}
+
+	return &tls.Config{
+		RootCAs: caCertPool,
+	}, nil
+}
+
+func (d *DataServiceUploader) UploadFile(path string) error {
+
+	m := map[string]string{
+		"version":    "v1",
+		"reportType": "rhm-metering",
+	}
+
+	logger.Info("starting chunk and upload", "file name", path)
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+
+	defer func() error {
+		if err := file.Close(); err != nil {
+			return err
+		}
+
+		return nil
+	}()
+
+	metaData, err := file.Stat()
+	if err != nil {
+		logger.Error(err, "Failed to get metadata")
+		return err
+	}
+
+	err = d.UploadClient.Send(&filesender.UploadFileRequest{
+		Data: &filesender.UploadFileRequest_Info{
+			Info: &v1.FileInfo{
+				FileId: &v1.FileID{
+					Data: &v1.FileID_Name{
+						Name: metaData.Name(),
+					},
+				},
+				Size:     uint32(metaData.Size()),
+				Metadata: m,
+			},
+		},
+	})
+
+	if err != nil {
+		logger.Error(err, "Failed to create metadata UploadFile request")
+		return err
+	}
+
+	chunkSize := 3
+	buffReader := bufio.NewReader(file)
+	buffer := make([]byte, chunkSize)
+	for {
+		n, err := buffReader.Read(buffer)
+		if err != nil {
+			if err != io.EOF {
+				logger.Error(err, "Error reading file")
+			}
+			break
+		}
+
+		request := filesender.UploadFileRequest{
+			Data: &filesender.UploadFileRequest_ChunkData{
+				ChunkData: buffer[0:n],
+			},
+		}
+		err = d.UploadClient.Send(&request)
+		if err != nil {
+			logger.Error(err, "Failed to create UploadFile request")
+			return err
+		}
+	}
+
+	res, err := d.UploadClient.CloseAndRecv()
+	if err != nil {
+		if err == io.EOF {
+            logger.Info("Stream EOF")
+            return nil
+        }
+
+		logger.Error(err, "Error getting response")
+		return err
+	}
+
+	logger.Info("airgap upload response", "response", res)
+
+	return nil
+
 }
 
 type RedHatInsightsUploaderConfig struct {
@@ -275,9 +490,9 @@ func ProvideUploader(
 	ctx context.Context,
 	cc ClientCommandRunner,
 	log logr.Logger,
-	uploaderTarget UploaderTarget,
+	reporterConfig *Config,
 ) (Uploader, error) {
-	switch uploaderTarget.(type) {
+	switch reporterConfig.UploaderTarget.(type) {
 	case *RedHatInsightsUploader:
 		config, err := provideProductionInsightsConfig(ctx, cc, log)
 
@@ -287,12 +502,19 @@ func ProvideUploader(
 
 		return NewRedHatInsightsUploader(config)
 	case *NoOpUploader:
-		return uploaderTarget.(Uploader), nil
+		return reporterConfig.UploaderTarget.(Uploader), nil
 	case *LocalFilePathUploader:
-		return uploaderTarget.(Uploader), nil
+		return reporterConfig.UploaderTarget.(Uploader), nil
+	case *DataServiceUploader:
+		dataServiceConfig, err := provideDataServiceConfig(reporterConfig.DeployedNamespace, reporterConfig.DataServiceTokenFile, reporterConfig.DataServiceCertFile)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewDataServiceUploader(dataServiceConfig)
 	}
 
-	return nil, errors.Errorf("uploader target not available %s", uploaderTarget.Name())
+	return nil, errors.Errorf("uploader target not available %s", reporterConfig.UploaderTarget.Name())
 }
 
 func provideProductionInsightsConfig(

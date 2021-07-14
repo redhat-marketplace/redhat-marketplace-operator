@@ -36,7 +36,6 @@ func NewTask(
 	panic(wire.Build(
 		reconcileutils.CommandRunnerProviderSet,
 		managers.ProvideSimpleClientSet,
-		wire.FieldsOf(new(*Config), "UploaderTarget"),
 		wire.Struct(new(Task), "*"),
 		wire.InterfaceValue(new(logr.Logger), logger),
 		ProvideUploader,

@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -52,9 +53,8 @@ type MeterReportReconciler struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
-
+	Log     logr.Logger
+	Scheme  *runtime.Scheme
 	CC      ClientCommandRunner
 	patcher patch.Patcher
 	cfg     *config.OperatorConfig
@@ -186,7 +186,27 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 				manifests.CreateIfNotExistsFactoryItem(
 					job,
 					func() (runtime.Object, error) {
-						return r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit)
+						var buildForDataService bool  
+						/*
+							--uploadTargets=data-service,redhat-insights
+							--nextArg=value
+						 */
+						for _, arg := range instance.Spec.ExtraArgs {
+							kv := strings.Split(arg,"=") // --uploadTargets=data-service,redhat-insights
+							k := kv[0]
+							v := strings.Split(kv[1],",") //"data-service,redhat-insights"
+							if k == "--uploadTargets" && utils.Contains(v,"data-service"){
+								buildForDataService = true
+							}
+						}
+						
+						if buildForDataService {
+							reqLogger.Info("meterreport","data-service arg set",instance.Spec.ExtraArgs)
+							return r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit, "data-service")
+						}
+
+						return r.factory.ReporterJob(instance, r.cfg.ReportController.RetryLimit, "")
+
 					}, CreateWithAddController(instance),
 				),
 				OnRequeue(UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobSubmitted)),
