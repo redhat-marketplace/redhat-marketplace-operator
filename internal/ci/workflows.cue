@@ -342,27 +342,10 @@ sync_branches: _#bashWorkflow & {
 	name: "Sync Next Release"
 	on: {
 		push: {
-			branches: [ _#nextRelease, "develop"]
+			branches: [ _#nextRelease ]
 		}
 	}
 	jobs: {
-    develop: {
-			name:      "Sync to next release"
-			"runs-on": _#linuxMachine
-      if: "${{ github.ref == 'refs/heads/develop' }}"
-      steps: [
-        _#step & {
-					name: "pull-request-action"
-					uses: "vsoch/pull-request-action@master"
-					env: {
-						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
-						"PULL_REQUEST_BRANCH": _#nextRelease
-						"PULL_REQUEST_TITLE":  "Update next release branch ${{ env.GITHUB_REF }}"
-            "PULL_REQUEST_UPDATE": "true"
-					}
-				},
-      ]
-    }
 		sync: {
 			name:      "Sync next release"
 			"runs-on": _#linuxMachine
@@ -374,7 +357,7 @@ sync_branches: _#bashWorkflow & {
 					env: {
 						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
 						"PULL_REQUEST_BRANCH": _#futureRelease
-            "PULL_REQUEST_TITLE" : "chore: ${{ env.GITHUB_REF }} to \(_#futureRelease)"
+            "PULL_REQUEST_TITLE" : "chore: ${{ github.ref }} to \(_#futureRelease)"
             "PULL_REQUEST_UPDATE": "true"
 					}
 				}
@@ -385,7 +368,7 @@ sync_branches: _#bashWorkflow & {
 					env: {
 						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
 						"PULL_REQUEST_BRANCH": "develop"
-            "PULL_REQUEST_TITLE" : "chore: ${{ env.GITHUB_REF }} to develop"
+            "PULL_REQUEST_TITLE" : "chore: ${{ github.ref }} to develop"
             "PULL_REQUEST_UPDATE": "true"
 					}
 				},
@@ -395,7 +378,7 @@ sync_branches: _#bashWorkflow & {
 					env: {
 						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
 						"PULL_REQUEST_BRANCH": "master"
-						"PULL_REQUEST_TITLE":  "Release ${{ env.GITHUB_REF }}"
+						"PULL_REQUEST_TITLE":  "Release ${{ github.ref }}"
             "PULL_REQUEST_UPDATE": "true"
 					}
 				},
