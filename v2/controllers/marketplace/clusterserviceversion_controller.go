@@ -32,13 +32,13 @@ import (
 	emperrors "emperror.dev/errors"
 	"github.com/go-logr/logr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/scheme"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	utils "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -54,6 +54,7 @@ import (
 const (
 	watchTag         string = "razee/watch-resource"
 	olmCopiedFromTag string = "olm.copiedFrom"
+	olmNamespace     string = "olm.operatorNamespace"
 	ignoreTag        string = "marketplace.redhat.com/ignore"
 	ignoreTagValue   string = "2"
 	meterDefStatus   string = "marketplace.redhat.com/meterDefinitionStatus"
@@ -188,6 +189,7 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 
 	if !hasMarketplaceSub {
 		reqLogger.Info("Does not have marketplace sub, ignoring CSV for future")
+
 		if v, ok := CSV.GetAnnotations()[ignoreTag]; !ok || v != ignoreTagValue {
 			retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 				err := r.Client.Get(context.TODO(),
@@ -304,6 +306,11 @@ func (r *ClusterServiceVersionReconciler) reconcileMeterDefAnnotation(CSV *olmv1
 		reqLogger.Info("No value for ", "key: ", utils.CSV_METERDEFINITION_ANNOTATION)
 		delete(annotations, meterDefError)
 		delete(annotations, meterDefStatus)
+		return reconcile.Result{}, false, nil
+	}
+
+	if ns, ok := CSV.GetAnnotations()[olmNamespace]; ok && ns != CSV.GetNamespace() {
+		reqLogger.Info("MeterDef is global and this CSV is not the head")
 		return reconcile.Result{}, false, nil
 	}
 
@@ -483,8 +490,10 @@ func csvFilter(metaNew metav1.Object) int {
 	_, hasCopiedFrom := ann[olmCopiedFromTag]
 	_, hasMeterDefinition := ann[utils.CSV_METERDEFINITION_ANNOTATION]
 
+	sameNamespace := ann[olmNamespace] == metaNew.GetNamespace()
+
 	switch {
-	case hasMeterDefinition && !hasCopiedFrom:
+	case hasMeterDefinition && !hasCopiedFrom && sameNamespace:
 		return 1
 	case !hasMeterDefinition && (!hasIgnoreTag || ignoreVal != ignoreTagValue):
 		return 2

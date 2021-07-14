@@ -24,7 +24,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/filter"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
+	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/sasha-s/go-deadlock"
 	"golang.org/x/time/rate"
@@ -50,11 +50,12 @@ type MeterDefinitionDictionary struct {
 	cache       cache.Store
 	keyFunc     cache.KeyFunc
 	delta       *cache.DeltaFIFO
+	client      runtimeClient.Client
 	starterList *v1beta1.MeterDefinitionList
 
 	meterDefinitionsSeen MeterDefinitionsSeenStore
 
-	findOwner *client.FindOwnerHelper
+	findOwner *rhmclient.FindOwnerHelper
 
 	log logr.Logger
 
@@ -65,7 +66,8 @@ type MeterDefinitionDictionary struct {
 func NewMeterDefinitionDictionary(
 	ctx context.Context,
 	kubeClient clientset.Interface,
-	findOwner *client.FindOwnerHelper,
+	client runtimeClient.Client,
+	findOwner *rhmclient.FindOwnerHelper,
 	namespaces pkgtypes.Namespaces,
 	log logr.Logger,
 	list *v1beta1.MeterDefinitionList,
@@ -76,6 +78,7 @@ func NewMeterDefinitionDictionary(
 
 	return &MeterDefinitionDictionary{
 		log:                  log.WithName("mdef_dictionary"),
+		client:               client,
 		keyFunc:              keyFunc,
 		cache:                store,
 		delta:                cache.NewDeltaFIFO(keyFunc, store),
@@ -419,7 +422,7 @@ func (def *MeterDefinitionDictionary) newMeterDefinitionExtended(obj interface{}
 		return nil, errors.New("expected meter definition")
 	}
 
-	lookup, err := filter.NewMeterDefinitionLookupFilter(meterdef, def.findOwner, def.log)
+	lookup, err := filter.NewMeterDefinitionLookupFilter(def.client, meterdef, def.findOwner, def.log)
 
 	if err != nil {
 		return nil, err

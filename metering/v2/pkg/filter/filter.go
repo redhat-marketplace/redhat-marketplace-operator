@@ -212,3 +212,9 @@ func (f *WorkloadAnnotationFilter) Filter(obj interface{}) (bool, error) {
 
 	return f.annotationSelector.Matches(labels.Set(meta.GetAnnotations())), nil
 }
+
+type FalseFilter struct{}
+
+func (f *FalseFilter) Filter(obj interface{}) (bool, error) {
+	return false, nil
+}
