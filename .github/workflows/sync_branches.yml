@@ -19,16 +19,16 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         PULL_REQUEST_BRANCH: release/2.4.0
-        PULL_REQUEST_TITLE: 'chore: ${{ env.PULL_REQUEST_FROM_BRANCH }} to release/2.4.0'
+        PULL_REQUEST_TITLE: 'chore: ${{ env.GITHUB_REF }} to release/2.4.0'
     - name: pull-request-action
       uses: vsoch/pull-request-action@master
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         PULL_REQUEST_BRANCH: develop
-        PULL_REQUEST_TITLE: 'chore: ${{ env.PULL_REQUEST_FROM_BRANCH }} to develop'
+        PULL_REQUEST_TITLE: 'chore: ${{ env.GITHUB_REF }} to develop'
     - name: pull-request-action
       uses: vsoch/pull-request-action@master
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         PULL_REQUEST_BRANCH: master
-        PULL_REQUEST_TITLE: Release ${{ env.PULL_REQUEST_FROM_BRANCH }}
+        PULL_REQUEST_TITLE: Release ${{ env.GITHUB_REF }}

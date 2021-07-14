@@ -356,7 +356,7 @@ sync_branches: _#bashWorkflow & {
 					env: {
 						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
 						"PULL_REQUEST_BRANCH": _#futureRelease
-            "PULL_REQUEST_TITLE" : "chore: ${{ env.PULL_REQUEST_FROM_BRANCH }} to \(_#futureRelease)"
+            "PULL_REQUEST_TITLE" : "chore: ${{ env.GITHUB_REF }} to \(_#futureRelease)"
 					}
 				}
 			}] + [
@@ -366,7 +366,7 @@ sync_branches: _#bashWorkflow & {
 					env: {
 						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
 						"PULL_REQUEST_BRANCH": "develop"
-            "PULL_REQUEST_TITLE" : "chore: ${{ env.PULL_REQUEST_FROM_BRANCH }} to develop"
+            "PULL_REQUEST_TITLE" : "chore: ${{ env.GITHUB_REF }} to develop"
 					}
 				},
 				_#step & {
@@ -375,7 +375,7 @@ sync_branches: _#bashWorkflow & {
 					env: {
 						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
 						"PULL_REQUEST_BRANCH": "master"
-						"PULL_REQUEST_TITLE":  "Release ${{ env.PULL_REQUEST_FROM_BRANCH }}"
+						"PULL_REQUEST_TITLE":  "Release ${{ env.GITHUB_REF }}"
 					}
 				},
 			]
