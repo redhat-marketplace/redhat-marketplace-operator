@@ -67,10 +67,10 @@ var _ reconcile.Reconciler = &MeterdefinitionInstallReconciler{}
 type MeterdefinitionInstallReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	Client client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
-	cfg    *config.OperatorConfig
+	Client        client.Client
+	Scheme        *runtime.Scheme
+	Log           logr.Logger
+	cfg           *config.OperatorConfig
 	kubeInterface kubernetes.Interface
 }
 
@@ -86,17 +86,16 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	reqLogger := r.Log.WithValues("Request.Name", request.Name, "Request.Namespace", request.Namespace)
 	reqLogger.Info("Reconciling ClusterServiceVersion")
 
-
 	// Fetch the ClusterServiceVersion instance
 	CSV := &olmv1alpha1.ClusterServiceVersion{}
 	err := r.Client.Get(context.TODO(), request.NamespacedName, CSV)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, check the meterdef store if there is an existing InstallMapping,delete, and return empty result
-			// If no install mapping found return empty result 
+			// If no install mapping found return empty result
 			_csvName := request.Name
-			reqLogger.Info("clusterserviceversion does not exist,checking install map for package","name",_csvName)
-			result := deleteInstallMapping(_csvName,r.cfg.DeployedNamespace ,request, r.Client, reqLogger)
+			reqLogger.Info("clusterserviceversion does not exist, checking install map for package", "name", _csvName)
+			result := deleteInstallMapping(_csvName, r.cfg.DeployedNamespace, request, r.Client, reqLogger)
 			if !result.Is(Continue) {
 				if result.Is(Error) {
 					reqLogger.Error(result.GetError(), "Failed deleting install mapping from meter definition store")
@@ -115,21 +114,45 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		result.Return()
 	}
 
-	// handle CSV updates: change in CSV version might change applicable meter definitions
-	if CSV.Status.Phase == olmv1alpha1.CSVPhaseReplacing {
-		/*
-			Easy flow: Delete all existing meter definitions for the operator and
-			install fresh set set of meterdefinitions for the current version of the CSV
-		*/
+	mdefStore, result := getMeterdefStoreFromCM(r.Client, r.cfg.DeployedNamespace, reqLogger)
+	if !result.Is(Continue) {
+		if result.Is(Error) {
+			reqLogger.Error(result.GetError(), "Failed getting meterdefstore")
+		}
+		return result.Return()
+	}
 
-		//TODO: pseudo code, needs testing in a real update scenario
-		mdefStore,result := getMeterdefStoreFromCM(r.Client,r.cfg.DeployedNamespace,reqLogger)
+	var oldCSVVersion string
+	var installMapping InstallMapping
+	for _, installMap := range mdefStore.InstallMappings {
+		if installMap.PackageName == csvPackageName && installMap.Namespace == request.Namespace {
+			oldCSVVersion = installMap.CsvVersion
+			installMapping = installMap
+		}
+	}
+
+	// handle CSV updates: change in CSV version might change applicable meter definitions
+	/*
+		delete all existing meter definitions for the old version,
+		install fresh set of meter definitions for the current version and update meterdef store/CM
+	*/
+	if len(oldCSVVersion) != 0 && oldCSVVersion != csvVersion {
+		// delete meterdefs for previous version and update meterDef CM
+		namespace := installMapping.Namespace
+		installedMeterDefs := installMapping.InstalledMeterdefinitions
+		err := deleteMeterDefintions(namespace, installedMeterDefs, r.Client, reqLogger)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		result := deleteInstallMapping(installMapping.CsvName, r.cfg.DeployedNamespace, request, r.Client, reqLogger)
 		if !result.Is(Continue) {
 			if result.Is(Error) {
-				reqLogger.Error(result.GetError(), "Failed getting meterdefstore")
+				reqLogger.Error(result.GetError(), "Failed deleting install mapping from meter definition store")
 			}
 			return result.Return()
 		}
+		reqLogger.Info("Successfully deleted meterdefintions and updated meterdef CM", "Count", len(installedMeterDefs), "Namespace", namespace, "PackageName", csvPackageName)
 
 		// delete meterdefs for previous version
 		for _, installMap := range mdefStore.InstallMappings {
@@ -139,38 +162,46 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 			if installMap.PackageName == csvPackageName {
 				err := deleteMeterDefintions(namespace, installedMeterDefs, r.Client, reqLogger)
 				if err != nil {
-					return reconcile.Result{},err
+					return reconcile.Result{}, err
 				}
 				reqLogger.Info("Successfully deleted meterdefintions", "Count", len(installedMeterDefs), "Namespace", namespace, "CSV", csvPackageName)
 			}
 		}
 
-		// install appropriate meterdefs for new version
-		meterDefNamesFromFileServer,meterDefsFromFileServer, result := ListMeterdefintionsFromFileServer(csvPackageName, csvVersion, CSV.Namespace,r.Client,r.kubeInterface,r.cfg.DeployedNamespace ,reqLogger)
+		// install appropriate meterdefs for new version and update meterdef CM
+		meterDefNamesFromFileServer, meterDefsFromFileServer, result := ListMeterdefintionsFromFileServer(csvPackageName, csvVersion, CSV.Namespace, r.Client, r.kubeInterface, r.cfg.DeployedNamespace, reqLogger)
 		if !result.Is(Continue) {
 			if result.Is(Error) {
 				reqLogger.Error(result.GetError(), "Failed retrieving meterdefinitions from file server")
 			}
 			return result.Return()
 		}
+		if len(meterDefsFromFileServer) > 0 {
+			meterDefsMapFromFileServer := make(map[string]marketplacev1beta1.MeterDefinition)
 
-		meterDefsMapFromFileServer := make(map[string]marketplacev1beta1.MeterDefinition)
+			for _, meterDefItem := range meterDefsFromFileServer {
+				meterDefsMapFromFileServer[meterDefItem.ObjectMeta.Name] = meterDefItem
+			}
 
-		for _, meterDefItem := range meterDefsFromFileServer {
-			meterDefsMapFromFileServer[meterDefItem.ObjectMeta.Name] = meterDefItem
+			err = createMeterDefintions(r.Scheme, r.Client, CSV.Namespace, csvPackageName, meterDefNamesFromFileServer, meterDefsMapFromFileServer, reqLogger)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+			result := addInstallMapping(csvPackageName, CSV.Name, csvVersion, r.cfg.DeployedNamespace, meterDefNamesFromFileServer, request, r.Client, reqLogger)
+			if !result.Is(Continue) {
+				if result.Is(Error) {
+					reqLogger.Error(result.GetError(), "Failed deleting install mapping from meter definition store")
+				}
+				return result.Return()
+			}
+
+			reqLogger.Info("Successfully created meterdefintions and updated meterdef CM", "Count", len(meterDefNamesFromFileServer), "Namespace", CSV.Namespace, "PackageName", csvPackageName)
 		}
-
-		err := createMeterDefintions(r.Scheme,r.Client,CSV.Namespace, csvPackageName, meterDefNamesFromFileServer, meterDefsMapFromFileServer, reqLogger)
-		if err != nil {
-			return reconcile.Result{},err
-		}
-
-		reqLogger.Info("Successfully created meterdefintions", "Count", len(meterDefNamesFromFileServer), "Namespace", CSV.Namespace, "CSV", csvPackageName)
-		return reconcile.Result{Requeue: true},nil
-
+		return reconcile.Result{Requeue: true}, nil
 	}
 
-	/* New CSV install */
+	// New CSV install
 	sub := &olmv1alpha1.SubscriptionList{}
 	if err := r.Client.List(context.TODO(), sub, client.InNamespace(request.NamespacedName.Namespace)); err != nil {
 		return reconcile.Result{}, err
@@ -191,7 +222,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 					if subscription.Status.InstalledCSV == request.NamespacedName.Name {
 						reqLogger.Info("found Subscription with installed CSV")
 
-						_,selectedMeterDefinitions, result := ListMeterdefintionsFromFileServer(csvPackageName, csvVersion, CSV.Namespace,r.Client,r.kubeInterface,r.cfg.DeployedNamespace ,reqLogger)
+						_, selectedMeterDefinitions, result := ListMeterdefintionsFromFileServer(csvPackageName, csvVersion, CSV.Namespace, r.Client, r.kubeInterface, r.cfg.DeployedNamespace, reqLogger)
 						if !result.Is(Continue) {
 
 							if result.Is(Error) {
@@ -322,12 +353,12 @@ func parsePackageNameAndVersion(csv *olmv1alpha1.ClusterServiceVersion, request 
 	}
 }
 
-func ListMeterdefintionsFromFileServer(packageName string, version string, namespace string,client client.Client ,kubeInterface kubernetes.Interface,deployedNamespace string,reqLogger logr.Logger) ([]string,[]marketplacev1beta1.MeterDefinition, *ExecResult) {
+func ListMeterdefintionsFromFileServer(packageName string, version string, namespace string, client client.Client, kubeInterface kubernetes.Interface, deployedNamespace string, reqLogger logr.Logger) ([]string, []marketplacev1beta1.MeterDefinition, *ExecResult) {
 	reqLogger.Info("retrieving meterdefinitions")
 
-	_client, err := createCatalogServerClient(client,deployedNamespace,kubeInterface,reqLogger)
+	_client, err := createCatalogServerClient(client, deployedNamespace, kubeInterface, reqLogger)
 	if err != nil {
-		return nil,nil, &ExecResult{
+		return nil, nil, &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
 		}
@@ -335,19 +366,19 @@ func ListMeterdefintionsFromFileServer(packageName string, version string, names
 
 	// returns all the meterdefinitions for associated with a particular CSV version
 	url := fmt.Sprintf("https://rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc.cluster.local:8200/list-for-version/%s/%s", packageName, version)
-	response,err := _client.Get(url)
+	response, err := _client.Get(url)
 	if err != nil {
 		reqLogger.Error(err, "Error on GET to Catalog Server")
 		if err == io.EOF {
 			reqLogger.Error(err, "Meterdefintion not found")
-			return nil,nil, &ExecResult{
+			return nil, nil, &ExecResult{
 				ReconcileResult: reconcile.Result{},
 				Err:             emperror.New("empty response"),
 			}
 		}
 
 		reqLogger.Error(err, "Error querying file server")
-		return nil,nil, &ExecResult{
+		return nil, nil, &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
 		}
@@ -358,7 +389,7 @@ func ListMeterdefintionsFromFileServer(packageName string, version string, names
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		reqLogger.Error(err, "error reading body")
-		return nil,nil, &ExecResult{
+		return nil, nil, &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
 		}
@@ -366,20 +397,19 @@ func ListMeterdefintionsFromFileServer(packageName string, version string, names
 
 	if len(data) == 0 {
 		reqLogger.Error(err, "no data in response")
-		return nil,nil, &ExecResult{
+		return nil, nil, &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
 		}
 	}
 
-	
-	reqLogger.Info("response data","data",string(data))
+	reqLogger.Info("response data", "data", string(data))
 
 	meterDefsData := strings.Replace(string(data), "<<NAMESPACE-PLACEHOLDER>>", namespace, -1)
 	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(meterDefsData)), 100).Decode(&mdefSlice)
 	if err != nil {
 		reqLogger.Error(err, "error decoding response from ListMeterdefinitionsFromFileServer()")
-		return nil,nil, &ExecResult{
+		return nil, nil, &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
 		}
@@ -390,9 +420,9 @@ func ListMeterdefintionsFromFileServer(packageName string, version string, names
 		meterDefNames = append(meterDefNames, meterDefItem.ObjectMeta.Name)
 	}
 
-	reqLogger.Info("meterdefintions returned from file server",packageName,meterDefNames)
-	
-	return meterDefNames,mdefSlice, &ExecResult{
+	reqLogger.Info("meterdefintions returned from file server", packageName, meterDefNames)
+
+	return meterDefNames, mdefSlice, &ExecResult{
 		Status: ActionResultStatus(Continue),
 	}
 }
@@ -419,7 +449,7 @@ func (r *MeterdefinitionInstallReconciler) setInstalledMeterdefinition(packageNa
 	}
 
 	mdefStore := mdefStoreCM.Data["meterdefinitionStore"]
-	updatedStore, err := addOrUpdateInstallList(packageName, csvName, csvVersion, installedMeterdef, mdefStore, request, reqLogger)
+	updatedStore, err := createOrUpdateInstalledMeterDefsList(packageName, csvName, csvVersion, installedMeterdef, mdefStore, request, reqLogger)
 	if err != nil {
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
@@ -445,7 +475,7 @@ func (r *MeterdefinitionInstallReconciler) setInstalledMeterdefinition(packageNa
 
 // string of meterdefinitions > add json to ./json-store
 // adds a new InstalledMeterdefinition to the json store
-func addOrUpdateInstallList(packageName string, csvName string, csvVersion string, installedMeterdef string, cmMdefStore string, request reconcile.Request, reqLogger logr.Logger) (string, error) {
+func createOrUpdateInstalledMeterDefsList(packageName string, csvName string, csvVersion string, installedMeterdef string, cmMdefStore string, request reconcile.Request, reqLogger logr.Logger) (string, error) {
 
 	meterdefStore := &MeterdefinitionStore{}
 
@@ -493,9 +523,9 @@ func addOrUpdateInstallList(packageName string, csvName string, csvVersion strin
 	return meterdefStoreJSON, nil
 }
 
-// deletes install mapping for (packageName + namespace) combination
-func deleteInstallMapping(csvName string,deployedNamespace string ,request reconcile.Request, client client.Client, reqLogger logr.Logger) *ExecResult {
-	
+// deletes install mapping for (csvName + namespace) combination
+func deleteInstallMapping(csvName string, deployedNamespace string, request reconcile.Request, client client.Client, reqLogger logr.Logger) *ExecResult {
+
 	// Fetch the mdefStoreCM instance
 	mdefStoreCM := &corev1.ConfigMap{}
 	err := client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME, Namespace: deployedNamespace}, mdefStoreCM)
@@ -532,7 +562,7 @@ func deleteInstallMapping(csvName string,deployedNamespace string ,request recon
 	for i, item := range meterdefStore.InstallMappings {
 		// remove the package's InstallMapping. Need to search by csvName here that's what is returned in the request
 		if item.CsvName == csvName && item.Namespace == request.Namespace {
-			reqLogger.Info("deletemeterdefinitions()","install map found",item)
+			reqLogger.Info("deletemeterdefinitions()", "install map found", item)
 			installMappingFound = true
 			meterdefStore.InstallMappings = append(meterdefStore.InstallMappings[:i], meterdefStore.InstallMappings[i+1:]...)
 			break
@@ -540,7 +570,7 @@ func deleteInstallMapping(csvName string,deployedNamespace string ,request recon
 	}
 
 	if !installMappingFound {
-		reqLogger.Info("delete install mapping","no install mapping found for package, ignoring",csvName)
+		reqLogger.Info("delete install mapping", "no install mapping found for package, ignoring", csvName)
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             nil,
@@ -567,27 +597,99 @@ func deleteInstallMapping(csvName string,deployedNamespace string ,request recon
 		}
 	}
 
-	reqLogger.Info("deleted install mapping","successfully deleted install map for package, exiting reconcile",csvName)
+	reqLogger.Info("deleted install mapping", "CSVName", csvName, "Namespace", request.Namespace)
 	return &ExecResult{
 		ReconcileResult: reconcile.Result{},
 		Err:             nil,
 	}
 }
 
-func getCatalogServerService (deployedNamespace string,client client.Client,reqLogger logr.InfoLogger) (*corev1.Service,error){
+// adds install mapping for (packageName + csvName + csvVersion + namespace) combination
+func addInstallMapping(packageName string, csvName string, csvVersion, deployedNamespace string, meterDefNames []string, request reconcile.Request, client client.Client, reqLogger logr.Logger) *ExecResult {
+
+	// Fetch the mdefStoreCM instance
+	mdefStoreCM := &corev1.ConfigMap{}
+	err := client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME, Namespace: deployedNamespace}, mdefStoreCM)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
+			}
+
+		}
+
+		reqLogger.Error(err, "Failed to get MeterdefintionConfigMap")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	mdefStore := mdefStoreCM.Data["meterdefinitionStore"]
+
+	meterdefStore := &MeterdefinitionStore{}
+
+	err = json.Unmarshal([]byte(mdefStore), meterdefStore)
+	if err != nil {
+		reqLogger.Error(err, "error unmarshaling meterdefinition store")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	newInstallMapping := InstallMapping{
+		PackageName:               packageName,
+		Namespace:                 request.Namespace,
+		CsvName:                   csvName,
+		CsvVersion:                csvVersion,
+		InstalledMeterdefinitions: meterDefNames,
+	}
+
+	meterdefStore.InstallMappings = append(meterdefStore.InstallMappings, newInstallMapping)
+
+	out, err := json.Marshal(meterdefStore)
+	if err != nil {
+		reqLogger.Error(err, "error marshaling meterdefinition store")
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	meterdefStoreJSON := string(out)
+	mdefStoreCM.Data["meterdefinitionStore"] = meterdefStoreJSON
+
+	err = client.Update(context.TODO(), mdefStoreCM)
+	if err != nil {
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	reqLogger.Info("added install mapping", "PackageName", packageName, "Namespace", request.Namespace)
+	return &ExecResult{
+		ReconcileResult: reconcile.Result{},
+		Err:             nil,
+	}
+}
+
+func getCatalogServerService(deployedNamespace string, client client.Client, reqLogger logr.InfoLogger) (*corev1.Service, error) {
 	service := &corev1.Service{}
 
-	err := client.Get(context.TODO(),types.NamespacedName{Namespace: deployedNamespace,Name: utils.CATALOG_SERVER_SERVICE_NAME},service)
+	err := client.Get(context.TODO(), types.NamespacedName{Namespace: deployedNamespace, Name: utils.CATALOG_SERVER_SERVICE_NAME}, service)
 	if err != nil {
 		return nil, err
 	}
 
-	return service,nil
+	return service, nil
 }
 
-func  getCertFromConfigMap(client client.Client,deployedNamespace string,reqLogger logr.Logger)([]byte,error){
+func getCertFromConfigMap(client client.Client, deployedNamespace string, reqLogger logr.Logger) ([]byte, error) {
 	cm := &corev1.ConfigMap{}
-	err := client.Get(context.TODO(),types.NamespacedName{Namespace: deployedNamespace,Name: "serving-certs-ca-bundle"},cm)
+	err := client.Get(context.TODO(), types.NamespacedName{Namespace: deployedNamespace, Name: "serving-certs-ca-bundle"}, cm)
 	if err != nil {
 		return nil, err
 	}
@@ -603,11 +705,11 @@ func  getCertFromConfigMap(client client.Client,deployedNamespace string,reqLogg
 
 	cert := []byte(out)
 	return cert, nil
-	
+
 }
 
-func  createCatalogServerClient(client client.Client,deployedNamespace string,kubeInterface kubernetes.Interface,reqLogger logr.Logger) (*http.Client,error) {
-	service, err := getCatalogServerService(deployedNamespace,client,reqLogger)
+func createCatalogServerClient(client client.Client, deployedNamespace string, kubeInterface kubernetes.Interface, reqLogger logr.Logger) (*http.Client, error) {
+	service, err := getCatalogServerService(deployedNamespace, client, reqLogger)
 	if err != nil {
 		return nil, &ExecResult{
 			ReconcileResult: reconcile.Result{},
@@ -615,7 +717,7 @@ func  createCatalogServerClient(client client.Client,deployedNamespace string,ku
 		}
 	}
 
-	cert, err := getCertFromConfigMap(client,deployedNamespace,reqLogger)
+	cert, err := getCertFromConfigMap(client, deployedNamespace, reqLogger)
 	if err != nil {
 		return nil, err
 	}
@@ -626,44 +728,44 @@ func  createCatalogServerClient(client client.Client,deployedNamespace string,ku
 		return nil, err
 	}
 
-	if service != nil && len(cert) != 0 && authToken != ""{
+	if service != nil && len(cert) != 0 && authToken != "" {
 		caCertPool, err := x509.SystemCertPool()
 		if err != nil {
-			return nil,err
+			return nil, err
 		}
-	
+
 		ok := caCertPool.AppendCertsFromPEM(cert)
 		if !ok {
 			err = emperror.New("failed to append cert to cert pool")
 			reqLogger.Error(err, "cert pool error")
 			return nil, err
 		}
-	
+
 		tlsConfig := &tls.Config{
 			RootCAs: caCertPool,
 		}
-	
+
 		var transport http.RoundTripper = &http.Transport{
 			TLSClientConfig: tlsConfig,
 			Proxy:           http.ProxyFromEnvironment,
 		}
-	
+
 		transport = WithBearerAuth(transport, authToken)
-	
+
 		catalogServerClient := http.Client{
 			Transport: transport,
-			Timeout: 1 * time.Second,
+			Timeout:   1 * time.Second,
 		}
-	
+
 		reqLogger.Info("Catalog Server client created successfully")
-		return &catalogServerClient,nil
+		return &catalogServerClient, nil
 	}
 
 	return nil, &ExecResult{
 		ReconcileResult: reconcile.Result{},
 		Err:             emperror.New("catalog server client prerequisites not ready"),
 	}
-	
+
 }
 
 //TODO: these funcs are duplicated here, in marketplace_client.go, and prometheus_client.go
@@ -706,34 +808,33 @@ func fetchCSVInfo(csvProps string) map[string]interface{} {
 	return csvProperty["value"].(map[string]interface{})
 }
 
+func checkForCSVVersionChanges(evt event.UpdateEvent) bool {
+	oldCSVData := evt.MetaOld.GetAnnotations()[csvProp]
+	newCSVData := evt.MetaNew.GetAnnotations()[csvProp]
+	oldCSVProperties := fetchCSVInfo(oldCSVData)
+	newCSVProperties := fetchCSVInfo(newCSVData)
+	return oldCSVProperties["version"].(string) != newCSVProperties["version"].(string)
+}
+
 var rhmCSVControllerPredicates predicate.Funcs = predicate.Funcs{
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		if !reconcileCSV(e.MetaNew) || !reconcileCSV(e.MetaOld){
+		if !reconcileCSV(e.MetaNew) || !reconcileCSV(e.MetaOld) {
 			return false
 		}
-
-		oldCSV, ok := e.ObjectOld.(*olmv1alpha1.ClusterServiceVersion)
-		if !ok {
-			return false
-		}
-
-		// Limiting update operation to only handle this for now
-		// TODO: does this need to use the new object ? 
-		if oldCSV.Status.Phase == olmv1alpha1.CSVPhaseReplacing {
-			return true
-		}
-
-		return false
+		return checkForCSVVersionChanges(e)
 	},
+
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return reconcileCSV(e.Meta)
 	},
+
 	CreateFunc: func(e event.CreateEvent) bool {
-		return reconcileCSV(e.Meta) 
+		return reconcileCSV(e.Meta)
 
 	},
+
 	GenericFunc: func(e event.GenericEvent) bool {
-		return reconcileCSV(e.Meta) 
+		return reconcileCSV(e.Meta)
 	},
 }
 

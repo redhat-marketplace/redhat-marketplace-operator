@@ -183,7 +183,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	if !result.Is(Continue) {
 
 		if result.Is(Error) {
-			reqLogger.Error(result.GetError(), "Failed during sync operation")
+			reqLogger.Error(result.GetError(), "Failed during pruning operation")
 		}
 
 		return result.Return()
@@ -469,7 +469,7 @@ func (r *DeploymentConfigReconciler) pruneDeployPods(latestVersion int64, reques
 		reqLogger.Info("Prune", "deploy pod", pod.Name)
 		podLabelValue := pod.GetLabels()["openshift.io/deployer-pod-for.name"]
 		if podLabelValue != latestPodName {
-			
+
 			err := r.Client.Delete(context.TODO(), &pod)
 			if err != nil {
 				return &ExecResult{
