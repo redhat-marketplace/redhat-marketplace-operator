@@ -15,12 +15,16 @@
 package config
 
 import (
+	"fmt"
+	"net"
+	"net/url"
 	"sync"
 	"time"
 
 	"emperror.dev/errors"
 	"github.com/caarlos0/env/v6"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	"k8s.io/client-go/discovery"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -41,6 +45,7 @@ type OperatorConfig struct {
 	Marketplace
 	*Infrastructure
 	OLMInformation
+	IsAirGap bool `env:"IS_AIRGAP" envDefault:"false"`
 }
 
 // RelatedImages stores relatedimages for the operator
@@ -119,6 +124,8 @@ func ProvideConfig() (*OperatorConfig, error) {
 		if err != nil {
 			return nil, err
 		}
+		
+		cfg.IsAirGap = setAirGapStatus(&cfg)
 
 		cfg.Infrastructure = &Infrastructure{}
 		global = &cfg
@@ -154,10 +161,71 @@ func ProvideInfrastructureAwareConfig(
 			cfg.RelatedImages = RelatedImages(cfg.OSRelatedImages)
 		}
 
+		cfg.IsAirGap = setAirGapStatus(cfg)
+
 		global = cfg
 	}
 
 	return global, nil
+}
+
+func setAirGapStatus(cfg *OperatorConfig) bool {
+	var rhmURL string
+
+	rhmURL = utils.ProductionURL
+
+	if cfg.URL != "" {
+		rhmURL = cfg.URL
+	}
+
+	var ipLookUpFailed bool
+	ip, err := net.LookupIP(rhmURL)
+	if err != nil {
+		ipLookUpFailed = checkError(err)
+	}
+
+	var dialTimeoutFailed bool
+	u, _ := url.Parse(utils.ProductionURL)
+	trimmedProdUrl := u.Host
+	timeoutURL := fmt.Sprintf("%s:https", trimmedProdUrl)
+	timeout := 1 * time.Second
+	_, err = net.DialTimeout("tcp", timeoutURL, timeout)
+	if err != nil {
+		dialTimeoutFailed = checkError(err)
+	}
+
+	if ipLookUpFailed && dialTimeoutFailed {
+		return true
+	}
+
+	log.Info("found IP for redhat marketplace", "ip", ip)
+	return false
+}
+
+func checkError(err error) bool {
+	if netError, ok := err.(net.Error); ok && netError.Timeout() {
+		log.Info("DialTimeout exceeded timeout", "response", netError)
+		return true
+	}
+
+	switch t := err.(type) {
+	case *net.OpError:
+		if t.Op == "dial" {
+			log.Info("DialTimeout could not find host", "response", t)
+			return true
+
+		} else if t.Op == "read" {
+			log.Info("DialTimeout connection refused", "response", t)
+			return true
+		}
+	case *net.DNSError:
+		if t.IsNotFound {
+			log.Info("LookupIP could not find host", "response", t)
+			return true
+		}
+	}
+
+	return false
 }
 
 var GetConfig = ProvideConfig

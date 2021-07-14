@@ -125,6 +125,8 @@ const (
 	// ConditionRegistered means the cluster registered.
 	ConditionRegistrationError status.ConditionType = "RegistationError"
 
+	ConditionIsAirGap status.ConditionType = "IsAirGap"
+
 	// Reasons for install
 	ReasonStartInstall          status.ConditionReason = "StartInstall"
 	ReasonRazeeInstalled        status.ConditionReason = "RazeeInstalled"
