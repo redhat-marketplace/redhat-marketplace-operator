@@ -78,6 +78,8 @@ type MeterdefinitionInstallReconciler struct {
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions,verbs=update;patch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions;meterdefinitions/status,verbs=get;list;watch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions;meterdefinitions/status,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions;subscriptions,verbs=get;list;watch
+// +kubebuilder:rbac:urls=/rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc/list-for-version,verbs=get;
 
 // Reconcile reads that state of the cluster for a ClusterServiceVersion object and creates corresponding meter definitions if found
 func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
@@ -315,11 +317,6 @@ func parsePackageNameAndVersion(csv *olmv1alpha1.ClusterServiceVersion, request 
 		}
 	}
 
-	//TODO: don't need this
-	if strings.Contains(version, "-") {
-		version = strings.Split(version, "-")[0]
-	}
-
 	return packageName, version, &ExecResult{
 		Status: ActionResultStatus(Continue),
 	}
@@ -327,18 +324,20 @@ func parsePackageNameAndVersion(csv *olmv1alpha1.ClusterServiceVersion, request 
 
 func ListMeterdefintionsFromFileServer(packageName string, version string, namespace string,client client.Client ,kubeInterface kubernetes.Interface,deployedNamespace string,reqLogger logr.Logger) ([]string,[]marketplacev1beta1.MeterDefinition, *ExecResult) {
 	reqLogger.Info("retrieving meterdefinitions")
-	// returns all the meterdefinitions for associated with a particular CSV version
-	url := fmt.Sprintf("http://rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc.cluster.local:8100/list-for-version/%s/%s", packageName, version)
+
 	_client, err := createCatalogServerClient(client,deployedNamespace,kubeInterface,reqLogger)
 	if err != nil {
 		return nil,nil, &ExecResult{
 			ReconcileResult: reconcile.Result{},
-			Err:             emperror.New("empty response"),
+			Err:             err,
 		}
 	}
-	// response, err := http.Get(url)
+
+	// returns all the meterdefinitions for associated with a particular CSV version
+	url := fmt.Sprintf("https://rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc.cluster.local:8200/list-for-version/%s/%s", packageName, version)
 	response,err := _client.Get(url)
 	if err != nil {
+		reqLogger.Error(err, "Error on GET to Catalog Server")
 		if err == io.EOF {
 			reqLogger.Error(err, "Meterdefintion not found")
 			return nil,nil, &ExecResult{
@@ -355,8 +354,10 @@ func ListMeterdefintionsFromFileServer(packageName string, version string, names
 	}
 
 	mdefSlice := []marketplacev1beta1.MeterDefinition{}
+	defer response.Body.Close()
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
+		reqLogger.Error(err, "error reading body")
 		return nil,nil, &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
@@ -371,10 +372,13 @@ func ListMeterdefintionsFromFileServer(packageName string, version string, names
 		}
 	}
 
+	
+	reqLogger.Info("response data","data",string(data))
+
 	meterDefsData := strings.Replace(string(data), "<<NAMESPACE-PLACEHOLDER>>", namespace, -1)
 	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(meterDefsData)), 100).Decode(&mdefSlice)
 	if err != nil {
-		reqLogger.Error(err, "error decoding meterdefstore string")
+		reqLogger.Error(err, "error decoding response from ListMeterdefinitionsFromFileServer()")
 		return nil,nil, &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
@@ -570,10 +574,10 @@ func deleteInstallMapping(csvName string,deployedNamespace string ,request recon
 	}
 }
 
-func (r *MeterdefinitionInstallReconciler) getFileServerService (reqLogger logr.InfoLogger) (*corev1.Service,error){
+func getCatalogServerService (deployedNamespace string,client client.Client,reqLogger logr.InfoLogger) (*corev1.Service,error){
 	service := &corev1.Service{}
 
-	err := r.Client.Get(context.TODO(),types.NamespacedName{Namespace: r.cfg.DeployedNamespace,Name: "rhm-meterdefinition-file-server"},service)
+	err := client.Get(context.TODO(),types.NamespacedName{Namespace: deployedNamespace,Name: utils.CATALOG_SERVER_SERVICE_NAME},service)
 	if err != nil {
 		return nil, err
 	}
@@ -603,13 +607,13 @@ func  getCertFromConfigMap(client client.Client,deployedNamespace string,reqLogg
 }
 
 func  createCatalogServerClient(client client.Client,deployedNamespace string,kubeInterface kubernetes.Interface,reqLogger logr.Logger) (*http.Client,error) {
-	// service, err := r.getFileServerService(reqLogger)
-	// if err != nil {
-	// 	return nil, &ExecResult{
-	// 		ReconcileResult: reconcile.Result{},
-	// 		Err:             err,
-	// 	}
-	// }
+	service, err := getCatalogServerService(deployedNamespace,client,reqLogger)
+	if err != nil {
+		return nil, &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
 
 	cert, err := getCertFromConfigMap(client,deployedNamespace,reqLogger)
 	if err != nil {
@@ -622,47 +626,47 @@ func  createCatalogServerClient(client client.Client,deployedNamespace string,ku
 		return nil, err
 	}
 
-
-	caCertPool, err := x509.SystemCertPool()
-	if err != nil {
-		// return nil, 
-		return nil,err
+	if service != nil && len(cert) != 0 && authToken != ""{
+		caCertPool, err := x509.SystemCertPool()
+		if err != nil {
+			return nil,err
+		}
+	
+		ok := caCertPool.AppendCertsFromPEM(cert)
+		if !ok {
+			err = emperror.New("failed to append cert to cert pool")
+			reqLogger.Error(err, "cert pool error")
+			return nil, err
+		}
+	
+		tlsConfig := &tls.Config{
+			RootCAs: caCertPool,
+		}
+	
+		var transport http.RoundTripper = &http.Transport{
+			TLSClientConfig: tlsConfig,
+			Proxy:           http.ProxyFromEnvironment,
+		}
+	
+		transport = WithBearerAuth(transport, authToken)
+	
+		catalogServerClient := http.Client{
+			Transport: transport,
+			Timeout: 1 * time.Second,
+		}
+	
+		reqLogger.Info("Catalog Server client created successfully")
+		return &catalogServerClient,nil
 	}
 
-	ok := caCertPool.AppendCertsFromPEM(cert)
-	if !ok {
-		err = emperror.New("failed to append cert to cert pool")
-		reqLogger.Error(err, "cert pool error")
-		return nil, err
+	return nil, &ExecResult{
+		ReconcileResult: reconcile.Result{},
+		Err:             emperror.New("catalog server client prerequisites not ready"),
 	}
-
-	tlsConfig := &tls.Config{
-		RootCAs: caCertPool,
-	}
-
-	var transport http.RoundTripper = &http.Transport{
-		TLSClientConfig: tlsConfig,
-		Proxy:           http.ProxyFromEnvironment,
-	}
-
-	transport = WithBearerAuth(transport, authToken)
-
-	catalogServerClient := http.Client{
-		Transport: transport,
-		Timeout: 1 * time.Second,
-	}
-
-
-	return &catalogServerClient,nil
-
-	// prometheusAPI, err := NewPromAPI(service, &cert, authToken)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// return prometheusAPI, nil
 	
 }
 
+//TODO: these funcs are duplicated here, in marketplace_client.go, and prometheus_client.go
 func WithBearerAuth(rt http.RoundTripper, token string) http.RoundTripper {
 	addHead := WithHeader(rt)
 	addHead.Header.Set("Authorization", "Bearer "+token)

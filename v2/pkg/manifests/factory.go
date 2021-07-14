@@ -242,6 +242,10 @@ func (f *Factory) NewDeploymentConfig(manifest io.Reader) (*osappsv1.DeploymentC
 		d.Spec.Template.Annotations = make(map[string]string)
 	}
 
+	for i := range d.Spec.Template.Spec.Containers {
+		f.ReplaceImages(&d.Spec.Template.Spec.Containers[i])
+	}
+
 	return d, nil
 }
 

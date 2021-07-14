@@ -64,7 +64,8 @@ spec:
             - --upstream=http://127.0.0.1:8100/
             - --tls-cert-file=/etc/tls/private/tls.crt
             - --tls-private-key-file=/etc/tls/private/tls.key
-            - --upstream-ca-file=/etc/configmaps/serving-cert-ca-bundle/service-ca.crt
+            - --upstream-ca-file=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt
+            - --auth-token-audiences=rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc
         image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
         imagePullPolicy: Always
         name: kube-rbac-proxy
@@ -79,15 +80,15 @@ spec:
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
           - mountPath: /etc/tls/private
-            name: file-server-tls
+            name: rhm-meterdefinition-file-server-tls
             readOnly: false  
-          - mountPath: /etc/configmaps/serving-cert-ca-bundle
+          - mountPath: /etc/configmaps/serving-certs-ca-bundle
             name: serving-certs-ca-bundle
             readOnly: false        
       volumes:
-        - name: file-server-tls
+        - name: rhm-meterdefinition-file-server-tls
           secret:
-            secretName: file-server-tls
+            secretName: rhm-meterdefinition-file-server-tls
         - configMap:
             name: serving-certs-ca-bundle
           name: serving-certs-ca-bundle

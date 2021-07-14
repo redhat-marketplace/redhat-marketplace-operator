@@ -44,6 +44,7 @@ const (
 	OPERATOR_CERTS_CA_BUNDLE_NAME          = "operator-certs-ca-bundle"
 	METERDEF_INSTALL_MAP_NAME              = "rhm-meterdef-install-map"
 	DEPLOYMENT_CONFIG_NAME                 = "rhm-meterdefinition-file-server"
+	CATALOG_SERVER_SERVICE_NAME			   = "rhm-meterdefinition-file-server"
 
 	/* All Controllers */
 	CONTROLLER_FINALIZER = "finalizer.marketplace.redhat.com"
@@ -94,7 +95,7 @@ const (
 
 	/* Auth */
 	PrometheusAudience = "rhm-prometheus-meterbase.openshift-redhat-marketplace.svc"
-	FileServerAudience = "rhm-meterdefinition-file-server.svc"
+	FileServerAudience = "rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc"
 )
 
 var (

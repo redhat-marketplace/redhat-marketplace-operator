@@ -7,10 +7,18 @@ metadata:
   name: manager-role
 rules:
 - nonResourceURLs:
+  - '*'
+  verbs:
+  - get
+- nonResourceURLs:
   - /api/v1/query
   - /api/v1/query_range
   verbs:
   - create
+  - get
+- nonResourceURLs:
+  - /rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc/list-for-version
+  verbs:
   - get
 - apiGroups:
   - ""
@@ -201,6 +209,7 @@ rules:
   - get
   - list
   - update
+  - watch
 - apiGroups:
   - marketplace.redhat.com
   resources:

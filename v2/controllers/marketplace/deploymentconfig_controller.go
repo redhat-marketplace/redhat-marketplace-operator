@@ -15,15 +15,11 @@ package marketplace
 
 import (
 	// "bytes"
-	"bytes"
+
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"net/http"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -46,7 +42,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/utils/pointer"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -152,6 +147,7 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // +kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=get;list;watch
+// +kubebuilder:rbac:urls=/rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc/list-for-version,verbs=get;
 
 // Reconcile reads that state of the cluster for a MeterdefConfigmap object and makes changes based on the state read
 // and what is in the MeterdefConfigmap.Spec
@@ -489,40 +485,4 @@ func (r *DeploymentConfigReconciler) pruneDeployPods(latestVersion int64, reques
 	return &ExecResult{
 		Status: ActionResultStatus(Continue),
 	}
-}
-
-//TODO: not being used. Leaving here for now in case we need it
-func getMeterdefintionFromFileServer(packageName string, namespace string, mdefName string, reqLogger logr.Logger) (*marketplacev1beta1.MeterDefinition, error) {
-
-	url := fmt.Sprintf("http://rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc.cluster.local:8100/get/%s/%s", packageName, mdefName)
-	response, err := http.Get(url)
-	if err != nil {
-		if err == io.EOF {
-			reqLogger.Error(err, "Meterdefintion not found")
-			return nil, err
-		}
-
-		reqLogger.Error(err, "Error querying file server")
-		return nil, err
-	}
-
-	mdef := marketplacev1beta1.MeterDefinition{}
-	data, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(data) == 0 {
-		reqLogger.Error(err, "no data in response")
-		return nil, err
-	}
-
-	meterDefsData := strings.Replace(string(data), "<<NAMESPACE-PLACEHOLDER>>", namespace, -1)
-	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(meterDefsData)), 100).Decode(&mdef)
-	if err != nil {
-		reqLogger.Error(err, "error decoding meterdefstore string")
-		return nil, err
-	}
-
-	return &mdef, nil
 }
