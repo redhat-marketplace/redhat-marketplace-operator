@@ -32,3 +32,10 @@ spec:
           privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
+        resources:
+          limits:
+            cpu: 20m
+            memory: 25Mi
+          requests:
+            cpu: 10m
+            memory: 20Mi

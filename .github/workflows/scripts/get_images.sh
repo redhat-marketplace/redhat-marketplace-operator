@@ -3,7 +3,6 @@
 TAG=$1
 IMAGES=""
 
-export IMAGES=""
 ## getting image shas redhat-marketplace-operator
 shas="$(skopeo inspect docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG --raw | jq -r '.manifests[].digest' | xargs)"
 for sha in $shas; do
@@ -27,5 +26,7 @@ shas="$(skopeo inspect docker://quay.io/rh-marketplace/redhat-marketplace-authch
 for sha in $shas; do
 export IMAGES="--images https://connect.redhat.com/projects/5f62b71018e80cdc21edf22f/images,${sha},$TAG $IMAGES"
 done
+
+IMAGES="$IMAGES --images https://connect.redhat.com/projects/5f68c9457115dbd1183ccab6/images,,^$TAG(-\d+)*(-cert-\d+)*$"
 
 echo $IMAGES
