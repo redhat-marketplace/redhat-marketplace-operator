@@ -4,13 +4,30 @@ on:
   push:
     branches:
     - release/2.3.0
+    - develop
 jobs:
+  develop:
+    name: Sync to next release
+    runs-on: ubuntu-20.04
+    defaults:
+      run:
+        shell: bash
+    if: ${{ github.ref == 'refs/heads/develop' }}
+    steps:
+    - name: pull-request-action
+      uses: vsoch/pull-request-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PULL_REQUEST_BRANCH: release/2.3.0
+        PULL_REQUEST_TITLE: Update next release branch ${{ env.GITHUB_REF }}
+        PULL_REQUEST_UPDATE: "true"
   sync:
     name: Sync next release
     runs-on: ubuntu-20.04
     defaults:
       run:
         shell: bash
+    if: ${{ github.ref == 'refs/heads/release/2.3.0' }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
