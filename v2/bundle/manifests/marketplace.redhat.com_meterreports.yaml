@@ -33,10 +33,14 @@ spec:
       description: MeterReport is the Schema for the meterreports API
       properties:
         apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
           type: string
         kind:
-          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
@@ -53,9 +57,12 @@ spec:
                 type: string
               type: array
             meterDefinitionReferences:
-              description: MeterDefinitionReferences are used as the first meter definition source. Prometheus data is used to supplement.
+              description: MeterDefinitionReferences are used as the first meter definition
+                source. Prometheus data is used to supplement.
               items:
-                description: MeterDefinitionReference is a more friendly form to set on the MeterReport providing the default meter definitions to use for the day.
+                description: MeterDefinitionReference is a more friendly form to set
+                  on the MeterReport providing the default meter definitions to use
+                  for the day.
                 properties:
                   name:
                     description: Name is the name of the MeterDefinition
@@ -67,13 +74,16 @@ spec:
                     description: ResourceVersion
                     type: string
                   spec:
-                    description: Spec is a copy of the meter definition spec, this can be left empty and later filled in by the report tool.
+                    description: Spec is a copy of the meter definition spec, this
+                      can be left empty and later filled in by the report tool.
                     properties:
                       group:
                         description: Group defines the operator group of the meter
                         type: string
                       installedBy:
-                        description: InstalledBy is a reference to the CSV that install the meter definition. This is used to determine an operator group.
+                        description: InstalledBy is a reference to the CSV that install
+                          the meter definition. This is used to determine an operator
+                          group.
                         properties:
                           groupVersionKind:
                             description: GroupVersionKind of the resource
@@ -105,7 +115,8 @@ spec:
                         description: Kind defines the primary CRD kind of the meter
                         type: string
                       meters:
-                        description: Meters are the definitions related to the metrics that you would like to monitor.
+                        description: Meters are the definitions related to the metrics
+                          that you would like to monitor.
                         items:
                           properties:
                             aggregation:
@@ -117,19 +128,26 @@ spec:
                               - avg
                               type: string
                             dateLabelOverride:
-                              description: DateLabelOverride provides a means of overriding the date returned for the metric using a label. This is to handle cases where the metric is a constant that is calculated.
+                              description: DateLabelOverride provides a means of overriding
+                                the date returned for the metric using a label. This
+                                is to handle cases where the metric is a constant
+                                that is calculated.
                               type: string
                             description:
-                              description: Description is the overview of what the metric is providing for humans to read.
+                              description: Description is the overview of what the
+                                metric is providing for humans to read.
                               type: string
                             groupBy:
-                              description: Group is the set of label fields returned by query to aggregate on.
+                              description: Group is the set of label fields returned
+                                by query to aggregate on.
                               items:
                                 type: string
                               type: array
                               x-kubernetes-list-type: set
                             label:
-                              description: Label is the usage metrics key field on the report. Defaults to the metricId field if not provided
+                              description: Label is the usage metrics key field on
+                                the report. Defaults to the metricId field if not
+                                provided
                               type: string
                             metricId:
                               description: Metric is the id of the meter
@@ -138,16 +156,22 @@ spec:
                               description: Name of the metric for humans to read.
                               type: string
                             period:
-                              description: Period is the amount of time to segment the data into. Default is 1h.
+                              description: Period is the amount of time to segment
+                                the data into. Default is 1h.
                               type: string
                             query:
-                              description: Query to use for prometheus to find the metrics
+                              description: Query to use for prometheus to find the
+                                metrics
                               type: string
                             unit:
-                              description: Unit is the unit of the metrics. Defaults to the metricId field if not provided
+                              description: Unit is the unit of the metrics. Defaults
+                                to the metricId field if not provided
                               type: string
                             valueLabelOverride:
-                              description: ValueLabelOverride provides a means of overriding the value returned for the metric using a label. This is to handle cases where the metric is a constant that is calculated.
+                              description: ValueLabelOverride provides a means of
+                                overriding the value returned for the metric using
+                                a label. This is to handle cases where the metric
+                                is a constant that is calculated.
                               type: string
                             without:
                               description: Labels to filter out automatically.
@@ -156,7 +180,8 @@ spec:
                               type: array
                               x-kubernetes-list-type: set
                             workloadType:
-                              description: WorkloadType identifies the type of workload to look for. This can be pod or service right now.
+                              description: WorkloadType identifies the type of workload
+                                to look for. This can be pod or service right now.
                               enum:
                               - Pod
                               - Service
@@ -170,28 +195,48 @@ spec:
                           type: object
                         type: array
                       resourceFilters:
-                        description: ResourceFilters provide filters that will be used to find the workload objects. This is to find the exact resources the query is interested in. At least one must be provided.
+                        description: ResourceFilters provide filters that will be
+                          used to find the workload objects. This is to find the exact
+                          resources the query is interested in. At least one must
+                          be provided.
                         items:
                           properties:
                             annotation:
-                              description: Annotation uses the resource annotations to find resources to monitor.
+                              description: Annotation uses the resource annotations
+                                to find resources to monitor.
                               properties:
                                 annotationSelector:
-                                  description: AnnotationSelector are used to filter to the correct workload.
+                                  description: AnnotationSelector are used to filter
+                                    to the correct workload.
                                   properties:
                                     matchExpressions:
-                                      description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                      description: matchExpressions is a list of label
+                                        selector requirements. The requirements are
+                                        ANDed.
                                       items:
-                                        description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                        description: A label selector requirement
+                                          is a selector that contains values, a key,
+                                          and an operator that relates the key and
+                                          values.
                                         properties:
                                           key:
-                                            description: key is the label key that the selector applies to.
+                                            description: key is the label key that
+                                              the selector applies to.
                                             type: string
                                           operator:
-                                            description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                            description: operator represents a key's
+                                              relationship to a set of values. Valid
+                                              operators are In, NotIn, Exists and
+                                              DoesNotExist.
                                             type: string
                                           values:
-                                            description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                            description: values is an array of string
+                                              values. If the operator is In or NotIn,
+                                              the values array must be non-empty.
+                                              If the operator is Exists or DoesNotExist,
+                                              the values array must be empty. This
+                                              array is replaced during a strategic
+                                              merge patch.
                                             items:
                                               type: string
                                             type: array
@@ -203,29 +248,51 @@ spec:
                                     matchLabels:
                                       additionalProperties:
                                         type: string
-                                      description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                      description: matchLabels is a map of {key,value}
+                                        pairs. A single {key,value} in the matchLabels
+                                        map is equivalent to an element of matchExpressions,
+                                        whose key field is "key", the operator is
+                                        "In", and the values array contains only "value".
+                                        The requirements are ANDed.
                                       type: object
                                   type: object
                               type: object
                             label:
-                              description: Label uses the resource annotations to find resources to monitor.
+                              description: Label uses the resource annotations to
+                                find resources to monitor.
                               properties:
                                 labelSelector:
-                                  description: LabelSelector are used to filter to the correct workload.
+                                  description: LabelSelector are used to filter to
+                                    the correct workload.
                                   properties:
                                     matchExpressions:
-                                      description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                      description: matchExpressions is a list of label
+                                        selector requirements. The requirements are
+                                        ANDed.
                                       items:
-                                        description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                        description: A label selector requirement
+                                          is a selector that contains values, a key,
+                                          and an operator that relates the key and
+                                          values.
                                         properties:
                                           key:
-                                            description: key is the label key that the selector applies to.
+                                            description: key is the label key that
+                                              the selector applies to.
                                             type: string
                                           operator:
-                                            description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                            description: operator represents a key's
+                                              relationship to a set of values. Valid
+                                              operators are In, NotIn, Exists and
+                                              DoesNotExist.
                                             type: string
                                           values:
-                                            description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                            description: values is an array of string
+                                              values. If the operator is In or NotIn,
+                                              the values array must be non-empty.
+                                              If the operator is Exists or DoesNotExist,
+                                              the values array must be empty. This
+                                              array is replaced during a strategic
+                                              merge patch.
                                             items:
                                               type: string
                                             type: array
@@ -237,29 +304,52 @@ spec:
                                     matchLabels:
                                       additionalProperties:
                                         type: string
-                                      description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                      description: matchLabels is a map of {key,value}
+                                        pairs. A single {key,value} in the matchLabels
+                                        map is equivalent to an element of matchExpressions,
+                                        whose key field is "key", the operator is
+                                        "In", and the values array contains only "value".
+                                        The requirements are ANDed.
                                       type: object
                                   type: object
                               type: object
                             namespace:
-                              description: Namespace is the filter to control which namespaces to look for your resources. Default is always Operator Group (supported by OLM)
+                              description: Namespace is the filter to control which
+                                namespaces to look for your resources. Default is
+                                always Operator Group (supported by OLM)
                               properties:
                                 labelSelector:
-                                  description: LabelSelector are used to filter to the correct workload.
+                                  description: LabelSelector are used to filter to
+                                    the correct workload.
                                   properties:
                                     matchExpressions:
-                                      description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                      description: matchExpressions is a list of label
+                                        selector requirements. The requirements are
+                                        ANDed.
                                       items:
-                                        description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                        description: A label selector requirement
+                                          is a selector that contains values, a key,
+                                          and an operator that relates the key and
+                                          values.
                                         properties:
                                           key:
-                                            description: key is the label key that the selector applies to.
+                                            description: key is the label key that
+                                              the selector applies to.
                                             type: string
                                           operator:
-                                            description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                            description: operator represents a key's
+                                              relationship to a set of values. Valid
+                                              operators are In, NotIn, Exists and
+                                              DoesNotExist.
                                             type: string
                                           values:
-                                            description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                            description: values is an array of string
+                                              values. If the operator is In or NotIn,
+                                              the values array must be non-empty.
+                                              If the operator is Exists or DoesNotExist,
+                                              the values array must be empty. This
+                                              array is replaced during a strategic
+                                              merge patch.
                                             items:
                                               type: string
                                             type: array
@@ -271,17 +361,24 @@ spec:
                                     matchLabels:
                                       additionalProperties:
                                         type: string
-                                      description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                      description: matchLabels is a map of {key,value}
+                                        pairs. A single {key,value} in the matchLabels
+                                        map is equivalent to an element of matchExpressions,
+                                        whose key field is "key", the operator is
+                                        "In", and the values array contains only "value".
+                                        The requirements are ANDed.
                                       type: object
                                   type: object
                                 useOperatorGroup:
-                                  description: UseOperatorGroup use your operator group for namespace filtering
+                                  description: UseOperatorGroup use your operator
+                                    group for namespace filtering
                                   type: boolean
                               required:
                               - useOperatorGroup
                               type: object
                             ownerCRD:
-                              description: OwnerCRD uses the owning CRD to filter resources.
+                              description: OwnerCRD uses the owning CRD to filter
+                                resources.
                               properties:
                                 apiVersion:
                                   description: APIVersion of the CRD
@@ -294,7 +391,8 @@ spec:
                               - kind
                               type: object
                             workloadType:
-                              description: WorkloadType identifies the type of workload to look for. This can be pod or service right now.
+                              description: WorkloadType identifies the type of workload
+                                to look for. This can be pod or service right now.
                               enum:
                               - Pod
                               - Service
@@ -324,23 +422,34 @@ spec:
               - namespace
               x-kubernetes-list-type: map
             meterDefinitions:
-              description: MeterDefinitions is the list of meterDefinitions included in the report DEPRECATED
+              description: MeterDefinitions is the list of meterDefinitions included
+                in the report DEPRECATED
               items:
-                description: MeterDefinition defines the meter workloads used to enable pay for use billing.
+                description: MeterDefinition defines the meter workloads used to enable
+                  pay for use billing.
                 properties:
                   apiVersion:
-                    description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                    description: 'APIVersion defines the versioned schema of this
+                      representation of an object. Servers should convert recognized
+                      schemas to the latest internal value, and may reject unrecognized
+                      values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
                     type: string
                   kind:
-                    description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                    description: 'Kind is a string value representing the REST resource
+                      this object represents. Servers may infer this from the endpoint
+                      the client submits requests to. Cannot be updated. In CamelCase.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
                     type: string
                   metadata:
                     type: object
                   spec:
-                    description: MeterDefinitionSpec defines the desired metering spec
+                    description: MeterDefinitionSpec defines the desired metering
+                      spec
                     properties:
                       installedBy:
-                        description: InstalledBy is a reference to the CSV that install the meter definition. This is used to determine an operator group.
+                        description: InstalledBy is a reference to the CSV that install
+                          the meter definition. This is used to determine an operator
+                          group.
                         properties:
                           groupVersionKind:
                             description: GroupVersionKind of the resource
@@ -375,34 +484,49 @@ spec:
                         description: Kind defines the primary CRD kind of the meter
                         type: string
                       meterVersion:
-                        description: Version defines the primary CRD version of the meter. This field is no longer used.
+                        description: Version defines the primary CRD version of the
+                          meter. This field is no longer used.
                         type: string
                       podMeterLabels:
-                        description: PodMeterLabels name of the prometheus metrics you want to track. User workloads instead.
+                        description: PodMeterLabels name of the prometheus metrics
+                          you want to track. User workloads instead.
                         items:
                           type: string
                         type: array
                       serviceMeterLabels:
-                        description: ServiceMeterLabels name of the meterics you want to track. Use workloads instead.
+                        description: ServiceMeterLabels name of the meterics you want
+                          to track. Use workloads instead.
                         items:
                           type: string
                         type: array
                       workloadVertexLabelSelectors:
-                        description: VertexFilters are used when Namespace is selected. Can be omitted if you select OperatorGroup
+                        description: VertexFilters are used when Namespace is selected.
+                          Can be omitted if you select OperatorGroup
                         properties:
                           matchExpressions:
-                            description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                            description: matchExpressions is a list of label selector
+                              requirements. The requirements are ANDed.
                             items:
-                              description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                              description: A label selector requirement is a selector
+                                that contains values, a key, and an operator that
+                                relates the key and values.
                               properties:
                                 key:
-                                  description: key is the label key that the selector applies to.
+                                  description: key is the label key that the selector
+                                    applies to.
                                   type: string
                                 operator:
-                                  description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                  description: operator represents a key's relationship
+                                    to a set of values. Valid operators are In, NotIn,
+                                    Exists and DoesNotExist.
                                   type: string
                                 values:
-                                  description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                  description: values is an array of string values.
+                                    If the operator is In or NotIn, the values array
+                                    must be non-empty. If the operator is Exists or
+                                    DoesNotExist, the values array must be empty.
+                                    This array is replaced during a strategic merge
+                                    patch.
                                   items:
                                     type: string
                                   type: array
@@ -414,11 +538,17 @@ spec:
                           matchLabels:
                             additionalProperties:
                               type: string
-                            description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                            description: matchLabels is a map of {key,value} pairs.
+                              A single {key,value} in the matchLabels map is equivalent
+                              to an element of matchExpressions, whose key field is
+                              "key", the operator is "In", and the values array contains
+                              only "value". The requirements are ANDed.
                             type: object
                         type: object
                       workloadVertexType:
-                        description: WorkloadVertexType is the top most object of a workload. It allows you to identify the upper bounds of your workloads.
+                        description: WorkloadVertexType is the top most object of
+                          a workload. It allows you to identify the upper bounds of
+                          your workloads.
                         enum:
                         - Namespace
                         - OperatorGroup
@@ -426,24 +556,37 @@ spec:
                       workloads:
                         description: Workloads identify the workloads to meter.
                         items:
-                          description: Workload helps identify what to target for metering.
+                          description: Workload helps identify what to target for
+                            metering.
                           properties:
                             annotationSelector:
-                              description: AnnotationSelector are used to filter to the correct workload.
+                              description: AnnotationSelector are used to filter to
+                                the correct workload.
                               properties:
                                 matchExpressions:
-                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
                                   items:
-                                    description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                    description: A label selector requirement is a
+                                      selector that contains values, a key, and an
+                                      operator that relates the key and values.
                                     properties:
                                       key:
-                                        description: key is the label key that the selector applies to.
+                                        description: key is the label key that the
+                                          selector applies to.
                                         type: string
                                       operator:
-                                        description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                        description: operator represents a key's relationship
+                                          to a set of values. Valid operators are
+                                          In, NotIn, Exists and DoesNotExist.
                                         type: string
                                       values:
-                                        description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                        description: values is an array of string
+                                          values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the
+                                          operator is Exists or DoesNotExist, the
+                                          values array must be empty. This array is
+                                          replaced during a strategic merge patch.
                                         items:
                                           type: string
                                         type: array
@@ -455,25 +598,42 @@ spec:
                                 matchLabels:
                                   additionalProperties:
                                     type: string
-                                  description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                  description: matchLabels is a map of {key,value}
+                                    pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions,
+                                    whose key field is "key", the operator is "In",
+                                    and the values array contains only "value". The
+                                    requirements are ANDed.
                                   type: object
                               type: object
                             labelSelector:
-                              description: LabelSelector are used to filter to the correct workload.
+                              description: LabelSelector are used to filter to the
+                                correct workload.
                               properties:
                                 matchExpressions:
-                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
                                   items:
-                                    description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                    description: A label selector requirement is a
+                                      selector that contains values, a key, and an
+                                      operator that relates the key and values.
                                     properties:
                                       key:
-                                        description: key is the label key that the selector applies to.
+                                        description: key is the label key that the
+                                          selector applies to.
                                         type: string
                                       operator:
-                                        description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                        description: operator represents a key's relationship
+                                          to a set of values. Valid operators are
+                                          In, NotIn, Exists and DoesNotExist.
                                         type: string
                                       values:
-                                        description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                        description: values is an array of string
+                                          values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the
+                                          operator is Exists or DoesNotExist, the
+                                          values array must be empty. This array is
+                                          replaced during a strategic merge patch.
                                         items:
                                           type: string
                                         type: array
@@ -485,13 +645,19 @@ spec:
                                 matchLabels:
                                   additionalProperties:
                                     type: string
-                                  description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                  description: matchLabels is a map of {key,value}
+                                    pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions,
+                                    whose key field is "key", the operator is "In",
+                                    and the values array contains only "value". The
+                                    requirements are ANDed.
                                   type: object
                               type: object
                             metricLabels:
                               description: MetricLabels are the labels to collect
                               items:
-                                description: MeterLabelQuery helps define a meter label to build and search for
+                                description: MeterLabelQuery helps define a meter
+                                  label to build and search for
                                 properties:
                                   aggregation:
                                     description: Aggregation to use with the query
@@ -513,10 +679,13 @@ spec:
                               minItems: 1
                               type: array
                             name:
-                              description: Name of the workload, must be unique in a meter definition.
+                              description: Name of the workload, must be unique in
+                                a meter definition.
                               type: string
                             ownerCRD:
-                              description: OwnerCRD is the name of the GVK to look for as the owner of all the meterable assets. If omitted, the labels and annotations are used instead.
+                              description: OwnerCRD is the name of the GVK to look
+                                for as the owner of all the meterable assets. If omitted,
+                                the labels and annotations are used instead.
                               properties:
                                 apiVersion:
                                   description: APIVersion of the CRD
@@ -529,7 +698,8 @@ spec:
                               - kind
                               type: object
                             type:
-                              description: WorkloadType identifies the type of workload to look for. This can be pod or service right now.
+                              description: WorkloadType identifies the type of workload
+                                to look for. This can be pod or service right now.
                               enum:
                               - Pod
                               - Service
@@ -546,12 +716,24 @@ spec:
                     - meterKind
                     type: object
                   status:
-                    description: MeterDefinitionStatus defines the observed state of MeterDefinition
+                    description: MeterDefinitionStatus defines the observed state
+                      of MeterDefinition
                     properties:
                       conditions:
-                        description: Conditions represent the latest available observations of an object's state
+                        description: Conditions represent the latest available observations
+                          of an object's state
                         items:
-                          description: "Condition represents an observation of an object's state. Conditions are an extension mechanism intended to be used when the details of an observation are not a priori known or would not apply to all instances of a given Kind. \n Conditions should be added to explicitly convey properties that users and components care about rather than requiring those properties to be inferred from other observations. Once defined, the meaning of a Condition can not be changed arbitrarily - it becomes part of the API, and has the same backwards- and forwards-compatibility concerns of any other part of the API."
+                          description: "Condition represents an observation of an
+                            object's state. Conditions are an extension mechanism
+                            intended to be used when the details of an observation
+                            are not a priori known or would not apply to all instances
+                            of a given Kind. \n Conditions should be added to explicitly
+                            convey properties that users and components care about
+                            rather than requiring those properties to be inferred
+                            from other observations. Once defined, the meaning of
+                            a Condition can not be changed arbitrarily - it becomes
+                            part of the API, and has the same backwards- and forwards-compatibility
+                            concerns of any other part of the API."
                           properties:
                             lastTransitionTime:
                               format: date-time
@@ -559,12 +741,22 @@ spec:
                             message:
                               type: string
                             reason:
-                              description: ConditionReason is intended to be a one-word, CamelCase representation of the category of cause of the current status. It is intended to be used in concise output, such as one-line kubectl get output, and in summarizing occurrences of causes.
+                              description: ConditionReason is intended to be a one-word,
+                                CamelCase representation of the category of cause
+                                of the current status. It is intended to be used in
+                                concise output, such as one-line kubectl get output,
+                                and in summarizing occurrences of causes.
                               type: string
                             status:
                               type: string
                             type:
-                              description: "ConditionType is the type of the condition and is typically a CamelCased word or short phrase. \n Condition types should indicate state in the \"abnormal-true\" polarity. For example, if the condition indicates when a policy is invalid, the \"is valid\" case is probably the norm, so the condition should be called \"Invalid\"."
+                              description: "ConditionType is the type of the condition
+                                and is typically a CamelCased word or short phrase.
+                                \n Condition types should indicate state in the \"abnormal-true\"
+                                polarity. For example, if the condition indicates
+                                when a policy is invalid, the \"is valid\" case is
+                                probably the norm, so the condition should be called
+                                \"Invalid\"."
                               type: string
                           required:
                           - status
@@ -572,20 +764,27 @@ spec:
                           type: object
                         type: array
                       results:
-                        description: Results is a list of Results that get returned from a query to prometheus
+                        description: Results is a list of Results that get returned
+                          from a query to prometheus
                         items:
-                          description: Result is a result of a query defined on the meterdefinition. This will generate data for the previous hour on whichever workload you specify. This will allow you to check whether a query is working as intended.
+                          description: Result is a result of a query defined on the
+                            meterdefinition. This will generate data for the previous
+                            hour on whichever workload you specify. This will allow
+                            you to check whether a query is working as intended.
                           properties:
                             metricName:
-                              description: MetricName is the identifier that you will use to identify your query
+                              description: MetricName is the identifier that you will
+                                use to identify your query
                               type: string
                             query:
-                              description: Query is the compiled query that is given to Prometheus
+                              description: Query is the compiled query that is given
+                                to Prometheus
                               type: string
                             values:
                               description: Values are the results of the query
                               items:
-                                description: ResultValues will hold the results of the prometheus query
+                                description: ResultValues will hold the results of
+                                  the prometheus query
                                 properties:
                                   timestamp:
                                     format: int64
@@ -600,9 +799,11 @@ spec:
                           type: object
                         type: array
                       workloadResource:
-                        description: WorkloadResources is the list of resoruces discovered by this meter definition
+                        description: WorkloadResources is the list of resoruces discovered
+                          by this meter definition
                         items:
-                          description: WorkloadResource represents the resources associated to a workload
+                          description: WorkloadResource represents the resources associated
+                            to a workload
                           properties:
                             groupVersionKind:
                               description: GroupVersionKind of the resource
@@ -624,7 +825,8 @@ spec:
                               description: Namespace of the resource Required
                               type: string
                             referencedWorkloadName:
-                              description: ReferencedWorkloadName is the name of the workload
+                              description: ReferencedWorkloadName is the name of the
+                                workload
                               type: string
                             uid:
                               description: Namespace of the resource
@@ -641,7 +843,8 @@ spec:
               description: PrometheusService is the definition for the service labels.
               properties:
                 basicAuth:
-                  description: BasicAuth allow an endpoint to authenticate over basic authentication Optional
+                  description: BasicAuth allow an endpoint to authenticate over basic
+                    authentication Optional
                   properties:
                     ca:
                       description: Struct containing the CA cert to use for the targets.
@@ -653,10 +856,12 @@ spec:
                               description: The key to select.
                               type: string
                             name:
-                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
                               type: string
                             optional:
-                              description: Specify whether the ConfigMap or its key must be defined
+                              description: Specify whether the ConfigMap or its key
+                                must be defined
                               type: boolean
                           required:
                           - key
@@ -665,23 +870,28 @@ spec:
                           description: Secret containing data to use for the targets.
                           properties:
                             key:
-                              description: The key of the secret to select from.  Must be a valid secret key.
+                              description: The key of the secret to select from.  Must
+                                be a valid secret key.
                               type: string
                             name:
-                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
                               type: string
                             optional:
-                              description: Specify whether the Secret or its key must be defined
+                              description: Specify whether the Secret or its key must
+                                be defined
                               type: boolean
                           required:
                           - key
                           type: object
                       type: object
                     caFile:
-                      description: Path to the CA cert in the Prometheus container to use for the targets.
+                      description: Path to the CA cert in the Prometheus container
+                        to use for the targets.
                       type: string
                     cert:
-                      description: Struct containing the client cert file for the targets.
+                      description: Struct containing the client cert file for the
+                        targets.
                       properties:
                         configMap:
                           description: ConfigMap containing data to use for the targets.
@@ -690,10 +900,12 @@ spec:
                               description: The key to select.
                               type: string
                             name:
-                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
                               type: string
                             optional:
-                              description: Specify whether the ConfigMap or its key must be defined
+                              description: Specify whether the ConfigMap or its key
+                                must be defined
                               type: boolean
                           required:
                           - key
@@ -702,38 +914,46 @@ spec:
                           description: Secret containing data to use for the targets.
                           properties:
                             key:
-                              description: The key of the secret to select from.  Must be a valid secret key.
+                              description: The key of the secret to select from.  Must
+                                be a valid secret key.
                               type: string
                             name:
-                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
                               type: string
                             optional:
-                              description: Specify whether the Secret or its key must be defined
+                              description: Specify whether the Secret or its key must
+                                be defined
                               type: boolean
                           required:
                           - key
                           type: object
                       type: object
                     certFile:
-                      description: Path to the client cert file in the Prometheus container for the targets.
+                      description: Path to the client cert file in the Prometheus
+                        container for the targets.
                       type: string
                     insecureSkipVerify:
                       description: Disable target certificate validation.
                       type: boolean
                     keyFile:
-                      description: Path to the client key file in the Prometheus container for the targets.
+                      description: Path to the client key file in the Prometheus container
+                        for the targets.
                       type: string
                     keySecret:
                       description: Secret containing the client key file for the targets.
                       properties:
                         key:
-                          description: The key of the secret to select from.  Must be a valid secret key.
+                          description: The key of the secret to select from.  Must
+                            be a valid secret key.
                           type: string
                         name:
-                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            TODO: Add other useful fields. apiVersion, kind, uid?'
                           type: string
                         optional:
-                          description: Specify whether the Secret or its key must be defined
+                          description: Specify whether the Secret or its key must
+                            be defined
                           type: boolean
                       required:
                       - key
@@ -746,13 +966,17 @@ spec:
                   description: File to read bearer token for scraping targets.
                   type: string
                 bearerTokenSecret:
-                  description: Secret to mount to read bearer token for scraping targets. The secret needs to be in the same namespace as the service monitor and accessible by the Prometheus Operator.
+                  description: Secret to mount to read bearer token for scraping targets.
+                    The secret needs to be in the same namespace as the service monitor
+                    and accessible by the Prometheus Operator.
                   properties:
                     key:
-                      description: The key of the secret to select from.  Must be a valid secret key.
+                      description: The key of the secret to select from.  Must be
+                        a valid secret key.
                       type: string
                     name:
-                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                      description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        TODO: Add other useful fields. apiVersion, kind, uid?'
                       type: string
                     optional:
                       description: Specify whether the Secret or its key must be defined
@@ -773,7 +997,8 @@ spec:
                   description: Port name is the name of the part to select Required
                   x-kubernetes-int-or-string: true
                 tlsConfig:
-                  description: TLS configuration to use when scraping the endpoint Optional
+                  description: TLS configuration to use when scraping the endpoint
+                    Optional
                   properties:
                     ca:
                       description: Struct containing the CA cert to use for the targets.
@@ -785,10 +1010,12 @@ spec:
                               description: The key to select.
                               type: string
                             name:
-                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
                               type: string
                             optional:
-                              description: Specify whether the ConfigMap or its key must be defined
+                              description: Specify whether the ConfigMap or its key
+                                must be defined
                               type: boolean
                           required:
                           - key
@@ -797,23 +1024,28 @@ spec:
                           description: Secret containing data to use for the targets.
                           properties:
                             key:
-                              description: The key of the secret to select from.  Must be a valid secret key.
+                              description: The key of the secret to select from.  Must
+                                be a valid secret key.
                               type: string
                             name:
-                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
                               type: string
                             optional:
-                              description: Specify whether the Secret or its key must be defined
+                              description: Specify whether the Secret or its key must
+                                be defined
                               type: boolean
                           required:
                           - key
                           type: object
                       type: object
                     caFile:
-                      description: Path to the CA cert in the Prometheus container to use for the targets.
+                      description: Path to the CA cert in the Prometheus container
+                        to use for the targets.
                       type: string
                     cert:
-                      description: Struct containing the client cert file for the targets.
+                      description: Struct containing the client cert file for the
+                        targets.
                       properties:
                         configMap:
                           description: ConfigMap containing data to use for the targets.
@@ -822,10 +1054,12 @@ spec:
                               description: The key to select.
                               type: string
                             name:
-                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
                               type: string
                             optional:
-                              description: Specify whether the ConfigMap or its key must be defined
+                              description: Specify whether the ConfigMap or its key
+                                must be defined
                               type: boolean
                           required:
                           - key
@@ -834,38 +1068,46 @@ spec:
                           description: Secret containing data to use for the targets.
                           properties:
                             key:
-                              description: The key of the secret to select from.  Must be a valid secret key.
+                              description: The key of the secret to select from.  Must
+                                be a valid secret key.
                               type: string
                             name:
-                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
                               type: string
                             optional:
-                              description: Specify whether the Secret or its key must be defined
+                              description: Specify whether the Secret or its key must
+                                be defined
                               type: boolean
                           required:
                           - key
                           type: object
                       type: object
                     certFile:
-                      description: Path to the client cert file in the Prometheus container for the targets.
+                      description: Path to the client cert file in the Prometheus
+                        container for the targets.
                       type: string
                     insecureSkipVerify:
                       description: Disable target certificate validation.
                       type: boolean
                     keyFile:
-                      description: Path to the client key file in the Prometheus container for the targets.
+                      description: Path to the client key file in the Prometheus container
+                        for the targets.
                       type: string
                     keySecret:
                       description: Secret containing the client key file for the targets.
                       properties:
                         key:
-                          description: The key of the secret to select from.  Must be a valid secret key.
+                          description: The key of the secret to select from.  Must
+                            be a valid secret key.
                           type: string
                         name:
-                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            TODO: Add other useful fields. apiVersion, kind, uid?'
                           type: string
                         optional:
-                          description: Specify whether the Secret or its key must be defined
+                          description: Specify whether the Secret or its key must
+                            be defined
                           type: boolean
                       required:
                       - key
@@ -895,9 +1137,19 @@ spec:
           description: MeterReportStatus defines the observed state of MeterReport
           properties:
             conditions:
-              description: Conditions represent the latest available observations of an object's stateonfig
+              description: Conditions represent the latest available observations
+                of an object's stateonfig
               items:
-                description: "Condition represents an observation of an object's state. Conditions are an extension mechanism intended to be used when the details of an observation are not a priori known or would not apply to all instances of a given Kind. \n Conditions should be added to explicitly convey properties that users and components care about rather than requiring those properties to be inferred from other observations. Once defined, the meaning of a Condition can not be changed arbitrarily - it becomes part of the API, and has the same backwards- and forwards-compatibility concerns of any other part of the API."
+                description: "Condition represents an observation of an object's state.
+                  Conditions are an extension mechanism intended to be used when the
+                  details of an observation are not a priori known or would not apply
+                  to all instances of a given Kind. \n Conditions should be added
+                  to explicitly convey properties that users and components care about
+                  rather than requiring those properties to be inferred from other
+                  observations. Once defined, the meaning of a Condition can not be
+                  changed arbitrarily - it becomes part of the API, and has the same
+                  backwards- and forwards-compatibility concerns of any other part
+                  of the API."
                 properties:
                   lastTransitionTime:
                     format: date-time
@@ -905,12 +1157,20 @@ spec:
                   message:
                     type: string
                   reason:
-                    description: ConditionReason is intended to be a one-word, CamelCase representation of the category of cause of the current status. It is intended to be used in concise output, such as one-line kubectl get output, and in summarizing occurrences of causes.
+                    description: ConditionReason is intended to be a one-word, CamelCase
+                      representation of the category of cause of the current status.
+                      It is intended to be used in concise output, such as one-line
+                      kubectl get output, and in summarizing occurrences of causes.
                     type: string
                   status:
                     type: string
                   type:
-                    description: "ConditionType is the type of the condition and is typically a CamelCased word or short phrase. \n Condition types should indicate state in the \"abnormal-true\" polarity. For example, if the condition indicates when a policy is invalid, the \"is valid\" case is probably the norm, so the condition should be called \"Invalid\"."
+                    description: "ConditionType is the type of the condition and is
+                      typically a CamelCased word or short phrase. \n Condition types
+                      should indicate state in the \"abnormal-true\" polarity. For
+                      example, if the condition indicates when a policy is invalid,
+                      the \"is valid\" case is probably the norm, so the condition
+                      should be called \"Invalid\"."
                     type: string
                 required:
                 - status
@@ -918,9 +1178,11 @@ spec:
                 type: object
               type: array
             errors:
-              description: QueryErrorList shows if there were any errors from queries for the report.
+              description: QueryErrorList shows if there were any errors from queries
+                for the report.
               items:
-                description: ErrorDetails provides details about errors that happen in the job
+                description: ErrorDetails provides details about errors that happen
+                  in the job
                 properties:
                   details:
                     additionalProperties:
@@ -940,11 +1202,14 @@ spec:
                   format: int32
                   type: integer
                 backoffLimit:
-                  description: Specifies the number of retries before marking this job failed. Defaults to 6
+                  description: Specifies the number of retries before marking this
+                    job failed. Defaults to 6
                   format: int32
                   type: integer
                 completionTime:
-                  description: Represents time when the job was completed. It is not guaranteed to be set in happens-before order across separate operations. It is represented in RFC3339 form and is in UTC.
+                  description: Represents time when the job was completed. It is not
+                    guaranteed to be set in happens-before order across separate operations.
+                    It is represented in RFC3339 form and is in UTC.
                   format: date-time
                   type: string
                 failed:
@@ -964,7 +1229,10 @@ spec:
                   description: Namespace of the job Required
                   type: string
                 startTime:
-                  description: Represents time when the job was acknowledged by the job controller. It is not guaranteed to be set in happens-before order across separate operations. It is represented in RFC3339 form and is in UTC.
+                  description: Represents time when the job was acknowledged by the
+                    job controller. It is not guaranteed to be set in happens-before
+                    order across separate operations. It is represented in RFC3339
+                    form and is in UTC.
                   format: date-time
                   type: string
                 succeeded:
@@ -984,7 +1252,8 @@ spec:
             warnings:
               description: Warnings from the job
               items:
-                description: ErrorDetails provides details about errors that happen in the job
+                description: ErrorDetails provides details about errors that happen
+                  in the job
                 properties:
                   details:
                     additionalProperties:

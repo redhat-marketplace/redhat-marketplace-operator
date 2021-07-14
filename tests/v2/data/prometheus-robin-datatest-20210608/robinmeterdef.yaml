@@ -1,0 +1,134 @@
+apiVersion: marketplace.redhat.com/v1beta1
+kind: MeterDefinition
+metadata:
+  creationTimestamp: "2021-04-24T22:42:35Z"
+  generation: 1
+  name: robin-meterdef
+  namespace: loanapp-robin-ns1
+  resourceVersion: "81025742"
+  selfLink: /apis/marketplace.redhat.com/v1beta1/namespaces/loanapp-robin-ns1/meterdefinitions/robin-meterdef
+  uid: 4cb45768-d27f-470f-848b-b0b6ba8c298b
+spec:
+  group: robinclusters.robin.io
+  installedBy:
+    name: robin-storage-enterprise.v5.3.4-156
+    namespace: robin-tutorial
+  kind: RobinCluster
+  meters:
+  - aggregation: avg
+    metricId: node_hour2
+    name: pod_node
+    period: 1h0m0s
+    query: min_over_time((kube_pod_info{created_by_kind="DaemonSet",created_by_name="robin",node=~".*"}
+      or on() vector(0))[60m:60m])
+    workloadType: Pod
+  resourceFilters:
+  - namespace:
+      useOperatorGroup: true
+    ownerCRD:
+      apiVersion: manage.robin.io/v1
+      kind: RobinCluster
+    workloadType: Pod
+status:
+  conditions:
+  - lastTransitionTime: "2021-06-16T23:10:02Z"
+    message: Meter definition has results.
+    reason: Results in status
+    status: "True"
+    type: FoundMatches
+  - lastTransitionTime: "2021-06-26T17:10:19Z"
+    message: Prometheus is not reporting on MeterDefinition. Label name is not present.
+    reason: Not Reporting
+    status: "False"
+    type: Reporting
+  - lastTransitionTime: "2021-05-17T14:08:46Z"
+    message: Meter definition unsigned and unverified
+    reason: Signature unverified
+    status: "False"
+    type: SignatureVerified
+  - lastTransitionTime: "2021-05-18T21:21:43Z"
+    message: 'error with query: Get "https://rhm-prometheus-meterbase.openshift-redhat-marketplace.svc:9092/api/v1/label/meter_def_name/values?end=1625071601.7889647&start=1625068001.7889647":
+      dial tcp 172.30.177.55:9092: connect: cannot assign requested address'
+    reason: VerifyReportingError
+    status: "True"
+    type: VerifyReportingSetupError
+  results:
+  - metricName: node_hour2
+    query: avg by (pod,namespace) (avg(meterdef_pod_info{meter_def_name="robin-meterdef",meter_def_namespace="loanapp-robin-ns1"})
+      without (pod_uid,pod_ip,instance,image_id,host_ip,node,container,job,service,endpoint,cluster_ip)
+      * on(pod,namespace) group_right min_over_time((kube_pod_info{created_by_kind="DaemonSet",created_by_name="robin",node=~".*"}
+      or on() vector(0))[60m:60m])) * on(pod,namespace) group_right group (min_over_time((kube_pod_info{created_by_kind="DaemonSet",created_by_name="robin",node=~".*"}
+      or on() vector(0))[60m:60m]))
+  workloadResource:
+  - groupVersionKind:
+      apiVersion: v1
+      kind: Pod
+    name: csi-attacher-robin-74bd67bbc4-pf9j6
+    namespace: loanapp-robin-ns1
+    uid: f632102f-5cb5-4719-ac4f-0009c85696c8
+  - groupVersionKind:
+      apiVersion: v1
+      kind: Pod
+    name: csi-nodeplugin-robin-7wbp8
+    namespace: loanapp-robin-ns1
+    uid: de14a770-90a4-4e11-8cae-350b95a4f758
+  - groupVersionKind:
+      apiVersion: v1
+      kind: Pod
+    name: csi-nodeplugin-robin-j668l
+    namespace: loanapp-robin-ns1
+    uid: b62a92d3-18fd-4ef5-bfe4-31331e2b4354
+  - groupVersionKind:
+      apiVersion: v1
+      kind: Pod
+    name: csi-nodeplugin-robin-tnzgr
+    namespace: loanapp-robin-ns1
+    uid: df1bab1c-9c58-4677-8725-f67cbc0e6443
+  - groupVersionKind:
+      apiVersion: v1
+      kind: Pod
+    name: csi-provisioner-robin-7fd4b57fcc-m7mgv
+    namespace: loanapp-robin-ns1
+    uid: 19444743-8e4d-49d2-863f-9d9633a1530f
+  - groupVersionKind:
+      apiVersion: v1
+      kind: Pod
+    name: csi-resizer-robin-86f758779f-7gb94
+    namespace: loanapp-robin-ns1
+    uid: de1ef0c8-d1d5-46b3-84dd-7c64a944b8a2
+  - groupVersionKind:
+      apiVersion: v1
+      kind: Pod
+    name: robin-9jmqr
+    namespace: loanapp-robin-ns1
+    uid: cb14e92f-e0d6-4030-ba81-ff5b060e94d0
+  - groupVersionKind:
+      apiVersion: v1
+      kind: Pod
+    name: robin-9s26h
+    namespace: loanapp-robin-ns1
+    uid: 89c33a92-0e92-4ed8-9a06-a7aa5acea406
+  - groupVersionKind:
+      apiVersion: v1
+      kind: Pod
+    name: robin-cnbmb
+    namespace: loanapp-robin-ns1
+    uid: e3dd21e1-08c0-4afa-8efe-0bbbec5b6c35
+  - groupVersionKind:
+      apiVersion: v1
+      kind: Pod
+    name: robin-grhmt
+    namespace: loanapp-robin-ns1
+    uid: 8c053908-fae6-4c48-9147-bb04ea11a613
+  - groupVersionKind:
+      apiVersion: v1
+      kind: Pod
+    name: robin-jr9xs
+    namespace: loanapp-robin-ns1
+    uid: 0343a05f-38ad-4785-87ec-a6da93f01942
+  - groupVersionKind:
+      apiVersion: v1
+      kind: Pod
+    name: robin-pc8gx
+    namespace: loanapp-robin-ns1
+    uid: c65bb6f4-da3f-469c-b074-5dad2ffb0cec

@@ -16,7 +16,6 @@ package marketplace
 
 import (
 	. "github.com/onsi/ginkgo"
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
@@ -24,7 +23,6 @@ import (
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/rectest"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -57,17 +55,14 @@ var _ = Describe("MeterDefinitionController", func() {
 	)
 
 	var setup = func(r *ReconcilerTest) error {
-		s := scheme.Scheme
-		_ = monitoringv1.AddToScheme(s)
-		s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterdefinition)
 		log := ctrl.Log.WithName("controllers").WithName("MeterDefinitionController")
 
-		r.Client = fake.NewFakeClient(r.GetGetObjects()...)
+		r.Client = fake.NewFakeClientWithScheme(k8sScheme, r.GetGetObjects()...)
 		r.Reconciler = &MeterDefinitionReconciler{
 			Client:  r.Client,
-			Scheme:  s,
+			Scheme:  k8sScheme,
 			Log:     log,
-			cc:      reconcileutils.NewClientCommand(r.Client, s, log),
+			cc:      reconcileutils.NewClientCommand(r.Client, k8sScheme, log),
 			patcher: patch.RHMDefaultPatcher,
 			cfg:     operatorCfg,
 		}
