@@ -24,6 +24,10 @@ workflows: [
 		file:   "release_status.yml"
 		schema: release_status
 	},
+	{
+		file:   "sync_branches.yml"
+		schema: sync_branches
+	},
 ]
 varPresetGitTag:         "${{ needs.preset.outputs.tag }}"
 varPresetVersion:        "${{ needs.preset.outputs.version }}"
@@ -127,7 +131,7 @@ release_status: _#bashWorkflow & {
 				},
 			]
 			outputs: {
-				matrix: "${{ steps.set-matrix.outputs.matrix}}"
+				matrix:      "${{ steps.set-matrix.outputs.matrix}}"
 				emptymatrix: "${{ steps.set-matrix.outputs.emptymatrix}}"
 			}
 		}
@@ -135,7 +139,7 @@ release_status: _#bashWorkflow & {
 			name:      "Check publish status"
 			"runs-on": _#linuxMachine
 			needs: ["prs"]
-      if: "${{ needs.prs.outputs.emptymatrix == 'false' }}"
+			if: "${{ needs.prs.outputs.emptymatrix == 'false' }}"
 			strategy: matrix: "${{fromJson(needs.prs.outputs.matrix)}}"
 			steps: [
 				(_#findPRForComment & {
@@ -158,21 +162,21 @@ release_status: _#bashWorkflow & {
 						"REF": "${{ steps.pr.outputs.prRef }}"
 					}
 				},
-        _#getBundleRunID,
+				_#getBundleRunID,
 				_#checkoutCode,
 				_#operatorImageStatuses,
 				_#step & {
-					id: "pretty"
-	        name: "Format output"
-					run: ".github/workflows/scripts/process_pc_status.sh '${{ steps.operatorImageStatuses.outputs.imageStatus }}'"
+					id:   "pretty"
+					name: "Format output"
+					run:  ".github/workflows/scripts/process_pc_status.sh '${{ steps.operatorImageStatuses.outputs.imageStatus }}'"
 				},
 				_#step & {
 					uses: "marocchino/sticky-pull-request-comment@v2"
-          name: "Post comment"
+					name: "Post comment"
 					with: {
 						header:   "imagestatus"
 						recreate: "true"
-            number: "${{ matrix.number }}"
+						number:   "${{ matrix.number }}"
 						message: """
 ## RH PC Status for tag: ${{ env.TAG }}
 
@@ -221,7 +225,7 @@ publish: _#bashWorkflow & {
 				_#getBundleRunID,
 				_#checkoutCode,
 				_#retagCommand.res,
-        _#addRocketToComment,
+				_#addRocketToComment,
 			]
 		}
 		publish: _#job & {
@@ -254,11 +258,11 @@ publish: _#bashWorkflow & {
 				_#redhatConnectLogin,
 				_#checkoutCode,
 				_#publishOperatorImages,
-        _#addRocketToComment,
+				_#addRocketToComment,
 			]
 		}
-    "push-operator" : _#job & {
-      name:      "Push Operator"
+		"push-operator": _#job & {
+			name:      "Push Operator"
 			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/push-operator')}}"
 			"runs-on": _#linuxMachine
 			steps: [
@@ -287,13 +291,13 @@ publish: _#bashWorkflow & {
 				_#redhatConnectLogin,
 				_#checkoutCode,
 				_#retagManifestCommand & {
-          env: {
-            TARGET_TAG: "${{ env.TAG }}-${{ GITHUB_RUN_ID }}"
-          }
-        },
-        _#addRocketToComment,
+					env: {
+						TARGET_TAG: "${{ env.TAG }}-${{ GITHUB_RUN_ID }}"
+					}
+				},
+				_#addRocketToComment,
 			]
-    },
+		}
 		"publish-operator": _#job & {
 			name:      "Publish Operator"
 			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/operator') }}"
@@ -324,7 +328,63 @@ publish: _#bashWorkflow & {
 				_#redhatConnectLogin,
 				_#checkoutCode,
 				_#publishOperator,
-        _#addRocketToComment,
+				_#addRocketToComment,
+			]
+		}
+	}
+}
+
+_#nextRelease: "release/2.3.0"
+_#futureReleases: ["release/2.4.0"]
+
+// This workflow syncs the next release with develop and future
+sync_branches: _#bashWorkflow & {
+	name: "Sync Next Release"
+	on: {
+		push: {
+			branches: [ _#nextRelease]
+		}
+	}
+	jobs: {
+		sync: {
+			name:      "Sync next release"
+			"runs-on": _#linuxMachine
+			steps:     [_#checkoutCode,
+					_#step & {
+					name: "Get to branch"
+					run: """
+						FROM=`echo ${GITHUB_REF} | sed 's/refs\\/head\\///g' | sed 's/\\//-/g'`
+						echo "PULL_REQUEST_FROM_BRANCH=$FROM" >> $GITHUB_ENV
+						"""
+				}] + [ for _#futureRelease in _#futureReleases {
+				_#step & {
+					name: "pull-request-action"
+					uses: "vsoch/pull-request-action@master"
+					env: {
+						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
+						"PULL_REQUEST_BRANCH": _#futureRelease
+            "PULL_REQUEST_TITLE" : "chore: ${{ env.PULL_REQUEST_FROM_BRANCH }} to \(_#futureRelease)"
+					}
+				}
+			}] + [
+				_#step & {
+					name: "pull-request-action"
+					uses: "vsoch/pull-request-action@master"
+					env: {
+						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
+						"PULL_REQUEST_BRANCH": "develop"
+            "PULL_REQUEST_TITLE" : "chore: ${{ env.PULL_REQUEST_FROM_BRANCH }} to develop"
+					}
+				},
+				_#step & {
+					name: "pull-request-action"
+					uses: "vsoch/pull-request-action@master"
+					env: {
+						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
+						"PULL_REQUEST_BRANCH": "master"
+						"PULL_REQUEST_TITLE":  "Release ${{ env.PULL_REQUEST_FROM_BRANCH }}"
+					}
+				},
 			]
 		}
 	}
@@ -967,31 +1027,31 @@ echo "::endgroup::"
 }
 
 _#retagCommand: {
-  #args: {
-    fromTo: [ for k, v in _#images {
-      pword: "\(v.pword)"
-      from:  "\(_#registry)/\(v.name):$TAG"
-      to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TAG"
-    }]
-    retagCommandList: [ for #arch in _#archs {[ for k, v in #args.fromTo {(_#copyImageArch & {#args: v & {arch: #arch}}).res}]}]
-  }
-  res: _#step & {
-    id:    "mirror"
-    name:  "Mirror images"
-    shell: "bash {0}"
-    run:   strings.Join(list.FlattenN(#args.retagCommandList, -1), "\n")
-  }
+	#args: {
+		fromTo: [ for k, v in _#images {
+			pword: "\(v.pword)"
+			from:  "\(_#registry)/\(v.name):$TAG"
+			to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TAG"
+		}]
+		retagCommandList: [ for #arch in _#archs {[ for k, v in #args.fromTo {(_#copyImageArch & {#args: v & {arch: #arch}}).res}]}]
+	}
+	res: _#step & {
+		id:    "mirror"
+		name:  "Mirror images"
+		shell: "bash {0}"
+		run:   strings.Join(list.FlattenN(#args.retagCommandList, -1), "\n")
+	}
 }
 
 _#retagManifestCommand: _#step & {
-  #args: {
-    fromTo: [ for k, v in [_#manifest] {
-      pword: "\(v.pword)"
-      from:  "\(_#registry)/\(v.name):$TAG"
-      to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TARGET_TAG"
-    }]
-    manifestCopyCommandList: [ for k, v in #args.fromTo {(_#copyImage & {#args: v}).res}]
-  }
+	#args: {
+		fromTo: [ for k, v in [_#manifest] {
+			pword: "\(v.pword)"
+			from:  "\(_#registry)/\(v.name):$TAG"
+			to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TARGET_TAG"
+		}]
+		manifestCopyCommandList: [ for k, v in #args.fromTo {(_#copyImage & {#args: v}).res}]
+	}
 	name:  "Copy Manifest"
 	shell: "bash {0}"
 	run:   strings.Join(#args.manifestCopyCommandList, "\n")
@@ -1044,11 +1104,11 @@ done
 }
 
 _#publishOperatorImages: _#step & {
-  #args: {
-    names: [ for v in _#projectURLs {
-      "--images \(v),,$TAG"
-    }]
-  }
+	#args: {
+		names: [ for v in _#projectURLs {
+			"--images \(v),,$TAG"
+		}]
+	}
 	name: "Publish Operator Images"
 	env: {
 		RH_USER:          "${{ secrets['REDHAT_IO_USER'] }}"
@@ -1062,11 +1122,11 @@ _#publishOperatorImages: _#step & {
 }
 
 _#operatorImageStatuses: _#step & {
-  #args: {
-    names: [ for v in _#projectURLs {
-      "--images \(v),,$TAG"
-    }]
-  }
+	#args: {
+		names: [ for v in _#projectURLs {
+			"--images \(v),,$TAG"
+		}]
+	}
 	id:   "operatorImageStatuses"
 	name: "Fetch Operator Image Statuses"
 	env: {
@@ -1280,9 +1340,9 @@ _#installYQ: _#step & {
 }
 
 _#addRocketToComment: _#step & {
-  uses: "peter-evans/create-or-update-comment@v1"
-  with: {
-    "comment-id": "${{github.event.comment.id}}"
-    reactions: "rocket"
-  }
+	uses: "peter-evans/create-or-update-comment@v1"
+	with: {
+		"comment-id": "${{github.event.comment.id}}"
+		reactions:    "rocket"
+	}
 }
