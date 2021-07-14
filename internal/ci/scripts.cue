@@ -21,8 +21,9 @@ getImagesScript: #Script & {
 TAG=$1
 IMAGES=""
 
-export IMAGES=""
 \(strings.Join([ for k, v in _#images {(_#defineImage & {#args: image: v}).res}], "\n\n"))
+
+IMAGES="$IMAGES --images \(_#manifest.url),,^$TAG(-\\d+)*(-cert-\\d+)*$"
 
 echo $IMAGES
 """

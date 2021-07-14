@@ -119,15 +119,10 @@ release_status: _#bashWorkflow & {
 					id: "set-matrix"
 					run: """
 						OUTPUT='${{ steps.findAllReleasePRs.outputs.data }}'
-
-						if [[ "$OUTPUT" == "" ]] ; then
-						  echo "::set-output name=emptymatrix::true"
-						  echo "::set-output name=matrix::{\\"include\\":[]}"
-						else
-							OUTPUT=$(echo $OUTPUT | jq -cr '[.search.edges[].node]' 2> /dev/null) || echo '[]'
-						  echo "::set-output name=emptymatrix::false"
-						  echo "::set-output name=matrix::{\\"include\\":$OUTPUT}"
-						fi
+						EMPTY=$(echo $OUTPUT | jq -cr '.search.edges | length == 0')
+						OUTPUT=$(echo $OUTPUT | jq -cr '[.search.edges[].node]' 2> /dev/null) || echo '[]'
+						echo "::set-output name=emptymatrix::$EMPTY"
+						echo "::set-output name=matrix::{\\"include\\":$OUTPUT}"
 						"""
 				},
 			]
@@ -181,10 +176,6 @@ release_status: _#bashWorkflow & {
 						message: """
 ## RH PC Status for tag: ${{ env.TAG }}
 
-* Images are pushed? **${{ steps.pretty.outputs.pushed }}**
-* Ready to publish images? **${{ steps.pretty.outputs.all_passed }}**
-* Ready to publish operator? **${{ steps.pretty.outputs.all_published }}**
-
 ${{env.MD_TABLE}}
 """
 					}
@@ -229,7 +220,7 @@ publish: _#bashWorkflow & {
 				},
 				_#getBundleRunID,
 				_#checkoutCode,
-				_#retagCommand,
+				_#retagCommand.res,
         _#addRocketToComment,
 			]
 		}
@@ -263,10 +254,46 @@ publish: _#bashWorkflow & {
 				_#redhatConnectLogin,
 				_#checkoutCode,
 				_#publishOperatorImages,
-				_#retagManifestCommand,
         _#addRocketToComment,
 			]
 		}
+    "push-operator" : _#job & {
+      name:      "Push Operator"
+			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/push-operator')}}"
+			"runs-on": _#linuxMachine
+			steps: [
+				_#hasWriteAccess,
+				(_#findPRForComment & {
+					_#args: {
+						prNum: "${{ github.event.issue.number }}"
+					}
+				}).res,
+				_#checkoutCode & {
+					with: {
+						"fetch-depth": 0
+						"ref":         "${{ steps.pr.outputs.prSha }}"
+					}
+				},
+				_#installGo,
+				_#cacheGoModules,
+				_#installKubeBuilder,
+				_#installOperatorSDK,
+				_#getVersion & {
+					env: {
+						"REF": "${{ steps.pr.outputs.prRef }}"
+					}
+				},
+				_#getBundleRunID,
+				_#redhatConnectLogin,
+				_#checkoutCode,
+				_#retagManifestCommand & {
+          env: {
+            TARGET_TAG: "${{ env.TAG }}-${{ GITHUB_RUN_ID }}"
+          }
+        },
+        _#addRocketToComment,
+			]
+    },
 		"publish-operator": _#job & {
 			name:      "Publish Operator"
 			if:        "${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/operator') }}"
@@ -910,18 +937,6 @@ _#images: [
 _#registry:       "quay.io/rh-marketplace"
 _#registryRHScan: "scan.connect.redhat.com"
 
-_#repoFromTo: [ for k, v in _#images {
-	pword: "\(v.pword)"
-	from:  "\(_#registry)/\(v.name):$TAG"
-	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TAG"
-}]
-
-_#manifestFromTo: [ for k, v in [_#manifest] {
-	pword: "\(v.pword)"
-	from:  "\(_#registry)/\(v.name):$TAG"
-	to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TAG"
-}]
-
 _#copyImageArch: {
 	#args: {
 		to:    string
@@ -951,21 +966,35 @@ echo "::endgroup::"
 """
 }
 
-_#retagCommandList: [ for #arch in _#archs {[ for k, v in _#repoFromTo {(_#copyImageArch & {#args: v & {arch: #arch}}).res}]}]
-
-_#retagCommand: _#step & {
-	id:    "mirror"
-	name:  "Mirror images"
-	shell: "bash {0}"
-	run:   strings.Join(list.FlattenN(_#retagCommandList, -1), "\n")
+_#retagCommand: {
+  #args: {
+    fromTo: [ for k, v in _#images {
+      pword: "\(v.pword)"
+      from:  "\(_#registry)/\(v.name):$TAG"
+      to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TAG"
+    }]
+    retagCommandList: [ for #arch in _#archs {[ for k, v in #args.fromTo {(_#copyImageArch & {#args: v & {arch: #arch}}).res}]}]
+  }
+  res: _#step & {
+    id:    "mirror"
+    name:  "Mirror images"
+    shell: "bash {0}"
+    run:   strings.Join(list.FlattenN(#args.retagCommandList, -1), "\n")
+  }
 }
 
-_#manifestCopyCommandList: [ for k, v in _#manifestFromTo {(_#copyImage & {#args: v}).res}]
-
 _#retagManifestCommand: _#step & {
+  #args: {
+    fromTo: [ for k, v in [_#manifest] {
+      pword: "\(v.pword)"
+      from:  "\(_#registry)/\(v.name):$TAG"
+      to:    "\(_#registryRHScan)/\(v.ospid)/\(v.name):$TARGET_TAG"
+    }]
+    manifestCopyCommandList: [ for k, v in #args.fromTo {(_#copyImage & {#args: v}).res}]
+  }
 	name:  "Copy Manifest"
 	shell: "bash {0}"
-	run:   strings.Join(_#manifestCopyCommandList, "\n")
+	run:   strings.Join(#args.manifestCopyCommandList, "\n")
 }
 
 _#registryLoginStep: {
@@ -1015,6 +1044,11 @@ done
 }
 
 _#publishOperatorImages: _#step & {
+  #args: {
+    names: [ for v in _#projectURLs {
+      "--images \(v),,$TAG"
+    }]
+  }
 	name: "Publish Operator Images"
 	env: {
 		RH_USER:          "${{ secrets['REDHAT_IO_USER'] }}"
@@ -1023,11 +1057,16 @@ _#publishOperatorImages: _#step & {
 	}
 	run: """
 		make pc-tool
-		./bin/partner-connect-tool publish $(.github/workflows/scripts/get_images.sh $TAG)
+		./bin/partner-connect-tool publish --username $RH_USER --password $RH_PASSWORD  \(strings.Join(#args.names, " "))
 		"""
 }
 
 _#operatorImageStatuses: _#step & {
+  #args: {
+    names: [ for v in _#projectURLs {
+      "--images \(v),,$TAG"
+    }]
+  }
 	id:   "operatorImageStatuses"
 	name: "Fetch Operator Image Statuses"
 	env: {
@@ -1037,7 +1076,7 @@ _#operatorImageStatuses: _#step & {
 	}
 	run: """
 		make pc-tool
-		OUTPUT=$(./bin/partner-connect-tool status $(.github/workflows/scripts/get_images.sh $TAG))
+		OUTPUT=$(./bin/partner-connect-tool status --username $RH_USER --password $RH_PASSWORD \(strings.Join(#args.names, " ")))
 		echo "::set-output name=imageStatus::$OUTPUT"
 		"""
 }
@@ -1051,7 +1090,7 @@ _#publishOperator: _#step & {
 	}
 	run: """
 make pc-tool
-./bin/partner-connect-tool publish --is-operator-manifest=true --images \(_#manifest.url),,$TAG-cert
+./bin/partner-connect-tool publish --username $RH_USER --password $RH_PASSWORD --is-operator-manifest=true --images \(_#manifest.url),,$TAG
 """
 }
 
