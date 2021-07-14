@@ -349,14 +349,7 @@ sync_branches: _#bashWorkflow & {
 		sync: {
 			name:      "Sync next release"
 			"runs-on": _#linuxMachine
-			steps:     [_#checkoutCode,
-					_#step & {
-					name: "Get to branch"
-					run: """
-						FROM=`echo ${GITHUB_REF} | sed 's/refs\\/head\\///g' | sed 's/\\//-/g'`
-						echo "PULL_REQUEST_FROM_BRANCH=$FROM" >> $GITHUB_ENV
-						"""
-				}] + [ for _#futureRelease in _#futureReleases {
+			steps:     [_#checkoutCode] + [ for _#futureRelease in _#futureReleases {
 				_#step & {
 					name: "pull-request-action"
 					uses: "vsoch/pull-request-action@master"

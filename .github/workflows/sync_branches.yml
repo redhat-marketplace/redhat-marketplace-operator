@@ -14,10 +14,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
-    - name: Get to branch
-      run: |-
-        FROM=`echo ${GITHUB_REF} | sed 's/refs\/head\///g' | sed 's/\//-/g'`
-        echo "PULL_REQUEST_FROM_BRANCH=$FROM" >> $GITHUB_ENV
     - name: pull-request-action
       uses: vsoch/pull-request-action@master
       env:
