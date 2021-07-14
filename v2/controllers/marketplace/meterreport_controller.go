@@ -42,6 +42,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -101,9 +102,13 @@ func (m *MeterReportReconciler) InjectOperatorConfig(cfg *config.OperatorConfig)
 func (r *MeterReportReconciler) SetupWithManager(mgr manager.Manager) error {
 	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
 
+	scheduler := NewScheduleRunnable(r.Client, *r.cfg, r.Log)
+	mgr.Add(scheduler)
+
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(namespacePredicate).
 		For(&marketplacev1alpha1.MeterReport{}).
+		Watches(scheduler.Source(), &handler.EnqueueRequestForObject{}).
 		Watches(&source.Kind{Type: &marketplacev1alpha1.MeterReport{}}, &handler.EnqueueRequestForObject{}).
 		Watches(&source.Kind{Type: &batchv1.Job{}}, &handler.EnqueueRequestForOwner{
 			IsController: true,
@@ -116,7 +121,7 @@ func (r *MeterReportReconciler) SetupWithManager(mgr manager.Manager) error {
 		Complete(r)
 }
 
-const rerunTime = 8 * 24 * time.Hour
+const rerunTime = 12 * 24 * time.Hour //12 days
 
 // Reconcile reads that state of the cluster for a MeterReport object and makes changes based on the state read
 // and what is in the MeterReport.Spec
@@ -156,8 +161,8 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 		"config", r.cfg.RelatedImages,
 		"envvar", utils.Getenv("RELATED_IMAGE_REPORTER", ""))
 
-	endTime := instance.Spec.EndTime.Time
-	now := time.Now()
+	endTime := instance.Spec.EndTime.Time.UTC()
+	now := time.Now().UTC()
 
 	reqLogger.Info("time", "now", now, "endTime", endTime)
 
@@ -168,7 +173,7 @@ func (r *MeterReportReconciler) Reconcile(request reconcile.Request) (reconcile.
 			context.TODO(),
 			HandleResult(
 				UpdateStatusCondition(instance, &instance.Status.Conditions, marketplacev1alpha1.ReportConditionJobWaiting),
-				OnAny(RequeueAfterResponse(15*time.Minute)),
+				OnAny(RequeueAfterResponse(wait)),
 			),
 		)
 		if result.Is(Error) {
@@ -372,4 +377,82 @@ func waitTime(now time.Time, timeToExecute time.Time, addRandom int) time.Durati
 	}
 
 	return waitTime
+}
+
+type ScheduleRunnable struct {
+	client    client.Client
+	eventChan chan event.GenericEvent
+	cfg       config.OperatorConfig
+	log       logr.Logger
+}
+
+func NewScheduleRunnable(
+	c client.Client,
+	cfg config.OperatorConfig,
+	log logr.Logger,
+) *ScheduleRunnable {
+	return &ScheduleRunnable{
+		client:    c,
+		cfg:       cfg,
+		log:       log.WithName("schedule-runnable"),
+		eventChan: make(chan event.GenericEvent),
+	}
+}
+
+func (s *ScheduleRunnable) send(evt event.GenericEvent) {
+	s.eventChan <- evt
+}
+
+func (s *ScheduleRunnable) Source() *source.Channel {
+	return &source.Channel{
+		Source: s.eventChan,
+	}
+}
+
+func (s *ScheduleRunnable) NeedLeaderElection() bool {
+	return true
+}
+
+
+func (s *ScheduleRunnable) Start(done <-chan struct{}) error {
+	ticker := time.NewTicker(time.Minute * 15)
+
+	var meterReportList marketplacev1alpha1.MeterReportList
+	for {
+		func() {
+			err := s.client.List(context.TODO(), &meterReportList, client.InNamespace(s.cfg.DeployedNamespace))
+			if err != nil {
+				s.log.Error(err, "error getting list")
+				return
+			}
+
+			now := time.Now().UTC()
+
+			for _, report := range meterReportList.Items {
+				runningCondition := report.Status.Conditions.GetCondition(marketplacev1alpha1.ReportConditionTypeJobRunning)
+				if runningCondition != nil &&
+					runningCondition.IsFalse() &&
+					runningCondition.Reason == marketplacev1alpha1.ReportConditionReasonJobFinished {
+					continue
+				}
+
+				if !now.After(report.Spec.EndTime.Time.UTC()) {
+					continue
+				}
+
+				s.log.Info("queueing job is not finished and can run now", "meterreport", report.Name, "now", now, "report", report.Spec.EndTime.Time.UTC())
+				s.send(event.GenericEvent{
+					Meta:   &report.ObjectMeta,
+					Object: &report,
+				})
+			}
+		}()
+		select {
+		case <-done:
+			s.log.Info("closing")
+			close(s.eventChan)
+			return nil
+		case <-ticker.C:
+		}
+	}
 }
