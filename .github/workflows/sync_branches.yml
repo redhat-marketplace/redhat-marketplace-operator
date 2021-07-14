@@ -20,15 +20,18 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         PULL_REQUEST_BRANCH: release/2.4.0
         PULL_REQUEST_TITLE: 'chore: ${{ env.GITHUB_REF }} to release/2.4.0'
+        PULL_REQUEST_UPDATE: "true"
     - name: pull-request-action
       uses: vsoch/pull-request-action@master
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         PULL_REQUEST_BRANCH: develop
         PULL_REQUEST_TITLE: 'chore: ${{ env.GITHUB_REF }} to develop'
+        PULL_REQUEST_UPDATE: "true"
     - name: pull-request-action
       uses: vsoch/pull-request-action@master
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         PULL_REQUEST_BRANCH: master
         PULL_REQUEST_TITLE: Release ${{ env.GITHUB_REF }}
+        PULL_REQUEST_UPDATE: "true"
