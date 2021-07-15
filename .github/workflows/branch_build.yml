@@ -358,6 +358,8 @@ jobs:
         export TAG=$IMAGE_TAG
         echo "::group::Make Stable Bundle"
         make bundle-stable
+        echo "Current dir = `pwd`"
+        cat bundle/manifests/redhat-marketplace-operator.clusterserviceversion.yaml
         echo "::endgroup::"
 
         export VERSION=$IMAGE_TAG
