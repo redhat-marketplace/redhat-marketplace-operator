@@ -34,7 +34,7 @@ spec:
   validation:
     openAPIV3Schema:
       description: MarketplaceConfig is configuration manager for our Red Hat Marketplace
-        controllers
+        controllers By installing this product you accept the license terms https://ibm.biz/BdfaAY.
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
