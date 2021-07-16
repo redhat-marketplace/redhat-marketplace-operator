@@ -20,6 +20,7 @@ import (
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/cmd/reporter/report"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/cmd/reporter/upload"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -41,6 +42,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.AddCommand(report.ReportCmd)
+	rootCmd.AddCommand(upload.UploadCmd)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cobra.yaml)")
 }
 

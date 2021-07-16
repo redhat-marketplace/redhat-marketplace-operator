@@ -45,3 +45,19 @@ func (frs *AdminServerServer) CleanTombstones(ctx context.Context, in *adminserv
 	}
 	return res, nil
 }
+
+func (frs *AdminServerServer) DeleteFile(ctx context.Context, dfr *adminserver.DeleteFileRequest) (*adminserver.DeleteFileResponse, error) {
+
+	err := frs.B.FileStore.TombstoneFile(dfr.GetFileId())
+	if err != nil {
+		return nil, status.Errorf(
+			codes.InvalidArgument,
+			fmt.Sprintf("Failed to mark file for deletion due to: %v", err),
+		)
+	}
+
+	res := &adminserver.DeleteFileResponse{
+		FileId: dfr.GetFileId(),
+	}
+	return res, nil
+}

@@ -86,3 +86,48 @@ func NewReporter(task *Task) (*MarketplaceReporter, error) {
 var (
 	_wireLogrLoggerValue = logger
 )
+
+func NewUploadTask(ctx context.Context, config2 *Config) (*UploadTask, error) {
+	restConfig, err := config.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	restMapper, err := managers.NewDynamicRESTMapper(restConfig)
+	if err != nil {
+		return nil, err
+	}
+	scheme := provideScheme()
+	simpleClient, err := managers.ProvideSimpleClient(restConfig, restMapper, scheme)
+	if err != nil {
+		return nil, err
+	}
+	logrLogger := _wireLoggerValue2
+	clientCommandRunner := reconcileutils.NewClientCommand(simpleClient, scheme, logrLogger)
+	downloader, err := ProvideDownloader(ctx, clientCommandRunner, logrLogger, config2)
+	if err != nil {
+		return nil, err
+	}
+	uploader, err := ProvideUploader(ctx, clientCommandRunner, logrLogger, config2)
+	if err != nil {
+		return nil, err
+	}
+	admin, err := ProvideAdmin(ctx, clientCommandRunner, logrLogger, config2)
+	if err != nil {
+		return nil, err
+	}
+	uploadTask := &UploadTask{
+		CC:         clientCommandRunner,
+		K8SClient:  simpleClient,
+		Ctx:        ctx,
+		Config:     config2,
+		K8SScheme:  scheme,
+		Downloader: downloader,
+		Uploader:   uploader,
+		Admin:      admin,
+	}
+	return uploadTask, nil
+}
+
+var (
+	_wireLoggerValue2 = logger
+)
