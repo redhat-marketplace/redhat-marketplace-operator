@@ -285,6 +285,8 @@ func (q *PromQuery) GetQueryArgs() ResultQueryArgs {
 		}
 	}
 
+	q.Without = append(q.Without, alwaysWithout...)
+
 	return ResultQueryArgs{
 		MeterName:          meterName,
 		Query:              q.Query,
