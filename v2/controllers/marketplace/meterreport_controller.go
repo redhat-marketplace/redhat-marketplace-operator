@@ -573,7 +573,6 @@ func (s *ScheduleRunnable) NeedLeaderElection() bool {
 	return true
 }
 
-
 func (s *ScheduleRunnable) Start(done <-chan struct{}) error {
 	ticker := time.NewTicker(time.Minute * 15)
 
