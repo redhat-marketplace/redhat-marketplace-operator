@@ -18,10 +18,12 @@ resources:
   - ../prometheus
   - ../samples
   - ../scorecard
+  - bases/redhat-marketplace-operator.clusterserviceversion.yaml
 
 patchesStrategicMerge:
   - manager_auth_proxy_patch.yaml
   - manager_webhook_patch.yaml
+  - patch_csv/patch-related-images.yaml
 
 configurations:
   - kustomizeconfig.yaml
@@ -31,3 +33,24 @@ vars:
       kind: Service
       version: v1
       name: controller-manager-service
+  - name: REPORTER_IMAGE_MARKER
+    objref:
+      kind: Deployment
+      name: controller-manager
+      apiVersion: apps/v1
+    fieldref:
+      fieldpath: metadata.annotations.reporterImage
+  - name: METRIC_STATE_IMAGE_MARKER
+    objref:
+      kind: Deployment
+      name: controller-manager
+      apiVersion: apps/v1
+    fieldref:
+      fieldpath: metadata.annotations.metricStateImage
+  - name: AUTHCHECK_IMAGE_MARKER
+    objref:
+      kind: Deployment
+      name: controller-manager
+      apiVersion: apps/v1
+    fieldref:
+      fieldpath: metadata.annotations.authcheckImage

@@ -12,16 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate go-bindata -o bindata.go -prefix "../../../assets/" -pkg signer ../../../assets/signer/...
-
 package signer
 
 import (
-	"bytes"
 	"crypto"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
+	_ "embed"
 	"encoding/hex"
 	"encoding/pem"
 	"io"
@@ -29,16 +27,12 @@ import (
 	"os"
 
 	"emperror.dev/errors"
-	//"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-const SignerCaCertificate = "signer/ca.pem"
-
-func MustAssetReader(asset string) io.Reader {
-	return bytes.NewReader(MustAsset(asset))
-}
+//go:embed ca.pem
+var signerCACertificate []byte
 
 // github.com/manifestival/manifestival/internal/sources/yaml.go
 func Decode(reader io.Reader) ([]unstructured.Unstructured, error) {
@@ -127,13 +121,7 @@ func CertificateFromPemBytes(pemData []byte) (*x509.Certificate, error) {
 }
 
 func CertificateFromAssets() (*x509.Certificate, error) {
-	caCertReader := MustAssetReader(SignerCaCertificate)
-	pemData, err := ioutil.ReadAll(caCertReader)
-	if err != nil {
-		return nil, errors.Wrap(err, "Unable to read pem file")
-	}
-
-	return CertificateFromPemBytes(pemData)
+	return CertificateFromPemBytes(signerCACertificate)
 }
 
 // This should be the bytes we sign, or verify signature on

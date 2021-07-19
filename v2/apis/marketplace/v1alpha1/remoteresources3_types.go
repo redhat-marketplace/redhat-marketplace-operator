@@ -15,6 +15,7 @@
 package v1alpha1
 
 import (
+	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -112,6 +113,14 @@ type Request struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	Optional bool `json:"optional,omitempty"`
+	// Status of the request
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +optional
+	StatusCode int `json:"statusCode,omitempty"`
+	// Message of the request
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +optional
+	Message string `json:"message,omitempty"`
 }
 
 //Options holds the options object which will be passed as-is to the http request. Allows you to specify things like headers for authentication.
@@ -154,6 +163,11 @@ type RemoteResourceS3Status struct {
 	Touched *bool `json:"touched,omitempty"`
 	// RazeeLogs is the logs from the controller
 	RazeeLogs RazeeLogs `json:"razee-logs,omitempty"`
+	// Conditions represent the latest available observations of an object's state
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:io.kubernetes.conditions"
+	// +optional
+	Conditions status.Conditions `json:"conditions,omitempty"`
 }
 
 // RazeeLogs holds log output from the RRS3 controller
@@ -182,6 +196,16 @@ type RemoteResourceS3 struct {
 	Spec   RemoteResourceS3Spec   `json:"spec,omitempty"`
 	Status RemoteResourceS3Status `json:"status,omitempty"`
 }
+
+// These are valid conditions of a job.
+const (
+	// ResourceInstallError means the RemoteResourceS3 controller has a bad status (can not apply resources)
+	ResourceInstallError status.ConditionType = "ResourceInstallError"
+
+	// Reasons for install
+	FailedRequest status.ConditionReason = "FailedRequest"
+	NoBadRequest  status.ConditionReason = "NoBadRequest"
+)
 
 // +kubebuilder:object:root=true
 

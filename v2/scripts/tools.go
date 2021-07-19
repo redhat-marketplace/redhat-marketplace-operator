@@ -19,18 +19,17 @@
 package tools
 
 import (
-	_ "github.com/wadey/gocovmerge"
 	_ "github.com/Masterminds/semver/v3"
 	_ "github.com/Shyp/bump_version"
-	_ "github.com/go-bindata/go-bindata/go-bindata"
 	_ "github.com/golang/mock/mockgen"
 	_ "github.com/golangci/golangci-lint/cmd/golangci-lint"
+	_ "github.com/google/addlicense"
 	_ "github.com/google/wire"
 	_ "github.com/launchdarkly/go-options"
 	_ "github.com/mikefarah/yq/v3"
+	_ "github.com/onsi/ginkgo/ginkgo"
 	_ "github.com/spf13/cobra"
 	_ "github.com/tcnksm/ghr"
+	_ "github.com/wadey/gocovmerge"
 	_ "k8s.io/code-generator/cmd/client-gen"
-	_ "github.com/google/addlicense"
-	_ "github.com/onsi/ginkgo/ginkgo"
 )

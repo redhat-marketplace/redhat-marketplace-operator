@@ -24,3 +24,18 @@ spec:
         ports:
         - containerPort: 8443
           name: https
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+        resources:
+          limits:
+            cpu: 20m
+            memory: 25Mi
+          requests:
+            cpu: 10m
+            memory: 20Mi

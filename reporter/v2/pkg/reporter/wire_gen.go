@@ -15,7 +15,7 @@ import (
 
 // Injectors from wire.go:
 
-func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task, error) {
+func NewTask(ctx context.Context, reportName ReportName, taskConfig *Config) (*Task, error) {
 	restConfig, err := config.GetConfig()
 	if err != nil {
 		return nil, err
@@ -31,7 +31,7 @@ func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task
 	}
 	logrLogger := _wireLoggerValue
 	clientCommandRunner := reconcileutils.NewClientCommand(simpleClient, scheme, logrLogger)
-	uploaderTarget := config2.UploaderTarget
+	uploaderTarget := taskConfig.UploaderTarget
 	uploader, err := ProvideUploader(ctx, clientCommandRunner, logrLogger, uploaderTarget)
 	if err != nil {
 		return nil, err
@@ -41,7 +41,7 @@ func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task
 		CC:         clientCommandRunner,
 		K8SClient:  simpleClient,
 		Ctx:        ctx,
-		Config:     config2,
+		Config:     taskConfig,
 		K8SScheme:  scheme,
 		Uploader:   uploader,
 	}

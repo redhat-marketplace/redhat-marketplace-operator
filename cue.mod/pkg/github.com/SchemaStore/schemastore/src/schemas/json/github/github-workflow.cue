@@ -520,7 +520,7 @@ import "strings"
 											[string]: #configuration
 						}] & [_, ...]}
 						{[!~"^(in|ex)clude$" & !~"^()$"]: [...#configuration] & [_, ...]}
-					}
+					} | string
 
 					// When set to true, GitHub cancels all in-progress jobs if any
 					// matrix job fails. Default: true

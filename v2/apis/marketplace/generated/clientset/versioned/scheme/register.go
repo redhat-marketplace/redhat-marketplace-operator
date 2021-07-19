@@ -46,7 +46,7 @@ var localSchemeBuilder = runtime.SchemeBuilder{
 //   )
 //
 //   kclientset, _ := kubernetes.NewForConfig(c)
-//   _ = aggregatorclientsetscheme.AddToScheme(clientsetscheme.Scheme)
+//   _ = aggregatorclientsetscheme.AddToScheme(clientsetk8sScheme)
 //
 // After this, RawExtensions in Kubernetes types will serialize kube-aggregator types
 // correctly.

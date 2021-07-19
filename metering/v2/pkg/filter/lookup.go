@@ -89,7 +89,6 @@ func NewMeterDefinitionLookupFilter(
 		}
 	}
 
-
 	s.workloads = meterdef.Spec.ResourceFilters
 
 	return s, nil

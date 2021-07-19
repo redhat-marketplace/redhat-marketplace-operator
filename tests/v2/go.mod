@@ -1,12 +1,11 @@
 module github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2
 
-go 1.15
+go 1.16
 
 require (
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/go-logr/logr v0.3.0
-	github.com/google/go-cmp v0.5.5 // indirect
 	github.com/google/uuid v1.1.2
 	github.com/google/wire v0.4.0
 	github.com/gotidy/ptr v1.3.0

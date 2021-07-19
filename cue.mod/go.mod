@@ -1,6 +1,6 @@
 module github.com/redhat-marketplace/redhat-marketplace-operator/cue.mod
 
-go 1.15
+go 1.16
 
 require (
 	cuelang.org/go v0.3.0-beta.3.0.20210204180722-e097927dc3c7 // indirect
