@@ -205,8 +205,8 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-      - description: 'MarketplaceConfig is configuration manager for our Red Hat Marketplace
-        controllers By installing this product you accept the license terms https://ibm.biz/BdfaAY.'
+      - description: 'MarketplaceConfig is the configuration manager for our Red Hat Marketplace
+        controllers. By installing this product you accept the license terms https://ibm.biz/BdfaAY.'
         kind: MarketplaceConfig
         name: marketplaceconfigs.marketplace.redhat.com
         version: v1alpha1
