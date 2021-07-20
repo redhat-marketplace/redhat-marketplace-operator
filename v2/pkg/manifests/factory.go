@@ -66,11 +66,11 @@ const (
 	MetricStateServiceMonitor = "metric-state/service-monitor.yaml"
 	MetricStateService        = "metric-state/service.yaml"
 
-	MeterdefinitionConfigMap = "assets/catalog-server/install-map.yaml"
+	MeterdefinitionConfigMap = "catalog-server/install-map.yaml"
 
-	MeterdefinitionFileServerDeploymentConfig = "assets/catalog-server/deployment-config.yaml"
-	MeterdefinitionFileServerService = "assets/catalog-server/service.yaml"
-	MeterdefinitionFileServerImageStream = "assets/catalog-server/image-stream.yaml"
+	MeterdefinitionFileServerDeploymentConfig = "catalog-server/deployment-config.yaml"
+	MeterdefinitionFileServerService = "catalog-server/service.yaml"
+	MeterdefinitionFileServerImageStream = "catalog-server/image-stream.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")

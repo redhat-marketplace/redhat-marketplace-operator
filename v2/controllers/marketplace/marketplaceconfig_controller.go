@@ -867,6 +867,11 @@ func (m *MarketplaceConfigReconciler) InjectOperatorConfig(cfg *config.OperatorC
 	return nil
 }
 
+func (r *MarketplaceConfigReconciler) InjectFactory(f *manifests.Factory) error {
+	r.factory = f
+	return nil
+}
+
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func (r *MarketplaceConfigReconciler) SetupWithManager(mgr manager.Manager) error {
 	// Create a new controller
@@ -919,6 +924,8 @@ func (r *MarketplaceConfigReconciler) createMeterdefFileServer(request reconcile
                 Err: err,
             }
         }
+
+		utils.PrettyPrint(foundDeploymentConfig)
         
         err = r.Client.Create(context.TODO(),deploymentConfig)
         if err != nil {
