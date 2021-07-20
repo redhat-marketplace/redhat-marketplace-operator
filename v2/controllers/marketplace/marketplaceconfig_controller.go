@@ -925,8 +925,6 @@ func (r *MarketplaceConfigReconciler) createMeterdefFileServer(request reconcile
             }
         }
 
-		utils.PrettyPrint(foundDeploymentConfig)
-        
         err = r.Client.Create(context.TODO(),deploymentConfig)
         if err != nil {
             return &ExecResult{
