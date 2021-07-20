@@ -12,6 +12,10 @@ rules:
   verbs:
   - create
   - get
+- nonResourceURLs:
+  - /rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc/list-for-version
+  verbs:
+  - get
 - apiGroups:
   - ""
   resources:
@@ -139,6 +143,16 @@ rules:
   - list
   - watch
 - apiGroups:
+  - apps.openshift.io
+  resources:
+  - deploymentconfigs
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
   - batch
   - extensions
   resources:
@@ -182,6 +196,16 @@ rules:
   - delete
   - get
   - list
+- apiGroups:
+  - image.openshift.io
+  resources:
+  - imagestreams
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
 - apiGroups:
   - marketplace.redhat.com
   resources:

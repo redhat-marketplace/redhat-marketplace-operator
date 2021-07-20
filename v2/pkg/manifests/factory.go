@@ -23,6 +23,8 @@ import (
 	"strings"
 
 	"github.com/gotidy/ptr"
+	osappsv1 "github.com/openshift/api/apps/v1"
+	osimagev1 "github.com/openshift/api/image/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
@@ -63,6 +65,12 @@ const (
 	MetricStateDeployment     = "metric-state/deployment.yaml"
 	MetricStateServiceMonitor = "metric-state/service-monitor.yaml"
 	MetricStateService        = "metric-state/service.yaml"
+
+	MeterdefinitionConfigMap = "assets/catalog-server/install-map.yaml"
+
+	MeterdefinitionFileServerDeploymentConfig = "assets/catalog-server/deployment-config.yaml"
+	MeterdefinitionFileServerService = "assets/catalog-server/service.yaml"
+	MeterdefinitionFileServerImageStream = "assets/catalog-server/image-stream.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")
@@ -171,6 +179,83 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 	}
 }
 
+func (f *Factory) NewImageStream (manifest io.Reader) (*osimagev1.ImageStream, error) {
+	d, err := NewImageStream(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	if d.GetNamespace() == "" {
+		d.SetNamespace(f.namespace)
+	}
+
+	if d.GetAnnotations() == nil {
+		d.Annotations = make(map[string]string)
+	}
+
+	return d, nil
+}
+
+func (f *Factory) NewImageStreamTag (manifest io.Reader) (*osimagev1.ImageStreamTag, error) {
+	d, err := NewImageStreamTag(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	if d.GetNamespace() == "" {
+		d.SetNamespace(f.namespace)
+	}
+
+	if d.GetAnnotations() == nil {
+		d.Annotations = make(map[string]string)
+	}
+
+	return d, nil
+}
+
+func (f *Factory) UpdateImageStream(manifest io.Reader,is *osimagev1.ImageStream) error {
+    err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(is)
+    if err != nil {
+        return err
+    }
+
+    return nil
+}
+
+func (f *Factory) NewDeploymentConfig(manifest io.Reader) (*osappsv1.DeploymentConfig, error) {
+	d, err := NewDeploymentConfig(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	if d.GetNamespace() == "" {
+		d.SetNamespace(f.namespace)
+	}
+
+	if d.GetAnnotations() == nil {
+		d.Annotations = make(map[string]string)
+	}
+
+	if d.Spec.Template.GetAnnotations() == nil {
+		d.Spec.Template.Annotations = make(map[string]string)
+	}
+
+	for i := range d.Spec.Template.Spec.Containers {
+		f.ReplaceImages(&d.Spec.Template.Spec.Containers[i])
+	}
+
+	return d, nil
+}
+
+func (f *Factory) UpdateDeploymentConfig(manifest io.Reader, d *osappsv1.DeploymentConfig) error {
+    err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(d)
+    if err != nil {
+        return err
+    }
+
+    return nil
+}
+
 func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
 	d, err := NewDeployment(manifest)
 	if err != nil {
@@ -203,6 +288,34 @@ func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) 
 	return d, nil
 }
 
+func (f *Factory) NewMeterdefintionFileServerDeploymentConfig()(*osappsv1.DeploymentConfig,error){
+	return f.NewDeploymentConfig(MustAssetReader(MeterdefinitionFileServerDeploymentConfig))
+}
+
+func (f *Factory) UpdateMeterdefinitionFileServerDeploymentConfig(d *osappsv1.DeploymentConfig) error {
+    return f.UpdateDeploymentConfig(MustAssetReader(MeterdefinitionFileServerService), d)
+}
+
+func (f *Factory) NewMeterdefintionFileServerImageStream()(*osimagev1.ImageStream,error){
+	return f.NewImageStream(MustAssetReader(MeterdefinitionFileServerImageStream))
+}
+
+func (f *Factory) UpdateMeterdefinitionFileServerImageStream(is *osimagev1.ImageStream) error {
+    return f.UpdateImageStream(MustAssetReader(MeterdefinitionFileServerService), is)
+}
+
+func(f *Factory)NewMeterdefintionFileServerService()(*corev1.Service,error){
+	return f.NewService(MustAssetReader(MeterdefinitionFileServerService))
+}
+
+func (f *Factory) UpdateMeterdefinitionFileServerService(s *corev1.Service) error {
+    return f.UpdateService(MustAssetReader(MeterdefinitionFileServerService), s)
+}
+
+func (f *Factory) NewMeterdefinitionConfigMap() (*corev1.ConfigMap, error) {
+	return f.NewConfigMap(MustAssetReader(MeterdefinitionConfigMap))
+}
+
 func (f *Factory) NewService(manifest io.Reader) (*corev1.Service, error) {
 	d, err := NewService(manifest)
 	if err != nil {
@@ -214,6 +327,15 @@ func (f *Factory) NewService(manifest io.Reader) (*corev1.Service, error) {
 	}
 
 	return d, nil
+}
+
+func (f *Factory) UpdateService(manifest io.Reader, s *v1.Service) error {
+    err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(s)
+    if err != nil {
+        return err
+    }
+
+    return nil
 }
 
 func (f *Factory) NewConfigMap(manifest io.Reader) (*corev1.ConfigMap, error) {
@@ -619,6 +741,36 @@ func (f *Factory) NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMo
 	}
 
 	return sm, nil
+}
+
+func NewImageStream(manifest io.Reader) (*osimagev1.ImageStream, error) {
+	is := osimagev1.ImageStream{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&is)
+	if err != nil {
+		return nil, err
+	}
+
+	return &is, nil
+}
+
+func NewImageStreamTag(manifest io.Reader) (*osimagev1.ImageStreamTag, error) {
+	it := osimagev1.ImageStreamTag{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&it)
+	if err != nil {
+		return nil, err
+	}
+
+	return &it, nil
+}
+
+func NewDeploymentConfig(manifest io.Reader) (*osappsv1.DeploymentConfig, error) {
+	d := osappsv1.DeploymentConfig{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&d)
+	if err != nil {
+		return nil, err
+	}
+
+	return &d, nil
 }
 
 func NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
