@@ -190,7 +190,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups="",namespace=system,resources=pods,verbs=get;list;watch;delete
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups="marketplace.redhat.com",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups="storage.k8s.io",resources=storageclasses,verbs=get;list;watch
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;patch;delete
@@ -216,6 +216,8 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 
 	// Fetch the MeterBase instance
 	instance := &marketplacev1alpha1.MeterBase{}
+	r.recorder.Event(instance, "Warning", "DefaultClassNotFound", fmt.Sprintf("Default storage class not found %s/%s", instance.Namespace, instance.Name))
+
 	result, _ := cc.Do(
 		context.TODO(),
 		HandleResult(
@@ -1248,6 +1250,8 @@ func (r *MeterBaseReconciler) createPrometheus(
 
 		if err != nil {
 			if merrors.Is(err, operrors.DefaultStorageClassNotFound) {
+				r.recorder.Event(instance, "Warning", "DefaultClassNotFound", fmt.Sprintf("Default storage class not found %s/%s", "openshift-redhat-marketplace", instance.Name))
+
 				return UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 					Type:    marketplacev1alpha1.ConditionError,
 					Status:  corev1.ConditionFalse,
@@ -1255,9 +1259,6 @@ func (r *MeterBaseReconciler) createPrometheus(
 					Message: err.Error(),
 				}), nil
 			}
-
-			r.recorder.Event(instance, "Warning", "DefaultClassNotFound", fmt.Sprintf("Default storage class not found %s/%s", instance.Namespace, instance.Name))
-
 			return nil, merrors.Wrap(err, "error creating prometheus")
 		}
 
