@@ -728,22 +728,22 @@ _#getBundleRunID: _#step & {
 		  -H "Accept: application/vnd.github.v3+json" \\
 		  "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/$WORKFLOW_ID/runs?branch=$REF&event=push" \\
 		   | jq '.workflow_runs | max_by(.run_number)')
-		
+
 		if [ "$BRANCH_BUILD" == "" ]; then
 		  echo "failed to get branch build"
 		  exit 1
 		fi
-		
+
 		status=$(echo $BRANCH_BUILD | jq -r '.status')
 		conclusion=$(echo $BRANCH_BUILD | jq -r '.conclusion')
-		
+
 		if [ "$status" != "completed" ] && [ "$conclusion" != "success" ]; then
 		  echo "$status and $conclusion were not completed and successful"
 		  exit 1
 		fi
-		
+
 		RUN_NUMBER=$(echo $BRANCH_BUILD | jq -r '.run_number')
-		
+
 		export TAG="${VERSION}-${RUN_NUMBER}"
 		echo "setting tag to $TAG"
 		echo "TAG=$TAG" >> $GITHUB_ENV
@@ -760,19 +760,19 @@ _#getVersion: _#step & {
 		if [ "$REF" == "" ]; then
 			REF="$GITHUB_REF"
 		fi
-		
+
 		if [[ "$GITHUB_HEAD_REF" != "" ]]; then
 			echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
 		  REF="$GITHUB_HEAD_REF"
 		fi
-		
+
 		echo "Found ref $REF"
-		
+
 		if [[ "$VERSION" == "" ]]; then
 		  echo "failed to find version"
 		  exit 1
 		fi
-		
+
 		if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* ]] ; then
 		echo "using release version and github_run_number"
 		export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
@@ -782,7 +782,7 @@ _#getVersion: _#step & {
 		export TAG="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
 		export IS_DEV="true"
 		fi
-		
+
 		echo "Found version $VERSION"
 		echo "::set-output name=version::$VERSION"
 		echo "VERSION=$VERSION" >> $GITHUB_ENV
@@ -1277,7 +1277,7 @@ _#findAllReleasePRs: (_#githubGraphQLQuery & {
 		with: {
 			query: """
 				query {
-					search(query: "repo:redhat-marketplace/redhat-marketplace-operator is:pr is:open head:hotfix head:release", type: ISSUE, last: 100) {
+					search(query: "repo:redhat-marketplace/redhat-marketplace-operator is:pr is:open head:hotfix head:release base:master label:ready", type: ISSUE, last: 100) {
 						edges {
 							node {
 								... on PullRequest {
