@@ -10,13 +10,12 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 // Injectors from wire.go:
 
-func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task, error) {
-	restConfig, err := config.GetConfig()
+func NewTask(ctx context.Context, reportName ReportName, config *Config) (*Task, error) {
+	restConfig, err := managers.ProvideRestConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +30,7 @@ func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task
 	}
 	logrLogger := _wireLoggerValue
 	clientCommandRunner := reconcileutils.NewClientCommand(simpleClient, scheme, logrLogger)
-	uploaderTarget := config2.UploaderTarget
+	uploaderTarget := config.UploaderTarget
 	uploader, err := ProvideUploader(ctx, clientCommandRunner, logrLogger, uploaderTarget)
 	if err != nil {
 		return nil, err
@@ -41,7 +40,7 @@ func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task
 		CC:         clientCommandRunner,
 		K8SClient:  simpleClient,
 		Ctx:        ctx,
-		Config:     config2,
+		Config:     config,
 		K8SScheme:  scheme,
 		Uploader:   uploader,
 	}
@@ -53,7 +52,7 @@ var (
 )
 
 func NewReporter(task *Task) (*MarketplaceReporter, error) {
-	reporterConfig := task.Config
+	config := task.Config
 	contextContext := task.Ctx
 	simpleClient := task.K8SClient
 	scheme := task.K8SScheme
@@ -72,7 +71,7 @@ func NewReporter(task *Task) (*MarketplaceReporter, error) {
 	if err != nil {
 		return nil, err
 	}
-	prometheusAPISetup := providePrometheusSetup(reporterConfig, meterReport, service)
+	prometheusAPISetup := providePrometheusSetup(config, meterReport, service)
 	prometheusAPI, err := prometheus.NewPrometheusAPIForReporter(prometheusAPISetup)
 	if err != nil {
 		return nil, err
@@ -81,7 +80,7 @@ func NewReporter(task *Task) (*MarketplaceReporter, error) {
 	if err != nil {
 		return nil, err
 	}
-	marketplaceReporter, err := NewMarketplaceReporter(reporterConfig, meterReport, marketplaceConfig, prometheusAPI, v)
+	marketplaceReporter, err := NewMarketplaceReporter(config, meterReport, marketplaceConfig, prometheusAPI, v)
 	if err != nil {
 		return nil, err
 	}
