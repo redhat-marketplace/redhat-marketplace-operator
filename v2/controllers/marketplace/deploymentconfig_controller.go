@@ -74,11 +74,10 @@ type DeploymentConfigReconciler struct {
 }
 
 type InstallMapping struct {
-	PackageName               string   `json:"packageName"`
-	Namespace                 string   `json:"namespace"`
-	CsvName                   string   `json:"csvName"`
-	CsvVersion                string   `json:"version"`
-	InstalledMeterdefinitions []string `json:"installedMeterdefinitions"`
+	Namespace                 string   `json:"namespace,omitempty"`
+	CsvName                   string   `json:"csvName,omitempty"`
+	CsvVersion                string   `json:"version,omitempty"`
+	InstalledMeterdefinitions []string `json:"installedMeterdefinitions,omitempty"`
 }
 
 //TODO: mutex needed here ?
@@ -147,7 +146,7 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // +kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=get;list;watch
-// +kubebuilder:rbac:urls=/rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc/list-for-version,verbs=get;
+// +kubebuilder:rbac:urls=/list-for-version/*,verbs=get;
 
 // Reconcile reads that state of the cluster for a MeterdefConfigmap object and makes changes based on the state read
 // and what is in the MeterdefConfigmap.Spec
@@ -277,13 +276,12 @@ func (r *DeploymentConfigReconciler) sync(installMappings []InstallMapping, reqL
 
 	updatedInstallMappings := []InstallMapping{}
 	for _, installMap := range installMappings {
-		csvPackageName := installMap.PackageName
 		csvName := installMap.CsvName
 		csvVersion := installMap.CsvVersion
 		namespace := installMap.Namespace
 		installedMeterDefs := installMap.InstalledMeterdefinitions
 
-		meterDefNamesFromFileServer, meterDefsFromFileServer, result := ListMeterdefintionsFromFileServer(csvPackageName, csvVersion, namespace, r.Client,r.kubeInterface,r.cfg.DeployedNamespace ,reqLogger)
+		meterDefNamesFromFileServer, meterDefsFromFileServer, result := ListMeterdefintionsFromFileServer(csvName, csvVersion, namespace, r.Client,r.kubeInterface,r.cfg.DeployedNamespace ,reqLogger)
 		if !result.Is(Continue) {
 			return nil, result
 		}

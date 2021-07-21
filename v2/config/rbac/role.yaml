@@ -13,6 +13,10 @@ rules:
   - create
   - get
 - nonResourceURLs:
+  - /list-for-version/*
+  verbs:
+  - get
+- nonResourceURLs:
   - /rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc/list-for-version
   verbs:
   - get
