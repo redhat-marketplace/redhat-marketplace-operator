@@ -1,0 +1,23 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  annotations:
+  labels:
+    app: rhm-meterdefinition-file-server
+  name: rhm-meterdefinition-file-server
+  namespace: openshift-redhat-marketplace
+spec:
+  lookupPolicy:
+    local: false
+  tags:
+  - annotations:
+      openshift.io/imported-from: quay.io/mxpaspa/rhm-meterdefinition-file-server:v1.0.0-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
+    from:
+      kind: DockerImage
+      name: quay.io/mxpaspa/rhm-meterdefinition-file-server:v1.0.0-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
+    importPolicy:
+      insecure: true
+      scheduled: true
+    name: v1.0.0-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
+    referencePolicy:
+      type: Source

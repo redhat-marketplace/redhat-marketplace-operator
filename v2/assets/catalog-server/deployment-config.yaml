@@ -1,0 +1,112 @@
+apiVersion: apps.openshift.io/v1
+kind: DeploymentConfig
+metadata:
+  creationTimestamp: "2021-05-31T23:33:31Z"
+  generation: 2
+  labels:
+    app: rhm-meterdefinition-file-server
+  name: rhm-meterdefinition-file-server
+  namespace: openshift-redhat-marketplace
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    deploymentconfig: rhm-meterdefinition-file-server
+  strategy:
+    activeDeadlineSeconds: 21600
+    resources: {}
+    rollingParams:
+      intervalSeconds: 1
+      maxSurge: 25%
+      maxUnavailable: 25%
+      timeoutSeconds: 600
+      updatePeriodSeconds: 1
+    type: Rolling
+  template:
+    metadata:
+      annotations:
+      labels:
+        deploymentconfig: rhm-meterdefinition-file-server
+    spec:
+      containers:
+      - name: authcheck
+        image: redhat-marketplace-authcheck
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+          terminationMessagePolicy: FallbackToLogsOnError
+      - name: rhm-meterdefinition-file-server
+        image: quay.io/mxpaspa/rhm-meterdefinition-file-server@sha256:d289efcef33ea176ef58cea26796880baddc2348ebde528824d430fdec52b913
+        livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8100
+            initialDelaySeconds: 15
+            periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8100
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8100
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      - args:
+            - --logtostderr
+            - --secure-listen-address=:8200
+            - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+            - --upstream=http://127.0.0.1:8100/
+            - --tls-cert-file=/etc/tls/private/tls.crt
+            - --tls-private-key-file=/etc/tls/private/tls.key
+            - --upstream-ca-file=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt
+            - --auth-token-audiences=rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc
+        image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
+        imagePullPolicy: Always
+        name: kube-rbac-proxy
+        ports:
+          - containerPort: 8200
+            name: https
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        securityContext: {}
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+          - mountPath: /etc/tls/private
+            name: rhm-meterdefinition-file-server-tls
+            readOnly: false  
+          - mountPath: /etc/configmaps/serving-certs-ca-bundle
+            name: serving-certs-ca-bundle
+            readOnly: false        
+      volumes:
+        - name: rhm-meterdefinition-file-server-tls
+          secret:
+            secretName: rhm-meterdefinition-file-server-tls
+        - configMap:
+            name: serving-certs-ca-bundle
+          name: serving-certs-ca-bundle
+      serviceAccountName: redhat-marketplace-operator
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+  test: false
+  triggers:
+  - type: ConfigChange
+  - imageChangeParams:
+      automatic: true
+      containerNames:
+      - rhm-meterdefinition-file-server
+      from:
+        kind: ImageStreamTag
+        name: rhm-meterdefinition-file-server:v1.0.0-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
+        namespace: openshift-redhat-marketplace
+    type: ImageChange
