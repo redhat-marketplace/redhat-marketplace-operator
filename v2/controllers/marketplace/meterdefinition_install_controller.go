@@ -79,7 +79,7 @@ type MeterdefinitionInstallReconciler struct {
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions;meterdefinitions/status,verbs=get;list;watch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions;meterdefinitions/status,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions;subscriptions,verbs=get;list;watch
-// +kubebuilder:rbac:urls=/rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc/list-for-version,verbs=get;
+// +kubebuilder:rbac:urls=/list-for-version/*,verbs=get;
 
 // Reconcile reads that state of the cluster for a ClusterServiceVersion object and creates corresponding meter definitions if found
 func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {

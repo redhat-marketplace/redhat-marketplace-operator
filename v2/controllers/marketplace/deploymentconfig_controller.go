@@ -147,7 +147,7 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // +kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=get;list;watch
-// +kubebuilder:rbac:urls=/rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc/list-for-version,verbs=get;
+// +kubebuilder:rbac:urls=/list-for-version/*,verbs=get;
 
 // Reconcile reads that state of the cluster for a MeterdefConfigmap object and makes changes based on the state read
 // and what is in the MeterdefConfigmap.Spec
