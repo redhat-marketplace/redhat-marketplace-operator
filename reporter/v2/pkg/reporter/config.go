@@ -33,6 +33,7 @@ type Config struct {
 	Retry           *int
 	CaFile          string
 	TokenFile       string
+	PasswordFile    string
 	Local           bool
 	Upload          bool
 	UploaderTarget

@@ -36,6 +36,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	merrors "emperror.dev/errors"
+	"github.com/blang/semver"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -584,6 +585,17 @@ func (r *MeterBaseReconciler) generateExpectedDates(endTime time.Time, loc *time
 }
 
 func (r *MeterBaseReconciler) newMeterReport(namespace string, startTime time.Time, endTime time.Time, meterReportName string, instance *marketplacev1alpha1.MeterBase, prometheusServiceName string) *marketplacev1alpha1.MeterReport {
+	// If kubeVersion < 1.20 TokenRequest and TokenRequestProjection are beta and not assumed available, use basicAuth (https port). Logical default if unknown kubeVersion parse failure
+	// If kubeVersion >= 1.20  TokenRequest and TokenRequestProjection are GA and assumed available, use token (rbac port)
+	v1200, _ := semver.Make("1.20.0")
+	kubeVersion := r.cfg.Infrastructure.KubernetesVersion()
+	parsedKubeVersion, _ := semver.ParseTolerant(kubeVersion)
+
+	targetPort := intstr.FromString("rbac")
+	if parsedKubeVersion.LT(v1200) {
+		targetPort = intstr.FromString("https")
+	}
+
 	return &marketplacev1alpha1.MeterReport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      meterReportName,
@@ -598,7 +610,7 @@ func (r *MeterBaseReconciler) newMeterReport(namespace string, startTime time.Ti
 			PrometheusService: &common.ServiceReference{
 				Name:       prometheusServiceName,
 				Namespace:  instance.Namespace,
-				TargetPort: intstr.FromString("rbac"),
+				TargetPort: targetPort,
 			},
 		},
 	}
@@ -1344,6 +1356,7 @@ func (r *MeterBaseReconciler) newBaseConfigMap(filename string, cr *marketplacev
 func labelsForPrometheusOperator(name string) map[string]string {
 	return map[string]string{"prometheus": name}
 }
+
 
 // Return Prometheus ActiveTargets with HealthBad or Unknown status
 func (r *MeterBaseReconciler) healthBadActiveTargets(cc ClientCommandRunner, request reconcile.Request, reqLogger logr.Logger) ([]common.Target, error) {
