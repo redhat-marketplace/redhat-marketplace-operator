@@ -935,7 +935,7 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 		),
 		HandleResult(
 			GetAction(
-				types.NamespacedName{Namespace: "openshift-monitoring", Name: "kubelet-serving-ca-bundle"},
+				types.NamespacedName{Namespace: "openshift-redhat-marketplace", Name: "kubelet-serving-ca-bundle"},
 				kubeletCertsCM,
 			),
 			OnNotFound(Call(func() (ClientAction, error) {
