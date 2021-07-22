@@ -118,13 +118,9 @@ func (r *MeterBaseReconciler) InjectKubeInterface(k kubernetes.Interface) error 
 	return nil
 }
 
-func (r *MeterBaseReconciler) InjectRecorder(mgr ctrl.Manager) error {
-	r.recorder = mgr.GetEventRecorderFor("meterbase-controller")
-	return nil
-}
-
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.recorder = mgr.GetEventRecorderFor("meterbase-controller")
 	mapFn := handler.ToRequestsFunc(
 		func(a handler.MapObject) []reconcile.Request {
 			return []reconcile.Request{
@@ -1248,7 +1244,7 @@ func (r *MeterBaseReconciler) createPrometheus(
 
 		if err != nil {
 			if merrors.Is(err, operrors.DefaultStorageClassNotFound) {
-				r.recorder.Event(instance, "Warning", "DefaultClassNotFound", fmt.Sprintf("Default storage class not found %s/%s", "openshift-redhat-marketplace", instance.Name))
+				r.recorder.Event(instance, "Warning", "DefaultClassNotFound", "Default storage class not found")
 
 				return UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 					Type:    marketplacev1alpha1.ConditionError,
