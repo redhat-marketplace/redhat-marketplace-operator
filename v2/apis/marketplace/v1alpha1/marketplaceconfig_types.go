@@ -91,6 +91,7 @@ type MarketplaceConfigStatus struct {
 }
 
 // MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers
+// By installing this product you accept the license terms https://ibm.biz/BdfaAY.
 // +kubebuilder:object:root=true
 //
 // +k8s:openapi-gen=true
