@@ -216,8 +216,6 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 
 	// Fetch the MeterBase instance
 	instance := &marketplacev1alpha1.MeterBase{}
-	r.recorder.Event(instance, "Warning", "DefaultClassNotFound", fmt.Sprintf("Default storage class not found %s/%s", instance.Namespace, instance.Name))
-
 	result, _ := cc.Do(
 		context.TODO(),
 		HandleResult(
