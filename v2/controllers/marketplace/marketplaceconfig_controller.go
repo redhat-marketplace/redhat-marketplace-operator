@@ -912,8 +912,39 @@ func getOperatorGroup() (string, error) {
 }
 
 func (r *MarketplaceConfigReconciler) createMeterdefFileServer(request reconcile.Request, reqLogger logr.Logger) *ExecResult {
+	foundInstallMap := &corev1.ConfigMap{}
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: "rhm-meterdef-install-map",Namespace: request.Namespace}, foundInstallMap)
+	if err != nil && k8serrors.IsNotFound(err){
+		installMapCM, err := r.factory.NewMeterdefinitionConfigMap()
+		if err != nil {
+            return &ExecResult{
+                ReconcileResult: reconcile.Result{},
+                Err: err,
+            }
+        }
+
+        err = r.Client.Create(context.TODO(),installMapCM)
+        if err != nil {
+            return &ExecResult{
+                ReconcileResult: reconcile.Result{},
+                Err: err,
+            }
+        }
+
+        return &ExecResult{
+            ReconcileResult: reconcile.Result{Requeue: true},
+            Err: nil,
+        }
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to get rhm-meterdefinition-install-map cm")
+		return &ExecResult{
+		ReconcileResult: reconcile.Result{},
+			Err: err,
+		}
+	}
+
 	foundDeploymentConfig := &osappsv1.DeploymentConfig{}
-    err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME,Namespace: request.Namespace}, foundDeploymentConfig)
+    err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME,Namespace: request.Namespace}, foundDeploymentConfig)
     if err != nil && k8serrors.IsNotFound(err){
         reqLogger.Info("meterdef file server deployment config not found, creating")
 
