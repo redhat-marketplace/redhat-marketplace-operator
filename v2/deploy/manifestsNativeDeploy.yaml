@@ -4843,9 +4843,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    authcheckImage: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.3.0-296
-    metricStateImage: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.3.0-296
-    reporterImage: quay.io/rh-marketplace/redhat-marketplace-reporter:2.3.0-296
+    authcheckImage: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.3.0-315
+    metricStateImage: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.3.0-315
+    reporterImage: quay.io/rh-marketplace/redhat-marketplace-reporter:2.3.0-315
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
   name: redhat-marketplace-controller-manager
@@ -4915,11 +4915,11 @@ spec:
         - name: OPERATOR_NAME
           value: redhat-marketplace-operator
         - name: RELATED_IMAGE_REPORTER
-          value: quay.io/rh-marketplace/redhat-marketplace-reporter:2.3.0-296
+          value: quay.io/rh-marketplace/redhat-marketplace-reporter:2.3.0-315
         - name: RELATED_IMAGE_METRIC_STATE
-          value: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.3.0-296
+          value: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.3.0-315
         - name: RELATED_IMAGE_AUTHCHECK
-          value: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.3.0-296
+          value: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.3.0-315
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
@@ -4948,7 +4948,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.annotations['olm.operatorGroup']
-        image: quay.io/rh-marketplace/redhat-marketplace-operator:2.3.0-296
+        image: quay.io/rh-marketplace/redhat-marketplace-operator:2.3.0-315
         livenessProbe:
           httpGet:
             path: /healthz
