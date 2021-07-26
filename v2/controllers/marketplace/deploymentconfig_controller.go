@@ -27,7 +27,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	osappsv1 "github.com/openshift/api/apps/v1"
-
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
@@ -201,14 +200,15 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{}, err
 	}
 
-	cmMdefStore := cm.Data["meterdefinitionStore"]
-
 	meterdefStore := &MeterdefinitionStore{}
 
-	err = json.Unmarshal([]byte(cmMdefStore), meterdefStore)
-	if err != nil {
-		reqLogger.Error(err, "error unmarshaling meterdefinition store")
-		return reconcile.Result{}, err
+	cmMdefStore := cm.Data["meterdefinitionStore"]
+	if len(cmMdefStore) != 0 {
+		err = json.Unmarshal([]byte(cmMdefStore), meterdefStore)
+		if err != nil {
+			reqLogger.Error(err, "error unmarshaling meterdefinition store")
+			return reconcile.Result{}, err
+		}
 	}
 
 	updatedInstallMappings, result := r.sync(meterdefStore.InstallMappings, reqLogger)
@@ -283,6 +283,15 @@ func (r *DeploymentConfigReconciler) sync(installMappings []InstallMapping, reqL
 		namespace := installMap.Namespace
 		installedMeterDefs := installMap.InstalledMeterdefinitions
 
+		// utils.PrettyPrint(installMap)
+		// if csvPackageName == "" {
+		// 	err = emperror.New("")
+		// 	return nil,
+		// 	&ExecResult{
+		// 		ReconcileResult: reconcile.Result{},
+		// 		Err:             err,
+		// 	}
+		// }
 		meterDefNamesFromFileServer, meterDefsFromFileServer, result := ListMeterdefintionsFromFileServer(csvPackageName, csvVersion, namespace, r.Client,r.kubeInterface,r.cfg.DeployedNamespace ,reqLogger)
 		if !result.Is(Continue) {
 			return nil, result

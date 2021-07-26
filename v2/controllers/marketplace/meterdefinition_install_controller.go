@@ -326,7 +326,7 @@ func parsePackageNameAndVersion(csv *olmv1alpha1.ClusterServiceVersion, request 
 		}
 	}
 
-	csvProperties := fetchCSVInfo(v)
+	_,csvProperties := fetchCSVInfo(v)
 
 	_packageName := csvProperties["packageName"]
 	packageName, ok = _packageName.(string)
@@ -798,23 +798,30 @@ func (h withHeader) RoundTrip(req *http.Request) (*http.Response, error) {
 	return h.rt.RoundTrip(req)
 }
 
-func fetchCSVInfo(csvProps string) map[string]interface{} {
+func fetchCSVInfo(csvProps string) (bool,map[string]interface{}) {
 	var unmarshalledProps map[string]interface{}
 	json.Unmarshal([]byte(csvProps), &unmarshalledProps)
 
-	properties := unmarshalledProps["properties"].([]interface{})
+	properties,ok := unmarshalledProps["properties"].([]interface{})
+	if !ok {
+		return false, nil
+	}
 	reqProperty := properties[len(properties)-1]
 
 	csvProperty := reqProperty.(map[string]interface{})
 
-	return csvProperty["value"].(map[string]interface{})
+	return true,csvProperty["value"].(map[string]interface{})
 }
 
 func checkForCSVVersionChanges(evt event.UpdateEvent) bool {
 	oldCSVData := evt.MetaOld.GetAnnotations()[csvProp]
 	newCSVData := evt.MetaNew.GetAnnotations()[csvProp]
-	oldCSVProperties := fetchCSVInfo(oldCSVData)
-	newCSVProperties := fetchCSVInfo(newCSVData)
+	oldhasProps, oldCSVProperties := fetchCSVInfo(oldCSVData)
+	newHasProps, newCSVProperties := fetchCSVInfo(newCSVData)
+	if !oldhasProps || !newHasProps {
+		return false
+	}
+
 	return oldCSVProperties["version"].(string) != newCSVProperties["version"].(string)
 }
 
