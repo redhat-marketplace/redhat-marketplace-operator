@@ -120,7 +120,6 @@ func (r *MeterBaseReconciler) InjectKubeInterface(k kubernetes.Interface) error 
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.recorder = mgr.GetEventRecorderFor("meterbase-controller")
 	mapFn := handler.ToRequestsFunc(
 		func(a handler.MapObject) []reconcile.Request {
 			return []reconcile.Request{
@@ -132,6 +131,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		})
 
 	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
+	r.recorder = mgr.GetEventRecorderFor("meterbase-controller")
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&marketplacev1alpha1.MeterBase{}).
@@ -186,7 +186,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups="",namespace=system,resources=pods,verbs=get;list;watch;delete
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups="marketplace.redhat.com",resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups="marketplace.redhat.com",namespace=system,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups="storage.k8s.io",resources=storageclasses,verbs=get;list;watch
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;patch;delete
@@ -221,6 +221,8 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 			),
 		),
 	)
+
+	r.recorder.Event(instance, "Warning", "DefaultClassNotFound", "test event")
 
 	if !result.Is(Continue) {
 		if result.Is(NotFound) {
@@ -1294,7 +1296,6 @@ func (r *MeterBaseReconciler) newPrometheusOperator(
 
 	if cr.Spec.Prometheus.Storage.Class == nil {
 		defaultClass, err := utils.GetDefaultStorageClass(r.Client)
-
 		if err != nil {
 			return prom, err
 		}
