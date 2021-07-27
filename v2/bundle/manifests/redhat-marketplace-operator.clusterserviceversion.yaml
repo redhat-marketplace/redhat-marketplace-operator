@@ -1172,7 +1172,8 @@ spec:
       targetPort: 9443
       type: MutatingAdmissionWebhook
       webhookPath: /mutate-marketplace-redhat-com-v1beta1-meterdefinition
-    - admissionReviewVersions: null
+    - admissionReviewVersions: 
+        - v1beta1
       conversionCRDs:
         - meterdefinitions.marketplace.redhat.com
       deploymentName: redhat-marketplace-controller-manager
