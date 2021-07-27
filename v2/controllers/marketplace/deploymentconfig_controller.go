@@ -200,7 +200,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{}, err
 	}
 
-	cmMdefStore := cm.Data["meterdefinitionStore"]
+	cmMdefStore := cm.Data[utils.MeterDefinitionStoreKey]
 
 	meterdefStore := &MeterdefinitionStore{}
 
@@ -228,7 +228,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	}
 
 	meterdefStoreJSON := string(out)
-	cm.Data["meterdefinitionStore"] = meterdefStoreJSON
+	cm.Data[utils.MeterDefinitionStoreKey] = meterdefStoreJSON
 
 	err = r.Client.Update(context.TODO(), cm)
 	if err != nil {
@@ -251,7 +251,7 @@ func getMeterdefStoreFromCM(client client.Client, deployedNamespace string, reqL
 		}
 	}
 
-	cmMdefStore := cm.Data["meterdefinitionStore"]
+	cmMdefStore := cm.Data[utils.MeterDefinitionStoreKey]
 
 	meterdefStore := &MeterdefinitionStore{}
 
@@ -359,7 +359,7 @@ func deleteMeterDefintions(namespace string, mdefNames []string, client client.C
 		installedMeterDefn.ObjectMeta.OwnerReferences = []metav1.OwnerReference{}
 		err = client.Update(context.TODO(), installedMeterDefn)
 		if err != nil {
-			reqLogger.Error(err, "Failed updating meter definition", "Name", mdefName, "Namespace", namespace)
+			reqLogger.Error(err, "Failed updating owner reference on meter definition", "Name", mdefName, "Namespace", namespace)
 			return err
 		}
 		reqLogger.Info("Removed owner reference from meterdefintion", "Name", mdefName, "Namespace", namespace)

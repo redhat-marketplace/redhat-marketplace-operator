@@ -16,10 +16,6 @@ rules:
   - /list-for-version/*
   verbs:
   - get
-- nonResourceURLs:
-  - /rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc/list-for-version
-  verbs:
-  - get
 - apiGroups:
   - ""
   resources:
@@ -156,6 +152,20 @@ rules:
   - list
   - update
   - watch
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+  - get
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+  - get
 - apiGroups:
   - batch
   - extensions

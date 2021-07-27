@@ -88,6 +88,7 @@ const (
 	RazeeWatchLevelDetail = "detail"
 
 	LicenseServerTag = "marketplace.redhat.com/operator"
+	MeterDefinitionStoreKey = "meterDefinitionStore"
 
 	/* Time and Date */
 	DATE_FORMAT         = "2006-01-02"
