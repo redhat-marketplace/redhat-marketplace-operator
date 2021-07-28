@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -138,6 +139,12 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 				if value == "true" {
 					if len(s.Status.InstalledCSV) == 0 {
 						reqLogger.Info("Requeue clusterserviceversion to wait for subscription getting installedCSV updated")
+						return reconcile.Result{RequeueAfter: time.Second * 5}, nil
+					}
+
+					_csvName := strings.Split(request.Name, ".")[0]
+					if s.Status.InstalledCSV != request.NamespacedName.Name && _csvName == s.Spec.Package {
+						reqLogger.Info("subscription installed csv", "installed csv", s.Status.InstalledCSV)
 						return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 					}
 

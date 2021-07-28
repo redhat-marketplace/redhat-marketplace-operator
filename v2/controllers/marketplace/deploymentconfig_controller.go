@@ -66,11 +66,10 @@ type DeploymentConfigReconciler struct {
 	Log    logr.Logger
 	CC     ClientCommandRunner
 
-	cfg     *config.OperatorConfig
-	factory *manifests.Factory
-	patcher patch.Patcher
+	cfg           *config.OperatorConfig
+	factory       *manifests.Factory
+	patcher       patch.Patcher
 	kubeInterface kubernetes.Interface
-
 }
 
 type InstallMapping struct {
@@ -281,7 +280,7 @@ func (r *DeploymentConfigReconciler) sync(installMappings []InstallMapping, reqL
 		namespace := installMap.Namespace
 		installedMeterDefs := installMap.InstalledMeterdefinitions
 
-		meterDefNamesFromFileServer, meterDefsFromFileServer, result := ListMeterdefintionsFromFileServer(csvName, csvVersion, namespace, r.Client,r.kubeInterface,r.cfg.DeployedNamespace ,reqLogger)
+		meterDefNamesFromFileServer, meterDefsFromFileServer, result := ListMeterdefintionsFromFileServer(csvName, csvVersion, namespace, r.Client, r.kubeInterface, r.cfg.DeployedNamespace, reqLogger)
 		if !result.Is(Continue) {
 			return nil, result
 		}
