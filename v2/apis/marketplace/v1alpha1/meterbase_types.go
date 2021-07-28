@@ -106,7 +106,8 @@ type MeterBaseSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
-	UserWorkloadMonitoringEnabled bool `json:"userWorkloadMonitoringEnabled,omitempty"`
+	UserWorkloadMonitoringEnabled *bool `json:"userWorkloadMonitoringEnabled,omitempty"`
+
 
 	ExternalPrometheus `json:"externalPrometheus,omitempty"`
 }

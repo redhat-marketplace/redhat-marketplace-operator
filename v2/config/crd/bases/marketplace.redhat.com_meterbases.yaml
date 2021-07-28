@@ -80,6 +80,8 @@ spec:
                 work. Setting enabled to "true" will install metering components.
                 False will suspend controller operations for metering components.
               type: boolean
+            externalPrometheus:
+              type: object
             prometheus:
               description: Prometheus deployment configuration.
               properties:

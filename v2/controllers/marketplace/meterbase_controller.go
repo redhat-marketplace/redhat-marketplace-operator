@@ -229,6 +229,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups="monitoring.coreos.com",namespace=system,resources=prometheuses;servicemonitors,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=subscriptions,verbs=get;list;watch
 // +kubebuilder:rbac:groups="operators.coreos.com",namespace=system,resources=subscriptions,verbs=get;list;watch;create
+// +kubebuilder:rbac:urls=/metrics,verbs=get
 
 // Reconcile reads that state of the cluster for a MeterBase object and makes changes based on the state read
 // and what is in the MeterBase.Spec
@@ -299,12 +300,21 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		instance.Status.Conditions = status.Conditions{}
 	}
 
-	// userWorkloadMonitoringEnabled is considered enabled if both the Spec and cluster configuration are satisfied
-	userWorkloadMonitoringEnabledSpec := instance.Spec.UserWorkloadMonitoringEnabled
-	userWorkloadMonitoringEnabledOnCluster, result := isUserWorkloadMonitoringEnabledOnCluster(cc, r.cfg.Infrastructure, reqLogger)
-	if !result.Is(Continue) {
-		return result.Return()
+	userWorkloadMonitoringEnabledOnCluster, err := isUserWorkloadMonitoringEnabledOnCluster(cc, r.cfg.Infrastructure, reqLogger)
+	if err != nil {
+		reqLogger.Error(err, "failed to get user workload monitoring")
 	}
+
+	var userWorkloadMonitoringEnabledSpec bool
+
+	// if the value isn't specified, have userWorkloadMonitoringEnabledByDefault
+	if instance.Spec.UserWorkloadMonitoringEnabled == nil {
+		userWorkloadMonitoringEnabledSpec = true
+	} else {
+		userWorkloadMonitoringEnabledSpec = *instance.Spec.UserWorkloadMonitoringEnabled
+	}
+
+	// userWorkloadMonitoringEnabled is considered enabled if both the Spec and cluster configuration are satisfied
 	userWorkloadMonitoringEnabled := userWorkloadMonitoringEnabledOnCluster && userWorkloadMonitoringEnabledSpec
 
 	if instance.Status.Conditions.IsUnknownFor(marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled) {
@@ -352,13 +362,13 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 
 	// Determine state of UWM transition
 	transitionTimeExpired := false
-	var transitionTime time.Duration
+	var transitionTimeLeft time.Duration
 	if condition := instance.Status.Conditions.GetCondition(marketplacev1alpha1.ConditionUserWorkloadMonitoringEnabled); condition != nil {
 		if condition.Reason == marketplacev1alpha1.ReasonUserWorkloadMonitoringTransitioning {
-			afterOneDay := condition.LastTransitionTime.Add(time.Hour * 24)
+			afterOneDay := condition.LastTransitionTime.Add(r.cfg.MeterBaseValues.TransitionTime)
 			if time.Now().UTC().After(afterOneDay) {
 				transitionTimeExpired = true
-				transitionTime = time.Now().UTC().Sub(afterOneDay)
+				transitionTimeLeft = time.Now().UTC().Sub(afterOneDay)
 			}
 		}
 	}
@@ -404,7 +414,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		// Openshift provides Prometheus
 		if result, _ := cc.Do(context.TODO(),
 			Do(r.installPrometheusServingCertsCABundle()...),
-			Do(r.installMetricStateDeployment(instance)...),
+			Do(r.installMetricStateDeployment(instance, userWorkloadMonitoringEnabled)...),
 			Do(r.installUserWorkloadMonitoring(instance)...),
 		); !result.Is(Continue) {
 			if result.Is(Error) {
@@ -433,7 +443,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		if result, _ := cc.Do(context.TODO(),
 			Do(r.installPrometheusServingCertsCABundle()...),
 			Do(r.reconcilePrometheusOperator(instance)...),
-			Do(r.installMetricStateDeployment(instance)...),
+			Do(r.installMetricStateDeployment(instance, userWorkloadMonitoringEnabled)...),
 			Do(r.reconcileAdditionalConfigSecret(cc, instance, prometheus, cfg)...),
 			Do(r.reconcilePrometheus(instance, prometheus, cfg)...),
 			Do(r.verifyPVCSize(reqLogger, instance, prometheus)...),
@@ -620,7 +630,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 
 	if userWorkloadMonitoringEnabled && !transitionTimeExpired {
 		reqLogger.Info("userWorkloadEnabled: waiting for transitition time",
-			"transitionTimeExpired", transitionTimeExpired, "transitionTime", transitionTime)
+			"transitionTimeExpired", transitionTimeExpired, "transitionTime", transitionTimeLeft)
 	}
 
 	reqLogger.Info("finished reconciling")
@@ -870,6 +880,7 @@ func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 
 func (r *MeterBaseReconciler) installMetricStateDeployment(
 	instance *marketplacev1alpha1.MeterBase,
+	userWorkoadMonitoring bool,
 ) []ClientAction {
 	metricStateDeployment := &appsv1.Deployment{}
 	metricStateService := &corev1.Service{}
@@ -877,6 +888,7 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 	metricStateMeterDefinition := &marketplacev1beta1.MeterDefinition{}
 	kubeStateMetricsService := &corev1.Service{}
 	reporterMeterDefinition := &marketplacev1beta1.MeterDefinition{}
+	operatorPod := corev1.Pod{}
 
 	args := manifests.CreateOrUpdateFactoryItemArgs{
 		Owner:   instance,
@@ -898,10 +910,24 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 			},
 			args,
 		),
+		Call(func() (ClientAction, error) {
+			_, err := r.CC.Do(
+				context.TODO(),
+				GetAction(types.NamespacedName{
+					Namespace: r.cfg.DeployedNamespace,
+					Name:      r.cfg.DeployedPodName,
+				}, &operatorPod))
+
+			if err != nil {
+				return nil, err
+			}
+
+			return nil, nil
+		}),
 		manifests.CreateOrUpdateFactoryItemAction(
 			metricStateServiceMonitor,
 			func() (runtime.Object, error) {
-				return r.factory.MetricStateServiceMonitor()
+				return r.factory.MetricStateServiceMonitor(&operatorPod)
 			},
 			args,
 		),
@@ -928,19 +954,11 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 		),
 	}
 
-	if r.cfg.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
-		metricStateRHMOperatorSecret := &corev1.Secret{}
-		kubeStateMetricsServiceMonitor := &monitoringv1.ServiceMonitor{}
-		kubeletServiceMonitor := &monitoringv1.ServiceMonitor{}
+	kubeStateMetricsServiceMonitor := &monitoringv1.ServiceMonitor{}
+	kubeletServiceMonitor := &monitoringv1.ServiceMonitor{}
 
+	if !userWorkoadMonitoring {
 		actions = append(actions,
-			manifests.CreateOrUpdateFactoryItemAction(
-				metricStateRHMOperatorSecret,
-				func() (runtime.Object, error) {
-					return r.factory.MetricStateRHMOperatorSecret()
-				},
-				args,
-			),
 			manifests.CreateOrUpdateFactoryItemAction(
 				kubeStateMetricsServiceMonitor,
 				func() (runtime.Object, error) {
@@ -956,7 +974,20 @@ func (r *MeterBaseReconciler) installMetricStateDeployment(
 				args,
 			),
 		)
+	} else {
+		kubeStateMetricsServiceMonitor, _ = r.factory.KubeStateMetricsServiceMonitor()
+		kubeletServiceMonitor, _ = r.factory.KubeletServiceMonitor()
+
+		actions = append(actions,
+			HandleResult(
+				GetAction(types.NamespacedName{Namespace: kubeStateMetricsServiceMonitor.Namespace, Name: kubeStateMetricsServiceMonitor.Name}, kubeStateMetricsServiceMonitor),
+				OnContinue(DeleteAction(kubeStateMetricsServiceMonitor))),
+			HandleResult(
+				GetAction(types.NamespacedName{Namespace: kubeletServiceMonitor.Namespace, Name: kubeletServiceMonitor.Name}, kubeletServiceMonitor),
+				OnContinue(DeleteAction(kubeletServiceMonitor))),
+		)
 	}
+
 	return actions
 }
 
@@ -1038,17 +1069,12 @@ func (r *MeterBaseReconciler) reconcileAdditionalConfigSecret(
 	reqLogger := r.Log.WithValues("func", "reconcileAdditionalConfigSecret", "Request.Namespace", instance.Namespace, "Request.Name", instance.Name)
 	openshiftKubeletMonitor := &monitoringv1.ServiceMonitor{}
 	openshiftKubeStateMonitor := &monitoringv1.ServiceMonitor{}
-	metricStateMonitor := &monitoringv1.ServiceMonitor{}
 	secretsInNamespace := &corev1.SecretList{}
-
-	sm, err := r.factory.MetricStateServiceMonitor()
-
-	if err != nil {
-		reqLogger.Error(err, "error getting metric state")
-	}
+	metricStateMonitor, _ := r.factory.MetricStateServiceMonitor(nil)
 
 	return []ClientAction{
 		Do(
+
 			HandleResult(
 				Do(
 					GetAction(types.NamespacedName{
@@ -1060,8 +1086,8 @@ func (r *MeterBaseReconciler) reconcileAdditionalConfigSecret(
 						Name:      "kube-state-metrics",
 					}, openshiftKubeStateMonitor),
 					GetAction(types.NamespacedName{
-						Namespace: sm.ObjectMeta.Namespace,
-						Name:      sm.ObjectMeta.Name,
+						Namespace: metricStateMonitor.ObjectMeta.Namespace,
+						Name:      metricStateMonitor.ObjectMeta.Name,
 					}, metricStateMonitor),
 					ListAction(secretsInNamespace, client.InNamespace(prometheus.GetNamespace()))),
 				OnNotFound(ReturnWithError(errors.New("required serviceMonitor not found"))),
@@ -1172,17 +1198,19 @@ func (r *MeterBaseReconciler) reconcilePrometheus(
 				return r.factory.PrometheusRBACProxySecret()
 			},
 		),
-		manifests.CreateIfNotExistsFactoryItem(
+		manifests.CreateOrUpdateFactoryItemAction(
 			&monitoringv1.ServiceMonitor{},
 			func() (runtime.Object, error) {
 				return r.factory.PrometheusServiceMonitor()
 			},
+			args,
 		),
-		manifests.CreateIfNotExistsFactoryItem(
+		manifests.CreateOrUpdateFactoryItemAction(
 			&marketplacev1beta1.MeterDefinition{},
 			func() (runtime.Object, error) {
 				return r.factory.PrometheusMeterDefinition()
 			},
+			args,
 		),
 		HandleResult(manifests.CreateIfNotExistsFactoryItem(
 			&corev1.Secret{},
@@ -1411,11 +1439,10 @@ func (r *MeterBaseReconciler) uninstallMetricState(
 ) []ClientAction {
 	deployment, _ := r.factory.MetricStateDeployment()
 	service, _ := r.factory.MetricStateService()
-	sm0, _ := r.factory.MetricStateServiceMonitor()
+	sm0, _ := r.factory.MetricStateServiceMonitor(nil)
 	sm1, _ := r.factory.KubeStateMetricsServiceMonitor()
 	sm2, _ := r.factory.KubeletServiceMonitor()
 	sm3, _ := r.factory.KubeStateMetricsService()
-	secret, _ := r.factory.MetricStateRHMOperatorSecret()
 	msmd, _ := r.factory.MetricStateMeterDefinition()
 	rmd, _ := r.factory.ReporterMeterDefinition()
 
@@ -1444,10 +1471,6 @@ func (r *MeterBaseReconciler) uninstallMetricState(
 			GetAction(types.NamespacedName{Namespace: sm3.Namespace, Name: sm3.Name}, sm3),
 			OnNotFound(ContinueResponse()),
 			OnContinue(DeleteAction(sm3))),
-		HandleResult(
-			GetAction(types.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}, secret),
-			OnNotFound(ContinueResponse()),
-			OnContinue(DeleteAction(secret))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service),
 			OnNotFound(ContinueResponse()),
@@ -1484,15 +1507,19 @@ func (r *MeterBaseReconciler) uninstallPrometheus(
 	return append(actions,
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: meterDefinition.Namespace, Name: meterDefinition.Name}, meterDefinition),
+			OnNotFound(ContinueResponse()),
 			OnContinue(DeleteAction(meterDefinition))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: serviceMonitor.Namespace, Name: serviceMonitor.Name}, serviceMonitor),
+			OnNotFound(ContinueResponse()),
 			OnContinue(DeleteAction(serviceMonitor))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, service),
+			OnNotFound(ContinueResponse()),
 			OnContinue(DeleteAction(service))),
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: prom.Namespace, Name: prom.Name}, prom),
+			OnNotFound(ContinueResponse()),
 			OnContinue(DeleteAction(prom))),
 	)
 }
@@ -1684,11 +1711,11 @@ func isEnableUserWorkloadConfigMap(clusterMonitorConfigMap *corev1.ConfigMap) (b
 
 // If this is Openshift 4.6+ check if Monitoring for User Defined Projects is enabled
 // https://docs.openshift.com/container-platform/4.6/monitoring/enabling-monitoring-for-user-defined-projects.html
-func isUserWorkloadMonitoringEnabledOnCluster(cc ClientCommandRunner, infrastructure *config.Infrastructure, reqLogger logr.Logger) (bool, *ExecResult) {
+func isUserWorkloadMonitoringEnabledOnCluster(cc ClientCommandRunner, infrastructure *config.Infrastructure, reqLogger logr.Logger) (bool, error) {
 	if !infrastructure.HasOpenshift() || infrastructure.HasOpenshift() && !infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 		reqLogger.Info("openshift is not 46 or this isn't an openshift cluster",
-			"hasOpenshfit", infrastructure.HasOpenshift(), "version", infrastructure.OpenshiftVersion())
-		return false, NewExecResult(Continue, reconcile.Result{}, NewBaseAction("user-workload"), nil)
+			"hasOpenshift", infrastructure.HasOpenshift(), "version", infrastructure.OpenshiftVersion())
+		return false, nil
 	}
 
 	reqLogger.Info("attempting to get if userworkload monitoring is enabled")
@@ -1706,17 +1733,18 @@ func isUserWorkloadMonitoringEnabledOnCluster(cc ClientCommandRunner, infrastruc
 		reqLogger.Error(result.GetError(), "Failed to get cluster-monitoring-config.")
 		return false, result
 	} else if result.Is(NotFound) {
-		return false, NewExecResult(Continue, reconcile.Result{}, NewBaseAction("user-workload"), nil)
+		return false, nil
 	} else if result.Is(Continue) {
 		enableUserWorkload, err := isEnableUserWorkloadConfigMap(clusterMonitorConfigMap)
 		reqLogger.Info("found cluster-monitoring-config", "enabledUserWorkload", enableUserWorkload)
 		if err != nil {
 			reqLogger.Error(result.GetError(), "Failed to parse cluster-monitoring-config.")
+			return false, err
 		}
-		return enableUserWorkload, result
+		return enableUserWorkload, nil
 	}
 
-	return false, NewExecResult(Continue, reconcile.Result{}, NewBaseAction("user-workload"), nil)
+	return false, nil
 }
 
 func updateUserWorkloadMonitoringEnabledStatus(

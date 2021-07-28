@@ -12,6 +12,10 @@ rules:
   verbs:
   - create
   - get
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
 - apiGroups:
   - ""
   resources:

@@ -725,22 +725,44 @@ func (f *Factory) MetricStateDeployment() (*appsv1.Deployment, error) {
 	return d, nil
 }
 
-func (f *Factory) metricStateServiceMonitor() string {
+func (f *Factory) MetricStateServiceMonitor(pod *corev1.Pod) (*monitoringv1.ServiceMonitor, error) {
+	fileName := MetricStateServiceMonitorV45
+	isValidOpenShiftVersion := false
 	if f.operatorConfig.HasOpenshift() && f.operatorConfig.Infrastructure.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
-		return MetricStateServiceMonitorV46
+		fileName = MetricStateServiceMonitorV46
+		isValidOpenShiftVersion = true
 	}
-	return MetricStateServiceMonitorV45
-}
 
-func (f *Factory) MetricStateServiceMonitor() (*monitoringv1.ServiceMonitor, error) {
-	sm, err := f.NewServiceMonitor(MustAssetReader(f.metricStateServiceMonitor()))
+	sm, err := f.NewServiceMonitor(MustAssetReader(fileName))
 	if err != nil {
 		return nil, err
 	}
 
-	sm.Spec.Endpoints[0].TLSConfig.ServerName = fmt.Sprintf("rhm-metric-state-service.%s.svc", f.namespace)
-	sm.Spec.Endpoints[1].TLSConfig.ServerName = fmt.Sprintf("rhm-metric-state-service.%s.svc", f.namespace)
 	sm.Namespace = f.namespace
+
+	var secretName *string
+
+	if isValidOpenShiftVersion && pod != nil {
+		for _, volume := range pod.Spec.Volumes {
+			if volume.Secret != nil && strings.Contains(volume.Secret.SecretName, "redhat-marketplace-operator-token-") {
+				secretName = &volume.Secret.SecretName
+			}
+		}
+	}
+
+	for i := range sm.Spec.Endpoints {
+		endpoint := &sm.Spec.Endpoints[i]
+		endpoint.TLSConfig.ServerName = fmt.Sprintf("rhm-metric-state-service.%s.svc", f.namespace)
+
+		if secretName != nil {
+			endpoint.BearerTokenSecret = corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: *secretName,
+				},
+				Key: "token",
+			}
+		}
+	}
 
 	return sm, nil
 }
@@ -787,17 +809,6 @@ func (f *Factory) KubeletServiceMonitor() (*monitoringv1.ServiceMonitor, error) 
 	sm.Namespace = f.namespace
 
 	return sm, nil
-}
-
-func (f *Factory) MetricStateRHMOperatorSecret() (*v1.Secret, error) {
-	s, err := f.NewSecret(MustAssetReader(MetricStateRHMOperatorSecret))
-	if err != nil {
-		return nil, err
-	}
-
-	s.Namespace = f.namespace
-
-	return s, nil
 }
 
 func (f *Factory) MetricStateService() (*v1.Service, error) {

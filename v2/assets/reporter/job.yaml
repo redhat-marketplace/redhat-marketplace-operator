@@ -36,10 +36,3 @@ spec:
         - configMap:
             name: operator-certs-ca-bundle
           name: operator-certs-ca-bundle
-        - name: token-vol
-          projected:
-            sources:
-              - serviceAccountToken:
-                  audience: rhm-prometheus-meterbase.openshift-redhat-marketplace.svc
-                  expirationSeconds: 3600
-                  path: token
