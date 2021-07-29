@@ -285,6 +285,7 @@ jobs:
     needs:
     - test
     - matrix-test
+    - images
     runs-on: ubuntu-20.04
     outputs:
       isDev: ${{ steps.bundle.outputs.isDev }}

@@ -342,7 +342,7 @@ sync_branches: _#bashWorkflow & {
 	name: "Sync Next Release"
 	on: {
 		push: {
-			branches: [ _#nextRelease ]
+			branches: [ "develop", _#nextRelease ]
 		}
 	}
 	jobs: {
@@ -364,16 +364,18 @@ sync_branches: _#bashWorkflow & {
 			}] + [
 				_#step & {
 					name: "pull-request-action"
+          if: "${{ github.ref == 'refs/heads/develop' }}"
 					uses: "vsoch/pull-request-action@master"
 					env: {
 						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
-						"PULL_REQUEST_BRANCH": "develop"
+						"PULL_REQUEST_BRANCH": _#nextRelease
             "PULL_REQUEST_TITLE" : "chore: ${{ github.ref }} to develop"
             "PULL_REQUEST_UPDATE": "true"
 					}
 				},
 				_#step & {
 					name: "pull-request-action"
+          if: "${{ github.ref == 'refs/heads/\(_#nextRelease)' }}"
 					uses: "vsoch/pull-request-action@master"
 					env: {
 						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
@@ -554,7 +556,7 @@ branch_build: _#bashWorkflow & {
 		"deploy": _#job & {
 			name:      "Deploy"
 			"runs-on": _#linuxMachine
-			needs: ["test", "matrix-test"]
+			needs: ["test", "matrix-test", "images"]
 			env: {
 				VERSION:   "${{ needs.test.outputs.version }}"
 				IMAGE_TAG: "${{ needs.test.outputs.tag }}"
