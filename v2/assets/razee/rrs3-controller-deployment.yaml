@@ -24,86 +24,86 @@ spec:
       name: rhm-remoteresources3-controller
     spec:
       containers:
-      - args:
-        - --namespace
-        - $POD_NAMESPACE
-        env:
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        imagePullPolicy: IfNotPresent
-        livenessProbe:
-          failureThreshold: 3
-          httpGet:
-            path: /healthz
-            port: 8089
-            scheme: HTTP
-          initialDelaySeconds: 15
-          periodSeconds: 20
-        name: authcheck
-        readinessProbe:
-          failureThreshold: 3
-          httpGet:
-            path: /readyz
-            port: 8089
-            scheme: HTTP
-          initialDelaySeconds: 5
-          periodSeconds: 10
-        resources:
-          limits:
-            cpu: 20m
-            memory: 40Mi
-          requests:
-            cpu: 10m
-            memory: 20Mi
-        terminationMessagePolicy: FallbackToLogsOnError
-      - env:
-        - name: CRD_WATCH_TIMEOUT_SECONDS
-          valueFrom:
-            configMapKeyRef:
-              key: CRD_WATCH_TIMEOUT_SECONDS
-              name: razeedeploy-overrides
-              optional: true
-        - name: GROUP
-          value: marketplace.redhat.com
-        - name: VERSION
-          value: v1alpha1
-        imagePullPolicy: IfNotPresent
-        livenessProbe:
-          exec:
-            command:
-            - sh/liveness.sh
-          failureThreshold: 1
-          initialDelaySeconds: 30
-          periodSeconds: 150
-          timeoutSeconds: 30
-        name: rhm-remoteresources3-controller
-        resources:
-          limits:
-            cpu: 100m
-            memory: 200Mi
-          requests:
-            cpu: 40m
-            memory: 75Mi
-        terminationMessagePolicy: FallbackToLogsOnError
-        volumeMounts:
-        - mountPath: /usr/src/app/download-cache
-          name: cache-volume
-        - mountPath: /usr/src/app/config
-          name: razeedeploy-config
+        - args:
+            - --namespace
+            - $POD_NAMESPACE
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8089
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          name: authcheck
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: 8089
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 20m
+              memory: 40Mi
+            requests:
+              cpu: 10m
+              memory: 20Mi
+          terminationMessagePolicy: FallbackToLogsOnError
+        - env:
+            - name: CRD_WATCH_TIMEOUT_SECONDS
+              valueFrom:
+                configMapKeyRef:
+                  key: CRD_WATCH_TIMEOUT_SECONDS
+                  name: razeedeploy-overrides
+                  optional: true
+            - name: GROUP
+              value: marketplace.redhat.com
+            - name: VERSION
+              value: v1alpha1
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            exec:
+              command:
+                - sh/liveness.sh
+            failureThreshold: 1
+            initialDelaySeconds: 30
+            periodSeconds: 150
+            timeoutSeconds: 30
+          name: rhm-remoteresources3-controller
+          resources:
+            limits:
+              cpu: 100m
+              memory: 200Mi
+            requests:
+              cpu: 40m
+              memory: 75Mi
+          terminationMessagePolicy: FallbackToLogsOnError
+          volumeMounts:
+            - mountPath: /usr/src/app/download-cache
+              name: cache-volume
+            - mountPath: /usr/src/app/config
+              name: razeedeploy-config
       serviceAccountName: redhat-marketplace-remoteresources3deployment
       volumes:
-      - emptyDir: {}
-        name: cache-volume
-      - configMap:
-          defaultMode: 440
+        - emptyDir: {}
+          name: cache-volume
+        - configMap:
+            defaultMode: 440
+            name: razeedeploy-config
+            optional: true
           name: razeedeploy-config
-          optional: true
-        name: razeedeploy-config

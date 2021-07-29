@@ -78,10 +78,11 @@ const (
 	KubeStateMetricsServiceMonitor = "metric-state/kube-state-metrics-service-monitor.yaml"
 	KubeletServiceMonitor          = "metric-state/kubelet-service-monitor.yaml"
 
-	RRS3ControllerDeployment              = "assets/razee/rrs3-controller-deployment.yaml"
-	WatchKeeperDeployment                 = "assets/razee/watch-keeper-deployment.yaml"
 	UserWorkloadMonitoringServiceMonitor  = "prometheus/user-workload-monitoring-service-monitor.yaml"
 	UserWorkloadMonitoringMeterDefinition = "prometheus/user-workload-monitoring-meterdefinition.yaml"
+
+	RRS3ControllerDeployment              = "razee/rrs3-controller-deployment.yaml"
+	WatchKeeperDeployment                 = "razee/watch-keeper-deployment.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")
@@ -834,6 +835,16 @@ func (f *Factory) NewServiceMonitor(manifest io.Reader) (*monitoringv1.ServiceMo
 	}
 
 	return sm, nil
+}
+
+func NewMeterDefinition(manifest io.Reader) (*marketplacev1beta1.MeterDefinition, error) {
+	sm := marketplacev1beta1.MeterDefinition{}
+	err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(&sm)
+	if err != nil {
+		return nil, err
+	}
+
+	return &sm, nil
 }
 
 func NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
