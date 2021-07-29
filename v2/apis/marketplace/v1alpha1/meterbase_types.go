@@ -108,7 +108,6 @@ type MeterBaseSpec struct {
 	// +optional
 	UserWorkloadMonitoringEnabled *bool `json:"userWorkloadMonitoringEnabled,omitempty"`
 
-
 	ExternalPrometheus `json:"externalPrometheus,omitempty"`
 }
 

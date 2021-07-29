@@ -209,27 +209,7 @@ func (q *PromQuery) setDefaultLabelReplaceSuffix() {
 	}
 }
 
-// const resultQueryTemplateStr = `
-// {{- .AggregateFunc }} by ({{ default .DefaultGroupBy .GroupBy | join "," }})
-//   (avg({{ .MeterName }}{ {{- .QueryFilters | join "," -}} })
-// 		without ({{ .DefaultWithout | join "," }})
-// 		* on({{ .DefaultGroupBy | join "," }})
-// 		group_right {{ .Query }})
-// 		* on({{ default .DefaultGroupBy .GroupBy | join "," }})
-// 		group_right group
-// 		{{ if .Without }} without({{ default .Without | join "," }}){{ end }}
-// 		({{ .Query }})`
-
-const resultQueryTemplateStr = `
-{{- .AggregateFunc }} by ({{ default .DefaultGroupBy .GroupBy | join "," }})
-	(avg({{ .LabelReplacePrefix }}{{ .MeterName }}{ {{- .QueryFilters | join "," -}} }{{ .LabelReplaceSuffix }})
-		without ({{ .DefaultWithout | join "," }})
-		* on({{ .DefaultGroupBy | join "," }})
-		group_right {{ .Query }}
-	)
-	* on({{ default .DefaultGroupBy .GroupBy | join "," }})
-	group_right group{{ if .Without }} without({{ .Without | join "," }}){{ end }}
-	({{ .Query -}})`
+const resultQueryTemplateStr = `{{- .AggregateFunc }} by ({{ default .DefaultGroupBy .GroupBy | sortAlpha | join "," }}) (avg({{ .LabelReplacePrefix }}{{ .MeterName }}{ {{- .QueryFilters | join "," -}} }{{ .LabelReplaceSuffix }}) without({{ .DefaultWithout | sortAlpha | join "," }}) * on({{ .DefaultGroupBy | join "," }}) group_right {{ .Query }}) * on({{ default .DefaultGroupBy .GroupBy | sortAlpha | join "," }}) group_right group({{ .Query }}) without({{ default .DefaultWithout .Without | sortAlpha | join "," }})`
 
 var resultQueryTemplate *template.Template = utils.Must(func() (interface{}, error) {
 	return template.New("resultQuery").Funcs(sprig.GenericFuncMap()).Parse(resultQueryTemplateStr)
