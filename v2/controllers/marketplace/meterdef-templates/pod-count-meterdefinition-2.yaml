@@ -1,0 +1,25 @@
+apiVersion: marketplace.redhat.com/v1beta1
+kind: MeterDefinition
+metadata:
+  name: test-global-meterdef-pod-count-2
+  namespace: <<NAMESPACE-PLACEHOLDER>>
+  annotations:
+    csvName: {{ .CsvName }}
+    csvVersion: {{ .CsvVersion }}
+    csvNamespace: {{ .CsvNamespace }}
+spec:
+  group: marketplace.redhat.com
+  kind: Pod
+  resourceFilters:
+    - workloadType: Pod
+      label:
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: rhm-metric-state
+  meters:
+    - aggregation: sum
+      period: 45m
+      workloadType: Pod
+      query: kube_pod_info{} or on() vector(0)
+      metricId: "kube_pod_info{} or on() vector(0)"
+      name: "pod-count"

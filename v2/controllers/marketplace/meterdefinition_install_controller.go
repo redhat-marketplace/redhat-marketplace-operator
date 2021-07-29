@@ -19,12 +19,14 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"text/template"
 	"time"
 
 	emperror "emperror.dev/errors"
@@ -53,6 +55,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
+
+// CSVInfo to hold information about CSVs
+type CSVInfo struct {
+	CsvName      string
+	CsvVersion   string
+	CsvNamespace string
+}
+
+//go:embed meterdef-templates
+var meterdefTemplates embed.FS
 
 // blank assignment to verify that ReconcileClusterServiceVersion implements reconcile.Reconciler
 var _ reconcile.Reconciler = &MeterdefinitionInstallReconciler{}
@@ -94,7 +106,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 			rightOfDelimiter := strings.Join(strings.Split(request.Name, delimiter)[1:], delimiter)
 			_version := strings.Split(rightOfDelimiter, "v")[1]
 
-			reqLogger.Info("clusterserviceversion does not exist, checking install map for package", "name", _csvName,"version", _version)
+			reqLogger.Info("clusterserviceversion does not exist, checking install map for package", "name", _csvName, "version", _version)
 			result := deleteInstallMapping(_csvName, _version, r.cfg.DeployedNamespace, request, r.Client, reqLogger)
 			if !result.Is(Continue) {
 				if result.Is(Error) {
@@ -133,13 +145,13 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 						return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 					}
 
-					installedOperatorName, ok := subscription.GetAnnotations()[installedOperatorNameTag] 
+					installedOperatorName, ok := subscription.GetAnnotations()[installedOperatorNameTag]
 					if ok {
 						if subscription.Status.InstalledCSV != request.NamespacedName.Name && csvName == installedOperatorName {
 							reqLogger.Info("subscription installed csv", "installed csv", subscription.Status.InstalledCSV)
 							return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 						}
-					} 
+					}
 
 					if subscription.Status.InstalledCSV == request.NamespacedName.Name {
 						reqLogger.Info("found Subscription with installed CSV")
@@ -148,11 +160,23 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 						if !result.Is(Continue) {
 
 							if result.Is(Error) {
-								reqLogger.Error(result.GetError(), "Failed retrieving meterdefinitions from file server")
+								reqLogger.Error(result.GetError(), "Failed retrieving meterdefinitions from file server", "CSV", csvName)
 							}
 
 							return result.Return()
 						}
+
+						globalMeterdefinitions, result := r.fetchGlobalMeterdefs(CSV, reqLogger)
+						if !result.Is(Continue) {
+
+							if result.Is(Error) {
+								reqLogger.Error(result.GetError(), "Failed retrieving global meterdefinitions", "CSV", csvName)
+							}
+
+							result.Return()
+						}
+
+						allMeterDefinitions := append(globalMeterdefinitions, selectedMeterDefinitions...)
 
 						gvk, err := apiutil.GVKForObject(CSV, r.Scheme)
 						if err != nil {
@@ -160,7 +184,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 						}
 
 						// create meter definitions
-						for _, meterDefItem := range selectedMeterDefinitions {
+						for _, meterDefItem := range allMeterDefinitions {
 
 							// create owner ref object
 							ref := metav1.OwnerReference{
@@ -183,7 +207,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 							if err != nil {
 								if errors.IsNotFound(err) {
 
-									reqLogger.Info("meterdefinition not found,creating", "meterdef name", meterdef.Name)
+									reqLogger.Info("meterdefinition not found, creating", "meterdef name", meterdef.Name)
 									err = r.Client.Create(context.TODO(), &meterDefItem)
 									if err != nil {
 										reqLogger.Error(err, "Could not create MeterDefinition", "mdef", &meterDefItem.Name)
@@ -352,6 +376,90 @@ func (r *MeterdefinitionInstallReconciler) setInstalledMeterdefinition(csvName s
 
 	//set installed meterdefinition on cm
 	return &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+}
+
+func (r *MeterdefinitionInstallReconciler) fetchGlobalMeterdefs(csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) ([]marketplacev1beta1.MeterDefinition, *ExecResult) {
+
+	csvInfo := CSVInfo{csv.Name, csv.Spec.Version.String(), csv.Namespace}
+	// templatesDir := flag.String("dirPath", "../../templates", "directory path to read from")
+	// flag.Parse()
+
+	globalMeterdefs := []marketplacev1beta1.MeterDefinition{}
+
+	mdefTemplates := r.cfg.ControllerValues.MeterDefTemplates
+	for _, _template := range mdefTemplates {
+		reqLogger.Info("*****", "Template File", _template)
+		reqLogger.Info("Started processing global meter definition", "Meterdef Tempalte", _template, "CSV", csv.Name)
+
+		// fmt.Println("DIRECTORY Value Here")
+		// fmt.Println(templatesDir)
+
+		// fileEntries, err := ioutil.ReadDir(templatesDir)
+		// if err != nil {
+		// 	reqLogger.Error(err, "Error occured while reading templates folder", "CSV", csv.Name)
+		// 	return nil, &ExecResult{
+		// 		ReconcileResult: reconcile.Result{},
+		// 		Err:             err,
+		// 	}
+		// }
+
+		// for _, fs := range fileEntries {
+		mdef := &marketplacev1beta1.MeterDefinition{}
+
+		// filePath := fmt.Sprintf("%s/%s", templatesDir, fs.Name())
+		// data, err := ioutil.ReadFile(filePath)
+		// if err != nil {
+		// 	reqLogger.Error(err, "Error occured while reading a global meterdefinition file", "Mdef file name", fs.Name(), "CSV", csv.Name)
+		// 	return nil, &ExecResult{
+		// 		ReconcileResult: reconcile.Result{},
+		// 		Err:             err,
+		// 	}
+		// }
+
+		// parsedMeterdef, err := template.New(fs.Name()).Parse(string(data))
+		templatePath := fmt.Sprintf("meterdef-templates/%s", _template)
+		parsedMeterdef, err := template.ParseFS(meterdefTemplates, templatePath)
+		if err != nil {
+			// reqLogger.Error(err, "Error occured while parsing a global meterdefinition", "Mdef file name", fs.Name(), "CSV", csv.Name)
+			reqLogger.Error(err, "Error occured while parsing a global meterdefinition", "CSV", csv.Name, "Meterdef YAML", _template)
+			return nil, &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
+			}
+		}
+
+		reqLogger.Info("*****", "parsed meter def", parsedMeterdef)
+		var bufferWriter bytes.Buffer
+		err = parsedMeterdef.Execute(&bufferWriter, csvInfo)
+		if err != nil {
+			// reqLogger.Error(err, "Error occured while parsing a global meterdefinition", "Mdef file name", fs.Name(), "CSV", csv.Name)
+			reqLogger.Error(err, "Error occured while parsing a global meterdefinition", "CSV", csv.Name, "Meterdef YAML", _template)
+			return nil, &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
+			}
+		}
+
+		reqLogger.Info("*****", "written meter def", bufferWriter.Bytes())
+		err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader(bufferWriter.Bytes()), 100).Decode(mdef)
+		if err != nil {
+			// reqLogger.Error(err, "Error occured while decoding a global meterdefinition", "Mdef file name", fs.Name(), "CSV", csv.Name)
+			reqLogger.Error(err, "Error occured while decoding a global meterdefinition", "CSV", csv.Name, "Meterdef YAML", _template)
+			return nil, &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
+			}
+		}
+
+		reqLogger.Info("*****", "decoded meter def", *mdef)
+		globalMeterdefs = append(globalMeterdefs, *mdef)
+		reqLogger.Info("Finished processing global meter definition", "Meterdef Tempalte", _template, "CSV", csv.Name)
+	}
+
+	reqLogger.Info("Parsed and added all global meter definitions", "Total Global MeterDefs", len(globalMeterdefs), "CSV", csv.Name)
+	return globalMeterdefs, &ExecResult{
 		Status: ActionResultStatus(Continue),
 	}
 }
