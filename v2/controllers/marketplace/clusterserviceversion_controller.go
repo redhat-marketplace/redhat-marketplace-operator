@@ -155,7 +155,7 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 					if s.Status.InstalledCSV == request.NamespacedName.Name {
 						reqLogger.Info("found Subscription with installed CSV")
 						hasMarketplaceSub = true
-						if _, ok := s.GetAnnotations()[installedOperatorName]; !ok {
+						if _, ok := s.GetAnnotations()[installedOperatorNameTag]; !ok {
 							retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 				
 								annotations := s.GetAnnotations()
