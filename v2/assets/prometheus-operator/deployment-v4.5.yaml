@@ -116,7 +116,7 @@ spec:
               name: prometheus-operator-tls
               readOnly: false
             - mountPath: /etc/configmaps/operator-cert-ca-bundle
-              name: operator-certs-ca-bundle
+              name: serving-certs-ca-bundle
               readOnly: false
       nodeSelector:
         beta.kubernetes.io/os: linux
@@ -132,5 +132,5 @@ spec:
           secret:
             secretName: prometheus-operator-tls
         - configMap:
-            name: operator-certs-ca-bundle
-          name: operator-certs-ca-bundle
+            name: serving-certs-ca-bundle
+          name: serving-certs-ca-bundle

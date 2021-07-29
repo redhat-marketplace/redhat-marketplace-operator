@@ -28,6 +28,7 @@ import (
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
@@ -38,6 +39,7 @@ import (
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -176,7 +178,44 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 		reqLogger.Error(result.GetError(), "Failed to update status.")
 	}
 
-	isReporting, err := r.verifyReporting(cc, instance, request, reqLogger)
+	// Fetch the MeterBase instance
+	meterbase := &v1alpha1.MeterBase{}
+	result, _ = cc.Do(context.TODO(),
+		GetAction(types.NamespacedName{
+			Name:      utils.METERBASE_NAME,
+			Namespace: r.cfg.DeployedNamespace,
+		}, meterbase),
+	)
+
+	if !result.Is(Continue) {
+		if result.Is(NotFound) {
+			reqLogger.Info("MeterBase resource not found. Ignoring since object may be deleted.")
+			return reconcile.Result{}, nil
+		}
+
+		if result.Is(Error) {
+			reqLogger.Error(result.GetError(), "Failed to get MeterBase.")
+		}
+
+		return result.Return()
+	}
+
+	reqLogger.Info("Found MeterBase instance", "instance", meterbase.Name)
+
+	// Do not proceed if MeterBase is being deleted, or reconciler will requeue indefinitely on querypreview failure
+	meterbaseWillBeDeleted := meterbase.GetDeletionTimestamp() != nil
+	if meterbaseWillBeDeleted {
+		return reconcile.Result{}, nil
+	}
+
+	// Use the userWorkloadMonitoring or RHM prometheus provider, based on which is marked active in the MeterBase condition status
+	if meterbase.Status.Conditions.IsUnknownFor(v1alpha1.ConditionUserWorkloadMonitoringEnabled) {
+		reqLogger.Info("f not set. Unable to determine which prometheus provider to use at this time.")
+		return reconcile.Result{}, nil
+	}
+	userWorkloadMonitoringEnabled := meterbase.Status.Conditions.IsTrueFor(v1alpha1.ConditionUserWorkloadMonitoringEnabled)
+
+	isReporting, err := r.verifyReporting(cc, instance, userWorkloadMonitoringEnabled, reqLogger)
 	if isReporting {
 		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionReporting)
 	} else {
@@ -190,9 +229,12 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 			Message: err.Error(),
 		})
 		requeue = true
+	} else {
+		update = update || instance.Status.Conditions.RemoveCondition(v1beta1.MeterDefVerifyReportingSetupError)
 	}
 
-	queryPreviewResult, err := r.queryPreview(cc, instance, request, reqLogger)
+	queryPreviewResult, err := r.queryPreview(cc, instance, request, reqLogger, userWorkloadMonitoringEnabled)
+
 	if err != nil {
 		update = update || instance.Status.Conditions.SetCondition(status.Condition{
 			Type:    v1beta1.MeterDefQueryPreviewSetupError,
@@ -259,20 +301,22 @@ func (r *MeterDefinitionReconciler) addFinalizer(instance *v1beta1.MeterDefiniti
 	return nil
 }
 
-func (r *MeterDefinitionReconciler) queryPreview(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) ([]common.Result, error) {
+func (r *MeterDefinitionReconciler) queryPreview(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger, userWorkloadMonitoringEnabled bool) ([]common.Result, error) {
+	var queryPreviewResult []common.Result
+	var prometheusAPI *prom.PrometheusAPI
+	var err error
 
-	prometheusAPI, err := prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, request)
+	if userWorkloadMonitoringEnabled { // Use Thanos Querier Service for userWorkloadMonitoring queries
+		prometheusAPI, err = prom.ProvideThanosQuerierAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger)
+	} else { // Use Prometheus Service queries for RHM Prometheus queries
+		prometheusAPI, err = prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, userWorkloadMonitoringEnabled)
+	}
 	if err != nil {
-		return nil, err
+		return queryPreviewResult, err
 	}
 
 	reqLogger.Info("generatring meterdef preview")
-	queryPreviewResult, err := generateQueryPreview(instance, prometheusAPI, reqLogger)
-	if err != nil {
-		return nil, err
-	}
-
-	return queryPreviewResult, nil
+	return generateQueryPreview(instance, prometheusAPI, reqLogger)
 }
 
 func returnQueryRange(duration time.Duration) (startTime time.Time, endTime time.Time) {
@@ -396,12 +440,21 @@ func labelsToRegex(labels []string) string {
 
 // Is Prometheus reporting on the MeterDefinition
 // Check MeterDefinition presense in api/v1/label/meter_def_name/values
-func (r *MeterDefinitionReconciler) verifyReporting(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) (bool, error) {
+func (r *MeterDefinitionReconciler) verifyReporting(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, userWorkloadMonitoringEnabled bool, reqLogger logr.Logger) (bool, error) {
 
-	prometheusAPI, err := prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, request)
+	var prometheusAPI *prom.PrometheusAPI
+	var err error
+
+	if userWorkloadMonitoringEnabled { // Use Thanos Querier Service for userWorkloadMonitoring queries
+		prometheusAPI, err = prom.ProvideThanosQuerierAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger)
+
+	} else { // Use Prometheus Service queries for RHM Prometheus queries
+		prometheusAPI, err = prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, userWorkloadMonitoringEnabled)
+	}
 	if err != nil {
 		return false, err
 	}
+
 	reqLogger.Info("getting meter_def_name labelvalues from prometheus")
 
 	labelValues, warnings, err := prometheusAPI.MeterDefLabelValues()

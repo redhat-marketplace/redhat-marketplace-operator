@@ -138,11 +138,12 @@ func extractCredKey(secret *corev1.Secret, sel corev1.SecretKeySelector, cred st
 
 func getCredFromSecret(c client.Client, sel corev1.SecretKeySelector, namespace string, cred string, cacheKey string, cache map[string]*corev1.Secret) (_ string, err error) {
 	var ok bool
-	s := &corev1.Secret{}
+	var s *corev1.Secret
 
 	if s, ok = cache[cacheKey]; !ok {
+		s = &corev1.Secret{}
 		if err = c.Get(context.TODO(), types.NamespacedName{Name: sel.Name, Namespace: namespace}, s); err != nil {
-			return "", fmt.Errorf("unable to fetch %s secret %q: %s", cred, sel.Name, err)
+			return "", fmt.Errorf("unable to fetch %s secret %s/%s: %s", cred, namespace, sel.Name, err)
 		}
 		cache[cacheKey] = s
 	}
@@ -162,15 +163,15 @@ func LoadBearerTokensFromSecrets(client client.Client, mons map[string]*monitori
 			token, err := getCredFromSecret(
 				client,
 				ep.BearerTokenSecret,
-				"bearertoken",
 				mon.GetNamespace(),
+				"bearertoken",
 				mon.Namespace+"/"+ep.BearerTokenSecret.Name,
 				nsSecretCache,
 			)
 			if err != nil {
 				return nil, fmt.Errorf(
-					"failed to extract endpoint bearertoken for servicemonitor %v from secret %v in namespace %v",
-					mon.Name, ep.BearerTokenSecret.Name, mon.Namespace,
+					"failed to extract endpoint bearertoken for servicemonitor %v from secret %v in namespace %v. Error: %v",
+					mon.Name, ep.BearerTokenSecret.Name, mon.Namespace, err,
 				)
 			}
 

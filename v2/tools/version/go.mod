@@ -8,4 +8,7 @@ require (
 	github.com/spf13/cobra v1.1.1
 )
 
-replace github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../..
+replace (
+	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../..
+	k8s.io/client-go => k8s.io/client-go v0.19.4
+)
