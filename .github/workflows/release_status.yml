@@ -19,7 +19,7 @@ jobs:
       with:
         query: |-
           query {
-          	search(query: "repo:redhat-marketplace/redhat-marketplace-operator is:pr is:open head:hotfix head:release", type: ISSUE, last: 100) {
+          	search(query: "repo:redhat-marketplace/redhat-marketplace-operator is:pr is:open head:hotfix head:release base:master label:ready", type: ISSUE, last: 100) {
           		edges {
           			node {
           				... on PullRequest {
