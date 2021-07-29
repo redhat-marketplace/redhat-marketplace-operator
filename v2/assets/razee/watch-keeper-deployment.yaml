@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    razee/watch-resource: lite
+  name: rhm-watch-keeper
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rhm-watch-keeper
+      owned-by: marketplace.redhat.com-razee
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: rhm-watch-keeper
+        owned-by: marketplace.redhat.com-razee
+        razee/watch-resource: lite
+      name: rhm-watch-keeper
+    spec:
+      containers:
+      - args:
+        - --namespace
+        - $POD_NAMESPACE
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8089
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: authcheck
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /readyz
+            port: 8089
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 20m
+            memory: 40Mi
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        terminationMessagePolicy: FallbackToLogsOnError
+      - env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: NODE_ENV
+          value: production
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - sh/liveness.sh
+          failureThreshold: 1
+          initialDelaySeconds: 600
+          periodSeconds: 300
+          successThreshold: 1
+          timeoutSeconds: 30
+        name: watch-keeper
+        resources:
+          limits:
+            cpu: 400m
+            memory: 500Mi
+          requests:
+            cpu: 50m
+            memory: 100Mi
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /home/node/envs/watch-keeper-config
+          name: watch-keeper-config
+          readOnly: true
+        - mountPath: /home/node/envs/watch-keeper-secret
+          name: watch-keeper-secret
+          readOnly: true
+      serviceAccountName: redhat-marketplace-watch-keeper
+      volumes:
+      - configMap:
+          defaultMode: 288
+          name: watch-keeper-config
+          optional: false
+        name: watch-keeper-config
+      - name: watch-keeper-secret
+        secret:
+          defaultMode: 256
+          optional: false
+          secretName: watch-keeper-secret
