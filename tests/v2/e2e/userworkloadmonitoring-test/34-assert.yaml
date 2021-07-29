@@ -1,0 +1,43 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 900
+---
+apiVersion: marketplace.redhat.com/v1beta1
+kind: MeterDefinition
+metadata:
+  name: meterdef-controller-test
+  namespace: openshift-redhat-marketplace
+spec:
+  group: marketplace.redhat.com
+  kind: Pod
+  meters:
+    - aggregation: sum
+      metricId: meterdef_controller_test_query
+      name: meterdef_controller_test_query
+      period: 15m0s
+      query: kube_pod_info{} or on() vector(0)
+      workloadType: Pod
+  resourceFilters:
+    - label:
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: rhm-metric-state
+      workloadType: Pod
+status:
+  conditions:
+  - message: Meter definition has no results yet.
+    reason: No results in status
+    status: "False"
+    type: FoundMatches
+  - message: Prometheus is reporting on MeterDefinition. Label name is present.
+    reason: Is Reporting
+    status: "True"
+    type: Reporting
+  - message: Meter definition unsigned and unverified
+    reason: Signature unverified
+    status: "False"
+    type: SignatureVerified
+  results:
+  - metricName: meterdef_controller_test_query
+    query: sum by (pod,namespace) (avg(meterdef_pod_info{meter_def_name="meterdef-controller-test",meter_def_namespace="openshift-redhat-marketplace"}) without (pod_uid,pod_ip,instance,image_id,host_ip,node,container,job,service,endpoint,cluster_ip) * on(pod,namespace) group_right kube_pod_info{} or on() vector(0)) * on(pod,namespace) group_right group without(pod_uid,pod_ip,instance,image_id,host_ip,node,container,job,service,endpoint,cluster_ip) (kube_pod_info{} or on() vector(0))
+

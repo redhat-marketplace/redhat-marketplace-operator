@@ -116,7 +116,7 @@ vet:
 	go vet ./...
 
 # Generate code
-generate: controller-gen manifests go-bindata
+generate: controller-gen manifests
 	go generate ./...
 
 # Generate API
@@ -186,14 +186,17 @@ bundle: clean manifests kustomize helm operator-sdk yq
 	$(YQ) eval -i ".metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations."olm.skipRange" = ">=1.0.0 <$(VERSION)"' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations.capabilities = "Seamless Upgrades"' $(CSV_YAML_BUNDLE_FILE)
+
+	# Generate relatedImages
 	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
-		--set operatorImage=OPERATOR_IMAGE \
-		--set metricStateImage=METRIC_STATE_IMAGE \
-		--set reporterImage=REPORTER_IMAGE \
-		--set authCheckImage=AUTHCHECK_IMAGE \
-		--post-renderer ./config/manifests/kustomize \
-		| $(YQ) eval-all 'select(.kind == "ClusterServiceVersion")' - \
-		| $(YQ) eval-all -i 'select(fileIndex == 0).spec.relatedImages = select(fileIndex == 1).spec.relatedImages | select(fileIndex == 0)' $(CSV_YAML_BUNDLE_FILE) -
+	--set operatorImage=$(OPERATOR_IMAGE) \
+	--set metricStateImage=$(METRIC_STATE_IMAGE) \
+	--set reporterImage=$(REPORTER_IMAGE) \
+	--set authCheckImage=$(AUTHCHECK_IMAGE) \
+	--post-renderer ./config/manifests/kustomize \
+	| $(YQ) eval-all 'select(.kind == "ClusterServiceVersion")' - \
+	| $(YQ) eval-all -i 'select(fileIndex == 0).spec.relatedImages = select(fileIndex == 1).spec.relatedImages | select(fileIndex == 0)' $(CSV_YAML_BUNDLE_FILE) -
+
 	$(OPERATOR_SDK) bundle validate ./bundle
 	#Generate a copy of the resultant yaml files to the deploy directory - this is only used for content certification linting
 	rm -rf ./deploy && mkdir -p ./deploy ./deploy/crds && \
@@ -212,7 +215,7 @@ BUILD_ARCHS = $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS)))
 .PHONY: bundle-build
 bundle-build:
 	docker buildx build -f bundle.Dockerfile -t $(BUNDLE_IMG) \
-	--label com.redhat.openshift.versions="v4.5,v4.6,v4.7" \
+	--label com.redhat.openshift.versions="v4.5-v4.7" \
   --label com.redhat.delivery.operator.bundle=true \
 	--label com.redhat.delivery.backport=true \
 	--push \
@@ -254,7 +257,7 @@ opm-builder-base: opm
 	$(OPM) index add -u docker --generate --bundles "$(VERSIONS_LIST)" -d dev-index.Dockerfile
 	docker buildx build --push -f custom-index.Dockerfile -t "$(DEV_INDEX_IMG):$(VERSION)" \
 	--platform $(subst $(space),$(comma),$(addprefix linux/,$(ARCHS))) \
-	--label com.redhat.openshift.versions="v4.5,v4.6,v4.7" \
+	--label com.redhat.openshift.versions="v4.5-v4.7" \
   --label com.redhat.delivery.operator.bundle=true \
 	--label com.redhat.delivery.backport=true \
 	--build-arg REGISTRY=$(IMAGE_REGISTRY) \

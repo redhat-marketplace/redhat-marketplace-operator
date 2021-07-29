@@ -1,0 +1,17 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+delete:
+  - apiVersion: marketplace.redhat.com/v1beta1
+    kind: MeterDefinition
+    name: meterdef-controller-test
+  - apiVersion: marketplace.redhat.com/v1alpha1
+    kind: MarketplaceConfig
+    name: marketplaceconfig
+  - apiVersion: v1
+    kind: ConfigMap
+    name: user-workload-monitoring-config
+    namespace: openshift-user-workload-monitoring
+  - apiVersion: v1
+    kind: ConfigMap
+    name: cluster-monitoring-config
+    namespace: openshift-monitoring

@@ -1,0 +1,23 @@
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: MeterBase
+metadata:
+  name: rhm-marketplaceconfig-meterbase
+spec:
+  enabled: true
+  prometheus:
+    resources: {}
+    storage:
+      size: 20Gi
+  userWorkloadMonitoringEnabled: true
+status:
+  conditions:
+  - type: Health
+  - message: Meter Base install complete
+    reason: FinishedMeterBaseInstall
+    status: "False"
+    type: Installing
+  - message: UserWorkloadMonitoring is unavailable or disabled on the Cluster
+    reason: UserWorkloadMonitoringClusterDisabled
+    status: "False"
+    type: UserWorkloadMonitoringEnabled
+

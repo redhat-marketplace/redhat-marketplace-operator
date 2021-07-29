@@ -21,14 +21,12 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
-	opsrcApi "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -123,8 +121,8 @@ var _ = Describe("Testing with Ginkgo", func() {
 
 	var setup = func(r *ReconcilerTest) error {
 		var log = logf.Log.WithName("subscription_controller")
-		r.Client = fake.NewFakeClient(r.GetGetObjects()...)
-		r.Reconciler = &SubscriptionReconciler{Client: r.Client, Scheme: scheme.Scheme, Log: log}
+		r.Client = fake.NewFakeClientWithScheme(k8sScheme, r.GetGetObjects()...)
+		r.Reconciler = &SubscriptionReconciler{Client: r.Client, Scheme: k8sScheme, Log: log}
 		return nil
 	}
 
@@ -259,9 +257,6 @@ var _ = Describe("Testing with Ginkgo", func() {
 	It("subscription controller", func() {
 		defaultFeatures := []string{"razee", "meterbase"}
 		viper.Set("features", defaultFeatures)
-		_ = opsrcApi.AddToScheme(scheme.Scheme)
-		_ = olmv1alpha1.AddToScheme(scheme.Scheme)
-		_ = olmv1.AddToScheme(scheme.Scheme)
 		testNewSubscription(GinkgoT())
 		testNewSubscriptionWithOperatorGroup(GinkgoT())
 		testDeleteOperatorGroupIfTooMany(GinkgoT())

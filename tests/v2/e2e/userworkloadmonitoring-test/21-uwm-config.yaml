@@ -1,0 +1,39 @@
+apiVersion: v1
+data:
+  config.yaml: |
+    prometheus:
+      resources:
+        requests:
+          cpu: 70m
+          memory: 1Gi
+      retention: 24h
+      volumeClaimTemplate:
+        spec:
+          resources:
+            requests:
+              storage: 20Gi
+kind: ConfigMap
+metadata:
+  name: user-workload-monitoring-config
+  namespace: openshift-user-workload-monitoring
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-monitoring-config
+  namespace: openshift-monitoring
+data:
+  config.yaml: |
+    enableUserWorkload: true
+---
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: MeterBase
+metadata:
+  name: rhm-marketplaceconfig-meterbase
+spec:
+  enabled: true
+  prometheus:
+    resources: {}
+    storage:
+      size: 20Gi
+  userWorkloadMonitoringEnabled: true
