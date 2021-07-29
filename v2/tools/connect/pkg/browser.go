@@ -446,7 +446,7 @@ type ImagePublishStatus struct {
 }
 
 func match(inImage *imageStruct, pageImage *ImagePublishStatus) bool {
-	if inImage.ProjectURL != pageImage.Url{
+	if inImage.ProjectURL != pageImage.Url {
 		return false
 	}
 

@@ -9,6 +9,7 @@ require (
 )
 
 replace (
+	github.com/dgrijalva/jwt-go => github.com/redhat-marketplace/jwt v3.2.1+incompatible
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 => ../..
 	k8s.io/client-go => k8s.io/client-go v0.19.4
 )
