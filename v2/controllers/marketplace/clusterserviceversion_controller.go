@@ -57,6 +57,7 @@ const (
 	olmCopiedFromTag string = "olm.copiedFrom"
 	olmNamespace     string = "olm.operatorNamespace"
 	ignoreTag        string = "marketplace.redhat.com/ignore"
+	installedOperatorNameTag = "marketplace.redhat.com/installedOperatorName"
 	ignoreTagValue   string = "2"
 	meterDefStatus   string = "marketplace.redhat.com/meterDefinitionStatus"
 	meterDefError    string = "marketplace.redhat.com/meterDefinitionError"
@@ -143,14 +144,41 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 					}
 
 					_csvName := strings.Split(request.Name, ".")[0]
-					if s.Status.InstalledCSV != request.NamespacedName.Name && _csvName == s.Spec.Package {
-						reqLogger.Info("subscription installed csv", "installed csv", s.Status.InstalledCSV)
-						return reconcile.Result{RequeueAfter: time.Second * 5}, nil
-					}
+					installedOperatorName, ok := s.GetAnnotations()[installedOperatorNameTag] 
+					if ok {
+						if s.Status.InstalledCSV != request.NamespacedName.Name && _csvName == installedOperatorName {
+							reqLogger.Info("subscription installed csv", "installed csv", s.Status.InstalledCSV)
+							return reconcile.Result{RequeueAfter: time.Second * 5}, nil
+						}
+					} 
 
 					if s.Status.InstalledCSV == request.NamespacedName.Name {
 						reqLogger.Info("found Subscription with installed CSV")
 						hasMarketplaceSub = true
+						if _, ok := s.GetAnnotations()[installedOperatorName]; !ok {
+							retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				
+								annotations := s.GetAnnotations()
+				
+								if annotations == nil {
+									annotations = make(map[string]string)
+								}
+				
+								_csvName := strings.Split(request.Name, ".")[0]
+								annotations[installedOperatorNameTag] = _csvName
+								s.SetAnnotations(annotations)
+				
+								return r.Client.Update(context.TODO(), &s)
+							})
+				
+							if retryErr != nil {
+								reqLogger.Error(retryErr, "Failed to patch subscription with installedOperatorName tag")
+								return reconcile.Result{Requeue: true}, retryErr
+							}
+							reqLogger.V(4).Info("Patched subscription with installedOperatorName tag")
+						} else {
+							reqLogger.V(4).Info("No patch needed on subscription resource for installedOperatorName tag")
+						}
 
 						if v, ok := CSV.GetLabels()[watchTag]; !ok || v != "lite" {
 							err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
@@ -183,7 +211,6 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 							}
 							reqLogger.Info("Patched clusterserviceversion with razee/watch-resource: lite label")
 						} else {
-
 							reqLogger.Info("No patch needed on clusterserviceversion resource")
 						}
 					}
