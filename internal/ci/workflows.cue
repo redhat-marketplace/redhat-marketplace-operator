@@ -342,17 +342,18 @@ sync_branches: _#bashWorkflow & {
 	name: "Sync Next Release"
 	on: {
 		push: {
-			branches: [ _#nextRelease ]
+			branches: [ "develop", _#nextRelease ]
 		}
 	}
 	jobs: {
 		sync: {
 			name:      "Sync next release"
 			"runs-on": _#linuxMachine
-      if: "${{ github.ref == 'refs/heads/\(_#nextRelease)' }}"
+      if: "${{ github.ref == 'refs/heads/\(_#nextRelease)' || github.ref == 'refs/heads/develop' }}"
 			steps:     [_#checkoutCode] + [ for _#futureRelease in _#futureReleases {
 				_#step & {
 					name: "pull-request-action"
+          if: "${{ github.ref == 'refs/heads/\(_#nextRelease)' }}"
 					uses: "vsoch/pull-request-action@master"
 					env: {
 						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
@@ -364,16 +365,18 @@ sync_branches: _#bashWorkflow & {
 			}] + [
 				_#step & {
 					name: "pull-request-action"
+          if: "${{ github.ref == 'refs/heads/develop' }}"
 					uses: "vsoch/pull-request-action@master"
 					env: {
 						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
-						"PULL_REQUEST_BRANCH": "develop"
-            "PULL_REQUEST_TITLE" : "chore: ${{ github.ref }} to develop"
+						"PULL_REQUEST_BRANCH": _#nextRelease
+            "PULL_REQUEST_TITLE" : "chore: develop to \(_#nextRelease)"
             "PULL_REQUEST_UPDATE": "true"
 					}
 				},
 				_#step & {
 					name: "pull-request-action"
+          if: "${{ github.ref == 'refs/heads/\(_#nextRelease)' }}"
 					uses: "vsoch/pull-request-action@master"
 					env: {
 						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
@@ -554,7 +557,7 @@ branch_build: _#bashWorkflow & {
 		"deploy": _#job & {
 			name:      "Deploy"
 			"runs-on": _#linuxMachine
-			needs: ["test", "matrix-test"]
+			needs: ["test", "matrix-test", "images"]
 			env: {
 				VERSION:   "${{ needs.test.outputs.version }}"
 				IMAGE_TAG: "${{ needs.test.outputs.tag }}"
@@ -928,7 +931,7 @@ _#turnStyleStep: _#step & {
 
 _#archs: ["amd64", "ppc64le", "s390x"]
 _#registry:           "quay.io/rh-marketplace"
-_#goVersion:          "1.16.2"
+_#goVersion:          "1.16.6"
 _#branchTarget:       "/^(master|develop|release.*|hotfix.*)$/"
 _#pcUser:             "pcUser"
 _#kubeBuilderVersion: "2.3.1"

@@ -44,3 +44,5 @@ replace (
 	k8s.io/api => k8s.io/api v0.19.4
 	k8s.io/client-go => k8s.io/client-go v0.19.4
 )
+
+replace github.com/dgrijalva/jwt-go => github.com/redhat-marketplace/jwt v3.2.1+incompatible

@@ -28,6 +28,7 @@ require (
 )
 
 replace (
+	github.com/dgrijalva/jwt-go => github.com/redhat-marketplace/jwt v3.2.1+incompatible
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v1.8.2-0.20201015110737-0a7fdd3b7696
 	github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2 => ../../reporter/v2
 	github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2 => ./
