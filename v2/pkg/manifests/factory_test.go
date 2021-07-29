@@ -25,7 +25,6 @@ var files = []string{
 	PrometheusOperatorDeploymentV46,
 	PrometheusOperatorServiceV45,
 	PrometheusOperatorServiceV46,
-	PrometheusOperatorCertsCABundle,
 
 	PrometheusAdditionalScrapeConfig,
 	PrometheusHtpasswd,

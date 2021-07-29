@@ -48,7 +48,6 @@ const (
 	PrometheusOperatorDeploymentV46 = "prometheus-operator/deployment-v4.6.yaml"
 	PrometheusOperatorServiceV45    = "prometheus-operator/service-v4.5.yaml"
 	PrometheusOperatorServiceV46    = "prometheus-operator/service-v4.6.yaml"
-	PrometheusOperatorCertsCABundle = "prometheus-operator/operator-certs-ca-bundle.yaml"
 
 	PrometheusAdditionalScrapeConfig = "prometheus/additional-scrape-configs.yaml"
 	PrometheusHtpasswd               = "prometheus/htpasswd-secret.yaml"
@@ -492,10 +491,6 @@ func (f *Factory) NewPrometheusOperatorService() (*corev1.Service, error) {
 	service, err := f.NewService(MustAssetReader(f.prometheusOperatorService()))
 
 	return service, err
-}
-
-func (f *Factory) NewPrometheusOperatorCertsCABundle() (*corev1.ConfigMap, error) {
-	return f.NewConfigMap(MustAssetReader(PrometheusOperatorCertsCABundle))
 }
 
 func (f *Factory) PrometheusKubeletServingCABundle(data string) (*v1.ConfigMap, error) {

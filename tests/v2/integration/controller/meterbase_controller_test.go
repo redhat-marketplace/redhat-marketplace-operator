@@ -44,7 +44,7 @@ var _ = Describe("MeterbaseController", func() {
 				Eventually(func() bool {
 					result, _ := testHarness.Do(
 						context.TODO(),
-						GetAction(types.NamespacedName{Name: "operator-certs-ca-bundle", Namespace: Namespace}, cm),
+						GetAction(types.NamespacedName{Name: "serving-certs-ca-bundle", Namespace: Namespace}, cm),
 						GetAction(types.NamespacedName{Name: "prometheus-operator", Namespace: Namespace}, deployment),
 						GetAction(types.NamespacedName{Name: "prometheus-operator", Namespace: Namespace}, service),
 					)

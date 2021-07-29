@@ -61,22 +61,13 @@ func getCertConfigMap(ctx context.Context,
 	deployedNamespace string,
 	userWorkloadMonitoringEnabled bool) (*corev1.ConfigMap, error) {
 	certConfigMap := &corev1.ConfigMap{}
-
-	name := types.NamespacedName{}
-	if userWorkloadMonitoringEnabled {
-		name = types.NamespacedName{
-			Name:      utils.SERVING_CERTS_CA_BUNDLE_NAME,
-			Namespace: utils.OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE,
-		}
-	} else {
-		name = types.NamespacedName{
-			Name:      utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
-			Namespace: deployedNamespace,
-		}
+	name := types.NamespacedName{
+		Name:      utils.SERVING_CERTS_CA_BUNDLE_NAME,
+		Namespace: deployedNamespace,
 	}
 
 	if result, _ := cc.Do(context.TODO(), GetAction(name, certConfigMap)); !result.Is(Continue) {
-		return nil, errors.Wrap(result.GetError(), "Failed to retrieve operator-certs-ca-bundle.")
+		return nil, errors.Wrap(result.GetError(), "Failed to retrieve serving-certs-ca-bundle.")
 	}
 
 	log.Info("retrieved configmap")

@@ -826,7 +826,6 @@ func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 ) []ClientAction {
 	reqLogger := r.Log.WithValues("Request.Namespace", instance.Namespace, "Request.Name", instance.Name)
 	nsList := &corev1.NamespaceList{}
-	cm := &corev1.ConfigMap{}
 	deployment := &appsv1.Deployment{}
 	service := &corev1.Service{}
 
@@ -849,12 +848,6 @@ func (r *MeterBaseReconciler) reconcilePrometheusOperator(
 		ListAction(nsList, client.MatchingLabelsSelector{
 			Selector: nsLabelSelector,
 		}),
-		manifests.CreateIfNotExistsFactoryItem(
-			cm,
-			func() (runtime.Object, error) {
-				return r.factory.NewPrometheusOperatorCertsCABundle()
-			},
-		),
 		manifests.CreateOrUpdateFactoryItemAction(
 			service,
 			func() (runtime.Object, error) {
@@ -1024,7 +1017,6 @@ func (r *MeterBaseReconciler) installUserWorkloadMonitoring(
 func (r *MeterBaseReconciler) uninstallPrometheusOperator(
 	instance *marketplacev1alpha1.MeterBase,
 ) []ClientAction {
-	cm, _ := r.factory.NewPrometheusOperatorCertsCABundle()
 	deployment, _ := r.factory.NewPrometheusOperatorDeployment([]string{})
 	service, _ := r.factory.NewPrometheusOperatorService()
 
@@ -1035,9 +1027,6 @@ func (r *MeterBaseReconciler) uninstallPrometheusOperator(
 		HandleResult(
 			GetAction(types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}, deployment),
 			OnContinue(DeleteAction(deployment))),
-		HandleResult(
-			GetAction(types.NamespacedName{Namespace: cm.Namespace, Name: cm.Name}, cm),
-			OnContinue(DeleteAction(cm))),
 	}
 }
 
