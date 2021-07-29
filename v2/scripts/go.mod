@@ -3,7 +3,6 @@ module github.com/redhat-marketplace/redhat-marketplace-operator/tooling
 go 1.16
 
 require (
-	cuelang.org/go v0.2.2 // indirect
 	github.com/Masterminds/semver/v3 v3.1.0
 	github.com/Shyp/bump_version v0.0.0-20180222180749-d7594d2951e2
 	github.com/fatih/structtag v1.2.0 // indirect
@@ -38,3 +37,5 @@ require (
 	k8s.io/gengo v0.0.0-20200728071708-7794989d0000 // indirect
 	k8s.io/klog/v2 v2.3.0 // indirect
 )
+
+replace github.com/dgrijalva/jwt-go => github.com/redhat-marketplace/jwt v3.2.1+incompatible

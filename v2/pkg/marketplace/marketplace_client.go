@@ -27,7 +27,6 @@ import (
 
 	"emperror.dev/errors"
 	jwt "github.com/dgrijalva/jwt-go"
-
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
