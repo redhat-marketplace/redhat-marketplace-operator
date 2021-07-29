@@ -17,7 +17,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
-    - name: pull-request-action
+    - if: ${{ github.ref == 'refs/heads/release/2.3.0' }}
+      name: pull-request-action
       uses: vsoch/pull-request-action@master
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -30,7 +31,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         PULL_REQUEST_BRANCH: release/2.3.0
-        PULL_REQUEST_TITLE: 'chore: develop to ${{ github.ref }}'
+        PULL_REQUEST_TITLE: 'chore: develop to release/2.3.0'
         PULL_REQUEST_UPDATE: "true"
     - if: ${{ github.ref == 'refs/heads/release/2.3.0' }}
       name: pull-request-action

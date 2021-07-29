@@ -353,6 +353,7 @@ sync_branches: _#bashWorkflow & {
 			steps:     [_#checkoutCode] + [ for _#futureRelease in _#futureReleases {
 				_#step & {
 					name: "pull-request-action"
+          if: "${{ github.ref == 'refs/heads/\(_#nextRelease)' }}"
 					uses: "vsoch/pull-request-action@master"
 					env: {
 						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
@@ -369,7 +370,7 @@ sync_branches: _#bashWorkflow & {
 					env: {
 						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
 						"PULL_REQUEST_BRANCH": _#nextRelease
-            "PULL_REQUEST_TITLE" : "chore: develop to ${{ github.ref }}"
+            "PULL_REQUEST_TITLE" : "chore: develop to \(_#nextRelease)"
             "PULL_REQUEST_UPDATE": "true"
 					}
 				},
