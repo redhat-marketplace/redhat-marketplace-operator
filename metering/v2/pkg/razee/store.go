@@ -34,15 +34,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type MeterDefinitionStores = map[string]*MeterDefinitionStore
+type RazeeStores = map[string]*RazeeStore
 type ObjectsSeenStore cache.Store
 
-// MeterDefinitionStore keeps the MeterDefinitions in place
-// and tracks the dependents using the rules based on the
-// rules. MeterDefinition controller uses this to effectively
-// find the child assets of a meter definition rules.
-type MeterDefinitionStore struct {
-	dictionary  *dictionary.MeterDefinitionDictionary
+type RazeeStore struct {
 	indexStore  cache.Indexer
 	delta       *cache.DeltaFIFO
 	objectsSeen ObjectsSeenStore
@@ -57,45 +52,10 @@ type MeterDefinitionStore struct {
 	// kubeClient to query kube
 	kubeClient clientset.Interface
 
-	findOwner                *rhmclient.FindOwnerHelper
-	monitoringClient         *monitoringv1client.MonitoringV1Client
-	marketplaceClientV1beta1 *marketplacev1beta1client.MarketplaceV1beta1Client
+	findOwner *rhmclient.FindOwnerHelper
 }
 
-var _ cache.Queue = &MeterDefinitionStore{}
-
-const IndexMeterDefinition = "meterDefinition"
-
-func EnhancedObjectKeyFunc(scheme *runtime.Scheme) func(obj interface{}) (string, error) {
-	return func(obj interface{}) (string, error) {
-		mdefObj, err := newMeterDefinitionExtended(obj)
-
-		if err != nil {
-			return "", err
-		}
-
-		return pkgtypes.GVKNamespaceKeyFunc(scheme)(mdefObj.Object)
-	}
-}
-
-func MeterDefinitionIndexFunc(obj interface{}) ([]string, error) {
-	v, ok := obj.(*pkgtypes.MeterDefinitionEnhancedObject)
-	if !ok {
-		return nil, errors.New("failed to index obj")
-	}
-
-	keys := make([]string, 0, len(v.MeterDefinitions))
-	for i := range v.MeterDefinitions {
-		meterDef := v.MeterDefinitions[i]
-		key, err := cache.MetaNamespaceKeyFunc(&meterDef)
-		if !ok {
-			return nil, errors.Wrap(err, "failed to get obj key")
-		}
-		keys = append(keys, key)
-	}
-
-	return keys, nil
-}
+var _ cache.Queue = &RazeeStore{}
 
 // Implementing k8s.io/client-go/tools/cache.Store interface
 
@@ -463,14 +423,9 @@ func NewMeterDefinitionStore(
 	dictionary *dictionary.MeterDefinitionDictionary,
 	scheme *runtime.Scheme,
 ) *MeterDefinitionStore {
-	keyFunc := EnhancedObjectKeyFunc(scheme)
 
-	storeIndexers := cache.Indexers{
-		IndexMeterDefinition: MeterDefinitionIndexFunc,
-	}
-
-	store := cache.NewIndexer(keyFunc, storeIndexers)
-	delta := cache.NewDeltaFIFO(keyFunc, store)
+	store := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.MetaNamespaceIndexFunc)
+	delta := cache.NewDeltaFIFO(cache.MetaNamespaceKeyFunc, store)
 	return &MeterDefinitionStore{
 		ctx:                      ctx,
 		log:                      log.WithName("obj_store").V(4),
