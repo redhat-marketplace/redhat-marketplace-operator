@@ -24,12 +24,8 @@ import (
 	"github.com/InVisionApp/go-health/v2"
 	"github.com/go-logr/logr"
 	"github.com/google/wire"
-	monitoringv1client "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meterdefinition"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/razee"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
-	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientset "k8s.io/client-go/kubernetes"
@@ -37,16 +33,12 @@ import (
 )
 
 type Engine struct {
-	store            *meterdefinition.MeterDefinitionStore
-	namespaces       pkgtypes.Namespaces
-	kubeClient       clientset.Interface
-	monitoringClient *monitoringv1client.MonitoringV1Client
-	dictionary       *dictionary.MeterDefinitionDictionary
-	mktplaceClient   *marketplacev1beta1client.MarketplaceV1beta1Client
-	promtheusData    *metrics.PrometheusData
-	runnables        Runnables
-	log              logr.Logger
-	health           *health.Health
+	store      *razee.RazeeStore
+	namespaces pkgtypes.Namespaces
+	kubeClient clientset.Interface
+	runnables  Runnables
+	log        logr.Logger
+	health     *health.Health
 
 	mainContext  *context.Context
 	localContext *context.Context
@@ -54,28 +46,20 @@ type Engine struct {
 }
 
 func ProvideEngine(
-	store *meterdefinition.MeterDefinitionStore,
+	store *razee.RazeeStore,
 	namespaces pkgtypes.Namespaces,
 	log logr.Logger,
 	kubeClient clientset.Interface,
-	monitoringClient *monitoringv1client.MonitoringV1Client,
-	dictionary *dictionary.MeterDefinitionDictionary,
-	mktplaceClient *marketplacev1beta1client.MarketplaceV1beta1Client,
 	runnables Runnables,
-	promtheusData *metrics.PrometheusData,
 ) *Engine {
 	h := health.New()
 	return &Engine{
-		store:            store,
-		log:              log,
-		namespaces:       namespaces,
-		kubeClient:       kubeClient,
-		monitoringClient: monitoringClient,
-		dictionary:       dictionary,
-		mktplaceClient:   mktplaceClient,
-		runnables:        runnables,
-		health:           h,
-		promtheusData:    promtheusData,
+		store:      store,
+		log:        log,
+		namespaces: namespaces,
+		kubeClient: kubeClient,
+		runnables:  runnables,
+		health:     h,
 	}
 }
 
@@ -195,24 +179,23 @@ func (p *StoreRunnable) Start(ctx context.Context) error {
 	return nil
 }
 
-type ObjectsSeenStoreRunnable struct {
+type RazeeStoreRunnable struct {
 	StoreRunnable
 }
 
-func ProvideObjectsSeenStoreRunnable(
+func ProvideRazeeStoreRunnable(
 	kubeClient clientset.Interface,
 	nses pkgtypes.Namespaces,
-	store meterdefinition.ObjectsSeenStore,
-	c *monitoringv1client.MonitoringV1Client,
+	store razee.RazeeStore,
 	log logr.Logger,
-) *ObjectsSeenStoreRunnable {
-	return &ObjectsSeenStoreRunnable{
+) *RazeeStoreRunnable {
+	return &RazeeStoreRunnable{
 		StoreRunnable: StoreRunnable{
-			Store:      store,
-			ResyncTime: 0, //1*60*time.Second,
-			log:        log.WithName("objectsseen"),
+			Store:      store.DeltaStore(), //delta implements the Store
+			ResyncTime: 0,                  //1*60*time.Second,
+			log:        log.WithName("razee"),
 			Reflectors: []Runnable{
-				provideNodeLister(kubeClient, store),
+				provideNodeLister(kubeClient, store.DeltaStore()), //delta implements the Store
 			},
 		},
 	}
@@ -239,5 +222,5 @@ func provideNodeLister(
 
 var EngineSet = wire.NewSet(
 	ProvideEngine,
-	meterdefinition.NewObjectsSeenStore,
+	razee.NewRazeeStore,
 )

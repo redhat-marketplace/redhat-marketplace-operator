@@ -19,9 +19,7 @@ import (
 
 	"github.com/InVisionApp/go-health/v2"
 	"github.com/google/wire"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/processors"
 )
 
 type Runnables []Runnable
@@ -36,41 +34,18 @@ type Recoverable interface {
 }
 
 func ProvideRunnables(
-	meterDefinitionStore *MeterDefinitionStoreRunnable,
-	meterDefinitionDictionary *MeterDefinitionDictionaryStoreRunnable,
-	mdefSeenStore *MeterDefinitionSeenStoreRunnable,
+	razeeStore *RazeeStoreRunnable,
 	mailbox *mailbox.Mailbox,
-	statusProcessor *processors.StatusProcessor,
-	serviceAnnotatorProcessor *processors.ServiceAnnotatorProcessor,
-	prometheusProcessor *processors.PrometheusProcessor,
-	prometheusMdefProcessor *processors.PrometheusMdefProcessor,
-	removalWatcher *processors.MeterDefinitionRemovalWatcher,
-	objectChannelProducer *mailbox.ObjectChannelProducer,
-	mdefChannelProducer *mailbox.MeterDefinitionChannelProducer,
-	dictionary *dictionary.MeterDefinitionDictionary,
 ) Runnables {
 	// this is the start up order
 	return Runnables{
 		mailbox,
-		objectChannelProducer,
-		mdefChannelProducer,
-		statusProcessor,
-		serviceAnnotatorProcessor,
-		prometheusProcessor,
-		prometheusMdefProcessor,
-		removalWatcher,
-		meterDefinitionDictionary,
-		mdefSeenStore,
-		meterDefinitionStore,
-		dictionary,
+		razeeStore,
 	}
 }
 
 var RunnablesSet = wire.NewSet(
 	mailbox.ProvideMailbox,
 	ProvideRunnables,
-	ProvideObjectsSeenStoreRunnable,
-	processors.ProvideStatusProcessor,
-	mailbox.ProvideObjectChannelProducer,
-	mailbox.ProvideMeterDefinitionChannelProducer,
+	ProvideRazeeStoreRunnable,
 )

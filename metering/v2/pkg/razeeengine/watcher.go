@@ -24,8 +24,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func CreateNodeListWatch(kubeClient clientset.Interface) func() cache.ListerWatcher {
-	return func() cache.ListerWatcher {
+func CreateNodeListWatch(kubeClient clientset.Interface) func(string) cache.ListerWatcher {
+	return func(ns string) cache.ListerWatcher {
 		return &cache.ListWatch{
 			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
 				return kubeClient.CoreV1().Nodes().List(context.TODO(), opts)

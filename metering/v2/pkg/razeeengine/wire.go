@@ -21,11 +21,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/google/wire"
-	monitoringv1client "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
-	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
@@ -40,15 +36,11 @@ func NewEngine(
 	clientOptions managers.ClientOptions,
 	k8sRestConfig *rest.Config,
 	log logr.Logger,
-	prometheusData *metrics.PrometheusData,
 ) (*Engine, error) {
 	panic(wire.Build(
 		managers.ProvideCachedClientSet,
-		dictionary.ProvideMeterDefinitionList,
 		RunnablesSet,
 		EngineSet,
-		marketplacev1beta1client.NewForConfig,
-		monitoringv1client.NewForConfig,
 		rhmclient.NewFindOwnerHelper,
 		client.NewDynamicClient,
 		managers.AddIndices,
