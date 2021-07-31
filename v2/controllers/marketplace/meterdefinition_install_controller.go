@@ -291,6 +291,7 @@ func ListMeterdefintionsFromFileServer(csvName string, version string, namespace
 		}
 	}
 
+	meterDefNames := []string{}
 	mdefSlice := []marketplacev1beta1.MeterDefinition{}
 	defer response.Body.Close()
 	data, err := ioutil.ReadAll(response.Body)
@@ -302,11 +303,10 @@ func ListMeterdefintionsFromFileServer(csvName string, version string, namespace
 		}
 	}
 
-	if len(data) == 0 {
-		reqLogger.Error(err, "no data in response")
-		return nil, nil, &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
+	if strings.Contains(string(data), "no meterdefinitions found") {
+		reqLogger.Info(string(data), "CSV Name", csvName, "CSV Version", version, "CSV Namesapce", namespace)
+		return meterDefNames, mdefSlice, &ExecResult{
+			Status: ActionResultStatus(Continue),
 		}
 	}
 
@@ -322,7 +322,6 @@ func ListMeterdefintionsFromFileServer(csvName string, version string, namespace
 		}
 	}
 
-	var meterDefNames []string
 	for _, meterDefItem := range mdefSlice {
 		meterDefNames = append(meterDefNames, meterDefItem.ObjectMeta.Name)
 	}
