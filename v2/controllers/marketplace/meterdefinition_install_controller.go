@@ -32,6 +32,7 @@ import (
 	emperror "emperror.dev/errors"
 	"github.com/go-logr/logr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	common "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
@@ -433,7 +434,7 @@ func (r *MeterdefinitionInstallReconciler) fetchGlobalMeterdefs(csv *olmv1alpha1
 // adds a new InstalledMeterdefinition to the json store
 func createOrUpdateInstalledMeterDefsList(csvName string, csvVersion string, installedMeterdef string, cmMdefStore string, request reconcile.Request, reqLogger logr.Logger) (string, error) {
 
-	meterdefStore := &MeterdefinitionStore{}
+	meterdefStore := &common.MeterdefinitionStore{}
 
 	err := json.Unmarshal([]byte(cmMdefStore), meterdefStore)
 	if err != nil {
@@ -459,7 +460,7 @@ func createOrUpdateInstalledMeterDefsList(csvName string, csvVersion string, ins
 	// if the install mapping isn't found add it
 	if !installMappingFound {
 		reqLogger.Info("no meterdef mapping found, adding")
-		newInstallMapping := InstallMapping{
+		newInstallMapping := common.InstallMapping{
 			Namespace:                 request.Namespace,
 			CsvName:                   csvName,
 			CsvVersion:                csvVersion,
@@ -502,7 +503,7 @@ func deleteInstallMapping(csvName string, csvVersion string, deployedNamespace s
 
 	mdefStore := mdefStoreCM.Data[utils.MeterDefinitionStoreKey]
 
-	meterdefStore := &MeterdefinitionStore{}
+	meterdefStore := &common.MeterdefinitionStore{}
 
 	err = json.Unmarshal([]byte(mdefStore), meterdefStore)
 	if err != nil {
@@ -586,7 +587,7 @@ func addInstallMapping(csvName string, csvVersion, deployedNamespace string, met
 
 	mdefStore := mdefStoreCM.Data[utils.MeterDefinitionStoreKey]
 
-	meterdefStore := &MeterdefinitionStore{}
+	meterdefStore := &common.MeterdefinitionStore{}
 
 	err = json.Unmarshal([]byte(mdefStore), meterdefStore)
 	if err != nil {
@@ -597,7 +598,7 @@ func addInstallMapping(csvName string, csvVersion, deployedNamespace string, met
 		}
 	}
 
-	newInstallMapping := InstallMapping{
+	newInstallMapping := common.InstallMapping{
 		Namespace:                 request.Namespace,
 		CsvName:                   csvName,
 		CsvVersion:                csvVersion,

@@ -44,6 +44,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 
+	common "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -70,18 +71,6 @@ type DeploymentConfigReconciler struct {
 	factory       *manifests.Factory
 	patcher       patch.Patcher
 	kubeInterface kubernetes.Interface
-}
-
-type InstallMapping struct {
-	Namespace                 string   `json:"namespace,omitempty"`
-	CsvName                   string   `json:"csvName,omitempty"`
-	CsvVersion                string   `json:"version,omitempty"`
-	InstalledMeterdefinitions []string `json:"installedMeterdefinitions,omitempty"`
-}
-
-//TODO: mutex needed here ?
-type MeterdefinitionStore struct {
-	InstallMappings []InstallMapping `json:"installMappings"`
 }
 
 func (r *DeploymentConfigReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
@@ -201,7 +190,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 
 	cmMdefStore := cm.Data[utils.MeterDefinitionStoreKey]
 
-	meterdefStore := &MeterdefinitionStore{}
+	meterdefStore := &common.MeterdefinitionStore{}
 
 	err = json.Unmarshal([]byte(cmMdefStore), meterdefStore)
 	if err != nil {
@@ -238,7 +227,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	return reconcile.Result{}, nil
 }
 
-func getMeterdefStoreFromCM(client client.Client, deployedNamespace string, reqLogger logr.Logger) (*MeterdefinitionStore, *ExecResult) {
+func getMeterdefStoreFromCM(client client.Client, deployedNamespace string, reqLogger logr.Logger) (*common.MeterdefinitionStore, *ExecResult) {
 	// Fetch the install-map-cm instance
 	cm := &corev1.ConfigMap{}
 	err := client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME, Namespace: deployedNamespace}, cm)
@@ -252,7 +241,7 @@ func getMeterdefStoreFromCM(client client.Client, deployedNamespace string, reqL
 
 	cmMdefStore := cm.Data[utils.MeterDefinitionStoreKey]
 
-	meterdefStore := &MeterdefinitionStore{}
+	meterdefStore := &common.MeterdefinitionStore{}
 
 	err = json.Unmarshal([]byte(cmMdefStore), meterdefStore)
 	if err != nil {
@@ -268,12 +257,12 @@ func getMeterdefStoreFromCM(client client.Client, deployedNamespace string, reqL
 	}
 }
 
-func (r *DeploymentConfigReconciler) sync(installMappings []InstallMapping, reqLogger logr.Logger) ([]InstallMapping, *ExecResult) {
+func (r *DeploymentConfigReconciler) sync(installMappings []common.InstallMapping, reqLogger logr.Logger) ([]common.InstallMapping, *ExecResult) {
 
 	reqLogger.Info("syncing meterdefinitions")
 	reqLogger.Info("install mappings", "mapping", installMappings)
 
-	updatedInstallMappings := []InstallMapping{}
+	updatedInstallMappings := []common.InstallMapping{}
 	for _, installMap := range installMappings {
 		csvName := installMap.CsvName
 		csvVersion := installMap.CsvVersion
