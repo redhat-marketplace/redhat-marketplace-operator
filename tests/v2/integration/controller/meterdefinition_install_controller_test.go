@@ -7,7 +7,6 @@ import (
 	"time"
 
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	// operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 
 	common "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
@@ -17,7 +16,6 @@ import (
 
 	. "github.com/onsi/gomega/gstruct"
 
-	// . "github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
