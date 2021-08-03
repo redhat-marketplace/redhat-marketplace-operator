@@ -188,6 +188,9 @@ bundle: clean manifests kustomize helm operator-sdk yq
 	$(YQ) eval -i '.metadata.annotations.capabilities = "Seamless Upgrades"' $(CSV_YAML_BUNDLE_FILE)
 
 	# Generate relatedImages
+	# use different kustomization.yaml file
+	mv ./config/manifests/kustomization.yaml ./config/manifests/kustomization.yaml.bak
+	cp ./config/manifests/kustomization_patch_related.yaml ./config/manifests/kustomization.yaml
 	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
 	--set operatorImage=$(OPERATOR_IMAGE) \
 	--set metricStateImage=$(METRIC_STATE_IMAGE) \
@@ -196,6 +199,7 @@ bundle: clean manifests kustomize helm operator-sdk yq
 	--post-renderer ./config/manifests/kustomize \
 	| $(YQ) eval-all 'select(.kind == "ClusterServiceVersion")' - \
 	| $(YQ) eval-all -i 'select(fileIndex == 0).spec.relatedImages = select(fileIndex == 1).spec.relatedImages | select(fileIndex == 0)' $(CSV_YAML_BUNDLE_FILE) -
+	mv ./config/manifests/kustomization.yaml.bak ./config/manifests/kustomization.yaml
 
 	$(OPERATOR_SDK) bundle validate ./bundle
 	#Generate a copy of the resultant yaml files to the deploy directory - this is only used for content certification linting
