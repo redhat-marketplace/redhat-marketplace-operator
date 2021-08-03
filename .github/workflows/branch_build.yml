@@ -174,14 +174,12 @@ jobs:
       env:
         DOCKERBUILDXCACHE: /tmp/.buildx-cache
         PUSH: "false"
-      continue-on-error: ${{ matrix.continueOnError }}
     - id: push
       name: Push images
       run: make base/docker-build
       env:
         DOCKERBUILDXCACHE: /tmp/.buildx-cache
         IMAGE_PUSH: "true"
-      continue-on-error: ${{ matrix.continueOnError }}
   images:
     name: Build Images
     needs:
@@ -257,14 +255,12 @@ jobs:
       env:
         DOCKERBUILDXCACHE: /tmp/.buildx-cache
         IMAGE_PUSH: "false"
-      continue-on-error: ${{ matrix.continueOnError }}
     - id: push
       name: Push images
       run: make ${{ matrix.project }}/docker-build
       env:
         DOCKERBUILDXCACHE: /tmp/.buildx-cache
         PUSH: "true"
-      continue-on-error: ${{ matrix.continueOnError }}
     strategy:
       matrix:
         project:
@@ -274,13 +270,9 @@ jobs:
         - reporter
         include:
         - project: operator
-          continueOnError: false
         - project: authchecker
-          continueOnError: false
         - project: metering
-          continueOnError: false
         - project: reporter
-          continueOnError: false
   deploy:
     name: Deploy
     needs:

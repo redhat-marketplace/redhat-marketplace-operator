@@ -464,7 +464,6 @@ branch_build: _#bashWorkflow & {
 				_#step & {
 					id:                  "build"
 					name:                "Build images"
-					"continue-on-error": "${{ matrix.continueOnError }}"
 					env: {
 						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
 						"PUSH":              "false"
@@ -476,7 +475,6 @@ branch_build: _#bashWorkflow & {
 				_#step & {
 					id:                  "push"
 					name:                "Push images"
-					"continue-on-error": "${{ matrix.continueOnError }}"
 					env: {
 						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
 						"IMAGE_PUSH":        "true"
@@ -498,20 +496,16 @@ branch_build: _#bashWorkflow & {
 				project: ["operator", "authchecker", "metering", "reporter"]
 				include: [
 					{
-						project:         "operator"
-						continueOnError: false
+						project: "operator"
 					},
 					{
-						project:         "authchecker"
-						continueOnError: false
+						project: "authchecker"
 					},
 					{
-						project:         "metering"
-						continueOnError: false
+						project: "metering"
 					},
 					{
-						project:         "reporter"
-						continueOnError: false
+						project: "reporter"
 					},
 				]
 			}
@@ -531,7 +525,6 @@ branch_build: _#bashWorkflow & {
 				_#step & {
 					id:                  "build"
 					name:                "Build images"
-					"continue-on-error": "${{ matrix.continueOnError }}"
 					env: {
 						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
 						"IMAGE_PUSH":        "false"
@@ -543,7 +536,6 @@ branch_build: _#bashWorkflow & {
 				_#step & {
 					id:                  "push"
 					name:                "Push images"
-					"continue-on-error": "${{ matrix.continueOnError }}"
 					env: {
 						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
 						"PUSH":              "true"
