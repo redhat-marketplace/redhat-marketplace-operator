@@ -21,6 +21,7 @@ import (
 	"github.com/google/wire"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/engine"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/razeeengine"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -31,6 +32,7 @@ func NewServer(
 ) (*Service, error) {
 	panic(wire.Build(
 		engine.NewEngine,
+		razeeengine.NewEngine,
 		ProvideNamespaces,
 		managers.ProvideCachedClientSet,
 		provideScheme,

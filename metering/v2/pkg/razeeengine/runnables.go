@@ -20,6 +20,7 @@ import (
 	"github.com/InVisionApp/go-health/v2"
 	"github.com/google/wire"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/processors"
 )
 
 type Runnables []Runnable
@@ -36,10 +37,14 @@ type Recoverable interface {
 func ProvideRunnables(
 	razeeStore *RazeeStoreRunnable,
 	mailbox *mailbox.Mailbox,
+	razeeProcessor *processors.RazeeProcessor,
+	razeeChannelProducer *mailbox.RazeeChannelProducer,
 ) Runnables {
 	// this is the start up order
 	return Runnables{
 		mailbox,
+		razeeChannelProducer,
+		razeeProcessor,
 		razeeStore,
 	}
 }
@@ -48,4 +53,6 @@ var RunnablesSet = wire.NewSet(
 	mailbox.ProvideMailbox,
 	ProvideRunnables,
 	ProvideRazeeStoreRunnable,
+	processors.ProvideRazeeProcessor,
+	mailbox.ProvideRazeeChannelProducer,
 )

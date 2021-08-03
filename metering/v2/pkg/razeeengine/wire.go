@@ -43,6 +43,6 @@ func NewEngine(
 		EngineSet,
 		rhmclient.NewFindOwnerHelper,
 		client.NewDynamicClient,
-		managers.AddIndices,
+		//		managers.AddIndices,
 	))
 }

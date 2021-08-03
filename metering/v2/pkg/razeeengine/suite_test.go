@@ -33,11 +33,7 @@ import (
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 
 	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -90,13 +86,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(k8sClient).ToNot(BeNil())
 
-	prometheusData := metrics.ProvidePrometheusData()
-	engine, err = NewEngine(ctx, types.Namespaces{""}, scheme, managers.ClientOptions{
-		Namespace:    "",
-		DryRunClient: false,
-	}, cfg, logf.Log.WithName("engine"), prometheusData)
-	Expect(err).ToNot(HaveOccurred())
-
 	err = engine.Start(ctx)
 	Expect(err).ToNot(HaveOccurred())
 }, 60)
@@ -117,7 +106,6 @@ func provideScheme() *runtime.Scheme {
 	utilruntime.Must(olmv1.AddToScheme(scheme))
 	utilruntime.Must(opsrcv1.AddToScheme(scheme))
 	utilruntime.Must(olmv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(marketplaceredhatcomv1beta1.AddToScheme(scheme))
 	return scheme
 }

@@ -186,7 +186,7 @@ type RazeeStoreRunnable struct {
 func ProvideRazeeStoreRunnable(
 	kubeClient clientset.Interface,
 	nses pkgtypes.Namespaces,
-	store razee.RazeeStore,
+	store *razee.RazeeStore,
 	log logr.Logger,
 ) *RazeeStoreRunnable {
 	return &RazeeStoreRunnable{

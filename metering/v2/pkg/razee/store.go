@@ -25,6 +25,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+const IndexRazee = "razee"
+
 type RazeeStores = map[string]*RazeeStore
 
 type RazeeStore struct {
@@ -53,7 +55,11 @@ func NewRazeeStore(
 ) *RazeeStore {
 	keyFunc := cache.MetaNamespaceKeyFunc
 
-	store := cache.NewIndexer(keyFunc, cache.MetaNamespaceIndexFunc)
+	storeIndexers := cache.Indexers{
+		IndexRazee: cache.MetaNamespaceIndexFunc,
+	}
+
+	store := cache.NewIndexer(keyFunc, storeIndexers)
 	delta := cache.NewDeltaFIFO(keyFunc, store)
 	return &RazeeStore{
 		ctx:        ctx,

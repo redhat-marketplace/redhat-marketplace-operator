@@ -8,6 +8,7 @@ package server
 import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/engine"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/razeeengine"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/client-go/kubernetes"
@@ -62,6 +63,10 @@ func NewServer(opts *Options) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	razeeengineEngine, err := razeeengine.NewEngine(context, namespaces, scheme, clientOptions, restConfig, logger)
+	if err != nil {
+		return nil, err
+	}
 	service := &Service{
 		k8sclient:       client,
 		k8sRestClient:   clientset,
@@ -72,6 +77,7 @@ func NewServer(opts *Options) (*Service, error) {
 		indexed:         cacheIsIndexed,
 		started:         cacheIsStarted,
 		engine:          engineEngine,
+		razeeEngine:     razeeengineEngine,
 		prometheusData:  prometheusData,
 	}
 	return service, nil
