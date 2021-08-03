@@ -364,6 +364,8 @@ spec:
                 work. Setting enabled to "true" will install metering components.
                 False will suspend controller operations for metering components.
               type: boolean
+            externalPrometheus:
+              type: object
             prometheus:
               description: Prometheus deployment configuration.
               properties:
@@ -451,6 +453,11 @@ spec:
               required:
               - storage
               type: object
+            userWorkloadMonitoringEnabled:
+              description: UserWorkloadMonitoringEnabled controls whether to attempt
+                to use Openshift user-defined workload monitoring as the Prometheus
+                provider
+              type: boolean
           required:
           - enabled
           type: object
@@ -3902,6 +3909,10 @@ rules:
   verbs:
   - create
   - get
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
 - apiGroups:
   - ""
   resources:
@@ -4843,9 +4854,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    authcheckImage: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.3.0-315
-    metricStateImage: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.3.0-315
-    reporterImage: quay.io/rh-marketplace/redhat-marketplace-reporter:2.3.0-315
+    authcheckImage: quay.io/zach_source/redhat-marketplace-authcheck:2.3.0
+    metricStateImage: quay.io/zach_source/redhat-marketplace-metric-state:2.3.0
+    reporterImage: quay.io/zach_source/redhat-marketplace-reporter:2.3.0
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
   name: redhat-marketplace-controller-manager
@@ -4915,11 +4926,11 @@ spec:
         - name: OPERATOR_NAME
           value: redhat-marketplace-operator
         - name: RELATED_IMAGE_REPORTER
-          value: quay.io/rh-marketplace/redhat-marketplace-reporter:2.3.0-315
+          value: quay.io/zach_source/redhat-marketplace-reporter:2.3.0
         - name: RELATED_IMAGE_METRIC_STATE
-          value: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.3.0-315
+          value: quay.io/zach_source/redhat-marketplace-metric-state:2.3.0
         - name: RELATED_IMAGE_AUTHCHECK
-          value: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.3.0-315
+          value: quay.io/zach_source/redhat-marketplace-authcheck:2.3.0
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
@@ -4948,7 +4959,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.annotations['olm.operatorGroup']
-        image: quay.io/rh-marketplace/redhat-marketplace-operator:2.3.0-315
+        image: quay.io/zach_source/redhat-marketplace-operator:2.3.0
         livenessProbe:
           httpGet:
             path: /healthz
