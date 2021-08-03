@@ -204,8 +204,8 @@ metadata:
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
-    containerImage: quay.io/zach_source/redhat-marketplace-operator:2.3.0
-    createdAt: "2021-08-03T11:34:14Z"
+    containerImage: quay.io/rh-marketplace/redhat-marketplace-operator:2.3.0-361
+    createdAt: "2021-08-03T17:39:07Z"
   labels:
     operatorframework.io/arch.amd64: supported
     operatorframework.io/arch.ppc64le: supported
@@ -746,11 +746,11 @@ spec:
                       - name: OPERATOR_NAME
                         value: redhat-marketplace-operator
                       - name: RELATED_IMAGE_REPORTER
-                        value: quay.io/zach_source/redhat-marketplace-reporter:2.3.0
+                        value: quay.io/rh-marketplace/redhat-marketplace-reporter:2.3.0-361
                       - name: RELATED_IMAGE_METRIC_STATE
-                        value: quay.io/zach_source/redhat-marketplace-metric-state:2.3.0
+                        value: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.3.0-361
                       - name: RELATED_IMAGE_AUTHCHECK
-                        value: quay.io/zach_source/redhat-marketplace-authcheck:2.3.0
+                        value: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.3.0-361
                       - name: WATCH_NAMESPACE
                         valueFrom:
                           fieldRef:
@@ -779,7 +779,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.operatorGroup']
-                    image: quay.io/zach_source/redhat-marketplace-operator:2.3.0
+                    image: quay.io/rh-marketplace/redhat-marketplace-operator:2.3.0-361
                     livenessProbe:
                       httpGet:
                         path: /healthz
@@ -1158,11 +1158,11 @@ spec:
   provider:
     name: Red Hat Marketplace
   relatedImages:
-    - image: quay.io/zach_source/redhat-marketplace-metric-state:2.3.0
+    - image: quay.io/rh-marketplace/redhat-marketplace-metric-state:2.3.0-361
       name: RELATED_IMAGE_METRIC_STATE
-    - image: quay.io/zach_source/redhat-marketplace-reporter:2.3.0
+    - image: quay.io/rh-marketplace/redhat-marketplace-reporter:2.3.0-361
       name: RELATED_IMAGE_REPORTER
-    - image: quay.io/zach_source/redhat-marketplace-authcheck:2.3.0
+    - image: quay.io/rh-marketplace/redhat-marketplace-authcheck:2.3.0-361
       name: RELATED_IMAGE_AUTHCHECK
     - image: quay.io/razee/remoteresources3:0.9.3
       name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
