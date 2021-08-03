@@ -599,6 +599,13 @@ branch_build: _#bashWorkflow & {
 						"""
 				},
 				_#step & {
+          uses: "actions/upload-artifact@v2"
+          with: {
+            name: "release-bundle-${{ steps.bundle.outputs.tag }}"
+            path: "v2/bundle"
+          }
+        },
+				_#step & {
 					uses: "marocchino/sticky-pull-request-comment@v2"
 					with: {
 						header:   "devindex"
@@ -887,7 +894,7 @@ _#installKubeBuilder: _#step & {
 _#installOperatorSDK: _#step & {
 	name: "Install operatorsdk"
 	run: """
-	    version=v1.7.2
+		version=v1.7.2
 		export ARCH=$(case $(arch) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(arch) ;; esac)
 		export OS=$(uname | awk '{print tolower($0)}')
 		export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/${version}

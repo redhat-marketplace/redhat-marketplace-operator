@@ -374,6 +374,10 @@ jobs:
         echo "::set-output name=isDev::$IS_DEV"
         echo "::set-output name=version::$VERSION"
         echo "::set-output name=tag::$TAG"
+    - uses: actions/upload-artifact@v2
+      with:
+        name: release-bundle-${{ steps.bundle.outputs.tag }}
+        path: v2/bundle
     - uses: marocchino/sticky-pull-request-comment@v2
       with:
         header: devindex
