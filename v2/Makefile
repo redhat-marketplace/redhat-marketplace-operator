@@ -186,16 +186,10 @@ bundle: clean manifests kustomize helm operator-sdk yq
 	$(YQ) eval -i ".metadata.annotations.createdAt = \"$(CREATED_TIME)\"" $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations."olm.skipRange" = ">=1.0.0 <$(VERSION)"' $(CSV_YAML_BUNDLE_FILE)
 	$(YQ) eval -i '.metadata.annotations.capabilities = "Seamless Upgrades"' $(CSV_YAML_BUNDLE_FILE)
-
-	# Generate relatedImages
-	$(HELM) template rhm-template ./config/helm-wrapper -f ./config/helm-wrapper/values.yaml \
-	--set operatorImage=$(OPERATOR_IMAGE) \
-	--set metricStateImage=$(METRIC_STATE_IMAGE) \
-	--set reporterImage=$(REPORTER_IMAGE) \
-	--set authCheckImage=$(AUTHCHECK_IMAGE) \
-	--post-renderer ./config/manifests/kustomize \
-	| $(YQ) eval-all 'select(.kind == "ClusterServiceVersion")' - \
-	| $(YQ) eval-all -i 'select(fileIndex == 0).spec.relatedImages = select(fileIndex == 1).spec.relatedImages | select(fileIndex == 0)' $(CSV_YAML_BUNDLE_FILE) -
+	for i in RELATED_IMAGE_METRIC_STATE,$(METRIC_STATE_IMAGE) RELATED_IMAGE_REPORTER,$(REPORTER_IMAGE) RELATED_IMAGE_AUTHCHECK,$(AUTHCHECK_IMAGE); do \
+		IFS=","; set -- $$i; \
+		$(YQ) eval -i "(.spec.relatedImages[] | select(.name == \"$$1\").image) |= \"$$2\"" $(CSV_YAML_BUNDLE_FILE) ; \
+	done
 
 	$(OPERATOR_SDK) bundle validate ./bundle
 	#Generate a copy of the resultant yaml files to the deploy directory - this is only used for content certification linting
