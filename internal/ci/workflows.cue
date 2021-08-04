@@ -452,11 +452,12 @@ branch_build: _#bashWorkflow & {
 		"base": _#job & {
 			name:      "Build Base"
 			"runs-on": _#linuxMachine
+      "continue-on-error": true
 			steps: [
 				_#checkoutCode,
 				_#installGo,
 				(_#cacheDockerBuildx & {
-					#project: "base"
+					#project: "base1"
 				}).res,
 				_#setupQemu,
 				_#setupBuildX,
