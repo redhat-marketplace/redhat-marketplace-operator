@@ -100,7 +100,7 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 
 			It("Should create a meterdef for 0.0.1 and update the install-map cm", func() {
 				/* rhm-meterdef-install-map */
-				Eventually(func() *common.InstallMapping {
+				Eventually(func() []common.InstallMapping {
 					foundSub := &olmv1alpha1.Subscription{}
 					err := testHarness.Get(context.TODO(), types.NamespacedName{Name: "memcached-subscription", Namespace: "openshift-redhat-marketplace"}, foundSub)
 					if err != nil {
@@ -141,26 +141,33 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 					}
 
 					if len(meterdefStore.InstallMappings) > 0 {
-						im := &meterdefStore.InstallMappings[0]
+						im := meterdefStore.InstallMappings
 						utils.PrettyPrint(im)
 						return im
 					}
 
 					return nil
-				}, timeout, interval).Should(PointTo(MatchAllFields(Fields{
-					"Namespace":  Equal("openshift-redhat-marketplace"),
-					"CsvName":    Equal("memcached-operator"),
-					"CsvVersion": Equal("0.0.1"),
-					"InstalledMeterdefinitions": MatchAllElements(func(element interface{}) string {
-						return string(element.(string))
-					}, Elements{
-						"memcached-meterdef-1": Not(BeZero()),
-					}),
-				})))
+				}, timeout, interval).Should(
+					And(
+						HaveLen(1),
+						MatchAllElementsWithIndex(IndexIdentity,Elements{
+							"0" : MatchAllFields(Fields{				
+									"Namespace":  Equal("openshift-redhat-marketplace"),
+									"CsvName":    Equal("memcached-operator"),
+									"CsvVersion": Equal("0.0.1"),
+									"InstalledMeterdefinitions": MatchAllElements(func(element interface{}) string {
+										return string(element.(string))
+									}, Elements{
+										"memcached-meterdef-1": Not(BeZero()),
+									}),
+								}),
+							}),
+					),
+				)
 			})
 		})
 
-		Context("memcached 0.0.2", func() {
+		Context("update to memcached 0.0.2", func() {
 			AfterEach(func() {
 				memcachedCSV := &olmv1alpha1.ClusterServiceVersion{}
 				Expect(testHarness.Get(context.TODO(), types.NamespacedName{Name: "memcached-operator.v0.0.2", Namespace: "openshift-redhat-marketplace"}, memcachedCSV)).Should(Succeed())
@@ -189,35 +196,34 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 
 			It("Should install the appropriate meterdefinitions if an operator is upgraded to a new version", func() {
 				// install 0.0.1
-				Eventually(func() bool {
-
+				Eventually(func() []common.InstallMapping {
 					foundSub := &olmv1alpha1.Subscription{}
 					err := testHarness.Get(context.TODO(), types.NamespacedName{Name: "memcached-subscription", Namespace: "openshift-redhat-marketplace"}, foundSub)
 					if err != nil {
-						return false
+						return nil
 					}
 
 					if foundSub.Status.InstallPlanRef == nil {
-						return false
+						return nil
 					}
 
 					installPlanName := foundSub.Status.InstallPlanRef.Name
 					foundInstallPlan := &olmv1alpha1.InstallPlan{}
 					err = testHarness.Get(context.TODO(), types.NamespacedName{Name: installPlanName, Namespace: "openshift-redhat-marketplace"}, foundInstallPlan)
 					if err != nil {
-						return false
+						return nil
 					}
 
 					foundInstallPlan.Spec.Approved = true
 					err = testHarness.Update(context.TODO(), foundInstallPlan)
 					if err != nil {
-						return false
+						return nil
 					}
 
 					installMapCm := &corev1.ConfigMap{}
 					err = testHarness.Get(context.TODO(), types.NamespacedName{Name: "rhm-meterdef-install-map", Namespace: "openshift-redhat-marketplace"}, installMapCm)
 					if err != nil {
-						return false
+						return nil
 					}
 
 					mdefStore := installMapCm.Data[utils.MeterDefinitionStoreKey]
@@ -227,28 +233,34 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 					err = json.Unmarshal([]byte(mdefStore), meterdefStore)
 					if err != nil {
 						fmt.Println(err)
-						return false
+						return nil
 					}
 
 					if len(meterdefStore.InstallMappings) > 0 {
-						im := &meterdefStore.InstallMappings[0]
+						im := meterdefStore.InstallMappings
 						utils.PrettyPrint(im)
-						// return im
-						return Expect(im).To(PointTo(MatchAllFields(Fields{
-							"Namespace":  Equal("openshift-redhat-marketplace"),
-							"CsvName":    Equal("memcached-operator"),
-							"CsvVersion": Equal("0.0.1"),
-							"InstalledMeterdefinitions": MatchAllElements(func(element interface{}) string {
-								return string(element.(string))
-							}, Elements{
-								"memcached-meterdef-1": Not(BeZero()),
-							}),
-						})))
+						return im
 					}
 
-					return false
-				}, timeout, interval).Should(BeTrue(), "install v0.0.1")
-
+					return nil
+				}, timeout, interval).Should(
+					And(
+						HaveLen(1),
+						MatchAllElementsWithIndex(IndexIdentity,Elements{
+							"0" : MatchAllFields(Fields{				
+									"Namespace":  Equal("openshift-redhat-marketplace"),
+									"CsvName":    Equal("memcached-operator"),
+									"CsvVersion": Equal("0.0.1"),
+									"InstalledMeterdefinitions": MatchAllElements(func(element interface{}) string {
+										return string(element.(string))
+									}, Elements{
+										"memcached-meterdef-1": Not(BeZero()),
+									}),
+								}),
+							}),
+					),
+				)
+			
 				//upgrade to 0.0.2
 				fmt.Println("installing v0.0.2")
 				Eventually(func() bool {
@@ -320,7 +332,7 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 					return true
 				}, timeout, interval).Should(BeTrue())
 
-				Eventually(func() *common.InstallMapping {
+				Eventually(func() []common.InstallMapping {
 					installMapCm := &corev1.ConfigMap{}
 					err := testHarness.Get(context.TODO(), types.NamespacedName{Name: "rhm-meterdef-install-map", Namespace: "openshift-redhat-marketplace"}, installMapCm)
 					if err != nil {
@@ -337,22 +349,29 @@ var _ = FDescribe("MeterDefController reconcile", func() {
 					}
 
 					if len(meterdefStore.InstallMappings) > 0 {
-						im := &meterdefStore.InstallMappings[0]
+						im := meterdefStore.InstallMappings
 						utils.PrettyPrint(im)
 						return im
 					}
 
 					return nil
-				}, timeout, interval).Should(PointTo(MatchAllFields(Fields{
-					"Namespace":  Equal("openshift-redhat-marketplace"),
-					"CsvName":    Equal("memcached-operator"),
-					"CsvVersion": Equal("0.0.2"),
-					"InstalledMeterdefinitions": MatchAllElements(func(element interface{}) string {
-						return string(element.(string))
-					}, Elements{
-						"memcached-meterdef-2": Not(BeZero()),
-					}),
-				})))
+				}, timeout, interval).Should(
+					And(
+						HaveLen(1),
+						MatchAllElementsWithIndex(IndexIdentity,Elements{
+							"0" : MatchAllFields(Fields{				
+									"Namespace":  Equal("openshift-redhat-marketplace"),
+									"CsvName":    Equal("memcached-operator"),
+									"CsvVersion": Equal("0.0.1"),
+									"InstalledMeterdefinitions": MatchAllElements(func(element interface{}) string {
+										return string(element.(string))
+									}, Elements{
+										"memcached-meterdef-1": Not(BeZero()),
+									}),
+								}),
+							}),
+					),
+				)
 			})
 		})
 

@@ -38,7 +38,8 @@ spec:
           terminationMessagePolicy: FallbackToLogsOnError
       - name: rhm-meterdefinition-file-server
         # image: quay.io/mxpaspa/rhm-meterdefinition-file-server@sha256:d289efcef33ea176ef58cea26796880baddc2348ebde528824d430fdec52b913
-        image: quay.io/mxpaspa/rhm-meterdefinition-file-server:develop-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
+        # image: quay.io/mxpaspa/rhm-meterdefinition-file-server:develop-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
+        image: redhat-marketplace-deploymentconfig
         livenessProbe:
             httpGet:
               path: /healthz
@@ -106,8 +107,8 @@ spec:
       automatic: true
       containerNames:
       - rhm-meterdefinition-file-server
-      from:
-        kind: ImageStreamTag
-        name: rhm-meterdefinition-file-server:develop-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
-        namespace: openshift-redhat-marketplace
+      # from:
+      #   kind: ImageStreamTag
+      #   name: rhm-meterdefinition-file-server:develop-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
+      #   namespace: openshift-redhat-marketplace
     type: ImageChange

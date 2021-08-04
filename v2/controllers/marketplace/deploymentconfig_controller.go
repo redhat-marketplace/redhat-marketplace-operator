@@ -227,35 +227,35 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	return reconcile.Result{}, nil
 }
 
-func getMeterdefStoreFromCM(client client.Client, deployedNamespace string, reqLogger logr.Logger) (*common.MeterdefinitionStore, *ExecResult) {
-	// Fetch the install-map-cm instance
-	cm := &corev1.ConfigMap{}
-	err := client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME, Namespace: deployedNamespace}, cm)
-	if err != nil {
-		reqLogger.Error(err, "Failed to get MeterdefintionConfigMap")
-		return nil, &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
+// func getMeterdefStoreFromCM(client client.Client, deployedNamespace string, reqLogger logr.Logger) (*common.MeterdefinitionStore, *ExecResult) {
+// 	// Fetch the install-map-cm instance
+// 	cm := &corev1.ConfigMap{}
+// 	err := client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME, Namespace: deployedNamespace}, cm)
+// 	if err != nil {
+// 		reqLogger.Error(err, "Failed to get MeterdefintionConfigMap")
+// 		return nil, &ExecResult{
+// 			ReconcileResult: reconcile.Result{},
+// 			Err:             err,
+// 		}
+// 	}
 
-	cmMdefStore := cm.Data[utils.MeterDefinitionStoreKey]
+// 	cmMdefStore := cm.Data[utils.MeterDefinitionStoreKey]
 
-	meterdefStore := &common.MeterdefinitionStore{}
+// 	meterdefStore := &common.MeterdefinitionStore{}
 
-	err = json.Unmarshal([]byte(cmMdefStore), meterdefStore)
-	if err != nil {
-		reqLogger.Error(err, "error unmarshaling meterdefinition store")
-		return nil, &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
+// 	err = json.Unmarshal([]byte(cmMdefStore), meterdefStore)
+// 	if err != nil {
+// 		reqLogger.Error(err, "error unmarshaling meterdefinition store")
+// 		return nil, &ExecResult{
+// 			ReconcileResult: reconcile.Result{},
+// 			Err:             err,
+// 		}
+// 	}
 
-	return meterdefStore, &ExecResult{
-		Status: ActionResultStatus(Continue),
-	}
-}
+// 	return meterdefStore, &ExecResult{
+// 		Status: ActionResultStatus(Continue),
+// 	}
+// }
 
 func (r *DeploymentConfigReconciler) sync(installMappings []common.InstallMapping, reqLogger logr.Logger) ([]common.InstallMapping, *ExecResult) {
 

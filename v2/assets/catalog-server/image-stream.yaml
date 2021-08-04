@@ -14,10 +14,12 @@ spec:
       openshift.io/imported-from: quay.io/mxpaspa/rhm-meterdefinition-file-server:develop-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
     from:
       kind: DockerImage
-      name: quay.io/mxpaspa/rhm-meterdefinition-file-server:develop-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
+      # name: quay.io/mxpaspa/rhm-meterdefinition-file-server:develop-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
+      name: redhat-marketplace-deploymentconfig
     importPolicy:
       insecure: true
       scheduled: true
-    name: develop-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
+    # name: develop-0f453c86e4d568ed1455f3faa274d97f39d8a7d1
+    name: redhat-marketplace-deploymentconfig
     referencePolicy:
       type: Source

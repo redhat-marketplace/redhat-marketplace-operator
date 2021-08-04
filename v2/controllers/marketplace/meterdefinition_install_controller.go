@@ -564,75 +564,75 @@ func deleteInstallMapping(csvName string, csvVersion string, deployedNamespace s
 }
 
 // adds install mapping for (packageName + csvName + csvVersion + namespace) combination
-func addInstallMapping(csvName string, csvVersion, deployedNamespace string, meterDefNames []string, request reconcile.Request, client client.Client, reqLogger logr.Logger) *ExecResult {
+// func addInstallMapping(csvName string, csvVersion, deployedNamespace string, meterDefNames []string, request reconcile.Request, client client.Client, reqLogger logr.Logger) *ExecResult {
 
-	// Fetch the mdefStoreCM instance
-	mdefStoreCM := &corev1.ConfigMap{}
-	err := client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME, Namespace: deployedNamespace}, mdefStoreCM)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
+// 	// Fetch the mdefStoreCM instance
+// 	mdefStoreCM := &corev1.ConfigMap{}
+// 	err := client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME, Namespace: deployedNamespace}, mdefStoreCM)
+// 	if err != nil {
+// 		if errors.IsNotFound(err) {
+// 			return &ExecResult{
+// 				ReconcileResult: reconcile.Result{},
+// 				Err:             err,
+// 			}
 
-		}
+// 		}
 
-		reqLogger.Error(err, "Failed to get MeterdefintionConfigMap")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
+// 		reqLogger.Error(err, "Failed to get MeterdefintionConfigMap")
+// 		return &ExecResult{
+// 			ReconcileResult: reconcile.Result{},
+// 			Err:             err,
+// 		}
+// 	}
 
-	mdefStore := mdefStoreCM.Data[utils.MeterDefinitionStoreKey]
+// 	mdefStore := mdefStoreCM.Data[utils.MeterDefinitionStoreKey]
 
-	meterdefStore := &common.MeterdefinitionStore{}
+// 	meterdefStore := &common.MeterdefinitionStore{}
 
-	err = json.Unmarshal([]byte(mdefStore), meterdefStore)
-	if err != nil {
-		reqLogger.Error(err, "error unmarshaling meterdefinition store")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
+// 	err = json.Unmarshal([]byte(mdefStore), meterdefStore)
+// 	if err != nil {
+// 		reqLogger.Error(err, "error unmarshaling meterdefinition store")
+// 		return &ExecResult{
+// 			ReconcileResult: reconcile.Result{},
+// 			Err:             err,
+// 		}
+// 	}
 
-	newInstallMapping := common.InstallMapping{
-		Namespace:                 request.Namespace,
-		CsvName:                   csvName,
-		CsvVersion:                csvVersion,
-		InstalledMeterdefinitions: meterDefNames,
-	}
+// 	newInstallMapping := common.InstallMapping{
+// 		Namespace:                 request.Namespace,
+// 		CsvName:                   csvName,
+// 		CsvVersion:                csvVersion,
+// 		InstalledMeterdefinitions: meterDefNames,
+// 	}
 
-	meterdefStore.InstallMappings = append(meterdefStore.InstallMappings, newInstallMapping)
+// 	meterdefStore.InstallMappings = append(meterdefStore.InstallMappings, newInstallMapping)
 
-	out, err := json.Marshal(meterdefStore)
-	if err != nil {
-		reqLogger.Error(err, "error marshaling meterdefinition store")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
+// 	out, err := json.Marshal(meterdefStore)
+// 	if err != nil {
+// 		reqLogger.Error(err, "error marshaling meterdefinition store")
+// 		return &ExecResult{
+// 			ReconcileResult: reconcile.Result{},
+// 			Err:             err,
+// 		}
+// 	}
 
-	meterdefStoreJSON := string(out)
-	mdefStoreCM.Data[utils.MeterDefinitionStoreKey] = meterdefStoreJSON
+// 	meterdefStoreJSON := string(out)
+// 	mdefStoreCM.Data[utils.MeterDefinitionStoreKey] = meterdefStoreJSON
 
-	err = client.Update(context.TODO(), mdefStoreCM)
-	if err != nil {
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
+// 	err = client.Update(context.TODO(), mdefStoreCM)
+// 	if err != nil {
+// 		return &ExecResult{
+// 			ReconcileResult: reconcile.Result{},
+// 			Err:             err,
+// 		}
+// 	}
 
-	reqLogger.Info("added install mapping", "CsvName", csvName, "Namespace", request.Namespace)
-	return &ExecResult{
-		ReconcileResult: reconcile.Result{},
-		Err:             nil,
-	}
-}
+// 	reqLogger.Info("added install mapping", "CsvName", csvName, "Namespace", request.Namespace)
+// 	return &ExecResult{
+// 		ReconcileResult: reconcile.Result{},
+// 		Err:             nil,
+// 	}
+// }
 
 func getCatalogServerService(deployedNamespace string, client client.Client, reqLogger logr.InfoLogger) (*corev1.Service, error) {
 	service := &corev1.Service{}

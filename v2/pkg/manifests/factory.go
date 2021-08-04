@@ -149,8 +149,6 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 		container.Image = f.config.RelatedImages.PrometheusOperator
 	case container.Name == "prometheus-proxy":
 		container.Image = f.config.RelatedImages.OAuthProxy
-	// case container.Name == "rhm-meterdefinition-file-server":
-	// 	container.Image = f.config.RelatedImages.DeploymentConfig
 	}
 
 	if container.Env == nil {
@@ -195,9 +193,11 @@ func (f *Factory) NewImageStream (manifest io.Reader) (*osimagev1.ImageStream, e
 		d.Annotations = make(map[string]string)
 	}
 
+	f.ReplaceImageStreamValues(d)
 	return d, nil
 }
 
+//TODO: not being used
 func (f *Factory) NewImageStreamTag (manifest io.Reader) (*osimagev1.ImageStreamTag, error) {
 	d, err := NewImageStreamTag(manifest)
 	if err != nil {
@@ -237,11 +237,62 @@ func (f *Factory) NewDeploymentConfig(manifest io.Reader) (*osappsv1.DeploymentC
 		f.ReplaceImages(&d.Spec.Template.Spec.Containers[i])
 	}
 
-	// triggers := osappsv1.DeploymentTriggerPolicies(d.Spec.Triggers)
-	// t := triggers[0]
-	// t.ImageChangeParams.LastTriggeredImage = f.config.RelatedImages.DeploymentConfig
-	// t.ImageChangeParams.From.Name = f.config.RelatedImages.DeploymentConfig
+	f.ReplaceDeploymentConfigValues(d)
+
 	return d, nil
+}
+
+func(f *Factory)ReplaceDeploymentConfigValues(dc *osappsv1.DeploymentConfig)(){
+	
+	for _,c := range dc.Spec.Template.Spec.Containers {
+		if c.Name == "rhm-meterdefinition-file-server" {
+			c.Image = f.config.RelatedImages.DeploymentConfig
+		}
+	}
+
+	triggers := osappsv1.DeploymentTriggerPolicies(dc.Spec.Triggers)
+	trigger := triggers[0]
+	// trigger.ImageChangeParams.LastTriggeredImage  
+	trigger.ImageChangeParams.From.Name = f.config.RelatedImages.DeploymentConfig
+
+}
+
+func(f *Factory) ReplaceImageStreamValues(is *osimagev1.ImageStream){
+	is.Spec.Tags[0].From.Name = f.config.RelatedImages.DeploymentConfig
+	is.Spec.Tags[0].Name = strings.Split(f.config.RelatedImages.DeploymentConfig,":")[1]
+}
+
+func(f *Factory)UpdateDeploymentConfigOnChange(clusterDC *osappsv1.DeploymentConfig)(updated bool){
+	logger := log.WithValues("func", "UpdateDeploymentConfigOnChange")
+
+	var clusterDeploymentConfigImage string
+	for _,c := range clusterDC.Spec.Template.Spec.Containers {
+		if c.Name == "rhm-meterdefinition-file-server" {
+			clusterDeploymentConfigImage = c.Image
+		}
+	}
+
+	if clusterDeploymentConfigImage != f.config.RelatedImages.DeploymentConfig {
+		logger.Info("DeploymentConfig image needs to be updated")
+		updated = true
+		f.ReplaceDeploymentConfigValues(clusterDC)
+	}
+	
+	return updated
+}
+
+func(f *Factory)UpdateImageStreamOnChange(clusterIS *osimagev1.ImageStream)(updated bool){
+	logger := log.WithValues("func", "UpdateDeploymentConfigOnChange")
+	clusterImageFromName := clusterIS.Spec.Tags[0].From.Name
+	// clusterImageTagName := clusterIS.Spec.Tags[0].Name
+
+	if clusterImageFromName != f.config.RelatedImages.DeploymentConfig{
+		logger.Info("ImageStream image needs to be updated")
+		updated = true
+		f.ReplaceImageStreamValues(clusterIS)
+	}
+
+	return updated
 }
 
 func (f *Factory) NewDeployment(manifest io.Reader) (*appsv1.Deployment, error) {
