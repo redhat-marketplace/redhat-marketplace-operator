@@ -45,6 +45,14 @@ spec:
               cpu: 10m
               memory: 25Mi              
           terminationMessagePolicy: FallbackToLogsOnError
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
         - args:
             - --kubelet-service=kube-system/kubelet
             - --logtostderr=true
