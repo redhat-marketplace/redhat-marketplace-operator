@@ -155,8 +155,8 @@ jobs:
       uses: actions/cache@v2
       with:
         path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-buildx-base-${{ github.sha }}
-        restore-keys: ${{ runner.os }}-buildx-base-
+        key: ${{ runner.os }}-buildx-base1-${{ github.sha }}
+        restore-keys: ${{ runner.os }}-buildx-base1-
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v1
     - id: buildx
@@ -180,6 +180,7 @@ jobs:
       env:
         DOCKERBUILDXCACHE: /tmp/.buildx-cache
         IMAGE_PUSH: "true"
+    continue-on-error: true
   images:
     name: Build Images
     needs:
