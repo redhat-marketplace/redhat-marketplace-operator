@@ -43,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
@@ -184,53 +185,35 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 							return reconcile.Result{}, err
 						}
 
-						// create meter definitions
+						// create CSV specific and global meter definitions
+						reqLogger.Info("creating meterdefinitions", "CSV", csvName)
 						for _, meterDefItem := range allMeterDefinitions {
-
-							// create owner ref object
-							ref := metav1.OwnerReference{
-								APIVersion:         gvk.GroupVersion().String(),
-								Kind:               gvk.Kind,
-								Name:               CSV.GetName(),
-								UID:                CSV.GetUID(),
-								BlockOwnerDeletion: pointer.BoolPtr(false),
-								Controller:         pointer.BoolPtr(false),
-							}
-
-							meterDefItem.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
-							meterDefItem.ObjectMeta.Namespace = CSV.Namespace
-
-							reqLogger.Info("checking for existing meterdefinition", "meterdef", meterDefItem.Name)
+							reqLogger.Info("checking for existing meterdefinition", "meterdef", meterDefItem.Name, "CSV", csvName)
 
 							// Check if the meterdef is on the cluster already
 							meterdef := &marketplacev1beta1.MeterDefinition{}
 							err = r.Client.Get(context.TODO(), types.NamespacedName{Name: meterDefItem.Name, Namespace: request.Namespace}, meterdef)
 							if err != nil {
 								if errors.IsNotFound(err) {
+									reqLogger.Info("meterdefinition not found, creating", "meterdef name", meterDefItem.Name, "CSV", CSV.Name)
 
-									reqLogger.Info("meterdefinition not found, creating", "meterdef name", meterdef.Name)
-									err = r.Client.Create(context.TODO(), &meterDefItem)
-									if err != nil {
-										reqLogger.Error(err, "Could not create MeterDefinition", "mdef", &meterDefItem.Name)
-										return reconcile.Result{}, err
-									}
-
-									reqLogger.Info("Created meterdefinition", "mdef", meterDefItem.Name)
-
-									result = r.setInstalledMeterdefinition(csvName, csvVersion, meterDefItem.Name, request, reqLogger)
+									// TODO: might have to change this string matching logic later based on global meter def names
+									// or we can use an annotation to maintain this info in global meter defs
+									isGlobalMeterDef := strings.Contains(meterDefItem.Name, "global")
+									result = r.createMeterdefAndInstallMapping(csvName, csvVersion, meterDefItem, CSV, gvk, !isGlobalMeterDef, request, reqLogger)
 									if !result.Is(Continue) {
 
 										if result.Is(Error) {
-											reqLogger.Error(result.GetError(), "Failed to update meterdef store")
+											reqLogger.Error(result.GetError(), "Failed while creating meterdefinition", "meterdef name", meterDefItem.Name, "CSV", CSV.Name)
 										}
-
 										return result.Return()
 									}
 
+									reqLogger.Info("created meterdefinition", "meterdef name", meterDefItem.Name, "CSV", CSV.Name)
 									return reconcile.Result{Requeue: true}, nil
 								}
 
-								reqLogger.Error(err, "Failed to get meterdefinition")
+								reqLogger.Error(err, "Failed to get meterdefinition", "meterdef name", meterDefItem.Name, "CSV", CSV.Name)
 								return reconcile.Result{}, err
 							}
 						}
@@ -334,47 +317,72 @@ func ListMeterdefintionsFromFileServer(csvName string, version string, namespace
 	}
 }
 
-func (r *MeterdefinitionInstallReconciler) setInstalledMeterdefinition(csvName string, csvVersion string, installedMeterdef string, request reconcile.Request, reqLogger logr.InfoLogger) *ExecResult {
+func (r *MeterdefinitionInstallReconciler) createMeterdefAndInstallMapping(csvName string, csvVersion string, meterDefinition marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, groupVersionKind schema.GroupVersionKind, createInstallMapping bool, request reconcile.Request, reqLogger logr.InfoLogger) *ExecResult {
 
-	// Fetch the mdefStoreCM instance
-	mdefStoreCM := &corev1.ConfigMap{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME, Namespace: r.cfg.DeployedNamespace}, mdefStoreCM)
+	// create owner ref object
+	ref := metav1.OwnerReference{
+		APIVersion:         groupVersionKind.GroupVersion().String(),
+		Kind:               groupVersionKind.Kind,
+		Name:               csv.GetName(),
+		UID:                csv.GetUID(),
+		BlockOwnerDeletion: pointer.BoolPtr(false),
+		Controller:         pointer.BoolPtr(false),
+	}
+
+	meterDefinition.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
+	meterDefinition.ObjectMeta.Namespace = csv.Namespace
+
+	meterDefName := meterDefinition.Name
+	err := r.Client.Create(context.TODO(), &meterDefinition)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		reqLogger.Error(err, "Could not create meterdefinition", "mdef", meterDefName, "CSV", csv.Name)
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+	reqLogger.Info("Created meterdefinition", "mdef", meterDefName, "CSV", csv.Name)
+
+	if createInstallMapping {
+		// Fetch the mdefStoreCM instance
+		mdefStoreCM := &corev1.ConfigMap{}
+		err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME, Namespace: r.cfg.DeployedNamespace}, mdefStoreCM)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{},
+					Err:             err,
+				}
+
+			}
+
+			reqLogger.Error(err, "Failed to get MeterdefintionConfigMap", "mdef", meterDefName, "CSV", csv.Name)
 			return &ExecResult{
 				ReconcileResult: reconcile.Result{},
 				Err:             err,
 			}
-
 		}
 
-		reqLogger.Error(err, "Failed to get MeterdefintionConfigMap")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
+		mdefStore := mdefStoreCM.Data[utils.MeterDefinitionStoreKey]
+		updatedStore, err := createOrUpdateInstallMapping(csvName, csvVersion, meterDefName, mdefStore, request, reqLogger)
+		if err != nil {
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
+			}
 		}
+
+		mdefStoreCM.Data[utils.MeterDefinitionStoreKey] = updatedStore
+
+		err = r.Client.Update(context.TODO(), mdefStoreCM)
+		if err != nil {
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
+			}
+		}
+		reqLogger.Info("Created Install Mapping", "mdef", meterDefName, "CSV", csv.Name)
 	}
-
-	mdefStore := mdefStoreCM.Data[utils.MeterDefinitionStoreKey]
-	updatedStore, err := createOrUpdateInstalledMeterDefsList(csvName, csvVersion, installedMeterdef, mdefStore, request, reqLogger)
-	if err != nil {
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-
-	mdefStoreCM.Data[utils.MeterDefinitionStoreKey] = updatedStore
-
-	err = r.Client.Update(context.TODO(), mdefStoreCM)
-	if err != nil {
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-
-	//set installed meterdefinition on cm
 	return &ExecResult{
 		Status: ActionResultStatus(Continue),
 	}
@@ -430,9 +438,8 @@ func (r *MeterdefinitionInstallReconciler) fetchGlobalMeterdefs(csv *olmv1alpha1
 	}
 }
 
-// string of meterdefinitions > add json to ./json-store
-// adds a new InstalledMeterdefinition to the json store
-func createOrUpdateInstalledMeterDefsList(csvName string, csvVersion string, installedMeterdef string, cmMdefStore string, request reconcile.Request, reqLogger logr.Logger) (string, error) {
+// creates or updates install mapping
+func createOrUpdateInstallMapping(csvName string, csvVersion string, installedMeterdef string, cmMdefStore string, request reconcile.Request, reqLogger logr.Logger) (string, error) {
 
 	meterdefStore := &common.MeterdefinitionStore{}
 
