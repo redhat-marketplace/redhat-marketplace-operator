@@ -195,7 +195,8 @@ func ProvideRazeeStoreRunnable(
 			ResyncTime: 0,                  //1*60*time.Second,
 			log:        log.WithName("razee"),
 			Reflectors: []Runnable{
-				provideNodeLister(kubeClient, store.DeltaStore()), //delta implements the Store
+				provideNodeLister(kubeClient, store.DeltaStore()),                  //delta implements the Store
+				provideServiceListerRunnable(kubeClient, nses, store.DeltaStore()), //delta implements the Store
 			},
 		},
 	}
@@ -216,6 +217,27 @@ func provideNodeLister(
 				lister:       CreateNodeListWatch(kubeClient),
 			},
 			Store: store,
+		},
+	}
+}
+
+type ServiceListerRunnable struct {
+	ListerRunnable
+}
+
+func provideServiceListerRunnable(
+	kubeClient clientset.Interface,
+	nses pkgtypes.Namespaces,
+	store cache.Store,
+) *ServiceListerRunnable {
+	return &ServiceListerRunnable{
+		ListerRunnable: ListerRunnable{
+			reflectorConfig: reflectorConfig{
+				expectedType: &corev1.Service{},
+				lister:       CreateServiceListWatch(kubeClient),
+			},
+			namespaces: nses,
+			Store:      store,
 		},
 	}
 }

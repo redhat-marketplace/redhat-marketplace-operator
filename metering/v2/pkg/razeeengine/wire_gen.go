@@ -9,7 +9,7 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/processors"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/processorsenders"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/razee"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
@@ -48,7 +48,7 @@ func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime
 	if err != nil {
 		return nil, err
 	}
-	razeeProcessor := processors.ProvideRazeeProcessor(log, clientClient, mailboxMailbox, scheme)
+	razeeProcessor := processorsenders.ProvideRazeeProcessor(log, clientClient, mailboxMailbox, scheme)
 	razeeChannelProducer := mailbox.ProvideRazeeChannelProducer(razeeStore, mailboxMailbox, log)
 	runnables := ProvideRunnables(razeeStoreRunnable, mailboxMailbox, razeeProcessor, razeeChannelProducer)
 	engine := ProvideEngine(razeeStore, namespaces, log, clientset, runnables)

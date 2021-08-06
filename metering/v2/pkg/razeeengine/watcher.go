@@ -36,3 +36,16 @@ func CreateNodeListWatch(kubeClient clientset.Interface) func(string) cache.List
 		}
 	}
 }
+
+func CreateServiceListWatch(kubeClient clientset.Interface) func(string) cache.ListerWatcher {
+	return func(ns string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				return kubeClient.CoreV1().Services(ns).List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				return kubeClient.CoreV1().Services(ns).Watch(context.TODO(), opts)
+			},
+		}
+	}
+}
