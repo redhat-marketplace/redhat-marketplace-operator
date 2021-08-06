@@ -149,6 +149,8 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 		container.Image = f.config.RelatedImages.PrometheusOperator
 	case container.Name == "prometheus-proxy":
 		container.Image = f.config.RelatedImages.OAuthProxy
+	case container.Name == "rhm-meterdefinition-file-server":
+		container.Image = f.config.RelatedImages.DeploymentConfig
 	}
 
 	if container.Env == nil {
@@ -180,39 +182,22 @@ func (f *Factory) ReplaceImages(container *corev1.Container) {
 }
 
 func (f *Factory) NewImageStream (manifest io.Reader) (*osimagev1.ImageStream, error) {
-	d, err := NewImageStream(manifest)
+	is, err := NewImageStream(manifest)
 	if err != nil {
 		return nil, err
 	}
 
-	if d.GetNamespace() == "" {
-		d.SetNamespace(f.namespace)
+	if is.GetNamespace() == "" {
+		is.SetNamespace(f.namespace)
 	}
 
-	if d.GetAnnotations() == nil {
-		d.Annotations = make(map[string]string)
+	if is.GetAnnotations() == nil {
+		is.Annotations = make(map[string]string)
 	}
 
-	f.ReplaceImageStreamValues(d)
-	return d, nil
-}
+	f.ReplaceImageStreamValues(is)
 
-//TODO: not being used
-func (f *Factory) NewImageStreamTag (manifest io.Reader) (*osimagev1.ImageStreamTag, error) {
-	d, err := NewImageStreamTag(manifest)
-	if err != nil {
-		return nil, err
-	}
-
-	if d.GetNamespace() == "" {
-		d.SetNamespace(f.namespace)
-	}
-
-	if d.GetAnnotations() == nil {
-		d.Annotations = make(map[string]string)
-	}
-
-	return d, nil
+	return is, nil
 }
 
 func (f *Factory) NewDeploymentConfig(manifest io.Reader) (*osappsv1.DeploymentConfig, error) {
@@ -239,57 +224,67 @@ func (f *Factory) NewDeploymentConfig(manifest io.Reader) (*osappsv1.DeploymentC
 
 	f.ReplaceDeploymentConfigValues(d)
 
+	utils.PrettyPrint(d)
+
 	return d, nil
 }
 
 func(f *Factory)ReplaceDeploymentConfigValues(dc *osappsv1.DeploymentConfig)(){
-	
-	for _,c := range dc.Spec.Template.Spec.Containers {
-		if c.Name == "rhm-meterdefinition-file-server" {
-			c.Image = f.config.RelatedImages.DeploymentConfig
-		}
-	}
-
 	triggers := osappsv1.DeploymentTriggerPolicies(dc.Spec.Triggers)
-	trigger := triggers[0]
-	// trigger.ImageChangeParams.LastTriggeredImage  
-	trigger.ImageChangeParams.From.Name = f.config.RelatedImages.DeploymentConfig
+	trigger := triggers[1]
 
+	trigger.ImageChangeParams.From.Name = f.operatorConfig.ImageStreamID
 }
 
 func(f *Factory) ReplaceImageStreamValues(is *osimagev1.ImageStream){
+	is.Spec.Tags[0].Annotations["openshift.io/imported-from"] = f.config.RelatedImages.DeploymentConfig
 	is.Spec.Tags[0].From.Name = f.config.RelatedImages.DeploymentConfig
-	is.Spec.Tags[0].Name = strings.Split(f.config.RelatedImages.DeploymentConfig,":")[1]
+	is.Spec.Tags[0].Name = f.operatorConfig.ImageStreamTag
 }
 
 func(f *Factory)UpdateDeploymentConfigOnChange(clusterDC *osappsv1.DeploymentConfig)(updated bool){
 	logger := log.WithValues("func", "UpdateDeploymentConfigOnChange")
 
-	var clusterDeploymentConfigImage string
-	for _,c := range clusterDC.Spec.Template.Spec.Containers {
-		if c.Name == "rhm-meterdefinition-file-server" {
-			clusterDeploymentConfigImage = c.Image
-		}
+	triggers := osappsv1.DeploymentTriggerPolicies(clusterDC.Spec.Triggers)
+	trigger := triggers[1]
+
+	if trigger.ImageChangeParams.From.Name != f.operatorConfig.ImageStreamID {
+		logger.Info("DeploymentConfig docker image reference needs to be updated")
+		logger.Info("ImageStreamID found on cluster","imagestream ID",trigger.ImageChangeParams.From.Name)
+		logger.Info("ImageStreamID found in config","imagestream ID",f.operatorConfig.ImageStreamID)
+		trigger.ImageChangeParams.From.Name = f.operatorConfig.ImageStreamID
+		updated = true
 	}
 
-	if clusterDeploymentConfigImage != f.config.RelatedImages.DeploymentConfig {
-		logger.Info("DeploymentConfig image needs to be updated")
-		updated = true
-		f.ReplaceDeploymentConfigValues(clusterDC)
-	}
-	
 	return updated
 }
 
 func(f *Factory)UpdateImageStreamOnChange(clusterIS *osimagev1.ImageStream)(updated bool){
-	logger := log.WithValues("func", "UpdateDeploymentConfigOnChange")
-	clusterImageFromName := clusterIS.Spec.Tags[0].From.Name
-	// clusterImageTagName := clusterIS.Spec.Tags[0].Name
+	logger := log.WithValues("func", "UpdateImageStreamOnChange")
+	for _,tag := range clusterIS.Spec.Tags {
+		if tag.From.Name != f.config.RelatedImages.DeploymentConfig {
+			logger.Info("ImageStream docker image reference needs to be updated")
+			logger.Info("Docker image reference found on cluster","image",tag.From.Name)
+			logger.Info("Docker image reference found in config","image",f.config.RelatedImages.DeploymentConfig)
+			tag.From.Name = f.config.RelatedImages.DeploymentConfig
+			updated = true
+		}
 
-	if clusterImageFromName != f.config.RelatedImages.DeploymentConfig{
-		logger.Info("ImageStream image needs to be updated")
-		updated = true
-		f.ReplaceImageStreamValues(clusterIS)
+		if tag.Name != f.operatorConfig.ImageStreamTag {
+			logger.Info("ImageStream tag needs to be updated")
+			logger.Info("ImageStream tag found on cluster","tag",tag.Name)
+			logger.Info("ImageStream tag found in config","tag",f.operatorConfig.ImageStreamTag)
+			tag.Name = f.operatorConfig.ImageStreamTag
+			updated = true
+		}
+
+		if tag.Annotations["openshift.io/imported-from"] != f.config.RelatedImages.DeploymentConfig {
+			logger.Info("ImageStream imported-from annotation needs to be updated")
+			logger.Info("ImageStream imported-from annotation on cluster","value",tag.Annotations["openshift.io/imported-from"])
+			logger.Info("ImageStream imported-from annotation in config","value",f.config.RelatedImages.DeploymentConfig)
+			tag.Annotations["openshift.io/imported-from"] = f.config.RelatedImages.DeploymentConfig
+			updated = true
+		}
 	}
 
 	return updated

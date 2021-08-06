@@ -41,6 +41,7 @@ type OperatorConfig struct {
 	Marketplace
 	*Infrastructure
 	OLMInformation
+	ImageStreamValues
 }
 
 // RelatedImages stores relatedimages for the operator
@@ -101,6 +102,11 @@ type OLMInformation struct {
 	OwnerName      string `env:"OLM_OWNER_NAME"`
 	OwnerNamespace string `env:"OLM_OWNER_NAMESPACE"`
 	OwnerKind      string `env:"OLM_OWNER_KIND"`
+}
+
+type ImageStreamValues struct {
+	ImageStreamID              string `env:"IMAGE_STREAM_ID" envDefault:"rhm-meterdefinition-file-server:v1"`
+	ImageStreamTag             string `env:"IMAGE_STREAM_TAG" envDefault:"v1"`
 }
 
 func reset() {
