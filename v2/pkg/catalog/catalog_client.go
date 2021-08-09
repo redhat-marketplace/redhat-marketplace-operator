@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -31,6 +32,7 @@ import (
 const (
 	ListForVersionEndpoint = "list-for-version"
 	GetSystemMeterdefinitionTemplatesEndpoint = "get-system-meterdefs"
+	GetMeterdefinitionIndexLabelEndpoint = "meterdef-index-label"
 )
 
 type CatalogClientBuilder struct {
@@ -153,6 +155,53 @@ func (c *CatalogClient) GetSystemMeterdefs(csvName string, version string, names
 	return ReturnMeterdefs(csvName,namespace,*response,err,reqLogger)
 
 }
+
+func (c *CatalogClient) GetMeterdefIndexLabel (reqLogger logr.Logger) ([]string,*ExecResult) {
+	reqLogger.Info("retrieving meterdefinition index label")
+
+	url,err := concatPaths(c.endpoint.String(),GetMeterdefinitionIndexLabelEndpoint)
+	if err != nil {
+		return nil, &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	response, err := c.httpClient.Get(url.String())
+	if err != nil {
+		return nil, &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	defer response.Body.Close()
+
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		reqLogger.Error(err, "error reading body")
+		return nil, &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	reqLogger.Info("response data", "data", string(data))
+
+	labels := []string{}
+	err = json.Unmarshal(data,&labels)
+	if err != nil {
+		return nil, &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+	
+	return labels, &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+}
+
 
 func  ReturnMeterdefs (csvName string, namespace string,response http.Response,err error,reqLogger logr.Logger) ([]string, []marketplacev1beta1.MeterDefinition, *ExecResult){
 	if err != nil {

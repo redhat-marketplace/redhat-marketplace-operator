@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -45,8 +44,8 @@ import (
 )
 
 const (
-	hasCatalogMeterdefinitionsTag string = "marketplace.redhat.com/hasCatalogMeterdefinitions"
-	operatorNameTag               string = "marketplace.redhat.com/operatorName"
+	// hasCatalogMeterdefinitionsTag string = "marketplace.redhat.com/hasCatalogMeterdefinitions"
+	// operatorNameTag               string = "marketplace.redhat.com/operatorName"
 )
 
 // blank assignment to verify that ReconcileClusterServiceVersion implements reconcile.Reconciler
@@ -135,40 +134,6 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 
 				if foundSub.Status.InstalledCSV == request.NamespacedName.Name {
 					reqLogger.Info("found Subscription with installed CSV")
-
-					if v, ok := CSV.GetLabels()[hasCatalogMeterdefinitionsTag]; !ok || v != "true" {
-						err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-							err := r.Client.Get(context.TODO(),
-								types.NamespacedName{
-									Name:      CSV.GetName(),
-									Namespace: CSV.GetNamespace(),
-								},
-								CSV)
-
-							if err != nil {
-								return err
-							}
-
-							labels := CSV.GetLabels()
-
-							if labels == nil {
-								labels = make(map[string]string)
-							}
-
-							labels[hasCatalogMeterdefinitionsTag] = "true"
-							CSV.SetLabels(labels)
-
-							return r.Client.Update(context.TODO(), CSV)
-						})
-
-						if err != nil {
-							reqLogger.Error(err, "Failed to patch clusterserviceversion with marketplace.redhat.com/hasCatalogMeterdefinitions")
-							return reconcile.Result{}, err
-						}
-						reqLogger.Info("Patched clusterserviceversion with marketplace.redhat.com/hasCatalogMeterdefinitions")
-					} else {
-						reqLogger.Info("No patch needed on clusterserviceversion resource")
-					}
 
 					catalogClient, err := catalog.NewCatalogClientBuilder(r.cfg).NewCatalogServerClient(r.Client,r.cfg.DeployedNamespace,r.kubeInterface,reqLogger)
 					_, selectedMeterDefinitions, result := catalogClient.ListMeterdefintionsFromFileServer(csvName, csvVersion, CSV.Namespace,reqLogger)
@@ -270,15 +235,6 @@ func (r *MeterdefinitionInstallReconciler) createMeterdef(csvName string, csvVer
 
 	meterDefinition.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
 	meterDefinition.ObjectMeta.Namespace = csv.Namespace
-
-	labels := meterDefinition.GetLabels()
-
-	if labels == nil {
-		labels = make(map[string]string)
-	}
-
-	labels[operatorNameTag] = csvName
-	meterDefinition.SetLabels(labels)
 
 	meterDefName := meterDefinition.Name
 	err := r.Client.Create(context.TODO(), &meterDefinition)

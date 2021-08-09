@@ -192,11 +192,6 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 
 func (r *DeploymentConfigReconciler) sync(request reconcile.Request,reqLogger logr.Logger)*ExecResult{
 	csvList := &olmv1alpha1.ClusterServiceVersionList{}
-	// listOpts := []client.ListOption{
-	// 	client.MatchingLabels(map[string]string{
-	// 		hasCatalogMeterdefinitionsTag : "true",
-	// 	}),
-	// }
 
 	err := r.Client.List(context.TODO(), csvList)
 	if err != nil {
@@ -217,8 +212,8 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request,reqLogger lo
 				Err:             err,
 			}
 		}
+
 		meterDefNamesFromFileServer, meterDefsFromFileServer, result := catalogClient.ListMeterdefintionsFromFileServer(splitName, csvVersion, namespace,reqLogger)
-		// meterDefNamesFromFileServer, meterDefsFromFileServer, result := ListMeterdefintionsFromFileServer(splitName, csvVersion, namespace, r.Client, r.kubeInterface, r.cfg.DeployedNamespace, reqLogger)
 		if !result.Is(Continue) {
 			return result
 		}
@@ -229,10 +224,17 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request,reqLogger lo
 			meterDefsMapFromFileServer[meterDefItem.ObjectMeta.Name] = meterDefItem
 		}
 
+		labelsKV,result := catalogClient.GetMeterdefIndexLabel(reqLogger)
+		if !result.Is(Continue) {
+			return result
+		}
+
 		installedMeterdefList := &marketplacev1beta1.MeterDefinitionList{}
+		
+		// look for meterdefs that are from the meterdefinition catalog
 		listOpts := []client.ListOption{
 			client.MatchingLabels(map[string]string{
-				operatorNameTag: splitName,
+				labelsKV[0]: labelsKV[1], 
 			}),
 		}
 
