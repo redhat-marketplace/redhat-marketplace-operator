@@ -191,12 +191,12 @@ func ProvideRazeeStoreRunnable(
 ) *RazeeStoreRunnable {
 	return &RazeeStoreRunnable{
 		StoreRunnable: StoreRunnable{
-			Store:      store.DeltaStore(), //delta implements the Store
-			ResyncTime: 0,                  //1*60*time.Second,
+			Store:      store,
+			ResyncTime: 0,
 			log:        log.WithName("razee"),
 			Reflectors: []Runnable{
-				provideNodeLister(kubeClient, store.DeltaStore()),                  //delta implements the Store
-				provideServiceListerRunnable(kubeClient, nses, store.DeltaStore()), //delta implements the Store
+				provideNodeLister(kubeClient, store),
+				provideServiceListerRunnable(kubeClient, nses, store),
 			},
 		},
 	}

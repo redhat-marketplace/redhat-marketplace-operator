@@ -81,7 +81,7 @@ func ProvideRazeeChannelProducer(
 ) *RazeeChannelProducer {
 	return &RazeeChannelProducer{
 		MailboxChannelProducer: MailboxChannelProducer{
-			queue:   razeeStore.DeltaStore(), //delta implements the Queue
+			queue:   razeeStore,
 			mailbox: mb,
 			log:     log.WithName("razeeChannel").V(4),
 			name:    RazeeChannel,
