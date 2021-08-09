@@ -42,7 +42,6 @@ const (
 	WATCH_KEEPER_SECRET_NAME               = "watch-keeper-secret"
 	PROMETHEUS_METERBASE_NAME              = "rhm-prometheus-meterbase"
 	OPERATOR_CERTS_CA_BUNDLE_NAME          = "operator-certs-ca-bundle"
-	METERDEF_INSTALL_MAP_NAME              = "rhm-meterdef-install-map"
 	DEPLOYMENT_CONFIG_NAME                 = "rhm-meterdefinition-file-server"
 	CATALOG_SERVER_SERVICE_NAME			   = "rhm-meterdefinition-file-server"
 
@@ -88,7 +87,6 @@ const (
 	RazeeWatchLevelDetail = "detail"
 
 	LicenseServerTag = "marketplace.redhat.com/operator"
-	MeterDefinitionStoreKey = "meterDefinitionStore"
 
 	/* Time and Date */
 	DATE_FORMAT         = "2006-01-02"

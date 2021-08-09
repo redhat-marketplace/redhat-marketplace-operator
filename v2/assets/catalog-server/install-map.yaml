@@ -1,7 +1,0 @@
-apiVersion: v1
-data:
-  meterDefinitionStore: '{}'
-kind: ConfigMap
-metadata:
-  name: rhm-meterdef-install-map
-  namespace: openshift-redhat-marketplace

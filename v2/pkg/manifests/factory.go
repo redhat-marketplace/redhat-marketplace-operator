@@ -66,8 +66,6 @@ const (
 	MetricStateServiceMonitor = "metric-state/service-monitor.yaml"
 	MetricStateService        = "metric-state/service.yaml"
 
-	MeterdefinitionConfigMap = "catalog-server/install-map.yaml"
-
 	MeterdefinitionFileServerDeploymentConfig = "catalog-server/deployment-config.yaml"
 	MeterdefinitionFileServerService = "catalog-server/service.yaml"
 	MeterdefinitionFileServerImageStream = "catalog-server/image-stream.yaml"
@@ -334,10 +332,6 @@ func(f *Factory)NewMeterdefintionFileServerService()(*corev1.Service,error){
 	return f.NewService(MustAssetReader(MeterdefinitionFileServerService))
 }
 
-func (f *Factory) NewMeterdefinitionConfigMap() (*corev1.ConfigMap, error) {
-	return f.NewConfigMap(MustAssetReader(MeterdefinitionConfigMap))
-}
-
 func (f *Factory) NewService(manifest io.Reader) (*corev1.Service, error) {
 	d, err := NewService(manifest)
 	if err != nil {
@@ -349,15 +343,6 @@ func (f *Factory) NewService(manifest io.Reader) (*corev1.Service, error) {
 	}
 
 	return d, nil
-}
-
-func (f *Factory) UpdateService(manifest io.Reader, s *v1.Service) error {
-    err := yaml.NewYAMLOrJSONDecoder(manifest, 100).Decode(s)
-    if err != nil {
-        return err
-    }
-
-    return nil
 }
 
 func (f *Factory) NewConfigMap(manifest io.Reader) (*corev1.ConfigMap, error) {

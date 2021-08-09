@@ -43,11 +43,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const (
-	// hasCatalogMeterdefinitionsTag string = "marketplace.redhat.com/hasCatalogMeterdefinitions"
-	// operatorNameTag               string = "marketplace.redhat.com/operatorName"
-)
-
 // blank assignment to verify that ReconcileClusterServiceVersion implements reconcile.Reconciler
 var _ reconcile.Reconciler = &MeterdefinitionInstallReconciler{}
 
@@ -83,13 +78,8 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, check the meterdef store if there is an existing InstallMapping,delete, and return empty result
-			// If no install mapping found return empty result
-			_csvName := strings.Split(request.Name, ".")[0]
-			delimiter := "."
-			rightOfDelimiter := strings.Join(strings.Split(request.Name, delimiter)[1:], delimiter)
-			_version := strings.Split(rightOfDelimiter, "v")[1]
-
-			reqLogger.Info("clusterserviceversion does not exist, checking install map for package", "name", _csvName, "version", _version)
+			reqLogger.Info("clusterserviceversion does not exist", "name", request.Name)
+			return reconcile.Result{}, nil
 		}
 
 		reqLogger.Error(err, "Failed to get clusterserviceversion")
@@ -136,6 +126,10 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 					reqLogger.Info("found Subscription with installed CSV")
 
 					catalogClient, err := catalog.NewCatalogClientBuilder(r.cfg).NewCatalogServerClient(r.Client,r.cfg.DeployedNamespace,r.kubeInterface,reqLogger)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+
 					_, selectedMeterDefinitions, result := catalogClient.ListMeterdefintionsFromFileServer(csvName, csvVersion, CSV.Namespace,reqLogger)
 					if !result.Is(Continue) {
 
@@ -207,6 +201,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	return reconcile.Result{}, nil
 }
 
+//TODO: remove this and just pick up every CSV
 func reconcileCSV(metaNew metav1.Object) bool {
 	ann := metaNew.GetAnnotations()
 
