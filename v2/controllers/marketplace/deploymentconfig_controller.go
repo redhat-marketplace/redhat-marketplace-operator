@@ -17,9 +17,9 @@ import (
 	// "bytes"
 
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -44,7 +44,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 
-	common "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -176,29 +176,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 		return result.Return()
 	}
 
-	// Fetch the install-map-cm instance
-	cm := &corev1.ConfigMap{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME, Namespace: r.cfg.DeployedNamespace}, cm)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Error(err, "meterdefinition install map cm does not exist")
-			return reconcile.Result{}, nil
-		}
-		reqLogger.Error(err, "Failed to get meterdefinition install map cm")
-		return reconcile.Result{}, err
-	}
-
-	cmMdefStore := cm.Data[utils.MeterDefinitionStoreKey]
-
-	meterdefStore := &common.MeterdefinitionStore{}
-
-	err = json.Unmarshal([]byte(cmMdefStore), meterdefStore)
-	if err != nil {
-		reqLogger.Error(err, "error unmarshaling meterdefinition store")
-		return reconcile.Result{}, err
-	}
-
-	updatedInstallMappings, result := r.sync(meterdefStore.InstallMappings, reqLogger)
+	result = r.sync(request,reqLogger)
 	if !result.Is(Continue) {
 
 		if result.Is(Error) {
@@ -208,70 +186,41 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 		return result.Return()
 	}
 
-	meterdefStore.InstallMappings = updatedInstallMappings
-	out, err := json.Marshal(meterdefStore)
-	if err != nil {
-		reqLogger.Error(err, "error marshaling meterdefinition store")
-		return reconcile.Result{}, err
-	}
-
-	meterdefStoreJSON := string(out)
-	cm.Data[utils.MeterDefinitionStoreKey] = meterdefStoreJSON
-
-	err = r.Client.Update(context.TODO(), cm)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
 	reqLogger.Info("finished reconciling")
 	return reconcile.Result{}, nil
 }
 
-// func getMeterdefStoreFromCM(client client.Client, deployedNamespace string, reqLogger logr.Logger) (*common.MeterdefinitionStore, *ExecResult) {
-// 	// Fetch the install-map-cm instance
-// 	cm := &corev1.ConfigMap{}
-// 	err := client.Get(context.TODO(), types.NamespacedName{Name: utils.METERDEF_INSTALL_MAP_NAME, Namespace: deployedNamespace}, cm)
-// 	if err != nil {
-// 		reqLogger.Error(err, "Failed to get MeterdefintionConfigMap")
-// 		return nil, &ExecResult{
-// 			ReconcileResult: reconcile.Result{},
-// 			Err:             err,
-// 		}
-// 	}
+func (r *DeploymentConfigReconciler) sync(request reconcile.Request,reqLogger logr.Logger)*ExecResult{
+	csvList := &olmv1alpha1.ClusterServiceVersionList{}
+	// listOpts := []client.ListOption{
+	// 	client.MatchingLabels(map[string]string{
+	// 		hasCatalogMeterdefinitionsTag : "true",
+	// 	}),
+	// }
 
-// 	cmMdefStore := cm.Data[utils.MeterDefinitionStoreKey]
+	err := r.Client.List(context.TODO(), csvList)
+	if err != nil {
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
 
-// 	meterdefStore := &common.MeterdefinitionStore{}
-
-// 	err = json.Unmarshal([]byte(cmMdefStore), meterdefStore)
-// 	if err != nil {
-// 		reqLogger.Error(err, "error unmarshaling meterdefinition store")
-// 		return nil, &ExecResult{
-// 			ReconcileResult: reconcile.Result{},
-// 			Err:             err,
-// 		}
-// 	}
-
-// 	return meterdefStore, &ExecResult{
-// 		Status: ActionResultStatus(Continue),
-// 	}
-// }
-
-func (r *DeploymentConfigReconciler) sync(installMappings []common.InstallMapping, reqLogger logr.Logger) ([]common.InstallMapping, *ExecResult) {
-
-	reqLogger.Info("syncing meterdefinitions")
-	reqLogger.Info("install mappings", "mapping", installMappings)
-
-	updatedInstallMappings := []common.InstallMapping{}
-	for _, installMap := range installMappings {
-		csvName := installMap.CsvName
-		csvVersion := installMap.CsvVersion
-		namespace := installMap.Namespace
-		installedMeterDefs := installMap.InstalledMeterdefinitions
-
-		meterDefNamesFromFileServer, meterDefsFromFileServer, result := ListMeterdefintionsFromFileServer(csvName, csvVersion, namespace, r.Client, r.kubeInterface, r.cfg.DeployedNamespace, reqLogger)
+	for _, csv := range csvList.Items {
+		splitName := strings.Split(csv.Name,".")[0]
+		csvVersion := csv.Spec.Version.Version.String()
+		namespace := request.Namespace
+		catalogClient, err := catalog.NewCatalogClientBuilder(r.cfg).NewCatalogServerClient(r.Client,r.cfg.DeployedNamespace,r.kubeInterface,reqLogger)
+		if err != nil {
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
+			}
+		}
+		meterDefNamesFromFileServer, meterDefsFromFileServer, result := catalogClient.ListMeterdefintionsFromFileServer(splitName, csvVersion, namespace,reqLogger)
+		// meterDefNamesFromFileServer, meterDefsFromFileServer, result := ListMeterdefintionsFromFileServer(splitName, csvVersion, namespace, r.Client, r.kubeInterface, r.cfg.DeployedNamespace, reqLogger)
 		if !result.Is(Continue) {
-			return nil, result
+			return result
 		}
 
 		meterDefsMapFromFileServer := make(map[string]marketplacev1beta1.MeterDefinition)
@@ -280,55 +229,74 @@ func (r *DeploymentConfigReconciler) sync(installMappings []common.InstallMappin
 			meterDefsMapFromFileServer[meterDefItem.ObjectMeta.Name] = meterDefItem
 		}
 
+		installedMeterdefList := &marketplacev1beta1.MeterDefinitionList{}
+		listOpts := []client.ListOption{
+			client.MatchingLabels(map[string]string{
+				operatorNameTag: splitName,
+			}),
+		}
+
+		err = r.Client.List(context.TODO(), installedMeterdefList, listOpts...)
+		if err != nil {
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
+			}
+		}
+
+		var installedMeterdefNames []string
+		for _, mdef := range installedMeterdefList.Items {
+			if !strings.Contains(mdef.Name,"global"){
+				installedMeterdefNames = append(installedMeterdefNames, mdef.Name)
+			}
+		}
+
 		// get the list of meter defs to be deleted and delete them
-		mdefDeleteList := utils.SliceDifference(installedMeterDefs, meterDefNamesFromFileServer)
+		mdefDeleteList := utils.SliceDifference(installedMeterdefNames, meterDefNamesFromFileServer)
 		if len(mdefDeleteList) > 0 {
 			reqLogger.Info("Delete Sync", "meterdefintion names from file server", meterDefNamesFromFileServer)
-			reqLogger.Info("Delete Sync", "installed meterdefinitions", installedMeterDefs)
+			reqLogger.Info("Delete Sync", "installed meterdefinitions", installedMeterdefNames)
 			reqLogger.Info("Delete Sync", "meterdefintion delete list", mdefDeleteList)
 			err := deleteMeterDefintions(namespace, mdefDeleteList, r.Client, reqLogger)
 			if err != nil {
-				return updatedInstallMappings, &ExecResult{
+				return &ExecResult{
 					ReconcileResult: reconcile.Result{},
 					Err:             err,
 				}
 			}
-			reqLogger.Info("Successfully deleted meterdefintions", "Count", len(mdefDeleteList), "Namespace", namespace, "CSV", csvName)
+			reqLogger.Info("Successfully deleted meterdefintions", "Count", len(mdefDeleteList), "Namespace", namespace, "CSV", csv.Name)
 		}
 
 		// get the list of meter defs to be created and create them
-		mdefCreateList := utils.SliceDifference(meterDefNamesFromFileServer, installedMeterDefs)
+		mdefCreateList := utils.SliceDifference(meterDefNamesFromFileServer, installedMeterdefNames)
 		if len(mdefCreateList) > 0 {
 			reqLogger.Info("Create Sync", "meterdefintion names from file server", meterDefNamesFromFileServer)
-			reqLogger.Info("Create Sync", "installed meterdefinitions", installedMeterDefs)
+			reqLogger.Info("Create Sync", "installed meterdefinitions", installedMeterdefNames)
 			reqLogger.Info("Create Sync", "meterdefintion update list", mdefCreateList)
-			err := createMeterDefintions(r.Scheme, r.Client, namespace, csvName, mdefCreateList, meterDefsMapFromFileServer, reqLogger)
+			err := createMeterDefintions(r.Scheme, r.Client, namespace, csv.Name, mdefCreateList, meterDefsMapFromFileServer, reqLogger)
 			if err != nil {
-				return updatedInstallMappings, &ExecResult{
+				return &ExecResult{
 					ReconcileResult: reconcile.Result{},
 					Err:             err,
 				}
 			}
-			reqLogger.Info("Successfully created meterdefintions", "Count", len(mdefCreateList), "Namespace", namespace, "CSV", csvName)
+			reqLogger.Info("Successfully created meterdefintions", "Count", len(mdefCreateList), "Namespace", namespace, "CSV", csv.Name)
 		}
+
 		// get ths list of meter defs to be checked for changes and invoke update operation
-		mdefUpdateList := utils.SliceIntersection(installedMeterDefs, meterDefNamesFromFileServer)
+		mdefUpdateList := utils.SliceIntersection(installedMeterdefNames, meterDefNamesFromFileServer)
 		if len(mdefUpdateList) > 0 {
 			err := updateMeterDefintions(namespace, mdefUpdateList, meterDefsMapFromFileServer, r.Client, reqLogger)
 			if err != nil {
-				return updatedInstallMappings, &ExecResult{
+				return &ExecResult{
 					ReconcileResult: reconcile.Result{},
 					Err:             err,
 				}
 			}
 		}
-		installMap.InstalledMeterdefinitions = meterDefNamesFromFileServer
-		updatedInstallMappings = append(updatedInstallMappings, installMap)
 	}
-	reqLogger.Info("Sync complete")
-	reqLogger.Info("Current list of install mappings", "Install mappings", updatedInstallMappings)
 
-	return updatedInstallMappings, &ExecResult{
+	return &ExecResult{
 		Status: ActionResultStatus(Continue),
 	}
 }

@@ -41,7 +41,7 @@ type OperatorConfig struct {
 	Marketplace
 	*Infrastructure
 	OLMInformation
-	ImageStreamValues
+	MeterdefinitionCatalog
 }
 
 // RelatedImages stores relatedimages for the operator
@@ -89,7 +89,6 @@ type Marketplace struct {
 type ControllerValues struct {
 	DeploymentNamespace           string        `env:"POD_NAMESPACE" envDefault:"openshift-redhat-marketplace"`
 	MeterDefControllerRequeueRate time.Duration `env:"METER_DEF_CONTROLLER_REQUEUE_RATE" envDefault:"1h"`
-	MeterDefTemplates             []string      `env:"TEMPLATE_FILES" envSeparator:"," envDefault:"pod-count-meterdefinition-1.yaml,pod-count-meterdefinition-2.yaml"`
 }
 
 // ReportConfig stores some changeable information for creating a report
@@ -102,6 +101,15 @@ type OLMInformation struct {
 	OwnerName      string `env:"OLM_OWNER_NAME"`
 	OwnerNamespace string `env:"OLM_OWNER_NAMESPACE"`
 	OwnerKind      string `env:"OLM_OWNER_KIND"`
+}
+
+type MeterdefinitionCatalog struct {
+	ImageStreamValues
+	FileServerValues
+}
+
+type FileServerValues struct {
+	URL   string `env:"CATALOG_URL" envDefault:"https://rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc.cluster.local:8200"`
 }
 
 type ImageStreamValues struct {

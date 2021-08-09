@@ -131,54 +131,36 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 		return reconcile.Result{}, err
 	}
 
-	hasMarketplaceSub := false
+	_csvName := strings.Split(request.Name, ".")[0]
+	var foundSub *olmv1alpha1.Subscription
 	if len(sub.Items) > 0 {
+		for _, s := range sub.Items {
+			if strings.HasPrefix(s.Name,_csvName){
+				reqLogger.Info("found subscription with csv name as prefix","sub",s.Name)
+				foundSub = &s
+			}
+		}		
+	}
+
+	hasMarketplaceSub := false
+	if foundSub != nil {
 		reqLogger.Info("found Subscription in namespaces", "count", len(sub.Items))
 		// add razee watch label to CSV if subscription has rhm/operator label
-		for _, s := range sub.Items {
-			if value, ok := s.GetLabels()[operatorTag]; ok {
+			if value, ok := foundSub.GetLabels()[operatorTag]; ok {
 				if value == "true" {
-					if len(s.Status.InstalledCSV) == 0 {
+
+					if len(foundSub.Status.InstalledCSV) == 0 {
 						reqLogger.Info("Requeue clusterserviceversion to wait for subscription getting installedCSV updated")
 						return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 					}
 
-					_csvName := strings.Split(request.Name, ".")[0]
-					installedOperatorName, ok := s.GetAnnotations()[installedOperatorNameTag]
-					if ok {
-						if s.Status.InstalledCSV != request.NamespacedName.Name && _csvName == installedOperatorName {
-							reqLogger.Info("subscription installed csv", "installed csv", s.Status.InstalledCSV)
-							return reconcile.Result{RequeueAfter: time.Second * 5}, nil
-						}
+					if foundSub.Status.InstalledCSV != request.NamespacedName.Name {
+						return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 					}
 
-					if s.Status.InstalledCSV == request.NamespacedName.Name {
+					if foundSub.Status.InstalledCSV == request.NamespacedName.Name {
 						reqLogger.Info("found Subscription with installed CSV")
 						hasMarketplaceSub = true
-						if _, ok := s.GetAnnotations()[installedOperatorNameTag]; !ok {
-							retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-
-								annotations := s.GetAnnotations()
-
-								if annotations == nil {
-									annotations = make(map[string]string)
-								}
-
-								_csvName := strings.Split(request.Name, ".")[0]
-								annotations[installedOperatorNameTag] = _csvName
-								s.SetAnnotations(annotations)
-
-								return r.Client.Update(context.TODO(), &s)
-							})
-
-							if retryErr != nil {
-								reqLogger.Error(retryErr, "Failed to patch subscription with installedOperatorName tag")
-								return reconcile.Result{Requeue: true}, retryErr
-							}
-							reqLogger.Info("Patched subscription with installedOperatorName tag")
-						} else {
-							reqLogger.Info("No patch needed on subscription resource for installedOperatorName tag")
-						}
 
 						if v, ok := CSV.GetLabels()[watchTag]; !ok || v != "lite" {
 							err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
@@ -216,7 +198,7 @@ func (r *ClusterServiceVersionReconciler) Reconcile(request reconcile.Request) (
 					}
 				}
 			}
-		}
+		
 	} else {
 		reqLogger.Info("Did not find Subscription in namespaces")
 	}

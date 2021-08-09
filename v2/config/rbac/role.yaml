@@ -13,6 +13,10 @@ rules:
   - create
   - get
 - nonResourceURLs:
+  - /get-system-meterdefs/*
+  verbs:
+  - get
+- nonResourceURLs:
   - /list-for-version/*
   verbs:
   - get
