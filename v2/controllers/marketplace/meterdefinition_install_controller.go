@@ -169,9 +169,6 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 							if errors.IsNotFound(err) {
 								reqLogger.Info("meterdefinition not found, creating", "meterdef name", meterDefItem.Name, "CSV", CSV.Name)
 
-								// TODO: might have to change this string matching logic later based on global meter def names
-								// or we can use an annotation to maintain this info in global meter defs
-								// isGlobalMeterDef := strings.Contains(meterDefItem.Name, "global")
 								result = r.createMeterdef(csvName, csvVersion, meterDefItem, CSV, gvk, request, reqLogger)
 								if !result.Is(Continue) {
 
@@ -202,19 +199,19 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 }
 
 //TODO: remove this and just pick up every CSV
-func reconcileCSV(metaNew metav1.Object) bool {
-	ann := metaNew.GetAnnotations()
+// func reconcileCSV(metaNew metav1.Object) bool {
+// 	ann := metaNew.GetAnnotations()
 
-	ignoreVal, hasIgnoreTag := ann[ignoreTag]
+// 	ignoreVal, hasIgnoreTag := ann[ignoreTag]
 
-	// we need to pick up the csv
-	if !hasIgnoreTag || ignoreVal != ignoreTagValue {
-		return true
-	}
+// 	// we need to pick up the csv
+// 	if !hasIgnoreTag || ignoreVal != ignoreTagValue {
+// 		return true
+// 	}
 
-	//ignore
-	return false
-}
+// 	//ignore
+// 	return false
+// }
 
 func (r *MeterdefinitionInstallReconciler) createMeterdef(csvName string, csvVersion string, meterDefinition marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, groupVersionKind schema.GroupVersionKind, request reconcile.Request, reqLogger logr.InfoLogger) *ExecResult {
 
@@ -261,25 +258,28 @@ func checkForCSVVersionChanges(e event.UpdateEvent) bool {
 	return oldCSV.Spec.Version.String() != newCSV.Spec.Version.String()
 }
 
-var rhmCSVControllerPredicates predicate.Funcs = predicate.Funcs{
+var rhmCSVControllerPredicates predicate.Funcs = predicate.Funcs {
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		if !reconcileCSV(e.MetaNew) || !reconcileCSV(e.MetaOld) {
-			return false
-		}
+		// if !reconcileCSV(e.MetaNew) || !reconcileCSV(e.MetaOld) {
+		// 	return false
+		// }
 		return checkForCSVVersionChanges(e)
 	},
 
 	DeleteFunc: func(e event.DeleteEvent) bool {
-		return reconcileCSV(e.Meta)
+		// return reconcileCSV(e.Meta)
+		return true
 	},
 
 	CreateFunc: func(e event.CreateEvent) bool {
-		return reconcileCSV(e.Meta)
+		// return reconcileCSV(e.Meta)
+		return true
 
 	},
 
 	GenericFunc: func(e event.GenericEvent) bool {
-		return reconcileCSV(e.Meta)
+		// return reconcileCSV(e.Meta)
+		return true
 	},
 }
 

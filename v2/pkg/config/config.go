@@ -109,7 +109,7 @@ type MeterdefinitionCatalog struct {
 }
 
 type FileServerValues struct {
-	URL   string `env:"CATALOG_URL" envDefault:"https://rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc.cluster.local:8200"`
+	FileServerURL   string `env:"CATALOG_URL" envDefault:""`
 }
 
 type ImageStreamValues struct {

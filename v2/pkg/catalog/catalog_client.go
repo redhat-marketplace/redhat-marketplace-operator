@@ -30,6 +30,10 @@ import (
 )
 
 const (
+	FileServerProductionURL = "https://rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc.cluster.local:8200"
+)
+
+const (
 	ListForVersionEndpoint = "list-for-version"
 	GetSystemMeterdefinitionTemplatesEndpoint = "get-system-meterdefs"
 	GetMeterdefinitionIndexLabelEndpoint = "meterdef-index-label"
@@ -37,7 +41,6 @@ const (
 
 type CatalogClientBuilder struct {
 	Url      string
-	Insecure bool
 }
 
 type CatalogClient struct {
@@ -48,8 +51,10 @@ type CatalogClient struct {
 func NewCatalogClientBuilder(cfg *config.OperatorConfig) *CatalogClientBuilder {
 	builder := &CatalogClientBuilder{}
 
-	if cfg.URL != "" {
-		builder.Url = cfg.MeterdefinitionCatalog.FileServerValues.URL
+	builder.Url = FileServerProductionURL
+
+	if cfg.FileServerURL != "" {
+		builder.Url = cfg.FileServerURL
 	}
 
 	return builder
@@ -125,7 +130,6 @@ func (b *CatalogClientBuilder) NewCatalogServerClient(client client.Client, depl
 func(c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, version string, namespace string,reqLogger logr.Logger) ([]string, []marketplacev1beta1.MeterDefinition, *ExecResult) {
 	reqLogger.Info("retrieving meterdefinitions", "csvName", csvName, "csvVersion", version)
 
-	// url := fmt.Sprintf("https://rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc.cluster.local:8200/list-for-version/%s/%s", csvName, version)
 	url,err := concatPaths(c.endpoint.String(),ListForVersionEndpoint,csvName,version)
 	if err != nil {
 		return nil,nil, &ExecResult{
@@ -135,14 +139,29 @@ func(c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, version
 	}
 
 	response, err := c.httpClient.Get(url.String())
-	return ReturnMeterdefs(csvName,namespace,*response,err,reqLogger)
+	if err != nil {
+		reqLogger.Error(err, "Error on GET to Catalog Server")
+		if err == io.EOF {
+			reqLogger.Error(err, "system meterdefintion not found")
+			return nil, nil, &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             emperror.New("empty response"),
+			}
+		}
+
+		reqLogger.Error(err, "Error querying file server")
+		return nil, nil, &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+	return ReturnMeterdefs(csvName,namespace,*response,reqLogger)
 }
 
 func (c *CatalogClient) GetSystemMeterdefs(csvName string, version string, namespace string, reqLogger logr.Logger) ([]string, []marketplacev1beta1.MeterDefinition, *ExecResult) {
 
 	reqLogger.Info("retrieving system meterdefinitions", "csvName", csvName, "csvVersion", version)
 
-	// url := fmt.Sprintf("https://rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc.cluster.local:8200/get-system-meterdefs/%s/%s/%s", csvName, version, namespace)
 	url,err := concatPaths(c.endpoint.String(),GetSystemMeterdefinitionTemplatesEndpoint,csvName,version,namespace)
 	if err != nil {
 		return nil,nil, &ExecResult{
@@ -152,7 +171,23 @@ func (c *CatalogClient) GetSystemMeterdefs(csvName string, version string, names
 	}
 
 	response, err := c.httpClient.Get(url.String())
-	return ReturnMeterdefs(csvName,namespace,*response,err,reqLogger)
+	if err != nil {
+		reqLogger.Error(err, "Error on GET to Catalog Server")
+		if err == io.EOF {
+			reqLogger.Error(err, "system meterdefintion not found")
+			return nil, nil, &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             emperror.New("empty response"),
+			}
+		}
+
+		reqLogger.Error(err, "Error querying file server")
+		return nil, nil, &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+	return ReturnMeterdefs(csvName,namespace,*response,reqLogger)
 
 }
 
@@ -203,24 +238,7 @@ func (c *CatalogClient) GetMeterdefIndexLabel (reqLogger logr.Logger) ([]string,
 }
 
 
-func  ReturnMeterdefs (csvName string, namespace string,response http.Response,err error,reqLogger logr.Logger) ([]string, []marketplacev1beta1.MeterDefinition, *ExecResult){
-	if err != nil {
-		reqLogger.Error(err, "Error on GET to Catalog Server")
-		if err == io.EOF {
-			reqLogger.Error(err, "system meterdefintion not found")
-			return nil, nil, &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             emperror.New("empty response"),
-			}
-		}
-
-		reqLogger.Error(err, "Error querying file server")
-		return nil, nil, &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-
+func  ReturnMeterdefs (csvName string, namespace string,response http.Response,reqLogger logr.Logger) ([]string, []marketplacev1beta1.MeterDefinition, *ExecResult){
 	meterDefNames := []string{}
 	mdefSlice := []marketplacev1beta1.MeterDefinition{}
 
