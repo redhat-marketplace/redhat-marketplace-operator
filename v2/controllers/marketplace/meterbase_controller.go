@@ -55,6 +55,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -90,6 +91,7 @@ type MeterBaseReconciler struct {
 	factory       *manifests.Factory
 	patcher       patch.Patcher
 	kubeInterface kubernetes.Interface
+	recorder      record.EventRecorder
 }
 
 func (r *MeterBaseReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
@@ -136,6 +138,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		})
 
 	namespacePredicate := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
+	r.recorder = mgr.GetEventRecorderFor("meterbase-controller")
 
 	isOpenshiftMonitoringObj := func(name string, namespace string) bool {
 		return (name == utils.OPENSHIFT_CLUSTER_MONITORING_CONFIGMAP_NAME && namespace == utils.OPENSHIFT_MONITORING_NAMESPACE) ||
@@ -216,6 +219,7 @@ func (r *MeterBaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups="",namespace=system,resources=pods,verbs=get;list;watch;delete
 // +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",namespace=system,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="marketplace.redhat.com",namespace=system,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups="storage.k8s.io",resources=storageclasses,verbs=get;list;watch
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;patch;delete
@@ -250,6 +254,8 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 			),
 		),
 	)
+
+	r.recorder.Event(instance, "Warning", "DefaultClassNotFound", "test event")
 
 	if !result.Is(Continue) {
 		if result.Is(NotFound) {
@@ -1579,6 +1585,8 @@ func (r *MeterBaseReconciler) createPrometheus(
 
 		if err != nil {
 			if merrors.Is(err, operrors.DefaultStorageClassNotFound) {
+				r.recorder.Event(instance, "Warning", "DefaultClassNotFound", "Default storage class not found")
+
 				return UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
 					Type:    marketplacev1alpha1.ConditionError,
 					Status:  corev1.ConditionFalse,
@@ -1586,7 +1594,6 @@ func (r *MeterBaseReconciler) createPrometheus(
 					Message: err.Error(),
 				}), nil
 			}
-
 			return nil, merrors.Wrap(err, "error creating prometheus")
 		}
 
@@ -1627,7 +1634,6 @@ func (r *MeterBaseReconciler) newPrometheusOperator(
 
 	if cr.Spec.Prometheus.Storage.Class == nil {
 		defaultClass, err := utils.GetDefaultStorageClass(r.Client)
-
 		if err != nil {
 			return prom, err
 		}
