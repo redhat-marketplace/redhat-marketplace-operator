@@ -90,3 +90,17 @@ func CreateMeterDefinitionV1Beta1Watch(c *marketplacev1beta1client.MarketplaceV1
 		}
 	}
 }
+
+func CreateNodeListWatch(kubeClient clientset.Interface) func(string) cache.ListerWatcher {
+	return func(ns string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				return kubeClient.CoreV1().Nodes().List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				return kubeClient.CoreV1().Nodes().Watch(context.TODO(), opts)
+			},
+		}
+	}
+}
+

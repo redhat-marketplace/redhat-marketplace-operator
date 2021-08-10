@@ -14,6 +14,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meterdefinition"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/processors"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/razee"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
@@ -83,7 +84,11 @@ func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime
 	meterDefinitionRemovalWatcher := processors.ProvideMeterDefinitionRemovalWatcher(meterDefinitionDictionary, meterDefinitionStore, mailboxMailbox, log)
 	objectChannelProducer := mailbox.ProvideObjectChannelProducer(meterDefinitionStore, mailboxMailbox, log)
 	meterDefinitionChannelProducer := mailbox.ProvideMeterDefinitionChannelProducer(meterDefinitionDictionary, mailboxMailbox, log)
-	runnables := ProvideRunnables(meterDefinitionStoreRunnable, meterDefinitionDictionaryStoreRunnable, meterDefinitionSeenStoreRunnable, mailboxMailbox, statusProcessor, serviceAnnotatorProcessor, prometheusProcessor, prometheusMdefProcessor, meterDefinitionRemovalWatcher, objectChannelProducer, meterDefinitionChannelProducer, meterDefinitionDictionary)
+	razeeStore := razee.NewRazeeStore(ctx, log, clientset, findOwnerHelper, scheme)
+	razeeStoreRunnable := ProvideRazeeStoreRunnable(clientset, razeeStore, log)
+	razeeProcessor := processors.ProvideRazeeProcessor(log, clientClient, mailboxMailbox, scheme)
+	razeeChannelProducer := mailbox.ProvideRazeeChannelProducer(razeeStore, mailboxMailbox, log)
+	runnables := ProvideRunnables(meterDefinitionStoreRunnable, meterDefinitionDictionaryStoreRunnable, meterDefinitionSeenStoreRunnable, mailboxMailbox, statusProcessor, serviceAnnotatorProcessor, prometheusProcessor, prometheusMdefProcessor, meterDefinitionRemovalWatcher, objectChannelProducer, meterDefinitionChannelProducer, meterDefinitionDictionary, razeeStoreRunnable, razeeProcessor, razeeChannelProducer)
 	engine := ProvideEngine(meterDefinitionStore, namespaces, log, clientset, monitoringV1Client, meterDefinitionDictionary, marketplaceV1beta1Client, runnables, prometheusData)
 	return engine, nil
 }

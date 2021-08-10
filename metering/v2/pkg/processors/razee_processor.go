@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package processorsenders
+package processors
 
 import (
 	"context"
@@ -45,7 +45,7 @@ import (
 const maxToSend = 50
 
 type RazeeProcessor struct {
-	*ProcessorSender
+	*Processor
 	log                logr.Logger
 	kubeClient         client.Client
 	mutex              deadlock.Mutex
@@ -100,7 +100,7 @@ func ProvideRazeeProcessor(
 	scheme *runtime.Scheme,
 ) *RazeeProcessor {
 	sp := &RazeeProcessor{
-		ProcessorSender: &ProcessorSender{
+		Processor: &Processor{
 			log:           log,
 			digestersSize: 1,
 			retryCount:    3,
@@ -112,7 +112,7 @@ func ProvideRazeeProcessor(
 		scheme:     scheme,
 	}
 
-	sp.ProcessorSender.DeltaProcessorSender = sp
+	sp.Processor.DeltaProcessor = sp
 	return sp
 }
 
@@ -128,10 +128,10 @@ func (r *RazeeProcessor) Process(ctx context.Context, inObj cache.Delta) error {
 		return nil
 	}
 
-	svcobj, ok := inObj.Object.(*corev1.Service)
-	if !ok {
-		r.log.Info("dac debug NotOkToService")
-	}
+	// svcobj, ok := inObj.Object.(*corev1.Service)
+	// if !ok {
+	// 	r.log.Info("dac debug NotOkToService")
+	// }
 
 	unstructuredObj := unstructured.Unstructured{}
 	unstructuredContent, err := runtime.DefaultUnstructuredConverter.ToUnstructured(inObj.Object)
@@ -147,7 +147,7 @@ func (r *RazeeProcessor) Process(ctx context.Context, inObj cache.Delta) error {
 		}
 	*/
 
-	r.log.Info("dac debug Process", "EventType", inObj.Type)
+	r.log.Info("dac debug Process", "EventType", inObj.Type, "obj", inObj.Object)
 
 	var eventType watch.EventType
 
@@ -170,27 +170,27 @@ func (r *RazeeProcessor) Process(ctx context.Context, inObj cache.Delta) error {
 
 	// Sanitize Object & append to processed
 	r.prepObject2Send(&unstructuredObj)
-	numEventObjs := r.processedEventObjs.Add(EventObj{Type: eventType, Object: unstructuredObj})
+	//numEventObjs := r.processedEventObjs.Add(EventObj{Type: eventType, Object: unstructuredObj})
 
-	// dac debug
+	// // dac debug
 	eventTest := EventObj{Type: eventType, Object: unstructuredObj}
 	_ = eventTest
-	b, err := json.Marshal(svcobj)
+	b, err := json.Marshal(unstructuredObj)
 	if err != nil {
 		return err
 	}
 	r.log.Info("dac debug", "marshal", string(b))
 
-	b, err = svcobj.Marshal()
-	if err != nil {
-		return err
-	}
-	r.log.Info("dac debug", "svcobj marshal", string(b))
+	// b, err = svcobj.Marshal()
+	// if err != nil {
+	// 	return err
+	// }
+	// r.log.Info("dac debug", "svcobj marshal", string(b))
 
 	// Accumulator is full, ready to send
-	if numEventObjs >= maxToSend {
-		r.ProcessorSender.sendReadyChan <- true
-	}
+	// if numEventObjs >= maxToSend {
+	// 	r.Processor. <- true
+	// }
 
 	return nil
 }
@@ -308,8 +308,8 @@ func (r *RazeeProcessor) getRazeeDashURL(baseurl string, clusterID string) (stri
 }
 
 func (r *RazeeProcessor) postToRazeeDash(url string, body io.Reader, razeeOrgKey string) error {
-
 	client := retryablehttp.NewClient()
+
 	client.RetryWaitMin = 3000 * time.Millisecond
 	client.RetryWaitMax = 5000 * time.Millisecond
 	client.RetryMax = 5

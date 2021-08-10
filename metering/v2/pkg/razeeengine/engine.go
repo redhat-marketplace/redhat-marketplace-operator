@@ -192,7 +192,7 @@ func ProvideRazeeStoreRunnable(
 	return &RazeeStoreRunnable{
 		StoreRunnable: StoreRunnable{
 			Store:      store,
-			ResyncTime: 0,
+			ResyncTime: 30 * time.Second,
 			log:        log.WithName("razee"),
 			Reflectors: []Runnable{
 				provideNodeLister(kubeClient, store),

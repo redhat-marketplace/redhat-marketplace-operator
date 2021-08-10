@@ -29,6 +29,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meterdefinition"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/razee"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
@@ -400,10 +401,57 @@ func provideMeterDefinitionListerRunnable(
 	}
 }
 
+type RazeeStoreRunnable struct {
+	StoreRunnable
+}
+
+func ProvideRazeeStoreRunnable(
+	kubeClient clientset.Interface,
+	store *razee.RazeeStore,
+	log logr.Logger,
+) *RazeeStoreRunnable {
+	return &RazeeStoreRunnable{
+		StoreRunnable: StoreRunnable{
+			Store:      store,
+			ResyncTime: 30 * time.Second,
+			log:        log.WithName("razee"),
+			Reflectors: []Runnable{
+				provideNodeLister(kubeClient, store),
+			},
+		},
+	}
+}
+
+type NodeListerRunnable struct {
+	ListerRunnable
+}
+
+var (
+	clusterScoped pkgtypes.Namespaces = []string{""}
+)
+
+func provideNodeLister(
+	kubeClient clientset.Interface,
+	store cache.Store,
+) *NodeListerRunnable {
+	return &NodeListerRunnable{
+		ListerRunnable: ListerRunnable{
+			reflectorConfig: reflectorConfig{
+				expectedType: &corev1.Node{},
+				lister:       CreateNodeListWatch(kubeClient),
+			},
+			Store: store,
+			namespaces: clusterScoped,
+		},
+	}
+}
+
 var EngineSet = wire.NewSet(
 	ProvideEngine,
 	dictionary.NewMeterDefinitionDictionary,
 	meterdefinition.NewMeterDefinitionStore,
 	meterdefinition.NewObjectsSeenStore,
 	dictionary.NewMeterDefinitionsSeenStore,
+	ProvideRazeeStoreRunnable,
+	razee.NewRazeeStore,
 )

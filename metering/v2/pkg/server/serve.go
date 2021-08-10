@@ -91,13 +91,6 @@ func (s *Service) Serve(done <-chan struct{}) error {
 		panic(err)
 	}
 
-	err = s.razeeEngine.Start(ctx)
-
-	if err != nil {
-		log.Error(err, "failed to start razee engine")
-		panic(err)
-	}
-
 	s.metricsRegistry.MustRegister(
 		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
 		prometheus.NewGoCollector(),
