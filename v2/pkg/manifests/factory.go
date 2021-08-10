@@ -222,8 +222,6 @@ func (f *Factory) NewDeploymentConfig(manifest io.Reader) (*osappsv1.DeploymentC
 
 	f.ReplaceDeploymentConfigValues(d)
 
-	utils.PrettyPrint(d)
-
 	return d, nil
 }
 
