@@ -109,19 +109,6 @@ func CreateNodeListWatch(kubeClient clientset.Interface) func(string) cache.List
 	}
 }
 
-func CreateClusterServiceVersionListWatch(c *olmv1alpha1client.OperatorsV1alpha1Client) func(string) cache.ListerWatcher {
-	return func(ns string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				return c.ClusterServiceVersions(ns).List(context.TODO(), opts)
-			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				return c.ClusterServiceVersions(ns).Watch(context.TODO(), opts)
-			},
-		}
-	}
-}
-
 func CreateDeploymentListWatch(kubeClient clientset.Interface) func(string) cache.ListerWatcher {
 	return func(ns string) cache.ListerWatcher {
 		return &cache.ListWatch{
@@ -130,6 +117,19 @@ func CreateDeploymentListWatch(kubeClient clientset.Interface) func(string) cach
 			},
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
 				return kubeClient.AppsV1().Deployments(ns).Watch(context.TODO(), opts)
+			},
+		}
+	}
+}
+
+func CreateClusterServiceVersionListWatch(c *olmv1alpha1client.OperatorsV1alpha1Client) func(string) cache.ListerWatcher {
+	return func(ns string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				return c.ClusterServiceVersions(ns).List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				return c.ClusterServiceVersions(ns).Watch(context.TODO(), opts)
 			},
 		}
 	}
@@ -148,7 +148,7 @@ func CreateClusterVersionListWatch(c *configv1client.ConfigV1Client) func(string
 	}
 }
 
-func CreateConsolesListWatch(c *configv1client.ConfigV1Client) func(string) cache.ListerWatcher {
+func CreateConsoleListWatch(c *configv1client.ConfigV1Client) func(string) cache.ListerWatcher {
 	return func(ns string) cache.ListerWatcher {
 		return &cache.ListWatch{
 			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {

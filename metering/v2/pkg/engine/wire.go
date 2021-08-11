@@ -21,11 +21,15 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/google/wire"
+	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	olmv1alpha1client "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/clientset/versioned/typed/operators/v1alpha1"
 	monitoringv1client "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
+	marketplacev1alpha1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1alpha1"
 	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
+
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
@@ -47,8 +51,11 @@ func NewEngine(
 		dictionary.ProvideMeterDefinitionList,
 		RunnablesSet,
 		EngineSet,
+		marketplacev1alpha1client.NewForConfig,
 		marketplacev1beta1client.NewForConfig,
 		monitoringv1client.NewForConfig,
+		olmv1alpha1client.NewForConfig,
+		configv1client.NewForConfig,
 		rhmclient.NewFindOwnerHelper,
 		client.NewDynamicClient,
 		managers.AddIndices,

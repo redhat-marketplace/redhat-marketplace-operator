@@ -8,6 +8,8 @@ package engine
 import (
 	"context"
 	"github.com/go-logr/logr"
+	v1_2 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/clientset/versioned/typed/operators/v1alpha1"
 	"github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
@@ -16,6 +18,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/processors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/razee"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
+	v1alpha1_2 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
@@ -84,8 +87,20 @@ func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime
 	meterDefinitionRemovalWatcher := processors.ProvideMeterDefinitionRemovalWatcher(meterDefinitionDictionary, meterDefinitionStore, mailboxMailbox, log)
 	objectChannelProducer := mailbox.ProvideObjectChannelProducer(meterDefinitionStore, mailboxMailbox, log)
 	meterDefinitionChannelProducer := mailbox.ProvideMeterDefinitionChannelProducer(meterDefinitionDictionary, mailboxMailbox, log)
+	operatorsV1alpha1Client, err := v1alpha1.NewForConfig(k8sRestConfig)
+	if err != nil {
+		return nil, err
+	}
+	configV1Client, err := v1_2.NewForConfig(k8sRestConfig)
+	if err != nil {
+		return nil, err
+	}
+	marketplaceV1alpha1Client, err := v1alpha1_2.NewForConfig(k8sRestConfig)
+	if err != nil {
+		return nil, err
+	}
 	razeeStore := razee.NewRazeeStore(ctx, log, clientset, findOwnerHelper, scheme)
-	razeeStoreRunnable := ProvideRazeeStoreRunnable(clientset, razeeStore, log)
+	razeeStoreRunnable := ProvideRazeeStoreRunnable(clientset, operatorsV1alpha1Client, configV1Client, marketplaceV1alpha1Client, namespaces, razeeStore, log)
 	razeeProcessor := processors.ProvideRazeeProcessor(log, clientClient, mailboxMailbox, scheme)
 	razeeChannelProducer := mailbox.ProvideRazeeChannelProducer(razeeStore, mailboxMailbox, log)
 	runnables := ProvideRunnables(meterDefinitionStoreRunnable, meterDefinitionDictionaryStoreRunnable, meterDefinitionSeenStoreRunnable, mailboxMailbox, statusProcessor, serviceAnnotatorProcessor, prometheusProcessor, prometheusMdefProcessor, meterDefinitionRemovalWatcher, objectChannelProducer, meterDefinitionChannelProducer, meterDefinitionDictionary, razeeStoreRunnable, razeeProcessor, razeeChannelProducer)

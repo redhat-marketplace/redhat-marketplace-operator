@@ -24,15 +24,23 @@ import (
 	"github.com/InVisionApp/go-health/v2"
 	"github.com/go-logr/logr"
 	"github.com/google/wire"
+	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	olmv1alpha1client "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/clientset/versioned/typed/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringv1client "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
+	marketplacev1alpha1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1alpha1"
+	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
+
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/meterdefinition"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/razee"
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
-	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -407,6 +415,10 @@ type RazeeStoreRunnable struct {
 
 func ProvideRazeeStoreRunnable(
 	kubeClient clientset.Interface,
+	olmv1alpha1Client *olmv1alpha1client.OperatorsV1alpha1Client,
+	configv1Client *configv1client.ConfigV1Client,
+	marketplacev1alpha1Client *marketplacev1alpha1client.MarketplaceV1alpha1Client,
+	nses pkgtypes.Namespaces,
 	store *razee.RazeeStore,
 	log logr.Logger,
 ) *RazeeStoreRunnable {
@@ -416,21 +428,27 @@ func ProvideRazeeStoreRunnable(
 			ResyncTime: 30 * time.Second,
 			log:        log.WithName("razee"),
 			Reflectors: []Runnable{
-				provideNodeLister(kubeClient, store),
+				provideNodeListerRunnable(kubeClient, store),
+				provideDeploymentListerRunnable(kubeClient, nses, store),
+				provideClusterServiceVersionListerRunnable(olmv1alpha1Client, nses, store),
+				provideClusterVersionListerRunnable(configv1Client, store),
+				provideConsoleListerRunnable(configv1Client, store),
+				provideInfrastructureListerRunnable(configv1Client, store),
+				provideMarketplaceConfigListerRunnable(marketplacev1alpha1Client, nses, store),
 			},
 		},
 	}
-}
-
-type NodeListerRunnable struct {
-	ListerRunnable
 }
 
 var (
 	clusterScoped pkgtypes.Namespaces = []string{""}
 )
 
-func provideNodeLister(
+type NodeListerRunnable struct {
+	ListerRunnable
+}
+
+func provideNodeListerRunnable(
 	kubeClient clientset.Interface,
 	store cache.Store,
 ) *NodeListerRunnable {
@@ -442,6 +460,129 @@ func provideNodeLister(
 			},
 			Store:      store,
 			namespaces: clusterScoped,
+		},
+	}
+}
+
+type DeploymentListerRunnable struct {
+	ListerRunnable
+}
+
+func provideDeploymentListerRunnable(
+	kubeClient clientset.Interface,
+	nses pkgtypes.Namespaces,
+	store cache.Store,
+) *DeploymentListerRunnable {
+	return &DeploymentListerRunnable{
+		ListerRunnable: ListerRunnable{
+			reflectorConfig: reflectorConfig{
+				expectedType: &appsv1.Deployment{},
+				lister:       CreateDeploymentListWatch(kubeClient),
+			},
+			namespaces: nses,
+			Store:      store,
+		},
+	}
+}
+
+type ClusterServiceVersionListerRunnable struct {
+	ListerRunnable
+}
+
+func provideClusterServiceVersionListerRunnable(
+	c *olmv1alpha1client.OperatorsV1alpha1Client,
+	nses pkgtypes.Namespaces,
+	store cache.Store,
+) *ClusterServiceVersionListerRunnable {
+	return &ClusterServiceVersionListerRunnable{
+		ListerRunnable: ListerRunnable{
+			reflectorConfig: reflectorConfig{
+				expectedType: &olmv1alpha1.ClusterServiceVersion{},
+				lister:       CreateClusterServiceVersionListWatch(c),
+			},
+			Store:      store,
+			namespaces: nses,
+		},
+	}
+}
+
+type ClusterVersionListerRunnable struct {
+	ListerRunnable
+}
+
+func provideClusterVersionListerRunnable(
+	c *configv1client.ConfigV1Client,
+	store cache.Store,
+) *ClusterVersionListerRunnable {
+	return &ClusterVersionListerRunnable{
+		ListerRunnable: ListerRunnable{
+			reflectorConfig: reflectorConfig{
+				expectedType: &openshiftconfigv1.ClusterVersion{},
+				lister:       CreateClusterVersionListWatch(c),
+			},
+			Store:      store,
+			namespaces: clusterScoped,
+		},
+	}
+}
+
+type ConsoleListerRunnable struct {
+	ListerRunnable
+}
+
+func provideConsoleListerRunnable(
+	c *configv1client.ConfigV1Client,
+	store cache.Store,
+) *ConsoleListerRunnable {
+	return &ConsoleListerRunnable{
+		ListerRunnable: ListerRunnable{
+			reflectorConfig: reflectorConfig{
+				expectedType: &openshiftconfigv1.Console{},
+				lister:       CreateConsoleListWatch(c),
+			},
+			Store:      store,
+			namespaces: clusterScoped,
+		},
+	}
+}
+
+type InfrastructureListerRunnable struct {
+	ListerRunnable
+}
+
+func provideInfrastructureListerRunnable(
+	c *configv1client.ConfigV1Client,
+	store cache.Store,
+) *InfrastructureListerRunnable {
+	return &InfrastructureListerRunnable{
+		ListerRunnable: ListerRunnable{
+			reflectorConfig: reflectorConfig{
+				expectedType: &openshiftconfigv1.Infrastructure{},
+				lister:       CreateInfrastructureListWatch(c),
+			},
+			Store:      store,
+			namespaces: clusterScoped,
+		},
+	}
+}
+
+type MarketplaceConfigListerRunnable struct {
+	ListerRunnable
+}
+
+func provideMarketplaceConfigListerRunnable(
+	c *marketplacev1alpha1client.MarketplaceV1alpha1Client,
+	nses pkgtypes.Namespaces,
+	store cache.Store,
+) *MarketplaceConfigListerRunnable {
+	return &MarketplaceConfigListerRunnable{
+		ListerRunnable: ListerRunnable{
+			reflectorConfig: reflectorConfig{
+				expectedType: &v1alpha1.MarketplaceConfig{},
+				lister:       CreateMarketplaceConfigV1Alpha1Watch(c),
+			},
+			namespaces: nses,
+			Store:      store,
 		},
 	}
 }
