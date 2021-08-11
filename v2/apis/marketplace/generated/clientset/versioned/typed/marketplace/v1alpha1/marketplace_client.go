@@ -26,12 +26,17 @@ import (
 
 type MarketplaceV1alpha1Interface interface {
 	RESTClient() rest.Interface
+	MarketplaceConfigsGetter
 	MeterDefinitionsGetter
 }
 
 // MarketplaceV1alpha1Client is used to interact with features provided by the marketplace.redhat.com group.
 type MarketplaceV1alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *MarketplaceV1alpha1Client) MarketplaceConfigs(namespace string) MarketplaceConfigInterface {
+	return newMarketplaceConfigs(c, namespace)
 }
 
 func (c *MarketplaceV1alpha1Client) MeterDefinitions(namespace string) MeterDefinitionInterface {

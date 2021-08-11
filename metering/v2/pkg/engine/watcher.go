@@ -17,8 +17,13 @@ package engine
 import (
 	"context"
 
+	olmv1alpha1client "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/clientset/versioned/typed/operators/v1alpha1"
 	monitoringv1client "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
+	marketplacev1alpha1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1alpha1"
 	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
+
+	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -104,3 +109,80 @@ func CreateNodeListWatch(kubeClient clientset.Interface) func(string) cache.List
 	}
 }
 
+func CreateClusterServiceVersionListWatch(c *olmv1alpha1client.OperatorsV1alpha1Client) func(string) cache.ListerWatcher {
+	return func(ns string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				return c.ClusterServiceVersions(ns).List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				return c.ClusterServiceVersions(ns).Watch(context.TODO(), opts)
+			},
+		}
+	}
+}
+
+func CreateDeploymentListWatch(kubeClient clientset.Interface) func(string) cache.ListerWatcher {
+	return func(ns string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				return kubeClient.AppsV1().Deployments(ns).List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				return kubeClient.AppsV1().Deployments(ns).Watch(context.TODO(), opts)
+			},
+		}
+	}
+}
+
+func CreateClusterVersionListWatch(c *configv1client.ConfigV1Client) func(string) cache.ListerWatcher {
+	return func(ns string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				return c.ClusterVersions().List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				return c.ClusterVersions().Watch(context.TODO(), opts)
+			},
+		}
+	}
+}
+
+func CreateConsolesListWatch(c *configv1client.ConfigV1Client) func(string) cache.ListerWatcher {
+	return func(ns string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				return c.Consoles().List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				return c.Consoles().Watch(context.TODO(), opts)
+			},
+		}
+	}
+}
+
+func CreateInfrastructureListWatch(c *configv1client.ConfigV1Client) func(string) cache.ListerWatcher {
+	return func(ns string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				return c.Infrastructures().List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				return c.Infrastructures().Watch(context.TODO(), opts)
+			},
+		}
+	}
+}
+
+func CreateMarketplaceConfigV1Alpha1Watch(c *marketplacev1alpha1client.MarketplaceV1alpha1Client) func(string) cache.ListerWatcher {
+	return func(ns string) cache.ListerWatcher {
+		return &cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				return c.MarketplaceConfigs(ns).List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				return c.MarketplaceConfigs(ns).Watch(context.TODO(), opts)
+			},
+		}
+	}
+}

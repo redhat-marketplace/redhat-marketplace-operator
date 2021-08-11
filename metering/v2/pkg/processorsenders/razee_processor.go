@@ -27,17 +27,17 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
 	"github.com/sasha-s/go-deadlock"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"k8s.io/apimachinery/pkg/watch"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	merrors "emperror.dev/errors"
 	retryablehttp "github.com/hashicorp/go-retryablehttp"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -55,8 +55,8 @@ type RazeeProcessor struct {
 
 // EventObj is the obj to be marshal and sent
 type EventObj struct {
-	Type   watch.EventType           `json:"type,omitempty"`
-	Object unstructured.Unstructured `json:"object,omitempty"`
+	Type   watch.EventType `json:"type,omitempty"`
+	Object runtime.Object  `json:"object,omitempty"`
 }
 
 type ProcessedEventObjs struct {
@@ -128,29 +128,20 @@ func (r *RazeeProcessor) Process(ctx context.Context, inObj cache.Delta) error {
 		return nil
 	}
 
-	svcobj, ok := inObj.Object.(*corev1.Service)
-	if !ok {
-		r.log.Info("dac debug NotOkToService")
-	}
+	// cache.Delta.Object does not retain GVK
+	// Use scheme to determine GVK and return a runtime.Object
 
-	unstructuredObj := unstructured.Unstructured{}
-	unstructuredContent, err := runtime.DefaultUnstructuredConverter.ToUnstructured(inObj.Object)
+	rtObj, err := r.getRuntimeObj(inObj.Object)
 	if err != nil {
 		return err
 	}
-	unstructuredObj.SetUnstructuredContent(unstructuredContent)
 
-	/*
-		_, ok := inObj.Object.(*corev1.Service)
-		if ok {
-			unstructuredObj.SetGroupVersionKind
-		}
-	*/
+	// Sanitize the object
+	r.log.Info("dac debug Process Sanitize")
+	r.prepObject2Send(rtObj)
 
-	r.log.Info("dac debug Process", "EventType", inObj.Type)
-
+	// Map the cache type to the watch/event type
 	var eventType watch.EventType
-
 	switch inObj.Type {
 	case cache.Deleted:
 		eventType = watch.Deleted
@@ -166,31 +157,37 @@ func (r *RazeeProcessor) Process(ctx context.Context, inObj cache.Delta) error {
 		return nil
 	}
 
-	r.log.Info("dac debug Process Sanitize")
-
-	// Sanitize Object & append to processed
-	r.prepObject2Send(&unstructuredObj)
-	numEventObjs := r.processedEventObjs.Add(EventObj{Type: eventType, Object: unstructuredObj})
-
-	// dac debug
-	eventTest := EventObj{Type: eventType, Object: unstructuredObj}
-	_ = eventTest
-	b, err := json.Marshal(svcobj)
+	// Build the eventObj, as per Razee
+	eventObj := EventObj{Type: eventType, Object: rtObj}
+	b, err := json.Marshal(eventObj)
 	if err != nil {
 		return err
 	}
 	r.log.Info("dac debug", "marshal", string(b))
 
-	b, err = svcobj.Marshal()
-	if err != nil {
-		return err
-	}
-	r.log.Info("dac debug", "svcobj marshal", string(b))
+	//numEventObjs := r.processedEventObjs.Add(EventObj{Type: eventType, Object: unstructuredObj})
+
+	// // dac debug
+	/*
+		eventTest := EventObj{Type: eventType, Object: unstructuredObj}
+		_ = eventTest
+		b, err := json.Marshal(unstructuredObj)
+		if err != nil {
+			return err
+		}
+		r.log.Info("dac debug", "marshal", string(b))
+	*/
+
+	// b, err = svcobj.Marshal()
+	// if err != nil {
+	// 	return err
+	// }
+	// r.log.Info("dac debug", "svcobj marshal", string(b))
 
 	// Accumulator is full, ready to send
-	if numEventObjs >= maxToSend {
-		r.ProcessorSender.sendReadyChan <- true
-	}
+	// if numEventObjs >= maxToSend {
+	// 	r.Processor. <- true
+	// }
 
 	return nil
 }
@@ -245,12 +242,50 @@ func (r *RazeeProcessor) Send(ctx context.Context) error {
 	return nil
 }
 
-func (r *RazeeProcessor) prepObject2Send(obj *unstructured.Unstructured) {
-	annotations := obj.GetAnnotations()
-	delete(annotations, "kubectl.kubernetes.io/last-applied-configuration")
-	delete(annotations, "kapitan.razee.io/last-applied-configuration")
-	delete(annotations, "deploy.razee.io/last-applied-configuration")
-	obj.SetAnnotations(annotations)
+// Set the GVK on the object from the scheme/watched types
+func (r *RazeeProcessor) getRuntimeObj(inObj interface{}) (runtime.Object, error) {
+
+	rtObj, ok := inObj.(runtime.Object)
+	if !ok {
+		return nil, merrors.New("Could not convert cache delta object to runtime object")
+	}
+
+	gvks, _, err := r.scheme.ObjectKinds(rtObj)
+	if err != nil {
+		return nil, err
+	}
+
+	rtObj.GetObjectKind().SetGroupVersionKind(gvks[0])
+
+	return rtObj, nil
+}
+
+// Sanitize the objects to send
+func (r *RazeeProcessor) prepObject2Send(obj interface{}) {
+
+	metaobj, err := meta.Accessor(obj)
+	if err == nil {
+		annotations := metaobj.GetAnnotations()
+		delete(annotations, "kubectl.kubernetes.io/last-applied-configuration")
+		delete(annotations, "kapitan.razee.io/last-applied-configuration")
+		delete(annotations, "deploy.razee.io/last-applied-configuration")
+		metaobj.SetAnnotations(annotations)
+	}
+
+	// Nodes
+	if node, ok := obj.(*corev1.Node); ok {
+		r.log.Info("dac debug sanitize node")
+		node.Status.Images = []corev1.ContainerImage{}
+	}
+
+	// Deployments
+	if deployment, ok := obj.(*appsv1.Deployment); ok {
+		r.log.Info("dac debug sanitize deployment")
+		for i, _ := range deployment.Spec.Template.Spec.Containers {
+			deployment.Spec.Template.Spec.Containers[i].Env = []corev1.EnvVar{}
+		}
+	}
+
 }
 
 // Get the RazeeDash URL & Org Key from the rhm-operator-secret

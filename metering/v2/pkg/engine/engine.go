@@ -440,7 +440,7 @@ func provideNodeLister(
 				expectedType: &corev1.Node{},
 				lister:       CreateNodeListWatch(kubeClient),
 			},
-			Store: store,
+			Store:      store,
 			namespaces: clusterScoped,
 		},
 	}
