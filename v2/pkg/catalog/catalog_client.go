@@ -199,17 +199,16 @@ func(c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, version
 	}
 }
 
-func  ReturnMeterdefs (mdefSlice []marketplacev1beta1.MeterDefinition,csvName string, namespace string,reqLogger logr.Logger) ([]string, []marketplacev1beta1.MeterDefinition, *ExecResult){
-	meterDefNames := []string{}
+func  ReturnMeterdefs (mdefSlice []marketplacev1beta1.MeterDefinition,csvName string, namespace string,reqLogger logr.Logger) ([]marketplacev1beta1.MeterDefinition, *ExecResult){
+
+	var out []marketplacev1beta1.MeterDefinition
 	
 	for _, meterDefItem := range mdefSlice {
 		meterDefItem.Namespace = namespace
-		meterDefNames = append(meterDefNames, meterDefItem.ObjectMeta.Name)
+		out = append(out,meterDefItem)
 	}
 
-	reqLogger.Info("meterdefintions returned from file server", csvName, meterDefNames)
-
-	return meterDefNames, mdefSlice, &ExecResult{
+	return out, &ExecResult{
 		Status: ActionResultStatus(Continue),
 	}
 }
@@ -286,16 +285,18 @@ func  ReturnSystemMeterdefs (csvName string, namespace string,response http.Resp
 	}
 }
 
-func (c *CatalogClient) GetMeterdefIndexLabels (reqLogger logr.Logger) (map[string]string,*ExecResult) {
+func (c *CatalogClient) GetMeterdefIndexLabels (reqLogger logr.Logger,csvName string) (map[string]string,*ExecResult) {
 	reqLogger.Info("retrieving meterdefinition index label")
 
-	url,err := concatPaths(c.endpoint.String(),GetMeterdefinitionIndexLabelEndpoint)
+	url,err := concatPaths(c.endpoint.String(),GetMeterdefinitionIndexLabelEndpoint,csvName)
 	if err != nil {
 		return nil, &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
 		}
 	}
+
+	reqLogger.Info("calling file server for meterdef index labels","url",url.String())
 
 	response, err := c.httpClient.Get(url.String())
 	if err != nil {

@@ -57,7 +57,7 @@ type RelatedImages struct {
 	OAuthProxy                  string `env:"RELATED_IMAGE_OAUTH_PROXY" envDefault:"registry.redhat.io/openshift4/ose-oauth-proxy:latest"`
 	RemoteResourceS3            string `env:"RELATED_IMAGE_RHM_RRS3_DEPLOYMENT" envDefault:"quay.io/razee/remoteresources3:0.6.2"`
 	WatchKeeper                 string `env:"RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT" envDefault:"quay.io/razee/watch-keeper:0.6.6"`
-	DeploymentConfig            string `env:"RELATED_IMAGE_DEPLOYMENT_CONFIG" envDefault:"quay.io/mxpaspa/rhm-meterdefinition-file-server:develop-0f453c86e4d568ed1455f3faa274d97f39d8a7d1"`
+	DeploymentConfig            string `env:"RELATED_IMAGE_DEPLOYMENT_CONFIG" envDefault:"quay.io/mxpaspa/rhm-meterdefinition-file-server:catalog-response-1.0.0"`
 }
 
 // OSRelatedImages stores open source related images for the operator

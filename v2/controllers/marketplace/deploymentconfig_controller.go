@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-cmp/cmp"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"k8s.io/client-go/kubernetes"
 
@@ -144,7 +143,7 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=get;list;watch
 // +kubebuilder:rbac:urls=/list-for-version/*,verbs=get;
 // +kubebuilder:rbac:urls=/get-system-meterdefs/*,verbs=get;
-// +kubebuilder:rbac:urls=/meterdef-index-label,verbs=get;
+// +kubebuilder:rbac:urls=/meterdef-index-label/*,verbs=get;
 // +kubebuilder:rbac:groups="authentication.k8s.io",resources=tokenreviews,verbs=create;get
 // +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create;get
 
@@ -230,7 +229,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 			}
 		}
 
-		labelsMap, result := catalogClient.GetMeterdefIndexLabels(reqLogger)
+		labelsMap, result := catalogClient.GetMeterdefIndexLabels(reqLogger,splitName)
 		if !result.Is(Continue) {
 			return result
 		}
@@ -242,7 +241,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 
 		/*
 			csv is on the cluster but doesn't have a csv dir: delete all meterdefs for that csv
-			once all meterdefs are deleted, skip to the next iteration
+			once all meterdefs are deleted, skip to the next csv
 		*/
 		if catologResponse.CatalogStatus.CatlogStatusType == catalog.CsvDoesNotHaveCatalogDirStatus || catologResponse.CatalogStatus.CatlogStatusType == catalog.CsvHasNoMeterdefinitionsStatus {
 			result = r.deleteAllMeterdefsForCsv(labelsMap, reqLogger)
@@ -257,7 +256,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 		/*
 			if the csv has a direcotry in the meterdefinition catalog and the directory contains meterdefinitions, run a sync on those meterdefinitions
 		*/
-		_, meterDefsFromFileServer, _ := catalog.ReturnMeterdefs(catologResponse.MdefList, csv.Name, csv.Namespace, reqLogger)
+		meterDefsFromCatalog, result := catalog.ReturnMeterdefs(catologResponse.MdefList, csv.Name, csv.Namespace, reqLogger)
 		if !result.Is(Continue) {
 			return result
 		}
@@ -268,17 +267,18 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 		}
 
 		/*
-			delete a meterdef if: there is a meterdef that originated from the catalog installed on the cluster, but that meterdef is not in the latest file server image
+			delete a meterdef if there is a meterdef that originated from the catalog installed on the cluster, but that meterdef is not in the latest file server image
 		*/
-		result = r.deleteOnDiff(meterDefsFromFileServer, installedMeterdefs.Items,reqLogger)
+		result = r.deleteOnDiff(installedMeterdefs.Items,meterDefsFromCatalog,reqLogger)
 		if !result.Is(Continue) {
 			return result
 		}
 
-		for _, catalogMeterdef := range meterDefsFromFileServer {
+		for _, catalogMeterdef := range meterDefsFromCatalog {
 
 			installedMdef := &marketplacev1beta1.MeterDefinition{}
-			err = r.Client.Get(context.TODO(), types.NamespacedName{catalogMeterdef.Name, catalogMeterdef.Namespace}, installedMdef)
+			reqLogger.Info("finding meterdefintion",catalogMeterdef.Name, catalogMeterdef.Namespace)
+			err = r.Client.Get(context.TODO(), types.NamespacedName{Name:catalogMeterdef.Name, Namespace: catalogMeterdef.Namespace}, installedMdef)
 			if err != nil && errors.IsNotFound(err) {
 				/*
 					create a meterdef for a csv if: the csv has meterdefinition listed in the catalog and that mdef is not on the cluster
@@ -293,10 +293,12 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 					ReconcileResult: reconcile.Result{},
 					Err:             err,
 				}
-				/*
-					update a meterdef for a csv if: the meterdef is listed in the catalog and is also on the cluster
-				*/
+
 			} else {
+				/*
+					update a meterdef for a csv if a meterdef from the catalog is also on the cluster && the meterdef from the catalog contains an update to .Spec or .Annotations
+					//TODO: what fields should we check a diff for ? 
+				*/
 				result := r.updateMeterdef(*installedMdef, catalogMeterdef, reqLogger)
 				if !result.Is(Continue) {
 					return result
@@ -339,6 +341,9 @@ func (r *DeploymentConfigReconciler) updateMeterdef(installedMdef marketplacev1b
 }
 
 func (r *DeploymentConfigReconciler) createMeterdef(meterDefinition marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.InfoLogger) *ExecResult {
+	
+
+	
 	gvk, err := apiutil.GVKForObject(csv, r.Scheme)
 	if err != nil {
 		return &ExecResult{
@@ -385,13 +390,14 @@ func(r *DeploymentConfigReconciler) deleteOnDiff(installedMeterdefs []marketplac
 		for _, installedMeterdef := range installedMeterdefs {
 			found := false
 			for _, meterdefFromCatalog := range meterdefsFromCatalog {
-				if cmp.Equal(installedMeterdef, meterdefFromCatalog) {
+				if installedMeterdef.Name != meterdefFromCatalog.Name {
 					found = true
 					break
 				}
 			}
 			// String not found. We add it to return slice
 			if !found {
+				reqLogger.Info("meterdef has been selected for deletion","meterdef",installedMeterdef.Name)
 				r.deleteMeterDef(installedMeterdef.Name,installedMeterdef.Namespace,reqLogger)
 			}
 		}

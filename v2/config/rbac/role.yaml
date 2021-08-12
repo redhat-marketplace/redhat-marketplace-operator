@@ -20,6 +20,10 @@ rules:
   - /list-for-version/*
   verbs:
   - get
+- nonResourceURLs:
+  - /meterdef-index-label/*
+  verbs:
+  - get
 - apiGroups:
   - ""
   resources:

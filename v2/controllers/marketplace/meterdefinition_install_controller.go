@@ -149,7 +149,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 
 					if catalogResponse.CatalogStatus.CatlogStatusType == catalog.CsvWithMeterdefsFoundStatus {
 						mdefs := catalogResponse.MdefList
-						_,communityMeterdefs,result := catalog.ReturnMeterdefs(mdefs,csvName,CSV.Namespace,reqLogger)
+						communityMeterdefs,result := catalog.ReturnMeterdefs(mdefs,csvName,CSV.Namespace,reqLogger)
 						if !result.Is(Continue) {
 
 							if result.Is(Error) {
@@ -161,15 +161,18 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 						allMeterDefinitions = append(allMeterDefinitions, communityMeterdefs...)
 					}
 
-					_, globalMeterdefinitions, result := catalogClient.GetSystemMeterdefs(csvName, csvVersion, CSV.Namespace, reqLogger)
-					if !result.Is(Continue) {
+					//TODO: temp for now until we update templating work
+					// _, globalMeterdefinitions, result := catalogClient.GetSystemMeterdefs(csvName, csvVersion, CSV.Namespace, reqLogger)
+					// if !result.Is(Continue) {
 
-						if result.Is(Error) {
-							reqLogger.Error(result.GetError(), "Failed retrieving global meterdefinitions", "CSV", csvName)
-						}
+					// 	if result.Is(Error) {
+					// 		reqLogger.Error(result.GetError(), "Failed retrieving global meterdefinitions", "CSV", csvName)
+					// 	}
 
-						result.Return()
-					}
+					// 	result.Return()
+					// }
+
+					globalMeterdefinitions := []marketplacev1beta1.MeterDefinition{}
 
 					allMeterDefinitions = append(allMeterDefinitions, globalMeterdefinitions...)
 
@@ -219,21 +222,6 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	return reconcile.Result{}, nil
 }
 
-//TODO: remove this and just pick up every CSV
-// func reconcileCSV(metaNew metav1.Object) bool {
-// 	ann := metaNew.GetAnnotations()
-
-// 	ignoreVal, hasIgnoreTag := ann[ignoreTag]
-
-// 	// we need to pick up the csv
-// 	if !hasIgnoreTag || ignoreVal != ignoreTagValue {
-// 		return true
-// 	}
-
-// 	//ignore
-// 	return false
-// }
-
 func (r *MeterdefinitionInstallReconciler) createMeterdef(csvName string, csvVersion string, meterDefinition marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, groupVersionKind schema.GroupVersionKind, request reconcile.Request, reqLogger logr.InfoLogger) *ExecResult {
 
 	// create owner ref object
@@ -281,25 +269,21 @@ func checkForCSVVersionChanges(e event.UpdateEvent) bool {
 
 var rhmCSVControllerPredicates predicate.Funcs = predicate.Funcs {
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		// if !reconcileCSV(e.MetaNew) || !reconcileCSV(e.MetaOld) {
-		// 	return false
-		// }
+
 		return checkForCSVVersionChanges(e)
 	},
 
 	DeleteFunc: func(e event.DeleteEvent) bool {
-		// return reconcileCSV(e.Meta)
+	
 		return true
 	},
 
 	CreateFunc: func(e event.CreateEvent) bool {
-		// return reconcileCSV(e.Meta)
 		return true
 
 	},
 
 	GenericFunc: func(e event.GenericEvent) bool {
-		// return reconcileCSV(e.Meta)
 		return true
 	},
 }
