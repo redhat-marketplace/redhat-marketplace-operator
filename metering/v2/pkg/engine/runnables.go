@@ -22,6 +22,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/dictionary"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/mailbox"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/processors"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/processorsenders"
 )
 
 type Runnables []Runnable
@@ -49,7 +50,7 @@ func ProvideRunnables(
 	mdefChannelProducer *mailbox.MeterDefinitionChannelProducer,
 	dictionary *dictionary.MeterDefinitionDictionary,
 	razeeStore *RazeeStoreRunnable,
-	razeeProcessor *processors.RazeeProcessor,
+	razeeProcessorSender *processorsenders.RazeeProcessorSender,
 	razeeChannelProducer *mailbox.RazeeChannelProducer,
 ) Runnables {
 	// this is the start up order
@@ -62,7 +63,7 @@ func ProvideRunnables(
 		serviceAnnotatorProcessor,
 		prometheusProcessor,
 		prometheusMdefProcessor,
-		razeeProcessor,
+		razeeProcessorSender,
 		removalWatcher,
 		meterDefinitionDictionary,
 		mdefSeenStore,
@@ -84,7 +85,7 @@ var RunnablesSet = wire.NewSet(
 	processors.ProvideStatusProcessor,
 	processors.ProvidePrometheusProcessor,
 	processors.ProvidePrometheusMdefProcessor,
-	processors.ProvideRazeeProcessor,
+	processorsenders.ProvideRazeeProcessorSender,
 	mailbox.ProvideObjectChannelProducer,
 	mailbox.ProvideMeterDefinitionChannelProducer,
 	mailbox.ProvideRazeeChannelProducer,

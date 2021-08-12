@@ -36,15 +36,18 @@ import (
 
 	merrors "emperror.dev/errors"
 	retryablehttp "github.com/hashicorp/go-retryablehttp"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 const maxToSend = 50
 
-type RazeeProcessor struct {
+type RazeeProcessorSender struct {
 	*ProcessorSender
 	log                logr.Logger
 	kubeClient         client.Client
@@ -93,13 +96,13 @@ func (p *ProcessedEventObjs) IsEmpty() bool {
 
 // NewPrometheusProcessor is the provider that creates
 // the processor.
-func ProvideRazeeProcessor(
+func ProvideRazeeProcessorSender(
 	log logr.Logger,
 	kubeClient client.Client,
 	mb *mailbox.Mailbox,
 	scheme *runtime.Scheme,
-) *RazeeProcessor {
-	sp := &RazeeProcessor{
+) *RazeeProcessorSender {
+	sp := &RazeeProcessorSender{
 		ProcessorSender: &ProcessorSender{
 			log:           log,
 			digestersSize: 1,
@@ -120,7 +123,7 @@ func ProvideRazeeProcessor(
 // match the cache type to the event type
 // sanitize the object
 // bundle the event type and object and prepare
-func (r *RazeeProcessor) Process(ctx context.Context, inObj cache.Delta) error {
+func (r *RazeeProcessorSender) Process(ctx context.Context, inObj cache.Delta) error {
 
 	r.log.Info("dac debug startProcess")
 
@@ -128,12 +131,23 @@ func (r *RazeeProcessor) Process(ctx context.Context, inObj cache.Delta) error {
 		return nil
 	}
 
+	r.log.Info("dac debug", "inObj", inObj)
+
 	// cache.Delta.Object does not retain GVK
 	// Use scheme to determine GVK and return a runtime.Object
-
 	rtObj, err := r.getRuntimeObj(inObj.Object)
 	if err != nil {
 		return err
+	}
+
+	// Skip filtered out objects
+	r.log.Info("dac debug filter out")
+	filterOut, err := r.filterOut(rtObj)
+	if err != nil {
+		return err
+	}
+	if filterOut {
+		return nil
 	}
 
 	// Sanitize the object
@@ -158,95 +172,82 @@ func (r *RazeeProcessor) Process(ctx context.Context, inObj cache.Delta) error {
 	}
 
 	// Build the eventObj, as per Razee
-	eventObj := EventObj{Type: eventType, Object: rtObj}
-	b, err := json.Marshal(eventObj)
-	if err != nil {
-		return err
-	}
-	r.log.Info("dac debug", "marshal", string(b))
-
-	//numEventObjs := r.processedEventObjs.Add(EventObj{Type: eventType, Object: unstructuredObj})
-
-	// // dac debug
 	/*
-		eventTest := EventObj{Type: eventType, Object: unstructuredObj}
-		_ = eventTest
-		b, err := json.Marshal(unstructuredObj)
+		eventObj := EventObj{Type: eventType, Object: rtObj}
+		b, err := json.Marshal(eventObj)
 		if err != nil {
 			return err
 		}
 		r.log.Info("dac debug", "marshal", string(b))
 	*/
 
-	// b, err = svcobj.Marshal()
-	// if err != nil {
-	// 	return err
-	// }
-	// r.log.Info("dac debug", "svcobj marshal", string(b))
+	numEventObjs := r.processedEventObjs.Add(EventObj{Type: eventType, Object: rtObj})
 
-	// Accumulator is full, ready to send
-	// if numEventObjs >= maxToSend {
-	// 	r.Processor. <- true
-	// }
+	if numEventObjs >= maxToSend {
+		r.ProcessorSender.sendReadyChan <- true
+	}
 
 	return nil
 }
 
-func (r *RazeeProcessor) Send(ctx context.Context) error {
-	// if !r.processedEventObjs.IsEmpty() {
+func (r *RazeeProcessorSender) Send(ctx context.Context) error {
+	if !r.processedEventObjs.IsEmpty() {
 
-	// 	// Fetch the Openshift ClusterVersion
-	// 	instance := &openshiftconfigv1.ClusterVersion{}
-	// 	err := r.kubeClient.Get(context.TODO(), types.NamespacedName{Name: "version"}, instance)
-	// 	if err != nil {
-	// 		if errors.IsNotFound(err) {
-	// 			r.log.Error(err, "ClusterVersion does not exist")
-	// 			return err
-	// 		}
-	// 		r.log.Error(err, "Failed to get ClusterVersion")
-	// 		return err
-	// 	}
+		// Fetch the Openshift ClusterVersion
+		instance := &openshiftconfigv1.ClusterVersion{}
+		err := r.kubeClient.Get(context.TODO(), types.NamespacedName{Name: "version"}, instance)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				r.log.Error(err, "ClusterVersion does not exist")
+				return err
+			}
+			r.log.Error(err, "Failed to get ClusterVersion")
+			return err
+		}
 
-	// 	clusterID := instance.Spec.ClusterID
-	// 	r.log.Info(string(clusterID))
+		clusterID := instance.Spec.ClusterID
+		r.log.Info(string(clusterID))
 
-	// 	// read razeedash url secret & org secret for header
-	// 	baseurl, razeeOrgKey, err := r.getRazeeDashKeys()
-	// 	if err != nil {
-	// 		return err
-	// 	}
+		// read razeedash url secret & org secret for header
+		baseurl, razeeOrgKey, err := r.getRazeeDashKeys()
+		if err != nil {
+			return err
+		}
 
-	// 	// build full razeedash url
-	// 	fullurl, err := r.getRazeeDashURL(string(baseurl), string(clusterID))
-	// 	if err != nil {
-	// 		return err
-	// 	}
+		// build full razeedash url
+		fullurl, err := r.getRazeeDashURL(string(baseurl), string(clusterID))
+		if err != nil {
+			return err
+		}
 
-	// 	// Marshal to send
-	// 	b, err := json.Marshal(r.processedEventObjs.Flush())
-	// 	if err != nil {
-	// 		return err
-	// 	}
+		// Marshal to send
+		b, err := json.Marshal(r.processedEventObjs.Flush())
+		if err != nil {
+			return err
+		}
 
-	// 	_ = fullurl
-	// 	_ = b
-	// 	_ = razeeOrgKey
-	// 	// Post
-	// 	/*
-	// 		err = r.postToRazeeDash(fullurl, bytes.NewReader(b), string(razeeOrgKey))
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 	*/
-	// }
+		r.log.Info("dac debug", "marshal", string(b))
+
+		_ = fullurl
+		_ = b
+		_ = razeeOrgKey
+		// Post
+		/*
+			err = r.postToRazeeDash(fullurl, bytes.NewReader(b), string(razeeOrgKey))
+			if err != nil {
+				return err
+			}
+		*/
+	}
 	return nil
 }
 
 // Set the GVK on the object from the scheme/watched types
-func (r *RazeeProcessor) getRuntimeObj(inObj interface{}) (runtime.Object, error) {
+func (r *RazeeProcessorSender) getRuntimeObj(inObj interface{}) (runtime.Object, error) {
 
 	rtObj, ok := inObj.(runtime.Object)
 	if !ok {
+		r.log.Info("dac debug", "badconvert", inObj)
 		return nil, merrors.New("Could not convert cache delta object to runtime object")
 	}
 
@@ -260,8 +261,44 @@ func (r *RazeeProcessor) getRuntimeObj(inObj interface{}) (runtime.Object, error
 	return rtObj, nil
 }
 
+// Filter out criteria
+func (r *RazeeProcessorSender) filterOut(obj interface{}) (bool, error) {
+
+	// Only Process RRS3 Deployment
+	if deployment, ok := obj.(*appsv1.Deployment); ok {
+		if deployment.ObjectMeta.Name != utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME {
+			return true, nil
+		}
+	}
+
+	// Only Process CSVs with a Subscription containing
+	if clusterserviceversion, ok := obj.(*olmv1alpha1.ClusterServiceVersion); ok {
+		subscriptionList := &olmv1alpha1.SubscriptionList{}
+
+		if err := r.kubeClient.List(context.TODO(), subscriptionList, client.InNamespace(clusterserviceversion.ObjectMeta.Namespace)); err != nil {
+			return false, err
+		}
+
+		isTagged := false
+		if len(subscriptionList.Items) > 0 {
+			for _, subscription := range subscriptionList.Items {
+				if value, ok := subscription.GetLabels()[utils.LicenseServerTag]; ok {
+					if value == "true" {
+						if subscription.Status.InstalledCSV == clusterserviceversion.ObjectMeta.Name {
+							return false, nil // CSV is tagged, do not filterOut
+						}
+					}
+				}
+			}
+		}
+		return !isTagged, nil //CSV is not tagged, filterOut
+	}
+
+	return false, nil
+}
+
 // Sanitize the objects to send
-func (r *RazeeProcessor) prepObject2Send(obj interface{}) {
+func (r *RazeeProcessorSender) prepObject2Send(obj interface{}) {
 
 	metaobj, err := meta.Accessor(obj)
 	if err == nil {
@@ -270,6 +307,8 @@ func (r *RazeeProcessor) prepObject2Send(obj interface{}) {
 		delete(annotations, "kapitan.razee.io/last-applied-configuration")
 		delete(annotations, "deploy.razee.io/last-applied-configuration")
 		metaobj.SetAnnotations(annotations)
+	} else {
+		r.log.Info("dac debug could not get a meta accessor for", "obj", obj)
 	}
 
 	// Nodes
@@ -289,7 +328,7 @@ func (r *RazeeProcessor) prepObject2Send(obj interface{}) {
 }
 
 // Get the RazeeDash URL & Org Key from the rhm-operator-secret
-func (r *RazeeProcessor) getRazeeDashKeys() ([]byte, []byte, error) {
+func (r *RazeeProcessorSender) getRazeeDashKeys() ([]byte, []byte, error) {
 	var url []byte
 	var key []byte
 
@@ -330,7 +369,7 @@ func (r *RazeeProcessor) getRazeeDashKeys() ([]byte, []byte, error) {
 	return url, key, nil
 }
 
-func (r *RazeeProcessor) getRazeeDashURL(baseurl string, clusterID string) (string, error) {
+func (r *RazeeProcessorSender) getRazeeDashURL(baseurl string, clusterID string) (string, error) {
 	var urlStr string
 
 	urlStr = fmt.Sprintf(baseurl, "/clusters/", clusterID, "/resources")
@@ -342,7 +381,7 @@ func (r *RazeeProcessor) getRazeeDashURL(baseurl string, clusterID string) (stri
 	return url.String(), nil
 }
 
-func (r *RazeeProcessor) postToRazeeDash(url string, body io.Reader, razeeOrgKey string) error {
+func (r *RazeeProcessorSender) postToRazeeDash(url string, body io.Reader, razeeOrgKey string) error {
 
 	client := retryablehttp.NewClient()
 	client.RetryWaitMin = 3000 * time.Millisecond

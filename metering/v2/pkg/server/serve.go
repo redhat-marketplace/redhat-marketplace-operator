@@ -40,7 +40,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/internal/metrics"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/engine"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/razeeengine"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -74,7 +73,6 @@ type Service struct {
 	indexed         managers.CacheIsIndexed
 	started         managers.CacheIsStarted
 	engine          *engine.Engine
-	razeeEngine     *razeeengine.Engine
 	prometheusData  *metrics.PrometheusData
 
 	mutex deadlock.Mutex `wire:"-"`

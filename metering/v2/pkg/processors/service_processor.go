@@ -70,8 +70,6 @@ var serviceType = reflect.TypeOf(&corev1.Service{})
 // resources and checks it against the status.
 func (w *ServiceAnnotatorProcessor) Process(ctx context.Context, inObj cache.Delta) error {
 
-	w.log.Info("dac debug ServiceAnnotatorProcessor", "EventType", inObj.Type)
-
 	if inObj.Type != cache.Added {
 		return nil
 	}
