@@ -21,9 +21,11 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/gotidy/ptr"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter"
+	reporter "github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter"
+	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/spf13/cobra"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/recorder"
 )
 
 var log = logf.Log.WithName("reporter_report_cmd")
@@ -31,6 +33,7 @@ var log = logf.Log.WithName("reporter_report_cmd")
 var name, namespace, cafile, tokenFile, uploadTarget, localFilePath string
 var local, upload bool
 var retry int
+var recorderProvider recorder.Provider
 
 var ReportCmd = &cobra.Command{
 	Use:   "report",
@@ -73,7 +76,14 @@ var ReportCmd = &cobra.Command{
 			cfg,
 		)
 
+		recorder := recorderProvider.GetEventRecorderFor("report")
+
+		report := &marketplacev1alpha1.MeterReport{}
+
 		if err != nil {
+			// if errors.Unwrap(err) == reporter.ReportJobError {
+			recorder.Event(report, "Warning", "ReportJobError", "No insights")
+			// }
 			log.Error(err, "couldn't initialize task")
 			os.Exit(1)
 		}

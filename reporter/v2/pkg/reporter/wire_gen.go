@@ -31,6 +31,7 @@ func NewTask(ctx context.Context, reportName ReportName, taskConfig *Config) (*T
 	}
 	logrLogger := _wireLoggerValue
 	clientCommandRunner := reconcileutils.NewClientCommand(simpleClient, scheme, logrLogger)
+
 	uploaderTarget := taskConfig.UploaderTarget
 	uploader, err := ProvideUploader(ctx, clientCommandRunner, logrLogger, uploaderTarget)
 	if err != nil {
@@ -53,7 +54,7 @@ var (
 )
 
 func NewReporter(task *Task) (*MarketplaceReporter, error) {
-	reporterConfig := task.Config
+	config := task.Config
 	contextContext := task.Ctx
 	simpleClient := task.K8SClient
 	scheme := task.K8SScheme
@@ -72,7 +73,7 @@ func NewReporter(task *Task) (*MarketplaceReporter, error) {
 	if err != nil {
 		return nil, err
 	}
-	prometheusAPISetup := providePrometheusSetup(reporterConfig, meterReport, service)
+	prometheusAPISetup := providePrometheusSetup(config, meterReport, service)
 	prometheusAPI, err := prometheus.NewPrometheusAPIForReporter(prometheusAPISetup)
 	if err != nil {
 		return nil, err
@@ -81,7 +82,7 @@ func NewReporter(task *Task) (*MarketplaceReporter, error) {
 	if err != nil {
 		return nil, err
 	}
-	marketplaceReporter, err := NewMarketplaceReporter(reporterConfig, meterReport, marketplaceConfig, prometheusAPI, v)
+	marketplaceReporter, err := NewMarketplaceReporter(config, meterReport, marketplaceConfig, prometheusAPI, v)
 	if err != nil {
 		return nil, err
 	}

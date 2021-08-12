@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -272,4 +273,13 @@ func newSimpleClient(config *rest.Config, options client.Options) (client.Client
 	}
 
 	return c, nil
+}
+
+func ProvideRestConfig() (*rest.Config, error) {
+	restConfig, err := config.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return restConfig, nil
 }
