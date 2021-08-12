@@ -120,6 +120,9 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	//create file server deployment
+	// if marketplaceConfig.Spec.Features.DeploymentConfig == ptr.Bool(true){ 
+
+	// }
 	result := r.createMeterdefFileServer(request, reqLogger)
 	if !result.Is(Continue) {
 
@@ -295,6 +298,8 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		marketplaceConfig.Spec.Features = &common.Features{
 			Deployment:   ptr.Bool(true),
 			Registration: ptr.Bool(true),
+			DeploymentConfig: ptr.Bool(true),
+			LicenseUsageMetering: ptr.Bool(true),
 		}
 	} else {
 		if marketplaceConfig.Spec.Features.Deployment == nil {
@@ -302,6 +307,14 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		}
 		if marketplaceConfig.Spec.Features.Registration == nil {
 			marketplaceConfig.Spec.Features.Registration = ptr.Bool(true)
+		}
+
+		if marketplaceConfig.Spec.Features.DeploymentConfig == nil {
+			marketplaceConfig.Spec.Features.DeploymentConfig = ptr.Bool(true)
+		}
+
+		if marketplaceConfig.Spec.Features.LicenseUsageMetering == nil {
+			marketplaceConfig.Spec.Features.LicenseUsageMetering = ptr.Bool(true)
 		}
 	}
 

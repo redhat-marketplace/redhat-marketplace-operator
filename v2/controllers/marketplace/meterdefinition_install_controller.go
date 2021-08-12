@@ -130,7 +130,14 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 						return reconcile.Result{}, err
 					}
 
-					_, selectedMeterDefinitions, result := catalogClient.ListMeterdefintionsFromFileServer(csvName, csvVersion, CSV.Namespace,reqLogger)
+					/* 
+						if the csv has a dir in the catalog && has meterdefinitions create those
+						if templated meterdefs are enabled create those
+					*/
+
+					allMeterDefinitions := []marketplacev1beta1.MeterDefinition{}
+
+					catalogResponse, result := catalogClient.ListMeterdefintionsFromFileServer(csvName, csvVersion, CSV.Namespace,reqLogger)
 					if !result.Is(Continue) {
 
 						if result.Is(Error) {
@@ -138,6 +145,20 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 						}
 
 						return result.Return()
+					}
+
+					if catalogResponse.CatalogStatus.CatlogStatusType == catalog.CsvWithMeterdefsFoundStatus {
+						mdefs := catalogResponse.MdefList
+						_,communityMeterdefs,result := catalog.ReturnMeterdefs(mdefs,csvName,CSV.Namespace,reqLogger)
+						if !result.Is(Continue) {
+
+							if result.Is(Error) {
+								reqLogger.Error(result.GetError(), "Failed retrieving global meterdefinitions", "CSV", csvName)
+							}
+	
+							result.Return()
+						}
+						allMeterDefinitions = append(allMeterDefinitions, communityMeterdefs...)
 					}
 
 					_, globalMeterdefinitions, result := catalogClient.GetSystemMeterdefs(csvName, csvVersion, CSV.Namespace, reqLogger)
@@ -150,7 +171,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 						result.Return()
 					}
 
-					allMeterDefinitions := append(globalMeterdefinitions, selectedMeterDefinitions...)
+					allMeterDefinitions = append(allMeterDefinitions, globalMeterdefinitions...)
 
 					gvk, err := apiutil.GVKForObject(CSV, r.Scheme)
 					if err != nil {

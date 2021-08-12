@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -31,13 +30,34 @@ import (
 
 const (
 	FileServerProductionURL = "https://rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc.cluster.local:8200"
-)
-
-const (
 	ListForVersionEndpoint = "list-for-version"
 	GetSystemMeterdefinitionTemplatesEndpoint = "get-system-meterdefs"
 	GetMeterdefinitionIndexLabelEndpoint = "meterdef-index-label"
 )
+
+type CatalogResponseStatusType string
+
+/* 
+	44-61 are temporary - we can import these types from the file server repo 
+*/
+const (
+	CsvDoesNotHaveCatalogDirStatus = "csv does not have a directory in the catalog"
+	CsvHasNoMeterdefinitionsStatus = "does not have meterdefinitions in csv directory"
+	CsvWithMeterdefsFoundStatus    = "csv has meterdefinitions listed in the community catalog"
+)
+
+type CatalogStatus struct {
+	StatusMessage string `json:"statusMessage,omitempty"`
+
+	//TODO: need this ? if the client gets a CatalogStatus it's a 200 anyways
+	HttpStatus       int                       `json:"httpStatus,omitempty"`
+	CatlogStatusType CatalogResponseStatusType `json:"catalogStatusType,omitempty"`
+}
+
+type CatalogResponse struct {
+	CatalogStatus *CatalogStatus            `json:"requestError,omitempty"`
+	MdefList      []marketplacev1beta1.MeterDefinition `json:"mdefList,omitempty"`
+}
 
 type CatalogClientBuilder struct {
 	Url      string
@@ -127,12 +147,12 @@ func (b *CatalogClientBuilder) NewCatalogServerClient(client client.Client, depl
 	}
 }
 
-func(c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, version string, namespace string,reqLogger logr.Logger) ([]string, []marketplacev1beta1.MeterDefinition, *ExecResult) {
+func(c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, version string, namespace string,reqLogger logr.Logger) (*CatalogResponse, *ExecResult) {
 	reqLogger.Info("retrieving meterdefinitions", "csvName", csvName, "csvVersion", version)
 
 	url,err := concatPaths(c.endpoint.String(),ListForVersionEndpoint,csvName,version)
 	if err != nil {
-		return nil,nil, &ExecResult{
+		return nil, &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
 		}
@@ -141,21 +161,57 @@ func(c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, version
 	response, err := c.httpClient.Get(url.String())
 	if err != nil {
 		reqLogger.Error(err, "Error on GET to Catalog Server")
-		if err == io.EOF {
-			reqLogger.Error(err, "system meterdefintion not found")
-			return nil, nil, &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             emperror.New("empty response"),
-			}
-		}
 
 		reqLogger.Error(err, "Error querying file server")
-		return nil, nil, &ExecResult{
+		return nil, &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
 		}
 	}
-	return ReturnMeterdefs(csvName,namespace,*response,reqLogger)
+
+	catalogResponse := &CatalogResponse{}
+
+	defer response.Body.Close()
+
+	responseData, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		reqLogger.Error(err, "error reading body")
+		return nil, &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	reqLogger.Info("response data", "data", string(responseData))
+
+	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(responseData)), 100).Decode(&catalogResponse)
+	if err != nil {
+		reqLogger.Error(err, "error decoding response from fetchGlobalMeterdefinitions()")
+		return nil, &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+
+	return catalogResponse,&ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+}
+
+func  ReturnMeterdefs (mdefSlice []marketplacev1beta1.MeterDefinition,csvName string, namespace string,reqLogger logr.Logger) ([]string, []marketplacev1beta1.MeterDefinition, *ExecResult){
+	meterDefNames := []string{}
+	
+	for _, meterDefItem := range mdefSlice {
+		meterDefItem.Namespace = namespace
+		meterDefNames = append(meterDefNames, meterDefItem.ObjectMeta.Name)
+	}
+
+	reqLogger.Info("meterdefintions returned from file server", csvName, meterDefNames)
+
+	return meterDefNames, mdefSlice, &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
 }
 
 func (c *CatalogClient) GetSystemMeterdefs(csvName string, version string, namespace string, reqLogger logr.Logger) ([]string, []marketplacev1beta1.MeterDefinition, *ExecResult) {
@@ -172,73 +228,18 @@ func (c *CatalogClient) GetSystemMeterdefs(csvName string, version string, names
 
 	response, err := c.httpClient.Get(url.String())
 	if err != nil {
-		reqLogger.Error(err, "Error on GET to Catalog Server")
-		if err == io.EOF {
-			reqLogger.Error(err, "system meterdefintion not found")
-			return nil, nil, &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             emperror.New("empty response"),
-			}
-		}
-
 		reqLogger.Error(err, "Error querying file server")
 		return nil, nil, &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
 		}
 	}
-	return ReturnMeterdefs(csvName,namespace,*response,reqLogger)
+
+	return ReturnSystemMeterdefs(csvName,namespace,*response,reqLogger)
 
 }
 
-func (c *CatalogClient) GetMeterdefIndexLabel (reqLogger logr.Logger) ([]string,*ExecResult) {
-	reqLogger.Info("retrieving meterdefinition index label")
-
-	url,err := concatPaths(c.endpoint.String(),GetMeterdefinitionIndexLabelEndpoint)
-	if err != nil {
-		return nil, &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-
-	response, err := c.httpClient.Get(url.String())
-	if err != nil {
-		return nil, &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-
-	defer response.Body.Close()
-
-	data, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		reqLogger.Error(err, "error reading body")
-		return nil, &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-
-	reqLogger.Info("response data", "data", string(data))
-
-	labels := []string{}
-	err = json.Unmarshal(data,&labels)
-	if err != nil {
-		return nil, &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-	
-	return labels, &ExecResult{
-		Status: ActionResultStatus(Continue),
-	}
-}
-
-
-func  ReturnMeterdefs (csvName string, namespace string,response http.Response,reqLogger logr.Logger) ([]string, []marketplacev1beta1.MeterDefinition, *ExecResult){
+func  ReturnSystemMeterdefs (csvName string, namespace string,response http.Response,reqLogger logr.Logger) ([]string, []marketplacev1beta1.MeterDefinition, *ExecResult){
 	meterDefNames := []string{}
 	mdefSlice := []marketplacev1beta1.MeterDefinition{}
 
@@ -281,6 +282,52 @@ func  ReturnMeterdefs (csvName string, namespace string,response http.Response,r
 	reqLogger.Info("meterdefintions returned from file server", csvName, meterDefNames)
 
 	return meterDefNames, mdefSlice, &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+}
+
+func (c *CatalogClient) GetMeterdefIndexLabels (reqLogger logr.Logger) (map[string]string,*ExecResult) {
+	reqLogger.Info("retrieving meterdefinition index label")
+
+	url,err := concatPaths(c.endpoint.String(),GetMeterdefinitionIndexLabelEndpoint)
+	if err != nil {
+		return nil, &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	response, err := c.httpClient.Get(url.String())
+	if err != nil {
+		return nil, &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	defer response.Body.Close()
+
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		reqLogger.Error(err, "error reading body")
+		return nil, &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	reqLogger.Info("response data", "data", string(data))
+
+	labels := map[string]string{}
+	err = json.Unmarshal(data,&labels)
+	if err != nil {
+		return nil, &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+	
+	return labels, &ExecResult{
 		Status: ActionResultStatus(Continue),
 	}
 }
