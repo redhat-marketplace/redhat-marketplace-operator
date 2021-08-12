@@ -308,7 +308,7 @@ type ReportJobError struct {
 	Err          error
 }
 
-func (re *ReportJobError) Error() string {
+func (re ReportJobError) Error() string {
 	return re.ErrorMessage
 }
 
@@ -349,7 +349,7 @@ func provideProductionInsightsConfig(
 	}
 
 	cloudAuthPath := jsonpath.New("cloudauthpath")
-	err = cloudAuthPath.Parse(`{.auths.cloud\.openshift}`)
+	err = cloudAuthPath.Parse(`{.auths.cloud\.openshift\.com.auth}`)
 
 	if err != nil {
 		return nil, errors.Wrap(ReportJobError{
