@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"k8s.io/client-go/kubernetes"
 
@@ -213,6 +214,11 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 	}
 
 	for _, csv := range csvList.Items {
+
+		/* 
+			csv.Name = memcached-operator.v0.0.1
+			splitName = memcached-operator
+		*/
 		splitName := strings.Split(csv.Name, ".")[0]
 		csvVersion := csv.Spec.Version.Version.String()
 		namespace := request.Namespace
@@ -249,47 +255,49 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 		}
 
 		/*
-			if the csv has a direcotry in the meterdefinition catalog and the directory has meterdefinitions, run a sync on those meterdefinitions
+			if the csv has a direcotry in the meterdefinition catalog and the directory contains meterdefinitions, run a sync on those meterdefinitions
 		*/
-
 		_, meterDefsFromFileServer, _ := catalog.ReturnMeterdefs(catologResponse.MdefList, csv.Name, csv.Namespace, reqLogger)
 		if !result.Is(Continue) {
 			return result
 		}
 
-		installedMeterdefs,result := listAllCommunityMeterdefsOnCluster(r.Client,labelsMap)
+		installedMeterdefs, result := listAllCommunityMeterdefsOnCluster(r.Client, labelsMap)
 		if !result.Is(Continue) {
 			return result
 		}
 
-		// get the list of meter defs to be deleted and delete them
-		deleteOnDiff(&meterDefsFromFileServer,&installedMeterdefs.Items)
+		/*
+			delete a meterdef if: there is a meterdef that originated from the catalog installed on the cluster, but that meterdef is not in the latest file server image
+		*/
+		result = r.deleteOnDiff(meterDefsFromFileServer, installedMeterdefs.Items,reqLogger)
+		if !result.Is(Continue) {
+			return result
+		}
 
-
-		for _,catalogMeterdef := range meterDefsFromFileServer {
-			
+		for _, catalogMeterdef := range meterDefsFromFileServer {
 
 			installedMdef := &marketplacev1beta1.MeterDefinition{}
-			err = r.Client.Get(context.TODO(),types.NamespacedName{catalogMeterdef.Name,catalogMeterdef.Namespace},installedMdef)
-			if err != nil && errors.IsNotFound(err){
-					/* 
-						create a meterdef for a csv if: the csv has meterdefinition listed in the catalog and that mdef is not on the cluster
-					*/
-					result = r.createMeterdef(catalogMeterdef,&csv,reqLogger)
-					if !result.Is(Continue) {
-						return result
-					}
-	
+			err = r.Client.Get(context.TODO(), types.NamespacedName{catalogMeterdef.Name, catalogMeterdef.Namespace}, installedMdef)
+			if err != nil && errors.IsNotFound(err) {
+				/*
+					create a meterdef for a csv if: the csv has meterdefinition listed in the catalog and that mdef is not on the cluster
+				*/
+				result = r.createMeterdef(catalogMeterdef, &csv, reqLogger)
+				if !result.Is(Continue) {
+					return result
+				}
+
 			} else if err != nil {
-					return &ExecResult{
-						ReconcileResult: reconcile.Result{},
-						Err:             err,
-					}
-			/* 
-				update a meterdef for a csv if: the meterdef is listed in the catalog and is also on the cluster
-			*/
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{},
+					Err:             err,
+				}
+				/*
+					update a meterdef for a csv if: the meterdef is listed in the catalog and is also on the cluster
+				*/
 			} else {
-				result := r.updateMeterdef(*installedMdef,catalogMeterdef,reqLogger)
+				result := r.updateMeterdef(*installedMdef, catalogMeterdef, reqLogger)
 				if !result.Is(Continue) {
 					return result
 				}
@@ -302,7 +310,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 	}
 }
 
-func (r *DeploymentConfigReconciler) updateMeterdef(installedMdef marketplacev1beta1.MeterDefinition,catalogMdef marketplacev1beta1.MeterDefinition,reqLogger logr.Logger)*ExecResult{
+func (r *DeploymentConfigReconciler) updateMeterdef(installedMdef marketplacev1beta1.MeterDefinition, catalogMdef marketplacev1beta1.MeterDefinition, reqLogger logr.Logger) *ExecResult {
 	updatedMeterdefinition := installedMdef.DeepCopy()
 	updatedMeterdefinition.Spec = catalogMdef.Spec
 	updatedMeterdefinition.ObjectMeta.Annotations = catalogMdef.ObjectMeta.Annotations
@@ -369,25 +377,38 @@ func (r *DeploymentConfigReconciler) createMeterdef(meterDefinition marketplacev
 	}
 }
 
-//TODO: get this to work
-func deleteOnDiff(first *[]marketplacev1beta1.MeterDefinition, second *[]marketplacev1beta1.MeterDefinition) []marketplacev1beta1.MeterDefinition {
-	diff := []marketplacev1beta1.MeterDefinition{}
-	stringMapper := make(map[*marketplacev1beta1.MeterDefinition]bool)
+func(r *DeploymentConfigReconciler) deleteOnDiff(installedMeterdefs []marketplacev1beta1.MeterDefinition, meterdefsFromCatalog []marketplacev1beta1.MeterDefinition,reqLogger logr.Logger) *ExecResult {
 
-	for _, item := range *second {
-		stringMapper[&item] = true
-	}
+	// Loop two times, first to find installedMeterdefs strings not in meterdefsFromCatalog,
+	// second loop to find meterdefsFromCatalog strings not in installedMeterdefs
+	for i := 0; i < 2; i++ {
+		for _, installedMeterdef := range installedMeterdefs {
+			found := false
+			for _, meterdefFromCatalog := range meterdefsFromCatalog {
+				if cmp.Equal(installedMeterdef, meterdefFromCatalog) {
+					found = true
+					break
+				}
+			}
+			// String not found. We add it to return slice
+			if !found {
+				r.deleteMeterDef(installedMeterdef.Name,installedMeterdef.Namespace,reqLogger)
+			}
+		}
 
-	for _, item := range *first {
-		if _, ok := stringMapper[&item]; !ok {
-			//TODO: actually delete from the cluster here
-			diff = append(diff, item)
+		//TODO: need this ? 
+		// Swap the slices, only if it was the first loop
+		if i == 0 {
+			installedMeterdefs, meterdefsFromCatalog = meterdefsFromCatalog, installedMeterdefs
 		}
 	}
-	return diff
+
+	return &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
 }
 
-func listAllCommunityMeterdefsOnCluster(runtimeClient client.Client,indexLabels map[string]string)(*marketplacev1beta1.MeterDefinitionList,*ExecResult){
+func listAllCommunityMeterdefsOnCluster(runtimeClient client.Client, indexLabels map[string]string) (*marketplacev1beta1.MeterDefinitionList, *ExecResult) {
 	installedMeterdefList := &marketplacev1beta1.MeterDefinitionList{}
 
 	// look for meterdefs that are from the meterdefinition catalog
@@ -397,13 +418,13 @@ func listAllCommunityMeterdefsOnCluster(runtimeClient client.Client,indexLabels 
 
 	err := runtimeClient.List(context.TODO(), installedMeterdefList, listOpts...)
 	if err != nil {
-		return nil,&ExecResult{
+		return nil, &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
 		}
 	}
 
-	return installedMeterdefList,&ExecResult{
+	return installedMeterdefList, &ExecResult{
 		Status: ActionResultStatus(Continue),
 	}
 }
@@ -425,40 +446,51 @@ func (r *DeploymentConfigReconciler) deleteAllMeterdefsForCsv(indexLabels map[st
 	}
 
 	for _, mdef := range installedMeterdefList.Items {
-
-		installedMeterDefn := &marketplacev1beta1.MeterDefinition{}
-		err := r.Client.Get(context.TODO(), types.NamespacedName{Name: mdef.Name, Namespace: mdef.Namespace}, installedMeterDefn)
-		if err != nil && !errors.IsNotFound((err)) {
-			reqLogger.Error(err, "could not get meter definition", "Name", mdef.Name)
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
+		result := r.deleteMeterDef(mdef.Name, mdef.Namespace, reqLogger)
+		if !result.Is(Continue) {
+			return result
 		}
-
-		// remove owner ref from meter definition before deleting
-		installedMeterDefn.ObjectMeta.OwnerReferences = []metav1.OwnerReference{}
-		err = r.Client.Update(context.TODO(), installedMeterDefn)
-		if err != nil {
-			reqLogger.Error(err, "Failed updating owner reference on meter definition", "Name", mdef.Name, "Namespace", mdef.Namespace)
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
-		reqLogger.Info("Removed owner reference from meterdefintion", "Name", mdef.Name, "Namespace", mdef.Namespace)
-
-		reqLogger.Info("Deleteing MeterDefinition")
-		err = r.Client.Delete(context.TODO(), installedMeterDefn)
-		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Error(err, "could not delete MeterDefinition", "Name", mdef.Name)
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
-		reqLogger.Info("Deleted meterdefintion", "Name", mdef.Name, "Namespace", mdef.Namespace)
 	}
+
+	return &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+}
+
+func (r *DeploymentConfigReconciler) deleteMeterDef(mdefName string,namespace string, reqLogger logr.Logger) *ExecResult {
+
+	installedMeterDefn := &marketplacev1beta1.MeterDefinition{}
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: mdefName, Namespace: namespace}, installedMeterDefn)
+	if err != nil && !errors.IsNotFound((err)) {
+		reqLogger.Error(err, "could not get meter definition", "Name", mdefName)
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+
+	// remove owner ref from meter definition before deleting
+	installedMeterDefn.ObjectMeta.OwnerReferences = []metav1.OwnerReference{}
+	err = r.Client.Update(context.TODO(), installedMeterDefn)
+	if err != nil {
+		reqLogger.Error(err, "Failed updating owner reference on meter definition", "Name", mdefName, "Namespace", namespace)
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+	reqLogger.Info("Removed owner reference from meterdefintion", "Name", mdefName, "Namespace", namespace)
+
+	reqLogger.Info("Deleteing MeterDefinition")
+	err = r.Client.Delete(context.TODO(), installedMeterDefn)
+	if err != nil && !errors.IsNotFound(err) {
+		reqLogger.Error(err, "could not delete MeterDefinition", "Name", mdefName)
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
+	reqLogger.Info("Deleted meterdefintion", "Name", mdefName, "Namespace", namespace)
 
 	return &ExecResult{
 		Status: ActionResultStatus(Continue),
