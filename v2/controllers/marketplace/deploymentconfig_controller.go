@@ -236,7 +236,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 
 		/*
 			csv is on the cluster but doesn't have a csv dir: delete all meterdefs for that csv
-			if all meterdefs get deleted, skip to the next iteration
+			once all meterdefs are deleted, skip to the next iteration
 		*/
 		if catologResponse.CatalogStatus.CatlogStatusType == catalog.CsvDoesNotHaveCatalogDirStatus || catologResponse.CatalogStatus.CatlogStatusType == catalog.CsvHasNoMeterdefinitionsStatus {
 			result = r.deleteAllMeterdefsForCsv(labelsMap, reqLogger)
@@ -244,12 +244,12 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 				return result
 			}
 
-			//skip to the next csv in the installed csv list
+			//skip to the next csv in the list of csvs found on the cluster
 			continue
 		}
 
 		/*
-			if there is a csv dir in the meterdefinition catalog and the dir has meterdefinitions, run a sync on those meterdefinitions
+			if the csv has a direcotry in the meterdefinition catalog and the directory has meterdefinitions, run a sync on those meterdefinitions
 		*/
 
 		_, meterDefsFromFileServer, _ := catalog.ReturnMeterdefs(catologResponse.MdefList, csv.Name, csv.Namespace, reqLogger)
@@ -267,13 +267,14 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 
 
 		for _,catalogMeterdef := range meterDefsFromFileServer {
-			installedMdef := &marketplacev1beta1.MeterDefinition{}
+			
 
+			installedMdef := &marketplacev1beta1.MeterDefinition{}
 			err = r.Client.Get(context.TODO(),types.NamespacedName{catalogMeterdef.Name,catalogMeterdef.Namespace},installedMdef)
-			/* 
-				create the meterdef if it's in the file server and not on the cluster
-			*/
 			if err != nil && errors.IsNotFound(err){
+					/* 
+						create a meterdef for a csv if: the csv has meterdefinition listed in the catalog and that mdef is not on the cluster
+					*/
 					result = r.createMeterdef(catalogMeterdef,&csv,reqLogger)
 					if !result.Is(Continue) {
 						return result
@@ -285,7 +286,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 						Err:             err,
 					}
 			/* 
-				the meterdef is on the cluster see if it needs to be updated
+				update a meterdef for a csv if: the meterdef is listed in the catalog and is also on the cluster
 			*/
 			} else {
 				result := r.updateMeterdef(*installedMdef,catalogMeterdef,reqLogger)
