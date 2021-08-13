@@ -21,6 +21,7 @@ package inject
 import (
 	"github.com/google/wire"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
@@ -36,6 +37,7 @@ func initializeInjectDependencies(
 		managers.ProvideManagerSet,
 		runnables.RunnableSet,
 		reconcileutils.NewClientCommand,
+		catalog.ProvideCatalogClient,
 		config.ProvideInfrastructureAwareConfig,
 		ProvideInjectables,
 		wire.Struct(new(ClientCommandInjector), "*"),
@@ -43,6 +45,7 @@ func initializeInjectDependencies(
 		wire.Struct(new(PatchInjector), "*"),
 		wire.Struct(new(FactoryInjector), "*"),
 		wire.Struct(new(KubeInterfaceInjector), "*"),
+		wire.Struct(new(CatalogClientInjector), "*"),
 		wire.Struct(new(injectorDependencies), "*"),
 		ProvideNamespace,
 		manifests.NewFactory,

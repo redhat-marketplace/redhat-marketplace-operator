@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -54,6 +55,7 @@ type MeterdefinitionInstallReconciler struct {
 	Scheme        *runtime.Scheme
 	Log           logr.Logger
 	cfg           *config.OperatorConfig
+	catalogClient *catalog.CatalogClient
 	kubeInterface kubernetes.Interface
 }
 
@@ -72,9 +74,14 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	reqLogger := r.Log.WithValues("Request.Name", request.Name, "Request.Namespace", request.Namespace)
 	reqLogger.Info("Reconciling ClusterServiceVersion")
 
+	err := r.catalogClient.SetTransport(r.Client,r.cfg,r.kubeInterface,reqLogger)
+	if err != nil {
+		return reconcile.Result{},err
+	}
+
 	// Fetch the ClusterServiceVersion instance
 	CSV := &olmv1alpha1.ClusterServiceVersion{}
-	err := r.Client.Get(context.TODO(), request.NamespacedName, CSV)
+	err = r.Client.Get(context.TODO(), request.NamespacedName, CSV)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, check the meterdef store if there is an existing InstallMapping,delete, and return empty result
@@ -125,11 +132,6 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 				if foundSub.Status.InstalledCSV == request.NamespacedName.Name {
 					reqLogger.Info("found Subscription with installed CSV")
 
-					catalogClient, err := catalog.NewCatalogClientBuilder(r.cfg).NewCatalogServerClient(r.Client,r.cfg.DeployedNamespace,r.kubeInterface,reqLogger)
-					if err != nil {
-						return reconcile.Result{}, err
-					}
-
 					/* 
 						if the csv has a dir in the catalog && has meterdefinitions create those
 						if templated meterdefs are enabled create those
@@ -137,7 +139,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 
 					allMeterDefinitions := []marketplacev1beta1.MeterDefinition{}
 
-					catalogResponse, result := catalogClient.ListMeterdefintionsFromFileServer(csvName, csvVersion, CSV.Namespace,reqLogger)
+					catalogResponse, result := r.catalogClient.ListMeterdefintionsFromFileServer(csvName, csvVersion, CSV.Namespace,reqLogger)
 					if !result.Is(Continue) {
 
 						if result.Is(Error) {
@@ -295,6 +297,12 @@ func (r *MeterdefinitionInstallReconciler) Inject(injector mktypes.Injectable) m
 
 func (m *MeterdefinitionInstallReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
+	return nil
+}
+
+func (r *MeterdefinitionInstallReconciler) InjectCatalogClient(catalogClient *catalog.CatalogClient) error {
+	r.Log.Info("catalog client")
+	r.catalogClient = catalogClient
 	return nil
 }
 

@@ -59,58 +59,58 @@ type CatalogResponse struct {
 	MdefList      []marketplacev1beta1.MeterDefinition `json:"mdefList,omitempty"`
 }
 
-type CatalogClientBuilder struct {
-	Url      string
-}
-
 type CatalogClient struct {
 	endpoint   *url.URL
 	httpClient http.Client
 }
 
-func NewCatalogClientBuilder(cfg *config.OperatorConfig) *CatalogClientBuilder {
-	builder := &CatalogClientBuilder{}
+func ProvideCatalogClient(cfg *config.OperatorConfig)(*CatalogClient,error){
+	fileServerUrl := FileServerProductionURL
 
-	builder.Url = FileServerProductionURL
+		if cfg.FileServerURL != "" {
+			fileServerUrl = cfg.FileServerURL
+		}
 
-	if cfg.FileServerURL != "" {
-		builder.Url = cfg.FileServerURL
-	}
+		url,err := url.Parse(fileServerUrl)
+		if err != nil {
+			return nil,err
+		}
 
-	return builder
+		return &CatalogClient{
+			// httpClient: catalogServerClient,
+			endpoint: url,
+		}, nil
+
 }
 
-func (b *CatalogClientBuilder) NewCatalogServerClient(client client.Client, deployedNamespace string, kubeInterface kubernetes.Interface, reqLogger logr.Logger) (*CatalogClient, error) {
-	service, err := getCatalogServerService(deployedNamespace, client, reqLogger)
+func(c *CatalogClient) SetTransport (client client.Client,cfg *config.OperatorConfig,kubeInterface kubernetes.Interface,reqLogger logr.Logger)error{
+	service, err := getCatalogServerService(cfg.DeployedNamespace, client, reqLogger)
 	if err != nil {
-		return nil, &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
+		return err
 	}
 
-	cert, err := getCertFromConfigMap(client, deployedNamespace, reqLogger)
+	cert, err := getCertFromConfigMap(client, cfg.DeployedNamespace, reqLogger)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	saClient := prom.NewServiceAccountClient(deployedNamespace, kubeInterface)
+	saClient := prom.NewServiceAccountClient(cfg.DeployedNamespace, kubeInterface)
 	authToken, err := saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.FileServerAudience, 3600, reqLogger)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if service != nil && len(cert) != 0 && authToken != "" {
 		caCertPool, err := x509.SystemCertPool()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		ok := caCertPool.AppendCertsFromPEM(cert)
 		if !ok {
 			err = emperror.New("failed to append cert to cert pool")
 			reqLogger.Error(err, "cert pool error")
-			return nil, err
+			return err
 		}
 
 		tlsConfig := &tls.Config{
@@ -124,27 +124,15 @@ func (b *CatalogClientBuilder) NewCatalogServerClient(client client.Client, depl
 
 		transport = WithBearerAuth(transport, authToken)
 
-		catalogServerClient := http.Client{
+		catalogServerHttpClient := http.Client{
 			Transport: transport,
 			Timeout:   1 * time.Second,
 		}
 
-		url,err := url.Parse(b.Url)
-		if err != nil {
-			return nil,err
-		}
-
-		reqLogger.Info("Catalog Server client created successfully")
-		return &CatalogClient{
-			httpClient: catalogServerClient,
-			endpoint: url,
-		}, nil
+		c.httpClient = catalogServerHttpClient
 	}
 
-	return nil, &ExecResult{
-		ReconcileResult: reconcile.Result{},
-		Err:             emperror.New("catalog server client prerequisites not ready"),
-	}
+	return nil
 }
 
 func(c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, version string, namespace string,reqLogger logr.Logger) (*CatalogResponse, *ExecResult) {

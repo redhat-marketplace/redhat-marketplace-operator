@@ -24,7 +24,6 @@ import (
 
 	"github.com/go-logr/logr"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	"k8s.io/client-go/kubernetes"
 
 	osappsv1 "github.com/openshift/api/apps/v1"
 
@@ -42,6 +41,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/pointer"
 
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
@@ -66,11 +66,11 @@ type DeploymentConfigReconciler struct {
 	Scheme *runtime.Scheme
 	Log    logr.Logger
 	CC     ClientCommandRunner
-
+	kubeInterface kubernetes.Interface
 	cfg           *config.OperatorConfig
 	factory       *manifests.Factory
 	patcher       patch.Patcher
-	kubeInterface kubernetes.Interface
+	catalogClient *catalog.CatalogClient
 }
 
 func (r *DeploymentConfigReconciler) Inject(injector mktypes.Injectable) mktypes.SetupWithManager {
@@ -86,6 +86,12 @@ func (r *DeploymentConfigReconciler) InjectOperatorConfig(cfg *config.OperatorCo
 func (r *DeploymentConfigReconciler) InjectCommandRunner(ccp ClientCommandRunner) error {
 	r.Log.Info("command runner")
 	r.CC = ccp
+	return nil
+}
+
+func (r *DeploymentConfigReconciler) InjectCatalogClient(catalogClient *catalog.CatalogClient) error {
+	r.Log.Info("catalog client")
+	r.catalogClient = catalogClient
 	return nil
 }
 
@@ -145,8 +151,13 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
+	err := r.catalogClient.SetTransport(r.Client,r.cfg,r.kubeInterface,reqLogger)
+	if err != nil {
+		return reconcile.Result{},err
+	}
+
 	dc := &osappsv1.DeploymentConfig{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: request.Namespace}, dc)
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: request.Namespace}, dc)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			reqLogger.Error(err, "deploymentconfig does not exist")
@@ -214,13 +225,6 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 		splitName := strings.Split(csv.Name, ".")[0]
 		csvVersion := csv.Spec.Version.Version.String()
 		namespace := request.Namespace
-		catalogClient, err := catalog.NewCatalogClientBuilder(r.cfg).NewCatalogServerClient(r.Client, r.cfg.DeployedNamespace, r.kubeInterface, reqLogger)
-		if err != nil {
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
 
 		/* 
 			pings the file server for a map of labels we use to index meterdefintions that originated from the file server
@@ -232,12 +236,12 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 			}
 			
 		*/
-		labelsMap, result := catalogClient.GetMeterdefIndexLabels(reqLogger,splitName)
+		labelsMap, result := r.catalogClient.GetMeterdefIndexLabels(reqLogger,splitName)
 		if !result.Is(Continue) {
 			return result
 		}
 
-		catologResponse, result := catalogClient.ListMeterdefintionsFromFileServer(splitName, csvVersion, namespace, reqLogger)
+		catologResponse, result := r.catalogClient.ListMeterdefintionsFromFileServer(splitName, csvVersion, namespace, reqLogger)
 		if !result.Is(Continue) {
 			return result
 		}

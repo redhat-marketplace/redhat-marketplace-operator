@@ -73,6 +73,15 @@ spec:
                   description: Deployment represents the enablement of the razee deployment,
                     defaults to true when not set
                   type: boolean
+                deploymentConfig:
+                  description: DeploymentConfig represents the enablement of the Community
+                    Catalog DeploymentConfig, defaults to true when not set
+                  type: boolean
+                licenseUsageMetering:
+                  description: LicenseUsageMetering represents the enablement of the
+                    usage metering for licensed products, defaults to true when not
+                    set
+                  type: boolean
                 registration:
                   description: Registration represents the enablement of the registration
                     watchkeeper deployment, defaults to true when not set
