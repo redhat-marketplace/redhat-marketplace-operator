@@ -156,26 +156,26 @@ func ProvideInfrastructureAwareConfig(
 			return nil, errors.Wrap(err, "failed to parse config")
 		}
 
-		// Use v4.6 images on Openshift 4.6 instead of default v4.5 images
+		// Use v4.8 images on Openshift 4.6+ instead of default v4.5 images
 		// But otherwise respect an override
 		if inf.HasOpenshift() && inf.OpenshiftParsedVersion().GTE(utils.ParsedVersion460) {
 			if cfg.RelatedImages.Prometheus == "registry.redhat.io/openshift4/ose-prometheus:v4.5" {
-				cfg.RelatedImages.Prometheus = "registry.redhat.io/openshift4/ose-prometheus:v4.6"
+				cfg.RelatedImages.Prometheus = "registry.redhat.io/openshift4/ose-prometheus:v4.8"
 			}
 			if cfg.RelatedImages.PrometheusOperator == "registry.redhat.io/openshift4/ose-prometheus-operator:v4.5" {
-				cfg.RelatedImages.PrometheusOperator = "registry.redhat.io/openshift4/ose-prometheus-operator:v4.6"
+				cfg.RelatedImages.PrometheusOperator = "registry.redhat.io/openshift4/ose-prometheus-operator:v4.8"
 			}
 			if cfg.RelatedImages.OAuthProxy == "registry.redhat.io/openshift4/ose-oauth-proxy:v4.5" {
-				cfg.RelatedImages.OAuthProxy = "registry.redhat.io/openshift4/ose-oauth-proxy:v4.6"
+				cfg.RelatedImages.OAuthProxy = "registry.redhat.io/openshift4/ose-oauth-proxy:v4.8"
 			}
 			if cfg.RelatedImages.ConfigMapReloader == "registry.redhat.io/openshift4/ose-configmap-reloader:v4.5" {
-				cfg.RelatedImages.ConfigMapReloader = "registry.redhat.io/openshift4/ose-configmap-reloader:v4.6"
+				cfg.RelatedImages.ConfigMapReloader = "registry.redhat.io/openshift4/ose-configmap-reloader:v4.8"
 			}
 			if cfg.RelatedImages.PrometheusConfigMapReloader == "registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5" {
-				cfg.RelatedImages.PrometheusConfigMapReloader = "registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.6"
+				cfg.RelatedImages.PrometheusConfigMapReloader = "registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.8"
 			}
 			if cfg.RelatedImages.KubeRbacProxy == "registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5" {
-				cfg.RelatedImages.KubeRbacProxy = "registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.6"
+				cfg.RelatedImages.KubeRbacProxy = "registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.8"
 			}
 		}
 

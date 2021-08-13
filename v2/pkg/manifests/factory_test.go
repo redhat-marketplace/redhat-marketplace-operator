@@ -49,7 +49,7 @@ var files = []string{
 	MetricStateService,
 	MetricStateMeterDefinition,
 
-	// ose-prometheus v4.6
+	// ose-prometheus v4.8
 	MetricStateRHMOperatorSecret,
 	KubeStateMetricsService,
 	KubeStateMetricsServiceMonitor,

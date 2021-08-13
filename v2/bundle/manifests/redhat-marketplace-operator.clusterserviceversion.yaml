@@ -718,7 +718,7 @@ spec:
                       - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
                         value: quay.io/razee/watch-keeper:0.7.7
                       - name: RELATED_IMAGE_PROMETHEUS
-                        value: registry.redhat.io/openshift4/ose-prometheus:v4.6
+                        value: registry.redhat.io/openshift4/ose-prometheus:v4.8
                       - name: RELATED_IMAGE_OAUTH_PROXY
                         value: registry.redhat.io/openshift4/ose-oauth-proxy:v4.5
                       - name: RELATED_IMAGE_PROMETHEUS_OPERATOR
@@ -1168,7 +1168,7 @@ spec:
       name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
     - image: quay.io/razee/watch-keeper:0.7.7
       name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
-    - image: registry.redhat.io/openshift4/ose-prometheus:v4.6
+    - image: registry.redhat.io/openshift4/ose-prometheus:v4.8
       name: RELATED_IMAGE_PROMETHEUS
     - image: registry.redhat.io/openshift4/ose-oauth-proxy:v4.5
       name: RELATED_IMAGE_OAUTH_PROXY
