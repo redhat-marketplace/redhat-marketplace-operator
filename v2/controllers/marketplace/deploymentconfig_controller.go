@@ -299,7 +299,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 					update a meterdef for a csv if a meterdef from the catalog is also on the cluster && the meterdef from the catalog contains an update to .Spec or .Annotations
 					//TODO: what fields should we check a diff for ? 
 				*/
-				result := r.updateMeterdef(*installedMdef, catalogMeterdef, reqLogger)
+				result := r.updateMeterdef(installedMdef, catalogMeterdef, reqLogger)
 				if !result.Is(Continue) {
 					return result
 				}
@@ -312,7 +312,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 	}
 }
 
-func (r *DeploymentConfigReconciler) updateMeterdef(installedMdef marketplacev1beta1.MeterDefinition, catalogMdef marketplacev1beta1.MeterDefinition, reqLogger logr.Logger) *ExecResult {
+func (r *DeploymentConfigReconciler) updateMeterdef(installedMdef *marketplacev1beta1.MeterDefinition, catalogMdef marketplacev1beta1.MeterDefinition, reqLogger logr.Logger) *ExecResult {
 	updatedMeterdefinition := installedMdef.DeepCopy()
 	updatedMeterdefinition.Spec = catalogMdef.Spec
 	updatedMeterdefinition.ObjectMeta.Annotations = catalogMdef.ObjectMeta.Annotations
@@ -341,8 +341,6 @@ func (r *DeploymentConfigReconciler) updateMeterdef(installedMdef marketplacev1b
 }
 
 func (r *DeploymentConfigReconciler) createMeterdef(meterDefinition marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.InfoLogger) *ExecResult {
-	
-
 	
 	gvk, err := apiutil.GVKForObject(csv, r.Scheme)
 	if err != nil {
@@ -383,29 +381,24 @@ func (r *DeploymentConfigReconciler) createMeterdef(meterDefinition marketplacev
 }
 
 func(r *DeploymentConfigReconciler) deleteOnDiff(installedMeterdefs []marketplacev1beta1.MeterDefinition, meterdefsFromCatalog []marketplacev1beta1.MeterDefinition,reqLogger logr.Logger) *ExecResult {
-
 	// Loop two times, first to find installedMeterdefs strings not in meterdefsFromCatalog,
 	// second loop to find meterdefsFromCatalog strings not in installedMeterdefs
-	for i := 0; i < 2; i++ {
-		for _, installedMeterdef := range installedMeterdefs {
-			found := false
-			for _, meterdefFromCatalog := range meterdefsFromCatalog {
-				if installedMeterdef.Name != meterdefFromCatalog.Name {
-					found = true
-					break
-				}
-			}
-			// String not found. We add it to return slice
-			if !found {
-				reqLogger.Info("meterdef has been selected for deletion","meterdef",installedMeterdef.Name)
-				r.deleteMeterDef(installedMeterdef.Name,installedMeterdef.Namespace,reqLogger)
+
+	for _, installedMeterdef := range installedMeterdefs {
+		reqLogger.Info("installed meterdef name","name",installedMeterdef.Name)
+		found := false
+		for _, meterdefFromCatalog := range meterdefsFromCatalog {
+			reqLogger.Info("METERDEF FROM CATALOG","name",meterdefFromCatalog.Name)
+			if installedMeterdef.Name == meterdefFromCatalog.Name {
+				reqLogger.Info("MATCH",installedMeterdef.Name,meterdefFromCatalog.Name)
+				found = true
+				break
 			}
 		}
-
-		//TODO: need this ? 
-		// Swap the slices, only if it was the first loop
-		if i == 0 {
-			installedMeterdefs, meterdefsFromCatalog = meterdefsFromCatalog, installedMeterdefs
+		// String not found. We add it to return slice
+		if !found {
+			reqLogger.Info("meterdef has been selected for deletion","meterdef",installedMeterdef.Name)
+			r.deleteMeterDef(installedMeterdef.Name,installedMeterdef.Namespace,reqLogger)
 		}
 	}
 
