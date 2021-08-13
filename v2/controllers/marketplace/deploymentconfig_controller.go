@@ -236,7 +236,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 			}
 			
 		*/
-		labelsMap, result := r.catalogClient.GetMeterdefIndexLabels(reqLogger,splitName)
+		indexLabels, result := r.catalogClient.GetMeterdefIndexLabels(reqLogger,splitName)
 		if !result.Is(Continue) {
 			return result
 		}
@@ -252,7 +252,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 			once all meterdefs are deleted, skip to the next csv - no need to keep processing
 		*/
 		if catologResponse.CatalogStatus.CatlogStatusType == catalog.CsvDoesNotHaveCatalogDirStatus || catologResponse.CatalogStatus.CatlogStatusType == catalog.CsvHasNoMeterdefinitionsStatus {
-			result = r.deleteAllMeterdefsForCsv(labelsMap, reqLogger)
+			result = r.deleteAllMeterdefsForCsv(indexLabels, reqLogger)
 			if !result.Is(Continue) {
 				return result
 			}
@@ -270,7 +270,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 			return result
 		}
 
-		installedMeterdefs, result := listAllCommunityMeterdefsOnCluster(r.Client, labelsMap)
+		installedMeterdefs, result := listAllCommunityMeterdefsOnCluster(r.Client, indexLabels)
 		if !result.Is(Continue) {
 			return result
 		}

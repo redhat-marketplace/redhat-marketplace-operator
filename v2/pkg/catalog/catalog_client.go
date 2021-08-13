@@ -187,7 +187,7 @@ func(c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, version
 	}
 }
 
-func  ReturnMeterdefs (mdefSlice []marketplacev1beta1.MeterDefinition,csvName string, namespace string,reqLogger logr.Logger) ([]marketplacev1beta1.MeterDefinition, *ExecResult){
+func ReturnMeterdefs (mdefSlice []marketplacev1beta1.MeterDefinition,csvName string, namespace string,reqLogger logr.Logger) ([]marketplacev1beta1.MeterDefinition, *ExecResult){
 
 	var out []marketplacev1beta1.MeterDefinition
 	
@@ -226,7 +226,7 @@ func (c *CatalogClient) GetSystemMeterdefs(csvName string, version string, names
 
 }
 
-func  ReturnSystemMeterdefs (csvName string, namespace string,response http.Response,reqLogger logr.Logger) ([]string, []marketplacev1beta1.MeterDefinition, *ExecResult){
+func ReturnSystemMeterdefs (csvName string, namespace string,response http.Response,reqLogger logr.Logger) ([]string, []marketplacev1beta1.MeterDefinition, *ExecResult){
 	meterDefNames := []string{}
 	mdefSlice := []marketplacev1beta1.MeterDefinition{}
 
