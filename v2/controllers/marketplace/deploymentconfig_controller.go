@@ -225,6 +225,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 		/* 
 			pings the file server for a map of labels we use to index meterdefintions that originated from the file server
 			these labels also get added to a meterdefinition by the file server	before it returns
+			split-name gets dynamically added on the call to get labels - could probably just use the split name in the controller however
 			{
 				"marketplace.redhat.com/installedOperatorNameTag": "<split-name>",
 				"marketplace.redhat.com/isCommunityMeterdefintion": "true"
@@ -244,7 +245,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 		/*
 			csv is on the cluster but doesn't have a csv dir or doesn't have mdefs in it's catalog listing
 			delete all meterdefs for that csv
-			once all meterdefs are deleted, skip to the next csv
+			once all meterdefs are deleted, skip to the next csv - no need to keep processing
 		*/
 		if catologResponse.CatalogStatus.CatlogStatusType == catalog.CsvDoesNotHaveCatalogDirStatus || catologResponse.CatalogStatus.CatlogStatusType == catalog.CsvHasNoMeterdefinitionsStatus {
 			result = r.deleteAllMeterdefsForCsv(labelsMap, reqLogger)
