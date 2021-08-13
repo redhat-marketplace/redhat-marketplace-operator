@@ -184,6 +184,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&controllers.DeploymentConfigReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
+		Scheme: mgr.GetScheme(),
+	}).Inject(injector).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DeploymentConfigReconciler")
+		os.Exit(1)
+	}
+
 	if err = (&controllers.MeterReportReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("MeterReport"),
