@@ -17,10 +17,10 @@ package processorsenders
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -131,14 +131,20 @@ func (r *RazeeProcessorSender) Process(ctx context.Context, inObj cache.Delta) e
 		return nil
 	}
 
-	r.log.Info("dac debug", "inObj", inObj)
-
-	// cache.Delta.Object does not retain GVK
-	// Use scheme to determine GVK and return a runtime.Object
-	rtObj, err := r.getRuntimeObj(inObj.Object)
-	if err != nil {
-		return err
+	rtObj, ok := inObj.Object.(runtime.Object)
+	if !ok {
+		r.log.Info("dac debug", "inObj", inObj)
+		merrors.New("Could not convert cache delta object to runtime object")
 	}
+
+	/*
+		// cache.Delta.Object does not retain GVK
+		// Use scheme to determine GVK and return a runtime.Object
+		rtObj, err := r.getRuntimeObj(inObj.Object)
+		if err != nil {
+			return err
+		}
+	*/
 
 	// Skip filtered out objects
 	r.log.Info("dac debug filter out")
@@ -147,6 +153,7 @@ func (r *RazeeProcessorSender) Process(ctx context.Context, inObj cache.Delta) e
 		return err
 	}
 	if filterOut {
+		r.log.Info("dac debug filterOut", "obj", inObj)
 		return nil
 	}
 
@@ -172,20 +179,17 @@ func (r *RazeeProcessorSender) Process(ctx context.Context, inObj cache.Delta) e
 	}
 
 	// Build the eventObj, as per Razee
-	/*
-		eventObj := EventObj{Type: eventType, Object: rtObj}
-		b, err := json.Marshal(eventObj)
-		if err != nil {
-			return err
-		}
-		r.log.Info("dac debug", "marshal", string(b))
-	*/
-
 	numEventObjs := r.processedEventObjs.Add(EventObj{Type: eventType, Object: rtObj})
 
+	r.log.Info("dac debug", "numEventObjs", numEventObjs)
+
 	if numEventObjs >= maxToSend {
+		r.log.Info("dac debug sendReadyChan")
 		r.ProcessorSender.sendReadyChan <- true
+		r.log.Info("dac debug sendReadyChan sent")
 	}
+
+	r.log.Info("dac debug razeeprocessorsender done")
 
 	return nil
 }
@@ -193,6 +197,7 @@ func (r *RazeeProcessorSender) Process(ctx context.Context, inObj cache.Delta) e
 func (r *RazeeProcessorSender) Send(ctx context.Context) error {
 	if !r.processedEventObjs.IsEmpty() {
 
+		r.log.Info("dac debug get CSV")
 		// Fetch the Openshift ClusterVersion
 		instance := &openshiftconfigv1.ClusterVersion{}
 		err := r.kubeClient.Get(context.TODO(), types.NamespacedName{Name: "version"}, instance)
@@ -208,18 +213,21 @@ func (r *RazeeProcessorSender) Send(ctx context.Context) error {
 		clusterID := instance.Spec.ClusterID
 		r.log.Info(string(clusterID))
 
+		r.log.Info("dac debug getRazeeDashKeys")
 		// read razeedash url secret & org secret for header
 		baseurl, razeeOrgKey, err := r.getRazeeDashKeys()
 		if err != nil {
 			return err
 		}
 
+		r.log.Info("dac debug getRazeeDashURL")
 		// build full razeedash url
 		fullurl, err := r.getRazeeDashURL(string(baseurl), string(clusterID))
 		if err != nil {
 			return err
 		}
 
+		r.log.Info("dac debug marshal")
 		// Marshal to send
 		b, err := json.Marshal(r.processedEventObjs.Flush())
 		if err != nil {
@@ -372,7 +380,7 @@ func (r *RazeeProcessorSender) getRazeeDashKeys() ([]byte, []byte, error) {
 func (r *RazeeProcessorSender) getRazeeDashURL(baseurl string, clusterID string) (string, error) {
 	var urlStr string
 
-	urlStr = fmt.Sprintf(baseurl, "/clusters/", clusterID, "/resources")
+	urlStr = strings.Join([]string{baseurl, "clusters", clusterID, "resources"}, "/")
 	url, err := url.Parse(urlStr)
 	if err != nil {
 		return urlStr, err

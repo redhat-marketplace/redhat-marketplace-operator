@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
+	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientset "k8s.io/client-go/kubernetes"
@@ -54,15 +55,7 @@ func NewRazeeStore(
 	findOwner *rhmclient.FindOwnerHelper,
 	scheme *runtime.Scheme,
 ) *RazeeStore {
-	keyFunc := cache.MetaNamespaceKeyFunc
-
-	/*
-		storeIndexers := cache.Indexers{
-			IndexRazee: cache.MetaNamespaceIndexFunc,
-		}
-
-	*/
-	//store := cache.NewIndexer(keyFunc, storeIndexers)
+	keyFunc := pkgtypes.GVKNamespaceKeyFunc(scheme)
 	delta := cache.NewDeltaFIFO(keyFunc, nil)
 	return &RazeeStore{
 		ctx:        ctx,

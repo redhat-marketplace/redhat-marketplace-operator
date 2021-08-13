@@ -51,20 +51,6 @@ type ProcessorSender struct {
 	sendReadyChan chan bool
 }
 
-type SafeTimer struct {
-	*time.Timer
-	sync.Mutex
-}
-
-func (s *SafeTimer) SafeReset(timerDuration time.Duration) {
-	s.Lock()
-	defer s.Unlock()
-	if !s.Stop() {
-		<-s.C
-	}
-	s.Reset(timerDuration)
-}
-
 // Start functions as a Processor, with an extra thread for Sending
 // When either the Processor indicates the accumulator is full, or the timer expires, Send
 func (u *ProcessorSender) Start(ctx context.Context) error {
@@ -76,8 +62,7 @@ func (u *ProcessorSender) Start(ctx context.Context) error {
 	wg.Add(u.digestersSize)
 
 	u.sendReadyChan = make(chan bool)
-
-	timer := SafeTimer{Timer: time.NewTimer(timerDuration)}
+	timer := time.NewTimer(timerDuration)
 
 	go func() {
 		for {
@@ -87,10 +72,16 @@ func (u *ProcessorSender) Start(ctx context.Context) error {
 				return
 			case <-u.sendReadyChan:
 				u.log.Info("dac debug sendReadyChan triggered")
-				u.Send(ctx)
+				err := u.Send(ctx)
+				if err != nil {
+					u.log.Error(err, "ProcessorSender Send error")
+				}
 			case t := <-timer.C:
 				u.log.Info("dac debug Timer expired", "time", t)
-				u.Send(ctx)
+				err := u.Send(ctx)
+				if err != nil {
+					u.log.Error(err, "ProcessorSender Send error")
+				}
 			}
 		}
 	}()
@@ -99,7 +90,7 @@ func (u *ProcessorSender) Start(ctx context.Context) error {
 		go func() {
 			for data := range u.resourceChan {
 				// restart the send timer if new data is arriving
-				timer.SafeReset(timerDuration)
+				timer.Reset(timerDuration)
 				localData := data
 				err := retry.RetryOnConflict(retry.DefaultBackoff,
 					func() error {
