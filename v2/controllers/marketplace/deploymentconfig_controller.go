@@ -236,23 +236,31 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 			}
 			
 		*/
-		indexLabels, result := r.catalogClient.GetMeterdefIndexLabels(reqLogger,splitName)
-		if !result.Is(Continue) {
-			return result
+		indexLabels, err := r.catalogClient.GetMeterdefIndexLabels(reqLogger,splitName)
+		if err != nil {
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
+			}
 		}
 
-		catologResponse, result := r.catalogClient.ListMeterdefintionsFromFileServer(splitName, csvVersion, namespace, reqLogger)
-		if !result.Is(Continue) {
-			return result
+		catologResponse, err := r.catalogClient.ListMeterdefintionsFromFileServer(splitName, csvVersion, namespace, reqLogger)
+		if err != nil {
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
+			}
 		}
+
+		utils.PrettyPrint(catologResponse)
 
 		/*
 			csv is on the cluster but doesn't have a csv dir or doesn't have mdefs in it's catalog listing
 			delete all meterdefs for that csv
 			once all meterdefs are deleted, skip to the next csv - no need to keep processing
 		*/
-		if catologResponse.CatalogStatus.CatlogStatusType == catalog.CsvDoesNotHaveCatalogDirStatus || catologResponse.CatalogStatus.CatlogStatusType == catalog.CsvHasNoMeterdefinitionsStatus {
-			result = r.deleteAllMeterdefsForCsv(indexLabels, reqLogger)
+		if catologResponse.CatalogStatus.CatlogStatusType == catalog.CsvHasNoMeterdefinitionsStatus {
+			result := r.deleteAllCommunityMeterdefsForCsv(indexLabels, reqLogger)
 			if !result.Is(Continue) {
 				return result
 			}
@@ -265,9 +273,12 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 			if the csv has a listing in the meterdefinition catalog and the directory contains meterdefinitions, run a sync on those meterdefinitions
 			i.e. catologResponse.CatalogStatus.CatlogStatusType == catalog.CsvHasMeterdefinitions
 		*/
-		meterDefsFromCatalog, result := catalog.ReturnMeterdefs(catologResponse.MdefList, csv.Name, csv.Namespace, reqLogger)
-		if !result.Is(Continue) {
-			return result
+		meterDefsFromCatalog, err := catalog.ReturnMeterdefs(catologResponse.MdefSlice, csv.Name, csv.Namespace, reqLogger)
+		if err != nil {
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
+			}
 		}
 
 		installedMeterdefs, result := listAllCommunityMeterdefsOnCluster(r.Client, indexLabels)
@@ -436,7 +447,9 @@ func listAllCommunityMeterdefsOnCluster(runtimeClient client.Client, indexLabels
 	}
 }
 
-func (r *DeploymentConfigReconciler) deleteAllMeterdefsForCsv(indexLabels map[string]string, reqLogger logr.Logger) *ExecResult {
+func (r *DeploymentConfigReconciler) deleteAllCommunityMeterdefsForCsv(indexLabels map[string]string, reqLogger logr.Logger) *ExecResult {
+	reqLogger.Info("deleting community meterdefinitions with index","index",indexLabels)
+
 	installedMeterdefList := &marketplacev1beta1.MeterDefinitionList{}
 
 	// look for meterdefs that are from the meterdefinition catalog
@@ -446,6 +459,13 @@ func (r *DeploymentConfigReconciler) deleteAllMeterdefsForCsv(indexLabels map[st
 
 	err := r.Client.List(context.TODO(), installedMeterdefList, listOpts...)
 	if err != nil {
+		if errors.IsNotFound(err){
+			reqLogger.Info("no community meterdefinitions found for csv","with index",indexLabels)
+			return &ExecResult{
+				Status: ActionResultStatus(Continue),
+			}
+		}
+		
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,

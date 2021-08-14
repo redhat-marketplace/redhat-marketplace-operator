@@ -139,27 +139,18 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 
 					allMeterDefinitions := []marketplacev1beta1.MeterDefinition{}
 
-					catalogResponse, result := r.catalogClient.ListMeterdefintionsFromFileServer(csvName, csvVersion, CSV.Namespace,reqLogger)
-					if !result.Is(Continue) {
-
-						if result.Is(Error) {
-							reqLogger.Error(result.GetError(), "Failed retrieving meterdefinitions from file server", "CSV", csvName)
-						}
-
-						return result.Return()
+					catalogResponse, err := r.catalogClient.ListMeterdefintionsFromFileServer(csvName, csvVersion, CSV.Namespace,reqLogger)
+					if err != nil {
+						return reconcile.Result{},err
 					}
 
 					if catalogResponse.CatalogStatus.CatlogStatusType == catalog.CsvWithMeterdefsFoundStatus {
-						mdefs := catalogResponse.MdefList
-						communityMeterdefs,result := catalog.ReturnMeterdefs(mdefs,csvName,CSV.Namespace,reqLogger)
-						if !result.Is(Continue) {
-
-							if result.Is(Error) {
-								reqLogger.Error(result.GetError(), "Failed retrieving global meterdefinitions", "CSV", csvName)
-							}
-	
-							result.Return()
+						mdefs := catalogResponse.MdefSlice
+						communityMeterdefs,err := catalog.ReturnMeterdefs(mdefs,csvName,CSV.Namespace,reqLogger)
+						if err != nil {
+							return reconcile.Result{},err
 						}
+
 						allMeterDefinitions = append(allMeterDefinitions, communityMeterdefs...)
 					}
 
@@ -195,7 +186,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 							if errors.IsNotFound(err) {
 								reqLogger.Info("meterdefinition not found, creating", "meterdef name", meterDefItem.Name, "CSV", CSV.Name)
 
-								result = r.createMeterdef(csvName, csvVersion, meterDefItem, CSV, gvk, request, reqLogger)
+								result := r.createMeterdef(csvName, csvVersion, meterDefItem, CSV, gvk, request, reqLogger)
 								if !result.Is(Continue) {
 
 									if result.Is(Error) {
