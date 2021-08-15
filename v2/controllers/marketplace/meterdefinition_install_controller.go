@@ -104,11 +104,11 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		return reconcile.Result{}, err
 	}
 
-	_csvName := strings.Split(request.Name, ".")[0]
+	// _csvName := strings.Split(request.Name, ".")[0]
 	var foundSub *olmv1alpha1.Subscription
 	if len(sub.Items) > 0 {
 		for _, s := range sub.Items {
-			if strings.HasPrefix(s.Name, _csvName) {
+			if strings.HasPrefix(s.Name, csvName) {
 				foundSub = &s
 			}
 		}

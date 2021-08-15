@@ -40,6 +40,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
+	osappsv1 "github.com/openshift/api/apps/v1"
 	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	// +kubebuilder:scaffold:imports
@@ -85,6 +86,9 @@ var _ = BeforeSuite(func() {
 	err = marketplaceredhatcomv1beta1.AddToScheme(k8sScheme)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = osappsv1.AddToScheme(k8sScheme)
+	Expect(err).NotTo(HaveOccurred())
+
 	// +kubebuilder:scaffold:scheme
 	k8sClient, err = client.New(cfg, client.Options{Scheme: k8sScheme})
 	Expect(err).ToNot(HaveOccurred())
@@ -93,6 +97,13 @@ var _ = BeforeSuite(func() {
 	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: k8sScheme,
 	})
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&RemoteResourceS3Reconciler{
+		Client: k8sManager.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("RemoteResourceS3"),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&RemoteResourceS3Reconciler{

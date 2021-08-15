@@ -177,7 +177,7 @@ func(c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, version
 
 	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(responseData)), 100).Decode(&mdefSlice)
 	if err != nil {
-		reqLogger.Error(err, "error decoding response from fetchGlobalMeterdefinitions()")
+		reqLogger.Error(err, "error decoding response from ListMeterdefinitions()")
 		return nil, err
 	}
 
