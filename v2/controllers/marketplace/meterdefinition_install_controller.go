@@ -74,9 +74,9 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	reqLogger := r.Log.WithValues("Request.Name", request.Name, "Request.Namespace", request.Namespace)
 	reqLogger.Info("Reconciling ClusterServiceVersion")
 
-	err := r.catalogClient.SetTransport(r.Client,r.cfg,r.kubeInterface,reqLogger)
+	err := r.catalogClient.SetTransport(r.Client, r.cfg, r.kubeInterface, reqLogger)
 	if err != nil {
-		return reconcile.Result{},err
+		return reconcile.Result{}, err
 	}
 
 	// Fetch the ClusterServiceVersion instance
@@ -132,14 +132,14 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 				if foundSub.Status.InstalledCSV == request.NamespacedName.Name {
 					reqLogger.Info("found Subscription with installed CSV")
 
-					/* 
+					/*
 						if the csv has a dir in the catalog && has meterdefinitions create those
 						if templated meterdefs are enabled create those
 					*/
 
 					allMeterDefinitions := []marketplacev1beta1.MeterDefinition{}
 
-					catalogResponse, result := r.catalogClient.ListMeterdefintionsFromFileServer(csvName, csvVersion, CSV.Namespace,reqLogger)
+					catalogResponse, result := r.catalogClient.ListMeterdefintionsFromFileServer(csvName, csvVersion, CSV.Namespace, reqLogger)
 					if !result.Is(Continue) {
 
 						if result.Is(Error) {
@@ -150,33 +150,24 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 					}
 
 					if catalogResponse.CatalogStatus.CatlogStatusType == catalog.CsvWithMeterdefsFoundStatus {
-						mdefs := catalogResponse.MdefList
-						communityMeterdefs,result := catalog.ReturnMeterdefs(mdefs,csvName,CSV.Namespace,reqLogger)
-						if !result.Is(Continue) {
-
-							if result.Is(Error) {
-								reqLogger.Error(result.GetError(), "Failed retrieving global meterdefinitions", "CSV", csvName)
-							}
-	
-							result.Return()
-						}
+						communityMeterdefs := catalogResponse.MdefSlice
 						allMeterDefinitions = append(allMeterDefinitions, communityMeterdefs...)
 					}
 
-					//TODO: temp for now until we update templating work
-					// _, globalMeterdefinitions, result := catalogClient.GetSystemMeterdefs(csvName, csvVersion, CSV.Namespace, reqLogger)
-					// if !result.Is(Continue) {
+					systemMeterdefsResponse, result := r.catalogClient.GetSystemMeterdefs(*CSV, reqLogger)
+					if !result.Is(Continue) {
 
-					// 	if result.Is(Error) {
-					// 		reqLogger.Error(result.GetError(), "Failed retrieving global meterdefinitions", "CSV", csvName)
-					// 	}
+						if result.Is(Error) {
+							reqLogger.Error(result.GetError(), "Failed retrieving system meterdefinitions", "CSV", csvName)
+						}
 
-					// 	result.Return()
-					// }
+						result.Return()
+					}
 
-					globalMeterdefinitions := []marketplacev1beta1.MeterDefinition{}
-
-					allMeterDefinitions = append(allMeterDefinitions, globalMeterdefinitions...)
+					if systemMeterdefsResponse.CatalogStatus.CatlogStatusType == catalog.SystemMeterdefsReturnedStatus {
+						globalMeterdefinitions := catalogResponse.MdefSlice
+						allMeterDefinitions = append(allMeterDefinitions, globalMeterdefinitions...)
+					}
 
 					gvk, err := apiutil.GVKForObject(CSV, r.Scheme)
 					if err != nil {
@@ -269,14 +260,14 @@ func checkForCSVVersionChanges(e event.UpdateEvent) bool {
 	return oldCSV.Spec.Version.String() != newCSV.Spec.Version.String()
 }
 
-var rhmCSVControllerPredicates predicate.Funcs = predicate.Funcs {
+var rhmCSVControllerPredicates predicate.Funcs = predicate.Funcs{
 	UpdateFunc: func(e event.UpdateEvent) bool {
 
 		return checkForCSVVersionChanges(e)
 	},
 
 	DeleteFunc: func(e event.DeleteEvent) bool {
-	
+
 		return true
 	},
 
