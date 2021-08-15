@@ -144,9 +144,8 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 						return reconcile.Result{},err
 					}
 
-					if catalogResponse.CatalogStatus.CatlogStatusType == catalog.CsvWithMeterdefsFoundStatus {
-						mdefs := catalogResponse.MdefSlice
-						communityMeterdefs,err := catalog.ReturnMeterdefs(mdefs,csvName,CSV.Namespace,reqLogger)
+					if catalogResponse.CatlogStatusType == catalog.CsvWithMeterdefsFoundStatus {
+						communityMeterdefs := catalogResponse.MdefSlice
 						if err != nil {
 							return reconcile.Result{},err
 						}
@@ -154,16 +153,20 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 						allMeterDefinitions = append(allMeterDefinitions, communityMeterdefs...)
 					}
 
-					//TODO: temp for now until we update templating work
-					// _, globalMeterdefinitions, result := catalogClient.GetSystemMeterdefs(csvName, csvVersion, CSV.Namespace, reqLogger)
-					// if !result.Is(Continue) {
+					systemMeterdefsResponse, result := r.catalogClient.GetSystemMeterdefs(*CSV, reqLogger)
+					if !result.Is(Continue) {
 
-					// 	if result.Is(Error) {
-					// 		reqLogger.Error(result.GetError(), "Failed retrieving global meterdefinitions", "CSV", csvName)
-					// 	}
+						if result.Is(Error) {
+							reqLogger.Error(result.GetError(), "Failed retrieving system meterdefinitions", "CSV", csvName)
+						}
 
-					// 	result.Return()
-					// }
+						result.Return()
+					}
+
+					if systemMeterdefsResponse.CatlogStatusType == catalog.SystemMeterdefsReturnedStatus {
+						globalMeterdefinitions := catalogResponse.MdefSlice
+						allMeterDefinitions = append(allMeterDefinitions, globalMeterdefinitions...)
+					}
 
 					globalMeterdefinitions := []marketplacev1beta1.MeterDefinition{}
 

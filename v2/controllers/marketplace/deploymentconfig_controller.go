@@ -263,7 +263,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 		if catologResponse.CatlogStatusType == catalog.CsvHasNoMeterdefinitionsStatus {
 			result := r.deleteAllCommunityMeterdefsForCsv(indexLabels, reqLogger)
 
-			// if there are no community defs for a csc on the cluster continue on to the next csv in the list
+			// if there are no community meter defs for a csv on the cluster continue on to the next csv in the list
 			if !result.Is(Continue) && errors.IsNotFound(result.Err) {
 				return ContinueResponse().ExecResult
 			} else if !result.Is(Continue){
@@ -274,17 +274,22 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 			continue
 		}
 
+		latestMeterDefsFromCatalog := catologResponse.MdefSlice
+
 		/*
 			if the csv has a listing in the meterdefinition catalog and the directory contains meterdefinitions, run a sync on those meterdefinitions
 		*/
-		latestMeterDefsFromCatalog, err := catalog.ReturnMeterdefs(catologResponse.MdefSlice, csv.Name, csv.Namespace, reqLogger)
-		if err != nil {
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
+
+		// fetch system meter definitions and append
+		systemMeterdefsResponse, result := r.catalogClient.GetSystemMeterdefs(csv, reqLogger)
+		if !result.Is(Continue) {
+			return result
 		}
 
+		if systemMeterdefsResponse.CatlogStatusType == catalog.SystemMeterdefsReturnedStatus{
+			latestMeterDefsFromCatalog = append(latestMeterDefsFromCatalog, systemMeterdefsResponse.MdefSlice...)
+		}
+		
 		catalogMdefsOnCluster, result := listAllCommunityMeterdefsOnCluster(r.Client, indexLabels)
 		if !result.Is(Continue) {
 			return result
