@@ -18,8 +18,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/blang/semver"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	appsv1 "k8s.io/api/apps/v1"
@@ -42,7 +44,7 @@ var _ = Describe("MeterbaseController", func() {
 				Eventually(func() bool {
 					result, _ := testHarness.Do(
 						context.TODO(),
-						GetAction(types.NamespacedName{Name: "operator-certs-ca-bundle", Namespace: Namespace}, cm),
+						GetAction(types.NamespacedName{Name: "serving-certs-ca-bundle", Namespace: Namespace}, cm),
 						GetAction(types.NamespacedName{Name: "prometheus-operator", Namespace: Namespace}, deployment),
 						GetAction(types.NamespacedName{Name: "prometheus-operator", Namespace: Namespace}, service),
 					)
@@ -67,13 +69,41 @@ var _ = Describe("MeterbaseController", func() {
 
 				By("creating additional config secret")
 
+				clusterVersionObj := &openshiftconfigv1.ClusterVersion{}
 				secret := &corev1.Secret{}
 
+				// additional-scrape-configs no longer used on 4.6.0+
 				Eventually(func() bool {
 					result, _ := testHarness.Do(
 						context.TODO(),
-						GetAction(types.NamespacedName{Name: "rhm-meterbase-additional-scrape-configs", Namespace: Namespace}, secret),
+						GetAction(types.NamespacedName{Name: "version"}, clusterVersionObj),
 					)
+					if result.Is(NotFound) {
+						// Not Openshift, check additional-scrape-configs
+						result, _ = testHarness.Do(
+							context.TODO(),
+							GetAction(types.NamespacedName{Name: "rhm-meterbase-additional-scrape-configs", Namespace: Namespace}, secret),
+						)
+						return result.Is(Continue)
+					} else if result.Is(Continue) {
+						// Is Openshift
+						parsedVersion460, _ := semver.Make("4.6.0")
+						parsedVersion, err := semver.ParseTolerant(clusterVersionObj.Status.Desired.Version)
+						if err != nil {
+							return false
+						}
+						if parsedVersion.GTE(parsedVersion460) {
+							// 4.6.0+, no additional-scrape-configs
+							return result.Is(Continue)
+						} else {
+							// <4.6.0, check additional-scrape-configs
+							result, _ = testHarness.Do(
+								context.TODO(),
+								GetAction(types.NamespacedName{Name: "rhm-meterbase-additional-scrape-configs", Namespace: Namespace}, secret),
+							)
+							return result.Is(Continue)
+						}
+					}
 					return result.Is(Continue)
 				}, timeout, interval).Should(BeTrue())
 

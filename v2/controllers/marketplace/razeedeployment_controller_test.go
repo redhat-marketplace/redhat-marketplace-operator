@@ -238,9 +238,7 @@ var _ = Describe("Testing with Ginkgo", func() {
 		)
 		reconcilerTest.TestAll(t,
 			ReconcileStep(opts,
-				ReconcileWithExpectedResults(
-					append(
-						RangeReconcileResults(RequeueResult, 15))...)),
+				ReconcileWithUntilDone(true)),
 			// Let's do some client checks
 			ListStep(opts,
 				ListWithObj(&corev1.ConfigMapList{}),

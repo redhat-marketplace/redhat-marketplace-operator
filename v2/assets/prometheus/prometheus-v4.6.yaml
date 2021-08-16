@@ -1,0 +1,139 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: prometheus-meterbase
+  labels:
+    prometheus: redhat-marketplace
+    marketplace.redhat.com/metering: true
+spec:
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: prometheus
+                  operator: In
+                  values:
+                    - k8s
+            namespaces:
+              - redhat-marketplace
+            topologyKey: kubernetes.io/hostname
+          weight: 100
+  containers:
+    - image: redhat-marketplace-authcheck:latest
+      name: authcheck
+      resources:
+        requests:
+          cpu: 10m
+          memory: 20Mi
+        limits:
+          cpu: 20m
+          memory: 40Mi
+      terminationMessagePolicy: FallbackToLogsOnError
+    - args:
+        - -provider=openshift
+        - -https-address=:9091
+        - -http-address=
+        - -email-domain=*
+        - -upstream=http://localhost:9090
+        - -htpasswd-file=/etc/proxy/htpasswd/auth
+        - -openshift-service-account=redhat-marketplace-prometheus
+        - '-openshift-sar={"resource": "namespaces", "verb": "get"}'
+        - '-openshift-delegate-urls={"/": {"resource": "namespaces", "verb": "get"}}'
+        - -tls-cert=/etc/tls/private/tls.crt
+        - -tls-key=/etc/tls/private/tls.key
+        - -client-secret-file=/var/run/secrets/kubernetes.io/serviceaccount/token
+        - -cookie-secret-file=/etc/proxy/secrets/session_secret
+        - -openshift-ca=/etc/pki/tls/cert.pem
+        - -openshift-ca=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        - -skip-auth-regex=^/metrics
+      env:
+        - name: HTTP_PROXY
+          value: ''
+        - name: HTTPS_PROXY
+          value: ''
+        - name: NO_PROXY
+          value: ''
+      image: registry.redhat.io/openshift4/ose-oauth-proxy:latest
+      imagePullPolicy: IfNotPresent
+      name: prometheus-proxy
+      ports:
+        - containerPort: 9091
+          name: https
+      resources:
+        requests:
+          cpu: 10m
+          memory: 20Mi
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+        - mountPath: /etc/tls/private
+          name: secret-rhm-prometheus-meterbase-tls
+        - mountPath: /etc/proxy/secrets
+          name: secret-rhm-prometheus-meterbase-proxy
+        - mountPath: /etc/proxy/htpasswd
+          name: secret-rhm-prometheus-meterbase-htpasswd
+    - args:
+        - --logtostderr
+        - --secure-listen-address=:9092
+        - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+        - --upstream=http://127.0.0.1:9090/
+        - --tls-cert-file=/etc/tls/private/tls.crt
+        - --tls-private-key-file=/etc/tls/private/tls.key
+        - --upstream-ca-file=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt
+      image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
+      imagePullPolicy: IfNotPresent
+      name: kube-rbac-proxy-1
+      ports:
+        - containerPort: 9092
+          name: rbac
+      resources:
+        requests:
+          cpu: 10m
+          memory: 20Mi
+      securityContext: {}
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+        - mountPath: /etc/tls/private
+          name: secret-rhm-prometheus-meterbase-tls
+          readOnly: false
+        - mountPath: /etc/configmaps/serving-certs-ca-bundle
+          name: configmap-serving-certs-ca-bundle
+          readOnly: false
+  replicas: 2
+  resources:
+    requests:
+      cpu: 70m
+      memory: 1Gi
+  serviceAccountName: redhat-marketplace-prometheus
+  priorityClassName: system-cluster-critical
+  listenLocal: true
+  enableAdminAPI: true
+  retentionSize: 19GB
+  retention: 30d
+  image: registry.redhat.io/openshift4/ose-prometheus:latest
+  imagePullPolicy: IfNotPresent
+  nodeSelector:
+    kubernetes.io/os: linux
+  securityContext: {}
+  serviceMonitorSelector:
+    matchLabels:
+      marketplace.redhat.com/metering: 'true'
+  serviceMonitorNamespaceSelector:
+    matchExpressions:
+      - { key: 'openshift.io/cluster-monitoring', operator: DoesNotExist }
+  secrets:
+    - kube-rbac-proxy
+    - rhm-prometheus-meterbase-tls
+    - rhm-prometheus-meterbase-proxy
+    - rhm-prometheus-meterbase-htpasswd
+  configMaps:
+    - serving-certs-ca-bundle
+    - kubelet-serving-ca-bundle
+  storage:
+    volumeClaimTemplate:
+      spec:
+        storageClassName: 'standard'
+        resources:
+          requests:
+            storage: 25Gi

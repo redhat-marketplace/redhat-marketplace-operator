@@ -92,7 +92,7 @@ func init() {
 	ReportCmd.Flags().StringVar(&name, "name", "", "name of the report")
 	ReportCmd.Flags().StringVar(&namespace, "namespace", "", "namespace of the report")
 	ReportCmd.Flags().StringVar(&cafile, "cafile", "", "cafile for prometheus")
-	ReportCmd.Flags().StringVar(&tokenFile, "tokenfile", "", "token file for prometheus")
+	ReportCmd.Flags().StringVar(&tokenFile, "tokenfile", "/var/run/secrets/kubernetes.io/serviceaccount/token", "token file for prometheus")
 	ReportCmd.Flags().StringVar(&uploadTarget, "uploadTarget", "redhat-insights", "target to upload to")
 	ReportCmd.Flags().StringVar(&localFilePath, "localFilePath", ".", "target to upload to")
 	ReportCmd.Flags().BoolVar(&local, "local", false, "run locally")

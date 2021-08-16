@@ -97,6 +97,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.annotations['olm.operatorGroup']
+            {{- range $val := .Values.devEnvVars }}
+            - name: {{ $val.name | quote }}
+              value: {{ $val.value | quote }}
+            {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

@@ -74,7 +74,7 @@ func (c containerResults) Process(client *connectClient, pids map[string]string,
 			continue
 		}
 
-		if(!publishImage) {
+		if !publishImage {
 			fmt.Println("publishing disabled")
 			continue
 		}

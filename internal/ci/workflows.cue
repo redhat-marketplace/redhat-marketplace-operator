@@ -342,17 +342,18 @@ sync_branches: _#bashWorkflow & {
 	name: "Sync Next Release"
 	on: {
 		push: {
-			branches: [ _#nextRelease ]
+			branches: [ "develop", _#nextRelease ]
 		}
 	}
 	jobs: {
 		sync: {
 			name:      "Sync next release"
 			"runs-on": _#linuxMachine
-      if: "${{ github.ref == 'refs/heads/\(_#nextRelease)' }}"
+      if: "${{ github.ref == 'refs/heads/\(_#nextRelease)' || github.ref == 'refs/heads/develop' }}"
 			steps:     [_#checkoutCode] + [ for _#futureRelease in _#futureReleases {
 				_#step & {
 					name: "pull-request-action"
+          if: "${{ github.ref == 'refs/heads/\(_#nextRelease)' }}"
 					uses: "vsoch/pull-request-action@master"
 					env: {
 						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
@@ -364,16 +365,18 @@ sync_branches: _#bashWorkflow & {
 			}] + [
 				_#step & {
 					name: "pull-request-action"
+          if: "${{ github.ref == 'refs/heads/develop' }}"
 					uses: "vsoch/pull-request-action@master"
 					env: {
 						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
-						"PULL_REQUEST_BRANCH": "develop"
-            "PULL_REQUEST_TITLE" : "chore: ${{ github.ref }} to develop"
+						"PULL_REQUEST_BRANCH": _#nextRelease
+            "PULL_REQUEST_TITLE" : "chore: develop to \(_#nextRelease)"
             "PULL_REQUEST_UPDATE": "true"
 					}
 				},
 				_#step & {
 					name: "pull-request-action"
+          if: "${{ github.ref == 'refs/heads/\(_#nextRelease)' }}"
 					uses: "vsoch/pull-request-action@master"
 					env: {
 						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
@@ -449,11 +452,12 @@ branch_build: _#bashWorkflow & {
 		"base": _#job & {
 			name:      "Build Base"
 			"runs-on": _#linuxMachine
+      "continue-on-error": true
 			steps: [
 				_#checkoutCode,
 				_#installGo,
 				(_#cacheDockerBuildx & {
-					#project: "base"
+					#project: "base1"
 				}).res,
 				_#setupQemu,
 				_#setupBuildX,
@@ -461,7 +465,6 @@ branch_build: _#bashWorkflow & {
 				_#step & {
 					id:                  "build"
 					name:                "Build images"
-					"continue-on-error": "${{ matrix.continueOnError }}"
 					env: {
 						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
 						"PUSH":              "false"
@@ -473,7 +476,6 @@ branch_build: _#bashWorkflow & {
 				_#step & {
 					id:                  "push"
 					name:                "Push images"
-					"continue-on-error": "${{ matrix.continueOnError }}"
 					env: {
 						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
 						"IMAGE_PUSH":        "true"
@@ -495,20 +497,16 @@ branch_build: _#bashWorkflow & {
 				project: ["operator", "authchecker", "metering", "reporter"]
 				include: [
 					{
-						project:         "operator"
-						continueOnError: false
+						project: "operator"
 					},
 					{
-						project:         "authchecker"
-						continueOnError: false
+						project: "authchecker"
 					},
 					{
-						project:         "metering"
-						continueOnError: false
+						project: "metering"
 					},
 					{
-						project:         "reporter"
-						continueOnError: false
+						project: "reporter"
 					},
 				]
 			}
@@ -528,7 +526,6 @@ branch_build: _#bashWorkflow & {
 				_#step & {
 					id:                  "build"
 					name:                "Build images"
-					"continue-on-error": "${{ matrix.continueOnError }}"
 					env: {
 						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
 						"IMAGE_PUSH":        "false"
@@ -540,7 +537,6 @@ branch_build: _#bashWorkflow & {
 				_#step & {
 					id:                  "push"
 					name:                "Push images"
-					"continue-on-error": "${{ matrix.continueOnError }}"
 					env: {
 						"DOCKERBUILDXCACHE": "/tmp/.buildx-cache"
 						"PUSH":              "true"
@@ -554,7 +550,7 @@ branch_build: _#bashWorkflow & {
 		"deploy": _#job & {
 			name:      "Deploy"
 			"runs-on": _#linuxMachine
-			needs: ["test", "matrix-test"]
+			needs: ["test", "matrix-test", "images"]
 			env: {
 				VERSION:   "${{ needs.test.outputs.version }}"
 				IMAGE_TAG: "${{ needs.test.outputs.tag }}"
@@ -595,6 +591,13 @@ branch_build: _#bashWorkflow & {
 						echo "::set-output name=tag::$TAG"
 						"""
 				},
+				_#step & {
+          uses: "actions/upload-artifact@v2"
+          with: {
+            name: "release-bundle-${{ steps.bundle.outputs.tag }}"
+            path: "v2/bundle"
+          }
+        },
 				_#step & {
 					uses: "marocchino/sticky-pull-request-comment@v2"
 					with: {
@@ -728,22 +731,22 @@ _#getBundleRunID: _#step & {
 		  -H "Accept: application/vnd.github.v3+json" \\
 		  "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/$WORKFLOW_ID/runs?branch=$REF&event=push" \\
 		   | jq '.workflow_runs | max_by(.run_number)')
-		
+
 		if [ "$BRANCH_BUILD" == "" ]; then
 		  echo "failed to get branch build"
 		  exit 1
 		fi
-		
+
 		status=$(echo $BRANCH_BUILD | jq -r '.status')
 		conclusion=$(echo $BRANCH_BUILD | jq -r '.conclusion')
-		
+
 		if [ "$status" != "completed" ] && [ "$conclusion" != "success" ]; then
 		  echo "$status and $conclusion were not completed and successful"
 		  exit 1
 		fi
-		
+
 		RUN_NUMBER=$(echo $BRANCH_BUILD | jq -r '.run_number')
-		
+
 		export TAG="${VERSION}-${RUN_NUMBER}"
 		echo "setting tag to $TAG"
 		echo "TAG=$TAG" >> $GITHUB_ENV
@@ -760,19 +763,19 @@ _#getVersion: _#step & {
 		if [ "$REF" == "" ]; then
 			REF="$GITHUB_REF"
 		fi
-		
+
 		if [[ "$GITHUB_HEAD_REF" != "" ]]; then
 			echo "Request is a PR $GITHUB_HEAD_REF is head; is base $GITHUB_BASE_REF is base"
 		  REF="$GITHUB_HEAD_REF"
 		fi
-		
+
 		echo "Found ref $REF"
-		
+
 		if [[ "$VERSION" == "" ]]; then
 		  echo "failed to find version"
 		  exit 1
 		fi
-		
+
 		if [[ "$REF" == *"release"* ||  "$REF" == *"hotfix"* ]] ; then
 		echo "using release version and github_run_number"
 		export TAG="${VERSION}-${GITHUB_RUN_NUMBER}"
@@ -782,7 +785,7 @@ _#getVersion: _#step & {
 		export TAG="${VERSION}-beta-${GITHUB_RUN_NUMBER}"
 		export IS_DEV="true"
 		fi
-		
+
 		echo "Found version $VERSION"
 		echo "::set-output name=version::$VERSION"
 		echo "VERSION=$VERSION" >> $GITHUB_ENV
@@ -884,9 +887,10 @@ _#installKubeBuilder: _#step & {
 _#installOperatorSDK: _#step & {
 	name: "Install operatorsdk"
 	run: """
+		version=v1.7.2
 		export ARCH=$(case $(arch) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(arch) ;; esac)
 		export OS=$(uname | awk '{print tolower($0)}')
-		export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/latest/download
+		export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/${version}
 		curl -LO ${OPERATOR_SDK_DL_URL}/operator-sdk_${OS}_${ARCH}
 		curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt
 		curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt.asc
@@ -928,7 +932,7 @@ _#turnStyleStep: _#step & {
 
 _#archs: ["amd64", "ppc64le", "s390x"]
 _#registry:           "quay.io/rh-marketplace"
-_#goVersion:          "1.16.2"
+_#goVersion:          "1.16.6"
 _#branchTarget:       "/^(master|develop|release.*|hotfix.*)$/"
 _#pcUser:             "pcUser"
 _#kubeBuilderVersion: "2.3.1"
@@ -1277,7 +1281,7 @@ _#findAllReleasePRs: (_#githubGraphQLQuery & {
 		with: {
 			query: """
 				query {
-					search(query: "repo:redhat-marketplace/redhat-marketplace-operator is:pr is:open head:hotfix head:release", type: ISSUE, last: 100) {
+					search(query: "repo:redhat-marketplace/redhat-marketplace-operator is:pr is:open head:hotfix head:release base:master label:ready", type: ISSUE, last: 100) {
 						edges {
 							node {
 								... on PullRequest {

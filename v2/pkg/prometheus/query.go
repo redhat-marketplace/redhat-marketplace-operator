@@ -37,15 +37,17 @@ import (
 var logger = logf.Log.WithName("prometheus")
 
 type PromQueryArgs struct {
-	Type          v1beta1.WorkloadType
-	MeterDef      types.NamespacedName
-	Metric        string
-	Query         string
-	Start, End    time.Time
-	Step          time.Duration
-	AggregateFunc string
-	GroupBy       []string
-	Without       []string
+	Type               v1beta1.WorkloadType
+	MeterDef           types.NamespacedName
+	Metric             string
+	Query              string
+	Start, End         time.Time
+	Step               time.Duration
+	AggregateFunc      string
+	LabelReplacePrefix string
+	LabelReplaceSuffix string
+	GroupBy            []string
+	Without            []string
 
 	defaultWithout []string
 	defaultGroupBy []string
@@ -134,6 +136,8 @@ func (q *PromQuery) typeNotSupportedError() error {
 func (q *PromQuery) defaulter() {
 	q.setDefaultWithout()
 	q.setDefaultGroupBy()
+	q.setDefaultLabelReplacePrefix()
+	q.setDefaultLabelReplaceSuffix()
 }
 
 func dedupeStringSlice(stringSlice []string) []string {
@@ -151,18 +155,18 @@ func dedupeStringSlice(stringSlice []string) []string {
 }
 
 var alwaysWithout []string = []string{
-	"instance", "container", "endpoint", "job", "cluster_ip",
+	"instance", "container", "endpoint", "job", "cluster_ip", "exported_namespace", "prometheus", "priority_class",
 }
 
 func (q *PromQuery) setDefaultWithout() {
 	// we want to make sure
 	switch q.Type {
 	case v1beta1.WorkloadTypePVC:
-		q.defaultWithout = []string{"instance", "container", "endpoint", "job", "service", "pod", "pod_uid", "pod_ip"}
+		q.defaultWithout = []string{"instance", "container", "endpoint", "job", "service", "pod", "pod_uid", "pod_ip", "exported_persistentvolumeclaim"}
 	case v1beta1.WorkloadTypePod:
-		q.defaultWithout = []string{"pod_uid", "pod_ip", "instance", "image_id", "host_ip", "node", "container", "job", "service"}
+		q.defaultWithout = []string{"pod_uid", "pod_ip", "instance", "image_id", "host_ip", "node", "container", "job", "service", "exported_pod"}
 	case v1beta1.WorkloadTypeService:
-		q.defaultWithout = []string{"pod_uid", "instance", "container", "endpoint", "job", "pod", "cluster_ip"}
+		q.defaultWithout = []string{"pod_uid", "instance", "container", "endpoint", "job", "pod", "exported_service"}
 	default:
 		panic(q.typeNotSupportedError())
 	}
@@ -186,17 +190,35 @@ func (q *PromQuery) setDefaultGroupBy() {
 	q.defaultGroupBy = dedupeStringSlice(q.defaultGroupBy)
 }
 
-const resultQueryTemplateStr = `
-{{- .AggregateFunc }} by ({{ default .DefaultGroupBy .GroupBy | sortAlpha | join "," }}) (avg({{ .MeterName }}{ {{- .QueryFilters | join "," -}} }) without({{ .DefaultWithout | sortAlpha | join "," }}) * on({{ .DefaultGroupBy | join "," }}) group_right {{ .Query }}) * on({{ default .DefaultGroupBy .GroupBy | sortAlpha | join "," }}) group_right group({{ .Query }}) without({{ default .DefaultWithout .Without | sortAlpha | join "," }})`
+// Label replacement handles case of User Workload Monitoring relabeling metric-state labels
+// https://github.com/openshift/enhancements/blob/master/enhancements/monitoring/user-workload-monitoring.md#multitenancy
+func (q *PromQuery) setDefaultLabelReplacePrefix() {
+	q.LabelReplacePrefix = "label_replace(label_replace("
+}
+
+func (q *PromQuery) setDefaultLabelReplaceSuffix() {
+	switch q.Type {
+	case v1beta1.WorkloadTypePVC:
+		q.LabelReplaceSuffix = `,"namespace","$1","exported_namespace","(.+)"),"persistentvolumeclaim","$1","exported_persistentvolumeclaim","(.+)")`
+	case v1beta1.WorkloadTypePod:
+		q.LabelReplaceSuffix = `,"namespace","$1","exported_namespace","(.+)"),"pod","$1","exported_pod","(.+)")`
+	case v1beta1.WorkloadTypeService:
+		q.LabelReplaceSuffix = `,"namespace","$1","exported_namespace","(.+)"),"service","$1","exported_service","(.+)")`
+	default:
+		panic(q.typeNotSupportedError())
+	}
+}
+
+const resultQueryTemplateStr = `{{- .AggregateFunc }} by ({{ default .DefaultGroupBy .GroupBy | sortAlpha | join "," }}) (avg({{ .LabelReplacePrefix }}{{ .MeterName }}{ {{- .QueryFilters | join "," -}} }{{ .LabelReplaceSuffix }}) without({{ .DefaultWithout | sortAlpha | join "," }}) * on({{ .DefaultGroupBy | join "," }}) group_right {{ .Query }}) * on({{ default .DefaultGroupBy .GroupBy | sortAlpha | join "," }}) group_right group({{ .Query }}) without({{ default .DefaultWithout .Without | sortAlpha | join "," }})`
 
 var resultQueryTemplate *template.Template = utils.Must(func() (interface{}, error) {
 	return template.New("resultQuery").Funcs(sprig.GenericFuncMap()).Parse(resultQueryTemplateStr)
 }).(*template.Template)
 
 type ResultQueryArgs struct {
-	MeterName, Query, AggregateFunc string
-	QueryFilters, GroupBy, Without  []string
-	DefaultWithout, DefaultGroupBy  []string
+	MeterName, Query, AggregateFunc, LabelReplacePrefix, LabelReplaceSuffix string
+	QueryFilters, GroupBy, Without                                          []string
+	DefaultWithout, DefaultGroupBy                                          []string
 }
 
 func makeLabel(key, value string) string {
@@ -226,8 +248,7 @@ func (q *PromQuery) GetQueryArgs() ResultQueryArgs {
 	q.defaultWithout = dedupeStringSlice(q.defaultWithout)
 
 	if len(q.Without) == 0 && len(q.GroupBy) > 0 {
-		q.Without = make([]string, len(q.defaultWithout))
-		copy(q.Without, q.defaultWithout)
+		q.Without = make([]string, 0, 0)
 
 		for i := range q.defaultGroupBy {
 			in := false
@@ -247,14 +268,16 @@ func (q *PromQuery) GetQueryArgs() ResultQueryArgs {
 	q.Without = append(q.Without, alwaysWithout...)
 
 	return ResultQueryArgs{
-		MeterName:      meterName,
-		Query:          q.Query,
-		AggregateFunc:  q.AggregateFunc,
-		GroupBy:        q.GroupBy,
-		QueryFilters:   queryFilters,
-		Without:        q.Without,
-		DefaultGroupBy: q.defaultGroupBy,
-		DefaultWithout: q.defaultWithout,
+		MeterName:          meterName,
+		Query:              q.Query,
+		AggregateFunc:      q.AggregateFunc,
+		GroupBy:            q.GroupBy,
+		LabelReplacePrefix: q.LabelReplacePrefix,
+		LabelReplaceSuffix: q.LabelReplaceSuffix,
+		QueryFilters:       queryFilters,
+		Without:            q.Without,
+		DefaultGroupBy:     q.defaultGroupBy,
+		DefaultWithout:     q.defaultWithout,
 	}
 }
 
@@ -288,6 +311,7 @@ func (p *PrometheusAPI) ReportQuery(query *PromQuery) (model.Value, v1.Warnings,
 		logger.Error(err, "querying prometheus", "warnings", warnings)
 		return nil, warnings, toError(err)
 	}
+
 	if len(warnings) > 0 {
 		logger.Info("warnings", "warnings", warnings)
 	}
