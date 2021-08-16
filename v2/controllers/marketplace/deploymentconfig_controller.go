@@ -141,7 +141,7 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // +kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=get;list;watch
 // +kubebuilder:rbac:urls=/list-for-version/*,verbs=get;
-// +kubebuilder:rbac:urls=/get-system-meterdefs/*,verbs=get;
+// +kubebuilder:rbac:urls=/get-system-meterdefs/*,verbs=get;post;create;
 // +kubebuilder:rbac:urls=/meterdef-index-label/*,verbs=get;
 // +kubebuilder:rbac:groups="authentication.k8s.io",resources=tokenreviews,verbs=create;get
 // +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create;get
@@ -281,9 +281,12 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 		*/
 
 		// fetch system meter definitions and append
-		systemMeterdefsResponse, result := r.catalogClient.GetSystemMeterdefs(csv, reqLogger)
-		if !result.Is(Continue) {
-			return result
+		systemMeterdefsResponse, err := r.catalogClient.GetSystemMeterdefs(&csv, reqLogger)
+		if err != nil {
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
+			}
 		}
 
 		if systemMeterdefsResponse.CatlogStatusType == catalog.SystemMeterdefsReturnedStatus{

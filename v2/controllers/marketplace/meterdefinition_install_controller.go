@@ -65,7 +65,7 @@ type MeterdefinitionInstallReconciler struct {
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions;meterdefinitions/status,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions;subscriptions,verbs=get;list;watch
 // +kubebuilder:rbac:urls=/list-for-version/*,verbs=get;
-// +kubebuilder:rbac:urls=/get-system-meterdefs/*,verbs=get;
+// +kubebuilder:rbac:urls=/get-system-meterdefs/*,verbs=get;post;create;
 // +kubebuilder:rbac:groups="authentication.k8s.io",resources=tokenreviews,verbs=create;get
 // +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create;get
 
@@ -153,14 +153,9 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 						allMeterDefinitions = append(allMeterDefinitions, communityMeterdefs...)
 					}
 
-					systemMeterdefsResponse, result := r.catalogClient.GetSystemMeterdefs(*CSV, reqLogger)
-					if !result.Is(Continue) {
-
-						if result.Is(Error) {
-							reqLogger.Error(result.GetError(), "Failed retrieving system meterdefinitions", "CSV", csvName)
-						}
-
-						result.Return()
+					systemMeterdefsResponse, err := r.catalogClient.GetSystemMeterdefs(CSV, reqLogger)
+					if err != nil {
+						return reconcile.Result{},err
 					}
 
 					if systemMeterdefsResponse.CatlogStatusType == catalog.SystemMeterdefsReturnedStatus {

@@ -15,7 +15,9 @@ rules:
 - nonResourceURLs:
   - /get-system-meterdefs/*
   verbs:
+  - create
   - get
+  - post
 - nonResourceURLs:
   - /list-for-version/*
   verbs:
