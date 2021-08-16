@@ -419,7 +419,7 @@ func ProvideRazeeStoreRunnable(
 	configv1Client *configv1client.ConfigV1Client,
 	marketplacev1alpha1Client *marketplacev1alpha1client.MarketplaceV1alpha1Client,
 	nses pkgtypes.Namespaces,
-	store *razee.RazeeStore,
+	store razee.RazeeStores,
 	log logr.Logger,
 ) *RazeeStoreRunnable {
 	return &RazeeStoreRunnable{
@@ -595,4 +595,5 @@ var EngineSet = wire.NewSet(
 	dictionary.NewMeterDefinitionsSeenStore,
 	ProvideRazeeStoreRunnable,
 	razee.NewRazeeStore,
+	wire.FieldsOf(new(razee.RazeeStoreGroup), "Store", "Stores"),
 )

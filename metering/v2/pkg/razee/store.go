@@ -28,10 +28,13 @@ import (
 
 const IndexRazee = "razee"
 
-type RazeeStores = map[string]*RazeeStore
+type RazeeStores struct {
+	pkgtypes.Stores
+}
 
 type RazeeStore struct {
 	*cache.DeltaFIFO
+	store   cache.Store
 	keyFunc cache.KeyFunc
 
 	ctx    context.Context
@@ -48,16 +51,31 @@ type RazeeStore struct {
 
 var _ cache.Store = &RazeeStore{}
 
+type RazeeStoreGroup struct {
+	Store  *RazeeStore
+	Stores RazeeStores
+}
+
 func NewRazeeStore(
 	ctx context.Context,
 	log logr.Logger,
 	kubeClient clientset.Interface,
 	findOwner *rhmclient.FindOwnerHelper,
 	scheme *runtime.Scheme,
-) *RazeeStore {
+) RazeeStoreGroup {
 	keyFunc := pkgtypes.GVKNamespaceKeyFunc(scheme)
-	delta := cache.NewDeltaFIFO(keyFunc, nil)
-	return &RazeeStore{
+	store := cache.NewStore(keyFunc)
+	delta := cache.NewDeltaFIFOWithOptions(cache.DeltaFIFOOptions{
+		KeyFunction:           keyFunc,
+		KnownObjects:          store,
+		EmitDeltaTypeReplaced: true,
+	})
+
+	primary := pkgtypes.PrimaryStore{
+		Store: store,
+	}
+
+	fifo := &RazeeStore{
 		ctx:        ctx,
 		log:        log.WithName("razee_store").V(4),
 		scheme:     scheme,
@@ -65,5 +83,16 @@ func NewRazeeStore(
 		findOwner:  findOwner,
 		DeltaFIFO:  delta,
 		keyFunc:    keyFunc,
+	}
+
+	stores := RazeeStores{
+		Stores: pkgtypes.Stores{
+			fifo, primary, // want fifo first so we get all events
+		},
+	}
+
+	return RazeeStoreGroup{
+		Store:  fifo,
+		Stores: stores,
 	}
 }

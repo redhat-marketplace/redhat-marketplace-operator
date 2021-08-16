@@ -100,9 +100,11 @@ func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime
 	if err != nil {
 		return nil, err
 	}
-	razeeStore := razee.NewRazeeStore(ctx, log, clientset, findOwnerHelper, scheme)
-	razeeStoreRunnable := ProvideRazeeStoreRunnable(clientset, operatorsV1alpha1Client, configV1Client, marketplaceV1alpha1Client, namespaces, razeeStore, log)
+	razeeStoreGroup := razee.NewRazeeStore(ctx, log, clientset, findOwnerHelper, scheme)
+	razeeStores := razeeStoreGroup.Stores
+	razeeStoreRunnable := ProvideRazeeStoreRunnable(clientset, operatorsV1alpha1Client, configV1Client, marketplaceV1alpha1Client, namespaces, razeeStores, log)
 	razeeProcessorSender := processorsenders.ProvideRazeeProcessorSender(log, clientClient, mailboxMailbox, scheme)
+	razeeStore := razeeStoreGroup.Store
 	razeeChannelProducer := mailbox.ProvideRazeeChannelProducer(razeeStore, mailboxMailbox, log)
 	runnables := ProvideRunnables(meterDefinitionStoreRunnable, meterDefinitionDictionaryStoreRunnable, meterDefinitionSeenStoreRunnable, mailboxMailbox, statusProcessor, serviceAnnotatorProcessor, prometheusProcessor, prometheusMdefProcessor, meterDefinitionRemovalWatcher, objectChannelProducer, meterDefinitionChannelProducer, meterDefinitionDictionary, razeeStoreRunnable, razeeProcessorSender, razeeChannelProducer)
 	engine := ProvideEngine(meterDefinitionStore, namespaces, log, clientset, monitoringV1Client, meterDefinitionDictionary, marketplaceV1beta1Client, runnables, prometheusData)

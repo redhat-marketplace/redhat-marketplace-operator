@@ -43,6 +43,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const maxToSend = 50
@@ -131,10 +132,11 @@ func (r *RazeeProcessorSender) Process(ctx context.Context, inObj cache.Delta) e
 		return nil
 	}
 
-	rtObj, ok := inObj.Object.(runtime.Object)
+	metaObj, ok := inObj.Object.(metav1.Object)
 	if !ok {
-		r.log.Info("dac debug", "inObj", inObj)
 		merrors.New("Could not convert cache delta object to runtime object")
+	} else {
+		r.log.Info("dac debug", "type", inObj.Type, "name", metaObj.GetName(), "namespace", metaObj.GetNamespace())
 	}
 
 	/*
@@ -146,6 +148,11 @@ func (r *RazeeProcessorSender) Process(ctx context.Context, inObj cache.Delta) e
 		}
 	*/
 
+	rtObj, ok := inObj.Object.(runtime.Object)
+	if !ok {
+		return merrors.New("Could not convert cache delta object to runtime object")
+	}
+
 	// Skip filtered out objects
 	r.log.Info("dac debug filter out")
 	filterOut, err := r.filterOut(rtObj)
@@ -153,7 +160,7 @@ func (r *RazeeProcessorSender) Process(ctx context.Context, inObj cache.Delta) e
 		return err
 	}
 	if filterOut {
-		r.log.Info("dac debug filterOut", "obj", inObj)
+		r.log.Info("dac debug filterOut")
 		return nil
 	}
 
