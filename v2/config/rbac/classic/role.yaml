@@ -259,6 +259,7 @@ rules:
     verbs:
       - get
       - watch
+      - list
       - create
       - patch
 ---

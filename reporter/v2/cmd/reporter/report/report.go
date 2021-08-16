@@ -24,6 +24,11 @@ import (
 	reporter "github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/record"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/recorder"
 )
@@ -76,7 +81,12 @@ var ReportCmd = &cobra.Command{
 			cfg,
 		)
 
-		recorder := recorderProvider.GetEventRecorderFor("report")
+		var kubeclientset kubernetes.Interface
+
+		eventBroadcaster := record.NewBroadcaster()
+		eventBroadcaster.StartStructuredLogging(0)
+		eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
+		recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "reporter"})
 
 		report := &marketplacev1alpha1.MeterReport{}
 
