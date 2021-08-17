@@ -224,7 +224,7 @@ publish: _#bashWorkflow & {
 				},
 				_#getBundleRunID,
 				_#checkoutCode,
-				_#retagCommand.res,
+				_#scanCommand.res,
 				_#addRocketToComment,
 			]
 		}
@@ -350,20 +350,8 @@ sync_branches: _#bashWorkflow & {
 			name:      "Sync next release"
 			"runs-on": _#linuxMachine
       if: "${{ github.ref == 'refs/heads/\(_#nextRelease)' || github.ref == 'refs/heads/develop' }}"
-			steps:     [_#checkoutCode] + [ for _#futureRelease in _#futureReleases {
-				_#step & {
-					name: "pull-request-action"
-          if: "${{ github.ref == 'refs/heads/\(_#nextRelease)' }}"
-					uses: "vsoch/pull-request-action@master"
-					env: {
-						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
-            "PULL_REQUEST_FROM_BRANCH": _#nextRelease
-						"PULL_REQUEST_BRANCH": _#futureRelease
-            "PULL_REQUEST_TITLE" : "chore: ${{ github.ref }} to \(_#futureRelease)"
-            "PULL_REQUEST_UPDATE": "true"
-					}
-				}
-			}] + [
+			steps:     [
+        _#checkoutCode,
 				_#step & {
 					name: "pull-request-action"
           if: "${{ github.ref == 'refs/heads/develop' }}"
@@ -1027,6 +1015,44 @@ skopeo --override-os=linux inspect docker://\(#args.to) --creds ${{secrets['\(_#
 ([[ $? == 0 ]] && echo "exists=true" || skopeo copy docker://\(#args.from) docker://\(#args.to) --dest-creds ${{secrets['\(_#pcUser)']}}:${{secrets['\(#args.pword)']}})
 echo "::endgroup::"
 """
+}
+
+_#scanImage: {
+  #args: {
+    ospid: string
+		from:  string
+		tag:   string
+    arch:  string
+  }
+	res: """
+echo "::group::Scan \(#args.from)"
+digest=$(skopeo --override-arch=\(#args.arch) --override-os=linux inspect docker://\(#args.from) | jq -r '.Digest')
+curl --location -g --request POST 'https://catalog.redhat.com/api/v1/projects/certification/id/\(#args.ospid)/requests/scans' \\
+--header 'Content-Type: application/json' \\
+--header "X-API-KEY: $REDHAT_TOKEN" \\
+--data-raw "{\"pull_spec\": \"\(#args.from)\",\"tag\": \"\(#args.tag):$digest\"}"
+echo "::endgroup::"
+"""
+}
+
+_#scanCommand: {
+  #args: {
+		fromTo: [ for k, v in _#images {
+      ospid: "\(v.ospid)"
+			from:  "\(_#registry)/\(v.name)"
+			tag:   "$TAG"
+		}]
+		scanCommandList: [ for #arch in _#archs {[ for k, v in #args.fromTo {(_#scanImage & {#args: v & {arch: #arch}}).res}]}]
+	}
+	res: _#step & {
+		id:    "mirror"
+		name:  "Scan images"
+		shell: "bash {0}"
+    env: {
+      "REDHAT_TOKEN": "${{ secrets.redhat_api_key }}"
+    }
+		run:   strings.Join(list.FlattenN(#args.scanCommandList, -1), "\n")
+	}
 }
 
 _#retagCommand: {
