@@ -1026,11 +1026,12 @@ _#scanImage: {
   }
 	res: """
 echo "::group::Scan \(#args.from)"
+id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/\(#args.ospid)" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
 digest=$(skopeo --override-arch=\(#args.arch) --override-os=linux inspect docker://\(#args.from) | jq -r '.Digest')
-curl --location -g --request POST 'https://catalog.redhat.com/api/v1/projects/certification/id/\(#args.ospid)/requests/scans' \\
+curl --location -g --request POST "https://catalog.redhat.com/api/v1/projects/certification/id/$id/requests/scans" \\
 --header 'Content-Type: application/json' \\
 --header "X-API-KEY: $REDHAT_TOKEN" \\
---data-raw "{\"pull_spec\": \"\(#args.from)@sha256:$digest\",\"tag\": \"\(#args.tag)-\(#args.arch)"}"
+--data-raw "{\"pull_spec\": \"\(#args.from)@$digest\",\"tag\": \"\(#args.tag)-\(#args.arch)"}"
 echo "::endgroup::"
 """
 }
