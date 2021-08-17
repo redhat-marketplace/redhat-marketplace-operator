@@ -35,7 +35,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.16.6
+        go-version: 1.16.7
     - name: Cache Go modules
       uses: actions/cache@v2
       with:
@@ -140,57 +140,107 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
     - id: mirror
-      name: Mirror images
+      name: Scan images
       run: |-
-        echo "::group::Push scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG-amd64"
-        skopeo --override-arch=amd64 --override-os=linux inspect docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}} > /dev/null
-        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=amd64 --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG-amd64 --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}})
+        echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-operator"
+        id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
+        digest=$(skopeo --override-arch=amd64 --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-operator | jq -r '.Digest')
+        curl -X POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \
+        --header 'Content-Type: application/json' \
+        --header "X-API-KEY: $REDHAT_TOKEN" \
+        --data-raw "{\"pull_spec\": \"quay.io/rh-marketplace/redhat-marketplace-operator@$digest\",\"tag\": \"$TAG-amd64\"}"
         echo "::endgroup::"
-        echo "::group::Push scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG-amd64"
-        skopeo --override-arch=amd64 --override-os=linux inspect docker://scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordMetricState']}} > /dev/null
-        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=amd64 --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG docker://scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG-amd64 --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordMetricState']}})
+        echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-metric-state"
+        id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
+        digest=$(skopeo --override-arch=amd64 --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-metric-state | jq -r '.Digest')
+        curl -X POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \
+        --header 'Content-Type: application/json' \
+        --header "X-API-KEY: $REDHAT_TOKEN" \
+        --data-raw "{\"pull_spec\": \"quay.io/rh-marketplace/redhat-marketplace-metric-state@$digest\",\"tag\": \"$TAG-amd64\"}"
         echo "::endgroup::"
-        echo "::group::Push scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG-amd64"
-        skopeo --override-arch=amd64 --override-os=linux inspect docker://scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordReporter']}} > /dev/null
-        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=amd64 --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG docker://scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG-amd64 --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordReporter']}})
+        echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-reporter"
+        id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
+        digest=$(skopeo --override-arch=amd64 --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-reporter | jq -r '.Digest')
+        curl -X POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \
+        --header 'Content-Type: application/json' \
+        --header "X-API-KEY: $REDHAT_TOKEN" \
+        --data-raw "{\"pull_spec\": \"quay.io/rh-marketplace/redhat-marketplace-reporter@$digest\",\"tag\": \"$TAG-amd64\"}"
         echo "::endgroup::"
-        echo "::group::Push scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG-amd64"
-        skopeo --override-arch=amd64 --override-os=linux inspect docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}} > /dev/null
-        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=amd64 --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG-amd64 --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}})
+        echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-authcheck"
+        id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/ospid-ffed416e-c18d-4b88-8660-f586a4792785" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
+        digest=$(skopeo --override-arch=amd64 --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-authcheck | jq -r '.Digest')
+        curl -X POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \
+        --header 'Content-Type: application/json' \
+        --header "X-API-KEY: $REDHAT_TOKEN" \
+        --data-raw "{\"pull_spec\": \"quay.io/rh-marketplace/redhat-marketplace-authcheck@$digest\",\"tag\": \"$TAG-amd64\"}"
         echo "::endgroup::"
-        echo "::group::Push scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG-ppc64le"
-        skopeo --override-arch=ppc64le --override-os=linux inspect docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}} > /dev/null
-        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=ppc64le --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG-ppc64le --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}})
+        echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-operator"
+        id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
+        digest=$(skopeo --override-arch=ppc64le --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-operator | jq -r '.Digest')
+        curl -X POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \
+        --header 'Content-Type: application/json' \
+        --header "X-API-KEY: $REDHAT_TOKEN" \
+        --data-raw "{\"pull_spec\": \"quay.io/rh-marketplace/redhat-marketplace-operator@$digest\",\"tag\": \"$TAG-ppc64le\"}"
         echo "::endgroup::"
-        echo "::group::Push scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG-ppc64le"
-        skopeo --override-arch=ppc64le --override-os=linux inspect docker://scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordMetricState']}} > /dev/null
-        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=ppc64le --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG docker://scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG-ppc64le --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordMetricState']}})
+        echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-metric-state"
+        id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
+        digest=$(skopeo --override-arch=ppc64le --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-metric-state | jq -r '.Digest')
+        curl -X POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \
+        --header 'Content-Type: application/json' \
+        --header "X-API-KEY: $REDHAT_TOKEN" \
+        --data-raw "{\"pull_spec\": \"quay.io/rh-marketplace/redhat-marketplace-metric-state@$digest\",\"tag\": \"$TAG-ppc64le\"}"
         echo "::endgroup::"
-        echo "::group::Push scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG-ppc64le"
-        skopeo --override-arch=ppc64le --override-os=linux inspect docker://scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordReporter']}} > /dev/null
-        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=ppc64le --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG docker://scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG-ppc64le --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordReporter']}})
+        echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-reporter"
+        id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
+        digest=$(skopeo --override-arch=ppc64le --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-reporter | jq -r '.Digest')
+        curl -X POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \
+        --header 'Content-Type: application/json' \
+        --header "X-API-KEY: $REDHAT_TOKEN" \
+        --data-raw "{\"pull_spec\": \"quay.io/rh-marketplace/redhat-marketplace-reporter@$digest\",\"tag\": \"$TAG-ppc64le\"}"
         echo "::endgroup::"
-        echo "::group::Push scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG-ppc64le"
-        skopeo --override-arch=ppc64le --override-os=linux inspect docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}} > /dev/null
-        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=ppc64le --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG-ppc64le --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}})
+        echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-authcheck"
+        id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/ospid-ffed416e-c18d-4b88-8660-f586a4792785" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
+        digest=$(skopeo --override-arch=ppc64le --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-authcheck | jq -r '.Digest')
+        curl -X POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \
+        --header 'Content-Type: application/json' \
+        --header "X-API-KEY: $REDHAT_TOKEN" \
+        --data-raw "{\"pull_spec\": \"quay.io/rh-marketplace/redhat-marketplace-authcheck@$digest\",\"tag\": \"$TAG-ppc64le\"}"
         echo "::endgroup::"
-        echo "::group::Push scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG-s390x"
-        skopeo --override-arch=s390x --override-os=linux inspect docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}} > /dev/null
-        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=s390x --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-operator:$TAG docker://scan.connect.redhat.com/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/redhat-marketplace-operator:$TAG-s390x --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPassword']}})
+        echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-operator"
+        id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
+        digest=$(skopeo --override-arch=s390x --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-operator | jq -r '.Digest')
+        curl -X POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \
+        --header 'Content-Type: application/json' \
+        --header "X-API-KEY: $REDHAT_TOKEN" \
+        --data-raw "{\"pull_spec\": \"quay.io/rh-marketplace/redhat-marketplace-operator@$digest\",\"tag\": \"$TAG-s390x\"}"
         echo "::endgroup::"
-        echo "::group::Push scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG-s390x"
-        skopeo --override-arch=s390x --override-os=linux inspect docker://scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordMetricState']}} > /dev/null
-        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=s390x --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-metric-state:$TAG docker://scan.connect.redhat.com/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/redhat-marketplace-metric-state:$TAG-s390x --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordMetricState']}})
+        echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-metric-state"
+        id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
+        digest=$(skopeo --override-arch=s390x --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-metric-state | jq -r '.Digest')
+        curl -X POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \
+        --header 'Content-Type: application/json' \
+        --header "X-API-KEY: $REDHAT_TOKEN" \
+        --data-raw "{\"pull_spec\": \"quay.io/rh-marketplace/redhat-marketplace-metric-state@$digest\",\"tag\": \"$TAG-s390x\"}"
         echo "::endgroup::"
-        echo "::group::Push scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG-s390x"
-        skopeo --override-arch=s390x --override-os=linux inspect docker://scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordReporter']}} > /dev/null
-        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=s390x --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-reporter:$TAG docker://scan.connect.redhat.com/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/redhat-marketplace-reporter:$TAG-s390x --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordReporter']}})
+        echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-reporter"
+        id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
+        digest=$(skopeo --override-arch=s390x --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-reporter | jq -r '.Digest')
+        curl -X POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \
+        --header 'Content-Type: application/json' \
+        --header "X-API-KEY: $REDHAT_TOKEN" \
+        --data-raw "{\"pull_spec\": \"quay.io/rh-marketplace/redhat-marketplace-reporter@$digest\",\"tag\": \"$TAG-s390x\"}"
         echo "::endgroup::"
-        echo "::group::Push scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG-s390x"
-        skopeo --override-arch=s390x --override-os=linux inspect docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG --creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}} > /dev/null
-        ([[ $? == 0 ]] && echo "exists=true" || skopeo --override-arch=s390x --override-os=linux copy docker://quay.io/rh-marketplace/redhat-marketplace-authcheck:$TAG docker://scan.connect.redhat.com/ospid-ffed416e-c18d-4b88-8660-f586a4792785/redhat-marketplace-authcheck:$TAG-s390x --dest-creds ${{secrets['pcUser']}}:${{secrets['pcPasswordAuthCheck']}})
+        echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-authcheck"
+        id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/ospid-ffed416e-c18d-4b88-8660-f586a4792785" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
+        digest=$(skopeo --override-arch=s390x --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-authcheck | jq -r '.Digest')
+        curl -X POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \
+        --header 'Content-Type: application/json' \
+        --header "X-API-KEY: $REDHAT_TOKEN" \
+        --data-raw "{\"pull_spec\": \"quay.io/rh-marketplace/redhat-marketplace-authcheck@$digest\",\"tag\": \"$TAG-s390x\"}"
         echo "::endgroup::"
       shell: bash {0}
+      env:
+        REDHAT_TOKEN: ${{ secrets.redhat_api_key }}
     - uses: peter-evans/create-or-update-comment@v1
       with:
         comment-id: ${{github.event.comment.id}}
@@ -225,7 +275,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.16.6
+        go-version: 1.16.7
     - name: Cache Go modules
       uses: actions/cache@v2
       with:
@@ -377,7 +427,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.16.6
+        go-version: 1.16.7
     - name: Cache Go modules
       uses: actions/cache@v2
       with:
@@ -495,7 +545,7 @@ jobs:
         echo "::endgroup::"
       shell: bash {0}
       env:
-        TARGET_TAG: ${{ env.TAG }}-${{ GITHUB_RUN_ID }}
+        TARGET_TAG: ${{ env.TAG }}-${{ env.GITHUB_RUN_ID }}
     - uses: peter-evans/create-or-update-comment@v1
       with:
         comment-id: ${{github.event.comment.id}}
@@ -530,7 +580,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.16.6
+        go-version: 1.16.7
     - name: Cache Go modules
       uses: actions/cache@v2
       with:
