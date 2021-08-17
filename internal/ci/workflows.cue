@@ -921,7 +921,7 @@ _#turnStyleStep: _#step & {
 
 _#archs: ["amd64", "ppc64le", "s390x"]
 _#registry:           "quay.io/rh-marketplace"
-_#goVersion:          "1.16.6"
+_#goVersion:          "1.16.7"
 _#branchTarget:       "/^(master|develop|release.*|hotfix.*)$/"
 _#pcUser:             "pcUser"
 _#kubeBuilderVersion: "2.3.1"
@@ -1028,10 +1028,10 @@ _#scanImage: {
 echo "::group::Scan \(#args.from)"
 id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/\(#args.ospid)" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
 digest=$(skopeo --override-arch=\(#args.arch) --override-os=linux inspect docker://\(#args.from) | jq -r '.Digest')
-curl --location -g --request POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \\
+curl -X POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \\
 --header 'Content-Type: application/json' \\
 --header "X-API-KEY: $REDHAT_TOKEN" \\
---data-raw "{\"pull_spec\": \"\(#args.from)@$digest\",\"tag\": \"\(#args.tag)-\(#args.arch)"}"
+--data-raw "{\\"pull_spec\\": \\"\(#args.from)@$digest\\",\\"tag\\": \\"\(#args.tag)-\(#args.arch)\\"}"
 echo "::endgroup::"
 """
 }
