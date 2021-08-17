@@ -1030,7 +1030,7 @@ digest=$(skopeo --override-arch=\(#args.arch) --override-os=linux inspect docker
 curl --location -g --request POST 'https://catalog.redhat.com/api/v1/projects/certification/id/\(#args.ospid)/requests/scans' \\
 --header 'Content-Type: application/json' \\
 --header "X-API-KEY: $REDHAT_TOKEN" \\
---data-raw "{\"pull_spec\": \"\(#args.from)\",\"tag\": \"\(#args.tag):$digest\"}"
+--data-raw "{\"pull_spec\": \"\(#args.from)@sha256:$digest\",\"tag\": \"\(#args.tag)-\(#args.arch)"}"
 echo "::endgroup::"
 """
 }

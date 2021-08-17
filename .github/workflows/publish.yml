@@ -147,84 +147,84 @@ jobs:
         curl --location -g --request POST 'https://catalog.redhat.com/api/v1/projects/certification/id/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/requests/scans' \
         --header 'Content-Type: application/json' \
         --header "X-API-KEY: $REDHAT_TOKEN" \
-        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-operator","tag": "$TAG:$digest"}"
+        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-operator@sha256:$digest","tag": "$TAG-amd64"}"
         echo "::endgroup::"
         echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-metric-state"
         digest=$(skopeo --override-arch=amd64 --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-metric-state | jq -r '.Digest')
         curl --location -g --request POST 'https://catalog.redhat.com/api/v1/projects/certification/id/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/requests/scans' \
         --header 'Content-Type: application/json' \
         --header "X-API-KEY: $REDHAT_TOKEN" \
-        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-metric-state","tag": "$TAG:$digest"}"
+        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-metric-state@sha256:$digest","tag": "$TAG-amd64"}"
         echo "::endgroup::"
         echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-reporter"
         digest=$(skopeo --override-arch=amd64 --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-reporter | jq -r '.Digest')
         curl --location -g --request POST 'https://catalog.redhat.com/api/v1/projects/certification/id/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/requests/scans' \
         --header 'Content-Type: application/json' \
         --header "X-API-KEY: $REDHAT_TOKEN" \
-        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-reporter","tag": "$TAG:$digest"}"
+        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-reporter@sha256:$digest","tag": "$TAG-amd64"}"
         echo "::endgroup::"
         echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-authcheck"
         digest=$(skopeo --override-arch=amd64 --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-authcheck | jq -r '.Digest')
         curl --location -g --request POST 'https://catalog.redhat.com/api/v1/projects/certification/id/ospid-ffed416e-c18d-4b88-8660-f586a4792785/requests/scans' \
         --header 'Content-Type: application/json' \
         --header "X-API-KEY: $REDHAT_TOKEN" \
-        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-authcheck","tag": "$TAG:$digest"}"
+        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-authcheck@sha256:$digest","tag": "$TAG-amd64"}"
         echo "::endgroup::"
         echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-operator"
         digest=$(skopeo --override-arch=ppc64le --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-operator | jq -r '.Digest')
         curl --location -g --request POST 'https://catalog.redhat.com/api/v1/projects/certification/id/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/requests/scans' \
         --header 'Content-Type: application/json' \
         --header "X-API-KEY: $REDHAT_TOKEN" \
-        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-operator","tag": "$TAG:$digest"}"
+        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-operator@sha256:$digest","tag": "$TAG-ppc64le"}"
         echo "::endgroup::"
         echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-metric-state"
         digest=$(skopeo --override-arch=ppc64le --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-metric-state | jq -r '.Digest')
         curl --location -g --request POST 'https://catalog.redhat.com/api/v1/projects/certification/id/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/requests/scans' \
         --header 'Content-Type: application/json' \
         --header "X-API-KEY: $REDHAT_TOKEN" \
-        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-metric-state","tag": "$TAG:$digest"}"
+        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-metric-state@sha256:$digest","tag": "$TAG-ppc64le"}"
         echo "::endgroup::"
         echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-reporter"
         digest=$(skopeo --override-arch=ppc64le --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-reporter | jq -r '.Digest')
         curl --location -g --request POST 'https://catalog.redhat.com/api/v1/projects/certification/id/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/requests/scans' \
         --header 'Content-Type: application/json' \
         --header "X-API-KEY: $REDHAT_TOKEN" \
-        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-reporter","tag": "$TAG:$digest"}"
+        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-reporter@sha256:$digest","tag": "$TAG-ppc64le"}"
         echo "::endgroup::"
         echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-authcheck"
         digest=$(skopeo --override-arch=ppc64le --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-authcheck | jq -r '.Digest')
         curl --location -g --request POST 'https://catalog.redhat.com/api/v1/projects/certification/id/ospid-ffed416e-c18d-4b88-8660-f586a4792785/requests/scans' \
         --header 'Content-Type: application/json' \
         --header "X-API-KEY: $REDHAT_TOKEN" \
-        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-authcheck","tag": "$TAG:$digest"}"
+        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-authcheck@sha256:$digest","tag": "$TAG-ppc64le"}"
         echo "::endgroup::"
         echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-operator"
         digest=$(skopeo --override-arch=s390x --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-operator | jq -r '.Digest')
         curl --location -g --request POST 'https://catalog.redhat.com/api/v1/projects/certification/id/ospid-c93f69b6-cb04-437b-89d6-e5220ce643cd/requests/scans' \
         --header 'Content-Type: application/json' \
         --header "X-API-KEY: $REDHAT_TOKEN" \
-        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-operator","tag": "$TAG:$digest"}"
+        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-operator@sha256:$digest","tag": "$TAG-s390x"}"
         echo "::endgroup::"
         echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-metric-state"
         digest=$(skopeo --override-arch=s390x --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-metric-state | jq -r '.Digest')
         curl --location -g --request POST 'https://catalog.redhat.com/api/v1/projects/certification/id/ospid-9b9b0dbe-7adc-448e-9385-a556714a09c4/requests/scans' \
         --header 'Content-Type: application/json' \
         --header "X-API-KEY: $REDHAT_TOKEN" \
-        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-metric-state","tag": "$TAG:$digest"}"
+        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-metric-state@sha256:$digest","tag": "$TAG-s390x"}"
         echo "::endgroup::"
         echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-reporter"
         digest=$(skopeo --override-arch=s390x --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-reporter | jq -r '.Digest')
         curl --location -g --request POST 'https://catalog.redhat.com/api/v1/projects/certification/id/ospid-faa0f295-e195-4bcc-a3fc-a4b97ada317e/requests/scans' \
         --header 'Content-Type: application/json' \
         --header "X-API-KEY: $REDHAT_TOKEN" \
-        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-reporter","tag": "$TAG:$digest"}"
+        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-reporter@sha256:$digest","tag": "$TAG-s390x"}"
         echo "::endgroup::"
         echo "::group::Scan quay.io/rh-marketplace/redhat-marketplace-authcheck"
         digest=$(skopeo --override-arch=s390x --override-os=linux inspect docker://quay.io/rh-marketplace/redhat-marketplace-authcheck | jq -r '.Digest')
         curl --location -g --request POST 'https://catalog.redhat.com/api/v1/projects/certification/id/ospid-ffed416e-c18d-4b88-8660-f586a4792785/requests/scans' \
         --header 'Content-Type: application/json' \
         --header "X-API-KEY: $REDHAT_TOKEN" \
-        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-authcheck","tag": "$TAG:$digest"}"
+        --data-raw "{"pull_spec": "quay.io/rh-marketplace/redhat-marketplace-authcheck@sha256:$digest","tag": "$TAG-s390x"}"
         echo "::endgroup::"
       shell: bash {0}
       env:
