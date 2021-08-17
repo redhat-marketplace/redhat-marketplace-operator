@@ -1027,7 +1027,7 @@ _#scanImage: {
 	res: """
 echo "::group::Scan \(#args.from)"
 id=$(curl -X GET "https://catalog.redhat.com/api/containers/v1/projects/certification/pid/\(#args.ospid)" -H  "accept: application/json" -H  "X-API-KEY: $REDHAT_TOKEN" | jq -r '._id')
-digest=$(skopeo --override-os=linux inspect docker://\(#args.from):\(#args.tag) --raw | jq '.manifests[] | select(.platform.architecture == $arch) | .digest' --arg arch \(#args.arch))
+digest=$(skopeo --override-os=linux inspect docker://\(#args.from):\(#args.tag) --raw | jq -r '.manifests[] | select(.platform.architecture == $arch) | .digest' --arg arch \(#args.arch))
 curl -X POST "https://catalog.redhat.com/api/containers/v1/projects/certification/id/$id/requests/scans" \\
 --header 'Content-Type: application/json' \\
 --header "X-API-KEY: $REDHAT_TOKEN" \\
