@@ -22,6 +22,7 @@ jobs:
       uses: vsoch/pull-request-action@master
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PULL_REQUEST_FROM_BRANCH: release/2.3.0
         PULL_REQUEST_BRANCH: release/2.4.0
         PULL_REQUEST_TITLE: 'chore: ${{ github.ref }} to release/2.4.0'
         PULL_REQUEST_UPDATE: "true"

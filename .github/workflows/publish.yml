@@ -495,7 +495,7 @@ jobs:
         echo "::endgroup::"
       shell: bash {0}
       env:
-        TARGET_TAG: ${{ env.TAG }}-${{ GITHUB_RUN_ID }}
+        TARGET_TAG: ${{ env.TAG }}-${{ env.GITHUB_RUN_ID }}
     - uses: peter-evans/create-or-update-comment@v1
       with:
         comment-id: ${{github.event.comment.id}}

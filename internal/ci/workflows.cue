@@ -31,9 +31,9 @@ workflows: [
 ]
 varPresetGitTag:         "${{ needs.preset.outputs.tag }}"
 varPresetVersion:        "${{ needs.preset.outputs.version }}"
-varPresetHash:           "${{ needs.preset.outputs.hash}}"
-varPresetDockertag:      "${{ needs.preset.outputs.dockertag}}"
-varPresetQuayExpiration: "${{ needs.preset.outputs.quayExpiration}}"
+varPresetHash:           "${{ needs.preset.outputs.hash }}"
+varPresetDockertag:      "${{ needs.preset.outputs.dockertag }}"
+varPresetQuayExpiration: "${{ needs.preset.outputs.quayExpiration }}"
 
 unit_test: _#bashWorkflow & {
 	name: "Test"
@@ -292,7 +292,7 @@ publish: _#bashWorkflow & {
 				_#checkoutCode,
 				_#retagManifestCommand & {
 					env: {
-						TARGET_TAG: "${{ env.TAG }}-${{ GITHUB_RUN_ID }}"
+						TARGET_TAG: "${{ env.TAG }}-${{ env.GITHUB_RUN_ID }}"
 					}
 				},
 				_#addRocketToComment,
@@ -357,6 +357,7 @@ sync_branches: _#bashWorkflow & {
 					uses: "vsoch/pull-request-action@master"
 					env: {
 						"GITHUB_TOKEN":        "${{ secrets.GITHUB_TOKEN }}"
+            "PULL_REQUEST_FROM_BRANCH": _#nextRelease
 						"PULL_REQUEST_BRANCH": _#futureRelease
             "PULL_REQUEST_TITLE" : "chore: ${{ github.ref }} to \(_#futureRelease)"
             "PULL_REQUEST_UPDATE": "true"
