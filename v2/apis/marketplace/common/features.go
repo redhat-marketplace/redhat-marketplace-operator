@@ -34,13 +34,13 @@ type Features struct {
 	// +optional
 	Registration *bool `json:"registration,omitempty"`
 
-	// DeploymentConfig represents the enablement of the Community Catalog DeploymentConfig, defaults to true when not set
+	// MeterdefinitionCatalogServer represents the enablement of the Meterdefinition Catalog Server, defaults to true when not set
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
-	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable Community Catalog DeploymentConfig?"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Enable Community Meterdefinition Catalog Server?"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
 	// +optional
-	DeploymentConfig *bool `json:"deploymentConfig,omitempty"`
+	MeterdefinitionCatalogServer *bool `json:"meterdefinitionCatalogServer,omitempty"`
 
 	// LicenseUsageMetering represents the enablement of the usage metering for licensed products, defaults to true when not set
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true

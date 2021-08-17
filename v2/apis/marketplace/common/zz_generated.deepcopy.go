@@ -38,8 +38,8 @@ func (in *Features) DeepCopyInto(out *Features) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.DeploymentConfig != nil {
-		in, out := &in.DeploymentConfig, &out.DeploymentConfig
+	if in.MeterdefinitionCatalogServer != nil {
+		in, out := &in.MeterdefinitionCatalogServer, &out.MeterdefinitionCatalogServer
 		*out = new(bool)
 		**out = **in
 	}

@@ -58,7 +58,7 @@ type CatalogResponse struct {
 }
 
 type CatalogClient struct {
-	endpoint   *url.URL
+	Endpoint   *url.URL
 	httpClient http.Client
 }
 
@@ -75,7 +75,7 @@ func ProvideCatalogClient(cfg *config.OperatorConfig)(*CatalogClient,error){
 		}
 
 		return &CatalogClient{
-			endpoint: url,
+			Endpoint: url,
 		}, nil
 
 }
@@ -135,7 +135,7 @@ func(c *CatalogClient) SetTransport (client client.Client,cfg *config.OperatorCo
 func(c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, version string, namespace string,reqLogger logr.Logger) (*CatalogResponse, error) {
 	reqLogger.Info("retrieving meterdefinitions", "csvName", csvName, "csvVersion", version)
 
-	url,err := concatPaths(c.endpoint.String(),ListForVersionEndpoint,csvName,version,namespace)
+	url,err := concatPaths(c.Endpoint.String(),ListForVersionEndpoint,csvName,version,namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +195,7 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 
 	reqLogger.Info("retrieving system meterdefinitions", "csvName", csv.Name)
 
-	url, err := concatPaths(c.endpoint.String(), GetSystemMeterdefinitionTemplatesEndpoint, csv.Name)
+	url, err := concatPaths(c.Endpoint.String(), GetSystemMeterdefinitionTemplatesEndpoint, csv.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +248,7 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 func (c *CatalogClient) GetMeterdefIndexLabels (reqLogger logr.Logger,csvName string) (map[string]string,error) {
 	reqLogger.Info("retrieving meterdefinition index label")
 
-	url,err := concatPaths(c.endpoint.String(),GetMeterdefinitionIndexLabelEndpoint,csvName)
+	url,err := concatPaths(c.Endpoint.String(),GetMeterdefinitionIndexLabelEndpoint,csvName)
 	if err != nil {
 		return nil, err
 	}

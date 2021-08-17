@@ -43,6 +43,7 @@ import (
 	osappsv1 "github.com/openshift/api/apps/v1"
 	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -106,10 +107,13 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&RemoteResourceS3Reconciler{
+	operatorConfig, _ := config.GetConfig()
+
+	err = (&DeploymentConfigReconciler{
 		Client: k8sManager.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("RemoteResourceS3"),
+		Log:    ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
 		Scheme: k8sManager.GetScheme(),
+		cfg: operatorConfig,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -133,6 +137,7 @@ func provideScheme() *runtime.Scheme {
 	utilruntime.Must(opsrcv1.AddToScheme(scheme))
 	utilruntime.Must(olmv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
+	utilruntime.Must(osappsv1.AddToScheme(scheme))
 	utilruntime.Must(marketplaceredhatcomv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(marketplaceredhatcomv1beta1.AddToScheme(scheme))
 	return scheme

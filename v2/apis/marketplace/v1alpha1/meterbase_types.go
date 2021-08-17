@@ -75,6 +75,24 @@ type PrometheusSpec struct {
 	Replicas *int32 `json:"replicas,omitempty"`
 }
 
+// MeterdefinitionCatalogServerSpec contains configuration regarding the Meterdefinition Catalog Server
+type MeterdefinitionCatalogServerSpec struct {
+
+	// MeterdefinitionCatalogServerEnabled is the flag that controls if the meterbase controller will deploy the resources needed to create the Meterdefinition Catalog Server. Setting
+	// enabled to "true" wil install a DeploymentConfig, ImageStream, and Service. False will suspend controller
+	// operations for the Catalog Server.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	MeterdefinitionCatalogServerEnabled bool `json:"catalogServerEnabled"`
+
+	// LicenceUsageMeteringEnabled is the flag that controls if Metering for Licensed products is active. Setting
+	// enabled to "true" Meterdefintions that will meter your cluster based on pre-determined metering defintions. False will suspend controller
+	// metering for licensed products.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	LicenceUsageMeteringEnabled bool `json:"licenceUsageMeteringEnabled"`
+}
+
 // MeterBaseSpec defines the desired state of MeterBase
 // +k8s:openapi-gen=true
 type MeterBaseSpec struct {
@@ -97,6 +115,22 @@ type MeterBaseSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	AdditionalScrapeConfigs *corev1.SecretKeySelector `json:"additionalScrapeConfigs,omitempty"`
+
+	// MeterdefinitionCatalogServer deployment configuration.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	MeterdefinitionCatalogServer *MeterdefinitionCatalogServerSpec `json:"meterdefinitionCatalogServer,omitempty"`
+}
+
+// MeterdefinitionCatalogServerStatus defines the observed state of the MeterdefinitionCatalogServer.
+// +k8s:openapi-gen=true
+type MeterdefinitionCatalogServerStatus struct {
+	// MeterdefinitionCatalogServerConditions represent the latest available observations of an object's stateonfig
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	Conditions status.Conditions `json:"conditions,omitempty"`
+	
 }
 
 // MeterBaseStatus defines the observed state of MeterBase.
@@ -111,6 +145,12 @@ type MeterBaseStatus struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
 	PrometheusStatus *monitoringv1.PrometheusStatus `json:"prometheusStatus,omitempty"`
+
+	// MeterdefinitionCatalogServerStatus is the most recent observed status of the Meterdefinition Catalog Server. Read-only. Not
+	// included when requesting from the apiserver, only from the Prometheus
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	MeterdefinitionCatalogServerStatus *MeterdefinitionCatalogServerStatus `json:"meterdefinitionCatalogServerStatus,omitempty"`
 
 	// Total number of non-terminated pods targeted by this Prometheus deployment
 	// (their labels match the selector).

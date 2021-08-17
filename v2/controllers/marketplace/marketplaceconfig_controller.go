@@ -25,8 +25,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
-	osappsv1 "github.com/openshift/api/apps/v1"
-	osimagev1 "github.com/openshift/api/image/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -119,20 +117,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
-	//create file server deployment
-	// if marketplaceConfig.Spec.Features.DeploymentConfig == ptr.Bool(true){ 
-
-	// }
-	result := r.createMeterdefFileServer(request, reqLogger)
-	if !result.Is(Continue) {
-
-		if result.Is(Error) {
-			reqLogger.Error(result.GetError(), "Failed to create meterdef file server")
-		}
-
-		return result.Return()
-	}
-
 	// run the finalizers
 	newRazeeCrd := utils.BuildRazeeCr(
 		marketplaceConfig.Namespace,
@@ -140,9 +124,35 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		marketplaceConfig.Spec.DeploySecretName,
 		marketplaceConfig.Spec.Features,
 	)
-	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
+
+	//Initialize enabled features if not set
+	if marketplaceConfig.Spec.Features == nil {
+		marketplaceConfig.Spec.Features = &common.Features{
+			Deployment:   ptr.Bool(true),
+			Registration: ptr.Bool(true),
+			MeterdefinitionCatalogServer: ptr.Bool(true),
+			LicenseUsageMetering: ptr.Bool(true),
+		}
+	} else {
+		if marketplaceConfig.Spec.Features.Deployment == nil {
+			marketplaceConfig.Spec.Features.Deployment = ptr.Bool(true)
+		}
+		if marketplaceConfig.Spec.Features.Registration == nil {
+			marketplaceConfig.Spec.Features.Registration = ptr.Bool(true)
+		}
+
+		if marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer == nil {
+			marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer = ptr.Bool(true)
+		}
+
+		if marketplaceConfig.Spec.Features.LicenseUsageMetering == nil {
+			marketplaceConfig.Spec.Features.LicenseUsageMetering = ptr.Bool(true)
+		}
+	}
+
+	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace,marketplaceConfig.Spec.Features)
 	// Add finalizer and execute it if the resource is deleted
-	if result, _ = cc.Do(
+	if result, _ := cc.Do(
 		context.TODO(),
 		Call(SetFinalizer(marketplaceConfig, utils.CONTROLLER_FINALIZER)),
 		Call(
@@ -293,30 +303,30 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		marketplaceConfig.Spec.EnableMetering = nil
 	}
 
-	//Initialize enabled features if not set
-	if marketplaceConfig.Spec.Features == nil {
-		marketplaceConfig.Spec.Features = &common.Features{
-			Deployment:   ptr.Bool(true),
-			Registration: ptr.Bool(true),
-			DeploymentConfig: ptr.Bool(true),
-			LicenseUsageMetering: ptr.Bool(true),
-		}
-	} else {
-		if marketplaceConfig.Spec.Features.Deployment == nil {
-			marketplaceConfig.Spec.Features.Deployment = ptr.Bool(true)
-		}
-		if marketplaceConfig.Spec.Features.Registration == nil {
-			marketplaceConfig.Spec.Features.Registration = ptr.Bool(true)
-		}
+	// //Initialize enabled features if not set
+	// if marketplaceConfig.Spec.Features == nil {
+	// 	marketplaceConfig.Spec.Features = &common.Features{
+	// 		Deployment:   ptr.Bool(true),
+	// 		Registration: ptr.Bool(true),
+	// 		MeterdefinitionCatalogServer: ptr.Bool(true),
+	// 		LicenseUsageMetering: ptr.Bool(true),
+	// 	}
+	// } else {
+	// 	if marketplaceConfig.Spec.Features.Deployment == nil {
+	// 		marketplaceConfig.Spec.Features.Deployment = ptr.Bool(true)
+	// 	}
+	// 	if marketplaceConfig.Spec.Features.Registration == nil {
+	// 		marketplaceConfig.Spec.Features.Registration = ptr.Bool(true)
+	// 	}
 
-		if marketplaceConfig.Spec.Features.DeploymentConfig == nil {
-			marketplaceConfig.Spec.Features.DeploymentConfig = ptr.Bool(true)
-		}
+	// 	if marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer == nil {
+	// 		marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer = ptr.Bool(true)
+	// 	}
 
-		if marketplaceConfig.Spec.Features.LicenseUsageMetering == nil {
-			marketplaceConfig.Spec.Features.LicenseUsageMetering = ptr.Bool(true)
-		}
-	}
+	// 	if marketplaceConfig.Spec.Features.LicenseUsageMetering == nil {
+	// 		marketplaceConfig.Spec.Features.LicenseUsageMetering = ptr.Bool(true)
+	// 	}
+	// }
 
 	deployedNamespace := &corev1.Namespace{}
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: r.cfg.DeployedNamespace}, deployedNamespace)
@@ -497,7 +507,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	}
 
 	foundMeterBase := &marketplacev1alpha1.MeterBase{}
-	result, _ = cc.Do(
+	result, _ := cc.Do(
 		context.TODO(),
 		GetAction(
 			types.NamespacedName{Name: utils.METERBASE_NAME, Namespace: marketplaceConfig.Namespace},
@@ -513,8 +523,9 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 	reqLogger.Info("meterbase is enabled")
 	// Check if MeterBase exists, if not create one
+	utils.PrettyPrint(marketplaceConfig.Spec.Features)
 	if result.Is(NotFound) {
-		newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
+		newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace,marketplaceConfig.Spec.Features)
 
 		if err = controllerutil.SetControllerReference(marketplaceConfig, newMeterBaseCr, r.Scheme); err != nil {
 			reqLogger.Error(err, "Failed to set controller ref")
@@ -922,151 +933,4 @@ func getOperatorGroup() (string, error) {
 		return "", fmt.Errorf("%s must be set", operatorGroupEnvVar)
 	}
 	return og, nil
-}
-
-func (r *MarketplaceConfigReconciler) createMeterdefFileServer(request reconcile.Request, reqLogger logr.Logger) *ExecResult {
-	foundDeploymentConfig := &osappsv1.DeploymentConfig{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: request.Namespace}, foundDeploymentConfig)
-	if err != nil && k8serrors.IsNotFound(err) {
-		reqLogger.Info("meterdef file server deployment config not found, creating")
-
-		deploymentConfig, err := r.factory.NewMeterdefintionFileServerDeploymentConfig()
-		if err != nil {
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
-
-		err = r.Client.Create(context.TODO(), deploymentConfig)
-		if err != nil {
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
-
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{Requeue: true},
-			Err:             nil,
-		}
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get meterdef file server deploymentconfig")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	} else {
-		updated := r.factory.UpdateDeploymentConfigOnChange(foundDeploymentConfig)
-		if updated{
-			err = r.Client.Update(context.TODO(), foundDeploymentConfig)
-			if err != nil {
-				reqLogger.Error(err, "Failed to update file server deploymentconfig")
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err: err,
-				}
-			}
-
-			reqLogger.Info("updated deploymentconfig")
-
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{Requeue: true},
-				Err: nil,
-			}
-		}
-	}
-
-	foundfileServerService := &corev1.Service{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: request.Namespace}, foundfileServerService)
-	if err != nil && k8serrors.IsNotFound(err) {
-		reqLogger.Info("meterdef file server service not found, creating")
-
-		service, err := r.factory.NewMeterdefintionFileServerService()
-		if err != nil {
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
-
-		err = r.Client.Create(context.TODO(), service)
-		if err != nil {
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
-
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{Requeue: true},
-			Err:             nil,
-		}
-
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get meterdefinition file server service")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
-
-	foundImageStream := &osimagev1.ImageStream{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: request.Namespace}, foundImageStream)
-	if err != nil && k8serrors.IsNotFound(err) {
-
-		reqLogger.Info("image stream not found, creating")
-
-		is, err := r.factory.NewMeterdefintionFileServerImageStream()
-		if err != nil {
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
-
-		err = r.Client.Create(context.TODO(), is)
-		if err != nil {
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
-
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{Requeue: true},
-			Err:             nil,
-		}
-
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get image stream")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	} else {
-		updated := r.factory.UpdateImageStreamOnChange(foundImageStream)
-		if updated {
-			err = r.Client.Update(context.TODO(), foundImageStream)
-			if err != nil {
-				reqLogger.Error(err, "Failed to update image stream")
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{Requeue: true},
-					Err:             err,
-				}
-			}
-
-			reqLogger.Info("updated ImageStream")
-
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{Requeue: true},
-				Err: nil,
-			}
-		}
-	}
-	
-	return &ExecResult{
-		Status: ActionResultStatus(Continue),
-	}
-
 }
