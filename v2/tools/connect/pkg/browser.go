@@ -42,7 +42,7 @@ var (
 	dryRun             bool
 	verbose            bool
 
-	pageSize ListSize = ListSize20
+	pageSize ListSize = ListSize50
 )
 
 var GetPublishStatusCommand = &cobra.Command{
@@ -67,20 +67,12 @@ var GetPublishStatusCommand = &cobra.Command{
 		err = cmdFunction(cmd, args, urlToShas, func(_ context.Context, url string, _ *cdp.Node, img *ImagePublishStatus) error {
 			matched := matchAndMark(urlToShas, img)
 
-			log.Println(urlToShas)
-
 			if !matched {
 				return nil
 			}
 
 			statuses = append(statuses, img)
-
-			if allFoundForUrl(urlToShas, url) {
-				return Stop
-			}
-
 			return nil
-
 		})
 
 		if err != nil {
@@ -124,10 +116,6 @@ var PublishCommand = &cobra.Command{
 
 		err = cmdFunction(cmd, args, urlToShas,
 			func(ctx context.Context, url string, node *cdp.Node, result *ImagePublishStatus) error {
-				if allFoundForUrl(urlToShas, url) {
-					return Stop
-				}
-
 				matched := matchAndMark(urlToShas, result)
 
 				if !matched {
@@ -202,7 +190,7 @@ func cmdFunction(
 	webCtx, webCancel := web.Start()
 	defer webCancel()
 
-	overallCtx, cancel := context.WithTimeout(webCtx, 4*time.Minute)
+	overallCtx, cancel := context.WithTimeout(webCtx, 8*time.Minute)
 	defer cancel()
 
 	err := func() error {
@@ -216,10 +204,10 @@ func cmdFunction(
 
 	for url, shas := range urlToShas {
 		log.Println("looking for", url, shas)
-		ctx, lcancel := context.WithTimeout(overallCtx, 2*time.Minute)
+		ctx, lcancel := context.WithTimeout(overallCtx, 4*time.Minute)
 		defer lcancel()
 
-		err := web.walkImages(ctx, url, work)
+		err := web.walkImages(ctx, url, false, work)
 
 		if errors.Is(err, Stop) {
 			continue
@@ -470,7 +458,7 @@ var (
 )
 
 func (c *ConnectWebsite) walkImages(
-	ctx context.Context, url string,
+	ctx context.Context, url string, walkAllPages bool,
 	imageAction func(context.Context, string, *cdp.Node, *ImagePublishStatus) error,
 ) error {
 	nodes := []*cdp.Node{}
@@ -577,8 +565,11 @@ func (c *ConnectWebsite) walkImages(
 			}
 		}
 
-		log.Println("going to next page")
+		if !walkAllPages {
+			return nil
+		}
 
+		log.Println("going to next page")
 		// look for next page
 		err = c.nextPage(ctx)
 		if err != nil {
