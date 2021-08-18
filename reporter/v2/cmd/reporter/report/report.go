@@ -24,11 +24,6 @@ import (
 	reporter "github.com/redhat-marketplace/redhat-marketplace-operator/reporter/v2/pkg/reporter"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/spf13/cobra"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/tools/record"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/recorder"
 )
@@ -75,25 +70,25 @@ var ReportCmd = &cobra.Command{
 		}
 		cfg.SetDefaults()
 
+		recorder, err := reporter.NewEventRecorder(ctx, cfg)
+		if err != nil {
+			log.Error(err, "couldn't initialize event recorder")
+			os.
+				Exit(1)
+		}
+
 		task, err := reporter.NewTask(
 			ctx,
 			reporter.ReportName{Namespace: namespace, Name: name},
 			cfg,
 		)
 
-		var kubeclientset kubernetes.Interface
-
-		eventBroadcaster := record.NewBroadcaster()
-		eventBroadcaster.StartStructuredLogging(0)
-		eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
-		recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "reporter"})
-
 		report := &marketplacev1alpha1.MeterReport{}
 
 		if err != nil {
-			// if errors.Unwrap(err) == reporter.ReportJobError {
-			recorder.Event(report, "Warning", "ReportJobError", "No insights")
-			// }
+			if errors.Unwrap(err) == reporter.ReportJobError {
+				recorder.Event(report, "Warning", "ReportJobError", "No insights")
+			}
 			log.Error(err, "couldn't initialize task")
 			os.Exit(1)
 		}

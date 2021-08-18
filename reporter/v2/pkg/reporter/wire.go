@@ -25,6 +25,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
@@ -45,6 +46,18 @@ func NewTask(
 		provideScheme,
 		wire.Bind(new(client.Client), new(rhmclient.SimpleClient)),
 		config.GetConfig,
+	))
+}
+
+func NewEventRecorder(
+	ctx context.Context,
+	config *Config,
+) (record.EventRecorder, error) {
+	panic(wire.Build(
+		managers.ProvideRestConfig,
+		managers.ProvideSimpleClientSet,
+		provideScheme,
+		provideReporterEventBroadcaster,
 	))
 }
 

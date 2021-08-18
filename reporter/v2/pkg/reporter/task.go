@@ -40,7 +40,10 @@ import (
 	rhmclient "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/client"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 )
 
@@ -282,6 +285,14 @@ func getMeterDefinitionReferences(
 	}
 
 	return defs, nil
+}
+
+func provideReporterEventBroadcaster(schemeIn *runtime.Scheme, kubeclientset kubernetes.Interface) record.EventRecorder {
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartStructuredLogging(0)
+	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
+	recorder := eventBroadcaster.NewRecorder(schemeIn, corev1.EventSource{Component: "reporter"})
+	return recorder
 }
 
 func provideScheme() *runtime.Scheme {
