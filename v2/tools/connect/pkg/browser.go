@@ -216,7 +216,7 @@ func cmdFunction(
 
 	for url, shas := range urlToShas {
 		log.Println("looking for", url, shas)
-		ctx, lcancel := context.WithTimeout(overallCtx, 1*time.Minute)
+		ctx, lcancel := context.WithTimeout(overallCtx, 2*time.Minute)
 		defer lcancel()
 
 		err := web.walkImages(ctx, url, work)
@@ -495,12 +495,14 @@ func (c *ConnectWebsite) walkImages(
 	}
 
 	err = chromedp.Run(ctx,
-		chromedp.WaitReady(`table[aria-label="Images List"]`, chromedp.ByQuery),
+		chromedp.WaitVisible(`table[aria-label="Images List"]`, chromedp.ByQuery),
 	)
 
 	if err != nil {
 		return err
 	}
+
+	log.Println("ready")
 
 	var pid, name string
 
