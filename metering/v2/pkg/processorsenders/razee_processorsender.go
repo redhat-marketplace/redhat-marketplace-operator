@@ -42,8 +42,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const maxToSend = 50
@@ -279,12 +279,15 @@ func (r *RazeeProcessorSender) getRuntimeObj(inObj interface{}) (runtime.Object,
 // Filter out criteria
 func (r *RazeeProcessorSender) filterOut(obj interface{}) (bool, error) {
 
-	// Only Process RRS3 Deployment
-	if deployment, ok := obj.(*appsv1.Deployment); ok {
-		if deployment.ObjectMeta.Name != utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME {
-			return true, nil
+	/*
+		// Handled in Watcher
+		// Only Process RRS3 Deployment
+		if deployment, ok := obj.(*appsv1.Deployment); ok {
+			if deployment.ObjectMeta.Name != utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME {
+				return true, nil
+			}
 		}
-	}
+	*/
 
 	// Only Process CSVs with a Subscription containing
 	if clusterserviceversion, ok := obj.(*olmv1alpha1.ClusterServiceVersion); ok {

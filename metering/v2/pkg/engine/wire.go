@@ -51,9 +51,27 @@ func NewEngine(
 		dictionary.ProvideMeterDefinitionList,
 		RunnablesSet,
 		EngineSet,
-		marketplacev1alpha1client.NewForConfig,
 		marketplacev1beta1client.NewForConfig,
 		monitoringv1client.NewForConfig,
+		rhmclient.NewFindOwnerHelper,
+		client.NewDynamicClient,
+		managers.AddIndices,
+	))
+}
+
+func NewRazeeEngine(
+	ctx context.Context,
+	namespaces types.Namespaces,
+	scheme *runtime.Scheme,
+	clientOptions managers.ClientOptions,
+	k8sRestConfig *rest.Config,
+	log logr.Logger,
+) (*RazeeEngine, error) {
+	panic(wire.Build(
+		managers.ProvideCachedClientSet,
+		RazeeRunnablesSet,
+		RazeeEngineSet,
+		marketplacev1alpha1client.NewForConfig,
 		olmv1alpha1client.NewForConfig,
 		configv1client.NewForConfig,
 		rhmclient.NewFindOwnerHelper,

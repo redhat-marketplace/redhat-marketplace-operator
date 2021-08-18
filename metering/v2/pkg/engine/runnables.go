@@ -49,27 +49,21 @@ func ProvideRunnables(
 	objectChannelProducer *mailbox.ObjectChannelProducer,
 	mdefChannelProducer *mailbox.MeterDefinitionChannelProducer,
 	dictionary *dictionary.MeterDefinitionDictionary,
-	razeeStore *RazeeStoreRunnable,
-	razeeProcessorSender *processorsenders.RazeeProcessorSender,
-	razeeChannelProducer *mailbox.RazeeChannelProducer,
 ) Runnables {
 	// this is the start up order
 	return Runnables{
 		mailbox,
 		objectChannelProducer,
 		mdefChannelProducer,
-		razeeChannelProducer,
 		statusProcessor,
 		serviceAnnotatorProcessor,
 		prometheusProcessor,
 		prometheusMdefProcessor,
-		razeeProcessorSender,
 		removalWatcher,
 		meterDefinitionDictionary,
 		mdefSeenStore,
 		meterDefinitionStore,
 		dictionary,
-		razeeStore,
 	}
 }
 
@@ -85,8 +79,29 @@ var RunnablesSet = wire.NewSet(
 	processors.ProvideStatusProcessor,
 	processors.ProvidePrometheusProcessor,
 	processors.ProvidePrometheusMdefProcessor,
-	processorsenders.ProvideRazeeProcessorSender,
 	mailbox.ProvideObjectChannelProducer,
 	mailbox.ProvideMeterDefinitionChannelProducer,
+)
+
+func ProvideRazeeRunnables(
+	razeeStore *RazeeStoreRunnable,
+	mailbox *mailbox.Mailbox,
+	razeeProcessorSender *processorsenders.RazeeProcessorSender,
+	razeeChannelProducer *mailbox.RazeeChannelProducer,
+) Runnables {
+	// this is the start up order
+	return Runnables{
+		mailbox,
+		razeeChannelProducer,
+		razeeProcessorSender,
+		razeeStore,
+	}
+}
+
+var RazeeRunnablesSet = wire.NewSet(
+	mailbox.ProvideMailbox,
+	ProvideRazeeRunnables,
+	ProvideRazeeStoreRunnable,
+	processorsenders.ProvideRazeeProcessorSender,
 	mailbox.ProvideRazeeChannelProducer,
 )

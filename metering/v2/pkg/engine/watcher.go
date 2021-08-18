@@ -23,6 +23,7 @@ import (
 	marketplacev1beta1client "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/generated/clientset/versioned/typed/marketplace/v1beta1"
 
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -109,13 +110,16 @@ func CreateNodeListWatch(kubeClient clientset.Interface) func(string) cache.List
 	}
 }
 
+// Watch only RRS3 Deployment
 func CreateDeploymentListWatch(kubeClient clientset.Interface) func(string) cache.ListerWatcher {
 	return func(ns string) cache.ListerWatcher {
 		return &cache.ListWatch{
 			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				opts.FieldSelector = "metadata.name=" + utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME
 				return kubeClient.AppsV1().Deployments(ns).List(context.TODO(), opts)
 			},
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				opts.FieldSelector = "metadata.name=" + utils.RHM_REMOTE_RESOURCE_S3_DEPLOYMENT_NAME
 				return kubeClient.AppsV1().Deployments(ns).Watch(context.TODO(), opts)
 			},
 		}

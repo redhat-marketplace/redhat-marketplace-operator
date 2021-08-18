@@ -40,6 +40,7 @@ import (
 	pkgtypes "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
@@ -91,6 +92,68 @@ func ProvideEngine(
 }
 
 func (e *Engine) Start(ctx context.Context) error {
+	if e.cancelFunc != nil {
+		e.mainContext = nil
+		e.localContext = nil
+		e.cancelFunc()
+	}
+
+	localCtx, cancel := context.WithCancel(ctx)
+	e.mainContext = &ctx
+	e.localContext = &localCtx
+	e.cancelFunc = cancel
+
+	for i := range e.runnables {
+		runnable := e.runnables[i]
+		e.log.Info("starting runnable", "runnable", fmt.Sprintf("%T", runnable))
+		wg := sync.WaitGroup{}
+
+		wg.Add(1)
+
+		go func() {
+			wg.Done()
+			runnable.Start(localCtx)
+		}()
+
+		wg.Wait()
+	}
+
+	return e.health.Start()
+}
+
+type RazeeEngine struct {
+	store      *razee.RazeeStore
+	namespaces pkgtypes.Namespaces
+	kubeClient clientset.Interface
+	runnables  Runnables
+	log        logr.Logger
+	health     *health.Health
+
+	mainContext  *context.Context
+	localContext *context.Context
+	cancelFunc   context.CancelFunc
+}
+
+func ProvideRazeeEngine(
+	cache managers.CacheIsStarted,
+	store *razee.RazeeStore,
+	namespaces pkgtypes.Namespaces,
+	log logr.Logger,
+	kubeClient clientset.Interface,
+	runnables Runnables,
+) *RazeeEngine {
+	h := health.New()
+	return &RazeeEngine{
+		store:      store,
+		log:        log,
+		namespaces: namespaces,
+		kubeClient: kubeClient,
+		runnables:  runnables,
+		health:     h,
+	}
+}
+
+func (e *RazeeEngine) Start(ctx context.Context) error {
 	if e.cancelFunc != nil {
 		e.mainContext = nil
 		e.localContext = nil
@@ -593,7 +656,11 @@ var EngineSet = wire.NewSet(
 	meterdefinition.NewMeterDefinitionStore,
 	meterdefinition.NewObjectsSeenStore,
 	dictionary.NewMeterDefinitionsSeenStore,
-	ProvideRazeeStoreRunnable,
+)
+
+var RazeeEngineSet = wire.NewSet(
+	ProvideRazeeEngine,
+	//ProvideRazeeStoreRunnable,
 	razee.NewRazeeStore,
 	wire.FieldsOf(new(razee.RazeeStoreGroup), "Store", "Stores"),
 )

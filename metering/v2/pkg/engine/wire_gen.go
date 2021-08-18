@@ -88,6 +88,40 @@ func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime
 	meterDefinitionRemovalWatcher := processors.ProvideMeterDefinitionRemovalWatcher(meterDefinitionDictionary, meterDefinitionStore, mailboxMailbox, log)
 	objectChannelProducer := mailbox.ProvideObjectChannelProducer(meterDefinitionStore, mailboxMailbox, log)
 	meterDefinitionChannelProducer := mailbox.ProvideMeterDefinitionChannelProducer(meterDefinitionDictionary, mailboxMailbox, log)
+	runnables := ProvideRunnables(meterDefinitionStoreRunnable, meterDefinitionDictionaryStoreRunnable, meterDefinitionSeenStoreRunnable, mailboxMailbox, statusProcessor, serviceAnnotatorProcessor, prometheusProcessor, prometheusMdefProcessor, meterDefinitionRemovalWatcher, objectChannelProducer, meterDefinitionChannelProducer, meterDefinitionDictionary)
+	engine := ProvideEngine(meterDefinitionStore, namespaces, log, clientset, monitoringV1Client, meterDefinitionDictionary, marketplaceV1beta1Client, runnables, prometheusData)
+	return engine, nil
+}
+
+func NewRazeeEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime.Scheme, clientOptions managers.ClientOptions, k8sRestConfig *rest.Config, log logr.Logger) (*RazeeEngine, error) {
+	restMapper, err := managers.NewDynamicRESTMapper(k8sRestConfig)
+	if err != nil {
+		return nil, err
+	}
+	cache, err := managers.ProvideNewCache(k8sRestConfig, restMapper, scheme, clientOptions)
+	if err != nil {
+		return nil, err
+	}
+	cacheIsIndexed, err := managers.AddIndices(ctx, cache)
+	if err != nil {
+		return nil, err
+	}
+	cacheIsStarted, err := managers.StartCache(ctx, cache, log, cacheIsIndexed)
+	if err != nil {
+		return nil, err
+	}
+	clientset, err := kubernetes.NewForConfig(k8sRestConfig)
+	if err != nil {
+		return nil, err
+	}
+	dynamicInterface, err := dynamic.NewForConfig(k8sRestConfig)
+	if err != nil {
+		return nil, err
+	}
+	dynamicClient := client.NewDynamicClient(dynamicInterface, restMapper)
+	findOwnerHelper := client.NewFindOwnerHelper(dynamicClient)
+	razeeStoreGroup := razee.NewRazeeStore(ctx, log, clientset, findOwnerHelper, scheme)
+	razeeStore := razeeStoreGroup.Store
 	operatorsV1alpha1Client, err := v1alpha1.NewForConfig(k8sRestConfig)
 	if err != nil {
 		return nil, err
@@ -100,13 +134,16 @@ func NewEngine(ctx context.Context, namespaces types.Namespaces, scheme *runtime
 	if err != nil {
 		return nil, err
 	}
-	razeeStoreGroup := razee.NewRazeeStore(ctx, log, clientset, findOwnerHelper, scheme)
 	razeeStores := razeeStoreGroup.Stores
 	razeeStoreRunnable := ProvideRazeeStoreRunnable(clientset, operatorsV1alpha1Client, configV1Client, marketplaceV1alpha1Client, namespaces, razeeStores, log)
+	mailboxMailbox := mailbox.ProvideMailbox(log)
+	clientClient, err := managers.ProvideCachedClient(k8sRestConfig, restMapper, scheme, cache, clientOptions)
+	if err != nil {
+		return nil, err
+	}
 	razeeProcessorSender := processorsenders.ProvideRazeeProcessorSender(log, clientClient, mailboxMailbox, scheme)
-	razeeStore := razeeStoreGroup.Store
 	razeeChannelProducer := mailbox.ProvideRazeeChannelProducer(razeeStore, mailboxMailbox, log)
-	runnables := ProvideRunnables(meterDefinitionStoreRunnable, meterDefinitionDictionaryStoreRunnable, meterDefinitionSeenStoreRunnable, mailboxMailbox, statusProcessor, serviceAnnotatorProcessor, prometheusProcessor, prometheusMdefProcessor, meterDefinitionRemovalWatcher, objectChannelProducer, meterDefinitionChannelProducer, meterDefinitionDictionary, razeeStoreRunnable, razeeProcessorSender, razeeChannelProducer)
-	engine := ProvideEngine(meterDefinitionStore, namespaces, log, clientset, monitoringV1Client, meterDefinitionDictionary, marketplaceV1beta1Client, runnables, prometheusData)
-	return engine, nil
+	runnables := ProvideRazeeRunnables(razeeStoreRunnable, mailboxMailbox, razeeProcessorSender, razeeChannelProducer)
+	razeeEngine := ProvideRazeeEngine(cacheIsStarted, razeeStore, namespaces, log, clientset, runnables)
+	return razeeEngine, nil
 }
