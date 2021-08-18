@@ -25,10 +25,10 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
-	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
 	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
+	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	"k8s.io/client-go/rest"
@@ -60,7 +60,6 @@ var k8sManager ctrl.Manager
 var k8sScheme *runtime.Scheme
 var factory *manifests.Factory
 var doneChan chan struct{}
-
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -135,7 +134,6 @@ var _ = BeforeSuite(func() {
 		Expect(err).ToNot(HaveOccurred())
 	}()
 })
-
 
 var _ = AfterSuite(func() {
 	close(doneChan)

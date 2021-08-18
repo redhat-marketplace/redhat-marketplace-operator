@@ -33,6 +33,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/predicates"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	merrors "emperror.dev/errors"
@@ -653,7 +654,6 @@ func getCategoriesFromMeterDefinitions(meterDefinitions []marketplacev1beta1.Met
 	return categoryList
 }
 
-
 func (r *MeterBaseReconciler) createReportIfNotFound(expectedCreatedDates []string, foundCreatedDates []string, request reconcile.Request, instance *marketplacev1alpha1.MeterBase, userWorkloadMonitoringEnabled bool) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
@@ -674,7 +674,6 @@ func (r *MeterBaseReconciler) createReportIfNotFound(expectedCreatedDates []stri
 
 	return nil
 }
-
 
 const promServiceName = "rhm-prometheus-meterbase"
 

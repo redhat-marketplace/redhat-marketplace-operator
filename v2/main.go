@@ -244,7 +244,7 @@ func main() {
 
 	doneChan := make(chan struct{})
 	reportCreatorReconciler := &controllers.MeterReportCreatorReconciler{
-		Log: ctrl.Log.WithName("controllers").WithName("MeterReportCreator"),
+		Log:    ctrl.Log.WithName("controllers").WithName("MeterReportCreator"),
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}

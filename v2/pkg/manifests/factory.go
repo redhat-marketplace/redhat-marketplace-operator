@@ -81,8 +81,8 @@ const (
 	UserWorkloadMonitoringServiceMonitor  = "prometheus/user-workload-monitoring-service-monitor.yaml"
 	UserWorkloadMonitoringMeterDefinition = "prometheus/user-workload-monitoring-meterdefinition.yaml"
 
-	RRS3ControllerDeployment              = "razee/rrs3-controller-deployment.yaml"
-	WatchKeeperDeployment                 = "razee/watch-keeper-deployment.yaml"
+	RRS3ControllerDeployment = "razee/rrs3-controller-deployment.yaml"
+	WatchKeeperDeployment    = "razee/watch-keeper-deployment.yaml"
 )
 
 var log = logf.Log.WithName("manifests_factory")
