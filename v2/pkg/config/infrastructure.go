@@ -17,6 +17,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/blang/semver"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -32,7 +33,8 @@ type KubernetesInfra struct {
 
 // OpenshiftInfra stores Openshift information (if Openshift is present)
 type OpenshiftInfra struct {
-	Version string
+	Version       string
+	ParsedVersion semver.Version
 }
 
 // Infrastructure stores Kubernetes/Openshift clients
@@ -80,8 +82,15 @@ func openshiftInfrastructure(c client.Client) (*OpenshiftInfra, error) {
 		return nil, err
 	}
 
+	parsedVersion, err := semver.ParseTolerant(clusterVersionObj.Status.Desired.Version)
+	if err != nil {
+		log.Error(err, "Unable to parse Openshift version")
+		return nil, err
+	}
+
 	return &OpenshiftInfra{
-		Version: clusterVersionObj.Status.Desired.Version,
+		Version:       clusterVersionObj.Status.Desired.Version,
+		ParsedVersion: parsedVersion,
 	}, nil
 }
 
@@ -130,6 +139,18 @@ func (i *Infrastructure) OpenshiftVersion() string {
 	}
 
 	return i.openshift.Version
+}
+
+// Version gets Openshift parsed version
+func (i *Infrastructure) OpenshiftParsedVersion() *semver.Version {
+	i.Lock()
+	defer i.Unlock()
+
+	if i.openshift == nil {
+		return nil
+	}
+
+	return &i.openshift.ParsedVersion
 }
 
 // HasOpenshift checks if Openshift is available

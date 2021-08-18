@@ -1,0 +1,20 @@
+apiVersion: marketplace.redhat.com/v1beta1
+kind: MeterDefinition
+metadata:
+  name: rhm-metric-state-uptime
+spec:
+  group: marketplace.redhat.com
+  kind: Pod
+  meters:
+  - aggregation: avg
+    metricId: rhm-metric-state-uptime
+    name: rhm-metric-state-uptime
+    period: 5m
+    query: avg_over_time(up{job="rhm-metric-state-service"}[5m])
+    workloadType: Pod
+  resourceFilters:
+  - label:
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: rhm-metric-state
+    workloadType: Pod

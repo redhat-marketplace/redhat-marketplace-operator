@@ -33,7 +33,7 @@ import (
 	env "github.com/caarlos0/env/v6"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/harness"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2/harness"
 	"github.com/rivo/tview"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -501,7 +501,7 @@ func (ev *skaffoldEventMonitor) handleEvents(ctx context.Context, in *pb.LogEntr
 			ev.setState(TestState)
 			ev.DisableAutobuild(ctx)
 			ev.RunTest(ctx)
-		} else if evt.GetStatus() ==  "Failed" {
+		} else if evt.GetStatus() == "Failed" {
 			logger.Println("received failed status, press a button to retry")
 			ev.setState(WaitingState)
 		} else {

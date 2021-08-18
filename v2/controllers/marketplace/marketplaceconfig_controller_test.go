@@ -39,13 +39,12 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const timeout = time.Second * 100
+const timeout = time.Second * 20
 const interval = time.Second * 3
 
 var _ = Describe("Testing with Ginkgo", func() {
@@ -160,14 +159,14 @@ var _ = Describe("Testing with Ginkgo", func() {
 		var testCleanInstall = func(t GinkgoTInterface) {
 			var setup = func(r *ReconcilerTest) error {
 				var log = logf.Log.WithName("mockcontroller")
-				s := scheme.Scheme
+				s := provideScheme()
 				_ = opsrcApi.AddToScheme(s)
 				_ = operatorsv1alpha1.AddToScheme(s)
 				s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, marketplaceconfig)
 				s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, razeedeployment)
 				s.AddKnownTypes(marketplacev1alpha1.SchemeGroupVersion, meterbase)
 
-				r.Client = fake.NewFakeClient(r.GetGetObjects()...)
+				r.Client = fake.NewFakeClientWithScheme(s, r.GetGetObjects()...)
 				r.Reconciler = &MarketplaceConfigReconciler{
 					Client: r.Client,
 					Scheme: s,

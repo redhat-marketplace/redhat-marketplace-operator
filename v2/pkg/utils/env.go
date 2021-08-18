@@ -40,8 +40,23 @@ const (
 	WATCH_KEEPER_LIMITPOLL_NAME            = "watch-keeper-limit-poll"
 	WATCH_KEEPER_CONFIG_NAME               = "watch-keeper-config"
 	WATCH_KEEPER_SECRET_NAME               = "watch-keeper-secret"
-	PROMETHEUS_METERBASE_NAME              = "rhm-prometheus-meterbase"
-	OPERATOR_CERTS_CA_BUNDLE_NAME          = "operator-certs-ca-bundle"
+	METERBASE_PROMETHEUS_NAME              = "rhm-prometheus-meterbase"
+	METERBASE_PROMETHEUS_SERVICE_NAME      = "rhm-prometheus-meterbase"
+	OPERATOR_CERTS_CA_BUNDLE_NAME          = "serving-certs-ca-bundle"
+
+	/* RHOS Monitoring Resource Names */
+	OPENSHIFT_MONITORING_NAMESPACE                              = "openshift-monitoring"
+	OPENSHIFT_USER_WORKLOAD_MONITORING_NAMESPACE                = "openshift-user-workload-monitoring"
+	OPENSHIFT_CLUSTER_MONITORING_CONFIGMAP_NAME                 = "cluster-monitoring-config"
+	OPENSHIFT_USER_WORKLOAD_MONITORING_CONFIGMAP_NAME           = "user-workload-monitoring-config"
+	OPENSHIFT_USER_WORKLOAD_MONITORING_STATEFULSET_NAME         = "prometheus-user-workload"
+	OPENSHIFT_USER_WORKLOAD_MONITORING_SERVICE_NAME             = "prometheus-user-workload"
+	OPENSHIFT_MONITORING_THANOS_QUERIER_SERVICE_NAME            = "thanos-querier"
+	SERVING_CERTS_CA_BUNDLE_NAME                                = "serving-certs-ca-bundle"
+	KUBELET_SERVING_CA_BUNDLE_NAME                              = "kubelet-serving-ca-bundle"
+	OPENSHIFT_USER_WORKLOAD_MONITORING_OPERATOR_SERVICE_ACCOUNT = "prometheus-operator"
+	OPENSHIFT_USER_WORKLOAD_MONITORING_SERVICE_ACCOUNT          = "prometheus-user-workload"
+	OPENSHIFT_USER_WORKLOAD_MONITORING_AUDIENCE                 = "prometheus-user-workload.openshift-user-workload-monitoring.svc"
 
 	/* All Controllers */
 	CONTROLLER_FINALIZER = "finalizer.marketplace.redhat.com"

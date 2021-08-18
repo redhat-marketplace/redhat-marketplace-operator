@@ -41,6 +41,16 @@ type MeterReportSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	EndTime metav1.Time `json:"endTime"`
 
+	// LabelSelectors are used to filter to the correct workload.
+	// +optional
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	LabelSelector metav1.LabelSelector `json:"labelSelector,omitempty"`
+
+	// Category of job
+	// +optional
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	Category string `json:"category,omitempty"`
+
 	// PrometheusService is the definition for the service labels.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	PrometheusService *common.ServiceReference `json:"prometheusService"`

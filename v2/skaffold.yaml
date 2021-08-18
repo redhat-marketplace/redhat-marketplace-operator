@@ -29,6 +29,7 @@ build:
             - "apis/**"
             - "controllers/**"
             - "pkg/**"
+            - "assets/**"
             - Dockerfile
           ignore:
             - "*_test.go"
@@ -88,6 +89,7 @@ deploy:
         chartPath: ./config/helm-wrapper
         valuesFiles:
           - ./config/helm-wrapper/values.yaml
+          - ./config/helm-wrapper/devValues.yaml
     flags:
       install:
         - --post-renderer
