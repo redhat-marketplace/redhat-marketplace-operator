@@ -1,0 +1,11 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: prometheus-user-workload
+  namespace: openshift-user-workload-monitoring
+spec:
+  replicas: 2
+status:
+  currentReplicas: 2
+  readyReplicas: 2
+  replicas: 2

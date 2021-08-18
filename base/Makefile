@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.15
+GO_VERSION ?= 1.16
 QUAY_EXPIRATION?=never
 IMAGE_PUSH ?= true
 BUILDX ?= true
@@ -13,9 +13,9 @@ IMAGE_REGISTRY ?= public-image-registry.apps-crc.testing/symposium
 docker-push:
 	docker push $(IMG)
 
-docker-build: docker-build-1-16 docker-build-1-15
+docker-build: docker-build-1-16
 
-16ARGS = --build-arg VERSION=1.16.2
+16ARGS = --build-arg VERSION=1.16.7
 16IMG = $(IMAGE_REGISTRY)/golang-base:1.16
 docker-build-1-16:
 	$(call docker-build,$(16IMG),$(16ARGS))

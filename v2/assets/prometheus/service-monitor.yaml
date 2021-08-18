@@ -1,0 +1,25 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: rhm-prometheus-meterbase
+  labels:
+    marketplace.redhat.com/metering: "true"
+spec:
+  endpoints:
+  - honorLabels: true
+    interval: 2m
+    port: https
+    scheme: https
+    scrapeTimeout: 2m
+    tlsConfig:
+      ca:
+        configMap:
+          key: service-ca.crt
+          name: serving-certs-ca-bundle
+      cert: {}
+      serverName: rhm-prometheus-meterbase.openshift-redhat-marketplace.svc
+  jobLabel: k8s-app
+  selector:
+    matchLabels:
+      app: prometheus
+      prometheus: rhm-marketplaceconfig-meterbase

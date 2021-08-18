@@ -67,10 +67,6 @@ GINKGO=$(PROJECT_DIR)/bin/ginkgo
 ginkgo:
 	$(call go-get-tool,$(GINKGO),github.com/onsi/ginkgo/ginkgo@v1.16.2)
 
-GOBINDATA=$(PROJECT_DIR)/bin/go-bindata
-go-bindata:
-	$(call go-get-tool,$(GOBINDATA),github.com/kevinburke/go-bindata/...)
-
 LICENSE=$(PROJECT_DIR)/bin/addlicense
 addlicense:
 	$(call go-get-tool,$(LICENSE),github.com/google/addlicense)
@@ -181,7 +177,7 @@ TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
 go mod init tmp ;\
 echo $(1) ;\
-GOBIN=$(PROJECT_DIR)/bin go get -u $(2) ;\
+GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef

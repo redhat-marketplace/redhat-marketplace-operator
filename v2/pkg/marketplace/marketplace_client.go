@@ -27,7 +27,6 @@ import (
 
 	"emperror.dev/errors"
 	jwt "github.com/dgrijalva/jwt-go"
-
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
@@ -342,7 +341,7 @@ func (mhttp *MarketplaceClient) GetMarketplaceSecret() (*corev1.Secret, error) {
 	}
 
 	if resp.StatusCode != 200 {
-		return nil, errors.NewWithDetails("request not successful", "statuscode", resp.StatusCode)
+		return nil, errors.NewWithDetails("request not successful: "+resp.Status, "statuscode", resp.StatusCode)
 	}
 
 	newOptSecretObj := corev1.Secret{}

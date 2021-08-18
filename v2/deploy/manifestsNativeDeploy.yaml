@@ -4,7 +4,7 @@ metadata:
   labels:
     control-plane: controller-manager
     redhat.marketplace.com/name: redhat-marketplace-operator
-  name: openshift-redhat-marketplace
+  name: redhat-marketplace-system
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -42,7 +42,7 @@ spec:
   validation:
     openAPIV3Schema:
       description: MarketplaceConfig is configuration manager for our Red Hat Marketplace
-        controllers
+        controllers By installing this product you accept the license terms https://ibm.biz/BdfaAY.
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -364,6 +364,8 @@ spec:
                 work. Setting enabled to "true" will install metering components.
                 False will suspend controller operations for metering components.
               type: boolean
+            externalPrometheus:
+              type: object
             prometheus:
               description: Prometheus deployment configuration.
               properties:
@@ -451,6 +453,11 @@ spec:
               required:
               - storage
               type: object
+            userWorkloadMonitoringEnabled:
+              description: UserWorkloadMonitoringEnabled controls whether to attempt
+                to use Openshift user-defined workload monitoring as the Prometheus
+                provider
+              type: boolean
           required:
           - enabled
           type: object
@@ -609,6 +616,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.0
     service.beta.openshift.io/inject-cabundle: "true"
+  creationTimestamp: null
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
   name: meterdefinitions.marketplace.redhat.com
@@ -3128,6 +3136,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.0
+  creationTimestamp: null
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
   name: remoteresources3s.marketplace.redhat.com
@@ -3899,6 +3908,10 @@ rules:
   - /api/v1/query_range
   verbs:
   - create
+  - get
+- nonResourceURLs:
+  - /metrics
+  verbs:
   - get
 - apiGroups:
   - ""
@@ -4841,9 +4854,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    authcheckImage: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-authcheck:2.2.2-138
-    metricStateImage: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-metric-state:2.2.2-138
-    reporterImage: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-reporter:2.2.2-138
+    authcheckImage: quay.io/zach_source/redhat-marketplace-authcheck:2.3.0
+    metricStateImage: quay.io/zach_source/redhat-marketplace-metric-state:2.3.0
+    reporterImage: quay.io/zach_source/redhat-marketplace-reporter:2.3.0
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
   name: redhat-marketplace-controller-manager
@@ -4863,6 +4876,17 @@ spec:
         control-plane: controller-manager
         redhat.marketplace.com/name: redhat-marketplace-operator
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
       containers:
       - args:
         - --health-probe-bind-address=:8081
@@ -4870,9 +4894,9 @@ spec:
         - --enable-leader-election
         env:
         - name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
-          value: quay.io/razee/remoteresources3:0.9.0
+          value: quay.io/razee/remoteresources3:0.9.3
         - name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
-          value: quay.io/razee/watch-keeper:0.7.5
+          value: quay.io/razee/watch-keeper:0.7.7
         - name: RELATED_IMAGE_PROMETHEUS
           value: registry.redhat.io/openshift4/ose-prometheus:v4.6
         - name: RELATED_IMAGE_OAUTH_PROXY
@@ -4902,11 +4926,11 @@ spec:
         - name: OPERATOR_NAME
           value: redhat-marketplace-operator
         - name: RELATED_IMAGE_REPORTER
-          value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-reporter:2.2.2-138
+          value: quay.io/zach_source/redhat-marketplace-reporter:2.3.0
         - name: RELATED_IMAGE_METRIC_STATE
-          value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-metric-state:2.2.2-138
+          value: quay.io/zach_source/redhat-marketplace-metric-state:2.3.0
         - name: RELATED_IMAGE_AUTHCHECK
-          value: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-authcheck:2.2.2-138
+          value: quay.io/zach_source/redhat-marketplace-authcheck:2.3.0
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
@@ -4935,7 +4959,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.annotations['olm.operatorGroup']
-        image: public-image-registry.apps-crc.testing/symposium/redhat-marketplace-operator:2.2.2-138
+        image: quay.io/zach_source/redhat-marketplace-operator:2.3.0
         livenessProbe:
           httpGet:
             path: /healthz
@@ -4960,6 +4984,14 @@ spec:
           requests:
             cpu: 100m
             memory: 100Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
@@ -4974,6 +5006,24 @@ spec:
         ports:
         - containerPort: 8443
           name: https
+        resources:
+          limits:
+            cpu: 20m
+            memory: 25Mi
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+      hostIPC: false
+      hostNetwork: false
+      hostPID: false
       serviceAccountName: redhat-marketplace-operator
       terminationGracePeriodSeconds: 10
       volumes:
@@ -5003,6 +5053,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   annotations:
     service.beta.openshift.io/inject-cabundle: "true"
+  creationTimestamp: null
   labels:
     redhat.marketplace.com/name: redhat-marketplace-operator
   name: redhat-marketplace-validating-webhook-configuration
