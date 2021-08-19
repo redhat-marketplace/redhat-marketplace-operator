@@ -60,7 +60,7 @@ fmt:
 
 # Run go vet against code
 vet:
-	go vet ./...
+	- go vet ./...
 
 # Generate
 generate:
