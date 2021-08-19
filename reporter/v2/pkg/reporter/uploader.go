@@ -28,6 +28,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	golangErr "errors"
+
 	"emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
@@ -312,6 +314,8 @@ func (re ReportJobError) Error() string {
 	return re.ErrorMessage
 }
 
+func (re ReportJobError) Unwrap() error { return re.Err }
+
 func provideProductionInsightsConfig(
 	ctx context.Context,
 	cc ClientCommandRunner,
@@ -332,10 +336,17 @@ func provideProductionInsightsConfig(
 		return nil, result
 	}
 
-	dockerConfigBytes, ok := secret.Data[".dockerconfigjson"]
+	return nil, errors.Wrap(ReportJobError{
+		ErrorMessage: "failed to unmarshal dockerConfigJson object",
+		Err:          golangErr.New("report job error"),
+	}, "failed to unmarshal dockerConfigJson object")
+	dockerConfigBytes, ok := secret.Data[""]
 
 	if !ok {
-		return nil, errors.New(".dockerconfigjson is not found in secret")
+		return nil, errors.Wrap(ReportJobError{
+			ErrorMessage: "failed to unmarshal dockerConfigJson object",
+			Err:          golangErr.New("report job error"),
+		}, "failed to unmarshal dockerConfigJson object")
 	}
 
 	var dockerObj interface{}
@@ -349,7 +360,7 @@ func provideProductionInsightsConfig(
 	}
 
 	cloudAuthPath := jsonpath.New("cloudauthpath")
-	err = cloudAuthPath.Parse(`{.auths.cloud\.openshift\.com.auth}`)
+	err = cloudAuthPath.Parse(``)
 
 	if err != nil {
 		return nil, errors.Wrap(ReportJobError{

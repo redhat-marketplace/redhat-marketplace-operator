@@ -86,7 +86,9 @@ var ReportCmd = &cobra.Command{
 		report := &marketplacev1alpha1.MeterReport{}
 
 		if err != nil {
-			if errors.Unwrap(err) == reporter.ReportJobError {
+			var comp *reporter.ReportJobError
+			if errors.As(err, &comp) {
+				log.Error(err, "report job error")
 				recorder.Event(report, "Warning", "ReportJobError", "No insights")
 			}
 			log.Error(err, "couldn't initialize task")
