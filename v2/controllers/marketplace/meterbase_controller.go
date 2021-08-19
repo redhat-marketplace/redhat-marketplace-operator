@@ -254,6 +254,7 @@ func (r *MeterBaseReconciler) Reconcile(request reconcile.Request) (reconcile.Re
 		return result.Return()
 	}
 
+
 	// if instance.Enabled == false
 	// return do nothing
 	if !instance.Spec.Enabled {

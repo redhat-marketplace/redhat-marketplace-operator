@@ -61,11 +61,12 @@ type MeterdefinitionInstallReconciler struct {
 
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions;subscriptions,verbs=get;list;watch
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions,verbs=update;patch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions;meterdefinitions/status,verbs=get;list;watch
 // +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions;meterdefinitions/status,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=clusterserviceversions;subscriptions,verbs=get;list;watch
 // +kubebuilder:rbac:urls=/list-for-version/*,verbs=get;
-// +kubebuilder:rbac:urls=/get-system-meterdefs/*,verbs=get;post;create;
+// +kubebuilder:rbac:urls=/get-system-meterdefs,verbs=get;post;create;
 // +kubebuilder:rbac:groups="authentication.k8s.io",resources=tokenreviews,verbs=create;get
 // +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create;get
 
@@ -119,7 +120,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 
 	// New CSV install
 	sub := &olmv1alpha1.SubscriptionList{}
-	if err := r.Client.List(context.TODO(), sub, client.InNamespace(request.NamespacedName.Namespace)); err != nil {
+	if err := r.Client.List(context.TODO(), sub, client.InNamespace(CSV.Namespace)); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -151,8 +152,8 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 					reqLogger.Info("found Subscription with installed CSV")
 
 					/* 
-						if the csv has a dir in the catalog && has meterdefinitions create those
-						if templated meterdefs are enabled create those
+						if the csv has a dir in the catalog && has meterdefinitions, create 
+						TODO: if templated meterdefs are enabled, create 
 					*/
 
 					allMeterDefinitions := []marketplacev1beta1.MeterDefinition{}
@@ -162,11 +163,10 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 						return reconcile.Result{},err
 					}
 
+					reqLogger.Info("catalog response","response",catalogResponse.CatlogStatusType)
+
 					if catalogResponse.CatlogStatusType == catalog.CsvWithMeterdefsFoundStatus {
 						communityMeterdefs := catalogResponse.MdefSlice
-						if err != nil {
-							return reconcile.Result{},err
-						}
 
 						allMeterDefinitions = append(allMeterDefinitions, communityMeterdefs...)
 					}
@@ -176,31 +176,30 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 						return reconcile.Result{},err
 					}
 
+					reqLogger.Info("system meterdefinition response","response",systemMeterdefsResponse.CatlogStatusType)
+
 					if systemMeterdefsResponse.CatlogStatusType == catalog.SystemMeterdefsReturnedStatus {
-						globalMeterdefinitions := catalogResponse.MdefSlice
+						globalMeterdefinitions := systemMeterdefsResponse.MdefSlice
 						allMeterDefinitions = append(allMeterDefinitions, globalMeterdefinitions...)
 					}
-
-					globalMeterdefinitions := []marketplacev1beta1.MeterDefinition{}
-
-					allMeterDefinitions = append(allMeterDefinitions, globalMeterdefinitions...)
 
 					gvk, err := apiutil.GVKForObject(CSV, r.Scheme)
 					if err != nil {
 						return reconcile.Result{}, err
 					}
 
+
 					// create CSV specific and global meter definitions
-					reqLogger.Info("creating meterdefinitions", "CSV", csvSplitName)
+					reqLogger.Info("creating meterdefinitions", "CSV", csvSplitName,"namespace",CSV.Namespace)
 					for _, meterDefItem := range allMeterDefinitions {
 						reqLogger.Info("checking for existing meterdefinition", "meterdef", meterDefItem.Name, "CSV", csvSplitName)
 
 						// Check if the meterdef is on the cluster already
 						meterdef := &marketplacev1beta1.MeterDefinition{}
-						err = r.Client.Get(context.TODO(), types.NamespacedName{Name: meterDefItem.Name, Namespace: request.Namespace}, meterdef)
+						err = r.Client.Get(context.TODO(), types.NamespacedName{Name: meterDefItem.Name, Namespace: CSV.Namespace}, meterdef)
 						if err != nil {
 							if errors.IsNotFound(err) {
-								reqLogger.Info("meterdefinition not found, creating", "meterdef name", meterDefItem.Name, "CSV", CSV.Name)
+								reqLogger.Info("meterdefinition not found, creating", "meterdef name", meterDefItem.Name, "CSV", CSV.Name,"csv namespace",CSV.Namespace)
 
 								result := r.createMeterdef(csvSplitName, csvVersion, meterDefItem, CSV, gvk, request, reqLogger)
 								if !result.Is(Continue) {

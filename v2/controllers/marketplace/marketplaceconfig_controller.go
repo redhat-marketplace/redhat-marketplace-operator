@@ -91,8 +91,6 @@ type MarketplaceConfigReconciler struct {
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=operatorsources;catalogsources,verbs=get;list;watch
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=operatorsources,verbs=create
 // +kubebuilder:rbac:groups="operators.coreos.com",resources=catalogsources,verbs=create;delete
-// +kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=get;create;update
-// +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=get;create;update;list;watch
 
 // Reconcile reads that state of the cluster for a MarketplaceConfig object and makes changes based on the state read
 // and what is in the MarketplaceConfig.Spec
@@ -523,7 +521,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 
 	reqLogger.Info("meterbase is enabled")
 	// Check if MeterBase exists, if not create one
-	utils.PrettyPrint(marketplaceConfig.Spec.Features)
+
 	if result.Is(NotFound) {
 		newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace,marketplaceConfig.Spec.Features)
 
@@ -561,6 +559,19 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
+	if foundMeterBase.Spec.MeterdefinitionCatalogServer == nil {
+		updatedMeterBase := foundMeterBase.DeepCopy()
+		updatedMeterBase.Spec.MeterdefinitionCatalogServer = &marketplacev1alpha1.MeterdefinitionCatalogServerSpec{
+			MeterdefinitionCatalogServerEnabled:  *marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer,
+			LicenceUsageMeteringEnabled: *marketplaceConfig.Spec.Features.LicenseUsageMetering,
+		}
+		// updatedMeterBase.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled = *marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer
+		// updatedMeterBase.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled = *marketplaceConfig.Spec.Features.LicenseUsageMetering
+		err = r.Client.Update(context.TODO(),foundMeterBase)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
 	reqLogger.Info("found meterbase")
 
 	// Check if operator source exists, or create a new one

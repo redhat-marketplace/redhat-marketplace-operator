@@ -52,8 +52,8 @@ var _ = Describe("Remote resource S3 controller", func() {
 		BeforeEach(func(){
 			Expect(k8sClient.Create(context.TODO(), csv1)).Should(Succeed())
 
-			server := ghttp.NewTLSServer()
-			server.SetAllowUnhandledRequests(true)
+			dcControllerServer := ghttp.NewTLSServer()
+			dcControllerServer.SetAllowUnhandledRequests(true)
 
 			// os.Setenv("CATALOG_URL", server.Addr())
 		
@@ -67,7 +67,7 @@ var _ = Describe("Remote resource S3 controller", func() {
 				"marketplace.redhat.com/isCommunityMeterdefintion": "true"
 			  }`)
 	
-			server.RouteToHandler(
+			  dcControllerServer.RouteToHandler(
 				"GET", indexLabelsPath, ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", indexLabelsPath,csvName),
 					ghttp.RespondWithPtr(&statusCode, &indexLabelsBody),
@@ -95,7 +95,7 @@ var _ = Describe("Remote resource S3 controller", func() {
 				}
 			  }`)
 
-			server.RouteToHandler(
+			  dcControllerServer.RouteToHandler(
 				"GET", listMeterDefsForCsvPath, ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", listMeterDefsForCsvPath,namespace),
 					ghttp.RespondWithPtr(&statusCode, &returnedMeterdefsBody),

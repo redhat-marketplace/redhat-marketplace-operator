@@ -27,7 +27,6 @@ import (
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 
 	osappsv1 "github.com/openshift/api/apps/v1"
-	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
@@ -122,32 +121,32 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	nsPred := predicates.NamespacePredicate(r.cfg.DeployedNamespace)
 
-	meterBaseSubSectionPred := []predicate.Predicate{
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool {
-				return true
-			},
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				meterbaseOld, ok := e.ObjectOld.(*marketplacev1alpha1.MeterBase)
-				if !ok {
-					return false
-				}
+	// meterBaseSubSectionPred := []predicate.Predicate{
+	// 	predicate.Funcs{
+	// 		CreateFunc: func(e event.CreateEvent) bool {
+	// 			return true
+	// 		},
+	// 		UpdateFunc: func(e event.UpdateEvent) bool {
+	// 			meterbaseOld, ok := e.ObjectOld.(*marketplacev1alpha1.MeterBase)
+	// 			if !ok {
+	// 				return false
+	// 			}
 
-				meterbaseNew, ok := e.ObjectNew.(*marketplacev1alpha1.MeterBase)
-				if !ok {
-					return false
-				}
+	// 			meterbaseNew, ok := e.ObjectNew.(*marketplacev1alpha1.MeterBase)
+	// 			if !ok {
+	// 				return false
+	// 			}
 
-				return meterbaseOld.Spec.MeterdefinitionCatalogServer != meterbaseNew.Spec.MeterdefinitionCatalogServer
-			},
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				return true
-			},
-			GenericFunc: func(e event.GenericEvent) bool {
-				return true
-			},
-		},
-	}
+	// 			return meterbaseOld.Spec.MeterdefinitionCatalogServer != meterbaseNew.Spec.MeterdefinitionCatalogServer
+	// 		},
+	// 		DeleteFunc: func(e event.DeleteEvent) bool {
+	// 			return true
+	// 		},
+	// 		GenericFunc: func(e event.GenericEvent) bool {
+	// 			return true
+	// 		},
+	// 	},
+	// }
 
 	deploymentConfigPred := []predicate.Predicate{
 		predicate.Funcs{
@@ -168,15 +167,15 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(nsPred).
-		For(&marketplacev1alpha1.MeterBase{}).
-		Watches(
-			&source.Kind{Type: &marketplacev1alpha1.MeterBase{}},
-			&handler.EnqueueRequestForObject{},
-			builder.WithPredicates(meterBaseSubSectionPred...)).
-		Watches(
-			&source.Kind{Type: &osappsv1.DeploymentConfig{}},
-			&handler.EnqueueRequestForObject{},
-			builder.WithPredicates(deploymentConfigPred...)).
+		For(&osappsv1.DeploymentConfig{},builder.WithPredicates(deploymentConfigPred...)).
+		// Watches(
+		// 	&source.Kind{Type: &marketplacev1alpha1.MeterBase{}},
+		// 	&handler.EnqueueRequestForObject{},
+		// 	builder.WithPredicates(meterBaseSubSectionPred...)).
+		// Watches(
+		// 	&source.Kind{Type: &osappsv1.DeploymentConfig{}},
+		// 	&handler.EnqueueRequestForObject{},
+		// 	builder.WithPredicates(deploymentConfigPred...)).
 		Watches(
 			&source.Kind{Type: &osimagev1.ImageStream{}},
 			&handler.EnqueueRequestForObject{},
@@ -184,7 +183,8 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// +kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=get;create;list;update;watch
+// +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=get;create;update;list;watch
 // +kubebuilder:rbac:urls=/list-for-version/*,verbs=get;
 // +kubebuilder:rbac:urls=/get-system-meterdefs/*,verbs=get;post;create;
 // +kubebuilder:rbac:urls=/meterdef-index-label/*,verbs=get;
@@ -201,45 +201,115 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 		return reconcile.Result{},err
 	}
 
-	instance := &marketplacev1alpha1.MeterBase{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME,Namespace: request.Namespace}, instance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Error(err, "meterbase does not exist must have been deleted - ignoring for now")
-			return reconcile.Result{}, nil
-		}
+	// instance := &marketplacev1alpha1.MeterBase{}
+	// err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.METERBASE_NAME,Namespace: request.Namespace}, instance)
+	// if err != nil {
+	// 	if errors.IsNotFound(err) {
+	// 		reqLogger.Error(err, "meterbase does not exist must have been deleted - ignoring for now")
+	// 		return reconcile.Result{}, nil
+	// 	}
 
-		reqLogger.Error(err, "Failed to get meterbase")
-		return reconcile.Result{}, err
-	}
+	// 	reqLogger.Error(err, "Failed to get meterbase")
+	// 	return reconcile.Result{}, err
+	// }
 
-	// catalog server not enabled, stop reconciling
-	if !instance.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled {
-		return reconcile.Result{},nil
-	}
+	// // catalog server not enabled, stop reconciling
+	// if instance.Spec.MeterdefinitionCatalogServer == nil || !instance.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled {
+	// 	return reconcile.Result{},nil
+	// }
 
 	//create meterdefinition catalog sever resources
-	result := r.reconcileMeterdefCatalogServerResources(instance,request,reqLogger)
-	if !result.Is(Continue) {
+	// result := r.reconcileMeterdefCatalogServerResources(instance,request,reqLogger)
+	// if !result.Is(Continue) {
 
-		if result.Is(Error) {
-			reqLogger.Error(result.GetError(), "Failed during pruning operation")
-		}
+	// 	if result.Is(Error) {
+	// 		reqLogger.Error(result.GetError(), "Failed during pruning operation")
+	// 	}
 
-		return result.Return()
-	}
+	// 	return result.Return()
+	// }
 
 	// get the latest deploymentconfig
 	dc := &osappsv1.DeploymentConfig{}
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: request.Namespace}, dc)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			reqLogger.Error(err, "deploymentconfig does not exist")
-			return reconcile.Result{}, nil
+			
+			// return reconcile.Result{}, nil
+			newDeploymentConfig, err := r.factory.NewMeterdefintionFileServerDeploymentConfig()
+			if err != nil {
+				return reconcile.Result{},err
+			}
+
+		// gvk, err := apiutil.GVKForObject(instance, r.Scheme)
+		// if err != nil {
+		// 	return reconcile.Result{},err
+		// }
+	
+		// // create owner ref object
+		// ref := metav1.OwnerReference{
+		// 	APIVersion:         gvk.GroupVersion().String(),
+		// 	Kind:               gvk.Kind,
+		// 	Name:               instance.GetName(),
+		// 	UID:                instance.GetUID(),
+		// 	BlockOwnerDeletion: pointer.BoolPtr(false),
+		// 	Controller:         pointer.BoolPtr(false),
+		// }
+	
+		// newDeploymentConfig.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
+		
+			err = r.Client.Create(context.TODO(), newDeploymentConfig)
+			if err != nil {
+				return reconcile.Result{},err
+			}
+			
+			reqLogger.Info("created new deploymentconfig")
+
 		}
 
 		reqLogger.Error(err, "Failed to get deploymentconfig")
 		return reconcile.Result{}, err
+	}
+
+	foundfileServerService := &corev1.Service{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: request.Namespace}, foundfileServerService)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("meterdef file server service not found, creating")
+
+		newService, err := r.factory.NewMeterdefintionFileServerService()
+		if err != nil {
+			return reconcile.Result{},err
+		}
+
+		// gvk, err := apiutil.GVKForObject(instance, r.Scheme)
+		// if err != nil {
+		// 	return reconcile.Result{},err
+		// }
+	
+		// // create owner ref object
+		// ref := metav1.OwnerReference{
+		// 	APIVersion:         gvk.GroupVersion().String(),
+		// 	Kind:               gvk.Kind,
+		// 	Name:               instance.GetName(),
+		// 	UID:                instance.GetUID(),
+		// 	BlockOwnerDeletion: pointer.BoolPtr(false),
+		// 	Controller:         pointer.BoolPtr(false),
+		// }
+	
+		// newService.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
+
+		err = r.Client.Create(context.TODO(), newService)
+		if err != nil {
+			return reconcile.Result{},err
+		}
+
+		reqLogger.Info("created new catalog server service")
+
+		// return &ExecResult{
+		// 	ReconcileResult: reconcile.Result{RequeueAfter: time.Second * 10},
+		// 	Err:             nil,
+		// }
+
 	}
 
 	// catch the deploymentconfig as it's rolling out a new deployment and requeue until finished
@@ -255,7 +325,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	reqLogger.Info("deploymentconfig is in ready state")
 	latestVersion := dc.Status.LatestVersion
 
-	result = r.pruneDeployPods(latestVersion, request, reqLogger)
+	result := r.pruneDeployPods(latestVersion, request, reqLogger)
 	if !result.Is(Continue) {
 
 		if result.Is(Error) {
@@ -265,7 +335,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 		return result.Return()
 	}
 
-	result = r.sync(instance,request, reqLogger)
+	result = r.sync(request, reqLogger)
 	if !result.Is(Continue) {
 
 		if result.Is(Error) {
@@ -276,10 +346,10 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	}
 
 	reqLogger.Info("finished reconciling")
-	return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
+	return reconcile.Result{}, nil
 }
 
-func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBase,request reconcile.Request, reqLogger logr.Logger) *ExecResult {
+func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger logr.Logger) *ExecResult {
 	csvList := &olmv1alpha1.ClusterServiceVersionList{}
 
 	err := r.Client.List(context.TODO(), csvList)
@@ -298,7 +368,7 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 		*/
 		splitName := strings.Split(csv.Name, ".")[0]
 		csvVersion := csv.Spec.Version.Version.String()
-		namespace := request.Namespace
+		csvNamespace := csv.Namespace
 
 		/* 
 			pings the file server for a map of labels we use to index meterdefintions that originated from the file server
@@ -321,7 +391,7 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 		/* 
 		 	List all coomunity definitions that supoort a particular version of a csv
 		*/
-		catologResponse, err := r.CatalogClient.ListMeterdefintionsFromFileServer(splitName, csvVersion, namespace, reqLogger)
+		catologResponse, err := r.CatalogClient.ListMeterdefintionsFromFileServer(splitName, csvVersion, csvNamespace, reqLogger)
 		if err != nil {
 			return &ExecResult{
 				ReconcileResult: reconcile.Result{},
@@ -350,20 +420,20 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 
 		latestMeterDefsFromCatalog := catologResponse.MdefSlice
 
-		if instance.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled {
+		// if instance.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled {
 			// fetch system meter definitions and append
-			systemMeterdefsResponse, err := r.CatalogClient.GetSystemMeterdefs(&csv, reqLogger)
-			if err != nil {
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
-				}
-			}
-
-			if systemMeterdefsResponse.CatlogStatusType == catalog.SystemMeterdefsReturnedStatus{
-				latestMeterDefsFromCatalog = append(latestMeterDefsFromCatalog, systemMeterdefsResponse.MdefSlice...)
+		systemMeterdefsResponse, err := r.CatalogClient.GetSystemMeterdefs(&csv, reqLogger)
+		if err != nil {
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
 			}
 		}
+
+		if systemMeterdefsResponse.CatlogStatusType == catalog.SystemMeterdefsReturnedStatus{
+			latestMeterDefsFromCatalog = append(latestMeterDefsFromCatalog, systemMeterdefsResponse.MdefSlice...)
+		}
+		// }
 	
 		catalogMdefsOnCluster, result := listAllCommunityMeterdefsOnCluster(r.Client, indexLabels)
 		if !result.Is(Continue) {
@@ -384,6 +454,7 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 			reqLogger.Info("finding meterdefintion",catalogMeterdef.Name, catalogMeterdef.Namespace)
 			err = r.Client.Get(context.TODO(), types.NamespacedName{Name:catalogMeterdef.Name, Namespace: catalogMeterdef.Namespace}, installedMdef)
 			if err != nil && errors.IsNotFound(err) {
+				reqLogger.Info("meterdef not found during sync, creating","name",catalogMeterdef.Name,"namespace",catalogMeterdef.Namespace)
 				/*
 					create a meterdef for a csv if the csv has a meterdefinition listed in the catalog 
 					&& that meterdef is not on the cluster
@@ -416,212 +487,218 @@ func (r *DeploymentConfigReconciler) sync(instance *marketplacev1alpha1.MeterBas
 	}
 }
 
-func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(instance *marketplacev1alpha1.MeterBase,request reconcile.Request, reqLogger logr.Logger) *ExecResult {
-	foundDeploymentConfig := &osappsv1.DeploymentConfig{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: request.Namespace}, foundDeploymentConfig)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("meterdef file server deployment config not found, creating")
+// func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(instance *marketplacev1alpha1.MeterBase,request reconcile.Request, reqLogger logr.Logger) *ExecResult {
+// 	foundDeploymentConfig := &osappsv1.DeploymentConfig{}
+// 	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: request.Namespace}, foundDeploymentConfig)
+// 	if err != nil && errors.IsNotFound(err) {
+// 		reqLogger.Info("meterdef file server deployment config not found, creating")
 
-		newDeploymentConfig, err := r.factory.NewMeterdefintionFileServerDeploymentConfig()
-		if err != nil {
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
+// 		newDeploymentConfig, err := r.factory.NewMeterdefintionFileServerDeploymentConfig()
+// 		if err != nil {
+// 			return &ExecResult{
+// 				ReconcileResult: reconcile.Result{},
+// 				Err:             err,
+// 			}
+// 		}
 
-		gvk, err := apiutil.GVKForObject(instance, r.Scheme)
-		if err != nil {
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
+// 		gvk, err := apiutil.GVKForObject(instance, r.Scheme)
+// 		if err != nil {
+// 			return &ExecResult{
+// 				ReconcileResult: reconcile.Result{},
+// 				Err:             err,
+// 			}
+// 		}
 	
-		// create owner ref object
-		ref := metav1.OwnerReference{
-			APIVersion:         gvk.GroupVersion().String(),
-			Kind:               gvk.Kind,
-			Name:               instance.GetName(),
-			UID:                instance.GetUID(),
-			BlockOwnerDeletion: pointer.BoolPtr(false),
-			Controller:         pointer.BoolPtr(false),
-		}
+// 		// create owner ref object
+// 		ref := metav1.OwnerReference{
+// 			APIVersion:         gvk.GroupVersion().String(),
+// 			Kind:               gvk.Kind,
+// 			Name:               instance.GetName(),
+// 			UID:                instance.GetUID(),
+// 			BlockOwnerDeletion: pointer.BoolPtr(false),
+// 			Controller:         pointer.BoolPtr(false),
+// 		}
 	
-		newDeploymentConfig.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
+// 		newDeploymentConfig.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
 		
-		err = r.Client.Create(context.TODO(), newDeploymentConfig)
-		if err != nil {
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
+// 		err = r.Client.Create(context.TODO(), newDeploymentConfig)
+// 		if err != nil {
+// 			return &ExecResult{
+// 				ReconcileResult: reconcile.Result{},
+// 				Err:             err,
+// 			}
+// 		}
 
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{Requeue: true},
-			Err:             nil,
-		}
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get meterdef file server deploymentconfig")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	} else {
-		updated := r.factory.UpdateDeploymentConfigOnChange(foundDeploymentConfig)
-		if updated{
-			err = r.Client.Update(context.TODO(), foundDeploymentConfig)
-			if err != nil {
-				reqLogger.Error(err, "Failed to update file server deploymentconfig")
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err: err,
-				}
-			}
+// 		reqLogger.Info("created new deploymentconfig")
 
-			reqLogger.Info("updated deploymentconfig")
+// 		// return &ExecResult{
+// 		// 	ReconcileResult: reconcile.Result{RequeueAfter: time.Second * 10},
+// 		// 	Err:             nil,
+// 		// }
+// 	} else if err != nil {
+// 		reqLogger.Error(err, "Failed to get meterdef file server deploymentconfig")
+// 		return &ExecResult{
+// 			ReconcileResult: reconcile.Result{},
+// 			Err:             err,
+// 		}
+// 	} else {
+// 		updated := r.factory.UpdateDeploymentConfigOnChange(foundDeploymentConfig)
+// 		if updated{
+// 			err = r.Client.Update(context.TODO(), foundDeploymentConfig)
+// 			if err != nil {
+// 				reqLogger.Error(err, "Failed to update file server deploymentconfig")
+// 				return &ExecResult{
+// 					ReconcileResult: reconcile.Result{},
+// 					Err: err,
+// 				}
+// 			}
 
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{Requeue: true},
-				Err: nil,
-			}
-		}
-	}
+// 			reqLogger.Info("updated deploymentconfig")
 
-	foundfileServerService := &corev1.Service{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: request.Namespace}, foundfileServerService)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("meterdef file server service not found, creating")
+// 			// return &ExecResult{
+// 			// 	ReconcileResult: reconcile.Result{RequeueAfter: time.Second * 10},
+// 			// 	Err: nil,
+// 			// }
+// 		}
+// 	}
 
-		newService, err := r.factory.NewMeterdefintionFileServerService()
-		if err != nil {
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
+// 	foundfileServerService := &corev1.Service{}
+// 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: request.Namespace}, foundfileServerService)
+// 	if err != nil && errors.IsNotFound(err) {
+// 		reqLogger.Info("meterdef file server service not found, creating")
 
-		gvk, err := apiutil.GVKForObject(instance, r.Scheme)
-		if err != nil {
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
+// 		newService, err := r.factory.NewMeterdefintionFileServerService()
+// 		if err != nil {
+// 			return &ExecResult{
+// 				ReconcileResult: reconcile.Result{},
+// 				Err:             err,
+// 			}
+// 		}
+
+// 		gvk, err := apiutil.GVKForObject(instance, r.Scheme)
+// 		if err != nil {
+// 			return &ExecResult{
+// 				ReconcileResult: reconcile.Result{},
+// 				Err:             err,
+// 			}
+// 		}
 	
-		// create owner ref object
-		ref := metav1.OwnerReference{
-			APIVersion:         gvk.GroupVersion().String(),
-			Kind:               gvk.Kind,
-			Name:               instance.GetName(),
-			UID:                instance.GetUID(),
-			BlockOwnerDeletion: pointer.BoolPtr(false),
-			Controller:         pointer.BoolPtr(false),
-		}
+// 		// create owner ref object
+// 		ref := metav1.OwnerReference{
+// 			APIVersion:         gvk.GroupVersion().String(),
+// 			Kind:               gvk.Kind,
+// 			Name:               instance.GetName(),
+// 			UID:                instance.GetUID(),
+// 			BlockOwnerDeletion: pointer.BoolPtr(false),
+// 			Controller:         pointer.BoolPtr(false),
+// 		}
 	
-		newService.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
+// 		newService.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
 
-		err = r.Client.Create(context.TODO(), newService)
-		if err != nil {
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
+// 		err = r.Client.Create(context.TODO(), newService)
+// 		if err != nil {
+// 			return &ExecResult{
+// 				ReconcileResult: reconcile.Result{},
+// 				Err:             err,
+// 			}
+// 		}
 
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{Requeue: true},
-			Err:             nil,
-		}
+// 		reqLogger.Info("created new catalog server service")
 
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get meterdefinition file server service")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	}
+// 		// return &ExecResult{
+// 		// 	ReconcileResult: reconcile.Result{RequeueAfter: time.Second * 10},
+// 		// 	Err:             nil,
+// 		// }
 
-	foundImageStream := &osimagev1.ImageStream{}
-	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: request.Namespace}, foundImageStream)
-	if err != nil && errors.IsNotFound(err) {
+// 	} else if err != nil {
+// 		reqLogger.Error(err, "Failed to get meterdefinition file server service")
+// 		return &ExecResult{
+// 			ReconcileResult: reconcile.Result{},
+// 			Err:             err,
+// 		}
+// 	}
 
-		reqLogger.Info("image stream not found, creating")
+// 	foundImageStream := &osimagev1.ImageStream{}
+// 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: request.Namespace}, foundImageStream)
+// 	if err != nil && errors.IsNotFound(err) {
 
-		newImageStream, err := r.factory.NewMeterdefintionFileServerImageStream()
-		if err != nil {
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
+// 		reqLogger.Info("image stream not found, creating")
 
-		gvk, err := apiutil.GVKForObject(instance, r.Scheme)
-		if err != nil {
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
+// 		newImageStream, err := r.factory.NewMeterdefintionFileServerImageStream()
+// 		if err != nil {
+// 			return &ExecResult{
+// 				ReconcileResult: reconcile.Result{},
+// 				Err:             err,
+// 			}
+// 		}
+
+// 		gvk, err := apiutil.GVKForObject(instance, r.Scheme)
+// 		if err != nil {
+// 			return &ExecResult{
+// 				ReconcileResult: reconcile.Result{},
+// 				Err:             err,
+// 			}
+// 		}
 	
-		// create owner ref object
-		ref := metav1.OwnerReference{
-			APIVersion:         gvk.GroupVersion().String(),
-			Kind:               gvk.Kind,
-			Name:               instance.GetName(),
-			UID:                instance.GetUID(),
-			BlockOwnerDeletion: pointer.BoolPtr(false),
-			Controller:         pointer.BoolPtr(false),
-		}
+// 		// create owner ref object
+// 		ref := metav1.OwnerReference{
+// 			APIVersion:         gvk.GroupVersion().String(),
+// 			Kind:               gvk.Kind,
+// 			Name:               instance.GetName(),
+// 			UID:                instance.GetUID(),
+// 			BlockOwnerDeletion: pointer.BoolPtr(false),
+// 			Controller:         pointer.BoolPtr(false),
+// 		}
 	
-		newImageStream.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
+// 		newImageStream.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
 
-		err = r.Client.Create(context.TODO(), newImageStream)
-		if err != nil {
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
+// 		err = r.Client.Create(context.TODO(), newImageStream)
+// 		if err != nil {
+// 			return &ExecResult{
+// 				ReconcileResult: reconcile.Result{},
+// 				Err:             err,
+// 			}
+// 		}
 
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{Requeue: true},
-			Err:             nil,
-		}
+// 		reqLogger.Info("created new image stream")
 
-	} else if err != nil {
-		reqLogger.Error(err, "Failed to get image stream")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
-		}
-	} else {
-		updated := r.factory.UpdateImageStreamOnChange(foundImageStream)
-		if updated {
-			err = r.Client.Update(context.TODO(), foundImageStream)
-			if err != nil {
-				reqLogger.Error(err, "Failed to update image stream")
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{Requeue: true},
-					Err:             err,
-				}
-			}
+// 		// return &ExecResult{
+// 		// 	ReconcileResult: reconcile.Result{RequeueAfter: time.Second * 10},
+// 		// 	Err:             nil,
+// 		// }
 
-			reqLogger.Info("updated ImageStream")
+// 	} else if err != nil {
+// 		reqLogger.Error(err, "Failed to get image stream")
+// 		return &ExecResult{
+// 			ReconcileResult: reconcile.Result{},
+// 			Err:             err,
+// 		}
+// 	} else {
+// 		updated := r.factory.UpdateImageStreamOnChange(foundImageStream)
+// 		if updated {
+// 			err = r.Client.Update(context.TODO(), foundImageStream)
+// 			if err != nil {
+// 				reqLogger.Error(err, "Failed to update image stream")
+// 				return &ExecResult{
+// 					ReconcileResult: reconcile.Result{Requeue: true},
+// 					Err:             err,
+// 				}
+// 			}
 
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{Requeue: true},
-				Err: nil,
-			}
-		}
-	}
+// 			reqLogger.Info("updated ImageStream")
+
+// 			// return &ExecResult{
+// 			// 	ReconcileResult: reconcile.Result{RequeueAfter: time.Second * 10},
+// 			// 	Err: nil,
+// 			// }
+// 		}
+// 	}
 	
-	return &ExecResult{
-		Status: ActionResultStatus(Continue),
-	}
+// 	return &ExecResult{
+// 		Status: ActionResultStatus(Continue),
+// 	}
 
-}
+// }
 
 func (r *DeploymentConfigReconciler) updateMeterdef(installedMdef *marketplacev1beta1.MeterDefinition, catalogMdef marketplacev1beta1.MeterDefinition, reqLogger logr.Logger) *ExecResult {
 	updatedMeterdefinition := installedMdef.DeepCopy()

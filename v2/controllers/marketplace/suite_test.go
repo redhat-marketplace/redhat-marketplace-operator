@@ -17,6 +17,7 @@ limitations under the License.
 package marketplace
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -35,15 +36,14 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	osappsv1 "github.com/openshift/api/apps/v1"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-
-	osappsv1 "github.com/openshift/api/apps/v1"
 	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -87,9 +87,6 @@ var _ = BeforeSuite(func() {
 	err = marketplaceredhatcomv1beta1.AddToScheme(k8sScheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = osappsv1.AddToScheme(k8sScheme)
-	Expect(err).NotTo(HaveOccurred())
-
 	// +kubebuilder:scaffold:scheme
 	k8sClient, err = client.New(cfg, client.Options{Scheme: k8sScheme})
 	Expect(err).ToNot(HaveOccurred())
@@ -119,6 +116,7 @@ var _ = BeforeSuite(func() {
 
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
+		fmt.Println(err)
 		Expect(err).ToNot(HaveOccurred())
 	}()
 }, 60)

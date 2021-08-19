@@ -195,17 +195,19 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 
 	reqLogger.Info("retrieving system meterdefinitions", "csvName", csv.Name)
 
-	url, err := concatPaths(c.Endpoint.String(), GetSystemMeterdefinitionTemplatesEndpoint, csv.Name)
+	url, err := concatPaths(c.Endpoint.String(), GetSystemMeterdefinitionTemplatesEndpoint)
 	if err != nil {
 		return nil, err
 	}
 
 	// marshal CSV struct o JSON
+	// utils.PrettyPrint(csv)
 	requestBody, err := json.Marshal(csv)
 	if err != nil {
 		return nil,err
 	}
 
+	reqLogger.Info("call system meterdef endpoint","url",url.String())
 	response, err := c.httpClient.Post(url.String(),
 		"application/json", bytes.NewBuffer(requestBody))
 	if err != nil {
@@ -215,6 +217,15 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 
 	if response.StatusCode == http.StatusNotFound {
 		return nil, err
+	}
+
+	if response.StatusCode == http.StatusNoContent {
+		return &CatalogResponse{
+			CatalogStatus: &CatalogStatus{
+				StatusCode: response.StatusCode,
+				CatlogStatusType: CsvHasNoMeterdefinitionsStatus,
+			},
+		},nil
 	}
 
 	defer response.Body.Close()
