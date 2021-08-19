@@ -80,27 +80,6 @@ spec:
                 work. Setting enabled to "true" will install metering components.
                 False will suspend controller operations for metering components.
               type: boolean
-            meterdefinitionCatalogServer:
-              description: MeterdefinitionCatalogServer deployment configuration.
-              properties:
-                catalogServerEnabled:
-                  description: MeterdefinitionCatalogServerEnabled is the flag that
-                    controls if the meterbase controller will deploy the resources
-                    needed to create the Meterdefinition Catalog Server. Setting enabled
-                    to "true" wil install a DeploymentConfig, ImageStream, and Service.
-                    False will suspend controller operations for the Catalog Server.
-                  type: boolean
-                licenceUsageMeteringEnabled:
-                  description: LicenceUsageMeteringEnabled is the flag that controls
-                    if Metering for Licensed products is active. Setting enabled to
-                    "true" Meterdefintions that will meter your cluster based on pre-determined
-                    metering defintions. False will suspend controller metering for
-                    licensed products.
-                  type: boolean
-              required:
-              - catalogServerEnabled
-              - licenceUsageMeteringEnabled
-              type: object
             prometheus:
               description: Prometheus deployment configuration.
               properties:

@@ -11,7 +11,7 @@ require (
 	github.com/google/wire v0.4.0
 	github.com/gotidy/ptr v1.3.0
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/onsi/ginkgo v1.16.2
+	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0
 	github.com/openshift/api v0.0.0-20200930075302-db52bc4ef99f
 	github.com/operator-framework/api v0.3.25
@@ -21,10 +21,10 @@ require (
 	github.com/prometheus/client_golang v1.8.0
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 v2.0.0-00010101000000-000000000000
 	github.com/sasha-s/go-deadlock v0.2.0
-	github.com/spf13/cobra v1.1.1
+	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
-	github.com/spf13/viper v1.7.1
-	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
+	github.com/spf13/viper v1.8.1
+	golang.org/x/net v0.0.0-20210614182718-04defd469f4e
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 	k8s.io/api v0.19.4
 	k8s.io/apimachinery v0.19.4

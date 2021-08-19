@@ -29,7 +29,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/marketplace"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
@@ -77,7 +76,6 @@ type MarketplaceConfigReconciler struct {
 	Log     logr.Logger
 	cc      ClientCommandRunner
 	cfg     *config.OperatorConfig
-	factory *manifests.Factory
 }
 
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;update;patch
@@ -123,32 +121,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		marketplaceConfig.Spec.Features,
 	)
 
-	//Initialize enabled features if not set
-	if marketplaceConfig.Spec.Features == nil {
-		marketplaceConfig.Spec.Features = &common.Features{
-			Deployment:   ptr.Bool(true),
-			Registration: ptr.Bool(true),
-			MeterdefinitionCatalogServer: ptr.Bool(true),
-			LicenseUsageMetering: ptr.Bool(true),
-		}
-	} else {
-		if marketplaceConfig.Spec.Features.Deployment == nil {
-			marketplaceConfig.Spec.Features.Deployment = ptr.Bool(true)
-		}
-		if marketplaceConfig.Spec.Features.Registration == nil {
-			marketplaceConfig.Spec.Features.Registration = ptr.Bool(true)
-		}
-
-		if marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer == nil {
-			marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer = ptr.Bool(true)
-		}
-
-		if marketplaceConfig.Spec.Features.LicenseUsageMetering == nil {
-			marketplaceConfig.Spec.Features.LicenseUsageMetering = ptr.Bool(true)
-		}
-	}
-
-	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace,marketplaceConfig.Spec.Features)
+	newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
 	// Add finalizer and execute it if the resource is deleted
 	if result, _ := cc.Do(
 		context.TODO(),
@@ -301,30 +274,20 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		marketplaceConfig.Spec.EnableMetering = nil
 	}
 
-	// //Initialize enabled features if not set
-	// if marketplaceConfig.Spec.Features == nil {
-	// 	marketplaceConfig.Spec.Features = &common.Features{
-	// 		Deployment:   ptr.Bool(true),
-	// 		Registration: ptr.Bool(true),
-	// 		MeterdefinitionCatalogServer: ptr.Bool(true),
-	// 		LicenseUsageMetering: ptr.Bool(true),
-	// 	}
-	// } else {
-	// 	if marketplaceConfig.Spec.Features.Deployment == nil {
-	// 		marketplaceConfig.Spec.Features.Deployment = ptr.Bool(true)
-	// 	}
-	// 	if marketplaceConfig.Spec.Features.Registration == nil {
-	// 		marketplaceConfig.Spec.Features.Registration = ptr.Bool(true)
-	// 	}
-
-	// 	if marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer == nil {
-	// 		marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer = ptr.Bool(true)
-	// 	}
-
-	// 	if marketplaceConfig.Spec.Features.LicenseUsageMetering == nil {
-	// 		marketplaceConfig.Spec.Features.LicenseUsageMetering = ptr.Bool(true)
-	// 	}
-	// }
+	//Initialize enabled features if not set
+	if marketplaceConfig.Spec.Features == nil {
+		marketplaceConfig.Spec.Features = &common.Features{
+			Deployment:   ptr.Bool(true),
+			Registration: ptr.Bool(true),
+		}
+	} else {
+		if marketplaceConfig.Spec.Features.Deployment == nil {
+			marketplaceConfig.Spec.Features.Deployment = ptr.Bool(true)
+		}
+		if marketplaceConfig.Spec.Features.Registration == nil {
+			marketplaceConfig.Spec.Features.Registration = ptr.Bool(true)
+		}
+	}
 
 	deployedNamespace := &corev1.Namespace{}
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: r.cfg.DeployedNamespace}, deployedNamespace)
@@ -523,7 +486,7 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 	// Check if MeterBase exists, if not create one
 
 	if result.Is(NotFound) {
-		newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace,marketplaceConfig.Spec.Features)
+		newMeterBaseCr := utils.BuildMeterBaseCr(marketplaceConfig.Namespace)
 
 		if err = controllerutil.SetControllerReference(marketplaceConfig, newMeterBaseCr, r.Scheme); err != nil {
 			reqLogger.Error(err, "Failed to set controller ref")
@@ -559,19 +522,6 @@ func (r *MarketplaceConfigReconciler) Reconcile(request reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
-	if foundMeterBase.Spec.MeterdefinitionCatalogServer == nil {
-		updatedMeterBase := foundMeterBase.DeepCopy()
-		updatedMeterBase.Spec.MeterdefinitionCatalogServer = &marketplacev1alpha1.MeterdefinitionCatalogServerSpec{
-			MeterdefinitionCatalogServerEnabled:  *marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer,
-			LicenceUsageMeteringEnabled: *marketplaceConfig.Spec.Features.LicenseUsageMetering,
-		}
-		// updatedMeterBase.Spec.MeterdefinitionCatalogServer.MeterdefinitionCatalogServerEnabled = *marketplaceConfig.Spec.Features.MeterdefinitionCatalogServer
-		// updatedMeterBase.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled = *marketplaceConfig.Spec.Features.LicenseUsageMetering
-		err = r.Client.Update(context.TODO(),foundMeterBase)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-	}
 	reqLogger.Info("found meterbase")
 
 	// Check if operator source exists, or create a new one
@@ -899,11 +849,6 @@ func (r *MarketplaceConfigReconciler) InjectCommandRunner(ccp ClientCommandRunne
 
 func (m *MarketplaceConfigReconciler) InjectOperatorConfig(cfg *config.OperatorConfig) error {
 	m.cfg = cfg
-	return nil
-}
-
-func (r *MarketplaceConfigReconciler) InjectFactory(f *manifests.Factory) error {
-	r.factory = f
 	return nil
 }
 

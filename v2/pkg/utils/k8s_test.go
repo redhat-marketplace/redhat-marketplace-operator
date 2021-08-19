@@ -219,13 +219,11 @@ var (
 	testNamespace3        = "testing-namespace-3"
 	features              = &common.Features{
 		Deployment: ptr.Bool(true),
-		MeterdefinitionCatalogServer: ptr.Bool(true),
-		LicenseUsageMetering: ptr.Bool(true),
 	}
 
 	marketplaceconfig = BuildMarketplaceConfigCR(testNamespace1, customerID)
 	razeedeployment   = BuildRazeeCr(testNamespace1, marketplaceconfig.Spec.ClusterUUID, marketplaceconfig.Spec.DeploySecretName, features)
-	meterbase         = BuildMeterBaseCr(testNamespace1,features)
+	meterbase         = BuildMeterBaseCr(testNamespace1)
 
 	testNs1 = &corev1.Namespace{}
 	testNs2 = &corev1.Namespace{}
