@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc
@@ -76,7 +75,6 @@ var (
 	// ProvideCacheClientSet is to be used by
 	// wire files to get a cached client
 	ProvideCachedClientSet = wire.NewSet(
-		config.GetConfig,
 		kubernetes.NewForConfig,
 		ProvideCachedClient,
 		ProvideNewCache,
@@ -87,7 +85,6 @@ var (
 	)
 
 	ProvideSimpleClientSet = wire.NewSet(
-		config.GetConfig,
 		kubernetes.NewForConfig,
 		ProvideSimpleClient,
 		NewDynamicRESTMapper,
@@ -150,7 +147,7 @@ func StartCache(
 	cache cache.Cache,
 	log logr.Logger,
 	isIndexed CacheIsIndexed,
-) (*CacheIsStarted, error) {
+) (CacheIsStarted, error) {
 	errChan := make(chan error)
 	stopCh := make(chan struct{})
 	doneChan := make(chan bool)
@@ -185,12 +182,12 @@ func StartCache(
 
 	select {
 	case err := <-errChan:
-		return nil, err
+		return CacheIsStarted{}, err
 	case <-doneChan:
 		log.Info("Cache has synced")
-		return &CacheIsStarted{}, nil
+		return CacheIsStarted{}, nil
 	case <-timer.C:
-		return nil, errors.New("Timed out while starting cache")
+		return CacheIsStarted{}, errors.New("Timed out while starting cache")
 	}
 }
 

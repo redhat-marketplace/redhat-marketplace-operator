@@ -15,7 +15,11 @@
 package v1alpha1
 
 import (
+	"fmt"
+
+	"emperror.dev/errors"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +29,10 @@ import (
 // MeterReportSpec defines the desired state of MeterReport
 // +k8s:openapi-gen=true
 type MeterReportSpec struct {
+	// ReportUUID is the generated ID for the report.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	ReportUUID string `json:"reportUUID,omitempty"`
+
 	// StartTime of the job
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	StartTime metav1.Time `json:"startTime"`
@@ -33,14 +41,33 @@ type MeterReportSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	EndTime metav1.Time `json:"endTime"`
 
+	// LabelSelectors are used to filter to the correct workload.
+	// +optional
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	LabelSelector metav1.LabelSelector `json:"labelSelector,omitempty"`
+
+	// Category of job
+	// +optional
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	Category string `json:"category,omitempty"`
+
 	// PrometheusService is the definition for the service labels.
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	PrometheusService *common.ServiceReference `json:"prometheusService"`
 
 	// MeterDefinitions is the list of meterDefinitions included in the report
+	// DEPRECATED
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +optional
 	MeterDefinitions []MeterDefinition `json:"meterDefinitions,omitempty"`
+
+	// MeterDefinitionReferences are used as the first meter definition source. Prometheus data is used to supplement.
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +listType:=map
+	// +listMapKey:=name
+	// +listMapKey:=namespace
+	// +optional
+	MeterDefinitionReferences []v1beta1.MeterDefinitionReference `json:"meterDefinitionReferences,omitempty"`
 
 	// ExtraArgs is a set of arguments to pass to the job
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
@@ -75,7 +102,40 @@ type MeterReportStatus struct {
 	// for the report.
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	// +optional
-	QueryErrorList []string `json:"queryErrorList,omitempty"`
+	Errors []ErrorDetails `json:"errors,omitempty"`
+
+	// Warnings from the job
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	Warnings []ErrorDetails `json:"warnings,omitempty"`
+}
+
+// ErrorDetails provides details about errors that happen in the job
+type ErrorDetails struct {
+	// Reason the error occurred
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	Reason string `json:"reason"`
+	// Details of the error
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	Details map[string]string `json:"details,omitempty"`
+}
+
+func (e ErrorDetails) FromError(err error) ErrorDetails {
+	detailsMap := map[string]string{}
+	details := errors.GetDetails(err)
+
+	for i := 0; i < len(details); i = i + 2 {
+		key := fmt.Sprintf("%v", details[i])
+		value := fmt.Sprintf("%+v", details[i+1])
+		detailsMap[key] = value
+	}
+
+	e.Details = detailsMap
+	e.Reason = errors.Cause(err).Error()
+
+	return e
 }
 
 const (

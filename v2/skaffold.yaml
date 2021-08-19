@@ -20,7 +20,7 @@ build:
     - image: redhat-marketplace-operator
       context: .
       custom:
-        buildCommand: make vet docker-build
+        buildCommand: ARCHS=amd64 make vet docker-build
         dependencies:
           paths:
             - go.mod
@@ -29,13 +29,14 @@ build:
             - "apis/**"
             - "controllers/**"
             - "pkg/**"
+            - "assets/**"
             - Dockerfile
           ignore:
             - "*_test.go"
     - image: redhat-marketplace-reporter
       context: ../reporter/v2
       custom:
-        buildCommand: make vet docker-build
+        buildCommand: ARCHS=amd64 make vet docker-build
         dependencies:
           paths:
             - go.mod
@@ -48,7 +49,7 @@ build:
     - image: redhat-marketplace-metric-state
       context: ../metering/v2
       custom:
-        buildCommand: make vet docker-build
+        buildCommand: ARCHS=amd64 make vet docker-build
         dependencies:
           paths:
             - go.mod
@@ -63,7 +64,7 @@ build:
     - image: redhat-marketplace-authcheck
       context: ../authchecker/v2
       custom:
-        buildCommand: make vet docker-build
+        buildCommand: ARCHS=amd64 make vet docker-build
         dependencies:
           paths:
             - go.mod
@@ -88,6 +89,7 @@ deploy:
         chartPath: ./config/helm-wrapper
         valuesFiles:
           - ./config/helm-wrapper/values.yaml
+          - ./config/helm-wrapper/devValues.yaml
     flags:
       install:
         - --post-renderer

@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -74,6 +75,9 @@ type PrometheusSpec struct {
 	Replicas *int32 `json:"replicas,omitempty"`
 }
 
+type ExternalPrometheus struct {
+}
+
 // MeterBaseSpec defines the desired state of MeterBase
 // +k8s:openapi-gen=true
 type MeterBaseSpec struct {
@@ -103,6 +107,13 @@ type MeterBaseSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
 	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
 	DataServiceEnabled bool `json:"dataServiceEnabled"`
+
+	// UserWorkloadMonitoringEnabled controls whether to attempt to use
+	// Openshift user-defined workload monitoring as the Prometheus provider
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.statusDescriptors=true
+	// +optional
+	UserWorkloadMonitoringEnabled *bool `json:"userWorkloadMonitoringEnabled,omitempty"`
 }
 
 // MeterBaseStatus defines the observed state of MeterBase.
@@ -133,6 +144,9 @@ type MeterBaseStatus struct {
 	// Total number of unavailable pods targeted by this Prometheus deployment.
 	// +optional
 	UnavailableReplicas *int32 `json:"unavailableReplicas,omitempty"`
+	// Targets is a list of prometheus activeTargets
+	// +optional
+	Targets []common.Target `json:"targets,omitempty"`
 }
 
 // MeterBase is the resource that sets up Metering for Red Hat Marketplace.
@@ -172,9 +186,44 @@ func init() {
 }
 
 const (
+	PrometheusTargetsHealth status.ConditionType = "Health"
+
 	// Reasons for install
 	ReasonMeterBaseStartInstall             status.ConditionReason = "StartMeterBaseInstall"
 	ReasonMeterBasePrometheusInstall        status.ConditionReason = "StartMeterBasePrometheusInstall"
 	ReasonMeterBasePrometheusServiceInstall status.ConditionReason = "StartMeterBasePrometheusServiceInstall"
 	ReasonMeterBaseFinishInstall            status.ConditionReason = "FinishedMeterBaseInstall"
+
+	// User Workload Monitoring
+	// ConditionUserWorkloadMonitoringEnabled means UWM is actively used as the prometheus provider
+	ConditionUserWorkloadMonitoringEnabled status.ConditionType = "UserWorkloadMonitoringEnabled"
+
+	ReasonUserWorkloadMonitoringEnabled         status.ConditionReason = "UserWorkloadMonitoringEnabled"
+	ReasonUserWorkloadMonitoringSpecDisabled    status.ConditionReason = "UserWorkloadMonitoringSpecDisabled"
+	ReasonUserWorkloadMonitoringClusterDisabled status.ConditionReason = "UserWorkloadMonitoringClusterDisabled"
+	ReasonUserWorkloadMonitoringTransitioning   status.ConditionReason = "UserWorkloadMonitoringTransitioning"
+
+	MessageUserWorkloadMonitoringEnabled         string = "UserWorkloadMonitoring is enabled in the Meterbase Spec and on the Cluster"
+	MessageUserWorkloadMonitoringSpecDisabled    string = "UserWorkloadMonitoring is disabled in the Meterbase Spec"
+	MessageUserWorkloadMonitoringClusterDisabled string = "UserWorkloadMonitoring is unavailable or disabled on the Cluster"
+	MessageUserWorkloadMonitoringTransitioning   string = "Transitioning between UserWorkloadMonitoring and RHM prometheus provider"
+
+	// Reasons for health
+	ReasonMeterBasePrometheusTargetsHealthBad  status.ConditionReason = "HealthBad Targets in Status"
+	ReasonMeterBasePrometheusTargetsHealthGood status.ConditionReason = "HealthGood"
+)
+
+var (
+	MeterBasePrometheusTargetBadHealth = status.Condition{
+		Type:    PrometheusTargetsHealth,
+		Status:  corev1.ConditionFalse,
+		Reason:  ReasonMeterBasePrometheusTargetsHealthBad,
+		Message: "Prometheus activeTargets contains targets with HealthBad or HealthUnknown.",
+	}
+	MeterBasePrometheusTargetGoodHealth = status.Condition{
+		Type:    PrometheusTargetsHealth,
+		Status:  corev1.ConditionTrue,
+		Reason:  ReasonMeterBasePrometheusTargetsHealthGood,
+		Message: "Prometheus activeTargets contains targets with HealthGood.",
+	}
 )

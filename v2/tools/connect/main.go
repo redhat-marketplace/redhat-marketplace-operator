@@ -29,7 +29,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(pkg.WaitAndPublishCmd)
+	pkg.BindCmd(rootCmd)
 }
 
 func main() {

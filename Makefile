@@ -7,8 +7,9 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-
 export
+
+include utils.Makefile
 
 .DEFAULT_GOAL := all
 
@@ -36,9 +37,24 @@ vet:
 fmt:
 	$(MAKE) $(addsuffix /fmt,$(PROJECTS))
 
+TIDY_TARGETS=authchecker/v2 cue.mod metering/v2 reporter/v2 tests/v2 v2 v2/scripts v2/tools/connect v2/tools/skaffold-tdd-tool v2/tools/version
+
+.PHONY: tidy-all
+tidy-all:
+	current_dir=`pwd` ; \
+	for project in $(TIDY_TARGETS) ; do \
+		echo "go mod $$curent_dir/$$project" && cd $$current_dir/$$project && go mod tidy ; \
+	done
+
+.PHONY: download-all
+download-all:
+	$(shell cd v2/tools/version && go mod download)
+	$(shell cd v2/tools/connect && go mod download)
+	$(MAKE) $(addsuffix /download,$(PROJECTS))
+
 .PHONY: test
 test:
-	$(MAKE) $(addsuffix /test,$(PROJECTS))
+	$(MAKE) $(addsuffix /test,$(PROJECTS) tests)
 
 generate:
 	$(MAKE) $(addsuffix /generate,$(PROJECTS))
@@ -63,39 +79,23 @@ add-licenses: addlicense
 
 save-licenses: golicense
 	for folder in $(addsuffix /v2,$(PROJECT_FOLDERS)) ; do \
-		[ ! -d "licenses" ] && sh -c "cd $$folder && $(GO_LICENSES) save --save_path licenses --force ./..." ; \
+		[ ! -d "_licenses" ] && sh -c "cd $$folder && $(GO_LICENSES) save --save_path _licenses --force ./... && chmod -R +w _licenses" ; \
 	done
 
 cicd:
-	go generate .
-	cd .github/workflows && go generate .
-
-LICENSE=$(shell pwd)/v2/bin/addlicense
-addlicense:
-	$(call go-get-tool,$(LICENSE),github.com/google/addlicense)
-
-GO_LICENSES=$(shell pwd)/v2/bin/go-licenses
-golicense:
-	$(call go-get-tool,$(GO_LICENSES),github.com/google/go-licenses)
+	go generate ./gen.go
+	cd .github/workflows && go generate ./gen.go
 
 export GO_LICENSES
 
-# go-get-tool will 'go get' any package $2 and install it to $1.
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))/v2
-define go-get-tool
-@[ -f $(1) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
-rm -rf $$TMP_DIR ;\
-}
-endef
-
 clean-vendor:
 	rm -rf $(addsuffix /v2/vendor,$(PROJECT_FOLDERS))
+
+clean-licenses:
+	-chmod -R +w $(addsuffix /v2/_licenses,$(PROJECT_FOLDERS))
+	-rm -rf $(addsuffix /v2/_licenses,$(PROJECT_FOLDERS))
+	-mkdir -p $(addsuffix /v2/_licenses,$(PROJECT_FOLDERS))
+	touch $(addsuffix /v2/_licenses/.gitkeep,$(PROJECT_FOLDERS))
 
 wicked:
 	mkdir -p .wicked-report
@@ -104,6 +104,20 @@ wicked:
 	@cd ./metering/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p redhat-marketplace-metering -s ./vendor -o ../../.wicked-report
 	@cd ./authchecker/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p redhat-marketplace-authchecker -s ./vendor -o ../../.wicked-report
 	@cd ./airgap/v2 && rm -rf ./vendor && go mod tidy && go mod vendor && wicked-cli -p redhat-marketplace-airgap -s ./vendor -o ../../.wicked-report
+
+# -- Release
+
+create-next-release: svu
+	git checkout develop
+	git pull
+	git checkout -b release/$(shell $(SVU) next)
+
+create-next-hotfix: svu
+	git checkout master
+	git pull
+	git checkout -b release/$(shell $(SVU) next)
+
+# --
 
 operator/%:
 	@cd ./v2 && $(MAKE) $(@F)
@@ -119,6 +133,9 @@ authchecker/%:
 
 airgap/%:
 	@cd ./airgap/v2 && $(MAKE) $(@F)
+
+tests/%:
+	@cd ./tests/v2 && $(MAKE) $(@F)
 
 base/%:
 	cd ./base && $(MAKE) $(@F)

@@ -44,6 +44,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/version"
+	"golang.org/x/net/http/httpproxy"
 	"golang.org/x/net/http2"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
@@ -321,10 +322,16 @@ func NewRedHatInsightsUploader(
 	}
 
 	client := &http.Client{}
+	config.httpVersion = ptr.Int(1)
 
 	// default to 2 unless otherwise overridden
 	if config.httpVersion == nil {
 		config.httpVersion = ptr.Int(2)
+	}
+
+	proxyCfg := httpproxy.FromEnvironment()
+	if proxyCfg.HTTPProxy != "" || proxyCfg.HTTPSProxy != "" {
+		config.httpVersion = ptr.Int(1)
 	}
 
 	// Use the proper transport in the client
@@ -332,6 +339,7 @@ func NewRedHatInsightsUploader(
 	case 1:
 		client.Transport = &http.Transport{
 			TLSClientConfig: tlsConfig,
+			Proxy:           http.ProxyFromEnvironment,
 		}
 	case 2:
 		client.Transport = &http2.Transport{
@@ -517,6 +525,15 @@ func ProvideUploader(
 	return nil, errors.Errorf("uploader target not available %s", reporterConfig.UploaderTarget.Name())
 }
 
+type ReportJobError struct {
+	ErrorMessage string
+	Err          error
+}
+
+func (re ReportJobError) Error() string {
+	return re.ErrorMessage
+}
+
 func provideProductionInsightsConfig(
 	ctx context.Context,
 	cc ClientCommandRunner,
@@ -547,21 +564,30 @@ func provideProductionInsightsConfig(
 	err := json.Unmarshal(dockerConfigBytes, &dockerObj)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal dockerConfigJson object")
+		return nil, errors.Wrap(ReportJobError{
+			ErrorMessage: "failed to unmarshal dockerConfigJson object",
+			Err:          err,
+		}, "failed to unmarshal dockerConfigJson object")
 	}
 
 	cloudAuthPath := jsonpath.New("cloudauthpath")
 	err = cloudAuthPath.Parse(`{.auths.cloud\.openshift\.com.auth}`)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get jsonpath of cloud token")
+		return nil, errors.Wrap(ReportJobError{
+			ErrorMessage: "failed to get jsonpath of cloud token",
+			Err:          err,
+		}, "failed to get jsonpath of cloud token")
 	}
 
 	buf := new(bytes.Buffer)
 	err = cloudAuthPath.Execute(buf, dockerObj)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get jsonpath of cloud token")
+		return nil, errors.Wrap(ReportJobError{
+			ErrorMessage: "failed to get jsonpath of cloud token",
+			Err:          err,
+		}, "failed to get jsonpath of cloud token")
 	}
 
 	cloudToken := buf.String()

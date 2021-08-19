@@ -27,7 +27,6 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/tests/mock/mock_client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/utils/pointer"
 	k8client "sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -53,12 +52,10 @@ var _ = Describe("JsonMeterDefValidation", func() {
 		//patcher = mock_patch.NewMockPatchMaker(ctrl)
 		client = mock_client.NewMockClient(ctrl)
 		//statusWriter = mock_client.NewMockStatusWriter(ctrl)
-		marketplacev1alpha1.AddToScheme(scheme.Scheme)
-		olmv1alpha1.AddToScheme(scheme.Scheme)
-		//cc = reconcileutils.NewClientCommand(client, scheme.Scheme, logger)
+		//cc = reconcileutils.NewClientCommand(client, k8sScheme, logger)
 		ctx = context.TODO()
 
-		sut = &ClusterServiceVersionReconciler{Client: client, Scheme: scheme.Scheme, Log: logger}
+		sut = &ClusterServiceVersionReconciler{Client: client, Scheme: k8sScheme, Log: logger}
 
 		CSV = &olmv1alpha1.ClusterServiceVersion{
 			ObjectMeta: metav1.ObjectMeta{
@@ -142,7 +139,7 @@ var _ = Describe("JsonMeterDefValidation", func() {
 			meterDefinition.SetNamespace("test-namespace")
 			CSV.SetNamespace("test-namespace")
 			CSV.SetName("mock-csv")
-			meterDefinition.BuildMeterDefinitionFromString(
+			_ = meterDefinition.BuildMeterDefinitionFromString(
 				meterDefJson,
 				CSV.GetName(),
 				CSV.GetNamespace(),

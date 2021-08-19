@@ -7,20 +7,25 @@ metadata:
     categories: Developer Tools
     certified: "true"
     description: The Red Hat Marketplace Operator provides cluster management, metering and operator installation for Red Hat Marketplace customers.
-    olm.skipRange: '>=1.0.0 <2.1.0'
+    olm.skipRange: '>=1.0.0 <2.2.0'
     operatorframework.io/suggested-namespace: openshift-redhat-marketplace
     operators.operatorframework.io/builder: operator-sdk-v1.2.0
     operators.operatorframework.io/internal-objects: '["razeedeployments.marketplace.redhat.com","remoteresources3s.marketplace.redhat.com"]'
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v2
     repository: https://github.com/redhat-marketplace/redhat-marketplace-operator
     support: IBM Corporation
+  labels:
+    operatorframework.io/arch.amd64: supported
+    operatorframework.io/arch.ppc64le: supported
+    operatorframework.io/arch.s390x: supported
+    operatorframework.io/os.linux: supported
   name: redhat-marketplace-operator.v0.0.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers
+    - description: MarketplaceConfig is configuration manager for our Red Hat Marketplace controllers By installing this product you accept the license terms https://ibm.biz/BdfaAY.
       displayName: Marketplace Config
       kind: MarketplaceConfig
       name: marketplaceconfigs.marketplace.redhat.com
@@ -132,4 +137,27 @@ spec:
   maturity: stable
   provider:
     name: Red Hat Marketplace
+  relatedImages:
+  - image: $(METRIC_STATE_IMAGE_MARKER)
+    name: RELATED_IMAGE_METRIC_STATE
+  - image: $(REPORTER_IMAGE_MARKER)
+    name: RELATED_IMAGE_REPORTER
+  - image: $(AUTHCHECK_IMAGE_MARKER)
+    name: RELATED_IMAGE_AUTHCHECK
+  - image: quay.io/razee/remoteresources3:0.9.3
+    name: RELATED_IMAGE_RHM_RRS3_DEPLOYMENT
+  - image: quay.io/razee/watch-keeper:0.7.7
+    name: RELATED_IMAGE_RHM_WATCH_KEEPER_DEPLOYMENT
+  - image: registry.redhat.io/openshift4/ose-prometheus:v4.6
+    name: RELATED_IMAGE_PROMETHEUS
+  - image: registry.redhat.io/openshift4/ose-oauth-proxy:v4.5
+    name: RELATED_IMAGE_OAUTH_PROXY
+  - image: registry.redhat.io/openshift4/ose-prometheus-operator:v4.5
+    name: RELATED_IMAGE_PROMETHEUS_OPERATOR
+  - image: registry.redhat.io/openshift4/ose-configmap-reloader:v4.5
+    name: RELATED_IMAGE_CONFIGMAP_RELOADER
+  - image: registry.redhat.io/openshift4/ose-prometheus-config-reloader:v4.5
+    name: RELATED_IMAGE_PROMETHEUS_CONFIGMAP_RELOADER
+  - image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
+    name: RELATED_IMAGE_KUBE_RBAC_PROXY
   version: 0.0.0

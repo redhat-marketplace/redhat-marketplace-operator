@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	emperrors "emperror.dev/errors"
-	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/codelocation"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/patch"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,7 +28,7 @@ import (
 )
 
 type updateAction struct {
-	BaseAction
+	*BaseAction
 	updateObject runtime.Object
 	updateActionOptions
 }
@@ -48,24 +47,22 @@ func UpdateAction(
 	return &updateAction{
 		updateObject:        updateObject,
 		updateActionOptions: opts,
-		BaseAction: BaseAction{
-			codelocation: codelocation.New(1),
-		},
+		BaseAction:          NewBaseAction("UpdateAction"),
 	}
 }
 
 func (a *updateAction) Bind(result *ExecResult) {
-	a.lastResult = result
+	a.LastResult = result
 }
 
 func (a *updateAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 	updatedObject := a.updateObject
-	reqLogger := c.log.WithValues("file", a.codelocation, "action", "UpdateAction")
+	reqLogger := a.GetReqLogger(c)
 
 	if isNil(updatedObject) {
 		err := emperrors.WithStack(ErrNilObject)
 		reqLogger.Error(err, "updatedObject is nil")
-		return NewExecResult(Error, reconcile.Result{}, err), err
+		return NewExecResult(Error, reconcile.Result{}, a.BaseAction, err), err
 	}
 
 	key, _ := client.ObjectKeyFromObject(updatedObject)
@@ -78,7 +75,7 @@ func (a *updateAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 		if a.WithPatch != nil {
 			if err := a.WithPatch.SetLastAppliedAnnotation(updatedObject); err != nil {
 				reqLogger.Error(err, "failure creating patch")
-				return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error with patch")
+				return NewExecResult(Error, reconcile.Result{}, a.BaseAction, err), emperrors.Wrap(err, "error with patch")
 			}
 		}
 
@@ -87,18 +84,18 @@ func (a *updateAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult,
 
 	if err != nil {
 		reqLogger.Error(err, "error updating object")
-		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error applying update")
+		return NewExecResult(Error, reconcile.Result{}, a.BaseAction, err), emperrors.Wrap(err, "error applying update")
 	}
 
 	reqLogger.Info("updated object")
-	return NewExecResult(Requeue, reconcile.Result{Requeue: true}, nil), nil
+	return NewExecResult(Requeue, reconcile.Result{Requeue: true}, a.BaseAction, nil), nil
 }
 
 type updateStatusConditionAction struct {
 	instance   runtime.Object
 	conditions *status.Conditions
 	condition  status.Condition
-	BaseAction
+	*BaseAction
 }
 
 func UpdateStatusCondition(
@@ -111,29 +108,27 @@ func UpdateStatusCondition(
 		conditions: conditions,
 		condition:  condition,
 
-		BaseAction: BaseAction{
-			codelocation: codelocation.New(1),
-		},
+		BaseAction: NewBaseAction("UpdateStatusCondition"),
 	}
 }
 
 func (u *updateStatusConditionAction) Bind(result *ExecResult) {
-	u.lastResult = result
+	u.LastResult = result
 }
 
 func (u *updateStatusConditionAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
-	reqLogger := c.log.WithValues("file", u.codelocation, "action", "UpdateStatusConditionAction")
+	reqLogger := u.GetReqLogger(c)
 
 	if isNil(u.instance) {
 		err := emperrors.WithStack(ErrNilObject)
 		reqLogger.Error(err, "instance is nil")
-		return NewExecResult(Error, reconcile.Result{}, err), err
+		return NewExecResult(Error, reconcile.Result{}, u.BaseAction, err), err
 	}
 
 	if isNil(u.conditions) {
 		err := emperrors.WithStack(ErrNilObject)
 		reqLogger.Info("conditions cannot be nil")
-		return NewExecResult(Error, reconcile.Result{}, err), emperrors.New("conditions cannot be nil")
+		return NewExecResult(Error, reconcile.Result{}, u.BaseAction, err), emperrors.New("conditions cannot be nil")
 	}
 
 	key, _ := client.ObjectKeyFromObject(u.instance)
@@ -145,14 +140,14 @@ func (u *updateStatusConditionAction) Exec(ctx context.Context, c *ClientCommand
 
 		if err != nil {
 			reqLogger.Error(err, "updating condition")
-			return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error while updating status condition")
+			return NewExecResult(Error, reconcile.Result{}, u.BaseAction, err), emperrors.Wrap(err, "error while updating status condition")
 		}
 
-		return NewExecResult(Requeue, reconcile.Result{Requeue: true}, nil), nil
+		return NewExecResult(Requeue, reconcile.Result{Requeue: true}, u.BaseAction, nil), nil
 	}
 
 	reqLogger.Info("no update required")
-	return NewExecResult(Continue, reconcile.Result{}, nil), nil
+	return NewExecResult(Continue, reconcile.Result{}, u.BaseAction, nil), nil
 }
 
 type updateWithPatchAction struct {
@@ -179,13 +174,13 @@ func UpdateWithPatchAction(
 func (a *updateWithPatchAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 	reqLogger := a.GetReqLogger(c)
 
-	reqLogger.V(4).Info("updating with patch", "patch", string(a.patchData))
+	reqLogger.Info("updating with patch", "patch", string(a.patchData))
 	err := c.client.Patch(ctx, a.object, client.RawPatch(a.patchType, a.patchData))
 
 	if err != nil {
 		reqLogger.Error(err, "error updating with patch")
-		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error while updating with patch")
+		return NewExecResult(Error, reconcile.Result{}, a.BaseAction, err), emperrors.Wrap(err, "error while updating with patch")
 	}
 
-	return NewExecResult(Requeue, reconcile.Result{Requeue: true}, nil), nil
+	return NewExecResult(Requeue, reconcile.Result{Requeue: true}, a.BaseAction, nil), nil
 }

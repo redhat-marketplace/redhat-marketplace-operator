@@ -14,13 +14,10 @@ spec:
         - "--health-probe-bind-address=:8081"
         - "--metrics-addr=127.0.0.1:8080"
         - "--enable-leader-election"
-      - name: kube-rbac-proxy
+      - name: mgr-kube-rbac-proxy
         image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:v4.5
         args:
         - "--secure-listen-address=0.0.0.0:8443"
-        - "--upstream=http://127.0.0.1:8080/"
+        - "--upstream=http://127.0.0.1:8081/"
         - "--logtostderr=true"
         - "--v=10"
-        ports:
-        - containerPort: 8443
-          name: https

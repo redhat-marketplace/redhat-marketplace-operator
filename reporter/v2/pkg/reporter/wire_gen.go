@@ -15,7 +15,7 @@ import (
 
 // Injectors from wire.go:
 
-func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task, error) {
+func NewTask(ctx context.Context, reportName ReportName, taskConfig *Config) (*Task, error) {
 	restConfig, err := config.GetConfig()
 	if err != nil {
 		return nil, err
@@ -31,7 +31,7 @@ func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task
 	}
 	logrLogger := _wireLoggerValue
 	clientCommandRunner := reconcileutils.NewClientCommand(simpleClient, scheme, logrLogger)
-	uploader, err := ProvideUploader(ctx, clientCommandRunner, logrLogger, config2)
+	uploader, err := ProvideUploader(ctx, clientCommandRunner, logrLogger, taskConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func NewTask(ctx context.Context, reportName ReportName, config2 *Config) (*Task
 		CC:         clientCommandRunner,
 		K8SClient:  simpleClient,
 		Ctx:        ctx,
-		Config:     config2,
+		Config:     taskConfig,
 		K8SScheme:  scheme,
 		Uploader:   uploader,
 	}
@@ -53,8 +53,8 @@ var (
 
 func NewReporter(task *Task) (*MarketplaceReporter, error) {
 	reporterConfig := task.Config
-	simpleClient := task.K8SClient
 	contextContext := task.Ctx
+	simpleClient := task.K8SClient
 	scheme := task.K8SScheme
 	logrLogger := _wireLogrLoggerValue
 	clientCommandRunner := reconcileutils.NewClientCommand(simpleClient, scheme, logrLogger)
@@ -76,7 +76,11 @@ func NewReporter(task *Task) (*MarketplaceReporter, error) {
 	if err != nil {
 		return nil, err
 	}
-	marketplaceReporter, err := NewMarketplaceReporter(reporterConfig, simpleClient, meterReport, marketplaceConfig, service, prometheusAPI)
+	v, err := getMeterDefinitionReferences(contextContext, meterReport, clientCommandRunner)
+	if err != nil {
+		return nil, err
+	}
+	marketplaceReporter, err := NewMarketplaceReporter(reporterConfig, meterReport, marketplaceConfig, prometheusAPI, v)
 	if err != nil {
 		return nil, err
 	}

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
+	"github.com/blang/semver"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
@@ -38,6 +39,8 @@ const RhmAnnotationKey = "marketplace.redhat.com/last-applied"
 
 var RhmAnnotator = patch.NewAnnotator(RhmAnnotationKey)
 var RhmPatchMaker = patch.NewPatchMaker(RhmAnnotator)
+
+var ParsedVersion460, _ = semver.Make("4.6.0")
 
 func IsNil(i interface{}) bool {
 	return i == nil || reflect.ValueOf(i).IsNil()
@@ -54,11 +57,30 @@ func Contains(s []string, e string) bool {
 }
 
 func ChunkBy(items []interface{}, chunkSize int) (chunks [][]interface{}) {
-	for chunkSize < len(items) {
-		items, chunks = items[chunkSize:], append(chunks, items[0:chunkSize:chunkSize])
+	if len(items) == 0 {
+		return
 	}
 
-	return append(chunks, items)
+	if len(items)%chunkSize != 0 {
+		panic("items length is not chunkable by the size")
+	}
+
+	chunk := make([]interface{}, chunkSize, chunkSize)
+
+	for i := 0; i < len(items); i = i + chunkSize {
+		lowBound := i
+		upperBound := lowBound + chunkSize
+
+		if upperBound == len(items) {
+			chunk = items[lowBound:]
+		} else {
+			chunk = items[lowBound:upperBound]
+		}
+
+		chunks = append(chunks, chunk)
+	}
+
+	return
 }
 
 func ContainsMultiple(inArray []string, referenceArray []string) []string {
@@ -196,7 +218,7 @@ func ApplyAnnotation(resource runtime.Object) error {
 	return RhmAnnotator.SetLastAppliedAnnotation(resource)
 }
 
-func Equal(a []string, b []string) bool {
+func StringSliceEqual(a []string, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}

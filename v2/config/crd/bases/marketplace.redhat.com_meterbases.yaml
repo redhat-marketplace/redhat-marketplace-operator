@@ -172,6 +172,11 @@ spec:
               required:
               - storage
               type: object
+            userWorkloadMonitoringEnabled:
+              description: UserWorkloadMonitoringEnabled controls whether to attempt
+                to use Openshift user-defined workload monitoring as the Prometheus
+                provider
+              type: boolean
           required:
           - dataServiceEnabled
           - enabled
@@ -266,6 +271,41 @@ spec:
                 deployment (their labels match the selector).
               format: int32
               type: integer
+            targets:
+              description: Targets is a list of prometheus activeTargets
+              items:
+                description: Target is used by meterbase as a list of prometheus activeTargets
+                  with failed health, without DiscoveredLabels
+                properties:
+                  health:
+                    description: HealthStatus models the health status of a scrape
+                      target.
+                    type: string
+                  labels:
+                    additionalProperties:
+                      description: A LabelValue is an associated value for a LabelName.
+                      type: string
+                    description: A LabelSet is a collection of LabelName and LabelValue
+                      pairs.  The LabelSet may be fully-qualified down to the point
+                      where it may resolve to a single Metric in the data store or
+                      not.  All operations that occur within the realm of a LabelSet
+                      can emit a vector of Metric entities to which the LabelSet may
+                      match.
+                    type: object
+                  lastError:
+                    type: string
+                  lastScrape:
+                    type: string
+                  scrapeUrl:
+                    type: string
+                required:
+                - health
+                - labels
+                - lastError
+                - lastScrape
+                - scrapeUrl
+                type: object
+              type: array
             unavailableReplicas:
               description: Total number of unavailable pods targeted by this Prometheus
                 deployment.

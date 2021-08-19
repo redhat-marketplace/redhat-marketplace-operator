@@ -3,6 +3,10 @@ kind: Deployment
 metadata:
   name: controller-manager
   namespace: system
+  annotations:
+    reporterImage: {{ .Values.reporterImage }}
+    metricStateImage: {{ .Values.metricStateImage }}
+    authcheckImage: {{ .Values.authCheckImage }}
 spec:
   selector:
     matchLabels:
@@ -13,7 +17,25 @@ spec:
       labels:
         control-plane: controller-manager
         redhat.marketplace.com/name: redhat-marketplace-operator
+      annotations:
+        productName: "Red Hat Marketplace Operator"
+        productID: "36cdaba810c348c096b85800dd62bcf1"
+        productMetric: "FREE"
     spec:
+      hostIPC: false
+      hostNetwork: false
+      hostPID: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/arch
+                  operator: In
+                  values:
+                    - amd64
+                    - ppc64le
+                    - s390x    
       containers:
         - name: manager
           args:
@@ -23,6 +45,9 @@ spec:
             requests:
               cpu: 100m
               memory: 100Mi
+            limits:
+              cpu: 400m
+              memory: 500Mi
           livenessProbe:
             httpGet:
               path: /healthz
@@ -47,7 +72,9 @@ spec:
             - name: RELATED_IMAGE_DQLITE
               value: {{ .Values.dqLiteImage }}
             - name: WATCH_NAMESPACE
-              value: ""
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.annotations['olm.targetNamespaces']
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:
@@ -68,5 +95,21 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.labels['olm.owner.kind']
+            - name: OPERATOR_GROUP
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.annotations['olm.operatorGroup']
+            {{- range $val := .Values.devEnvVars }}
+            - name: {{ $val.name | quote }}
+              value: {{ $val.value | quote }}
+            {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true   
       terminationGracePeriodSeconds: 10
       serviceAccountName: operator

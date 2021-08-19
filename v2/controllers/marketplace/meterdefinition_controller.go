@@ -26,9 +26,9 @@ import (
 	"github.com/gotidy/ptr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
-	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/model"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/common"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
@@ -38,9 +38,11 @@ import (
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -114,6 +116,10 @@ func (r *MeterDefinitionReconciler) InjectKubeInterface(k kubernetes.Interface) 
 	return nil
 }
 
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=meterdefinitions/status,verbs=get;list;update;patch
+// +kubebuilder:rbac:groups="",namespace=system,resources=serviceaccounts/token,verbs=get;list;create;update
+
 // Reconcile reads that state of the cluster for a MeterDefinition object and makes changes based on the state read
 // and what is in the MeterDefinition.Spec
 func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
@@ -124,26 +130,35 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 
 	// Fetch the MeterDefinition instance
 	instance := &v1beta1.MeterDefinition{}
-	result, _ := cc.Do(context.TODO(),
-		GetAction(request.NamespacedName, instance),
-	)
-
-	if !result.Is(Continue) {
-		if result.Is(NotFound) {
-			reqLogger.Info("MeterDef resource not found. Ignoring since object must be deleted.")
+	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			reqLogger.Info("MeterDefinition resource not found. Ignoring since object must be deleted.")
 			return reconcile.Result{}, nil
 		}
-
-		if result.Is(Error) {
-			reqLogger.Error(result.GetError(), "Failed to get MeterDef.")
-		}
-
-		return result.Return()
+		reqLogger.Error(err, "Failed to get MeterDefinition.")
+		return reconcile.Result{}, err
 	}
 
 	reqLogger.Info("Found instance", "instance", instance.Name)
 
 	var update, requeue bool
+	// Set the Status Condition of signature signing
+	if instance.IsSigned() {
+		// Check the signature again, even though the admission webhook should have
+		err := instance.ValidateSignature()
+		if err != nil {
+			// This could occur after the admission webhook if a signed v1alpha1 is converted to v1beta1.
+			// However, signing not introduced until v1beta1, so this is unlikely.
+			update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionSignatureVerificationFailed)
+		} else {
+			update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionSignatureVerified)
+		}
+
+	} else {
+		// Unsigned, Unverified
+		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionSignatureUnverified)
+	}
 
 	switch {
 	case instance.Status.Conditions.IsUnknownFor(common.MeterDefConditionTypeHasResult):
@@ -154,11 +169,63 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionHasResults)
 	}
 
-	if result.Is(Error) {
-		reqLogger.Error(result.GetError(), "Failed to update status.")
+	// Fetch the MeterBase instance
+	meterbase := &v1alpha1.MeterBase{}
+	result, _ := cc.Do(context.TODO(),
+		GetAction(types.NamespacedName{
+			Name:      utils.METERBASE_NAME,
+			Namespace: r.cfg.DeployedNamespace,
+		}, meterbase),
+	)
+
+	if !result.Is(Continue) {
+		if result.Is(NotFound) {
+			reqLogger.Info("MeterBase resource not found. Ignoring since object may be deleted.")
+			return reconcile.Result{}, nil
+		}
+
+		if result.Is(Error) {
+			reqLogger.Error(result.GetError(), "Failed to get MeterBase.")
+		}
+
+		return result.Return()
 	}
 
-	queryPreviewResult, err := r.queryPreview(cc, instance, request, reqLogger)
+	reqLogger.Info("Found MeterBase instance", "instance", meterbase.Name)
+
+	// Do not proceed if MeterBase is being deleted, or reconciler will requeue indefinitely on querypreview failure
+	meterbaseWillBeDeleted := meterbase.GetDeletionTimestamp() != nil
+	if meterbaseWillBeDeleted {
+		return reconcile.Result{}, nil
+	}
+
+	// Use the userWorkloadMonitoring or RHM prometheus provider, based on which is marked active in the MeterBase condition status
+	if meterbase.Status.Conditions.IsUnknownFor(v1alpha1.ConditionUserWorkloadMonitoringEnabled) {
+		reqLogger.Info("f not set. Unable to determine which prometheus provider to use at this time.")
+		return reconcile.Result{}, nil
+	}
+	userWorkloadMonitoringEnabled := meterbase.Status.Conditions.IsTrueFor(v1alpha1.ConditionUserWorkloadMonitoringEnabled)
+
+	isReporting, err := r.verifyReporting(cc, instance, userWorkloadMonitoringEnabled, reqLogger)
+	if isReporting {
+		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionReporting)
+	} else {
+		update = update || instance.Status.Conditions.SetCondition(common.MeterDefConditionNotReporting)
+	}
+	if err != nil {
+		update = update || instance.Status.Conditions.SetCondition(status.Condition{
+			Type:    v1beta1.MeterDefVerifyReportingSetupError,
+			Reason:  "VerifyReportingError",
+			Status:  corev1.ConditionTrue,
+			Message: err.Error(),
+		})
+		requeue = true
+	} else {
+		update = update || instance.Status.Conditions.RemoveCondition(v1beta1.MeterDefVerifyReportingSetupError)
+	}
+
+	queryPreviewResult, err := r.queryPreview(cc, instance, request, reqLogger, userWorkloadMonitoringEnabled)
+
 	if err != nil {
 		update = update || instance.Status.Conditions.SetCondition(status.Condition{
 			Type:    v1beta1.MeterDefQueryPreviewSetupError,
@@ -181,10 +248,11 @@ func (r *MeterDefinitionReconciler) Reconcile(request reconcile.Request) (reconc
 
 	if update {
 		reqLogger.Info("update required")
-		result, _ = cc.Do(context.TODO(), UpdateAction(instance, UpdateStatusOnly(true)))
-		if result.Is(Error) {
-			reqLogger.Error(result.GetError(), "Failed to update status.")
-			return result.Return()
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			return r.Client.Status().Update(context.TODO(), instance)
+		})
+		if err != nil {
+			reqLogger.Error(err, "Failed to update MeterDefinition status.")
 		}
 	}
 
@@ -225,92 +293,22 @@ func (r *MeterDefinitionReconciler) addFinalizer(instance *v1beta1.MeterDefiniti
 	return nil
 }
 
-func (r *MeterDefinitionReconciler) queryPreview(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger) ([]common.Result, error) {
+func (r *MeterDefinitionReconciler) queryPreview(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, request reconcile.Request, reqLogger logr.Logger, userWorkloadMonitoringEnabled bool) ([]common.Result, error) {
 	var queryPreviewResult []common.Result
+	var prometheusAPI *prom.PrometheusAPI
+	var err error
 
-	service, err := r.queryForPrometheusService(context.TODO(), cc, request)
+	if userWorkloadMonitoringEnabled { // Use Thanos Querier Service for userWorkloadMonitoring queries
+		prometheusAPI, err = prom.ProvideThanosQuerierAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger)
+	} else { // Use Prometheus Service queries for RHM Prometheus queries
+		prometheusAPI, err = prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, userWorkloadMonitoringEnabled)
+	}
 	if err != nil {
-		return nil, err
+		return queryPreviewResult, err
 	}
 
-	certConfigMap, err := r.getCertConfigMap(context.TODO(), cc, request)
-	if err != nil {
-		return nil, err
-	}
-
-	saClient := prom.NewServiceAccountClient(r.cfg.ControllerValues.DeploymentNamespace, r.kubeInterface)
-
-	authToken, err := saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.PrometheusAudience, 3600, reqLogger)
-	if err != nil {
-		return nil, err
-	}
-
-	if certConfigMap != nil && authToken != "" && service != nil {
-		cert, err := parseCertificateFromConfigMap(*certConfigMap)
-		if err != nil {
-			return nil, err
-		}
-
-		prometheusAPI, err := prom.NewPromAPI(service, &cert, authToken)
-		if err != nil {
-			return nil, err
-		}
-
-		reqLogger.Info("generatring meterdef preview")
-		return generateQueryPreview(instance, prometheusAPI, reqLogger)
-	}
-
-	return queryPreviewResult, nil
-}
-
-func (r *MeterDefinitionReconciler) queryForPrometheusService(
-	ctx context.Context,
-	cc ClientCommandRunner,
-	req reconcile.Request,
-) (*corev1.Service, error) {
-	service := &corev1.Service{}
-
-	name := types.NamespacedName{
-		Name:      utils.PROMETHEUS_METERBASE_NAME,
-		Namespace: r.cfg.DeployedNamespace,
-	}
-
-	if result, _ := cc.Do(ctx, GetAction(name, service)); !result.Is(Continue) {
-		return nil, errors.Wrap(result, "failed to get prometheus service")
-	}
-
-	log.Info("retrieved prometheus service")
-	return service, nil
-}
-
-func (r *MeterDefinitionReconciler) getCertConfigMap(ctx context.Context, cc ClientCommandRunner, req reconcile.Request) (*corev1.ConfigMap, error) {
-	certConfigMap := &corev1.ConfigMap{}
-
-	name := types.NamespacedName{
-		Name:      utils.OPERATOR_CERTS_CA_BUNDLE_NAME,
-		Namespace: r.cfg.ControllerValues.DeploymentNamespace,
-	}
-
-	if result, _ := cc.Do(context.TODO(), GetAction(name, certConfigMap)); !result.Is(Continue) {
-		return nil, errors.Wrap(result.GetError(), "Failed to retrieve operator-certs-ca-bundle.")
-	}
-
-	log.Info("retrieved configmap")
-	return certConfigMap, nil
-}
-
-func parseCertificateFromConfigMap(certConfigMap corev1.ConfigMap) (cert []byte, returnErr error) {
-	log.Info("extracting cert from config map")
-
-	out, ok := certConfigMap.Data["service-ca.crt"]
-
-	if !ok {
-		returnErr = errors.New("Error retrieving cert from config map")
-		return nil, returnErr
-	}
-
-	cert = []byte(out)
-	return cert, nil
+	reqLogger.Info("generatring meterdef preview")
+	return generateQueryPreview(instance, prometheusAPI, reqLogger)
 }
 
 func returnQueryRange(duration time.Duration) (startTime time.Time, endTime time.Time) {
@@ -430,4 +428,45 @@ func makeRelabelKeepConfig(source []string, regex string) *monitoringv1.RelabelC
 }
 func labelsToRegex(labels []string) string {
 	return fmt.Sprintf("(%s)", strings.Join(labels, "|"))
+}
+
+// Is Prometheus reporting on the MeterDefinition
+// Check MeterDefinition presense in api/v1/label/meter_def_name/values
+func (r *MeterDefinitionReconciler) verifyReporting(cc ClientCommandRunner, instance *v1beta1.MeterDefinition, userWorkloadMonitoringEnabled bool, reqLogger logr.Logger) (bool, error) {
+
+	var prometheusAPI *prom.PrometheusAPI
+	var err error
+
+	if userWorkloadMonitoringEnabled { // Use Thanos Querier Service for userWorkloadMonitoring queries
+		prometheusAPI, err = prom.ProvideThanosQuerierAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger)
+
+	} else { // Use Prometheus Service queries for RHM Prometheus queries
+		prometheusAPI, err = prom.ProvidePrometheusAPI(context.TODO(), cc, r.kubeInterface, r.cfg.ControllerValues.DeploymentNamespace, reqLogger, userWorkloadMonitoringEnabled)
+	}
+	if err != nil {
+		return false, err
+	}
+
+	reqLogger.Info("getting meter_def_name labelvalues from prometheus")
+
+	labelValues, warnings, err := prometheusAPI.MeterDefLabelValues()
+
+	if warnings != nil {
+		reqLogger.Info("warnings %v", warnings)
+	}
+
+	if err != nil {
+		reqLogger.Error(err, "prometheus.LabelValues()")
+		returnErr := errors.Wrap(err, "error with query")
+		return false, returnErr
+	}
+
+	mdefLabelValue := model.LabelValue(instance.Name)
+	for _, labelValue := range labelValues {
+		if labelValue == mdefLabelValue {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

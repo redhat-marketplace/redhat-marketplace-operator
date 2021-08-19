@@ -1,0 +1,234 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    cni.projectcalico.org/podIP: 172.30.199.73/32
+    cni.projectcalico.org/podIPs: 172.30.199.73/32
+    k8s.v1.cni.cncf.io/network-status: |-
+      [{
+          "name": "",
+          "ips": [
+              "172.30.199.73"
+          ],
+          "default": true,
+          "dns": {}
+      }]
+    k8s.v1.cni.cncf.io/networks-status: |-
+      [{
+          "name": "",
+          "ips": [
+              "172.30.199.73"
+          ],
+          "default": true,
+          "dns": {}
+      }]
+    openshift.io/scc: restricted
+  generateName: rhm-metric-state-77886764bc-
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/name: rhm-metric-state
+    pod-template-hash: 77886764bc
+  namespace: openshift-redhat-marketplace
+  ownerReferences:
+  - apiVersion: apps/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: ReplicaSet
+    name: rhm-metric-state-77886764bc
+    uid: 9174bcb4-2285-447b-bf2e-8b9813f4b48d
+spec:
+  containers:
+  - image: quay.io/rh-marketplace/redhat-marketplace-metric-state@sha256:66d299c1842ca56a3186e1a9edbad942bf75fdfa4f6a1ee66be34b46f66fc292
+    imagePullPolicy: IfNotPresent
+    name: metric-state
+    ports:
+    - containerPort: 8080
+      name: web
+      protocol: TCP
+    - containerPort: 8081
+      name: metrics
+      protocol: TCP
+    resources:
+      requests:
+        cpu: 100m
+        memory: 150Mi
+    securityContext:
+      capabilities:
+        drop:
+        - KILL
+        - MKNOD
+        - SETGID
+        - SETUID
+      runAsUser: 1000670000
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: FallbackToLogsOnError
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: redhat-marketplace-metric-state-token-49mjw
+      readOnly: true
+  - args:
+    - --namespace
+    - openshift-redhat-marketplace
+    env:
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.namespace
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.name
+    image: quay.io/rh-marketplace/redhat-marketplace-authcheck@sha256:722ad44137750b8180d0c9e15da7267c674aedf990be169dd0c143bf8ba99c46
+    imagePullPolicy: IfNotPresent
+    livenessProbe:
+      failureThreshold: 3
+      httpGet:
+        path: /healthz
+        port: 8089
+        scheme: HTTP
+      initialDelaySeconds: 15
+      periodSeconds: 20
+      successThreshold: 1
+      timeoutSeconds: 1
+    name: authcheck
+    readinessProbe:
+      failureThreshold: 3
+      httpGet:
+        path: /readyz
+        port: 8089
+        scheme: HTTP
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 1
+    resources:
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    securityContext:
+      capabilities:
+        drop:
+        - KILL
+        - MKNOD
+        - SETGID
+        - SETUID
+      runAsUser: 1000670000
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: FallbackToLogsOnError
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: redhat-marketplace-metric-state-token-49mjw
+      readOnly: true
+  - args:
+    - --logtostderr
+    - --secure-listen-address=:9092
+    - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+    - --upstream=http://127.0.0.1:8080/
+    - --tls-cert-file=/etc/tls/private/tls.crt
+    - --tls-private-key-file=/etc/tls/private/tls.key
+    - --upstream-ca-file=/etc/configmaps/serving-cert-ca-bundle/service-ca.crt
+    image: registry.redhat.io/openshift4/ose-kube-rbac-proxy@sha256:1863609188df3305e95653951f4ae6b115789e7d9d1d696d1b098052ae0f4896
+    imagePullPolicy: IfNotPresent
+    name: kube-rbac-proxy-1
+    ports:
+    - containerPort: 9092
+      name: https
+      protocol: TCP
+    resources:
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    securityContext:
+      capabilities:
+        drop:
+        - KILL
+        - MKNOD
+        - SETGID
+        - SETUID
+      runAsUser: 1000670000
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: FallbackToLogsOnError
+    volumeMounts:
+    - mountPath: /etc/tls/private
+      name: rhm-metric-state-tls
+    - mountPath: /etc/configmaps/serving-cert-ca-bundle
+      name: serving-certs-ca-bundle
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: redhat-marketplace-metric-state-token-49mjw
+      readOnly: true
+  - args:
+    - --logtostderr
+    - --secure-listen-address=:9093
+    - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+    - --upstream=http://127.0.0.1:8081/
+    - --tls-cert-file=/etc/tls/private/tls.crt
+    - --tls-private-key-file=/etc/tls/private/tls.key
+    - --upstream-ca-file=/etc/configmaps/serving-certs-ca-bundle/service-ca.crt
+    image: registry.redhat.io/openshift4/ose-kube-rbac-proxy@sha256:1863609188df3305e95653951f4ae6b115789e7d9d1d696d1b098052ae0f4896
+    imagePullPolicy: IfNotPresent
+    name: kube-rbac-proxy-2
+    ports:
+    - containerPort: 9093
+      name: https-metrics
+      protocol: TCP
+    resources:
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    securityContext:
+      capabilities:
+        drop:
+        - KILL
+        - MKNOD
+        - SETGID
+        - SETUID
+      runAsUser: 1000670000
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: FallbackToLogsOnError
+    volumeMounts:
+    - mountPath: /etc/tls/private
+      name: rhm-metric-state-tls
+    - mountPath: /etc/configmaps/serving-certs-ca-bundle
+      name: serving-certs-ca-bundle
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: redhat-marketplace-metric-state-token-49mjw
+      readOnly: true
+  imagePullSecrets:
+  - name: redhat-marketplace-metric-state-dockercfg-z96wz
+  nodeSelector:
+    beta.kubernetes.io/os: linux
+    node-role.kubernetes.io/master: ""
+  restartPolicy: Always
+  serviceAccount: redhat-marketplace-metric-state
+  serviceAccountName: redhat-marketplace-metric-state
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/master
+    operator: Exists
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoSchedule
+    key: node.kubernetes.io/memory-pressure
+    operator: Exists
+  volumes:
+  - name: rhm-metric-state-tls
+    secret:
+      defaultMode: 420
+      secretName: rhm-metric-state-tls
+  - configMap:
+      defaultMode: 420
+      name: serving-certs-ca-bundle
+    name: serving-certs-ca-bundle
+  - name: redhat-marketplace-metric-state-token-49mjw
+    secret:
+      defaultMode: 420
+      secretName: redhat-marketplace-metric-state-token-49mjw

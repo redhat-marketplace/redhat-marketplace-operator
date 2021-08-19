@@ -1,0 +1,144 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/name: prometheus-operator
+    app.kubernetes.io/version: v0.38.1
+  name: prometheus-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: controller
+      app.kubernetes.io/name: prometheus-operator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/name: prometheus-operator
+        app.kubernetes.io/version: v0.38.1
+    spec:
+      hostIPC: false
+      hostNetwork: false
+      hostPID: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/arch
+                  operator: In
+                  values:
+                    - amd64
+                    - ppc64le
+                    - s390x    
+      containers:
+        - image: redhat-marketplace-authcheck:latest
+          imagePullPolicy: IfNotPresent
+          name: authcheck
+          resources:
+            requests:
+              cpu: 10m
+              memory: 20Mi
+            limits:
+              cpu: 10m
+              memory: 25Mi              
+          terminationMessagePolicy: FallbackToLogsOnError
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+        - args:
+            - --kubelet-service=kube-system/kubelet
+            - --logtostderr=true
+            - --config-reloader-image={{CONFIGMAP_RELOADER_IMAGE}}
+            - --prometheus-config-reloader={{PROM_CONFIGMAP_RELOADER_IMAGE}}
+            - --namespaces={{NAMESPACES}}
+            - --prometheus-instance-namespaces={{NAMESPACE}}
+            - --alertmanager-instance-namespaces=''
+            - --thanos-ruler-instance-namespaces=''
+            - --prometheus-instance-selector=marketplace.redhat.com/metering=true
+            - --manage-crds=false
+          image: registry.redhat.io/openshift4/ose-prometheus-operator:latest
+          imagePullPolicy: IfNotPresent
+          name: prometheus-operator
+          ports:
+            - containerPort: 8080
+              name: http
+          resources:
+            requests:
+              cpu: 5m
+              memory: 60Mi
+            limits:
+              cpu: 10m
+              memory: 60Mi              
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true 
+          terminationMessagePolicy: FallbackToLogsOnError
+          volumeMounts:
+            - mountPath: /etc/tls/private
+              name: prometheus-operator-tls
+              readOnly: false
+        - args:
+            - --logtostderr
+            - --secure-listen-address=:8443
+            - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+            - --upstream=https://prometheus-operator.{{NAMESPACE}}.svc:8080/
+            - --tls-cert-file=/etc/tls/private/tls.crt
+            - --tls-private-key-file=/etc/tls/private/tls.key
+          image: registry.redhat.io/openshift4/ose-kube-rbac-proxy:latest
+          imagePullPolicy: IfNotPresent
+          name: kube-rbac-proxy
+          ports:
+            - containerPort: 8443
+              name: https
+          resources:
+            requests:
+              cpu: 1m
+              memory: 40Mi
+            limits:
+              cpu: 1m
+              memory: 40Mi           
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true 
+          terminationMessagePolicy: FallbackToLogsOnError
+          volumeMounts:
+            - mountPath: /etc/tls/private
+              name: prometheus-operator-tls
+              readOnly: false
+            - mountPath: /etc/configmaps/operator-cert-ca-bundle
+              name: serving-certs-ca-bundle
+              readOnly: false
+      nodeSelector:
+        beta.kubernetes.io/os: linux
+        node-role.kubernetes.io/master: ''
+      priorityClassName: system-cluster-critical
+      serviceAccountName: redhat-marketplace-prometheus-operator
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+          operator: Exists
+      volumes:
+        - name: prometheus-operator-tls
+          secret:
+            secretName: prometheus-operator-tls
+        - configMap:
+            name: serving-certs-ca-bundle
+          name: serving-certs-ca-bundle

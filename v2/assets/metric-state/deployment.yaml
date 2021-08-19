@@ -16,16 +16,44 @@ spec:
       labels:
         app.kubernetes.io/component: controller
         app.kubernetes.io/name: rhm-metric-state
+      annotations:
+        productName: "Red Hat Marketplace Operator"
+        productID: "36cdaba810c348c096b85800dd62bcf1"
+        productMetric: "FREE"  
     spec:
+      hostIPC: false
+      hostNetwork: false
+      hostPID: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/arch
+                  operator: In
+                  values:
+                    - amd64
+                    - ppc64le
+                    - s390x    
       containers:
         - name: metric-state
           image: metric-state
           imagePullPolicy: IfNotPresent
           resources:
             requests:
-              cpu: 100m
+              cpu: 50m
               memory: 150Mi
-          securityContext: {}
+            limits:
+              cpu: 100m
+              memory: 450Mi                
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true 
           terminationMessagePolicy: FallbackToLogsOnError
           ports:
             - containerPort: 8080
@@ -38,6 +66,17 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
+            limits:
+              cpu: 20m
+              memory: 40Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true                   
           terminationMessagePolicy: FallbackToLogsOnError
         - args:
             - --logtostderr
@@ -57,7 +96,17 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
-          securityContext: {}
+            limits:
+              cpu: 20m
+              memory: 25Mi                
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true 
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
             - mountPath: /etc/tls/private
@@ -84,7 +133,17 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
-          securityContext: {}
+            limits:
+              cpu: 20m
+              memory: 25Mi                
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true 
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
             - mountPath: /etc/tls/private
@@ -96,9 +155,8 @@ spec:
       nodeSelector:
         beta.kubernetes.io/os: linux
         node-role.kubernetes.io/master: ''
-      priorityClassName: system-cluster-critical
-      securityContext: {}
-      serviceAccountName: redhat-marketplace-operator
+      priorityClassName: system-cluster-critical 
+      serviceAccountName: redhat-marketplace-metric-state
       tolerations:
         - effect: NoSchedule
           key: node-role.kubernetes.io/master

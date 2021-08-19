@@ -1,0 +1,27 @@
+apiVersion: marketplace.redhat.com/v1beta1
+kind: MeterDefinition
+metadata:
+  name: ibm-licensing-service-chargeback-instance
+  namespace: ibm-common-services
+spec:
+  group: '{{ .Label.productId}}.licensing.ibm.com'
+  kind: IBMLicensing
+  meters:
+    - period: 24h0m0s
+      aggregation: max
+      query: 'avg_over_time(product_license_usage_chargeback{}[1d])'
+      name: '{{ .Label.productId}}.licensing.ibm.com'
+      metricId: '{{ .Label.metricId}}'
+      valueLabelOverride: '{{ .Label.value}}'
+      workloadType: Service
+      dateLabelOverride: '{{ .Label.date}}'
+      groupBy:
+        - metricId
+        - productId
+  resourceFilters:
+    - namespace:
+        useOperatorGroup: true
+      ownerCRD:
+        apiVersion: operator.ibm.com/v1alpha1
+        kind: IBMLicensing
+      workloadType: Service

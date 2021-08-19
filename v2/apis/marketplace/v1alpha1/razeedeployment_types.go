@@ -110,6 +110,12 @@ type RazeeDeploymentSpec struct {
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Features"
 	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
 	Features *common.Features `json:"features,omitempty"`
+
+	// The ClusterDisplayName is a unique name of for a cluster specified by the admin during registration
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors=true
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.displayName="Features"
+	// +operator-sdk:gen-csv:customresourcedefinitions.specDescriptors.x-descriptors="hidden"
+	ClusterDisplayName string `json:"clusterDisplayName,omitempty"`
 }
 
 // TODO: on version change, rename conditions to jobConditions

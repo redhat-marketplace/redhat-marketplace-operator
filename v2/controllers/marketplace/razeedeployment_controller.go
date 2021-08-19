@@ -20,7 +20,6 @@ import (
 	"reflect"
 	"time"
 
-	emperrors "emperror.dev/errors"
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
@@ -36,6 +35,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -44,11 +44,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -207,6 +209,27 @@ func (r *RazeeDeploymentReconciler) SetupWithManager(mgr manager.Manager) error 
 		Complete(r)
 }
 
+// +kubebuilder:rbac:groups="",resources=configmaps;pods;secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get
+// +kubebuilder:rbac:groups="",namespace=system,resources=configmaps,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups="",namespace=system,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=apps,namespace=system,resources=deployments,verbs=create;update;patch;delete
+// +kubebuilder:rbac:groups=batch;extensions,resources=jobs,verbs=get;list;watch
+// +kubebuilder:rbac:groups="config.openshift.io",resources=consoles;infrastructures;clusterversions,verbs=get;update;patch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=razeedeployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=razeedeployments;razeedeployments/finalizers;razeedeployments/status,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=remoteresources3s,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s,verbs=get;list;watch;create;update;patch;delete
+
+// Legacy Uninstall
+
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,resourceNames=razeedeploy-sa;watch-keeper-sa,verbs=delete
+// +kubebuilder:rbac:groups=apps,resources=deployments,resourceNames=watch-keeper;clustersubscription;featureflagsetld-controller;managedset-controller;mustachetemplate-controller;remoteresource-controller;remoteresources3-controller;remoteresources3decrypt-controller,verbs=delete
+// +kubebuilder:rbac:groups=batch;extensions,resources=jobs,resourceNames=razeedeploy-job,verbs=delete
+// +kubebuilder:rbac:groups="deploy.razee.io",resources=*,verbs=get;list;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,resourceNames=razeedeploy-admin-cr;redhat-marketplace-razeedeploy,verbs=delete
+
 // Reconcile reads that state of the cluster for a RazeeDeployment object and makes changes based on the state read
 // and what is in the RazeeDeployment.Spec
 func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
@@ -227,9 +250,6 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
-
-	cc := r.CC
-	factory := r.factory
 
 	// if not enabled then exit
 	if !instance.Spec.Enabled {
@@ -383,7 +403,7 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 
 	razeeConfigurationValues := marketplacev1alpha1.RazeeConfigurationValues{}
 	razeeConfigurationValues, missingItems, err := utils.AddSecretFieldsToStruct(rhmOperatorSecret.Data, *instance)
-	if !utils.Equal(instance.Status.MissingDeploySecretValues, missingItems) ||
+	if !utils.StringSliceEqual(instance.Status.MissingDeploySecretValues, missingItems) ||
 		!reflect.DeepEqual(instance.Spec.DeployConfig, &razeeConfigurationValues) {
 		instance.Status.MissingDeploySecretValues = missingItems
 		instance.Spec.DeployConfig = &razeeConfigurationValues
@@ -753,10 +773,19 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 		if errors.IsNotFound(err) {
 			reqLogger.V(0).Info("Resource does not exist", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
 
-			watchKeeperConfig = *r.makeWatchKeeperConfig(instance)
+			watchKeeperConfig = *r.makeWatchKeeperConfigV2(instance)
 			if err := utils.ApplyAnnotation(&watchKeeperConfig); err != nil {
 				reqLogger.Error(err, "Failed to set annotation")
 				return reconcile.Result{}, err
+			}
+
+			if instance.Spec.ClusterDisplayName != "" {
+				if watchKeeperConfig.Labels == nil {
+					watchKeeperConfig.Labels = make(map[string]string)
+				}
+
+				utils.SetMapKeyValue(watchKeeperConfig.Labels, []string{"razee/cluster-metadata", "true"})
+				watchKeeperConfig.Data["name"] = instance.Spec.ClusterDisplayName
 			}
 
 			err = r.Client.Create(context.TODO(), &watchKeeperConfig)
@@ -787,14 +816,21 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 			"resource", utils.WATCH_KEEPER_CONFIG_NAME,
 			"uid", watchKeeperConfig.UID)
 
-		updatedWatchKeeperConfig := *r.makeWatchKeeperConfig(instance)
-		updatedWatchKeeperConfig.UID = watchKeeperConfig.UID
-		patchResult, err := r.patcher.Calculate(&watchKeeperConfig, &updatedWatchKeeperConfig)
-		if err != nil {
-			reqLogger.Error(err, "Failed to compare patches")
+		var updatedWatchKeeperConfig v1.ConfigMap
+		version, _ := watchKeeperConfig.GetAnnotations()["marketplace.redhat.com/version"]
+		switch version {
+		case "2":
+			updatedWatchKeeperConfig = *r.makeWatchKeeperConfigV2(instance)
+		case "1":
+			fallthrough
+		default:
+			updatedWatchKeeperConfig = *r.makeWatchKeeperConfig(instance)
 		}
 
-		if !patchResult.IsEmpty() {
+		updatedWatchKeeperConfig.UID = watchKeeperConfig.UID
+		updatedWatchKeeperConfig.ResourceVersion = watchKeeperConfig.ResourceVersion
+
+		if !reflect.DeepEqual(updatedWatchKeeperConfig.Data, watchKeeperConfig.Data) {
 			reqLogger.Info("Change detected on", "resource: ", utils.WATCH_KEEPER_CONFIG_NAME)
 			if err := utils.ApplyAnnotation(&updatedWatchKeeperConfig); err != nil {
 				reqLogger.Error(err, "Failed to set annotation")
@@ -965,68 +1001,25 @@ func (r *RazeeDeploymentReconciler) Reconcile(request reconcile.Request) (reconc
 	/******************************************************************************
 	Create watch-keeper deployment,rrs3-controller deployment, apply parent rrs3
 	/******************************************************************************/
-	rrs3Deployment := &appsv1.Deployment{}
 	reqLogger.V(0).Info("Finding Rhm RemoteResourceS3 deployment")
 
-	args := manifests.CreateOrUpdateFactoryItemArgs{
-		Patcher: r.patcher,
-	}
-
 	if rrs3DeploymentEnabled {
-		if result, _ := cc.Do(context.TODO(),
-			HandleResult(
-				manifests.CreateOrUpdateFactoryItemAction(
-					rrs3Deployment,
-					func() (runtime.Object, error) {
-						dep := factory.NewRemoteResourceS3Deployment(instance)
-						// Do not set an OwnerRef on the rrs3Dep
-						// A delete --cascade='foreground' will cause orphaned RRS3
-						// rrs3Dep will end up deleted before RRS3 child/parent finalizer cleanup
-						//factory.SetOwnerReference(instance, dep)
-						return dep, nil
-					},
-					args,
-				),
-				OnError(ReturnWithError(emperrors.New("failed to create remote resources3"))),
-				OnContinue(UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
-					Type:    marketplacev1alpha1.ConditionDeploymentEnabled,
-					Status:  corev1.ConditionTrue,
-					Reason:  marketplacev1alpha1.ReasonRhmRemoteResourceS3DeploymentEnabled,
-					Message: "RemoteResourceS3 deployment enabled",
-				})),
-			),
-		); !result.Is(Continue) {
-			reqLogger.Info("returing result", "result", *result)
-			return result.Return()
+		result, err := r.createOrUpdateRemoteResourceS3Deployment(instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to createOrUpdateRemoteResourceS3Deployment")
+			return result, err
+		} else if result.Requeue || result.RequeueAfter != 0 {
+			return result, err
 		}
 	}
 
 	if registrationEnabled {
-		watchKeeperDeployment := &appsv1.Deployment{}
-		reqLogger.V(0).Info("Finding watch-keeper deployment")
-
-		if result, _ := cc.Do(context.TODO(),
-			HandleResult(
-				manifests.CreateOrUpdateFactoryItemAction(
-					watchKeeperDeployment,
-					func() (runtime.Object, error) {
-						dep := factory.NewWatchKeeperDeployment(instance)
-						factory.SetOwnerReference(instance, dep)
-						return dep, nil
-					},
-					args,
-				),
-				OnError(ReturnWithError(emperrors.New("failed to create watchkeeper"))),
-				OnContinue(UpdateStatusCondition(instance, &instance.Status.Conditions, status.Condition{
-					Type:    marketplacev1alpha1.ConditionRegistrationEnabled,
-					Status:  corev1.ConditionTrue,
-					Reason:  marketplacev1alpha1.ReasonRhmRegistrationWatchkeeperEnabled,
-					Message: "Registration deployment enabled",
-				})),
-			),
-		); !result.Is(Continue) {
-			reqLogger.Info("returing result", "result", *result)
-			return result.Return()
+		result, err := r.createOrUpdateWatchKeeperDeployment(instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to createOrUpdateWatchKeeperDeployment")
+			return result, err
+		} else if result.Requeue || result.RequeueAfter != 0 {
+			return result, err
 		}
 	} else {
 		reqLogger.V(0).Info("watch-keeper deployment not enabled")
@@ -1372,8 +1365,43 @@ func (r *RazeeDeploymentReconciler) makeWatchKeeperConfig(instance *marketplacev
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      utils.WATCH_KEEPER_CONFIG_NAME,
 			Namespace: *instance.Spec.TargetNamespace,
+			Annotations: map[string]string{
+				"marketplace.redhat.com/version": "1",
+			},
 		},
-		Data: map[string]string{"RAZEEDASH_URL": instance.Spec.DeployConfig.RazeeDashUrl, "START_DELAY_MAX": "0"},
+		Data: map[string]string{
+			"RAZEEDASH_URL":   instance.Spec.DeployConfig.RazeeDashUrl,
+			"START_DELAY_MAX": "0",
+		},
+	}
+	r.factory.SetOwnerReference(instance, cm)
+	return cm
+}
+
+// Creates watchkeeper config and applies the razee-dash-url stored on the Razeedeployment cr
+func (r *RazeeDeploymentReconciler) makeWatchKeeperConfigV2(
+	instance *marketplacev1alpha1.RazeeDeployment,
+) *corev1.ConfigMap {
+	data := map[string]string{
+		"RAZEEDASH_URL":       instance.Spec.DeployConfig.RazeeDashUrl,
+		"START_DELAY_MAX":     "0",
+		"CLUSTER_ID_OVERRIDE": instance.Spec.ClusterUUID,
+	}
+
+	if instance.Spec.ClusterDisplayName != "" {
+		data["DEFAULT_CLUSTER_NAME"] = instance.Spec.ClusterDisplayName
+		data["name"] = instance.Spec.ClusterDisplayName
+	}
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.WATCH_KEEPER_CONFIG_NAME,
+			Namespace: *instance.Spec.TargetNamespace,
+			Annotations: map[string]string{
+				"marketplace.redhat.com/version": "2",
+			},
+		},
+		Data: data,
 	}
 	r.factory.SetOwnerReference(instance, cm)
 	return cm
@@ -1772,5 +1800,67 @@ func (r *RazeeDeploymentReconciler) uninstallLegacyResources(
 	}
 
 	reqLogger.Info("Legacy uninstall complete")
+	return reconcile.Result{}, nil
+}
+
+func (r *RazeeDeploymentReconciler) createOrUpdateRemoteResourceS3Deployment(
+	instance *marketplacev1alpha1.RazeeDeployment,
+) (reconcile.Result, error) {
+	rrs3Deployment := r.factory.NewRemoteResourceS3Deployment()
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, rrs3Deployment, func() error {
+			r.factory.SetControllerReference(instance, rrs3Deployment)
+			return r.factory.UpdateRemoteResourceS3Deployment(rrs3Deployment)
+		})
+		return err
+	})
+	if err != nil {
+		return reconcile.Result{}, err
+	} else {
+		if instance.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionDeploymentEnabled,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonRhmRemoteResourceS3DeploymentEnabled,
+			Message: "RemoteResourceS3 deployment enabled",
+		}) {
+			err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				return r.Client.Status().Update(context.TODO(), instance)
+			})
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+	}
+	return reconcile.Result{}, nil
+}
+
+func (r *RazeeDeploymentReconciler) createOrUpdateWatchKeeperDeployment(
+	instance *marketplacev1alpha1.RazeeDeployment,
+) (reconcile.Result, error) {
+	watchKeeperDeployment := r.factory.NewWatchKeeperDeployment()
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		_, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, watchKeeperDeployment, func() error {
+			r.factory.SetControllerReference(instance, watchKeeperDeployment)
+			return r.factory.UpdateWatchKeeperDeployment(watchKeeperDeployment)
+		})
+		return err
+	})
+	if err != nil {
+		return reconcile.Result{}, err
+	} else {
+		if instance.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ConditionRegistrationEnabled,
+			Status:  corev1.ConditionTrue,
+			Reason:  marketplacev1alpha1.ReasonRhmRegistrationWatchkeeperEnabled,
+			Message: "Registration deployment enabled",
+		}) {
+			err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				return r.Client.Status().Update(context.TODO(), instance)
+			})
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+	}
 	return reconcile.Result{}, nil
 }

@@ -16,6 +16,7 @@ package marketplace
 
 import (
 	"context"
+	"fmt"
 
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -24,6 +25,9 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/gotidy/ptr"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	status "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/status"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -47,13 +51,14 @@ type RemoteResourceS3Reconciler struct {
 }
 
 func (r *RemoteResourceS3Reconciler) SetupWithManager(mgr manager.Manager) error {
+	cfg, _ := config.GetConfig()
 	labelPreds := []predicate.Predicate{
 		predicate.Funcs{
 			UpdateFunc: func(evt event.UpdateEvent) bool {
-				return true
+				return evt.MetaOld.GetNamespace() == cfg.DeployedNamespace && evt.MetaNew.GetNamespace() == cfg.DeployedNamespace
 			},
 			CreateFunc: func(evt event.CreateEvent) bool {
-				return true
+				return evt.Meta.GetNamespace() == cfg.DeployedNamespace
 			},
 			GenericFunc: func(evt event.GenericEvent) bool {
 				return false
@@ -70,6 +75,9 @@ func (r *RemoteResourceS3Reconciler) SetupWithManager(mgr manager.Manager) error
 		Complete(r)
 }
 
+// +kubebuilder:rbac:groups=marketplace.redhat.com,resources=remoteresources3s,verbs=get;list;watch
+// +kubebuilder:rbac:groups=marketplace.redhat.com,namespace=system,resources=remoteresources3s;remoteresources3s/status,verbs=get;list;watch;update;patch
+
 // Reconcile reads that state of the cluster for a Node object and makes changes based on the state read
 // and what is in the Node.Spec
 func (r *RemoteResourceS3Reconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
@@ -78,6 +86,7 @@ func (r *RemoteResourceS3Reconciler) Reconcile(request reconcile.Request) (recon
 
 	// Fetch the Node instance
 	instance := &marketplacev1alpha1.RemoteResourceS3{}
+
 	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -100,6 +109,45 @@ func (r *RemoteResourceS3Reconciler) Reconcile(request reconcile.Request) (recon
 			return reconcile.Result{}, err
 		}
 		reqLogger.Info("updated remoteresources3")
+	}
+
+	requests := instance.Spec.Requests
+	var rs3Request *marketplacev1alpha1.Request
+	for i := 0; i < len(requests); i++ {
+		reqLogger.Info(fmt.Sprint("Status code: ", requests[i].StatusCode))
+		if !(requests[i].StatusCode >= 200 && requests[i].StatusCode < 300 || requests[i].StatusCode == 0) {
+			reqLogger.Info(fmt.Sprint("setup request failure for code: ", requests[i].StatusCode))
+			rs3Request = &requests[i]
+			break
+		}
+	}
+
+	update := false
+	if rs3Request != nil {
+		update = instance.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ResourceInstallError,
+			Status:  corev1.ConditionTrue,
+			Message: rs3Request.Message,
+			Reason:  marketplacev1alpha1.FailedRequest,
+		})
+	} else {
+		update = instance.Status.Conditions.SetCondition(status.Condition{
+			Type:    marketplacev1alpha1.ResourceInstallError,
+			Status:  corev1.ConditionFalse,
+			Message: "No error found",
+			Reason:  marketplacev1alpha1.NoBadRequest,
+		})
+	}
+
+	if update {
+		err := r.Client.Status().Update(context.TODO(), instance)
+
+		if err != nil {
+			reqLogger.Error(err, "Failed to create a new CR.")
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	reqLogger.Info("finished reconcile")

@@ -88,10 +88,10 @@ func (s *scanResults) IsPassed() bool {
 }
 
 type connectResponse struct {
-	Status  string `json:"status"`
-	Message string `json:"message"`
-	Code    int32  `json:"code"`
-	Data    connectResponseData  `json:"data,omitempty"`
+	Status  string              `json:"status"`
+	Message string              `json:"message"`
+	Code    int32               `json:"code"`
+	Data    connectResponseData `json:"data,omitempty"`
 }
 
 type connectResponseData struct {

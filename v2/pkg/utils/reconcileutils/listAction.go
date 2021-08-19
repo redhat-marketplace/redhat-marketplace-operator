@@ -41,17 +41,17 @@ func ListAction(list runtime.Object, filters ...client.ListOption) *listAction {
 }
 
 func (l *listAction) Bind(result *ExecResult) {
-	l.lastResult = result
+	l.LastResult = result
 }
 
 func (l *listAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 	err := c.client.List(ctx, l.list, l.filters...)
 
 	if err != nil {
-		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error while listing")
+		return NewExecResult(Error, reconcile.Result{}, l.BaseAction, err), emperrors.Wrap(err, "error while listing")
 	}
 
-	return NewExecResult(Continue, reconcile.Result{}, nil), nil
+	return NewExecResult(Continue, reconcile.Result{}, l.BaseAction, nil), nil
 }
 
 type listAppendAction struct {
@@ -69,40 +69,40 @@ func ListAppendAction(listType runtime.Object, filters ...client.ListOption) *li
 }
 
 func (l *listAppendAction) Bind(result *ExecResult) {
-	l.lastResult = result
+	l.LastResult = result
 }
 
 func (l *listAppendAction) Exec(ctx context.Context, c *ClientCommand) (*ExecResult, error) {
 	if !meta.IsListType(l.list) {
-		return NewExecResult(Error, reconcile.Result{}, NotListTypeErr), emperrors.Wrap(NotListTypeErr, "invalid input type")
+		return NewExecResult(Error, reconcile.Result{}, l.BaseAction, NotListTypeErr), emperrors.Wrap(NotListTypeErr, "invalid input type")
 	}
 
 	extractedList, err := meta.ExtractList(l.list)
 	if err != nil {
-		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error extracting original list")
+		return NewExecResult(Error, reconcile.Result{}, l.BaseAction, err), emperrors.Wrap(err, "error extracting original list")
 	}
 
 	newList := l.list.DeepCopyObject()
 	_ = meta.SetList(newList, []runtime.Object{})
 
 	if err != nil {
-		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error while listing")
+		return NewExecResult(Error, reconcile.Result{}, l.BaseAction, err), emperrors.Wrap(err, "error while listing")
 	}
 
 	err = c.client.List(ctx, newList, l.filters...)
 
 	if err != nil {
-		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error while listing")
+		return NewExecResult(Error, reconcile.Result{}, l.BaseAction, err), emperrors.Wrap(err, "error while listing")
 	}
 
 	if meta.LenList(newList) == 0 {
-		return NewExecResult(Continue, reconcile.Result{}, nil), nil
+		return NewExecResult(Continue, reconcile.Result{}, l.BaseAction, nil), nil
 	}
 
 	newListSlice, err := meta.ExtractList(newList)
 
 	if err != nil {
-		return NewExecResult(Error, reconcile.Result{}, err), emperrors.Wrap(err, "error while extracting list")
+		return NewExecResult(Error, reconcile.Result{}, l.BaseAction, err), emperrors.Wrap(err, "error while extracting list")
 	}
 
 	for _, obj := range newListSlice {
@@ -111,5 +111,5 @@ func (l *listAppendAction) Exec(ctx context.Context, c *ClientCommand) (*ExecRes
 
 	meta.SetList(l.list, extractedList)
 
-	return NewExecResult(Continue, reconcile.Result{}, nil), nil
+	return NewExecResult(Continue, reconcile.Result{}, l.BaseAction, nil), nil
 }

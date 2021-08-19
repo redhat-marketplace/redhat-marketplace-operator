@@ -10,19 +10,7 @@ import (
 travisDir: *"." | string @tag(travisDir)
 
 travis: [...{file: string, schema: (json.#Travis & {})}]
-travis: [
-	{
-		file:   ".travis.yml"
-		schema: travisSchema
-	},
-]
-
-_#archs_old: ["amd64", "ppc64le", "s390x"]
-
-_#archs: ["amd64"] // disabling others for now
-_#registry:        "quay.io/rh-marketplace"
-_#goVersion:       "1.15.6"
-_#branchTarget:    "/^(master|develop|release.*|hotfix.*)$/"
+travis: []
 
 travisSchema: {
 	version: "~> 1.0"
