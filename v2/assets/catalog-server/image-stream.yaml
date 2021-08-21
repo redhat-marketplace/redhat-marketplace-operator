@@ -1,0 +1,22 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  annotations:
+  labels:
+    app: rhm-meterdefinition-file-server
+  name: rhm-meterdefinition-file-server
+spec:
+  lookupPolicy:
+    local: false
+  tags:
+  - annotations:
+      openshift.io/imported-from: RELATED_IMAGE_DEPLOYMENT_CONFIG
+    from:
+      kind: DockerImage
+      name: RELATED_IMAGE_DEPLOYMENT_CONFIG
+    importPolicy:
+      insecure: true
+      scheduled: true
+    name: IMAGE_STREAM_TAG
+    referencePolicy:
+      type: Source

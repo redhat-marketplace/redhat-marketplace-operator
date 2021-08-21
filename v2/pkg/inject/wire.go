@@ -26,6 +26,7 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/runnables"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 )
 
 func initializeInjectDependencies(
@@ -36,6 +37,7 @@ func initializeInjectDependencies(
 		managers.ProvideManagerSet,
 		runnables.RunnableSet,
 		reconcileutils.NewClientCommand,
+		catalog.ProvideCatalogClient,
 		config.ProvideInfrastructureAwareConfig,
 		ProvideInjectables,
 		wire.Struct(new(ClientCommandInjector), "*"),
@@ -43,6 +45,7 @@ func initializeInjectDependencies(
 		wire.Struct(new(PatchInjector), "*"),
 		wire.Struct(new(FactoryInjector), "*"),
 		wire.Struct(new(KubeInterfaceInjector), "*"),
+		wire.Struct(new(CatalogClientInjector), "*"),
 		wire.Struct(new(injectorDependencies), "*"),
 		ProvideNamespace,
 		manifests.NewFactory,

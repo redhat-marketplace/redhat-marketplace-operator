@@ -10,13 +10,14 @@ require (
 	github.com/caarlos0/env/v6 v6.4.0
 	github.com/cespare/xxhash v1.1.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/gdamore/tcell/v2 v2.4.0
 	github.com/go-logr/logr v0.3.0
 	github.com/go-logr/zapr v0.3.0 // indirect
 	github.com/golang-jwt/jwt v3.2.1+incompatible // indirect
 	github.com/golang/mock v1.4.4
 	github.com/google/go-cmp v0.5.4 // indirect
 	github.com/google/uuid v1.1.2
-	github.com/google/wire v0.4.0
+	github.com/google/wire v0.5.0
 	github.com/goph/emperror v0.17.2
 	github.com/gotidy/ptr v1.3.0
 	github.com/imdario/mergo v0.3.11

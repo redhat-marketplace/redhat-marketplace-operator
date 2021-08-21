@@ -16,6 +16,7 @@ package inject
 
 import (
 	"github.com/pkg/errors"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/managers"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
@@ -39,8 +40,9 @@ func ProvideInjectables(
 	i3 *PatchInjector,
 	i4 *FactoryInjector,
 	i5 *KubeInterfaceInjector,
+	i6 *CatalogClientInjector,
 ) Injectables {
-	return []types.Injectable{i1, i2, i3, i4, i5}
+	return []types.Injectable{i1, i2, i3, i4, i5,i6}
 }
 
 type Injector struct {
@@ -183,6 +185,21 @@ type MarketplaceClientBuilderInjector struct {
 func (a *MarketplaceClientBuilderInjector) SetCustomFields(i interface{}) error {
 	if ii, ok := i.(MarketplaceClientBuilder); ok {
 		return ii.InjectMarketplaceClientBuilder(a.MarketplaceClientBuilder)
+	}
+	return nil
+}
+
+type CatalogClient interface {
+	InjectCatalogClient(*catalog.CatalogClient)error
+}
+
+type CatalogClientInjector struct {
+	CatalogClient *catalog.CatalogClient
+}
+
+func (a *CatalogClientInjector) SetCustomFields(i interface{}) error {
+	if ii, ok := i.(CatalogClient); ok {
+		return ii.InjectCatalogClient(a.CatalogClient)
 	}
 	return nil
 }

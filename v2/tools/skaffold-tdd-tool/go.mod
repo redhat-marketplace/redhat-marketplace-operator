@@ -6,7 +6,7 @@ require (
 	emperror.dev/errors v0.8.0
 	github.com/GoogleContainerTools/skaffold v1.16.0
 	github.com/caarlos0/env/v6 v6.4.0
-	github.com/gdamore/tcell/v2 v2.0.1-0.20201017141208-acf90d56d591
+	github.com/gdamore/tcell/v2 v2.4.0
 	github.com/googleapis/gnostic v0.5.3 // indirect
 	github.com/redhat-marketplace/redhat-marketplace-operator/tests/v2 v2.0.0-20210729050326-8246afe36a7e
 	github.com/redhat-marketplace/redhat-marketplace-operator/v2 v2.0.0-20210729050326-8246afe36a7e // indirect

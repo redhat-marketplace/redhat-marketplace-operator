@@ -99,6 +99,9 @@ const (
 	RazeeWatchLevelLite   = "lite"
 	RazeeWatchLevelDetail = "detail"
 
+	DEPLOYMENT_CONFIG_NAME                 = "rhm-meterdefinition-file-server"
+	CATALOG_SERVER_SERVICE_NAME			   = "rhm-meterdefinition-file-server"
+
 	LicenseServerTag = "marketplace.redhat.com/operator"
 
 	/* Time and Date */
@@ -107,6 +110,9 @@ const (
 
 	/* Auth */
 	PrometheusAudience = "rhm-prometheus-meterbase.openshift-redhat-marketplace.svc"
+	FileServerAudience = "rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc"
+
+
 )
 
 var (
