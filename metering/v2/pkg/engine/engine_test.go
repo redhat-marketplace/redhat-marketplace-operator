@@ -28,12 +28,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const timeout = time.Second * 5
 const heartBeat = time.Second
 
 var _ = Describe("EngineTest", func() {
+
+	var err error
 
 	It("should start up and monitor meter definitions and related objects", func() {
 		Expect(k8sClient.Create(context.TODO(), &corev1.Namespace{
@@ -42,11 +45,25 @@ var _ = Describe("EngineTest", func() {
 			},
 		})).Should(Succeed())
 
-		Expect(k8sClient.Create(context.TODO(), &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "openshift-redhat-marketplace",
-			},
-		})).Should(Succeed())
+		/*
+			Expect(k8sClient.Create(context.TODO(), &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "openshift-redhat-marketplace",
+				},
+			})).Should(Succeed())
+		*/
+
+		_, err = controllerutil.CreateOrUpdate(
+			context.TODO(),
+			k8sClient,
+			&corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "openshift-redhat-marketplace",
+				}},
+			func() error {
+				return nil
+			})
+		Expect(err).Should(Succeed())
 
 		Expect(k8sClient.Create(context.TODO(), testcase1.MDefExample)).Should(Succeed())
 		Expect(k8sClient.Create(context.TODO(), testcase1.Pod)).Should(Succeed())

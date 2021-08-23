@@ -153,9 +153,11 @@ func (r *RazeeProcessorSender) Process(ctx context.Context, inObj cache.Delta) e
 		return merrors.New("Could not convert cache delta object to runtime object")
 	}
 
+	rtObjCopy := rtObj.DeepCopyObject()
+
 	// Skip filtered out objects
 	r.log.Info("dac debug filter out")
-	filterOut, err := r.filterOut(rtObj)
+	filterOut, err := r.filterOut(rtObjCopy)
 	if err != nil {
 		return err
 	}
@@ -166,7 +168,7 @@ func (r *RazeeProcessorSender) Process(ctx context.Context, inObj cache.Delta) e
 
 	// Sanitize the object
 	r.log.Info("dac debug Process Sanitize")
-	r.prepObject2Send(rtObj)
+	r.prepObject2Send(rtObjCopy)
 
 	// Map the cache type to the watch/event type
 	var eventType watch.EventType
@@ -186,7 +188,7 @@ func (r *RazeeProcessorSender) Process(ctx context.Context, inObj cache.Delta) e
 	}
 
 	// Build the eventObj, as per Razee
-	numEventObjs := r.processedEventObjs.Add(EventObj{Type: eventType, Object: rtObj})
+	numEventObjs := r.processedEventObjs.Add(EventObj{Type: eventType, Object: rtObjCopy})
 
 	r.log.Info("dac debug", "numEventObjs", numEventObjs)
 
@@ -371,17 +373,7 @@ func (r *RazeeProcessorSender) getRazeeDashKeys() ([]byte, []byte, error) {
 		Key: utils.RAZEE_DASH_URL_FIELD,
 	})
 	if err != nil {
-		return url, key, nil
-	}
-
-	key, err = utils.ExtractCredKey(&rhmOperatorSecret, corev1.SecretKeySelector{
-		LocalObjectReference: corev1.LocalObjectReference{
-			Name: utils.RHM_OPERATOR_SECRET_NAME,
-		},
-		Key: utils.RAZEE_DASH_ORG_KEY_FIELD,
-	})
-	if err != nil {
-		return url, key, nil
+		return url, key, err
 	}
 
 	return url, key, nil
