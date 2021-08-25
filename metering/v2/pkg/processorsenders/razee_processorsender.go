@@ -15,9 +15,13 @@
 package processorsenders
 
 import (
+	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"io"
+	"io/ioutil"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -62,6 +66,8 @@ type EventObj struct {
 	Type   watch.EventType `json:"type,omitempty"`
 	Object runtime.Object  `json:"object,omitempty"`
 }
+
+type EventObjs []EventObj
 
 type ProcessedEventObjs struct {
 	eventObjs []EventObj
@@ -132,6 +138,8 @@ func (r *RazeeProcessorSender) Process(ctx context.Context, inObj cache.Delta) e
 		return nil
 	}
 
+	r.log.Info("dac debug", "inObj", inObj)
+
 	metaObj, ok := inObj.Object.(metav1.Object)
 	if !ok {
 		merrors.New("Could not convert cache delta object to runtime object")
@@ -139,19 +147,19 @@ func (r *RazeeProcessorSender) Process(ctx context.Context, inObj cache.Delta) e
 		r.log.Info("dac debug", "type", inObj.Type, "name", metaObj.GetName(), "namespace", metaObj.GetNamespace())
 	}
 
+	// cache.Delta.Object does not retain GVK
+	// Use scheme to determine GVK and return a runtime.Object
+	rtObj, err := r.getRuntimeObj(inObj.Object)
+	if err != nil {
+		return err
+	}
+
 	/*
-		// cache.Delta.Object does not retain GVK
-		// Use scheme to determine GVK and return a runtime.Object
-		rtObj, err := r.getRuntimeObj(inObj.Object)
-		if err != nil {
-			return err
+		rtObj, ok := inObj.Object.(runtime.Object)
+		if !ok {
+			return merrors.New("Could not convert cache delta object to runtime object")
 		}
 	*/
-
-	rtObj, ok := inObj.Object.(runtime.Object)
-	if !ok {
-		return merrors.New("Could not convert cache delta object to runtime object")
-	}
 
 	rtObjCopy := rtObj.DeepCopyObject()
 
@@ -245,16 +253,14 @@ func (r *RazeeProcessorSender) Send(ctx context.Context) error {
 
 		r.log.Info("dac debug", "marshal", string(b))
 
-		_ = fullurl
-		_ = b
-		_ = razeeOrgKey
 		// Post
-		/*
-			err = r.postToRazeeDash(fullurl, bytes.NewReader(b), string(razeeOrgKey))
-			if err != nil {
-				return err
-			}
-		*/
+		r.log.Info("Attempt to send Objects to Destination", "URL", fullurl)
+
+		err = r.postToRazeeDash(fullurl, bytes.NewReader(b), string(razeeOrgKey))
+		if err != nil {
+			return err
+		}
+
 	}
 	return nil
 }
@@ -352,15 +358,12 @@ func (r *RazeeProcessorSender) getRazeeDashKeys() ([]byte, []byte, error) {
 	var url []byte
 	var key []byte
 
-	ns, ok := os.LookupEnv("POD_NAMESPACE")
-	if !ok {
-		return url, key, merrors.New("Environmental Variable POD_NAMESPACE is not set")
-	}
+	r.log.Info("dac debug", "namespace", r.getNamespace())
 
 	rhmOperatorSecret := corev1.Secret{}
 	err := r.kubeClient.Get(context.TODO(), types.NamespacedName{
 		Name:      utils.RHM_OPERATOR_SECRET_NAME,
-		Namespace: ns,
+		Namespace: r.getNamespace(),
 	}, &rhmOperatorSecret)
 	if err != nil {
 		return url, key, err
@@ -371,6 +374,16 @@ func (r *RazeeProcessorSender) getRazeeDashKeys() ([]byte, []byte, error) {
 			Name: utils.RHM_OPERATOR_SECRET_NAME,
 		},
 		Key: utils.RAZEE_DASH_URL_FIELD,
+	})
+	if err != nil {
+		return url, key, err
+	}
+
+	key, err = utils.ExtractCredKey(&rhmOperatorSecret, corev1.SecretKeySelector{
+		LocalObjectReference: corev1.LocalObjectReference{
+			Name: utils.RHM_OPERATOR_SECRET_NAME,
+		},
+		Key: utils.RAZEE_DASH_ORG_KEY_FIELD,
 	})
 	if err != nil {
 		return url, key, err
@@ -406,10 +419,34 @@ func (r *RazeeProcessorSender) postToRazeeDash(url string, body io.Reader, razee
 	req.Header.Set("razee-org-key", razeeOrgKey)
 	req.Header.Set("Content-Type", "application/json")
 
+	if os.Getenv("INSECURE_CLIENT") == "true" {
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		client.HTTPClient.Transport = tr
+	}
+
 	_, err = client.Do(req)
-	if err == nil {
+	if err != nil {
 		return merrors.Wrap(err, "Error POSTing to RazeeDash")
 	}
 
+	r.log.Info("Sent Objects to Destination", "URL", url)
+
 	return nil
+}
+
+func (r *RazeeProcessorSender) getNamespace() string {
+	if ns, ok := os.LookupEnv("POD_NAMESPACE"); ok {
+		return ns
+	}
+
+	// Fall back to the namespace associated with the service account token, if available
+	if data, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err == nil {
+		if ns := strings.TrimSpace(string(data)); len(ns) > 0 {
+			return ns
+		}
+	}
+
+	return "default"
 }
