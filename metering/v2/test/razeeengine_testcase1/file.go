@@ -30,13 +30,15 @@ var (
 		FS: fs,
 	}
 
+	Deployment        *unstructured.Unstructured = testCase1.MustGetUnstructured("deployment.yaml")
+	DeploymentUpdated *unstructured.Unstructured = testCase1.MustGetUnstructured("deployment_updated.yaml")
+	Node              *unstructured.Unstructured = testCase1.MustGetUnstructured("node.yaml")
+
+	// Other types to potentially test for
 	//	ClusterServiceVersion *unstructured.Unstructured = testCase1.MustGetUnstructured("clusterserviceversion.yaml")
 	//	ClusterVersion        *unstructured.Unstructured = testCase1.MustGetUnstructured("clusterversion.yaml")
 	//	Console               *unstructured.Unstructured = testCase1.MustGetUnstructured("console.yaml")
-	Deployment *unstructured.Unstructured = testCase1.MustGetUnstructured("deployment.yaml")
-
-//	Infrastructure        *unstructured.Unstructured = testCase1.MustGetUnstructured("infrastructure.yaml")
-//	MarketplaceConfig     *unstructured.Unstructured = testCase1.MustGetUnstructured("marketplaceconfig.yaml")
-//	Node                  *unstructured.Unstructured = testCase1.MustGetUnstructured("node.yaml")
-//	Subscription          *unstructured.Unstructured = testCase1.MustGetUnstructured("subscription.yaml")
+	//	Infrastructure        *unstructured.Unstructured = testCase1.MustGetUnstructured("infrastructure.yaml")
+	//	MarketplaceConfig     *unstructured.Unstructured = testCase1.MustGetUnstructured("marketplaceconfig.yaml")
+	//	Subscription          *unstructured.Unstructured = testCase1.MustGetUnstructured("subscription.yaml")
 )

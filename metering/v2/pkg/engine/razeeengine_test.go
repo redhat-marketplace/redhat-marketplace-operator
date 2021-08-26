@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"time"
 
 	"encoding/json"
 
@@ -55,6 +56,7 @@ var _ = Describe("RazeeEngineTest", func() {
 		err            error
 		body           []byte
 		bodychan       chan []byte
+		ctx            context.Context
 	)
 
 	BeforeEach(func() {
@@ -69,15 +71,10 @@ var _ = Describe("RazeeEngineTest", func() {
 
 		// Expected full path of request
 		path = apipath + "/clusters/" + clusterid + "/resources"
-		fmt.Println("--Path--")
-		fmt.Println(path)
 
 		// As per rhm-operator-secret RAZEE_DASH_URL
 		// https://marketplace.redhat.com/api/collector/v2
 		addr = "https://" + server.Addr() + apipath
-
-		fmt.Println("--Addr--")
-		fmt.Println(addr)
 
 		//Send the body
 		bodychan = make(chan []byte)
@@ -132,15 +129,13 @@ var _ = Describe("RazeeEngineTest", func() {
 			}),
 
 			func(w http.ResponseWriter, req *http.Request) {
-				fmt.Println("---Got a Body---")
 				body, err = ioutil.ReadAll(req.Body)
 				req.Body.Close()
 				bodychan <- body
-
-				fmt.Println("---Header---")
-				fmt.Print(req.Header)
 			},
 		))
+		ctx = context.Background()
+		ctx, _ = context.WithTimeout(ctx, 30*time.Second)
 	})
 
 	AfterEach(func() {
@@ -148,119 +143,257 @@ var _ = Describe("RazeeEngineTest", func() {
 		server.Close()
 		Expect(k8sClient.Delete(context.TODO(), secret)).Should(Succeed())
 		Expect(k8sClient.Delete(context.TODO(), clusterversion)).Should(Succeed())
-		fmt.Println("---Body---")
-		fmt.Print(string(body))
 	})
 
 	It("should process and send deployment CRUD events", func() {
+		deploymentResult := map[string]bool{
+			"isEventObjects":        true,
+			"isEventType":           true,
+			"isExpectedEventType":   true,
+			"containsObject":        true,
+			"isGVKObject":           true,
+			"gvkIsDeployment":       true,
+			"isDeployment":          true,
+			"isNameNamespace":       true,
+			"isAnnotationSanitized": true,
+			"isEnvSanitized":        true,
+		}
+
 		Expect(k8sClient.Create(context.TODO(), testcase1.Deployment.DeepCopy())).Should(Succeed())
-		Eventually(deploymentCheck(bodychan, watch.Added), "30s").Should(Equal(true))
+		Eventually(deploymentCheck(ctx, bodychan, watch.Added), "30s").Should(Equal(deploymentResult))
+
+		Expect(k8sClient.Update(context.TODO(), testcase1.DeploymentUpdated.DeepCopy())).Should(Succeed())
+		Eventually(deploymentCheck(ctx, bodychan, watch.Modified), "30s").Should(Equal(deploymentResult))
 
 		Expect(k8sClient.Delete(context.TODO(), testcase1.Deployment.DeepCopy())).Should(Succeed())
-		Eventually(deploymentCheck(bodychan, watch.Deleted), "30s").Should(Equal(true))
+		Eventually(deploymentCheck(ctx, bodychan, watch.Deleted), "30s").Should(Equal(deploymentResult))
+
+	})
+
+	It("should process and send node event", func() {
+		nodeResult := map[string]bool{
+			"isEventObjects":        true,
+			"isEventType":           true,
+			"isExpectedEventType":   true,
+			"containsObject":        true,
+			"isGVKObject":           true,
+			"gvkIsNode":             true,
+			"isNode":                true,
+			"isAnnotationSanitized": true,
+		}
+
+		Expect(k8sClient.Create(context.TODO(), testcase1.Node.DeepCopy())).Should(Succeed())
+		Eventually(nodeCheck(ctx, bodychan, watch.Added), "30s").Should(Equal(nodeResult))
 
 	})
 
 })
 
-func deploymentCheck(bodychan chan []byte, expectedEventType watch.EventType) bool {
-	for body := range bodychan {
-		fmt.Println("---DC Body---")
-		fmt.Print(string(body))
+func nodeCheck(ctx context.Context, bodychan chan []byte, expectedEventType watch.EventType) map[string]bool {
 
+	result := make(map[string]bool)
+
+	// Return the result on a catastrophic failure such as Marshal failure
+	// Continue to next object if object does not match expected Deployment
+
+	select {
+	case <-ctx.Done():
+		close(bodychan)
+		return result
+	case body := <-bodychan:
+
+		fmt.Printf("body: %+v", string(body))
+
+		// isEventObjects
 		var eventObjects []map[string]interface{}
 		if err := json.Unmarshal(body, &eventObjects); err != nil {
-			fmt.Println("---Error Unmarshal eventObjects---")
-			fmt.Println(err)
-			return false
+			result["isEventObjects"] = false
+			return result
 		}
+		result["isEventObjects"] = true
 
 		for _, eventObject := range eventObjects {
-			// Event Type matches expected
-			fmt.Println("---Event Type---")
-			fmt.Println(eventObject["type"])
+
+			// isEventType
 			eventType, ok := eventObject["type"].(string)
 			if !ok {
-				fmt.Println("---Could not assert EventType---")
-				return false
+				result["isEventType"] = false
+				return result
 			}
+			result["isEventType"] = true
+
+			// isExpectedEventType
 			if eventType != string(expectedEventType) {
-				fmt.Println("---Event Type did not match expected---")
+				result["isExpectedEventType"] = false
 				continue
 			}
+			result["isExpectedEventType"] = true
 
-			// Object content
+			// containsObject
 			object, err := json.Marshal(eventObject["object"])
 			if err != nil {
-				fmt.Println("---Error Marshall object---")
-				fmt.Println(err)
-				return false
+				result["containsObject"] = false
+				return result
 			}
+			result["containsObject"] = true
 
-			// GVK is Deployment
+			// isGVKObject
 			var gvkobject map[string]interface{}
 			if err := json.Unmarshal(object, &gvkobject); err != nil {
-				fmt.Println("---Error Unmarshal gvkobject---")
-				fmt.Println(err)
-				return false
+				result["isGVKObject"] = false
+				return result
 			}
+			result["isGVKObject"] = true
 
-			if (gvkobject["kind"] != "Deployment") || (gvkobject["apiVersion"] != "apps/v1") {
-				fmt.Println("---Not an apps/v1 Deployment---")
+			// gvkIsNode
+			if (gvkobject["kind"] != "Node") || (gvkobject["apiVersion"] != "v1") {
+				result["gvkIsNode"] = false
 				continue
 			}
+			result["gvkIsNode"] = true
 
-			// Object is a Deployment
+			// isNode
+			var node corev1.Node
+			err = json.Unmarshal(object, &node)
+			if err != nil {
+				result["isNode"] = false
+				continue
+			}
+			result["isNode"] = true
+
+			// isAnnotationSanitized
+			annotations := node.GetAnnotations()
+			if _, ok := annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
+				result["isAnnotationSanitized"] = false
+				continue
+			}
+			if _, ok := annotations["kapitan.razee.io/last-applied-configuration"]; ok {
+				result["isAnnotationSanitized"] = false
+				continue
+			}
+			if _, ok := annotations["deploy.razee.io/last-applied-configuration"]; ok {
+				result["isAnnotationSanitized"] = false
+				continue
+			}
+			result["isAnnotationSanitized"] = true
+
+		}
+	}
+	return result
+}
+
+func deploymentCheck(ctx context.Context, bodychan chan []byte, expectedEventType watch.EventType) map[string]bool {
+
+	result := make(map[string]bool)
+
+	// Return the result on a catastrophic failure such as Marshal failure
+	// Continue to next object if object does not match expected Deployment
+
+	select {
+	case <-ctx.Done():
+		close(bodychan)
+		return result
+	case body := <-bodychan:
+		//	for body := range bodychan {
+
+		// isEventObjects
+		var eventObjects []map[string]interface{}
+		if err := json.Unmarshal(body, &eventObjects); err != nil {
+			result["isEventObjects"] = false
+			return result
+		}
+		result["isEventObjects"] = true
+
+		for _, eventObject := range eventObjects {
+
+			// isEventType
+			eventType, ok := eventObject["type"].(string)
+			if !ok {
+				result["isEventType"] = false
+				return result
+			}
+			result["isEventType"] = true
+
+			// isExpectedEventType
+			if eventType != string(expectedEventType) {
+				result["isExpectedEventType"] = false
+				continue
+			}
+			result["isExpectedEventType"] = true
+
+			// containsObject
+			object, err := json.Marshal(eventObject["object"])
+			if err != nil {
+				result["containsObject"] = false
+				return result
+			}
+			result["containsObject"] = true
+
+			// isGVKObject
+			var gvkobject map[string]interface{}
+			if err := json.Unmarshal(object, &gvkobject); err != nil {
+				result["isGVKObject"] = false
+				return result
+			}
+			result["isGVKObject"] = true
+
+			// gvkIsDeployment
+			if (gvkobject["kind"] != "Deployment") || (gvkobject["apiVersion"] != "apps/v1") {
+				result["gvkIsDeployment"] = false
+				continue
+			}
+			result["gvkIsDeployment"] = true
+
+			// isDeployment
 			var deployment appsv1.Deployment
 			err = json.Unmarshal(object, &deployment)
 			if err != nil {
-				fmt.Println("---Error Unmarshal deployment---")
-				fmt.Println(err)
+				result["isDeployment"] = false
 				continue
 			}
+			result["isDeployment"] = true
 
-			// Deployment is the test Deployment, and has been sanitized
-			if deployment.Name == "rhm-remoteresources3-controller" && deployment.Namespace == "openshift-redhat-marketplace" {
-				// Annotations are sanitized
-				annotations := deployment.GetAnnotations()
-				if _, ok := annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
-					fmt.Println("--Has Annotation")
-					return false
-				}
-				if _, ok := annotations["kapitan.razee.io/last-applied-configuration"]; ok {
-					fmt.Println("--Has Annotation")
-					return false
-				}
-				if _, ok := annotations["deploy.razee.io/last-applied-configuration"]; ok {
-					fmt.Println("--Has Annotation")
-					return false
-				}
-
-				// Env is sanitized
-				//emptyVar := []corev1.EnvVar{}
-				for i, _ := range deployment.Spec.Template.Spec.Containers {
-					if len(deployment.Spec.Template.Spec.Containers[i].Env) != 0 {
-						fmt.Println("--Env not empty")
-						return false
-					}
-				}
-				fmt.Println("---Found Matching Deployment---")
-				return true
+			// isNameNamespace
+			if (deployment.Name != "rhm-remoteresources3-controller") || (deployment.Namespace != "openshift-redhat-marketplace") {
+				result["isNameNamespace"] = false
+				continue
 			}
+			result["isNameNamespace"] = true
+
+			// isAnnotationSanitized
+			annotations := deployment.GetAnnotations()
+			if _, ok := annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
+				result["isAnnotationSanitized"] = false
+				continue
+			}
+			if _, ok := annotations["kapitan.razee.io/last-applied-configuration"]; ok {
+				result["isAnnotationSanitized"] = false
+				continue
+			}
+			if _, ok := annotations["deploy.razee.io/last-applied-configuration"]; ok {
+				result["isAnnotationSanitized"] = false
+				continue
+			}
+			result["isAnnotationSanitized"] = true
+
+			// isEnvSanitized
+			isEnvSanitized := true
+			for i, _ := range deployment.Spec.Template.Spec.Containers {
+				if len(deployment.Spec.Template.Spec.Containers[i].Env) != 0 {
+					isEnvSanitized = false
+				}
+			}
+			result["isEnvSanitized"] = isEnvSanitized
 		}
 	}
-	return false
+	return result
 }
 
-/*
-	Expect(k8sClient.Create(context.TODO(), testcase1.ClusterServiceVersion)).Should(Succeed())
-
-
-	Expect(k8sClient.Create(context.TODO(), testcase1.ClusterVersion)).Should(Succeed())
-	Expect(k8sClient.Create(context.TODO(), testcase1.Console.DeepCopy())).Should(Succeed())
-	Expect(k8sClient.Create(context.TODO(), testcase1.Deployment.DeepCopy())).Should(Succeed())
-	Expect(k8sClient.Create(context.TODO(), testcase1.Infrastructure.DeepCopy())).Should(Succeed())
-	Expect(k8sClient.Create(context.TODO(), testcase1.MarketplaceConfig.DeepCopy())).Should(Succeed())
-	Expect(k8sClient.Create(context.TODO(), testcase1.Node.DeepCopy())).Should(Succeed())
-	Expect(k8sClient.Create(context.TODO(), testcase1.Subscription.DeepCopy())).Should(Succeed())
+/*  Other types to potentially test for
+Expect(k8sClient.Create(context.TODO(), testcase1.ClusterServiceVersion)).Should(Succeed())
+Expect(k8sClient.Create(context.TODO(), testcase1.ClusterVersion)).Should(Succeed())
+Expect(k8sClient.Create(context.TODO(), testcase1.Console.DeepCopy())).Should(Succeed())
+Expect(k8sClient.Create(context.TODO(), testcase1.Infrastructure.DeepCopy())).Should(Succeed())
+Expect(k8sClient.Create(context.TODO(), testcase1.MarketplaceConfig.DeepCopy())).Should(Succeed())
+Expect(k8sClient.Create(context.TODO(), testcase1.Subscription.DeepCopy())).Should(Succeed())
 */

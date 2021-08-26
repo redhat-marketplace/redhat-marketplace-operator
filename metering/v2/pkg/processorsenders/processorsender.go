@@ -68,16 +68,13 @@ func (u *ProcessorSender) Start(ctx context.Context) error {
 		for {
 			select {
 			case <-ctx.Done():
-				u.log.Info("dac debug ctx Done")
 				return
 			case <-u.sendReadyChan:
-				u.log.Info("dac debug sendReadyChan triggered")
 				err := u.Send(ctx)
 				if err != nil {
 					u.log.Error(err, "ProcessorSender Send error")
 				}
-			case t := <-timer.C:
-				u.log.Info("dac debug Timer expired", "time", t)
+			case <-timer.C:
 				err := u.Send(ctx)
 				if err != nil {
 					u.log.Error(err, "ProcessorSender Send error")
