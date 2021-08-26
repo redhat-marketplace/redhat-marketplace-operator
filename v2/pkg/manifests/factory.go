@@ -377,18 +377,21 @@ func(f *Factory) ReplaceImageStreamValues(is *osimagev1.ImageStream){
 	is.Spec.Tags[0].Name = f.operatorConfig.ImageStreamTag
 }
 
+//TODO: should we bother updating these values ? Worried about nil pointers
 func(f *Factory)UpdateDeploymentConfigOnChange(clusterDC *osappsv1.DeploymentConfig)(updated bool){
 	logger := log.WithValues("func", "UpdateDeploymentConfigOnChange")
 
 	triggers := osappsv1.DeploymentTriggerPolicies(clusterDC.Spec.Triggers)
-	trigger := triggers[1]
+	trigger := triggers[0]
 
-	if trigger.ImageChangeParams.From.Name != f.operatorConfig.ImageStreamID {
-		logger.Info("DeploymentConfig docker image reference needs to be updated")
-		logger.Info("ImageStreamID found on cluster","imagestream ID",trigger.ImageChangeParams.From.Name)
-		logger.Info("ImageStreamID found in config","imagestream ID",f.operatorConfig.ImageStreamID)
-		trigger.ImageChangeParams.From.Name = f.operatorConfig.ImageStreamID
-		updated = true
+	if trigger.ImageChangeParams != nil {
+		if trigger.ImageChangeParams.From.Name != f.operatorConfig.ImageStreamID {
+			logger.Info("DeploymentConfig docker image reference needs to be updated")
+			logger.Info("ImageStreamID found on cluster","imagestream ID",trigger.ImageChangeParams.From.Name)
+			logger.Info("ImageStreamID found in config","imagestream ID",f.operatorConfig.ImageStreamID)
+			trigger.ImageChangeParams.From.Name = f.operatorConfig.ImageStreamID
+			updated = true
+		}
 	}
 
 	return updated

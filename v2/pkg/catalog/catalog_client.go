@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"sync"
 	"time"
 
 	emperror "emperror.dev/errors"
@@ -58,25 +59,36 @@ type CatalogResponse struct {
 }
 
 type CatalogClient struct {
+	sync.Mutex
 	Endpoint   *url.URL
-	httpClient http.Client
+	HttpClient *http.Client
 }
 
 func ProvideCatalogClient(cfg *config.OperatorConfig)(*CatalogClient,error){
 	fileServerUrl := FileServerProductionURL
 
-		if cfg.FileServerURL != "" {
-			fileServerUrl = cfg.FileServerURL
-		}
+	if cfg.FileServerURL != "" {
+		fileServerUrl = cfg.FileServerURL
+	}
 
-		url,err := url.Parse(fileServerUrl)
-		if err != nil {
-			return nil,err
-		}
+	url,err := url.Parse(fileServerUrl)
+	if err != nil {
+		return nil,err
+	}
 
-		return &CatalogClient{
-			Endpoint: url,
-		}, nil
+	return &CatalogClient{
+		Endpoint: url,
+	}, nil
+}
+
+func(c *CatalogClient) UseInsecureClient (){
+
+
+	catalogServerHttpClient := &http.Client{
+		Timeout:   1 * time.Second,
+	}
+
+	c.HttpClient = catalogServerHttpClient
 
 }
 
@@ -121,12 +133,12 @@ func(c *CatalogClient) SetTransport (client client.Client,cfg *config.OperatorCo
 
 		transport = WithBearerAuth(transport, authToken)
 
-		catalogServerHttpClient := http.Client{
+		catalogServerHttpClient := &http.Client{
 			Transport: transport,
 			Timeout:   1 * time.Second,
 		}
 
-		c.httpClient = catalogServerHttpClient
+		c.HttpClient = catalogServerHttpClient
 	}
 
 	return nil
@@ -140,7 +152,9 @@ func(c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, version
 		return nil, err
 	}
 
-	response, err := c.httpClient.Get(url.String())
+	reqLogger.Info("making call to","url",url.String())
+
+	response, err := c.HttpClient.Get(url.String())
 	if err != nil {
 		reqLogger.Error(err, "Error on GET to Catalog Server")
 		return nil, err
@@ -200,15 +214,14 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 		return nil, err
 	}
 
-	// marshal CSV struct o JSON
-	// utils.PrettyPrint(csv)
 	requestBody, err := json.Marshal(csv)
 	if err != nil {
 		return nil,err
 	}
 
 	reqLogger.Info("call system meterdef endpoint","url",url.String())
-	response, err := c.httpClient.Post(url.String(),
+
+	response, err := c.HttpClient.Post(url.String(),
 		"application/json", bytes.NewBuffer(requestBody))
 	if err != nil {
 		reqLogger.Error(err, "Error querying file server for system meter definition")
@@ -266,7 +279,7 @@ func (c *CatalogClient) GetMeterdefIndexLabels (reqLogger logr.Logger,csvName st
 
 	reqLogger.Info("calling file server for meterdef index labels","url",url.String())
 
-	response, err := c.httpClient.Get(url.String())
+	response, err := c.HttpClient.Get(url.String())
 	if err != nil {
 		return nil, err
 	}

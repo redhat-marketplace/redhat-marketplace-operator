@@ -174,6 +174,29 @@ var _ = Describe("Testing with Ginkgo", func() {
 			ChunkBy([]interface{}{"a", "b", nil}, 2)
 		}).To(PanicWith("items length is not chunkable by the size"))
 	})
+
+	// It("Should return delete list for meterdefs",func(){
+	// 	testMeterdef1 := &marketplacev1alpha1.MeterDefinition{
+	// 		ObjectMeta: metav1.ObjectMeta{
+	// 			Name:      csvName,
+	// 			Namespace: namespace,
+	// 			Labels: map[string]string{
+	// 				"marketplace.redhat.com/installedOperatorNameTag": "test-csv-1",
+	// 				"marketplace.redhat.com/isCommunityMeterdefintion": "1",
+	// 			},
+	// 			Annotations: map[string]string{
+	// 				"versionRange": "<=0.0.1",
+	// 			},
+	// 		},
+
+	// 		Spec: marketplacev1alpha1.MeterDefinitionSpec{
+	// 			Group: "apps.partner.metering.com",
+	// 			Kind:  "App",
+	// 		},
+	// 	}
+
+
+	// })
 })
 
 const (

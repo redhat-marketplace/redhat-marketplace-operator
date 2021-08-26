@@ -16,6 +16,7 @@ package prometheus
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/go-logr/logr"
@@ -64,6 +65,9 @@ func (s *ServiceAccountClient) NewServiceAccountToken(targetServiceAccountName s
 }
 
 func NewServiceAccountClient(namespace string, kubernetesInterface kubernetes.Interface) *ServiceAccountClient {
+	if kubernetesInterface == nil {
+		fmt.Println("KUBERNETES INTERFACE IS NIL")
+	}
 	return &ServiceAccountClient{
 		Client: kubernetesInterface.CoreV1().ServiceAccounts(namespace),
 	}

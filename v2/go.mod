@@ -7,12 +7,13 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/banzaicloud/k8s-objectmatcher v1.5.0
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/blang/semver/v4 v4.0.0
 	github.com/caarlos0/env/v6 v6.4.0
 	github.com/cespare/xxhash v1.1.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
-	github.com/gdamore/tcell/v2 v2.4.0
 	github.com/go-logr/logr v0.3.0
 	github.com/go-logr/zapr v0.3.0 // indirect
+	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/golang-jwt/jwt v3.2.1+incompatible // indirect
 	github.com/golang/mock v1.4.4
 	github.com/google/go-cmp v0.5.4 // indirect

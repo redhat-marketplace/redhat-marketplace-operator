@@ -62,6 +62,8 @@ import (
 // blank assignment to verify that DeploymentConfigReconciler implements reconcile.Reconciler
 var _ reconcile.Reconciler = &DeploymentConfigReconciler{}
 
+// var globalCatalogClient catalog.CatalogClient
+
 // var GlobalMeterdefStoreDB = &MeterdefStoreDB{}
 // DeploymentConfigReconciler reconciles the DataService of a MeterBase object
 type DeploymentConfigReconciler struct {
@@ -71,7 +73,7 @@ type DeploymentConfigReconciler struct {
 	Scheme *runtime.Scheme
 	Log    logr.Logger
 	CC     ClientCommandRunner
-	kubeInterface kubernetes.Interface
+	KubeInterface kubernetes.Interface
 	cfg           *config.OperatorConfig
 	factory       *manifests.Factory
 	patcher       patch.Patcher
@@ -111,7 +113,7 @@ func (r *DeploymentConfigReconciler) InjectFactory(f *manifests.Factory) error {
 }
 
 func (r *DeploymentConfigReconciler) InjectKubeInterface(k kubernetes.Interface) error {
-	r.kubeInterface = k
+	r.KubeInterface = k
 	return nil
 }
 
@@ -221,6 +223,7 @@ func (s *DeploymentConfigScheduleRunnable) Start(done <-chan struct{}) error {
 func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
+
 	// dcNamespacedName := types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}
 	
 	result := r.reconcileMeterdefCatalogServerResources(request,reqLogger)
@@ -292,17 +295,24 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 }
 
 func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger logr.Logger) *ExecResult {
-	err := r.CatalogClient.SetTransport(r.Client,r.cfg,r.kubeInterface,reqLogger)
-	if err != nil {
-		reqLogger.Error(err,"error setting transport for catalog client")
-		return &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             err,
+	if r.CatalogClient.HttpClient == nil {
+		reqLogger.Info("settign transport on catalog client")
+		r.CatalogClient.Unlock()
+		defer r.CatalogClient.Lock()
+
+		err := r.CatalogClient.SetTransport(r.Client,r.cfg,r.KubeInterface,reqLogger)
+		if err != nil {
+			reqLogger.Error(err,"error setting transport for catalog client")
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
+			}
 		}
 	}
+
 	csvList := &olmv1alpha1.ClusterServiceVersionList{}
 
-	err = r.Client.List(context.TODO(), csvList)
+	err := r.Client.List(context.TODO(), csvList)
 	if err != nil {
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
@@ -451,7 +461,7 @@ func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(req
 					Err:             err,
 				}
 			}
-
+			// utils.PrettyPrint(newDeploymentConfig)
 			err = r.Client.Create(context.TODO(), newDeploymentConfig)
 			if err != nil {
 				reqLogger.Error(err,"failed to create deploymentconfig")
