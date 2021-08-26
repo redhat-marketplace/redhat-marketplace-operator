@@ -28,7 +28,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 
-	//	. "github.com/onsi/gomega/gstruct"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	testcase1 "github.com/redhat-marketplace/redhat-marketplace-operator/metering/v2/test/razeeengine_testcase1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"

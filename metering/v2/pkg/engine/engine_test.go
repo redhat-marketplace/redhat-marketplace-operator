@@ -45,14 +45,6 @@ var _ = Describe("EngineTest", func() {
 			},
 		})).Should(Succeed())
 
-		/*
-			Expect(k8sClient.Create(context.TODO(), &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "openshift-redhat-marketplace",
-				},
-			})).Should(Succeed())
-		*/
-
 		_, err = controllerutil.CreateOrUpdate(
 			context.TODO(),
 			k8sClient,
