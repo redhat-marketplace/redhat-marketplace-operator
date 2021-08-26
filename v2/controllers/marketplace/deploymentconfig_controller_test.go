@@ -65,7 +65,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 						},
 					},
 					Version: version.OperatorVersion{
-						semver.Version{
+						Version: semver.Version{
 							Major: 0,
 							Minor: 0,
 							Patch: 1,
@@ -101,7 +101,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 							{
 								WorkloadType: marketplacev1beta1.WorkloadTypeService,
 								OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
-									common.GroupVersionKind{
+									GroupVersionKind: common.GroupVersionKind{
 										APIVersion: "test_package_1.com/v2",
 										Kind:       "test_package_1Cluster",
 									},
@@ -176,7 +176,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 							{
 								WorkloadType: marketplacev1beta1.WorkloadTypeService,
 								OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
-									common.GroupVersionKind{
+									GroupVersionKind: common.GroupVersionKind{
 										APIVersion: "test_package_1.com/v2",
 										Kind:       "test_package_1Cluster",
 									},
@@ -224,7 +224,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 							{
 								WorkloadType: marketplacev1beta1.WorkloadTypeService,
 								OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
-									common.GroupVersionKind{
+									GroupVersionKind: common.GroupVersionKind{
 										APIVersion: "test_package_1.com/v2",
 										Kind:       "test_package_1Cluster",
 									},
@@ -305,7 +305,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 							{
 								WorkloadType: marketplacev1beta1.WorkloadTypeService,
 								OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
-									common.GroupVersionKind{
+									GroupVersionKind: common.GroupVersionKind{
 										APIVersion: "test_package_1.com/v2",
 										Kind:       "test_package_1Cluster",
 									},
@@ -393,7 +393,7 @@ var _ = FDescribe("DeploymentConfig Controller Test", func() {
 							{
 								WorkloadType: marketplacev1beta1.WorkloadTypeService,
 								OwnerCRD: &marketplacev1beta1.OwnerCRDFilter{
-									common.GroupVersionKind{
+									GroupVersionKind: common.GroupVersionKind{
 										APIVersion: "test_package_1.com/v2",
 										Kind:       "test_package_1Cluster",
 									},
