@@ -682,7 +682,7 @@ func(r *DeploymentConfigReconciler) deleteOnDiff(catalogMdefsOnCluster []marketp
 		for _, meterdefFromCatalog := range latestMeterdefsFromCatalog {
 			
 			if installedMeterdef.Name == meterdefFromCatalog.Name {
-				reqLogger.Info("MATCH",installedMeterdef.Name,meterdefFromCatalog.Name)
+				reqLogger.Info("noop, skip deletion for meterdef",installedMeterdef.Name,meterdefFromCatalog.Name)
 				found = true
 				break
 			}

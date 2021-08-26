@@ -17,23 +17,28 @@ limitations under the License.
 package marketplace
 
 import (
-	"errors"
+	"context"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/gotidy/ptr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
+	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -42,17 +47,13 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	openshiftconfigv1 "github.com/openshift/api/config/v1"
-	opsrcv1 "github.com/operator-framework/api/pkg/operators/v1"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-
 	osappsv1 "github.com/openshift/api/apps/v1"
 	osimagev1 "github.com/openshift/api/image/v1"
 	marketplaceredhatcomv1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
 	marketplaceredhatcomv1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/catalog"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
+	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
 
 	// "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/inject"loo
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/manifests"
@@ -69,6 +70,12 @@ var k8sManager ctrl.Manager
 var k8sScheme *runtime.Scheme
 var dcControllerMockServer *ghttp.Server
 
+const (
+	imageStreamID string = "rhm-meterdefinition-file-server:v1"
+	imageStreamTag string = "v1"
+)
+
+
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
@@ -81,8 +88,10 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
 	os.Setenv("KUBEBUILDER_CONTROLPLANE_START_TIMEOUT", "2m")
 	os.Setenv("POD_NAMESPACE","default")
+	os.Setenv("IMAGE_STREAM_ID",imageStreamID)
+	os.Setenv("IMAGE_STREAM_TAG",imageStreamTag)
 
-	dcControllerMockServer = ghttp.NewUnstartedServer()
+	dcControllerMockServer = ghttp.NewServer()
 	dcControllerMockServer.SetAllowUnhandledRequests(true)
 
 	dcControllerMockServerAddr := fmt.Sprintf("%s%s","http://",dcControllerMockServer.Addr())
@@ -126,11 +135,8 @@ var _ = BeforeSuite(func() {
 	operatorConfig, err := config.GetConfig()
 	Expect(err).NotTo(HaveOccurred())
 
-	factory := manifests.NewFactory(
-		operatorConfig,
-		k8sScheme,
-	)
-
+	factory := manifests.NewFactory(operatorConfig,k8sScheme)
+	
 	catalogClient,err := catalog.ProvideCatalogClient(operatorConfig)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -140,7 +146,75 @@ var _ = BeforeSuite(func() {
 
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	Expect(err).NotTo(HaveOccurred())
+	dc := &osappsv1.DeploymentConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: utils.DEPLOYMENT_CONFIG_NAME,
+			Namespace: "default",
+		},
+		Spec: osappsv1.DeploymentConfigSpec{
+			Triggers: osappsv1.DeploymentTriggerPolicies{
+				{
+					Type: osappsv1.DeploymentTriggerOnConfigChange,	
+					ImageChangeParams: &osappsv1.DeploymentTriggerImageChangeParams{
+						Automatic: true,
+						ContainerNames: []string{"rhm-meterdefinition-file-server"},
+						From: corev1.ObjectReference{
+							Kind: "ImageStreamTag",
+							Name: "rhm-meterdefinition-file-server:v1",
+						},
+					},
+				},
+			},
+		},
+		Status: osappsv1.DeploymentConfigStatus{
+			LatestVersion: 1,
+			Conditions: []osappsv1.DeploymentCondition{
+				{
+					Type: osappsv1.DeploymentConditionType(osappsv1.DeploymentAvailable),
+					Reason: "NewReplicationControllerAvailable",
+					Status: corev1.ConditionTrue,
+					LastTransitionTime: metav1.Now(),
+					LastUpdateTime: metav1.Now(),
+				},
+			},
+		},
+	}
 	
+	is := &osimagev1.ImageStream{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: utils.DEPLOYMENT_CONFIG_NAME,
+			Namespace: "default",
+		},
+		Spec:  osimagev1.ImageStreamSpec{
+			LookupPolicy: osimagev1.ImageLookupPolicy{
+				Local: false,
+			},
+			Tags: []osimagev1.TagReference{
+				{
+					Annotations: map[string]string{
+						"openshift.io/imported-from": "quay.io/mxpaspa/rhm-meterdefinition-file-server:return-204-1.0.0",
+					},
+					From: &corev1.ObjectReference{
+						Name: "quay.io/mxpaspa/rhm-meterdefinition-file-server:return-204-1.0.0",
+						Kind: "DockerImage",
+					},
+					ImportPolicy: osimagev1.TagImportPolicy{
+						Insecure: true,
+						Scheduled: true,
+					},
+					Name: "v1",
+					ReferencePolicy: osimagev1.TagReferencePolicy{
+						Type: osimagev1.SourceTagReferencePolicy,
+					},
+					Generation: ptr.Int64(1),
+				},
+			},
+		},
+	}
+	
+	Expect(k8sClient.Create(context.TODO(), dc)).Should(Succeed(),"create test deploymentconfig")
+	Expect(k8sClient.Create(context.TODO(), is)).Should(Succeed(),"create test image stream")
+
 	err = (&DeploymentConfigReconciler{
 		Client: k8sManager.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("DeploymentConfigReconciler"),
@@ -181,54 +255,4 @@ func provideScheme() *runtime.Scheme {
 	return scheme
 }
 
-type stubRoundTripper struct {
-	roundTrip RoundTripFunc
-}
 
-func (s *stubRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	return s.roundTrip(req), nil
-}
-
-// RoundTripFunc is a type that represents a round trip function call for std http lib
-type RoundTripFunc func(req *http.Request) *http.Response
-
-// RoundTrip is a wrapper function that calls an external function for mocking
-func (f RoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
-	return f(req), nil
-}
-
-func getTestResponse(url string) ([]byte, error) {
-	if len(url) == 0 {
-		return nil, errors.New("Invalid URL")
-	}
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		fmt.Println(err)
-		return nil, err
-	}
-
-	c := &http.Client{
-		Timeout: 5 * time.Second,
-	}
-
-	resp, err := c.Do(req)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-	code := resp.StatusCode
-	body, err := ioutil.ReadAll(resp.Body)
-
-	if err == nil && code != http.StatusOK {
-		return nil, fmt.Errorf(string(body))
-	}
-
-	if code != http.StatusOK {
-		return nil, fmt.Errorf("Server status error: %v", http.StatusText(code))
-	}
-
-	return body, nil
-}
