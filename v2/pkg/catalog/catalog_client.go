@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -32,78 +33,89 @@ import (
 )
 
 const (
-	FileServerProductionURL = "https://rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc.cluster.local:8200"
-	ListForVersionEndpoint = "list-for-version"
+	FileServerProductionURL                   = "https://rhm-meterdefinition-file-server.openshift-redhat-marketplace.svc.cluster.local:8200"
+	ListForVersionEndpoint                    = "list-for-version"
 	GetSystemMeterdefinitionTemplatesEndpoint = "get-system-meterdefs"
-	GetMeterdefinitionIndexLabelEndpoint = "meterdef-index-label"
+	GetMeterdefinitionIndexLabelEndpoint      = "meterdef-index-label"
 )
 
 type CatalogResponseStatusType string
 
 const (
 	CsvHasNoMeterdefinitionsStatus CatalogResponseStatusType = "does not have meterdefinitions in csv directory"
-	CsvWithMeterdefsFoundStatus CatalogResponseStatusType = "csv has meterdefinitions listed in the community catalog"
-	CatalogPathNotFoundStatus CatalogResponseStatusType = "the path to the file server wasn't found"
+	CsvWithMeterdefsFoundStatus    CatalogResponseStatusType = "csv has meterdefinitions listed in the community catalog"
+	CatalogPathNotFoundStatus      CatalogResponseStatusType = "the path to the file server wasn't found"
+	UnauthorizedStatus             CatalogResponseStatusType = "auth error calling file server"
 	SystemMeterdefsReturnedStatus  CatalogResponseStatusType = "successfully returned system meter definitions"
 )
 
 type CatalogStatus struct {
-	StatusCode int
-	CsvName string
-	CatlogStatusType CatalogResponseStatusType 
+	StatusCode       int
+	Status           string
+	CsvName          string
+	CatlogStatusType CatalogResponseStatusType
 }
 
 type CatalogResponse struct {
 	*CatalogStatus
-	MdefSlice      []marketplacev1beta1.MeterDefinition 
+	MdefSlice   []marketplacev1beta1.MeterDefinition
+	IndexLabels map[string]string
 }
 
 type CatalogClient struct {
 	sync.Mutex
-	Endpoint   *url.URL
-	HttpClient *http.Client
+	Endpoint          *url.URL
+	HttpClient        *http.Client
+	K8sClient         client.Client
+	KubeInterface     kubernetes.Interface
+	DeployedNamespace string
 }
 
-func ProvideCatalogClient(cfg *config.OperatorConfig)(*CatalogClient,error){
+func ProvideCatalogClient(k8sClient client.Client, cfg *config.OperatorConfig, kubeInterface kubernetes.Interface) (*CatalogClient, error) {
 	fileServerUrl := FileServerProductionURL
 
 	if cfg.FileServerURL != "" {
 		fileServerUrl = cfg.FileServerURL
 	}
 
-	url,err := url.Parse(fileServerUrl)
+	url, err := url.Parse(fileServerUrl)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 
 	return &CatalogClient{
-		Endpoint: url,
+		Endpoint:          url,
+		DeployedNamespace: cfg.DeployedNamespace,
+		KubeInterface:     kubeInterface,
+		K8sClient:         k8sClient,
 	}, nil
 }
 
-func(c *CatalogClient) UseInsecureClient (){
-
+func (c *CatalogClient) UseInsecureClient() {
 
 	catalogServerHttpClient := &http.Client{
-		Timeout:   1 * time.Second,
+		Timeout: 1 * time.Second,
 	}
 
 	c.HttpClient = catalogServerHttpClient
 
 }
 
-func(c *CatalogClient) SetTransport (client client.Client,cfg *config.OperatorConfig,kubeInterface kubernetes.Interface,reqLogger logr.Logger)error{
-	service, err := getCatalogServerService(cfg.DeployedNamespace, client, reqLogger)
+func (c *CatalogClient) SetTransport(reqLogger logr.Logger) error {
+	c.Lock()
+	defer c.Unlock()
+
+	service, err := c.getCatalogServerService(reqLogger)
 	if err != nil {
 		return err
 	}
 
-	cert, err := getCertFromConfigMap(client, cfg.DeployedNamespace, reqLogger)
+	cert, err := c.getCertFromConfigMap(reqLogger)
 	if err != nil {
 		return err
 	}
 
-	saClient := prom.NewServiceAccountClient(cfg.DeployedNamespace, kubeInterface)
+	saClient := prom.NewServiceAccountClient(c.DeployedNamespace, c.KubeInterface)
 	authToken, err := saClient.NewServiceAccountToken(utils.OPERATOR_SERVICE_ACCOUNT, utils.FileServerAudience, 3600, reqLogger)
 	if err != nil {
 		return err
@@ -144,15 +156,15 @@ func(c *CatalogClient) SetTransport (client client.Client,cfg *config.OperatorCo
 	return nil
 }
 
-func(c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, version string, namespace string,reqLogger logr.Logger) (*CatalogResponse, error) {
+func (c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, version string, namespace string, reqLogger logr.Logger) (*CatalogResponse, error) {
 	reqLogger.Info("retrieving meterdefinitions", "csvName", csvName, "csvVersion", version)
 
-	url,err := concatPaths(c.Endpoint.String(),ListForVersionEndpoint,csvName,version,namespace)
+	url, err := concatPaths(c.Endpoint.String(), ListForVersionEndpoint, csvName, version, namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	reqLogger.Info("making call to","url",url.String())
+	reqLogger.Info("making call to", "url", url.String())
 
 	response, err := c.HttpClient.Get(url.String())
 	if err != nil {
@@ -160,21 +172,32 @@ func(c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, version
 		return nil, err
 	}
 
+	if response.StatusCode == http.StatusUnauthorized {
+		return &CatalogResponse{
+			CatalogStatus: &CatalogStatus{
+				StatusCode:       response.StatusCode,
+				Status:           response.Status,
+				CatlogStatusType: UnauthorizedStatus,
+				CsvName:          csvName,
+			},
+		}, nil
+	}
+
 	if response.StatusCode == http.StatusNotFound {
 		return nil, &ExecResult{
 			ReconcileResult: reconcile.Result{},
-			Err:             errors.Wrap(err,response.Status),
+			Err:             errors.New(fmt.Sprintf("not found %d", response.StatusCode)),
 		}
 	}
 
 	if response.StatusCode == http.StatusNoContent {
 		return &CatalogResponse{
 			CatalogStatus: &CatalogStatus{
-				StatusCode: response.StatusCode,
+				StatusCode:       response.StatusCode,
 				CatlogStatusType: CsvHasNoMeterdefinitionsStatus,
-				CsvName: csvName,
+				CsvName:          csvName,
 			},
-		},nil
+		}, nil
 	}
 
 	mdefSlice := []marketplacev1beta1.MeterDefinition{}
@@ -197,12 +220,12 @@ func(c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, version
 
 	return &CatalogResponse{
 		CatalogStatus: &CatalogStatus{
-			StatusCode: response.StatusCode,
+			StatusCode:       response.StatusCode,
 			CatlogStatusType: CsvWithMeterdefsFoundStatus,
-			CsvName: csvName,
+			CsvName:          csvName,
 		},
 		MdefSlice: mdefSlice,
-	},nil
+	}, nil
 }
 
 func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) (*CatalogResponse, error) {
@@ -216,10 +239,10 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 
 	requestBody, err := json.Marshal(csv)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 
-	reqLogger.Info("call system meterdef endpoint","url",url.String())
+	reqLogger.Info("call system meterdef endpoint", "url", url.String())
 
 	response, err := c.HttpClient.Post(url.String(),
 		"application/json", bytes.NewBuffer(requestBody))
@@ -228,17 +251,31 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 		return nil, err
 	}
 
+	if response.StatusCode == http.StatusUnauthorized {
+		reqLogger.Info("auth error,setting transport and requeueing", "response status", response.Status)
+		return &CatalogResponse{
+			CatalogStatus: &CatalogStatus{
+				StatusCode:       response.StatusCode,
+				Status:           response.Status,
+				CatlogStatusType: UnauthorizedStatus,
+			},
+		}, nil
+	}
+
 	if response.StatusCode == http.StatusNotFound {
-		return nil, err
+		return nil, &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             errors.New(fmt.Sprintf("not found %d", response.StatusCode)),
+		}
 	}
 
 	if response.StatusCode == http.StatusNoContent {
 		return &CatalogResponse{
 			CatalogStatus: &CatalogStatus{
-				StatusCode: response.StatusCode,
+				StatusCode:       response.StatusCode,
 				CatlogStatusType: CsvHasNoMeterdefinitionsStatus,
 			},
-		},nil
+		}, nil
 	}
 
 	defer response.Body.Close()
@@ -256,32 +293,49 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 	err = yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(responseData)), 100).Decode(&mdefSlice)
 	if err != nil {
 		reqLogger.Error(err, "error decoding response from GetSystemMeterdefinitions()")
-		return nil,err
+		return nil, err
 	}
 
 	return &CatalogResponse{
 		CatalogStatus: &CatalogStatus{
-			StatusCode: response.StatusCode,
+			StatusCode:       response.StatusCode,
 			CatlogStatusType: SystemMeterdefsReturnedStatus,
-			CsvName: csv.Name,
+			CsvName:          csv.Name,
 		},
 		MdefSlice: mdefSlice,
-	},nil
+	}, nil
 }
 
-func (c *CatalogClient) GetMeterdefIndexLabels (reqLogger logr.Logger,csvName string) (map[string]string,error) {
+func (c *CatalogClient) GetMeterdefIndexLabels(reqLogger logr.Logger, csvName string) (*CatalogResponse, error) {
 	reqLogger.Info("retrieving meterdefinition index label")
 
-	url,err := concatPaths(c.Endpoint.String(),GetMeterdefinitionIndexLabelEndpoint,csvName)
+	url, err := concatPaths(c.Endpoint.String(), GetMeterdefinitionIndexLabelEndpoint, csvName)
 	if err != nil {
 		return nil, err
 	}
 
-	reqLogger.Info("calling file server for meterdef index labels","url",url.String())
+	reqLogger.Info("calling file server for meterdef index labels", "url", url.String())
 
 	response, err := c.HttpClient.Get(url.String())
 	if err != nil {
 		return nil, err
+	}
+
+	if response.StatusCode == http.StatusUnauthorized {
+		return &CatalogResponse{
+			CatalogStatus: &CatalogStatus{
+				StatusCode:       response.StatusCode,
+				Status:           response.Status,
+				CatlogStatusType: UnauthorizedStatus,
+			},
+		}, nil
+	}
+
+	if response.StatusCode == http.StatusNotFound {
+		return nil, &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             errors.New(fmt.Sprintf("not found %s", response.Status)),
+		}
 	}
 
 	defer response.Body.Close()
@@ -295,36 +349,41 @@ func (c *CatalogClient) GetMeterdefIndexLabels (reqLogger logr.Logger,csvName st
 	reqLogger.Info("response data", "data", string(data))
 
 	labels := map[string]string{}
-	err = json.Unmarshal(data,&labels)
+	err = json.Unmarshal(data, &labels)
 	if err != nil {
 		return nil, err
 	}
-	
-	return labels, nil
+
+	return &CatalogResponse{
+		CatalogStatus: &CatalogStatus{
+			StatusCode:       response.StatusCode,
+			CatlogStatusType: SystemMeterdefsReturnedStatus,
+		},
+		IndexLabels: labels,
+	}, nil
 }
 
 func concatPaths(basePath string, paths ...string) (*url.URL, error) {
 
-    u, err := url.Parse(basePath)
+	u, err := url.Parse(basePath)
 
-    if err != nil {
-        return nil, err
-    }
+	if err != nil {
+		return nil, err
+	}
 
-    temp := append([]string{u.Path}, paths...)
+	temp := append([]string{u.Path}, paths...)
 
-    concatenatedPaths := path.Join(temp...)
+	concatenatedPaths := path.Join(temp...)
 
-    u.Path = concatenatedPaths
+	u.Path = concatenatedPaths
 
-    return u, nil
+	return u, nil
 }
 
-
-func getCatalogServerService(deployedNamespace string, client client.Client, reqLogger logr.InfoLogger) (*corev1.Service, error) {
+func (c *CatalogClient) getCatalogServerService(reqLogger logr.InfoLogger) (*corev1.Service, error) {
 	service := &corev1.Service{}
 
-	err := client.Get(context.TODO(), types.NamespacedName{Namespace: deployedNamespace, Name: utils.CATALOG_SERVER_SERVICE_NAME}, service)
+	err := c.K8sClient.Get(context.TODO(), types.NamespacedName{Namespace: c.DeployedNamespace, Name: utils.CATALOG_SERVER_SERVICE_NAME}, service)
 	if err != nil {
 		return nil, err
 	}
@@ -332,9 +391,9 @@ func getCatalogServerService(deployedNamespace string, client client.Client, req
 	return service, nil
 }
 
-func getCertFromConfigMap(client client.Client, deployedNamespace string, reqLogger logr.Logger) ([]byte, error) {
+func (c *CatalogClient) getCertFromConfigMap(reqLogger logr.Logger) ([]byte, error) {
 	cm := &corev1.ConfigMap{}
-	err := client.Get(context.TODO(), types.NamespacedName{Namespace: deployedNamespace, Name: "serving-certs-ca-bundle"}, cm)
+	err := c.K8sClient.Get(context.TODO(), types.NamespacedName{Namespace: c.DeployedNamespace, Name: "serving-certs-ca-bundle"}, cm)
 	if err != nil {
 		return nil, err
 	}

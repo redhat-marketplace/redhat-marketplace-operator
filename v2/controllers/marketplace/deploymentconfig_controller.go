@@ -46,7 +46,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/pointer"
 
 	osimagev1 "github.com/openshift/api/image/v1"
@@ -62,7 +61,7 @@ import (
 // blank assignment to verify that DeploymentConfigReconciler implements reconcile.Reconciler
 var _ reconcile.Reconciler = &DeploymentConfigReconciler{}
 
-// var globalCatalogClient catalog.CatalogClient
+// var globalCatalogClient *catalog.CatalogClient
 
 // var GlobalMeterdefStoreDB = &MeterdefStoreDB{}
 // DeploymentConfigReconciler reconciles the DataService of a MeterBase object
@@ -73,7 +72,6 @@ type DeploymentConfigReconciler struct {
 	Scheme *runtime.Scheme
 	Log    logr.Logger
 	CC     ClientCommandRunner
-	KubeInterface kubernetes.Interface
 	cfg           *config.OperatorConfig
 	factory       *manifests.Factory
 	patcher       patch.Patcher
@@ -109,11 +107,6 @@ func (r *DeploymentConfigReconciler) InjectPatch(p patch.Patcher) error {
 
 func (r *DeploymentConfigReconciler) InjectFactory(f *manifests.Factory) error {
 	r.factory = f
-	return nil
-}
-
-func (r *DeploymentConfigReconciler) InjectKubeInterface(k kubernetes.Interface) error {
-	r.KubeInterface = k
 	return nil
 }
 
@@ -223,7 +216,7 @@ func (s *DeploymentConfigScheduleRunnable) Start(done <-chan struct{}) error {
 func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
-
+	// globalCatalogClient = r.CatalogClient
 	// dcNamespacedName := types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}
 	
 	result := r.reconcileMeterdefCatalogServerResources(request,reqLogger)
@@ -297,10 +290,8 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger logr.Logger) *ExecResult {
 	if r.CatalogClient.HttpClient == nil {
 		reqLogger.Info("settign transport on catalog client")
-		r.CatalogClient.Unlock()
-		defer r.CatalogClient.Lock()
-
-		err := r.CatalogClient.SetTransport(r.Client,r.cfg,r.KubeInterface,reqLogger)
+		
+		err := r.CatalogClient.SetTransport(reqLogger)
 		if err != nil {
 			reqLogger.Error(err,"error setting transport for catalog client")
 			return &ExecResult{
@@ -308,6 +299,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 				Err:             err,
 			}
 		}
+
 	}
 
 	csvList := &olmv1alpha1.ClusterServiceVersionList{}
@@ -340,13 +332,31 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 			}
 			
 		*/
-		indexLabels, err := r.CatalogClient.GetMeterdefIndexLabels(reqLogger,splitName)
+		catalogResponse, err := r.CatalogClient.GetMeterdefIndexLabels(reqLogger,splitName)
 		if err != nil {
 			return &ExecResult{
 				ReconcileResult: reconcile.Result{},
 				Err:             err,
 			}
 		}
+		
+		if catalogResponse.CatlogStatusType == catalog.UnauthorizedStatus {
+			reqLogger.Info("auth error,setting transport and requeueing","response status",catalogResponse.Status)
+			err = r.CatalogClient.SetTransport(reqLogger)
+			if err != nil {
+				return &ExecResult{
+					ReconcileResult: reconcile.Result{},
+					Err:             err,
+				}
+			}
+
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{Requeue: true},
+				Err:             nil,
+			}
+		}
+
+		indexLabels := catalogResponse.IndexLabels
 
 		/* 
 		 	List all coomunity definitions that supoort a particular version of a csv
@@ -361,7 +371,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 
 		/*
 			csv is on the cluster but doesn't have a csv dir or doesn't have mdefs in it's catalog listing
-			if an isv removes their catalog listing meterdefs could be orphaned on the cluster
+			if an isv removes their catalog listing, meterdefs could be orphaned on the cluster
 			delete all community meterdefs for that csv
 			if no community meterdefs are found, skip to next csv
 			if community meterdefs are found an deleted, skip to next csv
@@ -381,7 +391,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 		latestMeterDefsFromCatalog := catologResponse.MdefSlice
 
 		// if instance.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled {
-			// fetch system meter definitions and append
+		// fetch system meter definitions and append
 		systemMeterdefsResponse, err := r.CatalogClient.GetSystemMeterdefs(&csv, reqLogger)
 		if err != nil {
 			return &ExecResult{

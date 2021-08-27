@@ -137,15 +137,16 @@ var _ = BeforeSuite(func() {
 
 	factory := manifests.NewFactory(operatorConfig,k8sScheme)
 	
-	catalogClient,err := catalog.ProvideCatalogClient(operatorConfig)
-	Expect(err).NotTo(HaveOccurred())
-
-	catalogClient.UseInsecureClient()
-
 	restConfig := k8sManager.GetConfig()
 
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	Expect(err).NotTo(HaveOccurred())
+
+	catalogClient,err := catalog.ProvideCatalogClient(k8sManager.GetClient(),operatorConfig,clientset)
+	Expect(err).NotTo(HaveOccurred())
+
+	catalogClient.UseInsecureClient()
+
 	dc := &osappsv1.DeploymentConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: utils.DEPLOYMENT_CONFIG_NAME,
@@ -222,7 +223,7 @@ var _ = BeforeSuite(func() {
 		cfg: operatorConfig,
 		factory: factory,
 		CatalogClient: catalogClient,
-		KubeInterface: clientset,
+		// KubeInterface: clientset,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 

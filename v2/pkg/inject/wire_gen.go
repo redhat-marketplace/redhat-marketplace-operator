@@ -74,7 +74,7 @@ func initializeInjectDependencies(cache2 cache.Cache, fields *managers.Controlle
 	kubeInterfaceInjector := &KubeInterfaceInjector{
 		KubeInterface: clientset,
 	}
-	catalogClient, err := catalog.ProvideCatalogClient(operatorConfig)
+	catalogClient, err := catalog.ProvideCatalogClient(client, operatorConfig, clientset)
 	if err != nil {
 		return injectorDependencies{}, err
 	}
