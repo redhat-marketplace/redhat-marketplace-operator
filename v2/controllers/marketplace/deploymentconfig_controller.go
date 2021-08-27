@@ -17,6 +17,7 @@ import (
 	// "bytes"
 
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -42,7 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -233,7 +234,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	dc := &osappsv1.DeploymentConfig{}
 	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}, dc)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			reqLogger.Info("deployment config not found, ignoring")
 			return reconcile.Result{},nil
 		}
@@ -332,37 +333,24 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 			}
 			
 		*/
-		catalogResponse, err := r.CatalogClient.GetMeterdefIndexLabels(reqLogger,splitName)
+		indexLabels, err := r.CatalogClient.GetMeterdefIndexLabels(reqLogger,splitName)
 		if err != nil {
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{},
-				Err:             err,
-			}
-		}
-		
-		if catalogResponse.CatlogStatusType == catalog.UnauthorizedStatus {
-			reqLogger.Info("auth error,setting transport and requeueing","response status",catalogResponse.Status)
-			err = r.CatalogClient.SetTransport(reqLogger)
-			if err != nil {
+			if errors.Is(err,catalog.CatalogUnauthorizedErr) {
+				// refresh auth 
+				err = r.CatalogClient.SetTransport(reqLogger)
+				if err != nil {
+					return &ExecResult{
+						ReconcileResult: reconcile.Result{},
+						Err:             err,
+					}
+				}
+
 				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
+					ReconcileResult: reconcile.Result{Requeue: true},
+					Err:             nil,
 				}
 			}
 
-			return &ExecResult{
-				ReconcileResult: reconcile.Result{Requeue: true},
-				Err:             nil,
-			}
-		}
-
-		indexLabels := catalogResponse.IndexLabels
-
-		/* 
-		 	List all coomunity definitions that supoort a particular version of a csv
-		*/
-		catologResponse, err := r.CatalogClient.ListMeterdefintionsFromFileServer(splitName, csvVersion, csvNamespace, reqLogger)
-		if err != nil {
 			return &ExecResult{
 				ReconcileResult: reconcile.Result{},
 				Err:             err,
@@ -376,23 +364,28 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 			if no community meterdefs are found, skip to next csv
 			if community meterdefs are found an deleted, skip to next csv
 		*/
-		if catologResponse.CatlogStatusType == catalog.CsvHasNoMeterdefinitionsStatus {
-			reqLogger.Info("csv has no meterdefinitions in catalog","csv",csv.Name)
-			result := r.deleteAllCommunityMeterdefsForCsv(indexLabels, reqLogger)
-			// if there are no community meter defs for a csv on the cluster continue on to the next csv in the list
-			if result.Is(NotFound) || result.Is(Continue) {
-				reqLogger.Info("skipping sync for csv","csv",csv.Name)
-				continue
-			} else if !result.Is(Continue){
-				return result
+		latestMeterDefsFromCatalog, err := r.CatalogClient.ListMeterdefintionsFromFileServer(splitName, csvVersion, csvNamespace, reqLogger)
+		if err != nil {
+			if errors.Is(err,catalog.CatalogNoContentErr){
+				reqLogger.Info("csv has no meterdefinitions in catalog","csv",csv.Name)
+				
+				result := r.deleteAllCommunityMeterdefsForCsv(indexLabels, reqLogger)
+				if result.Is(NotFound) || result.Is(Continue) {
+					reqLogger.Info("skipping sync for csv","csv",csv.Name)
+					continue
+				} else if !result.Is(Continue){
+					return result
+				}
+			}
+
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
 			}
 		}
 
-		latestMeterDefsFromCatalog := catologResponse.MdefSlice
-
-		// if instance.Spec.MeterdefinitionCatalogServer.LicenceUsageMeteringEnabled {
 		// fetch system meter definitions and append
-		systemMeterdefsResponse, err := r.CatalogClient.GetSystemMeterdefs(&csv, reqLogger)
+		systemMeterDefs, err := r.CatalogClient.GetSystemMeterdefs(&csv, reqLogger)
 		if err != nil {
 			return &ExecResult{
 				ReconcileResult: reconcile.Result{},
@@ -400,17 +393,15 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 			}
 		}
 
-		if systemMeterdefsResponse.CatlogStatusType == catalog.SystemMeterdefsReturnedStatus{
-			latestMeterDefsFromCatalog = append(latestMeterDefsFromCatalog, systemMeterdefsResponse.MdefSlice...)
-		}
-	
+		latestMeterDefsFromCatalog = append(latestMeterDefsFromCatalog,systemMeterDefs...)
+
 		catalogMdefsOnCluster, result := listAllCommunityMeterdefsOnCluster(r.Client, indexLabels)
 		if !result.Is(Continue) {
 			return result
 		}
 
 		/*
-			delete a meterdef if there is a meterdef installed on the cluster that originated from the catalog, but that meterdef isn't in the latest file server image
+			delete if there is a meterdef installed on the cluster that originated from the catalog, but that meterdef isn't in the latest file server image
 		*/
 		result = r.deleteOnDiff(catalogMdefsOnCluster.Items,latestMeterDefsFromCatalog,reqLogger)
 		if !result.Is(Continue) {
@@ -422,7 +413,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 			installedMdef := &marketplacev1beta1.MeterDefinition{}
 			reqLogger.Info("finding meterdefintion",catalogMeterdef.Name, catalogMeterdef.Namespace)
 			err = r.Client.Get(context.TODO(), types.NamespacedName{Name:catalogMeterdef.Name, Namespace: catalogMeterdef.Namespace}, installedMdef)
-			if err != nil && errors.IsNotFound(err) {
+			if err != nil && k8serrors.IsNotFound(err) {
 				reqLogger.Info("meterdef not found during sync, creating","name",catalogMeterdef.Name,"namespace",catalogMeterdef.Namespace)
 				/*
 					create a meterdef for a csv if the csv has a meterdefinition listed in the catalog 
@@ -460,7 +451,7 @@ func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(req
 	foundDeploymentConfig := &osappsv1.DeploymentConfig{}
 	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}, foundDeploymentConfig)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			reqLogger.Info("meterdef file server deployment config not found, creating")
 
 			newDeploymentConfig, err := r.factory.NewMeterdefintionFileServerDeploymentConfig()
@@ -518,7 +509,7 @@ func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(req
 	foundfileServerService := &corev1.Service{}
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}, foundfileServerService)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			reqLogger.Info("meterdef file server service not found, creating")
 
 			newService, err := r.factory.NewMeterdefintionFileServerService()
@@ -555,7 +546,7 @@ func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(req
 	foundImageStream := &osimagev1.ImageStream{}
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}, foundImageStream)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 
 			reqLogger.Info("image stream not found, creating")
 
@@ -782,7 +773,7 @@ func (r *DeploymentConfigReconciler) deleteMeterDef(mdefName string,namespace st
 
 	installedMeterDefn := &marketplacev1beta1.MeterDefinition{}
 	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: mdefName, Namespace: namespace}, installedMeterDefn)
-	if err != nil && !errors.IsNotFound((err)) {
+	if err != nil && !k8serrors.IsNotFound((err)) {
 		reqLogger.Error(err, "could not get meter definition", "Name", mdefName)
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
@@ -806,7 +797,7 @@ func (r *DeploymentConfigReconciler) deleteMeterDef(mdefName string,namespace st
 
 	reqLogger.Info("Deleteing MeterDefinition")
 	err = r.Client.Delete(context.TODO(), installedMeterDefn)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		reqLogger.Error(err, "could not delete MeterDefinition", "Name", mdefName)
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},

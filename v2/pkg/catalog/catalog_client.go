@@ -23,13 +23,13 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	prom "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/prometheus"
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils"
-	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
+
+	// . "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 const (
@@ -39,28 +39,11 @@ const (
 	GetMeterdefinitionIndexLabelEndpoint      = "meterdef-index-label"
 )
 
-type CatalogResponseStatusType string
-
-const (
-	CsvHasNoMeterdefinitionsStatus CatalogResponseStatusType = "does not have meterdefinitions in csv directory"
-	CsvWithMeterdefsFoundStatus    CatalogResponseStatusType = "csv has meterdefinitions listed in the community catalog"
-	CatalogPathNotFoundStatus      CatalogResponseStatusType = "the path to the file server wasn't found"
-	UnauthorizedStatus             CatalogResponseStatusType = "auth error calling file server"
-	SystemMeterdefsReturnedStatus  CatalogResponseStatusType = "successfully returned system meter definitions"
+var (
+	CatalogNoContentErr       error = errors.New("not found")
+	CatalogPathNotFoundStatus error = errors.New("the path to the file server wasn't found")
+	CatalogUnauthorizedErr    error = errors.New("auth error calling file server")
 )
-
-type CatalogStatus struct {
-	StatusCode       int
-	Status           string
-	CsvName          string
-	CatlogStatusType CatalogResponseStatusType
-}
-
-type CatalogResponse struct {
-	*CatalogStatus
-	MdefSlice   []marketplacev1beta1.MeterDefinition
-	IndexLabels map[string]string
-}
 
 type CatalogClient struct {
 	sync.Mutex
@@ -156,7 +139,7 @@ func (c *CatalogClient) SetTransport(reqLogger logr.Logger) error {
 	return nil
 }
 
-func (c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, version string, namespace string, reqLogger logr.Logger) (*CatalogResponse, error) {
+func (c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, version string, namespace string, reqLogger logr.Logger) ([]marketplacev1beta1.MeterDefinition, error) {
 	reqLogger.Info("retrieving meterdefinitions", "csvName", csvName, "csvVersion", version)
 
 	url, err := concatPaths(c.Endpoint.String(), ListForVersionEndpoint, csvName, version, namespace)
@@ -173,31 +156,15 @@ func (c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, versio
 	}
 
 	if response.StatusCode == http.StatusUnauthorized {
-		return &CatalogResponse{
-			CatalogStatus: &CatalogStatus{
-				StatusCode:       response.StatusCode,
-				Status:           response.Status,
-				CatlogStatusType: UnauthorizedStatus,
-				CsvName:          csvName,
-			},
-		}, nil
+		return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogUnauthorizedErr)
 	}
 
 	if response.StatusCode == http.StatusNotFound {
-		return nil, &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             errors.New(fmt.Sprintf("not found %d", response.StatusCode)),
-		}
+		return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogPathNotFoundStatus)
 	}
 
 	if response.StatusCode == http.StatusNoContent {
-		return &CatalogResponse{
-			CatalogStatus: &CatalogStatus{
-				StatusCode:       response.StatusCode,
-				CatlogStatusType: CsvHasNoMeterdefinitionsStatus,
-				CsvName:          csvName,
-			},
-		}, nil
+		return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogNoContentErr)
 	}
 
 	mdefSlice := []marketplacev1beta1.MeterDefinition{}
@@ -218,17 +185,10 @@ func (c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, versio
 		return nil, err
 	}
 
-	return &CatalogResponse{
-		CatalogStatus: &CatalogStatus{
-			StatusCode:       response.StatusCode,
-			CatlogStatusType: CsvWithMeterdefsFoundStatus,
-			CsvName:          csvName,
-		},
-		MdefSlice: mdefSlice,
-	}, nil
+	return mdefSlice, nil
 }
 
-func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) (*CatalogResponse, error) {
+func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) ([]marketplacev1beta1.MeterDefinition, error) {
 
 	reqLogger.Info("retrieving system meterdefinitions", "csvName", csv.Name)
 
@@ -250,32 +210,21 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 		reqLogger.Error(err, "Error querying file server for system meter definition")
 		return nil, err
 	}
-
-	if response.StatusCode == http.StatusUnauthorized {
-		reqLogger.Info("auth error,setting transport and requeueing", "response status", response.Status)
-		return &CatalogResponse{
-			CatalogStatus: &CatalogStatus{
-				StatusCode:       response.StatusCode,
-				Status:           response.Status,
-				CatlogStatusType: UnauthorizedStatus,
-			},
-		}, nil
-	}
-
-	if response.StatusCode == http.StatusNotFound {
-		return nil, &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             errors.New(fmt.Sprintf("not found %d", response.StatusCode)),
+	
+	if response.StatusCode != http.StatusOK {
+		if response.StatusCode == http.StatusUnauthorized {
+			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogUnauthorizedErr)
 		}
-	}
+	
+		if response.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogPathNotFoundStatus)
+		}
+	
+		if response.StatusCode == http.StatusNoContent {
+			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogNoContentErr)
+		}
 
-	if response.StatusCode == http.StatusNoContent {
-		return &CatalogResponse{
-			CatalogStatus: &CatalogStatus{
-				StatusCode:       response.StatusCode,
-				CatlogStatusType: CsvHasNoMeterdefinitionsStatus,
-			},
-		}, nil
+		return nil,errors.New(fmt.Sprintf("Error querying file server for system meter definition: %s:%d",response.Status,response.StatusCode))
 	}
 
 	defer response.Body.Close()
@@ -296,17 +245,10 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 		return nil, err
 	}
 
-	return &CatalogResponse{
-		CatalogStatus: &CatalogStatus{
-			StatusCode:       response.StatusCode,
-			CatlogStatusType: SystemMeterdefsReturnedStatus,
-			CsvName:          csv.Name,
-		},
-		MdefSlice: mdefSlice,
-	}, nil
+	return mdefSlice, nil
 }
 
-func (c *CatalogClient) GetMeterdefIndexLabels(reqLogger logr.Logger, csvName string) (*CatalogResponse, error) {
+func (c *CatalogClient) GetMeterdefIndexLabels(reqLogger logr.Logger, csvName string) (map[string]string, error) {
 	reqLogger.Info("retrieving meterdefinition index label")
 
 	url, err := concatPaths(c.Endpoint.String(), GetMeterdefinitionIndexLabelEndpoint, csvName)
@@ -321,21 +263,13 @@ func (c *CatalogClient) GetMeterdefIndexLabels(reqLogger logr.Logger, csvName st
 		return nil, err
 	}
 
-	if response.StatusCode == http.StatusUnauthorized {
-		return &CatalogResponse{
-			CatalogStatus: &CatalogStatus{
-				StatusCode:       response.StatusCode,
-				Status:           response.Status,
-				CatlogStatusType: UnauthorizedStatus,
-			},
-		}, nil
-	}
+	if response.StatusCode != 200 {
 
-	if response.StatusCode == http.StatusNotFound {
-		return nil, &ExecResult{
-			ReconcileResult: reconcile.Result{},
-			Err:             errors.New(fmt.Sprintf("not found %s", response.Status)),
+		if response.StatusCode == http.StatusUnauthorized {
+			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogUnauthorizedErr)
 		}
+
+		return nil,errors.New(fmt.Sprintf("Error querying file server for meterdefinition index labels: %s:%d",response.Status,response.StatusCode))
 	}
 
 	defer response.Body.Close()
@@ -354,13 +288,7 @@ func (c *CatalogClient) GetMeterdefIndexLabels(reqLogger logr.Logger, csvName st
 		return nil, err
 	}
 
-	return &CatalogResponse{
-		CatalogStatus: &CatalogStatus{
-			StatusCode:       response.StatusCode,
-			CatlogStatusType: SystemMeterdefsReturnedStatus,
-		},
-		IndexLabels: labels,
-	}, nil
+	return labels, nil
 }
 
 func concatPaths(basePath string, paths ...string) (*url.URL, error) {

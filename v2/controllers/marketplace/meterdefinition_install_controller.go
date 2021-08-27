@@ -150,6 +150,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 					*/
 
 					allMeterDefinitions := []marketplacev1beta1.MeterDefinition{}
+
 					if r.catalogClient.HttpClient == nil {
 						reqLogger.Info("setting transport on catalog client")
 						r.catalogClient.Lock()
@@ -164,30 +165,32 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 						r.catalogClient.Unlock()
 					}
 
-					catalogResponse, err := r.catalogClient.ListMeterdefintionsFromFileServer(csvSplitName, csvVersion, CSV.Namespace,reqLogger)
+					communityMeterdefs, err := r.catalogClient.ListMeterdefintionsFromFileServer(csvSplitName, csvVersion, CSV.Namespace,reqLogger)
 					if err != nil {
 						return reconcile.Result{},err
 					}
 
-					reqLogger.Info("catalog response","response",catalogResponse.CatlogStatusType)
+					allMeterDefinitions = append(allMeterDefinitions, communityMeterdefs...)
+					// reqLogger.Info("catalog response","response",catalogResponse.CatlogStatusType)
 
-					if catalogResponse.CatlogStatusType == catalog.CsvWithMeterdefsFoundStatus {
-						communityMeterdefs := catalogResponse.MdefSlice
+					// if catalogResponse.CatlogStatusType == catalog.CsvWithMeterdefsFoundStatus {
+					// 	communityMeterdefs := catalogResponse.MdefSlice
 
-						allMeterDefinitions = append(allMeterDefinitions, communityMeterdefs...)
-					}
+					// 	allMeterDefinitions = append(allMeterDefinitions, communityMeterdefs...)
+					// }
 
-					systemMeterdefsResponse, err := r.catalogClient.GetSystemMeterdefs(CSV, reqLogger)
+					systemMeterDefs, err := r.catalogClient.GetSystemMeterdefs(CSV, reqLogger)
 					if err != nil {
 						return reconcile.Result{},err
 					}
 
-					reqLogger.Info("system meterdefinition response","response",systemMeterdefsResponse.CatlogStatusType)
+					allMeterDefinitions = append(allMeterDefinitions, systemMeterDefs...)
+					// reqLogger.Info("system meterdefinition response","response",systemMeterdefsResponse.CatlogStatusType)
 
-					if systemMeterdefsResponse.CatlogStatusType == catalog.SystemMeterdefsReturnedStatus {
-						globalMeterdefinitions := systemMeterdefsResponse.MdefSlice
-						allMeterDefinitions = append(allMeterDefinitions, globalMeterdefinitions...)
-					}
+					// if systemMeterdefsResponse.CatlogStatusType == catalog.SystemMeterdefsReturnedStatus {
+					// 	globalMeterdefinitions := systemMeterdefsResponse.MdefSlice
+					// 	allMeterDefinitions = append(allMeterDefinitions, globalMeterdefinitions...)
+					// }
 
 					gvk, err := apiutil.GVKForObject(CSV, r.Scheme)
 					if err != nil {
