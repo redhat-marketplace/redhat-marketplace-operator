@@ -16,6 +16,7 @@ package marketplace
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -26,10 +27,9 @@ import (
 	"github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/config"
 	mktypes "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/types"
 	. "github.com/redhat-marketplace/redhat-marketplace-operator/v2/pkg/utils/reconcileutils"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/utils/pointer"
@@ -45,6 +45,8 @@ import (
 
 // blank assignment to verify that ReconcileClusterServiceVersion implements reconcile.Reconciler
 var _ reconcile.Reconciler = &MeterdefinitionInstallReconciler{}
+
+var installPlanGeneration int
 
 // MeterdefinitionInstallReconciler reconciles a ClusterServiceVersion object
 type MeterdefinitionInstallReconciler struct {
@@ -77,7 +79,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	CSV := &olmv1alpha1.ClusterServiceVersion{}
 	err := r.Client.Get(context.TODO(), request.NamespacedName, CSV)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			// Request object not found, check the meterdef store if there is an existing InstallMapping,delete, and return empty result
 			reqLogger.Info("clusterserviceversion does not exist", "name", request.Name)
 			return reconcile.Result{}, nil
@@ -92,26 +94,6 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	csvVersion := CSV.Spec.Version.Version.String()
 	reqLogger.Info("csv version", "version", csvVersion)
 
-	
-	// for _, cond := range CSV.Status.Conditions {
-	// 	// if the csv installs correctly find the subscription with the matching 
-	// 	if cond.Phase == olmv1alpha1.CSVPhaseInstalling && cond.Reason == olmv1alpha1.CSVReasonInstallSuccessful {
-	// 		subList := &olmv1alpha1.SubscriptionList{}
-	// 		err = r.Client.List(context.TODO(),subList, client.MatchingFields{
-	// 			".status.currentCSV": CSV.Name,
-	// 		})
-
-	// 		if err != nil {
-	// 			return reconcile.Result{}, err
-	// 		}
-
-	// 		if len(subList.Items) == 0 {
-	// 			return reconcile.Result{RequeueAfter: time.Second * 5}, nil
-	// 		}
-	// 	}
-	// }
-
-	// New CSV install
 	sub := &olmv1alpha1.SubscriptionList{}
 	if err := r.Client.List(context.TODO(), sub, client.InNamespace(CSV.Namespace)); err != nil {
 		return reconcile.Result{}, err
@@ -120,7 +102,14 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 	var foundSub *olmv1alpha1.Subscription
 	if len(sub.Items) > 0 {
 		for _, s := range sub.Items {
-			if s.Status.CurrentCSV == CSV.Name {
+			if s.Status.CurrentCSV == CSV.Name && s.Spec.CatalogSource == r.cfg.ControllerValues.RhmCatalogName {
+				// wait for old meterdefs to get deleted if the subscription has been upgraded
+				if installPlanGeneration != s.Status.InstallPlanGeneration {
+					reqLogger.Info("subscription has been updated","cached installplangen",installPlanGeneration,"installplangen on sub",s.Status.InstallPlanGeneration)
+					installPlanGeneration = s.Status.InstallPlanGeneration
+					return reconcile.Result{RequeueAfter: time.Second * 5}, nil
+				}
+
 				foundSub = &s
 			}
 		}
@@ -132,16 +121,7 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 		if value, ok := foundSub.GetLabels()[operatorTag]; ok {
 
 			if value == "true" {
-				// if len(foundSub.Status.InstalledCSV) == 0 {
-				// 	reqLogger.Info("Requeue clusterserviceversion to wait for subscription getting")
-				// 	return reconcile.Result{RequeueAfter: time.Second * 5}, nil
-				// }
 
-				// if foundSub.Status.InstalledCSV != request.NamespacedName.Name {
-				// 	return reconcile.Result{RequeueAfter: time.Second * 5}, nil
-				// }
-
-				// if foundSub.Status.InstalledCSV == request.NamespacedName.Name {
 					reqLogger.Info("found Subscription with installed CSV")
 
 					/* 
@@ -153,31 +133,31 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 
 					if r.catalogClient.HttpClient == nil {
 						reqLogger.Info("setting transport on catalog client")
-						r.catalogClient.Lock()
 						
 						err := r.catalogClient.SetTransport(reqLogger)
 						if err != nil {
-							r.catalogClient.Unlock()
+							
 							reqLogger.Error(err,"error setting transport for catalog client")
 							return reconcile.Result{}, err
 						}
-				
-						r.catalogClient.Unlock()
 					}
 
 					communityMeterdefs, err := r.catalogClient.ListMeterdefintionsFromFileServer(csvSplitName, csvVersion, CSV.Namespace,reqLogger)
 					if err != nil {
-						return reconcile.Result{},err
+						if errors.Is(err,catalog.CatalogUnauthorizedErr) {
+							// refresh auth 
+							err = r.catalogClient.SetTransport(reqLogger)
+							if err != nil {
+								return reconcile.Result{}, err
+							}
+			
+							return reconcile.Result{Requeue: true}, err
+						}
+			
+						return reconcile.Result{}, err
 					}
 
 					allMeterDefinitions = append(allMeterDefinitions, communityMeterdefs...)
-					// reqLogger.Info("catalog response","response",catalogResponse.CatlogStatusType)
-
-					// if catalogResponse.CatlogStatusType == catalog.CsvWithMeterdefsFoundStatus {
-					// 	communityMeterdefs := catalogResponse.MdefSlice
-
-					// 	allMeterDefinitions = append(allMeterDefinitions, communityMeterdefs...)
-					// }
 
 					systemMeterDefs, err := r.catalogClient.GetSystemMeterdefs(CSV, reqLogger)
 					if err != nil {
@@ -185,18 +165,6 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 					}
 
 					allMeterDefinitions = append(allMeterDefinitions, systemMeterDefs...)
-					// reqLogger.Info("system meterdefinition response","response",systemMeterdefsResponse.CatlogStatusType)
-
-					// if systemMeterdefsResponse.CatlogStatusType == catalog.SystemMeterdefsReturnedStatus {
-					// 	globalMeterdefinitions := systemMeterdefsResponse.MdefSlice
-					// 	allMeterDefinitions = append(allMeterDefinitions, globalMeterdefinitions...)
-					// }
-
-					gvk, err := apiutil.GVKForObject(CSV, r.Scheme)
-					if err != nil {
-						return reconcile.Result{}, err
-					}
-
 
 					// create CSV specific and global meter definitions
 					reqLogger.Info("creating meterdefinitions", "CSV", csvSplitName,"namespace",CSV.Namespace)
@@ -207,10 +175,10 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 						meterdef := &marketplacev1beta1.MeterDefinition{}
 						err = r.Client.Get(context.TODO(), types.NamespacedName{Name: meterDefItem.Name, Namespace: CSV.Namespace}, meterdef)
 						if err != nil {
-							if errors.IsNotFound(err) {
+							if k8serrors.IsNotFound(err) {
 								reqLogger.Info("meterdefinition not found, creating", "meterdef name", meterDefItem.Name, "CSV", CSV.Name,"csv namespace",CSV.Namespace)
 
-								result := r.createMeterdef(csvSplitName, csvVersion, meterDefItem, CSV, gvk, request, reqLogger)
+								result := r.createMeterdef(csvSplitName, csvVersion, meterDefItem, CSV, request, reqLogger)
 								if !result.Is(Continue) {
 
 									if result.Is(Error) {
@@ -227,19 +195,22 @@ func (r *MeterdefinitionInstallReconciler) Reconcile(request reconcile.Request) 
 							return reconcile.Result{}, err
 						}
 					}
-				// }
 			}
 		}
-	} else {
-		reqLogger.Info("Subscriptions not found in the namespace")
-		return reconcile.Result{RequeueAfter: time.Second * 10}, nil
-	}
+	} 
 
 	reqLogger.Info("reconcilation complete")
 	return reconcile.Result{}, nil
 }
 
-func (r *MeterdefinitionInstallReconciler) createMeterdef(csvSplitName string, csvVersion string, meterDefinition marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, groupVersionKind schema.GroupVersionKind, request reconcile.Request, reqLogger logr.InfoLogger) *ExecResult {
+func (r *MeterdefinitionInstallReconciler) createMeterdef(csvSplitName string, csvVersion string, meterDefinition marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, request reconcile.Request, reqLogger logr.InfoLogger) *ExecResult {
+	groupVersionKind, err := apiutil.GVKForObject(csv, r.Scheme)
+	if err != nil {
+		return &ExecResult{
+			ReconcileResult: reconcile.Result{},
+			Err:             err,
+		}
+	}
 
 	// create owner ref object
 	ref := metav1.OwnerReference{
@@ -255,7 +226,7 @@ func (r *MeterdefinitionInstallReconciler) createMeterdef(csvSplitName string, c
 	meterDefinition.ObjectMeta.Namespace = csv.Namespace
 
 	meterDefName := meterDefinition.Name
-	err := r.Client.Create(context.TODO(), &meterDefinition)
+	err = r.Client.Create(context.TODO(), &meterDefinition)
 	if err != nil {
 		reqLogger.Error(err, "Could not create meterdefinition", "mdef", meterDefName, "CSV", csv.Name)
 		return &ExecResult{

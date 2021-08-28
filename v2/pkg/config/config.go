@@ -92,6 +92,7 @@ type Marketplace struct {
 type ControllerValues struct {
 	DeploymentNamespace           string        `env:"POD_NAMESPACE" envDefault:"openshift-redhat-marketplace"`
 	MeterDefControllerRequeueRate time.Duration `env:"METER_DEF_CONTROLLER_REQUEUE_RATE" envDefault:"1h"`
+	RhmCatalogName string `env:"RHM_CATALOG_NAME" envDefault:"redhat-marketplace"`
 }
 
 type MeterBaseValues struct {

@@ -62,9 +62,6 @@ import (
 // blank assignment to verify that DeploymentConfigReconciler implements reconcile.Reconciler
 var _ reconcile.Reconciler = &DeploymentConfigReconciler{}
 
-// var globalCatalogClient *catalog.CatalogClient
-
-// var GlobalMeterdefStoreDB = &MeterdefStoreDB{}
 // DeploymentConfigReconciler reconciles the DataService of a MeterBase object
 type DeploymentConfigReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
@@ -217,7 +214,6 @@ func (s *DeploymentConfigScheduleRunnable) Start(done <-chan struct{}) error {
 func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
-	// globalCatalogClient = r.CatalogClient
 	// dcNamespacedName := types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}
 	
 	result := r.reconcileMeterdefCatalogServerResources(request,reqLogger)
@@ -409,9 +405,10 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 		}
 
 		for _, catalogMeterdef := range latestMeterDefsFromCatalog {
-
 			installedMdef := &marketplacev1beta1.MeterDefinition{}
+
 			reqLogger.Info("finding meterdefintion",catalogMeterdef.Name, catalogMeterdef.Namespace)
+			
 			err = r.Client.Get(context.TODO(), types.NamespacedName{Name:catalogMeterdef.Name, Namespace: catalogMeterdef.Namespace}, installedMdef)
 			if err != nil && k8serrors.IsNotFound(err) {
 				reqLogger.Info("meterdef not found during sync, creating","name",catalogMeterdef.Name,"namespace",catalogMeterdef.Namespace)
