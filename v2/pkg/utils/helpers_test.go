@@ -22,6 +22,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	marketplacev1alpha1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1alpha1"
+	marketplacev1beta1 "github.com/redhat-marketplace/redhat-marketplace-operator/v2/apis/marketplace/v1beta1"
+
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -175,28 +177,31 @@ var _ = Describe("Testing with Ginkgo", func() {
 		}).To(PanicWith("items length is not chunkable by the size"))
 	})
 
-	// It("Should return delete list for meterdefs",func(){
-	// 	testMeterdef1 := &marketplacev1alpha1.MeterDefinition{
-	// 		ObjectMeta: metav1.ObjectMeta{
-	// 			Name:      csvName,
-	// 			Namespace: namespace,
-	// 			Labels: map[string]string{
-	// 				"marketplace.redhat.com/installedOperatorNameTag": "test-csv-1",
-	// 				"marketplace.redhat.com/isCommunityMeterdefintion": "1",
-	// 			},
-	// 			Annotations: map[string]string{
-	// 				"versionRange": "<=0.0.1",
-	// 			},
-	// 		},
+	It("Should return a list of meterdefs to be deleted", func(){
+		testMeterdef1 := marketplacev1beta1.MeterDefinition{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "meterdef-1",
+				Namespace: "namespace",
+			},
+		}
 
-	// 		Spec: marketplacev1alpha1.MeterDefinitionSpec{
-	// 			Group: "apps.partner.metering.com",
-	// 			Kind:  "App",
-	// 		},
-	// 	}
+		testMeterdef2 := marketplacev1beta1.MeterDefinition{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "meterdef-2",
+				Namespace: "namespace",
+			},
+		}
 
+		meterdefsOnCluster := []marketplacev1beta1.MeterDefinition{testMeterdef1,testMeterdef2}
+		latestFromCatalog := []marketplacev1beta1.MeterDefinition{testMeterdef1}
+		diff := FindMeterdefDiff(meterdefsOnCluster,latestFromCatalog)
+		Expect(len(diff)).To(Equal(1))
+		Expect(diff[0].Name).To(Equal("meterdef-2"))
 
-	// })
+		latestFromCatalog = append(latestFromCatalog, testMeterdef2)
+		diff = FindMeterdefDiff(meterdefsOnCluster,latestFromCatalog)
+		Expect(len(diff)).To(Equal(0))
+	})
 })
 
 const (

@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = Describe("DeploymentConfig Controller Test", func() {
+var _ = FDescribe("DeploymentConfig Controller Test", func() {
 
 	var (
 		csvName      = "test-csv-1.v0.0.1"

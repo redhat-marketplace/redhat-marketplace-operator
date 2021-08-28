@@ -674,20 +674,12 @@ func (r *DeploymentConfigReconciler) createMeterdef(meterDefinition marketplacev
 
 func(r *DeploymentConfigReconciler) deleteOnDiff(catalogMdefsOnCluster []marketplacev1beta1.MeterDefinition, latestMeterdefsFromCatalog []marketplacev1beta1.MeterDefinition,reqLogger logr.Logger) *ExecResult {
 	
-	for _, installedMeterdef := range catalogMdefsOnCluster {
-		found := false
-		for _, meterdefFromCatalog := range latestMeterdefsFromCatalog {
-			
-			if installedMeterdef.Name == meterdefFromCatalog.Name {
-				reqLogger.Info("noop, skip deletion for meterdef",installedMeterdef.Name,meterdefFromCatalog.Name)
-				found = true
-				break
-			}
-		}
-	
-		if !found {
-			reqLogger.Info("meterdef has been selected for deletion","meterdef",installedMeterdef.Name)
-			result := r.deleteMeterDef(installedMeterdef.Name,installedMeterdef.Namespace,reqLogger)
+	deleteList := utils.FindMeterdefDiff(catalogMdefsOnCluster,latestMeterdefsFromCatalog)
+	if len(deleteList) != 0 {
+		for _, mdef := range deleteList {
+			reqLogger.Info("meterdef has been selected for deletion","meterdef",mdef.Name)
+
+			result := r.deleteMeterDef(mdef.Name,mdef.Namespace,reqLogger)
 			if !result.Is(Continue) {
 				return result
 			}
