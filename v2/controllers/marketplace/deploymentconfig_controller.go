@@ -214,8 +214,6 @@ func (s *DeploymentConfigScheduleRunnable) Start(done <-chan struct{}) error {
 func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
-	// dcNamespacedName := types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}
-
 	result := r.reconcileMeterdefCatalogServerResources(request, reqLogger)
 	if !result.Is(Continue) {
 
@@ -286,7 +284,7 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 
 func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger logr.Logger) *ExecResult {
 	if r.CatalogClient.HttpClient == nil {
-		reqLogger.Info("settign transport on catalog client")
+		reqLogger.Info("setting transport on catalog client")
 
 		err := r.CatalogClient.SetTransport(reqLogger)
 		if err != nil {
@@ -322,7 +320,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 		/*
 			pings the file server for a map of labels we use to index meterdefintions that originated from the file server
 			these labels also get added to a meterdefinition by the file server	before it returns
-			split-name gets dynamically added on the call to get labels - could probably just use the split name in the controller however
+			split-name gets dynamically added on the call to get index labels
 			{
 				"marketplace.redhat.com/installedOperatorNameTag": "<split-name>",
 				"marketplace.redhat.com/isCommunityMeterdefintion": "true"
@@ -358,7 +356,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 			if an isv removes their catalog listing, meterdefs could be orphaned on the cluster
 			delete all community meterdefs for that csv
 			if no community meterdefs are found, skip to next csv
-			if community meterdefs are found an deleted, skip to next csv
+			if community meterdefs are found and deleted, skip to next csv
 		*/
 		latestMeterDefsFromCatalog, err := r.CatalogClient.ListMeterdefintionsFromFileServer(splitName, csvVersion, csvNamespace, reqLogger)
 		if err != nil {
@@ -380,12 +378,14 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 			}
 		}
 
+		/* 
+			create community meterdefs if not found. Update an existing community meterdef on the cluster if the latest file server image contains an updated meterdef
+		*/
 		result := r.createOrUpdate(latestMeterDefsFromCatalog, csv, reqLogger)
 		if !result.Is(Continue) {
 			return result
 		}
 
-		// fetch system meter definitions and append
 		systemMeterDefs, err := r.CatalogClient.GetSystemMeterdefs(&csv, reqLogger)
 		if err != nil {
 			return &ExecResult{
@@ -399,14 +399,14 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 			return result
 		}
 
+		/*
+			delete if there is a meterdef installed on the cluster that originated from the catalog, but that meterdef doesn't exist in the latest file server image
+		*/
 		catalogMdefsOnCluster, result := listAllCommunityMeterdefsOnCluster(r.Client, indexLabels)
 		if !result.Is(Continue) {
 			return result
 		}
 
-		/*
-			delete if there is a meterdef installed on the cluster that originated from the catalog, but that meterdef isn't in the latest file server image
-		*/
 		result = r.deleteOnDiff(catalogMdefsOnCluster.Items, latestMeterDefsFromCatalog, reqLogger)
 		if !result.Is(Continue) {
 			return result
@@ -656,7 +656,6 @@ func (r *DeploymentConfigReconciler) createMeterdefWithOwnerRef(meterDefinition 
 		}
 	}
 
-	// create owner ref object
 	ref := metav1.OwnerReference{
 		APIVersion:         gvk.GroupVersion().String(),
 		Kind:               gvk.Kind,

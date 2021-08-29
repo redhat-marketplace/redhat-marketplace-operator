@@ -223,7 +223,6 @@ var _ = BeforeSuite(func() {
 		cfg: operatorConfig,
 		factory: factory,
 		CatalogClient: catalogClient,
-		// KubeInterface: clientset,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
