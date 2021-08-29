@@ -379,7 +379,8 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 		}
 
 		/* 
-			create community meterdefs if not found. Update an existing community meterdef on the cluster if the latest file server image contains an updated meterdef
+			create community meterdefs if not found
+			Update an existing community meterdef on the cluster if the latest file server image contains an updated meterdef
 		*/
 		result := r.createOrUpdate(latestMeterDefsFromCatalog, csv, reqLogger)
 		if !result.Is(Continue) {
@@ -402,7 +403,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 		/*
 			delete if there is a meterdef installed on the cluster that originated from the catalog, but that meterdef doesn't exist in the latest file server image
 		*/
-		catalogMdefsOnCluster, result := listAllCommunityMeterdefsOnCluster(r.Client, indexLabels)
+		catalogMdefsOnCluster, result := listAllCommunityMeterdefsForCSV(r.Client, indexLabels)
 		if !result.Is(Continue) {
 			return result
 		}
@@ -703,7 +704,7 @@ func (r *DeploymentConfigReconciler) deleteOnDiff(catalogMdefsOnCluster []market
 	}
 }
 
-func listAllCommunityMeterdefsOnCluster(runtimeClient client.Client, indexLabels map[string]string) (*marketplacev1beta1.MeterDefinitionList, *ExecResult) {
+func listAllCommunityMeterdefsForCSV(runtimeClient client.Client, indexLabels map[string]string) (*marketplacev1beta1.MeterDefinitionList, *ExecResult) {
 	installedMeterdefList := &marketplacev1beta1.MeterDefinitionList{}
 
 	// look for meterdefs that originated from the meterdefinition catalog
