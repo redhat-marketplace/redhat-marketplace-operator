@@ -155,16 +155,20 @@ func (c *CatalogClient) ListMeterdefintionsFromFileServer(csvName string, versio
 		return nil, err
 	}
 
-	if response.StatusCode == http.StatusUnauthorized {
-		return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogUnauthorizedErr)
-	}
+	if response.StatusCode != http.StatusOK {
+		if response.StatusCode == http.StatusUnauthorized {
+			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogUnauthorizedErr)
+		}
+	
+		if response.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogPathNotFoundStatus)
+		}
+	
+		if response.StatusCode == http.StatusNoContent {
+			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogNoContentErr)
+		}
 
-	if response.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogPathNotFoundStatus)
-	}
-
-	if response.StatusCode == http.StatusNoContent {
-		return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogNoContentErr)
+		return nil,errors.New(fmt.Sprintf("Error querying file server for system meter definition: %s:%d",response.Status,response.StatusCode))
 	}
 
 	mdefSlice := []marketplacev1beta1.MeterDefinition{}
@@ -215,15 +219,7 @@ func (c *CatalogClient) GetSystemMeterdefs(csv *olmv1alpha1.ClusterServiceVersio
 		if response.StatusCode == http.StatusUnauthorized {
 			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogUnauthorizedErr)
 		}
-	
-		if response.StatusCode == http.StatusNotFound {
-			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogPathNotFoundStatus)
-		}
-	
-		if response.StatusCode == http.StatusNoContent {
-			return nil, fmt.Errorf("response status %s: %w", response.Status, CatalogNoContentErr)
-		}
-
+		
 		return nil,errors.New(fmt.Sprintf("Error querying file server for system meter definition: %s:%d",response.Status,response.StatusCode))
 	}
 
