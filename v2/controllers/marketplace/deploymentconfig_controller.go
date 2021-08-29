@@ -66,10 +66,10 @@ var _ reconcile.Reconciler = &DeploymentConfigReconciler{}
 type DeploymentConfigReconciler struct {
 	// This Client, initialized using mgr.Client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
-	Client client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
-	CC     ClientCommandRunner
+	Client        client.Client
+	Scheme        *runtime.Scheme
+	Log           logr.Logger
+	CC            ClientCommandRunner
 	cfg           *config.OperatorConfig
 	factory       *manifests.Factory
 	patcher       patch.Patcher
@@ -133,10 +133,10 @@ func (r *DeploymentConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	dcScheduler := NewDeploymentConfigScheduleRunnable(r.Client, *r.cfg, r.Log)
 	mgr.Add(dcScheduler)
-	
+
 	return ctrl.NewControllerManagedBy(mgr).
 		WithEventFilter(nsPred).
-		For(&osappsv1.DeploymentConfig{},builder.WithPredicates(deploymentConfigPred...)).
+		For(&osappsv1.DeploymentConfig{}, builder.WithPredicates(deploymentConfigPred...)).
 		Watches(dcScheduler.Source(), &handler.EnqueueRequestForObject{}).
 		Watches(
 			&source.Kind{Type: &osimagev1.ImageStream{}},
@@ -185,19 +185,19 @@ func (s *DeploymentConfigScheduleRunnable) Start(done <-chan struct{}) error {
 		func() {
 			s.log.Info("triggering deploymentconfig controller")
 			s.send(event.GenericEvent{
-				Meta:   &metav1.ObjectMeta{
-					Name: "deploymentconfig generic event",
+				Meta: &metav1.ObjectMeta{
+					Name:      "deploymentconfig generic event",
 					Namespace: s.cfg.DeployedNamespace,
 				},
 				Object: &runtime.Unknown{},
 			})
 		}()
-		
+
 		<-done
 		s.log.Info("closing")
 		close(s.eventChan)
 		return nil
-		
+
 	}
 }
 
@@ -215,8 +215,8 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
 	// dcNamespacedName := types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}
-	
-	result := r.reconcileMeterdefCatalogServerResources(request,reqLogger)
+
+	result := r.reconcileMeterdefCatalogServerResources(request, reqLogger)
 	if !result.Is(Continue) {
 
 		if result.Is(Error) {
@@ -232,15 +232,15 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			reqLogger.Info("deployment config not found, ignoring")
-			return reconcile.Result{},nil
+			return reconcile.Result{}, nil
 		}
 
 		reqLogger.Error(err, "Failed to get deploymentconfig")
 		return reconcile.Result{}, err
 	}
 
-	for _,c := range dc.Status.Conditions {
-		if c.Type == osappsv1.DeploymentAvailable{
+	for _, c := range dc.Status.Conditions {
+		if c.Type == osappsv1.DeploymentAvailable {
 			if c.Status != corev1.ConditionTrue {
 				return reconcile.Result{RequeueAfter: time.Minute * 1}, err
 			}
@@ -287,10 +287,10 @@ func (r *DeploymentConfigReconciler) Reconcile(request reconcile.Request) (recon
 func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger logr.Logger) *ExecResult {
 	if r.CatalogClient.HttpClient == nil {
 		reqLogger.Info("settign transport on catalog client")
-		
+
 		err := r.CatalogClient.SetTransport(reqLogger)
 		if err != nil {
-			reqLogger.Error(err,"error setting transport for catalog client")
+			reqLogger.Error(err, "error setting transport for catalog client")
 			return &ExecResult{
 				ReconcileResult: reconcile.Result{},
 				Err:             err,
@@ -311,7 +311,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 
 	for _, csv := range csvList.Items {
 
-		/* 
+		/*
 			csv.Name = memcached-operator.v0.0.1
 			splitName = memcached-operator
 		*/
@@ -319,7 +319,7 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 		csvVersion := csv.Spec.Version.Version.String()
 		csvNamespace := csv.Namespace
 
-		/* 
+		/*
 			pings the file server for a map of labels we use to index meterdefintions that originated from the file server
 			these labels also get added to a meterdefinition by the file server	before it returns
 			split-name gets dynamically added on the call to get labels - could probably just use the split name in the controller however
@@ -327,12 +327,12 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 				"marketplace.redhat.com/installedOperatorNameTag": "<split-name>",
 				"marketplace.redhat.com/isCommunityMeterdefintion": "true"
 			}
-			
+
 		*/
-		indexLabels, err := r.CatalogClient.GetMeterdefIndexLabels(reqLogger,splitName)
+		indexLabels, err := r.CatalogClient.GetMeterdefIndexLabels(reqLogger, splitName)
 		if err != nil {
-			if errors.Is(err,catalog.CatalogUnauthorizedErr) {
-				// refresh auth 
+			if errors.Is(err, catalog.CatalogUnauthorizedErr) {
+				// refresh auth
 				err = r.CatalogClient.SetTransport(reqLogger)
 				if err != nil {
 					return &ExecResult{
@@ -362,14 +362,14 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 		*/
 		latestMeterDefsFromCatalog, err := r.CatalogClient.ListMeterdefintionsFromFileServer(splitName, csvVersion, csvNamespace, reqLogger)
 		if err != nil {
-			if errors.Is(err,catalog.CatalogNoContentErr){
-				reqLogger.Info("csv has no meterdefinitions in catalog","csv",csv.Name)
-				
+			if errors.Is(err, catalog.CatalogNoContentErr) {
+				reqLogger.Info("csv has no meterdefinitions in catalog", "csv", csv.Name)
+
 				result := r.deleteAllCommunityMeterdefsForCsv(indexLabels, reqLogger)
 				if result.Is(NotFound) || result.Is(Continue) {
-					reqLogger.Info("skipping sync for csv","csv",csv.Name)
+					reqLogger.Info("skipping sync for csv", "csv", csv.Name)
 					continue
-				} else if !result.Is(Continue){
+				} else if !result.Is(Continue) {
 					return result
 				}
 			}
@@ -378,6 +378,11 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 				ReconcileResult: reconcile.Result{},
 				Err:             err,
 			}
+		}
+
+		result := r.createOrUpdate(latestMeterDefsFromCatalog, csv, reqLogger)
+		if !result.Is(Continue) {
+			return result
 		}
 
 		// fetch system meter definitions and append
@@ -389,7 +394,10 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 			}
 		}
 
-		latestMeterDefsFromCatalog = append(latestMeterDefsFromCatalog,systemMeterDefs...)
+		result = r.createOrUpdate(systemMeterDefs, csv, reqLogger)
+		if !result.Is(Continue) {
+			return result
+		}
 
 		catalogMdefsOnCluster, result := listAllCommunityMeterdefsOnCluster(r.Client, indexLabels)
 		if !result.Is(Continue) {
@@ -399,42 +407,48 @@ func (r *DeploymentConfigReconciler) sync(request reconcile.Request, reqLogger l
 		/*
 			delete if there is a meterdef installed on the cluster that originated from the catalog, but that meterdef isn't in the latest file server image
 		*/
-		result = r.deleteOnDiff(catalogMdefsOnCluster.Items,latestMeterDefsFromCatalog,reqLogger)
+		result = r.deleteOnDiff(catalogMdefsOnCluster.Items, latestMeterDefsFromCatalog, reqLogger)
 		if !result.Is(Continue) {
 			return result
 		}
+	}
 
-		for _, catalogMeterdef := range latestMeterDefsFromCatalog {
-			installedMdef := &marketplacev1beta1.MeterDefinition{}
+	return &ExecResult{
+		Status: ActionResultStatus(Continue),
+	}
+}
 
-			reqLogger.Info("finding meterdefintion",catalogMeterdef.Name, catalogMeterdef.Namespace)
-			
-			err = r.Client.Get(context.TODO(), types.NamespacedName{Name:catalogMeterdef.Name, Namespace: catalogMeterdef.Namespace}, installedMdef)
-			if err != nil && k8serrors.IsNotFound(err) {
-				reqLogger.Info("meterdef not found during sync, creating","name",catalogMeterdef.Name,"namespace",catalogMeterdef.Namespace)
-				/*
-					create a meterdef for a csv if the csv has a meterdefinition listed in the catalog 
-					&& that meterdef is not on the cluster
-				*/
-				result = r.createMeterdef(catalogMeterdef, &csv, reqLogger)
-				if !result.Is(Continue) {
-					return result
-				}
-			} else if err != nil {
-				return &ExecResult{
-					ReconcileResult: reconcile.Result{},
-					Err:             err,
-				}
-			} else {
-				/*
-					update a meterdef for a csv if a meterdef from the catalog is also on the cluster 
-					&& the meterdef from the catalog contains an update to .Spec or .Annotations
-					//TODO: what fields should we check a diff for ? 
-				*/
-				result := r.updateMeterdef(installedMdef, catalogMeterdef, reqLogger)
-				if !result.Is(Continue) {
-					return result
-				}
+func (r *DeploymentConfigReconciler) createOrUpdate(latestMeterDefsFromCatalog []marketplacev1beta1.MeterDefinition, csv olmv1alpha1.ClusterServiceVersion, reqLogger logr.Logger) *ExecResult {
+	for _, catalogMeterdef := range latestMeterDefsFromCatalog {
+		installedMdef := &marketplacev1beta1.MeterDefinition{}
+
+		reqLogger.Info("finding meterdefintion", catalogMeterdef.Name, catalogMeterdef.Namespace)
+
+		err := r.Client.Get(context.TODO(), types.NamespacedName{Name: catalogMeterdef.Name, Namespace: catalogMeterdef.Namespace}, installedMdef)
+		if err != nil && k8serrors.IsNotFound(err) {
+			reqLogger.Info("meterdef not found during sync, creating", "name", catalogMeterdef.Name, "namespace", catalogMeterdef.Namespace)
+			/*
+				create a meterdef for a csv if the csv has a meterdefinition listed in the catalog
+				&& that meterdef is not on the cluster
+			*/
+			result := r.createMeterdefWithOwnerRef(catalogMeterdef, &csv, reqLogger)
+			if !result.Is(Continue) {
+				return result
+			}
+		} else if err != nil {
+			return &ExecResult{
+				ReconcileResult: reconcile.Result{},
+				Err:             err,
+			}
+		} else {
+			/*
+				update a meterdef for a csv if a meterdef from the catalog is also on the cluster
+				&& the meterdef from the catalog contains an update to .Spec or .Annotations
+				//TODO: what fields should we check a diff for ?
+			*/
+			result := r.updateMeterdef(installedMdef, catalogMeterdef, reqLogger)
+			if !result.Is(Continue) {
+				return result
 			}
 		}
 	}
@@ -458,10 +472,10 @@ func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(req
 					Err:             err,
 				}
 			}
-			// utils.PrettyPrint(newDeploymentConfig)
+
 			err = r.Client.Create(context.TODO(), newDeploymentConfig)
 			if err != nil {
-				reqLogger.Error(err,"failed to create deploymentconfig")
+				reqLogger.Error(err, "failed to create deploymentconfig")
 				return &ExecResult{
 					ReconcileResult: reconcile.Result{},
 					Err:             err,
@@ -482,16 +496,16 @@ func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(req
 			Err:             err,
 		}
 
-	} 
+	}
 
 	updated := r.factory.UpdateDeploymentConfigOnChange(foundDeploymentConfig)
-	if updated{
+	if updated {
 		err = r.Client.Update(context.TODO(), foundDeploymentConfig)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update file server deploymentconfig")
 			return &ExecResult{
 				ReconcileResult: reconcile.Result{},
-				Err: err,
+				Err:             err,
 			}
 		}
 
@@ -499,10 +513,10 @@ func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(req
 
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{Requeue: true},
-			Err: nil,
+			Err:             nil,
 		}
 	}
-	
+
 	foundfileServerService := &corev1.Service{}
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}, foundfileServerService)
 	if err != nil {
@@ -519,7 +533,7 @@ func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(req
 
 			err = r.Client.Create(context.TODO(), newService)
 			if err != nil {
-				reqLogger.Error(err,"failed to create file server service")
+				reqLogger.Error(err, "failed to create file server service")
 				return &ExecResult{
 					ReconcileResult: reconcile.Result{},
 					Err:             err,
@@ -532,13 +546,13 @@ func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(req
 				Err:             nil,
 			}
 		}
-	
+
 		reqLogger.Error(err, "Failed to get meterdef file server service")
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
 		}
-	} 
+	}
 
 	foundImageStream := &osimagev1.ImageStream{}
 	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: utils.DEPLOYMENT_CONFIG_NAME, Namespace: r.cfg.DeployedNamespace}, foundImageStream)
@@ -557,7 +571,7 @@ func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(req
 
 			err = r.Client.Create(context.TODO(), newImageStream)
 			if err != nil {
-				reqLogger.Error(err,"failed to create image stream")
+				reqLogger.Error(err, "failed to create image stream")
 				return &ExecResult{
 					ReconcileResult: reconcile.Result{},
 					Err:             err,
@@ -577,7 +591,7 @@ func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(req
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
 		}
-	} 
+	}
 
 	imageStreamUpdated := r.factory.UpdateImageStreamOnChange(foundImageStream)
 	if imageStreamUpdated {
@@ -594,10 +608,10 @@ func (r *DeploymentConfigReconciler) reconcileMeterdefCatalogServerResources(req
 
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{Requeue: true},
-			Err: nil,
+			Err:             nil,
 		}
 	}
-	
+
 	return &ExecResult{
 		Status: ActionResultStatus(Continue),
 	}
@@ -632,8 +646,8 @@ func (r *DeploymentConfigReconciler) updateMeterdef(installedMdef *marketplacev1
 	}
 }
 
-func (r *DeploymentConfigReconciler) createMeterdef(meterDefinition marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.InfoLogger) *ExecResult {
-	
+func (r *DeploymentConfigReconciler) createMeterdefWithOwnerRef(meterDefinition marketplacev1beta1.MeterDefinition, csv *olmv1alpha1.ClusterServiceVersion, reqLogger logr.InfoLogger) *ExecResult {
+
 	gvk, err := apiutil.GVKForObject(csv, r.Scheme)
 	if err != nil {
 		return &ExecResult{
@@ -655,16 +669,15 @@ func (r *DeploymentConfigReconciler) createMeterdef(meterDefinition marketplacev
 	meterDefinition.ObjectMeta.SetOwnerReferences([]metav1.OwnerReference{ref})
 	meterDefinition.ObjectMeta.Namespace = csv.Namespace
 
-	meterDefName := meterDefinition.Name
 	err = r.Client.Create(context.TODO(), &meterDefinition)
 	if err != nil {
-		reqLogger.Error(err, "Could not create meterdefinition", "mdef", meterDefName, "CSV", csv.Name)
+		reqLogger.Error(err, "Could not create meterdefinition", "mdef", meterDefinition.Name, "CSV", csv.Name)
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
 		}
 	}
-	reqLogger.Info("Created meterdefinition", "mdef", meterDefName, "CSV", csv.Name)
+	reqLogger.Info("Created meterdefinition", "mdef", meterDefinition.Name, "CSV", csv.Name)
 
 	return &ExecResult{
 		ReconcileResult: reconcile.Result{Requeue: true},
@@ -672,14 +685,14 @@ func (r *DeploymentConfigReconciler) createMeterdef(meterDefinition marketplacev
 	}
 }
 
-func(r *DeploymentConfigReconciler) deleteOnDiff(catalogMdefsOnCluster []marketplacev1beta1.MeterDefinition, latestMeterdefsFromCatalog []marketplacev1beta1.MeterDefinition,reqLogger logr.Logger) *ExecResult {
-	
-	deleteList := utils.FindMeterdefDiff(catalogMdefsOnCluster,latestMeterdefsFromCatalog)
+func (r *DeploymentConfigReconciler) deleteOnDiff(catalogMdefsOnCluster []marketplacev1beta1.MeterDefinition, latestMeterdefsFromCatalog []marketplacev1beta1.MeterDefinition, reqLogger logr.Logger) *ExecResult {
+
+	deleteList := utils.FindMeterdefDiff(catalogMdefsOnCluster, latestMeterdefsFromCatalog)
 	if len(deleteList) != 0 {
 		for _, mdef := range deleteList {
-			reqLogger.Info("meterdef has been selected for deletion","meterdef",mdef.Name)
+			reqLogger.Info("meterdef has been selected for deletion", "meterdef", mdef.Name)
 
-			result := r.deleteMeterDef(mdef.Name,mdef.Namespace,reqLogger)
+			result := r.deleteMeterDef(mdef.Name, mdef.Namespace, reqLogger)
 			if !result.Is(Continue) {
 				return result
 			}
@@ -713,7 +726,7 @@ func listAllCommunityMeterdefsOnCluster(runtimeClient client.Client, indexLabels
 }
 
 func (r *DeploymentConfigReconciler) deleteAllCommunityMeterdefsForCsv(indexLabels map[string]string, reqLogger logr.Logger) *ExecResult {
-	reqLogger.Info("deleting community meterdefinitions with index","index",indexLabels)
+	reqLogger.Info("deleting community meterdefinitions with index", "index", indexLabels)
 
 	installedMeterdefList := &marketplacev1beta1.MeterDefinitionList{}
 
@@ -724,7 +737,7 @@ func (r *DeploymentConfigReconciler) deleteAllCommunityMeterdefsForCsv(indexLabe
 
 	err := r.Client.List(context.TODO(), installedMeterdefList, listOpts...)
 	if err != nil {
-		reqLogger.Info("client list error","err",err.Error())
+		reqLogger.Info("client list error", "err", err.Error())
 		return &ExecResult{
 			ReconcileResult: reconcile.Result{},
 			Err:             err,
@@ -739,16 +752,16 @@ func (r *DeploymentConfigReconciler) deleteAllCommunityMeterdefsForCsv(indexLabe
 	}
 
 	if len(installedMeterdefList.Items) == 0 {
-		reqLogger.Info("no community meterdefinitions found on cluster for csv with index","index",indexLabels)
+		reqLogger.Info("no community meterdefinitions found on cluster for csv with index", "index", indexLabels)
 		return &ExecResult{
 			Status: ActionResultStatus(NotFound),
 		}
 	}
 
-	for _,mdef := range installedMeterdefList.Items {
-		reqLogger.Info("deleting community meterdefintion","name",mdef.Name)
-		result := r.deleteMeterDef(mdef.Name,mdef.Namespace,reqLogger)
-		if !result.Is(Continue){
+	for _, mdef := range installedMeterdefList.Items {
+		reqLogger.Info("deleting community meterdefintion", "name", mdef.Name)
+		result := r.deleteMeterDef(mdef.Name, mdef.Namespace, reqLogger)
+		if !result.Is(Continue) {
 			return result
 		}
 	}
@@ -758,7 +771,7 @@ func (r *DeploymentConfigReconciler) deleteAllCommunityMeterdefsForCsv(indexLabe
 	}
 }
 
-func (r *DeploymentConfigReconciler) deleteMeterDef(mdefName string,namespace string, reqLogger logr.Logger) *ExecResult {
+func (r *DeploymentConfigReconciler) deleteMeterDef(mdefName string, namespace string, reqLogger logr.Logger) *ExecResult {
 
 	installedMeterDefn := &marketplacev1beta1.MeterDefinition{}
 	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: mdefName, Namespace: namespace}, installedMeterDefn)
@@ -782,7 +795,7 @@ func (r *DeploymentConfigReconciler) deleteMeterDef(mdefName string,namespace st
 	}
 	reqLogger.Info("Removed owner reference from meterdefintion", "Name", mdefName, "Namespace", namespace)
 
-	//TODO: requeue here ? 
+	//TODO: requeue here ?
 
 	reqLogger.Info("Deleteing MeterDefinition")
 	err = r.Client.Delete(context.TODO(), installedMeterDefn)
@@ -795,14 +808,14 @@ func (r *DeploymentConfigReconciler) deleteMeterDef(mdefName string,namespace st
 	}
 	reqLogger.Info("Deleted meterdefintion", "Name", mdefName, "Namespace", namespace)
 
-	//TODO: requeue here ? 
+	//TODO: requeue here ?
 
 	return &ExecResult{
 		Status: ActionResultStatus(Continue),
 	}
 }
 
-/* 
+/*
 	TODO: test whether revisionHistoryLimit will handle this
 */
 func (r *DeploymentConfigReconciler) pruneDeployPods(latestVersion int64, request reconcile.Request, reqLogger logr.Logger) *ExecResult {
